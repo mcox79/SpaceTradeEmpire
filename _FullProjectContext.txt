@@ -1,4 +1,14 @@
-﻿=== SPACE TRADE EMPIRE PROJECT DUMP ===
+## 6. OPERATIONAL PROTOCOLS (STRICT)
+# ----------------------------------
+# - **The "Git Revert" Rule:**
+#     - The user ALWAYS reverts to the last commit if a script fails or breaks functionality.
+#     - NEVER try to patch a broken state. Assume the project has been reset to the state BEFORE the failed script.
+#     - When attempting a fix, re-evaluate the ORIGINAL state, not the broken one.
+# - **File integrity:**
+#     - When adding features (e.g., Economy), DO NOT overwrite entire files unless you have the full, current source code.
+#     - Prefer appending code or using separate component nodes to avoid breaking existing logic (like Camera controls).
+
+=== SPACE TRADE EMPIRE PROJECT DUMP ===
 dump_timestamp: 01/21/2026 15:07:49
 
 === LIVE PROJECT STRUCTURE ===
@@ -16285,5 +16295,6 @@ $form.Controls.Add($txtOutput)
 # --- LAUNCH ---
 $form.Add_Shown({ $form.Activate() })
 [void] $form.ShowDialog()
+
 
 
