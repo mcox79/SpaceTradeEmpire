@@ -1,0 +1,11 @@
+[gd_resource type=""Resource"" script_class=""TradeGood"" load_steps=2 format=3 uid=""uid://tg_iron_001""]
+
+[ext_resource type=""Script"" path=""res://scripts/resources/trade_good.gd"" id=""1_tg""]
+
+[resource]
+script = ExtResource(""1_tg"")
+id = ""ore_iron""
+name = ""Iron Ore""
+base_price = 45
+volume = 0.5
+is_contraband = false

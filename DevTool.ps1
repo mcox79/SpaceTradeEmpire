@@ -1,135 +1,176 @@
+<#
+.SYNOPSIS
+    SPACE TRADE EMPIRE - MISSION CONTROL (v4.0)
+    Merged Dashboard: Testing Suite + Context Dump + Git Safety Nets.
+#>
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # --- CONFIGURATION ---
-$gameName = "Space Trade Empire"
-$projectPath = "$HOME\Documents\$gameName"
-$dumpFile = "$projectPath\_FullProjectContext.txt"
-$masterContext = "$projectPath\_PROJECT_CONTEXT.md"
+$ProjectRoot = Get-Location
+$ContextFile = Join-Path $ProjectRoot "_FullProjectContext.txt"
+$TestScene   = "scenes/tests/test_economy_core.tscn"
 
-# --- WINDOW SETUP ---
+# --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Space Trade Empire - DevOps Console v3.0"
-$form.Size = New-Object System.Drawing.Size(500, 450)
+$form.Text = "STE :: Mission Control v4.0"
+$form.Size = New-Object System.Drawing.Size(450, 520)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "#1e1e1e"
 $form.ForeColor = "#ffffff"
 
-# --- STYLES ---
-$btnFont = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$logFont = New-Object System.Drawing.Font("Consolas", 9)
+$fontHeader = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Bold)
+$fontNormal = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$fontLog    = New-Object System.Drawing.Font("Consolas", 9)
 
-function Log-Message($msg) {
-    $textBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $msg`r`n")
-    $textBox.ScrollToCaret()
+# --- LOGIC ---
+
+function Log-Output($message) {
+    $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $message`r`n")
+    $txtOutput.ScrollToCaret()
 }
 
-# --- FUNCTION 1: CONTEXT DUMP ---
-$btnDump = New-Object System.Windows.Forms.Button
-$btnDump.Location = New-Object System.Drawing.Point(20, 20)
-$btnDump.Size = New-Object System.Drawing.Size(440, 50)
-$btnDump.Text = "1. GENERATE SMART CONTEXT DUMP"
-$btnDump.BackColor = "#4488ff"
-$btnDump.ForeColor = "White"
-$btnDump.Font = $btnFont
-
-$btnDump.Add_Click({
-    Log-Message "Starting Smart Dump..."
+function Run-Tests {
+    Log-Output ">>> EXEC: ECONOMY TEST SUITE"
     try {
-        $finalContent = @()
-        $finalContent += "dump_timestamp: $(Get-Date)"
-        
-        if (Test-Path $masterContext) {
-            $finalContent += "`n`n=== MASTER ARCHITECTURE & WORKFLOW ==="
-            $finalContent += Get-Content $masterContext
-            $finalContent += "========================================`n"
-        }
+        # Runs Godot in headless mode for the test scene, outputting to console
+        Start-Process "godot" -ArgumentList "$TestScene" -NoNewWindow -Wait
+        Log-Output "Cycle Complete. Check Console window for [PASS]/[FAIL]."
+    }
+    catch {
+        Log-Output "ERROR: 'godot' command not found in PATH."
+    }
+}
 
-        $finalContent += "`n`n=== LIVE PROJECT STRUCTURE ==="
+function Run-ContextGen {
+    Log-Output ">>> EXEC: SMART CONTEXT DUMP"
+    try {
+        $content = "=== SPACE TRADE EMPIRE PROJECT DUMP ===`n"
+        $content += "dump_timestamp: $(Get-Date)`n`n"
+        
+        # 1. Structure
+        $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
-            $tree = Get-ChildItem -Path $projectPath -Recurse | 
-                Where-Object { $_.FullName -notmatch "\\.godot|\\.git" } |
+            $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
+                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import" } |
                 ForEach-Object { 
-                    $rel = $_.FullName.Substring($projectPath.Length + 1)
+                    $rel = $_.FullName.Replace($ProjectRoot.Path, "")
                     $indent = "  " * ($rel.Split('\').Count - 1)
                     if ($_.PSIsContainer) { "+ $indent[$($_.Name)]" } else { "- $indent$($_.Name)" }
                 }
-            $finalContent += $tree
+            $content += $tree
         } catch {}
-        $finalContent += "================================`n"
+        $content += "`n================================`n"
 
-        $files = Get-ChildItem -Path $projectPath -Recurse | 
-            Where-Object { 
-                (-not $_.PSIsContainer) -and 
-                ($_.Extension -match "\.(gd|tscn|godot)$") -and 
-                ($_.FullName -notmatch "\\.godot\\") 
-            }
+        # 2. Files (Scripts, Scenes, Shaders)
+        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
+                 Where-Object { $_.FullName -notmatch ".git" -and $_.FullName -notmatch ".import" }
 
         foreach ($file in $files) {
-            $relativePath = $file.FullName.Substring($projectPath.Length + 1)
-            $finalContent += "`n`n--- FILE: $relativePath ---"
-            $finalContent += "---------------------------------"
-            $finalContent += Get-Content $file.FullName
+            $relPath = $file.FullName.Replace($ProjectRoot.Path, "")
+            $content += "`n--- FILE: $relPath ---`n"
+            $content += "---------------------------------`n"
+            $content += Get-Content $file.FullName -Raw
+            $content += "`n"
         }
         
-        $finalContent | Set-Content -Path $dumpFile
-        Log-Message "SUCCESS: Context Dump Updated."
-    } catch {
-        Log-Message "ERROR: $($_.Exception.Message)"
+        Set-Content -Path $ContextFile -Value $content -Encoding UTF8
+        Log-Output "SUCCESS: Context refreshed."
     }
-})
+    catch {
+        Log-Output "ERROR: $($_.Exception.Message)"
+    }
+}
 
-# --- FUNCTION 2: SAVE STATE ---
-$btnSave = New-Object System.Windows.Forms.Button
-$btnSave.Location = New-Object System.Drawing.Point(20, 90)
-$btnSave.Size = New-Object System.Drawing.Size(210, 50)
-$btnSave.Text = "2. SAVE STATE (Commit)"
-$btnSave.BackColor = "#228822"
-$btnSave.ForeColor = "White"
-$btnSave.Font = $btnFont
+function Run-GitSave {
+    Log-Output ">>> EXEC: GIT SNAPSHOT"
+    git add .
+    $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
+    Log-Output $res
+    Log-Output "State Saved."
+}
 
-$btnSave.Add_Click({
-    Log-Message "Saving State..."
-    Set-Location $projectPath
-    git add . 2>&1 | Out-Null
-    $res = git commit -m "Manual Save Point" 2>&1
-    Log-Message $res
-    Log-Message "State Locked."
-})
-
-# --- FUNCTION 3: UNDO ---
-$btnUndo = New-Object System.Windows.Forms.Button
-$btnUndo.Location = New-Object System.Drawing.Point(250, 90)
-$btnUndo.Size = New-Object System.Drawing.Size(210, 50)
-$btnUndo.Text = "3. F*CK UP UNDO (Reset)"
-$btnUndo.BackColor = "#cc2222"
-$btnUndo.ForeColor = "White"
-$btnUndo.Font = $btnFont
-
-$btnUndo.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure? This deletes all changes since the last Save.", "Nuclear Option", [System.Windows.Forms.MessageBoxButtons]::YesNo)
+function Run-GitReset {
+    $confirm = [System.Windows.Forms.MessageBox]::Show("NUKE IT? This reverts to the last SAVE.", "DANGER ZONE", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
     if ($confirm -eq "Yes") {
-        Log-Message "Reverting to last save..."
-        Set-Location $projectPath
+        Log-Output ">>> EXEC: HARD RESET"
         git reset --hard 2>&1 | Out-Null
         git clean -fd 2>&1 | Out-Null
-        Log-Message "SUCCESS: Project reset to last stable point."
+        Log-Output "SUCCESS: Time machine activated. Changes reverted."
     }
-})
+}
 
-$textBox = New-Object System.Windows.Forms.TextBox
-$textBox.Location = New-Object System.Drawing.Point(20, 160)
-$textBox.Size = New-Object System.Drawing.Size(440, 230)
-$textBox.Multiline = $true
-$textBox.ScrollBars = "Vertical"
-$textBox.ReadOnly = $true
-$textBox.BackColor = "#000000"
-$textBox.ForeColor = "#00ff00"
-$textBox.Font = $logFont
-$textBox.Text = "DevOps Console v3.0 Ready...`r`n"
+# --- UI COMPONENTS ---
 
-$form.Controls.Add($btnDump)
+# Header
+$lblHeader = New-Object System.Windows.Forms.Label
+$lblHeader.Text = "COMMAND DECK"
+$lblHeader.Location = New-Object System.Drawing.Point(20, 10)
+$lblHeader.Font = $fontHeader
+$lblHeader.AutoSize = $true
+$form.Controls.Add($lblHeader)
+
+# 1. TEST (Blue)
+$btnTest = New-Object System.Windows.Forms.Button
+$btnTest.Text = "1. RUN UNIT TESTS"
+$btnTest.Location = New-Object System.Drawing.Point(20, 40)
+$btnTest.Size = New-Object System.Drawing.Size(400, 45)
+$btnTest.Font = $fontNormal
+$btnTest.BackColor = "#007acc" # VS Code Blue
+$btnTest.ForeColor = "White"
+$btnTest.FlatStyle = "Flat"
+$btnTest.Add_Click({ Run-Tests })
+$form.Controls.Add($btnTest)
+
+# 2. DUMP (Gray)
+$btnContext = New-Object System.Windows.Forms.Button
+$btnContext.Text = "2. GENERATE CONTEXT"
+$btnContext.Location = New-Object System.Drawing.Point(20, 95)
+$btnContext.Size = New-Object System.Drawing.Size(400, 45)
+$btnContext.Font = $fontNormal
+$btnContext.BackColor = "#2d2d30"
+$btnContext.ForeColor = "White"
+$btnContext.FlatStyle = "Flat"
+$btnContext.Add_Click({ Run-ContextGen })
+$form.Controls.Add($btnContext)
+
+# 3. SAVE (Green)
+$btnSave = New-Object System.Windows.Forms.Button
+$btnSave.Location = New-Object System.Drawing.Point(20, 150)
+$btnSave.Size = New-Object System.Drawing.Size(195, 45)
+$btnSave.Text = "3. SAVE STATE"
+$btnSave.BackColor = "#228822"
+$btnSave.ForeColor = "White"
+$btnSave.Font = $fontNormal
+$btnSave.FlatStyle = "Flat"
+$btnSave.Add_Click({ Run-GitSave })
 $form.Controls.Add($btnSave)
+
+# 4. RESET (Red) - The "Reload" Button
+$btnUndo = New-Object System.Windows.Forms.Button
+$btnUndo.Location = New-Object System.Drawing.Point(225, 150)
+$btnUndo.Size = New-Object System.Drawing.Size(195, 45)
+$btnUndo.Text = "4. HARD RESET"
+$btnUndo.BackColor = "#cc2222"
+$btnUndo.ForeColor = "White"
+$btnUndo.Font = $fontNormal
+$btnUndo.FlatStyle = "Flat"
+$btnUndo.Add_Click({ Run-GitReset })
 $form.Controls.Add($btnUndo)
-$form.Controls.Add($textBox)
-$form.ShowDialog()
+
+# Console Output
+$txtOutput = New-Object System.Windows.Forms.TextBox
+$txtOutput.Location = New-Object System.Drawing.Point(20, 210)
+$txtOutput.Size = New-Object System.Drawing.Size(400, 250)
+$txtOutput.Multiline = $true
+$txtOutput.ScrollBars = "Vertical"
+$txtOutput.BackColor = "#000000"
+$txtOutput.ForeColor = "#00ff00"
+$txtOutput.Font = $fontLog
+$txtOutput.Text = "Mission Control v4.0 Online...`r`n"
+$form.Controls.Add($txtOutput)
+
+# --- LAUNCH ---
+$form.Add_Shown({ $form.Activate() })
+[void] $form.ShowDialog()
