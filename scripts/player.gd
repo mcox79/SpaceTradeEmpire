@@ -21,14 +21,11 @@ var my_camera : Camera3D = null
 
 func _ready():
     add_to_group("Player")
-    
-    # Camera Init
     my_camera = Camera3D.new()
     get_parent().call_deferred("add_child", my_camera)
     my_camera.position = Vector3(0, 40, 20)
     my_camera.look_at(Vector3.ZERO)
     my_camera.current = true
-    
     _update_ui_state()
 
 func _physics_process(delta):
@@ -56,10 +53,11 @@ func shoot():
     if bullet_scene:
         var new_bullet = bullet_scene.instantiate()
         
-        # FIX 1: SPAWN OFFSET
-        # Move the spawn point 2.0 units FORWARD relative to the ship's rotation.
-        # In Godot, "Forward" is negative Z (-basis.z).
-        var spawn_offset = -transform.basis.z * 2.0
+        # --- CALIBRATION FIX ---
+        # User reported backward firing. We inverted the Z-axis logic.
+        # Was: -transform.basis.z (Standard Forward)
+        # Now: +transform.basis.z (Inverted Forward)
+        var spawn_offset = transform.basis.z * 2.0 
         new_bullet.position = position + spawn_offset
         new_bullet.rotation = rotation
         
@@ -71,7 +69,6 @@ func _update_ui_state():
     emit_signal("cargo_updated", cargo)
 
 func add_cargo(item_id: String, amount: int):
-    # This function allows Asteroids to put loot in the ship
     if not cargo.has(item_id): cargo[item_id] = 0
     cargo[item_id] += amount
     _update_ui_state()
