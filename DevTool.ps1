@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    SPACE TRADE EMPIRE - MISSION CONTROL (v4.0)
-    Merged Dashboard: Testing Suite + Context Dump + Git Safety Nets.
+    SPACE TRADE EMPIRE - MISSION CONTROL (v4.2)
+    Fix: Strict Type Casting for Godot Path to prevent array errors.
 #>
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -11,10 +11,11 @@ Add-Type -AssemblyName System.Drawing
 $ProjectRoot = Get-Location
 $ContextFile = Join-Path $ProjectRoot "_FullProjectContext.txt"
 $TestScene   = "scenes/tests/test_economy_core.tscn"
+$ConfigPath  = Join-Path $ProjectRoot "godot_path.cfg"
 
 # --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "STE :: Mission Control v4.0"
+$form.Text = "STE :: Mission Control v4.2"
 $form.Size = New-Object System.Drawing.Size(450, 520)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "#1e1e1e"
@@ -31,15 +32,64 @@ function Log-Output($message) {
     $txtOutput.ScrollToCaret()
 }
 
+function Get-GodotExe {
+    $exePath = $null
+
+    # 1. Check saved config
+    if (Test-Path $ConfigPath) {
+        $raw = Get-Content $ConfigPath -Raw
+        if ($raw) { $exePath = $raw.Trim() }
+    }
+
+    # 2. If valid, return immediately
+    if ($exePath -and (Test-Path $exePath)) { 
+        return $exePath 
+    }
+
+    # 3. If invalid, ask user
+    [System.Windows.Forms.MessageBox]::Show("Godot executable not found.`n`nPlease select your godot.exe file.", "Setup Required")
+    
+    $dlg = New-Object System.Windows.Forms.OpenFileDialog
+    $dlg.Title = "SELECT GODOT EXECUTABLE (godot.exe)"
+    $dlg.Filter = "Executable|*.exe"
+    
+    if ($dlg.ShowDialog() -eq "OK") {
+        $exePath = $dlg.FileName
+        Set-Content -Path $ConfigPath -Value $exePath
+        return $exePath
+    }
+    
+    return $null
+}
+
 function Run-Tests {
     Log-Output ">>> EXEC: ECONOMY TEST SUITE"
+    
+    # FORCE STRING CAST (The Fix)
+    # We take the last item in case pipeline pollution occurred
+    $godotRaw = Get-GodotExe
+    $godotExe = @($godotRaw)[-1] 
+
+    if (-not $godotExe -or -not (Test-Path $godotExe)) {
+        Log-Output "ERROR: Godot path missing or invalid."
+        return
+    }
+
+    Log-Output "Target: $godotExe"
+
     try {
-        # Runs Godot in headless mode for the test scene, outputting to console
-        Start-Process "godot" -ArgumentList "$TestScene" -NoNewWindow -Wait
-        Log-Output "Cycle Complete. Check Console window for [PASS]/[FAIL]."
+        Log-Output "Running simulation..."
+        # Runs Godot in headless mode (-s) or standard, waiting for exit
+        $process = Start-Process -FilePath "$godotExe" -ArgumentList "$TestScene" -NoNewWindow -Wait -PassThru
+        
+        if ($process.ExitCode -eq 0) {
+            Log-Output "Cycle Complete. Check Console window."
+        } else {
+            Log-Output "WARNING: Process exited with code $($process.ExitCode)"
+        }
     }
     catch {
-        Log-Output "ERROR: 'godot' command not found in PATH."
+        Log-Output "ERROR: $($_.Exception.Message)"
     }
 }
 
@@ -49,7 +99,6 @@ function Run-ContextGen {
         $content = "=== SPACE TRADE EMPIRE PROJECT DUMP ===`n"
         $content += "dump_timestamp: $(Get-Date)`n`n"
         
-        # 1. Structure
         $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
             $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
@@ -63,7 +112,6 @@ function Run-ContextGen {
         } catch {}
         $content += "`n================================`n"
 
-        # 2. Files (Scripts, Scenes, Shaders)
         $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
                  Where-Object { $_.FullName -notmatch ".git" -and $_.FullName -notmatch ".import" }
 
@@ -117,7 +165,7 @@ $btnTest.Text = "1. RUN UNIT TESTS"
 $btnTest.Location = New-Object System.Drawing.Point(20, 40)
 $btnTest.Size = New-Object System.Drawing.Size(400, 45)
 $btnTest.Font = $fontNormal
-$btnTest.BackColor = "#007acc" # VS Code Blue
+$btnTest.BackColor = "#007acc"
 $btnTest.ForeColor = "White"
 $btnTest.FlatStyle = "Flat"
 $btnTest.Add_Click({ Run-Tests })
@@ -147,7 +195,7 @@ $btnSave.FlatStyle = "Flat"
 $btnSave.Add_Click({ Run-GitSave })
 $form.Controls.Add($btnSave)
 
-# 4. RESET (Red) - The "Reload" Button
+# 4. RESET (Red)
 $btnUndo = New-Object System.Windows.Forms.Button
 $btnUndo.Location = New-Object System.Drawing.Point(225, 150)
 $btnUndo.Size = New-Object System.Drawing.Size(195, 45)
@@ -168,7 +216,7 @@ $txtOutput.ScrollBars = "Vertical"
 $txtOutput.BackColor = "#000000"
 $txtOutput.ForeColor = "#00ff00"
 $txtOutput.Font = $fontLog
-$txtOutput.Text = "Mission Control v4.0 Online...`r`n"
+$txtOutput.Text = "Mission Control v4.2 Online...`r`n"
 $form.Controls.Add($txtOutput)
 
 # --- LAUNCH ---
