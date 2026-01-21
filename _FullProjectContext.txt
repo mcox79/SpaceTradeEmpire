@@ -1,8 +1,8 @@
 ﻿=== SPACE TRADE EMPIRE PROJECT DUMP ===
-dump_timestamp: 01/21/2026 14:45:42
+dump_timestamp: 01/21/2026 15:07:49
 
 === LIVE PROJECT STRUCTURE ===
-+   [addons] +   [resources] +   [scenes] +   [scripts] -   DevTool - Copy.ps1 -   DevTool.ps1 -   DevTool.ps1 - Shortcut.lnk -   godot_path.cfg -   icon.png.import -   icon.svg.import -   project.godot -   _FullProjectContext.txt -   _PROJECT_CONTEXT.md +     [phantom_camera] +       [assets] +       [examples] +       [fonts] +       [icons] +       [inspector] +       [panel] +       [scripts] +       [themes] -       plugin.cfg -       plugin.gd -       plugin.gd.uid -         PhantomCameraBtnPrimaryDefault.png -         PhantomCameraBtnPrimaryDefault.png.import -         PhantomCameraBtnPrimaryHover.png -         PhantomCameraBtnPrimaryHover.png.import +         [example_scenes] +         [models] +         [resources] +         [scripts] +         [textures] +         [ui] -         credits.txt +           [2D] +           [3D] +             [sub_scenes] -             2d_example_scene.tscn -             2d_follow_framed_example_scene.tscn -             2d_follow_group_example_scene.tscn -             2d_follow_path_example_scene.tscn -             2d_limit_example_scene.tscn -             2d_noise_example_scene.tscn -             2d_tweening_example_scene.tscn -               playable_character_2d.tscn +             [sub_scenes] -             3d_example_scene.tscn -             3d_follow_framed_example_scene.tscn -             3d_follow_glued_example_scene.tscn -             3d_follow_group_example_scene.tscn -             3d_follow_path_example_scene.tscn -             3d_follow_simple_example_scene.tscn -             3d_follow_third_person_attribtues_example_scene.tscn -             3d_follow_third_person_example_scene.tscn -             3d_look_at_example_scene.tscn -             3d_noise_example_scene.tscn -             3d_tweening_example_scene.tscn -               playable_character_3d.tscn -               playable_character_third_person_3d.tscn -           3d_cube_dark.tscn +           [tween] -             fixed_camera_tween.tres -             inventory_phantom_camera_2d_tween.tres -             item_focus_phantom_camera_2d_tween.tres -             player_phantom_camera_2d_tween.tres -             player_phantom_camera_3d_tween.tres +           [2D] +           [3D] -             2d_room_limit_tween.gd -             2d_room_limit_tween.gd.uid -             2d_trigger_area.gd -             2d_trigger_area.gd.uid -             player_character_body_2d.gd -             player_character_body_2d.gd.uid -             3d_trigger_area.gd -             3d_trigger_area.gd.uid -             npc.gd -             npc.gd.uid -             path_follow.gd -             path_follow.gd.uid -             player_controller.gd -             player_controller.gd.uid -             player_controller_first_person.gd -             player_controller_first_person.gd.uid -             player_controller_third_person.gd -             player_controller_third_person.gd.uid +           [2D] +           [3D] -             inventory_container.png -             inventory_container.png.import -             level_spritesheet.png -             level_spritesheet.png.import -             phantom_camera_2d_sprite.png -             phantom_camera_2d_sprite.png.import -             player_sprite.svg -             player_sprite.svg.import -             sign_prompt.png -             sign_prompt.png.import -             checker_pattern_dark.png -             checker_pattern_dark.png.import -             target.png -             target.png.import -           ui_inventory.tscn -           ui_sign.tscn -         Nunito-Black.ttf -         Nunito-Black.ttf.import -         Nunito-Regular.ttf -         Nunito-Regular.ttf.import +         [misc] +         [viewfinder] -         phantom_camera_2d.svg -         phantom_camera_2d.svg.import -         phantom_camera_3d.svg -         phantom_camera_3d.svg.import -         phantom_camera_camera_3d_resource.svg -         phantom_camera_camera_3d_resource.svg.import -         phantom_camera_gizmo.svg -         phantom_camera_gizmo.svg.import -         phantom_camera_glow_logo.png -         phantom_camera_glow_logo.png.import -         phantom_camera_host.svg -         phantom_camera_host.svg.import -         phantom_camera_logo.png -         phantom_camera_logo.png.import -         phantom_camera_noise_emitter_2d.svg -         phantom_camera_noise_emitter_2d.svg.import -         phantom_camera_noise_emitter_3d.svg -         phantom_camera_noise_emitter_3d.svg.import -         phantom_camera_noise_emitter_gizmo.svg -         phantom_camera_noise_emitter_gizmo.svg.import -         phantom_camera_noise_resource.svg -         phantom_camera_noise_resource.svg.import -         phantom_camera_tween.svg -         phantom_camera_tween.svg.import -         phantom_camera_tween_director.svg -         phantom_camera_tween_director.svg.import -         phantom_camera_tween_director_resource.svg -         phantom_camera_tween_director_resource.svg.import -         phantom_camera_updater_panel_icon.svg -         phantom_camera_updater_panel_icon.svg.import -         warning.svg -         warning.svg.import -           PriorityOverride.svg -           PriorityOverride.svg.import -           Camera2DIcon.svg -           Camera2DIcon.svg.import -           Camera3DIcon.svg -           Camera3DIcon.svg.import -           SceneTypesIcon.svg -           SceneTypesIcon.svg.import -           Select.svg -           Select.svg.import -         phantom_camera_inspector_plugin.gd -         phantom_camera_inspector_plugin.gd.uid +         [updater] +         [viewfinder] -         editor.gd.uid -         editor.tscn -           download_update_panel.tscn -           update_button.tscn +           [host_list] -           deadzone_style_box.tres -           viewfinder_panel.tscn -             host_list.tscn -             host_list_item.tscn -             host_list_item_group.tres +         [gizmos] +         [managers] +         [panel] +         [phantom_camera] +         [phantom_camera_host] +         [resources] -           phantom_camera_3d_gizmo.gd -           phantom_camera_3d_gizmo.gd.uid -           phantom_camera_3d_gizmo_plugin.gd -           phantom_camera_3d_gizmo_plugin.gd.uid -           phantom_camera_noise_emitter_gizmo_plugin_3d.gd -           phantom_camera_noise_emitter_gizmo_plugin_3d.gd.uid -           PhantomCameraManager.cs -           PhantomCameraManager.cs.uid -           phantom_camera_manager.gd -           phantom_camera_manager.gd.uid +           [updater] +           [viewfinder] -           editor.gd -           editor.gd.uid -             download_update_panel.gd -             download_update_panel.gd.uid -             updater_constants.gd -             updater_constants.gd.uid -             update_button.gd -             update_button.gd.uid -             host_list.gd -             host_list.gd.uid -             host_list_item.gd -             host_list_item.gd.uid -             viewfinder.gd -             viewfinder.gd.uid -           PhantomCamera.cs -           PhantomCamera.cs.uid -           PhantomCamera2D.cs -           PhantomCamera2D.cs.uid -           PhantomCamera3D.cs -           PhantomCamera3D.cs.uid -           PhantomCameraNoiseEmitter2D.cs -           PhantomCameraNoiseEmitter2D.cs.uid -           PhantomCameraNoiseEmitter3D.cs -           PhantomCameraNoiseEmitter3D.cs.uid -           PhantomCameraTweenDirector.cs -           phantom_camera_2d.gd -           phantom_camera_2d.gd.uid -           phantom_camera_3d.gd -           phantom_camera_3d.gd.uid -           phantom_camera_constants.gd -           phantom_camera_constants.gd.uid -           phantom_camera_noise_emitter_2d.gd -           phantom_camera_noise_emitter_2d.gd.uid -           phantom_camera_noise_emitter_3d.gd -           phantom_camera_noise_emitter_3d.gd.uid -           phantom_camera_tween_director.gd -           phantom_camera_tween_director.gd.uid -           PhantomCameraHost.cs -           PhantomCameraHost.cs.uid -           phantom_camera_host.gd -           phantom_camera_host.gd.uid -           Camera3DResource.cs -           Camera3DResource.cs.uid -           camera_3d_resource.gd -           camera_3d_resource.gd.uid -           PhantomCameraNoise2D.cs -           PhantomCameraNoise2D.cs.uid -           PhantomCameraNoise3D.cs -           PhantomCameraNoise3D.cs.uid -           PhantomCameraTween.cs -           PhantomCameraTween.cs.uid -           phantom_camera_noise_2d.gd -           phantom_camera_noise_2d.gd.uid -           phantom_camera_noise_3d.gd -           phantom_camera_noise_3d.gd.uid -           TweenDirectorResource.cs -           tween_director_resource.gd -           tween_director_resource.gd.uid -           tween_resource.gd -           tween_resource.gd.uid -         button_focus.tres -         button_hover.tres -         button_normal.tres -         theme.tres +     [commodities] -       iron.tres +     [tests] -     asteroid.tscn -     bullet.tscn -     main.tscn -     station.tscn -       test_economy_core.tscn -       test_galaxy_core.tscn +     [core] +     [resources] +     [tests] -     asteroid.gd -     asteroid.gd.uid -     bullet.gd -     bullet.gd.uid -     camera_follow.gd -     camera_follow.gd.uid -     player.gd -     player.gd.uid -     starfield.gd -     starfield.gd.uid -     station.gd -     station.gd.uid -       economy_engine.gd -       economy_engine.gd.uid -       galaxy_graph.gd -       galaxy_graph.gd.uid -       market_profile.gd -       market_profile.gd.uid -       sector.gd -       sector.gd.uid -       trade_good.gd -       trade_good.gd.uid -       test_economy_core.gd -       test_economy_core.gd.uid -       test_galaxy_core.gd -       test_galaxy_core.gd.uid
++   [addons] +   [resources] +   [scenes] +   [scripts] -   DevTool - Copy.ps1 -   DevTool.ps1 -   DevTool.ps1 - Shortcut.lnk -   godot_path.cfg -   icon.png.import -   icon.svg.import -   project.godot -   _FullProjectContext.txt -   _PROJECT_CONTEXT.md +     [phantom_camera] +       [assets] +       [examples] +       [fonts] +       [icons] +       [inspector] +       [panel] +       [scripts] +       [themes] -       plugin.cfg -       plugin.gd -       plugin.gd.uid -         PhantomCameraBtnPrimaryDefault.png -         PhantomCameraBtnPrimaryDefault.png.import -         PhantomCameraBtnPrimaryHover.png -         PhantomCameraBtnPrimaryHover.png.import +         [example_scenes] +         [models] +         [resources] +         [scripts] +         [textures] +         [ui] -         credits.txt +           [2D] +           [3D] +             [sub_scenes] -             2d_example_scene.tscn -             2d_follow_framed_example_scene.tscn -             2d_follow_group_example_scene.tscn -             2d_follow_path_example_scene.tscn -             2d_limit_example_scene.tscn -             2d_noise_example_scene.tscn -             2d_tweening_example_scene.tscn -               playable_character_2d.tscn +             [sub_scenes] -             3d_example_scene.tscn -             3d_follow_framed_example_scene.tscn -             3d_follow_glued_example_scene.tscn -             3d_follow_group_example_scene.tscn -             3d_follow_path_example_scene.tscn -             3d_follow_simple_example_scene.tscn -             3d_follow_third_person_attribtues_example_scene.tscn -             3d_follow_third_person_example_scene.tscn -             3d_look_at_example_scene.tscn -             3d_noise_example_scene.tscn -             3d_tweening_example_scene.tscn -               playable_character_3d.tscn -               playable_character_third_person_3d.tscn -           3d_cube_dark.tscn +           [tween] -             fixed_camera_tween.tres -             inventory_phantom_camera_2d_tween.tres -             item_focus_phantom_camera_2d_tween.tres -             player_phantom_camera_2d_tween.tres -             player_phantom_camera_3d_tween.tres +           [2D] +           [3D] -             2d_room_limit_tween.gd -             2d_room_limit_tween.gd.uid -             2d_trigger_area.gd -             2d_trigger_area.gd.uid -             player_character_body_2d.gd -             player_character_body_2d.gd.uid -             3d_trigger_area.gd -             3d_trigger_area.gd.uid -             npc.gd -             npc.gd.uid -             path_follow.gd -             path_follow.gd.uid -             player_controller.gd -             player_controller.gd.uid -             player_controller_first_person.gd -             player_controller_first_person.gd.uid -             player_controller_third_person.gd -             player_controller_third_person.gd.uid +           [2D] +           [3D] -             inventory_container.png -             inventory_container.png.import -             level_spritesheet.png -             level_spritesheet.png.import -             phantom_camera_2d_sprite.png -             phantom_camera_2d_sprite.png.import -             player_sprite.svg -             player_sprite.svg.import -             sign_prompt.png -             sign_prompt.png.import -             checker_pattern_dark.png -             checker_pattern_dark.png.import -             target.png -             target.png.import -           ui_inventory.tscn -           ui_sign.tscn -         Nunito-Black.ttf -         Nunito-Black.ttf.import -         Nunito-Regular.ttf -         Nunito-Regular.ttf.import +         [misc] +         [viewfinder] -         phantom_camera_2d.svg -         phantom_camera_2d.svg.import -         phantom_camera_3d.svg -         phantom_camera_3d.svg.import -         phantom_camera_camera_3d_resource.svg -         phantom_camera_camera_3d_resource.svg.import -         phantom_camera_gizmo.svg -         phantom_camera_gizmo.svg.import -         phantom_camera_glow_logo.png -         phantom_camera_glow_logo.png.import -         phantom_camera_host.svg -         phantom_camera_host.svg.import -         phantom_camera_logo.png -         phantom_camera_logo.png.import -         phantom_camera_noise_emitter_2d.svg -         phantom_camera_noise_emitter_2d.svg.import -         phantom_camera_noise_emitter_3d.svg -         phantom_camera_noise_emitter_3d.svg.import -         phantom_camera_noise_emitter_gizmo.svg -         phantom_camera_noise_emitter_gizmo.svg.import -         phantom_camera_noise_resource.svg -         phantom_camera_noise_resource.svg.import -         phantom_camera_tween.svg -         phantom_camera_tween.svg.import -         phantom_camera_tween_director.svg -         phantom_camera_tween_director.svg.import -         phantom_camera_tween_director_resource.svg -         phantom_camera_tween_director_resource.svg.import -         phantom_camera_updater_panel_icon.svg -         phantom_camera_updater_panel_icon.svg.import -         warning.svg -         warning.svg.import -           PriorityOverride.svg -           PriorityOverride.svg.import -           Camera2DIcon.svg -           Camera2DIcon.svg.import -           Camera3DIcon.svg -           Camera3DIcon.svg.import -           SceneTypesIcon.svg -           SceneTypesIcon.svg.import -           Select.svg -           Select.svg.import -         phantom_camera_inspector_plugin.gd -         phantom_camera_inspector_plugin.gd.uid +         [updater] +         [viewfinder] -         editor.gd.uid -         editor.tscn -           download_update_panel.tscn -           update_button.tscn +           [host_list] -           deadzone_style_box.tres -           viewfinder_panel.tscn -             host_list.tscn -             host_list_item.tscn -             host_list_item_group.tres +         [gizmos] +         [managers] +         [panel] +         [phantom_camera] +         [phantom_camera_host] +         [resources] -           phantom_camera_3d_gizmo.gd -           phantom_camera_3d_gizmo.gd.uid -           phantom_camera_3d_gizmo_plugin.gd -           phantom_camera_3d_gizmo_plugin.gd.uid -           phantom_camera_noise_emitter_gizmo_plugin_3d.gd -           phantom_camera_noise_emitter_gizmo_plugin_3d.gd.uid -           PhantomCameraManager.cs -           PhantomCameraManager.cs.uid -           phantom_camera_manager.gd -           phantom_camera_manager.gd.uid +           [updater] +           [viewfinder] -           editor.gd -           editor.gd.uid -             download_update_panel.gd -             download_update_panel.gd.uid -             updater_constants.gd -             updater_constants.gd.uid -             update_button.gd -             update_button.gd.uid -             host_list.gd -             host_list.gd.uid -             host_list_item.gd -             host_list_item.gd.uid -             viewfinder.gd -             viewfinder.gd.uid -           PhantomCamera.cs -           PhantomCamera.cs.uid -           PhantomCamera2D.cs -           PhantomCamera2D.cs.uid -           PhantomCamera3D.cs -           PhantomCamera3D.cs.uid -           PhantomCameraNoiseEmitter2D.cs -           PhantomCameraNoiseEmitter2D.cs.uid -           PhantomCameraNoiseEmitter3D.cs -           PhantomCameraNoiseEmitter3D.cs.uid -           PhantomCameraTweenDirector.cs -           phantom_camera_2d.gd -           phantom_camera_2d.gd.uid -           phantom_camera_3d.gd -           phantom_camera_3d.gd.uid -           phantom_camera_constants.gd -           phantom_camera_constants.gd.uid -           phantom_camera_noise_emitter_2d.gd -           phantom_camera_noise_emitter_2d.gd.uid -           phantom_camera_noise_emitter_3d.gd -           phantom_camera_noise_emitter_3d.gd.uid -           phantom_camera_tween_director.gd -           phantom_camera_tween_director.gd.uid -           PhantomCameraHost.cs -           PhantomCameraHost.cs.uid -           phantom_camera_host.gd -           phantom_camera_host.gd.uid -           Camera3DResource.cs -           Camera3DResource.cs.uid -           camera_3d_resource.gd -           camera_3d_resource.gd.uid -           PhantomCameraNoise2D.cs -           PhantomCameraNoise2D.cs.uid -           PhantomCameraNoise3D.cs -           PhantomCameraNoise3D.cs.uid -           PhantomCameraTween.cs -           PhantomCameraTween.cs.uid -           phantom_camera_noise_2d.gd -           phantom_camera_noise_2d.gd.uid -           phantom_camera_noise_3d.gd -           phantom_camera_noise_3d.gd.uid -           TweenDirectorResource.cs -           tween_director_resource.gd -           tween_director_resource.gd.uid -           tween_resource.gd -           tween_resource.gd.uid -         button_focus.tres -         button_hover.tres -         button_normal.tres -         theme.tres +     [commodities] -       iron.tres +     [tests] -     asteroid.tscn -     bullet.tscn -     main.tscn -     player.tscn -     station.tscn -       test_economy_core.tscn -       test_galaxy_core.tscn +     [core] +     [resources] +     [tests] -     asteroid.gd -     asteroid.gd.uid -     bullet.gd -     bullet.gd.uid -     camera_follow.gd -     camera_follow.gd.uid -     player.gd -     player.gd.uid -     starfield.gd -     starfield.gd.uid -     station.gd -     station.gd.uid -       economy_engine.gd -       economy_engine.gd.uid -       galaxy_graph.gd -       galaxy_graph.gd.uid -       market_profile.gd -       market_profile.gd.uid -       sector.gd -       sector.gd.uid -       trade_good.gd -       trade_good.gd.uid -       test_economy_core.gd -       test_economy_core.gd.uid -       test_galaxy_core.gd -       test_galaxy_core.gd.uid
 ================================
 
 --- FILE: \addons\phantom_camera\examples\example_scenes\2D\sub_scenes\playable_character_2d.tscn ---
@@ -15345,9 +15345,9 @@ autostart = true
 
 --- FILE: \scenes\main.tscn ---
 ---------------------------------
-[gd_scene load_steps=8 format=3 uid="uid://b8j24k1n5q2x"]
+[gd_scene load_steps=6 format=3 uid="uid://b8j24k1n5q2x"]
 
-[ext_resource type="Script" uid="uid://d3pynryq841jx" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_0wfyh"]
 [ext_resource type="PackedScene" uid="uid://steroid1" path="res://scenes/asteroid.tscn" id="4_asteroid"]
 
 [sub_resource type="Environment" id="Environment_blue"]
@@ -15363,16 +15363,6 @@ albedo_color = Color(0.3, 0.3, 0.3, 1)
 material = SubResource("StandardMaterial3D_floor")
 size = Vector2(100, 100)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
-albedo_color = Color(1, 0, 0, 1)
-emission_enabled = true
-emission = Color(1, 0, 0, 1)
-emission_energy_multiplier = 3.0
-
-[sub_resource type="BoxMesh" id="BoxMesh_player"]
-material = SubResource("StandardMaterial3D_player")
-size = Vector3(2, 1, 3)
-
 [node name="Main" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -15386,14 +15376,43 @@ shadow_enabled = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
 mesh = SubResource("PlaneMesh_floor")
 
-[node name="Player" type="CharacterBody3D" parent="."]
-script = ExtResource("1_player")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Player"]
-mesh = SubResource("BoxMesh_player")
-
 [node name="Asteroid" parent="." instance=ExtResource("4_asteroid")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+[node name="Player" parent="." instance=ExtResource("2_0wfyh")]
+
+
+--- FILE: \scenes\player.tscn ---
+---------------------------------
+[gd_scene load_steps=4 format=3 uid="uid://player_asset_01"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_script"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
+radius = 1.0
+height = 2.0
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_visual"]
+radius = 1.0
+height = 2.0
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 1
+collision_mask = 1
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+shape = SubResource("CapsuleShape3D_hitbox")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_visual")
+
+[node name="CameraMount" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 3, 5)
+
+[node name="Camera3D" type="Camera3D" parent="CameraMount"]
 
 
 --- FILE: \scenes\station.tscn ---
@@ -15799,163 +15818,245 @@ func _ready():
 extends Area3D
 class_name GameStation
 
-# SIGNAL: Tells the UI/GameManager that we are docked
-signal player_docked(station)
-signal player_undocked()
-
 func _ready():
-    # Monitor for the player entering this zone
+    # Ensure this area scans for physics bodies
+    monitoring = true
+    monitorable = true
     body_entered.connect(_on_body_entered)
-    body_exited.connect(_on_body_exited)
+    print("STATION ONLINE: Scanning for interactions...")
 
 func _on_body_entered(body):
-    if body.name == "Player":
-        print("--- DOCKING REQUEST ACCEPTED ---")
-        emit_signal("player_docked", self)
-
-func _on_body_exited(body):
-    if body.name == "Player":
-        print("--- DEPARTING STATION ---")
-        emit_signal("player_undocked")
+    # CRITICAL DEBUG: Print exactly what hit us.
+    print("!!! CONTACT DETECTED !!! Object Name: " + body.name)
+    print("--- DOCKING REQUEST ACCEPTED ---")
 
 
 --- FILE: \DevTool - Copy.ps1 ---
 ---------------------------------
+<#
+.SYNOPSIS
+    SPACE TRADE EMPIRE - MISSION CONTROL (v4.2)
+    Fix: Strict Type Casting for Godot Path to prevent array errors.
+#>
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # --- CONFIGURATION ---
-$gameName = "Space Trade Empire"
-$projectPath = "$HOME\Documents\$gameName"
-$dumpFile = "$projectPath\_FullProjectContext.txt"
-$masterContext = "$projectPath\_PROJECT_CONTEXT.md"
+$ProjectRoot = Get-Location
+$ContextFile = Join-Path $ProjectRoot "_FullProjectContext.txt"
+$TestScene   = "scenes/tests/test_economy_core.tscn"
+$ConfigPath  = Join-Path $ProjectRoot "godot_path.cfg"
 
-# --- WINDOW SETUP ---
+# --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Space Trade Empire - DevOps Console v3.0"
-$form.Size = New-Object System.Drawing.Size(500, 450)
+$form.Text = "STE :: Mission Control v4.2"
+$form.Size = New-Object System.Drawing.Size(450, 520)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "#1e1e1e"
 $form.ForeColor = "#ffffff"
 
-# --- STYLES ---
-$btnFont = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$logFont = New-Object System.Drawing.Font("Consolas", 9)
+$fontHeader = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Bold)
+$fontNormal = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$fontLog    = New-Object System.Drawing.Font("Consolas", 9)
 
-function Log-Message($msg) {
-    $textBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $msg`r`n")
-    $textBox.ScrollToCaret()
+# --- LOGIC ---
+
+function Log-Output($message) {
+    $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $message`r`n")
+    $txtOutput.ScrollToCaret()
 }
 
-# --- FUNCTION 1: CONTEXT DUMP ---
-$btnDump = New-Object System.Windows.Forms.Button
-$btnDump.Location = New-Object System.Drawing.Point(20, 20)
-$btnDump.Size = New-Object System.Drawing.Size(440, 50)
-$btnDump.Text = "1. GENERATE SMART CONTEXT DUMP"
-$btnDump.BackColor = "#4488ff"
-$btnDump.ForeColor = "White"
-$btnDump.Font = $btnFont
+function Get-GodotExe {
+    $exePath = $null
 
-$btnDump.Add_Click({
-    Log-Message "Starting Smart Dump..."
+    # 1. Check saved config
+    if (Test-Path $ConfigPath) {
+        $raw = Get-Content $ConfigPath -Raw
+        if ($raw) { $exePath = $raw.Trim() }
+    }
+
+    # 2. If valid, return immediately
+    if ($exePath -and (Test-Path $exePath)) { 
+        return $exePath 
+    }
+
+    # 3. If invalid, ask user
+    [System.Windows.Forms.MessageBox]::Show("Godot executable not found.`n`nPlease select your godot.exe file.", "Setup Required")
+    
+    $dlg = New-Object System.Windows.Forms.OpenFileDialog
+    $dlg.Title = "SELECT GODOT EXECUTABLE (godot.exe)"
+    $dlg.Filter = "Executable|*.exe"
+    
+    if ($dlg.ShowDialog() -eq "OK") {
+        $exePath = $dlg.FileName
+        Set-Content -Path $ConfigPath -Value $exePath
+        return $exePath
+    }
+    
+    return $null
+}
+
+function Run-Tests {
+    Log-Output ">>> EXEC: ECONOMY TEST SUITE"
+    
+    # FORCE STRING CAST (The Fix)
+    # We take the last item in case pipeline pollution occurred
+    $godotRaw = Get-GodotExe
+    $godotExe = @($godotRaw)[-1] 
+
+    if (-not $godotExe -or -not (Test-Path $godotExe)) {
+        Log-Output "ERROR: Godot path missing or invalid."
+        return
+    }
+
+    Log-Output "Target: $godotExe"
+
     try {
-        $finalContent = @()
-        $finalContent += "dump_timestamp: $(Get-Date)"
+        Log-Output "Running simulation..."
+        # Runs Godot in headless mode (-s) or standard, waiting for exit
+        $process = Start-Process -FilePath "$godotExe" -ArgumentList "$TestScene" -NoNewWindow -Wait -PassThru
         
-        if (Test-Path $masterContext) {
-            $finalContent += "`n`n=== MASTER ARCHITECTURE & WORKFLOW ==="
-            $finalContent += Get-Content $masterContext
-            $finalContent += "========================================`n"
+        if ($process.ExitCode -eq 0) {
+            Log-Output "Cycle Complete. Check Console window."
+        } else {
+            Log-Output "WARNING: Process exited with code $($process.ExitCode)"
         }
+    }
+    catch {
+        Log-Output "ERROR: $($_.Exception.Message)"
+    }
+}
 
-        $finalContent += "`n`n=== LIVE PROJECT STRUCTURE ==="
+function Run-ContextGen {
+    Log-Output ">>> EXEC: SMART CONTEXT DUMP"
+    try {
+        $content = "=== SPACE TRADE EMPIRE PROJECT DUMP ===`n"
+        $content += "dump_timestamp: $(Get-Date)`n`n"
+        
+        $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
-            $tree = Get-ChildItem -Path $projectPath -Recurse | 
-                Where-Object { $_.FullName -notmatch "\\.godot|\\.git" } |
+            $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
+                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import" } |
                 ForEach-Object { 
-                    $rel = $_.FullName.Substring($projectPath.Length + 1)
+                    $rel = $_.FullName.Replace($ProjectRoot.Path, "")
                     $indent = "  " * ($rel.Split('\').Count - 1)
                     if ($_.PSIsContainer) { "+ $indent[$($_.Name)]" } else { "- $indent$($_.Name)" }
                 }
-            $finalContent += $tree
+            $content += $tree
         } catch {}
-        $finalContent += "================================`n"
+        $content += "`n================================`n"
 
-        $files = Get-ChildItem -Path $projectPath -Recurse | 
-            Where-Object { 
-                (-not $_.PSIsContainer) -and 
-                ($_.Extension -match "\.(gd|tscn|godot)$") -and 
-                ($_.FullName -notmatch "\\.godot\\") 
-            }
+        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
+                 Where-Object { $_.FullName -notmatch ".git" -and $_.FullName -notmatch ".import" }
 
         foreach ($file in $files) {
-            $relativePath = $file.FullName.Substring($projectPath.Length + 1)
-            $finalContent += "`n`n--- FILE: $relativePath ---"
-            $finalContent += "---------------------------------"
-            $finalContent += Get-Content $file.FullName
+            $relPath = $file.FullName.Replace($ProjectRoot.Path, "")
+            $content += "`n--- FILE: $relPath ---`n"
+            $content += "---------------------------------`n"
+            $content += Get-Content $file.FullName -Raw
+            $content += "`n"
         }
         
-        $finalContent | Set-Content -Path $dumpFile
-        Log-Message "SUCCESS: Context Dump Updated."
-    } catch {
-        Log-Message "ERROR: $($_.Exception.Message)"
+        Set-Content -Path $ContextFile -Value $content -Encoding UTF8
+        Log-Output "SUCCESS: Context refreshed."
     }
-})
+    catch {
+        Log-Output "ERROR: $($_.Exception.Message)"
+    }
+}
 
-# --- FUNCTION 2: SAVE STATE ---
-$btnSave = New-Object System.Windows.Forms.Button
-$btnSave.Location = New-Object System.Drawing.Point(20, 90)
-$btnSave.Size = New-Object System.Drawing.Size(210, 50)
-$btnSave.Text = "2. SAVE STATE (Commit)"
-$btnSave.BackColor = "#228822"
-$btnSave.ForeColor = "White"
-$btnSave.Font = $btnFont
+function Run-GitSave {
+    Log-Output ">>> EXEC: GIT SNAPSHOT"
+    git add .
+    $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
+    Log-Output $res
+    Log-Output "State Saved."
+}
 
-$btnSave.Add_Click({
-    Log-Message "Saving State..."
-    Set-Location $projectPath
-    git add . 2>&1 | Out-Null
-    $res = git commit -m "Manual Save Point" 2>&1
-    Log-Message $res
-    Log-Message "State Locked."
-})
-
-# --- FUNCTION 3: UNDO ---
-$btnUndo = New-Object System.Windows.Forms.Button
-$btnUndo.Location = New-Object System.Drawing.Point(250, 90)
-$btnUndo.Size = New-Object System.Drawing.Size(210, 50)
-$btnUndo.Text = "3. F*CK UP UNDO (Reset)"
-$btnUndo.BackColor = "#cc2222"
-$btnUndo.ForeColor = "White"
-$btnUndo.Font = $btnFont
-
-$btnUndo.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure? This deletes all changes since the last Save.", "Nuclear Option", [System.Windows.Forms.MessageBoxButtons]::YesNo)
+function Run-GitReset {
+    $confirm = [System.Windows.Forms.MessageBox]::Show("NUKE IT? This reverts to the last SAVE.", "DANGER ZONE", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
     if ($confirm -eq "Yes") {
-        Log-Message "Reverting to last save..."
-        Set-Location $projectPath
+        Log-Output ">>> EXEC: HARD RESET"
         git reset --hard 2>&1 | Out-Null
         git clean -fd 2>&1 | Out-Null
-        Log-Message "SUCCESS: Project reset to last stable point."
+        Log-Output "SUCCESS: Time machine activated. Changes reverted."
     }
-})
+}
 
-$textBox = New-Object System.Windows.Forms.TextBox
-$textBox.Location = New-Object System.Drawing.Point(20, 160)
-$textBox.Size = New-Object System.Drawing.Size(440, 230)
-$textBox.Multiline = $true
-$textBox.ScrollBars = "Vertical"
-$textBox.ReadOnly = $true
-$textBox.BackColor = "#000000"
-$textBox.ForeColor = "#00ff00"
-$textBox.Font = $logFont
-$textBox.Text = "DevOps Console v3.0 Ready...`r`n"
+# --- UI COMPONENTS ---
 
-$form.Controls.Add($btnDump)
+# Header
+$lblHeader = New-Object System.Windows.Forms.Label
+$lblHeader.Text = "COMMAND DECK"
+$lblHeader.Location = New-Object System.Drawing.Point(20, 10)
+$lblHeader.Font = $fontHeader
+$lblHeader.AutoSize = $true
+$form.Controls.Add($lblHeader)
+
+# 1. TEST (Blue)
+$btnTest = New-Object System.Windows.Forms.Button
+$btnTest.Text = "1. RUN UNIT TESTS"
+$btnTest.Location = New-Object System.Drawing.Point(20, 40)
+$btnTest.Size = New-Object System.Drawing.Size(400, 45)
+$btnTest.Font = $fontNormal
+$btnTest.BackColor = "#007acc"
+$btnTest.ForeColor = "White"
+$btnTest.FlatStyle = "Flat"
+$btnTest.Add_Click({ Run-Tests })
+$form.Controls.Add($btnTest)
+
+# 2. DUMP (Gray)
+$btnContext = New-Object System.Windows.Forms.Button
+$btnContext.Text = "2. GENERATE CONTEXT"
+$btnContext.Location = New-Object System.Drawing.Point(20, 95)
+$btnContext.Size = New-Object System.Drawing.Size(400, 45)
+$btnContext.Font = $fontNormal
+$btnContext.BackColor = "#2d2d30"
+$btnContext.ForeColor = "White"
+$btnContext.FlatStyle = "Flat"
+$btnContext.Add_Click({ Run-ContextGen })
+$form.Controls.Add($btnContext)
+
+# 3. SAVE (Green)
+$btnSave = New-Object System.Windows.Forms.Button
+$btnSave.Location = New-Object System.Drawing.Point(20, 150)
+$btnSave.Size = New-Object System.Drawing.Size(195, 45)
+$btnSave.Text = "3. SAVE STATE"
+$btnSave.BackColor = "#228822"
+$btnSave.ForeColor = "White"
+$btnSave.Font = $fontNormal
+$btnSave.FlatStyle = "Flat"
+$btnSave.Add_Click({ Run-GitSave })
 $form.Controls.Add($btnSave)
+
+# 4. RESET (Red)
+$btnUndo = New-Object System.Windows.Forms.Button
+$btnUndo.Location = New-Object System.Drawing.Point(225, 150)
+$btnUndo.Size = New-Object System.Drawing.Size(195, 45)
+$btnUndo.Text = "4. HARD RESET"
+$btnUndo.BackColor = "#cc2222"
+$btnUndo.ForeColor = "White"
+$btnUndo.Font = $fontNormal
+$btnUndo.FlatStyle = "Flat"
+$btnUndo.Add_Click({ Run-GitReset })
 $form.Controls.Add($btnUndo)
-$form.Controls.Add($textBox)
-$form.ShowDialog()
+
+# Console Output
+$txtOutput = New-Object System.Windows.Forms.TextBox
+$txtOutput.Location = New-Object System.Drawing.Point(20, 210)
+$txtOutput.Size = New-Object System.Drawing.Size(400, 250)
+$txtOutput.Multiline = $true
+$txtOutput.ScrollBars = "Vertical"
+$txtOutput.BackColor = "#000000"
+$txtOutput.ForeColor = "#00ff00"
+$txtOutput.Font = $fontLog
+$txtOutput.Text = "Mission Control v4.2 Online...`r`n"
+$form.Controls.Add($txtOutput)
+
+# --- LAUNCH ---
+$form.Add_Shown({ $form.Activate() })
+[void] $form.ShowDialog()
 
 
 --- FILE: \DevTool.ps1 ---

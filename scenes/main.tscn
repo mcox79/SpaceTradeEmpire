@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://b8j24k1n5q2x"]
+[gd_scene load_steps=7 format=3 uid="uid://b8j24k1n5q2x"]
 
-[ext_resource type="Script" uid="uid://d3pynryq841jx" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_0wfyh"]
+[ext_resource type="PackedScene" path="res://scenes/station.tscn" id="3_sugp2"]
 [ext_resource type="PackedScene" uid="uid://steroid1" path="res://scenes/asteroid.tscn" id="4_asteroid"]
 
 [sub_resource type="Environment" id="Environment_blue"]
@@ -16,16 +17,6 @@ albedo_color = Color(0.3, 0.3, 0.3, 1)
 material = SubResource("StandardMaterial3D_floor")
 size = Vector2(100, 100)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
-albedo_color = Color(1, 0, 0, 1)
-emission_enabled = true
-emission = Color(1, 0, 0, 1)
-emission_energy_multiplier = 3.0
-
-[sub_resource type="BoxMesh" id="BoxMesh_player"]
-material = SubResource("StandardMaterial3D_player")
-size = Vector3(2, 1, 3)
-
 [node name="Main" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -39,11 +30,10 @@ shadow_enabled = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
 mesh = SubResource("PlaneMesh_floor")
 
-[node name="Player" type="CharacterBody3D" parent="."]
-script = ExtResource("1_player")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Player"]
-mesh = SubResource("BoxMesh_player")
-
 [node name="Asteroid" parent="." instance=ExtResource("4_asteroid")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+[node name="Player" parent="." instance=ExtResource("2_0wfyh")]
+
+[node name="Station" parent="." instance=ExtResource("3_sugp2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825881)
