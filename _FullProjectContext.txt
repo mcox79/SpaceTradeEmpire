@@ -1,0 +1,295 @@
+PROJECT CONTEXT DUMP - 01/21/2026 10:46:10
+===================================
+
+
+--- FILE: .godot ---
+---------------------------------
+
+
+--- FILE: project.godot ---
+---------------------------------
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Space Trade Empire"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+
+
+--- FILE: scenes\asteroid.tscn ---
+---------------------------------
+[gd_scene load_steps=4 format=3 uid="uid://asteroid1"]
+
+[ext_resource type="Script" path="res://scripts/asteroid.gd" id="1_ast"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rock"]
+albedo_color = Color(0.4, 0.3, 0.2, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="SphereMesh_rock"]
+material = SubResource("StandardMaterial3D_rock")
+radius = 1.0
+height = 2.0
+
+[node name="Asteroid" type="Area3D"]
+script = ExtResource("1_ast")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_rock")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereMesh_rock")
+
+[connection signal="area_entered" from="." to="." method="_on_area_entered"]
+
+
+--- FILE: scenes\bullet.tscn ---
+---------------------------------
+[gd_scene load_steps=4 format=3 uid="uid://bullet123"]
+
+[ext_resource type="Script" path="res://scripts/bullet.gd" id="1_bullet"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow"]
+albedo_color = Color(1, 1, 0, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0, 1)
+emission_energy_multiplier = 5.0
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_bullet"]
+material = SubResource("StandardMaterial3D_glow")
+radius = 0.1
+height = 1.0
+
+[node name="Bullet" type="Area3D"]
+script = ExtResource("1_bullet")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_bullet")
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 2.0
+autostart = true
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
+
+
+--- FILE: scenes\main.tscn ---
+---------------------------------
+[gd_scene load_steps=8 format=3 uid="uid://b8j24k1n5q2x"]
+
+[ext_resource type="Script" uid="uid://d3pynryq841jx" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="PackedScene" uid="uid://steroid1" path="res://scenes/asteroid.tscn" id="4_asteroid"]
+
+[sub_resource type="Environment" id="Environment_blue"]
+background_mode = 1
+background_color = Color(0, 0, 0.2, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+material = SubResource("StandardMaterial3D_floor")
+size = Vector2(100, 100)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+albedo_color = Color(1, 0, 0, 1)
+emission_enabled = true
+emission = Color(1, 0, 0, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_player"]
+material = SubResource("StandardMaterial3D_player")
+size = Vector3(2, 1, 3)
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_blue")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 10, 0)
+shadow_enabled = true
+
+[node name="ReferenceFloor" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
+mesh = SubResource("PlaneMesh_floor")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("1_player")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player"]
+mesh = SubResource("BoxMesh_player")
+
+[node name="Asteroid" parent="." instance=ExtResource("4_asteroid")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+
+--- FILE: scripts\asteroid.gd ---
+---------------------------------
+extends Area3D
+
+func _on_area_entered(area):
+    # Check if the thing that hit us is a Bullet
+    if area.name.begins_with('Bullet'):
+        print('Asteroid Destroyed!')
+        area.queue_free() # Delete the bullet
+        queue_free()      # Delete the asteroid
+
+
+--- FILE: scripts\bullet.gd ---
+---------------------------------
+extends Area3D
+
+var speed = 80.0
+
+func _physics_process(delta):
+    # FLIPPED: Changed -= to +=
+    position += transform.basis.z * speed * delta
+
+func _on_timer_timeout():
+    queue_free() # Delete self
+
+
+--- FILE: scripts\camera_follow.gd ---
+---------------------------------
+extends Camera3D
+
+# SETTINGS: 40 meters up, 25 meters back
+var offset = Vector3(0, 40, 25)
+var target_node
+
+func _ready():
+	# 1. THE EJECT BUTTON
+	# This tells the engine: "Ignore my parent's rotation. Use Global coordinates."
+	set_as_top_level(true)
+	
+	# 2. FIND THE SHIP
+	# If we are inside the ship, our parent is the ship.
+	var parent = get_parent()
+	if parent.name == "Player":
+		target_node = parent
+	else:
+		# If we are neighbors, find it by name
+		target_node = parent.get_node_or_null("Player")
+
+	if target_node:
+		# Teleport to starting position
+		global_position = target_node.global_position + offset
+		look_at(target_node.global_position)
+
+func _physics_process(_delta):
+	if target_node:
+		# 3. CHASE THE SHIP
+		# Since we are "Top Level" now, we must manually update our position every frame.
+		global_position = target_node.global_position + offset
+
+
+--- FILE: scripts\player.gd ---
+---------------------------------
+extends CharacterBody3D
+
+# --- CONFIGURATION ---
+@export var speed_max := 25.0
+@export var acceleration := 40.0
+@export var friction := 15.0
+@export var rotation_speed := 5.0
+
+# --- INTERNAL VARS ---
+var bullet_scene = preload("res://scenes/bullet.tscn")
+var my_camera : Camera3D = null
+
+func _ready():
+	# 1. SPAWN THE CAMERA
+	# We create a brand new camera from thin air.
+	my_camera = Camera3D.new()
+	
+	# 2. PLACE IT IN THE WORLD (Not inside the Player)
+	# "get_parent()" puts it in the Main scene, keeping it independent.
+	get_parent().call_deferred("add_child", my_camera)
+	
+	# 3. CONFIGURE IT
+	# Move it high up (Y=40) and back (Z=20)
+	my_camera.position = Vector3(0, 40, 20)
+	# Point it at the origin (where the player starts)
+	my_camera.look_at(Vector3.ZERO)
+	# Force this to be the active eye
+	my_camera.current = true
+
+func _physics_process(delta):
+	# --- MOVEMENT LOGIC ---
+	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var direction = Vector3(input_dir.x, 0, input_dir.y).normalized()
+	
+	if direction:
+		velocity = velocity.move_toward(direction * speed_max, acceleration * delta)
+		# Face direction
+		var target_rotation = atan2(velocity.x, velocity.z)
+		rotation.y = lerp_angle(rotation.y, target_rotation, rotation_speed * delta)
+	else:
+		velocity = velocity.move_toward(Vector3.ZERO, friction * delta)
+
+	move_and_slide()
+	
+	# --- SHOOTING ---
+	if Input.is_action_just_pressed("ui_accept"):
+		shoot()
+		
+	# --- CAMERA FOLLOW LOGIC ---
+	if my_camera:
+		# 1. Move to the offset position (High and Back)
+		var target_pos = global_position + Vector3(0, 40, 20)
+		my_camera.global_position = my_camera.global_position.lerp(target_pos, 5.0 * delta)
+		
+		# 2. CRITICAL FIX: LOOK AT THE SHIP
+		# This forces the camera to angle down and center the ship on screen.
+		my_camera.look_at(global_position)
+func shoot():
+	var new_bullet = bullet_scene.instantiate()
+	new_bullet.position = position
+	new_bullet.rotation = rotation
+	get_parent().add_child(new_bullet)
+
+
+--- FILE: scripts\starfield.gd ---
+---------------------------------
+extends Node3D
+
+func _ready():
+    var rng = RandomNumberGenerator.new()
+    # Create 500 stars for density
+    for i in range(500):
+        var star = MeshInstance3D.new()
+        star.mesh = BoxMesh.new()
+        star.mesh.size = Vector3(0.8, 0.8, 0.8) # Large enough to see
+        
+        # Create a glowing material
+        var mat = StandardMaterial3D.new()
+        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        mat.albedo_color = Color(1, 1, 1) # Pure White
+        star.mesh.material = mat
+        
+        # Spread them out WIDE
+        var x = rng.randf_range(-300, 300)
+        var z = rng.randf_range(-300, 300)
+        var y = rng.randf_range(-40, -100) # Deep below player
+        
+        star.position = Vector3(x, y, z)
+        add_child(star)
