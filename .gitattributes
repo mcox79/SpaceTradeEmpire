@@ -1,0 +1,8 @@
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Explicitly keep Godot files consistent
+*.tscn text
+*.tres text
+*.gd text
+*.md text
