@@ -36,20 +36,20 @@ var bullet_scene = preload("res://scenes/bullet.tscn")
 var my_camera : Camera3D = null
 
 func _ready():
-		add_to_group("Player")
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		health = max_health
-		fuel = max_fuel
+        add_to_group("Player")
+        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+        health = max_health
+        fuel = max_fuel
 
-		# Cam Init (scene camera only)
-		my_camera = get_node_or_null("CameraMount/Camera3D")
-		if my_camera:
-				my_camera.current = true
+        # Cam Init (scene camera only)
+        my_camera = get_node_or_null("CameraMount/Camera3D")
+        if my_camera:
+                my_camera.current = true
 
-		await get_tree().process_frame
-		_update_ui_state()
+        await get_tree().process_frame
+        _update_ui_state()
 
-func _physics_process(delta):
+func _physics_process(delta):(delta):
 	if is_docked: return
 	
 	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -99,9 +99,8 @@ func take_damage(amount: int):
 	if health <= 0: _die()
 
 func _die():
-		print("CRITICAL FAILURE.")
-		# Defer scene reload to avoid removing nodes during physics callbacks
-		get_tree().call_deferred("reload_current_scene")
+	print("CRITICAL FAILURE.")
+	get_tree().reload_current_scene()
 
 func _update_ui_state():
 	emit_signal("credits_updated", credits)

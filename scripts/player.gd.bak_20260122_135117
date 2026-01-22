@@ -99,9 +99,8 @@ func take_damage(amount: int):
 	if health <= 0: _die()
 
 func _die():
-		print("CRITICAL FAILURE.")
-		# Defer scene reload to avoid removing nodes during physics callbacks
-		get_tree().call_deferred("reload_current_scene")
+	print("CRITICAL FAILURE.")
+	get_tree().reload_current_scene()
 
 func _update_ui_state():
 	emit_signal("credits_updated", credits)
