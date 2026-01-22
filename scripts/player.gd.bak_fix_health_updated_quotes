@@ -174,4 +174,4 @@ func take_damage(amount: int):
 	if amount <= 0:
 		return
 	health = max(0, health - amount)
-	emit_signal("health_updated", health, max_health)
+	emit_signal(""health_updated"", health, max_health)

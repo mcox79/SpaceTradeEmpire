@@ -115,7 +115,8 @@ func _physics_process(delta):
 
 	# Ship-space movement: interpret input in local ship frame, then convert to world space.
 	# Orthonormalize basis to avoid any scaling artifacts.
-	var direction: Vector3 = Vector3(input_dir.x, 0, -input_dir.y).normalized()
+	var local_dir: Vector3 = Vector3(input_dir.x, 0, -input_dir.y)
+	var direction: Vector3 = (global_transform.basis.orthonormalized() * local_dir).normalized()
 
 	if direction != Vector3.ZERO and fuel > 0.0:
 		velocity = velocity.move_toward(direction * speed_max, acceleration * delta)
@@ -143,17 +144,17 @@ func _update_ui_state():
 	emit_signal("health_updated", health, max_health)
 	emit_signal("fuel_updated", int(fuel), int(max_fuel))
 func shoot():
-	can_shoot = false
+can_shoot = false
 
-	if bullet_scene:
-		var b = bullet_scene.instantiate()
-		b.shooter = self
-		b.top_level = true
-		get_tree().current_scene.add_child(b)
-		b.global_transform = global_transform
+if bullet_scene:
+var b = bullet_scene.instantiate()
+b.shooter = self
+b.top_level = true
+get_tree().current_scene.add_child(b)
+b.global_transform = global_transform
 
-	await get_tree().create_timer(weapon_cooldown).timeout
-	can_shoot = true
+await get_tree().create_timer(weapon_cooldown).timeout
+can_shoot = true
 
 func dock_at_station(station_ref):
 	is_docked = true
@@ -164,14 +165,9 @@ func undock():
 	is_docked = false
 	current_station = null
 	emit_signal("shop_toggled", false, null)
+
 func purchase_upgrade(kind: String, cost: int):
 	if credits < cost:
-		return false
+		return
 	credits -= cost
 	emit_signal("credits_updated", credits)
-	return true
-func take_damage(amount: int):
-	if amount <= 0:
-		return
-	health = max(0, health - amount)
-	emit_signal("health_updated", health, max_health)

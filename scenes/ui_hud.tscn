@@ -147,3 +147,14 @@ layout_mode = 2
 [node name="BtnClose" type="Button" parent="Control/ShopPanel/VBoxContainer"]
 layout_mode = 2
 text = "UNDOCK"
+[node name="BtnBuyIron" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+layout_mode = 2
+text = "BUY IRON (x1)"
+
+[node name="BtnBuyGold" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+layout_mode = 2
+text = "BUY GOLD (x1)"
+
+[node name="HSeparatorBuy" type="HSeparator" parent="Control/ShopPanel/VBoxContainer"]
+layout_mode = 2
+

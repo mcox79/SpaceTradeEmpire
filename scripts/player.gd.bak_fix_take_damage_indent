@@ -170,8 +170,9 @@ func purchase_upgrade(kind: String, cost: int):
 	credits -= cost
 	emit_signal("credits_updated", credits)
 	return true
+
 func take_damage(amount: int):
-	if amount <= 0:
-		return
-	health = max(0, health - amount)
-	emit_signal("health_updated", health, max_health)
+if amount <= 0:
+return
+health = max(0, health - amount)
+emit_signal("health_updated", health, max_health)

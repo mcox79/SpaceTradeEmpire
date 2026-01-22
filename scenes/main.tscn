@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" path="res://scenes/asteroid.tscn" id="4_asteroid"]
 [ext_resource type="PackedScene" path="res://scenes/ui_hud.tscn" id="4_jyhfs"]
 [ext_resource type="Script" uid="uid://cdth7i21ieed5" path="res://scripts/spawner.gd" id="5_tbgi4"]
+[ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="98_alpha_profile"]
+[ext_resource type="Resource" path="res://resources/markets/station_beta_profile.tres" id="99_beta_profile"]
 
 [sub_resource type="Environment" id="Environment_blue"]
 background_mode = 1
@@ -38,6 +40,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
 [node name="Player" parent="." instance=ExtResource("2_0wfyh")]
 
 [node name="Station" parent="." instance=ExtResource("3_sugp2")]
+
+market_profile = ExtResource("98_alpha_profile")
+local_supply = {"ore_iron": 120, "ore_gold": 15}
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825881)
 
 [node name="HUD" parent="." instance=ExtResource("4_jyhfs")]
@@ -45,3 +50,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825
 [node name="Spawner" type="Node3D" parent="."]
 script = ExtResource("5_tbgi4")
 asteroid_scene = ExtResource("4_asteroid")
+
+[node name="StationBeta" parent="." instance=ExtResource("3_sugp2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.0, 0.9, 18.0)
+market_profile = ExtResource("99_beta_profile")
+local_supply = {"ore_iron": 25, "ore_gold": 140}
+

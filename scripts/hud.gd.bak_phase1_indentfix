@@ -12,24 +12,16 @@ extends CanvasLayer
 @onready var btn_weapon = $Control/ShopPanel/VBoxContainer/BtnWeapon
 @onready var btn_close = $Control/ShopPanel/VBoxContainer/BtnClose
 
-# Optional Phase 1 buttons (safe if missing)
-@onready var btn_buy_iron = $Control/ShopPanel/VBoxContainer/BtnBuyIron if has_node("Control/ShopPanel/VBoxContainer/BtnBuyIron") else null
-@onready var btn_buy_gold = $Control/ShopPanel/VBoxContainer/BtnBuyGold if has_node("Control/ShopPanel/VBoxContainer/BtnBuyGold") else null
-
 var player_ref = null
 var current_station = null
 
 func _ready():
+	_phase1_bind_buy_buttons()
     shop_panel.visible = false
     btn_sell.pressed.connect(_on_sell_all)
     btn_speed.pressed.connect(_on_buy_speed)
     btn_weapon.pressed.connect(_on_buy_weapon)
     btn_close.pressed.connect(_on_close_shop)
-
-    if btn_buy_iron:
-        btn_buy_iron.pressed.connect(_on_buy_iron)
-    if btn_buy_gold:
-        btn_buy_gold.pressed.connect(_on_buy_gold)
 
     _find_player()
 
@@ -42,7 +34,8 @@ func _find_player():
         player.health_updated.connect(_on_health_updated)
         player.fuel_updated.connect(_on_fuel_updated)
         player.shop_toggled.connect(_on_shop_toggled)
-
+        
+        # Init
         _on_credits_updated(player.credits)
         _on_cargo_updated(player.cargo)
         _on_health_updated(player.health, player.max_health)
@@ -52,7 +45,7 @@ func _find_player():
         _find_player()
 
 func _on_credits_updated(amount):
-    money_label.text = "CREDITS: $" + str(amount)
+    money_label.text = "CREDITS: $%s" % amount
 
 func _on_health_updated(current, max_val):
     if health_bar:
@@ -76,6 +69,7 @@ func _on_cargo_updated(manifest):
 func _on_shop_toggled(is_open, station_ref):
     shop_panel.visible = is_open
     current_station = station_ref
+    
     if is_open:
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
         _update_ticker()
@@ -83,42 +77,63 @@ func _on_shop_toggled(is_open, station_ref):
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _update_ticker():
-    if not current_station:
-        return
-    var iron_ask = current_station.get_ask_price("ore_iron")
-    var iron_bid = current_station.get_bid_price("ore_iron")
-    var gold_ask = current_station.get_ask_price("ore_gold")
-    var gold_bid = current_station.get_bid_price("ore_gold")
-    market_ticker.text = "IRON: BUY $" + str(iron_ask) + " | SELL $" + str(iron_bid) + "   GOLD: BUY $" + str(gold_ask) + " | SELL $" + str(gold_bid)
+    if not current_station: return
+    var p_iron = current_station.get_market_price("ore_iron")
+    var p_gold = current_station.get_market_price("ore_gold")
+    market_ticker.text = "IRON: $%s | GOLD: $%s" % [p_iron, p_gold]
 
 func _on_sell_all():
-    if not player_ref or not current_station:
-        return
+    if not player_ref or not current_station: return
+    
     var manifest = player_ref.cargo.duplicate()
     for item in manifest:
-        current_station.sell_cargo(player_ref, item, int(manifest[item]))
-    _update_ticker()
-
-func _on_buy_iron():
-    if not player_ref or not current_station:
-        return
-    current_station.buy_cargo(player_ref, "ore_iron", 1)
-    _update_ticker()
-
-func _on_buy_gold():
-    if not player_ref or not current_station:
-        return
-    current_station.buy_cargo(player_ref, "ore_gold", 1)
+        current_station.sell_cargo(player_ref, item, manifest[item])
+        player_ref.remove_cargo(item, manifest[item])
+    
     _update_ticker()
 
 func _on_buy_speed():
-    if player_ref:
-        player_ref.purchase_upgrade("speed", 200)
+    if player_ref: player_ref.purchase_upgrade("speed", 200)
 
 func _on_buy_weapon():
-    if player_ref:
-        player_ref.purchase_upgrade("weapon", 500)
+    if player_ref: player_ref.purchase_upgrade("weapon", 500)
 
 func _on_close_shop():
-    if player_ref:
-        player_ref.undock()
+    if player_ref: player_ref.undock()
+
+# =========================
+# Phase 1 Economy UI Additions
+# =========================
+
+@onready var btn_buy_iron = $Control/ShopPanel/VBoxContainer/BtnBuyIron
+@onready var btn_buy_gold = $Control/ShopPanel/VBoxContainer/BtnBuyGold
+
+func _phase1_bind_buy_buttons():
+if btn_buy_iron:
+btn_buy_iron.pressed.connect(_on_buy_iron)
+if btn_buy_gold:
+btn_buy_gold.pressed.connect(_on_buy_gold)
+
+func _on_buy_iron():
+if not player_ref or not current_station:
+return
+current_station.buy_cargo(player_ref, "ore_iron", 1)
+_phase1_update_ticker()
+
+func _on_buy_gold():
+if not player_ref or not current_station:
+return
+current_station.buy_cargo(player_ref, "ore_gold", 1)
+_phase1_update_ticker()
+
+func _phase1_update_ticker():
+if not current_station:
+return
+
+var iron_ask = current_station.get_ask_price("ore_iron")
+var iron_bid = current_station.get_bid_price("ore_iron")
+var gold_ask = current_station.get_ask_price("ore_gold")
+var gold_bid = current_station.get_bid_price("ore_gold")
+
+market_ticker.text = "IRON: BUY $" + str(iron_ask) + " | SELL $" + str(iron_bid) + "   GOLD: BUY $" + str(gold_ask) + " | SELL $" + str(gold_bid)
+
