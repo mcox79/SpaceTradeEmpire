@@ -7,5 +7,5 @@ class_name Sector
 @export var connected_ids: Array = [] # List of Strings (IDs of neighbors)
 
 func connect_to(other_id: String):
-    if not connected_ids.has(other_id):
-        connected_ids.append(other_id)
+	if not connected_ids.has(other_id):
+		connected_ids.append(other_id)

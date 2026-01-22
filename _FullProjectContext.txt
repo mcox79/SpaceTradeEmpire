@@ -1,6 +1,6 @@
 ﻿=== SPACE TRADE EMPIRE PROJECT DUMP ===
 format_version: 5.0
-dump_timestamp: 2026-01-22T16:32:14.8521991-05:00
+dump_timestamp: 2026-01-22T17:25:28.1866329-05:00
 project_root: C:\Users\marsh\Documents\Space Trade Empire
 devtool_path: C:\Users\marsh\Documents\Space Trade Empire\DevTool.ps1
 devtool_sha256: 95954056E9EB5BF7509D9627A705DBA882A3A84A1993742D8A6DD0FBFE81135C
@@ -25,10 +25,12 @@ max_inline_bytes: 52428800
 - project.godot
 - project.godot.bak_20260122_134706
 - project.godot.bak_20260122_134725
+- _FullProjectContext.txt
 - _FullProjectContext_last save.txt
 - _FullProjectContext_latest.txt
 - _FullProjectContext_NEWEST.txt
 - _PROJECT_CONTEXT.md
+- _PROJECT_CONTEXT_old.md
 +   [phantom_camera]
 +     [assets]
 +     [examples]
@@ -295,6 +297,7 @@ max_inline_bytes: 52428800
 -   bullet.gd.bak_before_indent_repair
 -   bullet.gd.bak_fix_ready_block
 -   bullet.gd.uid
+-   check_tabs.ps1
 -   enemy.gd
 -   enemy.gd.bak_20260122_135040
 -   enemy.gd.uid
@@ -357,7 +360,7 @@ INVENTORY: addons
 ========================================
 
 === INLINE FILE MANIFEST (NON-3RD-PARTY) ===
-inline_file_count: 37
+inline_file_count: 39
 ===========================================
 
 <<< BEGIN FILE >>>
@@ -53994,6 +53997,477 @@ max_inline_bytes: 52428800
 <<< BEGIN FILE >>>
 index: 4
 path: _PROJECT_CONTEXT.md
+bytes: 16433
+sha256: 3FAE8D65B01CC3DE1C216A677D981125BD7C66AE701E420B5FBB26F3DF44230D
+<<< CONTENT >>>
+# SPACE TRADE EMPIRE: PROJECT CONTEXT
+
+## 1. The Founder Protocol
+
+- **Voice:** Pragmatic, commercial, technical
+- **Output pattern:** Direct code blocks â†’ implementation steps â†’ verification
+- **Code blocks:** Fence by language. PowerShell blocks contain only PowerShell commands. GDScript blocks are fenced as `gdscript` (or plain) and must never be presented as terminal commands.
+- **Meta-rule:** If the project structure changes significantly (new systems), update this file
+
+## 2. Recovery and Toolchain
+
+### DevTools Recovery Block
+If `DevTool.ps1` is lost, recreate a script that:
+1. Concatenates all `.gd` and `.tscn` (and other first-party text assets) into `_FullProjectContext.txt`
+2. Wraps `git add/commit` and `git reset --hard` into GUI buttons
+
+## 3. Architecture and Standards (Strict)
+
+### File organization
+- `/scenes`: visuals and prefabs
+- `/scripts`: logic
+- `/assets`: raw imports (models, sounds)
+
+### Naming
+- Nodes: PascalCase (example: `ScoreLabel`)
+- Scripts and files: snake_case (example: `game_manager.gd`)
+
+### Design patterns
+- **Signal bus:** Use `GameManager` (Autoload) to pass data between unrelated objects (example: Asteroid â†’ UI)
+- **Composition:** Avoid deep inheritance. Prefer child nodes to add features
+
+### Camera rule
+- **The drone camera** must be top-level or code-spawned
+- It must never be parented to Player
+
+## 4. GDScript Editing and Indentation Policy (Strict)
+
+This project enforces a tabs-only indentation policy for all `.gd` files. Violations are treated as build-breaking errors.
+
+### Rationale
+GDScript is indentation-sensitive. Once a file establishes tab-based indentation, introducing spaces (or mixing tabs and spaces) causes parse errors that are hard to diagnose after the fact. Automated edits are especially prone to this failure.
+
+### Indentation rules
+1. **Tabs only for leading indentation**
+   - All leading indentation in `.gd` files must be literal tab characters
+   - Spaces are forbidden for indentation
+   - Mixed tabs and spaces in leading whitespace are forbidden
+2. **Spaces allowed only after code starts**
+   - Spaces may be used after the first non-whitespace character on a line
+   - Spaces must never appear before the first non-whitespace character
+
+### Tab policy enforcement workflow
+
+This repo treats leading-space indentation in `.gd` files as build-breaking.
+
+#### Required workflow
+1. Before opening Godot, run the indentation gate.
+2. After any automated edit (PowerShell patch, search/replace, generated code), run the indentation gate again.
+3. If the gate fails, normalize indentation, then re-run the gate. Do not launch Godot until clean.
+
+#### Canonical scripts (PowerShell)
+
+Create these scripts in the repo root (or `scripts/` if you prefer). They are the only sanctioned way to normalize and validate indentation.
+
+##### `Normalize-GDScriptIndent.ps1`
+- Converts leading indentation from 4-space groups to literal tabs **only when the leading whitespace is spaces-only and divisible by 4**.
+- **Fails** (exit 1) if it finds mixed tabs+spaces or leading spaces not divisible by 4. This forces manual cleanup so the repo converges to tabs-only.
+- Does not change spaces after the first non-whitespace character.
+
+```powershell
+$bad = @()
+$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
+	$_.FullName -notmatch '\addons\' -and
+	$_.FullName -notmatch '\.godot\' -and
+	$_.FullName -notmatch '\.git\'
+}
+
+foreach ($f in $files) {
+	$path  = $f.FullName
+	$lines = Get-Content $path
+	$fixed = @()
+	for ($i = 0; $i -lt $lines.Count; $i++) {
+		$line = $lines[$i]
+		if ($line -match '^(?<ws>[\t ]+)(?=\S)') {
+			$ws = $Matches.ws
+			$hasTab   = $ws -match "\t"
+			$hasSpace = $ws -match " "
+			if ($hasTab -and $hasSpace) {
+				$bad += "{0}:{1}: Mixed tabs+spaces in leading whitespace" -f $path, ($i + 1)
+				$fixed += $line
+				continue
+			}
+			if ($hasSpace) {
+				$spaces = ($ws -replace "\t", "").Length
+				if (($spaces % 4) -ne 0) {
+					$bad += "{0}:{1}: Leading spaces not divisible by 4" -f $path, ($i + 1)
+					$fixed += $line
+					continue
+				}
+				$tabs = [int]($spaces / 4)
+				$fixed += ("`t" * $tabs) + $line.Substring($ws.Length)
+				continue
+			}
+		}
+		$fixed += $line
+	}
+	Set-Content -Path $path -Value $fixed -Encoding UTF8
+}
+
+if ($bad.Count -gt 0) {
+	"FAIL: Normalize found indentation that cannot be safely auto-fixed:"
+	$bad
+	exit 1
+}
+"OK: Normalize completed with no unsafe indentation found."
+exit 0
+```
+
+##### `Check-GDScriptIndent.ps1`
+- Fails if any non-empty `.gd` line has **any space** in the leading whitespace before code (tabs-only indentation).
+
+```powershell
+$bad = @()
+$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
+	$_.FullName -notmatch '\addons\' -and
+	$_.FullName -notmatch '\.godot\' -and
+	$_.FullName -notmatch '\.git\'
+}
+
+foreach ($f in $files) {
+	Select-String -Path $f.FullName -Pattern '^[\t ]* [\t ]*\S' | ForEach-Object {
+		$bad += "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line
+	}
+}
+
+if ($bad.Count -gt 0) {
+	"FAIL: Found spaces in leading indentation of .gd files:"
+	$bad
+	exit 1
+}
+"OK: Tabs-only indentation verified."
+exit 0
+```
+
+#### How to use
+1. One-time cleanup (or after a large merge):
+   - Run `Normalize-GDScriptIndent.ps1`
+   - Run `Check-GDScriptIndent.ps1` and confirm it passes
+2. Day-to-day:
+   - Run `Check-GDScriptIndent.ps1` before launching Godot
+   - Run `Check-GDScriptIndent.ps1` after any scripted edit
+
+### Editing rules (PowerShell and automation)
+1. **No in-place line edits inside functions**
+   - Automated edits must replace entire function blocks, not partial snippets
+   - Patching individual lines inside an indented block is prohibited
+2. **All generated GDScript must emit tabs explicitly**
+   - PowerShell scripts must emit literal tab characters (`\t`) for indentation
+   - When using double-quoted here-strings, indentation must use `` `t ``
+   - Single-quoted here-strings are discouraged for `.gd` output
+3. **Bounded replacements only**
+   - Replacements must be bounded by:
+     - `func <name>(...)` â†’ next `func` or end-of-file
+   - Blind global replacements inside `.gd` files are forbidden
+
+## 5. Game Definition (Locked)
+
+### Core fantasy
+You are not the hero pilot.
+You are the logistics backbone of a civilization at war.
+
+Your influence is indirect. You shape outcomes by moving goods, scaling fleets, stabilizing supply chains, and starving enemies of resources.
+
+Combat exists to protect trade. Trade exists to win the war.
+
+### Genre
+Single-player, long-horizon space trading and fleet management game with light combat and a persistent galactic conflict.
+
+Inspirational reference points: Endless Sky, Starcom  
+Structural focus: trading-first, fleet-scale decision making.
+
+### Primary loop (Non-negotiable)
+1. Scout markets and routes
+2. Acquire goods (mining, purchase, salvage)
+3. Move goods through contested space
+4. Sell or allocate goods to stations and factions
+5. Reinvest profits into ships, fleets, and infrastructure
+6. Repeat at larger scale under increasing pressure
+
+If a mechanic does not reinforce this loop, it is secondary.
+
+### Progression axes
+A. **Economic scale (primary)**
+- Capital
+- Cargo throughput
+- Market leverage
+- Access to scarce goods and high-impact routes
+
+B. **Fleet control (secondary, differentiating)**
+- Multiple ship roles: traders, miners, escorts, patrols
+- Delegated behavior: routes, objectives, risk tolerance
+- Loss is possible and meaningful
+
+C. **Technology (tertiary)**
+- Unlocks new economic and logistical behaviors
+- Military tech is an enabler, not the end goal
+
+### The war (Framing constraint)
+The war is a systemic pressure, not a narrative RPG.
+- Two sides: human civilization vs an aggressive alien force
+- The war advances regardless of player action
+- Player influence is expressed through supply, logistics, and economic stabilization
+- No chosen one narrative
+
+If the player stops trading, the war continues and goes badly.
+
+### Run structure
+- Endless, evolving sandbox
+- No hard win or game over state
+- Major inflection points and regional outcomes exist
+- The universe reacts, but does not conclude
+
+### Pressure and failure
+At least two of the following must always apply:
+- Escalating external threats (pirates, incursions)
+- Capital risk (ship loss, sunk cost, opportunity loss)
+- Strategic time pressure (markets and war state evolve)
+
+Fleet management must involve real risk, not just optimization.
+
+### Design invariants
+- Trade dominance is the primary source of power
+- Logistics beats tactics
+- Determinism over spectacle
+- Systems over scripts
+- Player agency through scale, not micromanagement
+
+### Explicit non-goals
+- No realtime multiplayer
+- No live-service mechanics
+- No narrative-heavy branching RPG
+- No crew simulation
+- No high-fidelity physics
+- No tactical fleet combat micromanagement
+
+## 6. Technology and Strategic Influence (Locked Principles)
+
+### Technology structure
+Technology progression is a directed acyclic graph (DAG), not a strict tree.
+- Each node may have multiple prerequisites
+- Prerequisites may span multiple domains
+- Cycles are not allowed
+- Unlock logic must be deterministic and testable
+
+Purpose: multiple viable pathways to similar capabilities, reflecting strategic choices rather than linear progression.
+
+### Technology domains
+- Trade and logistics (primary)
+- Fleet operations
+- Mining and extraction
+- Industry and manufacturing
+- Defense and combat
+- Intelligence and espionage
+
+Domains exist to enforce design constraints, not to silo systems.
+
+### Cross-domain governance rules
+- A technology node may have at most 2 cross-domain prerequisites
+- Any combat-domain tech must require at least 1 prerequisite from:
+  - Trade and logistics, or
+  - Fleet operations
+- Trade and logistics tech may never require combat prerequisites
+
+### Unlock vectors
+1. **Economic contribution**
+   - Credits accumulated
+   - Goods delivered
+   - Sustained trade volume
+2. **Strategic support**
+   - Supplying specific regions or fronts
+   - Maintaining logistics under pressure
+   - Stabilizing critical systems
+3. **Intelligence actions**
+   - Espionage investments
+   - Information acquisition
+   - Long-horizon, probabilistic outcomes
+
+Unlock conditions may combine vectors, but must be expressible as explicit rules.
+
+### Regional and faction specialization
+Some technologies are contextually unlocked:
+- Certain regions or factions enable specialized tech paths
+- Access is earned through sustained logistical or strategic support
+- These unlocks reflect capability transfer, not allegiance or narrative choice
+
+Access may be global once unlocked or restricted by context, but must be explicit per node.
+
+### Espionage system boundary
+Espionage is a strategic, abstract system:
+- Player commits resources
+- Time passes
+- Outcomes are uncertain but bounded
+- Results unlock information, tech access, or economic advantages
+
+Espionage does not involve tactical gameplay, character control, or stealth mechanics.
+
+### Technology effects
+Technology unlocks grant capabilities, not narrative rewards.
+Examples:
+- New ship behaviors
+- New fleet-level automation
+- Access to new goods or manufacturing
+- Improved routing, sensing, or risk mitigation
+
+Technologies should enable new economic behaviors, not just numeric stat boosts.
+
+## 7. Information Flow and Player Knowledge (Locked Principles)
+
+Information is incomplete, delayed, and unevenly distributed.
+Perfect knowledge is never assumed. Improving information quality is a core axis of progression.
+
+### Baseline visibility
+At any moment, the player has access to:
+- Confirmed information about:
+  - Their own assets (ships, fleets, cargo, credits)
+  - Locations and status of owned fleets
+- Partial or delayed information about:
+  - Market prices outside visited regions
+  - Route safety and threat levels
+  - War state beyond nearby fronts
+
+Unvisited or unsupported regions are opaque by default.
+
+### Discovery and first contact
+The player ship is the primary tool for initial information acquisition.
+- New stations, regions, and factions require physical presence to:
+  - Reveal market structure
+  - Establish trade access
+  - Unlock regional information flow
+- Fleets cannot operate autonomously in unknown regions until discovery is complete
+
+### Information delay and uncertainty
+Information degrades with distance, time, and lack of infrastructure.
+Delays are intentional and legible.
+The player should understand:
+- What is known
+- What is estimated
+- What is unknown
+
+### Improving information quality
+Information quality improves through:
+- Sustained trade and presence in a region
+- Intelligence or sensor technologies
+- Espionage investments
+- Infrastructure (relay stations, hubs, etc.)
+
+Higher quality reduces variance and delay, but never eliminates uncertainty.
+
+### Feedback and causality
+Outcomes must be explainable, even when uncertain.
+When events occur, the player should be able to trace them to:
+- Known risks
+- Incomplete information
+- Strategic choices
+
+Surprise is acceptable. Confusion is not.
+
+### War state visibility
+The galactic war is visible only in aggregate:
+- Frontline movement
+- Regional instability
+- Supply shortages
+
+The player does not see tactical details, only logistical consequences.
+
+### Relationship to automation
+Automation does not grant perfect information.
+- Automated fleets operate on available data
+- Poor information leads to suboptimal execution
+- Better intelligence improves automation outcomes
+
+## 8. Work Orders and Economic Flow (Locked Principles)
+
+All non-player-ship activity is expressed through a single abstraction: work orders.
+A work order is an ongoing or time-bound directive assigned to a fleet.
+
+### Types of work orders
+1. **Route orders (persistent)**
+   - Player-defined
+   - Long-term trade or supply infrastructure
+   - Execute continuously until modified or cancelled
+2. **Contract orders (temporary)**
+   - Generated by the world based on economic and war conditions
+   - Time-bound and situational
+   - Shortages, emergencies, opportunities, strategic needs
+3. **Special orders (strategic)**
+   - Unlocked via technology or intelligence
+   - Recon, covert delivery, strategic intervention
+   - Often high-risk and high-impact
+
+### Order definition
+A work order defines:
+- Objective (deliver, mine, patrol, escort, recon)
+- Origin and destination or operating region
+- Duration (persistent, fixed-term, one-off)
+- Priority and urgency
+- Risk tolerance
+- Expected outcome (explicit or estimated)
+
+Orders are evaluated continuously against available information and conditions.
+
+### Economic flow and world reaction
+The world reacts to work orders.
+- Sustained routes stabilize regions and markets
+- Ignored contracts worsen shortages or instability
+- War pressure alters contract urgency and mix
+- Player infrastructure influences what opportunities appear
+
+### Player interaction model
+- Early: player personally executes work orders via their ship
+- Mid: fleets execute orders under player direction
+- Late: player orchestrates multiple overlapping orders at scale
+
+## 9. Early Game Contract and Player Authority (Locked Principles)
+
+### Early game contract (First 60 to 90 minutes)
+Purpose: establish trust, tension, and legibility.
+- Player controls a single ship
+- Limited early space
+- Markets are fragile, visible, and reactive
+- Losses are survivable but instructive
+
+Player must personally:
+- Discover locations
+- Make first contact
+- Execute initial trades and deliveries
+- Observe cause and effect between trade actions and world state
+
+### Transition to delegation
+Delegation is earned:
+- Fleet control unlocks only after core economic actions are executed personally
+- Early fleets are limited in scope and autonomy
+- Automation quality starts poor and visibly imperfect
+
+### Player authority and intervention
+Player may:
+- Personally execute or override critical work orders
+- Intervene in high-risk or high-impact situations
+- Act as discovery and crisis-response asset
+
+Player may not:
+- Micromanage routine execution
+- Override outcomes after commitments are made
+- Eliminate risk through manual control
+
+Authority is situational and strategic.
+
+### Failure semantics
+Failure is informative, not punitive:
+- Failed routes create shortages, instability, or opportunity elsewhere
+- Ignored contracts escalate pressure rather than ending the game
+- Lost fleets alter the landscape but do not invalidate progress
+
+<<< END FILE >>>
+
+<<< BEGIN FILE >>>
+index: 5
+path: _PROJECT_CONTEXT_old.md
 bytes: 13457
 sha256: BC52C468D774F45379DB76213300627288C3CF2AF253F1A3004B372EADCCFD27
 <<< CONTENT >>>
@@ -54372,7 +54846,7 @@ Failure is informative, not punitive:
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 5
+index: 6
 path: DevTool - Copy.ps1
 bytes: 7502
 sha256: 722D8AA673A8F6C54081D8840232136D8DCE0DE95CAF4593695C277CF4769776
@@ -54605,7 +55079,7 @@ $form.Add_Shown({ $form.Activate() })
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 6
+index: 7
 path: DevTool.ps1
 bytes: 19105
 sha256: 95954056E9EB5BF7509D9627A705DBA882A3A84A1993742D8A6DD0FBFE81135C
@@ -55146,7 +55620,7 @@ $form.Add_Shown({
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 7
+index: 8
 path: godot_path.cfg
 bytes: 40
 sha256: E260C63C14FB82B4D261960EE192BF1A27598566F46C6CF7564B2AE3AA48D531
@@ -55156,7 +55630,7 @@ C:\Godot\Godot_v4.5.1-stable_win64.exe
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 8
+index: 9
 path: project.godot
 bytes: 564
 sha256: 7A475CFE7104C5993AA3BF112E9EFECA56E3C41EE442ACA35DEF590078E5DCDC
@@ -55190,7 +55664,7 @@ enabled=PackedStringArray()
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 9
+index: 10
 path: resources\commodities\gold.tres
 bytes: 290
 sha256: 50DEAEFB7C2B99198250799B34F2746A4C0EA981EAD13381ABAF173D3D775E1E
@@ -55210,7 +55684,7 @@ is_contraband = false
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 10
+index: 11
 path: resources\commodities\iron.tres
 bytes: 313
 sha256: 1FDFEAC3F509FCDF42B22C5FE3A57EB3FB603952B2CAB4C0E75A58C94CA2F593
@@ -55230,7 +55704,7 @@ is_contraband = false
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 11
+index: 12
 path: resources\markets\station_alpha_profile.tres
 bytes: 539
 sha256: 76C4EE379432A2F15FA08808D1F1A454EF6500720E229FFCED4CE299D6E6F639
@@ -55251,7 +55725,7 @@ base_demands = {"ore_iron": 80, "ore_gold": 180}
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 12
+index: 13
 path: resources\markets\station_beta_profile.tres
 bytes: 538
 sha256: D95003C0FF7B25DDEB17B1584B626A2CDE2A4B0C99F256273777DE1CD14144F0
@@ -55272,7 +55746,7 @@ base_demands = {"ore_iron": 200, "ore_gold": 60}
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 13
+index: 14
 path: scenes\asteroid.tscn
 bytes: 820
 sha256: 7497CB978E11CFE2F4EAECBE445546975CEA6EA1F2FD8186A4D44BA6D4444ED1
@@ -55306,7 +55780,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_grey")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 14
+index: 15
 path: scenes\bullet.tscn
 bytes: 807
 sha256: 833770F44501088845389E358440EF4FBE0327B000D49427AF1B6D64503FA8B9
@@ -55340,7 +55814,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_red")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 15
+index: 16
 path: scenes\enemy.tscn
 bytes: 1206
 sha256: 1915F48856F12284F778562CA2944F59ABE180D2C6F59678846397420C1A7A26
@@ -55384,15 +55858,16 @@ surface_material_override/0 = SubResource("StandardMaterial3D_black")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 16
+index: 17
 path: scenes\main.tscn
-bytes: 2525
-sha256: B5D99D3565E20288B462A1321BE6EBBDFBED3DC53C7312ED07299FAF2E4BC713
+bytes: 2634
+sha256: 4767561E22A58CA21DC44C3346C85EA93FD9F902665DF2821BE5D06E632A300C
 <<< CONTENT >>>
-[gd_scene load_steps=9 format=3 uid="uid://b8j24k1n5q2x"]
+[gd_scene load_steps=12 format=3 uid="uid://b8j24k1n5q2x"]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_0wfyh"]
 [ext_resource type="PackedScene" path="res://scenes/station.tscn" id="3_sugp2"]
+[ext_resource type="Script" uid="uid://chlyl62n0yyfl" path="res://scripts/resources/trade_good.gd" id="3_tipki"]
 [ext_resource type="PackedScene" path="res://scenes/asteroid.tscn" id="4_asteroid"]
 [ext_resource type="PackedScene" path="res://scenes/ui_hud.tscn" id="4_jyhfs"]
 [ext_resource type="Script" uid="uid://cdth7i21ieed5" path="res://scripts/spawner.gd" id="5_tbgi4"]
@@ -55429,12 +55904,15 @@ mesh = SubResource("PlaneMesh_floor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
 
 [node name="Player" parent="." instance=ExtResource("2_0wfyh")]
+trade_goods = Array[ExtResource("3_tipki")]([])
 
 [node name="Station" parent="." instance=ExtResource("3_sugp2")]
-
-market_profile = ExtResource("98_alpha_profile")
-local_supply = {"ore_iron": 120, "ore_gold": 15}
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825881)
+market_profile = ExtResource("98_alpha_profile")
+local_supply = {
+"ore_gold": 15,
+"ore_iron": 120
+}
 
 [node name="HUD" parent="." instance=ExtResource("4_jyhfs")]
 
@@ -55443,15 +55921,17 @@ script = ExtResource("5_tbgi4")
 asteroid_scene = ExtResource("4_asteroid")
 
 [node name="StationBeta" parent="." instance=ExtResource("3_sugp2")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.0, 0.9, 18.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.9, 18)
 market_profile = ExtResource("99_beta_profile")
-local_supply = {"ore_iron": 25, "ore_gold": 140}
-
+local_supply = {
+"ore_gold": 140,
+"ore_iron": 25
+}
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 17
+index: 18
 path: scenes\player.tscn
 bytes: 1365
 sha256: DF95A3B1F4FAD89DD75C2F10266A93C324714372AF27B0F64BA774BDA256E50C
@@ -55495,7 +55975,7 @@ rotation = Vector3(-0.35, 0, 0)
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 18
+index: 19
 path: scenes\station.tscn
 bytes: 763
 sha256: 42AE952D456EF86A598C59B005BF0DCA02ED89BAA835D4D9B32CE3079EF57A4A
@@ -55527,7 +56007,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_green")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 19
+index: 20
 path: scenes\tests\test_economy_core.tscn
 bytes: 218
 sha256: 80A54139698AE93EA99B0CA38B7A22C9D962F733F4C246C37401D6DAE83EEBFB
@@ -55542,7 +56022,7 @@ script = ExtResource("1_test")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 20
+index: 21
 path: scenes\tests\test_galaxy_core.tscn
 bytes: 222
 sha256: A152414BB595AFCA06622DB308CF17805EB7A4E69DC8937C8A0C43AD871C8992
@@ -55557,7 +56037,7 @@ script = ExtResource("1_testgal")
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 21
+index: 22
 path: scenes\ui_hud.tscn
 bytes: 4486
 sha256: EC03CA02CCA3FE5534CC933630A2921A63E108B5F371E2750E816250C372B1A3
@@ -55726,10 +56206,10 @@ layout_mode = 2
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 22
+index: 23
 path: scripts\asteroid.gd
-bytes: 1466
-sha256: 8A04EB65B62533AFF33CFE9A52264548294CB2266395D51D94F22BDE682568D9
+bytes: 1351
+sha256: 90A17A75CBB3445F2BC7560EFDE7BD649476BB98AEE63606E92FBCFB86F78AD6
 <<< CONTENT >>>
 extends StaticBody3D
 
@@ -55738,46 +56218,46 @@ extends StaticBody3D
 @export var health: int = 3
 
 func take_damage(amount: int):
-    health -= amount
-    print("[TARGET] Asteroid Hit! Health: %s" % health)
-    
-    # Flash Effect (Optional - just creates a visual pop)
-    var mesh = $MeshInstance3D
-    if mesh:
-        var tween = create_tween()
-        tween.tween_property(mesh, "scale", Vector3(1.2, 1.2, 1.2), 0.05)
-        tween.tween_property(mesh, "scale", Vector3(1.0, 1.0, 1.0), 0.05)
+	health -= amount
+	print("[TARGET] Asteroid Hit! Health: %s" % health)
+	
+	# Flash Effect (Optional - just creates a visual pop)
+	var mesh = $MeshInstance3D
+	if mesh:
+		var tween = create_tween()
+		tween.tween_property(mesh, "scale", Vector3(1.2, 1.2, 1.2), 0.05)
+		tween.tween_property(mesh, "scale", Vector3(1.0, 1.0, 1.0), 0.05)
 
-    if health <= 0:
-        explode()
+	if health <= 0:
+		explode()
 
 func explode():
-    print("[TARGET] Asteroid Destroyed! Yield: %s x%s" % [resource_type, resource_amount])
-    
-    # Give Loot to Player (Simplification: Auto-collect)
-    # In a full game, we would spawn floating items.
-    var player = get_tree().get_first_node_in_group("Player")
-    if player:
-        # Check if player has space (using the API we built earlier)
-        # Note: We need to ensure 'add_cargo' exists in player.gd or use direct dict access
-        if player.has_method("add_cargo"):
-            player.add_cargo(resource_type, resource_amount)
-        else:
-            # Fallback if add_cargo helper is missing
-            if not player.cargo.has(resource_type): player.cargo[resource_type] = 0
-            player.cargo[resource_type] += resource_amount
-            # Force UI Update
-            player._update_ui_state() 
-            
-    queue_free() # Delete the rock
+	print("[TARGET] Asteroid Destroyed! Yield: %s x%s" % [resource_type, resource_amount])
+	
+	# Give Loot to Player (Simplification: Auto-collect)
+	# In a full game, we would spawn floating items.
+	var player = get_tree().get_first_node_in_group("Player")
+	if player:
+		# Check if player has space (using the API we built earlier)
+		# Note: We need to ensure 'add_cargo' exists in player.gd or use direct dict access
+		if player.has_method("add_cargo"):
+			player.add_cargo(resource_type, resource_amount)
+		else:
+			# Fallback if add_cargo helper is missing
+			if not player.cargo.has(resource_type): player.cargo[resource_type] = 0
+			player.cargo[resource_type] += resource_amount
+			# Force UI Update
+			player._update_ui_state() 
+			
+	queue_free() # Delete the rock
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 23
+index: 24
 path: scripts\bullet.gd
-bytes: 916
-sha256: A4B39A0C8D71D0AE74ED9993CD3707520D5ED4FC2DCF8F434BC6676BCCBCA2F6
+bytes: 927
+sha256: 44C073F60CE85F3788757DCCEC073FDDE8E0676A91AA6D2AD2D809648FA48A93
 <<< CONTENT >>>
 extends Area3D
 
@@ -55818,10 +56298,32 @@ func _on_body_entered(body):
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 24
+index: 25
+path: scripts\check_tabs.ps1
+bytes: 356
+sha256: EB892226D0B12166A376FA78E346A211F93B6BEFA1652483380D04BD611A3C00
+<<< CONTENT >>>
+$bad = @()
+Get-ChildItem .\scripts -Recurse -File -Filter *.gd | ForEach-Object {
+Select-String -Path $_.FullName -Pattern '^( +)\S' | ForEach-Object {
+$bad += "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line
+}
+}
+if ($bad.Count -gt 0) {
+"FAIL: Found leading-space indentation in .gd files:"
+$bad
+exit 1
+}
+"OK: No leading-space indentation found."
+exit 0
+
+<<< END FILE >>>
+
+<<< BEGIN FILE >>>
+index: 26
 path: scripts\core\economy_engine.gd
-bytes: 946
-sha256: F914951A8C925F1D4B14534016E6E41B7FCF6B3CF16D5AD7AB810ECDC5AE6AE1
+bytes: 926
+sha256: 12CD8515AE986EBD68F8329BFE12E1607394EDB0E0B417087A15E8F682087E4E
 <<< CONTENT >>>
 extends RefCounted
 class_name EconomyEngine
@@ -55830,30 +56332,30 @@ const MINIMUM_PRICE = 1
 
 # Note: 'good' is typed as Resource to prevent headless dependency errors
 static func calculate_price(good: Resource, local_supply: int, base_demand: int) -> int:
-    # MVP Algorithm: Simple Scarcity
-    # We access properties dynamically
-    var base = good.get("base_price")
-    if base == null:
-        base = 10 # Fallback
-        
-    var scarcity_factor = float(base_demand) / max(1.0, float(local_supply))
-    var final_price = int(base * scarcity_factor)
-    return max(final_price, MINIMUM_PRICE)
+	# MVP Algorithm: Simple Scarcity
+	# We access properties dynamically
+	var base = good.get("base_price")
+	if base == null:
+		base = 10 # Fallback
+		
+	var scarcity_factor = float(base_demand) / max(1.0, float(local_supply))
+	var final_price = int(base * scarcity_factor)
+	return max(final_price, MINIMUM_PRICE)
 
 static func can_afford(wallet_balance: int, price_per_unit: int, quantity: int) -> bool:
-    return wallet_balance >= (price_per_unit * quantity)
+	return wallet_balance >= (price_per_unit * quantity)
 
 static func has_cargo_space(current_volume: float, max_volume: float, item_volume: float, quantity: int) -> bool:
-    var required_space = item_volume * quantity
-    return (current_volume + required_space) <= max_volume
+	var required_space = item_volume * quantity
+	return (current_volume + required_space) <= max_volume
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 25
+index: 27
 path: scripts\core\galaxy_graph.gd
-bytes: 1490
-sha256: 6B9ACBA0472711035D0EA2DBFAE9833B6F8034DCDD7BB9141DB5464D86C851DA
+bytes: 1333
+sha256: 78EDAF3DF38D452E1AD63DB4CA8CB416349534D6F5CE7244E8B76427A875A4CF
 <<< CONTENT >>>
 extends RefCounted
 class_name GalaxyGraph
@@ -55862,55 +56364,55 @@ class_name GalaxyGraph
 var sectors: Dictionary = {} # { "id": Sector }
 
 func add_sector(sec: Resource):
-    sectors[sec.id] = sec
+	sectors[sec.id] = sec
 
 func connect_sectors(id_a: String, id_b: String):
-    if sectors.has(id_a) and sectors.has(id_b):
-        sectors[id_a].connect_to(id_b)
-        sectors[id_b].connect_to(id_a) # Bidirectional Jump Gate
+	if sectors.has(id_a) and sectors.has(id_b):
+		sectors[id_a].connect_to(id_b)
+		sectors[id_b].connect_to(id_a) # Bidirectional Jump Gate
 
 # BFS Pathfinding: Returns list of IDs [start, ... , end]
 func get_route(start_id: String, end_id: String) -> Array:
-    if start_id == end_id: return [start_id]
-    
-    var queue = []
-    var visited = { start_id: true }
-    var parents = {} # To reconstruct path
-    
-    queue.append(start_id)
-    
-    while queue.size() > 0:
-        var current = queue.pop_front()
-        
-        if current == end_id:
-            return _reconstruct_path(parents, start_id, end_id)
-            
-        var current_sector = sectors.get(current)
-        if current_sector:
-            for neighbor in current_sector.connected_ids:
-                if not visited.has(neighbor):
-                    visited[neighbor] = true
-                    parents[neighbor] = current
-                    queue.append(neighbor)
-                    
-    return [] # No path found
+	if start_id == end_id: return [start_id]
+	
+	var queue = []
+	var visited = { start_id: true }
+	var parents = {} # To reconstruct path
+	
+	queue.append(start_id)
+	
+	while queue.size() > 0:
+		var current = queue.pop_front()
+		
+		if current == end_id:
+			return _reconstruct_path(parents, start_id, end_id)
+			
+		var current_sector = sectors.get(current)
+		if current_sector:
+			for neighbor in current_sector.connected_ids:
+				if not visited.has(neighbor):
+					visited[neighbor] = true
+					parents[neighbor] = current
+					queue.append(neighbor)
+					
+	return [] # No path found
 
 func _reconstruct_path(parents: Dictionary, start: String, end: String) -> Array:
-    var path = []
-    var curr = end
-    while curr != start:
-        path.push_front(curr)
-        curr = parents[curr]
-    path.push_front(start)
-    return path
+	var path = []
+	var curr = end
+	while curr != start:
+		path.push_front(curr)
+		curr = parents[curr]
+	path.push_front(start)
+	return path
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 26
+index: 28
 path: scripts\debug\camera_follow.gd
-bytes: 864
-sha256: 536FAB2A38C25D83E18B29EAFACD38F3E844472D49C81A88BCA7E0382B9800BE
+bytes: 894
+sha256: 38C763B22A8937DB56FA49F71BD91C6B183B37EAF10E17B06B974095FAB6158E
 <<< CONTENT >>>
 extends Camera3D
 
@@ -55946,10 +56448,10 @@ func _physics_process(_delta):
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 27
+index: 29
 path: scripts\enemy.gd
-bytes: 1392
-sha256: 14C7B3F64274ACC7C0DC14D499043E30B4CFCBAE87869E0E02543B75E1068A8F
+bytes: 1451
+sha256: F66144978F616F654A309DA7B79B948A1120CA60A6BAA1D83286DB42CEED3A76
 <<< CONTENT >>>
 extends CharacterBody3D
 
@@ -56014,10 +56516,10 @@ func _die():
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 28
+index: 30
 path: scripts\hud.gd
-bytes: 4438
-sha256: 584C7D4DB9CE5B7914A2E1BF90B4BC06A57DB670FB85585D9C22B3C11D6304C3
+bytes: 4405
+sha256: 016B3C760CDAC1017DF15600476622514EDB4A31A0D176DB11C0A9482E745B30
 <<< CONTENT >>>
 extends CanvasLayer
 
@@ -56041,116 +56543,126 @@ var player_ref = null
 var current_station = null
 
 func _ready():
-    shop_panel.visible = false
-    btn_sell.pressed.connect(_on_sell_all)
-    btn_speed.pressed.connect(_on_buy_speed)
-    btn_weapon.pressed.connect(_on_buy_weapon)
-    btn_close.pressed.connect(_on_close_shop)
+	shop_panel.visible = false
+	btn_sell.pressed.connect(_on_sell_all)
+	btn_speed.pressed.connect(_on_buy_speed)
+	btn_weapon.pressed.connect(_on_buy_weapon)
+	btn_close.pressed.connect(_on_close_shop)
 
-    if btn_buy_iron:
-        btn_buy_iron.pressed.connect(_on_buy_iron)
-    if btn_buy_gold:
-        btn_buy_gold.pressed.connect(_on_buy_gold)
+	if btn_buy_iron:
+		btn_buy_iron.pressed.connect(_on_buy_iron)
+	if btn_buy_gold:
+		btn_buy_gold.pressed.connect(_on_buy_gold)
 
-    _find_player()
+	_find_player()
 
 func _find_player():
-    var player = get_tree().get_first_node_in_group("Player")
-    if player:
-        player_ref = player
-        player.credits_updated.connect(_on_credits_updated)
-        player.cargo_updated.connect(_on_cargo_updated)
-        player.health_updated.connect(_on_health_updated)
-        player.fuel_updated.connect(_on_fuel_updated)
-        player.shop_toggled.connect(_on_shop_toggled)
+	var player = get_tree().get_first_node_in_group("Player")
+	if player:
+		player_ref = player
+		player.credits_updated.connect(_on_credits_updated)
+		player.cargo_updated.connect(_on_cargo_updated)
+		player.health_updated.connect(_on_health_updated)
+		player.fuel_updated.connect(_on_fuel_updated)
+		player.shop_toggled.connect(_on_shop_toggled)
 
-        _on_credits_updated(player.credits)
-        _on_cargo_updated(player.cargo)
-        _on_health_updated(player.health, player.max_health)
-        _on_fuel_updated(player.fuel, player.max_fuel)
-    else:
-        await get_tree().create_timer(0.1).timeout
-        _find_player()
+		_on_credits_updated(player.credits)
+		_on_cargo_updated(player.cargo)
+		_on_health_updated(player.health, player.max_health)
+		_on_fuel_updated(player.fuel, player.max_fuel)
+	else:
+		await get_tree().create_timer(0.1).timeout
+		_find_player()
 
 func _on_credits_updated(amount):
-    money_label.text = "CREDITS: $" + str(amount)
+	money_label.text = "CREDITS: $" + str(amount)
 
 func _on_health_updated(current, max_val):
-    if health_bar:
-        health_bar.max_value = max_val
-        health_bar.value = current
+	if health_bar:
+		health_bar.max_value = max_val
+		health_bar.value = current
 
 func _on_fuel_updated(current, max_val):
-    if fuel_bar:
-        fuel_bar.max_value = max_val
-        fuel_bar.value = current
+	if fuel_bar:
+		fuel_bar.max_value = max_val
+		fuel_bar.value = current
 
 func _on_cargo_updated(manifest):
-    var text = "CARGO: "
-    if manifest.is_empty():
-        text += "Empty"
-    else:
-        for item in manifest:
-            text += "%s(%s) " % [item.replace("ore_", "").capitalize(), manifest[item]]
-    cargo_label.text = text
+	var text = "CARGO: "
+	if manifest.is_empty():
+		text += "Empty"
+	else:
+		for item in manifest:
+			text += "%s(%s) " % [item.replace("ore_", "").capitalize(), manifest[item]]
+	cargo_label.text = text
 
 func _on_shop_toggled(is_open, station_ref):
-    shop_panel.visible = is_open
-    current_station = station_ref
-    if is_open:
-        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-        _update_ticker()
-    else:
-        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	shop_panel.visible = is_open
+	current_station = station_ref
+	if is_open:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_update_ticker()
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _update_ticker():
-    if not current_station:
-        return
-    var iron_ask = current_station.get_ask_price("ore_iron")
-    var iron_bid = current_station.get_bid_price("ore_iron")
-    var gold_ask = current_station.get_ask_price("ore_gold")
-    var gold_bid = current_station.get_bid_price("ore_gold")
-    market_ticker.text = "IRON: BUY $" + str(iron_ask) + " | SELL $" + str(iron_bid) + "   GOLD: BUY $" + str(gold_ask) + " | SELL $" + str(gold_bid)
+	if not current_station:
+		return
+	var iron_ask = current_station.get_ask_price("ore_iron")
+	var iron_bid = current_station.get_bid_price("ore_iron")
+	var gold_ask = current_station.get_ask_price("ore_gold")
+	var gold_bid = current_station.get_bid_price("ore_gold")
+	market_ticker.text = "IRON: BUY $" + str(iron_ask) + " | SELL $" + str(iron_bid) + "   GOLD: BUY $" + str(gold_ask) + " | SELL $" + str(gold_bid)
 
 func _on_sell_all():
-    if not player_ref or not current_station:
-        return
-    var manifest = player_ref.cargo.duplicate()
-    for item in manifest:
-        current_station.sell_cargo(player_ref, item, int(manifest[item]))
-    _update_ticker()
+	if not player_ref or not current_station:
+		return
+	var manifest = player_ref.cargo.duplicate()
+	for item in manifest:
+		current_station.sell_cargo(player_ref, item, int(manifest[item]))
+	_update_ticker()
 
 func _on_buy_iron():
-    if not player_ref or not current_station:
-        return
-    current_station.buy_cargo(player_ref, "ore_iron", 1)
-    _update_ticker()
+	if not player_ref or not current_station:
+		return
+	current_station.buy_cargo(player_ref, "ore_iron", 1)
+	_update_ticker()
 
 func _on_buy_gold():
-    if not player_ref or not current_station:
-        return
-    current_station.buy_cargo(player_ref, "ore_gold", 1)
-    _update_ticker()
+	if not player_ref or not current_station:
+		return
+	current_station.buy_cargo(player_ref, "ore_gold", 1)
+	_update_ticker()
 
 func _on_buy_speed():
-    if player_ref:
-        player_ref.purchase_upgrade("speed", 200)
+	if player_ref:
+		player_ref.purchase_upgrade("speed", 200)
 
 func _on_buy_weapon():
-    if player_ref:
-        player_ref.purchase_upgrade("weapon", 500)
+	if player_ref:
+		player_ref.purchase_upgrade("weapon", 500)
 
 func _on_close_shop():
-    if player_ref:
-        player_ref.undock()
+	if player_ref:
+		player_ref.undock()
+
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 29
+index: 31
 path: scripts\player.gd
-bytes: 5054
-sha256: FFCCB78B4FDEFF162F2CD124580506724E621B045CA31E7349083CEF14C32C97
+bytes: 5030
+sha256: 3D6D6C2AE24DCBA2EB5A3F9A8D22FC19AE61E65D2A2D1B5BFBDB7BA190492339
 <<< CONTENT >>>
 extends CharacterBody3D
 
@@ -56199,7 +56711,6 @@ var _goods_by_id: Dictionary = {}
 
 func _ready():
 	add_to_group("Player")
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	health = max_health
 	fuel = max_fuel
 
@@ -56333,10 +56844,10 @@ func take_damage(amount: int):
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 30
+index: 32
 path: scripts\resources\market_profile.gd
-bytes: 262
-sha256: 7FABB9BD4EC0CDD59F0C5762A8A3E3A7AC20260C7AEAA5D6E49A76209F69C8EE
+bytes: 270
+sha256: DCA9145D363B3FDC99BEE6C37B0FEBC6D43B10F22C55ED94A3DAEA79FD3D13B2
 <<< CONTENT >>>
 extends Resource
 class_name MarketProfile
@@ -56351,10 +56862,10 @@ class_name MarketProfile
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 31
+index: 33
 path: scripts\resources\sector.gd
-bytes: 379
-sha256: 8D6870C504B81B8DA0645080A994010D2B970F32E6EA164146F1560DC663F3D9
+bytes: 380
+sha256: 9F9F0D90C64DB9214357967B1C938007212B45684B6D34FE103A418AC2B6F687
 <<< CONTENT >>>
 extends Resource
 class_name Sector
@@ -56365,16 +56876,16 @@ class_name Sector
 @export var connected_ids: Array = [] # List of Strings (IDs of neighbors)
 
 func connect_to(other_id: String):
-    if not connected_ids.has(other_id):
-        connected_ids.append(other_id)
+	if not connected_ids.has(other_id):
+		connected_ids.append(other_id)
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 32
+index: 34
 path: scripts\resources\trade_good.gd
-bytes: 203
-sha256: 9F857AAFD54F94955C5062AFF3F9EBE67448BA1EEDA2C1121E7124F83FAD1B3C
+bytes: 210
+sha256: FC4FE244882E2E70D6E35D423B493349C2E7850422921264A9788627E04FFC40
 <<< CONTENT >>>
 extends Resource
 class_name TradeGood
@@ -56388,10 +56899,10 @@ class_name TradeGood
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 33
+index: 35
 path: scripts\spawner.gd
-bytes: 1323
-sha256: B0FE66F1D1FE7A74DBD0AB802BDA8F85F39D811692B9CE294B46B572FDA3DF1F
+bytes: 1195
+sha256: D6B5DEC49630C71E32C646606D6F1E88E4D90D56D173BFA2929BE6D5AABAD578
 <<< CONTENT >>>
 extends Node3D
 
@@ -56402,81 +56913,81 @@ extends Node3D
 @export var threat_level: float = 0.1 # 10% chance
 
 func _ready():
-    # Load enemy scene dynamically if not assigned in Inspector
-    if not enemy_scene:
-        enemy_scene = load("res://scenes/enemy.tscn")
-    
-    if not asteroid_scene:
-        print("ERROR: No Asteroid Scene assigned!")
-        return
-        
-    print("[SYSTEM] GENERATING SECTOR: Threat Level %s" % threat_level)
-    _generate_field()
+	# Load enemy scene dynamically if not assigned in Inspector
+	if not enemy_scene:
+		enemy_scene = load("res://scenes/enemy.tscn")
+	
+	if not asteroid_scene:
+		print("ERROR: No Asteroid Scene assigned!")
+		return
+		
+	print("[SYSTEM] GENERATING SECTOR: Threat Level %s" % threat_level)
+	_generate_field()
 
 func _generate_field():
-    var rng = RandomNumberGenerator.new()
-    rng.randomize()
-    
-    for i in range(asteroid_count):
-        var obj = null
-        
-        # Roll the dice: Enemy or Rock?
-        if rng.randf() < threat_level:
-            obj = enemy_scene.instantiate()
-        else:
-            obj = asteroid_scene.instantiate()
-        
-        # Position Logic
-        var x = rng.randf_range(-field_radius, field_radius)
-        var z = rng.randf_range(-field_radius, field_radius)
-        if abs(x) < 20 and abs(z) < 20: x += 40 # Clear zone
-        
-        obj.position = Vector3(x, 0, z)
-        obj.rotation.y = rng.randf_range(0, 6.28)
-        
-        add_child(obj)
-        
-    print("[SYSTEM] SECTOR POPULATED.")
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	
+	for i in range(asteroid_count):
+		var obj = null
+		
+		# Roll the dice: Enemy or Rock?
+		if rng.randf() < threat_level:
+			obj = enemy_scene.instantiate()
+		else:
+			obj = asteroid_scene.instantiate()
+		
+		# Position Logic
+		var x = rng.randf_range(-field_radius, field_radius)
+		var z = rng.randf_range(-field_radius, field_radius)
+		if abs(x) < 20 and abs(z) < 20: x += 40 # Clear zone
+		
+		obj.position = Vector3(x, 0, z)
+		obj.rotation.y = rng.randf_range(0, 6.28)
+		
+		add_child(obj)
+		
+	print("[SYSTEM] SECTOR POPULATED.")
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 34
+index: 36
 path: scripts\starfield.gd
-bytes: 803
-sha256: 18DAEC80B0BC93C274C7EFEC032D5AFCD224802062736B21CF6F5C7385CD82B9
+bytes: 692
+sha256: 413BF4FFFFFB235EA27F317D970606B49A75FA123CB2D44A349526319596FD9F
 <<< CONTENT >>>
 extends Node3D
 
 func _ready():
-    var rng = RandomNumberGenerator.new()
-    # Create 500 stars for density
-    for i in range(500):
-        var star = MeshInstance3D.new()
-        star.mesh = BoxMesh.new()
-        star.mesh.size = Vector3(0.8, 0.8, 0.8) # Large enough to see
-        
-        # Create a glowing material
-        var mat = StandardMaterial3D.new()
-        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        mat.albedo_color = Color(1, 1, 1) # Pure White
-        star.mesh.material = mat
-        
-        # Spread them out WIDE
-        var x = rng.randf_range(-300, 300)
-        var z = rng.randf_range(-300, 300)
-        var y = rng.randf_range(-40, -100) # Deep below player
-        
-        star.position = Vector3(x, y, z)
-        add_child(star)
+	var rng = RandomNumberGenerator.new()
+	# Create 500 stars for density
+	for i in range(500):
+		var star = MeshInstance3D.new()
+		star.mesh = BoxMesh.new()
+		star.mesh.size = Vector3(0.8, 0.8, 0.8) # Large enough to see
+		
+		# Create a glowing material
+		var mat = StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1, 1, 1) # Pure White
+		star.mesh.material = mat
+		
+		# Spread them out WIDE
+		var x = rng.randf_range(-300, 300)
+		var z = rng.randf_range(-300, 300)
+		var y = rng.randf_range(-40, -100) # Deep below player
+		
+		star.position = Vector3(x, y, z)
+		add_child(star)
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 35
+index: 37
 path: scripts\station.gd
-bytes: 3762
-sha256: 45717242668A8A42A2E02B218BA6365A5B0F49BDB79304D573DF4BC10A81638B
+bytes: 3398
+sha256: FE5117E3C36641E30A37F380E0E0D8B9A3A0F8B9F9FBD23F229609A5EEA9D54D
 <<< CONTENT >>>
 extends Area3D
 class_name GameStation
@@ -56489,8 +57000,8 @@ const TradeGood = preload("res://scripts/resources/trade_good.gd")
 @export var market_profile: MarketProfile
 
 @export var local_supply: Dictionary = {
-    "ore_iron": 100,
-    "ore_gold": 20,
+	"ore_iron": 100,
+	"ore_gold": 20,
 }
 
 var _goods_by_id: Dictionary = {}
@@ -56499,106 +57010,106 @@ const ASK_MULT := 1.10
 const BID_MULT := 0.90
 
 func _ready():
-    monitoring = true
-    monitorable = true
-    body_entered.connect(_on_body_entered)
-    _build_goods_index()
+	monitoring = true
+	monitorable = true
+	body_entered.connect(_on_body_entered)
+	_build_goods_index()
 
 func _build_goods_index():
-    _goods_by_id.clear()
-    if market_profile == null:
-        return
-    for g in market_profile.trade_goods:
-        if g == null:
-            continue
-        _goods_by_id[g.id] = g
+	_goods_by_id.clear()
+	if market_profile == null:
+		return
+	for g in market_profile.trade_goods:
+		if g == null:
+			continue
+		_goods_by_id[g.id] = g
 
 func get_mid_price(item_id: String) -> int:
-    var good: TradeGood = _goods_by_id.get(item_id, null)
-    if good == null:
-        return 0
-    var base_demand := 100
-    if market_profile != null:
-        base_demand = int(market_profile.base_demands.get(item_id, 100))
-        base_demand = int(float(base_demand) * market_profile.wealth_tier)
-    var supply_val := int(local_supply.get(item_id, 1))
-    return EconomyEngine.calculate_price(good, supply_val, base_demand)
+	var good: TradeGood = _goods_by_id.get(item_id, null)
+	if good == null:
+		return 0
+	var base_demand := 100
+	if market_profile != null:
+		base_demand = int(market_profile.base_demands.get(item_id, 100))
+		base_demand = int(float(base_demand) * market_profile.wealth_tier)
+	var supply_val := int(local_supply.get(item_id, 1))
+	return EconomyEngine.calculate_price(good, supply_val, base_demand)
 
 func get_ask_price(item_id: String) -> int:
-    var mid := get_mid_price(item_id)
-    return int(ceil(float(mid) * ASK_MULT))
+	var mid := get_mid_price(item_id)
+	return int(ceil(float(mid) * ASK_MULT))
 
 func get_bid_price(item_id: String) -> int:
-    var mid := get_mid_price(item_id)
-    return int(floor(float(mid) * BID_MULT))
+	var mid := get_mid_price(item_id)
+	return int(floor(float(mid) * BID_MULT))
 
 func _on_body_entered(body):
-    if body.has_method("dock_at_station"):
-        _refuel_ship(body)
-        body.dock_at_station(self)
+	if body.has_method("dock_at_station"):
+		_refuel_ship(body)
+		body.dock_at_station(self)
 
 func _refuel_ship(player):
-    if not player.has_method("get_fuel_status"):
-        return
-    var needed: float = float(player.max_fuel) - float(player.fuel)
-    if needed > 1.0:
-        var cost := int(needed * fuel_cost_per_unit)
-        if player.credits >= cost:
-            player.credits -= cost
-            player.fuel = player.max_fuel
-            player.receive_payment(0)
-        else:
-            var units := int(player.credits / fuel_cost_per_unit)
-            if units > 0:
-                player.credits -= (units * fuel_cost_per_unit)
-                player.fuel += units
-                player.receive_payment(0)
+	if not player.has_method("get_fuel_status"):
+		return
+	var needed: float = float(player.max_fuel) - float(player.fuel)
+	if needed > 1.0:
+		var cost := int(needed * fuel_cost_per_unit)
+		if player.credits >= cost:
+			player.credits -= cost
+			player.fuel = player.max_fuel
+			player.receive_payment(0)
+		else:
+			var units := int(player.credits / fuel_cost_per_unit)
+			if units > 0:
+				player.credits -= (units * fuel_cost_per_unit)
+				player.fuel += units
+				player.receive_payment(0)
 
 func buy_cargo(player, item_id: String, amount: int) -> bool:
-    if amount <= 0:
-        return false
-    var good: TradeGood = _goods_by_id.get(item_id, null)
-    if good == null:
-        return false
-    var price := get_ask_price(item_id)
-    if not EconomyEngine.can_afford(player.credits, price, amount):
-        return false
-    if not EconomyEngine.has_cargo_space(player.cargo_volume, player.max_cargo_volume, good.volume, amount):
-        return false
-    var total := price * amount
-    player.credits -= total
-    var ok: bool = player.add_cargo(item_id, amount)
-    if not ok:
-        player.credits += total
-        return false
-    local_supply[item_id] = int(local_supply.get(item_id, 1)) + amount
-    player.receive_payment(0)
-    return true
+	if amount <= 0:
+		return false
+	var good: TradeGood = _goods_by_id.get(item_id, null)
+	if good == null:
+		return false
+	var price := get_ask_price(item_id)
+	if not EconomyEngine.can_afford(player.credits, price, amount):
+		return false
+	if not EconomyEngine.has_cargo_space(player.cargo_volume, player.max_cargo_volume, good.volume, amount):
+		return false
+	var total := price * amount
+	player.credits -= total
+	var ok: bool = player.add_cargo(item_id, amount)
+	if not ok:
+		player.credits += total
+		return false
+	local_supply[item_id] = int(local_supply.get(item_id, 1)) + amount
+	player.receive_payment(0)
+	return true
 
 func sell_cargo(player, item_id: String, amount: int) -> bool:
-    if amount <= 0:
-        return false
-    var price := get_bid_price(item_id)
-    if price <= 0:
-        return false
-    if not player.cargo.has(item_id):
-        return false
-    if int(player.cargo[item_id]) < amount:
-        return false
-    var removed: bool = player.remove_cargo(item_id, amount)
-    if not removed:
-        return false
-    player.receive_payment(price * amount)
-    local_supply[item_id] = max(1, int(local_supply.get(item_id, 1)) - amount)
-    return true
+	if amount <= 0:
+		return false
+	var price := get_bid_price(item_id)
+	if price <= 0:
+		return false
+	if not player.cargo.has(item_id):
+		return false
+	if int(player.cargo[item_id]) < amount:
+		return false
+	var removed: bool = player.remove_cargo(item_id, amount)
+	if not removed:
+		return false
+	player.receive_payment(price * amount)
+	local_supply[item_id] = max(1, int(local_supply.get(item_id, 1)) - amount)
+	return true
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 36
+index: 38
 path: scripts\tests\test_economy_core.gd
-bytes: 1914
-sha256: FA93CC877FAEA8E0E82194F69D180F46807020E6D753A31CCEBA979D72E74A9B
+bytes: 1856
+sha256: 8846E20BB46B57B6B436C5A119D8405713559CB970133167F86323ECB27AB96C
 <<< CONTENT >>>
 extends Node
 
@@ -56607,58 +57118,58 @@ const EconomyEngine = preload("res://scripts/core/economy_engine.gd")
 const TradeGood = preload("res://scripts/resources/trade_good.gd")
 
 func _ready():
-    print("--- STARTING ECONOMY INTEGRATION TESTS ---")
-    run_all_tests()
-    print("--- TESTS COMPLETE ---")
-    get_tree().quit() # Auto-close on success
+	print("--- STARTING ECONOMY INTEGRATION TESTS ---")
+	run_all_tests()
+	print("--- TESTS COMPLETE ---")
+	get_tree().quit() # Auto-close on success
 
 func run_all_tests():
-    test_affordability_check()
-    test_cargo_limits()
-    test_price_algorithm()
+	test_affordability_check()
+	test_cargo_limits()
+	test_price_algorithm()
 
 func test_affordability_check():
-    var balance = 1000
-    var price = 50
-    var can_buy_10 = EconomyEngine.can_afford(balance, price, 10)
-    var can_buy_25 = EconomyEngine.can_afford(balance, price, 25)
-    _assert(can_buy_10 == true, "Affordability: Should afford 10 items")
-    _assert(can_buy_25 == false, "Affordability: Should NOT afford 25 items")
+	var balance = 1000
+	var price = 50
+	var can_buy_10 = EconomyEngine.can_afford(balance, price, 10)
+	var can_buy_25 = EconomyEngine.can_afford(balance, price, 25)
+	_assert(can_buy_10 == true, "Affordability: Should afford 10 items")
+	_assert(can_buy_25 == false, "Affordability: Should NOT afford 25 items")
 
 func test_cargo_limits():
-    var max_vol = 100.0
-    var current_vol = 90.0
-    var item_vol = 2.0
-    var can_fit_4 = EconomyEngine.has_cargo_space(current_vol, max_vol, item_vol, 4)
-    var can_fit_6 = EconomyEngine.has_cargo_space(current_vol, max_vol, item_vol, 6)
-    _assert(can_fit_4 == true, "Cargo: Should fit 4 units")
-    _assert(can_fit_6 == false, "Cargo: Should NOT fit 6 units")
+	var max_vol = 100.0
+	var current_vol = 90.0
+	var item_vol = 2.0
+	var can_fit_4 = EconomyEngine.has_cargo_space(current_vol, max_vol, item_vol, 4)
+	var can_fit_6 = EconomyEngine.has_cargo_space(current_vol, max_vol, item_vol, 6)
+	_assert(can_fit_4 == true, "Cargo: Should fit 4 units")
+	_assert(can_fit_6 == false, "Cargo: Should NOT fit 6 units")
 
 func test_price_algorithm():
-    # Instantiate the Resource manually
-    var iron = TradeGood.new()
-    iron.base_price = 100
-    
-    # We pass the object. The Engine treats it as a generic Resource.
-    var cheap_price = EconomyEngine.calculate_price(iron, 200, 100)
-    var high_price = EconomyEngine.calculate_price(iron, 50, 100)
-    
-    _assert(cheap_price < 100, "Economics: High supply should lower price (Got: %s)" % cheap_price)
-    _assert(high_price > 100, "Economics: Low supply should raise price (Got: %s)" % high_price)
+	# Instantiate the Resource manually
+	var iron = TradeGood.new()
+	iron.base_price = 100
+	
+	# We pass the object. The Engine treats it as a generic Resource.
+	var cheap_price = EconomyEngine.calculate_price(iron, 200, 100)
+	var high_price = EconomyEngine.calculate_price(iron, 50, 100)
+	
+	_assert(cheap_price < 100, "Economics: High supply should lower price (Got: %s)" % cheap_price)
+	_assert(high_price > 100, "Economics: Low supply should raise price (Got: %s)" % high_price)
 
 func _assert(condition: bool, message: String):
-    if condition:
-        print("[PASS] " + message)
-    else:
-        printerr("[FAIL] " + message)
+	if condition:
+		print("[PASS] " + message)
+	else:
+		printerr("[FAIL] " + message)
 
 <<< END FILE >>>
 
 <<< BEGIN FILE >>>
-index: 37
+index: 39
 path: scripts\tests\test_galaxy_core.gd
-bytes: 1442
-sha256: 3A5F8309263DA6C6F7B9308BBC4665BF2F6C7E38BF78352FD716971823680668
+bytes: 1386
+sha256: 3FABF144DB0A2475C9721B7DBB9E46D79905A84F399144768C27DD785CE9FE0B
 <<< CONTENT >>>
 extends Node
 
@@ -56667,40 +57178,40 @@ const Sector = preload("res://scripts/resources/sector.gd")
 const GalaxyGraph = preload("res://scripts/core/galaxy_graph.gd")
 
 func _ready():
-    print("--- STARTING GALAXY NAVIGATION TESTS ---")
-    run_tests()
-    print("--- GALAXY TESTS COMPLETE ---")
-    get_tree().quit()
+	print("--- STARTING GALAXY NAVIGATION TESTS ---")
+	run_tests()
+	print("--- GALAXY TESTS COMPLETE ---")
+	get_tree().quit()
 
 func run_tests():
-    # SETUP: Create a Map: A <-> B <-> C
-    var graph = GalaxyGraph.new()
-    
-    var s1 = Sector.new(); s1.id = "A"; graph.add_sector(s1)
-    var s2 = Sector.new(); s2.id = "B"; graph.add_sector(s2)
-    var s3 = Sector.new(); s3.id = "C"; graph.add_sector(s3)
-    
-    graph.connect_sectors("A", "B")
-    graph.connect_sectors("B", "C")
-    
-    # TEST 1: Direct Neighbor
-    var route_ab = graph.get_route("A", "B")
-    _assert(route_ab.size() == 2, "Path A->B should be 2 steps. Got: %s" % str(route_ab))
-    
-    # TEST 2: Multi-Jump
-    var route_ac = graph.get_route("A", "C")
-    _assert(route_ac.size() == 3, "Path A->C should be 3 steps (A,B,C). Got: %s" % str(route_ac))
-    
-    # TEST 3: Invalid Path (Isolated Node)
-    var s4 = Sector.new(); s4.id = "D"; graph.add_sector(s4) # D is alone
-    var route_ad = graph.get_route("A", "D")
-    _assert(route_ad.size() == 0, "Path A->D should be empty. Got: %s" % str(route_ad))
+	# SETUP: Create a Map: A <-> B <-> C
+	var graph = GalaxyGraph.new()
+	
+	var s1 = Sector.new(); s1.id = "A"; graph.add_sector(s1)
+	var s2 = Sector.new(); s2.id = "B"; graph.add_sector(s2)
+	var s3 = Sector.new(); s3.id = "C"; graph.add_sector(s3)
+	
+	graph.connect_sectors("A", "B")
+	graph.connect_sectors("B", "C")
+	
+	# TEST 1: Direct Neighbor
+	var route_ab = graph.get_route("A", "B")
+	_assert(route_ab.size() == 2, "Path A->B should be 2 steps. Got: %s" % str(route_ab))
+	
+	# TEST 2: Multi-Jump
+	var route_ac = graph.get_route("A", "C")
+	_assert(route_ac.size() == 3, "Path A->C should be 3 steps (A,B,C). Got: %s" % str(route_ac))
+	
+	# TEST 3: Invalid Path (Isolated Node)
+	var s4 = Sector.new(); s4.id = "D"; graph.add_sector(s4) # D is alone
+	var route_ad = graph.get_route("A", "D")
+	_assert(route_ad.size() == 0, "Path A->D should be empty. Got: %s" % str(route_ad))
 
 func _assert(condition: bool, message: String):
-    if condition:
-        print("[PASS] " + message)
-    else:
-        printerr("[FAIL] " + message)
+	if condition:
+		print("[PASS] " + message)
+	else:
+		printerr("[FAIL] " + message)
 
 <<< END FILE >>>
 
@@ -56713,8 +57224,8 @@ error_count: 0
 ==============
 
 === DUMP SUMMARY ===
-inline_file_count: 37
-inline_total_bytes: 1774551
+inline_file_count: 39
+inline_total_bytes: 1790499
 third_party_dirs_referenced: addons, third_party, vendor, externals, external
 max_inline_bytes: 52428800
 ====================

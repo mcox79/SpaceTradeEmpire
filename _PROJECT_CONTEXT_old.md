@@ -4,7 +4,6 @@
 
 - **Voice:** Pragmatic, commercial, technical
 - **Output pattern:** Direct code blocks → implementation steps → verification
-- **Code blocks:** Fence by language. PowerShell blocks contain only PowerShell commands. GDScript blocks are fenced as `gdscript` (or plain) and must never be presented as terminal commands.
 - **Meta-rule:** If the project structure changes significantly (new systems), update this file
 
 ## 2. Recovery and Toolchain
@@ -49,107 +48,6 @@ GDScript is indentation-sensitive. Once a file establishes tab-based indentation
    - Spaces may be used after the first non-whitespace character on a line
    - Spaces must never appear before the first non-whitespace character
 
-### Tab policy enforcement workflow
-
-This repo treats leading-space indentation in `.gd` files as build-breaking.
-
-#### Required workflow
-1. Before opening Godot, run the indentation gate.
-2. After any automated edit (PowerShell patch, search/replace, generated code), run the indentation gate again.
-3. If the gate fails, normalize indentation, then re-run the gate. Do not launch Godot until clean.
-
-#### Canonical scripts (PowerShell)
-
-Create these scripts in the repo root (or `scripts/` if you prefer). They are the only sanctioned way to normalize and validate indentation.
-
-##### `Normalize-GDScriptIndent.ps1`
-- Converts leading indentation from 4-space groups to literal tabs **only when the leading whitespace is spaces-only and divisible by 4**.
-- **Fails** (exit 1) if it finds mixed tabs+spaces or leading spaces not divisible by 4. This forces manual cleanup so the repo converges to tabs-only.
-- Does not change spaces after the first non-whitespace character.
-
-```powershell
-$bad = @()
-$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
-	$_.FullName -notmatch '\addons\' -and
-	$_.FullName -notmatch '\.godot\' -and
-	$_.FullName -notmatch '\.git\'
-}
-
-foreach ($f in $files) {
-	$path  = $f.FullName
-	$lines = Get-Content $path
-	$fixed = @()
-	for ($i = 0; $i -lt $lines.Count; $i++) {
-		$line = $lines[$i]
-		if ($line -match '^(?<ws>[\t ]+)(?=\S)') {
-			$ws = $Matches.ws
-			$hasTab   = $ws -match "\t"
-			$hasSpace = $ws -match " "
-			if ($hasTab -and $hasSpace) {
-				$bad += "{0}:{1}: Mixed tabs+spaces in leading whitespace" -f $path, ($i + 1)
-				$fixed += $line
-				continue
-			}
-			if ($hasSpace) {
-				$spaces = ($ws -replace "\t", "").Length
-				if (($spaces % 4) -ne 0) {
-					$bad += "{0}:{1}: Leading spaces not divisible by 4" -f $path, ($i + 1)
-					$fixed += $line
-					continue
-				}
-				$tabs = [int]($spaces / 4)
-				$fixed += ("`t" * $tabs) + $line.Substring($ws.Length)
-				continue
-			}
-		}
-		$fixed += $line
-	}
-	Set-Content -Path $path -Value $fixed -Encoding UTF8
-}
-
-if ($bad.Count -gt 0) {
-	"FAIL: Normalize found indentation that cannot be safely auto-fixed:"
-	$bad
-	exit 1
-}
-"OK: Normalize completed with no unsafe indentation found."
-exit 0
-```
-
-##### `Check-GDScriptIndent.ps1`
-- Fails if any non-empty `.gd` line has **any space** in the leading whitespace before code (tabs-only indentation).
-
-```powershell
-$bad = @()
-$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
-	$_.FullName -notmatch '\addons\' -and
-	$_.FullName -notmatch '\.godot\' -and
-	$_.FullName -notmatch '\.git\'
-}
-
-foreach ($f in $files) {
-	Select-String -Path $f.FullName -Pattern '^[\t ]* [\t ]*\S' | ForEach-Object {
-		$bad += "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line
-	}
-}
-
-if ($bad.Count -gt 0) {
-	"FAIL: Found spaces in leading indentation of .gd files:"
-	$bad
-	exit 1
-}
-"OK: Tabs-only indentation verified."
-exit 0
-```
-
-#### How to use
-1. One-time cleanup (or after a large merge):
-   - Run `Normalize-GDScriptIndent.ps1`
-   - Run `Check-GDScriptIndent.ps1` and confirm it passes
-2. Day-to-day:
-   - Run `Check-GDScriptIndent.ps1` before launching Godot
-   - Run `Check-GDScriptIndent.ps1` after any scripted edit
-
 ### Editing rules (PowerShell and automation)
 1. **No in-place line edits inside functions**
    - Automated edits must replace entire function blocks, not partial snippets
@@ -162,6 +60,17 @@ exit 0
    - Replacements must be bounded by:
      - `func <name>(...)` → next `func` or end-of-file
    - Blind global replacements inside `.gd` files are forbidden
+
+### Mandatory pre-run validation
+Before opening the project in Godot, run the indentation gate:
+- If any `.gd` file contains leading spaces or mixed tabs and spaces, the project must not be launched until corrected
+
+This check is part of the build process.
+
+### Enforcement script
+A PowerShell indentation gate script exists and must be run before launching Godot.
+
+See tooling: `Check-GDScriptIndent.ps1`
 
 ## 5. Game Definition (Locked)
 
