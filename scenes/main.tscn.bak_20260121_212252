@@ -21,6 +21,8 @@ material = SubResource("StandardMaterial3D_floor")
 size = Vector2(100, 100)
 
 [node name="Main" type="Node3D"]
+script = ExtResource("1_tefeu")
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_blue")
 
@@ -39,6 +41,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
 
 [node name="Station" parent="." instance=ExtResource("3_sugp2")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825881)
+script = ExtResource("1_tefeu")
+
 [node name="HUD" parent="." instance=ExtResource("4_jyhfs")]
 
 [node name="Spawner" type="Node3D" parent="."]

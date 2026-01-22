@@ -1,45 +1,45 @@
 extends CanvasLayer
 
-# NODES
 @onready var money_label = $Control/Panel/VBoxContainer/MoneyLabel
 @onready var health_bar = $Control/Panel/VBoxContainer/HealthBar
+@onready var fuel_bar = $Control/Panel/VBoxContainer/FuelBar
 @onready var cargo_label = $Control/Panel/VBoxContainer/CargoLabel
 
 @onready var shop_panel = $Control/ShopPanel
+@onready var market_ticker = $Control/ShopPanel/VBoxContainer/MarketTicker
+@onready var btn_sell = $Control/ShopPanel/VBoxContainer/BtnSellAll
 @onready var btn_speed = $Control/ShopPanel/VBoxContainer/BtnSpeed
 @onready var btn_weapon = $Control/ShopPanel/VBoxContainer/BtnWeapon
 @onready var btn_close = $Control/ShopPanel/VBoxContainer/BtnClose
 
 var player_ref = null
+var current_station = null
 
 func _ready():
     shop_panel.visible = false
-    
-    # Wire Buttons
+    btn_sell.pressed.connect(_on_sell_all)
     btn_speed.pressed.connect(_on_buy_speed)
     btn_weapon.pressed.connect(_on_buy_weapon)
     btn_close.pressed.connect(_on_close_shop)
 
-    # SEARCH FOR PLAYER (With Retry)
     _find_player()
 
 func _find_player():
     var player = get_tree().get_first_node_in_group("Player")
     if player:
-        print("[HUD] Player Signal Uplink Established.")
         player_ref = player
         player.credits_updated.connect(_on_credits_updated)
         player.cargo_updated.connect(_on_cargo_updated)
         player.health_updated.connect(_on_health_updated)
+        player.fuel_updated.connect(_on_fuel_updated)
         player.shop_toggled.connect(_on_shop_toggled)
         
-        # Force immediate update
+        # Init
         _on_credits_updated(player.credits)
         _on_cargo_updated(player.cargo)
         _on_health_updated(player.health, player.max_health)
+        _on_fuel_updated(player.fuel, player.max_fuel)
     else:
-        # If Player isn't ready, try again in 0.1 seconds
-        print("[HUD] Searching for Player...")
         await get_tree().create_timer(0.1).timeout
         _find_player()
 
@@ -50,18 +50,11 @@ func _on_health_updated(current, max_val):
     if health_bar:
         health_bar.max_value = max_val
         health_bar.value = current
-        
-        # Color Logic (Green -> Red)
-        var style = health_bar.get_theme_stylebox("fill")
-        if style:
-            # We must duplicate the style to avoid changing the original resource permanently
-            var new_style = style.duplicate()
-            if current <= (max_val * 0.3):
-                new_style.bg_color = Color(0.9, 0.1, 0.1) # Red Critical
-            else:
-                new_style.bg_color = Color(0.2, 0.8, 0.2) # Green Good
-            
-            health_bar.add_theme_stylebox_override("fill", new_style)
+
+func _on_fuel_updated(current, max_val):
+    if fuel_bar:
+        fuel_bar.max_value = max_val
+        fuel_bar.value = current
 
 func _on_cargo_updated(manifest):
     var text = "CARGO: "
@@ -72,12 +65,31 @@ func _on_cargo_updated(manifest):
             text += "%s(%s) " % [item.replace("ore_", "").capitalize(), manifest[item]]
     cargo_label.text = text
 
-func _on_shop_toggled(is_open):
+func _on_shop_toggled(is_open, station_ref):
     shop_panel.visible = is_open
+    current_station = station_ref
+    
     if is_open:
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+        _update_ticker()
     else:
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _update_ticker():
+    if not current_station: return
+    var p_iron = current_station.get_market_price("ore_iron")
+    var p_gold = current_station.get_market_price("ore_gold")
+    market_ticker.text = "IRON: $%s | GOLD: $%s" % [p_iron, p_gold]
+
+func _on_sell_all():
+    if not player_ref or not current_station: return
+    
+    var manifest = player_ref.cargo.duplicate()
+    for item in manifest:
+        current_station.sell_cargo(player_ref, item, manifest[item])
+        player_ref.remove_cargo(item, manifest[item])
+    
+    _update_ticker()
 
 func _on_buy_speed():
     if player_ref: player_ref.purchase_upgrade("speed", 200)
