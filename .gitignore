@@ -16,3 +16,7 @@
 *.bak
 *.bak_*
 _scratch/
+
+# Local backups (never commit)
+*.bak
+*.bak_*
