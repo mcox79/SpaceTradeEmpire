@@ -174,3 +174,5 @@ func take_damage(amount: int):
 		return
 	health = max(0, health - amount)
 	emit_signal("health_updated", health, max_health)
+
+# hook test
