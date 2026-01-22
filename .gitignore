@@ -11,3 +11,7 @@
 *.tmp
 *.bak
 *.log
+
+# Local backups (never commit)
+*.bak
+*.bak_*
