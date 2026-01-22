@@ -18,3 +18,8 @@
 # Scripts: LF
 *.py   text eol=lf
 *.sh   text eol=lf
+
+# Repo control files: LF
+.editorconfig text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf

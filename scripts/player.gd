@@ -178,3 +178,5 @@ func take_damage(amount: int):
 # hook test
 
 # eol test
+
+# eol test
