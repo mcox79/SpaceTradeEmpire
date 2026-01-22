@@ -176,3 +176,5 @@ func take_damage(amount: int):
 	emit_signal("health_updated", health, max_health)
 
 # hook test
+
+# eol test
