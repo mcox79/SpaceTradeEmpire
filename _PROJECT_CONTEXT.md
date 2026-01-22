@@ -43,3 +43,6 @@
 #     - No runtime camera spawning in gameplay scripts.
 #     - PhantomCamera plugin and autoload are disabled in `project.godot` (addon may exist on disk).
 # - **Next (Phase 1):** Economy spine unification and 2-station arbitrage loop (buy, haul, sell).
+
+# DEVTOOL_RESET_TEST_MARKER 2026-01-22T14:24:01.5755565-05:00
+
