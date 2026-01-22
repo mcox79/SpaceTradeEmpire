@@ -45,7 +45,6 @@ var _goods_by_id: Dictionary = {}
 
 func _ready():
 	add_to_group("Player")
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	health = max_health
 	fuel = max_fuel
 
