@@ -20,3 +20,4 @@ _scratch/
 # Local backups (never commit)
 *.bak
 *.bak_*
+_scratch/
