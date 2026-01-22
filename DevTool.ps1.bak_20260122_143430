@@ -422,52 +422,19 @@ function Run-ContextGen {
 function Run-GitSave {
     Log-Output ">>> EXEC: GIT SNAPSHOT"
     git add .
-    $res = git commit -m "Manual Save Point $((Get-Date).ToString('o'))" 2>&1
+    $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
     Log-Output $res
-
-    # Savepoint tag used by HARD RESET
-    git tag -f ste_savepoint 2>&1 | Out-Null
-    Log-Output "Savepoint updated: ste_savepoint"
-
     Log-Output "State Saved."
 }
 
 function Run-GitReset {
-    $confirm = [System.Windows.Forms.MessageBox]::Show(
-        "Reset tracked files back to the last SAVE (ste_savepoint)?",
-        "DANGER ZONE",
-        [System.Windows.Forms.MessageBoxButtons]::YesNo,
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-    )
-
-    if ($confirm -ne "Yes") { return }
-
-    Log-Output ">>> EXEC: HARD RESET (to ste_savepoint)"
-
-    $tag = (git rev-parse -q --verify ste_savepoint 2>$null)
-    if (-not $tag) {
-        Log-Output "ERROR: ste_savepoint not found. Click SAVE STATE once to create it."
-        return
-    }
-
-    git reset --hard ste_savepoint 2>&1 | Out-Null
-    Log-Output "Tracked files reset to ste_savepoint."
-
-    $confirmClean = [System.Windows.Forms.MessageBox]::Show(
-        "Also delete ALL untracked (non-ignored) files and folders (git clean -fd)?",
-        "DELETE UNTRACKED FILES",
-        [System.Windows.Forms.MessageBoxButtons]::YesNo,
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-    )
-
-    if ($confirmClean -eq "Yes") {
+    $confirm = [System.Windows.Forms.MessageBox]::Show("NUKE IT? This reverts to the last SAVE.", "DANGER ZONE", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    if ($confirm -eq "Yes") {
+        Log-Output ">>> EXEC: HARD RESET"
+        git reset --hard 2>&1 | Out-Null
         git clean -fd 2>&1 | Out-Null
-        Log-Output "Untracked files deleted."
-    } else {
-        Log-Output "Untracked files preserved."
+        Log-Output "SUCCESS: Time machine activated. Changes reverted."
     }
-
-    Log-Output "SUCCESS: Reset complete."
 }
 
 # --- UI COMPONENTS ---
@@ -529,4 +496,3 @@ $form.Add_Shown({
 })
 
 [void] $form.ShowDialog()
-
