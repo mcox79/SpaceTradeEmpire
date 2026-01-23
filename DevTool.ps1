@@ -123,7 +123,9 @@ function Run-ContextGen {
             $content += "`n"
         }
         
-        Set-Content -Path $ContextFile -Value $content -Encoding UTF8
+        $tmp = "$ContextFile.tmp"
+Set-Content -Path $tmp -Value $content -Encoding UTF8
+Move-Item -Force -Path $tmp -Destination $ContextFile
         Log-Output "SUCCESS: Context refreshed."
     }
     catch {
