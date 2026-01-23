@@ -14,6 +14,12 @@ If `DevTool.ps1` is lost, recreate a script that:
 1. Concatenates all `.gd` and `.tscn` (and other first-party text assets) into `_FullProjectContext.txt`
 2. Wraps `git add/commit` and `git reset --hard` into GUI buttons
 
+## Canonical files policy
+- `_PROJECT_CONTEXT.md` is canonical and must only be edited by hand.
+- Dev tooling must never overwrite canonical docs.
+- Generated artifacts (context dumps, inventories, transcripts) must be written under `_scratch/`.
+- If a tool proposes changes to canonical docs, it must output a patch or diff, not overwrite.
+
 ## 3. Architecture and Standards (Strict)
 
 ### File organization
