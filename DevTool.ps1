@@ -98,11 +98,25 @@ function Run-ContextGen {
     try {
         $content = "=== SPACE TRADE EMPIRE PROJECT DUMP ===`n"
         $content += "dump_timestamp: $(Get-Date)`n`n"
+
+        # Ensure scratch output directory exists
+        $scratchDir = Join-Path $ProjectRoot.Path "_scratch"
+        if (-not (Test-Path -LiteralPath $scratchDir)) {
+            New-Item -ItemType Directory -Path $scratchDir | Out-Null
+        }
         
         $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
             $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
-                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import|\\addons\\|\\_scratch\\|\\\._scratch\\" } |
+                Where-Object {
+                    $p = $_.FullName
+                    ($p -notmatch "\\\.godot(\\|$)") -and
+                    ($p -notmatch "\\\.git(\\|$)") -and
+                    ($p -notmatch "\\\.import(\\|$)") -and
+                    ($p -notmatch "\\addons(\\|$)") -and
+                    ($p -notmatch "\\_scratch(\\|$)") -and
+                    ($p -notmatch "\\\._scratch(\\|$)")
+                } |
                 ForEach-Object { 
                     $rel = $_.FullName.Replace($ProjectRoot.Path, "")
                     $indent = "  " * ($rel.Split('\').Count - 1)
@@ -124,8 +138,8 @@ function Run-ContextGen {
         }
         
         $tmp = "$ContextFile.tmp"
-Set-Content -Path $tmp -Value $content -Encoding UTF8
-Move-Item -Force -Path $tmp -Destination $ContextFile
+        Set-Content -Path $tmp -Value $content -Encoding UTF8
+        Move-Item -Force -Path $tmp -Destination $ContextFile
         Log-Output "SUCCESS: Context refreshed."
     }
     catch {
