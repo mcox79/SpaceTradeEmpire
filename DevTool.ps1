@@ -28,7 +28,7 @@ Add-Type -AssemblyName System.Drawing
 
 # --- CONFIGURATION ---
 $ProjectRoot = Get-Location
-$ContextFile = Join-Path $ProjectRoot "_FullProjectContext.txt"
+$ContextFile = Join-Path (Join-Path $ProjectRoot "_scratch") "_FullProjectContext.txt"
 $TestScene   = "scenes/tests/test_economy_core.tscn"
 $ConfigPath  = Join-Path $ProjectRoot "godot_path.cfg"
 $DevToolVersion = "5.0"
