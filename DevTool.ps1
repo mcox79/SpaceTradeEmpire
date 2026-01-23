@@ -112,7 +112,7 @@ function Run-ContextGen {
         } catch {}
         $content += "`n================================`n"
 
-        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
+        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader | 
                  Where-Object { $_.FullName -notmatch "\\.git" -and $_.FullName -notmatch "\\.import" -and $_.FullName -notmatch "\\addons\\" -and $_.FullName -notmatch "\\_scratch\\" -and $_.FullName -notmatch "\\\._scratch\\" }
 
         foreach ($file in $files) {
