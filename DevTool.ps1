@@ -135,7 +135,7 @@ Move-Item -Force -Path $tmp -Destination $ContextFile
 
 function Run-GitSave {
     Log-Output ">>> EXEC: GIT SNAPSHOT"
-    git add .
+    git add -u
     $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
     Log-Output $res
     Log-Output "State Saved."
