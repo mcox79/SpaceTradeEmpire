@@ -113,7 +113,7 @@ function Run-ContextGen {
         $content += "`n================================`n"
 
         $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
-                 Where-Object { $_.FullName -notmatch ".git" -and $_.FullName -notmatch ".import" }
+                 Where-Object { $_.FullName -notmatch "\\.git" -and $_.FullName -notmatch "\\.import" -and $_.FullName -notmatch "\\addons\\" -and $_.FullName -notmatch "\\_scratch\\" -and $_.FullName -notmatch "\\\._scratch\\" }
 
         foreach ($file in $files) {
             $relPath = $file.FullName.Replace($ProjectRoot.Path, "")
