@@ -20,6 +20,19 @@ If `DevTool.ps1` is lost, recreate a script that:
 - Generated artifacts (context dumps, inventories, transcripts) must be written under `_scratch/`.
 - If a tool proposes changes to canonical docs, it must output a patch or diff, not overwrite.
 
+### Context Generation Contract (Enforced)
+
+- `_PROJECT_CONTEXT.md` is **canonical** and must never be auto-generated or overwritten by tooling.
+- All auto-generated context dumps are written under `_scratch/` and are **ignored by git**.
+- DevTool HARD RESET uses `git clean -fdX` so **only ignored artifacts** are deleted.
+- DevTool SAVE stages **tracked changes only** (`git add -u`).
+- Context dumps include only game-relevant files:
+  - `.gd`, `.tscn`, `.shader`
+- Tooling, vendor code, and generated artifacts are explicitly excluded:
+  - `addons/`
+  - `_scratch/`, `._scratch/`
+  - `*.ps1`
+
 ## 3. Architecture and Standards (Strict)
 
 ### File organization
