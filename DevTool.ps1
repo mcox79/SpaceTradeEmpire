@@ -102,7 +102,7 @@ function Run-ContextGen {
         $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
             $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
-                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import" } |
+                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import|\\addons\\|\\_scratch\\|\\\._scratch\\" } |
                 ForEach-Object { 
                     $rel = $_.FullName.Replace($ProjectRoot.Path, "")
                     $indent = "  " * ($rel.Split('\').Count - 1)
