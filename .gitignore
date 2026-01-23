@@ -21,3 +21,6 @@ _scratch/
 *.bak
 *.bak_*
 _scratch/
+
+_FullProjectContext.txt
+
