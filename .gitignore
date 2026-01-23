@@ -24,3 +24,13 @@ _scratch/
 
 _FullProjectContext.txt
 
+# Generated context dumps
+/_FullProjectContext*.txt
+/_scratch/
+/._scratch/
+
+# Local machine config
+godot_path.cfg
+
+# Windows junk
+*.lnk
