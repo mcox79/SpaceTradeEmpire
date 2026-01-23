@@ -3,7 +3,7 @@
 ## 1. The Founder Protocol
 
 - **Voice:** Pragmatic, commercial, technical
-- **Output pattern:** Direct code blocks → implementation steps → verification
+- **Output pattern:** Direct code blocks ? implementation steps ? verification
 - **Code blocks:** Fence by language. PowerShell blocks contain only PowerShell commands. GDScript blocks are fenced as `gdscript` (or plain) and must never be presented as terminal commands.
 - **Meta-rule:** If the project structure changes significantly (new systems), update this file
 
@@ -45,7 +45,7 @@ If `DevTool.ps1` is lost, recreate a script that:
 - Scripts and files: snake_case (example: `game_manager.gd`)
 
 ### Design patterns
-- **Signal bus:** Use `GameManager` (Autoload) to pass data between unrelated objects (example: Asteroid → UI)
+- **Signal bus:** Use `GameManager` (Autoload) to pass data between unrelated objects (example: Asteroid ? UI)
 - **Composition:** Avoid deep inheritance. Prefer child nodes to add features
 
 ### Camera rule
@@ -179,7 +179,7 @@ exit 0
    - Single-quoted here-strings are discouraged for `.gd` output
 3. **Bounded replacements only**
    - Replacements must be bounded by:
-     - `func <name>(...)` → next `func` or end-of-file
+     - `func <name>(...)` ? next `func` or end-of-file
    - Blind global replacements inside `.gd` files are forbidden
 
 ## 5. Game Definition (Locked)
