@@ -146,7 +146,7 @@ function Run-GitReset {
     if ($confirm -eq "Yes") {
         Log-Output ">>> EXEC: HARD RESET"
         git reset --hard 2>&1 | Out-Null
-        git clean -fd 2>&1 | Out-Null
+        git clean -fdX 2>&1 | Out-Null
         Log-Output "SUCCESS: Time machine activated. Changes reverted."
     }
 }
