@@ -63,10 +63,15 @@ function First-N-BytesHex([byte[]]$bytes, [int]$n) {
 }
 
 function Assert-CleanTree {
-	$w = (& git diff --name-only).Trim()
-	$s = (& git diff --cached --name-only).Trim()
-	if ($w -or $s) {
-		throw "Edit Script mode requires a clean working tree and index. Commit or stash first."
+	# Always produce arrays (even 0 or 1 results)
+	$w = @( & git diff --name-only 2>$null | ForEach-Object { "$_".Trim() } | Where-Object { $_ } )
+	$s = @( & git diff --cached --name-only 2>$null | ForEach-Object { "$_".Trim() } | Where-Object { $_ } )
+
+	if (($w.Count -gt 0) -or ($s.Count -gt 0)) {
+		$msg = "Edit Script mode requires a clean working tree and index.`r`nCommit or stash first."
+		if ($w.Count -gt 0) { $msg += "`r`n`r`nWorking tree changes:`r`n" + ($w -join "`r`n") }
+		if ($s.Count -gt 0) { $msg += "`r`n`r`nStaged changes:`r`n" + ($s -join "`r`n") }
+		throw $msg
 	}
 }
 
@@ -108,76 +113,161 @@ function Parse-EditScript([string]$scriptText) {
 	# END_OLD
 
 	$lines = ($scriptText -split "`r?`n", 0)
-	$ops = New-Object System.Collections.Generic.List[object]
+	$ops = @()
 	$currentFile = $null
 	$i = 0
 
-	function Read-Block([string]$startToken, [string]$endToken) {
-		if ($i -ge $lines.Length -or $lines[$i].Trim() -ne $startToken) {
-			throw "Expected '$startToken' on line $($i+1)."
-		}
-		$i++
-		$buf = New-Object System.Collections.Generic.List[string]
-		while ($i -lt $lines.Length -and $lines[$i].Trim() -ne $endToken) {
-			$buf.Add($lines[$i])
-			$i++
-		}
-		if ($i -ge $lines.Length) { throw "Missing '$endToken' for block starting at '$startToken'." }
-		$i++
-		return ($buf -join "`n")
+	function Dump-Codepoints([string]$s) {
+		if ($null -eq $s) { return "<null>" }
+		$chars = $s.ToCharArray()
+		$hex = $chars | ForEach-Object { ("U+{0:X4}" -f [int]$_) }
+		return ($hex -join " ")
 	}
+
+	function Sanitize-Line([string]$s) {
+		if ($null -eq $s) { return "" }
+
+		# Remove any Unicode "format" chars (includes BOM, zero-width joiners, etc.)
+		$s = [regex]::Replace($s, '\p{Cf}', '')
+
+		# Remove control chars except tab
+		$s = [regex]::Replace($s, '[\p{Cc}&&[^\t]]', '')
+
+		# Normalize exotic Unicode spaces to ASCII space
+		$s = [regex]::Replace($s, '[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]', ' ')
+
+		# Collapse whitespace runs to a single ASCII space, then trim
+		$s = [regex]::Replace($s, '\s+', ' ').Trim()
+
+		return $s
+	}
+
+	function Unquote-IfQuoted([string]$s) {
+		if ($null -eq $s) { return "" }
+		$t = $s.Trim()
+		if ($t.Length -ge 2 -and $t[0] -eq '"' -and $t[$t.Length-1] -eq '"') {
+			# Remove surrounding quotes but preserve inner whitespace exactly
+			return $t.Substring(1, $t.Length-2)
+		}
+		return $s
+	}
+
+	function Read-Block([string]$startToken, [string]$endToken, [ref]$idx) {
+		if ($idx.Value -ge $lines.Length) {
+			throw "Expected '$startToken' but reached end of script."
+		}
+	
+		$startRaw = $lines[$idx.Value]
+		$startSan = Sanitize-Line $startRaw
+		$startLineNo = $idx.Value + 1
+	
+		if ($startSan -ne $startToken) {
+			throw ("Expected '{0}' on line {1}.`r`nRAW: [{2}]`r`nSAN: [{3}]`r`nRAW codepoints: {4}" -f $startToken, $startLineNo, $startRaw, $startSan, (Dump-Codepoints $startRaw))
+		}
+	
+		$idx.Value++
+		$buf = New-Object System.Collections.Generic.List[string]
+	
+		while ($idx.Value -lt $lines.Length) {
+			$raw = $lines[$idx.Value]
+			$san = Sanitize-Line $raw
+	
+			if ($san -eq $endToken) {
+				$idx.Value++
+				return ($buf -join "`n")
+			}
+	
+			$buf.Add($raw)
+			$idx.Value++
+		}
+	
+		throw "Missing '$endToken' for block starting at '$startToken' (line $startLineNo)."
+	}
+
+
 
 	while ($i -lt $lines.Length) {
 		$raw = $lines[$i]
-		$line = $raw.Trim()
+		$lineNo = $i + 1
+		$line = Sanitize-Line $raw
 		$i++
-
+	
 		if (-not $line) { continue }
 		if ($line.StartsWith("#")) { continue }
+	
+		# Tokenize command using sanitized line (robust to BOM/odd spaces),
+		# but extract the argument from the RAW line to preserve exact whitespace.
+		$mTok = [regex]::Match($line, '^(?<cmd>\S+)(?:\s+(?<arg>.*))?$')
+		if (-not $mTok.Success) {
+			throw ("Cannot tokenize line {0}.`r`nRAW: [{1}]`r`nSAN: [{2}]`r`nRAW codepoints: {3}" -f $lineNo, $raw, $line, (Dump-Codepoints $raw))
+		}
 
-		if ($line -like "FILE *") {
-			$currentFile = $line.Substring(5).Trim()
+		$cmd = $mTok.Groups["cmd"].Value
+
+		# RAW parse: take everything after the first token (cmd), preserving internal whitespace
+		$mRaw = [regex]::Match($raw, '^\s*(?<cmd>\S+)(?<rest>.*)$')
+		$arg = ""
+		if ($mRaw.Success) {
+			# remove exactly the leading whitespace between cmd and arg, keep arg exactly otherwise
+			$arg = ($mRaw.Groups["rest"].Value -replace '^\s+', '')
+		}
+
+		# Optional: strip Unicode "format" chars from arg only (BOM/zero-width), without altering spacing.
+		$arg = [regex]::Replace($arg, '\p{Cf}', '')
+
+		# Normalize exotic Unicode spaces to ASCII space in arg only (do NOT collapse runs).
+		$arg = [regex]::Replace($arg, '[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]', ' ')
+		
+		# Remove control chars except tab in arg (guards against invisible garbage)
+		$arg = [regex]::Replace($arg, '[\p{Cc}&&[^\t]]', '')
+
+
+		if ($cmd -eq "FILE") {
+			$currentFile = $arg.Trim()
 			if (-not $currentFile) { throw "FILE requires a path." }
 			continue
 		}
-
+		
 		if (-not $currentFile) {
 			throw "No FILE set before operations. Add: FILE <path>"
 		}
-
-		if ($line -like "INSERT_AFTER *") {
-			$anchor = $line.Substring(13).Trim()
+		
+		if ($cmd -eq "INSERT_AFTER") {
+			$anchor = Unquote-IfQuoted $arg
 			if (-not $anchor) { throw "INSERT_AFTER requires an exact anchor line." }
-			$text = Read-Block "BEGIN" "END"
-			$ops.Add(@{ file=$currentFile; op="insert_after"; anchor=$anchor; text=$text })
+			$text = Read-Block "BEGIN" "END" ([ref]$i)
+			$ops += [pscustomobject]@{ file=$currentFile; op="insert_after"; anchor=$anchor; text=$text }
 			continue
 		}
-
-		if ($line -like "INSERT_BEFORE *") {
-			$anchor = $line.Substring(14).Trim()
+		
+		if ($cmd -eq "INSERT_BEFORE") {
+			$anchor = Unquote-IfQuoted $arg
 			if (-not $anchor) { throw "INSERT_BEFORE requires an exact anchor line." }
-			$text = Read-Block "BEGIN" "END"
-			$ops.Add(@{ file=$currentFile; op="insert_before"; anchor=$anchor; text=$text })
+			$text = Read-Block "BEGIN" "END" ([ref]$i)
+			$ops += [pscustomobject]@{ file=$currentFile; op="insert_before"; anchor=$anchor; text=$text }
+			continue
+		}
+		
+		if ($cmd -eq "REPLACE_BLOCK") {
+			$old = Read-Block "BEGIN_OLD" "END_OLD" ([ref]$i)
+			$new = Read-Block "BEGIN_NEW" "END_NEW" ([ref]$i)
+			$ops += [pscustomobject]@{ file=$currentFile; op="replace_block"; old=$old; new=$new }
+			continue
+		}
+		
+		if ($cmd -eq "DELETE_BLOCK") {
+			$old = Read-Block "BEGIN_OLD" "END_OLD" ([ref]$i)
+			$ops += [pscustomobject]@{ file=$currentFile; op="delete_block"; old=$old }
 			continue
 		}
 
-		if ($line -eq "REPLACE_BLOCK") {
-			$old = Read-Block "BEGIN_OLD" "END_OLD"
-			$new = Read-Block "BEGIN_NEW" "END_NEW"
-			$ops.Add(@{ file=$currentFile; op="replace_block"; old=$old; new=$new })
-			continue
-		}
 
-		if ($line -eq "DELETE_BLOCK") {
-			$old = Read-Block "BEGIN_OLD" "END_OLD"
-			$ops.Add(@{ file=$currentFile; op="delete_block"; old=$old })
-			continue
-		}
+		throw ("Unrecognized command on line {0}.`r`nRAW: [{1}]`r`nSAN: [{2}]`r`nRAW codepoints: {3}" -f $lineNo, $raw, $line, (Dump-Codepoints $raw))
 
-		throw "Unrecognized command on line $($i): $raw"
 	}
 
 	return $ops
+
 }
 
 function Apply-Ops-ToContent([string]$original, [object[]]$opsForFile) {
@@ -192,11 +282,47 @@ function Apply-Ops-ToContent([string]$original, [object[]]$opsForFile) {
 			$curLines = $cur -split "`n", 0
 			$matches = New-Object System.Collections.Generic.List[int]
 			for ($j=0; $j -lt $curLines.Length; $j++) {
-				if ($curLines[$j] -eq $anchor) { $matches.Add($j) }
+				$lineJ = $curLines[$j]
+
+				# Remove Unicode "format" chars (BOM/zero-width) and normalize exotic spaces,
+				# but do NOT collapse normal spaces/tabs.
+				$lineJ = [regex]::Replace($lineJ, '\p{Cf}', '')
+				$lineJ = [regex]::Replace($lineJ, '[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]', ' ')
+				$lineJ = [regex]::Replace($lineJ, '[\p{Cc}&&[^\t]]', '')
+
+				if ($lineJ -eq $anchor) { $matches.Add($j) }
 			}
+
 			if ($matches.Count -ne 1) {
-				throw "Anchor must match exactly once in file. Anchor='$anchor' matches=$($matches.Count)."
+				function Dump-Hex([string]$s) {
+					if ($null -eq $s) { return "<null>" }
+					$bytes = [System.Text.Encoding]::UTF8.GetBytes($s)
+					$take = [Math]::Min(80, $bytes.Length)
+					if ($take -le 0) { return "" }
+					return (($bytes[0..($take-1)] | ForEach-Object { $_.ToString("X2") }) -join " ")
+				}
+
+				# Show best "near matches" (same text after trimming) to diagnose whitespace/invisible chars
+				$near = New-Object System.Collections.Generic.List[string]
+				for ($j=0; $j -lt $curLines.Length; $j++) {
+					$rawJ = $curLines[$j]
+					$normJ = [regex]::Replace($rawJ, '\p{Cf}', '')
+					$normJ = [regex]::Replace($normJ, '[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]', ' ')
+					$normJ = [regex]::Replace($normJ, '[\p{Cc}&&[^\t]]', '')
+					if ($normJ.Trim() -eq $anchor.Trim()) {
+						$near.Add(("{0}: RAW=[{1}] HEX={2}" -f ($j+1), $rawJ, (Dump-Hex $rawJ)))
+						if ($near.Count -ge 5) { break }
+					}
+				}
+
+				$nearText = ""
+				if ($near.Count -gt 0) {
+					$nearText = "`r`nNear matches (after Trim):`r`n" + ($near -join "`r`n")
+				}
+
+				throw ("Anchor must match exactly once in file.`r`nMatches={0}`r`nAnchor=[{1}]`r`nAnchor HEX={2}{3}" -f $matches.Count, $anchor, (Dump-Hex $anchor), $nearText)
 			}
+
 			$k = $matches[0]
 			$insLines = @()
 			if ($insert -ne "") { $insLines = $insert -split "`n", 0 }
@@ -376,8 +502,8 @@ $btnDiag.Add_Click({
 		$scriptText = $textBox.Text
 		if (-not $scriptText.Trim()) { Fail "No edit script provided."; return }
 
-		$ops = Parse-EditScript $scriptText
-		$files = ($ops | Select-Object -ExpandProperty file | Sort-Object -Unique)
+		$ops = @(Parse-EditScript $scriptText)
+		$files = @($ops | Select-Object -ExpandProperty file | Sort-Object -Unique)
 		$summary = "Edit Script Validate OK:`r`n`r`nOps: $($ops.Count)`r`nFiles:`r`n" + ($files -join "`r`n")
 		Info $summary
 	}
@@ -412,7 +538,7 @@ $btnApply.Add_Click({
 				return
 			}
 
-			$filesTouched = (& git diff --name-only).Trim() | Where-Object { $_ }
+			$filesTouched = @(& git diff --name-only 2>$null) | Where-Object { $_ -and $_.Trim() }
 			Log-Line "Patch applied successfully."
 			Info ("Patch applied successfully.`r`n`r`nTouched files:`r`n" + ($filesTouched -join "`r`n"))
 			return
@@ -423,10 +549,10 @@ $btnApply.Add_Click({
 		$scriptText = $textBox.Text
 		if (-not $scriptText.Trim()) { Fail "No edit script provided."; return }
 
-		$ops = Parse-EditScript $scriptText
-		$files = ($ops | Select-Object -ExpandProperty file | Sort-Object -Unique)
+		$ops = @(Parse-EditScript $scriptText)
+		$files = @($ops | Select-Object -ExpandProperty file | Sort-Object -Unique)
 
-		if ($files.Count -gt 5) {
+		if ($files.Length -gt 5) {
 			Fail "Change budget exceeded: script touches $($files.Count) files (max 5)."
 			return
 		}
@@ -478,12 +604,16 @@ $btnApply.Add_Click({
 			return
 		}
 
-		$filesTouched = (& git diff --name-only).Trim() | Where-Object { $_ }
+		$filesTouched = @(& git diff --name-only 2>$null) | Where-Object { $_ -and $_.Trim() }
 		Log-Line "Edit Script applied successfully."
 		Info ("Edit Script applied successfully.`r`n`r`nTouched files:`r`n" + ($filesTouched -join "`r`n"))
 	}
 	catch {
-		Fail $_.Exception.Message
+		$pos = ""
+		if ($_.InvocationInfo -and $_.InvocationInfo.PositionMessage) {
+			$pos = "`r`n`r`n" + $_.InvocationInfo.PositionMessage
+		}
+		Fail ($_.Exception.Message + $pos)
 	}
 })
 
