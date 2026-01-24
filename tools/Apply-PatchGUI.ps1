@@ -136,7 +136,6 @@ $btnClear.Add_Click({
 
 $btnDiag.Add_Click({
 	$patchText = Strip-MarkdownFences $textBox.Text
-	$patchText = $patchText.TrimEnd()
 
 	if (-not $patchText.Trim()) { Fail "No patch text provided."; return }
 	if ($patchText -notmatch "(?m)^\s*diff --git\s+") { Fail "Patch must contain a 'diff --git' header line."; return }
@@ -177,7 +176,6 @@ $btnLoad.Add_Click({
 $btnApply.Add_Click({
 	try {
 		$patchText = Strip-MarkdownFences $textBox.Text
-		$patchText = $patchText.TrimEnd()
 
 		if (-not $patchText.Trim()) { Fail "No patch text provided."; return }
 		if ($patchText -notmatch "(?m)^\s*diff --git\s+") { Fail "Patch must contain a 'diff --git' header line."; return }
