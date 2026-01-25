@@ -6,8 +6,9 @@ const GalaxyGenerator = preload("res://scripts/core/sim/galaxy_generator.gd")
 var current_tick: int = 0
 var _eco_timer: Timer
 
-# THE CANONICAL MAP
+# --- CANONICAL STATE ---
 var galaxy_map: Dictionary = {}
+var active_fleets: Array = [] # RESOLVED: Fulfills the Spawner's data contract
 
 func _ready():
 	print("BOOTSTRAP: Sim Core initializing...")
@@ -15,9 +16,8 @@ func _ready():
 	_initialize_ledger_clock()
 
 func _generate_universe():
-	# Executes Slice 3: Generating the strategic geography headless.
-	var gen = GalaxyGenerator.new(42) # Fixed seed for determinism
-	galaxy_map = gen.generate(5) # Generate 5 regions
+	var gen = GalaxyGenerator.new(42)
+	galaxy_map = gen.generate(5)
 	print("SUCCESS: Universe topology generated. Stars: %s | Lanes: %s" % [galaxy_map.stars.size(), galaxy_map.lanes.size()])
 
 func _initialize_ledger_clock():
