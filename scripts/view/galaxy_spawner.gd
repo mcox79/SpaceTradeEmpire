@@ -6,8 +6,6 @@ var ship_mat: StandardMaterial3D
 func _ready():
 	await get_tree().process_frame
 	var sim = GameManager.sim
-	
-	# Setup Materials (Stars and Lanes omitted for brevity, keeping them as is)
 	_draw_galaxy(sim)
 	
 	# Setup Ship Material (Bright Red for contrast)
@@ -18,7 +16,6 @@ func _ready():
 	ship_mat.emission_energy_multiplier = 3.0
 
 func _draw_galaxy(sim):
-	# Basic shapes for stars/lanes to keep code footprint small
 	for star in sim.galaxy_map.stars:
 		var s = MeshInstance3D.new()
 		s.mesh = SphereMesh.new(); s.mesh.radius = 0.5; s.mesh.height = 1.0
@@ -33,7 +30,8 @@ func _draw_galaxy(sim):
 		l.rotate_object_local(Vector3.RIGHT, PI/2)
 		add_child(l)
 
-func _process(delta):
+# FIXED: Prefixed _delta to satisfy strict compiler warnings
+func _process(_delta):
 	var sim = GameManager.sim
 	if not sim: return
 	
@@ -41,8 +39,9 @@ func _process(delta):
 	for fleet in sim.active_fleets:
 		if not ship_meshes.has(fleet.id):
 			var mesh_inst = MeshInstance3D.new()
-			mesh_inst.mesh = BoxMesh.new() # Placeholder Freighter
-			mesh_inst.mesh.size = Vector3(0.5, 0.5, 1.0)
+			mesh_inst.mesh = BoxMesh.new()
+			# FIXED: Upscaled 600% for Strategic Camera visibility
+			mesh_inst.mesh.size = Vector3(3.0, 3.0, 6.0) 
 			mesh_inst.material_override = ship_mat
 			add_child(mesh_inst)
 			ship_meshes[fleet.id] = mesh_inst
@@ -50,4 +49,7 @@ func _process(delta):
 		# 2. RENDER: Interpolate position along the spline
 		var visual_ship = ship_meshes[fleet.id]
 		visual_ship.position = fleet.from.lerp(fleet.to, fleet.progress)
+		
+		# FIXED: Offset Y-axis by 2.0 meters to prevent Z-fighting with stars
+		visual_ship.position.y += 2.0 
 		visual_ship.look_at(fleet.to, Vector3.UP)
