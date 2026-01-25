@@ -45,14 +45,14 @@ func _process(_delta):
 			ship_meshes[fleet.id] = mesh_inst
 		
 		var visual_ship = ship_meshes[fleet.id]
-		visual_ship.position = fleet.from.lerp(fleet.to, fleet.progress)
 		
-		# 2.0 meter visual offset
+		# FIXED: The new data contract. Directly reading the backend's current_pos
+		visual_ship.position = fleet.current_pos
+		
+		# 2.0 meter offset so it floats above the star geometry
 		visual_ship.position.y += 2.0 
 		
-		# FIXED: Colinear Math Guardrail.
-		# We must offset the TARGET by 2.0 meters on the Y axis as well,
-		# otherwise the ship tries to look straight down at the star, causing a gimbal lock.
+		# Look at the next waypoint (with matching Y-offset to prevent gimbal lock)
 		var target_look = fleet.to + Vector3(0, 2.0, 0)
 		if visual_ship.position.distance_to(target_look) > 0.1:
 			visual_ship.look_at(target_look, Vector3.UP)
