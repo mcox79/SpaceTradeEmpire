@@ -1,12 +1,12 @@
-extends Node
+extends SceneTree
 
 const Sim = preload("res://scripts/core/sim/sim.gd")
 
-func _ready():
+func _init():
 	print("--- STARTING SIM SKELETON TESTS ---")
 	run_all_tests()
 	print("--- TESTS COMPLETE ---")
-	get_tree().quit()
+	quit()
 
 func run_all_tests():
 	test_determinism()
