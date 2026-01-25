@@ -17,7 +17,6 @@ var _input_enabled: bool = true
 @export var invert_mesh_fire: bool = true
 
 # Phase 1 Economy
-const TradeGood = preload("res://scripts/resources/trade_good.gd")
 @export var max_cargo_volume: float = 10.0
 @export var trade_goods: Array[TradeGood] = []
 
