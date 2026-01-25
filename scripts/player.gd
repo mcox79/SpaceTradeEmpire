@@ -124,7 +124,7 @@ func _physics_process(delta):
 
 	# Rotate ship (yaw). rotation_speed is now yaw speed (rad/s).
 	if yaw_input != 0.0:
-		rotation.y += yaw_input * rotation_speed * delta
+		rotation.y -= yaw_input * rotation_speed * delta
 
 	# Forward is -Z in Godot 3D
 	var forward: Vector3 = -global_transform.basis.z
