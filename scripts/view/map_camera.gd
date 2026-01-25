@@ -1,31 +1,45 @@
 extends Camera3D
 
-# Strategic Camera Controller
+@export var pan_speed: float = 70.0
+@export var zoom_speed: float = 220.0
+@export var min_height: float = 15.0
+@export var max_height: float = 240.0
+@export var boost_multiplier: float = 3.0
 
-var pan_speed: float = 50.0
-var zoom_speed: float = 10.0
-var min_height: float = 20.0
-var max_height: float = 200.0
+func _ready() -> void:
+# Map camera is controlled by InputModeRouter. Default to inert.
+set_process(false)
+set_process_unhandled_input(false)
+current = false
 
-func _process(delta):
-	var move_dir = Vector3.ZERO
-	
-	# WASD / Arrow Keys for Panning
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		move_dir.z -= 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		move_dir.z += 1
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		move_dir.x -= 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		move_dir.x += 1
-		
-	position += move_dir.normalized() * pan_speed * delta
+func _unhandled_input(event: InputEvent) -> void:
+if event is InputEventMouseButton and event.pressed:
+if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+_apply_zoom(-1.0)
+elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+_apply_zoom(1.0)
 
-func _unhandled_input(event):
-	# Mouse Wheel for Zooming (Moves the camera up and down)
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			position.y = clamp(position.y - zoom_speed, min_height, max_height)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			position.y = clamp(position.y + zoom_speed, min_height, max_height)
+func _process(delta: float) -> void:
+# Arrow-only to avoid overlapping with ship controls (WASD).
+var x := 0.0
+var y := 0.0
+if Input.is_key_pressed(KEY_LEFT): x -= 1.0
+if Input.is_key_pressed(KEY_RIGHT): x += 1.0
+if Input.is_key_pressed(KEY_UP): y += 1.0
+if Input.is_key_pressed(KEY_DOWN): y -= 1.0
+
+var boost := boost_multiplier if Input.is_key_pressed(KEY_SHIFT) else 1.0
+var move := Vector3(x, 0.0, y)
+if move.length() > 0.0:
+move = move.normalized() * pan_speed * boost * delta
+global_position += move
+
+_clamp_height()
+
+func _apply_zoom(dir: float) -> void:
+# dir: +1 zoom out, -1 zoom in
+global_position.y += dir * zoom_speed * 0.05
+_clamp_height()
+
+func _clamp_height() -> void:
+global_position.y = clamp(global_position.y, min_height, max_height)
