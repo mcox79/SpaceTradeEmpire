@@ -17,8 +17,8 @@ func _process(delta: float) -> void:
 		if _target == null:
 			return
 
-	var basis: Basis = _target.global_transform.basis
-	var forward: Vector3 = -basis.z
+	var target_basis: Basis = _target.global_transform.basis
+	var forward: Vector3 = -target_basis.z
 	var desired: Vector3 = _target.global_position - forward * follow_distance + Vector3.UP * height
 	var t: float = clamp(delta * follow_speed, 0.0, 1.0)
 
