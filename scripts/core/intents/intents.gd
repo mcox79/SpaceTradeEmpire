@@ -1,5 +1,4 @@
 extends RefCounted
-class_name Intents
 
 # Base class for all requests sent to the Sim.
 class Intent:
