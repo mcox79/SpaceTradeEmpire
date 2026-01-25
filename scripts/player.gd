@@ -46,7 +46,8 @@ var my_camera: Camera3D = null
 var _goods_by_id: Dictionary = {}
 
 func _ready():
-	add_to_group("Player")
+	add_to_group("player")
+	scale = Vector3.ONE * visual_scale
 	health = max_health
 	fuel = max_fuel
 
@@ -109,6 +110,11 @@ func remove_cargo(item_id: String, amount: int) -> bool:
 	_update_ui_state()
 	return true
 func _physics_process(delta):
+		if not _input_enabled:
+				velocity = Vector3.ZERO
+				move_and_slide()
+				return
+
 	if is_docked:
 		return
 
@@ -188,6 +194,4 @@ func set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
 
 
-func _ready() -> void:
-	add_to_group("player")
-	scale = Vector3.ONE * visual_scale
+
