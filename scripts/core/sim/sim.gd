@@ -34,12 +34,12 @@ func _generate_universe():
 	galaxy_map = gen.generate(5)
 	_nav_graph = GalaxyGraph.new()
 	for star in galaxy_map.stars:
-		_nav_graph.add_sector_stub(star.id) 
+		_nav_graph.add_node(star.id) 
 	for lane in galaxy_map.lanes:
 		var from_star = _get_star_at_pos(lane.from)
 		var to_star = _get_star_at_pos(lane.to)
 		if from_star != null and to_star != null:
-			_nav_graph.connect_sectors(from_star.id, to_star.id)
+			_nav_graph.connect_nodes(from_star.id, to_star.id)
 	if galaxy_map.stars.size() > 0:
 		active_fleets.append(Fleet.new("fleet_01", galaxy_map.stars[0].pos))
 
