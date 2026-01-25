@@ -3,7 +3,7 @@ extends Node
 const TICK_INTERVAL = 5.0
 const GalaxyGenerator = preload("res://scripts/core/sim/galaxy_generator.gd")
 
-# We use load() here to bypass the potential class_name cache lock in CI/CD
+# Bypassing cache locks for CI/CD safety
 const Fleet = preload("res://scripts/core/state/fleet.gd")
 
 var current_tick: int = 0
@@ -21,14 +21,14 @@ func _ready():
 func _generate_universe():
 	var gen = GalaxyGenerator.new(42)
 	galaxy_map = gen.generate(5)
-	print("SUCCESS: Universe topology generated. Stars: %s | Lanes: %s" % [galaxy_map.stars.size(), galaxy_map.lanes.size()])
+	print("SUCCESS: Universe topology generated.")
 	
 	# INJECT TEST LOGISTICS (SLICE 4)
 	if galaxy_map.lanes.size() > 0:
 		var test_lane = galaxy_map.lanes[0]
 		var test_fleet = Fleet.new("fleet_01", test_lane.from, test_lane.to)
 		active_fleets.append(test_fleet)
-		print("SUCCESS: Test fleet 'fleet_01' injected into Primary Artery.")
+		print("SUCCESS: 'fleet_01' injected into Primary Artery.")
 
 func _initialize_ledger_clock():
 	_eco_timer = Timer.new()
@@ -48,7 +48,8 @@ func _advance_fleets():
 	for fleet in active_fleets:
 		if fleet.progress < 1.0:
 			fleet.progress = min(1.0, fleet.progress + fleet.speed)
-			fleet.current_pos = fleet.from_pos.lerp(fleet.to_pos, fleet.progress)
+			# Using standardized 'from' and 'to' properties
+			fleet.current_pos = fleet.from.lerp(fleet.to, fleet.progress)
 			if fleet.progress >= 1.0:
 				print("[LOGISTICS] Fleet %s arrived at destination." % fleet.id)
 
