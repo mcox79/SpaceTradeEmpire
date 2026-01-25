@@ -42,7 +42,25 @@ If `DevTool.ps1` is lost, recreate a script that:
   - `_scratch/`, `._scratch/`
   - `*.ps1`
 
+### 2.3 Git Hygiene and Session Checkpoints (Strict)
+- **The "Clean Workbench" Protocol:** Never transition between major architectural Slices or AI chat sessions with a dirty Git working tree. 
+- **Milestone Commits:** At the conclusion of a feature vertical, you MUST execute a cleanup script to purge build artifacts (`.uid`, temp files) and seal the state with a distinct milestone commit (e.g., `git commit -m "feat(milestone): complete slice 6..."`).
+- **The Rollback Guarantee:** This ensures `HEAD` is always a verified, commercially viable baseline.
+
 ## 3. Architecture and Standards (Strict)
+
+### NON-NEGOTIABLE ARCHITECTURE INVARIANTS
+
+#### 1. The Sim Core Data Purity Rule
+The headless simulation (`res://scripts/core/sim/`) is the sole authoritative source of truth. To guarantee deterministic replays and network-safe states, it is subject to a strict type blacklist.
+* **PROHIBITED in the Sim Core:** Godot `Node`, `Resource`, `AStar3D`, `Vector3`, `RandomNumberGenerator`, and any class inheriting from `RefCounted` that calls engine-specific physics or rendering APIs.
+* **ALLOWED in the Sim Core:** Standard GDScript primitives (`int`, `float`, `String`, `Array`, `Dictionary`) and Plain Old Data (POD) structs.
+
+#### 2. Headless Pathfinding Standard
+No Godot-native navigation nodes may be used for world logic. Strategic map routing must utilize a custom, array-based Graph Search algorithm (BFS/Dijkstra) running entirely on standard Dictionaries and Arrays.
+
+#### 3. The Golden Replay Blocker
+No system is considered "complete" until it passes `test_replay_golden.gd`. This automated test asserts that 10,000 headless simulation ticks using a fixed seed produce the exact same final-state SHA-256 hash across all hardware configurations.
 
 ### File organization
 - `/scenes`: visuals and prefabs
