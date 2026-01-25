@@ -1,5 +1,4 @@
 extends RefCounted
-class_name GalaxyGraph
 
 # ARCHITECTURE: Pure POD Adjacency List. No Godot Resources.
 var _adj: Dictionary = {} # Key: String (Node ID), Value: Array[String] (Connected IDs)
