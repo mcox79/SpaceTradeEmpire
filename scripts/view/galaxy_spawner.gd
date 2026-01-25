@@ -5,7 +5,8 @@ var ship_mat: StandardMaterial3D
 
 func _ready():
 	await get_tree().process_frame
-	var sim = GameManager.sim
+	# FIXED: Absolute pathing to bypass headless AST isolation
+	var sim = get_node("/root/GameManager").sim
 	_draw_galaxy(sim)
 	
 	# Setup Ship Material (Bright Red for contrast)
@@ -30,18 +31,19 @@ func _draw_galaxy(sim):
 		l.rotate_object_local(Vector3.RIGHT, PI/2)
 		add_child(l)
 
-# FIXED: Prefixed _delta to satisfy strict compiler warnings
 func _process(_delta):
-	var sim = GameManager.sim
-	if not sim: return
+	# FIXED: Absolute pathing for process loop
+	var game_manager = get_node_or_null("/root/GameManager")
+	if not game_manager or not game_manager.sim: return
+	
+	var sim = game_manager.sim
 	
 	# 1. READ: Sync View with Sim State
 	for fleet in sim.active_fleets:
 		if not ship_meshes.has(fleet.id):
 			var mesh_inst = MeshInstance3D.new()
 			mesh_inst.mesh = BoxMesh.new()
-			# FIXED: Upscaled 600% for Strategic Camera visibility
-			mesh_inst.mesh.size = Vector3(3.0, 3.0, 6.0) 
+			mesh_inst.mesh.size = Vector3(3.0, 3.0, 6.0) # Strategic Scale
 			mesh_inst.material_override = ship_mat
 			add_child(mesh_inst)
 			ship_meshes[fleet.id] = mesh_inst
@@ -49,7 +51,5 @@ func _process(_delta):
 		# 2. RENDER: Interpolate position along the spline
 		var visual_ship = ship_meshes[fleet.id]
 		visual_ship.position = fleet.from.lerp(fleet.to, fleet.progress)
-		
-		# FIXED: Offset Y-axis by 2.0 meters to prevent Z-fighting with stars
-		visual_ship.position.y += 2.0 
+		visual_ship.position.y += 2.0 # Offset to prevent clipping
 		visual_ship.look_at(fleet.to, Vector3.UP)
