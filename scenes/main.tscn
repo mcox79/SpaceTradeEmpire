@@ -1,26 +1,13 @@
-[gd_scene load_steps=12 format=3 uid="uid://b8j24k1n5q2x"]
+[gd_scene load_steps=4 format=3 uid="uid://b8j24k1n5q2x"]
 
-[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_0wfyh"]
-[ext_resource type="PackedScene" path="res://scenes/station.tscn" id="3_sugp2"]
-[ext_resource type="Script" uid="uid://chlyl62n0yyfl" path="res://scripts/resources/trade_good.gd" id="3_tipki"]
-[ext_resource type="PackedScene" path="res://scenes/asteroid.tscn" id="4_asteroid"]
-[ext_resource type="PackedScene" path="res://scenes/ui_hud.tscn" id="4_jyhfs"]
-[ext_resource type="Script" uid="uid://cdth7i21ieed5" path="res://scripts/spawner.gd" id="5_tbgi4"]
-[ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="98_alpha_profile"]
-[ext_resource type="Resource" path="res://resources/markets/station_beta_profile.tres" id="99_beta_profile"]
+[ext_resource type="Script" uid="uid://38vie7qyhu7t" path="res://scripts/view/map_camera.gd" id="2_0wfyh"]
+[ext_resource type="Script" uid="uid://bk2adptm4av7c" path="res://scripts/view/galaxy_spawner.gd" id="9_85g3d"]
 
 [sub_resource type="Environment" id="Environment_blue"]
 background_mode = 1
 background_color = Color(0, 0, 0.2, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
-albedo_color = Color(0.3, 0.3, 0.3, 1)
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
-material = SubResource("StandardMaterial3D_floor")
-size = Vector2(100, 100)
 
 [node name="Main" type="Node3D"]
 
@@ -31,34 +18,9 @@ environment = SubResource("Environment_blue")
 transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 10, 0)
 shadow_enabled = true
 
-[node name="ReferenceFloor" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
-mesh = SubResource("PlaneMesh_floor")
+[node name="GalaxySpawner" type="Node3D" parent="."]
+script = ExtResource("9_85g3d")
 
-[node name="Asteroid" parent="." instance=ExtResource("4_asteroid")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
-
-[node name="Player" parent="." instance=ExtResource("2_0wfyh")]
-trade_goods = Array[ExtResource("3_tipki")]([])
-
-[node name="Station" parent="." instance=ExtResource("3_sugp2")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.094528, 0.91242695, -15.825881)
-market_profile = ExtResource("98_alpha_profile")
-local_supply = {
-"ore_gold": 15,
-"ore_iron": 120
-}
-
-[node name="HUD" parent="." instance=ExtResource("4_jyhfs")]
-
-[node name="Spawner" type="Node3D" parent="."]
-script = ExtResource("5_tbgi4")
-asteroid_scene = ExtResource("4_asteroid")
-
-[node name="StationBeta" parent="." instance=ExtResource("3_sugp2")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.9, 18)
-market_profile = ExtResource("99_beta_profile")
-local_supply = {
-"ore_gold": 140,
-"ore_iron": 25
-}
+[node name="MapCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 120, 0)
+script = ExtResource("2_0wfyh")
