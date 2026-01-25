@@ -1,6 +1,8 @@
-﻿[gd_scene load_steps=6 format=3 uid="uid://b8j24k1n5q2x"]
+[gd_scene load_steps=6 format=3 uid="uid://b8j24k1n5q2x"]
 
-[ext_resource type="Script" uid="uid://38vie7qyhu7t" path="res://scripts/view/map_camera.gd" id="2_0wfyh"]
+[ext_resource type="Script" uid="uid://ckhwc3f4dognl" path="res://scripts/view/map_camera.gd" id="2_0wfyh"]
+[ext_resource type="Script" uid="uid://3gobhpdtvo56" path="res://scripts/view/drone_camera.gd" id="3_drone"]
+[ext_resource type="Script" uid="uid://bpkx6i1s27e1q" path="res://scripts/runtime/input_mode_router.gd" id="4_router"]
 [ext_resource type="Script" uid="uid://bk2adptm4av7c" path="res://scripts/view/galaxy_spawner.gd" id="9_85g3d"]
 
 [sub_resource type="Environment" id="Environment_blue"]

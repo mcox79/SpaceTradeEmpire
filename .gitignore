@@ -34,3 +34,5 @@ godot_path.cfg
 
 # Windows junk
 *.lnk
+*.uid
+scripts/temp_validator.gd
