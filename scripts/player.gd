@@ -141,22 +141,6 @@ func _physics_process(delta):
 	else:
 		# Damping (lower friction for more inertia)
 		velocity = velocity.move_toward(Vector3.ZERO, friction * delta)
-	# Orthonormalize basis to avoid any scaling artifacts.
-	var direction: Vector3 = Vector3(input_dir.x, 0, input_dir.y).normalized()
-
-	if direction != Vector3.ZERO and fuel > 0.0:
-		velocity = velocity.move_toward(direction * speed_max, acceleration * delta)
-
-		fuel -= fuel_burn_rate * delta
-		if fuel < 0.0:
-			fuel = 0.0
-		emit_signal("fuel_updated", int(fuel), int(max_fuel))
-
-		var target_rotation: float = atan2(-direction.x, -direction.z)
-		rotation.y = lerp_angle(rotation.y, target_rotation, rotation_speed * delta)
-	else:
-		velocity = velocity.move_toward(Vector3.ZERO, friction * delta)
-
 	move_and_slide()
 
 	if Input.is_action_pressed("ui_accept") and can_shoot:
