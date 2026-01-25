@@ -23,3 +23,7 @@ window/stretch/mode="canvas_items"
 [editor_plugins]
 
 enabled=PackedStringArray()
+
+[autoload]
+
+GameManager="*res://scripts/core/game_manager.gd"
