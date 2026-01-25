@@ -16,4 +16,3 @@ func _ready():
 	# 2. Wait one frame so the View Layer can read the generated map.
 	await get_tree().process_frame
 	print("SUCCESS: Runtime Bridge active.")
-

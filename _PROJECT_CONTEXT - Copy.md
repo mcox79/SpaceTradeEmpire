@@ -10,8 +10,8 @@
 1. **Write the Asset:** Use `Set-Content` with a Here-String (`@"..."@`) to write the new GDScript directly to the correct filepath.
 2. **Execute CI/CD Gatekeeper:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to validate syntax, format tabs, and secure the git commit.
 3. **Execute Integration Test:** If the script affects the economy, immediately invoke Godot headless testing: `& $GodotExe --headless -s "scenes/tests/test_economy_core.tscn"`.
-4. **Pathing Safety:** You MUST use git rev-parse --show-toplevel within PowerShell to dynamically resolve the project root. Never use relative paths for Set-Content.
-5. **Iterative Engineering:** Do not output massive code blocks. Write the structural skeleton first, validate the CI/CD pipeline, and only fill in complex logic in subsequent turns.
+4. **Pathing Safety: You MUST use git rev-parse --show-toplevel within PowerShell to dynamically resolve the project root. Never use relative paths for Set-Content.
+5. **Iterative Engineering: Do not output massive code blocks. Write the structural skeleton first, validate the CI/CD pipeline, and only fill in complex logic in subsequent turns.
 
 **Goal:** The user should only ever have to click "Copy" on a single PowerShell block and paste it into their terminal to deploy, test, and commit your logic.
 
@@ -27,7 +27,6 @@ If `DevTool.ps1` is lost, recreate a script that:
 - Dev tooling must never overwrite canonical docs.
 - Generated artifacts (context dumps, inventories, transcripts) must be written under `_scratch/`.
 - If a tool proposes changes to canonical docs, it must output a patch or diff, not overwrite.
-- **Canonical Edit Protocol:** If an AI tool proposes an addition or edit to a canonical document, it MUST provide the exact, final markdown text inside a code block to allow for zero-friction copy-pasting, and the exact location.
 
 ### Context Generation Contract (Enforced)
 
@@ -115,17 +114,6 @@ Run `Validate-GodotScript` in your terminal after any logic edit. Do not launch 
    - Replacements must be bounded by:
      - `func <name>(...)` ? next `func` or end-of-file
    - Blind global replacements inside `.gd` files are forbidden
-
-### 4.4 Environment Resilience and Cache Management (Strict)
-- **The Cache Lock:** Avoid rapidly overwriting files with the `class_name` header via terminal scripts. Godot's global cache locks these files. If a fatal namespace collision occurs, remove `class_name` and rely on `extends [Type]` to bypass the cache lock until the feature is stable.
-- **Environment Inspection:** Automation scripts MUST NOT call raw environment variables (e.g., `$GodotExe`). Scripts must perform a safe inspection and fall back to a system default to prevent pipeline halts on diverse machines.
-
-### 4.5 Headless CI/CD and File I/O Guardrails (Strict)
-- **The Autoload Trap:** Headless syntax validators do not load the `project.godot` Autoload registry. Scripts MUST NOT use global Autoload namespaces directly (e.g., `GameManager.sim`). You must use absolute pathing (e.g., `get_node("/root/GameManager").sim`) to ensure the code passes CI/CD without breaking runtime behavior.
-- **Infrastructure-First File I/O:** `Set-Content` cannot create directories. Before generating a new script, the automation pipeline MUST explicitly create the target directory using `New-Item -ItemType Directory -Force`. Failing to do so breaks the deployment chain.
-
-### 4.6 The View-Sim Data Contract (Strict)
-- **Passive Renderers Only:** View layer scripts (`_process` loops) MUST NOT perform any simulation math or interpolation. They must only read the current state directly from the headless backend (e.g., `visual_node.position = fleet.current_pos`). If a backend data primitive is refactored, the View Layer contract must be updated in the exact same commit.
 
 ## 5. Game Definition (Locked)
 
