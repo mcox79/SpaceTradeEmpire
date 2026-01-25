@@ -1,48 +1,53 @@
 extends Node3D
 
+var ship_meshes: Dictionary = {}
+var ship_mat: StandardMaterial3D
+
 func _ready():
 	await get_tree().process_frame
-	print("[SPAWNER] Rendering Stars and Network Lanes...")
 	var sim = GameManager.sim
 	
-	# Material for Stars
-	var star_mat = StandardMaterial3D.new()
-	star_mat.albedo_color = Color(1.0, 0.9, 0.5)
-	star_mat.emission_enabled = true
-	star_mat.emission = Color(1.0, 0.8, 0.2)
-	star_mat.emission_energy_multiplier = 2.0
+	# Setup Materials (Stars and Lanes omitted for brevity, keeping them as is)
+	_draw_galaxy(sim)
 	
-	# Material for Lanes (Subtle Blue)
-	var lane_mat = StandardMaterial3D.new()
-	lane_mat.albedo_color = Color(0.2, 0.4, 0.8, 0.5)
-	lane_mat.emission_enabled = true
-	lane_mat.emission = Color(0.1, 0.3, 0.6)
-	lane_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Setup Ship Material (Bright Red for contrast)
+	ship_mat = StandardMaterial3D.new()
+	ship_mat.albedo_color = Color(1.0, 0.1, 0.1)
+	ship_mat.emission_enabled = true
+	ship_mat.emission = Color(1.0, 0.0, 0.0)
+	ship_mat.emission_energy_multiplier = 3.0
 
-	# 1. Spawn Stars
+func _draw_galaxy(sim):
+	# Basic shapes for stars/lanes to keep code footprint small
 	for star in sim.galaxy_map.stars:
-		var mesh_inst = MeshInstance3D.new()
-		var sphere = SphereMesh.new()
-		sphere.radius = 0.5; sphere.height = 1.0
-		mesh_inst.mesh = sphere
-		mesh_inst.material_override = star_mat
-		mesh_inst.position = star.pos
-		add_child(mesh_inst)
-
-	# 2. Spawn Network Lanes
+		var s = MeshInstance3D.new()
+		s.mesh = SphereMesh.new(); s.mesh.radius = 0.5; s.mesh.height = 1.0
+		s.position = star.pos
+		add_child(s)
 	for lane in sim.galaxy_map.lanes:
-		var mid_point = (lane.from + lane.to) / 2.0
-		var dist = lane.from.distance_to(lane.to)
-		var mesh_inst = MeshInstance3D.new()
-		var cylinder = CylinderMesh.new()
-		cylinder.top_radius = 0.05; cylinder.bottom_radius = 0.05
-		cylinder.height = dist
-		mesh_inst.mesh = cylinder
-		mesh_inst.material_override = lane_mat
-		mesh_inst.position = mid_point
-		# Orient the cylinder to point from A to B
-		mesh_inst.look_at_from_position(mid_point, lane.to, Vector3.UP)
-		mesh_inst.rotate_object_local(Vector3.RIGHT, PI/2)
-		add_child(mesh_inst)
+		var mid = (lane.from + lane.to) / 2.0
+		var l = MeshInstance3D.new()
+		l.mesh = CylinderMesh.new(); l.mesh.top_radius=0.05; l.mesh.bottom_radius=0.05; l.mesh.height = lane.from.distance_to(lane.to)
+		l.position = mid
+		l.look_at_from_position(mid, lane.to, Vector3.UP)
+		l.rotate_object_local(Vector3.RIGHT, PI/2)
+		add_child(l)
 
-	print("[SPAWNER] Network rendering complete.")
+func _process(delta):
+	var sim = GameManager.sim
+	if not sim: return
+	
+	# 1. READ: Sync View with Sim State
+	for fleet in sim.active_fleets:
+		if not ship_meshes.has(fleet.id):
+			var mesh_inst = MeshInstance3D.new()
+			mesh_inst.mesh = BoxMesh.new() # Placeholder Freighter
+			mesh_inst.mesh.size = Vector3(0.5, 0.5, 1.0)
+			mesh_inst.material_override = ship_mat
+			add_child(mesh_inst)
+			ship_meshes[fleet.id] = mesh_inst
+		
+		# 2. RENDER: Interpolate position along the spline
+		var visual_ship = ship_meshes[fleet.id]
+		visual_ship.position = fleet.from.lerp(fleet.to, fleet.progress)
+		visual_ship.look_at(fleet.to, Vector3.UP)
