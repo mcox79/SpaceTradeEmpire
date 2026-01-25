@@ -117,10 +117,29 @@ func _physics_process(delta):
 
 	if is_docked:
 		return
+`r`n	# Flight controls: yaw + thrust (ship-forward)
+	var yaw_input: float = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
+	var thrust_input: float = Input.get_action_strength("ui_up") - Input.get_action_strength("ui_down")
 
-	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	# Rotate ship (yaw). rotation_speed is now yaw speed (rad/s).
+	if yaw_input != 0.0:
+	`trotation.y += yaw_input * rotation_speed * delta
 
-	# Ship-space movement: interpret input in local ship frame, then convert to world space.
+	# Forward is -Z in Godot 3D
+	var forward: Vector3 = -global_transform.basis.z
+
+	# Thrust / reverse thrust
+	if thrust_input != 0.0 and fuel > 0.0:
+	`tvar target_vel: Vector3 = forward * (speed_max * thrust_input)
+	`tvelocity = velocity.move_toward(target_vel, acceleration * delta)
+
+	`tfuel -= fuel_burn_rate * abs(thrust_input) * delta
+	`tif fuel < 0.0:
+	`t`tfuel = 0.0
+	`temit_signal("fuel_updated", int(fuel), int(max_fuel))
+	else:
+	`t# Damping (lower friction for more inertia)
+	`tvelocity = velocity.move_toward(Vector3.ZERO, friction * delta)
 	# Orthonormalize basis to avoid any scaling artifacts.
 	var direction: Vector3 = Vector3(input_dir.x, 0, input_dir.y).normalized()
 
