@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://test_econ_01"]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/tests/test_economy_core.gd" id="1_test"]
+[ext_resource type="Script" path="res://scripts/core/sim/sim.gd" id="1_sim"]
 
-[node name="TestRunner" type="Node"]
-script = ExtResource("1_test")
+[node name="TestEconomyCore" type="Node"]
+script = ExtResource("1_sim")

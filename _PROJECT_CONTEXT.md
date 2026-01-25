@@ -1,11 +1,19 @@
 # SPACE TRADE EMPIRE: PROJECT CONTEXT
 
-## 1. The Founder Protocol
+## 1. The Founder Protocol (STRICT AI OUTPUT CONSTRAINTS)
 
-- **Voice:** Pragmatic, commercial, technical
-- **Output pattern:** Direct code blocks ? implementation steps ? verification
-- **Code blocks:** Fence by language. PowerShell blocks contain only PowerShell commands. GDScript blocks are fenced as `gdscript` (or plain) and must never be presented as terminal commands.
-- **Meta-rule:** If the project structure changes significantly (new systems), update this file
+**Voice:** Pragmatic, commercial, technical. Value-oriented and high-signal.
+
+**THE MASTER OUTPUT RULE:** You must NEVER output raw GDScript for the user to copy-paste manually. Manual code insertion is strictly deprecated.
+
+**The Automated Deployment Pattern:** Whenever you generate or modify Godot code (`.gd` files), your output MUST be a single, complete PowerShell code block that executes the following pipeline automatically:
+1. **Write the Asset:** Use `Set-Content` with a Here-String (`@"..."@`) to write the new GDScript directly to the correct filepath.
+2. **Execute CI/CD Gatekeeper:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to validate syntax, format tabs, and secure the git commit.
+3. **Execute Integration Test:** If the script affects the economy, immediately invoke Godot headless testing: `& $GodotExe --headless -s "scenes/tests/test_economy_core.tscn"`.
+4. **Pathing Safety:** You MUST use git rev-parse --show-toplevel within PowerShell to dynamically resolve the project root. Never use relative paths for Set-Content.
+5. **Iterative Engineering:** Do not output massive code blocks. Write the structural skeleton first, validate the CI/CD pipeline, and only fill in complex logic in subsequent turns.
+
+**Goal:** The user should only ever have to click "Copy" on a single PowerShell block and paste it into their terminal to deploy, test, and commit your logic.
 
 ## 2. Recovery and Toolchain
 
@@ -52,6 +60,9 @@ If `DevTool.ps1` is lost, recreate a script that:
 - **The drone camera** must be top-level or code-spawned
 - It must never be parented to Player
 
+### The Game Loop (Strict)
+- Decoupled Economy: The economic simulation must never run on the render framerate (_process). It must execute on a deterministic, fixed interval using a Timer node or manual delta tracking.
+
 ## 4. GDScript Editing and Indentation Policy (Strict)
 
 This project enforces a tabs-only indentation policy for all `.gd` files. Violations are treated as build-breaking errors.
@@ -77,97 +88,19 @@ This repo treats leading-space indentation in `.gd` files as build-breaking.
 2. After any automated edit (PowerShell patch, search/replace, generated code), run the indentation gate again.
 3. If the gate fails, normalize indentation, then re-run the gate. Do not launch Godot until clean.
 
-#### Canonical scripts (PowerShell)
+#### Canonical Tooling (PowerShell)
 
-Create these scripts in the repo root (or `scripts/` if you prefer). They are the only sanctioned way to normalize and validate indentation.
+**The `Validate-GodotScript` Function:** This repository enforces a single-command CI/CD pipeline for all logic scripts. Manual indentation checks and manual git commits for `.gd` files are deprecated. 
 
-##### `Normalize-GDScriptIndent.ps1`
-- Converts leading indentation from 4-space groups to literal tabs **only when the leading whitespace is spaces-only and divisible by 4**.
-- **Fails** (exit 1) if it finds mixed tabs+spaces or leading spaces not divisible by 4. This forces manual cleanup so the repo converges to tabs-only.
-- Does not change spaces after the first non-whitespace character.
+**Execution:** `Validate-GodotScript "path/to/script.gd"`
 
-```powershell
-$bad = @()
-$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
-	$_.FullName -notmatch '\addons\' -and
-	$_.FullName -notmatch '\.godot\' -and
-	$_.FullName -notmatch '\.git\'
-}
-
-foreach ($f in $files) {
-	$path  = $f.FullName
-	$lines = Get-Content $path
-	$fixed = @()
-	for ($i = 0; $i -lt $lines.Count; $i++) {
-		$line = $lines[$i]
-		if ($line -match '^(?<ws>[\t ]+)(?=\S)') {
-			$ws = $Matches.ws
-			$hasTab   = $ws -match "\t"
-			$hasSpace = $ws -match " "
-			if ($hasTab -and $hasSpace) {
-				$bad += "{0}:{1}: Mixed tabs+spaces in leading whitespace" -f $path, ($i + 1)
-				$fixed += $line
-				continue
-			}
-			if ($hasSpace) {
-				$spaces = ($ws -replace "\t", "").Length
-				if (($spaces % 4) -ne 0) {
-					$bad += "{0}:{1}: Leading spaces not divisible by 4" -f $path, ($i + 1)
-					$fixed += $line
-					continue
-				}
-				$tabs = [int]($spaces / 4)
-				$fixed += ("`t" * $tabs) + $line.Substring($ws.Length)
-				continue
-			}
-		}
-		$fixed += $line
-	}
-	Set-Content -Path $path -Value $fixed -Encoding UTF8
-}
-
-if ($bad.Count -gt 0) {
-	"FAIL: Normalize found indentation that cannot be safely auto-fixed:"
-	$bad
-	exit 1
-}
-"OK: Normalize completed with no unsafe indentation found."
-exit 0
-```
-
-##### `Check-GDScriptIndent.ps1`
-- Fails if any non-empty `.gd` line has **any space** in the leading whitespace before code (tabs-only indentation).
-
-```powershell
-$bad = @()
-$files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
-	$_.FullName -notmatch '\addons\' -and
-	$_.FullName -notmatch '\.godot\' -and
-	$_.FullName -notmatch '\.git\'
-}
-
-foreach ($f in $files) {
-	Select-String -Path $f.FullName -Pattern '^[\t ]* [\t ]*\S' | ForEach-Object {
-		$bad += "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line
-	}
-}
-
-if ($bad.Count -gt 0) {
-	"FAIL: Found spaces in leading indentation of .gd files:"
-	$bad
-	exit 1
-}
-"OK: Tabs-only indentation verified."
-exit 0
-```
+**Pipeline Behavior:**
+1. **Pre-Processing:** Automatically detects leading spaces and converts them to Godot-compliant tabs.
+2. **Static Validation:** Boots a headless Godot instance to parse the Abstract Syntax Tree (AST) for fatal syntax errors without launching the game.
+3. **Dual-Gate Commit:** Only stages and commits the file to Git if both the engine syntax check and the Git pre-commit hooks return a successful exit code (0).
 
 #### How to use
-1. One-time cleanup (or after a large merge):
-   - Run `Normalize-GDScriptIndent.ps1`
-   - Run `Check-GDScriptIndent.ps1` and confirm it passes
-2. Day-to-day:
-   - Run `Check-GDScriptIndent.ps1` before launching Godot
-   - Run `Check-GDScriptIndent.ps1` after any scripted edit
+Run `Validate-GodotScript` in your terminal after any logic edit. Do not launch the Godot editor until this command passes.
 
 ### Editing rules (PowerShell and automation)
 1. **No in-place line edits inside functions**

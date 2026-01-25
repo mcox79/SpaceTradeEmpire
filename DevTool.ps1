@@ -148,11 +148,36 @@ function Run-ContextGen {
 }
 
 function Run-GitSave {
-    Log-Output ">>> EXEC: GIT SNAPSHOT"
+    Log-Output ">>> EXEC: CI/CD ENFORCED GIT SNAPSHOT"
+    
+    # 1. Identify Modified Godot Scripts
+    $modifiedScripts = git diff --name-only | Where-Object { $_ -match "\.gd$" }
+    
+    # 2. Enforce the Gatekeeper
+    if ($modifiedScripts) {
+        Log-Output "Scanning modified GDScript assets..."
+        foreach ($script in $modifiedScripts) {
+            $fullPath = Join-Path $ProjectRoot.Path $script
+            Log-Output "Validating: $script"
+            
+            # Invoke the system CI/CD tool
+            Validate-GodotScript $fullPath
+            
+            # Audit the exit code
+            if ($LASTEXITCODE -ne 0) {
+                Log-Output "FATAL: Syntax/Indentation error detected in $script."
+                Log-Output "ABORT: Commit blocked to prevent technical debt."
+                return # Exits the function immediately, preventing the commit.
+            }
+        }
+        Log-Output "PASSED: All modified scripts verified."
+    }
+
+    # 3. Secure the Asset
     git add -u
-    $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
+    $res = git commit -m "chore: state snapshot via Mission Control $(Get-Date -Format 'yyyy-MM-dd HH:mm')" 2>&1
     Log-Output $res
-    Log-Output "State Saved."
+    Log-Output "SUCCESS: Operation verified and baseline secured in Git."
 }
 
 function Run-GitReset {

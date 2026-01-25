@@ -9,7 +9,7 @@ Add-Type -AssemblyName System.Drawing
 
 # --- CONFIGURATION ---
 $ProjectRoot = Get-Location
-$ContextFile = Join-Path $ProjectRoot "_FullProjectContext.txt"
+$ContextFile = Join-Path (Join-Path $ProjectRoot "_scratch") "_FullProjectContext.txt"
 $TestScene   = "scenes/tests/test_economy_core.tscn"
 $ConfigPath  = Join-Path $ProjectRoot "godot_path.cfg"
 
@@ -98,11 +98,25 @@ function Run-ContextGen {
     try {
         $content = "=== SPACE TRADE EMPIRE PROJECT DUMP ===`n"
         $content += "dump_timestamp: $(Get-Date)`n`n"
+
+        # Ensure scratch output directory exists
+        $scratchDir = Join-Path $ProjectRoot.Path "_scratch"
+        if (-not (Test-Path -LiteralPath $scratchDir)) {
+            New-Item -ItemType Directory -Path $scratchDir | Out-Null
+        }
         
         $content += "=== LIVE PROJECT STRUCTURE ===`n"
         try {
             $tree = Get-ChildItem -Path $ProjectRoot -Recurse | 
-                Where-Object { $_.FullName -notmatch "\\.godot|\\.git|\\.import" } |
+                Where-Object {
+                    $p = $_.FullName
+                    ($p -notmatch "\\\.godot(\\|$)") -and
+                    ($p -notmatch "\\\.git(\\|$)") -and
+                    ($p -notmatch "\\\.import(\\|$)") -and
+                    ($p -notmatch "\\addons(\\|$)") -and
+                    ($p -notmatch "\\_scratch(\\|$)") -and
+                    ($p -notmatch "\\\._scratch(\\|$)")
+                } |
                 ForEach-Object { 
                     $rel = $_.FullName.Replace($ProjectRoot.Path, "")
                     $indent = "  " * ($rel.Split('\').Count - 1)
@@ -112,8 +126,8 @@ function Run-ContextGen {
         } catch {}
         $content += "`n================================`n"
 
-        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader, *.ps1 | 
-                 Where-Object { $_.FullName -notmatch ".git" -and $_.FullName -notmatch ".import" }
+        $files = Get-ChildItem -Path $ProjectRoot -Recurse -Include *.gd, *.tscn, *.shader | 
+                 Where-Object { $_.FullName -notmatch "\\.git" -and $_.FullName -notmatch "\\.import" -and $_.FullName -notmatch "\\addons\\" -and $_.FullName -notmatch "\\_scratch\\" -and $_.FullName -notmatch "\\\._scratch\\" }
 
         foreach ($file in $files) {
             $relPath = $file.FullName.Replace($ProjectRoot.Path, "")
@@ -123,7 +137,9 @@ function Run-ContextGen {
             $content += "`n"
         }
         
-        Set-Content -Path $ContextFile -Value $content -Encoding UTF8
+        $tmp = "$ContextFile.tmp"
+        Set-Content -Path $tmp -Value $content -Encoding UTF8
+        Move-Item -Force -Path $tmp -Destination $ContextFile
         Log-Output "SUCCESS: Context refreshed."
     }
     catch {
@@ -133,7 +149,7 @@ function Run-ContextGen {
 
 function Run-GitSave {
     Log-Output ">>> EXEC: GIT SNAPSHOT"
-    git add .
+    git add -u
     $res = git commit -m "Manual Save Point $(Get-Date)" 2>&1
     Log-Output $res
     Log-Output "State Saved."
@@ -144,7 +160,7 @@ function Run-GitReset {
     if ($confirm -eq "Yes") {
         Log-Output ">>> EXEC: HARD RESET"
         git reset --hard 2>&1 | Out-Null
-        git clean -fd 2>&1 | Out-Null
+        git clean -fdX 2>&1 | Out-Null
         Log-Output "SUCCESS: Time machine activated. Changes reverted."
     }
 }
