@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+@export var visual_scale: float = 0.35
+var _input_enabled: bool = true
 # --- CONFIG ---
 @export_group("Ship Settings")
 @export var speed_max := 25.0
@@ -180,3 +182,12 @@ func take_damage(amount: int):
 # eol test
 
 # eol test
+
+
+func set_input_enabled(enabled: bool) -> void:
+	_input_enabled = enabled
+
+
+func _ready() -> void:
+	add_to_group("player")
+	scale = Vector3.ONE * visual_scale
