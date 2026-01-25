@@ -110,10 +110,11 @@ func remove_cargo(item_id: String, amount: int) -> bool:
 	_update_ui_state()
 	return true
 func _physics_process(delta):
-		if not _input_enabled:
-				velocity = Vector3.ZERO
-				move_and_slide()
-				return
+	if not _input_enabled:
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
+
 
 	if is_docked:
 		return
