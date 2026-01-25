@@ -1,20 +1,19 @@
 extends Node
 
-const TICK_INTERVAL = 5.0
+const TICK_INTERVAL = 0.5 # FIXED: Accelerated 1000% for rapid testing
 const GalaxyGenerator = preload("res://scripts/core/sim/galaxy_generator.gd")
 const Fleet = preload("res://scripts/core/state/fleet.gd")
-
-# Bypassing cache lock for new features
+const WorkOrder = preload("res://scripts/core/state/work_order.gd")
 const MarketState = preload("res://scripts/core/state/market_state.gd")
 const MarketRules = preload("res://scripts/core/subsystems/market_rules.gd")
 
 var current_tick: int = 0
 var _eco_timer: Timer
 
-# --- CANONICAL STATE ---
 var galaxy_map: Dictionary = {}
 var active_fleets: Array = []
-var active_markets: Dictionary = {} # Key: star_id, Value: MarketState
+var active_markets: Dictionary = {} 
+var active_orders: Array = [] 
 
 func _ready():
 	print("BOOTSTRAP: Sim Core initializing...")
@@ -25,17 +24,13 @@ func _ready():
 func _generate_universe():
 	var gen = GalaxyGenerator.new(42)
 	galaxy_map = gen.generate(5)
-	
-	# INJECT TEST FLEET
-	if galaxy_map.lanes.size() > 0:
-		var test_lane = galaxy_map.lanes[0]
-		active_fleets.append(Fleet.new("fleet_01", test_lane.from, test_lane.to))
+	if galaxy_map.stars.size() > 0:
+		var home_star = galaxy_map.stars[0]
+		active_fleets.append(Fleet.new("fleet_01", home_star.pos, home_star.pos))
 
 func _initialize_markets():
-	# Generate a dynamic economy for every star
 	for star in galaxy_map.stars:
 		active_markets[star.id] = MarketState.new(star.id)
-	print("SUCCESS: Autonomous Markets initialized at %s nodes." % active_markets.size())
 
 func _initialize_ledger_clock():
 	_eco_timer = Timer.new()
@@ -47,28 +42,43 @@ func _initialize_ledger_clock():
 
 func _on_economic_tick():
 	current_tick += 1
-	_advance_fleets()
 	_update_markets()
-	_ingest_work_orders()
+	_generate_contracts() 
+	_ingest_work_orders() 
+	_advance_fleets()
 
 func _update_markets():
-	# Slice 5: Autonomous Markets tick independently of the player.
+	for star_id in active_markets.keys():
+		MarketRules.consume_inventory(active_markets[star_id], 1)
+
+func _generate_contracts():
 	for star_id in active_markets.keys():
 		var market = active_markets[star_id]
-		MarketRules.consume_inventory(market, 1)
-	
-	# AUDIT LOG: Print the price of Staples at Star 0 to prove dynamic scarcity
-	var test_market = active_markets.values()[0]
-	var supply = test_market.inventory["staples"]
-	var demand = test_market.base_demand["staples"]
-	var price = MarketRules.calculate_price(supply, demand, 10) # 10 = base value of staples
-	print("[ECONOMY] Tick %s | Star 0 Staples: Supply %s, Price $%s" % [current_tick, supply, price])
+		var staples_supply = market.inventory["staples"]
+		if staples_supply < 20:
+			var order_exists = active_orders.any(func(o): return o.destination_id == star_id and o.item_id == "staples")
+			if not order_exists:
+				var new_order = WorkOrder.new("wo_" + str(active_orders.size()), WorkOrder.Type.CONTRACT, WorkOrder.Objective.DELIVER)
+				new_order.destination_id = star_id
+				new_order.item_id = "staples"
+				new_order.quantity = 50
+				active_orders.append(new_order)
+				print("[CONTRACT] Critical Shortage at %s. Issued delivery order." % star_id)
+
+func _ingest_work_orders():
+	var idle_fleets = active_fleets.filter(func(f): return f.progress >= 1.0 or f.from == f.to)
+	if idle_fleets.size() > 0 and active_orders.size() > 0:
+		var fleet = idle_fleets[0]
+		var order = active_orders.pop_front()
+		var target_star = galaxy_map.stars.filter(func(s): return s.id == order.destination_id)
+		if target_star.size() > 0:
+			fleet.from = fleet.current_pos
+			fleet.to = target_star[0].pos
+			fleet.progress = 0.0
+			print("[LOGISTICS] Dispatched %s to resolve shortage at %s." % [fleet.id, order.destination_id])
 
 func _advance_fleets():
 	for fleet in active_fleets:
 		if fleet.progress < 1.0:
 			fleet.progress = min(1.0, fleet.progress + fleet.speed)
 			fleet.current_pos = fleet.from.lerp(fleet.to, fleet.progress)
-
-func _ingest_work_orders():
-	pass
