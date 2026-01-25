@@ -1,11 +1,10 @@
 extends RefCounted
-class_name Fleet
 
 # ARCHITECTURE: A pure data struct. Zero dependency on the Scene Tree.
 
 var id: String
-var from: Vector3  # Renamed to match Spawner contract
-var to: Vector3    # Renamed to match Spawner contract
+var from: Vector3  # Contract: Matches galaxy_spawner.gd
+var to: Vector3    # Contract: Matches galaxy_spawner.gd
 var current_pos: Vector3
 var progress: float = 0.0 # 0.0 to 1.0
 var speed: float = 0.1 # Advances 10% per 5-second tick
