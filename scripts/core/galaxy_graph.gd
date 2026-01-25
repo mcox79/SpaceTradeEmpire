@@ -1,41 +1,37 @@
 extends RefCounted
 class_name GalaxyGraph
 
-# The Master Ledger of all stars
-var sectors: Dictionary = {} # { "id": Sector }
+# ARCHITECTURE: Pure POD Adjacency List. No Godot Resources.
+var _adj: Dictionary = {} # Key: String (Node ID), Value: Array[String] (Connected IDs)
 
-func add_sector(sec: Resource):
-	sectors[sec.id] = sec
+func add_node(id: String):
+	if not _adj.has(id):
+		_adj[id] = []
 
-func connect_sectors(id_a: String, id_b: String):
-	if sectors.has(id_a) and sectors.has(id_b):
-		sectors[id_a].connect_to(id_b)
-		sectors[id_b].connect_to(id_a) # Bidirectional Jump Gate
+func connect_nodes(id_a: String, id_b: String):
+	if _adj.has(id_a) and _adj.has(id_b):
+		if not _adj[id_a].has(id_b): _adj[id_a].append(id_b)
+		if not _adj[id_b].has(id_a): _adj[id_b].append(id_a)
 
 # BFS Pathfinding: Returns list of IDs [start, ... , end]
 func get_route(start_id: String, end_id: String) -> Array:
 	if start_id == end_id: return [start_id]
 	
-	var queue = []
+	var queue = [start_id]
 	var visited = { start_id: true }
-	var parents = {} # To reconstruct path
-	
-	queue.append(start_id)
+	var parents = {}
 	
 	while queue.size() > 0:
 		var current = queue.pop_front()
-		
 		if current == end_id:
 			return _reconstruct_path(parents, start_id, end_id)
-			
-		var current_sector = sectors.get(current)
-		if current_sector:
-			for neighbor in current_sector.connected_ids:
+		
+		if _adj.has(current):
+			for neighbor in _adj[current]:
 				if not visited.has(neighbor):
 					visited[neighbor] = true
 					parents[neighbor] = current
 					queue.append(neighbor)
-					
 	return [] # No path found
 
 func _reconstruct_path(parents: Dictionary, start: String, end: String) -> Array:
