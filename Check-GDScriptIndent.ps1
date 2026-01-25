@@ -1,8 +1,8 @@
 $bad = @()
 $files = Get-ChildItem -Path . -Recurse -File -Filter *.gd | Where-Object {
-$_.FullName -notmatch '\addons\' -and
-$_.FullName -notmatch '\.godot\' -and
-$_.FullName -notmatch '\.git\'
+$_.FullName -notlike '*\addons\*' -and
+$_.FullName -notlike '*\.godot\*' -and
+$_.FullName -notlike '*\.git\*'
 }
 
 foreach ($f in $files) {
