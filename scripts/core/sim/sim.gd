@@ -7,21 +7,17 @@ const Fleet = preload("res://scripts/core/state/fleet.gd")
 const WorkOrder = preload("res://scripts/core/state/work_order.gd")
 const MarketState = preload("res://scripts/core/state/market_state.gd")
 const MarketRules = preload("res://scripts/core/subsystems/market_rules.gd")
-
-# SLICE 7: Intel and Signals
+const Intents = preload("res://scripts/core/intents/intents.gd")
 const InfoState = preload("res://scripts/core/state/info_state.gd")
 const SignalRules = preload("res://scripts/core/subsystems/signal_rules.gd")
 
 var current_tick: int = 0
-
-# --- CANONICAL STATE ---
 var galaxy_map: Dictionary = {}
 var active_fleets: Array = []
 var active_markets: Dictionary = {} 
 var active_orders: Array = [] 
-
 var _nav_graph: GalaxyGraph 
-var info: InfoState # The Thermal Ledger
+var info: InfoState 
 
 func _init():
 	print("BOOTSTRAP: Sim Core initializing (Data Purity Mode)...")
@@ -56,10 +52,43 @@ func _get_star_by_id(id: String):
 func advance():
 	current_tick += 1
 	_update_markets()
-	SignalRules.process_decay(info, 1) # DECAY THE GALAXY'S HEAT
+	SignalRules.process_decay(info, 1)
 	_generate_contracts() 
 	_ingest_work_orders() 
 	_advance_fleets()
+
+# --- THE INPUT GATEWAY ---
+# All user inputs MUST pass through this method to preserve determinism.
+func apply_intent(intent) -> Dictionary:
+	# 1. TRADE ROUTING
+	if intent is Intents.Trade:
+		return _process_trade(intent)
+	
+	return { "error": "Unknown Intent Type" }
+
+func _process_trade(intent: Intents.Trade) -> Dictionary:
+	# 1. Validation (Does the market exist?)
+	if not active_markets.has(intent.target_id):
+		return { "error": "Invalid Market Node" }
+	
+	var market = active_markets[intent.target_id]
+	
+	# In a full sim, we would query the Player's POD state here.
+	# For the Shim: We simulate the transaction execution.
+	var execution_value = intent.amount * 100 # Simulated cost basis
+	
+	if intent.is_buy:
+		market.inventory[intent.item_id] = max(0, market.inventory.get(intent.item_id, 0) - intent.amount)
+	else:
+		market.inventory[intent.item_id] = market.inventory.get(intent.item_id, 0) + intent.amount
+	
+	# 2. GENERATE HEAT (VALUE-WEIGHTED)
+	# High-value trades generate massive thermal and traffic signatures.
+	var heat_generated = float(execution_value) * 0.05
+	info.add_heat(intent.target_id, heat_generated)
+	print("[SIGNALS] Player Trade at %s generated +%s Heat." % [intent.target_id, heat_generated])
+	
+	return { "error": null, "events": ["intent_processed"] }
 
 func _update_markets():
 	for star_id in active_markets.keys():
@@ -82,49 +111,33 @@ func _ingest_work_orders():
 	if idle_fleets.size() > 0 and active_orders.size() > 0:
 		var fleet = idle_fleets[0]
 		var order = active_orders.pop_front()
-		
 		var start_star = _get_star_at_pos(fleet.current_pos)
 		var route_ids = _nav_graph.get_route(start_star.id, order.destination_id)
-		
 		var waypoints: PackedVector3Array = []
 		for rid in route_ids:
 			var star = _get_star_by_id(rid)
 			waypoints.append(star.pos)
-		
 		fleet.path = waypoints
 		fleet.path_index = 0
-		fleet.active_order_ref = order # Link the contract value to the fleet
-		print("[LOGISTICS] Dispatched %s to %s." % [fleet.id, order.destination_id])
+		fleet.active_order_ref = order
 
 func _advance_fleets():
 	for fleet in active_fleets:
 		if fleet.path.is_empty(): continue
-		
 		var target = fleet.path[fleet.path_index]
 		fleet.to = target 
 		fleet.from = fleet.current_pos 
-		
 		var step = fleet.current_pos.move_toward(target, fleet.speed)
 		fleet.current_pos = step
-		
-		# WAYPOINT REACHED: GENERATE HEAT
 		if fleet.current_pos.is_equal_approx(target):
 			var node_at_target = _get_star_at_pos(target)
-			
-			# 1. Base engine signature for traversing a sector
 			info.add_heat(node_at_target.id, 0.5) 
-			
 			fleet.path_index += 1
-			
-			# FINAL DESTINATION: EXPLOITATION SPIKE
 			if fleet.path_index >= fleet.path.size():
 				if fleet.get("active_order_ref") != null:
-					# 2. Huge signature spike from unloading valuable cargo
 					var cargo_heat = float(fleet.active_order_ref.quantity) * 0.2
 					info.add_heat(node_at_target.id, cargo_heat)
-					print("[SIGNALS] Heat spike at %s! (Value: +%s)" % [node_at_target.id, cargo_heat])
-				
-				fleet.path.clear() # Order Complete
+				fleet.path.clear()
 
 func _initialize_markets():
 	for star in galaxy_map.stars:
