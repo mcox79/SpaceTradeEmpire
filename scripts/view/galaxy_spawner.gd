@@ -46,9 +46,13 @@ func _process(_delta):
 		
 		var visual_ship = ship_meshes[fleet.id]
 		visual_ship.position = fleet.from.lerp(fleet.to, fleet.progress)
+		
+		# 2.0 meter visual offset
 		visual_ship.position.y += 2.0 
 		
-		# FIXED: The Colinear Math Guardrail.
-		# Only attempts to rotate if the ship is actually moving to a distant target.
-		if visual_ship.position.distance_to(fleet.to) > 0.1:
-			visual_ship.look_at(fleet.to, Vector3.UP)
+		# FIXED: Colinear Math Guardrail.
+		# We must offset the TARGET by 2.0 meters on the Y axis as well,
+		# otherwise the ship tries to look straight down at the star, causing a gimbal lock.
+		var target_look = fleet.to + Vector3(0, 2.0, 0)
+		if visual_ship.position.distance_to(target_look) > 0.1:
+			visual_ship.look_at(target_look, Vector3.UP)
