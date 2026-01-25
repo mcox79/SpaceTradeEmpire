@@ -171,7 +171,7 @@ func undock():
 	is_docked = false
 	current_station = null
 	emit_signal("shop_toggled", false, null)
-func purchase_upgrade(kind: String, cost: int):
+func purchase_upgrade(_kind: String, cost: int):
 	if credits < cost:
 		return false
 	credits -= cost
