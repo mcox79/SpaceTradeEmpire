@@ -1,13 +1,102 @@
-$bad = @()
-Get-ChildItem .\scripts -Recurse -File -Filter *.gd | ForEach-Object {
-Select-String -Path $_.FullName -Pattern '^( +)\S' | ForEach-Object {
-$bad += "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line
-}
-}
-if ($bad.Count -gt 0) {
-"FAIL: Found leading-space indentation in .gd files:"
-$bad
+param(
+[switch]$StagedOnly = $true
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+function Fail([string]$msg) {
+Write-Host $msg -ForegroundColor Red
 exit 1
 }
-"OK: No leading-space indentation found."
+
+function Get-RepoRoot {
+$root = (& git rev-parse --show-toplevel 2>$null)
+if (-not $root) { throw "Not in a git repository." }
+return $root.Trim()
+}
+
+function Get-StagedGdFiles {
+$paths = & git diff --cached --name-only --diff-filter=ACMR
+if ($LASTEXITCODE -ne 0) { throw "git diff --cached failed." }
+
+$gd = @()
+foreach ($p in $paths) {
+if (-not $p) { continue }
+if ($p -like "addons/*") { continue }
+if ($p -like "_scratch/*" -or $p -like "._scratch/*") { continue }
+if ($p.ToLowerInvariant().EndsWith(".gd")) { $gd += $p }
+}
+return $gd
+}
+
+function Has-Utf8Bom([byte[]]$b) {
+return ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)
+}
+
+function Contains-ZeroWidth([string]$s) {
+return ($s.IndexOf([char]0xFEFF) -ge 0 -or
+$s.IndexOf([char]0x200B) -ge 0 -or
+$s.IndexOf([char]0x200C) -ge 0 -or
+$s.IndexOf([char]0x200D) -ge 0 -or
+$s.IndexOf([char]0x2060) -ge 0)
+}
+
+function Check-GdFile([string]$repoRoot, [string]$relPath) {
+$full = Join-Path $repoRoot $relPath
+if (-not (Test-Path -LiteralPath $full)) { return @("MISSING: $relPath") }
+
+$bytes = [System.IO.File]::ReadAllBytes($full)
+$errs = New-Object System.Collections.Generic.List[string]
+
+if (Has-Utf8Bom $bytes) { $errs.Add("BOM: $relPath") }
+
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+if (Contains-ZeroWidth $text) { $errs.Add("ZERO-WIDTH: $relPath") }
+
+$lines = $text -split "`r?`n", -1
+for ($i = 0; $i -lt $lines.Length; $i++) {
+$ln = $lines[$i]
+
+# tabs-only leading indentation (spaces at start before nonspace)
+if ($ln -match '^( +)\S') {
+$errs.Add(("{0}:{1}: leading spaces indentation (tabs-only policy)" -f $relPath, ($i+1)))
+}
+
+# mixed indent at start (tabs then spaces)
+if ($ln -match "^\t+ +\S") {
+$errs.Add(("{0}:{1}: mixed indent (tabs then spaces)" -f $relPath, ($i+1)))
+}
+
+# trailing whitespace
+if ($ln -match "[ \t]+$") {
+$errs.Add(("{0}:{1}: trailing whitespace" -f $relPath, ($i+1)))
+}
+}
+
+return $errs
+}
+
+$repoRoot = Get-RepoRoot
+Set-Location $repoRoot
+
+$files = if ($StagedOnly) { Get-StagedGdFiles } else { @() }
+if (-not $files -or $files.Count -eq 0) {
+Write-Host "OK: no staged .gd files"
+exit 0
+}
+
+$allErrs = New-Object System.Collections.Generic.List[string]
+foreach ($f in $files) {
+$errs = Check-GdFile -repoRoot $repoRoot -relPath $f
+foreach ($e in $errs) { $allErrs.Add($e) }
+}
+
+if ($allErrs.Count -gt 0) {
+Write-Host "FATAL: indentation/whitespace policy violations detected:" -ForegroundColor Red
+$allErrs | Sort-Object | Get-Unique | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+Fail "Fix the above issues, then re-stage and commit."
+}
+
+Write-Host "OK: staged .gd files pass tabs-only policy"
 exit 0
