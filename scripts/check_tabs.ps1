@@ -16,20 +16,6 @@ if (-not $root) { throw "Not in a git repository." }
 return $root.Trim()
 }
 
-function Get-StagedGdFiles {
-$paths = & git diff --cached --name-only --diff-filter=ACMR
-if ($LASTEXITCODE -ne 0) { throw "git diff --cached failed." }
-
-$gd = @()
-foreach ($p in $paths) {
-if (-not $p) { continue }
-if ($p -like "addons/*") { continue }
-if ($p -like "_scratch/*" -or $p -like "._scratch/*") { continue }
-if ($p.ToLowerInvariant().EndsWith(".gd")) { $gd += $p }
-}
-return $gd
-}
-
 function Has-Utf8Bom([byte[]]$b) {
 return ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)
 }
@@ -40,6 +26,29 @@ $s.IndexOf([char]0x200B) -ge 0 -or
 $s.IndexOf([char]0x200C) -ge 0 -or
 $s.IndexOf([char]0x200D) -ge 0 -or
 $s.IndexOf([char]0x2060) -ge 0)
+}
+
+function Get-StagedGdFiles {
+# Use -z and join output to avoid PowerShell newline/chunk quirks.
+$rawOut = & git diff --cached --name-only -z --diff-filter=ACMR
+if ($LASTEXITCODE -ne 0) { throw "git diff --cached failed." }
+
+$text = ""
+if ($null -ne $rawOut) {
+if ($rawOut -is [array]) { $text = ($rawOut -join "") } else { $text = [string]$rawOut }
+}
+
+if ([string]::IsNullOrEmpty($text)) { return @() }
+
+$parts = $text -split "`0"
+$gd = @()
+foreach ($p in $parts) {
+if ([string]::IsNullOrWhiteSpace($p)) { continue }
+if ($p -like "addons/*") { continue }
+if ($p -like "_scratch/*" -or $p -like "._scratch/*") { continue }
+if ($p.ToLowerInvariant().EndsWith(".gd")) { $gd += $p }
+}
+return ,$gd
 }
 
 function Check-GdFile([string]$repoRoot, [string]$relPath) {
@@ -58,17 +67,14 @@ $lines = $text -split "`r?`n", -1
 for ($i = 0; $i -lt $lines.Length; $i++) {
 $ln = $lines[$i]
 
-# tabs-only leading indentation (spaces at start before nonspace)
 if ($ln -match '^( +)\S') {
 $errs.Add(("{0}:{1}: leading spaces indentation (tabs-only policy)" -f $relPath, ($i+1)))
 }
 
-# mixed indent at start (tabs then spaces)
 if ($ln -match "^\t+ +\S") {
 $errs.Add(("{0}:{1}: mixed indent (tabs then spaces)" -f $relPath, ($i+1)))
 }
 
-# trailing whitespace
 if ($ln -match "[ \t]+$") {
 $errs.Add(("{0}:{1}: trailing whitespace" -f $relPath, ($i+1)))
 }
@@ -80,8 +86,10 @@ return $errs
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
 
-$files = if ($StagedOnly) { Get-StagedGdFiles } else { @() }
-if (-not $files -or $files.Count -eq 0) {
+$files = @()
+if ($StagedOnly) { $files = @(Get-StagedGdFiles) }
+
+if ($null -eq $files -or $files.Length -eq 0) {
 Write-Host "OK: no staged .gd files"
 exit 0
 }
