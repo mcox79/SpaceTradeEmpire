@@ -17,30 +17,48 @@
 
 ## 2. Recovery and Toolchain
 
-### DevTools Recovery Block
-If `DevTool.ps1` is lost, recreate a script that:
-1. Concatenates all `.gd` and `.tscn` (and other first-party text assets) into `_FullProjectContext.txt`
-2. Wraps `git add/commit` and `git reset --hard` into GUI buttons
+If the repo gets into a broken state, get back to a clean baseline before doing more work.
+
+Baseline sanity checks (run from repo root):
+- git status -sb
+- pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1
+- cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"
+
+PowerShell path gotcha:
+- In some shells, [Environment]::CurrentDirectory can differ from your visible prompt path.
+- If you see paths resolving under C:\WINDOWS\system32, fix it with:
+  - [Environment]::CurrentDirectory = (Resolve-Path -LiteralPath ".").Path
+
+If _PROJECT_CONTEXT.md or other markdown gets corrupted (unclosed fences, bad paste):
+- Restore from git or a known-good backup.
+- Prefer editing in your editor, not inside an interactive PowerShell prompt.
+- If you must patch via PowerShell, build an array of lines and write with UTF-8 no BOM using:
+  - $enc = New-Object System.Text.UTF8Encoding($false)
+  - [System.IO.File]::WriteAllText($abs, $content, $enc)
+
+Context dump toolchain:
+- DevTool.ps1 provides Run-ContextGen, which writes:
+  - _scratch\_FullProjectContext.txt
+- When running headless (avoid UI prompts), set:
+  - $global:DEVTOOL_HEADLESS=$true
 
 ## Canonical files policy
-- `_PROJECT_CONTEXT.md` is canonical and must only be edited by hand.
-- Dev tooling must never overwrite canonical docs.
-- Generated artifacts (context dumps, inventories, transcripts) must be written under `_scratch/`.
-- If a tool proposes changes to canonical docs, it must output a patch or diff, not overwrite.
-- **Canonical Edit Protocol:** If an AI tool proposes an addition or edit to a canonical document, it MUST provide the exact, final markdown text inside a code block to allow for zero-friction copy-pasting, and the exact location.
 
-### Context Generation Contract (Enforced)
+The canonical sources of truth are:
+- _PROJECT_CONTEXT.md: workflow rules, guardrails, and contracts
+- DevTool.ps1: context dump generator (Run-ContextGen)
+- scripts\check_tabs.ps1 and scripts\tools\check_tabs_lib.ps1: staged tabs-only gate for .gd
+- scripts\tools\install_hooks.ps1: installs Git pre-commit hooks for Windows
 
-- `_PROJECT_CONTEXT.md` is **canonical** and must never be auto-generated or overwritten by tooling.
-- All auto-generated context dumps are written under `_scratch/` and are **ignored by git**.
-- DevTool HARD RESET uses `git clean -fdX` so **only ignored artifacts** are deleted.
-- DevTool SAVE stages **tracked changes only** (`git add -u`).
-- Context dumps include only game-relevant files:
-  - `.gd`, `.tscn`, `.shader`
-- Tooling, vendor code, and generated artifacts are explicitly excluded:
-  - `addons/`
-  - `_scratch/`, `._scratch/`
-  - `*.ps1`
+Context dumps:
+- Output file: _scratch\_FullProjectContext.txt
+- Contract: the tree and file-contents sections must exclude:
+  - scratch directories (_scratch/, ._scratch/)
+  - addon content (addons/)
+  - scripting/tooling and transient files: .ps1, .uid, .bak, .lnk, files named with "- Copy", temp_validator.gd
+- Narrative mentions in _PROJECT_CONTEXT.md are allowed; the contract applies to enumerated tree entries and dumped file contents.
+
+If there is any discrepancy between a chat instruction and these canonical files, treat the canonical files as authoritative and update them first.
 
 ### 2.3 Git Hygiene and Session Checkpoints (Strict)
 - **The "Clean Workbench" Protocol:** Never transition between major architectural Slices or AI chat sessions with a dirty Git working tree. 
@@ -84,81 +102,57 @@ No system is considered "complete" until it passes `test_replay_golden.gd`. This
 
 ## 4. GDScript Editing and Indentation Policy (Strict)
 
-This project enforces a tabs-only indentation policy for all `.gd` files. Violations are treated as build-breaking errors.
+This project enforces tabs-only indentation for all .gd files. Violations are build-breaking.
 
-### Rationale
-GDScript is indentation-sensitive. Once a file establishes tab-based indentation, introducing spaces (or mixing tabs and spaces) causes parse errors that are hard to diagnose after the fact. Automated edits are especially prone to this failure.
+### What is forbidden in .gd
+- Any leading spaces used as indentation
+- Mixed indentation where tabs are followed by spaces
+- Trailing whitespace at end of line
+- UTF-8 BOM
+- Zero-width characters: FEFF, 200B, 200C, 200D, 2060
 
-### Indentation rules
-1. **Tabs only for leading indentation**
-   - All leading indentation in `.gd` files must be literal tab characters
-   - Spaces are forbidden for indentation
-   - Mixed tabs and spaces in leading whitespace are forbidden
-2. **Spaces allowed only after code starts**
-   - Spaces may be used after the first non-whitespace character on a line
-   - Spaces must never appear before the first non-whitespace character
+### Enforcement: staged gate (primary)
+The commit gate runs on staged .gd files only (not the working tree) and ignores:
+- addons/
+- _scratch/
+- ._scratch/
 
-### Tab policy enforcement workflow
+Files:
+- scripts\check_tabs.ps1 (runner)
+- scripts\tools\check_tabs_lib.ps1 (library with the checks)
 
-This repo treats leading-space indentation in `.gd` files as build-breaking.
-
-#### Required workflow
-1. Before opening Godot, run the indentation gate.
-2. After any automated edit (PowerShell patch, search/replace, generated code), run the indentation gate again.
-3. If the gate fails, normalize indentation, then re-run the gate. Do not launch Godot until clean.
-
-#### Canonical Tooling (PowerShell)
-
-**The `Validate-GodotScript` Function:** This repository enforces a single-command CI/CD pipeline for all logic scripts. Manual indentation checks and manual git commits for `.gd` files are deprecated. 
-
-**Execution:** `Validate-GodotScript "path/to/script.gd"`
-
-**Pipeline Behavior:**
-1. **Pre-Processing:** Automatically detects leading spaces and converts them to Godot-compliant tabs.
-2. **Static Validation:** Boots a headless Godot instance to parse the Abstract Syntax Tree (AST) for fatal syntax errors without launching the game.
-3. **Dual-Gate Commit:** Only stages and commits the file to Git if both the engine syntax check and the Git pre-commit hooks return a successful exit code (0).
-
-#### How to use
-Run `Validate-GodotScript` in your terminal after any logic edit. Do not launch the Godot editor until this command passes.
-
-## Workflow Guardrails (Must Follow)
-
-### Tabs-only policy enforcement (staged)
-
-This repo blocks commits if any staged `.gd` file has:
-- Leading spaces for indentation
-- Mixed tabs and spaces in leading whitespace
-- Trailing whitespace
-
-Manual check:
-- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1`
+Manual run:
+- pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1
 
 ### Git hooks on Windows (Git for Windows)
-
-Hooks live under:
-- `.git\hooks\`
-
-Windows runner:
-- `.git\hooks\pre-commit.cmd`
+Git for Windows runs hooks under sh, so we install:
+- .git\hooks\pre-commit (sh wrapper)
+- .git\hooks\pre-commit.cmd (cmd runner that calls PowerShell)
 
 Install or refresh hooks:
-- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\tools\install_hooks.ps1`
+- pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\tools\install_hooks.ps1
 
-Smoke test (cmd-native, reliable):
-- `cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"`
+Smoke test hook result (cmd-native, reliable):
+- cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"
 
-### Editing rules (PowerShell and automation)
-1. **No in-place line edits inside functions**
-   - Automated edits must replace entire function blocks, not partial snippets
-   - Patching individual lines inside an indented block is prohibited
-2. **All generated GDScript must emit tabs explicitly**
-   - PowerShell scripts must emit literal tab characters (`\t`) for indentation
-   - When using double-quoted here-strings, indentation must use `` `t ``
-   - Single-quoted here-strings are discouraged for `.gd` output
-3. **Bounded replacements only**
-   - Replacements must be bounded by:
-     - `func <name>(...)` ? next `func` or end-of-file
-   - Blind global replacements inside `.gd` files are forbidden
+### Secondary enforcement: Validate-GodotScript
+Validate-GodotScript.ps1 performs deeper validation and also applies a narrow auto-fix:
+- It converts runs of 4 leading spaces into tabs, then fails if any leading spaces remain
+- It can detect some hidden character problems
+
+Use it as a validator and repair aid, not as the primary gate.
+Primary gate is the staged check_tabs hook.
+
+### Editing rules that avoid tool breakage
+- Do not paste partial here-strings or incomplete blocks into an interactive PowerShell prompt.
+- When writing scripts programmatically, prefer arrays of lines plus WriteAllText with UTF-8 no BOM.
+- After changing tooling scripts, run a parse check:
+  - $tokens=$null; $errors=$null; [void][System.Management.Automation.Language.Parser]::ParseFile($abs,[ref]$tokens,[ref]$errors); $errors
+
+### Minimal pre-commit workflow
+- Edit files
+- Stage changes
+- git commit (hook runs and blocks on violations)
 
 ### 4.4 Environment Resilience and Cache Management (Strict)
 - **The Cache Lock:** Avoid rapidly overwriting files with the `class_name` header via terminal scripts. Godot's global cache locks these files. If a fatal namespace collision occurs, remove `class_name` and rely on `extends [Type]` to bypass the cache lock until the feature is stable.
