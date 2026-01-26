@@ -1,4 +1,36 @@
-﻿function Validate-GodotScript {
+function Get-GodotExe {
+param(
+[Parameter(Mandatory=$true)]
+[string]$RepoRoot
+)
+
+$config = Join-Path $RepoRoot "godot_path.cfg"
+
+$candidates = @()
+
+# 1) Repo config (preferred)
+if (Test-Path -LiteralPath $config) {
+$raw = Get-Content -LiteralPath $config -Raw -Encoding UTF8
+if ($raw) { $candidates += $raw.Trim() }
+}
+
+# 2) Environment override (optional)
+if ($env:GODOT_EXE) { $candidates += $env:GODOT_EXE }
+
+# 3) Common locations (best-effort)
+if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles "Godot\Godot.exe") }
+
+foreach ($c in $candidates) {
+if ($c -and (Test-Path -LiteralPath $c)) { return $c }
+}
+
+$hint =
+"Godot executable not found.`n" +
+"Set it by writing the full exe path into:`n  $config`n" +
+"Example:`n  Set-Content -LiteralPath `"$config`" -Value `"<FULL PATH TO GODOT EXE>`" -Encoding UTF8"
+throw $hint
+}
+function Validate-GodotScript {
 
 param(
 [Parameter(Mandatory=$true)]
@@ -49,6 +81,18 @@ Write-Host "SUCCESS: Script sanitized. Leading spaces converted to tabs." -Foreg
 } else {
 Write-Host "OK: No leading-space blocks found. No rewrite needed." -ForegroundColor Green
 }
+# 1b) Hard-fail if ANY leading spaces or mixed indentation remain
+$bad1 = Select-String -LiteralPath $TargetScript -Pattern '^( +)\S' -ErrorAction SilentlyContinue
+$bad2 = Select-String -LiteralPath $TargetScript -Pattern '^\t+ +\S' -ErrorAction SilentlyContinue
+$bad3 = Select-String -LiteralPath $TargetScript -Pattern '^ +\t+\S' -ErrorAction SilentlyContinue
+
+if ($bad1 -or $bad2 -or $bad3) {
+Write-Host "FATAL: Indentation policy violated (tabs-only leading indentation)." -ForegroundColor Red
+if ($bad1) { $bad1 | ForEach-Object { Write-Host $_ } }
+if ($bad2) { $bad2 | ForEach-Object { Write-Host $_ } }
+if ($bad3) { $bad3 | ForEach-Object { Write-Host $_ } }
+throw "FAILURE: Fix indentation and re-run Validate-GodotScript."
+}
 
 # 2) Agent generation in _scratch (never dirties repo)
 $sanitizedPath = ((Resolve-Path $TargetScript).Path -replace '\\','/')
@@ -73,7 +117,7 @@ $agentCode = @(
 Set-Content -LiteralPath $agentPath -Value $agentCode -Encoding UTF8 -NoNewline
 
 # 3) Execution: capture output directly so we can inspect it
-$godotExe = "C:\Godot\Godot_v4.5.1-stable_win64.exe"
+$godotExe = Get-GodotExe -RepoRoot $repo
 $godotOut = & $godotExe --headless --script $agentPath 2>&1
 if ($godotOut) { $godotOut | ForEach-Object { Write-Host $_ } }
 
