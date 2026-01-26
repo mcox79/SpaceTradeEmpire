@@ -121,6 +121,32 @@ This repo treats leading-space indentation in `.gd` files as build-breaking.
 #### How to use
 Run `Validate-GodotScript` in your terminal after any logic edit. Do not launch the Godot editor until this command passes.
 
+## Workflow Guardrails (Must Follow)
+
+### Tabs-only policy enforcement (staged)
+
+This repo blocks commits if any staged `.gd` file has:
+- Leading spaces for indentation
+- Mixed tabs and spaces in leading whitespace
+- Trailing whitespace
+
+Manual check:
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1`
+
+### Git hooks on Windows (Git for Windows)
+
+Hooks live under:
+- `.git\hooks\`
+
+Windows runner:
+- `.git\hooks\pre-commit.cmd`
+
+Install or refresh hooks:
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\tools\install_hooks.ps1`
+
+Smoke test (cmd-native, reliable):
+- `cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"`
+
 ### Editing rules (PowerShell and automation)
 1. **No in-place line edits inside functions**
    - Automated edits must replace entire function blocks, not partial snippets
