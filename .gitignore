@@ -47,3 +47,7 @@ _FullProjectContext*.txt
 * - Copy.*
 temp_validator.gd
 
+
+# Editor backup copies
+_PROJECT_CONTEXT - Copy.md
+
