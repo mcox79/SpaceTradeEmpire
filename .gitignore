@@ -41,3 +41,9 @@ scripts/temp_validator.gd
 *.bak.*
 *.bak
 *_bak_*
+# Tooling + context dump artifacts (do not commit)
+._scratch/
+_FullProjectContext*.txt
+* - Copy.*
+temp_validator.gd
+
