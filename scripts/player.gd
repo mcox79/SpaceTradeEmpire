@@ -1,4 +1,4 @@
-extends CharacterBody3D
+ extends CharacterBody3D
 
 @export var visual_scale: float = 0.35
 var _input_enabled: bool = true
@@ -196,6 +196,7 @@ func take_damage(amount: int):
 
 func set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
+
 
 
 
