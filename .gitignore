@@ -36,3 +36,8 @@ godot_path.cfg
 *.lnk
 *.uid
 scripts/temp_validator.gd
+
+# Tooling backups (never commit)
+*.bak.*
+*.bak
+*_bak_*
