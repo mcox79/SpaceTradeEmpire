@@ -165,6 +165,13 @@ Primary gate is the staged check_tabs hook.
 ### 4.6 The View-Sim Data Contract (Strict)
 - **Passive Renderers Only:** View layer scripts (`_process` loops) MUST NOT perform any simulation math or interpolation. They must only read the current state directly from the headless backend (e.g., `visual_node.position = fleet.current_pos`). If a backend data primitive is refactored, the View Layer contract must be updated in the exact same commit.
 
+### 4.7 The Atomic Write Pattern (Strict)
+To prevents whitespace corruption in GDScript/YAML/Python:
+1. **Array-of-Strings:** Do not output multi-line strings. Define file content as an array of strings: `@("line 1", "line 2")`.
+2. **Explicit Tabs:** Use `` `t `` inside the strings for indentation. Never use spaces for indentation in `.gd` files.
+3. **Binary-Safe Write:** Do not use `Set-Content` or `Out-File` directly. Use `[System.IO.File]::WriteAllText` with a `UTF8Encoding($false)` object to prevent BOM injection and newline mangling.
+4. **Helper Function:** Use the `Write-GodotFile` helper function (defined in your output preamble) to encapsulate this logic.
+
 ## 5. Game Definition (Locked)
 
 ### Core fantasy
