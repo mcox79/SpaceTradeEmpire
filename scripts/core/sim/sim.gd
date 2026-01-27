@@ -20,13 +20,15 @@ var active_orders: Array = []
 var _nav_graph: GalaxyGraph
 var info: InfoState
 
+# BRIDGE: Allow GameManager to collect player earnings
+var pending_player_rewards: int = 0
+
 func _init(seed_val: int = 42):
 	_generate_universe(seed_val)
 	_initialize_markets()
 	info = InfoState.new(galaxy_map)
 
 func command_fleet_move(fleet_id: String, target_star_id: String) -> bool:
-	# FIX: Rename lambda var to avoid shadowing
 	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
 	if fleet_list.is_empty(): return false
 
@@ -47,7 +49,6 @@ func command_fleet_move(fleet_id: String, target_star_id: String) -> bool:
 	return true
 
 func player_accept_contract(fleet_id: String, order_id: String) -> bool:
-	# FIX: Rename lambda var
 	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
 	if fleet_list.is_empty(): return false
 	var fleet = fleet_list[0]
@@ -63,7 +64,7 @@ func player_accept_contract(fleet_id: String, order_id: String) -> bool:
 	var order = active_orders.pop_at(order_idx)
 	fleet.active_order_ref = order
 
-	# AUTOPILOT CALCULATION
+	# AUTOPILOT
 	var start = _get_star_at_pos(fleet.current_pos)
 	var leg1 = _nav_graph.get_route(start.id, order.pickup_id)
 	var leg2 = _nav_graph.get_route(order.pickup_id, order.destination_id)
@@ -130,6 +131,7 @@ func _generate_contracts():
 					wo.pickup_id = best_seller_id
 					wo.item_id = item_id
 					wo.quantity = 10
+					wo.reward = 500 # FLAT RATE REWARD (Phase 6)
 					active_orders.append(wo)
 
 func _ingest_work_orders():
@@ -166,7 +168,9 @@ func _advance_fleets():
 			if node: 
 				info.add_heat(node.id, 0.5)
 				if active_markets.has(node.id):
-					LogisticsRules.handle_arrival(f, active_markets[node.id], current_tick)
+					var earned = LogisticsRules.handle_arrival(f, active_markets[node.id], current_tick)
+					if earned > 0 and f.id.begins_with('player'):
+						pending_player_rewards += earned
 
 			f.path_index += 1
 			if f.path_index >= f.path.size(): 

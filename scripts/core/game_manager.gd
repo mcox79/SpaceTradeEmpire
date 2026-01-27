@@ -55,6 +55,13 @@ func _process(delta):
 			if ui_station.visible: ui_station.refresh_market_list()
 			if ui_contracts.visible: ui_contracts.refresh()
 
+			# PROCESS PAYOUTS
+			if sim.pending_player_rewards > 0:
+				var amount = sim.pending_player_rewards
+				sim.pending_player_rewards = 0
+				player.receive_payment(amount)
+				print('GAME: Player received payment: $', amount)
+
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
