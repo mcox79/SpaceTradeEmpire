@@ -3,11 +3,6 @@ extends RefCounted
 # INDUSTRIAL LOGIC KERNEL
 # Defines the input/output transformation logic for the economy.
 
-# Production Schema:
-# tick_cost: How many ticks between production cycles (Rate limiting)
-# inputs: Required materials removed from inventory
-# outputs: Materials added to inventory
-
 const RECIPES = {
 "mining": { 
 "tick_cost": 4, 
