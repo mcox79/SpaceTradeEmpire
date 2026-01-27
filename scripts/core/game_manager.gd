@@ -55,7 +55,6 @@ func _process(delta):
 			if ui_station.visible: ui_station.refresh_market_list()
 			if ui_contracts.visible: ui_contracts.refresh()
 
-# FIX: Proper Input Handling
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
@@ -83,6 +82,7 @@ func _handle_selection():
 
 		if closest_star:
 			sim.command_fleet_move(player_fleet_id, closest_star.id)
+			# Moving auto-closes station UI
 			ui_station.visible = false
 
 func _sync_player_pos():
@@ -96,8 +96,14 @@ func _sync_player_pos():
 				ui_station.current_node_id = node.id
 
 func toggle_market():
+	# MUTUAL EXCLUSION: If opening Market, close Contracts
 	ui_station.visible = not ui_station.visible
-	if ui_station.visible: ui_station.refresh_market_list()
+	if ui_station.visible:
+		ui_contracts.visible = false
+		ui_station.refresh_market_list()
 
 func toggle_contracts():
+	# MUTUAL EXCLUSION: If opening Contracts, close Market
 	ui_contracts.toggle()
+	if ui_contracts.visible:
+		ui_station.visible = false
