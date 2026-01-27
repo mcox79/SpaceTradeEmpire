@@ -25,6 +25,62 @@ func _init(seed_val: int = 42):
 	_initialize_markets()
 	info = InfoState.new(galaxy_map)
 
+func command_fleet_move(fleet_id: String, target_star_id: String) -> bool:
+	# FIX: Rename lambda var to avoid shadowing
+	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
+	if fleet_list.is_empty(): return false
+
+	var f = fleet_list[0]
+	var start = _get_star_at_pos(f.current_pos)
+	if not start: return false
+
+	var route_ids = _nav_graph.get_route(start.id, target_star_id)
+	if route_ids.is_empty(): return false
+
+	var waypoints: PackedVector3Array = []
+	for rid in route_ids:
+		var star = _get_star_by_id(rid)
+		waypoints.append(star.pos)
+
+	f.path = waypoints
+	f.path_index = 0
+	return true
+
+func player_accept_contract(fleet_id: String, order_id: String) -> bool:
+	# FIX: Rename lambda var
+	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
+	if fleet_list.is_empty(): return false
+	var fleet = fleet_list[0]
+
+	var order_idx = -1
+	for i in range(active_orders.size()):
+		if active_orders[i].id == order_id:
+			order_idx = i
+			break
+
+	if order_idx == -1: return false
+
+	var order = active_orders.pop_at(order_idx)
+	fleet.active_order_ref = order
+
+	# AUTOPILOT CALCULATION
+	var start = _get_star_at_pos(fleet.current_pos)
+	var leg1 = _nav_graph.get_route(start.id, order.pickup_id)
+	var leg2 = _nav_graph.get_route(order.pickup_id, order.destination_id)
+
+	if leg1.size() > 0 and leg2.size() > 0:
+		var full_path = []
+		full_path.append_array(leg1.map(func(id): return _get_star_by_id(id).pos))
+		var leg2_pos = leg2.map(func(id): return _get_star_by_id(id).pos)
+		if leg2_pos.size() > 1:
+			full_path.append_array(leg2_pos.slice(1))
+		fleet.path = full_path
+		fleet.path_index = 0
+		print('SIM: Autopilot engaged for ', fleet.id)
+		return true
+
+	return false
+
 func _generate_universe(seed_val: int):
 	var gen = GalaxyGenerator.new(seed_val)
 	galaxy_map = gen.generate(5)
@@ -52,22 +108,19 @@ func _update_markets():
 		MarketRules.consume_inventory(active_markets[k], current_tick)
 
 func _generate_contracts():
-	# MATCHING ENGINE: Find Buyer (Destination) and Seller (Pickup)
 	for k in active_markets:
 		var buyer = active_markets[k]
 		for item_id in buyer.base_demand.keys():
 			var threshold = buyer.base_demand[item_id]
 			if buyer.inventory.get(item_id, 0) < threshold:
-				# Is there already an order for this?
 				var exists = active_orders.any(func(o): return o.destination_id == k and o.item_id == item_id)
 				if exists: continue
 
-				# FIND A SELLER (Simple scan)
 				var best_seller_id = ''
 				for s_id in active_markets:
 					if s_id == k: continue
 					var seller = active_markets[s_id]
-					if seller.inventory.get(item_id, 0) > 5: # Min quantity to verify supply
+					if seller.inventory.get(item_id, 0) > 5:
 						best_seller_id = s_id
 						break
 
@@ -80,22 +133,19 @@ func _generate_contracts():
 					active_orders.append(wo)
 
 func _ingest_work_orders():
-	var idle = active_fleets.filter(func(f): return f.path.is_empty() and f.active_order_ref == null)
+	var idle = active_fleets.filter(func(flt): return flt.path.is_empty() and flt.active_order_ref == null)
 	if idle.size() > 0 and active_orders.size() > 0:
 		var fleet = idle[0]
 		if fleet.id.begins_with('player'): return
-		var o = active_orders.pop_front()
 
-		# LOGISTICS ROUTING: Fleet -> Pickup -> Destination
+		var o = active_orders.pop_front()
 		var start = _get_star_at_pos(fleet.current_pos)
 		var leg1 = _nav_graph.get_route(start.id, o.pickup_id)
 		var leg2 = _nav_graph.get_route(o.pickup_id, o.destination_id)
 
 		if leg1.size() > 0 and leg2.size() > 0:
 			var full_path = []
-			# Add Leg 1 (To Pickup)
 			full_path.append_array(leg1.map(func(id): return _get_star_by_id(id).pos))
-			# Add Leg 2 (To Dropoff) - Skip first point of leg2 as it equals last point of leg1
 			var leg2_pos = leg2.map(func(id): return _get_star_by_id(id).pos)
 			if leg2_pos.size() > 1:
 				full_path.append_array(leg2_pos.slice(1))
@@ -115,7 +165,6 @@ func _advance_fleets():
 			var node = _get_star_at_pos(target)
 			if node: 
 				info.add_heat(node.id, 0.5)
-				# INTERACT WITH MARKET
 				if active_markets.has(node.id):
 					LogisticsRules.handle_arrival(f, active_markets[node.id], current_tick)
 
@@ -127,7 +176,6 @@ func _initialize_markets():
 	for i in range(galaxy_map.stars.size()): 
 		var s = galaxy_map.stars[i]
 		var m = MarketState.new(s.id)
-		# Distributed Supply Chain
 		var role = i % 3
 		if role == 0:
 			m.industries['mining'] = 1
