@@ -1,23 +1,16 @@
 extends RefCounted
-class_name EconomyEngine
+# class_name removed to prevent global namespace shadowing
 
-const MINIMUM_PRICE = 1
+const MIN_PRICE = 1
 
-# Note: 'good' is typed as Resource to prevent headless dependency errors
-static func calculate_price(good: Resource, local_supply: int, base_demand: int) -> int:
-	# MVP Algorithm: Simple Scarcity
-	# We access properties dynamically
-	var base = good.get("base_price")
-	if base == null:
-		base = 10 # Fallback
-		
-	var scarcity_factor = float(base_demand) / max(1.0, float(local_supply))
-	var final_price = int(base * scarcity_factor)
-	return max(final_price, MINIMUM_PRICE)
+static func calculate_price(good, local_supply: int, base_demand: int) -> int:
+	var base = 10
+	if good and good.get("base_price"): base = good.base_price
+	var scarcity = float(base_demand) / max(1.0, float(local_supply))
+	return max(MIN_PRICE, int(base * scarcity))
 
-static func can_afford(wallet_balance: int, price_per_unit: int, quantity: int) -> bool:
-	return wallet_balance >= (price_per_unit * quantity)
+static func can_afford(balance: int, price: int, qty: int) -> bool:
+	return balance >= (price * qty)
 
-static func has_cargo_space(current_volume: float, max_volume: float, item_volume: float, quantity: int) -> bool:
-	var required_space = item_volume * quantity
-	return (current_volume + required_space) <= max_volume
+static func has_cargo_space(cur_vol: float, max_vol: float, item_vol: float, qty: int) -> bool:
+	return (cur_vol + (item_vol * qty)) <= max_vol
