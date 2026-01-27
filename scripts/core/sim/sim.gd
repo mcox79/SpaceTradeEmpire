@@ -19,8 +19,6 @@ var active_markets: Dictionary = {}
 var active_orders: Array = []
 var _nav_graph: GalaxyGraph
 var info: InfoState
-
-# BRIDGE: Allow GameManager to collect player earnings
 var pending_player_rewards: int = 0
 
 func _init(seed_val: int = 42):
@@ -31,19 +29,15 @@ func _init(seed_val: int = 42):
 func command_fleet_move(fleet_id: String, target_star_id: String) -> bool:
 	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
 	if fleet_list.is_empty(): return false
-
 	var f = fleet_list[0]
 	var start = _get_star_at_pos(f.current_pos)
 	if not start: return false
-
 	var route_ids = _nav_graph.get_route(start.id, target_star_id)
 	if route_ids.is_empty(): return false
-
 	var waypoints: PackedVector3Array = []
 	for rid in route_ids:
 		var star = _get_star_by_id(rid)
 		waypoints.append(star.pos)
-
 	f.path = waypoints
 	f.path_index = 0
 	return true
@@ -52,23 +46,17 @@ func player_accept_contract(fleet_id: String, order_id: String) -> bool:
 	var fleet_list = active_fleets.filter(func(flt): return flt.id == fleet_id)
 	if fleet_list.is_empty(): return false
 	var fleet = fleet_list[0]
-
 	var order_idx = -1
 	for i in range(active_orders.size()):
 		if active_orders[i].id == order_id:
 			order_idx = i
 			break
-
 	if order_idx == -1: return false
-
 	var order = active_orders.pop_at(order_idx)
 	fleet.active_order_ref = order
-
-	# AUTOPILOT
 	var start = _get_star_at_pos(fleet.current_pos)
 	var leg1 = _nav_graph.get_route(start.id, order.pickup_id)
 	var leg2 = _nav_graph.get_route(order.pickup_id, order.destination_id)
-
 	if leg1.size() > 0 and leg2.size() > 0:
 		var full_path = []
 		full_path.append_array(leg1.map(func(id): return _get_star_by_id(id).pos))
@@ -77,9 +65,7 @@ func player_accept_contract(fleet_id: String, order_id: String) -> bool:
 			full_path.append_array(leg2_pos.slice(1))
 		fleet.path = full_path
 		fleet.path_index = 0
-		print('SIM: Autopilot engaged for ', fleet.id)
 		return true
-
 	return false
 
 func _generate_universe(seed_val: int):
@@ -89,9 +75,8 @@ func _generate_universe(seed_val: int):
 	for star in galaxy_map.stars:
 		_nav_graph.add_node(star.id)
 	for lane in galaxy_map.lanes:
-		var s1 = _get_star_at_pos(lane.from)
-		var s2 = _get_star_at_pos(lane.to)
-		if s1 and s2: _nav_graph.connect_nodes(s1.id, s2.id)
+		# New format uses 'u' and 'v', but 'from'/'to' are kept for compatibility
+		_nav_graph.connect_nodes(lane.u, lane.v)
 	if galaxy_map.stars.size() > 0:
 		active_fleets.append(Fleet.new('fleet_01', galaxy_map.stars[0].pos))
 
@@ -116,7 +101,6 @@ func _generate_contracts():
 			if buyer.inventory.get(item_id, 0) < threshold:
 				var exists = active_orders.any(func(o): return o.destination_id == k and o.item_id == item_id)
 				if exists: continue
-
 				var best_seller_id = ''
 				for s_id in active_markets:
 					if s_id == k: continue
@@ -124,14 +108,13 @@ func _generate_contracts():
 					if seller.inventory.get(item_id, 0) > 5:
 						best_seller_id = s_id
 						break
-
 				if best_seller_id != '':
 					var wo = WorkOrder.new('wo_' + str(active_orders.size()), WorkOrder.Type.CONTRACT, WorkOrder.Objective.DELIVER)
 					wo.destination_id = k
 					wo.pickup_id = best_seller_id
 					wo.item_id = item_id
 					wo.quantity = 10
-					wo.reward = 500 # FLAT RATE REWARD (Phase 6)
+					wo.reward = 500
 					active_orders.append(wo)
 
 func _ingest_work_orders():
@@ -139,19 +122,16 @@ func _ingest_work_orders():
 	if idle.size() > 0 and active_orders.size() > 0:
 		var fleet = idle[0]
 		if fleet.id.begins_with('player'): return
-
 		var o = active_orders.pop_front()
 		var start = _get_star_at_pos(fleet.current_pos)
 		var leg1 = _nav_graph.get_route(start.id, o.pickup_id)
 		var leg2 = _nav_graph.get_route(o.pickup_id, o.destination_id)
-
 		if leg1.size() > 0 and leg2.size() > 0:
 			var full_path = []
 			full_path.append_array(leg1.map(func(id): return _get_star_by_id(id).pos))
 			var leg2_pos = leg2.map(func(id): return _get_star_by_id(id).pos)
 			if leg2_pos.size() > 1:
 				full_path.append_array(leg2_pos.slice(1))
-
 			fleet.path = full_path
 			fleet.path_index = 0
 			fleet.active_order_ref = o
@@ -171,7 +151,6 @@ func _advance_fleets():
 					var earned = LogisticsRules.handle_arrival(f, active_markets[node.id], current_tick)
 					if earned > 0 and f.id.begins_with('player'):
 						pending_player_rewards += earned
-
 			f.path_index += 1
 			if f.path_index >= f.path.size(): 
 				f.path.clear()
