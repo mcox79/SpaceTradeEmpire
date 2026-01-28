@@ -1,5 +1,6 @@
 using Godot;
 using SimCore.Entities;
+using SimCore.Commands;
 using SpaceTradeEmpire.Bridge;
 using System.Collections.Generic;
 
@@ -8,10 +9,12 @@ namespace SpaceTradeEmpire.View;
 public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
+    private Camera3D _camera;
     
     // Visual Cache
     private Dictionary<string, Node3D> _nodeVisuals = new();
     private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
+    private MeshInstance3D _selectionRing;
 
     private Mesh _shipMesh;
     private Material _shipMat;
@@ -19,10 +22,19 @@ public partial class GalaxyView : Node3D
     public override void _Ready()
     {
         _bridge = GetNode<SimBridge>("/root/SimBridge");
+        _camera = GetViewport().GetCamera3D(); // Grab active camera
         
         // Preload Assets
-        _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) }; // Triangle Ship
-        _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) }; // Orange
+        _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) }; 
+        _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) }; 
+
+        // Selection Ring (Visual Feedback)
+        _selectionRing = new MeshInstance3D 
+        { 
+            Mesh = new TorusMesh { InnerRadius = 1.5f, OuterRadius = 1.8f },
+            Visible = false 
+        };
+        AddChild(_selectionRing);
 
         if (_bridge != null) DrawStaticMap();
     }
@@ -30,32 +42,88 @@ public partial class GalaxyView : Node3D
     public override void _Process(double delta)
     {
         if (_bridge == null || _bridge.Kernel == null) return;
-        
+        if (_camera == null) _camera = GetViewport().GetCamera3D(); // Retry grab
+
         UpdateFleets((float)delta);
+        HandleInput();
     }
 
+    private void HandleInput()
+    {
+        if (Input.IsMouseButtonPressed(MouseButton.Left))
+        {
+            if (_camera == null) return;
+
+            var mousePos = GetViewport().GetMousePosition();
+            var from = _camera.ProjectRayOrigin(mousePos);
+            var dir = _camera.ProjectRayNormal(mousePos);
+
+            // Raycast against Star Data (Pure Math, no Physics Colliders needed yet)
+            string clickedNodeId = "";
+            float closestDist = float.MaxValue;
+
+            foreach (var node in _bridge.Kernel.State.Nodes.Values)
+            {
+                // Convert Sim Position to Godot Vector
+                var starPos = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
+                
+                // Distance from Ray to Point
+                var diff = starPos - from;
+                var cross = diff.Cross(dir);
+                var distToRay = cross.Length();
+
+                if (distToRay < 2.0f && distToRay < closestDist) // 2.0f is "Click Radius"
+                {
+                    closestDist = distToRay;
+                    clickedNodeId = node.Id;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(clickedNodeId))
+            {
+                SelectStar(clickedNodeId);
+            }
+        }
+    }
+
+    private void SelectStar(string nodeId)
+    {
+        if (!_nodeVisuals.ContainsKey(nodeId)) return;
+
+        // Visual Feedback
+        _selectionRing.Visible = true;
+        _selectionRing.Position = _nodeVisuals[nodeId].Position;
+
+        // SEND COMMAND TO SIMCORE
+        // Hardcoded to control "test_ship_01" for Slice 1
+        var cmd = new TravelCommand("test_ship_01", nodeId);
+        _bridge.Kernel.EnqueueCommand(cmd);
+        
+        GD.Print($"[INPUT] Player ordered travel to {nodeId}");
+    }
+
+    // --- DRAWING LOGIC (Unchanged) ---
     private void DrawStaticMap()
     {
         var state = _bridge.Kernel.State;
         
-        // Stars
         var starMesh = new SphereMesh { Radius = 1.0f };
         var starMat = new StandardMaterial3D { AlbedoColor = new Color(0, 0.6f, 1.0f), EmissionEnabled = true, Emission = new Color(0, 0.6f, 1.0f) };
         starMesh.Material = starMat;
 
         foreach (var node in state.Nodes.Values)
         {
+            if (_nodeVisuals.ContainsKey(node.Id)) continue; // Idempotency check
+
             var instance = new MeshInstance3D { Mesh = starMesh, Name = node.Id };
             instance.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
             AddChild(instance);
             _nodeVisuals[node.Id] = instance;
             
-            // Name Tag
-            var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 2f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled };
+            var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 2.5f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32 };
             instance.AddChild(lbl);
         }
 
-        // Lanes
         var lineMat = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.3f, 0.3f) };
         foreach (var edge in state.Edges.Values)
         {
@@ -68,11 +136,8 @@ public partial class GalaxyView : Node3D
 
     private void UpdateFleets(float delta)
     {
-        var fleets = _bridge.Kernel.State.Fleets;
-
-        foreach (var fleet in fleets.Values)
+        foreach (var fleet in _bridge.Kernel.State.Fleets.Values)
         {
-            // 1. Create Visual if missing
             if (!_fleetVisuals.ContainsKey(fleet.Id))
             {
                 var mesh = new MeshInstance3D { Mesh = _shipMesh, MaterialOverride = _shipMat, Name = fleet.Id };
@@ -81,39 +146,22 @@ public partial class GalaxyView : Node3D
             }
 
             var visual = _fleetVisuals[fleet.Id];
-            
-            // 2. Calculate Position
             Vector3 targetPos = Vector3.Zero;
             
-            if (fleet.State == FleetState.Docked || fleet.State == FleetState.Idle)
+            if (fleet.State == FleetState.Travel && _nodeVisuals.ContainsKey(fleet.CurrentNodeId) && _nodeVisuals.ContainsKey(fleet.DestinationNodeId))
             {
-                // Docked: Sit at the Node
-                if (_nodeVisuals.ContainsKey(fleet.CurrentNodeId))
-                {
-                    targetPos = _nodeVisuals[fleet.CurrentNodeId].Position + new Vector3(0, 1.5f, 0);
-                }
+                var start = _nodeVisuals[fleet.CurrentNodeId].Position;
+                var end = _nodeVisuals[fleet.DestinationNodeId].Position;
+                targetPos = start.Lerp(end, fleet.TravelProgress);
+                if (start.DistanceTo(end) > 0.1f) visual.LookAt(end, Vector3.Up);
             }
-            else if (fleet.State == FleetState.Travel)
+            else if (_nodeVisuals.ContainsKey(fleet.CurrentNodeId))
             {
-                // Travel: Lerp between nodes
-                // Note: CurrentNodeId is the START node during travel
-                if (_nodeVisuals.ContainsKey(fleet.CurrentNodeId) && _nodeVisuals.ContainsKey(fleet.DestinationNodeId))
-                {
-                    var start = _nodeVisuals[fleet.CurrentNodeId].Position;
-                    var end = _nodeVisuals[fleet.DestinationNodeId].Position;
-                    targetPos = start.Lerp(end, fleet.TravelProgress);
-                    
-                    // Look at destination
-                    if (start.DistanceTo(end) > 0.1f)
-                        visual.LookAt(end, Vector3.Up);
-                }
+                targetPos = _nodeVisuals[fleet.CurrentNodeId].Position + new Vector3(0, 1.5f, 0);
             }
 
-            // 3. Smooth Update (Simple check to avoid teleport jitter)
-            if (visual.Position.DistanceTo(targetPos) > 100f) 
-                visual.Position = targetPos; // Teleport if far (init)
-            else
-                visual.Position = visual.Position.Lerp(targetPos, 10f * delta); // Smooth slide
+            if (visual.Position.DistanceTo(targetPos) > 100f) visual.Position = targetPos;
+            else visual.Position = visual.Position.Lerp(targetPos, 10f * delta);
         }
     }
 
