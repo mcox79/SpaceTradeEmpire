@@ -65,6 +65,14 @@ If there is any discrepancy between a chat instruction and these canonical files
 - **Milestone Commits:** At the conclusion of a feature vertical, you MUST execute a cleanup script to purge build artifacts (`.uid`, temp files) and seal the state with a distinct milestone commit (e.g., `git commit -m "feat(milestone): complete slice 6..."`).
 - **The Rollback Guarantee:** This ensures `HEAD` is always a verified, commercially viable baseline.
 
+### 2.4 The "Seal-then-Validate" Protocol (Strict)
+The `Validate-GodotScript` tool enforces a clean working tree to prevent drift. When refactoring multiple interdependent files (where File A depends on uncommitted changes in File B):
+1. **Write:** Generate all updated files using the Atomic Write Pattern.
+2. **Seal:** Immediately execute a WIP commit: `git add -A; git commit -m "wip: [feature] pending validation"`.
+3. **Validate:** Run `Validate-GodotScript` on the target files.
+4. **Rectify:** If validation fails, fix the errors, then `git add -A` and `git commit --amend --no-edit`.
+5. **Finalize:** Only proceed to the next Phase once validation passes on the sealed commit.
+
 ## 3. Architecture and Standards (Strict)
 
 ### NON-NEGOTIABLE ARCHITECTURE INVARIANTS
