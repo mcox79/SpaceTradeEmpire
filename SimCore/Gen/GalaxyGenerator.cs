@@ -44,57 +44,31 @@ public static class GalaxyGenerator
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
 
-        // 2. CONNECT NEIGHBORS
-        foreach (var node in nodesList)
+        // 2. CONNECTIVITY SKELETON (Prim's Algorithm)
+        // This ensures 100% connectivity by growing a single tree.
+        var connected = new HashSet<string>();
+        var disconnected = new HashSet<string>(nodesList.Select(n => n.Id));
+
+        // Start with the first node
+        var startNode = nodesList[0];
+        connected.Add(startNode.Id);
+        disconnected.Remove(startNode.Id);
+
+        while (disconnected.Count > 0)
         {
-            var neighbors = nodesList
-                .Where(n => n.Id != node.Id)
-                .OrderBy(n => Vector3.Distance(node.Position, n.Position))
-                .Take(2);
-
-            foreach (var target in neighbors)
-            {
-                CreateEdge(state, node, target);
-            }
-        }
-
-        // 3. BRIDGE ISLANDS (Flood Fill Fix)
-        while (true)
-        {
-            var visited = new HashSet<string>();
-            var queue = new Queue<string>();
-            
-            queue.Enqueue(nodesList[0].Id);
-            visited.Add(nodesList[0].Id);
-            
-            while (queue.Count > 0)
-            {
-                var currentId = queue.Dequeue();
-                foreach(var edge in state.Edges.Values)
-                {
-                    string neighbor = null;
-                    if (edge.FromNodeId == currentId) neighbor = edge.ToNodeId;
-                    else if (edge.ToNodeId == currentId) neighbor = edge.FromNodeId;
-                    
-                    if (neighbor != null && !visited.Contains(neighbor))
-                    {
-                        visited.Add(neighbor);
-                        queue.Enqueue(neighbor);
-                    }
-                }
-            }
-
-            if (visited.Count == nodesList.Count) break;
-
             Node bestA = null;
             Node bestB = null;
             float bestDist = float.MaxValue;
 
-            foreach (var nodeA in nodesList.Where(n => visited.Contains(n.Id)))
+            // Find the shortest bridge from the Connected Cloud -> Disconnected Cloud
+            foreach (var idA in connected)
             {
-                foreach (var nodeB in nodesList.Where(n => !visited.Contains(n.Id)))
+                var nodeA = state.Nodes[idA];
+                foreach (var idB in disconnected)
                 {
+                    var nodeB = state.Nodes[idB];
                     float d = Vector3.Distance(nodeA.Position, nodeB.Position);
+                    
                     if (d < bestDist)
                     {
                         bestDist = d;
@@ -104,14 +78,44 @@ public static class GalaxyGenerator
                 }
             }
 
-            if (bestA != null && bestB != null) CreateEdge(state, bestA, bestB);
-            else break;
+            if (bestA != null && bestB != null)
+            {
+                CreateEdge(state, bestA, bestB);
+                connected.Add(bestB.Id);
+                disconnected.Remove(bestB.Id);
+            }
+            else
+            {
+                break; // Should never happen
+            }
+        }
+
+        // 3. ADD CYCLES (Flavor)
+        // The skeleton is a perfect tree (no loops). We add a few extra edges
+        // between close neighbors to create "triangles" and alternate routes.
+        foreach (var node in nodesList)
+        {
+            var neighbors = nodesList
+                .Where(n => n.Id != node.Id)
+                .OrderBy(n => Vector3.Distance(node.Position, n.Position))
+                .Take(2);
+
+            foreach (var target in neighbors)
+            {
+                // Only add if short enough (avoid cross-galaxy accidental super-lanes)
+                if (Vector3.Distance(node.Position, target.Position) < (radius * 0.5f))
+                {
+                    CreateEdge(state, node, target);
+                }
+            }
         }
     }
 
     private static void CreateEdge(SimState state, Node a, Node b)
     {
         string id = $"edge_{GetSortedId(a.Id, b.Id)}";
+        
+        // Idempotency: Don't add if exists
         if (!state.Edges.ContainsKey(id))
         {
             state.Edges.Add(id, new Edge
