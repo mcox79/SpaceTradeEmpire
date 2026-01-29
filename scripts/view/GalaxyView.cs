@@ -12,13 +12,11 @@ public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
     private Camera3D _camera;
-    private CanvasLayer _uiLayer;
     private StationMenu _menu; 
     private bool _mouseLeftHeld;
     
     private Dictionary<string, Node3D> _nodeVisuals = new();
     private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
-    
     private MeshInstance3D _selectionRing;
     private Mesh _shipMesh;
     private Material _shipMat;
@@ -28,9 +26,8 @@ public partial class GalaxyView : Node3D
         _bridge = GetNode<SimBridge>("/root/SimBridge");
         _camera = GetViewport().GetCamera3D(); 
         
-        _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) }; 
-        _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) }; 
-
+        _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) };
+        _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) };
         _selectionRing = new MeshInstance3D 
         { 
             Mesh = new TorusMesh { InnerRadius = 1.5f, OuterRadius = 1.8f },
@@ -38,11 +35,11 @@ public partial class GalaxyView : Node3D
         };
         AddChild(_selectionRing);
 
-        _uiLayer = new CanvasLayer { Layer = 1 };
-        AddChild(_uiLayer);
+        var uiLayer = new CanvasLayer { Layer = 1 };
+        AddChild(uiLayer);
 
         _menu = new StationMenu();
-        _uiLayer.AddChild(_menu);
+        uiLayer.AddChild(_menu);
 
         if (_bridge != null)
         {
@@ -54,7 +51,6 @@ public partial class GalaxyView : Node3D
 
     public override void _Process(double delta)
     {
-        // SAFETY: Do not process view if bridge is gone, invalid, or actively loading
         if (_bridge == null || _bridge.Kernel == null || _bridge.IsLoading) return;
         if (_camera == null) _camera = GetViewport().GetCamera3D(); 
 
@@ -65,7 +61,6 @@ public partial class GalaxyView : Node3D
         }
         catch (System.Exception ex)
         {
-            // Log but do not crash the game loop
             GD.PrintErr($"[GalaxyView] Error: {ex.Message}");
         }
     }
@@ -85,7 +80,7 @@ public partial class GalaxyView : Node3D
             var mousePos = GetViewport().GetMousePosition();
             var from = _camera.ProjectRayOrigin(mousePos);
             var dir = _camera.ProjectRayNormal(mousePos);
-
+            
             string clickedNodeId = "";
             float closestDist = float.MaxValue;
             if (_bridge.Kernel.State.Nodes == null) return;
@@ -96,7 +91,7 @@ public partial class GalaxyView : Node3D
                 var diff = starPos - from;
                 var cross = diff.Cross(dir);
                 var distToRay = cross.Length();
-
+                
                 if (distToRay < 2.0f && distToRay < closestDist) 
                 {
                     closestDist = distToRay;
@@ -116,13 +111,18 @@ public partial class GalaxyView : Node3D
         _selectionRing.Position = _nodeVisuals[nodeId].Position;
 
         if (_bridge?.Kernel?.State == null) { _menu.Open(nodeId); return; }
+        
         var state = _bridge.Kernel.State;
         state.PlayerSelectedDestinationNodeId = nodeId;
-
+        
+        // Simple "Right Click to Move" logic for Slice 1
         if (!state.Fleets.TryGetValue("test_ship_01", out var fleet)) { _menu.Open(nodeId); return; }
+        
         if (fleet.CurrentNodeId == nodeId) { _menu.Open(nodeId); return; }
+        
         if (MapQueries.AreConnected(state, fleet.CurrentNodeId, nodeId))
         {
+            GD.Print($"[UI] Requesting travel to {nodeId}");
             _bridge.Kernel.EnqueueCommand(new TravelCommand(fleet.Id, nodeId));
             _menu.Close();
             return;
@@ -141,11 +141,12 @@ public partial class GalaxyView : Node3D
 
         foreach (var node in state.Nodes.Values)
         {
-            if (_nodeVisuals.ContainsKey(node.Id)) continue; 
+            if (_nodeVisuals.ContainsKey(node.Id)) continue;
             var instance = new MeshInstance3D { Mesh = starMesh, Name = node.Id };
             instance.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
             AddChild(instance);
             _nodeVisuals[node.Id] = instance;
+            
             var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 2.5f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32 };
             instance.AddChild(lbl);
         }
@@ -172,20 +173,24 @@ public partial class GalaxyView : Node3D
             Vector3 targetPos = Vector3.Zero;
             Vector3? lookAtTarget = null;
 
-            if (fleet.State == FleetState.Travel 
+            // VISUALIZATION LOGIC
+            // FIXED: Using FleetState.Traveling and TravelProgress
+            if (fleet.State == FleetState.Traveling 
                 && !string.IsNullOrEmpty(fleet.CurrentNodeId) 
                 && !string.IsNullOrEmpty(fleet.DestinationNodeId)
                 && _nodeVisuals.TryGetValue(fleet.CurrentNodeId, out var startNode)
                 && _nodeVisuals.TryGetValue(fleet.DestinationNodeId, out var endNode))
             {
-                targetPos = startNode.Position.Lerp(endNode.Position, fleet.TravelProgress);
-                lookAtTarget = endNode.Position;
+                 // INTERPOLATION: Lerp between stars based on progress (0.0 -> 1.0)
+                 targetPos = startNode.Position.Lerp(endNode.Position, fleet.TravelProgress);
+                 lookAtTarget = endNode.Position;
             }
             else if (!string.IsNullOrEmpty(fleet.CurrentNodeId) && _nodeVisuals.TryGetValue(fleet.CurrentNodeId, out var node))
             {
                 targetPos = node.Position + new Vector3(0, 1.5f, 0);
             }
 
+            // SPAWN OR UPDATE MESH
             if (!_fleetVisuals.TryGetValue(fleet.Id, out var visual))
             {
                 visual = new MeshInstance3D { Mesh = _shipMesh, MaterialOverride = _shipMat, Name = fleet.Id };
@@ -195,13 +200,14 @@ public partial class GalaxyView : Node3D
                 _fleetVisuals[fleet.Id] = visual;
             }
 
+            // SMOOTHING
             if (lookAtTarget.HasValue && visual.Position.DistanceTo(lookAtTarget.Value) > 0.1f)
             {
                 visual.LookAt(lookAtTarget.Value, Vector3.Up);
             }
 
             float dist = visual.Position.DistanceTo(targetPos);
-            if (dist > 100f) visual.Position = targetPos;
+            if (dist > 100f) visual.Position = targetPos; // Teleport if too far (e.g. initial spawn)
             else visual.Position = visual.Position.Lerp(targetPos, 10f * delta);
         }
     }
