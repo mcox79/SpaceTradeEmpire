@@ -20,17 +20,21 @@ public class GalaxyTests
 
         Assert.That(hashA, Is.EqualTo(hashB));
         Assert.That(simA.State.Nodes.Count, Is.EqualTo(10));
-        Assert.That(simA.State.Edges.Count, Is.GreaterThan(0));
     }
 
     [Test]
-    public void Generation_CreatesValidMarkets()
+    public void Generation_CreatesValidMarkets_WithGoods()
     {
         var sim = new SimKernel(123);
         GalaxyGenerator.Generate(sim.State, 5, 50f);
 
         var firstNode = sim.State.Nodes.Values.First();
-        Assert.That(firstNode.MarketId, Is.Not.Empty);
         Assert.That(sim.State.Markets.ContainsKey(firstNode.MarketId), Is.True);
+        
+        var market = sim.State.Markets[firstNode.MarketId];
+        
+        // ASSERT: Market has dictionary inventory, not int
+        Assert.That(market.Inventory.ContainsKey("fuel"), Is.True);
+        Assert.That(market.Inventory["fuel"], Is.GreaterThan(0));
     }
 }

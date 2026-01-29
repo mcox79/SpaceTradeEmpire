@@ -2,6 +2,9 @@ using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using SimCore.Entities;
+using System.Linq;
+using System.Collections.Generic;
+using System;
 
 namespace SimCore;
 
@@ -9,18 +12,13 @@ public class SimState
 {
     [JsonInclude] public int Tick { get; private set; }
     [JsonInclude] public int InitialSeed { get; private set; }
-
     [JsonIgnore] public Random? Rng { get; private set; }
 
-    // --- WORLD STATE ---
     [JsonInclude] public Dictionary<string, Market> Markets { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Node> Nodes { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Edge> Edges { get; private set; } = new();
-
-    // --- ACTORS ---
     [JsonInclude] public Dictionary<string, Fleet> Fleets { get; private set; } = new();
 
-    // --- PLAYER STATE ---
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
@@ -34,20 +32,10 @@ public class SimState
     }
 
     [JsonConstructor]
-    public SimState()
-    {
-        // Collections are already initialized via property initializers.
-        // RNG is restored in HydrateAfterLoad().
-    }
+    public SimState() { }
 
     public void AdvanceTick() => Tick++;
-
-    public void HydrateAfterLoad()
-    {
-        // Deterministic re-seed. This does not preserve Random's internal state, but
-        // it restores a stable RNG for continued deterministic generation post-load.
-        Rng = new Random(InitialSeed + Tick);
-    }
+    public void HydrateAfterLoad() => Rng = new Random(InitialSeed + Tick);
 
     public string GetSignature()
     {
@@ -57,12 +45,18 @@ public class SimState
 
         foreach (var f in Fleets.OrderBy(k => k.Key))
         {
-            sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}_P:{f.Value.TravelProgress}|");
+            sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
         }
 
         foreach (var m in Markets.OrderBy(k => k.Key))
         {
-            sb.Append($"Mkt:{m.Key}_Inv:{m.Value.Inventory}_Base:{m.Value.BasePrice}|");
+            sb.Append($"Mkt:{m.Key}|");
+            // REFACTOR: Hash inventory dictionary deterministically
+            foreach(var kv in m.Value.Inventory.OrderBy(i => i.Key))
+            {
+                sb.Append($"{kv.Key}:{kv.Value},");
+            }
+            sb.Append("|");
         }
 
         using var sha = SHA256.Create();

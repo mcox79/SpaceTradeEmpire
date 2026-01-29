@@ -1,15 +1,18 @@
 using SimCore.Entities;
+using System;
 
 namespace SimCore.Commands;
 
 public class BuyCommand : ICommand
 {
     public string MarketId { get; set; }
+    public string GoodId { get; set; } // Added per Slice 1 requirements
     public int Quantity { get; set; }
 
-    public BuyCommand(string marketId, int quantity)
+    public BuyCommand(string marketId, string goodId, int quantity)
     {
         MarketId = marketId;
+        GoodId = goodId;
         Quantity = quantity;
     }
 
@@ -17,18 +20,23 @@ public class BuyCommand : ICommand
     {
         if (!state.Markets.ContainsKey(MarketId)) return;
         var market = state.Markets[MarketId];
-        int cost = market.CurrentPrice * Quantity;
-        
-        if (state.PlayerCredits >= cost && market.Inventory >= Quantity)
+
+        // 1. Check Availability
+        if (!market.Inventory.ContainsKey(GoodId)) return;
+        if (market.Inventory[GoodId] < Quantity) return;
+
+        // 2. Calculate Price
+        int unitPrice = market.GetPrice(GoodId);
+        int totalCost = unitPrice * Quantity;
+
+        // 3. Transaction
+        if (state.PlayerCredits >= totalCost)
         {
-            state.PlayerCredits -= cost;
-            market.Inventory -= Quantity;
+            state.PlayerCredits -= totalCost;
+            market.Inventory[GoodId] -= Quantity;
             
-            // FIX: Universal Cargo
-            string cargoId = "generic_goods";
-            
-            if (!state.PlayerCargo.ContainsKey(cargoId)) state.PlayerCargo[cargoId] = 0;
-            state.PlayerCargo[cargoId] += Quantity;
+            if (!state.PlayerCargo.ContainsKey(GoodId)) state.PlayerCargo[GoodId] = 0;
+            state.PlayerCargo[GoodId] += Quantity;
         }
     }
 }
