@@ -12,13 +12,3 @@ public class Node
     public string Name { get; set; } = "";
     public string MarketId { get; set; } = "";
 }
-
-public class Edge
-{
-    public string Id { get; set; } = "";
-    public string FromNodeId { get; set; } = "";
-    public string ToNodeId { get; set; } = "";
-    public float Distance { get; set; }
-    public int TotalCapacity { get; set; } = 10;
-    public int UsedSlots { get; set; } = 0;
-}

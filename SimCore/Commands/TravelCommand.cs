@@ -1,5 +1,6 @@
 using SimCore.Entities;
-using SimCore;
+using System;
+using System.Linq;
 
 namespace SimCore.Commands;
 
@@ -18,17 +19,28 @@ public class TravelCommand : ICommand
     {
         if (!state.Fleets.ContainsKey(FleetId)) return;
         var fleet = state.Fleets[FleetId];
-        
-        // RULE: Cannot move if already moving
-        if (fleet.State == FleetState.Travel) return;
 
-                // RULE: Must be connected
-        if (!MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, TargetNodeId, out var edgeId)) return;
+        // 1. VALIDATION: Must be Idle
+        if (fleet.State != FleetState.Idle) return;
 
-        // START TRAVEL
-        fleet.State = FleetState.Travel;
+        // 2. VALIDATION: Find connecting edge
+        var edge = state.Edges.Values.FirstOrDefault(e => 
+            (e.FromNodeId == fleet.CurrentNodeId && e.ToNodeId == TargetNodeId) ||
+            (e.FromNodeId == TargetNodeId && e.ToNodeId == fleet.CurrentNodeId)
+        );
+
+        if (edge == null) return; // No direct link
+
+        // 3. ARCHITECTURE: Check Slot Capacity (Simplified for Slice 1)
+        if (edge.UsedCapacity >= edge.TotalCapacity) return; 
+
+        // 4. COMMIT TO TRAVEL
+        fleet.State = FleetState.Traveling;
+        fleet.CurrentEdgeId = edge.Id;
         fleet.DestinationNodeId = TargetNodeId;
-        fleet.CurrentEdgeId = edgeId;
         fleet.TravelProgress = 0f;
+        
+        // Occupy Slot
+        edge.UsedCapacity++;
     }
 }
