@@ -15,12 +15,14 @@ public static class GalaxyGenerator
 
         var nodesList = new List<Node>();
 
+	var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null. Ensure SimState is hydrated/initialized before Generate().");
+
         // 1. SCATTER STARS
         for (int i = 0; i < starCount; i++)
         {
-            float x = (float)(state.Rng.NextDouble() * 2 - 1) * radius;
-            float z = (float)(state.Rng.NextDouble() * 2 - 1) * radius;
-            
+            float x = (float)(rng.NextDouble() * 2 - 1) * radius;
+	    float z = (float)(rng.NextDouble() * 2 - 1) * radius;
+  
             var node = new Node
             {
                 Id = $"star_{i}",
@@ -33,12 +35,13 @@ public static class GalaxyGenerator
             state.Nodes.Add(node.Id, node);
             nodesList.Add(node);
 
-            state.Markets.Add(node.MarketId, new Market 
-            { 
-                Id = node.MarketId, 
-                BasePrice = 100, 
-                Inventory = 50 + state.Rng.Next(50) 
-            });
+            state.Markets.Add(node.MarketId, new Market
+	    {
+	        Id = node.MarketId,
+	        BasePrice = 100,
+	        Inventory = 50 + rng.Next(50)
+	    });
+
         }
         
         if (nodesList.Count == 0) return;
@@ -56,8 +59,8 @@ public static class GalaxyGenerator
 
         while (disconnected.Count > 0)
         {
-            Node bestA = null;
-            Node bestB = null;
+            Node? bestA = null;
+	    Node? bestB = null;
             float bestDist = float.MaxValue;
 
             // Find the shortest bridge from the Connected Cloud -> Disconnected Cloud
@@ -78,16 +81,13 @@ public static class GalaxyGenerator
                 }
             }
 
-            if (bestA != null && bestB != null)
-            {
-                CreateEdge(state, bestA, bestB);
-                connected.Add(bestB.Id);
-                disconnected.Remove(bestB.Id);
-            }
-            else
-            {
-                break; // Should never happen
-            }
+	    if (bestA == null || bestB == null)
+	        throw new InvalidOperationException("GalaxyGenerator: failed to find a bridge edge during connectivity build.");
+
+	    CreateEdge(state, bestA, bestB);
+	    connected.Add(bestB.Id);
+	    disconnected.Remove(bestB.Id);
+
         }
 
         // 3. ADD CYCLES (Flavor)

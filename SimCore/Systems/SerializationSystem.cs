@@ -13,12 +13,12 @@ public static class SerializationSystem
 
     public static SimState Deserialize(string json)
     {
-        var state = JsonSerializer.Deserialize<SimState>(json, _options);
-        if (state != null)
-        {
-            // Restore RNG
-            state.HydrateAfterLoad();
-        }
+        var state = JsonSerializer.Deserialize<SimState>(json, _options)
+            ?? throw new InvalidOperationException("Failed to deserialize SimState.");
+
+        // Restore RNG
+        state.HydrateAfterLoad();
+
         return state;
     }
 }
