@@ -11,7 +11,8 @@ public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
     private Camera3D _camera;
-    private StationMenu _menu; // THE UI REFERENCE
+    private StationMenu _menu; 
+    private bool _mouseLeftHeld;
     
     private Dictionary<string, Node3D> _nodeVisuals = new();
     private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
@@ -54,10 +55,13 @@ public partial class GalaxyView : Node3D
     private void HandleInput()
     {
         // Don interaction if Menu is open
-        if (_menu.Visible) return;
+        var hovered = GetViewport().GuiGetHoveredControl();
+        if (hovered != null) return;
 
-        if (Input.IsMouseButtonPressed(MouseButton.Left))
+        var down = Input.IsMouseButtonPressed(MouseButton.Left);
+        if (down && !_mouseLeftHeld)
         {
+            _mouseLeftHeld = true;
             if (_camera == null) return;
 
             var mousePos = GetViewport().GetMousePosition();
@@ -86,6 +90,7 @@ public partial class GalaxyView : Node3D
                 SelectStar(clickedNodeId);
             }
         }
+        if (!down) _mouseLeftHeld = false;
     }
 
     private void SelectStar(string nodeId)
