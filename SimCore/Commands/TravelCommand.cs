@@ -1,4 +1,5 @@
 using SimCore.Entities;
+using SimCore;
 
 namespace SimCore.Commands;
 
@@ -21,20 +22,8 @@ public class TravelCommand : ICommand
         // RULE: Cannot move if already moving
         if (fleet.State == FleetState.Travel) return;
 
-        // RULE: Must be connected
-        // Simple linear search for Slice 1. Optimization later.
-        string edgeId = "";
-        foreach(var e in state.Edges.Values)
-        {
-            if ((e.FromNodeId == fleet.CurrentNodeId && e.ToNodeId == TargetNodeId) ||
-                (e.ToNodeId == fleet.CurrentNodeId && e.FromNodeId == TargetNodeId))
-            {
-                edgeId = e.Id;
-                break;
-            }
-        }
-
-        if (string.IsNullOrEmpty(edgeId)) return; // No route
+                // RULE: Must be connected
+        if (!MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, TargetNodeId, out var edgeId)) return;
 
         // START TRAVEL
         fleet.State = FleetState.Travel;

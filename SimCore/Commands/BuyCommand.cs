@@ -17,19 +17,18 @@ public class BuyCommand : ICommand
     {
         if (!state.Markets.ContainsKey(MarketId)) return;
         var market = state.Markets[MarketId];
-
         int cost = market.CurrentPrice * Quantity;
         
-        // RULE: Affordability & Availability
         if (state.PlayerCredits >= cost && market.Inventory >= Quantity)
         {
-            // Transaction
             state.PlayerCredits -= cost;
             market.Inventory -= Quantity;
             
-            // Add to Global Player Cargo (Slice 1 Simplification)
-            if (!state.PlayerCargo.ContainsKey(MarketId)) state.PlayerCargo[MarketId] = 0;
-            state.PlayerCargo[MarketId] += Quantity;
+            // FIX: Universal Cargo
+            string cargoId = "generic_goods";
+            
+            if (!state.PlayerCargo.ContainsKey(cargoId)) state.PlayerCargo[cargoId] = 0;
+            state.PlayerCargo[cargoId] += Quantity;
         }
     }
 }

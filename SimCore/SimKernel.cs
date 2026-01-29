@@ -1,12 +1,13 @@
 using SimCore.Commands;
 using SimCore.Systems;
+using System.Collections.Concurrent;
 
 namespace SimCore;
 
 public class SimKernel
 {
     private SimState _state;
-    private Queue<ICommand> _commandQueue = new();
+    private ConcurrentQueue<ICommand> _commandQueue = new();
 
     public SimState State => _state; 
 
@@ -22,16 +23,22 @@ public class SimKernel
 
     public void Step()
     {
-        // 1. Process Input
         while (_commandQueue.TryDequeue(out var cmd))
         {
             cmd.Execute(_state);
         }
-
-        // 2. Systems Execution [cite: 1442]
         MovementSystem.Process(_state);
-
-        // 3. Tick Advance
         _state.AdvanceTick();
+    }
+
+    public string SaveToString()
+    {
+        return SerializationSystem.Serialize(_state);
+    }
+
+    public void LoadFromString(string data)
+    {
+                        var loaded = SerializationSystem.Deserialize(data);
+        if (loaded != null) _state = loaded;
     }
 }
