@@ -41,7 +41,12 @@ public partial class GalaxyView : Node3D
         AddChild(_menu);
         // ---------------
 
-        if (_bridge != null) DrawStaticMap();
+        if (_bridge != null)
+        {
+            _bridge.Connect(SimBridge.SignalName.SimLoaded, new Callable(this, nameof(OnSimLoaded)));
+            DrawStaticMap();
+            SyncSelectionFromState();
+        }
     }
 
     public override void _Process(double delta)
@@ -104,6 +109,7 @@ public partial class GalaxyView : Node3D
         if (_bridge == null || _bridge.Kernel == null) { _menu.Open(nodeId); return; }
 
         var state = _bridge.Kernel.State;
+        state.PlayerSelectedDestinationNodeId = nodeId;
         if (!state.Fleets.TryGetValue("test_ship_01", out var fleet)) { _menu.Open(nodeId); return; }
 
         // If already here, open the station menu
@@ -129,7 +135,6 @@ public partial class GalaxyView : Node3D
     private void DrawStaticMap()
     {
         var state = _bridge.Kernel.State;
-        
         var starMesh = new SphereMesh { Radius = 1.0f };
         var starMat = new StandardMaterial3D { AlbedoColor = new Color(0, 0.6f, 1.0f), EmissionEnabled = true, Emission = new Color(0, 0.6f, 1.0f) };
         starMesh.Material = starMat;
@@ -197,5 +202,52 @@ public partial class GalaxyView : Node3D
         instance.LookAtFromPosition(mid, end, Vector3.Up);
         instance.RotateObjectLocal(Vector3.Right, Mathf.Pi / 2f);
         AddChild(instance);
+    }
+    private void SyncSelectionFromState()
+    {
+        if (_bridge == null || _bridge.Kernel == null) return;
+        var state = _bridge.Kernel.State;
+        if (state == null) return;
+
+        var id = state.PlayerSelectedDestinationNodeId;
+        if (string.IsNullOrEmpty(id)) return;
+        if (!_nodeVisuals.ContainsKey(id)) return;
+
+        _selectionRing.Visible = true;
+        _selectionRing.Position = _nodeVisuals[id].Position;
+    }
+
+    private void OnSimLoaded()
+    {
+        ClearVisuals();
+        DrawStaticMap();
+        SyncSelectionFromState();
+    }
+
+    private void ClearVisuals()
+    {
+        foreach (var kv in _fleetVisuals)
+        {
+            if (kv.Value != null && IsInstanceValid(kv.Value)) kv.Value.QueueFree();
+        }
+        _fleetVisuals.Clear();
+
+        foreach (var kv in _nodeVisuals)
+        {
+            if (kv.Value != null && IsInstanceValid(kv.Value)) kv.Value.QueueFree();
+        }
+        _nodeVisuals.Clear();
+
+        foreach (var c in GetChildren())
+        {
+            if (c == null) continue;
+            if (c == _selectionRing) continue;
+            if (c == _menu) continue;
+
+            if (c is MeshInstance3D mi && mi != _selectionRing)
+            {
+                if (IsInstanceValid(mi)) mi.QueueFree();
+            }
+        }
     }
 }
