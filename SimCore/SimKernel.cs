@@ -51,8 +51,8 @@ public class SimKernel
 
     public void RestoreSnapshot(SimSnapshot snapshot)
     {
-        _state.PlayerLocationNodeId = snapshot.CurrentSystemId;
-        _state.PlayerSelectedDestinationNodeId = snapshot.SelectedDestinationSystemId ?? "";
+        _state.PlayerLocationNodeId = snapshot.CurrentNodeId;
+        _state.PlayerSelectedDestinationNodeId = snapshot.SelectedDestinationNodeId ?? "";
     }
 
 }
