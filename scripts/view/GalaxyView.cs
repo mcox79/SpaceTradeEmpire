@@ -2,6 +2,7 @@ using Godot;
 using SimCore.Entities;
 using SimCore.Commands;
 using SpaceTradeEmpire.Bridge;
+using SpaceTradeEmpire.UI; // New Namespace
 using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.View;
@@ -10,25 +11,22 @@ public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
     private Camera3D _camera;
+    private StationMenu _menu; // THE UI REFERENCE
     
-    // Visual Cache
     private Dictionary<string, Node3D> _nodeVisuals = new();
     private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
     private MeshInstance3D _selectionRing;
-
     private Mesh _shipMesh;
     private Material _shipMat;
 
     public override void _Ready()
     {
         _bridge = GetNode<SimBridge>("/root/SimBridge");
-        _camera = GetViewport().GetCamera3D(); // Grab active camera
+        _camera = GetViewport().GetCamera3D(); 
         
-        // Preload Assets
         _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) }; 
         _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) }; 
 
-        // Selection Ring (Visual Feedback)
         _selectionRing = new MeshInstance3D 
         { 
             Mesh = new TorusMesh { InnerRadius = 1.5f, OuterRadius = 1.8f },
@@ -36,13 +34,18 @@ public partial class GalaxyView : Node3D
         };
         AddChild(_selectionRing);
 
+        // --- INIT UI ---
+        _menu = new StationMenu();
+        AddChild(_menu);
+        // ---------------
+
         if (_bridge != null) DrawStaticMap();
     }
 
     public override void _Process(double delta)
     {
         if (_bridge == null || _bridge.Kernel == null) return;
-        if (_camera == null) _camera = GetViewport().GetCamera3D(); // Retry grab
+        if (_camera == null) _camera = GetViewport().GetCamera3D(); 
 
         UpdateFleets((float)delta);
         HandleInput();
@@ -50,6 +53,9 @@ public partial class GalaxyView : Node3D
 
     private void HandleInput()
     {
+        // Don interaction if Menu is open
+        if (_menu.Visible) return;
+
         if (Input.IsMouseButtonPressed(MouseButton.Left))
         {
             if (_camera == null) return;
@@ -58,21 +64,17 @@ public partial class GalaxyView : Node3D
             var from = _camera.ProjectRayOrigin(mousePos);
             var dir = _camera.ProjectRayNormal(mousePos);
 
-            // Raycast against Star Data (Pure Math, no Physics Colliders needed yet)
             string clickedNodeId = "";
             float closestDist = float.MaxValue;
 
             foreach (var node in _bridge.Kernel.State.Nodes.Values)
             {
-                // Convert Sim Position to Godot Vector
                 var starPos = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
-                
-                // Distance from Ray to Point
                 var diff = starPos - from;
                 var cross = diff.Cross(dir);
                 var distToRay = cross.Length();
 
-                if (distToRay < 2.0f && distToRay < closestDist) // 2.0f is "Click Radius"
+                if (distToRay < 2.0f && distToRay < closestDist) 
                 {
                     closestDist = distToRay;
                     clickedNodeId = node.Id;
@@ -90,19 +92,20 @@ public partial class GalaxyView : Node3D
     {
         if (!_nodeVisuals.ContainsKey(nodeId)) return;
 
-        // Visual Feedback
         _selectionRing.Visible = true;
         _selectionRing.Position = _nodeVisuals[nodeId].Position;
 
-        // SEND COMMAND TO SIMCORE
-        // Hardcoded to control "test_ship_01" for Slice 1
-        var cmd = new TravelCommand("test_ship_01", nodeId);
-        _bridge.Kernel.EnqueueCommand(cmd);
+        // OPEN UI INSTEAD OF AUTO-TRAVEL
+        _menu.Open(nodeId);
         
-        GD.Print($"[INPUT] Player ordered travel to {nodeId}");
+        GD.Print($"[UI] Opened Menu for {nodeId}");
+        
+        // Optional: Still send the ship there if you want
+        // var cmd = new TravelCommand("test_ship_01", nodeId);
+        // _bridge.Kernel.EnqueueCommand(cmd);
     }
 
-    // --- DRAWING LOGIC (Unchanged) ---
+    // --- DRAWING LOGIC (Minimally Changed) ---
     private void DrawStaticMap()
     {
         var state = _bridge.Kernel.State;
@@ -113,7 +116,7 @@ public partial class GalaxyView : Node3D
 
         foreach (var node in state.Nodes.Values)
         {
-            if (_nodeVisuals.ContainsKey(node.Id)) continue; // Idempotency check
+            if (_nodeVisuals.ContainsKey(node.Id)) continue; 
 
             var instance = new MeshInstance3D { Mesh = starMesh, Name = node.Id };
             instance.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);

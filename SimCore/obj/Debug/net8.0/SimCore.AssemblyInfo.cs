@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SimCore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a38634ce55d0654b3992368c7cf131bd6039aca7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+66f72907f7267bf52526dac885cc4768c99c5b1b")]
 [assembly: System.Reflection.AssemblyProductAttribute("SimCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SimCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

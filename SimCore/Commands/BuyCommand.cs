@@ -1,3 +1,5 @@
+using SimCore.Entities;
+
 namespace SimCore.Commands;
 
 public class BuyCommand : ICommand
@@ -18,14 +20,14 @@ public class BuyCommand : ICommand
 
         int cost = market.CurrentPrice * Quantity;
         
-        // Validation (The ""Rules"")
+        // RULE: Affordability & Availability
         if (state.PlayerCredits >= cost && market.Inventory >= Quantity)
         {
-            // Mutate State
+            // Transaction
             state.PlayerCredits -= cost;
             market.Inventory -= Quantity;
             
-            // Add to cargo
+            // Add to Global Player Cargo (Slice 1 Simplification)
             if (!state.PlayerCargo.ContainsKey(MarketId)) state.PlayerCargo[MarketId] = 0;
             state.PlayerCargo[MarketId] += Quantity;
         }
