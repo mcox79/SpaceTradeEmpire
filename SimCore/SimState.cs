@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using SimCore.Entities;
@@ -24,6 +24,7 @@ public class SimState
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
+    [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
 
     public SimState(int seed)
     {

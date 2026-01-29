@@ -38,7 +38,21 @@ public class SimKernel
 
     public void LoadFromString(string data)
     {
-                        var loaded = SerializationSystem.Deserialize(data);
+        var loaded = SerializationSystem.Deserialize(data);
         if (loaded != null) _state = loaded;
     }
+    public SimSnapshot CaptureSnapshot()
+    {
+        return new SimSnapshot(
+            _state.PlayerLocationNodeId,
+            string.IsNullOrWhiteSpace(_state.PlayerSelectedDestinationNodeId) ? null : _state.PlayerSelectedDestinationNodeId
+        );
+    }
+
+    public void RestoreSnapshot(SimSnapshot snapshot)
+    {
+        _state.PlayerLocationNodeId = snapshot.CurrentSystemId;
+        _state.PlayerSelectedDestinationNodeId = snapshot.SelectedDestinationSystemId ?? "";
+    }
+
 }
