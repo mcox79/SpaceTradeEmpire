@@ -1,79 +1,142 @@
 ﻿using Godot;
 using System;
+using SimCore;
+using SimCore.Commands;
+using SpaceTradeEmpire.Bridge;
 
 namespace SpaceTradeEmpire.UI;
 
 public partial class StationMenu : Control
 {
-    private Panel _panel;
+    private PanelContainer _panel;
     private Label _title;
-    private Button _undockBtn;
+    private Label _credits;
+    private VBoxContainer _marketList;
+    private Button _closeBtn;
     
+    private SimBridge _bridge;
+    private string _currentNodeId;
+
     public override void _Ready()
     {
-        // 1. Setup Full Screen Overlay
-        AnchorRight = 1;
-        AnchorBottom = 1;
+        _bridge = GetNode<SimBridge>("/root/SimBridge");
         Visible = false;
-
-        // 2. Create Panel
-        _panel = new Panel();
+        
+        // UI SETUP
+        AnchorRight = 1; AnchorBottom = 1; // Full screen overlay to block mouse
+        
+        _panel = new PanelContainer();
         _panel.SetAnchorsPreset(LayoutPreset.Center);
-        _panel.Size = new Vector2(400, 300);
-        _panel.Position = new Vector2((GetViewportRect().Size.X - 400) / 2, (GetViewportRect().Size.Y - 300) / 2);
+        _panel.CustomMinimumSize = new Vector2(600, 400);
         AddChild(_panel);
 
-        // 3. Title
-        _title = new Label();
-        _title.Text = "STATION INTERFACE";
-        _title.HorizontalAlignment = HorizontalAlignment.Center;
-        _title.Position = new Vector2(0, 20);
-        _title.Size = new Vector2(400, 40);
-        _panel.AddChild(_title);
+        var vbox = new VBoxContainer();
+        _panel.AddChild(vbox);
 
-        // 4. Undock Button
-        _undockBtn = new Button();
-        _undockBtn.Text = "UNDOCK";
-        _undockBtn.Size = new Vector2(200, 50);
-        _undockBtn.Position = new Vector2(100, 200);
-        _undockBtn.Pressed += OnUndockPressed;
-        _panel.AddChild(_undockBtn);
+        // Header
+        var header = new HBoxContainer();
+        _title = new Label { Text = "STATION MARKET", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _credits = new Label { Text = "CREDITS: 0", HorizontalAlignment = HorizontalAlignment.Right };
+        header.AddChild(_title);
+        header.AddChild(_credits);
+        vbox.AddChild(header);
+        vbox.AddChild(new HSeparator());
+
+        // Market Rows
+        _marketList = new VBoxContainer();
+        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        scroll.AddChild(_marketList);
+        vbox.AddChild(scroll);
+
+        // Footer
+        vbox.AddChild(new HSeparator());
+        _closeBtn = new Button { Text = "UNDOCK" };
+        _closeBtn.Pressed += Close;
+        vbox.AddChild(_closeBtn);
     }
 
-    public void Open(string stationName)
+    public void Open(string nodeId)
     {
-        _title.Text = $"DOCKED AT: {stationName}";
+        _currentNodeId = nodeId;
         Visible = true;
-        GetTree().Paused = true; // Pause physics while docked
-        GD.Print($"[UI] Station Menu Opened: {stationName}");
+        
+        // Try to locate the Market ID from the Node
+        if (_bridge.Kernel.State.Nodes.TryGetValue(nodeId, out var node))
+        {
+            _title.Text = $"{node.Name} MARKET";
+        }
+
+        Refresh();
+        GD.Print($"[UI] Opened Market at {_currentNodeId}");
     }
 
     public void Close()
     {
         Visible = false;
-        GetTree().Paused = false;
-        GD.Print("[UI] Station Menu Closed");
+        _currentNodeId = null;
     }
 
-    private void OnUndockPressed()
+    private void Refresh()
     {
-        Close();
-    }
+        // CLEAR OLD
+        foreach (var c in _marketList.GetChildren()) c.QueueFree();
 
-    // This matches the signal signature from player.gd: signal shop_toggled(is_open, station_ref)
-    public void OnShopToggled(bool isOpen, Node stationNode)
-    {
-        if (isOpen && stationNode != null)
+        if (_bridge == null || _bridge.Kernel == null) return;
+        var state = _bridge.Kernel.State;
+
+        // UPDATE HEADER
+        _credits.Text = $"CREDITS: {state.PlayerCredits:N0}";
+
+        // FIND MARKET
+        if (!state.Nodes.TryGetValue(_currentNodeId, out var node)) return;
+        if (!state.Markets.TryGetValue(node.MarketId, out var market)) return;
+
+        // RENDER ROWS
+        foreach (var kvp in market.Inventory)
         {
-            // Try to get the Star name
-            string name = stationNode.Name;
-            if (stationNode.Get("NodeId") is string id) name = id;
+            string goodId = kvp.Key;
+            int supply = kvp.Value;
+            int price = market.GetPrice(goodId);
+            int playerStock = state.PlayerCargo.ContainsKey(goodId) ? state.PlayerCargo[goodId] : 0;
+
+            var row = new HBoxContainer();
             
-            Open(name);
+            // Info Label
+            var info = new Label 
+            { 
+                Text = $"{goodId.ToUpper()} | Price: {price} | Supply: {supply} | You Have: {playerStock}",
+                SizeFlagsHorizontal = SizeFlags.ExpandFill 
+            };
+            row.AddChild(info);
+
+            // Buy Button
+            var btnBuy = new Button { Text = "BUY" };
+            btnBuy.Pressed += () => { ExecuteTrade(new BuyCommand(market.Id, goodId, 1)); };
+            row.AddChild(btnBuy);
+
+            // Sell Button
+            var btnSell = new Button { Text = "SELL", Disabled = (playerStock <= 0) };
+            btnSell.Pressed += () => { ExecuteTrade(new SellCommand(market.Id, goodId, 1)); };
+            row.AddChild(btnSell);
+
+            _marketList.AddChild(row);
         }
-        else
-        {
-            Close();
-        }
+    }
+
+    private void ExecuteTrade(ICommand cmd)
+    {
+        // 1. Enqueue Command to Kernel
+        _bridge.Kernel.EnqueueCommand(cmd);
+        
+        // 2. Force a single Simulation Step immediately (for responsive UI in Slice 1)
+        // In Slice 2, we will wait for the tick. For Slice 1 "Trucker", instant feedback is better.
+        // We call Kernel.Step() safely via the Bridge loop, or we just wait for the next frame?
+        // Let's just wait for the next frame update to refresh, but we can optimistically refresh.
+        
+        // Force the kernel to process the command queue NOW so we see the update instantly
+        // This is a "Micro-Tick" for UI interaction.
+        _bridge.Kernel.Step();
+        
+        Refresh();
     }
 }
