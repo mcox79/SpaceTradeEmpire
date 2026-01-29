@@ -1,6 +1,7 @@
 using Godot;
 using SimCore.Entities;
 using SimCore.Commands;
+using SimCore;
 using SpaceTradeEmpire.Bridge;
 using SpaceTradeEmpire.UI; // New Namespace
 using System.Collections.Generic;
@@ -100,14 +101,28 @@ public partial class GalaxyView : Node3D
         _selectionRing.Visible = true;
         _selectionRing.Position = _nodeVisuals[nodeId].Position;
 
-        // OPEN UI INSTEAD OF AUTO-TRAVEL
+        if (_bridge == null || _bridge.Kernel == null) { _menu.Open(nodeId); return; }
+
+        var state = _bridge.Kernel.State;
+        if (!state.Fleets.TryGetValue("test_ship_01", out var fleet)) { _menu.Open(nodeId); return; }
+
+        // If already here, open the station menu
+        if (fleet.CurrentNodeId == nodeId)
+        {
+            _menu.Open(nodeId);
+            return;
+        }
+
+        // If reachable, travel and close the menu
+        if (MapQueries.AreConnected(state, fleet.CurrentNodeId, nodeId))
+        {
+            _bridge.Kernel.EnqueueCommand(new TravelCommand(fleet.Id, nodeId));
+            _menu.Close();
+            return;
+        }
+
+        // Not reachable: still open menu for feedback
         _menu.Open(nodeId);
-        
-        GD.Print($"[UI] Opened Menu for {nodeId}");
-        
-        // Optional: Still send the ship there if you want
-        // var cmd = new TravelCommand("test_ship_01", nodeId);
-        // _bridge.Kernel.EnqueueCommand(cmd);
     }
 
     // --- DRAWING LOGIC (Minimally Changed) ---
