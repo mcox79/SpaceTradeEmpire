@@ -17,10 +17,6 @@
 *.bak_*
 _scratch/
 
-# Local backups (never commit)
-*.bak
-*.bak_*
-_scratch/
 
 _FullProjectContext.txt
 
@@ -28,6 +24,7 @@ _FullProjectContext.txt
 /_FullProjectContext*.txt
 /_scratch/
 /._scratch/
+/_scratch/**
 
 # Local machine config
 godot_path.cfg

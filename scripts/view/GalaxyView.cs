@@ -3,7 +3,7 @@ using SimCore.Entities;
 using SimCore.Commands;
 using SimCore;
 using SpaceTradeEmpire.Bridge;
-using SpaceTradeEmpire.UI; // New Namespace
+using SpaceTradeEmpire.UI;
 using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.View;
@@ -12,11 +12,13 @@ public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
     private Camera3D _camera;
+    private CanvasLayer _uiLayer;
     private StationMenu _menu; 
     private bool _mouseLeftHeld;
     
     private Dictionary<string, Node3D> _nodeVisuals = new();
     private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
+    
     private MeshInstance3D _selectionRing;
     private Mesh _shipMesh;
     private Material _shipMat;
@@ -36,10 +38,11 @@ public partial class GalaxyView : Node3D
         };
         AddChild(_selectionRing);
 
-        // --- INIT UI ---
+        _uiLayer = new CanvasLayer { Layer = 1 };
+        AddChild(_uiLayer);
+
         _menu = new StationMenu();
-        AddChild(_menu);
-        // ---------------
+        _uiLayer.AddChild(_menu);
 
         if (_bridge != null)
         {
@@ -51,16 +54,25 @@ public partial class GalaxyView : Node3D
 
     public override void _Process(double delta)
     {
-        if (_bridge == null || _bridge.Kernel == null) return;
+        // SAFETY: Do not process view if bridge is gone, invalid, or actively loading
+        if (_bridge == null || _bridge.Kernel == null || _bridge.IsLoading) return;
         if (_camera == null) _camera = GetViewport().GetCamera3D(); 
 
-        UpdateFleets((float)delta);
-        HandleInput();
+        try
+        {
+            UpdateFleets((float)delta);
+            HandleInput();
+        }
+        catch (System.Exception ex)
+        {
+            // Log but do not crash the game loop
+            GD.PrintErr($"[GalaxyView] Error: {ex.Message}");
+        }
     }
 
     private void HandleInput()
     {
-        // Don interaction if Menu is open
+        if (_menu.Visible) return;
         var hovered = GetViewport().GuiGetHoveredControl();
         if (hovered != null) return;
 
@@ -76,6 +88,7 @@ public partial class GalaxyView : Node3D
 
             string clickedNodeId = "";
             float closestDist = float.MaxValue;
+            if (_bridge.Kernel.State.Nodes == null) return;
 
             foreach (var node in _bridge.Kernel.State.Nodes.Values)
             {
@@ -91,10 +104,7 @@ public partial class GalaxyView : Node3D
                 }
             }
 
-            if (!string.IsNullOrEmpty(clickedNodeId))
-            {
-                SelectStar(clickedNodeId);
-            }
+            if (!string.IsNullOrEmpty(clickedNodeId)) SelectStar(clickedNodeId);
         }
         if (!down) _mouseLeftHeld = false;
     }
@@ -102,39 +112,29 @@ public partial class GalaxyView : Node3D
     private void SelectStar(string nodeId)
     {
         if (!_nodeVisuals.ContainsKey(nodeId)) return;
-
         _selectionRing.Visible = true;
         _selectionRing.Position = _nodeVisuals[nodeId].Position;
 
-        if (_bridge == null || _bridge.Kernel == null) { _menu.Open(nodeId); return; }
-
+        if (_bridge?.Kernel?.State == null) { _menu.Open(nodeId); return; }
         var state = _bridge.Kernel.State;
         state.PlayerSelectedDestinationNodeId = nodeId;
+
         if (!state.Fleets.TryGetValue("test_ship_01", out var fleet)) { _menu.Open(nodeId); return; }
-
-        // If already here, open the station menu
-        if (fleet.CurrentNodeId == nodeId)
-        {
-            _menu.Open(nodeId);
-            return;
-        }
-
-        // If reachable, travel and close the menu
+        if (fleet.CurrentNodeId == nodeId) { _menu.Open(nodeId); return; }
         if (MapQueries.AreConnected(state, fleet.CurrentNodeId, nodeId))
         {
             _bridge.Kernel.EnqueueCommand(new TravelCommand(fleet.Id, nodeId));
             _menu.Close();
             return;
         }
-
-        // Not reachable: still open menu for feedback
         _menu.Open(nodeId);
     }
 
-    // --- DRAWING LOGIC (Minimally Changed) ---
     private void DrawStaticMap()
     {
         var state = _bridge.Kernel.State;
+        if (state.Nodes == null) return;
+
         var starMesh = new SphereMesh { Radius = 1.0f };
         var starMat = new StandardMaterial3D { AlbedoColor = new Color(0, 0.6f, 1.0f), EmissionEnabled = true, Emission = new Color(0, 0.6f, 1.0f) };
         starMesh.Material = starMat;
@@ -142,53 +142,66 @@ public partial class GalaxyView : Node3D
         foreach (var node in state.Nodes.Values)
         {
             if (_nodeVisuals.ContainsKey(node.Id)) continue; 
-
             var instance = new MeshInstance3D { Mesh = starMesh, Name = node.Id };
             instance.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
             AddChild(instance);
             _nodeVisuals[node.Id] = instance;
-            
             var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 2.5f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32 };
             instance.AddChild(lbl);
         }
 
         var lineMat = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.3f, 0.3f) };
-        foreach (var edge in state.Edges.Values)
+        if (state.Edges != null)
         {
-            if (!state.Nodes.ContainsKey(edge.FromNodeId) || !state.Nodes.ContainsKey(edge.ToNodeId)) continue;
-            var p1 = state.Nodes[edge.FromNodeId].Position;
-            var p2 = state.Nodes[edge.ToNodeId].Position;
-            DrawLine(new Vector3(p1.X, p1.Y, p1.Z), new Vector3(p2.X, p2.Y, p2.Z), lineMat);
+            foreach (var edge in state.Edges.Values)
+            {
+                if (!state.Nodes.ContainsKey(edge.FromNodeId) || !state.Nodes.ContainsKey(edge.ToNodeId)) continue;
+                var p1 = state.Nodes[edge.FromNodeId].Position;
+                var p2 = state.Nodes[edge.ToNodeId].Position;
+                DrawLine(new Vector3(p1.X, p1.Y, p1.Z), new Vector3(p2.X, p2.Y, p2.Z), lineMat);
+            }
         }
     }
 
     private void UpdateFleets(float delta)
     {
+        if (_bridge.Kernel.State.Fleets == null) return;
+
         foreach (var fleet in _bridge.Kernel.State.Fleets.Values)
         {
-            if (!_fleetVisuals.ContainsKey(fleet.Id))
-            {
-                var mesh = new MeshInstance3D { Mesh = _shipMesh, MaterialOverride = _shipMat, Name = fleet.Id };
-                AddChild(mesh);
-                _fleetVisuals[fleet.Id] = mesh;
-            }
-
-            var visual = _fleetVisuals[fleet.Id];
             Vector3 targetPos = Vector3.Zero;
-            
-            if (fleet.State == FleetState.Travel && _nodeVisuals.ContainsKey(fleet.CurrentNodeId) && _nodeVisuals.ContainsKey(fleet.DestinationNodeId))
+            Vector3? lookAtTarget = null;
+
+            if (fleet.State == FleetState.Travel 
+                && !string.IsNullOrEmpty(fleet.CurrentNodeId) 
+                && !string.IsNullOrEmpty(fleet.DestinationNodeId)
+                && _nodeVisuals.TryGetValue(fleet.CurrentNodeId, out var startNode)
+                && _nodeVisuals.TryGetValue(fleet.DestinationNodeId, out var endNode))
             {
-                var start = _nodeVisuals[fleet.CurrentNodeId].Position;
-                var end = _nodeVisuals[fleet.DestinationNodeId].Position;
-                targetPos = start.Lerp(end, fleet.TravelProgress);
-                if (start.DistanceTo(end) > 0.1f) visual.LookAt(end, Vector3.Up);
+                targetPos = startNode.Position.Lerp(endNode.Position, fleet.TravelProgress);
+                lookAtTarget = endNode.Position;
             }
-            else if (_nodeVisuals.ContainsKey(fleet.CurrentNodeId))
+            else if (!string.IsNullOrEmpty(fleet.CurrentNodeId) && _nodeVisuals.TryGetValue(fleet.CurrentNodeId, out var node))
             {
-                targetPos = _nodeVisuals[fleet.CurrentNodeId].Position + new Vector3(0, 1.5f, 0);
+                targetPos = node.Position + new Vector3(0, 1.5f, 0);
             }
 
-            if (visual.Position.DistanceTo(targetPos) > 100f) visual.Position = targetPos;
+            if (!_fleetVisuals.TryGetValue(fleet.Id, out var visual))
+            {
+                visual = new MeshInstance3D { Mesh = _shipMesh, MaterialOverride = _shipMat, Name = fleet.Id };
+                AddChild(visual);
+                visual.Position = targetPos;
+                if (lookAtTarget.HasValue) visual.LookAt(lookAtTarget.Value, Vector3.Up);
+                _fleetVisuals[fleet.Id] = visual;
+            }
+
+            if (lookAtTarget.HasValue && visual.Position.DistanceTo(lookAtTarget.Value) > 0.1f)
+            {
+                visual.LookAt(lookAtTarget.Value, Vector3.Up);
+            }
+
+            float dist = visual.Position.DistanceTo(targetPos);
+            if (dist > 100f) visual.Position = targetPos;
             else visual.Position = visual.Position.Lerp(targetPos, 10f * delta);
         }
     }
@@ -203,22 +216,24 @@ public partial class GalaxyView : Node3D
         instance.RotateObjectLocal(Vector3.Right, Mathf.Pi / 2f);
         AddChild(instance);
     }
+    
     private void SyncSelectionFromState()
     {
-        if (_bridge == null || _bridge.Kernel == null) return;
-        var state = _bridge.Kernel.State;
-        if (state == null) return;
+        _selectionRing.Visible = false;
+        if (_bridge?.Kernel?.State == null) return;
 
-        var id = state.PlayerSelectedDestinationNodeId;
-        if (string.IsNullOrEmpty(id)) return;
-        if (!_nodeVisuals.ContainsKey(id)) return;
-
-        _selectionRing.Visible = true;
-        _selectionRing.Position = _nodeVisuals[id].Position;
+        var id = _bridge.Kernel.State.PlayerSelectedDestinationNodeId;
+        if (!string.IsNullOrEmpty(id) && _nodeVisuals.TryGetValue(id, out var visual))
+        {
+            _selectionRing.Visible = true;
+            _selectionRing.Position = visual.Position;
+        }
     }
 
     private void OnSimLoaded()
     {
+        GD.Print("[GalaxyView] Sim Loaded. Resetting visuals.");
+        if (_menu != null) _menu.Close();
         ClearVisuals();
         DrawStaticMap();
         SyncSelectionFromState();
@@ -226,28 +241,9 @@ public partial class GalaxyView : Node3D
 
     private void ClearVisuals()
     {
-        foreach (var kv in _fleetVisuals)
-        {
-            if (kv.Value != null && IsInstanceValid(kv.Value)) kv.Value.QueueFree();
-        }
+        foreach (var kv in _fleetVisuals) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
         _fleetVisuals.Clear();
-
-        foreach (var kv in _nodeVisuals)
-        {
-            if (kv.Value != null && IsInstanceValid(kv.Value)) kv.Value.QueueFree();
-        }
+        foreach (var kv in _nodeVisuals) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
         _nodeVisuals.Clear();
-
-        foreach (var c in GetChildren())
-        {
-            if (c == null) continue;
-            if (c == _selectionRing) continue;
-            if (c == _menu) continue;
-
-            if (c is MeshInstance3D mi && mi != _selectionRing)
-            {
-                if (IsInstanceValid(mi)) mi.QueueFree();
-            }
-        }
     }
 }

@@ -180,6 +180,16 @@ To prevents whitespace corruption in GDScript/YAML/Python:
 3. **Binary-Safe Write:** Do not use `Set-Content` or `Out-File` directly. Use `[System.IO.File]::WriteAllText` with a `UTF8Encoding($false)` object to prevent BOM injection and newline mangling.
 4. **Helper Function:** Use the `Write-GodotFile` helper function (defined in your output preamble) to encapsulate this logic.
 
+### 4.8 The View-Persistence Contract (Strict)
+To prevent visual artifacts (e.g., "flying ships") and crashes during Save/Load:
+1.  **Signal-Driven Resets:** `SimBridge` emits `SimLoaded` after a successful state hydration.
+    * All View components MUST connect to this signal.
+    * On signal, Views must: `ClearVisuals()` (destroy meshes), `ResetState()`, and `Rebuild()` from the new `SimState`.
+2.  **Atomic Loading Gate:** `SimBridge` sets `IsLoading = true` during deserialization.
+    * All View `_Process` loops MUST check this flag and abort execution if true to prevent accessing invalid memory.
+3.  **UI Isolation:** All interactive UI (`Control` nodes) MUST be parented to a `CanvasLayer` (Layer 1+).
+    * Placing Controls directly in the 3D scene tree is prohibited as it causes invisible input blocking.
+
 ## 5. Game Definition (Locked)
 
 ### Core fantasy

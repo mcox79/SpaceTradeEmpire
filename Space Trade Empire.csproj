@@ -1,5 +1,6 @@
 <Project Sdk="Godot.NET.Sdk/4.6.0">
   <ItemGroup>
+    <Compile Remove="_scratch\**\*.cs" />
     <ProjectReference Include="SimCore\SimCore.csproj" />
   </ItemGroup>
   <PropertyGroup>
