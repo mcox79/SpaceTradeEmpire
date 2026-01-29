@@ -51,3 +51,11 @@ temp_validator.gd
 # Editor backup copies
 _PROJECT_CONTEXT - Copy.md
 
+
+# Local backups
+DevTool - Copy.ps1
+
+
+# .NET build artifacts
+**/bin/
+**/obj/
