@@ -1,7 +1,7 @@
 extends CharacterBody3D
 
 # --- FLIGHT MODEL CONFIGURATION ---
-@export_group("Flight Characteristics")
+@export_group('Flight Characteristics')
 @export var max_speed: float = 80.0
 @export var acceleration: float = 60.0
 @export var brake_damping: float = 1.5
@@ -23,7 +23,7 @@ var cargo_volume: float = 0.0
 var max_cargo_volume: float = 50.0
 
 func _ready() -> void:
-	add_to_group("Player")
+	add_to_group('Player')
 	collision_layer = 2
 	collision_mask = 1 | 4
 	axis_lock_linear_y = true
@@ -34,23 +34,28 @@ func _physics_process(delta: float) -> void:
 	if not input_enabled:
 		_apply_passive_physics(delta)
 		return
-	
-	# INPUT
-	var throttle = Input.get_axis("ui_down", "ui_up")
-	var turn = Input.get_axis("ui_right", "ui_left")
-	
+
+	# HOTWIRE INPUT: Direct Key Checks for WASD
+	var throttle: float = 0.0
+	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): throttle += 1.0
+	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): throttle -= 1.0
+
+	var turn: float = 0.0
+	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): turn += 1.0
+	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): turn -= 1.0
+
 	if turn != 0: rotate_y(turn * turn_speed * delta)
-	
+
 	var forward = -transform.basis.z
 	if throttle != 0:
 		velocity += forward * throttle * acceleration * delta
 		velocity = velocity.lerp(Vector3.ZERO, drift_damping * delta)
 	else:
 		velocity = velocity.lerp(Vector3.ZERO, brake_damping * delta)
-	
+
 	if velocity.length() > max_speed:
 		velocity = velocity.normalized() * max_speed
-	
+
 	_handle_visual_banking(turn, delta)
 	move_and_slide()
 
@@ -67,9 +72,23 @@ func _apply_passive_physics(delta: float):
 
 # --- API ---
 func set_input_enabled(val: bool): input_enabled = val
-func dock_at_station(station): emit_signal("shop_toggled", true, station)
-func undock(): emit_signal("shop_toggled", false, null)
-func receive_payment(amt): credits += amt; emit_signal("credits_updated", credits)
+
+func dock_at_station(station):
+	# 1. STOP PHYSICS
+	velocity = Vector3.ZERO
+	input_enabled = false
+	
+	# 2. OPEN UI
+	emit_signal('shop_toggled', true, station)
+
+func undock():
+	# 1. RESTORE PHYSICS
+	input_enabled = true
+	
+	# 2. CLOSE UI
+	emit_signal('shop_toggled', false, null)
+
+func receive_payment(amt): credits += amt; emit_signal('credits_updated', credits)
 func get_fuel_status(): return fuel
 func add_cargo(id, qty): 
 	if not cargo.has(id): cargo[id] = 0
