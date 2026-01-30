@@ -1,4 +1,4 @@
-extends CharacterBody3D
+﻿extends CharacterBody3D
 
 # --- FLIGHT MODEL CONFIGURATION ---
 @export_group('Flight Characteristics')
@@ -80,9 +80,12 @@ func dock_at_station(station):
 
 func undock():
 	input_enabled = true
-	edmit_signal('shop_toggled', false, null)
+	emit_signal('shop_toggled', false, null)
 
-func receive_payment(amt): credits += amt; emit_signal('credits_updated', credits)
+func receive_payment(amt):
+	credits += amt
+	emit_signal('credits_updated', credits) # FIXED TYPO
+
 func get_fuel_status(): return fuel
 func add_cargo(id, qty): 
 	if not cargo.has(id): cargo[id] = 0
