@@ -80,7 +80,7 @@ func dock_at_station(station):
 
 func undock():
 	input_enabled = true
-	emit_signal('shop_toggled', false, null)
+	edmit_signal('shop_toggled', false, null)
 
 func receive_payment(amt): credits += amt; emit_signal('credits_updated', credits)
 func get_fuel_status(): return fuel
