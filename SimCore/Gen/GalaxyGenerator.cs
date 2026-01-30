@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using SimCore.Entities;
 using System.Linq;
 using System.Collections.Generic;
@@ -14,16 +14,17 @@ public static class GalaxyGenerator
         state.Edges.Clear();
         state.Markets.Clear();
         state.Fleets.Clear();
+        state.IndustrySites.Clear(); // CRITICAL: Reset industry
 
         var nodesList = new List<Node>();
         var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
 
-        // 1. SCATTER STARS
+        // 1. SCATTER STARS & GENERATE ECONOMY
         for (int i = 0; i < starCount; i++)
         {
             float x = (float)(rng.NextDouble() * 2 - 1) * radius;
             float z = (float)(rng.NextDouble() * 2 - 1) * radius;
-            
+
             var node = new Node
             {
                 Id = $"star_{i}",
@@ -32,16 +33,45 @@ public static class GalaxyGenerator
                 Kind = NodeKind.Star,
                 MarketId = $"mkt_{i}"
             };
-            
             state.Nodes.Add(node.Id, node);
             nodesList.Add(node);
 
-            // REFACTOR: Seed specific goods
+            // MARKET SETUP
             var mkt = new Market { Id = node.MarketId };
-            
-            // Basic Slice 1 Economy: Fuel (Supplies) and Ore
-            mkt.Inventory["fuel"] = 50 + rng.Next(50);
-            mkt.Inventory["ore_iron"] = rng.Next(20); // Scarce
+            mkt.Inventory["fuel"] = 100;
+
+            // INDUSTRY DISTRIBUTION (Simple Toggle)
+            // Even = Mining Colony (Supplier)
+            // Odd = Industrial Hub (Consumer)
+            if (i % 2 == 0)
+            {
+                // MINE: Has Ore, Produces Ore
+                mkt.Inventory["ore"] = 500; // Abundant Supply
+                
+                var mine = new IndustrySite
+                {
+                    Id = $"mine_{i}",
+                    NodeId = node.Id,
+                    Outputs = new Dictionary<string, int> { { "ore", 5 } }
+                };
+                state.IndustrySites.Add(mine.Id, mine);
+                node.Name += " (Mining)";
+            }
+            else
+            {
+                // REFINERY: Needs Ore, Has None (Triggers Logistics)
+                mkt.Inventory["ore"] = 0; // Starved!
+                
+                var factory = new IndustrySite
+                {
+                    Id = $"fac_{i}",
+                    NodeId = node.Id,
+                    Inputs = new Dictionary<string, int> { { "ore", 10 } },
+                    Outputs = new Dictionary<string, int> { { "metal", 5 } }
+                };
+                state.IndustrySites.Add(factory.Id, factory);
+                node.Name += " (Refinery)";
+            }
             
             state.Markets.Add(node.MarketId, mkt);
         }
@@ -85,6 +115,22 @@ public static class GalaxyGenerator
             CreateEdge(state, bestA, bestB);
             connected.Add(bestB.Id);
             disconnected.Remove(bestB.Id);
+        }
+
+        // 3. SPAWN AI FLEETS (Couriers)
+        // Spawn 1 fleet per node to ensure coverage
+        foreach (var node in nodesList)
+        {
+            var fleet = new Fleet
+            {
+                Id = $"ai_fleet_{node.Id}",
+                OwnerId = "ai",
+                CurrentNodeId = node.Id,
+                Speed = 0.8f,
+                State = FleetState.Idle,
+                Supplies = 100
+            };
+            state.Fleets.Add(fleet.Id, fleet);
         }
     }
 
