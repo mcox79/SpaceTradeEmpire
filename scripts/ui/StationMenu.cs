@@ -33,7 +33,6 @@ public partial class StationMenu : Control
         var vbox = new VBoxContainer();
         _panel.AddChild(vbox);
 
-        // Header
         var header = new HBoxContainer();
         _title = new Label { Text = "STATION MARKET", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _credits = new Label { Text = "CREDITS: 0", HorizontalAlignment = HorizontalAlignment.Right };
@@ -42,31 +41,30 @@ public partial class StationMenu : Control
         vbox.AddChild(header);
         vbox.AddChild(new HSeparator());
 
-        // Market Rows
         _marketList = new VBoxContainer();
         var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         scroll.AddChild(_marketList);
         vbox.AddChild(scroll);
 
-        // Footer
         vbox.AddChild(new HSeparator());
         _closeBtn = new Button { Text = "UNDOCK" };
-        _closeBtn.Pressed += Close;
+        
+        // ACTIVE ACTION: Button triggers the Player Physics
+        _closeBtn.Pressed += RequestUndock;
         vbox.AddChild(_closeBtn);
     }
 
-    // --- NEW: Signal Handler for Player.gd ---
+    // PASSIVE ACTION: Responds to Player/System signals
     public void OnShopToggled(bool isOpen, Node stationNode)
     {
         if (isOpen)
         {
-            // SLICE 1 HACK: Map the physical station to the first star in the Sim
             Open("star_0");
             Input.MouseMode = Input.MouseModeEnum.Visible;
         }
         else
         {
-            Close();
+            Close(); // Safe to call (Passive)
             Input.MouseMode = Input.MouseModeEnum.Captured;
         }
     }
@@ -85,16 +83,29 @@ public partial class StationMenu : Control
         GD.Print($"[UI] Opened Market at {_currentNodeId}");
     }
 
+    // RESTORED API: Passive Close (UI Only)
+    // Used by GalaxyView and OnShopToggled
     public void Close()
     {
         Visible = false;
         _currentNodeId = null;
-        
-        // Tell player to undock (restore physics)
+    }
+
+    // NEW METHOD: Active Undock (Physics + UI)
+    // Used ONLY by the Button
+    private void RequestUndock()
+    {
         var player = GetTree().GetFirstNodeInGroup("Player");
         if (player != null && player.HasMethod("undock"))
         {
+            // Triggers Player -> emit_signal(false) -> OnShopToggled(false) -> Close()
+            // This breaks the recursion loop.
             player.Call("undock");
+        }
+        else
+        {
+            Close();
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         }
     }
 
