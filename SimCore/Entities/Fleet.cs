@@ -26,6 +26,7 @@ public class Fleet
 
     // LOGIC STATE
     public string CurrentTask { get; set; } = "Idle"; // Explanation for UI
+    public LogisticsJob? CurrentJob { get; set; } // The Active Order
 
     // CARGO
     public int Supplies { get; set; } = 100;

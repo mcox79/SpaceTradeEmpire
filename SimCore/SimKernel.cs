@@ -27,6 +27,7 @@ public class SimKernel
             cmd.Execute(_state);
         }
         MovementSystem.Process(_state);
+        LogisticsSystem.Process(_state); // NEW: The Brain
         IndustrySystem.Process(_state);
         _state.AdvanceTick();
     }
