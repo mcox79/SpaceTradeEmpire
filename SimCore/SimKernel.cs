@@ -1,4 +1,4 @@
-using SimCore.Commands;
+﻿using SimCore.Commands;
 using SimCore.Systems;
 using System.Collections.Concurrent;
 
@@ -8,7 +8,6 @@ public class SimKernel
 {
     private SimState _state;
     private ConcurrentQueue<ICommand> _commandQueue = new();
-
     public SimState State => _state; 
 
     public SimKernel(int seed)
@@ -28,6 +27,7 @@ public class SimKernel
             cmd.Execute(_state);
         }
         MovementSystem.Process(_state);
+        IndustrySystem.Process(_state);
         _state.AdvanceTick();
     }
 

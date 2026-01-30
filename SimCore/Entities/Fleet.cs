@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace SimCore.Entities;
 
@@ -23,6 +23,9 @@ public class Fleet
     public FleetState State { get; set; } = FleetState.Idle;
     public float TravelProgress { get; set; } = 0f; // 0.0 to 1.0
     public float Speed { get; set; } = 0.5f; // AU per tick
+
+    // LOGIC STATE
+    public string CurrentTask { get; set; } = "Idle"; // Explanation for UI
 
     // CARGO
     public int Supplies { get; set; } = 100;

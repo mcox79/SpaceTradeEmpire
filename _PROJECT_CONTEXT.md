@@ -1,95 +1,96 @@
 # SPACE TRADE EMPIRE: PROJECT CONTEXT
 
+<!-- CONTEXTGEN:BEGIN_PART_A -->
+## PART A: REPO INTERACTION CONTRACT (CANONICAL FOR CODING)
+
 ## 1. The Founder Protocol (STRICT AI OUTPUT CONSTRAINTS)
 
 **Voice:** Pragmatic, commercial, technical. Value-oriented and high-signal.
 
-**THE MASTER OUTPUT RULE:** You must NEVER output raw GDScript for the user to copy-paste manually. Manual code insertion is strictly deprecated.
+**THE MASTER OUTPUT RULE:** Never output partial file contents intended for manual insertion. All runnable output must be a single, executable PowerShell block that writes files using the Atomic Write Pattern.
 
 **The Automated Deployment Pattern:**
 I interact with PowerShell using a strict, automated pipeline designed to ensure code safety, validation, and correct formatting before committing changes.
 
-### 1. The Atomic Write Pattern
+### 1.1 The Atomic Write Pattern (Strict)
 I do not output raw code for manual copy-pasting. Instead, I generate a single, executable PowerShell block that handles file I/O safely.
-* **Binary-Safe Writing:** I use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)` (No BOM) instead of simple redirection. This ensures Godot can read files correctly.
-* **Explicit Formatting:** I define file content as an "Array of Strings" and use explicit `` `t `` characters for indentation to enforce the tabs-only policy.
 
-### 2. The CI/CD Gatekeeper
+- **Binary-Safe Writing:** Use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)` (No BOM). Avoid redirection and avoid tools that inject BOMs or normalize whitespace.
+- **Array-of-Strings Format:** Define file content as an array of strings (example: `@("line 1", "line 2")`), not a multi-line string.
+- **Explicit Tabs in .gd:** Use explicit `` `t `` characters for all indentation in `.gd` files (tabs-only policy).
+- **Infrastructure-First:** Always `New-Item -ItemType Directory -Force` for the target directory before writing files.
+
+### 1.2 CI/CD Gatekeeper (Strict)
 Every time I write a script, I immediately verify it. The PowerShell block includes commands to:
-* **Validate Syntax:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to check for syntax errors and formatting violations before committing.
-* **Run Integration Tests:** If the script touches the economy, automatically trigger the headless Godot test runner (`test_economy_core.tscn`) to ensure logic integrity.
 
-### 3. Dynamic Path Resolution
+- **Validate Syntax:** Invoke `Validate-GodotScript "path/to/script.gd"` immediately after writing.
+- **Run Integration Tests:** If the change touches the economy, run the headless test runner (`test_economy_core.tscn`).
+
+### 1.3 Dynamic Path Resolution (Strict)
 I never assume where the project is located.
-* **Protocol:** My scripts use `git rev-parse --show-toplevel` to dynamically find the project root, ensuring commands work regardless of the current shell directory.
 
-### 4. Safety & Recovery
-* **Directory Creation:** I explicitly use `New-Item -ItemType Directory -Force` before writing files to prevent "Path Not Found" errors.
-* **Environment Safety:** I check for environment variables safely rather than calling them directly, falling back to system defaults to prevent pipeline halts.
+- **Protocol:** Use `git rev-parse --show-toplevel` to find the repo root dynamically.
+- **The "No-Assumption" Path Rule:** Never hardcode `.sln` or `.csproj` paths. Resolve dynamically.
+- **Documentation-only example:** The snippet below is an illustrative example only. It must not be emitted as standalone runnable output. All runnable output must be a single PowerShell block per the Master Output Rule.
 
-### 1.1 Engineering Standards & PowerShell Protocols (Strict)
-*Critical instructions for AI Agents interacting with this repository.*
+    $root = (& git rev-parse --show-toplevel).Trim()
+    $target = Get-ChildItem -Path $root -Include "*.sln","*.csproj" -Recurse -Depth 2 |
+              Where-Object { $_.FullName -notmatch "godot" } |
+              Select-Object -First 1
 
-#### The "No-Assumption" Path Rule
-**Context:** Godot projects often nest C# solutions or rename them unpredictably.
-**Rule:** Never hardcode paths to `.sln` or `.csproj` files. Always resolve them dynamically.
-**Required Pattern:**
-```powershell
-$target = Get-ChildItem -Path $root -Include "*.sln","*.csproj" -Recurse -Depth 2 | 
-          Where-Object { $_.FullName -notmatch "godot" } | 
-          Select-Object -First 1
+### 1.4 Environment Safety (Strict)
+- **No Raw Variables:** Do not call environment variables like `$GodotExe` directly.
+- **Safe Inspection:** Inspect safely and provide fallbacks to system defaults to prevent pipeline halts.
 
 ## 2. Recovery and Toolchain
 
 If the repo gets into a broken state, get back to a clean baseline before doing more work.
 
-Baseline sanity checks (run from repo root):
+### 2.1 Baseline sanity checks (run from repo root)
 - git status -sb
 - pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1
 - cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"
 
-PowerShell path gotcha:
-- In some shells, [Environment]::CurrentDirectory can differ from your visible prompt path.
-- If you see paths resolving under C:\WINDOWS\system32, fix it with:
-  - [Environment]::CurrentDirectory = (Resolve-Path -LiteralPath ".").Path
+### 2.2 PowerShell path gotcha
+- In some shells, `[Environment]::CurrentDirectory` can differ from your visible prompt path.
+- If you see paths resolving under `C:\WINDOWS\system32`, fix it with:
+  - `[Environment]::CurrentDirectory = (Resolve-Path -LiteralPath ".").Path`
 
-If _PROJECT_CONTEXT.md or other markdown gets corrupted (unclosed fences, bad paste):
-- Restore from git or a known-good backup.
+### 2.3 Markdown corruption recovery
+If `_PROJECT_CONTEXT.md` or other markdown gets corrupted (unclosed fences, bad paste):
+- Prefer restoring from git or a known-good backup.
 - Prefer editing in your editor, not inside an interactive PowerShell prompt.
-- If you must patch via PowerShell, build an array of lines and write with UTF-8 no BOM using:
-  - $enc = New-Object System.Text.UTF8Encoding($false)
-  - [System.IO.File]::WriteAllText($abs, $content, $enc)
+- If you must patch via PowerShell, use the Atomic Write Pattern described in Section 1.1 (array-of-strings + UTF-8 no BOM).
 
-Context dump toolchain:
-- DevTool.ps1 provides Run-ContextGen, which writes:
-  - _scratch\_FullProjectContext.txt
+### 2.4 Context dump toolchain
+- DevTool.ps1 provides `Run-ContextGen`, which writes:
+  - `_scratch\_FullProjectContext.txt`
 - When running headless (avoid UI prompts), set:
-  - $global:DEVTOOL_HEADLESS=$true
+  - `$global:DEVTOOL_HEADLESS=$true`
 
-## Canonical files policy
-
+### 2.5 Canonical files policy (Strict)
 The canonical sources of truth are:
-- _PROJECT_CONTEXT.md: workflow rules, guardrails, and contracts
-- DevTool.ps1: context dump generator (Run-ContextGen)
-- scripts\check_tabs.ps1 and scripts\tools\check_tabs_lib.ps1: staged tabs-only gate for .gd
-- scripts\tools\install_hooks.ps1: installs Git pre-commit hooks for Windows
+- `_PROJECT_CONTEXT.md`: workflow rules, guardrails, and contracts
+- `DevTool.ps1`: context dump generator (`Run-ContextGen`)
+- `scripts\check_tabs.ps1` and `scripts\tools\check_tabs_lib.ps1`: staged tabs-only gate for `.gd`
+- `scripts\tools\install_hooks.ps1`: installs Git pre-commit hooks for Windows
 
 Context dumps:
-- Output file: _scratch\_FullProjectContext.txt
+- Output file: `_scratch\_FullProjectContext.txt`
 - Contract: the tree and file-contents sections must exclude:
-  - scratch directories (_scratch/, ._scratch/)
-  - addon content (addons/)
-  - scripting/tooling and transient files: .ps1, .uid, .bak, .lnk, files named with "- Copy", temp_validator.gd
-- Narrative mentions in _PROJECT_CONTEXT.md are allowed; the contract applies to enumerated tree entries and dumped file contents.
+  - scratch directories (`_scratch/`, `._scratch/`)
+  - addon content (`addons/`)
+  - scripting/tooling and transient files: `.ps1`, `.uid`, `.bak`, `.lnk`, files named with `- Copy`, `temp_validator.gd`
+- Narrative mentions in `_PROJECT_CONTEXT.md` are allowed; the contract applies to enumerated tree entries and dumped file contents.
 
 If there is any discrepancy between a chat instruction and these canonical files, treat the canonical files as authoritative and update them first.
 
-### 2.3 Git Hygiene and Session Checkpoints (Strict)
-- **The "Clean Workbench" Protocol:** Never transition between major architectural Slices or AI chat sessions with a dirty Git working tree. 
-- **Milestone Commits:** At the conclusion of a feature vertical, you MUST execute a cleanup script to purge build artifacts (`.uid`, temp files) and seal the state with a distinct milestone commit (e.g., `git commit -m "feat(milestone): complete slice 6..."`).
+### 2.6 Git Hygiene and Session Checkpoints (Strict)
+- **The "Clean Workbench" Protocol:** Never transition between major architectural Slices or AI chat sessions with a dirty Git working tree.
+- **Milestone Commits:** At the conclusion of a feature vertical, execute cleanup to purge build artifacts (`.uid`, temp files) and seal the state with a distinct milestone commit (example: `git commit -m "feat(milestone): complete slice 6..."`).
 - **The Rollback Guarantee:** This ensures `HEAD` is always a verified, commercially viable baseline.
 
-### 2.4 The "Seal-then-Validate" Protocol (Strict)
+### 2.7 The "Seal-then-Validate" Protocol (Strict)
 The `Validate-GodotScript` tool enforces a clean working tree to prevent drift. When refactoring multiple interdependent files (where File A depends on uncommitted changes in File B):
 1. **Write:** Generate all updated files using the Atomic Write Pattern.
 2. **Seal:** Immediately execute a WIP commit: `git add -A; git commit -m "wip: [feature] pending validation"`.
@@ -98,6 +99,92 @@ The `Validate-GodotScript` tool enforces a clean working tree to prevent drift. 
 5. **Finalize:** Only proceed to the next Phase once validation passes on the sealed commit.
 
 ## 3. Architecture and Standards (Strict)
+
+### 3.1 LLM-First Modularity Protocol (Strict)
+
+Goal: keep code changes safely within an LLM-sized working set while maintaining architectural integrity.
+
+#### A) File size and coupling budgets (practical, not aesthetic)
+- Soft target: 150 to 350 lines per file.
+- Review trigger: if a file exceeds 350 lines, the change must either:
+  - split responsibilities into smaller files, or
+  - justify why the file is “bounded glue” (adapter/registry) in the Contract Header.
+- Strong cap: 600 lines per file except for rare, explicitly labeled adapters/registries.
+
+A file must be split when it violates any of the following:
+- More than one primary responsibility (ex: “route evaluation” plus “UI rendering”).
+- More than 4 non-standard-library dependencies (C#: non-BCL `using` dependencies. GDScript: `preload/load`, autoload access, hard-coded node paths, cross-system signals, or direct references into other systems).
+- It exposes more than 7 public methods that are not trivial accessors.
+- It mixes domain logic with engine/UI concerns (except in adapters by design).
+
+#### B) Contract Headers (required at the top of every non-trivial file)
+Definition of “non-trivial file”:
+- Any file with more than ~30 lines, or any file containing domain logic (not just constants, pure data, or a tiny glue shim).
+
+Every non-trivial file must begin with a Contract Header describing:
+- Purpose: what this file owns (one sentence).
+- Layer: SimCore vs GameShell vs Adapter vs Tooling.
+- Dependencies: the specific modules/types it is allowed to call.
+- Public API: the functions/classes other files are allowed to use.
+- Events/Signals: what it emits and what it listens to (if applicable).
+- Invariants: 2 to 5 rules that must remain true.
+- Tests: the test file(s) that validate this behavior, or “none yet”.
+
+Canonical templates (use one of these formats exactly):
+
+GDScript (`.gd`):
+```gdscript
+# Contract Header
+# Purpose:
+# Layer:
+# Dependencies:
+# Public API:
+# Signals:
+# Invariants:
+# Tests:
+```
+
+C# (`.cs`):
+```csharp
+// Contract Header
+// Purpose:
+// Layer:
+// Dependencies:
+// Public API:
+// Events:
+// Invariants:
+// Tests:
+```
+
+#### C) Contracts live in one place, not everywhere
+To prevent drift, shared assumptions and integration points must be expressed as contracts (interfaces/DTOs/events), not repeated prose across files.
+
+Avoid copying the same explanation into multiple files.
+
+Shared assumptions must be represented as:
+- a contract/interface file (preferred), or
+- a data schema/DTO definition, or
+- a single canonical doc section referenced by name.
+
+#### D) LLM Module Packets (required for any coding session)
+Any request to an LLM to implement a change must include a “Module Packet” containing:
+1) Scope statement (what outcome is required).
+2) A list of files allowed to change (default: <= 6).
+3) For each file:
+   - the Contract Header
+   - its public API surface
+   - explicit dependencies and extension points
+4) Validation commands to run after writing (Validate-GodotScript, relevant tests).
+5) Definition of Done: observable behavior changes and tests passing.
+
+Use Run-ContextGen to produce the repo snapshot, but the Module Packet is the curated working set that keeps the LLM from wandering.
+
+#### E) Dependency direction is enforced
+- SimCore or headless domain logic must not depend on Godot runtime objects (follow the non-negotiable architecture invariants).
+- GameShell can depend on SimCore.
+- Adapters are the only layer allowed to “touch both sides”.
+
+Violations must be treated as architecture bugs, not style issues.
 
 ### NON-NEGOTIABLE ARCHITECTURE INVARIANTS
 
@@ -110,7 +197,7 @@ The headless simulation (`res://scripts/core/sim/`) is the sole authoritative so
 No Godot-native navigation nodes may be used for world logic. Strategic map routing must utilize a custom, array-based Graph Search algorithm (BFS/Dijkstra) running entirely on standard Dictionaries and Arrays.
 
 #### 3. The Golden Replay Blocker
-No system is considered "complete" until it passes `test_replay_golden.gd`. This automated test asserts that 10,000 headless simulation ticks using a fixed seed produce the exact same final-state SHA-256 hash across all hardware configurations.
+No system is considered "complete" until it passes `test_replay_golden.gd`. This test is the source of truth for the tick count, seed, and hash/signature method. If any of those baselines change, the change must be explicit, justified, and treated as a golden replay baseline update (never accidental drift).
 
 ### File organization
 - `/scenes`: visuals and prefabs
@@ -208,12 +295,11 @@ To support both "Starcom-style" flight and "Eve-style" economy:
 
 3.  **Passive Renderers (Remote Views):**
     * Views displaying entities *outside* the player's bubble (e.g., the Galaxy Map) must remain **Passive**. They read SimCore state directly and do not simulate physics.
-### 4.7 The Atomic Write Pattern (Strict)
-To prevents whitespace corruption in GDScript/YAML/Python:
-1. **Array-of-Strings:** Do not output multi-line strings. Define file content as an array of strings: `@("line 1", "line 2")`.
-2. **Explicit Tabs:** Use `` `t `` inside the strings for indentation. Never use spaces for indentation in `.gd` files.
-3. **Binary-Safe Write:** Do not use `Set-Content` or `Out-File` directly. Use `[System.IO.File]::WriteAllText` with a `UTF8Encoding($false)` object to prevent BOM injection and newline mangling.
-4. **Helper Function:** Use the `Write-GodotFile` helper function (defined in your output preamble) to encapsulate this logic.
+
+### 4.7 File Writing and Formatting Safety (Strict)
+All file writing and formatting safety rules are defined once, canonically, in Section 1.1 (The Atomic Write Pattern). Architecture work must follow that protocol exactly.
+
+If any section below appears to contradict file-writing rules, Section 1.1 is authoritative.
 
 ### 4.8 The View-Persistence Contract (Strict)
 To prevent visual artifacts (e.g., "flying ships") and crashes during Save/Load:
@@ -224,6 +310,12 @@ To prevent visual artifacts (e.g., "flying ships") and crashes during Save/Load:
     * All View `_Process` loops MUST check this flag and abort execution if true to prevent accessing invalid memory.
 3.  **UI Isolation:** All interactive UI (`Control` nodes) MUST be parented to a `CanvasLayer` (Layer 1+).
     * Placing Controls directly in the 3D scene tree is prohibited as it causes invisible input blocking.
+
+<!-- CONTEXTGEN:END_PART_A -->
+## PART B: GAME DESIGN REFERENCE (NOT INCLUDED IN MODULE PACKETS BY DEFAULT)
+<!-- CONTEXTGEN:BEGIN_PART_B -->
+
+STOP: The content below is design reference. Do not include it in LLM Module Packets unless the task explicitly requires game design context. For most coding work, Part A is sufficient and is the canonical contract.
 
 ## 5. Game Definition (Locked)
 
@@ -522,3 +614,5 @@ Failure is informative, not punitive:
 - Failed routes create shortages, instability, or opportunity elsewhere
 - Ignored contracts escalate pressure rather than ending the game
 - Lost fleets alter the landscape but do not invalidate progress
+
+<!-- CONTEXTGEN:END_PART_B -->

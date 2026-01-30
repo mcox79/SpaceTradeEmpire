@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using SimCore.Entities;
@@ -18,6 +18,7 @@ public class SimState
     [JsonInclude] public Dictionary<string, Node> Nodes { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Edge> Edges { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Fleet> Fleets { get; private set; } = new();
+    [JsonInclude] public Dictionary<string, IndustrySite> IndustrySites { get; private set; } = new();
 
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
@@ -41,7 +42,7 @@ public class SimState
     {
         var sb = new StringBuilder();
         sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|");
-        sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|");
+        sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
         foreach (var f in Fleets.OrderBy(k => k.Key))
         {
@@ -51,12 +52,17 @@ public class SimState
         foreach (var m in Markets.OrderBy(k => k.Key))
         {
             sb.Append($"Mkt:{m.Key}|");
-            // REFACTOR: Hash inventory dictionary deterministically
             foreach(var kv in m.Value.Inventory.OrderBy(i => i.Key))
             {
                 sb.Append($"{kv.Key}:{kv.Value},");
             }
             sb.Append("|");
+        }
+        
+        // Hash Industry State
+        foreach (var s in IndustrySites.OrderBy(k => k.Key))
+        {
+            sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency}|");
         }
 
         using var sha = SHA256.Create();

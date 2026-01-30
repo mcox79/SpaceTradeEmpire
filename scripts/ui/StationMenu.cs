@@ -1,7 +1,6 @@
-using Godot;
-using System;
+﻿using Godot;
+using System.Linq;
 using SimCore;
-using SimCore.Commands;
 using SpaceTradeEmpire.Bridge;
 
 namespace SpaceTradeEmpire.UI;
@@ -10,143 +9,93 @@ public partial class StationMenu : Control
 {
     [Signal] public delegate void RequestUndockEventHandler();
 
-    private PanelContainer _panel;
-    private Label _title;
-    private Label _credits;
+    private Label _titleLabel;
     private VBoxContainer _marketList;
-    private Button _closeBtn;
-    
+    private VBoxContainer _industryList;
     private SimBridge _bridge;
-    private string _currentNodeId;
+    private string _currentNodeId = "";
 
     public override void _Ready()
     {
         _bridge = GetNode<SimBridge>("/root/SimBridge");
+        SetupUI();
         Visible = false;
-        
-        // UI SETUP
-        AnchorRight = 1; AnchorBottom = 1;
-        _panel = new PanelContainer();
-        _panel.SetAnchorsPreset(LayoutPreset.Center);
-        _panel.CustomMinimumSize = new Vector2(600, 400);
-        AddChild(_panel);
+    }
+
+    private void SetupUI()
+    {
+        // Basic Panel Setup
+        var panel = new PanelContainer();
+        panel.SetAnchorsPreset(LayoutPreset.Center);
+        panel.CustomMinimumSize = new Vector2(400, 300);
+        AddChild(panel);
 
         var vbox = new VBoxContainer();
-        _panel.AddChild(vbox);
+        panel.AddChild(vbox);
 
-        var header = new HBoxContainer();
-        _title = new Label { Text = "STATION MARKET", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _credits = new Label { Text = "CREDITS: 0", HorizontalAlignment = HorizontalAlignment.Right };
-        header.AddChild(_title);
-        header.AddChild(_credits);
-        vbox.AddChild(header);
+        _titleLabel = new Label { Text = "STATION MENU", HorizontalAlignment = HorizontalAlignment.Center };
+        vbox.AddChild(_titleLabel);
+
         vbox.AddChild(new HSeparator());
-
+        vbox.AddChild(new Label { Text = "MARKET" });
         _marketList = new VBoxContainer();
-        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
-        scroll.AddChild(_marketList);
-        vbox.AddChild(scroll);
+        vbox.AddChild(_marketList);
 
         vbox.AddChild(new HSeparator());
-        _closeBtn = new Button { Text = "UNDOCK" };
-        
-        // ACTIVE ACTION: Use Command Pattern
-        _closeBtn.Pressed += OnUndockPressed;
-        vbox.AddChild(_closeBtn);
+        vbox.AddChild(new Label { Text = "INDUSTRY" });
+        _industryList = new VBoxContainer();
+        vbox.AddChild(_industryList);
+
+        var closeBtn = new Button { Text = "Undock" };
+        closeBtn.Pressed += () => EmitSignal(SignalName.RequestUndock);
+        vbox.AddChild(closeBtn);
     }
 
-    public void OnShopToggled(bool isOpen, Node stationNode)
+    public void OnShopToggled(bool isOpen, string nodeId)
     {
+        Visible = isOpen;
+        _currentNodeId = nodeId;
         if (isOpen)
         {
-            Open("star_0"); // TODO: Pass actual node ID
-            Input.MouseMode = Input.MouseModeEnum.Visible;
-        }
-        else
-        {
-            Close();
-            Input.MouseMode = Input.MouseModeEnum.Captured;
+            Refresh();
         }
     }
 
-    public void Open(string nodeId)
+    public void Refresh()
     {
-        _currentNodeId = nodeId;
-        Visible = true;
-        Refresh();
-    }
-
-    public void Close()
-    {
-        Visible = false;
-        _currentNodeId = null;
-    }
-
-    private void OnUndockPressed()
-    {
-        // 1. Send Command to Sim (Authority)
-        _bridge.EnqueueCommand(new UndockCommand("test_ship_01"));
-
-        // 2. Notify View/Player (Client)
-        EmitSignal(SignalName.RequestUndock);
-    }
-
-    private void Refresh()
-    {
-        // SAFE READ: Lock the SimState while building UI
+        if (_bridge == null || string.IsNullOrEmpty(_currentNodeId)) return;
+        
         _bridge.ExecuteSafeRead(state => 
         {
-            foreach (var c in _marketList.GetChildren()) c.QueueFree();
+            // 1. Update Title
+            if (state.Nodes.ContainsKey(_currentNodeId))
+                _titleLabel.Text = state.Nodes[_currentNodeId].Name.ToUpper();
 
-            _credits.Text = $"CREDITS: {state.PlayerCredits:N0}";
-
-            if (state.Nodes.TryGetValue(_currentNodeId ?? "", out var node))
+            // 2. Market Inventory
+            foreach (var child in _marketList.GetChildren()) child.QueueFree();
+            if (state.Markets.TryGetValue(_currentNodeId, out var market))
             {
-                _title.Text = $"{node.Name} MARKET";
-                if (state.Markets.TryGetValue(node.MarketId, out var market))
+                foreach (var kv in market.Inventory)
                 {
-                    BuildMarketList(state, market);
+                    var row = new Label { Text = $"{kv.Key}: {kv.Value}" };
+                    _marketList.AddChild(row);
                 }
+            }
+
+            // 3. Industry Sites (Slice 2 Feature)
+            foreach (var child in _industryList.GetChildren()) child.QueueFree();
+            var localSites = state.IndustrySites.Values.Where(s => s.NodeId == _currentNodeId);
+            foreach (var site in localSites)
+            {
+                // Format: "Refinery: Ore(10) -> Metal(5)"
+                var inputs = string.Join(",", site.Inputs.Select(i => $"{i.Key}({i.Value})"));
+                var outputs = string.Join(",", site.Outputs.Select(o => $"{o.Key}({o.Value})"));
+                var lbl = new Label { Text = $"FACILITY: {inputs} => {outputs}" };
+                lbl.Modulate = new Color(0.7f, 1f, 0.7f); // Light green
+                _industryList.AddChild(lbl);
             }
         });
     }
-
-    private void BuildMarketList(SimState state, SimCore.Entities.Market market)
-    {
-        foreach (var kvp in market.Inventory)
-        {
-            string goodId = kvp.Key;
-            int supply = kvp.Value;
-            int price = market.GetPrice(goodId);
-            int playerStock = state.PlayerCargo.ContainsKey(goodId) ? state.PlayerCargo[goodId] : 0;
-
-            var row = new HBoxContainer();
-            
-            var info = new Label 
-            { 
-                Text = $"{goodId.ToUpper()} | Price: {price} | Supply: {supply} | You Have: {playerStock}",
-                SizeFlagsHorizontal = SizeFlags.ExpandFill 
-            };
-            row.AddChild(info);
-
-            var btnBuy = new Button { Text = "BUY" };
-            btnBuy.Pressed += () => { ExecuteTrade(new BuyCommand(market.Id, goodId, 1)); };
-            row.AddChild(btnBuy);
-
-            var btnSell = new Button { Text = "SELL", Disabled = (playerStock <= 0) };
-            btnSell.Pressed += () => { ExecuteTrade(new SellCommand(market.Id, goodId, 1)); };
-            row.AddChild(btnSell);
-
-            _marketList.AddChild(row);
-        }
-    }
-
-    private void ExecuteTrade(ICommand cmd)
-    {
-        _bridge.EnqueueCommand(cmd);
-        // We don't manually Step() anymore. The background thread handles it.
-        // We just schedule a refresh next frame (or wait for event).
-        // For Slice 1 responsiveness, we can CallDeferred Refresh.
-        CallDeferred(nameof(Refresh));
-    }
+    
+    public void Close() => Visible = false;
 }

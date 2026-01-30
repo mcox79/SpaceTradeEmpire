@@ -1,8 +1,9 @@
-using Godot;
+﻿using Godot;
 using SimCore.Entities;
 using SpaceTradeEmpire.Bridge;
 using SpaceTradeEmpire.UI;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SpaceTradeEmpire.View;
 
@@ -11,23 +12,36 @@ public partial class GalaxyView : Node3D
     private SimBridge _bridge;
     private StationMenu _menu;
     private Dictionary<string, StarNode> _starNodes = new();
-    private Dictionary<string, MeshInstance3D> _fleetVisuals = new();
-    private Mesh _shipMesh;
-    private Material _shipMat;
+    
+    // SLICE 2: MULTIMESH OPTIMIZATION
+    private MultiMeshInstance3D _fleetMultiMeshInstance;
+    private MultiMesh _fleetMultiMesh;
     private bool _playerConnected = false;
 
     public override void _Ready()
     {
         _bridge = GetNode<SimBridge>("/root/SimBridge");
-        _shipMesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) };
-        _shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) };
+        
+        // Initialize MultiMesh for Fleets
+        _fleetMultiMeshInstance = new MultiMeshInstance3D();
+        _fleetMultiMesh = new MultiMesh();
+        _fleetMultiMesh.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
+        _fleetMultiMesh.Mesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) };
+        // Initial capacity - will grow if needed, but 1000 is safe for Slice 2
+        _fleetMultiMesh.InstanceCount = 0;
+        _fleetMultiMesh.VisibleInstanceCount = 0;
+        _fleetMultiMeshInstance.Multimesh = _fleetMultiMesh;
+        
+        // Material setup
+        var shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) };
+        _fleetMultiMeshInstance.MaterialOverride = shipMat;
+        AddChild(_fleetMultiMeshInstance);
 
         var uiLayer = new CanvasLayer { Layer = 1 };
         AddChild(uiLayer);
         _menu = new StationMenu();
         uiLayer.AddChild(_menu);
-
-        // DECOUPLING: View handles the wiring between UI and Player
+        
         _menu.RequestUndock += OnMenuUndockRequested;
 
         if (_bridge != null)
@@ -37,7 +51,6 @@ public partial class GalaxyView : Node3D
         }
     }
 
-    // Handle UI Signal -> Player Action
     private void OnMenuUndockRequested()
     {
         var player = GetTree().GetFirstNodeInGroup("Player");
@@ -49,7 +62,6 @@ public partial class GalaxyView : Node3D
 
     public override void _Process(double delta)
     {
-        // Lazy Connect: Player Signals -> UI
         if (!_playerConnected)
         {
             var player = GetTree().GetFirstNodeInGroup("Player");
@@ -57,12 +69,10 @@ public partial class GalaxyView : Node3D
             {
                 player.Connect("shop_toggled", new Callable(_menu, "OnShopToggled"));
                 _playerConnected = true;
-                GD.Print("[GalaxyView] Player signal connected to StationMenu.");
             }
         }
 
         if (_bridge == null || _bridge.IsLoading) return;
-        // Safe Read Wrapper for Fleet Visuals
         _bridge.ExecuteSafeRead(state => UpdateFleets(state));
     }
 
@@ -85,8 +95,8 @@ public partial class GalaxyView : Node3D
                 starNode.NodeId = node.Id;
                 starNode.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
                 AddChild(starNode);
+    
                 _starNodes[node.Id] = starNode;
-
                 var col = new CollisionShape3D { Shape = sphereShape };
                 starNode.AddChild(col);
                 var mesh = new MeshInstance3D { Mesh = starMesh };
@@ -111,17 +121,41 @@ public partial class GalaxyView : Node3D
     private void UpdateFleets(SimCore.SimState state)
     {
         if (state.Fleets == null) return;
-        foreach (var fleet in state.Fleets.Values)
+        
+        // Filter fleets: Not player, and exclude local ghosts (handled by GhostSpawner)
+        // Actually, GalaxyView shows MACRO state, so we show ALL fleets (except maybe the player's own ship if we are in view)
+        var visibleFleets = state.Fleets.Values.Where(f => f.OwnerId != "player").ToList();
+        int count = visibleFleets.Count;
+
+        if (_fleetMultiMesh.InstanceCount < count)
         {
-            if (fleet.OwnerId == "player" && fleet.Id == "test_ship_01") continue;
-            if (!_fleetVisuals.TryGetValue(fleet.Id, out var visual))
+            _fleetMultiMesh.InstanceCount = count + 100; // Buffer growth
+        }
+        _fleetMultiMesh.VisibleInstanceCount = count;
+
+        for (int i = 0; i < count; i++)
+        {
+            var fleet = visibleFleets[i];
+            Vector3 pos;
+            
+            // INTERPOLATION LOGIC STUB (For Slice 2)
+            // If docked/idle, use Node position. If traveling, use lerp between nodes.
+            if (state.Nodes.ContainsKey(fleet.CurrentNodeId))
             {
-                visual = new MeshInstance3D { Mesh = _shipMesh, MaterialOverride = _shipMat, Name = fleet.Id };
-                AddChild(visual);
-                _fleetVisuals[fleet.Id] = visual;
+                var p = state.Nodes[fleet.CurrentNodeId].Position;
+                pos = new Vector3(p.X, p.Y, p.Z);
             }
-            // Basic position update (Refine in next slice for movement interpolation)
-            // For now, we assume Node-to-Node jumps are instant in visual or handled by SimBridge interpolation (TODO)
+            else
+            {
+                 pos = Vector3.Zero; // Fallback
+            }
+
+            // Offset height to avoid z-fighting with lanes
+            pos.Y += 2.0f;
+            
+            // For now, basic transform. Logic for rotation requires 'LookingAt' calculation from Edge data.
+            Transform3D t = new Transform3D(Basis.Identity, pos);
+            _fleetMultiMesh.SetInstanceTransform(i, t);
         }
     }
 
@@ -146,8 +180,7 @@ public partial class GalaxyView : Node3D
 
     private void ClearVisuals()
     {
-        foreach (var kv in _fleetVisuals) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
-        _fleetVisuals.Clear();
+        _fleetMultiMesh.VisibleInstanceCount = 0;
         foreach (var kv in _starNodes) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
         _starNodes.Clear();
     }

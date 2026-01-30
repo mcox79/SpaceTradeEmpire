@@ -6,14 +6,38 @@
 
 **THE MASTER OUTPUT RULE:** You must NEVER output raw GDScript for the user to copy-paste manually. Manual code insertion is strictly deprecated.
 
-**The Automated Deployment Pattern:** Whenever you generate or modify Godot code (`.gd` files), your output MUST be a single, complete PowerShell code block that executes the following pipeline automatically:
-1. **Write the Asset:** Use `Set-Content` with a Here-String (`@"..."@`) to write the new GDScript directly to the correct filepath.
-2. **Execute CI/CD Gatekeeper:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to validate syntax, format tabs, and secure the git commit.
-3. **Execute Integration Test:** If the script affects the economy, immediately invoke Godot headless testing: `& $GodotExe --headless -s "scenes/tests/test_economy_core.tscn"`.
-4. **Pathing Safety:** You MUST use git rev-parse --show-toplevel within PowerShell to dynamically resolve the project root. Never use relative paths for Set-Content.
-5. **Iterative Engineering:** Do not output massive code blocks. Write the structural skeleton first, validate the CI/CD pipeline, and only fill in complex logic in subsequent turns.
+**The Automated Deployment Pattern:**
+I interact with PowerShell using a strict, automated pipeline designed to ensure code safety, validation, and correct formatting before committing changes.
 
-**Goal:** The user should only ever have to click "Copy" on a single PowerShell block and paste it into their terminal to deploy, test, and commit your logic.
+### 1. The Atomic Write Pattern
+I do not output raw code for manual copy-pasting. Instead, I generate a single, executable PowerShell block that handles file I/O safely.
+* **Binary-Safe Writing:** I use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)` (No BOM) instead of simple redirection. This ensures Godot can read files correctly.
+* **Explicit Formatting:** I define file content as an "Array of Strings" and use explicit `` `t `` characters for indentation to enforce the tabs-only policy.
+
+### 2. The CI/CD Gatekeeper
+Every time I write a script, I immediately verify it. The PowerShell block includes commands to:
+* **Validate Syntax:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to check for syntax errors and formatting violations before committing.
+* **Run Integration Tests:** If the script touches the economy, automatically trigger the headless Godot test runner (`test_economy_core.tscn`) to ensure logic integrity.
+
+### 3. Dynamic Path Resolution
+I never assume where the project is located.
+* **Protocol:** My scripts use `git rev-parse --show-toplevel` to dynamically find the project root, ensuring commands work regardless of the current shell directory.
+
+### 4. Safety & Recovery
+* **Directory Creation:** I explicitly use `New-Item -ItemType Directory -Force` before writing files to prevent "Path Not Found" errors.
+* **Environment Safety:** I check for environment variables safely rather than calling them directly, falling back to system defaults to prevent pipeline halts.
+
+### 1.1 Engineering Standards & PowerShell Protocols (Strict)
+*Critical instructions for AI Agents interacting with this repository.*
+
+#### The "No-Assumption" Path Rule
+**Context:** Godot projects often nest C# solutions or rename them unpredictably.
+**Rule:** Never hardcode paths to `.sln` or `.csproj` files. Always resolve them dynamically.
+**Required Pattern:**
+```powershell
+$target = Get-ChildItem -Path $root -Include "*.sln","*.csproj" -Recurse -Depth 2 | 
+          Where-Object { $_.FullName -notmatch "godot" } | 
+          Select-Object -First 1
 
 ## 2. Recovery and Toolchain
 
@@ -74,6 +98,64 @@ The `Validate-GodotScript` tool enforces a clean working tree to prevent drift. 
 5. **Finalize:** Only proceed to the next Phase once validation passes on the sealed commit.
 
 ## 3. Architecture and Standards (Strict)
+
+### 3.1 LLM-First Modularity Protocol (Strict)
+
+Goal: keep code changes safely within an LLM-sized working set while maintaining architectural integrity.
+
+#### A) File size and coupling budgets (practical, not aesthetic)
+- Soft target: 150 to 350 lines per file.
+- Review trigger: if a file exceeds 350 lines, the change must either:
+  - split responsibilities into smaller files, or
+  - justify why the file is “bounded glue” (adapter/registry) in the Contract Header.
+- Strong cap: 600 lines per file except for rare, explicitly labeled adapters/registries.
+
+A file must be split when it violates any of the following:
+- More than one primary responsibility (ex: “route evaluation” plus “UI rendering”).
+- More than 4 external dependencies (imports/usings that are not standard library).
+- It exposes more than 7 public methods that are not trivial accessors.
+- It mixes domain logic with engine/UI concerns (except in adapters by design).
+
+#### B) Contract Headers (required at the top of every non-trivial file)
+Every file that contains logic must begin with a short Contract Header describing:
+- Purpose: what this file owns (one sentence).
+- Layer: SimCore vs GameShell vs Adapter vs Tooling.
+- Dependencies: the specific modules/types it is allowed to call.
+- Public API: the functions/classes other files are allowed to use.
+- Events/Signals: what it emits and what it listens to (if applicable).
+- Invariants: 2 to 5 rules that must remain true.
+- Test coverage: the test file(s) that validate this behavior, or “none yet”.
+
+This header is the authoritative “local context” for LLM work. Do not duplicate broader system descriptions here.
+
+#### C) Contracts live in one place, not everywhere
+To prevent drift, shared assumptions must be represented as:
+- a contract/interface file (preferred), or
+- a data schema/DTO definition, or
+- a single canonical doc section referenced by name.
+
+Avoid copying the same explanation into multiple files.
+
+#### D) LLM Module Packets (required for any coding session)
+Any request to an LLM to implement a change must include a “Module Packet” containing:
+1) Scope statement (what outcome is required).
+2) A list of files allowed to change (default: <= 6).
+3) For each file:
+   - the Contract Header
+   - its public API surface
+   - explicit dependencies and extension points
+4) Validation commands to run after writing (Validate-GodotScript, relevant tests).
+5) Definition of Done: observable behavior changes and tests passing.
+
+Use Run-ContextGen to produce the repo snapshot, but the Module Packet is the curated working set that keeps the LLM from wandering.
+
+#### E) Dependency direction is enforced
+- SimCore or headless domain logic must not depend on Godot runtime objects (follow the non-negotiable architecture invariants).
+- GameShell can depend on SimCore.
+- Adapters are the only layer allowed to “touch both sides”.
+
+Violations must be treated as architecture bugs, not style issues.
+
 
 ### NON-NEGOTIABLE ARCHITECTURE INVARIANTS
 
@@ -170,9 +252,20 @@ Primary gate is the staged check_tabs hook.
 - **The Autoload Trap:** Headless syntax validators do not load the `project.godot` Autoload registry. Scripts MUST NOT use global Autoload namespaces directly (e.g., `GameManager.sim`). You must use absolute pathing (e.g., `get_node("/root/GameManager").sim`) to ensure the code passes CI/CD without breaking runtime behavior.
 - **Infrastructure-First File I/O:** `Set-Content` cannot create directories. Before generating a new script, the automation pipeline MUST explicitly create the target directory using `New-Item -ItemType Directory -Force`. Failing to do so breaks the deployment chain.
 
-### 4.6 The View-Sim Data Contract (Strict)
-- **Passive Renderers Only:** View layer scripts (`_process` loops) MUST NOT perform any simulation math or interpolation. They must only read the current state directly from the headless backend (e.g., `visual_node.position = fleet.current_pos`). If a backend data primitive is refactored, the View Layer contract must be updated in the exact same commit.
+### 4.6 The Hybrid Authority Contract (Strict)
+To support both "Starcom-style" flight and "Eve-style" economy:
 
+1.  **The Tactical Bubble:**
+    * When Undocked, the **GameShell (Godot)** is the Authority for the Player Ship's physics (Position, Velocity, Rotation, Fuel Burn).
+    * The SimCore tracks the player's "Macro Location" (Node ID) but yields micro-control to Godot.
+
+2.  **Entity Injection (The Ghost System):**
+    * SimCore entities (Fleets) sharing a Node with the Player are **Injected** into Godot as "Ghosts."
+    * Ghosts are fully physical `CharacterBody3D` or `RigidBody3D` objects with local AI.
+    * **Result Reporting:** If a Ghost takes damage or is destroyed in Godot, GameShell must emit a `CombatResult` event to SimCore to update the persistent state.
+
+3.  **Passive Renderers (Remote Views):**
+    * Views displaying entities *outside* the player's bubble (e.g., the Galaxy Map) must remain **Passive**. They read SimCore state directly and do not simulate physics.
 ### 4.7 The Atomic Write Pattern (Strict)
 To prevents whitespace corruption in GDScript/YAML/Python:
 1. **Array-of-Strings:** Do not output multi-line strings. Define file content as an array of strings: `@("line 1", "line 2")`.
