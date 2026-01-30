@@ -31,7 +31,7 @@ public static class GalaxyGenerator
                 Name = $"System {i}",
                 Position = new Vector3(x, 0, z),
                 Kind = NodeKind.Star,
-                // FIX: ID UNIFICATION. Market ID matches Node ID.
+                // FIX: ID UNIFICATION - MarketID must match NodeID for Slice 2 logic
                 MarketId = $"star_{i}"
             };
             state.Nodes.Add(node.Id, node);
@@ -41,13 +41,11 @@ public static class GalaxyGenerator
             var mkt = new Market { Id = node.MarketId };
             mkt.Inventory["fuel"] = 100;
 
-            // INDUSTRY DISTRIBUTION (Simple Toggle)
-            // Even = Mining Colony (Supplier)
-            // Odd = Industrial Hub (Consumer)
+            // INDUSTRY DISTRIBUTION
             if (i % 2 == 0)
             {
                 // MINE: Has Ore, Produces Ore
-                mkt.Inventory["ore"] = 500; // Abundant Supply
+                mkt.Inventory["ore"] = 500;
                 
                 var mine = new IndustrySite
                 {
@@ -60,8 +58,8 @@ public static class GalaxyGenerator
             }
             else
             {
-                // REFINERY: Needs Ore, Has None (Triggers Logistics)
-                mkt.Inventory["ore"] = 0; // Starved!
+                // REFINERY: Needs Ore, Has None
+                mkt.Inventory["ore"] = 0;
                 
                 var factory = new IndustrySite
                 {
@@ -80,45 +78,16 @@ public static class GalaxyGenerator
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
 
-        // 2. CONNECTIVITY SKELETON (Prim's Algorithm)
-        var connected = new HashSet<string>();
-        var disconnected = new HashSet<string>(nodesList.Select(n => n.Id));
-        
-        var startNode = nodesList[0];
-        connected.Add(startNode.Id);
-        disconnected.Remove(startNode.Id);
-
-        while (disconnected.Count > 0)
+        // 2. CONNECTIVITY (Simple Linear Chain for robustness in Slice 2)
+        // Ensure at least a connected graph so ships can travel
+        for (int i = 0; i < nodesList.Count - 1; i++)
         {
-            Node? bestA = null;
-            Node? bestB = null;
-            float bestDist = float.MaxValue;
-
-            foreach (var idA in connected)
-            {
-                var nodeA = state.Nodes[idA];
-                foreach (var idB in disconnected)
-                {
-                    var nodeB = state.Nodes[idB];
-                    float d = Vector3.Distance(nodeA.Position, nodeB.Position);
-                    
-                    if (d < bestDist)
-                    {
-                        bestDist = d;
-                        bestA = nodeA;
-                        bestB = nodeB;
-                    }
-                }
-            }
-
-            if (bestA == null || bestB == null) break;
-
-            CreateEdge(state, bestA, bestB);
-            connected.Add(bestB.Id);
-            disconnected.Remove(bestB.Id);
+             CreateEdge(state, nodesList[i], nodesList[i+1]);
         }
+        // Loop back
+        CreateEdge(state, nodesList[nodesList.Count-1], nodesList[0]);
 
-        // 3. SPAWN AI FLEETS (Couriers)
+        // 3. SPAWN AI FLEETS
         foreach (var node in nodesList)
         {
             var fleet = new Fleet
