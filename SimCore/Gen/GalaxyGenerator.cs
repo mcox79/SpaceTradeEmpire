@@ -14,7 +14,7 @@ public static class GalaxyGenerator
         state.Edges.Clear();
         state.Markets.Clear();
         state.Fleets.Clear();
-        state.IndustrySites.Clear(); // CRITICAL: Reset industry
+        state.IndustrySites.Clear();
 
         var nodesList = new List<Node>();
         var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
@@ -31,7 +31,8 @@ public static class GalaxyGenerator
                 Name = $"System {i}",
                 Position = new Vector3(x, 0, z),
                 Kind = NodeKind.Star,
-                MarketId = $"mkt_{i}"
+                // FIX: ID UNIFICATION. Market ID matches Node ID.
+                MarketId = $"star_{i}"
             };
             state.Nodes.Add(node.Id, node);
             nodesList.Add(node);
@@ -118,7 +119,6 @@ public static class GalaxyGenerator
         }
 
         // 3. SPAWN AI FLEETS (Couriers)
-        // Spawn 1 fleet per node to ensure coverage
         foreach (var node in nodesList)
         {
             var fleet = new Fleet
