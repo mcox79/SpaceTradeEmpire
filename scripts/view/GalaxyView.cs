@@ -26,14 +26,20 @@ public partial class GalaxyView : Node3D
         _fleetMultiMeshInstance = new MultiMeshInstance3D();
         _fleetMultiMesh = new MultiMesh();
         _fleetMultiMesh.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
-        _fleetMultiMesh.Mesh = new PrismMesh { Size = new Vector3(1f, 1f, 2f) };
-        // Initial capacity - will grow if needed, but 1000 is safe for Slice 2
+        // VISUAL TWEAK: Made ships larger (1.5x, 3.0z) and Orange for visibility
+        _fleetMultiMesh.Mesh = new PrismMesh { Size = new Vector3(1.5f, 1.5f, 3.0f) };
         _fleetMultiMesh.InstanceCount = 0;
         _fleetMultiMesh.VisibleInstanceCount = 0;
         _fleetMultiMeshInstance.Multimesh = _fleetMultiMesh;
         
-        // Material setup
-        var shipMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.5f, 0f) };
+        // Material setup: Bright Orange Emission so they pop against the black background
+        var shipMat = new StandardMaterial3D 
+        { 
+            AlbedoColor = new Color(1f, 0.6f, 0f),
+            EmissionEnabled = true,
+            Emission = new Color(1f, 0.4f, 0f),
+            EmissionEnergyMultiplier = 2.0f
+        };
         _fleetMultiMeshInstance.MaterialOverride = shipMat;
         AddChild(_fleetMultiMeshInstance);
 
@@ -122,39 +128,56 @@ public partial class GalaxyView : Node3D
     {
         if (state.Fleets == null) return;
         
-        // Filter fleets: Not player, and exclude local ghosts (handled by GhostSpawner)
-        // Actually, GalaxyView shows MACRO state, so we show ALL fleets (except maybe the player's own ship if we are in view)
+        // Filter fleets: Not player
         var visibleFleets = state.Fleets.Values.Where(f => f.OwnerId != "player").ToList();
         int count = visibleFleets.Count;
 
         if (_fleetMultiMesh.InstanceCount < count)
         {
-            _fleetMultiMesh.InstanceCount = count + 100; // Buffer growth
+            _fleetMultiMesh.InstanceCount = count + 100;
         }
         _fleetMultiMesh.VisibleInstanceCount = count;
 
         for (int i = 0; i < count; i++)
         {
             var fleet = visibleFleets[i];
-            Vector3 pos;
+            Vector3 pos = Vector3.Zero;
+            Vector3 lookTarget = Vector3.Zero;
             
-            // INTERPOLATION LOGIC STUB (For Slice 2)
-            // If docked/idle, use Node position. If traveling, use lerp between nodes.
-            if (state.Nodes.ContainsKey(fleet.CurrentNodeId))
+            // Get Start Position
+            if (state.Nodes.TryGetValue(fleet.CurrentNodeId, out var startNode))
             {
-                var p = state.Nodes[fleet.CurrentNodeId].Position;
-                pos = new Vector3(p.X, p.Y, p.Z);
+                pos = new Vector3(startNode.Position.X, startNode.Position.Y, startNode.Position.Z);
+            }
+
+            // INTERPOLATION LOGIC
+            if (fleet.State == FleetState.Traveling && state.Nodes.TryGetValue(fleet.DestinationNodeId, out var endNode))
+            {
+                var endPos = new Vector3(endNode.Position.X, endNode.Position.Y, endNode.Position.Z);
+                pos = pos.Lerp(endPos, fleet.TravelProgress);
+                lookTarget = endPos;
             }
             else
             {
-                 pos = Vector3.Zero; // Fallback
+                // If idle, look slightly up/random to show activity?
+                // For now, just look forward
+                lookTarget = pos + Vector3.Forward;
             }
 
-            // Offset height to avoid z-fighting with lanes
-            pos.Y += 2.0f;
-            
-            // For now, basic transform. Logic for rotation requires 'LookingAt' calculation from Edge data.
+            // Vertical Offset to fly ABOVE the lane lines (Star Radius is 1.0, Lane is at 0)
+            // Increased to 2.5f to ensure visibility above the Star Mesh
+            pos.Y += 2.5f;
+            lookTarget.Y += 2.5f;
+
+            // Transform Construction
             Transform3D t = new Transform3D(Basis.Identity, pos);
+            
+            // Rotation: Look at destination
+            if (pos.DistanceSquaredTo(lookTarget) > 0.01f)
+            {
+                 t = t.LookingAt(lookTarget, Vector3.Up);
+            }
+            
             _fleetMultiMesh.SetInstanceTransform(i, t);
         }
     }
