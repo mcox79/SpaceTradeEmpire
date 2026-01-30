@@ -39,11 +39,12 @@ public static class LogisticsSystem
                     fleet.DestinationNodeId = job.SourceNodeId;
                     fleet.State = FleetState.Traveling;
                     fleet.TravelProgress = 0f;
+                    fleet.CurrentTask = $"Fetching {job.GoodId}";
                 }
                 break;
 
             case JobStage.Loading:
-                // Instant Load for Slice 2
+                // Instant Load for Slice 2 (Teleport buy)
                 job.Stage = JobStage.EnRouteToTarget;
                 fleet.CurrentTask = $"Hauling {job.GoodId} to {job.TargetNodeId}";
                 break;
@@ -64,11 +65,10 @@ public static class LogisticsSystem
 
             case JobStage.Unloading:
                 // Instant Unload -> Complete
-                // (Here we would actually transfer cargo in Slice 3)
                 if (state.Markets.TryGetValue(job.TargetNodeId, out var mkt))
                 {
                     if (!mkt.Inventory.ContainsKey(job.GoodId)) mkt.Inventory[job.GoodId] = 0;
-                    mkt.Inventory[job.GoodId] += job.Quantity; // Teleport delivery for verification
+                    mkt.Inventory[job.GoodId] += job.Quantity; // Delivery logic
                 }
                 fleet.CurrentJob = null;
                 fleet.CurrentTask = "Idle";
@@ -84,13 +84,13 @@ public static class LogisticsSystem
             if (!site.Active) continue;
             foreach (var input in site.Inputs)
             {
-                // Check if Factory needs it
+                // Check if Factory needs it (Target: 5x input batch)
                 if (!state.Markets.TryGetValue(site.NodeId, out var destMarket)) continue;
                 int currentStock = destMarket.Inventory.ContainsKey(input.Key) ? destMarket.Inventory[input.Key] : 0;
                 
-                if (currentStock < input.Value * 5) // Simple buffer check
+                if (currentStock < input.Value * 5)
                 {
-                    // Find Source
+                    // Find Source (Any market with stock that isn't the destination)
                     var sourceMkt = state.Markets.Values
                         .FirstOrDefault(m => m.Inventory.ContainsKey(input.Key) && m.Inventory[input.Key] >= input.Value && m.Id != site.NodeId);
                     
@@ -106,7 +106,7 @@ public static class LogisticsSystem
                             Stage = JobStage.EnRouteToSource
                         };
                         fleet.CurrentTask = $"Fetching {input.Key} from {sourceMkt.Id}";
-                        return; // One job per tick
+                        return; // One job per tick per fleet
                     }
                 }
             }
