@@ -6,14 +6,38 @@
 
 **THE MASTER OUTPUT RULE:** You must NEVER output raw GDScript for the user to copy-paste manually. Manual code insertion is strictly deprecated.
 
-**The Automated Deployment Pattern:** Whenever you generate or modify Godot code (`.gd` files), your output MUST be a single, complete PowerShell code block that executes the following pipeline automatically:
-1. **Write the Asset:** Use `Set-Content` with a Here-String (`@"..."@`) to write the new GDScript directly to the correct filepath.
-2. **Execute CI/CD Gatekeeper:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to validate syntax, format tabs, and secure the git commit.
-3. **Execute Integration Test:** If the script affects the economy, immediately invoke Godot headless testing: `& $GodotExe --headless -s "scenes/tests/test_economy_core.tscn"`.
-4. **Pathing Safety:** You MUST use git rev-parse --show-toplevel within PowerShell to dynamically resolve the project root. Never use relative paths for Set-Content.
-5. **Iterative Engineering:** Do not output massive code blocks. Write the structural skeleton first, validate the CI/CD pipeline, and only fill in complex logic in subsequent turns.
+**The Automated Deployment Pattern:**
+I interact with PowerShell using a strict, automated pipeline designed to ensure code safety, validation, and correct formatting before committing changes.
 
-**Goal:** The user should only ever have to click "Copy" on a single PowerShell block and paste it into their terminal to deploy, test, and commit your logic.
+### 1. The Atomic Write Pattern
+I do not output raw code for manual copy-pasting. Instead, I generate a single, executable PowerShell block that handles file I/O safely.
+* **Binary-Safe Writing:** I use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)` (No BOM) instead of simple redirection. This ensures Godot can read files correctly.
+* **Explicit Formatting:** I define file content as an "Array of Strings" and use explicit `` `t `` characters for indentation to enforce the tabs-only policy.
+
+### 2. The CI/CD Gatekeeper
+Every time I write a script, I immediately verify it. The PowerShell block includes commands to:
+* **Validate Syntax:** Immediately invoke `Validate-GodotScript "path/to/script.gd"` to check for syntax errors and formatting violations before committing.
+* **Run Integration Tests:** If the script touches the economy, automatically trigger the headless Godot test runner (`test_economy_core.tscn`) to ensure logic integrity.
+
+### 3. Dynamic Path Resolution
+I never assume where the project is located.
+* **Protocol:** My scripts use `git rev-parse --show-toplevel` to dynamically find the project root, ensuring commands work regardless of the current shell directory.
+
+### 4. Safety & Recovery
+* **Directory Creation:** I explicitly use `New-Item -ItemType Directory -Force` before writing files to prevent "Path Not Found" errors.
+* **Environment Safety:** I check for environment variables safely rather than calling them directly, falling back to system defaults to prevent pipeline halts.
+
+### 1.1 Engineering Standards & PowerShell Protocols (Strict)
+*Critical instructions for AI Agents interacting with this repository.*
+
+#### The "No-Assumption" Path Rule
+**Context:** Godot projects often nest C# solutions or rename them unpredictably.
+**Rule:** Never hardcode paths to `.sln` or `.csproj` files. Always resolve them dynamically.
+**Required Pattern:**
+```powershell
+$target = Get-ChildItem -Path $root -Include "*.sln","*.csproj" -Recurse -Depth 2 | 
+          Where-Object { $_.FullName -notmatch "godot" } | 
+          Select-Object -First 1
 
 ## 2. Recovery and Toolchain
 
@@ -170,9 +194,20 @@ Primary gate is the staged check_tabs hook.
 - **The Autoload Trap:** Headless syntax validators do not load the `project.godot` Autoload registry. Scripts MUST NOT use global Autoload namespaces directly (e.g., `GameManager.sim`). You must use absolute pathing (e.g., `get_node("/root/GameManager").sim`) to ensure the code passes CI/CD without breaking runtime behavior.
 - **Infrastructure-First File I/O:** `Set-Content` cannot create directories. Before generating a new script, the automation pipeline MUST explicitly create the target directory using `New-Item -ItemType Directory -Force`. Failing to do so breaks the deployment chain.
 
-### 4.6 The View-Sim Data Contract (Strict)
-- **Passive Renderers Only:** View layer scripts (`_process` loops) MUST NOT perform any simulation math or interpolation. They must only read the current state directly from the headless backend (e.g., `visual_node.position = fleet.current_pos`). If a backend data primitive is refactored, the View Layer contract must be updated in the exact same commit.
+### 4.6 The Hybrid Authority Contract (Strict)
+To support both "Starcom-style" flight and "Eve-style" economy:
 
+1.  **The Tactical Bubble:**
+    * When Undocked, the **GameShell (Godot)** is the Authority for the Player Ship's physics (Position, Velocity, Rotation, Fuel Burn).
+    * The SimCore tracks the player's "Macro Location" (Node ID) but yields micro-control to Godot.
+
+2.  **Entity Injection (The Ghost System):**
+    * SimCore entities (Fleets) sharing a Node with the Player are **Injected** into Godot as "Ghosts."
+    * Ghosts are fully physical `CharacterBody3D` or `RigidBody3D` objects with local AI.
+    * **Result Reporting:** If a Ghost takes damage or is destroyed in Godot, GameShell must emit a `CombatResult` event to SimCore to update the persistent state.
+
+3.  **Passive Renderers (Remote Views):**
+    * Views displaying entities *outside* the player's bubble (e.g., the Galaxy Map) must remain **Passive**. They read SimCore state directly and do not simulate physics.
 ### 4.7 The Atomic Write Pattern (Strict)
 To prevents whitespace corruption in GDScript/YAML/Python:
 1. **Array-of-Strings:** Do not output multi-line strings. Define file content as an array of strings: `@("line 1", "line 2")`.

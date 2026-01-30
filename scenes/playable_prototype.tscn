@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dc522x577ndh8" path="res://scripts/core/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" uid="uid://uusjkjsnoud3" path="res://scripts/view/GalaxyView.cs" id="3_063ny"]
 [ext_resource type="Script" uid="uid://naqc5hscu7tm" path="res://scripts/view/prototype_camera.gd" id="3_cam"]
+[ext_resource type="PackedScene" path="res://scenes/ghost_system.tscn" id="4_nh4lx"]
 
 [node name="Main" type="Node3D" unique_id=803200656]
 
@@ -18,3 +19,5 @@ transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 
 
 [node name="GalaxyView" type="Node3D" parent="." unique_id=1745372530]
 script = ExtResource("3_063ny")
+
+[node name="GhostSystem" parent="." unique_id=324117971 instance=ExtResource("4_nh4lx")]
