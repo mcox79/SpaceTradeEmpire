@@ -14,7 +14,7 @@ public static class LogisticsSystem
             ProcessJob(state, fleet);
         }
 
-        // 2. Dispatch Idle Fleets (Simple Greedy Algo)
+        // 2. Dispatch Idle Fleets
         foreach (var fleet in state.Fleets.Values.Where(f => f.CurrentJob == null && f.OwnerId != "player"))
         {
             TryAssignJob(state, fleet);
@@ -35,7 +35,6 @@ public static class LogisticsSystem
                 }
                 else if (fleet.DestinationNodeId != job.SourceNodeId)
                 {
-                    // Start Travel
                     fleet.DestinationNodeId = job.SourceNodeId;
                     fleet.State = FleetState.Traveling;
                     fleet.TravelProgress = 0f;
@@ -44,7 +43,6 @@ public static class LogisticsSystem
                 break;
 
             case JobStage.Loading:
-                // Instant Load for Slice 2 (Teleport buy)
                 job.Stage = JobStage.EnRouteToTarget;
                 fleet.CurrentTask = $"Hauling {job.GoodId} to {job.TargetNodeId}";
                 break;
@@ -64,11 +62,12 @@ public static class LogisticsSystem
                 break;
 
             case JobStage.Unloading:
-                // Instant Unload -> Complete
-                if (state.Markets.TryGetValue(job.TargetNodeId, out var mkt))
+                // Resolve Market correctly via Node lookup
+                if (state.Nodes.TryGetValue(job.TargetNodeId, out var node) && 
+                    state.Markets.TryGetValue(node.MarketId, out var mkt))
                 {
                     if (!mkt.Inventory.ContainsKey(job.GoodId)) mkt.Inventory[job.GoodId] = 0;
-                    mkt.Inventory[job.GoodId] += job.Quantity; // Delivery logic
+                    mkt.Inventory[job.GoodId] += job.Quantity;
                 }
                 fleet.CurrentJob = null;
                 fleet.CurrentTask = "Idle";
@@ -78,35 +77,49 @@ public static class LogisticsSystem
 
     private static void TryAssignJob(SimState state, Fleet fleet)
     {
-        // Find a starving industry site
+        // Iterate Industry Sites to find demand
         foreach (var site in state.IndustrySites.Values)
         {
             if (!site.Active) continue;
+            
+            // FIX: Look up the Node first, THEN the Market
+            if (!state.Nodes.TryGetValue(site.NodeId, out var siteNode)) continue;
+            if (!state.Markets.TryGetValue(siteNode.MarketId, out var destMarket)) continue;
+
             foreach (var input in site.Inputs)
             {
-                // Check if Factory needs it (Target: 5x input batch)
-                if (!state.Markets.TryGetValue(site.NodeId, out var destMarket)) continue;
                 int currentStock = destMarket.Inventory.ContainsKey(input.Key) ? destMarket.Inventory[input.Key] : 0;
                 
+                // If Factory is starving (buffer < 5x batch)
                 if (currentStock < input.Value * 5)
                 {
-                    // Find Source (Any market with stock that isn't the destination)
-                    var sourceMkt = state.Markets.Values
-                        .FirstOrDefault(m => m.Inventory.ContainsKey(input.Key) && m.Inventory[input.Key] >= input.Value && m.Id != site.NodeId);
-                    
-                    if (sourceMkt != null)
+                    // Find Source: Iterate ALL Markets
+                    foreach (var sourceMkt in state.Markets.Values)
                     {
-                        // Assign Job
-                        fleet.CurrentJob = new LogisticsJob
+                        // Don't buy from yourself
+                        if (sourceMkt.Id == destMarket.Id) continue;
+
+                        if (sourceMkt.Inventory.ContainsKey(input.Key) && sourceMkt.Inventory[input.Key] >= input.Value)
                         {
-                            GoodId = input.Key,
-                            Quantity = input.Value,
-                            SourceNodeId = sourceMkt.Id,
-                            TargetNodeId = site.NodeId,
-                            Stage = JobStage.EnRouteToSource
-                        };
-                        fleet.CurrentTask = $"Fetching {input.Key} from {sourceMkt.Id}";
-                        return; // One job per tick per fleet
+                            // Found a seller! Assign Job.
+                            // We need the Node ID for the Source Market. 
+                            // (In Slice 2 generator, NodeId and MarketId are linked, but let's reverse lookup or assumes known)
+                            // Hack for Slice 2: We need the NODE ID of the source market to travel to.
+                            // We can find the node that points to this market.
+                            var sourceNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == sourceMkt.Id);
+                            if (sourceNode == null) continue;
+
+                            fleet.CurrentJob = new LogisticsJob
+                            {
+                                GoodId = input.Key,
+                                Quantity = input.Value,
+                                SourceNodeId = sourceNode.Id,
+                                TargetNodeId = site.NodeId,
+                                Stage = JobStage.EnRouteToSource
+                            };
+                            fleet.CurrentTask = $"Fetching {input.Key} from {sourceNode.Name}";
+                            return;
+                        }
                     }
                 }
             }
