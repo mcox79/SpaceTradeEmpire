@@ -84,7 +84,7 @@ func undock():
 
 func receive_payment(amt):
 	credits += amt
-	emit_signal('credits_updated', credits) # FIXED TYPO
+	emit_signal('credits_updated', credits)
 
 func get_fuel_status(): return fuel
 func add_cargo(id, qty): 
