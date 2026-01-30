@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using SimCore;
 using SimCore.Gen;
 using SimCore.Entities;
@@ -19,7 +19,9 @@ public partial class SimBridge : Godot.Node
     [Export] public int WorldSeed { get; set; } = 12345;
     [Export] public int StarCount { get; set; } = 20;
     [Export] public int TickDelayMs { get; set; } = 100; // 10 ticks/sec
-    [Export] public bool ResetSaveOnBoot { get; set; } = false;
+    
+    // DEV FLAG: Force Reset to ensure new Industry logic applies
+    [Export] public bool ResetSaveOnBoot { get; set; } = true;
 
     // THE KERNEL IS NOW PRIVATE TO ENSURE LOCKING DISCIPLINE
     private SimKernel _kernel = null!;
@@ -28,7 +30,7 @@ public partial class SimBridge : Godot.Node
     private CancellationTokenSource _cts;
     private Task _simTask;
     private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim();
-    
+
     // STATE FLAGS
     public bool IsLoading { get; private set; } = false;
     private string SavePath => ProjectSettings.GlobalizePath("user://quicksave.json");
@@ -38,7 +40,7 @@ public partial class SimBridge : Godot.Node
     public override void _Ready()
     {
         Input.MouseMode = Input.MouseModeEnum.Visible;
-
+        
         // Cleanup old UI
         var hud = GetTree().Root.FindChild("HUD", true, false);
         if (hud != null) hud.QueueFree();
@@ -65,8 +67,17 @@ public partial class SimBridge : Godot.Node
     {
         GD.Print("[BRIDGE] Initializing SimCore Kernel...");
         _kernel = new SimKernel(WorldSeed);
-        GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
-        SpawnPlayerFleet();
+        
+        // If save exists and we didn't reset, load it. Otherwise generate.
+        if (File.Exists(SavePath) && !ResetSaveOnBoot)
+        {
+             ExecuteLoad();
+        }
+        else
+        {
+             GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
+             SpawnPlayerFleet();
+        }
     }
 
     private void SpawnPlayerFleet()
@@ -148,7 +159,8 @@ public partial class SimBridge : Godot.Node
 
     // --- PUBLIC API (Thread-Safe) ---
 
-    public SimKernel Kernel => _kernel; // Deprecated: Direct access is unsafe, used only for legacy Slice 1 Views
+    public SimKernel Kernel => _kernel;
+    // Deprecated: Direct access is unsafe, used only for legacy Slice 1 Views
 
     // Preferred API for Views
     public void ExecuteSafeRead(Action<SimState> action)
@@ -193,7 +205,7 @@ public partial class SimBridge : Godot.Node
         finally
         {
              _stateLock.ExitReadLock();
-             _saveRequested = false;
+            _saveRequested = false;
         }
     }
 
