@@ -1,16 +1,16 @@
 extends Area3D
 class_name GameStation
 
-const EconomyEngine = preload("res://scripts/core/economy_engine.gd")
-const MarketProfile = preload("res://scripts/resources/market_profile.gd")
-const TradeGood = preload("res://scripts/resources/trade_good.gd")
+const EconomyEngine = preload('res://scripts/core/economy_engine.gd')
+const MarketProfile = preload('res://scripts/resources/market_profile.gd')
+const TradeGood = preload('res://scripts/resources/trade_good.gd')
 
 @export var fuel_cost_per_unit: int = 2
 @export var market_profile: MarketProfile
 
 @export var local_supply: Dictionary = {
-	"ore_iron": 100,
-	"ore_gold": 20,
+	'ore_iron': 100,
+	'ore_gold': 20,
 }
 
 var _goods_by_id: Dictionary = {}
@@ -21,6 +21,10 @@ const BID_MULT := 0.90
 func _ready():
 	monitoring = true
 	monitorable = true
+	
+	# FIX: Scan Layer 2 (Ships) explicitly
+	collision_mask = 2
+	
 	body_entered.connect(_on_body_entered)
 	_build_goods_index()
 
@@ -53,12 +57,14 @@ func get_bid_price(item_id: String) -> int:
 	return int(floor(float(mid) * BID_MULT))
 
 func _on_body_entered(body):
-	if body.has_method("dock_at_station"):
+	print('[STATION] Contact detected with: %s' % body.name)
+	if body.has_method('dock_at_station'):
+		print('[STATION] Initiating Docking Sequence...')
 		_refuel_ship(body)
 		body.dock_at_station(self)
 
 func _refuel_ship(player):
-	if not player.has_method("get_fuel_status"):
+	if not player.has_method('get_fuel_status'):
 		return
 	var needed: float = float(player.max_fuel) - float(player.fuel)
 	if needed > 1.0:
