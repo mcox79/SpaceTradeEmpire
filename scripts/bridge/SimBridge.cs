@@ -1,4 +1,4 @@
-﻿using Godot;
+using Godot;
 using SimCore;
 using SimCore.Gen;
 using SimCore.Entities;
@@ -8,30 +8,24 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.Bridge;
 
-// FIX: Explicitly inherit from Godot.Node to resolve ambiguity with SimCore.Entities.Node
 public partial class SimBridge : Godot.Node
 {
     [Signal] public delegate void SimLoadedEventHandler();
 
     [Export] public int WorldSeed { get; set; } = 12345;
     [Export] public int StarCount { get; set; } = 20;
-    [Export] public int TickDelayMs { get; set; } = 100; // 10 ticks/sec
-    
-    // DEV FLAG: Force Reset to ensure new Industry logic applies
+    [Export] public int TickDelayMs { get; set; } = 100;
     [Export] public bool ResetSaveOnBoot { get; set; } = true;
 
-    // THE KERNEL IS NOW PRIVATE TO ENSURE LOCKING DISCIPLINE
     private SimKernel _kernel = null!;
-
-    // THREADING PRIMITIVES
     private CancellationTokenSource _cts;
     private Task _simTask;
     private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim();
 
-    // STATE FLAGS
     public bool IsLoading { get; private set; } = false;
     private string SavePath => ProjectSettings.GlobalizePath("user://quicksave.json");
     private bool _saveRequested = false;
@@ -67,8 +61,7 @@ public partial class SimBridge : Godot.Node
     {
         GD.Print("[BRIDGE] Initializing SimCore Kernel...");
         _kernel = new SimKernel(WorldSeed);
-        
-        // If save exists and we didn't reset, load it. Otherwise generate.
+
         if (File.Exists(SavePath) && !ResetSaveOnBoot)
         {
              ExecuteLoad();
@@ -113,7 +106,7 @@ public partial class SimBridge : Godot.Node
     {
         if (_cts == null) return;
         _cts.Cancel();
-        try { _simTask.Wait(1000); } catch { /* Ignore cancellation errors */ }
+        try { _simTask.Wait(1000); } catch { }
         _cts.Dispose();
         _cts = null;
         _simTask = null;
@@ -126,11 +119,9 @@ public partial class SimBridge : Godot.Node
         {
             try
             {
-                // 1. Handle IO Requests (Must block Sim)
                 if (_saveRequested) ExecuteSave();
                 if (_loadRequested) ExecuteLoad();
 
-                // 2. The Tick
                 if (!IsLoading)
                 {
                     _stateLock.EnterWriteLock();
@@ -144,14 +135,12 @@ public partial class SimBridge : Godot.Node
                     }
                 }
 
-                // 3. Throttle
                 await Task.Delay(TickDelayMs, token);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
                 GD.PrintErr($"[BRIDGE] CRITICAL SIM ERROR: {ex}");
-                // Don't crash the thread loop, just log and retry
                 await Task.Delay(1000, token);
             }
         }
@@ -159,10 +148,6 @@ public partial class SimBridge : Godot.Node
 
     // --- PUBLIC API (Thread-Safe) ---
 
-    public SimKernel Kernel => _kernel;
-    // Deprecated: Direct access is unsafe, used only for legacy Slice 1 Views
-
-    // Preferred API for Views
     public void ExecuteSafeRead(Action<SimState> action)
     {
         if (IsLoading) return;
@@ -177,6 +162,32 @@ public partial class SimBridge : Godot.Node
         }
     }
 
+    // GDScript-Friendly Snapshot Accessor
+    public Godot.Collections.Dictionary GetPlayerSnapshot()
+    {
+        var dict = new Godot.Collections.Dictionary();
+        if (IsLoading) return dict;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            dict["credits"] = _kernel.State.PlayerCredits;
+            // Convert C# Dict to Godot Dict for Cargo
+            var cargo = new Godot.Collections.Dictionary();
+            foreach(var kv in _kernel.State.PlayerCargo)
+            {
+                cargo[kv.Key] = kv.Value;
+            }
+            dict["cargo"] = cargo;
+            dict["location"] = _kernel.State.PlayerLocationNodeId;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+        return dict;
+    }
+
     public void EnqueueCommand(ICommand cmd)
     {
         _kernel.EnqueueCommand(cmd);
@@ -186,12 +197,11 @@ public partial class SimBridge : Godot.Node
 
     public override void _Process(double delta)
     {
-        // Main Thread Input Polling
         if (Input.IsKeyPressed(Key.F5) && !_saveRequested) _saveRequested = true;
         if (Input.IsKeyPressed(Key.F9) && !_loadRequested) _loadRequested = true;
     }
 
-    // --- IO OPERATIONS (Called from SimLoop) ---
+    // --- IO OPERATIONS ---
 
     private void ExecuteSave()
     {
@@ -220,7 +230,6 @@ public partial class SimBridge : Godot.Node
             GD.Print("[BRIDGE] Loading...");
             var data = File.ReadAllText(SavePath);
             _kernel.LoadFromString(data);
-            // Must dispatch signal to Main Thread
             CallDeferred(nameof(NotifyLoadComplete));
         }
         catch (Exception ex) { GD.PrintErr($"[BRIDGE] Load Failed: {ex}"); }
