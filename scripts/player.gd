@@ -20,7 +20,10 @@ signal shop_toggled(is_open, station_ref)
 # Local Cache (Updated from SimCore)
 var credits: int = 0
 var cargo: Dictionary = {}
+
+# LEGACY SUPPORT (Prevent crashes with old GameStations)
 var fuel: float = 100.0
+var max_fuel: float = 100.0 
 
 func _ready() -> void:
     add_to_group('Player')
@@ -73,7 +76,10 @@ func _sync_sim_state():
                 credits = new_credits
                 emit_signal("credits_updated", credits)
             
-            cargo = snapshot.get("cargo", {})
+            # Safe cargo sync
+            var raw_cargo = snapshot.get("cargo", null)
+            if raw_cargo != null:
+                cargo = raw_cargo
 
 func _handle_visual_banking(turn_input: float, delta: float):
     var mesh = $MeshInstance3D

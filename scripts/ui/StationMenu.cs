@@ -1,7 +1,8 @@
 using Godot;
 using System.Linq;
+using System.Collections.Generic; // For C# Dictionary extensions
 using SimCore;
-using SimCore.Commands; // Now we can use TradeCommand
+using SimCore.Commands;
 using SpaceTradeEmpire.Bridge;
 
 namespace SpaceTradeEmpire.UI;
@@ -14,7 +15,7 @@ public partial class StationMenu : Control
     private VBoxContainer _marketList;
     private VBoxContainer _industryList;
     private VBoxContainer _trafficList;
-    private Label _creditsLabel; // New
+    private Label _creditsLabel;
     
     private SimBridge _bridge;
     private string _currentNodeId = "";
@@ -30,7 +31,7 @@ public partial class StationMenu : Control
     {
         var panel = new PanelContainer();
         panel.SetAnchorsPreset(LayoutPreset.Center);
-        panel.CustomMinimumSize = new Vector2(800, 600); // Wider for buttons
+        panel.CustomMinimumSize = new Vector2(800, 600);
         AddChild(panel);
 
         var vbox = new VBoxContainer();
@@ -77,8 +78,23 @@ public partial class StationMenu : Control
 
         // Get Player State for Credits/Cargo
         var snapshot = _bridge.GetPlayerSnapshot();
-        int playerCredits = snapshot.Contains("credits") ? (int)snapshot["credits"] : 0;
-        var playerCargo = snapshot.Contains("cargo") ? (Godot.Collections.Dictionary)snapshot["cargo"] : new Godot.Collections.Dictionary();
+        
+        // FIX: Godot Dictionary uses .ContainsKey (or cast to IDictionary)
+        int playerCredits = 0;
+        if (snapshot.ContainsKey("credits")) 
+            playerCredits = (int)snapshot["credits"];
+        
+        // FIX: Safe Casting of nested dictionary
+        var playerCargo = new Godot.Collections.Dictionary();
+        if (snapshot.ContainsKey("cargo")) 
+        {
+             // Safely cast the variant to a Dictionary
+             var variant = snapshot["cargo"];
+             if (variant.Obj is Godot.Collections.Dictionary nested)
+             {
+                 playerCargo = nested;
+             }
+        }
         
         _creditsLabel.Text = $"CREDITS: {playerCredits:N0}";
 
@@ -87,24 +103,29 @@ public partial class StationMenu : Control
             if (state.Nodes.ContainsKey(_currentNodeId))
                 _titleLabel.Text = state.Nodes[_currentNodeId].Name.ToUpper();
 
-            // 1. Market with Buttons
             foreach (var child in _marketList.GetChildren()) child.QueueFree();
             
             if (state.Markets.TryGetValue(_currentNodeId, out var market))
             {
-                // Combine Market Inventory + Player Cargo (to allow selling things the market doesn't have yet)
-                var allGoods = market.Inventory.Keys.Union(playerCargo.Keys.Cast<string>()).Distinct().OrderBy(k => k);
+                // FIX: Manually build list of goods to avoid LINQ casting issues with Godot Variants
+                var allGoods = new HashSet<string>();
+                foreach(var k in market.Inventory.Keys) allGoods.Add(k);
+                foreach(var k in playerCargo.Keys) allGoods.Add(k.ToString());
+                
+                var sortedGoods = allGoods.OrderBy(k => k);
 
-                foreach (var good in allGoods)
+                foreach (var good in sortedGoods)
                 {
                     int marketQty = market.Inventory.GetValueOrDefault(good, 0);
-                    int playerQty = playerCargo.Contains(good) ? (int)playerCargo[good] : 0;
+                    
+                    int playerQty = 0;
+                    if (playerCargo.ContainsKey(good)) playerQty = (int)playerCargo[good];
+                    
                     int price = market.GetPrice(good);
                     
                     var hbox = new HBoxContainer();
                     _marketList.AddChild(hbox);
                     
-                    // Info
                     var infoColor = (price > 110) ? Colors.Salmon : (price < 90 ? Colors.LightGreen : Colors.White);
                     var lbl = new Label { 
                         Text = $"{good.PadRight(10)} | Stock: {marketQty} | Price: ${price} | You: {playerQty}",
@@ -113,13 +134,11 @@ public partial class StationMenu : Control
                     };
                     hbox.AddChild(lbl);
                     
-                    // BUY Button (1 Unit)
                     var btnBuy = new Button { Text = "Buy 1" };
                     btnBuy.Disabled = (marketQty <= 0 || playerCredits < price);
                     btnBuy.Pressed += () => SendTrade(good, 1, TradeType.Buy);
                     hbox.AddChild(btnBuy);
                     
-                    // SELL Button (1 Unit)
                     var btnSell = new Button { Text = "Sell 1" };
                     btnSell.Disabled = (playerQty <= 0);
                     btnSell.Pressed += () => SendTrade(good, 1, TradeType.Sell);
@@ -127,7 +146,6 @@ public partial class StationMenu : Control
                 }
             }
             
-            // 2. Traffic (Simplified for space)
             foreach (var child in _trafficList.GetChildren()) child.QueueFree();
             var fleets = state.Fleets.Values.Where(f => f.CurrentNodeId == _currentNodeId).Take(5);
             foreach(var f in fleets)
@@ -141,9 +159,6 @@ public partial class StationMenu : Control
     {
         var cmd = new TradeCommand("player", _currentNodeId, good, qty, type);
         _bridge.EnqueueCommand(cmd);
-        
-        // Small delay to allow Sim to process, then refresh UI
-        // In a real app we'd listen for an event, but polling/timer works for prototype
         GetTree().CreateTimer(0.1).Timeout += Refresh;
     }
 
