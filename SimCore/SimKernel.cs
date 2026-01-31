@@ -27,7 +27,8 @@ public class SimKernel
             cmd.Execute(_state);
         }
         MovementSystem.Process(_state);
-        FractureSystem.Process(_state); // SLICE 3: Fracture Layer
+        FractureSystem.Process(_state);
+        ContainmentSystem.Process(_state); // SLICE 3: The Immune System
         LogisticsSystem.Process(_state);
         IndustrySystem.Process(_state);
         _state.AdvanceTick();
