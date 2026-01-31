@@ -35,16 +35,13 @@ public static class LogisticsSystem
                 }
                 else if (fleet.DestinationNodeId != job.SourceNodeId)
                 {
-                    fleet.DestinationNodeId = job.SourceNodeId;
-                    fleet.State = FleetState.Traveling;
-                    fleet.TravelProgress = 0f;
-                    fleet.CurrentTask = $"Fetching {job.GoodId}";
+                    StartTravel(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId}");
                 }
                 break;
 
             case JobStage.Loading:
                 job.Stage = JobStage.EnRouteToTarget;
-                fleet.CurrentTask = $"Hauling {job.GoodId} to {job.TargetNodeId}";
+                StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
                 break;
 
             case JobStage.EnRouteToTarget:
@@ -55,14 +52,11 @@ public static class LogisticsSystem
                 }
                 else if (fleet.DestinationNodeId != job.TargetNodeId)
                 {
-                    fleet.DestinationNodeId = job.TargetNodeId;
-                    fleet.State = FleetState.Traveling;
-                    fleet.TravelProgress = 0f;
+                    StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
                 }
                 break;
 
             case JobStage.Unloading:
-                // Resolve Market correctly via Node lookup
                 if (state.Nodes.TryGetValue(job.TargetNodeId, out var node) && 
                     state.Markets.TryGetValue(node.MarketId, out var mkt))
                 {
@@ -75,14 +69,36 @@ public static class LogisticsSystem
         }
     }
 
+    private static void StartTravel(SimState state, Fleet fleet, string targetNodeId, string taskDesc)
+    {
+        // CRITICAL FIX: Resolve the Edge connection so MovementSystem works
+        if (MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, targetNodeId, out string edgeId))
+        {
+            fleet.DestinationNodeId = targetNodeId;
+            fleet.CurrentEdgeId = edgeId;
+            fleet.State = FleetState.Traveling;
+            fleet.TravelProgress = 0f;
+            fleet.CurrentTask = taskDesc;
+            
+            // Slot reservation (Optional for now)
+            if (state.Edges.TryGetValue(edgeId, out var edge))
+            {
+                edge.UsedCapacity++;
+            }
+        }
+        else
+        {
+            // No path found - stay idle
+            fleet.State = FleetState.Idle;
+            fleet.CurrentTask = "Waiting for path...";
+        }
+    }
+
     private static void TryAssignJob(SimState state, Fleet fleet)
     {
-        // Iterate Industry Sites to find demand
         foreach (var site in state.IndustrySites.Values)
         {
             if (!site.Active) continue;
-            
-            // FIX: Look up the Node first, THEN the Market
             if (!state.Nodes.TryGetValue(site.NodeId, out var siteNode)) continue;
             if (!state.Markets.TryGetValue(siteNode.MarketId, out var destMarket)) continue;
 
@@ -90,22 +106,13 @@ public static class LogisticsSystem
             {
                 int currentStock = destMarket.Inventory.ContainsKey(input.Key) ? destMarket.Inventory[input.Key] : 0;
                 
-                // If Factory is starving (buffer < 5x batch)
                 if (currentStock < input.Value * 5)
                 {
-                    // Find Source: Iterate ALL Markets
                     foreach (var sourceMkt in state.Markets.Values)
                     {
-                        // Don't buy from yourself
                         if (sourceMkt.Id == destMarket.Id) continue;
-
                         if (sourceMkt.Inventory.ContainsKey(input.Key) && sourceMkt.Inventory[input.Key] >= input.Value)
                         {
-                            // Found a seller! Assign Job.
-                            // We need the Node ID for the Source Market. 
-                            // (In Slice 2 generator, NodeId and MarketId are linked, but let's reverse lookup or assumes known)
-                            // Hack for Slice 2: We need the NODE ID of the source market to travel to.
-                            // We can find the node that points to this market.
                             var sourceNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == sourceMkt.Id);
                             if (sourceNode == null) continue;
 
