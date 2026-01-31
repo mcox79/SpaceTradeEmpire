@@ -8,7 +8,7 @@ public class SimKernel
 {
     private SimState _state;
     private ConcurrentQueue<ICommand> _commandQueue = new();
-    public SimState State => _state;
+    public SimState State => _state; 
 
     public SimKernel(int seed)
     {
@@ -27,11 +27,7 @@ public class SimKernel
             cmd.Execute(_state);
         }
         MovementSystem.Process(_state);
-        FractureSystem.Process(_state);
-        ContainmentSystem.Process(_state);
-        LogisticsSystem.Process(_state);
-        IndustrySystem.Process(_state);
-        MarketSystem.Process(_state); // SLICE 3: Economic Heat Decay
+        IndustrySystem.Process(_state); // SLICE 2: LOGIC ADDED
         _state.AdvanceTick();
     }
 
@@ -42,6 +38,7 @@ public class SimKernel
 
     public void LoadFromString(string data)
     {
-        _state = SerializationSystem.Deserialize(data);
+        var loaded = SerializationSystem.Deserialize(data);
+        if (loaded != null) _state = loaded;
     }
 }
