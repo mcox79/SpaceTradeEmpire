@@ -1,6 +1,7 @@
 ﻿using SimCore.Entities;
 using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace SimCore.Systems;
 
@@ -35,7 +36,9 @@ public static class LogisticsSystem
                 }
                 else if (fleet.DestinationNodeId != job.SourceNodeId)
                 {
-                    StartTravel(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId}");
+                    // If we are idle (arrived at a waypoint), plan next step
+                    if (fleet.State == FleetState.Idle)
+                        StartTravel(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId}");
                 }
                 break;
 
@@ -52,7 +55,9 @@ public static class LogisticsSystem
                 }
                 else if (fleet.DestinationNodeId != job.TargetNodeId)
                 {
-                    StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
+                    // If we are idle (arrived at a waypoint), plan next step
+                    if (fleet.State == FleetState.Idle)
+                        StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
                 }
                 break;
 
@@ -69,29 +74,78 @@ public static class LogisticsSystem
         }
     }
 
-    private static void StartTravel(SimState state, Fleet fleet, string targetNodeId, string taskDesc)
+    private static void StartTravel(SimState state, Fleet fleet, string finalTargetId, string taskDesc)
     {
-        // CRITICAL FIX: Resolve the Edge connection so MovementSystem works
-        if (MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, targetNodeId, out string edgeId))
+        // ROUTING: Don't just look for direct edge. Find the NEXT HOP.
+        string nextStepId = GetNextStep(state, fleet.CurrentNodeId, finalTargetId);
+        
+        if (string.IsNullOrEmpty(nextStepId))
         {
-            fleet.DestinationNodeId = targetNodeId;
+             fleet.State = FleetState.Idle;
+             fleet.CurrentTask = $"No route to {finalTargetId}";
+             return;
+        }
+
+        // Now resolve the specific edge for this single hop
+        if (MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, nextStepId, out string edgeId))
+        {
+            fleet.DestinationNodeId = nextStepId; // HOP DESTINATION, NOT FINAL
             fleet.CurrentEdgeId = edgeId;
             fleet.State = FleetState.Traveling;
             fleet.TravelProgress = 0f;
-            fleet.CurrentTask = taskDesc;
+            fleet.CurrentTask = taskDesc + $" (via {nextStepId})";
             
-            // Slot reservation (Optional for now)
-            if (state.Edges.TryGetValue(edgeId, out var edge))
-            {
-                edge.UsedCapacity++;
-            }
+            if (state.Edges.TryGetValue(edgeId, out var edge)) edge.UsedCapacity++;
         }
         else
         {
-            // No path found - stay idle
             fleet.State = FleetState.Idle;
-            fleet.CurrentTask = "Waiting for path...";
+            fleet.CurrentTask = "Waiting for edge...";
         }
+    }
+
+    // BFS PATHFINDER
+    private static string GetNextStep(SimState state, string startId, string endId)
+    {
+        if (startId == endId) return startId;
+        
+        // Check direct connection first (Optimization)
+        if (MapQueries.AreConnected(state, startId, endId)) return endId;
+
+        var frontier = new Queue<string>();
+        frontier.Enqueue(startId);
+        var cameFrom = new Dictionary<string, string>();
+        cameFrom[startId] = null;
+
+        while (frontier.Count > 0)
+        {
+            var current = frontier.Dequeue();
+            if (current == endId) break;
+
+            // Find neighbors
+            foreach (var edge in state.Edges.Values)
+            {
+                string next = null;
+                if (edge.FromNodeId == current) next = edge.ToNodeId;
+                else if (edge.ToNodeId == current) next = edge.FromNodeId;
+                
+                if (next != null && !cameFrom.ContainsKey(next))
+                {
+                    frontier.Enqueue(next);
+                    cameFrom[next] = current;
+                }
+            }
+        }
+
+        // Reconstruct path to find the IMMEDIATE next step
+        if (!cameFrom.ContainsKey(endId)) return null; // No path
+
+        var curr = endId;
+        while (cameFrom[curr] != startId)
+        {
+            curr = cameFrom[curr];
+        }
+        return curr;
     }
 
     private static void TryAssignJob(SimState state, Fleet fleet)
