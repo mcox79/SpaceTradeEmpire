@@ -1,37 +1,54 @@
 extends Camera3D
 
-@export var pan_speed: float = 70.0
-@export var zoom_speed: float = 10.0
-@export var min_height: float = 15.0
-@export var max_height: float = 240.0
+# --- CONFIGURATION ---
+@export var smooth_speed: float = 5.0
+@export var offset: Vector3 = Vector3(0, 50, 30) # High angle top-down view
+@export var min_height: float = 20.0
+@export var max_height: float = 150.0
+@export var zoom_step: float = 5.0
+
+var _target: Node3D
 
 func _ready() -> void:
-	set_process(false)
-	set_process_unhandled_input(false)
-	current = false
+    # Auto-acquire target from 'Player' group
+    # This decouples the camera from the scene tree structure
+    var players = get_tree().get_nodes_in_group("Player")
+    if players.size() > 0:
+        _target = players[0]
+    else:
+        print_rich("[color=yellow][CAMERA] No Player found in group 'Player'. Waiting...[/color]")
 
-func _process(delta: float) -> void:
-	var x := 0.0
-	var z := 0.0
-	if Input.is_key_pressed(KEY_LEFT): x -= 1.0
-	if Input.is_key_pressed(KEY_RIGHT): x += 1.0
-	if Input.is_key_pressed(KEY_UP): z -= 1.0
-	if Input.is_key_pressed(KEY_DOWN): z += 1.0
+func _physics_process(delta: float) -> void:
+    if not is_instance_valid(_target):
+        _attempt_reacquire()
+        return
 
-	var v := Vector3(x, 0.0, z)
-	if v.length() > 0.0:
-		global_position += v.normalized() * pan_speed * delta
-
-	_clamp_height()
+    # 1. Calculate Target Position
+    var desired_position = _target.global_position + offset
+    
+    # 2. Smoothly Interpolate (Damping)
+    global_position = global_position.lerp(desired_position, smooth_speed * delta)
+    
+    # 3. Look at the ship (Keeps the action centered)
+    look_at(_target.global_position, Vector3.UP)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			global_position.y = max(min_height, global_position.y - zoom_speed)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			global_position.y = min(max_height, global_position.y + zoom_speed)
+    if event is InputEventMouseButton and event.pressed:
+        if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+            _zoom(-1)
+        elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+            _zoom(1)
 
-	_clamp_height()
+func _zoom(direction: int) -> void:
+    # Adjust Y and Z to maintain viewing angle while zooming
+    var zoom_vector = offset.normalized() * zoom_step * direction
+    var new_offset = offset + zoom_vector
+    
+    # Clamp Height
+    if new_offset.y >= min_height and new_offset.y <= max_height:
+        offset = new_offset
 
-func _clamp_height() -> void:
-	global_position.y = clamp(global_position.y, min_height, max_height)
+func _attempt_reacquire():
+    var players = get_tree().get_nodes_in_group("Player")
+    if players.size() > 0:
+        _target = players[0]
