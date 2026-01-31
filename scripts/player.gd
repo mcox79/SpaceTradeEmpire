@@ -76,7 +76,9 @@ func set_input_enabled(val: bool): input_enabled = val
 func dock_at_station(station):
 	velocity = Vector3.ZERO
 	input_enabled = false
-	emit_signal('shop_toggled', true, station)
+	# CRITICAL FIX: Pass the ID string, not the object, to match C# signature
+	var node_id = station.NodeId if 'NodeId' in station else ''
+	emit_signal('shop_toggled', true, node_id)
 
 func undock():
 	input_enabled = true
@@ -84,7 +86,7 @@ func undock():
 
 func receive_payment(amt):
 	credits += amt
-	emit_signal('credits_updated', credits) # <--- FIXED TYPO
+	emit_signal('credits_updated', credits) # <--- Correct spelling
 
 func get_fuel_status(): return fuel
 func add_cargo(id, qty): 
