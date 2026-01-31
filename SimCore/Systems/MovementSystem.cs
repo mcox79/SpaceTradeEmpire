@@ -34,7 +34,7 @@ public static class MovementSystem
             // Arrival
             if (fleet.TravelProgress >= 1.0f)
             {
-                // RESTORED SLICE 2 LOGIC: Free the slot!
+                // CRITICAL FIX: Free the slot on arrival
                 if (state.Edges.TryGetValue(fleet.CurrentEdgeId, out var arrivalEdge))
                 {
                     arrivalEdge.UsedCapacity--;
