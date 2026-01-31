@@ -92,15 +92,15 @@ public partial class StationMenu : Control
             var localSites = state.IndustrySites.Values.Where(s => s.NodeId == _currentNodeId);
             foreach (var site in localSites)
             {
-                var inputs = string.Join(,, site.Inputs.Select(i => $"{i.Key}({i.Value})"));
-                var outputs = string.Join(,, site.Outputs.Select(o => $"{o.Key}({o.Value})"));
+                // FIX: Correctly escaped quotes around the comma separator
+                var inputs = string.Join(",", site.Inputs.Select(i => $"{i.Key}({i.Value})"));
+                var outputs = string.Join(",", site.Outputs.Select(o => $"{o.Key}({o.Value})"));
                 _industryList.AddChild(new Label { Text = $"{site.Id}: {inputs} => {outputs}" });
             }
 
-            // 3. Traffic (IMPROVED FILTER)
+            // 3. Traffic (Expanded Filter)
             foreach (var child in _trafficList.GetChildren()) child.QueueFree();
             
-            // Show ships coming HERE, or active ships currently docked HERE working on a job
             var relevantFleets = state.Fleets.Values.Where(f => 
                 f.DestinationNodeId == _currentNodeId || 
                 (f.CurrentNodeId == _currentNodeId && f.CurrentJob != null)
