@@ -11,46 +11,41 @@ public static class MovementSystem
         {
             if (fleet.State != FleetState.Traveling) continue;
 
-            if (!state.Edges.ContainsKey(fleet.CurrentEdgeId))
+            // Edge Lookup
+            if (!state.Edges.TryGetValue(fleet.CurrentEdgeId, out var edge))
             {
-                // Error recovery: snap back to node
-                fleet.State = FleetState.Idle;
-                continue;
-            }
-
-            var edge = state.Edges[fleet.CurrentEdgeId];
-
-            // 1. CONSUME SUPPLIES (Operating Cost)
-            // Architecture: "Ships pay OperatingCost... not Fuel"
-            // For Slice 1: 1 unit per tick. If empty, speed drops.
-            if (fleet.Supplies > 0)
-            {
-                fleet.Supplies--;
+                // Fallback / Auto-Correction
+                fleet.TravelProgress += fleet.Speed * 0.1f;
             }
             else
             {
-                // Penalty: Move at 10% speed if starving
-                // Note: Real implementation would morale shock here.
+                // Distance-based progress
+                float dist = edge.Distance > 0 ? edge.Distance : 1f;
+                float step = fleet.Speed / dist;
+                fleet.TravelProgress += step;
+                
+                // SLICE 3: HEAT GENERATION
+                if (fleet.CurrentJob != null && fleet.CurrentJob.Amount > 0)
+                {
+                    MarketSystem.RegisterTraffic(state, edge.Id, fleet.CurrentJob.Amount);
+                }
             }
 
-            // 2. ADVANCE
-            // Progress = Speed / Distance
-            float effectiveSpeed = (fleet.Supplies > 0) ? fleet.Speed : (fleet.Speed * 0.1f);
-            float progressStep = effectiveSpeed / Math.Max(1f, edge.Distance);
-            
-            fleet.TravelProgress += progressStep;
-
-            // 3. ARRIVAL
+            // Arrival
             if (fleet.TravelProgress >= 1.0f)
             {
+                // RESTORED SLICE 2 LOGIC: Free the slot!
+                if (state.Edges.TryGetValue(fleet.CurrentEdgeId, out var arrivalEdge))
+                {
+                    arrivalEdge.UsedCapacity--;
+                    if (arrivalEdge.UsedCapacity < 0) arrivalEdge.UsedCapacity = 0;
+                }
+
                 fleet.TravelProgress = 0f;
-                fleet.State = FleetState.Idle;
                 fleet.CurrentNodeId = fleet.DestinationNodeId;
                 fleet.DestinationNodeId = "";
                 fleet.CurrentEdgeId = "";
-                
-                // Free the slot
-                edge.UsedCapacity--;
+                fleet.State = FleetState.Idle;
             }
         }
     }

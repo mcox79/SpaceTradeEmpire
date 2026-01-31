@@ -28,9 +28,10 @@ public class SimKernel
         }
         MovementSystem.Process(_state);
         FractureSystem.Process(_state);
-        ContainmentSystem.Process(_state); // SLICE 3: The Immune System
+        ContainmentSystem.Process(_state);
         LogisticsSystem.Process(_state);
         IndustrySystem.Process(_state);
+        MarketSystem.Process(_state); // SLICE 3: Economic Heat Decay
         _state.AdvanceTick();
     }
 
