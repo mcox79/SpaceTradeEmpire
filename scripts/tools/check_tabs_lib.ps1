@@ -40,6 +40,14 @@ function Get-StagedGdFiles {
   return @($gd)
 }
 
+function Get-StagedBlobText {
+  param([Parameter(Mandatory=$true)][string]$RepoRelPath)
+  $spec = ":" + $RepoRelPath
+  $out = & git show $spec 2>$null
+  if ($LASTEXITCODE -ne 0) { throw "Failed to read staged content for: $RepoRelPath" }
+  return ($out | Out-String)
+}
+
 function Split-Lines([string]$text) {
   $norm = $text -replace "`r`n", "`n"
   $norm = $norm -replace "`r", "`n"
@@ -47,26 +55,24 @@ function Split-Lines([string]$text) {
 }
 
 function Check-GdFile([string]$repoRoot, [string]$relPath) {
-  $full = Join-Path $repoRoot $relPath
-  if (-not (Test-Path -LiteralPath $full)) { return @("MISSING: $relPath") }
-
-  $bytes = [System.IO.File]::ReadAllBytes($full)
   $errs = New-Object System.Collections.Generic.List[string]
 
-  if (Has-Utf8Bom $bytes) { $errs.Add("BOM: $relPath") }
+  $text = Get-StagedBlobText -RepoRelPath $relPath
 
-  $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+  # Detect UTF-8 BOM as leading U+FEFF once decoded.
+  if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $errs.Add("BOM: $relPath") }
+
   if (Contains-ZeroWidth $text) { $errs.Add("ZERO-WIDTH: $relPath") }
 
   $lines = Split-Lines $text
   for ($i = 0; $i -lt $lines.Length; $i++) {
     $ln = [string]$lines[$i]
 
-    if ($ln.Length -gt 0 -and $ln[0] -eq " " -and $ln.Trim().Length -gt 0) {
+    if ($ln -match '^( +)') {
       $errs.Add(("{0}:{1}: leading spaces indentation (tabs-only policy)" -f $relPath, ($i+1)))
     }
 
-    if ($ln -match "^\t+ +\S") {
+    if ($ln -match '^\t+ +') {
       $errs.Add(("{0}:{1}: mixed indent (tabs then spaces)" -f $relPath, ($i+1)))
     }
 

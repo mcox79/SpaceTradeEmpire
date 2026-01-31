@@ -16,15 +16,15 @@ I interact with PowerShell using a strict, automated pipeline designed to ensure
 I do not output raw code for manual copy-pasting. Instead, I generate a single, executable PowerShell block that handles file I/O safely.
 
 - **Binary-Safe Writing:** Use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)` (No BOM). Avoid redirection and avoid tools that inject BOMs or normalize whitespace.
-- **Array-of-Strings Format:** Define file content as an array of strings (example: `@("line 1", "line 2")`), not a multi-line string.
+- **Array-of-Strings Format (Required for LLM output):** Define file content as an array of strings (example: `@("line 1", "line 2")`), not a multi-line string. Exception: single-quoted here-strings (`@' ... '@`) are permitted only for small, programmatically generated content when written via `UTF8Encoding($false)` and immediately validated. Never use double-quoted here-strings for file content.
 - **Explicit Tabs in .gd:** Use explicit `` `t `` characters for all indentation in `.gd` files (tabs-only policy).
 - **Infrastructure-First:** Always `New-Item -ItemType Directory -Force` for the target directory before writing files.
 
-### 1.2 CI/CD Gatekeeper (Strict)
-Every time I write a script, I immediately verify it. The PowerShell block includes commands to:
+### 1.2 Verification Gatekeeper (Strict)
+Every time I write or modify scripts, I immediately verify them. The PowerShell block includes commands to:
 
 - **Validate Syntax:** Invoke `Validate-GodotScript "path/to/script.gd"` immediately after writing.
-- **Run Integration Tests:** If the change touches the economy, run the headless test runner (`test_economy_core.tscn`).
+- **Optional Project Tests (only if available):** If a headless test runner is configured in-repo, run the relevant headless test(s) for the touched subsystem. If no headless tests exist yet, do not invent them; add a TODO note and stop after validation.
 
 ### 1.3 Dynamic Path Resolution (Strict)
 I never assume where the project is located.
@@ -39,7 +39,7 @@ I never assume where the project is located.
               Select-Object -First 1
 
 ### 1.4 Environment Safety (Strict)
-- **No Raw Variables:** Do not call environment variables like `$GodotExe` directly.
+- **No Hard Dependency on Environment Variables:** Do not require env vars to be set for core workflows. If an override env var is supported (example: `GODOT_EXE`), treat it as optional only, with safe fallback discovery.
 - **Safe Inspection:** Inspect safely and provide fallbacks to system defaults to prevent pipeline halts.
 
 ## 2. Recovery and Toolchain
@@ -49,7 +49,7 @@ If the repo gets into a broken state, get back to a clean baseline before doing 
 ### 2.1 Baseline sanity checks (run from repo root)
 - git status -sb
 - pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1
-- cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"
+- cmd.exe /c for /f "usebackq delims=" %H in (`git rev-parse --git-path hooks`) do (call "%H\pre-commit.cmd") & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)
 
 ### 2.2 PowerShell path gotcha
 - In some shells, `[Environment]::CurrentDirectory` can differ from your visible prompt path.
@@ -244,15 +244,13 @@ Manual run:
 - pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_tabs.ps1
 
 ### Git hooks on Windows (Git for Windows)
-Git for Windows runs hooks under sh, so we install:
-- .git\hooks\pre-commit (sh wrapper)
-- .git\hooks\pre-commit.cmd (cmd runner that calls PowerShell)
+We use repo-tracked hooks via `core.hooksPath=.githooks`.
 
 Install or refresh hooks:
 - pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\tools\install_hooks.ps1
 
-Smoke test hook result (cmd-native, reliable):
-- cmd.exe /c ".git\hooks\pre-commit.cmd & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)"
+Smoke test hook result (runs the active pre-commit.cmd from the configured hooks directory):
+- cmd.exe /c for /f "usebackq delims=" %H in (`git rev-parse --git-path hooks`) do (call "%H\pre-commit.cmd") & if errorlevel 1 (echo HOOK_RC=1) else (echo HOOK_RC=0)
 
 ### Secondary enforcement: Validate-GodotScript
 Validate-GodotScript.ps1 performs deeper validation and also applies a narrow auto-fix:
@@ -275,7 +273,7 @@ Primary gate is the staged check_tabs hook.
 
 ### 4.4 Environment Resilience and Cache Management (Strict)
 - **The Cache Lock:** Avoid rapidly overwriting files with the `class_name` header via terminal scripts. Godot's global cache locks these files. If a fatal namespace collision occurs, remove `class_name` and rely on `extends [Type]` to bypass the cache lock until the feature is stable.
-- **Environment Inspection:** Automation scripts MUST NOT call raw environment variables (e.g., `$GodotExe`). Scripts must perform a safe inspection and fall back to a system default to prevent pipeline halts on diverse machines.
+- **Environment Inspection:** Scripts MUST NOT hard-depend on environment variables. Optional override env vars (example: `GODOT_EXE`) are permitted only if a safe fallback discovery path exists.
 
 ### 4.5 Headless CI/CD and File I/O Guardrails (Strict)
 - **The Autoload Trap:** Headless syntax validators do not load the `project.godot` Autoload registry. Scripts MUST NOT use global Autoload namespaces directly (e.g., `GameManager.sim`). You must use absolute pathing (e.g., `get_node("/root/GameManager").sim`) to ensure the code passes CI/CD without breaking runtime behavior.

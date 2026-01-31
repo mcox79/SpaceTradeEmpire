@@ -1,414 +1,225 @@
-$common = Join-Path $PSScriptRoot "common.ps1"; if (Test-Path -LiteralPath $common) { . $common } else { throw "Missing tools common: $common" }
-
-function Validate-GodotScript {
-
-
-
-
-
-param(
-
-
-[Parameter(Mandatory=$true)]
-
-
-[string]$TargetScript,
-
-
-[switch]$KeepAgent
-
-
-)
-
-
-
-
-
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$common = Join-Path $PSScriptRoot "common.ps1"
+if (-not (Test-Path -LiteralPath $common)) { throw "Missing tools common: $common" }
+. $common
 
-Write-Host "INITIALIZING PIPELINE for: $TargetScript" -ForegroundColor Yellow
-
-
-
-
-
-if (-not (Test-Path -LiteralPath $TargetScript)) { throw "TargetScript not found: $TargetScript" }
-
-
-
-
-
-$repo = (& git rev-parse --show-toplevel 2>$null)
-
-
-if (-not $repo) { throw "Not in a git repository." }
-
-
-$repo = $repo.Trim()
-
-
-
-
-
-# Preflight: require clean tree except target file (unstaged)
-
-
-$st = & git status --porcelain=1 2>&1
-
-
-if ($LASTEXITCODE -ne 0) { throw "git status failed: $st" }
-
-
-
-
-
-$targetRel = ((Resolve-Path $TargetScript).Path.Substring($repo.Length).TrimStart('\','/')).Replace('\','/')
-
-
-$dirtyOther = @()
-
-
-
-
-
-foreach ($line in ($st -split "`n")) {
-
-
-$line = $line.TrimEnd()
-
-
-if (-not $line) { continue }
-
-
-# porcelain format: XY<space>path
-
-
-if ($line.Length -ge 4) {
-
-
-$p = $line.Substring(3).Trim()
-
-
-$p = $p -replace '\\','/'
-
-
-if ($p -ne $targetRel) { $dirtyOther += $p }
-
-
+function Write-Utf8NoBomFile {
+	param(
+		[Parameter(Mandatory=$true)][string]$Path,
+		[Parameter(Mandatory=$true)][string]$Content
+	)
+	$enc = New-Object System.Text.UTF8Encoding($false)
+	[System.IO.File]::WriteAllText($Path, $Content, $enc)
 }
 
-
+function New-TempDir {
+	$base = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "ste_validate_gd")
+	[void](New-Item -ItemType Directory -Force -Path $base)
+	$dir = Join-Path $base ([System.Guid]::NewGuid().ToString("N"))
+	[void](New-Item -ItemType Directory -Force -Path $dir)
+	return $dir
 }
 
-
-
-
-
-if ($dirtyOther.Count -gt 0) {
-
-
-throw "Preflight failed. Working tree dirty outside target: $($dirtyOther -join ', ')"
-
-
+function Remove-TempDir {
+	param([Parameter(Mandatory=$true)][string]$Path)
+	try { Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 }
 
-
-
-
-
-# 1) Pre-processing: convert leading 4-space blocks to literal tabs
-
-
-$scriptContent = Get-Content -LiteralPath $TargetScript -Raw -Encoding UTF8
-
-
-$compliantContent = [regex]::Replace($scriptContent, '(?m)^( {4})+', {
-
-
-param($match) "`t" * ($match.Length / 4)
-
-
-})
-
-
-
-
-
-if ($compliantContent -ne $scriptContent) {
-
-
-Set-Content -LiteralPath $TargetScript -Value $compliantContent -Encoding UTF8 -NoNewline
-
-
-Write-Host "SUCCESS: Script sanitized. Leading spaces converted to tabs." -ForegroundColor Green
-
-
-} else {
-
-
-Write-Host "OK: No leading-space blocks found. No rewrite needed." -ForegroundColor Green
-
-
+function Get-RepoRoot {
+	$repo = (& git rev-parse --show-toplevel 2>$null)
+	if (-not $repo) { throw "Not in a git repository." }
+	return $repo.Trim()
 }
 
+function Get-RepoRelativePath {
+	param(
+		[Parameter(Mandatory=$true)][string]$RepoRoot,
+		[Parameter(Mandatory=$true)][string]$FullPath
+	)
 
-# 1b) Hard-fail if ANY leading spaces or mixed indentation remain
+	$repoNorm = $RepoRoot.TrimEnd('\','/')
+	$fullNorm = $FullPath
 
+	$prefix1 = $repoNorm + [System.IO.Path]::DirectorySeparatorChar
+	if ($fullNorm.StartsWith($prefix1, [System.StringComparison]::OrdinalIgnoreCase)) {
+		return (($fullNorm.Substring($prefix1.Length)) -replace '\\','/')
+	}
 
-$bad1 = Select-String -LiteralPath $TargetScript -Pattern '^( +)\S' -ErrorAction SilentlyContinue
+	$prefix2 = $repoNorm + '/'
+	if ($fullNorm.StartsWith($prefix2, [System.StringComparison]::OrdinalIgnoreCase)) {
+		return (($fullNorm.Substring($prefix2.Length)) -replace '\\','/')
+	}
 
-
-$bad2 = Select-String -LiteralPath $TargetScript -Pattern '^\t+ +\S' -ErrorAction SilentlyContinue
-
-
-$bad3 = Select-String -LiteralPath $TargetScript -Pattern '^ +\t+\S' -ErrorAction SilentlyContinue
-
-
-
-
-
-if ($bad1 -or $bad2 -or $bad3) {
-
-
-Write-Host "FATAL: Indentation policy violated (tabs-only leading indentation)." -ForegroundColor Red
-
-
-if ($bad1) { $bad1 | ForEach-Object { Write-Host $_ } }
-
-
-if ($bad2) { $bad2 | ForEach-Object { Write-Host $_ } }
-
-
-if ($bad3) { $bad3 | ForEach-Object { Write-Host $_ } }
-
-
-throw "FAILURE: Fix indentation and re-run Validate-GodotScript."
-
-
+	return $null
 }
 
-
-
-
-
-# 2) Agent generation in _scratch (never dirties repo)
-
-
-$sanitizedPath = ((Resolve-Path $TargetScript).Path -replace '\\','/')
-
-
-$scratch = Join-Path $repo "_scratch"
-
-
-New-Item -ItemType Directory -Force $scratch | Out-Null
-
-
-$agentPath = Join-Path $scratch "temp_validator.gd"
-
-
-
-
-
-$tab = [char]9
-
-
-$agentCode = @(
-
-
-"extends MainLoop",
-
-
-"func _process(_delta):",
-
-
-("{0}var gdscript = GDScript.new()" -f $tab),
-
-
-("{0}gdscript.source_code = FileAccess.get_file_as_string(""{1}"")" -f $tab, $sanitizedPath),
-
-
-("{0}var err = gdscript.reload()" -f $tab),
-
-
-("{0}if err != OK:" -f $tab),
-
-
-("{0}{0}printerr(""SCRIPT FATAL: reload() failed with code: %s"" % err)" -f $tab),
-
-
-("{0}{0}return true" -f $tab),
-
-
-("{0}print(""SCRIPT OK: parsed successfully"")" -f $tab),
-
-
-("{0}return true" -f $tab)
-
-
-) -join "`n"
-
-
-
-
-
-Set-Content -LiteralPath $agentPath -Value $agentCode -Encoding UTF8 -NoNewline
-
-
-
-
-
-# 3) Execution: capture output directly so we can inspect it
-
-
-$godotExe = Get-GodotExe -RepoRoot $repo
-
-
-$godotOut = & $godotExe --headless --script $agentPath 2>&1
-
-
-if ($godotOut) { $godotOut | ForEach-Object { Write-Host $_ } }
-
-
-
-
-
-$godotText = ($godotOut | Out-String)
-
-
-
-
-
-# Trust model: ANY of these banners is failure, regardless of exit code
-
-
-$hasFatal =
-
-
-($godotText -match '(?mi)\bSCRIPT\s+(ERROR|FATAL)\b') -or
-
-
-($godotText -match '(?mi)\bParse Error\b') -or
-
-
-($godotText -match '(?mi)\bError while parsing\b') -or
-
-
-($godotText -match '(?mi)\bERROR:\b')
-
-
-
-
-
-if ($hasFatal) { throw "FAILURE: Godot parse gate failed for $TargetScript" }
-
-
-
-
-
-# 4) Git gate: only commit if there is an actual diff for the target file
-
-
-& git diff --quiet -- $TargetScript
-
-
-$diffCode = $LASTEXITCODE
-
-
-
-
-
-if ($diffCode -eq 0) {
-
-
-Write-Host "OK: No changes to commit for $TargetScript" -ForegroundColor Green
-
-
-if (-not $KeepAgent) { Remove-Item -LiteralPath $agentPath -Force -ErrorAction SilentlyContinue }
-
-
-return
-
-
+function Get-IndentViolations {
+	param([Parameter(Mandatory=$true)][string]$Text)
+
+	$violations = New-Object System.Collections.Generic.List[object]
+	$lines = $Text -split "`n", -1
+
+	for ($i = 0; $i -lt $lines.Length; $i++) {
+		$line = $lines[$i]
+		$lineNo = $i + 1
+
+		if ($line.EndsWith("`r")) { $line = $line.Substring(0, $line.Length - 1) }
+
+		# Any leading spaces are forbidden (even on whitespace-only lines).
+		if ($line -match '^( +)') {
+			$violations.Add([pscustomobject]@{ Line = $lineNo; Kind = "leading_spaces"; Text = $line })
+			continue
+		}
+
+		# Mixed indentation is forbidden (tabs then spaces, or spaces then tabs).
+		if ($line -match '^\t+ +') {
+			$violations.Add([pscustomobject]@{ Line = $lineNo; Kind = "tabs_then_spaces"; Text = $line })
+			continue
+		}
+		if ($line -match '^ +\t+') {
+			$violations.Add([pscustomobject]@{ Line = $lineNo; Kind = "spaces_then_tabs"; Text = $line })
+			continue
+		}
+	}
+
+	return $violations
 }
 
+function Validate-GodotScript {
+	param(
+		[Parameter(Mandatory=$true)][string]$TargetScript,
+		[switch]$NormalizeIndentation
+	)
 
+	if (-not (Test-Path -LiteralPath $TargetScript)) { throw "TargetScript not found: $TargetScript" }
 
+	$repoRoot = Get-RepoRoot
+	$targetFull = (Resolve-Path -LiteralPath $TargetScript).Path
+	$targetRel = Get-RepoRelativePath -RepoRoot $repoRoot -FullPath $targetFull
 
+	$text = [System.IO.File]::ReadAllText($targetFull)
 
-if ($diffCode -ne 1) { throw "git diff failed with exit code $diffCode for $TargetScript" }
+	if ($NormalizeIndentation) {
+		$normalized = [regex]::Replace($text, '(?m)^(?: {4})+', {
+			param($m)
+			"`t" * ($m.Value.Length / 4)
+		})
 
+		if ($normalized -ne $text) {
+			Write-Utf8NoBomFile -Path $targetFull -Content $normalized
+			$text = $normalized
+			Write-Host "OK: Converted leading 4-space blocks to tabs (wrote UTF-8 no BOM)."
+		} else {
+			Write-Host "OK: No leading 4-space blocks found. No rewrite needed."
+		}
+	}
 
+	$violations = Get-IndentViolations -Text $text
+	if ($violations.Count -gt 0) {
+		Write-Host "FATAL: Indentation policy violated (tabs-only leading indentation)." -ForegroundColor Red
+		$max = [Math]::Min(30, $violations.Count)
+		for ($i = 0; $i -lt $max; $i++) {
+			$v = $violations[$i]
+			Write-Host ("  Line {0} [{1}]: {2}" -f $v.Line, $v.Kind, $v.Text) -ForegroundColor Red
+		}
+		if ($violations.Count -gt $max) {
+			Write-Host ("  ...and {0} more violation(s)." -f ($violations.Count - $max)) -ForegroundColor Red
+		}
+		throw "FAILURE: Fix indentation and re-run Validate-GodotScript."
+	}
 
+	$godotExe = Get-GodotExe -RepoRoot $repoRoot
+	if (-not $godotExe) { throw "FAILURE: Godot executable not found. Configure godot_path.cfg or set GODOT_EXE." }
 
+	$tmpDir = New-TempDir
+	$agentPath = $null
+	$tempCopy = $null
+	$scratchDir = Join-Path $repoRoot "_scratch"
+	$scratchExisted = (Test-Path -LiteralPath $scratchDir)
 
-$addOut = & git add -- $TargetScript 2>&1
+	try {
+		if (-not $scratchExisted) {
+			[void](New-Item -ItemType Directory -Force -Path $scratchDir)
+		}
 
+		$agentName = "temp_validator_{0}.gd" -f ([System.Guid]::NewGuid().ToString("N"))
+		$agentPath = Join-Path $scratchDir $agentName
 
-$addCode = $LASTEXITCODE
+		$tab = [char]9
+		$agentCode = @(
+			"extends MainLoop",
+			"func _process(_delta):",
+			("{0}var args = OS.get_cmdline_user_args()" -f $tab),
+			("{0}if args.size() < 2:" -f $tab),
+			("{0}{0}printerr(""SCRIPT FATAL: missing args. expected: <temp_file> <res_path>"")" -f $tab),
+			("{0}{0}OS.set_exit_code(2)" -f $tab),
+			("{0}{0}return true" -f $tab),
+			("{0}var temp_file = args[0]" -f $tab),
+			("{0}var res_path = args[1]" -f $tab),
+			("{0}var src = FileAccess.get_file_as_string(temp_file)" -f $tab),
+			("{0}var s = GDScript.new()" -f $tab),
+			("{0}s.source_code = src" -f $tab),
+			("{0}s.resource_path = res_path" -f $tab),
+			("{0}var err = s.reload()" -f $tab),
+			("{0}if err != OK:" -f $tab),
+			("{0}{0}printerr(""SCRIPT FATAL: reload() failed for %s with code: %s"" % [res_path, err])" -f $tab),
+			("{0}{0}OS.set_exit_code(1)" -f $tab),
+			("{0}{0}return true" -f $tab),
+			("{0}print(""SCRIPT OK: parsed %s"" % res_path)" -f $tab),
+			("{0}OS.set_exit_code(0)" -f $tab),
+			("{0}return true" -f $tab)
+		) -join "`n"
 
+		Write-Utf8NoBomFile -Path $agentPath -Content ($agentCode + "`n")
 
-if ($addOut) { $addOut | ForEach-Object { Write-Host $_ } }
+		$tempCopy = Join-Path $tmpDir "target.gd"
+		Write-Utf8NoBomFile -Path $tempCopy -Content $text
 
+		$resPath = if ($targetRel) { "res://$targetRel" } else { "res://" + [System.IO.Path]::GetFileName($targetFull) }
 
-if ($addCode -ne 0) { throw "git add failed ($addCode) for $TargetScript" }
+		$out = & $godotExe --headless --path $repoRoot --script $agentPath -- $tempCopy $resPath 2>&1
+		$rc = $LASTEXITCODE
+		if ($out) { $out | ForEach-Object { Write-Host $_ } }
 
+		if ($rc -ne 0) {
+			throw "FAILURE: Godot parse gate failed for $TargetScript (exit code $rc)."
+		}
 
+		$textOut = ($out | Out-String)
+		$hasFatal =
+			($textOut -match '(?mi)\bSCRIPT\s+FATAL\b') -or
+			($textOut -match '(?mi)\bSCRIPT\s+ERROR\b') -or
+			($textOut -match '(?mi)\bParse Error\b') -or
+			($textOut -match '(?mi)\bError while parsing\b') -or
+			($textOut -match '(?mi)\bERROR:\b')
 
+		if ($hasFatal) {
+			throw "FAILURE: Godot parse gate failed for $TargetScript."
+		}
 
+		Write-Host "OK: Godot parse gate passed."
+	}
+	finally {
+		if ($agentPath -and (Test-Path -LiteralPath $agentPath)) {
+			Remove-Item -LiteralPath $agentPath -Force -ErrorAction SilentlyContinue
+		}
+		if ($tempCopy -and (Test-Path -LiteralPath $tempCopy)) {
+			Remove-Item -LiteralPath $tempCopy -Force -ErrorAction SilentlyContinue
+		}
+		Remove-TempDir -Path $tmpDir
 
-$msg = "fix: standardize logic and formatting in $([System.IO.Path]::GetFileName($TargetScript))"
+		# If we created _scratch, remove it if empty to avoid dirtying the repo.
+		if (-not $scratchExisted -and (Test-Path -LiteralPath $scratchDir)) {
+			try {
+				$items = Get-ChildItem -LiteralPath $scratchDir -Force -ErrorAction SilentlyContinue
+				if (-not $items -or $items.Count -eq 0) {
+					Remove-Item -LiteralPath $scratchDir -Force -ErrorAction SilentlyContinue
+				}
+			} catch { }
+		}
+	}
 
-
-$commitOut = & git commit -m $msg 2>&1
-
-
-$commitCode = $LASTEXITCODE
-
-
-if ($commitOut) { $commitOut | ForEach-Object { Write-Host $_ } }
-
-
-
-
-
-# Treat "nothing to commit" as success, not failure
-
-
-if ($commitCode -ne 0) {
-
-
-if (($commitOut | Out-String) -match '(?mi)nothing to commit') {
-
-
-Write-Host "OK: Nothing to commit." -ForegroundColor Green
-
-
-} else {
-
-
-throw "FAILURE: git commit failed ($commitCode)"
-
-
-}
-
-
-} else {
-
-
-Write-Host "SUCCESS: Operation verified and baseline secured in Git." -ForegroundColor Green
-
-
-}
-
-
-
-
-
-if (-not $KeepAgent) { Remove-Item -LiteralPath $agentPath -Force -ErrorAction SilentlyContinue }
-
-
-
-
-
+	return
 }

@@ -2,60 +2,90 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Get-RepoRoot {
-  $root = (& git rev-parse --show-toplevel 2>$null)
-  if (-not $root) { throw "Not in a git repository." }
-  return $root.Trim()
+	$root = (& git rev-parse --show-toplevel 2>$null)
+	if (-not $root) { throw "Not in a git repository." }
+	return $root.Trim()
+}
+
+function Ensure-Dir {
+	param([Parameter(Mandatory=$true)][string]$Path)
+	if (-not (Test-Path -LiteralPath $Path)) {
+		[void](New-Item -ItemType Directory -Force -Path $Path)
+	}
+}
+
+function Write-Utf8NoBomFile {
+	param(
+		[Parameter(Mandatory=$true)][string]$Path,
+		[Parameter(Mandatory=$true)][string]$Content,
+		[switch]$EnsureTrailingNewline
+	)
+	$enc = New-Object System.Text.UTF8Encoding($false)
+	$text = $Content
+	if ($EnsureTrailingNewline -and -not $text.EndsWith("`n")) { $text += "`n" }
+	[System.IO.File]::WriteAllText($Path, $text, $enc)
 }
 
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
 [Environment]::CurrentDirectory = $repoRoot
 
-$gitDir = Join-Path $repoRoot ".git"
-if (-not (Test-Path -LiteralPath $gitDir)) { throw "Missing .git directory at repo root." }
+$githooksDir = Join-Path $repoRoot ".githooks"
+Ensure-Dir -Path $githooksDir
 
-$hooksDir = Join-Path $gitDir "hooks"
-if (-not (Test-Path -LiteralPath $hooksDir)) { New-Item -ItemType Directory -Path $hooksDir | Out-Null }
+$preCommitShPath = Join-Path $githooksDir "pre-commit"
+$preCommitCmdPath = Join-Path $githooksDir "pre-commit.cmd"
 
-# pre-commit (sh) delegates to pre-commit.cmd because Git for Windows runs hooks under sh
-$shHookPath  = Join-Path $hooksDir "pre-commit"
-$cmdHookPath = Join-Path $hooksDir "pre-commit.cmd"
+# Git for Windows runs hooks under sh. A .cmd must be launched via cmd.exe /c.
+# Important: Convert MSYS path to Windows path via cygpath when available.
+$preCommitSh = @"
+#!/bin/sh
+# Repo-tracked pre-commit hook for Git for Windows.
+HOOK_DIR="`$(cd "`$(dirname "`$0")" && pwd)"
+if command -v cygpath >/dev/null 2>&1; then
+	HOOK_DIR_WIN="`$(cygpath -w "`$HOOK_DIR")"
+else
+	HOOK_DIR_WIN="`$(cd "`$HOOK_DIR" && pwd -W 2>/dev/null || echo "`$HOOK_DIR")"
+fi
+CMD_PATH="`$HOOK_DIR_WIN\\pre-commit.cmd"
+exec cmd.exe /c "\"`$CMD_PATH\""
+"@
 
-$shLines = @(
-  "#!/usr/bin/env sh"
-  "set -eu"
-  "cmd.exe /c .git\\\\hooks\\\\pre-commit.cmd"
+$preCommitCmd = @"
+@echo off
+setlocal
+
+rem Repo-tracked pre-commit hook (Windows)
+rem Runs scripts\check_tabs.ps1 from repo root using Windows PowerShell 5.1
+
+for /f "usebackq delims=" %%R in (`git rev-parse --show-toplevel 2^>nul`) do set "REPOROOT=%%R"
+if not defined REPOROOT (
+	echo FATAL: not in a git repository.
+	exit /b 1
 )
 
-$cmdLines = @(
-  "@echo off"
-  "setlocal"
-  ""
-  "for /f ""delims="" %%G in ('git rev-parse --show-toplevel') do set ""REPO=%%G"""
-  "cd /d ""%REPO%"" || exit /b 1"
-  ""
-  "where pwsh >nul 2>&1"
-  "if not errorlevel 1 goto HAVE_PWSH"
-  ""
-  "where powershell >nul 2>&1"
-  "if not errorlevel 1 goto HAVE_POWERSHELL"
-  ""
-  "echo FATAL: neither pwsh nor powershell found in PATH 1>&2"
-  "exit /b 1"
-  ""
-  ":HAVE_PWSH"
-  "pwsh -NoProfile -File scripts\\check_tabs.ps1"
-  "exit /b %errorlevel%"
-  ""
-  ":HAVE_POWERSHELL"
-  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\check_tabs.ps1"
-  "exit /b %errorlevel%"
+set "PWSH=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%PWSH%" (
+	echo FATAL: Windows PowerShell not found at %PWSH%
+	exit /b 1
 )
 
-$encNoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($shHookPath,  ($shLines  -join "`n")  + "`n",  $encNoBom)
-[System.IO.File]::WriteAllText($cmdHookPath, ($cmdLines -join "`r`n") + "`r`n", $encNoBom)
+cd /d "%REPOROOT%"
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "scripts\check_tabs.ps1"
+exit /b %ERRORLEVEL%
+"@
 
-# Ensure sh hook is LF-only and starts with shebang; Git for Windows will still run it
-Write-Host ("INSTALLED: {0}" -f $shHookPath)
-Write-Host ("INSTALLED: {0}" -f $cmdHookPath)
+Write-Utf8NoBomFile -Path $preCommitShPath -Content $preCommitSh -EnsureTrailingNewline
+Write-Utf8NoBomFile -Path $preCommitCmdPath -Content $preCommitCmd -EnsureTrailingNewline
+
+# Ensure the sh hook is executable (best effort; on Windows it may be ignored)
+try {
+	& git update-index --chmod=+x ".githooks/pre-commit" 2>$null | Out-Null
+} catch { }
+
+# Set core.hooksPath to repo tracked .githooks
+& git config core.hooksPath .githooks
+if ($LASTEXITCODE -ne 0) { throw "git config core.hooksPath failed." }
+
+Write-Host "OK: Installed repo-tracked hooks at .githooks and set core.hooksPath=.githooks"
+Write-Host "Next: make a test commit to verify the pre-commit hook runs."
