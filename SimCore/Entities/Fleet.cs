@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
+using SimCore.Entities;
 
 namespace SimCore.Entities;
 
@@ -6,7 +7,9 @@ public enum FleetState
 {
     Idle = 0,
     Traveling = 1,
-    Docked = 2
+    Docked = 2,
+    // SLICE 3: Fracture Travel (Off-Lane)
+    FractureTraveling = 3
 }
 
 public class Fleet
@@ -32,5 +35,5 @@ public class Fleet
     public int Supplies { get; set; } = 100;
 
     [JsonIgnore]
-    public bool IsMoving => State == FleetState.Traveling;
+    public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;
 }

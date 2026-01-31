@@ -1,4 +1,4 @@
-﻿using SimCore.Commands;
+using SimCore.Commands;
 using SimCore.Systems;
 using System.Collections.Concurrent;
 
@@ -8,7 +8,7 @@ public class SimKernel
 {
     private SimState _state;
     private ConcurrentQueue<ICommand> _commandQueue = new();
-    public SimState State => _state; 
+    public SimState State => _state;
 
     public SimKernel(int seed)
     {
@@ -27,7 +27,8 @@ public class SimKernel
             cmd.Execute(_state);
         }
         MovementSystem.Process(_state);
-        LogisticsSystem.Process(_state); // NEW: The Brain
+        FractureSystem.Process(_state); // SLICE 3: Fracture Layer
+        LogisticsSystem.Process(_state);
         IndustrySystem.Process(_state);
         _state.AdvanceTick();
     }
@@ -39,7 +40,6 @@ public class SimKernel
 
     public void LoadFromString(string data)
     {
-        var loaded = SerializationSystem.Deserialize(data);
-        if (loaded != null) _state = loaded;
+        _state = SerializationSystem.Deserialize(data);
     }
 }
