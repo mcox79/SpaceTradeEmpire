@@ -25,10 +25,9 @@ public partial class StationMenu : Control
 
     private void SetupUI()
     {
-        // Basic Panel Setup
         var panel = new PanelContainer();
         panel.SetAnchorsPreset(LayoutPreset.Center);
-        panel.CustomMinimumSize = new Vector2(500, 400);
+        panel.CustomMinimumSize = new Vector2(600, 500);
         AddChild(panel);
 
         var vbox = new VBoxContainer();
@@ -37,21 +36,21 @@ public partial class StationMenu : Control
         _titleLabel = new Label { Text = "STATION MENU", HorizontalAlignment = HorizontalAlignment.Center };
         vbox.AddChild(_titleLabel);
 
-        // --- MARKET SECTION ---
+        // --- MARKET ---
         vbox.AddChild(new HSeparator());
         vbox.AddChild(new Label { Text = "MARKET INVENTORY", Modulate = new Color(0.7f, 0.7f, 1f) });
         _marketList = new VBoxContainer();
         vbox.AddChild(_marketList);
 
-        // --- INDUSTRY SECTION ---
+        // --- INDUSTRY ---
         vbox.AddChild(new HSeparator());
         vbox.AddChild(new Label { Text = "LOCAL INDUSTRY", Modulate = new Color(0.7f, 1f, 0.7f) });
         _industryList = new VBoxContainer();
         vbox.AddChild(_industryList);
 
-        // --- TRAFFIC SECTION (NEW) ---
+        // --- TRAFFIC (Expanded) ---
         vbox.AddChild(new HSeparator());
-        vbox.AddChild(new Label { Text = "INBOUND TRAFFIC", Modulate = new Color(1f, 0.7f, 0.7f) });
+        vbox.AddChild(new Label { Text = "TRAFFIC MONITOR (Active Logistics)", Modulate = new Color(1f, 0.7f, 0.7f) });
         _trafficList = new VBoxContainer();
         vbox.AddChild(_trafficList);
 
@@ -66,10 +65,7 @@ public partial class StationMenu : Control
     {
         Visible = isOpen;
         _currentNodeId = nodeId;
-        if (isOpen)
-        {
-            Refresh();
-        }
+        if (isOpen) Refresh();
     }
 
     public void Refresh()
@@ -78,39 +74,44 @@ public partial class StationMenu : Control
         
         _bridge.ExecuteSafeRead(state => 
         {
-            // 1. Update Title
             if (state.Nodes.ContainsKey(_currentNodeId))
                 _titleLabel.Text = state.Nodes[_currentNodeId].Name.ToUpper();
 
-            // 2. Market Inventory
+            // 1. Market
             foreach (var child in _marketList.GetChildren()) child.QueueFree();
             if (state.Markets.TryGetValue(_currentNodeId, out var market))
             {
                 foreach (var kv in market.Inventory)
                 {
-                    var row = new Label { Text = $"{kv.Key}: {kv.Value}" };
-                    _marketList.AddChild(row);
+                    _marketList.AddChild(new Label { Text = $"{kv.Key}: {kv.Value}" });
                 }
             }
 
-            // 3. Industry Sites
+            // 2. Industry
             foreach (var child in _industryList.GetChildren()) child.QueueFree();
             var localSites = state.IndustrySites.Values.Where(s => s.NodeId == _currentNodeId);
             foreach (var site in localSites)
             {
-                var inputs = string.Join(",", site.Inputs.Select(i => $"{i.Key}({i.Value})"));
-                var outputs = string.Join(",", site.Outputs.Select(o => $"{o.Key}({o.Value})"));
-                var lbl = new Label { Text = $"{site.Id}: {inputs} => {outputs}" };
-                _industryList.AddChild(lbl);
+                var inputs = string.Join(,, site.Inputs.Select(i => $"{i.Key}({i.Value})"));
+                var outputs = string.Join(,, site.Outputs.Select(o => $"{o.Key}({o.Value})"));
+                _industryList.AddChild(new Label { Text = $"{site.Id}: {inputs} => {outputs}" });
             }
 
-            // 4. Traffic Monitor
+            // 3. Traffic (IMPROVED FILTER)
             foreach (var child in _trafficList.GetChildren()) child.QueueFree();
-            var inbound = state.Fleets.Values.Where(f => f.DestinationNodeId == _currentNodeId);
-            foreach (var fleet in inbound)
+            
+            // Show ships coming HERE, or active ships currently docked HERE working on a job
+            var relevantFleets = state.Fleets.Values.Where(f => 
+                f.DestinationNodeId == _currentNodeId || 
+                (f.CurrentNodeId == _currentNodeId && f.CurrentJob != null)
+            );
+
+            foreach (var fleet in relevantFleets)
             {
+                string status = fleet.DestinationNodeId == _currentNodeId ? "INBOUND" : "OUTBOUND";
                 var progress = (int)(fleet.TravelProgress * 100);
-                var lbl = new Label { Text = $"FLEET {fleet.Id} [{fleet.OwnerId}] :: {fleet.CurrentTask} ({progress}%)" };
+                var lbl = new Label { Text = $"[{status}] {fleet.Id}: {fleet.CurrentTask} ({progress}%)" };
+                if (status == "OUTBOUND") lbl.Modulate = new Color(1, 1, 0.5f);
                 _trafficList.AddChild(lbl);
             }
         });
