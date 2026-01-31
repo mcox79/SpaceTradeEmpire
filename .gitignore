@@ -1,58 +1,72 @@
-# Godot 4+ specific ignores
+# =========================
+# Godot 4.x (project cache)
+# =========================
 .godot/
-*.translation
-/android/
-/ios/
 
-# Editor UI layout
+# Godot 3 legacy import cache (safe to ignore even if unused)
+.import/
+
+# Export/build output folders (only if you generate these in-repo)
+android/
+ios/
+
+# Editor layout (local)
 *.editor_layout
 
-# Temporary files
-*.tmp
-*.bak
-*.log
 
-# Local backups (never commit)
-*.bak
-*.bak_*
-_scratch/
-
-
-_FullProjectContext.txt
-
-# Generated context dumps
-/_FullProjectContext*.txt
+# =========================
+# Local scratch + dumps
+# =========================
 /_scratch/
-/._scratch/
 /_scratch/**
+/._scratch/
+/_scratch
+/_FullProjectContext*.txt
+/_FullProjectContext.txt
 
 # Local machine config
 godot_path.cfg
 
-# Windows junk
-*.lnk
-*.uid
-scripts/temp_validator.gd
-
-# Tooling backups (never commit)
-*.bak.*
-*.bak
-*_bak_*
-# Tooling + context dump artifacts (do not commit)
-._scratch/
-_FullProjectContext*.txt
+# Local copy artifacts
 * - Copy.*
-temp_validator.gd
+*_bak_*
+*.bak
+*.bak.*
+*.tmp
+*.log
 
+# =========================
+# Specific Ignores
+# =========================
 
-# Editor backup copies
-_PROJECT_CONTEXT - Copy.md
+.godot/
+**/.godot/
+.mono/
+**/.mono/
+.import/
+**/.import/
 
+# =========================
+# IDE / OS junk
+# =========================
+.vs/
+.idea/
+Thumbs.db
+Desktop.ini
+*.lnk
 
-# Local backups
-DevTool - Copy.ps1
+# Godot 4 UID sidecar files:
+# Ignore by default to prevent non-Godot folders from accumulating noise,
+# but DO track them inside the actual Godot project.
+*.uid
+!GameShell/**/*.uid
 
-
+# =========================
 # .NET build artifacts
+# =========================
 **/bin/
 **/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates

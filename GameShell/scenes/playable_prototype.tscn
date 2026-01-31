@@ -1,0 +1,29 @@
+[gd_scene load_steps=7 format=3 uid="uid://cvays47todb8v"]
+
+[ext_resource type="Script" path="res://scripts/core/game_manager.gd" id="1_gm"]
+[ext_resource type="Script" path="res://scripts/view/GalaxyView.cs" id="2_view"]
+[ext_resource type="PackedScene" uid="uid://player_asset_01" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/ghost_system.tscn" id="4_ghost"]
+[ext_resource type="PackedScene" uid="uid://station_alpha_01" path="res://scenes/station.tscn" id="5_station"]
+[ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="6_profile"]
+
+[node name="Main" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 20, 0)
+shadow_enabled = true
+
+[node name="GameManager" type="Node" parent="."]
+script = ExtResource("1_gm")
+
+[node name="GalaxyView" type="Node3D" parent="."]
+script = ExtResource("2_view")
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
+
+[node name="GhostSystem" parent="." instance=ExtResource("4_ghost")]
+
+[node name="StationAlpha" parent="." instance=ExtResource("5_station")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -60)
+market_profile = ExtResource("6_profile")

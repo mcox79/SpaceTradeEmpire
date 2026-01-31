@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MarketProfile" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/market_profile.gd" id="1_mp"]
+[ext_resource type="Resource" path="res://resources/commodities/iron.tres" id="2_iron"]
+[ext_resource type="Resource" path="res://resources/commodities/gold.tres" id="3_gold"]
+
+[resource]
+script = ExtResource("1_mp")
+station_name = "Alpha"
+wealth_tier = 1.2
+trade_goods = [ExtResource("2_iron"), ExtResource("3_gold")]
+base_demands = {"ore_iron": 80, "ore_gold": 180}
