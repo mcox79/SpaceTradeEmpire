@@ -1,6 +1,7 @@
-﻿using SimCore.Entities;
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using SimCore.Entities;
 
 namespace SimCore.Systems;
 
@@ -25,9 +26,8 @@ public static class IndustrySystem
                 if (ratio < scale) scale = ratio;
             }
 
-            // 2. Efficiency Penalty (Optional: could add randomness or maintenance logic here)
+            // 2. Efficiency Penalty
             scale *= site.Efficiency;
-
             if (scale <= 0.01f) continue; // Skip negligible production
 
             // 3. Consume Inputs
@@ -50,6 +50,26 @@ public static class IndustrySystem
                 {
                     if (!market.Inventory.ContainsKey(output.Key)) market.Inventory[output.Key] = 0;
                     market.Inventory[output.Key] += produced;
+                }
+            }
+        }
+
+        ValidateInventoryConservation(state);
+    }
+
+    /// <summary>
+    /// Hard Invariant: No negative inventory allowed in the universe.
+    /// Future: Track TotalMass(t) vs TotalMass(t-1) for strict delta accounting.
+    /// </summary>
+    private static void ValidateInventoryConservation(SimState state)
+    {
+        foreach (var market in state.Markets.Values)
+        {
+            foreach (var kv in market.Inventory)
+            {
+                if (kv.Value < 0)
+                {
+                    throw new InvalidOperationException($"Invariant Violation: Market {market.Id} has negative inventory for {kv.Key}: {kv.Value}");
                 }
             }
         }

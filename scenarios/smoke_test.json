@@ -1,0 +1,10 @@
+{
+  "ScenarioId": "smoke_test_v1",
+  "InitialSeed": 12345,
+  "StopAtDay": 10,
+  "CommandScript": [],
+  "ExpectedResults": {
+    "MaxInflation": 2000.0,
+    "MaxTraceLevel": 0.05
+  }
+}
