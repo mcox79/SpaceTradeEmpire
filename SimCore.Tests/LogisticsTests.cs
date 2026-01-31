@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
 using SimCore.Systems;
@@ -12,8 +12,13 @@ public class LogisticsTests
     public void Logistics_AssignsJob_WhenShortageExists()
     {
         var state = new SimState(123);
-        
-        // Setup: Alpha (Source of Ore), Beta (Factory Needs Ore)
+
+        // 1. Setup Topology (Nodes + Edge)
+        state.Nodes.Add("alpha", new Node { Id = "alpha", MarketId = "alpha" });
+        state.Nodes.Add("beta", new Node { Id = "beta", MarketId = "beta" });
+        state.Edges.Add("e1", new Edge { Id = "e1", FromNodeId = "alpha", ToNodeId = "beta", Distance = 10 });
+
+        // 2. Setup Markets
         var alpha = new Market { Id = "alpha" };
         alpha.Inventory["ore"] = 100;
         state.Markets.Add("alpha", alpha);
@@ -22,26 +27,26 @@ public class LogisticsTests
         beta.Inventory["ore"] = 0;
         state.Markets.Add("beta", beta);
 
-        // Factory at Beta
-        var factory = new IndustrySite 
-        { 
-            Id = "fac_1", 
+        // 3. Setup Demand (Factory at Beta)
+        var factory = new IndustrySite
+        {
+            Id = "fac_1",
             NodeId = "beta",
             Inputs = new Dictionary<string, int> { { "ore", 10 } }
         };
         state.IndustrySites.Add("fac_1", factory);
 
-        // Idle Fleet at Beta
+        // 4. Setup Fleet (Idle at Beta)
         var fleet = new Fleet { Id = "f1", OwnerId = "ai", CurrentNodeId = "beta", State = FleetState.Idle };
         state.Fleets.Add("f1", fleet);
 
-        // Act: Run Logistics
+        // Act
         LogisticsSystem.Process(state);
 
-        // Assert: Fleet should now be targetting Alpha to get Ore
-        Assert.IsNotNull(fleet.CurrentJob);
+        // Assert
+        Assert.IsNotNull(fleet.CurrentJob, "Fleet should have a job assigned.");
         Assert.That(fleet.CurrentJob.GoodId, Is.EqualTo("ore"));
         Assert.That(fleet.CurrentJob.SourceNodeId, Is.EqualTo("alpha"));
-        Assert.That(fleet.CurrentTask, Does.Contain("Fetching ore"));
+        Assert.That(fleet.State, Is.EqualTo(FleetState.Traveling));
     }
 }

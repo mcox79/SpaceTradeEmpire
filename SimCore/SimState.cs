@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using SimCore.Entities;
@@ -58,11 +58,20 @@ public class SimState
             }
             sb.Append("|");
         }
-        
-        // Hash Industry State
+
         foreach (var s in IndustrySites.OrderBy(k => k.Key))
         {
             sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency}|");
+        }
+
+        // SLICE 3: SIGNAL HASHING
+        foreach (var n in Nodes.OrderBy(k => k.Key))
+        {
+            if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace:F2}|");
+        }
+        foreach (var e in Edges.OrderBy(k => k.Key))
+        {
+            if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat:F2}|");
         }
 
         using var sha = SHA256.Create();

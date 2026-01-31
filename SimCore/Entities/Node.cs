@@ -11,4 +11,8 @@ public class Node
     public NodeKind Kind { get; set; }
     public string Name { get; set; } = "";
     public string MarketId { get; set; } = "";
+
+    // SLICE 3: SIGNAL LAYER
+    // Precursor Trace: Accumulates from Fracture usage. Drives Containment.
+    public float Trace { get; set; } = 0f;
 }

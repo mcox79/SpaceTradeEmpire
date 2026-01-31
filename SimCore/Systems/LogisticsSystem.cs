@@ -1,7 +1,7 @@
-﻿using SimCore.Entities;
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
+using SimCore.Entities;
 
 namespace SimCore.Systems;
 
@@ -9,126 +9,118 @@ public static class LogisticsSystem
 {
     public static void Process(SimState state)
     {
-        // 1. Process Active Jobs
-        foreach (var fleet in state.Fleets.Values.Where(f => f.CurrentJob != null))
-        {
-            ProcessJob(state, fleet);
-        }
-
-        // 2. Dispatch Idle Fleets
-        foreach (var fleet in state.Fleets.Values.Where(f => f.CurrentJob == null && f.OwnerId != "player"))
-        {
-            TryAssignJob(state, fleet);
-        }
-    }
-
-    private static void ProcessJob(SimState state, Fleet fleet)
-    {
-        var job = fleet.CurrentJob!;
-
-        switch (job.Stage)
-        {
-            case JobStage.EnRouteToSource:
-                if (fleet.CurrentNodeId == job.SourceNodeId && fleet.State != FleetState.Traveling)
-                {
-                    job.Stage = JobStage.Loading;
-                    fleet.CurrentTask = $"Loading {job.GoodId}";
-                }
-                else if (fleet.DestinationNodeId != job.SourceNodeId)
-                {
-                    // If we are idle (arrived at a waypoint), plan next step
-                    if (fleet.State == FleetState.Idle)
-                        StartTravel(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId}");
-                }
-                break;
-
-            case JobStage.Loading:
-                job.Stage = JobStage.EnRouteToTarget;
-                StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
-                break;
-
-            case JobStage.EnRouteToTarget:
-                if (fleet.CurrentNodeId == job.TargetNodeId && fleet.State != FleetState.Traveling)
-                {
-                    job.Stage = JobStage.Unloading;
-                    fleet.CurrentTask = $"Unloading {job.GoodId}";
-                }
-                else if (fleet.DestinationNodeId != job.TargetNodeId)
-                {
-                    // If we are idle (arrived at a waypoint), plan next step
-                    if (fleet.State == FleetState.Idle)
-                        StartTravel(state, fleet, job.TargetNodeId, $"Hauling {job.GoodId} to {job.TargetNodeId}");
-                }
-                break;
-
-            case JobStage.Unloading:
-                if (state.Nodes.TryGetValue(job.TargetNodeId, out var node) && 
-                    state.Markets.TryGetValue(node.MarketId, out var mkt))
-                {
-                    if (!mkt.Inventory.ContainsKey(job.GoodId)) mkt.Inventory[job.GoodId] = 0;
-                    mkt.Inventory[job.GoodId] += job.Quantity;
-                }
-                fleet.CurrentJob = null;
-                fleet.CurrentTask = "Idle";
-                break;
-        }
-    }
-
-    private static void StartTravel(SimState state, Fleet fleet, string finalTargetId, string taskDesc)
-    {
-        // ROUTING: Don't just look for direct edge. Find the NEXT HOP.
-        string nextStepId = GetNextStep(state, fleet.CurrentNodeId, finalTargetId);
+        // 1. Identify Shortages (Industry Demand vs Market Inventory)
+        var shortages = new List<(string MarketId, string GoodId, int Amount)>();
         
-        if (string.IsNullOrEmpty(nextStepId))
+        foreach (var site in state.IndustrySites.Values)
         {
-             fleet.State = FleetState.Idle;
-             fleet.CurrentTask = $"No route to {finalTargetId}";
-             return;
+            // Resolve Market for this Site (via Node)
+            if (string.IsNullOrEmpty(site.NodeId)) continue;
+            
+            // Assumption: MarketId is often same as NodeId or linked. 
+            // For now, look up Market by ID matching Node, or check Node's MarketId if nodes exist
+            string marketId = site.NodeId; // Default fallback
+            if (state.Nodes.TryGetValue(site.NodeId, out var node) && !string.IsNullOrEmpty(node.MarketId))
+            {
+                marketId = node.MarketId;
+            }
+
+            if (!state.Markets.TryGetValue(marketId, out var market)) continue;
+
+            foreach (var input in site.Inputs)
+            {
+                string goodId = input.Key;
+                int required = input.Value;
+                int current = market.Inventory.GetValueOrDefault(goodId, 0);
+                
+                if (current < required)
+                {
+                    shortages.Add((market.Id, goodId, required - current));
+                }
+            }
         }
 
-        // Now resolve the specific edge for this single hop
-        if (MapQueries.TryGetEdgeId(state, fleet.CurrentNodeId, nextStepId, out string edgeId))
+        // 2. Assign Fleets to Shortages
+        foreach (var task in shortages)
         {
-            fleet.DestinationNodeId = nextStepId; // HOP DESTINATION, NOT FINAL
-            fleet.CurrentEdgeId = edgeId;
-            fleet.State = FleetState.Traveling;
-            fleet.TravelProgress = 0f;
-            fleet.CurrentTask = taskDesc + $" (via {nextStepId})";
-            
-            if (state.Edges.TryGetValue(edgeId, out var edge)) edge.UsedCapacity++;
-        }
-        else
-        {
-            fleet.State = FleetState.Idle;
-            fleet.CurrentTask = "Waiting for edge...";
+            // Find a fleet that is IDLE
+            var fleet = state.Fleets.Values.FirstOrDefault(f => f.State == FleetState.Idle);
+            if (fleet == null) continue;
+
+            // Find a supplier
+            var supplier = FindSupplier(state, task.GoodId, task.MarketId);
+            if (supplier != null)
+            {
+                PlanLogistics(state, fleet, supplier.Id, task.MarketId, task.GoodId, task.Amount);
+            }
         }
     }
 
-    // BFS PATHFINDER
-    private static string GetNextStep(SimState state, string startId, string endId)
+    private static Market? FindSupplier(SimState state, string goodId, string excludeMarketId)
+    {
+        return state.Markets.Values
+            .FirstOrDefault(m => m.Id != excludeMarketId && 
+                                 m.Inventory.GetValueOrDefault(goodId, 0) > 10);
+    }
+
+    public static void PlanLogistics(SimState state, Fleet fleet, string sourceMarketId, string destMarketId, string goodId, int amount)
+    {
+        string? sourceNode = GetNodeForMarket(state, sourceMarketId);
+        string? destNode = GetNodeForMarket(state, destMarketId);
+
+        if (sourceNode == null || destNode == null) return;
+
+        // Route Verification
+        string? nextHop = GetNextHop(state, fleet.CurrentNodeId, sourceNode);
+        if (nextHop == null && fleet.CurrentNodeId != sourceNode) return;
+
+        // Assign Orders
+        fleet.State = FleetState.Traveling;
+        fleet.DestinationNodeId = sourceNode;
+        fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
+        
+        fleet.CurrentJob = new LogisticsJob
+        {
+            GoodId = goodId,
+            SourceNodeId = sourceNode,
+            TargetNodeId = destNode,
+            Amount = amount
+        };
+    }
+
+    private static string? GetNodeForMarket(SimState state, string marketId)
+    {
+        // Try explicit link
+        var linkedNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == marketId);
+        if (linkedNode != null) return linkedNode.Id;
+        
+        // Fallback: Check if MarketId is itself a NodeId
+        if (state.Nodes.ContainsKey(marketId)) return marketId;
+        
+        return null;
+    }
+
+    public static string? GetNextHop(SimState state, string startId, string endId)
     {
         if (startId == endId) return startId;
-        
-        // Check direct connection first (Optimization)
         if (MapQueries.AreConnected(state, startId, endId)) return endId;
 
         var frontier = new Queue<string>();
         frontier.Enqueue(startId);
         var cameFrom = new Dictionary<string, string>();
-        cameFrom[startId] = null;
+        cameFrom[startId] = startId; // Sentinel
 
         while (frontier.Count > 0)
         {
             var current = frontier.Dequeue();
             if (current == endId) break;
 
-            // Find neighbors
             foreach (var edge in state.Edges.Values)
             {
-                string next = null;
+                string? next = null;
                 if (edge.FromNodeId == current) next = edge.ToNodeId;
                 else if (edge.ToNodeId == current) next = edge.FromNodeId;
-                
+
                 if (next != null && !cameFrom.ContainsKey(next))
                 {
                     frontier.Enqueue(next);
@@ -137,8 +129,7 @@ public static class LogisticsSystem
             }
         }
 
-        // Reconstruct path to find the IMMEDIATE next step
-        if (!cameFrom.ContainsKey(endId)) return null; // No path
+        if (!cameFrom.ContainsKey(endId)) return null;
 
         var curr = endId;
         while (cameFrom[curr] != startId)
@@ -146,44 +137,5 @@ public static class LogisticsSystem
             curr = cameFrom[curr];
         }
         return curr;
-    }
-
-    private static void TryAssignJob(SimState state, Fleet fleet)
-    {
-        foreach (var site in state.IndustrySites.Values)
-        {
-            if (!site.Active) continue;
-            if (!state.Nodes.TryGetValue(site.NodeId, out var siteNode)) continue;
-            if (!state.Markets.TryGetValue(siteNode.MarketId, out var destMarket)) continue;
-
-            foreach (var input in site.Inputs)
-            {
-                int currentStock = destMarket.Inventory.ContainsKey(input.Key) ? destMarket.Inventory[input.Key] : 0;
-                
-                if (currentStock < input.Value * 5)
-                {
-                    foreach (var sourceMkt in state.Markets.Values)
-                    {
-                        if (sourceMkt.Id == destMarket.Id) continue;
-                        if (sourceMkt.Inventory.ContainsKey(input.Key) && sourceMkt.Inventory[input.Key] >= input.Value)
-                        {
-                            var sourceNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == sourceMkt.Id);
-                            if (sourceNode == null) continue;
-
-                            fleet.CurrentJob = new LogisticsJob
-                            {
-                                GoodId = input.Key,
-                                Quantity = input.Value,
-                                SourceNodeId = sourceNode.Id,
-                                TargetNodeId = site.NodeId,
-                                Stage = JobStage.EnRouteToSource
-                            };
-                            fleet.CurrentTask = $"Fetching {input.Key} from {sourceNode.Name}";
-                            return;
-                        }
-                    }
-                }
-            }
-        }
     }
 }
