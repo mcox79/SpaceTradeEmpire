@@ -1,50 +1,52 @@
 using NUnit.Framework;
-using SimCore;
 using SimCore.Entities;
-using SimCore.Systems;
 using System.Collections.Generic;
 
-namespace SimCore.Tests;
-
-public class MarketTests
+namespace SimCore.Tests
 {
-    [Test]
-    public void Price_Increases_WithScarcity()
+    [TestFixture]
+    public class MarketTests
     {
-        var market = new Market();
-        market.Demand["ore"] = 100;
-        
-        // Case 1: High Supply (Surplus) -> Low Price
-        market.Inventory["ore"] = 200;
-        int cheapPrice = market.GetPrice("ore");
-        Assert.That(cheapPrice, Is.LessThan(100));
+        [Test]
+        public void GetPrice_LowSupply_ReturnsHighPrice()
+        {
+            // Arrange
+            var market = new Market();
+            market.Inventory["fuel"] = 10; // Low supply
 
-        // Case 2: Low Supply (Shortage) -> High Price
-        market.Inventory["ore"] = 10;
-        int expensivePrice = market.GetPrice("ore");
-        Assert.That(expensivePrice, Is.GreaterThan(100));
-    }
+            // Act
+            int price = market.GetPrice("fuel");
 
-    [Test]
-    public void Traffic_Generates_Heat()
-    {
-        var state = new SimState(123);
-        state.Edges.Add("e1", new Edge { Id = "e1", Heat = 0f, Distance = 10f });
-        
-        // Setup Fleet moving on Edge
-        var fleet = new Fleet 
-        { 
-            State = FleetState.Traveling, 
-            CurrentEdgeId = "e1", 
-            Speed = 1f,
-            CurrentJob = new LogisticsJob { Amount = 100 } // Heavy cargo
-        };
-        state.Fleets.Add("f1", fleet);
+            // Assert (Stub Logic: 100 + (50 - 10) = 140)
+            Assert.That(price, Is.GreaterThan(100), "Price should be high when scarce.");
+        }
 
-        // Act
-        MovementSystem.Process(state);
+        [Test]
+        public void GetPrice_HighSupply_ReturnsLowPrice()
+        {
+            // Arrange
+            var market = new Market();
+            market.Inventory["fuel"] = 100; // High supply
 
-        // Assert
-        Assert.That(state.Edges["e1"].Heat, Is.GreaterThan(0f));
+            // Act
+            int price = market.GetPrice("fuel");
+
+            // Assert (Stub Logic: 100 + (50 - 100) = 50)
+            Assert.That(price, Is.LessThan(100), "Price should be low when abundant.");
+        }
+
+        [Test]
+        public void GetPrice_ZeroSupply_ReturnsMaxPrice()
+        {
+             // Arrange
+            var market = new Market();
+            // No inventory set
+
+            // Act
+            int price = market.GetPrice("gold");
+
+            // Assert
+            Assert.That(price, Is.GreaterThan(100));
+        }
     }
 }

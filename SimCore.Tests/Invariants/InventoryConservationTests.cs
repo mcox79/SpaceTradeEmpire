@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using SimCore.State;
+using SimCore.Entities;
 using SimCore.Systems;
 
 namespace SimCore.Tests.Invariants
