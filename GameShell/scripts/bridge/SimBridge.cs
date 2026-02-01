@@ -34,7 +34,7 @@ public partial class SimBridge : Godot.Node
     public override void _Ready()
     {
         Input.MouseMode = Input.MouseModeEnum.Visible;
-        
+
         // Cleanup old UI
         var hud = GetTree().Root.FindChild("HUD", true, false);
         if (hud != null) hud.QueueFree();
@@ -160,6 +160,92 @@ public partial class SimBridge : Godot.Node
         {
             _stateLock.ExitReadLock();
         }
+    }
+
+    // --- MARKET INTEROP ---
+
+    public int GetMarketPrice(string marketId, string goodId)
+    {
+        int price = 0;
+        ExecuteSafeRead(state => {
+            if (state.Markets.TryGetValue(marketId, out var market))
+            {
+                price = market.GetPrice(goodId);
+            }
+        });
+        return price;
+    }
+
+    public bool TryBuyCargo(string marketId, string goodId, int amount)
+    {
+        if (IsLoading || amount <= 0) return false;
+        bool success = false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (state.Markets.TryGetValue(marketId, out var market))
+            {
+                int price = market.GetPrice(goodId);
+                long totalCost = (long)price * amount;
+                
+                // Check Affordability and Supply
+                if (state.PlayerCredits >= totalCost && 
+                    market.Inventory.ContainsKey(goodId) && 
+                    market.Inventory[goodId] >= amount)
+                {
+                    // Execute Trade
+                    state.PlayerCredits -= totalCost;
+                    market.Inventory[goodId] -= amount;
+                    
+                    if (!state.PlayerCargo.ContainsKey(goodId))
+                        state.PlayerCargo[goodId] = 0;
+                    state.PlayerCargo[goodId] += amount;
+                    
+                    success = true;
+                }
+            }
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+        return success;
+    }
+
+    public bool TrySellCargo(string marketId, string goodId, int amount)
+    {
+        if (IsLoading || amount <= 0) return false;
+        bool success = false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (state.Markets.TryGetValue(marketId, out var market))
+            {
+                // Sell logic: usually lower price, but for now using standard price
+                int price = market.GetPrice(goodId);
+                long totalPayout = (long)price * amount;
+                
+                if (state.PlayerCargo.TryGetValue(goodId, out int current) && current >= amount)
+                {
+                    state.PlayerCargo[goodId] -= amount;
+                    if (state.PlayerCargo[goodId] == 0) state.PlayerCargo.Remove(goodId);
+                    
+                    market.Inventory[goodId] = market.Inventory.GetValueOrDefault(goodId, 0) + amount;
+                    state.PlayerCredits += totalPayout;
+                    
+                    success = true;
+                }
+            }
+        }
+        finally
+        {
+             _stateLock.ExitWriteLock();
+        }
+        return success;
     }
 
     // GDScript-Friendly Snapshot Accessor

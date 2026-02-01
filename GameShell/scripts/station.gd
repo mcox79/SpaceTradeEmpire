@@ -1,119 +1,96 @@
+# Contract Header
+# Purpose: Physical representation of a market node. Acts as a View/Controller for the SimBridge.
+# Layer: GameShell (View)
+# Dependencies: SimBridge (Authoritative), MarketProfile (Metadata)
+# Public API: dock_at_station()
+# Invariants: No local economy math. All transactions must pass through SimBridge.
+
 extends Area3D
 class_name GameStation
 
-const EconomyEngine = preload('res://scripts/core/economy_engine.gd')
-const MarketProfile = preload('res://scripts/resources/market_profile.gd')
-const TradeGood = preload('res://scripts/resources/trade_good.gd')
+const MarketProfile = preload("res://scripts/resources/market_profile.gd")
+const TradeGood = preload("res://scripts/resources/trade_good.gd")
 
-@export var fuel_cost_per_unit: int = 2
+# Link to the specific Market ID in SimCore (e.g., "M_1", "market_alpha")
+@export var sim_market_id: String = "market_alpha"
 @export var market_profile: MarketProfile
 
-@export var local_supply: Dictionary = {
-	'ore_iron': 100,
-	'ore_gold': 20,
-}
-
 var _goods_by_id: Dictionary = {}
-
-const ASK_MULT := 1.10
-const BID_MULT := 0.90
+var _bridge = null
 
 func _ready():
 	monitoring = true
 	monitorable = true
-	
-	# FIX: Scan Layer 2 (Ships) explicitly
-	collision_mask = 2
+	collision_mask = 2 # Layers: Ships
 	
 	body_entered.connect(_on_body_entered)
 	_build_goods_index()
+	
+	# Locate Bridge (Expect it to be an Autoload or in Root)
+	_bridge = get_tree().root.find_child("SimBridge", true, false)
+	if _bridge == null:
+		push_error("[STATION] CRITICAL: SimBridge not found in Scene Tree!")
 
 func _build_goods_index():
 	_goods_by_id.clear()
 	if market_profile == null:
 		return
 	for g in market_profile.trade_goods:
-		if g == null:
-			continue
+		if g == null: continue
 		_goods_by_id[g.id] = g
 
-func get_mid_price(item_id: String) -> int:
-	var good: TradeGood = _goods_by_id.get(item_id, null)
-	if good == null:
-		return 0
-	var base_demand := 100
-	if market_profile != null:
-		base_demand = int(market_profile.base_demands.get(item_id, 100))
-		base_demand = int(float(base_demand) * market_profile.wealth_tier)
-	var supply_val := int(local_supply.get(item_id, 1))
-	return EconomyEngine.calculate_price(good, supply_val, base_demand)
+# --- PRICE QUOTES (READ ONLY) ---
 
 func get_ask_price(item_id: String) -> int:
-	var mid := get_mid_price(item_id)
-	return int(ceil(float(mid) * ASK_MULT))
+	if _bridge == null: return 0
+	# In SimCore, Ask = Bid for now (Single Price Model)
+	return _bridge.GetMarketPrice(sim_market_id, item_id)
 
 func get_bid_price(item_id: String) -> int:
-	var mid := get_mid_price(item_id)
-	return int(floor(float(mid) * BID_MULT))
+	if _bridge == null: return 0
+	return _bridge.GetMarketPrice(sim_market_id, item_id)
 
-func _on_body_entered(body):
-	print('[STATION] Contact detected with: %s' % body.name)
-	if body.has_method('dock_at_station'):
-		print('[STATION] Initiating Docking Sequence...')
-		_refuel_ship(body)
-		body.dock_at_station(self)
-
-func _refuel_ship(player):
-	if not player.has_method('get_fuel_status'):
-		return
-	var needed: float = float(player.max_fuel) - float(player.fuel)
-	if needed > 1.0:
-		var cost := int(needed * fuel_cost_per_unit)
-		if player.credits >= cost:
-			player.credits -= cost
-			player.fuel = player.max_fuel
-			player.receive_payment(0)
-		else:
-			var units := int(player.credits / fuel_cost_per_unit)
-			if units > 0:
-				player.credits -= (units * fuel_cost_per_unit)
-				player.fuel += units
-				player.receive_payment(0)
+# --- TRANSACTIONS (WRITE) ---
 
 func buy_cargo(player, item_id: String, amount: int) -> bool:
-	if amount <= 0:
-		return false
-	var good: TradeGood = _goods_by_id.get(item_id, null)
-	if good == null:
-		return false
-	var price := get_ask_price(item_id)
-	if not EconomyEngine.can_afford(player.credits, price, amount):
-		return false
-	if not EconomyEngine.has_cargo_space(player.cargo_volume, player.max_cargo_volume, good.volume, amount):
-		return false
-	var total := price * amount
-	player.credits -= total
-	var ok: bool = player.add_cargo(item_id, amount)
-	if not ok:
-		player.credits += total
-		return false
-	local_supply[item_id] = int(local_supply.get(item_id, 1)) + amount
-	player.receive_payment(0)
-	return true
+	if _bridge == null: return false
+	
+	# 1. Execute Transaction on SimCore
+	var success: bool = _bridge.TryBuyCargo(sim_market_id, item_id, amount)
+	
+	if success:
+		# 2. Sync Visuals (Optional/Legacy)
+		# TODO: Player script should reactively listen to SimBridge signals instead of manual updates here.
+		if player.has_method("receive_payment"):
+			player.receive_payment(0) # Trigger UI refresh
+		print("[STATION] Sold %d %s to player." % [amount, item_id])
+	else:
+		print("[STATION] Transaction Failed (Funds? Supply?)")
+	
+	return success
 
 func sell_cargo(player, item_id: String, amount: int) -> bool:
-	if amount <= 0:
-		return false
-	var price := get_bid_price(item_id)
-	if price <= 0:
-		return false
-	if not player.cargo.has(item_id):
-		return false
-	if int(player.cargo[item_id]) < amount:
-		return false
-	var removed: bool = player.remove_cargo(item_id, amount)
-	if not removed:
-		return false
-	player.receive_payment(price * amount)
-	local_supply[item_id] = max(1, int(local_supply.get(item_id, 1)) - amount)
-	return true
+	if _bridge == null: return false
+	
+	var success: bool = _bridge.TrySellCargo(sim_market_id, item_id, amount)
+	
+	if success:
+		if player.has_method("receive_payment"):
+			player.receive_payment(0)
+		print("[STATION] Bought %d %s from player." % [amount, item_id])
+	
+	return success
+
+# --- INTERACTION ---
+
+func _on_body_entered(body):
+	print("[STATION] Contact: %s" % body.name)
+	if body.has_method("dock_at_station"):
+		_refuel_via_bridge(body)
+		body.dock_at_station(self)
+
+func _refuel_via_bridge(player):
+	# Placeholder for future Refuel API in SimBridge
+	# For now, we assume fuel is cheap/free or handled separately until Energy economy is defined.
+	if player.has_method("refuel_full"):
+		player.refuel_full()
