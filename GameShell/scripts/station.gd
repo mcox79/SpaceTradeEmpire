@@ -12,7 +12,7 @@ const MarketProfile = preload("res://scripts/resources/market_profile.gd")
 const TradeGood = preload("res://scripts/resources/trade_good.gd")
 
 # Link to the specific Market ID in SimCore (e.g., "M_1", "market_alpha")
-@export var sim_market_id: String = "market_alpha"
+@export var sim_market_id: String = "star_0"
 @export var market_profile: MarketProfile
 
 var _goods_by_id: Dictionary = {}
