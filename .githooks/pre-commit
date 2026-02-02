@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+# Call the existing Windows hook logic
+cmd.exe /c .git\\hooks\\pre-commit.cmd
