@@ -4,6 +4,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Space Trade Empire", "Space
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimCore.Runner", "SimCore.Runner\SimCore.Runner.csproj", "{B6FD5FCE-6803-4349-A8CB-F44F00963085}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimCore", "SimCore\SimCore.csproj", "{B8AD01DC-5EB4-475B-9396-597D1F290797}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimCore.Tests", "SimCore.Tests\SimCore.Tests.csproj", "{21DA8A02-1B19-442C-985F-CD393FF79D4F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,5 +27,17 @@ Global
 		{B6FD5FCE-6803-4349-A8CB-F44F00963085}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
 		{B6FD5FCE-6803-4349-A8CB-F44F00963085}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
 		{B6FD5FCE-6803-4349-A8CB-F44F00963085}.ExportRelease|Any CPU.Build.0 = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8AD01DC-5EB4-475B-9396-597D1F290797}.ExportRelease|Any CPU.Build.0 = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
+		{21DA8A02-1B19-442C-985F-CD393FF79D4F}.ExportRelease|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
