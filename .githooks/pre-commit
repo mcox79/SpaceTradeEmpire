@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-# Call the existing Windows hook logic
-cmd.exe /c .git\\hooks\\pre-commit.cmd
+# Git for Windows typically executes hooks under sh; call the .cmd via cmd.exe.
+# Use a relative path from repo root to avoid MSYS path issues.
+cmd.exe /q /c .githooks\\pre-commit.cmd
