@@ -21,7 +21,7 @@ config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 [autoload]
 
 GameManager="res://scripts/core/game_manager.gd"
-SimBridge="*uid://b5552j51dmcip"
+SimBridge="res://scripts/bridge/SimBridge.cs"
 
 [display]
 

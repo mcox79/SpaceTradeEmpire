@@ -1,0 +1,20 @@
+{
+    "counts":  {
+                   "errors":  0,
+                   "warnings":  0
+               },
+    "rules":  [
+                  {
+                      "description":  "Any SimCore file referencing \u0027Godot.\u0027 is a hard invariant violation.",
+                      "id":  "simcore_must_not_reference_godot_namespace",
+                      "severity":  "error"
+                  }
+              ],
+    "tool":  {
+                 "name":  "Scan-Connectivity",
+                 "version":  "v0"
+             },
+    "violations":  [
+
+                   ]
+}

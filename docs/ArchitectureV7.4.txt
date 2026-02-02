@@ -1,0 +1,3084 @@
+﻿## **1\. Design invariants and non negotiables (v7.4)**
+
+
+These are treated as hard requirements for architecture, UI, and simulation. If a feature conflicts, the feature gets rewritten, not the invariant.
+
+
+**1.1 The "Hero Unit" Model (v7)**
+
+
+* **The Player is a Pilot:** The player physically controls their ship (Thrust, Inertia, Turrets). Movement is direct and visceral, akin to *Starcom* or *Freelancer*.  
+* **The Empire is a Machine:** The player's fleets are automated assets managed via policy and orders. They do not physically follow the player in a formation; they execute orders on the simulation layer.  
+* **Intersection:** The player can intervene. If the player flies to a location where their fleets are operating, those fleets "instantiate" as physical allies, allowing the player to fight alongside them.
+
+
+**1.2 Travel and Physics Model**
+
+* **Hybrid Movement:**  
+  * **In-System:** Direct physics flight. Real-time traversal of the local environment (Asteroids, Stations, Anomalies).  
+  * **Lane Travel:** Accelerated "Rail" movement between nodes, subject to Slot Capacity and Authority checks.  
+  * **Fracture/Void:** High-risk, free-form navigation outside the lane network.  
+* **Capacity vs. Fuel:**  
+  * **Automated Fleets:** Constrained by **Slot Capacity** (traffic) and Operating Costs. They do not simulate fuel physics.  
+  * **Player Ship:** Constrained by **Fuel/Energy** reserves and physics.
+
+### **1.3 Core pressures (always on)**
+
+These define the game’s identity and must exist in v1.0.
+
+* Movement scarcity through slot capacity and dynamic access regimes.
+* Delayed, incomplete information (player is never omniscient).
+* Three distinct risk meters (Heat, Influence, Trace) with legible causes and effects.
+* Disruption and adversarial friction (piracy, interdiction, inspections, closures), not as random punishment but as world response.
+* Policy-driven automation (logistics, warehousing, autoselling) that reduces micromanagement but does not remove risk, timing advantages, or the need for high leverage interventions.
+
+### **1.4 Modules and optional systems**
+
+* The game is built from independent modules that can be enabled, tuned, or delayed without breaking the core loop.
+* No single named mechanic is allowed to be a foundational dependency for economy, travel, or endgame. Each mechanic must degrade gracefully if absent.
+* Extension modules may add: specialized travel mechanics, deeper containment behaviors, additional factions, advanced research trees, alternative endgame goals, new buildables, etc.  
+* See 2.8 Tooling Roadmap for third-party tool policy and phased adoption.
+
+**1.5 Combat and Loss Model**
+
+* **Skill \+ Stats:** Combat uses "Turret/Missile" mechanics. Success requires piloting skill (kiting, shielding, positioning) AND RPG progression (better hulls, cooler weapons).  
+* **No Permadeath:** Ship loss triggers a "Lifepod" recovery to the nearest station. The penalty is Time (the world advances without you) and Assets (Cargo/Hull), never the Save File.  All loss-related consequences must be surfaced using the Failure Postmortem rules defined in Section 1.10. Combat loss without causal explanation is invalid.
+* **Station-Only Saving:** To ensure stability, the game can only be saved while Docked.
+
+
+### **1.6 Information, risk, and “signal” model**
+
+
+* No omniscience. Information propagates with delay (prices, shortages, conflict alerts, closures, reputation data).
+* “Signal” is split into three distinct systems and must not be collapsed:
+  * Economic Heat: attracts pirates and opportunists and increases disruption volatility.
+  * Market Power Influence: creates leverage in access, tariffs, exceptions, and competitive suppression.
+  * Precursor Trace: fracture signature that triggers containment escalation and ties to long horizon stability pressure.
+* Each meter must have:
+  * explicit drivers (what increases or decreases it)
+  * at least 2 player-positive uses (not only punishments)
+  * a “why this changed” explainer that is specific and actionable.  
+  * Some meters are visible to players and some are not, or get unlocked.
+
+### **1.7 Industry and logistics workload**
+
+* Industry is bounded and discrete. Each industrial site has fixed input slots and output slots plus hard capacity limits and tech tiers. The player does not place belts or design layouts.
+* Player interaction with industry is policy-based, not per-input micromanagement:
+  * Player sets target stock levels (minimum reserves) per site or per network.  
+  * Player sets priority tiers (must-have vs nice-to-have inputs).  
+  * The system auto-routes supply to satisfy targets subject to capacity, risk, and cost.  
+  * Shortages are an outcome: sites degrade output based on missing inputs.
+* Excess inputs and outputs can be auto-warehoused and auto-sold per player-defined thresholds.
+* Manual routing exists only as an override for high leverage scenarios, not as the default loop.
+* Automation never eliminates risk, uncertainty, or timing advantage. It converts micromanagement into policy and exception handling.
+
+*All industry shortages, degradations, and shutdowns must map to the Global Pressure Vocabulary defined in Section 1.10. Industry systems are forbidden from inventing bespoke failure language or hidden thresholds.*
+
+### **1.8 Endgame structure (non final, but structurally constrained)**
+
+* Endgame goals are intentionally not locked and may vary by scenario, lore, or run type.
+* Architecture must support multiple endgame goal modules without refactoring SimCore:
+  * goals are evaluated from game-state variables and event history
+  * goals can introduce new threats, new buildables, or new win conditions as additive modules
+* The midgame to endgame transition must be a legible phase change via world-state shifts (closures, quarantines, enforcement intensity, fragmentation), regardless of which endgame module is active.
+
+### **1.9 Automation is earned and enforceable**
+
+* Any automation (autorouting, autoselling, remote management) must be:
+
+  * unlocked by assets, staff, or infrastructure / tech
+  * capacity-limited
+  * interruptible by risk and disruption
+
+* Automation must be explainable: the game must surface why an automated plan did or did not occur (constraints hit, budgets exceeded, risk caps blocked, slots unavailable).
+
+### 1.10 Global Pressure, Forecast, and Failure Vocabulary (Authoritative)
+
+These definitions govern how *all* systemic stress, risk, and failure are expressed to the player.  
+They are not UI flavor. They are part of the game’s core logic contract.
+
+All systems that degrade, destabilize, or fail **must** express their state using this vocabulary.
+
+---
+
+#### Pressure State Ladder (Universal)
+
+All macro systems (economy, war fronts, travel access, industry, containment) use a shared five-state ladder:
+
+- **Strained** – Margins thinning. Minor disruptions likely.
+- **Unstable** – Shortfalls emerging. Active management recommended.
+- **Critical** – Failure imminent without intervention.
+- **Collapsed** – System no longer functioning as intended.
+
+**Rules:**
+- A system may not jump more than **one pressure state per evaluation window** unless an explicit external shock is emitted as an event.
+- Evaluation window is the SimCore Day Tick (see Section 2.4 Time Model & Scheduling).
+- The player must always see both **current state** and **direction of change**.
+
+---
+
+#### Pressure Direction (Mandatory)
+
+Every pressure indicator must show trend:
+
+- Improving
+- Stable
+- Worsening
+
+
+Pressure without direction is invalid.
+
+
+---
+
+
+#### Forecast Requirement
+
+
+Any system in **Unstable** or **Critical** must surface a forecast describing consequences, using approximate language:
+
+
+- “If current conditions persist, …”
+- “Continued strain is likely to result in …”
+- “Stabilization expected if supply improves”
+
+
+Exact timers are forbidden. Forecasts express *trajectory*, not math.
+
+
+---
+
+
+#### Failure Postmortems (Mandatory)
+
+
+Every significant failure must emit a postmortem record containing:
+
+
+1. What happened  
+2. Why it happened  
+3. What could have prevented it  
+4. What changed as a result  
+
+
+Failure without postmortem is a bug.
+
+
+---
+
+
+#### Design Intent
+
+
+- Hide formulas. Expose momentum and leverage.
+- Failure is instructional, not punitive.
+- If the player is paying attention, all failures are overcome-able.
+
+
+This vocabulary is binding for:
+- Simulation output
+- UI presentation
+- Mission scripting
+- Event generation
+- Endgame pressure systems
+
+### **1.11 Uncertainty, Forecasting, and Triage Contract (Authoritative)**
+
+This section defines how uncertainty is represented, reduced, forecasted, and triaged across all systems.
+It is binding for Simulation output, UI presentation, event generation, mission scripting, and automation.
+
+This section must be interpreted as an extension of Section 1.10:
+- Pressure State Ladder is the universal health language
+- Pressure Direction is mandatory
+- Forecasts must express trajectory, not exact timers
+- Failure Postmortems are mandatory for significant failures
+
+
+#### **1.11.1 Goals**
+
+- Support the primary play loop: explore, chase a rumor, run a mission.
+- Keep dashboard response time under a few minutes by making uncertainty legible and actionable.
+- Preserve player trust: outcomes must feel earned and explainable.
+- Enable recovery: a losing player can turtle up via Emergency Doctrine and stabilize.
+
+
+#### **1.11.2 Core principles**
+
+1) Deterministic core, uncertain edges
+- Once infrastructure is known and supplied, production and logistics behave predictably.
+- Uncertainty primarily lives at the edges: discovery, adversary action, access, and discrete shocks.
+
+2) Uncertainty is mostly reducible
+- Most uncertainty reflects incomplete information that can be narrowed by scouting, sensors, intel, and faction relationship access.
+- Only a small set of elements remain inherently stochastic, and those are bounded.
+
+3) Chunky shocks, not continuous noise
+- Avoid per-tick randomness that forces constant intervention.
+- Prefer discrete shocks at a cadence appropriate to phase and contested proximity.
+- Any shock that materially shifts forecast bands or pressure state must be emitted as an explicit event with a ReasonCode.
+- Only explicit shock events may cause multi-step pressure transitions within a single evaluation window (per Section 1.10).
+
+4) Roll once, reveal later
+- Persistent truths are determined at generation time and revealed through play, preventing RNG whiplash.
+
+
+#### **1.11.3 Uncertainty channels**
+
+The game uses four uncertainty channels.
+
+1) Discovery uncertainty
+- Rumors, resource nodes, hazards, hidden sites, mission leads.
+
+2) Adversary uncertainty
+- Raid targets, offensive timing within bounded windows, interdiction pressure, attrition bands.
+
+3) Access uncertainty
+- Faction permissions, embargoes, priority queue access at mega-yards, expansion permits at faction bases.
+
+4) Shock uncertainty
+- Rare incidents: accidents, political incidents, system failures, sudden supply disruptions.
+
+
+#### **1.11.4 Inherently stochastic elements (kept minimal)**
+
+The following remain stochastic within bounded ranges:
+- Enemy initiative and timing (within known windows)
+- Interdiction encounter outcomes when risk is accepted
+- Rare shocks (low frequency, high clarity of cause)
+- Battle attrition within forecast bands
+
+All other uncertainty should primarily be epistemic (unknown but fixed).
+
+
+#### **1.11.5 Knowledge state model (global standard)**
+
+All uncertain entities use the same knowledge state language.
+These states are not flavor. They are required inputs to confidence computation and UI display.
+
+- Rumored
+	- Location and value are vague.
+	- Range wide, confidence low.
+
+- Surveyed
+	- Location known, partial characterization.
+	- Range moderate, confidence medium.
+
+- Confirmed
+	- Characterization tight.
+	- Range tight, confidence high.
+
+- Operational
+	- Predictable outputs, discrete shocks only.
+	- Confidence high, variance minimal.
+
+This state model applies to: resource yields, hazard levels, threat levels, mission quality, and market access reliability.
+
+
+#### **1.11.6 Roll-once rules**
+
+The following are rolled once (hidden) when created, then revealed via play:
+- Resource node true yield curve and hazard profile
+- Major site characteristics and discovery rewards
+- Theater-level faction posture for a campaign phase (unless changed by events)
+- Some mission reward pools (partially disclosed until resolved)
+
+
+#### **1.11.7 Forecast contract (must conform to Section 1.10)**
+
+Forecasts are mandatory when a system is Unstable or Critical.
+Forecasts express trajectory and leverage, not exact timers.
+
+Forecasts must include:
+- Current Pressure State (Stable, Strained, Unstable, Critical, Collapsed)
+- Pressure Direction (Improving, Stable, Worsening)
+- Primary breakpoint driver (the first constraint expected to fail)
+- Expected outcome band (best-case, likely, worst-case) expressed in approximate language
+- Confidence (Low, Medium, High)
+- What changed since last check (delta attribution)
+
+Forbidden:
+- Exact countdown timers to failure
+- Hidden forecast drivers
+- Showing High confidence when key inputs are missing or stale
+
+Recommended standard horizons for planning views:
+- Ops horizon: 30-day view for upkeep, shortages, brittleness
+- Strategy horizon: 90-day view for builds, transitions, posture shifts
+These are planning windows, not failure countdowns.
+
+
+#### **1.11.8 Confidence model (default)**
+
+Confidence is computed from:
+- Intel coverage level in the relevant area
+- Sensor tier of local assets
+- Recency of observation
+- Faction relationship access tier (if applicable)
+
+As uncertainty is reduced:
+- confidence increases
+- forecast bands tighten
+- breakpoint drivers become more specific
+
+
+#### **1.11.9 Dashboard display rules (fast response requirement)**
+
+Every critical dashboard item must be readable in seconds and must include:
+- Pressure State and Direction (Section 1.10)
+- Confidence (Low, Medium, High)
+- One actionable lever (the smallest high-impact action that changes outcome)
+
+Display language must remain approximate, for example:
+- “Unstable and worsening, likely shortage if conditions persist”
+- “Critical, expected to degrade without resupply”
+- “Strained, stabilizing if convoy arrives”
+
+Exact timers are forbidden.
+
+
+#### **1.11.10 Alerts, triage, and actionability**
+
+Ops Inbox is the single source of truth for alerts. It is the UI complement to the SimCore RegionalResponseBudget (Section 7.1). These are distinct budgets: RegionalResponseBudget caps negative world responses per Day Tick; the Intervention Budget caps player-facing actionable alerts.
+
+Ops Inbox requirements:
+- Deduplicate by root cause
+- Group related consequences under one entry
+- Provide deep links to the responsible inspector or surface
+- Offer at least one high-level action per alert
+
+Alert semantics (when to alert):
+An alert is created only when:
+- a threshold is crossed, or
+- pressure state changes, or
+- a major access change affects operations, or
+- an expedition or contract enters a failure window, or
+- a planner action is blocked by a binding constraint
+
+Alert spam is disallowed.
+
+
+#### **1.11.11 Intervention budget (attention protection, QA metric)**
+
+Design target constraints:
+- Normal play: 1 to 3 actionable alerts per 10 minutes of play
+- Crisis: up to 5 actionable alerts per 10 minutes, then forced dedupe and consolidation
+- Emergency Doctrine should reduce incoming alert rate materially and shrink crisis surface area
+
+This is a design constraint and a QA metric.
+
+
+#### **1.11.12 Mitigation levers (reducing uncertainty)**
+
+Every uncertainty channel must have at least one mitigation path:
+- Discovery: scouting, surveys, probes
+- Adversary: intel assets, sensors/EW, patrols, escorts
+- Access: diplomacy, contracts, tribute, aid, joint ops
+- Shocks: redundancy, reserves, maintenance programs
+
+Uncertainty reduction ROI (anti-grind requirement):
+- Rumored to Surveyed or Confirmed should usually happen in a predictable, short timeframe after a deliberate action.
+- Relationship tiers must unlock better intel feeds, not just access rights.
+- Intel upgrades must tighten adversary timing windows in a visible way.
+
+
+#### **1.11.13 Emergency Doctrine and stabilization**
+
+Emergency Doctrine effects (recovery mode):
+- Reduce exposure: shrink routes and commitments
+- Lower sustainment footprint: step down equipment burdens
+- Increase predictability: prioritize reserves, escorts, repairs
+- Pause expansion: halt non-critical projects and optional contracts
+
+Stabilization window (soft-fail protection):
+After a major loss cascade, the simulation temporarily reduces unrelated shock stacking so recovery actions can take effect.
+- This does not halt adversary pressure.
+- This limits consecutive unrelated shocks from compounding faster than the player can respond.
+
+
+#### **1.11.14 Design constraints (binding)**
+
+- If the player is doing well, doctrine changes should not be required.
+- The game must allow stabilization and recovery without perfect play.
+- Uncertainty should generate missions and exploration opportunities, not chores.
+- Forecasts must remain explainable, and confidence must be honest.
+
+
+
+---
+
+
+# **2\. Simulation Layers and Ownership Boundaries (The "Brain")**
+
+
+**Core Axiom:** SimCore is the headless authority. GameShell is a dumb terminal. The Planner is a "Best-Effort" service, not a cheat code. **Technical Goal:** To simulate a complex economy without frame-rate dependency, ensuring the game can be tested at 1000x speed in a headless console.
+
+
+**2.1 The Two Authorities (Hybrid Model)** To allow visceral flight *and* massive scale, we split authority based on context.
+
+
+1. **Macro Authority: SimCore (Headless .NET)**  
+   * **Owns:** The Economy, The Galaxy Graph, Faction AI, Automated Fleets, Market Prices, and World Events.  
+   * **Time:** Runs on "Day Ticks" (discrete steps).  
+   * **Awareness:** Knows the Player is at "Node A," but not their X/Y/Z coordinates.  
+2. **Micro Authority: GameShell (Godot Engine)**  
+   * **Owns:** The Player Ship (Physics), The "Tactical Bubble" (Local Scene), Visuals, and Audio.  
+   * **Time:** Runs on "Frame Ticks" (\_physics\_process).  
+   * **Responsibility:** When the player is Undocked, Godot calculates inertia, collisions, and local combat.
+
+
+**2.2 The Interface: "The Tactical Bubble"** The **Tactical Bubble** is the active scene loaded in Godot.
+
+
+* **Injection (Sim to Shell):**  
+  * Every frame, the Shell asks SimCore: *"Who else is at Node A?"*  
+  * SimCore responds: *"Fleet X (Pirate) and Fleet Y (Trader)."*  
+  * Shell **Instantiates** visual/physical "Ghost" ships for X and Y at relative positions.  
+  * These Ghosts use local AI (Steering Behaviors) to fly, mine, or fight within the Bubble.  
+* **Reporting (Shell to Sim):**  
+  * If the Player shoots Ghost X, damage is calculated locally in Godot.  
+  * If Ghost X explodes, Shell sends a CombatResult command to SimCore: *"Destroy Fleet X."*  
+  * SimCore removes Fleet X from the database and spawns a "Wreckage" loot entry in the Bubble.
+
+
+## **2.3 Module System Contract (Plug-and-Play)**
+
+
+### **Implementation Schema**
+
+
+* **Locked Contract:**  
+  * **Lifecycle:** Every SimCore module (Economy, Signals, Containment) must implement IModule:  
+    * Register(SimState state, ServiceBus bus)  
+    * HandleCommand(ICommand cmd)  
+    * OnDayTick(int day)  
+  * **Dependency Rule:** Modules communicate via the ServiceBus or Events. They do not hold hard references to each other's concrete classes.  
+* **TBD Decisions:** Whether to use a strict Dependency Injection container or a simpler "Service Locator" pattern for v1.
+
+
+## **2.4 Time Model & Scheduling (Performance Contract)**
+
+
+### **Locked Contract**
+
+
+1. **Frame Tick (Real-Time / 16ms)**  
+   * **Scope:** GameShell only.  
+   * **Allowed:** Input handling, Camera movement, UI animations, Local physics interpolation.  
+   * **Forbidden:** Running global economy loops, pathfinding, or signal propagation.  
+2. **Day Tick (Simulation / Batch)**  
+   * **Scope:** SimCore Universe Scope.  
+   * **Allowed:** Market updates, Industry production, Signal decay, Planner execution, Containment escalation.  
+   * **Isolation:** The Day Tick runs on a background thread or a time-sliced coroutine. It must not block the Frame Tick.
+
+
+## **2.5 Automation: The Logistics Planner (SimCore Service)**
+
+
+**Core Axiom:** The Planner is a tool for steady-state scale, not a replacement for player intelligence in crises.
+
+
+**Locked Contract**
+
+
+* **Heuristic Nature:** The Planner is **Best-Effort**, not Optimal. It uses greedy heuristics to find "Good Enough" routes.  
+* **Constraint Obedience:** It *must* respect:  
+  * **Hard Physics:** Capacity limits (Slots, Storage).  
+  * **Player Policy:** Risk Caps (Heat/Trace), Budget Caps, Blacklisted Nodes.  
+  * **Authority:** It cannot route through Closed/Blockaded nodes unless explicitly authorized (e.g., "Emergency Override").  
+* **Explainability:** When the Planner fails to fulfill a DemandSignal, it **must** emit a PlannerFailureEvent with a strict BindingConstraint code (e.g., BlockedByRisk, BlockedBySlots, InsufficientBudget).
+
+
+**Default v0 Behavior (Slice 2\)**
+
+
+* **Algorithm:** Dijkstra/A\* on the Lane Graph.  
+* **Cost Function:** Cost \= (Distance \* OperatingCost) \+ (SlotPrice) \+ (RiskPenalty).  
+  * *Note:* Lanes are constrained by slot capacity, not fuel. OperatingCost represents crew salaries, supplies, and maintenance wear per AU traveled.  
+* **Weakness Rule:** The Planner reacts slowly to price spikes (uses "Yesterday's Average") and avoids all edges with Risk greater than Threshold. It cannot "smuggle" or "bluff." This ensures the player always has a role in high-volatility trading.
+
+
+**Tuning Parameters (Data-Driven)**
+
+
+* PlannerComputeBudget: Max milliseconds allowed per tick (prevents lag).  
+* RiskSensitivity: How heavily Heat/Trace weighs against profit in the pathfinding cost function.
+
+
+**Extension Points**
+
+
+* IPlannerCostPolicy: Interface to inject custom routing logic (e.g., "Avoid Faction X").
+
+
+## **2.6 Determinism and Test Harness**
+
+
+### **Locked Contract**
+
+
+* **Deterministic Stepper:** Given the same InitialSeed and the same sequence of Commands, SimCore must produce the bitwise-identical FinalState.  
+* **RNG Isolation:** All random numbers must be drawn from a seeded SimRandom instance passed into the tick. Using System.Random or Godot's Rand inside SimCore is **forbidden**.  
+* **Invariant Testing:** A headless test runner must execute the simulation and assert invariants after every tick (e.g., No Infinite Money).  
+
+
+## **2.7 Code Standards (Small-File Modularity)**
+
+
+**Locked Contract**
+
+
+- **Stateless Services:** Service classes (e.g., MarketService) should not hold state variables. They should operate on the SimState passed to them. This makes Save/Load trivial (just serialize SimState).
+
+
+- **File size budgets (LLM-first):**
+  - Soft target: 150 to 350 lines per file.
+  - Review trigger: over 350 lines requires either a split or an explicit “bounded glue” justification (adapter/registry) in the file’s Contract Header.
+  - Strong cap: 600 lines per file except rare, explicitly labeled adapters/registries.
+  - Split logic into Systems (e.g., IndustrySystem.cs, TradeSystem.cs) rather than one giant SimCore.cs.
+
+
+- **Contract Headers (required):** Every non-trivial file must begin with a Contract Header (Purpose, Layer, Dependencies, Public API, Events/Signals, Invariants, Tests).
+
+
+- **LLM Module Packets (required):** Any LLM coding session must operate on a curated Module Packet (scope, allowed files, per-file contract headers, validation steps, definition of done). Canonical workflow rules live in `_PROJECT_CONTEXT.md`.
+
+
+- **Integer Math:** All financial calculations use long (cents/micro-credits). Floating point is permitted for display and probabilities, but not for Ledger balances.
+
+
+## **2.8 Tooling Roadmap (Plugins and External Tools)**
+
+
+Purpose: capture likely third-party tools that may be introduced over time to reduce implementation risk, improve iteration speed, and elevate feel/visual quality. This list is not a commitment to install everything immediately.
+
+
+Tooling policy (non-negotiable)
+
+
+1\) Plugins must not own game authority
+
+
+All authoritative game logic remains in SimCore. Godot plugins are permitted only for presentation, feel, physics simulation, authoring convenience, and debugging. If a plugin creates pressure to move economic or world-state decisions into GameShell, it is rejected or quarantined behind an adapter.
+
+
+2\) Adapter-only integration
+
+
+All plugin usage must route through a thin internal wrapper (Adapter) so the plugin can be swapped or removed with minimal refactor.
+
+
+3\) Kill switches and rollback
+
+
+Each plugin must have a toggle to disable it without breaking the build (project setting, build flag, or feature gate). Rollback path must be documented.
+
+
+4\) Version pinning
+
+
+Pin plugin versions and record the validated Godot engine version(s). No silent upgrades.
+
+
+5\) Phase gates
+
+
+A plugin is only adopted when it directly reduces risk for the current slice. Defer otherwise.
+
+
+Current plan: early installs (low trap risk, high derisk)
+
+
+\- Phantom Camera (camera feel)
+
+
+\- Debug Draw 3D (visualizing invisible simulation geometry and contracts)
+
+
+\- Jolt physics backend (prefer built-in Jolt first; extension only if needed)
+
+
+Conditional installs (only if required by Slice scope)
+
+
+\- Input remapping helper
+
+
+Install only if Slice 1 requires full rebinding \+ device glyph support. Otherwise implement minimal remap persistence in-house.
+
+
+\- In-game dev console
+
+
+Install only if it meaningfully accelerates iteration over a minimal internal debug panel.
+
+
+Deferred candidates (use later, avoid dependency until needed)
+
+
+Slice 1.5 candidates (visual density/readability)
+
+
+\- Trails/VFX enhancement (start with built-in trails; consider GPU trail plugin only if needed)
+
+
+\- Scatter/field authoring tool (editor-only convenience; avoid runtime dependency)
+
+
+Slice 2 candidates (narrative and UI complexity)
+
+
+\- Dialog system toolkit (adopt only when narrative slice is in scope)
+
+
+Late visual enhancements
+
+
+\- Procedural planet shader generator (adopt only when aesthetics become a bottleneck and flight loop is already fun)
+
+
+High-risk item (explicitly quarantined)
+
+
+\- Behavior Trees addon (AI)
+
+
+Not adopted early. If adopted later, it must be constrained to micro-tactics only (movement/targeting within the tactical bubble). No economic decisions, routing, or faction reasoning in GameShell.
+
+
+Tool registry (tracking fields)
+
+
+For each adopted tool, record:
+
+
+\- Tool name and source
+
+
+\- Slice introduced
+
+
+\- What risk it reduces
+
+
+\- Integration boundary (what it is allowed to touch)
+
+
+\- Adapter interface location
+
+
+\- Kill switch location
+
+
+\- Version pin and validated Godot version(s)
+
+
+\- Known issues and rollback notes
+
+
+## **3\. World model: topology, lanes, governors, authorities (v4, updated)**
+
+
+This section defines the minimal entity graph and the slot primitives that everything else depends on.
+
+
+### **3.1 Core entities (SimCore)**
+
+
+**Node**
+
+
+* node\_id
+
+
+* kind: station, habitat, refinery, shipyard, relay, research, waypoint, anomaly
+
+
+* faction\_id (controller)
+
+
+* authority\_regime\_id (default allocation \+ enforcement rules at this node)
+
+
+* storage\_capacity (warehousing availability)
+
+
+* market\_id (local market)
+
+
+* intel\_visibility (what the player knows, confidence level)
+
+
+**Edge (Lane Segment)**
+
+
+* edge\_id
+
+
+* a\_node\_id, b\_node\_id
+
+
+* is\_directional (default false in v1.0)
+
+
+* distance (for time)
+
+
+* governor\_id (physics enforcement for this lane)
+
+
+* authority\_regime\_id (optional override; if unset, inherits from endpoint defaults or corridor owner)
+
+
+* slot\_capacity\_model\_id (how many safe transits per day, by conditions)
+
+
+* turbulence\_state (fast timescale)
+
+
+* restriction\_state (administrative state machine)
+
+
+* standby\_rules (what happens if you attempt travel without a reservation)
+
+
+**Region**
+
+
+* A set of nodes and edges used for authority boundaries, containment scope, and performance partitioning.
+
+
+* Regions are the unit of day tick partitioning and can bound signal propagation work if needed.
+
+
+### **3.2 Edge restriction state machine (legibility guarantee)**
+
+
+Every edge has a small, explicit state used by UI and tuning:
+
+
+* OPEN
+
+
+* CONGESTED
+
+
+* INSPECTION\_HEAVY
+
+
+* RESTRICTED
+
+
+* CLOSED
+
+
+Rules:
+
+
+* State changes are emitted as events with concrete reasons.
+
+
+* CLOSED blocks reservations and can also block standby (hard denial) depending on governor/authority.
+
+
+### **3.3 Governors (physics enforcement)**
+
+
+Governors represent the physical safety system that can deny travel.
+
+
+* Inputs: turbulence state, recent throughput, termination stability factors (if active), overrides from containment modules.
+
+
+* Outputs (per edge per day):
+
+
+  * max\_slots
+
+
+  * optional tier split: standard\_slots, priority\_slots, inspection\_slots
+
+
+  * denial reasons (hard physics denial vs administrative denial)
+
+
+  * optional degraded mode flags (shrunk budget, increased arrival dispersion)
+
+
+Governor rule:
+
+
+* Governors never negotiate. They compute constraints.
+
+
+* Authorities allocate within those constraints.
+
+
+### **3.4 Authorities (allocation and enforcement)**
+
+
+Authorities decide who gets slots, at what $ cost, with what friction.
+
+
+* Allocation modes (data-driven, per authority regime):
+
+
+  * fixed tariff
+
+
+  * dynamic pricing (utilization-based)
+
+
+  * priority auction (authority-run)
+
+
+  * quota (permits, licenses)
+
+
+  * inspection-gated allocation (risk-based)
+
+
+* Enforcement tools:
+
+
+  * deny reservation
+
+
+  * require inspection encounter
+
+
+  * impose fees/fines, confiscation, forced reroute, temporary bans
+
+
+  * escalate response based on Heat, Influence, Trace, and local politics
+
+
+Explainability requirement:
+
+
+* If access is denied, price spikes, or inspections trigger, the player gets a concrete reason:
+
+
+  * capacity constraint, regime rule, compliance failure, meter threshold, or emergency state.
+
+
+### **3.5 Slot market primitives (the foundation)**
+
+
+**SlotCapacity**
+
+
+* Computed per edge per day: max\_slots
+
+
+* Optional split by tier.
+
+
+**Reservation Ledger**
+
+
+* Records reservations, not just usage:
+
+
+  * reservation\_id, owner\_id, edge\_id, day\_index, tier, qty, unit\_price\_paid, fees\_paid
+
+
+  * status: reserved, consumed, forfeited, refunded, seized
+
+
+* Hard invariant: consumed slots cannot exceed computed capacity.
+
+
+**Standby Queue (design and mobility guarantee)**  
+ Players are not softlocked by paperwork.
+
+
+* The player can attempt travel without a reservation via standby.
+
+
+* Standby outcomes are regime- and state-dependent:
+
+
+  * higher time variance
+
+
+  * higher inspection probability
+
+
+  * higher interdiction probability
+
+
+  * higher chance of denial under RESTRICTED/CLOSED
+
+
+* Standby always returns a specific outcome reason (admitted, delayed, denied).
+
+
+**Lane Transit Record**  
+ When a transit happens, emit an event referencing:
+
+
+* reservation used or standby result
+
+
+* turbulence contribution
+
+
+* signal emissions (Heat, Influence, Trace drivers)
+
+
+* arrival dispersion modifiers (if relevant)
+
+
+### **3.6 Topology generation requirements**
+
+
+To support pacing and later scalability:
+
+
+* Ensure chokepoints exist (slot scarcity matters).
+
+
+* Ensure alternate routes exist (player agency matters).
+
+
+* Ensure at least one “high leverage corridor” per region (dangerous but profitable).
+
+
+* Ensure authority regimes vary by region to create different travel economics.
+
+
+* Allow corridor ownership distinct from endpoint nodes (supports edge-level authority override).
+
+
+### **3.7 World state changes (without graph rewrites)**
+
+
+World changes must be expressed as state updates:
+
+
+* edge restriction state transitions (including emergency decrees)
+
+
+* node controller changes (war front)
+
+
+* authority regime changes (political shifts)  
+   All emitted as events and applied on day tick.
+
+
+### **3.8 Directionality staging (complexity control)**
+
+
+* v1.0 default: edges are non-directional for capacity and pricing.
+
+
+* Later module: directional turbulence/capacity for advanced simulation, without changing the base APIs.
+
+
+## **4\. Economy model: goods, markets, slot market, contracts (v4, updated)**
+
+
+This section defines the economic state and transaction mechanics, including guardrails against infinite arbitrage and automation-driven oscillation.
+
+
+### **4.1 Goods model**
+
+
+**GoodDefinition (data)**
+
+
+* good\_id, name
+
+
+* category: bulk, manufactured, tech, consumable, hazardous, restricted
+
+
+* unit\_mass, unit\_volume
+
+
+* spoilage flags (optional)
+
+
+* legality flags per authority regime (optional)
+
+
+**Inventory (stateful container)**
+
+
+* Holds quantities by good\_id
+
+
+* Supports:
+
+
+  * reservations (planner earmarks stock)
+
+
+  * minimum reserve constraints (policy)
+
+
+  * capacity constraints (mass, volume, or both)
+
+
+### **4.2 Markets**
+
+
+Markets are local price engines under delayed intel.
+
+
+**Market (per node) state**
+
+
+* on-hand inventory at node (or node warehouse pool)
+
+
+* target stock bands per good (soft bands used for stability)
+
+
+* local demand pressures (industry, population, military)
+
+
+* local supply pressures (production outputs, imports)
+
+
+* regime modifiers (tariffs, controls, sanctions)
+
+
+* player intel: last-known prices with timestamp and confidence
+
+
+**Pricing model requirements (stability guardrails)**
+
+
+* Stock bands: prices react smoothly within target bands, and more sharply outside bands.
+
+
+* Slippage: trades move price. Larger orders incur worse effective average price.
+
+
+* Explainability: price moves must be attributable to:
+
+
+  * inventory vs target band
+
+
+  * arrivals/departures
+
+
+  * regime modifiers and fees
+
+
+* Anti-oscillation: the market update must not create predictable daily ping-pong exploitable by simple loops.
+
+
+### **4.3 Fees, taxes, and sinks (inflation guardrail)**
+
+
+Every transaction can include fee sinks:
+
+
+* authority tariffs (per unit or %)
+
+
+* inspection fees
+
+
+* broker fees (if applicable)
+
+
+* fines and confiscations for restricted goods
+
+
+Design requirement:
+
+
+* The economy must include recurring sinks that scale with player throughput so money does not inflate into irrelevance.
+
+
+### **4.4 Transactions (buy/sell)**
+
+
+All trades occur via Commands and emit Events:
+
+
+* TradeExecuted(node\_id, good\_id, qty, unit\_price\_avg, slippage, fees, authority\_actions)
+
+
+Authority actions can include:
+
+
+* tariffs
+
+
+* compliance checks
+
+
+* confiscation for restricted goods (regime-dependent)
+
+
+Inventory conservation:
+
+
+* All movements are conserved and auditable (no silent creation).
+
+
+### **4.5 Slot market as part of economy**
+
+
+Slots are a first-class service sold by the authority, bounded by the governor.
+
+
+**Slot price formation**
+
+
+* Inputs: capacity, utilization forecast, restriction state, turbulence, authority regime, risk band, Influence effects.
+
+
+* Output: price per slot tier per edge per day.
+
+
+**Slot purchase**
+
+
+* Reservation Ledger records purchase with unit price plus fees.
+
+
+**Slot resale policy (v1.0 stance)**
+
+
+* No open player-to-player slot resale market in v1.0.
+
+
+* Reallocation happens only via authority mechanisms:
+
+
+  * authority-run priority auctions
+
+
+  * refunds/forfeitures
+
+
+  * regime-issued reallocations during emergencies  
+     Rationale: prevents slot scalping from dominating the economy while keeping priority access gameplay.
+
+
+### **4.6 Contracts (optional but recommended early)**
+
+
+Contracts provide urgency windows that automation is bad at, preserving player high leverage moments.
+
+
+**ContractDefinition (offer)**
+
+
+* source, destination, good\_id, qty, delivery window, reward, penalty
+
+
+* suggested risk band and compliance posture (optional)
+
+
+**ContractState**
+
+
+* accepted, in-progress, fulfilled, failed
+
+
+* fulfillment can be manual or via earned automation assets later
+
+
+Contract scope control:
+
+
+* Keep contract types minimal early:
+
+
+  * urgent delivery (tight window)
+
+
+  * supply assurance (maintain stock band at a node/site for a duration)
+
+
+### **4.7 Policy surfaces for automation (economy side, staged)**
+
+
+Policies exist as data, but UI complexity must be staged by progression.
+
+
+**v1 policy surface (baseline)**
+
+
+* reserve target (minimum stock)
+
+
+* autosell threshold (sell above X)
+
+
+* risk cap (max risk band for planner actions)
+
+
+* budget cap ($ spend per day)
+
+
+**advanced policies (earned via staff/infrastructure)**
+
+
+* supplier allow/deny lists
+
+
+* forbidden nodes/edges
+
+
+* price floors/ceilings
+
+
+* compliance posture selection (avoid inspections vs accept)
+
+
+* priority tiers per good/category
+
+
+### **4.8 Intel lag integration (planner behavior rule)**
+
+
+Delayed intel must remain playable:
+
+
+* Player sees known prices stamped with last update time and confidence.
+
+
+* Planner under uncertainty:
+
+
+  * may act in “speculative” mode with capped exposure (trial shipments)
+
+
+  * must emit explainability events when uncertainty materially changed a plan
+
+
+  * must never require perfect intel to do basic upkeep (it can choose conservative defaults)
+
+
+### **4.9 Minimal v1 implementation set for Section 4**
+
+
+To keep development tight:
+
+
+* 10 to 20 goods
+
+
+* one pricing model with stock bands plus slippage
+
+
+* slot pricing tied to utilization plus restriction state plus risk
+
+
+* buy/sell \+ slot reservation \+ 2 contract archetypes
+
+
+* fee sinks enabled from day 1
+
+
+## **5\. Industry model: sites, production, research, policies, autorouting (v4, updated)**
+
+
+This section defines bounded industry that is policy-driven and automation-friendly, without turning into per-node micromanagement.
+
+
+### **5.1 Core entities**
+
+
+**IndustrySite**
+
+
+* site\_id
+
+
+* node\_id
+
+
+* kind: extractor, refinery, factory, shipyard, lab, farm, depot
+
+
+* tier (tech tier / capacity tier)
+
+
+* input\_slots (fixed count, v1: 2 to 3\)
+
+
+* output\_slots (fixed count, v1: 1 to 2\)
+
+
+* throughput\_limit (batches/day)
+
+
+* status: operating, constrained, idle, damaged, seized
+
+
+**Recipe**
+
+
+* recipe\_id
+
+
+* inputs: list of (good\_id, qty)
+
+
+* outputs: list of (good\_id, qty)
+
+
+* cycle\_time: v1 uses daily batches, later can add shorter cycles
+
+
+* requirements: tier, staff, permits (optional)
+
+
+* hard\_dependencies (optional list of inputs that gate output rather than degrade)
+
+
+**ProductionState**
+
+
+* active\_recipe\_id
+
+
+* efficiency (0..1, derived)
+
+
+* degradation\_mode (partial output vs lower-grade substitution vs idle)
+
+
+* last\_shortfall\_reason (for explainability)
+
+
+### **5.2 Production mechanics (bounded, legible, stable)**
+
+
+Industry updates on global day tick.
+
+
+**Daily production step**
+
+
+1. Check site status and any authority restrictions at node/edge.
+
+
+2. Determine required inputs for the active recipe.
+
+
+3. Attempt to source inputs in order:
+
+
+   * node warehouse on-hand
+
+
+   * inbound shipments arriving this day
+
+
+4. Resolve outcome:
+
+
+   * If all hard dependencies present and most inputs present: produce partial output scaled by efficiency.
+
+
+   * If hard dependencies missing: idle and emit explicit shortfall.
+
+
+   * Optional: if recipe supports it, substitute lower-grade output when a non-hard input is missing.
+
+
+Emit events:
+
+
+* IndustryAttemptedProduction(site\_id, recipe\_id)
+
+
+* IndustryProduced(site\_id, outputs, efficiency)
+
+
+* IndustryShortfall(site\_id, missing\_inputs, binding\_constraint)
+
+
+Design guardrail (shortage feel):
+
+
+* Default behavior is partial production with efficiency penalties.
+
+
+* Hard-dependency gating is rare and reserved for a few high-leverage inputs.
+
+
+### **5.3 Site policies (player workload surface)**
+
+
+The player does not assign inputs manually. The player sets policies.
+
+
+**SitePolicy (v1 surface)**
+
+
+* target\_input\_reserves: minimum desired stock by good/category
+
+
+* target\_output\_buffer: keep X on hand, export above X
+
+
+* budget\_cap\_per\_day
+
+
+* risk\_cap (max risk band for inbound shipments)
+
+
+**Advanced policy fields (earned, optional)**
+
+
+* priority\_tiers: must-have vs nice-to-have inputs
+
+
+* export\_mode: internal first, contract first, market sale
+
+
+* compliance\_posture: avoid inspections vs accept inspections
+
+
+* allowed\_suppliers and forbidden\_routes
+
+
+* manual\_overrides (time-limited, explicit)
+
+
+Rule:
+
+
+* Every policy field must map to a visible failure mode. If a player cannot notice its effect, it does not ship in v1.
+
+
+### **5.4 Warehousing integration (where goods live)**
+
+
+v1 uses Node Warehouse as primary.
+
+
+**Node Warehouse primary (v1)**
+
+
+* Sites draw from node warehouse and push outputs to node warehouse.
+
+
+* Warehouse policies handle reserves and autosell.
+
+
+* Benefits:
+
+
+  * simpler conservation
+
+
+  * fewer “where did the goods go” states
+
+
+  * cleaner automation UX
+
+
+Later module:
+
+
+* Site-local storage for special assets (secret labs, military depots).
+
+
+### **5.5 Research stations and tech unlocking (minimal, modular)**
+
+
+Research is a site kind with continuous supply and interruption, but it must not be babysitting.
+
+
+**ResearchStation**
+
+
+* station\_id, node\_id, domain, tier
+
+
+* progress\_points
+
+
+* daily\_supply\_requirements (goods per day for full velocity)
+
+
+* grace\_buffer\_days (v1 default: 2 to 4 days)
+
+
+* consecutive\_missing\_days
+
+
+* blueprints\_unlocked
+
+
+Daily behavior:
+
+
+* If supplies meet requirement: add progress.
+
+
+* If supplies partially meet requirement: add reduced progress.
+
+
+* If supplies missing:
+
+
+  * consume grace buffer first (no decay)
+
+
+  * after buffer, progress slows to near zero and may decay slowly only after sustained misses.
+
+
+Emit:
+
+
+* ResearchProgressed(domain, delta)
+
+
+* ResearchSupplyShortfall(missing\_inputs, days\_missing)
+
+
+* BlueprintUnlocked(blueprint\_id)
+
+
+### **5.6 Logistics Planner integration (autorouting hook)**
+
+
+Industry never “pulls from the void.” It declares needs; planner fulfills best-effort.
+
+
+**Demand emission**  
+ Each day, sites emit structured demand:
+
+
+* DemandSignal(owner\_id, node\_id, good\_id, qty\_needed, priority, latest\_by\_day, budget\_cap, risk\_cap)
+
+
+**Planner response**
+
+
+* Converts demand into shipment intents and slot reservations.
+
+
+* If blocked, emits:
+
+
+  * PlannerActionBlocked(binding\_constraint, detail)
+
+
+* Sites then emit IndustryShortfall referencing the same binding constraint.
+
+
+Binding constraints must include:
+
+
+* slots unavailable
+
+
+* risk cap blocks all viable routes
+
+
+* budget cap exceeded
+
+
+* authority denial or inspection seizure risk too high
+
+
+* storage full
+
+
+* intel confidence too low (only for advanced modes)
+
+
+## **5.6A Tech Sustainment & Capability Commitments (Authoritative)**
+
+
+**Core Axiom:** Technology is not a permanent upgrade.  
+It is a **sustained civilizational commitment** that competes for resources, capacity, and attention over time.
+
+
+Unlocking a technology grants *eligibility*.  
+Activating a technology creates **ongoing systemic demand** that must be continuously supported.
+
+
+The Tech Sustainment interface is introduced only after the player experiences their first systemic strain event; prior to that, technologies are implicitly sustained and not user-toggleable.
+
+
+This section defines the binding contract for how technology exists, propagates, degrades, and fails.
+
+
+---
+
+
+### **5.6A.1 Tech Identity & Classification (Locked Contract)**
+
+
+Every technology definition must declare the following immutable fields:
+
+
+**TechIdentity**
+- tech_id (stable string)
+- category: capability | efficiency | coordination | leverage
+- fragility: low | medium | high
+
+
+**Design Rules**
+- Capability techs add new verbs or options.
+- Efficiency techs improve throughput or cost.
+- Coordination techs reduce player or planner workload at systemic cost.
+- Leverage techs multiply impact but amplify pressure and fragility.
+
+
+High-leverage techs must be fragile.  
+Foundational techs must be resilient.
+
+
+---
+
+
+### **5.6A.2 Tech Lifecycle States (Formal State Machine)**
+
+
+All technologies operate under the following state graph:
+
+
+- **Unlocked** – Blueprint known; no systemic impact.
+- **Activated** – Standing sustainment demand emitted.
+- **Propagating** – Demand routing through logistics and industry.
+- **Integrated** – Capability installed on a ship or fleet scope.
+- **Supported** – Sustainment demand met.
+- **Strained** – Margins thinning; degradation likely.
+- **Unstable** – Partial degradation active.
+- **Critical** – Failure imminent without intervention.
+- **Degraded** – Capability altered or reduced.
+- **Collapsed** – Capability unavailable; fallback active.
+- **Recovering** – Re-integration after collapse.
+
+
+Rules:
+- State transitions obey the Global Pressure Vocabulary (Section 1.10).
+- No instant transitions between Activated and Integrated.
+- Collapse without prior warning is forbidden.
+
+
+---
+
+
+### **5.6A.3 Eligibility vs Activation vs Integration (Non-Negotiable Separation)**
+
+
+These concepts must never be conflated:
+
+
+- **Unlocked:** Player may choose to activate.
+- **Activated:** Technology emits demand into the system.
+- **Integrated:** Capability present on a specific scope.
+- **Supported:** Sustainment demand currently met.
+
+
+A technology may be Integrated but not Supported.  
+A technology may be Activated but not yet Integrated.
+
+
+This separation is required to enforce inertia, legibility, and recoverable failure.
+
+
+---
+
+
+### **5.6A.4 Tech Scope Semantics (Locked v1 Constraint)**
+
+
+Technology activation scope is intentionally coarse.
+
+
+Allowed scopes:
+- Player ship
+- Fleet group
+- Global default
+
+
+Per-ship toggling is forbidden in v1.
+
+
+If a ship changes fleet assignment, its tech integration follows fleet policy after propagation delay.
+
+
+---
+
+
+### **5.6A.5 Sustainment Demand Model**
+
+
+Each activated technology emits two distinct demands:
+
+
+1. **Integration Demand**
+   - One-time pull
+   - Represents installation kits, calibration, refit labor
+2. **Ongoing Sustainment Demand**
+   - Continuous reservation draw
+   - Expressed in **Resource Roles**, not SKUs:
+     - Industrial Intermediates
+     - Advanced / Exotic Inputs
+     - Capacity Resources (energy budgets, fleet-hours, maintenance bandwidth)
+
+
+Turning off a technology halts new demand emission, but existing sustainment persists until pipelines drain.
+
+
+---
+
+
+### **5.6A.6 Demand Emission & Routing Contract**
+
+
+On activation, each technology emits a structured signal:
+
+
+**TechDemandSignal**
+- tech_id
+- scope (player ship | fleet group | global)
+- priority tier
+- role_draw_profile
+- origin_constraints (shipyard-only, depot-only, any)
+- degradation_policy
+
+
+The Logistics Planner must treat TechDemandSignals as first-class demand, competing with:
+- Industry inputs
+- Military sustainment
+- Stockpile replenishment
+
+
+---
+
+
+### **5.6A.7 Degradation Modes (Canonical Set)**
+
+
+All technologies must use one of the following degradation behaviors:
+
+
+- **Soft Degrade:** Reduced efficiency or reliability.
+- **Intermittent:** Capability functions unpredictably.
+- **Fallback:** Reverts to baseline tech behavior.
+- **Hard Offline:** Only allowed after sustained Critical state.
+
+
+Degradation must change **behavior**, not only numeric output.
+
+
+Numeric-only degradation without a player-perceivable behavioral change is forbidden.
+
+
+---
+
+
+### **5.6A.8 Stockpile Interaction Rules**
+
+
+Stockpiles may be allocated to technologies.
+
+
+Rules:
+- Stockpiles delay degradation; they do not eliminate pressure.
+- Stockpile-backed tech must surface a depletion forecast.
+- Stockpiles cannot support expansion or new integration.
+- Stockpiles cannot satisfy Integration Demand unless the technology is Activated.
+
+
+Stockpiles are insurance, not solutions.
+
+
+---
+
+
+### **5.6A.9 Pressure Amplification Flag**
+
+
+Technologies may optionally declare:
+
+
+- pressure_amplifier = true
+
+
+Pressure amplifiers increase strain elsewhere simply by existing.
+
+
+Examples:
+- Advanced automation increases political pressure.
+- Exotic weapons increase escalation velocity.
+- Hyper-efficient logistics increase counter-pressure response.
+
+
+No technology is free upside.
+
+
+---
+
+
+### **5.6A.10 NPC Technology Behavior (Locked Directional Rule)**
+
+
+NPC factions must follow these constraints:
+
+
+- Prefer leverage techs.
+- Delay deactivation past warnings.
+- Underinvest in sustainment.
+- Optimize locally, not systemically.
+
+
+This institutional inertia is intentional and preserves player indispensability. 
+This behavior models institutional inertia, not incompetence, and must not be “optimized away.”
+
+
+---
+
+
+### **5.6A.11 Failure Postmortems (Mandatory)**
+
+
+Technology collapse must emit a Failure Postmortem using Section 1.10:
+
+
+1. What failed
+2. Why sustainment broke
+3. What could have prevented it
+4. What changed (fallback, loss, pressure shifts)
+
+
+Silent tech failure is a bug.
+
+
+---
+
+
+### **5.6A.12 Explicit Anti-Patterns (Forbidden)**
+
+
+- No instant tech effects
+- No silent shutdowns
+- No permanent tech that removes systemic pressure
+- No tech that replaces player arbitration
+- No per-ship micromanagement in baseline play
+
+
+### **5.7 Export, autosell, and excess handling**
+
+
+Industry output should not require babysitting.
+
+
+**ExportPolicy (v1)**
+
+
+* Keep buffer X in warehouse
+
+
+* Export above X by:
+
+
+  * internal transfers to other owned needs first (if planner enabled)
+
+
+  * market sale last via autosell thresholds
+
+
+**Autosell (v1)**
+
+
+* warehouse-level “sell above X” with optional “do not sell below emergency threshold”
+
+
+* advanced price floors and timing are earned upgrades
+
+
+### **5.8 Automation is a tool, not the game (high leverage interventions)**
+
+
+Automation handles steady-state upkeep. It is intentionally weak at time-critical, adversarial, or intelligence-poor situations.
+
+
+High leverage player actions (must exist as gameplay, not just lore):
+
+
+* buy authority exceptions using Influence (priority access, inspection waivers, temporary permits)
+
+
+* escort or rescue shipments to preserve continuity
+
+
+* emergency reroutes through dangerous corridors
+
+
+* stockpile ahead of forecast closures or inspection waves
+
+
+* respond to interdictions and disruptions faster than automation can
+
+
+Design rule:
+
+
+* When things go sideways, the player has meaningful interventions that change outcomes within a short horizon.
+
+
+### **5.9 Failure, damage, and enforcement hooks (industry as a world object)**
+
+
+Sites can be disrupted without bespoke scripts:
+
+
+* shipment disruption is the default failure mode
+
+
+* inspections can seize restricted inputs/outputs
+
+
+* conflict can damage throughput or halt production
+
+
+* emergencies can restrict exports or impose quotas
+
+
+All disruptions are represented as:
+
+
+* policy constraints changed
+
+
+* edge state changed
+
+
+* site status changed  
+   and emitted as events.
+
+
+### **5.10 Minimal v1 implementation set for Section 5**
+
+
+To keep this buildable:
+
+
+* 3 site kinds: extractor, refinery, factory
+
+
+* Node warehouse primary
+
+
+* 6 to 10 recipes
+
+
+* One research domain unlocking 2 recipes plus 1 infrastructure module
+
+
+* Demand emission \+ planner best-effort fulfillment \+ shortfall explainability
+
+
+* Partial production as default shortage behavior
+
+
+## **6\. Travel model: lane travel, fracture travel, planning, failures, and implications (v4, updated)**
+
+
+This section defines how travel works mechanically and how it interfaces with slots, risk meters, encounters, and player planning.
+
+
+**6.1 Movement Modes**
+
+
+1. **Local Flight (In-System):**  
+   * **Mechanic:** Direct thruster control (WASD). Inertia-based.  
+   * **Activities:** Mining, Docking, Combat, Exploration.  
+   * **Constraint:** Fuel/Energy reserves.  
+2. **Lane Travel (The Highway):**  
+   * **Mechanic:** Player flies to a "Jump Gate" or "Lane Ring."  
+   * **Action:** Request docking with the Lane.  
+   * **Result:** If approved (Slot available), the ship is "railed" at high speed to the next Node.  
+   * **Player Input:** Minimal during transit, but can perform "Emergency Drop" to exit into the Void.  
+3. **Fracture Travel (The Void):**  
+   * **Mechanic:** Open-space navigation outside the lane network.  
+   * **Unlock:** Requires "Fracture Drive" technology.  
+   * **Experience:** Similar to *Starcom* void travel—long distances, managing drift, managing "Trace" accumulation.
+
+
+### **6.2 Lane travel mechanics**
+
+
+#### **6.2.1 Reservation vs standby (player mobility guarantee)**
+
+
+* Reservation:
+
+
+  * player purchases slots for specific edges and day indices
+
+
+  * yields high reliability and lower time variance
+
+
+* Standby:
+
+
+  * player attempts travel without reservation
+
+
+  * yields higher time variance and higher enforcement risk
+
+
+  * may be denied on RESTRICTED/CLOSED edges
+
+
+  * always produces an outcome reason
+
+
+Standby tuning guardrail (must be consistently felt):
+
+
+* Standby has at least one persistent downside in normal play:
+
+
+  * higher time variance that risks missing windows, or
+
+
+  * higher inspection rate with fees/confiscation risk, or
+
+
+  * meaningful denial probability under congestion states.
+
+
+#### **6.2.2 Lane traversal resolution**
+
+
+When the player traverses an edge:
+
+
+1. **Slot Resolution:** Consume reservation slots if present, otherwise resolve standby.  
+2. **Apply Costs:**  
+   * Deduct **Operating Cost** (Distance \* ShipOperatingRate).  
+   * Deduct **Slot Fees** (if not pre-paid).  
+3. **Apply Time:**  
+   * Base travel time from distance.  
+   * Plus congestion variance based on restriction state and utilization.  
+4. **Encounter Triggers:** Apply SimCore-provided risk bands to trigger Inspections, Interdictions, or Benign Traffic.  
+5. **Emit:**  
+   * LaneTransitResolved (edge\_id, method, outcome, time\_cost, operating\_cost, fees, enforcement\_actions)
+
+
+#### **6.2.3 Priority access**
+
+
+Priority access is authority-run, not player resale.
+
+
+* Priority slots exist only when regime supports it.
+
+
+* Buying priority:
+
+
+  * increases reliability and reduces delay variance
+
+
+  * increases visibility (Heat and/or Influence drivers)
+
+
+  * may increase inspection probability (regime dependent)
+
+
+### **6.3 Fracture travel mechanics**
+
+
+#### **6.3.1 Planning contract**
+
+
+Fracture travel is never a skill minigame.  
+ Player chooses:
+
+
+* entry node
+
+
+* intended exit node
+
+
+* drive profile (if any)
+
+
+* optional calibration anchor usage (if available)
+
+
+SimCore presents:
+
+
+* arrival cone (spatial uncertainty)
+
+
+* timing band (temporal uncertainty)
+
+
+* risk band (failure likelihood tiers)
+
+
+* meter preview bands (Trace, Heat) as interfaces
+
+
+Player commits or cancels.
+
+
+#### **6.3.2 Outcome resolution**
+
+
+On execution, SimCore resolves a specific outcome and emits:
+
+
+* FractureExecuted(entry, intended\_exit, actual\_exit\_or\_coords, timing\_error, dispersion, damage, meter\_emissions, anomaly\_flags)
+
+
+Outcome buckets must be legible:
+
+
+* Clean arrival (within cone)
+
+
+* Shortfall (arrive nearer entry region)
+
+
+* Overshoot (arrive beyond intended)
+
+
+* Shear (damage, cargo loss, system strain)
+
+
+* Catastrophe only beyond clear redline or via rare scenario flags
+
+
+### **6.4 Fracture counterweights (so it does not replace lanes)**
+
+
+Fracture must not become the dominant answer to chokepoints. It needs operational constraints beyond “a meter goes up.”
+
+
+Fracture counterweights are modular but at least one must be active in v1:
+
+
+* **Maintenance wear**: each fracture consumes expensive parts or increases drive wear; repairs require specialized goods/services.
+
+
+* **Calibration consumables**: using anchors or stabilizers consumes resources or time windows.
+
+
+* **Cooldown or scheduling**: fracture attempts are limited by heat-up, cooldown, or authority attention cycles.
+
+
+* **Arrival context penalties**: arriving by fracture often places you in low intel contexts, higher immediate risk, or farther from services, forcing last-mile lane travel.
+
+
+* **Uncertainty is real**: arrival cone must frequently force follow-up decisions rather than delivering perfect point-to-point.
+
+
+### **6.5 Arrival cone, timing error, and player experience**
+
+
+UI must present uncertainty in actionable terms:
+
+
+* best case, likely case, worst case bands
+
+
+* what worsens it (distance, interference, calibration loss, hull integrity)
+
+
+* what it will do to Trace and Heat (banded preview)  
+   This keeps fracture in the planning space and avoids hidden dice feelings.
+
+
+### **6.6 Travel and automation integration**
+
+
+Automation prefers lanes. Fracture is typically manual until earned.
+
+
+Planner defaults:
+
+
+* Planner uses lane travel with reservations when possible.
+
+
+* Planner may use standby only under tight budgets or emergencies.
+
+
+* Planner uses fracture only if:
+
+
+  * explicitly enabled by the player
+
+
+  * unlocked via assets/staff/infrastructure
+
+
+  * constrained by risk caps and trace caps
+
+
+Explainability requirement:
+
+
+* If planner refuses fracture, it emits a clear reason:
+
+
+  * locked, trace cap, uncertainty too high, no calibration access, or budget cap.
+
+
+### **6.7 Travel consequences for meters (interfaces, not formulas)**
+
+
+Travel emits drivers to meters:
+
+
+* Lane travel tends to increase Heat (throughput visibility) and can increase Influence (priority buys, compliance posture outcomes).
+
+
+* Fracture travel tends to increase Trace and can increase Heat if followed by obvious high value movement.  
+   Exact formulas live in the Signal module section.
+
+
+### **6.8 Minimal v1 implementation set for Section 6**
+
+
+To keep this buildable:
+
+
+* Lane travel with reservation and standby
+
+
+* Restriction state affects variance and denial
+
+
+* One inspection and one piracy encounter type
+
+
+* Fracture travel with 3 buckets (clean, shortfall, shear) plus Trace emission
+
+
+* At least one fracture counterweight active (maintenance wear recommended)
+
+
+* Planner uses lanes only in v1 unless explicitly enabled later
+
+
+Here is the full text for **Section 7 (Risk Model)** and **Section 8 (Containment Model)**, rewritten using the **"TBD but Directional" Implementation Schema**.
+
+
+These sections now explicitly separate the hard-coded architecture (Locked Contract) from the tunable game design (Default v0 Behavior), ensuring you can build the engine without finalizing every balance number.
+
+
+---
+
+
+## **7\. Risk Model: Heat, Influence, Trace (The "Signal" Architecture)**
+
+
+**Core Axiom:** Signals are Attributable Global Variables, not random number generators. Every change in value must trace back to a specific Player Choice or World Event. These are distinct services, never collapsed into a single "Karma" system.
+
+
+### **7.1 Signal Topology & Scope (Locked Contract)**
+
+
+* **Topology Definition:**  
+  * **Heat (Edge-Local):** Stored on EdgeData. Bleeds to adjacent Edges (1-hop) at reduced intensity. Does not propagate to Nodes.  
+  * **Influence (Node-Local to Regional):** Stored on NodeData. Aggregates to RegionData (weighted average).  
+  * **Trace (Node-Accumulator to Regional-Tier):** Stored on NodeData (injected via Fracture Exits). Aggregates to RegionData.TotalTrace, which drives the Containment Tier.  
+* **Attribution Requirement:** Every signal delta must carry a ReasonCode (e.g., HeatSource.PrioritySlotPurchase) to support UI tooltips.  
+* **The Response Budget:** To prevent "Death Spirals," all negative world responses (spawns, closures) are strictly capped by a RegionalResponseBudget per day. If the budget is exhausted, no further negative events spawn, regardless of signal level.
+
+
+### **7.2 Economic Heat (Operational Volatility)**
+
+
+* **Locked Contract:** Heat acts as a spawn modifier and disruption probability multiplier. It decays over time.  
+* **Default v0 Behavior (Slice 1):**  
+  * **Drivers:** Throughput (over X slots/day) and Value (over Y credits/day) increase Heat linearly.  
+  * **Effect:** If Heat greater than Threshold, PirateSpawnChance increases.  
+  * **Decay:** fast daily decay (e.g., \-20% per day) to encourage "burst" smuggling logic.  
+* **Tuning Parameters (Data-Driven):** HeatDecayRate, PrioritySlotHeatMultiplier, PirateSpawnThreshold.  
+* **TBD Decisions:** Exact formula for heat bleed to adjacent edges; whether heat affects insurance premiums immediately or only after a claim.  
+* **Extension Points:** IHeatEffectPolicy (allows future modules to add effects like "Customs Audits" or "Crew Stress").
+
+
+### **7.3 Market Power Influence (Political Leverage)**
+
+
+* **Locked Contract:** Influence is a persistent currency of leverage, not a consumed fuel. It is strictly bounded (0.0 to 1.0) and saturates.  
+* **Default v0 Behavior (Slice 2):**  
+  * **Drivers:** Asset Control (owning over 50% of node storage) and Contract Reliability.  
+  * **Effect:** Unlocks a binary "Inspection Waiver" ability at high influence.  
+  * **Decay:** Very slow/sticky. Only drops on asset loss or contract failure.  
+* **Tuning Parameters (Data-Driven):** AssetInfluenceWeight, ContractSuccessDelta, InfluenceDecayRate.  
+* **TBD Decisions:** Whether Influence is per-faction or global; specific formulas for price-band shifting.  
+* **Extension Points:** IInfluenceSpendPolicy (defines what players can "buy" with influence, e.g., slot lockouts or regulatory capture).
+
+
+### **7.4 Precursor Trace (Existential Threat)**
+
+
+* **Locked Contract:** Trace is an accumulator. In the default module, it drives the ContainmentTier. It is not visible to Pirates/Factions.  
+* **Default v0 Behavior (Slice 3):**  
+  * **Drivers:** Fracture Operations (Function of Mass, Distance, Efficiency).  
+  * **Effect:** Directly drives ContainmentTier transitions (see Section 8).  
+  * **Decay:** Zero natural decay. Reduction requires active infrastructure (Pylons).  
+* **Tuning Parameters (Data-Driven):** FractureTraceCoefficient, ViolenceTraceDelta, PylonScrubRate.  
+* **TBD Decisions:** Visual representation of "Trace Pollution" on the map; specific "Trace Burst" values for destroying containment units.  
+* **Extension Points:** ITraceGenerationRule (allows mods to add new trace sources, e.g., "Forbidden Cargo").
+
+
+### **7.5 Degenerate Play Prevention (Invariant)**
+
+
+To ensure the simulation remains a game:
+
+
+1. **No Passive Heat Benefit:** High Heat must never provide a net passive benefit (e.g., "farming pirates for profit") without escalating, uncapped costs (e.g., risk of total fleet loss or route closure).  
+2. **Bounded Influence:** Influence must saturate. It cannot allow the player to dictate prices to infinity or remove Authority entirely.  
+3. **Insurance Mitigation (Capped):** The Insurance Ratchet (premium increase) must have a **Capped Maximum** (e.g., 25% of hull value) OR a distinct, expensive gameplay action to reset it (e.g., "Safety Recertification"). It must never mathematically softlock the player's ability to fly.
+
+
+---
+
+
+## **8\. Containment Model: The Automated Antagonist**
+
+
+**Core Axiom:** Containment is a deterministic State Machine, not an "Enemy Faction." It does not negotiate, and it does not cheat. It observes Aggregated Trace and enforces Stability. *Note:* This module represents the "Stabilization Arc." Future scenarios may replace this logic with different antagonist systems, provided they respect the SimCore layer boundaries.
+
+
+### **8.1 The Containment State Machine (Locked Contract)**
+
+
+* **State Owner:** SimCore.RegionData.  
+* **Input:** Region.TotalTrace (and optionally Region.Stability).  
+* **Output:** ContainmentTier (Enum: Passive, SoftConstraints, Quarantine, Interdiction, HeavyResponse).  
+* **Transition Rule:** Transitions happen on the **Day Tick**. They are telegraphed (e.g., "Escalation Imminent") before enforcement begins. Immediate jumping of multiple tiers is forbidden unless triggered by specific "Catastrophe" events.
+
+
+### **8.2 Escalation Tiers (Implementation)**
+
+
+* **Default v0 Behavior (Slice 3):**  
+  * **Tier 0 (Passive):** Trace under 10%. No effect.  
+  * **Tier 1 (Warning):** Trace over 10%. UI Warning "Containment Scrutiny Active." Inspection chance \+10%.  
+  * **Tier 2 (Quarantine):** Trace over 30%. Specific High-Trace edges are marked RESTRICTED. Travel requires Fracture (Lanes closed).  
+  * **Tier 3 (Interdiction):** Trace over 60%. Spawns Interdictor units on Day Tick. Fracture usage triggers combat chance.  
+* **Tuning Parameters (Data-Driven):** TierThresholds (array), InterdictionSpawnRate, QuarantineEdgeSelectionLogic (e.g., "Top 3 highest trace edges").  
+* **TBD Decisions:** Exact unit stats for Interdictors; visual FX for "Quarantined Space."  
+* **Extension Points:** IContainmentTierPolicy (defines what actually *happens* at each tier, allowing mods to change "Interdiction" to "Heavy Taxation" or "Star System Destruction").
+
+
+### **8.3 Interdiction Logic & Anti-Farm Rule (Implementation)**
+
+
+* **Locked Contract:**  
+  * **Spawn Logic:** Interdictors spawn based on Trace thresholds and RegionalResponseBudget. They do not spawn infinitely.  
+  * **Loot Table:** Interdictors drop **Salvage** (damaged parts/scrap), *never* liquid currency.  
+* **Default v0 Behavior:**  
+  * **Combat Consequence:** Destroying an Interdictor grants Salvage but adds \+X Trace (Violence Driver).  
+  * **The Loop:** This creates the "Kill when you must, do not farm" loop. Farming accelerates the Doom state (Tier 4).  
+* **TBD Decisions:** Specific salvage recipes; repair costs for interdictor tech.  
+* **Extension Points:** IInterdictionSpawnRule.
+
+
+---
+
+
+# **9\. Player Loop & Progression**
+
+
+**Core Axiom:** Progression is not XP. It is the shift from "Operating Expense" (Trucking) to "Capital Expense" (Infrastructure). **Design Goal:** Each phase must have a distinct feeling, a primary constraint, and a specific "Win State" that signals graduation to the next layer.
+
+
+**9.1 Phase 1: The Independent Captain (0-4 Hours)**
+
+
+* **Role:** Pilot / Trucker / Miner.  
+* **Gameplay:**  
+  * **Manual Piloting:** Direct control of a single ship.  
+  * **Manual Mining:** Aiming lasers at rocks, managing cargo scoop.  
+  * **Dogfighting:** Fighting pirates using kiting, shield management, and active maneuvering.  
+  * **Trade:** Buying low / Selling high at stations.  
+* **Goal:** Earn enough credits to buy a second ship or a station license.
+
+
+**9.2 Phase 2: The Operator (4-20 Hours)**
+
+
+* **Role:** Fleet Manager.  
+* **Gameplay:**  
+  * Player acquires a second ship. Realizes they cannot fly two ships.  
+  * **Empire Manager UI:** Player assigns Ship \#2 to a "Trade Route" (Automated).  
+  * **The Split:** Player continues to fly "Hero Missions" (high-risk delivery, combat patrol) while Ship \#2 generates passive income in the background using SimCore logic.  
+  * **Intervention:** Ship \#2 gets attacked. Player receives an alert. Player can choose to fly to that sector and physically defend Ship \#2.
+
+
+## **9.3 Phase 3: The Architect (Rewriting the Map)**
+
+
+**Locked Contract**
+
+
+* **The Verb:** "Restructure." The player builds infrastructure to change the rules of the map.  
+* **The Constraint:** **Trace Accumulation & Connectivity.** You are limited by the "Doom" state of the galaxy.  
+* **Failure State:** Systemic Collapse (key nodes permanently isolated) or Existential Defeat (Tier 4 Containment).
+
+
+**Default v0 Behavior (Slice 3\)**
+
+
+* **The Threat:** **Precursor Trace** accumulates from Fracture usage and does *not* decay naturally.  
+* **The Solution:** **Resonance Pylons**.  
+  1. Pylons are expensive, vulnerable infrastructure.  
+  2. They actively "scrub" Trace in their region.  
+  3. They stabilize "Drift" in termination accumulations.  
+* **Core Loop:**  
+  1. **Containment Escalates:** A critical corridor is closed (Tier 2 Quarantine).  
+  2. **Fracture Bypass:** The player *must* use Fracture Travel to bypass the blockade.  
+  3. **Deliver Payload:** Transport Pylon components to the isolated node.  
+  4. **Stabilize:** Deploy the Pylon to reopen the corridor or create a "Safe Passage" tunnel.  
+* **Win State:** Construct a stabilized logistics web that creates a "Green Zone" robust enough to survive the maximum Containment response.
+
+
+### **TBD Decisions**
+
+
+* **Alternate Endgames:** Future modules could introduce a "Military Victory" (destroying the Containment Hub) or "Economic Victory" (buying the galaxy), but v0 is strictly the Stabilization Arc.
+
+
+### **Extension Points**
+
+
+* IEndgameGoal: Interface for defining the victory condition checker (e.g., IsNetworkStabilized()).
+
+
+---
+
+
+### **10\. Performance Model: The Tick Budget**
+
+
+**Core Axiom:** We do not simulate the universe at frame rate. We use a **Dual-Tick** architecture to guarantee performance at scale.
+
+
+**10.1 The Frame Tick (Real-Time / 16ms)**
+
+
+* **Scope:** The Local Scene (Player Ship, "Ghost" Entities, Projectiles, Debris).  
+* **Responsibilities:**  
+  * Input handling (WASD, Mouse).  
+  * **Local Physics:** RigidBody integration, collision detection, projectile ballistics.  
+  * **Local AI:** Steering behaviors for Ghost ships (avoidance, pursuing player).  
+  * Rendering & Audio.  
+* **Constraints:** Strictly Forbidden to run global economy loops here.
+
+
+#### **10.2 The Day Tick (Simulation / Batch)**
+
+
+* **Scope:** The Entire Universe (SimCore).  
+* **Execution Order (Strict Batching):**  
+  1. **Market Update:** Process consumption, production, and price adjustments for 1000+ nodes.  
+  2. **Planner Pass:** Solve logistics for Factions and Player Automation policies.  
+  3. **Signal Pass:** Decay Heat/Influence; Accumulate Trace; Check Regional Budgets.  
+  4. **Containment Pass:** Evaluate Trace thresholds → Update Tiers → Schedule Spawns.  
+* **Performance Budget:** 100-200ms allowed. Can be masked by a "Day Change" UI transition or threaded in the background.
+
+
+---
+
+
+# **11\. Data Model & Content Pipeline (The Rules)**
+
+
+**Core Axiom:** Hard-coding game data is forbidden. All gameplay definitions must exist as external assets (JSON or Scriptable Resources) that can be hot-loaded. **Design Goal:** To allow balancing the economy (prices, recipes, spawn rates) without recompiling the binary, and to enable "Total Conversion" modding from Day 1\.
+
+
+---
+
+
+## **11.1 The Static Database (Definitions)**
+
+
+### **Locked Contract (Non-Negotiable)**
+
+
+1. **Immutability:** Definitions (Goods, Recipes, Ships, Factions) are loaded at boot into the SimCore. Once the simulation starts, these objects are **Read-Only Reference Data**.  
+2. **String IDs:** All references must use unique String IDs (e.g., "good\_steel", "hull\_frigate\_t1"), never integer indices or volatile pointers. This ensures save file stability even if the data load order changes.  
+3. **The "Merge & Overwrite" Rule:** The database is built by iterating through a Load Order (Core to DLC to User Mods).  
+   * If a Mod loads a Definition with a *new* ID, it is **Added**.  
+   * If a Mod loads a Definition with an *existing* ID, it **Overwrites** the previous entry completely. (This allows a mod to rebalance "Food" without writing C\# code).
+
+
+### **Default v0 Behavior**
+
+
+* **Format:** Strict System.Text.Json with schema validation.  
+* **Structure:** A single root GameData object containing Lists of Definitions, or a flat folder structure (/Data/Goods/\*.json).  
+* **Validation:** On boot, the ContentLoader validates that all good\_id references in Recipes actually exist in the Goods list. If validation fails, the game halts with a clear error report.
+
+
+### **Schema Definitions (v0 Baseline)**
+
+
+* **GoodDefinition:** id, name, mass, volume, category (Bulk/Tech/Regulated), base\_price.  
+* **RecipeDefinition:** id, inputs (List of {good\_id, qty}), outputs (List of {good\_id, qty}), cycle\_time (days), required\_tier.  
+* **SignalDriverDef:** action\_id (e.g., "Action\_PriorityBuy"), heat\_delta, influence\_delta, trace\_delta. (This links code events to data-driven consequences).
+
+
+---
+
+
+## **11.2 Tuning Tables (Curves, Not Constants)**
+
+
+### **Locked Contract**
+
+
+* **No Magic Numbers:** Game logic (SimCore) must not contain hard-coded constants for balance (e.g., double price \= base \* 1.5). Instead, it must query a TuningTable.  
+* **Lookup Tables (LUTs):** Non-linear behaviors must be defined as data arrays or curves (e.g., AnimationCurve equivalents in raw data), not mathematical formulas hard-coded in C\#.
+
+
+### **Default v0 Behavior**
+
+
+* **Price Elasticity Table:** Maps Inventory / TargetStock ratio (0.0 to 2.0) to PriceMultiplier (e.g., 3.0x to 0.5x).  
+  * *Rule:* Prices should be sticky near 1.0 (Target) and volatile at edges (Empty/Full).  
+* **Fracture Error Curve:** Maps Distance and Mass to ArrivalConeRadius.  
+* **Response Budget Table:** Defines the maximum "World Response" (Spawns/Closures) allowed per Region per Day based on RegionDifficultyTier.
+
+
+### **Tuning Parameters (Data-Driven)**
+
+
+* GlobalInflationCap: Max currency allowed in circulation (sanity check limit).  
+* BaseInsurancePremium: Starting % of hull value.  
+* HeatDecayRate: % of heat lost per day.
+
+
+---
+
+
+## **11.3 Modding Support Strategy**
+
+
+### **Locked Contract**
+
+
+* **Load Order:** Core.json to DLC.json to Mods/\*.json.  
+* **Isolation:** Mods cannot inject C\# code in v1 (security/stability). They can only inject Data (JSON) and Assets (Textures/Audio).  
+* **Asset References:** Data files reference assets via relative paths (e.g., "icon": "Mods/MyMod/Icons/steel.png"). The GameShell (Godot) is responsible for resolving these paths to actual Resources.
+
+
+### **Extension Points**
+
+
+* IContentLoader: Interface for the loading logic.  
+  * *v0 Implementation:* Reads from local StreamingAssets / Data folder.  
+  * *Future Implementation:* Can read from Steam Workshop directory or Zip archives.  
+* IValidator: Interface for running integrity checks (e.g., "Check for circular recipe dependencies").
+
+
+### **TBD Decisions**
+
+
+* **Localization Structure:** How translation keys are mapped in the JSON (e.g., separate .po files vs embedded "name\_en": "Steel"). *Directional decision: Use separate localization files keyed by ID.*  
+* **Tech Tree Format:** Whether to define the Tech Tree as a separate graph or purely via Recipe.required\_tier and Blueprint items. *Directional decision: Tech is items (Blueprints), not an abstract tree.*
+
+
+---
+
+
+Here is the fully corrected, legally binding text for **Section 12**, updated to harmonize the Insurance Ratchet with the anti-softlock rules and enforce the station-only persistence model. This text replaces the corresponding section in Architecture v5.
+
+
+---
+
+
+# **12\. Persistence & Save/Load Rules (The Memory)**
+
+
+**Core Axiom:** Saving is only allowed when the system is stable (Docked). We strictly reject "Mid-Space" or "Mid-Combat" serialization. **Technical Goal:** To reduce technical risk by 80% (avoiding the need to serialize projectile trajectories, AI states, or particle effects) and to anchor the "Loss Model" to a clear checkpoint.
+
+
+## **12.1 Persistence Architecture**
+
+
+### **Locked Contract (Non-Negotiable)**
+
+
+1. **Station-Only Saving:** Game state can *only* be written to disk when the player is Docked at a friendly or neutral Station. There is no "Quicksave" in space.  
+2. **Three-File Structure:** A Save Slot consists of three distinct JSON blobs:  
+   * **Meta.json**: Display data (Timestamp, Playtime, Version, Screenshot path). Used for the "Load Game" menu.  
+   * **SimState.json**: The Universe (Nodes, Markets, Factions, Signals, Containment Tiers). This is the full dump of the SimCore.  
+   * **Player.json**: The Avatar (Credits, Assets, Location, Hangar, Reputation, Active Contracts).  
+3. **Atomic Write:** All three files must be written successfully, or none are. (Use a temporary .tmp folder during write, then rename).
+
+
+### **Default v0 Behavior**
+
+
+* **Format:** Unencrypted System.Text.Json (Strict Types) for ease of debugging in Slice 1\.  
+* **State Migration:** If the SaveVersion less than CurrentVersion, the SimState is reset to a fresh seed (Galaxy Regen), but the Player.json (Credits/Assets) is migrated. (This allows updates without wiping player progress, though the galaxy map might reset).
+
+
+### **Tuning Parameters (Data-Driven)**
+
+
+* AutosaveFrequency: (On Dock? On Undock? Every X market ticks? \- Default: On Dock).  
+* MaxSaveSlots: Number of rolling autosaves to keep.
+
+
+### **TBD Decisions**
+
+
+* **"Ironman" Mode:** Implementation of a "Save on Exit" feature for edge cases (requires careful handling to prevent "Alt-F4" exploitation to avoid death).  
+* **Cloud Sync:** Handling conflict resolution if Meta.json timestamps differ.
+
+
+### **Extension Points**
+
+
+* ISaveSerializer: Interface allowing the underlying format to swap from JSON to Binary/Protobuf later if save files exceed performance budgets (over 50MB).
+
+
+## **12.2 The Loss Model (Economic, Not Permadeath)**
+
+
+**Core Axiom:** Permadeath is incompatible with a long-term strategy game. The player survives catastrophe, but their wallet and timeline do not.
+
+
+**Locked Contract**
+
+
+1. **Lifepod Recovery:** On ship destruction (Combat or Fracture), the Player.json is *not* deleted. The player respawns at the last visited Station (or nearest Safe Harbor).  
+2. **The "Lost Time" Penalty:** The SimCore must advance by RecoveryTime days *before* giving control back to the player. The universe evolves without them (prices shift, competitors move, contracts expire).  
+3. **The Insurance Ratchet (Capped):**  
+   * Every claim increases the BaseInsurancePremium variable in Player.json.  
+   * **Guardrail:** This ratchet is **Capped** at MaxPremium (e.g., 25% of hull value) OR must provide a gameplay action to reset it (e.g., "Safety Recertification" costing time/credits). It must never mathematically softlock the player's ability to fly.
+
+
+**Default v0 Behavior**
+
+
+* **Cargo:** Lost entirely (spawned as a temporary "Wreck" node in SimCore).  
+* **Hull:** Replaced by a basic "Loaner" if no other ships are in the Hangar.  
+* **Ratchet Formula:** NewPremium \= Min(MaxPremium, OldPremium \+ (ClaimValue \* 0.15)).
+
+
+---
+
+
+# **13\. Testing & Determinism (The Inspector)**
+
+
+**Core Axiom:** The SimCore must be testable via a Headless Console Application, completely decoupled from the Godot Engine. **Technical Goal:** To guarantee a balanced economy by simulating years of gameplay in seconds ("The 1000x Speed Test").
+
+
+---
+
+
+## **13.1 The Headless Harness**
+
+
+### **Locked Contract (Non-Negotiable)**
+
+
+1. **Strict Determinism:** Given an InitialSeed and an identical CommandList, the SimCore must produce a bitwise-identical FinalState.  
+2. **No Godot Dependencies:** The Test Runner is a standard .NET 6.0+ Console Application. It references the SimCore library but *not* Godot.  
+3. **The "Step" API:** The Test Runner interacts only via SimCore.Initialize(seed) and SimCore.Step(days).
+
+
+### **Default v0 Behavior**
+
+
+* **The Smoke Test:** A CI/CD test that runs on every commit:  
+  1. Generate Universe (Seed: 12345).  
+  2. Simulate 365 Days.  
+  3. Assert: No Crashes, No NaN values in Economy.  
+  4. Pass/Fail based on invariants.  
+* **Performance Budget:** 1 Simulated Year under 5 Seconds (Real Time) in Headless Mode.
+
+
+### **Tuning Parameters**
+
+
+* TestSeed: The default seed used for regression testing.  
+* ChaosMode: (Optional) A flag to inject random command noise to test stability.
+
+
+---
+
+
+## **13.2 Invariant Tests (The "Silent Drift" Catchers)**
+
+
+### **Locked Contract**
+
+
+Automated assertions that run at the end of every DayTick in Debug/Test builds. If an invariant fails, the Simulation halts immediately.
+
+
+1. **Assert\_NoInfiniteMoney()**: Total Currency in System less than InflationCap. (Prevents integer overflow or runaway faucets).  
+2. **Assert\_InventoryConservation()**: GoodsProduced \+ GoodsImported \= GoodsConsumed \+ GoodsExported \+ Stockpile. (Goods must not vanish or appear from void).  
+3. **Assert\_SignalBounds()**: Heat, Influence, and Trace must remain strictly between 0.0 and 1.0 (or defined Max).  
+4. **Assert\_PlannerSolubility()**: The Auto-Planner must be able to find a route between two connected, safe nodes. (Prevents map generation bugs that create isolated islands).
+
+
+### **Extension Points**
+
+
+* ISimInvariant: Interface for defining new sanity checks (e.g., Assert\_NoDuplicateIDs, Assert\_ContainmentEscalationLogic).
+
+
+### **TBD Decisions**
+
+
+* **Replay Logs:** Whether to serialize the full CommandList to disk to allow "Replay Debugging" of a user's crash. (Recommended for Beta, TBD for v0).
+
+
+### **13.3 Scenarios and Reproducibility (Integration Unit)**
+
+
+**Core Axiom:** A “Scenario” is the smallest unit of simulation integration testing. Every non-trivial SimCore change must be verifiable by running at least one scenario headlessly.
+
+
+#### **Locked Contract**
+
+
+1. **Scenario Definition:** A scenario is a versioned file that fully defines a headless run.
+2. **Minimum Fields (v0):**
+   - ScenarioId (stable string)
+   - InitialSeed (int)
+   - StopCondition (eg fixed day count, or event-based stop)
+   - BalanceConfig overrides (optional)
+   - CommandScript (optional, deterministic “player agent” commands by day/tick)
+   - Expected checks (invariants and/or metric bands)
+3. **Deterministic Inputs Only:** A scenario may not depend on wall clock time, system locale, machine-specific ordering, or Godot frame timing.
+4. **Repro First Policy:** Bugs are fixed by adding a failing scenario first, then fixing until it passes.
+
+
+### **13.4 Headless Runner Contract (CLI Surface)**
+
+
+**Core Axiom:** The headless runner is a first-class interface, not ad hoc debug code. It is how we scale testing and keep LLM changes bounded.
+
+
+#### **Locked Contract**
+
+
+- **Commands (v0 minimal):**
+  - run one scenario
+  - run a batch across N seeds (same scenario)
+  - emit artifacts to an output directory
+- **Exit Codes:** Non-zero exit for determinism failure, invariant failure, schema failure, or crash.
+- **Performance Budgets:** CI mode must have explicit per-scenario runtime caps (tight now, looser later).
+
+
+### **13.5 Run Artifacts and Telemetry (Diffable Outputs)**
+
+
+**Core Axiom:** Every headless run must emit stable, machine-readable outputs so regressions can be detected automatically.
+
+
+#### **Locked Contract (minimum stable outputs)**
+
+
+- **run_manifest.json:** scenario id, seed, config hash, build/version id, git commit (if available)
+- **metrics.json:** agreed schema, units, aggregation window/cadence
+- **events.jsonl:** structured event log with tick/day index and stable entity ids
+- **Optional snapshots:** only if needed, behind a flag, with documented size limits
+
+
+### **13.6 Scorecards and Regression Suites (Pass/Fail Semantics)**
+
+
+**Core Axiom:** “Balance” is not vibes. It is a scorecard evaluated on a fixed scenario pack.
+
+
+#### **Locked Contract**
+
+
+1. **Two classes of checks:**
+   - **Hard fail:** determinism, invariants, schema validity, NaN, overflow, impossible state
+   - **Soft fail (warning):** metric drift beyond allowed deltas, performance regressions within tolerance
+2. **Regression Suite Tiers (v0):**
+   - per-commit fast suite (seconds)
+   - CI suite (minutes)
+   - nightly long-horizon suite (tens of minutes to hours, optional until needed)
+3. **Change Isolation Rule:** One feature change must come with one measurable proof: a scenario addition/update, a metric addition, or an invariant addition.
+
+
+---
+
+
+### **14\. Build Slices (Implementation Roadmap)**
+
+
+**Core Axiom:** Build vertically. Do not build "Systems" in isolation; build "Playable Loops." Prove the boring stuff is fun before adding the cool stuff.
+
+
+#### **Slice 1: The Trucker (The Arbitrage Loop)**
+
+
+* **Objective:** Prove that buying low, selling high, and managing Slot Scarcity is engaging.  
+* **Scope:** 2 Nodes connected by 1 Lane.  
+* **Features:**  
+  * Manual Buy/Sell commands.  
+  * Lane Travel (Reservation vs. Standby).  
+  * Basic Slot Market (Price fluctuates with usage).  
+  * **Risk:** "Economic Heat" meter (Visual only, no pirates yet).  
+* **Success Metric:** Player can go bankrupt by buying Priority Slots for low-margin goods.
+
+
+#### **Slice 2: The CEO (The Automation Loop)**
+
+
+* **Objective:** Prove that setting Policy is fun and that Influence provides leverage.  
+* **Scope:** 1 Region (10 Nodes).  
+* **Features:**  
+  * Industry Sites (Extraction/Refining).  
+  * **Logistics Planner:** Auto-routing based on "Target Stock" policy.  
+  * **Influence Meter:** Unlocks "Inspection Waivers".  
+  * **Events:** "Inspection" encounter that disrupts flow.  
+* **Success Metric:** Player can set up a factory chain that runs autonomously for 30 days, then use Influence to save it when a lane gets congested.
+
+
+#### **Slice 3: The Architect (The Existential Loop)**
+
+
+* **Objective:** Prove that the Endgame (saving the network) is distinct from the Midgame (making money).  
+* **Scope:** Full Map (Multiple Regions).  
+* **Features:**  
+  * **Fracture Travel:** Manual planning with Arrival Cones.  
+  * **Trace Meter:** Accrues on fracture use.  
+  * **Containment:** Tier 1 & 2 (Closures/Quarantines) trigger based on Trace.  
+  * **Construction:** Resonance Pylons to mitigate Trace.  
+* **Success Metric:** Player is forced to use Fracture to bypass a Containment Blockade to deliver materials for a Pylon.
+
+
+Here are the final sections, **Section 15 and Section 16**, along with the **Executive Summary** to conclude the **Space Trade Empire Architecture Document (v4)**.
+
+
+These sections define the "Sensory Layer" (how the player understands the math) and the "Construction Site" (how you actually set up the project files), ensuring the abstraction of the SimCore doesn't result in a silent, confusing black box.
+
+
+---
+
+
+# **15\. UI/UX Architecture (The Information Layer)**
+
+
+**Core Axiom:** The UI is strictly a **View** of the SimCore Model. It must never calculate game logic. Its sole purpose is to make the "Invisible Math" (Heat, Trace, Supply Chains) legible and actionable.
+
+
+---
+
+
+## **15.1 The "Explainability" Contract**
+
+
+**Design Goal:** Since the game runs on automated systems (Governors, Planners, Containment), the UI must answer "Why?" for every negative outcome.
+
+
+### **Locked Contract (Non-Negotiable)**
+
+
+1. **Attribution Requirement:** Every meaningful state change in the SimCore (Price Spike, Route Denial, Delay) must carry a ReasonCode (e.g., Reason: HighTurbulence). The UI must be able to display this code.  
+2. **The Hover Rule:** Every aggregate variable displayed (Price, Risk Level, Travel Time) must have a tooltip decomposing its component drivers.  
+   * *Bad:* "Travel Time: 12 Days"  
+   * *Good:* "Travel Time: 12 Days (Base: 8d \+ Turbulence: 2d \+ Inspection Delay: 2d)".  
+3. **Event Linking:** Notification events ("Route Failed") must contain the EntityID of the failure. Clicking the notification must move the camera to that specific Node/Edge and open the relevant Inspector panel.
+4. **Pressure Conformance:** Any UI element that communicates system health, risk, or instability must use the Global Pressure Vocabulary (Section 1.10). Custom meters without pressure state, direction, and forecast are forbidden.
+5. **Forecast Explainability:** Forecast and uncertainty surfaces must include Confidence and Delta Attribution per Section 1.11 (what changed since last check, and why confidence is what it is).
+
+
+### **Default v0 Behavior**
+
+
+* **Tooltip Implementation:** A generic TooltipProvider service in Godot that accepts a SimCore.Explanation struct and renders a simple list of Name: Value pairs.  
+* **Log Retention:** The Event Log retains the last 50 events. Older events are discarded to save memory.
+
+
+---
+
+
+## **15.2 Data Flow (SimCore → GameShell)**
+
+
+**Technical Goal:** To decouple the simulation speed from the rendering framerate.
+
+
+### **Locked Contract**
+
+
+1. **Snapshots:** The UI does not query the raw SimCore graph directly (avoiding threading locks). Instead, it requests a ViewSnapshot struct on the **Frame Tick**.  
+   * The Snapshot contains safe copies of the data needed for the current screen (e.g., MarketView, NavView).  
+2. **Unidirectional Mutation:** The UI cannot change a value (e.g., PlayerCredits) directly. It must issue a Command to the SimCore CommandQueue.  
+3. **The Event Bus:** The SimCore emits C\# Events (e.g., OnMarketUpdate, OnTraceChange) during the Day Tick. The Godot UI subscribes to these via a Bridge to trigger animations, sounds, or toast notifications.
+
+
+### **Default v0 Behavior**
+
+
+* **Poll Rate:** The SimBridge polls the SimCore for updates every Process frame.  
+* **Interpolation:** For v0, we do not interpolate movement. Ships "teleport" or snap to positions based on the daily update. (Smooth interpolation is a v1 feature).
+
+
+---
+
+
+## **15.3 The "Risk Overlay" System**
+
+
+**Design Goal:** Players cannot manage invisible risks. We use Map Overlays as the primary strategic view, separate from the navigation view.
+
+
+### **Locked Contract**
+
+
+1. **Distinct Overlays:** The Map must support distinct modes that visualize the three Signals.  
+   * **Heat Overlay:** Color-codes Edges from Blue (Cold) to Red (Hot).  
+   * **Trace Overlay:** Visualizes "Pollution" density around Fracture Exits and containment zones.  
+   * **Influence Overlay:** Displays "Sphere of Influence" boundaries for the player and competitors.  
+2. **No "Fog of War" on Mechanics:** While *units* might be hidden, the *rules* (e.g., "This lane is High Heat") must be visible if the player has visited the region.
+
+
+### **TBD Decisions**
+
+
+* **Visual Language:** Whether Trace is represented as a "fog," a heatmap, or specific icons.  
+* **Granularity:** Whether Influence is shown per-node or as a painted region.
+
+
+### **Extension Points**
+
+
+* IOverlayProvider: Interface allowing modules to register new visualization layers (e.g., a "Political Tension" mod could add a new map mode).
+
+
+---
+
+
+## **15.4 The Planner Interface (The Automation Dashboard)**
+
+
+**Design Goal:** This is the most dangerous UI screen. If it feels like programming, players will bounce. It must be **Policy-Driven**.
+
+
+### **Locked Contract**
+
+
+1. **Policy-First Design:** Players set **Goals** (e.g., "Target Stock: 100"), not Instructions (e.g., "Buy 10 from Node A").  
+2. **Constraint Feedback:** If the Planner cannot fulfill a policy, the UI must show a "Blocker" icon on the relevant node.  
+   * *Example:* "Route Blocked: Risk Cap Exceeded (Current Heat 80% over Limit 50%)".  
+3. **Intent Visualization:** The Map must show "Ghost Convoys" or dotted lines indicating planned shipments *before* they launch, allowing the player to audit the Planner's behavior.
+
+
+### **Default v0 Behavior**
+
+
+* **Simple List View:** A list of active Supply Routes with a green/red status light.  
+* **Global Policy Toggle:** A single "Panic Button" to disable all automated routing if the economy spirals.
+
+
+### **Tuning Parameters**
+
+
+* GhostRouteOpacity: Visual strength of planned routes.  
+* UpdateFrequency: How often the intent visualization refreshes (e.g., every 1 second).
+
+
+---
+
+
+### **16\. Technical Stack & Project Standards**
+
+
+**Core Axiom:** We separate the **Simulation Domain** (C\#) from the **Game Engine** (Godot). This allows the Simulation to survive even if we swap engines later, and enables the high-speed Headless Testing required for a healthy economy.
+
+
+#### **16.1 Technology Stack**
+
+
+* **Engine:** Godot 4.x (.NET Edition).  
+* **Language:** C\# 10.0+ (Required for SimCore sharing and Unit Tests).  
+* **Data Serialization:** System.Text.Json (Strict types, no loose dictionaries).  
+* **Testing:** NUnit / xUnit (for SimCore).
+
+
+#### **16.2 Directory Structure (Strict Separation)**
+
+
+The project folder must physically enforce the architecture:
+
+
+```text
+/ProjectRoot
+  /SimCore (The "Brain")
+    - Pure C# Class Library. No Godot dependencies.
+    - /Entities (Node, Edge, Good, Recipe)
+    - /Services (MarketService, SignalService, PlannerService)
+    - /Systems (ContainmentSystem, IndustrySystem)
+    - /State (SimState, PlayerState)
+
+
+  /GameShell (The "Body")
+    - Godot Project Files.
+    - /Scenes (Screens, Maps, Combat)
+    - /Adapters (SimCoreToGodotBridge)
+    - /Assets (Art, Audio, Textures)
+
+
+  /Content (The "Rules")
+    - JSON Definitions (Goods, Recipes, Ships)
+    - Tuning Tables (Curves, Constants)
+
+
+  /Tests (The "Inspector")
+    - Headless Unit Tests for SimCore.
+```
+
+
+#### **16.3 Coding Standards**
+
+
+- **No "God Classes":** SimCore.cs is only an entry point. Logic lives in specific Systems (e.g., IndustrySystem.ProcessDay()).
+- **Stateless Services:** Services should operate on Data (SimState), not hold it. This makes Save/Load trivial (just serialize SimState).
+
+
+- **LLM-first modularity (required):**
+  - File size budgets: soft target 150 to 350; review trigger over 350; strong cap 600 except rare adapters/registries.
+  - Contract Headers required on non-trivial files (Purpose, Layer, Dependencies, Public API, Events, Invariants, Tests).
+  - LLM Module Packets required for coding sessions (curated working set and validation steps). Canonical workflow rules live in `_PROJECT_CONTEXT.md`.
+
+
+- **Integer Math for Money:** Use long (cents/credits) for all financial calculations to prevent floating-point drift.
+- **Deterministic RNG:** All randomness must pass through a seeded SimRandom wrapper, never System.Random or Godot's Randf.
+
+
+---
+
+
+**Executive Summary: The Hybrid Mandate** This document defines a commercially viable path for *Space Trade Empire*.
+
+
+**We have prioritized:**
+
+
+1. **Visceral Flight:** The player is a pilot. Movement is physics-based and satisfying (Starcom/Freelancer feel).  
+2. **Strategic Scale:** The empire runs on a deterministic graph (SimCore), allowing it to scale to 1,000+ ships without lag.  
+3. **Hybrid Authority:** The game simulation switches contexts—Physics for the Player, Math for the Empire.  
+4. **Station-Only Persistence:** We simplify the technical load by saving only at safe harbors.
+
+
+**Final Directive:** Do not force the Player to be a spreadsheet entry. Do not force the Empire to be a physics simulation. Keep them separate, and bridge them via the Tactical Bubble.

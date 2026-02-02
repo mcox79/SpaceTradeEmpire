@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://ui_hud_04"]
+[gd_scene format=3 uid="uid://b1yfqd1iayu7l"]
 
-[ext_resource type="Script" path="res://scripts/hud.gd" id="1_ui"]
+[ext_resource type="Script" uid="uid://djcdn0lcfoqm2" path="res://scripts/hud.gd" id="1_ui"]
+[ext_resource type="Script" uid="uid://bmaadtjx3gk3k" path="res://scripts/ui/market_ui.gd" id="2_v826e"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_green"]
 bg_color = Color(0.2, 0.8, 0.2, 1)
@@ -8,10 +9,10 @@ bg_color = Color(0.2, 0.8, 0.2, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yellow"]
 bg_color = Color(0.8, 0.8, 0.2, 1)
 
-[node name="HUD" type="CanvasLayer"]
+[node name="HUD" type="CanvasLayer" unique_id=898039951]
 script = ExtResource("1_ui")
 
-[node name="Control" type="Control" parent="."]
+[node name="Control" type="Control" parent="." unique_id=1198278862]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,14 +21,14 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Panel" type="Panel" parent="Control"]
+[node name="Panel" type="Panel" parent="Control" unique_id=2025341589]
 layout_mode = 0
 offset_left = 20.0
 offset_top = 20.0
 offset_right = 320.0
 offset_bottom = 240.0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Control/Panel"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/Panel" unique_id=420741460]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -39,46 +40,46 @@ offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MoneyLabel" type="Label" parent="Control/Panel/VBoxContainer"]
+[node name="MoneyLabel" type="Label" parent="Control/Panel/VBoxContainer" unique_id=1437321492]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "CREDITS: $0"
 
-[node name="HSeparator1" type="HSeparator" parent="Control/Panel/VBoxContainer"]
+[node name="HSeparator1" type="HSeparator" parent="Control/Panel/VBoxContainer" unique_id=1142068283]
 layout_mode = 2
 
-[node name="LabelHull" type="Label" parent="Control/Panel/VBoxContainer"]
+[node name="LabelHull" type="Label" parent="Control/Panel/VBoxContainer" unique_id=1455459266]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "SHIELD INTEGRITY"
 
-[node name="HealthBar" type="ProgressBar" parent="Control/Panel/VBoxContainer"]
+[node name="HealthBar" type="ProgressBar" parent="Control/Panel/VBoxContainer" unique_id=1379368412]
 custom_minimum_size = Vector2(0, 15)
 layout_mode = 2
 theme_override_styles/fill = SubResource("StyleBoxFlat_green")
 value = 100.0
 show_percentage = false
 
-[node name="LabelFuel" type="Label" parent="Control/Panel/VBoxContainer"]
+[node name="LabelFuel" type="Label" parent="Control/Panel/VBoxContainer" unique_id=1651204094]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "FUEL RESERVES"
 
-[node name="FuelBar" type="ProgressBar" parent="Control/Panel/VBoxContainer"]
+[node name="FuelBar" type="ProgressBar" parent="Control/Panel/VBoxContainer" unique_id=655133098]
 custom_minimum_size = Vector2(0, 15)
 layout_mode = 2
 theme_override_styles/fill = SubResource("StyleBoxFlat_yellow")
 value = 100.0
 show_percentage = false
 
-[node name="HSeparator2" type="HSeparator" parent="Control/Panel/VBoxContainer"]
+[node name="HSeparator2" type="HSeparator" parent="Control/Panel/VBoxContainer" unique_id=1075489310]
 layout_mode = 2
 
-[node name="CargoLabel" type="Label" parent="Control/Panel/VBoxContainer"]
+[node name="CargoLabel" type="Label" parent="Control/Panel/VBoxContainer" unique_id=2124671662]
 layout_mode = 2
 text = "CARGO: Empty"
 
-[node name="ShopPanel" type="Panel" parent="Control"]
+[node name="ShopPanel" type="Panel" parent="Control" unique_id=1978819975]
 visible = false
 layout_mode = 1
 anchors_preset = 8
@@ -93,7 +94,7 @@ offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Label" type="Label" parent="Control/ShopPanel"]
+[node name="Label" type="Label" parent="Control/ShopPanel" unique_id=2113903034]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -104,7 +105,7 @@ text = "COMMODITIES MARKET"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Control/ShopPanel"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/ShopPanel" unique_id=1217549670]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -116,45 +117,65 @@ offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MarketTicker" type="Label" parent="Control/ShopPanel/VBoxContainer"]
+[node name="MarketTicker" type="Label" parent="Control/ShopPanel/VBoxContainer" unique_id=135907915]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0, 1)
 text = "IRON: $50 | GOLD: $100"
 horizontal_alignment = 1
 
-[node name="HSeparator3" type="HSeparator" parent="Control/ShopPanel/VBoxContainer"]
+[node name="HSeparator3" type="HSeparator" parent="Control/ShopPanel/VBoxContainer" unique_id=76953166]
 layout_mode = 2
 
-[node name="BtnSellAll" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+[node name="BtnSellAll" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=1955428502]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0, 1)
 text = "SELL ALL CARGO (AT CURRENT RATES)"
 
-[node name="HSeparator4" type="HSeparator" parent="Control/ShopPanel/VBoxContainer"]
+[node name="HSeparator4" type="HSeparator" parent="Control/ShopPanel/VBoxContainer" unique_id=1729685471]
 layout_mode = 2
 
-[node name="BtnSpeed" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+[node name="BtnSpeed" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=1551596573]
 layout_mode = 2
 text = "Upgrade Thrusters ($200)"
 
-[node name="BtnWeapon" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+[node name="BtnWeapon" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=680520442]
 layout_mode = 2
 text = "Upgrade Cooling ($500)"
 
-[node name="HSeparator5" type="HSeparator" parent="Control/ShopPanel/VBoxContainer"]
+[node name="HSeparator5" type="HSeparator" parent="Control/ShopPanel/VBoxContainer" unique_id=1357210335]
 layout_mode = 2
 
-[node name="BtnClose" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+[node name="BtnClose" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=1204580734]
 layout_mode = 2
 text = "UNDOCK"
-[node name="BtnBuyIron" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+
+[node name="BtnBuyIron" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=307925091]
 layout_mode = 2
 text = "BUY IRON (x1)"
 
-[node name="BtnBuyGold" type="Button" parent="Control/ShopPanel/VBoxContainer"]
+[node name="BtnBuyGold" type="Button" parent="Control/ShopPanel/VBoxContainer" unique_id=1696288140]
 layout_mode = 2
 text = "BUY GOLD (x1)"
 
-[node name="HSeparatorBuy" type="HSeparator" parent="Control/ShopPanel/VBoxContainer"]
+[node name="HSeparatorBuy" type="HSeparator" parent="Control/ShopPanel/VBoxContainer" unique_id=1453374462]
 layout_mode = 2
 
+[node name="MarketPanel" type="PanelContainer" parent="Control" unique_id=1363827227 node_paths=PackedStringArray("container", "price_list")]
+visible = false
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("2_v826e")
+container = NodePath(".")
+price_list = NodePath("VBoxContainer/PriceList")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/MarketPanel" unique_id=746496738]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Control/MarketPanel/VBoxContainer" unique_id=417560538]
+layout_mode = 2
+text = "STATION MARKET"
+horizontal_alignment = 1
+
+[node name="PriceList" type="VBoxContainer" parent="Control/MarketPanel/VBoxContainer" unique_id=1441033689]
+layout_mode = 2

@@ -1,249 +1,323 @@
+#nullable enable
+
 using Godot;
 using SimCore;
 using SimCore.Gen;
-using SimCore.Entities;
 using SimCore.Commands;
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.Bridge;
 
-public partial class SimBridge : Godot.Node
+public partial class SimBridge : Node
 {
-    [Signal] public delegate void SimLoadedEventHandler();
+	[Signal] public delegate void SimLoadedEventHandler();
 
-    [Export] public int WorldSeed { get; set; } = 12345;
-    [Export] public int StarCount { get; set; } = 20;
-    [Export] public int TickDelayMs { get; set; } = 100;
-    [Export] public bool ResetSaveOnBoot { get; set; } = true;
+	[Export] public int WorldSeed { get; set; } = 12345;
+	[Export] public int StarCount { get; set; } = 20;
 
-    private SimKernel _kernel = null!;
-    private CancellationTokenSource _cts;
-    private Task _simTask;
-    private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim();
+	// Sim loop timing. If 0, runs as fast as possible.
+	[Export] public int TickDelayMs { get; set; } = 100;
 
-    public bool IsLoading { get; private set; } = false;
-    private string SavePath => ProjectSettings.GlobalizePath("user://quicksave.json");
-    private bool _saveRequested = false;
-    private bool _loadRequested = false;
+	// If true, deletes the quicksave on boot (runtime only).
+	[Export] public bool ResetSaveOnBoot { get; set; } = true;
 
-    public override void _Ready()
-    {
-        Input.MouseMode = Input.MouseModeEnum.Visible;
-        
-        // Cleanup old UI
-        var hud = GetTree().Root.FindChild("HUD", true, false);
-        if (hud != null) hud.QueueFree();
-        var router = GetTree().Root.FindChild("InputModeRouter", true, false);
-        if (router != null) router.QueueFree();
+	private SimKernel _kernel = null!;
+	private CancellationTokenSource? _cts;
+	private Task? _simTask;
 
-        if (ResetSaveOnBoot && File.Exists(SavePath))
-        {
-            try { File.Delete(SavePath); }
-            catch (Exception ex) { GD.PrintErr(ex.ToString()); }
-        }
+	private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
-        InitializeKernel();
-        StartSimulation();
-    }
+	private string _savePathAbs = "";
+	private volatile bool _saveRequested = false;
+	private volatile bool _loadRequested = false;
 
-    public override void _ExitTree()
-    {
-        StopSimulation();
-        _stateLock.Dispose();
-    }
+	private int _isLoading = 0;
+	private volatile bool _emitLoadCompletePending = false;
 
-    private void InitializeKernel()
-    {
-        GD.Print("[BRIDGE] Initializing SimCore Kernel...");
-        _kernel = new SimKernel(WorldSeed);
+	public bool IsLoading
+	{
+		get => Volatile.Read(ref _isLoading) != 0;
+		private set => Volatile.Write(ref _isLoading, value ? 1 : 0);
+	}
 
-        if (File.Exists(SavePath) && !ResetSaveOnBoot)
-        {
-             ExecuteLoad();
-        }
-        else
-        {
-             GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
-             SpawnPlayerFleet();
-        }
-    }
+	public override void _Ready()
+	{
+		// Autoloads run during editor startup. Do not execute runtime logic in the editor.
+		if (Engine.IsEditorHint())
+		{
+			return;
+		}
 
-    private void SpawnPlayerFleet()
-    {
-        if (_kernel.State.Edges.Count > 0)
-        {
-            var edge = _kernel.State.Edges.Values.First();
-            var fleet = new Fleet
-            {
-                Id = "test_ship_01",
-                OwnerId = "player",
-                CurrentNodeId = edge.FromNodeId,
-                State = FleetState.Idle,
-                Speed = 0.05f,
-                Supplies = 100
-            };
-            _kernel.State.Fleets[fleet.Id] = fleet;
-            _kernel.State.PlayerLocationNodeId = edge.FromNodeId;
-        }
-    }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
 
-    // --- THREADING LIFECYCLE ---
+		// Compute save path once on main thread. Do NOT call Godot API from worker thread.
+		_savePathAbs = ProjectSettings.GlobalizePath("user://quicksave.json");
 
-    private void StartSimulation()
-    {
-        if (_simTask != null) return;
-        _cts = new CancellationTokenSource();
-        _simTask = Task.Run(() => SimLoop(_cts.Token), _cts.Token);
-        GD.Print("[BRIDGE] Simulation Thread Started.");
-    }
+		if (ResetSaveOnBoot && File.Exists(_savePathAbs))
+		{
+			try { File.Delete(_savePathAbs); }
+			catch (Exception ex) { GD.PrintErr(ex.ToString()); }
+		}
 
-    private void StopSimulation()
-    {
-        if (_cts == null) return;
-        _cts.Cancel();
-        try { _simTask.Wait(1000); } catch { }
-        _cts.Dispose();
-        _cts = null;
-        _simTask = null;
-        GD.Print("[BRIDGE] Simulation Thread Stopped.");
-    }
+		InitializeKernel();
+		StartSimulation();
+	}
 
-    private async Task SimLoop(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
-        {
-            try
-            {
-                if (_saveRequested) ExecuteSave();
-                if (_loadRequested) ExecuteLoad();
+	public override void _ExitTree()
+	{
+		StopSimulation();
+		_stateLock.Dispose();
+	}
 
-                if (!IsLoading)
-                {
-                    _stateLock.EnterWriteLock();
-                    try
-                    {
-                        _kernel.Step();
-                    }
-                    finally
-                    {
-                        _stateLock.ExitWriteLock();
-                    }
-                }
+	public override void _Process(double delta)
+	{
+		// Emit load complete on main thread.
+		if (_emitLoadCompletePending)
+		{
+			_emitLoadCompletePending = false;
+			EmitSignal(SignalName.SimLoaded);
+		}
+	}
 
-                await Task.Delay(TickDelayMs, token);
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                GD.PrintErr($"[BRIDGE] CRITICAL SIM ERROR: {ex}");
-                await Task.Delay(1000, token);
-            }
-        }
-    }
+	private void InitializeKernel()
+	{
+		GD.Print("[BRIDGE] Initializing SimCore Kernel...");
+		_kernel = new SimKernel(WorldSeed);
 
-    // --- PUBLIC API (Thread-Safe) ---
+		if (File.Exists(_savePathAbs) && !ResetSaveOnBoot)
+		{
+			RequestLoad();
+		}
+		else
+		{
+			_stateLock.EnterWriteLock();
+			try
+			{
+				GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
+			}
+			finally
+			{
+				_stateLock.ExitWriteLock();
+			}
+		}
+	}
 
-    public void ExecuteSafeRead(Action<SimState> action)
-    {
-        if (IsLoading) return;
-        _stateLock.EnterReadLock();
-        try
-        {
-            action(_kernel.State);
-        }
-        finally
-        {
-            _stateLock.ExitReadLock();
-        }
-    }
+	private void StartSimulation()
+	{
+		if (_simTask != null && !_simTask.IsCompleted) return;
 
-    // GDScript-Friendly Snapshot Accessor
-    public Godot.Collections.Dictionary GetPlayerSnapshot()
-    {
-        var dict = new Godot.Collections.Dictionary();
-        if (IsLoading) return dict;
+		_cts = new CancellationTokenSource();
+		_simTask = Task.Run(() => SimLoop(_cts.Token), _cts.Token);
 
-        _stateLock.EnterReadLock();
-        try
-        {
-            dict["credits"] = _kernel.State.PlayerCredits;
-            // Convert C# Dict to Godot Dict for Cargo
-            var cargo = new Godot.Collections.Dictionary();
-            foreach(var kv in _kernel.State.PlayerCargo)
-            {
-                cargo[kv.Key] = kv.Value;
-            }
-            dict["cargo"] = cargo;
-            dict["location"] = _kernel.State.PlayerLocationNodeId;
-        }
-        finally
-        {
-            _stateLock.ExitReadLock();
-        }
-        return dict;
-    }
+		GD.Print("[BRIDGE] Simulation Thread Started.");
+	}
 
-    public void EnqueueCommand(ICommand cmd)
-    {
-        _kernel.EnqueueCommand(cmd);
-    }
+	private void StopSimulation()
+	{
+		try
+		{
+			if (_cts != null && !_cts.IsCancellationRequested)
+			{
+				_cts.Cancel();
+			}
 
-    // --- INPUT HANDLING ---
+			// Best-effort join.
+			if (_simTask != null && !_simTask.IsCompleted)
+			{
+				_simTask.Wait(1000);
+			}
+		}
+		catch
+		{
+			// Suppress shutdown exceptions.
+		}
+		finally
+		{
+			_cts?.Dispose();
+			_cts = null;
+			_simTask = null;
+		}
+	}
 
-    public override void _Process(double delta)
-    {
-        if (Input.IsKeyPressed(Key.F5) && !_saveRequested) _saveRequested = true;
-        if (Input.IsKeyPressed(Key.F9) && !_loadRequested) _loadRequested = true;
-    }
+	private async Task SimLoop(CancellationToken token)
+	{
+		while (!token.IsCancellationRequested)
+		{
+			try
+			{
+				// Loading is exclusive.
+				if (_loadRequested)
+				{
+					_loadRequested = false;
+					ExecuteLoad();
+				}
 
-    // --- IO OPERATIONS ---
+				// Saving can occur between steps.
+				if (_saveRequested)
+				{
+					_saveRequested = false;
+					ExecuteSave();
+				}
 
-    private void ExecuteSave()
-    {
-        _stateLock.EnterReadLock();
-        try
-        {
-            File.WriteAllText(SavePath, _kernel.SaveToString());
-            GD.Print("[BRIDGE] Saved.");
-        }
-        catch (Exception ex) { GD.PrintErr(ex.ToString()); }
-        finally
-        {
-             _stateLock.ExitReadLock();
-            _saveRequested = false;
-        }
-    }
+				_stateLock.EnterWriteLock();
+				try
+				{
+					_kernel.Step();
+				}
+				finally
+				{
+					_stateLock.ExitWriteLock();
+				}
 
-    private void ExecuteLoad()
-    {
-        if (!File.Exists(SavePath)) { _loadRequested = false; return; }
+				if (TickDelayMs > 0)
+				{
+					await Task.Delay(TickDelayMs, token);
+				}
+				else
+				{
+					await Task.Yield();
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				break;
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[BRIDGE] CRITICAL SIM ERROR: {ex}");
+				await Task.Delay(250, token);
+			}
+		}
+	}
 
-        IsLoading = true;
-        _stateLock.EnterWriteLock();
-        try
-        {
-            GD.Print("[BRIDGE] Loading...");
-            var data = File.ReadAllText(SavePath);
-            _kernel.LoadFromString(data);
-            CallDeferred(nameof(NotifyLoadComplete));
-        }
-        catch (Exception ex) { GD.PrintErr($"[BRIDGE] Load Failed: {ex}"); }
-        finally
-        {
-            _stateLock.ExitWriteLock();
-            _loadRequested = false;
-            IsLoading = false;
-        }
-    }
+	// --- PUBLIC API (Thread-Safe) ---
 
-    private void NotifyLoadComplete()
-    {
-        EmitSignal(SignalName.SimLoaded);
-        GD.Print("[BRIDGE] Load Complete.");
-    }
+	public void ExecuteSafeRead(Action<SimState> action)
+	{
+		if (IsLoading) return;
+
+		_stateLock.EnterReadLock();
+		try
+		{
+			action(_kernel.State);
+		}
+		finally
+		{
+			_stateLock.ExitReadLock();
+		}
+	}
+
+	public void EnqueueCommand(ICommand cmd)
+	{
+		if (IsLoading) return;
+
+		_stateLock.EnterWriteLock();
+		try
+		{
+			_kernel.EnqueueCommand(cmd);
+		}
+		finally
+		{
+			_stateLock.ExitWriteLock();
+		}
+	}
+
+	// GDScript-friendly snapshot accessor
+	public Godot.Collections.Dictionary GetPlayerSnapshot()
+	{
+		var dict = new Godot.Collections.Dictionary();
+		if (IsLoading) return dict;
+
+		_stateLock.EnterReadLock();
+		try
+		{
+			dict["credits"] = _kernel.State.PlayerCredits;
+
+			var cargo = new Godot.Collections.Dictionary();
+			foreach (var kv in _kernel.State.PlayerCargo)
+			{
+				cargo[kv.Key] = kv.Value;
+			}
+			dict["cargo"] = cargo;
+
+			return dict;
+		}
+		finally
+		{
+			_stateLock.ExitReadLock();
+		}
+	}
+
+	public void RequestSave()
+	{
+		_saveRequested = true;
+	}
+
+	public void RequestLoad()
+	{
+		_loadRequested = true;
+	}
+
+	private void ExecuteSave()
+	{
+		try
+		{
+			_stateLock.EnterReadLock();
+			string json;
+			try
+			{
+				json = _kernel.SaveToString();
+			}
+			finally
+			{
+				_stateLock.ExitReadLock();
+			}
+
+			File.WriteAllText(_savePathAbs, json);
+			GD.Print($"[BRIDGE] Saved: {_savePathAbs}");
+		}
+		catch (Exception ex)
+		{
+			GD.PrintErr($"[BRIDGE] Save failed: {ex}");
+		}
+	}
+
+	private void ExecuteLoad()
+	{
+		if (!File.Exists(_savePathAbs))
+		{
+			GD.Print("[BRIDGE] Load requested but no save exists.");
+			return;
+		}
+
+		IsLoading = true;
+		try
+		{
+			var json = File.ReadAllText(_savePathAbs);
+
+			_stateLock.EnterWriteLock();
+			try
+			{
+				_kernel.LoadFromString(json);
+			}
+			finally
+			{
+				_stateLock.ExitWriteLock();
+			}
+
+			_emitLoadCompletePending = true;
+			GD.Print("[BRIDGE] Load complete.");
+		}
+		catch (Exception ex)
+		{
+			GD.PrintErr($"[BRIDGE] Load failed: {ex}");
+		}
+		finally
+		{
+			IsLoading = false;
+		}
+	}
 }

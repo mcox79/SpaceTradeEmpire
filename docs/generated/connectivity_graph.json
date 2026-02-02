@@ -1,0 +1,1674 @@
+{
+    "edges":  [
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "DevTool - Copy.ps1",
+                                           "lines":  [
+                                                         111
+                                                     ],
+                                           "snippet":  "$TestScene   = \"scenes/tests/test_economy_core.tscn\""
+                                       }
+                                   ],
+                      "from":  "DevTool - Copy.ps1",
+                      "to":  "scenes/tests/test_economy_core.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "DevTool.ps1",
+                                           "lines":  [
+                                                         111
+                                                     ],
+                                           "snippet":  "$TestScene   = \"scenes/tests/test_economy_core.tscn\""
+                                       }
+                                   ],
+                      "from":  "DevTool.ps1",
+                      "to":  "scenes/tests/test_economy_core.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "DevTool.ps1.bak",
+                                           "lines":  [
+                                                         13
+                                                     ],
+                                           "snippet":  "$TestScene   = \"scenes/tests/test_economy_core.tscn\""
+                                       }
+                                   ],
+                      "from":  "DevTool.ps1.bak",
+                      "to":  "scenes/tests/test_economy_core.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "GameShell/project.godot",
+                                           "lines":  [
+                                                         18
+                                                     ],
+                                           "snippet":  "run/main_scene=\"res://scenes/playable_prototype.tscn\""
+                                       }
+                                   ],
+                      "from":  "GameShell/project.godot",
+                      "to":  "scenes/playable_prototype.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "project - Copy.godot",
+                                           "lines":  [
+                                                         18
+                                                     ],
+                                           "snippet":  "run/main_scene=\"res://scenes/playable_prototype.tscn\""
+                                       }
+                                   ],
+                      "from":  "project - Copy.godot",
+                      "to":  "scenes/playable_prototype.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "project.godot",
+                                           "lines":  [
+                                                         18
+                                                     ],
+                                           "snippet":  "run/main_scene=\"res://scenes/playable_prototype.tscn\""
+                                       }
+                                   ],
+                      "from":  "project.godot",
+                      "to":  "scenes/playable_prototype.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "project.godot.BAK",
+                                           "lines":  [
+                                                         18
+                                                     ],
+                                           "snippet":  "run/main_scene=\"res://scenes/playable_prototype.tscn\""
+                                       }
+                                   ],
+                      "from":  "project.godot.BAK",
+                      "to":  "scenes/playable_prototype.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scenes/playable_prototype.tscn",
+                                           "lines":  [
+                                                         6
+                                                     ],
+                                           "snippet":  "[ext_resource type=\"PackedScene\" path=\"res://scenes/ghost_system.tscn\" id=\"4_ghost\"]"
+                                       }
+                                   ],
+                      "from":  "scenes/playable_prototype.tscn",
+                      "to":  "scenes/ghost_system.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scenes/playable_prototype.tscn",
+                                           "lines":  [
+                                                         5
+                                                     ],
+                                           "snippet":  "[ext_resource type=\"PackedScene\" uid=\"uid://cce80jwnp6gby\" path=\"res://scenes/player.tscn\" id=\"3_player\"]"
+                                       }
+                                   ],
+                      "from":  "scenes/playable_prototype.tscn",
+                      "to":  "scenes/player.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scenes/playable_prototype.tscn",
+                                           "lines":  [
+                                                         7
+                                                     ],
+                                           "snippet":  "[ext_resource type=\"PackedScene\" uid=\"uid://c0o7mei6wfgso\" path=\"res://scenes/station.tscn\" id=\"5_station\"]"
+                                       }
+                                   ],
+                      "from":  "scenes/playable_prototype.tscn",
+                      "to":  "scenes/station.tscn",
+                      "type":  "scene_ref"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/active_station.gd",
+                                           "lines":  [
+                                                         11
+                                                     ],
+                                           "snippet":  "const MarketProfile = preload(\"res://scripts/resources/market_profile.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/active_station.gd",
+                      "to":  "scripts/resources/market_profile.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/active_station.gd",
+                                           "lines":  [
+                                                         12
+                                                     ],
+                                           "snippet":  "const TradeGood = preload(\"res://scripts/resources/trade_good.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/active_station.gd",
+                      "to":  "scripts/resources/trade_good.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         6
+                                                     ],
+                                           "snippet":  "const PlayerInteractionManager = preload(\u0027res://scripts/core/player_interaction_manager.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/core/player_interaction_manager.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const Sim = preload(\u0027res://scripts/core/sim/sim.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         9
+                                                     ],
+                                           "snippet":  "const Fleet = preload(\u0027res://scripts/core/state/fleet.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/core/state/fleet.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         5
+                                                     ],
+                                           "snippet":  "const PlayerState = preload(\u0027res://scripts/core/state/player_state.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/core/state/player_state.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         8
+                                                     ],
+                                           "snippet":  "const ContractBoard = preload(\u0027res://scripts/view/ui/contract_board.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/view/ui/contract_board.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/game_manager.gd",
+                                           "lines":  [
+                                                         7
+                                                     ],
+                                           "snippet":  "const StationInterface = preload(\u0027res://scripts/view/ui/station_interface.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/game_manager.gd",
+                      "to":  "scripts/view/ui/station_interface.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/player_interaction_manager.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const EconomyEngine = preload(\"res://scripts/core/economy_engine.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/core/player_interaction_manager.gd",
+                      "to":  "scripts/core/economy_engine.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         5
+                                                     ],
+                                           "snippet":  "const GalaxyGraph = preload(\u0027res://scripts/core/galaxy_graph.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/galaxy_graph.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const GalaxyGenerator = preload(\u0027res://scripts/core/sim/galaxy_generator.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/sim/galaxy_generator.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         6
+                                                     ],
+                                           "snippet":  "const Fleet = preload(\u0027res://scripts/core/state/fleet.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/state/fleet.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         12
+                                                     ],
+                                           "snippet":  "const InfoState = preload(\u0027res://scripts/core/state/info_state.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/state/info_state.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         8
+                                                     ],
+                                           "snippet":  "const MarketState = preload(\u0027res://scripts/core/state/market_state.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/state/market_state.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         7
+                                                     ],
+                                           "snippet":  "const WorkOrder = preload(\u0027res://scripts/core/state/work_order.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/state/work_order.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         11
+                                                     ],
+                                           "snippet":  "const LogisticsRules = preload(\u0027res://scripts/core/subsystems/logistics_rules.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/subsystems/logistics_rules.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         9
+                                                     ],
+                                           "snippet":  "const MarketRules = preload(\u0027res://scripts/core/subsystems/market_rules.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/subsystems/market_rules.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         10
+                                                     ],
+                                           "snippet":  "const ProductionRules = preload(\u0027res://scripts/core/subsystems/production_rules.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/subsystems/production_rules.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/core/sim/sim.gd",
+                                           "lines":  [
+                                                         13
+                                                     ],
+                                           "snippet":  "const SignalRules = preload(\u0027res://scripts/core/subsystems/signal_rules.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/core/sim/sim.gd",
+                      "to":  "scripts/core/subsystems/signal_rules.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/hud.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Intents = preload(\"res://scripts/core/intents/intents.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/hud.gd",
+                      "to":  "scripts/core/intents/intents.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_economy_core.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\"res://scripts/core/sim/sim.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_economy_core.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_galaxy_core.gd",
+                                           "lines":  [
+                                                         5
+                                                     ],
+                                           "snippet":  "const GalaxyGraph = preload(\"res://scripts/core/galaxy_graph.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_galaxy_core.gd",
+                      "to":  "scripts/core/galaxy_graph.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_galaxy_core.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const Sector = preload(\"res://scripts/resources/sector.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_galaxy_core.gd",
+                      "to":  "scripts/resources/sector.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_intent_router.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const Intents = preload(\"res://scripts/core/intents/intents.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_intent_router.gd",
+                      "to":  "scripts/core/intents/intents.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_intent_router.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\"res://scripts/core/sim/sim.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_intent_router.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_logistics_chain.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\"res://scripts/core/sim/sim.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_logistics_chain.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_player_trading.gd",
+                                           "lines":  [
+                                                         5
+                                                     ],
+                                           "snippet":  "const PlayerInteractionManager = preload(\"res://scripts/core/player_interaction_manager.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_player_trading.gd",
+                      "to":  "scripts/core/player_interaction_manager.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_player_trading.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\"res://scripts/core/sim/sim.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_player_trading.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_player_trading.gd",
+                                           "lines":  [
+                                                         4
+                                                     ],
+                                           "snippet":  "const PlayerState = preload(\"res://scripts/core/state/player_state.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_player_trading.gd",
+                      "to":  "scripts/core/state/player_state.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_sim_skeleton.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\"res://scripts/core/sim/sim.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_sim_skeleton.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/test_universe_validator.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Generator = preload(\"res://scripts/core/sim/galaxy_generator.gd\")"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/test_universe_validator.gd",
+                      "to":  "scripts/core/sim/galaxy_generator.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/verify_logistics.gd",
+                                           "lines":  [
+                                                         2
+                                                     ],
+                                           "snippet":  "const Sim = preload(\u0027res://scripts/core/sim/sim.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/verify_logistics.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tests/verify_phase3.gd",
+                                           "lines":  [
+                                                         3
+                                                     ],
+                                           "snippet":  "const Sim = preload(\u0027res://scripts/core/sim/sim.gd\u0027)"
+                                       }
+                                   ],
+                      "from":  "scripts/tests/verify_phase3.gd",
+                      "to":  "scripts/core/sim/sim.gd",
+                      "type":  "resource_load"
+                  },
+                  {
+                      "evidence":  [
+                                       {
+                                           "file":  "scripts/tools/Setup-Godot-Bridge.ps1",
+                                           "lines":  [
+                                                         201
+                                                     ],
+                                           "snippet":  "Write-Host \"4. Open \u0027scenes/main.tscn\u0027 (or your prototype scene).\""
+                                       }
+                                   ],
+                      "from":  "scripts/tools/Setup-Godot-Bridge.ps1",
+                      "to":  "scenes/main.tscn",
+                      "type":  "scene_ref"
+                  }
+              ],
+    "nodes":  [
+                  {
+                      "ext":  ".gitignore",
+                      "path":  " - Copy.gitignore"
+                  },
+                  {
+                      "ext":  ".editorconfig",
+                      "path":  ".editorconfig"
+                  },
+                  {
+                      "ext":  ".gitattributes",
+                      "path":  ".gitattributes"
+                  },
+                  {
+                      "ext":  ".gitignore",
+                      "path":  ".gitignore"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "_PROJECT_CONTEXT - Copy.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "_PROJECT_CONTEXT.md"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "Check-GDScriptIndent.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "DevTool - Copy.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "DevTool.ps1"
+                  },
+                  {
+                      "ext":  ".lnk",
+                      "path":  "DevTool.ps1 - Shortcut.lnk"
+                  },
+                  {
+                      "ext":  ".bak",
+                      "path":  "DevTool.ps1.bak"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/00_READ_FIRST_LLM_CONTRACT.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/10_ARCHITECTURE_INDEX.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/10_DOCS_INDEX.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/20_TESTING_AND_DETERMINISM.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/30_CONNECTIVITY_AND_INTERFACES.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/40_TOOLING_AND_HOOKS.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/90_GLOSSARY_AND_IDS.md"
+                  },
+                  {
+                      "ext":  ".txt",
+                      "path":  "docs/ArchitectureV7.4.txt"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/README.md"
+                  },
+                  {
+                      "ext":  ".md",
+                      "path":  "docs/templates/01_CONTEXT_PACKET.template.md"
+                  },
+                  {
+                      "ext":  ".gdignore",
+                      "path":  "GameShell/.gdignore"
+                  },
+                  {
+                      "ext":  ".import",
+                      "path":  "GameShell/icon.png.import"
+                  },
+                  {
+                      "ext":  ".import",
+                      "path":  "GameShell/icon.svg.import"
+                  },
+                  {
+                      "ext":  ".godot",
+                      "path":  "GameShell/project.godot"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "GameShell/resources/commodities/gold.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "GameShell/resources/commodities/iron.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "GameShell/resources/markets/station_alpha_profile.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "GameShell/resources/markets/station_beta_profile.tres"
+                  },
+                  {
+                      "ext":  ".json",
+                      "path":  "GameShell/scenarios/smoke_test.json"
+                  },
+                  {
+                      "ext":  ".cfg",
+                      "path":  "godot_path.cfg"
+                  },
+                  {
+                      "ext":  ".import",
+                      "path":  "icon.png.import"
+                  },
+                  {
+                      "ext":  ".import",
+                      "path":  "icon.svg.import"
+                  },
+                  {
+                      "ext":  ".godot",
+                      "path":  "project - Copy.godot"
+                  },
+                  {
+                      "ext":  ".godot",
+                      "path":  "project.godot"
+                  },
+                  {
+                      "ext":  ".bak",
+                      "path":  "project.godot.BAK"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "resources/commodities/gold.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "resources/commodities/iron.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "resources/markets/station_alpha_profile.tres"
+                  },
+                  {
+                      "ext":  ".tres",
+                      "path":  "resources/markets/station_beta_profile.tres"
+                  },
+                  {
+                      "ext":  ".json",
+                      "path":  "scenarios/smoke_test.json"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/asteroid.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/bullet.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/enemy.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/ghost_system.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/main.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/playable_prototype.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/player.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/station.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/tests/test_economy_core.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/tests/test_galaxy_core.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/tests/test_logistics.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/tests/test_player_trading.tscn"
+                  },
+                  {
+                      "ext":  ".tscn",
+                      "path":  "scenes/ui_hud.tscn"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/active_station.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/active_station.gd.uid"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/bridge/SimBridge - Copy.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/bridge/SimBridge.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/bridge/SimBridge.cs.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/bullet.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/bullet.gd.uid"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/check_tabs.ps1"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/economy_engine.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/economy_engine.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/galaxy_graph.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/galaxy_graph.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/game_manager.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/game_manager.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/intents/intents.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/intents/intents.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/player_interaction_manager.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/player_interaction_manager.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/sim/galaxy_generator.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/sim/galaxy_generator.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/sim/rng_streams.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/sim/rng_streams.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/sim/sim.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/sim/sim.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/fleet.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/fleet.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/info_state.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/info_state.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/market_state.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/market_state.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/player_state.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/player_state.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/sim_state.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/sim_state.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/state/work_order.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/state/work_order.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/subsystems/logistics_rules.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/subsystems/logistics_rules.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/subsystems/market_rules.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/subsystems/market_rules.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/subsystems/production_rules.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/subsystems/production_rules.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/core/subsystems/signal_rules.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/core/subsystems/signal_rules.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/debug/camera_follow.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/debug/camera_follow.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/hud.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/hud.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/player.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/player.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/resources/market_profile.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/resources/market_profile.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/resources/sector.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/resources/sector.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/resources/trade_good.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/resources/trade_good.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/runtime/input_mode_router.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/runtime/input_mode_router.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_economy_core.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_economy_core.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_galaxy_core.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_galaxy_core.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_intent_router.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_intent_router.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_logistics_chain.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_logistics_chain.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_player_trading.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_player_trading.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_sim_skeleton.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_sim_skeleton.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/test_universe_validator.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/test_universe_validator.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/verify_logistics.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/verify_logistics.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/tests/verify_phase3.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/verify_phase3.gd.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/tests/VerifySlice2.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/tests/VerifySlice2.cs.uid"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Bootstrap-SimCore.ps1"
+                  },
+                  {
+                      "ext":  ".py",
+                      "path":  "scripts/tools/check_gd_indentation.py"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/check_powershell_parse.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/check_tabs_lib - Copy.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/check_tabs_lib.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/common.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Fix-Ambiguous-Reference.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Fix-Build-Hell.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Fix-SimCore-State.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/install_hooks - Copy (2).ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/install_hooks - Copy.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/install_hooks.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/New-ContextPacket.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Repair-SimCore-Syntax.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Reset-SimCore.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Run-SmokeTest.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Scan-Connectivity.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Setup-Bridge.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Setup-Godot-Bridge.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Update-Godot-Visualization.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Update-SimCore-Movement.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Update-SimCore-Topology.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Validate-GodotScript - Copy.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "scripts/tools/Validate-GodotScript.ps1"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/ui/market_ui.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/ui/market_ui.gd.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/ui/StationMenu.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/ui/StationMenu.cs.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/drone_camera.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/drone_camera.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/galaxy_spawner.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/galaxy_spawner.gd.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/view/GalaxyView.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/GalaxyView.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/view/GhostSpawner.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/GhostSpawner.cs.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/map_camera.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/map_camera.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/prototype_camera.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/prototype_camera.gd.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "scripts/view/StarNode.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/StarNode.cs.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/ui/contract_board.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/ui/contract_board.gd.uid"
+                  },
+                  {
+                      "ext":  ".gd",
+                      "path":  "scripts/view/ui/station_interface.gd"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "scripts/view/ui/station_interface.gd.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Runner/Program.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Runner/Program.cs.uid"
+                  },
+                  {
+                      "ext":  ".csproj",
+                      "path":  "SimCore.Runner/SimCore.Runner.csproj"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/ContainmentTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/ContainmentTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/FractureTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/FractureTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/GalaxyTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/GalaxyTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/GoldenReplayTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/GoldenReplayTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/IndustryTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/IndustryTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/Invariants/InventoryConservationTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/Invariants/InventoryConservationTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/LogisticsTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/LogisticsTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/MarketTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/MarketTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/MovementTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/MovementTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/SignalTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/SignalTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".csproj",
+                      "path":  "SimCore.Tests/SimCore.Tests.csproj"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore.Tests/TravelTests.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore.Tests/TravelTests.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Commands/BuyCommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Commands/BuyCommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Commands/SellCommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Commands/SellCommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Commands/TradeCommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Commands/TradeCommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Commands/TravelCommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Commands/TravelCommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Commands/UndockCommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Commands/UndockCommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Edge.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Edge.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Fleet.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Fleet.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Industry.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Industry.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/IndustrySite.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/IndustrySite.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/LogisticsJob.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/LogisticsJob.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Market.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Market.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Node.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Node.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Entities/Recipe.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Entities/Recipe.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Gen/GalaxyGenerator.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Gen/GalaxyGenerator.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/ICommand.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/ICommand.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/MapQueries.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/MapQueries.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Schemas/ScenarioSchema.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Schemas/ScenarioSchema.cs.uid"
+                  },
+                  {
+                      "ext":  ".csproj",
+                      "path":  "SimCore/SimCore.csproj"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/SimKernel.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/SimKernel.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/SimState.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/SimState.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/ContainmentSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/ContainmentSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/FractureSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/FractureSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/IndustrySystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/IndustrySystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/LogisticsSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/LogisticsSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/MarketSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/MarketSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/MovementSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/MovementSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".cs",
+                      "path":  "SimCore/Systems/SerializationSystem.cs"
+                  },
+                  {
+                      "ext":  ".uid",
+                      "path":  "SimCore/Systems/SerializationSystem.cs.uid"
+                  },
+                  {
+                      "ext":  ".csproj",
+                      "path":  "Space Trade Empire.csproj"
+                  },
+                  {
+                      "ext":  ".sln",
+                      "path":  "Space Trade Empire.sln"
+                  },
+                  {
+                      "ext":  ".sln",
+                      "path":  "SpaceTradeEmpire.sln"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "tools/Apply-PatchFromClipboard.ps1"
+                  },
+                  {
+                      "ext":  ".ps1",
+                      "path":  "tools/Apply-PatchGUI.ps1"
+                  }
+              ],
+    "tool":  {
+                 "name":  "Scan-Connectivity",
+                 "version":  "v0"
+             }
+}

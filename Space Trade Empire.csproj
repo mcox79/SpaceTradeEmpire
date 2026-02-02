@@ -1,16 +1,49 @@
 <Project Sdk="Godot.NET.Sdk/4.6.0">
-  <ItemGroup>
-    <Compile Remove="_scratch\**\*.cs" />
-    <ProjectReference Include="SimCore\SimCore.csproj" />
-  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <RootNamespace>SpaceTradeEmpire</RootNamespace>
+    <LangVersion>12.0</LangVersion>
+
+    <!-- Disable SDK/default globs so we control Compile explicitly -->
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
+
   <ItemGroup>
-    <Compile Remove="SimCore\**" />
-    <Compile Remove="SimCore.Tests\**" />
+    <ProjectReference Include="SimCore\SimCore.csproj" />
   </ItemGroup>
+
+  <!-- Hard reset Compile just before compile, then include only canonical trees -->
+  <Target Name="ForceCanonicalCompileSet" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Compile Remove="@(Compile)" />
+      <Compile Include="scripts\**\*.cs" />
+      <Compile Include="addons\**\*.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Extra pruning in case anything re-adds sources -->
+  <Target Name="PruneKnownBadPaths" BeforeTargets="CoreCompile" AfterTargets="ForceCanonicalCompileSet">
+    <ItemGroup>
+      <Compile Remove="**\obj\**\*.cs" />
+      <Compile Remove="**\bin\**\*.cs" />
+      <Compile Remove=".godot\**\*.cs" />
+      <Compile Remove="_archive\**\*.cs" />
+      <Compile Remove="SimCore.Runner\**\*.cs" />
+      <Compile Remove="GameShell\**\*.cs" />
+      <Compile Remove="**\_DISABLED_*\**\*.cs" />
+      <Compile Remove="**\_DISABLED\**\*.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Debug: write the final Compile list so we can prove what is compiling -->
+  <Target Name="DumpCompileItems" BeforeTargets="CoreCompile" AfterTargets="PruneKnownBadPaths">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)" />
+    <WriteLinesToFile File="$(BaseIntermediateOutputPath)compile_items.txt"
+                      Lines="@(Compile)"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+    <Message Importance="High" Text="Wrote compile list to $(BaseIntermediateOutputPath)compile_items.txt" />
+  </Target>
+
 </Project>
