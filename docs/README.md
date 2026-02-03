@@ -1,92 +1,80 @@
-\# Docs Kernel
+# Docs
+
+This directory contains the canonical documentation kernel for Space Trade Empire.
+
+The kernel is designed for:
+- LLM-driven development sessions with minimal attachments
+- deterministic, repeatable tooling outputs
+- a clear separation between canonical project docs and generated per-session artifacts
 
 
+## Start here (canonical order)
 
-This folder contains the canonical documentation kernel used to keep LLM-driven development repeatable and low-friction.
+1) `docs/00_READ_FIRST_LLM_CONTRACT.md`
+- Authoritative workflow contract: OUTPUT_MODE, GIT_MODE, atomic write rules, constraints.
 
+2) `docs/10_DOCS_INDEX.md`
+- Router for all docs and what is canonical vs generated.
 
+3) `docs/10_ARCHITECTURE_INDEX.md`
+- Router into the canonical architecture body.
+- Do not attach the full architecture by default.
 
-\## What belongs here
+4) `docs/20_TESTING_AND_DETERMINISM.md`
+- Testing contract and determinism requirements.
 
-This directory contains the highest-priority, rarely-changing rules and indexes.
+5) `docs/30_CONNECTIVITY_AND_INTERFACES.md`
+- Layering rules and connectivity scan contract.
 
+6) `docs/40_TOOLING_AND_HOOKS.md`
+- Canonical command lines for tools and validations.
+- Hook behavior, installation expectations, and attachment rules.
 
-
-Core (always authoritative):
-
-\- `00\_READ\_FIRST\_LLM\_CONTRACT.md`
-
-\- `10\_DOCS\_INDEX.md`
-
-\- `10\_ARCHITECTURE\_INDEX.md`
-
-\- `20\_TESTING\_AND\_DETERMINISM.md`
-
-\- `30\_CONNECTIVITY\_AND\_INTERFACES.md`
-
-\- `40\_TOOLING\_AND\_HOOKS.md`
-
-\- `90\_GLOSSARY\_AND\_IDS.md`
+7) `docs/90_GLOSSARY_AND_IDS.md`
+- Canonical vocabulary and stable IDs used across docs and code.
 
 
+## Generated artifacts
 
-Templates:
+All generated artifacts live under:
+- `docs/generated/`
 
-\- `templates/01\_CONTEXT\_PACKET.template.md`
+Key generated artifacts:
+- `docs/generated/01_CONTEXT_PACKET.md` (default session attachment)
+- `docs/generated/connectivity_manifest.json`
+- `docs/generated/connectivity_graph.json`
+- `docs/generated/connectivity_violations.json`
 
-
-
-\## What should NOT be attached every chat
-
-Do not attach large repo dumps or large architecture documents by default.
-
-
-
-Instead:
-
-\- Keep the canonical architecture document in this repo (recommended: `docs/ArchitectureV7.4.txt`).
-
-\- Attach a small per-chat Context Packet generated from the template, plus only the minimum relevant files/modules.
+Policy:
+- Generated artifacts are produced locally each session.
+- Deterministic, diff-friendly artifacts may be committed later by policy decision.
+- Ephemeral logs or verbose traces should remain uncommitted.
 
 
+## Templates
 
-\## How to start a new coding chat
+Templates live under:
+- `docs/templates/`
 
-Provide:
-
-1\) A filled `01\_CONTEXT\_PACKET.md` (based on the template)
-
-2\) Any file contents referenced in the packet that are required to edit (only the scoped files)
-
-
-
-The packet must include:
-
-\- Objective
-
-\- OUTPUT\_MODE and GIT\_MODE
-
-\- Explicit allowed file list
-
-\- Validation commands
-
-\- Definition of Done
+Important:
+- do not attach `docs/templates/01_CONTEXT_PACKET.template.md` to sessions
+- attach only the generated `docs/generated/01_CONTEXT_PACKET.md`
 
 
+## How to start a new LLM session
 
-\## Generated artifacts (recommended)
+1) Generate the Context Packet:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Force -Verbose`
 
-Create a folder `docs/generated/` for deterministic, diffable outputs produced by tools:
+2) Optional but recommended: run the connectivity scan (especially if you changed boundaries):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Scan-Connectivity.ps1 -Force -Harden`
 
-\- connectivity graph outputs
-
-\- test run reports
-
-\- repo maps/changelogs
-
-
-
-These outputs should be referenced by the Context Packet, not pasted into prompts.
+3) In the new chat:
+- attach `docs/generated/01_CONTEXT_PACKET.md`
+- attach only the allowlisted file contents required for the scoped change
+- attach `docs/generated/connectivity_violations.json` only if needed for diagnosis
 
 
+## Repo hygiene note
 
+If you see warnings about CRLF to LF normalization, standardize line endings via repo policy (for example `.gitattributes` and/or `.editorconfig`) so docs diffs remain stable and tool outputs remain deterministic.
