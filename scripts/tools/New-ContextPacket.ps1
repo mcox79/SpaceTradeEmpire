@@ -7,10 +7,17 @@
 	- Date
 	- Branch
 	- Commit
+	- Objective (non-journal, 1-3 lines; defaults to a forcing placeholder)
+	- Modes (OUTPUT_MODE, GIT_MODE, PROFILE)
+	- Allowed files (deterministic union of staged + working tree + untracked OR explicit override)
+	- Recent commits (subjects only)
+	- Validation commands
+	- Definition of Done
 
-	Fills "Allowed files" with a deterministic list of changed files, supporting:
-	- Working tree changes (unstaged) plus untracked files
-	- Index changes (staged), if any
+	Rationale:
+	The Context Packet is a session contract and scope limiter, not a session journal.
+	This generator ensures critical contract fields are never left as template placeholders,
+	while keeping output low-noise, deterministic, and resilient to template edits.
 
 	Does not require a clean repo. Does not stage, commit, or modify git config.
 
@@ -25,6 +32,30 @@
 	Maximum number of files to include in the Allowed files list (after sorting and de-duplication).
 	Default: 6
 
+.PARAMETER Objective
+	1-3 lines describing the session objective. If omitted, a forcing placeholder is emitted.
+
+.PARAMETER OutputMode
+	Explicit OUTPUT_MODE value to write into the packet.
+	Default: POWERSHELL
+
+.PARAMETER GitMode
+	Explicit GIT_MODE value to write into the packet.
+	Default: NO_STAGE
+
+.PARAMETER Profile
+	Explicit PROFILE value to write into the packet.
+	Default: EXPERIMENTATION
+
+.PARAMETER RecentCommitsCount
+	How many recent commits (subjects only) to include. Default: 5
+
+.PARAMETER ValidationCommands
+	Optional explicit list of validation command bullets. If omitted, minimal defaults are used.
+
+.PARAMETER DefinitionOfDone
+	Optional explicit list of DoD bullets. If omitted, minimal defaults are used.
+
 .PARAMETER Force
 	Overwrite OutputPath if it already exists.
 
@@ -32,10 +63,12 @@
 	Optional path to write a verbose diagnostic log (UTF-8 no BOM). If relative, repo-relative.
 
 .EXAMPLE
-	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Verbose
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Verbose -Force
 
 .EXAMPLE
-	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Verbose -DebugDumpPath _scratch/contextpacket_debug.log -Force
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Verbose -Force `
+		-Objective "Implement vNext context packet fields" `
+		-OutputMode POWERSHELL -GitMode NO_STAGE -Profile EXPERIMENTATION
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -49,6 +82,30 @@ param(
 	[Parameter(Mandatory = $false)]
 	[ValidateRange(1, 1000)]
 	[int]$MaxFiles = 6,
+
+	[Parameter(Mandatory = $false)]
+	[string[]]$Objective,
+
+	[Parameter(Mandatory = $false)]
+	[ValidateSet("POWERSHELL", "FULL_FILES", "ANALYSIS_ONLY")]
+	[string]$OutputMode = "POWERSHELL",
+
+	[Parameter(Mandatory = $false)]
+	[string]$GitMode = "NO_STAGE",
+
+	[Parameter(Mandatory = $false)]
+	[ValidateSet("EXPERIMENTATION", "NORMAL")]
+	[string]$Profile = "EXPERIMENTATION",
+
+	[Parameter(Mandatory = $false)]
+	[ValidateRange(0, 50)]
+	[int]$RecentCommitsCount = 5,
+
+	[Parameter(Mandatory = $false)]
+	[string[]]$ValidationCommands,
+
+	[Parameter(Mandatory = $false)]
+	[string[]]$DefinitionOfDone,
 
 	[Parameter(Mandatory = $false)]
 	[switch]$Force,
@@ -134,26 +191,8 @@ function Invoke-GitText {
 				}
 			}
 
-			$split = @()
-			if ($text -ne $null -and $text.Length -gt 0) {
-				$split = $text -split "(`r`n|`n|`r)"
-			}
-			Debug-Log ("EXIT " + $code + " | lines=" + $split.Count)
-			if ($split.Count -gt 0) {
-				$max = [Math]::Min(5, $split.Count)
-				for ($i = 0; $i -lt $max; $i++) {
-					$line = ($split[$i] + "")
-					$line = $line.Replace("`t", "\t")
-					Debug-Log ("OUT  [" + $i + "] " + $line)
-				}
-			}
-
 			if ($code -ne 0) {
-				$detail = ($text + "").Trim()
-				if ($detail.Length -gt 0) {
-					throw ($script:LastGitCommand + " failed with exit code " + $code + ". " + $detail)
-				}
-				throw ($script:LastGitCommand + " failed with exit code " + $code + ".")
+				throw ("git command failed: " + $script:LastGitCommand + "`r`n" + ($text.TrimEnd()))
 			}
 
 			return ($text + "")
@@ -168,69 +207,54 @@ function Invoke-GitText {
 }
 
 function Get-RepoRoot {
-	$cwd = (Get-Location).Path
-	$root = (Invoke-GitText -Args @("rev-parse", "--show-toplevel") -WorkingDirectory $cwd).Trim()
-	if (-not $root) { throw "Unable to determine repo root via git rev-parse --show-toplevel." }
-	return $root
+	$root = Invoke-GitText -Args @("rev-parse", "--show-toplevel") -WorkingDirectory (Get-Location).Path
+	$lines = $root -split "(`r`n|`n|`r)"
+	foreach ($l in $lines) {
+		$s = ($l + "").Trim()
+		if ($s.Length -gt 0) { return $s }
+	}
+	throw "Unable to resolve repo root."
 }
 
 function To-RepoRelativeForwardSlash {
 	param(
-		[Parameter(Mandatory = $true)][string]$Path,
-		[Parameter(Mandatory = $true)][string]$RepoRoot
+		[Parameter(Mandatory = $true)]
+		[string]$Path,
+		[Parameter(Mandatory = $true)]
+		[string]$RepoRoot
 	)
-
-	$repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
-
-	$full = $null
-	try { $full = [System.IO.Path]::GetFullPath($Path) } catch { $full = $Path }
-
-	$rel = $full
-	if ($full -and $repoRootFull -and ($full.ToLowerInvariant().StartsWith($repoRootFull.ToLowerInvariant()))) {
-		$rel = $full.Substring($repoRootFull.Length).TrimStart('\','/')
+	$p = $Path
+	if ([System.IO.Path]::IsPathRooted($p)) {
+		$p = [System.IO.Path]::GetFullPath($p)
+		$root = [System.IO.Path]::GetFullPath($RepoRoot)
+		if ($p.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+			$p = $p.Substring($root.Length)
+			$p = $p.TrimStart('\', '/')
+		}
 	}
-
-	return ($rel -replace '\\', '/')
+	$p = $p -replace '\\', '/'
+	return $p
 }
 
 function Sort-Unique-Ordinal {
 	param(
 		[Parameter(Mandatory = $false)]
-		[AllowNull()]
-		[AllowEmptyCollection()]
-		[object]$Items
+		[string[]]$Items
 	)
-
 	if ($null -eq $Items) { return @() }
 
-	$arrIn = @()
-	if ($Items -is [string]) {
-		$arrIn = @([string]$Items)
-	} elseif ($Items -is [System.Collections.IEnumerable]) {
-		foreach ($x in $Items) {
-			if ($null -eq $x) { continue }
-			$arrIn += @($x.ToString())
-		}
-	} else {
-		$arrIn = @($Items.ToString())
-	}
-
-	if ($arrIn.Count -eq 0) { return @() }
-
-	$set = New-Object "System.Collections.Generic.HashSet[string]" -ArgumentList ([System.StringComparer]::Ordinal)
-	foreach ($i in $arrIn) {
+	$seen = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::Ordinal)
+	$out = New-Object System.Collections.Generic.List[string]
+	foreach ($i in $Items) {
 		if ($null -eq $i) { continue }
 		$s = $i.Trim()
 		if ($s.Length -eq 0) { continue }
-		[void]$set.Add($s)
+		if ($seen.Add($s)) { $out.Add($s) }
 	}
 
-	if ($set.Count -eq 0) { return @() }
-
-	$out = New-Object string[] $set.Count
-	$set.CopyTo($out)
-	[System.Array]::Sort($out, [System.StringComparer]::Ordinal)
-	return ,$out
+	$arr = $out.ToArray()
+	[Array]::Sort($arr, [System.StringComparer]::Ordinal)
+	return $arr
 }
 
 function Split-NameOnlyOutput {
@@ -271,51 +295,114 @@ function Replace-Or-Append-KeyLine {
 		return [Regex]::Replace($Content, $pattern, ($Key + ": " + $Value), 1)
 	}
 
+	# Special-case: if template lacks Branch:, insert it directly after Date:
+	if ($Key -eq "Branch") {
+		$datePattern = "(?im)^\s*Date\s*:\s*.*$"
+		if ([Regex]::IsMatch($Content, $datePattern)) {
+			return [Regex]::Replace(
+				$Content,
+				$datePattern,
+				{ param($m) $m.Value + "`r`n" + ("Branch: " + $Value) },
+				1
+			)
+		}
+	}
+
+	# Fallback: append at end
 	return ($Content.TrimEnd() + "`r`n" + ($Key + ": " + $Value) + "`r`n")
 }
 
-function Replace-AllowedFiles-Section {
+
+function Replace-Mode-Line {
+	param(
+		[Parameter(Mandatory = $true)][string]$Content,
+		[Parameter(Mandatory = $true)][string]$Key,
+		[Parameter(Mandatory = $true)][string]$Value
+	)
+
+	$pattern = "(?im)^\s*" + [Regex]::Escape($Key) + "\s*=\s*.*$"
+	if ([Regex]::IsMatch($Content, $pattern)) {
+		return [Regex]::Replace(
+			$Content,
+			$pattern,
+			($Key + " = " + $Value),
+			1
+		)
+	}
+	return $Content
+
+}
+
+function Replace-Objective-Block {
+	param(
+		[Parameter(Mandatory = $true)][string]$Content,
+		[Parameter(Mandatory = $false)][string[]]$ObjectiveLines
+	)
+
+	# Rationale: Objective must exist and must not be the template placeholder.
+	if ($null -eq $ObjectiveLines -or @($ObjectiveLines).Count -eq 0) {
+		$ObjectiveLines = @("TBD: Fill a 1-3 line objective before proceeding.")
+	}
+	$objText = (@($ObjectiveLines) -join "`r`n")
+
+	$normalized = ($Content -replace "`r?`n", "`r`n")
+
+	# Preferred replacement: between "Commit:" line and the "## Modes" heading.
+	$pattern = "(?s)(^.*?^Commit:\s*.*?\r\n\r\n)(.*?)(\r\n\r\n\#\#\s+Modes\b)"
+	if ([Regex]::IsMatch($normalized, $pattern)) {
+		return [Regex]::Replace($normalized, $pattern, ('$1' + $objText + '$3'), 1)
+	}
+
+	# Fallback: if template contains "(1 to 3 lines)", replace that token.
+	$fallback = "\(\s*1\s*to\s*3\s*lines\s*\)"
+	if ([Regex]::IsMatch($normalized, $fallback)) {
+		return [Regex]::Replace($normalized, $fallback, $objText, 1)
+	}
+
+	return $Content
+}
+
+function Replace-SectionByHeading {
 	param(
 		[Parameter(Mandatory = $true)]
 		[string]$Content,
 
-		[Parameter(Mandatory = $false)]
-		[AllowNull()]
-		[AllowEmptyCollection()]
-		[string[]]$SectionLines
+		[Parameter(Mandatory = $true)]
+		[string]$HeadingPattern,
+
+		[Parameter(Mandatory = $true)]
+		[string]$HeadingLine,
+
+		[Parameter(Mandatory = $true)]
+		[string]$SectionText
 	)
 
-	if ($null -eq $SectionLines) { $SectionLines = @() }
-	# Force array semantics in case caller passed a scalar through coercion.
-	$SectionLines = @($SectionLines)
+	# Normalize content newlines to CRLF deterministically.
+	$normalized = ($Content -replace "`r?`n", "`r`n")
 
-	$sectionText = ($SectionLines -join "`r`n")
-	$headingPattern = "(?im)^\s*##\s+Allowed files\b.*$"
+	# Normalize section newlines to CRLF, trim outer whitespace only.
+	$sec = ($SectionText + "") -replace "`r?`n", "`r`n"
+	$sec = $sec.Trim()
 
-	if (-not [Regex]::IsMatch($Content, $headingPattern)) {
-		$append = New-Object System.Collections.Generic.List[string]
-		$append.Add($Content.TrimEnd())
-		$append.Add("")
-		$append.Add("## Allowed files")
-		$append.Add($sectionText.TrimEnd())
-		$append.Add("")
-		return ($append -join "`r`n")
+	if (-not [Regex]::IsMatch($normalized, $HeadingPattern)) {
+		# Append deterministically if missing.
+		return ($normalized.TrimEnd() + "`r`n`r`n" + $HeadingLine + "`r`n`r`n" + $sec + "`r`n")
 	}
 
-	$normalized = ($Content -replace "`r?`n", "`r`n")
-	$match = [Regex]::Match($normalized, $headingPattern)
+	$match = [Regex]::Match($normalized, $HeadingPattern)
 	$startIdx = $match.Index + $match.Length
-
 	$after = $normalized.Substring($startIdx)
+
 	$nextHeading = [Regex]::Match($after, "(?im)^\s*##\s+.+$")
 	$endIdx = $normalized.Length
 	if ($nextHeading.Success) { $endIdx = $startIdx + $nextHeading.Index }
 
-	$before = $normalized.Substring(0, $startIdx)
-	$afterTail = $normalized.Substring($endIdx)
+	$before = $normalized.Substring(0, $startIdx).TrimEnd()
+	$afterTail = $normalized.Substring($endIdx).TrimStart()
 
-	$newMid = "`r`n" + $sectionText.TrimEnd() + "`r`n"
-	return ($before.TrimEnd() + $newMid + $afterTail.TrimStart())
+	$out = $before + "`r`n`r`n" + $sec + "`r`n"
+	if ($afterTail.Length -gt 0) { $out += "`r`n" + $afterTail.TrimEnd() + "`r`n" }
+	return $out
 }
 
 function Format-AllowedFilesSection {
@@ -323,22 +410,13 @@ function Format-AllowedFilesSection {
 		[Parameter(Mandatory = $false)][string[]]$UnionList = @(),
 		[Parameter(Mandatory = $false)][string[]]$StagedList = @(),
 		[Parameter(Mandatory = $false)][string[]]$WorkingList = @(),
-		[Parameter(Mandatory = $true)][int]$MaxCount
+		[Parameter(Mandatory = $true)][int]$MaxCount,
+		[Parameter(Mandatory = $true)][bool]$WasExplicitOverride
 	)
 
 	if ($null -eq $UnionList) { $UnionList = @() }
 	if ($null -eq $StagedList) { $StagedList = @() }
 	if ($null -eq $WorkingList) { $WorkingList = @() }
-
-	$lines = New-Object System.Collections.Generic.List[string]
-
-	$lines.Add("Generated by scripts/tools/New-ContextPacket.ps1")
-	$lines.Add("")
-	$lines.Add("Summary:")
-	$lines.Add("- Staged: " + $StagedList.Count)
-	$lines.Add("- Working tree (unstaged + untracked): " + $WorkingList.Count)
-	$lines.Add("- Union: " + $UnionList.Count)
-	$lines.Add("")
 
 	$emit = $UnionList
 	$truncated = $false
@@ -347,9 +425,19 @@ function Format-AllowedFilesSection {
 		$truncated = $true
 	}
 
+	$lines = New-Object System.Collections.Generic.List[string]
+	$lines.Add("Generated by scripts/tools/New-ContextPacket.ps1")
+	$lines.Add("")
+	$lines.Add("Summary:")
+	$lines.Add("- Staged: " + $StagedList.Count)
+	$lines.Add("- Working tree (unstaged + untracked): " + $WorkingList.Count)
+	$lines.Add("- Union: " + $UnionList.Count)
+	$lines.Add("")
 	$lines.Add("Allowed files:")
+
 	if ($emit.Count -eq 0) {
-		$lines.Add("- (none)")
+		if ($WasExplicitOverride) { $lines.Add("- (none)") }
+		else { $lines.Add("- (none yet) Stage files or pass -AllowedFiles") }
 	} else {
 		foreach ($p in $emit) { $lines.Add("- " + $p) }
 	}
@@ -359,29 +447,49 @@ function Format-AllowedFilesSection {
 		$lines.Add("_Truncated to MaxFiles = " + $MaxCount + "._")
 	}
 
-	$lines.Add("")
-	$lines.Add("Details:")
-	$lines.Add("")
-	$lines.Add("Staged (index):")
-	if ($StagedList.Count -eq 0) {
-		$lines.Add("- (none)")
-	} else {
-		foreach ($p in $StagedList) { $lines.Add("- " + $p) }
-	}
-
-	$lines.Add("")
-	$lines.Add("Working tree (unstaged + untracked):")
-	if ($WorkingList.Count -eq 0) {
-		$lines.Add("- (none)")
-	} else {
-		foreach ($p in $WorkingList) { $lines.Add("- " + $p) }
-	}
-
-	$lines.Add("")
-
-	# CRITICAL: force array semantics even if it would otherwise stream
-	return ,$lines.ToArray()
+	return ($lines.ToArray() -join "`r`n")
 }
+
+function Format-RecentCommitsLines {
+	param(
+		[Parameter(Mandatory = $false)]
+		[string[]]$CommitLines
+	)
+
+	$CommitLines = @($CommitLines)
+	$lines = New-Object System.Collections.Generic.List[string]
+	if ($CommitLines.Count -eq 0) {
+		$lines.Add("- (unavailable)")
+		return ($lines.ToArray() -join "`r`n")
+	}
+
+	foreach ($c in $CommitLines) {
+		$s = [Regex]::Replace(($c + ""), "\s+", " ").Trim()
+		if ($s.Length -eq 0) { continue }
+		$lines.Add("- " + $s)
+	}
+
+	if ($lines.Count -eq 0) { $lines.Add("- (unavailable)") }
+	return ($lines.ToArray() -join "`r`n")
+}
+
+function Format-BulletLines {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string[]]$Items
+	)
+
+	$Items = @($Items)
+	$lines = New-Object System.Collections.Generic.List[string]
+	foreach ($i in $Items) {
+		$s = ($i + "").Trim()
+		if ($s.Length -eq 0) { continue }
+		$lines.Add("- " + $s)
+	}
+	if ($lines.Count -eq 0) { $lines.Add("- (none)") }
+	return ($lines.ToArray() -join "`r`n")
+}
+
 
 try {
 	Assert-GitAvailable
@@ -437,8 +545,10 @@ try {
 	$staged = @()
 	$working = @()
 	$union = @()
+	$explicitOverride = $false
 
 	if ($AllowedFiles -and $AllowedFiles.Count -gt 0) {
+		$explicitOverride = $true
 		$norm = @()
 		foreach ($p in $AllowedFiles) {
 			$norm += @((To-RepoRelativeForwardSlash -Path $p -RepoRoot $script:RepoRoot))
@@ -453,10 +563,6 @@ try {
 		$stagedRaw = Split-NameOnlyOutput -Text $stagedText
 		$unstagedRaw = Split-NameOnlyOutput -Text $unstagedText
 		$untrackedRaw = Split-NameOnlyOutput -Text $untrackedText
-
-		Debug-Log ("ParsedStagedLines=" + @($stagedRaw).Count)
-		Debug-Log ("ParsedUnstagedLines=" + @($unstagedRaw).Count)
-		Debug-Log ("ParsedUntrackedLines=" + @($untrackedRaw).Count)
 
 		$stagedNorm = @()
 		foreach ($p in @($stagedRaw)) { $stagedNorm += @((To-RepoRelativeForwardSlash -Path $p -RepoRoot $script:RepoRoot)) }
@@ -474,14 +580,57 @@ try {
 		Debug-Log ("UnionCount=" + @($union).Count)
 	}
 
-	# Force array semantics at the call site.
-	$sectionLines = @(Format-AllowedFilesSection -UnionList $union -StagedList $staged -WorkingList $working -MaxCount $MaxFiles)
+	# Recent commits (subjects only).
+	# Robust parsing: do NOT rely on newlines. Use ASCII record/field separators.
+	$recent = @()
+	if ($RecentCommitsCount -gt 0) {
+		# RS = 0x1E, US = 0x1F
+		$fmt = "--pretty=format:%h%x1F%s%x1E"
+		$recentText = Invoke-GitText -Args @("log", ("-n" + $RecentCommitsCount), $fmt) -WorkingDirectory $script:RepoRoot
 
-	Debug-Log ("SectionLinesType=" + (($sectionLines | Get-Member -Name GetType -MemberType Method -ErrorAction SilentlyContinue) | Out-String).Trim())
-	Debug-Log ("SectionLinesCount=" + @($sectionLines).Count)
-	if (@($sectionLines).Count -gt 0) {
-		Debug-Log ("SectionLinesFirst=" + ($sectionLines[0] + ""))
+		# Split records on RS, then split fields on US.
+		$records = $recentText -split ([char]0x1E)
+		foreach ($r in $records) {
+			$rec = ($r + "")
+			if ($rec.Trim().Length -eq 0) { continue }
+
+			$fields = $rec -split ([char]0x1F), 2
+			if ($fields.Count -lt 2) { continue }
+
+			$h = ($fields[0] + "").Trim()
+			$s = ($fields[1] + "")
+
+			# Sanitize subject: collapse all whitespace (including newlines) to single spaces.
+			$s = [Regex]::Replace($s, "\s+", " ").Trim()
+
+			if ($h.Length -eq 0 -or $s.Length -eq 0) { continue }
+			$recent += @($h + " " + $s)
+		}
 	}
+
+	# Build section text blocks (single string each).
+	$allowedSectionText = Format-AllowedFilesSection -UnionList $union -StagedList $staged -WorkingList $working -MaxCount $MaxFiles -WasExplicitOverride:$explicitOverride
+	$recentSectionText  = Format-RecentCommitsLines -CommitLines $recent
+
+
+	# Defaults that keep the packet actionable without pretending to know your whole plan.
+	if ($null -eq $ValidationCommands -or @($ValidationCommands).Count -eq 0) {
+		$ValidationCommands = @(
+			"powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-ContextPacket.ps1 -Verbose -Force",
+			"git status"
+		)
+	}
+	if ($null -eq $DefinitionOfDone -or @($DefinitionOfDone).Count -eq 0) {
+		$DefinitionOfDone = @(
+			"Context Packet regenerated and reflects current branch/commit and allowlist.",
+			"Validation commands executed with no errors.",
+			"Any code changes are committed with a subject + body describing what changed, why, and how it was validated."
+		)
+	}
+
+	$validationText = Format-BulletLines -Items $ValidationCommands
+	$dodText        = Format-BulletLines -Items $DefinitionOfDone
+
 
 	Write-Verbose "Filling template..."
 	$templateContent = [System.IO.File]::ReadAllText($templatePath)
@@ -491,7 +640,60 @@ try {
 	$filled = Replace-Or-Append-KeyLine -Content $filled -Key "Date" -Value $dateStr
 	$filled = Replace-Or-Append-KeyLine -Content $filled -Key "Branch" -Value $branch
 	$filled = Replace-Or-Append-KeyLine -Content $filled -Key "Commit" -Value $commit
-	$filled = Replace-AllowedFiles-Section -Content $filled -SectionLines $sectionLines
+
+	$filled = Replace-Objective-Block -Content $filled -ObjectiveLines $Objective
+	$filled = Replace-Mode-Line -Content $filled -Key "OUTPUT_MODE" -Value $OutputMode
+	$filled = Replace-Mode-Line -Content $filled -Key "GIT_MODE" -Value $GitMode
+	$filled = Replace-Mode-Line -Content $filled -Key "PROFILE" -Value $Profile
+	
+	# Replace Allowed files section (use Replace-SectionByHeading so line normalization applies)
+	$filled = Replace-SectionByHeading `
+		-Content $filled `
+		-HeadingPattern "(?im)^\s*##\s+Allowed files\s*$" `
+		-HeadingLine "## Allowed files" `
+		-SectionText $allowedSectionText
+
+	$filled = Replace-SectionByHeading `
+		-Content $filled `
+		-HeadingPattern "(?im)^\s*##\s+Validation commands to run after the step\s*$" `
+		-HeadingLine "## Validation commands to run after the step" `
+		-SectionText $validationText
+
+	$filled = Replace-SectionByHeading `
+		-Content $filled `
+		-HeadingPattern "(?im)^\s*##\s+Recent commits\s*\(subjects only\)\b.*$" `
+		-HeadingLine "## Recent commits (subjects only)" `
+		-SectionText $recentSectionText
+
+	$filled = Replace-SectionByHeading `
+		-Content $filled `
+		-HeadingPattern "(?im)^\s*##\s+Definition of Done\b.*$" `
+		-HeadingLine "## Definition of Done" `
+		-SectionText $dodText
+	
+	# Guardrails: prevent packed-section regressions
+	$mustHave = @(
+	    "## Allowed files",
+	    "## Validation commands to run after the step",
+	    "## Recent commits (subjects only)",
+	    "## Definition of Done"
+	)
+	
+	foreach ($h in $mustHave) {
+	    if ($filled -notmatch [Regex]::Escape($h)) {
+	        throw ("Missing heading in output: " + $h)
+	    }
+	}
+	
+	# Canary: Summary must be on its own line (prior failure mode packed it)
+	if ($filled -notmatch "(?m)^Summary:\s*$") {
+	    throw "Allowed files section formatting regressed: 'Summary:' is not on its own line."
+	}
+	
+	# Catch packed bullet lines like "- a - b" that should be multiple lines
+	if ($filled -match "(?m)^\s*-\s+.+\s-\s+.+$") {
+	    throw "Packed bullets detected (pattern: '- a - b') in generated output."
+	}
 
 	Write-Verbose "Writing output..."
 	$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
