@@ -1,140 +1,82 @@
-\# 10\_DOCS\_INDEX
-
-
+# 10_DOCS_INDEX
 
 This is the routing index for the documentation kernel. It defines what is canonical (project-level) versus what is generated per session.
 
-
-
 If a chat instruction conflicts with canonical repo contracts, update the canonical file first.
 
+Design-law precedence rule:
+- Gameplay and simulation laws live in docs 50–53 and override any conflicting interpretation from architecture excerpts. Use architecture excerpts to enforce layer boundaries and runtime integration patterns, not to redefine design laws.
 
+## A. Canonical contracts, architecture, and design laws (project-level, highest priority)
 
+1) `docs/00_READ_FIRST_LLM_CONTRACT.md`
+- The authoritative workflow contract (OUTPUT_MODE, GIT_MODE, atomic write rules, constraints).
 
+2) `docs/10_ARCHITECTURE_INDEX.md`
+- The router into architecture excerpts.
+- Do not attach the full architecture by default; use this index to select the minimum excerpt.
 
-\## A. Canonical contracts and architecture (project-level, highest priority)
+3) `docs/ArchitectureV7.4.txt`
+- The canonical architecture body (referenced by excerpt via `docs/10_ARCHITECTURE_INDEX.md`).
 
+4) `docs/20_TESTING_AND_DETERMINISM.md`
+- Testing strategy, determinism expectations, runner patterns, and what is considered a valid test signal.
 
+5) `docs/21_UNITS_AND_INVARIANTS.md`
+- Canonical units, normalization rules, invariants, and validator expectations shared by SimCore, UI, and tests.
 
-1\) `docs/00\_READ\_FIRST\_LLM\_CONTRACT.md`
+6) `docs/30_CONNECTIVITY_AND_INTERFACES.md`
+- Layering rules and connectivity scan contract (including determinism requirements).
 
-\- The authoritative workflow contract (OUTPUT\_MODE, GIT\_MODE, atomic write rules, constraints).
+7) `docs/50_EARLY_MISSION_LADDER_AND_TRAVEL.md`
+- Canonical design laws for early mission ladder, travel layers, lanes vs off-lane, fracture constraints, and deterministic mission tests.
 
+8) `docs/51_ECONOMY_AND_TRADE_DESIGN_LAW.md`
+- Canonical economy laws: causality loop, ledger/event rules, logistics constraints, automation doctrine, enforcement/heat, security state, determinism harness, invariants, and scenario packs.
 
+9) `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md`
+- Canonical locks for time model (tick = 1 game minute, 60x), tick-boundary state changes, intent ordering, travel timing targets, market cadence, logistics spine, intel policy, and slice gates.
 
-2\) `docs/10\_ARCHITECTURE\_INDEX.md`
+10) `docs/53_PROGRAMS_FLEETS_DOCTRINES_CONTROL_SURFACE.md`
+- Canonical control surface: no ship UI, Programs/Fleets/Doctrines/Upgrade Packages, Liaison Quote contract, planning cadence, explain JSON, and dev-blocking schema gaps.
 
-\- The router into architecture excerpts.
+11) `docs/90_GLOSSARY_AND_IDS.md`
+- Canonical vocabulary and identifiers referenced across docs and code. Glossary definitions override conflicting usage in other docs.
 
-\- Do not attach the full architecture by default; use this index to select the minimum excerpt.
+## B. Operational workflow (project-level, changes occasionally)
 
+12) `docs/40_TOOLING_AND_HOOKS.md`
+- Canonical command lines for tools and validations.
+- What to attach per session vs what stays project-level.
+- Hook behavior and installation expectations.
 
+13) `docs/README.md`
+- The docs entrypoint and high-level orientation for humans.
 
-3\) `docs/ArchitectureV7.4.txt`
+## C. Templates (project-level)
 
-\- The canonical architecture body (referenced by excerpt via `docs/10\_ARCHITECTURE\_INDEX.md`).
+14) `docs/templates/01_CONTEXT_PACKET.template.md`
+- The template used by the generator.
+- Do not attach this in sessions.
 
-
-
-4\) `docs/20\_TESTING\_AND\_DETERMINISM.md`
-
-\- Testing strategy, determinism expectations, and what is considered a valid test signal.
-
-
-
-5\) `docs/30\_CONNECTIVITY\_AND\_INTERFACES.md`
-
-\- Layering rules and connectivity scan contract (including determinism requirements).
-
-
-
-
-
-\## B. Operational workflow (project-level, changes occasionally)
-
-
-
-6\) `docs/40\_TOOLING\_AND\_HOOKS.md`
-
-\- Canonical command lines for tools and validations.
-
-\- What to attach per session vs what stays project-level.
-
-\- Hook behavior and installation expectations.
-
-
-
-7\) `docs/90\_GLOSSARY\_AND\_IDS.md`
-
-\- Canonical vocabulary and identifiers referenced across docs and code.
-
-
-
-8\) `docs/README.md`
-
-\- The docs entrypoint and high-level orientation for humans.
-
-
-
-
-
-\## C. Templates (project-level)
-
-
-
-9\) `docs/templates/01\_CONTEXT\_PACKET.template.md`
-
-\- The template used by the generator.
-
-\- Do not attach this in sessions.
-
-
-
-
-
-\## D. Generated per session (always changes)
-
-
+## D. Generated per session (always changes)
 
 All generated artifacts live under:
+- `docs/generated/`
 
-\- `docs/generated/`
+15) `docs/generated/01_CONTEXT_PACKET.md`
+- The default session attachment.
+- Contains: objective, modes, allowlist, validations, definition of done.
 
+16) `docs/generated/connectivity_manifest.json`
+17) `docs/generated/connectivity_graph.json`
+18) `docs/generated/connectivity_violations.json`
+- Generated by the connectivity scanner.
+- Attach `connectivity_violations.json` only when it is non-empty or needed for diagnosis.
+- Do not paste full JSON outputs into chat by default; reference by path and include only targeted excerpts when necessary.
 
-
-10\) `docs/generated/01\_CONTEXT\_PACKET.md`
-
-\- The default session attachment.
-
-\- Contains: objective, modes, allowlist, validations, definition of done.
-
-
-
-11\) `docs/generated/connectivity\_manifest.json`
-
-12\) `docs/generated/connectivity\_graph.json`
-
-13\) `docs/generated/connectivity\_violations.json`
-
-\- Generated by the connectivity scanner.
-
-\- Attach `connectivity\_violations.json` only when it is non-empty or needed for diagnosis.
-
-\- Do not paste full JSON outputs into chat by default; reference by path and include only targeted excerpts when necessary.
-
-
-
-
-
-\## E. Planned outputs (not implemented unless explicitly created)
-
-
+## E. Planned outputs (not implemented unless explicitly created)
 
 These names may be used later, but must not be referenced as if they exist until implemented:
-
-\- `docs/generated/02\_CONNECTIVITY\_MAP.md`
-
-\- `docs/generated/03\_TEST\_RUN\_REPORT.md`
-
-
-
+- `docs/generated/02_CONNECTIVITY_MAP.md`
+- `docs/generated/03_TEST_RUN_REPORT.md`

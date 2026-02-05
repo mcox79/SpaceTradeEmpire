@@ -1,8 +1,17 @@
 # 40_TOOLING_AND_HOOKS
 
+
+
 Operational reference for local validation, hooks, and tooling conventions.
 
 This doc must stay aligned with `docs/00_READ_FIRST_LLM_CONTRACT.md`.
+
+See also:
+- `docs/20_TESTING_AND_DETERMINISM.md` (testing contract and determinism gates)
+- `docs/21_UNITS_AND_INVARIANTS.md` (units, invariants, validator expectations)
+- `docs/30_CONNECTIVITY_AND_INTERFACES.md` (connectivity contract and boundary rules)
+- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md` (tick boundary rule, intent ordering lock)
+
 
 
 ## A. Purpose
@@ -12,6 +21,7 @@ This document answers:
 - what Git hooks run (and what they must validate)
 - where generated artifacts land (and what is expected to be deterministic)
 - what to attach per LLM session vs what stays project-level
+
 
 
 ## B. What is project-level vs per-session
@@ -32,6 +42,7 @@ Per-session (the default attachment set)
 Important:
 - do not attach `docs/templates/01_CONTEXT_PACKET.template.md` in sessions
 - attach only the generated `docs/generated/01_CONTEXT_PACKET.md`
+
 
 
 ## C. Canonical commands to run (manual workflow)
@@ -105,7 +116,52 @@ Tests:
 - If you have no stable test selection yet, `dotnet test` is acceptable as a starting point.
 
 
-## D. Recommended validation tiers
+
+## D. Determinism and regression gates (operationalization)
+
+This section maps `docs/20_TESTING_AND_DETERMINISM.md` requirements into operational expectations.
+
+### D1. Required gates when SimCore logic changes
+When SimCore logic changes (economy, routing, planning, events, intent processing, save/load):
+
+Must run (minimum):
+- `dotnet test` (or targeted `SimCore.Tests/` selection)
+
+Strongly recommended (as soon as the runner exists):
+- deterministic world hash regression run
+- save/load roundtrip hash equality run
+
+Until the runner exists:
+- treat runner creation as a required milestone (not optional) for long-horizon balancing.
+
+### D2. Headless runner commands (placeholders until implemented)
+Do not claim these commands exist until implemented in-repo. When implemented, this doc must be updated to reference the exact entrypoint.
+
+Target capabilities (runner surface):
+- run one ScenarioId with a seed for N ticks
+- emit world hash checkpoints
+- emit deterministic metrics snapshot
+- run save/load roundtrip and confirm hash equality
+- exit non-zero on invariant or determinism failure
+
+When the runner exists, document canonical commands here, for example:
+- `dotnet run --project <RunnerProject> -- --scenario <ScenarioId> --seed <Seed> --ticks <N> --out <dir>`
+- `dotnet run --project <RunnerProject> -- --scenario-pack <PackName> --out <dir>`
+
+### D3. Scenario packs (required once supported)
+Scenario packs required by design laws (see doc 51 and doc 20):
+- Calm core region economy
+- Frontier piracy spiral
+- Major refinery outage (fuel shock via capacity loss)
+- Tariff regime shift across a border
+- Labor strike at a key port (service availability shock)
+
+Operational rule:
+- Once scenario packs exist, any SimCore change that can affect economy/logistics/planning must run the relevant pack(s) before merge.
+
+
+
+## E. Recommended validation tiers
 
 Tier 0 (fast, always)
 - `.gd` validation and parse gate (if any `.gd` changed)
@@ -122,11 +178,13 @@ Tier 1 (core correctness, when relevant)
 
 Tier 2 (slow, CI or nightly)
 - long-horizon scenario batch runs
+- multi-seed determinism regressions
 - performance regression checks
-- determinism regression runs across multiple seeds
+- golden scenario packs with drift thresholds (once implemented)
 
 
-## E. Connectivity scan: what it guarantees (v0)
+
+## F. Connectivity scan: what it guarantees (v0)
 
 Scope
 - file-level edges only (no symbol-level call graph)
@@ -163,9 +221,10 @@ Violations
 - `docs/generated/connectivity_violations.json` is the canonical output consumed by the workflow review gate.
 
 
-## F. Hooks
 
-### F1. Hook directory model
+## G. Hooks
+
+### G1. Hook directory model
 This repo uses a repo-tracked hook directory:
 - `.githooks/`
 
@@ -173,7 +232,7 @@ The intended behavior is:
 - hooks run via Git in a way that matches real usage
 - if hooks validate staged content, they must read staged blobs, not the working tree
 
-### F2. Pre-commit behavior (current)
+### G2. Pre-commit behavior (current)
 The pre-commit entrypoint calls a Windows wrapper which runs PowerShell:
 - `.githooks/pre-commit` (sh entrypoint) calls `.githooks/pre-commit.cmd`
 - `.githooks/pre-commit.cmd` runs:
@@ -193,7 +252,7 @@ And validates:
 Hook editing rule:
 - if you change hook behavior, you must test with staged-only changes and confirm it reads staged blobs.
 
-### F3. Hook install
+### G3. Hook install
 If you use a hook installer script, it must:
 - configure `core.hooksPath` to `.githooks`
 - avoid machine-specific absolute paths
@@ -202,7 +261,8 @@ If you use a hook installer script, it must:
 (If no installer exists, install can be done manually by setting `git config core.hooksPath .githooks`.)
 
 
-## G. Atomic write expectations (summary)
+
+## H. Atomic write expectations (summary)
 
 When a session runs in `OUTPUT_MODE = POWERSHELL`:
 - writes must be UTF-8 no BOM
@@ -212,7 +272,8 @@ When a session runs in `OUTPUT_MODE = POWERSHELL`:
 Full details are in `docs/00_READ_FIRST_LLM_CONTRACT.md`.
 
 
-## H. DevTool integration policy (optional)
+
+## I. DevTool integration policy (optional)
 
 If `DevTool.ps1` is used as a convenience entrypoint:
 - it may provide wrappers to run Tier 0 and Tier 1 validations
@@ -225,10 +286,13 @@ If no stable wrapper exists yet:
 - track wrapper work as a separate tooling task
 
 
-## I. Common failure modes
+
+## J. Common failure modes
 
 - `.gd` indentation drift (spaces instead of tabs)
 - hook validation reading working tree instead of staged content
 - newline or BOM changes introduced by file writers
 - tests that are non-deterministic due to time, randomness, or ordering
 - connectivity scan noise from generated, archival, or build directories when not using `-Harden`
+- unit drift (per tick vs per day, game time vs real time) when schema fields do not declare units
+- missing determinism regression gates (world hash, save/load hash equality) when sim complexity increases

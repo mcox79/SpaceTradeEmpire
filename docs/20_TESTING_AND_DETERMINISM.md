@@ -1,418 +1,1386 @@
-\# 20\_TESTING\_AND\_DETERMINISM
+\# 90\_GLOSSARY\_AND\_IDS
 
 
 
-This document defines the testing contract for SimCore and the determinism requirements that make the simulation balanceable, debuggable, and safe for LLM-driven iteration.
 
 
 
-\## A. Purpose
+
+Canonical vocabulary and stable identifiers referenced across docs and code.
 
 
 
-Define:
-
-\- what “deterministic” means in this repo
-
-\- what must be testable headlessly (without Godot)
-
-\- the test unit hierarchy (unit, invariant, scenario, suite)
-
-\- what outputs are considered stable and diffable
-
-\- how to structure “proof” for changes (what must fail before and pass after)
 
 
 
-This file is canonical. If practice drifts from this file, either:
 
-\- fix the tooling/tests to match this contract, or
-
-\- update this contract first (with an explicit reason).
+This file exists to prevent drift and ambiguous terminology.
 
 
 
-\## B. Non-negotiable invariants (locked contract)
 
 
 
-TEST-001 SimCore is headless-testable
 
-\- SimCore must be testable from a .NET console runner (or equivalent), with zero dependency on Godot runtime objects or Godot namespaces.
+Glossary precedence rule:
 
-\- Any testing harness for simulation logic must not rely on frame timing.
-
-
-
-TEST-002 Determinism
-
-\- Given the same InitialSeed and the same deterministic inputs (scenario/config/commands), SimCore must produce identical outputs across runs on the same build.
-
-\- “Identical outputs” means:
-
-&nbsp; - identical final state (bitwise where feasible, otherwise a stable canonical hash)
-
-&nbsp; - identical emitted event stream and metrics, when those outputs are enabled
+\- If a term is used inconsistently across canonical docs or code, this glossary wins. Fix the conflicting doc/code to match the glossary.
 
 
 
-TEST-003 No hidden nondeterminism
-
-\- The simulation must not depend on:
-
-&nbsp; - wall clock time
-
-&nbsp; - machine-specific absolute paths
-
-&nbsp; - locale-dependent sorting or formatting
-
-&nbsp; - unspecified iteration ordering (for example: relying on dictionary enumeration order)
-
-&nbsp; - unseeded randomness
 
 
 
-TEST-004 Repro-first workflow
 
-\- If a bug exists, the workflow is:
+See also:
 
-&nbsp; 1) add a failing deterministic test (unit test, invariant, or scenario)
+\- `docs/20\_TESTING\_AND\_DETERMINISM.md`
 
-&nbsp; 2) fix until it passes
+\- `docs/21\_UNITS\_AND\_INVARIANTS.md`
 
-&nbsp; 3) keep the test as regression coverage
+\- `docs/51\_ECONOMY\_AND\_TRADE\_DESIGN\_LAW.md`
 
+\- `docs/52\_DEVELOPMENT\_LOCK\_RECOMMENDATIONS.md`
 
-
-\## C. Determinism contract details
-
-
-
-\### C1. Deterministic inputs
+\- `docs/53\_PROGRAMS\_FLEETS\_DOCTRINES\_CONTROL\_SURFACE.md`
 
 
 
-The deterministic input set must be explicit and serializable. At minimum, one of the following must fully define a run:
 
 
 
-Option A: Scenario-driven run (preferred)
+
+\## A. Workflow modes
+
+
+
+
+
+
+
+OUTPUT\_MODE
+
+
+
+\- Meaning: how the LLM must output changes in a coding session.
+
+\- Values:
+
+
+
+&nbsp; - ANALYSIS\_ONLY: no code or file replacements; audit and plan only.
+
+&nbsp; - FULL\_FILES: output complete file replacements (one file at a time).
+
+&nbsp; - POWERSHELL: output PowerShell-only atomic write blocks that generate or replace files.
+
+
+
+\- Rule: the session Context Packet must declare OUTPUT\_MODE.
+
+
+
+
+
+
+
+GIT\_MODE
+
+
+
+\- Meaning: how Git actions are handled in the session workflow.
+
+\- Values:
+
+
+
+&nbsp; - NO\_STAGE: do not stage or commit anything in-session.
+
+&nbsp; - STAGE: staging is allowed once validation passes.
+
+&nbsp; - COMMIT:<message>: commit is allowed once validation passes with the provided message.
+
+
+
+\- Rule: the session Context Packet must declare GIT\_MODE.
+
+
+
+
+
+
+
+Experimentation mode
+
+
+
+\- Meaning: exploratory changes and audits. Default Git mode is NO\_STAGE. No commits.
+
+\- Switching rule: move to Normal mode only after the workflow is stable, outputs are deterministic, and the plan is explicit.
+
+
+
+
+
+
+
+Normal mode
+
+
+
+\- Meaning: standard development, validation, and integration.
+
+\- Git mode: STAGE or COMMIT:<message>.
+
+
+
+
+
+
+
+\## B. Validation tiers
+
+
+
+
+
+
+
+Tier 0
+
+
+
+\- Meaning: fast checks that should run whenever relevant files change.
+
+\- Typical examples:
+
+
+
+&nbsp; - `.gd` validation and parse gate (`scripts/tools/Validate-GodotScript.ps1`)
+
+&nbsp; - PowerShell parse checks (when `.ps1` changes)
+
+&nbsp; - `dotnet build` (when `.cs` changes)
+
+
+
+
+
+
+
+Tier 1
+
+
+
+\- Meaning: correctness gates when wiring or simulation changes occur.
+
+\- Typical examples:
+
+
+
+&nbsp; - connectivity scan (`scripts/tools/Scan-Connectivity.ps1`)
+
+&nbsp; - `dotnet test` for relevant test projects (for example `SimCore.Tests/`)
+
+&nbsp; - smoke tests (when present)
+
+
+
+
+
+
+
+Tier 2
+
+
+
+\- Meaning: slower runs intended for CI/nightly or intentional regression detection.
+
+\- Typical examples:
+
+
+
+&nbsp; - multi-seed determinism regressions
+
+&nbsp; - performance regressions
+
+&nbsp; - long-horizon scenario runs
+
+
+
+
+
+
+
+\## C. Session artifacts
+
+
+
+
+
+
+
+Context Packet (generated)
+
+
+
+\- Path: `docs/generated/01\_CONTEXT\_PACKET.md`
+
+\- Meaning: default attachment for new LLM sessions.
+
+\- Must include:
+
+
+
+&nbsp; - objective
+
+&nbsp; - OUTPUT\_MODE and GIT\_MODE
+
+&nbsp; - explicit allowlist of files to modify
+
+&nbsp; - validation commands
+
+&nbsp; - definition of done
+
+
+
+
+
+
+
+Context Packet template
+
+
+
+\- Path: `docs/templates/01\_CONTEXT\_PACKET.template.md`
+
+\- Meaning: the template used to generate the Context Packet.
+
+\- Rule: do not attach the template in sessions; attach only the generated packet.
+
+
+
+
+
+
+
+Generated artifacts directory
+
+
+
+\- Path: `docs/generated/`
+
+\- Meaning: location for deterministic, diff-friendly tool outputs.
+
+
+
+
+
+
+
+Connectivity scan outputs (v0)
+
+
+
+\- Paths:
+
+
+
+&nbsp; - `docs/generated/connectivity\_manifest.json`
+
+&nbsp; - `docs/generated/connectivity\_graph.json`
+
+&nbsp; - `docs/generated/connectivity\_violations.json`
+
+
+
+\- Meaning:
+
+
+
+&nbsp; - manifest: tool and scope summary (top-level keys include tool, scope, counts, total\_hits, files)
+
+&nbsp; - graph: nodes and edges (top-level keys include tool, nodes, edges)
+
+&nbsp; - violations: findings and rule list (top-level keys include tool, rules, violations, counts)
+
+
+
+\- Session rule: attach `connectivity\_violations.json` only when non-empty or needed for diagnosis.
+
+
+
+
+
+
+
+\## D. Architecture layer terms
+
+
+
+
+
+
+
+SimCore
+
+
+
+\- Meaning: headless simulation engine. Must not depend on Godot runtime objects or Godot namespaces.
+
+
+
+
+
+
+
+GameShell
+
+
+
+\- Meaning: Godot-facing application layer. May depend on SimCore.
+
+
+
+
+
+
+
+Adapter
+
+
+
+\- Meaning: glue layer allowed to touch both GameShell and SimCore. Used to bridge runtime and translate inputs/outputs.
+
+
+
+
+
+
+
+\## E. Determinism terms
+
+
+
+
+
+
+
+Deterministic
+
+
+
+\- Meaning: repeated runs with the same deterministic inputs produce identical outputs (as defined by `docs/20\_TESTING\_AND\_DETERMINISM.md`).
+
+
+
+
+
+
+
+Deterministic inputs
+
+
+
+\- Meaning: explicit, serializable inputs to a simulation run (seed, scenario/config, command list).
+
+
+
+
+
+
+
+Diff-friendly artifacts
+
+
+
+\- Meaning: outputs whose ordering and formatting are stable, so Git diffs are meaningful.
+
+
+
+
+
+
+
+Ephemeral logs
+
+
+
+\- Meaning: outputs that are not required to be deterministic and should not be committed (verbose traces, timestamped logs).
+
+
+
+
+
+
+
+\## F. Stable identifiers (general)
+
+
+
+
+
+
+
+EntityID
+
+
+
+\- Meaning: stable identifier for a game entity in SimCore.
+
+\- Requirement: must be stable within a deterministic run and suitable for referencing in logs and UI.
+
+
+
+
+
+
+
+ReasonCode
+
+
+
+\- Meaning: stable code describing why an outcome occurred (failure, rejection, insufficient resources).
+
+\- Requirement: stable and UI-displayable; preferred over free-form strings for critical outcomes.
+
+
+
+
+
+
+
+\## G. Canonical ID conventions (LOCKED)
+
+
+
+
+
+
+
+Global ID rules
+
+
+
+\- IDs are stable, opaque strings.
+
+\- IDs never depend on raw floating point coordinates.
+
+\- IDs are deterministic for procedural content (derived from seeds) and stable for authored content (hand-authored strings).
+
+\- Any output ordering that affects results or diffs must sort by stable IDs, not by incidental memory order.
+
+
+
+
+
+
+
+Canonical ID field names (preferred)
+
+
+
+\- WorldId
+
+\- TickIndex
+
+\- Seed
+
+\- StationId
+
+\- MarketId
+
+\- GoodId
+
+\- LaneId
+
+\- RouteId
+
+\- JurisdictionId
+
+\- FactionId
+
+\- ProgramId
+
+\- FleetId
+
+\- FleetGroupId
+
+\- DoctrineId
+
+\- PackageId
+
+\- ProjectId
+
+\- ContractId
+
+\- QuoteId
+
+\- EventId
+
+\- ScopeId
+
+\- ScopeHash
+
+\- DiscoveryId
+
+\- RegionId
+
+\- NodeId
+
+\- EdgeId
 
 \- ScenarioId
 
-\- InitialSeed
 
-\- StopCondition (for example: simulate N days)
 
-\- Optional config overrides (must be serializable and stable)
 
-\- Optional command script (a deterministic list of commands with timestamps/ticks)
 
 
 
-Option B: Harness-driven run (acceptable early)
+\## H. Time model vocabulary (LOCKED)
 
-\- InitialSeed
 
-\- Explicit set of systems enabled/disabled
 
-\- Explicit run length (N days or N ticks)
 
-\- Explicit command list
 
 
 
-\### C2. Forbidden sources of nondeterminism
+Tick
 
 
 
-In SimCore logic (and in tests that claim determinism), avoid:
+\- The authoritative SimCore step unit.
 
-\- DateTime.Now / UtcNow and equivalents
+\- 1 tick = 1 game minute.
 
-\- Guid.NewGuid and equivalents
 
-\- Random without a seeded RNG injected from the deterministic input set
 
-\- unordered collection iteration as a “behavioral dependency”
 
-\- floating point behavior that depends on platform-specific math paths without normalization
 
 
 
-If a system requires “randomness,” it must consume an injected RNG seeded from InitialSeed (or a derived deterministic seed per system).
+Time scale (60x)
 
 
 
-\### C3. Stable ordering rules
+\- 1 real second = 1 game minute (60x).
 
 
 
-If outputs contain collections (events, metrics, entities), ordering must be explicit:
 
-\- sort by stable keys (EntityID, stable tick index, stable type id, stable name)
 
-\- never rely on “incidental” in-memory ordering
 
 
+Tick boundary rule
 
-\## D. Test units and what they prove
 
 
+\- Authoritative state changes occur only on tick boundaries inside SimCore.
 
-\### D1. Unit tests
+\- Continuous presentation (movement, combat visuals, docking, UI animation) is GameShell-only.
 
-Goal: verify pure logic in isolation.
+\- GameShell posts Intents; SimCore applies them at the next tick boundary.
 
 
 
-\- Prefer unit tests for:
 
-&nbsp; - economy math
 
-&nbsp; - inventory transforms
 
-&nbsp; - routing decisions that can be expressed without a full world
 
-\- Run via the repo’s .NET test project(s) when present.
+Derived time units (reference)
 
 
 
-\### D2. Invariants (silent drift catchers)
+\- 1 game hour = 60 ticks
 
-Goal: halt immediately on impossible state.
+\- 1 game day = 1,440 ticks
 
+\- 1 game week = 10,080 ticks
 
 
-\- Invariants are assertions evaluated during simulation steps in debug/test contexts.
 
-\- Invariants must be:
 
-&nbsp; - deterministic (no time/random)
 
-&nbsp; - cheap enough to run frequently in test builds
 
-&nbsp; - actionable (clear failure message with stable IDs)
 
+\## I. Intent model terms (LOCKED)
 
 
-Minimum recommended invariant classes (expand over time):
 
-\- numeric sanity: no NaN / Infinity
 
-\- bounds: values remain within documented ranges
 
-\- conservation-style checks where applicable
 
-\- structural checks (graph connectivity or reachability where required)
 
+Intent
 
 
-\### D3. Scenarios (smallest integration unit)
 
-Goal: verify multi-system behavior deterministically.
+\- Meaning: a request from GameShell (or an Adapter) to SimCore to change canonical state.
 
+\- Rule: Intents apply on tick boundaries only.
 
 
-A scenario is the smallest unit of integration testing for SimCore. Any non-trivial SimCore change must be verifiable by at least one scenario (or an equivalent deterministic harness run) that can be re-run exactly.
 
 
 
-Scenario file format is intentionally unspecified here until the schema is implemented. When implemented, this doc must be updated to reference:
 
-\- the schema location
 
-\- the canonical runner command
+apply\_tick
 
 
 
-\### D4. Smoke tests (fast system sanity)
+\- Meaning: the tick index at which an Intent becomes eligible to apply (default: next tick after issuance).
 
-Goal: “does it run” plus basic invariants.
 
 
 
-A smoke test should:
 
-\- generate a world from a fixed seed
 
-\- simulate a short, fixed horizon (for example: 30 days)
 
-\- assert no crashes and invariants remain satisfied
+Intent validation
 
 
 
-A longer-horizon smoke test is recommended once performance supports it.
+\- Meaning: SimCore checks legality, bounds, permissions, and invariants before applying an Intent.
 
+\- Rule: rejected intents must return stable ReasonCode values (no free-form rejection strings for critical outcomes).
 
 
-\## E. Performance budgets
 
 
 
-These are targets. Treat them as budgets to enforce once the runner and benchmarks exist.
 
 
+Stable intent ordering
 
-PERF-001 Headless speed target (budget)
 
-\- Target: simulate 1 year in under 5 seconds in headless mode on a developer machine.
 
+\- Rule: Intent application order must be deterministic and explicit.
 
+\- Default required ordering keys:
 
-PERF-002 Regression detection
 
-\- Once benchmarks exist, any material slowdown should be caught in Tier 2 (CI/nightly) runs.
 
+&nbsp; 1) apply\_tick ascending
 
+&nbsp; 2) intent\_kind\_priority ascending (fixed table)
 
-\## F. Runner and artifacts
+&nbsp; 3) actor\_id ascending (stable ID)
 
+&nbsp; 4) insertion\_index ascending (deterministic creation order)
 
 
-\### F1. Headless runner (CLI surface)
 
 
 
-When a headless runner exists, it should support:
 
-\- running one scenario
 
-\- running a batch across N seeds
+\## J. Economy and market vocabulary
 
-\- emitting artifacts to an output directory
 
-\- exiting non-zero on:
 
-&nbsp; - determinism failure
 
-&nbsp; - invariant failure
 
-&nbsp; - schema failure
 
-&nbsp; - crash
 
+Good
 
 
-If a headless runner does not exist yet, treat the above as a required milestone (not optional) for balancing and long-horizon tuning.
 
+\- Meaning: a tradable unit type.
 
+\- Locked: goods exist as integer units.
 
-\### F2. Stable artifacts (when implemented)
+\- Goods declare unit\_mass and unit\_volume (canonical units are defined in `docs/21\_UNITS\_AND\_INVARIANTS.md`).
 
 
 
-When artifact emission is implemented, the minimum stable outputs should be deterministic and diffable:
 
-\- run\_manifest.json
 
-&nbsp; - ScenarioId, seed, config hash, build/version id, git commit hash (if available)
 
-\- metrics.json
 
-&nbsp; - schema version, units, cadence
+Handling class
 
-\- events.jsonl
 
-&nbsp; - structured event log with stable tick/day index and stable EntityIDs
 
+\- Meaning: logistical handling category for a Good.
 
+\- Canonical set:
 
-Snapshots may exist behind a flag and must have size limits.
 
 
+&nbsp; - Bulk
 
-If artifacts are not implemented yet, do not invent them in workflow claims. Add a TODO and keep evidence in the scenario/tests.
+&nbsp; - Container
 
+&nbsp; - Liquid
 
+&nbsp; - Hazardous
 
-\## G. Validation tiers and when to run them
+&nbsp; - Refrigerated
 
 
 
-This doc defines testing semantics. The operational “what commands to run” lives in:
 
-\- docs/40\_TOOLING\_AND\_HOOKS.md
 
 
 
-Mapping (intent):
+Decay model
 
-\- Tier 0: always-fast checks (build/parse/basic validators)
 
-\- Tier 1: correctness gates when wiring or simulation changes occur (tests, connectivity scan, smoke tests)
 
-\- Tier 2: long horizon, perf, multi-seed determinism regression
+\- Meaning: declared loss process applied to inventory over time or handling.
 
+\- Canonical set:
 
 
-\## H. “Proof” requirements for changes
 
+&nbsp; - None
 
+&nbsp; - Spoilage
 
-For any SimCore behavior change, include at least one:
+&nbsp; - Leakage
 
-\- unit test, or
+&nbsp; - TheftShrink
 
-\- invariant, or
 
-\- scenario
 
+\- Rule: all losses must be represented as InventoryDelta events.
 
 
-And it must be able to demonstrate:
 
-\- fail-before, pass-after (or a measurable metric change with explicit acceptance criteria)
 
 
 
-For any determinism-sensitive change, include:
 
-\- a determinism check (same inputs, identical outputs) in the test evidence.
+Substitution group
 
 
 
-\## I. What to attach in LLM sessions
+\- Meaning: a partial demand substitution cluster (not perfect substitutes).
 
+\- Rule: substitution is partial to preserve commodity identity.
 
 
-Do not attach large logs by default.
 
 
 
-Attach only what is necessary:
 
-\- the generated Context Packet: docs/generated/01\_CONTEXT\_PACKET.md
 
-\- the minimal allowlisted files needed for the change
+Station inventory
 
-\- if a test is failing:
 
-&nbsp; - the smallest failing test/scenario file
 
-&nbsp; - the minimal runner output excerpt needed to diagnose
+\- Meaning: authoritative on-hand quantity per station per Good.
 
+\- Rule: production, consumption, and transfers change inventory on tick boundaries only.
 
 
-If determinism is in question:
 
-\- attach a small excerpt of the event log or a single deterministic state hash line, not the whole run output.
 
 
 
-\## J. TODOs (only if missing in the repo)
 
+Scarcity band (remote intel)
 
 
-If any of the following do not exist yet, they should be tracked explicitly as tooling milestones:
 
-\- a headless runner entrypoint for SimCore scenarios
+\- Meaning: coarse band derived from station inventory for remote views.
 
-\- a scenario schema and a small scenario library (at least 3 scenarios)
+\- Canonical set:
 
-\- a deterministic artifact writer (manifest, metrics, events)
 
-\- a Tier 2 determinism regression run across multiple seeds
+
+&nbsp; - Empty
+
+&nbsp; - Low
+
+&nbsp; - OK
+
+&nbsp; - High
+
+&nbsp; - Full
+
+
+
+
+
+
+
+Published price
+
+
+
+\- Meaning: the price exposed to players and used for most remote decisions.
+
+\- Rule: published prices update on a cadence (default: every 12 game hours) and may be smoothed to avoid thrash.
+
+
+
+
+
+
+
+Spread
+
+
+
+\- Meaning: bid/ask gap.
+
+\- Typical drivers: low depth, volatility, low trust, high heat, frontier risk.
+
+
+
+
+
+
+
+Depth
+
+
+
+\- Meaning: how much volume can trade before marginal price impact becomes severe.
+
+
+
+
+
+
+
+Target band
+
+
+
+\- Meaning: the desired inventory range for a station-good; prices respond to deviation from this band.
+
+
+
+
+
+
+
+\## K. Ledger and event vocabulary (LOCKED)
+
+
+
+
+
+
+
+Event-sourced core
+
+
+
+\- Meaning: simulation state is a pure fold over immutable events.
+
+\- Rule: no module may directly mutate credits or inventories without emitting the corresponding event.
+
+
+
+
+
+
+
+CashDelta
+
+
+
+\- Meaning: immutable event representing a credit change.
+
+\- Rule: exactly 1 category per CashDelta event.
+
+
+
+Canonical categories:
+
+
+
+\- TradePnL
+
+\- Fees
+
+\- InsurancePremium
+
+\- InsurancePayout
+
+\- Maintenance
+
+\- Payroll
+
+\- FinancingInterest
+
+\- FinancingPrincipal
+
+\- Tariffs
+
+\- Fines
+
+\- ConfiscationLoss
+
+\- TheftLoss
+
+\- FacilityOPEX
+
+\- ContractSettlement
+
+
+
+
+
+
+
+InventoryDelta
+
+
+
+\- Meaning: immutable event representing an inventory change.
+
+\- Rule: exactly 1 movement reason per InventoryDelta event.
+
+
+
+Canonical reasons:
+
+
+
+\- Produced
+
+\- Consumed
+
+\- Loaded
+
+\- Unloaded
+
+\- Spoiled
+
+\- Leaked
+
+\- Stolen
+
+\- Confiscated
+
+\- Manufactured
+
+\- Reprocessed
+
+
+
+
+
+
+
+TradeFill
+
+
+
+\- Meaning: immutable event representing an executed trade (quantity, price, fees, counterparties).
+
+\- Rule: a TradeFill implies corresponding CashDelta and InventoryDelta entries (directly or via a deterministic expansion step).
+
+
+
+
+
+
+
+PriceQuote
+
+
+
+\- Meaning: immutable event representing a published price snapshot at a given publish tick.
+
+
+
+
+
+
+
+ContractStateChange
+
+
+
+\- Meaning: immutable event representing contract lifecycle transitions (created, active, fulfilled, breached, etc.).
+
+
+
+
+
+
+
+QueueEvent
+
+
+
+\- Meaning: immutable event representing queueing changes (berth slots, service backlog, reservations).
+
+
+
+
+
+
+
+LossEvent
+
+
+
+\- Meaning: immutable event representing a loss incident (piracy, spoilage, leakage, theft) with explicit drivers and implications.
+
+
+
+
+
+
+
+InspectionEvent
+
+
+
+\- Meaning: immutable event representing enforcement interaction (inspection, confiscation, fines, warnings).
+
+
+
+
+
+
+
+SecurityStateChange
+
+
+
+\- Meaning: immutable event representing change in security capacity or posture in a region or corridor.
+
+
+
+
+
+
+
+ServiceAvailabilityChange
+
+
+
+\- Meaning: immutable event representing changes in labor, maintenance, parts availability that modulate throughput and downtime.
+
+
+
+
+
+
+
+ExplainEvent
+
+
+
+\- Meaning: immutable schema-bound explanation emitted by SimCore for outcomes, especially automation outcomes.
+
+\- Rule: ExplainEvent is structured data, not free text, in early slices.
+
+
+
+
+
+
+
+\## L. Programs, fleets, doctrines, packages (LOCKED)
+
+
+
+
+
+
+
+Program
+
+
+
+\- Meaning: the primary player intent object for automation.
+
+\- Program owns: intent, constraints, policy, budget, targets, priority weights.
+
+\- Program outputs: KPI bands (p10/p50/p90), cost rates, incident summaries, explain events.
+
+\- Rule: Programs are schema-defined and headless-runnable.
+
+
+
+
+
+
+
+Fleet (capacity pool)
+
+
+
+\- Meaning: a pool of capacity, not an individual ship control surface.
+
+\- Rule: v1 exposes only aggregate stats and capability tags. No ship-level UI, no per-ship fitting, no per-ship waypointing.
+
+
+
+
+
+
+
+FleetGroup
+
+
+
+\- Meaning: a named set of fleets used for allocation, package application, doctrine defaults, and reporting.
+
+
+
+
+
+
+
+Doctrine
+
+
+
+\- Meaning: a small parameter set defining behavior and tradeoffs (risk posture, inspection strategy, piracy response, stealth running, objective bias).
+
+
+
+
+
+
+
+Upgrade Package
+
+
+
+\- Meaning: fleet-wide tech bundle with install and sustain requirements.
+
+\- Rule: packages are never per ship.
+
+
+
+
+
+
+
+OwnershipClass
+
+
+
+\- Meaning: how a fleet is owned and controlled.
+
+\- Canonical set:
+
+
+
+&nbsp; - Contracted
+
+&nbsp; - Leased
+
+&nbsp; - Owned
+
+
+
+
+
+
+
+Liaison Quote
+
+
+
+\- Meaning: deterministic preflight output for any create or change action.
+
+\- Required fields:
+
+
+
+&nbsp; - UpfrontCost
+
+&nbsp; - OngoingCostPerDay
+
+&nbsp; - TimeToActivate
+
+&nbsp; - Prerequisites
+
+&nbsp; - RequiredCapacity
+
+&nbsp; - ExpectedOutputBands\_p10/p50/p90
+
+&nbsp; - Confidence inputs (intel staleness, volatility, threat state)
+
+&nbsp; - TopRisks with drivers
+
+&nbsp; - SuggestedMitigations
+
+
+
+\- Fairness rule: no catastrophic outcome without precursor signals reflected in quote risk or confidence.
+
+
+
+
+
+
+
+Planning cycle
+
+
+
+\- Meaning: periodic cadence where programs are evaluated, quoted, and dispatched.
+
+\- Rule: planning runs on a fixed interval (every N ticks), not every tick.
+
+
+
+
+
+
+
+Commitment window
+
+
+
+\- Meaning: minimum time before allocations can churn again; prevents rapid reallocation exploits and LLM-authored thrash.
+
+
+
+
+
+
+
+\## M. Automation failure taxonomy (LOCKED)
+
+
+
+
+
+
+
+Primary failure cause
+
+
+
+\- Rule: every negative outcome attributes exactly 1 primary failure cause (plus optional secondary causes).
+
+\- The primary cause must be justified by stored decision-time facts, not reconstructed later.
+
+
+
+Canonical primary causes:
+
+
+
+\- BadInfo
+
+\- Slippage
+
+\- Queueing
+
+\- Heat
+
+\- LossEvent
+
+\- CapitalLockup
+
+\- ServiceShortage
+
+
+
+
+
+
+
+\## N. Scope, regions, corridors (LOCKED)
+
+
+
+
+
+
+
+Scope
+
+
+
+\- Meaning: stable selection of nodes and edges used by Programs and Projects.
+
+\- Rule: scope resolution must produce a sorted NodeId list and sorted EdgeId list, and emit a stable ScopeHash.
+
+
+
+
+
+
+
+ScopeHash
+
+
+
+\- Meaning: deterministic hash derived from resolved scope (sorted IDs).
+
+\- Rule: ScopeHash is stored in quotes and explain events to guarantee reproducibility.
+
+
+
+
+
+
+
+Region
+
+
+
+\- Meaning: tag-based or authored grouping used to define scope and world rules.
+
+\- Rule: regions must resolve deterministically to node and edge sets.
+
+
+
+
+
+
+
+Corridor
+
+
+
+\- Meaning: a named set of edges used for patrol coverage and risk modeling.
+
+
+
+
+
+
+
+\## O. Naming and unit annotation rules (required)
+
+
+
+
+
+
+
+Unit declaration rule
+
+
+
+\- Any field that can be misread must declare units in name or documentation, including:
+
+
+
+&nbsp; - costs: \*\_per\_day, \*\_per\_tick
+
+&nbsp; - throughput: \*\_work\_units\_per\_day, \*\_units\_per\_tick
+
+&nbsp; - time: \*\_ticks, \*\_game\_hours, \*\_game\_days
+
+&nbsp; - risk: \*\_risk\_0\_100
+
+&nbsp; - probability bands: \*\_p10, \*\_p50, \*\_p90
+
+&nbsp; - mass and volume: \*\_kg, \*\_m3
+
+
+
+\- Rule: if a field cannot state its unit clearly, it does not belong in v1.
 
 
 

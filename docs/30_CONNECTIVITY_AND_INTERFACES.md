@@ -1,6 +1,7 @@
 # 30_CONNECTIVITY_AND_INTERFACES
 
 
+
 ## A. Purpose
 
 Define:
@@ -13,6 +14,13 @@ This document is the contract for:
 - scanner outputs and how they are consumed
 - what counts as a connectivity violation
 
+See also:
+- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md` (tick boundary rule, intent ordering lock)
+- `docs/20_TESTING_AND_DETERMINISM.md` (determinism gates and runner expectations)
+- `docs/90_GLOSSARY_AND_IDS.md` (terms, IDs, and ordering vocabulary)
+- `docs/10_ARCHITECTURE_INDEX.md` (excerpt routing only)
+
+
 
 ## B. Layering rules (locked contract)
 
@@ -24,6 +32,12 @@ Hard rules:
 Interpretation:
 - Any dependency direction violation is an architecture bug, not a style issue.
 - If a rule is unclear, treat it as forbidden until explicitly allowed here (or in the canonical architecture).
+
+New locked boundary rule (from doc 52):
+- GameShell must not mutate canonical state directly. It issues Intents.
+- SimCore applies Intents only on tick boundaries.
+- This boundary must be enforceable by interface shape and connectivity rules, not “convention.”
+
 
 
 ## C. Connectivity map (v0): current scanner behavior (what exists today)
@@ -86,6 +100,7 @@ Determinism status:
 - Verified: repeated `-Harden` runs on an unchanged repo produced identical SHA256 hashes for `docs/generated/connectivity_*.json`.
 
 
+
 ## D. Determinism requirement for scan outputs (locked contract)
 
 CONN-001 Deterministic outputs
@@ -108,7 +123,10 @@ CONN-003 Diff-friendly JSON
   - lists inside objects (exclusions, evidence arrays, per-file summaries)
 - Stable keys and normalization (best-effort within PowerShell JSON constraints)
 
-NOTE: do not include wall-clock timestamps inside deterministic artifacts. If a human timestamp is needed, write it to console output or to an ephemeral log file that is not part of the deterministic set.
+NOTE:
+- Do not include wall-clock timestamps inside deterministic artifacts.
+- If a human timestamp is needed, write it to console output or to an ephemeral log file that is not part of the deterministic set.
+
 
 
 ## E. Connectivity violations (v0 rules, locked intent)
@@ -128,7 +146,47 @@ Policy:
 - warnings must be consciously accepted or fixed (document the decision in the session Context Packet)
 
 
-## F. Planned extensions (v1 target, not yet required)
+
+## F. Enforcement additions (v1 target, but contract is now explicit)
+
+The scanner may not enforce these yet, but they are now explicit contracts for repo structure and future scanner rules. Do not implement contrary patterns.
+
+### F1. Intent boundary enforcement (contract)
+Goal:
+- prevent direct mutation paths from GameShell to SimCore canonical state
+
+Required shape (conceptual):
+- GameShell issues Intents to SimCore through an Adapter or a defined boundary interface
+- SimCore exposes:
+  - ApplyIntentsAtTickBoundary (conceptually)
+  - Read-only snapshots for UI
+- GameShell must not hold references that permit direct mutation of SimCore state.
+
+Future scanner rules (planned):
+- CONN-INT-001: GameShell code must not call SimCore mutation methods except through a whitelisted Intent API surface.
+- CONN-INT-002: SimCore “state” types must not be writable from GameShell assemblies/namespaces.
+
+### F2. Layer classification (contract vocabulary)
+Layers (canonical):
+- SimCore
+- GameShell
+- Adapter
+- Tooling
+- Docs
+- Unknown
+
+Rule:
+- Any new folder/assembly must declare its layer classification in tooling config (when implemented).
+- Until tooling supports it, reviewers treat unknown cross-layer edges as suspicious.
+
+### F3. Stable ordering and evidence (contract)
+Rule:
+- Any scanner evidence must use repo-relative paths and stable line references.
+- If evidence cannot be stable, it must be omitted rather than made nondeterministic.
+
+
+
+## G. Planned extensions (v1 target, not yet required)
 
 These items are desired, but not required for v0 and must not be assumed to exist unless implemented in tooling:
 
@@ -151,7 +209,8 @@ These items are desired, but not required for v0 and must not be assumed to exis
 If we promote any of the above into "locked contract", we must update the scanner in the same change-set.
 
 
-## G. How the workflow uses the connectivity scan
+
+## H. How the workflow uses the connectivity scan
 
 When to run:
 - Any time you change boundaries or wiring:
@@ -173,7 +232,8 @@ What to attach in LLM sessions:
 - Otherwise reference the outputs by path.
 
 
-## H. Output directory policy (local now, commit later)
+
+## I. Output directory policy (local now, commit later)
 
 Default location:
 - `docs/generated/`
