@@ -13,6 +13,10 @@ ios/
 # Editor layout (local)
 *.editor_layout
 
+# Generated tool outputs (never commit)
+docs/generated/
+_scratch/
+
 
 # =========================
 # Local scratch + dumps
