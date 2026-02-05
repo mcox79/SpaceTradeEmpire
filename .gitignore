@@ -70,3 +70,8 @@ Desktop.ini
 *.suo
 *.userosscache
 *.sln.docstates
+
+# Generated artifacts
+docs/generated/*
+!docs/generated/.gitkeep
+
