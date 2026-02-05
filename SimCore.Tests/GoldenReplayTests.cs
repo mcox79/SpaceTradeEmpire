@@ -1,14 +1,19 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using SimCore;
 using SimCore.Gen;
 using SimCore.Commands;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace SimCore.Tests;
 
 public class GoldenReplayTests
 {
+    private const string ExpectedGenesisHash = "F842CBCDA59751AB79A73D9F7A016BE80F64B87F5BEBA3691F881DCB98E248E8";
+    private const string ExpectedFinalHash = "ADCE411F0ED36FC9EF2964A8E1BA58A4AA5A7D66FDA5D6F15FD4A56562EB8AFA";
+
     private struct RecordedCommand
     {
         public int Tick;
@@ -20,6 +25,8 @@ public class GoldenReplayTests
     {
         int seed = 42;
         int ticks = 1000;
+        bool updateGolden = string.Equals(Environment.GetEnvironmentVariable("STE_UPDATE_GOLDEN"), "1", StringComparison.Ordinal);
+
         var recordedInputs = new List<RecordedCommand>();
 
         // --- RUN A: RECORDING PHASE ---
@@ -43,6 +50,31 @@ public class GoldenReplayTests
             simA.Step();
         }
         string hashA_Final = simA.State.GetSignature();
+
+        if (updateGolden)
+        {
+            TestContext.Out.WriteLine($"PASTE_GENESIS: {hashA_Initial}");
+            TestContext.Out.WriteLine($"PASTE_FINAL:   {hashA_Final}");
+
+            Directory.CreateDirectory("docs/generated/snapshots");
+            File.WriteAllText(
+                Path.Combine("docs/generated/snapshots", "golden_replay_hashes.txt"),
+                $"Genesis={hashA_Initial}{Environment.NewLine}Final={hashA_Final}{Environment.NewLine}");
+
+            Assert.Fail("Golden hashes updated. Copy PASTE_* values into ExpectedGenesisHash/ExpectedFinalHash.");
+        }
+        else
+        {
+            Assert.That(
+                hashA_Initial,
+                Is.EqualTo(ExpectedGenesisHash),
+                "Golden genesis hash changed. If intentional, rerun with STE_UPDATE_GOLDEN=1 and update constants.");
+
+            Assert.That(
+                hashA_Final,
+                Is.EqualTo(ExpectedFinalHash),
+                "Golden final hash changed. If intentional, rerun with STE_UPDATE_GOLDEN=1 and update constants.");
+        }
 
         // --- RUN B: REPLAY PHASE ---
         var simB = new SimKernel(seed);
