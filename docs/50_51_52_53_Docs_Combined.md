@@ -1,0 +1,4473 @@
+\\# Space Trade Empire
+
+
+
+\\## Early Mission Ladder and Travel/Exploration Design Laws (Canonical)
+
+
+
+
+
+
+
+\\### Status
+
+
+
+Canonical design guidance for early scripted missions, travel rules, and the off-lane exploration layer. Intended to drive implementation, tooling, and content authoring.
+
+
+
+
+
+
+
+See also:
+
+
+
+\\- `docs/20\\\_TESTING\\\_AND\\\_DETERMINISM.md`
+
+
+
+\\- `docs/30\\\_CONNECTIVITY\\\_AND\\\_INTERFACES.md`
+
+
+
+\\- `docs/10\\\_ARCHITECTURE\\\_INDEX.md` (ARCH-006 for runners, ARCH-002 for determinism contract)
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 1. Goals for early scripted missions
+
+
+
+Early missions are not narrative-first content. They are deterministic vertical slices that:
+
+
+
+
+
+
+
+1\\) Force core systems to exist (contracts, travel, docking, market buy/sell, inventory, transfers).
+
+
+
+2\\) Define core UI flows (accept, navigate, act, complete, understand outcomes).
+
+
+
+3\\) Validate a deterministic mission runner and headless testability.
+
+
+
+4\\) Unlock empire levers in a deliberate progression: manual loop once, then automation unlock.
+
+
+
+
+
+
+
+Key principle:
+
+
+
+\\- The first time the player learns a loop, they do it manually.
+
+
+
+\\- Immediately after, the game unlocks automation of that same loop (freighters, patrol assignments, station supply routes).
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 2. Mission archetypes (reusable primitives)
+
+
+
+Early mission content must be composed from these archetypes:
+
+
+
+
+
+
+
+1\\) Deliver X to Y (trade, construction supplies, research supplies)
+
+
+
+2\\) Extract X from node (mining)
+
+
+
+3\\) Defend or escort route (patrol)
+
+
+
+4\\) Investigate anomaly (research, fracture discovery)
+
+
+
+
+
+
+
+Avoid bespoke mechanics per mission until after these archetypes are stable.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 3. Mission ladder (system unlock plan)
+
+
+
+Each mission introduces exactly one major new capability, then unlocks automation for it.
+
+
+
+
+
+
+
+\\### M1: Matched Luggage (trade intro % automation unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Basic trade route automation via hireable freighter contracts
+
+
+
+
+
+
+
+Forces (minimal systems):
+
+
+
+\\- Mission accept/track/complete
+
+
+
+\\- Lane booking UI (with capacity display)
+
+
+
+\\- Docking events
+
+
+
+\\- Cargo transfer to NPC
+
+
+
+\\- Market buy/sell
+
+
+
+\\- Profit summary UI
+
+
+
+\\- Freighter hire contract creation (periodic payout)
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- Deterministic profit trade. No RNG dependency for tutorial success.
+
+
+
+\\- Lane capacity is shown and explained, but does not block the tutorial mission.
+
+
+
+
+
+
+
+\\### M2: Mining (extraction intro % mining automation unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Mining activity
+
+
+
+\\- Mining freighter contract type (passive extraction loop)
+
+
+
+
+
+
+
+Forces:
+
+
+
+\\- Resource node discovery (1 node)
+
+
+
+\\- Time-based extraction (no deep sim)
+
+
+
+\\- Haul to a single sale/refine destination
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- 1 mineral, 1 node, binary “mining fitted” requirement.
+
+
+
+
+
+
+
+\\### M3: Patrol (route security intro % escort automation unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Patrol/escort assignments for freighters
+
+
+
+\\- Route risk legibility (before/after expected value)
+
+
+
+
+
+
+
+Forces:
+
+
+
+\\- Deterministic scripted attack event
+
+
+
+\\- Escort contract role that reduces expected loss or reduces disruption
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- Early harm model is mild: cargo loss and delay before any ship destruction mechanics.
+
+
+
+
+
+
+
+\\### M4: Construction (build outpost intro % station supply automation unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Construction supply chain to a build queue
+
+
+
+\\- Outpost or station module existence
+
+
+
+
+
+
+
+Forces:
+
+
+
+\\- Build site + fixed recipe
+
+
+
+\\- Delivery into build queue
+
+
+
+\\- Station exists as a location type
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- No station designer yet.
+
+
+
+\\- Only 1 buildable module type (eg “Extractor Outpost”).
+
+
+
+
+
+
+
+\\### M5: Research (anomaly intro % research pipeline unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Research pipeline at a science station
+
+
+
+\\- Tech unlock as a real gameplay effect
+
+
+
+\\- Anomaly maintenance/upkeep loop
+
+
+
+
+
+
+
+Forces:
+
+
+
+\\- Anomaly entity with stable identity
+
+
+
+\\- Science station module
+
+
+
+\\- Single active research project at a time
+
+
+
+\\- Resource-fed progress bar
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- No multi-stream research until later.
+
+
+
+
+
+
+
+\\### M6: Fracture Drive (off-lane layer intro % mystery layer unlock)
+
+
+
+Unlocks:
+
+
+
+\\- Practical off-lane exploration
+
+
+
+\\- New map layer of mysteries between lanes
+
+
+
+\\- Existential-threat attention vector (gated and controlled)
+
+
+
+
+
+
+
+Forces:
+
+
+
+\\- Interdiction encounter
+
+
+
+\\- Salvage and attach damaged drive module
+
+
+
+\\- Repair/research pipeline at science station
+
+
+
+\\- Practical off-lane traversal rules and constraints
+
+
+
+
+
+
+
+Scope constraints:
+
+
+
+\\- Must be gated behind having science station capability (from M5).
+
+
+
+\\- Must not trivialize lanes, capacity, and patrol gameplay.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 4. Mission 1 spec: Matched Luggage (final)
+
+
+
+\\### Player-facing beats
+
+
+
+1\\) Accept contract at Origin Port
+
+
+
+2\\) Book Star Lane to Destination
+
+
+
+3\\) Travel and dock
+
+
+
+4\\) Deliver luggage to recipient
+
+
+
+5\\) Recipient tips a trade opportunity (deterministic)
+
+
+
+6\\) Player buys tutorial commodity at Destination
+
+
+
+7\\) Player returns to Origin and sells for profit
+
+
+
+8\\) Freighters unlock with a prompt (Hire now / Later)
+
+
+
+
+
+
+
+\\### Lane fee policy for Mission 1 (no vouchers)
+
+
+
+\\- No voucher items unless vouchers become a permanent system later.
+
+
+
+\\- Lane fee exists and is shown.
+
+
+
+\\- Mission sponsor covers the fee for this run.
+
+
+
+\\- Booking UI must display: fee, sponsor coverage, net cost $0.
+
+
+
+
+
+
+
+Anti-exploit law:
+
+
+
+\\- Sponsor coverage is single-use, route-bound, and consumed only by the mission-required booking.
+
+
+
+\\- If the player cancels that booking, the coverage is invalidated and does not re-apply.
+
+
+
+\\- Sponsor coverage must appear as a transparent accounting line item (not hidden).
+
+
+
+
+
+
+
+\\### Lane capacity policy for Mission 1
+
+
+
+\\- Capacity must be displayed and explained.
+
+
+
+\\- Tutorial lane must always have capacity to book successfully.
+
+
+
+\\- At least one other lane in the UI should be visibly full or congested to communicate scarcity without blocking progress.
+
+
+
+\\- UI text must explicitly state the tutorial lane is guaranteed for training.
+
+
+
+
+
+
+
+\\### Unlock behavior
+
+
+
+\\- After the player realizes profit by trading, unlock “Hire Freighter.”
+
+
+
+\\- Prompt: “Automate this run?” with options:
+
+
+
+\&nbsp; - Hire now
+
+
+
+\&nbsp; - Later
+
+
+
+\\- Do not force a modal tutorial that blocks the player.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 5. Time and travel design laws (fixed tick)
+
+
+
+\\### Global time
+
+
+
+\\- The simulation uses a fixed game-time tick.
+
+
+
+\\- The tick represents the same seconds of game-time always.
+
+
+
+\\- Game-time does not slow down or speed up depending on what the player is doing.
+
+
+
+\\- No timed missions by design.
+
+
+
+
+
+
+
+\\### Travel layers
+
+
+
+There are two layers:
+
+
+
+
+
+
+
+1\\) Strategic travel layer (default)
+
+
+
+\\- Deterministic travel resolution: time = distance / speed
+
+
+
+\\- Player, NPC ships, and freighters can be represented without entering a physics bubble
+
+
+
+\\- Freighters remain abstracted in strategic travel (no physics bubble instantiation)
+
+
+
+
+
+
+
+2\\) Physics bubble layer (local interaction)
+
+
+
+\\- Used for docking, combat, salvage, anomalies, interdictions
+
+
+
+\\- Triggered only by arrivals, deterministic encounters, or explicit interaction regions
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 6. Lanes vs off-lane travel rules
+
+
+
+\\### Lane travel
+
+
+
+\\- Lanes are the empire backbone for logistics, capacity constraints, and route warfare.
+
+
+
+\\- Lane travel speed is massively higher than off-lane travel (example: 1000x off-lane cruise).
+
+
+
+
+
+
+
+\\### Off-lane travel (baseline, any ship)
+
+
+
+\\- Off-lane travel is allowed for any ship.
+
+
+
+\\- Off-lane baseline travel is intentionally impractical for interstellar movement (example: on the order of a week of game-time).
+
+
+
+\\- Design intent: continuous off-lane cruising is dead time and not a normal strategy.
+
+
+
+
+
+
+
+\\### Fracture drive travel (practical off-lane)
+
+
+
+\\- Fracture drive makes off-lane traversal practically useful.
+
+
+
+\\- Fracture drive has its own speed and constraints.
+
+
+
+\\- Fracture drive unlocks the “between lanes” mystery layer.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 7. Off-lane guardrails (non-negotiable)
+
+
+
+Because off-lane baseline travel can effectively self-lock a player, the game must include these protections:
+
+
+
+
+
+
+
+\\### 7.1 Off-lane commitment warning
+
+
+
+\\- If a player commits to off-lane travel that exceeds a configured threshold (in game-time), the game must show a clear warning and require confirmation.
+
+
+
+\\- Warning must include a clear statement that off-lane without fracture is intentionally impractical.
+
+
+
+
+
+
+
+\\### 7.2 Return mechanism (bounded, not free)
+
+
+
+\\- The player must have an always-available “Return to last lane entry” option.
+
+
+
+\\- It is not instant. It is an autopilot burn that consumes deterministic game-time.
+
+
+
+\\- It returns to a specific lane entry node, not “nearest safe place.”
+
+
+
+\\- It cannot be used during interdiction/combat.
+
+
+
+\\- It may be interrupted by deterministic encounters if exposure/conditions apply.
+
+
+
+
+
+
+
+\\### 7.3 Persistent value for off-lane discoveries
+
+
+
+Off-lane exploration must never be “you found something, but it is meaningless.”
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Even without fracture/science capability, discoveries must yield persistent value via intel markers.
+
+
+
+
+
+
+
+Implementation:
+
+
+
+\\- Discoveries generate a stable marker ID and can be bookmarked.
+
+
+
+\\- Without required tech, the player can scan enough to produce intel, but not exploit the anomaly.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 8. Procedural persistence law (bookmarking)
+
+
+
+Procedural content must be reproducible and re-findable.
+
+
+
+
+
+
+
+\\- Discoveries are identified by stable IDs and seeds.
+
+
+
+\\- Map interactions target discovery IDs (and region radii), not raw floating point coordinates.
+
+
+
+\\- “Arrive at discovery” means entering a defined region, not hitting an exact point.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 9. Fuel policy
+
+
+
+\\- Avoid player fuel if it is annoying and adds chore gameplay.
+
+
+
+\\- If any resource-like constraint is later needed, it should be localized to fracture usage and kept non-annoying:
+
+
+
+\&nbsp; - no refuel busywork
+
+
+
+\&nbsp; - no accidental strand states
+
+
+
+\&nbsp; - constraints expressed as charges, cooldowns, maintenance cycles, or station service
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 10. Fracture drive constraint model (mandatory, locked for implementation)
+
+
+
+Goal: fracture expands the game without collapsing lane relevance.
+
+
+
+
+
+
+
+The fracture model must be deterministic and legible:
+
+
+
+
+
+
+
+\\### 10.1 Range
+
+
+
+\\- Fracture hop has a fixed maximum range in map units.
+
+
+
+\\- A hop is a discrete action with a deterministic travel time (not continuous cruising).
+
+
+
+
+
+
+
+\\### 10.2 Maintenance and service
+
+
+
+\\- Fracture has a maintenance meter.
+
+
+
+\\- Each hop consumes a fixed maintenance amount.
+
+
+
+\\- Maintenance is reset only by a “service fracture” action at a science station module.
+
+
+
+
+
+
+
+\\### 10.3 Exposure (attention vector)
+
+
+
+\\- Each hop increments an exposure counter.
+
+
+
+\\- Exposure drives encounter eligibility and long-term consequences.
+
+
+
+
+
+
+
+\\### 10.4 Encounter schedule is deterministic
+
+
+
+\\- Encounters are not RNG rolls at runtime.
+
+
+
+\\- Encounter triggers are derived deterministically from: route\\\_id or region\\\_id + exposure tier + global tick index.
+
+
+
+\\- For Slice 1, use a simple threshold schedule:
+
+
+
+\&nbsp; - exposure tier changes at fixed hop counts
+
+
+
+\&nbsp; - interdiction encounter triggers on the first hop that crosses a tier boundary
+
+
+
+
+
+
+
+\\### 10.5 Lane relevance protection
+
+
+
+\\- Lanes remain the default logistics backbone.
+
+
+
+\\- Early game freighters remain lane-only.
+
+
+
+\\- Fracture-capable freighters are a late unlock, expensive, and increase exposure materially.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 11. Travel and bubble trigger rules (implementation law)
+
+
+
+\\### 11.1 Enter physics bubble when
+
+
+
+\\- Player arrives within station interaction radius
+
+
+
+\\- A mission-scripted encounter fires
+
+
+
+\\- Player initiates interaction at a discovery marker region
+
+
+
+\\- A deterministic interdiction fires (fracture exposure tier boundary or mission script)
+
+
+
+
+
+
+
+\\### 11.2 Never enter physics bubble for
+
+
+
+\\- Abstracted freighter movement
+
+
+
+\\- Background NPC logistics that are not interacting with the player
+
+
+
+
+
+
+
+\\### 11.3 Encounter determinism requirements
+
+
+
+\\- Encounter selection and parameters must be reproducible from stable IDs and tick indices.
+
+
+
+\\- Avoid floating point coordinate triggers. Use region IDs and radii.
+
+
+
+
+
+
+
+\\### 11.4 Performance guardrails
+
+
+
+\\- Bubble has a hard cap on active entities.
+
+
+
+\\- If the cap would be exceeded, defer non-critical spawns deterministically.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 12. Mission authoring and test contract (non-negotiable)
+
+
+
+To keep missions deterministic, headless, and authorable, missions must be data-driven.
+
+
+
+
+
+
+
+\\### 12.1 Mission schema (minimum fields)
+
+
+
+Each mission definition must include:
+
+
+
+
+
+
+
+\\- mission\\\_id (stable)
+
+
+
+\\- prerequisites (flags, inventory, location)
+
+
+
+\\- steps\\\[] where each step has:
+
+
+
+\&nbsp; - step\\\_id (stable)
+
+
+
+\&nbsp; - objective\\\_text\\\_id (UI key)
+
+
+
+\&nbsp; - allowed\\\_actions\\\[] (from a fixed command set)
+
+
+
+\&nbsp; - triggers (event predicates)
+
+
+
+\&nbsp; - completion\\\_conditions (state predicates)
+
+
+
+\&nbsp; - rewards (inventory, wallet, unlock flags)
+
+
+
+\&nbsp; - assertions (must be true at step completion)
+
+
+
+
+
+
+
+\\### 12.2 Allowed command set (minimum)
+
+
+
+Headless runner must support these player-intent commands:
+
+
+
+
+
+
+
+\\- accept\\\_mission(mission\\\_id)
+
+
+
+\\- book\\\_lane(route\\\_id, sponsor\\\_coverage\\\_id?)
+
+
+
+\\- travel\\\_to(destination\\\_id)
+
+
+
+\\- dock(location\\\_id)
+
+
+
+\\- transfer\\\_cargo(item\\\_id, qty, target\\\_id)
+
+
+
+\\- buy(item\\\_id, qty)
+
+
+
+\\- sell(item\\\_id, qty)
+
+
+
+\\- hire\\\_freighter(contract\\\_params)
+
+
+
+
+
+
+
+\\### 12.3 Tutorial determinism clamp
+
+
+
+During tutorial missions, mission-critical state must be frozen or reserved:
+
+
+
+
+
+
+
+\\- Tutorial commodity spread is fixed and reserved (bounded quantity) until mission completion.
+
+
+
+\\- Lane booking required for tutorial cannot fail due to capacity.
+
+
+
+\\- Background sim cannot mutate mission-critical station inventories/prices.
+
+
+
+\\- Mission-scripted encounters override ambient encounter generation.
+
+
+
+
+
+
+
+\\### 12.4 Assertions per mission (required)
+
+
+
+Every mission must have an automated deterministic test scenario:
+
+
+
+\\- start state
+
+
+
+\\- action sequence (commands only)
+
+
+
+\\- expected end state:
+
+
+
+\&nbsp; - flags unlocked
+
+
+
+\&nbsp; - contracts created
+
+
+
+\&nbsp; - inventory and wallet deltas
+
+
+
+\&nbsp; - any spawned entities have stable IDs
+
+
+
+
+
+
+
+Mission 1 must be runnable headlessly:
+
+
+
+\\- accept % book\\\_lane (sponsor pays) % travel % dock % deliver % buy % return % sell % unlock freighters
+
+
+
+
+
+
+
+\\# Space Trade Empire
+
+
+
+\\## Economy and Trade Design Law (Implementation-Oriented, Canonical)
+
+
+
+
+
+
+
+\\### Status
+
+
+
+Canonical design law for the economy, markets, logistics, automation doctrine, enforcement, information fog, determinism, and regression gating. Intended to drive SimCore implementation, tooling, and content authoring.
+
+
+
+
+
+
+
+See also:
+
+
+
+\\- `docs/52\\\_DEVELOPMENT\\\_LOCK\\\_RECOMMENDATIONS.md` (time contract: tick = 1 game minute, 60x mapping, published price cadence guidance, logistics spine locks)
+
+
+
+\\- `docs/53\\\_PROGRAMS\\\_FLEETS\\\_DOCTRINES\\\_CONTROL\\\_SURFACE.md` (Programs/Fleets/Doctrines control surface, Liaison Quote contract, explain JSON)
+
+
+
+\\- `docs/20\\\_TESTING\\\_AND\\\_DETERMINISM.md` (test philosophy, harnesses, golden runs)
+
+
+
+\\- `docs/30\\\_CONNECTIVITY\\\_AND\\\_INTERFACES.md` (module boundaries and interfaces)
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 0. Non-Goals
+
+
+
+\\- No timed missions. The game will not require “deliver X by date” gameplay to succeed.
+
+
+
+\\- No infinite money loops. Any strategy that scales fleet volume must encounter binding constraints that are legible to the player.
+
+
+
+\\- No fake shocks. World events may change world state, but never directly set prices.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 1. Economic Causality Loop (Must Be Closed)
+
+
+
+All major price movement must be explainable via a causal chain that exists in-world.
+
+
+
+
+
+
+
+\\### 1.1 Actors and nodes
+
+
+
+Nodes:
+
+
+
+\\- Producers: extractors (raw), farms (organics), fuel plants (fuel)
+
+
+
+\\- Processors: refineries, smelters, chemical plants
+
+
+
+\\- Manufacturers: components, ship parts, consumer goods
+
+
+
+\\- Consumers: stations (population), fleets, warfront, construction projects
+
+
+
+\\- Logistics: ports, lanes, convoys, storage
+
+
+
+\\- Services: labor pools, maintenance yards, insurers, financiers (represented as stateful actors, not UI-only concepts)
+
+
+
+
+
+
+
+\\### 1.2 Flows
+
+
+
+Flows:
+
+
+
+\\- Production creates inventory at nodes
+
+
+
+\\- Logistics moves inventory with losses and delays
+
+
+
+\\- Consumption depletes inventory
+
+
+
+\\- Inventory levels determine prices and spreads
+
+
+
+\\- Investment changes capacity at nodes or in logistics
+
+
+
+\\- Capacity changes future production and transport costs
+
+
+
+\\- Service availability (labor, maintenance, insurance) modulates throughput, risk, and downtime
+
+
+
+
+
+
+
+\\### 1.3 Shock rule
+
+
+
+Rule:
+
+
+
+\\- No “random shock” may change prices directly.
+
+
+
+\\- Shocks change state (capacity offline, piracy capacity up, tariff schedule change, lane closure, labor strike).
+
+
+
+\\- Price changes are a consequence of state.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 2. Ledger and Accounting Law (No Ghost Money)
+
+
+
+All money and inventory movement must be explainable and auditable.
+
+
+
+\### Ledger event payload minimums (LOCKED)
+
+
+
+CashDelta minimum fields:
+
+\- EventId
+
+\- TickIndex
+
+\- ActorId (ProgramId | FleetId | FactionId | JurisdictionId | System)
+
+\- Category (one of the canonical categories)
+
+\- AmountCredits (signed; positive = inflow, negative = outflow)
+
+\- CounterpartyId (optional, stable ID if known)
+
+\- RelatedIds (optional: ContractId, QuoteId, TradeFillId, InspectionEventId)
+
+\- ReasonCode (required for non-TradePnL deltas)
+
+
+
+InventoryDelta minimum fields:
+
+\- EventId
+
+\- TickIndex
+
+\- ActorId (ProgramId | FleetId | StationId | System)
+
+\- StationId (required unless the delta is explicitly in-transit state with its own stable holder)
+
+\- GoodId
+
+\- QuantityUnits (signed; positive = inventory added, negative = removed)
+
+\- Reason (one of the canonical movement reasons)
+
+\- RelatedIds (optional: ContractId, QuoteId, TradeFillId, LossEventId)
+
+\- ReasonCode (required for Confiscated/Stolen/Leaked/Spoiled)
+
+
+
+Rule:
+
+\- No module may change credits or inventory without emitting one of these events with the minimum fields populated.
+
+
+
+
+
+\\### 2.1 Cash deltas
+
+
+
+Requirement:
+
+
+
+\\- Every credit change must be represented as a `CashDelta` event with exactly one ledger category:
+
+
+
+\&nbsp; - `TradePnL`
+
+
+
+\&nbsp; - `Fees`
+
+
+
+\&nbsp; - `InsurancePremium`
+
+
+
+\&nbsp; - `InsurancePayout`
+
+
+
+\&nbsp; - `Maintenance`
+
+
+
+\&nbsp; - `Payroll`
+
+
+
+\&nbsp; - `FinancingInterest`
+
+
+
+\&nbsp; - `FinancingPrincipal`
+
+
+
+\&nbsp; - `Tariffs`
+
+
+
+\&nbsp; - `Fines`
+
+
+
+\&nbsp; - `ConfiscationLoss`
+
+
+
+\&nbsp; - `TheftLoss`
+
+
+
+\&nbsp; - `FacilityOPEX`
+
+
+
+\&nbsp; - `ContractSettlement`
+
+
+
+
+
+
+
+\\### 2.2 Inventory deltas
+
+
+
+Requirement:
+
+
+
+\\- Every inventory movement must be represented as an `InventoryDelta` event with exactly one movement reason:
+
+
+
+\&nbsp; - `Produced`
+
+
+
+\&nbsp; - `Consumed`
+
+
+
+\&nbsp; - `Loaded`
+
+
+
+\&nbsp; - `Unloaded`
+
+
+
+\&nbsp; - `Spoiled`
+
+
+
+\&nbsp; - `Leaked`
+
+
+
+\&nbsp; - `Stolen`
+
+
+
+\&nbsp; - `Confiscated`
+
+
+
+\&nbsp; - `Manufactured`
+
+
+
+\&nbsp; - `Reprocessed`
+
+
+
+
+
+
+
+\\### 2.3 Mutation prohibition
+
+
+
+Rules:
+
+
+
+\\- No module may directly mutate credits or inventories without emitting the corresponding event.
+
+
+
+\\- Any “partial fill,” “interrupted transfer,” or “confiscation” must resolve into a consistent set of events that balances.
+
+
+
+
+
+
+
+Answerability requirement:
+
+
+
+\\- If a player asks “where did the $ go,” the answer must be reconstructible from events, not inferred after the fact.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 3. Goods Model and Economic Roles (LOCKED)
+
+
+
+This section aligns the economy law with the physical goods locks and the “no chore fuel” policy.
+
+
+
+
+
+
+
+\\### 3.1 Physical units
+
+
+
+Locked:
+
+
+
+\\- Goods exist as integer units.
+
+
+
+\\- Each good declares `unit\\\_mass` and `unit\\\_volume`.
+
+
+
+\\- Cargo capacity is constrained by both mass and volume.
+
+
+
+
+
+
+
+\\### 3.2 Handling and decay
+
+
+
+Every commodity must declare:
+
+
+
+\\- Handling class: `Bulk`, `Container`, `Liquid`, `Hazardous`, `Refrigerated`
+
+
+
+\\- Handling requirements: port equipment tier, storage type, legal restrictions
+
+
+
+\\- Decay model: none, spoilage, leakage, theft shrink (with declared parameters)
+
+
+
+\\- Substitution group: demand can switch within the group when relative prices change
+
+
+
+\\- Economic role (drives world function and explanation):
+
+
+
+\&nbsp; - Essential (fuel, food, spare parts): shortage degrades station/port function and raises risk
+
+
+
+\&nbsp; - Strategic (military/industrial inputs): couples strongly to warfront and faction policy
+
+
+
+\&nbsp; - Luxury (non-essential): affects reputation, soft power, and margins but not survival
+
+
+
+
+
+
+
+\\### 3.3 Minimum substitution
+
+
+
+Minimum substitution requirements:
+
+
+
+\\- At least 3 substitution groups that matter economically (example: structural materials, fuels, industrial inputs).
+
+
+
+\\- Substitution must be partial, not perfect.
+
+
+
+
+
+
+
+\\### 3.4 Fuel policy (canonical resolution)
+
+
+
+Fuel exists as a simulated good and an economic/logistics constraint.
+
+
+
+\\- Player-facing “refuel busywork” is prohibited in early slices.
+
+
+
+\\- Fuel constraints, if surfaced to the player, are expressed as service costs, readiness impacts, routing constraints, or Program/Fleet doctrine, not manual per-ship refuel steps.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 4. Logistics is the Primary Constraint (Throughput, Queueing, Handling)
+
+
+
+Transport is not “time only.” It is throughput, queueing, handling, and services.
+
+
+
+
+
+
+
+\\### 4.1 Hard constraints
+
+
+
+Hard constraints enforced everywhere:
+
+
+
+\\- Berth slots and service time (queues)
+
+
+
+\\- Loading/unloading throughput per port and per ship or abstract flow unit
+
+
+
+\\- Storage capacity per commodity class and storage type
+
+
+
+\\- Fuel consumption and refuel availability (simulated constraint, not chore UI)
+
+
+
+\\- Maintenance readiness (utilization increases wear and failure probability)
+
+
+
+\\- Service availability:
+
+
+
+\&nbsp; - Skilled labor affects docking service time, maintenance turnaround, and manufacturing throughput
+
+
+
+\&nbsp; - Frontier regions can be labor-limited, not just cargo-limited
+
+
+
+
+
+
+
+\\### 4.2 Scaling bound rule
+
+
+
+Rule:
+
+
+
+\\- Any profitable loop must be bounded by at least 3 hard constraints at scale (typically berth queues, spread/depth, and fuel or maintenance or labor).
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 5. Market Structure (Spot + Contracts Without Deadlines)
+
+
+
+The economy supports two market modes.
+
+
+
+
+
+
+
+\\### 5.1 Spot
+
+
+
+Spot:
+
+
+
+\\- Immediate buy/sell at a bid/ask spread
+
+
+
+\\- Spread widens with volatility, low depth, low trust, and frontier risk
+
+
+
+
+
+
+
+\\### 5.2 Contracts (no deadlines)
+
+
+
+Contracts (no deadlines):
+
+
+
+\\- Procurement contracts: deliver X units eventually, paid on fulfillment, price formula defined up front
+
+
+
+\\- Freight contracts: paid per unit moved, shipper owns goods (reduces player capital lockup)
+
+
+
+\\- Capacity reservation: pay for priority berth/convoy slot (reduces queue time)
+
+
+
+\\- Standing supply agreements: continuous flow with adjustable quantity bands
+
+
+
+
+
+
+
+Contract stakes without deadlines:
+
+
+
+\\- Capital lockup (escrow, margin, reserves)
+
+
+
+\\- Opportunity cost (inventory committed cannot be redeployed)
+
+
+
+\\- Reputation and access (breach reduces trust and future terms)
+
+
+
+\\- Covenant pressure (financing triggers based on liquidity and performance)
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Contracts cannot require timers to create stakes. Stakes come from capital structure, reputation, access, and risk.
+
+
+
+
+
+
+
+Implementation note (anti-stall without timers):
+
+
+
+\\- Prolonged non-performance may worsen terms, consume escrow, or reduce access, but must not be expressed as a hidden countdown fail.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 6. Price Formation (Depth, Spreads, Bands, and Hysteresis)
+
+
+
+Each station-market for each good has:
+
+
+
+\\- Inventory
+
+
+
+\\- Target band (desired inventory range)
+
+
+
+\\- Depth (volume that can move before marginal price impact becomes severe)
+
+
+
+\\- Spread model inputs (inventory risk + volatility + trust + heat)
+
+
+
+
+
+
+
+\\### 6.1 Requirements
+
+
+
+Price model requirements:
+
+
+
+\\- Prices move with deviation from target band
+
+
+
+\\- Depth determines marginal impact of trade volume on price
+
+
+
+\\- Spread increases with volatility, low trust, and inspection heat
+
+
+
+\\- Substitution shifts demand as relative prices diverge
+
+
+
+\\- NPC arbitrage exists by default, reducing trivial cross-market alpha
+
+
+
+
+
+
+
+\\### 6.2 Published price cadence (LOCKED to time model)
+
+
+
+Because time scale is 60x (1 real second = 1 game minute), published price updates must avoid real-time thrash.
+
+
+
+Published price is a derived output (LOCKED):
+
+\- Published prices are an informational and quoting surface.
+
+\- Ledger calculations, contract settlement, and inventory valuation must not read back from published price as a source of truth.
+
+\- Trades emit TradeFill with explicit executed unit price and quantity; ledgers derive from fills, not from published price snapshots.
+
+
+
+
+
+Canonical rule:
+
+
+
+\\- Underlying scarcity state may update every tick.
+
+
+
+\\- Published prices update on a cadence, default: every 12 game hours.
+
+
+
+\\- Prices are smoothed (exponential smoothing) across publish updates.
+
+
+
+
+
+
+
+This makes prices legible without acceleration modes.
+
+
+
+
+
+
+
+\\### 6.3 Hysteresis (anti-snap behavior)
+
+
+
+Hysteresis requirements:
+
+
+
+\\- Producers/processors/manufacturers have ramp rates and minimum run behavior
+
+
+
+\\- Ports have service backlogs that take time to clear
+
+
+
+\\- Some prices can be sticky via contracts and regulation (slow adjustment bands)
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- The economy must exhibit path dependence. It must not snap to equilibrium immediately after a shock ends.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 7. Competition and Saturation (NPC Actors are Real and Bounded)
+
+
+
+NPC traders run the same rules as the player:
+
+
+
+\\- Allocate capital, choose routes, respond to margins
+
+
+
+\\- Compete for throughput and contracts
+
+
+
+\\- Suffer the same information limits, travel limits, and service constraints
+
+
+
+
+
+
+
+NPC bounds:
+
+
+
+\\- NPCs have capital pools and risk tolerances
+
+
+
+\\- NPCs have home regions and cannot teleport
+
+
+
+\\- NPC information freshness and coverage are limited and costed (same model as player)
+
+
+
+\\- NPC volume is limited by logistics and services
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- If the player discovers a high-margin lane, NPC volume follows unless the player has a defensible moat (permits, relationships, infrastructure, intelligence).
+
+
+
+
+
+
+
+Implementation guidance (throttling, required):
+
+
+
+\\- NPC response has reaction time and volume limits tied to intel freshness, distance, capital, and berth queues.
+
+
+
+\\- NPC arbitrage reduces trivial alpha but cannot erase all opportunity instantly.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 8. Player Advantage (Earned, Narrow, Defensible)
+
+
+
+The player’s advantage is not “always better prices.” It is access and capability:
+
+
+
+\\- Information coverage and freshness (intel network)
+
+
+
+\\- Permits and jurisdictional privileges (reduced tariffs, faster clearance)
+
+
+
+\\- Relationships (better spreads, priority berths, better credit terms)
+
+
+
+\\- Infrastructure (warehouses, service depots, convoy escorts, maintenance yards)
+
+
+
+\\- Doctrine control (risk, liquidity, exposure caps, strategic stockpiles)
+
+
+
+
+
+
+
+Cost and counterforce requirement:
+
+
+
+\\- Every advantage must carry financing cost, OPEX, political cost, or maintenance burden
+
+
+
+\\- Every advantage must have a counterforce (competition, enforcement scrutiny, sabotage, regulatory shifts)
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Player advantage must be explainable as “this is what you built,” not “the game likes you.”
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 9. Automation is Policy Execution, Not Alpha Creation
+
+
+
+Automation runs Programs that are constrained optimizers.
+
+
+
+
+
+
+
+\\### 9.1 Program fields (required set)
+
+
+
+Program fields (minimum):
+
+
+
+\\- Commodity whitelist/blacklist by class and legality
+
+
+
+\\- Risk band: piracy threshold, inspection heat threshold
+
+
+
+\\- Liquidity reserve: keep $X or X days burn in cash
+
+
+
+\\- Exposure caps: per commodity, per route, per jurisdiction
+
+
+
+\\- Objective weights: Profit, Stability, Reputation, Strategic Stockpile
+
+
+
+\\- Capital allocation: max $ at risk per ship/fleet and per Program
+
+
+
+\\- Rebalance rules: reposition empty only under explicit conditions
+
+
+
+\\- Procurement vs freight preference (capital-light vs margin-seeking behavior)
+
+
+
+
+
+
+
+\\### 9.2 Execution penalties (must exist)
+
+
+
+Execution penalties (must exist):
+
+
+
+\\- Imperfect information unless paid for (freshness and coverage constraints)
+
+
+
+\\- Worse fills when trust is low or heat is high
+
+
+
+\\- Queueing friction without reservations or relationships
+
+
+
+\\- Self-impact: high volume worsens your own future prices via depth limits
+
+
+
+\\- Operational overhead: maintaining intel, relationships, and infrastructure consumes budget and attention
+
+
+
+
+
+
+
+\\### 9.3 Failure taxonomy (required for explainability)
+
+
+
+Automation failure taxonomy (exactly 1 primary cause, optional secondary causes):
+
+
+
+\\- `BadInfo` (stale or low-confidence data)
+
+
+
+\\- `Slippage` (depth impact and spread widening)
+
+
+
+\\- `Queueing` (berth or service backlog)
+
+
+
+\\- `Heat` (inspection escalation, confiscation risk)
+
+
+
+\\- `LossEvent` (piracy, spoilage, leakage, theft)
+
+
+
+\\- `CapitalLockup` (escrow/margin/deductible constraints)
+
+
+
+\\- `ServiceShortage` (labor/parts unavailability)
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Every negative outcome must attribute exactly 1 primary failure cause from the taxonomy, with optional secondary causes.
+
+
+
+
+
+
+
+Instrumentation requirement:
+
+
+
+\\- The decision-time facts that justify the label must be stored at decision time (not reconstructed later).
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 10. Money Sinks That Feel Like Empire Operations (Structural, Scaling)
+
+
+
+Required structural sinks:
+
+
+
+\\- Crew payroll, training, retention
+
+
+
+\\- Maintenance and spare parts supply chain
+
+
+
+\\- Insurance premiums and deductibles (route and loss-history dependent)
+
+
+
+\\- Facility OPEX: warehouses, agents, service depots, intel operations
+
+
+
+\\- Financing costs: interest, covenants, margin requirements
+
+
+
+\\- Depreciation and replacement cycles for ships and facilities
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Sinks must scale with utilization and footprint, not as arbitrary taxes.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 11. Law, Enforcement, and Heat (Systemic, Not RNG)
+
+
+
+Each jurisdiction defines:
+
+
+
+\\- Enforcement intensity and doctrine
+
+
+
+\\- Contraband categories
+
+
+
+\\- Inspection triggers (pattern recognition: volumes, routes, counterparties, repeat behavior)
+
+
+
+\\- Penalties (confiscation, fines, license suspensions, access bans)
+
+
+
+
+
+
+
+\\### 11.1 Heat model
+
+
+
+Heat model:
+
+
+
+\\- Heat increases with suspicious patterns, contraband volume, and incident history
+
+
+
+\\- Heat decays with time and compliance
+
+
+
+\\- Relationships and compliance spend can reduce heat growth, never eliminate it
+
+
+
+
+
+
+
+\\### 11.2 Manipulation and counterplay
+
+
+
+Market manipulation and counterplay:
+
+
+
+\\- Pump/dump and spoofing behavior must be detectable by enforcement systems
+
+
+
+\\- Liquidity providers respond by widening spreads, lowering depth, or refusing counterparties
+
+
+
+\\- Repeated manipulation increases heat and reduces trust
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Illegal profit exists but is constrained by heat, confiscation risk, and long-term access loss.
+
+
+
+\\- Manipulation is a strategy with systemic consequences, not a free exploit.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 12. Security is State (Not Just a Scalar)
+
+
+
+Security must be represented as stateful capacity:
+
+
+
+\\- Pirate capacity and behavior by region (not just “chance”)
+
+
+
+\\- Patrol/convoy capacity by jurisdiction
+
+
+
+\\- Insurance terms and exclusions depend on route security state
+
+
+
+\\- Player investment (escorts, intelligence, diplomacy) changes security state
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Risk must feel causal. Loss events may be stochastic, but their probability is driven by visible security state.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 13. Information Economy (Fog of Market)
+
+
+
+Market visibility is not global.
+
+
+
+
+
+
+
+\\- Data has freshness, coverage radius, and reliability
+
+
+
+\\- Intel costs money and infrastructure (agents, subscriptions, sensors)
+
+
+
+\\- Rumors exist with confidence levels and can be manipulated by factions
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- The “alive universe” experience comes from learning why things change, not from random price noise.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 14. Pressure Without Timed Missions (Endogenous and Exogenous)
+
+
+
+The game must create urgency without mission timers.
+
+
+
+
+
+
+
+Endogenous pressure sources:
+
+
+
+\\- Payroll cadence and retention risk
+
+
+
+\\- Maintenance cycles and parts shortages
+
+
+
+\\- Insurance renewals and premium increases after incidents
+
+
+
+\\- Financing covenants and liquidity thresholds
+
+
+
+\\- Heat decay windows (opportunity cost to lie low vs keep operating)
+
+
+
+\\- Facility downtime and staffing churn
+
+
+
+
+
+
+
+Exogenous pressure sources:
+
+
+
+\\- Warfront intensity shifts
+
+
+
+\\- Faction policy and tariff regime changes
+
+
+
+\\- Lane closures and security state deterioration
+
+
+
+\\- Production outages and service strikes
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Pressure comes from interacting systems, not from countdown clocks.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 15. UX Requirements (Dashboard-First, Minutes-Per-Loop)
+
+
+
+Every economic outcome must be explainable with a postmortem.
+
+
+
+
+
+
+
+\\### 15.1 Decision-time facts (stored)
+
+
+
+Automation must emit decision-time facts (stored, not reconstructed):
+
+
+
+\\- Profit breakdown: spread, fees, fuel/service cost, queue time, losses, insurance, financing cost
+
+
+
+\\- Binding constraint: what capped returns (depth, berth, heat, fuel/service, maintenance, labor)
+
+
+
+\\- Causal chain: which world-state changes drove the result
+
+
+
+\\- Recommended doctrine delta: smallest setting change that would likely have prevented a loss
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- No hidden dice. Randomness is allowed only when attributed to explicit risk factors and shown.
+
+
+
+
+
+
+
+\\### 15.2 Published price legibility
+
+
+
+Legibility rule:
+
+
+
+\\- Scarcity bands and key state indicators may update every tick.
+
+
+
+\\- Published prices update on cadence (default 12 game hours) and are smoothed.
+
+
+
+\\- UI must show both: current scarcity band and published price age.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 16. Determinism, Harness, and Invariants (SimCore)
+
+
+
+Economy sim must be reproducible.
+
+
+
+
+
+
+
+\\### 16.1 Seeded randomness
+
+
+
+\\- Seeded PRNG for events and risk sampling.
+
+
+
+
+
+
+
+\\### 16.2 RNG stream partitioning law
+
+
+
+Each subsystem uses a dedicated RNG stream key:
+
+
+
+\\- `Pricing`
+
+
+
+\\- `Piracy`
+
+
+
+\\- `Enforcement`
+
+
+
+\\- `Rumors`
+
+
+
+\\- `NPCDecisions`
+
+
+
+\\- `FacilityFailures`
+
+
+
+\\- `WeatherOrHazards` (if used)
+
+
+
+
+
+
+
+Rules:
+
+
+
+\\- Collection iteration order must be stable and explicitly sorted.
+
+
+
+\\- Adding logging must not change outcomes.
+
+
+
+
+
+
+
+\\### 16.3 Abstract lane flow determinism (required)
+
+
+
+If the world uses “abstract lane flow” (aggregate transport rather than ship-per-ship), it must be deterministic:
+
+
+
+\\- The aggregate shipped amount per tick is a pure function of:
+
+
+
+\&nbsp; - lane capacity
+
+
+
+\&nbsp; - backlog queues
+
+
+
+\&nbsp; - station inventories and reservation rules
+
+
+
+\&nbsp; - policy/contract allocations
+
+
+
+\&nbsp; - deterministic loss sampling (seeded, stream-keyed)
+
+
+
+\\- It must not depend on runtime entity spawn order, frame timing, or UI.
+
+
+
+
+
+
+
+Physical entities (player freighters and selected convoys) may exist, but the abstract tier must remain a deterministic aggregate.
+
+
+
+
+
+
+
+\\### 16.4 Invariants (build/test gate)
+
+
+
+Invariants (build/test gate):
+
+
+
+\\- No negative inventories
+
+
+
+\\- Conservation checks on flows (accounting for declared shrink/decay)
+
+
+
+\\- Ledger integrity: sum of `CashDelta` entries matches wallet changes, no unclassified deltas
+
+
+
+\\- Bounded inflation regime (define acceptable range)
+
+
+
+\\- Regression test: no doctrine preset yields unbounded exponential credit growth over long horizons
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- If a change breaks invariants or introduces a money printer, it fails the build/test gate.
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+\\## 17. LLM-Friendly Development Laws (Prevent Spec Drift)
+
+
+
+Schema-first, event-sourced core.
+
+
+
+
+
+
+
+\\### 17.1 Required immutable event types
+
+
+
+Define immutable event types for:
+
+
+
+\\- `InventoryDelta`
+
+
+
+\\- `CashDelta`
+
+
+
+\\- `TradeFill`
+
+
+
+\\- `PriceQuote`
+
+
+
+\\- `ContractStateChange`
+
+
+
+\\- `QueueEvent`
+
+
+
+\\- `LossEvent`
+
+
+
+\\- `InspectionEvent`
+
+
+
+\\- `SecurityStateChange`
+
+
+
+\\- `ServiceAvailabilityChange`
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Simulation state is a pure fold over events.
+
+
+
+
+
+
+
+\\### 17.2 Strict module boundaries
+
+
+
+Strict module boundaries:
+
+
+
+\\- Pricing reads only pricing inputs (inventory, depth, volatility index, trust score, heat score as a scalar). Pricing never reads enforcement internals.
+
+
+
+\\- Enforcement writes heat and confiscation events, never prices.
+
+
+
+\\- Security writes security state changes, never prices.
+
+
+
+\\- UI explanations cite stored decision-time fields from events.
+
+
+
+
+
+
+
+\\### 17.3 Golden-run regression suite (required)
+
+
+
+Fixed seed scenario pack, outputs metrics JSON:
+
+
+
+\\- inflation index by region
+
+
+
+\\- volatility by commodity and role
+
+
+
+\\- average spread by risk band and trust band
+
+
+
+\\- utilization and queue times
+
+
+
+\\- loss rates by cause
+
+
+
+\\- top profit sources by ledger category
+
+
+
+
+
+
+
+CI fails if metrics drift beyond tolerances.
+
+
+
+
+
+
+
+\\### 17.4 Scenario packs (required)
+
+
+
+Scenario packs (required):
+
+
+
+\\- Calm core region economy
+
+
+
+\\- Frontier piracy spiral
+
+
+
+\\- Major refinery outage (fuel shock via capacity loss)
+
+
+
+\\- Tariff regime shift across a border
+
+
+
+\\- Labor strike at a key port (service availability shock)
+
+
+
+
+
+
+
+Rule:
+
+
+
+\\- Any LLM-generated change must be evaluated by replaying scenario packs and passing invariants before merge.
+
+
+
+
+
+\# Space Trade Empire
+
+\## Development Lock Recommendations (Canonical)
+
+
+
+\### Status
+
+Authoritative summary for memorialization and engineering execution, optimized for LLM-driven implementation and small vertical slices. This document is canonical.
+
+
+
+See also:
+
+\- `docs/50\_EARLY\_MISSION\_LADDER\_AND\_TRAVEL.md` (early mission ladder and travel guardrails)
+
+\- `docs/51\_ECONOMY\_AND\_TRADE\_DESIGN\_LAW.md` (economy causality, ledger law, automation doctrine, invariants)
+
+\- `docs/53\_PROGRAMS\_FLEETS\_DOCTRINES\_CONTROL\_SURFACE.md` (Programs/Fleets/Doctrines control surface, Liaison Quote contract)
+
+\- `docs/20\_TESTING\_AND\_DETERMINISM.md` (test philosophy and harness expectations)
+
+\- `docs/10\_ARCHITECTURE\_INDEX.md` (use ARCH excerpts for SimCore/GameShell boundaries and runner patterns)
+
+
+
+Canonical consistency rule:
+
+\- If any chat instruction or implementation decision conflicts with the locks in this document, update the canonical doc first and align dependents. Do not allow two conflicting “truths” to coexist across canonical docs.
+
+
+
+---
+
+
+
+\## A. Time model and pacing targets
+
+\### A1. Core time contract (LOCKED)
+
+\- Time is continuous in presentation (movement, combat visuals, docking, UI animation).
+
+\- Simulation is tick-based and authoritative.
+
+
+
+Locked constants:
+
+\- Tick size: 1 tick = 1 game minute.
+
+\- Time scale: 1 real second = 1 game minute (60x).
+
+\- No acceleration modes. No cruise scaling. No fast-forward.
+
+
+
+Pause behavior:
+
+\- Menus/Escape pause freezes sim time.
+
+\- UI may queue intents; they apply on the next tick after unpause.
+
+
+
+\### A2. Tick boundary rule (authoritative state changes)
+
+Only these change SimCore state, and only on tick boundaries:
+
+
+
+\- Inventory deltas (production, consumption, transfers)
+
+\- Trade execution and credit changes
+
+\- Price publishing updates
+
+\- Contract progression
+
+\- Repair, maintenance, wear, buffer drains
+
+\- Tech enablement, sustainment checks, degradation
+
+\- NPC background logistics flow
+
+\- Any “world clock” events (rumors, faction actions, etc.)
+
+
+
+Rule:
+
+\- Continuous systems (travel/combat/docking) are GameShell-only and must not directly mutate authoritative state.
+
+\- Continuous systems post intents that are applied on the next tick.
+
+
+
+---
+
+
+
+\## B. Travel timing (LOCKED)
+
+\### B1. Real-time travel feel
+
+Typical in-system hop target:
+
+\- 20 to 60 seconds real time (default target 35 seconds).
+
+
+
+Ranges:
+
+\- Short hop: 15 to 25 seconds.
+
+\- Long hop: 60 to 90 seconds (rare).
+
+
+
+\### B2. What this means in game time (given 60x)
+
+Given 60x:
+
+\- 35 real seconds = 35 game minutes.
+
+\- 60 real seconds = 60 game minutes = 1 game hour.
+
+
+
+Design implication:
+
+\- The universe calendar advances quickly.
+
+\- Long-horizon systems must be expressed in days and weeks of game time (not hours) to avoid real-time thrash and constant re-planning.
+
+
+
+---
+
+
+
+\## C. Simulation architecture contract
+
+\### C1. SimCore responsibilities
+
+\- Deterministic tick stepping.
+
+\- Canonical world state.
+
+\- Intent application on tick boundaries.
+
+\- Save/load of the entire canonical state.
+
+\- World hash for regression tests.
+
+
+
+\### C2. GameShell responsibilities
+
+\- Continuous presentation and input.
+
+\- UI reads sim snapshots.
+
+\- Issues intents (trade orders, routing settings, tech toggles, fleet policies).
+
+\- No direct writes to sim state.
+
+
+
+\### C3. Intent model (required)
+
+\- Intents are timestamped to apply at the next tick.
+
+\- Intents are validated in SimCore (bounds checking, legality, permissions).
+
+\- Intent application is deterministic and order-defined (stable ordering rules).
+
+
+
+\#### C3.1 Intent ordering lock (required for deterministic replay)
+
+Intent application order must be stable and defined.
+
+
+
+Canonical ordering:
+
+\- Primary sort: `apply\_tick` (ascending)
+
+\- Secondary sort: `intent\_kind\_priority` (ascending, fixed table)
+
+\- Tertiary sort: `actor\_id` (ascending)
+
+\- Quaternary sort: `insertion\_index` (ascending, deterministic at creation time)
+
+
+
+Rules:
+
+\- The `intent\_kind\_priority` table is canonical and versioned in code (not data-driven at runtime).
+
+\- Adding a new intent kind requires assigning a priority and adding/adjusting golden tests.
+
+
+`actor_id` definition (LOCKED):
+- For player-originated intents: the stable PlayerId (or the issuing ProgramId if intents are program-scoped).
+- For program-generated intents: `Program:<ProgramId>`.
+- For faction/system intents: `Faction:<FactionId>` or `System`.
+Rule:
+- actor_id must be stable, explicit, and serializable. Never generate random GUIDs for actor_id.
+
+
+
+---
+
+
+
+\## D. Economy and market model
+
+\### D1. Physical goods (LOCKED)
+
+\- Goods exist as integer units.
+
+\- Each good has `unit\_mass` and `unit\_volume`.
+
+\- Cargo capacity is constrained by mass and volume.
+
+
+
+\### D2. Stations have inventories (LOCKED)
+
+\- Stations produce/consume goods each tick.
+
+\- Stations can hit scarcity and empty out.
+
+\- Logistics physically moves goods between stations.
+
+
+
+\### D3. Price model (recommended default for this game)
+
+Use inventory-based pricing, not order books, at least through Slice 1 and 2.
+
+
+
+Each station-good has:
+
+\- base price
+
+\- stock bands (min, ideal, max)
+
+\- price curve based on stock ratio
+
+\- buy/sell spread
+
+
+
+\#### D3.1 Price publishing cadence (LOCKED guidance for 60x)
+
+Because time scale is 60x, do not publish prices “hourly” in game time.
+
+
+
+Canonical publishing rule:
+
+\- Underlying scarcity state may update every tick.
+
+\- Published prices update on cadence, default: every 12 game hours.
+
+\- At 60x, 12 game hours is 12 real minutes.
+
+\- Published prices are smoothed (exponential smoothing) to prevent thrash.
+
+
+
+\### D4. Background transport (recommended)
+
+World should not feel dead. Use 2 tiers:
+
+
+
+1\) Abstract lane flow:
+
+\- per lane capacity and delay
+
+\- net goods movement per tick without simulating every ship
+
+
+
+2\) Physical entities:
+
+\- player freighters and select important convoys exist as actual ships when they matter to gameplay
+
+
+
+Determinism requirement:
+
+\- Abstract lane flow must be deterministic (pure function of state + seed) and must not depend on entity spawn order or frame timing.
+
+
+
+---
+
+
+
+\## E. Logistics spine (LOCKED priority)
+
+Logistics is the backbone for trading, construction, repairs, tech sustainment, faction war supply, and station growth.
+
+
+
+Minimum lane model:
+
+\- capacity (units per tick, or per hour expressed in per-tick increments)
+
+\- delay (ticks of travel time)
+
+\- optional risk (loss/interdiction events, deterministic/seeded)
+
+
+
+Rule:
+
+\- All downstream systems must consume from inventories and respect logistics lead time.
+
+
+
+---
+
+
+
+\## F. Information model (player signals)
+
+\### F1. Local truth (LOCKED)
+
+When docked or with a direct local link:
+
+\- show exact inventory and exact prices
+
+
+
+\### F2. Remote intel (recommended default)
+
+Remote view defaults to:
+
+\- inventory band (`Empty`, `Low`, `OK`, `High`, `Full`)
+
+\- published price
+
+\- intel age timestamp
+
+
+
+Exact remote data requires one of:
+
+\- owned asset in-system (agent/sat/outpost)
+
+\- paid market subscription
+
+\- recent visit
+
+
+
+Rule:
+
+\- This creates meaningful scouting and infrastructure loops without pure fog-of-war frustration.
+
+
+
+---
+
+
+
+\## G. Automation philosophy (ties into development)
+
+Automation exists to let players operate an empire, not to print money.
+
+
+
+Player advantage is:
+
+\- better information networks
+
+\- better routing policies
+
+\- better tech enablement choices
+
+\- better risk posture (turtle mode vs profit mode)
+
+
+
+Automation must be constrained by:
+
+\- limited intel freshness
+
+\- logistics bottlenecks
+
+\- spreads, fees, and slippage
+
+\- risk events and disruptions
+
+
+
+---
+
+
+
+\## H. “Turtle mode” (must exist for recovery)
+
+Define a recoverable failure state that is not death.
+
+
+
+Baseline turtle policy effects (initial default):
+
+\- lower signature and engagement likelihood
+
+\- lower speed and lower profit rate
+
+\- prioritizes repairs, resupply, and safe routing
+
+\- preserves capital and avoids spiral failures
+
+
+
+Rule:
+
+\- Turtle mode must be a first-class doctrine/policy with explicit costs and clear postmortems (opportunity cost, slower throughput).
+
+
+
+---
+
+
+
+\## I. Testing and determinism (non-negotiable)
+
+\### I1. Golden path invariants
+
+Create a deterministic “first 5 minutes” runner and assert invariants.
+
+
+
+Given 60x:
+
+\- “first 5 minutes” means 5 real minutes = 5 game hours.
+
+
+
+Golden invariants (minimum):
+
+\- no negative inventory
+
+\- no NaNs
+
+\- valid IDs
+
+\- credits within expected bounds
+
+\- expected location sequence
+
+\- tutorial flags set once
+
+
+
+\### I2. World hash regression
+
+\- Headless sim runs N ticks and produces a world hash.
+
+\- Save/load roundtrip must reproduce the same hash at the same tick.
+
+
+
+\### I3. System boundaries
+
+\- SimCore is pure logic; no rendering, no frame timing dependence.
+
+\- GameShell cannot mutate sim state directly.
+
+
+
+---
+
+
+
+\## J. Immediate development slice (next work item)
+
+\### Slice 1: Logistics + Market + Intel micro-world
+
+Minimum content:
+
+\- 2 stations, 1 lane, 2 goods
+
+\- station inventories, production/consumption
+
+\- abstract lane flow with delay
+
+\- inventory-based price model with buy/sell spread
+
+\- published price cadence every 12 game hours (12 real minutes)
+
+\- intel model: exact local, banded remote with intel age
+
+\- one UI panel showing inventory, price, intel age, and a buy/sell action via intents
+
+\- headless deterministic test: run 10,000 ticks and assert world hash stability
+
+
+
+Gate tests:
+
+\- world hash stability test
+
+\- save/load hash equality test
+
+\- invariants test (no invalid states)
+
+
+
+\### Slice 1.5: Tech sustainment via supply chain
+
+Add:
+
+\- 1 tech requiring 2 goods per tick to remain enabled
+
+\- buffers sized in days of game time
+
+\- degradation rules when supply drops
+
+\- UI shows sustainment margin and time-to-failure
+
+
+
+Gate tests:
+
+\- sustainment degradation determinism test
+
+\- buffer math invariants test
+
+
+
+---
+
+
+
+\## K. Open questions to resolve next (ranked)
+
+1\) Combat resolution abstraction:
+
+\- purely continuous with tick-applied outcomes, or partial tick-based resolution for strategic fights?
+
+
+
+2\) Lane risk model:
+
+\- when and how interdiction triggers, and what variables influence it.
+
+
+
+3\) Goods list v0:
+
+\- the first 6 to 12 goods to validate cargo sizing, price curves, and scarcity.
+
+
+
+4\) Construction program interface:
+
+\- how stations request goods and how lead times are surfaced to the player.
+
+
+
+# Space Trade Empire
+## Programs, Fleets, Doctrines Control Surface (Canonical)
+
+### Status
+Canonical design law for the player control surface and the automation-first “empire operations” model. This document defines what the player can and cannot do, the core abstractions used by SimCore, the Liaison Quote contract, the planning cadence model, and the minimum UI surfaces. Optimized for LLM-driven implementation, deterministic replay, and small vertical slices.
+
+See also:
+- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md` (tick = 1 game minute, 60x mapping, tick boundary rules, intent ordering lock)
+- `docs/51_ECONOMY_AND_TRADE_DESIGN_LAW.md` (ledger law, automation penalties, failure taxonomy, determinism invariants)
+- `docs/20_TESTING_AND_DETERMINISM.md` (golden runs, world hash regression)
+- `docs/30_CONNECTIVITY_AND_INTERFACES.md` (layer boundaries, interface discipline)
+
+Canonical consistency rule:
+- If any chat instruction or implementation proposal conflicts with the disallowed actions or abstraction boundaries in this document, update the canonical doc first and align dependents.
+
+---
+
+## 0. Design-Law (Non-Negotiables)
+- No ship-level UI. No per-ship fitting. No per-ship waypointing.
+- Player controls Programs, Fleets as capacity pools, Doctrines, Upgrade Packages, Budgets, and Policies.
+- SimCore owns dispatch and routing. GameShell renders and issues intents.
+- Every meaningful simulation outcome must be deterministic and explainable.
+- Explain outputs are structured JSON (schema-bound). Free-text explanations are prohibited in early slices.
+
+Agency law (required to keep this fun without ship micromanagement):
+- Every player action must have a legible lever and a short feedback loop measured in minutes of real time.
+
+Friction law (required to prevent “optimizer magic”):
+- The Liaison Quote and Explain events must be consistently true. If the system cannot explain it, it must not do it.
+
+Override law (required to prevent helplessness):
+- Players must have high-level interrupts (Alerts and mitigations) that can meaningfully change outcomes without ship-level orders.
+
+---
+
+## 1. Player control surface (allowed actions only)
+
+Allowed actions:
+- Create Program
+- Fund Program and set `BudgetCap`
+- Pause Program
+- Set Target and `PriorityWeight`
+- Set Doctrine (Program and Fleet defaults)
+- Apply Upgrade Packages to fleets or fleet groups
+- Allocate fleet capacity to Programs (assign or slider)
+- Manage Fleet Groups
+- Respond to Alerts (high-level mitigations only)
+
+Explicitly disallowed:
+- Per-ship orders
+- Per-ship upgrades
+- Route waypointing and per-fleet routing
+- Manual delivery routing for construction or sustainment
+- Any UI that exposes individual ship inventories as a primary control surface (aggregates only)
+
+---
+
+## 2. Core abstractions (authoritative definitions)
+
+### 2.1 Program
+Program is the primary player intent object:
+- intent + constraints + KPIs + explain
+- owns: scope, policy, budget, priorities, targets, alert thresholds
+- produces: expected output bands and postmortems
+
+### 2.2 Fleet
+Fleet is a capacity pool:
+- capacity + doctrine + packages + ownership class
+- fleets are not individual ships in the player UI
+- fleets can be grouped for allocation and package management
+
+### 2.3 Fleet Group
+A named collection of fleets:
+- used for allocation, doctrine defaults, and package application
+- may be scoped to a region/corridor for UI convenience only (does not imply routing control)
+
+### 2.4 Upgrade Package
+A fleet-wide tech bundle with install and sustain:
+- never per ship
+- changes exposed fleet stats and capability tags
+- defines degraded mode when sustain fails
+
+### 2.5 Doctrine
+Behavior parameters and tradeoffs:
+- small set in v1 (expand later)
+- used by planners and dispatchers, not manual routing
+
+### 2.6 Liaison Quote
+A deterministic preflight summary for any create/change action:
+- cost, time, prerequisites, required capacity, expected outputs and bands, confidence inputs, risks, mitigations
+- quote is stored and later used for explain and postmortems
+
+### 2.7 Construction Project
+A staged facility build pipeline managed by a Program:
+- no manual logistics
+- stateful progression with explicit stage gates
+
+---
+
+## 3. Programs in v1 (canonical set)
+
+Programs are the only “automation” unit the player operates. A program must be definable as a schema and runnable headlessly.
+
+Each program outputs:
+- expected output bands (`p10`, `p50`, `p90`)
+- `CostPerDay`
+- incident summary (by taxonomy)
+- confidence and intel staleness
+- structured Explain event (schema-bound)
+
+### 3.1 Trade Program
+Intent:
+- earn profit moving goods within declared scope and policy.
+
+Fields (minimum):
+- `Scope`
+- `TargetProfitPerDay` OR `TargetThroughput`
+- `CommodityPolicy`
+- `RiskCeiling`
+- `LegalityPosture` (v1: `Comply` or `Gray`)
+- `PriorityWeight`
+- `BudgetCap`
+- `DoctrineRef`
+- `AutomationLevel`
+- Constraints:
+  - avoid systems
+  - required hubs
+  - escort required
+
+Outputs:
+- `ProfitPerDay_p10/p50/p90`
+- `CostPerDay`
+- incident rate summary
+- confidence and intel staleness
+- Explain
+
+### 3.2 Mining Program
+Intent:
+- produce commodity and deliver to a sink.
+
+Fields (minimum):
+- `Scope`
+- `OutputCommodityTag`
+- `DeliveryPolicy` (to refinery, to market, stockpile)
+- `RiskCeiling`
+- `PriorityWeight`
+- `BudgetCap`
+- `DoctrineRef`
+- `AutomationLevel`
+- `EscortRequired`
+
+Outputs:
+- `UnitsPerWeek_p10/p50/p90`
+- `CostPerDay`
+- incidents and attrition summary
+- Explain
+
+### 3.3 Patrol Program
+Intent:
+- reduce threat in corridor or region.
+
+Fields (minimum):
+- `Scope`
+- `CoverageTarget` OR `ThreatReductionTarget`
+- `EngagementPolicy`
+- `PriorityWeight`
+- `BudgetCap`
+- `DoctrineRef`
+
+Outputs:
+- `ThreatDeltaInScope`
+- `CostPerDay`
+- incidents
+- Explain
+
+Guardrail (non-negotiable):
+- Patrol cannot be a mandatory tax.
+- Alternative mitigations must exist: cautious doctrine, escorts, route avoidance, intel improvement.
+
+### 3.4 Construction Program
+Intent:
+- build facilities via a project pipeline, no manual logistics.
+
+Project fields (minimum):
+- `Site` and `Slot`
+- `ProjectType` and `Tier` (starport, refinery, science center)
+- `PriorityWeight`
+- `BudgetCap`
+- `SourcingPolicy` (allow imports, require local, legal-only vs gray)
+- `ReliabilityTarget` (fast vs resilient vs cheap)
+
+Project model (v1):
+- Up to 3 stages in v1
+- Explicit states:
+  - `Active`
+  - `AwaitingInputs`
+  - `Degraded`
+  - `AtRisk`
+  - `Complete`
+
+Hybrid boundary rule (canonical):
+- Bulk inputs are abstracted by market access plus logistics throughput.
+- Complex components require delivery or local production (explicit list required in schema).
+- Player never chooses delivery routes.
+
+Construction outputs:
+- `BurnRatePerDay`
+- `ETA_p10/p50/p90`
+- `MissingInputs` list
+- `RiskList` and Explain
+
+---
+
+## 4. Fleet model (capacity pool, exposed stats only)
+
+Fleet exposes only:
+- `ThroughputWorkUnitsPerDay`
+- `RangeTier`
+- `CombatRating`
+- `SignatureRating`
+- `OperatingCostPerDay`
+- `ReliabilityRating`
+- `CapabilityTags`:
+  - `Bulk`
+  - `HighValue`
+  - `Hazardous`
+  - `Industrial`
+  - `StealthCapable`
+  - `FractureCapable` (late unlock)
+
+Fleet metadata:
+- `OwnershipClass`: `Contracted`, `Leased`, `Owned`
+- `GroupId` optional
+- installed Packages
+- default DoctrineRef
+
+### 4.1 Ownership best-practice tradeoffs (canonical)
+- Contracted:
+  - fastest spin up
+  - higher cost
+  - limited doctrine and package access
+  - cancellation risk (must produce warnings)
+- Leased:
+  - moderate cost
+  - moderate control
+  - some packages
+- Owned:
+  - capex and sustainment
+  - full doctrine and package access
+  - requires spares pipeline
+  - fracture later
+
+---
+
+## 5. Doctrine model (v1 parameters)
+
+Doctrine parameters in v1:
+- `RiskPosture`
+- `InspectionStrategy`
+- `PiracyResponse`
+- `StealthRunning`
+- `ObjectiveBias`
+
+Rule:
+- Doctrines must be small in v1. Expand later via additional parameters or doctrine presets.
+
+---
+
+## 6. Upgrade Packages (fleet-wide only)
+
+Categories in v1:
+- Drive Package
+- Defense Package
+- Industrial Package
+
+Optional later:
+- weapons, sensors, stealth, mining, fracture
+
+Each package defines:
+- eligibility rules
+- install requirements: port tier, time, parts
+- sustain requirements: spares and trained crew per day
+- effects on exposed fleet stats and capability tags
+- degraded mode behavior when sustain fails
+
+Rule:
+- Packages are never per ship.
+
+---
+
+## 7. Liaison Quote contract (required preflight for all changes)
+
+For any create or change action, SimCore must produce a stored quote with:
+- `UpfrontCost`
+- `OngoingCostPerDay`
+- `TimeToActivate`
+- `Prerequisites`
+- `RequiredCapacity`
+- `ExpectedOutputBands_p10/p50/p90`
+- Confidence inputs:
+  - intel staleness
+  - volatility
+  - threat state
+- `TopRisks` with drivers
+- `SuggestedMitigations`
+
+Fairness rule (non-negotiable):
+- No catastrophic outcome without precursor signals reflected in quote risk or confidence.
+
+Storage rule:
+- Quotes are stored and referenced by ID in later Explain and postmortems.
+
+---
+
+## 8. Dispatch, planning cadence, and determinism
+
+### 8.1 Determinism contract
+- Same initial state plus same seed plus same player intents equals same results.
+- Randomness only occurs in explicit incident rolls and is logged.
+
+### 8.2 Planning structure (fits the architecture)
+Planning must be a pure function:
+- `PlanningInput` snapshot -> `PlanningOutput` decisions
+
+Rules:
+- Shell applies deltas (intent application), never computes plans.
+- Decision log emitted every planning cycle.
+
+### 8.3 Program cadence vs tick cadence
+- Tick accumulates travel progress, costs, wear.
+- Planning runs on a fixed interval: every N ticks (not every tick).
+- Allocation changes limited by commitment windows and benefit thresholds.
+
+Canonical default (v1):
+- Planning interval: every 60 ticks (every 1 game hour, every 60 real seconds at 60x)
+- Planning interval is a versioned constant in code (not data-driven at runtime) through Slice 1 and Slice 1.5.
+- Commitment window: 12 game hours minimum before reallocations can take effect, unless Emergency Doctrine is enabled
+- Reallocation threshold: require improvement > configured threshold (default 10%) to prevent churn
+
+### 8.4 Arbitration mechanics (required)
+- `PriorityWeight` drives allocation among competing programs.
+- Commitment window prevents rapid churn.
+- Reallocation only if improvement exceeds threshold.
+- Player can pin or do-not-preempt critical programs.
+
+### 8.5 Explain format (locked)
+- Explain is structured JSON, schema-bound.
+- Explain must include:
+  - primary failure cause (from automation failure taxonomy)
+  - binding constraint(s)
+  - top drivers (causal chain references)
+  - confidence and staleness
+  - suggested mitigation
+  - evidence refs (IDs for events/quotes/scopes)
+
+Free-text explain is prohibited in early slices.
+
+---
+
+## 9. UI screens (no ship screen)
+
+Minimum UI surfaces:
+- Opportunities:
+  - ranked program opportunities with confidence and staleness
+- Programs:
+  - KPIs, variance, incidents, controls, explain
+- Fleets:
+  - cards, packages, doctrine, groups, capacity allocation
+- Projects:
+  - construction pipeline, missing inputs, burn, ETA
+
+Rule:
+- No ship screen exists.
+
+---
+
+## 10. Important gaps to close now (dev-blocking)
+
+These gaps are dev-blocking or will cause drift with LLM coding.
+
+### Gap 1: Schema ownership and versioning choice
+Recommendation (canonical for now):
+- C# records as source of truth now plus strict validator and schema version tag.
+- Plan to generate JSON schema later if needed.
+
+### Gap 2: Scope resolution spec
+Must define how scope resolves to node and edge sets and produces a stable hash.
+
+Recommendation:
+- tag-based regions plus explicit corridor edge lists
+- resolved scope yields sorted `NodeIds` and `EdgeIds`
+- `ScopeHash` is computed from sorted IDs and included in quotes and explain events
+
+### Gap 3: Units and invariants
+Without this, you will get silent unit mismatches.
+
+Recommendation:
+- a single Units and Invariants doc plus runtime validation:
+  - risk is 0-100
+  - cost is per day
+  - throughput is work units per day
+  - confidence bands are `p10`, `p50`, `p90`
+
+### Gap 4: Incidents vs failure causes (required distinction)
+Two layers exist and must not be conflated:
+
+1) Incident type (what happened operationally):
+- `Delay`
+- `Loss`
+- `Damage`
+- `Hold`
+- `Shortage`
+
+2) Primary failure cause (why it happened, automation postmortem):
+- `BadInfo`
+- `Slippage`
+- `Queueing`
+- `Heat`
+- `LossEvent`
+- `CapitalLockup`
+- `ServiceShortage`
+
+Rules:
+- Every negative outcome must include exactly 1 primary failure cause.
+- Incidents may be multiple, and each incident includes:
+  - `causeTag`
+  - severity
+  - duration (ticks)
+  - mitigation hints
+  - referenced entities (IDs) when applicable
+
+### Gap 5: Construction complex component tag list
+Hybrid boundary requires an explicit list.
+
+Recommendation:
+- start with 3 to 6 complex component tags only, everything else bulk
+
+### Gap 6: Golden sims and validation gates
+Deterministic regression tests are required.
+
+Recommendation:
+- add two tiny golden worlds with fixed seeds and expected JSON snapshots:
+  - KPIs
+  - allocations
+  - incidents
+  - explain
+
+### Gap 7: KPI definitions
+Lock formulas and naming so UI and optimizer agree:
+- `ProfitPerDay` definition
+- variance definition
+- confidence band meaning
+
+---
+
+## 11. Recommended locking order (implementation)
+
+Lock the schemas and enums now, in one contracts folder or assembly.
+- Build a validator and make it a hard gate in devtools and pre-commit.
+- Add golden sims that output deterministic snapshots: KPIs, allocations, incidents, explain.
+- Implement the minimal planner:
+  - simple allocation with hysteresis
+  - naive dispatch
+  - quote generator
+
+Only then expand:
+- program types
+- packages
+- optimizer sophistication
+
+This order keeps the LLM loop safe and prevents architecture drift.
+
+
+
+
