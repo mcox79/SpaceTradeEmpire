@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimCore.Entities;
 
@@ -28,6 +29,16 @@ public class Market
 
 	// Spread in basis points of mid price (1000 = 10%). Keep simple for Slice 1.
 	public const int SpreadBps = 1000;
+
+	// SLICE 1.5 / GATE.MKT.002: Published (visible) prices
+	// Published prices update at a fixed cadence (every 12 game hours = 720 ticks).
+	// Underlying mid/buy/sell can vary with inventory continuously; published values only change on cadence.
+	public int LastPublishedBucket { get; set; } = -1; // Tick / 720
+	public int LastPublishedTick { get; set; } = -1;
+
+	public Dictionary<string, int> PublishedMid { get; set; } = new();
+	public Dictionary<string, int> PublishedBuy { get; set; } = new();
+	public Dictionary<string, int> PublishedSell { get; set; } = new();
 
 	// Backwards compatible: existing tests/callers use GetPrice().
 	// For Slice 1, define GetPrice as the mid price.
@@ -65,9 +76,52 @@ public class Market
 		// Bid price (player sells to market)
 		int sell = mid - (spread / 2);
 
-		// Ensure buy > sell when spread is even/odd and mid is small.
 		// sell must be at least 1.
 		return Math.Max(1, sell);
+	}
+
+	public int GetPublishedMidPrice(string goodId)
+	{
+		if (PublishedMid.TryGetValue(goodId, out var v)) return v;
+		return GetMidPrice(goodId);
+	}
+
+	public int GetPublishedBuyPrice(string goodId)
+	{
+		if (PublishedBuy.TryGetValue(goodId, out var v)) return v;
+		return GetBuyPrice(goodId);
+	}
+
+	public int GetPublishedSellPrice(string goodId)
+	{
+		if (PublishedSell.TryGetValue(goodId, out var v)) return v;
+		return GetSellPrice(goodId);
+	}
+
+	public void PublishPricesIfDue(int tick, int publishWindowTicks)
+	{
+		if (publishWindowTicks <= 0) throw new ArgumentOutOfRangeException(nameof(publishWindowTicks));
+
+		int bucket = tick / publishWindowTicks;
+		if (bucket == LastPublishedBucket) return;
+
+		// Deterministic key set: whatever goods currently exist as inventory keys.
+		// Order keys to avoid any nondeterminism.
+		var goods = Inventory.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+
+		foreach (var goodId in goods)
+		{
+			int mid = GetMidPrice(goodId);
+			int buy = GetBuyPrice(goodId);
+			int sell = GetSellPrice(goodId);
+
+			PublishedMid[goodId] = mid;
+			PublishedBuy[goodId] = buy;
+			PublishedSell[goodId] = sell;
+		}
+
+		LastPublishedBucket = bucket;
+		LastPublishedTick = tick;
 	}
 
 	private static int ComputeSpread(int mid)
