@@ -1,0 +1,21 @@
+{
+  "worldId": "micro_world_001",
+  "markets": [
+    {
+      "id": "mkt_a",
+      "inventory": { "ore": 10, "food": 3 }
+    },
+    {
+      "id": "mkt_b",
+      "inventory": { "ore": 1, "food": 12 }
+    }
+  ],
+  "nodes": [
+    { "id": "stn_a", "kind": "Station", "name": "Alpha Station", "pos": [0, 0, 0], "marketId": "mkt_a" },
+    { "id": "stn_b", "kind": "Station", "name": "Beta Station",  "pos": [10, 0, 0], "marketId": "mkt_b" }
+  ],
+  "edges": [
+    { "id": "lane_ab", "fromNodeId": "stn_a", "toNodeId": "stn_b", "distance": 10.0, "totalCapacity": 5 }
+  ],
+  "player": { "credits": 1000, "locationNodeId": "stn_a", "cargo": {} }
+}

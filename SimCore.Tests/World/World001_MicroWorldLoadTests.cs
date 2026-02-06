@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using NUnit.Framework;
 using SimCore;
@@ -8,76 +9,74 @@ namespace SimCore.Tests.World;
 
 public sealed class World001_MicroWorldLoadTests
 {
-	private const string MicroWorldJson = @"
-{
-  ""worldId"": ""micro_world_001"",
-  ""markets"": [
+    private static string FindRepoRoot()
     {
-      ""id"": ""mkt_a"",
-      ""inventory"": { ""ore"": 10, ""food"": 3 }
-    },
-    {
-      ""id"": ""mkt_b"",
-      ""inventory"": { ""ore"": 1, ""food"": 12 }
+        // Typical WorkDirectory:
+        // ...\SimCore.Tests\bin\Debug\net8.0
+        var d = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
+
+        while (d is not null)
+        {
+            if (Directory.Exists(Path.Combine(d.FullName, ".git"))) return d.FullName;
+            if (Directory.GetFiles(d.FullName, "*.sln").Length > 0) return d.FullName;
+            d = d.Parent;
+        }
+
+        // Last resort
+        return Directory.GetCurrentDirectory();
     }
-  ],
-  ""nodes"": [
-    { ""id"": ""stn_a"", ""kind"": ""Station"", ""name"": ""Alpha Station"", ""pos"": [0,0,0], ""marketId"": ""mkt_a"" },
-    { ""id"": ""stn_b"", ""kind"": ""Station"", ""name"": ""Beta Station"",  ""pos"": [10,0,0], ""marketId"": ""mkt_b"" }
-  ],
-  ""edges"": [
-    { ""id"": ""lane_ab"", ""fromNodeId"": ""stn_a"", ""toNodeId"": ""stn_b"", ""distance"": 10.0, ""totalCapacity"": 5 }
-  ],
-  ""player"": { ""credits"": 1000, ""locationNodeId"": ""stn_a"", ""cargo"": { } }
-}
-";
 
-	[Test]
-	public void MicroWorld_Loads_WithExpectedCounts_AndStableIds()
-	{
-		var def = Deserialize(MicroWorldJson);
-		var state = new SimState(123);
+    private static WorldDefinition LoadWorld001()
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "SimCore.Tests", "TestData", "Worlds", "micro_world_001.json");
+        var json = File.ReadAllText(path);
 
-		WorldLoader.Apply(state, def);
+        var opt = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var def = JsonSerializer.Deserialize<WorldDefinition>(json, opt);
+        if (def is null) throw new System.InvalidOperationException("Failed to deserialize WorldDefinition for micro_world_001.");
+        return def;
+    }
 
-		Assert.That(state.Markets.Count, Is.EqualTo(2));
-		Assert.That(state.Nodes.Count, Is.EqualTo(2));
-		Assert.That(state.Edges.Count, Is.EqualTo(1));
+    [Test]
+    public void World001_Loads_WithExpectedCounts_AndStableIds()
+    {
+        var def = LoadWorld001();
+        var state = new SimState(123);
 
-		Assert.That(state.Markets.ContainsKey("mkt_a"), Is.True);
-		Assert.That(state.Markets.ContainsKey("mkt_b"), Is.True);
+        WorldLoader.Apply(state, def);
 
-		Assert.That(state.Nodes.ContainsKey("stn_a"), Is.True);
-		Assert.That(state.Nodes.ContainsKey("stn_b"), Is.True);
+        Assert.That(state.Markets.Count, Is.EqualTo(2));
+        Assert.That(state.Nodes.Count, Is.EqualTo(2));
+        Assert.That(state.Edges.Count, Is.EqualTo(1));
 
-		Assert.That(state.Edges.ContainsKey("lane_ab"), Is.True);
+        Assert.That(state.Markets.ContainsKey("mkt_a"), Is.True);
+        Assert.That(state.Markets.ContainsKey("mkt_b"), Is.True);
 
-		Assert.That(state.Nodes["stn_a"].MarketId, Is.EqualTo("mkt_a"));
-		Assert.That(state.Nodes["stn_b"].MarketId, Is.EqualTo("mkt_b"));
-		Assert.That(state.PlayerLocationNodeId, Is.EqualTo("stn_a"));
-	}
+        Assert.That(state.Nodes.ContainsKey("stn_a"), Is.True);
+        Assert.That(state.Nodes.ContainsKey("stn_b"), Is.True);
 
-	[Test]
-	public void MicroWorld_IsDeterministic_BySignature()
-	{
-		var def = Deserialize(MicroWorldJson);
+        Assert.That(state.Edges.ContainsKey("lane_ab"), Is.True);
 
-		var a = new SimState(777);
-		WorldLoader.Apply(a, def);
-		var sigA = a.GetSignature();
+        Assert.That(state.Nodes["stn_a"].MarketId, Is.EqualTo("mkt_a"));
+        Assert.That(state.Nodes["stn_b"].MarketId, Is.EqualTo("mkt_b"));
+        Assert.That(state.PlayerLocationNodeId, Is.EqualTo("stn_a"));
+        Assert.That(state.PlayerCredits, Is.EqualTo(1000));
+    }
 
-		var b = new SimState(777);
-		WorldLoader.Apply(b, def);
-		var sigB = b.GetSignature();
+    [Test]
+    public void World001_IsDeterministic_BySignature()
+    {
+        var def = LoadWorld001();
 
-		Assert.That(sigA, Is.EqualTo(sigB));
-	}
+        var a = new SimState(777);
+        WorldLoader.Apply(a, def);
+        var sigA = a.GetSignature();
 
-	private static WorldDefinition Deserialize(string json)
-	{
-		var opt = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-		var def = JsonSerializer.Deserialize<WorldDefinition>(json, opt);
-		if (def is null) throw new System.InvalidOperationException("Failed to deserialize WorldDefinition.");
-		return def;
-	}
+        var b = new SimState(777);
+        WorldLoader.Apply(b, def);
+        var sigB = b.GetSignature();
+
+        Assert.That(sigA, Is.EqualTo(sigB));
+    }
 }
