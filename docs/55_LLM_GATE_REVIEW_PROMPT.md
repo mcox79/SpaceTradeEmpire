@@ -1,14 +1,30 @@
 \# 55\_LLM\_GATE\_REVIEW\_PROMPT
 
 
+If the user message is empty or contains only attachments, proceed using this document and the attached inputs without asking for clarification.
 
-Inputs:
+
+Preferred user launch line (optional):
+
+"Run the Gate Review exactly as specified in docs/55\_LLM\_GATE\_REVIEW\_PROMPT.md."
+
+
+
+Inputs (attached):
 
 \- docs/54\_DEVELOPMENT\_PLAN.md
 
-\- Latest docs/generated/status\_packets/status\_\*.txt
+\- docs/55\_LLM\_GATE\_REVIEW\_PROMPT.md
 
-\- Canonical anchors already embedded in the status packet
+\- docs/generated/01\_CONTEXT\_PACKET.md
+
+\- docs/generated/02\_STATUS\_PACKET.txt
+
+\- docs/generated/connectivity\_manifest.json
+
+\- docs/generated/connectivity\_violations.json
+
+\- docs/generated/05\_TEST\_SUMMARY.txt (if present)
 
 
 
@@ -36,7 +52,7 @@ Output exactly these sections:
 
 2\) gate\_movements
 
-For each Gate/Epic ID mentioned in status packet "targets":
+For each Gate/Epic ID that appears in docs/54 and has evidence in 02\_STATUS\_PACKET.txt:
 
 \- current\_status\_in\_plan
 
@@ -67,6 +83,4 @@ Explain why each is the best next move, and what evidence would close it.
 5\) plan\_holes
 
 List any plan items that are ambiguous or missing acceptance criteria, and propose minimal edits to docs/54 (do not rewrite the plan).
-
-
 
