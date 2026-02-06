@@ -7,6 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+# status packet generator: diff-driven + capped + stable output
 
 function Get-RepoRoot {
     $root = (& git rev-parse --show-toplevel 2>$null)
