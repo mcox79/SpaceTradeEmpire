@@ -19,6 +19,8 @@ public class SimState
     [JsonInclude] public Dictionary<string, Edge> Edges { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Fleet> Fleets { get; private set; } = new();
     [JsonInclude] public Dictionary<string, IndustrySite> IndustrySites { get; private set; } = new();
+    [JsonInclude] public List<SimCore.Entities.InFlightTransfer> InFlightTransfers { get; private set; } = new();
+
 
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();

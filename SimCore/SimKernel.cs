@@ -26,6 +26,9 @@ public class SimKernel
         {
             cmd.Execute(_state);
         }
+
+	LaneFlowSystem.Process(_state);
+
         MovementSystem.Process(_state);
         IndustrySystem.Process(_state); // SLICE 2: LOGIC ADDED
         _state.AdvanceTick();

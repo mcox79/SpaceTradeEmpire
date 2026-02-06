@@ -182,8 +182,8 @@ Status: TODO
 |---|---|---|---|
 | GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | TODO | SimCore.Tests/* |
 | GATE.INTENT.001 | Deterministic intent pipeline exists | TODO | SimCore.Tests/* |
-| GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | TODO | tests + config paths |
-| GATE.STA.001 | Station inventory ledger and invariants | TODO | tests |
+| GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | tests + config paths |
+| GATE.STA.001 | Station inventory ledger and invariants | DONE | tests |
 | GATE.LANE.001 | Lane flow with deterministic delay arrivals | TODO | tests |
 | GATE.MKT.001 | Inventory-based pricing with spread | TODO | tests |
 | GATE.MKT.002 | Price publish cadence every 12 game hours | TODO | tests |
