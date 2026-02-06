@@ -15,15 +15,21 @@ if (-not $global:DEVTOOL_HEADLESS) { Add-Type -AssemblyName System.Windows.Forms
 if (-not $global:DEVTOOL_HEADLESS) { Add-Type -AssemblyName System.Drawing }
 
 # --- CONFIGURATION ---
-$ProjectRoot    = Get-Location
+$ProjectRoot = (& git rev-parse --show-toplevel 2>$null)
+if (-not $ProjectRoot) { throw "Not in a git repo (git rev-parse failed)." }
+$ProjectRoot = $ProjectRoot.Trim()
+Set-Location $ProjectRoot
+
 $ScriptsDir     = Join-Path $ProjectRoot "scripts\tools"
 $ContextScript  = Join-Path $ScriptsDir "New-ContextPacket.ps1"
 $ScanScript     = Join-Path $ScriptsDir "Scan-Connectivity.ps1" # <--- The Connectivity Scanner
+$StatusScript   = Join-Path $ScriptsDir "New-StatusPacket.ps1"
 
 # --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "STE :: Mission Control v5.2"
-$form.Size = New-Object System.Drawing.Size(450, 560)
+$form.Size = New-Object System.Drawing.Size(450, 620)
+
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "#1e1e1e"
 $form.ForeColor = "#ffffff"
@@ -32,30 +38,138 @@ $fontHeader = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.Fon
 $fontNormal = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $fontLog    = New-Object System.Drawing.Font("Consolas", 9)
 
+# Non-blocking test runner state (WinForms UI thread must stay free)
+$global:VerifyJob = $null
+$global:VerifyTimer = New-Object System.Windows.Forms.Timer
+$global:VerifyTimer.Interval = 250
+
+$script:VerifyLogPath = $null
+
+function On-VerifyTick {
+    if (-not $global:VerifyJob) { $global:VerifyTimer.Stop(); return }
+    if ($global:VerifyJob.State -eq "Running") { return }
+
+    $global:VerifyTimer.Stop()
+
+    $exitCode = 1
+    try {
+        $result = @(Receive-Job -Job $global:VerifyJob -ErrorAction SilentlyContinue)
+        if ($result.Count -gt 0) { $exitCode = [int]$result[-1] }
+    } catch { $exitCode = 1 }
+
+    try { Remove-Job -Job $global:VerifyJob -Force -ErrorAction SilentlyContinue } catch {}
+    $global:VerifyJob = $null
+
+    if ($script:VerifyLogPath -and (Test-Path $script:VerifyLogPath)) {
+        Get-Content -LiteralPath $script:VerifyLogPath -Tail 200 | ForEach-Object { Log-Output $_ }
+    } else {
+        Log-Output "ERROR: Missing test log at $script:VerifyLogPath"
+    }
+
+    if ($exitCode -eq 0) { Log-Output "GREEN BOARD: Logic Verified." }
+    else { Log-Output "TEST FAILURE: ExitCode=$exitCode" }
+
+    $btnTest.Enabled = $true
+}
+
+$global:VerifyTimer.Add_Tick({ On-VerifyTick })
+
+
+function On-VerifyTick {
+    if (-not $global:VerifyJob) { $global:VerifyTimer.Stop(); return }
+    if ($global:VerifyJob.State -eq "Running") { return }
+
+    $global:VerifyTimer.Stop()
+
+    $exitCode = 1
+    try {
+        $result = @(Receive-Job -Job $global:VerifyJob -ErrorAction SilentlyContinue)
+        if ($result.Count -gt 0) { $exitCode = [int]$result[-1] }
+    } catch { $exitCode = 1 }
+
+    try { Remove-Job -Job $global:VerifyJob -Force -ErrorAction SilentlyContinue } catch {}
+    $global:VerifyJob = $null
+
+    if ($script:VerifyLogPath -and (Test-Path $script:VerifyLogPath)) {
+        Get-Content -LiteralPath $script:VerifyLogPath -Tail 200 | ForEach-Object { Log-Output $_ }
+    } else {
+        Log-Output "ERROR: Missing test log at $script:VerifyLogPath"
+    }
+
+    if ($exitCode -eq 0) { Log-Output "GREEN BOARD: Logic Verified." }
+    else { Log-Output "TEST FAILURE: ExitCode=$exitCode" }
+
+    $btnTest.Enabled = $true
+}
+
+$global:VerifyTimer.Add_Tick({ On-VerifyTick })
+
+
+
 # --- LOGIC ---
 
+$DevToolLogPath = Join-Path (Get-Location) "docs\generated\devtool_log.txt"
+
+$script:VerifyLogPath = $null
+
 function Log-Output($message) {
-    $txtOutput.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $message`r`n")
+    $line = "[$((Get-Date).ToString('HH:mm:ss'))] $message"
+    $txtOutput.AppendText($line + "`r`n")
     $txtOutput.ScrollToCaret()
+
+    try {
+        $dir = Split-Path -Parent $DevToolLogPath
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        Add-Content -LiteralPath $DevToolLogPath -Value $line
+    } catch {
+        # ignore logging failures
+    }
 }
 
 # 1. LOGIC VERIFICATION
 function Run-SimCoreTests {
     Log-Output ">>> EXEC: SIMCORE LOGIC TESTS (dotnet)"
-    try {
-        $p = Start-Process -FilePath "dotnet" -ArgumentList "test SimCore.Tests" -NoNewWindow -Wait -PassThru -RedirectStandardOutput "test_out.log"
-        
-        $output = Get-Content "test_out.log"
-        $output | ForEach-Object { Log-Output $_ }
-        Remove-Item "test_out.log" -ErrorAction SilentlyContinue
 
-        if ($p.ExitCode -eq 0) {
-            Log-Output "GREEN BOARD: Logic Verified."
-        } else {
-            Log-Output "TEST FAILURE: Check logs."
+    if ($global:VerifyJob -and $global:VerifyJob.State -eq "Running") {
+        Log-Output "Verify already running."
+        return
+    }
+
+    $repoRoot = $ProjectRoot
+	$script:VerifyLogPath = Join-Path $ProjectRoot "docs\generated\05_TEST_SUMMARY.txt"
+	$logPath = $script:VerifyLogPath
+
+
+    try {
+        $logDir = Split-Path -Parent $logPath
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+        if (Test-Path $logPath) { Remove-Item -Force -LiteralPath $logPath }
+
+        # Disable the button while running (prevents double-click)
+        $btnTest.Enabled = $false
+
+        # Run in background job so the GUI thread stays responsive
+        $global:VerifyJob = Start-Job -ArgumentList $repoRoot, $logPath -ScriptBlock {
+            param($root, $lp)
+            Set-Location $root
+
+            $out = (dotnet test SimCore.Tests -v minimal 2>&1) -join "`r`n"
+	    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+	    [System.IO.File]::WriteAllText($lp, $out + "`r`n", $utf8NoBom)
+
+            return $LASTEXITCODE
         }
+
+        # Timer polls for completion and then re-enables the UI
+        $global:VerifyTimer.Stop()
+        $global:VerifyTimer.Start()
+        Log-Output "Verify running in background. Log: $logPath"
+
+	
     } catch {
-        Log-Output "ERROR: dotnet command failed. Is .NET installed?"
+        Log-Output "ERROR (full):"
+        Log-Output ($_ | Out-String)
+        $btnTest.Enabled = $true
     }
 }
 
@@ -96,6 +210,29 @@ function Run-GitSave {
         Log-Output $res
     }
 }
+
+# 5. STATUS
+if (-not $global:DEVTOOL_HEADLESS) { Add-Type -AssemblyName Microsoft.VisualBasic }
+
+function Run-StatusPacket {
+    Log-Output ">>> EXEC: STATUS PACKET"
+
+    if (-not (Test-Path $StatusScript)) {
+        Log-Output "ERROR: Missing $StatusScript"
+        Log-Output "   - Please add 'scripts\tools\New-StatusPacket.ps1'"
+        return
+    }
+
+    try {
+	    & $StatusScript
+	    Log-Output "STATUS PACKET WRITTEN: docs/generated/02_STATUS_PACKET.txt"
+	} catch {
+	    Log-Output "ERROR (full):"
+	    Log-Output ($_ | Out-String)
+	}
+
+}
+
 
 # --- UI COMPONENTS ---
 
@@ -155,10 +292,22 @@ $btnSave.FlatStyle = "Flat"
 $btnSave.Add_Click({ Run-GitSave })
 $form.Controls.Add($btnSave)
 
+# 5. STATUS PACKET (Gray)
+$btnStatus = New-Object System.Windows.Forms.Button
+$btnStatus.Location = New-Object System.Drawing.Point(20, 260)
+$btnStatus.Size = New-Object System.Drawing.Size(400, 45)
+$btnStatus.Text = "5. GENERATE STATUS PACKET"
+$btnStatus.BackColor = "#444444"
+$btnStatus.ForeColor = "White"
+$btnStatus.Font = $fontNormal
+$btnStatus.FlatStyle = "Flat"
+$btnStatus.Add_Click({ Run-StatusPacket })
+$form.Controls.Add($btnStatus)
+
 # Console Output
 $txtOutput = New-Object System.Windows.Forms.TextBox
-$txtOutput.Location = New-Object System.Drawing.Point(20, 265)
-$txtOutput.Size = New-Object System.Drawing.Size(400, 240)
+$txtOutput.Location = New-Object System.Drawing.Point(20, 320)
+$txtOutput.Size = New-Object System.Drawing.Size(400, 190)
 $txtOutput.Multiline = $true
 $txtOutput.ScrollBars = "Vertical"
 $txtOutput.BackColor = "#000000"
