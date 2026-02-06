@@ -1,5 +1,6 @@
 param(
     [string] $Targets = "",
+    [switch] $Force,
     [int]    $MaxFileBytes = 204800,    # 200 KB
     [int]    $MaxTotalBytes = 15728640  # 15 MB
 )
@@ -115,7 +116,7 @@ try {
 }
 
 $statusPorcelain = (& git status --porcelain=v1)
-$nameStatus = (& git diff --name-status $baseline..HEAD)
+$nameStatus = (& git diff --name-status "$baseline..HEAD")
 $nameStatusLines = To-Lines $nameStatus
 
 
@@ -183,23 +184,36 @@ max_total_bytes: $MaxTotalBytes
 [void](Safe-Append $sb $header ([ref]$totalBytes) $MaxTotalBytes)
 
 [void](Safe-Append $sb "===== CANONICAL ANCHORS =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)
+[void](Safe-Append $sb "(Listed always; content included only if anchor changed vs baseline or missing)`r`n" ([ref]$totalBytes) $MaxTotalBytes)
+
 foreach ($a in $anchors) {
     $full = Join-Path $repoRoot $a
     $sec = "`r`n----- FILE: $a -----`r`n"
     if (-not (Safe-Append $sb $sec ([ref]$totalBytes) $MaxTotalBytes)) { break }
-    $content = Read-TextCapped -Path $full -CapBytes $MaxFileBytes
-    if (-not (Safe-Append $sb ($content + "`r`n") ([ref]$totalBytes) $MaxTotalBytes)) { break }
+
+    # Always list existence
+    if (-not (Test-Path $full)) {
+        if (-not (Safe-Append $sb ("<<MISSING: {0}>>`r`n" -f $a) ([ref]$totalBytes) $MaxTotalBytes)) { break }
+        continue
+    }
+
+    # Include content only if changed (diff exists)
+    $anchorDiff = & git diff --unified=0 "$baseline..HEAD" -- $a 2>$null
+    $anchorLines = @(To-Lines $anchorDiff)
+    if ($anchorLines.Length -gt 0) {
+        $content = Read-TextCapped -Path $full -CapBytes $MaxFileBytes
+        if (-not (Safe-Append $sb ($content + "`r`n") ([ref]$totalBytes) $MaxTotalBytes)) { break }
+    } else {
+        if (-not (Safe-Append $sb "(unchanged)`r`n" ([ref]$totalBytes) $MaxTotalBytes)) { break }
+    }
+
 }
 
 [void](Safe-Append $sb "`r`n===== GIT STATUS =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)
 
-$statusLines = @()
-if ($null -ne $statusPorcelain) {
-    if ($statusPorcelain -is [string]) { $statusLines = @($statusPorcelain) }
-    else { $statusLines = @($statusPorcelain) }
-}
+$statusLines = @(To-Lines $statusPorcelain)
 
-if ($statusLines.Count -gt 0) {
+if ($statusLines.Length -gt 0) {
     [void](Safe-Append $sb (($statusLines -join "`r`n") + "`r`n") ([ref]$totalBytes) $MaxTotalBytes)
 } else {
     [void](Safe-Append $sb "(clean)`r`n" ([ref]$totalBytes) $MaxTotalBytes)
@@ -207,13 +221,9 @@ if ($statusLines.Count -gt 0) {
 
 [void](Safe-Append $sb "`r`n===== GIT DIFF NAME-STATUS ($baseline..HEAD) =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)
 
-$nameStatusLines = @()
-if ($null -ne $nameStatus) {
-    if ($nameStatus -is [string]) { $nameStatusLines = @($nameStatus) }
-    else { $nameStatusLines = @($nameStatus) }
-}
+$nameStatusLines = @(To-Lines $nameStatus)
 
-if ($nameStatusLines.Count -gt 0) {
+if ($nameStatusLines.Length -gt 0) {
     [void](Safe-Append $sb (($nameStatusLines -join "`r`n") + "`r`n") ([ref]$totalBytes) $MaxTotalBytes)
 } else {
     [void](Safe-Append $sb "(no changes)`r`n" ([ref]$totalBytes) $MaxTotalBytes)
@@ -238,10 +248,10 @@ foreach ($path in $changed) {
         }
     }
 
-    $diffRaw = & git diff --unified=3 $baseline..HEAD -- $path 2>$null
-	$diffLines = To-Lines $diffRaw
+    $diffRaw = & git diff --unified=3 "$baseline..HEAD" -- $path 2>$null
+	$diffLines = @(To-Lines $diffRaw)
 
-	if ($diffLines.Count -gt 0) {
+	if ($diffLines.Length -gt 0) {
 	    $diffText = ($diffLines -join "`r`n")
 	    $diffBytes = [System.Text.Encoding]::UTF8.GetByteCount($diffText)
 	    if ($diffBytes -gt $MaxFileBytes) {
