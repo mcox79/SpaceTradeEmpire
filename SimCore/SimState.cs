@@ -5,6 +5,8 @@ using SimCore.Entities;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using SimCore.Intents;
+
 
 namespace SimCore;
 
@@ -21,8 +23,11 @@ public class SimState
     [JsonInclude] public Dictionary<string, IndustrySite> IndustrySites { get; private set; } = new();
     [JsonInclude] public List<SimCore.Entities.InFlightTransfer> InFlightTransfers { get; private set; } = new();
 
+    [JsonInclude] public long NextIntentSeq { get; set; } = 1;
+    [JsonInclude] public List<IntentEnvelope> PendingIntents { get; private set; } = new();
 
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
+
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
     [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
