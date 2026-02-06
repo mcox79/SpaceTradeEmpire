@@ -172,11 +172,10 @@ Status: TODO
 ### B1. Workflow and tooling gates
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
-| GATE.TOOL.001 | Deterministic status packet generation exists (diff-driven, capped) | TODO | docs/generated/status_packets/* |
-| GATE.CONN.001 | Connectivity scan outputs deterministic manifests | TODO | docs/generated/connectivity_manifest.json |
-| GATE.CONN.002 | Connectivity violations empty for Slice scope | TODO | docs/generated/connectivity_violations.json |
-| GATE.TEST.001 | Headless determinism harness exists | TODO | SimCore.Tests/* |
-| GATE.TEST.002 | Golden world hash regression exists and is stable | TODO | docs/generated/snapshots/* |
+| GATE.TOOL.001 | Deterministic status packet generation exists (diff-driven, capped) | DONE | docs/generated/02_STATUS_PACKET.txt |
+| GATE.CONN.002 | Connectivity violations empty for Slice scope | DONE | docs/generated/connectivity_violations.json |
+| GATE.TEST.001 | Headless determinism harness exists | DONE | SimCore.Tests/GoldenReplayTests.cs |
+| GATE.TEST.002 | Golden world hash regression exists and is stable | DONE | docs/generated/snapshots/golden_replay_hashes.txt |
 
 ### B2. Slice 1 critical gates
 | Gate ID | Gate | Status | Evidence |
