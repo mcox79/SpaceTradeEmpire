@@ -1,42 +1,36 @@
-using SimCore.Entities;
-using System;
+using SimCore.Systems;
 
 namespace SimCore.Commands;
 
 public class BuyCommand : ICommand
 {
-    public string MarketId { get; set; }
-    public string GoodId { get; set; } // Added per Slice 1 requirements
-    public int Quantity { get; set; }
+	public string MarketId { get; set; }
+	public string GoodId { get; set; }
+	public int Quantity { get; set; }
 
-    public BuyCommand(string marketId, string goodId, int quantity)
-    {
-        MarketId = marketId;
-        GoodId = goodId;
-        Quantity = quantity;
-    }
+	public BuyCommand(string marketId, string goodId, int quantity)
+	{
+		MarketId = marketId;
+		GoodId = goodId;
+		Quantity = quantity;
+	}
 
-    public void Execute(SimState state)
-    {
-        if (!state.Markets.ContainsKey(MarketId)) return;
-        var market = state.Markets[MarketId];
+	public void Execute(SimState state)
+	{
+		if (Quantity <= 0) return;
+		if (!state.Markets.TryGetValue(MarketId, out var market)) return;
 
-        // 1. Check Availability
-        if (!market.Inventory.ContainsKey(GoodId)) return;
-        if (market.Inventory[GoodId] < Quantity) return;
+		var available = InventoryLedger.Get(market.Inventory, GoodId);
+		if (available < Quantity) return;
 
-        // 2. Calculate Price
-        int unitPrice = market.GetPrice(GoodId);
-        int totalCost = unitPrice * Quantity;
+		int unitPrice = market.GetBuyPrice(GoodId);
+		int totalCost = unitPrice * Quantity;
 
-        // 3. Transaction
-        if (state.PlayerCredits >= totalCost)
-        {
-            state.PlayerCredits -= totalCost;
-            market.Inventory[GoodId] -= Quantity;
-            
-            if (!state.PlayerCargo.ContainsKey(GoodId)) state.PlayerCargo[GoodId] = 0;
-            state.PlayerCargo[GoodId] += Quantity;
-        }
-    }
+		if (state.PlayerCredits < totalCost) return;
+
+		if (!InventoryLedger.TryRemoveMarket(market.Inventory, GoodId, Quantity)) return;
+
+		state.PlayerCredits -= totalCost;
+		InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
+	}
 }

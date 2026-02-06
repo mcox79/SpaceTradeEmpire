@@ -1,5 +1,4 @@
-using SimCore.Entities;
-using System;
+using SimCore.Systems;
 
 namespace SimCore.Commands;
 
@@ -7,54 +6,51 @@ public enum TradeType { Buy, Sell }
 
 public class TradeCommand : ICommand
 {
-    public string PlayerId { get; set; }
-    public string MarketNodeId { get; set; }
-    public string GoodId { get; set; }
-    public int Quantity { get; set; }
-    public TradeType Type { get; set; }
+	public string PlayerId { get; set; }
+	public string MarketNodeId { get; set; }
+	public string GoodId { get; set; }
+	public int Quantity { get; set; }
+	public TradeType Type { get; set; }
 
-    public TradeCommand(string playerId, string nodeId, string goodId, int qty, TradeType type)
-    {
-        PlayerId = playerId;
-        MarketNodeId = nodeId;
-        GoodId = goodId;
-        Quantity = qty;
-        Type = type;
-    }
+	public TradeCommand(string playerId, string nodeId, string goodId, int qty, TradeType type)
+	{
+		PlayerId = playerId;
+		MarketNodeId = nodeId;
+		GoodId = goodId;
+		Quantity = qty;
+		Type = type;
+	}
 
-    public void Execute(SimState state)
-    {
-        // 1. Validation
-        if (!state.Markets.TryGetValue(MarketNodeId, out var market)) return;
-        
-        // Get Price based on current scarcity
-        int pricePerUnit = market.GetPrice(GoodId);
-        int totalCost = pricePerUnit * Quantity;
+	public void Execute(SimState state)
+	{
+		if (Quantity <= 0) return;
+		if (!state.Markets.TryGetValue(MarketNodeId, out var market)) return;
 
-        if (Type == TradeType.Buy)
-        {
-            // BUY: Player buys FROM Market
-            if (state.PlayerCredits < totalCost) return; // Too poor
-            if (market.Inventory.GetValueOrDefault(GoodId, 0) < Quantity) return; // Out of stock
+		int pricePerUnit = (Type == TradeType.Buy)
+			? market.GetBuyPrice(GoodId)
+			: market.GetSellPrice(GoodId);
+	
+		int totalCost = pricePerUnit * Quantity;
 
-            // Execute
-            state.PlayerCredits -= totalCost;
-            market.Inventory[GoodId] -= Quantity;
-            
-            if (!state.PlayerCargo.ContainsKey(GoodId)) state.PlayerCargo[GoodId] = 0;
-            state.PlayerCargo[GoodId] += Quantity;
-        }
-        else
-        {
-            // SELL: Player sells TO Market
-            if (state.PlayerCargo.GetValueOrDefault(GoodId, 0) < Quantity) return; // Player doesn't have it
 
-            // Execute
-            state.PlayerCredits += totalCost;
-            if (!market.Inventory.ContainsKey(GoodId)) market.Inventory[GoodId] = 0;
-            market.Inventory[GoodId] += Quantity;
-            state.PlayerCargo[GoodId] -= Quantity;
-            if (state.PlayerCargo[GoodId] <= 0) state.PlayerCargo.Remove(GoodId);
-        }
-    }
+		if (Type == TradeType.Buy)
+		{
+			if (state.PlayerCredits < totalCost) return;
+			if (InventoryLedger.Get(market.Inventory, GoodId) < Quantity) return;
+
+			if (!InventoryLedger.TryRemoveMarket(market.Inventory, GoodId, Quantity)) return;
+
+			state.PlayerCredits -= totalCost;
+			InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
+		}
+		else
+		{
+			if (InventoryLedger.Get(state.PlayerCargo, GoodId) < Quantity) return;
+
+			if (!InventoryLedger.TryRemoveCargo(state.PlayerCargo, GoodId, Quantity)) return;
+
+			InventoryLedger.AddMarket(market.Inventory, GoodId, Quantity);
+			state.PlayerCredits += totalCost;
+		}
+	}
 }
