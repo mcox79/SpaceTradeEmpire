@@ -181,11 +181,11 @@ Status: TODO
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
 | GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/* |
-| GATE.INTENT.001 | Deterministic intent pipeline exists | TODO | SimCore.Tests/* |
+| GATE.INTENT.001 | Deterministic intent pipeline exists | DONE | SimCore.Tests/* |
 | GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | tests + config paths |
 | GATE.STA.001 | Station inventory ledger and invariants | DONE | tests |
 | GATE.LANE.001 | Lane flow with deterministic delay arrivals | DONE | tests |
-| GATE.MKT.001 | Inventory-based pricing with spread | TODO | tests |
+| GATE.MKT.001 | Inventory-based pricing with spread | DONE | tests |
 | GATE.MKT.002 | Price publish cadence every 12 game hours | TODO | tests |
 | GATE.INTEL.001 | Local truth, remote banded intel + age | TODO | tests |
 | GATE.UI.001 | Minimal panel shows inventory, price, intel age | TODO | UI path |
@@ -211,3 +211,4 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 
 - 2026-02-05, <branch>, initialized Layer 1 plan (EPIC map created)
 - 2026-02-06, main, GATE.TIME.001 DONE (1 tick = 1 game minute, 60x), tests: SimCore.Tests/Time/TimeContractTests.cs
+- 2026-02-06, main, GATE.INTENT.001 DONE (intent queue + deterministic ordering), tests: SimCore.Tests/Intents/IntentSystemTests.cs
