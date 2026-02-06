@@ -157,7 +157,8 @@ function Run-SimCoreTests {
 	    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 	    [System.IO.File]::WriteAllText($lp, $out + "`r`n", $utf8NoBom)
 
-            return $LASTEXITCODE
+	    return $LASTEXITCODE
+
         }
 
         # Timer polls for completion and then re-enables the UI
