@@ -180,11 +180,11 @@ Status: TODO
 ### B2. Slice 1 critical gates
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
-| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | TODO | SimCore.Tests/* |
+| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/* |
 | GATE.INTENT.001 | Deterministic intent pipeline exists | TODO | SimCore.Tests/* |
 | GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | tests + config paths |
 | GATE.STA.001 | Station inventory ledger and invariants | DONE | tests |
-| GATE.LANE.001 | Lane flow with deterministic delay arrivals | TODO | tests |
+| GATE.LANE.001 | Lane flow with deterministic delay arrivals | DONE | tests |
 | GATE.MKT.001 | Inventory-based pricing with spread | TODO | tests |
 | GATE.MKT.002 | Price publish cadence every 12 game hours | TODO | tests |
 | GATE.INTEL.001 | Local truth, remote banded intel + age | TODO | tests |
@@ -210,3 +210,4 @@ Status: TODO
 Format: YYYY-MM-DD, branch, summary, gates or epics moved
 
 - 2026-02-05, <branch>, initialized Layer 1 plan (EPIC map created)
+- 2026-02-06, main, GATE.TIME.001 DONE (1 tick = 1 game minute, 60x), tests: SimCore.Tests/Time/TimeContractTests.cs
