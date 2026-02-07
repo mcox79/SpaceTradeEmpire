@@ -30,6 +30,9 @@ $ConnectFile = Join-Path $Root 'docs\generated\connectivity_violations.json'
 $TestSummaryFile = Join-Path $Root 'docs\generated\05_TEST_SUMMARY.txt'
 $TestJsonFile = Join-Path $Root 'SimCore\Tests\TestResults.json'
 
+# Hash snapshot presence (GATE.EVID.001 expects this to be surfaced)
+$HashSnapshotFile = Join-Path $Root 'docs\generated\snapshots\golden_replay_hashes.txt'
+
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('### [SYSTEM HEALTH]')
 
@@ -92,6 +95,13 @@ if (Test-Path $TestSummaryFile) {
 
 if (-not $AnyTestEvidence) {
     [void]$sb.AppendLine('- [WARN] No Test Results found.')
+}
+
+# Hash snapshot presence (required by GATE.EVID.001)
+if (Test-Path $HashSnapshotFile) {
+    [void]$sb.AppendLine('- [OK] Hash Snapshot: Present (golden_replay_hashes.txt)')
+} else {
+    [void]$sb.AppendLine('- [WARN] Hash Snapshot: Not found (docs/generated/snapshots/golden_replay_hashes.txt)')
 }
 
 # --- 2. FILE SCAN ---

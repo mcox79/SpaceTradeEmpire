@@ -11,6 +11,8 @@ Status meanings:
 - DONE
 - DEFERRED
 
+Note: Status tokens are exact: TODO, IN_PROGRESS, DONE, DEFERRED (no spaces, no variants).
+
 Update rule:
 - Each dev session should target 1–3 gate movements or epic movements, and end with an update here plus evidence references.
 
@@ -36,6 +38,12 @@ Epics:
 - EPIC.S0.DETERMINISM: Golden hashes, replay harness, stable world hashing
 - EPIC.S0.CONNECTIVITY: Connectivity scanner and zero-violation policy for Slice scope
 - EPIC.S0.QUALITY: Minimal CI-like local scripts (format, build, tests)
+- EPIC.S0.EVIDENCE: Context packet must include or reference latest scan + test + hash artifacts
+
+Exit criteria for DONE:
+- Context packet reliably surfaces scan + test + determinism evidence, or explicitly reports why missing
+- Connectivity violations remain empty for current slice scope
+- Golden replay + long-run + save/load determinism regressions are stable
 
 Status: IN_PROGRESS
 
@@ -45,7 +53,7 @@ Status: IN_PROGRESS
 Purpose: Prove the core economic simulation loop in a tiny world, deterministically, with minimal UI.
 
 Gates: (tracked in section B)
-Status: TODO
+Status: DONE
 
 ---
 
@@ -60,12 +68,19 @@ Status: TODO
 ### Slice 2: Programs as the primary player control surface
 Purpose: Shift player power from manual micromanagement to programs, quotes, doctrines.
 
+v1 scope (LOCK ONCE SLICE 2 STARTS):
+- One program type: TradeProgram only
+- One fleet binding: single trader fleet only
+- One doctrine: DefaultDoctrine only (max 2 toggles if needed)
+- No mining, patrol, construction, staffing, or multi-route automation in Slice 2
+
 Epics:
 - EPIC.S2.PROG.MODEL: Program, Fleet, Doctrine core models align to docs/53
 - EPIC.S2.PROG.QUOTE: Liaison Quote flow for “do X”, cost, time, risks, constraints
 - EPIC.S2.PROG.EXEC: Program execution pipeline (intent-driven, deterministic)
 - EPIC.S2.PROG.UI: Control surface UI for creating programs and reading outcomes
 - EPIC.S2.PROG.SAFETY: Guardrails against direct state mutation, only intents
+- EPIC.S2.EXPLAIN: Schema-bound “Explain” events for program outcomes and constraints
 
 Status: TODO
 
@@ -176,23 +191,25 @@ Status: TODO
 | GATE.CONN.002 | Connectivity violations empty for Slice scope | DONE | docs/generated/connectivity_violations.json |
 | GATE.TEST.001 | Headless determinism harness exists | DONE | SimCore.Tests/GoldenReplayTests.cs |
 | GATE.TEST.002 | Golden world hash regression exists and is stable | DONE | docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.EVID.001 | Context packet reports latest scan + test summary + hash snapshot presence (or explicit “not found” reasons) | DONE | docs/generated/01_CONTEXT_PACKET.md ([SYSTEM HEALTH] shows Connectivity OK + Tests OK + Hash Snapshot present) |
+| GATE.MAP.001 | Repo evidence export exists (tests index + grep + map) | DONE | docs/generated/evidence/simcore_tests_index.txt + docs/generated/evidence/gate_evidence_grep.txt + docs/generated/evidence/gate_evidence_map.json |
 
 ### B2. Slice 1 critical gates
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
-| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/Time/TimeContractTests.cs |
-| GATE.INTENT.001 | Deterministic intent pipeline exists | DONE | SimCore.Tests/Intents/IntentSystemTests.cs |
-| GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | tests + config paths |
-| GATE.STA.001 | Station inventory ledger and invariants | DONE | tests |
-| GATE.LANE.001 | Lane flow with deterministic delay arrivals | DONE | tests |
-| GATE.MKT.001 | Inventory-based pricing with spread | DONE | tests |
+| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/TimeContractTests.cs |
+| GATE.INTENT.001 | Deterministic intent pipeline exists | DONE | SimCore.Tests/Intents/IntentSystemTests.cs + scripts/bridge/SimBridge.cs (EnqueueIntent) |
+| GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | SimCore.Tests/World/World001_MicroWorldLoadTests.cs + SimCore.Tests/Intents/IntentSystemTests.cs (KernelWithWorld001) |
+| GATE.STA.001 | Station inventory ledger and invariants | DONE | SimCore.Tests/Systems/InventoryLedgerTests.cs + SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs |
+| GATE.LANE.001 | Lane flow with deterministic delay arrivals | DONE | SimCore.Tests/Systems/LaneFlowSystemTests.cs |
+| GATE.MKT.001 | Inventory-based pricing with spread | DONE | SimCore.Tests/MarketTests.cs + SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
 | GATE.MKT.002 | Price publish cadence every 12 game hours | DONE | SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
 | GATE.INTEL.001 | Local truth, remote banded intel + age | DONE | SimCore.Tests/Systems/IntelContractTests.cs |
-| GATE.UI.001 | Minimal panel shows inventory, price, intel age | DONE | scripts/ui/StationMenu.cs (IntelAge(t) + market list) + scripts/bridge/SimBridge.cs (GetIntelAgeTicks/GetMarketPrice) |
-| GATE.UI.002 | Buy/sell generates intent, no direct mutation | DONE | scripts/ui/StationMenu.cs (SubmitBuyIntent/SubmitSellIntent) + scripts/bridge/SimBridge.cs (EnqueueIntent + BuyIntent/SellIntent path) + SimCore/Intents/BuyIntent.cs; SimCore/Intents/SellIntent.cs |
-| GATE.DET.001 | 10,000 tick run stable world hash | DONE | SimCore.Tests/Determinism/LongRunWorldHashTests.cs + docs/generated/05_TEST_SUMMARY.txt |
-| GATE.SAVE.001 | Save/load round trip preserves hash | DONE | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs + docs/generated/05_TEST_SUMMARY.txt |
-| GATE.INV.001 | Invariants suite passes | DONE | SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.UI.001 | Minimal panel shows inventory, price, intel age | DONE | scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs |
+| GATE.UI.002 | Buy/sell generates intent, no direct mutation | DONE | scripts/ui/StationMenu.cs (SubmitBuyIntent/SubmitSellIntent) + scripts/bridge/SimBridge.cs (EnqueueIntent + BuyIntent/SellIntent) + SimCore.Tests/Intents/IntentSystemTests.cs |
+| GATE.DET.001 | 10,000 tick run stable world hash | DONE | SimCore.Tests/Determinism/LongRunWorldHashTests.cs (LongRunWorldHash) + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.SAVE.001 | Save/load round trip preserves hash | DONE | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs (SaveLoadWorldHash) + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.INV.001 | Invariants suite passes | DONE | SimCore.Tests/Invariants/InventoryConservationTests.cs (InventoryConservation); SimCore.Tests/Invariants/BasicStateInvariantsTests.cs (BasicStateInvariants) + docs/generated/05_TEST_SUMMARY.txt |
 
 ### B3. Slice 1.5 sustainment gates
 | Gate ID | Gate | Status | Evidence |
@@ -203,6 +220,20 @@ Status: TODO
 | GATE.UI.101 | UI shows sustainment margin and time-to-failure | TODO | UI path |
 | GATE.DET.101 | Sustainment determinism regression passes | TODO | test output |
 | GATE.INV.101 | Buffer math invariants pass | TODO | test output |
+
+### B4. Slice 2 programs gates (v1)
+| Gate ID | Gate | Status | Evidence |
+|---|---|---|---|
+| GATE.PROG.001 | Program schema v1 exists (TradeProgram only) and is versioned | TODO | schema file path + tests |
+| GATE.FLEET.001 | Fleet binding v1 exists (single trader fleet) and is deterministic | TODO | tests |
+| GATE.DOCTRINE.001 | DefaultDoctrine exists (max 2 toggles) and is deterministic | TODO | tests |
+| GATE.QUOTE.001 | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | TODO | tests + golden snapshot |
+| GATE.EXPLAIN.001 | Explain events are schema-bound (no free-text) for quote and outcomes | TODO | tests enforcing schema |
+| GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | TODO | tests (intent emission) |
+| GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | TODO | integration test |
+| GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | TODO | scripts/bridge/SimBridge.cs + integration test |
+| GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | TODO | UI path + bridge path |
+| GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | TODO | test output + hash snapshot |
 
 ---
 
@@ -219,6 +250,8 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-06, main, GATE.INV.001 DONE (invariants suite), tests: SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs, evidence: docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-06, main, GATE.UI.001 DONE (StationMenu shows inventory, price, intel age), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs
 - 2026-02-06, main, GATE.UI.002 DONE (StationMenu submits buy/sell intents via bridge, no TradeCommand in UI), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Intents/BuyIntent.cs; SimCore/Intents/SellIntent.cs
-- 2026-02-06, main, SimCore regression run PASS (dotnet test SimCore.Tests.csproj: 40 passed, 0 failed). Determinism, long-run, and save/load hashes printed in test output.
-
-
+- 2026-02-06, main, SimCore regression run PASS (dotnet test SimCore.Tests.csproj: 40 passed, 0 failed). Evidence: docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-06, main, Slice 0 status kept IN_PROGRESS: context packet did not surface test summary despite tests present; added GATE.EVID.001 TODO. Evidence: docs/generated/01_CONTEXT_PACKET.md; docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-06, main, GATE.EVID.001 DONE (context packet surfaces connectivity + test summary + hash snapshot presence). Evidence: docs/generated/01_CONTEXT_PACKET.md; docs/generated/05_TEST_SUMMARY.txt; docs/generated/snapshots/golden_replay_hashes.txt
+- 2026-02-06, main, Added Slice 2 v1 scope lock and B4 Slice 2 gate table (all TODO)
+- 2026-02-06, main, Pinned Slice 1 evidence paths from docs/generated/evidence/* (World001, lane flow, inventory ledger, market tests)
