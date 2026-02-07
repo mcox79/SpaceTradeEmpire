@@ -152,7 +152,6 @@ $anchors = @(
 
 # Tool outputs to embed if present
 $toolOutputs = @(
-    "docs/generated/connectivity_manifest.json",
     "docs/generated/connectivity_violations.json",
     "docs/generated/05_TEST_SUMMARY.txt"
 )
@@ -273,6 +272,12 @@ foreach ($path in $changed) {
     } else {
         [void](Safe-Append $sb "<<MISSING PATH IN WORKTREE: $path>>`r`n" ([ref]$totalBytes) $MaxTotalBytes)
     }
+}
+
+$manifestPath = Join-Path $repoRoot "docs\generated\connectivity_manifest.json"
+if (Test-Path $manifestPath) {
+    $mfi = Get-Item $manifestPath
+    [void](Safe-Append $sb ("`r`nMANIFEST: docs/generated/connectivity_manifest.json bytes=$($mfi.Length)`r`n") ([ref]$totalBytes) $MaxTotalBytes)
 }
 
 [void](Safe-Append $sb "`r`n===== TOOL OUTPUTS (IF PRESENT) =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)

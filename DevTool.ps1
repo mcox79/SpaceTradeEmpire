@@ -43,6 +43,13 @@ $global:VerifyJob = $null
 $global:VerifyTimer = New-Object System.Windows.Forms.Timer
 $global:VerifyTimer.Interval = 250
 
+# Non-blocking "Generate All" runner state
+$global:GenAllJob = $null
+$global:GenAllTimer = New-Object System.Windows.Forms.Timer
+$global:GenAllTimer.Interval = 250
+$script:GenAllLogPath = Join-Path $ProjectRoot "docs\generated\devtool_generate_all.txt"
+$script:GenAllLastRead = 0
+
 $script:VerifyLogPath = $null
 
 function On-VerifyTick {
@@ -74,37 +81,40 @@ function On-VerifyTick {
 
 $global:VerifyTimer.Add_Tick({ On-VerifyTick })
 
+function On-GenAllTick {
+    if (-not $global:GenAllJob) { $global:GenAllTimer.Stop(); return }
+    if ($global:GenAllJob.State -eq "Running") {
+        if (Test-Path $script:GenAllLogPath) {
+            $raw = Get-Content -LiteralPath $script:GenAllLogPath -Raw -ErrorAction SilentlyContinue
+            if ($raw) {
+                $lines = $raw -split "(`r`n|`n|`r)"
+                for ($i = $script:GenAllLastRead; $i -lt $lines.Count; $i++) {
+                    if (-not [string]::IsNullOrWhiteSpace($lines[$i])) { Log-Output $lines[$i] }
+                }
+                $script:GenAllLastRead = $lines.Count
+            }
+        }
+        return
+    }
 
-function On-VerifyTick {
-    if (-not $global:VerifyJob) { $global:VerifyTimer.Stop(); return }
-    if ($global:VerifyJob.State -eq "Running") { return }
-
-    $global:VerifyTimer.Stop()
+    $global:GenAllTimer.Stop()
 
     $exitCode = 1
     try {
-        $result = @(Receive-Job -Job $global:VerifyJob -ErrorAction SilentlyContinue)
+        $result = @(Receive-Job -Job $global:GenAllJob -ErrorAction SilentlyContinue)
         if ($result.Count -gt 0) { $exitCode = [int]$result[-1] }
     } catch { $exitCode = 1 }
 
-    try { Remove-Job -Job $global:VerifyJob -Force -ErrorAction SilentlyContinue } catch {}
-    $global:VerifyJob = $null
+    try { Remove-Job -Job $global:GenAllJob -Force -ErrorAction SilentlyContinue } catch {}
+    $global:GenAllJob = $null
 
-    if ($script:VerifyLogPath -and (Test-Path $script:VerifyLogPath)) {
-        Get-Content -LiteralPath $script:VerifyLogPath -Tail 200 | ForEach-Object { Log-Output $_ }
-    } else {
-        Log-Output "ERROR: Missing test log at $script:VerifyLogPath"
-    }
+    if ($exitCode -eq 0) { Log-Output "GENERATE ALL: OK." }
+    else { Log-Output "GENERATE ALL: FAILED. ExitCode=$exitCode" }
 
-    if ($exitCode -eq 0) { Log-Output "GREEN BOARD: Logic Verified." }
-    else { Log-Output "TEST FAILURE: ExitCode=$exitCode" }
-
-    $btnTest.Enabled = $true
+    $btnGenAll.Enabled = $true
 }
 
-$global:VerifyTimer.Add_Tick({ On-VerifyTick })
-
-
+$global:GenAllTimer.Add_Tick({ On-GenAllTick })
 
 # --- LOGIC ---
 
@@ -195,7 +205,7 @@ function Run-ConnectivityScan {
     }
 
     try {
-        & $ScanScript -Force
+        & $ScanScript -Force -Harden
         Log-Output "CONNECTIVITY SCAN COMPLETE."
     } catch { Log-Output "ERROR: $($_.Exception.Message)" }
 }
@@ -234,6 +244,60 @@ function Run-StatusPacket {
 
 }
 
+function Run-GenerateAll {
+    Log-Output ">>> EXEC: GENERATE ALL (Scan -> Tests -> Status -> Context)"
+
+    if ($global:GenAllJob -and $global:GenAllJob.State -eq "Running") {
+        Log-Output "Generate All already running."
+        return
+    }
+
+    if (Test-Path $script:GenAllLogPath) { Remove-Item -Force -LiteralPath $script:GenAllLogPath -ErrorAction SilentlyContinue }
+    $script:GenAllLastRead = 0
+
+    $btnGenAll.Enabled = $false
+
+    $global:GenAllJob = Start-Job -ArgumentList $ProjectRoot, $ScanScript, $StatusScript, $ContextScript, $script:GenAllLogPath -ScriptBlock {
+        param($root, $scan, $status, $context, $lp)
+
+        function W($m) {
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            $line = "[" + (Get-Date).ToString("HH:mm:ss") + "] " + $m + "`r`n"
+            [System.IO.File]::AppendAllText($lp, $line, $utf8NoBom)
+        }
+
+        try {
+            Set-Location $root
+
+            W "1) Connectivity scan"
+            & $scan -Force -Harden | Out-Null
+            W "Connectivity: done"
+
+            W "2) Tests (dotnet test SimCore.Tests)"
+            $out = (dotnet test SimCore.Tests -v minimal 2>&1) -join "`r`n"
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText((Join-Path $root "docs\generated\05_TEST_SUMMARY.txt"), $out + "`r`n", $utf8NoBom)
+            if ($LASTEXITCODE -ne 0) { throw "Tests failed. ExitCode=$LASTEXITCODE" }
+            W "Tests: passed"
+
+            W "3) Status packet"
+            & $status -Force | Out-Null
+            W "Status: done"
+
+            W "4) Context packet"
+            & $context | Out-Null
+            W "Context: done"
+
+            return 0
+        } catch {
+            W ("ERROR: " + $_.Exception.Message)
+            return 1
+        }
+    }
+
+    $global:GenAllTimer.Stop()
+    $global:GenAllTimer.Start()
+}
 
 # --- UI COMPONENTS ---
 
@@ -245,10 +309,22 @@ $lblHeader.Font = $fontHeader
 $lblHeader.AutoSize = $true
 $form.Controls.Add($lblHeader)
 
+# 0. GENERATE ALL (Gray)
+$btnGenAll = New-Object System.Windows.Forms.Button
+$btnGenAll.Text = "0. GENERATE ALL"
+$btnGenAll.Location = New-Object System.Drawing.Point(20, 40)
+$btnGenAll.Size = New-Object System.Drawing.Size(400, 45)
+$btnGenAll.Font = $fontNormal
+$btnGenAll.BackColor = "#888888"
+$btnGenAll.ForeColor = "White"
+$btnGenAll.FlatStyle = "Flat"
+$btnGenAll.Add_Click({ Run-GenerateAll })
+$form.Controls.Add($btnGenAll)
+
 # 1. TEST (Blue)
 $btnTest = New-Object System.Windows.Forms.Button
 $btnTest.Text = "1. VERIFY LOGIC (Tests)"
-$btnTest.Location = New-Object System.Drawing.Point(20, 40)
+$btnTest.Location = New-Object System.Drawing.Point(20, 95)
 $btnTest.Size = New-Object System.Drawing.Size(400, 45)
 $btnTest.Font = $fontNormal
 $btnTest.BackColor = "#007acc"
@@ -260,7 +336,7 @@ $form.Controls.Add($btnTest)
 # 2. CONTEXT (Purple)
 $btnContext = New-Object System.Windows.Forms.Button
 $btnContext.Text = "2. GENERATE PACKET"
-$btnContext.Location = New-Object System.Drawing.Point(20, 95)
+$btnContext.Location = New-Object System.Drawing.Point(20, 150)
 $btnContext.Size = New-Object System.Drawing.Size(400, 45)
 $btnContext.Font = $fontNormal
 $btnContext.BackColor = "#6a00ff"
@@ -272,7 +348,7 @@ $form.Controls.Add($btnContext)
 # 3. CONNECTIVITY (Orange - The New Button)
 $btnScan = New-Object System.Windows.Forms.Button
 $btnScan.Text = "3. SCAN CONNECTIVITY (Arch)"
-$btnScan.Location = New-Object System.Drawing.Point(20, 150)
+$btnScan.Location = New-Object System.Drawing.Point(20, 205)
 $btnScan.Size = New-Object System.Drawing.Size(400, 45)
 $btnScan.Font = $fontNormal
 $btnScan.BackColor = "#d46a00"
@@ -283,7 +359,7 @@ $form.Controls.Add($btnScan)
 
 # 4. SAVE (Green)
 $btnSave = New-Object System.Windows.Forms.Button
-$btnSave.Location = New-Object System.Drawing.Point(20, 205)
+$btnSave.Location = New-Object System.Drawing.Point(20, 260)
 $btnSave.Size = New-Object System.Drawing.Size(400, 45)
 $btnSave.Text = "4. GIT SNAPSHOT"
 $btnSave.BackColor = "#228822"
@@ -295,7 +371,7 @@ $form.Controls.Add($btnSave)
 
 # 5. STATUS PACKET (Gray)
 $btnStatus = New-Object System.Windows.Forms.Button
-$btnStatus.Location = New-Object System.Drawing.Point(20, 260)
+$btnStatus.Location = New-Object System.Drawing.Point(20, 315)
 $btnStatus.Size = New-Object System.Drawing.Size(400, 45)
 $btnStatus.Text = "5. GENERATE STATUS PACKET"
 $btnStatus.BackColor = "#444444"
@@ -307,7 +383,7 @@ $form.Controls.Add($btnStatus)
 
 # Console Output
 $txtOutput = New-Object System.Windows.Forms.TextBox
-$txtOutput.Location = New-Object System.Drawing.Point(20, 320)
+$txtOutput.Location = New-Object System.Drawing.Point(20, 375)
 $txtOutput.Size = New-Object System.Drawing.Size(400, 190)
 $txtOutput.Multiline = $true
 $txtOutput.ScrollBars = "Vertical"

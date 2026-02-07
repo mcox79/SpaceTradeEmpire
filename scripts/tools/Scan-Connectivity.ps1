@@ -162,19 +162,21 @@ function Get-ActiveExcludePrefixes {
 	)
 
 	$base = @(
-		".git/",
-		"addons/",
-		"_scratch/",
-		"docs/generated/"
-	)
+        ".git/",
+        ".godot/",
+        ".import/",
+        ".mono/",
+        "addons/",
+        "_scratch/",
+        "docs/generated/",
+        "bin/",
+        "obj/"
+    )
 
 	$harden = @(
-		"_archive/",
-		"GameShell/_DISABLED_scripts/",
-		".godot/",
-		"SimCore/bin/",
-		"SimCore/obj/"
-	)
+        "_archive/",
+        "GameShell/_DISABLED_scripts/"
+    )
 
 	$out = @()
 	foreach ($x in $base) { $out += ,(Normalize-DirPrefix $x) }
@@ -192,7 +194,7 @@ function Get-ActiveExcludePrefixes {
 	}
 
 	$out = @($out | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
-	return ,$out
+	return @($out)
 }
 
 function Is-ExcludedPath {
@@ -234,7 +236,7 @@ function Get-AllScanFiles {
 
 	$sorted = $all | Sort-Object @{ Expression = { Normalize-RepoRelPath -AbsPath $_.FullName -RootAbs $RootAbs }; Ascending = $true }
 
-	return ,@($sorted)
+	return @($sorted)
 }
 
 function Read-AllLinesSafe {
