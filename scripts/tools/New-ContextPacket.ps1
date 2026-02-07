@@ -25,7 +25,10 @@ $OutputPath = Join-Path $Root 'docs\generated\01_CONTEXT_PACKET.md'
 
 # --- 1. HEALTH ---
 $ConnectFile = Join-Path $Root 'docs\generated\connectivity_violations.json'
-$TestFile = Join-Path $Root 'SimCore\Tests\TestResults.json' 
+
+# Prefer the generated test summary artifact; keep JSON as fallback for older flows.
+$TestSummaryFile = Join-Path $Root 'docs\generated\05_TEST_SUMMARY.txt'
+$TestJsonFile = Join-Path $Root 'SimCore\Tests\TestResults.json'
 
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('### [SYSTEM HEALTH]')
@@ -43,9 +46,53 @@ if (Test-Path $ConnectFile) {
     } catch { [void]$sb.AppendLine('- [WARN] Bad Connectivity JSON.') }
 } else { [void]$sb.AppendLine('- [WARN] No Connectivity Scan found.') }
 
-if (Test-Path $TestFile) {
-    [void]$sb.AppendLine('- [INFO] Test Results found.')
-} else { [void]$sb.AppendLine('- [WARN] No Test Results found.') }
+# Test evidence (GATE.EVID.001)
+$AnyTestEvidence = $false
+
+if (Test-Path $TestSummaryFile) {
+    $AnyTestEvidence = $true
+    try {
+        $Lines = Get-Content -Path $TestSummaryFile -TotalCount 400
+
+        $SummaryLine = $null
+        foreach ($L in $Lines) {
+            if ($L -match '^\s*Passed!\s*-\s*Failed:\s*\d+,\s*Passed:\s*\d+,\s*Skipped:\s*\d+,\s*Total:\s*\d+') {
+                $SummaryLine = $L
+                break
+            }
+        }
+
+        if ($SummaryLine -ne $null) {
+            $m = [regex]::Match($SummaryLine, 'Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*(\d+),\s*Total:\s*(\d+)')
+            if ($m.Success) {
+                $Failed = [int]$m.Groups[1].Value
+                $Passed = [int]$m.Groups[2].Value
+                $Skipped = [int]$m.Groups[3].Value
+                $Total = [int]$m.Groups[4].Value
+
+                if ($Failed -gt 0) {
+                    [void]$sb.AppendLine('- [CRITICAL] Tests: Failed (' + $Failed + ' failed of ' + $Total + ')')
+                } else {
+                    [void]$sb.AppendLine('- [OK] Tests: Passed (' + $Passed + ' passed, ' + $Skipped + ' skipped, ' + $Total + ' total)')
+                }
+            } else {
+                [void]$sb.AppendLine('- [INFO] Test Results found (summary present).')
+            }
+        } else {
+            # Summary line missing, but file exists.
+            [void]$sb.AppendLine('- [INFO] Test Results found (05_TEST_SUMMARY.txt).')
+        }
+    } catch {
+        [void]$sb.AppendLine('- [WARN] Test Results found but could not be parsed (05_TEST_SUMMARY.txt).')
+    }
+} elseif (Test-Path $TestJsonFile) {
+    $AnyTestEvidence = $true
+    [void]$sb.AppendLine('- [INFO] Test Results found (TestResults.json).')
+}
+
+if (-not $AnyTestEvidence) {
+    [void]$sb.AppendLine('- [WARN] No Test Results found.')
+}
 
 # --- 2. FILE SCAN ---
 [void]$sb.AppendLine('')
@@ -62,7 +109,7 @@ foreach ($F in $Files) {
     $Rel = $F.FullName.Replace($Root.Path + '\', '').Replace('\', '/')
     $Txt = Get-Content $F.FullName
     $Lines = $Txt.Count
-    
+
     # FOCUS CHECK
     $IsFocus = $false
     foreach ($T in $Focus) { if ($Rel -like "*$T*") { $IsFocus = $true; break } }
