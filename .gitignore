@@ -79,3 +79,5 @@ Desktop.ini
 docs/generated/*
 !docs/generated/.gitkeep
 
+
+.vscodesettings.json
