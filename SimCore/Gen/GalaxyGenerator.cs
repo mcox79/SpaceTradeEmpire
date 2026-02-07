@@ -19,7 +19,6 @@ public static class GalaxyGenerator
         var nodesList = new List<Node>();
         var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
 
-        // 1. SCATTER STARS & GENERATE ECONOMY
         for (int i = 0; i < starCount; i++)
         {
             float x = (float)(rng.NextDouble() * 2 - 1) * radius;
@@ -31,63 +30,75 @@ public static class GalaxyGenerator
                 Name = $"System {i}",
                 Position = new Vector3(x, 0, z),
                 Kind = NodeKind.Star,
-                // FIX: ID UNIFICATION - MarketID must match NodeID for Slice 2 logic
                 MarketId = $"star_{i}"
             };
             state.Nodes.Add(node.Id, node);
             nodesList.Add(node);
 
-            // MARKET SETUP
             var mkt = new Market { Id = node.MarketId };
-            mkt.Inventory["fuel"] = 100;
 
-            // INDUSTRY DISTRIBUTION
+            // Always ensure keys exist for deterministic price publishing and inventory semantics.
+            mkt.Inventory["fuel"] = 100;
+            mkt.Inventory["ore"] = 0;
+            mkt.Inventory["metal"] = 0;
+
             if (i % 2 == 0)
             {
-                // MINE: Has Ore, Produces Ore
+                // MINE: produces ore, consumes fuel as upkeep (2-good upkeep for Option A tests can target any site)
                 mkt.Inventory["ore"] = 500;
-                
+
                 var mine = new IndustrySite
                 {
                     Id = $"mine_{i}",
                     NodeId = node.Id,
-                    Outputs = new Dictionary<string, int> { { "ore", 5 } }
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { "fuel", 1 },
+                        { "ore", 0 } // keep ore key present in Inputs map? no, Inputs should be meaningful only
+                    },
+                    Outputs = new Dictionary<string, int> { { "ore", 5 } },
+                    BufferDays = 1,
+                    DegradePerDayBps = 0
                 };
+
+                // Remove the dummy input so upkeep inputs are real only
+                mine.Inputs.Remove("ore");
+
                 state.IndustrySites.Add(mine.Id, mine);
                 node.Name += " (Mining)";
             }
             else
             {
-                // REFINERY: Needs Ore, Has None
-                mkt.Inventory["ore"] = 0;
-                
+                // REFINERY: consumes ore + fuel each tick, produces metal
                 var factory = new IndustrySite
                 {
                     Id = $"fac_{i}",
                     NodeId = node.Id,
-                    Inputs = new Dictionary<string, int> { { "ore", 10 } },
-                    Outputs = new Dictionary<string, int> { { "metal", 5 } }
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { "ore", 10 },
+                        { "fuel", 1 }
+                    },
+                    Outputs = new Dictionary<string, int> { { "metal", 5 } },
+                    BufferDays = 2,
+                    DegradePerDayBps = 500 // 5% health per day at full deficit
                 };
                 state.IndustrySites.Add(factory.Id, factory);
                 node.Name += " (Refinery)";
             }
-            
+
             state.Markets.Add(node.MarketId, mkt);
         }
-        
+
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
 
-        // 2. CONNECTIVITY (Simple Linear Chain for robustness in Slice 2)
-        // Ensure at least a connected graph so ships can travel
         for (int i = 0; i < nodesList.Count - 1; i++)
         {
-             CreateEdge(state, nodesList[i], nodesList[i+1]);
+            CreateEdge(state, nodesList[i], nodesList[i + 1]);
         }
-        // Loop back
-        CreateEdge(state, nodesList[nodesList.Count-1], nodesList[0]);
+        CreateEdge(state, nodesList[nodesList.Count - 1], nodesList[0]);
 
-        // 3. SPAWN AI FLEETS
         foreach (var node in nodesList)
         {
             var fleet = new Fleet

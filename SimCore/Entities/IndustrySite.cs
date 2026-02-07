@@ -7,12 +7,26 @@ public class IndustrySite
 {
     public string Id { get; set; } = "";
     public string NodeId { get; set; } = "";
-    
-    // RECIPE DEFINITION
+
+    // INPUTS/OUTPUTS:
+    // Inputs represent upkeep consumption in units per tick.
+    // Outputs represent production in units per tick (scaled by efficiency).
     public Dictionary<string, int> Inputs { get; set; } = new();
     public Dictionary<string, int> Outputs { get; set; } = new();
-    
-    // STATE
+
+    // BUFFERING:
+    // Target buffers are expressed in days of game time. One day = 1440 ticks (1 tick = 1 minute).
+    // Logistics uses this to decide when a market is short and by how much.
+    public int BufferDays { get; set; } = 1;
+
+    // DEGRADATION:
+    // HealthBps is 0..10000. DegradePerDayBps is basis points of health lost per day at full undersupply.
+    // DegradeRemainder accumulates fractional degradation deterministically.
+    public int HealthBps { get; set; } = 10000;
+    public int DegradePerDayBps { get; set; } = 0;
+    public long DegradeRemainder { get; set; } = 0;
+
+    // STATE (derived each tick by IndustrySystem)
     public float Efficiency { get; set; } = 1.0f;
     public bool Active { get; set; } = true;
 }

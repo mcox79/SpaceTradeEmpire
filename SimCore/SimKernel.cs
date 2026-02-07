@@ -47,12 +47,21 @@ public class SimKernel
             });
         }
 
+        // Resolve in-flight inventory arrivals first.
         LaneFlowSystem.Process(_state);
+
+        // Convert player intents to commands.
         IntentSystem.Process(_state);
 
+        // Apply fleet movement/state transitions.
         MovementSystem.Process(_state);
 
-        IndustrySystem.Process(_state); // SLICE 2: LOGIC ADDED
+        // Compute buffer shortages and assign logistics jobs (produces fleet jobs).
+        LogisticsSystem.Process(_state);
+
+        // Consume upkeep and produce outputs.
+        IndustrySystem.Process(_state);
+
         _state.AdvanceTick();
     }
 

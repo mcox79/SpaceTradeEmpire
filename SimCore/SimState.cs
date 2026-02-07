@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System;
 using SimCore.Intents;
 
-
 namespace SimCore;
 
 public class SimState
@@ -32,9 +31,7 @@ public class SimState
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
     [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
 
-    // GATE.INTEL.001: Local truth + remote banded intel with age
     [JsonInclude] public IntelBook Intel { get; set; } = new();
-
 
     public SimState(int seed)
     {
@@ -60,17 +57,16 @@ public class SimState
             sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
         }
 
-               foreach (var m in Markets.OrderBy(k => k.Key))
+        foreach (var m in Markets.OrderBy(k => k.Key))
         {
             sb.Append($"Mkt:{m.Key}|");
-            foreach(var kv in m.Value.Inventory.OrderBy(i => i.Key))
+            foreach (var kv in m.Value.Inventory.OrderBy(i => i.Key))
             {
                 sb.Append($"{kv.Key}:{kv.Value},");
             }
             sb.Append("|");
         }
 
-        // GATE.INTEL.001: include intel observations in hash (stable order)
         if (Intel is not null && Intel.Observations is not null && Intel.Observations.Count > 0)
         {
             foreach (var kv in Intel.Observations.OrderBy(k => k.Key, StringComparer.Ordinal))
@@ -82,11 +78,10 @@ public class SimState
 
         foreach (var s in IndustrySites.OrderBy(k => k.Key))
         {
-            sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency}|");
+            // Include tech sustainment state so determinism drift cannot hide.
+            sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency:F4}|Health:{s.Value.HealthBps}|BufD:{s.Value.BufferDays}|Rem:{s.Value.DegradeRemainder}|");
         }
 
-
-        // SLICE 3: SIGNAL HASHING
         foreach (var n in Nodes.OrderBy(k => k.Key))
         {
             if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace:F2}|");

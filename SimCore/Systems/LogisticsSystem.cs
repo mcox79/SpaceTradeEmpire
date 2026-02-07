@@ -9,16 +9,15 @@ public static class LogisticsSystem
 {
     public static void Process(SimState state)
     {
-        // 1. Identify Shortages (Industry Demand vs Market Inventory)
+        // 1. Identify Shortages (Industry buffer targets vs Market Inventory)
         var shortages = new List<(string MarketId, string GoodId, int Amount)>();
-        
+
         foreach (var site in state.IndustrySites.Values)
         {
-            // Resolve Market for this Site (via Node)
+            if (!site.Active) continue;
             if (string.IsNullOrEmpty(site.NodeId)) continue;
-            
-            // Assumption: MarketId is often same as NodeId or linked. 
-            // For now, look up Market by ID matching Node, or check Node's MarketId if nodes exist
+
+            // Resolve Market for this Site (via Node)
             string marketId = site.NodeId; // Default fallback
             if (state.Nodes.TryGetValue(site.NodeId, out var node) && !string.IsNullOrEmpty(node.MarketId))
             {
@@ -30,12 +29,15 @@ public static class LogisticsSystem
             foreach (var input in site.Inputs)
             {
                 string goodId = input.Key;
-                int required = input.Value;
+                int perTick = input.Value;
+                if (perTick <= 0) continue;
+
+                int target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
                 int current = market.Inventory.GetValueOrDefault(goodId, 0);
-                
-                if (current < required)
+
+                if (current < target)
                 {
-                    shortages.Add((market.Id, goodId, required - current));
+                    shortages.Add((market.Id, goodId, target - current));
                 }
             }
         }
@@ -43,11 +45,9 @@ public static class LogisticsSystem
         // 2. Assign Fleets to Shortages
         foreach (var task in shortages)
         {
-            // Find a fleet that is IDLE
             var fleet = state.Fleets.Values.FirstOrDefault(f => f.State == FleetState.Idle);
             if (fleet == null) continue;
 
-            // Find a supplier
             var supplier = FindSupplier(state, task.GoodId, task.MarketId);
             if (supplier != null)
             {
@@ -59,7 +59,7 @@ public static class LogisticsSystem
     private static Market? FindSupplier(SimState state, string goodId, string excludeMarketId)
     {
         return state.Markets.Values
-            .FirstOrDefault(m => m.Id != excludeMarketId && 
+            .FirstOrDefault(m => m.Id != excludeMarketId &&
                                  m.Inventory.GetValueOrDefault(goodId, 0) > 10);
     }
 
@@ -70,15 +70,13 @@ public static class LogisticsSystem
 
         if (sourceNode == null || destNode == null) return;
 
-        // Route Verification
         string? nextHop = GetNextHop(state, fleet.CurrentNodeId, sourceNode);
         if (nextHop == null && fleet.CurrentNodeId != sourceNode) return;
 
-        // Assign Orders
         fleet.State = FleetState.Traveling;
         fleet.DestinationNodeId = sourceNode;
         fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
-        
+
         fleet.CurrentJob = new LogisticsJob
         {
             GoodId = goodId,
@@ -90,13 +88,11 @@ public static class LogisticsSystem
 
     private static string? GetNodeForMarket(SimState state, string marketId)
     {
-        // Try explicit link
         var linkedNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == marketId);
         if (linkedNode != null) return linkedNode.Id;
-        
-        // Fallback: Check if MarketId is itself a NodeId
+
         if (state.Nodes.ContainsKey(marketId)) return marketId;
-        
+
         return null;
     }
 
