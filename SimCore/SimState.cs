@@ -32,6 +32,10 @@ public class SimState
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
     [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
 
+    // GATE.INTEL.001: Local truth + remote banded intel with age
+    [JsonInclude] public IntelBook Intel { get; set; } = new();
+
+
     public SimState(int seed)
     {
         InitialSeed = seed;
@@ -56,7 +60,7 @@ public class SimState
             sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
         }
 
-        foreach (var m in Markets.OrderBy(k => k.Key))
+               foreach (var m in Markets.OrderBy(k => k.Key))
         {
             sb.Append($"Mkt:{m.Key}|");
             foreach(var kv in m.Value.Inventory.OrderBy(i => i.Key))
@@ -66,10 +70,21 @@ public class SimState
             sb.Append("|");
         }
 
+        // GATE.INTEL.001: include intel observations in hash (stable order)
+        if (Intel is not null && Intel.Observations is not null && Intel.Observations.Count > 0)
+        {
+            foreach (var kv in Intel.Observations.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var obs = kv.Value;
+                sb.Append($"Intel:{kv.Key}@{obs.ObservedTick}={obs.ObservedInventoryQty}|");
+            }
+        }
+
         foreach (var s in IndustrySites.OrderBy(k => k.Key))
         {
             sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency}|");
         }
+
 
         // SLICE 3: SIGNAL HASHING
         foreach (var n in Nodes.OrderBy(k => k.Key))
