@@ -180,19 +180,19 @@ Status: TODO
 ### B2. Slice 1 critical gates
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
-| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/* |
-| GATE.INTENT.001 | Deterministic intent pipeline exists | DONE | SimCore.Tests/* |
+| GATE.TIME.001 | 60x time contract enforced: 1s real = 1 min sim, no acceleration | DONE | SimCore.Tests/Time/TimeContractTests.cs |
+| GATE.INTENT.001 | Deterministic intent pipeline exists | DONE | SimCore.Tests/Intents/IntentSystemTests.cs |
 | GATE.WORLD.001 | 2 stations, 1 lane, 2 goods micro-world config | DONE | tests + config paths |
 | GATE.STA.001 | Station inventory ledger and invariants | DONE | tests |
 | GATE.LANE.001 | Lane flow with deterministic delay arrivals | DONE | tests |
 | GATE.MKT.001 | Inventory-based pricing with spread | DONE | tests |
 | GATE.MKT.002 | Price publish cadence every 12 game hours | DONE | SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
 | GATE.INTEL.001 | Local truth, remote banded intel + age | DONE | SimCore.Tests/Systems/IntelContractTests.cs |
-| GATE.UI.001 | Minimal panel shows inventory, price, intel age | TODO | UI path |
-| GATE.UI.002 | Buy/sell generates intent, no direct mutation | TODO | tests + UI path |
-| GATE.DET.001 | 10,000 tick run stable world hash | TODO | test output |
-| GATE.SAVE.001 | Save/load round trip preserves hash | TODO | test output |
-| GATE.INV.001 | Invariants suite passes | TODO | test output |
+| GATE.UI.001 | Minimal panel shows inventory, price, intel age | DONE | scripts/ui/StationMenu.cs (IntelAge(t) + market list) + scripts/bridge/SimBridge.cs (GetIntelAgeTicks/GetMarketPrice) |
+| GATE.UI.002 | Buy/sell generates intent, no direct mutation | DONE | scripts/ui/StationMenu.cs (SubmitBuyIntent/SubmitSellIntent) + scripts/bridge/SimBridge.cs (EnqueueIntent + BuyIntent/SellIntent path) + SimCore/Intents/BuyIntent.cs; SimCore/Intents/SellIntent.cs |
+| GATE.DET.001 | 10,000 tick run stable world hash | DONE | SimCore.Tests/Determinism/LongRunWorldHashTests.cs + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.SAVE.001 | Save/load round trip preserves hash | DONE | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.INV.001 | Invariants suite passes | DONE | SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs + docs/generated/05_TEST_SUMMARY.txt |
 
 ### B3. Slice 1.5 sustainment gates
 | Gate ID | Gate | Status | Evidence |
@@ -214,5 +214,11 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-06, main, GATE.INTENT.001 DONE (intent queue + deterministic ordering), tests: SimCore.Tests/Intents/IntentSystemTests.cs
 - 2026-02-06, main, GATE.MKT.002 DONE (published prices update every 720 ticks), tests: SimCore.Tests/Systems/MarketPublishCadenceTests.cs
 - 2026-02-06, main, GATE.INTEL.001 DONE (local truth, remote banded intel + age), tests: SimCore.Tests/Systems/IntelContractTests.cs
+- 2026-02-06, main, GATE.DET.001 DONE (10,000 tick determinism), tests: SimCore.Tests/Determinism/LongRunWorldHashTests.cs, evidence: docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-06, main, GATE.SAVE.001 DONE (save/load preserves world hash), tests: SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs, evidence: docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-06, main, GATE.INV.001 DONE (invariants suite), tests: SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs, evidence: docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-06, main, GATE.UI.001 DONE (StationMenu shows inventory, price, intel age), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs
+- 2026-02-06, main, GATE.UI.002 DONE (StationMenu submits buy/sell intents via bridge, no TradeCommand in UI), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Intents/BuyIntent.cs; SimCore/Intents/SellIntent.cs
+- 2026-02-06, main, SimCore regression run PASS (dotnet test SimCore.Tests.csproj: 40 passed, 0 failed). Determinism, long-run, and save/load hashes printed in test output.
 
 

@@ -9,14 +9,14 @@ public class SimKernel
     private SimState _state;
     private ConcurrentQueue<ICommand> _commandQueue = new();
     private ConcurrentQueue<SimCore.Intents.IIntent> _intentQueue = new();
-    public SimState State => _state; 
+    public SimState State => _state;
 
     public SimKernel(int seed)
     {
         _state = new SimState(seed);
     }
 
-        public void EnqueueCommand(ICommand cmd)
+    public void EnqueueCommand(ICommand cmd)
     {
         _commandQueue.Enqueue(cmd);
     }
@@ -28,7 +28,6 @@ public class SimKernel
 
     public void Step()
     {
-
         while (_commandQueue.TryDequeue(out var cmd))
         {
             cmd.Execute(_state);
@@ -65,6 +64,12 @@ public class SimKernel
     public void LoadFromString(string data)
     {
         var loaded = SerializationSystem.Deserialize(data);
-        if (loaded != null) _state = loaded;
+        if (loaded != null)
+        {
+            _state = loaded;
+
+            // Critical for determinism + save/load: ensure derived/transient fields are re-hydrated.
+            _state.HydrateAfterLoad();
+        }
     }
 }

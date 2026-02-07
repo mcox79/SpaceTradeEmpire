@@ -1,5 +1,5 @@
 # Normalize text files, then pin EOL where it matters
-* text=auto
+* text=auto eol=lf
 
 # Godot sources: always LF
 *.gd   text eol=lf
