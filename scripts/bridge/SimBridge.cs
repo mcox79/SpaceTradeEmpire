@@ -362,6 +362,62 @@ public partial class SimBridge : Node
                 }
         }
 
+                public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
+        {
+                var arr = new Godot.Collections.Array();
+                if (IsLoading) return arr;
+                if (string.IsNullOrWhiteSpace(marketId)) return arr;
+
+                _stateLock.EnterReadLock();
+                try
+                {
+                        var state = _kernel.State;
+
+                        var sites = SustainmentReport.BuildForNode(state, marketId);
+
+                        foreach (var s in sites)
+                        {
+                                var d = new Godot.Collections.Dictionary
+                                {
+                                        ["site_id"] = s.SiteId,
+                                        ["node_id"] = s.NodeId,
+                                        ["health_bps"] = s.HealthBps,
+                                        ["eff_bps_now"] = s.EffBpsNow,
+                                        ["degrade_per_day_bps"] = s.DegradePerDayBps,
+                                        ["worst_buffer_margin"] = s.WorstBufferMargin,
+                                        ["time_to_starve_ticks"] = s.TimeToStarveTicks,
+                                        ["time_to_starve_days"] = s.TimeToStarveDays,
+                                        ["time_to_failure_ticks"] = s.TimeToFailureTicks,
+                                        ["time_to_failure_days"] = s.TimeToFailureDays
+                                };
+
+                                var inputsArr = new Godot.Collections.Array();
+                                foreach (var inp in s.Inputs)
+                                {
+                                        inputsArr.Add(new Godot.Collections.Dictionary
+                                        {
+                                                ["good_id"] = inp.GoodId,
+                                                ["have_units"] = inp.HaveUnits,
+                                                ["per_tick_required"] = inp.PerTickRequired,
+                                                ["buffer_target_units"] = inp.BufferTargetUnits,
+                                                ["coverage_ticks"] = inp.CoverageTicks,
+                                                ["coverage_days"] = inp.CoverageDays,
+                                                ["buffer_margin"] = inp.BufferMargin
+                                        });
+                                }
+
+                                d["inputs"] = inputsArr;
+                                arr.Add(d);
+                        }
+
+                        return arr;
+                }
+                finally
+                {
+                        _stateLock.ExitReadLock();
+                }
+        }
+
         // GDScript-friendly snapshot accessor
         public Godot.Collections.Dictionary GetPlayerSnapshot()
         {

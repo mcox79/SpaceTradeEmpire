@@ -217,9 +217,9 @@ Status: TODO
 | GATE.TECH.001 | One tech requires 2 goods per tick to remain enabled | DONE | SimCore.Tests/Sustainment/TechUpkeepConsumesGoodsTests.cs |
 | GATE.TECH.002 | Buffers sized in days of game time | DONE | SimCore.Tests/Sustainment/BufferSizingDaysTests.cs |
 | GATE.TECH.003 | Deterministic degradation under undersupply | DONE | SimCore.Tests/Sustainment/DeterministicDegradationTests.cs |
-| GATE.UI.101 | UI shows sustainment margin and time-to-failure | TODO | UI path |
-| GATE.DET.101 | Sustainment determinism regression passes | TODO | test output |
-| GATE.INV.101 | Buffer math invariants pass | TODO | test output |
+| GATE.UI.101 | UI shows sustainment margin and time-to-failure | DONE | scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Systems/SustainmentReport.cs |
+| GATE.DET.101 | Sustainment determinism regression passes | DONE | SimCore.Tests/Sustainment/SustainmentDeterminismRegressionTests.cs |
+| GATE.INV.101 | Buffer math invariants pass | DONE | SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs |
 
 ### B4. Slice 2 programs gates (v1)
 | Gate ID | Gate | Status | Evidence |
@@ -256,4 +256,7 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-06, main, Added Slice 2 v1 scope lock and B4 Slice 2 gate table (all TODO)
 - 2026-02-06, main, Pinned Slice 1 evidence paths from docs/generated/evidence/* (World001, lane flow, inventory ledger, market tests)
 - 2026-02-07, main, GATE.TECH.001/002/003 DONE (tech upkeep inputs, buffer sizing in days, deterministic degradation; logistics wired into tick), tests: SimCore.Tests/Sustainment/TechUpkeepConsumesGoodsTests.cs; SimCore.Tests/Sustainment/BufferSizingDaysTests.cs; SimCore.Tests/Sustainment/DeterministicDegradationTests.cs
+- 2026-02-07, main, GATE.TEST.002 DONE (golden replay snapshot updated to match deterministic genesis+final hashes), tests: SimCore.Tests/Determinism/LongRunWorldHashTests.cs, evidence: docs/generated/snapshots/golden_replay_hashes.txt
+- 2026-02-07, main, GATE.DET.101 + GATE.INV.101 DONE (sustainment determinism regression + buffer math invariants), tests: SimCore.Tests/Sustainment/SustainmentDeterminismRegressionTests.cs; SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs
+- 2026-02-07, main, GATE.UI.101 DONE (StationMenu shows sustainment margin + time-to-failure via bridge + SustainmentReport), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Systems/SustainmentReport.cs
 

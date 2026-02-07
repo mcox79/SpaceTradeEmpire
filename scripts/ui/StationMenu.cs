@@ -13,7 +13,9 @@ public partial class StationMenu : Control
     private Label _titleLabel;
     private VBoxContainer _marketList;
     private VBoxContainer _trafficList;
+    private VBoxContainer _sustainmentList;
     private Label _creditsLabel;
+
 
     private SimBridge _bridge;
     private string _currentMarketId = "";
@@ -55,6 +57,16 @@ public partial class StationMenu : Control
 
         _trafficList = new VBoxContainer();
         vbox.AddChild(_trafficList);
+
+        vbox.AddChild(new HSeparator());
+        vbox.AddChild(new Label { Text = "SUSTAINMENT", Modulate = new Color(0.8f, 1f, 0.8f) });
+
+        var susScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 140) };
+        vbox.AddChild(susScroll);
+
+        _sustainmentList = new VBoxContainer();
+        susScroll.AddChild(_sustainmentList);
+
 
         vbox.AddChild(new HSeparator());
         var closeBtn = new Button { Text = "Undock" };
@@ -190,6 +202,61 @@ public partial class StationMenu : Control
             {
                 _trafficList.AddChild(new Label { Text = $"> {f.Id}: {f.CurrentTask}" });
             }
+
+                        foreach (var child in _sustainmentList.GetChildren()) child.QueueFree();
+
+            var sus = _bridge.GetSustainmentSnapshot(_currentMarketId);
+            if (sus.Count == 0)
+            {
+                _sustainmentList.AddChild(new Label { Text = "(no active industry sites)" });
+            }
+            else
+            {
+                foreach (var v in sus)
+                {
+                    if (v.Obj is not Godot.Collections.Dictionary d) continue;
+
+                    string siteId = d.ContainsKey("site_id") ? d["site_id"].ToString() : "?";
+                    int healthBps = d.ContainsKey("health_bps") ? (int)d["health_bps"] : 0;
+                    int effBps = d.ContainsKey("eff_bps_now") ? (int)d["eff_bps_now"] : 0;
+
+                    float worstMargin = d.ContainsKey("worst_buffer_margin") ? (float)d["worst_buffer_margin"] : 0f;
+
+                    int tStarve = d.ContainsKey("time_to_starve_ticks") ? (int)d["time_to_starve_ticks"] : -1;
+                    float dStarve = d.ContainsKey("time_to_starve_days") ? (float)d["time_to_starve_days"] : 0f;
+
+                    int tFail = d.ContainsKey("time_to_failure_ticks") ? (int)d["time_to_failure_ticks"] : -1;
+                    float dFail = d.ContainsKey("time_to_failure_days") ? (float)d["time_to_failure_days"] : 0f;
+
+                    var header = new Label
+                    {
+                        Text = $"{siteId} | Health(bps): {healthBps} | Eff(bps): {effBps} | Margin: {worstMargin:0.00} | Starve: {tStarve}t ({dStarve:0.00}d) | Fail: {tFail}t ({dFail:0.00}d)"
+                    };
+                    _sustainmentList.AddChild(header);
+
+                    if (d.ContainsKey("inputs") && d["inputs"].Obj is Godot.Collections.Array inputsArr)
+                    {
+                        foreach (var iv in inputsArr)
+                        {
+                            if (iv.Obj is not Godot.Collections.Dictionary id) continue;
+
+                            string good = id.ContainsKey("good_id") ? id["good_id"].ToString() : "?";
+                            int have = id.ContainsKey("have_units") ? (int)id["have_units"] : 0;
+                            int perTick = id.ContainsKey("per_tick_required") ? (int)id["per_tick_required"] : 0;
+                            int target = id.ContainsKey("buffer_target_units") ? (int)id["buffer_target_units"] : 0;
+                            int covT = id.ContainsKey("coverage_ticks") ? (int)id["coverage_ticks"] : 0;
+                            float covD = id.ContainsKey("coverage_days") ? (float)id["coverage_days"] : 0f;
+                            float m = id.ContainsKey("buffer_margin") ? (float)id["buffer_margin"] : 0f;
+
+                            _sustainmentList.AddChild(new Label
+                            {
+                                Text = $"  - {good}: have {have}, req/t {perTick}, target {target}, cover {covT}t ({covD:0.00}d), margin {m:0.00}"
+                            });
+                        }
+                    }
+                }
+            }
+
         });
 
         GetTree().CreateTimer(0.1).Timeout += Refresh;
