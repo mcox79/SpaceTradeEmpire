@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "programKinds": [
+    "AUTO_BUY"
+  ],
+  "programInstance": {
+    "required": [
+      "Id",
+      "Kind",
+      "Status",
+      "CreatedTick",
+      "CadenceTicks",
+      "NextRunTick",
+      "LastRunTick",
+      "MarketId",
+      "GoodId",
+      "Quantity"
+    ],
+    "notes": [
+      "This is a documentation schema (not a runtime validator yet).",
+      "Ordering and determinism are enforced by code: iterate programs sorted by Id.",
+      "Programs must emit intents only; direct ledger mutations belong in commands/systems."
+    ]
+  },
+  "programExplainPayload": {
+    "version": 1,
+    "required": [
+      "Version",
+      "Tick",
+      "Programs"
+    ],
+    "programEntryRequired": [
+      "Id",
+      "Kind",
+      "Status",
+      "CadenceTicks",
+      "NextRunTick",
+      "LastRunTick",
+      "MarketId",
+      "GoodId",
+      "Quantity"
+    ]
+  }
+}

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System;
 using SimCore.Intents;
+using SimCore.Programs;
 
 namespace SimCore;
 
@@ -24,6 +25,10 @@ public class SimState
 
     [JsonInclude] public long NextIntentSeq { get; set; } = 1;
     [JsonInclude] public List<IntentEnvelope> PendingIntents { get; private set; } = new();
+
+    // Programs (Slice 2 foundation)
+    [JsonInclude] public long NextProgramSeq { get; set; } = 1;
+    [JsonInclude] public ProgramBook Programs { get; set; } = new();
 
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
 
@@ -44,7 +49,65 @@ public class SimState
     public SimState() { }
 
     public void AdvanceTick() => Tick++;
-    public void HydrateAfterLoad() => Rng = new Random(InitialSeed + Tick);
+
+    public void HydrateAfterLoad()
+    {
+        Rng = new Random(InitialSeed + Tick);
+        Programs ??= new ProgramBook();
+
+        // IMPORTANT: IntentEnvelope.Intent is JsonIgnore (not persisted).
+        // After load, any PendingIntents would have null Intent and silently do nothing.
+        // Until GATE.SAVE.001 defines intent persistence, we discard pending intents explicitly.
+        PendingIntents ??= new List<IntentEnvelope>();
+        PendingIntents.Clear();
+    }
+
+    /// <summary>
+    /// Deterministic entrypoint for systems to enqueue intents.
+    /// Mirrors SimKernel's wrap behavior (Seq, tick, kind).
+    /// </summary>
+    public void EnqueueIntent(IIntent intent)
+    {
+        if (intent is null) return;
+
+        var seq = NextIntentSeq;
+        NextIntentSeq = checked(NextIntentSeq + 1);
+
+        PendingIntents.Add(new IntentEnvelope
+        {
+            Seq = seq,
+            CreatedTick = Tick,
+            Kind = intent.Kind,
+            Intent = intent
+        });
+    }
+
+    /// <summary>
+    /// Creates a deterministic program id and adds the instance to the book.
+    /// </summary>
+    public string CreateAutoBuyProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.AutoBuy,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            MarketId = marketId ?? "",
+            GoodId = goodId ?? "",
+            Quantity = quantity
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
 
     public string GetSignature()
     {
@@ -65,6 +128,15 @@ public class SimState
                 sb.Append($"{kv.Key}:{kv.Value},");
             }
             sb.Append("|");
+        }
+
+        if (Programs is not null && Programs.Instances is not null && Programs.Instances.Count > 0)
+        {
+            foreach (var kv in Programs.Instances.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var p = kv.Value;
+                sb.Append($"Prog:{p.Id}|K:{p.Kind}|S:{p.Status}|Cad:{p.CadenceTicks}|Nx:{p.NextRunTick}|Ls:{p.LastRunTick}|M:{p.MarketId}|G:{p.GoodId}|Q:{p.Quantity}|");
+            }
         }
 
         if (Intel is not null && Intel.Observations is not null && Intel.Observations.Count > 0)

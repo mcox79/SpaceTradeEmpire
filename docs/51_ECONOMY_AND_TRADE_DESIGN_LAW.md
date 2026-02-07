@@ -253,7 +253,17 @@ Every commodity must declare:
 
 &nbsp; - Luxury (non-essential): affects reputation, soft power, and margins but not survival
 
+Modules (Player Ship only, v1):
 
+- Modules are goods. They are tradeable inventory items that can be bought/sold/stockpiled like any other good.
+- Default declarations for module-goods:
+  - Handling class: `Container`
+  - Decay model: none
+  - Substitution group: `Modules` (no automatic substitution; module choice is player-driven)
+  - Economic role: `Strategic` by default (may be `Luxury` for non-functional variants)
+- Installability rule (locked):
+  - Only the Player Ship may install/uninstall modules via intents at tick boundaries.
+  - Fleets do not use per-ship modules; fleet capability changes remain via fleet-level Packages/Doctrines/Programs.
 
 \### 3.3 Minimum substitution
 

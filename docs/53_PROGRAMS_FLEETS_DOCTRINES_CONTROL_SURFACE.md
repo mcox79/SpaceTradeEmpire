@@ -16,7 +16,8 @@ Canonical consistency rule:
 ---
 
 ## 0. Design-Law (Non-Negotiables)
-- No ship-level UI. No per-ship fitting. No per-ship waypointing.
+- No ship-level UI for fleets. No per-ship fitting for fleets. No per-ship waypointing for fleets.
+- Single exception: the Player Ship is a unique entity with ship-level UI and module fitting. This exception does not extend to fleets or NPC ships.
 - Player controls Programs, Fleets as capacity pools, Doctrines, Upgrade Packages, Budgets, and Policies.
 - SimCore owns dispatch and routing. GameShell renders and issues intents.
 - Every meaningful simulation outcome must be deterministic and explainable.
@@ -30,6 +31,15 @@ Friction law (required to prevent “optimizer magic”):
 
 Override law (required to prevent helplessness):
 - Players must have high-level interrupts (Alerts and mitigations) that can meaningfully change outcomes without ship-level orders.
+
+---
+
+0.1 Player Ship exception (bounded)
+
+- The Player Ship is the only ship that may be directly piloted and fitted.
+- Player Ship fitting is allowed via a dedicated UI surface (Loadout).
+- Player Ship modules are inventory items (tradeable) and install via intents at tick boundaries.
+- No other ships expose ship-level UI, fitting, waypointing, or per-ship inventories.
 
 ---
 
@@ -47,11 +57,15 @@ Allowed actions:
 - Respond to Alerts (high-level mitigations only)
 
 Explicitly disallowed:
-- Per-ship orders
-- Per-ship upgrades
-- Route waypointing and per-fleet routing
-- Manual delivery routing for construction or sustainment
-- Any UI that exposes individual ship inventories as a primary control surface (aggregates only)
+- Per-ship orders (fleets only)
+- Per-ship upgrades (fleets only)
+- Route waypointing and per-fleet routing (fleets only)
+- Any UI that exposes individual ship inventories as a primary control surface (fleets and NPC ships only, aggregates only)
+
+Explicitly allowed for Player Ship:
+- Pilot locally
+- Fit and uninstall modules
+- See Player Ship inventory (cargo plus installed modules)
 
 ---
 

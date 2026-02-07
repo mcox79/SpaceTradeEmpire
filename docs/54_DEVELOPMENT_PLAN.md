@@ -61,7 +61,7 @@ Status: DONE
 Purpose: Prove “industry enablement depends on supply” with clear failure modes and UI.
 
 Gates: (tracked in section B)
-Status: TODO
+Status: DONE
 
 ---
 
@@ -224,16 +224,16 @@ Status: TODO
 ### B4. Slice 2 programs gates (v1)
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
-| GATE.PROG.001 | Program schema v1 exists (TradeProgram only) and is versioned | TODO | schema file path + tests |
+| GATE.PROG.001 | Program schema v1 exists (TradeProgram only) and is versioned | DONE | SimCore/Schemas/ProgramSchema.json + SimCore.Tests/Programs/ProgramContractTests.cs (PROG_001) |
 | GATE.FLEET.001 | Fleet binding v1 exists (single trader fleet) and is deterministic | TODO | tests |
 | GATE.DOCTRINE.001 | DefaultDoctrine exists (max 2 toggles) and is deterministic | TODO | tests |
 | GATE.QUOTE.001 | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | TODO | tests + golden snapshot |
-| GATE.EXPLAIN.001 | Explain events are schema-bound (no free-text) for quote and outcomes | TODO | tests enforcing schema |
-| GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | TODO | tests (intent emission) |
+| GATE.EXPLAIN.001 | Explain events are schema-bound (no free-text) for quote and outcomes | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (EXPLAIN_001) |
+| GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
 | GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | TODO | integration test |
-| GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | TODO | scripts/bridge/SimBridge.cs + integration test |
+| GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | DONE | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
 | GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | TODO | UI path + bridge path |
-| GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | TODO | test output + hash snapshot |
+| GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
 
 ---
 
@@ -259,4 +259,6 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-07, main, GATE.TEST.002 DONE (golden replay snapshot updated to match deterministic genesis+final hashes), tests: SimCore.Tests/Determinism/LongRunWorldHashTests.cs, evidence: docs/generated/snapshots/golden_replay_hashes.txt
 - 2026-02-07, main, GATE.DET.101 + GATE.INV.101 DONE (sustainment determinism regression + buffer math invariants), tests: SimCore.Tests/Sustainment/SustainmentDeterminismRegressionTests.cs; SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs
 - 2026-02-07, main, GATE.UI.101 DONE (StationMenu shows sustainment margin + time-to-failure via bridge + SustainmentReport), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Systems/SustainmentReport.cs
+- 2026-02-07, main, GATE.PROG.001 + GATE.PROG.EXEC.001 + GATE.EXPLAIN.001 DONE (program schema present and versioned; program explain is schema-bound + deterministic; programs emit intents only), tests: SimCore.Tests/Programs/ProgramContractTests.cs, evidence: SimCore/Schemas/ProgramSchema.json
+- 2026-02-07, main, GATE.BRIDGE.PROG.001 + GATE.DET.PROG.001 DONE (bridge program lifecycle via commands; determinism and save/load include programs), tests: SimCore.Tests/Programs/ProgramLifecycleContractTests.cs; SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs; SimCore.Tests/Determinism/ProgramDeterminismTests.cs; SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs, evidence: scripts/bridge/SimBridge.cs
 

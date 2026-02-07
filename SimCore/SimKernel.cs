@@ -1,5 +1,6 @@
 using SimCore.Commands;
 using SimCore.Systems;
+using SimCore.Programs;
 using System.Collections.Concurrent;
 
 namespace SimCore;
@@ -35,22 +36,17 @@ public class SimKernel
 
         while (_intentQueue.TryDequeue(out var intent))
         {
-            var seq = _state.NextIntentSeq;
-            _state.NextIntentSeq = checked(_state.NextIntentSeq + 1);
-
-            _state.PendingIntents.Add(new SimCore.Intents.IntentEnvelope
-            {
-                Seq = seq,
-                CreatedTick = _state.Tick,
-                Kind = intent.Kind,
-                Intent = intent
-            });
+            // Use SimState's deterministic intent wrapper.
+            _state.EnqueueIntent(intent);
         }
 
         // Resolve in-flight inventory arrivals first.
         LaneFlowSystem.Process(_state);
 
-        // Convert player intents to commands.
+        // Programs emit intents only (no direct ledger mutation).
+        ProgramSystem.Process(_state);
+
+        // Convert intents to commands.
         IntentSystem.Process(_state);
 
         // Apply fleet movement/state transitions.

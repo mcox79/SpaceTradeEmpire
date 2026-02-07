@@ -38,7 +38,16 @@ New locked boundary rule (from doc 52):
 - SimCore applies Intents only on tick boundaries.
 - This boundary must be enforceable by interface shape and connectivity rules, not “convention.”
 
+Player Ship fitting boundary (explicit exception, still respects layering):
 
+- GameShell owns: input mapping, camera, presentation, and the local Player Ship scene/controller.
+- SimCore owns: canonical Player Ship loadout state, module rules, and stat recomputation.
+- GameShell may not change Player Ship loadout directly. It must issue Intents, such as:
+  - `InstallModule`
+  - `UninstallModule`
+  - `SwapModule`
+- Adapters translate Godot-side UI/actions into these intents and translate SimCore state back into UI display data.
+- SimCore must not reference any Godot types or scene objects when evaluating module rules or recomputing stats.
 
 ## C. Connectivity map (v0): current scanner behavior (what exists today)
 

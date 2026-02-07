@@ -6,8 +6,10 @@ using SimCore.Gen;
 using SimCore.Commands;
 using SimCore.Intents;
 using SimCore.Systems;
+using SimCore.Programs;
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -362,7 +364,7 @@ public partial class SimBridge : Node
                 }
         }
 
-                public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
+        public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
         {
                 var arr = new Godot.Collections.Array();
                 if (IsLoading) return arr;
@@ -373,7 +375,7 @@ public partial class SimBridge : Node
                 {
                         var state = _kernel.State;
 
-                        var sites = SustainmentReport.BuildForNode(state, marketId);
+                        var sites = SustainmentSnapshot.BuildForNode(state, marketId);
 
                         foreach (var s in sites)
                         {
@@ -385,10 +387,14 @@ public partial class SimBridge : Node
                                         ["eff_bps_now"] = s.EffBpsNow,
                                         ["degrade_per_day_bps"] = s.DegradePerDayBps,
                                         ["worst_buffer_margin"] = s.WorstBufferMargin,
+
                                         ["time_to_starve_ticks"] = s.TimeToStarveTicks,
                                         ["time_to_starve_days"] = s.TimeToStarveDays,
                                         ["time_to_failure_ticks"] = s.TimeToFailureTicks,
-                                        ["time_to_failure_days"] = s.TimeToFailureDays
+                                        ["time_to_failure_days"] = s.TimeToFailureDays,
+
+                                        ["starve_band"] = s.StarveBand,
+                                        ["fail_band"] = s.FailBand
                                 };
 
                                 var inputsArr = new Godot.Collections.Array();
@@ -400,9 +406,12 @@ public partial class SimBridge : Node
                                                 ["have_units"] = inp.HaveUnits,
                                                 ["per_tick_required"] = inp.PerTickRequired,
                                                 ["buffer_target_units"] = inp.BufferTargetUnits,
+
                                                 ["coverage_ticks"] = inp.CoverageTicks,
                                                 ["coverage_days"] = inp.CoverageDays,
-                                                ["buffer_margin"] = inp.BufferMargin
+                                                ["buffer_margin"] = inp.BufferMargin,
+
+                                                ["coverage_band"] = inp.CoverageBand
                                         });
                                 }
 
@@ -410,6 +419,109 @@ public partial class SimBridge : Node
                                 arr.Add(d);
                         }
 
+                        return arr;
+                }
+                finally
+                {
+                        _stateLock.ExitReadLock();
+                }
+        }
+
+
+
+        // --- Programs: bridge lifecycle + explain snapshots ---
+
+        public string CreateAutoBuyProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+        {
+                if (IsLoading) return "";
+                if (string.IsNullOrWhiteSpace(marketId)) return "";
+                if (string.IsNullOrWhiteSpace(goodId)) return "";
+                if (quantity <= 0) return "";
+                if (cadenceTicks <= 0) cadenceTicks = 1;
+
+                _stateLock.EnterWriteLock();
+                try
+                {
+                        return _kernel.State.CreateAutoBuyProgram(marketId, goodId, quantity, cadenceTicks);
+                }
+                finally
+                {
+                        _stateLock.ExitWriteLock();
+                }
+        }
+
+        public bool StartProgram(string programId)
+        {
+                return EnqueueProgramStatus(programId, ProgramStatus.Running);
+        }
+
+        public bool PauseProgram(string programId)
+        {
+                return EnqueueProgramStatus(programId, ProgramStatus.Paused);
+        }
+
+        public bool CancelProgram(string programId)
+        {
+                return EnqueueProgramStatus(programId, ProgramStatus.Cancelled);
+        }
+
+        private bool EnqueueProgramStatus(string programId, ProgramStatus status)
+        {
+                if (IsLoading) return false;
+                if (string.IsNullOrWhiteSpace(programId)) return false;
+
+                _stateLock.EnterWriteLock();
+                try
+                {
+                        _kernel.EnqueueCommand(new SetProgramStatusCommand(programId, status));
+                        return true;
+                }
+                finally
+                {
+                        _stateLock.ExitWriteLock();
+                }
+        }
+
+
+        public Godot.Collections.Array GetProgramExplainSnapshot()
+        {
+                var arr = new Godot.Collections.Array();
+                if (IsLoading) return arr;
+
+                _stateLock.EnterReadLock();
+                try
+                {
+                        var payload = ProgramExplain.Build(_kernel.State);
+                        var json = ProgramExplain.ToDeterministicJson(payload);
+
+                        // Convert schema-bound JSON payload into GDScript-friendly dictionaries.
+                        using var doc = System.Text.Json.JsonDocument.Parse(json);
+                        var root = doc.RootElement;
+
+                        if (!root.TryGetProperty("Programs", out var progs) || progs.ValueKind != System.Text.Json.JsonValueKind.Array)
+                                return arr;
+
+                        foreach (var item in progs.EnumerateArray())
+                        {
+                                var d = new Godot.Collections.Dictionary
+                                {
+                                        ["id"] = item.GetProperty("Id").GetString() ?? "",
+                                        ["kind"] = item.GetProperty("Kind").GetString() ?? "",
+                                        ["status"] = item.GetProperty("Status").GetString() ?? "",
+                                        ["cadence_ticks"] = item.GetProperty("CadenceTicks").GetInt32(),
+                                        ["next_run_tick"] = item.GetProperty("NextRunTick").GetInt32(),
+                                        ["last_run_tick"] = item.GetProperty("LastRunTick").GetInt32(),
+                                        ["market_id"] = item.GetProperty("MarketId").GetString() ?? "",
+                                        ["good_id"] = item.GetProperty("GoodId").GetString() ?? "",
+                                        ["quantity"] = item.GetProperty("Quantity").GetInt32()
+                                };
+                                arr.Add(d);
+                        }
+
+                        return arr;
+                }
+                catch
+                {
                         return arr;
                 }
                 finally
