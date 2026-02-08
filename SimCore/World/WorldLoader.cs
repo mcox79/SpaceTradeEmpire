@@ -109,9 +109,34 @@ public static class WorldLoader
 				state.PlayerLocationNodeId = def.Player.LocationNodeId;
 			}
 
-			state.PlayerSelectedDestinationNodeId = "";
-		}
-	}
+                        state.PlayerSelectedDestinationNodeId = "";
+
+                        // SLICE 2 / GATE.FLEET.001:
+                        // Deterministic single trader fleet bound to the player start.
+                        // WorldLoader clears fleets above, so we must recreate this here.
+                        const string playerFleetId = "fleet_trader_1";
+                        if (!state.Fleets.ContainsKey(playerFleetId))
+                        {
+                                var f = new Fleet
+                                {
+                                        Id = playerFleetId,
+                                        OwnerId = "player",
+                                        CurrentNodeId = state.PlayerLocationNodeId,
+                                        DestinationNodeId = "",
+                                        CurrentEdgeId = "",
+                                        State = FleetState.Docked,
+                                        TravelProgress = 0f,
+                                        Speed = 0.5f,
+                                        CurrentTask = "Docked",
+                                        CurrentJob = null,
+                                        Supplies = 100
+                                };
+
+                                state.Fleets.Add(playerFleetId, f);
+                        }
+                }
+        }
+
 
 	private static void RequireNonEmptyId(string id, string label)
 	{

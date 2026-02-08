@@ -82,7 +82,7 @@ Epics:
 - EPIC.S2.PROG.SAFETY: Guardrails against direct state mutation, only intents
 - EPIC.S2.EXPLAIN: Schema-bound “Explain” events for program outcomes and constraints
 
-Status: TODO
+Status: IN_PROGRESS
 
 ---
 
@@ -226,12 +226,12 @@ Status: TODO
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
 | GATE.PROG.001 | Program schema v1 exists (TradeProgram only) and is versioned | DONE | SimCore/Schemas/ProgramSchema.json + SimCore.Tests/Programs/ProgramContractTests.cs (PROG_001) |
-| GATE.FLEET.001 | Fleet binding v1 exists (single trader fleet) and is deterministic | TODO | tests |
+| GATE.FLEET.001 | Fleet binding v1 exists (single trader fleet) and is deterministic | DONE | SimCore/World/WorldLoader.cs + SimCore.Tests/Programs/FleetBindingContractTests.cs + docs/generated/05_TEST_SUMMARY.txt |
 | GATE.DOCTRINE.001 | DefaultDoctrine exists (max 2 toggles) and is deterministic | TODO | tests |
-| GATE.QUOTE.001 | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | TODO | tests + golden snapshot |
+| GATE.QUOTE.001 | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | DONE | SimCore/Programs/ProgramQuote.cs + SimCore/Programs/ProgramQuoteSnapshot.cs + SimCore.Tests/Programs/ProgramQuoteContractTests.cs + SimCore.Tests/TestData/Snapshots/program_quote_001.json + docs/generated/05_TEST_SUMMARY.txt |
 | GATE.EXPLAIN.001 | Explain events are schema-bound (no free-text) for quote and outcomes | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (EXPLAIN_001) |
 | GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
-| GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | TODO | integration test |
+| GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | DONE | SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs + docs/generated/05_TEST_SUMMARY.txt |
 | GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | DONE | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
 | GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | DONE | scripts/ui/ProgramsMenu.cs + scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs + scenes/playable_prototype.tscn |
 | GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
@@ -264,3 +264,6 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-07, main, GATE.BRIDGE.PROG.001 + GATE.DET.PROG.001 DONE (bridge program lifecycle via commands; determinism and save/load include programs), tests: SimCore.Tests/Programs/ProgramLifecycleContractTests.cs; SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs; SimCore.Tests/Determinism/ProgramDeterminismTests.cs; SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs, evidence: scripts/bridge/SimBridge.cs
 - 2026-02-08, main, GATE.UI.PROG.001 DONE (ProgramsMenu UI present, opens as modal, can create program and view quote/outcome; blocks clicks behind), evidence: scripts/ui/ProgramsMenu.cs; scripts/ui/StationMenu.cs; scenes/playable_prototype.tscn
 - 2026-02-08, main, UI polish: StationMenu widened to fit program controls; ProgramsMenu row wrapping + hide-cancelled default; Escape closes ProgramsMenu, and Escape undocks when StationMenu focused.
+- 2026-02-08, main, GATE.PROG.EXEC.002 DONE (integration: program drives BUY+SELL against World001 and outcomes change only via tick). Evidence: SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs; docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-08, main, GATE.QUOTE.001 DONE (deterministic request+snapshot=>quote with golden). Evidence: SimCore/Programs/ProgramQuote.cs; SimCore/Programs/ProgramQuoteSnapshot.cs; SimCore.Tests/Programs/ProgramQuoteContractTests.cs; SimCore.Tests/TestData/Snapshots/program_quote_001.json; docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-08, main, GATE.FLEET.001 DONE (deterministic single player trader fleet created by WorldLoader). Evidence: SimCore/World/WorldLoader.cs; SimCore.Tests/Programs/FleetBindingContractTests.cs; docs/generated/05_TEST_SUMMARY.txt
