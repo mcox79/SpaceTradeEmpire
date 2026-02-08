@@ -76,16 +76,29 @@ Required semantics:
 - total_hits: total pattern hits across scanned files
 - files: per-file hit summary in stable ordering
 
-2) `connectivity_graph.json` (v0)
+2) `connectivity_graph.json` (v1)
+
 Top-level keys (verified):
 - tool
 - nodes
+- node_exts
 - edges
 
 Required semantics:
-- nodes: file-level nodes (repo-relative paths) owned by the tool
-- edges: file-level edges owned by the tool
-- evidence is best-effort and must remain deterministic (repo-relative path and stable line references)
+- tool.version = v1
+- nodes: string[] of repo-relative paths (stable ordering)
+- node_exts: string[] aligned 1:1 with nodes (same count, same ordering)
+- edges: array of objects:
+  - from_id: int (index into nodes/node_exts)
+  - to_id: int (index into nodes/node_exts)
+  - type: string
+  - evidence: array of objects:
+    - file_id: int (index into nodes/node_exts)
+    - lines: int[] (1-based line numbers)
+
+Notes:
+- This is an index-based graph for determinism and diff stability.
+- Evidence arrays must be deterministic (see Section D).
 
 3) `connectivity_violations.json` (v0)
 Top-level keys (verified):
@@ -135,6 +148,18 @@ CONN-003 Diff-friendly JSON
   - edge lists
   - lists inside objects (exclusions, evidence arrays, per-file summaries)
 - Stable keys and normalization (best-effort within PowerShell JSON constraints)
+
+CONN-004 Graph schema invariants (v1)
+
+For `connectivity_graph.json` v1:
+- node_exts_count == nodes_count
+- all ids referenced by edges are in-range: 0 <= id < nodes_count
+- each evidence entry must include at least one line number
+- evidence ordering stable:
+  - evidence sorted by file_id ascending
+  - evidence.lines sorted ascending and unique
+- violations file presence is not itself a failure:
+  - `connectivity_violations.json` may exist with counts.errors == 0 (acceptable)
 
 NOTE:
 - Do not include wall-clock timestamps inside deterministic artifacts.
@@ -255,3 +280,22 @@ Policy intent:
 - Outputs are generated locally per session.
 - Deterministic, diff-friendly artifacts are eligible for later commit.
 - Ephemeral logs and verbose traces should remain uncommitted.
+
+## J. Troubleshooting (common failure modes)
+
+Symptom: evidence shape drift (unexpected evidence schema)
+- Likely cause: `-EvidenceMode` not propagated into `Add-EdgeEvidence` or equivalent helper.
+- Fix: ensure the evidence writer path is single-sourced and mode is threaded through all calls.
+
+Symptom: PowerShell parser errors during scan
+- Likely cause: brace mismatch in `Scan-Repo` or related function bodies.
+- Fix: AST parse check to confirm function extents; then re-run.
+
+Symptom: runtime error referencing `$hitsByFile` (or similar) outside expected scope
+- Likely cause: function body got cut short (braces moved), causing later code to execute outside the function scope.
+- Fix: grep for assignments and references; verify braces; re-run with `-Force -Harden`.
+
+Recommended debug sequence
+1) AST parse to confirm `Scan-Repo` extent
+2) grep for the variable assignment and usage sites
+3) rerun with `-Force -Harden`
