@@ -530,6 +530,102 @@ public partial class SimBridge : Node
                 }
         }
 
+                public Godot.Collections.Dictionary GetProgramQuote(string programId)
+        {
+                var d = new Godot.Collections.Dictionary();
+                if (IsLoading) return d;
+                if (string.IsNullOrWhiteSpace(programId)) return d;
+
+                _stateLock.EnterReadLock();
+                try
+                {
+                        var state = _kernel.State;
+                        if (!state.Programs.Instances.TryGetValue(programId, out var p))
+                                return d;
+
+                        // Deterministic snapshot at current tick.
+                        var tick = state.Tick;
+
+                        int unitPrice = 0;
+                        if (state.Markets.TryGetValue(p.MarketId, out var market))
+                        {
+                                unitPrice = market.GetPrice(p.GoodId);
+                        }
+
+                        // For AutoBuy, "quote" means expected spend if it fires.
+                        long costPerRun = (long)unitPrice * (long)p.Quantity;
+
+                        // Runs per day assuming 1440 ticks/day and cadence in ticks.
+                        // If cadence is 0 (should not happen), clamp to 1.
+                        int cadence = p.CadenceTicks <= 0 ? 1 : p.CadenceTicks;
+                        long runsPerDay = 1440L / (long)cadence;
+                        long estDailySpend = costPerRun * runsPerDay;
+
+                        d["program_id"] = programId;
+                        d["kind"] = p.Kind.ToString();
+                        d["status"] = p.Status.ToString();
+                        d["quote_tick"] = tick;
+
+                        d["market_id"] = p.MarketId;
+                        d["good_id"] = p.GoodId;
+                        d["quantity"] = p.Quantity;
+                        d["cadence_ticks"] = cadence;
+
+                        d["unit_price_now"] = unitPrice;
+                        d["est_cost_per_run"] = costPerRun;
+                        d["est_runs_per_day"] = runsPerDay;
+                        d["est_daily_spend"] = estDailySpend;
+
+                        d["notes"] = "Computed from current published market price at quote_tick.";
+                        return d;
+                }
+                finally
+                {
+                        _stateLock.ExitReadLock();
+                }
+        }
+
+        public Godot.Collections.Dictionary GetProgramOutcome(string programId)
+        {
+                var d = new Godot.Collections.Dictionary();
+                if (IsLoading) return d;
+                if (string.IsNullOrWhiteSpace(programId)) return d;
+
+                _stateLock.EnterReadLock();
+                try
+                {
+                        var state = _kernel.State;
+                        if (!state.Programs.Instances.TryGetValue(programId, out var p))
+                                return d;
+
+                        d["program_id"] = programId;
+                        d["tick_now"] = state.Tick;
+
+                        d["status"] = p.Status.ToString();
+                        d["next_run_tick"] = p.NextRunTick;
+                        d["last_run_tick"] = p.LastRunTick;
+
+                        // Best-effort: ProgramExplain tracks scheduling, not execution results.
+                        // This outcome describes the last emission opportunity, not guaranteed fills.
+                        if (p.LastRunTick >= 0)
+                        {
+                                d["last_emission"] = $"BuyIntent {p.MarketId}:{p.GoodId} x{p.Quantity}";
+                        }
+                        else
+                        {
+                                d["last_emission"] = "(never)";
+                        }
+
+                        d["notes"] = "Outcome is scheduling/emission metadata only (not fill confirmation).";
+                        return d;
+                }
+                finally
+                {
+                        _stateLock.ExitReadLock();
+                }
+        }
+
+
         // GDScript-friendly snapshot accessor
         public Godot.Collections.Dictionary GetPlayerSnapshot()
         {

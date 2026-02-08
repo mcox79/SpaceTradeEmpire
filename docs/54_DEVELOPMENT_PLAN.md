@@ -232,7 +232,7 @@ Status: TODO
 | GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
 | GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | TODO | integration test |
 | GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | DONE | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
-| GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | TODO | UI path + bridge path |
+| GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | TODO | scripts/ui/ProgramsMenu.cs + scripts/bridge/SimBridge.cs (program APIs) + manual smoke steps in docs/54 (B4a) |
 | GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
 
 ---

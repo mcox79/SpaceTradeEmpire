@@ -4,7 +4,7 @@ const TICK_INTERVAL = 0.5
 const Sim = preload('res://scripts/core/sim/sim.gd')
 const PlayerState = preload('res://scripts/core/state/player_state.gd')
 const PlayerInteractionManager = preload('res://scripts/core/player_interaction_manager.gd')
-const StationInterface = preload('res://scripts/view/ui/station_interface.gd')
+# const StationInterface = preload('res://scripts/view/ui/station_interface.gd') # legacy disabled
 const ContractBoard = preload('res://scripts/view/ui/contract_board.gd')
 const Fleet = preload('res://scripts/core/state/fleet.gd')
 
@@ -33,9 +33,10 @@ func _ready():
 		sim.active_fleets.append(p_fleet)
 
 	# INJECT UIs
-	ui_station = StationInterface.new()
-	add_child(ui_station)
-	ui_station.setup(interaction, player.current_node_id)
+	# Legacy StationInterface UI disabled.
+	# The station UI is now provided by the C# StationMenu in scenes/playable_prototype.tscn (UI/StationMenu).
+	ui_station = null
+
 
 	ui_contracts = ContractBoard.new()
 	add_child(ui_contracts)
@@ -52,7 +53,8 @@ func _process(delta):
 			time_accumulator -= TICK_INTERVAL
 			sim.advance()
 			_sync_player_pos()
-			if ui_station.visible: ui_station.refresh_market_list()
+			# ui_station disabled (legacy)
+
 			if ui_contracts.visible: ui_contracts.refresh()
 
 			# PROCESS PAYOUTS
@@ -89,8 +91,7 @@ func _handle_selection():
 
 		if closest_star:
 			sim.command_fleet_move(player_fleet_id, closest_star.id)
-			# Moving auto-closes station UI
-			ui_station.visible = false
+			# ui_station disabled (legacy)
 
 func _sync_player_pos():
 	var p_fleet = sim.active_fleets.filter(func(f): return f.id == player_fleet_id)
@@ -100,17 +101,18 @@ func _sync_player_pos():
 			var node = sim._get_star_at_pos(f.current_pos)
 			if node:
 				player.current_node_id = node.id
-				ui_station.current_node_id = node.id
+				# ui_station disabled (legacy)
 
 func toggle_market():
-	# MUTUAL EXCLUSION: If opening Market, close Contracts
-	ui_station.visible = not ui_station.visible
-	if ui_station.visible:
-		ui_contracts.visible = false
-		ui_station.refresh_market_list()
+	# Legacy StationInterface UI disabled.
+	# Station UI is controlled by PlayerShip.dock_at_station() -> shop_toggled -> C# StationMenu.
+	return
+
+
 
 func toggle_contracts():
 	# MUTUAL EXCLUSION: If opening Contracts, close Market
 	ui_contracts.toggle()
 	if ui_contracts.visible:
-		ui_station.visible = false
+		# ui_station disabled (legacy)
+		pass

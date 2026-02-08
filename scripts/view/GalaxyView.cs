@@ -18,7 +18,6 @@ public partial class GalaxyView : Node3D
 
     private MultiMeshInstance3D _fleetMultiMeshInstance;
     private MultiMesh _fleetMultiMesh;
-    private bool _playerConnected = false;
 
     public override void _Ready()
     {
@@ -44,11 +43,8 @@ public partial class GalaxyView : Node3D
         _fleetMultiMeshInstance.MaterialOverride = shipMat;
         AddChild(_fleetMultiMeshInstance);
 
-        var uiLayer = new CanvasLayer { Layer = 1 };
-        AddChild(uiLayer);
-        _menu = new StationMenu();
-        uiLayer.AddChild(_menu);
-
+        // Use the StationMenu already present in scenes/playable_prototype.tscn under UI/StationMenu
+        _menu = GetNode<StationMenu>("/root/Main/UI/StationMenu");
         _menu.RequestUndock += OnMenuUndockRequested;
 
         if (_bridge != null)
@@ -69,16 +65,9 @@ public partial class GalaxyView : Node3D
 
     public override void _Process(double delta)
     {
-        if (!_playerConnected)
-        {
-            var player = GetTree().GetFirstNodeInGroup("Player");
-            if (player != null && player.HasSignal("shop_toggled"))
-            {
-                player.Connect("shop_toggled", new Callable(_menu, "OnShopToggled"));
-                _playerConnected = true;
-            }
-        }
-
+        // StationMenu is responsible for connecting to PlayerShip.shop_toggled.
+        // Do not connect it here, or you will get duplicate connection errors.
+    
         if (_bridge == null || _bridge.IsLoading) return;
         
         _bridge.ExecuteSafeRead(state => 

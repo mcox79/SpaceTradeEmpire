@@ -11,8 +11,17 @@ var current_station_id: String = ""
 var _dynamic_elements: Array = [] 
 
 func _ready():
-	shop_panel.visible = false
-	_find_player()
+        # If the new C# StationMenu exists, this legacy HUD shop must not run.
+        # This prevents duplicate menus.
+        var station_menu = get_tree().root.find_child("StationMenu", true, false)
+        if station_menu != null:
+                push_warning("[HUD] StationMenu found. Disabling legacy hud.gd ShopPanel UI.")
+                queue_free()
+                return
+
+        shop_panel.visible = false
+        _find_player()
+
 
 func _find_player():
 	var player = get_tree().get_first_node_in_group("Player")
@@ -28,14 +37,20 @@ func _on_credits_updated(amount):
 	money_label.text = "CREDITS: $" + str(amount)
 
 func _on_shop_toggled(is_open: bool, station_ref):
-	shop_panel.visible = is_open
-	if is_open and station_ref:
-		current_station_id = station_ref.name 
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		_build_shop_ui()
-	else:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		_clear_shop_ui()
+        print("[HUD SHOP] toggled=", is_open, " station_ref=", station_ref, " name=", station_ref.name if station_ref else "null")
+
+        # Disable legacy shop UI (we use StationMenu + SimBridge now)
+        shop_panel.visible = false
+        return
+
+        shop_panel.visible = is_open
+        if is_open and station_ref:
+                current_station_id = station_ref.name
+                Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+                _build_shop_ui()
+        else:
+                Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+                _clear_shop_ui()
 
 func _clear_shop_ui():
 	for element in _dynamic_elements:
