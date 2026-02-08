@@ -227,7 +227,7 @@ Status: TODO
 |---|---|---|---|
 | GATE.PROG.001 | Program schema v1 exists (TradeProgram only) and is versioned | DONE | SimCore/Schemas/ProgramSchema.json + SimCore.Tests/Programs/ProgramContractTests.cs (PROG_001) |
 | GATE.FLEET.001 | Fleet binding v1 exists (single trader fleet) and is deterministic | DONE | SimCore/World/WorldLoader.cs + SimCore.Tests/Programs/FleetBindingContractTests.cs + docs/generated/05_TEST_SUMMARY.txt |
-| GATE.DOCTRINE.001 | DefaultDoctrine exists (max 2 toggles) and is deterministic | TODO | tests |
+| GATE.DOCTRINE.001 | DefaultDoctrine exists (max 2 toggles) and is deterministic | DONE | SimCore/Programs/DefaultDoctrine.cs + SimCore.Tests/Programs/DefaultDoctrineContractTests.cs |
 | GATE.QUOTE.001 | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | DONE | SimCore/Programs/ProgramQuote.cs + SimCore/Programs/ProgramQuoteSnapshot.cs + SimCore.Tests/Programs/ProgramQuoteContractTests.cs + SimCore.Tests/TestData/Snapshots/program_quote_001.json + docs/generated/05_TEST_SUMMARY.txt |
 | GATE.EXPLAIN.001 | Explain events are schema-bound (no free-text) for quote and outcomes | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (EXPLAIN_001) |
 | GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
@@ -267,3 +267,4 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-08, main, GATE.PROG.EXEC.002 DONE (integration: program drives BUY+SELL against World001 and outcomes change only via tick). Evidence: SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.QUOTE.001 DONE (deterministic request+snapshot=>quote with golden). Evidence: SimCore/Programs/ProgramQuote.cs; SimCore/Programs/ProgramQuoteSnapshot.cs; SimCore.Tests/Programs/ProgramQuoteContractTests.cs; SimCore.Tests/TestData/Snapshots/program_quote_001.json; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.FLEET.001 DONE (deterministic single player trader fleet created by WorldLoader). Evidence: SimCore/World/WorldLoader.cs; SimCore.Tests/Programs/FleetBindingContractTests.cs; docs/generated/05_TEST_SUMMARY.txt
+- 2026-02-08, main, GATE.DOCTRINE.001 DONE (DefaultDoctrine deterministic, max 2 toggles). Evidence: SimCore/Programs/DefaultDoctrine.cs; SimCore.Tests/Programs/DefaultDoctrineContractTests.cs
