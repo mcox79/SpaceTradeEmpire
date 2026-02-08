@@ -188,6 +188,7 @@ Status: TODO
 | Gate ID | Gate | Status | Evidence |
 |---|---|---|---|
 | GATE.TOOL.001 | Deterministic status packet generation exists (diff-driven, capped) | DONE | docs/generated/02_STATUS_PACKET.txt |
+| GATE.CONN.001 | Connectivity scan outputs deterministic manifests | DONE | docs/generated/connectivity_manifest.json; docs/generated/connectivity_graph.json |
 | GATE.CONN.002 | Connectivity violations empty for Slice scope | DONE | docs/generated/connectivity_violations.json |
 | GATE.TEST.001 | Headless determinism harness exists | DONE | SimCore.Tests/GoldenReplayTests.cs |
 | GATE.TEST.002 | Golden world hash regression exists and is stable | DONE | docs/generated/snapshots/golden_replay_hashes.txt |
@@ -279,3 +280,4 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-08, main, GATE.VIEW.001 DONE (ship-follow orbit camera + ship placeholder mesh in playable prototype). Evidence: scripts/view/player_follow_camera.gd; scenes/player.tscn; scenes/playable_prototype.tscn
 - 2026-02-08, main, Slice 2 DONE (Programs v1): all B4 gates DONE, including GATE.DET.PROG.001. Evidence: B4 table + Program determinism tests + ProgramsMenu UI.
 - 2026-02-08, main, Slice 3 routing: GATE.ROUTE.001 + GATE.FLEET.ROUTE.001 DONE; LogisticsTests aligned with BufferDays shortage contract; determinism goldens updated. Evidence: SimCore/Systems/RoutePlanner.cs; SimCore.Tests/Systems/RoutePlannerTests.cs; SimCore/Entities/Fleet.cs; SimCore/Systems/MovementSystem.cs; SimCore.Tests/Systems/FleetRouteTravelTests.cs; SimCore.Tests/LogisticsTests.cs; SimCore.Tests/GoldenReplayTests.cs; SimCore.Tests/Determinism/LongRunWorldHashTests.cs.
+- 2026-02-08, main, GATE.CONN.001 DONE (connectivity graph v1: nodes array of paths, edges use from_id/to_id, evidence uses file_id + lines; violations 0). Evidence: docs/generated/connectivity_manifest.json; docs/generated/connectivity_graph.json; docs/generated/connectivity_violations.json

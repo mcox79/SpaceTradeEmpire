@@ -58,21 +58,32 @@
 
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory = $false)]
-	[string] $RepoRoot = "",
+        [Parameter(Mandatory = $false)]
+        [string] $RepoRoot = "",
 
-	[Parameter(Mandatory = $false)]
-	[string] $DebugDumpPath = "",
+        [Parameter(Mandatory = $false)]
+        [string] $DebugDumpPath = "",
 
-	[Parameter(Mandatory = $false)]
-	[switch] $Force,
+        [Parameter(Mandatory = $false)]
+        [switch] $Force,
 
-	[Parameter(Mandatory = $false)]
-	[switch] $Harden,
+        [Parameter(Mandatory = $false)]
+        [switch] $Harden,
 
-	[Parameter(Mandatory = $false)]
-	[string[]] $ExtraExcludeDirs = @()
+        [Parameter(Mandatory = $false)]
+        [string[]] $ExtraExcludeDirs = @(),
+
+        [Parameter(Mandatory = $false)]
+        [switch] $IncludeEmptyFiles,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $IncludeAllScannedNodes,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("LinesOnly","WithSnippet")]
+        [string] $EvidenceMode = "LinesOnly"
 )
+
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -396,15 +407,16 @@ function Add-Hit {
 }
 
 function Add-EdgeEvidence {
-	param(
-		[hashtable] $EdgeMap,
-		[string] $FromRel,
-		[string] $ToRel,
-		[string] $EdgeType,
-		[string] $SourceRel,
-		[int] $LineNumber1Based,
-		[string] $Snippet
-	)
+        param(
+                [hashtable] $EdgeMap,
+                [string] $FromRel,
+                [string] $ToRel,
+                [string] $EdgeType,
+                [string] $SourceRel,
+                [int] $LineNumber1Based,
+                [string] $EvidenceMode,
+                [string] $Snippet
+        )
 
 	$key = ($FromRel + "||" + $ToRel + "||" + $EdgeType)
 
@@ -428,60 +440,83 @@ function Add-EdgeEvidence {
 		}
 	}
 
-	if ($null -eq $bucket) {
-		$bucket = [pscustomobject]@{
-			file = $SourceRel
-			lines = [int[]]@()
-			snippet = ""
-		}
-		$evList += ,$bucket
-	}
+        if ($null -eq $bucket) {
+                if ($EvidenceMode -eq "WithSnippet") {
+                        $bucket = [pscustomobject]@{
+                                file = $SourceRel
+                                lines = [int[]]@()
+                                snippet = ""
+                        }
+                } else {
+                        $bucket = [pscustomobject]@{
+                                file = $SourceRel
+                                lines = [int[]]@()
+                        }
+                }
+                $evList += ,$bucket
+        }
 
 	$linesArr = @($bucket.lines)
 	$linesArr += ,([int]$LineNumber1Based)
 	$bucket.lines = AsIntArray (@($linesArr | Sort-Object -Unique))
 
-	if ([string]::IsNullOrWhiteSpace($bucket.snippet) -and -not [string]::IsNullOrWhiteSpace($Snippet)) {
-		$bucket.snippet = $Snippet
-	}
+        if (($EvidenceMode -eq "WithSnippet") -and ($bucket.PSObject.Properties.Name -contains "snippet")) {
+                if ([string]::IsNullOrWhiteSpace($bucket.snippet) -and -not [string]::IsNullOrWhiteSpace($Snippet)) {
+                        $bucket.snippet = $Snippet
+                }
+        }
 
 	$edge.evidence = $evList
 	$EdgeMap[$key] = $edge
 }
 
 function Normalize-EdgesForJson {
-	param([object[]] $Edges)
-	for ($i = 0; $i -lt (IntCount $Edges); $i++) {
-		$e = $Edges[$i]
-		$ev = @($e.evidence)
-		for ($j = 0; $j -lt (IntCount $ev); $j++) {
-			$ev[$j].lines = AsIntArray (@($ev[$j].lines | Sort-Object -Unique))
-			if ($null -eq $ev[$j].snippet) { $ev[$j].snippet = "" }
-		}
-		$e.evidence = $ev
-		$Edges[$i] = $e
-	}
-	return ,@($Edges)
+        param([object[]] $Edges)
+
+        for ($i = 0; $i -lt (IntCount $Edges); $i++) {
+                $e = $Edges[$i]
+                $ev = @($e.evidence)
+
+                for ($j = 0; $j -lt (IntCount $ev); $j++) {
+                        $ev[$j].lines = AsIntArray (@($ev[$j].lines | Sort-Object -Unique))
+
+                        # Keep snippet deterministic only if present
+                        if ($ev[$j].PSObject.Properties.Name -contains "snippet") {
+                                if ($null -eq $ev[$j].snippet) { $ev[$j].snippet = "" }
+                        }
+                }
+
+                $e.evidence = $ev
+                $Edges[$i] = $e
+        }
+
+        return ,@($Edges)
 }
 
 function Scan-Repo {
-	param(
-		[string] $RootAbs,
-		[string] $OutDirAbs,
-		[string] $DbgPath,
-		[string[]] $ExcludePrefixes
-	)
+        param(
+                [string] $RootAbs,
+                [string] $OutDirAbs,
+                [string] $DbgPath,
+                [string[]] $ExcludePrefixes,
+                [switch] $IncludeEmptyFiles,
+                [switch] $IncludeAllScannedNodes,
+                [string] $EvidenceMode
+        )
 
 	$files = Get-AllScanFiles -RootAbs $RootAbs -ExcludePrefixes $ExcludePrefixes
 
-	$nodeRelPaths = @()
-	foreach ($f in $files) {
-		$nodeRelPaths += ,(Normalize-RepoRelPath -AbsPath $f.FullName -RootAbs $RootAbs)
-	}
-	$nodeRelPaths = @($nodeRelPaths | Sort-Object)
+        $nodeRelPaths = @()
+        foreach ($f in $files) {
+                $nodeRelPaths += ,(Normalize-RepoRelPath -AbsPath $f.FullName -RootAbs $RootAbs)
+        }
+        $nodeRelPaths = @($nodeRelPaths | Sort-Object)
 
-	$knownSet = @{}
-	foreach ($p in $nodeRelPaths) { $knownSet[$p] = $true }
+        # Keep the full scanned list for resolving references.
+        $allRelPaths = @($nodeRelPaths)
+
+        $knownSet = @{}
+        foreach ($p in $allRelPaths) { $knownSet[$p] = $true }
 
 	$hitsByFile = @{}
 	$edgeMap = @{}
@@ -552,24 +587,24 @@ function Scan-Repo {
 					if ($null -ne $target) {
 						$etype = "resource_load"
 						if ($path.ToLowerInvariant().EndsWith(".tscn")) { $etype = "scene_ref" }
-						Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType $etype -SourceRel $rel -LineNumber1Based $ln -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
+						Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType $etype -SourceRel $rel -LineNumber1Based $ln -EvidenceMode $EvidenceMode -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
 					}
 				}
 			}
-
-			$mr = $rxResLoader.Matches($line)
-			if ($mr.Count -gt 0) {
-				foreach ($m in $mr) {
-					$path = $m.Groups[1].Value
-					Add-Hit -HitsByFile $hitsByFile -FileRel $rel -HitKey "resource_load"
-					$target = Resolve-RefToRepoPath -RawRef $path -FromRepoRelPath $rel -KnownNodesSet $knownSet
-					if ($null -ne $target) {
-						$etype = "resource_load"
-						if ($path.ToLowerInvariant().EndsWith(".tscn")) { $etype = "scene_ref" }
-						Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType $etype -SourceRel $rel -LineNumber1Based $ln -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
-					}
-				}
-			}
+        }
+                  $mr = $rxResLoader.Matches($line)
+                  if ($mr.Count -gt 0) {
+                          foreach ($m in $mr) {
+                                  $path = $m.Groups[1].Value
+                                  Add-Hit -HitsByFile $hitsByFile -FileRel $rel -HitKey "resource_load"
+                                  $target = Resolve-RefToRepoPath -RawRef $path -FromRepoRelPath $rel -KnownNodesSet $knownSet
+                                  if ($null -ne $target) {
+                                          $etype = "resource_load"
+                                          if ($path.ToLowerInvariant().EndsWith(".tscn")) { $etype = "scene_ref" }
+                                          Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType $etype -SourceRel $rel -LineNumber1Based $ln -EvidenceMode $EvidenceMode -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
+                                  }
+                          }
+                  }
 
 			$mt = $rxTscnString.Matches($line)
 			if ($mt.Count -gt 0) {
@@ -578,69 +613,121 @@ function Scan-Repo {
 					Add-Hit -HitsByFile $hitsByFile -FileRel $rel -HitKey "scene_ref"
 					$target = Resolve-RefToRepoPath -RawRef $path -FromRepoRelPath $rel -KnownNodesSet $knownSet
 					if ($null -ne $target) {
-						Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType "scene_ref" -SourceRel $rel -LineNumber1Based $ln -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
+						Add-EdgeEvidence -EdgeMap $edgeMap -FromRel $rel -ToRel $target -EdgeType "scene_ref" -SourceRel $rel -LineNumber1Based $ln -EvidenceMode $EvidenceMode -Snippet (Truncate-Snippet -Text $line -MaxLen 140)
 					}
 				}
 			}
 		}
 
-		if ($isSimCore -and (IntCount $simcoreViolationLines) -gt 0) {
-			$violations += ,([pscustomobject]@{
-				id = ("simcore_godot_namespace::" + $rel)
-				severity = "error"
-				rule = "simcore_must_not_reference_godot_namespace"
-				message = "SimCore file references Godot. namespace"
-				file = $rel
-				lines = AsIntArray (@($simcoreViolationLines | Sort-Object -Unique))
-				evidence_snippet = "Godot."
-			})
-		}
-	}
+          if ($isSimCore -and (IntCount $simcoreViolationLines) -gt 0) {       
+                  $violations += ,([pscustomobject]@{
+                          id = ("simcore_godot_namespace::" + $rel)
+                          severity = "error"
+                          rule = "simcore_must_not_reference_godot_namespace"  
+                          message = "SimCore file references Godot. namespace" 
+                          file = $rel
+                          lines = AsIntArray (@($simcoreViolationLines | Sort-Object -Unique))
+                          evidence_snippet = "Godot."
+                  })
+          }
 
-	$nodes = @()
-	foreach ($p in $nodeRelPaths) {
-		$nodes += ,([pscustomobject]@{
-			path = $p
-			ext = ([System.IO.Path]::GetExtension($p)).ToLowerInvariant()
-		})
-	}
+        # Participating files are those with hits, or those that are endpoints of edges.
+        $participating = @{}
 
-	$edges = @()
-	$edgeValues = @($edgeMap.Values)
+        foreach ($p in $hitsByFile.Keys) { $participating[$p] = $true }
 
-	$edgeValuesSorted = $edgeValues | Sort-Object `
-		@{ Expression = { $_.from }; Ascending = $true }, `
-		@{ Expression = { $_.to }; Ascending = $true }, `
-		@{ Expression = { $_.type }; Ascending = $true }
+        $edgeValsForParticipation = @($edgeMap.Values)
+        for ($i = 0; $i -lt (IntCount $edgeValsForParticipation); $i++) {
+                $participating[$edgeValsForParticipation[$i].from] = $true
+                $participating[$edgeValsForParticipation[$i].to] = $true
+        }
 
-	foreach ($e in $edgeValuesSorted) {
-		$evSorted = @($e.evidence) | Sort-Object @{ Expression = { $_.file }; Ascending = $true }
-		$edges += ,([pscustomobject]@{
-			from = $e.from
-			to = $e.to
-			type = $e.type
-			evidence = $evSorted
-		})
-	}
+        $emitRelPaths = @($participating.Keys | Sort-Object)
 
-	$edges = Normalize-EdgesForJson -Edges $edges
+        $nodeSource = $emitRelPaths
+        if ($IncludeAllScannedNodes) { $nodeSource = $allRelPaths }
 
-	$fileSummaries = @()
-	foreach ($p in $nodeRelPaths) {
-		$hitObj = @{}
-		if ($hitsByFile.ContainsKey($p)) {
-			$hitObj = $hitsByFile[$p]
-		}
+        # Graph nodes are emitted as a compact array of path strings.
+        # Build a path -> node_id lookup for ID-based edges.
+        $nodePaths = @($nodeSource)
 
-		$hitKeys = @($hitObj.Keys | ForEach-Object { $_.ToString() }) | Sort-Object
-		$hitsStable = New-Object System.Collections.Specialized.OrderedDictionary
-		foreach ($k in $hitKeys) { $hitsStable.Add($k, [int]$hitObj[$k]) }
+        $nodeIndexByPath = @{}
+        for ($i = 0; $i -lt (IntCount $nodePaths); $i++) {
+                $nodeIndexByPath[$nodePaths[$i]] = [int]$i
+        }
 
-		$fileSummaries += ,([pscustomobject]@{
-			path = $p
-			hits = $hitsStable
-		})
-	}
+        # Optional: keep node extension metadata in a parallel array aligned to nodes indexes.
+        $nodeExts = @()
+        for ($i = 0; $i -lt (IntCount $nodePaths); $i++) {
+                $nodeExts += ,(([System.IO.Path]::GetExtension($nodePaths[$i])).ToLowerInvariant())
+        }
+
+        $edges = @()
+        $edgeValues = @($edgeMap.Values)
+
+        $edgeValuesSorted = $edgeValues | Sort-Object `
+                @{ Expression = { $_.from }; Ascending = $true }, `
+                @{ Expression = { $_.to }; Ascending = $true }, `
+                @{ Expression = { $_.type }; Ascending = $true }
+
+        foreach ($e in $edgeValuesSorted) {
+                if (-not $nodeIndexByPath.ContainsKey($e.from)) { continue }
+                if (-not $nodeIndexByPath.ContainsKey($e.to)) { continue }
+
+                $fromId = [int]$nodeIndexByPath[$e.from]
+                $toId = [int]$nodeIndexByPath[$e.to]
+
+                $evIn = @($e.evidence)
+                $evOut = @()
+
+                for ($j = 0; $j -lt (IntCount $evIn); $j++) {
+                        $srcFile = $evIn[$j].file
+                        if (-not $nodeIndexByPath.ContainsKey($srcFile)) { continue }
+
+                        $evOut += ,([pscustomobject]@{
+                                file_id = [int]$nodeIndexByPath[$srcFile]
+                                lines = AsIntArray (@($evIn[$j].lines | Sort-Object -Unique))
+                        })
+                }
+
+                # Stable evidence ordering by file_id
+                $evOut = @($evOut | Sort-Object @{ Expression = { $_.file_id }; Ascending = $true })
+
+                $edges += ,([pscustomobject]@{
+                        from_id = $fromId
+                        to_id = $toId
+                        type = $e.type
+                        evidence = $evOut
+                })
+        }
+
+        $edges = Normalize-EdgesForJson -Edges $edges
+
+        $fileSummaries = @()
+
+        $manifestPaths = @()
+        if ($IncludeEmptyFiles) {
+                $manifestPaths = $allRelPaths
+        } else {
+                $manifestPaths = @($hitsByFile.Keys | Sort-Object)
+        }
+
+        foreach ($p in $manifestPaths) {
+                $hitObj = @{}
+                if ($hitsByFile.ContainsKey($p)) {
+                        $hitObj = $hitsByFile[$p]
+                }
+
+                $hitKeys = @($hitObj.Keys | ForEach-Object { $_.ToString() }) | Sort-Object
+                $hitsStable = New-Object System.Collections.Specialized.OrderedDictionary
+                foreach ($k in $hitKeys) { $hitsStable.Add($k, [int]$hitObj[$k]) }
+
+                $fileSummaries += ,([pscustomobject]@{
+                        path = $p
+                        hits = $hitsStable
+                })
+        }
+
 
 	$totalHits = @{}
 	foreach ($p in $hitsByFile.Keys) {
@@ -661,20 +748,24 @@ function Scan-Repo {
 			best_effort = $true
 			excluded_dirs = @($ExcludePrefixes)
 		}
-		counts = @{
-			nodes = [int](IntCount $nodes)
-			edges = [int](IntCount $edges)
-			files_with_hits = [int](IntCount $hitsByFile.Keys)
-		}
+                counts = @{
+                        scanned_files_total = [int](IntCount $allRelPaths)
+                        emitted_nodes = [int](IntCount $nodePaths)
+                        edges = [int](IntCount $edges)
+                        files_with_hits = [int](IntCount $hitsByFile.Keys)
+                        emitted_manifest_files = [int](IntCount $fileSummaries)
+                }
+
 		total_hits = $totalStable
 		files = $fileSummaries
 	}
 
-	$graph = @{
-		tool = @{ name = "Scan-Connectivity"; version = "v0" }
-		nodes = $nodes
-		edges = $edges
-	}
+        $graph = @{
+                tool = @{ name = "Scan-Connectivity"; version = "v1" }
+                nodes = $nodePaths
+                node_exts = $nodeExts
+                edges = $edges
+        }
 
 	$violationsOut = @{
 		tool = @{ name = "Scan-Connectivity"; version = "v0" }
@@ -721,7 +812,8 @@ try {
 		[System.IO.File]::WriteAllText($DebugDumpPath, "", (New-Utf8NoBom))
 	}
 
-	Scan-Repo -RootAbs $rootAbs -OutDirAbs $outDirAbs -DbgPath $DebugDumpPath -ExcludePrefixes $excludePrefixes
+        Scan-Repo -RootAbs $rootAbs -OutDirAbs $outDirAbs -DbgPath $DebugDumpPath -ExcludePrefixes $excludePrefixes `
+            -IncludeEmptyFiles:$IncludeEmptyFiles -IncludeAllScannedNodes:$IncludeAllScannedNodes -EvidenceMode $EvidenceMode
 
 	Write-Verbose "OK: Connectivity scan complete."
 	exit 0
