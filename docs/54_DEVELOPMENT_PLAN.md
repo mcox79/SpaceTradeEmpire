@@ -234,6 +234,7 @@ Status: TODO
 | GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | DONE | SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs + docs/generated/05_TEST_SUMMARY.txt |
 | GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | DONE | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
 | GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | DONE | scripts/ui/ProgramsMenu.cs + scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs + scenes/playable_prototype.tscn |
+| GATE.VIEW.001 | Playable prototype camera is a ship-follow orbit camera (zoom + rotate) and player has a ship placeholder mesh | DONE | scripts/view/player_follow_camera.gd + scenes/player.tscn + scenes/playable_prototype.tscn |
 | GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
 
 ---
@@ -268,3 +269,4 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-08, main, GATE.QUOTE.001 DONE (deterministic request+snapshot=>quote with golden). Evidence: SimCore/Programs/ProgramQuote.cs; SimCore/Programs/ProgramQuoteSnapshot.cs; SimCore.Tests/Programs/ProgramQuoteContractTests.cs; SimCore.Tests/TestData/Snapshots/program_quote_001.json; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.FLEET.001 DONE (deterministic single player trader fleet created by WorldLoader). Evidence: SimCore/World/WorldLoader.cs; SimCore.Tests/Programs/FleetBindingContractTests.cs; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.DOCTRINE.001 DONE (DefaultDoctrine deterministic, max 2 toggles). Evidence: SimCore/Programs/DefaultDoctrine.cs; SimCore.Tests/Programs/DefaultDoctrineContractTests.cs
+- - 2026-02-08, main, GATE.VIEW.001 DONE (ship-follow orbit camera + ship placeholder mesh in playable prototype). Evidence: scripts/view/player_follow_camera.gd; scenes/player.tscn; scenes/playable_prototype.tscn
