@@ -9,31 +9,35 @@ public static class LogisticsSystem
 {
     public static void Process(SimState state)
     {
-        // 1. Identify Shortages (Industry buffer targets vs Market Inventory)
+        if (state is null) throw new ArgumentNullException(nameof(state));
+
+        // 0) Advance in-progress jobs deterministically (phase transitions).
+        foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+        {
+            AdvanceJobState(state, fleet);
+        }
+
+        // 1) Identify shortages deterministically (industry sites + inputs sorted).
         var shortages = new List<(string MarketId, string GoodId, int Amount)>();
 
-        foreach (var site in state.IndustrySites.Values)
+        foreach (var site in state.IndustrySites.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
         {
             if (!site.Active) continue;
-            if (string.IsNullOrEmpty(site.NodeId)) continue;
+            if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
 
-            // Resolve Market for this Site (via Node)
-            string marketId = site.NodeId; // Default fallback
-            if (state.Nodes.TryGetValue(site.NodeId, out var node) && !string.IsNullOrEmpty(node.MarketId))
-            {
-                marketId = node.MarketId;
-            }
-
+            var marketId = ResolveMarketForSiteNode(state, site.NodeId);
+            if (string.IsNullOrWhiteSpace(marketId)) continue;
             if (!state.Markets.TryGetValue(marketId, out var market)) continue;
 
-            foreach (var input in site.Inputs)
+            foreach (var input in site.Inputs.OrderBy(kv => kv.Key, StringComparer.Ordinal))
             {
-                string goodId = input.Key;
-                int perTick = input.Value;
+                var goodId = input.Key;
+                var perTick = input.Value;
+                if (string.IsNullOrWhiteSpace(goodId)) continue;
                 if (perTick <= 0) continue;
 
-                int target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
-                int current = market.Inventory.GetValueOrDefault(goodId, 0);
+                var target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
+                var current = market.Inventory.GetValueOrDefault(goodId, 0);
 
                 if (current < target)
                 {
@@ -42,96 +46,183 @@ public static class LogisticsSystem
             }
         }
 
-        // 2. Assign Fleets to Shortages
+        // Deterministic task order: by destination market, then good.
+        shortages = shortages
+            .OrderBy(x => x.MarketId, StringComparer.Ordinal)
+            .ThenBy(x => x.GoodId, StringComparer.Ordinal)
+            .ToList();
+
+        if (shortages.Count == 0) return;
+
+        // 2) Assign idle fleets deterministically.
         foreach (var task in shortages)
         {
-            var fleet = state.Fleets.Values.FirstOrDefault(f => f.State == FleetState.Idle);
-            if (fleet == null) continue;
+            var fleet = state.Fleets.Values
+                .OrderBy(f => f.Id, StringComparer.Ordinal)
+                .FirstOrDefault(f =>
+                    (f.State == FleetState.Idle || f.State == FleetState.Docked) &&
+                    f.CurrentJob == null);
+            if (fleet is null) break;
 
-            var supplier = FindSupplier(state, task.GoodId, task.MarketId);
-            if (supplier != null)
+            var supplier = FindSupplierDeterministic(state, task.GoodId, excludeMarketId: task.MarketId);
+            if (supplier is null) continue;
+
+            // Plan: source market -> dest market
+            PlanLogistics(state, fleet, supplier.Id, task.MarketId, task.GoodId, task.Amount);
+        }
+    }
+
+    private static void AdvanceJobState(SimState state, Fleet fleet)
+    {
+        if (fleet.CurrentJob is null) return;
+
+        var job = fleet.CurrentJob;
+
+        // Only transition phases when the fleet is idle (arrived at a node and not mid-edge).
+        if (fleet.State != FleetState.Idle) return;
+
+        if (job.Phase == LogisticsJobPhase.Pickup)
+        {
+            if (string.Equals(fleet.CurrentNodeId, job.SourceNodeId, StringComparison.Ordinal))
             {
-                PlanLogistics(state, fleet, supplier.Id, task.MarketId, task.GoodId, task.Amount);
+                // Arrived at source, begin delivery leg.
+                job.Phase = LogisticsJobPhase.Deliver;
+
+                // Clear any existing route state; MovementSystem will plan deterministically on next Process().
+                fleet.RouteEdgeIds.Clear();
+                fleet.RouteEdgeIndex = 0;
+                fleet.FinalDestinationNodeId = "";
+
+                fleet.DestinationNodeId = job.TargetNodeId;
+                fleet.CurrentTask = $"Delivering {job.GoodId} to {job.TargetNodeId}";
+            }
+            else
+            {
+                // Ensure we're still heading to pickup.
+                EnsureHeadingTo(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId} from {job.SourceNodeId}");
+            }
+        }
+        else
+        {
+            if (string.Equals(fleet.CurrentNodeId, job.TargetNodeId, StringComparison.Ordinal))
+            {
+                // Job complete (actual transfer is not modeled yet).
+                fleet.CurrentJob = null;
+                fleet.CurrentTask = "Idle";
+            }
+            else
+            {
+                EnsureHeadingTo(state, fleet, job.TargetNodeId, $"Delivering {job.GoodId} to {job.TargetNodeId}");
             }
         }
     }
 
-    private static Market? FindSupplier(SimState state, string goodId, string excludeMarketId)
+    private static void EnsureHeadingTo(SimState state, Fleet fleet, string finalNodeId, string taskLabel)
     {
-        return state.Markets.Values
-            .FirstOrDefault(m => m.Id != excludeMarketId &&
-                                 m.Inventory.GetValueOrDefault(goodId, 0) > 10);
+        if (string.IsNullOrWhiteSpace(finalNodeId)) return;
+
+        // If already routed to this destination, do nothing.
+        if (string.Equals(fleet.FinalDestinationNodeId, finalNodeId, StringComparison.Ordinal)) return;
+        if (string.Equals(fleet.DestinationNodeId, finalNodeId, StringComparison.Ordinal) && (fleet.RouteEdgeIds.Count > 0 || fleet.State == FleetState.Traveling)) return;
+
+        // Reset route state and request travel using the DestinationNodeId convention
+        fleet.RouteEdgeIds.Clear();
+        fleet.RouteEdgeIndex = 0;
+        fleet.FinalDestinationNodeId = "";
+
+        fleet.DestinationNodeId = finalNodeId;
+        fleet.CurrentTask = taskLabel;
+        fleet.State = FleetState.Idle;
     }
 
-    public static void PlanLogistics(SimState state, Fleet fleet, string sourceMarketId, string destMarketId, string goodId, int amount)
+    private static string ResolveMarketForSiteNode(SimState state, string siteNodeId)
     {
-        string? sourceNode = GetNodeForMarket(state, sourceMarketId);
-        string? destNode = GetNodeForMarket(state, destMarketId);
+        // Deterministic: node lookup is by key.
+        if (state.Nodes.TryGetValue(siteNodeId, out var node) && !string.IsNullOrWhiteSpace(node.MarketId))
+            return node.MarketId;
 
-        if (sourceNode == null || destNode == null) return;
+        // Fallback: sometimes market id == node id (existing behavior).
+        return siteNodeId;
+    }
 
-        string? nextHop = GetNextHop(state, fleet.CurrentNodeId, sourceNode);
-        if (nextHop == null && fleet.CurrentNodeId != sourceNode) return;
+    private static Market? FindSupplierDeterministic(SimState state, string goodId, string excludeMarketId)
+    {
+        // Deterministic: scan markets by id; choose highest inventory; tie-break by id.
+        Market? best = null;
+        int bestQty = int.MinValue;
 
-        fleet.State = FleetState.Traveling;
-        fleet.DestinationNodeId = sourceNode;
-        fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
+        foreach (var m in state.Markets.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
+        {
+            if (string.Equals(m.Id, excludeMarketId, StringComparison.Ordinal)) continue;
+
+            var qty = m.Inventory.GetValueOrDefault(goodId, 0);
+            if (qty <= 10) continue;
+
+            if (best is null || qty > bestQty)
+            {
+                best = m;
+                bestQty = qty;
+            }
+        }
+
+        return best;
+    }
+
+    public static bool PlanLogistics(SimState state, Fleet fleet, string sourceMarketId, string destMarketId, string goodId, int amount)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (fleet is null) throw new ArgumentNullException(nameof(fleet));
+        if (string.IsNullOrWhiteSpace(sourceMarketId)) return false;
+        if (string.IsNullOrWhiteSpace(destMarketId)) return false;
+        if (string.IsNullOrWhiteSpace(goodId)) return false;
+        if (amount <= 0) return false;
+
+        var sourceNode = GetNodeForMarketDeterministic(state, sourceMarketId);
+        var destNode = GetNodeForMarketDeterministic(state, destMarketId);
+        if (sourceNode is null || destNode is null) return false;
+
+        // Plan both legs deterministically at job creation time.
+        if (!RoutePlanner.TryPlan(state, fleet.CurrentNodeId, sourceNode, fleet.Speed, out var toSourcePlan))
+            return false;
+
+        if (!RoutePlanner.TryPlan(state, sourceNode, destNode, fleet.Speed, out var toTargetPlan))
+            return false;
 
         fleet.CurrentJob = new LogisticsJob
         {
             GoodId = goodId,
             SourceNodeId = sourceNode,
             TargetNodeId = destNode,
-            Amount = amount
+            Amount = amount,
+            Phase = LogisticsJobPhase.Pickup,
+            RouteToSourceEdgeIds = toSourcePlan.EdgeIds ?? new List<string>(),
+            RouteToTargetEdgeIds = toTargetPlan.EdgeIds ?? new List<string>()
         };
+
+        // Request travel to pickup location. MovementSystem will plan the lane sequence.
+        fleet.RouteEdgeIds.Clear();
+        fleet.RouteEdgeIndex = 0;
+        fleet.FinalDestinationNodeId = "";
+
+        fleet.State = FleetState.Idle;
+        fleet.DestinationNodeId = sourceNode;
+        fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
+
+        return true;
     }
 
-    private static string? GetNodeForMarket(SimState state, string marketId)
+    private static string? GetNodeForMarketDeterministic(SimState state, string marketId)
     {
-        var linkedNode = state.Nodes.Values.FirstOrDefault(n => n.MarketId == marketId);
-        if (linkedNode != null) return linkedNode.Id;
+        // Deterministic: choose the lowest node id whose MarketId matches.
+        foreach (var n in state.Nodes.Values.OrderBy(n => n.Id, StringComparer.Ordinal))
+        {
+            if (string.Equals(n.MarketId, marketId, StringComparison.Ordinal))
+                return n.Id;
+        }
 
+        // Fallback: sometimes a node id is used as the market id
         if (state.Nodes.ContainsKey(marketId)) return marketId;
 
         return null;
-    }
-
-    public static string? GetNextHop(SimState state, string startId, string endId)
-    {
-        if (startId == endId) return startId;
-        if (MapQueries.AreConnected(state, startId, endId)) return endId;
-
-        var frontier = new Queue<string>();
-        frontier.Enqueue(startId);
-        var cameFrom = new Dictionary<string, string>();
-        cameFrom[startId] = startId; // Sentinel
-
-        while (frontier.Count > 0)
-        {
-            var current = frontier.Dequeue();
-            if (current == endId) break;
-
-            foreach (var edge in state.Edges.Values)
-            {
-                string? next = null;
-                if (edge.FromNodeId == current) next = edge.ToNodeId;
-                else if (edge.ToNodeId == current) next = edge.FromNodeId;
-
-                if (next != null && !cameFrom.ContainsKey(next))
-                {
-                    frontier.Enqueue(next);
-                    cameFrom[next] = current;
-                }
-            }
-        }
-
-        if (!cameFrom.ContainsKey(endId)) return null;
-
-        var curr = endId;
-        while (cameFrom[curr] != startId)
-        {
-            curr = cameFrom[curr];
-        }
-        return curr;
     }
 }

@@ -16,7 +16,9 @@ public class LogisticsTests
         // 1. Setup Topology (Nodes + Edge)
         state.Nodes.Add("alpha", new Node { Id = "alpha", MarketId = "alpha" });
         state.Nodes.Add("beta", new Node { Id = "beta", MarketId = "beta" });
-        state.Edges.Add("e1", new Edge { Id = "e1", FromNodeId = "alpha", ToNodeId = "beta", Distance = 10 });
+        state.Edges.Add("e1_ab", new Edge { Id = "e1_ab", FromNodeId = "alpha", ToNodeId = "beta", Distance = 10 });
+        state.Edges.Add("e1_ba", new Edge { Id = "e1_ba", FromNodeId = "beta", ToNodeId = "alpha", Distance = 10 });
+
 
         // 2. Setup Markets
         var alpha = new Market { Id = "alpha" };
@@ -32,8 +34,11 @@ public class LogisticsTests
         {
             Id = "fac_1",
             NodeId = "beta",
+            Active = true,
+            BufferDays = 1,
             Inputs = new Dictionary<string, int> { { "ore", 10 } }
         };
+
         state.IndustrySites.Add("fac_1", factory);
 
         // 4. Setup Fleet (Idle at Beta)
@@ -47,6 +52,11 @@ public class LogisticsTests
         Assert.IsNotNull(fleet.CurrentJob, "Fleet should have a job assigned.");
         Assert.That(fleet.CurrentJob.GoodId, Is.EqualTo("ore"));
         Assert.That(fleet.CurrentJob.SourceNodeId, Is.EqualTo("alpha"));
-        Assert.That(fleet.State, Is.EqualTo(FleetState.Traveling));
+
+        // New contract: LogisticsSystem assigns a job and requests a destination.
+        // MovementSystem deterministically plans lanes and starts travel on its Process().
+        Assert.That(fleet.DestinationNodeId, Is.EqualTo("alpha"));
+        Assert.That(fleet.State, Is.EqualTo(FleetState.Idle));
+
     }
 }
