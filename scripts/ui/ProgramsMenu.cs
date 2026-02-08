@@ -17,9 +17,11 @@ public partial class ProgramsMenu : Control
         private Label _title = null!;
 
         private string _selectedProgramId = "";
-        
+
         private Control _dimmer = null!;
         private bool _modalApplied = false;
+
+        private CheckBox _showCancelled = null!;
 
         public override void _Ready()
         {
@@ -34,7 +36,7 @@ public partial class ProgramsMenu : Control
                 ZAsRelative = false;
                 MouseFilter = MouseFilterEnum.Stop;
 
-                // CRITICAL: make ProgramsMenu itself cover the whole viewport
+                // Cover the whole viewport
                 SetAnchorsPreset(LayoutPreset.FullRect);
                 OffsetLeft = 0;
                 OffsetTop = 0;
@@ -62,15 +64,14 @@ public partial class ProgramsMenu : Control
                 panel.ZAsRelative = false;
                 panel.MouseFilter = MouseFilterEnum.Stop;
 
-                // Explicitly center a fixed-size panel (avoid inherited offsets like 40x40)
+                // Wider to reduce truncation
                 panel.SetAnchorsPreset(LayoutPreset.Center);
-                panel.OffsetLeft = -430;
+                panel.OffsetLeft = -520;
                 panel.OffsetTop = -320;
-                panel.OffsetRight = 430;
+                panel.OffsetRight = 520;
                 panel.OffsetBottom = 320;
-                panel.CustomMinimumSize = new Vector2(860, 640);
+                panel.CustomMinimumSize = new Vector2(1040, 640);
 
-                // Force an opaque background even if the project theme makes panels translucent
                 var sb = new StyleBoxFlat();
                 sb.BgColor = new Color(0.06f, 0.06f, 0.08f, 0.98f);
                 sb.BorderColor = new Color(0.20f, 0.20f, 0.25f, 1.0f);
@@ -95,6 +96,10 @@ public partial class ProgramsMenu : Control
                 btnRefresh.Pressed += Refresh;
                 topRow.AddChild(btnRefresh);
 
+                _showCancelled = new CheckBox { Text = "Show cancelled" };
+                _showCancelled.Toggled += _ => Refresh();
+                topRow.AddChild(_showCancelled);
+
                 var btnClose = new Button { Text = "Close" };
                 btnClose.Pressed += () => { Close(); EmitSignal(SignalName.RequestClose); };
                 topRow.AddChild(btnClose);
@@ -106,13 +111,13 @@ public partial class ProgramsMenu : Control
 
                 // Left: program list
                 var left = new VBoxContainer();
-                left.CustomMinimumSize = new Vector2(520, 0);
+                left.CustomMinimumSize = new Vector2(680, 0);
                 split.AddChild(left);
 
                 left.AddChild(new Label { Text = "All Programs" });
 
                 var scroll = new ScrollContainer();
-                scroll.CustomMinimumSize = new Vector2(520, 520);
+                scroll.CustomMinimumSize = new Vector2(680, 520);
                 left.AddChild(scroll);
 
                 _list = new VBoxContainer();
@@ -120,7 +125,7 @@ public partial class ProgramsMenu : Control
 
                 // Right: details
                 var right = new VBoxContainer();
-                right.CustomMinimumSize = new Vector2(320, 0);
+                right.CustomMinimumSize = new Vector2(340, 0);
                 split.AddChild(right);
 
                 right.AddChild(new Label { Text = "Selected Program" });
@@ -129,57 +134,74 @@ public partial class ProgramsMenu : Control
                 {
                         Text = "(none)",
                         AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                        CustomMinimumSize = new Vector2(320, 520)
+                        CustomMinimumSize = new Vector2(340, 520)
                 };
                 right.AddChild(_detail);
         }
 
         public void Open()
         {
-            Visible = true;
+                Visible = true;
 
-            if (_dimmer != null)
-                _dimmer.Visible = true;
+                if (_dimmer != null)
+                        _dimmer.Visible = true;
 
-            ApplyModal(true);
-            Refresh();
+                ApplyModal(true);
+                Refresh();
         }
 
         public void Close()
         {
-            Visible = false;
+                Visible = false;
 
-            if (_dimmer != null)
-                _dimmer.Visible = false;
+                if (_dimmer != null)
+                        _dimmer.Visible = false;
 
-            ApplyModal(false);
+                ApplyModal(false);
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            if (!Visible) return;
+                if (!Visible) return;
 
-            if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
-            {
-                Close();
-                EmitSignal(SignalName.RequestClose);
-                GetViewport().SetInputAsHandled();
-            }
+                if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
+                {
+                        Close();
+                        EmitSignal(SignalName.RequestClose);
+                        GetViewport().SetInputAsHandled();
+                }
         }
 
         private void ApplyModal(bool enable)
         {
-            // Idempotent
-            if (enable && _modalApplied) return;
-            if (!enable && !_modalApplied) return;
+                if (enable && _modalApplied) return;
+                if (!enable && !_modalApplied) return;
 
-            var player = GetTree().GetFirstNodeInGroup("Player");
-            if (player != null && player.HasMethod("set_input_enabled"))
-            {
-                player.Call("set_input_enabled", !enable);
-            }
+                var player = GetTree().GetFirstNodeInGroup("Player");
+                if (player != null && player.HasMethod("set_input_enabled"))
+                {
+                        player.Call("set_input_enabled", !enable);
+                }
 
-            _modalApplied = enable;
+                _modalApplied = enable;
+        }
+
+        private static string GetStr(Dictionary d, string key)
+        {
+                if (d.ContainsKey(key))
+                {
+                        var v = d[key];
+                        if (v.VariantType == Variant.Type.Nil) return "";
+                        return v.ToString();
+                }
+                return "";
+        }
+
+        private static int GetInt(Dictionary d, string key)
+        {
+                if (!d.ContainsKey(key)) return 0;
+                var v = d[key];
+                try { return (int)v; } catch { return 0; }
         }
 
         private void Refresh()
@@ -191,47 +213,54 @@ public partial class ProgramsMenu : Control
 
                 var arr = _bridge.GetProgramExplainSnapshot();
 
-                // Sort stable by id
                 var rows = arr
                         .Select(v => v.Obj as Dictionary)
                         .Where(d => d != null)
-                        .OrderBy(d => d!.ContainsKey("id") ? d["id"].ToString() : "")
+                        .OrderBy(d => GetStr(d!, "id"))
                         .ToArray();
+
+                if (_showCancelled != null && !_showCancelled.ButtonPressed)
+                {
+                        rows = rows
+                                .Where(d => GetStr(d!, "status") != "Cancelled")
+                                .ToArray();
+                }
 
                 if (rows.Length == 0)
                 {
-
                         _list.AddChild(new Label { Text = "(no programs)" });
                         _selectedProgramId = "";
                         _detail.Text = "(none)";
                         return;
                 }
 
-                foreach (var d in rows!)
+                foreach (var d in rows)
                 {
-                        var id = d!.ContainsKey("id") ? d["id"].ToString() : "";
-                        var kind = d.ContainsKey("kind") ? d["kind"].ToString() : "";
-                        var status = d.ContainsKey("status") ? d["status"].ToString() : "";
-                        var marketId = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
-                        var goodId = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
+                        var id = GetStr(d!, "id");
+                        var kind = GetStr(d!, "kind");
+                        var status = GetStr(d!, "status");
+                        var marketId = GetStr(d!, "market_id");
+                        var goodId = GetStr(d!, "good_id");
 
-                        var qty = d.ContainsKey("quantity") ? (int)d["quantity"] : 0;
-                        var cad = d.ContainsKey("cadence_ticks") ? (int)d["cadence_ticks"] : 0;
-                        var next = d.ContainsKey("next_run_tick") ? (int)d["next_run_tick"] : 0;
-                        var last = d.ContainsKey("last_run_tick") ? (int)d["last_run_tick"] : 0;
+                        var qty = GetInt(d!, "quantity");
+                        var cad = GetInt(d!, "cadence_ticks");
+                        var next = GetInt(d!, "next_run_tick");
+                        var last = GetInt(d!, "last_run_tick");
 
-                        var row = new HBoxContainer();
+                        var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
                         _list.AddChild(row);
 
                         var btnSelect = new Button { Text = "Select" };
                         btnSelect.Pressed += () => SelectProgram(id);
                         row.AddChild(btnSelect);
 
+                        // Wrap instead of clipping
                         var lbl = new Label
                         {
                                 Text = $"{id} | {kind} | {status} | {marketId}:{goodId} | q={qty} cad={cad}t | last={last} next={next}",
-                                AutowrapMode = TextServer.AutowrapMode.Off,
-                                CustomMinimumSize = new Vector2(430, 0)
+                                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                                CustomMinimumSize = new Vector2(520, 0)
                         };
                         row.AddChild(lbl);
 
@@ -251,7 +280,6 @@ public partial class ProgramsMenu : Control
                         row.AddChild(btnCancel);
                 }
 
-                // Keep selection if possible
                 if (!string.IsNullOrWhiteSpace(_selectedProgramId))
                 {
                         SelectProgram(_selectedProgramId);

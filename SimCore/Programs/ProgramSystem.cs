@@ -23,12 +23,17 @@ public static class ProgramSystem
             if (!p.IsRunnableAt(tick)) continue;
 
             // Execute: emit intents only, never mutate ledgers directly.
-            if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))
+            var qty = p.Quantity;
+
+            if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
-                var qty = p.Quantity;
-                if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
+                if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))
                 {
                     state.EnqueueIntent(new BuyIntent(p.MarketId, p.GoodId, qty));
+                }
+                else if (string.Equals(p.Kind, ProgramKind.AutoSell, StringComparison.Ordinal))
+                {
+                    state.EnqueueIntent(new SellIntent(p.MarketId, p.GoodId, qty));
                 }
             }
 

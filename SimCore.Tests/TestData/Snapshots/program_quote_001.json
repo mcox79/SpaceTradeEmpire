@@ -1,0 +1,25 @@
+{
+  "Version": 1,
+  "QuoteTick": 0,
+  "ProgramId": "P1",
+  "Kind": "AUTO_BUY",
+  "MarketId": "mkt_a",
+  "GoodId": "ore",
+  "Quantity": 3,
+  "CadenceTicks": 10,
+  "UnitPriceNow": 147,
+  "EstCostOrValuePerRun": 441,
+  "EstRunsPerDay": 144,
+  "EstDailyCostOrValue": 63504,
+  "Constraints": {
+    "MarketExists": true,
+    "HasEnoughCreditsNow": true,
+    "HasEnoughSupplyNow": true,
+    "HasEnoughCargoNow": false
+  },
+  "Risks": [
+    "CADENCE_MAY_OVERRUN_BUDGET",
+    "FILL_NOT_GUARANTEED",
+    "PRICE_MOVES_WITH_INVENTORY"
+  ]
+}

@@ -109,6 +109,33 @@ public class SimState
         return id;
     }
 
+    /// <summary>
+    /// Creates a deterministic program id and adds the instance to the book.
+    /// </summary>
+    public string CreateAutoSellProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.AutoSell,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            MarketId = marketId ?? "",
+            GoodId = goodId ?? "",
+            Quantity = quantity
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
     public string GetSignature()
     {
         var sb = new StringBuilder();

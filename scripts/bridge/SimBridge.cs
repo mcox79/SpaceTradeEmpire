@@ -530,7 +530,7 @@ public partial class SimBridge : Node
                 }
         }
 
-                public Godot.Collections.Dictionary GetProgramQuote(string programId)
+        public Godot.Collections.Dictionary GetProgramQuote(string programId)
         {
                 var d = new Godot.Collections.Dictionary();
                 if (IsLoading) return d;
@@ -540,43 +540,45 @@ public partial class SimBridge : Node
                 try
                 {
                         var state = _kernel.State;
-                        if (!state.Programs.Instances.TryGetValue(programId, out var p))
-                                return d;
+                        if (state.Programs is null) return d;
+                        if (!state.Programs.Instances.ContainsKey(programId)) return d;
 
-                        // Deterministic snapshot at current tick.
-                        var tick = state.Tick;
+                        // Deterministic: request + snapshot => quote
+                        var snap = ProgramQuoteSnapshot.Capture(state, programId);
+                        var quote = ProgramQuote.BuildFromSnapshot(snap);
 
-                        int unitPrice = 0;
-                        if (state.Markets.TryGetValue(p.MarketId, out var market))
+                        d["program_id"] = quote.ProgramId;
+                        d["kind"] = quote.Kind;
+                        d["quote_tick"] = quote.QuoteTick;
+
+                        d["market_id"] = quote.MarketId;
+                        d["good_id"] = quote.GoodId;
+                        d["quantity"] = quote.Quantity;
+                        d["cadence_ticks"] = quote.CadenceTicks;
+
+                        d["unit_price_now"] = quote.UnitPriceNow;
+                        d["est_cost_or_value_per_run"] = quote.EstCostOrValuePerRun;
+                        d["est_runs_per_day"] = quote.EstRunsPerDay;
+                        d["est_daily_cost_or_value"] = quote.EstDailyCostOrValue;
+
+                        // Constraints (schema-bound booleans)
+                        d["market_exists"] = quote.Constraints.MarketExists;
+                        d["has_enough_credits_now"] = quote.Constraints.HasEnoughCreditsNow;
+                        d["has_enough_supply_now"] = quote.Constraints.HasEnoughSupplyNow;
+                        d["has_enough_cargo_now"] = quote.Constraints.HasEnoughCargoNow;
+
+                        // Risks (sorted for determinism in core; keep order)
+                        var risksArr = new Godot.Collections.Array();
+                        foreach (var r in quote.Risks)
                         {
-                                unitPrice = market.GetPrice(p.GoodId);
+                                risksArr.Add(r);
                         }
+                        d["risks"] = risksArr;
 
-                        // For AutoBuy, "quote" means expected spend if it fires.
-                        long costPerRun = (long)unitPrice * (long)p.Quantity;
-
-                        // Runs per day assuming 1440 ticks/day and cadence in ticks.
-                        // If cadence is 0 (should not happen), clamp to 1.
-                        int cadence = p.CadenceTicks <= 0 ? 1 : p.CadenceTicks;
-                        long runsPerDay = 1440L / (long)cadence;
-                        long estDailySpend = costPerRun * runsPerDay;
-
-                        d["program_id"] = programId;
-                        d["kind"] = p.Kind.ToString();
-                        d["status"] = p.Status.ToString();
-                        d["quote_tick"] = tick;
-
-                        d["market_id"] = p.MarketId;
-                        d["good_id"] = p.GoodId;
-                        d["quantity"] = p.Quantity;
-                        d["cadence_ticks"] = cadence;
-
-                        d["unit_price_now"] = unitPrice;
-                        d["est_cost_per_run"] = costPerRun;
-                        d["est_runs_per_day"] = runsPerDay;
-                        d["est_daily_spend"] = estDailySpend;
-
-                        d["notes"] = "Computed from current published market price at quote_tick.";
+                        return d;
+                }
+                catch
+                {
                         return d;
                 }
                 finally
@@ -584,6 +586,7 @@ public partial class SimBridge : Node
                         _stateLock.ExitReadLock();
                 }
         }
+
 
         public Godot.Collections.Dictionary GetProgramOutcome(string programId)
         {
