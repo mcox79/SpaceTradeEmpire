@@ -17,6 +17,9 @@ public partial class ProgramsMenu : Control
         private Label _title = null!;
 
         private string _selectedProgramId = "";
+        
+        private Control _dimmer = null!;
+        private bool _modalApplied = false;
 
         public override void _Ready()
         {
@@ -27,12 +30,54 @@ public partial class ProgramsMenu : Control
 
         private void SetupUI()
         {
+                ZIndex = 200;
+                ZAsRelative = false;
+                MouseFilter = MouseFilterEnum.Stop;
+
+                // CRITICAL: make ProgramsMenu itself cover the whole viewport
+                SetAnchorsPreset(LayoutPreset.FullRect);
+                OffsetLeft = 0;
+                OffsetTop = 0;
+                OffsetRight = 0;
+                OffsetBottom = 0;
+
+                // Modal dimmer (blocks clicks behind the menu)
+                var dim = new ColorRect();
+                dim.SetAnchorsPreset(LayoutPreset.FullRect);
+                dim.OffsetLeft = 0;
+                dim.OffsetTop = 0;
+                dim.OffsetRight = 0;
+                dim.OffsetBottom = 0;
+                dim.Color = new Color(0f, 0f, 0f, 0.65f);
+                dim.MouseFilter = MouseFilterEnum.Stop;
+                dim.ZIndex = 99;
+                dim.ZAsRelative = false;
+                AddChild(dim);
+                _dimmer = dim;
+                _dimmer.Visible = false;
+
+                // Opaque panel
                 var panel = new PanelContainer();
                 panel.ZIndex = 100;
                 panel.ZAsRelative = false;
+                panel.MouseFilter = MouseFilterEnum.Stop;
 
+                // Explicitly center a fixed-size panel (avoid inherited offsets like 40x40)
                 panel.SetAnchorsPreset(LayoutPreset.Center);
+                panel.OffsetLeft = -430;
+                panel.OffsetTop = -320;
+                panel.OffsetRight = 430;
+                panel.OffsetBottom = 320;
                 panel.CustomMinimumSize = new Vector2(860, 640);
+
+                // Force an opaque background even if the project theme makes panels translucent
+                var sb = new StyleBoxFlat();
+                sb.BgColor = new Color(0.06f, 0.06f, 0.08f, 0.98f);
+                sb.BorderColor = new Color(0.20f, 0.20f, 0.25f, 1.0f);
+                sb.SetBorderWidthAll(2);
+                sb.SetCornerRadiusAll(10);
+                panel.AddThemeStyleboxOverride("panel", sb);
+
                 AddChild(panel);
 
                 var root = new VBoxContainer();
@@ -51,7 +96,7 @@ public partial class ProgramsMenu : Control
                 topRow.AddChild(btnRefresh);
 
                 var btnClose = new Button { Text = "Close" };
-                btnClose.Pressed += () => EmitSignal(SignalName.RequestClose);
+                btnClose.Pressed += () => { Close(); EmitSignal(SignalName.RequestClose); };
                 topRow.AddChild(btnClose);
 
                 root.AddChild(new HSeparator());
@@ -91,8 +136,50 @@ public partial class ProgramsMenu : Control
 
         public void Open()
         {
-                Visible = true;
-                Refresh();
+            Visible = true;
+
+            if (_dimmer != null)
+                _dimmer.Visible = true;
+
+            ApplyModal(true);
+            Refresh();
+        }
+
+        public void Close()
+        {
+            Visible = false;
+
+            if (_dimmer != null)
+                _dimmer.Visible = false;
+
+            ApplyModal(false);
+        }
+
+        public override void _UnhandledInput(InputEvent @event)
+        {
+            if (!Visible) return;
+
+            if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
+            {
+                Close();
+                EmitSignal(SignalName.RequestClose);
+                GetViewport().SetInputAsHandled();
+            }
+        }
+
+        private void ApplyModal(bool enable)
+        {
+            // Idempotent
+            if (enable && _modalApplied) return;
+            if (!enable && !_modalApplied) return;
+
+            var player = GetTree().GetFirstNodeInGroup("Player");
+            if (player != null && player.HasMethod("set_input_enabled"))
+            {
+                player.Call("set_input_enabled", !enable);
+            }
+
+            _modalApplied = enable;
         }
 
         private void Refresh()

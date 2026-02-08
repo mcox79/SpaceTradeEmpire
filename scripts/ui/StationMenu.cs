@@ -143,21 +143,26 @@ private void ConnectPlayerSignals()
 				susScroll.AddChild(_sustainmentList);
 
 				vbox.AddChild(new HSeparator());
-				var closeBtn = new Button { Text = "Undock" };
-				closeBtn.Pressed += () => EmitSignal(SignalName.RequestUndock);
-				vbox.AddChild(closeBtn);
+								var closeBtn = new Button { Text = "Undock" };
+								closeBtn.Pressed += () =>
+								{
+										if (_programsMenu != null) _programsMenu.Close();
+										EmitSignal(SignalName.RequestUndock);
+								};
+								vbox.AddChild(closeBtn);
 		}
 
 		// Supports either existing callers (string marketId) or PlayerShip (station object ref).
 		public void OnShopToggled(bool isOpen, Variant stationOrMarketId)
 		{
-				Visible = isOpen;
+								Visible = isOpen;
 
-				if (!isOpen)
-				{
-						_currentMarketId = "";
-						return;
-				}
+								if (!isOpen)
+								{
+										if (_programsMenu != null) _programsMenu.Close();
+										_currentMarketId = "";
+										return;
+								}
 
 				_currentMarketId = ResolveMarketId(stationOrMarketId);
 
