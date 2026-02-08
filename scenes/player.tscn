@@ -1,12 +1,19 @@
 [gd_scene format=3 uid="uid://cce80jwnp6gby"]
 
 [ext_resource type="Script" uid="uid://46aob1dji102" path="res://scripts/player.gd" id="1_3vyb7"]
+[ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
 radius = 1.0
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_visual"]
-radius = 1.0
+[sub_resource type="BoxMesh" id="BoxMesh_hull"]
+size = Vector3(1.4, 0.7, 3.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nose"]
+size = Vector3(0.9, 0.5, 1.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_engine"]
+size = Vector3(1.0, 0.4, 0.8)
 
 [node name="Player" type="CharacterBody3D" unique_id=1454279642]
 script = ExtResource("1_3vyb7")
@@ -15,12 +22,23 @@ script = ExtResource("1_3vyb7")
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
 shape = SubResource("CapsuleShape3D_hitbox")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1486319647]
-transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
-mesh = SubResource("CapsuleMesh_visual")
+[node name="ShipVisual" type="Node3D" parent="." unique_id=990001001]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Hull" type="MeshInstance3D" parent="ShipVisual" unique_id=990001002]
+mesh = SubResource("BoxMesh_hull")
+
+[node name="Nose" type="MeshInstance3D" parent="ShipVisual" unique_id=990001003]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.3)
+mesh = SubResource("BoxMesh_nose")
+
+[node name="Engine" type="MeshInstance3D" parent="ShipVisual" unique_id=990001004]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.1)
+mesh = SubResource("BoxMesh_engine")
 
 [node name="CameraMount" type="Node3D" parent="." unique_id=1535274258]
-transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 3, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Camera3D" type="Camera3D" parent="CameraMount" unique_id=1607566704]
-transform = Transform3D(1, 0, 0, 0, 0.9393727, 0.3428978, 0, -0.3428978, 0.9393727, 0, 3, 8)
+script = ExtResource("2_followcam")
+target_path = NodePath("../..")

@@ -13,8 +13,14 @@ class_name PlayerShip
 @export_group("Flight Characteristics")
 @export var max_speed: float = 80.0
 @export var acceleration: float = 60.0
-@export var brake_damping: float = 1.5
-@export var drift_damping: float = 0.2
+
+# Damping is applied as:
+# - Lateral damping: kill sideways slip (feels ship-like)
+# - Forward damping: mild drag while thrusting, stronger drag while coasting
+@export var lateral_damping: float = 6.0
+@export var forward_drag_thrusting: float = 0.4
+@export var forward_drag_coasting: float = 1.8
+
 @export var turn_speed: float = 3.5
 @export var bank_angle: float = 25.0
 
@@ -42,7 +48,7 @@ func _ready() -> void:
 	axis_lock_linear_y = true
 	axis_lock_angular_x = true
 	axis_lock_angular_z = true
-	
+
 	# Connect to Bridge (Autoload)
 	_bridge = get_tree().root.find_child("SimBridge", true, false)
 	if _bridge == null:
@@ -51,11 +57,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	# 1. Sync Economic State (Reactive)
 	_sync_sim_state()
-	
+
 	if not input_enabled:
 		_apply_passive_physics(delta)
 		return
-	
+
 	# 2. Handle Physics Input (Authoritative)
 	_handle_flight_input(delta)
 	move_and_slide()
@@ -63,22 +69,22 @@ func _physics_process(delta: float) -> void:
 func _sync_sim_state():
 	if _bridge == null: return
 	if not _bridge.has_method("GetPlayerSnapshot"): return
-	
+
 	# Fetch atomic snapshot from C#
 	var snapshot = _bridge.GetPlayerSnapshot()
 	if snapshot.is_empty(): return
-	
+
 	# Update Credits
 	var new_credits = int(snapshot.get("credits", 0))
 	if new_credits != credits:
 		credits = new_credits
 		emit_signal("credits_updated", credits)
-	
+
 	# Update Cargo
 	var raw_cargo = snapshot.get("cargo", null)
 	if raw_cargo != null:
 		cargo = raw_cargo
-	
+
 	# Update Location (Optional for UI)
 	location_node_id = str(snapshot.get("location", ""))
 
@@ -86,35 +92,57 @@ func _handle_flight_input(delta: float):
 	var throttle: float = 0.0
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): throttle += 1.0
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): throttle -= 1.0
-	
+
 	var turn: float = 0.0
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): turn += 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): turn -= 1.0
-	
-	if turn != 0: rotate_y(turn * turn_speed * delta)
-	
-	var forward = -transform.basis.z
-	if throttle != 0:
-		velocity += forward * throttle * acceleration * delta
-		velocity = velocity.lerp(Vector3.ZERO, drift_damping * delta)
-	else:
-		velocity = velocity.lerp(Vector3.ZERO, brake_damping * delta)
-	
-	if velocity.length() > max_speed:
-		velocity = velocity.normalized() * max_speed
-	
+
+	if turn != 0.0:
+		rotate_y(turn * turn_speed * delta)
+
+	var forward_dir = -global_transform.basis.z
+	var right_dir = global_transform.basis.x
+
+	# Decompose velocity into forward + lateral components in ship space
+	var v_fwd = forward_dir * velocity.dot(forward_dir)
+	var v_lat = right_dir * velocity.dot(right_dir)
+
+	# Thrust affects forward component only (ship-like)
+	if throttle != 0.0:
+		v_fwd += forward_dir * (throttle * acceleration * delta)
+
+	# Kill lateral slip quickly (space-ish but controllable)
+	v_lat = v_lat.lerp(Vector3.ZERO, _exp_lerp_t(lateral_damping, delta))
+
+	# Forward drag: mild while thrusting, stronger while coasting
+	var drag = forward_drag_thrusting if throttle != 0.0 else forward_drag_coasting
+	v_fwd = v_fwd.lerp(Vector3.ZERO, _exp_lerp_t(drag, delta))
+
+	velocity = v_fwd + v_lat
+
+	# Clamp speed
+	var spd = velocity.length()
+	if spd > max_speed:
+		velocity = velocity * (max_speed / spd)
+
 	_handle_visual_banking(turn, delta)
 
 func _handle_visual_banking(turn_input: float, delta: float):
-	var mesh = $MeshInstance3D
-	if not mesh: return
+	var vis := get_node_or_null("ShipVisual") as Node3D
+	if vis == null:
+		return
 	var target_z = turn_input * deg_to_rad(bank_angle)
 	_current_bank = lerp(_current_bank, target_z, delta * 5.0)
-	mesh.rotation.z = _current_bank
+	vis.rotation.z = _current_bank
+
 
 func _apply_passive_physics(delta: float):
-	velocity = velocity.lerp(Vector3.ZERO, brake_damping * delta)
+	# When input is disabled, smoothly come to rest.
+	velocity = velocity.lerp(Vector3.ZERO, _exp_lerp_t(2.5, delta))
 	move_and_slide()
+
+func _exp_lerp_t(speed: float, delta: float) -> float:
+	return 1.0 - exp(-max(0.0, speed) * max(0.0, delta))
 
 # --- API ---
 func set_input_enabled(val: bool): input_enabled = val
@@ -122,7 +150,7 @@ func set_input_enabled(val: bool): input_enabled = val
 func dock_at_station(station):
 	velocity = Vector3.ZERO
 	input_enabled = false
-	
+
 	# Signal UI to open shop
 	# Pass the station object so UI can query it for prices (via Bridge)
 	emit_signal("shop_toggled", true, station)
