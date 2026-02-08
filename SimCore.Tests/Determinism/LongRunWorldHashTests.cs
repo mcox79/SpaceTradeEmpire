@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using NUnit.Framework;
 using SimCore;
 using SimCore.Gen;
@@ -8,11 +7,22 @@ namespace SimCore.Tests.Determinism;
 
 public class LongRunWorldHashTests
 {
+    // This test is a separate golden from GoldenReplayTests:
+    // - No external inputs
+    // - 10,000 ticks
+    private const string ExpectedGenesisHash = "DAB2BB84ADD27BC3C1CE13472CAB3DE7B912D8E6316671B7B7545E409412BBFF";
+    private const string ExpectedFinalHash = "BEBA2B21125A52112AF8288DE299B94045BF1708F393C189212ED227A0AA158E";
+
     [Test]
-    public void LongRun_10000Ticks_Matches_GoldenReplay_Snapshot()
+    public void LongRun_10000Ticks_Matches_Golden()
     {
         const int seed = 42;
         const int ticks = 10000;
+
+        bool updateGolden = string.Equals(
+            Environment.GetEnvironmentVariable("STE_UPDATE_GOLDEN"),
+            "1",
+            StringComparison.Ordinal);
 
         // RUN A
         var simA = new SimKernel(seed);
@@ -48,63 +58,16 @@ public class LongRunWorldHashTests
         Assert.That(genesisB, Is.EqualTo(genesisA), "Genesis determinism drift detected.");
         Assert.That(finalB, Is.EqualTo(finalA), "Long-run determinism drift detected.");
 
-        var (expectedGenesis, expectedFinal) = ReadGoldenReplaySnapshot();
-
-        Assert.That(genesisA, Is.EqualTo(expectedGenesis), "Genesis hash does not match golden snapshot.");
-        Assert.That(finalA, Is.EqualTo(expectedFinal), "Final hash does not match golden snapshot.");
-    }
-
-    private static (string expectedGenesis, string expectedFinal) ReadGoldenReplaySnapshot()
-    {
-        var repoRoot = FindRepoRoot();
-        var snapshotPath = Path.Combine(repoRoot, "docs", "generated", "snapshots", "golden_replay_hashes.txt");
-
-        if (!File.Exists(snapshotPath))
+        if (updateGolden)
         {
-            Assert.Fail($"Missing golden replay snapshot file: {snapshotPath}");
+            TestContext.Out.WriteLine($"PASTE_LONGRUN_GENESIS: {genesisA}");
+            TestContext.Out.WriteLine($"PASTE_LONGRUN_FINAL:   {finalA}");
+            Assert.Fail("Long-run golden hashes updated. Copy PASTE_LONGRUN_* values into ExpectedGenesisHash/ExpectedFinalHash.");
         }
-
-        string? genesis = null;
-        string? final = null;
-
-        foreach (var rawLine in File.ReadAllLines(snapshotPath))
+        else
         {
-            var line = rawLine.Trim();
-            if (line.Length == 0) continue;
-
-            if (line.StartsWith("Genesis=", StringComparison.OrdinalIgnoreCase))
-            {
-                genesis = line.Substring("Genesis=".Length).Trim();
-            }
-            else if (line.StartsWith("Final=", StringComparison.OrdinalIgnoreCase))
-            {
-                final = line.Substring("Final=".Length).Trim();
-            }
+            Assert.That(genesisA, Is.EqualTo(ExpectedGenesisHash), "Genesis hash does not match long-run golden.");
+            Assert.That(finalA, Is.EqualTo(ExpectedFinalHash), "Final hash does not match long-run golden.");
         }
-
-        if (string.IsNullOrWhiteSpace(genesis) || string.IsNullOrWhiteSpace(final))
-        {
-            Assert.Fail($"Snapshot file malformed. Expected lines 'Genesis=<hash>' and 'Final=<hash>' in: {snapshotPath}");
-        }
-
-        return (genesis!, final!);
-    }
-
-    private static string FindRepoRoot()
-    {
-        // NUnit work directory is usually <repo>\SimCore.Tests\bin\Debug\net8.0
-        // Walk upward until we find a .git folder.
-        var dir = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
-
-        while (dir != null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, ".git")))
-                return dir.FullName;
-
-            dir = dir.Parent;
-        }
-
-        Assert.Fail("Unable to locate repo root (no .git found walking upward from test work directory).");
-        return "";
     }
 }

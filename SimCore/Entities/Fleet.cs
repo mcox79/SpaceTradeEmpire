@@ -22,10 +22,21 @@ public class Fleet
     public string DestinationNodeId { get; set; } = "";
     public string CurrentEdgeId { get; set; } = "";
 
+    // ROUTE STATE (Slice 3 / GATE.FLEET.ROUTE.001)
+    // DestinationNodeId is the next immediate hop while traveling.
+    // FinalDestinationNodeId is the requested end node for the whole route.
+    public string FinalDestinationNodeId { get; set; } = "";
+
+    // Planned lane sequence to reach FinalDestinationNodeId.
+    // RouteEdgeIndex points to the next edge to traverse.
+    public List<string> RouteEdgeIds { get; set; } = new();
+    public int RouteEdgeIndex { get; set; } = 0;
+
     // TRAVEL STATE
     public FleetState State { get; set; } = FleetState.Idle;
     public float TravelProgress { get; set; } = 0f; // 0.0 to 1.0
     public float Speed { get; set; } = 0.5f; // AU per tick
+
 
     // LOGIC STATE
     public string CurrentTask { get; set; } = "Idle"; // Explanation for UI

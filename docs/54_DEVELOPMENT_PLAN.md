@@ -82,7 +82,7 @@ Epics:
 - EPIC.S2.PROG.SAFETY: Guardrails against direct state mutation, only intents
 - EPIC.S2.EXPLAIN: Schema-bound “Explain” events for program outcomes and constraints
 
-Status: IN_PROGRESS
+Status: DONE
 
 ---
 
@@ -96,7 +96,7 @@ Epics:
 - EPIC.S3.RISK.MODEL: Predictable risk bands, losses, insurance-like sinks
 - EPIC.S3.UI.DASH: Dashboards for flows, margins, bottlenecks, intel quality
 
-Status: TODO
+Status: IN_PROGRESS
 
 ---
 
@@ -237,6 +237,13 @@ Status: TODO
 | GATE.VIEW.001 | Playable prototype camera is a ship-follow orbit camera (zoom + rotate) and player has a ship placeholder mesh | DONE | scripts/view/player_follow_camera.gd + scenes/player.tscn + scenes/playable_prototype.tscn |
 | GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
 
+### B5. Slice 3 logistics gates (v1)
+| Gate ID | Gate | Status | Evidence |
+|---|---|---|---|
+| GATE.ROUTE.001 | Deterministic route planner exists: from node to node => ordered edges/nodes + total travel ticks (stable tie-breaks by EdgeId/NodeId) | DONE | SimCore/Systems/RoutePlanner.cs + SimCore.Tests/Systems/RoutePlannerTests.cs |
+| GATE.FLEET.ROUTE.001 | Fleet travel can follow a planned multi-edge route (lane sequence) without nondeterminism | DONE | SimCore/Systems/MovementSystem.cs + SimCore/Entities/Fleet.cs + SimCore.Tests/Systems/FleetRouteTravelTests.cs |
+| GATE.LOGI.JOB.001 | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | TODO | SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobContractTests.cs |
+
 ---
 
 ## C. Session log (append only)
@@ -269,4 +276,6 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-08, main, GATE.QUOTE.001 DONE (deterministic request+snapshot=>quote with golden). Evidence: SimCore/Programs/ProgramQuote.cs; SimCore/Programs/ProgramQuoteSnapshot.cs; SimCore.Tests/Programs/ProgramQuoteContractTests.cs; SimCore.Tests/TestData/Snapshots/program_quote_001.json; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.FLEET.001 DONE (deterministic single player trader fleet created by WorldLoader). Evidence: SimCore/World/WorldLoader.cs; SimCore.Tests/Programs/FleetBindingContractTests.cs; docs/generated/05_TEST_SUMMARY.txt
 - 2026-02-08, main, GATE.DOCTRINE.001 DONE (DefaultDoctrine deterministic, max 2 toggles). Evidence: SimCore/Programs/DefaultDoctrine.cs; SimCore.Tests/Programs/DefaultDoctrineContractTests.cs
-- - 2026-02-08, main, GATE.VIEW.001 DONE (ship-follow orbit camera + ship placeholder mesh in playable prototype). Evidence: scripts/view/player_follow_camera.gd; scenes/player.tscn; scenes/playable_prototype.tscn
+- 2026-02-08, main, GATE.VIEW.001 DONE (ship-follow orbit camera + ship placeholder mesh in playable prototype). Evidence: scripts/view/player_follow_camera.gd; scenes/player.tscn; scenes/playable_prototype.tscn
+- 2026-02-08, main, Slice 2 DONE (Programs v1): all B4 gates DONE, including GATE.DET.PROG.001. Evidence: B4 table + Program determinism tests + ProgramsMenu UI.
+- 2026-02-08, main, GATE.ROUTE.001 + GATE.FLEET.ROUTE.001 DONE (deterministic route planner; fleets follow multi-edge lane routes with deterministic capacity gating; updated golden hashes). Evidence: SimCore/Systems/RoutePlanner.cs; SimCore.Tests/Systems/RoutePlannerTests.cs; SimCore/Entities/Fleet.cs; SimCore/Systems/MovementSystem.cs; SimCore.Tests/Systems/FleetRouteTravelTests.cs; SimCore.Tests/GoldenReplayTests.cs; SimCore.Tests/Determinism/LongRunWorldHashTests.cs
