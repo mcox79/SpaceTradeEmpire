@@ -243,7 +243,8 @@ Status: TODO
 |---|---|---|---|
 | GATE.ROUTE.001 | Deterministic route planner exists: from node to node => ordered edges/nodes + total travel ticks (stable tie-breaks by EdgeId/NodeId) | DONE | SimCore/Systems/RoutePlanner.cs + SimCore.Tests/Systems/RoutePlannerTests.cs |
 | GATE.FLEET.ROUTE.001 | Fleet travel can follow a planned multi-edge route (lane sequence) without nondeterminism | DONE | SimCore/Systems/MovementSystem.cs + SimCore/Entities/Fleet.cs + SimCore.Tests/Systems/FleetRouteTravelTests.cs |
-| GATE.LOGI.JOB.001 | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | TODO | SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobContractTests.cs |
+| GATE.LOGI.JOB.001 | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | DONE | SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobContractTests.cs |
+
 
 ---
 
@@ -281,3 +282,4 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-08, main, Slice 2 DONE (Programs v1): all B4 gates DONE, including GATE.DET.PROG.001. Evidence: B4 table + Program determinism tests + ProgramsMenu UI.
 - 2026-02-08, main, Slice 3 routing: GATE.ROUTE.001 + GATE.FLEET.ROUTE.001 DONE; LogisticsTests aligned with BufferDays shortage contract; determinism goldens updated. Evidence: SimCore/Systems/RoutePlanner.cs; SimCore.Tests/Systems/RoutePlannerTests.cs; SimCore/Entities/Fleet.cs; SimCore/Systems/MovementSystem.cs; SimCore.Tests/Systems/FleetRouteTravelTests.cs; SimCore.Tests/LogisticsTests.cs; SimCore.Tests/GoldenReplayTests.cs; SimCore.Tests/Determinism/LongRunWorldHashTests.cs.
 - 2026-02-08, main, GATE.CONN.001 DONE (connectivity graph v1: nodes array of paths, edges use from_id/to_id, evidence uses file_id + lines; violations 0). Evidence: docs/generated/connectivity_manifest.json; docs/generated/connectivity_graph.json; docs/generated/connectivity_violations.json
+- 2026-02-08, main, GATE.LOGI.JOB.001 DONE (LogisticsJob supports multi-hop deterministic routes; PlanLogistics sets route legs deterministically), tests: SimCore.Tests/Systems/LogisticsJobContractTests.cs
