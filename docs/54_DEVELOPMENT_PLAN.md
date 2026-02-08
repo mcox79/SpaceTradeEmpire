@@ -242,7 +242,7 @@ Status: TODO
 |---|---|---|---|
 | GATE.ROUTE.001 | Deterministic route planner exists: from node to node => ordered edges/nodes + total travel ticks (stable tie-breaks by EdgeId/NodeId) | DONE | SimCore/Systems/RoutePlanner.cs + SimCore.Tests/Systems/RoutePlannerTests.cs |
 | GATE.FLEET.ROUTE.001 | Fleet travel can follow a planned multi-edge route (lane sequence) without nondeterminism | DONE | SimCore/Systems/MovementSystem.cs + SimCore/Entities/Fleet.cs + SimCore.Tests/Systems/FleetRouteTravelTests.cs |
-| GATE.LOGI.JOB.001 | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | TODO | SimCore/Entities/LogisticsJob.cs |
+| GATE.LOGI.JOB.001 | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | TODO | SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobContractTests.cs |
 
 ---
 
