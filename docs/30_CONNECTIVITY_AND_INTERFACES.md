@@ -28,6 +28,10 @@ Hard rules:
 - SimCore must not depend on Godot runtime objects or Godot namespaces.
 - GameShell may depend on SimCore.
 - Adapters are the only layer allowed to touch both sides.
+- Additional locked boundary rule (runtime IO):
+- SimCore must not perform any disk IO and must not reference `System.IO` for runtime file access.
+- Any runtime reads/writes must be restricted to Godot `res://` (read-only) and `user://` (read/write).
+- Any persistence (save/load/config) must be implemented outside SimCore (GameShell or Adapter boundary).
 
 Interpretation:
 - Any dependency direction violation is an architecture bug, not a style issue.

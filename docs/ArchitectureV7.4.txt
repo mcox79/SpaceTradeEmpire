@@ -45,6 +45,28 @@ These define the game’s identity and must exist in v1.0.
 * **No Permadeath:** Ship loss triggers a "Lifepod" recovery to the nearest station. The penalty is Time (the world advances without you) and Assets (Cargo/Hull), never the Save File.  All loss-related consequences must be surfaced using the Failure Postmortem rules defined in Section 1.10. Combat loss without causal explanation is invalid.
 * **Station-Only Saving:** To ensure stability, the game can only be saved while Docked.
 
+### **1.5.1 Runtime File Contract (Authoritative)**
+
+This contract defines what runtime code is allowed to read or write on disk in shipped builds.
+It is binding for GameShell, Adapters, and any runtime tooling included in the export.
+
+**Allowed roots**
+- `res://` Only read. Shipped content packaged with the game (scenes, data resources, config defaults).
+- `user://` Read/write. Per-user save data, settings, logs, and caches.
+
+**Forbidden assumptions**
+- Repo-relative paths at runtime (examples: `docs/…`, `scripts/…`, `./…`).
+- “Current working directory” assumptions.
+- Git metadata or `.git/` presence.
+- Absolute developer machine paths.
+
+**Rules**
+- Any runtime file IO must resolve to either `res://` or `user://`.
+- If a feature needs editable config, ship defaults in `res://` and copy to `user://` on first run.
+- SimCore must not perform disk IO. SimCore is pure simulation. Serialization and persistence live outside SimCore (GameShell or Adapter boundary).
+
+**Enforcement**
+- A test must fail if SimCore references `System.IO` or if runtime code attempts to read/write outside `res://` or `user://`.
 
 ### **1.6 Information, risk, and “signal” model**
 

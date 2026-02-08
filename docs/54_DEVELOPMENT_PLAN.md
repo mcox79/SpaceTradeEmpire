@@ -193,6 +193,7 @@ Status: TODO
 | GATE.TEST.002 | Golden world hash regression exists and is stable | DONE | docs/generated/snapshots/golden_replay_hashes.txt |
 | GATE.EVID.001 | Context packet reports latest scan + test summary + hash snapshot presence (or explicit “not found” reasons) | DONE | docs/generated/01_CONTEXT_PACKET.md ([SYSTEM HEALTH] shows Connectivity OK + Tests OK + Hash Snapshot present) |
 | GATE.MAP.001 | Repo evidence export exists (tests index + grep + map) | DONE | docs/generated/evidence/simcore_tests_index.txt + docs/generated/evidence/gate_evidence_grep.txt + docs/generated/evidence/gate_evidence_map.json |
+| GATE.FILE.001 | Runtime File Contract enforced (runtime IO restricted to res:// and user://; SimCore has no System.IO IO) | DONE | SimCore.Tests/Invariants/RuntimeFileContractTests.cs |
 
 ### B2. Slice 1 critical gates
 | Gate ID | Gate | Status | Evidence |
@@ -232,7 +233,7 @@ Status: TODO
 | GATE.PROG.EXEC.001 | Program execution emits intents only, no direct ledger mutation | DONE | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
 | GATE.PROG.EXEC.002 | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | TODO | integration test |
 | GATE.BRIDGE.PROG.001 | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | DONE | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
-| GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | TODO | scripts/ui/ProgramsMenu.cs + scripts/bridge/SimBridge.cs (program APIs) + manual smoke steps in docs/54 (B4a) |
+| GATE.UI.PROG.001 | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | DONE | scripts/ui/ProgramsMenu.cs + scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs + scenes/playable_prototype.tscn |
 | GATE.DET.PROG.001 | Determinism regression includes program lifecycle (create/start/pause) with stable hash | DONE | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
 
 ---
@@ -261,4 +262,5 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-02-07, main, GATE.UI.101 DONE (StationMenu shows sustainment margin + time-to-failure via bridge + SustainmentReport), evidence: scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Systems/SustainmentReport.cs
 - 2026-02-07, main, GATE.PROG.001 + GATE.PROG.EXEC.001 + GATE.EXPLAIN.001 DONE (program schema present and versioned; program explain is schema-bound + deterministic; programs emit intents only), tests: SimCore.Tests/Programs/ProgramContractTests.cs, evidence: SimCore/Schemas/ProgramSchema.json
 - 2026-02-07, main, GATE.BRIDGE.PROG.001 + GATE.DET.PROG.001 DONE (bridge program lifecycle via commands; determinism and save/load include programs), tests: SimCore.Tests/Programs/ProgramLifecycleContractTests.cs; SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs; SimCore.Tests/Determinism/ProgramDeterminismTests.cs; SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs, evidence: scripts/bridge/SimBridge.cs
-
+- 2026-02-08, main, GATE.UI.PROG.001 DONE (ProgramsMenu UI present, opens as modal, can create program and view quote/outcome; blocks clicks behind), evidence: scripts/ui/ProgramsMenu.cs; scripts/ui/StationMenu.cs; scenes/playable_prototype.tscn
+- 2026-02-08, main, UI polish: StationMenu widened to fit program controls; ProgramsMenu row wrapping + hide-cancelled default; Escape closes ProgramsMenu, and Escape undocks when StationMenu focused.
