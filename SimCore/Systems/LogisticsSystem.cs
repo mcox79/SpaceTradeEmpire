@@ -10,6 +10,10 @@ namespace SimCore.Systems;
 
 public static class LogisticsSystem
 {
+    // Slice 3 / GATE.LOGI.RETRY.001
+    // Number of consecutive pickup observations (0 units loaded) allowed at source before cancel.
+    public const int MaxZeroPickupObservations = 3;
+
     public static void Process(SimState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
@@ -126,12 +130,42 @@ public static class LogisticsSystem
                     job.PickedUpAmount = delta;
                 }
 
-                // If we still got nothing, deterministically cancel the job.
+                // If we still got nothing, retry deterministically up to N observations, then cancel.
                 if (job.PickedUpAmount <= 0)
                 {
-                    CancelJob(state, fleet, job, "Pickup resulted in 0 units; canceling job.");
+                    job.ZeroPickupObservations++;
+
+                    if (job.ZeroPickupObservations >= MaxZeroPickupObservations)
+                    {
+                        CancelJob(state, fleet, job,
+                            $"Pickup resulted in 0 units for {job.ZeroPickupObservations} consecutive observations; canceling job.");
+                        return;
+                    }
+
+                    // Schedule a retry: clear the issued latch so we enqueue another LoadCargoIntent
+                    // the next time we are Idle at source (next tick).
+                    job.PickupTransferIssued = false;
+                    job.PickupCargoBefore = fleet.GetCargoUnits(job.GoodId);
+                    job.PickedUpAmount = 0;
+
+                    state.EmitLogisticsEvent(new LogisticsEvents.Event
+                    {
+                        Type = LogisticsEvents.LogisticsEventType.PickupIssued,
+                        FleetId = fleet.Id ?? "",
+                        GoodId = job.GoodId ?? "",
+                        Amount = job.Amount,
+                        SourceNodeId = job.SourceNodeId ?? "",
+                        TargetNodeId = job.TargetNodeId ?? "",
+                        SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                        TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                        Note = $"Pickup observed 0 units (obs {job.ZeroPickupObservations}/{MaxZeroPickupObservations}); will retry."
+                    });
+
                     return;
                 }
+
+                // Success: reset retry counter.
+                job.ZeroPickupObservations = 0;
 
                 // Begin delivery leg (movement will occur on later ticks).
                 job.Phase = LogisticsJobPhase.Deliver;

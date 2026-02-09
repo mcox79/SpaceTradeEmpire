@@ -38,4 +38,9 @@ public class LogisticsJob
 
     // Actual amount loaded (may be less than Amount due to clamping). This is what we deliver.
     public int PickedUpAmount { get; set; } = 0;
+
+    // Slice 3 / GATE.LOGI.RETRY.001
+    // Counts consecutive observations where a pickup attempt resulted in 0 units loaded at source.
+    public int ZeroPickupObservations { get; set; } = 0;
 }
+
