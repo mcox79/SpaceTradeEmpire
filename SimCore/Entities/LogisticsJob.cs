@@ -30,4 +30,12 @@ public class LogisticsJob
     // even if the fleet remains Idle at the node for multiple ticks.
     public bool PickupTransferIssued { get; set; } = false;
     public bool DeliveryTransferIssued { get; set; } = false;
+
+    // Slice 3 / GATE.LOGI.FULFILL.001
+    // Because intents resolve before LogisticsSystem each tick, a pickup intent executes on the next tick.
+    // We record cargo-before when issuing pickup, then on later ticks observe the actual delta applied.
+    public int PickupCargoBefore { get; set; } = 0;
+
+    // Actual amount loaded (may be less than Amount due to clamping). This is what we deliver.
+    public int PickedUpAmount { get; set; } = 0;
 }

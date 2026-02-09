@@ -89,11 +89,13 @@ public static class LogisticsSystem
             if (string.Equals(fleet.CurrentNodeId, job.SourceNodeId, StringComparison.Ordinal))
             {
                 // At source: enqueue pickup transfer exactly once.
+                // Important: intents resolve BEFORE LogisticsSystem each tick, so this pickup executes next tick.
                 if (!job.PickupTransferIssued)
                 {
                     var sourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId);
                     if (!string.IsNullOrWhiteSpace(sourceMarketId))
                     {
+                        job.PickupCargoBefore = fleet.GetCargoUnits(job.GoodId);
                         state.EnqueueIntent(new LoadCargoIntent(fleet.Id, sourceMarketId, job.GoodId, job.Amount));
                         job.PickupTransferIssued = true;
 
@@ -107,12 +109,31 @@ public static class LogisticsSystem
                             TargetNodeId = job.TargetNodeId ?? "",
                             SourceMarketId = sourceMarketId ?? "",
                             TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
-                            Note = "Enqueued LOAD_CARGO intent."
+                            Note = "Enqueued LOAD_CARGO intent (executes next tick)."
                         });
                     }
+
+                    // Do not advance phase on the same tick we enqueue the pickup.
+                    return;
                 }
 
-                // Begin delivery leg (movement will occur on later ticks; load executes next kernel step).
+                // Pickup was issued on a prior tick. Observe what actually loaded (clamped by transfer rules).
+                if (job.PickedUpAmount <= 0)
+                {
+                    var nowCargo = fleet.GetCargoUnits(job.GoodId);
+                    var delta = nowCargo - job.PickupCargoBefore;
+                    if (delta < 0) delta = 0;
+                    job.PickedUpAmount = delta;
+                }
+
+                // If we still got nothing, deterministically cancel the job.
+                if (job.PickedUpAmount <= 0)
+                {
+                    CancelJob(state, fleet, job, "Pickup resulted in 0 units; canceling job.");
+                    return;
+                }
+
+                // Begin delivery leg (movement will occur on later ticks).
                 job.Phase = LogisticsJobPhase.Deliver;
 
                 state.EmitLogisticsEvent(new LogisticsEvents.Event
@@ -120,12 +141,12 @@ public static class LogisticsSystem
                     Type = LogisticsEvents.LogisticsEventType.PhaseChangedToDeliver,
                     FleetId = fleet.Id ?? "",
                     GoodId = job.GoodId ?? "",
-                    Amount = job.Amount,
+                    Amount = job.PickedUpAmount,
                     SourceNodeId = job.SourceNodeId ?? "",
                     TargetNodeId = job.TargetNodeId ?? "",
                     SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
                     TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
-                    Note = "Pickup leg complete, switching to Deliver phase."
+                    Note = "Pickup applied; switching to Deliver phase."
                 });
 
                 // Clear any existing route state; MovementSystem will plan deterministically on next Process().
@@ -136,6 +157,7 @@ public static class LogisticsSystem
                 fleet.DestinationNodeId = job.TargetNodeId ?? "";
                 fleet.CurrentTask = $"Delivering {job.GoodId} to {job.TargetNodeId}";
             }
+
             else
             {
                 // Follow the precomputed pickup leg deterministically.
@@ -152,8 +174,9 @@ public static class LogisticsSystem
                     var destMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId);
                     if (!string.IsNullOrWhiteSpace(destMarketId))
                     {
-                        // Clamp happens inside UnloadCargoCommand; requesting job.Amount is deterministic and safe.
-                        state.EnqueueIntent(new UnloadCargoIntent(fleet.Id, destMarketId, job.GoodId, job.Amount));
+                        // Clamp happens inside UnloadCargoCommand; deliver what actually loaded.
+                        var deliverQty = job.PickedUpAmount > 0 ? job.PickedUpAmount : job.Amount;
+                        state.EnqueueIntent(new UnloadCargoIntent(fleet.Id, destMarketId, job.GoodId, deliverQty));
                         job.DeliveryTransferIssued = true;
 
                         state.EmitLogisticsEvent(new LogisticsEvents.Event
@@ -382,4 +405,36 @@ public static class LogisticsSystem
 
         return null;
     }
+
+    private static void CancelJob(SimState state, Fleet fleet, LogisticsJob job, string note)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (fleet is null) throw new ArgumentNullException(nameof(fleet));
+        if (job is null) throw new ArgumentNullException(nameof(job));
+
+        fleet.CurrentJob = null;
+
+        fleet.RouteEdgeIds.Clear();
+        fleet.RouteEdgeIndex = 0;
+
+        fleet.DestinationNodeId = "";
+        fleet.FinalDestinationNodeId = "";
+
+        fleet.State = FleetState.Idle;
+        fleet.CurrentTask = "Idle";
+
+        state.EmitLogisticsEvent(new LogisticsEvents.Event
+        {
+            Type = LogisticsEvents.LogisticsEventType.JobCanceled,
+            FleetId = fleet.Id ?? "",
+            GoodId = job.GoodId ?? "",
+            Amount = job.Amount,
+            SourceNodeId = job.SourceNodeId ?? "",
+            TargetNodeId = job.TargetNodeId ?? "",
+            SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+            TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+            Note = note ?? ""
+        });
+    }
 }
+

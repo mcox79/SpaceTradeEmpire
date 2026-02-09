@@ -22,6 +22,7 @@ public static class LogisticsEvents
         JobPlanned = 1,
         PhaseChangedToDeliver = 2,
         JobCompleted = 3,
+        JobCanceled = 4,
 
         // Actions issued (intents enqueued)
         PickupIssued = 10,

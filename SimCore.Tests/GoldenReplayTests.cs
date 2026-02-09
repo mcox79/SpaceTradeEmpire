@@ -12,7 +12,8 @@ namespace SimCore.Tests;
 public class GoldenReplayTests
 {
     private const string ExpectedGenesisHash = "DAB2BB84ADD27BC3C1CE13472CAB3DE7B912D8E6316671B7B7545E409412BBFF";
-    private const string ExpectedFinalHash = "0A0E80A9ACFC60D049BF39CAB3F74FB1093AB6B481895DC089E82B0B3944B33E";
+    private const string ExpectedFinalHash = "F07A2EF9751BCBCDAFF05175525D6B4811AE224C8D58F9AD85886DC186B9CE99";
+
 
     private struct RecordedCommand
     {
