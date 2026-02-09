@@ -4,11 +4,25 @@ root = true
 charset = utf-8
 end_of_line = lf
 insert_final_newline = true
+trim_trailing_whitespace = true
 
-[*.{gd,tscn,tres,cfg}]
-indent_style = tab
+[*.cs]
+indent_style = space
+indent_size = 4
+
+[*.json]
+indent_style = space
+indent_size = 2
+
+[*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
 
 [*.ps1]
-end_of_line = crlf
 indent_style = space
+indent_size = 4
+
+[*.gd]
+indent_style = tab
 indent_size = 4
