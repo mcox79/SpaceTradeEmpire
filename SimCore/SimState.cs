@@ -40,17 +40,23 @@ public class SimState
 
     // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
     [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
+
+    // Non-serialized emission counter used to preserve within-fleet ordering prior to tick-final Seq assignment.
+    [JsonInclude] public long NextLogisticsEmitOrder { get; set; } = 1;
+
     [JsonInclude] public List<SimCore.Events.LogisticsEvents.Event> LogisticsEventLog { get; private set; } = new();
 
     public void EmitLogisticsEvent(SimCore.Events.LogisticsEvents.Event e)
     {
         if (e is null) return;
 
-        var seq = NextLogisticsEventSeq;
-        NextLogisticsEventSeq = checked(NextLogisticsEventSeq + 1);
+        // Buffer event and finalize Seq at end of tick using deterministic ordering rules.
+        var emitOrder = NextLogisticsEmitOrder;
+        NextLogisticsEmitOrder = checked(NextLogisticsEmitOrder + 1);
 
         e.Version = SimCore.Events.LogisticsEvents.EventsVersion;
-        e.Seq = seq;
+        e.Seq = 0; // assigned during tick finalization
+        e.EmitOrder = emitOrder;
         e.Tick = Tick;
 
         LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
@@ -67,7 +73,60 @@ public class SimState
     [JsonConstructor]
     public SimState() { }
 
-    public void AdvanceTick() => Tick++;
+    public void AdvanceTick()
+    {
+        FinalizeLogisticsEventsForTick();
+        Tick++;
+    }
+
+    private void FinalizeLogisticsEventsForTick()
+    {
+        if (LogisticsEventLog is null) return;
+        if (LogisticsEventLog.Count == 0) return;
+
+        // Gather indices of events emitted this tick that have not yet been assigned a Seq.
+        var idx = new List<int>();
+        for (var i = 0; i < LogisticsEventLog.Count; i++)
+        {
+            var e = LogisticsEventLog[i];
+            if (e is null) continue;
+            if (e.Tick != Tick) continue;
+            if (e.Seq != 0) continue;
+            idx.Add(i);
+        }
+
+        if (idx.Count == 0) return;
+
+        // Deterministic ordering rule for same-tick events:
+        // FleetId (ordinal) then EmitOrder (preserves within-fleet emission order),
+        // then stable tie-breaks to avoid any ambiguity.
+        var ordered = idx
+            .Select(i => LogisticsEventLog[i])
+            .OrderBy(e => e.FleetId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.EmitOrder)
+            .ThenBy(e => (int)e.Type)
+            .ThenBy(e => e.GoodId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.SourceNodeId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.TargetNodeId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.Amount)
+            .ThenBy(e => e.Note ?? "", StringComparer.Ordinal)
+            .ToList();
+
+        // Assign Seq in deterministic order.
+        foreach (var e in ordered)
+        {
+            var seq = NextLogisticsEventSeq;
+            NextLogisticsEventSeq = checked(NextLogisticsEventSeq + 1);
+            e.Seq = seq;
+        }
+
+        // Reorder the log in-place for this tick only, so list order matches deterministic order.
+        idx.Sort();
+        for (var j = 0; j < idx.Count; j++)
+        {
+            LogisticsEventLog[idx[j]] = ordered[j];
+        }
+    }
 
     public void HydrateAfterLoad()
     {

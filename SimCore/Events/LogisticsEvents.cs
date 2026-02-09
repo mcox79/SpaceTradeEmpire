@@ -35,6 +35,10 @@ public static class LogisticsEvents
         // Deterministic ordering key inside a tick.
         [JsonInclude] public long Seq { get; set; } = 0;
 
+        // Non-serialized emission order (used to preserve within-fleet ordering
+        // before Seq is finalized for the tick).
+        [JsonIgnore] public long EmitOrder { get; set; } = 0;
+
         // Tick when event was emitted.
         [JsonInclude] public int Tick { get; set; } = 0;
 
