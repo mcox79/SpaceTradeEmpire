@@ -26,3 +26,7 @@ indent_size = 4
 [*.gd]
 indent_style = tab
 indent_size = 4
+
+[*.{cmd,bat}]
+end_of_line = crlf
+charset = utf-8
