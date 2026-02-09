@@ -139,20 +139,13 @@ If you must attach the full architecture:
 
 Use these documents for gameplay laws, simulation locks, and implementation-facing constraints:
 
-- `docs/50_EARLY_MISSION_LADDER_AND_TRAVEL.md`
+- `docs/50_51_52_53_Docs_Combined.md`
   - Early mission ladder primitives, travel layers, lanes vs off-lane guardrails, fracture constraints, deterministic mission tests.
-
-- `docs/51_ECONOMY_AND_TRADE_DESIGN_LAW.md`
   - Economic causality loop, ledger law, logistics constraints, automation doctrine and penalties, enforcement/heat, security state, determinism harness and scenario packs.
-
-- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md`
   - Locked time model (tick = 1 game minute, 60x), tick-boundary authority, intent ordering, travel timing targets, market publish cadence, logistics spine, intel policy, slice gates.
-
-- `docs/53_PROGRAMS_FLEETS_DOCTRINES_CONTROL_SURFACE.md`
   - No ship UI, Programs as player control surface, Fleets as capacity pools, Doctrines, Upgrade Packages, Liaison Quote contract, planning cadence, explain JSON contract.
 
-- `docs/21_UNITS_AND_INVARIANTS.md`
+- `docs/21_90_TERMS_UNITS_IDS.md`
   - Canonical units, normalization rules, invariants, and validator expectations shared by SimCore, UI, and tests.
+  - Canonical vocabulary and stable ID conventions. Definitions override conflicting usage elsewhere.
 
-- `docs/90_GLOSSARY_AND_IDS.md`
-  - Canonical vocabulary and stable ID conventions. Glossary definitions override conflicting usage elsewhere.

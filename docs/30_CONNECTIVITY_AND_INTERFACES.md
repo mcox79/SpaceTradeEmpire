@@ -1,7 +1,5 @@
 # 30_CONNECTIVITY_AND_INTERFACES
 
-
-
 ## A. Purpose
 
 Define:
@@ -15,12 +13,10 @@ This document is the contract for:
 - what counts as a connectivity violation
 
 See also:
-- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md` (tick boundary rule, intent ordering lock)
+- `docs/50_51_52_53_Docs_Combined.md` (tick boundary rule, intent ordering lock)
 - `docs/20_TESTING_AND_DETERMINISM.md` (determinism gates and runner expectations)
-- `docs/90_GLOSSARY_AND_IDS.md` (terms, IDs, and ordering vocabulary)
+- `docs/21_90_TERMS_UNITS_IDS.md` (terms, IDs, and ordering vocabulary)
 - `docs/10_ARCHITECTURE_INDEX.md` (excerpt routing only)
-
-
 
 ## B. Layering rules (locked contract)
 

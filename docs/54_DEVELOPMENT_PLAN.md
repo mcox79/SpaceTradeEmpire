@@ -17,13 +17,10 @@ Update rule:
 - Each dev session should target 1–3 gate movements or epic movements, and end with an update here plus evidence references.
 
 Primary anchors:
-- docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md (slice locks, gate tests)
-- docs/50_EARLY_MISSION_LADDER_AND_TRAVEL.md
-- docs/51_ECONOMY_AND_TRADE_DESIGN_LAW.md
-- docs/53_PROGRAMS_FLEETS_DOCTRINES_CONTROL_SURFACE.md
+- docs/50_51_52_53_Docs_Combined.md (slice locks, gate tests)
 - docs/30_CONNECTIVITY_AND_INTERFACES.md
 - docs/20_TESTING_AND_DETERMINISM.md
-- docs/21_UNITS_AND_INVARIANTS.md
+- docs/21_90_TERMS_UNITS_IDS.md
 - docs/40_TOOLING_AND_HOOKS.md
 
 ---

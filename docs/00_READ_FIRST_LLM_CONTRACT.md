@@ -58,7 +58,7 @@ Git mode priority rules:
 ## D) Documentation kernel is canonical
 
 The docs kernel is the canonical source of truth for process and routing:
-- docs/10_DOCS_INDEX.md routes what is canonical vs generated.
+- docs/10_KERNEL_INDEX.md routes what is canonical vs generated.
 - docs/10_ARCHITECTURE_INDEX.md routes architecture excerpts. Do not attach the full architecture by default.
 - docs/40_TOOLING_AND_HOOKS.md is the canonical operational command reference.
 

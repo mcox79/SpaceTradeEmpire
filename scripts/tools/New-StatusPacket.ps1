@@ -138,16 +138,14 @@ $changed = @($changed | Sort-Object -Unique)
 # Canonical anchors to embed
 $anchors = @(
     "docs/54_DEVELOPMENT_PLAN.md",
-    "docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md",
-    "docs/50_EARLY_MISSION_LADDER_AND_TRAVEL.md",
-    "docs/51_ECONOMY_AND_TRADE_DESIGN_LAW.md",
-    "docs/53_PROGRAMS_FLEETS_DOCTRINES_CONTROL_SURFACE.md",
+    "docs/10_KERNEL_INDEX.md",
+    "docs/10_ARCHITECTURE_INDEX.md",
+    "docs/21_90_TERMS_UNITS_IDS.md",
+    "docs/50_51_52_53_Docs_Combined.md",
     "docs/30_CONNECTIVITY_AND_INTERFACES.md",
     "docs/20_TESTING_AND_DETERMINISM.md",
-    "docs/21_UNITS_AND_INVARIANTS.md",
     "docs/40_TOOLING_AND_HOOKS.md",
-    "docs/10_DOCS_INDEX.md",
-    "docs/10_ARCHITECTURE_INDEX.md"
+    "docs/55_LLM_GATE_REVIEW_PROMPT.md"
 )
 
 # Tool outputs to embed if present

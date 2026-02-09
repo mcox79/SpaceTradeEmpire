@@ -44,10 +44,11 @@ function Normalize-Rel([string] $AbsPath, [string] $RootAbs) {
 
 function Is-IgnoredPath([string] $Rel) {
     $p = ($Rel -replace '\\','/').ToLowerInvariant()
-    $ignore = @(
-        '.git/', '.vs/', '_scratch/', 'addons/', 'bin/', 'obj/', 'testresults/',
-        '_archive/', '_shadow_godot_tree/', '.godot/', '.import/', '.mono/', 'docs/generated/'
-    )
+$ignore = @(
+    '.git/', '.vs/', '_scratch/', 'addons/', 'bin/', 'obj/', 'testresults/',
+    '_archive/', '_shadow_godot_tree/', '.godot/', '.import/', '.mono/',
+    'docs/generated/', 'docs/archive/'
+)
     foreach ($i in $ignore) {
         if ($p.StartsWith($i) -or $p.Contains('/' + $i)) { return $true }
     }

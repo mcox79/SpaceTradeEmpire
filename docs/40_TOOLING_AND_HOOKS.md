@@ -1,18 +1,14 @@
 # 40_TOOLING_AND_HOOKS
 
-
-
 Operational reference for local validation, hooks, and tooling conventions.
 
 This doc must stay aligned with `docs/00_READ_FIRST_LLM_CONTRACT.md`.
 
 See also:
 - `docs/20_TESTING_AND_DETERMINISM.md` (testing contract and determinism gates)
-- `docs/21_UNITS_AND_INVARIANTS.md` (units, invariants, validator expectations)
+- `docs/21_90_TERMS_UNITS_IDS.md` (units, invariants, validator expectations)
 - `docs/30_CONNECTIVITY_AND_INTERFACES.md` (connectivity contract and boundary rules)
-- `docs/52_DEVELOPMENT_LOCK_RECOMMENDATIONS.md` (tick boundary rule, intent ordering lock)
-
-
+- `docs/50_51_52_53_Docs_Combined.md` (tick boundary rule, intent ordering lock)
 
 ## A. Purpose
 
@@ -21,8 +17,6 @@ This document answers:
 - what Git hooks run (and what they must validate)
 - where generated artifacts land (and what is expected to be deterministic)
 - what to attach per LLM session vs what stays project-level
-
-
 
 ## B. What is project-level vs per-session
 
