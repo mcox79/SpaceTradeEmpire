@@ -3,5 +3,5 @@ set -eu
 
 # Git provides ref updates to pre-push on STDIN. If we pass that STDIN through to cmd.exe,
 # cmd.exe will try to execute lines like "refs/heads/main ..." as commands.
-# Redirect STDIN to NUL to prevent the noise on Windows.
-cmd.exe /q /c .githooks\\pre-push.cmd < NUL
+# Redirect STDIN so cmd.exe does not read the ref-update stream.
+cmd.exe /q /c .githooks\\pre-push.cmd < /dev/null
