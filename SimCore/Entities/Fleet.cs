@@ -42,9 +42,10 @@ public class Fleet
     public LogisticsJob? CurrentJob { get; set; } // The Active Order
 
     // CARGO
-    // Deterministic key ordering: SortedDictionary with Ordinal comparer.
     // Gate target: dict keyed by GoodId, quantities are non-negative ints.
+    // Determinism note: when iterating/serializing, sort keys with Ordinal.
     public Dictionary<string, int> Cargo { get; set; } = new();
+
 
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
