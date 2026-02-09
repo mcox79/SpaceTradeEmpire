@@ -38,6 +38,25 @@ public class SimState
 
     [JsonInclude] public IntelBook Intel { get; set; } = new();
 
+    // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
+    [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
+    [JsonInclude] public List<SimCore.Events.LogisticsEvents.Event> LogisticsEventLog { get; private set; } = new();
+
+    public void EmitLogisticsEvent(SimCore.Events.LogisticsEvents.Event e)
+    {
+        if (e is null) return;
+
+        var seq = NextLogisticsEventSeq;
+        NextLogisticsEventSeq = checked(NextLogisticsEventSeq + 1);
+
+        e.Version = SimCore.Events.LogisticsEvents.EventsVersion;
+        e.Seq = seq;
+        e.Tick = Tick;
+
+        LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
+        LogisticsEventLog.Add(e);
+    }
+
     public SimState(int seed)
     {
         InitialSeed = seed;
@@ -60,6 +79,8 @@ public class SimState
         // Until GATE.SAVE.001 defines intent persistence, we discard pending intents explicitly.
         PendingIntents ??= new List<IntentEnvelope>();
         PendingIntents.Clear();
+
+        LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
     }
 
     /// <summary>
@@ -142,21 +163,21 @@ public class SimState
         sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|");
         sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
-foreach (var f in Fleets.OrderBy(k => k.Key))
-{
-    sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
-
-    // Include cargo deterministically (keys sorted, stable formatting).
-    if (f.Value.Cargo is not null && f.Value.Cargo.Count > 0)
-    {
-        sb.Append("Cargo:");
-        foreach (var kv in f.Value.Cargo.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        foreach (var f in Fleets.OrderBy(k => k.Key))
         {
-            sb.Append($"{kv.Key}:{kv.Value},");
+            sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
+
+            // Include cargo deterministically (keys sorted, stable formatting).
+            if (f.Value.Cargo is not null && f.Value.Cargo.Count > 0)
+            {
+                sb.Append("Cargo:");
+                foreach (var kv in f.Value.Cargo.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                {
+                    sb.Append($"{kv.Key}:{kv.Value},");
+                }
+                sb.Append("|");
+            }
         }
-        sb.Append("|");
-    }
-}
 
         foreach (var m in Markets.OrderBy(k => k.Key))
         {

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using SimCore.Entities;
 using SimCore.Intents;
+using SimCore.Events;
 
 namespace SimCore.Systems;
+
 
 public static class LogisticsSystem
 {
@@ -94,18 +96,44 @@ public static class LogisticsSystem
                     {
                         state.EnqueueIntent(new LoadCargoIntent(fleet.Id, sourceMarketId, job.GoodId, job.Amount));
                         job.PickupTransferIssued = true;
+
+                        state.EmitLogisticsEvent(new LogisticsEvents.Event
+                        {
+                            Type = LogisticsEvents.LogisticsEventType.PickupIssued,
+                            FleetId = fleet.Id ?? "",
+                            GoodId = job.GoodId ?? "",
+                            Amount = job.Amount,
+                            SourceNodeId = job.SourceNodeId ?? "",
+                            TargetNodeId = job.TargetNodeId ?? "",
+                            SourceMarketId = sourceMarketId ?? "",
+                            TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                            Note = "Enqueued LOAD_CARGO intent."
+                        });
                     }
                 }
 
                 // Begin delivery leg (movement will occur on later ticks; load executes next kernel step).
                 job.Phase = LogisticsJobPhase.Deliver;
 
+                state.EmitLogisticsEvent(new LogisticsEvents.Event
+                {
+                    Type = LogisticsEvents.LogisticsEventType.PhaseChangedToDeliver,
+                    FleetId = fleet.Id ?? "",
+                    GoodId = job.GoodId ?? "",
+                    Amount = job.Amount,
+                    SourceNodeId = job.SourceNodeId ?? "",
+                    TargetNodeId = job.TargetNodeId ?? "",
+                    SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                    TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                    Note = "Pickup leg complete, switching to Deliver phase."
+                });
+
                 // Clear any existing route state; MovementSystem will plan deterministically on next Process().
                 fleet.RouteEdgeIds.Clear();
                 fleet.RouteEdgeIndex = 0;
                 fleet.FinalDestinationNodeId = "";
 
-                fleet.DestinationNodeId = job.TargetNodeId;
+                fleet.DestinationNodeId = job.TargetNodeId ?? "";
                 fleet.CurrentTask = $"Delivering {job.GoodId} to {job.TargetNodeId}";
             }
             else
@@ -127,12 +155,38 @@ public static class LogisticsSystem
                         // Clamp happens inside UnloadCargoCommand; requesting job.Amount is deterministic and safe.
                         state.EnqueueIntent(new UnloadCargoIntent(fleet.Id, destMarketId, job.GoodId, job.Amount));
                         job.DeliveryTransferIssued = true;
+
+                        state.EmitLogisticsEvent(new LogisticsEvents.Event
+                        {
+                            Type = LogisticsEvents.LogisticsEventType.DeliveryIssued,
+                            FleetId = fleet.Id ?? "",
+                            GoodId = job.GoodId ?? "",
+                            Amount = job.Amount,
+                            SourceNodeId = job.SourceNodeId ?? "",
+                            TargetNodeId = job.TargetNodeId ?? "",
+                            SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                            TargetMarketId = destMarketId ?? "",
+                            Note = "Enqueued UNLOAD_CARGO intent."
+                        });
                     }
                 }
 
                 // Mark job complete. (Unload will execute next kernel step; intent is independent of CurrentJob.)
                 fleet.CurrentJob = null;
                 fleet.CurrentTask = "Idle";
+
+                state.EmitLogisticsEvent(new LogisticsEvents.Event
+                {
+                    Type = LogisticsEvents.LogisticsEventType.JobCompleted,
+                    FleetId = fleet.Id ?? "",
+                    GoodId = job.GoodId ?? "",
+                    Amount = job.Amount,
+                    SourceNodeId = job.SourceNodeId ?? "",
+                    TargetNodeId = job.TargetNodeId ?? "",
+                    SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                    TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                    Note = "Job cleared from fleet."
+                });
             }
             else
             {
@@ -220,8 +274,10 @@ public static class LogisticsSystem
     }
 
 
-    private static string ResolveMarketForSiteNode(SimState state, string siteNodeId)
+    private static string ResolveMarketForSiteNode(SimState state, string? siteNodeId)
     {
+        if (string.IsNullOrWhiteSpace(siteNodeId)) return "";
+
         // Deterministic: node lookup is by key.
         if (state.Nodes.TryGetValue(siteNodeId, out var node) && !string.IsNullOrWhiteSpace(node.MarketId))
             return node.MarketId;
@@ -295,6 +351,19 @@ public static class LogisticsSystem
 
         fleet.State = FleetState.Idle;
         fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
+
+        state.EmitLogisticsEvent(new LogisticsEvents.Event
+        {
+            Type = LogisticsEvents.LogisticsEventType.JobPlanned,
+            FleetId = fleet.Id ?? "",
+            GoodId = goodId ?? "",
+            Amount = amount,
+            SourceNodeId = sourceNode ?? "",
+            TargetNodeId = destNode ?? "",
+            SourceMarketId = sourceMarketId ?? "",
+            TargetMarketId = destMarketId ?? "",
+            Note = fleet.CurrentTask ?? ""
+        });
 
         return true;
     }
