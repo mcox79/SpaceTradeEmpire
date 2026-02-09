@@ -8,6 +8,7 @@
 [ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="6_profile"]
 [ext_resource type="Script" uid="uid://s23mtjlpu4rj" path="res://scripts/ui/StationMenu.cs" id="7_fbdop"]
 [ext_resource type="Script" uid="uid://b0uvsuf1c5qjy" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
+[ext_resource type="Script" path="res://scripts/ui/FleetMenu.cs" id="9_fleet"]
 
 [node name="Main" type="Node3D" unique_id=1010166962]
 
@@ -45,3 +46,11 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("8_uyxkh")
+
+[node name="FleetMenu" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("9_fleet")
+

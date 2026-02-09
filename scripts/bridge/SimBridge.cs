@@ -17,712 +17,802 @@ namespace SpaceTradeEmpire.Bridge;
 
 public partial class SimBridge : Node
 {
-        [Signal] public delegate void SimLoadedEventHandler();
+    [Signal] public delegate void SimLoadedEventHandler();
 
-        [Export] public int WorldSeed { get; set; } = 12345;
-        [Export] public int StarCount { get; set; } = 20;
+    [Export] public int WorldSeed { get; set; } = 12345;
+    [Export] public int StarCount { get; set; } = 20;
 
-        // Sim loop timing. If 0, runs as fast as possible.
-        [Export] public int TickDelayMs { get; set; } = 100;
+    // Sim loop timing. If 0, runs as fast as possible.
+    [Export] public int TickDelayMs { get; set; } = 100;
 
-        // If true, deletes the quicksave on boot (runtime only).
-        [Export] public bool ResetSaveOnBoot { get; set; } = true;
+    // If true, deletes the quicksave on boot (runtime only).
+    [Export] public bool ResetSaveOnBoot { get; set; } = true;
 
-        private SimKernel _kernel = null!;
-        private CancellationTokenSource? _cts;
-        private Task? _simTask;
+    private SimKernel _kernel = null!;
+    private CancellationTokenSource? _cts;
+    private Task? _simTask;
 
-        private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+    private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
-        private string _savePathAbs = "";
-        private volatile bool _saveRequested = false;
-        private volatile bool _loadRequested = false;
+    private string _savePathAbs = "";
+    private volatile bool _saveRequested = false;
+    private volatile bool _loadRequested = false;
 
-        private int _isLoading = 0;
-        private volatile bool _emitLoadCompletePending = false;
+    private int _isLoading = 0;
+    private volatile bool _emitLoadCompletePending = false;
 
-        public bool IsLoading
+    public bool IsLoading
+    {
+        get => Volatile.Read(ref _isLoading) != 0;
+        private set => Volatile.Write(ref _isLoading, value ? 1 : 0);
+    }
+
+    public override void _Ready()
+    {
+        // Autoloads run during editor startup. Do not execute runtime logic in the editor.
+        if (Engine.IsEditorHint())
         {
-                get => Volatile.Read(ref _isLoading) != 0;
-                private set => Volatile.Write(ref _isLoading, value ? 1 : 0);
+            return;
         }
 
-        public override void _Ready()
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+
+        // Compute save path once on main thread. Do NOT call Godot API from worker thread.
+        _savePathAbs = ProjectSettings.GlobalizePath("user://quicksave.json");
+
+        if (ResetSaveOnBoot && File.Exists(_savePathAbs))
         {
-                // Autoloads run during editor startup. Do not execute runtime logic in the editor.
-                if (Engine.IsEditorHint())
+            try { File.Delete(_savePathAbs); }
+            catch (Exception ex) { GD.PrintErr(ex.ToString()); }
+        }
+
+        InitializeKernel();
+        StartSimulation();
+    }
+
+    public override void _ExitTree()
+    {
+        StopSimulation();
+        _stateLock.Dispose();
+    }
+
+    public override void _Process(double delta)
+    {
+        // Emit load complete on main thread.
+        if (_emitLoadCompletePending)
+        {
+            _emitLoadCompletePending = false;
+            EmitSignal(SignalName.SimLoaded);
+        }
+    }
+
+    private void InitializeKernel()
+    {
+        GD.Print("[BRIDGE] Initializing SimCore Kernel...");
+        _kernel = new SimKernel(WorldSeed);
+
+        if (File.Exists(_savePathAbs) && !ResetSaveOnBoot)
+        {
+            RequestLoad();
+        }
+        else
+        {
+            _stateLock.EnterWriteLock();
+            try
+            {
+                GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
+            }
+            finally
+            {
+                _stateLock.ExitWriteLock();
+            }
+        }
+    }
+
+    private void StartSimulation()
+    {
+        if (_simTask != null && !_simTask.IsCompleted) return;
+
+        _cts = new CancellationTokenSource();
+        _simTask = Task.Run(() => SimLoop(_cts.Token), _cts.Token);
+
+        GD.Print("[BRIDGE] Simulation Thread Started.");
+    }
+
+    private void StopSimulation()
+    {
+        try
+        {
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+
+            // Best-effort join.
+            if (_simTask != null && !_simTask.IsCompleted)
+            {
+                _simTask.Wait(1000);
+            }
+        }
+        catch
+        {
+            // Suppress shutdown exceptions.
+        }
+        finally
+        {
+            _cts?.Dispose();
+            _cts = null;
+            _simTask = null;
+        }
+    }
+
+    private async Task SimLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                // Loading is exclusive.
+                if (_loadRequested)
                 {
-                        return;
+                    _loadRequested = false;
+                    ExecuteLoad();
                 }
 
-                Input.MouseMode = Input.MouseModeEnum.Visible;
-
-                // Compute save path once on main thread. Do NOT call Godot API from worker thread.
-                _savePathAbs = ProjectSettings.GlobalizePath("user://quicksave.json");
-
-                if (ResetSaveOnBoot && File.Exists(_savePathAbs))
+                // Saving can occur between steps.
+                if (_saveRequested)
                 {
-                        try { File.Delete(_savePathAbs); }
-                        catch (Exception ex) { GD.PrintErr(ex.ToString()); }
+                    _saveRequested = false;
+                    ExecuteSave();
                 }
 
-                InitializeKernel();
-                StartSimulation();
-        }
-
-        public override void _ExitTree()
-        {
-                StopSimulation();
-                _stateLock.Dispose();
-        }
-
-        public override void _Process(double delta)
-        {
-                // Emit load complete on main thread.
-                if (_emitLoadCompletePending)
+                _stateLock.EnterWriteLock();
+                try
                 {
-                        _emitLoadCompletePending = false;
-                        EmitSignal(SignalName.SimLoaded);
+                    _kernel.Step();
                 }
-        }
-
-        private void InitializeKernel()
-        {
-                GD.Print("[BRIDGE] Initializing SimCore Kernel...");
-                _kernel = new SimKernel(WorldSeed);
-
-                if (File.Exists(_savePathAbs) && !ResetSaveOnBoot)
+                finally
                 {
-                        RequestLoad();
+                    _stateLock.ExitWriteLock();
+                }
+
+                if (TickDelayMs > 0)
+                {
+                    await Task.Delay(TickDelayMs, token);
                 }
                 else
                 {
-                        _stateLock.EnterWriteLock();
-                        try
-                        {
-                                GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
-                        }
-                        finally
-                        {
-                                _stateLock.ExitWriteLock();
-                        }
+                    await Task.Yield();
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[BRIDGE] CRITICAL SIM ERROR: {ex}");
+                await Task.Delay(250, token);
+            }
         }
+    }
 
-        private void StartSimulation()
+    // --- PUBLIC API (Thread-Safe) ---
+
+    public void ExecuteSafeRead(Action<SimState> action)
+    {
+        if (IsLoading) return;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                if (_simTask != null && !_simTask.IsCompleted) return;
-
-                _cts = new CancellationTokenSource();
-                _simTask = Task.Run(() => SimLoop(_cts.Token), _cts.Token);
-
-                GD.Print("[BRIDGE] Simulation Thread Started.");
+            action(_kernel.State);
         }
-
-        private void StopSimulation()
+        finally
         {
-                try
-                {
-                        if (_cts != null && !_cts.IsCancellationRequested)
-                        {
-                                _cts.Cancel();
-                        }
-
-                        // Best-effort join.
-                        if (_simTask != null && !_simTask.IsCompleted)
-                        {
-                                _simTask.Wait(1000);
-                        }
-                }
-                catch
-                {
-                        // Suppress shutdown exceptions.
-                }
-                finally
-                {
-                        _cts?.Dispose();
-                        _cts = null;
-                        _simTask = null;
-                }
+            _stateLock.ExitReadLock();
         }
+    }
 
-        private async Task SimLoop(CancellationToken token)
+    public void EnqueueCommand(ICommand cmd)
+    {
+        if (IsLoading) return;
+
+        _stateLock.EnterWriteLock();
+        try
         {
-                while (!token.IsCancellationRequested)
-                {
-                        try
-                        {
-                                // Loading is exclusive.
-                                if (_loadRequested)
-                                {
-                                        _loadRequested = false;
-                                        ExecuteLoad();
-                                }
-
-                                // Saving can occur between steps.
-                                if (_saveRequested)
-                                {
-                                        _saveRequested = false;
-                                        ExecuteSave();
-                                }
-
-                                _stateLock.EnterWriteLock();
-                                try
-                                {
-                                        _kernel.Step();
-                                }
-                                finally
-                                {
-                                        _stateLock.ExitWriteLock();
-                                }
-
-                                if (TickDelayMs > 0)
-                                {
-                                        await Task.Delay(TickDelayMs, token);
-                                }
-                                else
-                                {
-                                        await Task.Yield();
-                                }
-                        }
-                        catch (OperationCanceledException)
-                        {
-                                break;
-                        }
-                        catch (Exception ex)
-                        {
-                                GD.PrintErr($"[BRIDGE] CRITICAL SIM ERROR: {ex}");
-                                await Task.Delay(250, token);
-                        }
-                }
+            _kernel.EnqueueCommand(cmd);
         }
-
-        // --- PUBLIC API (Thread-Safe) ---
-
-        public void ExecuteSafeRead(Action<SimState> action)
+        finally
         {
-                if (IsLoading) return;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        action(_kernel.State);
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            _stateLock.ExitWriteLock();
         }
+    }
 
-        public void EnqueueCommand(ICommand cmd)
+    public void EnqueueIntent(IIntent intent)
+    {
+        if (IsLoading) return;
+
+        _stateLock.EnterWriteLock();
+        try
         {
-                if (IsLoading) return;
-
-                _stateLock.EnterWriteLock();
-                try
-                {
-                        _kernel.EnqueueCommand(cmd);
-                }
-                finally
-                {
-                        _stateLock.ExitWriteLock();
-                }
+            _kernel.EnqueueIntent(intent);
         }
-
-        public void EnqueueIntent(IIntent intent)
+        finally
         {
-                if (IsLoading) return;
-
-                _stateLock.EnterWriteLock();
-                try
-                {
-                        _kernel.EnqueueIntent(intent);
-                }
-                finally
-                {
-                        _stateLock.ExitWriteLock();
-                }
+            _stateLock.ExitWriteLock();
         }
+    }
 
-        // --- Intents: UI.002 contract (buy/sell generates intents) ---
+    // --- Intents: UI.002 contract (buy/sell generates intents) ---
 
-        public void SubmitBuyIntent(string marketId, string goodId, int quantity)
+    public void SubmitBuyIntent(string marketId, string goodId, int quantity)
+    {
+        if (IsLoading) return;
+        if (string.IsNullOrWhiteSpace(marketId)) return;
+        if (string.IsNullOrWhiteSpace(goodId)) return;
+        if (quantity <= 0) return;
+
+        EnqueueIntent(new BuyIntent(marketId, goodId, quantity));
+    }
+
+    public void SubmitSellIntent(string marketId, string goodId, int quantity)
+    {
+        if (IsLoading) return;
+        if (string.IsNullOrWhiteSpace(marketId)) return;
+        if (string.IsNullOrWhiteSpace(goodId)) return;
+        if (quantity <= 0) return;
+
+        EnqueueIntent(new SellIntent(marketId, goodId, quantity));
+    }
+
+    // Legacy GDScript API used by ActiveStation.gd (non-blocking intent submit with pre-checks)
+    public bool TryBuyCargo(string marketId, string goodId, int quantity)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(marketId)) return false;
+        if (string.IsNullOrWhiteSpace(goodId)) return false;
+        if (quantity <= 0) return false;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                if (IsLoading) return;
-                if (string.IsNullOrWhiteSpace(marketId)) return;
-                if (string.IsNullOrWhiteSpace(goodId)) return;
-                if (quantity <= 0) return;
+            var state = _kernel.State;
+            if (!state.Markets.TryGetValue(marketId, out var market)) return false;
 
-                EnqueueIntent(new BuyIntent(marketId, goodId, quantity));
+            var price = market.GetPrice(goodId);
+            if (price <= 0) return false;
+
+            var total = (long)price * (long)quantity;
+            if (state.PlayerCredits < total) return false;
+
+            var supply = market.Inventory.TryGetValue(goodId, out var v) ? v : 0;
+            if (supply < quantity) return false;
         }
-
-        public void SubmitSellIntent(string marketId, string goodId, int quantity)
+        finally
         {
-                if (IsLoading) return;
-                if (string.IsNullOrWhiteSpace(marketId)) return;
-                if (string.IsNullOrWhiteSpace(goodId)) return;
-                if (quantity <= 0) return;
-
-                EnqueueIntent(new SellIntent(marketId, goodId, quantity));
+            _stateLock.ExitReadLock();
         }
 
-        // Legacy GDScript API used by ActiveStation.gd (non-blocking intent submit with pre-checks)
-        public bool TryBuyCargo(string marketId, string goodId, int quantity)
+        SubmitBuyIntent(marketId, goodId, quantity);
+        return true;
+    }
+
+    public bool TrySellCargo(string marketId, string goodId, int quantity)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(marketId)) return false;
+        if (string.IsNullOrWhiteSpace(goodId)) return false;
+        if (quantity <= 0) return false;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                if (IsLoading) return false;
-                if (string.IsNullOrWhiteSpace(marketId)) return false;
-                if (string.IsNullOrWhiteSpace(goodId)) return false;
-                if (quantity <= 0) return false;
+            var state = _kernel.State;
 
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-                        if (!state.Markets.TryGetValue(marketId, out var market)) return false;
+            var have = state.PlayerCargo.TryGetValue(goodId, out var v) ? v : 0;
+            if (have < quantity) return false;
 
-                        var price = market.GetPrice(goodId);
-                        if (price <= 0) return false;
-
-                        var total = (long)price * (long)quantity;
-                        if (state.PlayerCredits < total) return false;
-
-                        var supply = market.Inventory.TryGetValue(goodId, out var v) ? v : 0;
-                        if (supply < quantity) return false;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
-
-                SubmitBuyIntent(marketId, goodId, quantity);
-                return true;
+            if (!state.Markets.ContainsKey(marketId)) return false;
         }
-
-        public bool TrySellCargo(string marketId, string goodId, int quantity)
+        finally
         {
-                if (IsLoading) return false;
-                if (string.IsNullOrWhiteSpace(marketId)) return false;
-                if (string.IsNullOrWhiteSpace(goodId)) return false;
-                if (quantity <= 0) return false;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-
-                        var have = state.PlayerCargo.TryGetValue(goodId, out var v) ? v : 0;
-                        if (have < quantity) return false;
-
-                        if (!state.Markets.ContainsKey(marketId)) return false;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
-
-                SubmitSellIntent(marketId, goodId, quantity);
-                return true;
+            _stateLock.ExitReadLock();
         }
 
-        // --- Read APIs for UI.001 (inventory, price, intel age) ---
+        SubmitSellIntent(marketId, goodId, quantity);
+        return true;
+    }
 
-        public int GetMarketPrice(string marketId, string goodId)
+    // --- Read APIs for UI.001 (inventory, price, intel age) ---
+
+    public int GetMarketPrice(string marketId, string goodId)
+    {
+        if (IsLoading) return 0;
+        if (string.IsNullOrWhiteSpace(marketId)) return 0;
+        if (string.IsNullOrWhiteSpace(goodId)) return 0;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                if (IsLoading) return 0;
-                if (string.IsNullOrWhiteSpace(marketId)) return 0;
-                if (string.IsNullOrWhiteSpace(goodId)) return 0;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-                        if (!state.Markets.TryGetValue(marketId, out var market)) return 0;
-                        return market.GetPrice(goodId);
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            var state = _kernel.State;
+            if (!state.Markets.TryGetValue(marketId, out var market)) return 0;
+            return market.GetPrice(goodId);
         }
-
-        public int GetIntelAgeTicks(string marketId, string goodId)
+        finally
         {
-                if (IsLoading) return -1;
-                if (string.IsNullOrWhiteSpace(marketId)) return -1;
-                if (string.IsNullOrWhiteSpace(goodId)) return -1;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-                        var view = IntelSystem.GetMarketGoodView(state, marketId, goodId);
-                        return view.AgeTicks;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            _stateLock.ExitReadLock();
         }
+    }
 
-        public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
+    public int GetIntelAgeTicks(string marketId, string goodId)
+    {
+        if (IsLoading) return -1;
+        if (string.IsNullOrWhiteSpace(marketId)) return -1;
+        if (string.IsNullOrWhiteSpace(goodId)) return -1;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                var arr = new Godot.Collections.Array();
-                if (IsLoading) return arr;
-                if (string.IsNullOrWhiteSpace(marketId)) return arr;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-
-                        var sites = SustainmentSnapshot.BuildForNode(state, marketId);
-
-                        foreach (var s in sites)
-                        {
-                                var d = new Godot.Collections.Dictionary
-                                {
-                                        ["site_id"] = s.SiteId,
-                                        ["node_id"] = s.NodeId,
-                                        ["health_bps"] = s.HealthBps,
-                                        ["eff_bps_now"] = s.EffBpsNow,
-                                        ["degrade_per_day_bps"] = s.DegradePerDayBps,
-                                        ["worst_buffer_margin"] = s.WorstBufferMargin,
-
-                                        ["time_to_starve_ticks"] = s.TimeToStarveTicks,
-                                        ["time_to_starve_days"] = s.TimeToStarveDays,
-                                        ["time_to_failure_ticks"] = s.TimeToFailureTicks,
-                                        ["time_to_failure_days"] = s.TimeToFailureDays,
-
-                                        ["starve_band"] = s.StarveBand,
-                                        ["fail_band"] = s.FailBand
-                                };
-
-                                var inputsArr = new Godot.Collections.Array();
-                                foreach (var inp in s.Inputs)
-                                {
-                                        inputsArr.Add(new Godot.Collections.Dictionary
-                                        {
-                                                ["good_id"] = inp.GoodId,
-                                                ["have_units"] = inp.HaveUnits,
-                                                ["per_tick_required"] = inp.PerTickRequired,
-                                                ["buffer_target_units"] = inp.BufferTargetUnits,
-
-                                                ["coverage_ticks"] = inp.CoverageTicks,
-                                                ["coverage_days"] = inp.CoverageDays,
-                                                ["buffer_margin"] = inp.BufferMargin,
-
-                                                ["coverage_band"] = inp.CoverageBand
-                                        });
-                                }
-
-                                d["inputs"] = inputsArr;
-                                arr.Add(d);
-                        }
-
-                        return arr;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            var state = _kernel.State;
+            var view = IntelSystem.GetMarketGoodView(state, marketId, goodId);
+            return view.AgeTicks;
         }
-
-
-
-        // --- Programs: bridge lifecycle + explain snapshots ---
-
-        public string CreateAutoBuyProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+        finally
         {
-                if (IsLoading) return "";
-                if (string.IsNullOrWhiteSpace(marketId)) return "";
-                if (string.IsNullOrWhiteSpace(goodId)) return "";
-                if (quantity <= 0) return "";
-                if (cadenceTicks <= 0) cadenceTicks = 1;
-
-                _stateLock.EnterWriteLock();
-                try
-                {
-                        return _kernel.State.CreateAutoBuyProgram(marketId, goodId, quantity, cadenceTicks);
-                }
-                finally
-                {
-                        _stateLock.ExitWriteLock();
-                }
+            _stateLock.ExitReadLock();
         }
+    }
 
-        public bool StartProgram(string programId)
+    public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+        if (string.IsNullOrWhiteSpace(marketId)) return arr;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                return EnqueueProgramStatus(programId, ProgramStatus.Running);
-        }
+            var state = _kernel.State;
 
-        public bool PauseProgram(string programId)
+            var sites = SustainmentSnapshot.BuildForNode(state, marketId);
+
+            foreach (var s in sites)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["site_id"] = s.SiteId,
+                    ["node_id"] = s.NodeId,
+                    ["health_bps"] = s.HealthBps,
+                    ["eff_bps_now"] = s.EffBpsNow,
+                    ["degrade_per_day_bps"] = s.DegradePerDayBps,
+                    ["worst_buffer_margin"] = s.WorstBufferMargin,
+
+                    ["time_to_starve_ticks"] = s.TimeToStarveTicks,
+                    ["time_to_starve_days"] = s.TimeToStarveDays,
+                    ["time_to_failure_ticks"] = s.TimeToFailureTicks,
+                    ["time_to_failure_days"] = s.TimeToFailureDays,
+
+                    ["starve_band"] = s.StarveBand,
+                    ["fail_band"] = s.FailBand
+                };
+
+                var inputsArr = new Godot.Collections.Array();
+                foreach (var inp in s.Inputs)
+                {
+                    inputsArr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["good_id"] = inp.GoodId,
+                        ["have_units"] = inp.HaveUnits,
+                        ["per_tick_required"] = inp.PerTickRequired,
+                        ["buffer_target_units"] = inp.BufferTargetUnits,
+
+                        ["coverage_ticks"] = inp.CoverageTicks,
+                        ["coverage_days"] = inp.CoverageDays,
+                        ["buffer_margin"] = inp.BufferMargin,
+
+                        ["coverage_band"] = inp.CoverageBand
+                    });
+                }
+
+                d["inputs"] = inputsArr;
+                arr.Add(d);
+            }
+
+            return arr;
+        }
+        finally
         {
-                return EnqueueProgramStatus(programId, ProgramStatus.Paused);
+            _stateLock.ExitReadLock();
         }
+    }
 
-        public bool CancelProgram(string programId)
+
+
+    // --- Programs: bridge lifecycle + explain snapshots ---
+
+    public string CreateAutoBuyProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(marketId)) return "";
+        if (string.IsNullOrWhiteSpace(goodId)) return "";
+        if (quantity <= 0) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
         {
-                return EnqueueProgramStatus(programId, ProgramStatus.Cancelled);
+            return _kernel.State.CreateAutoBuyProgram(marketId, goodId, quantity, cadenceTicks);
         }
-
-        private bool EnqueueProgramStatus(string programId, ProgramStatus status)
+        finally
         {
-                if (IsLoading) return false;
-                if (string.IsNullOrWhiteSpace(programId)) return false;
-
-                _stateLock.EnterWriteLock();
-                try
-                {
-                        _kernel.EnqueueCommand(new SetProgramStatusCommand(programId, status));
-                        return true;
-                }
-                finally
-                {
-                        _stateLock.ExitWriteLock();
-                }
+            _stateLock.ExitWriteLock();
         }
+    }
 
+    public bool StartProgram(string programId)
+    {
+        return EnqueueProgramStatus(programId, ProgramStatus.Running);
+    }
 
-        public Godot.Collections.Array GetProgramExplainSnapshot()
+    public bool PauseProgram(string programId)
+    {
+        return EnqueueProgramStatus(programId, ProgramStatus.Paused);
+    }
+
+    public bool CancelProgram(string programId)
+    {
+        return EnqueueProgramStatus(programId, ProgramStatus.Cancelled);
+    }
+
+    private bool EnqueueProgramStatus(string programId, ProgramStatus status)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(programId)) return false;
+
+        _stateLock.EnterWriteLock();
+        try
         {
-                var arr = new Godot.Collections.Array();
-                if (IsLoading) return arr;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var payload = ProgramExplain.Build(_kernel.State);
-                        var json = ProgramExplain.ToDeterministicJson(payload);
-
-                        // Convert schema-bound JSON payload into GDScript-friendly dictionaries.
-                        using var doc = System.Text.Json.JsonDocument.Parse(json);
-                        var root = doc.RootElement;
-
-                        if (!root.TryGetProperty("Programs", out var progs) || progs.ValueKind != System.Text.Json.JsonValueKind.Array)
-                                return arr;
-
-                        foreach (var item in progs.EnumerateArray())
-                        {
-                                var d = new Godot.Collections.Dictionary
-                                {
-                                        ["id"] = item.GetProperty("Id").GetString() ?? "",
-                                        ["kind"] = item.GetProperty("Kind").GetString() ?? "",
-                                        ["status"] = item.GetProperty("Status").GetString() ?? "",
-                                        ["cadence_ticks"] = item.GetProperty("CadenceTicks").GetInt32(),
-                                        ["next_run_tick"] = item.GetProperty("NextRunTick").GetInt32(),
-                                        ["last_run_tick"] = item.GetProperty("LastRunTick").GetInt32(),
-                                        ["market_id"] = item.GetProperty("MarketId").GetString() ?? "",
-                                        ["good_id"] = item.GetProperty("GoodId").GetString() ?? "",
-                                        ["quantity"] = item.GetProperty("Quantity").GetInt32()
-                                };
-                                arr.Add(d);
-                        }
-
-                        return arr;
-                }
-                catch
-                {
-                        return arr;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            _kernel.EnqueueCommand(new SetProgramStatusCommand(programId, status));
+            return true;
         }
-
-        public Godot.Collections.Dictionary GetProgramQuote(string programId)
+        finally
         {
-                var d = new Godot.Collections.Dictionary();
-                if (IsLoading) return d;
-                if (string.IsNullOrWhiteSpace(programId)) return d;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        var state = _kernel.State;
-                        if (state.Programs is null) return d;
-                        if (!state.Programs.Instances.ContainsKey(programId)) return d;
-
-                        // Deterministic: request + snapshot => quote
-                        var snap = ProgramQuoteSnapshot.Capture(state, programId);
-                        var quote = ProgramQuote.BuildFromSnapshot(snap);
-
-                        d["program_id"] = quote.ProgramId;
-                        d["kind"] = quote.Kind;
-                        d["quote_tick"] = quote.QuoteTick;
-
-                        d["market_id"] = quote.MarketId;
-                        d["good_id"] = quote.GoodId;
-                        d["quantity"] = quote.Quantity;
-                        d["cadence_ticks"] = quote.CadenceTicks;
-
-                        d["unit_price_now"] = quote.UnitPriceNow;
-                        d["est_cost_or_value_per_run"] = quote.EstCostOrValuePerRun;
-                        d["est_runs_per_day"] = quote.EstRunsPerDay;
-                        d["est_daily_cost_or_value"] = quote.EstDailyCostOrValue;
-
-                        // Constraints (schema-bound booleans)
-                        d["market_exists"] = quote.Constraints.MarketExists;
-                        d["has_enough_credits_now"] = quote.Constraints.HasEnoughCreditsNow;
-                        d["has_enough_supply_now"] = quote.Constraints.HasEnoughSupplyNow;
-                        d["has_enough_cargo_now"] = quote.Constraints.HasEnoughCargoNow;
-
-                        // Risks (sorted for determinism in core; keep order)
-                        var risksArr = new Godot.Collections.Array();
-                        foreach (var r in quote.Risks)
-                        {
-                                risksArr.Add(r);
-                        }
-                        d["risks"] = risksArr;
-
-                        return d;
-                }
-                catch
-                {
-                        return d;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            _stateLock.ExitWriteLock();
         }
+    }
 
 
-        public Godot.Collections.Dictionary GetProgramOutcome(string programId)
+    public Godot.Collections.Array GetProgramExplainSnapshot()
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                var d = new Godot.Collections.Dictionary();
-                if (IsLoading) return d;
-                if (string.IsNullOrWhiteSpace(programId)) return d;
+            var payload = ProgramExplain.Build(_kernel.State);
+            var json = ProgramExplain.ToDeterministicJson(payload);
 
-                _stateLock.EnterReadLock();
-                try
+            // Convert schema-bound JSON payload into GDScript-friendly dictionaries.
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("Programs", out var progs) || progs.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return arr;
+
+            foreach (var item in progs.EnumerateArray())
+            {
+                var d = new Godot.Collections.Dictionary
                 {
-                        var state = _kernel.State;
-                        if (!state.Programs.Instances.TryGetValue(programId, out var p))
-                                return d;
+                    ["id"] = item.GetProperty("Id").GetString() ?? "",
+                    ["kind"] = item.GetProperty("Kind").GetString() ?? "",
+                    ["status"] = item.GetProperty("Status").GetString() ?? "",
+                    ["cadence_ticks"] = item.GetProperty("CadenceTicks").GetInt32(),
+                    ["next_run_tick"] = item.GetProperty("NextRunTick").GetInt32(),
+                    ["last_run_tick"] = item.GetProperty("LastRunTick").GetInt32(),
+                    ["market_id"] = item.GetProperty("MarketId").GetString() ?? "",
+                    ["good_id"] = item.GetProperty("GoodId").GetString() ?? "",
+                    ["quantity"] = item.GetProperty("Quantity").GetInt32()
+                };
+                arr.Add(d);
+            }
 
-                        d["program_id"] = programId;
-                        d["tick_now"] = state.Tick;
-
-                        d["status"] = p.Status.ToString();
-                        d["next_run_tick"] = p.NextRunTick;
-                        d["last_run_tick"] = p.LastRunTick;
-
-                        // Best-effort: ProgramExplain tracks scheduling, not execution results.
-                        // This outcome describes the last emission opportunity, not guaranteed fills.
-                        if (p.LastRunTick >= 0)
-                        {
-                                d["last_emission"] = $"BuyIntent {p.MarketId}:{p.GoodId} x{p.Quantity}";
-                        }
-                        else
-                        {
-                                d["last_emission"] = "(never)";
-                        }
-
-                        d["notes"] = "Outcome is scheduling/emission metadata only (not fill confirmation).";
-                        return d;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            return arr;
         }
-
-
-        // GDScript-friendly snapshot accessor
-        public Godot.Collections.Dictionary GetPlayerSnapshot()
+        catch
         {
-                var dict = new Godot.Collections.Dictionary();
-                if (IsLoading) return dict;
-
-                _stateLock.EnterReadLock();
-                try
-                {
-                        dict["credits"] = _kernel.State.PlayerCredits;
-                        dict["location"] = _kernel.State.PlayerLocationNodeId;
-
-                        var cargo = new Godot.Collections.Dictionary();
-                        foreach (var kv in _kernel.State.PlayerCargo)
-                        {
-                                cargo[kv.Key] = kv.Value;
-                        }
-                        dict["cargo"] = cargo;
-
-                        return dict;
-                }
-                finally
-                {
-                        _stateLock.ExitReadLock();
-                }
+            return arr;
         }
-
-        public void RequestSave()
+        finally
         {
-                _saveRequested = true;
+            _stateLock.ExitReadLock();
         }
+    }
 
-        public void RequestLoad()
+    public Godot.Collections.Dictionary GetProgramQuote(string programId)
+    {
+        var d = new Godot.Collections.Dictionary();
+        if (IsLoading) return d;
+        if (string.IsNullOrWhiteSpace(programId)) return d;
+
+        _stateLock.EnterReadLock();
+        try
         {
-                _loadRequested = true;
-        }
+            var state = _kernel.State;
+            if (state.Programs is null) return d;
+            if (!state.Programs.Instances.ContainsKey(programId)) return d;
 
-        private void ExecuteSave()
+            // Deterministic: request + snapshot => quote
+            var snap = ProgramQuoteSnapshot.Capture(state, programId);
+            var quote = ProgramQuote.BuildFromSnapshot(snap);
+
+            d["program_id"] = quote.ProgramId;
+            d["kind"] = quote.Kind;
+            d["quote_tick"] = quote.QuoteTick;
+
+            d["market_id"] = quote.MarketId;
+            d["good_id"] = quote.GoodId;
+            d["quantity"] = quote.Quantity;
+            d["cadence_ticks"] = quote.CadenceTicks;
+
+            d["unit_price_now"] = quote.UnitPriceNow;
+            d["est_cost_or_value_per_run"] = quote.EstCostOrValuePerRun;
+            d["est_runs_per_day"] = quote.EstRunsPerDay;
+            d["est_daily_cost_or_value"] = quote.EstDailyCostOrValue;
+
+            // Constraints (schema-bound booleans)
+            d["market_exists"] = quote.Constraints.MarketExists;
+            d["has_enough_credits_now"] = quote.Constraints.HasEnoughCreditsNow;
+            d["has_enough_supply_now"] = quote.Constraints.HasEnoughSupplyNow;
+            d["has_enough_cargo_now"] = quote.Constraints.HasEnoughCargoNow;
+
+            // Risks (sorted for determinism in core; keep order)
+            var risksArr = new Godot.Collections.Array();
+            foreach (var r in quote.Risks)
+            {
+                risksArr.Add(r);
+            }
+            d["risks"] = risksArr;
+
+            return d;
+        }
+        catch
         {
-                try
-                {
-                        _stateLock.EnterReadLock();
-                        string json;
-                        try
-                        {
-                                json = _kernel.SaveToString();
-                        }
-                        finally
-                        {
-                                _stateLock.ExitReadLock();
-                        }
-
-                        File.WriteAllText(_savePathAbs, json);
-                        GD.Print($"[BRIDGE] Saved: {_savePathAbs}");
-                }
-                catch (Exception ex)
-                {
-                        GD.PrintErr($"[BRIDGE] Save failed: {ex}");
-                }
+            return d;
         }
-
-        private void ExecuteLoad()
+        finally
         {
-                if (!File.Exists(_savePathAbs))
-                {
-                        GD.Print("[BRIDGE] Load requested but no save exists.");
-                        return;
-                }
-
-                IsLoading = true;
-                try
-                {
-                        var json = File.ReadAllText(_savePathAbs);
-
-                        _stateLock.EnterWriteLock();
-                        try
-                        {
-                                _kernel.LoadFromString(json);
-                        }
-                        finally
-                        {
-                                _stateLock.ExitWriteLock();
-                        }
-
-                        _emitLoadCompletePending = true;
-                        GD.Print("[BRIDGE] Load complete.");
-                }
-                catch (Exception ex)
-                {
-                        GD.PrintErr($"[BRIDGE] Load failed: {ex}");
-                }
-                finally
-                {
-                        IsLoading = false;
-                }
+            _stateLock.ExitReadLock();
         }
+    }
+
+
+    public Godot.Collections.Dictionary GetProgramOutcome(string programId)
+    {
+        var d = new Godot.Collections.Dictionary();
+        if (IsLoading) return d;
+        if (string.IsNullOrWhiteSpace(programId)) return d;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.Programs.Instances.TryGetValue(programId, out var p))
+                return d;
+
+            d["program_id"] = programId;
+            d["tick_now"] = state.Tick;
+
+            d["status"] = p.Status.ToString();
+            d["next_run_tick"] = p.NextRunTick;
+            d["last_run_tick"] = p.LastRunTick;
+
+            // Best-effort: ProgramExplain tracks scheduling, not execution results.
+            // This outcome describes the last emission opportunity, not guaranteed fills.
+            if (p.LastRunTick >= 0)
+            {
+                d["last_emission"] = $"BuyIntent {p.MarketId}:{p.GoodId} x{p.Quantity}";
+            }
+            else
+            {
+                d["last_emission"] = "(never)";
+            }
+
+            d["notes"] = "Outcome is scheduling/emission metadata only (not fill confirmation).";
+            return d;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+    public Godot.Collections.Array GetFleetExplainSnapshot()
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var state = _kernel.State;
+
+            // Deterministic ordering: Fleet.Id Ordinal
+            var fleets = state.Fleets.Values
+                    .OrderBy(f => f.Id, StringComparer.Ordinal)
+                    .ToArray();
+
+            foreach (var f in fleets)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["id"] = f.Id,
+                    ["current_node_id"] = f.CurrentNodeId,
+                    ["state"] = f.State.ToString(),
+                    ["task"] = f.CurrentTask,
+
+                    // Route progress required by GATE.UI.FLEET.001
+                    ["route_edge_index"] = f.RouteEdgeIndex,
+                    ["route_edge_total"] = (f.RouteEdgeIds != null) ? f.RouteEdgeIds.Count : 0,
+                    ["route_progress"] = $"{f.RouteEdgeIndex}/{((f.RouteEdgeIds != null) ? f.RouteEdgeIds.Count : 0)}"
+                };
+
+                // Cargo summary required by GATE.UI.FLEET.001
+                if (f.Cargo != null && f.Cargo.Count > 0)
+                {
+                    var parts = f.Cargo
+                            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                            .Select(kv => $"{kv.Key}:{kv.Value}")
+                            .ToArray();
+                    d["cargo_summary"] = string.Join(", ", parts);
+                }
+                else
+                {
+                    d["cargo_summary"] = "(empty)";
+                }
+
+                // Job fields required by GATE.UI.FLEET.001
+                if (f.CurrentJob != null)
+                {
+                    var j = f.CurrentJob;
+                    d["job_phase"] = j.Phase.ToString();
+                    d["job_good_id"] = j.GoodId ?? "";
+                    d["job_amount"] = j.Amount;
+                    d["job_picked_up_amount"] = j.PickedUpAmount;
+
+                    // "remaining" for UI: while picking up, remaining = Amount - PickedUpAmount (best effort),
+                    // while delivering, remaining = PickedUpAmount (amount to deliver).
+                    int remaining;
+                    if (j.Phase == SimCore.Entities.LogisticsJobPhase.Pickup)
+                    {
+                        remaining = Math.Max(0, j.Amount - j.PickedUpAmount);
+                    }
+                    else
+                    {
+                        remaining = Math.Max(0, j.PickedUpAmount);
+                    }
+                    d["job_remaining"] = remaining;
+                }
+                else
+                {
+                    d["job_phase"] = "";
+                    d["job_good_id"] = "";
+                    d["job_amount"] = 0;
+                    d["job_picked_up_amount"] = 0;
+                    d["job_remaining"] = 0;
+                }
+
+                arr.Add(d);
+            }
+
+            return arr;
+        }
+        catch
+        {
+            return arr;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+
+    // GDScript-friendly snapshot accessor
+    public Godot.Collections.Dictionary GetPlayerSnapshot()
+    {
+        var dict = new Godot.Collections.Dictionary();
+        if (IsLoading) return dict;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            dict["credits"] = _kernel.State.PlayerCredits;
+            dict["location"] = _kernel.State.PlayerLocationNodeId;
+
+            var cargo = new Godot.Collections.Dictionary();
+            foreach (var kv in _kernel.State.PlayerCargo)
+            {
+                cargo[kv.Key] = kv.Value;
+            }
+            dict["cargo"] = cargo;
+
+            return dict;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+    public void RequestSave()
+    {
+        _saveRequested = true;
+    }
+
+    public void RequestLoad()
+    {
+        _loadRequested = true;
+    }
+
+    private void ExecuteSave()
+    {
+        try
+        {
+            _stateLock.EnterReadLock();
+            string json;
+            try
+            {
+                json = _kernel.SaveToString();
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+
+            File.WriteAllText(_savePathAbs, json);
+            GD.Print($"[BRIDGE] Saved: {_savePathAbs}");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[BRIDGE] Save failed: {ex}");
+        }
+    }
+
+    private void ExecuteLoad()
+    {
+        if (!File.Exists(_savePathAbs))
+        {
+            GD.Print("[BRIDGE] Load requested but no save exists.");
+            return;
+        }
+
+        IsLoading = true;
+        try
+        {
+            var json = File.ReadAllText(_savePathAbs);
+
+            _stateLock.EnterWriteLock();
+            try
+            {
+                _kernel.LoadFromString(json);
+            }
+            finally
+            {
+                _stateLock.ExitWriteLock();
+            }
+
+            _emitLoadCompletePending = true;
+            GD.Print("[BRIDGE] Load complete.");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[BRIDGE] Load failed: {ex}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
 }
