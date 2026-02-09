@@ -42,5 +42,12 @@ public class LogisticsJob
     // Slice 3 / GATE.LOGI.RETRY.001
     // Counts consecutive observations where a pickup attempt resulted in 0 units loaded at source.
     public int ZeroPickupObservations { get; set; } = 0;
+
+    // Slice 3 / GATE.LOGI.RESERVE.001
+    // Optional reservation created at plan/assignment time to protect supplier inventory from other loads.
+    // Enforced in LoadCargoCommand (LogisticsSystem never mutates inventories directly).
+    public string ReservationId { get; set; } = "";
+    public int ReservedAmount { get; set; } = 0;
 }
+
 

@@ -170,6 +170,29 @@ public static class LogisticsSystem
                 // Begin delivery leg (movement will occur on later ticks).
                 job.Phase = LogisticsJobPhase.Deliver;
 
+                // Release any remaining reservation now that pickup is complete.
+                if (!string.IsNullOrWhiteSpace(job.ReservationId))
+                {
+                    state.ReleaseLogisticsReservation(job.ReservationId);
+
+                    state.EmitLogisticsEvent(new LogisticsEvents.Event
+                    {
+                        Type = LogisticsEvents.LogisticsEventType.ReservationReleased,
+                        FleetId = fleet.Id ?? "",
+                        GoodId = job.GoodId ?? "",
+                        Amount = job.ReservedAmount,
+                        SourceNodeId = job.SourceNodeId ?? "",
+                        TargetNodeId = job.TargetNodeId ?? "",
+                        SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                        TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                        Note = "Reservation released after pickup."
+                    });
+
+                    // Clear job linkage so future loads do not treat it as reserved-owner.
+                    job.ReservationId = "";
+                    job.ReservedAmount = 0;
+                }
+
                 state.EmitLogisticsEvent(new LogisticsEvents.Event
                 {
                     Type = LogisticsEvents.LogisticsEventType.PhaseChangedToDeliver,
@@ -353,7 +376,7 @@ public static class LogisticsSystem
         {
             if (string.Equals(m.Id, excludeMarketId, StringComparison.Ordinal)) continue;
 
-            var qty = m.Inventory.GetValueOrDefault(goodId, 0);
+            var qty = state.GetUnreservedAvailable(m.Id, goodId);
             if (qty <= 10) continue;
 
             if (best is null || qty > bestQty)
@@ -397,14 +420,42 @@ public static class LogisticsSystem
             RouteToTargetEdgeIds = toTargetPlan.EdgeIds ?? new List<string>()
         };
 
+        // Slice 3 / GATE.LOGI.RESERVE.001: Optional reservation at assignment time.
+        // This does NOT mutate inventory; enforcement happens in LoadCargoCommand.
+        if (state.TryCreateLogisticsReservation(sourceMarketId, goodId, fleet.Id ?? "", amount, out var rid, out var rqty))
+        {
+            if (fleet.CurrentJob is not null && rqty > 0 && !string.IsNullOrWhiteSpace(rid))
+            {
+                fleet.CurrentJob.ReservationId = rid;
+                fleet.CurrentJob.ReservedAmount = rqty;
+
+                state.EmitLogisticsEvent(new LogisticsEvents.Event
+                {
+                    Type = LogisticsEvents.LogisticsEventType.ReservationCreated,
+                    FleetId = fleet.Id ?? "",
+                    GoodId = goodId ?? "",
+                    Amount = rqty,
+                    SourceNodeId = sourceNode ?? "",
+                    TargetNodeId = destNode ?? "",
+                    SourceMarketId = sourceMarketId ?? "",
+                    TargetMarketId = destMarketId ?? "",
+                    Note = $"Reserved {rqty} units at source market."
+                });
+            }
+        }
+
+        var plannedJob = fleet.CurrentJob;
+        if (plannedJob is null) return false;
+
         // Load planned pickup leg immediately (no replanning).
         fleet.RouteEdgeIds.Clear();
-        fleet.RouteEdgeIds.AddRange(fleet.CurrentJob.RouteToSourceEdgeIds);
+        fleet.RouteEdgeIds.AddRange(plannedJob.RouteToSourceEdgeIds);
         fleet.RouteEdgeIndex = 0;
 
         // Prevent MovementSystem from treating DestinationNodeId as a new request.
         fleet.DestinationNodeId = "";
-        fleet.FinalDestinationNodeId = sourceNode;
+        fleet.FinalDestinationNodeId = sourceNode ?? "";
+
 
         fleet.State = FleetState.Idle;
         fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
@@ -445,6 +496,25 @@ public static class LogisticsSystem
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (fleet is null) throw new ArgumentNullException(nameof(fleet));
         if (job is null) throw new ArgumentNullException(nameof(job));
+
+        // Release any outstanding reservation deterministically.
+        if (!string.IsNullOrWhiteSpace(job.ReservationId))
+        {
+            state.ReleaseLogisticsReservation(job.ReservationId);
+
+            state.EmitLogisticsEvent(new LogisticsEvents.Event
+            {
+                Type = LogisticsEvents.LogisticsEventType.ReservationReleased,
+                FleetId = fleet.Id ?? "",
+                GoodId = job.GoodId ?? "",
+                Amount = job.ReservedAmount,
+                SourceNodeId = job.SourceNodeId ?? "",
+                TargetNodeId = job.TargetNodeId ?? "",
+                SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
+                TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
+                Note = "Reservation released on job cancel."
+            });
+        }
 
         fleet.CurrentJob = null;
 

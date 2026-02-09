@@ -26,7 +26,11 @@ public static class LogisticsEvents
 
         // Actions issued (intents enqueued)
         PickupIssued = 10,
-        DeliveryIssued = 11
+        DeliveryIssued = 11,
+
+        // Slice 3 / GATE.LOGI.RESERVE.001
+        ReservationCreated = 12,
+        ReservationReleased = 13
     }
 
     public sealed class Event
