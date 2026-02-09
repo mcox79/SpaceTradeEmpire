@@ -11,7 +11,7 @@ public class LongRunWorldHashTests
     // - No external inputs
     // - 10,000 ticks
     private const string ExpectedGenesisHash = "DAB2BB84ADD27BC3C1CE13472CAB3DE7B912D8E6316671B7B7545E409412BBFF";
-    private const string ExpectedFinalHash = "C70C42BEF58F2756231AFA2F24E77980A010DFC251275EEBDF8F8189C9FD8FEE";
+    private const string ExpectedFinalHash = "AB75E0C4D963D8420C6D66E4606F481882B9D012259A8E70273BBD008CD79356";
 
 
     [Test]

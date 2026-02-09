@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SimCore.Entities;
+using SimCore.Intents;
 
 namespace SimCore.Systems;
 
@@ -78,14 +79,25 @@ public static class LogisticsSystem
 
         var job = fleet.CurrentJob;
 
-        // Only transition phases when the fleet is idle (arrived at a node and not mid-edge).
+        // Only transition phases / issue transfers when the fleet is idle (arrived at a node and not mid-edge).
         if (fleet.State != FleetState.Idle) return;
 
         if (job.Phase == LogisticsJobPhase.Pickup)
         {
             if (string.Equals(fleet.CurrentNodeId, job.SourceNodeId, StringComparison.Ordinal))
             {
-                // Arrived at source, begin delivery leg.
+                // At source: enqueue pickup transfer exactly once.
+                if (!job.PickupTransferIssued)
+                {
+                    var sourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId);
+                    if (!string.IsNullOrWhiteSpace(sourceMarketId))
+                    {
+                        state.EnqueueIntent(new LoadCargoIntent(fleet.Id, sourceMarketId, job.GoodId, job.Amount));
+                        job.PickupTransferIssued = true;
+                    }
+                }
+
+                // Begin delivery leg (movement will occur on later ticks; load executes next kernel step).
                 job.Phase = LogisticsJobPhase.Deliver;
 
                 // Clear any existing route state; MovementSystem will plan deterministically on next Process().
@@ -106,7 +118,19 @@ public static class LogisticsSystem
         {
             if (string.Equals(fleet.CurrentNodeId, job.TargetNodeId, StringComparison.Ordinal))
             {
-                // Job complete (actual transfer is not modeled yet).
+                // At destination: enqueue delivery transfer exactly once.
+                if (!job.DeliveryTransferIssued)
+                {
+                    var destMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId);
+                    if (!string.IsNullOrWhiteSpace(destMarketId))
+                    {
+                        // Clamp happens inside UnloadCargoCommand; requesting job.Amount is deterministic and safe.
+                        state.EnqueueIntent(new UnloadCargoIntent(fleet.Id, destMarketId, job.GoodId, job.Amount));
+                        job.DeliveryTransferIssued = true;
+                    }
+                }
+
+                // Mark job complete. (Unload will execute next kernel step; intent is independent of CurrentJob.)
                 fleet.CurrentJob = null;
                 fleet.CurrentTask = "Idle";
             }

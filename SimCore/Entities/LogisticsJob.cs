@@ -24,4 +24,10 @@ public class LogisticsJob
     // Route legs (lane ids) computed deterministically at plan time.
     public List<string> RouteToSourceEdgeIds { get; set; } = new();
     public List<string> RouteToTargetEdgeIds { get; set; } = new();
+
+    // Slice 3 / GATE.LOGI.EXEC.001
+    // Latches to ensure we enqueue each transfer intent at most once,
+    // even if the fleet remains Idle at the node for multiple ticks.
+    public bool PickupTransferIssued { get; set; } = false;
+    public bool DeliveryTransferIssued { get; set; } = false;
 }
