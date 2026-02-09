@@ -142,10 +142,21 @@ public class SimState
         sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|");
         sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
-        foreach (var f in Fleets.OrderBy(k => k.Key))
+foreach (var f in Fleets.OrderBy(k => k.Key))
+{
+    sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
+
+    // Include cargo deterministically (keys sorted, stable formatting).
+    if (f.Value.Cargo is not null && f.Value.Cargo.Count > 0)
+    {
+        sb.Append("Cargo:");
+        foreach (var kv in f.Value.Cargo.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
-            sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
+            sb.Append($"{kv.Key}:{kv.Value},");
         }
+        sb.Append("|");
+    }
+}
 
         foreach (var m in Markets.OrderBy(k => k.Key))
         {

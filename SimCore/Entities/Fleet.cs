@@ -37,14 +37,25 @@ public class Fleet
     public float TravelProgress { get; set; } = 0f; // 0.0 to 1.0
     public float Speed { get; set; } = 0.5f; // AU per tick
 
-
     // LOGIC STATE
     public string CurrentTask { get; set; } = "Idle"; // Explanation for UI
     public LogisticsJob? CurrentJob { get; set; } // The Active Order
 
     // CARGO
+    // Deterministic key ordering: SortedDictionary with Ordinal comparer.
+    // Gate target: dict keyed by GoodId, quantities are non-negative ints.
+    public Dictionary<string, int> Cargo { get; set; } = new();
+
+    // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
 
     [JsonIgnore]
     public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;
+
+    public int GetCargoUnits(string goodId)
+    {
+        if (string.IsNullOrWhiteSpace(goodId)) return 0;
+        return Cargo.TryGetValue(goodId, out var v) ? v : 0;
+    }
+
 }
