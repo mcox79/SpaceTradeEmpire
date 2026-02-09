@@ -53,10 +53,14 @@ public class LogisticsTests
         Assert.That(fleet.CurrentJob.GoodId, Is.EqualTo("ore"));
         Assert.That(fleet.CurrentJob.SourceNodeId, Is.EqualTo("alpha"));
 
-        // New contract: LogisticsSystem assigns a job and requests a destination.
-        // MovementSystem deterministically plans lanes and starts travel on its Process().
-        Assert.That(fleet.DestinationNodeId, Is.EqualTo("alpha"));
+        // New contract: LogisticsSystem assigns a job and loads the planned leg.
+        // MovementSystem consumes RouteEdgeIds; DestinationNodeId is intentionally empty to avoid replanning.
+        Assert.That(fleet.FinalDestinationNodeId, Is.EqualTo("alpha"));
+        Assert.That(fleet.DestinationNodeId, Is.EqualTo(""));
+        Assert.That(fleet.RouteEdgeIds, Is.EqualTo(new[] { "e1_ba" }));
+        Assert.That(fleet.RouteEdgeIndex, Is.EqualTo(0));
         Assert.That(fleet.State, Is.EqualTo(FleetState.Idle));
+
 
     }
 }

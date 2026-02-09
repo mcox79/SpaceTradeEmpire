@@ -110,8 +110,8 @@ public static class LogisticsSystem
             }
             else
             {
-                // Ensure we're still heading to pickup.
-                EnsureHeadingTo(state, fleet, job.SourceNodeId, $"Fetching {job.GoodId} from {job.SourceNodeId}");
+                // Follow the precomputed pickup leg deterministically.
+                EnsureFollowingPlannedRouteLeg(state, fleet, job.RouteToSourceEdgeIds, $"Fetching {job.GoodId} from {job.SourceNodeId}");
             }
         }
         else
@@ -136,28 +136,89 @@ public static class LogisticsSystem
             }
             else
             {
-                EnsureHeadingTo(state, fleet, job.TargetNodeId, $"Delivering {job.GoodId} to {job.TargetNodeId}");
+                // Follow the precomputed delivery leg deterministically.
+                EnsureFollowingPlannedRouteLeg(state, fleet, job.RouteToTargetEdgeIds, $"Delivering {job.GoodId} to {job.TargetNodeId}");
             }
         }
     }
 
-    private static void EnsureHeadingTo(SimState state, Fleet fleet, string finalNodeId, string taskLabel)
+    private static void EnsureFollowingPlannedRouteLeg(SimState state, Fleet fleet, IReadOnlyList<string> plannedEdgeIds, string taskLabel)
     {
-        if (string.IsNullOrWhiteSpace(finalNodeId)) return;
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (fleet is null) throw new ArgumentNullException(nameof(fleet));
+        if (plannedEdgeIds is null) throw new ArgumentNullException(nameof(plannedEdgeIds));
 
-        // If already routed to this destination, do nothing.
-        if (string.Equals(fleet.FinalDestinationNodeId, finalNodeId, StringComparison.Ordinal)) return;
-        if (string.Equals(fleet.DestinationNodeId, finalNodeId, StringComparison.Ordinal) && (fleet.RouteEdgeIds.Count > 0 || fleet.State == FleetState.Traveling)) return;
+        // If we already have this exact leg loaded, do nothing.
+        if (fleet.RouteEdgeIds.Count == plannedEdgeIds.Count)
+        {
+            var same = true;
+            for (var i = 0; i < plannedEdgeIds.Count; i++)
+            {
+                if (!string.Equals(fleet.RouteEdgeIds[i], plannedEdgeIds[i], StringComparison.Ordinal))
+                {
+                    same = false;
+                    break;
+                }
+            }
 
-        // Reset route state and request travel using the DestinationNodeId convention
+            if (same && fleet.RouteEdgeIndex >= 0 && fleet.RouteEdgeIndex < fleet.RouteEdgeIds.Count)
+            {
+                fleet.CurrentTask = taskLabel;
+                return;
+            }
+        }
+
+        // Validate the leg edges exist and infer final node id deterministically (last edge's ToNodeId).
+        if (plannedEdgeIds.Count == 0)
+        {
+            // No movement needed; leave routing empty.
+            fleet.RouteEdgeIds.Clear();
+            fleet.RouteEdgeIndex = 0;
+            fleet.FinalDestinationNodeId = "";
+            fleet.DestinationNodeId = "";
+            fleet.CurrentTask = taskLabel;
+            fleet.State = FleetState.Idle;
+            return;
+        }
+
+        string finalNodeId = "";
+        for (var i = 0; i < plannedEdgeIds.Count; i++)
+        {
+            var eid = plannedEdgeIds[i] ?? "";
+            if (string.IsNullOrWhiteSpace(eid)) return;
+            if (!state.Edges.TryGetValue(eid, out var e)) return;
+
+            if (i == 0)
+            {
+                // Must start from current node; otherwise this plan is stale.
+                if (!string.Equals(fleet.CurrentNodeId, e.FromNodeId, StringComparison.Ordinal))
+                    return;
+            }
+
+            if (i > 0)
+            {
+                var prevId = plannedEdgeIds[i - 1] ?? "";
+                if (!state.Edges.TryGetValue(prevId, out var prev)) return;
+                if (!string.Equals(prev.ToNodeId, e.FromNodeId, StringComparison.Ordinal))
+                    return;
+            }
+
+            finalNodeId = e.ToNodeId ?? "";
+        }
+
+        // Load the leg exactly as planned (copy into fleet route state).
         fleet.RouteEdgeIds.Clear();
+        fleet.RouteEdgeIds.AddRange(plannedEdgeIds);
         fleet.RouteEdgeIndex = 0;
-        fleet.FinalDestinationNodeId = "";
 
-        fleet.DestinationNodeId = finalNodeId;
+        // Ensure MovementSystem does not reinterpret DestinationNodeId as a new request.
+        fleet.DestinationNodeId = "";
+        fleet.FinalDestinationNodeId = finalNodeId;
+
         fleet.CurrentTask = taskLabel;
         fleet.State = FleetState.Idle;
     }
+
 
     private static string ResolveMarketForSiteNode(SimState state, string siteNodeId)
     {
@@ -223,13 +284,16 @@ public static class LogisticsSystem
             RouteToTargetEdgeIds = toTargetPlan.EdgeIds ?? new List<string>()
         };
 
-        // Request travel to pickup location. MovementSystem will plan the lane sequence.
+        // Load planned pickup leg immediately (no replanning).
         fleet.RouteEdgeIds.Clear();
+        fleet.RouteEdgeIds.AddRange(fleet.CurrentJob.RouteToSourceEdgeIds);
         fleet.RouteEdgeIndex = 0;
-        fleet.FinalDestinationNodeId = "";
+
+        // Prevent MovementSystem from treating DestinationNodeId as a new request.
+        fleet.DestinationNodeId = "";
+        fleet.FinalDestinationNodeId = sourceNode;
 
         fleet.State = FleetState.Idle;
-        fleet.DestinationNodeId = sourceNode;
         fleet.CurrentTask = $"Fetching {goodId} from {sourceMarketId}";
 
         return true;
