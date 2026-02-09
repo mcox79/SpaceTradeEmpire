@@ -449,13 +449,34 @@ Context Packet template
 - Meaning: the template used to generate the Context Packet.
 - Rule: do not attach the template in sessions; attach only the generated packet.
 
-
-
 Generated artifacts directory
 
 - Path: `docs/generated/`
 - Meaning: location for deterministic, diff-friendly tool outputs.
 
+Status Packet (generated)
+
+- Path: `docs/generated/02_STATUS_PACKET.txt`
+- Meaning: compact snapshot for fast triage (tests, connectivity, key artifact presence/size).
+- Typical use: gate closure work and “what changed?” review.
+- May include: “TOP GATE CLOSURE BLOCKERS” when gate closure delta exists.
+
+Gate closure delta (generated)
+
+- Path: `docs/generated/gate_closure_delta.md`
+- Meaning: extracted view of TODO gates and their referenced evidence paths.
+- Produces: “Top gate closure blockers” by grouping missing referenced files by how many TODO gates reference them.
+
+Top gate closure blockers
+
+- Meaning: ranked list of missing referenced files that block closing TODO gates.
+- Source: generated from `docs/generated/gate_closure_delta.md` and may be surfaced in `docs/generated/02_STATUS_PACKET.txt`.
+
+Capability index (generated)
+
+- Path: `docs/generated/capability_index.md`
+- Meaning: index of UI + bridge “capability surface” showing what APIs exist and where they are wired.
+- Typical use: answering “does the bridge already expose this?” and “where is this used?”
 
 
 Connectivity scan outputs (v0)

@@ -102,6 +102,10 @@ $Targets = $Targets.Trim()
 $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
 $head   = (& git rev-parse HEAD).Trim()
 
+# Generate closure-oriented artifacts (bounded, deterministic)
+try { & powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/tools/New-GateClosureDelta.ps1" 1>$null } catch {}
+try { & powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/tools/New-CapabilityIndex.ps1" 1>$null } catch {}
+
 # Baseline selection: merge-base vs origin/main if available, else vs main, else HEAD~1
 $baseline = $null
 try {
@@ -277,6 +281,41 @@ if (Test-Path $manifestPath) {
     $mfi = Get-Item $manifestPath
     [void](Safe-Append $sb ("`r`nMANIFEST: docs/generated/connectivity_manifest.json bytes=$($mfi.Length)`r`n") ([ref]$totalBytes) $MaxTotalBytes)
 }
+
+# ---- TOP GATE CLOSURE BLOCKERS (from gate_closure_delta.md) ----
+[void](Safe-Append $sb "`r`n===== TOP GATE CLOSURE BLOCKERS =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)
+
+$deltaPath = Join-Path $repoRoot "docs\generated\gate_closure_delta.md"
+if (Test-Path $deltaPath) {
+    $deltaHead = Get-Content -LiteralPath $deltaPath -TotalCount 120
+
+    $in = $false
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($ln in $deltaHead) {
+        if ($ln -match '^\s*##\s+Top gate closure blockers\s*$') { $in = $true; continue }
+        if ($in -and $ln -match '^\s*##\s+') { break }
+        if ($in) { $lines.Add($ln) | Out-Null }
+    }
+
+    $emit = @($lines | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -First 20)
+    if ($emit.Count -eq 0) {
+        [void](Safe-Append $sb "(none)`r`n" ([ref]$totalBytes) $MaxTotalBytes)
+    } else {
+        [void](Safe-Append $sb (($emit -join "`r`n") + "`r`n") ([ref]$totalBytes) $MaxTotalBytes)
+    }
+
+    $fi = Get-Item $deltaPath
+    [void](Safe-Append $sb ("artifact: docs/generated/gate_closure_delta.md bytes=$($fi.Length)`r`n") ([ref]$totalBytes) $MaxTotalBytes)
+} else {
+    [void](Safe-Append $sb "<<MISSING: docs/generated/gate_closure_delta.md>>`r`n" ([ref]$totalBytes) $MaxTotalBytes)
+}
+
+$capPath = Join-Path $repoRoot "docs\generated\capability_index.md"
+if (Test-Path $capPath) {
+    $fi = Get-Item $capPath
+    [void](Safe-Append $sb ("artifact: docs/generated/capability_index.md bytes=$($fi.Length)`r`n") ([ref]$totalBytes) $MaxTotalBytes)
+}
+# ---- END TOP GATE CLOSURE BLOCKERS ----
 
 [void](Safe-Append $sb "`r`n===== TOOL OUTPUTS (IF PRESENT) =====`r`n" ([ref]$totalBytes) $MaxTotalBytes)
 foreach ($t in $toolOutputs) {

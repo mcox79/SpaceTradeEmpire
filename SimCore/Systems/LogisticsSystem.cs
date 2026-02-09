@@ -491,7 +491,7 @@ public static class LogisticsSystem
         return null;
     }
 
-    private static void CancelJob(SimState state, Fleet fleet, LogisticsJob job, string note)
+    public static void CancelJob(SimState state, Fleet fleet, LogisticsJob job, string note)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (fleet is null) throw new ArgumentNullException(nameof(fleet));

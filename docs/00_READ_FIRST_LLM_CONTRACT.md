@@ -263,12 +263,16 @@ Generated artifacts live under:
 Rules:
 - Prefer referencing generated artifacts by path rather than pasting large outputs into chat.
 - Attach docs/generated/01_CONTEXT_PACKET.md for each session.
+- Status Packet is optional; Context Packet remains mandatory.
 
 Deterministic, diff-friendly artifacts (eligible to commit later by policy decision)
 - docs/generated/01_CONTEXT_PACKET.md
+- docs/generated/02_STATUS_PACKET.txt
 - docs/generated/connectivity_manifest.json
 - docs/generated/connectivity_graph.json
 - docs/generated/connectivity_violations.json
+- docs/generated/gate_closure_delta.md
+- docs/generated/capability_index.md
 
 Ephemeral outputs (do not commit)
 - verbose console logs
@@ -276,9 +280,9 @@ Ephemeral outputs (do not commit)
 - machine-local scratch files
 
 Session attachments rule:
+- Attach docs/generated/02_STATUS_PACKET.txt when doing gate closure work (it may include “TOP GATE CLOSURE BLOCKERS” when gate_closure_delta exists).
 - Attach docs/generated/connectivity_violations.json only when non-empty or needed for diagnosis.
 - Do not paste full JSON outputs by default; include only targeted excerpts when necessary.
-
 
 ## K) Git hygiene (required)
 

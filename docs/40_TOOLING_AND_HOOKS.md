@@ -28,6 +28,11 @@ Project-level (do not attach every chat)
 
 Per-session (the default attachment set)
 - `docs/generated/01_CONTEXT_PACKET.md`
+- optionally `docs/generated/02_STATUS_PACKET.txt` (recommended when closing gates; includes top gate closure blockers when present)
+- only the minimum file contents required for the scoped edit (explicit allowlist)
+- if connectivity violations exist or are needed for diagnosis:
+  - `docs/generated/connectivity_violations.json`
+  - optionally small excerpts from `docs/generated/connectivity_graph.json`
 - only the minimum file contents required for the scoped edit (explicit allowlist)
 - if connectivity violations exist or are needed for diagnosis:
   - `docs/generated/connectivity_violations.json`
@@ -54,6 +59,44 @@ Canonical run command:
 Notes:
 - The Context Packet is the primary mechanism for minimizing per-chat attachments.
 - It should include Objective, OUTPUT_MODE, GIT_MODE, allowlist, validations, and Definition of Done.
+- Context Packet generation is distinct from the Status Packet and other generators; run those separately (or via DevTool “Generate All”) when needed.
+
+### C1a. Generate the Status Packet
+- Script: `scripts/tools/New-StatusPacket.ps1`
+- Output:
+  - `docs/generated/02_STATUS_PACKET.txt`
+
+Canonical run command:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-StatusPacket.ps1 -Force`
+
+Notes:
+- The Status Packet is a compact snapshot for gate work and fast triage.
+- When `docs/generated/gate_closure_delta.md` exists, the Status Packet includes a compact “TOP GATE CLOSURE BLOCKERS” section.
+
+### C1b. Gate closure delta (TODO gates and missing evidence)
+- Script: `scripts/tools/New-GateClosureDelta.ps1`
+- Output:
+  - `docs/generated/gate_closure_delta.md`
+
+Canonical run command:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-GateClosureDelta.ps1 -Force`
+
+Notes:
+- Parses gate tables in `docs/54_DEVELOPMENT_PLAN.md`.
+- Focuses TODO gates and extracts referenced evidence paths.
+- Produces “Top gate closure blockers” by grouping missing referenced files by how many TODO gates reference them.
+
+### C1c. Capability index (UI + bridge surface)
+- Script: `scripts/tools/New-CapabilityIndex.ps1`
+- Output:
+  - `docs/generated/capability_index.md`
+
+Canonical run command:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-CapabilityIndex.ps1 -Force`
+
+Notes:
+- Indexes the UI and bridge “capability surface” so you can see what APIs exist and where they are wired.
+- Reduces time lost to “does the bridge already expose this?” and “where is this used?”
 
 ### C2. Godot script validation and parse gate
 - Script: `scripts/tools/Validate-GodotScript.ps1`
@@ -274,6 +317,7 @@ If `DevTool.ps1` is used as a convenience entrypoint:
 - it must not change the authoritative behavior of the underlying scripts
 - wrappers must preserve exit codes and must not mask failures
 - wrappers must respect `GIT_MODE` (including `NO_STAGE`) and never stage or commit when `GIT_MODE = NO_STAGE`
+- it may include convenience buttons for gate closure and capability surface artifacts (for example “GATE CLOSURE DELTA” and “CAPABILITY INDEX”) and may run them in any “Generate All” pipeline
 
 If no stable wrapper exists yet:
 - keep using the canonical commands in section C
@@ -290,3 +334,5 @@ If no stable wrapper exists yet:
 - connectivity scan noise from generated, archival, or build directories when not using `-Harden`
 - unit drift (per tick vs per day, game time vs real time) when schema fields do not declare units
 - missing determinism regression gates (world hash, save/load hash equality) when sim complexity increases
+- gate closure delta drift if gate table formatting changes (generator must fail soft and report parse gaps rather than silently omitting gates)
+

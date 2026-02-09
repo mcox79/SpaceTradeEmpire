@@ -3,7 +3,7 @@ if (-not (Test-Path variable:global:DEVTOOL_HEADLESS)) { $global:DEVTOOL_HEADLES
 <#
 .SYNOPSIS
     SPACE TRADE EMPIRE - MISSION CONTROL (v5.2)
-    
+
     Status:
     1. Verify Logic (dotnet test)
     2. Context Packet (LLM)
@@ -24,6 +24,8 @@ $ScriptsDir     = Join-Path $ProjectRoot "scripts\tools"
 $ContextScript  = Join-Path $ScriptsDir "New-ContextPacket.ps1"
 $ScanScript     = Join-Path $ScriptsDir "Scan-Connectivity.ps1" # <--- The Connectivity Scanner
 $StatusScript   = Join-Path $ScriptsDir "New-StatusPacket.ps1"
+$GateDeltaScript = Join-Path $ScriptsDir "New-GateClosureDelta.ps1"
+$CapIndexScript  = Join-Path $ScriptsDir "New-CapabilityIndex.ps1"
 
 # --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
@@ -47,8 +49,6 @@ $global:VerifyTimer.Interval = 250
 $global:GenAllJob = $null
 $global:GenAllTimer = New-Object System.Windows.Forms.Timer
 $global:GenAllTimer.Interval = 250
-$script:GenAllLogPath = Join-Path $ProjectRoot "docs\generated\devtool_generate_all.txt"
-$script:GenAllLastRead = 0
 
 $script:VerifyLogPath = $null
 
@@ -81,28 +81,33 @@ function On-VerifyTick {
 
 $global:VerifyTimer.Add_Tick({ On-VerifyTick })
 
+$script:GenAllSeen = 0
+
+$script:GenAllSeen = 0
+
 function On-GenAllTick {
     if (-not $global:GenAllJob) { $global:GenAllTimer.Stop(); return }
-    if ($global:GenAllJob.State -eq "Running") {
-        if (Test-Path $script:GenAllLogPath) {
-            $raw = Get-Content -LiteralPath $script:GenAllLogPath -Raw -ErrorAction SilentlyContinue
-            if ($raw) {
-                $lines = $raw -split "(`r`n|`n|`r)"
-                for ($i = $script:GenAllLastRead; $i -lt $lines.Count; $i++) {
-                    if (-not [string]::IsNullOrWhiteSpace($lines[$i])) { Log-Output $lines[$i] }
-                }
-                $script:GenAllLastRead = $lines.Count
+
+    # Pull only the new output since last tick by tracking count
+    $chunk = @(Receive-Job -Job $global:GenAllJob -Keep -ErrorAction SilentlyContinue)
+    if ($chunk.Count -gt $script:GenAllSeen) {
+        for ($i = $script:GenAllSeen; $i -lt $chunk.Count; $i++) {
+            $s = $chunk[$i]
+            if ($null -ne $s -and -not [string]::IsNullOrWhiteSpace($s.ToString())) {
+                Log-Output $s.ToString()
             }
         }
-        return
+        $script:GenAllSeen = $chunk.Count
     }
+
+    if ($global:GenAllJob.State -eq "Running") { return }
 
     $global:GenAllTimer.Stop()
 
     $exitCode = 1
     try {
-        $result = @(Receive-Job -Job $global:GenAllJob -ErrorAction SilentlyContinue)
-        if ($result.Count -gt 0) { $exitCode = [int]$result[-1] }
+        $final = @(Receive-Job -Job $global:GenAllJob -ErrorAction SilentlyContinue)
+        if ($final.Count -gt 0) { $exitCode = [int]$final[-1] }
     } catch { $exitCode = 1 }
 
     try { Remove-Job -Job $global:GenAllJob -Force -ErrorAction SilentlyContinue } catch {}
@@ -118,22 +123,12 @@ $global:GenAllTimer.Add_Tick({ On-GenAllTick })
 
 # --- LOGIC ---
 
-$DevToolLogPath = Join-Path (Get-Location) "docs\generated\devtool_log.txt"
-
 $script:VerifyLogPath = $null
 
 function Log-Output($message) {
     $line = "[$((Get-Date).ToString('HH:mm:ss'))] $message"
     $txtOutput.AppendText($line + "`r`n")
     $txtOutput.ScrollToCaret()
-
-    try {
-        $dir = Split-Path -Parent $DevToolLogPath
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-        Add-Content -LiteralPath $DevToolLogPath -Value $line
-    } catch {
-        # ignore logging failures
-    }
 }
 
 # 1. LOGIC VERIFICATION
@@ -176,7 +171,7 @@ function Run-SimCoreTests {
         $global:VerifyTimer.Start()
         Log-Output "Verify running in background. Log: $logPath"
 
-	
+
     } catch {
         Log-Output "ERROR (full):"
         Log-Output ($_ | Out-String)
@@ -198,10 +193,10 @@ function Run-ContextGen {
 # 3. CONNECTIVITY SCAN (NEW)
 function Run-ConnectivityScan {
     Log-Output ">>> EXEC: ARCHITECTURE SCAN"
-    if (-not (Test-Path $ScanScript)) { 
+    if (-not (Test-Path $ScanScript)) {
         Log-Output "ERROR: Script missing at $ScanScript"
         Log-Output "   - Please verify 'scripts\tools\Scan-Connectivity.ps1' exists."
-        return 
+        return
     }
 
     try {
@@ -225,6 +220,44 @@ function Run-GitSave {
 # 5. STATUS
 if (-not $global:DEVTOOL_HEADLESS) { Add-Type -AssemblyName Microsoft.VisualBasic }
 
+# 4.5 GATE CLOSURE DELTA
+function Run-GateClosureDelta {
+    Log-Output ">>> EXEC: GATE CLOSURE DELTA"
+
+    if (-not (Test-Path $GateDeltaScript)) {
+        Log-Output "ERROR: Missing $GateDeltaScript"
+        Log-Output "   - Please add 'scripts\tools\New-GateClosureDelta.ps1'"
+        return
+    }
+
+    try {
+        & $GateDeltaScript
+        Log-Output "GATE CLOSURE DELTA WRITTEN: docs/generated/gate_closure_delta.md"
+    } catch {
+        Log-Output "ERROR (full):"
+        Log-Output ($_ | Out-String)
+    }
+}
+
+# 4.6 CAPABILITY INDEX
+function Run-CapabilityIndex {
+    Log-Output ">>> EXEC: CAPABILITY INDEX"
+
+    if (-not (Test-Path $CapIndexScript)) {
+        Log-Output "ERROR: Missing $CapIndexScript"
+        Log-Output "   - Please add 'scripts\tools\New-CapabilityIndex.ps1'"
+        return
+    }
+
+    try {
+        & $CapIndexScript
+        Log-Output "CAPABILITY INDEX WRITTEN: docs/generated/capability_index.md"
+    } catch {
+        Log-Output "ERROR (full):"
+        Log-Output ($_ | Out-String)
+    }
+}
+
 function Run-StatusPacket {
     Log-Output ">>> EXEC: STATUS PACKET"
 
@@ -245,52 +278,52 @@ function Run-StatusPacket {
 }
 
 function Run-GenerateAll {
-    Log-Output ">>> EXEC: GENERATE ALL (Scan -> Tests -> Status -> Context)"
+    Log-Output ">>> EXEC: GENERATE ALL (Scan -> GateDelta -> CapIndex -> Tests -> Status -> Context)"
 
     if ($global:GenAllJob -and $global:GenAllJob.State -eq "Running") {
         Log-Output "Generate All already running."
         return
     }
 
-    if (Test-Path $script:GenAllLogPath) { Remove-Item -Force -LiteralPath $script:GenAllLogPath -ErrorAction SilentlyContinue }
-    $script:GenAllLastRead = 0
-
+    $script:GenAllSeen = 0
     $btnGenAll.Enabled = $false
 
-    $global:GenAllJob = Start-Job -ArgumentList $ProjectRoot, $ScanScript, $StatusScript, $ContextScript, $script:GenAllLogPath -ScriptBlock {
-        param($root, $scan, $status, $context, $lp)
-
-        function W($m) {
-            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-            $line = "[" + (Get-Date).ToString("HH:mm:ss") + "] " + $m + "`r`n"
-            [System.IO.File]::AppendAllText($lp, $line, $utf8NoBom)
-        }
+    $global:GenAllJob = Start-Job -ArgumentList $ProjectRoot, $ScanScript, $GateDeltaScript, $CapIndexScript, $StatusScript, $ContextScript -ScriptBlock {
+        param($root, $scan, $gateDelta, $capIndex, $status, $context)
 
         try {
             Set-Location $root
 
-            W "1) Connectivity scan"
+            Write-Output "1) Connectivity scan"
             & $scan -Force -Harden | Out-Null
-            W "Connectivity: done"
+            Write-Output "Connectivity: done"
 
-            W "2) Tests (dotnet test SimCore.Tests)"
+            Write-Output "2) Gate closure delta"
+            & $gateDelta | Out-Null
+            Write-Output "Gate closure delta: done"
+
+            Write-Output "3) Capability index"
+            & $capIndex  | Out-Null
+            Write-Output "Capability index: done"
+
+            Write-Output "4) Tests"
             $out = (dotnet test SimCore.Tests -v minimal 2>&1) -join "`r`n"
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText((Join-Path $root "docs\generated\05_TEST_SUMMARY.txt"), $out + "`r`n", $utf8NoBom)
             if ($LASTEXITCODE -ne 0) { throw "Tests failed. ExitCode=$LASTEXITCODE" }
-            W "Tests: passed"
+            Write-Output "Tests: passed"
 
-            W "3) Status packet"
+            Write-Output "5) Status packet"
             & $status -Force | Out-Null
-            W "Status: done"
+            Write-Output "Status: done"
 
-            W "4) Context packet"
+            Write-Output "6) Context packet"
             & $context | Out-Null
-            W "Context: done"
+            Write-Output "Context: done"
 
             return 0
         } catch {
-            W ("ERROR: " + $_.Exception.Message)
+            Write-Output ("ERROR: " + ($_ | Out-String))
             return 1
         }
     }
@@ -369,11 +402,35 @@ $btnSave.FlatStyle = "Flat"
 $btnSave.Add_Click({ Run-GitSave })
 $form.Controls.Add($btnSave)
 
-# 5. STATUS PACKET (Gray)
+# 5. GATE CLOSURE DELTA (Gray)
+$btnGateDelta = New-Object System.Windows.Forms.Button
+$btnGateDelta.Location = New-Object System.Drawing.Point(20, 315)
+$btnGateDelta.Size = New-Object System.Drawing.Size(400, 45)
+$btnGateDelta.Text = "5. GATE CLOSURE DELTA"
+$btnGateDelta.BackColor = "#444444"
+$btnGateDelta.ForeColor = "White"
+$btnGateDelta.Font = $fontNormal
+$btnGateDelta.FlatStyle = "Flat"
+$btnGateDelta.Add_Click({ Run-GateClosureDelta })
+$form.Controls.Add($btnGateDelta)
+
+# 6. CAPABILITY INDEX (Gray)
+$btnCapIndex = New-Object System.Windows.Forms.Button
+$btnCapIndex.Location = New-Object System.Drawing.Point(20, 360)
+$btnCapIndex.Size = New-Object System.Drawing.Size(400, 45)
+$btnCapIndex.Text = "6. CAPABILITY INDEX"
+$btnCapIndex.BackColor = "#444444"
+$btnCapIndex.ForeColor = "White"
+$btnCapIndex.Font = $fontNormal
+$btnCapIndex.FlatStyle = "Flat"
+$btnCapIndex.Add_Click({ Run-CapabilityIndex })
+$form.Controls.Add($btnCapIndex)
+
+# 7. STATUS PACKET (Gray)
 $btnStatus = New-Object System.Windows.Forms.Button
-$btnStatus.Location = New-Object System.Drawing.Point(20, 315)
+$btnStatus.Location = New-Object System.Drawing.Point(20, 405)
 $btnStatus.Size = New-Object System.Drawing.Size(400, 45)
-$btnStatus.Text = "5. GENERATE STATUS PACKET"
+$btnStatus.Text = "7. GENERATE STATUS PACKET"
 $btnStatus.BackColor = "#444444"
 $btnStatus.ForeColor = "White"
 $btnStatus.Font = $fontNormal
@@ -383,8 +440,8 @@ $form.Controls.Add($btnStatus)
 
 # Console Output
 $txtOutput = New-Object System.Windows.Forms.TextBox
-$txtOutput.Location = New-Object System.Drawing.Point(20, 375)
-$txtOutput.Size = New-Object System.Drawing.Size(400, 190)
+$txtOutput.Location = New-Object System.Drawing.Point(20, 465)
+$txtOutput.Size = New-Object System.Drawing.Size(400, 140)
 $txtOutput.Multiline = $true
 $txtOutput.ScrollBars = "Vertical"
 $txtOutput.BackColor = "#000000"
