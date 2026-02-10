@@ -57,20 +57,18 @@ try {
   }
 
   $dedup = New-Object System.Collections.Generic.List[string]
-  $dedup.Add($contextRel) | Out-Null
 
   foreach ($l in $lines) {
     $p = Normalize-Rel $l
     if ([string]::IsNullOrWhiteSpace($p)) { continue }
-    if ($p -eq $contextRel) { continue }
+    if ($p -eq $contextRel) { continue } # context always excluded from cap list
     if (-not $dedup.Contains($p)) { $dedup.Add($p) | Out-Null }
   }
 
   $final = New-Object System.Collections.Generic.List[string]
-  $final.Add($contextRel) | Out-Null
 
   $count = 0
-  for ($i = 1; $i -lt $dedup.Count; $i++) {
+  for ($i = 0; $i -lt $dedup.Count; $i++) {
     if ($count -ge $MaxAttachments) { break }
     $final.Add($dedup[$i]) | Out-Null
     $count++
@@ -80,11 +78,11 @@ try {
   foreach ($p in $final) { [void]$sbA.Append($p + [Environment]::NewLine) }
   Write-AtomicUtf8NoBom (Join-Path $RepoRoot $attachRel) ($sbA.ToString())
 
-  $nowUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+  $head = (& git rev-parse HEAD).Trim()
   $nextText = Read-Text $nextAbs
 
   $sb = New-Object System.Text.StringBuilder
-  [void]$sb.Append("# LLM Prompt (Generated $nowUtc UTC)" + [Environment]::NewLine + [Environment]::NewLine)
+  [void]$sb.Append("# LLM Prompt (HEAD $head)" + [Environment]::NewLine + [Environment]::NewLine)
   [void]$sb.Append("Hard guardrails:" + [Environment]::NewLine)
   [void]$sb.Append("- gate ids immutable once merged" + [Environment]::NewLine)
   [void]$sb.Append("- no deletions by default" + [Environment]::NewLine)
@@ -93,11 +91,24 @@ try {
   [void]$sb.Append("- max 6 attachments per LLM session (exclusive of docs/generated/01_CONTEXT_PACKET.md)" + [Environment]::NewLine)
   [void]$sb.Append([Environment]::NewLine)
 
+  [void]$sb.Append("Routing (deterministic):" + [Environment]::NewLine)
+  [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + [Environment]::NewLine)
+  [void]$sb.Append("- Else if next_gate_packet.md says Split required: YES: SPLIT mode (add subgates, do not delete parent)." + [Environment]::NewLine)
+  [void]$sb.Append("- Else: EXECUTE mode." + [Environment]::NewLine)
+  [void]$sb.Append([Environment]::NewLine)
+
   [void]$sb.Append("Task:" + [Environment]::NewLine)
-  [void]$sb.Append("Using the context packet and the next gate packet, propose the minimal execution plan for the next 1 to 3 gates. Output must not rename or delete any gate IDs. If changes touch files, list exact file paths and edits." + [Environment]::NewLine)
+  [void]$sb.Append("Execute exactly one gate: the Selected gate in next_gate_packet.md." + [Environment]::NewLine)
+  [void]$sb.Append("Output required:" + [Environment]::NewLine)
+  [void]$sb.Append("1) File edits (exact paths and edits)" + [Environment]::NewLine)
+  [void]$sb.Append("2) Test command(s) to run" + [Environment]::NewLine)
+  [void]$sb.Append("3) Commit plan (exact files staged + commit message)" + [Environment]::NewLine)
+  [void]$sb.Append("Prohibited: planning additional gates, requesting broad extra context, exceeding attachment cap." + [Environment]::NewLine)
+  [void]$sb.Append("Always attach docs/generated/01_CONTEXT_PACKET.md separately (excluded from cap). Attach only files listed below." + [Environment]::NewLine)
   [void]$sb.Append([Environment]::NewLine)
 
   [void]$sb.Append("## Attachments (in order)" + [Environment]::NewLine)
+  [void]$sb.Append("- " + $contextRel + [Environment]::NewLine)
   foreach ($p in $final) { [void]$sb.Append("- " + $p + [Environment]::NewLine) }
   [void]$sb.Append([Environment]::NewLine)
 

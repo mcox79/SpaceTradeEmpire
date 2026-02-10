@@ -50,6 +50,31 @@ function Write-AtomicUtf8NoBom([string] $Path, [string] $Content) {
     Move-Item -Force -LiteralPath $tmp -Destination $Path
 }
 
+# --- VALIDATION SURFACE (artifact-visible, deterministic) ---
+$script:GatesValidation = "UNKNOWN"       # OK|FAIL|UNKNOWN
+$script:GatesValidationError = ""         # short reason, normalized
+$script:FreezeChecked = $false            # true once Validate-Gates is invoked
+$script:BaselineRefUsed = "UNKNOWN"       # e.g. HEAD or a commit hash
+
+function Invoke-ValidateGatesAndCapture {
+    $script:FreezeChecked = $true
+    $script:BaselineRefUsed = ((& git rev-parse HEAD).Trim())
+
+    try {
+        & $ValidateGates | Out-Null
+        $script:GatesValidation = "OK"
+        $script:GatesValidationError = ""
+    } catch {
+        $script:GatesValidation = "FAIL"
+        $msg = $_.Exception.Message
+        if ($null -eq $msg) { $msg = "Validate-Gates failed" }
+        # normalize to first line only (more stable)
+        $msg = ($msg -split "(`r`n|`n|`r)")[0]
+        $script:GatesValidationError = $msg
+        throw
+    }
+}
+
 function Write-DevtoolSummary([string] $Command, [string[]] $Outputs) {
     $root = (& git rev-parse --show-toplevel 2>$null)
     if (-not $root) { throw "Write-DevtoolSummary: Not in a git repo (git rev-parse failed)." }
@@ -58,12 +83,14 @@ function Write-DevtoolSummary([string] $Command, [string[]] $Outputs) {
     $genDir = Join-Path $root "docs\generated"
     Ensure-Dir $genDir
 
-    $nowUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    $obj = @{
-        schema_version = 1
-        generated_utc = $nowUtc
-        command = $Command
-        outputs = $Outputs
+    $obj = [ordered]@{
+        schema_version         = 1
+        command                = $Command
+        outputs                = $Outputs
+        gates_validation        = $script:GatesValidation
+        gates_validation_error  = $script:GatesValidationError
+        baseline_ref_used       = $script:BaselineRefUsed
+        freeze_checked          = [bool]$script:FreezeChecked
     } | ConvertTo-Json -Depth 10
 
     Write-AtomicUtf8NoBom (Join-Path $genDir "devtool_summary.json") ($obj + [Environment]::NewLine)
@@ -92,7 +119,7 @@ if ($global:DEVTOOL_HEADLESS) {
         }
 
         "next" {
-            & $ValidateGates | Out-Null
+            Invoke-ValidateGatesAndCapture
             & $NextGateScript | Out-Null
             # DevTool is the sole writer of docs/generated/devtool_summary.json
             Write-DevtoolSummary "next" @(
@@ -104,7 +131,7 @@ if ($global:DEVTOOL_HEADLESS) {
         }
 
         "prompt" {
-            & $ValidateGates | Out-Null
+            Invoke-ValidateGatesAndCapture
             & $NextGateScript | Out-Null
             & $PromptScript | Out-Null
             Write-DevtoolSummary "prompt" @(
@@ -311,7 +338,7 @@ function Run-NextGatePacket {
     if (-not (Test-Path -LiteralPath $NextGateScript)) { Log-Output "ERROR: Missing $NextGateScript"; return $false }
 
     try {
-        & $ValidateGates | Out-Null
+        Invoke-ValidateGatesAndCapture
         & $NextGateScript | Out-Null
         Log-Output "NEXT GATE PACKET WRITTEN: docs/generated/next_gate_packet.md"
         return $true
@@ -362,7 +389,7 @@ function Run-LlmPrompt {
     }
 
     try {
-        & $ValidateGates | Out-Null
+        Invoke-ValidateGatesAndCapture
         & $PromptScript | Out-Null
         Log-Output "LLM PROMPT WRITTEN: docs/generated/llm_prompt.md"
         return $true
