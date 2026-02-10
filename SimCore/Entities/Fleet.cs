@@ -27,9 +27,15 @@ public class Fleet
     // FinalDestinationNodeId is the requested end node for the whole route.
     public string FinalDestinationNodeId { get; set; } = "";
 
+    // UI Manual Override (Slice 3 / GATE.UI.FLEET.003)
+    // Non-empty means UI has asserted a manual destination override.
+    // Semantics: while set, routing is controlled by ManualOverrideNodeId until cleared.
+    public string ManualOverrideNodeId { get; set; } = "";
+
     // Planned lane sequence to reach FinalDestinationNodeId.
     // RouteEdgeIndex points to the next edge to traverse.
     public List<string> RouteEdgeIds { get; set; } = new();
+
     public int RouteEdgeIndex { get; set; } = 0;
 
     // TRAVEL STATE

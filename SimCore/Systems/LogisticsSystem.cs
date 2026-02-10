@@ -68,7 +68,8 @@ public static class LogisticsSystem
                 .OrderBy(f => f.Id, StringComparer.Ordinal)
                 .FirstOrDefault(f =>
                     (f.State == FleetState.Idle || f.State == FleetState.Docked) &&
-                    f.CurrentJob == null);
+                    f.CurrentJob == null &&
+                    string.IsNullOrWhiteSpace(f.ManualOverrideNodeId));
             if (fleet is null) break;
 
             var supplier = FindSupplierDeterministic(state, task.GoodId, excludeMarketId: task.MarketId);
@@ -82,6 +83,10 @@ public static class LogisticsSystem
     private static void AdvanceJobState(SimState state, Fleet fleet)
     {
         if (fleet.CurrentJob is null) return;
+
+        // Manual override suppresses job-driven routing and transfers.
+        // The override command is responsible for canceling jobs, but this makes it robust.
+        if (!string.IsNullOrWhiteSpace(fleet.ManualOverrideNodeId)) return;
 
         var job = fleet.CurrentJob;
 

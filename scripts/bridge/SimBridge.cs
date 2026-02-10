@@ -244,6 +244,43 @@ public partial class SimBridge : Node
         }
     }
 
+    // --- Fleet UI commands (Slice 3 / GATE.UI.FLEET.002, GATE.UI.FLEET.003) ---
+
+    public bool CancelFleetJob(string fleetId, string note = "")
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(fleetId)) return false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.EnqueueCommand(new SimCore.Commands.FleetJobCancelCommand(fleetId, note));
+            return true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    // targetNodeId = "" clears manual override
+    public bool SetFleetDestination(string fleetId, string targetNodeId, string note = "")
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(fleetId)) return false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.EnqueueCommand(new SimCore.Commands.FleetSetDestinationCommand(fleetId, targetNodeId ?? "", note));
+            return true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
     // --- Intents: UI.002 contract (buy/sell generates intents) ---
 
     public void SubmitBuyIntent(string marketId, string goodId, int quantity)

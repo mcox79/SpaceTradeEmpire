@@ -21,6 +21,8 @@ public partial class FleetMenu : Control
     private CheckBox _autoRefresh = null!;
     private SpinBox _refreshMs = null!;
 
+    private LineEdit _overrideTarget = null!;
+
     private double _accumMs = 0.0;
     private ulong _lastRefreshMs = 0;
 
@@ -127,6 +129,15 @@ public partial class FleetMenu : Control
             CustomMinimumSize = new Vector2(100, 0)
         };
         topRow.AddChild(_refreshMs);
+
+        topRow.AddChild(new Label { Text = "OverrideTarget:" });
+
+        _overrideTarget = new LineEdit
+        {
+            PlaceholderText = "node id (blank clears via Clear button)",
+            CustomMinimumSize = new Vector2(260, 0)
+        };
+        topRow.AddChild(_overrideTarget);
 
         var btnClose = new Button { Text = "Close" };
         btnClose.Pressed += () => { Close(); EmitSignal(SignalName.RequestClose); };
@@ -242,7 +253,7 @@ public partial class FleetMenu : Control
 
         _list.AddChild(new Label
         {
-            Text = "ID | Node | State | Task | JobPhase | JobGood | Remaining | Cargo | Route",
+            Text = "ID | Node | State | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
             Modulate = new Color(0.7f, 0.7f, 1f),
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
@@ -263,13 +274,44 @@ public partial class FleetMenu : Control
             var cargo = GetStr(d!, "cargo_summary");
             var route = GetStr(d!, "route_progress");
 
-            _list.AddChild(new Label
+            var row = new HBoxContainer();
+
+            var label = new Label
             {
                 Text = $"{id} | {node} | {state} | {task} | {jobPhase} | {jobGood} | {remaining} | {cargo} | {route}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(1080, 0)
-            });
+                CustomMinimumSize = new Vector2(860, 0)
+            };
+            row.AddChild(label);
+
+            var btnCancel = new Button { Text = "CancelJob" };
+            btnCancel.Disabled = string.IsNullOrWhiteSpace(jobPhase);
+            btnCancel.Pressed += () =>
+            {
+                _bridge.CancelFleetJob(id, "ui_cancel");
+                Refresh();
+            };
+            row.AddChild(btnCancel);
+
+            var btnOverride = new Button { Text = "Override" };
+            btnOverride.Pressed += () =>
+            {
+                var target = (_overrideTarget != null) ? _overrideTarget.Text : "";
+                _bridge.SetFleetDestination(id, target ?? "", "ui_override");
+                Refresh();
+            };
+            row.AddChild(btnOverride);
+
+            var btnClear = new Button { Text = "ClearOverride" };
+            btnClear.Pressed += () =>
+            {
+                _bridge.SetFleetDestination(id, "", "ui_clear_override");
+                Refresh();
+            };
+            row.AddChild(btnClear);
+
+            _list.AddChild(row);
         }
     }
 }

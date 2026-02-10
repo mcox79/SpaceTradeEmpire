@@ -32,7 +32,6 @@ public static class MovementSystem
                     continue;
             }
 
-
             // Traveling: advance along current edge
             if (string.IsNullOrWhiteSpace(fleet.CurrentEdgeId))
             {
@@ -110,6 +109,28 @@ public static class MovementSystem
 
     private static void TryEnsureRoutePlanned(SimState state, Fleet fleet)
     {
+        // Manual override takes precedence over other destination requests.
+        // While set, it overrides routing until cleared. (Slice 3 / GATE.UI.FLEET.003)
+        if (!string.IsNullOrWhiteSpace(fleet.ManualOverrideNodeId)
+            && fleet.State != FleetState.Traveling)
+        {
+            // If the current planned final differs, force a replan deterministically.
+            if (!string.Equals(fleet.FinalDestinationNodeId, fleet.ManualOverrideNodeId, StringComparison.Ordinal))
+            {
+                fleet.RouteEdgeIds?.Clear();
+                fleet.RouteEdgeIndex = 0;
+                fleet.FinalDestinationNodeId = "";
+                fleet.DestinationNodeId = "";
+            }
+
+            if ((fleet.RouteEdgeIds == null || fleet.RouteEdgeIds.Count == 0)
+                && string.IsNullOrWhiteSpace(fleet.FinalDestinationNodeId))
+            {
+                fleet.FinalDestinationNodeId = fleet.ManualOverrideNodeId;
+                fleet.DestinationNodeId = "";
+            }
+        }
+
         // If caller set only DestinationNodeId while idle/docked, treat it as final destination request.
         if (string.IsNullOrWhiteSpace(fleet.FinalDestinationNodeId)
             && !string.IsNullOrWhiteSpace(fleet.DestinationNodeId)
