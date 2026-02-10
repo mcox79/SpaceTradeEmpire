@@ -82,7 +82,7 @@ Canonical run command:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/New-GateClosureDelta.ps1 -Force`
 
 Notes:
-- Parses gate tables in `docs/54_DEVELOPMENT_PLAN.md`.
+- Parses gate tables in `docs/55_GATES.md`.
 - Focuses TODO gates and extracts referenced evidence paths.
 - Produces “Top gate closure blockers” by grouping missing referenced files by how many TODO gates reference them.
 

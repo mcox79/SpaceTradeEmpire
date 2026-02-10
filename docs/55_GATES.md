@@ -1,0 +1,101 @@
+# 55_GATES
+
+## A. Slice 0 discipline gates (always-on)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S0.SEM.001 | DONE | Slice 0 is ALWAYS_ON discipline: even if current tooling/boundary gates are DONE, Slice 0 remains IN_PROGRESS as new invariants and boundaries are added; this doc must state that status semantics unambiguously to avoid historical contradiction | docs/55_GATES.md (this section) |
+
+## B. Slice 1 and 1.5 gates (locked execution gates)
+
+### B1. Workflow and tooling gates
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.TOOL.001 | DONE | Deterministic status packet generation exists (diff-driven, capped) | docs/generated/02_STATUS_PACKET.txt |
+| GATE.CONN.001 | DONE | Connectivity scan outputs deterministic manifests | docs/generated/connectivity_manifest.json; docs/generated/connectivity_graph.json |
+| GATE.CONN.002 | DONE | Connectivity violations empty for Slice scope | docs/generated/connectivity_violations.json |
+| GATE.TEST.001 | DONE | Headless determinism harness exists | SimCore.Tests/GoldenReplayTests.cs |
+| GATE.TEST.002 | DONE | Golden world hash regression exists and is stable | docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.EVID.001 | DONE | Context packet reports latest scan + test summary + hash snapshot presence (or explicit “not found” reasons) | docs/generated/01_CONTEXT_PACKET.md ([SYSTEM HEALTH] shows Connectivity OK + Tests OK + Hash Snapshot present) |
+| GATE.MAP.001 | DONE | Repo evidence export exists (tests index + grep + map) | docs/generated/evidence/simcore_tests_index.txt + docs/generated/evidence/gate_evidence_grep.txt + docs/generated/evidence/gate_evidence_map.json |
+| GATE.FILE.001 | DONE | Runtime File Contract enforced (runtime IO restricted to res:// and user://; SimCore has no System.IO IO) | SimCore.Tests/Invariants/RuntimeFileContractTests.cs |
+
+### B2. Slice 1 critical gates
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.TIME.001 | DONE | 60x time contract enforced: 1s real = 1 min sim, no acceleration | SimCore.Tests/TimeContractTests.cs |
+| GATE.INTENT.001 | DONE | Deterministic intent pipeline exists | SimCore.Tests/Intents/IntentSystemTests.cs + scripts/bridge/SimBridge.cs (EnqueueIntent) |
+| GATE.WORLD.001 | DONE | 2 stations, 1 lane, 2 goods micro-world config | SimCore.Tests/World/World001_MicroWorldLoadTests.cs + SimCore.Tests/Intents/IntentSystemTests.cs (KernelWithWorld001) |
+| GATE.STA.001 | DONE | Station inventory ledger and invariants | SimCore.Tests/Systems/InventoryLedgerTests.cs + SimCore.Tests/Invariants/InventoryConservationTests.cs; SimCore.Tests/Invariants/BasicStateInvariantsTests.cs |
+| GATE.LANE.001 | DONE | Lane flow with deterministic delay arrivals | SimCore.Tests/Systems/LaneFlowSystemTests.cs |
+| GATE.MKT.001 | DONE | Inventory-based pricing with spread | SimCore.Tests/MarketTests.cs + SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
+| GATE.MKT.002 | DONE | Price publish cadence every 12 game hours | SimCore.Tests/Systems/MarketPublishCadenceTests.cs |
+| GATE.INTEL.001 | DONE | Local truth, remote banded intel + age | SimCore.Tests/Systems/IntelContractTests.cs |
+| GATE.UI.001 | DONE | Minimal panel shows inventory, price, intel age | scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs |
+| GATE.UI.002 | DONE | Buy/sell generates intent, no direct mutation | scripts/ui/StationMenu.cs (SubmitBuyIntent/SubmitSellIntent) + scripts/bridge/SimBridge.cs (EnqueueIntent + BuyIntent/SellIntent) + SimCore.Tests/Intents/IntentSystemTests.cs |
+| GATE.DET.001 | DONE | 10,000 tick run stable world hash | SimCore.Tests/Determinism/LongRunWorldHashTests.cs (LongRunWorldHash) + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.SAVE.001 | DONE | Save/load round trip preserves hash | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs (SaveLoadWorldHash) + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.INV.001 | DONE | Invariants suite passes | SimCore.Tests/Invariants/InventoryConservationTests.cs (InventoryConservation); SimCore.Tests/Invariants/BasicStateInvariantsTests.cs (BasicStateInvariants) + docs/generated/05_TEST_SUMMARY.txt |
+
+### B3. Slice 1.5 sustainment gates
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.TECH.001 | DONE | One tech requires 2 goods per tick to remain enabled | SimCore.Tests/Sustainment/TechUpkeepConsumesGoodsTests.cs |
+| GATE.TECH.002 | DONE | Buffers sized in days of game time | SimCore.Tests/Sustainment/BufferSizingDaysTests.cs |
+| GATE.TECH.003 | DONE | Deterministic degradation under undersupply | SimCore.Tests/Sustainment/DeterministicDegradationTests.cs |
+| GATE.UI.101 | DONE | UI shows sustainment margin and time-to-failure | scripts/ui/StationMenu.cs; scripts/bridge/SimBridge.cs; SimCore/Systems/SustainmentReport.cs |
+| GATE.DET.101 | DONE | Sustainment determinism regression passes | SimCore.Tests/Sustainment/SustainmentDeterminismRegressionTests.cs |
+| GATE.INV.101 | DONE | Buffer math invariants pass | SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs |
+
+### B4. Slice 2 programs gates (v1)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.PROG.001 | DONE | Program schema v1 exists (TradeProgram only) and is versioned | SimCore/Schemas/ProgramSchema.json + SimCore.Tests/Programs/ProgramContractTests.cs (PROG_001) |
+| GATE.FLEET.001 | DONE | Fleet binding v1 exists (single trader fleet) and is deterministic | SimCore/World/WorldLoader.cs + SimCore.Tests/Programs/FleetBindingContractTests.cs + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.DOCTRINE.001 | DONE | DefaultDoctrine exists (max 2 toggles) and is deterministic | SimCore/Programs/DefaultDoctrine.cs + SimCore.Tests/Programs/DefaultDoctrineContractTests.cs |
+| GATE.QUOTE.001 | DONE | Liaison Quote is deterministic: request + snapshot => quote (cost/time/risks/constraints) | SimCore/Programs/ProgramQuote.cs + SimCore/Programs/ProgramQuoteSnapshot.cs + SimCore.Tests/Programs/ProgramQuoteContractTests.cs + SimCore.Tests/TestData/Snapshots/program_quote_001.json + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.EXPLAIN.001 | DONE | Explain events are schema-bound (no free-text) for quote and outcomes | SimCore.Tests/Programs/ProgramContractTests.cs (EXPLAIN_001) |
+| GATE.PROG.EXEC.001 | DONE | Program execution emits intents only, no direct ledger mutation | SimCore.Tests/Programs/ProgramContractTests.cs (PROG_EXEC_001) + SimCore/Programs/ProgramSystem.cs |
+| GATE.PROG.EXEC.002 | DONE | TradeProgram drives buy/sell intents against Slice 1 micro-world and affects outcomes only via SimCore tick | SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs + docs/generated/05_TEST_SUMMARY.txt |
+| GATE.BRIDGE.PROG.001 | DONE | GameShell -> SimCore bridge supports program lifecycle (create/start/pause) without direct state mutation | scripts/bridge/SimBridge.cs + SimCore.Tests/Programs/ProgramLifecycleContractTests.cs + SimCore.Tests/Programs/ProgramStatusCommandContractTests.cs |
+| GATE.UI.PROG.001 | DONE | Minimal Programs UI: create, view quote, start/pause, last-tick outcomes | scripts/ui/ProgramsMenu.cs + scripts/ui/StationMenu.cs + scripts/bridge/SimBridge.cs + scenes/playable_prototype.tscn |
+| GATE.VIEW.001 | DONE | Playable prototype camera is a ship-follow orbit camera (zoom + rotate) and player has a ship placeholder mesh | scripts/view/player_follow_camera.gd + scenes/player.tscn + scenes/playable_prototype.tscn |
+| GATE.DET.PROG.001 | DONE | Determinism regression includes program lifecycle (create/start/pause) with stable hash | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
+
+### B5. Slice 3 logistics gates (v1)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.ROUTE.001 | DONE | Deterministic route planner exists: from node to node => ordered edges/nodes + total travel ticks (stable tie-breaks by EdgeId/NodeId) | SimCore/Systems/RoutePlanner.cs + SimCore.Tests/Systems/RoutePlannerTests.cs |
+| GATE.FLEET.ROUTE.001 | DONE | Fleet travel can follow a planned multi-edge route (lane sequence) without nondeterminism | SimCore/Systems/MovementSystem.cs + SimCore/Entities/Fleet.cs + SimCore.Tests/Systems/FleetRouteTravelTests.cs |
+| GATE.LOGI.JOB.001 | DONE | LogisticsJob can represent multi-hop shipments (source, sink, good, qty, route) and is deterministic | SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobContractTests.cs |
+
+### B6. Slice 3 logistics execution gates (v1)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.LOGI.CARGO.001 | DONE | Fleet has deterministic cargo storage (dict keyed by GoodId) that round-trips through save/load; cargo changes only via intent resolution (no direct mutation in LogisticsSystem) | SimCore/Entities/Fleet.cs + SimCore/Systems/SerializationSystem.cs + SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs |
+| GATE.LOGI.XFER.001 | DONE | Deterministic load/unload intents+commands exist: market inventory <-> fleet cargo; operations clamp to available inventory/cargo; never produce negative counts | SimCore/Intents/LoadCargoIntent.cs + SimCore/Intents/UnloadCargoIntent.cs + SimCore/Commands/LoadCargoCommand.cs + SimCore/Commands/UnloadCargoCommand.cs + SimCore.Tests/Systems/LogisticsTransferContractTests.cs |
+| GATE.LOGI.EXEC.001 | DONE | LogisticsJob executes end-to-end across ticks under kernel order: follow planned route legs, travel to source, issue load once (latched), travel to target, issue unload once (latched), clear job; no double-issue while idle at node | SimCore/Systems/LogisticsSystem.cs + SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsJobExecutionTests.cs |
+| GATE.LOGI.DET.001 | DONE | Multi-fleet logistics determinism regression: 2 fleets executing jobs in same world yields stable final world hash (tie-break by Fleet.Id for lane capacity, job advancement, and intent emission) | SimCore.Tests/Determinism/LogisticsMultiFleetDeterminismTests.cs |
+| GATE.LOGI.MUT.001 | DONE | Single mutation pipeline contract: Commands may enqueue intents only; ONLY kernel intent resolution may mutate cargo and market inventory; LogisticsSystem and command handlers must not directly mutate cargo/inventory (guard with tests) | SimCore.Tests/Sustainment/LogisticsMutationPipelineContractTests.cs |
+| GATE.LOGI.EVENT.001 | DONE | Logistics emits schema-bound, deterministic events for phase transitions and actions (Assign, ArriveSource, LoadIssued, Loaded, ArriveSink, UnloadIssued, Unloaded, Complete, Canceled); event ordering is stable under ties | SimCore/Events/LogisticsEvents.cs + SimCore.Tests/Systems/LogisticsEventStreamContractTests.cs |
+| GATE.LOGI.SAVE.001 | DONE | Save/load preserves active logistics execution: mid-job phase, latched transfer state, route progress index, remaining amount, and any reservations restore deterministically; replay after load matches uninterrupted final hash | SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs |
+| GATE.LOGI.ORDER.001 | DONE | Logistics ordering deterministic under contention (multiple fleets, same tick) | SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs |
+
+### B7. Slice 3 logistics fulfillment correctness gates (v1)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.LOGI.FULFILL.001 | DONE | Partial pickup supported: if supplier inventory < job.Amount, pickup clamps deterministically and job tracks remaining amount (no negatives, no “complete without goods”) | SimCore/Systems/LogisticsSystem.cs + SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsPartialFulfillmentTests.cs |
+| GATE.LOGI.RETRY.001 | DONE | If pickup yields 0 for N consecutive ticks at source (supplier empty), job deterministically retries up to N observations then cancels (defined behavior; tested) | SimCore/Systems/LogisticsSystem.cs + SimCore/Entities/LogisticsJob.cs + SimCore.Tests/Systems/LogisticsRetryOrCancelContractTests.cs |
+| GATE.LOGI.CANCEL.001 | DONE | Job cancel is deterministic: releases any latched transfer state, clears route state safely, and leaves fleet in a consistent Idle state | SimCore/Systems/LogisticsSystem.cs + SimCore.Tests/Systems/LogisticsCancelContractTests.cs |
+| GATE.LOGI.RESERVE.001 | DONE | Planner can optionally reserve supplier inventory at assignment time to prevent over-allocation; reservation release is deterministic on cancel/complete | SimCore/Entities/LogisticsReservation.cs + SimCore/SimState.cs + SimCore/Commands/LoadCargoCommand.cs + SimCore/Systems/LogisticsSystem.cs + SimCore.Tests/Systems/LogisticsReservationContractTests.cs |
+
+### B8. Slice 3 fleet control surface gates (v1)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.UI.FLEET.001 | DONE | Read-only Fleet panel lists fleets sorted by Fleet.Id and shows: current node, state, job phase, job good/remaining, cargo summary, and route progress (edge index/total) | scripts/ui/FleetMenu.cs + scripts/bridge/SimBridge.cs |
+| GATE.UI.FLEET.002 | TODO | Player can cancel a fleet job via command (no direct mutation) and sees deterministic state transition (job cleared, route cleared, task updated) | scripts/ui/FleetMenu.cs + scripts/bridge/SimBridge.cs + SimCore/Commands/FleetJobCancelCommand.cs + SimCore.Tests/Systems/FleetJobCancelContractTests.cs |
+| GATE.UI.FLEET.003 | TODO | Manual destination override exists via command and persists through save/load; override semantics are defined (overrides job routing until cleared) and deterministic | scripts/ui/FleetMenu.cs + scripts/bridge/SimBridge.cs + SimCore/Commands/FleetSetDestinationCommand.cs + SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs |
+| GATE.UI.FLEET.AUTH.001 | TODO | Authority and precedence contract is explicit and enforced: each fleet reports ActiveController (None, Program, LogisticsJob, ManualOverride); issuing ManualOverride deterministically cancels any active LogisticsJob (with reason) and clears latched transfer state; clearing ManualOverride does not resume canceled jobs | SimCore/Entities/Fleet.cs + SimCore/Commands/FleetSetDestinationCommand.cs + SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs |
+| GATE.UI.FLEET.EVENT.001 | TODO | Fleet panel shows last N schema-bound events relevant to that fleet (logistics phase transitions, cancel, override) with deterministic ordering and stable serialization | scripts/ui/FleetMenu.cs + scripts/bridge/SimBridge.cs + SimCore.Tests/Bridge/FleetEventBridgeContractTests.cs |
+| GATE.UI.FLEET.DET.001 | TODO | Determinism regression for UI command interleavings: 2 fleets with active logistics jobs, scripted sequence of commands across ticks (cancel, manual override, clear override) including save/load mid-sequence yields identical final hash and identical per-fleet event stream across runs | SimCore.Tests/Determinism/FleetUiCommandInterleavingDeterminismTests.cs + SimCore.Tests/SaveLoad/FleetUiCommandSaveLoadDeterminismTests.cs |
+| GATE.PROG.UI.001 | TODO | Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride cancels any active LogisticsJob for that fleet and emits a schema-bound event; ProgramSystem receives a deterministic notification and either pauses or re-issues per doctrine; program state transitions persist through save/load | SimCore/Programs/ProgramSystem.cs + SimCore.Tests/Programs/ProgramManualOverrideContractTests.cs |

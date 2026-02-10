@@ -174,7 +174,7 @@ All generated artifacts live under:
 - If `docs/generated/gate_closure_delta.md` exists, includes the “Top gate closure blockers” snippet.
 
 14) `docs/generated/gate_closure_delta.md`
-- Parses TODO gates from `docs/54_DEVELOPMENT_PLAN.md`.
+- Parses TODO gates from `docs/55_GATES.md`.
 - Extracts evidence paths and reports missing referenced files.
 - Ranks missing evidence as “Top gate closure blockers” (grouped by how many TODO gates reference each path).
 
