@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-02-10T00:00:00Z",
+  "notes": "MVP registry: next active gates only. Freeze rules enforced by Validate-Gates.ps1.",
+  "gates": [
+    {
+      "id": "GATE.LOGI.JOB.001",
+      "title": "LogisticsJob represents multi-hop shipments deterministically (source, sink, good, qty, route)",
+      "status": "TODO",
+      "scope": "S3",
+      "priority": 50,
+      "tags": ["logistics", "determinism"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore",
+      "evidence": [
+        { "kind": "code", "path": "SimCore/Entities/LogisticsJob.cs" },
+        { "kind": "test", "path": "SimCore.Tests/Systems/LogisticsJobContractTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.LOGI.SYS.001",
+      "title": "LogisticsSystem allocates and advances jobs deterministically (stable tie-breaks)",
+      "status": "TODO",
+      "scope": "S3",
+      "priority": 70,
+      "tags": ["logistics", "system"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore",
+      "evidence": [
+        { "kind": "code", "path": "SimCore/Systems/LogisticsSystem.cs" }
+      ]
+    },
+    {
+      "id": "GATE.LOGI.BUF.001",
+      "title": "Logistics buffers conserve inventory and obey invariant checks under sustainment runs",
+      "status": "IN_PROGRESS",
+      "scope": "SUSTAINMENT",
+      "priority": 120,
+      "tags": ["invariants", "sustainment"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "test", "path": "SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.UI.STATION.001",
+      "title": "Station UI shows deterministic intel (local truth + banded remote intel + age)",
+      "status": "DONE",
+      "scope": "S1",
+      "priority": 900,
+      "tags": ["ui", "intel"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "GameShell",
+      "evidence": [
+        { "kind": "code", "path": "scripts/ui/StationMenu.cs" },
+        { "kind": "code", "path": "scripts/bridge/SimBridge.cs" },
+        { "kind": "test", "path": "SimCore.Tests/Intel/IntelContractTests.cs", "note": "path may differ; adjust to actual" }
+      ]
+    },
+    {
+      "id": "GATE.ROUTE.001",
+      "title": "Deterministic route planner exists (stable ties by EdgeId/NodeId) and returns ticks",
+      "status": "DONE",
+      "scope": "S3",
+      "priority": 900,
+      "tags": ["route", "determinism"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore",
+      "evidence": [
+        { "kind": "code", "path": "SimCore/Systems/RoutePlanner.cs" },
+        { "kind": "test", "path": "SimCore.Tests/Systems/RoutePlannerTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.FLEET.ROUTE.001",
+      "title": "Fleet travel follows planned multi-edge route deterministically",
+      "status": "DONE",
+      "scope": "S3",
+      "priority": 900,
+      "tags": ["fleet", "movement"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore",
+      "evidence": [
+        { "kind": "code", "path": "SimCore/Systems/MovementSystem.cs" },
+        { "kind": "code", "path": "SimCore/Entities/Fleet.cs" },
+        { "kind": "test", "path": "SimCore.Tests/Systems/FleetRouteTravelTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.MKT.002",
+      "title": "Published prices update on fixed cadence (720 ticks) deterministically",
+      "status": "DONE",
+      "scope": "S1_5",
+      "priority": 900,
+      "tags": ["market", "cadence"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "test", "path": "SimCore.Tests/Systems/MarketPublishCadenceTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.TIME.001",
+      "title": "Time contract: 1 tick = 1 game minute (60x) and is deterministic",
+      "status": "DONE",
+      "scope": "S1_5",
+      "priority": 900,
+      "tags": ["time", "contract"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "test", "path": "SimCore.Tests/Time/TimeContractTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.INTENT.001",
+      "title": "Intent queue exists with deterministic ordering and processing",
+      "status": "DONE",
+      "scope": "S1_5",
+      "priority": 900,
+      "tags": ["intent", "determinism"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "test", "path": "SimCore.Tests/Intents/IntentSystemTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.CONN.001",
+      "title": "Connectivity scan outputs deterministic manifests",
+      "status": "DONE",
+      "scope": "META",
+      "priority": 900,
+      "tags": ["tooling", "connectivity"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "Tooling",
+      "evidence": [
+        { "kind": "generated", "path": "docs/generated/connectivity_manifest.json" },
+        { "kind": "generated", "path": "docs/generated/connectivity_graph.json" }
+      ]
+    },
+    {
+      "id": "GATE.CONN.002",
+      "title": "Connectivity violations empty for Slice scope",
+      "status": "DONE",
+      "scope": "META",
+      "priority": 900,
+      "tags": ["tooling", "connectivity"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "Tooling",
+      "evidence": [
+        { "kind": "generated", "path": "docs/generated/connectivity_violations.json" }
+      ]
+    },
+    {
+      "id": "GATE.EVID.001",
+      "title": "Context packet reports latest scan + test summary + hash snapshot presence",
+      "status": "DONE",
+      "scope": "META",
+      "priority": 900,
+      "tags": ["tooling", "evidence"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "Tooling",
+      "evidence": [
+        { "kind": "generated", "path": "docs/generated/01_CONTEXT_PACKET.md" }
+      ]
+    },
+    {
+      "id": "GATE.TEST.001",
+      "title": "Headless determinism harness exists",
+      "status": "DONE",
+      "scope": "META",
+      "priority": 900,
+      "tags": ["tests", "determinism"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "test", "path": "SimCore.Tests/GoldenReplayTests.cs" }
+      ]
+    },
+    {
+      "id": "GATE.TEST.002",
+      "title": "Golden world hash regression exists and is stable",
+      "status": "DONE",
+      "scope": "META",
+      "priority": 900,
+      "tags": ["tests", "golden"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "SimCore.Tests",
+      "evidence": [
+        { "kind": "generated", "path": "docs/generated/snapshots/golden_replay_hashes.txt" }
+      ]
+    },
+    {
+      "id": "GATE.PROMPT.MVP.001",
+      "title": "DevTool prompt outputs: devtool_summary.json, next_gate_packet.md, llm_prompt.md, llm_attachments.txt",
+      "status": "IN_PROGRESS",
+      "scope": "META",
+      "priority": 10,
+      "tags": ["tooling", "llm"],
+      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
+      "created_utc": "2026-02-10T00:00:00Z",
+      "updated_utc": "2026-02-10T00:00:00Z",
+      "owner": "Tooling",
+      "evidence": [
+        { "kind": "generated", "path": "docs/generated/llm_prompt.md" },
+        { "kind": "generated", "path": "docs/generated/llm_attachments.txt" }
+      ]
+    }
+  ]
+}

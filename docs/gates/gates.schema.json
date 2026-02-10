@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ste://docs/gates/gates.schema.json",
+  "title": "STE Gate Registry (MVP)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_utc", "gates"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "generated_utc": { "type": "string" },
+    "notes": { "type": "string" },
+    "gates": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "scope", "freeze", "evidence"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^GATE(\\.[A-Z0-9_]+)+\\.[0-9]{3}$"
+          },
+          "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+          "status": {
+            "type": "string",
+            "enum": ["TODO", "IN_PROGRESS", "BLOCKED", "DONE"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["S1", "S1_5", "S2", "S3", "S4", "SUSTAINMENT", "META"]
+          },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 500 },
+          "tags": {
+            "type": "array",
+            "maxItems": 16,
+            "items": { "type": "string", "maxLength": 48 }
+          },
+          "freeze": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id_immutable", "title_immutable", "created_utc_immutable", "no_delete"],
+            "properties": {
+              "id_immutable": { "type": "boolean" },
+              "title_immutable": { "type": "boolean" },
+              "created_utc_immutable": { "type": "boolean" },
+              "no_delete": { "type": "boolean" }
+            }
+          },
+          "created_utc": { "type": "string" },
+          "updated_utc": { "type": "string" },
+          "owner": { "type": "string", "maxLength": 80 },
+          "evidence": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "path"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["doc", "test", "code", "generated", "command"]
+                },
+                "path": { "type": "string", "minLength": 1, "maxLength": 260 },
+                "note": { "type": "string", "maxLength": 200 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
