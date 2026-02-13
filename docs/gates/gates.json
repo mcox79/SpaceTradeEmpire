@@ -1,240 +1,247 @@
 {
-  "schema_version": 1,
-  "generated_utc": "2026-02-10T00:00:00Z",
-  "notes": "MVP registry: next active gates only. Freeze rules enforced by Validate-Gates.ps1.",
-  "gates": [
-    {
-      "id": "GATE.LOGI.JOB.001",
-      "title": "LogisticsJob represents multi-hop shipments deterministically (source, sink, good, qty, route)",
-      "status": "TODO",
-      "scope": "S3",
-      "priority": 50,
-      "tags": ["logistics", "determinism"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore",
-      "evidence": [
-        { "kind": "code", "path": "SimCore/Entities/LogisticsJob.cs" },
-        { "kind": "test", "path": "SimCore.Tests/Systems/LogisticsJobContractTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.LOGI.SYS.001",
-      "title": "LogisticsSystem allocates and advances jobs deterministically (stable tie-breaks)",
-      "status": "TODO",
-      "scope": "S3",
-      "priority": 70,
-      "tags": ["logistics", "system"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore",
-      "evidence": [
-        { "kind": "code", "path": "SimCore/Systems/LogisticsSystem.cs" }
-      ]
-    },
-    {
-      "id": "GATE.LOGI.BUF.001",
-      "title": "Logistics buffers conserve inventory and obey invariant checks under sustainment runs",
-      "status": "IN_PROGRESS",
-      "scope": "SUSTAINMENT",
-      "priority": 120,
-      "tags": ["invariants", "sustainment"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "test", "path": "SimCore.Tests/Sustainment/BufferMathInvariantsTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.UI.STATION.001",
-      "title": "Station UI shows deterministic intel (local truth + banded remote intel + age)",
-      "status": "DONE",
-      "scope": "S1",
-      "priority": 900,
-      "tags": ["ui", "intel"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "GameShell",
-      "evidence": [
-        { "kind": "code", "path": "scripts/ui/StationMenu.cs" },
-        { "kind": "code", "path": "scripts/bridge/SimBridge.cs" },
-        { "kind": "test", "path": "SimCore.Tests/Intel/IntelContractTests.cs", "note": "path may differ; adjust to actual" }
-      ]
-    },
-    {
-      "id": "GATE.ROUTE.001",
-      "title": "Deterministic route planner exists (stable ties by EdgeId/NodeId) and returns ticks",
-      "status": "DONE",
-      "scope": "S3",
-      "priority": 900,
-      "tags": ["route", "determinism"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore",
-      "evidence": [
-        { "kind": "code", "path": "SimCore/Systems/RoutePlanner.cs" },
-        { "kind": "test", "path": "SimCore.Tests/Systems/RoutePlannerTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.FLEET.ROUTE.001",
-      "title": "Fleet travel follows planned multi-edge route deterministically",
-      "status": "DONE",
-      "scope": "S3",
-      "priority": 900,
-      "tags": ["fleet", "movement"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore",
-      "evidence": [
-        { "kind": "code", "path": "SimCore/Systems/MovementSystem.cs" },
-        { "kind": "code", "path": "SimCore/Entities/Fleet.cs" },
-        { "kind": "test", "path": "SimCore.Tests/Systems/FleetRouteTravelTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.MKT.002",
-      "title": "Published prices update on fixed cadence (720 ticks) deterministically",
-      "status": "DONE",
-      "scope": "S1_5",
-      "priority": 900,
-      "tags": ["market", "cadence"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "test", "path": "SimCore.Tests/Systems/MarketPublishCadenceTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.TIME.001",
-      "title": "Time contract: 1 tick = 1 game minute (60x) and is deterministic",
-      "status": "DONE",
-      "scope": "S1_5",
-      "priority": 900,
-      "tags": ["time", "contract"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "test", "path": "SimCore.Tests/Time/TimeContractTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.INTENT.001",
-      "title": "Intent queue exists with deterministic ordering and processing",
-      "status": "DONE",
-      "scope": "S1_5",
-      "priority": 900,
-      "tags": ["intent", "determinism"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "test", "path": "SimCore.Tests/Intents/IntentSystemTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.CONN.001",
-      "title": "Connectivity scan outputs deterministic manifests",
-      "status": "DONE",
-      "scope": "META",
-      "priority": 900,
-      "tags": ["tooling", "connectivity"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "Tooling",
-      "evidence": [
-        { "kind": "generated", "path": "docs/generated/connectivity_manifest.json" },
-        { "kind": "generated", "path": "docs/generated/connectivity_graph.json" }
-      ]
-    },
-    {
-      "id": "GATE.CONN.002",
-      "title": "Connectivity violations empty for Slice scope",
-      "status": "DONE",
-      "scope": "META",
-      "priority": 900,
-      "tags": ["tooling", "connectivity"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "Tooling",
-      "evidence": [
-        { "kind": "generated", "path": "docs/generated/connectivity_violations.json" }
-      ]
-    },
-    {
-      "id": "GATE.EVID.001",
-      "title": "Context packet reports latest scan + test summary + hash snapshot presence",
-      "status": "DONE",
-      "scope": "META",
-      "priority": 900,
-      "tags": ["tooling", "evidence"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "Tooling",
-      "evidence": [
-        { "kind": "generated", "path": "docs/generated/01_CONTEXT_PACKET.md" }
-      ]
-    },
-    {
-      "id": "GATE.TEST.001",
-      "title": "Headless determinism harness exists",
-      "status": "DONE",
-      "scope": "META",
-      "priority": 900,
-      "tags": ["tests", "determinism"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "test", "path": "SimCore.Tests/GoldenReplayTests.cs" }
-      ]
-    },
-    {
-      "id": "GATE.TEST.002",
-      "title": "Golden world hash regression exists and is stable",
-      "status": "DONE",
-      "scope": "META",
-      "priority": 900,
-      "tags": ["tests", "golden"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "SimCore.Tests",
-      "evidence": [
-        { "kind": "generated", "path": "docs/generated/snapshots/golden_replay_hashes.txt" }
-      ]
-    },
-    {
-      "id": "GATE.PROMPT.MVP.001",
-      "title": "DevTool prompt outputs: devtool_summary.json, next_gate_packet.md, llm_prompt.md, llm_attachments.txt",
-      "status": "IN_PROGRESS",
-      "scope": "META",
-      "priority": 10,
-      "tags": ["tooling", "llm"],
-      "freeze": { "id_immutable": true, "title_immutable": true, "created_utc_immutable": true, "no_delete": true },
-      "created_utc": "2026-02-10T00:00:00Z",
-      "updated_utc": "2026-02-10T00:00:00Z",
-      "owner": "Tooling",
-      "evidence": [
-        { "kind": "generated", "path": "docs/generated/llm_prompt.md" },
-        { "kind": "generated", "path": "docs/generated/llm_attachments.txt" }
-      ]
-    }
-  ]
+    "queue_contract_version":  "2.2",
+    "queue_ordering":  "ORDER_V1",
+    "generated_utc":  "2026-02-10T16:15:46-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 8b0eed8ea20455f3eb0fddb0381e23767ecfd269",
+    "tasks":  [
+                  {
+                      "gate_id":  "GATE.PROG.UI.001",
+                      "task_id":  "GATE.PROG.UI.001.T576",
+                      "status":  "TODO",
+                      "title":  "GATE.PROG.UI.001: Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride",
+                      "intent":  "Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride cancels any active LogisticsJob for that fleet and emits a schema-bound event; ProgramSystem receives a deterministic notification and either pauses ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramContractTests.cs",
+                                             "SimCore/Programs/ProgramSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramContractTests.cs",
+                                             "candidate_key_sha256=0ad32d19f490",
+                                             "evidence_repairs=SimCore.Tests/Programs/ProgramManualOverrideContractTests.cs TO SimCore.Tests/Programs/ProgramContractTests.cs"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.001",
+                      "task_id":  "GATE.S2_5.SEEDS.001.T294",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.001: Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and sto",
+                      "intent":  "Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and store it on SimState for later surfaces; Delta: Existing DONE gates prove micro-world determinism but do not specify how Seed enters GameShell worldgen o",
+                      "evidence_paths":  [
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "scripts/core/state/sim_state.gd",
+                                             "scripts/core/galaxy_graph.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization / Galaxy generation uses Seed-derived RNG only "
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/core/sim/galaxy_generator.gd",
+                                             "candidate_key_sha256=979214eecfc9"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.002",
+                      "task_id":  "GATE.S2_5.SEEDS.002.T084",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.002: Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name",
+                      "intent":  "Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name so adding systems does not perturb existing randomness; Delta: RNG stream partitioning exists conceptually but is not gate-specified as the required ",
+                      "evidence_paths":  [
+                                             "scripts/core/sim/rng_streams.gd",
+                                             "scripts/core/sim/galaxy_generator.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "Godot headless parse passes for scripts/core/sim/rng_streams.gd / Each stream is derived from Seed + stable stream key and does not depend on call order from other systems / Adding a new stream does n"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/core/sim/rng_streams.gd",
+                                             "candidate_key_sha256=5934d3fa3577"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.003",
+                      "task_id":  "GATE.S2_5.SEEDS.003.T548",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.003: Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression te",
+                      "intent":  "Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression test that exercises galaxy generation twice with the same Seed; Delta: No existing GameShell gate asserts identical generation for identical Seed or pro",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "scripts/core/sim/rng_streams.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "Godot headless run passes for scripts/tests/test_galaxy_core.gd / Test generates twice with the same Seed and asserts identical ordered nodes%edges representation / Test generates with two different S"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_galaxy_core.gd",
+                                             "candidate_key_sha256=9e1c7df20f52"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.004",
+                      "task_id":  "GATE.S2_5.SEEDS.004.T815",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.004: Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensur",
+                      "intent":  "Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensure Serialization round-trip preserves it exactly; Delta: GATE.SAVE.001 proves hash equivalence but does not explicitly require that Seed and worldgen p",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore/World/WorldLoader.cs",
+                                             "SimCore/Systems/SerializationSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used by downstream worldgen / Serialization pay"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=e31b5b8f4c3d"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.005",
+                      "task_id":  "GATE.S2_5.SEEDS.005.T027",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.005: Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surfac",
+                      "intent":  "Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surface the Seed used (input or recorded) so long-run drift is reproducible; Delta: Existing determinism gates do not call out Seed as an explicit repro inp",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/World/WorldLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test passes including SimCore.Tests/Determinism/LongRunWorldHashTests.cs / Long-run harness accepts a Seed input (or records the Seed it used) and prints it in assertion failures / Re-running w"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=e31db1385c9c"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.006",
+                      "task_id":  "GATE.S2_5.SEEDS.006.T902",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.006: Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagatio",
+                      "intent":  "Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagation points in kernel docs and align save/load regression expectations; Delta: docs/54_EPICS.md states Seed plumbing everywhere but docs kernel does not ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "docs/21_90_TERMS_UNITS_IDS.md",
+                                             "docs/20_TESTING_AND_DETERMINISM.md"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md states that determinism%save/load regressio"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=563274510402"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.FLEET.002",
+                      "task_id":  "GATE.UI.FLEET.002.T780",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.FLEET.002: Player can cancel a fleet job via command (no direct mutation) and sees deterministic stat",
+                      "intent":  "Player can cancel a fleet job via command (no direct mutation) and sees deterministic state transition (job cleared, route cleared, task updated)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Commands/FleetJobCancelCommand.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
+                                             "candidate_key_sha256=f6a588641c84"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
+              ]
 }

@@ -1,0 +1,138 @@
+# Deterministic Gates Pipeline v2.2
+
+## Purpose
+Maintain a deterministic, low-token workflow that compiles the human ledger (`docs/55_GATES.md`) into an executable work queue (`docs/gates/gates.json`) with computed preflight proofs that prevent Step C token waste.
+
+The system is intentionally split into stages so expensive reasoning happens once, and execution chats stay mechanical.
+
+---
+
+## Canonical artifacts
+
+### Inputs
+- `docs/55_GATES.md`
+  Human ledger. Source of gate IDs, status, acceptance intent, and evidence universe (plus shards later).
+- `docs/generated/01_CONTEXT_PACKET.md`
+  Repo truth for a specific HEAD: includes the HEAD hash and the file map used for membership checks.
+- `docs/gates/gates.schema.json`
+  Schema v2.2 for `docs/gates/gates.json`. Stage 2 introspects this to learn required keys.
+
+### Intermediate artifacts (generated)
+- `docs/generated/gate_ledger_ir.json`
+  Stage 1 output (ledger IR) proposing the next N eligible gates.
+- `docs/generated/gates_queue_append.json`
+  Stage 2 output (append array of schema-valid tasks).
+- `docs/generated/gates_queue_full.json`
+  Stage 2 output (full queue object, schema v2.2).
+- `docs/generated/gates_scan_preflight.md`
+  Stage 2 computed preflight report proving the queue is safe.
+
+### Outputs
+- `docs/gates/gates.json`
+  Authoritative executable queue (full replacement), schema v2.2.
+
+---
+
+## Stage A: Authoring (upstream)
+Human updates the ledger:
+- Add or refine gates in `docs/55_GATES.md`
+- Mark gates `DONE` with closure proof when complete
+- Prefer adding explicit shards (later) to reduce churn and improve single-session executability
+
+No tooling requirement beyond disciplined ledger editing.
+
+---
+
+## Stage 1: Ledger to IR (LLM)
+Goal: propose a small capped set of next eligible gates without repo scanning.
+
+### Input
+- `docs/55_GATES.md`
+- `docs/generated/01_CONTEXT_PACKET.md` (HEAD only is useful, file map not required for Stage 1 correctness)
+- `docs/gates/gates.schema.json` (optional, helps keep terminology aligned)
+
+### Output
+Write to: `docs/generated/gate_ledger_ir.json`
+
+IR content requirements:
+- `head` (from context packet)
+- `cap` (small, fixed, rational; currently 8)
+- `ordering` (currently `ORDER_V1`)
+- `eligible_gates[]` containing for each:
+  - `gate_id`
+  - `gate_title`
+  - `gate_status` (only TODO/IN_PROGRESS should be emitted)
+  - `acceptance_text` (may be brief)
+  - `evidence_universe[]` (repo-relative paths, best effort)
+  - `shards[]` (optional; recommended later)
+
+Stage 1 constraints:
+- Must NOT emit DONE gates
+- Must cap output (no 12-month queueing)
+- Must not guess expected touch paths (Stage 2 does deep validation)
+
+---
+
+## Stage 2: IR to Schema-Valid Tasks (deterministic tool)
+Tool: `scripts/tools/Scan-GatesFromLedgerIr.ps1`
+
+Purpose:
+- Convert Stage 1 IR into executable, schema v2.2 task objects
+- Validate evidence against repo truth (HEAD + file map)
+- Enforce single-session constraints (evidence count and existence checks)
+- Optionally repair a small set of known bad legacy evidence paths deterministically
+
+### Inputs
+- `docs/generated/gate_ledger_ir.json`
+- `docs/gates/gates.schema.json`
+- `docs/generated/01_CONTEXT_PACKET.md`
+
+### Modes
+1) Strict mode (default)
+- Repairs OFF
+- Any candidate with missing evidence is dropped
+- PASS only if the emitted queue is safe
+
+2) Repair mode (explicit)
+- Repairs ON via `-EnableRepairs -RepairPolicyVersion R1`
+- Applies only deterministic substitution rules
+- Every repair must be recorded in:
+  - preflight `repairs_applied`
+  - task metadata (`task_preflight` includes `evidence_repairs=...`)
+
+### Core enforcement in Stage 2
+- `head_ir` must equal `head_ctx` or FAIL
+- Evidence paths must be repo-relative, normalized, deduped
+- Evidence membership must be in file map (with any defined exemptions you choose)
+- Evidence count must be 2..6, else not queueable
+- Task IDs are minted deterministically and remain stable for the same candidate key at the same HEAD
+- Ordering is verified (currently `ORDER_V1`); disagreements are counted
+
+### Outputs
+- `docs/generated/gates_scan_preflight.md` (computed PASS/FAIL)
+- `docs/generated/gates_queue_append.json` (append array of tasks)
+
+In FULL mode:
+- `docs/generated/gates_queue_full.json` (full queue object with root keys)
+
+### Verified behavior (current)
+- Strict mode drops exactly the missing-evidence gate
+- Repair mode restores it deterministically and logs the substitution
+- Strict vs repair diffs show only 1 additional task in repair mode and zero churn on shared tasks
+
+---
+
+## Stage 3: Queue Promotion (canonicalization)
+Goal: promote a PASSing full queue into the authoritative queue file.
+
+### Input
+- `docs/generated/gates_queue_full.json`
+- `docs/generated/gates_scan_preflight.md`
+
+### Action
+- If preflight PASS, write full replacement:
+  - `docs/gates/gates.json = docs/generated/gates_queue_full.json`
+
+Command used:
+```powershell
+Copy-Item docs/generated/gates_queue_full.json docs/gates/gates.json -Force

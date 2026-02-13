@@ -1,0 +1,124 @@
+## A) PRECHECK
+
+CANDIDATE_EPICS: S2_5 => [EPIC.S2_5.SAVE_IDENTITY, EPIC.S2_5.SEEDS, EPIC.S2_5.TOOL.SEED_EXPLORER, EPIC.S2_5.WGEN.DISTINCTNESS_GATE, EPIC.S2_5.WGEN.ECON.V0, EPIC.S2_5.WGEN.FACTION.V0, EPIC.S2_5.WGEN.GALAXY.V0, EPIC.S2_5.WGEN.INVARIANTS, EPIC.S2_5.WGEN.N_SEED_TESTS, EPIC.S2_5.WGEN.WORLD_CLASSES]
+CHOSEN_EPIC_A: EPIC.S2_5.SAVE_IDENTITY
+
+Proof EPIC_A is not “fully implemented in 55” (missing coverage in `docs/55_GATES.md`):
+
+* No Gate IDs exist for Slice 2.5 at all (no `GATE.S2_5.*` entries).
+* No DONE gate covers save/load world identity or hash equivalence as a closure proof for worldgen.
+* No gate explicitly asserts “save includes seed%worldgen params and load reproduces identical identity” as acceptance criteria.
+* No gate defines deterministic ordering requirements for serialization payload stability for world identity.
+
+A2 decision:
+
+* No TODO/IN_PROGRESS gates exist for EPIC_A in `docs/55_GATES.md`, so add NEW rows (6 gates).
+
+existing_gate_id_count: 61
+
+Proposed gate ids (collision=YES/NO):
+
+* GATE.S2_5.SAVE_IDENTITY.001 collision=NO
+* GATE.S2_5.SAVE_IDENTITY.002 collision=NO
+* GATE.S2_5.SAVE_IDENTITY.003 collision=NO
+* GATE.S2_5.SAVE_IDENTITY.004 collision=NO
+* GATE.S2_5.SAVE_IDENTITY.005 collision=NO
+* GATE.S2_5.SAVE_IDENTITY.006 collision=NO
+
+EVIDENCE (FOUND_EXACT check against Context Packet file map):
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.001 | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.001 | SimCore/Systems/SerializationSystem.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.001 | SimCore/World/WorldLoader.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.002 | SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.002 | SimCore/Systems/SerializationSystem.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.002 | SimCore/World/WorldLoader.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.003 | SimCore.Tests/Determinism/LongRunWorldHashTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.003 | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.004 | SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.004 | SimCore/Time/SimTime.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.004 | SimCore/Systems/LogisticsSystem.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.005 | SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.005 | SimCore/Systems/SerializationSystem.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.005 | SimCore/World/WorldLoader.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.006 | SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.006 | SimCore/Systems/SerializationSystem.cs | FOUND_EXACT
+
+* EVIDENCE: GATE.S2_5.SAVE_IDENTITY.006 | SimCore/Commands/FleetSetDestinationCommand.cs | FOUND_EXACT
+
+evidence_count + Anchor-first:
+
+* GATE.S2_5.SAVE_IDENTITY.001 evidence_count=3 AnchorFirst=YES
+* GATE.S2_5.SAVE_IDENTITY.002 evidence_count=3 AnchorFirst=YES
+* GATE.S2_5.SAVE_IDENTITY.003 evidence_count=2 AnchorFirst=YES
+* GATE.S2_5.SAVE_IDENTITY.004 evidence_count=3 AnchorFirst=YES
+* GATE.S2_5.SAVE_IDENTITY.005 evidence_count=3 AnchorFirst=YES
+* GATE.S2_5.SAVE_IDENTITY.006 evidence_count=3 AnchorFirst=YES
+
+bucket_count + buckets:
+
+* GATE.S2_5.SAVE_IDENTITY.001 bucket_count=2 buckets=[Tests, SimCore]
+* GATE.S2_5.SAVE_IDENTITY.002 bucket_count=2 buckets=[Tests, SimCore]
+* GATE.S2_5.SAVE_IDENTITY.003 bucket_count=1 buckets=[Tests]
+* GATE.S2_5.SAVE_IDENTITY.004 bucket_count=2 buckets=[Tests, SimCore]
+* GATE.S2_5.SAVE_IDENTITY.005 bucket_count=2 buckets=[Tests, SimCore]
+* GATE.S2_5.SAVE_IDENTITY.006 bucket_count=2 buckets=[Tests, SimCore]
+
+DEFERRED_SURFACE:
+
+* (none)
+
+Hard FAIL triggers:
+
+* F1-F7: NOT TRIGGERED by the proposed rows (all evidence FOUND_EXACT, no ID collisions, table schema unchanged, evidence_count in 2..6, Anchor first, evidence delimiter uses `+`, closure proof references only evidence paths, validator outcomes match buckets (Tests%SimCore => `dotnet test` + named test file in Evidence)).
+
+---
+
+## B) Minimal patch for docs/55_GATES.md
+
+Insertion point: immediately before `### B5. Slice 3 logistics gates (v1)`.
+
+### PRE (existing)
+
+```md
+| GATE.VIEW.001 | DONE | Playable prototype camera is a ship-follow orbit camera (zoom + rotate) and player has a ship placeholder mesh | scripts/view/player_follow_camera.gd + scenes/player.tscn + scenes/playable_prototype.tscn |
+| GATE.DET.PROG.001 | DONE | Determinism regression includes program lifecycle (create/start/pause) with stable hash | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
+
+### B5. Slice 3 logistics gates (v1)
+| Gate ID | Status | Gate | Evidence |
+```
+
+### POST (with insertion)
+
+```md
+| GATE.VIEW.001 | DONE | Playable prototype camera is a ship-follow orbit camera (zoom + rotate) and player has a ship placeholder mesh | scripts/view/player_follow_camera.gd + scenes/player.tscn + scenes/playable_prototype.tscn |
+| GATE.DET.PROG.001 | DONE | Determinism regression includes program lifecycle (create/start/pause) with stable hash | SimCore.Tests/Determinism/ProgramDeterminismTests.cs + SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs |
+
+### B4.5 Slice 2.5 save identity gates (v0)
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S2_5.SAVE_IDENTITY.001 | TODO | Axis: serialization; Intent: Save captures world identity inputs (seed%worldgen params) and load reproduces identical identity; Delta: add explicit identity-field assertions to the existing save/load hash regression so identity cannot drift silently; Acceptance: dotnet test (includes SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs) / save payload includes Seed and worldgen identity params / load reproduces same identity fields deterministically / post-load world hash equals pre-save hash at same tick / serialization contains no nondeterministic fields (time%guid) that affect identity; Status rules: TODO->IN_PROGRESS when failing assertion reproduced locally; IN_PROGRESS->DONE when dotnet test passes and identity assertions hold; BLOCKED if required identity fields cannot be represented without schema decision; Closure proof: SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs passes with new identity assertions; Evidence universe: Anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs, Extra=SimCore/Systems/SerializationSystem.cs,SimCore/World/WorldLoader.cs | SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs + SimCore/Systems/SerializationSystem.cs + SimCore/World/WorldLoader.cs |
+| GATE.S2_5.SAVE_IDENTITY.002 | TODO | Axis: id_stability; Intent: Stable IDs required for identity (WorldId%ProgramId and any referenced IDs) survive save/load without renumbering; Delta: tighten Program save/load contract so ID stability is asserted across restart boundaries, not just structural load success; Acceptance: dotnet test (includes SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs) / IDs are preserved across save/load (no reallocation) / loaded IDs match pre-save IDs deterministically / rejected load (if any) yields stable failure ordering / no new nondeterministic ID sources introduced; Status rules: TODO->IN_PROGRESS when contract gap reproduced; IN_PROGRESS->DONE when dotnet test passes with new ID assertions; BLOCKED if ID policy is ambiguous and must be resolved in docs first; Closure proof: SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs passes with explicit ID stability assertions; Evidence universe: Anchor=SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs, Extra=SimCore/Systems/SerializationSystem.cs,SimCore/World/WorldLoader.cs | SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs + SimCore/Systems/SerializationSystem.cs + SimCore/World/WorldLoader.cs |
+| GATE.S2_5.SAVE_IDENTITY.003 | TODO | Axis: ordering; Intent: World hash regressions remain stable over long runs and across save/load checkpoints; Delta: extend long-run hash regression to include at least one save/load checkpoint and assert identical hash sequence at fixed ticks; Acceptance: dotnet test (includes SimCore.Tests/Determinism/LongRunWorldHashTests.cs) / hash sequence at declared ticks matches expected deterministically / save/load checkpoint does not change subsequent hashes / hash output ordering is stable / test remains deterministic across repeated runs; Status rules: TODO->IN_PROGRESS when checkpoint variant is implemented and failing; IN_PROGRESS->DONE when dotnet test passes and hash sequence is stable; BLOCKED if long-run harness cannot checkpoint without new runner work; Closure proof: SimCore.Tests/Determinism/LongRunWorldHashTests.cs passes with save/load checkpoint assertions; Evidence universe: Anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs, Extra=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs | SimCore.Tests/Determinism/LongRunWorldHashTests.cs + SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs |
+| GATE.S2_5.SAVE_IDENTITY.004 | TODO | Axis: time_sources; Intent: Sim time (tick-indexed) persists through save/load mid-execution without time regression or wall-clock dependency; Delta: strengthen mid-job save/load test to assert SimTime invariants (tick continuity%no wall-clock fields) in addition to functional resume; Acceptance: dotnet test (includes SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs) / after load, tick index resumes exactly (no rewind%skip) / SimTime derived only from tick counter (no DateTime) / logistics job state remains consistent with tick continuity / invariants hold deterministically across repeated runs; Status rules: TODO->IN_PROGRESS when invariants are added and failing case found; IN_PROGRESS->DONE when dotnet test passes with explicit SimTime assertions; BLOCKED if SimTime sources are mixed and require refactor outside this gate; Closure proof: SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs passes with SimTime continuity assertions; Evidence universe: Anchor=SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs, Extra=SimCore/Time/SimTime.cs,SimCore/Systems/LogisticsSystem.cs | SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs + SimCore/Time/SimTime.cs + SimCore/Systems/LogisticsSystem.cs |
+| GATE.S2_5.SAVE_IDENTITY.005 | TODO | Axis: serialization; Intent: Fleet cargo state is preserved across save/load with deterministic ordering and without implicit recomputation; Delta: harden fleet cargo save/load contract to assert deterministic ordering of serialized cargo state and stable rehydration; Acceptance: dotnet test (includes SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs) / cargo quantities and identifiers match pre-save state / serialized ordering is deterministic (no hash-map iteration drift) / post-load world hash remains unchanged vs pre-save at same tick / no hidden recompute changes authoritative cargo; Status rules: TODO->IN_PROGRESS when ordering assertions added and a drift repro exists; IN_PROGRESS->DONE when dotnet test passes and ordering is stable; BLOCKED if cargo serialization format is undefined and needs a schema decision; Closure proof: SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs passes with deterministic ordering assertions; Evidence universe: Anchor=SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs, Extra=SimCore/Systems/SerializationSystem.cs,SimCore/World/WorldLoader.cs | SimCore.Tests/SaveLoad/FleetCargoSaveLoadContractTests.cs + SimCore/Systems/SerializationSystem.cs + SimCore/World/WorldLoader.cs |
+| GATE.S2_5.SAVE_IDENTITY.006 | TODO | Axis: ordering; Intent: Manual override and destination command state is preserved through save/load without re-triggering commands or altering intent ordering; Delta: extend manual override save/load test to assert no duplicated command application and stable post-load command ordering semantics; Acceptance: dotnet test (includes SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs) / manual override state matches pre-save deterministically / destination command state does not reapply on load / any resulting intents remain deterministically ordered / post-load behavior matches pre-save behavior at same tick; Status rules: TODO->IN_PROGRESS when assertion suite is added and failing case reproduced; IN_PROGRESS->DONE when dotnet test passes with stable semantics; BLOCKED if command persistence policy is unclear and must be specified first; Closure proof: SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs passes with non-duplication and ordering assertions; Evidence universe: Anchor=SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs, Extra=SimCore/Systems/SerializationSystem.cs,SimCore/Commands/FleetSetDestinationCommand.cs | SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs + SimCore/Systems/SerializationSystem.cs + SimCore/Commands/FleetSetDestinationCommand.cs |
+
+### B5. Slice 3 logistics gates (v1)
+| Gate ID | Status | Gate | Evidence |
+```

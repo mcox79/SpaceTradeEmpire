@@ -1,75 +1,241 @@
+```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ste://docs/gates/gates.schema.json",
-  "title": "STE Gate Registry (MVP)",
+  "title": "STE Gate Queue (v2.2)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "generated_utc", "gates"],
+  "required": [
+    "queue_contract_version",
+    "queue_ordering",
+    "generated_utc",
+    "queue_intent",
+    "tasks"
+  ],
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
-    "generated_utc": { "type": "string" },
-    "notes": { "type": "string" },
-    "gates": {
+    "queue_contract_version": {
+      "type": "string",
+      "const": "2.2"
+    },
+    "queue_ordering": {
+      "type": "string",
+      "const": "MULTIKEY_V1"
+    },
+    "generated_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "queue_intent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "queue_warnings": {
       "type": "array",
       "minItems": 0,
-      "maxItems": 50,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "title", "status", "scope", "freeze", "evidence"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^GATE(\\.[A-Z0-9_]+)+\\.[0-9]{3}$"
-          },
-          "title": { "type": "string", "minLength": 3, "maxLength": 200 },
-          "status": {
-            "type": "string",
-            "enum": ["TODO", "IN_PROGRESS", "BLOCKED", "DONE"]
-          },
-          "scope": {
-            "type": "string",
-            "enum": ["S1", "S1_5", "S2", "S3", "S4", "SUSTAINMENT", "META"]
-          },
-          "priority": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 500 },
-          "tags": {
-            "type": "array",
-            "maxItems": 16,
-            "items": { "type": "string", "maxLength": 48 }
-          },
-          "freeze": {
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/small_string" }
+    },
+    "pending_completion": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "task_id",
+        "result",
+        "completed_utc",
+        "branch",
+        "proof_hint",
+        "delta_summary",
+        "next_action"
+      ],
+      "properties": {
+        "gate_id": { "$ref": "#/$defs/gate_id" },
+        "task_id": { "$ref": "#/$defs/task_id" },
+        "result": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "BLOCKED"]
+        },
+        "completed_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "proof_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "proof_paths": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "delta_summary": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/small_string" }
+        },
+        "next_action": {
+          "type": "string",
+          "enum": ["STEP_A", "STEP_B", "STEP_D", "STOP"]
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "gate_id": {
+      "type": "string",
+      "pattern": "^GATE\\.[A-Z0-9_]+(\\.[A-Z0-9_]+)*\\.[0-9]{3}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^GATE\\.[A-Z0-9_]+(\\.[A-Z0-9_]+)*\\.[0-9]{3}\\.T[0-9]{3}$"
+    },
+    "repo_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180,
+      "pattern": "^(?![A-Za-z]:\\\\)(?!/)(?!\\\\)(?!.*\\\\)(?!\\./)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\s)[A-Za-z0-9._/\\-]+$"
+    },
+    "small_string": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "escalation_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when", "route"],
+      "properties": {
+        "when": {
+          "type": "string",
+          "enum": [
+            "DEFAULT",
+            "MISSING_EVIDENCE",
+            "EVIDENCE_OUT_OF_DATE",
+            "SCOPE_EXPANSION",
+            "TEST_FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "route": {
+          "type": "string",
+          "enum": ["STEP_A", "STEP_B", "STEP_D", "STOP"]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 240
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "task_id",
+        "status",
+        "title",
+        "intent",
+        "evidence_paths",
+        "constraints",
+        "completion_hint",
+        "escalation_rules"
+      ],
+      "properties": {
+        "gate_id": { "$ref": "#/$defs/gate_id" },
+        "task_id": { "$ref": "#/$defs/task_id" },
+        "status": {
+          "type": "string",
+          "enum": ["TODO", "IN_PROGRESS"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 120
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 400
+        },
+        "task_preflight": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/small_string" }
+        },
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "expected_touch_paths": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/small_string" }
+        },
+        "completion_hint": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/small_string" }
+        },
+        "escalation_rules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/escalation_rule" },
+          "contains": {
             "type": "object",
-            "additionalProperties": false,
-            "required": ["id_immutable", "title_immutable", "created_utc_immutable", "no_delete"],
+            "required": ["when"],
             "properties": {
-              "id_immutable": { "type": "boolean" },
-              "title_immutable": { "type": "boolean" },
-              "created_utc_immutable": { "type": "boolean" },
-              "no_delete": { "type": "boolean" }
+              "when": { "const": "DEFAULT" }
             }
           },
-          "created_utc": { "type": "string" },
-          "updated_utc": { "type": "string" },
-          "owner": { "type": "string", "maxLength": 80 },
-          "evidence": {
-            "type": "array",
-            "maxItems": 24,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["kind", "path"],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "enum": ["doc", "test", "code", "generated", "command"]
-                },
-                "path": { "type": "string", "minLength": 1, "maxLength": 260 },
-                "note": { "type": "string", "maxLength": 200 }
-              }
-            }
+          "minContains": 1,
+          "maxContains": 1
+        },
+        "buckets": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["SimCore", "Tests", "UI", "DocsTooling", "DataGenerated"]
           }
+        },
+        "blocked_by": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/small_string" }
         }
       }
     }
   }
 }
+```

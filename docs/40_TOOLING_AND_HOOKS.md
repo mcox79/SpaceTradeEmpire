@@ -33,16 +33,48 @@ Per-session (the default attachment set)
 - if connectivity violations exist or are needed for diagnosis:
   - `docs/generated/connectivity_violations.json`
   - optionally small excerpts from `docs/generated/connectivity_graph.json`
-- only the minimum file contents required for the scoped edit (explicit allowlist)
-- if connectivity violations exist or are needed for diagnosis:
-  - `docs/generated/connectivity_violations.json`
-  - optionally small excerpts from `docs/generated/connectivity_graph.json`
 
 Important:
 - do not attach `docs/templates/01_CONTEXT_PACKET.template.md` in sessions
 - attach only the generated `docs/generated/01_CONTEXT_PACKET.md`
 
+### B1. Gate governance v2.2 attachment sets (Pattern A)
 
+Operational surfaces (step-attached, not always attached):
+- `docs/55_GATES.md` (ledger)
+- `docs/gates/gates.json` (execution queue snapshot)
+- `docs/56_SESSION_LOG.md` (append-only provenance)
+
+Context Packet is always required (every step):
+- `docs/generated/01_CONTEXT_PACKET.md`
+
+Step allowlists (typical):
+- Step A (EPICS -> 55 ledger authoring/refinement):
+  - `docs/generated/01_CONTEXT_PACKET.md`
+  - `docs/54_EPICS.md`
+  - `docs/55_GATES.md`
+
+- Step B (55 -> queue shaping):
+  - `docs/generated/01_CONTEXT_PACKET.md`
+  - `docs/55_GATES.md`
+  - `docs/gates/gates.json`
+  - `docs/gates/gates.schema.json`
+  - `docs/gates/GATE_FREEZE_RULES.md`
+
+- Step C (execute exactly 1 task):
+  - `docs/generated/01_CONTEXT_PACKET.md`
+  - `docs/gates/gates.json`
+  - only the task evidence files listed by the selected task
+
+- Step D (bookkeeping close):
+  - `docs/generated/01_CONTEXT_PACKET.md`
+  - `docs/gates/gates.json`
+  - `docs/56_SESSION_LOG.md`
+  - plus only the minimal needed excerpt from `docs/55_GATES.md` if a rollup/status update is required
+
+Escalation guidance (token discipline):
+- Do not attach the full `docs/55_GATES.md` during Step C.
+- If scope or evidence-universe ambiguity arises in Step C, STOP and request only the minimal excerpt for the relevant `gate_id`.
 
 ## C. Canonical commands to run (manual workflow)
 
@@ -58,7 +90,10 @@ Canonical run command:
 
 Notes:
 - The Context Packet is the primary mechanism for minimizing per-chat attachments.
-- It should include Objective, OUTPUT_MODE, GIT_MODE, allowlist, validations, and Definition of Done.
+- It should include Objective, allowlist, validations, and Definition of Done.
+- Modes:
+  - If modes are present, treat them as explicit overrides or confirmations of defaults.
+  - If modes are omitted, defaults apply (see `docs/00_READ_FIRST_LLM_CONTRACT.md`).
 - Context Packet generation is distinct from the Status Packet and other generators; run those separately (or via DevTool “Generate All”) when needed.
 
 ### C1a. Generate the Status Packet

@@ -42,12 +42,25 @@ The kernel is designed for:
 - Canonical command lines for tools and validations.
 - Hook behavior, installation expectations, and attachment rules.
 
-8) `docs/10_ARCHITECTURE_INDEX.md`
+8) Gate governance v2.2: surfaces and when to attach
+- Process contract: `docs/00_READ_FIRST_LLM_CONTRACT.md` (Pattern A steps A%B%C%D).
+- Governance invariants (stable): `docs/gates/GATE_FREEZE_RULES.md` and `docs/gates/gates.schema.json`.
+- Operational surfaces (attach only when the step requires them):
+  - Ledger (canonical Gate specs): `docs/55_GATES.md`
+  - Queue snapshot (derived Tasks window): `docs/gates/gates.json`
+  - Completion log (append-only provenance): `docs/56_SESSION_LOG.md`
+- Attachment routing summary (Context Packet always required):
+  - Step A: `docs/generated/01_CONTEXT_PACKET.md` + `docs/54_EPICS.md` + `docs/55_GATES.md`
+  - Step B: `docs/generated/01_CONTEXT_PACKET.md` + `docs/55_GATES.md` + `docs/gates/gates.json` + `docs/gates/gates.schema.json`
+  - Step C: `docs/generated/01_CONTEXT_PACKET.md` + `docs/gates/gates.json` + task evidence files only
+  - Step D: `docs/generated/01_CONTEXT_PACKET.md` + `docs/gates/gates.json` + `docs/56_SESSION_LOG.md` (+ `docs/55_GATES.md` excerpt if rollup update is needed)
+
+9) `docs/10_ARCHITECTURE_INDEX.md`
 - Router into the canonical architecture body.
 - Do not attach the full architecture by default.
 - Do not use architecture excerpts to answer design-law questions.
 
-9) Architecture body (optional)
+10) Architecture body (optional)
 - If present in this repo, attach only when absolutely necessary; prefer excerpt routing via `docs/10_ARCHITECTURE_INDEX.md`.
 
 ## Generated artifacts
@@ -141,9 +154,6 @@ Design-law precedence rule:
 7) `docs/50_51_52_53_Docs_Combined.md`
 - Canonical design laws for early mission ladder, travel, economy, locks, and control surface (docs 50%53 consolidated).
 
-8) `docs/21_90_TERMS_UNITS_IDS.md`
-- Canonical vocabulary and identifiers referenced across docs and code. Definitions override conflicting usage in other docs.
-
 ## B. Operational workflow (project-level, changes occasionally)
 
 9) `docs/40_TOOLING_AND_HOOKS.md`
@@ -153,6 +163,15 @@ Design-law precedence rule:
 
 10) `docs/10_KERNEL_INDEX.md`
 - The docs entrypoint and high-level orientation for humans.
+
+11) Gate governance v2.2: surfaces and when to attach
+- Process contract: `docs/00_READ_FIRST_LLM_CONTRACT.md` (Pattern A steps A%B%C%D).
+- Governance invariants: `docs/gates/GATE_FREEZE_RULES.md` and `docs/gates/gates.schema.json`.
+- Surfaces:
+  - Ledger: `docs/55_GATES.md`
+  - Queue: `docs/gates/gates.json`
+  - Log: `docs/56_SESSION_LOG.md`
+- Attach per step (Context Packet always required): see `docs/00_READ_FIRST_LLM_CONTRACT.md` Section D1.
 
 ## C. Templates (project-level)
 

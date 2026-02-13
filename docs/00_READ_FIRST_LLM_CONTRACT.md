@@ -9,12 +9,19 @@ If any instruction conflicts with this contract, this contract wins.
 
 ## A) Session modes and priority
 
-Every session MUST explicitly declare:
-- OUTPUT_MODE
-- GIT_MODE
-- Workflow Profile (Experimentation or Normal)
+Default session modes (applies unless explicitly overridden by the user prompt or the Context Packet):
+- OUTPUT_MODE = FULL_FILES
+- GIT_MODE = NO_STAGE
+- PROFILE = EXPERIMENTATION
 
-If any are missing, the correct behavior is: STOP and request the missing declaration. Do not assume defaults.
+Override rule:
+- If the user prompt or Context Packet explicitly declares OUTPUT_MODE, GIT_MODE, or PROFILE, those values override the defaults.
+- If the user requests a non-default value but does not fully specify it (example: asks for COMMIT but provides no message), STOP and request the missing detail.
+- If the user requests committing in natural language (example: "commit this"), treat it as an override request to GIT_MODE = COMMIT:<message> and STOP until a commit message is provided.
+
+STOP rule:
+- Do not STOP merely because modes are not restated.
+- STOP only when an override is requested but incomplete, or when a required Context Packet or required file input is missing.
 
 Valid OUTPUT_MODE values:
 - ANALYSIS_ONLY: audit and plan only. No code. No file replacements.
@@ -29,7 +36,8 @@ Mode priority rule:
 
 ## B) Git mode (required)
 
-Every session MUST explicitly declare a GIT_MODE.
+GIT_MODE defaults to NO_STAGE unless explicitly overridden by the user prompt or the Context Packet.
+If an override is requested but incomplete (example: COMMIT requested without a message), STOP and request the missing detail.
 
 Valid GIT_MODE values:
 - NO_STAGE: do not stage or commit anything.
@@ -65,7 +73,79 @@ The docs kernel is the canonical source of truth for process and routing:
 If a workflow instruction changes, update the relevant canonical doc first, then update tooling.
 
 
+## D1) Gate governance v2.2 (3 surfaces + Pattern A)
+
+This repo uses a 3-surface governance model for Gates and execution Tasks.
+
+Canonical surfaces (roles):
+1) Gate ledger (canonical)
+- `docs/55_GATES.md`
+- Holds the authoritative Gate identity, intent, acceptance criteria, canonical evidence universe, status, and closure proof.
+- This is the only authoring surface for Gate scope.
+
+2) Execution queue snapshot (derived)
+- `docs/gates/gates.json`
+- Holds a token-bounded window of executable Tasks (shards) derived from Gates.
+- Tasks MUST reference a Gate via `gate_id`.
+- Queue content is operational: TODO and IN_PROGRESS only. DONE tasks do not remain in the queue.
+- Recommended queue guardrail: a top-level `pending_completion` marker that prevents starting Step C until Step D has been applied.
+- Invariant: queue content must not redefine canonical Gate acceptance criteria or scope (canonical lives only in `docs/55_GATES.md`).
+Queue content minimums (contract-level)
+- Queue-level: `queue_contract_version`, `queue_intent` (1 to 3 lines), optional `pending_completion`.
+- Task-level: `gate_id`, `task_id`, `title`, `intent`, ordered `evidence_paths` (2 to 6), `constraints`, `completion_hint`, `escalation_rule`.
+- Tasks may include optional `blocked_by` only when obvious.
+
+3) Completion log (append-only provenance)
+- `docs/56_SESSION_LOG.md`
+- One line per Task outcome (DONE/BLOCKED/PARTIAL), append-only.
+- Pointers only; do not restate Gate specs already in `docs/55_GATES.md`.
+
+Pattern A (hard step boundaries):
+A) Gate authoring/refinement (EPICS -> 55)
+- Objective: create/refine canonical Gates in `docs/55_GATES.md`.
+- Attach: `docs/generated/01_CONTEXT_PACKET.md`, `docs/54_EPICS.md`, `docs/55_GATES.md`, `docs/gates/GATE_FREEZE_RULES.md`, `docs/00_READ_FIRST_LLM_CONTRACT.md`.
+- Output allowed: edits to `docs/55_GATES.md` only (plus governance docs only if governance is being modified).
+
+B) Queue build/task shaping (55 -> gates.json)
+- Objective: refresh `docs/gates/gates.json` with thin Tasks derived from Gates in 55.
+- Attach: `docs/generated/01_CONTEXT_PACKET.md`, `docs/55_GATES.md`, `docs/gates/gates.json`, `docs/gates/gates.schema.json`, `docs/gates/GATE_FREEZE_RULES.md`, `docs/00_READ_FIRST_LLM_CONTRACT.md`.
+- Output allowed: edits to `docs/gates/gates.json` only.
+
+C) Execute exactly one Task (lean session)
+- Objective: complete exactly one Task from `docs/gates/gates.json`.
+- Attach: `docs/generated/01_CONTEXT_PACKET.md`, `docs/gates/gates.json` plus only the evidence files listed in that Task.
+- Do not attach by default: `docs/55_GATES.md`, `docs/56_SESSION_LOG.md`, `docs/54_EPICS.md`.
+- Escalation rule: if scope ambiguity arises, STOP and request a `docs/55_GATES.md` excerpt for that `gate_id`.
+
+- Output requirement (end of Step C): Completion Record
+  - Emit a structured plain-text Completion Record containing:
+    - gate_id, task_id
+    - summary of what changed
+    - proof hint (test name, hash, scenario pass, etc.)
+    - any proposed evidence expansion (proposal only)
+
+D) Bookkeeping close (clerical update)
+- Objective: apply completion record updates to canonical surfaces.
+- Attach: `docs/gates/gates.json`, `docs/56_SESSION_LOG.md`, and only the needed excerpt from `docs/55_GATES.md` when gate rollup status changes.
+- Operations: remove completed Task from queue, append one line to session log, update Gate status/closure proof in 55 when warranted.
+
+Deterministic Task selection policy (Step C)
+- Prefer tasks marked IN_PROGRESS.
+- Prefer fewer evidence_paths.
+- Prefer fewer buckets (if buckets are present).
+- Prefer tasks that are not blocked (if blocked_by is present).
+- Tie-break lexicographically by (gate_id, task_id).
+- Requirement: before executing, output the ranked list used to choose the Task, then proceed.
+
+STOP conditions (non-negotiable):
+- If a Task references a `gate_id` that cannot be found in `docs/55_GATES.md`: STOP and return to Step A (fix the ledger) or Step B (fix the queue), whichever is correct.
+- If a Task requires evidence outside the Gate’s canonical evidence universe in 55: STOP and escalate to Step A/B (do not silently expand scope in Step C/D).
+- If a session begins Step C while a prior completion has not been applied (pending bookkeeping): STOP and perform Step D first.
+
+
+
 ## E) Required session packet and attachment rules (LLM-first workflow)
+
 
 1) Context Packet is required
 - Every session must be anchored by a generated Context Packet:
@@ -78,18 +158,21 @@ If a workflow instruction changes, update the relevant canonical doc first, then
 
 3) Minimum required Context Packet fields
 - Objective (1 to 3 lines)
-- OUTPUT_MODE, GIT_MODE, Workflow Profile
 - Allowed files list (explicit, repo-relative; default <= 6)
 - Validation commands to run after the step
 - Definition of Done
 
-4) Canonical Session Header (required format)
-Every Context Packet MUST include a short header in this shape:
+Modes field rule (aligned with Section A defaults):
+- If OUTPUT_MODE, GIT_MODE, or PROFILE are omitted, defaults apply. Do not STOP.
+- If any mode is explicitly overridden, the override must be complete; otherwise STOP (per Section A).
+
+4) Canonical Session Header (preferred format)
+Context Packets SHOULD include a short header in this shape. If Modes are omitted, defaults apply (Section A).
 
 Objective:
 - <1-3 lines>
 
-Modes:
+Modes (optional):
 - OUTPUT_MODE = <ANALYSIS_ONLY | FULL_FILES | POWERSHELL>
 - GIT_MODE = <NO_STAGE | STAGE | COMMIT:...>
 - PROFILE = <EXPERIMENTATION | NORMAL>
@@ -108,13 +191,13 @@ Definition of Done:
 - <bullets>
 
 5) Micro-change exception (Mini Packet)
-If scope is exactly 1 file and <= 30 changed lines, the Context Packet may be minimal, but must still declare:
+If scope is exactly 1 file and <= 30 changed lines, the Context Packet may be minimal, but is still required and must include:
 - Objective (1 line)
 - File path
 - Validation commands
 - Done condition
-- OUTPUT_MODE, GIT_MODE, and PROFILE
 
+Modes follow the defaults in Section A unless explicitly overridden.
 
 ## F) Workflow profiles and switching rules
 
@@ -125,6 +208,9 @@ This repo supports two workflow profiles. The active profile MUST be stated in t
 - Required: GIT_MODE = NO_STAGE
 - Rule: no staging, no commits.
 - Clean Workbench is NOT required during active experimentation.
+Enforcement:
+- If PROFILE = EXPERIMENTATION and GIT_MODE is overridden to STAGE or COMMIT, STOP and request the user to switch PROFILE to NORMAL or revert GIT_MODE to NO_STAGE.
+
 
 2) Normal profile
 - Intent: standard development, integration, and durable changes.
@@ -141,10 +227,51 @@ Switching rules (Normal -> Experimentation)
 - You are investigating a failure mode, uncertain behavior, or repo hygiene issue where commits would add churn.
 - You are doing broad refactors without a stable validation story yet.
 
+Commit and clean-tree rules (applies to gate governance work)
+- Experimentation profile:
+  - No staging, no commits.
+  - Working tree does not need to be clean, but churn should be intentional and bounded.
+
+- Normal profile:
+  - Commits are allowed only in Normal profile.
+  - Before COMMIT:
+    - Required validations for the step must pass.
+    - Working tree must be intentionally reviewed.
+    - For Step C completions: Step D bookkeeping MUST be applied (queue removal + session log append + any required 55 rollup) before committing.
+  - Push policy:
+    - Push is user-controlled and out of scope for this contract unless explicitly requested in the Context Packet.
+
+Clean Workbench (Normal profile)
+- When operating in Normal profile, the Clean Workbench requirement applies unless the Context Packet explicitly scopes an exception.
+- If generated artifacts exist, they must either be deterministically regenerated and committed (if intended) or excluded and cleaned before commit.
+
 
 ## G) Output rules by mode
 
+
+### G0) Default presentation rules for doc updates (all modes)
+
+These are default response-format rules for documentation changes unless the Context Packet explicitly overrides them. Default for documentation changes is PRE/POST snippet patches; use full-file replacement only when explicitly requested or when a change is too broad to safely express as a snippet edit.
+
+1) Document updates (snippets / section edits)
+- Provide BOTH the full PRE text and the full POST text in markdown code blocks.
+- State the exact location:
+  - file path
+  - section header or unique anchor line(s)
+  - whether the change is an insertion (before/after which line) or a replacement (which block).
+- Do not provide partial diffs without the full PRE and POST blocks.
+
+2) Full file replacements
+- Provide the filename (repo-relative path) and a single markdown code block containing the complete replacement text.
+- Do not include additional partial snippets for the same file in the same step.
+
+3) When additional context is required
+- Prefer requesting the minimum required excerpt.
+- Provide an exact Windows PowerShell 5.1 command the user can run to print the needed file range or matched section, and ask them to paste the output.
+
+
 ### G1) OUTPUT_MODE = POWERSHELL
+
 
 1) PowerShell output rule
 - Output PowerShell code blocks only.

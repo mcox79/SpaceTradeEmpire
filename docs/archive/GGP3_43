@@ -1,0 +1,168 @@
+# Prompt 3 v4.3 (Streamlined + Flexible + Safe Mirror): Emit gates patch + mirror insert block (chat fallback)
+
+You are in Gate Emission Mode only.
+
+## Inputs
+Attachments only (in order):
+1) docs/generated/01_CONTEXT_PACKET.md
+2) docs/gates/gates.json
+3) docs/gates/gates.schema.json
+4) docs/gates/GATE_FREEZE_RULES.md
+5) docs/55_GATES.md
+
+Use the MOST RECENT occurrence in this chat of either:
+A) `## FINAL_APPROVED_SEGMENTATION_BLOCK` (preferred), else
+B) the table under `## B) Candidate segmentation for EPIC_A`
+
+If neither exists: DIAGNOSTICS + UNABLE_TO_EMIT_GATES.
+
+## Candidate parsing (hard)
+If source A (FINAL block):
+- Parse the table rows.
+- For each row: Label, Axis, Anchor, Attach must exist.
+
+If source B (Candidate table):
+- Parse the table rows.
+- Map columns:
+  - Label = `Item label (6 to 12 words)`
+  - Axis = `Axis (enum)`
+  - Anchor = `Anchor path (SimCore.Tests path from sketch, or MISSING)`
+  - Attach = `Attachment sketch (2 to 6 existing paths, single line, ; separated)`
+- Ignore any row where Anchor is `MISSING` or PathCheck is `MISSING`.
+
+Normalize Attach:
+- split on `;`
+- trim whitespace
+- drop empty
+Hard constraint: Attach count must be 2..6.
+
+## Derive row count (hard)
+Let N = number of parsed eligible rows.
+Hard constraints:
+- N must be 1..12
+- Axis values across selected rows must be unique (no duplicates)
+- Each row must include: Label, Axis, Anchor, Attach
+If any fail: UNABLE_TO_EMIT_GATES.
+
+## Scope
+- Edit ONLY: docs/gates/gates.json and docs/55_GATES.md
+- Create EXACTLY N new gates (1:1 with the N rows), no more, no less.
+- New gate title MUST equal row Label exactly.
+- New gate evidence MUST include exactly the row Attach paths (no adds), same order.
+- Evidence entry for Anchor MUST be first (if Anchor is not first Attach, reorder for evidence only).
+
+## Hard safety
+- File-map truth: every emitted path must appear in the file map in docs/generated/01_CONTEXT_PACKET.md.
+- Freeze: do not modify or delete any existing gate IDs or titles.
+
+## Gates array pointer (hard)
+Inspect gates.json and identify the single array holding gate objects.
+DIAGNOSTICS: gates_array_json_pointer, gates_array_length
+Fail if not exactly one.
+
+## ID family selection (deterministic, short)
+From existing gate IDs in gates.json:
+- Candidate families are prefixes ending with '.' right before the numeric suffix where prefix starts with GATE.DET. or contains .DET.
+Choose family:
+1) GATE.DET. if exists
+2) else lexicographically smallest prefix starting with GATE.DET.
+3) else highest-count candidate prefix (tie-break lexicographically)
+4) else fallback prefix GATE.EPIC.X.DET.
+Allocate next N numeric suffixes (3-digit). Fail if any new ID exists.
+DIAGNOSTICS: id_family_candidates(with counts), id_family_chosen, new_gate_ids_assigned
+
+## Redundancy guard (hard, status-aware)
+Scan existing gates.json:
+- If any existing gate has status DONE and any evidence path equals any row Anchor: FAIL.
+DIAGNOSTICS: anchor_collisions_done (must be empty)
+
+Mirror warning (non-fatal):
+- Also scan docs/55_GATES.md text: if any row Anchor appears anywhere, list it in mirror_anchor_collisions.
+
+## Schema compliance (minimal, hard)
+- Emit only keys allowed by gates.schema.json.
+- Validate enums if present; if UNKNOWN, do not guess:
+  - status must allow TODO
+  - scope must allow S1_5 if you emit scope
+  - evidence entry required keys and allowed kind values
+DIAGNOSTICS must print:
+- allowed_gate_object_keys, chosen_new_gate_keys
+- allowed_status_values, status_value_ok
+- allowed_scope_values, scope_value_ok
+- evidence_entry_required_keys
+- allowed_evidence_kind_values, evidence_kind_ok
+If any *_ok is NO: UNABLE_TO_EMIT_GATES.
+
+## Freeze best practice (hard)
+Emit `freeze` ONLY if:
+- schema allows freeze AND
+- an identical freeze keyset already exists in gates.json
+Else omit freeze.
+DIAGNOSTICS: freeze_emitted YES|NO, freeze_keyset_used
+
+## New gate object rules (schema-allowed fields only)
+Per new gate:
+- id, title, status=TODO
+- scope=S1_5 only if allowed, else omit
+- priority=900 only if allowed by schema, else omit
+- tags=["determinism","<axis>"] only if allowed, else omit
+- owner="SimCore.Tests" only if allowed, else omit
+- created_utc and updated_utc only if required by schema; same ISO Z value, prefer one found in context packet, else current UTC
+- evidence: exactly row Attach paths as evidence entries using required keys; include kind only if allowed
+
+Evidence kind mapping (only if kind is allowed and required):
+- SimCore.Tests/ -> test
+- SimCore/ -> code
+- docs/generated/ -> generated
+- docs/ -> doc
+- scripts/tools/ -> command
+Otherwise omit kind if schema allows omission; if schema requires kind, fail when prefix unmapped.
+
+## Mirror update output (NO FULL FILE, safe)
+Do NOT print the entire docs/55_GATES.md.
+Instead emit a deterministic MIRROR_INSERT_BLOCK sufficient for scripted insertion.
+
+Mirror targeting (hard):
+- Find the FIRST occurrence in docs/55_GATES.md of a heading line containing: Slice 1 critical gates
+- Then find the FIRST Markdown table AFTER that heading whose header contains all tokens: Gate ID | Status | Gate | Evidence
+Fail if not found uniquely.
+
+Insertion point (hard):
+- Insert immediately AFTER the last data row of that table.
+
+Rows to insert:
+For each of N gates in the parsed row order, one row:
+| <new gate id> | TODO | <Label> | <Anchor> |
+
+## Output (mandatory order)
+1) DIAGNOSTICS
+Must include:
+- segmentation_source_used: FINAL_BLOCK|CANDIDATE_TABLE
+- seg_rows_parsed, N
+- per-row summary: Axis, Label, Anchor, AttachCount
+- gates_array_json_pointer, gates_array_length
+- id_family_candidates(with counts), id_family_chosen, new_gate_ids_assigned
+- anchor_collisions_done, mirror_anchor_collisions
+- schema fields/enums checks (as above)
+- freeze_emitted, freeze_keyset_used
+- mirror_target_heading_line, mirror_table_header_line
+If any hard fail: print UNABLE_TO_EMIT_GATES and stop.
+
+2) PATCH for docs/gates/gates.json
+- RFC6902 JSON Patch array
+- ONLY add ops
+- Append N new gate objects to <gates_array_json_pointer>/-
+
+3) MIRROR_INSERT_BLOCK for docs/55_GATES.md
+Must include exactly:
+- target_heading_line: <verbatim>
+- target_table_header_line: <verbatim>
+- insertion_rule: AFTER_LAST_ROW_IN_TABLE
+- rows_to_insert: (N lines, each a full markdown table row)
+
+Forbidden:
+- Any edits to other files
+- Any extra gates
+- Any invented paths
+- Printing a full regenerated docs/55_GATES.md
+- Any reformatting beyond the MIRROR_INSERT_BLOCK

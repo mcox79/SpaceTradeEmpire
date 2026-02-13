@@ -1,0 +1,218 @@
+## What you built
+
+You implemented Stage 2 of the gate pipeline as a deterministic PowerShell tool:
+
+**File:** `scripts/tools/Scan-GatesFromLedgerIr.ps1`
+
+Purpose:
+
+* Take the Stage 1 IR output (ledger IR) and “operationalize” it by validating it against repo truth (HEAD + file map) and emitting **schema v2.2 valid gate tasks**.
+* Enforce executability constraints (evidence paths must exist in repo truth, evidence count in range).
+* Repair one known-bad Stage 1 evidence path deterministically (so Stage 2 can “build out” Stage 1 output rather than just dropping it).
+
+---
+
+## What it does, step by step
+
+Inputs it consumes:
+
+1. **Stage 1 IR**
+
+* `docs/generated/gate_ledger_ir.json`
+* Contains: `head`, `ordering`, `cap`, `eligible_gates[]` with `gate_id`, `gate_title`, `gate_status`, `acceptance_text`, `evidence_universe`, etc.
+
+2. **Schema**
+
+* `docs/gates/gates.schema.json`
+* This file is fenced markdown, so the tool strips code fences before parsing.
+* The tool introspects schema to learn task required keys and allowed properties.
+
+3. **Repo truth**
+
+* `docs/generated/01_CONTEXT_PACKET.md`
+* Extracts:
+
+  * `head:` (git hash)
+  * `### [FILE MAP]` list of repo-relative paths
+* Uses this as the authoritative “what exists” set.
+
+Core logic:
+
+1. **Head verification**
+
+* Hard check: IR head must match Context Packet head.
+* If mismatch: FAIL (no queue emitted).
+
+2. **Candidate set**
+
+* Uses `eligible_gates` from Stage 1 IR as the authoritative candidates (Stage 2 does not re-segment).
+* Filters to statuses `TODO` and `IN_PROGRESS`.
+* Uses `cap` from IR (or CLI QueueCap if provided) and takes the first N in IR order.
+
+3. **Evidence normalization and validation**
+   For each candidate:
+
+* Normalizes evidence paths (repo-relative, forward slashes).
+* Deduplicates evidence while preserving order.
+* Validates evidence paths are in file map.
+* Enforces evidence count must be between 2 and 6.
+
+4. **Deterministic evidence repair (build-out)**
+   Stage 1 referenced a test file that did not exist:
+
+* `SimCore.Tests/Programs/ProgramManualOverrideContractTests.cs` (confirmed missing)
+
+Stage 2 now repairs this deterministically using a fixed substitution map:
+
+* Replaces it with the first available existing alternative in this order:
+
+  1. `SimCore.Tests/Programs/ProgramContractTests.cs`
+  2. `SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs`
+  3. `SimCore.Tests/Programs/DefaultDoctrineContractTests.cs`
+  4. `SimCore.Tests/Programs/FleetBindingContractTests.cs`
+
+Repairs are recorded in output via:
+
+* `task_preflight` includes `evidence_repairs=...`
+
+5. **Anchor selection**
+
+* Prefers a test file as anchor if one exists in evidence.
+* Otherwise first evidence path.
+* Anchor is recorded in `task_preflight`.
+
+6. **Task ID minting (stable)**
+
+* Generates stable IDs per task as `GATE_ID.T###` using a hash-based seed, with collision probing.
+* IDs are stable across repeated runs at the same HEAD. You verified this via diff.
+
+7. **Completion hint inference**
+
+* If IR `acceptance_text` exists, uses it (trimmed to a few lines).
+* Otherwise falls back:
+
+  * If any `SimCore.Tests/` evidence exists: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release`
+  * If any `.gd` evidence exists: a Godot validation placeholder text
+
+8. **Escalation rules**
+
+* Emits schema-compliant escalation rule objects:
+
+  * required keys: `when`, `route`
+  * optional: `note`
+* Uses a minimal default rule:
+
+  * `{ when: "DEFAULT", route: "STOP", note: "..." }`
+
+9. **Computed report**
+
+* Writes a computed PASS/FAIL report with counts plus dropped detail (if any).
+* After repair integration, drops should be zero for current IR.
+
+---
+
+## What it produces
+
+Hard outputs:
+
+1. **Preflight report**
+
+* `docs/generated/gates_scan_preflight.md`
+* Contains:
+
+  * PASS_FAIL
+  * head_ir and head_ctx
+  * file_map_count
+  * cap and ordering
+  * candidates_total, eligible_total, cap_used, queued_total
+  * not_queueable counts
+  * dropped_detail section
+
+2. **Append task array**
+
+* `docs/generated/gates_queue_append.json`
+* JSON array of schema v2.2 task objects (each task includes required keys):
+
+  * gate_id
+  * task_id
+  * status
+  * title
+  * intent
+  * evidence_paths
+  * constraints
+  * completion_hint
+  * escalation_rules
+* Optional properties you have implemented may also appear if present in schema and you added them (for example `task_preflight`).
+
+Optional output (now implemented):
+
+3. **Full queue object**
+
+* `docs/generated/gates_queue_full.json`
+* Root keys (schema-required):
+
+  * queue_contract_version (set to "2.2")
+  * queue_ordering (from IR ordering)
+  * generated_utc (from git commit time of HEAD, stable per HEAD)
+  * queue_intent (includes HEAD)
+  * tasks (the task array)
+
+---
+
+## How to use it
+
+### APPEND mode (task array only)
+
+Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/tools/Scan-GatesFromLedgerIr.ps1 `
+  -IrPath docs/generated/gate_ledger_ir.json `
+  -SchemaPath docs/gates/gates.schema.json `
+  -ContextPacketPath docs/generated/01_CONTEXT_PACKET.md `
+  -OutAppendPath docs/generated/gates_queue_append.json `
+  -OutReportPath docs/generated/gates_scan_preflight.md `
+  -Mode APPEND
+```
+
+Outputs:
+
+* `docs/generated/gates_scan_preflight.md`
+* `docs/generated/gates_queue_append.json`
+
+### FULL mode (full queue object plus append)
+
+Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/tools/Scan-GatesFromLedgerIr.ps1 `
+  -IrPath docs/generated/gate_ledger_ir.json `
+  -SchemaPath docs/gates/gates.schema.json `
+  -ContextPacketPath docs/generated/01_CONTEXT_PACKET.md `
+  -OutAppendPath docs/generated/gates_queue_append.json `
+  -OutFullPath docs/generated/gates_queue_full.json `
+  -OutReportPath docs/generated/gates_scan_preflight.md `
+  -Mode FULL
+```
+
+Outputs:
+
+* `docs/generated/gates_scan_preflight.md`
+* `docs/generated/gates_queue_append.json`
+* `docs/generated/gates_queue_full.json`
+
+### Expected exit behavior
+
+* Exit code `0` when PASS and outputs are written.
+* On failures (parse/schema/evidence), it writes a FAIL report to `docs/generated/gates_scan_preflight.md` and exits nonzero (your script uses explicit exit codes internally).
+
+---
+
+## Operational notes you validated
+
+* HEAD match is enforced: prevents producing tasks for the wrong repo state.
+* File-map truth is enforced: prevents tasks that reference nonexistent files.
+* Evidence repair is deterministic and explicitly logged.
+* Task IDs are stable across re-runs at the same HEAD (you diffed outputs; no changes).
+
+This is Stage 2: Stage 1 proposes and ranks candidates without repo access; Stage 2 verifies against repo truth and emits schema-valid executable tasks.

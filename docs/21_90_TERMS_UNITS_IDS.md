@@ -359,7 +359,9 @@ OUTPUT_MODE
   - FULL_FILES: output complete file replacements (one file at a time).
   - POWERSHELL: output PowerShell-only atomic write blocks that generate or replace files.
 
-- Rule: the session Context Packet must declare OUTPUT_MODE.
+- Rule: defaults apply unless explicitly overridden (see `docs/00_READ_FIRST_LLM_CONTRACT.md`).
+  - If OUTPUT_MODE is omitted, default applies.
+  - If OUTPUT_MODE is overridden, the override must be explicit and complete.
 
 GIT_MODE
 
@@ -370,9 +372,9 @@ GIT_MODE
   - STAGE: staging is allowed once validation passes.
   - COMMIT:<message>: commit is allowed once validation passes with the provided message.
 
-- Rule: the session Context Packet must declare GIT_MODE.
-
-
+- Rule: defaults apply unless explicitly overridden (see `docs/00_READ_FIRST_LLM_CONTRACT.md`).
+  - If GIT_MODE is omitted, default applies.
+  - If the user requests committing in natural language (example: "commit this"), treat it as a request for COMMIT:<message> and STOP until the commit message is provided.
 
 Experimentation mode
 
@@ -423,11 +425,7 @@ Tier 2
   - performance regressions
   - long-horizon scenario runs
 
-
-
 ## C. Session artifacts
-
-
 
 Context Packet (generated)
 
@@ -436,12 +434,13 @@ Context Packet (generated)
 - Must include:
 
   - objective
-  - OUTPUT_MODE and GIT_MODE
   - explicit allowlist of files to modify
   - validation commands
   - definition of done
 
-
+- Modes:
+  - If modes are present, treat them as overrides or confirmations of defaults.
+  - If modes are omitted, defaults apply (see `docs/00_READ_FIRST_LLM_CONTRACT.md`).
 
 Context Packet template
 
