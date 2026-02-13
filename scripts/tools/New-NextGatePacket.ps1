@@ -43,22 +43,40 @@ Push-Location $RepoRoot
 try {
   $regPath = Join-Path $RepoRoot $RegistryRelPath
   $reg = Read-JsonFile $regPath
-  $gates = @($reg.gates)
-
-  $statusOrder = @{
-    "TODO" = 0
-    "IN_PROGRESS" = 1
-    "BLOCKED" = 2
-    "DONE" = 3
+  $isQueueV22 = ($null -ne $reg.PSObject.Properties["queue_contract_version"])
+  if ($isQueueV22) {
+    $gates = @($reg.tasks)
+  } else {
+    $gates = @($reg.gates)
   }
 
-  $active = $gates |
-    Where-Object { $_.status -ne "DONE" } |
-    Sort-Object `
-      @{ Expression = { if ($statusOrder.ContainsKey($_.status)) { [int]$statusOrder[$_.status] } else { 99 } }; Ascending = $true }, `
-      @{ Expression = { if ($null -ne $_.priority) { [int]$_.priority } else { 500 } }; Ascending = $true }, `
-      @{ Expression = { $_.id }; Ascending = $true } |
-    Select-Object -First $MaxActiveGates
+  # Note: queue v2.2 tasks do not have priority/id/scope/evidence objects.
+  # Legacy gates do. We branch hard here to avoid fragile mixed logic.
+
+  $statusOrder = @{
+    "IN_PROGRESS" = 0
+    "TODO"        = 1
+    "BLOCKED"     = 8
+    "DONE"        = 9
+  }
+
+  if ($isQueueV22) {
+    $active = @($gates) |
+      Where-Object { (($_.status + "").Trim()) -ne "DONE" } |
+      Sort-Object `
+        @{ Expression = { $st = (($_.status + "").Trim()); if ($statusOrder.ContainsKey($st)) { [int]$statusOrder[$st] } else { 99 } }; Ascending = $true }, `
+        @{ Expression = { (($_.gate_id + "").Trim()) }; Ascending = $true }, `
+        @{ Expression = { (($_.task_id + "").Trim()) }; Ascending = $true } |
+      Select-Object -First $MaxActiveGates
+  } else {
+    $active = @($gates) |
+      Where-Object { (($_.status + "").Trim()) -ne "DONE" } |
+      Sort-Object `
+        @{ Expression = { $st = (($_.status + "").Trim()); if ($statusOrder.ContainsKey($st)) { [int]$statusOrder[$st] } else { 99 } }; Ascending = $true }, `
+        @{ Expression = { if ($null -ne $_.priority) { [int]$_.priority } else { 500 } }; Ascending = $true }, `
+        @{ Expression = { (($_.id + "").Trim()) }; Ascending = $true } |
+      Select-Object -First $MaxActiveGates
+  }
 
   if (@($active).Count -eq 0) { throw "No active gates found (all DONE?)" }
   $selected = $active[0]
@@ -75,40 +93,72 @@ try {
     "doc"  = 2
   }
 
-  # Collect eligible evidence entries for SELECTED gate only, with a stable rank, then sort
+  # Collect eligible attachments for the SELECTED item only (deterministic)
   $eligible = @()
-  foreach ($e in @($selected.evidence)) {
 
-    $kRaw = [string]$e.kind
-    $k = $kRaw.Trim().ToLowerInvariant()
+  if ($isQueueV22) {
 
-    # Never attach generated artifacts or commands
-    if ($k -eq "generated") { continue }
-    if ($k -eq "command") { continue }
+    foreach ($p0 in @($selected.evidence_paths)) {
+      $p = Normalize-Rel ([string]$p0)
+      if ([string]::IsNullOrWhiteSpace($p)) { continue }
 
-    # Only allow ranked kinds (test/code/doc)
-    if (-not $kindRank.ContainsKey($k)) { continue }
+      # Keep your existing exclusions
+      if ($p.StartsWith("docs/generated/")) { continue }
+      if ($p.StartsWith("docs/gates/")) { continue }
 
-    $p = Normalize-Rel ([string]$e.path)
-    if ([string]::IsNullOrWhiteSpace($p)) { continue }
+      # Only attach files that exist on disk
+      $abs = Join-Path $RepoRoot ($p -replace "/","\\")
+      if (-not (Test-Path -LiteralPath $abs)) { continue }
 
-    # Keep your existing exclusions
-    if ($p.StartsWith("docs/generated/")) { continue }
-    if ($p.StartsWith("docs/gates/")) { continue }
-
-    # Only attach files that exist on disk
-    $abs = Join-Path $RepoRoot ($p -replace "/","\\")
-    if (-not (Test-Path -LiteralPath $abs)) { continue }
-
-    $eligible += [pscustomobject]@{
-      rank = [int]$kindRank[$k]
-      path = $p
+      $eligible += [pscustomobject]@{ rank = 0; path = $p }  # rank=0 since queue has no kind
     }
-  }
 
-  $eligible = $eligible | Sort-Object `
-    @{ Expression = { $_.rank }; Ascending = $true }, `
-    @{ Expression = { $_.path }; Ascending = $true }
+    $eligible = $eligible | Sort-Object `
+      @{ Expression = { $_.path }; Ascending = $true }
+
+  } else {
+
+    # Preferred evidence kinds for attachments (deterministic)
+    $kindRank = @{
+      "test" = 0
+      "code" = 1
+      "doc"  = 2
+    }
+
+    foreach ($e in @($selected.evidence)) {
+
+      $kRaw = [string]$e.kind
+      $k = $kRaw.Trim().ToLowerInvariant()
+
+      # Never attach generated artifacts or commands
+      if ($k -eq "generated") { continue }
+      if ($k -eq "command") { continue }
+
+      # Only allow ranked kinds (test/code/doc)
+      if (-not $kindRank.ContainsKey($k)) { continue }
+
+      $p = Normalize-Rel ([string]$e.path)
+      if ([string]::IsNullOrWhiteSpace($p)) { continue }
+
+      # Keep your existing exclusions
+      if ($p.StartsWith("docs/generated/")) { continue }
+      if ($p.StartsWith("docs/gates/")) { continue }
+
+      # Only attach files that exist on disk
+      $abs = Join-Path $RepoRoot ($p -replace "/","\\")
+      if (-not (Test-Path -LiteralPath $abs)) { continue }
+
+      $eligible += [pscustomobject]@{
+        rank = [int]$kindRank[$k]
+        path = $p
+      }
+    }
+
+    $eligible = $eligible | Sort-Object `
+      @{ Expression = { $_.rank }; Ascending = $true }, `
+      @{ Expression = { $_.path }; Ascending = $true }
+
+  }
 
   foreach ($row in $eligible) {
     $p = [string]$row.path
@@ -116,7 +166,7 @@ try {
     if ($attach.Count -ge $MaxAttachments) { break }
   }
 
-  # Split signal: YES if selected gate has more eligible evidence than we can attach under cap
+  # Split signal: YES if selected item has more eligible evidence than we can attach under cap
   $splitRequired = ($eligible.Count -gt $MaxAttachments)
 
   $packet = New-Object System.Text.StringBuilder
@@ -128,9 +178,16 @@ try {
   [void]$packet.Append("- DevTool continues generating docs/generated/01_CONTEXT_PACKET.md; prompt outputs additive$nl$nl")
 
   # Selected gate (single executable gate for this conversation)
-  [void]$packet.Append("## Selected gate$nl$nl")
-  [void]$packet.Append("Selected gate: $($selected.id)$nl")
-  [void]$packet.Append("Status: $($selected.status)  Scope: $($selected.scope)$nl")
+  [void]$packet.Append("## Selected$nl$nl")
+  if ($isQueueV22) {
+    [void]$packet.Append("Selected task: $($selected.task_id)$nl")
+    [void]$packet.Append("Gate: $($selected.gate_id)$nl")
+    [void]$packet.Append("Status: $($selected.status)$nl")
+  } else {
+    [void]$packet.Append("Selected gate: $($selected.id)$nl")
+    [void]$packet.Append("Status: $($selected.status)  Scope: $($selected.scope)$nl")
+  }
+
   [void]$packet.Append("Split required: " + ($(if ($splitRequired) { "YES" } else { "NO" })) + "$nl$nl")
 
   [void]$packet.Append("Definition of done:$nl")
@@ -160,17 +217,27 @@ try {
   [void]$packet.Append($nl)
 
   [void]$packet.Append("Evidence:$nl")
-  if ($null -ne $selected.evidence -and @($selected.evidence).Count -gt 0) {
-    foreach ($e in @($selected.evidence)) {
-      $p = Normalize-Rel ([string]$e.path)
-      $k = [string]$e.kind
-      if (-not [string]::IsNullOrWhiteSpace($p)) {
-        [void]$packet.Append("- [$k] $p$nl")
+  if ($isQueueV22) {
+    if ($null -ne $selected.evidence_paths -and @($selected.evidence_paths).Count -gt 0) {
+      foreach ($p0 in @($selected.evidence_paths)) {
+        $p = Normalize-Rel ([string]$p0)
+        if (-not [string]::IsNullOrWhiteSpace($p)) { [void]$packet.Append("- $p$nl") }
       }
+    } else {
+      [void]$packet.Append("- (none declared)$nl")
     }
   } else {
-    [void]$packet.Append("- (none declared)$nl")
+    if ($null -ne $selected.evidence -and @($selected.evidence).Count -gt 0) {
+      foreach ($e in @($selected.evidence)) {
+        $p = Normalize-Rel ([string]$e.path)
+        $k = [string]$e.kind
+        if (-not [string]::IsNullOrWhiteSpace($p)) { [void]$packet.Append("- [$k] $p$nl") }
+      }
+    } else {
+      [void]$packet.Append("- (none declared)$nl")
+    }
   }
+
   [void]$packet.Append($nl)
 
   [void]$packet.Append("Attachment shortlist (cap $MaxAttachments, excludes docs/generated/01_CONTEXT_PACKET.md):$nl")
@@ -180,20 +247,32 @@ try {
 
   [void]$packet.Append("## Other active gates (informational, non-executable this conversation) (up to $MaxActiveGates)$nl$nl")
 
-  foreach ($g in $active) {
-    $prio = if ($null -ne $g.priority) { [int]$g.priority } else { 500 }
-    [void]$packet.Append("### $($g.id) [$($g.status)] (prio $prio, scope $($g.scope))$nl")
-    [void]$packet.Append("$($g.title)$nl$nl")
-    if ($null -ne $g.evidence -and @($g.evidence).Count -gt 0) {
-      [void]$packet.Append("Evidence:$nl")
-      foreach ($e in @($g.evidence)) {
-        $p = Normalize-Rel ([string]$e.path)
-        $k = [string]$e.kind
-        if (-not [string]::IsNullOrWhiteSpace($p)) {
-          [void]$packet.Append("- [$k] $p$nl")
-        }
-      }
+    foreach ($g in $active) {
+    if ($isQueueV22) {
+      [void]$packet.Append("### $($g.task_id) [$($g.status)] (gate $($g.gate_id))$nl")
+      if ($null -ne $g.title) { [void]$packet.Append("$($g.title)$nl") }
       [void]$packet.Append($nl)
+      if ($null -ne $g.evidence_paths -and @($g.evidence_paths).Count -gt 0) {
+        [void]$packet.Append("Evidence:$nl")
+        foreach ($p0 in @($g.evidence_paths)) {
+          $p = Normalize-Rel ([string]$p0)
+          if (-not [string]::IsNullOrWhiteSpace($p)) { [void]$packet.Append("- $p$nl") }
+        }
+        [void]$packet.Append($nl)
+      }
+    } else {
+      $prio = if ($null -ne $g.priority) { [int]$g.priority } else { 500 }
+      [void]$packet.Append("### $($g.id) [$($g.status)] (prio $prio, scope $($g.scope))$nl")
+      [void]$packet.Append("$($g.title)$nl$nl")
+      if ($null -ne $g.evidence -and @($g.evidence).Count -gt 0) {
+        [void]$packet.Append("Evidence:$nl")
+        foreach ($e in @($g.evidence)) {
+          $p = Normalize-Rel ([string]$e.path)
+          $k = [string]$e.kind
+          if (-not [string]::IsNullOrWhiteSpace($p)) { [void]$packet.Append("- [$k] $p$nl") }
+        }
+        [void]$packet.Append($nl)
+      }
     }
   }
 

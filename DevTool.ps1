@@ -158,7 +158,15 @@ function Log-Output($message) {
         Write-Host $message
         return
     }
+
     $line = "[$((Get-Date).ToString('HH:mm:ss'))] $message"
+
+    # UI may not be constructed yet. Fall back to console until $txtOutput exists.
+    if ($null -eq $txtOutput) {
+        Write-Host $line
+        return
+    }
+
     $txtOutput.AppendText($line + "`r`n")
     $txtOutput.ScrollToCaret()
 }
@@ -253,10 +261,6 @@ function Run-ContextGen {
         Log-Output "CONTEXT PACKET UPDATED."
     } catch { Log-Output ("ERROR: " + ($_.Exception.Message)) }
 }
-if (-not (Test-Path -LiteralPath "docs/generated/01_CONTEXT_PACKET.md")) {
-    Log-Output "Generate All: abort (Context packet missing)."
-    return $false
-}
 
 # 3. CONNECTIVITY SCAN
 function Run-ConnectivityScan {
@@ -271,18 +275,6 @@ function Run-ConnectivityScan {
         Write-DevtoolSummary "scan" @("docs/generated/devtool_summary.json","docs/generated/connectivity_manifest.json","docs/generated/connectivity_graph.json","docs/generated/connectivity_violations.json")
         Log-Output "CONNECTIVITY SCAN COMPLETE."
     } catch { Log-Output ("ERROR: " + ($_.Exception.Message)) }
-}
-
-$scanReq = @(
-  "docs/generated/connectivity_manifest.json",
-  "docs/generated/connectivity_graph.json",
-  "docs/generated/connectivity_violations.json"
-)
-foreach ($p in $scanReq) {
-  if (-not (Test-Path -LiteralPath $p)) {
-    Log-Output "Generate All: abort (Connectivity output missing: $p)."
-    return $false
-  }
 }
 
 function Run-GenerateAll {

@@ -1,9 +1,41 @@
 {
     "queue_contract_version":  "2.2",
-    "queue_ordering":  "ORDER_V1",
+    "queue_ordering":  "MULTIKEY_V1",
     "generated_utc":  "2026-02-10T16:15:46-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 8b0eed8ea20455f3eb0fddb0381e23767ecfd269",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.002",
+                      "task_id":  "GATE.S2_5.SEEDS.002.T084",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.002: Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name",
+                      "intent":  "Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name so adding systems does not perturb existing randomness; Delta: RNG stream partitioning exists conceptually but is not gate-specified as the required ",
+                      "evidence_paths":  [
+                                             "scripts/core/sim/rng_streams.gd",
+                                             "scripts/core/sim/galaxy_generator.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Godot headless parse passes for scripts/core/sim/rng_streams.gd / Each stream is derived from Seed + stable stream key and does not depend on call order from",
+                                              "other systems / Adding a new stream does not change outputs of existing stream keys for the same Seed / scripts/core/sim/galaxy_generator.gd consumes only",
+                                              "named streams for all randomness"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/core/sim/rng_streams.gd",
+                                             "candidate_key_sha256=5934d3fa3577"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
                   {
                       "gate_id":  "GATE.PROG.UI.001",
                       "task_id":  "GATE.PROG.UI.001.T576",
@@ -35,6 +67,38 @@
                                            ]
                   },
                   {
+                      "gate_id":  "GATE.S2_5.SEEDS.005",
+                      "task_id":  "GATE.S2_5.SEEDS.005.T027",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.005: Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surfac",
+                      "intent":  "Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surface the Seed used (input or recorded) so long-run drift is reproducible; Delta: Existing determinism gates do not call out Seed as an explicit repro inp",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/World/WorldLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "dotnet test passes including SimCore.Tests/Determinism/LongRunWorldHashTests.cs / Long-run harness accepts a Seed input (or records the Seed it used) and",
+                                              "prints it in assertion failures / Re-running with the same Seed yields identical world hash checkpoints / Harness does not introduce new nondeterminism sources",
+                                              "(time, unordered iteration)"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=e31db1385c9c"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
                       "gate_id":  "GATE.S2_5.SEEDS.001",
                       "task_id":  "GATE.S2_5.SEEDS.001.T294",
                       "status":  "TODO",
@@ -50,40 +114,14 @@
                                           "If evidence is missing or tests fail, escalate via DEFAULT."
                                       ],
                       "completion_hint":  [
-                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization / Galaxy generation uses Seed-derived RNG only "
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization /",
+                                              "Galaxy generation uses Seed-derived RNG only (no wall clock, randomize(), or global randf without stream) / Re-running generation twice with the same Seed",
+                                              "yields identical ordered node%edge outputs (within the code path)"
                                           ],
                       "task_preflight":  [
                                              "anchor=scripts/core/sim/galaxy_generator.gd",
                                              "candidate_key_sha256=979214eecfc9"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.002",
-                      "task_id":  "GATE.S2_5.SEEDS.002.T084",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.002: Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name",
-                      "intent":  "Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name so adding systems does not perturb existing randomness; Delta: RNG stream partitioning exists conceptually but is not gate-specified as the required ",
-                      "evidence_paths":  [
-                                             "scripts/core/sim/rng_streams.gd",
-                                             "scripts/core/sim/galaxy_generator.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "Godot headless parse passes for scripts/core/sim/rng_streams.gd / Each stream is derived from Seed + stable stream key and does not depend on call order from other systems / Adding a new stream does n"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/core/sim/rng_streams.gd",
-                                             "candidate_key_sha256=5934d3fa3577"
                                          ],
                       "escalation_rules":  [
                                                {
@@ -109,7 +147,10 @@
                                           "If evidence is missing or tests fail, escalate via DEFAULT."
                                       ],
                       "completion_hint":  [
-                                              "Godot headless run passes for scripts/tests/test_galaxy_core.gd / Test generates twice with the same Seed and asserts identical ordered nodes%edges representation / Test generates with two different S"
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Godot headless run passes for scripts/tests/test_galaxy_core.gd / Test generates twice with the same Seed and asserts identical ordered nodes%edges",
+                                              "representation / Test generates with two different Seeds and asserts at least one deterministic structural difference / Test output is stable for diffing",
+                                              "(explicit ordering, no timestamps)"
                                           ],
                       "task_preflight":  [
                                              "anchor=scripts/tests/test_galaxy_core.gd",
@@ -139,40 +180,13 @@
                                           "If evidence is missing or tests fail, escalate via DEFAULT."
                                       ],
                       "completion_hint":  [
-                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used by downstream worldgen / Serialization pay"
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used",
+                                              "by downstream worldgen / Serialization payload includes Seed and Load restores it exactly / Failure output includes the Seed value used so repro is trivial"
                                           ],
                       "task_preflight":  [
                                              "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
                                              "candidate_key_sha256=e31b5b8f4c3d"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.005",
-                      "task_id":  "GATE.S2_5.SEEDS.005.T027",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.005: Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surfac",
-                      "intent":  "Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surface the Seed used (input or recorded) so long-run drift is reproducible; Delta: Existing determinism gates do not call out Seed as an explicit repro inp",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore/World/WorldLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test passes including SimCore.Tests/Determinism/LongRunWorldHashTests.cs / Long-run harness accepts a Seed input (or records the Seed it used) and prints it in assertion failures / Re-running w"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=e31db1385c9c"
                                          ],
                       "escalation_rules":  [
                                                {
@@ -198,7 +212,10 @@
                                           "If evidence is missing or tests fail, escalate via DEFAULT."
                                       ],
                       "completion_hint":  [
-                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md states that determinism%save/load regressio"
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md",
+                                              "states that determinism%save/load regressions must report Seed for repro / dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / Docs",
+                                              "changes introduce no new conflicting terminology with existing DONE gates"
                                           ],
                       "task_preflight":  [
                                              "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",

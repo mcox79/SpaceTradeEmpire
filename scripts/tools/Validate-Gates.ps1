@@ -28,15 +28,27 @@ function Read-JsonFile([string] $AbsPath) {
   if (-not (Test-Path -LiteralPath $AbsPath)) { throw "Missing file: $AbsPath" }
   $raw = Get-Content -LiteralPath $AbsPath -Raw -Encoding UTF8
   if ([string]::IsNullOrWhiteSpace($raw)) { throw "Empty JSON: $AbsPath" }
-  return ($raw | ConvertFrom-Json)
+
+  try {
+    return (ConvertFrom-Json -InputObject $raw)
+  } catch {
+    $msg = $_.Exception.Message
+    throw "Invalid JSON in file: $AbsPath :: $msg"
+  }
 }
 
 function Try-Read-JsonFromGit([string] $GitRef, [string] $RelPath) {
   try {
     $p = ($RelPath -replace "\\","/").TrimStart("/")
-    $raw = (& git show "$GitRef`:$p" 2>$null)
-    if (-not $raw) { return $null }
-    return ($raw | ConvertFrom-Json)
+
+    # Native command output is often string[]; normalize to a single string deterministically.
+    $lines = @(& git show "$GitRef`:$p" 2>$null)
+    if (-not $lines -or $lines.Count -eq 0) { return $null }
+
+    $raw = ($lines -join "`n")
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+
+    return (ConvertFrom-Json -InputObject $raw)
   } catch {
     return $null
   }
@@ -102,16 +114,83 @@ try {
   # Canonical registry path for baseline comparisons (freeze rules)
   $canonicalRegistryRel = "docs/gates/gates.json"
 
-  $reg = Read-JsonFile $regPath
-  $null = Read-JsonFile $schemaPath  # MVP: presence + parses
+$reg = Read-JsonFile $regPath
+$null = Read-JsonFile $schemaPath  # MVP: presence + parses
 
+# gates.json supports two shapes:
+# - Legacy registry (schema_version=1, gates=[...])
+# - Queue contract v2.2 (queue_contract_version=2.2, tasks=[...])
+
+$hasSchemaVersion = ($null -ne $reg.PSObject.Properties["schema_version"])
+$hasQueueContract = ($null -ne $reg.PSObject.Properties["queue_contract_version"])
+
+if ($hasQueueContract) {
+  Assert (([string]$reg.queue_contract_version) -eq "2.2") "gates.json: queue_contract_version must be 2.2"
+  Assert ($null -ne $reg.PSObject.Properties["tasks"]) "gates.json: missing tasks array"
+  $gates = @($reg.tasks)
+  $isQueueV22 = $true
+} else {
+  Assert ($hasSchemaVersion) "gates.json: missing schema_version (legacy) or queue_contract_version (v2.2)"
   Assert ($reg.schema_version -eq 1) "gates.json: schema_version must be 1"
-  Assert ($null -ne $reg.gates) "gates.json: missing gates array"
-
+  Assert ($null -ne $reg.PSObject.Properties["gates"]) "gates.json: missing gates array"
   $gates = @($reg.gates)
+  $isQueueV22 = $false
+}
+
   Assert ($gates.Count -le 50) "gates.json: max 50 gates allowed (MVP)"
 
-  $seen = @{}
+$seen = @{}
+
+if ($isQueueV22) {
+
+  foreach ($t in $gates) {
+    # Required identifiers
+    Assert ($null -ne $t.task_id) "task missing task_id"
+    Assert ($null -ne $t.gate_id) "task missing gate_id"
+
+    $taskId = ([string]$t.task_id).Trim()
+    $gateId = ([string]$t.gate_id).Trim()
+
+    Assert (-not [string]::IsNullOrWhiteSpace($taskId)) "task task_id empty"
+    Assert (-not [string]::IsNullOrWhiteSpace($gateId)) "task gate_id empty"
+    Assert (Is-ValidGateId $gateId) "task ${taskId}: invalid gate_id $gateId"
+
+    # Uniqueness by task_id
+    Assert (-not $seen.ContainsKey($taskId)) "duplicate task_id: $taskId"
+    $seen[$taskId] = $true
+
+    # Minimal required fields for executability
+    Assert ($null -ne $t.PSObject.Properties["status"]) "task ${taskId}: missing status"
+    Assert (@("TODO","IN_PROGRESS","BLOCKED","DONE") -contains $t.status) "task ${taskId}: invalid status $($t.status)"
+
+    Assert ($null -ne $t.PSObject.Properties["evidence_paths"]) "task ${taskId}: missing evidence_paths"
+    $ev = @($t.evidence_paths)
+    Assert ($ev.Count -ge 2 -and $ev.Count -le 6) "task ${taskId}: evidence_paths must be 2..6"
+
+    Assert ($null -ne $t.PSObject.Properties["constraints"]) "task ${taskId}: missing constraints"
+    $cs = @($t.constraints)
+    Assert ($cs.Count -ge 1 -and $cs.Count -le 16) "task ${taskId}: constraints must be 1..16"
+
+    Assert ($null -ne $t.PSObject.Properties["completion_hint"]) "task ${taskId}: missing completion_hint"
+    $ch = @($t.completion_hint)
+    Assert ($ch.Count -ge 1 -and $ch.Count -le 16) "task ${taskId}: completion_hint must be 1..16"
+
+    Assert ($null -ne $t.PSObject.Properties["escalation_rules"]) "task ${taskId}: missing escalation_rules"
+    $er = @($t.escalation_rules)
+    Assert ($er.Count -ge 1 -and $er.Count -le 6) "task ${taskId}: escalation_rules must be 1..6"
+
+    # Exactly one DEFAULT escalation rule (per schema intent)
+    $defaultCount = 0
+    foreach ($r in $er) {
+    if ($null -ne $r -and $null -ne $r.PSObject.Properties["when"]) {
+        if (([string]$r.when).Trim() -eq "DEFAULT") { $defaultCount++ }
+    }
+    }
+    Assert ($defaultCount -eq 1) "task ${taskId}: escalation_rules must contain exactly one when=DEFAULT"
+  }
+
+} else {
+
   foreach ($g in $gates) {
     Assert ($null -ne $g.id) "gate missing id"
 
@@ -122,10 +201,7 @@ try {
     $id = $id -replace [char]0x00A0, ' '  # NBSP to space
     $id = $id.Trim()
 
-if (-not (Is-ValidGateId $id)) {
-  $codes = ($idRaw.ToCharArray() | ForEach-Object { [int][char]$_ }) -join ","
-  throw ("gate id invalid: [" + $idRaw + "] trimmed:[" + $id + "] charcodes:[" + $codes + "]")
-}
+    Assert (Is-ValidGateId $id) "invalid gate id: $id"
     Assert (-not $seen.ContainsKey($id)) "duplicate gate id: $id"
     $seen[$id] = $true
 
@@ -151,9 +227,11 @@ if (-not (Is-ValidGateId $id)) {
     }
   }
 
+}
+
   # Freeze rules vs baseline (best-effort)
   $baseline = Try-Read-JsonFromGit $BaselineRef $canonicalRegistryRel
-  if ($null -ne $baseline -and $null -ne $baseline.gates) {
+if (-not $isQueueV22 -and $null -ne $baseline -and $null -ne $baseline.gates) {
     $old = @($baseline.gates)
     $oldMap = @{}
     foreach ($og in $old) { $oldMap[$og.id] = $og }
