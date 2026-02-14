@@ -148,16 +148,28 @@ func _exp_lerp_t(speed: float, delta: float) -> float:
 func set_input_enabled(val: bool): input_enabled = val
 
 func dock_at_station(station):
+	print("[PLAYER] dock_at_station called with: " + str(station))
+	if station != null:
+		print("[PLAYER] station name: " + str(station.name))
+
 	velocity = Vector3.ZERO
 	input_enabled = false
 
-	# Signal UI to open shop
-	# Pass the station object so UI can query it for prices (via Bridge)
-	emit_signal("shop_toggled", true, station)
+	# Open shop ONLY if this is a station with a market id
+	var market_id := ""
+	if station != null and station.has_method("get_sim_market_id"):
+		market_id = str(station.call("get_sim_market_id"))
+
+	if market_id != "":
+		emit_signal("shop_toggled", true, market_id)
+	else:
+		# Do not open the shop for non-station objects (ex: StarNode gravity wells)
+		emit_signal("shop_toggled", false, "")
+
 
 func undock():
 	input_enabled = true
-	emit_signal("shop_toggled", false, null)
+	emit_signal("shop_toggled", false, "")
 
 func get_fuel_status(): return fuel
 func refuel_full(): fuel = max_fuel
