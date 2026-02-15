@@ -1,37 +1,54 @@
 extends RefCounted
 
 var rng_streams: RngStreams
-
 var rng: RandomNumberGenerator
+var seed: int = 0
 
-func _init(seed_val: int):
+func _init(seed_val: int = 0):
+	seed = seed_val
 	rng_streams = RngStreams.new(seed_val)
 	rng = rng_streams.get_stream(RngStreams.STREAM_GALAXY_GEN)
 
+# Entry point for GameShell worldgen: use the canonical SimState seed, without mutating it.
+func generate_for_state(state: SimState, region_count: int) -> Dictionary:
+	var local_streams := RngStreams.new(state.initial_seed)
+	var local_rng := local_streams.get_stream(RngStreams.STREAM_GALAXY_GEN)
+	return _generate_with_rng(local_rng, region_count)
+
+# Back-compat entry point: uses this instance's configured RNG.
 func generate(region_count: int) -> Dictionary:
+	return _generate_with_rng(rng, region_count)
+
+func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictionary:
 	var stars = []
 	var lanes = []
 	var region_data = []
 
 	# 1. GENERATE STAR POSITIONS
-	for r in range(region_count):
-		var center = Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
-		var star_count = rng.randi_range(4, 7)
+	for region_i in range(region_count):
+		var center = Vector3(r.randf_range(-100, 100), 0, r.randf_range(-100, 100))
+		var star_count = r.randi_range(4, 7)
 		var current_region_stars = []
 
-		for s in range(star_count):
-			var pos = center + Vector3(rng.randf_range(-20, 20), rng.randf_range(-5, 5), rng.randf_range(-20, 20))
-			var star = { 'id': 'star_' + str(stars.size()), 'pos': pos, 'region': r }
+		for _s in range(star_count):
+			var pos = center + Vector3(r.randf_range(-20, 20), r.randf_range(-5, 5), r.randf_range(-20, 20))
+			var star = { 'id': 'star_' + str(stars.size()), 'pos': pos, 'region': region_i }
 			stars.append(star)
 			current_region_stars.append(star)
 
 		region_data.append(current_region_stars)
 
-	# 2. LOCAL MESH (Smart Connections)
+	# 2. LOCAL MESH (Smart Connections, stable ordering)
 	for r_stars in region_data:
 		for star in r_stars:
 			var others = r_stars.filter(func(s): return s.id != star.id)
-			others.sort_custom(func(a, b): return star.pos.distance_to(a.pos) < star.pos.distance_to(b.pos))
+			others.sort_custom(func(a, b):
+				var da: float = star.pos.distance_squared_to(a.pos)
+				var db: float = star.pos.distance_squared_to(b.pos)
+				if da == db:
+					return String(a.id) < String(b.id)
+				return da < db
+			)
 
 			for i in range(min(2, others.size())):
 				var target = others[i]
@@ -48,9 +65,9 @@ func generate(region_count: int) -> Dictionary:
 					})
 
 	# 3. INTER-REGION ARTERIES
-	for r in range(region_count - 1):
-		var r1 = region_data[r]
-		var r2 = region_data[r+1]
+	for region_i in range(region_count - 1):
+		var r1 = region_data[region_i]
+		var r2 = region_data[region_i + 1]
 
 		# Main Artery
 		lanes.append({

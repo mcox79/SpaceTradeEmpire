@@ -1,39 +1,9 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-10T16:15:46-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 8b0eed8ea20455f3eb0fddb0381e23767ecfd269",
+    "generated_utc":  "2026-02-15T09:57:58-04:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD ed76c61f678bc79d3ed5f8915b46d43140e38dc9",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.PROG.UI.001",
-                      "task_id":  "GATE.PROG.UI.001.T576",
-                      "status":  "TODO",
-                      "title":  "GATE.PROG.UI.001: Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride",
-                      "intent":  "Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride cancels any active LogisticsJob for that fleet and emits a schema-bound event; ProgramSystem receives a deterministic notification and either pauses ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramContractTests.cs",
-                                             "SimCore/Programs/ProgramSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramContractTests.cs",
-                                             "candidate_key_sha256=0ad32d19f490",
-                                             "evidence_repairs=SimCore.Tests/Programs/ProgramManualOverrideContractTests.cs TO SimCore.Tests/Programs/ProgramContractTests.cs"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
                   {
                       "gate_id":  "GATE.S2_5.SEEDS.005",
                       "task_id":  "GATE.S2_5.SEEDS.005.T027",
@@ -57,39 +27,6 @@
                       "task_preflight":  [
                                              "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
                                              "candidate_key_sha256=e31db1385c9c"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.001",
-                      "task_id":  "GATE.S2_5.SEEDS.001.T294",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.001: Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and sto",
-                      "intent":  "Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and store it on SimState for later surfaces; Delta: Existing DONE gates prove micro-world determinism but do not specify how Seed enters GameShell worldgen o",
-                      "evidence_paths":  [
-                                             "scripts/core/sim/galaxy_generator.gd",
-                                             "scripts/core/state/sim_state.gd",
-                                             "scripts/core/galaxy_graph.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization /",
-                                              "Galaxy generation uses Seed-derived RNG only (no wall clock, randomize(), or global randf without stream) / Re-running generation twice with the same Seed",
-                                              "yields identical ordered node%edge outputs (within the code path)"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/core/sim/galaxy_generator.gd",
-                                             "candidate_key_sha256=979214eecfc9"
                                          ],
                       "escalation_rules":  [
                                                {
@@ -219,6 +156,37 @@
                       "task_preflight":  [
                                              "anchor=SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
                                              "candidate_key_sha256=f6a588641c84"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.FLEET.003",
+                      "task_id":  "GATE.UI.FLEET.003.T293",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.FLEET.003: Manual destination override exists via command and persists through save/load; override se",
+                      "intent":  "Manual destination override exists via command and persists through save/load; override semantics are defined (overrides job routing until cleared) and deterministic",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Commands/FleetSetDestinationCommand.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs",
+                                             "candidate_key_sha256=5a343b5f0c1e"
                                          ],
                       "escalation_rules":  [
                                                {
