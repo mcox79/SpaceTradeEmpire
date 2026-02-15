@@ -508,10 +508,49 @@ function Copy-LLMPromptToClipboard {
         return $false
     }
 
+    # attachments list is expected to exist (written by New-NextGatePacket.ps1)
+    $attachText = ""
+    if (Test-Path -LiteralPath $LlmAttachPath) {
+        try {
+            $attachText = Get-Content -LiteralPath $LlmAttachPath -Raw -Encoding UTF8
+        } catch {
+            $attachText = ""
+        }
+    }
+
+    $attachLines = @()
+    if (-not [string]::IsNullOrWhiteSpace($attachText)) {
+        $attachLines = @(
+            ($attachText -split "(`r`n|`n|`r)") |
+            ForEach-Object { ($_ + "").Trim() } |
+            Where-Object { $_ -ne "" }
+        )
+    }
+
+    $header = @()
+    $header += "PHASE 3: LLM EXECUTION"
+    $header += ""
+    $header += "INSTRUCTIONS"
+    $header += "1) Attach ONLY the files listed under ATTACHMENTS."
+    $header += "2) Paste the prompt below into the LLM."
+    $header += "3) Execute exactly as instructed. Do not add extra files."
+    $header += ""
+    $header += "ATTACHMENTS (ONLY)"
+    if ($attachLines.Count -gt 0) {
+        foreach ($l in $attachLines) { $header += "- $l" }
+    } else {
+        $header += "- ERROR: missing docs/generated/llm_attachments.txt (run Phase 3 Next Gate Packet first)"
+    }
+    $header += ""
+    $header += "----- BEGIN PROMPT -----"
+    $header += ""
+
     try {
-        $text = Get-Content -LiteralPath $LlmPromptPath -Raw -Encoding UTF8
+        $prompt = Get-Content -LiteralPath $LlmPromptPath -Raw -Encoding UTF8
+        $text = (($header -join "`r`n") + $prompt)
+
         [System.Windows.Forms.Clipboard]::SetText($text)
-        Log-Output "COPIED: LLM prompt to clipboard."
+        Log-Output "COPIED: LLM prompt (with instructions + attachments) to clipboard."
         return $true
     } catch {
         Log-Output "ERROR (clipboard):"
@@ -544,7 +583,25 @@ function Run-LlmPrompt {
     try {
         & $PromptScript | Out-Null
         Log-Output "LLM PROMPT WRITTEN: docs/generated/llm_prompt.md"
+
+        # Always copy prompt (with instructions + attachments header) to clipboard
+        $copied = Copy-LLMPromptToClipboard
+        if (-not $copied) {
+            Log-Output "WARNING: Prompt generated but clipboard copy failed."
+        } else {
+            Log-Output "EXPECTED ATTACHMENTS (ONLY):"
+            if (Test-Path -LiteralPath $LlmAttachPath) {
+                Get-Content -LiteralPath $LlmAttachPath -Encoding UTF8 | ForEach-Object {
+                    $s = (($_ + "").Trim())
+                    if ($s) { Log-Output ("- " + $s) }
+                }
+            } else {
+                Log-Output "- ERROR: missing docs/generated/llm_attachments.txt (run Phase 3 Next Gate Packet first)"
+            }
+        }
+
         return $true
+
     } catch {
         Log-Output "ERROR (full):"
         Log-Output ($_ | Out-String)
@@ -1053,8 +1110,8 @@ $btnNext = New-DevtoolButton $tabExec "6. PHASE 3: NEXT GATE PACKET" 10 $y2 375 
 }
 $y2 += 45
 
-$btnPrompt = New-DevtoolButton $tabExec "7. PHASE 3: GENERATE LLM PROMPT" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt | Out-Null
+$btnPrompt = New-DevtoolButton $tabExec "7. PHASE 3: GENERATE + COPY LLM PROMPT" 10 $y2 375 40 "#444444" {
+    Run-LlmPrompt -SkipNextGate | Out-Null
     Set-StatusText
 }
 $y2 += 45

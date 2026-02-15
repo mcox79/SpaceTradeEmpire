@@ -79,7 +79,23 @@ try {
   }
 
   if (@($active).Count -eq 0) { throw "No active gates found (all DONE?)" }
-  $selected = $active[0]
+  # Selection: allow deterministic focus override via env var (optional)
+  # Example: $env:DEVTOOL_GATE_FOCUS_PREFIX = "GATE.S2_5.SEEDS"
+  $focus = (($env:DEVTOOL_GATE_FOCUS_PREFIX + "").Trim())
+  $selected = $null
+
+  if (-not [string]::IsNullOrWhiteSpace($focus) -and $isQueueV22) {
+    $focused = @($active) | Where-Object {
+      $gid = (($_.gate_id + "").Trim())
+      $gid.StartsWith($focus)
+    }
+    if (@($focused).Count -gt 0) {
+      $selected = $focused[0]
+    }
+  }
+
+  if ($null -eq $selected) { $selected = $active[0] }
+
 
   $nl = [Environment]::NewLine
   $head = (& git rev-parse HEAD).Trim()
@@ -190,7 +206,7 @@ try {
 
   [void]$packet.Append("Split required: " + ($(if ($splitRequired) { "YES" } else { "NO" })) + "$nl$nl")
 
-  [void]$packet.Append("Definition of done:$nl")
+    [void]$packet.Append("Definition of done:$nl")
 
   function Get-OptProp([object] $obj, [string] $name) {
     if ($null -eq $obj) { return $null }
@@ -203,18 +219,35 @@ try {
   $dod2 = Get-OptProp $selected "definitionOfDone"
   $dod3 = Get-OptProp $selected "dod"
 
+  $hint = Get-OptProp $selected "completion_hint"
+  $cons = Get-OptProp $selected "constraints"
+
   $dod = $null
   if ($null -ne $dod1 -and @($dod1).Count -gt 0) { $dod = $dod1 }
   elseif ($null -ne $dod2 -and @($dod2).Count -gt 0) { $dod = $dod2 }
   elseif ($null -ne $dod3 -and @($dod3).Count -gt 0) { $dod = $dod3 }
 
   if ($null -ne $dod -and @($dod).Count -gt 0) {
-    foreach ($d in @($dod)) { [void]$packet.Append("- $d$nl") }
+    foreach ($x in @($dod)) {
+      $s = ("" + $x).Trim()
+      if ($s) { [void]$packet.Append("- $s$nl") }
+    }
+  } elseif ($null -ne $hint -and @($hint).Count -gt 0) {
+    foreach ($x in @($hint)) {
+      $s = ("" + $x).Trim()
+      if ($s) { [void]$packet.Append("- proof: $s$nl") }
+    }
+  } elseif ($null -ne $cons -and @($cons).Count -gt 0) {
+    foreach ($x in @($cons)) {
+      $s = ("" + $x).Trim()
+      if ($s) { [void]$packet.Append("- constraint: $s$nl") }
+    }
   } else {
-    [void]$packet.Append("- (missing in gates.json for this gate)$nl")
+    [void]$packet.Append("- (missing: no DoD, completion_hint, or constraints)$nl")
   }
 
   [void]$packet.Append($nl)
+
 
   [void]$packet.Append("Evidence:$nl")
   if ($isQueueV22) {
