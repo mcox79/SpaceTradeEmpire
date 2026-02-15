@@ -1310,98 +1310,56 @@ $btnRefreshStatusTop = New-DevtoolButton $grpOptions "Refresh Status" 240 45 120
     Set-StatusText
 }
 
-# Pipeline buttons (Gate Pipeline tab)
-# Goal: build/refresh registry inputs (context, connectivity, queue, registry), NOT shard execution.
+# Pipeline buttons
 $y = 105
-
-function Run-BuildRegistryFresh {
-    param(
-        [int] $QueueCap,
-        [bool] $IncludeTests,
-        [bool] $IncludeConnectivity
-    )
-
-    Log-Output ">>> EXEC: BUILD REGISTRY (FRESH)"
-
-    if ($IncludeTests) {
-        Log-Output "Build Registry: running tests"
-        Run-SimCoreTests
-    }
-
-    if ($IncludeConnectivity) {
-        Log-Output "Build Registry: running connectivity scan"
-        $ok = Run-ConnectivityScan
-        if (-not $ok) { Log-Output "Build Registry: abort (Connectivity failed)."; return $false }
-    }
-
-    Log-Output "Build Registry: generating context packet"
-    $ok = Run-ContextGen
-    if (-not $ok) { Log-Output "Build Registry: abort (Context failed)."; return $false }
-
-    Log-Output "Build Registry: building queue (Stage 2)"
-    $ok = Run-BuildQueue -QueueCap $QueueCap
-    if (-not $ok) {
-        if (Test-Path -LiteralPath $QueueFullPath) {
-            Log-Output "Build Registry: Build Queue failed, but existing queue_full.json present. Proceeding with Apply + Validate."
-        } else {
-            Log-Output "Build Registry: abort (Build Queue failed and no existing queue_full.json present)."
-            return $false
-        }
-    }
-
-    Log-Output "Build Registry: apply queue to registry"
-    $ok = Run-ApplyQueue
-    if (-not $ok) { Log-Output "Build Registry: abort (Apply Queue failed)."; return $false }
-
-    Log-Output "Build Registry: validate registry"
-    $ok = Run-ValidateRegistry
-    if (-not $ok) { Log-Output "Build Registry: abort (Validate failed)."; return $false }
-
-    Log-Output "BUILD REGISTRY (FRESH): OK."
-    return $true
-}
-
-$btnBuildRegistryFresh = New-DevtoolButton $tabPipeline "Build Registry (Fresh)" 10 $y 375 40 "#444444" {
-    $btnBuildRegistryFresh.Enabled = $false
+$btnGenAll = New-DevtoolButton $tabPipeline "0. GENERATE ALL (1 + 2 + 3)" 10 $y 375 40 "#444444" {
+    $btnGenAll.Enabled = $false
     try {
         $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
-        $ok = Run-BuildRegistryFresh -QueueCap $cap -IncludeTests:($chkIncludeTests.Checked) -IncludeConnectivity:($chkIncludeConnectivity.Checked)
-        if (-not $ok) { Log-Output "Build Registry (Fresh): FAILED." }
+        $ok = Run-GenerateAll -IncludeTests:($chkIncludeTests.Checked) -IncludeConnectivity:($chkIncludeConnectivity.Checked) -QueueCap $cap
+        if (-not $ok) { Log-Output "Generate All: FAILED." }
     } finally {
-        $btnBuildRegistryFresh.Enabled = $true
+        $btnGenAll.Enabled = $true
         Set-StatusText
     }
 }
 $y += 45
 
-$btnLedgerIr = New-DevtoolButton $tabPipeline "Stage 1b: Copy Ledger IR Prompt (LLM)" 10 $y 375 40 "#555555" {
-    $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
-    Run-LedgerIrPrompt -Cap $cap | Out-Null
+$btnTest = New-DevtoolButton $tabPipeline "1. VERIFY LOGIC (Tests)" 10 $y 375 40 "#007acc" {
+    Run-SimCoreTests
     Set-StatusText
 }
 $y += 45
 
-# Advanced (readable single-purpose buttons)
-$btnContextOnly = New-DevtoolButton $tabPipeline "Advanced: Context Packet only" 10 $y 375 40 "#6a00ff" {
+$btnContext = New-DevtoolButton $tabPipeline "2. PHASE 1: CONTEXT PACKET" 10 $y 375 40 "#6a00ff" {
     Run-ContextGen | Out-Null
     Set-StatusText
 }
+
 $y += 45
 
-$btnConnOnly = New-DevtoolButton $tabPipeline "Advanced: Connectivity Scan only" 10 $y 375 40 "#d46a00" {
+$btnLedgerIr = New-DevtoolButton $tabPipeline "2b. PHASE 1b: LEDGER IR PROMPT (LLM)" 10 $y 375 40 "#555555" {
+    Run-LedgerIrPrompt -Cap 8 | Out-Null
+    Set-StatusText
+}
+
+$y += 45
+
+
+$btnScan = New-DevtoolButton $tabPipeline "3. PHASE 1: CONNECTIVITY SCAN" 10 $y 375 40 "#d46a00" {
     Run-ConnectivityScan | Out-Null
     Set-StatusText
 }
 $y += 45
 
-$btnBuildQueueOnly = New-DevtoolButton $tabPipeline "Advanced: Build Queue only (Stage 2)" 10 $y 375 40 "#444444" {
+$btnBuildQueue = New-DevtoolButton $tabPipeline "4. PHASE 2: BUILD QUEUE (Stage 2)" 10 $y 375 40 "#444444" {
     $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
     Run-BuildQueue -QueueCap $cap | Out-Null
     Set-StatusText
 }
 $y += 45
 
-$btnApplyValidateOnly = New-DevtoolButton $tabPipeline "Advanced: Apply + Validate Registry" 10 $y 375 40 "#444444" {
+$btnApplyQueue = New-DevtoolButton $tabPipeline "5. PHASE 2b: APPLY QUEUE TO REGISTRY" 10 $y 375 40 "#444444" {
     $ok = Run-ApplyQueue
     if (-not $ok) { Set-StatusText; return }
     Run-ValidateRegistry | Out-Null
@@ -1409,101 +1367,82 @@ $btnApplyValidateOnly = New-DevtoolButton $tabPipeline "Advanced: Apply + Valida
 }
 $y += 45
 
+$btnValidate = New-DevtoolButton $tabPipeline "5b. VALIDATE REGISTRY (Validate-Gates)" 10 $y 375 40 "#333333" {
+    Run-ValidateRegistry | Out-Null
+    Set-StatusText
+}
+$y += 45
 
-# --- Shard Execution tab layout ---
-# Goal: start shard prompt, run proofs, closeout, git.
-$y2 = 15
-
-function Open-TextFile([string] $RelPath) {
-    try {
-        $p = Join-Path $ProjectRoot ($RelPath.Replace("/", "\"))
-        if (-not (Test-Path -LiteralPath $p)) { Log-Output "ERROR: Missing $RelPath"; return }
-        Start-Process -FilePath "notepad.exe" -ArgumentList @($p) | Out-Null
-    } catch {
-        Log-Output "ERROR (open file):"
-        Log-Output ($_ | Out-String)
-    }
+$btnStepD = New-DevtoolButton $tabPipeline "Step D Helper (Generate Patch)" 10 $y 375 40 "#555555" {
+    $ok = Run-StepDCloseoutPatch
+    if (-not $ok) { Log-Output "Step D Helper: FAILED." }
+    Set-StatusText
 }
 
-function Run-RunProofsCurrent {
-    Log-Output ">>> EXEC: RUN PROOFS (CURRENT)"
+
+# --- Shard Execution tab layout ---
+$y2 = 15
+$btnNext = New-DevtoolButton $tabExec "3. NEXT GATE PACKET" 10 $y2 375 40 "#444444" {
+    Run-NextGatePacket | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+
+$btnShardContext = New-DevtoolButton $tabExec "1. CONTEXT PACKET" 10 $y2 375 40 "#6a00ff" {
+    Run-ContextGen | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+$btnShardScan = New-DevtoolButton $tabExec "2. CONNECTIVITY SCAN" 10 $y2 375 40 "#d46a00" {
+    Run-ConnectivityScan | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+
+
+$btnPrompt = New-DevtoolButton $tabExec "4. BUILD PHASE 3 PROMPT (runs NextGate)" 10 $y2 375 40 "#444444" {
+    Run-LlmPrompt | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+
+$btnCopyPrompt = New-DevtoolButton $tabExec "COPY LLM PROMPT TO CLIPBOARD" 10 $y2 375 40 "#444444" {
+    Copy-LLMPromptToClipboard | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+$btnShardDotnet = New-DevtoolButton $tabExec "RUN PROOF: DOTNET TEST" 10 $y2 375 40 "#007acc" {
     Run-SimCoreTests
+    Set-StatusText
+}
+$y2 += 45
+
+
+$btnValidateGodotShortlist = New-DevtoolButton $tabExec "RUN PROOF: VALIDATE GODOT SCRIPT (shortlist)" 10 $y2 375 40 "#444444" {
     if (-not (Test-Path -LiteralPath $LlmAttachPath)) {
-        Log-Output "NOTE: Missing docs/generated/llm_attachments.txt, skipping Validate-GodotScript shortlist."
+        Log-Output "ERROR: Missing docs/generated/llm_attachments.txt. Run Phase 3 Next Gate Packet first."
     } else {
         Run-ValidateGodotScript -FromAttachmentShortlist | Out-Null
     }
-}
-
-$btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Prompt" 10 $y2 375 50 "#007acc" {
-    $btnStartShardFresh.Enabled = $false
-    try {
-        Run-ContextGen | Out-Null
-        Run-LlmPrompt | Out-Null
-        Copy-LLMPromptToClipboard | Out-Null
-    } finally {
-        $btnStartShardFresh.Enabled = $true
-        Set-StatusText
-    }
-}
-$y2 += 60
-
-$btnShowCurrentShard = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 40 "#444444" {
-    Open-TextFile "docs/generated/next_gate_packet.md"
     Set-StatusText
 }
 $y2 += 45
 
-$btnShowLlmPrompt = New-DevtoolButton $tabExec "Show LLM Prompt (Read-only)" 10 $y2 375 40 "#444444" {
-    Open-TextFile "docs/generated/llm_prompt.md"
-    Set-StatusText
-}
-$y2 += 45
-
-$btnNextGateOnly = New-DevtoolButton $tabExec "Advanced: Next Gate Packet only" 10 $y2 375 40 "#444444" {
-    Run-NextGatePacket | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnPromptOnly = New-DevtoolButton $tabExec "Advanced: LLM Prompt only (runs NextGate unless skipped)" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCopyPrompt = New-DevtoolButton $tabExec "Copy LLM Prompt to Clipboard" 10 $y2 375 40 "#444444" {
-    Copy-LLMPromptToClipboard | Out-Null
-    Set-StatusText
-}
-$y2 += 55
-
-$btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 50 "#007acc" {
-    Run-RunProofsCurrent
-    Set-StatusText
-}
-$y2 += 60
-
-$btnStepD = New-DevtoolButton $tabExec "Step D: Generate Closeout Patch" 10 $y2 375 40 "#444444" {
+$btnCloseout = New-DevtoolButton $tabExec "STEP D: Generate Closeout Patch" 10 $y2 375 40 "#444444" {
     $ok = Run-StepDCloseoutPatch
-    if (-not $ok) { Log-Output "Step D: FAILED." }
+    if (-not $ok) { Log-Output "Step D Helper: FAILED." }
     Set-StatusText
 }
 $y2 += 45
 
-$btnCloseoutCheck = New-DevtoolButton $tabExec "Closeout Check (read-only)" 10 $y2 375 40 "#444444" {
-    Run-CloseoutCheck | Out-Null
-    Set-StatusText
-}
-$y2 += 45
 
-$btnGitStatus = New-DevtoolButton $tabExec "Git Status" 10 $y2 375 40 "#333333" {
+$btnGitStatus = New-DevtoolButton $tabExec "9. GIT STATUS" 10 $y2 375 40 "#333333" {
     Run-GitStatus | Out-Null
     Set-StatusText
 }
 $y2 += 45
 
-$btnCommitPush = New-DevtoolButton $tabExec "Commit + Push" 10 $y2 375 50 "#228822" {
+$btnCommitPush = New-DevtoolButton $tabExec "10. GIT COMMIT + PUSH" 10 $y2 375 40 "#228822" {
     $btnCommitPush.Enabled = $false
     try {
         Run-GitCommitAndPush | Out-Null
@@ -1512,132 +1451,15 @@ $btnCommitPush = New-DevtoolButton $tabExec "Commit + Push" 10 $y2 375 50 "#2288
         Set-StatusText
     }
 }
-$y2 += 60
+$y2 += 50
 
 $lblExecNote = New-Object System.Windows.Forms.Label
-$lblExecNote.Text = "Shard loop: Start Shard -> paste prompt -> do work -> Run Proofs -> Step D -> Closeout Check -> Commit"
+$lblExecNote.Text = "Note: Shard Execution uses docs/gates/gates.json as registry."
 $lblExecNote.Location = New-Object System.Drawing.Point(10, $y2)
-$lblExecNote.Size = New-Object System.Drawing.Size(375, 60)
+$lblExecNote.Size = New-Object System.Drawing.Size(375, 40)
 $lblExecNote.Font = $fontSmall
 $lblExecNote.ForeColor = "#bbbbbb"
 $tabExec.Controls.Add($lblExecNote)
-
-# --- Shard Execution tab layout ---
-# Goal: generate shard prompt and perform closeout actions.
-
-$y2 = 15
-
-# Primary: Start Shard Fresh (generates prompt and copies to clipboard)
-$btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Prompt" 10 $y2 375 44 "#007acc" {
-    $btnStartShardFresh.Enabled = $false
-    try {
-        $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
-
-        # Conservative: refresh everything needed so prompt and attachments are not stale.
-        $ok = Run-GenerateAll -IncludeTests:($chkIncludeTests.Checked) -IncludeConnectivity:($chkIncludeConnectivity.Checked) -QueueCap $cap
-        if (-not $ok) {
-            Log-Output "Start Shard (Fresh): FAILED."
-            return
-        }
-
-        Log-Output "Start Shard (Fresh): OK. Prompt should be on clipboard."
-    } finally {
-        $btnStartShardFresh.Enabled = $true
-        Set-StatusText
-    }
-}
-$y2 += 56
-
-# Read-only helpers
-$btnShowNextGate = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 40 "#444444" {
-    if (Test-Path -LiteralPath $NextGatePacketPath) {
-        Start-Process -FilePath $NextGatePacketPath | Out-Null
-    } else {
-        Log-Output "ERROR: Missing docs/generated/next_gate_packet.md (run Start Shard (Fresh) or Advanced: Next Gate Packet only)."
-    }
-    Set-StatusText
-}
-$y2 += 45
-
-$btnShowPrompt = New-DevtoolButton $tabExec "Show LLM Prompt (Read-only)" 10 $y2 375 40 "#444444" {
-    if (Test-Path -LiteralPath $LlmPromptPath) {
-        Start-Process -FilePath $LlmPromptPath | Out-Null
-    } else {
-        Log-Output "ERROR: Missing docs/generated/llm_prompt.md (run Start Shard (Fresh) or Advanced: LLM Prompt only)."
-    }
-    Set-StatusText
-}
-$y2 += 45
-
-# Advanced: surgical shard steps
-$btnAdvNext = New-DevtoolButton $tabExec "Advanced: Next Gate Packet only" 10 $y2 375 40 "#444444" {
-    Run-NextGatePacket | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnAdvPrompt = New-DevtoolButton $tabExec "Advanced: LLM Prompt only (runs NextGate unless skipped)" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCopyPrompt = New-DevtoolButton $tabExec "Copy LLM Prompt to Clipboard" 10 $y2 375 40 "#333333" {
-    Copy-LLMPromptToClipboard | Out-Null
-    Set-StatusText
-}
-$y2 += 55
-
-# Execute shard closeout sequence
-$btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 44 "#007acc" {
-    Run-SimCoreTests
-    if (Test-Path -LiteralPath $LlmAttachPath) {
-        Run-ValidateGodotScript -FromAttachmentShortlist | Out-Null
-    } else {
-        Log-Output "NOTE: docs/generated/llm_attachments.txt missing, skipping Validate Godot Script shortlist."
-    }
-    Set-StatusText
-}
-$y2 += 56
-
-$btnStepD = New-DevtoolButton $tabExec "Step D: Generate Closeout Patch" 10 $y2 375 40 "#444444" {
-    $ok = Run-StepDCloseoutPatch
-    if (-not $ok) { Log-Output "Step D: FAILED." }
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCloseoutCheck = New-DevtoolButton $tabExec "Closeout Check (read-only)" 10 $y2 375 40 "#444444" {
-    Run-CloseoutCheck | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnGitStatus = New-DevtoolButton $tabExec "Git Status" 10 $y2 375 40 "#333333" {
-    Run-GitStatus | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCommitPush = New-DevtoolButton $tabExec "Commit + Push" 10 $y2 375 44 "#228822" {
-    $btnCommitPush.Enabled = $false
-    try {
-        Run-GitCommitAndPush | Out-Null
-    } finally {
-        $btnCommitPush.Enabled = $true
-        Set-StatusText
-    }
-}
-$y2 += 55
-
-$lblExecNote = New-Object System.Windows.Forms.Label
-$lblExecNote.Text = "Execute Shard: Start Shard (Fresh) -> (LLM work) -> Run Proofs -> Step D Patch -> Closeout Check -> Commit+Push."
-$lblExecNote.Location = New-Object System.Drawing.Point(10, $y2)
-$lblExecNote.Size = New-Object System.Drawing.Size(375, 60)
-$lblExecNote.Font = $fontSmall
-$lblExecNote.ForeColor = "#bbbbbb"
-$tabExec.Controls.Add($lblExecNote)
-
 
 # Status panel (below tabs, above log)
 $grpStatus = New-Object System.Windows.Forms.GroupBox

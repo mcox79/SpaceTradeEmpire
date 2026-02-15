@@ -183,15 +183,15 @@ function Parse-SliceTables([string] $devPlanPath, [int] $maxGates) {
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
 
-$devPlanRel = "docs/54_DEVELOPMENT_PLAN.md"
-$devPlan = Join-Path $repoRoot ($devPlanRel.Replace("/", "\"))
+$ledgerRel = "docs/55_GATES.md"
+$ledger = Join-Path $repoRoot ($ledgerRel.Replace("/", "\"))
 
 $outDir = Join-Path $repoRoot "docs\generated"
 Ensure-Dir $outDir
 $outPath = Join-Path $outDir "gate_closure_delta.md"
 $tmpPath = $outPath + ".tmp"
 
-$parsed = Parse-SliceTables -devPlanPath $devPlan -maxGates $MaxGates
+$parsed = Parse-SliceTables -devPlanPath $ledger -maxGates $MaxGates
 $gates = @($parsed.Rows)
 $parseStats = $parsed.Stats
 if ($parseStats.tables_found -eq 0 -or $parseStats.gate_rows_parsed -eq 0) {
