@@ -194,15 +194,34 @@ try {
   [void]$packet.Append("- DevTool continues generating docs/generated/01_CONTEXT_PACKET.md; prompt outputs additive$nl$nl")
 
   # Selected gate (single executable gate for this conversation)
+  $title = $null
+  $intent = $null
+
   [void]$packet.Append("## Selected$nl$nl")
   if ($isQueueV22) {
     [void]$packet.Append("Selected task: $($selected.task_id)$nl")
     [void]$packet.Append("Gate: $($selected.gate_id)$nl")
     [void]$packet.Append("Status: $($selected.status)$nl")
+    if ($null -ne $selected.PSObject.Properties["title"]) { $title = $selected.title }
+    if ($null -ne $selected.PSObject.Properties["intent"]) { $intent = $selected.intent }
   } else {
     [void]$packet.Append("Selected gate: $($selected.id)$nl")
     [void]$packet.Append("Status: $($selected.status)  Scope: $($selected.scope)$nl")
   }
+
+  [void]$packet.Append($nl)
+
+  if ($null -ne $title) {
+    $t = ("" + $title).Trim()
+    if ($t) { [void]$packet.Append("Title: $t$nl") }
+  }
+
+  if ($null -ne $intent) {
+    $t = ("" + $intent).Trim()
+    if ($t) { [void]$packet.Append("Intent: $t$nl") }
+  }
+
+  [void]$packet.Append($nl)
 
   [void]$packet.Append("Split required: " + ($(if ($splitRequired) { "YES" } else { "NO" })) + "$nl$nl")
 
@@ -232,12 +251,48 @@ try {
       $s = ("" + $x).Trim()
       if ($s) { [void]$packet.Append("- $s$nl") }
     }
-  } elseif ($null -ne $hint -and @($hint).Count -gt 0) {
+} elseif ($null -ne $hint -and @($hint).Count -gt 0) {
     foreach ($x in @($hint)) {
       $s = ("" + $x).Trim()
-      if ($s) { [void]$packet.Append("- proof: $s$nl") }
+      if (-not $s) { continue }
+
+      # Patch Validate-GodotScript proof line to be runnable
+      if ($s -match 'Validate-GodotScript\.ps1' -and $s -notmatch '-TargetScript') {
+        $gdTarget = $null
+
+        # 1) Prefer the canonical target if present
+        foreach ($p in $attach) {
+          $pp = ("" + $p).Trim()
+          $pl = $pp.ToLowerInvariant()
+          if ($pl.EndsWith(".gd") -and $pl.EndsWith("galaxy_generator.gd")) { $gdTarget = $pp; break }
+        }
+
+        # 2) Prefer sim/ scripts next
+        if (-not $gdTarget) {
+          foreach ($p in $attach) {
+            $pp = ("" + $p).Trim()
+            $pl = $pp.ToLowerInvariant()
+            if ($pl.EndsWith(".gd") -and $pl.Contains("sim/")) { $gdTarget = $pp; break }
+          }
+        }
+
+        # 3) Fallback: first .gd in attach order
+        if (-not $gdTarget) {
+          foreach ($p in $attach) {
+            $pp = ("" + $p).Trim()
+            $pl = $pp.ToLowerInvariant()
+            if ($pl.EndsWith(".gd")) { $gdTarget = $pp; break }
+          }
+        }
+        if ($gdTarget) {
+          $s = ($s + ' -TargetScript "' + $gdTarget + '"')
+        }
+      }
+
+      [void]$packet.Append("- proof: $s$nl")
     }
   } elseif ($null -ne $cons -and @($cons).Count -gt 0) {
+
     foreach ($x in @($cons)) {
       $s = ("" + $x).Trim()
       if ($s) { [void]$packet.Append("- constraint: $s$nl") }
@@ -327,7 +382,6 @@ try {
   Write-AtomicUtf8NoBom (Join-Path $genDir "llm_attachments.txt") ($attachSb.ToString())
 
   Write-Host "New-NextGatePacket: OK (active=$(@($active).Count), attachments=$($attach.Count))"
-}
-finally {
+} finally {
   Pop-Location
 }
