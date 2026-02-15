@@ -43,6 +43,7 @@ $ScriptsDir         = Join-Path $ProjectRoot "scripts\tools"
 $ContextScript      = Join-Path $ScriptsDir "New-ContextPacket.ps1"
 $ScanScript         = Join-Path $ScriptsDir "Scan-Connectivity.ps1"
 $ValidateGates      = Join-Path $ScriptsDir "Validate-Gates.ps1"
+$ValidateGodotScript = Join-Path $ScriptsDir "Validate-GodotScript.ps1"
 $NextGateScript     = Join-Path $ScriptsDir "New-NextGatePacket.ps1"
 $PromptScript       = Join-Path $ScriptsDir "New-LlmPrompt.ps1"
 $GateDeltaScript    = Join-Path $ScriptsDir "New-GateClosureDelta.ps1"
@@ -476,6 +477,98 @@ function Run-ValidateRegistry {
     }
 }
 
+function Run-ValidateGodotScript {
+    param(
+        [string] $TargetScript = "",
+        [switch] $FromAttachmentShortlist
+    )
+
+    Log-Output ">>> EXEC: VALIDATE GODOT SCRIPT"
+
+    if (-not (Test-Path -LiteralPath $ValidateGodotScript)) {
+        Log-Output "ERROR: Missing $ValidateGodotScript"
+        return $false
+    }
+
+    # If no direct target provided and caller wants shortlist, extract .gd paths from llm_attachments.txt
+    if ([string]::IsNullOrWhiteSpace($TargetScript) -and $FromAttachmentShortlist) {
+        if (-not (Test-Path -LiteralPath $LlmAttachPath)) {
+            Log-Output "ERROR: Missing $LlmAttachPath (run Phase 3 Next Gate Packet first)"
+            return $false
+        }
+
+        $paths = @(
+            (Get-Content -LiteralPath $LlmAttachPath -Encoding UTF8) |
+            ForEach-Object { (($_ + "").Trim()) } |
+            Where-Object { $_ -ne "" -and $_.ToLowerInvariant().EndsWith(".gd") }
+        )
+
+        if ($paths.Count -eq 0) {
+            Log-Output "No .gd files found in attachment shortlist."
+            return $true
+        }
+
+        $okAll = $true
+        foreach ($p in $paths) {
+            $full = Join-Path $ProjectRoot $p
+            Log-Output "Validate-GodotScript: $p"
+            try {
+                & powershell -NoProfile -ExecutionPolicy Bypass -File $ValidateGodotScript -TargetScript $full | Out-Null
+            } catch {
+                $okAll = $false
+                Log-Output "FAIL: $p"
+                Log-Output (($_ | Out-String))
+                break
+            }
+        }
+
+        if ($okAll) { Log-Output "VALIDATE GODOT SCRIPT: OK (shortlist)" }
+        else { Log-Output "VALIDATE GODOT SCRIPT: FAIL (shortlist)" }
+
+        return $okAll
+    }
+
+    # Otherwise validate a single target script (prompt user if needed)
+    if ([string]::IsNullOrWhiteSpace($TargetScript)) {
+        if ($global:DEVTOOL_HEADLESS) {
+            Log-Output "ERROR: TargetScript required in headless mode."
+            return $false
+        }
+
+        try {
+            $TargetScript = [Microsoft.VisualBasic.Interaction]::InputBox(
+                "Enter repo-relative path to .gd script (example: scripts/core/sim/rng_streams.gd):",
+                "Validate Godot Script",
+                ""
+            )
+            $TargetScript = ($TargetScript + "").Trim()
+        } catch {
+            Log-Output "ERROR: input dialog failed."
+            return $false
+        }
+
+        if ([string]::IsNullOrWhiteSpace($TargetScript)) {
+            Log-Output "Validate Godot Script: cancelled."
+            return $false
+        }
+    }
+
+    $fullPath = $TargetScript
+    if (-not [System.IO.Path]::IsPathRooted($fullPath)) {
+        $fullPath = Join-Path $ProjectRoot $TargetScript
+    }
+
+    try {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $ValidateGodotScript -TargetScript $fullPath | Out-Null
+        Log-Output "VALIDATE GODOT SCRIPT: OK"
+        return $true
+    } catch {
+        Log-Output "VALIDATE GODOT SCRIPT: FAIL"
+        Log-Output (($_ | Out-String))
+        return $false
+    }
+}
+
 # Phase 3. NEXT GATE PACKET
 function Run-NextGatePacket {
     Log-Output ">>> EXEC: PHASE 3 NEXT GATE PACKET"
@@ -500,6 +593,7 @@ function Run-NextGatePacket {
 }
 
 # Phase 3. LLM PROMPT
+
 function Copy-LLMPromptToClipboard {
     if ($global:DEVTOOL_HEADLESS) { return $false }
 
@@ -508,49 +602,10 @@ function Copy-LLMPromptToClipboard {
         return $false
     }
 
-    # attachments list is expected to exist (written by New-NextGatePacket.ps1)
-    $attachText = ""
-    if (Test-Path -LiteralPath $LlmAttachPath) {
-        try {
-            $attachText = Get-Content -LiteralPath $LlmAttachPath -Raw -Encoding UTF8
-        } catch {
-            $attachText = ""
-        }
-    }
-
-    $attachLines = @()
-    if (-not [string]::IsNullOrWhiteSpace($attachText)) {
-        $attachLines = @(
-            ($attachText -split "(`r`n|`n|`r)") |
-            ForEach-Object { ($_ + "").Trim() } |
-            Where-Object { $_ -ne "" }
-        )
-    }
-
-    $header = @()
-    $header += "PHASE 3: LLM EXECUTION"
-    $header += ""
-    $header += "INSTRUCTIONS"
-    $header += "1) Attach ONLY the files listed under ATTACHMENTS."
-    $header += "2) Paste the prompt below into the LLM."
-    $header += "3) Execute exactly as instructed. Do not add extra files."
-    $header += ""
-    $header += "ATTACHMENTS (ONLY)"
-    if ($attachLines.Count -gt 0) {
-        foreach ($l in $attachLines) { $header += "- $l" }
-    } else {
-        $header += "- ERROR: missing docs/generated/llm_attachments.txt (run Phase 3 Next Gate Packet first)"
-    }
-    $header += ""
-    $header += "----- BEGIN PROMPT -----"
-    $header += ""
-
     try {
-        $prompt = Get-Content -LiteralPath $LlmPromptPath -Raw -Encoding UTF8
-        $text = (($header -join "`r`n") + $prompt)
-
+        $text = Get-Content -LiteralPath $LlmPromptPath -Raw -Encoding UTF8
         [System.Windows.Forms.Clipboard]::SetText($text)
-        Log-Output "COPIED: LLM prompt (with instructions + attachments) to clipboard."
+        Log-Output "COPIED: LLM prompt to clipboard."
         return $true
     } catch {
         Log-Output "ERROR (clipboard):"
@@ -1104,14 +1159,26 @@ $btnValidate = New-DevtoolButton $tabPipeline "5b. VALIDATE REGISTRY (Validate-G
 
 # --- Shard Execution tab layout ---
 $y2 = 15
-$btnNext = New-DevtoolButton $tabExec "6. PHASE 3: NEXT GATE PACKET" 10 $y2 375 40 "#444444" {
+$btnNext = New-DevtoolButton $tabExec "3. NEXT GATE PACKET" 10 $y2 375 40 "#444444" {
     Run-NextGatePacket | Out-Null
     Set-StatusText
 }
 $y2 += 45
 
-$btnPrompt = New-DevtoolButton $tabExec "7. PHASE 3: GENERATE + COPY LLM PROMPT" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt -SkipNextGate | Out-Null
+$btnShardContext = New-DevtoolButton $tabExec "1. CONTEXT PACKET" 10 $y2 375 40 "#6a00ff" {
+    Run-ContextGen | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+$btnShardScan = New-DevtoolButton $tabExec "2. CONNECTIVITY SCAN" 10 $y2 375 40 "#d46a00" {
+    Run-ConnectivityScan | Out-Null
+    Set-StatusText
+}
+$y2 += 45
+
+
+$btnPrompt = New-DevtoolButton $tabExec "4. BUILD PHASE 3 PROMPT (runs NextGate)" 10 $y2 375 40 "#444444" {
+    Run-LlmPrompt | Out-Null
     Set-StatusText
 }
 $y2 += 45
@@ -1121,8 +1188,25 @@ $btnCopyPrompt = New-DevtoolButton $tabExec "COPY LLM PROMPT TO CLIPBOARD" 10 $y
     Set-StatusText
 }
 $y2 += 45
+$btnShardDotnet = New-DevtoolButton $tabExec "RUN PROOF: DOTNET TEST" 10 $y2 375 40 "#007acc" {
+    Run-SimCoreTests
+    Set-StatusText
+}
+$y2 += 45
 
-$btnCloseout = New-DevtoolButton $tabExec "8. PHASE 4: CLOSEOUT (WIP, delta only)" 10 $y2 375 40 "#444444" {
+
+$btnValidateGodotShortlist = New-DevtoolButton $tabExec "RUN PROOF: VALIDATE GODOT SCRIPT (shortlist)" 10 $y2 375 40 "#444444" {
+    if (-not (Test-Path -LiteralPath $LlmAttachPath)) {
+        Log-Output "ERROR: Missing docs/generated/llm_attachments.txt. Run Phase 3 Next Gate Packet first."
+    } else {
+        Run-ValidateGodotScript -FromAttachmentShortlist | Out-Null
+    }
+    Set-StatusText
+}
+$y2 += 45
+
+
+$btnCloseout = New-DevtoolButton $tabExec "STEP D: CLOSEOUT (WIP, delta only)" 10 $y2 375 40 "#444444" {
     Run-CloseoutWip | Out-Null
     Set-StatusText
 }
