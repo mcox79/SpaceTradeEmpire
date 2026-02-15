@@ -5,38 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 8b0eed8ea20455f3eb0fddb0381e23767ecfd269",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.SEEDS.002",
-                      "task_id":  "GATE.S2_5.SEEDS.002.T084",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.002: Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name",
-                      "intent":  "Axis: rng_streams; Intent: Define a stable RNG stream contract keyed by Seed + stream name so adding systems does not perturb existing randomness; Delta: RNG stream partitioning exists conceptually but is not gate-specified as the required ",
-                      "evidence_paths":  [
-                                             "scripts/core/sim/rng_streams.gd",
-                                             "scripts/core/sim/galaxy_generator.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Godot headless parse passes for scripts/core/sim/rng_streams.gd / Each stream is derived from Seed + stable stream key and does not depend on call order from",
-                                              "other systems / Adding a new stream does not change outputs of existing stream keys for the same Seed / scripts/core/sim/galaxy_generator.gd consumes only",
-                                              "named streams for all randomness"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/core/sim/rng_streams.gd",
-                                             "candidate_key_sha256=5934d3fa3577"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.PROG.UI.001",
                       "task_id":  "GATE.PROG.UI.001.T576",
                       "status":  "TODO",
