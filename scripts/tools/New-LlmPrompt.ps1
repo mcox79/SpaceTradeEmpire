@@ -195,10 +195,42 @@ try {
 
   [void]$sb.Append("Output required (strict):" + $nl + $nl)
 
-  [void]$sb.Append("A) EXECUTION_OUTPUT" + $nl)
-  [void]$sb.Append("1) File edits (exact paths). If editing files, output FULL file contents for each edited file." + $nl)
-  [void]$sb.Append("2) Proof command(s) to run (exact commands, deterministic)." + $nl)
-  [void]$sb.Append("3) If proofs fail, stop and output DIAGNOSTICS (first failure, likely cause, minimal next action)." + $nl + $nl)
+  [void]$sb.Append("A) EXECUTION_OUTPUT" + $nl + $nl)
+
+  [void]$sb.Append("1) File edits (exact paths)" + $nl)
+  [void]$sb.Append("Default output mode is PATCH, not full-file." + $nl + $nl)
+
+  [void]$sb.Append("PATCH rules (must follow exactly):" + $nl)
+  [void]$sb.Append("- For each edited file, output:" + $nl)
+  [void]$sb.Append("  FILE: <exact repo-relative path using / separators>" + $nl)
+  [void]$sb.Append("  PATCH:" + $nl)
+  [void]$sb.Append("  - ANCHOR_START: <exact existing line to search for, copied verbatim>" + $nl)
+  [void]$sb.Append("    REPLACE_RANGE:" + $nl)
+  [void]$sb.Append("    <paste the exact lines to replace, copied verbatim>" + $nl)
+  [void]$sb.Append("    WITH:" + $nl)
+  [void]$sb.Append("    <new lines>" + $nl)
+  [void]$sb.Append("  - (repeat per edit block)" + $nl)
+  [void]$sb.Append("  ANCHOR_END: <exact existing line to search for, copied verbatim>" + $nl + $nl)
+
+  [void]$sb.Append("- Every PATCH block must include BOTH an ANCHOR_START and an ANCHOR_END that exist exactly once in the current file." + $nl)
+  [void]$sb.Append("- Keep patches minimal: do not reformat unrelated lines, do not reorder sections, do not rewrite entire documents unless necessary." + $nl)
+  [void]$sb.Append("- FULL FILE output is allowed ONLY when:" + $nl)
+  [void]$sb.Append("  a) creating a new file, OR" + $nl)
+  [void]$sb.Append("  b) the file is <= 120 lines, OR" + $nl)
+  [void]$sb.Append("  c) the change genuinely touches most of the file." + $nl)
+  [void]$sb.Append("  If FULL FILE is used, explicitly label it:" + $nl)
+  [void]$sb.Append("    FILE: <path>" + $nl)
+  [void]$sb.Append("    FULL_CONTENTS:" + $nl)
+  [void]$sb.Append("    <entire file>" + $nl + $nl)
+
+  [void]$sb.Append("2) Proof command(s) to run (exact commands, deterministic)" + $nl)
+  [void]$sb.Append("- Provide runnable commands only (PowerShell preferred)." + $nl)
+  [void]$sb.Append("- Commands must capture exit code and output deterministically." + $nl + $nl)
+
+  [void]$sb.Append("3) If proofs fail, stop and output DIAGNOSTICS" + $nl)
+  [void]$sb.Append("- First failure only" + $nl)
+  [void]$sb.Append("- Likely cause" + $nl)
+  [void]$sb.Append("- Minimal next action" + $nl + $nl)
 
   [void]$sb.Append("B) CLOSEOUT_PATCH (always, no JSON)" + $nl)
   [void]$sb.Append("SESSION_LOG_LINE" + $nl)
@@ -217,7 +249,8 @@ try {
   [void]$sb.Append("- JSON output (including finalize json)" + $nl)
   [void]$sb.Append("- planning additional gates" + $nl)
   [void]$sb.Append("- requesting broad extra context" + $nl)
-  [void]$sb.Append("- exceeding attachment cap" + $nl + $nl)
+  [void]$sb.Append("- exceeding attachment cap" + $nl)
+  [void]$sb.Append("- rewriting canonical docs unless the task intent explicitly requires changes there" + $nl + $nl)
 
   [void]$sb.Append("## Attachments (in order)" + $nl)
   [void]$sb.Append("- $contextRel" + $nl)

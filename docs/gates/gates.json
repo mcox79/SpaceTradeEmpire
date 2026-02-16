@@ -5,39 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD ed76c61f678bc79d3ed5f8915b46d43140e38dc9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.SEEDS.006",
-                      "task_id":  "GATE.S2_5.SEEDS.006.T902",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.006: Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagatio",
-                      "intent":  "Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagation points in kernel docs and align save/load regression expectations; Delta: docs/54_EPICS.md states Seed plumbing everywhere but docs kernel does not ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "docs/21_90_TERMS_UNITS_IDS.md",
-                                             "docs/20_TESTING_AND_DETERMINISM.md"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md",
-                                              "states that determinism%save/load regressions must report Seed for repro / dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / Docs",
-                                              "changes introduce no new conflicting terminology with existing DONE gates"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=563274510402"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.002",
                       "task_id":  "GATE.UI.FLEET.002.T780",
                       "status":  "TODO",

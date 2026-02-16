@@ -526,12 +526,22 @@ Deterministic
 
 - Meaning: repeated runs with the same deterministic inputs produce identical outputs (as defined by `docs/20_TESTING_AND_DETERMINISM.md`).
 
-
-
 Deterministic inputs
 
 - Meaning: explicit, serializable inputs to a simulation run (seed, scenario/config, command list).
 
+Determinism regression reporting (LOCKED)
+
+- Rule: any determinism%save/load regression report must include:
+  - Seed (int32)
+  - TickIndex (if the issue is time-localized)
+  - WorldId (if available)
+
+- Rule: save/load identity envelope is required and uses canonical property names:
+  - top-level `Seed` (int32)
+  - top-level `State` (object)
+
+- Test contract: `SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs` enforces that save payloads include `Seed` and that load preserves Seed on re-save.
 
 
 Diff-friendly artifacts
@@ -539,11 +549,9 @@ Diff-friendly artifacts
 - Meaning: outputs whose ordering and formatting are stable, so Git diffs are meaningful.
 
 
-
 Ephemeral logs
 
 - Meaning: outputs that are not required to be deterministic and should not be committed (verbose traces, timestamped logs).
-
 
 
 ## F. Stable identifiers (general)
@@ -606,11 +614,33 @@ Canonical ID field names (preferred)
 - EdgeId
 - ScenarioId
 
+Canonical identity vocabulary (LOCKED)
+
+Seed
+
+- Meaning: canonical PRNG seed that defines a deterministic run's procedural generation and stochastic stream.
+- Type: int32 (unless a specific subsystem explicitly requires wider).
+- Rule: any determinism regression artifact or repro instruction must include the Seed value.
+- Save/Load: persisted as the top-level JSON property named `Seed` in the save envelope.
+
+WorldId
+
+- Meaning: stable identifier for a world instance used in logs, repro steps, and UI references.
+- Rule: WorldId is identity metadata; it must not be derived from transient memory addresses or unstable iteration order.
+- Reporting: when available, include WorldId alongside Seed in determinism regressions.
+
+TickIndex
+
+- Meaning: the authoritative tick number within a run (0-based unless stated otherwise by the caller).
+- Rule: any determinism regression artifact that references a specific moment must include the TickIndex.
+
+Seed%WorldId (log token)
+
+- Meaning: canonical log token for identity reporting combining Seed and WorldId (when WorldId exists).
+- Format: `Seed=<int32>%WorldId=<string>` (WorldId may be omitted if not available).
 
 
 ## H. Time model vocabulary (LOCKED)
-
-
 
 Tick
 
