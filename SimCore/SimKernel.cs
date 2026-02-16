@@ -15,6 +15,10 @@ public class SimKernel
     public SimKernel(int seed)
     {
         _state = new SimState(seed);
+
+        // Gate: save_seed_identity
+        // SimState does not necessarily expose seed as a readable member. Attach it for persistence.
+        SerializationSystem.AttachSeed(_state, seed);
     }
 
     public void EnqueueCommand(ICommand cmd)

@@ -37,38 +37,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.SEEDS.004",
-                      "task_id":  "GATE.S2_5.SEEDS.004.T815",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.004: Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensur",
-                      "intent":  "Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensure Serialization round-trip preserves it exactly; Delta: GATE.SAVE.001 proves hash equivalence but does not explicitly require that Seed and worldgen p",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/Systems/SerializationSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used",
-                                              "by downstream worldgen / Serialization payload includes Seed and Load restores it exactly / Failure output includes the Seed value used so repro is trivial"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=e31b5b8f4c3d"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.SEEDS.006",
                       "task_id":  "GATE.S2_5.SEEDS.006.T902",
                       "status":  "TODO",

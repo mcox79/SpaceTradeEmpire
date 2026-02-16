@@ -1361,6 +1361,12 @@ function Run-BuildRegistryFresh {
     return $true
 }
 
+$btnRunTests = New-DevtoolButton $tabPipeline "Run Tests (SimCore)" 10 $y 375 40 "#007acc" {
+    Run-SimCoreTests
+    Set-StatusText
+}
+$y += 45
+
 $btnBuildRegistryFresh = New-DevtoolButton $tabPipeline "Build Registry (Fresh)" 10 $y 375 40 "#444444" {
     $btnBuildRegistryFresh.Enabled = $false
     try {
@@ -1527,26 +1533,6 @@ $tabExec.Controls.Add($lblExecNote)
 
 $y2 = 15
 
-# Primary: Start Shard Fresh (generates prompt and copies to clipboard)
-$btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Prompt" 10 $y2 375 44 "#007acc" {
-    $btnStartShardFresh.Enabled = $false
-    try {
-        $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
-
-        # Conservative: refresh everything needed so prompt and attachments are not stale.
-        $ok = Run-GenerateAll -IncludeTests:($chkIncludeTests.Checked) -IncludeConnectivity:($chkIncludeConnectivity.Checked) -QueueCap $cap
-        if (-not $ok) {
-            Log-Output "Start Shard (Fresh): FAILED."
-            return
-        }
-
-        Log-Output "Start Shard (Fresh): OK. Prompt should be on clipboard."
-    } finally {
-        $btnStartShardFresh.Enabled = $true
-        Set-StatusText
-    }
-}
-$y2 += 56
 
 # Read-only helpers
 $btnShowNextGate = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 40 "#444444" {
