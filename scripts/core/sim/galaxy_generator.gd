@@ -11,7 +11,7 @@ func _init(seed_val: int = 0):
 
 # Entry point for GameShell worldgen: use the canonical SimState seed, without mutating it.
 func generate_for_state(state: SimState, region_count: int) -> Dictionary:
-	var local_streams := RngStreams.new(state.initial_seed)
+	var local_streams := RngStreams.new(state.seed)
 	var local_rng := local_streams.get_stream(RngStreams.STREAM_GALAXY_GEN)
 	return _generate_with_rng(local_rng, region_count)
 
@@ -86,3 +86,51 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 		})
 
 	return { 'stars': stars, 'lanes': lanes }
+
+# Determinism probe: canonical digest of ordered stars+lanes for a given seed and region_count.
+# This is intended for headless proofs only. Call on an instance initialized with the seed.
+func determinism_digest(region_count: int) -> String:
+	var out: Dictionary = _generate_with_rng(rng, region_count)
+	return _canonical_digest(out)
+
+static func _canonical_digest(out: Dictionary) -> String:
+	var stars: Array = out.get("stars", [])
+	var lanes: Array = out.get("lanes", [])
+
+	# Sort stars by id (string)
+	var stars_sorted := stars.duplicate()
+	stars_sorted.sort_custom(func(a, b):
+		return String(a.get("id", "")) < String(b.get("id", ""))
+	)
+
+	# Normalize lanes to (min,max) id order, then sort by (u,v)
+	var lanes_norm: Array = []
+	for l in lanes:
+		var u := String(l.get("u", ""))
+		var v := String(l.get("v", ""))
+		if v < u:
+			var tmp := u
+			u = v
+			v = tmp
+		lanes_norm.append({ "u": u, "v": v })
+	lanes_norm.sort_custom(func(a, b):
+		var au := String(a.get("u", ""))
+		var av := String(a.get("v", ""))
+		var bu := String(b.get("u", ""))
+		var bv := String(b.get("v", ""))
+		if au == bu:
+			return av < bv
+		return au < bu
+	)
+
+	var sb: Array[String] = []
+	for s in stars_sorted:
+		var id := String(s.get("id", ""))
+		var region := int(s.get("region", 0))
+		var p: Vector3 = s.get("pos", Vector3.ZERO)
+		sb.append("S|%s|%s|%.6f,%.6f,%.6f" % [id, region, p.x, p.y, p.z])
+	for l2 in lanes_norm:
+		sb.append("L|%s|%s" % [String(l2.get("u", "")), String(l2.get("v", ""))])
+
+	return String("\n").join(sb).sha256_text()
+

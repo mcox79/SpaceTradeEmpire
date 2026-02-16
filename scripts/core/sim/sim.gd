@@ -1,16 +1,17 @@
 extends RefCounted
 
 const TICK_INTERVAL = 0.5
-const GalaxyGenerator = preload('res://scripts/core/sim/galaxy_generator.gd')
-const GalaxyGraph = preload('res://scripts/core/galaxy_graph.gd')
-const Fleet = preload('res://scripts/core/state/fleet.gd')
-const WorkOrder = preload('res://scripts/core/state/work_order.gd')
-const MarketState = preload('res://scripts/core/state/market_state.gd')
-const MarketRules = preload('res://scripts/core/subsystems/market_rules.gd')
-const ProductionRules = preload('res://scripts/core/subsystems/production_rules.gd')
-const LogisticsRules = preload('res://scripts/core/subsystems/logistics_rules.gd')
-const InfoState = preload('res://scripts/core/state/info_state.gd')
-const SignalRules = preload('res://scripts/core/subsystems/signal_rules.gd')
+const GalaxyGenerator = preload("res://scripts/core/sim/galaxy_generator.gd")
+const GalaxyGraph = preload("res://scripts/core/galaxy_graph.gd")
+const Fleet = preload("res://scripts/core/state/fleet.gd")
+const WorkOrder = preload("res://scripts/core/state/work_order.gd")
+const MarketState = preload("res://scripts/core/state/market_state.gd")
+const MarketRules = preload("res://scripts/core/subsystems/market_rules.gd")
+const ProductionRules = preload("res://scripts/core/subsystems/production_rules.gd")
+const LogisticsRules = preload("res://scripts/core/subsystems/logistics_rules.gd")
+const InfoState = preload("res://scripts/core/state/info_state.gd")
+const SignalRules = preload("res://scripts/core/subsystems/signal_rules.gd")
+
 
 var current_tick: int = 0
 var galaxy_map: Dictionary = {}
@@ -89,7 +90,7 @@ func advance():
 	_advance_fleets()
 
 func _update_markets():
-	for k in active_markets: 
+	for k in active_markets:
 		ProductionRules.process_production(active_markets[k], current_tick)
 		MarketRules.consume_inventory(active_markets[k], current_tick)
 
@@ -145,18 +146,18 @@ func _advance_fleets():
 		f.current_pos = f.current_pos.move_toward(target, f.speed * 0.1)
 		if f.current_pos.is_equal_approx(target):
 			var node = _get_star_at_pos(target)
-			if node: 
+			if node:
 				info.add_heat(node.id, 0.5)
 				if active_markets.has(node.id):
 					var earned = LogisticsRules.handle_arrival(f, active_markets[node.id], current_tick)
 					if earned > 0 and f.id.begins_with('player'):
 						pending_player_rewards += earned
 			f.path_index += 1
-			if f.path_index >= f.path.size(): 
+			if f.path_index >= f.path.size():
 				f.path.clear()
 
 func _initialize_markets():
-	for i in range(galaxy_map.stars.size()): 
+	for i in range(galaxy_map.stars.size()):
 		var s = galaxy_map.stars[i]
 		var m = MarketState.new(s.id)
 		var role = i % 3
