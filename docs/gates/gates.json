@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD ed76c61f678bc79d3ed5f8915b46d43140e38dc9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.UI.FLEET.002",
-                      "task_id":  "GATE.UI.FLEET.002.T780",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.002: Player can cancel a fleet job via command (no direct mutation) and sees deterministic stat",
-                      "intent":  "Player can cancel a fleet job via command (no direct mutation) and sees deterministic state transition (job cleared, route cleared, task updated)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Commands/FleetJobCancelCommand.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
-                                             "candidate_key_sha256=f6a588641c84"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.003",
                       "task_id":  "GATE.UI.FLEET.003.T293",
                       "status":  "TODO",

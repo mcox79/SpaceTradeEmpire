@@ -246,22 +246,64 @@ public partial class SimBridge : Node
 
     // --- Fleet UI commands (Slice 3 / GATE.UI.FLEET.002, GATE.UI.FLEET.003) ---
 
+    // Best-effort: block until the sim thread advances at least one tick so an immediate UI Refresh()
+    // reflects the deterministic post-command state (job cleared, route cleared, task updated).
+    private bool WaitForTickAdvance(int tickBefore, int timeoutMs)
+    {
+        if (tickBefore < 0) return false;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            int now;
+            _stateLock.EnterReadLock();
+            try
+            {
+                now = _kernel.State.Tick;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+
+            if (now > tickBefore) return true;
+            Thread.Sleep(1);
+        }
+
+        return false;
+    }
+
     public bool CancelFleetJob(string fleetId, string note = "")
     {
         if (IsLoading) return false;
         if (string.IsNullOrWhiteSpace(fleetId)) return false;
 
+        int tickBefore;
+        _stateLock.EnterReadLock();
+        try
+        {
+            tickBefore = _kernel.State.Tick;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+
         _stateLock.EnterWriteLock();
         try
         {
             _kernel.EnqueueCommand(new SimCore.Commands.FleetJobCancelCommand(fleetId, note));
-            return true;
         }
         finally
         {
             _stateLock.ExitWriteLock();
         }
+
+        var timeoutMs = Math.Max(250, (TickDelayMs * 3) + 50);
+        WaitForTickAdvance(tickBefore, timeoutMs);
+        return true;
     }
+
 
     // targetNodeId = "" clears manual override
     public bool SetFleetDestination(string fleetId, string targetNodeId, string note = "")
