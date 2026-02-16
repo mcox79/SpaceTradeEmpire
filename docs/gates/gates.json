@@ -37,39 +37,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.SEEDS.001",
-                      "task_id":  "GATE.S2_5.SEEDS.001.T294",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.001: Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and sto",
-                      "intent":  "Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and store it on SimState for later surfaces; Delta: Existing DONE gates prove micro-world determinism but do not specify how Seed enters GameShell worldgen o",
-                      "evidence_paths":  [
-                                             "scripts/core/sim/galaxy_generator.gd",
-                                             "scripts/core/state/sim_state.gd",
-                                             "scripts/core/galaxy_graph.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization /",
-                                              "Galaxy generation uses Seed-derived RNG only (no wall clock, randomize(), or global randf without stream) / Re-running generation twice with the same Seed",
-                                              "yields identical ordered node%edge outputs (within the code path)"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/core/sim/galaxy_generator.gd",
-                                             "candidate_key_sha256=979214eecfc9"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.SEEDS.003",
                       "task_id":  "GATE.S2_5.SEEDS.003.T548",
                       "status":  "TODO",
