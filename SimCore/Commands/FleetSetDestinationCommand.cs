@@ -46,11 +46,14 @@ public sealed class FleetSetDestinationCommand : ICommand
         // Assert override.
         fleet.ManualOverrideNodeId = TargetNodeId;
 
+        // Core contract: while override is set, the fleet's final destination request aligns to override.
+        fleet.FinalDestinationNodeId = TargetNodeId;
+
         // Force immediate, deterministic override routing: clear any prior plan/request.
         fleet.RouteEdgeIds.Clear();
         fleet.RouteEdgeIndex = 0;
-        fleet.FinalDestinationNodeId = "";
         fleet.DestinationNodeId = "";
+
 
         // Authority precedence: issuing ManualOverride cancels any active LogisticsJob.
         if (fleet.CurrentJob != null)
