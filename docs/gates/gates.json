@@ -5,6 +5,200 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD ed76c61f678bc79d3ed5f8915b46d43140e38dc9",
     "tasks":  [
                   {
+                      "gate_id":  "GATE.S2_5.SEEDS.005",
+                      "task_id":  "GATE.S2_5.SEEDS.005.T027",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.005: Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surfac",
+                      "intent":  "Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surface the Seed used (input or recorded) so long-run drift is reproducible; Delta: Existing determinism gates do not call out Seed as an explicit repro inp",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/World/WorldLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "dotnet test passes including SimCore.Tests/Determinism/LongRunWorldHashTests.cs / Long-run harness accepts a Seed input (or records the Seed it used) and",
+                                              "prints it in assertion failures / Re-running with the same Seed yields identical world hash checkpoints / Harness does not introduce new nondeterminism sources",
+                                              "(time, unordered iteration)"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=e31db1385c9c"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.001",
+                      "task_id":  "GATE.S2_5.SEEDS.001.T294",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.001: Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and sto",
+                      "intent":  "Axis: seed_input; Intent: Plumb a Seed value into the galaxy generation entrypoint and store it on SimState for later surfaces; Delta: Existing DONE gates prove micro-world determinism but do not specify how Seed enters GameShell worldgen o",
+                      "evidence_paths":  [
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "scripts/core/state/sim_state.gd",
+                                             "scripts/core/galaxy_graph.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Godot headless parse passes for scripts/core/sim/galaxy_generator.gd / SimState stores Seed as a stable field and it is not mutated after initialization /",
+                                              "Galaxy generation uses Seed-derived RNG only (no wall clock, randomize(), or global randf without stream) / Re-running generation twice with the same Seed",
+                                              "yields identical ordered node%edge outputs (within the code path)"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/core/sim/galaxy_generator.gd",
+                                             "candidate_key_sha256=979214eecfc9"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.003",
+                      "task_id":  "GATE.S2_5.SEEDS.003.T548",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.003: Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression te",
+                      "intent":  "Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression test that exercises galaxy generation twice with the same Seed; Delta: No existing GameShell gate asserts identical generation for identical Seed or pro",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "scripts/core/sim/rng_streams.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Godot headless run passes for scripts/tests/test_galaxy_core.gd / Test generates twice with the same Seed and asserts identical ordered nodes%edges",
+                                              "representation / Test generates with two different Seeds and asserts at least one deterministic structural difference / Test output is stable for diffing",
+                                              "(explicit ordering, no timestamps)"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_galaxy_core.gd",
+                                             "candidate_key_sha256=9e1c7df20f52"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.004",
+                      "task_id":  "GATE.S2_5.SEEDS.004.T815",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.004: Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensur",
+                      "intent":  "Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensure Serialization round-trip preserves it exactly; Delta: GATE.SAVE.001 proves hash equivalence but does not explicitly require that Seed and worldgen p",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore/World/WorldLoader.cs",
+                                             "SimCore/Systems/SerializationSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used",
+                                              "by downstream worldgen / Serialization payload includes Seed and Load restores it exactly / Failure output includes the Seed value used so repro is trivial"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=e31b5b8f4c3d"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.SEEDS.006",
+                      "task_id":  "GATE.S2_5.SEEDS.006.T902",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SEEDS.006: Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagatio",
+                      "intent":  "Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagation points in kernel docs and align save/load regression expectations; Delta: docs/54_EPICS.md states Seed plumbing everywhere but docs kernel does not ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "docs/21_90_TERMS_UNITS_IDS.md",
+                                             "docs/20_TESTING_AND_DETERMINISM.md"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md",
+                                              "states that determinism%save/load regressions must report Seed for repro / dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / Docs",
+                                              "changes introduce no new conflicting terminology with existing DONE gates"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=563274510402"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.FLEET.002",
+                      "task_id":  "GATE.UI.FLEET.002.T780",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.FLEET.002: Player can cancel a fleet job via command (no direct mutation) and sees deterministic stat",
+                      "intent":  "Player can cancel a fleet job via command (no direct mutation) and sees deterministic state transition (job cleared, route cleared, task updated)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Commands/FleetJobCancelCommand.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
+                                             "candidate_key_sha256=f6a588641c84"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
                       "gate_id":  "GATE.UI.FLEET.003",
                       "task_id":  "GATE.UI.FLEET.003.T293",
                       "status":  "TODO",
