@@ -644,11 +644,14 @@ $tasksSorted = $tasks | Sort-Object `
   @{ Expression = { ($_.task_id + "") }; Ascending = $true }
 
 # Apply cap after sorting (cap=0 means no cap)
-if ($cap -gt 0 -and $tasksSorted.Count -gt $cap) {
-  $tasks = @($tasksSorted | Select-Object -First $cap)
-  $droppedByCap = ($tasksSorted.Count - $cap)
+# Sort-Object can return a scalar when only 1 task exists; normalize to array for .Count under StrictMode
+$tasksSortedArr = @($tasksSorted)
+
+if ($cap -gt 0 -and $tasksSortedArr.Count -gt $cap) {
+  $tasks = @($tasksSortedArr | Select-Object -First $cap)
+  $droppedByCap = ($tasksSortedArr.Count - $cap)
 } else {
-  $tasks = @($tasksSorted)
+  $tasks = @($tasksSortedArr)
   $droppedByCap = 0
 }
 

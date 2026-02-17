@@ -9,7 +9,7 @@ const GalaxyGenerator = preload("res://scripts/core/sim/galaxy_generator.gd")
 
 var _fail_count := 0
 
-func _initialize():
+func _init() -> void:
 	print("--- STARTING GALAXY CORE TESTS ---")
 	_run_seed_determinism_regression()
 	if _fail_count > 0:
@@ -18,6 +18,7 @@ func _initialize():
 		return
 	print("--- GALAXY CORE TESTS PASSED ---")
 	quit(0)
+	return
 
 func _run_seed_determinism_regression():
 	var region_count := 12
@@ -53,18 +54,23 @@ func _galaxy_repr(out: Dictionary) -> String:
 	var stars: Array = out.get("stars", [])
 	var lanes: Array = out.get("lanes", [])
 
-	stars.sort_custom(func(a, b):
-		return String(a.id) < String(b.id)
+	# Stars and lanes are Dictionaries; use get() for stable access.
+	var stars_sorted := stars.duplicate()
+	stars_sorted.sort_custom(func(a, b):
+		return String(a.get("id", "")) < String(b.get("id", ""))
 	)
 
-	lines.append("stars_count=%d" % stars.size())
-	for s in stars:
-		lines.append("S|%s|r=%d|p=%s" % [String(s.id), int(s.region), _fmt_vec3(s.pos)])
+	lines.append("stars_count=%d" % stars_sorted.size())
+	for s in stars_sorted:
+		var sid := String(s.get("id", ""))
+		var region := int(s.get("region", 0))
+		var pos: Vector3 = s.get("pos", Vector3.ZERO)
+		lines.append("S|%s|r=%d|p=%s" % [sid, region, _fmt_vec3(pos)])
 
 	var lane_items: Array = []
 	for l in lanes:
-		var u := String(l.u)
-		var v := String(l.v)
+		var u := String(l.get("u", ""))
+		var v := String(l.get("v", ""))
 		if v < u:
 			var tmp := u
 			u = v
@@ -72,19 +78,28 @@ func _galaxy_repr(out: Dictionary) -> String:
 		lane_items.append({
 			"u": u,
 			"v": v,
-			"from": l.from,
-			"to": l.to,
+			"from": l.get("from", Vector3.ZERO),
+			"to": l.get("to", Vector3.ZERO),
 		})
 
 	lane_items.sort_custom(func(a, b):
-		if a.u == b.u:
-			return String(a.v) < String(b.v)
-		return String(a.u) < String(b.u)
+		var au := String(a.get("u", ""))
+		var av := String(a.get("v", ""))
+		var bu := String(b.get("u", ""))
+		var bv := String(b.get("v", ""))
+		if au == bu:
+			return av < bv
+		return au < bu
 	)
 
 	lines.append("lanes_count=%d" % lane_items.size())
 	for l2 in lane_items:
-		lines.append("L|%s-%s|f=%s|t=%s" % [String(l2.u), String(l2.v), _fmt_vec3(l2.from), _fmt_vec3(l2.to)])
+		lines.append("L|%s-%s|f=%s|t=%s" % [
+			String(l2.get("u", "")),
+			String(l2.get("v", "")),
+			_fmt_vec3(l2.get("from", Vector3.ZERO)),
+			_fmt_vec3(l2.get("to", Vector3.ZERO)),
+		])
 
 	return "\n".join(lines)
 

@@ -1,180 +1,18 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-15T09:57:58-04:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD ed76c61f678bc79d3ed5f8915b46d43140e38dc9",
+    "generated_utc":  "2026-02-16T14:24:28-04:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD c6c463744473f4e4b85672b41b057128dcbeb140",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.SEEDS.005",
-                      "task_id":  "GATE.S2_5.SEEDS.005.T027",
+                      "gate_id":  "GATE.UI.FLEET.AUTH.001",
+                      "task_id":  "GATE.UI.FLEET.AUTH.001.T856",
                       "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.005: Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surfac",
-                      "intent":  "Axis: determinism_seed_repro; Intent: Make determinism harnesses that create worlds surface the Seed used (input or recorded) so long-run drift is reproducible; Delta: Existing determinism gates do not call out Seed as an explicit repro inp",
+                      "title":  "GATE.UI.FLEET.AUTH.001: Authority and precedence contract is explicit and enforced: each fleet reports ActiveContr",
+                      "intent":  "Authority and precedence contract is explicit and enforced: each fleet reports ActiveController (None, Program, LogisticsJob, ManualOverride); issuing ManualOverride deterministically cancels any active LogisticsJob (with reason) and clears",
                       "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore/World/WorldLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "dotnet test passes including SimCore.Tests/Determinism/LongRunWorldHashTests.cs / Long-run harness accepts a Seed input (or records the Seed it used) and",
-                                              "prints it in assertion failures / Re-running with the same Seed yields identical world hash checkpoints / Harness does not introduce new nondeterminism sources",
-                                              "(time, unordered iteration)"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=e31db1385c9c"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.003",
-                      "task_id":  "GATE.S2_5.SEEDS.003.T548",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.003: Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression te",
-                      "intent":  "Axis: gameshell_regression; Intent: Add a minimal GameShell seed determinism regression test that exercises galaxy generation twice with the same Seed; Delta: No existing GameShell gate asserts identical generation for identical Seed or pro",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_galaxy_core.gd",
-                                             "scripts/core/sim/galaxy_generator.gd",
-                                             "scripts/core/sim/rng_streams.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Godot headless run passes for scripts/tests/test_galaxy_core.gd / Test generates twice with the same Seed and asserts identical ordered nodes%edges",
-                                              "representation / Test generates with two different Seeds and asserts at least one deterministic structural difference / Test output is stable for diffing",
-                                              "(explicit ordering, no timestamps)"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_galaxy_core.gd",
-                                             "candidate_key_sha256=9e1c7df20f52"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.004",
-                      "task_id":  "GATE.S2_5.SEEDS.004.T815",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.004: Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensur",
-                      "intent":  "Axis: save_seed_identity; Intent: Persist Seed as part of SimCore world identity and ensure Serialization round-trip preserves it exactly; Delta: GATE.SAVE.001 proves hash equivalence but does not explicitly require that Seed and worldgen p",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/Systems/SerializationSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / WorldLoader stores Seed in a stable world identity field (or equivalent) used",
-                                              "by downstream worldgen / Serialization payload includes Seed and Load restores it exactly / Failure output includes the Seed value used so repro is trivial"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=e31b5b8f4c3d"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.SEEDS.006",
-                      "task_id":  "GATE.S2_5.SEEDS.006.T902",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SEEDS.006: Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagatio",
-                      "intent":  "Axis: spec_docs; Intent: Specify canonical Seed%WorldId vocabulary and required propagation points in kernel docs and align save/load regression expectations; Delta: docs/54_EPICS.md states Seed plumbing everywhere but docs kernel does not ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "docs/21_90_TERMS_UNITS_IDS.md",
-                                             "docs/20_TESTING_AND_DETERMINISM.md"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "docs/21_90_TERMS_UNITS_IDS.md defines Seed and related identity field names (and any unit annotations where applicable) / docs/20_TESTING_AND_DETERMINISM.md",
-                                              "states that determinism%save/load regressions must report Seed for repro / dotnet test passes including SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs / Docs",
-                                              "changes introduce no new conflicting terminology with existing DONE gates"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=563274510402"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.UI.FLEET.002",
-                      "task_id":  "GATE.UI.FLEET.002.T780",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.002: Player can cancel a fleet job via command (no direct mutation) and sees deterministic stat",
-                      "intent":  "Player can cancel a fleet job via command (no direct mutation) and sees deterministic state transition (job cleared, route cleared, task updated)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Commands/FleetJobCancelCommand.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/FleetJobCancelContractTests.cs",
-                                             "candidate_key_sha256=f6a588641c84"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.UI.FLEET.003",
-                      "task_id":  "GATE.UI.FLEET.003.T293",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.003: Manual destination override exists via command and persists through save/load; override se",
-                      "intent":  "Manual destination override exists via command and persists through save/load; override semantics are defined (overrides job routing until cleared) and deterministic",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs",
+                                             "SimCore/Entities/Fleet.cs",
                                              "SimCore/Commands/FleetSetDestinationCommand.cs"
                                          ],
                       "constraints":  [
@@ -185,8 +23,104 @@
                                               "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
                                           ],
                       "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs",
-                                             "candidate_key_sha256=5a343b5f0c1e"
+                                             "anchor=SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs",
+                                             "candidate_key_sha256=3ad8bb019c09"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.PROG.UI.001",
+                      "task_id":  "GATE.PROG.UI.001.T576",
+                      "status":  "TODO",
+                      "title":  "GATE.PROG.UI.001: Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride",
+                      "intent":  "Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride cancels any active LogisticsJob for that fleet and emits a schema-bound event; ProgramSystem receives a deterministic notification and either pauses ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramContractTests.cs",
+                                             "SimCore/Programs/ProgramSystem.cs",
+                                             "SimCore/Programs/ProgramBook.cs",
+                                             "scripts/ui/ProgramsMenu.cs",
+                                             "SimCore.Tests/Programs/ProgramLifecycleContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramContractTests.cs",
+                                             "candidate_key_sha256=0ad32d19f490"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.FLEET.DET.001",
+                      "task_id":  "GATE.UI.FLEET.DET.001.T636",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.FLEET.DET.001: Determinism regression for UI command interleavings: 2 fleets with active logistics jobs,",
+                      "intent":  "Determinism regression for UI command interleavings: 2 fleets with active logistics jobs, scripted sequence of commands across ticks (cancel, manual override, clear override) including save/load mid-sequence yields identical final hash and ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsMultiFleetDeterminismTests.cs",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Entities/Fleet.cs",
+                                             "SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsMultiFleetDeterminismTests.cs",
+                                             "candidate_key_sha256=5b92b95dbdbd"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.FLEET.EVENT.001",
+                      "task_id":  "GATE.UI.FLEET.EVENT.001.T247",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.FLEET.EVENT.001: Fleet panel shows last N schema-bound events relevant to that fleet (logistics phase trans",
+                      "intent":  "Fleet panel shows last N schema-bound events relevant to that fleet (logistics phase transitions, cancel, override) with deterministic ordering and stable serialization",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/LogisticsEventStreamContractTests.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Events/LogisticsEvents.cs",
+                                             "SimCore/Entities/Fleet.cs",
+                                             "SimCore.Tests/Programs/FleetBindingContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/LogisticsEventStreamContractTests.cs",
+                                             "candidate_key_sha256=bff00aef1111"
                                          ],
                       "escalation_rules":  [
                                                {
