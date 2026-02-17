@@ -227,6 +227,13 @@ public partial class FleetMenu : Control
         try { return (int)v; } catch { return 0; }
     }
 
+    private static long GetLong(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return 0L;
+        var v = d[key];
+        try { return (long)v; } catch { return 0L; }
+    }
+
     private void Refresh()
     {
         if (_bridge == null) return;
@@ -273,6 +280,8 @@ public partial class FleetMenu : Control
 
             var cargo = GetStr(d!, "cargo_summary");
             var route = GetStr(d!, "route_progress");
+            // Last N schema-bound logistics events for this fleet (newest-first, deterministic order).
+            var eventsArr = _bridge.GetFleetEventLogSnapshot(id, 10);
 
             var row = new HBoxContainer();
 
@@ -310,8 +319,57 @@ public partial class FleetMenu : Control
                 Refresh();
             };
             row.AddChild(btnClear);
-
             _list.AddChild(row);
+
+            // Event log rendering: stable fields only, no time sources, deterministic iteration order.
+            if (eventsArr != null && eventsArr.Count > 0)
+            {
+                var evBox = new VBoxContainer();
+                evBox.AddChild(new Label
+                {
+                    Text = "Events:",
+                    Modulate = new Color(0.8f, 0.85f, 1f),
+                    AutowrapMode = TextServer.AutowrapMode.WordSmart
+                });
+
+                foreach (var ev in eventsArr)
+                {
+                    var ed = ev.Obj as Dictionary;
+                    if (ed == null) continue;
+
+                    var seq = GetLong(ed, "seq");
+                    var tick = GetLong(ed, "tick");
+                    var type = GetInt(ed, "type");
+                    var note = GetStr(ed, "note");
+
+                    var srcNode = GetStr(ed, "source_node_id");
+                    var dstNode = GetStr(ed, "target_node_id");
+                    var srcMkt = GetStr(ed, "source_market_id");
+                    var dstMkt = GetStr(ed, "target_market_id");
+                    var good = GetStr(ed, "good_id");
+                    var amt = GetInt(ed, "amount");
+
+                    var line = $"seq={seq} tick={tick} type={type}";
+                    if (!string.IsNullOrWhiteSpace(srcNode) || !string.IsNullOrWhiteSpace(dstNode))
+                        line += $" nodes={srcNode}->{dstNode}";
+                    if (!string.IsNullOrWhiteSpace(srcMkt) || !string.IsNullOrWhiteSpace(dstMkt))
+                        line += $" mkts={srcMkt}->{dstMkt}";
+                    if (!string.IsNullOrWhiteSpace(good) || amt != 0)
+                        line += $" good={good} amt={amt}";
+                    if (!string.IsNullOrWhiteSpace(note))
+                        line += $" note={note}";
+
+                    evBox.AddChild(new Label
+                    {
+                        Text = line,
+                        AutowrapMode = TextServer.AutowrapMode.WordSmart
+                    });
+                }
+
+                _list.AddChild(evBox);
+                _list.AddChild(new HSeparator());
+            }
+
         }
     }
 }

@@ -7,6 +7,7 @@ using SimCore.Commands;
 using SimCore.Intents;
 using SimCore.Systems;
 using SimCore.Programs;
+using SimCore.Events;
 using System;
 using System.IO;
 using System.Linq;
@@ -797,6 +798,67 @@ public partial class SimBridge : Node
         }
     }
 
+
+    // --- Fleet UI event log snapshot (Slice 3 / GATE.UI.FLEET.EVENT.001) ---
+    // Returns the last N schema-bound logistics events for the given fleet, newest-first.
+    // Determinism: filter by FleetId Ordinal, order by Seq desc with stable tie-breakers.
+    public Godot.Collections.Array GetFleetEventLogSnapshot(string fleetId, int maxEvents = 25)
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+        if (string.IsNullOrWhiteSpace(fleetId)) return arr;
+        if (maxEvents <= 0) return arr;
+        if (maxEvents > 200) maxEvents = 200;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var events = _kernel.State.LogisticsEventLog;
+            if (events == null || events.Count == 0) return arr;
+
+            var slice = events
+                    .Where(e => string.Equals(e.FleetId, fleetId, StringComparison.Ordinal))
+                    .OrderByDescending(e => e.Seq)
+                    .ThenByDescending(e => e.Tick)
+                    .ThenByDescending(e => (int)e.Type)
+                    .Take(maxEvents)
+                    .ToArray();
+
+            foreach (var e in slice)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["version"] = e.Version,
+                    ["seq"] = e.Seq,
+                    ["tick"] = e.Tick,
+                    ["type"] = (int)e.Type,
+
+                    ["fleet_id"] = e.FleetId,
+                    ["good_id"] = e.GoodId,
+                    ["amount"] = e.Amount,
+
+                    ["source_node_id"] = e.SourceNodeId,
+                    ["target_node_id"] = e.TargetNodeId,
+                    ["source_market_id"] = e.SourceMarketId,
+                    ["target_market_id"] = e.TargetMarketId,
+
+                    ["note"] = e.Note
+                };
+
+                arr.Add(d);
+            }
+
+            return arr;
+        }
+        catch
+        {
+            return arr;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
 
     // GDScript-friendly snapshot accessor
     public Godot.Collections.Dictionary GetPlayerSnapshot()

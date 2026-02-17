@@ -4,37 +4,6 @@
     "generated_utc":  "2026-02-16T14:24:28-04:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD c6c463744473f4e4b85672b41b057128dcbeb140",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.UI.FLEET.EVENT.001",
-                      "task_id":  "GATE.UI.FLEET.EVENT.001.T247",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.EVENT.001: Fleet panel shows last N schema-bound events relevant to that fleet (logistics phase trans",
-                      "intent":  "Fleet panel shows last N schema-bound events relevant to that fleet (logistics phase transitions, cancel, override) with deterministic ordering and stable serialization",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/LogisticsEventStreamContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Events/LogisticsEvents.cs",
-                                             "SimCore/Entities/Fleet.cs",
-                                             "SimCore.Tests/Programs/FleetBindingContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/LogisticsEventStreamContractTests.cs",
-                                             "candidate_key_sha256=bff00aef1111"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
+
               ]
 }
