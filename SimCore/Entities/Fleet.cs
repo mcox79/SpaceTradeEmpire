@@ -12,6 +12,14 @@ public enum FleetState
     FractureTraveling = 3
 }
 
+public enum FleetActiveController
+{
+    None = 0,
+    Program = 1,
+    LogisticsJob = 2,
+    ManualOverride = 3
+}
+
 public class Fleet
 {
     public string Id { get; set; } = "";
@@ -45,7 +53,24 @@ public class Fleet
 
     // LOGIC STATE
     public string CurrentTask { get; set; } = "Idle"; // Explanation for UI
+
+    // Program controller (Slice 3 doctrine). Empty means no program currently owns this fleet.
+    // This is a stable identity surface for authority reporting; precedence is enforced by ActiveController.
+    public string ProgramId { get; set; } = "";
+
     public LogisticsJob? CurrentJob { get; set; } // The Active Order
+
+    [JsonIgnore]
+    public FleetActiveController ActiveController
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(ManualOverrideNodeId)) return FleetActiveController.ManualOverride;
+            if (CurrentJob != null) return FleetActiveController.LogisticsJob;
+            if (!string.IsNullOrWhiteSpace(ProgramId)) return FleetActiveController.Program;
+            return FleetActiveController.None;
+        }
+    }
 
     // CARGO
     // Gate target: dict keyed by GoodId, quantities are non-negative ints.

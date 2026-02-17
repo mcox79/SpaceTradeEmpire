@@ -5,36 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD c6c463744473f4e4b85672b41b057128dcbeb140",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.UI.FLEET.AUTH.001",
-                      "task_id":  "GATE.UI.FLEET.AUTH.001.T856",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.AUTH.001: Authority and precedence contract is explicit and enforced: each fleet reports ActiveContr",
-                      "intent":  "Authority and precedence contract is explicit and enforced: each fleet reports ActiveController (None, Program, LogisticsJob, ManualOverride); issuing ManualOverride deterministically cancels any active LogisticsJob (with reason) and clears",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs",
-                                             "SimCore/Entities/Fleet.cs",
-                                             "SimCore/Commands/FleetSetDestinationCommand.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs",
-                                             "candidate_key_sha256=3ad8bb019c09"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.DET.001",
                       "task_id":  "GATE.UI.FLEET.DET.001.T636",
                       "status":  "TODO",
