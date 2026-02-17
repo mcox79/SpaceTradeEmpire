@@ -35,38 +35,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.PROG.UI.001",
-                      "task_id":  "GATE.PROG.UI.001.T576",
-                      "status":  "TODO",
-                      "title":  "GATE.PROG.UI.001: Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride",
-                      "intent":  "Program vs ManualOverride interaction is defined and deterministic: issuing ManualOverride cancels any active LogisticsJob for that fleet and emits a schema-bound event; ProgramSystem receives a deterministic notification and either pauses ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramContractTests.cs",
-                                             "SimCore/Programs/ProgramSystem.cs",
-                                             "SimCore/Programs/ProgramBook.cs",
-                                             "scripts/ui/ProgramsMenu.cs",
-                                             "SimCore.Tests/Programs/ProgramLifecycleContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramContractTests.cs",
-                                             "candidate_key_sha256=0ad32d19f490"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.DET.001",
                       "task_id":  "GATE.UI.FLEET.DET.001.T636",
                       "status":  "TODO",

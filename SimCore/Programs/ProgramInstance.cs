@@ -10,6 +10,7 @@ public sealed class ProgramInstance
 {
     [JsonInclude] public string Id { get; set; } = "";
     [JsonInclude] public string Kind { get; set; } = "";
+    [JsonInclude] public string FleetId { get; set; } = ""; // Optional: when set, program is scoped to a fleet.
     [JsonInclude] public ProgramStatus Status { get; set; } = ProgramStatus.Paused;
 
     [JsonInclude] public int CreatedTick { get; set; } = 0;

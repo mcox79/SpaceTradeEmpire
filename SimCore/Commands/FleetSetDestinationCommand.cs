@@ -1,4 +1,5 @@
 using SimCore.Entities;
+using SimCore.Events;
 
 namespace SimCore.Commands;
 
@@ -55,10 +56,35 @@ public sealed class FleetSetDestinationCommand : ICommand
         fleet.DestinationNodeId = "";
 
 
+        // Emit schema-bound ManualOverrideSet event deterministically (authority signal).
+        state.EmitLogisticsEvent(new LogisticsEvents.Event
+        {
+            Type = LogisticsEvents.LogisticsEventType.ManualOverrideSet,
+            FleetId = fleet.Id ?? "",
+            TargetNodeId = TargetNodeId ?? "",
+            Note = string.IsNullOrWhiteSpace(Note) ? "" : Note
+        });
+
         // Authority precedence: issuing ManualOverride cancels any active LogisticsJob.
         if (fleet.CurrentJob != null)
         {
+            var job = fleet.CurrentJob;
+
             fleet.CurrentJob = null;
+
+            // Emit job cancellation separately for explain surfaces.
+            state.EmitLogisticsEvent(new LogisticsEvents.Event
+            {
+                Type = LogisticsEvents.LogisticsEventType.JobCanceled,
+                FleetId = fleet.Id ?? "",
+                GoodId = job?.GoodId ?? "",
+                Amount = job?.Amount ?? 0,
+                SourceNodeId = job?.SourceNodeId ?? "",
+                TargetNodeId = TargetNodeId ?? "",
+                SourceMarketId = "",
+                TargetMarketId = "",
+                Note = "ManualOverride"
+            });
         }
 
         // Update explain surface deterministically.

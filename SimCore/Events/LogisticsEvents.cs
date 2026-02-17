@@ -24,6 +24,9 @@ public static class LogisticsEvents
         JobCompleted = 3,
         JobCanceled = 4,
 
+        // Authority / control (manual override)
+        ManualOverrideSet = 5,
+
         // Actions issued (intents enqueued)
         PickupIssued = 10,
         DeliveryIssued = 11,
