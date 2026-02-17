@@ -183,8 +183,9 @@ try {
   [void]$sb.Append("- gate ids immutable once merged" + $nl)
   [void]$sb.Append("- no deletions by default (except deleting the completed task from docs/gates/gates.json during Step D)" + $nl)
   [void]$sb.Append("- planning commits separate from execution commits" + $nl)
-  [void]$sb.Append("- max $MaxAttachments attachments per LLM session (exclusive of docs/generated/01_CONTEXT_PACKET.md)" + $nl + $nl)
-
+  [void]$sb.Append("- max $MaxAttachments attachments per LLM session (exclusive of docs/generated/01_CONTEXT_PACKET.md)" + $nl)
+  [void]$sb.Append("- NO new files unless the task explicitly requires creating one and it is unavoidable" + $nl)
+  [void]$sb.Append("- If you propose reflection or optional behavior, you must justify determinism and failure safety" + $nl + $nl)
   [void]$sb.Append("Routing (deterministic):" + $nl)
   [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + $nl)
   [void]$sb.Append("- Else if next_gate_packet says Split required: YES: SPLIT mode (add subgates, do not delete parent)." + $nl)
@@ -194,10 +195,38 @@ try {
   [void]$sb.Append("Execute exactly one gate: the Selected task in next_gate_packet." + $nl + $nl)
 
   [void]$sb.Append("Output required (strict):" + $nl + $nl)
+  [void]$sb.Append("You MUST output exactly these sections, in this order." + $nl + $nl)
 
-  [void]$sb.Append("A) EXECUTION_OUTPUT" + $nl + $nl)
+  [void]$sb.Append("A) NARRATIVE_PLAN" + $nl + $nl)
 
-  [void]$sb.Append("1) File edits (exact paths)" + $nl)
+  [void]$sb.Append("A1) What we are doing" + $nl)
+  [void]$sb.Append("- 3 to 6 bullets explaining the intent in plain language." + $nl)
+  [void]$sb.Append("- Must reference the Selected gate id and task id." + $nl + $nl)
+
+  [void]$sb.Append("A2) Why this is the right change" + $nl)
+  [void]$sb.Append("- 2 to 5 bullets." + $nl)
+  [void]$sb.Append("- Must mention determinism risks being avoided (ordering, time sources, unordered iteration, etc.) where relevant." + $nl + $nl)
+
+  [void]$sb.Append("A3) Files we will change" + $nl)
+  [void]$sb.Append("- A numbered list." + $nl)
+  [void]$sb.Append("- Each item: file path + 1 sentence describing the change." + $nl + $nl)
+
+  [void]$sb.Append("A4) Files we will NOT change" + $nl)
+  [void]$sb.Append("- 2 to 6 bullets listing the attached files that will remain unedited, if any." + $nl)
+  [void]$sb.Append("- If all attached files will be edited, say: ""None""." + $nl + $nl)
+
+  [void]$sb.Append("A5) Step by step apply plan (human followable)" + $nl)
+  [void]$sb.Append("- A numbered list of steps." + $nl)
+  [void]$sb.Append("- Each step must correspond to exactly one PATCH block that will appear in section B." + $nl)
+  [void]$sb.Append("- Each step must say:" + $nl)
+  [void]$sb.Append("  - Which file" + $nl)
+  [void]$sb.Append("  - What to search for (a short snippet or the ANCHOR_START line)" + $nl)
+  [void]$sb.Append("  - What will be replaced conceptually (1 sentence)" + $nl)
+  [void]$sb.Append("  - What success looks like (1 sentence)" + $nl + $nl)
+
+  [void]$sb.Append("B) EXECUTION_OUTPUT" + $nl + $nl)
+
+  [void]$sb.Append("B1) File edits (exact paths)" + $nl)
   [void]$sb.Append("Default output mode is PATCH, not full-file." + $nl + $nl)
 
   [void]$sb.Append("PATCH rules (must follow exactly):" + $nl)
@@ -223,18 +252,28 @@ try {
   [void]$sb.Append("    FULL_CONTENTS:" + $nl)
   [void]$sb.Append("    <entire file>" + $nl + $nl)
 
-  [void]$sb.Append("2) Proof command(s) to run (exact commands, deterministic)" + $nl)
+  [void]$sb.Append("Anchor verification rule (hard):" + $nl)
+  [void]$sb.Append("- If you cannot quote exact ANCHOR_START and ANCHOR_END from the attachments, you MUST stop and request the file re-upload." + $nl)
+  [void]$sb.Append("- Do NOT provide approximate anchors or best guess patches." + $nl + $nl)
+
+  [void]$sb.Append("B2) Proof command(s) to run (exact commands, deterministic)" + $nl)
   [void]$sb.Append("- Provide runnable commands only (PowerShell preferred)." + $nl)
-  [void]$sb.Append("- Commands must capture exit code and output deterministically." + $nl + $nl)
+  [void]$sb.Append("- Commands must capture exit code and output deterministically." + $nl)
+  [void]$sb.Append("- If multiple commands, number them and keep to the minimum." + $nl + $nl)
 
-  [void]$sb.Append("3) If proofs fail, stop and output DIAGNOSTICS" + $nl)
-  [void]$sb.Append("- First failure only" + $nl)
-  [void]$sb.Append("- Likely cause" + $nl)
-  [void]$sb.Append("- Minimal next action" + $nl + $nl)
+  [void]$sb.Append("B3) Stop conditions" + $nl)
+  [void]$sb.Append("- If proofs fail, STOP and output DIAGNOSTICS:" + $nl)
+  [void]$sb.Append("  - first failure only" + $nl)
+  [void]$sb.Append("  - likely cause (1 to 3 bullets)" + $nl)
+  [void]$sb.Append("  - minimal next action (1 to 3 bullets)" + $nl)
+  [void]$sb.Append("- Do not propose broad refactors or additional gates in DIAGNOSTICS." + $nl + $nl)
 
-  [void]$sb.Append("B) CLOSEOUT_PATCH (always, no JSON)" + $nl)
+  [void]$sb.Append("C) CLOSEOUT_PATCH (always, no JSON)" + $nl + $nl)
+
   [void]$sb.Append("SESSION_LOG_LINE" + $nl)
-  [void]$sb.Append("- One line to append to docs/56_SESSION_LOG.md (must start with ""- "")." + $nl + $nl)
+  [void]$sb.Append("- One line to append to docs/56_SESSION_LOG.md." + $nl)
+  [void]$sb.Append("- Format must match existing file and MUST start with ""- ""." + $nl)
+  [void]$sb.Append("- Must include branch, gate id, result token PASS or FAIL, and Evidence paths separated by ;." + $nl + $nl)
 
   [void]$sb.Append("GATES_55_UPDATE" + $nl)
   [void]$sb.Append("- Either ""NO_CHANGE"" or:" + $nl)
@@ -246,11 +285,12 @@ try {
   [void]$sb.Append("- Ensure pending_completion is null after closeout." + $nl + $nl)
 
   [void]$sb.Append("Prohibited:" + $nl)
-  [void]$sb.Append("- JSON output (including finalize json)" + $nl)
+  [void]$sb.Append("- JSON output" + $nl)
   [void]$sb.Append("- planning additional gates" + $nl)
   [void]$sb.Append("- requesting broad extra context" + $nl)
   [void]$sb.Append("- exceeding attachment cap" + $nl)
-  [void]$sb.Append("- rewriting canonical docs unless the task intent explicitly requires changes there" + $nl + $nl)
+  [void]$sb.Append("- rewriting canonical docs unless the task intent explicitly requires changes there" + $nl)
+  [void]$sb.Append("- claiming you verified anything not in attachments" + $nl + $nl)
 
   [void]$sb.Append("## Attachments (in order)" + $nl)
   [void]$sb.Append("- $contextRel" + $nl)

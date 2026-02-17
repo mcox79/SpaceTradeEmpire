@@ -14,8 +14,11 @@ public static class ProgramSystem
 
         var tick = state.Tick;
 
+        ApplyManualOverrideInteractions(state, tick);
+
         // Deterministic ordering by program id
         foreach (var kv in state.Programs.Instances.OrderBy(k => k.Key, StringComparer.Ordinal))
+
         {
             var p = kv.Value;
             if (p is null) continue;
