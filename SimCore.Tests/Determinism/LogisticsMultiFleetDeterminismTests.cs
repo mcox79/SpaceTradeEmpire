@@ -2,6 +2,7 @@ using NUnit.Framework;
 using SimCore.Schemas;
 using SimCore.World;
 using SimCore;
+using SimCore.Commands;
 
 namespace SimCore.Tests.Determinism;
 
@@ -88,6 +89,62 @@ public sealed class LogisticsMultiFleetDeterminismTests
         var kB = KernelWithTwoFleetsThreeStations();
         for (var i = 0; i < 200; i++) kB.Step();
         var hashB = kB.State.GetSignature();
+
+        Assert.That(hashB, Is.EqualTo(hashA));
+    }
+
+    [Test]
+    public void TwoFleets_UiCommandInterleavings_WithSaveLoadMidSequence_IsDeterministic()
+    {
+        static string RunScenario()
+        {
+            var k = KernelWithTwoFleetsThreeStations();
+            // Preconditions: ensure we are actually exercising 2 known fleets.
+            Assert.That(k.State.Fleets.ContainsKey("fleet_trader_1"), Is.True);
+            Assert.That(k.State.Fleets.ContainsKey("fleet_trader_2"), Is.True);
+
+            // Let systems settle deterministically with both jobs present.
+            for (var i = 0; i < 5; i++) k.Step();
+            var sigSettle = k.State.GetSignature();
+
+            // Tick T: cancel job on fleet 1 (must cause a deterministic state change).
+            k.EnqueueCommand(new FleetJobCancelCommand("fleet_trader_1", "test_cancel_f1"));
+            k.Step();
+            var sigAfterCancel = k.State.GetSignature();
+            Assert.That(sigAfterCancel, Is.Not.EqualTo(sigSettle));
+
+            // Tick T+1: set manual override on fleet 2 (must cause a deterministic state change).
+            k.EnqueueCommand(new FleetSetDestinationCommand("fleet_trader_2", "stn_c", "test_override_f2"));
+            k.Step();
+            var sigAfterOverride = k.State.GetSignature();
+            Assert.That(sigAfterOverride, Is.Not.EqualTo(sigAfterCancel));
+
+            // Give movement/routing a deterministic chance to observe override.
+            for (var i = 0; i < 2; i++) k.Step();
+            var sigAfterOverrideSettled = k.State.GetSignature();
+
+            // Tick T+4: clear manual override on fleet 2 (must cause a deterministic state change).
+            k.EnqueueCommand(new FleetSetDestinationCommand("fleet_trader_2", "", "test_clear_override_f2"));
+            k.Step();
+            var sigAfterClear = k.State.GetSignature();
+            Assert.That(sigAfterClear, Is.Not.EqualTo(sigAfterOverrideSettled));
+
+            // Save/load mid-sequence must be lossless at this point.
+            var json = k.SaveToString();
+            var k2 = new SimKernel(seed: 123);
+            k2.LoadFromString(json);
+            var sigAfterLoad = k2.State.GetSignature();
+            Assert.That(sigAfterLoad, Is.EqualTo(sigAfterClear));
+
+            // Continue stepping to reach a stable post-interleaving state.
+            for (var i = 0; i < 100; i++) k2.Step();
+
+            return k2.State.GetSignature();
+
+        }
+
+        var hashA = RunScenario();
+        var hashB = RunScenario();
 
         Assert.That(hashB, Is.EqualTo(hashA));
     }

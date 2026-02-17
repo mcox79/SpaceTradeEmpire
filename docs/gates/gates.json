@@ -5,38 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD c6c463744473f4e4b85672b41b057128dcbeb140",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.UI.FLEET.DET.001",
-                      "task_id":  "GATE.UI.FLEET.DET.001.T636",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.FLEET.DET.001: Determinism regression for UI command interleavings: 2 fleets with active logistics jobs,",
-                      "intent":  "Determinism regression for UI command interleavings: 2 fleets with active logistics jobs, scripted sequence of commands across ticks (cancel, manual override, clear override) including save/load mid-sequence yields identical final hash and ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LogisticsMultiFleetDeterminismTests.cs",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Entities/Fleet.cs",
-                                             "SimCore.Tests/SaveLoad/FleetManualOverrideSaveLoadContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LogisticsMultiFleetDeterminismTests.cs",
-                                             "candidate_key_sha256=5b92b95dbdbd"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.EVENT.001",
                       "task_id":  "GATE.UI.FLEET.EVENT.001.T247",
                       "status":  "TODO",
