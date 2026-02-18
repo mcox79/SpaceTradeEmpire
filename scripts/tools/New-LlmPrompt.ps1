@@ -184,7 +184,7 @@ try {
   [void]$sb.Append("- no deletions by default (except deleting the completed task from docs/gates/gates.json during Step D)" + $nl)
   [void]$sb.Append("- planning commits separate from execution commits" + $nl)
   [void]$sb.Append("- max $MaxAttachments attachments per LLM session (exclusive of docs/generated/01_CONTEXT_PACKET.md)" + $nl)
-  [void]$sb.Append("- NO new files unless the task explicitly requires creating one and it is unavoidable" + $nl)
+  [void]$sb.Append("- Preferred NO new files unless the task requires creating one" + $nl)
   [void]$sb.Append("- If you propose reflection or optional behavior, you must justify determinism and failure safety" + $nl + $nl)
   [void]$sb.Append("Routing (deterministic):" + $nl)
   [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + $nl)
@@ -235,9 +235,13 @@ try {
   [void]$sb.Append("  PATCH:" + $nl)
   [void]$sb.Append("  - ANCHOR_START: <exact existing line to search for, copied verbatim>" + $nl)
   [void]$sb.Append("    REPLACE_RANGE:" + $nl)
-  [void]$sb.Append("    <paste the exact lines to replace, copied verbatim>" + $nl)
+  [void]$sb.Append('```' + $nl)
+  [void]$sb.Append("<paste the exact lines to replace, copied verbatim, in its own codebox>" + $nl)
+  [void]$sb.Append('```' + $nl)
   [void]$sb.Append("    WITH:" + $nl)
-  [void]$sb.Append("    <new lines>" + $nl)
+  [void]$sb.Append('```' + $nl)
+  [void]$sb.Append("<new lines, in their own codebox>" + $nl)
+  [void]$sb.Append('```' + $nl)
   [void]$sb.Append("  - (repeat per edit block)" + $nl)
   [void]$sb.Append("  ANCHOR_END: <exact existing line to search for, copied verbatim>" + $nl + $nl)
 
@@ -268,7 +272,7 @@ try {
   [void]$sb.Append("  - minimal next action (1 to 3 bullets)" + $nl)
   [void]$sb.Append("- Do not propose broad refactors or additional gates in DIAGNOSTICS." + $nl + $nl)
 
-  [void]$sb.Append("C) CLOSEOUT_PATCH (always, no JSON)" + $nl + $nl)
+  [void]$sb.Append("C) CLOSEOUT_PATCH (always, no JSON) when you're done and user confirms" + $nl + $nl)
 
   [void]$sb.Append("SESSION_LOG_LINE" + $nl)
   [void]$sb.Append("- One line to append to docs/56_SESSION_LOG.md." + $nl)

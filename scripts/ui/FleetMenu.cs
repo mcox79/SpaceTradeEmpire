@@ -23,12 +23,21 @@ public partial class FleetMenu : Control
 
     private LineEdit _overrideTarget = null!;
 
+    private string _selectedFleetId = "";
+    private Label _selectedLabel = null!;
+
     private double _accumMs = 0.0;
+
     private ulong _lastRefreshMs = 0;
 
     public override void _Ready()
     {
         _bridge = GetNode<SimBridge>("/root/SimBridge");
+
+        // Refresh UI after save/load completes so visible state matches persisted state.
+        _bridge.SimLoaded += OnSimLoaded;
+        _bridge.SaveCompleted += OnSaveCompleted;
+
         SetupUI();
         Visible = false;
     }
@@ -106,6 +115,9 @@ public partial class FleetMenu : Control
         _heartbeat = new Label { Text = "Refreshed: (never)", HorizontalAlignment = HorizontalAlignment.Center };
         root.AddChild(_heartbeat);
 
+        _selectedLabel = new Label { Text = "Selected: (none)", HorizontalAlignment = HorizontalAlignment.Center };
+        root.AddChild(_selectedLabel);
+
         root.AddChild(new HSeparator());
 
         var topRow = new HBoxContainer();
@@ -114,6 +126,20 @@ public partial class FleetMenu : Control
         var btnRefresh = new Button { Text = "Refresh" };
         btnRefresh.Pressed += Refresh;
         topRow.AddChild(btnRefresh);
+
+        var btnSave = new Button { Text = "Save" };
+        btnSave.Pressed += () =>
+        {
+            _bridge.RequestSave();
+        };
+        topRow.AddChild(btnSave);
+
+        var btnLoad = new Button { Text = "Load" };
+        btnLoad.Pressed += () =>
+        {
+            _bridge.RequestLoad();
+        };
+        topRow.AddChild(btnLoad);
 
         _autoRefresh = new CheckBox { Text = "Auto", ButtonPressed = true };
         topRow.AddChild(_autoRefresh);
@@ -195,6 +221,16 @@ public partial class FleetMenu : Control
         }
     }
 
+    private void OnSimLoaded()
+    {
+        if (Visible) Refresh();
+    }
+
+    private void OnSaveCompleted()
+    {
+        if (Visible) Refresh();
+    }
+
     private void ApplyModal(bool enable)
     {
         if (enable && _modalApplied) return;
@@ -260,12 +296,22 @@ public partial class FleetMenu : Control
 
         _list.AddChild(new Label
         {
-            Text = "ID | Node | State | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
+            Text = "ID | Node | State | Ctrl | Override | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
             Modulate = new Color(0.7f, 0.7f, 1f),
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
 
         _list.AddChild(new HSeparator());
+
+        // Keep selection stable if possible; if selection disappears, clear it.
+        if (!string.IsNullOrWhiteSpace(_selectedFleetId) && !rows.Any(r => GetStr(r!, "id") == _selectedFleetId))
+        {
+            _selectedFleetId = "";
+        }
+        if (_selectedLabel != null)
+        {
+            _selectedLabel.Text = string.IsNullOrWhiteSpace(_selectedFleetId) ? "Selected: (none)" : $"Selected: {_selectedFleetId}";
+        }
 
         foreach (var d in rows)
         {
@@ -274,23 +320,33 @@ public partial class FleetMenu : Control
             var state = GetStr(d!, "state");
             var task = GetStr(d!, "task");
 
+            var ctrl = GetStr(d!, "active_controller");
+            var overrideNode = GetStr(d!, "manual_override_node_id");
+
             var jobPhase = GetStr(d!, "job_phase");
             var jobGood = GetStr(d!, "job_good_id");
             var remaining = GetInt(d!, "job_remaining");
 
             var cargo = GetStr(d!, "cargo_summary");
             var route = GetStr(d!, "route_progress");
-            // Last N schema-bound logistics events for this fleet (newest-first, deterministic order).
-            var eventsArr = _bridge.GetFleetEventLogSnapshot(id, 10);
 
             var row = new HBoxContainer();
 
+            var btnSelect = new Button { Text = (id == _selectedFleetId) ? "Selected" : "Select" };
+            btnSelect.Disabled = (id == _selectedFleetId);
+            btnSelect.Pressed += () =>
+            {
+                _selectedFleetId = id;
+                Refresh();
+            };
+            row.AddChild(btnSelect);
+
             var label = new Label
             {
-                Text = $"{id} | {node} | {state} | {task} | {jobPhase} | {jobGood} | {remaining} | {cargo} | {route}",
+                Text = $"{id} | {node} | {state} | {ctrl} | {overrideNode} | {task} | {jobPhase} | {jobGood} | {remaining} | {cargo} | {route}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(860, 0)
+                CustomMinimumSize = new Vector2(820, 0)
             };
             row.AddChild(label);
 
@@ -319,57 +375,65 @@ public partial class FleetMenu : Control
                 Refresh();
             };
             row.AddChild(btnClear);
+
             _list.AddChild(row);
 
-            // Event log rendering: stable fields only, no time sources, deterministic iteration order.
-            if (eventsArr != null && eventsArr.Count > 0)
+            // Event timeline: render only for the selected fleet to make selection explicit and usable.
+            if (!string.IsNullOrWhiteSpace(_selectedFleetId) && id == _selectedFleetId)
             {
-                var evBox = new VBoxContainer();
-                evBox.AddChild(new Label
+                // Last N schema-bound logistics events for this fleet (newest-first, deterministic order).
+                var eventsArr = _bridge.GetFleetEventLogSnapshot(id, 25);
+
+                if (eventsArr != null && eventsArr.Count > 0)
                 {
-                    Text = "Events:",
-                    Modulate = new Color(0.8f, 0.85f, 1f),
-                    AutowrapMode = TextServer.AutowrapMode.WordSmart
-                });
-
-                foreach (var ev in eventsArr)
-                {
-                    var ed = ev.Obj as Dictionary;
-                    if (ed == null) continue;
-
-                    var seq = GetLong(ed, "seq");
-                    var tick = GetLong(ed, "tick");
-                    var type = GetInt(ed, "type");
-                    var note = GetStr(ed, "note");
-
-                    var srcNode = GetStr(ed, "source_node_id");
-                    var dstNode = GetStr(ed, "target_node_id");
-                    var srcMkt = GetStr(ed, "source_market_id");
-                    var dstMkt = GetStr(ed, "target_market_id");
-                    var good = GetStr(ed, "good_id");
-                    var amt = GetInt(ed, "amount");
-
-                    var line = $"seq={seq} tick={tick} type={type}";
-                    if (!string.IsNullOrWhiteSpace(srcNode) || !string.IsNullOrWhiteSpace(dstNode))
-                        line += $" nodes={srcNode}->{dstNode}";
-                    if (!string.IsNullOrWhiteSpace(srcMkt) || !string.IsNullOrWhiteSpace(dstMkt))
-                        line += $" mkts={srcMkt}->{dstMkt}";
-                    if (!string.IsNullOrWhiteSpace(good) || amt != 0)
-                        line += $" good={good} amt={amt}";
-                    if (!string.IsNullOrWhiteSpace(note))
-                        line += $" note={note}";
-
+                    var evBox = new VBoxContainer();
                     evBox.AddChild(new Label
                     {
-                        Text = line,
+                        Text = "Events:",
+                        Modulate = new Color(0.8f, 0.85f, 1f),
                         AutowrapMode = TextServer.AutowrapMode.WordSmart
                     });
+
+                    foreach (var ev in eventsArr)
+                    {
+                        var ed = ev.Obj as Dictionary;
+                        if (ed == null) continue;
+
+                        var seq = GetLong(ed, "seq");
+                        var tick = GetLong(ed, "tick");
+                        var type = GetInt(ed, "type");
+                        var note = GetStr(ed, "note");
+
+                        var srcNode = GetStr(ed, "source_node_id");
+                        var dstNode = GetStr(ed, "target_node_id");
+                        var srcMkt = GetStr(ed, "source_market_id");
+                        var dstMkt = GetStr(ed, "target_market_id");
+                        var good = GetStr(ed, "good_id");
+                        var amt = GetInt(ed, "amount");
+
+                        var line = $"seq={seq} tick={tick} type={type}";
+                        if (!string.IsNullOrWhiteSpace(srcNode) || !string.IsNullOrWhiteSpace(dstNode))
+                            line += $" nodes={srcNode}->{dstNode}";
+                        if (!string.IsNullOrWhiteSpace(srcMkt) || !string.IsNullOrWhiteSpace(dstMkt))
+                            line += $" mkts={srcMkt}->{dstMkt}";
+                        if (!string.IsNullOrWhiteSpace(good) || amt != 0)
+                            line += $" good={good} amt={amt}";
+                        if (!string.IsNullOrWhiteSpace(note))
+                            line += $" note={note}";
+
+                        evBox.AddChild(new Label
+                        {
+                            Text = line,
+                            AutowrapMode = TextServer.AutowrapMode.WordSmart
+                        });
+                    }
+
+                    _list.AddChild(evBox);
                 }
 
-                _list.AddChild(evBox);
                 _list.AddChild(new HSeparator());
             }
-
         }
+
     }
 }

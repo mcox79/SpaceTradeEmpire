@@ -757,6 +757,15 @@ public partial class SimBridge : Node
                     ["state"] = f.State.ToString(),
                     ["task"] = f.CurrentTask,
 
+                    // Authority surface required by Slice 3 UI/play capstones
+                    ["active_controller"] = f.ActiveController.ToString(),
+                    ["program_id"] = f.ProgramId ?? "",
+                    ["manual_override_node_id"] = f.ManualOverrideNodeId ?? "",
+
+                    // Destination surfaces (stable strings)
+                    ["destination_node_id"] = f.DestinationNodeId ?? "",
+                    ["final_destination_node_id"] = f.FinalDestinationNodeId ?? "",
+
                     // Route progress required by GATE.UI.FLEET.001
                     ["route_edge_index"] = f.RouteEdgeIndex,
                     ["route_edge_total"] = (f.RouteEdgeIds != null) ? f.RouteEdgeIds.Count : 0,
@@ -885,8 +894,83 @@ public partial class SimBridge : Node
         }
     }
 
+    public string GetFleetPlayabilityTranscript(int maxEventsPerFleet = 10)
+    {
+        if (IsLoading) return "";
+        if (maxEventsPerFleet < 0) maxEventsPerFleet = 0;
+        if (maxEventsPerFleet > 200) maxEventsPerFleet = 200;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var state = _kernel.State;
+
+            var lines = new System.Collections.Generic.List<string>(256);
+            lines.Add($"seed={WorldSeed} star_count={StarCount} tick={state.Tick}");
+
+            // Deterministic ordering: Fleet.Id Ordinal
+            var fleets = state.Fleets.Values
+                    .OrderBy(f => f.Id, StringComparer.Ordinal)
+                    .ToArray();
+
+            foreach (var f in fleets)
+            {
+                var ctrl = f.ActiveController.ToString();
+                var overrideTarget = f.ManualOverrideNodeId ?? "";
+                var jobPhase = (f.CurrentJob != null) ? f.CurrentJob.Phase.ToString() : "";
+                var jobGood = (f.CurrentJob != null) ? (f.CurrentJob.GoodId ?? "") : "";
+                var jobAmt = (f.CurrentJob != null) ? f.CurrentJob.Amount : 0;
+                var jobPicked = (f.CurrentJob != null) ? f.CurrentJob.PickedUpAmount : 0;
+
+                lines.Add($"fleet={f.Id} node={f.CurrentNodeId} state={f.State} ctrl={ctrl} override={overrideTarget} task={f.CurrentTask} job_phase={jobPhase} job_good={jobGood} job_amt={jobAmt} job_picked={jobPicked} route={f.RouteEdgeIndex}/{((f.RouteEdgeIds != null) ? f.RouteEdgeIds.Count : 0)}");
+
+                if (f.Cargo != null && f.Cargo.Count > 0)
+                {
+                    var cargoParts = f.Cargo
+                            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                            .Select(kv => $"{kv.Key}:{kv.Value}")
+                            .ToArray();
+                    lines.Add($"  cargo={string.Join(",", cargoParts)}");
+                }
+                else
+                {
+                    lines.Add("  cargo=(empty)");
+                }
+
+                if (maxEventsPerFleet > 0 && state.LogisticsEventLog != null && state.LogisticsEventLog.Count > 0)
+                {
+                    var slice = state.LogisticsEventLog
+                            .Where(e => string.Equals(e.FleetId, f.Id, StringComparison.Ordinal))
+                            .OrderByDescending(e => e.Seq)
+                            .ThenByDescending(e => e.Tick)
+                            .ThenByDescending(e => (int)e.Type)
+                            .Take(maxEventsPerFleet)
+                            .ToArray();
+
+                    foreach (var e in slice)
+                    {
+                        lines.Add($"  ev seq={e.Seq} tick={e.Tick} type={(int)e.Type} src_node={e.SourceNodeId} dst_node={e.TargetNodeId} src_mkt={e.SourceMarketId} dst_mkt={e.TargetMarketId} good={e.GoodId} amt={e.Amount} note={e.Note}");
+                    }
+                }
+            }
+
+            var transcript = string.Join("\n", lines);
+            var hash = Fnv1a64(transcript);
+            return $"hash64={hash:X16}\n" + transcript;
+        }
+        catch
+        {
+            return "";
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
     // GDScript-friendly snapshot accessor
     public Godot.Collections.Dictionary GetPlayerSnapshot()
+
     {
         var dict = new Godot.Collections.Dictionary();
         if (IsLoading) return dict;

@@ -28,6 +28,7 @@ public partial class StationMenu : Control
     private string _resolvedMarketId = "";
 
     private ProgramsMenu _programsMenu;
+    private FleetMenu _fleetMenu;
 
     private bool _playerSignalsConnected = false;
 
@@ -50,6 +51,12 @@ public partial class StationMenu : Control
         {
             // If ProgramsMenu is open, let it handle Escape (it closes itself).
             if (EnsureProgramsMenu() && _programsMenu.Visible)
+            {
+                return;
+            }
+
+            // If FleetMenu is open, let it handle Escape (it closes itself).
+            if (EnsureFleetMenu() && _fleetMenu.Visible)
             {
                 return;
             }
@@ -116,6 +123,28 @@ public partial class StationMenu : Control
         return false;
     }
 
+    private bool EnsureFleetMenu()
+    {
+        if (_fleetMenu != null && IsInstanceValid(_fleetMenu)) return true;
+
+        var fm = GetTree().Root.FindChild("FleetMenu", true, false);
+        if (fm is FleetMenu found && IsInstanceValid(found))
+        {
+            _fleetMenu = found;
+
+            var closeCallable = new Callable(this, nameof(OnFleetCloseRequested));
+            if (!_fleetMenu.IsConnected("RequestClose", closeCallable))
+            {
+                _fleetMenu.Connect("RequestClose", closeCallable);
+            }
+
+            return true;
+        }
+
+        _fleetMenu = null;
+        return false;
+    }
+
     private void SetupUI()
     {
         var panel = new PanelContainer();
@@ -153,6 +182,19 @@ public partial class StationMenu : Control
             _programsMenu.Open();
         };
         marketHeader.AddChild(btnPrograms);
+
+        var btnFleets = new Button { Text = "Fleets" };
+        btnFleets.Pressed += () =>
+        {
+            if (!EnsureFleetMenu())
+            {
+                GD.PrintErr("[StationMenu] Fleets button pressed but FleetMenu not found.");
+                return;
+            }
+
+            _fleetMenu.Open();
+        };
+        marketHeader.AddChild(btnFleets);
 
         var btnSave = new Button { Text = "Save" };
         btnSave.Pressed += () => { _bridge.RequestSave(); };
@@ -207,6 +249,7 @@ public partial class StationMenu : Control
         closeBtn.Pressed += () =>
         {
             if (EnsureProgramsMenu()) _programsMenu.Close();
+            if (EnsureFleetMenu()) _fleetMenu.Close();
             EmitSignal(SignalName.RequestUndock);
         };
         vbox.AddChild(closeBtn);
@@ -584,6 +627,12 @@ public partial class StationMenu : Control
     {
         if (!EnsureProgramsMenu()) return;
         _programsMenu.Close();
+    }
+
+    private void OnFleetCloseRequested()
+    {
+        if (!EnsureFleetMenu()) return;
+        _fleetMenu.Close();
     }
 
     public void Close() => Visible = false;
