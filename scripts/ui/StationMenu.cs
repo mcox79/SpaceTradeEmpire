@@ -141,7 +141,6 @@ public partial class StationMenu : Control
         vbox.AddChild(marketHeader);
 
         marketHeader.AddChild(new Label { Text = "MARKET (Buy/Sell + Programs)", Modulate = new Color(0.7f, 0.7f, 1f) });
-
         var btnPrograms = new Button { Text = "Programs" };
         btnPrograms.Pressed += () =>
         {
@@ -154,6 +153,33 @@ public partial class StationMenu : Control
             _programsMenu.Open();
         };
         marketHeader.AddChild(btnPrograms);
+
+        var btnSave = new Button { Text = "Save" };
+        btnSave.Pressed += () => { _bridge.RequestSave(); };
+        marketHeader.AddChild(btnSave);
+
+        var btnLoad = new Button { Text = "Load" };
+        btnLoad.Pressed += () => { _bridge.RequestLoad(); };
+        marketHeader.AddChild(btnLoad);
+
+        var btnExplain = new Button { Text = "Explain Dump" };
+        btnExplain.Pressed += () =>
+        {
+            var mid = _resolvedMarketId;
+            if (string.IsNullOrWhiteSpace(mid)) mid = _currentMarketId;
+            var t = _bridge.GetMarketExplainTranscript(mid);
+            if (string.IsNullOrWhiteSpace(t))
+            {
+                GD.Print("[StationMenu] ExplainDump: (empty)");
+                return;
+            }
+
+            foreach (var line in t.Split('\n'))
+            {
+                GD.Print(line);
+            }
+        };
+        marketHeader.AddChild(btnExplain);
 
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260) };
         vbox.AddChild(scroll);
@@ -348,15 +374,22 @@ public partial class StationMenu : Control
         // Programs snapshot (schema-bound via ProgramExplain -> JSON -> dicts)
         var progArr = _bridge.GetProgramExplainSnapshot();
         var programsByMarketGood = new Dictionary<string, Godot.Collections.Dictionary>();
+        var programQuotesById = new Dictionary<string, Godot.Collections.Dictionary>();
         foreach (var v in progArr)
         {
             if (v.Obj is not Godot.Collections.Dictionary d) continue;
+            var id = d.ContainsKey("id") ? d["id"].ToString() : "";
             var m = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
             var g = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
             if (string.IsNullOrWhiteSpace(m) || string.IsNullOrWhiteSpace(g)) continue;
-
             // One program per (market, good) for now.
             programsByMarketGood[$"{m}::{g}"] = d;
+
+            if (!string.IsNullOrWhiteSpace(id) && !programQuotesById.ContainsKey(id))
+            {
+                // Safe: acquires its own read lock; this happens outside ExecuteSafeRead.
+                programQuotesById[id] = _bridge.GetProgramQuote(id);
+            }
         }
 
         var marketId = _resolvedMarketId;
@@ -410,8 +443,32 @@ public partial class StationMenu : Control
                         progStatus = pd.ContainsKey("status") ? pd["status"].ToString() : "";
                         var cadence = pd.ContainsKey("cadence_ticks") ? (int)pd["cadence_ticks"] : 0;
                         var qty = pd.ContainsKey("quantity") ? (int)pd["quantity"] : 0;
-                        progSuffix = $" | AutoBuy: {progStatus} (q={qty}, cad={cadence}t)";
+                        string why = "";
+                        if (!string.IsNullOrWhiteSpace(progId) && programQuotesById.TryGetValue(progId, out var q))
+                        {
+                            var fails = new System.Collections.Generic.List<string>(4);
+
+                            bool getb(string k)
+                            {
+                                if (!q.ContainsKey(k)) return false;
+                                return (bool)q[k];
+                            }
+
+                            if (!getb("market_exists")) fails.Add("market_missing");
+                            if (!getb("has_enough_credits_now")) fails.Add("no_credits");
+                            if (!getb("has_enough_supply_now")) fails.Add("no_supply");
+                            if (!getb("has_enough_cargo_now")) fails.Add("no_cargo");
+
+                            if (fails.Count == 0) why = "OK";
+                            else why = "BLOCKED:" + string.Join(",", fails);
+                        }
+
+                        if (string.IsNullOrWhiteSpace(why))
+                            progSuffix = $" | AutoBuy: {progStatus} (q={qty}, cad={cadence}t)";
+                        else
+                            progSuffix = $" | AutoBuy: {progStatus} (q={qty}, cad={cadence}t) | {why}";
                     }
+
 
                     var lbl = new Label
                     {

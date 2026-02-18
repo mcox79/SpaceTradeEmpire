@@ -146,7 +146,7 @@ Optional: normalize leading 4-space blocks into tabs (writes UTF-8 no BOM)
 
 Notes:
 - This validator enforces tabs-only indentation and runs a Godot headless parse gate.
-- It may create and clean up a temporary script under `_scratch/` during parsing; it attempts to avoid dirtying the repo.
+- It may create and clean up a temporary script under _scratch/ during parsing; it attempts to avoid dirtying the repo.
 
 ### C3. Connectivity scan (file-level)
 - Script: `scripts/tools/Scan-Connectivity.ps1`

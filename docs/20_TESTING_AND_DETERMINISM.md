@@ -1,36 +1,12 @@
 \# 90\_GLOSSARY\_AND\_IDS
 
-
-
-
-
-
-
 Canonical vocabulary and stable identifiers referenced across docs and code.
 
-
-
-
-
-
-
 This file exists to prevent drift and ambiguous terminology.
-
-
-
-
-
-
 
 Glossary precedence rule:
 
 \- If a term is used inconsistently across canonical docs or code, this glossary wins. Fix the conflicting doc/code to match the glossary.
-
-
-
-
-
-
 
 See also:
 
@@ -182,7 +158,11 @@ Tier 1
 
 &nbsp; - `dotnet test` for relevant test projects (for example `SimCore.Tests/`)
 
-&nbsp; - smoke tests (when present)
+&nbsp;   - smoke tests (when present)
+
+  - headless Godot capstone scripts (when present): run with the *_console.exe binary and --headless --script; capture output to docs/generated/ and assert deterministic hashes.
+
+  - save/load preservation proofs (when present): verify post-load visible state matches pre-load (no implicit tick advance during load)
 
 
 
@@ -372,17 +352,15 @@ Deterministic
 
 \- Meaning: repeated runs with the same deterministic inputs produce identical outputs (as defined by `docs/20\_TESTING\_AND\_DETERMINISM.md`).
 
-
-
-
-
-
-
 Deterministic inputs
 
+- Meaning: explicit, serializable inputs to a simulation run (seed, scenario/config, command list).
 
+SaveLoad preservation boundary
 
-\- Meaning: explicit, serializable inputs to a simulation run (seed, scenario/config, command list).
+- Meaning: a save followed by a load reproduces identical sim-visible state (including explain transcripts) for the same deterministic inputs.
+
+- Rule: load is exclusive; do not advance simulation time (do not step a tick) in the same loop iteration as executing load.
 
 
 

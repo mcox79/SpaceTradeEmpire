@@ -133,41 +133,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.UI.EXPLAIN.PLAY.001",
-                      "task_id":  "GATE.UI.EXPLAIN.PLAY.001.T546",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.EXPLAIN.PLAY.001:",
-                      "intent":  "Execute GATE.UI.EXPLAIN.PLAY.001 task using evidence paths.",
-                      "evidence_paths":  [
-                                             "scripts/tests/verify_phase3.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/ui/StationMenu.cs",
-                                             "scripts/ui/ProgramsMenu.cs",
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/Events/LogisticsEvents.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Explainability capstone: guided headless path triggers one representative failure; UI surfaces why; deterministic output for repro; save/load preserves visible",
-                                              "explanation state"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/verify_phase3.gd",
-                                             "candidate_key_sha256=edcad2d0bba3"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.UI.FLEET.PLAY.001",
                       "task_id":  "GATE.UI.FLEET.PLAY.001.T374",
                       "status":  "TODO",

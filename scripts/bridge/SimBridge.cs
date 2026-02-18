@@ -19,6 +19,14 @@ namespace SpaceTradeEmpire.Bridge;
 public partial class SimBridge : Node
 {
     [Signal] public delegate void SimLoadedEventHandler();
+    [Signal] public delegate void SaveCompletedEventHandler();
+
+    private volatile bool _emitSaveCompletePending = false;
+    private int _saveEpoch = 0;
+    private int _loadEpoch = 0;
+
+    public int GetSaveEpoch() => Volatile.Read(ref _saveEpoch);
+    public int GetLoadEpoch() => Volatile.Read(ref _loadEpoch);
 
     [Export] public int WorldSeed { get; set; } = 12345;
     [Export] public int StarCount { get; set; } = 20;
@@ -79,7 +87,12 @@ public partial class SimBridge : Node
 
     public override void _Process(double delta)
     {
-        // Emit load complete on main thread.
+        // Emit save/load complete on main thread.
+        if (_emitSaveCompletePending)
+        {
+            _emitSaveCompletePending = false;
+            EmitSignal(SignalName.SaveCompleted);
+        }
         if (_emitLoadCompletePending)
         {
             _emitLoadCompletePending = false;
@@ -153,11 +166,23 @@ public partial class SimBridge : Node
         {
             try
             {
-                // Loading is exclusive.
+                // Loading is exclusive. If we load, do NOT step this iteration.
+                // Otherwise the post-load state advances by one tick and breaks save/load preservation.
                 if (_loadRequested)
                 {
                     _loadRequested = false;
                     ExecuteLoad();
+
+                    if (TickDelayMs > 0)
+                    {
+                        await Task.Delay(TickDelayMs, token);
+                    }
+                    else
+                    {
+                        await Task.Yield();
+                    }
+
+                    continue;
                 }
 
                 // Saving can occur between steps.
@@ -887,6 +912,130 @@ public partial class SimBridge : Node
         }
     }
 
+    public string GetMarketExplainTranscript(string marketId)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(marketId)) return "";
+        _stateLock.EnterReadLock();
+        try
+        {
+            var state = _kernel.State;
+
+            var lines = new System.Collections.Generic.List<string>(256);
+            lines.Add("[EXPLAIN] v1");
+            lines.Add($"tick={state.Tick}");
+            lines.Add($"market_id={marketId}");
+            lines.Add($"player_credits={state.PlayerCredits}");
+            lines.Add($"player_location={state.PlayerLocationNodeId}");
+
+            if (state.Markets.TryGetValue(marketId, out var market))
+            {
+                lines.Add("market_inventory:");
+                foreach (var kv in market.Inventory.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    lines.Add($"  {kv.Key}={kv.Value}");
+                }
+            }
+            else
+            {
+                lines.Add("market_inventory: (missing)");
+            }
+
+            lines.Add("player_cargo:");
+            foreach (var kv in state.PlayerCargo.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                lines.Add($"  {kv.Key}={kv.Value}");
+            }
+
+            lines.Add("programs:");
+            if (state.Programs is null)
+            {
+                lines.Add("  (none)");
+            }
+            else
+            {
+                var programs = state.Programs.Instances.Values
+                    .Where(p => string.Equals(p.MarketId, marketId, StringComparison.Ordinal))
+                    .OrderBy(p => p.Id, StringComparer.Ordinal)
+                    .ToArray();
+
+                if (programs.Length == 0)
+                {
+                    lines.Add("  (none)");
+                }
+                else
+                {
+                    foreach (var p in programs)
+                    {
+                        var snap = ProgramQuoteSnapshot.Capture(state, p.Id);
+                        var quote = ProgramQuote.BuildFromSnapshot(snap);
+
+                        lines.Add($"  {quote.ProgramId} kind={quote.Kind} status={p.Status} good={quote.GoodId} qty={quote.Quantity} cad={quote.CadenceTicks}");
+                        lines.Add($"    constraints: market_exists={quote.Constraints.MarketExists} credits_now={quote.Constraints.HasEnoughCreditsNow} supply_now={quote.Constraints.HasEnoughSupplyNow} cargo_now={quote.Constraints.HasEnoughCargoNow}");
+
+                        if (quote.Risks.Count > 0)
+                        {
+                            lines.Add("    risks:");
+                            foreach (var r in quote.Risks)
+                            {
+                                lines.Add($"      {r}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            lines.Add("sustainment:");
+            var sites = SustainmentSnapshot.BuildForNode(state, marketId)
+                .OrderBy(s => s.SiteId, StringComparer.Ordinal)
+                .ToArray();
+
+            if (sites.Length == 0)
+            {
+                lines.Add("  (none)");
+            }
+            else
+            {
+                foreach (var s in sites)
+                {
+                    lines.Add($"  {s.SiteId} node={s.NodeId} health_bps={s.HealthBps} eff_bps={s.EffBpsNow} margin={s.WorstBufferMargin:0.00} starve={s.StarveBand} fail={s.FailBand}");
+                    foreach (var inp in s.Inputs.OrderBy(i => i.GoodId, StringComparer.Ordinal))
+                    {
+                        lines.Add($"    {inp.GoodId} have={inp.HaveUnits} req_per_tick={inp.PerTickRequired} target={inp.BufferTargetUnits} cover={inp.CoverageBand} margin={inp.BufferMargin:0.00}");
+                    }
+                }
+            }
+
+            var transcript = string.Join("\n", lines);
+            var hash = Fnv1a64(transcript);
+            return $"hash64={hash:X16}\n" + transcript;
+        }
+        catch
+        {
+            return "";
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+    private static ulong Fnv1a64(string s)
+    {
+        unchecked
+        {
+            const ulong offset = 14695981039346656037UL;
+            const ulong prime = 1099511628211UL;
+            ulong h = offset;
+            for (int i = 0; i < s.Length; i++)
+            {
+                h ^= (byte)s[i];
+                h *= prime;
+            }
+            return h;
+        }
+    }
+
     public void RequestSave()
     {
         _saveRequested = true;
@@ -911,8 +1060,11 @@ public partial class SimBridge : Node
             {
                 _stateLock.ExitReadLock();
             }
-
             File.WriteAllText(_savePathAbs, json);
+
+            Interlocked.Increment(ref _saveEpoch);
+            _emitSaveCompletePending = true;
+
             GD.Print($"[BRIDGE] Saved: {_savePathAbs}");
         }
         catch (Exception ex)
@@ -928,7 +1080,6 @@ public partial class SimBridge : Node
             GD.Print("[BRIDGE] Load requested but no save exists.");
             return;
         }
-
         IsLoading = true;
         try
         {
@@ -944,7 +1095,9 @@ public partial class SimBridge : Node
                 _stateLock.ExitWriteLock();
             }
 
+            Interlocked.Increment(ref _loadEpoch);
             _emitLoadCompletePending = true;
+
             GD.Print("[BRIDGE] Load complete.");
         }
         catch (Exception ex)
