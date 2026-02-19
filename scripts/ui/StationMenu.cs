@@ -17,9 +17,9 @@ public partial class StationMenu : Control
 	private Label _marketStatusLabel;
 	private VBoxContainer _marketList;
 	private VBoxContainer _trafficList;
+	private VBoxContainer _logisticsList;
 	private VBoxContainer _sustainmentList;
 	private Label _creditsLabel;
-
 
 	private SimBridge _bridge;
 
@@ -280,6 +280,15 @@ public partial class StationMenu : Control
         vbox.AddChild(_trafficList);
 
         vbox.AddChild(new HSeparator());
+        vbox.AddChild(new Label { Text = "LOGISTICS (jobs + buffer deficits)", Modulate = new Color(0.85f, 0.85f, 0.6f) });
+
+        var logiScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 140) };
+        vbox.AddChild(logiScroll);
+
+        _logisticsList = new VBoxContainer();
+        logiScroll.AddChild(_logisticsList);
+
+        vbox.AddChild(new HSeparator());
         vbox.AddChild(new Label { Text = "SUSTAINMENT (banded, no exact countdowns)", Modulate = new Color(0.8f, 1f, 0.8f) });
 
         var susScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 120) };
@@ -498,6 +507,10 @@ public partial class StationMenu : Control
             _resolvedMarketId = marketId;
         }
 
+        // Logistics snapshot via SimBridge facts (nonblocking). Use resolved market id when available.
+        var logiKey = !string.IsNullOrWhiteSpace(marketId) ? marketId : _currentMarketId;
+        var logiSnap = _bridge.GetLogisticsStationSnapshot(logiKey, maxItems: 8);
+
         if (!_bridge.TryExecuteSafeRead(state =>
         {
             if (state.Nodes.ContainsKey(_currentMarketId))
@@ -662,6 +675,75 @@ public partial class StationMenu : Control
             foreach (var f in fleets)
             {
                 _trafficList.AddChild(new Label { Text = $"> {f.Id}: {f.CurrentTask}" });
+            }
+
+            foreach (var child in _logisticsList.GetChildren()) child.QueueFree();
+
+            // Render SimBridge logistics facts with deterministic ordering already applied in the snapshot.
+            if (logiSnap is Godot.Collections.Dictionary ld)
+            {
+                var status = ld.ContainsKey("status") ? ld["status"].ToString() : "";
+                var mid = ld.ContainsKey("market_id") ? ld["market_id"].ToString() : "";
+
+                var jobCount = ld.ContainsKey("job_count") ? (int)ld["job_count"] : 0;
+                var shortageCount = ld.ContainsKey("shortage_count") ? (int)ld["shortage_count"] : 0;
+                var bottleneckCount = ld.ContainsKey("bottleneck_count") ? (int)ld["bottleneck_count"] : 0;
+
+                // DEBUG: prove the actual runtime shape of shortages in Variant space.
+                // Deterministic, no timestamps.
+                var shortagesPresent = ld.ContainsKey("shortages");
+                var dbgShortagesArr = shortagesPresent ? ld["shortages"].AsGodotArray() : null;
+                var dbgShortagesToString = shortagesPresent ? ld["shortages"].ToString() : "MISSING";
+
+                _logisticsList.AddChild(new Label
+                {
+                    Text =
+                        "dbg_shortages: present=" + shortagesPresent +
+                        " as_arr_count=" + (dbgShortagesArr != null ? dbgShortagesArr.Count : -1) +
+                        " toString=" + dbgShortagesToString
+                });
+
+
+                var jobsArr = ld.ContainsKey("jobs") ? ld["jobs"].AsGodotArray() : null;
+                if (jobsArr != null && jobsArr.Count > 0)
+                {
+                    _logisticsList.AddChild(new Label { Text = "jobs:" });
+                    foreach (var v in jobsArr)
+                    {
+                        if (v.Obj is not Godot.Collections.Dictionary jd) continue;
+
+                        var fid = jd.ContainsKey("fleet_id") ? jd["fleet_id"].ToString() : "";
+                        var phase = jd.ContainsKey("phase") ? jd["phase"].ToString() : "";
+                        var good = jd.ContainsKey("good_id") ? jd["good_id"].ToString() : "";
+                        var rem = jd.ContainsKey("remaining") ? (int)jd["remaining"] : 0;
+                        var src = jd.ContainsKey("source_node_id") ? jd["source_node_id"].ToString() : "";
+                        var dst = jd.ContainsKey("target_node_id") ? jd["target_node_id"].ToString() : "";
+
+                        _logisticsList.AddChild(new Label { Text = $"  - fleet={fid} phase={phase} good={good} remaining={rem} src={src} dst={dst}" });
+                    }
+                }
+                else
+                {
+                    _logisticsList.AddChild(new Label { Text = "(no active jobs touching this market)" });
+                }
+
+                var shArr = ld.ContainsKey("shortages") ? ld["shortages"].AsGodotArray() : null;
+                if (shArr != null && shArr.Count > 0)
+                {
+                    _logisticsList.AddChild(new Label { Text = "bottlenecks (top deficits):" });
+                    foreach (var v in shArr)
+                    {
+                        if (v.Obj is not Godot.Collections.Dictionary sd) continue;
+
+                        var siteId = sd.ContainsKey("site_id") ? sd["site_id"].ToString() : "";
+                        var goodId = sd.ContainsKey("good_id") ? sd["good_id"].ToString() : "";
+                        var cur = sd.ContainsKey("current") ? (int)sd["current"] : 0;
+                        var tgt = sd.ContainsKey("target") ? (int)sd["target"] : 0;
+                        var def = sd.ContainsKey("deficit") ? (int)sd["deficit"] : 0;
+
+                        _logisticsList.AddChild(new Label { Text = $"  - site={siteId} good={goodId} have={cur} target={tgt} deficit={def}" });
+                    }
+                }
             }
 
             foreach (var child in _sustainmentList.GetChildren()) child.QueueFree();

@@ -50,6 +50,11 @@ public partial class SimBridge : Node
     private string _cachedPlayerLocation = "";
     private Godot.Collections.Dictionary _cachedPlayerCargo = new Godot.Collections.Dictionary();
 
+    // Cached logistics snapshot (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
+    private Godot.Collections.Dictionary _cachedLogisticsSnapshot = new Godot.Collections.Dictionary();
+    private string _cachedLogisticsSnapshotKey = "";
+
     private string _savePathAbs = "";
 
     private volatile bool _saveRequested = false;
@@ -1047,6 +1052,196 @@ public partial class SimBridge : Node
             dict["cargo"] = _cachedPlayerCargo;
             return dict;
         }
+    }
+
+    // --- Station logistics snapshot (GATE.UI.LOGISTICS.001) ---
+    // Minimal readout via SimBridge facts: active jobs + buffer deficits (shortages) + bottlenecks.
+    // Determinism:
+    // - jobs ordered by FleetId Ordinal
+    // - shortages ordered by deficit desc, then GoodId Ordinal, then SiteId Ordinal
+    // Failure safety:
+    // - never blocks UI thread; returns cached snapshot when sim holds write lock
+    public Godot.Collections.Dictionary GetLogisticsStationSnapshot(string nodeOrMarketId, int maxItems = 8)
+    {
+        var dict = new Godot.Collections.Dictionary();
+        if (IsLoading) return dict;
+
+        if (string.IsNullOrWhiteSpace(nodeOrMarketId))
+        {
+            dict["status"] = "NO_KEY";
+            return dict;
+        }
+
+        if (maxItems <= 0) maxItems = 1;
+        if (maxItems > 50) maxItems = 50;
+
+        // Never block the main thread behind sim stepping.
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+
+                var marketId = ResolveMarketIdFromNodeOrMarket(state, nodeOrMarketId);
+                if (string.IsNullOrWhiteSpace(marketId) || !state.Markets.ContainsKey(marketId))
+                {
+                    dict["status"] = "NO_MARKET";
+                    dict["key"] = nodeOrMarketId;
+                    dict["market_id"] = marketId ?? "";
+                }
+                else
+                {
+                    dict["status"] = "OK";
+                    dict["key"] = nodeOrMarketId;
+                    dict["market_id"] = marketId;
+                }
+
+                var jobsArr = new Godot.Collections.Array();
+                var shortagesArr = new Godot.Collections.Array();
+
+                // Jobs touching this market (source or target), deterministic by FleetId.
+                foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+                {
+                    var job = fleet.CurrentJob;
+                    if (job is null) continue;
+
+                    var srcMarketId = ResolveMarketIdFromNodeOrMarket(state, job.SourceNodeId ?? "");
+                    var dstMarketId = ResolveMarketIdFromNodeOrMarket(state, job.TargetNodeId ?? "");
+
+                    if (!string.IsNullOrWhiteSpace(marketId) &&
+                        !string.Equals(srcMarketId, marketId, StringComparison.Ordinal) &&
+                        !string.Equals(dstMarketId, marketId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    int remaining;
+                    if (job.Phase == SimCore.Entities.LogisticsJobPhase.Pickup)
+                    {
+                        remaining = Math.Max(0, job.Amount - job.PickedUpAmount);
+                    }
+                    else
+                    {
+                        remaining = Math.Max(0, job.PickedUpAmount);
+                    }
+
+                    var jd = new Godot.Collections.Dictionary
+                    {
+                        ["fleet_id"] = fleet.Id ?? "",
+                        ["phase"] = job.Phase.ToString(),
+                        ["good_id"] = job.GoodId ?? "",
+                        ["amount"] = job.Amount,
+                        ["picked_up_amount"] = job.PickedUpAmount,
+                        ["remaining"] = remaining,
+                        ["source_node_id"] = job.SourceNodeId ?? "",
+                        ["target_node_id"] = job.TargetNodeId ?? "",
+                        ["source_market_id"] = srcMarketId ?? "",
+                        ["target_market_id"] = dstMarketId ?? ""
+                    };
+
+                    jobsArr.Add(jd);
+                }
+
+                // Buffer deficits for industry sites at this market (shortages), plus bottlenecks as top deficits.
+                if (!string.IsNullOrWhiteSpace(marketId) &&
+                    state.Markets.TryGetValue(marketId, out var market))
+                {
+                    var deficits = new System.Collections.Generic.List<(string SiteId, string GoodId, int Target, int Current, int Deficit)>();
+
+                    foreach (var site in state.IndustrySites.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
+                    {
+                        if (!site.Active) continue;
+                        if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
+
+                        var siteMarketId = ResolveMarketIdFromNodeOrMarket(state, site.NodeId);
+                        if (!string.Equals(siteMarketId, marketId, StringComparison.Ordinal)) continue;
+
+                        foreach (var input in site.Inputs.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                        {
+                            var goodId = input.Key;
+                            var perTick = input.Value;
+                            if (string.IsNullOrWhiteSpace(goodId)) continue;
+                            if (perTick <= 0) continue;
+
+                            var target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
+                            var current = market.Inventory.TryGetValue(goodId, out var curUnits) ? curUnits : 0;
+                            var deficit = target - current;
+                            if (deficit <= 0) continue;
+
+                            deficits.Add((site.Id ?? "", goodId, target, current, deficit));
+                        }
+                    }
+
+                    var ordered = deficits
+                        .OrderByDescending(x => x.Deficit)
+                        .ThenBy(x => x.GoodId, StringComparer.Ordinal)
+                        .ThenBy(x => x.SiteId, StringComparer.Ordinal)
+                        .Take(maxItems)
+                        .ToArray();
+
+                    foreach (var d in ordered)
+                    {
+                        shortagesArr.Add(new Godot.Collections.Dictionary
+                        {
+                            ["site_id"] = d.SiteId,
+                            ["good_id"] = d.GoodId,
+                            ["current"] = d.Current,
+                            ["target"] = d.Target,
+                            ["deficit"] = d.Deficit
+                        });
+                    }
+
+                    dict["shortage_count"] = deficits.Count;
+                }
+                else
+                {
+                    dict["shortage_count"] = 0;
+                }
+
+                dict["jobs"] = jobsArr;
+                dict["job_count"] = jobsArr.Count;
+                dict["shortages"] = shortagesArr;
+                dict["bottleneck_count"] = shortagesArr.Count;
+
+                // Cache for the next time we can't acquire the lock.
+                lock (_snapshotLock)
+                {
+                    _cachedLogisticsSnapshotKey = nodeOrMarketId;
+                    _cachedLogisticsSnapshot = dict;
+                }
+
+                return dict;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        // Lock busy: return cached snapshot (best-effort, nonblocking).
+        lock (_snapshotLock)
+        {
+            // If key changed, still return cached snapshot rather than blocking.
+            return _cachedLogisticsSnapshot;
+        }
+    }
+
+    private static string ResolveMarketIdFromNodeOrMarket(SimState state, string nodeOrMarketId)
+    {
+        if (state is null) return "";
+        if (string.IsNullOrWhiteSpace(nodeOrMarketId)) return "";
+
+        if (state.Markets.ContainsKey(nodeOrMarketId)) return nodeOrMarketId;
+
+        if (state.Nodes.TryGetValue(nodeOrMarketId, out var node))
+        {
+            if (!string.IsNullOrWhiteSpace(node.MarketId) && state.Markets.ContainsKey(node.MarketId))
+            {
+                return node.MarketId;
+            }
+        }
+
+        return "";
     }
 
     public string GetMarketExplainTranscript(string marketId)
