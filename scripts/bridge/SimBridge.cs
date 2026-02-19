@@ -43,7 +43,15 @@ public partial class SimBridge : Node
 
     private readonly ReaderWriterLockSlim _stateLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
+    // UI snapshots must not stall the main thread waiting for sim write locks.
+    // If the read lock is busy (sim stepping), return cached values instead of blocking a frame.
+    private readonly object _snapshotLock = new object();
+    private long _cachedPlayerCredits = 0;
+    private string _cachedPlayerLocation = "";
+    private Godot.Collections.Dictionary _cachedPlayerCargo = new Godot.Collections.Dictionary();
+
     private string _savePathAbs = "";
+
     private volatile bool _saveRequested = false;
     private volatile bool _loadRequested = false;
 
@@ -233,6 +241,29 @@ public partial class SimBridge : Node
         try
         {
             action(_kernel.State);
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+    // Nonblocking variant for UI: avoids frame hitches by not waiting behind sim write locks.
+    // Returns false if the lock could not be acquired within timeoutMs.
+    public bool TryExecuteSafeRead(Action<SimState> action, int timeoutMs = 0)
+    {
+        if (IsLoading) return false;
+        if (action == null) return false;
+
+        if (!_stateLock.TryEnterReadLock(timeoutMs))
+        {
+            return false;
+        }
+
+        try
+        {
+            action(_kernel.State);
+            return true;
         }
         finally
         {
@@ -970,29 +1001,51 @@ public partial class SimBridge : Node
 
     // GDScript-friendly snapshot accessor
     public Godot.Collections.Dictionary GetPlayerSnapshot()
-
     {
         var dict = new Godot.Collections.Dictionary();
         if (IsLoading) return dict;
 
-        _stateLock.EnterReadLock();
-        try
+        // Never block the main thread behind sim stepping.
+        if (_stateLock.TryEnterReadLock(0))
         {
-            dict["credits"] = _kernel.State.PlayerCredits;
-            dict["location"] = _kernel.State.PlayerLocationNodeId;
-
-            var cargo = new Godot.Collections.Dictionary();
-            foreach (var kv in _kernel.State.PlayerCargo)
+            try
             {
-                cargo[kv.Key] = kv.Value;
-            }
-            dict["cargo"] = cargo;
+                var credits = _kernel.State.PlayerCredits;
+                var location = _kernel.State.PlayerLocationNodeId ?? "";
 
-            return dict;
+                var cargo = new Godot.Collections.Dictionary();
+                foreach (var kv in _kernel.State.PlayerCargo)
+                {
+                    cargo[kv.Key] = kv.Value;
+                }
+
+                dict["credits"] = credits;
+                dict["location"] = location;
+                dict["cargo"] = cargo;
+
+                // Update cache for the next time we can't acquire the lock.
+                lock (_snapshotLock)
+                {
+                    _cachedPlayerCredits = credits;
+                    _cachedPlayerLocation = location;
+                    _cachedPlayerCargo = cargo; // cargo is a fresh dictionary, safe to reuse as cache
+                }
+
+                return dict;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
         }
-        finally
+
+        // Lock busy: return cached snapshot (best-effort, nonblocking).
+        lock (_snapshotLock)
         {
-            _stateLock.ExitReadLock();
+            dict["credits"] = _cachedPlayerCredits;
+            dict["location"] = _cachedPlayerLocation;
+            dict["cargo"] = _cachedPlayerCargo;
+            return dict;
         }
     }
 

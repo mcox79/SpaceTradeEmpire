@@ -11,7 +11,7 @@ public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
     private StationMenu _menu;
-    
+
     // CACHE FOR DYNAMIC UPDATES
     private Dictionary<string, StarNode> _starNodes = new();
     private Dictionary<string, MeshInstance3D> _edgeMeshes = new();
@@ -67,24 +67,28 @@ public partial class GalaxyView : Node3D
     {
         // StationMenu is responsible for connecting to PlayerShip.shop_toggled.
         // Do not connect it here, or you will get duplicate connection errors.
-    
+
         if (_bridge == null || _bridge.IsLoading) return;
-        
-        _bridge.ExecuteSafeRead(state => 
+
+        if (!_bridge.TryExecuteSafeRead(state =>
         {
             UpdateFleets(state);
             UpdateEnvironment(state); // New: Heat/Trace Visualization
-        });
+        }, timeoutMs: 0))
+        {
+            // Sim is stepping; do not stall the frame.
+            return;
+        }
     }
 
     private void DrawPhysicalMap()
     {
-        _bridge.ExecuteSafeRead(state =>
+        if (!_bridge.TryExecuteSafeRead(state =>
         {
             if (state.Nodes == null) return;
             var sphereShape = new SphereShape3D { Radius = 2.5f };
             var starMesh = new SphereMesh { Radius = 1.0f };
-            
+
             // Base materials (will be overridden by dynamic updates)
             var starMat = new StandardMaterial3D { AlbedoColor = new Color(0, 0.6f, 1.0f), EmissionEnabled = true };
             starMesh.Material = starMat;
@@ -101,12 +105,12 @@ public partial class GalaxyView : Node3D
                 _starNodes[node.Id] = starNode;
                 var col = new CollisionShape3D { Shape = sphereShape };
                 starNode.AddChild(col);
-                
+
                 var mesh = new MeshInstance3D { Mesh = starMesh };
                 // UNIQUE MATERIAL per star to allow individual tinting
                 mesh.MaterialOverride = starMat.Duplicate() as Material;
                 starNode.AddChild(mesh);
-                
+
                 var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 3.5f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32 };
                 starNode.AddChild(lbl);
             }
@@ -117,18 +121,23 @@ public partial class GalaxyView : Node3D
                 {
                     if (_edgeMeshes.ContainsKey(edge.Id)) continue;
                     if (!state.Nodes.ContainsKey(edge.FromNodeId) || !state.Nodes.ContainsKey(edge.ToNodeId)) continue;
-                    
+
                     var p1 = state.Nodes[edge.FromNodeId].Position;
                     var p2 = state.Nodes[edge.ToNodeId].Position;
-                    
+
                     // Create unique material for this edge
                     var lineMat = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.3f, 0.3f), EmissionEnabled = true };
                     var meshInstance = DrawLine(new Vector3(p1.X, p1.Y, p1.Z), new Vector3(p2.X, p2.Y, p2.Z), lineMat);
-                    
+
                     _edgeMeshes[edge.Id] = meshInstance;
                 }
             }
-        });
+        }, timeoutMs: 0))
+        {
+            // If the sim is stepping, retry next idle frame so the map eventually draws without stalling.
+            CallDeferred(nameof(DrawPhysicalMap));
+            return;
+        }
     }
 
     private void UpdateEnvironment(SimCore.SimState state)
@@ -227,7 +236,7 @@ public partial class GalaxyView : Node3D
             Transform3D t = new Transform3D(Basis.Identity, pos);
             if (pos.DistanceSquaredTo(lookTarget) > 0.01f)
             {
-                 t = t.LookingAt(lookTarget, Vector3.Up);
+                t = t.LookingAt(lookTarget, Vector3.Up);
             }
 
             _fleetMultiMesh.SetInstanceTransform(i, t);
