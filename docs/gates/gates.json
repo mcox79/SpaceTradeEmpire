@@ -131,43 +131,7 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id": "GATE.UI.DOCK.NONSTATION.001",
-                      "task_id": "GATE.UI.DOCK.NONSTATION.001.T001",
-                      "status": "TODO",
-                      "title": "GATE.UI.DOCK.NONSTATION.001: Non-station docking UI market resolution",
-                      "intent": "Non-station docking is supported: StationMenu remains usable (Undock, Fleets, Save/Load, Explain) while market UI gracefully degrades or deterministically maps a node_id to a market_id. Eliminate ERROR spam when docking at non-market nodes (example: star_0).",
-                      "evidence_paths": [
-                                              "scenes/playable_prototype.tscn",
-                                              "scripts/ui/StationMenu.cs",
-                                              "scripts/ui/FleetMenu.cs",
-                                              "scripts/bridge/SimBridge.cs"
-                                            ],
-                      "constraints":      [
-                        "Deterministic behavior only: no time sources, no unordered iteration, no random fallbacks.",
-                        "Non-station docking is intended: do NOT disable docking at non-stations as a workaround.",
-                        "If a node has no market, market UI must be explicitly N/A (no hidden defaults).",
-                        "Keep changes minimal: prefer StationMenu-only fix unless SimBridge must expose a stable resolver."
-                      ],
-                      "completion_hint": [
-                        "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
-                        "In-game proof: boot playable_prototype, dock at a non-station node (ex: star_0) and verify StationMenu opens, Undock works, Fleets opens, Save/Load works.",
-                        "No Godot ERROR logs from ResolveMarketId when docked at non-station nodes (warnings allowed only if explicitly justified).",
-                        "If market UI is shown while docked non-station, mapping from node_id to market_id must be deterministic and visible in UI (no implicit defaults)."
-                      ],
-                      "task_preflight": [
-                        "anchor=scripts/ui/StationMenu.cs",
-                        "candidate_key_sha256=TODO"
-                      ],
-                      "escalation_rules": [
-                        {
-                          "when": "DEFAULT",
-                          "route": "STOP",
-                          "note": "Escalate if this requires adding new save data, changing simulation semantics, or touching more than StationMenu + (optional) SimBridge."
-                        }
-  ]
-}
+                  }
 
               ]
 }
