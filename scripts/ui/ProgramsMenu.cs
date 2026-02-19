@@ -216,7 +216,7 @@ public partial class ProgramsMenu : Control
         var rows = arr
                 .Select(v => v.Obj as Dictionary)
                 .Where(d => d != null)
-                .OrderBy(d => GetStr(d!, "id"))
+                .OrderBy(d => GetStr(d!, "id"), StringComparer.Ordinal)
                 .ToArray();
 
         if (_showCancelled != null && !_showCancelled.ButtonPressed)
@@ -296,9 +296,12 @@ public partial class ProgramsMenu : Control
         string fmt(Dictionary d)
         {
             var parts = d.Keys
-                    .Select(k => $"{k}: {d[k]}")
-                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .Select(k => new { KeyObj = k, KeyStr = (k.VariantType == Variant.Type.Nil) ? "" : k.ToString() })
+                    .Where(x => !string.IsNullOrWhiteSpace(x.KeyStr))
+                    .OrderBy(x => x.KeyStr, StringComparer.Ordinal)
+                    .Select(x => $"{x.KeyStr}: {d[x.KeyObj]}")
                     .ToArray();
+
             return string.Join("\n", parts);
         }
 
