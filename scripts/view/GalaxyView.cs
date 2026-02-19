@@ -95,24 +95,43 @@ public partial class GalaxyView : Node3D
 
             foreach (var node in state.Nodes.Values)
             {
-                if (_starNodes.ContainsKey(node.Id)) continue;
+                if (_starNodes.ContainsKey(node.Id))
+                    continue;
+
                 var starNode = new StarNode();
                 starNode.Name = node.Id;
                 starNode.NodeId = node.Id;
                 starNode.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
-                AddChild(starNode);
 
+                // Let StationMenu resolve this node deterministically
+                starNode.SetMeta("sim_market_id", node.Id);
+                starNode.AddToGroup("DockTarget");
+                starNode.AddToGroup("Station");
+                starNode.AddToGroup("Stations");
+
+                AddChild(starNode);
                 _starNodes[node.Id] = starNode;
-                var col = new CollisionShape3D { Shape = sphereShape };
-                starNode.AddChild(col);
+
+                // StarNode is Area3D, so it needs an enabled CollisionShape3D to generate BodyEntered.
+                var nodeCol = new CollisionShape3D { Shape = sphereShape };
+                nodeCol.Name = "StarCollider";
+                nodeCol.Disabled = false;
+                starNode.AddChild(nodeCol);
 
                 var mesh = new MeshInstance3D { Mesh = starMesh };
-                // UNIQUE MATERIAL per star to allow individual tinting
+                mesh.Name = "StarMesh";
                 mesh.MaterialOverride = starMat.Duplicate() as Material;
                 starNode.AddChild(mesh);
 
-                var lbl = new Label3D { Text = node.Name, Position = new Vector3(0, 3.5f, 0), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32 };
+                var lbl = new Label3D
+                {
+                    Name = "StarLabel",
+                    Text = node.Name,
+                    // keep your existing label config here (billboard, size, position, etc)
+                };
                 starNode.AddChild(lbl);
+
+                // IMPORTANT: remove the DockArea child entirely. StarNode itself is the dock trigger.
             }
 
             if (state.Edges != null)
@@ -174,19 +193,19 @@ public partial class GalaxyView : Node3D
         {
             if (_starNodes.TryGetValue(node.Id, out var starNode))
             {
-                var mesh = starNode.GetChild<MeshInstance3D>(1); // Index 1 is Mesh (0 is Col)
+                var mesh = starNode.GetNodeOrNull<MeshInstance3D>("StarMesh");
+                mesh ??= starNode.GetChildren().OfType<MeshInstance3D>().FirstOrDefault();
+
                 if (mesh != null && mesh.MaterialOverride is StandardMaterial3D mat)
                 {
                     if (node.Trace > 0.5f)
                     {
-                        // High Trace: Sick Green/Purple
                         float t = Mathf.Clamp(node.Trace / 5.0f, 0f, 1f);
-                        mat.AlbedoColor = new Color(0f, 0.6f, 1f).Lerp(new Color(0.6f, 0f, 1f), t); // Blue -> Purple
+                        mat.AlbedoColor = new Color(0f, 0.6f, 1f).Lerp(new Color(0.6f, 0f, 1f), t);
                         mat.Emission = mat.AlbedoColor;
                     }
                     else
                     {
-                        // Clean: Standard Blue
                         mat.AlbedoColor = new Color(0f, 0.6f, 1f);
                         mat.Emission = mat.AlbedoColor;
                     }

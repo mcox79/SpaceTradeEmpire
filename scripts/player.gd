@@ -155,17 +155,24 @@ func dock_at_station(station):
 	velocity = Vector3.ZERO
 	input_enabled = false
 
-	# Open shop ONLY if this is a station with a market id
-	var market_id := ""
+	# Resolve a canonical id for UI:
+	# 1) Legacy stations: get_sim_market_id()
+	# 2) Any dock target with meta: sim_market_id
+	# 3) Fallback: node name (StarNode is named star_16 etc)
+	var id := ""
+
 	if station != null and station.has_method("get_sim_market_id"):
-		market_id = str(station.call("get_sim_market_id"))
+		id = str(station.call("get_sim_market_id"))
+	elif station != null and station.has_meta("sim_market_id"):
+		id = str(station.get_meta("sim_market_id"))
+	elif station != null:
+		id = str(station.name)
 
-	if market_id != "":
-		emit_signal("shop_toggled", true, market_id)
+	# Open menu for ANY valid dock id
+	if id != "":
+		emit_signal("shop_toggled", true, id)
 	else:
-		# Do not open the shop for non-station objects (ex: StarNode gravity wells)
 		emit_signal("shop_toggled", false, "")
-
 
 func undock():
 	input_enabled = true

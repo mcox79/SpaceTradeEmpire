@@ -9,51 +9,51 @@ namespace SpaceTradeEmpire.UI;
 
 public partial class StationMenu : Control
 {
-    [Signal] public delegate void RequestUndockEventHandler();
+	[Signal] public delegate void RequestUndockEventHandler();
 
-    private static readonly bool DEBUG_UI = false;
+	private static readonly bool DEBUG_UI = false;
 
-    private Label _titleLabel;
-    private Label _marketStatusLabel;
-    private VBoxContainer _marketList;
-    private VBoxContainer _trafficList;
-    private VBoxContainer _sustainmentList;
-    private Label _creditsLabel;
+	private Label _titleLabel;
+	private Label _marketStatusLabel;
+	private VBoxContainer _marketList;
+	private VBoxContainer _trafficList;
+	private VBoxContainer _sustainmentList;
+	private Label _creditsLabel;
 
 
-    private SimBridge _bridge;
+	private SimBridge _bridge;
 
-    // What we get from the PlayerShip/shop toggle payload. Might be a node id or a market id depending on the caller.
-    private string _currentMarketId = "";
+	// What we get from the PlayerShip/shop toggle payload. Might be a node id or a market id depending on the caller.
+	private string _currentMarketId = "";
 
-    // Canonical market id used for market + intents.
-    private string _resolvedMarketId = "";
+	// Canonical market id used for market + intents.
+	private string _resolvedMarketId = "";
 
-    private ProgramsMenu _programsMenu;
-    private FleetMenu _fleetMenu;
+	private ProgramsMenu _programsMenu;
+	private FleetMenu _fleetMenu;
 
-    private bool _playerSignalsConnected = false;
+	private bool _playerSignalsConnected = false;
 
-    public override void _Ready()
-    {
-        _bridge = GetNode<SimBridge>("/root/SimBridge");
+	public override void _Ready()
+	{
+		_bridge = GetNode<SimBridge>("/root/SimBridge");
 
-        // Ensure this Control receives _UnhandledInput even when not visible.
-        SetProcessUnhandledInput(true);
+		// Ensure this Control receives _UnhandledInput even when not visible.
+		SetProcessUnhandledInput(true);
 
-        SetupUI();
+		SetupUI();
 
-        Visible = false;
+		Visible = false;
 
-        // Defer wiring until PlayerShip has joined group "Player" and has the signal.
-        CallDeferred(nameof(ConnectPlayerSignals));
-    }
+		// Defer wiring until PlayerShip has joined group "Player" and has the signal.
+		CallDeferred(nameof(ConnectPlayerSignals));
+	}
 
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        if (@event is not InputEventKey k || !k.Pressed || k.Echo) return;
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event is not InputEventKey k || !k.Pressed || k.Echo) return;
 
-        // F9 is the deterministic fallback: open/close StationMenu using the player's current location,
+		// F9 is the deterministic fallback: open/close StationMenu using the player's current location,
         // even if the Player ship does not emit shop_toggled for non-station docking targets.
         // F1 is reserved for FleetMenu.
         if (k.Keycode == Key.F9)
@@ -257,7 +257,7 @@ public partial class StationMenu : Control
                 return;
             }
 
-            foreach (var line in t.Split('\n'))
+			foreach (var line in t.Split('\n'))
             {
                 GD.Print(line);
             }
@@ -314,158 +314,184 @@ public partial class StationMenu : Control
 
         _currentMarketId = ResolveMarketId(stationOrMarketId);
 
-        // Non-station docking is allowed. If we can't resolve any id at all, keep the menu open but disable market UI.
-        if (string.IsNullOrWhiteSpace(_currentMarketId))
-        {
-            _currentMarketId = "";
-            _resolvedMarketId = "";
-            Refresh();
-            return;
-        }
+		// Non-station docking is allowed. If we can't resolve any id at all, keep the menu open but disable market UI.
+		if (string.IsNullOrWhiteSpace(_currentMarketId))
+		{
+			_currentMarketId = "";
+			_resolvedMarketId = "";
+			Refresh();
+			return;
+		}
 
-        // Resolve canonical market id immediately so intents do not rely on Refresh() side effects.
-        // If resolution fails (ex: star_0), keep the menu open with market UI disabled (no implicit defaults).
-        _resolvedMarketId = ResolveCanonicalMarketId(_currentMarketId);
+		// Resolve canonical market id immediately so intents do not rely on Refresh() side effects.
+		// If resolution fails (ex: star_0), keep the menu open with market UI disabled (no implicit defaults).
+		_resolvedMarketId = ResolveCanonicalMarketId(_currentMarketId);
 
-        Refresh();
-    }
+		Refresh();
+	}
 
-    private string ResolveCanonicalMarketId(string maybeNodeOrMarketId)
-    {
-        if (_bridge == null) return "";
+	private string ResolveCanonicalMarketId(string maybeNodeOrMarketId)
+	{
+		if (_bridge == null) return "";
 
-        string result = maybeNodeOrMarketId;
+		string result = maybeNodeOrMarketId;
 
-        if (!_bridge.TryExecuteSafeRead(state =>
-        {
-            // If it is already a market key, keep it.
-            if (state.Markets.ContainsKey(maybeNodeOrMarketId))
-            {
-                result = maybeNodeOrMarketId;
-                return;
-            }
+		if (!_bridge.TryExecuteSafeRead(state =>
+		{
+			// If it is already a market key, keep it.
+			if (state.Markets.ContainsKey(maybeNodeOrMarketId))
+			{
+				result = maybeNodeOrMarketId;
+				return;
+			}
 
-            // If it is a node id, convert to node.MarketId.
-            if (state.Nodes.TryGetValue(maybeNodeOrMarketId, out var node))
-            {
-                if (!string.IsNullOrWhiteSpace(node.MarketId) && state.Markets.ContainsKey(node.MarketId))
-                {
-                    result = node.MarketId;
-                    return;
-                }
-            }
+			// If it is a node id, convert to node.MarketId.
+			if (state.Nodes.TryGetValue(maybeNodeOrMarketId, out var node))
+			{
+				if (!string.IsNullOrWhiteSpace(node.MarketId) && state.Markets.ContainsKey(node.MarketId))
+				{
+					result = node.MarketId;
+					return;
+				}
+			}
 
-            result = "";
-        }, timeoutMs: 0))
-        {
-            // Sim is stepping and holds the write lock. Never stall the UI thread.
-            result = "";
-        }
+			result = "";
+		}, timeoutMs: 0))
+		{
+			// Sim is stepping and holds the write lock. Never stall the UI thread.
+			result = "";
+		}
 
-        Dbg($"[StationMenu] ResolveCanonicalMarketId '{maybeNodeOrMarketId}' => '{result}'");
-        return result;
-    }
+		Dbg($"[StationMenu] ResolveCanonicalMarketId '{maybeNodeOrMarketId}' => '{result}'");
+		return result;
+	}
 
-    private static string ResolveMarketId(Variant stationOrMarketId)
-    {
-        // Quiet extractor only. Non-station docking is valid, so do not emit ERROR logs here.
-        if (stationOrMarketId.VariantType == Variant.Type.String)
-        {
-            return stationOrMarketId.AsString();
-        }
+	private static string ResolveMarketId(Variant stationOrMarketId)
+	{
+		// Quiet extractor only. Non-station docking is valid, so do not emit ERROR logs here.
+		if (stationOrMarketId.VariantType == Variant.Type.String)
+		{
+			return stationOrMarketId.AsString();
+		}
 
-        var obj = stationOrMarketId.AsGodotObject();
-        if (obj is null)
-        {
-            return "";
-        }
+		var obj = stationOrMarketId.AsGodotObject();
+		if (obj is null)
+		{
+			return "";
+		}
 
-        // Try GDScript export: @export var sim_market_id
-        var simMarketIdVar = obj.Get("sim_market_id");
-        var simMarketIdValue = simMarketIdVar.AsString();
-        if (!string.IsNullOrWhiteSpace(simMarketIdValue))
-        {
-            return simMarketIdValue;
-        }
+		// Try GDScript export: @export var sim_market_id
+		var simMarketIdVar = obj.Get("sim_market_id");
+		var simMarketIdValue = simMarketIdVar.AsString();
+		if (!string.IsNullOrWhiteSpace(simMarketIdValue))
+		{
+			return simMarketIdValue;
+		}
 
-        // Metadata fallback
-        if (obj is Node metaNode && metaNode.HasMeta("sim_market_id"))
-        {
-            var meta = metaNode.GetMeta("sim_market_id").AsString();
-            if (!string.IsNullOrWhiteSpace(meta))
-            {
-                return meta;
-            }
-        }
+		// Metadata fallback
+		if (obj is Node metaNode && metaNode.HasMeta("sim_market_id"))
+		{
+			var meta = metaNode.GetMeta("sim_market_id").AsString();
+			if (!string.IsNullOrWhiteSpace(meta))
+			{
+				return meta;
+			}
+		}
 
-        // Method fallback
-        if (obj.HasMethod("get_sim_market_id"))
-        {
-            var viaMethod = obj.Call("get_sim_market_id").AsString();
-            if (!string.IsNullOrWhiteSpace(viaMethod))
-            {
-                return viaMethod;
-            }
-        }
+		// Method fallback
+		if (obj.HasMethod("get_sim_market_id"))
+		{
+			var viaMethod = obj.Call("get_sim_market_id").AsString();
+			if (!string.IsNullOrWhiteSpace(viaMethod))
+			{
+				return viaMethod;
+			}
+		}
 
-        return "";
-    }
+		return "";
+	}
 
-    public void Refresh()
-    {
-        if (_bridge == null) return;
-        if (string.IsNullOrWhiteSpace(_currentMarketId))
-        {
-            if (_marketStatusLabel != null) { _marketStatusLabel.Visible = true; _marketStatusLabel.Text = "NO DOCK TARGET (market disabled)"; }
-            return;
-        }
+	public void Refresh()
+	{
+		if (_bridge == null) return;
+		if (string.IsNullOrWhiteSpace(_currentMarketId))
+		{
+			if (_marketStatusLabel != null) { _marketStatusLabel.Visible = true; _marketStatusLabel.Text = "NO DOCK TARGET (market disabled)"; }
+			return;
+		}
 
-        var snapshot = _bridge.GetPlayerSnapshot();
+		var snapshot = _bridge.GetPlayerSnapshot();
 
-        long playerCredits = 0;
-        if (snapshot.ContainsKey("credits"))
-            playerCredits = System.Convert.ToInt64(snapshot["credits"]);
+		long playerCredits = 0;
+		if (snapshot.ContainsKey("credits"))
+		{
+			var v = (Variant)snapshot["credits"];
 
-        var playerCargo = new Godot.Collections.Dictionary();
-        if (snapshot.ContainsKey("cargo"))
-        {
-            var variant = snapshot["cargo"];
-            if (variant.Obj is Godot.Collections.Dictionary nested)
-            {
-                playerCargo = nested;
-            }
-        }
+			// Handle common representations safely
+			switch (v.VariantType)
+			{
+				case Variant.Type.Int:
+					playerCredits = v.AsInt64();
+					break;
 
-        _creditsLabel.Text = $"CREDITS: {playerCredits:N0}";
+				case Variant.Type.Float:
+					playerCredits = (long)v.AsDouble();
+					break;
 
-        // Programs snapshot (schema-bound via ProgramExplain -> JSON -> dicts)
-        // Avoid heavy snapshot + quote fetch when market UI is disabled (ex: docked at star_16).
-        var programsByMarketGood = new Dictionary<string, Godot.Collections.Dictionary>();
-        var programQuotesById = new Dictionary<string, Godot.Collections.Dictionary>();
-        if (!string.IsNullOrWhiteSpace(_resolvedMarketId))
-        {
-            var progArr = _bridge.GetProgramExplainSnapshot();
-            foreach (var v in progArr)
-            {
-                if (v.Obj is not Godot.Collections.Dictionary d) continue;
-                var id = d.ContainsKey("id") ? d["id"].ToString() : "";
-                var m = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
-                var g = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
-                if (string.IsNullOrWhiteSpace(m) || string.IsNullOrWhiteSpace(g)) continue;
+				case Variant.Type.String:
+					{
+						var s = v.AsString();
+						if (!long.TryParse(s, out playerCredits))
+							playerCredits = 0;
+						break;
+					}
 
-                programsByMarketGood[$"{m}::{g}"] = d;
+				default:
+					playerCredits = 0;
+					break;
+			}
+		}
 
-                if (!string.IsNullOrWhiteSpace(id) && !programQuotesById.ContainsKey(id))
-                {
-                    // Safe: acquires its own read lock; this happens outside ExecuteSafeRead.
-                    programQuotesById[id] = _bridge.GetProgramQuote(id);
-                }
-            }
-        }
+		var playerCargo = new Godot.Collections.Dictionary();
+		if (snapshot.ContainsKey("cargo"))
+		{
+			var variant = snapshot["cargo"];
+			if (variant.Obj is Godot.Collections.Dictionary nested)
+			{
+				playerCargo = nested;
+			}
+		}
 
-        var marketId = _resolvedMarketId;
+		_creditsLabel.Text = $"CREDITS: {playerCredits:N0}";
 
-        // If we couldn't resolve earlier due to lock contention, try again nonblocking.
+		// Programs snapshot (schema-bound via ProgramExplain -> JSON -> dicts)
+		// Avoid heavy snapshot + quote fetch when market UI is disabled (ex: docked at star_16).
+		var programsByMarketGood = new Dictionary<string, Godot.Collections.Dictionary>();
+		var programQuotesById = new Dictionary<string, Godot.Collections.Dictionary>();
+		if (!string.IsNullOrWhiteSpace(_resolvedMarketId))
+		{
+			var progArr = _bridge.GetProgramExplainSnapshot();
+			foreach (var v in progArr)
+			{
+				if (v.Obj is not Godot.Collections.Dictionary d) continue;
+				var id = d.ContainsKey("id") ? d["id"].ToString() : "";
+				var m = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
+				var g = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
+				if (string.IsNullOrWhiteSpace(m) || string.IsNullOrWhiteSpace(g)) continue;
+
+				programsByMarketGood[$"{m}::{g}"] = d;
+
+				if (!string.IsNullOrWhiteSpace(id) && !programQuotesById.ContainsKey(id))
+				{
+					// Safe: acquires its own read lock; this happens outside ExecuteSafeRead.
+					programQuotesById[id] = _bridge.GetProgramQuote(id);
+				}
+			}
+		}
+
+		var marketId = _resolvedMarketId;
+
+		// If we couldn't resolve earlier due to lock contention, try again nonblocking.
         if (string.IsNullOrWhiteSpace(marketId) && !string.IsNullOrWhiteSpace(_currentMarketId))
         {
             marketId = ResolveCanonicalMarketId(_currentMarketId);
@@ -487,15 +513,15 @@ public partial class StationMenu : Control
 
                 if (!marketEnabled)
                 {
-                    _marketStatusLabel.Text = $"NO MARKET AT THIS LOCATION (node_id='{_currentMarketId}')";
+					_marketStatusLabel.Text = $"NO MARKET AT THIS LOCATION (node_id='{_currentMarketId}')";
                 }
                 else if (_currentMarketId != marketId)
                 {
-                    _marketStatusLabel.Text = $"MARKET RESOLVED: node_id='{_currentMarketId}' % market_id='{marketId}'";
+					_marketStatusLabel.Text = $"MARKET RESOLVED: node_id='{_currentMarketId}' % market_id='{marketId}'";
                 }
                 else
                 {
-                    _marketStatusLabel.Text = $"MARKET: '{marketId}'";
+					_marketStatusLabel.Text = $"MARKET: '{marketId}'";
                 }
             }
 
