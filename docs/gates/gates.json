@@ -4,38 +4,5 @@
     "generated_utc":  "2026-02-17T17:18:18-04:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 61c130352ab40f0c2f15eebf3fed46c3aa46e0a1",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.UI.PROGRAMS.EVENT.001",
-                      "task_id":  "GATE.UI.PROGRAMS.EVENT.001.T647",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.PROGRAMS.EVENT.001:",
-                      "intent":  "Execute GATE.UI.PROGRAMS.EVENT.001 task using evidence paths.",
-                      "evidence_paths":  [
-                                             "scripts/ui/ProgramsMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "SimCore/Programs/ProgramSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
-                                              "Programs screen shows last N program events with deterministic ordering, stable serialization, clickable entity references"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/ui/ProgramsMenu.cs",
-                                             "candidate_key_sha256=0f82669f7772"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
-
               ]
 }

@@ -561,11 +561,19 @@ public partial class StationMenu : Control
                     int ageTicks = IntelSystem.GetMarketGoodView(state, marketId, good).AgeTicks;
                     string ageText = (ageTicks < 0) ? "?" : ageTicks.ToString();
 
-                    var hbox = new HBoxContainer
+                    // Two-line row to prevent label/button overlap:
+                    // line 1: label (wraps)
+                    // line 2: buttons
+                    var row = new VBoxContainer
                     {
                         SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
                     };
-                    _marketList.AddChild(hbox);
+                    _marketList.AddChild(row);
+
+                    var buttons = new HBoxContainer
+                    {
+                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+                    };
 
                     var infoColor = (price > 110) ? Colors.Salmon : (price < 90 ? Colors.LightGreen : Colors.White);
 
@@ -612,21 +620,26 @@ public partial class StationMenu : Control
                         Text = $"{good.PadRight(10)} | Stock: {marketQty} | Price: ${price} | You: {playerQty} | IntelAge(t): {ageText}{progSuffix}",
                         Modulate = infoColor,
 
-                        // Make room for the extra program control buttons.
-                        CustomMinimumSize = new Vector2(420, 0),
-                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                        AutowrapMode = TextServer.AutowrapMode.WordSmart,
+
+                        // Force no ellipsis even if the theme sets it globally.
+                        ClipText = false,
+                        TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming,
                     };
-                    hbox.AddChild(lbl);
+                    row.AddChild(lbl);
+                    row.AddChild(buttons);
+
 
                     var btnBuy = new Button { Text = "Buy 1", CustomMinimumSize = new Vector2(70, 0) };
                     btnBuy.Disabled = (marketQty <= 0 || playerCredits < price);
                     btnBuy.Pressed += () => SubmitTradeIntent(good, 1, true);
-                    hbox.AddChild(btnBuy);
+                    buttons.AddChild(btnBuy);
 
                     var btnSell = new Button { Text = "Sell 1", CustomMinimumSize = new Vector2(70, 0) };
                     btnSell.Disabled = (playerQty <= 0);
                     btnSell.Pressed += () => SubmitTradeIntent(good, 1, false);
-                    hbox.AddChild(btnSell);
+                    buttons.AddChild(btnSell);
 
                     // Treat Cancelled as "no active program" for control purposes,
                     // so the player can create a new one.
@@ -644,24 +657,24 @@ public partial class StationMenu : Control
                                                     var timer = GetTree().CreateTimer(0.05);
                                                     timer.Timeout += () => Refresh();
                                                 };
-                        hbox.AddChild(btnCreate);
+                        buttons.AddChild(btnCreate);
                     }
                     else
                     {
                         var btnStart = new Button { Text = "Start", CustomMinimumSize = new Vector2(70, 0) };
                         btnStart.Disabled = progStatus == "Running";
                         btnStart.Pressed += () => { _bridge.StartProgram(progId); Refresh(); };
-                        hbox.AddChild(btnStart);
+                        buttons.AddChild(btnStart);
 
                         var btnPause = new Button { Text = "Pause", CustomMinimumSize = new Vector2(70, 0) };
                         btnPause.Disabled = progStatus == "Paused";
                         btnPause.Pressed += () => { _bridge.PauseProgram(progId); Refresh(); };
-                        hbox.AddChild(btnPause);
+                        buttons.AddChild(btnPause);
 
                         var btnCancel = new Button { Text = "Cancel", CustomMinimumSize = new Vector2(75, 0) };
                         btnCancel.Disabled = false;
                         btnCancel.Pressed += () => { _bridge.CancelProgram(progId); Refresh(); };
-                        hbox.AddChild(btnCancel);
+                        buttons.AddChild(btnCancel);
                     }
                 }
             }

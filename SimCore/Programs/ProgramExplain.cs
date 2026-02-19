@@ -12,6 +12,7 @@ namespace SimCore.Programs;
 public static class ProgramExplain
 {
     public const int ExplainVersion = 1;
+    public const int EventVersion = 1;
 
     public sealed class Payload
     {
@@ -30,9 +31,29 @@ public static class ProgramExplain
         [JsonInclude] public int LastRunTick { get; set; } = -1;
 
         // For AUTO_BUY
+        // For AUTO_BUY
         [JsonInclude] public string MarketId { get; set; } = "";
         [JsonInclude] public string GoodId { get; set; } = "";
         [JsonInclude] public int Quantity { get; set; } = 0;
+    }
+
+    public sealed class EventPayload
+    {
+        [JsonInclude] public int Version { get; set; } = EventVersion;
+        [JsonInclude] public int Tick { get; set; } = 0;
+        [JsonInclude] public List<EventEntry> Events { get; set; } = new();
+    }
+
+    public sealed class EventEntry
+    {
+        [JsonInclude] public int Version { get; set; } = EventVersion;
+        [JsonInclude] public long Seq { get; set; } = 0;
+        [JsonInclude] public int Tick { get; set; } = 0;
+        [JsonInclude] public int Type { get; set; } = 0;
+        [JsonInclude] public string ProgramId { get; set; } = "";
+        [JsonInclude] public string MarketId { get; set; } = "";
+        [JsonInclude] public string GoodId { get; set; } = "";
+        [JsonInclude] public string Note { get; set; } = "";
     }
 
     public static Payload Build(SimState state)
@@ -83,6 +104,19 @@ public static class ProgramExplain
         return JsonSerializer.Serialize(payload, opts);
     }
 
+    public static string ToDeterministicJson(EventPayload payload)
+    {
+        // Determinism rule: stable property order as emitted by System.Text.Json for POCOs in declaration order.
+        var opts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never
+        };
+
+        return JsonSerializer.Serialize(payload, opts);
+    }
+
     public static void ValidateJsonIsSchemaBound(string json)
     {
         // Minimal validator: required fields exist, and no unknown fields at top-level or program-entry level.
@@ -114,6 +148,38 @@ public static class ProgramExplain
             RequireKey(item, "MarketId", JsonValueKind.String);
             RequireKey(item, "GoodId", JsonValueKind.String);
             RequireKey(item, "Quantity", JsonValueKind.Number);
+        }
+    }
+
+    public static void ValidateEventJsonIsSchemaBound(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("ProgramExplain event payload must be a JSON object.");
+
+        RequireOnlyKeys(root, new[] { "Version", "Tick", "Events" });
+        RequireKey(root, "Version", JsonValueKind.Number);
+        RequireKey(root, "Tick", JsonValueKind.Number);
+        RequireKey(root, "Events", JsonValueKind.Array);
+
+        foreach (var item in root.GetProperty("Events").EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Each program event entry must be an object.");
+
+            RequireOnlyKeys(item, new[]
+            {
+                "Version","Seq","Tick","Type","ProgramId","MarketId","GoodId","Note"
+            });
+
+            RequireKey(item, "Version", JsonValueKind.Number);
+            RequireKey(item, "Seq", JsonValueKind.Number);
+            RequireKey(item, "Tick", JsonValueKind.Number);
+            RequireKey(item, "Type", JsonValueKind.Number);
+            RequireKey(item, "ProgramId", JsonValueKind.String);
+            RequireKey(item, "MarketId", JsonValueKind.String);
+            RequireKey(item, "GoodId", JsonValueKind.String);
+            RequireKey(item, "Note", JsonValueKind.String);
         }
     }
 

@@ -13,7 +13,7 @@ public partial class ProgramsMenu : Control
     private SimBridge _bridge = null!;
 
     private VBoxContainer _list = null!;
-    private Label _detail = null!;
+    private RichTextLabel _detail = null!;
     private Label _title = null!;
 
     private string _selectedProgramId = "";
@@ -106,21 +106,39 @@ public partial class ProgramsMenu : Control
 
         root.AddChild(new HSeparator());
 
-        var split = new HBoxContainer();
+        var split = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
         root.AddChild(split);
 
         // Left: program list
-        var left = new VBoxContainer();
+        var left = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            ClipContents = true
+        };
         left.CustomMinimumSize = new Vector2(680, 0);
         split.AddChild(left);
 
         left.AddChild(new Label { Text = "All Programs" });
 
-        var scroll = new ScrollContainer();
+        var scroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            ClipContents = true
+        };
         scroll.CustomMinimumSize = new Vector2(680, 520);
         left.AddChild(scroll);
 
-        _list = new VBoxContainer();
+        _list = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
         scroll.AddChild(_list);
 
         // Right: details
@@ -130,13 +148,31 @@ public partial class ProgramsMenu : Control
 
         right.AddChild(new Label { Text = "Selected Program" });
 
-        _detail = new Label
+        _detail = new RichTextLabel
         {
             Text = "(none)",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            BbcodeEnabled = true,
+            ScrollActive = true,
+            FitContent = false,
             CustomMinimumSize = new Vector2(340, 520)
         };
+        _detail.MetaClicked += OnDetailMetaClicked;
         right.AddChild(_detail);
+    }
+
+    private void OnDetailMetaClicked(Variant meta)
+    {
+        var s = meta.VariantType == Variant.Type.Nil ? "" : meta.ToString();
+        if (string.IsNullOrWhiteSpace(s)) return;
+
+        // Deterministic, failure-safe: copy referenced id to clipboard.
+        // meta format: kind:id
+        var idx = s.IndexOf(':');
+        var id = idx >= 0 ? s[(idx + 1)..] : s;
+        if (string.IsNullOrWhiteSpace(id)) return;
+
+        DisplayServer.ClipboardSet(id);
+        GD.Print($"[PROGRAMS] Copied id to clipboard: {id}");
     }
 
     public void Open()
@@ -259,8 +295,7 @@ public partial class ProgramsMenu : Control
             {
                 Text = $"{id} | {kind} | {status} | {marketId}:{goodId} | q={qty} cad={cad}t | last={last} next={next}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(520, 0)
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
             };
             row.AddChild(lbl);
 
@@ -338,8 +373,46 @@ public partial class ProgramsMenu : Control
             return string.Join("\n", parts);
         }
 
+        string link(string kind, string id)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return "";
+            return $"[url={kind}:{id}]{id}[/url]";
+        }
+
+        var events = _bridge.GetProgramEventLogSnapshot(programId, 25);
+        var evLines = events
+                .Select(v => v.Obj as Dictionary)
+                .Where(d => d != null)
+                .Select(d =>
+                {
+                    var tick = GetInt(d!, "tick");
+                    var type = GetInt(d!, "type");
+                    var mid = GetStr(d!, "market_id");
+                    var gid = GetStr(d!, "good_id");
+                    var note = GetStr(d!, "note");
+
+                    var typeStr = type switch
+                    {
+                        1 => "CREATED",
+                        2 => "STATUS",
+                        3 => "RAN",
+                        _ => $"TYPE_{type}"
+                    };
+
+                    var refs = new System.Collections.Generic.List<string>(3);
+                    if (!string.IsNullOrWhiteSpace(mid)) refs.Add("mkt=" + link("market", mid));
+                    if (!string.IsNullOrWhiteSpace(gid)) refs.Add("good=" + link("good", gid));
+                    var refStr = refs.Count == 0 ? "" : " " + string.Join(" ", refs);
+                    var noteStr = string.IsNullOrWhiteSpace(note) ? "" : $" | {note}";
+                    return $"{tick,6} | {typeStr}{refStr}{noteStr}";
+                })
+                .ToArray();
+
+        var evText = evLines.Length == 0 ? "(no events yet)" : string.Join("\n", evLines);
+
         _detail.Text =
-                $"PROGRAM ID: {programId}\n\n" +
+                $"PROGRAM ID: {link("program", programId)}\n\n" +
+                $"EVENTS (newest first, deterministic)\n{evText}\n\n" +
                 $"WHY (derived, deterministic)\n{BuildWhy(quote)}\n\n" +
                 $"QUOTE (deterministic snapshot)\n{fmt(quote)}\n\n" +
                 $"LAST TICK OUTCOME (best-effort)\n{fmt(outcome)}";

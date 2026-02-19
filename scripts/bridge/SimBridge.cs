@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace SpaceTradeEmpire.Bridge;
 
@@ -54,6 +55,87 @@ public partial class SimBridge : Node
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
     private Godot.Collections.Dictionary _cachedLogisticsSnapshot = new Godot.Collections.Dictionary();
     private string _cachedLogisticsSnapshotKey = "";
+
+    // Cached program event log (deterministic, newest-first snapshots for UI).
+    private sealed class ProgramEvent
+    {
+        public int Version = 1;
+        public long Seq = 0;
+        public int Tick = 0;
+        public int Type = 0; // 1=Created, 2=StatusChanged, 3=Ran
+        public string ProgramId = "";
+        public string MarketId = "";
+        public string GoodId = "";
+        public string Note = "";
+    }
+
+    private sealed class ProgramSnap
+    {
+        public string Status = "";
+        public int LastRunTick = -1;
+        public string MarketId = "";
+        public string GoodId = "";
+        public int Quantity = 0;
+    }
+
+    private long _programEventSeq = 0;
+    private readonly System.Collections.Generic.List<ProgramEvent> _programEventLog = new System.Collections.Generic.List<ProgramEvent>(512);
+    private readonly System.Collections.Generic.Dictionary<string, ProgramSnap> _programSnapById = new System.Collections.Generic.Dictionary<string, ProgramSnap>(StringComparer.Ordinal);
+
+    private sealed class ProgramSnapEntry
+    {
+        public string ProgramId { get; set; } = "";
+        public ProgramSnap Snap { get; set; } = new ProgramSnap();
+    }
+
+    private sealed class ProgramEventLogSave
+    {
+        public int Version { get; set; } = 1;
+        public long Seq { get; set; } = 0;
+        public ProgramEvent[] Events { get; set; } = Array.Empty<ProgramEvent>();
+
+        // Deterministic serialization: array sorted by ProgramId (Ordinal), not a dictionary.
+        public ProgramSnapEntry[] Snaps { get; set; } = Array.Empty<ProgramSnapEntry>();
+    }
+
+    private sealed class QuickSaveV2
+    {
+        public string Format { get; set; } = "STE_QUICKSAVE_V2";
+        public JsonElement Kernel { get; set; }
+        public ProgramEventLogSave ProgramEventLog { get; set; } = new ProgramEventLogSave();
+    }
+
+    private static JsonSerializerOptions CreateDeterministicJsonOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true
+        };
+    }
+
+    private static JsonElement ParseJsonElement(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+    private static bool TryParseQuickSaveV2(string text, out QuickSaveV2? qs)
+    {
+        qs = null;
+        try
+        {
+            qs = JsonSerializer.Deserialize<QuickSaveV2>(text, CreateDeterministicJsonOptions());
+            if (qs == null) return false;
+            if (!string.Equals(qs.Format, "STE_QUICKSAVE_V2", StringComparison.Ordinal)) return false;
+            return true;
+        }
+        catch
+        {
+            qs = null;
+            return false;
+        }
+    }
 
     private string _savePathAbs = "";
 
@@ -209,6 +291,7 @@ public partial class SimBridge : Node
                 try
                 {
                     _kernel.Step();
+                    UpdateProgramEventLog_AfterStep(_kernel.State);
                 }
                 finally
                 {
@@ -583,7 +666,19 @@ public partial class SimBridge : Node
         _stateLock.EnterWriteLock();
         try
         {
-            return _kernel.State.CreateAutoBuyProgram(marketId, goodId, quantity, cadenceTicks);
+            var id = _kernel.State.CreateAutoBuyProgram(marketId, goodId, quantity, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                // Deterministic: record under the same lock in a single sequence.
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: marketId,
+                        goodId: goodId,
+                        note: $"qty={quantity} cad={cadenceTicks}t");
+            }
+            return id;
         }
         finally
         {
@@ -767,6 +862,146 @@ public partial class SimBridge : Node
         {
             _stateLock.ExitReadLock();
         }
+    }
+
+
+    // --- Program UI event log snapshot (Slice 3 / GATE.UI.PROGRAMS.EVENT.001) ---
+    // Returns the last N program events for the given program, newest-first.
+    // Determinism: filter by ProgramId Ordinal, order by Seq desc with stable tie-breakers.
+    public Godot.Collections.Array GetProgramEventLogSnapshot(string programId, int maxEvents = 25)
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+        if (string.IsNullOrWhiteSpace(programId)) return arr;
+        if (maxEvents <= 0) return arr;
+        if (maxEvents > 200) maxEvents = 200;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            if (_programEventLog.Count == 0) return arr;
+
+            var slice = _programEventLog
+                    .Where(e => string.Equals(e.ProgramId, programId, StringComparison.Ordinal))
+                    .OrderByDescending(e => e.Seq)
+                    .ThenByDescending(e => e.Tick)
+                    .ThenByDescending(e => e.Type)
+                    .Take(maxEvents)
+                    .ToArray();
+
+            foreach (var e in slice)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["version"] = e.Version,
+                    ["seq"] = e.Seq,
+                    ["tick"] = e.Tick,
+                    ["type"] = e.Type,
+                    ["program_id"] = e.ProgramId,
+                    ["market_id"] = e.MarketId,
+                    ["good_id"] = e.GoodId,
+                    ["note"] = e.Note
+                };
+                arr.Add(d);
+            }
+
+            return arr;
+        }
+        catch
+        {
+            return arr;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
+    private void UpdateProgramEventLog_AfterStep(SimState state)
+    {
+        if (state is null) return;
+        if (state.Programs is null) return;
+        if (state.Programs.Instances is null) return;
+
+        var tick = state.Tick;
+
+        // Deterministic: iterate programs by id.
+        foreach (var kv in state.Programs.Instances.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            var p = kv.Value;
+            if (p is null) continue;
+
+            var id = p.Id ?? "";
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            var status = p.Status.ToString();
+            var lastRun = p.LastRunTick;
+            var marketId = p.MarketId ?? "";
+            var goodId = p.GoodId ?? "";
+            var qty = p.Quantity;
+
+            if (!_programSnapById.TryGetValue(id, out var snap))
+            {
+                snap = new ProgramSnap();
+                _programSnapById[id] = snap;
+
+                // First time seen: only synthesize CREATED if no event exists for this program.
+                // This avoids duplicate CREATED when creation already recorded an event deterministically.
+                if (!_programEventLog.Any(e => string.Equals(e.ProgramId, id, StringComparison.Ordinal)))
+                {
+                    RecordProgramEvent(1, tick, id, marketId, goodId, note: $"kind={p.Kind} qty={qty} (synth)");
+                }
+
+                snap.Status = status;
+                snap.LastRunTick = lastRun;
+                snap.MarketId = marketId;
+                snap.GoodId = goodId;
+                snap.Quantity = qty;
+                continue;
+            }
+
+            if (!string.Equals(snap.Status, status, StringComparison.Ordinal))
+            {
+                RecordProgramEvent(2, tick, id, marketId, goodId, note: $"{snap.Status}->{status}");
+                snap.Status = status;
+            }
+
+            // A Run event is defined as LastRunTick advancing to the current tick.
+            if (lastRun == tick && snap.LastRunTick != lastRun)
+            {
+                RecordProgramEvent(3, tick, id, marketId, goodId, note: $"qty={qty}");
+            }
+
+            snap.LastRunTick = lastRun;
+            snap.MarketId = marketId;
+            snap.GoodId = goodId;
+            snap.Quantity = qty;
+        }
+
+        // Cap memory (deterministic truncation from oldest).
+        const int cap = 800;
+        if (_programEventLog.Count > cap)
+        {
+            var remove = _programEventLog.Count - cap;
+            if (remove > 0) _programEventLog.RemoveRange(0, remove);
+        }
+    }
+
+    private void RecordProgramEvent(int type, int tick, string programId, string marketId, string goodId, string note)
+    {
+        // Deterministic: seq increments strictly in call order under the state write lock.
+        var e = new ProgramEvent
+        {
+            Version = 1,
+            Seq = ++_programEventSeq,
+            Tick = tick,
+            Type = type,
+            ProgramId = programId ?? "",
+            MarketId = marketId ?? "",
+            GoodId = goodId ?? "",
+            Note = note ?? ""
+        };
+        _programEventLog.Add(e);
     }
 
     public Godot.Collections.Array GetFleetExplainSnapshot()
@@ -1431,15 +1666,38 @@ public partial class SimBridge : Node
         try
         {
             _stateLock.EnterReadLock();
-            string json;
+            string kernelJson;
+            QuickSaveV2 qs;
             try
             {
-                json = _kernel.SaveToString();
+                kernelJson = _kernel.SaveToString();
+
+                var snaps = _programSnapById
+                    .OrderBy(k => k.Key, StringComparer.Ordinal)
+                    .Select(k => new ProgramSnapEntry { ProgramId = k.Key, Snap = k.Value })
+                    .ToArray();
+
+                var logSave = new ProgramEventLogSave
+                {
+                    Version = 1,
+                    Seq = _programEventSeq,
+                    Events = _programEventLog.ToArray(),
+                    Snaps = snaps
+                };
+
+                qs = new QuickSaveV2
+                {
+                    Format = "STE_QUICKSAVE_V2",
+                    Kernel = ParseJsonElement(kernelJson),
+                    ProgramEventLog = logSave
+                };
             }
             finally
             {
                 _stateLock.ExitReadLock();
             }
+
+            var json = JsonSerializer.Serialize(qs, CreateDeterministicJsonOptions());
             File.WriteAllText(_savePathAbs, json);
 
             Interlocked.Increment(ref _saveEpoch);
@@ -1463,12 +1721,48 @@ public partial class SimBridge : Node
         IsLoading = true;
         try
         {
-            var json = File.ReadAllText(_savePathAbs);
+            var text = File.ReadAllText(_savePathAbs);
+
+            var isV2 = TryParseQuickSaveV2(text, out var qs);
 
             _stateLock.EnterWriteLock();
             try
             {
-                _kernel.LoadFromString(json);
+                if (isV2 && qs != null)
+                {
+                    var kernelText = qs.Kernel.GetRawText();
+                    _kernel.LoadFromString(kernelText);
+
+                    // Restore program event log (deterministic content, preserved order).
+                    _programEventSeq = qs.ProgramEventLog.Seq;
+
+                    _programEventLog.Clear();
+                    if (qs.ProgramEventLog.Events != null && qs.ProgramEventLog.Events.Length > 0)
+                    {
+                        _programEventLog.AddRange(qs.ProgramEventLog.Events);
+                    }
+
+                    _programSnapById.Clear();
+                    if (qs.ProgramEventLog.Snaps != null)
+                    {
+                        foreach (var se in qs.ProgramEventLog.Snaps)
+                        {
+                            if (se == null) continue;
+                            if (string.IsNullOrWhiteSpace(se.ProgramId)) continue;
+                            if (se.Snap == null) continue;
+                            _programSnapById[se.ProgramId] = se.Snap;
+                        }
+                    }
+                }
+                else
+                {
+                    // Backward compatible: old format is kernel JSON only.
+                    _kernel.LoadFromString(text);
+
+                    _programEventSeq = 0;
+                    _programEventLog.Clear();
+                    _programSnapById.Clear();
+                }
             }
             finally
             {
