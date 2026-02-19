@@ -1203,6 +1203,53 @@ public partial class SimBridge : Node
                 dict["shortages"] = shortagesArr;
                 dict["bottleneck_count"] = shortagesArr.Count;
 
+                // Station incident timeline (GATE.UI.LOGISTICS.EVENT.001)
+                // Determinism: order by Seq desc, then Tick desc, then Type desc, then FleetId Ordinal.
+                // Failure safety: snapshot is lock-scoped and never blocks UI thread beyond TryEnterReadLock(0).
+                var eventsArr = new Godot.Collections.Array();
+                if (!string.IsNullOrWhiteSpace(marketId) &&
+                    state.LogisticsEventLog != null &&
+                    state.LogisticsEventLog.Count > 0)
+                {
+                    var maxEvents = Math.Min(200, Math.Max(1, maxItems) * 6);
+
+                    var slice = state.LogisticsEventLog
+                        .Where(e =>
+                            string.Equals(e.SourceMarketId, marketId, StringComparison.Ordinal) ||
+                            string.Equals(e.TargetMarketId, marketId, StringComparison.Ordinal))
+                        .OrderByDescending(e => e.Seq)
+                        .ThenByDescending(e => e.Tick)
+                        .ThenByDescending(e => (int)e.Type)
+                        .ThenBy(e => e.FleetId, StringComparer.Ordinal)
+                        .Take(maxEvents)
+                        .ToArray();
+
+                    foreach (var e in slice)
+                    {
+                        eventsArr.Add(new Godot.Collections.Dictionary
+                        {
+                            ["version"] = e.Version,
+                            ["seq"] = e.Seq,
+                            ["tick"] = e.Tick,
+                            ["type"] = (int)e.Type,
+
+                            ["fleet_id"] = e.FleetId ?? "",
+                            ["good_id"] = e.GoodId ?? "",
+                            ["amount"] = e.Amount,
+
+                            ["source_node_id"] = e.SourceNodeId ?? "",
+                            ["target_node_id"] = e.TargetNodeId ?? "",
+                            ["source_market_id"] = e.SourceMarketId ?? "",
+                            ["target_market_id"] = e.TargetMarketId ?? "",
+
+                            ["note"] = e.Note ?? ""
+                        });
+                    }
+                }
+
+                dict["events"] = eventsArr;
+                dict["event_count"] = eventsArr.Count;
+
                 // Cache for the next time we can't acquire the lock.
                 lock (_snapshotLock)
                 {
@@ -1211,6 +1258,7 @@ public partial class SimBridge : Node
                 }
 
                 return dict;
+
             }
             finally
             {

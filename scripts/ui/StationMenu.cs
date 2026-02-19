@@ -9,51 +9,51 @@ namespace SpaceTradeEmpire.UI;
 
 public partial class StationMenu : Control
 {
-    [Signal] public delegate void RequestUndockEventHandler();
+	[Signal] public delegate void RequestUndockEventHandler();
 
-    private static readonly bool DEBUG_UI = false;
+	private static readonly bool DEBUG_UI = false;
 
-    private Label _titleLabel;
-    private Label _marketStatusLabel;
-    private VBoxContainer _marketList;
-    private VBoxContainer _trafficList;
-    private VBoxContainer _logisticsList;
-    private VBoxContainer _sustainmentList;
-    private Label _creditsLabel;
+	private Label _titleLabel;
+	private Label _marketStatusLabel;
+	private VBoxContainer _marketList;
+	private VBoxContainer _trafficList;
+	private VBoxContainer _logisticsList;
+	private VBoxContainer _sustainmentList;
+	private Label _creditsLabel;
 
-    private SimBridge _bridge;
+	private SimBridge _bridge;
 
-    // What we get from the PlayerShip/shop toggle payload. Might be a node id or a market id depending on the caller.
-    private string _currentMarketId = "";
+	// What we get from the PlayerShip/shop toggle payload. Might be a node id or a market id depending on the caller.
+	private string _currentMarketId = "";
 
-    // Canonical market id used for market + intents.
-    private string _resolvedMarketId = "";
+	// Canonical market id used for market + intents.
+	private string _resolvedMarketId = "";
 
-    private ProgramsMenu _programsMenu;
-    private FleetMenu _fleetMenu;
+	private ProgramsMenu _programsMenu;
+	private FleetMenu _fleetMenu;
 
-    private bool _playerSignalsConnected = false;
+	private bool _playerSignalsConnected = false;
 
-    public override void _Ready()
-    {
-        _bridge = GetNode<SimBridge>("/root/SimBridge");
+	public override void _Ready()
+	{
+		_bridge = GetNode<SimBridge>("/root/SimBridge");
 
-        // Ensure this Control receives _UnhandledInput even when not visible.
-        SetProcessUnhandledInput(true);
+		// Ensure this Control receives _UnhandledInput even when not visible.
+		SetProcessUnhandledInput(true);
 
-        SetupUI();
+		SetupUI();
 
-        Visible = false;
+		Visible = false;
 
-        // Defer wiring until PlayerShip has joined group "Player" and has the signal.
-        CallDeferred(nameof(ConnectPlayerSignals));
-    }
+		// Defer wiring until PlayerShip has joined group "Player" and has the signal.
+		CallDeferred(nameof(ConnectPlayerSignals));
+	}
 
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        if (@event is not InputEventKey k || !k.Pressed || k.Echo) return;
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event is not InputEventKey k || !k.Pressed || k.Echo) return;
 
-        // F9 is the deterministic fallback: open/close StationMenu using the player's current location,
+		// F9 is the deterministic fallback: open/close StationMenu using the player's current location,
         // even if the Player ship does not emit shop_toggled for non-station docking targets.
         // F1 is reserved for FleetMenu.
         if (k.Keycode == Key.F9)
@@ -257,7 +257,7 @@ public partial class StationMenu : Control
                 return;
             }
 
-            foreach (var line in t.Split('\n'))
+			foreach (var line in t.Split('\n'))
             {
                 GD.Print(line);
             }
@@ -323,184 +323,184 @@ public partial class StationMenu : Control
 
         _currentMarketId = ResolveMarketId(stationOrMarketId);
 
-        // Non-station docking is allowed. If we can't resolve any id at all, keep the menu open but disable market UI.
-        if (string.IsNullOrWhiteSpace(_currentMarketId))
-        {
-            _currentMarketId = "";
-            _resolvedMarketId = "";
-            Refresh();
-            return;
-        }
+		// Non-station docking is allowed. If we can't resolve any id at all, keep the menu open but disable market UI.
+		if (string.IsNullOrWhiteSpace(_currentMarketId))
+		{
+			_currentMarketId = "";
+			_resolvedMarketId = "";
+			Refresh();
+			return;
+		}
 
-        // Resolve canonical market id immediately so intents do not rely on Refresh() side effects.
-        // If resolution fails (ex: star_0), keep the menu open with market UI disabled (no implicit defaults).
-        _resolvedMarketId = ResolveCanonicalMarketId(_currentMarketId);
+		// Resolve canonical market id immediately so intents do not rely on Refresh() side effects.
+		// If resolution fails (ex: star_0), keep the menu open with market UI disabled (no implicit defaults).
+		_resolvedMarketId = ResolveCanonicalMarketId(_currentMarketId);
 
-        Refresh();
-    }
+		Refresh();
+	}
 
-    private string ResolveCanonicalMarketId(string maybeNodeOrMarketId)
-    {
-        if (_bridge == null) return "";
+	private string ResolveCanonicalMarketId(string maybeNodeOrMarketId)
+	{
+		if (_bridge == null) return "";
 
-        string result = maybeNodeOrMarketId;
+		string result = maybeNodeOrMarketId;
 
-        if (!_bridge.TryExecuteSafeRead(state =>
-        {
-            // If it is already a market key, keep it.
-            if (state.Markets.ContainsKey(maybeNodeOrMarketId))
-            {
-                result = maybeNodeOrMarketId;
-                return;
-            }
+		if (!_bridge.TryExecuteSafeRead(state =>
+		{
+			// If it is already a market key, keep it.
+			if (state.Markets.ContainsKey(maybeNodeOrMarketId))
+			{
+				result = maybeNodeOrMarketId;
+				return;
+			}
 
-            // If it is a node id, convert to node.MarketId.
-            if (state.Nodes.TryGetValue(maybeNodeOrMarketId, out var node))
-            {
-                if (!string.IsNullOrWhiteSpace(node.MarketId) && state.Markets.ContainsKey(node.MarketId))
-                {
-                    result = node.MarketId;
-                    return;
-                }
-            }
+			// If it is a node id, convert to node.MarketId.
+			if (state.Nodes.TryGetValue(maybeNodeOrMarketId, out var node))
+			{
+				if (!string.IsNullOrWhiteSpace(node.MarketId) && state.Markets.ContainsKey(node.MarketId))
+				{
+					result = node.MarketId;
+					return;
+				}
+			}
 
-            result = "";
-        }, timeoutMs: 0))
-        {
-            // Sim is stepping and holds the write lock. Never stall the UI thread.
-            result = "";
-        }
+			result = "";
+		}, timeoutMs: 0))
+		{
+			// Sim is stepping and holds the write lock. Never stall the UI thread.
+			result = "";
+		}
 
-        Dbg($"[StationMenu] ResolveCanonicalMarketId '{maybeNodeOrMarketId}' => '{result}'");
-        return result;
-    }
+		Dbg($"[StationMenu] ResolveCanonicalMarketId '{maybeNodeOrMarketId}' => '{result}'");
+		return result;
+	}
 
-    private static string ResolveMarketId(Variant stationOrMarketId)
-    {
-        // Quiet extractor only. Non-station docking is valid, so do not emit ERROR logs here.
-        if (stationOrMarketId.VariantType == Variant.Type.String)
-        {
-            return stationOrMarketId.AsString();
-        }
+	private static string ResolveMarketId(Variant stationOrMarketId)
+	{
+		// Quiet extractor only. Non-station docking is valid, so do not emit ERROR logs here.
+		if (stationOrMarketId.VariantType == Variant.Type.String)
+		{
+			return stationOrMarketId.AsString();
+		}
 
-        var obj = stationOrMarketId.AsGodotObject();
-        if (obj is null)
-        {
-            return "";
-        }
+		var obj = stationOrMarketId.AsGodotObject();
+		if (obj is null)
+		{
+			return "";
+		}
 
-        // Try GDScript export: @export var sim_market_id
-        var simMarketIdVar = obj.Get("sim_market_id");
-        var simMarketIdValue = simMarketIdVar.AsString();
-        if (!string.IsNullOrWhiteSpace(simMarketIdValue))
-        {
-            return simMarketIdValue;
-        }
+		// Try GDScript export: @export var sim_market_id
+		var simMarketIdVar = obj.Get("sim_market_id");
+		var simMarketIdValue = simMarketIdVar.AsString();
+		if (!string.IsNullOrWhiteSpace(simMarketIdValue))
+		{
+			return simMarketIdValue;
+		}
 
-        // Metadata fallback
-        if (obj is Node metaNode && metaNode.HasMeta("sim_market_id"))
-        {
-            var meta = metaNode.GetMeta("sim_market_id").AsString();
-            if (!string.IsNullOrWhiteSpace(meta))
-            {
-                return meta;
-            }
-        }
+		// Metadata fallback
+		if (obj is Node metaNode && metaNode.HasMeta("sim_market_id"))
+		{
+			var meta = metaNode.GetMeta("sim_market_id").AsString();
+			if (!string.IsNullOrWhiteSpace(meta))
+			{
+				return meta;
+			}
+		}
 
-        // Method fallback
-        if (obj.HasMethod("get_sim_market_id"))
-        {
-            var viaMethod = obj.Call("get_sim_market_id").AsString();
-            if (!string.IsNullOrWhiteSpace(viaMethod))
-            {
-                return viaMethod;
-            }
-        }
+		// Method fallback
+		if (obj.HasMethod("get_sim_market_id"))
+		{
+			var viaMethod = obj.Call("get_sim_market_id").AsString();
+			if (!string.IsNullOrWhiteSpace(viaMethod))
+			{
+				return viaMethod;
+			}
+		}
 
-        return "";
-    }
+		return "";
+	}
 
-    public void Refresh()
-    {
-        if (_bridge == null) return;
-        if (string.IsNullOrWhiteSpace(_currentMarketId))
-        {
-            if (_marketStatusLabel != null) { _marketStatusLabel.Visible = true; _marketStatusLabel.Text = "NO DOCK TARGET (market disabled)"; }
-            return;
-        }
+	public void Refresh()
+	{
+		if (_bridge == null) return;
+		if (string.IsNullOrWhiteSpace(_currentMarketId))
+		{
+			if (_marketStatusLabel != null) { _marketStatusLabel.Visible = true; _marketStatusLabel.Text = "NO DOCK TARGET (market disabled)"; }
+			return;
+		}
 
-        var snapshot = _bridge.GetPlayerSnapshot();
+		var snapshot = _bridge.GetPlayerSnapshot();
 
-        long playerCredits = 0;
-        if (snapshot.ContainsKey("credits"))
-        {
-            var v = (Variant)snapshot["credits"];
+		long playerCredits = 0;
+		if (snapshot.ContainsKey("credits"))
+		{
+			var v = (Variant)snapshot["credits"];
 
-            // Handle common representations safely
-            switch (v.VariantType)
-            {
-                case Variant.Type.Int:
-                    playerCredits = v.AsInt64();
-                    break;
+			// Handle common representations safely
+			switch (v.VariantType)
+			{
+				case Variant.Type.Int:
+					playerCredits = v.AsInt64();
+					break;
 
-                case Variant.Type.Float:
-                    playerCredits = (long)v.AsDouble();
-                    break;
+				case Variant.Type.Float:
+					playerCredits = (long)v.AsDouble();
+					break;
 
-                case Variant.Type.String:
-                    {
-                        var s = v.AsString();
-                        if (!long.TryParse(s, out playerCredits))
-                            playerCredits = 0;
-                        break;
-                    }
+				case Variant.Type.String:
+					{
+						var s = v.AsString();
+						if (!long.TryParse(s, out playerCredits))
+							playerCredits = 0;
+						break;
+					}
 
-                default:
-                    playerCredits = 0;
-                    break;
-            }
-        }
+				default:
+					playerCredits = 0;
+					break;
+			}
+		}
 
-        var playerCargo = new Godot.Collections.Dictionary();
-        if (snapshot.ContainsKey("cargo"))
-        {
-            var variant = snapshot["cargo"];
-            if (variant.Obj is Godot.Collections.Dictionary nested)
-            {
-                playerCargo = nested;
-            }
-        }
+		var playerCargo = new Godot.Collections.Dictionary();
+		if (snapshot.ContainsKey("cargo"))
+		{
+			var variant = snapshot["cargo"];
+			if (variant.Obj is Godot.Collections.Dictionary nested)
+			{
+				playerCargo = nested;
+			}
+		}
 
-        _creditsLabel.Text = $"CREDITS: {playerCredits:N0}";
+		_creditsLabel.Text = $"CREDITS: {playerCredits:N0}";
 
-        // Programs snapshot (schema-bound via ProgramExplain -> JSON -> dicts)
-        // Avoid heavy snapshot + quote fetch when market UI is disabled (ex: docked at star_16).
-        var programsByMarketGood = new Dictionary<string, Godot.Collections.Dictionary>();
-        var programQuotesById = new Dictionary<string, Godot.Collections.Dictionary>();
-        if (!string.IsNullOrWhiteSpace(_resolvedMarketId))
-        {
-            var progArr = _bridge.GetProgramExplainSnapshot();
-            foreach (var v in progArr)
-            {
-                if (v.Obj is not Godot.Collections.Dictionary d) continue;
-                var id = d.ContainsKey("id") ? d["id"].ToString() : "";
-                var m = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
-                var g = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
-                if (string.IsNullOrWhiteSpace(m) || string.IsNullOrWhiteSpace(g)) continue;
+		// Programs snapshot (schema-bound via ProgramExplain -> JSON -> dicts)
+		// Avoid heavy snapshot + quote fetch when market UI is disabled (ex: docked at star_16).
+		var programsByMarketGood = new Dictionary<string, Godot.Collections.Dictionary>();
+		var programQuotesById = new Dictionary<string, Godot.Collections.Dictionary>();
+		if (!string.IsNullOrWhiteSpace(_resolvedMarketId))
+		{
+			var progArr = _bridge.GetProgramExplainSnapshot();
+			foreach (var v in progArr)
+			{
+				if (v.Obj is not Godot.Collections.Dictionary d) continue;
+				var id = d.ContainsKey("id") ? d["id"].ToString() : "";
+				var m = d.ContainsKey("market_id") ? d["market_id"].ToString() : "";
+				var g = d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
+				if (string.IsNullOrWhiteSpace(m) || string.IsNullOrWhiteSpace(g)) continue;
 
-                programsByMarketGood[$"{m}::{g}"] = d;
+				programsByMarketGood[$"{m}::{g}"] = d;
 
-                if (!string.IsNullOrWhiteSpace(id) && !programQuotesById.ContainsKey(id))
-                {
-                    // Safe: acquires its own read lock; this happens outside ExecuteSafeRead.
-                    programQuotesById[id] = _bridge.GetProgramQuote(id);
-                }
-            }
-        }
+				if (!string.IsNullOrWhiteSpace(id) && !programQuotesById.ContainsKey(id))
+				{
+					// Safe: acquires its own read lock; this happens outside ExecuteSafeRead.
+					programQuotesById[id] = _bridge.GetProgramQuote(id);
+				}
+			}
+		}
 
-        var marketId = _resolvedMarketId;
+		var marketId = _resolvedMarketId;
 
-        // If we couldn't resolve earlier due to lock contention, try again nonblocking.
+		// If we couldn't resolve earlier due to lock contention, try again nonblocking.
         if (string.IsNullOrWhiteSpace(marketId) && !string.IsNullOrWhiteSpace(_currentMarketId))
         {
             marketId = ResolveCanonicalMarketId(_currentMarketId);
@@ -526,15 +526,15 @@ public partial class StationMenu : Control
 
                 if (!marketEnabled)
                 {
-                    _marketStatusLabel.Text = $"NO MARKET AT THIS LOCATION (node_id='{_currentMarketId}')";
+					_marketStatusLabel.Text = $"NO MARKET AT THIS LOCATION (node_id='{_currentMarketId}')";
                 }
                 else if (_currentMarketId != marketId)
                 {
-                    _marketStatusLabel.Text = $"MARKET RESOLVED: node_id='{_currentMarketId}' % market_id='{marketId}'";
+					_marketStatusLabel.Text = $"MARKET RESOLVED: node_id='{_currentMarketId}' % market_id='{marketId}'";
                 }
                 else
                 {
-                    _marketStatusLabel.Text = $"MARKET: '{marketId}'";
+					_marketStatusLabel.Text = $"MARKET: '{marketId}'";
                 }
             }
 
@@ -682,12 +682,82 @@ public partial class StationMenu : Control
             // Render SimBridge logistics facts with deterministic ordering already applied in the snapshot.
             if (logiSnap is Godot.Collections.Dictionary ld)
             {
-                var status = ld.ContainsKey("status") ? ld["status"].ToString() : "";
-                var mid = ld.ContainsKey("market_id") ? ld["market_id"].ToString() : "";
+                // Incident timeline (GATE.UI.LOGISTICS.EVENT.001)
+                // Newest-first, deterministic ordering is done in SimBridge (Seq desc + tie-breakers).
+                var evArr = ld.ContainsKey("events") ? ld["events"].AsGodotArray() : null;
+                if (evArr != null && evArr.Count > 0)
+                {
+                    _logisticsList.AddChild(new Label { Text = "incident timeline (newest first):" });
 
-                var jobCount = ld.ContainsKey("job_count") ? (int)ld["job_count"] : 0;
-                var shortageCount = ld.ContainsKey("shortage_count") ? (int)ld["shortage_count"] : 0;
-                var bottleneckCount = ld.ContainsKey("bottleneck_count") ? (int)ld["bottleneck_count"] : 0;
+                    // First pass: materialize into typed, stable dictionaries for lookup and cause expansion.
+                    var events = new List<Godot.Collections.Dictionary>(evArr.Count);
+                    foreach (var v in evArr)
+                    {
+                        if (v.Obj is Godot.Collections.Dictionary ed) events.Add(ed);
+                    }
+
+                    // Helper accessors
+                    static long getSeq(Godot.Collections.Dictionary d) => d.ContainsKey("seq") ? (long)d["seq"] : 0;
+                    static string getFleet(Godot.Collections.Dictionary d) => d.ContainsKey("fleet_id") ? d["fleet_id"].ToString() : "";
+                    static string getNote(Godot.Collections.Dictionary d) => d.ContainsKey("note") ? d["note"].ToString() : "";
+                    static string getGood(Godot.Collections.Dictionary d) => d.ContainsKey("good_id") ? d["good_id"].ToString() : "";
+                    static int getType(Godot.Collections.Dictionary d) => d.ContainsKey("type") ? (int)d["type"] : 0;
+                    static int getTick(Godot.Collections.Dictionary d) => d.ContainsKey("tick") ? (int)d["tick"] : 0;
+
+                    // Render up to N lines; expand one failure mode cause chain deterministically.
+                    var maxLines = 14;
+                    var linesEmitted = 0;
+
+                    for (var i = 0; i < events.Count && linesEmitted < maxLines; i++)
+                    {
+                        var e = events[i];
+                        var seq = getSeq(e);
+                        var tick = getTick(e);
+                        var fid = getFleet(e);
+                        var typ = getType(e);
+                        var good = getGood(e);
+                        var note = getNote(e);
+
+                        // Incident focus: zero pickup cancel
+                        var isZeroPickupIncident = (typ == (int)SimCore.Events.LogisticsEvents.LogisticsEventType.JobCanceled) &&
+                                                  note.StartsWith("INCIDENT:ZERO_PICKUP", System.StringComparison.Ordinal);
+
+                        _logisticsList.AddChild(new Label
+                        {
+                            Text = $"  - seq={seq} tick={tick} fleet={fid} type={typ} good={good} note={note}"
+                        });
+                        linesEmitted++;
+
+                        if (!isZeroPickupIncident) continue;
+
+                        // Expand causes: show preceding pickup retry observations for this fleet from the same snapshot.
+                        // Deterministic: scan forward in the already-ordered list (older events) and take the first K matches.
+                        var causeLimit = 3;
+                        var causesShown = 0;
+
+                        for (var j = i + 1; j < events.Count && causesShown < causeLimit; j++)
+                        {
+                            var c = events[j];
+                            if (!string.Equals(getFleet(c), fid, System.StringComparison.Ordinal)) continue;
+
+                            var cType = getType(c);
+                            if (cType != (int)SimCore.Events.LogisticsEvents.LogisticsEventType.PickupIssued) continue;
+
+                            var cNote = getNote(c);
+                            if (!cNote.StartsWith("CAUSE:ZERO_PICKUP_OBS", System.StringComparison.Ordinal)) continue;
+
+                            _logisticsList.AddChild(new Label
+                            {
+                                Text = $"      cause: seq={getSeq(c)} tick={getTick(c)} type={cType} note={cNote}"
+                            });
+
+                            linesEmitted++;
+                            causesShown++;
+
+                            if (linesEmitted >= maxLines) break;
+                        }
+                    }
+                }
 
                 var jobsArr = ld.ContainsKey("jobs") ? ld["jobs"].AsGodotArray() : null;
                 if (jobsArr != null && jobsArr.Count > 0)

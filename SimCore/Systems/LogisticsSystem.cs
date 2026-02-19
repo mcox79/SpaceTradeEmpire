@@ -143,7 +143,7 @@ public static class LogisticsSystem
                     if (job.ZeroPickupObservations >= MaxZeroPickupObservations)
                     {
                         CancelJob(state, fleet, job,
-                            $"Pickup resulted in 0 units for {job.ZeroPickupObservations} consecutive observations; canceling job.");
+                            $"INCIDENT:ZERO_PICKUP Pickup resulted in 0 units for {job.ZeroPickupObservations} consecutive observations; canceling job.");
                         return;
                     }
 
@@ -163,7 +163,8 @@ public static class LogisticsSystem
                         TargetNodeId = job.TargetNodeId ?? "",
                         SourceMarketId = ResolveMarketForSiteNode(state, job.SourceNodeId) ?? "",
                         TargetMarketId = ResolveMarketForSiteNode(state, job.TargetNodeId) ?? "",
-                        Note = $"Pickup observed 0 units (obs {job.ZeroPickupObservations}/{MaxZeroPickupObservations}); will retry."
+                        Note = $"CAUSE:ZERO_PICKUP_OBS Pickup observed 0 units (obs {job.ZeroPickupObservations}/{MaxZeroPickupObservations}); will retry."
+
                     });
 
                     return;
