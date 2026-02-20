@@ -5,40 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3.PERF_BUDGET.001",
-                      "task_id":  "GATE.S3.PERF_BUDGET.001.T459",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.PERF_BUDGET.001: Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 f",
-                      "intent":  "Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 fleets and 200 active transfers over 600 ticks; measure average tick time over the last 300 ticks with a fixed measurement method; enforce a threshold ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore/SimKernel.cs",
-                                             "SimCore.Tests/GoldenReplayTests.cs",
-                                             "SimCore/Systems/BandedTime.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 fleets and 200 active transfers over 600 ticks; measure average tick",
-                                              "time over the last 300 ticks with a fixed measurement method; enforce a threshold constant (budget_ms_per_tick) and emit a deterministic perf report; test",
-                                              "fails when budget exceeded"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=4cacfb114ad7"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.ROUTES.001",
                       "task_id":  "GATE.S3.ROUTES.001.T468",
                       "status":  "TODO",
