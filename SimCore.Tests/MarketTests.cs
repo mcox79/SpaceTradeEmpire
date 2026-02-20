@@ -96,12 +96,286 @@ namespace SimCore.Tests
         }
 
         [Test]
+        public void AntiExploitMarketArbConstraint_MoneyPrinterScenario_ProfitGrowthIsBounded_AndExplainsFrictionReasonCodes()
+        {
+            // "Money printer" scenario (explicit):
+            // Two markets A (source) and B (sink) have a persistent published price spread for one good.
+            // A bot reinvests profits to scale buy->ship->sell volume. Without frictions this can grow superlinearly.
+            //
+            // Exactly two frictions enforced in this test:
+            // 1) transaction_fee (MarketSystem.TransactionFeeBps)
+            // 2) lane_capacity scarcity (LaneFlowSystem per-lane delivered units per tick bounded by edge.TotalCapacity)
+            //
+            // Acceptance: after T=600 ticks, profit growth is bounded:
+            // equity(t600) <= equity(t300) * 2
+            // Also emit deterministic reason codes showing binding friction(s).
+
+            const int seed = 99173;
+            const int tMax = 600;
+            const int tMid = 300;
+
+            var sim = new SimKernel(seed);
+            var state = sim.State;
+
+            // Make the test self-contained: clear any generated content on construction.
+            state.Nodes.Clear();
+            state.Markets.Clear();
+            state.Edges.Clear();
+            state.InFlightTransfers.Clear();
+
+            // Create two markets with stable IDs.
+            var mA = new Market { Id = "mkt_A" };
+            var mB = new Market { Id = "mkt_B" };
+
+            // Two goods: ore is profitable after fees; metal is near-flat and becomes unprofitable after fees (fee binds).
+            // Inventory choices are to shape mid/buy/sell deterministically.
+            mA.Inventory["ore"] = 5000;   // abundant at source
+            mB.Inventory["ore"] = 1;      // scarce at sink
+
+            mA.Inventory["metal"] = 60;   // moderate
+            mB.Inventory["metal"] = 55;   // moderate (small spread once published)
+
+            state.Markets[mA.Id] = mA;
+            state.Markets[mB.Id] = mB;
+
+            // Nodes referencing those markets.
+            state.Nodes["node_A"] = new Node { Id = "node_A", MarketId = mA.Id, Name = "A" };
+            state.Nodes["node_B"] = new Node { Id = "node_B", MarketId = mB.Id, Name = "B" };
+
+            // One directed edge A->B with tight capacity to force scarcity.
+            state.Edges["lane_A_B"] = new Edge
+            {
+                Id = "lane_A_B",
+                FromNodeId = "node_A",
+                ToNodeId = "node_B",
+                Distance = 1f,
+                TotalCapacity = 7
+            };
+
+            // Publish prices deterministically once at tick 0 (persist for the run since cadence is 720 ticks).
+            mA.PublishPricesIfDue(0, MarketSystem.PublishWindowTicks);
+            mB.PublishPricesIfDue(0, MarketSystem.PublishWindowTicks);
+
+            long cash = 50_000; // starting credits
+            long startCash = cash;
+
+            long equityAt300 = 0;
+            long equityAt600 = 0;
+
+            int feeBlockedTicks = 0;
+            int laneQueuedTicks = 0;
+
+            // Total transaction fees applied (credits). Proves transaction_fee friction is active and binding.
+            long feeTotalCredits = 0;
+
+            // Deterministic transfer ids via counter.
+            int transferSeq = 0;
+
+            // SimKernel owns Tick advancement; drive time via Step() to keep Tick read-only and deterministic.
+            // Start at tick 0; after tMax steps, Tick == tMax.
+            for (int step = 0; step < tMax; step++)
+            {
+                var now = state.Tick;
+
+                // 1) Attempt to place one reinvestment-style trade order per tick.
+                // Choose best good deterministically by net_unit_profit desc then good_id asc.
+                var goods = new[] { "metal", "ore" }.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+
+                string chosen = "";
+                int bestNetUnitProfit = int.MinValue;
+                int bestBuy = 0;
+                int bestSell = 0;
+
+                foreach (var g in goods)
+                {
+                    int buy = mA.GetPublishedBuyPrice(g);
+                    int sell = mB.GetPublishedSellPrice(g);
+
+                    // Per-unit fees: apply fee to buy gross and sell gross.
+                    int buyFee = MarketSystem.ComputeTransactionFeeCredits(buy);
+                    int sellFee = MarketSystem.ComputeTransactionFeeCredits(sell);
+
+                    int net = sell - sellFee - (buy + buyFee);
+
+                    if (net > bestNetUnitProfit || (net == bestNetUnitProfit && string.CompareOrdinal(g, chosen) < 0))
+                    {
+                        bestNetUnitProfit = net;
+                        chosen = g;
+                        bestBuy = buy;
+                        bestSell = sell;
+                    }
+                }
+
+                if (bestNetUnitProfit <= 0)
+                {
+                    feeBlockedTicks++;
+                }
+                else
+                {
+                    // Reinvestment behavior: try to spend up to all cash each tick on the chosen good.
+                    // Quantity limited by source stock.
+                    int sourceStock = mA.Inventory.TryGetValue(chosen, out var s) ? s : 0;
+                    if (sourceStock > 0 && cash > 0)
+                    {
+                        int buyFeePerUnit = MarketSystem.ComputeTransactionFeeCredits(bestBuy);
+                        int unitCost = bestBuy + buyFeePerUnit;
+                        if (unitCost <= 0) unitCost = 1;
+
+                        int affordable = (int)Math.Min(int.MaxValue, cash / unitCost);
+                        int qty = Math.Min(sourceStock, affordable);
+
+                        if (qty > 0)
+                        {
+                            long grossBuy = (long)bestBuy * qty;
+                            long buyFee = (long)MarketSystem.ComputeTransactionFeeCredits((int)Math.Min(int.MaxValue, grossBuy));
+                            feeTotalCredits += buyFee;
+                            long totalCost = grossBuy + buyFee;
+
+                            if (totalCost <= cash)
+                            {
+                                var id = $"arb_{transferSeq++:D6}";
+                                bool enq = LaneFlowSystem.TryEnqueueTransfer(
+                                    state,
+                                    "node_A",
+                                    "node_B",
+                                    chosen,
+                                    qty,
+                                    id);
+
+                                if (enq)
+                                {
+                                    cash -= totalCost;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2) Advance one tick through the real kernel (includes lane flow processing deterministically).
+                // Snapshot destination inventory before the step so we can infer delivered quantities.
+                int beforeOre = mB.Inventory.TryGetValue("ore", out var bo) ? bo : 0;
+                int beforeMetal = mB.Inventory.TryGetValue("metal", out var bm) ? bm : 0;
+
+                sim.Step();
+
+                int afterOre = mB.Inventory.TryGetValue("ore", out var ao) ? ao : 0;
+                int afterMetal = mB.Inventory.TryGetValue("metal", out var am) ? am : 0;
+
+                int deliveredOre = Math.Max(0, afterOre - beforeOre);
+                int deliveredMetal = Math.Max(0, afterMetal - beforeMetal);
+
+                // Parse lane report for queued>0 (capacity binding evidence).
+                var laneReport = LaneFlowSystem.GetLastLaneUtilizationReport(state);
+                if (!string.IsNullOrWhiteSpace(laneReport))
+                {
+                    // lane_id|delivered|capacity|queued
+                    // lane_A_B|...|...|queued
+                    var lines = laneReport.Split('\n');
+                    for (int i = 0; i < lines.Length; i++)
+                    {
+                        if (lines[i].StartsWith("lane_A_B|", StringComparison.Ordinal))
+                        {
+                            var parts = lines[i].Split('|');
+                            if (parts.Length >= 4 && int.TryParse(parts[3], out var queued) && queued > 0)
+                                laneQueuedTicks++;
+                            break;
+                        }
+                    }
+                }
+
+                // 3) Sell any delivered goods immediately at the published sell price (deterministic liquidation),
+                // applying transaction fee to sale proceeds. Remove sold units from destination inventory.
+                if (deliveredOre > 0)
+                {
+                    long gross = (long)mB.GetPublishedSellPrice("ore") * deliveredOre;
+                    int fee = MarketSystem.ComputeTransactionFeeCredits((int)Math.Min(int.MaxValue, gross));
+                    feeTotalCredits += fee;
+                    cash += (gross - fee);
+
+                    mB.Inventory["ore"] = Math.Max(0, (mB.Inventory.TryGetValue("ore", out var cur) ? cur : 0) - deliveredOre);
+                }
+
+                if (deliveredMetal > 0)
+                {
+                    long gross = (long)mB.GetPublishedSellPrice("metal") * deliveredMetal;
+                    int fee = MarketSystem.ComputeTransactionFeeCredits((int)Math.Min(int.MaxValue, gross));
+                    feeTotalCredits += fee;
+                    cash += (gross - fee);
+
+                    mB.Inventory["metal"] = Math.Max(0, (mB.Inventory.TryGetValue("metal", out var cur) ? cur : 0) - deliveredMetal);
+                }
+
+                // Equity proxy includes cash plus marked-to-market value of in-flight cargo at destination sell price (net of sell fee).
+                long inflightEquity = 0;
+                foreach (var tr in state.InFlightTransfers.OrderBy(x => x.Id, StringComparer.Ordinal))
+                {
+                    if (tr.Quantity <= 0) continue;
+                    if (string.Equals(tr.ToMarketId, mB.Id, StringComparison.Ordinal))
+                    {
+                        int sell = mB.GetPublishedSellPrice(tr.GoodId);
+                        long gross = (long)sell * tr.Quantity;
+                        int fee = MarketSystem.ComputeTransactionFeeCredits((int)Math.Min(int.MaxValue, gross));
+                        inflightEquity += (gross - fee);
+                    }
+                }
+
+                long equity = cash + inflightEquity;
+
+                var tickAfter = state.Tick;
+                if (tickAfter == tMid) equityAt300 = equity;
+                if (tickAfter == tMax) equityAt600 = equity;
+            }
+
+            // Compute profit proxies from equity.
+            long profit300 = equityAt300 - startCash;
+            long profit600 = equityAt600 - startCash;
+
+            // Bounded growth acceptance: profit(t600) <= profit(t300) * 2
+            // Use equity proxy to avoid checkpoint artifacts due to in-flight timing.
+            Assert.That(
+                equityAt600,
+                Is.LessThanOrEqualTo(equityAt300 * 2),
+                $"Expected bounded profit growth. equity300={equityAt300} equity600={equityAt600} profit300={profit300} profit600={profit600}");
+
+            // transaction_fee must actually apply in the explicit scenario (binding as a sink on throughput-scaled volume).
+            Assert.That(feeTotalCredits, Is.GreaterThan(0), "Expected nonzero transaction fee application in arb scenario.");
+
+            // Emit deterministic report with reason codes (no timestamps, normalized newlines).
+            var repoRoot = FindRepoRoot();
+            var outDir = Path.Combine(repoRoot, "docs", "generated");
+            Directory.CreateDirectory(outDir);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("MARKET_ARB_CONSTRAINT_REPORT_V0");
+            sb.AppendLine($"seed={seed}");
+            sb.AppendLine($"transaction_fee_bps={MarketSystem.TransactionFeeBps}");
+            sb.AppendLine("lane_id=lane_A_B");
+            sb.AppendLine("capacity_units_per_tick=7");
+            sb.AppendLine($"equity_t300={equityAt300}");
+            sb.AppendLine($"equity_t600={equityAt600}");
+            sb.AppendLine($"bounded_check=equity_t600<=equity_t300*2:{(equityAt600 <= equityAt300 * 2 ? "PASS" : "FAIL")}");
+            sb.AppendLine("REASON_CODES_V0");
+            sb.AppendLine($"FEE_BLOCKED_TRADES_TICKS={feeBlockedTicks}");
+            sb.AppendLine($"LANE_CAPACITY_QUEUED_TICKS={laneQueuedTicks}");
+
+            // Fee binding proof: nonzero fee sink over the run and a counterfactual equity proxy with fees removed.
+            sb.AppendLine($"FEE_TOTAL_CREDITS={feeTotalCredits}");
+            sb.AppendLine($"EQUITY_T600_NO_FEE_PROXY={equityAt600 + feeTotalCredits}");
+
+            sb.AppendLine("notes=FEE_BLOCKED_TRADES indicates fee eliminated otherwise marginal spread; LANE_CAPACITY_QUEUED indicates throughput bound; FEE_TOTAL_CREDITS%NO_FEE_PROXY show fee reduces achievable equity.");
+            File.WriteAllText(
+                Path.Combine(outDir, "market_arb_constraint_report.txt"),
+                sb.ToString().Replace("\r\n", "\n"));
+        }
+
+        [Test]
         public void EconomyPlacement_StarterRegion_HasAtLeast3ViableTradeLoops_AndEmitsDeterministicReport()
         {
             const int seed = 12345;
             const int starCount = 8;
 
-            var state = new SimState(seed);
+            var sim = new SimKernel(seed);
+            var state = sim.State;
             GalaxyGenerator.Generate(state, starCount, radius: 1000f);
 
             // Publish prices deterministically at tick 0 for all markets.

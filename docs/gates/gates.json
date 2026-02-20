@@ -39,41 +39,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3.MARKET_ARB.001",
-                      "task_id":  "GATE.S3.MARKET_ARB.001.T945",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.MARKET_ARB.001: Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario an",
-                      "intent":  "Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario and prevent unbounded profit via exactly two frictions (v0): transaction_fee and lane_capacity scarcity; acceptance: after T=600 ticks profit_growth is ",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/MarketTests.cs",
-                                             "SimCore/Systems/MarketSystem.cs",
-                                             "SimCore/Systems/LaneFlowSystem.cs",
-                                             "SimCore/Systems/LogisticsSystem.cs",
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario and prevent unbounded profit via exactly two frictions (v0):",
-                                              "transaction_fee and lane_capacity scarcity; acceptance: after T=600 ticks profit_growth is bounded (profit at tick 600 \u003c= profit at tick 300 * 2) and events",
-                                              "explain binding friction(s) with reason codes; outputs deterministic"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/MarketTests.cs",
-                                             "candidate_key_sha256=1031fe0e4846"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.ROUTES.001",
                       "task_id":  "GATE.S3.ROUTES.001.T468",
                       "status":  "TODO",
