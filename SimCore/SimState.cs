@@ -55,6 +55,14 @@ public class SimState
 
     [JsonInclude] public List<SimCore.Events.LogisticsEvents.Event> LogisticsEventLog { get; private set; } = new();
 
+    // Fleet event stream (Slice 3 / GATE.S3.FLEET.ROLES.001)
+    [JsonInclude] public long NextFleetEventSeq { get; set; } = 1;
+
+    // Non-serialized emission counter used to preserve within-fleet ordering prior to tick-final Seq assignment.
+    [JsonInclude] public long NextFleetEmitOrder { get; set; } = 1;
+
+    [JsonInclude] public List<SimCore.Events.FleetEvents.Event> FleetEventLog { get; private set; } = new();
+
     public void EmitLogisticsEvent(SimCore.Events.LogisticsEvents.Event e)
     {
         if (e is null) return;
@@ -72,6 +80,23 @@ public class SimState
         LogisticsEventLog.Add(e);
     }
 
+    public void EmitFleetEvent(SimCore.Events.FleetEvents.Event e)
+    {
+        if (e is null) return;
+
+        // Buffer event and finalize Seq at end of tick using deterministic ordering rules.
+        var emitOrder = NextFleetEmitOrder;
+        NextFleetEmitOrder = checked(NextFleetEmitOrder + 1);
+
+        e.Version = SimCore.Events.FleetEvents.EventsVersion;
+        e.Seq = 0; // assigned during tick finalization
+        e.EmitOrder = emitOrder;
+        e.Tick = Tick;
+
+        FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
+        FleetEventLog.Add(e);
+    }
+
     public SimState(int seed)
     {
         InitialSeed = seed;
@@ -84,8 +109,59 @@ public class SimState
 
     public void AdvanceTick()
     {
+        FinalizeFleetEventsForTick();
         FinalizeLogisticsEventsForTick();
         Tick++;
+    }
+
+    private void FinalizeFleetEventsForTick()
+    {
+        if (FleetEventLog is null) return;
+        if (FleetEventLog.Count == 0) return;
+
+        // Gather indices of events emitted this tick that have not yet been assigned a Seq.
+        var idx = new List<int>();
+        for (var i = 0; i < FleetEventLog.Count; i++)
+        {
+            var e = FleetEventLog[i];
+            if (e is null) continue;
+            if (e.Tick != Tick) continue;
+            if (e.Seq != 0) continue;
+            idx.Add(i);
+        }
+
+        if (idx.Count == 0) return;
+
+        // Deterministic ordering rule for same-tick events:
+        // FleetId (ordinal) then EmitOrder (preserves within-fleet emission order),
+        // then stable tie-breaks to avoid any ambiguity.
+        var ordered = idx
+            .Select(i => FleetEventLog[i])
+            .OrderBy(e => e.FleetId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.EmitOrder)
+            .ThenBy(e => (int)e.Type)
+            .ThenBy(e => e.ChosenRouteId ?? "", StringComparer.Ordinal)
+            .ThenBy(e => e.Role)
+            .ThenBy(e => e.ProfitScore)
+            .ThenBy(e => e.CapacityScore)
+            .ThenBy(e => e.RiskScore)
+            .ThenBy(e => e.Note ?? "", StringComparer.Ordinal)
+            .ToList();
+
+        // Assign Seq in deterministic order.
+        foreach (var e in ordered)
+        {
+            var seq = NextFleetEventSeq;
+            NextFleetEventSeq = checked(NextFleetEventSeq + 1);
+            e.Seq = seq;
+        }
+
+        // Reorder the log in-place for this tick only, so list order matches deterministic order.
+        idx.Sort();
+        for (var j = 0; j < idx.Count; j++)
+        {
+            FleetEventLog[idx[j]] = ordered[j];
+        }
     }
 
     private void FinalizeLogisticsEventsForTick()
@@ -149,6 +225,7 @@ public class SimState
         PendingIntents.Clear();
 
         LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
+        FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);
     }

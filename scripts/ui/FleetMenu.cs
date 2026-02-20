@@ -296,7 +296,7 @@ public partial class FleetMenu : Control
 
         _list.AddChild(new Label
         {
-            Text = "ID | Node | State | Ctrl | Override | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
+            Text = "ID | Role | Node | State | Ctrl | Override | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
             Modulate = new Color(0.7f, 0.7f, 1f),
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
@@ -319,6 +319,8 @@ public partial class FleetMenu : Control
             var node = GetStr(d!, "current_node_id");
             var state = GetStr(d!, "state");
             var task = GetStr(d!, "task");
+
+            var role = GetStr(d!, "role");
 
             var ctrl = GetStr(d!, "active_controller");
             var overrideNode = GetStr(d!, "manual_override_node_id");
@@ -343,7 +345,7 @@ public partial class FleetMenu : Control
 
             var label = new Label
             {
-                Text = $"{id} | {node} | {state} | {ctrl} | {overrideNode} | {task} | {jobPhase} | {jobGood} | {remaining} | {cargo} | {route}",
+                Text = $"{id} | {role} | {node} | {state} | {ctrl} | {overrideNode} | {task} | {jobPhase} | {jobGood} | {remaining} | {cargo} | {route}",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(820, 0)

@@ -142,42 +142,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S3.FLEET.ROLES.001",
-                      "task_id":  "GATE.S3.FLEET.ROLES.001.T929",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.FLEET.ROLES.001: Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one det",
-                      "intent":  "Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one deterministic decision each (v0): Trader prefers profit route, Hauler prefers capacity route, Patrol prefers low-risk route; acceptance: in a crafted map",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_intent_router.gd",
-                                             "SimCore/Entities/Fleet.cs",
-                                             "scripts/core/state/fleet.gd",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "SimCore/Systems/IntentSystem.cs",
-                                             "SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one deterministic decision each (v0): Trader prefers profit route, Hauler",
-                                              "prefers capacity route, Patrol prefers low-risk route; acceptance: in a crafted map with competing routes, each role chooses its intended route",
-                                              "deterministically and emits a schema-bound event describing the choice; persists through save%load"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_intent_router.gd",
-                                             "candidate_key_sha256=b53326488178"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }

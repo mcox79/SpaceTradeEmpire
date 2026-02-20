@@ -20,10 +20,25 @@ public enum FleetActiveController
     ManualOverride = 3
 }
 
+public enum FleetRole
+{
+    Trader = 0,
+    Hauler = 1,
+    Patrol = 2
+}
+
 public class Fleet
 {
     public string Id { get; set; } = "";
     public string OwnerId { get; set; } = "";
+
+    // SLICE 3: Fleet roles v0 (GATE.S3.FLEET.ROLES.001)
+    // Persisted role that influences exactly one deterministic decision surface (route-choice selection).
+    public FleetRole Role { get; set; } = FleetRole.Trader;
+
+    // SLICE 3: Fleet roles v0 (GATE.S3.FLEET.ROLES.001)
+    // Persisted proof surface for deterministic route-choice selection (survives save%load even though PendingIntents are discarded).
+    public string LastRouteChoiceRouteId { get; set; } = "";
 
     // LOCATION STATE
     public string CurrentNodeId { get; set; } = "";
