@@ -8,6 +8,9 @@ namespace SimCore.Gen;
 
 public static class GalaxyGenerator
 {
+    // GATE.S2_5.WGEN.ECON.001: deterministic starter region size (first N stars by generation index).
+    public const int StarterRegionNodeCount = 8;
+
     public static void Generate(SimState state, int starCount, float radius)
     {
         state.Nodes.Clear();
@@ -42,10 +45,23 @@ public static class GalaxyGenerator
             mkt.Inventory["ore"] = 0;
             mkt.Inventory["metal"] = 0;
 
+            // GATE.S2_5.WGEN.ECON.001: deterministic economy placement v0 for starter region.
+            // Starter region is the first N stars by generation index.
+            bool isStarter = i < Math.Min(starCount, StarterRegionNodeCount);
+
             if (i % 2 == 0)
             {
-                // MINE: produces ore, consumes fuel as upkeep (2-good upkeep for Option A tests can target any site)
-                mkt.Inventory["ore"] = 500;
+                // MINE: supplies ore; starter region also supplies fuel and demands metal (demand sink).
+                if (isStarter)
+                {
+                    mkt.Inventory["fuel"] = 120;  // supply
+                    mkt.Inventory["ore"] = 500;   // supply
+                    mkt.Inventory["metal"] = 10;  // demand sink (scarce)
+                }
+                else
+                {
+                    mkt.Inventory["ore"] = 500;
+                }
 
                 var mine = new IndustrySite
                 {
@@ -69,7 +85,14 @@ public static class GalaxyGenerator
             }
             else
             {
-                // REFINERY: consumes ore + fuel each tick, produces metal
+                // REFINERY: consumes ore + fuel, produces metal; starter region demands ore+fuel and supplies metal.
+                if (isStarter)
+                {
+                    mkt.Inventory["fuel"] = 10;   // demand sink (scarce)
+                    mkt.Inventory["ore"] = 0;     // demand sink (scarce)
+                    mkt.Inventory["metal"] = 200; // supply
+                }
+
                 var factory = new IndustrySite
                 {
                     Id = $"fac_{i}",

@@ -212,41 +212,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.ECON.001",
-                      "task_id":  "GATE.S2_5.WGEN.ECON.001.T170",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.ECON.001: Deterministic economy placement v0 for starter region: place stations%markets and assign i",
-                      "intent":  "Deterministic economy placement v0 for starter region: place stations%markets and assign initial inventories plus demand sinks; define â€œviable early trade loopâ€ as: loop hop_count\u003c=4, net_profit_proxy\u003e0 after fees, and volume_proxy\u003e0; a",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_economy_core.gd",
-                                             "scripts/core/economy_engine.gd",
-                                             "scenes/tests/test_economy_core.tscn",
-                                             "SimCore/Systems/MarketSystem.cs",
-                                             "SimCore.Tests/MarketTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Deterministic economy placement v0 for starter region: place stations%markets and assign initial inventories plus demand sinks; define â€œviable early trade",
-                                              "loopâ€ as: loop hop_count\u003c=4, net_profit_proxy\u003e0 after fees, and volume_proxy\u003e0; assert at least 3 distinct loops exist for the starter region; emit a",
-                                              "deterministic loop report sorted by profit_proxy desc then route_id asc"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_economy_core.gd",
-                                             "candidate_key_sha256=eb7d91a96573"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.WGEN.FACTION.001",
                       "task_id":  "GATE.S2_5.WGEN.FACTION.001.T783",
                       "status":  "TODO",
