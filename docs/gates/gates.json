@@ -5,40 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.INVARIANTS.001",
-                      "task_id":  "GATE.S2_5.WGEN.INVARIANTS.001.T412",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.INVARIANTS.001: Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: ",
-                      "intent":  "Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: CONNECTED_GRAPH, STARTER_REGION_SAFE_PATH (at least 1 path from starter hub to each starter market with max_chokepoints\u003c=1), EARLY_LOOPS_MIN3 (\u003e=3 viab",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_universe_validator.gd",
-                                             "scripts/tests/test_galaxy_core.gd",
-                                             "scripts/tests/test_economy_core.gd",
-                                             "scripts/core/sim/rng_streams.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: CONNECTED_GRAPH, STARTER_REGION_SAFE_PATH (at least 1 path from",
-                                              "starter hub to each starter market with max_chokepoints\u003c=1), EARLY_LOOPS_MIN3 (\u003e=3 viable loops per defined criteria); failures emit records {Seed,",
-                                              "InvariantName, PrimaryId, DetailsKV} sorted by InvariantName then PrimaryId; report is byte-for-byte stable"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_universe_validator.gd",
-                                             "candidate_key_sha256=ba66e3e3ede6"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001",
                       "task_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001.T115",
                       "status":  "TODO",
