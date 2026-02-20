@@ -4,6 +4,17 @@ var rng_streams: RngStreams
 var rng: RandomNumberGenerator
 var seed: int = 0
 
+static func _fnv1a32(s: String) -> int:
+	var bytes: PackedByteArray = s.to_utf8_buffer()
+	var h: int = 0x811c9dc5
+	for b in bytes:
+		h = int((h ^ int(b)) & 0xffffffff)
+		h = int((h * 0x01000193) & 0xffffffff)
+	return h
+
+static func _q1e3(v: float) -> int:
+	return int(round(v * 1000.0))
+
 func _init(seed_val: int = 0):
 	seed = seed_val
 	rng_streams = RngStreams.new(seed_val)
@@ -89,23 +100,12 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 	# Create 3 factions with stable ids and stable home selection that varies across seeds (position-derived scoring).
 	# Avoid relying on sequential star ids, which can be identical across different seeds for a fixed region_count.
 
-	# FNV-1a 32-bit over UTF8 bytes (local, deterministic).
-	func fnv1a32(s: String) -> int:
-		var bytes: PackedByteArray = s.to_utf8_buffer()
-		var h: int = 0x811c9dc5
-		for b in bytes:
-			h = int((h ^ int(b)) & 0xffffffff)
-			h = int((h * 0x01000193) & 0xffffffff)
-		return h
-
-	func q1e3(v: float) -> int:
-		return int(round(v * 1000.0))
-
 	var scored: Array = []
 	for s in stars:
 		var sid := String(s.get("id", ""))
 		var p: Vector3 = s.get("pos", Vector3.ZERO)
-		var score := fnv1a32("%d|%s|%d|%d|%d" % [seed, sid, q1e3(p.x), q1e3(p.y), q1e3(p.z)])
+		var score_seed := int(r.seed)
+		var score := _fnv1a32("%d|%s|%d|%d|%d" % [score_seed, sid, _q1e3(p.x), _q1e3(p.y), _q1e3(p.z)])
 		scored.append({ "id": sid, "score": score })
 
 	scored.sort_custom(func(a, b):
@@ -127,7 +127,7 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 		if home_ids.size() >= 3:
 			break
 
-	var roles := ["Trader", "Miner", "Pirate"]
+	var roles: Array[String] = ["Trader", "Miner", "Pirate"]
 	var fids := ["faction_0", "faction_1", "faction_2"]
 
 	# Canonical relations pattern (values in {-1,0,+1}).
@@ -139,9 +139,9 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 
 	var factions: Array = []
 	for i in range(3):
-		var fid := fids[i]
-		var home := home_ids[i] if i < home_ids.size() else ""
-		var role := roles[i]
+		var fid: String = String(fids[i])
+		var home: String = String(home_ids[i]) if i < home_ids.size() else ""
+		var role: String = roles[i]
 		var rmap: Dictionary = rels.get(fid, {})
 		factions.append({
 			"FactionId": fid,
@@ -227,4 +227,3 @@ static func _canonical_digest(out: Dictionary) -> String:
 		sb.append("M|%s|%s" % [row, ",".join(vals)])
 
 	return String("\n").join(sb).sha256_text()
-

@@ -212,40 +212,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.FACTION.001",
-                      "task_id":  "GATE.S2_5.WGEN.FACTION.001.T783",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.FACTION.001: Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, Ro",
-                      "intent":  "Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, RoleTag, Relations[OtherFactionId] in {-1,0,+1}}; IDs minted deterministically; emit a diff-friendly table sorted by FactionId plus a relations matrix w",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_galaxy_core.gd",
-                                             "SimCore/Schemas/WorldDefinition.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "scripts/core/sim/galaxy_generator.gd",
-                                             "SimCore.Tests/GalaxyTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, RoleTag, Relations[OtherFactionId] in {-1,0,+1}}; IDs minted",
-                                              "deterministically; emit a diff-friendly table sorted by FactionId plus a relations matrix with rows%cols sorted; same Seed equals byte-for-byte"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_galaxy_core.gd",
-                                             "candidate_key_sha256=f23a6ec4bfb9"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.UI.DASH.001",
                       "task_id":  "GATE.S3.UI.DASH.001.T073",
                       "status":  "TODO",

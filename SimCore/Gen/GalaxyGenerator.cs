@@ -234,10 +234,10 @@ public static class GalaxyGenerator
         unchecked
         {
             uint h = 2166136261;
-            foreach (var ch in s)
+            var bytes = Encoding.UTF8.GetBytes(s);
+            for (int i = 0; i < bytes.Length; i++)
             {
-                // Node ids are ASCII today; treat chars as bytes deterministically.
-                h ^= (byte)ch;
+                h ^= bytes[i];
                 h *= 16777619;
             }
             return h;
@@ -246,23 +246,23 @@ public static class GalaxyGenerator
 
     private static int Quantize1e3(float v) => (int)MathF.Round(v * 1000f);
 
-    private static uint ScoreNode(Node n)
+    private static uint ScoreNode(int seed, Node n)
     {
         var p = n.Position;
         var qx = Quantize1e3(p.X);
         var qz = Quantize1e3(p.Z);
-        return Fnv1a32Utf8($"{n.Id}|{qx}|{qz}");
+        return Fnv1a32Utf8($"{seed}|{n.Id}|{qx}|{qz}");
     }
 
-    public static string BuildFactionSeedReport(SimState state)
+    public static string BuildFactionSeedReport(SimState state, int seed)
     {
         // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.
         var nodeIds = state.Nodes.Values
-            .Select(n => (Id: n.Id, Score: ScoreNode(n)))
-            .OrderByDescending(t => t.Score)
-            .ThenBy(t => t.Id, StringComparer.Ordinal)
-            .Select(t => t.Id)
-            .ToList();
+            .Select(n => (Id: n.Id, Score: ScoreNode(seed, n)))
+                            .OrderByDescending(t => t.Score)
+                            .ThenBy(t => t.Id, StringComparer.Ordinal)
+                            .Select(t => t.Id)
+                            .ToList();
 
         var factions = SeedFactionsFromNodesSorted(nodeIds);
 

@@ -19,6 +19,7 @@ var player_fleet_id: String = 'player_1'
 func _ready():
 	print('SUCCESS: Global Game Manager initialized.')
 	sim = Sim.new()
+
 	player = PlayerState.new()
 	interaction = PlayerInteractionManager.new(player, sim)
 

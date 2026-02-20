@@ -53,6 +53,7 @@ func _galaxy_repr(out: Dictionary) -> String:
 
 	var stars: Array = out.get("stars", [])
 	var lanes: Array = out.get("lanes", [])
+	var factions: Array = out.get("factions", [])
 
 	# Stars and lanes are Dictionaries; use get() for stable access.
 	var stars_sorted := stars.duplicate()
@@ -100,6 +101,35 @@ func _galaxy_repr(out: Dictionary) -> String:
 			_fmt_vec3(l2.get("from", Vector3.ZERO)),
 			_fmt_vec3(l2.get("to", Vector3.ZERO)),
 		])
+
+	# Factions: diff-friendly table sorted by FactionId + relations matrix with rows%cols sorted.
+	var factions_sorted := factions.duplicate()
+	factions_sorted.sort_custom(func(a, b):
+		return String(a.get("FactionId", "")) < String(b.get("FactionId", ""))
+	)
+
+	var fids: Array[String] = []
+	for f in factions_sorted:
+		fids.append(String(f.get("FactionId", "")))
+
+	lines.append("factions_count=%d" % factions_sorted.size())
+	for f in factions_sorted:
+		lines.append("F|%s|home=%s|role=%s" % [
+			String(f.get("FactionId", "")),
+			String(f.get("HomeNodeId", "")),
+			String(f.get("RoleTag", "")),
+		])
+
+	for f in factions_sorted:
+		var row := String(f.get("FactionId", ""))
+		var rel: Dictionary = f.get("Relations", {})
+		var vals: Array[String] = []
+		for col in fids:
+			if col == row:
+				vals.append("0")
+			else:
+				vals.append(str(int(rel.get(col, 0))))
+		lines.append("M|%s|%s" % [row, ",".join(vals)])
 
 	return "\n".join(lines)
 
