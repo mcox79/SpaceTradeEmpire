@@ -1,8 +1,10 @@
 ﻿using System.Numerics;
 using SimCore.Entities;
+using SimCore.Schemas;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using System.Text;
 
 namespace SimCore.Gen;
 
@@ -156,5 +158,145 @@ public static class GalaxyGenerator
     private static string GetSortedId(string a, string b)
     {
         return string.Compare(a, b) < 0 ? $"{a}_{b}" : $"{b}_{a}";
+    }
+
+    // GATE.S2_5.WGEN.FACTION.001: deterministic faction seeding v0.
+    // Output format is intentionally diff-friendly: a table sorted by FactionId plus a relations matrix
+    // with rows%cols sorted by FactionId. Avoid unordered iteration by sorting ids explicitly.
+    public static IReadOnlyList<WorldFaction> SeedFactionsFromNodesSorted(IReadOnlyList<string> nodeIdsSorted)
+    {
+        if (nodeIdsSorted.Count == 0) throw new InvalidOperationException("No nodes available for faction seeding.");
+
+        var roles = new[] { "Trader", "Miner", "Pirate" };
+        var fids = new[] { "faction_0", "faction_1", "faction_2" };
+
+        int idx0 = 0;
+        int idx1 = nodeIdsSorted.Count / 2;
+        int idx2 = nodeIdsSorted.Count - 1;
+
+        var home = new[] { nodeIdsSorted[idx0], nodeIdsSorted[idx1], nodeIdsSorted[idx2] };
+
+        // Ensure uniqueness for tiny worlds deterministically (advance to next available sorted node id).
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < home.Length; i++)
+        {
+            if (used.Add(home[i])) continue;
+
+            for (int j = 0; j < nodeIdsSorted.Count; j++)
+            {
+                if (used.Add(nodeIdsSorted[j]))
+                {
+                    home[i] = nodeIdsSorted[j];
+                    break;
+                }
+            }
+        }
+
+        // Canonical relations pattern (values in {-1,0,+1}). Keep explicit 0 entries for stable diffs.
+        var rel = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal)
+        {
+            ["faction_0"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_1"] = +1, ["faction_2"] = -1 },
+            ["faction_1"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_0"] = +1, ["faction_2"] = 0 },
+            ["faction_2"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_0"] = -1, ["faction_1"] = 0 },
+        };
+
+        var factions = new List<WorldFaction>(capacity: 3);
+        for (int i = 0; i < 3; i++)
+        {
+            var fid = fids[i];
+            var rmap = rel[fid];
+
+            factions.Add(new WorldFaction
+            {
+                FactionId = fid,
+                HomeNodeId = home[i],
+                RoleTag = roles[i],
+                Relations = new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    // Explicitly include all non-self entries, including zeros.
+                    ["faction_0"] = fid == "faction_0" ? 0 : rmap.GetValueOrDefault("faction_0", 0),
+                    ["faction_1"] = fid == "faction_1" ? 0 : rmap.GetValueOrDefault("faction_1", 0),
+                    ["faction_2"] = fid == "faction_2" ? 0 : rmap.GetValueOrDefault("faction_2", 0),
+                }
+            });
+
+            // Remove self key to keep semantics "Relations[OtherFactionId]" while still keeping stable diffs.
+            factions[i].Relations.Remove(fid);
+        }
+
+        // Ensure stable order by FactionId.
+        factions.Sort((a, b) => string.CompareOrdinal(a.FactionId, b.FactionId));
+        return factions;
+    }
+
+    private static uint Fnv1a32Utf8(string s)
+    {
+        unchecked
+        {
+            uint h = 2166136261;
+            foreach (var ch in s)
+            {
+                // Node ids are ASCII today; treat chars as bytes deterministically.
+                h ^= (byte)ch;
+                h *= 16777619;
+            }
+            return h;
+        }
+    }
+
+    private static int Quantize1e3(float v) => (int)MathF.Round(v * 1000f);
+
+    private static uint ScoreNode(Node n)
+    {
+        var p = n.Position;
+        var qx = Quantize1e3(p.X);
+        var qz = Quantize1e3(p.Z);
+        return Fnv1a32Utf8($"{n.Id}|{qx}|{qz}");
+    }
+
+    public static string BuildFactionSeedReport(SimState state)
+    {
+        // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.
+        var nodeIds = state.Nodes.Values
+            .Select(n => (Id: n.Id, Score: ScoreNode(n)))
+            .OrderByDescending(t => t.Score)
+            .ThenBy(t => t.Id, StringComparer.Ordinal)
+            .Select(t => t.Id)
+            .ToList();
+
+        var factions = SeedFactionsFromNodesSorted(nodeIds);
+
+        var fids = factions.Select(f => f.FactionId).OrderBy(id => id, StringComparer.Ordinal).ToList();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("FactionId\tHomeNodeId\tRoleTag");
+        foreach (var f in factions)
+        {
+            sb.Append(f.FactionId).Append('\t')
+              .Append(f.HomeNodeId).Append('\t')
+              .Append(f.RoleTag).Append('\n');
+        }
+
+        sb.Append("Matrix\t");
+        sb.Append(string.Join('\t', fids));
+        sb.Append('\n');
+
+        foreach (var row in fids)
+        {
+            sb.Append(row);
+            foreach (var col in fids)
+            {
+                int v = 0;
+                if (!string.Equals(row, col, StringComparison.Ordinal))
+                {
+                    var fr = factions.First(ff => string.Equals(ff.FactionId, row, StringComparison.Ordinal));
+                    v = fr.Relations.TryGetValue(col, out var vv) ? vv : 0;
+                }
+                sb.Append('\t').Append(v);
+            }
+            sb.Append('\n');
+        }
+
+        return sb.ToString();
     }
 }

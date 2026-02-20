@@ -85,7 +85,72 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 			'to': r2[-1].pos
 		})
 
-	return { 'stars': stars, 'lanes': lanes }
+	# 4. FACTIONS (Deterministic seeding v0)
+	# Create 3 factions with stable ids and stable home selection that varies across seeds (position-derived scoring).
+	# Avoid relying on sequential star ids, which can be identical across different seeds for a fixed region_count.
+
+	# FNV-1a 32-bit over UTF8 bytes (local, deterministic).
+	func fnv1a32(s: String) -> int:
+		var bytes: PackedByteArray = s.to_utf8_buffer()
+		var h: int = 0x811c9dc5
+		for b in bytes:
+			h = int((h ^ int(b)) & 0xffffffff)
+			h = int((h * 0x01000193) & 0xffffffff)
+		return h
+
+	func q1e3(v: float) -> int:
+		return int(round(v * 1000.0))
+
+	var scored: Array = []
+	for s in stars:
+		var sid := String(s.get("id", ""))
+		var p: Vector3 = s.get("pos", Vector3.ZERO)
+		var score := fnv1a32("%d|%s|%d|%d|%d" % [seed, sid, q1e3(p.x), q1e3(p.y), q1e3(p.z)])
+		scored.append({ "id": sid, "score": score })
+
+	scored.sort_custom(func(a, b):
+		var sa := int(a.get("score", 0))
+		var sb2 := int(b.get("score", 0))
+		if sa == sb2:
+			return String(a.get("id", "")) < String(b.get("id", ""))
+		return sa > sb2
+	)
+
+	var home_ids: Array[String] = []
+	var used: Dictionary = {}
+	for item in scored:
+		var sid := String(item.get("id", ""))
+		if used.has(sid):
+			continue
+		used[sid] = true
+		home_ids.append(sid)
+		if home_ids.size() >= 3:
+			break
+
+	var roles := ["Trader", "Miner", "Pirate"]
+	var fids := ["faction_0", "faction_1", "faction_2"]
+
+	# Canonical relations pattern (values in {-1,0,+1}).
+	var rels: Dictionary = {
+		"faction_0": {"faction_1": +1, "faction_2": -1},
+		"faction_1": {"faction_0": +1, "faction_2":  0},
+		"faction_2": {"faction_0": -1, "faction_1":  0},
+	}
+
+	var factions: Array = []
+	for i in range(3):
+		var fid := fids[i]
+		var home := home_ids[i] if i < home_ids.size() else ""
+		var role := roles[i]
+		var rmap: Dictionary = rels.get(fid, {})
+		factions.append({
+			"FactionId": fid,
+			"HomeNodeId": home,
+			"RoleTag": role,
+			"Relations": rmap,
+		})
+
+	return { 'stars': stars, 'lanes': lanes, 'factions': factions }
 
 # Determinism probe: canonical digest of ordered stars+lanes for a given seed and region_count.
 # This is intended for headless proofs only. Call on an instance initialized with the seed.
@@ -96,6 +161,7 @@ func determinism_digest(region_count: int) -> String:
 static func _canonical_digest(out: Dictionary) -> String:
 	var stars: Array = out.get("stars", [])
 	var lanes: Array = out.get("lanes", [])
+	var factions: Array = out.get("factions", [])
 
 	# Sort stars by id (string)
 	var stars_sorted := stars.duplicate()
@@ -123,6 +189,15 @@ static func _canonical_digest(out: Dictionary) -> String:
 		return au < bu
 	)
 
+	# Sort factions by FactionId and render as table + relations matrix with sorted rows%cols.
+	var factions_sorted := factions.duplicate()
+	factions_sorted.sort_custom(func(a, b):
+		return String(a.get("FactionId", "")) < String(b.get("FactionId", ""))
+	)
+	var fids: Array[String] = []
+	for f in factions_sorted:
+		fids.append(String(f.get("FactionId", "")))
+
 	var sb: Array[String] = []
 	for s in stars_sorted:
 		var id := String(s.get("id", ""))
@@ -131,6 +206,25 @@ static func _canonical_digest(out: Dictionary) -> String:
 		sb.append("S|%s|%s|%.6f,%.6f,%.6f" % [id, region, p.x, p.y, p.z])
 	for l2 in lanes_norm:
 		sb.append("L|%s|%s" % [String(l2.get("u", "")), String(l2.get("v", ""))])
+
+	for f in factions_sorted:
+		sb.append("F|%s|%s|%s" % [
+			String(f.get("FactionId", "")),
+			String(f.get("HomeNodeId", "")),
+			String(f.get("RoleTag", "")),
+		])
+
+	# Matrix rows: M|row_fid|v0,v1,v2... where cols are sorted by fid.
+	for f in factions_sorted:
+		var row := String(f.get("FactionId", ""))
+		var rel: Dictionary = f.get("Relations", {})
+		var vals: Array[String] = []
+		for col in fids:
+			if col == row:
+				vals.append("0")
+			else:
+				vals.append(str(int(rel.get(col, 0))))
+		sb.append("M|%s|%s" % [row, ",".join(vals)])
 
 	return String("\n").join(sb).sha256_text()
 
