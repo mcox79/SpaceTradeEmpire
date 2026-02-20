@@ -56,6 +56,15 @@ public partial class SimBridge : Node
     private Godot.Collections.Dictionary _cachedLogisticsSnapshot = new Godot.Collections.Dictionary();
     private string _cachedLogisticsSnapshotKey = "";
 
+    // Cached dashboard snapshot (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured dashboard snapshot instead of stalling a frame.
+    private Godot.Collections.Dictionary _cachedDashboardSnapshot = new Godot.Collections.Dictionary();
+
+    // UI state persisted in quicksave (GATE.S3.UI.DASH.001)
+    // Determinism: store as simple scalars with stable defaults.
+    private int _uiStationViewIndex = 0;          // 0=Market%Traffic, 1=Logistics, 2=Sustainment, 3=Dash
+    private int _uiDashboardLastSnapshotTick = -1; // last captured snapshot tick for dashboard metrics
+
     // Cached program event log (deterministic, newest-first snapshots for UI).
     private sealed class ProgramEvent
     {
@@ -98,11 +107,22 @@ public partial class SimBridge : Node
         public ProgramSnapEntry[] Snaps { get; set; } = Array.Empty<ProgramSnapEntry>();
     }
 
+    private sealed class UiStateSave
+    {
+        public int Version { get; set; } = 1;
+
+        public int StationViewIndex { get; set; } = 0;
+        public int DashboardLastSnapshotTick { get; set; } = -1;
+    }
+
     private sealed class QuickSaveV2
     {
         public string Format { get; set; } = "STE_QUICKSAVE_V2";
         public JsonElement Kernel { get; set; }
         public ProgramEventLogSave ProgramEventLog { get; set; } = new ProgramEventLogSave();
+
+        // UI state persistence (selected tab/view + last dashboard snapshot tick)
+        public UiStateSave UiState { get; set; } = new UiStateSave();
     }
 
     private static JsonSerializerOptions CreateDeterministicJsonOptions()
@@ -1509,6 +1529,264 @@ public partial class SimBridge : Node
         }
     }
 
+    // --- Dashboards v0 (GATE.S3.UI.DASH.001) ---
+    // UI exposes deterministic metrics from the last snapshot tick:
+    // - total_shipments: count of active fleet jobs
+    // - avg_delay_ticks: avg (snapshot_tick - last_job_event_tick) over active jobs, best-effort
+    // - top3_bottleneck_lanes: derived from logistics event notes containing LaneCapacity markers
+    // - top3_profit_loops: best 2-hop A>B>A loop proxies from market prices (ties lex)
+    // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    public Godot.Collections.Dictionary GetDashboardSnapshot(int topN = 3)
+    {
+        if (topN <= 0) topN = 1;
+        if (topN > 10) topN = 10;
+
+        var dict = new Godot.Collections.Dictionary();
+        if (IsLoading) return dict;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+                var snapTick = state.Tick;
+
+                // total_shipments = active jobs (deterministic by definition, no ordering).
+                var fleets = state.Fleets.Values
+                    .OrderBy(f => f.Id, StringComparer.Ordinal)
+                    .ToArray();
+
+                var activeJobs = fleets.Where(f => f.CurrentJob != null).ToArray();
+                dict["snapshot_tick"] = snapTick;
+                dict["total_shipments"] = activeJobs.Length;
+
+                // avg_delay_ticks: best-effort, based on last event tick for that fleet (pickup/dropoff issued),
+                // falling back to 0 if no event is found.
+                long delaySum = 0;
+                int delayCount = 0;
+
+                if (state.LogisticsEventLog != null && state.LogisticsEventLog.Count > 0)
+                {
+                    // Build a last-event-tick map for fleets with deterministic tie break:
+                    // pick max Tick, then max Seq for the fleet.
+                    var lastTickByFleet = new System.Collections.Generic.Dictionary<string, (int Tick, long Seq)>(StringComparer.Ordinal);
+
+                    foreach (var e in state.LogisticsEventLog)
+                    {
+                        var fid = e.FleetId ?? "";
+                        if (string.IsNullOrWhiteSpace(fid)) continue;
+
+                        // Only consider job lifecycle events as delay anchors (name-based, stable).
+                        var typeName = e.Type.ToString();
+                        if (!(typeName.Contains("Issued", StringComparison.Ordinal) ||
+                              typeName.Contains("Queued", StringComparison.Ordinal) ||
+                              typeName.Contains("Pickup", StringComparison.Ordinal) ||
+                              typeName.Contains("Dropoff", StringComparison.Ordinal)))
+                        {
+                            continue;
+                        }
+
+                        var tick = e.Tick;
+                        var seq = e.Seq;
+
+                        if (lastTickByFleet.TryGetValue(fid, out var cur))
+                        {
+                            if (tick > cur.Tick || (tick == cur.Tick && seq > cur.Seq))
+                                lastTickByFleet[fid] = (tick, seq);
+                        }
+                        else
+                        {
+                            lastTickByFleet[fid] = (tick, seq);
+                        }
+                    }
+
+                    foreach (var f in activeJobs)
+                    {
+                        var fid = f.Id ?? "";
+                        if (string.IsNullOrWhiteSpace(fid)) continue;
+
+                        if (lastTickByFleet.TryGetValue(fid, out var lt))
+                        {
+                            var d = Math.Max(0, snapTick - lt.Tick);
+                            delaySum += d;
+                            delayCount++;
+                        }
+                    }
+                }
+
+                var avgDelay = (delayCount <= 0) ? 0 : (int)(delaySum / delayCount);
+                dict["avg_delay_ticks"] = avgDelay;
+
+                // top3_bottleneck_lanes from event note markers on this snapshot tick.
+                // We look for notes containing "Reason=LaneCapacity" or "LaneCapacity".
+                var laneCounts = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+
+                if (state.LogisticsEventLog != null && state.LogisticsEventLog.Count > 0)
+                {
+                    foreach (var e in state.LogisticsEventLog)
+                    {
+                        if (e.Tick != snapTick) continue;
+
+                        var note = e.Note ?? "";
+                        if (string.IsNullOrWhiteSpace(note)) continue;
+
+                        if (!(note.Contains("LaneCapacity", StringComparison.Ordinal) || note.Contains("Reason=LaneCapacity", StringComparison.Ordinal)))
+                            continue;
+
+                        // Parse lane id from common patterns: "LaneId=<id>" or "lane=<id>"
+                        string laneId = "";
+                        var idx = note.IndexOf("LaneId=", StringComparison.Ordinal);
+                        if (idx >= 0)
+                        {
+                            var start = idx + "LaneId=".Length;
+                            var end = note.IndexOfAny(new[] { ' ', ';', ',', '\t' }, start);
+                            laneId = (end >= 0) ? note.Substring(start, end - start) : note.Substring(start);
+                        }
+                        else
+                        {
+                            idx = note.IndexOf("lane=", StringComparison.Ordinal);
+                            if (idx >= 0)
+                            {
+                                var start = idx + "lane=".Length;
+                                var end = note.IndexOfAny(new[] { ' ', ';', ',', '\t' }, start);
+                                laneId = (end >= 0) ? note.Substring(start, end - start) : note.Substring(start);
+                            }
+                        }
+
+                        laneId = laneId?.Trim() ?? "";
+                        if (string.IsNullOrWhiteSpace(laneId)) continue;
+
+                        laneCounts.TryGetValue(laneId, out var c);
+                        laneCounts[laneId] = c + 1;
+                    }
+                }
+
+                var topLanes = laneCounts
+                    .OrderByDescending(kv => kv.Value)
+                    .ThenBy(kv => kv.Key, StringComparer.Ordinal)
+                    .Take(topN)
+                    .ToArray();
+
+                var lanesArr = new Godot.Collections.Array();
+                foreach (var kv in topLanes)
+                {
+                    lanesArr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["lane_id"] = kv.Key,
+                        ["count"] = kv.Value
+                    });
+                }
+                dict["top3_bottleneck_lanes"] = lanesArr;
+
+                // top3_profit_loops proxy: best 2-hop A>B>A where each leg uses the best positive price diff good.
+                // Determinism: markets sorted, goods sorted, tie-break goods lex, then route_id lex.
+                var markets = state.Markets.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray();
+
+                (string GoodId, int Profit) BestLeg(string from, string to)
+                {
+                    if (!state.Markets.TryGetValue(from, out var mFrom)) return ("", 0);
+                    if (!state.Markets.TryGetValue(to, out var mTo)) return ("", 0);
+
+                    string bestGood = "";
+                    int bestProfit = 0;
+
+                    foreach (var good in mFrom.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal))
+                    {
+                        var pFrom = mFrom.GetPrice(good);
+                        var pTo = mTo.GetPrice(good);
+                        var profit = pTo - pFrom;
+                        if (profit <= 0) continue;
+
+                        if (profit > bestProfit)
+                        {
+                            bestProfit = profit;
+                            bestGood = good;
+                        }
+                        else if (profit == bestProfit && profit > 0 && string.CompareOrdinal(good, bestGood) < 0)
+                        {
+                            bestGood = good;
+                        }
+                    }
+
+                    return (bestGood, bestProfit);
+                }
+
+                var loops = new System.Collections.Generic.List<(string RouteId, string A, string B, string GoodAB, string GoodBA, int NetProfit)>(64);
+
+                for (int i = 0; i < markets.Length; i++)
+                {
+                    for (int j = 0; j < markets.Length; j++)
+                    {
+                        if (i == j) continue;
+
+                        var a = markets[i];
+                        var b = markets[j];
+
+                        var leg1 = BestLeg(a, b);
+                        var leg2 = BestLeg(b, a);
+
+                        if (leg1.Profit <= 0 || leg2.Profit <= 0) continue;
+
+                        var net = leg1.Profit + leg2.Profit;
+                        var routeId = $"{a}>{b}>{a}";
+
+                        loops.Add((routeId, a, b, leg1.GoodId, leg2.GoodId, net));
+                    }
+                }
+
+                var topLoops = loops
+                    .OrderByDescending(x => x.NetProfit)
+                    .ThenBy(x => x.RouteId, StringComparer.Ordinal)
+                    .Take(topN)
+                    .ToArray();
+
+                var loopsArr = new Godot.Collections.Array();
+                foreach (var l in topLoops)
+                {
+                    loopsArr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["route_id"] = l.RouteId,
+                        ["from_market_id"] = l.A,
+                        ["to_market_id"] = l.B,
+                        ["good_ab"] = l.GoodAB,
+                        ["good_ba"] = l.GoodBA,
+                        ["net_profit_proxy"] = l.NetProfit
+                    });
+                }
+                dict["top3_profit_loops"] = loopsArr;
+
+                // Persist last snapshot tick for save%load.
+                _uiDashboardLastSnapshotTick = snapTick;
+
+                // Cache for the next time we can't acquire the lock.
+                lock (_snapshotLock)
+                {
+                    _cachedDashboardSnapshot = dict;
+                }
+
+                return dict;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            return _cachedDashboardSnapshot;
+        }
+    }
+
+    public int GetUiStationViewIndex() => _uiStationViewIndex;
+
+    public void SetUiStationViewIndex(int idx)
+    {
+        _uiStationViewIndex = Math.Clamp(idx, 0, 3);
+    }
+
+    public int GetUiDashboardLastSnapshotTick() => _uiDashboardLastSnapshotTick;
+
     private static string ResolveMarketIdFromNodeOrMarket(SimState state, string nodeOrMarketId)
     {
         if (state is null) return "";
@@ -1685,11 +1963,20 @@ public partial class SimBridge : Node
                     Snaps = snaps
                 };
 
+                // Persist UI state deterministically as scalar fields.
+                var ui = new UiStateSave
+                {
+                    Version = 1,
+                    StationViewIndex = _uiStationViewIndex,
+                    DashboardLastSnapshotTick = _uiDashboardLastSnapshotTick
+                };
+
                 qs = new QuickSaveV2
                 {
                     Format = "STE_QUICKSAVE_V2",
                     Kernel = ParseJsonElement(kernelJson),
-                    ProgramEventLog = logSave
+                    ProgramEventLog = logSave,
+                    UiState = ui
                 };
             }
             finally
@@ -1753,6 +2040,18 @@ public partial class SimBridge : Node
                             _programSnapById[se.ProgramId] = se.Snap;
                         }
                     }
+
+                    // Restore UI state (safe defaults if missing / older saves).
+                    if (qs.UiState != null)
+                    {
+                        _uiStationViewIndex = Math.Clamp(qs.UiState.StationViewIndex, 0, 3);
+                        _uiDashboardLastSnapshotTick = qs.UiState.DashboardLastSnapshotTick;
+                    }
+                    else
+                    {
+                        _uiStationViewIndex = 0;
+                        _uiDashboardLastSnapshotTick = -1;
+                    }
                 }
                 else
                 {
@@ -1762,6 +2061,9 @@ public partial class SimBridge : Node
                     _programEventSeq = 0;
                     _programEventLog.Clear();
                     _programSnapById.Clear();
+
+                    _uiStationViewIndex = 0;
+                    _uiDashboardLastSnapshotTick = -1;
                 }
             }
             finally

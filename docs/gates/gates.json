@@ -4,40 +4,5 @@
     "generated_utc":  "2026-02-19T15:27:26-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S3.UI.DASH.001",
-                      "task_id":  "GATE.S3.UI.DASH.001.T073",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.UI.DASH.001: Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick:",
-                      "intent":  "Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick: total_shipments, avg_delay_ticks, top3_bottleneck_lanes, top3_profit_loops; ordering stable (ties broken lex); save%load preserves selected tab and l",
-                      "evidence_paths":  [
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/ui/FleetMenu.cs",
-                                             "scripts/ui/ProgramsMenu.cs",
-                                             "scripts/ui/StationMenu.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "SimCore/Systems/SustainmentReport.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
-                                              "Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick: total_shipments, avg_delay_ticks, top3_bottleneck_lanes,",
-                                              "top3_profit_loops; ordering stable (ties broken lex); save%load preserves selected tab and last snapshot tick; deterministic serialization for repro transcript"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/bridge/SimBridge.cs",
-                                             "candidate_key_sha256=fc55e42de756"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }
