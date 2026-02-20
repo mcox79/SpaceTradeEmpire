@@ -150,7 +150,66 @@ func _generate_with_rng(r: RandomNumberGenerator, region_count: int) -> Dictiona
 			"Relations": rmap,
 		})
 
-	return { 'stars': stars, 'lanes': lanes, 'factions': factions }
+	# 5. WORLD CLASSES (Deterministic v0)
+	# Define exactly 3 classes. Each class has exactly one measurable effect in v0: fee_multiplier.
+	# Assignment is deterministic and enforces invariant:
+	# starter region (region 0) contains at least 1 node of each class.
+	# Approach:
+	# - Sort NodeId for stable order.
+	# - Force the first 3 nodes in starter region (sorted) to CORE, FRONTIER, RIM.
+	# - Assign the rest round-robin deterministically, skipping forced nodes.
+	var world_classes: Array = [
+		{ "WorldClassId": "CORE", "fee_multiplier": 1.00 },
+		{ "WorldClassId": "FRONTIER", "fee_multiplier": 1.10 },
+		{ "WorldClassId": "RIM", "fee_multiplier": 1.20 },
+	]
+
+	var stars_sorted_for_class := stars.duplicate()
+	stars_sorted_for_class.sort_custom(func(a, b):
+		return String(a.get("id", "")) < String(b.get("id", ""))
+	)
+
+	# Determine forced starter nodes (region 0) in stable NodeId order.
+	var starter_sorted: Array = []
+	for s0 in stars_sorted_for_class:
+		if int(s0.get("region", 0)) == 0:
+			starter_sorted.append(s0)
+
+	var forced: Dictionary = {}
+	for i in range(min(3, starter_sorted.size())):
+		forced[String(starter_sorted[i].get("id", ""))] = i
+
+	var node_classes: Array = []
+	var rr := 0
+	for s2 in stars_sorted_for_class:
+		var sid2 := String(s2.get("id", ""))
+		var cidx: int
+		if forced.has(sid2):
+			cidx = int(forced[sid2])
+		else:
+			cidx = rr % 3
+			rr += 1
+
+		var cdef: Dictionary = world_classes[cidx]
+		var cid := String(cdef.get("WorldClassId", ""))
+		var fm := float(cdef.get("fee_multiplier", 1.0))
+
+		# Tag the star record itself for convenience/debug (no additional effects in v0).
+		s2["WorldClassId"] = cid
+
+		node_classes.append({
+			"NodeId": sid2,
+			"WorldClassId": cid,
+			"fee_multiplier": fm,
+		})
+
+	return {
+		'stars': stars,
+		'lanes': lanes,
+		'factions': factions,
+		'world_classes': world_classes,
+		'node_classes': node_classes,
+	}
 
 # Determinism probe: canonical digest of ordered stars+lanes for a given seed and region_count.
 # This is intended for headless proofs only. Call on an instance initialized with the seed.
@@ -158,10 +217,45 @@ func determinism_digest(region_count: int) -> String:
 	var out: Dictionary = _generate_with_rng(rng, region_count)
 	return _canonical_digest(out)
 
+# Diff-friendly deterministic report: per-class summary plus per-node assignment list (sorted by NodeId).
+# Intended for headless proof output and debugging.
+func world_class_report(region_count: int) -> String:
+	var out: Dictionary = _generate_with_rng(rng, region_count)
+
+	var world_classes: Array = out.get("world_classes", [])
+	var node_classes: Array = out.get("node_classes", [])
+
+	var classes_sorted := world_classes.duplicate()
+	classes_sorted.sort_custom(func(a, b):
+		return String(a.get("WorldClassId", "")) < String(b.get("WorldClassId", ""))
+	)
+
+	var nodes_sorted := node_classes.duplicate()
+	nodes_sorted.sort_custom(func(a, b):
+		return String(a.get("NodeId", "")) < String(b.get("NodeId", ""))
+	)
+
+	var sb: Array[String] = []
+	sb.append("WorldClassId\tfee_multiplier")
+	for c in classes_sorted:
+		sb.append("%s\t%.2f" % [String(c.get("WorldClassId", "")), float(c.get("fee_multiplier", 1.0))])
+
+	sb.append("NodeId\tWorldClassId\tfee_multiplier")
+	for nc in nodes_sorted:
+		sb.append("%s\t%s\t%.2f" % [
+			String(nc.get("NodeId", "")),
+			String(nc.get("WorldClassId", "")),
+			float(nc.get("fee_multiplier", 1.0)),
+		])
+
+	return "\n".join(sb)
+
 static func _canonical_digest(out: Dictionary) -> String:
 	var stars: Array = out.get("stars", [])
 	var lanes: Array = out.get("lanes", [])
 	var factions: Array = out.get("factions", [])
+	var world_classes: Array = out.get("world_classes", [])
+	var node_classes: Array = out.get("node_classes", [])
 
 	# Sort stars by id (string)
 	var stars_sorted := stars.duplicate()
@@ -212,6 +306,25 @@ static func _canonical_digest(out: Dictionary) -> String:
 			String(f.get("FactionId", "")),
 			String(f.get("HomeNodeId", "")),
 			String(f.get("RoleTag", "")),
+		])
+
+	# World class summary (sorted by WorldClassId), then per-node assignments (sorted by NodeId).
+	var classes_sorted := world_classes.duplicate()
+	classes_sorted.sort_custom(func(a, b):
+		return String(a.get("WorldClassId", "")) < String(b.get("WorldClassId", ""))
+	)
+	for c in classes_sorted:
+		sb.append("C|%s|fm=%.2f" % [String(c.get("WorldClassId", "")), float(c.get("fee_multiplier", 1.0))])
+
+	var nodes_sorted := node_classes.duplicate()
+	nodes_sorted.sort_custom(func(a, b):
+		return String(a.get("NodeId", "")) < String(b.get("NodeId", ""))
+	)
+	for nc in nodes_sorted:
+		sb.append("W|%s|%s|fm=%.2f" % [
+			String(nc.get("NodeId", "")),
+			String(nc.get("WorldClassId", "")),
+			float(nc.get("fee_multiplier", 1.0)),
 		])
 
 	# Matrix rows: M|row_fid|v0,v1,v2... where cols are sorted by fid.

@@ -13,6 +13,15 @@ public static class GalaxyGenerator
     // GATE.S2_5.WGEN.ECON.001: deterministic starter region size (first N stars by generation index).
     public const int StarterRegionNodeCount = 12;
 
+    // GATE.S2_5.WGEN.WORLD_CLASSES.001: deterministic world classes v0.
+    // Exactly 3 classes. Each class has exactly one measurable effect in v0: fee_multiplier.
+    public static readonly (string WorldClassId, float FeeMultiplier)[] WorldClassesV0 =
+    {
+        ("CORE", 1.00f),
+        ("FRONTIER", 1.10f),
+        ("RIM", 1.20f),
+    };
+
     public static void Generate(SimState state, int starCount, float radius)
     {
         state.Nodes.Clear();
@@ -377,6 +386,55 @@ public static class GalaxyGenerator
               .Append("|id=").Append(l.LaneId)
               .Append("|c=").Append(l.Cap)
               .Append("|r=0")
+              .Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    // GATE.S2_5.WGEN.WORLD_CLASSES.001: diff-friendly world class report (deterministic).
+    // - per-class summary sorted by WorldClassId
+    // - per-node assignment list sorted by NodeId
+    // Assignment rule (v0):
+    // - nodes sorted by NodeId (ordinal)
+    // - enforce starter coverage by forcing the first 3 nodes to CORE, FRONTIER, RIM
+    // - assign remaining nodes round-robin deterministically
+    public static string BuildWorldClassReport(SimState state)
+    {
+        var nodesSorted = state.Nodes.Values.ToList();
+        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+
+        var classesSorted = WorldClassesV0.ToList();
+        classesSorted.Sort((a, b) => string.CompareOrdinal(a.WorldClassId, b.WorldClassId));
+
+        var sb = new StringBuilder();
+        sb.AppendLine("WorldClassId\tfee_multiplier");
+        foreach (var c in classesSorted)
+        {
+            sb.Append(c.WorldClassId).Append('\t')
+              .Append(c.FeeMultiplier.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))
+              .Append('\n');
+        }
+
+        sb.AppendLine("NodeId\tWorldClassId\tfee_multiplier");
+        for (int i = 0; i < nodesSorted.Count; i++)
+        {
+            var n = nodesSorted[i];
+
+            int cidx;
+            if (i < 3)
+            {
+                cidx = i; // CORE, FRONTIER, RIM
+            }
+            else
+            {
+                cidx = (i - 3) % 3;
+            }
+
+            var c = WorldClassesV0[cidx];
+            sb.Append(n.Id).Append('\t')
+              .Append(c.WorldClassId).Append('\t')
+              .Append(c.FeeMultiplier.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))
               .Append('\n');
         }
 

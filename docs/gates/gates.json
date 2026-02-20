@@ -5,40 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001",
-                      "task_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001.T115",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.WORLD_CLASSES.001: Deterministic world classes v0: define 3 world classes and assign every node exactly o",
-                      "intent":  "Deterministic world classes v0: define 3 world classes and assign every node exactly one class; each class has exactly one measurable effect (v0): fee_multiplier OR risk_baseline OR demand_volatility_tag (pick and implement); invariant: sta",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_universe_validator.gd",
-                                             "SimCore/Schemas/WorldDefinition.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "scripts/core/sim/galaxy_generator.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
-                                              "Deterministic world classes v0: define 3 world classes and assign every node exactly one class; each class has exactly one measurable effect (v0):",
-                                              "fee_multiplier OR risk_baseline OR demand_volatility_tag (pick and implement); invariant: starter region contains at least 1 node of each class; emit",
-                                              "deterministic per-node class list sorted by NodeId plus per-class effect summary"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_universe_validator.gd",
-                                             "candidate_key_sha256=56d5b5c2cac6"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.PERF_BUDGET.001",
                       "task_id":  "GATE.S3.PERF_BUDGET.001.T459",
                       "status":  "TODO",

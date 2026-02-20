@@ -11,6 +11,7 @@ const Generator = preload("res://scripts/core/sim/galaxy_generator.gd")
 const INV_CONNECTED_GRAPH := "CONNECTED_GRAPH"
 const INV_STARTER_REGION_SAFE_PATH := "STARTER_REGION_SAFE_PATH"
 const INV_EARLY_LOOPS_MIN3 := "EARLY_LOOPS_MIN3"
+const INV_STARTER_REGION_WORLD_CLASSES := "STARTER_REGION_WORLD_CLASSES"
 
 const SEED_COUNT := 1000
 const STARTER_SAFE_MAX_CHOKEPOINTS := 1
@@ -20,6 +21,13 @@ func _init():
 	print("--- STARTING UNIVERSE VALIDATOR HARNESS ---")
 	var failures := _run_invariant_sweep(SEED_COUNT)
 	_emit_failure_report(failures)
+
+	# GATE.S2_5.WGEN.WORLD_CLASSES.001: deterministic emit of world class assignments (single seed).
+	# Keep this constant and independent of the invariant sweep so output is stable.
+	print("--- WORLD CLASS REPORT (seed 0) ---")
+	var gen0 = Generator.new(0)
+	print(gen0.world_class_report(12))
+	print("--- END WORLD CLASS REPORT ---")
 
 	var passed := SEED_COUNT - failures.size()
 	if failures.size() == 0:
@@ -47,6 +55,7 @@ func _run_invariant_sweep(count: int) -> Array:
 		_check_connected_graph(seed, g, failures)
 		_check_starter_region_safe_path(seed, g, failures)
 		_check_early_loops_min3(seed, g, failures)
+		_check_starter_region_world_classes(seed, out, g, failures)
 
 	return failures
 
@@ -136,6 +145,46 @@ func _check_early_loops_min3(seed: int, g: Dictionary, failures: Array) -> void:
 		_fail(failures, seed, INV_EARLY_LOOPS_MIN3, "REGION_%d" % starter_region, {
 			"cycle_count": str(cycle_count),
 			"required": str(EARLY_LOOP_MIN),
+		})
+
+func _check_starter_region_world_classes(seed: int, out: Dictionary, g: Dictionary, failures: Array) -> void:
+	var starter_region := _pick_starter_region(g)
+	if starter_region == -1:
+		_fail(failures, seed, INV_STARTER_REGION_WORLD_CLASSES, "ALL", {"reason": "no_regions"})
+		return
+
+	var starter_nodes: Array[String] = _nodes_in_region(g, starter_region)
+	if starter_nodes.size() == 0:
+		_fail(failures, seed, INV_STARTER_REGION_WORLD_CLASSES, "REGION_%d" % starter_region, {"reason": "no_starter_nodes"})
+		return
+
+	# Build NodeId -> WorldClassId map from emitted node_classes.
+	var node_classes: Array = out.get("node_classes", [])
+	var cls_by_node: Dictionary = {}
+	for nc in node_classes:
+		var nid := String(nc.get("NodeId", ""))
+		var cid := String(nc.get("WorldClassId", ""))
+		if nid != "":
+			cls_by_node[nid] = cid
+
+	var present: Dictionary = {}
+	for n in starter_nodes:
+		var nid := String(n)
+		var cid := String(cls_by_node.get(nid, ""))
+		if cid != "":
+			present[cid] = true
+
+	var required: Array[String] = ["CORE", "FRONTIER", "RIM"]
+	var missing: Array[String] = []
+	for r in required:
+		if not present.has(r):
+			missing.append(r)
+	missing.sort()
+
+	if missing.size() > 0:
+		_fail(failures, seed, INV_STARTER_REGION_WORLD_CLASSES, "REGION_%d" % starter_region, {
+			"missing": ",".join(missing),
+			"starter_nodes": str(starter_nodes.size()),
 		})
 
 func _build_graph(stars: Array, lanes: Array) -> Dictionary:

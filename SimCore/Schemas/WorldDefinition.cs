@@ -15,7 +15,16 @@ public sealed class WorldDefinition
     public List<WorldEdge> Edges { get; set; } = new();
     public List<WorldFaction> Factions { get; set; } = new();
 
+    // Optional world class definitions (v0). Each class has exactly one measurable effect: FeeMultiplier.
+    public List<WorldClassDefinition> WorldClasses { get; set; } = new();
+
     public WorldPlayerStart? Player { get; set; }
+}
+
+public sealed class WorldClassDefinition
+{
+    public string WorldClassId { get; set; } = "";
+    public float FeeMultiplier { get; set; } = 1.0f;
 }
 
 public sealed class WorldMarket
@@ -35,6 +44,9 @@ public sealed class WorldNode
 
     // Optional link to a market (for stations).
     public string MarketId { get; set; } = "";
+
+    // Optional deterministic world class tag (v0). Exactly one per node when assigned by generators.
+    public string WorldClassId { get; set; } = "";
 }
 
 public sealed class WorldEdge
