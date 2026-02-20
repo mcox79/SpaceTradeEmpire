@@ -824,7 +824,7 @@ Hard rules
   - Do NOT invent shards. Only extract shards if explicitly present in 55 as distinct sub-items.
   - Do NOT invent evidence paths. Only extract paths explicitly listed in 55.
   - Do NOT invent expected_touch_paths. Only include if explicitly present in 55; otherwise omit the field.
-  - Do NOT compute file membership booleans. Stage 2 will compute membership using the context packet file map.
+  - If evidence path are TBD, generate the JSON, and then ask the user if they would like you to switch to evidence gathering mode, in which you are authorized to request additional files if necessary to build the evidence files
 - Normalize extracted paths:
   - use / separators
   - trim leading/trailing whitespace

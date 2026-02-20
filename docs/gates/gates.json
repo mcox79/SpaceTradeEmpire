@@ -1,8 +1,391 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-17T17:18:18-04:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 61c130352ab40f0c2f15eebf3fed46c3aa46e0a1",
+    "generated_utc":  "2026-02-19T15:27:26-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.INVARIANTS.001",
+                      "task_id":  "GATE.S2_5.WGEN.INVARIANTS.001.T412",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.INVARIANTS.001: Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: ",
+                      "intent":  "Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: CONNECTED_GRAPH, STARTER_REGION_SAFE_PATH (at least 1 path from starter hub to each starter market with max_chokepoints\u003c=1), EARLY_LOOPS_MIN3 (\u003e=3 viab",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_universe_validator.gd",
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "scripts/tests/test_economy_core.gd",
+                                             "scripts/core/sim/rng_streams.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Worldgen onboarding invariants suite v0: implement and name these invariants explicitly: CONNECTED_GRAPH, STARTER_REGION_SAFE_PATH (at least 1 path from",
+                                              "starter hub to each starter market with max_chokepoints\u003c=1), EARLY_LOOPS_MIN3 (\u003e=3 viable loops per defined criteria); failures emit records {Seed,",
+                                              "InvariantName, PrimaryId, DetailsKV} sorted by InvariantName then PrimaryId; report is byte-for-byte stable"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_universe_validator.gd",
+                                             "candidate_key_sha256=ba66e3e3ede6"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001",
+                      "task_id":  "GATE.S2_5.WGEN.WORLD_CLASSES.001.T115",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.WORLD_CLASSES.001: Deterministic world classes v0: define 3 world classes and assign every node exactly o",
+                      "intent":  "Deterministic world classes v0: define 3 world classes and assign every node exactly one class; each class has exactly one measurable effect (v0): fee_multiplier OR risk_baseline OR demand_volatility_tag (pick and implement); invariant: sta",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_universe_validator.gd",
+                                             "SimCore/Schemas/WorldDefinition.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "scripts/core/sim/galaxy_generator.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1",
+                                              "Deterministic world classes v0: define 3 world classes and assign every node exactly one class; each class has exactly one measurable effect (v0):",
+                                              "fee_multiplier OR risk_baseline OR demand_volatility_tag (pick and implement); invariant: starter region contains at least 1 node of each class; emit",
+                                              "deterministic per-node class list sorted by NodeId plus per-class effect summary"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_universe_validator.gd",
+                                             "candidate_key_sha256=56d5b5c2cac6"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.PERF_BUDGET.001",
+                      "task_id":  "GATE.S3.PERF_BUDGET.001.T459",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.PERF_BUDGET.001: Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 f",
+                      "intent":  "Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 fleets and 200 active transfers over 600 ticks; measure average tick time over the last 300 ticks with a fixed measurement method; enforce a threshold ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs",
+                                             "SimCore/Systems/BandedTime.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Perf budget v0 for Slice 3: fixed scenario (deterministic seed and map) with at least 50 fleets and 200 active transfers over 600 ticks; measure average tick",
+                                              "time over the last 300 ticks with a fixed measurement method; enforce a threshold constant (budget_ms_per_tick) and emit a deterministic perf report; test",
+                                              "fails when budget exceeded"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=4cacfb114ad7"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.CAPACITY_SCARCITY.001",
+                      "task_id":  "GATE.S3.CAPACITY_SCARCITY.001.T433",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.CAPACITY_SCARCITY.001: Lane capacity scarcity v0: lane capacity constrains flows each tick and causes determinis",
+                      "intent":  "Lane capacity scarcity v0: lane capacity constrains flows each tick and causes deterministic delays or partial fills; acceptance: construct a crafted map where demand exceeds capacity across 1 chokepoint and prove that total delivered is bo",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/LaneFlowSystemTests.cs",
+                                             "SimCore/Systems/LaneFlowSystem.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore.Tests/Systems/LogisticsPartialFulfillmentTests.cs",
+                                             "SimCore/Systems/MarketSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Lane capacity scarcity v0: lane capacity constrains flows each tick and causes deterministic delays or partial fills; acceptance: construct a crafted map where",
+                                              "demand exceeds capacity across 1 chokepoint and prove that total delivered is bounded by capacity and that overflow is queued with a stable ordering; emit a",
+                                              "deterministic report of lane utilization sorted by lane_id"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/LaneFlowSystemTests.cs",
+                                             "candidate_key_sha256=967c6294d2f4"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.MARKET_ARB.001",
+                      "task_id":  "GATE.S3.MARKET_ARB.001.T945",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.MARKET_ARB.001: Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario an",
+                      "intent":  "Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario and prevent unbounded profit via exactly two frictions (v0): transaction_fee and lane_capacity scarcity; acceptance: after T=600 ticks profit_growth is ",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/MarketTests.cs",
+                                             "SimCore/Systems/MarketSystem.cs",
+                                             "SimCore/Systems/LaneFlowSystem.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Anti-exploit market arb constraint v0: define one explicit â€œmoney printerâ€ scenario and prevent unbounded profit via exactly two frictions (v0):",
+                                              "transaction_fee and lane_capacity scarcity; acceptance: after T=600 ticks profit_growth is bounded (profit at tick 600 \u003c= profit at tick 300 * 2) and events",
+                                              "explain binding friction(s) with reason codes; outputs deterministic"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/MarketTests.cs",
+                                             "candidate_key_sha256=1031fe0e4846"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.ROUTES.001",
+                      "task_id":  "GATE.S3.ROUTES.001.T468",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.ROUTES.001: Multi-route primitives v0: implement route candidate generation that can return at least 2",
+                      "intent":  "Multi-route primitives v0: implement route candidate generation that can return at least 2 distinct routes between an origin and destination in a crafted map; define deterministic ordering and tie-break: fewer hops, then lower risk, then le",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/RoutePlannerTests.cs",
+                                             "SimCore/Systems/RoutePlanner.cs",
+                                             "SimCore.Tests/Systems/FleetRouteTravelTests.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore/Events/LogisticsEvents.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Multi-route primitives v0: implement route candidate generation that can return at least 2 distinct routes between an origin and destination in a crafted map;",
+                                              "define deterministic ordering and tie-break: fewer hops, then lower risk, then lex route_id; emit a schema-bound event explaining chosen route with fields",
+                                              "{OriginId, DestId, ChosenRouteId, CandidateCount, TieBreakReason}; add a regression test with equal-hop routes proving stable choice"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/RoutePlannerTests.cs",
+                                             "candidate_key_sha256=8e58b3f97077"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.ECON.001",
+                      "task_id":  "GATE.S2_5.WGEN.ECON.001.T170",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.ECON.001: Deterministic economy placement v0 for starter region: place stations%markets and assign i",
+                      "intent":  "Deterministic economy placement v0 for starter region: place stations%markets and assign initial inventories plus demand sinks; define â€œviable early trade loopâ€ as: loop hop_count\u003c=4, net_profit_proxy\u003e0 after fees, and volume_proxy\u003e0; a",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_economy_core.gd",
+                                             "scripts/core/economy_engine.gd",
+                                             "scenes/tests/test_economy_core.tscn",
+                                             "SimCore/Systems/MarketSystem.cs",
+                                             "SimCore.Tests/MarketTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Deterministic economy placement v0 for starter region: place stations%markets and assign initial inventories plus demand sinks; define â€œviable early trade",
+                                              "loopâ€ as: loop hop_count\u003c=4, net_profit_proxy\u003e0 after fees, and volume_proxy\u003e0; assert at least 3 distinct loops exist for the starter region; emit a",
+                                              "deterministic loop report sorted by profit_proxy desc then route_id asc"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_economy_core.gd",
+                                             "candidate_key_sha256=eb7d91a96573"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.FACTION.001",
+                      "task_id":  "GATE.S2_5.WGEN.FACTION.001.T783",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.FACTION.001: Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, Ro",
+                      "intent":  "Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, RoleTag, Relations[OtherFactionId] in {-1,0,+1}}; IDs minted deterministically; emit a diff-friendly table sorted by FactionId plus a relations matrix w",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "SimCore/Schemas/WorldDefinition.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "SimCore.Tests/GalaxyTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Deterministic faction seeding v0: create 3 factions with fields {FactionId, HomeNodeId, RoleTag, Relations[OtherFactionId] in {-1,0,+1}}; IDs minted",
+                                              "deterministically; emit a diff-friendly table sorted by FactionId plus a relations matrix with rows%cols sorted; same Seed equals byte-for-byte"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_galaxy_core.gd",
+                                             "candidate_key_sha256=f23a6ec4bfb9"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.UI.DASH.001",
+                      "task_id":  "GATE.S3.UI.DASH.001.T073",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.UI.DASH.001: Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick:",
+                      "intent":  "Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick: total_shipments, avg_delay_ticks, top3_bottleneck_lanes, top3_profit_loops; ordering stable (ties broken lex); save%load preserves selected tab and l",
+                      "evidence_paths":  [
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "scripts/ui/ProgramsMenu.cs",
+                                             "scripts/ui/StationMenu.cs",
+                                             "SimCore/Systems/SerializationSystem.cs",
+                                             "SimCore/Systems/SustainmentReport.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
+                                              "Dashboards v0: UI exposes exactly these deterministic metrics from the last snapshot tick: total_shipments, avg_delay_ticks, top3_bottleneck_lanes,",
+                                              "top3_profit_loops; ordering stable (ties broken lex); save%load preserves selected tab and last snapshot tick; deterministic serialization for repro transcript"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/bridge/SimBridge.cs",
+                                             "candidate_key_sha256=fc55e42de756"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.GALAXY.001",
+                      "task_id":  "GATE.S2_5.WGEN.GALAXY.001.T120",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.GALAXY.001: Deterministic galaxy topology v0: for a given Seed generate a connected starter region gra",
+                      "intent":  "Deterministic galaxy topology v0: for a given Seed generate a connected starter region graph with MIN nodes=12 and MIN lanes=18; mint stable NodeId%LaneId via deterministic counters (no hash iteration); lane attributes include capacity and ",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "scripts/core/sim/galaxy_generator.gd",
+                                             "scripts/core/galaxy_graph.gd",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "scenes/tests/test_galaxy_core.tscn",
+                                             "SimCore.Tests/GalaxyTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Deterministic galaxy topology v0: for a given Seed generate a connected starter region graph with MIN nodes=12 and MIN lanes=18; mint stable NodeId%LaneId via",
+                                              "deterministic counters (no hash iteration); lane attributes include capacity and risk scalars (defaults allowed); emit a diff-friendly dump with nodes sorted",
+                                              "by NodeId and lanes sorted by FromId,ToId,LaneId; same Seed equals byte-for-byte"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_galaxy_core.gd",
+                                             "candidate_key_sha256=4f360a954288"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.FLEET.ROLES.001",
+                      "task_id":  "GATE.S3.FLEET.ROLES.001.T929",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.FLEET.ROLES.001: Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one det",
+                      "intent":  "Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one deterministic decision each (v0): Trader prefers profit route, Hauler prefers capacity route, Patrol prefers low-risk route; acceptance: in a crafted map",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_intent_router.gd",
+                                             "SimCore/Entities/Fleet.cs",
+                                             "scripts/core/state/fleet.gd",
+                                             "scripts/ui/FleetMenu.cs",
+                                             "SimCore/Systems/IntentSystem.cs",
+                                             "SimCore.Tests/Systems/FleetAuthorityPrecedenceContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Fleet roles v0: introduce explicit roles (Trader, Hauler, Patrol) that only affect one deterministic decision each (v0): Trader prefers profit route, Hauler",
+                                              "prefers capacity route, Patrol prefers low-risk route; acceptance: in a crafted map with competing routes, each role chooses its intended route",
+                                              "deterministically and emits a schema-bound event describing the choice; persists through save%load"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_intent_router.gd",
+                                             "candidate_key_sha256=b53326488178"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }
