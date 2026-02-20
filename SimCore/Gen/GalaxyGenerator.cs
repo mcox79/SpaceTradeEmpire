@@ -11,7 +11,7 @@ namespace SimCore.Gen;
 public static class GalaxyGenerator
 {
     // GATE.S2_5.WGEN.ECON.001: deterministic starter region size (first N stars by generation index).
-    public const int StarterRegionNodeCount = 8;
+    public const int StarterRegionNodeCount = 12;
 
     public static void Generate(SimState state, int starCount, float radius)
     {
@@ -20,6 +20,12 @@ public static class GalaxyGenerator
         state.Markets.Clear();
         state.Fleets.Clear();
         state.IndustrySites.Clear();
+
+        // GATE.S2_5.WGEN.GALAXY.001: enforce minimum starter region size at the generator boundary.
+        if (starCount < StarterRegionNodeCount)
+        {
+            starCount = StarterRegionNodeCount;
+        }
 
         var nodesList = new List<Node>();
         var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
@@ -118,11 +124,76 @@ public static class GalaxyGenerator
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
 
-        for (int i = 0; i < nodesList.Count - 1; i++)
+        // GATE.S2_5.WGEN.GALAXY.001: deterministic topology v0.
+        // Requirements:
+        // - connected starter region graph
+        // - MIN starter nodes = StarterRegionNodeCount (or all nodes if fewer)
+        // - MIN starter lanes = 18
+        // - stable LaneId minted via deterministic counter (no hash iteration)
+        int starterN = Math.Min(nodesList.Count, StarterRegionNodeCount);
+        int laneCounter = 0;
+
+        // Duplicate suppression key: normalized endpoints "a|b" with ordinal ordering.
+        var laneKey = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddLane(Node a, Node b, int capacity)
         {
-            CreateEdge(state, nodesList[i], nodesList[i + 1]);
+            var u = a.Id;
+            var v = b.Id;
+            if (string.CompareOrdinal(u, v) > 0)
+            {
+                (u, v) = (v, u);
+            }
+
+            var key = $"{u}|{v}";
+            if (!laneKey.Add(key)) return;
+
+            laneCounter++;
+            string id = $"lane_{laneCounter:D4}";
+            state.Edges.Add(id, new Edge
+            {
+                Id = id,
+                FromNodeId = u,
+                ToNodeId = v,
+                Distance = Vector3.Distance(a.Position, b.Position),
+                TotalCapacity = capacity
+            });
         }
-        CreateEdge(state, nodesList[nodesList.Count - 1], nodesList[0]);
+
+        if (starterN >= 2)
+        {
+            // 1) Starter ring (connected).
+            for (int i = 0; i < starterN; i++)
+            {
+                var a = nodesList[i];
+                var b = nodesList[(i + 1) % starterN];
+                AddLane(a, b, capacity: 5);
+            }
+
+            // 2) Add deterministic chords until MIN starter lanes reached.
+            // First pass: step=2 chords around the ring.
+            for (int i = 0; i < starterN && laneKey.Count < 18; i++)
+            {
+                var a = nodesList[i];
+                var b = nodesList[(i + 2) % starterN];
+                AddLane(a, b, capacity: 4);
+            }
+
+            // Second pass: step=3 chords if still short (requires starterN >= 4 to add new edges).
+            for (int i = 0; i < starterN && laneKey.Count < 18; i++)
+            {
+                var a = nodesList[i];
+                var b = nodesList[(i + 3) % starterN];
+                AddLane(a, b, capacity: 3);
+            }
+        }
+
+        // 3) Attach any non-starter nodes deterministically to keep whole galaxy connected.
+        // Connect each node i to i-1 for i >= starterN.
+        for (int i = starterN; i < nodesList.Count; i++)
+        {
+            AddLane(nodesList[i - 1], nodesList[i], capacity: 5);
+        }
 
         foreach (var node in nodesList)
         {
@@ -139,6 +210,9 @@ public static class GalaxyGenerator
         }
     }
 
+    // NOTE: CreateEdge retained for back-compat callers, but now mints deterministic lane ids
+    // only when used through BuildTopology lanes above. Existing direct callers still get
+    // stable ids derived from endpoints (not used for gate proofs).
     private static void CreateEdge(SimState state, Node a, Node b)
     {
         string id = $"edge_{GetSortedId(a.Id, b.Id)}";
@@ -157,7 +231,7 @@ public static class GalaxyGenerator
 
     private static string GetSortedId(string a, string b)
     {
-        return string.Compare(a, b) < 0 ? $"{a}_{b}" : $"{b}_{a}";
+        return string.CompareOrdinal(a, b) < 0 ? $"{a}_{b}" : $"{b}_{a}";
     }
 
     // GATE.S2_5.WGEN.FACTION.001: deterministic faction seeding v0.
@@ -254,15 +328,76 @@ public static class GalaxyGenerator
         return Fnv1a32Utf8($"{seed}|{n.Id}|{qx}|{qz}");
     }
 
+    // GATE.S2_5.WGEN.GALAXY.001: diff-friendly topology dump (deterministic).
+    // - nodes sorted by NodeId (ordinal)
+    // - lanes sorted by FromId,ToId,LaneId (ordinal)
+    // Risk scalar defaults are allowed; this dump does not invent additional schema fields.
+    public static string BuildTopologyDump(SimState state)
+    {
+        var sb = new StringBuilder();
+
+        var nodesSorted = state.Nodes.Values.ToList();
+        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+
+        sb.Append("nodes_count=").Append(nodesSorted.Count).Append('\n');
+        foreach (var n in nodesSorted)
+        {
+            sb.Append("N|").Append(n.Id).Append("|k=").Append(n.Kind).Append('\n');
+        }
+
+        var lanesSorted = state.Edges.Values
+    .Select(e =>
+    {
+        var u = e.FromNodeId;
+        var v = e.ToNodeId;
+        if (string.CompareOrdinal(u, v) > 0)
+        {
+            (u, v) = (v, u);
+        }
+        return (From: u, To: v, LaneId: e.Id, Cap: e.TotalCapacity);
+    })
+    .ToList();
+
+        lanesSorted.Sort((a, b) =>
+        {
+            int c = string.CompareOrdinal(a.From, b.From);
+            if (c != 0) return c;
+
+            c = string.CompareOrdinal(a.To, b.To);
+            if (c != 0) return c;
+
+            return string.CompareOrdinal(a.LaneId, b.LaneId);
+        });
+
+        sb.Append("lanes_count=").Append(lanesSorted.Count).Append('\n');
+        foreach (var l in lanesSorted)
+        {
+            // risk scalar default (allowed): r=0
+            sb.Append("L|").Append(l.From).Append('|').Append(l.To)
+              .Append("|id=").Append(l.LaneId)
+              .Append("|c=").Append(l.Cap)
+              .Append("|r=0")
+              .Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
     public static string BuildFactionSeedReport(SimState state, int seed)
     {
         // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.
-        var nodeIds = state.Nodes.Values
+        var scored = state.Nodes.Values
             .Select(n => (Id: n.Id, Score: ScoreNode(seed, n)))
-                            .OrderByDescending(t => t.Score)
-                            .ThenBy(t => t.Id, StringComparer.Ordinal)
-                            .Select(t => t.Id)
-                            .ToList();
+            .ToList();
+
+        scored.Sort((a, b) =>
+        {
+            int c = b.Score.CompareTo(a.Score); // Score descending
+            if (c != 0) return c;
+            return string.CompareOrdinal(a.Id, b.Id); // Id ascending, ordinal
+        });
+
+        var nodeIds = scored.Select(t => t.Id).ToList();
 
         var factions = SeedFactionsFromNodesSorted(nodeIds);
 

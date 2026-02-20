@@ -247,42 +247,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.GALAXY.001",
-                      "task_id":  "GATE.S2_5.WGEN.GALAXY.001.T120",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.GALAXY.001: Deterministic galaxy topology v0: for a given Seed generate a connected starter region gra",
-                      "intent":  "Deterministic galaxy topology v0: for a given Seed generate a connected starter region graph with MIN nodes=12 and MIN lanes=18; mint stable NodeId%LaneId via deterministic counters (no hash iteration); lane attributes include capacity and ",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_galaxy_core.gd",
-                                             "scripts/core/sim/galaxy_generator.gd",
-                                             "scripts/core/galaxy_graph.gd",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "scenes/tests/test_galaxy_core.tscn",
-                                             "SimCore.Tests/GalaxyTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Deterministic galaxy topology v0: for a given Seed generate a connected starter region graph with MIN nodes=12 and MIN lanes=18; mint stable NodeId%LaneId via",
-                                              "deterministic counters (no hash iteration); lane attributes include capacity and risk scalars (defaults allowed); emit a diff-friendly dump with nodes sorted",
-                                              "by NodeId and lanes sorted by FromId,ToId,LaneId; same Seed equals byte-for-byte"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_galaxy_core.gd",
-                                             "candidate_key_sha256=4f360a954288"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.FLEET.ROLES.001",
                       "task_id":  "GATE.S3.FLEET.ROLES.001.T929",
                       "status":  "TODO",

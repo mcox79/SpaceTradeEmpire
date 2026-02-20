@@ -19,8 +19,8 @@ public class LongRunWorldHashTests
     //
     // Diagnostics:
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
-    private const string ExpectedGenesisHash = "4F5F4178E2332C458F212F8B8F7FF439D8E5427242448BCC17122C122E4C5E2A";
-    private const string ExpectedFinalHash = "E9F62BCEF0EF83C2EBF2931D46FD2335F2D5423DF2D94C72AA3B3F8E313D0F8C";
+    private const string ExpectedGenesisHash = "B7AD78A118F06FC53C7133D2D9FD251C6F082932F01A7C76A8E7F4B095C53853";
+    private const string ExpectedFinalHash = "B88935FD5DFACD4C9F49A90D055D1528A0147300881CA627D3A22F9C2719DBF1";
 
 
     [Test]
