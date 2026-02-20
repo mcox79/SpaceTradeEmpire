@@ -5,41 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3.ROUTES.001",
-                      "task_id":  "GATE.S3.ROUTES.001.T468",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.ROUTES.001: Multi-route primitives v0: implement route candidate generation that can return at least 2",
-                      "intent":  "Multi-route primitives v0: implement route candidate generation that can return at least 2 distinct routes between an origin and destination in a crafted map; define deterministic ordering and tie-break: fewer hops, then lower risk, then le",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/RoutePlannerTests.cs",
-                                             "SimCore/Systems/RoutePlanner.cs",
-                                             "SimCore.Tests/Systems/FleetRouteTravelTests.cs",
-                                             "SimCore/Systems/LogisticsSystem.cs",
-                                             "SimCore/Events/LogisticsEvents.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Multi-route primitives v0: implement route candidate generation that can return at least 2 distinct routes between an origin and destination in a crafted map;",
-                                              "define deterministic ordering and tie-break: fewer hops, then lower risk, then lex route_id; emit a schema-bound event explaining chosen route with fields",
-                                              "{OriginId, DestId, ChosenRouteId, CandidateCount, TieBreakReason}; add a regression test with equal-hop routes proving stable choice"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/RoutePlannerTests.cs",
-                                             "candidate_key_sha256=8e58b3f97077"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.UI.DASH.001",
                       "task_id":  "GATE.S3.UI.DASH.001.T073",
                       "status":  "TODO",

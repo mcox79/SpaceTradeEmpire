@@ -19,14 +19,62 @@ public static class RoutePlanner
     {
         public string FromNodeId { get; init; } = "";
         public string ToNodeId { get; init; } = "";
+
+        // Deterministic route id for tie-breaks and diff-friendly dumps.
+        // Format: node0>node1>...>nodeN
+        public string RouteId { get; init; } = "";
+
         public List<string> NodeIds { get; init; } = new();
         public List<string> EdgeIds { get; init; } = new();
+
+        public int HopCount { get; init; } = 0;
+
+        // Risk proxy v0: sum of per-edge integer risk scores (derived deterministically from distance).
+        public int RiskScore { get; init; } = 0;
+
         public int TotalTravelTicks { get; init; } = 0;
+    }
+
+    public sealed class RouteChoice
+    {
+        public string OriginId { get; init; } = "";
+        public string DestId { get; init; } = "";
+        public string ChosenRouteId { get; init; } = "";
+        public int CandidateCount { get; init; } = 0;
+        public string TieBreakReason { get; init; } = "";
+        public RoutePlan ChosenPlan { get; init; } = new();
+        public List<RoutePlan> Candidates { get; init; } = new();
     }
 
     public static bool TryPlan(SimState state, string fromNodeId, string toNodeId, float speedAuPerTick, out RoutePlan plan)
     {
-        plan = new RoutePlan { FromNodeId = fromNodeId ?? "", ToNodeId = toNodeId ?? "" };
+        // Normalize inputs to satisfy non-nullable API and keep behavior consistent with TryPlanChoice guards.
+        var from = fromNodeId ?? "";
+        var to = toNodeId ?? "";
+
+        plan = new RoutePlan { FromNodeId = from, ToNodeId = to };
+
+        if (!TryPlanChoice(state, from, to, speedAuPerTick, maxCandidates: 8, out var choice))
+            return false;
+
+        plan = choice.ChosenPlan;
+        return true;
+    }
+
+    public static bool TryPlanChoice(
+        SimState state,
+        string fromNodeId,
+        string toNodeId,
+        float speedAuPerTick,
+        int maxCandidates,
+        out RouteChoice choice)
+    {
+        choice = new RouteChoice
+        {
+            OriginId = fromNodeId ?? "",
+            DestId = toNodeId ?? "",
+            ChosenPlan = new RoutePlan { FromNodeId = fromNodeId ?? "", ToNodeId = toNodeId ?? "" }
+        };
 
         if (state is null) return false;
         if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return false;
@@ -35,14 +83,29 @@ public static class RoutePlanner
 
         if (fromNodeId == toNodeId)
         {
-            plan = new RoutePlan
+            var self = new RoutePlan
             {
                 FromNodeId = fromNodeId,
                 ToNodeId = toNodeId,
                 NodeIds = new List<string> { fromNodeId },
                 EdgeIds = new List<string>(),
+                RouteId = fromNodeId,
+                HopCount = 0,
+                RiskScore = 0,
                 TotalTravelTicks = 0
             };
+
+            choice = new RouteChoice
+            {
+                OriginId = fromNodeId,
+                DestId = toNodeId,
+                ChosenRouteId = self.RouteId,
+                CandidateCount = 1,
+                TieBreakReason = "ONLY",
+                ChosenPlan = self,
+                Candidates = new List<RoutePlan> { self }
+            };
+
             return true;
         }
 
@@ -56,99 +119,153 @@ public static class RoutePlanner
                 g => g.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(),
                 StringComparer.Ordinal);
 
-        // Dijkstra with deterministic frontier selection (no PriorityQueue to avoid instability).
-        var dist = new Dictionary<string, int>(StringComparer.Ordinal);
-        var prevNode = new Dictionary<string, string>(StringComparer.Ordinal);
-        var prevEdge = new Dictionary<string, string>(StringComparer.Ordinal);
-        var open = new List<string>();
+        var candidates = GenerateCandidatesDeterministic(
+            state,
+            outgoing,
+            fromNodeId,
+            toNodeId,
+            speed,
+            maxCandidates);
 
-        dist[fromNodeId] = 0;
-        open.Add(fromNodeId);
+        if (candidates.Count == 0) return false;
 
-        while (open.Count > 0)
+        var chosen = candidates[0];
+
+        var tie = ComputeTieBreakReason(candidates);
+
+        choice = new RouteChoice
         {
-            // Pick the open node with smallest (dist, nodeId) deterministically.
-            var bestIdx = 0;
-            var bestNode = open[0];
-            var bestCost = dist.TryGetValue(bestNode, out var c0) ? c0 : int.MaxValue;
-
-            for (var i = 1; i < open.Count; i++)
-            {
-                var n = open[i];
-                var cost = dist.TryGetValue(n, out var c) ? c : int.MaxValue;
-
-                if (cost < bestCost || (cost == bestCost && string.CompareOrdinal(n, bestNode) < 0))
-                {
-                    bestIdx = i;
-                    bestNode = n;
-                    bestCost = cost;
-                }
-            }
-
-            open.RemoveAt(bestIdx);
-
-            if (bestNode == toNodeId) break;
-
-            if (!outgoing.TryGetValue(bestNode, out var edges)) continue;
-
-            foreach (var e in edges)
-            {
-                var to = e.ToNodeId ?? "";
-                if (string.IsNullOrWhiteSpace(to)) continue;
-                if (!state.Nodes.ContainsKey(to)) continue;
-
-                var edgeTicks = EdgeTravelTicks(e, speed);
-                var nextCostLong = (long)bestCost + (long)edgeTicks;
-                if (nextCostLong > int.MaxValue) continue;
-
-                var nextCost = (int)nextCostLong;
-
-                if (!dist.TryGetValue(to, out var oldCost) || nextCost < oldCost)
-                {
-                    dist[to] = nextCost;
-                    prevNode[to] = bestNode;
-                    prevEdge[to] = e.Id ?? "";
-
-                    if (!open.Contains(to))
-                        open.Add(to);
-                }
-                // If equal cost, do not overwrite.
-                // Deterministic tie-break is achieved by stable exploration order + stable node selection.
-            }
-        }
-
-        if (!dist.ContainsKey(toNodeId)) return false;
-
-        // Reconstruct path.
-        var nodePath = new List<string>();
-        var edgePath = new List<string>();
-        var cur = toNodeId;
-
-        nodePath.Add(cur);
-
-        while (cur != fromNodeId)
-        {
-            if (!prevNode.TryGetValue(cur, out var p)) return false;
-            if (!prevEdge.TryGetValue(cur, out var pe)) return false;
-
-            edgePath.Add(pe);
-            cur = p;
-            nodePath.Add(cur);
-        }
-
-        nodePath.Reverse();
-        edgePath.Reverse();
-
-        plan = new RoutePlan
-        {
-            FromNodeId = fromNodeId,
-            ToNodeId = toNodeId,
-            NodeIds = nodePath,
-            EdgeIds = edgePath,
-            TotalTravelTicks = dist[toNodeId]
+            OriginId = fromNodeId,
+            DestId = toNodeId,
+            ChosenRouteId = chosen.RouteId,
+            CandidateCount = candidates.Count,
+            TieBreakReason = tie,
+            ChosenPlan = chosen,
+            Candidates = candidates
         };
 
         return true;
+    }
+
+    private static List<RoutePlan> GenerateCandidatesDeterministic(
+        SimState state,
+        Dictionary<string, List<Edge>> outgoing,
+        string fromNodeId,
+        string toNodeId,
+        float speedAuPerTick,
+        int maxCandidates)
+    {
+        var max = maxCandidates > 0 ? maxCandidates : 1;
+
+        // Hard bound for v0 to avoid path explosion; crafted tests are small.
+        var maxHops = Math.Min(8, Math.Max(1, state.Nodes.Count));
+
+        var results = new List<RoutePlan>(capacity: Math.Min(max, 8));
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var nodePath = new List<string> { fromNodeId };
+        var edgePath = new List<string>();
+        var nodeSet = new HashSet<string>(StringComparer.Ordinal) { fromNodeId };
+
+        void Dfs(string cur, int riskScore, int totalTicks)
+        {
+            if (results.Count >= max) return;
+
+            if (cur == toNodeId)
+            {
+                var rid = BuildRouteId(nodePath);
+                if (seen.Add(rid))
+                {
+                    results.Add(new RoutePlan
+                    {
+                        FromNodeId = fromNodeId,
+                        ToNodeId = toNodeId,
+                        NodeIds = nodePath.ToList(),
+                        EdgeIds = edgePath.ToList(),
+                        RouteId = rid,
+                        HopCount = edgePath.Count,
+                        RiskScore = riskScore,
+                        TotalTravelTicks = totalTicks
+                    });
+                }
+
+                return;
+            }
+
+            if (edgePath.Count >= maxHops) return;
+
+            if (!outgoing.TryGetValue(cur, out var edges)) return;
+
+            foreach (var e in edges)
+            {
+                var next = e.ToNodeId ?? "";
+                if (string.IsNullOrWhiteSpace(next)) continue;
+                if (!state.Nodes.ContainsKey(next)) continue;
+
+                // v0: keep candidates simple paths only (no cycles).
+                if (nodeSet.Contains(next)) continue;
+
+                var eid = e.Id ?? "";
+                if (string.IsNullOrWhiteSpace(eid)) continue;
+
+                var edgeTicks = EdgeTravelTicks(e, speedAuPerTick);
+                var edgeRisk = EdgeRiskScoreV0(e);
+
+                nodePath.Add(next);
+                edgePath.Add(eid);
+                nodeSet.Add(next);
+
+                Dfs(next, riskScore + edgeRisk, totalTicks + edgeTicks);
+
+                nodeSet.Remove(next);
+                edgePath.RemoveAt(edgePath.Count - 1);
+                nodePath.RemoveAt(nodePath.Count - 1);
+
+                if (results.Count >= max) return;
+            }
+        }
+
+        Dfs(fromNodeId, riskScore: 0, totalTicks: 0);
+
+        // Deterministic ordering and tie-break:
+        // fewer hops, then lower risk, then lex route_id.
+        results = results
+            .OrderBy(r => r.HopCount)
+            .ThenBy(r => r.RiskScore)
+            .ThenBy(r => r.RouteId, StringComparer.Ordinal)
+            .ToList();
+
+        return results;
+    }
+
+    private static string ComputeTieBreakReason(List<RoutePlan> orderedCandidates)
+    {
+        if (orderedCandidates is null || orderedCandidates.Count <= 1) return "ONLY";
+
+        var a = orderedCandidates[0];
+        var b = orderedCandidates[1];
+
+        if (a.HopCount != b.HopCount) return "HOPS";
+        if (a.RiskScore != b.RiskScore) return "RISK";
+        if (!string.Equals(a.RouteId, b.RouteId, StringComparison.Ordinal)) return "ROUTE_ID";
+
+        return "STABLE";
+    }
+
+    private static string BuildRouteId(List<string> nodeIds)
+    {
+        if (nodeIds is null || nodeIds.Count == 0) return "";
+        return string.Join(">", nodeIds);
+    }
+
+    private static int EdgeRiskScoreV0(Edge e)
+    {
+        // v0: deterministic integer risk proxy derived from distance (milli-AU).
+        // This keeps ordering deterministic without relying on optional risk fields.
+        var dist = e.Distance > 0f ? e.Distance : 1f;
+        var milli = (int)Math.Round(dist * 1000f, MidpointRounding.AwayFromZero);
+        if (milli < 0) milli = 0;
+        return milli;
     }
 
     private static int EdgeTravelTicks(Edge e, float speedAuPerTick)

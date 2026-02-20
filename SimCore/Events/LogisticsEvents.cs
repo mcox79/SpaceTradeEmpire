@@ -33,7 +33,10 @@ public static class LogisticsEvents
 
         // Slice 3 / GATE.LOGI.RESERVE.001
         ReservationCreated = 12,
-        ReservationReleased = 13
+        ReservationReleased = 13,
+
+        // Slice 3 / GATE.S3.ROUTES.001
+        RouteChosen = 14
     }
 
     public sealed class Event
@@ -64,6 +67,13 @@ public static class LogisticsEvents
         [JsonInclude] public string TargetNodeId { get; set; } = "";
         [JsonInclude] public string SourceMarketId { get; set; } = "";
         [JsonInclude] public string TargetMarketId { get; set; } = "";
+
+        // Route explain (schema-bound)
+        [JsonInclude] public string OriginId { get; set; } = "";
+        [JsonInclude] public string DestId { get; set; } = "";
+        [JsonInclude] public string ChosenRouteId { get; set; } = "";
+        [JsonInclude] public int CandidateCount { get; set; } = 0;
+        [JsonInclude] public string TieBreakReason { get; set; } = "";
 
         // Optional explanatory text for UI, not for logic.
         [JsonInclude] public string Note { get; set; } = "";
@@ -119,7 +129,9 @@ public static class LogisticsEvents
             RequireOnlyKeys(item, new[]
             {
                 "Version","Seq","Tick","Type","FleetId","GoodId","Amount",
-                "SourceNodeId","TargetNodeId","SourceMarketId","TargetMarketId","Note"
+                "SourceNodeId","TargetNodeId","SourceMarketId","TargetMarketId",
+                "OriginId","DestId","ChosenRouteId","CandidateCount","TieBreakReason",
+                "Note"
             });
 
             RequireKey(item, "Version", JsonValueKind.Number);
@@ -136,6 +148,12 @@ public static class LogisticsEvents
             RequireKey(item, "TargetNodeId", JsonValueKind.String);
             RequireKey(item, "SourceMarketId", JsonValueKind.String);
             RequireKey(item, "TargetMarketId", JsonValueKind.String);
+
+            RequireKey(item, "OriginId", JsonValueKind.String);
+            RequireKey(item, "DestId", JsonValueKind.String);
+            RequireKey(item, "ChosenRouteId", JsonValueKind.String);
+            RequireKey(item, "CandidateCount", JsonValueKind.Number);
+            RequireKey(item, "TieBreakReason", JsonValueKind.String);
 
             RequireKey(item, "Note", JsonValueKind.String);
         }

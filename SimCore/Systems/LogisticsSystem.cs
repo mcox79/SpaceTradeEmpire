@@ -448,26 +448,75 @@ public static class LogisticsSystem
         if (sourceNode is null || destNode is null) return false;
 
         // Plan both legs deterministically at job creation time.
-        if (!RoutePlanner.TryPlan(state, fleet.CurrentNodeId, sourceNode, fleet.Speed, out var toSourcePlan))
+        if (!RoutePlanner.TryPlanChoice(state, fleet.CurrentNodeId, sourceNode, fleet.Speed, maxCandidates: 8, out var toSourceChoice))
             return false;
 
-        if (!RoutePlanner.TryPlan(state, sourceNode, destNode, fleet.Speed, out var toTargetPlan))
+        if (!RoutePlanner.TryPlanChoice(state, sourceNode, destNode, fleet.Speed, maxCandidates: 8, out var toTargetChoice))
             return false;
+
+        // Explain chosen route deterministically (schema-bound).
+        // Emit only when there is an actual choice to explain (CandidateCount >= 2) to reduce event spam.
+        if (toSourceChoice.CandidateCount >= 2)
+        {
+            state.EmitLogisticsEvent(new LogisticsEvents.Event
+            {
+                Type = LogisticsEvents.LogisticsEventType.RouteChosen,
+                FleetId = fleet.Id ?? "",
+                GoodId = goodId ?? "",
+                Amount = amount,
+                SourceNodeId = toSourceChoice.OriginId ?? "",
+                TargetNodeId = toSourceChoice.DestId ?? "",
+                SourceMarketId = sourceMarketId ?? "",
+                TargetMarketId = destMarketId ?? "",
+                OriginId = toSourceChoice.OriginId ?? "",
+                DestId = toSourceChoice.DestId ?? "",
+                ChosenRouteId = toSourceChoice.ChosenRouteId ?? "",
+                CandidateCount = toSourceChoice.CandidateCount,
+                TieBreakReason = toSourceChoice.TieBreakReason ?? "",
+                Note = "Route chosen for pickup leg."
+            });
+        }
+
+        if (toTargetChoice.CandidateCount >= 2)
+        {
+            state.EmitLogisticsEvent(new LogisticsEvents.Event
+            {
+                Type = LogisticsEvents.LogisticsEventType.RouteChosen,
+                FleetId = fleet.Id ?? "",
+                GoodId = goodId ?? "",
+                Amount = amount,
+                SourceNodeId = toTargetChoice.OriginId ?? "",
+                TargetNodeId = toTargetChoice.DestId ?? "",
+                SourceMarketId = sourceMarketId ?? "",
+                TargetMarketId = destMarketId ?? "",
+                OriginId = toTargetChoice.OriginId ?? "",
+                DestId = toTargetChoice.DestId ?? "",
+                ChosenRouteId = toTargetChoice.ChosenRouteId ?? "",
+                CandidateCount = toTargetChoice.CandidateCount,
+                TieBreakReason = toTargetChoice.TieBreakReason ?? "",
+                Note = "Route chosen for delivery leg."
+            });
+        }
 
         fleet.CurrentJob = new LogisticsJob
         {
-            GoodId = goodId,
-            SourceNodeId = sourceNode,
-            TargetNodeId = destNode,
+            GoodId = goodId ?? "",
+            SourceNodeId = sourceNode ?? "",
+            TargetNodeId = destNode ?? "",
             Amount = amount,
             Phase = LogisticsJobPhase.Pickup,
-            RouteToSourceEdgeIds = toSourcePlan.EdgeIds ?? new List<string>(),
-            RouteToTargetEdgeIds = toTargetPlan.EdgeIds ?? new List<string>()
+            RouteToSourceEdgeIds = toSourceChoice.ChosenPlan.EdgeIds ?? new List<string>(),
+            RouteToTargetEdgeIds = toTargetChoice.ChosenPlan.EdgeIds ?? new List<string>()
         };
 
         // Slice 3 / GATE.LOGI.RESERVE.001: Optional reservation at assignment time.
         // This does NOT mutate inventory; enforcement happens in LoadCargoCommand.
-        if (state.TryCreateLogisticsReservation(sourceMarketId, goodId, fleet.Id ?? "", amount, out var rid, out var rqty))
+        var reserveMarketId = sourceMarketId ?? "";
+        var reserveGoodId = goodId ?? "";
+
+        if (!string.IsNullOrWhiteSpace(reserveMarketId) &&
+            !string.IsNullOrWhiteSpace(reserveGoodId) &&
+            state.TryCreateLogisticsReservation(reserveMarketId, reserveGoodId, fleet.Id ?? "", amount, out var rid, out var rqty))
         {
             if (fleet.CurrentJob is not null && rqty > 0 && !string.IsNullOrWhiteSpace(rid))
             {
