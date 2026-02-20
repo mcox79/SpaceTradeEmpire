@@ -58,13 +58,35 @@ public static class GalaxyGenerator
             var mkt = new Market { Id = node.MarketId };
 
             // Always ensure keys exist for deterministic price publishing and inventory semantics.
-            mkt.Inventory["fuel"] = 100;
+            // Note: fuel is an economy-critical input (mines/refineries). Seed enough to avoid immediate global starvation.
+            mkt.Inventory["fuel"] = 500;
             mkt.Inventory["ore"] = 0;
             mkt.Inventory["metal"] = 0;
 
             // GATE.S2_5.WGEN.ECON.001: deterministic economy placement v0 for starter region.
             // Starter region is the first N stars by generation index.
             bool isStarter = i < Math.Min(starCount, StarterRegionNodeCount);
+
+            // Deterministic fuel source v0: every 6th node has a fuel well that produces fuel with no inputs.
+            // This prevents the world from draining all seeded fuel and going globally idle.
+            bool isFuelWell = (i % 6) == 0;
+            if (isFuelWell)
+            {
+                mkt.Inventory["fuel"] = Math.Max(mkt.Inventory["fuel"], 3000); // bootstrap supply
+
+                var well = new IndustrySite
+                {
+                    Id = $"well_{i}",
+                    NodeId = node.Id,
+                    Inputs = new Dictionary<string, int>(), // no inputs
+                    Outputs = new Dictionary<string, int> { { "fuel", 5 } },
+                    BufferDays = 1,
+                    DegradePerDayBps = 0
+                };
+
+                state.IndustrySites.Add(well.Id, well);
+                node.Name += " (Fuel Well)";
+            }
 
             if (i % 2 == 0)
             {

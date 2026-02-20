@@ -22,6 +22,9 @@ public sealed class FleetJobCancelCommand : ICommand
 
         if (!state.Fleets.TryGetValue(FleetId, out var fleet)) return;
 
+        // Deterministic: mark cancel tick even if no job is present (prevents immediate auto-assign in the same Step()).
+        fleet.LastJobCancelTick = state.Tick;
+
         if (fleet.CurrentJob == null) return;
 
         // Clear job.

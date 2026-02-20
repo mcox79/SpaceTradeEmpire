@@ -54,6 +54,9 @@ public class Fleet
     // LOGIC STATE
     public string CurrentTask { get; set; } = "Idle"; // Explanation for UI
 
+    // Deterministic cooldown: if a job is canceled at tick T, do not auto-assign a new logistics job until T+1.
+    public int LastJobCancelTick { get; set; } = -1;
+
     // Program controller (Slice 3 doctrine). Empty means no program currently owns this fleet.
     // This is a stable identity surface for authority reporting; precedence is enforced by ActiveController.
     public string ProgramId { get; set; } = "";

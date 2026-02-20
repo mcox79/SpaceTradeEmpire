@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 
 namespace SimCore.Systems;
@@ -11,101 +12,204 @@ namespace SimCore.Systems;
 /// </summary>
 public static class LaneFlowSystem
 {
-	public static bool TryEnqueueTransfer(
-		SimState state,
-		string fromNodeId,
-		string toNodeId,
-		string goodId,
-		int quantity,
-		string transferId)
-	{
-		if (state is null) throw new ArgumentNullException(nameof(state));
-		if (string.IsNullOrWhiteSpace(fromNodeId)) return false;
-		if (string.IsNullOrWhiteSpace(toNodeId)) return false;
-		if (fromNodeId == toNodeId) return false;
-		if (string.IsNullOrWhiteSpace(goodId)) return false;
-		if (quantity <= 0) return false;
-		if (string.IsNullOrWhiteSpace(transferId)) return false;
+    private sealed class PerStateReport
+    {
+        public long LastTick;
+        public string LastLaneUtilizationReport = "";
+    }
 
-		if (!MapQueries.TryGetEdgeId(state, fromNodeId, toNodeId, out var edgeId)) return false;
-		if (!state.Edges.TryGetValue(edgeId, out var edge)) return false;
+    private static readonly ConditionalWeakTable<SimState, PerStateReport> _reports = new();
 
-		if (!state.Nodes.TryGetValue(fromNodeId, out var fromNode)) return false;
-		if (!state.Nodes.TryGetValue(toNodeId, out var toNode)) return false;
+    public static string GetLastLaneUtilizationReport(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        return _reports.TryGetValue(state, out var r) ? (r.LastLaneUtilizationReport ?? "") : "";
+    }
 
-		var fromMarketId = fromNode.MarketId ?? "";
-		var toMarketId = toNode.MarketId ?? "";
-		if (string.IsNullOrWhiteSpace(fromMarketId)) return false;
-		if (string.IsNullOrWhiteSpace(toMarketId)) return false;
+    public static bool TryEnqueueTransfer(
+        SimState state,
+        string fromNodeId,
+        string toNodeId,
+        string goodId,
+        int quantity,
+        string transferId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrWhiteSpace(fromNodeId)) return false;
+        if (string.IsNullOrWhiteSpace(toNodeId)) return false;
+        if (fromNodeId == toNodeId) return false;
+        if (string.IsNullOrWhiteSpace(goodId)) return false;
+        if (quantity <= 0) return false;
+        if (string.IsNullOrWhiteSpace(transferId)) return false;
 
-		if (!state.Markets.TryGetValue(fromMarketId, out var fromMarket)) return false;
-		if (!state.Markets.TryGetValue(toMarketId, out var toMarket)) return false;
+        if (!MapQueries.TryGetEdgeId(state, fromNodeId, toNodeId, out var edgeId)) return false;
+        if (!state.Edges.TryGetValue(edgeId, out var edge)) return false;
 
-		if (state.InFlightTransfers.Any(x => string.Equals(x.Id, transferId, StringComparison.Ordinal)))
-		{
-			return false;
-		}
+        if (!state.Nodes.TryGetValue(fromNodeId, out var fromNode)) return false;
+        if (!state.Nodes.TryGetValue(toNodeId, out var toNode)) return false;
 
-		var removed = InventoryLedger.TryRemoveMarket(fromMarket.Inventory, goodId, quantity);
-		if (!removed) return false;
+        var fromMarketId = fromNode.MarketId ?? "";
+        var toMarketId = toNode.MarketId ?? "";
+        if (string.IsNullOrWhiteSpace(fromMarketId)) return false;
+        if (string.IsNullOrWhiteSpace(toMarketId)) return false;
 
-		var delayTicks = ComputeDelayTicks(edge);
-		var departTick = state.Tick;
-		var arriveTick = checked(departTick + delayTicks);
+        if (!state.Markets.TryGetValue(fromMarketId, out var fromMarket)) return false;
+        if (!state.Markets.TryGetValue(toMarketId, out var toMarket)) return false;
 
-		state.InFlightTransfers.Add(new InFlightTransfer
-		{
-			Id = transferId,
-			EdgeId = edgeId,
-			FromNodeId = fromNodeId,
-			ToNodeId = toNodeId,
-			FromMarketId = fromMarketId,
-			ToMarketId = toMarketId,
-			GoodId = goodId,
-			Quantity = quantity,
-			DepartTick = departTick,
-			ArriveTick = arriveTick
-		});
+        if (state.InFlightTransfers.Any(x => string.Equals(x.Id, transferId, StringComparison.Ordinal)))
+        {
+            return false;
+        }
 
-		return true;
-	}
+        var removed = InventoryLedger.TryRemoveMarket(fromMarket.Inventory, goodId, quantity);
+        if (!removed) return false;
 
-	public static void Process(SimState state)
-	{
-		if (state is null) throw new ArgumentNullException(nameof(state));
-		if (state.InFlightTransfers.Count == 0) return;
+        var delayTicks = ComputeDelayTicks(edge);
+        var departTick = state.Tick;
+        var arriveTick = checked(departTick + delayTicks);
 
-		var now = state.Tick;
+        state.InFlightTransfers.Add(new InFlightTransfer
+        {
+            Id = transferId,
+            EdgeId = edgeId,
+            FromNodeId = fromNodeId,
+            ToNodeId = toNodeId,
+            FromMarketId = fromMarketId,
+            ToMarketId = toMarketId,
+            GoodId = goodId,
+            Quantity = quantity,
+            DepartTick = departTick,
+            ArriveTick = arriveTick
+        });
 
-		var due = state.InFlightTransfers
-			.Where(x => x.ArriveTick <= now)
-			.OrderBy(x => x.ArriveTick)
-			.ThenBy(x => x.EdgeId, StringComparer.Ordinal)
-			.ThenBy(x => x.Id, StringComparer.Ordinal)
-			.ToList();
+        return true;
+    }
 
-		if (due.Count == 0) return;
+    public static void Process(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.InFlightTransfers.Count == 0) return;
 
-		foreach (var t in due)
-		{
-			if (t.Quantity <= 0) continue;
-			if (string.IsNullOrWhiteSpace(t.ToMarketId)) continue;
-			if (!state.Markets.TryGetValue(t.ToMarketId, out var toMarket)) continue;
+        var now = state.Tick;
 
-			InventoryLedger.AddMarket(toMarket.Inventory, t.GoodId, t.Quantity);
-		}
+        // Collect due transfers deterministically.
+        var due = state.InFlightTransfers
+            .Where(x => x.ArriveTick <= now)
+            .OrderBy(x => x.ArriveTick)
+            .ThenBy(x => x.EdgeId, StringComparer.Ordinal)
+            .ThenBy(x => x.Id, StringComparer.Ordinal)
+            .ToList();
 
-		var dueIds = new HashSet<string>(due.Select(x => x.Id), StringComparer.Ordinal);
-		state.InFlightTransfers.RemoveAll(x => dueIds.Contains(x.Id));
-	}
+        if (due.Count == 0) return;
 
-	private static int ComputeDelayTicks(Edge edge)
-	{
-		var d = edge.Distance;
-		if (float.IsNaN(d) || float.IsInfinity(d)) return 1;
-		if (d <= 0f) return 1;
+        // Capacity scarcity v0:
+        // For each lane per tick, deliver up to edge.TotalCapacity (if > 0).
+        // Overflow is queued deterministically by setting ArriveTick = now + 1.
+        // Sustained overload creates multi-tick delay via repeated next-tick deferrals.
+        var deliveredByLane = new Dictionary<string, int>(StringComparer.Ordinal);
 
-		var ticks = (int)MathF.Ceiling(d);
-		return Math.Max(1, ticks);
-	}
+        foreach (var laneGroup in due.GroupBy(x => x.EdgeId, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var laneId = laneGroup.Key;
+
+            var capacity = int.MaxValue;
+            if (state.Edges.TryGetValue(laneId, out var edge))
+            {
+                // TotalCapacity <= 0 is treated as "unlimited" for v0.
+                if (edge.TotalCapacity > 0) capacity = edge.TotalCapacity;
+            }
+
+            var remaining = capacity;
+
+            // laneGroup preserves due's ordering (already ordered by ArriveTick, EdgeId, Id).
+            foreach (var t in laneGroup)
+            {
+                if (t.Quantity <= 0) continue;
+
+                if (remaining <= 0)
+                {
+                    // Fully queued.
+                    t.ArriveTick = checked(now + 1);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(t.ToMarketId))
+                {
+                    // Invalid destination; keep deterministic behavior: drop from due by marking queued and letting it retry next tick.
+                    t.ArriveTick = checked(now + 1);
+                    continue;
+                }
+
+                if (!state.Markets.TryGetValue(t.ToMarketId, out var toMarket))
+                {
+                    t.ArriveTick = checked(now + 1);
+                    continue;
+                }
+
+                var deliverQty = Math.Min(t.Quantity, remaining);
+                if (deliverQty <= 0)
+                {
+                    t.ArriveTick = checked(now + 1);
+                    continue;
+                }
+
+                InventoryLedger.AddMarket(toMarket.Inventory, t.GoodId, deliverQty);
+
+                t.Quantity -= deliverQty;
+                remaining -= deliverQty;
+
+                if (!deliveredByLane.TryGetValue(laneId, out var cur)) cur = 0;
+                deliveredByLane[laneId] = cur + deliverQty;
+
+                if (t.Quantity > 0)
+                {
+                    // Partial fill; queue remainder deterministically.
+                    t.ArriveTick = checked(now + 1);
+                }
+            }
+        }
+
+        // Remove transfers that are fully delivered (Quantity <= 0) and were due this tick.
+        var dueIds = new HashSet<string>(due.Select(x => x.Id), StringComparer.Ordinal);
+        state.InFlightTransfers.RemoveAll(x => dueIds.Contains(x.Id) && x.Quantity <= 0);
+
+        // Emit deterministic lane utilization report sorted by lane_id.
+        var laneIds = state.Edges.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var lines = new List<string>(capacity: 4 + laneIds.Count)
+        {
+            "LANE_UTILIZATION_REPORT_V0",
+            $"tick={now}",
+            "lane_id|delivered|capacity|queued"
+        };
+
+        foreach (var laneId in laneIds)
+        {
+            var delivered = deliveredByLane.TryGetValue(laneId, out var d) ? d : 0;
+
+            var cap = int.MaxValue;
+            if (state.Edges.TryGetValue(laneId, out var e) && e.TotalCapacity > 0) cap = e.TotalCapacity;
+
+            var queued = state.InFlightTransfers
+                .Where(x => string.Equals(x.EdgeId, laneId, StringComparison.Ordinal))
+                .Sum(x => Math.Max(0, x.Quantity));
+
+            var capText = cap == int.MaxValue ? "inf" : cap.ToString();
+            lines.Add($"{laneId}|{delivered}|{capText}|{queued}");
+        }
+
+        var report = string.Join("\n", lines) + "\n";
+        var per = _reports.GetOrCreateValue(state);
+        per.LastTick = now;
+        per.LastLaneUtilizationReport = report;
+    }
+
+    private static int ComputeDelayTicks(Edge edge)
+    {
+        var d = edge.Distance;
+        if (float.IsNaN(d) || float.IsInfinity(d)) return 1;
+        if (d <= 0f) return 1;
+
+        var ticks = (int)MathF.Ceiling(d);
+        return Math.Max(1, ticks);
+    }
 }

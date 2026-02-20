@@ -29,7 +29,8 @@ public static class LogisticsSystem
 
         foreach (var site in state.IndustrySites.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
         {
-            if (!site.Active) continue;
+            // IMPORTANT: Even if a site is currently inactive (eg starved), we still need logistics shortages
+            // so the economy can resupply inputs and recover. Do not gate shortages on site.Active.
             if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
 
             var marketId = ResolveMarketForSiteNode(state, site.NodeId);
@@ -69,14 +70,14 @@ public static class LogisticsSystem
                 .FirstOrDefault(f =>
                     (f.State == FleetState.Idle || f.State == FleetState.Docked) &&
                     f.CurrentJob == null &&
+                    f.LastJobCancelTick != state.Tick &&
                     string.IsNullOrWhiteSpace(f.ManualOverrideNodeId));
             if (fleet is null) break;
 
-            var supplier = FindSupplierDeterministic(state, task.GoodId, excludeMarketId: task.MarketId);
-            if (supplier is null) continue;
-
-            // Plan: source market -> dest market
-            PlanLogistics(state, fleet, supplier.Id, task.MarketId, task.GoodId, task.Amount);
+            // Choose the best reachable supplier deterministically (by unreserved qty desc, then market id asc).
+            // This prevents "all idle" when the globally-best supplier is unreachable from the fleet or to the destination.
+            if (!TryPlanFromBestReachableSupplierDeterministic(state, fleet, task.MarketId, task.GoodId, task.Amount))
+                continue;
         }
     }
 
@@ -90,8 +91,9 @@ public static class LogisticsSystem
 
         var job = fleet.CurrentJob;
 
-        // Only transition phases / issue transfers when the fleet is idle (arrived at a node and not mid-edge).
-        if (fleet.State != FleetState.Idle) return;
+        // Only transition phases / issue transfers when the fleet is at a node and not mid-edge.
+        // In live runs, fleets may be Docked at markets; treat Docked as eligible for deterministic job advancement.
+        if (fleet.State != FleetState.Idle && fleet.State != FleetState.Docked) return;
 
         if (job.Phase == LogisticsJobPhase.Pickup)
         {
@@ -393,6 +395,43 @@ public static class LogisticsSystem
         }
 
         return best;
+    }
+
+    private static bool TryPlanFromBestReachableSupplierDeterministic(
+        SimState state,
+        Fleet fleet,
+        string destMarketId,
+        string goodId,
+        int amount)
+    {
+        // Build candidate suppliers with deterministic ordering: qty desc, then id asc.
+        var candidates = new List<(string MarketId, int Qty)>();
+
+        foreach (var m in state.Markets.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
+        {
+            if (string.Equals(m.Id, destMarketId, StringComparison.Ordinal)) continue;
+
+            var qty = state.GetUnreservedAvailable(m.Id, goodId);
+            if (qty <= 10) continue;
+
+            candidates.Add((m.Id, qty));
+        }
+
+        if (candidates.Count == 0) return false;
+
+        candidates = candidates
+            .OrderByDescending(x => x.Qty)
+            .ThenBy(x => x.MarketId, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var c in candidates)
+        {
+            // PlanLogistics is deterministic and does not mutate on failure.
+            if (PlanLogistics(state, fleet, c.MarketId, destMarketId, goodId, amount))
+                return true;
+        }
+
+        return false;
     }
 
     public static bool PlanLogistics(SimState state, Fleet fleet, string sourceMarketId, string destMarketId, string goodId, int amount)

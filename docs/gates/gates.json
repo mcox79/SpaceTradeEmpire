@@ -39,41 +39,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3.CAPACITY_SCARCITY.001",
-                      "task_id":  "GATE.S3.CAPACITY_SCARCITY.001.T433",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.CAPACITY_SCARCITY.001: Lane capacity scarcity v0: lane capacity constrains flows each tick and causes determinis",
-                      "intent":  "Lane capacity scarcity v0: lane capacity constrains flows each tick and causes deterministic delays or partial fills; acceptance: construct a crafted map where demand exceeds capacity across 1 chokepoint and prove that total delivered is bo",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/LaneFlowSystemTests.cs",
-                                             "SimCore/Systems/LaneFlowSystem.cs",
-                                             "SimCore/Systems/LogisticsSystem.cs",
-                                             "SimCore.Tests/Systems/LogisticsPartialFulfillmentTests.cs",
-                                             "SimCore/Systems/MarketSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Lane capacity scarcity v0: lane capacity constrains flows each tick and causes deterministic delays or partial fills; acceptance: construct a crafted map where",
-                                              "demand exceeds capacity across 1 chokepoint and prove that total delivered is bounded by capacity and that overflow is queued with a stable ordering; emit a",
-                                              "deterministic report of lane utilization sorted by lane_id"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/LaneFlowSystemTests.cs",
-                                             "candidate_key_sha256=967c6294d2f4"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3.MARKET_ARB.001",
                       "task_id":  "GATE.S3.MARKET_ARB.001.T945",
                       "status":  "TODO",
