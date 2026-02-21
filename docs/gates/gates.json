@@ -5,36 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD bd53a7a279e0003b2a41be17137218b3792912d8",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3.SAVELOAD.SCALING.001",
-                      "task_id":  "GATE.S3.SAVELOAD.SCALING.001.T494",
-                      "status":  "TODO",
-                      "title":  "GATE.S3.SAVELOAD.SCALING.001: Scaling save%load contract v0 (momentum-safe): save%load is crash-free and preserves lane capacity queues, chosen routes, and market fee state; replaying from save yields identical event stream and final world hash under the same command script",
-                      "intent":  "Scaling save%load contract v0 (momentum-safe): save%load is crash-free and preserves lane capacity queues, chosen routes, and market fee state; replaying from save yields identical event stream and final world hash under the same command script",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
-                                             "SimCore/Systems/LaneFlowSystem.cs",
-                                             "SimCore/Systems/SerializationSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
-                                             "candidate_key_sha256=4b2dd1a950bd"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.TWEAKS.DATA.001",
                       "task_id":  "GATE.X.TWEAKS.DATA.001.T339",
                       "status":  "TODO",
