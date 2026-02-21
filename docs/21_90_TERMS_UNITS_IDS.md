@@ -404,16 +404,15 @@ Tier 0
   - `dotnet build` (when `.cs` changes)
 
 
-
 Tier 1
 
 - Meaning: correctness gates when wiring or simulation changes occur.
 - Typical examples:
 
   - connectivity scan (`scripts/tools/Scan-Connectivity.ps1`)
-  - `dotnet test` for relevant test projects (for example `SimCore.Tests/`)
+  - fast SimCore test loop (default):
+    - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName!~SimCore.Tests.Determinism.LongRunWorldHashTests&FullyQualifiedName!~SimCore.Tests.GoldenReplayTests"`
   - smoke tests (when present)
-
 
 
 Tier 2
@@ -421,6 +420,8 @@ Tier 2
 - Meaning: slower runs intended for CI/nightly or intentional regression detection.
 - Typical examples:
 
+  - closeout-only SimCore suites (intentional):
+    - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "FullyQualifiedName~SimCore.Tests.Determinism.LongRunWorldHashTests|FullyQualifiedName~SimCore.Tests.GoldenReplayTests"`
   - multi-seed determinism regressions
   - performance regressions
   - long-horizon scenario runs

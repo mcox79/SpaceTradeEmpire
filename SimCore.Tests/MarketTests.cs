@@ -417,6 +417,175 @@ namespace SimCore.Tests
                 sb.ToString().Replace("\r\n", "\n"));
         }
 
+        [Test]
+        public void WorldgenDistributionBounds_StarterGoods_EachHasProducerAndSink_Over100Seeds_AndEmitsDeterministicReport()
+        {
+            // GATE.S2_5.WGEN.DISTRIBUTION.001 (ultra-loose):
+            // Over N=100 seeds, for a small fixed starter goods set, each good must have:
+            // - at least 1 producer station in the starter region
+            // - at least 1 sink station in the starter region
+            //
+            // Structural definition (no inventory heuristics):
+            // - producer: any starter-region IndustrySite where Outputs[good] > 0
+            // - sink: any starter-region IndustrySite where Inputs[good] > 0
+            //
+            // Determinism:
+            // - fixed seed list: 0..99
+            // - fixed starCount: StarterRegionNodeCount
+            // - stable ordering: goods ordinal, failing seeds asc, all derived lists sorted
+            // - report has normalized newlines and no timestamps
+
+            const int nSeeds = 100;
+            const int starCount = GalaxyGenerator.StarterRegionNodeCount;
+
+            // Small fixed starter goods set (v0).
+            var goods = new[] { "fuel", "metal", "ore" }
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToArray();
+
+            var failingSeeds = new List<int>();
+            var perGoodMinProducers = goods.ToDictionary(g => g, _ => int.MaxValue, StringComparer.Ordinal);
+            var perGoodMinSinks = goods.ToDictionary(g => g, _ => int.MaxValue, StringComparer.Ordinal);
+
+            // Per-good failing seeds (for more actionable report).
+            var perGoodFailSeeds = goods.ToDictionary(g => g, _ => new List<int>(), StringComparer.Ordinal);
+
+            for (int seed = 0; seed < nSeeds; seed++)
+            {
+                var sim = new SimKernel(seed);
+                var state = sim.State;
+
+                GalaxyGenerator.Generate(
+                    state,
+                    starCount,
+                    radius: 1000f,
+                    options: new GalaxyGenerator.GalaxyGenOptions { EnableDistributionSinksV0 = true });
+
+                var starterNodeIds = GalaxyGenerator.GetStarterRegionNodeIdsSortedV0(state)
+                    .OrderBy(id => id, StringComparer.Ordinal)
+                    .ToArray();
+
+                // Build nodeId -> IndustrySites for deterministic checks (sorted ids, stable).
+                var sitesByNode = state.IndustrySites.Values
+                    .OrderBy(s => s.Id, StringComparer.Ordinal)
+                    .GroupBy(s => s.NodeId, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+
+                foreach (var good in goods)
+                {
+                    int producerCount = 0;
+                    int sinkCount = 0;
+
+                    foreach (var nodeId in starterNodeIds)
+                    {
+                        bool hasProducerHere = false;
+                        bool hasSinkHere = false;
+
+                        if (sitesByNode.TryGetValue(nodeId, out var sites))
+                        {
+                            for (int i = 0; i < sites.Length; i++)
+                            {
+                                var site = sites[i];
+
+                                if (!hasProducerHere &&
+                                    site.Outputs != null &&
+                                    site.Outputs.TryGetValue(good, out var outQty) &&
+                                    outQty > 0)
+                                {
+                                    hasProducerHere = true;
+                                }
+
+                                if (!hasSinkHere &&
+                                    site.Inputs != null &&
+                                    site.Inputs.TryGetValue(good, out var inQty) &&
+                                    inQty > 0)
+                                {
+                                    hasSinkHere = true;
+                                }
+
+                                if (hasProducerHere && hasSinkHere) break;
+                            }
+                        }
+
+                        if (hasProducerHere) producerCount++;
+                        if (hasSinkHere) sinkCount++;
+                    }
+
+                    if (producerCount < perGoodMinProducers[good]) perGoodMinProducers[good] = producerCount;
+                    if (sinkCount < perGoodMinSinks[good]) perGoodMinSinks[good] = sinkCount;
+
+                    if (producerCount == 0 || sinkCount == 0)
+                    {
+                        perGoodFailSeeds[good].Add(seed);
+                    }
+                }
+            }
+
+            // Union of failing seeds across all goods, sorted asc.
+            foreach (var good in goods)
+            {
+                foreach (var s in perGoodFailSeeds[good])
+                    failingSeeds.Add(s);
+            }
+
+            failingSeeds = failingSeeds.Distinct().OrderBy(x => x).ToList();
+
+            var repoRoot = FindRepoRoot();
+            var outDir = Path.Combine(repoRoot, "docs", "generated");
+            Directory.CreateDirectory(outDir);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("WORLDGEN_DISTRIBUTION_BOUNDS_REPORT_V0");
+            sb.AppendLine($"n_seeds={nSeeds}");
+            sb.AppendLine($"seed_range=0..{nSeeds - 1}");
+            sb.AppendLine($"star_count={starCount}");
+            sb.AppendLine($"starter_region_count={GalaxyGenerator.StarterRegionNodeCount}");
+            sb.AppendLine("definition=producer_if_any_site_outputs_good;sink_if_any_site_inputs_good");
+            sb.AppendLine("goods=" + string.Join(",", goods));
+            sb.AppendLine("good_id|min_producers|min_sinks|failing_seed_count");
+            foreach (var good in goods)
+            {
+                var failList = perGoodFailSeeds[good].OrderBy(x => x).ToArray();
+                sb.AppendLine($"{good}|{perGoodMinProducers[good]}|{perGoodMinSinks[good]}|{failList.Length}");
+            }
+
+            sb.AppendLine("FAILING_SEEDS_UNION_ASC");
+            if (failingSeeds.Count == 0)
+            {
+                sb.AppendLine("(none)");
+            }
+            else
+            {
+                for (int i = 0; i < failingSeeds.Count; i++)
+                    sb.AppendLine(failingSeeds[i].ToString());
+            }
+
+            sb.AppendLine("FAILING_SEEDS_BY_GOOD_ASC");
+            foreach (var good in goods)
+            {
+                var failList = perGoodFailSeeds[good].OrderBy(x => x).ToArray();
+                sb.AppendLine($"good={good}");
+                if (failList.Length == 0)
+                {
+                    sb.AppendLine("(none)");
+                }
+                else
+                {
+                    for (int i = 0; i < failList.Length; i++)
+                        sb.AppendLine(failList[i].ToString());
+                }
+            }
+
+            File.WriteAllText(
+                Path.Combine(outDir, "worldgen_distribution_bounds_report_v0.txt"),
+                sb.ToString().Replace("\r\n", "\n"));
+
+            if (failingSeeds.Count > 0)
+            {
+                Assert.Fail($"Worldgen distribution bounds violated for {failingSeeds.Count} seed(s). See docs/generated/worldgen_distribution_bounds_report_v0.txt");
+            }
+        }
+
         private static string FindRepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);

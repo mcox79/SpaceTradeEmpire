@@ -37,6 +37,7 @@ public class LongRunWorldHashTests
     private const int PerfMinFleets = 50;
     private const int PerfMinActiveTransfers = 200;
 
+    [Category("Closeout")]
     [Test]
     public void PerfBudget_Slice3_V0_AverageTickTime_WithinBudget_And_ReportDeterministic()
     {
@@ -166,6 +167,7 @@ public class LongRunWorldHashTests
         Assert.That(invA, Is.EqualTo(invB), "Config override path must be deterministic for same seed.");
     }
 
+    [Category("Closeout")]
     [Test]
     public void LongRun_10000Ticks_Matches_Golden()
     {

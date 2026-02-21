@@ -21,6 +21,7 @@ public class GoldenReplayTests
         public ICommand Cmd;
     }
 
+    [Category("Closeout")]
     [Test]
     public void Simulation_Is_Deterministic_With_Input()
     {

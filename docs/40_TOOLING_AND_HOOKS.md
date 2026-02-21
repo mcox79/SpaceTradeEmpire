@@ -184,8 +184,18 @@ Build:
 - `dotnet build`
 
 Tests:
-- If the change affects SimCore logic, run the SimCore test project(s) under `SimCore.Tests/` (and any other relevant test projects).
-- If you have no stable test selection yet, `dotnet test` is acceptable as a starting point.
+
+Fast loop (default during iteration)
+- Run the SimCore tests excluding closeout-only suites:
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName!~SimCore.Tests.Determinism.LongRunWorldHashTests&FullyQualifiedName!~SimCore.Tests.GoldenReplayTests"`
+
+Closeout-only (gate DONE / seal commit / determinism or perf check)
+- Run only the slow suites intentionally:
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "FullyQualifiedName~SimCore.Tests.Determinism.LongRunWorldHashTests|FullyQualifiedName~SimCore.Tests.GoldenReplayTests"`
+
+Fallback rule
+- If you have no stable targeted selection yet and you are explicitly doing a final check, a full run is acceptable:
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release`
 
 
 
@@ -197,7 +207,8 @@ This section maps `docs/20_TESTING_AND_DETERMINISM.md` requirements into operati
 When SimCore logic changes (economy, routing, planning, events, intent processing, save/load):
 
 Must run (minimum):
-- `dotnet test` (or targeted `SimCore.Tests/` selection)
+- fast test loop for SimCore (or tighter targeted selection):
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName!~SimCore.Tests.Determinism.LongRunWorldHashTests&FullyQualifiedName!~SimCore.Tests.GoldenReplayTests"`
 
 Strongly recommended (as soon as the runner exists):
 - deterministic world hash regression run

@@ -371,7 +371,13 @@ If any .gd files changed
 
 If any .cs files changed
 - Run dotnet build.
-- If a relevant test project exists and is part of the workflow, run dotnet test (or the repo’s documented test runner).
+- Run the repo’s documented test selection for SimCore:
+
+  Fast loop (default during iteration):
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build --no-restore --filter "FullyQualifiedName!~SimCore.Tests.Determinism.LongRunWorldHashTests&FullyQualifiedName!~SimCore.Tests.GoldenReplayTests"`
+
+  Closeout-only (gate DONE / seal commit / determinism or perf check):
+  - `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "FullyQualifiedName~SimCore.Tests.Determinism.LongRunWorldHashTests|FullyQualifiedName~SimCore.Tests.GoldenReplayTests"`
 
 If any .ps1 files changed
 - Run a PowerShell parse check against the on-disk file (or staged blob when relevant to hooks/commit gates).

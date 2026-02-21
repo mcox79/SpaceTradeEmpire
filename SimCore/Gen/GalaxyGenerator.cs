@@ -13,6 +13,18 @@ public static class GalaxyGenerator
     // GATE.S2_5.WGEN.ECON.001: deterministic starter region size (first N stars by generation index).
     public const int StarterRegionNodeCount = 12;
 
+    // GATE.S2_5.WGEN.DISTRIBUTION.001: deterministic starter region accessor for tests and reports.
+    // v0 starter region: star_0..star_(StarterRegionNodeCount-1) when present (sorted ordinal).
+    public static IReadOnlyList<string> GetStarterRegionNodeIdsSortedV0(SimState state)
+        => GetStarterNodeIdsSortedV0(state);
+
+    // GATE.S2_5.WGEN.DISTRIBUTION.001: generation options (explicit inputs, default behavior unchanged).
+    public sealed record GalaxyGenOptions
+    {
+        // Default false to preserve existing goldens and baseline determinism contracts.
+        public bool EnableDistributionSinksV0 { get; init; } = false;
+    }
+
     // GATE.S2_5.WGEN.WORLD_CLASSES.001: deterministic world classes v0.
     // Exactly 3 classes. Each class has exactly one measurable effect in v0: fee_multiplier.
     public static readonly (string WorldClassId, float FeeMultiplier)[] WorldClassesV0 =
@@ -23,7 +35,12 @@ public static class GalaxyGenerator
     };
 
     public static void Generate(SimState state, int starCount, float radius)
+            => Generate(state, starCount, radius, options: null);
+
+    public static void Generate(SimState state, int starCount, float radius, GalaxyGenOptions? options)
     {
+        options ??= new GalaxyGenOptions();
+
         state.Nodes.Clear();
         state.Edges.Clear();
         state.Markets.Clear();
@@ -147,6 +164,22 @@ public static class GalaxyGenerator
                 };
                 state.IndustrySites.Add(factory.Id, factory);
                 node.Name += " (Refinery)";
+            }
+
+            // GATE.S2_5.WGEN.DISTRIBUTION.001: ensure a structural sink exists for starter goods.
+            // v0: add a deterministic metal demand sink on some starter nodes (OPT-IN via GalaxyGenOptions).
+            if (options.EnableDistributionSinksV0 && isStarter && (i % 5) == 1)
+            {
+                var metalSink = new IndustrySite
+                {
+                    Id = $"sink_metal_{i}",
+                    NodeId = node.Id,
+                    Inputs = new Dictionary<string, int> { { "metal", 1 } },
+                    Outputs = new Dictionary<string, int>(),
+                    BufferDays = 1,
+                    DegradePerDayBps = 0
+                };
+                state.IndustrySites.Add(metalSink.Id, metalSink);
             }
 
             state.Markets.Add(node.MarketId, mkt);
