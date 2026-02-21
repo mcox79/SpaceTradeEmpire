@@ -285,6 +285,10 @@ public partial class FleetMenu : Control
             .OrderBy(d => GetStr(d!, "id"), StringComparer.Ordinal)
             .ToArray();
 
+        // Restore persisted selection from quicksave (if any).
+        // Determinism: scalar string only; validation happens below against sorted rows.
+        _selectedFleetId = _bridge.GetUiSelectedFleetId();
+
         _lastRefreshMs = Time.GetTicksMsec();
         _heartbeat.Text = $"Refreshed: {_lastRefreshMs}ms";
 
@@ -307,6 +311,7 @@ public partial class FleetMenu : Control
         if (!string.IsNullOrWhiteSpace(_selectedFleetId) && !rows.Any(r => GetStr(r!, "id") == _selectedFleetId))
         {
             _selectedFleetId = "";
+            _bridge.SetUiSelectedFleetId("");
         }
         if (_selectedLabel != null)
         {
@@ -339,6 +344,7 @@ public partial class FleetMenu : Control
             btnSelect.Pressed += () =>
             {
                 _selectedFleetId = id;
+                _bridge.SetUiSelectedFleetId(id);
                 Refresh();
             };
             row.AddChild(btnSelect);

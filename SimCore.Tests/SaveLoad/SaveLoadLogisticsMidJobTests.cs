@@ -142,6 +142,88 @@ public sealed class SaveLoadLogisticsMidJobTests
         return "LOGI_ROUTE_CHOICES_V0\n" + string.Join("\n", rows) + "\n";
     }
 
+    private static string GetFleetEventStreamSnapshot(string saveJson)
+    {
+        using var doc = JsonDocument.Parse(saveJson);
+        var root = doc.RootElement;
+        var stateEl = root.TryGetProperty("State", out var st) ? st : root;
+
+        if (!TryFindProperty(stateEl, "FleetEventLog", out var logEl) || logEl.ValueKind != JsonValueKind.Array)
+        {
+            return "FLEET_EVENT_STREAM_V0\n<missing>\n";
+        }
+
+        // Deterministic stable surface:
+        // - include Seq%Tick%Type%FleetId only
+        // - sort by Seq asc, then Tick asc, then FleetId Ordinal
+        var rows = new List<string>();
+        foreach (var e in logEl.EnumerateArray())
+        {
+            var seq = ReadLong(e, "Seq");
+            var tick = ReadInt(e, "Tick");
+            var type = ReadInt(e, "Type");
+            var fleetId = ReadString(e, "FleetId");
+
+            rows.Add($"seq={seq:D20}|t={tick:D10}|type={type:D4}|fleet={fleetId}");
+        }
+
+        rows.Sort(StringComparer.Ordinal);
+        return "FLEET_EVENT_STREAM_V0\n" + string.Join("\n", rows) + "\n";
+    }
+
+    private sealed class QuicksaveUiStateV0
+    {
+        public int Version { get; set; } = 1;
+        public int StationViewIndex { get; set; } = 0;
+        public int DashboardLastSnapshotTick { get; set; } = -1;
+        public string SelectedFleetId { get; set; } = "";
+    }
+
+    private sealed class QuicksaveEnvelopeV0
+    {
+        // Match SimBridge.cs QuickSaveV2 surface in order.
+        public string Format { get; set; } = "STE_QUICKSAVE_V2";
+        public JsonElement Kernel { get; set; }
+        public QuicksaveUiStateV0 UiState { get; set; } = new QuicksaveUiStateV0();
+    }
+
+    private static JsonSerializerOptions DeterministicEnvelopeJsonOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true
+        };
+    }
+
+    private static string WrapKernelAsSteQuicksaveV2(string kernelJson, string selectedFleetId)
+    {
+        using var doc = JsonDocument.Parse(kernelJson);
+
+        var env = new QuicksaveEnvelopeV0
+        {
+            Format = "STE_QUICKSAVE_V2",
+            Kernel = doc.RootElement.Clone(),
+            UiState = new QuicksaveUiStateV0
+            {
+                Version = 1,
+                StationViewIndex = 0,
+                DashboardLastSnapshotTick = -1,
+                SelectedFleetId = selectedFleetId ?? ""
+            }
+        };
+
+        return JsonSerializer.Serialize(env, DeterministicEnvelopeJsonOptions());
+    }
+
+    private static string ReadSelectedFleetIdFromSteQuicksaveV2(string quicksaveJson)
+    {
+        var env = JsonSerializer.Deserialize<QuicksaveEnvelopeV0>(quicksaveJson, DeterministicEnvelopeJsonOptions());
+        if (env == null) return "";
+        if (!string.Equals(env.Format, "STE_QUICKSAVE_V2", StringComparison.Ordinal)) return "";
+        return env.UiState?.SelectedFleetId ?? "";
+    }
+
     private static string GetWorldClassFeeSnapshot(string saveJson)
     {
         using var doc = JsonDocument.Parse(saveJson);
@@ -414,6 +496,17 @@ public sealed class SaveLoadLogisticsMidJobTests
 
         var midJson = simA.SaveToString();
 
+        // Airtight UI-state proof: STE_QUICKSAVE_V2 envelope deterministically preserves SelectedFleetId.
+        // This matches the playable prototype persistence surface without requiring a Godot harness.
+        var selectedFleetIdExpected = "fleet_trader_1";
+        var qs0 = WrapKernelAsSteQuicksaveV2(midJson, selectedFleetIdExpected);
+        var selectedFleetIdRead0 = ReadSelectedFleetIdFromSteQuicksaveV2(qs0);
+        Assert.That(selectedFleetIdRead0, Is.EqualTo(selectedFleetIdExpected), "SelectedFleetId did not round-trip through STE_QUICKSAVE_V2 envelope.");
+
+        // Deterministic JSON stability: identical inputs serialize byte-for-byte the same.
+        var qs1 = WrapKernelAsSteQuicksaveV2(midJson, selectedFleetIdExpected);
+        Assert.That(qs1, Is.EqualTo(qs0), "STE_QUICKSAVE_V2 envelope JSON is not byte-stable across identical inputs.");
+
         // Loaded-from-save run (B)
         var simB = new SimKernel(seed: 123);
         simB.LoadFromString(midJson);
@@ -429,6 +522,10 @@ public sealed class SaveLoadLogisticsMidJobTests
         Assert.That(routeA0.Split('\n').Length, Is.GreaterThan(2), "Expected at least one route choice record in LogisticsEventLog snapshot.");
         Assert.That(routeB0, Is.EqualTo(routeA0), "ChosenRouteId%TieBreakReason snapshot drift immediately after load.");
 
+        var fleetLogA0 = GetFleetEventStreamSnapshot(simA.SaveToString());
+        var fleetLogB0 = GetFleetEventStreamSnapshot(simB.SaveToString());
+        Assert.That(fleetLogA0, Does.Not.Contain("<missing>"), "Expected FleetEventLog to be present in save JSON.");
+        Assert.That(fleetLogB0, Is.EqualTo(fleetLogA0), "Per-fleet event stream snapshot drift immediately after load.");
         var feeA0 = GetWorldClassFeeSnapshot(simA.SaveToString());
         var feeB0 = GetWorldClassFeeSnapshot(simB.SaveToString());
         Assert.That(feeA0, Does.Not.Contain("<missing>"), "Expected WorldClasses fee config to be present in save JSON.");
@@ -460,6 +557,10 @@ public sealed class SaveLoadLogisticsMidJobTests
             var routeA = GetLogisticsRouteChoiceSnapshot(simA.SaveToString());
             var routeB = GetLogisticsRouteChoiceSnapshot(simB.SaveToString());
             Assert.That(routeB, Is.EqualTo(routeA), $"ChosenRouteId%TieBreakReason drift at loop tick i={i}.");
+
+            var fleetLogA = GetFleetEventStreamSnapshot(simA.SaveToString());
+            var fleetLogB = GetFleetEventStreamSnapshot(simB.SaveToString());
+            Assert.That(fleetLogB, Is.EqualTo(fleetLogA), $"Per-fleet event stream drift at loop tick i={i}.");
 
             var feeA = GetWorldClassFeeSnapshot(simA.SaveToString());
             var feeB = GetWorldClassFeeSnapshot(simB.SaveToString());

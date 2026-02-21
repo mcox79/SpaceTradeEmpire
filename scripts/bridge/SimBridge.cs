@@ -62,8 +62,12 @@ public partial class SimBridge : Node
 
     // UI state persisted in quicksave (GATE.S3.UI.DASH.001)
     // Determinism: store as simple scalars with stable defaults.
-    private int _uiStationViewIndex = 0;          // 0=Market%Traffic, 1=Logistics, 2=Sustainment, 3=Dash
+    private int _uiStationViewIndex = 0;           // 0=Market%Traffic, 1=Logistics, 2=Sustainment, 3=Dash
     private int _uiDashboardLastSnapshotTick = -1; // last captured snapshot tick for dashboard metrics
+
+    // UI selection state persisted in quicksave (GATE.UI.PLAY.TRADELOOP.SAVELOAD.001)
+    // Determinism: store as simple scalar with stable default.
+    private string _uiSelectedFleetId = "";
 
     // Cached program event log (deterministic, newest-first snapshots for UI).
     private sealed class ProgramEvent
@@ -113,6 +117,9 @@ public partial class SimBridge : Node
 
         public int StationViewIndex { get; set; } = 0;
         public int DashboardLastSnapshotTick { get; set; } = -1;
+
+        // Selected fleet in FleetMenu (empty means "no selection")
+        public string SelectedFleetId { get; set; } = "";
     }
 
     private sealed class QuickSaveV2
@@ -1787,6 +1794,13 @@ public partial class SimBridge : Node
 
     public int GetUiDashboardLastSnapshotTick() => _uiDashboardLastSnapshotTick;
 
+    public string GetUiSelectedFleetId() => _uiSelectedFleetId;
+
+    public void SetUiSelectedFleetId(string fleetId)
+    {
+        _uiSelectedFleetId = fleetId ?? "";
+    }
+
     private static string ResolveMarketIdFromNodeOrMarket(SimState state, string nodeOrMarketId)
     {
         if (state is null) return "";
@@ -1968,7 +1982,8 @@ public partial class SimBridge : Node
                 {
                     Version = 1,
                     StationViewIndex = _uiStationViewIndex,
-                    DashboardLastSnapshotTick = _uiDashboardLastSnapshotTick
+                    DashboardLastSnapshotTick = _uiDashboardLastSnapshotTick,
+                    SelectedFleetId = _uiSelectedFleetId ?? ""
                 };
 
                 qs = new QuickSaveV2
@@ -2046,11 +2061,13 @@ public partial class SimBridge : Node
                     {
                         _uiStationViewIndex = Math.Clamp(qs.UiState.StationViewIndex, 0, 3);
                         _uiDashboardLastSnapshotTick = qs.UiState.DashboardLastSnapshotTick;
+                        _uiSelectedFleetId = qs.UiState.SelectedFleetId ?? "";
                     }
                     else
                     {
                         _uiStationViewIndex = 0;
                         _uiDashboardLastSnapshotTick = -1;
+                        _uiSelectedFleetId = "";
                     }
                 }
                 else
@@ -2064,6 +2081,7 @@ public partial class SimBridge : Node
 
                     _uiStationViewIndex = 0;
                     _uiDashboardLastSnapshotTick = -1;
+                    _uiSelectedFleetId = "";
                 }
             }
             finally

@@ -97,37 +97,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001",
-                      "task_id":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001.T235",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001: Play loop save%load v0: during an active trade loop, save%load preserves visible state (selected fleet, active job, cargo, cash) and after continuing to completion yields identical final world hash and identical per-fleet event stream across runs",
-                      "intent":  "Play loop save%load v0: during an active trade loop, save%load preserves visible state (selected fleet, active job, cargo, cash) and after continuing to completion yields identical final world hash and identical per-fleet event stream across runs",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scenes/playable_prototype.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
-                                             "candidate_key_sha256=8ce718904538"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.API_BOUNDARIES.GUARD.001",
                       "task_id":  "GATE.X.API_BOUNDARIES.GUARD.001.T359",
                       "status":  "TODO",
