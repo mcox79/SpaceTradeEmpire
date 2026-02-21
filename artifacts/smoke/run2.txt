@@ -1,0 +1,50 @@
+WorkerThreadPool: 16 threads, 4 max low-priority.
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+TextServer: Added interface "Dummy"
+TextServer: Added interface "ICU / HarfBuzz / Graphite (Built-in)"
+Unrecognized output string "misc2" in mapping:
+030000000d0f00000202000000000000,Horipad O Nintendo Switch 2 Controller,a:b1,b:b0,back:b8,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b4,leftstick:b10,lefttrigger:b6,leftx:a0,lefty:a1,misc1:b13,misc2:b14,rightshoulder:b5,rightstick:b11,righttrigger:b7,rightx:a2,righty:a3,start:b9,x:b3,y:b2,platform:Windows,
+Unrecognized output string "misc2" in mapping:
+030000000d0f00009601000000000000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:b8,leftx:a0,lefty:a1,misc2:b2,paddle1:b5,paddle2:b15,paddle3:b18,paddle4:b19,rightshoulder:b7,rightstick:b14,righttrigger:b9,rightx:a3,righty:a4,start:b11,x:b3,y:b4,platform:Windows,
+Unrecognized output string "misc2" in mapping:
+030000007e0500006920000000000000,Nintendo Switch 2 Pro Controller,a:b0,b:b1,back:b14,dpdown:b8,dpleft:b10,dpright:b9,dpup:b11,guide:b16,leftshoulder:b12,leftstick:b15,lefttrigger:b13,leftx:a0,lefty:a1~,misc1:b17,misc2:b20,paddle1:b18,paddle2:b19,rightshoulder:b4,rightstick:b7,righttrigger:b5,rightx:a2,righty:a3~,start:b6,x:b2,y:b3,platform:Windows,
+Using "default" pen tablet driver...
+
+TextServer: Primary interface set to: "ICU / HarfBuzz / Graphite (Built-in)".
+.NET: Initializing module...
+Found hostfxr: C:/Program Files/dotnet/host/fxr/8.0.23/hostfxr.dll
+.NET: hostfxr initialized
+.NET: GodotPlugins initialized
+CORE API HASH: 599720610
+EDITOR API HASH: 3907223672
+Loading resource: res://scripts/tests/test_sim_skeleton.gd
+SceneTreeFTI: traversal method DEFAULT
+Loading resource: res://scenes/main.tscn
+Loading resource: res://scripts/view/map_camera.gd
+Loading resource: res://scripts/view/drone_camera.gd
+Loading resource: res://scripts/runtime/input_mode_router.gd
+Loading resource: res://scripts/view/galaxy_spawner.gd
+SMOKE: Seed=42
+SMOKE: tick_count=120
+SMOKE: world_hash@0=f19c7760d65d81f489058fa3ef4cd423db927ea8aeda78cfa4d18008e3c0a07f
+SMOKE: world_hash@60=f1b882d37efea0c00ab1b0f7ca974665cf78709618e7eb4236b51a8549a72527
+SMOKE: world_hash@120=13114b0df886ef2e982ebc1789d278c636b3e8616a82353f71b8373a0ab3bfdd
+SMOKE: counts_begin
+SMOKE: count.active_fleets=1
+SMOKE: count.active_markets=30
+SMOKE: count.active_orders=20
+SMOKE: count.lanes=48
+SMOKE: count.stars=30
+SMOKE: counts_end
+Loading resource: res://scripts/core/game_manager.gd
+Loading resource: res://scripts/bridge/SimBridge.cs
+Loaded system CA certificates
+[93m[CAMERA] No Player found in group 'Player'. Waiting...[39m[0m
+SUCCESS: Global Game Manager initialized.
+[BRIDGE] Initializing SimCore Kernel...
+[BRIDGE] Simulation Thread Started.
+Unloading: Disposing tracked instances...
+Unloading: Finished disposing tracked instances.
+XR: Clearing primary interface
+XR: Removed interface "Native mobile"
+XR: Removed interface "OpenXR"

@@ -35,37 +35,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.X.GAMESHELL.SMOKE.001",
-                      "task_id":  "GATE.X.GAMESHELL.SMOKE.001.T009",
-                      "status":  "TODO",
-                      "title":  "GATE.X.GAMESHELL.SMOKE.001: GameShell headless smoke harness: loads minimal scene, binds SimBridge, sets Seed, runs exactly N=120 ticks, exits code 0; emits deterministic transcript containing Seed, tick_count, world_hash at tick 0%60%120 and a sorted summary of key entity counts; no timestamps; byte-for-byte stable across runs",
-                      "intent":  "GameShell headless smoke harness: loads minimal scene, binds SimBridge, sets Seed, runs exactly N=120 ticks, exits code 0; emits deterministic transcript containing Seed, tick_count, world_hash at tick 0%60%120 and a sorted summary of key entity counts; no timestamps; byte-for-byte stable across runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_sim_skeleton.gd",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/core/sim/sim.gd",
-                                             "scenes/main.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_sim_skeleton.gd",
-                                             "candidate_key_sha256=4b3a7c0d4ae9"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.SCENARIO.HARNESS.001",
                       "task_id":  "GATE.X.SCENARIO.HARNESS.001.T711",
                       "status":  "TODO",

@@ -20,9 +20,11 @@ var active_markets: Dictionary = {}
 var active_orders: Array = []
 var _nav_graph: GalaxyGraph
 var info: InfoState
+var seed: int = 42
 var pending_player_rewards: int = 0
 
 func _init(seed_val: int = 42):
+	seed = seed_val
 	_generate_universe(seed_val)
 	_initialize_markets()
 	info = InfoState.new(galaxy_map)
@@ -178,3 +180,118 @@ func _get_star_at_pos(p):
 func _get_star_by_id(id):
 	for s in galaxy_map.stars: if s.id == id: return s
 	return null
+
+func get_entity_counts() -> Dictionary:
+	var counts := {}
+	counts["active_fleets"] = active_fleets.size()
+	counts["active_markets"] = active_markets.size()
+	counts["active_orders"] = active_orders.size()
+	counts["lanes"] = galaxy_map.lanes.size() if galaxy_map.has("lanes") else 0
+	counts["stars"] = galaxy_map.stars.size() if galaxy_map.has("stars") else 0
+	return counts
+
+func get_world_hash() -> String:
+	# Deterministic SHA256 over deterministically ordered, deterministically formatted state.
+	var lines: Array[String] = []
+	lines.append("seed=" + str(seed))
+	lines.append("tick=" + str(current_tick))
+
+	# Galaxy: stars (sorted by id), lanes (sorted by u,v).
+	if galaxy_map.has("stars"):
+		var star_ids: Array[String] = []
+		for s in galaxy_map.stars:
+			star_ids.append(s.id)
+		star_ids.sort()
+		for sid in star_ids:
+			var s2 = _get_star_by_id(sid)
+			if s2:
+				lines.append("star|" + sid + "|" + _fmt_v3(s2.pos))
+
+	if galaxy_map.has("lanes"):
+		var lane_keys: Array[String] = []
+		for l in galaxy_map.lanes:
+			var u = str(l.u) if l.has("u") else str(l.from)
+			var v = str(l.v) if l.has("v") else str(l.to)
+			var a = u
+			var b = v
+			if b < a:
+				var tmp = a
+				a = b
+				b = tmp
+			lane_keys.append(a + ">" + b)
+		lane_keys.sort()
+		for lk in lane_keys:
+			lines.append("lane|" + lk)
+
+	# Markets: stable key order; stable subkey order.
+	var market_ids: Array[String] = []
+	for mid in active_markets.keys():
+		market_ids.append(str(mid))
+	market_ids.sort()
+
+	for mid2 in market_ids:
+		var m = active_markets[mid2]
+		lines.append("market|" + mid2)
+
+		# industries
+		var ind_keys: Array[String] = []
+		for k in m.industries.keys():
+			ind_keys.append(str(k))
+		ind_keys.sort()
+		for ik in ind_keys:
+			lines.append("industry|" + mid2 + "|" + ik + "=" + str(m.industries[ik]))
+
+		# base_demand
+		var dem_keys: Array[String] = []
+		for k2 in m.base_demand.keys():
+			dem_keys.append(str(k2))
+		dem_keys.sort()
+		for dk in dem_keys:
+			lines.append("demand|" + mid2 + "|" + dk + "=" + str(m.base_demand[dk]))
+
+		# inventory
+		var inv_keys: Array[String] = []
+		for k3 in m.inventory.keys():
+			inv_keys.append(str(k3))
+		inv_keys.sort()
+		for vk in inv_keys:
+			lines.append("inv|" + mid2 + "|" + vk + "=" + str(m.inventory[vk]))
+
+	# Fleets: stable order by id; stable float formatting.
+	var fleet_ids: Array[String] = []
+	for f in active_fleets:
+		fleet_ids.append(str(f.id))
+	fleet_ids.sort()
+	for fid in fleet_ids:
+		var f2 = active_fleets.filter(func(x): return x.id == fid)
+		if f2.is_empty():
+			continue
+		var f3 = f2[0]
+		lines.append("fleet|" + fid + "|pos=" + _fmt_v3(f3.current_pos) + "|speed=" + _fmt_f(f3.speed))
+
+		# path points matter for determinism; include with fixed precision.
+		lines.append("fleetpath|" + fid + "|len=" + str(f3.path.size()))
+		for i in range(f3.path.size()):
+			lines.append("fleetpath|" + fid + "|" + str(i) + "=" + _fmt_v3(f3.path[i]))
+
+	# Orders: keep stable by id string.
+	var order_ids: Array[String] = []
+	for o in active_orders:
+		order_ids.append(str(o.id))
+	order_ids.sort()
+	for oid in order_ids:
+		lines.append("order|" + oid)
+
+	var payload = "\n".join(lines) + "\n"
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(payload.to_utf8_buffer())
+	var digest: PackedByteArray = ctx.finish()
+	return digest.hex_encode()
+
+func _fmt_f(v: float) -> String:
+	# Fixed precision to reduce stringify drift.
+	return "%.6f" % v
+
+func _fmt_v3(v: Vector3) -> String:
+	return _fmt_f(v.x) + "," + _fmt_f(v.y) + "," + _fmt_f(v.z)

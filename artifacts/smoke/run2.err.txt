@@ -1,0 +1,19 @@
+WARNING: res://scenes/main.tscn:3 - ext_resource, invalid UID: uid://ckhwc3f4dognl - using text path instead: res://scripts/view/map_camera.gd
+   at: load (scene/resources/resource_format_text.cpp:500)
+   GDScript backtrace (most recent call first):
+       [0] _load_minimal_scene (res://scripts/tests/test_sim_skeleton.gd:43)
+       [1] _init (res://scripts/tests/test_sim_skeleton.gd:23)
+WARNING: res://scenes/main.tscn:4 - ext_resource, invalid UID: uid://3gobhpdtvo56 - using text path instead: res://scripts/view/drone_camera.gd
+   at: load (scene/resources/resource_format_text.cpp:500)
+   GDScript backtrace (most recent call first):
+       [0] _load_minimal_scene (res://scripts/tests/test_sim_skeleton.gd:43)
+       [1] _init (res://scripts/tests/test_sim_skeleton.gd:23)
+WARNING: res://scenes/main.tscn:6 - ext_resource, invalid UID: uid://bk2adptm4av7c - using text path instead: res://scripts/view/galaxy_spawner.gd
+   at: load (scene/resources/resource_format_text.cpp:500)
+   GDScript backtrace (most recent call first):
+       [0] _load_minimal_scene (res://scripts/tests/test_sim_skeleton.gd:43)
+       [1] _init (res://scripts/tests/test_sim_skeleton.gd:23)
+SCRIPT ERROR: Cannot call method 'get_node_or_null' on a null value.
+   at: InputModeRouter._ready (res://scripts/runtime/input_mode_router.gd:17)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://scripts/runtime/input_mode_router.gd:17)
