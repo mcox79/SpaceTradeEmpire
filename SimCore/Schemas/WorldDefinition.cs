@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimCore.Schemas;
 
@@ -74,4 +76,110 @@ public sealed class WorldPlayerStart
     public long Credits { get; set; } = 1000;
     public string LocationNodeId { get; set; } = "";
     public Dictionary<string, int> Cargo { get; set; } = new();
+}
+
+/// <summary>Deterministic scenario harness v0 for authored micro-worlds (stable ordering + diff summary).</summary>
+public static class ScenarioHarnessV0
+{
+    public sealed class Builder
+    {
+        private readonly WorldDefinition _d;
+
+        public Builder(string worldId)
+        {
+            _d = new WorldDefinition { WorldId = worldId };
+        }
+
+        public Builder Market(string id, params (string goodId, int qty)[] inv)
+        {
+            var m = new WorldMarket { Id = id };
+
+            foreach (var (g, q) in inv)
+            {
+                m.Inventory[g] = q;
+            }
+
+            _d.Markets.Add(m);
+            return this;
+        }
+
+        public Builder Node(string id, string kind, string name, string marketId, float[] pos)
+        {
+            _d.Nodes.Add(new WorldNode
+            {
+                Id = id,
+                Kind = kind,
+                Name = name,
+                MarketId = marketId,
+                Pos = pos
+            });
+
+            return this;
+        }
+
+        public Builder Lane(string id, string from, string to, float dist, int cap)
+        {
+            _d.Edges.Add(new WorldEdge
+            {
+                Id = id,
+                FromNodeId = from,
+                ToNodeId = to,
+                Distance = dist,
+                TotalCapacity = cap
+            });
+
+            return this;
+        }
+
+        public Builder Player(long credits, string loc)
+        {
+            _d.Player = new WorldPlayerStart
+            {
+                Credits = credits,
+                LocationNodeId = loc
+            };
+
+            return this;
+        }
+
+        public WorldDefinition Build()
+        {
+            _d.Markets = _d.Markets.OrderBy(x => x.Id, StringComparer.Ordinal).ToList();
+            _d.Nodes = _d.Nodes.OrderBy(x => x.Id, StringComparer.Ordinal).ToList();
+            _d.Edges = _d.Edges.OrderBy(x => x.Id, StringComparer.Ordinal).ToList();
+
+            foreach (var m in _d.Markets)
+            {
+                m.Inventory = m.Inventory
+                    .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+            }
+
+            return _d;
+        }
+    }
+
+    public static Builder New(string worldId) => new Builder(worldId);
+
+    public static WorldDefinition MicroWorld001()
+    {
+        return New("micro_world_001")
+            .Market("mkt_a", ("ore", 10), ("food", 3))
+            .Market("mkt_b", ("ore", 1), ("food", 12))
+            .Node("stn_a", "Station", "Alpha Station", "mkt_a", new float[] { 0f, 0f, 0f })
+            .Node("stn_b", "Station", "Beta Station", "mkt_b", new float[] { 10f, 0f, 0f })
+            .Lane("lane_ab", "stn_a", "stn_b", 1.0f, 5)
+            .Player(1000, "stn_a")
+            .Build();
+    }
+
+    public static string ToDeterministicSummary(WorldDefinition d)
+    {
+        return
+            "WORLD_SUMMARY_V0\n" +
+            "world_id=" + d.WorldId + "\n" +
+            "markets=" + string.Join(',', d.Markets.OrderBy(x => x.Id, StringComparer.Ordinal).Select(m => m.Id)) + "\n" +
+            "nodes=" + string.Join(',', d.Nodes.OrderBy(x => x.Id, StringComparer.Ordinal).Select(n => n.Id)) + "\n" +
+            "edges=" + string.Join(',', d.Edges.OrderBy(x => x.Id, StringComparer.Ordinal).Select(e => e.Id)) + "\n";
+    }
 }

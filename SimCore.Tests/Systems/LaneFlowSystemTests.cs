@@ -13,28 +13,9 @@ public sealed class LaneFlowSystemTests
     {
         var k = new SimKernel(seed: 123);
 
-        var def = new WorldDefinition
-        {
-            WorldId = "micro_world_001",
-            Markets =
-            {
-                new WorldMarket { Id = "mkt_a", Inventory = new() { ["ore"] = 10, ["food"] = 3 } },
-                new WorldMarket { Id = "mkt_b", Inventory = new() { ["ore"] = 1,  ["food"] = 12 } }
-            },
-            Nodes =
-            {
-                new WorldNode { Id = "stn_a", Kind = "Station", Name = "Alpha Station", MarketId = "mkt_a", Pos = new float[] { 0f, 0f, 0f } },
-                new WorldNode { Id = "stn_b", Kind = "Station", Name = "Beta Station",  MarketId = "mkt_b", Pos = new float[] { 10f, 0f, 0f } }
-            },
-            Edges =
-            {
-                new WorldEdge { Id = "lane_ab", FromNodeId = "stn_a", ToNodeId = "stn_b", Distance = 1.0f, TotalCapacity = 5 }
-            },
-
-            Player = new WorldPlayerStart { Credits = 1000, LocationNodeId = "stn_a" }
-        };
-
+        var def = ScenarioHarnessV0.MicroWorld001();
         WorldLoader.Apply(k.State, def);
+
         return k;
     }
 
