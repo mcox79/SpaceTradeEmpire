@@ -1,0 +1,18 @@
+﻿Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+[TRADELOOP] begin
+[TRADELOOP] init_sim
+[TRADELOOP] spawn_fleet id=player_1 at=star_0
+[TRADELOOP] setup_markets start=star_0 dest=star_1
+[TRADELOOP] credits_before=1000
+[TRADELOOP] step=1 action=buy market=star_0 good=fuel qty=10
+[TRADELOOP] step=1 result=ok cargo_fuel=10
+[TRADELOOP] step=2 action=ship dest=star_1
+[TRADELOOP] step=2 result=ok arrived_tick=11
+[TRADELOOP] step=3 action=sell market=star_1 good=fuel qty=10
+[TRADELOOP] credits_after=20990
+[TRADELOOP] profit_delta=19990
+[TRADELOOP] end ok
+SUCCESS: Global Game Manager initialized.
+[BRIDGE] Initializing SimCore Kernel...
+[BRIDGE] Simulation Thread Started.

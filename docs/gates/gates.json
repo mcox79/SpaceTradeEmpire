@@ -35,37 +35,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.UI.PLAY.TRADELOOP.001",
-                      "task_id":  "GATE.UI.PLAY.TRADELOOP.001.T822",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.PLAY.TRADELOOP.001: First playable trade loop v0: start new game from Seed, spawn 1 player fleet at starter hub, execute 1 loop end-to-end (buy, ship, sell) using logistics; observe profit delta; headless play script emits deterministic transcript; no timestamps; byte-for-byte stable",
-                      "intent":  "First playable trade loop v0: start new game from Seed, spawn 1 player fleet at starter hub, execute 1 loop end-to-end (buy, ship, sell) using logistics; observe profit delta; headless play script emits deterministic transcript; no timestamps; byte-for-byte stable",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_player_trading.gd",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scenes/playable_prototype.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_player_trading.gd",
-                                             "candidate_key_sha256=80999e7592c0"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.GAMESHELL.SMOKE.001",
                       "task_id":  "GATE.X.GAMESHELL.SMOKE.001.T009",
                       "status":  "TODO",
