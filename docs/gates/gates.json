@@ -95,37 +95,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.X.API_BOUNDARIES.GUARD.001",
-                      "task_id":  "GATE.X.API_BOUNDARIES.GUARD.001.T359",
-                      "status":  "TODO",
-                      "title":  "GATE.X.API_BOUNDARIES.GUARD.001: Enforce UI%SimCore boundaries with a deterministic guard: scripts/ui/** must not reference SimCore.Entities%SimCore.Systems types directly (allowed: scripts/bridge/SimBridge.cs DTOs and explicitly allowlisted interfaces); proof is a test or static scan that fails with a sorted list of violations (file:line:type) and passes cleanly when compliant",
-                      "intent":  "Enforce UI%SimCore boundaries with a deterministic guard: scripts/ui/** must not reference SimCore.Entities%SimCore.Systems types directly (allowed: scripts/bridge/SimBridge.cs DTOs and explicitly allowlisted interfaces); proof is a test or static scan that fails with a sorted list of violations (file:line:type) and passes cleanly when compliant",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/ContainmentTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "docs/30_CONNECTIVITY_AND_INTERFACES.md",
-                                             "scripts/ui/StationMenu.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/ContainmentTests.cs",
-                                             "candidate_key_sha256=24ddbb458b2c"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }
