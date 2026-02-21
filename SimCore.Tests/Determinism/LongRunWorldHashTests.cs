@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using SimCore;
 using SimCore.Gen;
@@ -23,6 +26,11 @@ public class LongRunWorldHashTests
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
     private const string ExpectedGenesisHash = "E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9";
     private const string ExpectedFinalHash = "054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610";
+
+    // Gate: GATE.S2_5.WGEN.NSEED.001 (N-seed batch invariants v0)
+    // Golden is SHA256 over the emitted INVARIANTS_BATCH_V0 summary (UTF8), to prevent silent format churn.
+    // Update workflow: set STE_UPDATE_INVARIANTS_BATCH_GOLDEN=1 and copy the printed PASTE_INVARIANTS_BATCH_V0_SHA256 value.
+    private const string ExpectedInvariantsBatchV0Sha256 = "869971856B8FDE4A6B8C4D2B13A6904C538EAB6B55169F7615490BF7C687F129";
 
     // Gate: GATE.S3.PERF_BUDGET.001 (Slice 3 perf budget v0)
     // Fixed scenario + fixed measurement window.
@@ -165,6 +173,216 @@ public class LongRunWorldHashTests
 
         Assert.That(loopsA, Is.EqualTo(loopsB), "Config override path must be deterministic for same seed.");
         Assert.That(invA, Is.EqualTo(invB), "Config override path must be deterministic for same seed.");
+    }
+
+    [Test]
+    public void Worldgen_Invariants_Batch_Seeds_1_To_100_V0_Emits_Deterministic_Summary_And_Fails_On_Any_Failure()
+    {
+        const int n = 100;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int maxHopsForLoops = 4;
+
+        const int maxSeedsListedPerInvariant = 10;
+        const int maxFailureRecords = 50;
+
+        var failures = new List<InvariantFailureRecord>(capacity: 128);
+
+        for (int seed = 1; seed <= n; seed++)
+        {
+            var sim = new SimKernel(seed);
+            GalaxyGenerator.Generate(sim.State, starCount, radius);
+
+            var report = GalaxyGenerator.BuildInvariantsReport(sim.State, seed, maxHopsForLoops);
+            ParseInvariantFailuresFromReport(seed, report, failures);
+        }
+
+        var summary = BuildDeterministicBatchSummary(
+            n,
+            starCount,
+            radius,
+            maxHopsForLoops,
+            maxSeedsListedPerInvariant,
+            maxFailureRecords,
+            failures);
+
+        // Emit summary first (debuggability), then enforce golden hash.
+        TestContext.Out.WriteLine(summary);
+
+        var summarySha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(summary)));
+
+        bool updateGolden = string.Equals(
+            Environment.GetEnvironmentVariable("STE_UPDATE_INVARIANTS_BATCH_GOLDEN"),
+            "1",
+            StringComparison.Ordinal);
+
+        TestContext.Out.WriteLine($"INVARIANTS_BATCH_V0_SHA256={summarySha256}");
+
+        if (updateGolden)
+        {
+            TestContext.Out.WriteLine($"PASTE_INVARIANTS_BATCH_V0_SHA256: {summarySha256}");
+            Assert.Fail("Invariants batch golden hash updated. Copy PASTE_INVARIANTS_BATCH_V0_SHA256 into ExpectedInvariantsBatchV0Sha256.");
+        }
+        else
+        {
+            if (ExpectedInvariantsBatchV0Sha256.StartsWith("<", StringComparison.Ordinal))
+            {
+                Assert.Fail("ExpectedInvariantsBatchV0Sha256 is not set. Run with STE_UPDATE_INVARIANTS_BATCH_GOLDEN=1 and paste the printed PASTE_INVARIANTS_BATCH_V0_SHA256 value.");
+            }
+
+            Assert.That(
+                summarySha256,
+                Is.EqualTo(ExpectedInvariantsBatchV0Sha256),
+                "INVARIANTS_BATCH_V0 output hash drifted. If intentional, update golden via STE_UPDATE_INVARIANTS_BATCH_GOLDEN=1.");
+        }
+
+        if (failures.Count > 0)
+        {
+            Assert.Fail($"Worldgen invariants batch FAILED: failure_records={failures.Count}. See deterministic summary above.");
+        }
+    }
+
+    private readonly record struct InvariantFailureRecord(
+        int Seed,
+        string InvariantName,
+        string PrimaryId,
+        string DetailsKv);
+
+    private static void ParseInvariantFailuresFromReport(int seed, string report, List<InvariantFailureRecord> into)
+    {
+        // Expected per-record line shape (from GalaxyGenerator.BuildInvariantsReport):
+        // F|Seed=<seed>|InvariantName=<name>|PrimaryId=<id>|DetailsKV=<kv>
+        // Parsing is deterministic and failure-safe: ignore lines that do not match the expected key set.
+        var lines = report.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (!line.StartsWith("F|", StringComparison.Ordinal)) continue;
+
+            string? invariantName = null;
+            string? primaryId = null;
+            string? detailsKv = null;
+
+            var parts = line.Split('|');
+            for (int p = 1; p < parts.Length; p++)
+            {
+                var part = parts[p];
+                if (part.StartsWith("InvariantName=", StringComparison.Ordinal))
+                {
+                    invariantName = part.Substring("InvariantName=".Length);
+                }
+                else if (part.StartsWith("PrimaryId=", StringComparison.Ordinal))
+                {
+                    primaryId = part.Substring("PrimaryId=".Length);
+                }
+                else if (part.StartsWith("DetailsKV=", StringComparison.Ordinal))
+                {
+                    detailsKv = part.Substring("DetailsKV=".Length);
+                }
+            }
+
+            if (invariantName is null || primaryId is null || detailsKv is null) continue;
+
+            into.Add(new InvariantFailureRecord(
+                Seed: seed,
+                InvariantName: invariantName,
+                PrimaryId: primaryId,
+                DetailsKv: detailsKv));
+        }
+    }
+
+    private static string BuildDeterministicBatchSummary(
+        int n,
+        int starCount,
+        float radius,
+        int maxHopsForLoops,
+        int maxSeedsListedPerInvariant,
+        int maxFailureRecords,
+        List<InvariantFailureRecord> failures)
+    {
+        var sb = new StringBuilder(capacity: 4096);
+        sb.Append("INVARIANTS_BATCH_V0").Append('\n');
+        sb.Append("seeds=1..").Append(n).Append('\n');
+        sb.Append("star_count=").Append(starCount).Append('\n');
+        sb.Append("radius=").Append(radius.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("max_hops_for_loops=").Append(maxHopsForLoops).Append('\n');
+        sb.Append("cap_failing_seeds_per_invariant=").Append(maxSeedsListedPerInvariant).Append('\n');
+        sb.Append("cap_failure_records=").Append(maxFailureRecords).Append('\n');
+
+        if (failures.Count == 0)
+        {
+            sb.Append("result=PASS").Append('\n');
+            return sb.ToString();
+        }
+
+        sb.Append("result=FAIL").Append('\n');
+        sb.Append("failure_records_total=").Append(failures.Count).Append('\n');
+
+        // Deterministic ordering for records: InvariantName, then PrimaryId, then Seed asc.
+        failures.Sort((a, b) =>
+        {
+            int c = string.CompareOrdinal(a.InvariantName, b.InvariantName);
+            if (c != 0) return c;
+            c = string.CompareOrdinal(a.PrimaryId, b.PrimaryId);
+            if (c != 0) return c;
+            return a.Seed.CompareTo(b.Seed);
+        });
+
+        // Counts per invariant (by failure records).
+        var invariantNames = failures.Select(f => f.InvariantName).Distinct(StringComparer.Ordinal).ToList();
+        invariantNames.Sort(StringComparer.Ordinal);
+
+        sb.Append("INVARIANT_COUNTS").Append('\n');
+        for (int i = 0; i < invariantNames.Count; i++)
+        {
+            var name = invariantNames[i];
+
+            int recordCount = 0;
+            var seedSet = new HashSet<int>();
+            for (int j = 0; j < failures.Count; j++)
+            {
+                var f = failures[j];
+                if (!string.Equals(f.InvariantName, name, StringComparison.Ordinal)) continue;
+                recordCount++;
+                seedSet.Add(f.Seed);
+            }
+
+            var failingSeeds = seedSet.ToList();
+            failingSeeds.Sort();
+
+            sb.Append("I|InvariantName=").Append(name)
+              .Append("|FailureCount=").Append(recordCount)
+              .Append("|FailingSeedsCount=").Append(failingSeeds.Count)
+              .Append("|FailingSeeds=");
+
+            int cap = Math.Min(maxSeedsListedPerInvariant, failingSeeds.Count);
+            for (int s = 0; s < cap; s++)
+            {
+                if (s != 0) sb.Append(',');
+                sb.Append(failingSeeds[s]);
+            }
+            if (failingSeeds.Count > cap) sb.Append("...");
+
+            sb.Append('\n');
+        }
+
+        sb.Append("FAILURE_RECORDS").Append('\n');
+        int recCap = Math.Min(maxFailureRecords, failures.Count);
+        for (int i = 0; i < recCap; i++)
+        {
+            var f = failures[i];
+            sb.Append("F|Seed=").Append(f.Seed)
+              .Append("|InvariantName=").Append(f.InvariantName)
+              .Append("|PrimaryId=").Append(f.PrimaryId)
+              .Append("|DetailsKV=").Append(f.DetailsKv)
+              .Append('\n');
+        }
+        if (failures.Count > recCap)
+        {
+            sb.Append("F|TRUNCATED|remaining=").Append(failures.Count - recCap).Append('\n');
+        }
+
+        return sb.ToString();
     }
 
     [Category("Closeout")]
