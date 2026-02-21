@@ -116,17 +116,48 @@ public static class SerializationSystem
         // Preferred: runtime-attached identity
         if (TryGetAttachedSeed(state, out var attached)) return attached;
 
-        // Fallback: if SimState exposes a member named Seed/WorldSeed
-        if (TryReadIntMember(state, "Seed", out var seed)) return seed;
-        if (TryReadIntMember(state, "WorldSeed", out seed)) return seed;
+        // Deterministic fallback: probe a fixed ordered set of common seed member names.
+        // Do NOT enumerate members via reflection (ordering can vary).
+        // Prefer any non-zero value found; if only zeros are found, return 0.
+        var foundZero = false;
 
-        return 0;
+        if (TryReadCandidate("Seed", out var seed)) return seed;
+        if (TryReadCandidate("WorldSeed", out seed)) return seed;
+        if (TryReadCandidate("KernelSeed", out seed)) return seed;
+        if (TryReadCandidate("SimSeed", out seed)) return seed;
+        if (TryReadCandidate("InitialSeed", out seed)) return seed;
+        if (TryReadCandidate("RngSeed", out seed)) return seed;
+        if (TryReadCandidate("_seed", out seed)) return seed;
+        if (TryReadCandidate("_worldSeed", out seed)) return seed;
+        if (TryReadCandidate("_kernelSeed", out seed)) return seed;
+
+        return foundZero ? 0 : 0;
+
+        bool TryReadCandidate(string name, out int value)
+        {
+            if (TryReadIntMember(state, name, out value))
+            {
+                if (value != 0) return true;
+                foundZero = true;
+            }
+
+            value = 0;
+            return false;
+        }
     }
 
     private static void InjectSeed(SimState state, int seed)
     {
+        // Deterministic injection: same ordered candidate list as ExtractSeed.
         if (TryWriteIntMember(state, "Seed", seed)) return;
-        TryWriteIntMember(state, "WorldSeed", seed);
+        if (TryWriteIntMember(state, "WorldSeed", seed)) return;
+        if (TryWriteIntMember(state, "KernelSeed", seed)) return;
+        if (TryWriteIntMember(state, "SimSeed", seed)) return;
+        if (TryWriteIntMember(state, "InitialSeed", seed)) return;
+        if (TryWriteIntMember(state, "RngSeed", seed)) return;
+        if (TryWriteIntMember(state, "_seed", seed)) return;
+        if (TryWriteIntMember(state, "_worldSeed", seed)) return;
+        TryWriteIntMember(state, "_kernelSeed", seed);
     }
 
     private static bool TryReadIntMember(object instance, string name, out int value)

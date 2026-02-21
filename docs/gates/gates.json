@@ -5,36 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD bd53a7a279e0003b2a41be17137218b3792912d8",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.SAVELOAD.WORLDGEN.001",
-                      "task_id":  "GATE.S2_5.SAVELOAD.WORLDGEN.001.T857",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.SAVELOAD.WORLDGEN.001: Worldgen save%load contract v0 (momentum-safe): save%load is crash-free and preserves stable NodeId%LaneId plus core worldgen state (econ placement, faction tables, world classes); post-load world hash matches pre-save and key dumps are deterministic (format stable, no timestamps)",
-                      "intent":  "Worldgen save%load contract v0 (momentum-safe): save%load is crash-free and preserves stable NodeId%LaneId plus core worldgen state (econ placement, faction tables, world classes); post-load world hash matches pre-save and key dumps are deterministic (format stable, no timestamps)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "SimCore/World/WorldLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=45858234ae03"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.WGEN.DISTRIBUTION.001",
                       "task_id":  "GATE.S2_5.WGEN.DISTRIBUTION.001.T449",
                       "status":  "TODO",
