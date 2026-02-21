@@ -78,6 +78,95 @@ public class LongRunWorldHashTests
     }
 
     [Test]
+    public void SeedExplorer_V0_Reports_Are_ByteForByte_Deterministic_And_NoTimeLeakage()
+    {
+        const int seed = 12345;
+
+        var a = new SimKernel(seed);
+        GalaxyGenerator.Generate(a.State, 20, 100f);
+
+        var b = new SimKernel(seed);
+        GalaxyGenerator.Generate(b.State, 20, 100f);
+
+        var topoA = GalaxyGenerator.BuildTopologyDump(a.State);
+        var topoB = GalaxyGenerator.BuildTopologyDump(b.State);
+
+        var loopsA = GalaxyGenerator.BuildEconLoopsReport(a.State, seed, maxHops: 4);
+        var loopsB = GalaxyGenerator.BuildEconLoopsReport(b.State, seed, maxHops: 4);
+
+        var invA = GalaxyGenerator.BuildInvariantsReport(a.State, seed, maxHopsForLoops: 4);
+        var invB = GalaxyGenerator.BuildInvariantsReport(b.State, seed, maxHopsForLoops: 4);
+
+        Assert.That(topoA, Is.EqualTo(topoB), "Topology summary must be deterministic for same seed.");
+        Assert.That(loopsA, Is.EqualTo(loopsB), "Econ loops report must be deterministic for same seed.");
+        Assert.That(invA, Is.EqualTo(invB), "Invariants report must be deterministic for same seed.");
+
+        // Basic guard against accidental timestamps: current year string must not appear.
+        var year = DateTime.UtcNow.Year.ToString(CultureInfo.InvariantCulture);
+        Assert.That(topoA.Contains(year, StringComparison.Ordinal), Is.False, "Topology summary must not contain timestamps.");
+        Assert.That(loopsA.Contains(year, StringComparison.Ordinal), Is.False, "Econ loops report must not contain timestamps.");
+        Assert.That(invA.Contains(year, StringComparison.Ordinal), Is.False, "Invariants report must not contain timestamps.");
+    }
+
+    [Test]
+    public void SeedExplorer_V0_DiffReports_Are_ByteForByte_Deterministic()
+    {
+        const int seedA = 111;
+        const int seedB = 222;
+
+        var a1 = new SimKernel(seedA);
+        GalaxyGenerator.Generate(a1.State, 20, 100f);
+
+        var b1 = new SimKernel(seedB);
+        GalaxyGenerator.Generate(b1.State, 20, 100f);
+
+        var dTopo1 = GalaxyGenerator.BuildTopologyDiffReport(a1.State, seedA, b1.State, seedB);
+        var dLoops1 = GalaxyGenerator.BuildLoopsDiffReport(a1.State, seedA, b1.State, seedB, maxHops: 4);
+
+        var a2 = new SimKernel(seedA);
+        GalaxyGenerator.Generate(a2.State, 20, 100f);
+
+        var b2 = new SimKernel(seedB);
+        GalaxyGenerator.Generate(b2.State, 20, 100f);
+
+        var dTopo2 = GalaxyGenerator.BuildTopologyDiffReport(a2.State, seedA, b2.State, seedB);
+        var dLoops2 = GalaxyGenerator.BuildLoopsDiffReport(a2.State, seedA, b2.State, seedB, maxHops: 4);
+
+        Assert.That(dTopo1, Is.EqualTo(dTopo2), "Topology diff must be deterministic for same (seedA, seedB).");
+        Assert.That(dLoops1, Is.EqualTo(dLoops2), "Loops diff must be deterministic for same (seedA, seedB).");
+    }
+
+    [Test]
+    public void SeedExplorer_V0_ConfigOverrides_Are_ByteForByte_Deterministic()
+    {
+        const int seed = 333;
+
+        var cfg = GalaxyGenerator.SeedExplorerV0Config.Default with
+        {
+            StarCount = 24,
+            Radius = 150f,
+            MaxHops = 5,
+            ChokepointCapLe = 4,
+            MaxChokepoints = 1
+        };
+
+        var a = new SimKernel(seed);
+        GalaxyGenerator.Generate(a.State, cfg.StarCount, cfg.Radius);
+
+        var b = new SimKernel(seed);
+        GalaxyGenerator.Generate(b.State, cfg.StarCount, cfg.Radius);
+
+        var loopsA = GalaxyGenerator.BuildEconLoopsReport(a.State, seed, cfg);
+        var loopsB = GalaxyGenerator.BuildEconLoopsReport(b.State, seed, cfg);
+
+        var invA = GalaxyGenerator.BuildInvariantsReport(a.State, seed, cfg);
+        var invB = GalaxyGenerator.BuildInvariantsReport(b.State, seed, cfg);
+
+        Assert.That(loopsA, Is.EqualTo(loopsB), "Config override path must be deterministic for same seed.");
+        Assert.That(invA, Is.EqualTo(invB), "Config override path must be deterministic for same seed.");
+    }
+
+    [Test]
     public void LongRun_10000Ticks_Matches_Golden()
     {
         var seed = GetSeedOrFail();

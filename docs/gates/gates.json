@@ -278,37 +278,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S2_5.TOOL.SEED_EXPLORER.001",
-                      "task_id":  "GATE.S2_5.TOOL.SEED_EXPLORER.001.T172",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.TOOL.SEED_EXPLORER.001: Seed explorer tooling v0: given Seed produces deterministic artifacts under docs/generated: topology_summary.txt, econ_loops.txt, invariants.txt; diff mode takes SeedA%SeedB and emits diff_topology.txt (added%removed nodes%lanes) and diff_loops.txt (added%removed loops by route_id); outputs are byte-for-byte stable and contain no timestamps",
-                      "intent":  "Seed explorer tooling v0: given Seed produces deterministic artifacts under docs/generated: topology_summary.txt, econ_loops.txt, invariants.txt; diff mode takes SeedA%SeedB and emits diff_topology.txt (added%removed nodes%lanes) and diff_loops.txt (added%removed loops by route_id); outputs are byte-for-byte stable and contain no timestamps",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "scripts/tools/seed_determinism_smoke.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=eef0da7e481e"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }
