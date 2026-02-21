@@ -33,37 +33,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.X.SCENARIO.HARNESS.001",
-                      "task_id":  "GATE.X.SCENARIO.HARNESS.001.T711",
-                      "status":  "TODO",
-                      "title":  "GATE.X.SCENARIO.HARNESS.001: Deterministic scenario harness v0: minimal builder to create crafted SimCore worlds (nodes, lanes, markets, fleets, prices, fees) with stable IDs and deterministic ordering; no UI%Godot scene construction; emits deterministic scenario summary for diffing; proof: used by at least 2 regression tests (routes and capacity scarcity)",
-                      "intent":  "Deterministic scenario harness v0: minimal builder to create crafted SimCore worlds (nodes, lanes, markets, fleets, prices, fees) with stable IDs and deterministic ordering; no UI%Godot scene construction; emits deterministic scenario summary for diffing; proof: used by at least 2 regression tests (routes and capacity scarcity)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/RoutePlannerTests.cs",
-                                             "SimCore/Schemas/WorldDefinition.cs",
-                                             "SimCore/Schemas/ScenarioSchema.cs",
-                                             "SimCore.Tests/Systems/LaneFlowSystemTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/RoutePlannerTests.cs",
-                                             "candidate_key_sha256=6be8225d6be9"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }
