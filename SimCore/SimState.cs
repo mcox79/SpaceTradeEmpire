@@ -19,7 +19,14 @@ public class SimState
     [JsonInclude] public Dictionary<string, Market> Markets { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Node> Nodes { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Edge> Edges { get; private set; } = new();
+
+    // RoutePlanner adjacency cache (FromNodeId -> edges sorted by edge id).
+    // Non-serialized: rebuilt deterministically as needed.
+    [JsonIgnore] private Dictionary<string, List<Edge>>? _routeOutgoingByFromNode;
+    [JsonIgnore] private bool _routeOutgoingBuilt;
+
     [JsonInclude] public Dictionary<string, Fleet> Fleets { get; private set; } = new();
+
     [JsonInclude] public Dictionary<string, IndustrySite> IndustrySites { get; private set; } = new();
     [JsonInclude] public List<SimCore.Entities.InFlightTransfer> InFlightTransfers { get; private set; } = new();
 
@@ -132,36 +139,44 @@ public class SimState
 
         if (idx.Count == 0) return;
 
-        // Deterministic ordering rule for same-tick events:
-        // FleetId (ordinal) then EmitOrder (preserves within-fleet emission order),
-        // then stable tie-breaks to avoid any ambiguity.
-        var ordered = idx
-            .Select(i => FleetEventLog[i])
-            .OrderBy(e => e.FleetId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.EmitOrder)
-            .ThenBy(e => (int)e.Type)
-            .ThenBy(e => e.ChosenRouteId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.Role)
-            .ThenBy(e => e.ProfitScore)
-            .ThenBy(e => e.CapacityScore)
-            .ThenBy(e => e.RiskScore)
-            .ThenBy(e => e.Note ?? "", StringComparer.Ordinal)
-            .ToList();
-
-        // Assign Seq in deterministic order.
-        foreach (var e in ordered)
+        // Sort indices in deterministic event order without LINQ allocations.
+        idx.Sort((ai, bi) =>
         {
+            var a = FleetEventLog[ai];
+            var b = FleetEventLog[bi];
+
+            int c;
+            c = string.CompareOrdinal(a.FleetId ?? "", b.FleetId ?? ""); if (c != 0) return c;
+            c = a.EmitOrder.CompareTo(b.EmitOrder); if (c != 0) return c;
+            c = ((int)a.Type).CompareTo((int)b.Type); if (c != 0) return c;
+            c = string.CompareOrdinal(a.ChosenRouteId ?? "", b.ChosenRouteId ?? ""); if (c != 0) return c;
+            c = a.Role.CompareTo(b.Role); if (c != 0) return c;
+            c = a.ProfitScore.CompareTo(b.ProfitScore); if (c != 0) return c;
+            c = a.CapacityScore.CompareTo(b.CapacityScore); if (c != 0) return c;
+            c = a.RiskScore.CompareTo(b.RiskScore); if (c != 0) return c;
+            c = string.CompareOrdinal(a.Note ?? "", b.Note ?? ""); if (c != 0) return c;
+
+            // Absolute final tiebreak: index to keep ordering deterministic even if all keys match.
+            return ai.CompareTo(bi);
+        });
+
+        // Assign Seq in deterministic order (idx is now sorted by event order).
+        for (var j = 0; j < idx.Count; j++)
+        {
+            var e = FleetEventLog[idx[j]];
             var seq = NextFleetEventSeq;
             NextFleetEventSeq = checked(NextFleetEventSeq + 1);
             e.Seq = seq;
         }
 
         // Reorder the log in-place for this tick only, so list order matches deterministic order.
-        idx.Sort();
-        for (var j = 0; j < idx.Count; j++)
-        {
-            FleetEventLog[idx[j]] = ordered[j];
-        }
+        // Write the sorted events back into the same set of slots in ascending index order.
+        var dest = new List<int>(idx);
+        dest.Sort();
+
+        var temp = new SimCore.Events.FleetEvents.Event[idx.Count];
+        for (var j = 0; j < idx.Count; j++) temp[j] = FleetEventLog[idx[j]];
+        for (var j = 0; j < dest.Count; j++) FleetEventLog[dest[j]] = temp[j];
     }
 
     private void FinalizeLogisticsEventsForTick()
@@ -182,35 +197,43 @@ public class SimState
 
         if (idx.Count == 0) return;
 
-        // Deterministic ordering rule for same-tick events:
-        // FleetId (ordinal) then EmitOrder (preserves within-fleet emission order),
-        // then stable tie-breaks to avoid any ambiguity.
-        var ordered = idx
-            .Select(i => LogisticsEventLog[i])
-            .OrderBy(e => e.FleetId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.EmitOrder)
-            .ThenBy(e => (int)e.Type)
-            .ThenBy(e => e.GoodId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.SourceNodeId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.TargetNodeId ?? "", StringComparer.Ordinal)
-            .ThenBy(e => e.Amount)
-            .ThenBy(e => e.Note ?? "", StringComparer.Ordinal)
-            .ToList();
-
-        // Assign Seq in deterministic order.
-        foreach (var e in ordered)
+        // Sort indices in deterministic event order without LINQ allocations.
+        idx.Sort((ai, bi) =>
         {
+            var a = LogisticsEventLog[ai];
+            var b = LogisticsEventLog[bi];
+
+            int c;
+            c = string.CompareOrdinal(a.FleetId ?? "", b.FleetId ?? ""); if (c != 0) return c;
+            c = a.EmitOrder.CompareTo(b.EmitOrder); if (c != 0) return c;
+            c = ((int)a.Type).CompareTo((int)b.Type); if (c != 0) return c;
+            c = string.CompareOrdinal(a.GoodId ?? "", b.GoodId ?? ""); if (c != 0) return c;
+            c = string.CompareOrdinal(a.SourceNodeId ?? "", b.SourceNodeId ?? ""); if (c != 0) return c;
+            c = string.CompareOrdinal(a.TargetNodeId ?? "", b.TargetNodeId ?? ""); if (c != 0) return c;
+            c = a.Amount.CompareTo(b.Amount); if (c != 0) return c;
+            c = string.CompareOrdinal(a.Note ?? "", b.Note ?? ""); if (c != 0) return c;
+
+            // Absolute final tiebreak: index to keep ordering deterministic even if all keys match.
+            return ai.CompareTo(bi);
+        });
+
+        // Assign Seq in deterministic order (idx is now sorted by event order).
+        for (var j = 0; j < idx.Count; j++)
+        {
+            var e = LogisticsEventLog[idx[j]];
             var seq = NextLogisticsEventSeq;
             NextLogisticsEventSeq = checked(NextLogisticsEventSeq + 1);
             e.Seq = seq;
         }
 
         // Reorder the log in-place for this tick only, so list order matches deterministic order.
-        idx.Sort();
-        for (var j = 0; j < idx.Count; j++)
-        {
-            LogisticsEventLog[idx[j]] = ordered[j];
-        }
+        // Write the sorted events back into the same set of slots in ascending index order.
+        var dest = new List<int>(idx);
+        dest.Sort();
+
+        var temp = new SimCore.Events.LogisticsEvents.Event[idx.Count];
+        for (var j = 0; j < idx.Count; j++) temp[j] = LogisticsEventLog[idx[j]];
+        for (var j = 0; j < dest.Count; j++) LogisticsEventLog[dest[j]] = temp[j];
     }
 
     public void HydrateAfterLoad()
@@ -228,6 +251,47 @@ public class SimState
         FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);
+
+        InvalidateRoutePlannerCaches();
+    }
+
+    public void InvalidateRoutePlannerCaches()
+    {
+        _routeOutgoingBuilt = false;
+        _routeOutgoingByFromNode = null;
+    }
+
+    public Dictionary<string, List<Edge>> GetOutgoingEdgesByFromNodeDeterministic()
+    {
+        if (_routeOutgoingBuilt && _routeOutgoingByFromNode is not null)
+            return _routeOutgoingByFromNode;
+
+        var outgoing = new Dictionary<string, List<Edge>>(StringComparer.Ordinal);
+
+        foreach (var e in Edges.Values)
+        {
+            if (e is null) continue;
+
+            var from = e.FromNodeId ?? "";
+            if (from.Length == 0) continue;
+
+            if (!outgoing.TryGetValue(from, out var list))
+            {
+                list = new List<Edge>(capacity: 4);
+                outgoing[from] = list;
+            }
+
+            list.Add(e);
+        }
+
+        foreach (var kv in outgoing)
+        {
+            kv.Value.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+        }
+
+        _routeOutgoingByFromNode = outgoing;
+        _routeOutgoingBuilt = true;
+        return outgoing;
     }
 
     /// <summary>

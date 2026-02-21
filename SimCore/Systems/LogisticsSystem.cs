@@ -18,66 +18,241 @@ public static class LogisticsSystem
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
 
-        // 0) Advance in-progress jobs deterministically (phase transitions).
-        foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+        bool logiBreakdown = string.Equals(
+            Environment.GetEnvironmentVariable("STE_LOGI_BREAKDOWN"),
+            "1",
+            StringComparison.Ordinal);
+
+        long msAdvance = 0, msShortages = 0, msAssign = 0;
+        long allocAdvance = 0, allocShortages = 0, allocAssign = 0;
+        long msTryPlan = 0, allocTryPlan = 0;
+
+        static void Measure(Action a, out long elapsedMs, out long allocBytes)
         {
-            AdvanceJobState(state, fleet);
+            long beforeAlloc = GC.GetAllocatedBytesForCurrentThread();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            a();
+            sw.Stop();
+            long afterAlloc = GC.GetAllocatedBytesForCurrentThread();
+
+            elapsedMs = sw.ElapsedMilliseconds;
+            allocBytes = afterAlloc - beforeAlloc;
         }
 
-        // 1) Identify shortages deterministically (industry sites + inputs sorted).
-        var shortages = new List<(string MarketId, string GoodId, int Amount)>();
+        // 0) Advance in-progress jobs deterministically.
+        var fleetsSorted = new List<Fleet>(state.Fleets.Count);
 
-        foreach (var site in state.IndustrySites.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
+        // Building the sorted list is part of "advance" overhead.
+        if (!logiBreakdown)
         {
-            // IMPORTANT: Even if a site is currently inactive (eg starved), we still need logistics shortages
-            // so the economy can resupply inputs and recover. Do not gate shortages on site.Active.
-            if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
+            foreach (var f in state.Fleets.Values)
+                if (f != null) fleetsSorted.Add(f);
 
-            var marketId = ResolveMarketForSiteNode(state, site.NodeId);
-            if (string.IsNullOrWhiteSpace(marketId)) continue;
-            if (!state.Markets.TryGetValue(marketId, out var market)) continue;
-
-            foreach (var input in site.Inputs.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            fleetsSorted.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+            for (int i = 0; i < fleetsSorted.Count; i++)
+                AdvanceJobState(state, fleetsSorted[i]);
+        }
+        else
+        {
+            Measure(() =>
             {
-                var goodId = input.Key;
-                var perTick = input.Value;
-                if (string.IsNullOrWhiteSpace(goodId)) continue;
-                if (perTick <= 0) continue;
+                foreach (var f in state.Fleets.Values)
+                    if (f != null) fleetsSorted.Add(f);
 
-                var target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
-                var current = market.Inventory.GetValueOrDefault(goodId, 0);
+                fleetsSorted.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+                for (int i = 0; i < fleetsSorted.Count; i++)
+                    AdvanceJobState(state, fleetsSorted[i]);
+            }, out msAdvance, out allocAdvance);
+        }
 
-                if (current < target)
+        // Build deterministic market list once per tick (avoid sorting inside TryPlan).
+        var marketsSorted = new List<Market>(state.Markets.Count);
+        foreach (var m in state.Markets.Values)
+            if (m != null) marketsSorted.Add(m);
+
+        marketsSorted.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+
+        // 1) Identify shortages deterministically.
+        var shortages = new List<(string MarketId, string GoodId, int Amount)>(capacity: 64);
+
+        if (!logiBreakdown)
+        {
+            var sitesSorted = new List<IndustrySite>(state.IndustrySites.Count);
+            foreach (var s in state.IndustrySites.Values)
+                if (s != null) sitesSorted.Add(s);
+
+            sitesSorted.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+
+            for (int si = 0; si < sitesSorted.Count; si++)
+            {
+                var site = sitesSorted[si];
+                if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
+
+                var marketId = ResolveMarketForSiteNode(state, site.NodeId);
+                if (string.IsNullOrWhiteSpace(marketId)) continue;
+                if (!state.Markets.TryGetValue(marketId, out var market) || market is null) continue;
+
+                var inputKeys = new List<string>(site.Inputs.Count);
+                foreach (var kv in site.Inputs)
+                    if (!string.IsNullOrWhiteSpace(kv.Key)) inputKeys.Add(kv.Key);
+
+                inputKeys.Sort(StringComparer.Ordinal);
+
+                for (int ki = 0; ki < inputKeys.Count; ki++)
                 {
-                    shortages.Add((market.Id, goodId, target - current));
+                    var goodId = inputKeys[ki];
+                    var perTick = site.Inputs.TryGetValue(goodId, out var v) ? v : 0;
+                    if (perTick <= 0) continue;
+
+                    var target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
+                    var current = market.Inventory.GetValueOrDefault(goodId, 0);
+
+                    if (current < target)
+                        shortages.Add((market.Id, goodId, target - current));
                 }
             }
+
+            shortages.Sort((a, b) =>
+            {
+                int c = string.CompareOrdinal(a.MarketId ?? "", b.MarketId ?? "");
+                if (c != 0) return c;
+                c = string.CompareOrdinal(a.GoodId ?? "", b.GoodId ?? "");
+                if (c != 0) return c;
+                return a.Amount.CompareTo(b.Amount);
+            });
+        }
+        else
+        {
+            Measure(() =>
+            {
+                var sitesSorted = new List<IndustrySite>(state.IndustrySites.Count);
+                foreach (var s in state.IndustrySites.Values)
+                    if (s != null) sitesSorted.Add(s);
+
+                sitesSorted.Sort((a, b) => string.CompareOrdinal(a.Id ?? "", b.Id ?? ""));
+
+                for (int si = 0; si < sitesSorted.Count; si++)
+                {
+                    var site = sitesSorted[si];
+                    if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
+
+                    var marketId = ResolveMarketForSiteNode(state, site.NodeId);
+                    if (string.IsNullOrWhiteSpace(marketId)) continue;
+                    if (!state.Markets.TryGetValue(marketId, out var market) || market is null) continue;
+
+                    var inputKeys = new List<string>(site.Inputs.Count);
+                    foreach (var kv in site.Inputs)
+                        if (!string.IsNullOrWhiteSpace(kv.Key)) inputKeys.Add(kv.Key);
+
+                    inputKeys.Sort(StringComparer.Ordinal);
+
+                    for (int ki = 0; ki < inputKeys.Count; ki++)
+                    {
+                        var goodId = inputKeys[ki];
+                        var perTick = site.Inputs.TryGetValue(goodId, out var v) ? v : 0;
+                        if (perTick <= 0) continue;
+
+                        var target = IndustrySystem.ComputeBufferTargetUnits(site, goodId);
+                        var current = market.Inventory.GetValueOrDefault(goodId, 0);
+
+                        if (current < target)
+                            shortages.Add((market.Id, goodId, target - current));
+                    }
+                }
+
+                shortages.Sort((a, b) =>
+                {
+                    int c = string.CompareOrdinal(a.MarketId ?? "", b.MarketId ?? "");
+                    if (c != 0) return c;
+                    c = string.CompareOrdinal(a.GoodId ?? "", b.GoodId ?? "");
+                    if (c != 0) return c;
+                    return a.Amount.CompareTo(b.Amount);
+                });
+            }, out msShortages, out allocShortages);
         }
 
-        // Deterministic task order: by destination market, then good.
-        shortages = shortages
-            .OrderBy(x => x.MarketId, StringComparer.Ordinal)
-            .ThenBy(x => x.GoodId, StringComparer.Ordinal)
-            .ToList();
+        if (shortages.Count == 0)
+        {
+            if (logiBreakdown)
+            {
+                Console.WriteLine(
+                    "LOGI_BREAKDOWN_V0\n" +
+                    $"advance_ms={msAdvance}\nadvance_alloc_bytes={allocAdvance}\n" +
+                    $"shortages_ms={msShortages}\nshortages_alloc_bytes={allocShortages}\n" +
+                    $"assign_ms={msAssign}\nassign_alloc_bytes={allocAssign}\n" +
+                    $"tryplan_ms={msTryPlan}\ntryplan_alloc_bytes={allocTryPlan}");
+            }
 
-        if (shortages.Count == 0) return;
+            return;
+        }
 
         // 2) Assign idle fleets deterministically.
-        foreach (var task in shortages)
+        if (!logiBreakdown)
         {
-            var fleet = state.Fleets.Values
-                .OrderBy(f => f.Id, StringComparer.Ordinal)
-                .FirstOrDefault(f =>
-                    (f.State == FleetState.Idle || f.State == FleetState.Docked) &&
-                    f.CurrentJob == null &&
-                    f.LastJobCancelTick != state.Tick &&
-                    string.IsNullOrWhiteSpace(f.ManualOverrideNodeId));
-            if (fleet is null) break;
+            for (int ti = 0; ti < shortages.Count; ti++)
+            {
+                var task = shortages[ti];
 
-            // Choose the best reachable supplier deterministically (by unreserved qty desc, then market id asc).
-            // This prevents "all idle" when the globally-best supplier is unreachable from the fleet or to the destination.
-            if (!TryPlanFromBestReachableSupplierDeterministic(state, fleet, task.MarketId, task.GoodId, task.Amount))
-                continue;
+                Fleet? chosen = null;
+                for (int fi = 0; fi < fleetsSorted.Count; fi++)
+                {
+                    var f = fleetsSorted[fi];
+                    if (f.State != FleetState.Idle && f.State != FleetState.Docked) continue;
+                    if (f.CurrentJob != null) continue;
+                    if (f.LastJobCancelTick == state.Tick) continue;
+                    if (!string.IsNullOrWhiteSpace(f.ManualOverrideNodeId)) continue;
+
+                    chosen = f;
+                    break;
+                }
+
+                if (chosen is null) break;
+
+                if (!TryPlanFromBestReachableSupplierDeterministic(state, chosen, marketsSorted, task.MarketId, task.GoodId, task.Amount))
+                    continue;
+            }
+        }
+        else
+        {
+            Measure(() =>
+            {
+                for (int ti = 0; ti < shortages.Count; ti++)
+                {
+                    var task = shortages[ti];
+
+                    Fleet? chosen = null;
+                    for (int fi = 0; fi < fleetsSorted.Count; fi++)
+                    {
+                        var f = fleetsSorted[fi];
+                        if (f.State != FleetState.Idle && f.State != FleetState.Docked) continue;
+                        if (f.CurrentJob != null) continue;
+                        if (f.LastJobCancelTick == state.Tick) continue;
+                        if (!string.IsNullOrWhiteSpace(f.ManualOverrideNodeId)) continue;
+
+                        chosen = f;
+                        break;
+                    }
+
+                    if (chosen is null) break;
+
+                    long m, a;
+                    Measure(() =>
+                    {
+                        TryPlanFromBestReachableSupplierDeterministic(state, chosen, marketsSorted, task.MarketId, task.GoodId, task.Amount);
+                    }, out m, out a);
+
+                    msTryPlan += m;
+                    allocTryPlan += a;
+                }
+            }, out msAssign, out allocAssign);
+
+            Console.WriteLine(
+                "LOGI_BREAKDOWN_V0\n" +
+                $"advance_ms={msAdvance}\nadvance_alloc_bytes={allocAdvance}\n" +
+                $"shortages_ms={msShortages}\nshortages_alloc_bytes={allocShortages}\n" +
+                $"assign_ms={msAssign}\nassign_alloc_bytes={allocAssign}\n" +
+                $"tryplan_ms={msTryPlan}\ntryplan_alloc_bytes={allocTryPlan}");
+
         }
     }
 
@@ -400,33 +575,46 @@ public static class LogisticsSystem
     private static bool TryPlanFromBestReachableSupplierDeterministic(
         SimState state,
         Fleet fleet,
+        IReadOnlyList<Market> marketsSorted,
         string destMarketId,
         string goodId,
         int amount)
     {
-        // Build candidate suppliers with deterministic ordering: qty desc, then id asc.
-        var candidates = new List<(string MarketId, int Qty)>();
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (fleet is null) throw new ArgumentNullException(nameof(fleet));
+        if (marketsSorted is null) throw new ArgumentNullException(nameof(marketsSorted));
 
-        foreach (var m in state.Markets.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
+        // Build candidate suppliers in deterministic order: qty desc, then id asc.
+        var candidates = new List<(string MarketId, int Qty)>(capacity: 16);
+
+        for (int i = 0; i < marketsSorted.Count; i++)
         {
-            if (string.Equals(m.Id, destMarketId, StringComparison.Ordinal)) continue;
+            var m = marketsSorted[i];
+            if (m is null) continue;
 
-            var qty = state.GetUnreservedAvailable(m.Id, goodId);
+            var mid = m.Id ?? "";
+            if (mid.Length == 0) continue;
+            if (string.Equals(mid, destMarketId, StringComparison.Ordinal)) continue;
+
+            var qty = state.GetUnreservedAvailable(mid, goodId);
             if (qty <= 10) continue;
 
-            candidates.Add((m.Id, qty));
+            candidates.Add((mid, qty));
         }
 
         if (candidates.Count == 0) return false;
 
-        candidates = candidates
-            .OrderByDescending(x => x.Qty)
-            .ThenBy(x => x.MarketId, StringComparer.Ordinal)
-            .ToList();
-
-        foreach (var c in candidates)
+        // In-place deterministic sort: qty desc, then market id asc.
+        candidates.Sort((a, b) =>
         {
-            // PlanLogistics is deterministic and does not mutate on failure.
+            int c = b.Qty.CompareTo(a.Qty); // desc
+            if (c != 0) return c;
+            return string.CompareOrdinal(a.MarketId ?? "", b.MarketId ?? "");
+        });
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var c = candidates[i];
             if (PlanLogistics(state, fleet, c.MarketId, destMarketId, goodId, amount))
                 return true;
         }
@@ -572,12 +760,25 @@ public static class LogisticsSystem
 
     private static string? GetNodeForMarketDeterministic(SimState state, string marketId)
     {
-        // Deterministic: choose the lowest node id whose MarketId matches.
-        foreach (var n in state.Nodes.Values.OrderBy(n => n.Id, StringComparer.Ordinal))
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrWhiteSpace(marketId)) return null;
+
+        // Deterministic: choose the lowest node id whose MarketId matches, without sorting.
+        string? bestId = null;
+
+        foreach (var n in state.Nodes.Values)
         {
-            if (string.Equals(n.MarketId, marketId, StringComparison.Ordinal))
-                return n.Id;
+            if (n is null) continue;
+            if (!string.Equals(n.MarketId, marketId, StringComparison.Ordinal)) continue;
+
+            var id = n.Id;
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            if (bestId is null || string.CompareOrdinal(id, bestId) < 0)
+                bestId = id;
         }
+
+        if (bestId is not null) return bestId;
 
         // Fallback: sometimes a node id is used as the market id
         if (state.Nodes.ContainsKey(marketId)) return marketId;

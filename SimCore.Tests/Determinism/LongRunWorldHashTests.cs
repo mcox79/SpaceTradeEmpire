@@ -568,13 +568,68 @@ public class LongRunWorldHashTests
             exactNames: new[] { "Transfers", "LogisticsTransfers", "InFlightTransfers", "LaneTransfers", "LaneFlows" },
             nameContainsTokens: new[] { "Transfer", "Transfers", "InFlight", "Flow" });
 
-        // Measure the last window ticks with a fixed method.
-        var sw = Stopwatch.StartNew();
-        for (int i = 0; i < measureWindowTicks; i++)
+
+        bool perfDiag = string.Equals(
+    Environment.GetEnvironmentVariable("STE_PERF_DIAG"),
+    "1",
+    StringComparison.Ordinal);
+
+        int gc0Before = 0, gc1Before = 0, gc2Before = 0;
+        long allocBefore = 0;
+
+        if (perfDiag)
         {
-            sim.Step();
+            // Reduce noise: clear pending garbage before measuring.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            gc0Before = GC.CollectionCount(0);
+            gc1Before = GC.CollectionCount(1);
+            gc2Before = GC.CollectionCount(2);
+
+            allocBefore = GC.GetTotalAllocatedBytes(precise: false);
+        }
+
+        // Measure the last window ticks with a fixed method.
+        bool perfBreakdown = string.Equals(
+            Environment.GetEnvironmentVariable("STE_PERF_BREAKDOWN"),
+            "1",
+            StringComparison.Ordinal);
+
+        var sw = Stopwatch.StartNew();
+        if (!perfBreakdown)
+        {
+            for (int i = 0; i < measureWindowTicks; i++)
+            {
+                sim.Step();
+            }
+        }
+        else
+        {
+            var breakdown = new PerfBreakdown();
+            for (int i = 0; i < measureWindowTicks; i++)
+            {
+                StepWithBreakdown(sim, breakdown);
+            }
+
+            TestContext.Out.WriteLine(breakdown.ToReport());
         }
         sw.Stop();
+
+
+        if (perfDiag)
+        {
+            int gc0After = GC.CollectionCount(0);
+            int gc1After = GC.CollectionCount(1);
+            int gc2After = GC.CollectionCount(2);
+
+            long allocAfter = GC.GetTotalAllocatedBytes(precise: false);
+
+            TestContext.Out.WriteLine(
+                $"PERF_DIAG gc0_delta={gc0After - gc0Before} gc1_delta={gc1After - gc1Before} gc2_delta={gc2After - gc2Before} alloc_bytes_delta={allocAfter - allocBefore}");
+        }
+
 
         double totalMs = sw.Elapsed.TotalMilliseconds;
         double avgMs = totalMs / measureWindowTicks;
@@ -888,4 +943,90 @@ public class LongRunWorldHashTests
         string GenesisHash,
         string FinalHash,
         IReadOnlyDictionary<int, string> Checkpoints);
+
+    private sealed class PerfBreakdown
+    {
+        public long LaneFlowAlloc;
+        public long ProgramAlloc;
+        public long IntentAlloc;
+        public long MovementAlloc;
+        public long LogisticsAlloc;
+        public long IndustryAlloc;
+        public long AdvanceTickAlloc;
+
+        public long LaneFlowMs;
+        public long ProgramMs;
+        public long IntentMs;
+        public long MovementMs;
+        public long LogisticsMs;
+        public long IndustryMs;
+        public long AdvanceTickMs;
+
+        public string ToReport()
+        {
+            // Deterministic ordering, deterministic formatting.
+            return
+                "PERF_BREAKDOWN_V0\n" +
+                $"lane_flow_ms={LaneFlowMs}\n" +
+                $"program_ms={ProgramMs}\n" +
+                $"intent_ms={IntentMs}\n" +
+                $"movement_ms={MovementMs}\n" +
+                $"logistics_ms={LogisticsMs}\n" +
+                $"industry_ms={IndustryMs}\n" +
+                $"advance_tick_ms={AdvanceTickMs}\n" +
+                $"lane_flow_alloc_bytes={LaneFlowAlloc}\n" +
+                $"program_alloc_bytes={ProgramAlloc}\n" +
+                $"intent_alloc_bytes={IntentAlloc}\n" +
+                $"movement_alloc_bytes={MovementAlloc}\n" +
+                $"logistics_alloc_bytes={LogisticsAlloc}\n" +
+                $"industry_alloc_bytes={IndustryAlloc}\n" +
+                $"advance_tick_alloc_bytes={AdvanceTickAlloc}";
+        }
+    }
+
+    private static void StepWithBreakdown(SimKernel sim, PerfBreakdown b)
+    {
+        // Mirror SimKernel.Step() exactly, but measure per-stage time + allocations.
+        // IMPORTANT: This must stay in sync with SimKernel.Step ordering.
+
+        var state = sim.State;
+
+        // Commands and intents queues are inside SimKernel.Step(). PerfBudget scenario does not use them,
+        // but we keep this breakdown focused on the heavy systems.
+
+        Measure(() => SimCore.Systems.LaneFlowSystem.Process(state), out var ms, out var alloc);
+        b.LaneFlowMs += ms; b.LaneFlowAlloc += alloc;
+
+        Measure(() => SimCore.Programs.ProgramSystem.Process(state), out ms, out alloc);
+        b.ProgramMs += ms; b.ProgramAlloc += alloc;
+
+        Measure(() => SimCore.Systems.IntentSystem.Process(state), out ms, out alloc);
+        b.IntentMs += ms; b.IntentAlloc += alloc;
+
+        Measure(() => SimCore.Systems.MovementSystem.Process(state), out ms, out alloc);
+        b.MovementMs += ms; b.MovementAlloc += alloc;
+
+        Measure(() => SimCore.Systems.LogisticsSystem.Process(state), out ms, out alloc);
+        b.LogisticsMs += ms; b.LogisticsAlloc += alloc;
+
+        Measure(() => SimCore.Systems.IndustrySystem.Process(state), out ms, out alloc);
+        b.IndustryMs += ms; b.IndustryAlloc += alloc;
+
+        Measure(() => state.AdvanceTick(), out ms, out alloc);
+        b.AdvanceTickMs += ms; b.AdvanceTickAlloc += alloc;
+    }
+
+    private static void Measure(Action a, out long elapsedMs, out long allocBytes)
+    {
+        // Per-thread allocations are the right signal here (single-threaded sim tick).
+        long beforeAlloc = GC.GetAllocatedBytesForCurrentThread();
+        var sw = Stopwatch.StartNew();
+        a();
+        sw.Stop();
+        long afterAlloc = GC.GetAllocatedBytesForCurrentThread();
+
+        elapsedMs = sw.ElapsedMilliseconds;
+        allocBytes = afterAlloc - beforeAlloc;
+    }
+
 }

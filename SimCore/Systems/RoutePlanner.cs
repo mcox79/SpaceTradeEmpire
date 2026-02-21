@@ -112,12 +112,8 @@ public static class RoutePlanner
         var speed = speedAuPerTick > 0f ? speedAuPerTick : 1f;
 
         // Build deterministic adjacency: FromNodeId -> edges sorted by edge id.
-        var outgoing = state.Edges.Values
-            .GroupBy(e => e.FromNodeId ?? "")
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(),
-                StringComparer.Ordinal);
+        // Avoid LINQ allocations (GroupBy/ToDictionary/OrderBy/ToList) on this hot path.
+        var outgoing = state.GetOutgoingEdgesByFromNodeDeterministic();
 
         var candidates = GenerateCandidatesDeterministic(
             state,
@@ -176,17 +172,25 @@ public static class RoutePlanner
                 var rid = BuildRouteId(nodePath);
                 if (seen.Add(rid))
                 {
+                    // Copy path lists without LINQ to reduce per-candidate overhead.
+                    var nodeCopy = new List<string>(nodePath.Count);
+                    for (int i = 0; i < nodePath.Count; i++) nodeCopy.Add(nodePath[i]);
+
+                    var edgeCopy = new List<string>(edgePath.Count);
+                    for (int i = 0; i < edgePath.Count; i++) edgeCopy.Add(edgePath[i]);
+
                     results.Add(new RoutePlan
                     {
                         FromNodeId = fromNodeId,
                         ToNodeId = toNodeId,
-                        NodeIds = nodePath.ToList(),
-                        EdgeIds = edgePath.ToList(),
+                        NodeIds = nodeCopy,
+                        EdgeIds = edgeCopy,
                         RouteId = rid,
                         HopCount = edgePath.Count,
                         RiskScore = riskScore,
                         TotalTravelTicks = totalTicks
                     });
+
                 }
 
                 return;
@@ -229,11 +233,18 @@ public static class RoutePlanner
 
         // Deterministic ordering and tie-break:
         // fewer hops, then lower risk, then lex route_id.
-        results = results
-            .OrderBy(r => r.HopCount)
-            .ThenBy(r => r.RiskScore)
-            .ThenBy(r => r.RouteId, StringComparer.Ordinal)
-            .ToList();
+        // Avoid LINQ allocations by sorting in-place.
+        results.Sort((a, b) =>
+        {
+            int c = a.HopCount.CompareTo(b.HopCount);
+            if (c != 0) return c;
+
+            c = a.RiskScore.CompareTo(b.RiskScore);
+            if (c != 0) return c;
+
+            return string.CompareOrdinal(a.RouteId ?? "", b.RouteId ?? "");
+        });
+
 
         return results;
     }
