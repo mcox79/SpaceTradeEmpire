@@ -1,8 +1,344 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-19T15:27:26-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 35bc31b552bf9458ed955cf702d01e30231deed9",
+    "generated_utc":  "2026-02-20T17:02:57-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD bd53a7a279e0003b2a41be17137218b3792912d8",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S2_5.SAVELOAD.WORLDGEN.001",
+                      "task_id":  "GATE.S2_5.SAVELOAD.WORLDGEN.001.T857",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.SAVELOAD.WORLDGEN.001: Worldgen save%load contract v0 (momentum-safe): save%load is crash-free and preserves stable NodeId%LaneId plus core worldgen state (econ placement, faction tables, world classes); post-load world hash matches pre-save and key dumps are deterministic (format stable, no timestamps)",
+                      "intent":  "Worldgen save%load contract v0 (momentum-safe): save%load is crash-free and preserves stable NodeId%LaneId plus core worldgen state (econ placement, faction tables, world classes); post-load world hash matches pre-save and key dumps are deterministic (format stable, no timestamps)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore/Systems/SerializationSystem.cs",
+                                             "SimCore/World/WorldLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=45858234ae03"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISTRIBUTION.001",
+                      "task_id":  "GATE.S2_5.WGEN.DISTRIBUTION.001.T449",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISTRIBUTION.001: Worldgen distribution bounds v0 (ultra-loose) over N=100 seeds: for a small fixed starter goods set, each good must have at least 1 producer station and at least 1 sink station in the starter region (no “missing producers” or “missing sinks”); deterministic summary report includes counts per good and failing seeds list sorted asc; exits nonzero on violations",
+                      "intent":  "Worldgen distribution bounds v0 (ultra-loose) over N=100 seeds: for a small fixed starter goods set, each good must have at least 1 producer station and at least 1 sink station in the starter region (no “missing producers” or “missing sinks”); deterministic summary report includes counts per good and failing seeds list sorted asc; exits nonzero on violations",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/MarketTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore/Systems/MarketSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/MarketTests.cs",
+                                             "candidate_key_sha256=ac9632462a42"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.NSEED.001",
+                      "task_id":  "GATE.S2_5.WGEN.NSEED.001.T126",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.NSEED.001: N-seed batch worldgen test v0: run invariants for Seeds 1..N where N=100; emit deterministic summary with counts per InvariantName and capped failing seeds lists (sorted asc) and capped failure records (sorted as in invariants gate); exits nonzero if any failure; output is byte-for-byte stable",
+                      "intent":  "N-seed batch worldgen test v0: run invariants for Seeds 1..N where N=100; emit deterministic summary with counts per InvariantName and capped failing seeds lists (sorted asc) and capped failure records (sorted as in invariants gate); exits nonzero if any failure; output is byte-for-byte stable",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore.Tests/Invariants/BasicStateInvariantsTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=065969acbbff"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.SAVELOAD.SCALING.001",
+                      "task_id":  "GATE.S3.SAVELOAD.SCALING.001.T494",
+                      "status":  "TODO",
+                      "title":  "GATE.S3.SAVELOAD.SCALING.001: Scaling save%load contract v0 (momentum-safe): save%load is crash-free and preserves lane capacity queues, chosen routes, and market fee state; replaying from save yields identical event stream and final world hash under the same command script",
+                      "intent":  "Scaling save%load contract v0 (momentum-safe): save%load is crash-free and preserves lane capacity queues, chosen routes, and market fee state; replaying from save yields identical event stream and final world hash under the same command script",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
+                                             "SimCore/Systems/LaneFlowSystem.cs",
+                                             "SimCore/Systems/SerializationSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
+                                             "candidate_key_sha256=4b2dd1a950bd"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.001.T339",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.001: Tweakability contract v0: all balance constants used by Slice 2.5%Slice 3 systems (worldgen MINs, fees, capacity K defaults, risk scalars, loop viability thresholds, role risk_tolerance) are loaded from a versioned data file (eg. JSON) with deterministic parsing and stable defaults; simulation records the config hash in transcripts; tests can override config via a deterministic fixture without code changes",
+                      "intent":  "Tweakability contract v0: all balance constants used by Slice 2.5%Slice 3 systems (worldgen MINs, fees, capacity K defaults, risk scalars, loop viability thresholds, role risk_tolerance) are loaded from a versioned data file (eg. JSON) with deterministic parsing and stable defaults; simulation records the config hash in transcripts; tests can override config via a deterministic fixture without code changes",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore/SimState.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=8ca53b1a46f1"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.PLAY.TRADELOOP.001",
+                      "task_id":  "GATE.UI.PLAY.TRADELOOP.001.T822",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.PLAY.TRADELOOP.001: First playable trade loop v0: start new game from Seed, spawn 1 player fleet at starter hub, execute 1 loop end-to-end (buy, ship, sell) using logistics; observe profit delta; headless play script emits deterministic transcript; no timestamps; byte-for-byte stable",
+                      "intent":  "First playable trade loop v0: start new game from Seed, spawn 1 player fleet at starter hub, execute 1 loop end-to-end (buy, ship, sell) using logistics; observe profit delta; headless play script emits deterministic transcript; no timestamps; byte-for-byte stable",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_player_trading.gd",
+                                             "scripts/core/game_manager.gd",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scenes/playable_prototype.tscn"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_player_trading.gd",
+                                             "candidate_key_sha256=80999e7592c0"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.GAMESHELL.SMOKE.001",
+                      "task_id":  "GATE.X.GAMESHELL.SMOKE.001.T009",
+                      "status":  "TODO",
+                      "title":  "GATE.X.GAMESHELL.SMOKE.001: GameShell headless smoke harness: loads minimal scene, binds SimBridge, sets Seed, runs exactly N=120 ticks, exits code 0; emits deterministic transcript containing Seed, tick_count, world_hash at tick 0%60%120 and a sorted summary of key entity counts; no timestamps; byte-for-byte stable across runs",
+                      "intent":  "GameShell headless smoke harness: loads minimal scene, binds SimBridge, sets Seed, runs exactly N=120 ticks, exits code 0; emits deterministic transcript containing Seed, tick_count, world_hash at tick 0%60%120 and a sorted summary of key entity counts; no timestamps; byte-for-byte stable across runs",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_sim_skeleton.gd",
+                                             "scripts/core/game_manager.gd",
+                                             "scripts/core/sim/sim.gd",
+                                             "scenes/main.tscn"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_sim_skeleton.gd",
+                                             "candidate_key_sha256=4b3a7c0d4ae9"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.SCENARIO.HARNESS.001",
+                      "task_id":  "GATE.X.SCENARIO.HARNESS.001.T711",
+                      "status":  "TODO",
+                      "title":  "GATE.X.SCENARIO.HARNESS.001: Deterministic scenario harness v0: minimal builder to create crafted SimCore worlds (nodes, lanes, markets, fleets, prices, fees) with stable IDs and deterministic ordering; no UI%Godot scene construction; emits deterministic scenario summary for diffing; proof: used by at least 2 regression tests (routes and capacity scarcity)",
+                      "intent":  "Deterministic scenario harness v0: minimal builder to create crafted SimCore worlds (nodes, lanes, markets, fleets, prices, fees) with stable IDs and deterministic ordering; no UI%Godot scene construction; emits deterministic scenario summary for diffing; proof: used by at least 2 regression tests (routes and capacity scarcity)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/RoutePlannerTests.cs",
+                                             "SimCore/Schemas/WorldDefinition.cs",
+                                             "SimCore/Schemas/ScenarioSchema.cs",
+                                             "SimCore.Tests/Systems/LaneFlowSystemTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/RoutePlannerTests.cs",
+                                             "candidate_key_sha256=6be8225d6be9"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001",
+                      "task_id":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001.T235",
+                      "status":  "TODO",
+                      "title":  "GATE.UI.PLAY.TRADELOOP.SAVELOAD.001: Play loop save%load v0: during an active trade loop, save%load preserves visible state (selected fleet, active job, cargo, cash) and after continuing to completion yields identical final world hash and identical per-fleet event stream across runs",
+                      "intent":  "Play loop save%load v0: during an active trade loop, save%load preserves visible state (selected fleet, active job, cargo, cash) and after continuing to completion yields identical final world hash and identical per-fleet event stream across runs",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
+                                             "SimCore/Systems/SerializationSystem.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scenes/playable_prototype.tscn"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs",
+                                             "candidate_key_sha256=8ce718904538"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.API_BOUNDARIES.GUARD.001",
+                      "task_id":  "GATE.X.API_BOUNDARIES.GUARD.001.T359",
+                      "status":  "TODO",
+                      "title":  "GATE.X.API_BOUNDARIES.GUARD.001: Enforce UI%SimCore boundaries with a deterministic guard: scripts/ui/** must not reference SimCore.Entities%SimCore.Systems types directly (allowed: scripts/bridge/SimBridge.cs DTOs and explicitly allowlisted interfaces); proof is a test or static scan that fails with a sorted list of violations (file:line:type) and passes cleanly when compliant",
+                      "intent":  "Enforce UI%SimCore boundaries with a deterministic guard: scripts/ui/** must not reference SimCore.Entities%SimCore.Systems types directly (allowed: scripts/bridge/SimBridge.cs DTOs and explicitly allowlisted interfaces); proof is a test or static scan that fails with a sorted list of violations (file:line:type) and passes cleanly when compliant",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/ContainmentTests.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "docs/30_CONNECTIVITY_AND_INTERFACES.md",
+                                             "scripts/ui/StationMenu.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/ContainmentTests.cs",
+                                             "candidate_key_sha256=24ddbb458b2c"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.TOOL.SEED_EXPLORER.001",
+                      "task_id":  "GATE.S2_5.TOOL.SEED_EXPLORER.001.T172",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.TOOL.SEED_EXPLORER.001: Seed explorer tooling v0: given Seed produces deterministic artifacts under docs/generated: topology_summary.txt, econ_loops.txt, invariants.txt; diff mode takes SeedA%SeedB and emits diff_topology.txt (added%removed nodes%lanes) and diff_loops.txt (added%removed loops by route_id); outputs are byte-for-byte stable and contain no timestamps",
+                      "intent":  "Seed explorer tooling v0: given Seed produces deterministic artifacts under docs/generated: topology_summary.txt, econ_loops.txt, invariants.txt; diff mode takes SeedA%SeedB and emits diff_topology.txt (added%removed nodes%lanes) and diff_loops.txt (added%removed loops by route_id); outputs are byte-for-byte stable and contain no timestamps",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore.Runner/Program.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "scripts/tools/seed_determinism_smoke.gd"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=eef0da7e481e"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }

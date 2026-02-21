@@ -23,7 +23,7 @@ function Write-FailAndExit([int]$code, [string[]]$lines) {
 }
 
 function Read-JsonPossiblyFenced([string]$path) {
-  $raw = Get-Content -LiteralPath $path -Raw
+  $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8
 
   # Prefer ```json fenced block if present. Fail if multiple json fences exist.
   $jsonFence = [regex]::Matches($raw, '(?s)```json\s*(\{.*?\})\s*```')
@@ -56,7 +56,7 @@ function Read-JsonPossiblyFenced([string]$path) {
 }
 
 function Read-ContextPacket([string]$path) {
-  $lines = Get-Content -LiteralPath $path
+  $lines = Get-Content -LiteralPath $path -Encoding UTF8
   $head = $null
   $fileMap = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::Ordinal)
   $inFileMap = $false
@@ -561,15 +561,15 @@ if ($missingOnDisk.Count -gt 0) {
   SetIfAllowed "task_id" $taskId
   SetIfAllowed "status" $gateStatus
 
-  $shortGateTitle = Trunc $gateTitle 90
-  $titleRaw = ("{0}: {1}" -f $gateId, $shortGateTitle)
-  $title = Trunc $titleRaw 120
+# Preserve full text for LLM and human clarity
+$fullGateTitle = (($gateTitle + "") -replace '\s+', ' ').Trim()
 
-  SetIfAllowed "title" $title
+$title = ("{0}: {1}" -f $gateId, $fullGateTitle).Trim()
+SetIfAllowed "title" $title
 
-  $intent = Trunc $gateTitle 240
-  if (-not $intent) { $intent = "Execute $gateId task using evidence paths." }
-  SetIfAllowed "intent" $intent
+$intent = $fullGateTitle
+if (-not $intent) { $intent = "Execute $gateId task using evidence paths." }
+SetIfAllowed "intent" $intent
 
   SetIfAllowed "evidence_paths" $eFinal
 
