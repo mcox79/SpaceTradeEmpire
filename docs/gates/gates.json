@@ -1,19 +1,21 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-20T17:02:57-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD bd53a7a279e0003b2a41be17137218b3792912d8",
+    "generated_utc":  "2026-02-21T17:38:48-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 970bb2862b14cc4294530505941d2e08363900b3",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.X.TWEAKS.DATA.001",
-                      "task_id":  "GATE.X.TWEAKS.DATA.001.T339",
+                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001.T343",
                       "status":  "TODO",
-                      "title":  "GATE.X.TWEAKS.DATA.001: Tweakability contract v0: all balance constants used by Slice 2.5%Slice 3 systems (worldgen MINs, fees, capacity K defaults, risk scalars, loop viability thresholds, role risk_tolerance) are loaded from a versioned data file (eg. JSON) with deterministic parsing and stable defaults; simulation records the config hash in transcripts; tests can override config via a deterministic fixture without code changes",
-                      "intent":  "Tweakability contract v0: all balance constants used by Slice 2.5%Slice 3 systems (worldgen MINs, fees, capacity K defaults, risk scalars, loop viability thresholds, role risk_tolerance) are loaded from a versioned data file (eg. JSON) with deterministic parsing and stable defaults; simulation records the config hash in transcripts; tests can override config via a deterministic fixture without code changes",
+                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: Migrate lane capacity defaults v0: capacity K defaults sourced from tweak config with stable defaults; determinism test override changes queue behavior deterministically",
+                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: Migrate lane capacity defaults v0: capacity K defaults sourced from tweak config with stable defaults; determinism test override changes queue behavior deterministically",
                       "evidence_paths":  [
                                              "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "SimCore/SimKernel.cs",
-                                             "SimCore/SimState.cs"
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Systems/LaneFlowSystem.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
                                          ],
                       "constraints":  [
                                           "Single-session scope: stay within evidence and expected touch paths.",
@@ -24,7 +26,231 @@
                                           ],
                       "task_preflight":  [
                                              "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "candidate_key_sha256=8ca53b1a46f1"
+                                             "candidate_key_sha256=4b049483795a"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001.T790",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001: GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001: Migrate logistics risk knobs v0: risk scalars and role default risk_tolerance sourced from tweak config; determinism test override changes decisions deterministically",
+                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001: Migrate logistics risk knobs v0: risk scalars and role default risk_tolerance sourced from tweak config; determinism test override changes decisions deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore/Systems/RoutePlanner.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=ed77112e2ac7"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001.T051",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001: GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001: Migrate loop scoring thresholds v0: loop viability thresholds sourced from tweak config; determinism test override changes chosen loops deterministically",
+                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001: Migrate loop scoring thresholds v0: loop viability thresholds sourced from tweak config; determinism test override changes chosen loops deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Systems/LogisticsSystem.cs",
+                                             "SimCore/Systems/RoutePlanner.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=1af5b2c66141"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.MARKET_FEES.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.MARKET_FEES.001.T966",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.MARKET_FEES.001: GATE.X.TWEAKS.DATA.MIGRATE.MARKET_FEES.001: Migrate market fee constants v0: fee multipliers sourced from tweak config with stable defaults; determinism test override changes outcomes deterministically",
+                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.MARKET_FEES.001: Migrate market fee constants v0: fee multipliers sourced from tweak config with stable defaults; determinism test override changes outcomes deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Systems/MarketSystem.cs",
+                                             "SimCore/Systems/IndustrySystem.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=8faa89d8015d"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001.T055",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: Migrate worldgen bounds v0: worldgen MIN producers%sinks sourced from tweak config; invariants-style test shows deterministic pass%fail under overrides",
+                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: Migrate worldgen bounds v0: worldgen MIN producers%sinks sourced from tweak config; invariants-style test shows deterministic pass%fail under overrides",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Invariants/BasicStateInvariantsTests.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore/Schemas/WorldDefinition.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Invariants/BasicStateInvariantsTests.cs",
+                                             "candidate_key_sha256=1402c37c71dd"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.SCHEMA.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.SCHEMA.001.T093",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.SCHEMA.001: GATE.X.TWEAKS.DATA.SCHEMA.001: Tweak config schema contract v0: explicit field list and append-only ordering rule for canonical JSON; stable defaults documented; hash definition locked; invalid JSON falls back to defaults deterministically",
+                      "intent":  "GATE.X.TWEAKS.DATA.SCHEMA.001: Tweak config schema contract v0: explicit field list and append-only ordering rule for canonical JSON; stable defaults documented; hash definition locked; invalid JSON falls back to defaults deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=4fe757b95822"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001.T456",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001: GATE.X.TWEAKS.DATA.TRANSCRIPT.001: Transcript surfacing v0: deterministic transcript includes TweaksHash and tweak config version at tick 0; no timestamps; stable formatting; test asserts exact line",
+                      "intent":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001: Transcript surfacing v0: deterministic transcript includes TweaksHash and tweak config version at tick 0; no timestamps; stable formatting; test asserts exact line",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore.Tests/GoldenReplayTests.cs",
+                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
+                                             "candidate_key_sha256=e9a39fadb2ae"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.TWEAKS.DATA.HOSTFILE.RUNNER.001",
+                      "task_id":  "GATE.X.TWEAKS.DATA.HOSTFILE.RUNNER.001.T999",
+                      "status":  "TODO",
+                      "title":  "GATE.X.TWEAKS.DATA.HOSTFILE.RUNNER.001: GATE.X.TWEAKS.DATA.HOSTFILE.RUNNER.001: Runner-loaded tweak file v0: runner loads Data/Tweaks/tweaks_v0.json (UTF-8 no BOM), parses deterministically, injects into SimKernel; missing%invalid falls back to defaults; hash recorded in transcript",
+                      "intent":  "GATE.X.TWEAKS.DATA.HOSTFILE.RUNNER.001: Runner-loaded tweak file v0: runner loads Data/Tweaks/tweaks_v0.json (UTF-8 no BOM), parses deterministically, injects into SimKernel; missing%invalid falls back to defaults; hash recorded in transcript",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
+                                             "SimCore.Runner/Program.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
+                                             "candidate_key_sha256=905f7b12ad1d"
                                          ],
                       "escalation_rules":  [
                                                {

@@ -1,0 +1,4 @@
+# allowlist_numeric_literals_v0
+# entries:
+#   <token>               (global allow)
+#   <pathRel>:<token>     (path-scoped allow)

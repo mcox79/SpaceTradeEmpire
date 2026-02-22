@@ -111,4 +111,30 @@ public sealed class LogisticsOrderingDeterminismTests
         var b = RunOnceAndSummarizeTick0Events();
         Assert.That(b, Is.EqualTo(a));
     }
+
+    [Test]
+    public void TweaksConfigHash_IsDeterministic_AndOverrideChangesIt()
+    {
+        // Default kernel uses stable defaults.
+        var k0 = new SimKernel(seed: 123);
+        var h0a = k0.State.TweaksHash;
+
+        var k0b = new SimKernel(seed: 123);
+        var h0b = k0b.State.TweaksHash;
+
+        Assert.That(string.IsNullOrWhiteSpace(h0a), Is.False);
+        Assert.That(h0b, Is.EqualTo(h0a));
+
+        // Override wins deterministically and produces a different hash.
+        var overrideJson = "{\"version\":0,\"risk_scalar\":2.0,\"market_fee_multiplier\":1.25}";
+        var k1 = new SimKernel(seed: 123, tweakConfigJsonOverride: overrideJson);
+        var h1a = k1.State.TweaksHash;
+
+        var k1b = new SimKernel(seed: 123, tweakConfigJsonOverride: overrideJson);
+        var h1b = k1b.State.TweaksHash;
+
+        Assert.That(string.IsNullOrWhiteSpace(h1a), Is.False);
+        Assert.That(h1b, Is.EqualTo(h1a));
+        Assert.That(h1a, Is.Not.EqualTo(h0a));
+    }
 }

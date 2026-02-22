@@ -12,9 +12,105 @@ namespace SimCore;
 
 public class SimState
 {
+    // GATE.X.TWEAKS.DATA.001
+    // Minimal v0 tweak config model.
+    // Extend over time as Slice 2.5 / Slice 3 systems are migrated off hardcoded constants.
+    public sealed class TweakConfigV0
+    {
+        public int Version { get; set; } = 0;
+
+        // Example knobs (placeholder v0 surface area).
+        public int WorldgenMinProducersPerGood { get; set; } = 1;
+        public int WorldgenMinSinksPerGood { get; set; } = 1;
+        public int DefaultLaneCapacityK { get; set; } = 5;
+        public double MarketFeeMultiplier { get; set; } = 1.0;
+        public double RiskScalar { get; set; } = 1.0;
+        public double LoopViabilityThreshold { get; set; } = 0.0;
+        public double RoleRiskToleranceDefault { get; set; } = 1.0;
+
+        public static TweakConfigV0 CreateDefaults() => new TweakConfigV0
+        {
+            Version = 0,
+            WorldgenMinProducersPerGood = 1,
+            WorldgenMinSinksPerGood = 1,
+            DefaultLaneCapacityK = 5,
+            MarketFeeMultiplier = 1.0,
+            RiskScalar = 1.0,
+            LoopViabilityThreshold = 0.0,
+            RoleRiskToleranceDefault = 1.0
+        };
+
+        public string ToCanonicalJson()
+        {
+            // Canonical, order-fixed JSON for stable hashing across platforms and whitespace differences.
+            // Do NOT add optional fields here without appending at the end (order matters).
+            var sb = new StringBuilder(256);
+            sb.Append('{');
+            sb.Append("\"version\":").Append(Version).Append(',');
+            sb.Append("\"worldgen_min_producers_per_good\":").Append(WorldgenMinProducersPerGood).Append(',');
+            sb.Append("\"worldgen_min_sinks_per_good\":").Append(WorldgenMinSinksPerGood).Append(',');
+            sb.Append("\"default_lane_capacity_k\":").Append(DefaultLaneCapacityK).Append(',');
+            sb.Append("\"market_fee_multiplier\":").Append(MarketFeeMultiplier.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append("\"risk_scalar\":").Append(RiskScalar.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append("\"loop_viability_threshold\":").Append(LoopViabilityThreshold.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append("\"role_risk_tolerance_default\":").Append(RoleRiskToleranceDefault.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            sb.Append('}');
+            return sb.ToString();
+        }
+
+        public static TweakConfigV0 ParseJsonOrDefaults(string? json)
+        {
+            var cfg = CreateDefaults();
+            if (string.IsNullOrWhiteSpace(json)) return cfg;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.ValueKind != System.Text.Json.JsonValueKind.Object) return cfg;
+
+                if (root.TryGetProperty("version", out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.Version = v.GetInt32();
+
+                if (root.TryGetProperty("worldgen_min_producers_per_good", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.WorldgenMinProducersPerGood = p.GetInt32();
+
+                if (root.TryGetProperty("worldgen_min_sinks_per_good", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.WorldgenMinSinksPerGood = s.GetInt32();
+
+                if (root.TryGetProperty("default_lane_capacity_k", out var k) && k.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.DefaultLaneCapacityK = k.GetInt32();
+
+                if (root.TryGetProperty("market_fee_multiplier", out var fee) && fee.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.MarketFeeMultiplier = fee.GetDouble();
+
+                if (root.TryGetProperty("risk_scalar", out var risk) && risk.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.RiskScalar = risk.GetDouble();
+
+                if (root.TryGetProperty("loop_viability_threshold", out var thr) && thr.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.LoopViabilityThreshold = thr.GetDouble();
+
+                if (root.TryGetProperty("role_risk_tolerance_default", out var rrt) && rrt.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    cfg.RoleRiskToleranceDefault = rrt.GetDouble();
+
+                return cfg;
+            }
+            catch
+            {
+                // Failure-safe determinism: invalid JSON falls back to stable defaults.
+                return cfg;
+            }
+        }
+    }
     [JsonInclude] public int Tick { get; private set; }
     [JsonInclude] public int InitialSeed { get; private set; }
     [JsonIgnore] public Random? Rng { get; private set; }
+
+    // GATE.X.TWEAKS.DATA.001
+    // Versioned tweak config loaded deterministically (defaults or JSON override).
+    // NOTE: kept out of save%load and golden hashing until a dedicated transcript surface consumes it.
+    [JsonIgnore] public TweakConfigV0 Tweaks { get; private set; } = TweakConfigV0.CreateDefaults();
+    [JsonIgnore] public string TweaksHash { get; private set; } = "";
 
     [JsonInclude] public Dictionary<string, Market> Markets { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Node> Nodes { get; private set; } = new();
@@ -109,6 +205,39 @@ public class SimState
         InitialSeed = seed;
         Tick = 0;
         Rng = new Random(seed);
+
+        // GATE.X.TWEAKS.DATA.001
+        // Stable defaults for all runs unless explicitly overridden deterministically.
+        Tweaks = TweakConfigV0.CreateDefaults();
+        TweaksHash = ComputeTweaksHashHex(Tweaks);
+    }
+
+    // GATE.X.TWEAKS.DATA.001
+    // Deterministic tweak loading:
+    // - If overrideJson is provided, it wins.
+    // - Else if tweakConfigPath is provided and exists, load it.
+    // - Else keep stable defaults.
+    public void LoadTweaksFromJsonOverride(string? overrideJson)
+    {
+        if (!string.IsNullOrWhiteSpace(overrideJson))
+        {
+            var parsed = TweakConfigV0.ParseJsonOrDefaults(overrideJson);
+            Tweaks = parsed;
+            TweaksHash = ComputeTweaksHashHex(Tweaks);
+            return;
+        }
+
+        // Keep defaults, but ensure hash is non-empty and stable.
+        Tweaks ??= TweakConfigV0.CreateDefaults();
+        TweaksHash = ComputeTweaksHashHex(Tweaks);
+    }
+
+    private static string ComputeTweaksHashHex(TweakConfigV0 cfg)
+    {
+        var canonical = cfg.ToCanonicalJson();
+        using var sha = SHA256.Create();
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(canonical));
+        return Convert.ToHexString(bytes);
     }
 
     [JsonConstructor]
@@ -471,6 +600,7 @@ public class SimState
     {
         var sb = new StringBuilder();
         sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|");
+
         sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
         foreach (var f in Fleets.OrderBy(k => k.Key))

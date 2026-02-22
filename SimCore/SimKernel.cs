@@ -12,13 +12,17 @@ public class SimKernel
     private ConcurrentQueue<SimCore.Intents.IIntent> _intentQueue = new();
     public SimState State => _state;
 
-    public SimKernel(int seed)
+    public SimKernel(int seed, string? tweakConfigJsonOverride = null)
     {
         _state = new SimState(seed);
 
         // Gate: save_seed_identity
         // SimState does not necessarily expose seed as a readable member. Attach it for persistence.
         SerializationSystem.AttachSeed(_state, seed);
+
+        // GATE.X.TWEAKS.DATA.001
+        // Deterministic tweak loading (override wins, else stable defaults).
+        _state.LoadTweaksFromJsonOverride(tweakConfigJsonOverride);
     }
 
     public void EnqueueCommand(ICommand cmd)

@@ -1528,101 +1528,15 @@ $lblExecNote.Font = $fontSmall
 $lblExecNote.ForeColor = "#bbbbbb"
 $tabExec.Controls.Add($lblExecNote)
 
-# --- Shard Execution tab layout ---
-# Goal: generate shard prompt and perform closeout actions.
-
-$y2 = 15
-
-
-# Read-only helpers
-$btnShowNextGate = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 40 "#444444" {
-    if (Test-Path -LiteralPath $NextGatePacketPath) {
-        Start-Process -FilePath $NextGatePacketPath | Out-Null
-    } else {
-        Log-Output "ERROR: Missing docs/generated/next_gate_packet.md (run Start Shard (Fresh) or Advanced: Next Gate Packet only)."
-    }
-    Set-StatusText
-}
-$y2 += 45
-
-$btnShowPrompt = New-DevtoolButton $tabExec "Show LLM Prompt (Read-only)" 10 $y2 375 40 "#444444" {
-    if (Test-Path -LiteralPath $LlmPromptPath) {
-        Start-Process -FilePath $LlmPromptPath | Out-Null
-    } else {
-        Log-Output "ERROR: Missing docs/generated/llm_prompt.md (run Start Shard (Fresh) or Advanced: LLM Prompt only)."
-    }
-    Set-StatusText
-}
-$y2 += 45
-
-# Advanced: surgical shard steps
-$btnAdvNext = New-DevtoolButton $tabExec "Advanced: Next Gate Packet only" 10 $y2 375 40 "#444444" {
-    Run-NextGatePacket | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnAdvPrompt = New-DevtoolButton $tabExec "Advanced: LLM Prompt only (runs NextGate unless skipped)" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCopyPrompt = New-DevtoolButton $tabExec "Copy LLM Prompt to Clipboard" 10 $y2 375 40 "#333333" {
-    Copy-LLMPromptToClipboard | Out-Null
-    Set-StatusText
-}
-$y2 += 55
-
-# Execute shard closeout sequence
-$btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 44 "#007acc" {
-    Run-SimCoreTests
-    if (Test-Path -LiteralPath $LlmAttachPath) {
-        Run-ValidateGodotScript -FromAttachmentShortlist | Out-Null
-    } else {
-        Log-Output "NOTE: docs/generated/llm_attachments.txt missing, skipping Validate Godot Script shortlist."
-    }
-    Set-StatusText
-}
-$y2 += 56
-
-$btnStepD = New-DevtoolButton $tabExec "Step D: Generate Closeout Patch" 10 $y2 375 40 "#444444" {
-    $ok = Run-StepDCloseoutPatch
-    if (-not $ok) { Log-Output "Step D: FAILED." }
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCloseoutCheck = New-DevtoolButton $tabExec "Closeout Check (read-only)" 10 $y2 375 40 "#444444" {
-    Run-CloseoutCheck | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnGitStatus = New-DevtoolButton $tabExec "Git Status" 10 $y2 375 40 "#333333" {
-    Run-GitStatus | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCommitPush = New-DevtoolButton $tabExec "Commit + Push" 10 $y2 375 44 "#228822" {
-    $btnCommitPush.Enabled = $false
-    try {
-        Run-GitCommitAndPush | Out-Null
-    } finally {
-        $btnCommitPush.Enabled = $true
-        Set-StatusText
-    }
-}
-$y2 += 55
-
-$lblExecNote = New-Object System.Windows.Forms.Label
-$lblExecNote.Text = "Execute Shard: Start Shard (Fresh) -> (LLM work) -> Run Proofs -> Step D Patch -> Closeout Check -> Commit+Push."
-$lblExecNote.Location = New-Object System.Drawing.Point(10, $y2)
-$lblExecNote.Size = New-Object System.Drawing.Size(375, 60)
-$lblExecNote.Font = $fontSmall
-$lblExecNote.ForeColor = "#bbbbbb"
 $tabExec.Controls.Add($lblExecNote)
+
+# Status panel (below tabs, above log)
+$grpStatus = New-Object System.Windows.Forms.GroupBox
+$grpStatus.Text = "Status"
+$grpStatus.Location = New-Object System.Drawing.Point(460, 40)
+$grpStatus.Size = New-Object System.Drawing.Size(440, 200)
+$grpStatus.ForeColor = "#ffffff"
+$form.Controls.Add($grpStatus)
 
 
 # Status panel (below tabs, above log)

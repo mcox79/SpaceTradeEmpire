@@ -23,6 +23,70 @@ public sealed class RuntimeFileContractTests
             "Repo health violations:\n" + string.Join("\n", result.Violations));
     }
 
+
+    [Test]
+    public void TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0()
+    {
+        var repoRoot = LocateRepoRootContainingSimCore();
+
+        var baselineAbs = Path.Combine(repoRoot, "docs", "tweaks", "baseline_numeric_literals_v0.txt");
+        var allowlistAbs = Path.Combine(repoRoot, "docs", "tweaks", "allowlist_numeric_literals_v0.txt");
+
+        var violationsReportAbs = Path.Combine(repoRoot, "docs", "generated", "tweak_routing_guard_violations_v0.txt");
+        var dumpReportAbs = Path.Combine(repoRoot, "docs", "generated", "tweak_routing_guard_dump_v0.txt");
+
+        var scanDirs = new[]
+        {
+            Path.Combine(repoRoot, "SimCore", "Systems"),
+            Path.Combine(repoRoot, "SimCore", "Gen"),
+        };
+
+        var scan = ScanNumericLiterals(repoRoot, scanDirs);
+
+        if (IsFlagEnabledGlobal("STE_TWEAK_GUARD_DUMP"))
+            WriteTextFileDeterministic(dumpReportAbs, BuildLiteralReportLines("tweak_routing_guard_dump_v0", scan.AllLiterals));
+
+        if (IsFlagEnabledGlobal("STE_TWEAK_GUARD_MINT_BASELINE"))
+        {
+            MintNumericLiteralBaseline(baselineAbs, scan.ByFileTokensOnly);
+            Assert.Pass("Minted numeric literal baseline: " + MakeRepoRelative(repoRoot, baselineAbs));
+        }
+
+        if (!File.Exists(baselineAbs))
+        {
+            WriteTextFileDeterministic(violationsReportAbs, new[]
+            {
+                "# tweak_routing_guard_violations_v0",
+                "# format: file:line:token",
+                "# ERROR: missing baseline file",
+                MakeRepoRelative(repoRoot, baselineAbs),
+                "# To mint: set STE_TWEAK_GUARD_MINT_BASELINE=1 and rerun this test",
+            });
+
+            Assert.Fail("Tweak routing guard missing baseline: " + MakeRepoRelative(repoRoot, baselineAbs));
+        }
+
+        var baseline = ReadNumericLiteralBaseline(baselineAbs);
+        var allowlist = ReadNumericLiteralAllowlist(allowlistAbs);
+
+        var newLiterals = FindNewNumericLiterals(baseline, scan.ByFileLiterals);
+
+        var violations = newLiterals
+            .Where(v => !IsAllowedByTweaksPath(v.PathRel))
+            .Where(v => !allowlist.IsAllowlisted(v.PathRel, v.Token))
+            .OrderBy(v => v.PathRel, StringComparer.Ordinal)
+            .ThenBy(v => v.Line, Comparer<int>.Default)
+            .ThenBy(v => v.Token, StringComparer.Ordinal)
+            .Select(v => $"{v.PathRel}:{v.Line}:{v.Token}")
+            .ToArray();
+
+        WriteTextFileDeterministic(violationsReportAbs, BuildViolationsReportLines("tweak_routing_guard_violations_v0", violations));
+
+        Assert.That(violations.Length, Is.EqualTo(0),
+            "Tweak routing guard violations:\n" + string.Join("\n", violations)
+            + "\nReport: " + MakeRepoRelative(repoRoot, violationsReportAbs));
+    }
+
     [Test]
     public void SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess()
     {
@@ -674,6 +738,512 @@ public sealed class RuntimeFileContractTests
                 stack.Push(sd);
         }
     }
+
+
+    private sealed record NumericLiteralOccurrence(string PathRel, int Line, string Token);
+
+    private sealed class NumericLiteralAllowlist
+    {
+        private readonly HashSet<string> _globalTokens;
+        private readonly HashSet<string> _pathToken;
+
+        public NumericLiteralAllowlist(HashSet<string> globalTokens, HashSet<string> pathToken)
+        {
+            _globalTokens = globalTokens;
+            _pathToken = pathToken;
+        }
+
+        public bool IsAllowlisted(string pathRel, string token)
+        {
+            if (_globalTokens.Contains(token)) return true;
+            return _pathToken.Contains(pathRel + ":" + token);
+        }
+    }
+
+    private sealed record NumericLiteralScanResult(
+        IReadOnlyList<NumericLiteralOccurrence> AllLiterals,
+        IReadOnlyDictionary<string, IReadOnlyList<NumericLiteralOccurrence>> ByFileLiterals,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> ByFileTokensOnly);
+
+    private static bool IsFlagEnabledGlobal(string name)
+    {
+        var v = (Environment.GetEnvironmentVariable(name) ?? "").Trim();
+        return string.Equals(v, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedByTweaksPath(string pathRel)
+    {
+        // "Sourced from Tweaks" is interpreted as: literals in files that define tweaks are allowed.
+        // We allow any file with a path segment or filename that includes "Tweaks".
+        var p = pathRel.Replace('\\', '/');
+        if (p.IndexOf("/Tweaks/", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        var file = Path.GetFileName(p);
+        return file.IndexOf("Tweaks", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void EnsureDirForFile(string absPath)
+    {
+        var dir = Path.GetDirectoryName(absPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+    }
+
+    private static void WriteTextFileDeterministic(string absPath, IEnumerable<string> lines)
+    {
+        EnsureDirForFile(absPath);
+        File.WriteAllText(absPath, string.Join("\n", lines) + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static IEnumerable<string> BuildViolationsReportLines(string header, IReadOnlyList<string> violations)
+    {
+        yield return "# " + header;
+        yield return "# format: file:line:token";
+        if (violations.Count == 0)
+        {
+            yield return "OK";
+            yield break;
+        }
+
+        foreach (var v in violations)
+            yield return v;
+    }
+
+    private static IEnumerable<string> BuildLiteralReportLines(string header, IReadOnlyList<NumericLiteralOccurrence> literals)
+    {
+        yield return "# " + header;
+        yield return "# format: file:line:token";
+
+        foreach (var o in literals
+            .OrderBy(x => x.PathRel, StringComparer.Ordinal)
+            .ThenBy(x => x.Line, Comparer<int>.Default)
+            .ThenBy(x => x.Token, StringComparer.Ordinal))
+        {
+            yield return $"{o.PathRel}:{o.Line}:{o.Token}";
+        }
+    }
+
+    private static NumericLiteralAllowlist ReadNumericLiteralAllowlist(string allowlistAbs)
+    {
+        var globalTokens = new HashSet<string>(StringComparer.Ordinal);
+        var pathToken = new HashSet<string>(StringComparer.Ordinal);
+
+        if (!File.Exists(allowlistAbs))
+            return new NumericLiteralAllowlist(globalTokens, pathToken);
+
+        foreach (var raw in File.ReadAllLines(allowlistAbs))
+        {
+            var s = (raw ?? "").Trim();
+            if (s.Length == 0) continue;
+            if (s.StartsWith("#", StringComparison.Ordinal)) continue;
+
+            var idx = s.IndexOf(':');
+            if (idx > 0 && idx < s.Length - 1)
+                pathToken.Add(s);
+            else
+                globalTokens.Add(s);
+        }
+
+        return new NumericLiteralAllowlist(globalTokens, pathToken);
+    }
+
+    private static Dictionary<string, List<string>> ReadNumericLiteralBaseline(string baselineAbs)
+    {
+        var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        string currentFile = null;
+
+        foreach (var raw in File.ReadAllLines(baselineAbs))
+        {
+            var s = (raw ?? "").TrimEnd();
+            if (s.Length == 0) continue;
+            if (s.StartsWith("#", StringComparison.Ordinal))
+            {
+                const string prefix = "# FILE ";
+                if (s.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    currentFile = s.Substring(prefix.Length).Trim();
+                    if (!map.ContainsKey(currentFile))
+                        map[currentFile] = new List<string>();
+                }
+                continue;
+            }
+
+            if (currentFile == null)
+                continue;
+
+            map[currentFile].Add(s.Trim());
+        }
+
+        return map;
+    }
+
+    private static void MintNumericLiteralBaseline(string baselineAbs, IReadOnlyDictionary<string, IReadOnlyList<string>> byFileTokensOnly)
+    {
+        EnsureDirForFile(baselineAbs);
+
+        var outLines = new List<string>
+        {
+            "# baseline_numeric_literals_v0 (auto-minted, deterministic)",
+            "# format:",
+            "#   # FILE <repo-relative-path>",
+            "#   <token> (one per line, order of appearance in file)",
+        };
+
+        foreach (var kvp in byFileTokensOnly.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            outLines.Add("# FILE " + kvp.Key);
+            foreach (var t in kvp.Value)
+                outLines.Add(t);
+        }
+
+        WriteTextFileDeterministic(baselineAbs, outLines);
+    }
+
+    private static IReadOnlyList<NumericLiteralOccurrence> FindNewNumericLiterals(
+        Dictionary<string, List<string>> baseline,
+        IReadOnlyDictionary<string, IReadOnlyList<NumericLiteralOccurrence>> current)
+    {
+        var outList = new List<NumericLiteralOccurrence>();
+
+        foreach (var kvp in current.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            var pathRel = kvp.Key;
+            var occurrences = kvp.Value;
+
+            List<string> baseTokens;
+            if (!baseline.TryGetValue(pathRel, out baseTokens))
+                baseTokens = new List<string>();
+
+            var matched = new bool[occurrences.Count];
+
+            // Deterministic subsequence match: baseline tokens are expected to appear in current in the same order.
+            var cursor = 0;
+            for (var bi = 0; bi < baseTokens.Count; bi++)
+            {
+                var bt = baseTokens[bi];
+                for (var ci = cursor; ci < occurrences.Count; ci++)
+                {
+                    if (matched[ci]) continue;
+                    if (!string.Equals(occurrences[ci].Token, bt, StringComparison.Ordinal)) continue;
+
+                    matched[ci] = true;
+                    cursor = ci + 1;
+                    break;
+                }
+            }
+
+            for (var i = 0; i < occurrences.Count; i++)
+            {
+                if (!matched[i])
+                    outList.Add(occurrences[i]);
+            }
+        }
+
+        return outList;
+    }
+
+    private static NumericLiteralScanResult ScanNumericLiterals(string repoRoot, IEnumerable<string> scanDirsAbs)
+    {
+        var all = new List<NumericLiteralOccurrence>();
+        var byFile = new Dictionary<string, List<NumericLiteralOccurrence>>(StringComparer.Ordinal);
+        var byFileTokensOnly = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        var files = scanDirsAbs
+            .Where(Directory.Exists)
+            .SelectMany(d => Directory.EnumerateFiles(d, "*.cs", SearchOption.AllDirectories))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var abs in files)
+        {
+            var rel = MakeRepoRelative(repoRoot, abs);
+            var text = File.ReadAllText(abs);
+
+            var occ = ExtractNumericLiterals(rel, text);
+            byFile[rel] = occ;
+
+            byFileTokensOnly[rel] = occ.Select(o => o.Token).ToList();
+
+            all.AddRange(occ);
+        }
+
+        return new NumericLiteralScanResult(
+            AllLiterals: all,
+            ByFileLiterals: byFile.ToDictionary(k => k.Key, v => (IReadOnlyList<NumericLiteralOccurrence>)v.Value, StringComparer.Ordinal),
+            ByFileTokensOnly: byFileTokensOnly.ToDictionary(k => k.Key, v => (IReadOnlyList<string>)v.Value, StringComparer.Ordinal));
+    }
+
+    private static List<NumericLiteralOccurrence> ExtractNumericLiterals(string pathRel, string text)
+    {
+        var outList = new List<NumericLiteralOccurrence>();
+
+        var line = 1;
+        var i = 0;
+
+        var inLineComment = false;
+        var inBlockComment = false;
+        var inString = false;
+        var inVerbatimString = false;
+        var inChar = false;
+
+        while (i < text.Length)
+        {
+            var c = text[i];
+
+            if (c == '\n')
+                line++;
+
+            if (inLineComment)
+            {
+                if (c == '\n')
+                    inLineComment = false;
+                i++;
+                continue;
+            }
+
+            if (inBlockComment)
+            {
+                if (c == '*' && i + 1 < text.Length && text[i + 1] == '/')
+                {
+                    inBlockComment = false;
+                    i += 2;
+                    continue;
+                }
+                i++;
+                continue;
+            }
+
+            if (inString)
+            {
+                if (inVerbatimString)
+                {
+                    if (c == '"')
+                    {
+                        // escaped "" inside verbatim string
+                        if (i + 1 < text.Length && text[i + 1] == '"')
+                        {
+                            i += 2;
+                            continue;
+                        }
+
+                        inString = false;
+                        inVerbatimString = false;
+                        i++;
+                        continue;
+                    }
+                    i++;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    i += 2;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = false;
+                    i++;
+                    continue;
+                }
+
+                i++;
+                continue;
+            }
+
+            if (inChar)
+            {
+                if (c == '\\')
+                {
+                    i += 2;
+                    continue;
+                }
+
+                if (c == '\'')
+                {
+                    inChar = false;
+                    i++;
+                    continue;
+                }
+
+                i++;
+                continue;
+            }
+
+            // entering comments or strings
+            if (c == '/' && i + 1 < text.Length)
+            {
+                var n = text[i + 1];
+                if (n == '/')
+                {
+                    inLineComment = true;
+                    i += 2;
+                    continue;
+                }
+                if (n == '*')
+                {
+                    inBlockComment = true;
+                    i += 2;
+                    continue;
+                }
+            }
+
+            if (c == '@' && i + 1 < text.Length && text[i + 1] == '"')
+            {
+                inString = true;
+                inVerbatimString = true;
+                i += 2;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = true;
+                inVerbatimString = false;
+                i++;
+                continue;
+            }
+
+            if (c == '\'')
+            {
+                inChar = true;
+                i++;
+                continue;
+            }
+
+            // numeric literal detection (in code)
+            if (IsNumericLiteralStart(text, i))
+            {
+                var token = ConsumeNumericLiteral(text, ref i);
+                if (token.Length > 0)
+                    outList.Add(new NumericLiteralOccurrence(pathRel, line, token));
+                continue;
+            }
+
+            i++;
+        }
+
+        return outList;
+    }
+
+    private static bool IsNumericLiteralStart(string s, int i)
+    {
+        var c = s[i];
+
+        if (char.IsDigit(c))
+        {
+            // avoid identifiers like Foo2
+            if (i > 0 && IsIdentChar(s[i - 1]))
+                return false;
+            return true;
+        }
+
+        if (c == '.' && i + 1 < s.Length && char.IsDigit(s[i + 1]))
+        {
+            if (i > 0 && IsIdentChar(s[i - 1]))
+                return false;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsIdentChar(char c) =>
+        char.IsLetterOrDigit(c) || c == '_';
+
+    private static string ConsumeNumericLiteral(string s, ref int i)
+    {
+        var start = i;
+
+        // leading .
+        if (s[i] == '.')
+        {
+            i++; // consume '.'
+            while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '_')) i++;
+            ConsumeExponentAndSuffix(s, ref i);
+            return s.Substring(start, i - start);
+        }
+
+        // hex
+        if (s[i] == '0' && i + 1 < s.Length && (s[i + 1] == 'x' || s[i + 1] == 'X'))
+        {
+            i += 2;
+            while (i < s.Length && (IsHexDigit(s[i]) || s[i] == '_')) i++;
+            ConsumeSuffix(s, ref i);
+            return s.Substring(start, i - start);
+        }
+
+        // decimal / float
+        while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '_')) i++;
+
+        if (i < s.Length && s[i] == '.' && !(i + 1 < s.Length && s[i + 1] == '.'))
+        {
+            i++; // '.'
+            while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '_')) i++;
+        }
+
+        ConsumeExponentAndSuffix(s, ref i);
+
+        return s.Substring(start, i - start);
+    }
+
+    private static void ConsumeExponentAndSuffix(string s, ref int i)
+    {
+        if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
+        {
+            var j = i + 1;
+            if (j < s.Length && (s[j] == '+' || s[j] == '-')) j++;
+
+            var hasDigits = false;
+            while (j < s.Length && (char.IsDigit(s[j]) || s[j] == '_'))
+            {
+                hasDigits = true;
+                j++;
+            }
+
+            if (hasDigits)
+                i = j;
+        }
+
+        ConsumeSuffix(s, ref i);
+    }
+
+    private static void ConsumeSuffix(string s, ref int i)
+    {
+        // common C# numeric suffixes (case-insensitive):
+        // f, d, m, u, l (including combinations like ul, lu)
+        var j = i;
+        while (j < s.Length && char.IsLetter(s[j]))
+            j++;
+
+        if (j > i)
+        {
+            var suf = s.Substring(i, j - i);
+            // Keep suffix only if it looks like a numeric suffix, to avoid swallowing identifiers.
+            if (LooksLikeNumericSuffix(suf))
+                i = j;
+        }
+    }
+
+    private static bool LooksLikeNumericSuffix(string suf)
+    {
+        suf = suf.ToLowerInvariant();
+
+        if (suf == "f" || suf == "d" || suf == "m") return true;
+        if (suf == "u" || suf == "l" || suf == "ul" || suf == "lu") return true;
+
+        // allow u/l combos
+        if (suf.All(ch => ch == 'u' || ch == 'l') && suf.Length <= 2) return true;
+
+        return false;
+    }
+
+    private static bool IsHexDigit(char c) =>
+        (c >= '0' && c <= '9')
+        || (c >= 'a' && c <= 'f')
+        || (c >= 'A' && c <= 'F');
 
     private static string MakeRepoRelative(string root, string fullPath)
     {
