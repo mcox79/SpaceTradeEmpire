@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using SimCore.Events;
 using SimCore.Schemas;
@@ -46,26 +47,41 @@ public sealed class LogisticsEventStreamContractTests
 
     private static string RunAndGetEventJson()
     {
-        var k = KernelWithThreeStations();
-        var s = k.State;
-        var f = s.Fleets["fleet_trader_1"];
+        // Tests must not be sensitive to ambient env vars used for perf diagnostics.
+        var oldLogiEvents = Environment.GetEnvironmentVariable("STE_LOGI_EVENTS");
+        var oldLogiBreakdown = Environment.GetEnvironmentVariable("STE_LOGI_BREAKDOWN");
 
-        Assert.That(LogisticsSystem.PlanLogistics(s, f, "mkt_b", "mkt_c", "ore", 5), Is.True);
+        try
+        {
+            Environment.SetEnvironmentVariable("STE_LOGI_EVENTS", null);
+            Environment.SetEnvironmentVariable("STE_LOGI_BREAKDOWN", null);
 
-        // Enough ticks to: arrive source, issue pickup, switch phase, arrive dest, issue delivery, clear job.
-        for (var i = 0; i < 10; i++) k.Step();
+            var k = KernelWithThreeStations();
+            var s = k.State;
+            var f = s.Fleets["fleet_trader_1"];
 
-        var payload = LogisticsEvents.BuildPayload(s.Tick, s.LogisticsEventLog);
-        var json = LogisticsEvents.ToDeterministicJson(payload);
+            Assert.That(LogisticsSystem.PlanLogistics(s, f, "mkt_b", "mkt_c", "ore", 5), Is.True);
 
-        // Must be schema-bound
-        LogisticsEvents.ValidateJsonIsSchemaBound(json);
+            // Enough ticks to: arrive source, issue pickup, switch phase, arrive dest, issue delivery, clear job.
+            for (var i = 0; i < 10; i++) k.Step();
 
-        // Must contain at least the core lifecycle events
-        Assert.That(s.LogisticsEventLog.Count, Is.GreaterThanOrEqualTo(3));
-        Assert.That(s.LogisticsEventLog[0].Seq, Is.GreaterThan(0));
+            var payload = LogisticsEvents.BuildPayload(s.Tick, s.LogisticsEventLog);
+            var json = LogisticsEvents.ToDeterministicJson(payload);
 
-        return json;
+            // Must be schema-bound
+            LogisticsEvents.ValidateJsonIsSchemaBound(json);
+
+            // Must contain at least the core lifecycle events
+            Assert.That(s.LogisticsEventLog.Count, Is.GreaterThanOrEqualTo(3));
+            Assert.That(s.LogisticsEventLog[0].Seq, Is.GreaterThan(0));
+
+            return json;
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("STE_LOGI_EVENTS", oldLogiEvents);
+            Environment.SetEnvironmentVariable("STE_LOGI_BREAKDOWN", oldLogiBreakdown);
+        }
     }
 
     [Test]

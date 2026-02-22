@@ -207,6 +207,12 @@ public class SimState
 
     [JsonInclude] public List<SimCore.Events.LogisticsEvents.Event> LogisticsEventLog { get; private set; } = new();
 
+    // Reusable buffers for per-tick deterministic logistics event finalization.
+    // Private so they are not serialized and do not affect determinism across fresh runs.
+    private readonly List<int> _logiFinalizeIdx = new();
+    private readonly List<int> _logiFinalizeDest = new();
+    private SimCore.Events.LogisticsEvents.Event[] _logiFinalizeTemp = Array.Empty<SimCore.Events.LogisticsEvents.Event>();
+
     // Fleet event stream (Slice 3 / GATE.S3.FLEET.ROLES.001)
     [JsonInclude] public long NextFleetEventSeq { get; set; } = 1;
 
@@ -214,6 +220,12 @@ public class SimState
     [JsonInclude] public long NextFleetEmitOrder { get; set; } = 1;
 
     [JsonInclude] public List<SimCore.Events.FleetEvents.Event> FleetEventLog { get; private set; } = new();
+
+    // Reusable buffers for per-tick deterministic fleet event finalization.
+    // Private so they are not serialized and do not affect determinism across fresh runs.
+    private readonly List<int> _fleetFinalizeIdx = new();
+    private readonly List<int> _fleetFinalizeDest = new();
+    private SimCore.Events.FleetEvents.Event[] _fleetFinalizeTemp = Array.Empty<SimCore.Events.FleetEvents.Event>();
 
     public void EmitLogisticsEvent(SimCore.Events.LogisticsEvents.Event e)
     {
@@ -304,21 +316,23 @@ public class SimState
         if (FleetEventLog is null) return;
         if (FleetEventLog.Count == 0) return;
 
+        // Reuse buffers to avoid per-tick allocations.
+        _fleetFinalizeIdx.Clear();
+
         // Gather indices of events emitted this tick that have not yet been assigned a Seq.
-        var idx = new List<int>();
         for (var i = 0; i < FleetEventLog.Count; i++)
         {
             var e = FleetEventLog[i];
             if (e is null) continue;
             if (e.Tick != Tick) continue;
             if (e.Seq != 0) continue;
-            idx.Add(i);
+            _fleetFinalizeIdx.Add(i);
         }
 
-        if (idx.Count == 0) return;
+        if (_fleetFinalizeIdx.Count == 0) return;
 
         // Sort indices in deterministic event order without LINQ allocations.
-        idx.Sort((ai, bi) =>
+        _fleetFinalizeIdx.Sort((ai, bi) =>
         {
             var a = FleetEventLog[ai];
             var b = FleetEventLog[bi];
@@ -339,9 +353,9 @@ public class SimState
         });
 
         // Assign Seq in deterministic order (idx is now sorted by event order).
-        for (var j = 0; j < idx.Count; j++)
+        for (var j = 0; j < _fleetFinalizeIdx.Count; j++)
         {
-            var e = FleetEventLog[idx[j]];
+            var e = FleetEventLog[_fleetFinalizeIdx[j]];
             var seq = NextFleetEventSeq;
             NextFleetEventSeq = checked(NextFleetEventSeq + 1);
             e.Seq = seq;
@@ -349,12 +363,18 @@ public class SimState
 
         // Reorder the log in-place for this tick only, so list order matches deterministic order.
         // Write the sorted events back into the same set of slots in ascending index order.
-        var dest = new List<int>(idx);
-        dest.Sort();
+        _fleetFinalizeDest.Clear();
+        _fleetFinalizeDest.AddRange(_fleetFinalizeIdx);
+        _fleetFinalizeDest.Sort();
 
-        var temp = new SimCore.Events.FleetEvents.Event[idx.Count];
-        for (var j = 0; j < idx.Count; j++) temp[j] = FleetEventLog[idx[j]];
-        for (var j = 0; j < dest.Count; j++) FleetEventLog[dest[j]] = temp[j];
+        if (_fleetFinalizeTemp.Length < _fleetFinalizeIdx.Count)
+            _fleetFinalizeTemp = new SimCore.Events.FleetEvents.Event[_fleetFinalizeIdx.Count];
+
+        for (var j = 0; j < _fleetFinalizeIdx.Count; j++)
+            _fleetFinalizeTemp[j] = FleetEventLog[_fleetFinalizeIdx[j]];
+
+        for (var j = 0; j < _fleetFinalizeDest.Count; j++)
+            FleetEventLog[_fleetFinalizeDest[j]] = _fleetFinalizeTemp[j];
     }
 
     private void FinalizeLogisticsEventsForTick()
@@ -362,21 +382,23 @@ public class SimState
         if (LogisticsEventLog is null) return;
         if (LogisticsEventLog.Count == 0) return;
 
+        // Reuse buffers to avoid per-tick allocations.
+        _logiFinalizeIdx.Clear();
+
         // Gather indices of events emitted this tick that have not yet been assigned a Seq.
-        var idx = new List<int>();
         for (var i = 0; i < LogisticsEventLog.Count; i++)
         {
             var e = LogisticsEventLog[i];
             if (e is null) continue;
             if (e.Tick != Tick) continue;
             if (e.Seq != 0) continue;
-            idx.Add(i);
+            _logiFinalizeIdx.Add(i);
         }
 
-        if (idx.Count == 0) return;
+        if (_logiFinalizeIdx.Count == 0) return;
 
         // Sort indices in deterministic event order without LINQ allocations.
-        idx.Sort((ai, bi) =>
+        _logiFinalizeIdx.Sort((ai, bi) =>
         {
             var a = LogisticsEventLog[ai];
             var b = LogisticsEventLog[bi];
@@ -396,9 +418,9 @@ public class SimState
         });
 
         // Assign Seq in deterministic order (idx is now sorted by event order).
-        for (var j = 0; j < idx.Count; j++)
+        for (var j = 0; j < _logiFinalizeIdx.Count; j++)
         {
-            var e = LogisticsEventLog[idx[j]];
+            var e = LogisticsEventLog[_logiFinalizeIdx[j]];
             var seq = NextLogisticsEventSeq;
             NextLogisticsEventSeq = checked(NextLogisticsEventSeq + 1);
             e.Seq = seq;
@@ -406,12 +428,18 @@ public class SimState
 
         // Reorder the log in-place for this tick only, so list order matches deterministic order.
         // Write the sorted events back into the same set of slots in ascending index order.
-        var dest = new List<int>(idx);
-        dest.Sort();
+        _logiFinalizeDest.Clear();
+        _logiFinalizeDest.AddRange(_logiFinalizeIdx);
+        _logiFinalizeDest.Sort();
 
-        var temp = new SimCore.Events.LogisticsEvents.Event[idx.Count];
-        for (var j = 0; j < idx.Count; j++) temp[j] = LogisticsEventLog[idx[j]];
-        for (var j = 0; j < dest.Count; j++) LogisticsEventLog[dest[j]] = temp[j];
+        if (_logiFinalizeTemp.Length < _logiFinalizeIdx.Count)
+            _logiFinalizeTemp = new SimCore.Events.LogisticsEvents.Event[_logiFinalizeIdx.Count];
+
+        for (var j = 0; j < _logiFinalizeIdx.Count; j++)
+            _logiFinalizeTemp[j] = LogisticsEventLog[_logiFinalizeIdx[j]];
+
+        for (var j = 0; j < _logiFinalizeDest.Count; j++)
+            LogisticsEventLog[_logiFinalizeDest[j]] = _logiFinalizeTemp[j];
     }
 
     public void HydrateAfterLoad()
