@@ -5,41 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 970bb2862b14cc4294530505941d2e08363900b3",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.UI.SAFEREAD.NOLOCK.INTEL_AGE.001",
-                      "task_id":  "GATE.UI.SAFEREAD.NOLOCK.INTEL_AGE.001.T001",
-                      "status":  "TODO",
-                      "title":  "GATE.UI.SAFEREAD.NOLOCK.INTEL_AGE.001: Fix UI lock recursion v0: inside SimBridge.TryExecuteSafeRead lambdas, UI must call *_NoLock(state, ...) helpers (no nested _stateLock acquisition); prevent LockRecursionException and keep StationMenu/System menu rendering stable",
-                      "intent":  "GATE.UI.SAFEREAD.NOLOCK.INTEL_AGE.001: Eliminate recursive read-lock acquisition triggered by calling SimBridge.GetIntelAgeTicks from inside TryExecuteSafeRead; add/get NoLock overload and update StationMenu to use it within safe-read block; keep LockRecursionPolicy.NoRecursion",
-                      "evidence_paths":  [
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/ui/StationMenu.cs",
-                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: only touch SimBridge read API surface required for intel age and the specific UI call site inside TryExecuteSafeRead.",
-                                          "Do not change lock recursion policy (must remain LockRecursionPolicy.NoRecursion).",
-                                          "Avoid broad refactors of unrelated bridge APIs; prefer a minimal wrapper + *_NoLock(state, ...) overload pattern.",
-                                          "UI must not stall: keep TryExecuteSafeRead nonblocking behavior (timeoutMs=0) unchanged."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Manual repro: open StationMenu, toggle shop, verify no LockRecursionException and Market list renders"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/bridge/SimBridge.cs",
-                                             "anchor=scripts/ui/StationMenu.cs",
-                                             "anchor=SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
-                                             "candidate_key_sha256=ui_saferead_nolock_intel_age_v0"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if additional bridge read APIs must be refactored beyond intel age, or if new lock recursion sources appear outside StationMenu."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001",
                       "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOOP_SCORING.001.T051",
                       "status":  "TODO",

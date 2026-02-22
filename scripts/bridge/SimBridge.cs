@@ -602,6 +602,13 @@ public partial class SimBridge : Node
         if (string.IsNullOrWhiteSpace(marketId)) return -1;
         if (string.IsNullOrWhiteSpace(goodId)) return -1;
 
+        // Defensive: if caller is already inside a safe-read (or write) lock on this thread,
+        // do NOT attempt to re-enter the lock (LockRecursionPolicy.NoRecursion).
+        if (_stateLock.IsReadLockHeld || _stateLock.IsWriteLockHeld)
+        {
+            return GetIntelAgeTicks_NoLock(_kernel.State, marketId, goodId);
+        }
+
         var age = -1;
         TryExecuteSafeRead(state =>
         {
@@ -620,65 +627,81 @@ public partial class SimBridge : Node
 
     public Godot.Collections.Array GetSustainmentSnapshot(string marketId)
     {
-        var arr = new Godot.Collections.Array();
-        if (IsLoading) return arr;
-        if (string.IsNullOrWhiteSpace(marketId)) return arr;
+        if (IsLoading) return new Godot.Collections.Array();
+        if (string.IsNullOrWhiteSpace(marketId)) return new Godot.Collections.Array();
+
+        // Defensive: if caller is already inside a safe-read (or write) lock on this thread,
+        // do NOT attempt to re-enter the lock (LockRecursionPolicy.NoRecursion).
+        if (_stateLock.IsReadLockHeld || _stateLock.IsWriteLockHeld)
+        {
+            return GetSustainmentSnapshot_NoLock(_kernel.State, marketId);
+        }
 
         _stateLock.EnterReadLock();
         try
         {
-            var state = _kernel.State;
-
-            var sites = SustainmentSnapshot.BuildForNode(state, marketId);
-
-            foreach (var s in sites)
-            {
-                var d = new Godot.Collections.Dictionary
-                {
-                    ["site_id"] = s.SiteId,
-                    ["node_id"] = s.NodeId,
-                    ["health_bps"] = s.HealthBps,
-                    ["eff_bps_now"] = s.EffBpsNow,
-                    ["degrade_per_day_bps"] = s.DegradePerDayBps,
-                    ["worst_buffer_margin"] = s.WorstBufferMargin,
-
-                    ["time_to_starve_ticks"] = s.TimeToStarveTicks,
-                    ["time_to_starve_days"] = s.TimeToStarveDays,
-                    ["time_to_failure_ticks"] = s.TimeToFailureTicks,
-                    ["time_to_failure_days"] = s.TimeToFailureDays,
-
-                    ["starve_band"] = s.StarveBand,
-                    ["fail_band"] = s.FailBand
-                };
-
-                var inputsArr = new Godot.Collections.Array();
-                foreach (var inp in s.Inputs)
-                {
-                    inputsArr.Add(new Godot.Collections.Dictionary
-                    {
-                        ["good_id"] = inp.GoodId,
-                        ["have_units"] = inp.HaveUnits,
-                        ["per_tick_required"] = inp.PerTickRequired,
-                        ["buffer_target_units"] = inp.BufferTargetUnits,
-
-                        ["coverage_ticks"] = inp.CoverageTicks,
-                        ["coverage_days"] = inp.CoverageDays,
-                        ["buffer_margin"] = inp.BufferMargin,
-
-                        ["coverage_band"] = inp.CoverageBand
-                    });
-                }
-
-                d["inputs"] = inputsArr;
-                arr.Add(d);
-            }
-
-            return arr;
+            return GetSustainmentSnapshot_NoLock(_kernel.State, marketId);
         }
         finally
         {
             _stateLock.ExitReadLock();
         }
+    }
+
+    // IMPORTANT: caller must already be inside TryExecuteSafeRead.
+    // Do NOT acquire _stateLock or call other locking bridge methods.
+    public Godot.Collections.Array GetSustainmentSnapshot_NoLock(SimCore.SimState state, string marketId)
+    {
+        var arr = new Godot.Collections.Array();
+        if (state == null) return arr;
+        if (string.IsNullOrWhiteSpace(marketId)) return arr;
+
+        var sites = SustainmentSnapshot.BuildForNode(state, marketId);
+
+        foreach (var s in sites)
+        {
+            var d = new Godot.Collections.Dictionary
+            {
+                ["site_id"] = s.SiteId,
+                ["node_id"] = s.NodeId,
+                ["health_bps"] = s.HealthBps,
+                ["eff_bps_now"] = s.EffBpsNow,
+                ["degrade_per_day_bps"] = s.DegradePerDayBps,
+                ["worst_buffer_margin"] = s.WorstBufferMargin,
+
+                ["time_to_starve_ticks"] = s.TimeToStarveTicks,
+                ["time_to_starve_days"] = s.TimeToStarveDays,
+                ["time_to_failure_ticks"] = s.TimeToFailureTicks,
+                ["time_to_failure_days"] = s.TimeToFailureDays,
+
+                ["starve_band"] = s.StarveBand,
+                ["fail_band"] = s.FailBand,
+            };
+
+            var inputsArr = new Godot.Collections.Array();
+            foreach (var i in s.Inputs)
+            {
+                var id = new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = i.GoodId,
+
+                    ["have_units"] = i.HaveUnits,
+                    ["per_tick_required"] = i.PerTickRequired,
+                    ["buffer_target_units"] = i.BufferTargetUnits,
+
+                    ["coverage_ticks"] = i.CoverageTicks,
+                    ["coverage_days"] = i.CoverageDays,
+                    ["coverage_band"] = i.CoverageBand,
+                    ["buffer_margin"] = i.BufferMargin,
+                };
+                inputsArr.Add(id);
+            }
+
+            d["inputs"] = inputsArr;
+            arr.Add(d);
+        }
+
+        return arr;
     }
 
 
