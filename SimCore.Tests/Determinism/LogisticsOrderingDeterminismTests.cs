@@ -113,6 +113,18 @@ public sealed class LogisticsOrderingDeterminismTests
     }
 
     [Test]
+    public void Transcript_Tick0_IncludesTweaksVersionAndHash_ExactLine()
+    {
+        var k = new SimKernel(seed: 123);
+
+        // Lock exact line format at tick 0 (no timestamps or variable whitespace).
+        var expectedHash = SimCore.SimState.TweakConfigV0.CreateDefaults().ToCanonicalHashUpperHex();
+        var expected = $"tick=0 tweaks_version={SimCore.SimState.TweakConfigV0.CurrentVersion} tweaks_hash={expectedHash}";
+
+        Assert.That(k.State.GetDeterministicTranscriptTick0Line(), Is.EqualTo(expected));
+    }
+
+    [Test]
     public void TweaksConfigHash_IsDeterministic_AndOverrideChangesIt()
     {
         // Default kernel uses stable defaults.

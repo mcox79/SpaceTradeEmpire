@@ -152,6 +152,15 @@ public class SimState
     [JsonIgnore] public TweakConfigV0 Tweaks { get; private set; } = TweakConfigV0.CreateDefaults();
     [JsonIgnore] public string TweaksHash { get; private set; } = "";
 
+    // GATE.X.TWEAKS.DATA.TRANSCRIPT.001
+    // Deterministic transcript surface (no timestamps, fixed formatting).
+    // Intended to be emitted at tick 0 by transcript producers.
+    public string GetDeterministicTranscriptTick0Line()
+    {
+        // Keep formatting stable: ASCII-safe keys, no locale-dependent formatting.
+        return $"tick=0 tweaks_version={Tweaks.Version} tweaks_hash={TweaksHash}";
+    }
+
     [JsonInclude] public Dictionary<string, Market> Markets { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Node> Nodes { get; private set; } = new();
     [JsonInclude] public Dictionary<string, Edge> Edges { get; private set; } = new();

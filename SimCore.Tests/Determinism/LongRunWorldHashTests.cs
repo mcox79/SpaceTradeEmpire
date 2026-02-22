@@ -412,6 +412,13 @@ public class LongRunWorldHashTests
         DumpRun("A", runA, checkpoints);
         DumpRun("B", runB, checkpoints);
 
+        // GATE.X.TWEAKS.DATA.TRANSCRIPT.001
+        // Exact line contract at tick 0 (format and contents).
+        var expectedHash = SimCore.SimState.TweakConfigV0.CreateDefaults().ToCanonicalHashUpperHex();
+        var expectedLine = $"tick=0 tweaks_version={SimCore.SimState.TweakConfigV0.CurrentVersion} tweaks_hash={expectedHash}";
+        Assert.That(runA.Tick0TranscriptLine, Is.EqualTo(expectedLine));
+        Assert.That(runB.Tick0TranscriptLine, Is.EqualTo(expectedLine));
+
         // Determinism invariant: two fresh runs with the same seed must match at every checkpoint.
         var firstMismatchTick = FirstCheckpointMismatchTick(runA.Checkpoints, runB.Checkpoints, checkpoints);
         Assert.That(
@@ -459,6 +466,10 @@ public class LongRunWorldHashTests
         var sim = new SimKernel(seed);
         GalaxyGenerator.Generate(sim.State, 20, 100f);
 
+        // GATE.X.TWEAKS.DATA.TRANSCRIPT.001
+        // Capture deterministic transcript surface at tick 0 from the live kernel state.
+        var tick0TranscriptLine = sim.State.GetDeterministicTranscriptTick0Line();
+
         // Checkpoint hashes keyed by tick count (0 == genesis, ticks == final).
         var cp = new Dictionary<int, string>(capacity: checkpoints.Length)
         {
@@ -485,7 +496,8 @@ public class LongRunWorldHashTests
         return new RunResult(
             cp[0],
             cp[ticks],
-            cp);
+            cp,
+            tick0TranscriptLine);
     }
 
     private static bool IsCheckpoint(int tick, int[] checkpoints)
@@ -514,6 +526,10 @@ public class LongRunWorldHashTests
 
     private static void DumpRun(string label, RunResult run, int[] checkpoints)
     {
+        // GATE.X.TWEAKS.DATA.TRANSCRIPT.001
+        // Deterministic transcript line must appear at tick 0 (no timestamps).
+        TestContext.Out.WriteLine(run.Tick0TranscriptLine);
+
         TestContext.Out.WriteLine($"Genesis Hash {label}: {run.GenesisHash}");
         TestContext.Out.WriteLine($"Final   Hash {label}: {run.FinalHash}");
 
@@ -942,7 +958,8 @@ public class LongRunWorldHashTests
     private readonly record struct RunResult(
         string GenesisHash,
         string FinalHash,
-        IReadOnlyDictionary<int, string> Checkpoints);
+        IReadOnlyDictionary<int, string> Checkpoints,
+        string Tick0TranscriptLine);
 
     private sealed class PerfBreakdown
     {

@@ -4,37 +4,5 @@
     "generated_utc":  "2026-02-21T17:38:48-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 970bb2862b14cc4294530505941d2e08363900b3",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001",
-                      "task_id":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001.T456",
-                      "status":  "TODO",
-                      "title":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001: GATE.X.TWEAKS.DATA.TRANSCRIPT.001: Transcript surfacing v0: deterministic transcript includes TweaksHash and tweak config version at tick 0; no timestamps; stable formatting; test asserts exact line",
-                      "intent":  "GATE.X.TWEAKS.DATA.TRANSCRIPT.001: Transcript surfacing v0: deterministic transcript includes TweaksHash and tweak config version at tick 0; no timestamps; stable formatting; test asserts exact line",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "SimCore/SimKernel.cs",
-                                             "SimCore/SimState.cs",
-                                             "SimCore.Tests/GoldenReplayTests.cs",
-                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "candidate_key_sha256=e9a39fadb2ae"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }
