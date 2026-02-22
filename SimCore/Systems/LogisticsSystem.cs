@@ -14,6 +14,26 @@ public static class LogisticsSystem
     // Number of consecutive pickup observations (0 units loaded) allowed at source before cancel.
     public const int MaxZeroPickupObservations = 3;
 
+    // Loop viability threshold sourced from tweak config.
+    // Returns null when unset or invalid, so callers can preserve legacy behavior.
+    private static int? TryGetLoopViabilitySupplierQtyCutoffExclusiveOverride(SimState state)
+    {
+        var t = state?.Tweaks;
+        if (t is null) return null;
+
+        var v = t.LoopViabilityThreshold;
+        if (double.IsNaN(v) || double.IsInfinity(v)) return null;
+
+        // Deterministic rounding (avoid platform-dependent casts).
+        var cutoff = (long)Math.Round(v, MidpointRounding.AwayFromZero);
+
+        // Treat non-positive as "unset" to preserve legacy behavior.
+        if (cutoff <= string.Empty.Length) return null;
+
+        if (cutoff > int.MaxValue) return int.MaxValue;
+        return (int)cutoff;
+    }
+
     public static void Process(SimState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
@@ -555,12 +575,22 @@ public static class LogisticsSystem
         Market? best = null;
         int bestQty = int.MinValue;
 
+        var cutoffOverride = TryGetLoopViabilitySupplierQtyCutoffExclusiveOverride(state);
+
         foreach (var m in state.Markets.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
         {
             if (string.Equals(m.Id, excludeMarketId, StringComparison.Ordinal)) continue;
 
             var qty = state.GetUnreservedAvailable(m.Id, goodId);
-            if (qty <= 10) continue;
+
+            if (cutoffOverride.HasValue)
+            {
+                if (qty <= cutoffOverride.Value) continue;
+            }
+            else
+            {
+                if (qty <= 10) continue;
+            }
 
             if (best is null || qty > bestQty)
             {
@@ -586,6 +616,7 @@ public static class LogisticsSystem
 
         // Build candidate suppliers in deterministic order: qty desc, then id asc.
         var candidates = new List<(string MarketId, int Qty)>(capacity: 16);
+        var cutoffOverride = TryGetLoopViabilitySupplierQtyCutoffExclusiveOverride(state);
 
         for (int i = 0; i < marketsSorted.Count; i++)
         {
@@ -597,7 +628,15 @@ public static class LogisticsSystem
             if (string.Equals(mid, destMarketId, StringComparison.Ordinal)) continue;
 
             var qty = state.GetUnreservedAvailable(mid, goodId);
-            if (qty <= 10) continue;
+
+            if (cutoffOverride.HasValue)
+            {
+                if (qty <= cutoffOverride.Value) continue;
+            }
+            else
+            {
+                if (qty <= 10) continue;
+            }
 
             candidates.Add((mid, qty));
         }

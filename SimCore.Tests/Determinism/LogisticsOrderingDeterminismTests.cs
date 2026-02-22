@@ -178,6 +178,70 @@ public sealed class LogisticsOrderingDeterminismTests
     }
 
     [Test]
+    public void Logistics_LoopViabilityThreshold_FromTweaks_FiltersSuppliers_Deterministically()
+    {
+        static string RunOnce(string? tweakOverrideJson)
+        {
+            var s = new SimCore.SimState(seed: 1);
+            s.LoadTweaksFromJsonOverride(tweakOverrideJson);
+
+            // Destination market has a shortage (via IndustrySite input).
+            s.Markets["mkt_dst"] = new SimCore.Entities.Market { Id = "mkt_dst", Inventory = new() { ["ore"] = 0 } };
+
+            // Reachable supplier is barely above legacy cutoff (>10).
+            s.Markets["mkt_lo"] = new SimCore.Entities.Market { Id = "mkt_lo", Inventory = new() { ["ore"] = 11 } };
+
+            // Unreachable supplier has more inventory and will be tried first, but planning must fail.
+            s.Markets["mkt_hi"] = new SimCore.Entities.Market { Id = "mkt_hi", Inventory = new() { ["ore"] = 100 } };
+
+            s.Nodes["stn_dst"] = new SimCore.Entities.Node { Id = "stn_dst", MarketId = "mkt_dst" };
+            s.Nodes["stn_lo"] = new SimCore.Entities.Node { Id = "stn_lo", MarketId = "mkt_lo" };
+            s.Nodes["stn_hi"] = new SimCore.Entities.Node { Id = "stn_hi", MarketId = "mkt_hi" };
+
+            // Only stn_dst <-> stn_lo are connected. stn_hi is isolated (unreachable).
+            s.Edges["e_dl"] = new SimCore.Entities.Edge { Id = "e_dl", FromNodeId = "stn_dst", ToNodeId = "stn_lo", Distance = 1.0f, TotalCapacity = 1 };
+            s.Edges["e_ld"] = new SimCore.Entities.Edge { Id = "e_ld", FromNodeId = "stn_lo", ToNodeId = "stn_dst", Distance = 1.0f, TotalCapacity = 1 };
+
+            s.Fleets["fleet_trader_1"] = new SimCore.Entities.Fleet
+            {
+                Id = "fleet_trader_1",
+                OwnerId = "player",
+                CurrentNodeId = "stn_dst",
+                State = SimCore.Entities.FleetState.Idle,
+                Speed = 1.0f
+            };
+
+            s.IndustrySites["site_dst"] = new SimCore.Entities.IndustrySite
+            {
+                Id = "site_dst",
+                NodeId = "stn_dst",
+                Inputs = new() { ["ore"] = 1 }
+            };
+
+            SimCore.Systems.LogisticsSystem.Process(s);
+
+            var f = s.Fleets["fleet_trader_1"];
+            return f.CurrentJob?.SourceNodeId ?? "";
+        }
+
+        // Default cutoff is legacy (>10), so reachable supplier with qty=11 should be used.
+        var d0 = RunOnce(null);
+        var d1 = RunOnce(null);
+        Assert.That(d1, Is.EqualTo(d0));
+        Assert.That(d0, Is.EqualTo("stn_lo"));
+
+        // Override cutoff to 11 means supplier must have qty > 11, so qty=11 becomes ineligible.
+        // Only unreachable supplier remains, so planning deterministically fails and no job is assigned.
+        var overrideJson = "{\"version\":0,\"loop_viability_threshold\":11.0}";
+        var o0 = RunOnce(overrideJson);
+        var o1 = RunOnce(overrideJson);
+        Assert.That(o1, Is.EqualTo(o0));
+        Assert.That(o0, Is.EqualTo(""));
+
+        Assert.That(o0, Is.Not.EqualTo(d0));
+    }
+
+    [Test]
     public void LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing()
     {
         static (int Delivered, int Remaining, int NextArriveTick) RunOnce(string? tweakOverrideJson)
