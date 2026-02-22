@@ -137,4 +137,75 @@ public sealed class LogisticsOrderingDeterminismTests
         Assert.That(h1b, Is.EqualTo(h1a));
         Assert.That(h1a, Is.Not.EqualTo(h0a));
     }
+
+    [Test]
+    public void LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing()
+    {
+        static (int Delivered, int Remaining, int NextArriveTick) RunOnce(string? tweakOverrideJson)
+        {
+            var s = new SimCore.SimState(seed: 1);
+            s.LoadTweaksFromJsonOverride(tweakOverrideJson);
+
+            s.Markets["mkt_src"] = new SimCore.Entities.Market { Id = "mkt_src", Inventory = new() { ["ore"] = 0 } };
+            s.Markets["mkt_dst"] = new SimCore.Entities.Market { Id = "mkt_dst", Inventory = new() { ["ore"] = 0 } };
+
+            s.Nodes["n_src"] = new SimCore.Entities.Node { Id = "n_src", MarketId = "mkt_src" };
+            s.Nodes["n_dst"] = new SimCore.Entities.Node { Id = "n_dst", MarketId = "mkt_dst" };
+
+            // TotalCapacity <= 0 means "unspecified", so effective capacity comes from tweaks (if > 0) else unlimited.
+            s.Edges["lane_sd"] = new SimCore.Entities.Edge
+            {
+                Id = "lane_sd",
+                FromNodeId = "n_src",
+                ToNodeId = "n_dst",
+                Distance = 1.0f,
+                TotalCapacity = 0
+            };
+
+            // Due immediately at tick 0.
+            s.InFlightTransfers.Add(new SimCore.Entities.InFlightTransfer
+            {
+                Id = "t1",
+                EdgeId = "lane_sd",
+                FromNodeId = "n_src",
+                ToNodeId = "n_dst",
+                FromMarketId = "mkt_src",
+                ToMarketId = "mkt_dst",
+                GoodId = "ore",
+                Quantity = 10,
+                DepartTick = 0,
+                ArriveTick = 0
+            });
+
+            SimCore.Systems.LaneFlowSystem.Process(s);
+
+            var delivered = s.Markets["mkt_dst"].Inventory.GetValueOrDefault("ore", 0);
+
+            // If capacity is effectively unlimited, the transfer can be fully delivered and removed.
+            var t1 = s.InFlightTransfers.FirstOrDefault(x => x.Id == "t1");
+            var remaining = t1?.Quantity ?? 0;
+            var nextArrive = t1?.ArriveTick ?? 0;
+
+            return (delivered, remaining, nextArrive);
+        }
+
+        // Default tweaks should preserve legacy behavior (unlimited when TotalCapacity <= 0).
+        var a0 = RunOnce(null);
+        var a1 = RunOnce(null);
+        Assert.That(a1, Is.EqualTo(a0));
+        Assert.That(a0.Delivered, Is.EqualTo(10));
+        Assert.That(a0.Remaining, Is.EqualTo(0));
+
+        // Override default capacity to force deterministic queueing.
+        var overrideJson = "{\"version\":0,\"default_lane_capacity_k\":1}";
+        var b0 = RunOnce(overrideJson);
+        var b1 = RunOnce(overrideJson);
+        Assert.That(b1, Is.EqualTo(b0));
+        Assert.That(b0.Delivered, Is.EqualTo(1));
+        Assert.That(b0.Remaining, Is.EqualTo(9));
+        Assert.That(b0.NextArriveTick, Is.EqualTo(1));
+
+        // Behavior must differ from default run.
+        Assert.That(b0, Is.Not.EqualTo(a0));
+    }
 }

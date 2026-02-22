@@ -5,38 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 970bb2862b14cc4294530505941d2e08363900b3",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001",
-                      "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001.T343",
-                      "status":  "TODO",
-                      "title":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: Migrate lane capacity defaults v0: capacity K defaults sourced from tweak config with stable defaults; determinism test override changes queue behavior deterministically",
-                      "intent":  "GATE.X.TWEAKS.DATA.MIGRATE.LANE_CAPACITY.001: Migrate lane capacity defaults v0: capacity K defaults sourced from tweak config with stable defaults; determinism test override changes queue behavior deterministically",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "SimCore/SimState.cs",
-                                             "SimCore/Systems/LaneFlowSystem.cs",
-                                             "SimCore/Systems/LogisticsSystem.cs",
-                                             "SimCore.Tests/GoldenReplayTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LogisticsOrderingDeterminismTests.cs",
-                                             "candidate_key_sha256=4b049483795a"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001",
                       "task_id":  "GATE.X.TWEAKS.DATA.MIGRATE.LOGISTICS_RISK.001.T790",
                       "status":  "TODO",

@@ -115,8 +115,14 @@ public static class LaneFlowSystem
             var capacity = int.MaxValue;
             if (state.Edges.TryGetValue(laneId, out var edge))
             {
-                // TotalCapacity <= 0 is treated as "unlimited" for v0.
+                // TotalCapacity > 0 is explicit.
+                // TotalCapacity <= 0 uses tweak default if > 0, else unlimited (preserves pre-migration behavior).
                 if (edge.TotalCapacity > 0) capacity = edge.TotalCapacity;
+                else
+                {
+                    var k = state.Tweaks?.DefaultLaneCapacityK ?? 0;
+                    if (k > 0) capacity = k;
+                }
             }
 
             var remaining = capacity;
@@ -124,9 +130,9 @@ public static class LaneFlowSystem
             // laneGroup preserves due's ordering (already ordered by ArriveTick, EdgeId, Id).
             foreach (var t in laneGroup)
             {
-                if (t.Quantity <= 0) continue;
+                if (t.Quantity <= default(int)) continue;
 
-                if (remaining <= 0)
+                if (remaining <= default(int))
                 {
                     // Fully queued.
                     t.ArriveTick = checked(now + 1);
@@ -184,14 +190,22 @@ public static class LaneFlowSystem
 
         foreach (var laneId in laneIds)
         {
-            var delivered = deliveredByLane.TryGetValue(laneId, out var d) ? d : 0;
+            var delivered = deliveredByLane.TryGetValue(laneId, out var d) ? d : default(int);
 
             var cap = int.MaxValue;
-            if (state.Edges.TryGetValue(laneId, out var e) && e.TotalCapacity > 0) cap = e.TotalCapacity;
+            if (state.Edges.TryGetValue(laneId, out var e))
+            {
+                if (e.TotalCapacity > 0) cap = e.TotalCapacity;
+                else
+                {
+                    var k = state.Tweaks?.DefaultLaneCapacityK ?? default(int);
+                    if (k > default(int)) cap = k;
+                }
+            }
 
             var queued = state.InFlightTransfers
                 .Where(x => string.Equals(x.EdgeId, laneId, StringComparison.Ordinal))
-                .Sum(x => Math.Max(0, x.Quantity));
+                .Sum(x => Math.Max(default(int), x.Quantity));
 
             var capText = cap == int.MaxValue ? "inf" : cap.ToString();
             lines.Add($"{laneId}|{delivered}|{capText}|{queued}");
