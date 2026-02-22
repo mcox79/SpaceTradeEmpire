@@ -15,6 +15,13 @@ namespace SimCore.Systems;
 /// </summary>
 public static class RoutePlanner
 {
+    // Fixed-point scale for deterministic risk scoring (micro-units).
+    // This is representation, not a gameplay knob.
+    private const long RiskMicroScale = 1_000_000;
+    private const int One = 1;
+    private const int Thousand = 1000;
+    private const int DefaultMaxCandidates = 8;
+
     public sealed class RoutePlan
     {
         public string FromNodeId { get; init; } = "";
@@ -54,7 +61,7 @@ public static class RoutePlanner
 
         plan = new RoutePlan { FromNodeId = from, ToNodeId = to };
 
-        if (!TryPlanChoice(state, from, to, speedAuPerTick, maxCandidates: 8, out var choice))
+        if (!TryPlanChoice(state, from, to, speedAuPerTick, maxCandidates: DefaultMaxCandidates, out var choice))
             return false;
 
         plan = choice.ChosenPlan;
@@ -109,11 +116,13 @@ public static class RoutePlanner
             return true;
         }
 
-        var speed = speedAuPerTick > 0f ? speedAuPerTick : 1f;
+        var speed = speedAuPerTick > default(float) ? speedAuPerTick : One;
 
         // Build deterministic adjacency: FromNodeId -> edges sorted by edge id.
         // Avoid LINQ allocations (GroupBy/ToDictionary/OrderBy/ToList) on this hot path.
         var outgoing = state.GetOutgoingEdgesByFromNodeDeterministic();
+
+        GetRiskKnobsMicro(state, out var riskScalarMicro, out var riskTolMicro, out var useRiskScore);
 
         var candidates = GenerateCandidatesDeterministic(
             state,
@@ -121,13 +130,16 @@ public static class RoutePlanner
             fromNodeId,
             toNodeId,
             speed,
-            maxCandidates);
+            maxCandidates,
+            riskScalarMicro,
+            riskTolMicro,
+            useRiskScore);
 
         if (candidates.Count == 0) return false;
 
         var chosen = candidates[0];
 
-        var tie = ComputeTieBreakReason(candidates);
+        var tie = ComputeTieBreakReason(candidates, riskScalarMicro, riskTolMicro, useRiskScore);
 
         choice = new RouteChoice
         {
@@ -149,14 +161,17 @@ public static class RoutePlanner
         string fromNodeId,
         string toNodeId,
         float speedAuPerTick,
-        int maxCandidates)
+        int maxCandidates,
+        long riskScalarMicro,
+        long riskTolMicro,
+        bool useRiskScore)
     {
-        var max = maxCandidates > 0 ? maxCandidates : 1;
+        var max = maxCandidates > default(int) ? maxCandidates : One;
 
         // Hard bound for v0 to avoid path explosion; crafted tests are small.
-        var maxHops = Math.Min(8, Math.Max(1, state.Nodes.Count));
+        var maxHops = Math.Min(DefaultMaxCandidates, Math.Max(One, state.Nodes.Count));
 
-        var results = new List<RoutePlan>(capacity: Math.Min(max, 8));
+        var results = new List<RoutePlan>(capacity: Math.Min(max, DefaultMaxCandidates));
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         var nodePath = new List<string> { fromNodeId };
@@ -174,10 +189,10 @@ public static class RoutePlanner
                 {
                     // Copy path lists without LINQ to reduce per-candidate overhead.
                     var nodeCopy = new List<string>(nodePath.Count);
-                    for (int i = 0; i < nodePath.Count; i++) nodeCopy.Add(nodePath[i]);
+                    for (int i = default(int); i < nodePath.Count; i++) nodeCopy.Add(nodePath[i]);
 
                     var edgeCopy = new List<string>(edgePath.Count);
-                    for (int i = 0; i < edgePath.Count; i++) edgeCopy.Add(edgePath[i]);
+                    for (int i = default(int); i < edgePath.Count; i++) edgeCopy.Add(edgePath[i]);
 
                     results.Add(new RoutePlan
                     {
@@ -222,50 +237,143 @@ public static class RoutePlanner
                 Dfs(next, riskScore + edgeRisk, totalTicks + edgeTicks);
 
                 nodeSet.Remove(next);
-                edgePath.RemoveAt(edgePath.Count - 1);
-                nodePath.RemoveAt(nodePath.Count - 1);
+                edgePath.RemoveAt(edgePath.Count - One);
+                nodePath.RemoveAt(nodePath.Count - One);
 
                 if (results.Count >= max) return;
             }
         }
 
-        Dfs(fromNodeId, riskScore: 0, totalTicks: 0);
+        Dfs(fromNodeId, riskScore: default(int), totalTicks: default(int));
 
         // Deterministic ordering and tie-break:
-        // fewer hops, then lower risk, then lex route_id.
+        // - Legacy default (no override): fewer hops, then lower risk, then lex route_id.
+        // - When risk knobs are overridden: lower (travel_ticks + scaled_risk_cost), then fewer hops, then lex route_id.
         // Avoid LINQ allocations by sorting in-place.
-        results.Sort((a, b) =>
+        if (!useRiskScore)
         {
-            int c = a.HopCount.CompareTo(b.HopCount);
-            if (c != 0) return c;
+            results.Sort((a, b) =>
+            {
+                int c = a.HopCount.CompareTo(b.HopCount);
+                if (c != default) return c;
 
-            c = a.RiskScore.CompareTo(b.RiskScore);
-            if (c != 0) return c;
+                c = a.RiskScore.CompareTo(b.RiskScore);
+                if (c != default) return c;
 
-            return string.CompareOrdinal(a.RouteId ?? "", b.RouteId ?? "");
-        });
+                return string.CompareOrdinal(a.RouteId ?? "", b.RouteId ?? "");
+            });
+        }
+        else
+        {
+            results.Sort((a, b) =>
+            {
+                int c = ComputeTotalScore(a, riskScalarMicro, riskTolMicro).CompareTo(ComputeTotalScore(b, riskScalarMicro, riskTolMicro));
+                if (c != default) return c;
 
+                c = a.HopCount.CompareTo(b.HopCount);
+                if (c != default) return c;
+
+                return string.CompareOrdinal(a.RouteId ?? "", b.RouteId ?? "");
+            });
+        }
 
         return results;
     }
 
-    private static string ComputeTieBreakReason(List<RoutePlan> orderedCandidates)
+    private static string ComputeTieBreakReason(List<RoutePlan> orderedCandidates, long riskScalarMicro, long riskTolMicro, bool useRiskScore)
     {
-        if (orderedCandidates is null || orderedCandidates.Count <= 1) return "ONLY";
+        if (orderedCandidates is null || orderedCandidates.Count <= One) return "ONLY";
 
-        var a = orderedCandidates[0];
-        var b = orderedCandidates[1];
+        var a = orderedCandidates[default(int)];
+        var b = orderedCandidates[One];
 
+        if (!useRiskScore)
+        {
+            if (a.HopCount != b.HopCount) return "HOPS";
+            if (a.RiskScore != b.RiskScore) return "RISK";
+            if (!string.Equals(a.RouteId, b.RouteId, StringComparison.Ordinal)) return "ROUTE_ID";
+            return "STABLE";
+        }
+
+        var sa = ComputeTotalScore(a, riskScalarMicro, riskTolMicro);
+        var sb = ComputeTotalScore(b, riskScalarMicro, riskTolMicro);
+
+        if (sa != sb) return "SCORE";
         if (a.HopCount != b.HopCount) return "HOPS";
-        if (a.RiskScore != b.RiskScore) return "RISK";
         if (!string.Equals(a.RouteId, b.RouteId, StringComparison.Ordinal)) return "ROUTE_ID";
 
         return "STABLE";
     }
 
+    private static void GetRiskKnobsMicro(SimState state, out long riskScalarMicro, out long riskTolMicro, out bool useRiskScore)
+    {
+        // Fixed-point conversion avoids floating point comparisons in ordering logic.
+        // Only activates score-based ordering when the tweak values differ from defaults.
+        if (state?.Tweaks is null)
+        {
+            riskScalarMicro = RiskMicroScale;
+            riskTolMicro = RiskMicroScale;
+            useRiskScore = false;
+            return;
+        }
+
+        // Tweaks layer is responsible for defaulting (missing fields resolve to stable defaults).
+        var scalar = state.Tweaks.RiskScalar;
+        var tol = state.Tweaks.RoleRiskToleranceDefault;
+
+        riskScalarMicro = ToMicroNonNegative(scalar, defaultMicro: RiskMicroScale);
+        riskTolMicro = ToMicroPositive(tol, defaultMicro: RiskMicroScale);
+
+        useRiskScore = !(riskScalarMicro == RiskMicroScale && riskTolMicro == RiskMicroScale);
+    }
+
+    private const long ZeroL = 0;
+
+    private static long ToMicroNonNegative(double v, long defaultMicro)
+    {
+        if (double.IsNaN(v) || double.IsInfinity(v)) return defaultMicro;
+        var micro = (long)Math.Round(v * (double)RiskMicroScale, MidpointRounding.AwayFromZero);
+        if (micro < ZeroL) micro = ZeroL;
+        return micro;
+    }
+
+    private static long ToMicroPositive(double v, long defaultMicro)
+    {
+        if (double.IsNaN(v) || double.IsInfinity(v)) return defaultMicro;
+        var micro = (long)Math.Round(v * (double)RiskMicroScale, MidpointRounding.AwayFromZero);
+        if (micro <= ZeroL) micro = defaultMicro; // failure-safe: avoid div0 and preserve legacy.
+        return micro;
+    }
+
+    private static int ComputeTotalScore(RoutePlan p, long riskScalarMicro, long riskTolMicro)
+    {
+        long travel = p?.TotalTravelTicks ?? ZeroL;
+        long risk = p?.RiskScore ?? ZeroL;
+
+        if (travel < ZeroL) travel = ZeroL;
+        if (risk < ZeroL) risk = ZeroL;
+
+        long scaledRisk;
+        if (riskScalarMicro <= ZeroL)
+        {
+            scaledRisk = ZeroL;
+        }
+        else
+        {
+            var denom = riskTolMicro > ZeroL ? riskTolMicro : RiskMicroScale;
+            scaledRisk = (risk * riskScalarMicro) / denom;
+            if (scaledRisk < ZeroL) scaledRisk = ZeroL;
+        }
+
+        long sum = travel + scaledRisk;
+        if (sum > int.MaxValue) return int.MaxValue;
+        if (sum < int.MinValue) return int.MinValue;
+        return (int)sum;
+    }
+
     private static string BuildRouteId(List<string> nodeIds)
     {
-        if (nodeIds is null || nodeIds.Count == 0) return "";
+        if (nodeIds is null || nodeIds.Count == default) return "";
         return string.Join(">", nodeIds);
     }
 
@@ -273,16 +381,16 @@ public static class RoutePlanner
     {
         // v0: deterministic integer risk proxy derived from distance (milli-AU).
         // This keeps ordering deterministic without relying on optional risk fields.
-        var dist = e.Distance > 0f ? e.Distance : 1f;
-        var milli = (int)Math.Round(dist * 1000f, MidpointRounding.AwayFromZero);
-        if (milli < 0) milli = 0;
+        var dist = e.Distance > default(float) ? e.Distance : One;
+        var milli = (int)Math.Round(dist * (float)Thousand, MidpointRounding.AwayFromZero);
+        if (milli < default(int)) milli = default(int);
         return milli;
     }
 
     private static int EdgeTravelTicks(Edge e, float speedAuPerTick)
     {
-        var speed = speedAuPerTick > 0f ? speedAuPerTick : 1f;
-        var dist = e.Distance > 0f ? e.Distance : 1f;
+        var speed = speedAuPerTick > default(float) ? speedAuPerTick : One;
+        var dist = e.Distance > default(float) ? e.Distance : One;
 
         // ceil(dist / speed), min 1.
         var raw = dist / speed;

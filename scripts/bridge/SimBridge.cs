@@ -602,17 +602,20 @@ public partial class SimBridge : Node
         if (string.IsNullOrWhiteSpace(marketId)) return -1;
         if (string.IsNullOrWhiteSpace(goodId)) return -1;
 
-        _stateLock.EnterReadLock();
-        try
+        var age = -1;
+        TryExecuteSafeRead(state =>
         {
-            var state = _kernel.State;
-            var view = IntelSystem.GetMarketGoodView(state, marketId, goodId);
-            return view.AgeTicks;
-        }
-        finally
-        {
-            _stateLock.ExitReadLock();
-        }
+            age = GetIntelAgeTicks_NoLock(state, marketId, goodId);
+        });
+        return age;
+    }
+
+    // IMPORTANT: caller must already be inside TryExecuteSafeRead.
+    // This method must not acquire _stateLock or call other locking bridge methods.
+    public int GetIntelAgeTicks_NoLock(SimCore.SimState state, string marketId, string goodId)
+    {
+        var view = IntelSystem.GetMarketGoodView(state, marketId, goodId);
+        return view.AgeTicks;
     }
 
     public Godot.Collections.Array GetSustainmentSnapshot(string marketId)

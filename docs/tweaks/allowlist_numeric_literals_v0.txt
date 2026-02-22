@@ -2,3 +2,8 @@
 # entries:
 #   <token>               (global allow)
 #   <pathRel>:<token>     (path-scoped allow)
+
+SimCore/Systems/RoutePlanner.cs:1_000_000
+SimCore/Systems/RoutePlanner.cs:1
+SimCore/Systems/RoutePlanner.cs:1000
+SimCore/Systems/RoutePlanner.cs:8

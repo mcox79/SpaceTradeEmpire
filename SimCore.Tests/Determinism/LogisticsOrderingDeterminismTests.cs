@@ -139,6 +139,45 @@ public sealed class LogisticsOrderingDeterminismTests
     }
 
     [Test]
+    public void RoutePlanner_RiskTweaks_OverrideChangesChoice_Deterministically()
+    {
+        static string RunOnce(string? tweakOverrideJson)
+        {
+            var s = new SimCore.SimState(seed: 1);
+            s.LoadTweaksFromJsonOverride(tweakOverrideJson);
+
+            s.Nodes["n_a"] = new SimCore.Entities.Node { Id = "n_a", MarketId = "m_a" };
+            s.Nodes["n_b"] = new SimCore.Entities.Node { Id = "n_b", MarketId = "m_b" };
+            s.Nodes["n_c"] = new SimCore.Entities.Node { Id = "n_c", MarketId = "m_c" };
+
+            // Two candidate paths from n_a to n_c:
+            // - Direct: 1 hop, distance 1.99 => ticks=1 at speed=2.0, risk=1990
+            // - Via B:  2 hops, distances 0.51+0.51 => ticks=2 at speed=2.0, risk=1020
+            // Default (no overrides) preserves legacy behavior (fewest hops) => direct.
+            // With risk_scalar override, score-based ordering activates and should prefer the lower-risk via-B path.
+            s.Edges["e_ac"] = new SimCore.Entities.Edge { Id = "e_ac", FromNodeId = "n_a", ToNodeId = "n_c", Distance = 1.99f, TotalCapacity = 1 };
+            s.Edges["e_ab"] = new SimCore.Entities.Edge { Id = "e_ab", FromNodeId = "n_a", ToNodeId = "n_b", Distance = 0.51f, TotalCapacity = 1 };
+            s.Edges["e_bc"] = new SimCore.Entities.Edge { Id = "e_bc", FromNodeId = "n_b", ToNodeId = "n_c", Distance = 0.51f, TotalCapacity = 1 };
+
+            Assert.That(SimCore.Systems.RoutePlanner.TryPlanChoice(s, "n_a", "n_c", speedAuPerTick: 2.0f, maxCandidates: 8, out var choice), Is.True);
+            return choice.ChosenRouteId;
+        }
+
+        var d0 = RunOnce(null);
+        var d1 = RunOnce(null);
+        Assert.That(d1, Is.EqualTo(d0));
+        Assert.That(d0, Is.EqualTo("n_a>n_c"));
+
+        var overrideJson = "{\"version\":0,\"risk_scalar\":10.0}";
+        var o0 = RunOnce(overrideJson);
+        var o1 = RunOnce(overrideJson);
+        Assert.That(o1, Is.EqualTo(o0));
+        Assert.That(o0, Is.EqualTo("n_a>n_b>n_c"));
+
+        Assert.That(o0, Is.Not.EqualTo(d0));
+    }
+
+    [Test]
     public void LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing()
     {
         static (int Delivered, int Remaining, int NextArriveTick) RunOnce(string? tweakOverrideJson)
