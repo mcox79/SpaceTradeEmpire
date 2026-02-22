@@ -19,6 +19,7 @@ function Write-FailAndExit([int]$code, [string[]]$lines) {
   $dir = Split-Path -Parent $OutReportPath
   if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
   [System.IO.File]::WriteAllText($OutReportPath, $content, [System.Text.UTF8Encoding]::new($false))
+  Write-Error $content
   exit $code
 }
 
@@ -123,12 +124,12 @@ function Is-TestPath([string]$p) {
 
 function Get-BucketKey([string]$p) {
   if (-not $p) { return "Other" }
+  if ($p.StartsWith("docs/generated/")) { return "DataGenerated" }
+  if ($p.StartsWith("SimCore.Tests/TestData/")) { return "DataGenerated" }
   if ($p.StartsWith("SimCore.Tests/")) { return "Tests" }
   if ($p.StartsWith("SimCore/")) { return "SimCore" }
   if ($p.StartsWith("scripts/tools/")) { return "DocsTooling" }
   if ($p.StartsWith("docs/")) { return "DocsTooling" }
-  if ($p.StartsWith("docs/generated/")) { return "DataGenerated" }
-  if ($p.StartsWith("SimCore.Tests/TestData/")) { return "DataGenerated" }
   if ($p.StartsWith("scripts/") -or $p.StartsWith("scenes/")) { return "UI" }
   return "Other"
 }
@@ -334,6 +335,18 @@ function Trunc([string]$s, [int]$max) {
   return $t.Substring(0, $max)
 }
 
+function Get-PropOrNull($obj, [string]$name) {
+  if ($null -eq $obj) { return $null }
+  if ($obj.PSObject.Properties.Name -contains $name) { return $obj.$name }
+  return $null
+}
+
+function Get-PropOrDefault($obj, [string]$name, $default) {
+  $v = Get-PropOrNull $obj $name
+  if ($null -eq $v) { return $default }
+  return $v
+}
+
 # ------------------ Load inputs ------------------
 
 if (-not (Test-Path -LiteralPath $IrPath)) { Write-FailAndExit 3 @("FAIL_PARSE", "missing_ir_path=$IrPath") }
@@ -345,13 +358,32 @@ $schema = Read-JsonPossiblyFenced $SchemaPath
 $ctx = Read-ContextPacket $ContextPacketPath
 $queueOrderingConst = Get-RootQueueOrderingConst $schema
 
+# IR compatibility shim: support either "head" or "context_head"
+$irHead = $null
+if ($ir.PSObject.Properties.Name -contains 'head') {
+    $irHead = [string]$ir.head
+} elseif ($ir.PSObject.Properties.Name -contains 'context_head') {
+    $irHead = [string]$ir.context_head
+}
+
+if ([string]::IsNullOrWhiteSpace($irHead)) {
+    throw "IR missing required head field (expected top-level 'head' or 'context_head')."
+}
+
+if ($irHead -ne $ctx.Head) {
+    throw "IR/context HEAD mismatch. IR=$irHead CONTEXT=$($ctx.Head)"
+}
+
+$irCapRaw = Get-PropOrNull $ir "cap"
+$irOrdering = Get-PropOrNull $ir "ordering"
+
 $lines = @()
 $lines += "PASS_FAIL: PENDING"
-$lines += "head_ir: $($ir.head)"
+$lines += "head_ir: $irHead"
 $lines += "head_ctx: $($ctx.Head)"
 $lines += "file_map_count: $($ctx.FileMap.Count)"
-$lines += "cap_ir: $($ir.cap)"
-$lines += "ordering_ir: $($ir.ordering)"
+$lines += ("cap_ir: " + ($(if ($null -eq $irCapRaw) { "(missing)" } else { ($irCapRaw | ConvertTo-Json -Compress) })))
+$lines += ("ordering_ir: " + ($(if ([string]::IsNullOrWhiteSpace(($irOrdering + ""))) { "(missing)" } else { (($irOrdering + "").Trim()) })))
 $lines += "ordering_schema_const: $queueOrderingConst"
 $lines += ("ordering_stage2: " + $queueOrderingConst)
 $lines += ""
@@ -363,13 +395,66 @@ $lines += ("repair_policy_version: " + $RepairPolicyVersion)
 $lines += "repair_rules_count: 1"
 $lines += ""
 
-if ($ir.head -ne $ctx.Head) {
+if ($irHead -ne $ctx.Head) {
   Write-FailAndExit 3 ($lines + @("FAIL_PARSE", "reason: IR head does not match context packet head"))
 }
+# IR compatibility shim:
+# - Stage1 ledger IR shape: eligible_gates[] or gates[]
+# - Prebuilt queue shape: tasks[] (already a queue)
+$eligibleGatesArr = $null
+$prebuiltTasksArr = $null
 
-if (-not $ir.eligible_gates) {
-  Write-FailAndExit 3 ($lines + @("FAIL_PARSE", "reason: IR missing eligible_gates"))
+if ($ir.PSObject.Properties.Name -contains 'eligible_gates') {
+  $eligibleGatesArr = @($ir.eligible_gates)
+} elseif ($ir.PSObject.Properties.Name -contains 'gates') {
+  $eligibleGatesArr = @($ir.gates)
+} elseif ($ir.PSObject.Properties.Name -contains 'tasks') {
+  $prebuiltTasksArr = @($ir.tasks)
 }
+
+if ($null -ne $prebuiltTasksArr) {
+  # Prebuilt tasks passthrough: write report PASS and write outputs deterministically.
+  $lines += "mode_detected: PREBUILT_TASKS"
+  $lines[0] = "PASS_FAIL: PASS"
+
+  $repDir = Split-Path -Parent $OutReportPath
+  if ($repDir -and -not (Test-Path $repDir)) { New-Item -ItemType Directory -Path $repDir | Out-Null }
+  [System.IO.File]::WriteAllText($OutReportPath, (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+
+  # Append JSON output: tasks only
+  $appDir = Split-Path -Parent $OutAppendPath
+  if ($appDir -and -not (Test-Path $appDir)) { New-Item -ItemType Directory -Path $appDir | Out-Null }
+  $jsonOut = ($prebuiltTasksArr | ConvertTo-Json -Depth 50)
+  [System.IO.File]::WriteAllText($OutAppendPath, ($jsonOut + "`n"), [System.Text.UTF8Encoding]::new($false))
+
+  if ($Mode -eq "FULL") {
+    $genUtc = Get-GitCommitIsoUtc $ctx.Head
+    $full = [ordered]@{
+      queue_contract_version = "2.2"
+      queue_ordering = $queueOrderingConst
+      generated_utc = $genUtc
+      queue_intent = ("Stage 2 passthrough (IR already contains tasks) at HEAD " + $ctx.Head)
+      tasks = $prebuiltTasksArr
+    }
+    $fullJson = ($full | ConvertTo-Json -Depth 80)
+    $fullDir = Split-Path -Parent $OutFullPath
+    if ($fullDir -and -not (Test-Path $fullDir)) { New-Item -ItemType Directory -Path $fullDir | Out-Null }
+    [System.IO.File]::WriteAllText($OutFullPath, ($fullJson + "`n"), [System.Text.UTF8Encoding]::new($false))
+  }
+
+  exit 0
+}
+
+if ($null -eq $eligibleGatesArr -or $eligibleGatesArr.Count -lt 1) {
+  Write-FailAndExit 3 ($lines + @(
+    "FAIL_PARSE",
+    "reason: IR missing input list (expected eligible_gates[], gates[], or tasks[])"
+  ))
+}
+  Write-FailAndExit 3 ($lines + @(
+    "FAIL_PARSE",
+    "reason: IR gates list is empty"
+  ))
 
 # schema introspection
 $taskDef = $schema.'$defs'.task
@@ -398,7 +483,7 @@ function Status-Rank([string]$st) {
   return 2
 }
 
-$all = @($ir.eligible_gates)
+$all = @($eligibleGatesArr)
 $candidatesTotal = $all.Count
 
 # Only TODO/IN_PROGRESS are candidates; Stage 1 may already apply this, but Stage 2 verifies.
@@ -410,9 +495,22 @@ foreach ($g in $all) {
 
 $eligibleTotal = $eligible.Count
 $cap = 0
-if ($QueueCap -gt 0) { $cap = $QueueCap }
-elseif ($ir.cap -is [int] -and $ir.cap -gt 0) { $cap = [int]$ir.cap }
-else { $cap = $eligibleTotal }
+if ($QueueCap -gt 0) {
+  $cap = $QueueCap
+} else {
+  $irCap = Get-PropOrNull $ir "cap"
+
+  if ($irCap -is [int] -and $irCap -gt 0) {
+    $cap = [int]$irCap
+  } elseif ($irCap -ne $null) {
+    $maxActive = Get-PropOrNull $irCap "max_active_gates"
+    if ($maxActive -is [int] -and $maxActive -gt 0) {
+      $cap = [int]$maxActive
+    }
+  }
+
+  if ($cap -le 0) { $cap = $eligibleTotal }
+}
 
 # Stage 2 recomputes ORDER_V1 deterministically: status rank then gate_id then candidate key
 # candidate key uses gate_title fallback gate_id (same fallback used later)
@@ -523,28 +621,28 @@ if ($missingOnDisk.Count -gt 0) {
   continue
 }
 
-  if ($e2.Count -lt 2) {
-    $notQueueable.INSUFFICIENT_EVIDENCE++
-    $dropped += [pscustomobject]@{
-      gate_id = $gateId
-      reason = "MISSING_FROM_FILEMAP"
-      missing_paths = ($missing -join "; ")
-    }
-    continue
+if ($e2.Count -lt 2) {
+  $notQueueable.INSUFFICIENT_EVIDENCE++
+  $dropped += [pscustomobject]@{
+    gate_id = $gateId
+    reason = "INSUFFICIENT_EVIDENCE"
+    missing_paths = ""
   }
+  continue
+}
 
   $anchor = Select-Anchor $e2 $null
   $eFinal = Trim-Evidence $e2 $anchor
 
-  if ($eFinal.Count -gt 6) {
-    $notQueueable.TOO_MUCH_EVIDENCE++
-    $dropped += [pscustomobject]@{
-      gate_id = $gateId
-      reason = "MISSING_FROM_FILEMAP"
-      missing_paths = ($missing -join "; ")
-    }
-    continue
+if ($eFinal.Count -gt 6) {
+  $notQueueable.TOO_MUCH_EVIDENCE++
+  $dropped += [pscustomobject]@{
+    gate_id = $gateId
+    reason = "TOO_MUCH_EVIDENCE"
+    missing_paths = ""
   }
+  continue
+}
 
   $taskId = Mint-TaskId $gateId $candKey $anchor $usedIds
 

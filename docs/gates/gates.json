@@ -1,8 +1,321 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-21T17:38:48-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 970bb2862b14cc4294530505941d2e08363900b3",
+    "generated_utc":  "2026-02-22T12:05:47-05:00",
+    "queue_intent":  "Stage 2 passthrough (IR already contains tasks) at HEAD 5c0a1ecc1f73f0d7b226c4ece25f2ff6755e3825",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.X.ROADMAP.CONSISTENCY.001",
+                      "task_id":  "GATE.X.ROADMAP.CONSISTENCY.001.T001",
+                      "status":  "TODO",
+                      "title":  "Roadmap consistency scan v0",
+                      "intent":  "Add deterministic roadmap consistency enforcement: PASS entries in session log imply DONE in gates ledger; DONE gates must have non-TBD evidence; active queue must not contain DONE gates; emit sorted mismatch report without timestamps and fail only on HARD_FAIL mismatches.",
+                      "task_preflight":  [
+                                             "Run scripts/tools/Validate-Gates.ps1 clean before starting.",
+                                             "Ensure dotnet test SimCore.Tests Release is green on main before starting."
+                                         ],
+                      "evidence_paths":  [
+                                             "scripts/tools/Scan-RoadmapConsistency.ps1",
+                                             "SimCore.Tests/Invariants/RoadmapConsistencyTests.cs",
+                                             "docs/55_GATES.md",
+                                             "docs/56_SESSION_LOG.md",
+                                             "docs/gates/gates.json",
+                                             "docs/generated/roadmap_mismatches_v0.txt"
+                                         ],
+                      "expected_touch_paths":  [
+                                                   "docs/54_EPICS.md",
+                                                   "docs/generated/epic_status_v0.md",
+                                                   "docs/roadmap/legacy_done_without_pass_allowlist_v0.txt",
+                                                   "docs/epics/epic_gate_map_v0.json"
+                                               ],
+                      "constraints":  [
+                                          "HARD_FAIL only for closeout correctness mismatches (PASS implies DONE, DONE evidence not TBD, duplicate gate ids, active queue contains DONE).",
+                                          "Epic slice%epic contradictions are WARN_ONLY and must not fail the gate.",
+                                          "Mismatch report is deterministic: stable ordering, no timestamps, UTF-8 no BOM.",
+                                          "Violations are emitted as records including severity, kind, gate_id, details; sorted by severity then kind then gate_id.",
+                                          "Session log is authoritative for PASS; do not infer completion from any other source."
+                                      ],
+                      "completion_hint":  [
+                                              "Implement Scan-RoadmapConsistency.ps1 to parse docs/55_GATES.md + docs/56_SESSION_LOG.md + docs/gates/gates.json (and optionally docs/54_EPICS.md for WARN).",
+                                              "Add RoadmapConsistencyTests.cs that runs the scan in tests and fails only on HARD_FAIL mismatches.",
+                                              "Add docs/roadmap/legacy_done_without_pass_allowlist_v0.txt (may be empty; sorted).",
+                                              "Emit docs/generated/roadmap_mismatches_v0.txt deterministically and keep it small.",
+                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes and the mismatch report is either empty or contains only WARN records."
+                                          ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STEP_A",
+                                                   "note":  "Implement scan as a pure parser+diff with deterministic output."
+                                               },
+                                               {
+                                                   "when":  "MISSING_EVIDENCE",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If legacy DONE gates lack PASS entries, use allowlist file instead of retroactive session log edits."
+                                               },
+                                               {
+                                                   "when":  "TEST_FAIL",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If test flakiness appears, tighten ordering and strip nondeterministic text from reports."
+                                               },
+                                               {
+                                                   "when":  "SCOPE_EXPANSION",
+                                                   "route":  "STEP_D",
+                                                   "note":  "Do not expand into a full epic planner. Keep it as consistency enforcement + minimal reporting."
+                                               }
+                                           ],
+                      "buckets":  [
+                                      "DocsTooling",
+                                      "Tests",
+                                      "DataGenerated"
+                                  ],
+                      "blocked_by":  [
+
+                                     ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISTINCTNESS.001",
+                      "task_id":  "GATE.S2_5.WGEN.DISTINCTNESS.001.T001",
+                      "status":  "TODO",
+                      "title":  "World class distinctness report v0",
+                      "intent":  "Prove CORE%FRONTIER%RIM classes are meaningfully different by emitting a deterministic class stats report with explicit thresholds that must pass over N=100 seeds, failing deterministically when distinctness is not met.",
+                      "task_preflight":  [
+                                             "Confirm existing worldgen N=100 tests are stable (DISTRIBUTION and NSEED).",
+                                             "Decide a minimal set of class axes to measure (2 to 4 axes only)."
+                                         ],
+                      "evidence_paths":  [
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore.Tests/GalaxyTests.cs",
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "docs/generated/class_stats_report_v0.txt"
+                                         ],
+                      "expected_touch_paths":  [
+                                                   "docs/54_EPICS.md",
+                                                   "docs/generated/worldgen_distribution_bounds_report_v0.txt",
+                                                   "scripts/tests/test_universe_validator.gd"
+                                               ],
+                      "constraints":  [
+                                          "N fixed at 100 for v0 and reported explicitly.",
+                                          "Report must be byte-for-byte stable: no timestamps, stable ordering, stable numeric formatting.",
+                                          "Distinctness must be enforced via explicit thresholds, not narrative judgment.",
+                                          "If thresholds fail, output must include which axis failed per class and the worst-case seeds (sorted asc, capped)."
+                                      ],
+                      "completion_hint":  [
+                                              "Add a deterministic stats extractor for class-level structural metrics (eg avg_degree, chokepoint_density proxy, avg_lane_capacity, fee_multiplier distribution).",
+                                              "Emit docs/generated/class_stats_report_v0.txt sorted by class then axis name.",
+                                              "Add a contract test that asserts the report exists, is stable, and thresholds pass on baseline config.",
+                                              "Add a negative test by forcing all nodes to one class or forcing identical class parameters and asserting deterministic failure output.",
+                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes and the report is stable across two runs."
+                                          ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STEP_A",
+                                                   "note":  "Keep metrics small and structural. Avoid adding new gameplay systems for v0."
+                                               },
+                                               {
+                                                   "when":  "TEST_FAIL",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If golden hash drift occurs, isolate report generation from main longrun unless explicitly allowlisted."
+                                               },
+                                               {
+                                                   "when":  "SCOPE_EXPANSION",
+                                                   "route":  "STEP_D",
+                                                   "note":  "If this turns into reworking worldgen, split: report gate first, tuning gate second."
+                                               }
+                                           ],
+                      "buckets":  [
+                                      "SimCore",
+                                      "Tests",
+                                      "DataGenerated"
+                                  ],
+                      "blocked_by":  [
+
+                                     ]
+                  },
+                  {
+                      "gate_id":  "GATE.X.CONTENT_SUBSTRATE.001",
+                      "task_id":  "GATE.X.CONTENT_SUBSTRATE.001.T001",
+                      "status":  "TODO",
+                      "title":  "Content substrate registries v0",
+                      "intent":  "Introduce versioned registries for goods%recipes%modules with schema validation, deterministic load order, and a canonical digest report; wire minimal load into world initialization without timestamps and with stable hashing.",
+                      "task_preflight":  [
+                                             "Pick one storage location for v0 content JSON (keep it consistent).",
+                                             "Choose canonical ordering rules for IDs and arrays (lex id, stable field order)."
+                                         ],
+                      "evidence_paths":  [
+                                             "docs/content/content_registry_v0.json",
+                                             "SimCore/World/WorldLoader.cs",
+                                             "SimCore/Content/ContentRegistryLoader.cs",
+                                             "SimCore/Schemas/ContentRegistrySchema.json",
+                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "docs/generated/content_registry_digest_v0.txt"
+                                         ],
+                      "expected_touch_paths":  [
+                                                   "docs/20_TESTING_AND_DETERMINISM.md",
+                                                   "SimCore/Systems/SerializationSystem.cs"
+                                               ],
+                      "constraints":  [
+                                          "Versioned schema with explicit v0; future changes must be additive or version-bumped.",
+                                          "Deterministic load order independent of file system enumeration.",
+                                          "Digest report must be stable: canonical JSON, stable ordering, no timestamps.",
+                                          "Keep scope to goods%recipes%modules only for v0."
+                                      ],
+                      "completion_hint":  [
+                                              "Define ContentRegistrySchema.json and validate docs/content/content_registry_v0.json against it.",
+                                              "Implement ContentRegistryLoader that loads registry deterministically and computes a canonical digest hash.",
+                                              "Emit docs/generated/content_registry_digest_v0.txt listing counts and canonical digest.",
+                                              "Add contract test that loads the registry twice and asserts identical digest and identical normalized in-memory ordering.",
+                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes; digest stable across two runs."
+                                          ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STEP_A",
+                                                   "note":  "Treat this as a loader+schema+digest problem, not a mod system."
+                                               },
+                                               {
+                                                   "when":  "MISSING_EVIDENCE",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If a registry file is too large, split into multiple files but keep deterministic enumeration via an explicit manifest."
+                                               },
+                                               {
+                                                   "when":  "SCOPE_EXPANSION",
+                                                   "route":  "STEP_D",
+                                                   "note":  "If authoring tools become necessary, split into a separate tooling gate."
+                                               }
+                                           ],
+                      "buckets":  [
+                                      "SimCore",
+                                      "Tests",
+                                      "DataGenerated"
+                                  ],
+                      "blocked_by":  [
+
+                                     ]
+                  },
+                  {
+                      "gate_id":  "GATE.S4.INDU.MIN_LOOP.001",
+                      "task_id":  "GATE.S4.INDU.MIN_LOOP.001.T001",
+                      "status":  "TODO",
+                      "title":  "Industry minimal loop v0",
+                      "intent":  "Implement 1 construction recipe chain producing 1 capability module via a deterministic execution pipeline; blockers are explainable and schema-bound; save%load and replay stability preserved; minimal UI readout via existing menus.",
+                      "task_preflight":  [
+                                             "Decide if industry execution is a Program type or a dedicated IndustrySystem triggered by a Program.",
+                                             "Pick one blocker failure mode to fully explain (eg missing input supply)."
+                                         ],
+                      "evidence_paths":  [
+                                             "SimCore/Systems/IndustrySystem.cs",
+                                             "SimCore/Schemas/IndustrySchema.json",
+                                             "SimCore.Tests/Industry/IndustryProgramContractTests.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/ui/StationMenu.cs",
+                                             "docs/generated/industry_min_loop_report_v0.txt"
+                                         ],
+                      "expected_touch_paths":  [
+                                                   "SimCore/Programs/ProgramSystem.cs",
+                                                   "SimCore/Events/LogisticsEvents.cs"
+                                               ],
+                      "constraints":  [
+                                          "No new UI surface required for v0; reuse StationMenu readout via SimBridge facts%events.",
+                                          "All failure modes surfaced are schema-bound, not free-text.",
+                                          "Deterministic ordering for queues, stages, and event emission; no timestamps.",
+                                          "Save%load preserves in-progress build stage and remaining inputs exactly."
+                                      ],
+                      "completion_hint":  [
+                                              "Add IndustrySchema.json for v0 objects (recipe, stage, inputs, outputs, blockers).",
+                                              "Implement IndustrySystem with deterministic stage progression per tick.",
+                                              "Add a contract test that runs N ticks, saves, loads, continues, and asserts identical final world hash and identical industry event stream.",
+                                              "Expose minimal readout in StationMenu: active build stage, time remaining, blocker reason chain, suggested action.",
+                                              "Emit docs/generated/industry_min_loop_report_v0.txt as a deterministic transcript for diffing."
+                                          ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STEP_A",
+                                                   "note":  "Keep it to a single chain and a single module. Do not add multiple facilities in v0."
+                                               },
+                                               {
+                                                   "when":  "TEST_FAIL",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If save%load diverges, add explicit stable ids for build instances and deterministic ordering in serialization."
+                                               },
+                                               {
+                                                   "when":  "SCOPE_EXPANSION",
+                                                   "route":  "STEP_D",
+                                                   "note":  "If this becomes content substrate work, stop and finish GATE.X.CONTENT_SUBSTRATE.001 first."
+                                               }
+                                           ],
+                      "buckets":  [
+                                      "SimCore",
+                                      "UI",
+                                      "Tests"
+                                  ],
+                      "blocked_by":  [
+                                         "GATE.X.CONTENT_SUBSTRATE.001 should land first to avoid hardcoded content."
+                                     ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3.RISK_MODEL.001",
+                      "task_id":  "GATE.S3.RISK_MODEL.001.T001",
+                      "status":  "TODO",
+                      "title":  "Risk model incidents v0",
+                      "intent":  "Add deterministic risk bands on lanes%routes that produce incident sinks (delay, loss, inspection) with schema-bound security events and cause chains; surface in timelines via SimBridge; preserve deterministic replay and save%load.",
+                      "task_preflight":  [
+                                             "Choose v0 incident set (2 or 3 types only) and a single deterministic trigger model.",
+                                             "Select 1 intervention verb set to expose for the primary failure mode."
+                                         ],
+                      "evidence_paths":  [
+                                             "SimCore/Systems/RiskSystem.cs",
+                                             "SimCore/Systems/RoutePlanner.cs",
+                                             "SimCore/Events/SecurityEvents.cs",
+                                             "SimCore.Tests/Security/RiskModelContractTests.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/ui/StationMenu.cs"
+                                         ],
+                      "expected_touch_paths":  [
+                                                   "SimCore/Systems/LogisticsSystem.cs",
+                                                   "SimCore/Systems/LaneFlowSystem.cs",
+                                                   "SimCore/Systems/SerializationSystem.cs"
+                                               ],
+                      "constraints":  [
+                                          "Risk must be deterministic: seeded RNG streams and stable ordering for incident resolution.",
+                                          "Events are schema-bound and include cause chains; no free-text reasons.",
+                                          "Existing route selection tie-break rules must remain stable unless explicitly revised and tested.",
+                                          "Save%load preserves pending incident state (if any) without requiring an extra tick advance."
+                                      ],
+                      "completion_hint":  [
+                                              "Implement RiskSystem that maps lane attributes (or derived bands) to incident probability deterministically per tick.",
+                                              "Define SecurityEvents schema types for v0 incidents with required fields and tie-break details.",
+                                              "Add contract tests for determinism (two runs same seed identical incident stream) and save%load continuation (mid-stream).",
+                                              "Expose incident timeline readout on StationMenu and/or Fleet view via SimBridge.",
+                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes and deterministic replay remains stable."
+                                          ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STEP_A",
+                                                   "note":  "Start with deterministic mapping from lane risk scalar to incident bands. Keep it legible and explainable."
+                                               },
+                                               {
+                                                   "when":  "TEST_FAIL",
+                                                   "route":  "STEP_B",
+                                                   "note":  "If nondeterminism appears, audit RNG usage and add ordering tie-breakers on incident resolution."
+                                               },
+                                               {
+                                                   "when":  "SCOPE_EXPANSION",
+                                                   "route":  "STEP_D",
+                                                   "note":  "If this drifts into combat, stop and split into a separate combat slice gate."
+                                               }
+                                           ],
+                      "buckets":  [
+                                      "SimCore",
+                                      "Tests",
+                                      "UI"
+                                  ],
+                      "blocked_by":  [
+
+                                     ]
+                  }
               ]
 }

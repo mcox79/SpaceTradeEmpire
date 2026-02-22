@@ -171,7 +171,14 @@ if ($global:DEVTOOL_HEADLESS) {
         )
         if ($DefaultEnableRepairs) { $args += "-EnableRepairs" }
 
-        & powershell -ExecutionPolicy Bypass -File $Stage2QueueScript @args | Out-Null
+        $stage2Output = & powershell -ExecutionPolicy Bypass -File $Stage2QueueScript @args 2>&1
+        $stage2Exit = $LASTEXITCODE
+
+        if ($stage2Output) {
+            foreach ($line in ($stage2Output | ForEach-Object { "$_" })) {
+                Log-Output ("[Stage2] " + $line)
+            }
+        }
     }
 
     function Ensure-QueueAppliedIfNeededHeadless {
@@ -419,11 +426,41 @@ function Run-BuildQueue {
         )
         if ($EnableRepairs) { $args += "-EnableRepairs" }
 
-        & powershell -ExecutionPolicy Bypass -File $Stage2QueueScript @args | Out-Null
+        $stage2Output = & powershell -ExecutionPolicy Bypass -File $Stage2QueueScript @args 2>&1
+        $stage2Exit = $LASTEXITCODE
 
-        Log-Output "QUEUE BUILT: docs/generated/gates_queue_full.json"
-        Log-Output "PREFLIGHT: docs/generated/gates_scan_preflight.md"
-        return $true
+        if ($stage2Output) {
+            foreach ($line in ($stage2Output | ForEach-Object { "$_" })) {
+                Log-Output ("[Stage2] " + $line)
+            }
+        }
+
+    if ($stage2Exit -ne 0) {
+        Log-Output "ERROR: Phase 2 script exited with code $stage2Exit"
+        if (Test-Path -LiteralPath $QueueFullPath) {
+            try {
+                $qInfo = Get-Item -LiteralPath $QueueFullPath -ErrorAction Stop
+                Log-Output "DEBUG: queue file exists but size=$($qInfo.Length) bytes"
+            } catch {}
+        }
+        return $false
+    }
+
+    if (-not (Test-Path -LiteralPath $QueueFullPath)) {
+        Log-Output "ERROR: Phase 2 completed but queue file was not created: $QueueFullPath"
+        return $false
+    }
+
+    $qInfo = Get-Item -LiteralPath $QueueFullPath -ErrorAction Stop
+    if ($qInfo.Length -le 0) {
+        Log-Output "ERROR: Phase 2 produced an empty queue file: $QueueFullPath"
+        return $false
+    }
+
+    Log-Output "QUEUE BUILT: docs/generated/gates_queue_full.json ($($qInfo.Length) bytes)"
+    Log-Output "PREFLIGHT: docs/generated/gates_scan_preflight.md"
+    Log-Output "NOTE: docs/gates/gates.json is unchanged until Phase 2b Apply Queue To Registry runs."
+    return $true
     } catch {
         Log-Output "ERROR (full):"
         Log-Output ($_ | Out-String)
@@ -441,7 +478,22 @@ function Run-ApplyQueue {
     }
 
     try {
-        Copy-Item -LiteralPath $QueueFullPath -Destination $RegistryPath -Force
+        $qInfo = Get-Item -LiteralPath $QueueFullPath -ErrorAction Stop
+        if ($qInfo.Length -le 0) {
+        throw "Queue file is empty: $QueueFullPath"
+        }
+
+        $qInfo = Get-Item -LiteralPath $QueueFullPath
+        Log-Output ("QUEUE FILE bytes: " + $qInfo.Length)
+
+        $content = Get-Content -LiteralPath $QueueFullPath -Raw -ErrorAction Stop
+        if ($null -eq $content) {
+        throw "Queue file read returned null: $QueueFullPath"
+        }
+
+        $contentNormalized = ([string]$content).TrimEnd("`r","`n") + [Environment]::NewLine
+        Write-AtomicUtf8NoBom -Path $RegistryPath -Content $contentNormalized
+
         Log-Output "REGISTRY UPDATED: docs/gates/gates.json"
         return $true
     } catch {
@@ -1380,6 +1432,53 @@ $btnBuildRegistryFresh = New-DevtoolButton $tabPipeline "Build Registry (Fresh)"
 }
 $y += 45
 
+$btnFromIrToRegistry = New-DevtoolButton $tabPipeline "From IR -> Build + Apply + Validate" 10 $y 375 40 "#2d6a4f" {
+    $btnFromIrToRegistry.Enabled = $false
+    try {
+        $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
+
+        Log-Output "IR->Registry: generating context packet"
+        $ok = Run-ContextGen
+        if (-not $ok) { Log-Output "IR->Registry: abort (Context failed)."; return }
+
+        Log-Output "IR->Registry: building queue (Stage 2)"
+        $ok = Run-BuildQueue -QueueCap $cap
+if (-not $ok) {
+    if (Test-Path -LiteralPath $QueueFullPath) {
+        try {
+            $qInfo = Get-Item -LiteralPath $QueueFullPath -ErrorAction Stop
+            if ($qInfo.Length -gt 0) {
+                Log-Output "IR->Registry: Build Queue failed, but existing non-empty queue_full.json present ($($qInfo.Length) bytes). Proceeding with Apply + Validate."
+            } else {
+                Log-Output "IR->Registry: abort (Build Queue failed and queue_full.json is empty)."
+                return
+            }
+        } catch {
+            Log-Output "IR->Registry: abort (Build Queue failed and queue_full.json could not be inspected)."
+            return
+        }
+    } else {
+        Log-Output "IR->Registry: abort (Build Queue failed and no existing queue_full.json present)."
+        return
+    }
+}
+
+        Log-Output "IR->Registry: apply queue to registry"
+        $ok = Run-ApplyQueue
+        if (-not $ok) { Log-Output "IR->Registry: abort (Apply Queue failed)."; return }
+
+        Log-Output "IR->Registry: validate registry"
+        $ok = Run-ValidateRegistry
+        if (-not $ok) { Log-Output "IR->Registry: abort (Validate failed)."; return }
+
+        Log-Output "IR->Registry: OK."
+    } finally {
+        $btnFromIrToRegistry.Enabled = $true
+        Set-StatusText
+    }
+}
+$y += 45
+
 $btnLedgerIr = New-DevtoolButton $tabPipeline "Stage 1b: Copy Ledger IR Prompt (LLM)" 10 $y 375 40 "#555555" {
     $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
     Run-LedgerIrPrompt -Cap $cap | Out-Null
@@ -1400,14 +1499,14 @@ $btnConnOnly = New-DevtoolButton $tabPipeline "Advanced: Connectivity Scan only"
 }
 $y += 45
 
-$btnBuildQueueOnly = New-DevtoolButton $tabPipeline "Advanced: Build Queue only (Stage 2)" 10 $y 375 40 "#444444" {
+$btnBuildQueueOnly = New-DevtoolButton $tabPipeline "Advanced: Build Queue only (Stage 2, no gates.json)" 10 $y 375 40 "#444444" {
     $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
     Run-BuildQueue -QueueCap $cap | Out-Null
     Set-StatusText
 }
 $y += 45
 
-$btnApplyValidateOnly = New-DevtoolButton $tabPipeline "Advanced: Apply + Validate Registry" 10 $y 375 40 "#444444" {
+$btnApplyValidateOnly = New-DevtoolButton $tabPipeline "Advanced: Apply Queue -> gates.json + Validate" 10 $y 375 40 "#444444" {
     $ok = Run-ApplyQueue
     if (-not $ok) { Set-StatusText; return }
     Run-ValidateRegistry | Out-Null

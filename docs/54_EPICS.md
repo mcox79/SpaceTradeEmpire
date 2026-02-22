@@ -25,6 +25,14 @@ Primary anchors:
 
 ---
 
+## Status semantics (source of truth)
+- docs/56_SESSION_LOG.md is authoritative for what was completed (PASS entries).
+- docs/55_GATES.md is the authoritative current status ledger (must match session log).
+- Epic and Slice statuses in this file are summaries derived from gates (see docs/generated/epic_status_v0.md).
+- If any mismatch exists, fix docs/55_GATES.md first, then regenerate epic status.
+
+---
+
 ## A. Slice map (Layer 1)
 
 ### Cross-cutting epics (apply to all slices)
@@ -32,6 +40,7 @@ These epics are always-on dependencies. Each slice should reference them as need
 
 Epics:
 - EPIC.X.DETERMINISM: Deterministic ordering rules, stable IDs, canonical serialization, replayable outcomes
+- EPIC.X.TWEAKS: Versioned tweak config with canonical hashing and deterministic injection; numeric-literal routing guard to enforce “knobs not constants”
 - EPIC.X.CONTENT_SUBSTRATE: Registries + schemas + authoring tools + validators for goods%recipes%modules%weapons%tech%anomalies%factions%warfronts%story beats
 - EPIC.X.WORLDGEN: Seed plumbing + deterministic world generation + invariant suites + injectors + seed explorer tooling (Civ-like procedural requirement)
 - EPIC.X.UI_EXPLAINABILITY: Explain-events everywhere; UI must surface “why” (profit, loss, blocked, shifts, escalations)
@@ -67,7 +76,7 @@ Rules:
 - Adapters are the only allowed crossing point (SimBridge and other explicitly named adapter layers).
 
 Acceptance proof:
-- A guard exists ensuring UI code cannot access SimCore entity graphs directly [OPEN: enforcement mechanism, prefer static]
+- A deterministic guard exists ensuring UI code cannot access SimCore entity graphs directly (static scan enforced in tests; see GATE.X.API_BOUNDARIES.GUARD.001)
 - All UI-facing reads are traceable to a SimBridge query contract
 
 #### CONTRACT.X.EVENT_TAXONOMY
@@ -130,13 +139,13 @@ DONE requires:
 - 1 forced playable path (mission or guided flow) that uses the new capability end-to-end
 - 1 explainability path that answers “why” for a representative failure mode
 - Regression suite updates:
-  - Golden replay updated or expanded
-  - If worldgen is touched: N-seed invariant suite passes (N >= 100) [TBD: N]
-  - If content schemas change: compatibility checks pass (old packs load or fail with explicit reasons)
+- Golden replay updated or expanded
+- If worldgen is touched: N-seed invariant suite passes (N = 100)
+- If content schemas change: compatibility checks pass (old packs load or fail with explicit reasons)
 - Evidence recorded in docs (gates moved, tests listed, artifacts referenced)
 
 Also required:
-- If UI is touched: GameShell smoke test passes (load minimal scene, run N ticks, exit) [OPEN: harness]
+- If UI is touched: GameShell smoke test passes (load minimal scene, run N ticks, exit; see GATE.X.GAMESHELL.SMOKE.001)
 - If save or world identity is touched: save/load identity regression passes (see CONTRACT.X.SAVE_IDENTITY)
 
 #### CONTRACT.X.INTERFACE_FREEZE_MILESTONES
@@ -183,7 +192,7 @@ Rules:
 - Budgets start loose, tighten over time. Slice 9 locks final budgets.
 
 Acceptance proof:
-- A perf regression test exists and runs in CI-like local workflow [OPEN: exact harness]
+- A perf regression test exists and runs in CI-like local workflow (see GATE.S3.PERF_BUDGET.001)
 
 #### CONTRACT.X.SAVE_IDENTITY
 Purpose: Ensure procedural worlds are stable and replayable, and prevent save from becoming a Slice 9 surprise.
@@ -282,8 +291,8 @@ Rule:
 Wave requirements (minimums, numbers are [TBD] but the existence is mandatory):
 - Slice 1: Starter goods (>= 10), 2 stations, 1 lane, 1 basic ship loadout, 1 simple contract flow (M1)
 - Slice 2: 1 program type (TradeProgram), 1 doctrine stub, 1 quote flow, 1 failure reason surfaced
-- Slice 2.5: >= 3 world classes [OPEN], 3 to 5 factions, seed suite produces distinct early loops and onboarding validity
-- Slice 3: 2 fleet roles (hauler%trader), 2 routes, 1 congestion scenario, 1 bottleneck fix visible in UI
+- Slice 2.5: >= 3 world classes (CORE, FRONTIER, RIM), 3 to 5 factions, seed suite produces distinct early loops and onboarding validity
+- Slice 3: 3 fleet roles (trader%hauler%patrol), multi-route choices, 1 congestion scenario, 1 bottleneck fix visible in UI, headless playable trade loop proof (incl save%load)
 - Slice 4: 1 reverse-engineer chain (lead -> prototype), 1 manufacturing chain, 1 refit kit pipeline
 - Slice 5: 1 weapon family, 1 counter family, 1 escort doctrine, 1 strategic resolver scenario
 - Slice 6: >= 5 anomaly families, 1 extinct-tech lead family, 1 containment failure mode with counterplay
@@ -361,6 +370,7 @@ Epics:
 - EPIC.S0.CONNECTIVITY: Connectivity scanner and zero-violation policy for Slice scope
 - EPIC.S0.QUALITY: Minimal CI-like local scripts (format, build, tests)
 - EPIC.S0.EVIDENCE: Context packet must include or reference latest scan + test + hash artifacts
+- EPIC.S0.REPO_HEALTH: One-command repo health runner enforcing generated hygiene, forbidden artifact policy, LLM size budgets, and connectivity delta discipline
 
 Exit criteria for DONE:
 - Context packet reliably surfaces scan + test + determinism evidence, or explicitly reports why missing
@@ -374,7 +384,7 @@ Status: IN_PROGRESS (ALWAYS_ON discipline; do not mark DONE. New invariants and 
 ### Slice 1 (LOCKED): Logistics + Market + Intel micro-world
 Purpose: Prove the core economic simulation loop in a tiny world, deterministically, with minimal UI.
 
-Gates: (tracked in section B)
+Gates: see docs/55_GATES.md (source of truth)
 Status: DONE
 
 ---
@@ -382,7 +392,7 @@ Status: DONE
 ### Slice 1.5 (LOCKED): Tech sustainment via supply chain
 Purpose: Prove “industry enablement depends on supply” with clear failure modes and UI.
 
-Gates: (tracked in section B)
+Gates: see docs/55_GATES.md (source of truth)
 Status: DONE
 
 ---
@@ -416,9 +426,9 @@ Epics:
 - EPIC.S2_5.WGEN.GALAXY.V0: Topology, lanes, chokepoints, capacities, regimes; starter safe region
 - EPIC.S2_5.WGEN.ECON.V0: Role distribution, recipe placement, demand sinks, initial inventories; early loop guarantees
 - EPIC.S2_5.WGEN.FACTION.V0: 3 to 5 factions, home regions, doctrines, initial relations
-- EPIC.S2_5.WGEN.WORLD_CLASSES: World classes for distinct strategic feel [OPEN: final class set + distinctiveness criteria]
-- EPIC.S2_5.WGEN.INVARIANTS: Connectivity, early viability, reachability, risk gradients, onboarding invariants
-- EPIC.S2_5.WGEN.N_SEED_TESTS: Distribution bounds across many seeds (100 to 1000) [TBD: exact N]
+- EPIC.S2_5.WGEN.WORLD_CLASSES: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier)
+- EPIC.S2_5.WGEN.INVARIANTS: Connectivity, early viability, reachability, onboarding invariants
+- EPIC.S2_5.WGEN.N_SEED_TESTS: Distribution bounds over N seeds (v0 uses N = 100; can increase later)
 - EPIC.S2_5.WGEN.DISTINCTNESS_GATE: Each world class must have:
   - at least 1 dominant constraint (eg choke scarcity vs sparse lanes vs hostile regimes)
   - at least 1 distinct discovery%warfront profile
@@ -426,7 +436,21 @@ Epics:
 - EPIC.S2_5.SAVE_IDENTITY: Save seed%params, load exact identity, hash equivalence regression
 - EPIC.S2_5.TOOL.SEED_EXPLORER: Preview, diff, invariant failure drill-down
 
-Status: TODO
+Epic status (authoritative source is gates%session log):
+| Epic | Status | Notes |
+|---|---|---|
+| EPIC.S2_5.SEEDS | DONE | Seed plumbing gates complete |
+| EPIC.S2_5.WGEN.GALAXY.V0 | DONE | Topology deterministic + dumps |
+| EPIC.S2_5.WGEN.ECON.V0 | DONE | Early loops min3 + loop report |
+| EPIC.S2_5.WGEN.FACTION.V0 | DONE | Faction seeding v0 |
+| EPIC.S2_5.WGEN.WORLD_CLASSES | DONE | CORE%FRONTIER%RIM implemented |
+| EPIC.S2_5.WGEN.INVARIANTS | DONE | Onboarding invariants suite v0 |
+| EPIC.S2_5.WGEN.N_SEED_TESTS | DONE | Distribution bounds + N=100 batch |
+| EPIC.S2_5.WGEN.DISTINCTNESS_GATE | TODO | Gate decomposition exists; proof report not yet implemented |
+| EPIC.S2_5.SAVE_IDENTITY | DONE | Worldgen save%load hash equivalence |
+| EPIC.S2_5.TOOL.SEED_EXPLORER | DONE | Seed explore%diff artifacts |
+
+Status: IN_PROGRESS
 
 ---
 
@@ -435,12 +459,25 @@ Purpose: Multi-route trade, hauling, and supply operations at scale without micr
 
 Epics:
 - EPIC.S3.LOGI.ROUTES: Route planning and lane scheduling primitives
-- EPIC.S3.FLEET_ROLES: Fleet compositions and role constraints (miner, hauler, escort)
+- EPIC.S3.FLEET_ROLES: Fleet roles and constraints (trader, hauler, patrol) that deterministically influence route-choice selection
 - EPIC.S3.MARKET_ARB: Automation that exploits spreads but is not money-printing (anti-exploit constraints enforced)
-- EPIC.S3.RISK_MODEL: Predictable risk bands, losses, insurance-like sinks
+- EPIC.S3.RISK_MODEL: Predictable risk bands, losses, insurance-like sinks (not yet implemented; tracked by gates)
 - EPIC.S3.UI_DASH: Dashboards for flows, margins, bottlenecks, intel quality
-- EPIC.S3.CAPACITY_SCARCITY: Lane slot scarcity model [OPEN: booking vs queuing vs hybrid]
+- EPIC.S3.CAPACITY_SCARCITY: Lane slot scarcity model (queueing v0)
 - EPIC.S3.PERF_BUDGET: Tick budget tests extended for logistics scaling
+- EPIC.S3.PLAY_LOOP_PROOF: Headless playable trade loop proof, including deterministic save%load continuation
+
+Epic status (authoritative source is gates%session log):
+| Epic | Status | Notes |
+|---|---|---|
+| EPIC.S3.LOGI.ROUTES | DONE | Multi-route candidates + RouteChosen |
+| EPIC.S3.FLEET_ROLES | DONE | Trader%Hauler%Patrol roles v0 |
+| EPIC.S3.MARKET_ARB | DONE | 2-friction bounded profit proof |
+| EPIC.S3.RISK_MODEL | TODO | Gate exists; incidents%loss sinks not yet present |
+| EPIC.S3.UI_DASH | DONE | Station dashboards v0 |
+| EPIC.S3.CAPACITY_SCARCITY | DONE | Queueing model implemented |
+| EPIC.S3.PERF_BUDGET | DONE | PerfBudget_Slice3_V0 enforced |
+| EPIC.S3.PLAY_LOOP_PROOF | DONE | Trade loop + save%load proof gates complete |
 
 Status: IN_PROGRESS
 

@@ -1,0 +1,13 @@
+{
+  "EPIC.S2_5.SEEDS": [
+    "GATE.S2_5.SEEDS.001",
+    "GATE.S2_5.SEEDS.002",
+    "GATE.S2_5.SEEDS.003",
+    "GATE.S2_5.SEEDS.004",
+    "GATE.S2_5.SEEDS.005",
+    "GATE.S2_5.SEEDS.006"
+  ],
+  "EPIC.S3.RISK_MODEL": [
+    "GATE.S3.RISK_MODEL.001"
+  ]
+}
