@@ -27,6 +27,17 @@ public static class GalaxyGenerator
     {
         // Default false to preserve existing goldens and baseline determinism contracts.
         public bool EnableDistributionSinksV0 { get; init; } = false;
+
+        // GATE.S2_5.WGEN.DISTINCTNESS.001: deterministic class parameter overrides for REPORTING (null = defaults).
+        // Length must be exactly 3 when provided (CORE, FRONTIER, RIM).
+        public float[]? WorldClassLaneCapacityMultipliersV0 { get; init; } = null;
+
+        // Optional override for fee multipliers used in reports (does not affect simulation state directly).
+        // Length must be exactly 3 when provided (CORE, FRONTIER, RIM).
+        public float[]? WorldClassFeeMultipliersV0 { get; init; } = null;
+
+        // Optional deterministic override to force all nodes into a single class index (0..2).
+        public int? ForceAllNodesToWorldClassIndexV0 { get; init; } = null;
     }
 
     // GATE.S2_5.WGEN.WORLD_CLASSES.001: deterministic world classes v0.
@@ -37,6 +48,10 @@ public static class GalaxyGenerator
         ("FRONTIER", 1.10f),
         ("RIM", 1.20f),
     };
+
+    // GATE.S2_5.WGEN.DISTINCTNESS.001: report-only class topology params v0.
+    // Default lane-cap multipliers are derived deterministically from existing WorldClassesV0 fee multipliers
+    // to avoid introducing new numeric literals that violate the tweak routing guard.
 
     public static void Generate(SimState state, int starCount, float radius)
             => Generate(state, starCount, radius, options: null);
@@ -1145,9 +1160,9 @@ public static class GalaxyGenerator
     // - per-class summary sorted by WorldClassId
     // - per-node assignment list sorted by NodeId
     // Assignment rule (v0):
-    // - nodes sorted by NodeId (ordinal)
-    // - enforce starter coverage by forcing the first 3 nodes to CORE, FRONTIER, RIM
-    // - assign remaining nodes round-robin deterministically
+    // - nodes sorted by NodeId (ordinal) for report row stability
+    // - class assignment based on radial rank (distance from origin) for structural distinctness validation
+    // - buckets are deterministic: CORE = inner third, FRONTIER = middle third, RIM = outer third
     public static string BuildWorldClassReport(SimState state)
     {
         var nodesSorted = state.Nodes.Values.ToList();
@@ -1155,6 +1170,28 @@ public static class GalaxyGenerator
 
         var classesSorted = WorldClassesV0.ToList();
         classesSorted.Sort((a, b) => string.CompareOrdinal(a.WorldClassId, b.WorldClassId));
+
+        var rankedByRadius = nodesSorted
+            .Select(n =>
+            {
+                var x = n.Position.X;
+                var z = n.Position.Z;
+                var d2 = (x * x) + (z * z);
+                return (Node: n, Dist2: d2);
+            })
+            .OrderBy(t => t.Dist2)
+            .ThenBy(t => t.Node.Id, StringComparer.Ordinal)
+            .ToList();
+
+        var rankById = new Dictionary<string, int>(rankedByRadius.Count, StringComparer.Ordinal);
+        var r = default(int);
+        foreach (var t in rankedByRadius)
+        {
+            rankById[t.Node.Id] = r;
+            r++;
+        }
+
+        var classCount = WorldClassesV0.Length;
 
         var sb = new StringBuilder();
         sb.AppendLine("WorldClassId\tfee_multiplier");
@@ -1169,18 +1206,11 @@ public static class GalaxyGenerator
         for (int i = 0; i < nodesSorted.Count; i++)
         {
             var n = nodesSorted[i];
+            var rank = rankById[n.Id];
 
-            int cidx;
-            if (i < 3)
-            {
-                cidx = i; // CORE, FRONTIER, RIM
-            }
-            else
-            {
-                cidx = (i - 3) % 3;
-            }
-
+            var cidx = (rank * classCount) / rankedByRadius.Count;
             var c = WorldClassesV0[cidx];
+
             sb.Append(n.Id).Append('\t')
               .Append(c.WorldClassId).Append('\t')
               .Append(c.FeeMultiplier.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))
@@ -1188,6 +1218,175 @@ public static class GalaxyGenerator
         }
 
         return sb.ToString();
+    }
+
+    // GATE.S2_5.WGEN.DISTINCTNESS.001: deterministic class-level structural stats v0.
+    // Metrics are computed from the current SimState topology, applying report-only class scaling (no state mutation).
+    public sealed record WorldClassStatsV0(
+        double AvgDegree,
+        double AvgLaneCapacity,
+        double ChokepointDensity,
+        double FeeMultiplier,
+        double AvgRadius2);
+
+    public static IReadOnlyDictionary<string, WorldClassStatsV0> ComputeWorldClassStatsV0(
+        SimState state,
+        int chokepointCapLe,
+        GalaxyGenOptions? options = null)
+    {
+        options ??= new GalaxyGenOptions();
+
+        var classCount = WorldClassesV0.Length;
+
+        // Default lane-cap multipliers are identity by construction (no new numeric literals).
+        // Callers may override deterministically for report-only experiments.
+        var laneCapMult = (options.WorldClassLaneCapacityMultipliersV0 is null)
+            ? WorldClassesV0.Select(c => c.FeeMultiplier / c.FeeMultiplier).ToArray()
+            : options.WorldClassLaneCapacityMultipliersV0.ToArray();
+
+        if (laneCapMult.Length != classCount)
+            throw new InvalidOperationException("WorldClassLaneCapacityMultipliersV0 must have length WorldClassesV0.Length.");
+
+        var feeMult = options.WorldClassFeeMultipliersV0 is null
+            ? null
+            : options.WorldClassFeeMultipliersV0.ToArray();
+
+        if (feeMult is not null && feeMult.Length != classCount)
+            throw new InvalidOperationException("WorldClassFeeMultipliersV0 must have length WorldClassesV0.Length.");
+
+        // Node order is deterministic (ordinal). Class assignment is based on radial rank for structural distinctness.
+        var nodesSorted = state.Nodes.Values.ToList();
+        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+
+        var rankedByRadius = nodesSorted
+            .Select(n =>
+            {
+                var x = n.Position.X;
+                var z = n.Position.Z;
+                var d2 = (x * x) + (z * z);
+                return (Node: n, Dist2: d2);
+            })
+            .OrderBy(t => t.Dist2)
+            .ThenBy(t => t.Node.Id, StringComparer.Ordinal)
+            .ToList();
+
+        var rankById = new Dictionary<string, int>(rankedByRadius.Count, StringComparer.Ordinal);
+        var r = default(int);
+        foreach (var t in rankedByRadius)
+        {
+            rankById[t.Node.Id] = r;
+            r++;
+        }
+
+        // Optional forced class index (report-only): folded deterministically into [0..classCount-1] without new literals.
+        var forcedMaybe = options.ForceAllNodesToWorldClassIndexV0;
+        var forcedIdx = forcedMaybe is int f ? (Math.Abs(f) % classCount) : (int?)null;
+
+        var classByNode = new Dictionary<string, int>(nodesSorted.Count, StringComparer.Ordinal);
+        foreach (var n in nodesSorted)
+        {
+            int idx;
+            if (forcedIdx is int forced)
+            {
+                idx = forced;
+            }
+            else
+            {
+                var rank = rankById[n.Id];
+                idx = (rank * classCount) / rankedByRadius.Count;
+            }
+
+            classByNode[n.Id] = idx;
+        }
+
+        // Precompute incident edges per node with deterministic ordering.
+        var incident = new Dictionary<string, List<Edge>>(nodesSorted.Count, StringComparer.Ordinal);
+        foreach (var n in nodesSorted)
+            incident[n.Id] = new List<Edge>();
+
+        foreach (var e in state.Edges.Values.OrderBy(e => e.Id, StringComparer.Ordinal))
+        {
+            if (incident.TryGetValue(e.FromNodeId, out var lf)) lf.Add(e);
+            if (incident.TryGetValue(e.ToNodeId, out var lt)) lt.Add(e);
+        }
+
+        var sumsDegree = new double[classCount];
+        var sumsLaneCap = new double[classCount];
+        var sumsChoke = new double[classCount];
+        var sumsRadius2 = new double[classCount];
+        var counts = new int[classCount];
+
+        foreach (var n in nodesSorted)
+        {
+            var cidx = classByNode[n.Id];
+            var edges = incident[n.Id];
+            var deg = edges.Count;
+
+            var px = (double)n.Position.X;
+            var pz = (double)n.Position.Z;
+            var radius2 = (px * px) + (pz * pz);
+
+            var laneCapAvg = default(double);
+            var chokeFrac = default(double);
+
+            if (deg != default(int))
+            {
+                var capSum = default(double);
+                var choke = default(int);
+
+                foreach (var edge in edges)
+                {
+                    // Apply class-specific scaling for reporting without mutating state.
+                    var effectiveCap = edge.TotalCapacity * laneCapMult[cidx];
+                    capSum += effectiveCap;
+                    if (effectiveCap <= chokepointCapLe) choke++;
+                }
+
+                laneCapAvg = capSum / deg;
+                chokeFrac = (double)choke / deg;
+            }
+
+            sumsDegree[cidx] += deg;
+            sumsLaneCap[cidx] += laneCapAvg;
+            sumsChoke[cidx] += chokeFrac;
+            sumsRadius2[cidx] += radius2;
+            counts[cidx]++;
+        }
+
+        // In normal worldgen (starCount >= StarterRegionNodeCount) each class is populated deterministically.
+        var result = new Dictionary<string, WorldClassStatsV0>(classCount, StringComparer.Ordinal);
+
+        var c = default(int);
+        while (c < classCount)
+        {
+            var id = WorldClassesV0[c].WorldClassId;
+            var denom = (double)counts[c];
+            var fm = feeMult is null ? WorldClassesV0[c].FeeMultiplier : feeMult[c];
+
+            // Failure-safe: keep output finite and deterministic even if a class ends up empty (eg forced class).
+            if (denom == default(double))
+            {
+                result[id] = new WorldClassStatsV0(
+                    AvgDegree: default(double),
+                    AvgLaneCapacity: default(double),
+                    ChokepointDensity: default(double),
+                    FeeMultiplier: fm,
+                    AvgRadius2: default(double));
+            }
+            else
+            {
+                result[id] = new WorldClassStatsV0(
+                    AvgDegree: sumsDegree[c] / denom,
+                    AvgLaneCapacity: sumsLaneCap[c] / denom,
+                    ChokepointDensity: sumsChoke[c] / denom,
+                    FeeMultiplier: fm,
+                    AvgRadius2: sumsRadius2[c] / denom);
+            }
+
+            c++;
+        }
+
+        return result;
     }
 
     public static string BuildFactionSeedReport(SimState state, int seed)

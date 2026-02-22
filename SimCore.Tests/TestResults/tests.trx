@@ -1,0 +1,981 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="e0cea3b3-825c-4e54-bad4-546f4aade756" name="marsh@FRAMEWORKMPC 2026-02-22 14:49:43" runUser="FRAMEWORKMPC\marsh" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-02-22T14:49:44.0045656-05:00" queuing="2026-02-22T14:49:44.0045662-05:00" start="2026-02-22T14:49:42.5820808-05:00" finish="2026-02-22T14:50:15.1599915-05:00" />
+  <TestSettings name="default" id="7b8b047a-a232-45dc-a3fc-7d025b556c51">
+    <Deployment runDeploymentRoot="marsh_FRAMEWORKMPC_2026-02-22_14_49_43" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="e887e722-e15f-4de9-bb18-aeaf238b2b40" testId="08e87e66-8f8f-5ce1-82f0-d307d04ebe93" testName="SaveLoad_RoundTrip_Preserves_ManualOverrideNodeId_Exactly" computerName="FRAMEWORKMPC" duration="00:00:00.0196640" startTime="2026-02-22T14:50:14.2651148-05:00" endTime="2026-02-22T14:50:14.2847782-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e887e722-e15f-4de9-bb18-aeaf238b2b40" />
+    <UnitTestResult executionId="52b95c0a-a747-4d9a-9592-48fd18e33c5d" testId="b51de1ca-b3ea-9eac-fa0d-b3e4a00db978" testName="PROG_UI_001_manual_override_job_cancel_emits_event_and_pauses_programs" computerName="FRAMEWORKMPC" duration="00:00:00.0018820" startTime="2026-02-22T14:50:14.2373183-05:00" endTime="2026-02-22T14:50:14.2391997-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="52b95c0a-a747-4d9a-9592-48fd18e33c5d" />
+    <UnitTestResult executionId="762e7165-4d05-4835-8a6e-b8ab76e280da" testId="ec592b2c-fd3c-4661-c798-f28a1b337275" testName="Industry_ConsumesInputs_AndProducesOutputs" computerName="FRAMEWORKMPC" duration="00:00:00.0011250" startTime="2026-02-22T14:50:13.6269413-05:00" endTime="2026-02-22T14:50:13.6280674-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="762e7165-4d05-4835-8a6e-b8ab76e280da" />
+    <UnitTestResult executionId="ea36d219-7fbc-4897-be82-d1e700c6098a" testId="2f8387ed-2135-4ac2-1263-b855695950d4" testName="SeedExplorer_V0_Reports_Are_ByteForByte_Deterministic_And_NoTimeLeakage" computerName="FRAMEWORKMPC" duration="00:00:00.0130569" startTime="2026-02-22T14:50:11.5702767-05:00" endTime="2026-02-22T14:50:11.5833330-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ea36d219-7fbc-4897-be82-d1e700c6098a" />
+    <UnitTestResult executionId="d767aa6f-6eb0-4f69-8905-4ad04e036506" testId="faf06bcb-9da3-d8ff-ce5c-beb91d5f46ca" testName="Basic_Invariants_Hold_After_Stepping" computerName="FRAMEWORKMPC" duration="00:00:00.2017260" startTime="2026-02-22T14:50:13.6324586-05:00" endTime="2026-02-22T14:50:13.8341833-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d767aa6f-6eb0-4f69-8905-4ad04e036506" />
+    <UnitTestResult executionId="de55c908-5964-4edb-90fb-feaa9f935273" testId="f303766c-d899-bd2a-93a5-4a4d0bff73c6" testName="SaveLoad_ProgramsPersist_PendingIntentsDiscarded" computerName="FRAMEWORKMPC" duration="00:00:00.0061970" startTime="2026-02-22T14:50:14.3041372-05:00" endTime="2026-02-22T14:50:14.3103332-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="de55c908-5964-4edb-90fb-feaa9f935273" />
+    <UnitTestResult executionId="f06d9e3e-be6e-4fe3-b8e9-b2315e0c9d21" testId="59c2bb00-fe56-9931-82a5-1c775eb9a028" testName="Reservation_ProtectsSupplierInventory_FromNonOwnerLoads" computerName="FRAMEWORKMPC" duration="00:00:00.0015940" startTime="2026-02-22T14:50:14.9945575-05:00" endTime="2026-02-22T14:50:14.9961514-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f06d9e3e-be6e-4fe3-b8e9-b2315e0c9d21" />
+    <UnitTestResult executionId="70e01da9-c9cc-4ab1-8a19-0c8cc349b84c" testId="6205d599-13ba-e649-cd45-37cfdbb233e1" testName="QUOTE_001_request_plus_snapshot_produces_deterministic_schema_bound_quote_against_golden" computerName="FRAMEWORKMPC" duration="00:00:00.0154260" startTime="2026-02-22T14:50:14.2394741-05:00" endTime="2026-02-22T14:50:14.2548993-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70e01da9-c9cc-4ab1-8a19-0c8cc349b84c" />
+    <UnitTestResult executionId="5e57447d-4685-4be7-81bd-3951340c42d6" testId="83d8e03f-1017-5332-356c-3f070a3bb76c" testName="FactionSeeding_Report_IsDeterministic_AndDiffsAcrossSeeds" computerName="FRAMEWORKMPC" duration="00:00:00.0185060" startTime="2026-02-22T14:50:11.7706193-05:00" endTime="2026-02-22T14:50:11.7891239-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e57447d-4685-4be7-81bd-3951340c42d6" />
+    <UnitTestResult executionId="a46da143-3a78-4384-b690-b5cd93deaab2" testId="f5c2d853-1481-f87d-6971-6d001e272239" testName="TimeContract_Constants_AreLocked" computerName="FRAMEWORKMPC" duration="00:00:00.0002360" startTime="2026-02-22T14:50:15.0172966-05:00" endTime="2026-02-22T14:50:15.0175325-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a46da143-3a78-4384-b690-b5cd93deaab2" />
+    <UnitTestResult executionId="5757f6b2-50e1-4f12-b2bb-166a2536009b" testId="e357e99b-dfc2-7a0f-9cfa-a76af3c7a5a5" testName="Cancel_WhenPickupLoadsZero_ClearsFleetStateDeterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0016090" startTime="2026-02-22T14:50:14.9737052-05:00" endTime="2026-02-22T14:50:14.9753136-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5757f6b2-50e1-4f12-b2bb-166a2536009b" />
+    <UnitTestResult executionId="97a6c20e-3205-4340-968b-100c0cbbc173" testId="5cc51b37-fd03-4fc8-940f-30b6e56c23c0" testName="TwoFleets_LogisticsAndLaneContention_IsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0678120" startTime="2026-02-22T14:49:43.5951808-05:00" endTime="2026-02-22T14:49:43.6629920-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="97a6c20e-3205-4340-968b-100c0cbbc173" />
+    <UnitTestResult executionId="bb62093e-c3d9-4e1a-baa9-23ef6d9a4100" testId="b883516b-c285-28e3-c3e2-fb020fa763b5" testName="FleetTravelsOneEdgePerTickFollowingPlannedRoute" computerName="FRAMEWORKMPC" duration="00:00:00.0016630" startTime="2026-02-22T14:50:14.9524532-05:00" endTime="2026-02-22T14:50:14.9541159-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bb62093e-c3d9-4e1a-baa9-23ef6d9a4100" />
+    <UnitTestResult executionId="1c214d0e-9b9e-4eb3-a2ce-fd26fd319db3" testId="65af4c0b-3da9-f7ff-68b6-299671495683" testName="LoadCargo_ClampsToMarketAvailable_AndNoNegatives" computerName="FRAMEWORKMPC" duration="00:00:00.0015820" startTime="2026-02-22T14:50:15.0000435-05:00" endTime="2026-02-22T14:50:15.0016255-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1c214d0e-9b9e-4eb3-a2ce-fd26fd319db3" />
+    <UnitTestResult executionId="75d99ad0-455d-4ca4-af19-3428a1b7271b" testId="dba9ba7c-9c45-cb71-0846-0a94b14929e6" testName="World001_PlansDirectRoute" computerName="FRAMEWORKMPC" duration="00:00:00.0009110" startTime="2026-02-22T14:50:15.0122244-05:00" endTime="2026-02-22T14:50:15.0131349-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="75d99ad0-455d-4ca4-af19-3428a1b7271b" />
+    <UnitTestResult executionId="90bc4dd4-ecdb-412b-badd-4bd6acf0ae3a" testId="9fd3495b-a209-1fa8-7957-e4f2307d3956" testName="Signal_TraceAndHeat_ArePersistedInSignature" computerName="FRAMEWORKMPC" duration="00:00:00.0009500" startTime="2026-02-22T14:50:14.8339361-05:00" endTime="2026-02-22T14:50:14.8348854-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="90bc4dd4-ecdb-412b-badd-4bd6acf0ae3a" />
+    <UnitTestResult executionId="c7295580-c37a-4d18-b3c5-f0ad9db8a384" testId="c4bc9732-0b25-efe8-0dac-b5b02d64cd89" testName="PlannedJob_ExecutesPickupAndDelivery_ExactlyOnce" computerName="FRAMEWORKMPC" duration="00:00:00.0008740" startTime="2026-02-22T14:50:14.9878884-05:00" endTime="2026-02-22T14:50:14.9887618-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7295580-c37a-4d18-b3c5-f0ad9db8a384" />
+    <UnitTestResult executionId="57bcf42f-4189-4875-a892-2e8890bb9936" testId="affa2024-fd18-3e80-3376-215426f210d1" testName="Monotonicity_ScarcerStock_IncreasesAllPrices" computerName="FRAMEWORKMPC" duration="00:00:00.0004160" startTime="2026-02-22T14:50:14.1313271-05:00" endTime="2026-02-22T14:50:14.1317433-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="57bcf42f-4189-4875-a892-2e8890bb9936" />
+    <UnitTestResult executionId="96c92425-5c42-4edf-ac73-0662c18ac00a" testId="f01fb897-1409-3ef0-b33b-0f3cdd76e8c9" testName="PartialPickup_DeliversOnlyWhatWasLoaded" computerName="FRAMEWORKMPC" duration="00:00:00.0014780" startTime="2026-02-22T14:50:14.9889840-05:00" endTime="2026-02-22T14:50:14.9904619-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="96c92425-5c42-4edf-ac73-0662c18ac00a" />
+    <UnitTestResult executionId="092fc848-4458-448b-8d65-51db300cf7ee" testId="48fea739-6bc4-ebb5-5474-43187d220ee4" testName="TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0" computerName="FRAMEWORKMPC" duration="00:00:00.0358170" startTime="2026-02-22T14:50:14.0446694-05:00" endTime="2026-02-22T14:50:14.0804852-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="092fc848-4458-448b-8d65-51db300cf7ee">
+      <Output>
+        <ErrorInfo>
+          <Message>  Tweak routing guard violations:&#xD;
+SimCore/Gen/GalaxyGenerator.cs:54:0.6f&#xD;
+SimCore/Gen/GalaxyGenerator.cs:54:1.2f&#xD;
+SimCore/Gen/GalaxyGenerator.cs:54:2.0f&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1227:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1236:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1249:2&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1251:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1254:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1254:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1262:8&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1270:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1271:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1272:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1273:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1282:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1283:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1285:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1286:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1287:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1304:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1305:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1305:3&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1308:1&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1331:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1359:0&#xD;
+SimCore/Gen/GalaxyGenerator.cs:1363:0&#xD;
+Report: docs/generated/tweak_routing_guard_violations_v0.txt&#xD;
+  Expected: 0&#xD;
+  But was:  26&#xD;
+</Message>
+          <StackTrace>   at SimCore.Tests.Invariants.RuntimeFileContractTests.TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0() in D:\SGE\SpaceTradeEmpire\SimCore.Tests\Invariants\RuntimeFileContractTests.cs:line 85&#xD;
+
+1)    at SimCore.Tests.Invariants.RuntimeFileContractTests.TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0() in D:\SGE\SpaceTradeEmpire\SimCore.Tests\Invariants\RuntimeFileContractTests.cs:line 85&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0897780a-94f4-41c1-b9c7-14bd9afb7197" testId="d257707c-5abe-1a0c-ba75-f976b8691219" testName="SaveLoad_RoundTrip_Preserves_OverrideDrivenRouting_Intention" computerName="FRAMEWORKMPC" duration="00:00:00.0190470" startTime="2026-02-22T14:50:14.2848290-05:00" endTime="2026-02-22T14:50:14.3038753-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0897780a-94f4-41c1-b9c7-14bd9afb7197" />
+    <UnitTestResult executionId="930ed744-65e4-4c86-ac99-dbf4c35582a1" testId="258407be-2eb2-93ed-7222-5aae254c3855" testName="SeedExplorer_V0_DiffReports_Are_ByteForByte_Deterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0082750" startTime="2026-02-22T14:50:11.5619517-05:00" endTime="2026-02-22T14:50:11.5702259-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="930ed744-65e4-4c86-ac99-dbf4c35582a1" />
+    <UnitTestResult executionId="b3c25a9e-70eb-42f3-b286-940441c11cfa" testId="fb2bd6ce-18a4-871e-1874-97d00d1f025d" testName="BufferTarget_Is_Zero_When_BufferDays_Is_Zero" computerName="FRAMEWORKMPC" duration="00:00:00.0002540" startTime="2026-02-22T14:50:14.8351208-05:00" endTime="2026-02-22T14:50:14.8353746-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b3c25a9e-70eb-42f3-b286-940441c11cfa" />
+    <UnitTestResult executionId="04b8f113-0a58-4c73-9de6-27759a6b22ba" testId="cd17e1d7-bfb8-b528-4a3d-6f1c643b2034" testName="Program_LongRun_FinalSignature_IsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0069170" startTime="2026-02-22T14:50:11.7539937-05:00" endTime="2026-02-22T14:50:11.7609107-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="04b8f113-0a58-4c73-9de6-27759a6b22ba" />
+    <UnitTestResult executionId="c086dc1f-a88e-43a4-96b4-22718bf33eb5" testId="8cf1dbbd-4506-f5dd-ac4d-cd27d5258730" testName="Containment_ClampsTrace_ToZero" computerName="FRAMEWORKMPC" duration="00:00:00.0317350" startTime="2026-02-22T14:49:43.5583430-05:00" endTime="2026-02-22T14:49:43.5900783-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c086dc1f-a88e-43a4-96b4-22718bf33eb5" />
+    <UnitTestResult executionId="ddf17e69-d401-46d0-bfbf-58527e49c3f3" testId="be0cd5fc-107a-20d9-d6b5-cd6d244f0149" testName="MovementSystem_AdvancesProgress_AndArrives" computerName="FRAMEWORKMPC" duration="00:00:00.0029550" startTime="2026-02-22T14:50:15.0177461-05:00" endTime="2026-02-22T14:50:15.0207011-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ddf17e69-d401-46d0-bfbf-58527e49c3f3" />
+    <UnitTestResult executionId="34754465-5a18-4ba3-9b42-87472e798bee" testId="e9ed0dc3-6138-2eef-aae8-aef162079197" testName="MultiRouteCandidates_OrdersByHopsThenRiskThenRouteId" computerName="FRAMEWORKMPC" duration="00:00:00.0013649" startTime="2026-02-22T14:50:15.0101482-05:00" endTime="2026-02-22T14:50:15.0115132-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="34754465-5a18-4ba3-9b42-87472e798bee" />
+    <UnitTestResult executionId="cfafc20e-eb60-4bd5-8d09-6277ac36b8c4" testId="c944b59e-30c7-d0be-197a-ac0921f227b6" testName="Simulation_Is_Deterministic_With_Input" computerName="FRAMEWORKMPC" duration="00:00:01.4498640" startTime="2026-02-22T14:50:12.1747950-05:00" endTime="2026-02-22T14:50:13.6246501-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cfafc20e-eb60-4bd5-8d09-6277ac36b8c4">
+      <Output>
+        <StdOut>Genesis Hash: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final Hash A: DACCFA3B9681B7A654D8C825A3394B25108F07E9FC9EE1B09CE71B35A20FFEAD&#xD;
+Final Hash B: DACCFA3B9681B7A654D8C825A3394B25108F07E9FC9EE1B09CE71B35A20FFEAD</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="02ff796a-7127-4fcc-a774-5e0e2da52ccd" testId="7c4fd7a0-5368-214c-036e-e2c47d2b18a2" testName="PublishedPrices_Initialize_AndRemainStable_WithinWindow" computerName="FRAMEWORKMPC" duration="00:00:00.0007370" startTime="2026-02-22T14:50:15.0048617-05:00" endTime="2026-02-22T14:50:15.0055986-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="02ff796a-7127-4fcc-a774-5e0e2da52ccd" />
+    <UnitTestResult executionId="65bef155-72da-46fd-b44e-1c381589c9b1" testId="cf507909-f2fb-5031-715d-1ce0c0ac4705" testName="PerfBudget_Slice3_V0_AverageTickTime_WithinBudget_And_ReportDeterministic" computerName="FRAMEWORKMPC" duration="00:00:08.0471820" startTime="2026-02-22T14:50:03.3802865-05:00" endTime="2026-02-22T14:50:11.4274196-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="65bef155-72da-46fd-b44e-1c381589c9b1">
+      <Output>
+        <StdOut>PERF_BUDGET_REPORT_V0&#xD;
+seed=424242&#xD;
+ticks_total=600&#xD;
+ticks_measured=300&#xD;
+fleets=60&#xD;
+active_transfers=200&#xD;
+budget_ms_per_tick=50&#xD;
+total_ms_measured=3801.679&#xD;
+avg_ms_per_tick=12.672</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8e9829f9-4888-43e3-aaf0-3411499b1d90" testId="1ee510b9-84d4-5166-192d-4c98ecb1bb66" testName="IfSupplierRefillsBeforeN_JobRetriesAndCompletes" computerName="FRAMEWORKMPC" duration="00:00:00.0019490" startTime="2026-02-22T14:50:14.9964819-05:00" endTime="2026-02-22T14:50:14.9984303-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8e9829f9-4888-43e3-aaf0-3411499b1d90" />
+    <UnitTestResult executionId="b617abe1-5219-417f-9224-eb34ef11284d" testId="4927cf3c-0fe2-5631-c9ee-851977ff9fc1" testName="FLEET_001_is_deterministic_by_signature" computerName="FRAMEWORKMPC" duration="00:00:00.0016040" startTime="2026-02-22T14:50:14.2078187-05:00" endTime="2026-02-22T14:50:14.2094224-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b617abe1-5219-417f-9224-eb34ef11284d" />
+    <UnitTestResult executionId="a751a339-574f-4fce-ac92-b26c7a40bf31" testId="b3d2af46-855b-10e8-94de-0899444e045b" testName="Execution_IsDeterministicAcrossFreshRuns" computerName="FRAMEWORKMPC" duration="00:00:00.0016280" startTime="2026-02-22T14:50:14.9862180-05:00" endTime="2026-02-22T14:50:14.9878461-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a751a339-574f-4fce-ac92-b26c7a40bf31" />
+    <UnitTestResult executionId="bf1ac461-3d28-47d6-b849-bda9386efeba" testId="dd29825b-0a13-45bf-bc59-4d11f3b63684" testName="SaveLoad_RoundTrip_Preserves_WorldHash_And_Seed" computerName="FRAMEWORKMPC" duration="00:00:00.4695720" startTime="2026-02-22T14:50:14.3638511-05:00" endTime="2026-02-22T14:50:14.8334200-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bf1ac461-3d28-47d6-b849-bda9386efeba">
+      <Output>
+        <StdOut>SaveLoad Seed (expected): 123&#xD;
+SaveLoad Seed (saved): 123&#xD;
+SaveLoad Seed (resaved): 123&#xD;
+SaveLoad Before Hash: 0E427955737A6CABB5964F5B94776431DE5E74668962C811C6F6A9D2BEC0BF64&#xD;
+SaveLoad After  Hash: 0E427955737A6CABB5964F5B94776431DE5E74668962C811C6F6A9D2BEC0BF64</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="56d515c0-ba17-4e3c-a285-b62cfdb9d449" testId="3af0ef18-904c-63fb-09b9-7ca5c7f02ae4" testName="Intents_AreProcessed_And_Cleared" computerName="FRAMEWORKMPC" duration="00:00:00.0016149" startTime="2026-02-22T14:50:13.6297285-05:00" endTime="2026-02-22T14:50:13.6313427-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="56d515c0-ba17-4e3c-a285-b62cfdb9d449" />
+    <UnitTestResult executionId="caa321b3-be5b-42f9-ba2a-881d697c7d04" testId="1b8d2cd0-4ecc-09fe-e217-27d7827d08c3" testName="Transcript_Tick0_IncludesTweaksVersionAndHash_ExactLine" computerName="FRAMEWORKMPC" duration="00:00:00.0009620" startTime="2026-02-22T14:49:43.8675340-05:00" endTime="2026-02-22T14:49:43.8684956-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="caa321b3-be5b-42f9-ba2a-881d697c7d04" />
+    <UnitTestResult executionId="02d46480-cd70-4b42-a843-54e4369409d4" testId="cab6ea2e-853f-e9cc-73f0-1fd5eaf2e39c" testName="World001_IsDeterministic_BySignature" computerName="FRAMEWORKMPC" duration="00:00:00.0144270" startTime="2026-02-22T14:50:15.0217759-05:00" endTime="2026-02-22T14:50:15.0362028-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="02d46480-cd70-4b42-a843-54e4369409d4" />
+    <UnitTestResult executionId="8b5383a9-64e5-48b4-b99b-f9dd033d7c62" testId="ec5c371e-cf9b-110e-550a-252812f8c077" testName="LogisticsEvents_AreSchemaBound_AndDeterministicAcrossFreshRuns" computerName="FRAMEWORKMPC" duration="00:00:00.0053040" startTime="2026-02-22T14:50:14.9758091-05:00" endTime="2026-02-22T14:50:14.9811120-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8b5383a9-64e5-48b4-b99b-f9dd033d7c62" />
+    <UnitTestResult executionId="e6e1db6f-a6a1-49db-a4fe-0e85baf8243d" testId="84ed8c95-4b7a-1889-e3d2-54b815f17cea" testName="ManualOverride_CancelsActiveLogisticsJob_AndDoesNotResumeWhenCleared" computerName="FRAMEWORKMPC" duration="00:00:00.0117990" startTime="2026-02-22T14:50:14.9277715-05:00" endTime="2026-02-22T14:50:14.9395704-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6e1db6f-a6a1-49db-a4fe-0e85baf8243d" />
+    <UnitTestResult executionId="f84a3b43-a00d-4ce0-a3e2-d7c51fd3fdda" testId="cc049097-19ba-722e-2881-a00c390cfe11" testName="SimKernel_Step_AdvancesExactlyOneTick" computerName="FRAMEWORKMPC" duration="00:00:00.0004380" startTime="2026-02-22T14:50:15.0168258-05:00" endTime="2026-02-22T14:50:15.0172637-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f84a3b43-a00d-4ce0-a3e2-d7c51fd3fdda" />
+    <UnitTestResult executionId="783bbc3d-2ab1-4aa0-a7ae-d709fc30ddb6" testId="ec1393c4-4703-4e7e-782c-715fcac654e8" testName="MidPrice_ZeroSupply_IsHigh" computerName="FRAMEWORKMPC" duration="00:00:00.0002300" startTime="2026-02-22T14:50:14.1310774-05:00" endTime="2026-02-22T14:50:14.1313068-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="783bbc3d-2ab1-4aa0-a7ae-d709fc30ddb6" />
+    <UnitTestResult executionId="15483e33-7206-41c7-9494-b1b61f8ca591" testId="1a0c9cd1-005f-cc36-ba7b-047adaef086b" testName="LogisticsEvents_SameTick_OrderIsDeterministic_UnderMultiFleetContention" computerName="FRAMEWORKMPC" duration="00:00:00.0096120" startTime="2026-02-22T14:49:43.8556659-05:00" endTime="2026-02-22T14:49:43.8652771-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="15483e33-7206-41c7-9494-b1b61f8ca591" />
+    <UnitTestResult executionId="c661322b-25a4-462a-91c4-c0858523db53" testId="d78d3c06-2886-7fef-301b-969b2fea4581" testName="SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess" computerName="FRAMEWORKMPC" duration="00:00:00.0213860" startTime="2026-02-22T14:50:14.0139074-05:00" endTime="2026-02-22T14:50:14.0352925-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c661322b-25a4-462a-91c4-c0858523db53" />
+    <UnitTestResult executionId="d369e502-e717-4ae0-8bbb-07ba524e7c8c" testId="fe4d9ece-ac92-7e10-00c6-eb1ede788034" testName="TechSite_With_TwoInputs_Consumes_Both_EachTick_When_Supplied" computerName="FRAMEWORKMPC" duration="00:00:00.0007200" startTime="2026-02-22T14:50:14.8646039-05:00" endTime="2026-02-22T14:50:14.8653237-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d369e502-e717-4ae0-8bbb-07ba524e7c8c" />
+    <UnitTestResult executionId="deb3f05a-14c6-48c6-921c-87d6af92a723" testId="9c0a4bac-e37b-6e5f-071e-9be8ea0c0e89" testName="BufferTarget_Scales_Linearly_With_PerTick_Input" computerName="FRAMEWORKMPC" duration="00:00:00.0002920" startTime="2026-02-22T14:50:14.8357236-05:00" endTime="2026-02-22T14:50:14.8360152-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="deb3f05a-14c6-48c6-921c-87d6af92a723" />
+    <UnitTestResult executionId="b1561b08-02c9-4caa-9088-ee32e3b35dde" testId="33a77fea-2060-f908-e4ac-1b3130c730a1" testName="TweaksConfigHash_IsDeterministic_AndOverrideChangesIt" computerName="FRAMEWORKMPC" duration="00:00:00.0008540" startTime="2026-02-22T14:49:43.8685219-05:00" endTime="2026-02-22T14:49:43.8693755-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b1561b08-02c9-4caa-9088-ee32e3b35dde" />
+    <UnitTestResult executionId="126df11c-779b-4a5c-a124-2f45c695a307" testId="58fd4c81-7955-949c-5e77-9bd65f115ccf" testName="Fleet_CanTravel_BetweenConnectedNodes" computerName="FRAMEWORKMPC" duration="00:00:00.0035470" startTime="2026-02-22T14:50:14.1775638-05:00" endTime="2026-02-22T14:50:14.1811099-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="126df11c-779b-4a5c-a124-2f45c695a307" />
+    <UnitTestResult executionId="12ec9fe4-f881-4796-b1e8-44ac59088bcb" testId="2afec21d-5b14-7988-d9e6-5bac07da2c08" testName="Generation_IsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.3836800" startTime="2026-02-22T14:50:11.7899608-05:00" endTime="2026-02-22T14:50:12.1736378-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="12ec9fe4-f881-4796-b1e8-44ac59088bcb">
+      <Output>
+        <StdOut>WROTE_TOPOLOGY_DUMP: D:\SGE\SpaceTradeEmpire\docs\generated\galaxy_topology_dump_seed_999_starcount_12_radius_100.txt</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d40a2ec6-6675-4a59-b302-e5e4a7a4d37a" testId="43f7b81a-62af-1131-613b-7247bb592514" testName="RouteChosenEvent_IsSchemaBound" computerName="FRAMEWORKMPC" duration="00:00:00.0006310" startTime="2026-02-22T14:50:15.0115574-05:00" endTime="2026-02-22T14:50:15.0121882-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d40a2ec6-6675-4a59-b302-e5e4a7a4d37a" />
+    <UnitTestResult executionId="d2e917a2-e965-4bbe-8faa-d2a5c3a5a212" testId="f553f183-e7d1-720a-3ec9-a9b41aba5aff" testName="Remove_More_Than_Available_ReturnsFalse_And_DoesNotChange_Market" computerName="FRAMEWORKMPC" duration="00:00:00.0001570" startTime="2026-02-22T14:50:14.9655880-05:00" endTime="2026-02-22T14:50:14.9657448-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d2e917a2-e965-4bbe-8faa-d2a5c3a5a212" />
+    <UnitTestResult executionId="f49e3f01-01de-4d21-8da7-386db4d3d802" testId="8680dc49-265d-c9c3-116f-461ca2661675" testName="EXPLAIN_001_program_explain_payload_is_schema_bound_and_deterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0088930" startTime="2026-02-22T14:50:14.2140769-05:00" endTime="2026-02-22T14:50:14.2229699-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f49e3f01-01de-4d21-8da7-386db4d3d802" />
+    <UnitTestResult executionId="46b146aa-f212-424d-b17e-e50a7a6d384d" testId="be65777f-d6ce-d21e-bf58-6916be1920c5" testName="Enqueue_Debits_Source_Immediately_And_Arrives_After_CeilDistance_Ticks" computerName="FRAMEWORKMPC" duration="00:00:00.0006530" startTime="2026-02-22T14:50:14.9712231-05:00" endTime="2026-02-22T14:50:14.9718759-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="46b146aa-f212-424d-b17e-e50a7a6d384d" />
+    <UnitTestResult executionId="8dc5b351-7194-42f4-8389-df1fdbbeb535" testId="56a957b7-e18d-e25d-7b8e-ec0ebca32204" testName="SaveLoad_MidLogisticsJob_ContinuesToSameFinalHash_AsUninterrupted" computerName="FRAMEWORKMPC" duration="00:00:00.0525760" startTime="2026-02-22T14:50:14.3108083-05:00" endTime="2026-02-22T14:50:14.3633835-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8dc5b351-7194-42f4-8389-df1fdbbeb535">
+      <Output>
+        <StdOut>Uninterrupted Hash: F6CCF02DA09B1010DDBD21F99D92AA2B20C334E06DD2F3EF9A7A5C883C68FB19&#xD;
+SaveLoad     Hash: F6CCF02DA09B1010DDBD21F99D92AA2B20C334E06DD2F3EF9A7A5C883C68FB19</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e3e82e71-edc7-4e8a-92cc-7db1c5ad0af1" testId="8ad67d0f-d02b-ff27-a75e-0dbe77df061d" testName="SUS_SNAP_001_snapshot_includes_bands_and_they_match_banded_time" computerName="FRAMEWORKMPC" duration="00:00:00.0031310" startTime="2026-02-22T14:50:15.0133793-05:00" endTime="2026-02-22T14:50:15.0165095-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e3e82e71-edc7-4e8a-92cc-7db1c5ad0af1" />
+    <UnitTestResult executionId="1d824a4c-7892-4351-8b92-45c33f8ab8e1" testId="6cb70ca3-9d94-ab56-70c5-ce9098c19109" testName="RoutePlanner_RiskTweaks_OverrideChangesChoice_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0021560" startTime="2026-02-22T14:49:43.8653337-05:00" endTime="2026-02-22T14:49:43.8674890-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1d824a4c-7892-4351-8b92-45c33f8ab8e1" />
+    <UnitTestResult executionId="fb064e25-830d-45a8-a273-ef006f10a660" testId="a9efb629-0b99-8f53-a02b-c0ab88233a52" testName="Reservation_Behavior_IsDeterministic_AcrossFreshRuns" computerName="FRAMEWORKMPC" duration="00:00:00.0027930" startTime="2026-02-22T14:50:14.9917141-05:00" endTime="2026-02-22T14:50:14.9945060-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fb064e25-830d-45a8-a273-ef006f10a660" />
+    <UnitTestResult executionId="f12a7c14-cb6a-4977-8874-b5fd31721162" testId="731c816d-354b-dfe3-e2d3-cee0e368c8ba" testName="LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing" computerName="FRAMEWORKMPC" duration="00:00:00.0132360" startTime="2026-02-22T14:49:43.8394600-05:00" endTime="2026-02-22T14:49:43.8526955-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f12a7c14-cb6a-4977-8874-b5fd31721162" />
+    <UnitTestResult executionId="0822d619-f134-46d2-b778-b06546db521a" testId="f46e284e-c1f0-0fcf-f792-217f610e8838" testName="Ledger_Never_Allows_Negative_Inventory_MarketSemantics" computerName="FRAMEWORKMPC" duration="00:00:00.0003430" startTime="2026-02-22T14:50:13.8418925-05:00" endTime="2026-02-22T14:50:13.8422360-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0822d619-f134-46d2-b778-b06546db521a" />
+    <UnitTestResult executionId="a12b1d48-fae1-4e23-9261-4bd8830e3120" testId="78e47c93-5e7c-8f27-604d-5cabd5a8081d" testName="Fracture_Movement_AccumulatesTrace_OnArrival" computerName="FRAMEWORKMPC" duration="00:00:00.0090200" startTime="2026-02-22T14:50:11.7611855-05:00" endTime="2026-02-22T14:50:11.7702034-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a12b1d48-fae1-4e23-9261-4bd8830e3120" />
+    <UnitTestResult executionId="d219f39e-e685-4bed-867a-9ce087b22db8" testId="975dda28-9645-eb60-e4c3-d844e8075d35" testName="LogisticsSystem_Process_DoesNotDirectlyMutate_MarketInventory_Or_FleetCargo" computerName="FRAMEWORKMPC" duration="00:00:00.0089450" startTime="2026-02-22T14:50:14.8377503-05:00" endTime="2026-02-22T14:50:14.8466944-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d219f39e-e685-4bed-867a-9ce087b22db8" />
+    <UnitTestResult executionId="dfd4c25d-9a8b-4748-bb8d-e2c86bc1ea68" testId="6038105f-7e79-8402-741b-39f30ccbc07b" testName="TwoFleets_UiCommandInterleavings_WithSaveLoadMidSequence_IsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.1760200" startTime="2026-02-22T14:49:43.6630469-05:00" endTime="2026-02-22T14:49:43.8390653-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dfd4c25d-9a8b-4748-bb8d-e2c86bc1ea68" />
+    <UnitTestResult executionId="bc6f8d3b-977e-4c5e-a464-5dbbe4f3c1bc" testId="9ecef8be-7e19-9d11-94fd-27d9f4920197" testName="EconomyPlacement_StarterRegion_HasAtLeast3ViableTradeLoops_AndEmitsDeterministicReport" computerName="FRAMEWORKMPC" duration="00:00:00.0236910" startTime="2026-02-22T14:50:14.1058812-05:00" endTime="2026-02-22T14:50:14.1295710-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bc6f8d3b-977e-4c5e-a464-5dbbe4f3c1bc" />
+    <UnitTestResult executionId="0c18387c-c950-4316-a10d-26d01f289708" testId="30368def-4a83-bdc3-6259-64059d1ac79b" testName="Worldgen_Invariants_Batch_Seeds_1_To_100_V0_Emits_Deterministic_Summary_And_Fails_On_Any_Failure" computerName="FRAMEWORKMPC" duration="00:00:00.1070770" startTime="2026-02-22T14:50:11.6444268-05:00" endTime="2026-02-22T14:50:11.7515024-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0c18387c-c950-4316-a10d-26d01f289708">
+      <Output>
+        <StdOut>INVARIANTS_BATCH_V0&#xD;
+seeds=1..100&#xD;
+star_count=20&#xD;
+radius=100&#xD;
+max_hops_for_loops=4&#xD;
+cap_failing_seeds_per_invariant=10&#xD;
+cap_failure_records=50&#xD;
+result=PASS&#xD;
+&#xD;
+INVARIANTS_BATCH_V0_SHA256=869971856B8FDE4A6B8C4D2B13A6904C538EAB6B55169F7615490BF7C687F129</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c0c88ffa-72c5-44fa-825d-4f22754c342a" testId="7e8d7301-623b-1a4d-b532-2f22ae992adf" testName="TweakConfigV0_SchemaContract_FieldOrder_IsAppendOnly_CanonicalKeyOrder_Defaults_AndHash_AreLocked_V0" computerName="FRAMEWORKMPC" duration="00:00:00.0048060" startTime="2026-02-22T14:50:14.0398019-05:00" endTime="2026-02-22T14:50:14.0446076-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c0c88ffa-72c5-44fa-825d-4f22754c342a" />
+    <UnitTestResult executionId="09911ba9-f547-43c3-8628-76ab955d1e8d" testId="07b5dc27-f37b-f85f-e959-9475521a8875" testName="RunnerHostTweaksFile_IfPresent_MustBeUtf8NoBom_AndJsonObject_V0" computerName="FRAMEWORKMPC" duration="00:00:00.0038850" startTime="2026-02-22T14:50:14.0099622-05:00" endTime="2026-02-22T14:50:14.0138454-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="09911ba9-f547-43c3-8628-76ab955d1e8d">
+      <Output>
+        <StdOut>No host tweak file present (allowed): Data/Tweaks/tweaks_v0.json</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e3740c06-b30b-4477-8b42-137137178ca1" testId="4c6c3d6d-d9d9-c512-a1da-351dba3f0f92" testName="Generation_CreatesValidMarkets_WithGoods" computerName="FRAMEWORKMPC" duration="00:00:00.0007240" startTime="2026-02-22T14:50:11.7891889-05:00" endTime="2026-02-22T14:50:11.7899126-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e3740c06-b30b-4477-8b42-137137178ca1" />
+    <UnitTestResult executionId="ec20a4a1-d525-4d28-a50f-4e67bd8dddda" testId="dac1168d-2cb6-067b-64d1-1be9698be60c" testName="PerfBudget_Slice3_V0_BudgetGuard_FailsWhenExceeded" computerName="FRAMEWORKMPC" duration="00:00:00.1018700" startTime="2026-02-22T14:50:11.4274803-05:00" endTime="2026-02-22T14:50:11.5293485-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ec20a4a1-d525-4d28-a50f-4e67bd8dddda" />
+    <UnitTestResult executionId="27403b8c-849d-4baa-bc0a-65fde564b2f4" testId="0355c27c-ca81-6bc9-4a1f-ee533f24f6ee" testName="PartialPickup_IsDeterministicAcrossFreshRuns" computerName="FRAMEWORKMPC" duration="00:00:00.0008510" startTime="2026-02-22T14:50:14.9905443-05:00" endTime="2026-02-22T14:50:14.9913951-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="27403b8c-849d-4baa-bc0a-65fde564b2f4" />
+    <UnitTestResult executionId="cd2b92e1-a8a4-4563-8e43-1688452ac253" testId="c1de620b-395b-1fb7-de24-f7a1e0640154" testName="Multiple_Arrivals_Same_Tick_Process_In_Stable_Order" computerName="FRAMEWORKMPC" duration="00:00:00.0005160" startTime="2026-02-22T14:50:14.9729488-05:00" endTime="2026-02-22T14:50:14.9734642-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd2b92e1-a8a4-4563-8e43-1688452ac253" />
+    <UnitTestResult executionId="5f6229f9-c515-4915-a79b-9ffe7ea0c325" testId="05f407ee-0631-8e59-695b-f8592de585ea" testName="FleetRoles_RouteChoice_IsDeterministic_EmitsSchemaBoundEvent_AndPersistsThroughSaveLoad" computerName="FRAMEWORKMPC" duration="00:00:00.0595500" startTime="2026-02-22T14:50:14.8681636-05:00" endTime="2026-02-22T14:50:14.9277122-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5f6229f9-c515-4915-a79b-9ffe7ea0c325" />
+    <UnitTestResult executionId="c907535c-b1ad-47f0-b477-799d43ea7ae2" testId="fd6eeefd-e529-eef1-ddb4-cd522f5c06aa" testName="Add_Then_Remove_Returns_To_Original_Cargo_Removes_Zero_Key" computerName="FRAMEWORKMPC" duration="00:00:00.0003120" startTime="2026-02-22T14:50:14.9652471-05:00" endTime="2026-02-22T14:50:14.9655586-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c907535c-b1ad-47f0-b477-799d43ea7ae2" />
+    <UnitTestResult executionId="2471334c-8559-4eff-932e-497ae6060283" testId="1a69a3d4-61e8-04c7-30e1-2d16cf748632" testName="LaneCapacity_Bounds_Delivery_And_Queues_Overflow_Deterministically_With_Report" computerName="FRAMEWORKMPC" duration="00:00:00.0010030" startTime="2026-02-22T14:50:14.9719112-05:00" endTime="2026-02-22T14:50:14.9729140-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2471334c-8559-4eff-932e-497ae6060283" />
+    <UnitTestResult executionId="7b46dd16-10b9-40c7-bb14-9fbc168347f9" testId="11f3c1be-327a-5404-aeb5-b0ae6546da2a" testName="BufferTarget_Uses_Days_Converted_To_Ticks" computerName="FRAMEWORKMPC" duration="00:00:00.0001960" startTime="2026-02-22T14:50:14.8361338-05:00" endTime="2026-02-22T14:50:14.8363295-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7b46dd16-10b9-40c7-bb14-9fbc168347f9" />
+    <UnitTestResult executionId="f43f767a-f6e6-4a55-8e0e-038167c073ca" testId="6dcc455e-49f6-0fc4-bfec-d4ba6a8f4e3d" testName="BAND_002_band_days_thresholds_are_stable" computerName="FRAMEWORKMPC" duration="00:00:00.0009520" startTime="2026-02-22T14:50:14.8667747-05:00" endTime="2026-02-22T14:50:14.8677267-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f43f767a-f6e6-4a55-8e0e-038167c073ca" />
+    <UnitTestResult executionId="8cc5aa34-8262-4b6a-9422-395d0f60d0c5" testId="b522f372-e6c3-56bd-afd5-4088da814f4e" testName="LongRun_10000Ticks_Matches_Golden" computerName="FRAMEWORKMPC" duration="00:00:19.5107670" startTime="2026-02-22T14:49:43.8695779-05:00" endTime="2026-02-22T14:50:03.3802268-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8cc5aa34-8262-4b6a-9422-395d0f60d0c5">
+      <Output>
+        <StdOut>LongRun Seed: 42 (override via STE_LONGRUN_SEED)&#xD;
+LongRun Ticks: 10000&#xD;
+LongRun Checkpoints: 0,1000,5000,10000&#xD;
+tick=0 tweaks_version=0 tweaks_hash=2718FBB936C8AD86790ECE7E1939867AF580FAEE23510B97BBADFDF222EF01D2&#xD;
+Genesis Hash A: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final   Hash A: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+Checkpoint[A] tick=0: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Checkpoint[A] tick=1000: F1A71B987B47C9E9071D72AAAAB99A22A7E61F67ED080184AA4BA8E9FABDC386&#xD;
+Checkpoint[A] tick=5000: 33E7E234167B8D813E052953525BB8EF41D546B2327F9151D267270B1902B1F9&#xD;
+Checkpoint[A] tick=10000: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+tick=0 tweaks_version=0 tweaks_hash=2718FBB936C8AD86790ECE7E1939867AF580FAEE23510B97BBADFDF222EF01D2&#xD;
+Genesis Hash B: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final   Hash B: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+Checkpoint[B] tick=0: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Checkpoint[B] tick=1000: F1A71B987B47C9E9071D72AAAAB99A22A7E61F67ED080184AA4BA8E9FABDC386&#xD;
+Checkpoint[B] tick=5000: 33E7E234167B8D813E052953525BB8EF41D546B2327F9151D267270B1902B1F9&#xD;
+Checkpoint[B] tick=10000: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1ae5df1b-7f4e-4d99-8396-e8b36d26c90d" testId="9c1322f4-bbdf-b6ec-9065-e9f1b9340d29" testName="MarketFees_FromTweaks_MarketFeeMultiplier_ChangesTransactionFee_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0013750" startTime="2026-02-22T14:50:11.7519807-05:00" endTime="2026-02-22T14:50:11.7533554-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1ae5df1b-7f4e-4d99-8396-e8b36d26c90d" />
+    <UnitTestResult executionId="4e5e61be-bfb9-47ae-b9c3-31ece323c24f" testId="5f5beafc-14a7-c032-7b1d-b1c0efc69a6f" testName="RetryUpToNZeroPickupObservations_ThenCancel" computerName="FRAMEWORKMPC" duration="00:00:00.0013190" startTime="2026-02-22T14:50:14.9984749-05:00" endTime="2026-02-22T14:50:14.9997931-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4e5e61be-bfb9-47ae-b9c3-31ece323c24f" />
+    <UnitTestResult executionId="2d1f4b4e-e737-4cdc-a63e-b808ce43322d" testId="cdc6c1ae-297c-5cb1-730b-8469780bdb6c" testName="RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved" computerName="FRAMEWORKMPC" duration="00:00:00.0007780" startTime="2026-02-22T14:50:14.9642833-05:00" endTime="2026-02-22T14:50:14.9650615-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2d1f4b4e-e737-4cdc-a63e-b808ce43322d" />
+    <UnitTestResult executionId="7279d013-0e79-4e47-b96b-bc8f8ce14d0b" testId="87001f66-4c3d-139b-c6f9-1625bc49c013" testName="RemoteIntel_IsBanded_AndAgeIncrements_WhenNotReobserved" computerName="FRAMEWORKMPC" duration="00:00:00.0010870" startTime="2026-02-22T14:50:14.9625596-05:00" endTime="2026-02-22T14:50:14.9636459-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7279d013-0e79-4e47-b96b-bc8f8ce14d0b" />
+    <UnitTestResult executionId="525ebdf6-b367-471c-bc38-8d9ad575e3b9" testId="cbf2a94b-f09b-d806-c9d7-39c9012ffb10" testName="FLEET_001_single_player_trader_fleet_exists_with_stable_id_and_start_state" computerName="FRAMEWORKMPC" duration="00:00:00.0014040" startTime="2026-02-22T14:50:14.2094978-05:00" endTime="2026-02-22T14:50:14.2109011-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="525ebdf6-b367-471c-bc38-8d9ad575e3b9" />
+    <UnitTestResult executionId="005ebdc6-497b-4ee8-ab06-134b81fc59da" testId="c912fbcb-9c76-36e4-0439-a05baa70e6dd" testName="Logistics_AssignsJob_WhenShortageExists" computerName="FRAMEWORKMPC" duration="00:00:00.0022240" startTime="2026-02-22T14:50:14.0808823-05:00" endTime="2026-02-22T14:50:14.0831057-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="005ebdc6-497b-4ee8-ab06-134b81fc59da" />
+    <UnitTestResult executionId="bbe46711-91ba-43e4-a7da-c4df6a9c1aac" testId="ef839d5d-88d4-2fb1-4ec8-71c03a8ad4a4" testName="RepoHealth_Scan_MustPass_V0" computerName="FRAMEWORKMPC" duration="00:00:00.1668399" startTime="2026-02-22T14:50:13.8430423-05:00" endTime="2026-02-22T14:50:14.0098809-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bbe46711-91ba-43e4-a7da-c4df6a9c1aac" />
+    <UnitTestResult executionId="5494b478-b3f9-4ae9-9bac-57f4633a8d6b" testId="218fe381-179e-9868-8bbc-42677f4cbe3b" testName="CancelJob_WhenNoJob_DoesNotMutateFleetJobFields" computerName="FRAMEWORKMPC" duration="00:00:00.0058140" startTime="2026-02-22T14:50:14.9463683-05:00" endTime="2026-02-22T14:50:14.9521818-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5494b478-b3f9-4ae9-9bac-57f4633a8d6b" />
+    <UnitTestResult executionId="5b24ebde-5d94-4b84-a5b5-4cd1327b3f60" testId="e4d8b1fd-8792-9ea4-b08a-25674d31ced2" testName="MidPrice_LowSupply_IsHigherThanBase" computerName="FRAMEWORKMPC" duration="00:00:00.0003230" startTime="2026-02-22T14:50:14.1307393-05:00" endTime="2026-02-22T14:50:14.1310626-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5b24ebde-5d94-4b84-a5b5-4cd1327b3f60" />
+    <UnitTestResult executionId="ca4e6e2d-de72-4779-8b39-e18d2616a55b" testId="49b6b1a8-631b-3e24-331e-03b8cb3ce02f" testName="TweakConfigV0_ParseJsonOrDefaults_InvalidOrSchemaInvalid_FallsBackToDefaults_Deterministically_V0" computerName="FRAMEWORKMPC" duration="00:00:00.0043559" startTime="2026-02-22T14:50:14.0353931-05:00" endTime="2026-02-22T14:50:14.0397493-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ca4e6e2d-de72-4779-8b39-e18d2616a55b" />
+    <UnitTestResult executionId="599f5565-4450-46f2-85d6-a4422d4b127e" testId="33b7e9b5-979e-71ee-ff9d-77f65d7b6b45" testName="PROG_LIFE_001_start_pause_cancel_transitions_are_stable" computerName="FRAMEWORKMPC" duration="00:00:00.0018100" startTime="2026-02-22T14:50:14.2354614-05:00" endTime="2026-02-22T14:50:14.2372712-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="599f5565-4450-46f2-85d6-a4422d4b127e" />
+    <UnitTestResult executionId="ea981c07-ca2b-4b69-91bc-4602c5679b4f" testId="e6aa184a-da3b-5504-348b-527dcd1b01e1" testName="PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick" computerName="FRAMEWORKMPC" duration="00:00:00.0047600" startTime="2026-02-22T14:50:14.2304136-05:00" endTime="2026-02-22T14:50:14.2351739-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ea981c07-ca2b-4b69-91bc-4602c5679b4f" />
+    <UnitTestResult executionId="69c368a7-9347-419f-9229-d9863d4ca5e4" testId="46bf89f4-de8e-7bc6-2429-7e9e5e203fcb" testName="UnloadCargo_ClampsToCargoAvailable_AndNoNegatives" computerName="FRAMEWORKMPC" duration="00:00:00.0013260" startTime="2026-02-22T14:50:15.0033329-05:00" endTime="2026-02-22T14:50:15.0046586-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="69c368a7-9347-419f-9229-d9863d4ca5e4" />
+    <UnitTestResult executionId="60a1f1cb-942c-4841-9d5b-c370b32bed3f" testId="7c479528-6e0e-5587-048c-31be72a34d84" testName="CapacityScarcity_MultiTransfer_Overflow_IsStableAcrossTicks_And_PerTransferRemaindersAreDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0047190" startTime="2026-02-22T14:50:14.9664627-05:00" endTime="2026-02-22T14:50:14.9711811-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="60a1f1cb-942c-4841-9d5b-c370b32bed3f" />
+    <UnitTestResult executionId="9991324b-a831-4498-8bf9-d7636deacf4d" testId="f517aca0-d83c-ba8a-e49b-dfd17b1e24db" testName="Logistics_LoopViabilityThreshold_FromTweaks_FiltersSuppliers_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0028730" startTime="2026-02-22T14:49:43.8527519-05:00" endTime="2026-02-22T14:49:43.8556247-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9991324b-a831-4498-8bf9-d7636deacf4d" />
+    <UnitTestResult executionId="00a07953-3206-4cdb-b65f-4bb5ccf6673b" testId="dcb9b7bb-7561-00e4-6ffa-66dc24f53288" testName="Sustainment_RunTwice_SameSetup_Produces_Identical_State" computerName="FRAMEWORKMPC" duration="00:00:00.0042090" startTime="2026-02-22T14:50:14.8486617-05:00" endTime="2026-02-22T14:50:14.8528698-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="00a07953-3206-4cdb-b65f-4bb5ccf6673b" />
+    <UnitTestResult executionId="da5630b1-ce54-40cd-8aea-efbe0b44ca6c" testId="9f7ab0c9-68dc-b7f1-7ce1-ac7872b51803" testName="Worldgen_Bounds_MinProducersAndSinks_Are_Sourced_From_Tweaks_V0" computerName="FRAMEWORKMPC" duration="00:00:00.0071450" startTime="2026-02-22T14:50:13.8342407-05:00" endTime="2026-02-22T14:50:13.8413857-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="da5630b1-ce54-40cd-8aea-efbe0b44ca6c" />
+    <UnitTestResult executionId="606be9a5-c1e8-4f96-83f2-6e0443dc8d37" testId="19ce99b2-40a3-121f-febe-2a2911535f00" testName="FLEET_001_survives_save_load_without_signature_change" computerName="FRAMEWORKMPC" duration="00:00:00.0024810" startTime="2026-02-22T14:50:14.2111161-05:00" endTime="2026-02-22T14:50:14.2135990-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="606be9a5-c1e8-4f96-83f2-6e0443dc8d37" />
+    <UnitTestResult executionId="9dc74cc6-b2d5-45c1-8a78-e0077e592bd2" testId="90e58d57-657d-d78b-8277-08e2ea442b52" testName="AntiExploitMarketArbConstraint_MoneyPrinterScenario_ProfitGrowthIsBounded_AndExplainsFrictionReasonCodes" computerName="FRAMEWORKMPC" duration="00:00:00.0223650" startTime="2026-02-22T14:50:14.0834462-05:00" endTime="2026-02-22T14:50:14.1058100-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9dc74cc6-b2d5-45c1-8a78-e0077e592bd2" />
+    <UnitTestResult executionId="e6b05a8e-6356-4e8a-8e45-d3e6259f0e4d" testId="0d05c884-8e0d-ac6b-0e52-1c42949745e9" testName="MidPrice_HighSupply_IsLowerThanBase" computerName="FRAMEWORKMPC" duration="00:00:00.0010230" startTime="2026-02-22T14:50:14.1296611-05:00" endTime="2026-02-22T14:50:14.1306835-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6b05a8e-6356-4e8a-8e45-d3e6259f0e4d" />
+    <UnitTestResult executionId="9be92ffc-ddf9-48b1-8677-fa2351f1cb7f" testId="49030e73-f588-c16c-7fb8-d7a46cac1829" testName="SeedExplorer_V0_ConfigOverrides_Are_ByteForByte_Deterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0324720" startTime="2026-02-22T14:50:11.5294240-05:00" endTime="2026-02-22T14:50:11.5618949-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9be92ffc-ddf9-48b1-8677-fa2351f1cb7f" />
+    <UnitTestResult executionId="0b11b52b-aaef-424e-9384-8190923be0de" testId="41c5cc8c-dbdb-5180-a462-5acd42bd8826" testName="PROG_EXEC_001_program_system_emits_intents_only" computerName="FRAMEWORKMPC" duration="00:00:00.0030720" startTime="2026-02-22T14:50:14.2268772-05:00" endTime="2026-02-22T14:50:14.2299484-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0b11b52b-aaef-424e-9384-8190923be0de" />
+    <UnitTestResult executionId="a09717f8-0260-4715-b34a-b8c6d2e59635" testId="deade48c-3725-4254-c51d-2c367fe02920" testName="Health_Decreases_Deterministically_When_Undersupplied" computerName="FRAMEWORKMPC" duration="00:00:00.0010730" startTime="2026-02-22T14:50:14.8364137-05:00" endTime="2026-02-22T14:50:14.8374863-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a09717f8-0260-4715-b34a-b8c6d2e59635" />
+    <UnitTestResult executionId="500716bf-b208-4d7b-922d-11607a77a57b" testId="e774b232-1dc1-0f5f-77c3-83121c6990db" testName="World001_Loads_WithExpectedCounts_AndStableIds" computerName="FRAMEWORKMPC" duration="00:00:00.0028570" startTime="2026-02-22T14:50:15.0362565-05:00" endTime="2026-02-22T14:50:15.0391136-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="500716bf-b208-4d7b-922d-11607a77a57b" />
+    <UnitTestResult executionId="e53b6e2e-eede-46a4-98a5-a07d6c3aaad6" testId="0a22b8b5-38ba-cec8-37fe-054706591cf8" testName="WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable" computerName="FRAMEWORKMPC" duration="00:00:00.0224580" startTime="2026-02-22T14:50:11.6217782-05:00" endTime="2026-02-22T14:50:11.6442360-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e53b6e2e-eede-46a4-98a5-a07d6c3aaad6">
+      <Output>
+        <ErrorInfo>
+          <Message>  World class distinctness thresholds must pass on baseline config.&#xD;
+  Expected: True&#xD;
+  But was:  False&#xD;
+</Message>
+          <StackTrace>   at SimCore.Tests.Determinism.LongRunWorldHashTests.WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable() in D:\SGE\SpaceTradeEmpire\SimCore.Tests\Determinism\LongRunWorldHashTests.cs:line 261&#xD;
+
+1)    at SimCore.Tests.Determinism.LongRunWorldHashTests.WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable() in D:\SGE\SpaceTradeEmpire\SimCore.Tests\Determinism\LongRunWorldHashTests.cs:line 261&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="936c5d22-715f-4593-94b2-4e4d63a2b801" testId="980de98a-18c8-4be7-769b-4d43dac71aed" testName="EqualHopEqualRisk_TieBreaksByRouteId" computerName="FRAMEWORKMPC" duration="00:00:00.0015299" startTime="2026-02-22T14:50:15.0085766-05:00" endTime="2026-02-22T14:50:15.0101067-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="936c5d22-715f-4593-94b2-4e4d63a2b801" />
+    <UnitTestResult executionId="fb967e27-7fba-4848-bbee-771666743509" testId="2fbb7063-a208-9457-f84c-6ceb2b54cd87" testName="PlanLogistics_CreatesRouteAwareJob_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0025870" startTime="2026-02-22T14:50:14.9813742-05:00" endTime="2026-02-22T14:50:14.9839609-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fb967e27-7fba-4848-bbee-771666743509" />
+    <UnitTestResult executionId="b124911d-48dd-4d4f-beba-671e0a4bbc09" testId="89804714-ec7c-aeca-abb4-18b9a64df254" testName="DOCTRINE_001_DefaultDoctrine_Exists_HasMax2Toggles_AndIsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0258120" startTime="2026-02-22T14:50:14.1815967-05:00" endTime="2026-02-22T14:50:14.2074081-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b124911d-48dd-4d4f-beba-671e0a4bbc09" />
+    <UnitTestResult executionId="d075446c-544c-4e9f-9808-b81ebd6f133e" testId="649c45f1-ad0f-13f6-cd93-4dd855223cde" testName="SustainmentReport_Computes_Margin_And_Times_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0112480" startTime="2026-02-22T14:50:14.8531083-05:00" endTime="2026-02-22T14:50:14.8643553-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d075446c-544c-4e9f-9808-b81ebd6f133e" />
+    <UnitTestResult executionId="682ff558-8011-4aaa-81bc-8ef3323a6488" testId="df741220-6fa3-bcfc-7058-2e71ad511010" testName="Ledger_Transfer_Conserves_Total_Units_For_A_Good_MarketSemantics" computerName="FRAMEWORKMPC" duration="00:00:00.0005820" startTime="2026-02-22T14:50:13.8422672-05:00" endTime="2026-02-22T14:50:13.8428490-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="682ff558-8011-4aaa-81bc-8ef3323a6488" />
+    <UnitTestResult executionId="d5b750a7-8d2a-44f0-8538-11ead7264acb" testId="75377a2f-35a9-38bd-ec2d-64eaff988dd5" testName="LogisticsSystem_Process_MayEnqueueIntents_But_MutationsOccurOnlyWhenIntentSystemProcesses" computerName="FRAMEWORKMPC" duration="00:00:00.0017080" startTime="2026-02-22T14:50:14.8467396-05:00" endTime="2026-02-22T14:50:14.8484470-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d5b750a7-8d2a-44f0-8538-11ead7264acb" />
+    <UnitTestResult executionId="9e25924e-3df4-4755-a397-d843decca11f" testId="8d5d3d90-524f-5570-bea3-471c83cfcf49" testName="SaveLoad_RoundTrip_Preserves_FleetCargo_Exactly" computerName="FRAMEWORKMPC" duration="00:00:00.0079830" startTime="2026-02-22T14:50:14.2568740-05:00" endTime="2026-02-22T14:50:14.2648566-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9e25924e-3df4-4755-a397-d843decca11f" />
+    <UnitTestResult executionId="70e3ca37-c384-48d2-bf14-c7bce75448c0" testId="15d11c10-1eb9-8c16-933b-6a766c0809d4" testName="PROG_001_program_schema_file_exists_and_is_json" computerName="FRAMEWORKMPC" duration="00:00:00.0037730" startTime="2026-02-22T14:50:14.2230451-05:00" endTime="2026-02-22T14:50:14.2268174-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70e3ca37-c384-48d2-bf14-c7bce75448c0" />
+    <UnitTestResult executionId="49462bdf-adac-4ee7-a5ff-73c2fb3634a7" testId="c4b889e6-dc55-5014-06dd-eb0e8f894692" testName="LocalTruth_IsExact_AndAgeIsZero" computerName="FRAMEWORKMPC" duration="00:00:00.0080660" startTime="2026-02-22T14:50:14.9544410-05:00" endTime="2026-02-22T14:50:14.9625067-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="49462bdf-adac-4ee7-a5ff-73c2fb3634a7" />
+    <UnitTestResult executionId="c143a5c2-e2be-4813-a4c5-11af10354ef5" testId="f23fea91-2d72-effc-be51-77b14656b83b" testName="Containment_DecaysTrace_OverTime" computerName="FRAMEWORKMPC" duration="00:00:00.0007590" startTime="2026-02-22T14:49:43.5901358-05:00" endTime="2026-02-22T14:49:43.5908947-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c143a5c2-e2be-4813-a4c5-11af10354ef5" />
+    <UnitTestResult executionId="984ebbc9-eb8e-4dd2-871f-6f2b5c5da38d" testId="7f82ca3e-e4ab-89fa-a5d2-ae1ac6f29f90" testName="Remove_To_Zero_Market_Preserves_Zero_Key" computerName="FRAMEWORKMPC" duration="00:00:00.0001770" startTime="2026-02-22T14:50:14.9657533-05:00" endTime="2026-02-22T14:50:14.9659300-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="984ebbc9-eb8e-4dd2-871f-6f2b5c5da38d" />
+    <UnitTestResult executionId="a82543d3-0f24-4e9a-8d49-ea78ad22f72f" testId="feef5147-69f2-56ef-2eac-aa8482edd3a9" testName="BAND_001_band_ticks_thresholds_are_stable" computerName="FRAMEWORKMPC" duration="00:00:00.0011100" startTime="2026-02-22T14:50:14.8656207-05:00" endTime="2026-02-22T14:50:14.8667299-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a82543d3-0f24-4e9a-8d49-ea78ad22f72f" />
+    <UnitTestResult executionId="2b639668-a485-42c1-a912-d401e9c12458" testId="44c3c029-785c-3e9c-87ae-e450fb77e37d" testName="BufferTarget_Scales_Linearly_With_Days" computerName="FRAMEWORKMPC" duration="00:00:00.0002680" startTime="2026-02-22T14:50:14.8354047-05:00" endTime="2026-02-22T14:50:14.8356722-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2b639668-a485-42c1-a912-d401e9c12458" />
+    <UnitTestResult executionId="06bbaa22-7ba7-4272-acc3-9cf056ddeb4f" testId="5198fbed-30db-1138-c246-1b2481c8f2c7" testName="LogisticsJob_ExecutesPickupAndDelivery_ExactlyOnce" computerName="FRAMEWORKMPC" duration="00:00:00.0017820" startTime="2026-02-22T14:50:14.9842273-05:00" endTime="2026-02-22T14:50:14.9860088-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="06bbaa22-7ba7-4272-acc3-9cf056ddeb4f" />
+    <UnitTestResult executionId="6d16c948-a672-40a5-9864-c175988626c6" testId="b8089c0b-b4aa-1b12-2dfe-834262effd1d" testName="WorldClassDistinctness_Report_V0_FailsWhenClassParamsAreIdentical_AndFailureIsDeterministic" computerName="FRAMEWORKMPC" duration="00:00:00.0382940" startTime="2026-02-22T14:50:11.5833960-05:00" endTime="2026-02-22T14:50:11.6216881-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6d16c948-a672-40a5-9864-c175988626c6" />
+    <UnitTestResult executionId="7358c821-d428-4393-97a9-9a8aaf53c811" testId="a9b6b74f-52ba-e54d-b079-656324b7c4c2" testName="Transfer_Conserves_Total_Market" computerName="FRAMEWORKMPC" duration="00:00:00.0003320" startTime="2026-02-22T14:50:14.9659382-05:00" endTime="2026-02-22T14:50:14.9662701-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7358c821-d428-4393-97a9-9a8aaf53c811" />
+    <UnitTestResult executionId="d3631297-ee9e-4f54-8e78-ccd9d2c7388d" testId="6f692b4e-054a-5bc9-b9bb-e8b4a810b875" testName="RemoteIntel_IsUnknown_WhenNeverObserved" computerName="FRAMEWORKMPC" duration="00:00:00.0005680" startTime="2026-02-22T14:50:14.9636860-05:00" endTime="2026-02-22T14:50:14.9642535-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d3631297-ee9e-4f54-8e78-ccd9d2c7388d" />
+    <UnitTestResult executionId="2a40f065-8d4b-4261-8e49-7d6771a2ee2e" testId="97821e94-461e-d559-b9db-0a7204dc0964" testName="PublishedPrices_Update_OnNextWindowBoundary" computerName="FRAMEWORKMPC" duration="00:00:00.0006650" startTime="2026-02-22T14:50:15.0056344-05:00" endTime="2026-02-22T14:50:15.0062992-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2a40f065-8d4b-4261-8e49-7d6771a2ee2e" />
+    <UnitTestResult executionId="caf1349d-2508-4b6f-80b2-f3cf10349b48" testId="fb10ec80-fd0a-bc1e-45f1-e0bce7f34f8f" testName="CancelJob_ClearsJobRouteAndTask_Deterministically" computerName="FRAMEWORKMPC" duration="00:00:00.0064840" startTime="2026-02-22T14:50:14.9398421-05:00" endTime="2026-02-22T14:50:14.9463258-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="caf1349d-2508-4b6f-80b2-f3cf10349b48" />
+    <UnitTestResult executionId="758189a7-5d74-48ac-8c85-3728b3e9d63b" testId="83a9ee42-b5e6-5a45-8b4c-404d4d08f217" testName="Spread_BuyPrice_IsGreaterThan_SellPrice" computerName="FRAMEWORKMPC" duration="00:00:00.0003370" startTime="2026-02-22T14:50:14.1317575-05:00" endTime="2026-02-22T14:50:14.1320944-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="758189a7-5d74-48ac-8c85-3728b3e9d63b" />
+    <UnitTestResult executionId="0d6a12a7-3093-4a62-b15f-7967c21335fe" testId="ebc423c6-c845-a67a-6d97-58f1f2c9db0e" testName="Travel_UpdatesState_AndConsumesSlot" computerName="FRAMEWORKMPC" duration="00:00:00.0007780" startTime="2026-02-22T14:50:15.0207463-05:00" endTime="2026-02-22T14:50:15.0215240-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0d6a12a7-3093-4a62-b15f-7967c21335fe" />
+    <UnitTestResult executionId="9f8c31b9-b943-4c79-b311-a47bb7c056bc" testId="909ece48-7c1e-0587-bc9c-c17833d2d364" testName="PROG_CMD_001_set_status_command_updates_program_and_clamps_next_run_tick_on_start" computerName="FRAMEWORKMPC" duration="00:00:00.0013680" startTime="2026-02-22T14:50:14.2552119-05:00" endTime="2026-02-22T14:50:14.2565795-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9f8c31b9-b943-4c79-b311-a47bb7c056bc" />
+    <UnitTestResult executionId="9e5f789c-a105-4f0f-b950-94e3865ae35c" testId="4cbfa1f1-30c8-a694-a66e-0c48e8ecb0cb" testName="ApiBoundaries_UiMustNotReference_SimCoreEntitiesOrSystems" computerName="FRAMEWORKMPC" duration="00:00:00.0227000" startTime="2026-02-22T14:49:43.5336580-05:00" endTime="2026-02-22T14:49:43.5562720-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9e5f789c-a105-4f0f-b950-94e3865ae35c" />
+    <UnitTestResult executionId="5902ec30-3921-4cfb-aa31-83885d7108ed" testId="fe7e3717-6284-d1b5-c8ba-de43872f1a5f" testName="Industry_PartialProduction_ScalesDown" computerName="FRAMEWORKMPC" duration="00:00:00.0005270" startTime="2026-02-22T14:50:13.6289391-05:00" endTime="2026-02-22T14:50:13.6294663-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5902ec30-3921-4cfb-aa31-83885d7108ed" />
+    <UnitTestResult executionId="9f13c3f4-1213-4648-92ba-c28c31a9d951" testId="6c43bcb5-6882-c05c-7f39-8fb5db3657a5" testName="Transfer_IsDeterministic_ForSameInputs" computerName="FRAMEWORKMPC" duration="00:00:00.0016240" startTime="2026-02-22T14:50:15.0016673-05:00" endTime="2026-02-22T14:50:15.0032910-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9f13c3f4-1213-4648-92ba-c28c31a9d951" />
+    <UnitTestResult executionId="6c718e7a-2fe5-4f01-a4e4-319a27ceeaaa" testId="e10f67d3-f4b6-69ad-4b74-17df096ad80f" testName="WorldgenDistributionBounds_StarterGoods_EachHasProducerAndSink_Over100Seeds_AndEmitsDeterministicReport" computerName="FRAMEWORKMPC" duration="00:00:00.0446859" startTime="2026-02-22T14:50:14.1321056-05:00" endTime="2026-02-22T14:50:14.1767902-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6c718e7a-2fe5-4f01-a4e4-319a27ceeaaa" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Intents_AreProcessed_And_Cleared" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="3af0ef18-904c-63fb-09b9-7ca5c7f02ae4">
+      <Execution id="56d515c0-ba17-4e3c-a285-b62cfdb9d449" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Intents.IntentSystemTests" name="Intents_AreProcessed_And_Cleared" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_RoundTrip_Preserves_WorldHash_And_Seed" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="dd29825b-0a13-45bf-bc59-4d11f3b63684">
+      <Execution id="bf1ac461-3d28-47d6-b849-bda9386efeba" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.SaveLoadWorldHashTests" name="SaveLoad_RoundTrip_Preserves_WorldHash_And_Seed" />
+    </UnitTest>
+    <UnitTest name="TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="48fea739-6bc4-ebb5-5474-43187d220ee4">
+      <Execution id="092fc848-4458-448b-8d65-51db300cf7ee" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="TweakRoutingGuard_NewNumericLiterals_MustBeTweaksOrAllowlisted_V0" />
+    </UnitTest>
+    <UnitTest name="Multiple_Arrivals_Same_Tick_Process_In_Stable_Order" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="c1de620b-395b-1fb7-de24-f7a1e0640154">
+      <Execution id="cd2b92e1-a8a4-4563-8e43-1688452ac253" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LaneFlowSystemTests" name="Multiple_Arrivals_Same_Tick_Process_In_Stable_Order" />
+    </UnitTest>
+    <UnitTest name="FleetTravelsOneEdgePerTickFollowingPlannedRoute" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="b883516b-c285-28e3-c3e2-fb020fa763b5">
+      <Execution id="bb62093e-c3d9-4e1a-baa9-23ef6d9a4100" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.FleetRouteTravelTests" name="FleetTravelsOneEdgePerTickFollowingPlannedRoute" />
+    </UnitTest>
+    <UnitTest name="Industry_ConsumesInputs_AndProducesOutputs" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="ec592b2c-fd3c-4661-c798-f28a1b337275">
+      <Execution id="762e7165-4d05-4835-8a6e-b8ab76e280da" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.IndustryTests" name="Industry_ConsumesInputs_AndProducesOutputs" />
+    </UnitTest>
+    <UnitTest name="Fleet_CanTravel_BetweenConnectedNodes" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="58fd4c81-7955-949c-5e77-9bd65f115ccf">
+      <Execution id="126df11c-779b-4a5c-a124-2f45c695a307" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MovementTests" name="Fleet_CanTravel_BetweenConnectedNodes" />
+    </UnitTest>
+    <UnitTest name="ApiBoundaries_UiMustNotReference_SimCoreEntitiesOrSystems" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="4cbfa1f1-30c8-a694-a66e-0c48e8ecb0cb">
+      <Execution id="9e5f789c-a105-4f0f-b950-94e3865ae35c" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.ContainmentTests" name="ApiBoundaries_UiMustNotReference_SimCoreEntitiesOrSystems" />
+    </UnitTest>
+    <UnitTest name="RepoHealth_Scan_MustPass_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="ef839d5d-88d4-2fb1-4ec8-71c03a8ad4a4">
+      <Execution id="bbe46711-91ba-43e4-a7da-c4df6a9c1aac" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="RepoHealth_Scan_MustPass_V0" />
+    </UnitTest>
+    <UnitTest name="TweaksConfigHash_IsDeterministic_AndOverrideChangesIt" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="33a77fea-2060-f908-e4ac-1b3130c730a1">
+      <Execution id="b1561b08-02c9-4caa-9088-ee32e3b35dde" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="TweaksConfigHash_IsDeterministic_AndOverrideChangesIt" />
+    </UnitTest>
+    <UnitTest name="TechSite_With_TwoInputs_Consumes_Both_EachTick_When_Supplied" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="fe4d9ece-ac92-7e10-00c6-eb1ede788034">
+      <Execution id="d369e502-e717-4ae0-8bbb-07ba524e7c8c" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.TechUpkeepConsumesGoodsTests" name="TechSite_With_TwoInputs_Consumes_Both_EachTick_When_Supplied" />
+    </UnitTest>
+    <UnitTest name="LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="731c816d-354b-dfe3-e2d3-cee0e368c8ba">
+      <Execution id="f12a7c14-cb6a-4977-8874-b5fd31721162" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="LaneCapacityDefault_FromTweaks_IsDeterministic_AndOverrideChangesQueueing" />
+    </UnitTest>
+    <UnitTest name="Ledger_Transfer_Conserves_Total_Units_For_A_Good_MarketSemantics" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="df741220-6fa3-bcfc-7058-2e71ad511010">
+      <Execution id="682ff558-8011-4aaa-81bc-8ef3323a6488" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.InventoryConservationTests" name="Ledger_Transfer_Conserves_Total_Units_For_A_Good_MarketSemantics" />
+    </UnitTest>
+    <UnitTest name="BufferTarget_Scales_Linearly_With_PerTick_Input" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="9c0a4bac-e37b-6e5f-071e-9be8ea0c0e89">
+      <Execution id="deb3f05a-14c6-48c6-921c-87d6af92a723" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.BufferMathInvariantsTests" name="BufferTarget_Scales_Linearly_With_PerTick_Input" />
+    </UnitTest>
+    <UnitTest name="MidPrice_HighSupply_IsLowerThanBase" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="0d05c884-8e0d-ac6b-0e52-1c42949745e9">
+      <Execution id="e6b05a8e-6356-4e8a-8e45-d3e6259f0e4d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="MidPrice_HighSupply_IsLowerThanBase" />
+    </UnitTest>
+    <UnitTest name="RoutePlanner_RiskTweaks_OverrideChangesChoice_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6cb70ca3-9d94-ab56-70c5-ce9098c19109">
+      <Execution id="1d824a4c-7892-4351-8b92-45c33f8ab8e1" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="RoutePlanner_RiskTweaks_OverrideChangesChoice_Deterministically" />
+    </UnitTest>
+    <UnitTest name="MultiRouteCandidates_OrdersByHopsThenRiskThenRouteId" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e9ed0dc3-6138-2eef-aae8-aef162079197">
+      <Execution id="34754465-5a18-4ba3-9b42-87472e798bee" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.RoutePlannerTests" name="MultiRouteCandidates_OrdersByHopsThenRiskThenRouteId" />
+    </UnitTest>
+    <UnitTest name="FLEET_001_single_player_trader_fleet_exists_with_stable_id_and_start_state" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cbf2a94b-f09b-d806-c9d7-39c9012ffb10">
+      <Execution id="525ebdf6-b367-471c-bc38-8d9ad575e3b9" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.FleetBindingContractTests" name="FLEET_001_single_player_trader_fleet_exists_with_stable_id_and_start_state" />
+    </UnitTest>
+    <UnitTest name="FLEET_001_survives_save_load_without_signature_change" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="19ce99b2-40a3-121f-febe-2a2911535f00">
+      <Execution id="606be9a5-c1e8-4f96-83f2-6e0443dc8d37" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.FleetBindingContractTests" name="FLEET_001_survives_save_load_without_signature_change" />
+    </UnitTest>
+    <UnitTest name="Travel_UpdatesState_AndConsumesSlot" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="ebc423c6-c845-a67a-6d97-58f1f2c9db0e">
+      <Execution id="0d6a12a7-3093-4a62-b15f-7967c21335fe" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.TravelTests" name="Travel_UpdatesState_AndConsumesSlot" />
+    </UnitTest>
+    <UnitTest name="WorldClassDistinctness_Report_V0_FailsWhenClassParamsAreIdentical_AndFailureIsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="b8089c0b-b4aa-1b12-2dfe-834262effd1d">
+      <Execution id="6d16c948-a672-40a5-9864-c175988626c6" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="WorldClassDistinctness_Report_V0_FailsWhenClassParamsAreIdentical_AndFailureIsDeterministic" />
+    </UnitTest>
+    <UnitTest name="Monotonicity_ScarcerStock_IncreasesAllPrices" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="affa2024-fd18-3e80-3376-215426f210d1">
+      <Execution id="57bcf42f-4189-4875-a892-2e8890bb9936" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="Monotonicity_ScarcerStock_IncreasesAllPrices" />
+    </UnitTest>
+    <UnitTest name="TwoFleets_LogisticsAndLaneContention_IsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="5cc51b37-fd03-4fc8-940f-30b6e56c23c0">
+      <Execution id="97a6c20e-3205-4340-968b-100c0cbbc173" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsMultiFleetDeterminismTests" name="TwoFleets_LogisticsAndLaneContention_IsDeterministic" />
+    </UnitTest>
+    <UnitTest name="AntiExploitMarketArbConstraint_MoneyPrinterScenario_ProfitGrowthIsBounded_AndExplainsFrictionReasonCodes" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="90e58d57-657d-d78b-8277-08e2ea442b52">
+      <Execution id="9dc74cc6-b2d5-45c1-8a78-e0077e592bd2" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="AntiExploitMarketArbConstraint_MoneyPrinterScenario_ProfitGrowthIsBounded_AndExplainsFrictionReasonCodes" />
+    </UnitTest>
+    <UnitTest name="RemoteIntel_IsUnknown_WhenNeverObserved" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6f692b4e-054a-5bc9-b9bb-e8b4a810b875">
+      <Execution id="d3631297-ee9e-4f54-8e78-ccd9d2c7388d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.IntelContractTests" name="RemoteIntel_IsUnknown_WhenNeverObserved" />
+    </UnitTest>
+    <UnitTest name="Enqueue_Debits_Source_Immediately_And_Arrives_After_CeilDistance_Ticks" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="be65777f-d6ce-d21e-bf58-6916be1920c5">
+      <Execution id="46b146aa-f212-424d-b17e-e50a7a6d384d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LaneFlowSystemTests" name="Enqueue_Debits_Source_Immediately_And_Arrives_After_CeilDistance_Ticks" />
+    </UnitTest>
+    <UnitTest name="Add_Then_Remove_Returns_To_Original_Cargo_Removes_Zero_Key" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="fd6eeefd-e529-eef1-ddb4-cd522f5c06aa">
+      <Execution id="c907535c-b1ad-47f0-b477-799d43ea7ae2" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.InventoryLedgerTests" name="Add_Then_Remove_Returns_To_Original_Cargo_Removes_Zero_Key" />
+    </UnitTest>
+    <UnitTest name="LocalTruth_IsExact_AndAgeIsZero" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="c4b889e6-dc55-5014-06dd-eb0e8f894692">
+      <Execution id="49462bdf-adac-4ee7-a5ff-73c2fb3634a7" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.IntelContractTests" name="LocalTruth_IsExact_AndAgeIsZero" />
+    </UnitTest>
+    <UnitTest name="UnloadCargo_ClampsToCargoAvailable_AndNoNegatives" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="46bf89f4-de8e-7bc6-2429-7e9e5e203fcb">
+      <Execution id="69c368a7-9347-419f-9229-d9863d4ca5e4" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsTransferContractTests" name="UnloadCargo_ClampsToCargoAvailable_AndNoNegatives" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_RoundTrip_Preserves_FleetCargo_Exactly" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="8d5d3d90-524f-5570-bea3-471c83cfcf49">
+      <Execution id="9e25924e-3df4-4755-a397-d843decca11f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.FleetCargoSaveLoadContractTests" name="SaveLoad_RoundTrip_Preserves_FleetCargo_Exactly" />
+    </UnitTest>
+    <UnitTest name="Spread_BuyPrice_IsGreaterThan_SellPrice" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="83a9ee42-b5e6-5a45-8b4c-404d4d08f217">
+      <Execution id="758189a7-5d74-48ac-8c85-3728b3e9d63b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="Spread_BuyPrice_IsGreaterThan_SellPrice" />
+    </UnitTest>
+    <UnitTest name="PlannedJob_ExecutesPickupAndDelivery_ExactlyOnce" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="c4bc9732-0b25-efe8-0dac-b5b02d64cd89">
+      <Execution id="c7295580-c37a-4d18-b3c5-f0ad9db8a384" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsJobExecutionTests" name="PlannedJob_ExecutesPickupAndDelivery_ExactlyOnce" />
+    </UnitTest>
+    <UnitTest name="TwoFleets_UiCommandInterleavings_WithSaveLoadMidSequence_IsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6038105f-7e79-8402-741b-39f30ccbc07b">
+      <Execution id="dfd4c25d-9a8b-4748-bb8d-e2c86bc1ea68" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsMultiFleetDeterminismTests" name="TwoFleets_UiCommandInterleavings_WithSaveLoadMidSequence_IsDeterministic" />
+    </UnitTest>
+    <UnitTest name="PlanLogistics_CreatesRouteAwareJob_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="2fbb7063-a208-9457-f84c-6ceb2b54cd87">
+      <Execution id="fb967e27-7fba-4848-bbee-771666743509" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsJobContractTests" name="PlanLogistics_CreatesRouteAwareJob_Deterministically" />
+    </UnitTest>
+    <UnitTest name="SeedExplorer_V0_DiffReports_Are_ByteForByte_Deterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="258407be-2eb2-93ed-7222-5aae254c3855">
+      <Execution id="930ed744-65e4-4c86-ac99-dbf4c35582a1" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="SeedExplorer_V0_DiffReports_Are_ByteForByte_Deterministic" />
+    </UnitTest>
+    <UnitTest name="Fracture_Movement_AccumulatesTrace_OnArrival" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="78e47c93-5e7c-8f27-604d-5cabd5a8081d">
+      <Execution id="a12b1d48-fae1-4e23-9261-4bd8830e3120" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.FractureTests" name="Fracture_Movement_AccumulatesTrace_OnArrival" />
+    </UnitTest>
+    <UnitTest name="Reservation_ProtectsSupplierInventory_FromNonOwnerLoads" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="59c2bb00-fe56-9931-82a5-1c775eb9a028">
+      <Execution id="f06d9e3e-be6e-4fe3-b8e9-b2315e0c9d21" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsReservationContractTests" name="Reservation_ProtectsSupplierInventory_FromNonOwnerLoads" />
+    </UnitTest>
+    <UnitTest name="QUOTE_001_request_plus_snapshot_produces_deterministic_schema_bound_quote_against_golden" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6205d599-13ba-e649-cd45-37cfdbb233e1">
+      <Execution id="70e01da9-c9cc-4ab1-8a19-0c8cc349b84c" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramQuoteContractTests" name="QUOTE_001_request_plus_snapshot_produces_deterministic_schema_bound_quote_against_golden" />
+    </UnitTest>
+    <UnitTest name="TimeContract_Constants_AreLocked" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f5c2d853-1481-f87d-6971-6d001e272239">
+      <Execution id="a46da143-3a78-4384-b690-b5cd93deaab2" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Time.TimeContractTests" name="TimeContract_Constants_AreLocked" />
+    </UnitTest>
+    <UnitTest name="Ledger_Never_Allows_Negative_Inventory_MarketSemantics" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f46e284e-c1f0-0fcf-f792-217f610e8838">
+      <Execution id="0822d619-f134-46d2-b778-b06546db521a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.InventoryConservationTests" name="Ledger_Never_Allows_Negative_Inventory_MarketSemantics" />
+    </UnitTest>
+    <UnitTest name="World001_Loads_WithExpectedCounts_AndStableIds" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e774b232-1dc1-0f5f-77c3-83121c6990db">
+      <Execution id="500716bf-b208-4d7b-922d-11607a77a57b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.World.World001_MicroWorldLoadTests" name="World001_Loads_WithExpectedCounts_AndStableIds" />
+    </UnitTest>
+    <UnitTest name="Health_Decreases_Deterministically_When_Undersupplied" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="deade48c-3725-4254-c51d-2c367fe02920">
+      <Execution id="a09717f8-0260-4715-b34a-b8c6d2e59635" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.DeterministicDegradationTests" name="Health_Decreases_Deterministically_When_Undersupplied" />
+    </UnitTest>
+    <UnitTest name="Simulation_Is_Deterministic_With_Input" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="c944b59e-30c7-d0be-197a-ac0921f227b6">
+      <Execution id="cfafc20e-eb60-4bd5-8d09-6277ac36b8c4" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.GoldenReplayTests" name="Simulation_Is_Deterministic_With_Input" />
+    </UnitTest>
+    <UnitTest name="PartialPickup_DeliversOnlyWhatWasLoaded" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f01fb897-1409-3ef0-b33b-0f3cdd76e8c9">
+      <Execution id="96c92425-5c42-4edf-ac73-0662c18ac00a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsPartialFulfillmentTests" name="PartialPickup_DeliversOnlyWhatWasLoaded" />
+    </UnitTest>
+    <UnitTest name="LongRun_10000Ticks_Matches_Golden" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="b522f372-e6c3-56bd-afd5-4088da814f4e">
+      <Execution id="8cc5aa34-8262-4b6a-9422-395d0f60d0c5" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="LongRun_10000Ticks_Matches_Golden" />
+    </UnitTest>
+    <UnitTest name="Basic_Invariants_Hold_After_Stepping" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="faf06bcb-9da3-d8ff-ce5c-beb91d5f46ca">
+      <Execution id="d767aa6f-6eb0-4f69-8905-4ad04e036506" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.BasicStateInvariantsTests" name="Basic_Invariants_Hold_After_Stepping" />
+    </UnitTest>
+    <UnitTest name="Worldgen_Bounds_MinProducersAndSinks_Are_Sourced_From_Tweaks_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="9f7ab0c9-68dc-b7f1-7ce1-ac7872b51803">
+      <Execution id="da5630b1-ce54-40cd-8aea-efbe0b44ca6c" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.BasicStateInvariantsTests" name="Worldgen_Bounds_MinProducersAndSinks_Are_Sourced_From_Tweaks_V0" />
+    </UnitTest>
+    <UnitTest name="DOCTRINE_001_DefaultDoctrine_Exists_HasMax2Toggles_AndIsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="89804714-ec7c-aeca-abb4-18b9a64df254">
+      <Execution id="b124911d-48dd-4d4f-beba-671e0a4bbc09" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.DefaultDoctrineContractTests" name="DOCTRINE_001_DefaultDoctrine_Exists_HasMax2Toggles_AndIsDeterministic" />
+    </UnitTest>
+    <UnitTest name="Containment_DecaysTrace_OverTime" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f23fea91-2d72-effc-be51-77b14656b83b">
+      <Execution id="c143a5c2-e2be-4813-a4c5-11af10354ef5" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.ContainmentTests" name="Containment_DecaysTrace_OverTime" />
+    </UnitTest>
+    <UnitTest name="IfSupplierRefillsBeforeN_JobRetriesAndCompletes" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="1ee510b9-84d4-5166-192d-4c98ecb1bb66">
+      <Execution id="8e9829f9-4888-43e3-aaf0-3411499b1d90" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsRetryOrCancelContractTests" name="IfSupplierRefillsBeforeN_JobRetriesAndCompletes" />
+    </UnitTest>
+    <UnitTest name="TweakConfigV0_SchemaContract_FieldOrder_IsAppendOnly_CanonicalKeyOrder_Defaults_AndHash_AreLocked_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="7e8d7301-623b-1a4d-b532-2f22ae992adf">
+      <Execution id="c0c88ffa-72c5-44fa-825d-4f22754c342a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="TweakConfigV0_SchemaContract_FieldOrder_IsAppendOnly_CanonicalKeyOrder_Defaults_AndHash_AreLocked_V0" />
+    </UnitTest>
+    <UnitTest name="FactionSeeding_Report_IsDeterministic_AndDiffsAcrossSeeds" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="83d8e03f-1017-5332-356c-3f070a3bb76c">
+      <Execution id="5e57447d-4685-4be7-81bd-3951340c42d6" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.GalaxyTests" name="FactionSeeding_Report_IsDeterministic_AndDiffsAcrossSeeds" />
+    </UnitTest>
+    <UnitTest name="Program_LongRun_FinalSignature_IsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cd17e1d7-bfb8-b528-4a3d-6f1c643b2034">
+      <Execution id="04b8f113-0a58-4c73-9de6-27759a6b22ba" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.ProgramDeterminismTests" name="Program_LongRun_FinalSignature_IsDeterministic" />
+    </UnitTest>
+    <UnitTest name="LoadCargo_ClampsToMarketAvailable_AndNoNegatives" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="65af4c0b-3da9-f7ff-68b6-299671495683">
+      <Execution id="1c214d0e-9b9e-4eb3-a2ce-fd26fd319db3" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsTransferContractTests" name="LoadCargo_ClampsToMarketAvailable_AndNoNegatives" />
+    </UnitTest>
+    <UnitTest name="Logistics_LoopViabilityThreshold_FromTweaks_FiltersSuppliers_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f517aca0-d83c-ba8a-e49b-dfd17b1e24db">
+      <Execution id="9991324b-a831-4498-8bf9-d7636deacf4d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="Logistics_LoopViabilityThreshold_FromTweaks_FiltersSuppliers_Deterministically" />
+    </UnitTest>
+    <UnitTest name="Generation_CreatesValidMarkets_WithGoods" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="4c6c3d6d-d9d9-c512-a1da-351dba3f0f92">
+      <Execution id="e3740c06-b30b-4477-8b42-137137178ca1" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.GalaxyTests" name="Generation_CreatesValidMarkets_WithGoods" />
+    </UnitTest>
+    <UnitTest name="WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="0a22b8b5-38ba-cec8-37fe-054706591cf8">
+      <Execution id="e53b6e2e-eede-46a4-98a5-a07d6c3aaad6" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable" />
+    </UnitTest>
+    <UnitTest name="FleetRoles_RouteChoice_IsDeterministic_EmitsSchemaBoundEvent_AndPersistsThroughSaveLoad" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="05f407ee-0631-8e59-695b-f8592de585ea">
+      <Execution id="5f6229f9-c515-4915-a79b-9ffe7ea0c325" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.FleetAuthorityPrecedenceContractTests" name="FleetRoles_RouteChoice_IsDeterministic_EmitsSchemaBoundEvent_AndPersistsThroughSaveLoad" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_RoundTrip_Preserves_ManualOverrideNodeId_Exactly" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="08e87e66-8f8f-5ce1-82f0-d307d04ebe93">
+      <Execution id="e887e722-e15f-4de9-bb18-aeaf238b2b40" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.FleetManualOverrideSaveLoadContractTests" name="SaveLoad_RoundTrip_Preserves_ManualOverrideNodeId_Exactly" />
+    </UnitTest>
+    <UnitTest name="SUS_SNAP_001_snapshot_includes_bands_and_they_match_banded_time" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="8ad67d0f-d02b-ff27-a75e-0dbe77df061d">
+      <Execution id="e3e82e71-edc7-4e8a-92cc-7db1c5ad0af1" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.SustainmentSnapshotContractTests" name="SUS_SNAP_001_snapshot_includes_bands_and_they_match_banded_time" />
+    </UnitTest>
+    <UnitTest name="SustainmentReport_Computes_Margin_And_Times_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="649c45f1-ad0f-13f6-cd93-4dd855223cde">
+      <Execution id="d075446c-544c-4e9f-9808-b81ebd6f133e" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.SustainmentReportTests" name="SustainmentReport_Computes_Margin_And_Times_Deterministically" />
+    </UnitTest>
+    <UnitTest name="PROG_LIFE_001_start_pause_cancel_transitions_are_stable" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="33b7e9b5-979e-71ee-ff9d-77f65d7b6b45">
+      <Execution id="599f5565-4450-46f2-85d6-a4422d4b127e" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramLifecycleContractTests" name="PROG_LIFE_001_start_pause_cancel_transitions_are_stable" />
+    </UnitTest>
+    <UnitTest name="PartialPickup_IsDeterministicAcrossFreshRuns" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="0355c27c-ca81-6bc9-4a1f-ee533f24f6ee">
+      <Execution id="27403b8c-849d-4baa-bc0a-65fde564b2f4" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsPartialFulfillmentTests" name="PartialPickup_IsDeterministicAcrossFreshRuns" />
+    </UnitTest>
+    <UnitTest name="Logistics_AssignsJob_WhenShortageExists" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="c912fbcb-9c76-36e4-0439-a05baa70e6dd">
+      <Execution id="005ebdc6-497b-4ee8-ab06-134b81fc59da" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.LogisticsTests" name="Logistics_AssignsJob_WhenShortageExists" />
+    </UnitTest>
+    <UnitTest name="BufferTarget_Is_Zero_When_BufferDays_Is_Zero" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="fb2bd6ce-18a4-871e-1874-97d00d1f025d">
+      <Execution id="b3c25a9e-70eb-42f3-b286-940441c11cfa" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.BufferMathInvariantsTests" name="BufferTarget_Is_Zero_When_BufferDays_Is_Zero" />
+    </UnitTest>
+    <UnitTest name="Remove_To_Zero_Market_Preserves_Zero_Key" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="7f82ca3e-e4ab-89fa-a5d2-ae1ac6f29f90">
+      <Execution id="984ebbc9-eb8e-4dd2-871f-6f2b5c5da38d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.InventoryLedgerTests" name="Remove_To_Zero_Market_Preserves_Zero_Key" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_RoundTrip_Preserves_OverrideDrivenRouting_Intention" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="d257707c-5abe-1a0c-ba75-f976b8691219">
+      <Execution id="0897780a-94f4-41c1-b9c7-14bd9afb7197" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.FleetManualOverrideSaveLoadContractTests" name="SaveLoad_RoundTrip_Preserves_OverrideDrivenRouting_Intention" />
+    </UnitTest>
+    <UnitTest name="Transfer_IsDeterministic_ForSameInputs" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6c43bcb5-6882-c05c-7f39-8fb5db3657a5">
+      <Execution id="9f13c3f4-1213-4648-92ba-c28c31a9d951" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsTransferContractTests" name="Transfer_IsDeterministic_ForSameInputs" />
+    </UnitTest>
+    <UnitTest name="SeedExplorer_V0_Reports_Are_ByteForByte_Deterministic_And_NoTimeLeakage" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="2f8387ed-2135-4ac2-1263-b855695950d4">
+      <Execution id="ea36d219-7fbc-4897-be82-d1e700c6098a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="SeedExplorer_V0_Reports_Are_ByteForByte_Deterministic_And_NoTimeLeakage" />
+    </UnitTest>
+    <UnitTest name="MarketFees_FromTweaks_MarketFeeMultiplier_ChangesTransactionFee_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="9c1322f4-bbdf-b6ec-9065-e9f1b9340d29">
+      <Execution id="1ae5df1b-7f4e-4d99-8396-e8b36d26c90d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.MarketFeeDeterminismTests" name="MarketFees_FromTweaks_MarketFeeMultiplier_ChangesTransactionFee_Deterministically" />
+    </UnitTest>
+    <UnitTest name="ManualOverride_CancelsActiveLogisticsJob_AndDoesNotResumeWhenCleared" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="84ed8c95-4b7a-1889-e3d2-54b815f17cea">
+      <Execution id="e6e1db6f-a6a1-49db-a4fe-0e85baf8243d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.FleetAuthorityPrecedenceContractTests" name="ManualOverride_CancelsActiveLogisticsJob_AndDoesNotResumeWhenCleared" />
+    </UnitTest>
+    <UnitTest name="TweakConfigV0_ParseJsonOrDefaults_InvalidOrSchemaInvalid_FallsBackToDefaults_Deterministically_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="49b6b1a8-631b-3e24-331e-03b8cb3ce02f">
+      <Execution id="ca4e6e2d-de72-4779-8b39-e18d2616a55b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="TweakConfigV0_ParseJsonOrDefaults_InvalidOrSchemaInvalid_FallsBackToDefaults_Deterministically_V0" />
+    </UnitTest>
+    <UnitTest name="SeedExplorer_V0_ConfigOverrides_Are_ByteForByte_Deterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="49030e73-f588-c16c-7fb8-d7a46cac1829">
+      <Execution id="9be92ffc-ddf9-48b1-8677-fa2351f1cb7f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="SeedExplorer_V0_ConfigOverrides_Are_ByteForByte_Deterministic" />
+    </UnitTest>
+    <UnitTest name="PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e6aa184a-da3b-5504-348b-527dcd1b01e1">
+      <Execution id="ea981c07-ca2b-4b69-91bc-4602c5679b4f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramExecutionIntegrationTests" name="PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick" />
+    </UnitTest>
+    <UnitTest name="CancelJob_ClearsJobRouteAndTask_Deterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="fb10ec80-fd0a-bc1e-45f1-e0bce7f34f8f">
+      <Execution id="caf1349d-2508-4b6f-80b2-f3cf10349b48" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.FleetJobCancelContractTests" name="CancelJob_ClearsJobRouteAndTask_Deterministically" />
+    </UnitTest>
+    <UnitTest name="BAND_001_band_ticks_thresholds_are_stable" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="feef5147-69f2-56ef-2eac-aa8482edd3a9">
+      <Execution id="a82543d3-0f24-4e9a-8d49-ea78ad22f72f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.BandedTimeContractTests" name="BAND_001_band_ticks_thresholds_are_stable" />
+    </UnitTest>
+    <UnitTest name="PublishedPrices_Update_OnNextWindowBoundary" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="97821e94-461e-d559-b9db-0a7204dc0964">
+      <Execution id="2a40f065-8d4b-4261-8e49-7d6771a2ee2e" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.MarketPublishCadenceTests" name="PublishedPrices_Update_OnNextWindowBoundary" />
+    </UnitTest>
+    <UnitTest name="RouteChosenEvent_IsSchemaBound" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="43f7b81a-62af-1131-613b-7247bb592514">
+      <Execution id="d40a2ec6-6675-4a59-b302-e5e4a7a4d37a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.RoutePlannerTests" name="RouteChosenEvent_IsSchemaBound" />
+    </UnitTest>
+    <UnitTest name="Generation_IsDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="2afec21d-5b14-7988-d9e6-5bac07da2c08">
+      <Execution id="12ec9fe4-f881-4796-b1e8-44ac59088bcb" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.GalaxyTests" name="Generation_IsDeterministic" />
+    </UnitTest>
+    <UnitTest name="RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cdc6c1ae-297c-5cb1-730b-8469780bdb6c">
+      <Execution id="2d1f4b4e-e737-4cdc-a63e-b808ce43322d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.IntelContractTests" name="RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved" />
+    </UnitTest>
+    <UnitTest name="LogisticsJob_ExecutesPickupAndDelivery_ExactlyOnce" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="5198fbed-30db-1138-c246-1b2481c8f2c7">
+      <Execution id="06bbaa22-7ba7-4272-acc3-9cf056ddeb4f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsJobExecutionIntegrationTests" name="LogisticsJob_ExecutesPickupAndDelivery_ExactlyOnce" />
+    </UnitTest>
+    <UnitTest name="RetryUpToNZeroPickupObservations_ThenCancel" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="5f5beafc-14a7-c032-7b1d-b1c0efc69a6f">
+      <Execution id="4e5e61be-bfb9-47ae-b9c3-31ece323c24f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsRetryOrCancelContractTests" name="RetryUpToNZeroPickupObservations_ThenCancel" />
+    </UnitTest>
+    <UnitTest name="PublishedPrices_Initialize_AndRemainStable_WithinWindow" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="7c4fd7a0-5368-214c-036e-e2c47d2b18a2">
+      <Execution id="02ff796a-7127-4fcc-a774-5e0e2da52ccd" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.MarketPublishCadenceTests" name="PublishedPrices_Initialize_AndRemainStable_WithinWindow" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_MidLogisticsJob_ContinuesToSameFinalHash_AsUninterrupted" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="56a957b7-e18d-e25d-7b8e-ec0ebca32204">
+      <Execution id="8dc5b351-7194-42f4-8389-df1fdbbeb535" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.SaveLoadLogisticsMidJobTests" name="SaveLoad_MidLogisticsJob_ContinuesToSameFinalHash_AsUninterrupted" />
+    </UnitTest>
+    <UnitTest name="FLEET_001_is_deterministic_by_signature" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="4927cf3c-0fe2-5631-c9ee-851977ff9fc1">
+      <Execution id="b617abe1-5219-417f-9224-eb34ef11284d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.FleetBindingContractTests" name="FLEET_001_is_deterministic_by_signature" />
+    </UnitTest>
+    <UnitTest name="LogisticsEvents_AreSchemaBound_AndDeterministicAcrossFreshRuns" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="ec5c371e-cf9b-110e-550a-252812f8c077">
+      <Execution id="8b5383a9-64e5-48b4-b99b-f9dd033d7c62" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsEventStreamContractTests" name="LogisticsEvents_AreSchemaBound_AndDeterministicAcrossFreshRuns" />
+    </UnitTest>
+    <UnitTest name="BAND_002_band_days_thresholds_are_stable" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="6dcc455e-49f6-0fc4-bfec-d4ba6a8f4e3d">
+      <Execution id="f43f767a-f6e6-4a55-8e0e-038167c073ca" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.BandedTimeContractTests" name="BAND_002_band_days_thresholds_are_stable" />
+    </UnitTest>
+    <UnitTest name="Remove_More_Than_Available_ReturnsFalse_And_DoesNotChange_Market" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f553f183-e7d1-720a-3ec9-a9b41aba5aff">
+      <Execution id="d2e917a2-e965-4bbe-8faa-d2a5c3a5a212" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.InventoryLedgerTests" name="Remove_More_Than_Available_ReturnsFalse_And_DoesNotChange_Market" />
+    </UnitTest>
+    <UnitTest name="PROG_CMD_001_set_status_command_updates_program_and_clamps_next_run_tick_on_start" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="909ece48-7c1e-0587-bc9c-c17833d2d364">
+      <Execution id="9f8c31b9-b943-4c79-b311-a47bb7c056bc" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramStatusCommandContractTests" name="PROG_CMD_001_set_status_command_updates_program_and_clamps_next_run_tick_on_start" />
+    </UnitTest>
+    <UnitTest name="Cancel_WhenPickupLoadsZero_ClearsFleetStateDeterministically" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e357e99b-dfc2-7a0f-9cfa-a76af3c7a5a5">
+      <Execution id="5757f6b2-50e1-4f12-b2bb-166a2536009b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsCancelContractTests" name="Cancel_WhenPickupLoadsZero_ClearsFleetStateDeterministically" />
+    </UnitTest>
+    <UnitTest name="Industry_PartialProduction_ScalesDown" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="fe7e3717-6284-d1b5-c8ba-de43872f1a5f">
+      <Execution id="5902ec30-3921-4cfb-aa31-83885d7108ed" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.IndustryTests" name="Industry_PartialProduction_ScalesDown" />
+    </UnitTest>
+    <UnitTest name="Signal_TraceAndHeat_ArePersistedInSignature" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="9fd3495b-a209-1fa8-7957-e4f2307d3956">
+      <Execution id="90bc4dd4-ecdb-412b-badd-4bd6acf0ae3a" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SignalTests" name="Signal_TraceAndHeat_ArePersistedInSignature" />
+    </UnitTest>
+    <UnitTest name="WorldgenDistributionBounds_StarterGoods_EachHasProducerAndSink_Over100Seeds_AndEmitsDeterministicReport" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e10f67d3-f4b6-69ad-4b74-17df096ad80f">
+      <Execution id="6c718e7a-2fe5-4f01-a4e4-319a27ceeaaa" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="WorldgenDistributionBounds_StarterGoods_EachHasProducerAndSink_Over100Seeds_AndEmitsDeterministicReport" />
+    </UnitTest>
+    <UnitTest name="LogisticsSystem_Process_MayEnqueueIntents_But_MutationsOccurOnlyWhenIntentSystemProcesses" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="75377a2f-35a9-38bd-ec2d-64eaff988dd5">
+      <Execution id="d5b750a7-8d2a-44f0-8538-11ead7264acb" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.LogisticsMutationPipelineContractTests" name="LogisticsSystem_Process_MayEnqueueIntents_But_MutationsOccurOnlyWhenIntentSystemProcesses" />
+    </UnitTest>
+    <UnitTest name="MovementSystem_AdvancesProgress_AndArrives" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="be0cd5fc-107a-20d9-d6b5-cd6d244f0149">
+      <Execution id="ddf17e69-d401-46d0-bfbf-58527e49c3f3" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.TravelTests" name="MovementSystem_AdvancesProgress_AndArrives" />
+    </UnitTest>
+    <UnitTest name="LogisticsSystem_Process_DoesNotDirectlyMutate_MarketInventory_Or_FleetCargo" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="975dda28-9645-eb60-e4c3-d844e8075d35">
+      <Execution id="d219f39e-e685-4bed-867a-9ce087b22db8" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.LogisticsMutationPipelineContractTests" name="LogisticsSystem_Process_DoesNotDirectlyMutate_MarketInventory_Or_FleetCargo" />
+    </UnitTest>
+    <UnitTest name="Transcript_Tick0_IncludesTweaksVersionAndHash_ExactLine" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="1b8d2cd0-4ecc-09fe-e217-27d7827d08c3">
+      <Execution id="caa321b3-be5b-42f9-ba2a-881d697c7d04" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="Transcript_Tick0_IncludesTweaksVersionAndHash_ExactLine" />
+    </UnitTest>
+    <UnitTest name="MidPrice_LowSupply_IsHigherThanBase" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="e4d8b1fd-8792-9ea4-b08a-25674d31ced2">
+      <Execution id="5b24ebde-5d94-4b84-a5b5-4cd1327b3f60" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="MidPrice_LowSupply_IsHigherThanBase" />
+    </UnitTest>
+    <UnitTest name="MidPrice_ZeroSupply_IsHigh" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="ec1393c4-4703-4e7e-782c-715fcac654e8">
+      <Execution id="783bbc3d-2ab1-4aa0-a7ae-d709fc30ddb6" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="MidPrice_ZeroSupply_IsHigh" />
+    </UnitTest>
+    <UnitTest name="Worldgen_Invariants_Batch_Seeds_1_To_100_V0_Emits_Deterministic_Summary_And_Fails_On_Any_Failure" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="30368def-4a83-bdc3-6259-64059d1ac79b">
+      <Execution id="0c18387c-c950-4316-a10d-26d01f289708" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="Worldgen_Invariants_Batch_Seeds_1_To_100_V0_Emits_Deterministic_Summary_And_Fails_On_Any_Failure" />
+    </UnitTest>
+    <UnitTest name="SaveLoad_ProgramsPersist_PendingIntentsDiscarded" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="f303766c-d899-bd2a-93a5-4a4d0bff73c6">
+      <Execution id="de55c908-5964-4edb-90fb-feaa9f935273" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.SaveLoad.ProgramSaveLoadContractTests" name="SaveLoad_ProgramsPersist_PendingIntentsDiscarded" />
+    </UnitTest>
+    <UnitTest name="PerfBudget_Slice3_V0_AverageTickTime_WithinBudget_And_ReportDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cf507909-f2fb-5031-715d-1ce0c0ac4705">
+      <Execution id="65bef155-72da-46fd-b44e-1c381589c9b1" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="PerfBudget_Slice3_V0_AverageTickTime_WithinBudget_And_ReportDeterministic" />
+    </UnitTest>
+    <UnitTest name="Reservation_Behavior_IsDeterministic_AcrossFreshRuns" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="a9efb629-0b99-8f53-a02b-c0ab88233a52">
+      <Execution id="fb064e25-830d-45a8-a273-ef006f10a660" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsReservationContractTests" name="Reservation_Behavior_IsDeterministic_AcrossFreshRuns" />
+    </UnitTest>
+    <UnitTest name="Transfer_Conserves_Total_Market" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="a9b6b74f-52ba-e54d-b079-656324b7c4c2">
+      <Execution id="7358c821-d428-4393-97a9-9a8aaf53c811" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.InventoryLedgerTests" name="Transfer_Conserves_Total_Market" />
+    </UnitTest>
+    <UnitTest name="PROG_UI_001_manual_override_job_cancel_emits_event_and_pauses_programs" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="b51de1ca-b3ea-9eac-fa0d-b3e4a00db978">
+      <Execution id="52b95c0a-a747-4d9a-9592-48fd18e33c5d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramLifecycleContractTests" name="PROG_UI_001_manual_override_job_cancel_emits_event_and_pauses_programs" />
+    </UnitTest>
+    <UnitTest name="EXPLAIN_001_program_explain_payload_is_schema_bound_and_deterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="8680dc49-265d-c9c3-116f-461ca2661675">
+      <Execution id="f49e3f01-01de-4d21-8da7-386db4d3d802" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramContractTests" name="EXPLAIN_001_program_explain_payload_is_schema_bound_and_deterministic" />
+    </UnitTest>
+    <UnitTest name="World001_IsDeterministic_BySignature" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cab6ea2e-853f-e9cc-73f0-1fd5eaf2e39c">
+      <Execution id="02d46480-cd70-4b42-a843-54e4369409d4" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.World.World001_MicroWorldLoadTests" name="World001_IsDeterministic_BySignature" />
+    </UnitTest>
+    <UnitTest name="World001_PlansDirectRoute" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="dba9ba7c-9c45-cb71-0846-0a94b14929e6">
+      <Execution id="75d99ad0-455d-4ca4-af19-3428a1b7271b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.RoutePlannerTests" name="World001_PlansDirectRoute" />
+    </UnitTest>
+    <UnitTest name="Execution_IsDeterministicAcrossFreshRuns" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="b3d2af46-855b-10e8-94de-0899444e045b">
+      <Execution id="a751a339-574f-4fce-ac92-b26c7a40bf31" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LogisticsJobExecutionTests" name="Execution_IsDeterministicAcrossFreshRuns" />
+    </UnitTest>
+    <UnitTest name="CancelJob_WhenNoJob_DoesNotMutateFleetJobFields" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="218fe381-179e-9868-8bbc-42677f4cbe3b">
+      <Execution id="5494b478-b3f9-4ae9-9bac-57f4633a8d6b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.FleetJobCancelContractTests" name="CancelJob_WhenNoJob_DoesNotMutateFleetJobFields" />
+    </UnitTest>
+    <UnitTest name="RunnerHostTweaksFile_IfPresent_MustBeUtf8NoBom_AndJsonObject_V0" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="07b5dc27-f37b-f85f-e959-9475521a8875">
+      <Execution id="09911ba9-f547-43c3-8628-76ab955d1e8d" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="RunnerHostTweaksFile_IfPresent_MustBeUtf8NoBom_AndJsonObject_V0" />
+    </UnitTest>
+    <UnitTest name="Containment_ClampsTrace_ToZero" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="8cf1dbbd-4506-f5dd-ac4d-cd27d5258730">
+      <Execution id="c086dc1f-a88e-43a4-96b4-22718bf33eb5" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.ContainmentTests" name="Containment_ClampsTrace_ToZero" />
+    </UnitTest>
+    <UnitTest name="RemoteIntel_IsBanded_AndAgeIncrements_WhenNotReobserved" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="87001f66-4c3d-139b-c6f9-1625bc49c013">
+      <Execution id="7279d013-0e79-4e47-b96b-bc8f8ce14d0b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.IntelContractTests" name="RemoteIntel_IsBanded_AndAgeIncrements_WhenNotReobserved" />
+    </UnitTest>
+    <UnitTest name="CapacityScarcity_MultiTransfer_Overflow_IsStableAcrossTicks_And_PerTransferRemaindersAreDeterministic" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="7c479528-6e0e-5587-048c-31be72a34d84">
+      <Execution id="60a1f1cb-942c-4841-9d5b-c370b32bed3f" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LaneFlowSystemTests" name="CapacityScarcity_MultiTransfer_Overflow_IsStableAcrossTicks_And_PerTransferRemaindersAreDeterministic" />
+    </UnitTest>
+    <UnitTest name="EconomyPlacement_StarterRegion_HasAtLeast3ViableTradeLoops_AndEmitsDeterministicReport" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="9ecef8be-7e19-9d11-94fd-27d9f4920197">
+      <Execution id="bc6f8d3b-977e-4c5e-a464-5dbbe4f3c1bc" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.MarketTests" name="EconomyPlacement_StarterRegion_HasAtLeast3ViableTradeLoops_AndEmitsDeterministicReport" />
+    </UnitTest>
+    <UnitTest name="PROG_001_program_schema_file_exists_and_is_json" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="15d11c10-1eb9-8c16-933b-6a766c0809d4">
+      <Execution id="70e3ca37-c384-48d2-bf14-c7bce75448c0" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramContractTests" name="PROG_001_program_schema_file_exists_and_is_json" />
+    </UnitTest>
+    <UnitTest name="SimKernel_Step_AdvancesExactlyOneTick" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="cc049097-19ba-722e-2881-a00c390cfe11">
+      <Execution id="f84a3b43-a00d-4ce0-a3e2-d7c51fd3fdda" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Time.TimeContractTests" name="SimKernel_Step_AdvancesExactlyOneTick" />
+    </UnitTest>
+    <UnitTest name="SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="d78d3c06-2886-7fef-301b-969b2fea4581">
+      <Execution id="c661322b-25a4-462a-91c4-c0858523db53" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Invariants.RuntimeFileContractTests" name="SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess" />
+    </UnitTest>
+    <UnitTest name="EqualHopEqualRisk_TieBreaksByRouteId" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="980de98a-18c8-4be7-769b-4d43dac71aed">
+      <Execution id="936c5d22-715f-4593-94b2-4e4d63a2b801" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.RoutePlannerTests" name="EqualHopEqualRisk_TieBreaksByRouteId" />
+    </UnitTest>
+    <UnitTest name="PROG_EXEC_001_program_system_emits_intents_only" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="41c5cc8c-dbdb-5180-a462-5acd42bd8826">
+      <Execution id="0b11b52b-aaef-424e-9384-8190923be0de" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Programs.ProgramContractTests" name="PROG_EXEC_001_program_system_emits_intents_only" />
+    </UnitTest>
+    <UnitTest name="LogisticsEvents_SameTick_OrderIsDeterministic_UnderMultiFleetContention" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="1a0c9cd1-005f-cc36-ba7b-047adaef086b">
+      <Execution id="15483e33-7206-41c7-9494-b1b61f8ca591" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LogisticsOrderingDeterminismTests" name="LogisticsEvents_SameTick_OrderIsDeterministic_UnderMultiFleetContention" />
+    </UnitTest>
+    <UnitTest name="BufferTarget_Uses_Days_Converted_To_Ticks" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="11f3c1be-327a-5404-aeb5-b0ae6546da2a">
+      <Execution id="7b46dd16-10b9-40c7-bb14-9fbc168347f9" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.BufferSizingDaysTests" name="BufferTarget_Uses_Days_Converted_To_Ticks" />
+    </UnitTest>
+    <UnitTest name="BufferTarget_Scales_Linearly_With_Days" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="44c3c029-785c-3e9c-87ae-e450fb77e37d">
+      <Execution id="2b639668-a485-42c1-a912-d401e9c12458" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.BufferMathInvariantsTests" name="BufferTarget_Scales_Linearly_With_Days" />
+    </UnitTest>
+    <UnitTest name="Sustainment_RunTwice_SameSetup_Produces_Identical_State" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="dcb9b7bb-7561-00e4-6ffa-66dc24f53288">
+      <Execution id="00a07953-3206-4cdb-b65f-4bb5ccf6673b" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Sustainment.SustainmentDeterminismRegressionTests" name="Sustainment_RunTwice_SameSetup_Produces_Identical_State" />
+    </UnitTest>
+    <UnitTest name="LaneCapacity_Bounds_Delivery_And_Queues_Overflow_Deterministically_With_Report" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="1a69a3d4-61e8-04c7-30e1-2d16cf748632">
+      <Execution id="2471334c-8559-4eff-932e-497ae6060283" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Systems.LaneFlowSystemTests" name="LaneCapacity_Bounds_Delivery_And_Queues_Overflow_Deterministically_With_Report" />
+    </UnitTest>
+    <UnitTest name="PerfBudget_Slice3_V0_BudgetGuard_FailsWhenExceeded" storage="d:\sge\spacetradeempire\simcore.tests\bin\debug\net8.0\simcore.tests.dll" id="dac1168d-2cb6-067b-64d1-1be9698be60c">
+      <Execution id="ec20a4a1-d525-4d28-a50f-4e67bd8dddda" />
+      <TestMethod codeBase="D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="SimCore.Tests.Determinism.LongRunWorldHashTests" name="PerfBudget_Slice3_V0_BudgetGuard_FailsWhenExceeded" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="08e87e66-8f8f-5ce1-82f0-d307d04ebe93" executionId="e887e722-e15f-4de9-bb18-aeaf238b2b40" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b51de1ca-b3ea-9eac-fa0d-b3e4a00db978" executionId="52b95c0a-a747-4d9a-9592-48fd18e33c5d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ec592b2c-fd3c-4661-c798-f28a1b337275" executionId="762e7165-4d05-4835-8a6e-b8ab76e280da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2f8387ed-2135-4ac2-1263-b855695950d4" executionId="ea36d219-7fbc-4897-be82-d1e700c6098a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="faf06bcb-9da3-d8ff-ce5c-beb91d5f46ca" executionId="d767aa6f-6eb0-4f69-8905-4ad04e036506" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f303766c-d899-bd2a-93a5-4a4d0bff73c6" executionId="de55c908-5964-4edb-90fb-feaa9f935273" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="59c2bb00-fe56-9931-82a5-1c775eb9a028" executionId="f06d9e3e-be6e-4fe3-b8e9-b2315e0c9d21" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6205d599-13ba-e649-cd45-37cfdbb233e1" executionId="70e01da9-c9cc-4ab1-8a19-0c8cc349b84c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="83d8e03f-1017-5332-356c-3f070a3bb76c" executionId="5e57447d-4685-4be7-81bd-3951340c42d6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f5c2d853-1481-f87d-6971-6d001e272239" executionId="a46da143-3a78-4384-b690-b5cd93deaab2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e357e99b-dfc2-7a0f-9cfa-a76af3c7a5a5" executionId="5757f6b2-50e1-4f12-b2bb-166a2536009b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5cc51b37-fd03-4fc8-940f-30b6e56c23c0" executionId="97a6c20e-3205-4340-968b-100c0cbbc173" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b883516b-c285-28e3-c3e2-fb020fa763b5" executionId="bb62093e-c3d9-4e1a-baa9-23ef6d9a4100" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="65af4c0b-3da9-f7ff-68b6-299671495683" executionId="1c214d0e-9b9e-4eb3-a2ce-fd26fd319db3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dba9ba7c-9c45-cb71-0846-0a94b14929e6" executionId="75d99ad0-455d-4ca4-af19-3428a1b7271b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9fd3495b-a209-1fa8-7957-e4f2307d3956" executionId="90bc4dd4-ecdb-412b-badd-4bd6acf0ae3a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c4bc9732-0b25-efe8-0dac-b5b02d64cd89" executionId="c7295580-c37a-4d18-b3c5-f0ad9db8a384" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="affa2024-fd18-3e80-3376-215426f210d1" executionId="57bcf42f-4189-4875-a892-2e8890bb9936" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f01fb897-1409-3ef0-b33b-0f3cdd76e8c9" executionId="96c92425-5c42-4edf-ac73-0662c18ac00a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="48fea739-6bc4-ebb5-5474-43187d220ee4" executionId="092fc848-4458-448b-8d65-51db300cf7ee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d257707c-5abe-1a0c-ba75-f976b8691219" executionId="0897780a-94f4-41c1-b9c7-14bd9afb7197" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="258407be-2eb2-93ed-7222-5aae254c3855" executionId="930ed744-65e4-4c86-ac99-dbf4c35582a1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fb2bd6ce-18a4-871e-1874-97d00d1f025d" executionId="b3c25a9e-70eb-42f3-b286-940441c11cfa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cd17e1d7-bfb8-b528-4a3d-6f1c643b2034" executionId="04b8f113-0a58-4c73-9de6-27759a6b22ba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8cf1dbbd-4506-f5dd-ac4d-cd27d5258730" executionId="c086dc1f-a88e-43a4-96b4-22718bf33eb5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="be0cd5fc-107a-20d9-d6b5-cd6d244f0149" executionId="ddf17e69-d401-46d0-bfbf-58527e49c3f3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e9ed0dc3-6138-2eef-aae8-aef162079197" executionId="34754465-5a18-4ba3-9b42-87472e798bee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c944b59e-30c7-d0be-197a-ac0921f227b6" executionId="cfafc20e-eb60-4bd5-8d09-6277ac36b8c4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7c4fd7a0-5368-214c-036e-e2c47d2b18a2" executionId="02ff796a-7127-4fcc-a774-5e0e2da52ccd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf507909-f2fb-5031-715d-1ce0c0ac4705" executionId="65bef155-72da-46fd-b44e-1c381589c9b1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ee510b9-84d4-5166-192d-4c98ecb1bb66" executionId="8e9829f9-4888-43e3-aaf0-3411499b1d90" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4927cf3c-0fe2-5631-c9ee-851977ff9fc1" executionId="b617abe1-5219-417f-9224-eb34ef11284d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b3d2af46-855b-10e8-94de-0899444e045b" executionId="a751a339-574f-4fce-ac92-b26c7a40bf31" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dd29825b-0a13-45bf-bc59-4d11f3b63684" executionId="bf1ac461-3d28-47d6-b849-bda9386efeba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3af0ef18-904c-63fb-09b9-7ca5c7f02ae4" executionId="56d515c0-ba17-4e3c-a285-b62cfdb9d449" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b8d2cd0-4ecc-09fe-e217-27d7827d08c3" executionId="caa321b3-be5b-42f9-ba2a-881d697c7d04" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cab6ea2e-853f-e9cc-73f0-1fd5eaf2e39c" executionId="02d46480-cd70-4b42-a843-54e4369409d4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ec5c371e-cf9b-110e-550a-252812f8c077" executionId="8b5383a9-64e5-48b4-b99b-f9dd033d7c62" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="84ed8c95-4b7a-1889-e3d2-54b815f17cea" executionId="e6e1db6f-a6a1-49db-a4fe-0e85baf8243d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cc049097-19ba-722e-2881-a00c390cfe11" executionId="f84a3b43-a00d-4ce0-a3e2-d7c51fd3fdda" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ec1393c4-4703-4e7e-782c-715fcac654e8" executionId="783bbc3d-2ab1-4aa0-a7ae-d709fc30ddb6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a0c9cd1-005f-cc36-ba7b-047adaef086b" executionId="15483e33-7206-41c7-9494-b1b61f8ca591" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d78d3c06-2886-7fef-301b-969b2fea4581" executionId="c661322b-25a4-462a-91c4-c0858523db53" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fe4d9ece-ac92-7e10-00c6-eb1ede788034" executionId="d369e502-e717-4ae0-8bbb-07ba524e7c8c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c0a4bac-e37b-6e5f-071e-9be8ea0c0e89" executionId="deb3f05a-14c6-48c6-921c-87d6af92a723" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="33a77fea-2060-f908-e4ac-1b3130c730a1" executionId="b1561b08-02c9-4caa-9088-ee32e3b35dde" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="58fd4c81-7955-949c-5e77-9bd65f115ccf" executionId="126df11c-779b-4a5c-a124-2f45c695a307" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2afec21d-5b14-7988-d9e6-5bac07da2c08" executionId="12ec9fe4-f881-4796-b1e8-44ac59088bcb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43f7b81a-62af-1131-613b-7247bb592514" executionId="d40a2ec6-6675-4a59-b302-e5e4a7a4d37a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f553f183-e7d1-720a-3ec9-a9b41aba5aff" executionId="d2e917a2-e965-4bbe-8faa-d2a5c3a5a212" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8680dc49-265d-c9c3-116f-461ca2661675" executionId="f49e3f01-01de-4d21-8da7-386db4d3d802" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="be65777f-d6ce-d21e-bf58-6916be1920c5" executionId="46b146aa-f212-424d-b17e-e50a7a6d384d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="56a957b7-e18d-e25d-7b8e-ec0ebca32204" executionId="8dc5b351-7194-42f4-8389-df1fdbbeb535" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8ad67d0f-d02b-ff27-a75e-0dbe77df061d" executionId="e3e82e71-edc7-4e8a-92cc-7db1c5ad0af1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6cb70ca3-9d94-ab56-70c5-ce9098c19109" executionId="1d824a4c-7892-4351-8b92-45c33f8ab8e1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a9efb629-0b99-8f53-a02b-c0ab88233a52" executionId="fb064e25-830d-45a8-a273-ef006f10a660" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="731c816d-354b-dfe3-e2d3-cee0e368c8ba" executionId="f12a7c14-cb6a-4977-8874-b5fd31721162" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f46e284e-c1f0-0fcf-f792-217f610e8838" executionId="0822d619-f134-46d2-b778-b06546db521a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="78e47c93-5e7c-8f27-604d-5cabd5a8081d" executionId="a12b1d48-fae1-4e23-9261-4bd8830e3120" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="975dda28-9645-eb60-e4c3-d844e8075d35" executionId="d219f39e-e685-4bed-867a-9ce087b22db8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6038105f-7e79-8402-741b-39f30ccbc07b" executionId="dfd4c25d-9a8b-4748-bb8d-e2c86bc1ea68" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9ecef8be-7e19-9d11-94fd-27d9f4920197" executionId="bc6f8d3b-977e-4c5e-a464-5dbbe4f3c1bc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="30368def-4a83-bdc3-6259-64059d1ac79b" executionId="0c18387c-c950-4316-a10d-26d01f289708" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e8d7301-623b-1a4d-b532-2f22ae992adf" executionId="c0c88ffa-72c5-44fa-825d-4f22754c342a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="07b5dc27-f37b-f85f-e959-9475521a8875" executionId="09911ba9-f547-43c3-8628-76ab955d1e8d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4c6c3d6d-d9d9-c512-a1da-351dba3f0f92" executionId="e3740c06-b30b-4477-8b42-137137178ca1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dac1168d-2cb6-067b-64d1-1be9698be60c" executionId="ec20a4a1-d525-4d28-a50f-4e67bd8dddda" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0355c27c-ca81-6bc9-4a1f-ee533f24f6ee" executionId="27403b8c-849d-4baa-bc0a-65fde564b2f4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c1de620b-395b-1fb7-de24-f7a1e0640154" executionId="cd2b92e1-a8a4-4563-8e43-1688452ac253" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="05f407ee-0631-8e59-695b-f8592de585ea" executionId="5f6229f9-c515-4915-a79b-9ffe7ea0c325" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fd6eeefd-e529-eef1-ddb4-cd522f5c06aa" executionId="c907535c-b1ad-47f0-b477-799d43ea7ae2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a69a3d4-61e8-04c7-30e1-2d16cf748632" executionId="2471334c-8559-4eff-932e-497ae6060283" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="11f3c1be-327a-5404-aeb5-b0ae6546da2a" executionId="7b46dd16-10b9-40c7-bb14-9fbc168347f9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6dcc455e-49f6-0fc4-bfec-d4ba6a8f4e3d" executionId="f43f767a-f6e6-4a55-8e0e-038167c073ca" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b522f372-e6c3-56bd-afd5-4088da814f4e" executionId="8cc5aa34-8262-4b6a-9422-395d0f60d0c5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c1322f4-bbdf-b6ec-9065-e9f1b9340d29" executionId="1ae5df1b-7f4e-4d99-8396-e8b36d26c90d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5f5beafc-14a7-c032-7b1d-b1c0efc69a6f" executionId="4e5e61be-bfb9-47ae-b9c3-31ece323c24f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cdc6c1ae-297c-5cb1-730b-8469780bdb6c" executionId="2d1f4b4e-e737-4cdc-a63e-b808ce43322d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87001f66-4c3d-139b-c6f9-1625bc49c013" executionId="7279d013-0e79-4e47-b96b-bc8f8ce14d0b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cbf2a94b-f09b-d806-c9d7-39c9012ffb10" executionId="525ebdf6-b367-471c-bc38-8d9ad575e3b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c912fbcb-9c76-36e4-0439-a05baa70e6dd" executionId="005ebdc6-497b-4ee8-ab06-134b81fc59da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ef839d5d-88d4-2fb1-4ec8-71c03a8ad4a4" executionId="bbe46711-91ba-43e4-a7da-c4df6a9c1aac" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="218fe381-179e-9868-8bbc-42677f4cbe3b" executionId="5494b478-b3f9-4ae9-9bac-57f4633a8d6b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e4d8b1fd-8792-9ea4-b08a-25674d31ced2" executionId="5b24ebde-5d94-4b84-a5b5-4cd1327b3f60" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="49b6b1a8-631b-3e24-331e-03b8cb3ce02f" executionId="ca4e6e2d-de72-4779-8b39-e18d2616a55b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="33b7e9b5-979e-71ee-ff9d-77f65d7b6b45" executionId="599f5565-4450-46f2-85d6-a4422d4b127e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e6aa184a-da3b-5504-348b-527dcd1b01e1" executionId="ea981c07-ca2b-4b69-91bc-4602c5679b4f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="46bf89f4-de8e-7bc6-2429-7e9e5e203fcb" executionId="69c368a7-9347-419f-9229-d9863d4ca5e4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7c479528-6e0e-5587-048c-31be72a34d84" executionId="60a1f1cb-942c-4841-9d5b-c370b32bed3f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f517aca0-d83c-ba8a-e49b-dfd17b1e24db" executionId="9991324b-a831-4498-8bf9-d7636deacf4d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dcb9b7bb-7561-00e4-6ffa-66dc24f53288" executionId="00a07953-3206-4cdb-b65f-4bb5ccf6673b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9f7ab0c9-68dc-b7f1-7ce1-ac7872b51803" executionId="da5630b1-ce54-40cd-8aea-efbe0b44ca6c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19ce99b2-40a3-121f-febe-2a2911535f00" executionId="606be9a5-c1e8-4f96-83f2-6e0443dc8d37" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="90e58d57-657d-d78b-8277-08e2ea442b52" executionId="9dc74cc6-b2d5-45c1-8a78-e0077e592bd2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0d05c884-8e0d-ac6b-0e52-1c42949745e9" executionId="e6b05a8e-6356-4e8a-8e45-d3e6259f0e4d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="49030e73-f588-c16c-7fb8-d7a46cac1829" executionId="9be92ffc-ddf9-48b1-8677-fa2351f1cb7f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="41c5cc8c-dbdb-5180-a462-5acd42bd8826" executionId="0b11b52b-aaef-424e-9384-8190923be0de" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="deade48c-3725-4254-c51d-2c367fe02920" executionId="a09717f8-0260-4715-b34a-b8c6d2e59635" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e774b232-1dc1-0f5f-77c3-83121c6990db" executionId="500716bf-b208-4d7b-922d-11607a77a57b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0a22b8b5-38ba-cec8-37fe-054706591cf8" executionId="e53b6e2e-eede-46a4-98a5-a07d6c3aaad6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="980de98a-18c8-4be7-769b-4d43dac71aed" executionId="936c5d22-715f-4593-94b2-4e4d63a2b801" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2fbb7063-a208-9457-f84c-6ceb2b54cd87" executionId="fb967e27-7fba-4848-bbee-771666743509" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="89804714-ec7c-aeca-abb4-18b9a64df254" executionId="b124911d-48dd-4d4f-beba-671e0a4bbc09" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="649c45f1-ad0f-13f6-cd93-4dd855223cde" executionId="d075446c-544c-4e9f-9808-b81ebd6f133e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df741220-6fa3-bcfc-7058-2e71ad511010" executionId="682ff558-8011-4aaa-81bc-8ef3323a6488" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="75377a2f-35a9-38bd-ec2d-64eaff988dd5" executionId="d5b750a7-8d2a-44f0-8538-11ead7264acb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8d5d3d90-524f-5570-bea3-471c83cfcf49" executionId="9e25924e-3df4-4755-a397-d843decca11f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="15d11c10-1eb9-8c16-933b-6a766c0809d4" executionId="70e3ca37-c384-48d2-bf14-c7bce75448c0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c4b889e6-dc55-5014-06dd-eb0e8f894692" executionId="49462bdf-adac-4ee7-a5ff-73c2fb3634a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f23fea91-2d72-effc-be51-77b14656b83b" executionId="c143a5c2-e2be-4813-a4c5-11af10354ef5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7f82ca3e-e4ab-89fa-a5d2-ae1ac6f29f90" executionId="984ebbc9-eb8e-4dd2-871f-6f2b5c5da38d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="feef5147-69f2-56ef-2eac-aa8482edd3a9" executionId="a82543d3-0f24-4e9a-8d49-ea78ad22f72f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="44c3c029-785c-3e9c-87ae-e450fb77e37d" executionId="2b639668-a485-42c1-a912-d401e9c12458" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5198fbed-30db-1138-c246-1b2481c8f2c7" executionId="06bbaa22-7ba7-4272-acc3-9cf056ddeb4f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b8089c0b-b4aa-1b12-2dfe-834262effd1d" executionId="6d16c948-a672-40a5-9864-c175988626c6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a9b6b74f-52ba-e54d-b079-656324b7c4c2" executionId="7358c821-d428-4393-97a9-9a8aaf53c811" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6f692b4e-054a-5bc9-b9bb-e8b4a810b875" executionId="d3631297-ee9e-4f54-8e78-ccd9d2c7388d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="97821e94-461e-d559-b9db-0a7204dc0964" executionId="2a40f065-8d4b-4261-8e49-7d6771a2ee2e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fb10ec80-fd0a-bc1e-45f1-e0bce7f34f8f" executionId="caf1349d-2508-4b6f-80b2-f3cf10349b48" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="83a9ee42-b5e6-5a45-8b4c-404d4d08f217" executionId="758189a7-5d74-48ac-8c85-3728b3e9d63b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ebc423c6-c845-a67a-6d97-58f1f2c9db0e" executionId="0d6a12a7-3093-4a62-b15f-7967c21335fe" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="909ece48-7c1e-0587-bc9c-c17833d2d364" executionId="9f8c31b9-b943-4c79-b311-a47bb7c056bc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4cbfa1f1-30c8-a694-a66e-0c48e8ecb0cb" executionId="9e5f789c-a105-4f0f-b950-94e3865ae35c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fe7e3717-6284-d1b5-c8ba-de43872f1a5f" executionId="5902ec30-3921-4cfb-aa31-83885d7108ed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6c43bcb5-6882-c05c-7f39-8fb5db3657a5" executionId="9f13c3f4-1213-4648-92ba-c28c31a9d951" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e10f67d3-f4b6-69ad-4b74-17df096ad80f" executionId="6c718e7a-2fe5-4f01-a4e4-319a27ceeaaa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="126" executed="126" passed="124" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>NUnit Adapter 4.5.0.0: Test execution started&#xD;
+Running all tests in D:\SGE\SpaceTradeEmpire\SimCore.Tests\bin\Debug\net8.0\SimCore.Tests.dll&#xD;
+   NUnit3TestExecutor discovered 126 of 126 NUnit test cases using Current Discovery mode, Non-Explicit run&#xD;
+RunnerHostTweaksFile_IfPresent_MustBeUtf8NoBom_AndJsonObject_V0: No host tweak file present (allowed): Data/Tweaks/tweaks_v0.json&#xD;
+NUnit Adapter 4.5.0.0: Test execution complete&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:03.3839808-05:00">
+        <Text>LongRun Seed: 42 (override via STE_LONGRUN_SEED)&#xD;
+LongRun Ticks: 10000&#xD;
+LongRun Checkpoints: 0,1000,5000,10000&#xD;
+tick=0 tweaks_version=0 tweaks_hash=2718FBB936C8AD86790ECE7E1939867AF580FAEE23510B97BBADFDF222EF01D2&#xD;
+Genesis Hash A: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final   Hash A: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+Checkpoint[A] tick=0: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Checkpoint[A] tick=1000: F1A71B987B47C9E9071D72AAAAB99A22A7E61F67ED080184AA4BA8E9FABDC386&#xD;
+Checkpoint[A] tick=5000: 33E7E234167B8D813E052953525BB8EF41D546B2327F9151D267270B1902B1F9&#xD;
+Checkpoint[A] tick=10000: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+tick=0 tweaks_version=0 tweaks_hash=2718FBB936C8AD86790ECE7E1939867AF580FAEE23510B97BBADFDF222EF01D2&#xD;
+Genesis Hash B: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final   Hash B: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+Checkpoint[B] tick=0: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Checkpoint[B] tick=1000: F1A71B987B47C9E9071D72AAAAB99A22A7E61F67ED080184AA4BA8E9FABDC386&#xD;
+Checkpoint[B] tick=5000: 33E7E234167B8D813E052953525BB8EF41D546B2327F9151D267270B1902B1F9&#xD;
+Checkpoint[B] tick=10000: 054FA896B4895DE1C7E84666979E746ECC36A9D53D27B57F0D56ADA2B29AF610&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:11.4287834-05:00">
+        <Text>PERF_BUDGET_REPORT_V0&#xD;
+seed=424242&#xD;
+ticks_total=600&#xD;
+ticks_measured=300&#xD;
+fleets=60&#xD;
+active_transfers=200&#xD;
+budget_ms_per_tick=50&#xD;
+total_ms_measured=3801.679&#xD;
+avg_ms_per_tick=12.672&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:11.7529680-05:00">
+        <Text>INVARIANTS_BATCH_V0&#xD;
+seeds=1..100&#xD;
+star_count=20&#xD;
+radius=100&#xD;
+max_hops_for_loops=4&#xD;
+cap_failing_seeds_per_invariant=10&#xD;
+cap_failure_records=50&#xD;
+result=PASS&#xD;
+&#xD;
+INVARIANTS_BATCH_V0_SHA256=869971856B8FDE4A6B8C4D2B13A6904C538EAB6B55169F7615490BF7C687F129&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:12.1753225-05:00">
+        <Text>WROTE_TOPOLOGY_DUMP: D:\SGE\SpaceTradeEmpire\docs\generated\galaxy_topology_dump_seed_999_starcount_12_radius_100.txt&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:13.6276725-05:00">
+        <Text>Genesis Hash: E40FF89C0EFD88A58B46153FBEE14F81C8F1AAA9419153A3C04AE6A6FC5F21D9&#xD;
+Final Hash A: DACCFA3B9681B7A654D8C825A3394B25108F07E9FC9EE1B09CE71B35A20FFEAD&#xD;
+Final Hash B: DACCFA3B9681B7A654D8C825A3394B25108F07E9FC9EE1B09CE71B35A20FFEAD&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:14.3649144-05:00">
+        <Text>Uninterrupted Hash: F6CCF02DA09B1010DDBD21F99D92AA2B20C334E06DD2F3EF9A7A5C883C68FB19&#xD;
+SaveLoad     Hash: F6CCF02DA09B1010DDBD21F99D92AA2B20C334E06DD2F3EF9A7A5C883C68FB19&#xD;
+</Text>
+      </RunInfo>
+      <RunInfo computerName="FRAMEWORKMPC" outcome="Warning" timestamp="2026-02-22T14:50:14.8352535-05:00">
+        <Text>SaveLoad Seed (expected): 123&#xD;
+SaveLoad Seed (saved): 123&#xD;
+SaveLoad Seed (resaved): 123&#xD;
+SaveLoad Before Hash: 0E427955737A6CABB5964F5B94776431DE5E74668962C811C6F6A9D2BEC0BF64&#xD;
+SaveLoad After  Hash: 0E427955737A6CABB5964F5B94776431DE5E74668962C811C6F6A9D2BEC0BF64&#xD;
+</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

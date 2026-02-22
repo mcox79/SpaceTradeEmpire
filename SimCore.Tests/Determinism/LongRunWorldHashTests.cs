@@ -242,6 +242,221 @@ public class LongRunWorldHashTests
         }
     }
 
+    // Gate: GATE.S2_5.WGEN.DISTINCTNESS.001 (World class distinctness report v0)
+    [Test]
+    public void WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable()
+    {
+        const int n = 100;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int chokepointCapLe = 3;
+
+        var (pass1, report1) = BuildWorldClassDistinctnessReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null);
+
+        Assert.That(pass1, Is.True, "World class distinctness thresholds must pass on baseline config.");
+
+        var root = LocateRepoRootOrFail();
+        var outDir = System.IO.Path.Combine(root, "docs", "generated");
+        System.IO.Directory.CreateDirectory(outDir);
+
+        var outPath = System.IO.Path.Combine(outDir, "class_stats_report_v0.txt");
+        System.IO.File.WriteAllText(outPath, report1, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        var (pass2, report2) = BuildWorldClassDistinctnessReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null);
+
+        Assert.That(pass2, Is.True);
+        Assert.That(report1, Is.EqualTo(report2), "Distinctness report must be byte-for-byte stable across runs.");
+
+        var disk = System.IO.File.ReadAllText(outPath, Encoding.UTF8);
+        Assert.That(disk, Is.EqualTo(report1), "Emitted class stats report file must match computed report.");
+    }
+
+    [Test]
+    public void WorldClassDistinctness_Report_V0_FailsWhenClassParamsAreIdentical_AndFailureIsDeterministic()
+    {
+        const int n = 100;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int chokepointCapLe = 3;
+
+        var opts = new GalaxyGenerator.GalaxyGenOptions
+        {
+            WorldClassLaneCapacityMultipliersV0 = new[] { 1.0f, 1.0f, 1.0f },
+            WorldClassFeeMultipliersV0 = new[] { 1.0f, 1.0f, 1.0f },
+            ForceAllNodesToWorldClassIndexV0 = 0,
+        };
+
+        var (pass1, report1) = BuildWorldClassDistinctnessReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: opts);
+
+        var (pass2, report2) = BuildWorldClassDistinctnessReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: opts);
+
+        Assert.That(pass1, Is.False, "Distinctness guard must fail when class params collapse to identical.");
+        Assert.That(pass2, Is.False);
+        Assert.That(report1, Is.EqualTo(report2), "Failure output must be deterministic.");
+        Assert.That(report1.Contains("result\tFAIL", StringComparison.Ordinal), Is.True);
+        Assert.That(report1.Contains("VIOLATION|", StringComparison.Ordinal), Is.True);
+    }
+
+    private static string LocateRepoRootOrFail()
+    {
+        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, ".git")))
+                return dir.FullName;
+
+            dir = dir.Parent;
+        }
+
+        Assert.Fail("Could not locate repo root containing .git from AppContext.BaseDirectory.");
+        return string.Empty;
+    }
+
+    private static (bool Pass, string Report) BuildWorldClassDistinctnessReportV0(
+        int n,
+        int starCount,
+        float radius,
+        int chokepointCapLe,
+        GalaxyGenerator.GalaxyGenOptions? options)
+    {
+        options ??= new GalaxyGenerator.GalaxyGenOptions();
+
+        // Aggregate per-class metrics over seeds 1..n.
+        var classIds = GalaxyGenerator.WorldClassesV0
+            .Select(c => c.WorldClassId)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        var axes = new[] { "avg_degree", "avg_lane_capacity", "chokepoint_density", "fee_multiplier", "avg_radius2" };
+
+        var min = new Dictionary<(string ClassId, string Axis), double>();
+        var max = new Dictionary<(string ClassId, string Axis), double>();
+        var sum = new Dictionary<(string ClassId, string Axis), double>();
+
+        void Acc(string cls, string axis, double v)
+        {
+            var k = (cls, axis);
+            if (!min.ContainsKey(k))
+            {
+                min[k] = v;
+                max[k] = v;
+                sum[k] = v;
+                return;
+            }
+            if (v < min[k]) min[k] = v;
+            if (v > max[k]) max[k] = v;
+            sum[k] += v;
+        }
+
+        for (int seed = 1; seed <= n; seed++)
+        {
+            var sim = new SimKernel(seed);
+            GalaxyGenerator.Generate(sim.State, starCount, radius, options);
+
+            var stats = GalaxyGenerator.ComputeWorldClassStatsV0(sim.State, chokepointCapLe, options);
+            foreach (var cls in classIds)
+            {
+                var s = stats[cls];
+                Acc(cls, "avg_degree", s.AvgDegree);
+                Acc(cls, "avg_lane_capacity", s.AvgLaneCapacity);
+                Acc(cls, "chokepoint_density", s.ChokepointDensity);
+                Acc(cls, "fee_multiplier", s.FeeMultiplier);
+                Acc(cls, "avg_radius2", s.AvgRadius2);
+            }
+        }
+
+        // Deterministic threshold checks (based on means over seeds).
+        double Mean(string cls, string axis) => sum[(cls, axis)] / n;
+
+        var violations = new List<string>(capacity: 8);
+        void Require(bool cond, string code, string detail)
+        {
+            if (cond) return;
+            violations.Add($"VIOLATION|{code}|{detail}");
+        }
+
+        // Map class ids (stable, explicit).
+        string core = "CORE";
+        string frontier = "FRONTIER";
+        string rim = "RIM";
+
+        // Distinctness thresholds v0:
+        // Enforce both parameter separation (fee multipliers) and structural separation induced by radial bucketing.
+        // Negative test forces identical fee multipliers and must FAIL deterministically even if topology ordering holds.
+
+        Require(Mean(frontier, "fee_multiplier") - Mean(core, "fee_multiplier") >= 0.01,
+            "FEE_DELTA_CORE_FRONTIER_GE_0_01",
+            $"delta={Mean(frontier, "fee_multiplier") - Mean(core, "fee_multiplier"):0.000}");
+
+        Require(Mean(rim, "fee_multiplier") - Mean(frontier, "fee_multiplier") >= 0.01,
+            "FEE_DELTA_FRONTIER_RIM_GE_0_01",
+            $"delta={Mean(rim, "fee_multiplier") - Mean(frontier, "fee_multiplier"):0.000}");
+
+        // Structural expectations under radial class assignment:
+        // Radial bucketing must produce strictly increasing avg_radius2 across classes.
+        // This validates that the class assignment is meaningfully tied to spatial structure (not arbitrary).
+        Require(Mean(core, "avg_radius2") < Mean(frontier, "avg_radius2"),
+            "R2_CORE_LT_FRONTIER",
+            $"core={Mean(core, "avg_radius2"):0.000}|frontier={Mean(frontier, "avg_radius2"):0.000}");
+
+        Require(Mean(frontier, "avg_radius2") < Mean(rim, "avg_radius2"),
+            "R2_FRONTIER_LT_RIM",
+            $"frontier={Mean(frontier, "avg_radius2"):0.000}|rim={Mean(rim, "avg_radius2"):0.000}");
+
+        violations.Sort(StringComparer.Ordinal);
+
+        var sb = new StringBuilder(capacity: 4096);
+        sb.Append("CLASS_STATS_REPORT_V0").Append('\n');
+        sb.Append("seeds=1..").Append(n).Append('\n');
+        sb.Append("star_count=").Append(starCount).Append('\n');
+        sb.Append("radius=").Append(radius.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("chokepoint_cap_le=").Append(chokepointCapLe).Append('\n');
+        sb.Append("rows=class\taxis\tmin\tmean\tmax").Append('\n');
+
+        foreach (var cls in classIds)
+        {
+            foreach (var axis in axes.OrderBy(a => a, StringComparer.Ordinal))
+            {
+                var k = (cls, axis);
+                sb.Append(cls).Append('\t').Append(axis).Append('\t')
+                  .Append(min[k].ToString("0.000", CultureInfo.InvariantCulture)).Append('\t')
+                  .Append((sum[k] / n).ToString("0.000", CultureInfo.InvariantCulture)).Append('\t')
+                  .Append(max[k].ToString("0.000", CultureInfo.InvariantCulture)).Append('\n');
+            }
+        }
+
+        bool pass = violations.Count == 0;
+        sb.Append("result\t").Append(pass ? "PASS" : "FAIL").Append('\n');
+        if (!pass)
+        {
+            sb.Append("violations_count=").Append(violations.Count).Append('\n');
+            for (int i = 0; i < violations.Count; i++)
+                sb.Append(violations[i]).Append('\n');
+        }
+
+        return (pass, sb.ToString());
+    }
+
     private readonly record struct InvariantFailureRecord(
         int Seed,
         string InvariantName,

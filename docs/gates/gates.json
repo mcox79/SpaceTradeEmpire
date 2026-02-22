@@ -74,66 +74,6 @@
                                      ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.DISTINCTNESS.001",
-                      "task_id":  "GATE.S2_5.WGEN.DISTINCTNESS.001.T001",
-                      "status":  "TODO",
-                      "title":  "World class distinctness report v0",
-                      "intent":  "Prove CORE%FRONTIER%RIM classes are meaningfully different by emitting a deterministic class stats report with explicit thresholds that must pass over N=100 seeds, failing deterministically when distinctness is not met.",
-                      "task_preflight":  [
-                                             "Confirm existing worldgen N=100 tests are stable (DISTRIBUTION and NSEED).",
-                                             "Decide a minimal set of class axes to measure (2 to 4 axes only)."
-                                         ],
-                      "evidence_paths":  [
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "SimCore.Tests/GalaxyTests.cs",
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "docs/generated/class_stats_report_v0.txt"
-                                         ],
-                      "expected_touch_paths":  [
-                                                   "docs/54_EPICS.md",
-                                                   "docs/generated/worldgen_distribution_bounds_report_v0.txt",
-                                                   "scripts/tests/test_universe_validator.gd"
-                                               ],
-                      "constraints":  [
-                                          "N fixed at 100 for v0 and reported explicitly.",
-                                          "Report must be byte-for-byte stable: no timestamps, stable ordering, stable numeric formatting.",
-                                          "Distinctness must be enforced via explicit thresholds, not narrative judgment.",
-                                          "If thresholds fail, output must include which axis failed per class and the worst-case seeds (sorted asc, capped)."
-                                      ],
-                      "completion_hint":  [
-                                              "Add a deterministic stats extractor for class-level structural metrics (eg avg_degree, chokepoint_density proxy, avg_lane_capacity, fee_multiplier distribution).",
-                                              "Emit docs/generated/class_stats_report_v0.txt sorted by class then axis name.",
-                                              "Add a contract test that asserts the report exists, is stable, and thresholds pass on baseline config.",
-                                              "Add a negative test by forcing all nodes to one class or forcing identical class parameters and asserting deterministic failure output.",
-                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes and the report is stable across two runs."
-                                          ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "Keep metrics small and structural. Avoid adding new gameplay systems for v0."
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "If golden hash drift occurs, isolate report generation from main longrun unless explicitly allowlisted."
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "If this turns into reworking worldgen, split: report gate first, tuning gate second."
-                                               }
-                                           ],
-                      "buckets":  [
-                                      "SimCore",
-                                      "Tests",
-                                      "DataGenerated"
-                                  ],
-                      "blocked_by":  [
-
-                                     ]
-                  },
-                  {
                       "gate_id":  "GATE.X.CONTENT_SUBSTRATE.001",
                       "task_id":  "GATE.X.CONTENT_SUBSTRATE.001.T001",
                       "status":  "TODO",
