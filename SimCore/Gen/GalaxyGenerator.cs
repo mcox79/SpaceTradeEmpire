@@ -13,6 +13,10 @@ public static class GalaxyGenerator
     // GATE.S2_5.WGEN.ECON.001: deterministic starter region size (first N stars by generation index).
     public const int StarterRegionNodeCount = 12;
 
+    // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: v0 goods set for producer/sink bounds checks.
+    // Keep stable and ordered for deterministic reports and failure messages.
+    private static readonly string[] WorldgenBoundsGoodsV0 = { "fuel", "ore", "metal" };
+
     // GATE.S2_5.WGEN.DISTRIBUTION.001: deterministic starter region accessor for tests and reports.
     // v0 starter region: star_0..star_(StarterRegionNodeCount-1) when present (sorted ordinal).
     public static IReadOnlyList<string> GetStarterRegionNodeIdsSortedV0(SimState state)
@@ -40,6 +44,13 @@ public static class GalaxyGenerator
     public static void Generate(SimState state, int starCount, float radius, GalaxyGenOptions? options)
     {
         options ??= new GalaxyGenOptions();
+
+        // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: tweak-sourced bounds (generator is the source of truth).
+        var minP = Math.Max(0, state.Tweaks.WorldgenMinProducersPerGood);
+        var minS = Math.Max(0, state.Tweaks.WorldgenMinSinksPerGood);
+
+        // If sinks are required by tweaks, force-enable v0 distribution sinks deterministically.
+        var effectiveEnableDistributionSinksV0 = options.EnableDistributionSinksV0 || (minS > 0);
 
         state.Nodes.Clear();
         state.Edges.Clear();
@@ -168,7 +179,7 @@ public static class GalaxyGenerator
 
             // GATE.S2_5.WGEN.DISTRIBUTION.001: ensure a structural sink exists for starter goods.
             // v0: add a deterministic metal demand sink on some starter nodes (OPT-IN via GalaxyGenOptions).
-            if (options.EnableDistributionSinksV0 && isStarter && (i % 5) == 1)
+            if (effectiveEnableDistributionSinksV0 && isStarter && (i % 5) == 1)
             {
                 var metalSink = new IndustrySite
                 {
@@ -272,11 +283,74 @@ public static class GalaxyGenerator
             };
             state.Fleets.Add(fleet.Id, fleet);
         }
+
+        // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: enforce bounds deterministically at the generator boundary.
+        var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
+        if (!pass)
+        {
+            throw new InvalidOperationException(report);
+        }
     }
 
     // NOTE: CreateEdge retained for back-compat callers, but now mints deterministic lane ids
     // only when used through BuildTopology lanes above. Existing direct callers still get
     // stable ids derived from endpoints (not used for gate proofs).
+    private static (bool Pass, string Report) EvaluateWorldgenBoundsV0(SimState state, IReadOnlyList<string> goodsOrdered, int minP, int minS)
+    {
+        var starterNodes = new HashSet<string>(GetStarterNodeIdsSortedV0(state), StringComparer.Ordinal);
+
+        var producers = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var sinks = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var g in goodsOrdered)
+        {
+            producers[g] = new HashSet<string>(StringComparer.Ordinal);
+            sinks[g] = new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        foreach (var site in state.IndustrySites.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
+        {
+            if (site is null) continue;
+            if (!starterNodes.Contains(site.NodeId)) continue;
+
+            if (site.Outputs is not null)
+            {
+                foreach (var kv in site.Outputs.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    if (kv.Value <= 0) continue;
+                    if (!producers.TryGetValue(kv.Key, out var set)) continue;
+                    set.Add(site.NodeId);
+                }
+            }
+
+            if (site.Inputs is not null)
+            {
+                foreach (var kv in site.Inputs.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    if (kv.Value <= 0) continue;
+                    if (!sinks.TryGetValue(kv.Key, out var set)) continue;
+                    set.Add(site.NodeId);
+                }
+            }
+        }
+
+        var sb = new StringBuilder(256);
+        sb.Append("worldgen_bounds_v0 ");
+        sb.Append("minP=").Append(minP).Append(" ");
+        sb.Append("minS=").Append(minS);
+
+        bool pass = true;
+        foreach (var g in goodsOrdered)
+        {
+            var p = producers[g].Count;
+            var s = sinks[g].Count;
+            sb.Append(" | ").Append(g).Append(":P=").Append(p).Append(",S=").Append(s);
+            if (p < minP || s < minS) pass = false;
+        }
+
+        sb.Append(pass ? " PASS" : " FAIL");
+        return (pass, sb.ToString());
+    }
+
     private static void CreateEdge(SimState state, Node a, Node b)
     {
         string id = $"edge_{GetSortedId(a.Id, b.Id)}";

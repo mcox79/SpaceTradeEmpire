@@ -21,7 +21,7 @@ public class SimState
 
         // Example knobs (placeholder v0 surface area).
         public int WorldgenMinProducersPerGood { get; set; } = 1;
-        public int WorldgenMinSinksPerGood { get; set; } = 1;
+        public int WorldgenMinSinksPerGood { get; set; } = 0;
 
         // TotalCapacity <= 0 means "unspecified" at the edge level.
         // DefaultLaneCapacityK <= 0 means "unlimited" (preserves pre-migration default behavior).
@@ -36,7 +36,7 @@ public class SimState
         {
             Version = 0,
             WorldgenMinProducersPerGood = 1,
-            WorldgenMinSinksPerGood = 1,
+            WorldgenMinSinksPerGood = 0,
 
             // <= 0 means unlimited (matches prior LaneFlowSystem behavior for TotalCapacity <= 0).
             DefaultLaneCapacityK = 0,
