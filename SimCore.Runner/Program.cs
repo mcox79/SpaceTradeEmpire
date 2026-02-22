@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using SimCore;
 using SimCore.Schemas;
@@ -255,12 +256,52 @@ namespace SimCore.Runner
             File.WriteAllText(path, contents, enc);
         }
 
+        private static string? TryLoadHostTweaksJsonV0()
+        {
+            // Host-provided tweaks (runner surface):
+            // - Path is fixed and repo-relative for determinism.
+            // - Missing or invalid falls back to defaults by returning null.
+            // - Enforces UTF-8 no BOM.
+            var path = Path.Combine("Data", "Tweaks", "tweaks_v0.json");
+            if (!File.Exists(path)) return null;
+
+            try
+            {
+                var bytes = File.ReadAllBytes(path);
+
+                // Reject UTF-8 BOM explicitly (contract: UTF-8 no BOM).
+                if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+                    return null;
+
+                // Strict UTF-8 decode (throws on invalid byte sequences).
+                var utf8Strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+                var text = utf8Strict.GetString(bytes);
+
+                // Deterministic parse gate: must be a JSON object (otherwise treat as invalid).
+                using var doc = JsonDocument.Parse(text);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+
+                return text;
+            }
+            catch
+            {
+                // Failure-safe determinism: invalid file falls back to defaults.
+                return null;
+            }
+        }
+
         private static void RunScenario(ScenarioDefinition scenario)
         {
             Console.WriteLine($"--- RUNNING SCENARIO: {scenario.ScenarioId} ---");
             Console.WriteLine($"Seed: {scenario.InitialSeed} | Duration: {scenario.StopAtDay} Days");
 
-            var kernel = new SimKernel(scenario.InitialSeed);
+            var hostTweaksJson = TryLoadHostTweaksJsonV0();
+            var kernel = new SimKernel(scenario.InitialSeed, tweakConfigJsonOverride: hostTweaksJson);
+
+            // Transcript surface: record effective tweaks hash deterministically.
+            // Missing/invalid host file results in stable defaults and stable hash.
+            Console.WriteLine($"TweaksHash: {kernel.State.TweaksHash}");
+
             var startTime = DateTime.UtcNow;
 
             for (int day = 0; day < scenario.StopAtDay; day++)

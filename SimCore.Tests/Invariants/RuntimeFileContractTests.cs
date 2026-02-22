@@ -88,6 +88,54 @@ public sealed class RuntimeFileContractTests
     }
 
     [Test]
+    public void RunnerHostTweaksFile_IfPresent_MustBeUtf8NoBom_AndJsonObject_V0()
+    {
+        var repoRoot = LocateRepoRootContainingSimCore();
+        var path = Path.Combine(repoRoot, "Data", "Tweaks", "tweaks_v0.json");
+
+        if (!File.Exists(path))
+            Assert.Pass("No host tweak file present (allowed): " + MakeRepoRelative(repoRoot, path));
+
+        byte[] bytes;
+        try
+        {
+            bytes = File.ReadAllBytes(path);
+        }
+        catch (Exception ex)
+        {
+            Assert.Fail("Failed to read host tweak file: " + MakeRepoRelative(repoRoot, path) + "\n" + ex);
+            return;
+        }
+
+        // Contract: UTF-8 no BOM.
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            Assert.Fail("Host tweak file must be UTF-8 no BOM: " + MakeRepoRelative(repoRoot, path));
+
+        string text;
+        try
+        {
+            var utf8Strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+            text = utf8Strict.GetString(bytes);
+        }
+        catch (Exception ex)
+        {
+            Assert.Fail("Host tweak file must be strict UTF-8: " + MakeRepoRelative(repoRoot, path) + "\n" + ex);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            Assert.That(doc.RootElement.ValueKind, Is.EqualTo(JsonValueKind.Object),
+                "Host tweak file must be a JSON object: " + MakeRepoRelative(repoRoot, path));
+        }
+        catch (Exception ex)
+        {
+            Assert.Fail("Host tweak file must parse as JSON: " + MakeRepoRelative(repoRoot, path) + "\n" + ex);
+        }
+    }
+
+    [Test]
     public void SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess()
     {
         var repoRoot = LocateRepoRootContainingSimCore();
@@ -851,7 +899,7 @@ public sealed class RuntimeFileContractTests
     {
         var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
-        string currentFile = null;
+        string? currentFile = null;
 
         foreach (var raw in File.ReadAllLines(baselineAbs))
         {
@@ -911,9 +959,8 @@ public sealed class RuntimeFileContractTests
             var pathRel = kvp.Key;
             var occurrences = kvp.Value;
 
-            List<string> baseTokens;
-            if (!baseline.TryGetValue(pathRel, out baseTokens))
-                baseTokens = new List<string>();
+            baseline.TryGetValue(pathRel, out var baseTokensMaybeNull);
+            var baseTokens = baseTokensMaybeNull ?? new List<string>();
 
             var matched = new bool[occurrences.Count];
 
