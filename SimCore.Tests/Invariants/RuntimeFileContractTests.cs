@@ -136,6 +136,125 @@ public sealed class RuntimeFileContractTests
     }
 
     [Test]
+    public void TweakConfigV0_SchemaContract_FieldOrder_IsAppendOnly_CanonicalKeyOrder_Defaults_AndHash_AreLocked_V0()
+    {
+        var lockedPrefixV0 = new[]
+        {
+            "version",
+            "worldgen_min_producers_per_good",
+            "worldgen_min_sinks_per_good",
+            "default_lane_capacity_k",
+            "market_fee_multiplier",
+            "risk_scalar",
+            "loop_viability_threshold",
+            "role_risk_tolerance_default",
+        };
+
+        var fieldOrder = SimCore.SimState.TweakConfigV0.CanonicalFieldOrderV0;
+
+        Assert.That(fieldOrder.Length, Is.GreaterThanOrEqualTo(lockedPrefixV0.Length),
+            "CanonicalFieldOrderV0 must be append-only (length may grow, but never shrink).");
+
+        Assert.That(fieldOrder.Take(lockedPrefixV0.Length).ToArray(), Is.EqualTo(lockedPrefixV0),
+            "CanonicalFieldOrderV0 changed. Rule: append-only; do not reorder or edit existing fields.");
+
+        var cfg = SimCore.SimState.TweakConfigV0.CreateDefaults();
+        var canonical = cfg.ToCanonicalJson();
+
+        static string[] ExtractKeysInOrder(string json)
+        {
+            // Minimal deterministic extractor for the canonical format emitted by ToCanonicalJson().
+            // Assumes:
+            // - JSON object
+            // - property names are quoted with no escapes
+            // - values are scalars with no nested objects/arrays
+            var keys = new List<string>(32);
+
+            int i = 0;
+            if (json.Length < 2 || json[i] != '{') throw new Exception("Expected JSON object.");
+            i++; // skip '{'
+
+            while (i < json.Length)
+            {
+                if (json[i] == '}') break;
+
+                if (json[i] != '"') throw new Exception("Expected property name quote.");
+                i++; // skip opening quote
+
+                var start = i;
+                while (i < json.Length && json[i] != '"') i++;
+                if (i >= json.Length) throw new Exception("Unterminated property name.");
+                var key = json.Substring(start, i - start);
+                i++; // skip closing quote
+
+                if (i >= json.Length || json[i] != ':') throw new Exception("Expected ':' after property name.");
+                i++; // skip ':'
+
+                // Skip value until ',' or '}' (canonical values are scalars).
+                while (i < json.Length && json[i] != ',' && json[i] != '}') i++;
+
+                keys.Add(key);
+
+                if (i < json.Length && json[i] == ',') i++; // skip ',' and continue
+            }
+
+            return keys.ToArray();
+        }
+
+        var keysInCanonical = ExtractKeysInOrder(canonical);
+
+        Assert.That(keysInCanonical, Is.EqualTo(fieldOrder),
+            "Canonical JSON key order must match CanonicalFieldOrderV0 exactly.");
+
+        using (var doc = JsonDocument.Parse(canonical))
+        {
+            var root = doc.RootElement;
+
+            Assert.That(root.GetProperty("version").GetInt32(), Is.EqualTo(0));
+            Assert.That(root.GetProperty("worldgen_min_producers_per_good").GetInt32(), Is.EqualTo(1));
+            Assert.That(root.GetProperty("worldgen_min_sinks_per_good").GetInt32(), Is.EqualTo(0));
+            Assert.That(root.GetProperty("default_lane_capacity_k").GetInt32(), Is.EqualTo(0));
+
+            Assert.That(root.GetProperty("market_fee_multiplier").GetDouble(), Is.EqualTo(1.0));
+            Assert.That(root.GetProperty("risk_scalar").GetDouble(), Is.EqualTo(1.0));
+            Assert.That(root.GetProperty("loop_viability_threshold").GetDouble(), Is.EqualTo(0.0));
+            Assert.That(root.GetProperty("role_risk_tolerance_default").GetDouble(), Is.EqualTo(1.0));
+        }
+
+        Assert.That(cfg.ToCanonicalHashUpperHex(), Is.EqualTo("2718FBB936C8AD86790ECE7E1939867AF580FAEE23510B97BBADFDF222EF01D2"),
+            "Default tweaks hash changed. Hash definition is locked: SHA256(UTF-8 canonical JSON), uppercase hex.");
+    }
+
+    [Test]
+    public void TweakConfigV0_ParseJsonOrDefaults_InvalidOrSchemaInvalid_FallsBackToDefaults_Deterministically_V0()
+    {
+        var defaults = SimCore.SimState.TweakConfigV0.CreateDefaults();
+        var expectedCanonical = defaults.ToCanonicalJson();
+
+        var cases = new[]
+        {
+            "{\"version\":0,",                 // parse error
+            "[]",                             // valid JSON, wrong root kind
+            "null",                           // valid JSON, wrong root kind
+            "5",                              // valid JSON, wrong root kind
+            "{\"market_fee_multiplier\":\"x\"}", // schema-invalid: wrong type
+            "{\"unknown\":123}",              // extra keys ignored
+        };
+
+        foreach (var input in cases)
+        {
+            var a = SimCore.SimState.TweakConfigV0.ParseJsonOrDefaults(input);
+            var b = SimCore.SimState.TweakConfigV0.ParseJsonOrDefaults(input);
+
+            Assert.That(a.ToCanonicalJson(), Is.EqualTo(b.ToCanonicalJson()),
+                "ParseJsonOrDefaults must be deterministic for input: " + input);
+
+            Assert.That(a.ToCanonicalJson(), Is.EqualTo(expectedCanonical),
+                "Invalid or schema-invalid JSON must fall back to stable defaults for input: " + input);
+        }
+    }
+
+    [Test]
     public void SimCore_MustNotUse_SystemIO_ForRuntimeFileAccess()
     {
         var repoRoot = LocateRepoRootContainingSimCore();

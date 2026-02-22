@@ -17,40 +17,66 @@ public class SimState
     // Extend over time as Slice 2.5 / Slice 3 systems are migrated off hardcoded constants.
     public sealed class TweakConfigV0
     {
-        public int Version { get; set; } = 0;
+        // Schema contract v0
+        // - Canonical JSON is order-fixed and append-only: new fields may only be added to the END of CanonicalFieldOrderV0
+        // - Canonical JSON must be ASCII-safe and locale-independent (use invariant formatting for floating point)
+        // - Hash definition is locked: SHA256(UTF-8 canonical JSON) rendered as uppercase hex
+        public const int CurrentVersion = 0;
+
+        // Canonical JSON field order (append-only). Do NOT reorder existing entries.
+        public static readonly string[] CanonicalFieldOrderV0 = new[]
+        {
+            "version",
+            "worldgen_min_producers_per_good",
+            "worldgen_min_sinks_per_good",
+            "default_lane_capacity_k",
+            "market_fee_multiplier",
+            "risk_scalar",
+            "loop_viability_threshold",
+            "role_risk_tolerance_default",
+        };
+
+        // Stable defaults (explicitly documented as part of the v0 contract).
+        public const int DefaultWorldgenMinProducersPerGood = 1;
+        public const int DefaultWorldgenMinSinksPerGood = 0;
+        public const int DefaultLaneCapacityKValue = 0; // <= 0 means unlimited (matches prior LaneFlowSystem behavior for TotalCapacity <= 0)
+
+        public const double DefaultMarketFeeMultiplier = 1.0;
+        public const double DefaultRiskScalar = 1.0;
+        public const double DefaultLoopViabilityThreshold = 0.0;
+        public const double DefaultRoleRiskToleranceDefault = 1.0;
+
+        public int Version { get; set; } = CurrentVersion;
 
         // Example knobs (placeholder v0 surface area).
-        public int WorldgenMinProducersPerGood { get; set; } = 1;
-        public int WorldgenMinSinksPerGood { get; set; } = 0;
+        public int WorldgenMinProducersPerGood { get; set; } = DefaultWorldgenMinProducersPerGood;
+        public int WorldgenMinSinksPerGood { get; set; } = DefaultWorldgenMinSinksPerGood;
 
         // TotalCapacity <= 0 means "unspecified" at the edge level.
         // DefaultLaneCapacityK <= 0 means "unlimited" (preserves pre-migration default behavior).
-        public int DefaultLaneCapacityK { get; set; } = 0;
+        public int DefaultLaneCapacityK { get; set; } = DefaultLaneCapacityKValue;
 
-        public double MarketFeeMultiplier { get; set; } = 1.0;
-        public double RiskScalar { get; set; } = 1.0;
-        public double LoopViabilityThreshold { get; set; } = 0.0;
-        public double RoleRiskToleranceDefault { get; set; } = 1.0;
+        public double MarketFeeMultiplier { get; set; } = DefaultMarketFeeMultiplier;
+        public double RiskScalar { get; set; } = DefaultRiskScalar;
+        public double LoopViabilityThreshold { get; set; } = DefaultLoopViabilityThreshold;
+        public double RoleRiskToleranceDefault { get; set; } = DefaultRoleRiskToleranceDefault;
 
         public static TweakConfigV0 CreateDefaults() => new TweakConfigV0
         {
-            Version = 0,
-            WorldgenMinProducersPerGood = 1,
-            WorldgenMinSinksPerGood = 0,
-
-            // <= 0 means unlimited (matches prior LaneFlowSystem behavior for TotalCapacity <= 0).
-            DefaultLaneCapacityK = 0,
-
-            MarketFeeMultiplier = 1.0,
-            RiskScalar = 1.0,
-            LoopViabilityThreshold = 0.0,
-            RoleRiskToleranceDefault = 1.0
+            Version = CurrentVersion,
+            WorldgenMinProducersPerGood = DefaultWorldgenMinProducersPerGood,
+            WorldgenMinSinksPerGood = DefaultWorldgenMinSinksPerGood,
+            DefaultLaneCapacityK = DefaultLaneCapacityKValue,
+            MarketFeeMultiplier = DefaultMarketFeeMultiplier,
+            RiskScalar = DefaultRiskScalar,
+            LoopViabilityThreshold = DefaultLoopViabilityThreshold,
+            RoleRiskToleranceDefault = DefaultRoleRiskToleranceDefault
         };
 
         public string ToCanonicalJson()
         {
             // Canonical, order-fixed JSON for stable hashing across platforms and whitespace differences.
-            // Do NOT add optional fields here without appending at the end (order matters).
+            // Append-only ordering rule: add new fields ONLY by appending at the end (see CanonicalFieldOrderV0).
             var sb = new StringBuilder(256);
             sb.Append('{');
             sb.Append("\"version\":").Append(Version).Append(',');
@@ -63,6 +89,13 @@ public class SimState
             sb.Append("\"role_risk_tolerance_default\":").Append(RoleRiskToleranceDefault.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
             sb.Append('}');
             return sb.ToString();
+        }
+
+        public string ToCanonicalHashUpperHex()
+        {
+            var canonical = ToCanonicalJson();
+            var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical));
+            return Convert.ToHexString(hash);
         }
 
         public static TweakConfigV0 ParseJsonOrDefaults(string? json)
