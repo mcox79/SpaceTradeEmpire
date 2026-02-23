@@ -176,14 +176,20 @@ try {
 
   }
 
-  foreach ($row in $eligible) {
-    $p = [string]$row.path
+  foreach ($row in @($eligible)) {
+    $p = Normalize-Rel ([string]$row.path)
+    if ([string]::IsNullOrWhiteSpace($p)) { continue }
+
+    # Attachments must exist at HEAD. Skip missing evidence files (still listed under Evidence later).
+    $abs = Join-Path $RepoRoot $p
+    if (-not (Test-Path -LiteralPath $abs)) { continue }
+
     if (-not $attach.Contains($p)) { $attach.Add($p) | Out-Null }
     if ($attach.Count -ge $MaxAttachments) { break }
   }
 
   # Split signal: YES if selected item has more eligible evidence than we can attach under cap
-  $splitRequired = ($eligible.Count -gt $MaxAttachments)
+  $splitRequired = (@($eligible).Count -gt $MaxAttachments)
 
   $packet = New-Object System.Text.StringBuilder
   [void]$packet.Append("# Next Gate Packet (HEAD $head)$nl$nl")

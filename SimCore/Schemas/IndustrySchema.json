@@ -1,58 +1,115 @@
 {
-  "schema_id": "industry_v0",
-  "version": 0,
-  "description": "Industry v0 schema for deterministic construction recipes and stages. Contract file only; execution uses deterministic tick pipeline.",
-  "objects": {
-    "recipe": {
-      "required_fields": [
-        "recipe_id",
-        "stages"
-      ],
-      "field_types": {
-        "recipe_id": "string",
-        "stages": "array<stage>"
-      }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "SimCore/Schemas/IndustrySchema.v0.json",
+  "title": "Industry Schema v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "recipes"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v0"
     },
-    "stage": {
-      "required_fields": [
-        "stage_id",
-        "duration_ticks",
-        "inputs",
-        "outputs",
-        "blockers"
-      ],
-      "field_types": {
-        "stage_id": "string",
-        "duration_ticks": "int>=0",
-        "inputs": "array<io>",
-        "outputs": "array<io>",
-        "blockers": "array<blocker>"
+    "recipes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/recipe" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9_]+$"
+    },
+    "good_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9_\\.\\-]+$"
+    },
+    "qty": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "ticks": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "blocker": {
+      "title": "Blocker v0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["missing_input", "missing_capability", "unknown"]
+        },
+        "good_id": { "$ref": "#/$defs/good_id" },
+        "need_qty": { "$ref": "#/$defs/qty" },
+        "have_qty": { "$ref": "#/$defs/qty" },
+        "capability_id": { "$ref": "#/$defs/id" },
+        "message": {
+          "type": "string",
+          "maxLength": 256
+        }
       }
     },
     "io": {
-      "required_fields": [
-        "good_id",
-        "qty"
-      ],
-      "field_types": {
-        "good_id": "string",
-        "qty": "int>=0"
+      "title": "Stage IO v0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["good_id", "qty"],
+      "properties": {
+        "good_id": { "$ref": "#/$defs/good_id" },
+        "qty": { "$ref": "#/$defs/qty" }
       }
     },
-    "blocker": {
-      "required_fields": [
-        "type",
-        "reason",
-        "suggested_action"
-      ],
-      "field_types": {
-        "type": "enum<MISSING_INPUT,INVALID_STATE>",
-        "reason": "string",
-        "suggested_action": "string"
+    "stage": {
+      "title": "Recipe Stage v0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage_id", "name", "duration_ticks", "inputs", "outputs"],
+      "properties": {
+        "stage_id": { "$ref": "#/$defs/id" },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "duration_ticks": { "$ref": "#/$defs/ticks" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/io" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/io" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/blocker" }
+        }
+      }
+    },
+    "recipe": {
+      "title": "Recipe v0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipe_id", "product_capability_id", "stages"],
+      "properties": {
+        "recipe_id": { "$ref": "#/$defs/id" },
+        "product_capability_id": { "$ref": "#/$defs/id" },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stage" }
+        }
       }
     }
-  },
-  "ordering_rules": {
-    "canonical_json": "Append-only field ordering for schema objects. Arrays are ordered as authored. Map keys are ordered ordinal where applicable."
   }
 }

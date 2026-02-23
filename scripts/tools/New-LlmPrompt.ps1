@@ -197,6 +197,12 @@ try {
   [void]$sb.Append("- Schema law: events%explain chains are schema-bound (tokens%fields), no free-text reasons; stable serialization%ordering." + $nl)
   [void]$sb.Append("- Tweaks law: any balance-affecting constants must route via versioned Tweaks with deterministic defaults; tests must be able to override without code changes (or be explicitly allowlisted)." + $nl + $nl)
 
+  [void]$sb.Append("STOP conditions (hard):" + $nl)
+  [void]$sb.Append("- STOP if you cannot state deterministic ordering keys%tie-breakers for any output list%log%table (do not guess)." + $nl)
+  [void]$sb.Append("- STOP if you are about to introduce a balance constant and cannot justify Tweaks vs allowlist placement." + $nl)
+  [void]$sb.Append("- STOP if the change risks violating UI boundaries or the single-mutation pipeline (do not ""just try"")." + $nl)
+  [void]$sb.Append("- STOP if you did not run proofs but are about to claim PASS." + $nl + $nl)
+
   [void]$sb.Append("Routing (deterministic):" + $nl)
   [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + $nl)
   [void]$sb.Append("- Else if next_gate_packet says Split required: YES: SPLIT mode (add subgates, do not delete parent)." + $nl)
@@ -274,7 +280,10 @@ try {
   [void]$sb.Append("B2) Proof command(s) to run (exact commands, deterministic)" + $nl)
   [void]$sb.Append("- Provide runnable commands only (PowerShell preferred)." + $nl)
   [void]$sb.Append("- Commands must capture exit code and output deterministically." + $nl)
-  [void]$sb.Append("- If multiple commands, number them and keep to the minimum." + $nl + $nl)
+  [void]$sb.Append("- Proof adequacy rule: proofs must cover the gate's acceptance surface, not just compile." + $nl)
+  [void]$sb.Append("- Default expectation: run the full SimCore.Tests suite in Release unless you justify a narrower filter by naming the exact contract being exercised and why full-suite is unnecessary." + $nl)
+  [void]$sb.Append("- If you modify any gate ledger%queue%generated contract surface (docs/55_GATES.md, docs/56_SESSION_LOG.md, docs/gates/gates.json, docs/generated contract artifacts), include scripts/tools/Validate-Gates.ps1 in proofs." + $nl)
+  [void]$sb.Append("- Keep commands minimal, but not smaller than correctness." + $nl + $nl)
 
   [void]$sb.Append("B3) Stop conditions" + $nl)
   [void]$sb.Append("- If proofs fail, STOP and output DIAGNOSTICS:" + $nl)
@@ -283,8 +292,17 @@ try {
   [void]$sb.Append("  - minimal next action (1 to 3 bullets)" + $nl)
   [void]$sb.Append("- Do not propose broad refactors or additional gates in DIAGNOSTICS." + $nl + $nl)
 
-  [void]$sb.Append("C) CLOSEOUT_PATCH (always, no JSON) when you're done and user confirms" + $nl + $nl)
+  [void]$sb.Append("Spirit of development completion check (how to answer at the end):" + $nl)
+  [void]$sb.Append("- Treat the gate as complete in the spirit of development if: acceptance surface is satisfied, proofs pass, and no Non-negotiable design laws are violated." + $nl)
+    [void]$sb.Append("- Do NOT re-litigate broader architecture or propose ""ideal"" refactors unless they are required by the gate." + $nl)
+  [void]$sb.Append("- If additional improvements exist but are not required for the gate, list them as OUT_OF_SCOPE_IMPROVEMENTS (max 3 bullets) and still answer YES." + $nl)
+  [void]$sb.Append("- If the answer is NO, it must be because of a concrete unmet acceptance condition or a violated design law, and you must name it." + $nl)
+  [void]$sb.Append("- Required format:" + $nl)
+  [void]$sb.Append("  SPIRIT_CHECK: YES or NO" + $nl)
+  [void]$sb.Append("  REASON: 1 to 3 bullets tied to gate acceptance%design laws" + $nl)
+  [void]$sb.Append("  OUT_OF_SCOPE_IMPROVEMENTS: 0 to 3 bullets (optional)" + $nl + $nl)
 
+  [void]$sb.Append("C) CLOSEOUT_PATCH (always, no JSON) when you're done and user confirms" + $nl + $nl)
   [void]$sb.Append("SESSION_LOG_LINE" + $nl)
   [void]$sb.Append("- One line to append to docs/56_SESSION_LOG.md." + $nl)
   [void]$sb.Append("- Format must match existing file and MUST start with ""- ""." + $nl)

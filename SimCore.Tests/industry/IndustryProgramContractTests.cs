@@ -97,14 +97,39 @@ namespace SimCore.Tests.Industry
                 sb.Append("  ").Append(e ?? "").Append('\n');
             }
 
-            var rel = Path.Combine("docs", "generated", "industry_min_loop_report_v0.txt");
-            var full = Path.GetFullPath(rel);
+            var repoRoot = ResolveRepoRoot();
+            var full = Path.Combine(repoRoot, "docs", "generated", "industry_min_loop_report_v0.txt");
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
 
             // Normalize line endings to LF explicitly.
             var text = sb.ToString().Replace("\r\n", "\n").Replace("\r", "\n");
             var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(text);
             File.WriteAllBytes(full, bytes);
+        }
+
+        private static string ResolveRepoRoot()
+        {
+            // Optional explicit override for CI or non-standard working directories.
+            var env = Environment.GetEnvironmentVariable("STE_REPO_ROOT");
+            if (!string.IsNullOrWhiteSpace(env) && Directory.Exists(env))
+                return Path.GetFullPath(env);
+
+            // Default: walk upward from test base directory to find a directory that looks like repo root.
+            var start = AppContext.BaseDirectory;
+            var dir = new DirectoryInfo(start);
+
+            for (var i = 0; i < 16 && dir != null; i++)
+            {
+                var hasDocs = Directory.Exists(Path.Combine(dir.FullName, "docs"));
+                var hasSimCore = Directory.Exists(Path.Combine(dir.FullName, "SimCore"));
+                if (hasDocs && hasSimCore)
+                    return dir.FullName;
+
+                dir = dir.Parent;
+            }
+
+            // Last resort: current working directory.
+            return Path.GetFullPath(Directory.GetCurrentDirectory());
         }
     }
 }

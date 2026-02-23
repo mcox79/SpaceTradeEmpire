@@ -464,6 +464,18 @@ function Run-BuildQueue {
     } catch {
         Log-Output "ERROR (full):"
         Log-Output ($_ | Out-String)
+
+        # Invalidate stale Phase 3 artifacts so we cannot copy an old prompt after a failure.
+        $ngp = Join-Path $ProjectRoot "docs/generated/next_gate_packet.md"
+        if (Test-Path -LiteralPath $ngp) {
+            Remove-Item -Force -LiteralPath $ngp
+            Log-Output "DELETED (stale): docs/generated/next_gate_packet.md"
+        }
+        if (Test-Path -LiteralPath $LlmPromptPath) {
+            Remove-Item -Force -LiteralPath $LlmPromptPath
+            Log-Output "DELETED (stale): docs/generated/llm_prompt.md"
+        }
+
         return $false
     }
 }
@@ -499,6 +511,7 @@ function Run-ApplyQueue {
     } catch {
         Log-Output "ERROR (full):"
         Log-Output ($_ | Out-String)
+
         return $false
     }
 }
@@ -1544,8 +1557,12 @@ $btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Pro
     $btnStartShardFresh.Enabled = $false
     try {
         Run-ContextGen | Out-Null
-        Run-LlmPrompt | Out-Null
-        Copy-LLMPromptToClipboard | Out-Null
+        $ok = Run-LlmPrompt
+        if ($ok) {
+            Copy-LLMPromptToClipboard | Out-Null
+        } else {
+            Log-Output "Skip copy: LLM prompt generation failed."
+        }
     } finally {
         $btnStartShardFresh.Enabled = $true
         Set-StatusText
