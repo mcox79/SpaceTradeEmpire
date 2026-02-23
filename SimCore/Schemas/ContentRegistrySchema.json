@@ -1,0 +1,69 @@
+{
+  "schema_id": "ContentRegistrySchema.v0",
+  "version": 0,
+  "type": "object",
+  "required": ["version", "goods", "recipes", "modules"],
+  "properties": {
+    "version": { "type": "integer", "const": 0 },
+    "goods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "inputs", "outputs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "inputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["good_id", "qty"],
+              "properties": {
+                "good_id": { "type": "string", "minLength": 1 },
+                "qty": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["good_id", "qty"],
+              "properties": {
+                "good_id": { "type": "string", "minLength": 1 },
+                "qty": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

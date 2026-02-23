@@ -72,67 +72,6 @@
                       "blocked_by":  [
 
                                      ]
-                  },
-                  {
-                      "gate_id":  "GATE.X.CONTENT_SUBSTRATE.001",
-                      "task_id":  "GATE.X.CONTENT_SUBSTRATE.001.T001",
-                      "status":  "TODO",
-                      "title":  "Content substrate registries v0",
-                      "intent":  "Introduce versioned registries for goods%recipes%modules with schema validation, deterministic load order, and a canonical digest report; wire minimal load into world initialization without timestamps and with stable hashing.",
-                      "task_preflight":  [
-                                             "Pick one storage location for v0 content JSON (keep it consistent).",
-                                             "Choose canonical ordering rules for IDs and arrays (lex id, stable field order)."
-                                         ],
-                      "evidence_paths":  [
-                                             "docs/content/content_registry_v0.json",
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/Content/ContentRegistryLoader.cs",
-                                             "SimCore/Schemas/ContentRegistrySchema.json",
-                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "docs/generated/content_registry_digest_v0.txt"
-                                         ],
-                      "expected_touch_paths":  [
-                                                   "docs/20_TESTING_AND_DETERMINISM.md",
-                                                   "SimCore/Systems/SerializationSystem.cs"
-                                               ],
-                      "constraints":  [
-                                          "Versioned schema with explicit v0; future changes must be additive or version-bumped.",
-                                          "Deterministic load order independent of file system enumeration.",
-                                          "Digest report must be stable: canonical JSON, stable ordering, no timestamps.",
-                                          "Keep scope to goods%recipes%modules only for v0."
-                                      ],
-                      "completion_hint":  [
-                                              "Define ContentRegistrySchema.json and validate docs/content/content_registry_v0.json against it.",
-                                              "Implement ContentRegistryLoader that loads registry deterministically and computes a canonical digest hash.",
-                                              "Emit docs/generated/content_registry_digest_v0.txt listing counts and canonical digest.",
-                                              "Add contract test that loads the registry twice and asserts identical digest and identical normalized in-memory ordering.",
-                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes; digest stable across two runs."
-                                          ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "Treat this as a loader+schema+digest problem, not a mod system."
-                                               },
-                                               {
-                                                   "when":  "MISSING_EVIDENCE",
-                                                   "route":  "STEP_B",
-                                                   "note":  "If a registry file is too large, split into multiple files but keep deterministic enumeration via an explicit manifest."
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "If authoring tools become necessary, split into a separate tooling gate."
-                                               }
-                                           ],
-                      "buckets":  [
-                                      "SimCore",
-                                      "Tests",
-                                      "DataGenerated"
-                                  ],
-                      "blocked_by":  [
-
-                                     ]
                   }
               ]
 }

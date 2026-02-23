@@ -199,6 +199,13 @@ public class SimState
     [JsonInclude] public int InitialSeed { get; private set; }
     [JsonIgnore] public Random? Rng { get; private set; }
 
+    // GATE.X.CONTENT_SUBSTRATE.001
+    // Surfaced deterministic content registry identity (no timestamps).
+    // Version is part of the registry payload; Digest is SHA256 over canonical text.
+    // Stored in save%load so replay and transcripts can reference exact content identity.
+    [JsonInclude] public int ContentRegistryVersionV0 { get; set; } = 0;
+    [JsonInclude] public string ContentRegistryDigestV0 { get; set; } = "";
+
     // GATE.X.TWEAKS.DATA.001
     // Versioned tweak config loaded deterministically (defaults or JSON override).
     // NOTE: kept out of save%load and golden hashing until a dedicated transcript surface consumes it.

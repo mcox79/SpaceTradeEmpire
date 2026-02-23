@@ -1,0 +1,17 @@
+{
+  "version": 0,
+  "goods": [
+    { "id": "food" },
+    { "id": "ore" }
+  ],
+  "recipes": [
+    {
+      "id": "recipe_refine_ore_to_food",
+      "inputs": [ { "good_id": "ore", "qty": 2 } ],
+      "outputs": [ { "good_id": "food", "qty": 1 } ]
+    }
+  ],
+  "modules": [
+    { "id": "cap_module_refinery" }
+  ]
+}
