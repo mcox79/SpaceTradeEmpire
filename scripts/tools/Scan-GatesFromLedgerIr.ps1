@@ -73,7 +73,12 @@ function Read-ContextPacket([string]$path) {
     if ($inFileMap) {
       if ($line -match '^\s*###\s*\[') { break } # next section
       if ($line -match '^\s*-\s+(.+?)\s*$') {
-        $p = $Matches[1].Trim()
+        $p = $Matches[1].Trim().Replace('\','/')
+
+        # Normalize harmless prefixes
+        if ($p.StartsWith("./")) { $p = $p.Substring(2) }
+        $p = $p.Trim()
+
         if ($p.Length -gt 0) { [void]$fileMap.Add($p) }
       }
     }
@@ -445,16 +450,12 @@ if ($null -ne $prebuiltTasksArr) {
   exit 0
 }
 
-if ($null -eq $eligibleGatesArr -or $eligibleGatesArr.Count -lt 1) {
+if ($null -eq $eligibleGatesArr -or @($eligibleGatesArr).Count -lt 1) {
   Write-FailAndExit 3 ($lines + @(
     "FAIL_PARSE",
     "reason: IR missing input list (expected eligible_gates[], gates[], or tasks[])"
   ))
 }
-  Write-FailAndExit 3 ($lines + @(
-    "FAIL_PARSE",
-    "reason: IR gates list is empty"
-  ))
 
 # schema introspection
 $taskDef = $schema.'$defs'.task
@@ -476,6 +477,64 @@ $lines += ""
 
 # ------------------ Candidate processing ------------------
 
+function Get-IrGateStatus($g) {
+  if ($null -eq $g) { return "" }
+
+  if ($g.PSObject.Properties.Name -contains 'gate_status') { return (($g.gate_status + "").Trim()) }
+  if ($g.PSObject.Properties.Name -contains 'status')      { return (($g.status + "").Trim()) }
+
+  return ""
+}
+
+function Get-IrGateTitle($g) {
+  if ($null -eq $g) { return "" }
+
+  if ($g.PSObject.Properties.Name -contains 'gate_title') { return (($g.gate_title + "").Trim()) }
+  if ($g.PSObject.Properties.Name -contains 'title')      { return (($g.title + "").Trim()) }
+
+  return ""
+}
+
+function Get-IrAcceptanceText($g) {
+  if ($null -eq $g) { return "" }
+
+  if ($g.PSObject.Properties.Name -contains 'acceptance_text') { return (($g.acceptance_text + "").Trim()) }
+
+  # Stage1 IR fallbacks (common in your IR)
+  if ($g.PSObject.Properties.Name -contains 'completion_hint') {
+    $xs = @($g.completion_hint) | ForEach-Object { ("" + $_).Trim() } | Where-Object { $_ }
+    if ($xs.Count -gt 0) { return ($xs -join "; ") }
+  }
+  if ($g.PSObject.Properties.Name -contains 'constraints') {
+    $xs = @($g.constraints) | ForEach-Object { ("" + $_).Trim() } | Where-Object { $_ }
+    if ($xs.Count -gt 0) { return ($xs -join "; ") }
+  }
+
+  return ""
+}
+
+function Get-IrEvidenceUniverse($g) {
+  if ($null -eq $g) { return @() }
+
+  # Stage1 IR variants
+  if ($g.PSObject.Properties.Name -contains 'evidence_universe') { return @($g.evidence_universe) }
+
+  # Your current IR shape
+  if ($g.PSObject.Properties.Name -contains 'evidence_paths') { return @($g.evidence_paths) }
+
+  # Older shapes sometimes used evidence[] objects with .path
+  if ($g.PSObject.Properties.Name -contains 'evidence') {
+    $out = @()
+    foreach ($e in @($g.evidence)) {
+      $p = Get-PropOrNull $e "path"
+      if ($null -ne $p) { $out += ([string]$p) }
+    }
+    return $out
+  }
+
+  return @()
+}
+
 function Status-Rank([string]$st) {
   $s = ($st + "").Trim()
   if ($s -eq "IN_PROGRESS") { return 0 }
@@ -489,7 +548,7 @@ $candidatesTotal = $all.Count
 # Only TODO/IN_PROGRESS are candidates; Stage 1 may already apply this, but Stage 2 verifies.
 $eligible = @()
 foreach ($g in $all) {
-  $st = ($g.gate_status + "").Trim()
+  $st = Get-IrGateStatus $g
   if ($st -eq "TODO" -or $st -eq "IN_PROGRESS") { $eligible += $g }
 }
 
@@ -515,9 +574,9 @@ if ($QueueCap -gt 0) {
 # Stage 2 recomputes ORDER_V1 deterministically: status rank then gate_id then candidate key
 # candidate key uses gate_title fallback gate_id (same fallback used later)
 $eligibleSorted = $eligible | Sort-Object `
-  @{ Expression = { Status-Rank (($_.gate_status + "").Trim()) }; Ascending = $true }, `
+  @{ Expression = { Status-Rank (Get-IrGateStatus $_) }; Ascending = $true }, `
   @{ Expression = { (($_.gate_id + "").Trim()) }; Ascending = $true }, `
-  @{ Expression = { $t = (($_.gate_title + "").Trim()); if ($t) { $t } else { (($_.gate_id + "").Trim()) } }; Ascending = $true }
+  @{ Expression = { $t = Get-IrGateTitle $_; if ($t) { $t } else { (($_.gate_id + "").Trim()) } }; Ascending = $true }
 
 # Compare IR order vs Stage 2 order on gate_id sequence (report only)
 $irSeq = @($eligible | ForEach-Object { (($_.gate_id + "").Trim()) })
@@ -546,16 +605,16 @@ $dropped = @()
 
 foreach ($g in $selected) {
   $gateId = ($g.gate_id + "").Trim()
-  $gateTitle = ($g.gate_title + "").Trim()
-  $gateStatus = ($g.gate_status + "").Trim()
-  $accept = ($g.acceptance_text + "")
+  $gateTitle = Get-IrGateTitle $g
+  $gateStatus = Get-IrGateStatus $g
+  $accept = Get-IrAcceptanceText $g
 
   $candKey = $gateTitle
   if (-not $candKey) { $candKey = $gateId }
 
-  # evidence universe
+  # evidence universe (IR shape compatibility)
   $e0 = @()
-  foreach ($p in @($g.evidence_universe)) {
+  foreach ($p in @(Get-IrEvidenceUniverse $g)) {
     $np = Normalize-RepoPath ($p + "")
     if ($np) { $e0 += $np }
   }
@@ -573,6 +632,13 @@ $e2 = @()
 $repairs = @()
 
 foreach ($p in $e1) {
+  # Context packet FILE MAP excludes docs/generated/** by design, so do not require membership there.
+  # Still enforce on-disk existence later via MISSING_ON_DISK.
+  if ($p.StartsWith("docs/generated/")) {
+    $e2 += $p
+    continue
+  }
+
   if ($ctx.FileMap.Contains($p)) {
     $e2 += $p
     continue
@@ -606,9 +672,11 @@ if ($missing.Count -gt 0) {
   continue
 }
 
-# Optional hardening: ensure evidence paths actually exist on disk (not just in file map)
+# Optional hardening: ensure NON-generated evidence paths actually exist on disk.
+# docs/generated/** may be missing because the gate may be responsible for creating it.
 $missingOnDisk = @()
 foreach ($p in $e2) {
+  if ($p.StartsWith("docs/generated/")) { continue }
   if (-not (Test-Path -LiteralPath $p)) { $missingOnDisk += $p }
 }
 if ($missingOnDisk.Count -gt 0) {

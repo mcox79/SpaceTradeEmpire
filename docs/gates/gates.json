@@ -1,8 +1,334 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-22T12:05:47-05:00",
-    "queue_intent":  "Stage 2 passthrough (IR already contains tasks) at HEAD 5c0a1ecc1f73f0d7b226c4ece25f2ff6755e3825",
+    "generated_utc":  "2026-02-23T14:24:31-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD a9c98941f72a8c8b3a8f00c87dfccf3327e9810e",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.003",
+                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.003.T488",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.003: Content substrate world binding v0",
+                      "intent":  "Content substrate world binding v0",
+                      "evidence_paths":  [
+                                             "SimCore/World/WorldLoader.cs",
+                                             "SimCore/SimState.cs",
+                                             "SimCore/Systems/SerializationSystem.cs",
+                                             "SimCore/Content/ContentRegistryLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
+                                              "Stamp pack identity into SimState and serialization payload; Add save%load test asserting pack identity round-trips"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore/World/WorldLoader.cs",
+                                             "candidate_key_sha256=7710e790f90b"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S4.INDU_STRUCT.001",
+                      "task_id":  "GATE.S4.INDU_STRUCT.001.T822",
+                      "status":  "TODO",
+                      "title":  "GATE.S4.INDU_STRUCT.001: Industry structure v0",
+                      "intent":  "Industry structure v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/industry/IndustryProgramContractTests.cs",
+                                             "SimCore/Systems/IndustrySystem.cs",
+                                             "SimCore/Entities/IndustrySite.cs",
+                                             "SimCore/Schemas/IndustrySchema.json"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Extend schema and processing with explicit ordering; Add contract tests covering ordering and save%load stability"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/industry/IndustryProgramContractTests.cs",
+                                             "candidate_key_sha256=d5c89de4fcfe"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S4.UI_INDU.001",
+                      "task_id":  "GATE.S4.UI_INDU.001.T070",
+                      "status":  "TODO",
+                      "title":  "GATE.S4.UI_INDU.001: Industry UI v0",
+                      "intent":  "Industry UI v0",
+                      "evidence_paths":  [
+                                             "scripts/ui/StationMenu.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "SimCore/Systems/IndustrySystem.cs",
+                                             "SimCore/Programs/ProgramSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
+                                              "Add SimBridge snapshot fields for why-blocked and next-actions; Render deterministic chain in StationMenu with stable ordering"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/ui/StationMenu.cs",
+                                             "candidate_key_sha256=ec24fc1fbb32"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.004",
+                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.004.T300",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.004: Content substrate integration guard v0",
+                      "intent":  "Content substrate integration guard v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "SimCore/Content/ContentRegistryLoader.cs",
+                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
+                                             "docs/generated/evidence/gate_evidence_grep.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add deterministic scan test for hardcoded content IDs; Emit sorted violations for diff-friendly review"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "candidate_key_sha256=f41397ba8b93"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S4.CONSTR_PROG.001",
+                      "task_id":  "GATE.S4.CONSTR_PROG.001.T281",
+                      "status":  "TODO",
+                      "title":  "GATE.S4.CONSTR_PROG.001: Construction programs v0",
+                      "intent":  "Construction programs v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "SimCore/Schemas/ProgramSchema.json",
+                                             "SimCore/Programs/ProgramSystem.cs",
+                                             "SimCore.Tests/Determinism/ProgramDeterminismTests.cs",
+                                             "SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add construction program type and deterministic executor; Add integration test proving recipe consumption and module production"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "candidate_key_sha256=1c4a964e3124"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001",
+                      "task_id":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001.T362",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001: World class distinctness report v0",
+                      "intent":  "World class distinctness report v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "scripts/tests/test_universe_validator.gd",
+                                             "scripts/tests/test_galaxy_core.gd",
+                                             "docs/generated/class_stats_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add deterministic report emitter and test that asserts exact output stability; Ensure report generation is seed-reproducible and ordering is explicit"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=0bfad9e7397e"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001",
+                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001.T155",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.001: Content substrate foundations v0",
+                      "intent":  "Content substrate foundations v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "SimCore/Content/ContentRegistryLoader.cs",
+                                             "SimCore/Schemas/ContentRegistrySchema.json",
+                                             "docs/content/content_registry_v0.json",
+                                             "docs/generated/content_registry_digest_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Implement pack contract and loader with deterministic ordering; Add contract test asserting identical digest across two loads"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "candidate_key_sha256=6342675dbd68"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002",
+                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002.T977",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.002: Content substrate pack validation report v0",
+                      "intent":  "Content substrate pack validation report v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "SimCore/Content/ContentRegistryLoader.cs",
+                                             "SimCore/Schemas/ContentRegistrySchema.json",
+                                             "docs/content/content_registry_v0.json",
+                                             "docs/generated/content_pack_validation_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add deterministic validation report writer; Add negative test that deterministically FAILs on invalid pack"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
+                                             "candidate_key_sha256=6e0e8a4684c1"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S4.PERF_BUDGET.001",
+                      "task_id":  "GATE.S4.PERF_BUDGET.001.T133",
+                      "status":  "TODO",
+                      "title":  "GATE.S4.PERF_BUDGET.001: Perf budget v0 for Slice 4",
+                      "intent":  "Perf budget v0 for Slice 4",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/SimKernel.cs",
+                                             "SimCore/Systems/IndustrySystem.cs",
+                                             "docs/20_TESTING_AND_DETERMINISM.md",
+                                             "docs/generated/repo_health_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add budget measurement test with explicit scenario load check; Emit deterministic report that includes N ticks and observed ms_per_tick"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=6588c04366e2"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.001",
+                      "task_id":  "GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.001.T132",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.001: World class distinctness targets v0",
+                      "intent":  "World class distinctness targets v0",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "docs/20_TESTING_AND_DETERMINISM.md",
+                                             "scripts/tests/test_universe_validator.gd",
+                                             "docs/generated/class_stats_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
+                                              "Add deterministic enforcement that FAILs with sorted violations; Include clear metric deltas for each violating seed"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "candidate_key_sha256=769fa0c623c7"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }

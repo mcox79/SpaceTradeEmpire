@@ -177,7 +177,20 @@ When a gate moves to DONE:
 | GATE.UI.PLAY.TRADELOOP.SAVELOAD.001 | DONE | Play loop save%load v0: during an active trade loop, save%load preserves visible state (selected fleet via STE_QUICKSAVE_V2 UiState.SelectedFleetId, active job continuation), and after continuing to completion yields identical final world hash and identical per-fleet event stream across uninterrupted vs save%load runs; FleetMenu restores persisted selection deterministically and clears it if the fleet no longer exists | SimCore.Tests/SaveLoad/SaveLoadLogisticsMidJobTests.cs; scripts/bridge/SimBridge.cs; scripts/ui/FleetMenu.cs |
 | GATE.UI.PLAY.TRADELOOP.001 | DONE | First playable trade loop v0: headless buy%ship%sell completes and emits deterministic transcript (no timestamps); repeat-run transcript SHA256 matches 9F3AFB559B9EDFE8D582FA182557AFCFE0D52594872EE6FC98C03DB260E53AE3 | scripts/tests/test_player_trading.gd; artifacts/trade_loop/transcript_run1.txt; artifacts/trade_loop/transcript_run2.txt |
 
+### B10.5 Slice 3.5 content substrate foundations gates (v0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S3_5.CONTENT_SUBSTRATE.001 | TODO | Content substrate foundations v0: define the minimal authored-pack contract (versioning, schema validation, canonical IDs, deterministic load order) required for downstream systems to reference content by ID instead of hardcoding | TBD |
+| GATE.S3_5.CONTENT_SUBSTRATE.002 | TODO | Content substrate pack validation report v0: deterministic validator emits docs/generated/content_pack_validation_report_v0.txt (no timestamps; stable ordering; failures sorted) and exits nonzero on invalid packs | TBD |
+| GATE.S3_5.CONTENT_SUBSTRATE.003 | TODO | Content substrate world binding v0: WorldLoader (or equivalent) binds selected content pack version%digest into world identity and persists through save%load; failures include pack id%version for repro | TBD |
+| GATE.S3_5.CONTENT_SUBSTRATE.004 | TODO | Content substrate integration guard v0: deterministic scan or contract test flags new hardcoded content IDs in SimCore systems that should be data-driven; violations sorted and reproducible | TBD |
+
 ### B11. Slice 4 industry gates (v0)
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
 | GATE.S4.INDU.MIN_LOOP.001 | DONE | Industry minimal loop v0: deterministic industry site processing with ordinal ordering; opt-in construction pipeline produces cap_module via schema-bound stages; persisted build state and deterministic industry event stream; StationMenu readout via SimBridge; save%load and replay stability preserved; tweak routing guard satisfied via IndustryTweaksV0 | docs/56_SESSION_LOG.md (GATE.S4.INDU.MIN_LOOP.001 PASS) |
+| GATE.S4.INDU_STRUCT.001 | TODO | Industry structure v0: define bounded production chain structure beyond the minimal loop (inputs%outputs%byproducts constraints) with deterministic ordering and schema-bound references to content IDs | TBD |
+| GATE.S4.CONSTR_PROG.001 | TODO | Construction programs v0: program-driven construction execution (intent-driven, deterministic) that consumes schema-bound construction recipes and produces capability modules without direct mutation | TBD |
+| GATE.S4.UI_INDU.001 | TODO | Industry UI v0: deterministic “why blocked” chain and “what to build next” suggestion surface for construction%industry using Facts%Events only | TBD |
+| GATE.S4.PERF_BUDGET.001 | TODO | Perf budget v0 for Slice 4: deterministic scenario runs N ticks with industry%construction active and enforces budget_ms_per_tick with deterministic report | TBD |
