@@ -302,43 +302,73 @@ Wave requirements (minimums, numbers are [TBD] but the existence is mandatory):
 
 ---
 
-### Epic gate template (REQUIRED for all new work)
-All epics must be decomposed into gates. A gate is sized to fit into an LLM execution chunk and must produce objective proof.
+### Epic and gate template (REQUIRED for all new work)
 
-Gate naming:
-- GATE.<EPIC>.<NNN> where NNN is 001, 002, ...
+#### Epic bullet format v1 (REQUIRED)
+Every epic line must be machine-scannable and gate-derived.
 
-Every gate must include:
-- Scope: the smallest meaningful vertical slice
+- Format:
+  - EPIC: `- EPIC.<...> [TODO|IN_PROGRESS|DONE]: <description> (gates: <selector or list>)`
+
+- Examples:
+  - `- EPIC.S2_5.SEEDS [DONE]: Seed plumbing everywhere (world, save/load, tests, tools) (gates: GATE.S2_5.SEEDS.*)`
+  - `- EPIC.S3.LOGI.ROUTES [DONE]: Route planning + explainability (gates: GATE.ROUTE.*, GATE.S3.ROUTES.*)`
+  - `- EPIC.X.CONTENT_SUBSTRATE [TODO]: Content substrate v0 (gates: GATE.X.CONTENT_SUBSTRATE.*)`
+
+- Status computation (no exceptions if a gates selector exists):
+  - DONE: all matched gates are DONE
+  - IN_PROGRESS: some matched gates are DONE or IN_PROGRESS, but not all DONE
+  - TODO: all matched gates are TODO
+  - If no `(gates: ...)` is present, the epic cannot be marked DONE.
+
+- OPEN items rule:
+  - Anything that blocks DONE must be represented by a gate and included in `(gates: ...)`.
+  - Otherwise it must be moved to a different epic or explicitly declared non-blocking.
+
+#### Gate naming
+- Preferred: `GATE.<slice_or_domain>.<topic>.<NNN>` where NNN is 001, 002, ...
+- Rule: a gate must belong to at least 1 epic via an epic `(gates: ...)` selector.
+  - If you create a new gate prefix, also add or update the owning epic selector.
+
+#### Every gate must include (minimum metadata)
+- Scope: smallest meaningful vertical slice
 - Files: expected touched paths
 - Tests: at least 1 new or expanded test
-- Evidence: how to prove completion (test name, artifact, screenshot)
-- Determinism notes: ordering%IDs%serialization considerations
-- Failure mode: 1 explicit failure case and how it is explained in UI
+- Evidence: objective completion proof (test filter, artifact path, deterministic transcript, screenshot if applicable)
+- Determinism notes: ordering%IDs%serialization%tie-break rules
+- Failure mode: 1 explicit failure and how it is exposed (Facts%Events or scan output)
 - Intervention verbs: what the player can do about it (see CONTRACT.X.INTERVENTION_VERBS)
 
-Standard 5-gate decomposition for most epics:
+#### Standard 5-gate decomposition (default)
 1) CONTRACT gate
-   - Add or update schema/query contract and event types needed
+   - Schema/query contract and event types
 2) CORE LOGIC gate
-   - Implement minimal SimCore behavior for the capability
+   - Minimal SimCore behavior
 3) DETERMINISM gate
-   - Tie-breaks, stable IDs, deterministic serialization, golden replay coverage
+   - Stable IDs%tie-breaks%serialization%golden replay coverage
 4) UI gate
-   - Minimal page readout using Facts%Events (no layout polish required)
+   - Minimal readout using Facts%Events (no layout polish)
 5) EXPLAIN gate
-   - Cause chain and suggested actions surfaced for a failure mode
+   - Cause chain + suggested actions surfaced for the failure mode
 
-Caps (hard limits for a single gate):
-- Net change <= 500 lines [TBD: adjust if too tight]
+If any gate exceeds caps, split it.
+
+#### Caps (hard limits for a single gate)
+- Net change <= 500 lines (measured by `git diff --stat`)
 - New tests <= 3
 - New schemas <= 1 version bump
 - New content packs <= 1 starter or incremental pack
-If a gate would exceed caps, split it.
 
-Acceptance proof for a gate:
-- `dotnet test` passes (filtered if needed, but final gate of an epic requires full suite)
-- Evidence updated (doc line moved, tests referenced)
+#### Acceptance proof for a gate
+A gate is DONE only if all are true:
+- Proof command passes
+  - `dotnet test` passes (filtered ok for the gate, but the final gate closing an epic requires full suite)
+- Gate ledger updated
+  - `55_GATES.md` row set to DONE with proof command and evidence paths
+- Session log appended
+  - `56_SESSION_LOG.md` includes a PASS entry for the gate
+- Epic status stays consistent
+  - Epic `(gates: ...)` selector would compute DONE/IN_PROGRESS/TODO matching the epic marker
 - Connectivity violations remain empty for slice scope
 
 #### CONTRACT.X.INTERVENTION_VERBS (binding list, extend additively)
@@ -407,12 +437,12 @@ v1 scope (LOCK ONCE SLICE 2 STARTS):
 - No mining, patrol, construction, staffing, or multi-route automation in Slice 2
 
 Epics:
-- EPIC.S2.PROG.MODEL: Program, Fleet, Doctrine core models align to docs/53
-- EPIC.S2.PROG.QUOTE: Liaison Quote flow for “do X”, cost, time, risks, constraints
-- EPIC.S2.PROG.EXEC: Program execution pipeline (intent-driven, deterministic)
-- EPIC.S2.PROG.UI: Control surface UI for creating programs and reading outcomes
-- EPIC.S2.PROG.SAFETY: Guardrails against direct state mutation, only intents
-- EPIC.S2.EXPLAIN: Schema-bound “Explain” events for program outcomes and constraints
+- EPIC.S2.PROG.MODEL [DONE]: Program, Fleet, Doctrine core models align to docs/53 (gates: GATE.PROG.001, GATE.FLEET.001, GATE.DOCTRINE.001)
+- EPIC.S2.PROG.QUOTE [DONE]: Liaison Quote flow for “do X”, cost, time, risks, constraints (gates: GATE.QUOTE.001)
+- EPIC.S2.PROG.EXEC [DONE]: Program execution pipeline (intent-driven, deterministic) (gates: GATE.PROG.EXEC.001, GATE.PROG.EXEC.002)
+- EPIC.S2.PROG.UI [DONE]: Control surface UI for creating programs and reading outcomes (gates: GATE.UI.PROG.001, GATE.VIEW.001)
+- EPIC.S2.PROG.SAFETY [DONE]: Guardrails against direct state mutation, only intents (gates: GATE.BRIDGE.PROG.001, GATE.PROG.EXEC.001)
+- EPIC.S2.EXPLAIN [DONE]: Schema-bound “Explain” events for program outcomes and constraints (gates: GATE.EXPLAIN.001)
 
 Status: DONE
 
@@ -422,33 +452,17 @@ Status: DONE
 Purpose: Procedural galaxy%economy%factions become real and testable, not just anomalies.
 
 Epics:
-- EPIC.S2_5.SEEDS: Seed plumbing everywhere (world, save/load, tests, tools)
-- EPIC.S2_5.WGEN.GALAXY.V0: Topology, lanes, chokepoints, capacities, regimes; starter safe region
-- EPIC.S2_5.WGEN.ECON.V0: Role distribution, recipe placement, demand sinks, initial inventories; early loop guarantees
-- EPIC.S2_5.WGEN.FACTION.V0: 3 to 5 factions, home regions, doctrines, initial relations
-- EPIC.S2_5.WGEN.WORLD_CLASSES: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier)
-- EPIC.S2_5.WGEN.INVARIANTS: Connectivity, early viability, reachability, onboarding invariants
-- EPIC.S2_5.WGEN.N_SEED_TESTS: Distribution bounds over N seeds (v0 uses N = 100; can increase later)
-- EPIC.S2_5.WGEN.DISTINCTNESS_GATE: Each world class must have:
-  - at least 1 dominant constraint (eg choke scarcity vs sparse lanes vs hostile regimes)
-  - at least 1 distinct discovery%warfront profile
-  - a seed-suite stats report proving class differences [OPEN: report format]
-- EPIC.S2_5.SAVE_IDENTITY: Save seed%params, load exact identity, hash equivalence regression
-- EPIC.S2_5.TOOL.SEED_EXPLORER: Preview, diff, invariant failure drill-down
-
-Epic status (authoritative source is gates%session log):
-| Epic | Status | Notes |
-|---|---|---|
-| EPIC.S2_5.SEEDS | DONE | Seed plumbing gates complete |
-| EPIC.S2_5.WGEN.GALAXY.V0 | DONE | Topology deterministic + dumps |
-| EPIC.S2_5.WGEN.ECON.V0 | DONE | Early loops min3 + loop report |
-| EPIC.S2_5.WGEN.FACTION.V0 | DONE | Faction seeding v0 |
-| EPIC.S2_5.WGEN.WORLD_CLASSES | DONE | CORE%FRONTIER%RIM implemented |
-| EPIC.S2_5.WGEN.INVARIANTS | DONE | Onboarding invariants suite v0 |
-| EPIC.S2_5.WGEN.N_SEED_TESTS | DONE | Distribution bounds + N=100 batch |
-| EPIC.S2_5.WGEN.DISTINCTNESS_GATE | TODO | Gate decomposition exists; proof report not yet implemented |
-| EPIC.S2_5.SAVE_IDENTITY | DONE | Worldgen save%load hash equivalence |
-| EPIC.S2_5.TOOL.SEED_EXPLORER | DONE | Seed explore%diff artifacts |
+- EPIC.S2_5.SEEDS [DONE]: Seed plumbing everywhere (world, save/load, tests, tools) (gates: GATE.S2_5.SEEDS.*)
+- EPIC.S2_5.WGEN.GALAXY.V0 [DONE]: Topology, lanes, chokepoints, capacities, regimes; starter safe region (gates: GATE.S2_5.WGEN.GALAXY.001)
+- EPIC.S2_5.WGEN.ECON.V0 [DONE]: Role distribution, recipe placement, demand sinks, initial inventories; early loop guarantees (gates: GATE.S2_5.WGEN.ECON.001)
+- EPIC.S2_5.WGEN.FACTION.V0 [DONE]: 3 to 5 factions, home regions, doctrines, initial relations (gates: GATE.S2_5.WGEN.FACTION.001)
+- EPIC.S2_5.WGEN.WORLD_CLASSES.V0 [DONE]: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier) (gates: GATE.S2_5.WGEN.WORLD_CLASSES.001)
+- EPIC.S2_5.WGEN.INVARIANTS [DONE]: Connectivity, early viability, reachability, onboarding invariants (gates: GATE.S2_5.WGEN.INVARIANTS.001)
+- EPIC.S2_5.WGEN.N_SEED_TESTS [DONE]: Distribution bounds over N seeds (v0 uses N = 100; can increase later) (gates: GATE.S2_5.WGEN.DISTRIBUTION.001, GATE.S2_5.WGEN.NSEED.001)
+- EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [TODO]: Deterministic seed-suite stats report for class differences using worldgen-only signals (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
+- EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [TODO]: Thresholds proving class separation on worldgen-only metrics, enforced in N-seed suite (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
+- EPIC.S2_5.SAVE_IDENTITY [DONE]: Save seed%params, load exact identity, hash equivalence regression (gates: GATE.S2_5.SAVELOAD.WORLDGEN.001)
+- EPIC.S2_5.TOOL.SEED_EXPLORER [DONE]: Preview, diff, invariant failure drill-down (gates: GATE.S2_5.TOOL.SEED_EXPLORER.001)
 
 Status: IN_PROGRESS
 
@@ -458,43 +472,48 @@ Status: IN_PROGRESS
 Purpose: Multi-route trade, hauling, and supply operations at scale without micromanagement.
 
 Epics:
-- EPIC.S3.LOGI.ROUTES: Route planning and lane scheduling primitives
-- EPIC.S3.FLEET_ROLES: Fleet roles and constraints (trader, hauler, patrol) that deterministically influence route-choice selection
-- EPIC.S3.MARKET_ARB: Automation that exploits spreads but is not money-printing (anti-exploit constraints enforced)
-- EPIC.S3.RISK_MODEL: Predictable risk bands, losses, insurance-like sinks (not yet implemented; tracked by gates)
-- EPIC.S3.UI_DASH: Dashboards for flows, margins, bottlenecks, intel quality
-- EPIC.S3.CAPACITY_SCARCITY: Lane slot scarcity model (queueing v0)
-- EPIC.S3.PERF_BUDGET: Tick budget tests extended for logistics scaling
-- EPIC.S3.PLAY_LOOP_PROOF: Headless playable trade loop proof, including deterministic save%load continuation
-
-Epic status (authoritative source is gates%session log):
-| Epic | Status | Notes |
-|---|---|---|
-| EPIC.S3.LOGI.ROUTES | DONE | Multi-route candidates + RouteChosen |
-| EPIC.S3.FLEET_ROLES | DONE | Trader%Hauler%Patrol roles v0 |
-| EPIC.S3.MARKET_ARB | DONE | 2-friction bounded profit proof |
-| EPIC.S3.RISK_MODEL | TODO | Gate exists; incidents%loss sinks not yet present |
-| EPIC.S3.UI_DASH | DONE | Station dashboards v0 |
-| EPIC.S3.CAPACITY_SCARCITY | DONE | Queueing model implemented |
-| EPIC.S3.PERF_BUDGET | DONE | PerfBudget_Slice3_V0 enforced |
-| EPIC.S3.PLAY_LOOP_PROOF | DONE | Trade loop + save%load proof gates complete |
+- EPIC.S3.LOGI.ROUTES [DONE]: Route planning primitives (multi-candidate, stable tie-breaks) (gates: GATE.ROUTE.001, GATE.S3.ROUTES.001)
+- EPIC.S3.LOGI.EXEC [DONE]: Logistics job model and execution pipeline (cargo, xfer, reserve, fulfill, cancel, determinism, save%load) (gates: GATE.LOGI.*, GATE.FLEET.ROUTE.001)
+- EPIC.S3.FLEET_ROLES [DONE]: Fleet roles and constraints (trader, hauler, patrol) that deterministically influence route-choice selection (gates: GATE.S3.FLEET.ROLES.001)
+- EPIC.S3.MARKET_ARB [DONE]: Automation that exploits spreads but is not money-printing (anti-exploit constraints enforced) (gates: GATE.S3.MARKET_ARB.001)
+- EPIC.S3.RISK_SINKS.V0 [TODO]: Predictable risk frictions for automation (delays%losses%insurance-like sinks) without requiring Slice 5 combat (gates: GATE.S3.RISK_SINKS.*)
+- EPIC.S3.CAPACITY_SCARCITY [DONE]: Lane slot scarcity model (queueing v0) (gates: GATE.S3.CAPACITY_SCARCITY.001)
+- EPIC.S3.UI_DASH [DONE]: Dashboards for flows, margins, bottlenecks, intel quality (gates: GATE.S3.UI.DASH.001)
+- EPIC.S3.UI_LOGISTICS [DONE]: Logistics UI readout and incident timeline (Facts%Events, deterministic ordering) (gates: GATE.UI.LOGISTICS.001, GATE.UI.LOGISTICS.EVENT.001)
+- EPIC.S3.UI_FLEET [DONE]: Fleet UI playability surface (select, cancel job, override, save%load visible state, deterministic event tail) (gates: GATE.UI.FLEET.*, GATE.UI.FLEET.PLAY.001)
+- EPIC.S3.EXPLAINABILITY [DONE]: Explain capstone plus cross-surface “why” chains for representative failures (gates: GATE.UI.EXPLAIN.PLAY.001, GATE.UI.PROGRAMS.001, GATE.UI.PROGRAMS.EVENT.001, GATE.PROG.UI.001, GATE.UI.DOCK.NONSTATION.001)
+- EPIC.S3.PERF_BUDGET [DONE]: Tick budget tests extended for logistics scaling (gates: GATE.S3.PERF_BUDGET.001)
+- EPIC.S3.PLAY_LOOP_PROOF [DONE]: Headless playable trade loop proof, including deterministic save%load continuation (gates: GATE.UI.PLAY.TRADELOOP.001, GATE.UI.PLAY.TRADELOOP.SAVELOAD.001, GATE.S3.SAVELOAD.SCALING.001)
 
 Status: IN_PROGRESS
+
+---
+
+### Slice 3.5: Content substrate foundations (prereq for Slice 4+)
+Purpose: Prevent hardcoded content. Establish deterministic registries%schemas%validators%minimal authoring loop.
+
+Epics:
+- EPIC.S3_5.CONTENT_SUBSTRATE.V0 [DONE]: Registries + schema loading + validation + deterministic ordering%IDs for authored packs (gates: GATE.X.CONTENT_SUBSTRATE.*)
+
+Status: DONE
 
 ---
 
 ### Slice 4: Industry, construction, and technology industrialization
 Purpose: Convert discoveries into sustainable capability via supply-bound projects.
 
+Dependency:
+- Slice 4 requires Slice 3.5 content substrate DONE.
+
 Epics:
-- EPIC.S4.INDU_STRUCT: Production chains beyond 2 goods, bounded complexity, byproducts bounded [OPEN]
-- EPIC.S4.CONSTR_PROG: Construction programs (depots, shipyards, refineries, science centers)
-- EPIC.S4.MAINT_SUSTAIN: Maintenance as sustained supply (no repair minigame)
-- EPIC.S4.TECH_INDUSTRIALIZE: Reverse engineering pipeline (lead -> prototype -> manufacturable)
-- EPIC.S4.UPGRADE_PIPELINE: Refit kits, install queues, yard capacity, time costs
-- EPIC.S4.UI_INDU: Dependency graphs, time-to-capability, “why blocked” and “what to build next”
-- EPIC.S4.NPC_INDU: NPC industry reacts to incentives and war demand
-- EPIC.S4.PERF_BUDGET: Tick budget tests extended for industry
+- EPIC.S4.INDU_STRUCT [TODO]: Production chains beyond 2 goods, bounded complexity, bounded byproducts (gates: GATE.S4.INDU_STRUCT.*)
+- EPIC.S4.CONSTR_PROG [TODO]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
+- EPIC.S4.MAINT_SUSTAIN [TODO]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
+- EPIC.S4.TECH_INDUSTRIALIZE [TODO]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
+- EPIC.S4.UPGRADE_PIPELINE [TODO]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
+- EPIC.S4.UI_INDU [TODO]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
+- EPIC.S4.NPC_INDU [TODO]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
+- EPIC.S4.PERF_BUDGET [TODO]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
 
 Status: TODO
 
@@ -509,14 +528,14 @@ Default coupling rule (until overridden by an explicit gate):
 - If local combat creates strategic impact, it must be via explicit events and bounded effects (no continuous hidden coupling)
 
 Epics:
-- EPIC.S5.SECURITY_LANES: Risk, delay, inspections, insurance sinks, lane regimes
-- EPIC.S5.COMBAT_LOCAL: Hero ship turret%missile combat in-bubble, deterministic input replay
-- EPIC.S5.COMBAT_RESOLVE: Deterministic strategic resolver (attrition, outcomes, salvage)
-- EPIC.S5.ESCORT_PROG: Escort, patrol, interdiction, convoy programs (policy-driven)
-- EPIC.S5.LOSS_RECOVERY: Salvage, capture, replacement pipelines tied to industry
-- EPIC.S5.UI_SECURITY: Threat maps, convoy planning, incident timelines, “why we lost” explain chains
-- EPIC.S5.COUPLING_RULES: Local combat influence on strategic outcomes [OPEN: coupling limits, must remain bounded]
-- EPIC.S5.PERF_BUDGET: Tick budget tests extended for security systems
+- EPIC.S5.SECURITY_LANES [TODO]: Risk, delay, inspections, insurance sinks, lane regimes (gates: GATE.S5.SECURITY_LANES.*)
+- EPIC.S5.COMBAT_LOCAL [TODO]: Hero ship turret%missile combat in-bubble, deterministic input replay (gates: GATE.S5.COMBAT_LOCAL.*)
+- EPIC.S5.COMBAT_RESOLVE [TODO]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
+- EPIC.S5.ESCORT_PROG [TODO]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
+- EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)
+- EPIC.S5.UI_SECURITY [TODO]: Threat maps, convoy planning, incident timelines, “why we lost” explain chains (gates: GATE.S5.UI_SECURITY.*)
+- EPIC.S5.COUPLING_LIMITS.V0 [TODO]: Explicit bounded coupling limits and event contracts for local -> strategic influence (gates: GATE.S5.COUPLING_LIMITS.*)
+- EPIC.S5.PERF_BUDGET [TODO]: Tick budget tests extended for security systems (gates: GATE.S5.PERF_BUDGET.*)
 
 Status: TODO
 
@@ -526,17 +545,18 @@ Status: TODO
 Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
-- EPIC.S6.MAP_GALAXY: Navigation, discovery state, bookmarking, expedition planning
-- EPIC.S6.OFFLANE_FRACTURE: Fracture travel rules, risk bands, stable discovery markers, trace generation
-- EPIC.S6.ANOMALY_ECOLOGY: Procedural anomaly distribution with deterministic seeds and spatial logic
-- EPIC.S6.DISCOVERY_OUTCOMES: Persistent value outputs (intel, resources, artifacts, maps, leads)
-- EPIC.S6.ARTIFACT_RESEARCH: Identification, containment, experiments, failure modes (trace spikes, incidents)
-- EPIC.S6.TECH_LEADS: Tech leads become prototype candidates, gated by science throughput
-- EPIC.S6.EXPEDITION_PROG: Survey, salvage, escort exploration programs
-- EPIC.S6.SCIENCE_CENTER: Analysis throughput, reverse engineering gates, special material handling
-- EPIC.S6.UI_DISCOVERY: Anomaly catalog, hypothesis%verification UI, “next action to advance” hints
-- EPIC.S6.MYSTERY_MARKERS: Mystery style [OPEN: systemic mystery vs explicit quest markers]
-- EPIC.S6.PERF_BUDGET: Tick budget tests extended for exploration systems
+- EPIC.S6.MAP_GALAXY [TODO]: Navigation, discovery state, bookmarking, expedition planning (gates: GATE.S6.MAP_GALAXY.*)
+- EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
+- EPIC.S6.ANOMALY_ECOLOGY [TODO]: Procedural anomaly distribution with deterministic seeds and spatial logic (gates: GATE.S6.ANOMALY_ECOLOGY.*)
+- EPIC.S6.DISCOVERY_OUTCOMES [TODO]: Persistent value outputs (intel, resources, artifacts, maps, leads) (gates: GATE.S6.DISCOVERY_OUTCOMES.*)
+- EPIC.S6.ARTIFACT_RESEARCH [TODO]: Identification, containment, experiments, failure modes (trace spikes, incidents) (gates: GATE.S6.ARTIFACT_RESEARCH.*)
+- EPIC.S6.TECH_LEADS [TODO]: Tech leads become prototype candidates, gated by science throughput (gates: GATE.S6.TECH_LEADS.*)
+- EPIC.S6.EXPEDITION_PROG [TODO]: Survey, salvage, escort exploration programs (gates: GATE.S6.EXPEDITION_PROG.*)
+- EPIC.S6.SCIENCE_CENTER [TODO]: Analysis throughput, reverse engineering gates, special material handling (gates: GATE.S6.SCIENCE_CENTER.*)
+- EPIC.S6.UI_DISCOVERY [TODO]: Anomaly catalog, hypothesis%verification UI, “next action to advance” hints (gates: GATE.S6.UI_DISCOVERY.*)
+- EPIC.S6.CLASS_DISCOVERY_PROFILES.V0 [TODO]: World class influences discovery families and outcomes (integrates Slice 2.5 classes with Slice 6) (gates: GATE.S6.CLASS_DISCOVERY_PROFILES.*)
+- EPIC.S6.MYSTERY_MARKERS.V0 [TODO]: Mystery style policy and UI contracts (systemic mystery vs explicit markers) (gates: GATE.S6.MYSTERY_MARKERS.*)
+- EPIC.S6.PERF_BUDGET [TODO]: Tick budget tests extended for exploration systems (gates: GATE.S6.PERF_BUDGET.*)
 
 Status: TODO
 
@@ -546,17 +566,19 @@ Status: TODO
 Purpose: Logistics shapes wars and the galaxy’s political topology, with lasting consequences.
 
 Epics:
-- EPIC.S7.FACTION_MODEL: Goals, doctrines, policies, constraints, tech preferences
-- EPIC.S7.WARFRONT_THEATERS: Procedural warfront seeding from geography and faction goals
-- EPIC.S7.WARFRONT_STATE: Front lines, objectives, supply demand, attrition, morale, stability
-- EPIC.S7.SUPPLY_IMPACT: Delivered goods and services move warfront state with persistent consequences
-- EPIC.S7.TERRITORY_REGIMES: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules
-- EPIC.S7.TECH_ACCESS: Exclusives, embargoed tech, licensing, doctrine-based variants
-- EPIC.S7.REPUTATION_INFLUENCE: Diplomacy verbs [OPEN: in-scope set, eg treaties%bounties%sanctions%privateering]
-- EPIC.S7.UI_DIPLO: Faction intel, deal making, “why policy changed”
-- EPIC.S7.UI_WARFRONT: Dashboards, projected outcomes, intervention options, supply checklists
-- EPIC.S7.BRIDGE_THRONEROOM_V0: Bridge layer as strategic view + unlock surface tied to factions%warfronts%tech posture
-- EPIC.S7.PERF_BUDGET: Tick budget tests extended for warfront systems
+- EPIC.S7.FACTION_MODEL [TODO]: Goals, doctrines, policies, constraints, tech preferences (gates: GATE.S7.FACTION_MODEL.*)
+- EPIC.S7.WARFRONT_THEATERS [TODO]: Procedural warfront seeding from geography and faction goals (gates: GATE.S7.WARFRONT_THEATERS.*)
+- EPIC.S7.WARFRONT_STATE [TODO]: Front lines, objectives, supply demand, attrition, morale, stability (gates: GATE.S7.WARFRONT_STATE.*)
+- EPIC.S7.SUPPLY_IMPACT [TODO]: Delivered goods and services move warfront state with persistent consequences (gates: GATE.S7.SUPPLY_IMPACT.*)
+- EPIC.S7.TERRITORY_REGIMES [TODO]: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules (gates: GATE.S7.TERRITORY_REGIMES.*)
+- EPIC.S7.TECH_ACCESS [TODO]: Exclusives, embargoed tech, licensing, doctrine-based variants (gates: GATE.S7.TECH_ACCESS.*)
+- EPIC.S7.DIPLOMACY_VERBS.V0 [TODO]: Diplomacy verbs set definition and contracts (treaties%bounties%sanctions%privateering) (gates: GATE.S7.DIPLOMACY_VERBS.*)
+- EPIC.S7.REPUTATION_INFLUENCE [TODO]: Reputation drives access, pricing, inspection posture, and deal availability (gates: GATE.S7.REPUTATION_INFLUENCE.*)
+- EPIC.S7.UI_DIPLO [TODO]: Faction intel, deal making, “why policy changed” (gates: GATE.S7.UI_DIPLO.*)
+- EPIC.S7.UI_WARFRONT [TODO]: Dashboards, projected outcomes, intervention options, supply checklists (gates: GATE.S7.UI_WARFRONT.*)
+- EPIC.S7.BRIDGE_THRONEROOM_V0 [TODO]: Bridge layer as strategic view + unlock surface tied to factions%warfronts%tech posture (gates: GATE.S7.BRIDGE_THRONEROOM_V0.*)
+- EPIC.S7.CLASS_WARFRONT_PROFILES.V0 [TODO]: World class influences warfront seeding and supply shapes (integrates Slice 2.5 classes with Slice 7) (gates: GATE.S7.CLASS_WARFRONT_PROFILES.*)
+- EPIC.S7.PERF_BUDGET [TODO]: Tick budget tests extended for warfront systems (gates: GATE.S7.PERF_BUDGET.*)
 
 Status: TODO
 
@@ -566,15 +588,16 @@ Status: TODO
 Purpose: Lane builders police fracture; pressure escalates; win via massive supply-bound projects under multiple scenarios.
 
 Epics:
-- EPIC.S8.POLICING_SIM: Trace-driven escalation model, legible actions, counterplay verbs
-- EPIC.S8.THREAT_IMPACT: Supply shocks, lane disruption, interdiction waves, faction realignment
-- EPIC.S8.PLAYER_COUNTERPLAY: Counter-programs, corridor hardening, trace scrubbers, misdirection [OPEN]
-- EPIC.S8.MEGAPROJECTS: Multi-stage projects that reshape map rules (anchors, stabilizers, pylons, corridors) [OPEN: final set]
-- EPIC.S8.WIN_SCENARIOS: Multiple scenario wins (containment, alliance, dominance, escape, reconciliation) + explicit loss states
-- EPIC.S8.UI_WARROOM: Warfronts + policing + megaproject pipelines + bottlenecks
-- EPIC.S8.STORY_STATE_MACHINE: Story beats via discovery%trace%warfront phases, not timed missions
-- EPIC.S8.BRIDGE_THRONEROOM_V1: Endgame readiness, scenario selection, empire posture surface
-- EPIC.S8.PERF_BUDGET: Tick budget tests extended for endgame pressure systems
+- EPIC.S8.POLICING_SIM [TODO]: Trace-driven escalation model, legible actions, counterplay verbs (gates: GATE.S8.POLICING_SIM.*)
+- EPIC.S8.THREAT_IMPACT [TODO]: Supply shocks, lane disruption, interdiction waves, faction realignment (gates: GATE.S8.THREAT_IMPACT.*)
+- EPIC.S8.PLAYER_COUNTERPLAY.V0 [TODO]: Counter-programs, corridor hardening, trace scrubbers, misdirection (gates: GATE.S8.PLAYER_COUNTERPLAY.*)
+- EPIC.S8.MEGAPROJECT_SET.V0 [TODO]: Canonical megaproject set and their rule changes (anchors, stabilizers, pylons, corridors) (gates: GATE.S8.MEGAPROJECT_SET.*)
+- EPIC.S8.MEGAPROJECTS [TODO]: Multi-stage projects that reshape map rules under supply constraints (gates: GATE.S8.MEGAPROJECTS.*)
+- EPIC.S8.WIN_SCENARIOS [TODO]: Multiple scenario wins (containment, alliance, dominance, escape, reconciliation) + explicit loss states (gates: GATE.S8.WIN_SCENARIOS.*)
+- EPIC.S8.UI_WARROOM [TODO]: Warfronts + policing + megaproject pipelines + bottlenecks (gates: GATE.S8.UI_WARROOM.*)
+- EPIC.S8.STORY_STATE_MACHINE [TODO]: Story beats via discovery%trace%warfront phases, not timed missions (gates: GATE.S8.STORY_STATE_MACHINE.*)
+- EPIC.S8.BRIDGE_THRONEROOM_V1 [TODO]: Endgame readiness, scenario selection, empire posture surface (gates: GATE.S8.BRIDGE_THRONEROOM_V1.*)
+- EPIC.S8.PERF_BUDGET [TODO]: Tick budget tests extended for endgame pressure systems (gates: GATE.S8.PERF_BUDGET.*)
 
 Status: TODO
 
@@ -584,12 +607,12 @@ Status: TODO
 Purpose: Make it shippable and extendable without breaking determinism.
 
 Epics:
-- EPIC.S9.SAVE: Robust save UX, migrations, corruption handling (lock final migration policy)
-- EPIC.S9.UI: Information architecture cleanup, tooltips, clarity passes, onboarding guidance
-- EPIC.S9.MOD: Content packs, compatibility rules, safe mod surface, validation tooling
-- EPIC.S9.PERF: Performance profiling, tick cost budgets, memory budgets (lock final budgets)
-- EPIC.S9.ACCESS: Basic accessibility and input configuration [OPEN: scope]
-- EPIC.S9.BALANCE_LOCK: Tuning targets and regression bounds locked [TBD: numeric targets]
-- EPIC.S9.CONTENT_WAVES: Final archetype families, world classes, endgame megaproject variety
+- EPIC.S9.SAVE [TODO]: Robust save UX, migrations, corruption handling (lock final migration policy) (gates: GATE.S9.SAVE.*)
+- EPIC.S9.UI [TODO]: Information architecture cleanup, tooltips, clarity passes, onboarding guidance (gates: GATE.S9.UI.*)
+- EPIC.S9.MOD [TODO]: Content packs, compatibility rules, safe mod surface, validation tooling (gates: GATE.S9.MOD.*)
+- EPIC.S9.PERF [TODO]: Performance profiling, tick cost budgets, memory budgets (lock final budgets) (gates: GATE.S9.PERF.*)
+- EPIC.S9.ACCESS.V0 [TODO]: Basic accessibility and input configuration (gates: GATE.S9.ACCESS.*)
+- EPIC.S9.BALANCE_LOCK.V0 [TODO]: Tuning targets and regression bounds locked (gates: GATE.S9.BALANCE_LOCK.*)
+- EPIC.S9.CONTENT_WAVES [TODO]: Final archetype families, world classes, endgame megaproject variety (gates: GATE.S9.CONTENT_WAVES.*)
 
 Status: TODO
