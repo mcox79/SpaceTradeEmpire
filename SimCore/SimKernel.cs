@@ -60,6 +60,10 @@ public class SimKernel
         // Apply fleet movement/state transitions.
         MovementSystem.Process(_state);
 
+        // Slice 3 / GATE.S3.RISK_MODEL.001
+        // Emit deterministic security incidents on lanes%routes (no time sources, no shared RNG coupling).
+        RiskSystem.Process(_state);
+
         // Compute buffer shortages and assign logistics jobs (produces fleet jobs).
         LogisticsSystem.Process(_state);
 

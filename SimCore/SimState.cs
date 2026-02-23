@@ -10,6 +10,59 @@ using SimCore.Programs;
 
 namespace SimCore;
 
+public static class RiskModelV0
+{
+    public const int BpsDenom = 10000;
+
+    public const double ScalarDefault = 1.0;
+    public const double ScalarMin = 0.0;
+    public const double ScalarMax = 10.0;
+
+    public const int TotalBpsCap = 500;
+
+    // Base bps per band (delay, loss, inspection)
+    public const int Band0DelayBps = 4;
+    public const int Band0LossBps = 0;
+    public const int Band0InspBps = 1;
+
+    public const int Band1DelayBps = 15;
+    public const int Band1LossBps = 1;
+    public const int Band1InspBps = 4;
+
+    public const int Band2DelayBps = 40;
+    public const int Band2LossBps = 5;
+    public const int Band2InspBps = 15;
+
+    public const int Band3DelayBps = 70;
+    public const int Band3LossBps = 15;
+    public const int Band3InspBps = 35;
+
+    // Outcome ranges (min + modulo)
+    public const int DelayMinTicks = 1;
+    public const ulong DelayMod = 3UL;
+
+    public const int LossMinUnits = 1;
+    public const ulong LossMod = 2UL;
+
+    public const int InspMinTicks = 1;
+    public const ulong InspMod = 4UL;
+
+    public const int OutcomeHashXor = unchecked((int)0x51C0FFEE);
+
+    // Hash constants (FNV1a 64)
+    public const ulong FnvOffset = 14695981039346656037UL;
+    public const ulong FnvPrime = 1099511628211UL;
+
+    // RoutePlanner risk band thresholds
+    public const int RiskBand0Max = 500;
+    public const int RiskBand1Max = 1500;
+    public const int RiskBand2Max = 3000;
+
+    public const int BandLow = 0;
+    public const int BandMed = 1;
+    public const int BandHigh = 2;
+    public const int BandExtreme = 3;
+}
 public class SimState
 {
     // GATE.X.TWEAKS.DATA.001
@@ -213,6 +266,20 @@ public class SimState
     private readonly List<int> _logiFinalizeDest = new();
     private SimCore.Events.LogisticsEvents.Event[] _logiFinalizeTemp = Array.Empty<SimCore.Events.LogisticsEvents.Event>();
 
+    // Security incident event stream (Slice 3 / GATE.S3.RISK_MODEL.001)
+    [JsonInclude] public long NextSecurityEventSeq { get; set; } = 1;
+
+    // Non-serialized emission counter used to preserve within-edge ordering prior to tick-final Seq assignment.
+    [JsonInclude] public long NextSecurityEmitOrder { get; set; } = 1;
+
+    [JsonInclude] public List<SimCore.Events.SecurityEvents.Event> SecurityEventLog { get; private set; } = new();
+
+    // Reusable buffers for per-tick deterministic security event finalization.
+    // Private so they are not serialized and do not affect determinism across fresh runs.
+    private readonly List<int> _secFinalizeIdx = new();
+    private readonly List<int> _secFinalizeDest = new();
+    private SimCore.Events.SecurityEvents.Event[] _secFinalizeTemp = Array.Empty<SimCore.Events.SecurityEvents.Event>();
+
     // Fleet event stream (Slice 3 / GATE.S3.FLEET.ROLES.001)
     [JsonInclude] public long NextFleetEventSeq { get; set; } = 1;
 
@@ -242,6 +309,23 @@ public class SimState
 
         LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
         LogisticsEventLog.Add(e);
+    }
+
+    public void EmitSecurityEvent(SimCore.Events.SecurityEvents.Event e)
+    {
+        if (e is null) return;
+
+        // Buffer event and finalize Seq at end of tick using deterministic ordering rules.
+        var emitOrder = NextSecurityEmitOrder;
+        NextSecurityEmitOrder = checked(NextSecurityEmitOrder + 1);
+
+        e.Version = SimCore.Events.SecurityEvents.EventsVersion;
+        e.Seq = 0; // assigned during tick finalization
+        e.EmitOrder = emitOrder;
+        e.Tick = Tick;
+
+        SecurityEventLog ??= new List<SimCore.Events.SecurityEvents.Event>();
+        SecurityEventLog.Add(e);
     }
 
     public void EmitFleetEvent(SimCore.Events.FleetEvents.Event e)
@@ -308,6 +392,7 @@ public class SimState
     {
         FinalizeFleetEventsForTick();
         FinalizeLogisticsEventsForTick();
+        FinalizeSecurityEventsForTick();
         Tick++;
     }
 
@@ -442,6 +527,67 @@ public class SimState
             LogisticsEventLog[_logiFinalizeDest[j]] = _logiFinalizeTemp[j];
     }
 
+    private void FinalizeSecurityEventsForTick()
+    {
+        if (SecurityEventLog is null) return;
+        if (SecurityEventLog.Count == 0) return;
+
+        _secFinalizeIdx.Clear();
+
+        for (var i = 0; i < SecurityEventLog.Count; i++)
+        {
+            var e = SecurityEventLog[i];
+            if (e is null) continue;
+            if (e.Tick != Tick) continue;
+            if (e.Seq != 0) continue;
+            _secFinalizeIdx.Add(i);
+        }
+
+        if (_secFinalizeIdx.Count == 0) return;
+
+        _secFinalizeIdx.Sort((ai, bi) =>
+        {
+            var a = SecurityEventLog[ai];
+            var b = SecurityEventLog[bi];
+
+            int c;
+            c = string.CompareOrdinal(a.EdgeId ?? "", b.EdgeId ?? ""); if (c != 0) return c;
+            c = a.EmitOrder.CompareTo(b.EmitOrder); if (c != 0) return c;
+            c = ((int)a.Type).CompareTo((int)b.Type); if (c != 0) return c;
+            c = string.CompareOrdinal(a.FromNodeId ?? "", b.FromNodeId ?? ""); if (c != 0) return c;
+            c = string.CompareOrdinal(a.ToNodeId ?? "", b.ToNodeId ?? ""); if (c != 0) return c;
+            c = a.RiskBand.CompareTo(b.RiskBand); if (c != 0) return c;
+            c = a.DelayTicks.CompareTo(b.DelayTicks); if (c != 0) return c;
+            c = a.LossUnits.CompareTo(b.LossUnits); if (c != 0) return c;
+            c = a.InspectionTicks.CompareTo(b.InspectionTicks); if (c != 0) return c;
+            c = string.CompareOrdinal(a.CauseChain ?? "", b.CauseChain ?? ""); if (c != 0) return c;
+            c = string.CompareOrdinal(a.Note ?? "", b.Note ?? ""); if (c != 0) return c;
+
+            return ai.CompareTo(bi);
+        });
+
+        for (var j = 0; j < _secFinalizeIdx.Count; j++)
+        {
+            var e = SecurityEventLog[_secFinalizeIdx[j]];
+            var seq = NextSecurityEventSeq;
+            NextSecurityEventSeq = checked(NextSecurityEventSeq + 1);
+            e.Seq = seq;
+        }
+
+        _secFinalizeDest.Clear();
+        _secFinalizeDest.AddRange(_secFinalizeIdx);
+        _secFinalizeDest.Sort();
+
+        if (_secFinalizeTemp.Length < _secFinalizeIdx.Count)
+            _secFinalizeTemp = new SimCore.Events.SecurityEvents.Event[_secFinalizeIdx.Count];
+
+        for (var j = 0; j < _secFinalizeIdx.Count; j++)
+            _secFinalizeTemp[j] = SecurityEventLog[_secFinalizeIdx[j]];
+
+        for (var j = 0; j < _secFinalizeDest.Count; j++)
+            SecurityEventLog[_secFinalizeDest[j]] = _secFinalizeTemp[j];
+    }
+
     public void HydrateAfterLoad()
     {
         Rng = new Random(InitialSeed + Tick);
@@ -454,6 +600,7 @@ public class SimState
         PendingIntents.Clear();
 
         LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
+        SecurityEventLog ??= new List<SimCore.Events.SecurityEvents.Event>();
         FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);

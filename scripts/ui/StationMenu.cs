@@ -660,7 +660,10 @@ public partial class StationMenu : Control
 
         // Logistics snapshot via SimBridge facts (nonblocking). Use resolved market id when available.
         var logiKey = !string.IsNullOrWhiteSpace(marketId) ? marketId : _currentMarketId;
+
+        // Snapshots must be acquired outside ExecuteSafeRead (they lock internally and are nonblocking).
         var logiSnap = _bridge.GetLogisticsStationSnapshot(logiKey, maxItems: 8);
+        var secSnap = _bridge.GetSecurityIncidentStationSnapshot(logiKey, maxItems: 8);
 
         if (!_bridge.TryExecuteSafeRead(state =>
         {
@@ -842,6 +845,42 @@ public partial class StationMenu : Control
             }
 
             foreach (var child in _logisticsList.GetChildren()) child.QueueFree();
+
+            // Security incidents (GATE.S3.RISK_MODEL.001) newest-first
+            if (secSnap is Godot.Collections.Dictionary sdSnap && sdSnap.ContainsKey("events"))
+            {
+                var sArr = sdSnap["events"].AsGodotArray();
+                if (sArr != null && sArr.Count > 0)
+                {
+                    _logisticsList.AddChild(new Label { Text = "security incidents (newest first):" });
+
+                    static long sSeq(Godot.Collections.Dictionary d) => d.ContainsKey("seq") ? (long)d["seq"] : 0;
+                    static int sTick(Godot.Collections.Dictionary d) => d.ContainsKey("tick") ? (int)d["tick"] : 0;
+                    static int sType(Godot.Collections.Dictionary d) => d.ContainsKey("type") ? (int)d["type"] : 0;
+                    static string sEdge(Godot.Collections.Dictionary d) => d.ContainsKey("edge_id") ? d["edge_id"].ToString() : "";
+                    static int sBand(Godot.Collections.Dictionary d) => d.ContainsKey("risk_band") ? (int)d["risk_band"] : 0;
+                    static int sDelay(Godot.Collections.Dictionary d) => d.ContainsKey("delay_ticks") ? (int)d["delay_ticks"] : 0;
+                    static int sLoss(Godot.Collections.Dictionary d) => d.ContainsKey("loss_units") ? (int)d["loss_units"] : 0;
+                    static int sInsp(Godot.Collections.Dictionary d) => d.ContainsKey("inspection_ticks") ? (int)d["inspection_ticks"] : 0;
+                    static string sNote(Godot.Collections.Dictionary d) => d.ContainsKey("note") ? d["note"].ToString() : "";
+
+                    var maxLines = 10;
+                    var emitted = 0;
+
+                    foreach (var v in sArr)
+                    {
+                        if (emitted >= maxLines) break;
+                        if (v.Obj is not Godot.Collections.Dictionary ed) continue;
+
+                        _logisticsList.AddChild(new Label
+                        {
+                            Text = $"  - seq={sSeq(ed)} tick={sTick(ed)} type={sType(ed)} edge={sEdge(ed)} band={sBand(ed)} delay={sDelay(ed)} loss={sLoss(ed)} insp={sInsp(ed)} note={sNote(ed)}"
+                        });
+
+                        emitted++;
+                    }
+                }
+            }
 
             // Render SimBridge logistics facts with deterministic ordering already applied in the snapshot.
             if (logiSnap is Godot.Collections.Dictionary ld)

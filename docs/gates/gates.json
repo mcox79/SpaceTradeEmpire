@@ -194,68 +194,6 @@
                       "blocked_by":  [
                                          "GATE.X.CONTENT_SUBSTRATE.001 should land first to avoid hardcoded content."
                                      ]
-                  },
-                  {
-                      "gate_id":  "GATE.S3.RISK_MODEL.001",
-                      "task_id":  "GATE.S3.RISK_MODEL.001.T001",
-                      "status":  "TODO",
-                      "title":  "Risk model incidents v0",
-                      "intent":  "Add deterministic risk bands on lanes%routes that produce incident sinks (delay, loss, inspection) with schema-bound security events and cause chains; surface in timelines via SimBridge; preserve deterministic replay and save%load.",
-                      "task_preflight":  [
-                                             "Choose v0 incident set (2 or 3 types only) and a single deterministic trigger model.",
-                                             "Select 1 intervention verb set to expose for the primary failure mode."
-                                         ],
-                      "evidence_paths":  [
-                                             "SimCore/Systems/RiskSystem.cs",
-                                             "SimCore/Systems/RoutePlanner.cs",
-                                             "SimCore/Events/SecurityEvents.cs",
-                                             "SimCore.Tests/Security/RiskModelContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/ui/StationMenu.cs"
-                                         ],
-                      "expected_touch_paths":  [
-                                                   "SimCore/Systems/LogisticsSystem.cs",
-                                                   "SimCore/Systems/LaneFlowSystem.cs",
-                                                   "SimCore/Systems/SerializationSystem.cs"
-                                               ],
-                      "constraints":  [
-                                          "Risk must be deterministic: seeded RNG streams and stable ordering for incident resolution.",
-                                          "Events are schema-bound and include cause chains; no free-text reasons.",
-                                          "Existing route selection tie-break rules must remain stable unless explicitly revised and tested.",
-                                          "Save%load preserves pending incident state (if any) without requiring an extra tick advance."
-                                      ],
-                      "completion_hint":  [
-                                              "Implement RiskSystem that maps lane attributes (or derived bands) to incident probability deterministically per tick.",
-                                              "Define SecurityEvents schema types for v0 incidents with required fields and tie-break details.",
-                                              "Add contract tests for determinism (two runs same seed identical incident stream) and save%load continuation (mid-stream).",
-                                              "Expose incident timeline readout on StationMenu and/or Fleet view via SimBridge.",
-                                              "Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release passes and deterministic replay remains stable."
-                                          ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "Start with deterministic mapping from lane risk scalar to incident bands. Keep it legible and explainable."
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "If nondeterminism appears, audit RNG usage and add ordering tie-breakers on incident resolution."
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "If this drifts into combat, stop and split into a separate combat slice gate."
-                                               }
-                                           ],
-                      "buckets":  [
-                                      "SimCore",
-                                      "Tests",
-                                      "UI"
-                                  ],
-                      "blocked_by":  [
-
-                                     ]
                   }
               ]
 }

@@ -377,6 +377,21 @@ public static class RoutePlanner
         return string.Join(">", nodeIds);
     }
 
+    // Exposed helper for Slice 3 risk incident modeling.
+    // Determinism: band is derived only from EdgeRiskScoreV0 (distance-derived milli-AU),
+    // using fixed thresholds and no floating locale-sensitive formatting.
+    public static int EdgeRiskBandV0(Edge e)
+    {
+        var s = EdgeRiskScoreV0(e);
+
+        // Bands: 0=LOW,1=MED,2=HIGH,3=EXTREME
+        // Thresholds are representation defaults for v0, not a tuning knob surface.
+        if (s < SimCore.RiskModelV0.RiskBand0Max) return SimCore.RiskModelV0.BandLow;
+        if (s < SimCore.RiskModelV0.RiskBand1Max) return SimCore.RiskModelV0.BandMed;
+        if (s < SimCore.RiskModelV0.RiskBand2Max) return SimCore.RiskModelV0.BandHigh;
+        return SimCore.RiskModelV0.BandExtreme;
+    }
+
     private static int EdgeRiskScoreV0(Edge e)
     {
         // v0: deterministic integer risk proxy derived from distance (milli-AU).

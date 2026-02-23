@@ -1218,6 +1218,75 @@ public partial class SimBridge : Node
         }
     }
 
+    // --- Station-scoped security incident snapshot (Slice 3 / GATE.S3.RISK_MODEL.001) ---
+    // Returns newest-first schema-bound incidents that touch this node (from or to).
+    public Godot.Collections.Dictionary GetSecurityIncidentStationSnapshot(string nodeId, int maxItems = 12)
+    {
+        var dict = new Godot.Collections.Dictionary();
+        var arr = new Godot.Collections.Array();
+
+        dict["node_id"] = nodeId ?? "";
+        dict["events"] = arr;
+
+        if (IsLoading) return dict;
+        if (string.IsNullOrWhiteSpace(nodeId)) return dict;
+        if (maxItems <= 0) return dict;
+        if (maxItems > 200) maxItems = 200;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var events = _kernel.State.SecurityEventLog;
+            if (events == null || events.Count == 0) return dict;
+
+            var slice = events
+                    .Where(e =>
+                        string.Equals(e.FromNodeId, nodeId, StringComparison.Ordinal) ||
+                        string.Equals(e.ToNodeId, nodeId, StringComparison.Ordinal))
+                    .OrderByDescending(e => e.Seq)
+                    .ThenByDescending(e => e.Tick)
+                    .ThenByDescending(e => (int)e.Type)
+                    .ThenByDescending(e => e.RiskBand)
+                    .Take(maxItems)
+                    .ToArray();
+
+            foreach (var e in slice)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["version"] = e.Version,
+                    ["seq"] = e.Seq,
+                    ["tick"] = e.Tick,
+                    ["type"] = (int)e.Type,
+
+                    ["edge_id"] = e.EdgeId,
+                    ["from_node_id"] = e.FromNodeId,
+                    ["to_node_id"] = e.ToNodeId,
+                    ["risk_band"] = e.RiskBand,
+
+                    ["delay_ticks"] = e.DelayTicks,
+                    ["loss_units"] = e.LossUnits,
+                    ["inspection_ticks"] = e.InspectionTicks,
+
+                    ["cause_chain"] = e.CauseChain,
+                    ["note"] = e.Note
+                };
+
+                arr.Add(d);
+            }
+
+            return dict;
+        }
+        catch
+        {
+            return dict;
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+    }
+
     public string GetFleetPlayabilityTranscript(int maxEventsPerFleet = 10)
     {
         if (IsLoading) return "";
