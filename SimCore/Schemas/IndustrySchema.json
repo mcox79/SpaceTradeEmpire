@@ -1,0 +1,58 @@
+{
+  "schema_id": "industry_v0",
+  "version": 0,
+  "description": "Industry v0 schema for deterministic construction recipes and stages. Contract file only; execution uses deterministic tick pipeline.",
+  "objects": {
+    "recipe": {
+      "required_fields": [
+        "recipe_id",
+        "stages"
+      ],
+      "field_types": {
+        "recipe_id": "string",
+        "stages": "array<stage>"
+      }
+    },
+    "stage": {
+      "required_fields": [
+        "stage_id",
+        "duration_ticks",
+        "inputs",
+        "outputs",
+        "blockers"
+      ],
+      "field_types": {
+        "stage_id": "string",
+        "duration_ticks": "int>=0",
+        "inputs": "array<io>",
+        "outputs": "array<io>",
+        "blockers": "array<blocker>"
+      }
+    },
+    "io": {
+      "required_fields": [
+        "good_id",
+        "qty"
+      ],
+      "field_types": {
+        "good_id": "string",
+        "qty": "int>=0"
+      }
+    },
+    "blocker": {
+      "required_fields": [
+        "type",
+        "reason",
+        "suggested_action"
+      ],
+      "field_types": {
+        "type": "enum<MISSING_INPUT,INVALID_STATE>",
+        "reason": "string",
+        "suggested_action": "string"
+      }
+    }
+  },
+  "ordering_rules": {
+    "canonical_json": "Append-only field ordering for schema objects. Arrays are ordered as authored. Map keys are ordered ordinal where applicable."
+  }
+}

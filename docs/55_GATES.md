@@ -171,4 +171,4 @@ When a gate moves to DONE:
 
 ### B10. Slice 4
 
-| GATE.S4.INDU.MIN_LOOP.001 | TODO | Industry minimal loop v0: 1 construction recipe chain producing 1 capability module; program execution consumes inputs over time; “why blocked” explain chain is schema-bound; deterministic save%load and replay preserved | TBD |
+| GATE.S4.INDU.MIN_LOOP.001 | DONE | Industry minimal loop v0: deterministic industry site processing with ordinal ordering; opt-in construction pipeline produces cap_module via schema-bound stages; persisted build state and deterministic industry event stream; StationMenu readout via SimBridge; save%load and replay stability preserved; tweak routing guard satisfied via IndustryTweaksV0 | dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release PASS |

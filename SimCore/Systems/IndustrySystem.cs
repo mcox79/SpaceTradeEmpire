@@ -1,5 +1,6 @@
 using System;
 using SimCore.Entities;
+using SimCore.Tweaks;
 
 namespace SimCore.Systems
 {
@@ -25,10 +26,18 @@ namespace SimCore.Systems
 
         public static void Process(SimState state)
         {
-            foreach (var site in state.IndustrySites.Values)
+            if (state is null) return;
+
+            // Deterministic ordering: IndustrySites is a Dictionary, so iterate by key.
+            foreach (var kv in state.IndustrySites.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
+                var site = kv.Value;
+                if (site is null) continue;
                 if (!site.Active) continue;
+                if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
                 if (!state.Markets.TryGetValue(site.NodeId, out var market)) continue;
+
+                // --- Slice: sustainment consumption%production (existing behavior) ---
 
                 // Compute efficiency deterministically as basis points:
                 // effBps = min over inputs of floor(available * 10000 / required).
@@ -36,7 +45,7 @@ namespace SimCore.Systems
 
                 if (site.Inputs.Count > 0)
                 {
-                    foreach (var input in site.Inputs)
+                    foreach (var input in site.Inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
                     {
                         if (input.Value <= 0) continue;
 
@@ -60,45 +69,161 @@ namespace SimCore.Systems
                 // Degrade deterministically when undersupplied.
                 ApplyDegradation(site, effBps);
 
-                // If completely starved, we still degrade but we do not consume/produce.
-                if (effBps <= 0) continue;
-
-                // Consume inputs (preserve zero keys for markets)
-                foreach (var input in site.Inputs)
+                // If completely starved, we still degrade but we do not consume%produce.
+                if (effBps > 0)
                 {
-                    if (input.Value <= 0) continue;
-
-                    int available = InventoryLedger.Get(market.Inventory, input.Key);
-                    int targetConsume = (int)(((long)input.Value * effBps) / Bps);
-                    int consume = Math.Min(available, targetConsume);
-
-                    if (consume > 0)
+                    // Consume inputs (preserve zero keys for markets)
+                    foreach (var input in site.Inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
                     {
-                        InventoryLedger.TryRemoveMarket(market.Inventory, input.Key, consume);
+                        if (input.Value <= 0) continue;
+
+                        int available = InventoryLedger.Get(market.Inventory, input.Key);
+                        int targetConsume = (int)(((long)input.Value * effBps) / Bps);
+                        int consume = Math.Min(available, targetConsume);
+
+                        if (consume > 0)
+                        {
+                            InventoryLedger.TryRemoveMarket(market.Inventory, input.Key, consume);
+                        }
+                        else
+                        {
+                            if (!market.Inventory.ContainsKey(input.Key)) market.Inventory[input.Key] = 0;
+                        }
                     }
-                    else
+
+                    // Produce outputs (preserve zero keys for markets)
+                    foreach (var output in site.Outputs.OrderBy(o => o.Key, StringComparer.Ordinal))
                     {
-                        if (!market.Inventory.ContainsKey(input.Key)) market.Inventory[input.Key] = 0;
+                        if (output.Value <= 0) continue;
+
+                        int produced = (int)(((long)output.Value * effBps) / Bps);
+
+                        if (produced > 0)
+                        {
+                            InventoryLedger.AddMarket(market.Inventory, output.Key, produced);
+                        }
+                        else
+                        {
+                            if (!market.Inventory.ContainsKey(output.Key)) market.Inventory[output.Key] = 0;
+                        }
                     }
                 }
 
-                // Produce outputs (preserve zero keys for markets)
-                foreach (var output in site.Outputs)
+                // --- Slice: minimal construction pipeline v0 (deterministic, schema-bound by contract file) ---
+                // Opt-in only to preserve baseline worlds and goldens.
+                if (site.ConstructionEnabled)
                 {
-                    if (output.Value <= 0) continue;
-
-                    int produced = (int)(((long)output.Value * effBps) / Bps);
-
-                    if (produced > 0)
-                    {
-                        InventoryLedger.AddMarket(market.Inventory, output.Key, produced);
-                    }
-                    else
-                    {
-                        if (!market.Inventory.ContainsKey(output.Key)) market.Inventory[output.Key] = 0;
-                    }
+                    ProcessMinimalConstructionV0(state, siteId: kv.Key, market);
                 }
             }
+        }
+
+        private static void ProcessMinimalConstructionV0(SimState state, string siteId, Market market)
+        {
+            // Recipe: CAP_MODULE_V0
+            // All numeric tokens are sourced from Tweaks (see SimCore/Tweaks/IndustryTweaksV0.cs) to satisfy the guard.
+            var recipeId = IndustryTweaksV0.RecipeId;
+
+            var build = state.GetOrCreateIndustryBuildState(siteId);
+            build.RecipeId = recipeId;
+
+            if (!build.Active)
+            {
+                // Auto-start for minimal loop v0 (only reachable when site.ConstructionEnabled is true).
+                build.Active = true;
+                build.StageIndex = IndustryTweaksV0.Stage0;
+                build.StageTicksRemaining = IndustryTweaksV0.Zero;
+                build.BlockerReason = "";
+                build.SuggestedAction = "";
+            }
+
+            if (build.StageIndex < IndustryTweaksV0.Zero) build.StageIndex = IndustryTweaksV0.Stage0;
+            if (build.StageIndex > IndustryTweaksV0.Stage1) build.StageIndex = IndustryTweaksV0.Stage1;
+
+            string stageName;
+            string inGood;
+            int inQty;
+            int duration;
+            string outGood;
+            int outQty;
+
+            if (build.StageIndex == IndustryTweaksV0.Stage0)
+            {
+                stageName = IndustryTweaksV0.Stage0Name;
+                inGood = IndustryTweaksV0.Stage0InGood;
+                inQty = IndustryTweaksV0.Stage0InQty;
+                duration = IndustryTweaksV0.Stage0DurationTicks;
+                outGood = IndustryTweaksV0.Stage0OutGood;
+                outQty = IndustryTweaksV0.Stage0OutQty;
+            }
+            else
+            {
+                stageName = IndustryTweaksV0.Stage1Name;
+                inGood = IndustryTweaksV0.Stage1InGood;
+                inQty = IndustryTweaksV0.Stage1InQty;
+                duration = IndustryTweaksV0.Stage1DurationTicks;
+                outGood = IndustryTweaksV0.Stage1OutGood;
+                outQty = IndustryTweaksV0.Stage1OutQty;
+            }
+
+            build.StageName = stageName;
+
+            if (build.StageTicksRemaining > IndustryTweaksV0.Zero)
+            {
+                // Deterministic countdown.
+                build.StageTicksRemaining = build.StageTicksRemaining - IndustryTweaksV0.One;
+                if (build.StageTicksRemaining == IndustryTweaksV0.Zero)
+                {
+                    // Stage completes this tick.
+                    if (outQty > IndustryTweaksV0.Zero)
+                    {
+                        InventoryLedger.AddMarket(market.Inventory, outGood, outQty);
+                    }
+                    else
+                    {
+                        if (!market.Inventory.ContainsKey(outGood)) market.Inventory[outGood] = IndustryTweaksV0.Zero;
+                    }
+
+                    state.EmitIndustryEvent($"site={siteId} recipe={recipeId} stage={stageName} evt=complete out={outGood}:{outQty}");
+
+                    if (build.StageIndex == IndustryTweaksV0.Stage1)
+                    {
+                        // Loop repeats for minimal loop v0.
+                        build.StageIndex = IndustryTweaksV0.Stage0;
+                        build.StageTicksRemaining = IndustryTweaksV0.Zero;
+                        build.BlockerReason = "";
+                        build.SuggestedAction = "";
+                        state.EmitIndustryEvent($"site={siteId} recipe={recipeId} evt=loop_reset");
+                    }
+                    else
+                    {
+                        build.StageIndex = build.StageIndex + IndustryTweaksV0.One;
+                        build.StageTicksRemaining = IndustryTweaksV0.Zero;
+                        build.BlockerReason = "";
+                        build.SuggestedAction = "";
+                        state.EmitIndustryEvent($"site={siteId} recipe={recipeId} evt=advance next_stage={build.StageIndex}");
+                    }
+                }
+                return;
+            }
+
+            // Stage not currently running: check inputs and start deterministically.
+            int have = InventoryLedger.Get(market.Inventory, inGood);
+            if (have < inQty)
+            {
+                build.BlockerReason = $"missing_input good={inGood} need={inQty} have={have}";
+                build.SuggestedAction = $"acquire good={inGood}";
+                state.EmitIndustryEvent($"site={siteId} recipe={recipeId} stage={stageName} evt=blocked {build.BlockerReason}");
+                return;
+            }
+
+            // Consume on start.
+            InventoryLedger.TryRemoveMarket(market.Inventory, inGood, inQty);
+            build.BlockerReason = "";
+            build.SuggestedAction = "";
+            build.StageTicksRemaining = duration;
+
+            state.EmitIndustryEvent($"site={siteId} recipe={recipeId} stage={stageName} evt=start in={inGood}:{inQty} dur={duration}");
         }
 
         private static void ApplyDegradation(IndustrySite site, int effBps)

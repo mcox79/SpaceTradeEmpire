@@ -1041,6 +1041,19 @@ public partial class StationMenu : Control
                         Text = $"{siteId} | Health(bps): {healthBps} | Eff(bps): {effBps} | Margin: {worstMargin:0.00} | Starve: {starveBand} | Fail: {failBand}"
                     });
 
+                    var buildStage = getS(sd, "build_stage_name");
+                    var buildRem = getI(sd, "build_ticks_remaining");
+                    var buildBlk = getS(sd, "build_blocker");
+                    var buildAct = getS(sd, "build_suggested_action");
+
+                    if (!string.IsNullOrWhiteSpace(buildStage))
+                    {
+                        _sustainmentList.AddChild(new Label
+                        {
+                            Text = $"  build: stage={buildStage} rem={buildRem} blocker={buildBlk} action={buildAct}"
+                        });
+                    }
+
                     var inputsArr = sd.ContainsKey("inputs") ? sd["inputs"].AsGodotArray() : null;
                     if (inputsArr == null || inputsArr.Count == 0) continue;
 

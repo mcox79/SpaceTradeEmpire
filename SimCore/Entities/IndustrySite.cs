@@ -28,5 +28,10 @@ public class IndustrySite
 
     // STATE (derived each tick by IndustrySystem)
     public float Efficiency { get; set; } = 1.0f;
+
+    // GATE.S4.INDU.MIN_LOOP.001
+    // Opt-in construction pipeline v0. Default false to preserve baseline worlds and goldens.
+    public bool ConstructionEnabled { get; set; } = false;
+
     public bool Active { get; set; } = true;
 }

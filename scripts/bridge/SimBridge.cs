@@ -678,6 +678,31 @@ public partial class SimBridge : Node
                 ["fail_band"] = s.FailBand,
             };
 
+            // GATE.S4.INDU.MIN_LOOP.001: attach minimal construction readout (if present).
+            if (state.IndustryBuilds != null &&
+                !string.IsNullOrWhiteSpace(s.SiteId) &&
+                state.IndustryBuilds.TryGetValue(s.SiteId, out var b) &&
+                b != null)
+            {
+                d["build_active"] = b.Active;
+                d["build_recipe_id"] = b.RecipeId ?? "";
+                d["build_stage_index"] = b.StageIndex;
+                d["build_stage_name"] = b.StageName ?? "";
+                d["build_ticks_remaining"] = b.StageTicksRemaining;
+                d["build_blocker"] = b.BlockerReason ?? "";
+                d["build_suggested_action"] = b.SuggestedAction ?? "";
+            }
+            else
+            {
+                d["build_active"] = false;
+                d["build_recipe_id"] = "";
+                d["build_stage_index"] = 0;
+                d["build_stage_name"] = "";
+                d["build_ticks_remaining"] = 0;
+                d["build_blocker"] = "";
+                d["build_suggested_action"] = "";
+            }
+
             var inputsArr = new Godot.Collections.Array();
             foreach (var i in s.Inputs)
             {

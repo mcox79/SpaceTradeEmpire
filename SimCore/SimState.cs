@@ -226,6 +226,16 @@ public class SimState
     [JsonInclude] public Dictionary<string, Fleet> Fleets { get; private set; } = new();
 
     [JsonInclude] public Dictionary<string, IndustrySite> IndustrySites { get; private set; } = new();
+
+    // GATE.S4.INDU.MIN_LOOP.001
+    // Persisted industry construction pipeline state (deterministic, save%load stable).
+    [JsonInclude] public Dictionary<string, IndustryBuildState> IndustryBuilds { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S4.INDU.MIN_LOOP.001
+    // Deterministic industry event stream for save%load%replay comparison.
+    [JsonInclude] public long NextIndustryEventSeq { get; set; } = 1;
+    [JsonInclude] public List<string> IndustryEventLog { get; private set; } = new();
+
     [JsonInclude] public List<SimCore.Entities.InFlightTransfer> InFlightTransfers { get; private set; } = new();
 
     [JsonInclude] public long NextIntentSeq { get; set; } = 1;
@@ -343,6 +353,45 @@ public class SimState
 
         FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
         FleetEventLog.Add(e);
+    }
+
+    // GATE.S4.INDU.MIN_LOOP.001
+    // Deterministic industry event emission (Seq assigned immediately; ordering is defined by deterministic system iteration order).
+    public void EmitIndustryEvent(string note)
+    {
+        if (note is null) note = "";
+        var seq = NextIndustryEventSeq;
+        NextIndustryEventSeq = checked(NextIndustryEventSeq + 1);
+
+        IndustryEventLog ??= new List<string>();
+        IndustryEventLog.Add($"I{seq} tick={Tick} {note}");
+    }
+
+    // GATE.S4.INDU.MIN_LOOP.001
+    // Failure-safe accessor: always returns a non-null build state entry.
+    public IndustryBuildState GetOrCreateIndustryBuildState(string siteId)
+    {
+        if (string.IsNullOrWhiteSpace(siteId)) siteId = "";
+
+        IndustryBuilds ??= new Dictionary<string, IndustryBuildState>(StringComparer.Ordinal);
+        if (!IndustryBuilds.TryGetValue(siteId, out var st) || st is null)
+        {
+            st = new IndustryBuildState();
+            IndustryBuilds[siteId] = st;
+        }
+        return st;
+    }
+
+    // Persisted POCO for industry construction v0.
+    public sealed class IndustryBuildState
+    {
+        [JsonInclude] public bool Active { get; set; } = true;
+        [JsonInclude] public string RecipeId { get; set; } = "";
+        [JsonInclude] public int StageIndex { get; set; } = 0;
+        [JsonInclude] public string StageName { get; set; } = "";
+        [JsonInclude] public int StageTicksRemaining { get; set; } = 0;
+        [JsonInclude] public string BlockerReason { get; set; } = "";
+        [JsonInclude] public string SuggestedAction { get; set; } = "";
     }
 
     public SimState(int seed)
@@ -602,6 +651,10 @@ public class SimState
         LogisticsEventLog ??= new List<SimCore.Events.LogisticsEvents.Event>();
         SecurityEventLog ??= new List<SimCore.Events.SecurityEvents.Event>();
         FleetEventLog ??= new List<SimCore.Events.FleetEvents.Event>();
+
+        // GATE.S4.INDU.MIN_LOOP.001
+        IndustryBuilds ??= new Dictionary<string, IndustryBuildState>(StringComparer.Ordinal);
+        IndustryEventLog ??= new List<string>();
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);
 
@@ -884,6 +937,18 @@ public class SimState
         {
             // Include tech sustainment state so determinism drift cannot hide.
             sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency:F4}|Health:{s.Value.HealthBps}|BufD:{s.Value.BufferDays}|Rem:{s.Value.DegradeRemainder}|");
+        }
+
+        // GATE.S4.INDU.MIN_LOOP.001
+        // Include persisted construction state in signature so save%load%replay drift cannot hide.
+        if (IndustryBuilds is not null && IndustryBuilds.Count > 0)
+        {
+            foreach (var kv in IndustryBuilds.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var b = kv.Value;
+                if (b is null) continue;
+                sb.Append($"IB:{kv.Key}|A:{(b.Active ? 1 : 0)}|R:{b.RecipeId}|Si:{b.StageIndex}|Sn:{b.StageName}|Rem:{b.StageTicksRemaining}|Blk:{b.BlockerReason}|Act:{b.SuggestedAction}|");
+            }
         }
 
         foreach (var n in Nodes.OrderBy(k => k.Key))

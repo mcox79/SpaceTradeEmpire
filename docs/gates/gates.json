@@ -133,67 +133,6 @@
                       "blocked_by":  [
 
                                      ]
-                  },
-                  {
-                      "gate_id":  "GATE.S4.INDU.MIN_LOOP.001",
-                      "task_id":  "GATE.S4.INDU.MIN_LOOP.001.T001",
-                      "status":  "TODO",
-                      "title":  "Industry minimal loop v0",
-                      "intent":  "Implement 1 construction recipe chain producing 1 capability module via a deterministic execution pipeline; blockers are explainable and schema-bound; save%load and replay stability preserved; minimal UI readout via existing menus.",
-                      "task_preflight":  [
-                                             "Decide if industry execution is a Program type or a dedicated IndustrySystem triggered by a Program.",
-                                             "Pick one blocker failure mode to fully explain (eg missing input supply)."
-                                         ],
-                      "evidence_paths":  [
-                                             "SimCore/Systems/IndustrySystem.cs",
-                                             "SimCore/Schemas/IndustrySchema.json",
-                                             "SimCore.Tests/Industry/IndustryProgramContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/ui/StationMenu.cs",
-                                             "docs/generated/industry_min_loop_report_v0.txt"
-                                         ],
-                      "expected_touch_paths":  [
-                                                   "SimCore/Programs/ProgramSystem.cs",
-                                                   "SimCore/Events/LogisticsEvents.cs"
-                                               ],
-                      "constraints":  [
-                                          "No new UI surface required for v0; reuse StationMenu readout via SimBridge facts%events.",
-                                          "All failure modes surfaced are schema-bound, not free-text.",
-                                          "Deterministic ordering for queues, stages, and event emission; no timestamps.",
-                                          "Save%load preserves in-progress build stage and remaining inputs exactly."
-                                      ],
-                      "completion_hint":  [
-                                              "Add IndustrySchema.json for v0 objects (recipe, stage, inputs, outputs, blockers).",
-                                              "Implement IndustrySystem with deterministic stage progression per tick.",
-                                              "Add a contract test that runs N ticks, saves, loads, continues, and asserts identical final world hash and identical industry event stream.",
-                                              "Expose minimal readout in StationMenu: active build stage, time remaining, blocker reason chain, suggested action.",
-                                              "Emit docs/generated/industry_min_loop_report_v0.txt as a deterministic transcript for diffing."
-                                          ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "Keep it to a single chain and a single module. Do not add multiple facilities in v0."
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "If save%load diverges, add explicit stable ids for build instances and deterministic ordering in serialization."
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "If this becomes content substrate work, stop and finish GATE.X.CONTENT_SUBSTRATE.001 first."
-                                               }
-                                           ],
-                      "buckets":  [
-                                      "SimCore",
-                                      "UI",
-                                      "Tests"
-                                  ],
-                      "blocked_by":  [
-                                         "GATE.X.CONTENT_SUBSTRATE.001 should land first to avoid hardcoded content."
-                                     ]
                   }
               ]
 }

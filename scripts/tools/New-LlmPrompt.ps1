@@ -186,6 +186,17 @@ try {
   [void]$sb.Append("- max $MaxAttachments attachments per LLM session (exclusive of docs/generated/01_CONTEXT_PACKET.md)" + $nl)
   [void]$sb.Append("- Preferred NO new files unless the task requires creating one" + $nl)
   [void]$sb.Append("- If you propose reflection or optional behavior, you must justify determinism and failure safety" + $nl + $nl)
+
+  [void]$sb.Append("Non-negotiable design laws (hard):" + $nl)
+  [void]$sb.Append("- Determinism first: no timestamps%wall-clock, no global RNG, no unordered iteration; outputs must be byte-for-byte stable for same inputs." + $nl)
+  [void]$sb.Append("- Stable ordering required everywhere: any list output must declare and implement deterministic sort keys with explicit tie-breakers." + $nl)
+  [void]$sb.Append("- Seed is world identity: persist through save%load; tests%transcripts must surface Seed in headers and failure messages for repro." + $nl)
+  [void]$sb.Append("- Single mutation pipeline: UI and commands must not mutate state directly; commands enqueue intents only; kernel intent resolution is the only mutator." + $nl)
+  [void]$sb.Append("- Boundary law: UI must not reference SimCore.Entities or SimCore.Systems; all reads via SimBridge snapshots%facts helpers." + $nl)
+  [void]$sb.Append("- Runtime IO law: SimCore has no System.IO runtime IO; only allowed engine IO surfaces (res://, user://) as enforced by tests." + $nl)
+  [void]$sb.Append("- Schema law: events%explain chains are schema-bound (tokens%fields), no free-text reasons; stable serialization%ordering." + $nl)
+  [void]$sb.Append("- Tweaks law: any balance-affecting constants must route via versioned Tweaks with deterministic defaults; tests must be able to override without code changes (or be explicitly allowlisted)." + $nl + $nl)
+
   [void]$sb.Append("Routing (deterministic):" + $nl)
   [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + $nl)
   [void]$sb.Append("- Else if next_gate_packet says Split required: YES: SPLIT mode (add subgates, do not delete parent)." + $nl)
