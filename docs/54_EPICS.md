@@ -35,6 +35,19 @@ Primary anchors:
 
 ## A. Slice map (Layer 1)
 
+## Canonical Epic Bullets (authoritative for scanning and next-gate selection)
+## Rule: each EPIC ID appears exactly once in this section.
+
+- EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [DONE]: Deterministic world class stats report (byte-for-byte stable, no timestamps) over Seeds 1..100 using worldgen-era signals only; emits docs/generated/class_stats_report_v0.txt (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
+- EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [TODO]: Enforce class separation targets using report metrics; violations list seeds + deltas sorted; exits nonzero on failure (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
+- EPIC.S3.RISK_MODEL.V0 [DONE]: Deterministic lane%route risk bands emit schema-bound SecurityEvents (delay, loss, inspection) with deterministic cause chains; surfaced in Station timeline; save%load preserved; no Slice 5 combat coupling (gates: GATE.S3.RISK_MODEL.*)
+- EPIC.S3_5.CONTENT_PACK_CONTRACT.V0 [IN_PROGRESS]: Versioned registries (goods%recipes%modules) with schema validation, canonical hashing, deterministic load order (gates: GATE.X.CONTENT_SUBSTRATE.001, GATE.S3_5.CONTENT_SUBSTRATE.001)
+- EPIC.S3_5.PACK_VALIDATION_REPORT.V0 [TODO]: Deterministic validation report with stable ordering and nonzero exit on invalid packs (gates: GATE.S3_5.CONTENT_SUBSTRATE.002)
+- EPIC.S3_5.WORLD_BINDING.V0 [TODO]: World identity binds pack digest and persists through save%load; repro surface includes pack id%version (gates: GATE.S3_5.CONTENT_SUBSTRATE.003)
+- EPIC.S3_5.HARDCODE_GUARD.V0 [TODO]: Deterministic scan or contract test flags new hardcoded content IDs in systems that must be data-driven; violations sorted and reproducible (gates: GATE.S3_5.CONTENT_SUBSTRATE.004)
+
+Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
+
 ### Cross-cutting epics (apply to all slices)
 These epics are always-on dependencies. Each slice should reference them as needed and must not violate them.
 
@@ -459,7 +472,7 @@ Epics:
 - EPIC.S2_5.WGEN.WORLD_CLASSES.V0 [DONE]: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier) (gates: GATE.S2_5.WGEN.WORLD_CLASSES.001)
 - EPIC.S2_5.WGEN.INVARIANTS [DONE]: Connectivity, early viability, reachability, onboarding invariants (gates: GATE.S2_5.WGEN.INVARIANTS.001)
 - EPIC.S2_5.WGEN.N_SEED_TESTS [DONE]: Distribution bounds over N seeds (v0 uses N = 100; can increase later) (gates: GATE.S2_5.WGEN.DISTRIBUTION.001, GATE.S2_5.WGEN.NSEED.001)
-- EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [TODO]: Deterministic seed-suite stats report for class differences using worldgen-only signals (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
+- EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [DONE]: Deterministic seed-suite stats report for class differences using worldgen-only signals (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
 - EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [TODO]: Thresholds proving class separation on worldgen-only metrics, enforced in N-seed suite (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
 - EPIC.S2_5.SAVE_IDENTITY [DONE]: Save seed%params, load exact identity, hash equivalence regression (gates: GATE.S2_5.SAVELOAD.WORLDGEN.001)
 - EPIC.S2_5.TOOL.SEED_EXPLORER [DONE]: Preview, diff, invariant failure drill-down (gates: GATE.S2_5.TOOL.SEED_EXPLORER.001)

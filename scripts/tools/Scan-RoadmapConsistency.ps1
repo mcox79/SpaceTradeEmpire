@@ -1,5 +1,6 @@
 param(
-	[switch]$Force = $false
+	[switch]$Force = $false,
+	[ValidateSet("OFF","WARN","FAIL")][string]$EpicMismatchMode = "OFF"
 )
 
 Set-StrictMode -Version Latest
@@ -105,6 +106,146 @@ function Parse-Ledger-Gates {
 	return $records
 }
 
+function Sort-Strings-Ordinal {
+	param([Parameter(Mandatory=$true)][string[]]$Items)
+	$arr = @($Items)
+	[System.Array]::Sort($arr, [System.StringComparer]::Ordinal)
+	return $arr
+}
+
+function Try-Extract-CanonicalEpicSection {
+	param([Parameter(Mandatory=$true)][object]$Lines)
+
+	# Coerce scalar or array into a deterministic array of strings.
+	$arr = @($Lines)
+
+	# Accept either header:
+	# 1) "## A0. Canonical Epic Bullets (authoritative for scanning and next-gate selection)"
+	# 2) "## Canonical Epic Bullets (authoritative for scanning and next-gate selection)"
+	$headerRx = '^\s*##\s+(A0\.\s+)?Canonical Epic Bullets\s+\(authoritative for scanning and next-gate selection\)\s*$'
+
+	$start = -1
+	for ($i = 0; $i -lt $arr.Length; $i++) {
+		$line = [string]$arr[$i]
+		if ($line -and ($line -match $headerRx)) { $start = $i + 1; break }
+	}
+	if ($start -lt 0) { return $null }
+
+	# End at the next subsection header (### ...) or next major lettered section (## B. / ## C. ...).
+	# This avoids terminating early on "## Rule: ..." which you currently have inside the canonical block.
+	$end = $arr.Length
+	for ($j = $start; $j -lt $arr.Length; $j++) {
+		$line = [string]$arr[$j]
+		if ($line -match '^\s*###\s+') { $end = $j; break }
+		if ($line -match '^\s*##\s+[A-Z]\.\s+') { $end = $j; break }
+	}
+
+	return ,($arr[$start..($end-1)])
+}
+
+function Parse-Canonical-Epics {
+	param(
+		[Parameter(Mandatory=$true)][object]$EpicsLines
+	)
+
+	# Coerce scalar or array into a deterministic array of strings.
+	$lines = @($EpicsLines)
+
+	$rx = '^\s*-\s+(EPIC\.[A-Z0-9_\.]+)\s+\[(TODO|IN_PROGRESS|DONE|DEFERRED)\]:.*\(\s*gates:\s*([^)]+)\s*\)\s*$'
+
+	$records = @()
+	foreach ($lineObj in $lines) {
+		$line = [string]$lineObj
+		if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+		$m = [Regex]::Match($line, $rx)
+		if (-not $m.Success) { continue }
+
+		$epicId = $m.Groups[1].Value.Trim()
+		$declared = $m.Groups[2].Value.Trim()
+		$selRaw = $m.Groups[3].Value.Trim()
+
+		$selectors = @()
+		foreach ($p in ($selRaw -split ',')) {
+			$t = $p.Trim()
+			if ($t.Length -gt 0) { $selectors += $t }
+		}
+
+		$records += [PSCustomObject]@{
+			epic_id = $epicId
+			declared_status = $declared
+			selectors = $selectors
+		}
+	}
+
+	return $records
+}
+
+function Expand-Epic-Selectors {
+	param(
+		[Parameter(Mandatory=$true)][string[]]$Selectors,
+		[Parameter(Mandatory=$true)][string[]]$AllGateIds,
+		[Parameter(Mandatory=$true)][hashtable]$StatusMap
+	)
+
+	$matched = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::Ordinal)
+	$unknownExact = @()
+
+	foreach ($sel in $Selectors) {
+		if ($sel.Contains("*")) {
+			foreach ($gid in $AllGateIds) {
+				if ($gid -clike $sel) { $null = $matched.Add($gid) }
+			}
+		} else {
+			if ($StatusMap.ContainsKey($sel)) {
+				$null = $matched.Add($sel)
+			} else {
+				$unknownExact += $sel
+			}
+		}
+	}
+
+	$matchedList = Sort-Strings-Ordinal -Items @($matched)
+	return [PSCustomObject]@{
+		matched = $matchedList
+		unknown_exact = $unknownExact
+	}
+}
+
+function Compute-Epic-Status {
+	param(
+		[Parameter(Mandatory=$true)][string[]]$MatchedGateIds,
+		[Parameter(Mandatory=$true)][hashtable]$StatusMap
+	)
+
+	if ($MatchedGateIds.Count -eq 0) { return "IN_PROGRESS" }
+
+	$allDone = $true
+	$allTodo = $true
+
+	foreach ($gid in $MatchedGateIds) {
+		$st = [string]$StatusMap[$gid]
+		if ($st -ne "DONE") { $allDone = $false }
+		if ($st -ne "TODO") { $allTodo = $false }
+	}
+
+	if ($allDone) { return "DONE" }
+	if ($allTodo) { return "TODO" }
+	return "IN_PROGRESS"
+}
+
+function Summarize-GateList {
+	param([Parameter(Mandatory=$true)][string[]]$GateIds)
+
+	# Keep mismatch lines bounded but deterministic.
+	if ($GateIds.Count -le 20) {
+		return ($GateIds -join ",")
+	}
+	$head = $GateIds[0..19] -join ","
+	$more = $GateIds.Count - 20
+	return ($head + ",...(+${more})")
+}
+
 function Read-Allowlist {
 	param(
 		[Parameter(Mandatory=$true)][string]$AllowlistPath
@@ -163,6 +304,7 @@ $sessionLogPath = Join-Path $repoRoot "docs/56_SESSION_LOG.md"
 $queuePath = Join-Path $repoRoot "docs/gates/gates.json"
 $allowlistPath = Join-Path $repoRoot "docs/roadmap/legacy_done_without_pass_allowlist_v0.txt"
 $outPath = Join-Path $repoRoot "docs/generated/roadmap_mismatches_v0.txt"
+$epicsPath = Join-Path $repoRoot "docs/54_EPICS.md"
 
 $ledger = Parse-Ledger-Gates -LedgerPath $ledgerPath
 $passSet = Parse-SessionLog-PassGateIds -SessionLogPath $sessionLogPath
@@ -190,6 +332,62 @@ foreach ($r in $ledger) {
 	if (-not $statusMap.ContainsKey($r.gate_id)) {
 		$statusMap[$r.gate_id] = $r.status
 		$evidenceMap[$r.gate_id] = $r.evidence
+	}
+}
+
+# EPICS canonical scan (optional, backward compatible)
+if ($EpicMismatchMode -ne "OFF") {
+	$epicSeverity = if ($EpicMismatchMode -eq "FAIL") { "HARD_FAIL" } else { "WARN" }
+
+$epicsLinesAll = $null
+if (Test-Path -LiteralPath $epicsPath) {
+	# Force collection so single-line files do not collapse to a scalar string.
+	$epicsLinesAll = @(Read-AllLines-Deterministic -Path $epicsPath)
+}
+
+	if ($null -ne $epicsLinesAll) {
+		$canonical = Try-Extract-CanonicalEpicSection -Lines $epicsLinesAll
+		if ($null -ne $canonical) {
+$epics = Parse-Canonical-Epics -EpicsLines $canonical
+
+if ($epics.Count -eq 0) {
+	Add-Finding -Findings ([ref]$findings) -Severity $epicSeverity -Kind "EPIC_CANONICAL_NO_MATCHES" -GateId "EPIC.CANONICAL" -Details "Canonical Epic Bullets section found, but 0 epic bullets matched the required format. Ensure lines start with '- EPIC.' and include '[STATUS]:' and '(gates: ...)' on the same line."
+}
+
+# Duplicate epic ids inside canonical section is always a hard failure.
+$seenEpic = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::Ordinal)
+foreach ($e in $epics) {
+	if ($seenEpic.Contains($e.epic_id)) {
+		Add-Finding -Findings ([ref]$findings) -Severity "HARD_FAIL" -Kind "DUPLICATE_EPIC_ID" -GateId $e.epic_id -Details "Epic id appears more than once in Canonical Epic Bullets section"
+	} else {
+		$null = $seenEpic.Add($e.epic_id)
+	}
+}
+
+			$allGateIds = Sort-Strings-Ordinal -Items @($statusMap.Keys)
+
+			foreach ($e in $epics) {
+				$exp = Expand-Epic-Selectors -Selectors $e.selectors -AllGateIds $allGateIds -StatusMap $statusMap
+
+				$unknown = @($exp.unknown_exact)
+				$matched = @($exp.matched)
+
+				if ($unknown.Count -gt 0) {
+					Add-Finding -Findings ([ref]$findings) -Severity $epicSeverity -Kind "EPIC_UNKNOWN_GATE_REF" -GateId $e.epic_id -Details ("Unknown gate id(s) referenced: " + (($unknown | Sort-Object) -join ","))
+				}
+
+				if ($matched.Count -eq 0) {
+					Add-Finding -Findings ([ref]$findings) -Severity $epicSeverity -Kind "EPIC_SELECTOR_EMPTY" -GateId $e.epic_id -Details ("Selectors matched 0 gates: " + ($e.selectors -join ","))
+					continue
+				}
+
+				$computed = Compute-Epic-Status -MatchedGateIds $matched -StatusMap $statusMap
+				if ($computed -ne $e.declared_status) {
+					$gateList = Summarize-GateList -GateIds $matched
+					Add-Finding -Findings ([ref]$findings) -Severity $epicSeverity -Kind "EPIC_STATUS_MISMATCH" -GateId $e.epic_id -Details ("declared=" + $e.declared_status + " computed=" + $computed + " matched_gates=" + $gateList)
+				}
+			}
+		}
 	}
 }
 
