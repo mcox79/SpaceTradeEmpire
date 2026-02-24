@@ -712,7 +712,18 @@ if ($eFinal.Count -gt 6) {
   continue
 }
 
-  $taskId = Mint-TaskId $gateId $candKey $anchor $usedIds
+  $taskId = ""
+  if ($g.PSObject.Properties.Name -contains 'task_id') { $taskId = (($g.task_id + "").Trim()) }
+
+  if (-not $taskId) {
+    $taskId = Mint-TaskId $gateId $candKey $anchor $usedIds
+  } else {
+    if ($usedIds.ContainsKey($taskId)) {
+      $taskId = Mint-TaskId $gateId $candKey $anchor $usedIds
+    } else {
+      $usedIds[$taskId] = $true
+    }
+  }
 
   # Build a task object using schema-known keys only.
   $task = [ordered]@{}
@@ -733,21 +744,47 @@ $fullGateTitle = (($gateTitle + "") -replace '\s+', ' ').Trim()
 $title = ("{0}: {1}" -f $gateId, $fullGateTitle).Trim()
 SetIfAllowed "title" $title
 
-$intent = $fullGateTitle
+$intent = ""
+if ($g.PSObject.Properties.Name -contains 'intent') { $intent = (($g.intent + "").Trim()) }
+if (-not $intent) { $intent = $fullGateTitle }
 if (-not $intent) { $intent = "Execute $gateId task using evidence paths." }
 SetIfAllowed "intent" $intent
 
   SetIfAllowed "evidence_paths" $eFinal
 
-  # Conservative constraints
-  $constraints = @(
-    "Single-session scope: stay within evidence and expected touch paths.",
-    "If evidence is missing or tests fail, escalate via DEFAULT."
-  )
+  $constraints = @()
+  if ($g.PSObject.Properties.Name -contains 'constraints') { $constraints = @($g.constraints) }
+  if (@($constraints).Count -lt 1) {
+    $constraints = @(
+      "Single-session scope: stay within evidence and expected touch paths.",
+      "If evidence is missing or tests fail, escalate via DEFAULT."
+    )
+  }
   SetIfAllowed "constraints" $constraints
 
-  $hints = Infer-CompletionHint $accept $eFinal
-  SetIfAllowed "completion_hint" $hints
+  $hints = @()
+  if ($g.PSObject.Properties.Name -contains 'completion_hint') { $hints = @($g.completion_hint) }
+
+  # Ensure completion_hint[0] is a runnable command line.
+  $cmd = Choose-CompletionCommandLine $eFinal
+  $h0 = ""
+  if (@($hints).Count -gt 0) { $h0 = (($hints[0] + "").Trim()) }
+
+  if (-not (Is-Executable-CommandLine $h0)) {
+    $hints = @($cmd) + @($hints)
+  }
+
+  # Deterministic cap and per-line maxlen
+  $outHints = New-Object System.Collections.Generic.List[string]
+  foreach ($l in @($hints)) {
+    foreach ($p in (Split-ToMaxLen -Text ("" + $l) -MaxLen 160)) {
+      if ($p) { $outHints.Add($p) }
+      if ($outHints.Count -ge 8) { break }
+    }
+    if ($outHints.Count -ge 8) { break }
+  }
+
+  SetIfAllowed "completion_hint" ($outHints.ToArray())
 
   # task_preflight provides traceability without extra schema keys
   if ($repairs.Count -gt 0) {
@@ -763,15 +800,22 @@ $tp = @(
 if ($repairLine -ne "") { $tp += $repairLine }
 SetIfAllowed "task_preflight" $tp
 
-  # escalation_rules required by schema: each item needs when + route, optional note
   if ($taskProps.ContainsKey("escalation_rules")) {
-    $task["escalation_rules"] = @(
-      [ordered]@{
-        when = "DEFAULT"
-        route = "STOP"
-        note = "Escalate if blocked or scope expands."
-      }
-    )
+    $ers = @()
+    if ($g.PSObject.Properties.Name -contains 'escalation_rules') { $ers = @($g.escalation_rules) }
+
+    if (@($ers).Count -gt 0) {
+      # Pass through as-is; schema validation below will catch missing required keys.
+      $task["escalation_rules"] = $ers
+    } else {
+      $task["escalation_rules"] = @(
+        [ordered]@{
+          when = "DEFAULT"
+          route = "STOP"
+          note = "Escalate if blocked or scope expands."
+        }
+      )
+    }
   }
 
   # Validate required keys are present
