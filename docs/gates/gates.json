@@ -201,46 +201,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001",
-                      "task_id":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001.T001",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001: World class distinctness report v0",
-                      "intent":  "Produce a deterministic, byte-for-byte stable stats report for CORE%FRONTIER%RIM using only worldgen-era signals; no timestamps; stable across reruns for the same seed set.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "scripts/tests/test_universe_validator.gd",
-                                             "scripts/tests/test_galaxy_core.gd",
-                                             "docs/generated/class_stats_report_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "No timestamps in emitted reports",
-                                          "Stable ordering (sorted lists, deterministic tie-breaks)",
-                                          "Byte-for-byte stable output across two runs at same HEAD"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Add deterministic report emitter and test that asserts exact output stability",
-                                              "Ensure report generation is seed-reproducible and ordering is explicit"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=0bfad9e7397e"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If report output is unstable, tighten ordering and remove nondeterminism sources"
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Fix determinism regressions before expanding report scope"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001",
                       "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001.T003",
                       "status":  "TODO",

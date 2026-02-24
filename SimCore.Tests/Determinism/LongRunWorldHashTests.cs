@@ -251,14 +251,14 @@ public class LongRunWorldHashTests
         const float radius = 100f;
         const int chokepointCapLe = 3;
 
-        var report1 = GalaxyGenerator.BuildWorldClassStatsReportV0(
+        var report1 = BuildWorldClassStatsReportV0_TestOnly(
             n,
             starCount,
             radius,
             chokepointCapLe,
             options: null);
 
-        var report2 = GalaxyGenerator.BuildWorldClassStatsReportV0(
+        var report2 = BuildWorldClassStatsReportV0_TestOnly(
             n,
             starCount,
             radius,
@@ -351,6 +351,99 @@ public class LongRunWorldHashTests
         Assert.That(report1, Is.EqualTo(report2), "Failure output must be deterministic.");
         Assert.That(report1.Contains("result\tFAIL", StringComparison.Ordinal), Is.True);
         Assert.That(report1.Contains("VIOLATION|", StringComparison.Ordinal), Is.True);
+    }
+
+    private static string BuildWorldClassStatsReportV0_TestOnly(
+        int n,
+        int starCount,
+        float radius,
+        int chokepointCapLe,
+        GalaxyGenerator.GalaxyGenOptions? options)
+    {
+        if (n <= 0) throw new ArgumentOutOfRangeException(nameof(n), "n must be >= 1.");
+
+        options ??= new GalaxyGenerator.GalaxyGenOptions();
+
+        var classIds = GalaxyGenerator.WorldClassesV0
+            .Select(c => c.WorldClassId)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        var axes = new[]
+        {
+            "avg_degree",
+            "avg_lane_capacity",
+            "chokepoint_density",
+            "fee_multiplier",
+            "avg_radius2",
+        }.OrderBy(a => a, StringComparer.Ordinal).ToArray();
+
+        var min = new Dictionary<(string ClassId, string Axis), double>();
+        var max = new Dictionary<(string ClassId, string Axis), double>();
+        var sum = new Dictionary<(string ClassId, string Axis), double>();
+
+        void Acc(string cls, string axis, double v)
+        {
+            var k = (cls, axis);
+            if (!min.ContainsKey(k))
+            {
+                min[k] = v;
+                max[k] = v;
+                sum[k] = v;
+                return;
+            }
+
+            if (v < min[k]) min[k] = v;
+            if (v > max[k]) max[k] = v;
+            sum[k] += v;
+        }
+
+        for (int seed = 1; seed <= n; seed++)
+        {
+            var sim = new SimKernel(seed);
+            GalaxyGenerator.Generate(sim.State, starCount, radius, options);
+
+            var stats = GalaxyGenerator.ComputeWorldClassStatsV0(sim.State, chokepointCapLe, options);
+            for (int i = 0; i < classIds.Length; i++)
+            {
+                var cls = classIds[i];
+                var s = stats[cls];
+
+                Acc(cls, "avg_degree", s.AvgDegree);
+                Acc(cls, "avg_lane_capacity", s.AvgLaneCapacity);
+                Acc(cls, "chokepoint_density", s.ChokepointDensity);
+                Acc(cls, "fee_multiplier", s.FeeMultiplier);
+                Acc(cls, "avg_radius2", s.AvgRadius2);
+            }
+        }
+
+        var sb = new StringBuilder(capacity: 4096);
+        sb.Append("CLASS_STATS_REPORT_V0").Append('\n');
+        sb.Append("seeds=1..").Append(n).Append('\n');
+        sb.Append("star_count=").Append(starCount).Append('\n');
+        sb.Append("radius=").Append(radius.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("chokepoint_cap_le=").Append(chokepointCapLe).Append('\n');
+        sb.Append("rows=class\taxis\tmin\tmean\tmax").Append('\n');
+
+        for (int ci = 0; ci < classIds.Length; ci++)
+        {
+            var cls = classIds[ci];
+            for (int ai = 0; ai < axes.Length; ai++)
+            {
+                var axis = axes[ai];
+                var k = (cls, axis);
+
+                var mean = sum[k] / n;
+
+                sb.Append(cls).Append('\t').Append(axis).Append('\t')
+                  .Append(min[k].ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                  .Append(mean.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                  .Append(max[k].ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            }
+        }
+
+        sb.Append("result\tPASS").Append('\n');
+        return sb.ToString();
     }
 
     private static string LocateRepoRootOrFail()
