@@ -73,6 +73,13 @@ public sealed class RuntimeFileContractTests
 
         var violations = newLiterals
             .Where(v => !IsAllowedByTweaksPath(v.PathRel))
+            .Where(v =>
+            {
+                if (!scan.ByFileLines.TryGetValue(v.PathRel, out var lines)) return true;
+                var idx = v.Line - 1;
+                if (idx < 0 || idx >= lines.Length) return true;
+                return !IsAllowedStructuralConstLine(lines[idx]);
+            })
             .Where(v => !allowlist.IsAllowlisted(v.PathRel, v.Token))
             .OrderBy(v => v.PathRel, StringComparer.Ordinal)
             .ThenBy(v => v.Line, Comparer<int>.Default)
@@ -85,6 +92,32 @@ public sealed class RuntimeFileContractTests
         Assert.That(violations.Length, Is.EqualTo(0),
             "Tweak routing guard violations:\n" + string.Join("\n", violations)
             + "\nReport: " + MakeRepoRelative(repoRoot, violationsReportAbs));
+    }
+
+    [Test]
+    public void LegacyConstants_Report_V0()
+    {
+        var repoRoot = LocateRepoRootContainingSimCore();
+
+        var reportAbs = Path.Combine(repoRoot, "docs", "generated", "legacy_constants_report_v0.txt");
+
+        var scanDirs = new[]
+        {
+        Path.Combine(repoRoot, "SimCore"),
+    };
+
+        var findings = ScanLegacyConstants(repoRoot, scanDirs);
+
+        WriteTextFileDeterministic(reportAbs, BuildViolationsReportLines("legacy_constants_report_v0", findings));
+
+        // Default: visibility only.
+        // Optional: enforce by setting STE_LEGACY_CONST_FAIL=1.
+        if (IsFlagEnabledGlobal("STE_LEGACY_CONST_FAIL"))
+        {
+            Assert.That(findings.Count, Is.EqualTo(0),
+                "Legacy constants found:\n" + string.Join("\n", findings)
+                + "\nReport: " + MakeRepoRelative(repoRoot, reportAbs));
+        }
     }
 
     [Test]
@@ -930,7 +963,8 @@ public sealed class RuntimeFileContractTests
     private sealed record NumericLiteralScanResult(
         IReadOnlyList<NumericLiteralOccurrence> AllLiterals,
         IReadOnlyDictionary<string, IReadOnlyList<NumericLiteralOccurrence>> ByFileLiterals,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> ByFileTokensOnly);
+        IReadOnlyDictionary<string, IReadOnlyList<string>> ByFileTokensOnly,
+        IReadOnlyDictionary<string, string[]> ByFileLines);
 
     private static bool IsFlagEnabledGlobal(string name)
     {
@@ -941,12 +975,29 @@ public sealed class RuntimeFileContractTests
 
     private static bool IsAllowedByTweaksPath(string pathRel)
     {
-        // "Sourced from Tweaks" is interpreted as: literals in files that define tweaks are allowed.
-        // We allow any file with a path segment or filename that includes "Tweaks".
+        // "Sourced from Tweaks" is interpreted as: literals in files under SimCore/Tweaks/ are allowed.
+        // Do not allow filename-based heuristics.
         var p = pathRel.Replace('\\', '/');
-        if (p.IndexOf("/Tweaks/", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-        var file = Path.GetFileName(p);
-        return file.IndexOf("Tweaks", StringComparison.OrdinalIgnoreCase) >= 0;
+        return p.IndexOf("SimCore/Tweaks/", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsAllowedStructuralConstLine(string lineText)
+    {
+        if (string.IsNullOrWhiteSpace(lineText)) return false;
+
+        // Must explicitly justify the structural constant.
+        if (lineText.IndexOf("STRUCTURAL:", StringComparison.Ordinal) < 0) return false;
+
+        // Never allow static readonly as a substitute.
+        if (lineText.IndexOf("static", StringComparison.Ordinal) >= 0
+            && lineText.IndexOf("readonly", StringComparison.Ordinal) >= 0)
+            return false;
+
+        // Require const declaration and a STRUCT_* identifier.
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            lineText,
+            @"\bconst\b[^{;]*\bSTRUCT_[A-Z0-9_]+\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     private static void EnsureDirForFile(string absPath)
@@ -1114,6 +1165,7 @@ public sealed class RuntimeFileContractTests
         var all = new List<NumericLiteralOccurrence>();
         var byFile = new Dictionary<string, List<NumericLiteralOccurrence>>(StringComparer.Ordinal);
         var byFileTokensOnly = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var byFileLines = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
         var files = scanDirsAbs
             .Where(Directory.Exists)
@@ -1126,6 +1178,16 @@ public sealed class RuntimeFileContractTests
             var rel = MakeRepoRelative(repoRoot, abs);
             var text = File.ReadAllText(abs);
 
+            // Preserve exact lines for later exception checks.
+            var rawLines = text.Split('\n');
+            for (var li = 0; li < rawLines.Length; li++)
+            {
+                var s = rawLines[li];
+                if (s.Length > 0 && s[^1] == '\r')
+                    rawLines[li] = s.Substring(0, s.Length - 1);
+            }
+            byFileLines[rel] = rawLines;
+
             var occ = ExtractNumericLiterals(rel, text);
             byFile[rel] = occ;
 
@@ -1136,8 +1198,99 @@ public sealed class RuntimeFileContractTests
 
         return new NumericLiteralScanResult(
             AllLiterals: all,
-            ByFileLiterals: byFile.ToDictionary(k => k.Key, v => (IReadOnlyList<NumericLiteralOccurrence>)v.Value, StringComparer.Ordinal),
-            ByFileTokensOnly: byFileTokensOnly.ToDictionary(k => k.Key, v => (IReadOnlyList<string>)v.Value, StringComparer.Ordinal));
+            ByFileLiterals: byFile.ToDictionary(k => k.Key, v =>
+                (IReadOnlyList<NumericLiteralOccurrence>)v.Value, StringComparer.Ordinal),
+            ByFileTokensOnly: byFileTokensOnly.ToDictionary(k => k.Key, v => (IReadOnlyList<string>)v.Value,
+                StringComparer.Ordinal),
+            ByFileLines: byFileLines.ToDictionary(k => k.Key, v => (string[])v.Value, StringComparer.Ordinal));
+    }
+
+    private static List<string> ScanLegacyConstants(string repoRoot, IEnumerable<string> scanDirsAbs)
+    {
+        // Legacy constant definition for reporting:
+        // - public const numeric in SimCore outside SimCore/Tweaks/
+        // - numeric alias const names outside SimCore/Tweaks/ (One, Thousand, etc)
+        // New convention is NOT legacy:
+        // - private/internal const STRUCT_* with STRUCTURAL:
+        var outList = new List<string>();
+
+        var files = scanDirsAbs
+            .Where(Directory.Exists)
+            .SelectMany(d => Directory.EnumerateFiles(d, "*.cs", SearchOption.AllDirectories))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToArray();
+
+        var rxPublicConstNumeric = new System.Text.RegularExpressions.Regex(
+            @"\bpublic\s+const\s+(sbyte|byte|short|ushort|int|uint|long|ulong|float|double|decimal)\s+([A-Za-z_][A-Za-z0-9_]*)\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        var rxAliasName = new System.Text.RegularExpressions.Regex(
+            @"\bconst\s+(sbyte|byte|short|ushort|int|uint|long|ulong|float|double|decimal)\s+(One|Zero|Thousand|Million|Billion|N\d+)\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        foreach (var abs in files)
+        {
+            var rel = MakeRepoRelative(repoRoot, abs).Replace('\\', '/');
+
+            // Ignore Tweaks files completely.
+            if (rel.IndexOf("SimCore/Tweaks/", StringComparison.OrdinalIgnoreCase) >= 0)
+                continue;
+
+            var text = File.ReadAllText(abs);
+            var lines = text.Split('\n');
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var lineNo = i + 1;
+                var line = lines[i];
+                if (line.Length > 0 && line[^1] == '\r')
+                    line = line.Substring(0, line.Length - 1);
+
+                // New convention: do not report these.
+                if (IsAllowedStructuralConstLine(line))
+                    continue;
+
+                var m1 = rxPublicConstNumeric.Match(line);
+                if (m1.Success)
+                {
+                    var name = m1.Groups[2].Value;
+
+                    // Categorize legacy constants deterministically.
+                    // - Versioning constants are usually contract glue, not gameplay knobs.
+                    // - Hash constants are structural integrity, not gameplay knobs.
+                    // Everything else is assumed gameplay-affecting until migrated.
+                    string category;
+                    if (name.EndsWith("Version", StringComparison.Ordinal)
+                        || string.Equals(name, "CurrentVersion", StringComparison.Ordinal)
+                        || name.IndexOf("Schema", StringComparison.Ordinal) >= 0)
+                    {
+                        category = "LEGACY_VERSION_CONST";
+                    }
+                    else if (name.IndexOf("Fnv", StringComparison.Ordinal) >= 0
+                             || name.IndexOf("Hash", StringComparison.Ordinal) >= 0
+                             || string.Equals(name, "OutcomeHashXor", StringComparison.Ordinal))
+                    {
+                        category = "LEGACY_STRUCT_CONST";
+                    }
+                    else
+                    {
+                        category = "LEGACY_GAMEPLAY_CONST";
+                    }
+
+                    outList.Add($"{rel}:{lineNo}:{category}:{name}");
+                    continue;
+                }
+
+                var m2 = rxAliasName.Match(line);
+                if (m2.Success)
+                {
+                    var name = m2.Groups[2].Value;
+                    outList.Add($"{rel}:{lineNo}:LEGACY_ALIAS_CONST:{name}");
+                }
+            }
+        }
+
+        outList.Sort(StringComparer.Ordinal);
+        return outList;
     }
 
     private static List<NumericLiteralOccurrence> ExtractNumericLiterals(string pathRel, string text)

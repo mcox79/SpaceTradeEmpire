@@ -242,6 +242,42 @@ public class LongRunWorldHashTests
         }
     }
 
+    // Gate: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001 (World class distinctness report v0: emitter + stability)
+    [Test]
+    public void WorldClassDistinctnessReportV0_Emitter_IsByteForByteStable_And_EmitsDeterministicFile()
+    {
+        const int n = 100;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int chokepointCapLe = 3;
+
+        var report1 = GalaxyGenerator.BuildWorldClassStatsReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null);
+
+        var report2 = GalaxyGenerator.BuildWorldClassStatsReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null);
+
+        Assert.That(report1, Is.EqualTo(report2), "CLASS_STATS_REPORT_V0 must be byte-for-byte stable across reruns for identical inputs.");
+
+        var root = LocateRepoRootOrFail();
+        var outDir = System.IO.Path.Combine(root, "docs", "generated");
+        System.IO.Directory.CreateDirectory(outDir);
+
+        var outPath = System.IO.Path.Combine(outDir, "class_stats_report_v0.txt");
+        System.IO.File.WriteAllText(outPath, report1, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        var disk = System.IO.File.ReadAllText(outPath, Encoding.UTF8);
+        Assert.That(disk, Is.EqualTo(report1), "Emitted class stats report file must match computed report exactly.");
+    }
+
     // Gate: GATE.S2_5.WGEN.DISTINCTNESS.001 (World class distinctness report v0)
     [Test]
     public void WorldClassDistinctness_Report_V0_Passes_EmitsFile_And_IsByteForByteStable()

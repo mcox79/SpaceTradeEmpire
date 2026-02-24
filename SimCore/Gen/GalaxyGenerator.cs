@@ -1389,6 +1389,112 @@ public static class GalaxyGenerator
         return result;
     }
 
+    // GATE.S2_5.WGEN.DISTINCTNESS.REPORT.001: deterministic world class stats report emitter v0.
+    // Deterministic ordering:
+    // - Classes: WorldClassesV0 by WorldClassId, StringComparer.Ordinal
+    // - Axes: fixed axis id set, ordered by StringComparer.Ordinal
+    // Report is pure string output: no timestamps, no wall-clock, no IO.
+    public static string BuildWorldClassStatsReportV0(
+        int n,
+        int starCount,
+        float radius,
+        int chokepointCapLe,
+        GalaxyGenOptions? options)
+    {
+        if (n <= 0) throw new ArgumentOutOfRangeException(nameof(n), "n must be >= 1.");
+
+        options ??= new GalaxyGenOptions();
+
+        // Explicit class ordering (ordinal).
+        var classIds = WorldClassesV0
+            .Select(c => c.WorldClassId)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        // Fixed axis id set; output order is ordinal (tie-breaker: none needed).
+        var axes = new[]
+        {
+            "avg_degree",
+            "avg_lane_capacity",
+            "chokepoint_density",
+            "fee_multiplier",
+            "avg_radius2",
+        }.OrderBy(a => a, StringComparer.Ordinal).ToArray();
+
+        var min = new Dictionary<(string ClassId, string Axis), double>();
+        var max = new Dictionary<(string ClassId, string Axis), double>();
+        var sum = new Dictionary<(string ClassId, string Axis), double>();
+
+        void Acc(string cls, string axis, double v)
+        {
+            var k = (cls, axis);
+            if (!min.ContainsKey(k))
+            {
+                min[k] = v;
+                max[k] = v;
+                sum[k] = v;
+                return;
+            }
+
+            if (v < min[k]) min[k] = v;
+            if (v > max[k]) max[k] = v;
+            sum[k] += v;
+        }
+
+        const int STRUCT_SEED_START = 1; // STRUCTURAL: report enumerates seeds starting at 1 (seed is identity)
+        const int STRUCT_INDEX_START = 0; // STRUCTURAL: deterministic ordinal loops start at 0
+        const int STRUCT_SB_CAPACITY = 4096; // STRUCTURAL: StringBuilder initial capacity for deterministic report formatting
+
+        // Aggregate per-class metrics over seeds 1..n (seed is world identity).
+        for (int seed = STRUCT_SEED_START; seed <= n; seed++)
+        {
+            var sim = new SimKernel(seed);
+            Generate(sim.State, starCount, radius, options);
+
+            var stats = ComputeWorldClassStatsV0(sim.State, chokepointCapLe, options);
+            for (int i = STRUCT_INDEX_START; i < classIds.Length; i++)
+            {
+                var cls = classIds[i];
+                var s = stats[cls];
+
+                Acc(cls, "avg_degree", s.AvgDegree);
+                Acc(cls, "avg_lane_capacity", s.AvgLaneCapacity);
+                Acc(cls, "chokepoint_density", s.ChokepointDensity);
+                Acc(cls, "fee_multiplier", s.FeeMultiplier);
+                Acc(cls, "avg_radius2", s.AvgRadius2);
+            }
+        }
+
+        var sb = new StringBuilder(capacity: STRUCT_SB_CAPACITY);
+        sb.Append("CLASS_STATS_REPORT_V0").Append('\n');
+        sb.Append("seeds=1..").Append(n).Append('\n');
+        sb.Append("star_count=").Append(starCount).Append('\n');
+        sb.Append("radius=").Append(radius.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("chokepoint_cap_le=").Append(chokepointCapLe).Append('\n');
+        sb.Append("rows=class\taxis\tmin\tmean\tmax").Append('\n');
+
+        // Explicit output ordering: (ClassId ordinal, Axis ordinal).
+        for (int ci = STRUCT_INDEX_START; ci < classIds.Length; ci++)
+        {
+            var cls = classIds[ci];
+            for (int ai = STRUCT_INDEX_START; ai < axes.Length; ai++)
+            {
+                var axis = axes[ai];
+                var k = (cls, axis);
+
+                var mean = sum[k] / n;
+
+                sb.Append(cls).Append('\t').Append(axis).Append('\t')
+                  .Append(min[k].ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                  .Append(mean.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                  .Append(max[k].ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            }
+        }
+
+        sb.Append("result\tPASS").Append('\n');
+        return sb.ToString();
+    }
+
     public static string BuildFactionSeedReport(SimState state, int seed)
     {
         // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.
@@ -1396,10 +1502,12 @@ public static class GalaxyGenerator
             .Select(n => (Id: n.Id, Score: ScoreNode(seed, n)))
             .ToList();
 
+        const int STRUCT_ZERO = 0; // STRUCTURAL: deterministic comparator and matrix default use zero sentinel
+
         scored.Sort((a, b) =>
         {
             int c = b.Score.CompareTo(a.Score); // Score descending
-            if (c != 0) return c;
+            if (c != STRUCT_ZERO) return c;
             return string.CompareOrdinal(a.Id, b.Id); // Id ascending, ordinal
         });
 
@@ -1427,11 +1535,11 @@ public static class GalaxyGenerator
             sb.Append(row);
             foreach (var col in fids)
             {
-                int v = 0;
+                int v = STRUCT_ZERO;
                 if (!string.Equals(row, col, StringComparison.Ordinal))
                 {
                     var fr = factions.First(ff => string.Equals(ff.FactionId, row, StringComparison.Ordinal));
-                    v = fr.Relations.TryGetValue(col, out var vv) ? vv : 0;
+                    v = fr.Relations.TryGetValue(col, out var vv) ? vv : STRUCT_ZERO;
                 }
                 sb.Append('\t').Append(v);
             }

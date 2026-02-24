@@ -137,15 +137,28 @@ $tmpPath = $outPath + '.tmp'
 $NL = [Environment]::NewLine
 $now = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 
+$TweakPolicyFile = Join-Path $Root 'docs\tweaks\TWEAK_ROUTING_POLICY.md'
+
 $sb = New-Object System.Text.StringBuilder
 $totalBytes = 0
 
 [void](Safe-Append $sb ('## REPO CONTEXT (Generated ' + $now + ')' + $NL) ([ref]$totalBytes) $MaxTotalBytes)
 
+# --- HARD RULES (Tweak routing / numeric literals) ---
+[void](Safe-Append $sb ($NL + '### [HARD RULES]' + $NL) ([ref]$totalBytes) $MaxTotalBytes)
+
+if (Test-Path -LiteralPath $TweakPolicyFile) {
+    $txt = Read-TextCapped -AbsPath $TweakPolicyFile -CapBytes 35000
+    [void](Safe-Append $sb ($txt + $NL) ([ref]$totalBytes) $MaxTotalBytes)
+} else {
+    [void](Safe-Append $sb ('<<MISSING: \docs\tweaks\TWEAK_ROUTING_POLICY.md (create this file to enforce tweak routing rules in every session)>>' + $NL) ([ref]$totalBytes) $MaxTotalBytes)
+}
+
 # --- SYSTEM HEALTH ---
 $ConnectFile = Join-Path $Root 'docs\generated\connectivity_violations.json'
 $TestSummaryFile = Join-Path $Root 'docs\generated\05_TEST_SUMMARY.txt'
 $HashSnapshotFile = Join-Path $Root 'docs\generated\snapshots\golden_replay_hashes.txt'
+$TweakPolicyFile = Join-Path $Root '.\docs\tweaks\TWEAK_ROUTING_POLICY.md'
 
 [void](Safe-Append $sb ($NL + '### [SYSTEM HEALTH]' + $NL) ([ref]$totalBytes) $MaxTotalBytes)
 

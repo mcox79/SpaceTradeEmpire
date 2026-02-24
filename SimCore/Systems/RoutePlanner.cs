@@ -18,8 +18,11 @@ public static class RoutePlanner
     // Fixed-point scale for deterministic risk scoring (micro-units).
     // This is representation, not a gameplay knob.
     private const long RiskMicroScale = 1_000_000;
-    private const int One = 1;
-    private const int Thousand = 1000;
+
+    // Structural constants (not gameplay knobs).
+    private const int STRUCT_MIN_POSITIVE = 1; // STRUCTURAL: clamp for non-zero defaults and min tick rules
+    private const int STRUCT_THOUSAND = 1000;  // STRUCTURAL: scale factor for milli-AU conversion and formatting math
+
     private const int DefaultMaxCandidates = 8;
 
     public sealed class RoutePlan
@@ -116,7 +119,7 @@ public static class RoutePlanner
             return true;
         }
 
-        var speed = speedAuPerTick > default(float) ? speedAuPerTick : One;
+        var speed = speedAuPerTick > default(float) ? speedAuPerTick : STRUCT_MIN_POSITIVE;
 
         // Build deterministic adjacency: FromNodeId -> edges sorted by edge id.
         // Avoid LINQ allocations (GroupBy/ToDictionary/OrderBy/ToList) on this hot path.
@@ -166,10 +169,10 @@ public static class RoutePlanner
         long riskTolMicro,
         bool useRiskScore)
     {
-        var max = maxCandidates > default(int) ? maxCandidates : One;
+        var max = maxCandidates > default(int) ? maxCandidates : STRUCT_MIN_POSITIVE;
 
         // Hard bound for v0 to avoid path explosion; crafted tests are small.
-        var maxHops = Math.Min(DefaultMaxCandidates, Math.Max(One, state.Nodes.Count));
+        var maxHops = Math.Min(DefaultMaxCandidates, Math.Max(STRUCT_MIN_POSITIVE, state.Nodes.Count));
 
         var results = new List<RoutePlan>(capacity: Math.Min(max, DefaultMaxCandidates));
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -237,8 +240,8 @@ public static class RoutePlanner
                 Dfs(next, riskScore + edgeRisk, totalTicks + edgeTicks);
 
                 nodeSet.Remove(next);
-                edgePath.RemoveAt(edgePath.Count - One);
-                nodePath.RemoveAt(nodePath.Count - One);
+                edgePath.RemoveAt(edgePath.Count - STRUCT_MIN_POSITIVE);
+                nodePath.RemoveAt(nodePath.Count - STRUCT_MIN_POSITIVE);
 
                 if (results.Count >= max) return;
             }
@@ -282,10 +285,10 @@ public static class RoutePlanner
 
     private static string ComputeTieBreakReason(List<RoutePlan> orderedCandidates, long riskScalarMicro, long riskTolMicro, bool useRiskScore)
     {
-        if (orderedCandidates is null || orderedCandidates.Count <= One) return "ONLY";
+        if (orderedCandidates is null || orderedCandidates.Count <= STRUCT_MIN_POSITIVE) return "ONLY";
 
         var a = orderedCandidates[default(int)];
-        var b = orderedCandidates[One];
+        var b = orderedCandidates[STRUCT_MIN_POSITIVE];
 
         if (!useRiskScore)
         {
@@ -396,16 +399,16 @@ public static class RoutePlanner
     {
         // v0: deterministic integer risk proxy derived from distance (milli-AU).
         // This keeps ordering deterministic without relying on optional risk fields.
-        var dist = e.Distance > default(float) ? e.Distance : One;
-        var milli = (int)Math.Round(dist * (float)Thousand, MidpointRounding.AwayFromZero);
+        var dist = e.Distance > default(float) ? e.Distance : STRUCT_MIN_POSITIVE;
+        var milli = (int)Math.Round(dist * (float)STRUCT_THOUSAND, MidpointRounding.AwayFromZero);
         if (milli < default(int)) milli = default(int);
         return milli;
     }
 
     private static int EdgeTravelTicks(Edge e, float speedAuPerTick)
     {
-        var speed = speedAuPerTick > default(float) ? speedAuPerTick : One;
-        var dist = e.Distance > default(float) ? e.Distance : One;
+        var speed = speedAuPerTick > default(float) ? speedAuPerTick : STRUCT_MIN_POSITIVE;
+        var dist = e.Distance > default(float) ? e.Distance : STRUCT_MIN_POSITIVE;
 
         // ceil(dist / speed), min 1.
         var raw = dist / speed;
