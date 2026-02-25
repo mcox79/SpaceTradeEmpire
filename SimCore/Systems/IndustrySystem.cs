@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -92,9 +93,11 @@ namespace SimCore.Systems
                     }
 
                     // Produce outputs (preserve zero keys for markets)
+                    // Bounded structure rule: do not produce a good that is also an input good.
                     foreach (var output in site.Outputs.OrderBy(o => o.Key, StringComparer.Ordinal))
                     {
                         if (output.Value <= 0) continue;
+                        if (site.Inputs.ContainsKey(output.Key)) continue;
 
                         int produced = (int)(((long)output.Value * effBps) / Bps);
 
@@ -105,6 +108,29 @@ namespace SimCore.Systems
                         else
                         {
                             if (!market.Inventory.ContainsKey(output.Key)) market.Inventory[output.Key] = 0;
+                        }
+                    }
+
+                    // Produce byproducts (preserve zero keys for markets)
+                    // Deterministic precedence: byproducts never override primary outputs; byproducts never produce input goods.
+                    // Tweak-routing guard: use tweaks-routed zero token for any zero comparisons%writes introduced by this block.
+                    var zero = IndustryTweaksV0.Zero;
+
+                    foreach (var byp in site.Byproducts.OrderBy(b => b.Key, StringComparer.Ordinal))
+                    {
+                        if (byp.Value <= zero) continue;
+                        if (site.Inputs.ContainsKey(byp.Key)) continue;
+                        if (site.Outputs.ContainsKey(byp.Key)) continue;
+
+                        int produced = (int)(((long)byp.Value * effBps) / Bps);
+
+                        if (produced > zero)
+                        {
+                            InventoryLedger.AddMarket(market.Inventory, byp.Key, produced);
+                        }
+                        else
+                        {
+                            if (!market.Inventory.ContainsKey(byp.Key)) market.Inventory[byp.Key] = zero;
                         }
                     }
                 }

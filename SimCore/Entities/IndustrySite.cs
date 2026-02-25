@@ -8,11 +8,13 @@ public class IndustrySite
     public string Id { get; set; } = "";
     public string NodeId { get; set; } = "";
 
-    // INPUTS/OUTPUTS:
+    // INPUTS/OUTPUTS/BYPRODUCTS:
     // Inputs represent upkeep consumption in units per tick.
-    // Outputs represent production in units per tick (scaled by efficiency).
+    // Outputs represent primary production in units per tick (scaled by efficiency).
+    // Byproducts represent secondary production in units per tick (scaled by efficiency).
     public Dictionary<string, int> Inputs { get; set; } = new();
     public Dictionary<string, int> Outputs { get; set; } = new();
+    public Dictionary<string, int> Byproducts { get; set; } = new();
 
     // BUFFERING:
     // Target buffers are expressed in days of game time. One day = 1440 ticks (1 tick = 1 minute).

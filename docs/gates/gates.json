@@ -5,45 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 039806d74b96a358de66d216defc6a9784f716bb",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S4.INDU_STRUCT.001",
-                      "task_id":  "GATE.S4.INDU_STRUCT.001.T007",
-                      "status":  "TODO",
-                      "title":  "GATE.S4.INDU_STRUCT.001: Industry structure v0",
-                      "intent":  "Define bounded production chain structure beyond the minimal loop (inputs%outputs%byproducts constraints) with deterministic ordering and schema-bound references to content IDs.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/industry/IndustryProgramContractTests.cs",
-                                             "SimCore/Systems/IndustrySystem.cs",
-                                             "SimCore/Entities/IndustrySite.cs",
-                                             "SimCore/Schemas/IndustrySchema.json"
-                                         ],
-                      "constraints":  [
-                                          "Deterministic ordering for all iteration surfaces",
-                                          "Schema-bound IDs only (no hardcoded recipes%modules)",
-                                          "Save%load continuity preserved"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Extend schema and processing with explicit ordering",
-                                              "Add contract tests covering ordering and save%load stability"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/industry/IndustryProgramContractTests.cs",
-                                             "candidate_key_sha256=d5c89de4fcfe"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If ordering is ambiguous, add explicit ordinal fields and tie-break rules"
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Fix determinism regressions before adding more chain complexity"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S4.UI_INDU.001",
                       "task_id":  "GATE.S4.UI_INDU.001.T009",
                       "status":  "TODO",

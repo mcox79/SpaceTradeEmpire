@@ -27,7 +27,8 @@ namespace SimCore.Tests.Industry
                 {
                     ["ore"] = 100,
                     ["plates"] = 0,
-                    ["cap_module"] = 0
+                    ["cap_module"] = 0,
+                    ["slag"] = 0
                 }
             };
 
@@ -45,7 +46,12 @@ namespace SimCore.Tests.Industry
                 DegradePerDayBps = 0,
                 HealthBps = 10000,
                 Inputs = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal),
-                Outputs = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
+                Outputs = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal),
+                Byproducts = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    // Non-balance contract signal only: verifies deterministic ordering and persistence for byproducts.
+                    ["slag"] = 1
+                }
             };
 
             for (var i = 0; i < ticksA; i++) k1.Step();
@@ -69,6 +75,75 @@ namespace SimCore.Tests.Industry
             Assert.That(ev2, Is.EqualTo(ev1), "Industry event streams diverged.");
 
             EmitDeterministicReport(k2, marketId, siteId, sig2, ev2);
+        }
+
+        [Test]
+        public void Ordering_DoesNotDependOn_DictionaryInsertionOrder_V0()
+        {
+            var seed = 7;
+            var ticks = 50;
+
+            static SimCore.SimKernel MakeKernel(int seedValue, bool reverseInsertion)
+            {
+                var k = new SimCore.SimKernel(seedValue);
+
+                var marketId = "M1";
+                k.State.Markets[marketId] = new SimCore.Entities.Market
+                {
+                    Id = marketId,
+                    Inventory = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
+                    {
+                        ["ore"] = 100,
+                        ["plates"] = 0,
+                        ["slag"] = 0
+                    }
+                };
+
+                var siteId = "S1";
+                var inputs = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+                var outputs = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+                var byproducts = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+
+                // Insert in different orders to ensure processing is order-independent.
+                if (reverseInsertion)
+                {
+                    outputs["plates"] = 2;
+                    byproducts["slag"] = 1;
+                    inputs["ore"] = 1;
+                }
+                else
+                {
+                    inputs["ore"] = 1;
+                    byproducts["slag"] = 1;
+                    outputs["plates"] = 2;
+                }
+
+                k.State.IndustrySites[siteId] = new SimCore.Entities.IndustrySite
+                {
+                    Id = siteId,
+                    NodeId = marketId,
+                    Active = true,
+                    ConstructionEnabled = false,
+                    BufferDays = 0,
+                    DegradePerDayBps = 0,
+                    HealthBps = 10000,
+                    Inputs = inputs,
+                    Outputs = outputs,
+                    Byproducts = byproducts
+                };
+
+                return k;
+            }
+
+            var a = MakeKernel(seed, reverseInsertion: false);
+            var b = MakeKernel(seed, reverseInsertion: true);
+
+            for (var i = 0; i < ticks; i++) a.Step();
+            for (var i = 0; i < ticks; i++) b.Step();
+
+            var sigA = a.State.GetSignature();
+            var sigB = b.State.GetSignature();
+            Assert.That(sigB, Is.EqualTo(sigA), "Signature diverged under different insertion orders.");
         }
 
         private static void EmitDeterministicReport(SimCore.SimKernel kernel, string marketId, string siteId, string signature, string[] events)
