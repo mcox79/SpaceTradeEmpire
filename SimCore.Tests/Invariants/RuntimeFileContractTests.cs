@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using NUnit.Framework;
+using SimCore.Content;
 
 namespace SimCore.Tests.Invariants;
 
@@ -92,6 +93,39 @@ public sealed class RuntimeFileContractTests
         Assert.That(violations.Length, Is.EqualTo(0),
             "Tweak routing guard violations:\n" + string.Join("\n", violations)
             + "\nReport: " + MakeRepoRelative(repoRoot, violationsReportAbs));
+    }
+
+    [Test]
+    public void ContentSubstrateIntegrationGuard_HardcodedContentIds_MustBeZero_AndEmitEvidence_V0()
+    {
+        var repoRoot = LocateRepoRootContainingSimCore();
+
+        var all = ScanHardcodedContentIdsInSimCoreSystemsV0(repoRoot);
+
+        var reportAbs = Path.Combine(repoRoot, "docs", "generated", "evidence", "gate_evidence_grep.txt");
+        WriteTextFileDeterministic(reportAbs, BuildViolationsReportLines("gate_evidence_grep", all));
+
+        static bool IsLegacyAllowlisted(string v)
+        {
+            // Allow legacy worldgen hardcodes until migrated to data-driven access.
+            // Deterministic match: exact path prefix and exact id suffix.
+            return v.StartsWith("SimCore/Gen/GalaxyGenerator.cs:", StringComparison.Ordinal)
+                   && v.EndsWith(":ore", StringComparison.Ordinal);
+        }
+
+        var legacy = all.Where(IsLegacyAllowlisted).ToList();
+        if (legacy.Count > 0)
+        {
+            TestContext.Progress.WriteLine("WARN_LEGACY_HARDCODED_CONTENT_IDS_V0 count=" + legacy.Count);
+            foreach (var v in legacy) TestContext.Progress.WriteLine(v);
+            TestContext.Progress.WriteLine("WARN_LEGACY_HARDCODED_CONTENT_IDS_V0_END");
+        }
+
+        var violations = all.Where(v => !IsLegacyAllowlisted(v)).ToList();
+
+        Assert.That(violations.Count, Is.EqualTo(0),
+            "Hardcoded content ID violations (non-allowlisted):\n" + string.Join("\n", violations)
+            + "\nReport: " + MakeRepoRelative(repoRoot, reportAbs));
     }
 
     [Test]
@@ -1563,6 +1597,80 @@ public sealed class RuntimeFileContractTests
         (c >= '0' && c <= '9')
         || (c >= 'a' && c <= 'f')
         || (c >= 'A' && c <= 'F');
+
+    private sealed record HardcodedContentIdOccurrence(string PathRel, int Line, string Id);
+
+    private static List<string> ScanHardcodedContentIdsInSimCoreSystemsV0(string repoRoot)
+    {
+        // Source-of-truth IDs come from the canonical content registry loader (deterministic).
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var g in reg.Goods) ids.Add(g.Id);
+        foreach (var m in reg.Modules) ids.Add(m.Id);
+        foreach (var r in reg.Recipes) ids.Add(r.Id);
+
+        var scanDirs = new[]
+        {
+            Path.Combine(repoRoot, "SimCore", "Systems"),
+            Path.Combine(repoRoot, "SimCore", "Gen"),
+        };
+
+        // Deterministic file enumeration: repo-relative path sorted Ordinal.
+        var files = new List<(string PathRel, string Abs)>();
+        foreach (var d in scanDirs)
+        {
+            if (!Directory.Exists(d)) continue;
+
+            foreach (var f in Directory.EnumerateFiles(d, "*.cs", SearchOption.AllDirectories))
+            {
+                var rel = MakeRepoRelative(repoRoot, f);
+                files.Add((rel, f));
+            }
+        }
+
+        files.Sort((a, b) => StringComparer.Ordinal.Compare(a.PathRel, b.PathRel));
+
+        var occ = new List<HardcodedContentIdOccurrence>();
+
+        foreach (var (pathRel, abs) in files)
+        {
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(abs, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            }
+            catch (Exception ex)
+            {
+                // Deterministic failure token: file read errors must be actionable.
+                occ.Add(new HardcodedContentIdOccurrence(pathRel, 0, "READ_ERROR:" + ex.GetType().Name));
+                continue;
+            }
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i] ?? "";
+                if (line.Length == 0) continue;
+
+                // Search for explicit string-literal occurrences: "<id>"
+                foreach (var id in ids)
+                {
+                    var needle = "\"" + id + "\"";
+                    if (line.IndexOf(needle, StringComparison.Ordinal) >= 0)
+                        occ.Add(new HardcodedContentIdOccurrence(pathRel, i + 1, id));
+                }
+            }
+        }
+
+        // Deterministic output ordering with explicit tie-breakers:
+        // path (Ordinal), line (ascending), id (Ordinal).
+        return occ
+            .OrderBy(x => x.PathRel, StringComparer.Ordinal)
+            .ThenBy(x => x.Line, Comparer<int>.Default)
+            .ThenBy(x => x.Id, StringComparer.Ordinal)
+            .Select(x => $"{x.PathRel}:{x.Line}:{x.Id}")
+            .ToList();
+    }
 
     private static string MakeRepoRelative(string root, string fullPath)
     {

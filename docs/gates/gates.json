@@ -83,45 +83,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.004",
-                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.004.T006",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.004: Content substrate integration guard v0",
-                      "intent":  "Deterministic scan or contract test flags new hardcoded content IDs in SimCore systems that should be data-driven; violations sorted and reproducible.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "SimCore/Content/ContentRegistryLoader.cs",
-                                             "SimCore.Tests/Invariants/RuntimeFileContractTests.cs",
-                                             "docs/generated/evidence/gate_evidence_grep.txt"
-                                         ],
-                      "constraints":  [
-                                          "Violation output sorted deterministically",
-                                          "No false positives from comments%strings unless explicitly intended",
-                                          "No timestamps in reports"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Add deterministic scan test for hardcoded content IDs",
-                                              "Emit sorted violations for diff-friendly review"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "candidate_key_sha256=f41397ba8b93"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If scope is unclear, restrict guard to known content ID namespaces"
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "Do not broaden guard beyond content ID hardcoding without a new gate"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S4.CONSTR_PROG.001",
                       "task_id":  "GATE.S4.CONSTR_PROG.001.T008",
                       "status":  "TODO",

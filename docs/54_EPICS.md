@@ -44,7 +44,7 @@ Primary anchors:
 - EPIC.S3_5.CONTENT_PACK_CONTRACT.V0 [DONE]: Versioned registries (goods%recipes%modules) with schema validation, canonical hashing, deterministic load order (gates: GATE.X.CONTENT_SUBSTRATE.001, GATE.S3_5.CONTENT_SUBSTRATE.001)
 - EPIC.S3_5.PACK_VALIDATION_REPORT.V0 [DONE]: Deterministic validation report with stable ordering and nonzero exit on invalid packs (gates: GATE.S3_5.CONTENT_SUBSTRATE.002)
 - EPIC.S3_5.WORLD_BINDING.V0 [DONE]: World identity binds pack digest and persists through save%load; repro surface includes pack id%version (gates: GATE.S3_5.CONTENT_SUBSTRATE.003)
-- EPIC.S3_5.HARDCODE_GUARD.V0 [TODO]: Deterministic scan or contract test flags new hardcoded content IDs in systems that must be data-driven; violations sorted and reproducible (gates: GATE.S3_5.CONTENT_SUBSTRATE.004)
+- EPIC.S3_5.HARDCODE_GUARD.V0 [DONE]: Deterministic scan or contract test flags new hardcoded content IDs in systems that must be data-driven; violations sorted and reproducible (gates: GATE.S3_5.CONTENT_SUBSTRATE.004)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
