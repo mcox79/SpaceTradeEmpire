@@ -36,7 +36,7 @@ Primary anchors:
 ## A. Slice map (Layer 1)
 
 ## Canonical Epic Bullets (authoritative for scanning and next-gate selection)
-## Rule: each EPIC ID appears exactly once in this section.
+## Rule: epics listed here are eligible for scanning and next-gate selection; each EPIC ID must appear exactly once in this section.
 
 - EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [DONE]: Deterministic world class stats report (byte-for-byte stable, no timestamps) over Seeds 1..100 using worldgen-era signals only; emits docs/generated/class_stats_report_v0.txt (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
 - EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [DONE]: Enforce class separation targets using report metrics; violations list seeds + deltas sorted; exits nonzero on failure (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
@@ -45,6 +45,10 @@ Primary anchors:
 - EPIC.S3_5.PACK_VALIDATION_REPORT.V0 [DONE]: Deterministic validation report with stable ordering and nonzero exit on invalid packs (gates: GATE.S3_5.CONTENT_SUBSTRATE.002)
 - EPIC.S3_5.WORLD_BINDING.V0 [DONE]: World identity binds pack digest and persists through save%load; repro surface includes pack id%version (gates: GATE.S3_5.CONTENT_SUBSTRATE.003)
 - EPIC.S3_5.HARDCODE_GUARD.V0 [DONE]: Deterministic scan or contract test flags new hardcoded content IDs in systems that must be data-driven; violations sorted and reproducible (gates: GATE.S3_5.CONTENT_SUBSTRATE.004)
+
+- EPIC.S4.CATALOG.V0 [TODO]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
+- EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
+- EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof) (gates: GATE.S5.COMBAT_LOCAL.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -62,6 +66,7 @@ Epics:
 Greatness spec (non-negotiables, enforced by gates over time):
 - Every major failure has an explainable cause chain surfaced in UI
 - Every seed guarantees early viability (>= 3 viable early trade loops) and reachability (paths exist to industry, exploration, factions, endgame)
+- Player forward momentum: primary loop biases toward new places; backtracking is optional and primarily for upside, not required to keep automation alive
 - Every major discovery introduces a new strategic option, not only numeric upgrades
 - Warfront outcomes persist and reshape lane regimes, not just prices
 - Automation feels competent: predictable, diagnosable, tunable (not dice)
@@ -306,8 +311,16 @@ Wave requirements (minimums, numbers are [TBD] but the existence is mandatory):
 - Slice 2: 1 program type (TradeProgram), 1 doctrine stub, 1 quote flow, 1 failure reason surfaced
 - Slice 2.5: >= 3 world classes (CORE, FRONTIER, RIM), 3 to 5 factions, seed suite produces distinct early loops and onboarding validity
 - Slice 3: 3 fleet roles (trader%hauler%patrol), multi-route choices, 1 congestion scenario, 1 bottleneck fix visible in UI, headless playable trade loop proof (incl save%load)
-- Slice 4: 1 reverse-engineer chain (lead -> prototype), 1 manufacturing chain, 1 refit kit pipeline
-- Slice 5: 1 weapon family, 1 counter family, 1 escort doctrine, 1 strategic resolver scenario
+- Slice 4: Starter Catalog v0 shipped via content packs (goods%recipes%modules%weapons) plus:
+  - 1 reverse-engineer chain (lead -> prototype -> manufacturable unlock)
+  - 1 named manufacturing chain v0 (example: ORE -> INGOT -> HULL_PLATING)
+  - 1 named combat supply chain v0 (example: CHEMICALS + METALS -> MISSILE_AMMO or REPAIR_KIT)
+  - 1 refit kit pipeline surface (even if time costs are [TBD] in v0)
+- Slice 5: Local combat v0 is playable (turrets + missiles + shields%hull) plus:
+  - 1 counter family v0 (point defense or ECM, pick 1)
+  - 1 escort doctrine (policy-driven)
+  - 1 strategic resolver scenario (deterministic)
+  - 1 deterministic combat replay proof (same input stream => identical end state)
 - Slice 6: >= 5 anomaly families, 1 extinct-tech lead family, 1 containment failure mode with counterplay
 - Slice 7: >= 2 warfront theater types, 1 territory regime flip, 1 faction-unique tech gate
 - Slice 8: >= 2 policing phases, >= 1 megaproject chain, >= 2 win scenarios wired into state machine
@@ -473,9 +486,8 @@ Epics:
 - EPIC.S2_5.WGEN.INVARIANTS [DONE]: Connectivity, early viability, reachability, onboarding invariants (gates: GATE.S2_5.WGEN.INVARIANTS.001)
 - EPIC.S2_5.WGEN.N_SEED_TESTS [DONE]: Distribution bounds over N seeds (v0 uses N = 100; can increase later) (gates: GATE.S2_5.WGEN.DISTRIBUTION.001, GATE.S2_5.WGEN.NSEED.001)
 - EPIC.S2_5.WGEN.DISTINCTNESS.REPORT.V0 [DONE]: Deterministic seed-suite stats report for class differences using worldgen-only signals (gates: GATE.S2_5.WGEN.DISTINCTNESS.REPORT.*)
-- EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [TODO]: Thresholds proving class separation on worldgen-only metrics, enforced in N-seed suite (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
+- EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [DONE]: Enforce class separation targets using report metrics; violations list seeds + deltas sorted; exits nonzero on failure (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
 - EPIC.S2_5.SAVE_IDENTITY [DONE]: Save seed%params, load exact identity, hash equivalence regression (gates: GATE.S2_5.SAVELOAD.WORLDGEN.001)
-- EPIC.S2_5.TOOL.SEED_EXPLORER [DONE]: Preview, diff, invariant failure drill-down (gates: GATE.S2_5.TOOL.SEED_EXPLORER.001)
 
 Status: IN_PROGRESS
 
@@ -518,12 +530,71 @@ Purpose: Convert discoveries into sustainable capability via supply-bound projec
 Dependency:
 - Slice 4 requires Slice 3.5 content substrate DONE.
 
+v0 scope (LOCK ONCE SLICE 4 STARTS):
+- Starter Catalog v0 is mandatory and content-defined (packs), not code-defined:
+  - Goods: must cover bulk, intermediates, manufactured, consumables, specials, contraband
+  - Recipes: must include at least:
+    - 1 refining chain (ORE -> INGOT)
+    - 1 manufacturing chain (INGOT + INTERMEDIATE -> COMPONENT or PLATING)
+    - 1 combat supply chain (inputs -> MISSILE_AMMO or REPAIR_KIT)
+  - Modules: must include at least:
+    - 1 shield module, 1 turret module, 1 missile module, and 1 counter module (PD or ECM)
+    - 1 power module and 1 sensors module
+- Module model v0 must be explicit:
+  - Hero ship supports a slot model for combat-facing loadout decisions
+  - Fleets remain package-driven (no per-ship fitting; capability is tags on the fleet)
+- Unlock paths must exist (even if minimal): buy, research, permit, manufacture
+- Evidence must be deterministic: stable ordering, stable IDs, and no timestamps in emitted reports
+
 Epics:
-- EPIC.S4.INDU_STRUCT [TODO]: Production chains beyond 2 goods, bounded complexity, bounded byproducts (gates: GATE.S4.INDU_STRUCT.*)
+- EPIC.S4.INDU_STRUCT [TODO]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic (gates: GATE.S4.INDU_STRUCT.*)
+  - Definition: a “chain” is a multi-step recipe path with explicit inputs%outputs (by stable IDs), executed over time
+  - v0 bounds: max depth 3 steps per chain; max 1 byproduct per recipe; deterministic recipe ordering and tie-breaks
+  - Required outputs: IndustryShortfall style explain events when blocked (missing input, storage full, no capacity, no permit)
+  - Evidence: a deterministic chain report over a fixed scenario (no timestamps; stable sort order)
 - EPIC.S4.CONSTR_PROG [TODO]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
 - EPIC.S4.MAINT_SUSTAIN [TODO]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
 - EPIC.S4.TECH_INDUSTRIALIZE [TODO]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
 - EPIC.S4.UPGRADE_PIPELINE [TODO]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
+- EPIC.S4.CATALOG.V0 [TODO]: Starter Catalog v0 (goods%recipes%modules%weapons) shipped as content packs with deterministic validation (gates: GATE.S4.CATALOG.*)
+  - Scope: create a small but expressive authored catalog that supports:
+    - >= 3 viable early trade loops (Greatness spec requirement)
+    - 1 combat loop where loadout choice matters (shield%turret%missile%counter)
+    - 1 sustain hook (ammo and/or repair consumes a good)
+  - Required named chains (must be explicit IDs in recipes, not prose):
+    - Refining chain v0: ORE -> INGOT
+    - Manufacturing chain v0: INGOT + INTERMEDIATE -> COMPONENT or PLATING
+    - Combat supply chain v0: inputs -> MISSILE_AMMO or REPAIR_KIT
+  - Determinism requirements:
+    - stable IDs for all catalog entries
+    - deterministic load ordering
+    - validator outputs have no timestamps and stable sorting
+  - Evidence:
+    - `SimCore.Tests/Content/ContentRegistryContractTests.cs` expanded to assert required IDs exist and schema invariants hold
+    - `docs/generated/content_pack_validation_report_v0.txt` remains byte-for-byte stable across reruns
+  - Failure mode (must be explainable):
+    - “module unavailable” or “recipe blocked” surfaces missing prerequisite (permit, research, missing intermediate)
+  - Intervention verbs:
+    - Discoveries: run analysis step
+    - Industry: queue refit
+
+- EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero module slot model v0 + fleet capability packages, all content-driven (gates: GATE.S4.MODULE_MODEL.*)
+  - Hero ship:
+    - slot families v0 must include: Weapons, Defense, Power, Sensors, Utility (you may add Cargo%Drive later)
+    - modules declare slot family, tags, and capability effects (no hardcoded “if weapon == X” logic)
+  - Fleets:
+    - remain capacity pools; capabilities are packages (tag bundles), never per-ship fitting
+    - packages declare capability tags and sustain requirements (goods/day or periodic consumption)
+  - Determinism requirements:
+    - deterministic tie-breaks for target selection and hit resolution (stable ordering by entity id)
+    - save%load preserves installed hero modules and fleet packages exactly
+  - Evidence:
+    - new or expanded contract tests asserting slot compatibility and package application determinism
+    - a minimal station refit UI readout exists (even if ugly) showing installed modules and why a module cannot be installed
+  - Failure mode (must be explainable):
+    - incompatible module install attempt surfaces specific reason (missing slot, missing prereq, restricted)
+  - Intervention verbs:
+    - Industry: queue refit
 - EPIC.S4.UI_INDU [TODO]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
 - EPIC.S4.NPC_INDU [TODO]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
 - EPIC.S4.PERF_BUDGET [TODO]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
@@ -540,9 +611,29 @@ Default coupling rule (until overridden by an explicit gate):
 - Strategic warfront outcomes primarily move via: supply delivery and the strategic resolver
 - If local combat creates strategic impact, it must be via explicit events and bounded effects (no continuous hidden coupling)
 
+v0 scope (LOCK ONCE SLICE 5 STARTS):
+- Local combat is real-time and playable in the existing `Playable_Prototype` loop (fly%undock%dock remains functional)
+- Docked state disables weapons and prevents input conflicts
+- 1v1 encounter is mandatory proof: player ship vs 1 enemy ship
+- Both ships have: shields, hull, shield regen rules, death state, HUD readout
+- Weapons v0 are non-aimed:
+  - Turrets: auto-target within range (deterministic tie-breaks)
+  - Missiles: lock-on at launch with deterministic guidance
+- Counter family v0: pick exactly 1 (Point Defense or ECM)
+- Deterministic replay is mandatory:
+  - Record input stream + RNG stream ids
+  - Replay produces identical end state for the same inputs
+  - Proof exists as a GameShell test (add a new `scripts/tests/test_combat_replay_v0.gd` if needed)
+
 Epics:
 - EPIC.S5.SECURITY_LANES [TODO]: Risk, delay, inspections, insurance sinks, lane regimes (gates: GATE.S5.SECURITY_LANES.*)
-- EPIC.S5.COMBAT_LOCAL [TODO]: Hero ship turret%missile combat in-bubble, deterministic input replay (gates: GATE.S5.COMBAT_LOCAL.*)
+- EPIC.S5.COMBAT_LOCAL [TODO]: Hero ship real-time combat v0 (Starcom-like) with shields%hull and non-aimed weapons (turrets, missiles), deterministic replay, and “why we lost” explainability (gates: GATE.S5.COMBAT_LOCAL.*)
+  - Must not require manual aiming for baseline effectiveness (turret targeting is primary)
+  - Evidence: deterministic combat replay proof as part of GameShell test suite
+  - Failure mode: player loss produces a cause chain (damage timeline + missing counter) and 1 to 2 suggested actions
+  - Intervention verbs:
+    - Industry: queue refit
+    - Programs: change doctrine toggle (when escort doctrine exists)
 - EPIC.S5.COMBAT_RESOLVE [TODO]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
 - EPIC.S5.ESCORT_PROG [TODO]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
 - EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)

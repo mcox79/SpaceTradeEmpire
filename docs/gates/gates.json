@@ -42,46 +42,6 @@
                                                    "note":  "Avoid adding new UI panels outside StationMenu without a separate UI gate"
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S4.PERF_BUDGET.001",
-                      "task_id":  "GATE.S4.PERF_BUDGET.001.T010",
-                      "status":  "TODO",
-                      "title":  "GATE.S4.PERF_BUDGET.001: Perf budget v0 for Slice 4",
-                      "intent":  "Deterministic scenario runs N ticks with industry%construction active and enforces budget_ms_per_tick with deterministic report.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "SimCore/SimKernel.cs",
-                                             "SimCore/Systems/IndustrySystem.cs",
-                                             "docs/20_TESTING_AND_DETERMINISM.md",
-                                             "docs/generated/repo_health_report_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Scenario setup deterministic (no randomness beyond seeded)",
-                                          "Report formatting stable (no timestamps)",
-                                          "Test FAILs deterministically when budget exceeded"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Add budget measurement test with explicit scenario load check",
-                                              "Emit deterministic report that includes N ticks and observed ms_per_tick"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
-                                             "candidate_key_sha256=6588c04366e2"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If measurements are noisy, measure over a fixed window and keep environment-dependent effects out of thresholds"
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Reduce per-tick work or tighten ordering before expanding Slice 4 scope"
-                                               }
-                                           ]
                   }
               ]
 }

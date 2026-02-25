@@ -41,9 +41,23 @@ public class LongRunWorldHashTests
     // budget_ms_per_tick: generous v0 to reduce CI flakiness; tighten later with data.
     private const double PerfBudgetMsPerTick = 50.0;
 
+    // Gate: GATE.S4.PERF_BUDGET.001 (Slice 4 perf budget v0)
+    // Fixed scenario + fixed measurement window with industry%construction active.
+    private const int PerfBudgetSlice4Seed = 434343;
+    private const int PerfBudgetSlice4Ticks = 800;
+    private const int PerfBudgetSlice4MeasureWindowTicks = 400;
+
+    // budget_ms_per_tick: generous v0 to reduce CI flakiness; tighten later with data.
+    private const double PerfBudgetSlice4MsPerTick = 75.0;
+
     // Scenario load requirements (best-effort validation via reflection to avoid type coupling).
     private const int PerfMinFleets = 50;
     private const int PerfMinActiveTransfers = 200;
+
+    // Slice 4 scenario load requirements: must exercise industry + construction.
+    private const int PerfMinIndustrySites = 1;
+    private const int PerfMinConstructionEnabledSites = 1;
+    private const int PerfMinIndustryBuildStates = 1;
 
     [Category("Closeout")]
     [Test]
@@ -55,7 +69,13 @@ public class LongRunWorldHashTests
         GalaxyGenerator.Generate(sim.State, 60, 200f);
 
         // Run full scenario, measuring last window ticks only.
-        var result = RunPerfBudgetScenario(sim, PerfBudgetTicks, PerfBudgetMeasureWindowTicks);
+        var result = RunPerfBudgetScenario(
+            sim,
+            seed: PerfBudgetSeed,
+            totalTicks: PerfBudgetTicks,
+            measureWindowTicks: PerfBudgetMeasureWindowTicks,
+            budgetMsPerTick: PerfBudgetMsPerTick,
+            ensureLoadDeterministic: null);
 
         // Validate scenario intensity (non-negotiable contract for this gate).
         Assert.That(
@@ -75,6 +95,50 @@ public class LongRunWorldHashTests
 
         // Enforce threshold.
         EnforcePerfBudgetOrFail(result.AvgMsPerTick, PerfBudgetMsPerTick, result);
+    }
+
+    [Category("Closeout")]
+    [Test]
+    public void PerfBudget_Slice4_V0_AverageTickTime_WithinBudget_And_ReportDeterministic()
+    {
+        var sim = new SimKernel(PerfBudgetSlice4Seed);
+
+        // Deterministic map generation.
+        GalaxyGenerator.Generate(sim.State, 60, 200f);
+
+        // Run full scenario, measuring last window ticks only, ensuring industry%construction are active.
+        var result = RunPerfBudgetScenario(
+            sim,
+            seed: PerfBudgetSlice4Seed,
+            totalTicks: PerfBudgetSlice4Ticks,
+            measureWindowTicks: PerfBudgetSlice4MeasureWindowTicks,
+            budgetMsPerTick: PerfBudgetSlice4MsPerTick,
+            ensureLoadDeterministic: EnsureIndustryAndConstructionLoadForPerfBudget);
+
+        // Validate scenario intensity (non-negotiable contract for this gate).
+        Assert.That(
+            result.IndustrySiteCount,
+            Is.GreaterThanOrEqualTo(PerfMinIndustrySites),
+            $"PerfBudget Slice4 scenario under-loaded: industry_sites={result.IndustrySiteCount} < {PerfMinIndustrySites}. " +
+            "If this regresses, adjust deterministic scenario construction so industry sites exist in sufficient count.");
+
+        Assert.That(
+            result.ConstructionEnabledSiteCount,
+            Is.GreaterThanOrEqualTo(PerfMinConstructionEnabledSites),
+            $"PerfBudget Slice4 scenario under-loaded: construction_enabled_sites={result.ConstructionEnabledSiteCount} < {PerfMinConstructionEnabledSites}. " +
+            "If this regresses, adjust deterministic scenario construction so construction is enabled for at least one site.");
+
+        Assert.That(
+            result.IndustryBuildStateCount,
+            Is.GreaterThanOrEqualTo(PerfMinIndustryBuildStates),
+            $"PerfBudget Slice4 scenario under-loaded: industry_build_states={result.IndustryBuildStateCount} < {PerfMinIndustryBuildStates}. " +
+            "If this regresses, adjust deterministic scenario construction so construction build state is created and active.");
+
+        // Emit deterministic report (structure, ordering, formatting).
+        EmitPerfReport(result);
+
+        // Enforce threshold.
+        EnforcePerfBudgetOrFail(result.AvgMsPerTick, result.BudgetMsPerTick, result);
     }
 
     [Test]
@@ -952,13 +1016,22 @@ public class LongRunWorldHashTests
         }
     }
 
-    private static PerfBudgetResult RunPerfBudgetScenario(SimKernel sim, int totalTicks, int measureWindowTicks)
+    private static PerfBudgetResult RunPerfBudgetScenario(
+        SimKernel sim,
+        int seed,
+        int totalTicks,
+        int measureWindowTicks,
+        double budgetMsPerTick,
+        Action<SimState>? ensureLoadDeterministic)
     {
         if (totalTicks <= 0) throw new ArgumentOutOfRangeException(nameof(totalTicks));
         if (measureWindowTicks <= 0 || measureWindowTicks > totalTicks) throw new ArgumentOutOfRangeException(nameof(measureWindowTicks));
 
         // Warm-up ticks are the leading ticks not included in timing.
         int warmupTicks = totalTicks - measureWindowTicks;
+
+        // Scenario-specific deterministic setup (Slice 4 uses this to ensure industry%construction are active).
+        ensureLoadDeterministic?.Invoke(sim.State);
 
         // Ensure the scenario is actually loaded with transfers.
         // In this codebase, "active transfers" are represented by SimState.InFlightTransfers.
@@ -972,7 +1045,10 @@ public class LongRunWorldHashTests
             sim.Step();
         }
 
-        // Top up again so the measured window begins with the required load.
+        // Re-apply deterministic setup so the measured window begins with the required load.
+        ensureLoadDeterministic?.Invoke(sim.State);
+
+        // Top up again so the measured window begins with the required transfer load.
         EnsureSyntheticInFlightTransfers(sim.State, PerfMinActiveTransfers);
 
         // Snapshot counts right before measurement window (so report is tied to measured state).
@@ -989,11 +1065,38 @@ public class LongRunWorldHashTests
             exactNames: new[] { "Transfers", "LogisticsTransfers", "InFlightTransfers", "LaneTransfers", "LaneFlows" },
             nameContainsTokens: new[] { "Transfer", "Transfers", "InFlight", "Flow" });
 
+        int industryBuildStates = GetBestCountAcross(
+            roots,
+            exactNames: new[] { "IndustryBuildStates", "IndustryBuildStateBySiteId", "IndustryBuildStateById", "BuildStates" },
+            nameContainsTokens: new[] { "IndustryBuild", "BuildState" });
+
+        int industrySites = 0;
+        int constructionEnabledSites = 0;
+
+        try
+        {
+            var sites = sim.State.IndustrySites;
+            if (sites != null)
+            {
+                industrySites = sites.Count;
+                foreach (var kv in sites.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    var s = kv.Value;
+                    if (s == null) continue;
+                    if (s.ConstructionEnabled) constructionEnabledSites++;
+                }
+            }
+        }
+        catch
+        {
+            industrySites = 0;
+            constructionEnabledSites = 0;
+        }
 
         bool perfDiag = string.Equals(
-    Environment.GetEnvironmentVariable("STE_PERF_DIAG"),
-    "1",
-    StringComparison.Ordinal);
+            Environment.GetEnvironmentVariable("STE_PERF_DIAG"),
+            "1",
+            StringComparison.Ordinal);
 
         int gc0Before = 0, gc1Before = 0, gc2Before = 0;
         long allocBefore = 0;
@@ -1038,7 +1141,6 @@ public class LongRunWorldHashTests
         }
         sw.Stop();
 
-
         if (perfDiag)
         {
             int gc0After = GC.CollectionCount(0);
@@ -1051,18 +1153,68 @@ public class LongRunWorldHashTests
                 $"PERF_DIAG gc0_delta={gc0After - gc0Before} gc1_delta={gc1After - gc1Before} gc2_delta={gc2After - gc2Before} alloc_bytes_delta={allocAfter - allocBefore}");
         }
 
-
         double totalMs = sw.Elapsed.TotalMilliseconds;
         double avgMs = totalMs / measureWindowTicks;
 
         return new PerfBudgetResult(
-            PerfBudgetSeed,
+            seed,
             totalTicks,
             measureWindowTicks,
+            budgetMsPerTick,
             fleetCount,
             activeTransfers,
+            industrySites,
+            constructionEnabledSites,
+            industryBuildStates,
             totalMs,
             avgMs);
+    }
+
+    private static void EnsureIndustryAndConstructionLoadForPerfBudget(SimState state)
+    {
+        if (state is null) return;
+
+        // Deterministic selection: enable construction on the first site by ordinal site id.
+        // This is deliberately minimal and does not rely on emergent gameplay.
+        string? siteId = null;
+        try
+        {
+            foreach (var kv in state.IndustrySites.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (kv.Value == null) continue;
+                siteId = kv.Key;
+                break;
+            }
+
+            if (siteId == null) return;
+
+            var site = state.IndustrySites[siteId];
+            if (site == null) return;
+
+            site.Active = true;
+            site.ConstructionEnabled = true;
+
+            if (string.IsNullOrWhiteSpace(site.NodeId)) return;
+            if (!state.Markets.TryGetValue(site.NodeId, out var market)) return;
+
+            // Seed construction inputs deterministically using tweak-defined goods%quantities.
+            // Enough quantity to allow stage start and at least one completion during the warmup%measurement.
+            var in0Good = SimCore.Tweaks.IndustryTweaksV0.Stage0InGood;
+            var in0Qty = SimCore.Tweaks.IndustryTweaksV0.Stage0InQty;
+
+            var in1Good = SimCore.Tweaks.IndustryTweaksV0.Stage1InGood;
+            var in1Qty = SimCore.Tweaks.IndustryTweaksV0.Stage1InQty;
+
+            if (!market.Inventory.ContainsKey(in0Good)) market.Inventory[in0Good] = 0;
+            market.Inventory[in0Good] = checked(market.Inventory[in0Good] + (in0Qty * 10));
+
+            if (!market.Inventory.ContainsKey(in1Good)) market.Inventory[in1Good] = 0;
+            market.Inventory[in1Good] = checked(market.Inventory[in1Good] + (in1Qty * 10));
+        }
+        catch
+        {
+            // Perf harness must never throw during setup; failures are caught by explicit scenario load asserts.
+        }
     }
 
     private static int GetBestCountAcross(object[] roots, string[] exactNames, string[] nameContainsTokens)
@@ -1317,9 +1469,12 @@ public class LongRunWorldHashTests
         TestContext.Out.WriteLine($"seed={r.Seed}");
         TestContext.Out.WriteLine($"ticks_total={r.TotalTicks}");
         TestContext.Out.WriteLine($"ticks_measured={r.MeasuredTicks}");
+        TestContext.Out.WriteLine($"budget_ms_per_tick={r.BudgetMsPerTick.ToString("0.###", CultureInfo.InvariantCulture)}");
         TestContext.Out.WriteLine($"fleets={r.FleetCount}");
         TestContext.Out.WriteLine($"active_transfers={r.ActiveTransferCount}");
-        TestContext.Out.WriteLine($"budget_ms_per_tick={PerfBudgetMsPerTick.ToString("0.###", CultureInfo.InvariantCulture)}");
+        TestContext.Out.WriteLine($"industry_sites={r.IndustrySiteCount}");
+        TestContext.Out.WriteLine($"construction_enabled_sites={r.ConstructionEnabledSiteCount}");
+        TestContext.Out.WriteLine($"industry_build_states={r.IndustryBuildStateCount}");
         TestContext.Out.WriteLine($"total_ms_measured={r.TotalMsMeasured.ToString("0.###", CultureInfo.InvariantCulture)}");
         TestContext.Out.WriteLine($"avg_ms_per_tick={r.AvgMsPerTick.ToString("0.###", CultureInfo.InvariantCulture)}");
     }
@@ -1340,7 +1495,8 @@ public class LongRunWorldHashTests
                 Assert.Fail(
                     $"PerfBudget exceeded: avg_ms_per_tick={avgMsPerTick.ToString("0.###", CultureInfo.InvariantCulture)} " +
                     $"> budget_ms_per_tick={budgetMsPerTick.ToString("0.###", CultureInfo.InvariantCulture)}; " +
-                    $"seed={d.Seed}; ticks_measured={d.MeasuredTicks}; fleets={d.FleetCount}; active_transfers={d.ActiveTransferCount}");
+                    $"seed={d.Seed}; ticks_measured={d.MeasuredTicks}; fleets={d.FleetCount}; active_transfers={d.ActiveTransferCount}; " +
+                    $"industry_sites={d.IndustrySiteCount}; construction_enabled_sites={d.ConstructionEnabledSiteCount}; industry_build_states={d.IndustryBuildStateCount}");
             }
             else
             {
@@ -1355,8 +1511,12 @@ public class LongRunWorldHashTests
         int Seed,
         int TotalTicks,
         int MeasuredTicks,
+        double BudgetMsPerTick,
         int FleetCount,
         int ActiveTransferCount,
+        int IndustrySiteCount,
+        int ConstructionEnabledSiteCount,
+        int IndustryBuildStateCount,
         double TotalMsMeasured,
         double AvgMsPerTick);
 
