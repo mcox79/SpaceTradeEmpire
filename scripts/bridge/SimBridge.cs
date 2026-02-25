@@ -679,6 +679,7 @@ public partial class SimBridge : Node
             };
 
             // GATE.S4.INDU.MIN_LOOP.001: attach minimal construction readout (if present).
+            // GATE.S4.UI_INDU.001: also emit deterministic why-blocked chain and next-actions (Facts-only).
             if (state.IndustryBuilds != null &&
                 !string.IsNullOrWhiteSpace(s.SiteId) &&
                 state.IndustryBuilds.TryGetValue(s.SiteId, out var b) &&
@@ -691,6 +692,117 @@ public partial class SimBridge : Node
                 d["build_ticks_remaining"] = b.StageTicksRemaining;
                 d["build_blocker"] = b.BlockerReason ?? "";
                 d["build_suggested_action"] = b.SuggestedAction ?? "";
+
+                // Deterministic: arrays emitted in a single stable order (at most one entry each in v0).
+                var whyChain = new Godot.Collections.Array();
+                var nextActions = new Godot.Collections.Array();
+
+                var stageName = (b.StageName ?? "");
+                var ticksRemaining = b.StageTicksRemaining;
+                var blocker = (b.BlockerReason ?? "");
+                var suggested = (b.SuggestedAction ?? "");
+
+                // Build why-blocked chain from the existing deterministic blocker format.
+                // Current v0 blocker format (IndustrySystem): "missing_input good=... need=... have=..."
+                if (!string.IsNullOrWhiteSpace(blocker))
+                {
+                    var token = "";
+                    var rest = blocker;
+
+                    var sp = blocker.IndexOf(' ');
+                    if (sp > 0)
+                    {
+                        token = blocker.Substring(0, sp);
+                        rest = blocker.Substring(sp + 1);
+                    }
+                    else
+                    {
+                        token = blocker;
+                        rest = "";
+                    }
+
+                    string goodId = "";
+                    int need = 0;
+                    int have = 0;
+
+                    if (!string.IsNullOrWhiteSpace(rest))
+                    {
+                        var parts = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var p in parts)
+                        {
+                            var eq = p.IndexOf('=');
+                            if (eq <= 0) continue;
+
+                            var k = p.Substring(0, eq);
+                            var v = p.Substring(eq + 1);
+
+                            if (string.Equals(k, "good", StringComparison.Ordinal)) goodId = v;
+                            else if (string.Equals(k, "need", StringComparison.Ordinal) && int.TryParse(v, out var n)) need = n;
+                            else if (string.Equals(k, "have", StringComparison.Ordinal) && int.TryParse(v, out var h)) have = h;
+                        }
+                    }
+
+                    var wd = new Godot.Collections.Dictionary
+                    {
+                        ["token"] = token,
+                        ["stage_name"] = stageName,
+                        ["good_id"] = goodId,
+                        ["need_units"] = need,
+                        ["have_units"] = have,
+                    };
+                    whyChain.Add(wd);
+
+                    // Next action derived deterministically from the blocker payload.
+                    if (string.Equals(token, "missing_input", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(goodId))
+                    {
+                        var missing = need - have;
+                        if (missing < 0) missing = 0;
+
+                        var ad = new Godot.Collections.Dictionary
+                        {
+                            ["token"] = "acquire_input",
+                            ["stage_name"] = stageName,
+                            ["good_id"] = goodId,
+                            ["qty_units"] = missing,
+                        };
+                        nextActions.Add(ad);
+                    }
+                }
+                else
+                {
+                    // Not blocked: provide a deterministic next-action hint for UI.
+                    if (ticksRemaining > 0)
+                    {
+                        nextActions.Add(new Godot.Collections.Dictionary
+                        {
+                            ["token"] = "wait",
+                            ["stage_name"] = stageName,
+                            ["ticks_remaining"] = ticksRemaining,
+                        });
+                    }
+                    else if (!string.IsNullOrWhiteSpace(stageName))
+                    {
+                        nextActions.Add(new Godot.Collections.Dictionary
+                        {
+                            ["token"] = "start_stage",
+                            ["stage_name"] = stageName,
+                        });
+                    }
+                }
+
+                // If IndustrySystem provided a suggested action string, surface it as an informational hint
+                // without parsing assumptions beyond stable passthrough.
+                if (!string.IsNullOrWhiteSpace(suggested))
+                {
+                    nextActions.Add(new Godot.Collections.Dictionary
+                    {
+                        ["token"] = "hint",
+                        ["text"] = suggested,
+                    });
+                }
+
+                d["why_blocked_chain"] = whyChain;
+                d["next_actions"] = nextActions;
             }
             else
             {
@@ -701,6 +813,9 @@ public partial class SimBridge : Node
                 d["build_ticks_remaining"] = 0;
                 d["build_blocker"] = "";
                 d["build_suggested_action"] = "";
+
+                d["why_blocked_chain"] = new Godot.Collections.Array();
+                d["next_actions"] = new Godot.Collections.Array();
             }
 
             var inputsArr = new Godot.Collections.Array();

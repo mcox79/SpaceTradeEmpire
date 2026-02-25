@@ -45,7 +45,14 @@ Primary anchors:
 - EPIC.S3_5.PACK_VALIDATION_REPORT.V0 [DONE]: Deterministic validation report with stable ordering and nonzero exit on invalid packs (gates: GATE.S3_5.CONTENT_SUBSTRATE.002)
 - EPIC.S3_5.WORLD_BINDING.V0 [DONE]: World identity binds pack digest and persists through save%load; repro surface includes pack id%version (gates: GATE.S3_5.CONTENT_SUBSTRATE.003)
 - EPIC.S3_5.HARDCODE_GUARD.V0 [DONE]: Deterministic scan or contract test flags new hardcoded content IDs in systems that must be data-driven; violations sorted and reproducible (gates: GATE.S3_5.CONTENT_SUBSTRATE.004)
-
+- EPIC.S2_5.WGEN.DISCOVERY_SEEDING.V0 [TODO]: Deterministic seeding of anomaly families, corridor traces, and resource pool markers with per-seed-class guarantees (gates: GATE.S2_5.WGEN.DISCOVERY_SEEDING.*)
+- EPIC.S3_6.DISCOVERY_STATE.V0 [TODO]: Minimal discovery state v0 (seen%scanned%analyzed) + deterministic persistence (gates: GATE.S3_6.DISCOVERY_STATE.*)
+- EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [TODO]: Unlock contract v0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) with explicit economic effects (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
+- EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [TODO]: Exploitation packages v0 (TradeCharter, ResourceTap) with remote exception policies and deterministic reporting (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
+- EPIC.S3_6.PLAY_LOOP_PROOF.V0 [TODO]: Headless proof of discover -> hub return -> unlock -> deploy package -> keep exploring (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
+- EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
+- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
+- EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
 - EPIC.S4.CATALOG.V0 [TODO]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
 - EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
 - EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof) (gates: GATE.S5.COMBAT_LOCAL.*)
@@ -66,8 +73,11 @@ Epics:
 Greatness spec (non-negotiables, enforced by gates over time):
 - Every major failure has an explainable cause chain surfaced in UI
 - Every seed guarantees early viability (>= 3 viable early trade loops) and reachability (paths exist to industry, exploration, factions, endgame)
-- Player forward momentum: primary loop biases toward new places; backtracking is optional and primarily for upside, not required to keep automation alive
-- Every major discovery introduces a new strategic option, not only numeric upgrades
+- Exploration-first momentum: most player travel is frontier expansion or intentional hub returns (repair%refit%research%upgrade), not logistics babysitting
+- No rescue treadmill: automation disruptions default to remote policy resolution; travel-required stabilization is disallowed as mandatory progression; optional travel requires upside (unique unlock, permanent leverage, major payout, frontier access)
+- Every major discovery introduces a new strategic option (unlock contracts), not only numeric upgrades
+- Discoveries must unlock economic leverage via explicit unlock contracts (permits, brokers, recipes, site blueprints, corridor access, sensor layers)
+- Fracture is a high-cost leverage tool, not a bulk replacement for lanes; lanes remain the empire backbone
 - Warfront outcomes persist and reshape lane regimes, not just prices
 - Automation feels competent: predictable, diagnosable, tunable (not dice)
 - Explainability always maps to player actions (intervention verbs)
@@ -125,6 +135,23 @@ Event schema requirements (all events):
 Acceptance proof:
 - Each new epic emits at least 1 new event that appears in an incident timeline
 - Each slice has at least 1 failure mode with a traversable cause chain
+
+#### CONTRACT.X.EXPLORATION_MOMENTUM
+Purpose: Keep exploration and lore discovery as the primary player focus while automation runs the empire behind the player.
+
+Rules:
+- Default loop biases player time toward frontier exploration plus periodic intentional hub returns for repair%refit%research%upgrade
+- Automation disruptions must always present at least 1 remote intervention verb that resolves or contains the problem (reroute, pay fee, throttle, insure, substitute inputs, pause, accept degraded throughput)
+- Travel-required stabilization of automation is disallowed as mandatory progression
+- Travel interventions are allowed when OPTIONAL and justified by upside (unique unlock, permanent leverage, major payout, frontier access)
+- “Rescue freighter” interventions must not be a dominant pattern; if present, they must be forward-directed (securing a frontier corridor ahead), not backward-directed (fixing old routes)
+
+Acceptance proof:
+- A headless scenario pack run demonstrates:
+  - >= 2 frontier discoveries and >= 1 hub return
+  - >= 1 exploitation package deployed that continues producing value while player explores
+  - >= 2 automation disruptions resolved via remote policy verbs (no mandatory travel)
+- Emits docs/generated/exploration_momentum_proof_v0.txt (deterministic, no timestamps, stable ordering)
 
 #### CONTRACT.X.UI_INFORMATION_ARCHITECTURE
 This is about data organization, not layout. Pages are stable even if UI layout changes.
@@ -311,6 +338,7 @@ Wave requirements (minimums, numbers are [TBD] but the existence is mandatory):
 - Slice 2: 1 program type (TradeProgram), 1 doctrine stub, 1 quote flow, 1 failure reason surfaced
 - Slice 2.5: >= 3 world classes (CORE, FRONTIER, RIM), 3 to 5 factions, seed suite produces distinct early loops and onboarding validity
 - Slice 3: 3 fleet roles (trader%hauler%patrol), multi-route choices, 1 congestion scenario, 1 bottleneck fix visible in UI, headless playable trade loop proof (incl save%load)
+- Slice 3.6: >= 2 discovery families, >= 1 unlock (Broker or Permit), deploy >= 1 exploitation package, resolve >= 2 automation exceptions remotely, emit deterministic proof report (no timestamps)
 - Slice 4: Starter Catalog v0 shipped via content packs (goods%recipes%modules%weapons) plus:
   - 1 reverse-engineer chain (lead -> prototype -> manufacturable unlock)
   - 1 named manufacturing chain v0 (example: ORE -> INGOT -> HULL_PLATING)
@@ -321,7 +349,7 @@ Wave requirements (minimums, numbers are [TBD] but the existence is mandatory):
   - 1 escort doctrine (policy-driven)
   - 1 strategic resolver scenario (deterministic)
   - 1 deterministic combat replay proof (same input stream => identical end state)
-- Slice 6: >= 5 anomaly families, 1 extinct-tech lead family, 1 containment failure mode with counterplay
+- Slice 6: >= 5 anomaly families, 1 extinct-tech lead family, 1 containment failure mode with counterplay, 1 layered reveal tech that changes interpretation of an existing discovery
 - Slice 7: >= 2 warfront theater types, 1 territory regime flip, 1 faction-unique tech gate
 - Slice 8: >= 2 policing phases, >= 1 megaproject chain, >= 2 win scenarios wired into state machine
 - Slice 9: final content expansion within locked constraints + balance targets
@@ -481,6 +509,7 @@ Epics:
 - EPIC.S2_5.SEEDS [DONE]: Seed plumbing everywhere (world, save/load, tests, tools) (gates: GATE.S2_5.SEEDS.*)
 - EPIC.S2_5.WGEN.GALAXY.V0 [DONE]: Topology, lanes, chokepoints, capacities, regimes; starter safe region (gates: GATE.S2_5.WGEN.GALAXY.001)
 - EPIC.S2_5.WGEN.ECON.V0 [DONE]: Role distribution, recipe placement, demand sinks, initial inventories; early loop guarantees (gates: GATE.S2_5.WGEN.ECON.001)
+- EPIC.S2_5.WGEN.DISCOVERY_SEEDING.V0 [TODO]: Deterministic seeding of anomaly families, corridor traces, and resource pool markers; guarantees at least 1 frontier discovery chain and 1 monetizable resource opportunity per seed class (CORE%FRONTIER%RIM) (gates: GATE.S2_5.WGEN.DISCOVERY_SEEDING.*)
 - EPIC.S2_5.WGEN.FACTION.V0 [DONE]: 3 to 5 factions, home regions, doctrines, initial relations (gates: GATE.S2_5.WGEN.FACTION.001)
 - EPIC.S2_5.WGEN.WORLD_CLASSES.V0 [DONE]: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier) (gates: GATE.S2_5.WGEN.WORLD_CLASSES.001)
 - EPIC.S2_5.WGEN.INVARIANTS [DONE]: Connectivity, early viability, reachability, onboarding invariants (gates: GATE.S2_5.WGEN.INVARIANTS.001)
@@ -521,6 +550,31 @@ Epics:
 - EPIC.S3_5.CONTENT_SUBSTRATE.V0 [DONE]: Registries + schema loading + validation + deterministic ordering%IDs for authored packs (gates: GATE.X.CONTENT_SUBSTRATE.*)
 
 Status: DONE
+
+---
+
+### Slice 3.6: Exploration minimum loop and exploitation templates
+Purpose: Prove the core loop early: discover -> (optional hub return) -> unlock leverage -> deploy template -> keep exploring.
+
+Epics:
+- EPIC.S3_6.DISCOVERY_STATE.V0 [TODO]: Minimal discovery state v0 (seen%scanned%analyzed), bookmarking, deterministic persistence and UI surfacing (gates: GATE.S3_6.DISCOVERY_STATE.*)
+- EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [TODO]: Schema-bound unlocks with stable IDs and world-binding:
+  - Unlock types: Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer
+  - Each unlock declares explicit effects on: markets, authorities, programs, industry eligibility
+  - Unlock acquisition verbs: scan, analyze at hub, complete expedition step, trade with contact (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
+- EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [TODO]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
+- EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [TODO]: Template-driven exploitation packages deployed from unlocks and designed to run on lanes by default:
+  - TradeCharter v0: buy%sell bands, stockpile targets, route constraints, risk posture
+  - ResourceTap v0: extract -> refine -> export loop with buffers and substitution policies
+  - Packages must support remote exception policies (pause, reroute, substitute, insure, pay fee, throttle) (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
+- EPIC.S3_6.UI_DISCOVERY_MIN.V0 [TODO]: Discovery UI v0 + unlock surfaces + “deploy package” controls; shows deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
+- EPIC.S3_6.PLAY_LOOP_PROOF.V0 [TODO]: Headless playable proof of exploration-first economy:
+  - Player discovers 2 sites, unlocks 1 leverage, deploys 1 package, performs 1 hub return (refit%analysis), continues exploring
+  - Automation generates revenue while player continues exploration
+  - >= 2 disruptions resolved via remote policy verbs (no mandatory rescue travel)
+  - Emits deterministic proof report (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
+
+Status: TODO
 
 ---
 
@@ -649,13 +703,23 @@ Status: TODO
 Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
-- EPIC.S6.MAP_GALAXY [TODO]: Navigation, discovery state, bookmarking, expedition planning (gates: GATE.S6.MAP_GALAXY.*)
+- EPIC.S6.MAP_GALAXY [TODO]: Navigation, discovery state, bookmarking, expedition planning (builds on Slice 3.6 discovery state%unlocks) (gates: GATE.S6.MAP_GALAXY.*)
 - EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
+- EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 that is expensive but worth it:
+  - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight
+  - Supports limited elite freighters with fracture, not mass fleet conversion
+  - Enables discovered shortcuts and frontier outposts to feed lane economy
+  - Integrates with exploitation packages and remote policy verbs (gates: GATE.S6.FRACTURE_COMMERCE.*)
+- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Scenario-pack invariants proving fracture does not replace lanes:
+  - Lane wins for bulk and routine freight under normal conditions
+  - Fracture wins only in defined niches and under defined frictions (tariffs, closures, extreme distance)
+  - Emits deterministic comparative report and hard-fails on drift (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.ANOMALY_ECOLOGY [TODO]: Procedural anomaly distribution with deterministic seeds and spatial logic (gates: GATE.S6.ANOMALY_ECOLOGY.*)
+- EPIC.S6.LAYERED_REVEALS.V0 [TODO]: New tech reveals new layers in previously discovered places (sensor layers, station secrets, anomaly phases) without creating mandatory maintenance travel (gates: GATE.S6.LAYERED_REVEALS.*)
 - EPIC.S6.DISCOVERY_OUTCOMES [TODO]: Persistent value outputs (intel, resources, artifacts, maps, leads) (gates: GATE.S6.DISCOVERY_OUTCOMES.*)
 - EPIC.S6.ARTIFACT_RESEARCH [TODO]: Identification, containment, experiments, failure modes (trace spikes, incidents) (gates: GATE.S6.ARTIFACT_RESEARCH.*)
 - EPIC.S6.TECH_LEADS [TODO]: Tech leads become prototype candidates, gated by science throughput (gates: GATE.S6.TECH_LEADS.*)
-- EPIC.S6.EXPEDITION_PROG [TODO]: Survey, salvage, escort exploration programs (gates: GATE.S6.EXPEDITION_PROG.*)
+- EPIC.S6.EXPEDITION_PROG [TODO]: Survey, salvage, multi-step expedition programs; escort optional (not a rescue treadmill) (gates: GATE.S6.EXPEDITION_PROG.*)
 - EPIC.S6.SCIENCE_CENTER [TODO]: Analysis throughput, reverse engineering gates, special material handling (gates: GATE.S6.SCIENCE_CENTER.*)
 - EPIC.S6.UI_DISCOVERY [TODO]: Anomaly catalog, hypothesis%verification UI, “next action to advance” hints (gates: GATE.S6.UI_DISCOVERY.*)
 - EPIC.S6.CLASS_DISCOVERY_PROFILES.V0 [TODO]: World class influences discovery families and outcomes (integrates Slice 2.5 classes with Slice 6) (gates: GATE.S6.CLASS_DISCOVERY_PROFILES.*)

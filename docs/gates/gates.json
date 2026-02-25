@@ -4,44 +4,5 @@
     "generated_utc":  "2026-02-23T17:21:33-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 039806d74b96a358de66d216defc6a9784f716bb",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S4.UI_INDU.001",
-                      "task_id":  "GATE.S4.UI_INDU.001.T009",
-                      "status":  "TODO",
-                      "title":  "GATE.S4.UI_INDU.001: Industry UI v0",
-                      "intent":  "Deterministic why-blocked chain and what-to-build-next suggestion surface for construction%industry using Facts%Events only.",
-                      "evidence_paths":  [
-                                             "scripts/ui/StationMenu.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Systems/IndustrySystem.cs",
-                                             "SimCore/Programs/ProgramSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "UI reads via SimBridge facts only (no direct SimCore access)",
-                                          "Deterministic ordering for lists and chains",
-                                          "No free-text reasons; schema-bound tokens only"
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
-                                              "Add SimBridge snapshot fields for why-blocked and next-actions",
-                                              "Render deterministic chain in StationMenu with stable ordering"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/ui/StationMenu.cs",
-                                             "candidate_key_sha256=ec24fc1fbb32"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If explanation is unclear, add explicit reason tokens and a chain structure in SimCore"
-                                               },
-                                               {
-                                                   "when":  "SCOPE_EXPANSION",
-                                                   "route":  "STEP_D",
-                                                   "note":  "Avoid adding new UI panels outside StationMenu without a separate UI gate"
-                                               }
-                                           ]
-                  }
               ]
 }
