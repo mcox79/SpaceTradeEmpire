@@ -353,6 +353,67 @@ public class LongRunWorldHashTests
         Assert.That(report1.Contains("VIOLATION|", StringComparison.Ordinal), Is.True);
     }
 
+    // Gate: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.001 (World class distinctness targets v0)
+    [Test]
+    public void WorldClassDistinctnessTargets_Report_V0_Passes_And_IsByteForByteStable()
+    {
+        const int n = 100;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int chokepointCapLe = 3;
+
+        var (pass1, report1) = GalaxyGenerator.BuildWorldClassDistinctnessTargetsReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null,
+            targets: null);
+
+        var (pass2, report2) = GalaxyGenerator.BuildWorldClassDistinctnessTargetsReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: null,
+            targets: null);
+
+        Assert.That(pass1, Is.True, "Distinctness targets v0 must pass on baseline config.");
+        Assert.That(pass2, Is.True);
+        Assert.That(report1, Is.EqualTo(report2), "Distinctness targets report must be byte-for-byte stable across runs.");
+        Assert.That(report1.Contains("WORLD_CLASS_DISTINCTNESS_TARGETS_V0", StringComparison.Ordinal), Is.True);
+        Assert.That(report1.Contains("result\tPASS", StringComparison.Ordinal), Is.True);
+    }
+
+    [Test]
+    public void WorldClassDistinctnessTargets_Report_V0_FailsWithSortedViolations_AndMetricDeltas()
+    {
+        const int n = 10;
+        const int starCount = 20;
+        const float radius = 100f;
+        const int chokepointCapLe = 3;
+
+        // Force all nodes to one class so ordering constraints are violated deterministically.
+        var opts = new GalaxyGenerator.GalaxyGenOptions
+        {
+            ForceAllNodesToWorldClassIndexV0 = 0,
+        };
+
+        var (pass, report) = GalaxyGenerator.BuildWorldClassDistinctnessTargetsReportV0(
+            n,
+            starCount,
+            radius,
+            chokepointCapLe,
+            options: opts,
+            targets: null);
+
+        Assert.That(pass, Is.False, "Targets guard must FAIL with forced single-class assignment.");
+        Assert.That(report.Contains("result\tFAIL", StringComparison.Ordinal), Is.True);
+        Assert.That(report.Contains("VIOLATIONS", StringComparison.Ordinal), Is.True);
+        Assert.That(report.Contains("V|Seed=", StringComparison.Ordinal), Is.True, "Violations must list violating seeds.");
+        Assert.That(report.Contains("|Delta=", StringComparison.Ordinal), Is.True, "Violations must include metric deltas.");
+    }
+
     private static string BuildWorldClassStatsReportV0_TestOnly(
         int n,
         int starCount,

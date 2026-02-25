@@ -1389,6 +1389,197 @@ public static class GalaxyGenerator
         return result;
     }
 
+    // GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.001: enforce distinctness targets v0 using report metrics.
+    // - Constraints are measurable inequalities over per-seed class stats (avg_radius2) and params (fee_multiplier ordering).
+    // - Violations list is deterministic: sort by Code (ordinal) then Seed (asc).
+    public sealed record WorldClassDistinctnessTargetsV0(
+        bool RequireRadius2Ordering);
+
+    public static WorldClassDistinctnessTargetsV0 GetWorldClassDistinctnessTargetsV0()
+        => new(RequireRadius2Ordering: true);
+
+    private readonly record struct WorldClassDistinctnessViolationV0(
+        int Seed,
+        string Code,
+        string Metric,
+        double Delta,
+        double Lhs,
+        double Rhs);
+
+    public static (bool Pass, string Report) BuildWorldClassDistinctnessTargetsReportV0(
+        int n,
+        int starCount,
+        float radius,
+        int chokepointCapLe,
+        GalaxyGenOptions? options = null,
+        WorldClassDistinctnessTargetsV0? targets = null)
+    {
+        if (n <= default(int)) throw new ArgumentOutOfRangeException(nameof(n), "n must be >= 1.");
+
+        options ??= new GalaxyGenOptions();
+        targets ??= GetWorldClassDistinctnessTargetsV0();
+
+        // Explicit stable class ids (do not infer from array position outside this file).
+        const string CORE = "CORE";
+        const string FRONTIER = "FRONTIER";
+        const string RIM = "RIM";
+
+        // Dominant constraints per class (measurable inequalities).
+        // - CORE: fee CORE < FRONTIER, and avg_radius2 CORE < FRONTIER
+        // - FRONTIER: avg_radius2 CORE < FRONTIER < RIM
+        // - RIM: fee FRONTIER < RIM, and avg_radius2 FRONTIER < RIM
+        var dominantByClass = new Dictionary<string, List<string>>(StringComparer.Ordinal)
+        {
+            [CORE] = new List<string> { "FEE_CORE_LT_FRONTIER", "R2_CORE_LT_FRONTIER" },
+            [FRONTIER] = new List<string> { "R2_CORE_LT_FRONTIER", "R2_FRONTIER_LT_RIM" },
+            [RIM] = new List<string> { "FEE_FRONTIER_LT_RIM", "R2_FRONTIER_LT_RIM" },
+        };
+
+        var violations = new List<WorldClassDistinctnessViolationV0>();
+
+        // Config sanity: at least one dominant constraint per class.
+        foreach (var cls in new[] { CORE, FRONTIER, RIM }.OrderBy(s => s, StringComparer.Ordinal))
+        {
+            if (!dominantByClass.TryGetValue(cls, out var list) || list.Count == default(int))
+            {
+                violations.Add(new WorldClassDistinctnessViolationV0(
+                    Seed: default(int),
+                    Code: "CONFIG_MISSING_DOMINANT_CONSTRAINT",
+                    Metric: "class",
+                    Delta: default(double),
+                    Lhs: default(double),
+                    Rhs: default(double)));
+            }
+        }
+
+        // Fee multiplier ordering targets (params): strict ordering without thresholds.
+        var feeById = WorldClassesV0.ToDictionary(c => c.WorldClassId, c => (double)c.FeeMultiplier, StringComparer.Ordinal);
+
+        var feeCore = feeById[CORE];
+        var feeFrontier = feeById[FRONTIER];
+        var feeRim = feeById[RIM];
+
+        var feeDeltaCF = feeFrontier - feeCore;
+        if (!(feeCore < feeFrontier))
+        {
+            violations.Add(new WorldClassDistinctnessViolationV0(
+                Seed: default(int),
+                Code: "FEE_CORE_NOT_LT_FRONTIER",
+                Metric: "fee_multiplier",
+                Delta: feeDeltaCF,
+                Lhs: feeCore,
+                Rhs: feeFrontier));
+        }
+
+        var feeDeltaFR = feeRim - feeFrontier;
+        if (!(feeFrontier < feeRim))
+        {
+            violations.Add(new WorldClassDistinctnessViolationV0(
+                Seed: default(int),
+                Code: "FEE_FRONTIER_NOT_LT_RIM",
+                Metric: "fee_multiplier",
+                Delta: feeDeltaFR,
+                Lhs: feeFrontier,
+                Rhs: feeRim));
+        }
+
+        // Per-seed structural targets (report metrics).
+        if (targets.RequireRadius2Ordering)
+        {
+            var seed = default(int);
+            while (seed < n)
+            {
+                seed++;
+
+                var sim = new SimCore.SimKernel(seed);
+                Generate(sim.State, starCount, radius, options);
+
+                var stats = ComputeWorldClassStatsV0(sim.State, chokepointCapLe, options);
+
+                var coreR2 = stats[CORE].AvgRadius2;
+                var frontierR2 = stats[FRONTIER].AvgRadius2;
+                var rimR2 = stats[RIM].AvgRadius2;
+
+                var dCF = frontierR2 - coreR2;
+                if (!(coreR2 < frontierR2))
+                {
+                    violations.Add(new WorldClassDistinctnessViolationV0(
+                        Seed: seed,
+                        Code: "R2_CORE_NOT_LT_FRONTIER",
+                        Metric: "avg_radius2",
+                        Delta: dCF,
+                        Lhs: coreR2,
+                        Rhs: frontierR2));
+                }
+
+                var dFR = rimR2 - frontierR2;
+                if (!(frontierR2 < rimR2))
+                {
+                    violations.Add(new WorldClassDistinctnessViolationV0(
+                        Seed: seed,
+                        Code: "R2_FRONTIER_NOT_LT_RIM",
+                        Metric: "avg_radius2",
+                        Delta: dFR,
+                        Lhs: frontierR2,
+                        Rhs: rimR2));
+                }
+            }
+        }
+
+        violations.Sort((a, b) =>
+        {
+            int c = string.CompareOrdinal(a.Code, b.Code);
+            if (c != 0) return c;
+            return a.Seed.CompareTo(b.Seed);
+        });
+
+        var sb = new StringBuilder();
+        sb.Append("WORLD_CLASS_DISTINCTNESS_TARGETS_V0").Append('\n');
+        sb.Append("seeds=1..").Append(n).Append('\n');
+        sb.Append("star_count=").Append(starCount).Append('\n');
+        sb.Append("radius=").Append(radius.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("chokepoint_cap_le=").Append(chokepointCapLe).Append('\n');
+        sb.Append("targets_require_radius2_ordering=").Append(targets.RequireRadius2Ordering ? "1" : "0").Append('\n');
+
+        sb.Append("DOMINANT_CONSTRAINTS").Append('\n');
+        foreach (var cls in dominantByClass.Keys.OrderBy(k => k, StringComparer.Ordinal))
+        {
+            var list = dominantByClass[cls].OrderBy(s => s, StringComparer.Ordinal).ToArray();
+            sb.Append("D|Class=").Append(cls).Append("|Constraints=");
+            var i = default(int);
+            while (i < list.Length)
+            {
+                if (i != default(int)) sb.Append(',');
+                sb.Append(list[i]);
+                i++;
+            }
+            sb.Append('\n');
+        }
+
+        bool pass = violations.Count == default(int);
+        sb.Append("result\t").Append(pass ? "PASS" : "FAIL").Append('\n');
+        if (!pass)
+        {
+            sb.Append("violations_count=").Append(violations.Count).Append('\n');
+            sb.Append("VIOLATIONS").Append('\n');
+            var i = default(int);
+            while (i < violations.Count)
+            {
+                var v = violations[i];
+                sb.Append("V|Seed=").Append(v.Seed)
+                  .Append("|Code=").Append(v.Code)
+                  .Append("|Metric=").Append(v.Metric)
+                  .Append("|Delta=").Append(v.Delta.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append("|Lhs=").Append(v.Lhs.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append("|Rhs=").Append(v.Rhs.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append('\n');
+                i++;
+            }
+        }
+
+        return (pass, sb.ToString());
+    }
+
     public static string BuildFactionSeedReport(SimState state, int seed)
     {
         // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.
