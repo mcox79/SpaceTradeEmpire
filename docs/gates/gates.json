@@ -201,46 +201,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001",
-                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.001.T003",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.001: Content substrate foundations v0",
-                      "intent":  "Define the minimal authored-pack contract (versioning, schema validation, canonical IDs, deterministic load order) so downstream systems reference content by ID instead of hardcoding.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "SimCore/Content/ContentRegistryLoader.cs",
-                                             "SimCore/Schemas/ContentRegistrySchema.json",
-                                             "docs/content/content_registry_v0.json",
-                                             "docs/generated/content_registry_digest_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Canonical IDs are stable and validated by schema",
-                                          "Deterministic load order and hashing",
-                                          "No timestamps in generated digests"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Implement pack contract and loader with deterministic ordering",
-                                              "Add contract test asserting identical digest across two loads"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "candidate_key_sha256=6342675dbd68"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If IDs drift, lock canonicalization and hashing rules in tests"
-                                               },
-                                               {
-                                                   "when":  "MISSING_EVIDENCE",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Ensure digest output is emitted to docs/generated and referenced"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002",
                       "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002.T004",
                       "status":  "TODO",

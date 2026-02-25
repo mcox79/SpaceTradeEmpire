@@ -66,6 +66,39 @@ public sealed class ContentRegistryContractTests
         Assert.That(report, Does.Contain("digest_sha256_upper=" + docsDigest));
     }
 
+    [Test]
+    public void ContentRegistryV0_RejectsUnknownRootFields_WithDeterministicSortedList()
+    {
+        // Intentionally unsorted unknown fields to prove deterministic ordering in the error message.
+        var json =
+            "{\n" +
+            "  \"version\": 0,\n" +
+            "  \"goods\": [],\n" +
+            "  \"recipes\": [],\n" +
+            "  \"modules\": [],\n" +
+            "  \"zeta\": 1,\n" +
+            "  \"alpha\": 2\n" +
+            "}\n";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ContentRegistryLoader.LoadFromJsonOrThrow(json));
+        Assert.That(ex!.Message, Is.EqualTo("Unknown field(s): alpha, zeta"));
+    }
+
+    [Test]
+    public void ContentRegistryV0_RejectsUnknownNestedFields_GoodsEntry_WithDeterministicSortedList()
+    {
+        var json =
+            "{\n" +
+            "  \"version\": 0,\n" +
+            "  \"goods\": [ { \"id\": \"ore\", \"zzz\": 1, \"aaa\": 2 } ],\n" +
+            "  \"recipes\": [],\n" +
+            "  \"modules\": []\n" +
+            "}\n";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ContentRegistryLoader.LoadFromJsonOrThrow(json));
+        Assert.That(ex!.Message, Is.EqualTo("Unknown field(s): aaa, zzz"));
+    }
+
     private static void AssertGoodsOrderedById(System.Collections.Generic.List<ContentRegistryLoader.GoodDefV0> list)
     {
         for (int i = 1; i < list.Count; i++)

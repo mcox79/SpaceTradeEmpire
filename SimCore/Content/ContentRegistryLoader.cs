@@ -63,6 +63,7 @@ public static class ContentRegistryLoader
         public int Qty { get; set; } = 0;
     }
 
+
     public static ContentRegistryV0 LoadFromJsonOrThrow(string json)
     {
         if (string.IsNullOrWhiteSpace(json)) throw new InvalidOperationException("Content registry JSON is empty.");
@@ -70,6 +71,9 @@ public static class ContentRegistryLoader
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
         if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Content registry root must be an object.");
+
+        // Schema law (v0): additionalProperties=false at root and all nested objects.
+        AssertNoExtraPropertiesOrThrow(root, "version", "goods", "recipes", "modules");
 
         var reg = new ContentRegistryV0();
 
@@ -103,6 +107,9 @@ public static class ContentRegistryLoader
         foreach (var e in a.EnumerateArray())
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("goods[] entries must be objects.");
+
+            AssertNoExtraPropertiesOrThrow(e, "id");
+
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("goods[] missing required field: id (string).");
             list.Add(new GoodDefV0 { Id = idEl.GetString() ?? "" });
@@ -119,6 +126,9 @@ public static class ContentRegistryLoader
         foreach (var e in a.EnumerateArray())
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("modules[] entries must be objects.");
+
+            AssertNoExtraPropertiesOrThrow(e, "id");
+
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("modules[] missing required field: id (string).");
             list.Add(new ModuleDefV0 { Id = idEl.GetString() ?? "" });
@@ -135,6 +145,9 @@ public static class ContentRegistryLoader
         foreach (var e in a.EnumerateArray())
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("recipes[] entries must be objects.");
+
+            AssertNoExtraPropertiesOrThrow(e, "id", "inputs", "outputs");
+
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("recipes[] missing required field: id (string).");
 
@@ -155,6 +168,9 @@ public static class ContentRegistryLoader
         foreach (var e in a.EnumerateArray())
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException($"{field}[] entries must be objects.");
+
+            AssertNoExtraPropertiesOrThrow(e, "good_id", "qty");
+
             if (!e.TryGetProperty("good_id", out var gEl) || gEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException($"{field}[] missing required field: good_id (string).");
             if (!e.TryGetProperty("qty", out var qEl) || qEl.ValueKind != JsonValueKind.Number)
@@ -196,6 +212,23 @@ public static class ContentRegistryLoader
                 .ThenBy(x => x.Qty) // tie-breaker
                 .ToList();
         }
+    }
+
+    private static void AssertNoExtraPropertiesOrThrow(JsonElement obj, params string[] allowed)
+    {
+        // Deterministic error reporting: unknown field list sorted Ordinal.
+        var allow = new HashSet<string>(allowed, StringComparer.Ordinal);
+        var unknown = new List<string>();
+
+        foreach (var p in obj.EnumerateObject())
+        {
+            if (!allow.Contains(p.Name)) unknown.Add(p.Name);
+        }
+
+        if (unknown.Count == 0) return;
+
+        unknown.Sort(StringComparer.Ordinal);
+        throw new InvalidOperationException("Unknown field(s): " + string.Join(", ", unknown));
     }
 
     public static void ValidateNormalizedOrThrow(ContentRegistryV0 reg)
