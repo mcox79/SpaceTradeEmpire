@@ -64,6 +64,17 @@ public sealed class ContentRegistryContractTests
 
         // Basic sanity: ensure the file contains the digest line.
         Assert.That(report, Does.Contain("digest_sha256_upper=" + docsDigest));
+
+        // Emit deterministic content pack validation report to docs/generated/content_pack_validation_report_v0.txt
+        var packResult = ContentRegistryLoader.ValidatePackJsonV0(docsJson);
+        var packReport = ContentRegistryLoader.BuildPackValidationReportTextV0("docs/content/content_registry_v0.json", packResult);
+
+        var packOutPath = Path.Combine(outDir, "content_pack_validation_report_v0.txt");
+        File.WriteAllText(packOutPath, packReport, new UTF8Encoding(false));
+
+        Assert.That(packResult.IsValid, Is.True, "Docs content pack must validate (v0).");
+        Assert.That(packReport, Does.Contain("is_valid=true"));
+        Assert.That(packReport, Does.Contain("failure_count=0"));
     }
 
     [Test]
@@ -97,6 +108,49 @@ public sealed class ContentRegistryContractTests
 
         var ex = Assert.Throws<InvalidOperationException>(() => ContentRegistryLoader.LoadFromJsonOrThrow(json));
         Assert.That(ex!.Message, Is.EqualTo("Unknown field(s): aaa, zzz"));
+    }
+
+    [Test]
+    public void ContentPackValidationReportV0_InvalidPack_IsInvalid_AndFailuresSortedDeterministically()
+    {
+        // Construct a pack with multiple independent failures to prove:
+        // - validator aggregates (does not stop at first)
+        // - failures sorted Ordinal
+        var json =
+            "{\n" +
+            "  \"version\": 1,\n" + // wrong version
+            "  \"goods\": [ { \"id\": \"\", \"zzz\": 1, \"aaa\": 2 }, { \"id\": \"ore\" }, { \"id\": \"ore\" } ],\n" + // empty id, unknown fields, duplicate id
+            "  \"recipes\": [\n" +
+            "    {\n" +
+            "      \"id\": \"r1\",\n" +
+            "      \"inputs\": [ { \"good_id\": \"unknown\", \"qty\": 0, \"x\": 1 } ],\n" + // unknown good, qty invalid, unknown field
+            "      \"outputs\": [ { \"good_id\": \"ore\", \"qty\": 1 } ],\n" +
+            "      \"extra\": true\n" + // unknown recipe field
+            "    }\n" +
+            "  ],\n" +
+            "  \"modules\": \"nope\",\n" + // wrong type
+            "  \"zeta\": 1,\n" +
+            "  \"alpha\": 2\n" +
+            "}\n";
+
+        var res = ContentRegistryLoader.ValidatePackJsonV0(json);
+        Assert.That(res.IsValid, Is.False);
+
+        // Failures must be sorted Ordinal (deterministic across runs).
+        var sorted = new System.Collections.Generic.List<string>(res.Failures);
+        sorted.Sort(StringComparer.Ordinal);
+        Assert.That(res.Failures, Is.EqualTo(sorted), "Failures must be sorted Ordinal.");
+
+        // Spot check presence of stable tokens.
+        Assert.That(res.Failures, Does.Contain("ROOT_UNKNOWN_FIELDS:alpha,zeta"));
+        Assert.That(res.Failures, Does.Contain("VALUE:version:expected_0"));
+
+        // Render report and verify it is consistent with the result.
+        var report = ContentRegistryLoader.BuildPackValidationReportTextV0("inline_invalid_pack", res);
+        Assert.That(report, Does.Contain("CONTENT_PACK_VALIDATION_REPORT_V0"));
+        Assert.That(report, Does.Contain("pack_id=inline_invalid_pack"));
+        Assert.That(report, Does.Contain("is_valid=false"));
+        Assert.That(report, Does.Contain("failure_count=" + res.Failures.Count));
     }
 
     private static void AssertGoodsOrderedById(System.Collections.Generic.List<ContentRegistryLoader.GoodDefV0> list)

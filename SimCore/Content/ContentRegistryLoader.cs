@@ -325,4 +325,326 @@ public static class ContentRegistryLoader
             "modules_count=" + reg.Modules.Count + "\n" +
             "digest_sha256_upper=" + digest + "\n";
     }
+
+    // GATE.S3_5.CONTENT_SUBSTRATE.002
+    // Deterministic content pack validation report v0.
+    public sealed class PackValidationResultV0
+    {
+        public bool IsValid { get; init; }
+        public List<string> Failures { get; init; } = new();
+        public ContentRegistryV0? Registry { get; init; }
+    }
+
+    // Validates the pack JSON and accumulates failures deterministically.
+    // Does NOT throw on validation failure; callers decide how to handle invalid packs.
+    public static PackValidationResultV0 ValidatePackJsonV0(string json)
+    {
+        var failures = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            failures.Add("JSON_EMPTY");
+            failures.Sort(StringComparer.Ordinal);
+            return new PackValidationResultV0 { IsValid = false, Failures = failures, Registry = null };
+        }
+
+        JsonDocument? doc = null;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch
+        {
+            // Do not include exception messages (runtime dependent). Keep a stable token.
+            failures.Add("JSON_PARSE_ERROR");
+            failures.Sort(StringComparer.Ordinal);
+            return new PackValidationResultV0 { IsValid = false, Failures = failures, Registry = null };
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                failures.Add("ROOT_NOT_OBJECT");
+            }
+            else
+            {
+                // Root allowed fields.
+                CollectUnknownFields(root, "ROOT_UNKNOWN_FIELDS", failures, "version", "goods", "recipes", "modules");
+
+                // version
+                if (!root.TryGetProperty("version", out var vEl))
+                {
+                    failures.Add("MISSING:version");
+                }
+                else if (vEl.ValueKind != JsonValueKind.Number)
+                {
+                    failures.Add("TYPE:version:not_number");
+                }
+                else
+                {
+                    var ver = vEl.GetInt32();
+                    if (ver != 0) failures.Add("VALUE:version:expected_0");
+                }
+
+                // goods
+                ValidateIdArray(root, "goods", "goods[]", failures);
+
+                // modules
+                ValidateIdArray(root, "modules", "modules[]", failures);
+
+                // recipes (with nested lines)
+                ValidateRecipes(root, failures);
+            }
+        }
+
+        failures.Sort(StringComparer.Ordinal);
+
+        if (failures.Count != 0)
+            return new PackValidationResultV0 { IsValid = false, Failures = failures, Registry = null };
+
+        // If structural validation passed, perform canonical load+normalize+digest.
+        // Any throw here indicates an internal mismatch between the structural validator and loader rules.
+        var reg = LoadFromJsonOrThrow(json);
+        return new PackValidationResultV0 { IsValid = true, Failures = failures, Registry = reg };
+    }
+
+    public static string BuildPackValidationReportTextV0(string pack_id, PackValidationResultV0 result)
+    {
+        // Stable, no timestamps, LF only.
+        var sb = new StringBuilder(512);
+        sb.Append("CONTENT_PACK_VALIDATION_REPORT_V0\n");
+        sb.Append("pack_id=").Append(pack_id ?? "").Append('\n');
+        sb.Append("schema_id=ContentRegistrySchema.v0\n");
+        sb.Append("schema_version=0\n");
+        sb.Append("is_valid=").Append(result.IsValid ? "true" : "false").Append('\n');
+        sb.Append("failure_count=").Append(result.Failures.Count).Append('\n');
+
+        if (result.Registry is not null)
+        {
+            var digest = ComputeDigestUpperHex(result.Registry);
+            sb.Append("registry_version=").Append(result.Registry.Version).Append('\n');
+            sb.Append("goods_count=").Append(result.Registry.Goods.Count).Append('\n');
+            sb.Append("recipes_count=").Append(result.Registry.Recipes.Count).Append('\n');
+            sb.Append("modules_count=").Append(result.Registry.Modules.Count).Append('\n');
+            sb.Append("digest_sha256_upper=").Append(digest).Append('\n');
+        }
+
+        sb.Append("failures=\n");
+        // Failures already sorted Ordinal by validator; keep this loop order.
+        foreach (var f in result.Failures)
+            sb.Append("- ").Append(f).Append('\n');
+
+        return sb.ToString();
+    }
+
+    private static void CollectUnknownFields(JsonElement obj, string token, List<string> failures, params string[] allowed)
+    {
+        var allow = new HashSet<string>(allowed, StringComparer.Ordinal);
+        var unknown = new List<string>();
+
+        foreach (var p in obj.EnumerateObject())
+            if (!allow.Contains(p.Name)) unknown.Add(p.Name);
+
+        if (unknown.Count == 0) return;
+
+        unknown.Sort(StringComparer.Ordinal);
+        failures.Add(token + ":" + string.Join(",", unknown));
+    }
+
+    private static void ValidateIdArray(JsonElement root, string field, string label, List<string> failures)
+    {
+        if (!root.TryGetProperty(field, out var a))
+        {
+            failures.Add("MISSING:" + field);
+            return;
+        }
+        if (a.ValueKind != JsonValueKind.Array)
+        {
+            failures.Add("TYPE:" + field + ":not_array");
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        int idx = 0;
+        foreach (var e in a.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.Object)
+            {
+                failures.Add(label + "[" + idx + "]_NOT_OBJECT");
+                idx++;
+                continue;
+            }
+
+            CollectUnknownFields(e, label + "[" + idx + "]_UNKNOWN_FIELDS", failures, "id");
+
+            if (!e.TryGetProperty("id", out var idEl))
+            {
+                failures.Add(label + "[" + idx + "]_MISSING:id");
+            }
+            else if (idEl.ValueKind != JsonValueKind.String)
+            {
+                failures.Add(label + "[" + idx + "]_TYPE:id:not_string");
+            }
+            else
+            {
+                var id = idEl.GetString() ?? "";
+                if (string.IsNullOrWhiteSpace(id))
+                    failures.Add(label + "[" + idx + "]_VALUE:id:empty");
+                else if (!seen.Add(id))
+                    failures.Add(label + "_DUPLICATE_ID:" + id);
+            }
+
+            idx++;
+        }
+    }
+
+    private static void ValidateRecipes(JsonElement root, List<string> failures)
+    {
+        if (!root.TryGetProperty("recipes", out var a))
+        {
+            failures.Add("MISSING:recipes");
+            return;
+        }
+        if (a.ValueKind != JsonValueKind.Array)
+        {
+            failures.Add("TYPE:recipes:not_array");
+            return;
+        }
+
+        // Gather known goods for reference checks if available and valid.
+        var knownGoods = new HashSet<string>(StringComparer.Ordinal);
+        if (root.TryGetProperty("goods", out var goodsEl) && goodsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var g in goodsEl.EnumerateArray())
+            {
+                if (g.ValueKind != JsonValueKind.Object) continue;
+                if (!g.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String) continue;
+                var id = idEl.GetString() ?? "";
+                if (!string.IsNullOrWhiteSpace(id)) knownGoods.Add(id);
+            }
+        }
+
+        var seenRecipes = new HashSet<string>(StringComparer.Ordinal);
+
+        int ridx = 0;
+        foreach (var r in a.EnumerateArray())
+        {
+            var prefix = "recipes[" + ridx + "]";
+            if (r.ValueKind != JsonValueKind.Object)
+            {
+                failures.Add(prefix + "_NOT_OBJECT");
+                ridx++;
+                continue;
+            }
+
+            CollectUnknownFields(r, prefix + "_UNKNOWN_FIELDS", failures, "id", "inputs", "outputs");
+
+            string recipeId = "";
+            if (!r.TryGetProperty("id", out var idEl))
+            {
+                failures.Add(prefix + "_MISSING:id");
+            }
+            else if (idEl.ValueKind != JsonValueKind.String)
+            {
+                failures.Add(prefix + "_TYPE:id:not_string");
+            }
+            else
+            {
+                recipeId = idEl.GetString() ?? "";
+                if (string.IsNullOrWhiteSpace(recipeId))
+                    failures.Add(prefix + "_VALUE:id:empty");
+                else if (!seenRecipes.Add(recipeId))
+                    failures.Add("recipes[]_DUPLICATE_ID:" + recipeId);
+            }
+
+            ValidateRecipeLines(prefix, recipeId, r, "inputs", knownGoods, failures);
+            ValidateRecipeLines(prefix, recipeId, r, "outputs", knownGoods, failures);
+
+            ridx++;
+        }
+    }
+
+    private static void ValidateRecipeLines(
+        string prefix,
+        string recipeId,
+        JsonElement recipeObj,
+        string field,
+        HashSet<string> knownGoods,
+        List<string> failures)
+    {
+        if (!recipeObj.TryGetProperty(field, out var a))
+        {
+            failures.Add(prefix + "_MISSING:" + field);
+            return;
+        }
+        if (a.ValueKind != JsonValueKind.Array)
+        {
+            failures.Add(prefix + "_TYPE:" + field + ":not_array");
+            return;
+        }
+        if (a.GetArrayLength() == 0)
+        {
+            failures.Add(prefix + "_VALUE:" + field + ":minItems_1");
+            return;
+        }
+
+        int idx = 0;
+        foreach (var e in a.EnumerateArray())
+        {
+            var lp = prefix + "." + field + "[" + idx + "]";
+            if (e.ValueKind != JsonValueKind.Object)
+            {
+                failures.Add(lp + "_NOT_OBJECT");
+                idx++;
+                continue;
+            }
+
+            CollectUnknownFields(e, lp + "_UNKNOWN_FIELDS", failures, "good_id", "qty");
+
+            string goodId = "";
+            if (!e.TryGetProperty("good_id", out var gEl))
+            {
+                failures.Add(lp + "_MISSING:good_id");
+            }
+            else if (gEl.ValueKind != JsonValueKind.String)
+            {
+                failures.Add(lp + "_TYPE:good_id:not_string");
+            }
+            else
+            {
+                goodId = gEl.GetString() ?? "";
+                if (string.IsNullOrWhiteSpace(goodId))
+                {
+                    failures.Add(lp + "_VALUE:good_id:empty");
+                }
+                else if (knownGoods.Count != 0 && !knownGoods.Contains(goodId))
+                {
+                    // Only check unknown-good when goods list is present and parseable.
+                    failures.Add(lp + "_VALUE:good_id:unknown:" + goodId);
+                }
+            }
+
+            if (!e.TryGetProperty("qty", out var qEl))
+            {
+                failures.Add(lp + "_MISSING:qty");
+            }
+            else if (qEl.ValueKind != JsonValueKind.Number)
+            {
+                failures.Add(lp + "_TYPE:qty:not_number");
+            }
+            else
+            {
+                var qty = qEl.GetInt32();
+                if (qty <= 0) failures.Add(lp + "_VALUE:qty:must_be_gt_0");
+            }
+
+            idx++;
+        }
+
+        // If recipeId is known and any line failures occurred, keep report stable but do not attempt extra aggregation.
+        _ = recipeId;
+    }
 }

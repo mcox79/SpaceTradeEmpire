@@ -201,46 +201,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002",
-                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.002.T004",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.002: Content substrate pack validation report v0",
-                      "intent":  "Deterministic validator emits docs/generated/content_pack_validation_report_v0.txt (no timestamps; stable ordering; failures sorted) and exits nonzero on invalid packs.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "SimCore/Content/ContentRegistryLoader.cs",
-                                             "SimCore/Schemas/ContentRegistrySchema.json",
-                                             "docs/content/content_registry_v0.json",
-                                             "docs/generated/content_pack_validation_report_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Validation failures sorted deterministically",
-                                          "Exit nonzero on invalid packs",
-                                          "No timestamps; stable formatting"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Add deterministic validation report writer",
-                                              "Add negative test that deterministically FAILs on invalid pack"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Content/ContentRegistryContractTests.cs",
-                                             "candidate_key_sha256=6e0e8a4684c1"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If report ordering is unstable, sort by stable keys and cap output deterministically"
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Fix schema and canonicalization issues before adding more pack features"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S4.PERF_BUDGET.001",
                       "task_id":  "GATE.S4.PERF_BUDGET.001.T010",
                       "status":  "TODO",
