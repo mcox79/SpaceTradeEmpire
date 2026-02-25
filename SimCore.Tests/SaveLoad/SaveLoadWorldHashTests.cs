@@ -21,6 +21,14 @@ public class SaveLoadWorldHashTests
             sim.Step();
         }
 
+        // GATE.S3_5.CONTENT_SUBSTRATE.003
+        // Prove content pack identity is persisted through save%load by stamping a non-empty value pre-save.
+        sim.State.ContentPackIdV0 = "test_pack_v0";
+        sim.State.ContentPackVersionV0 = 7;
+
+        var expectedPackId = sim.State.ContentPackIdV0;
+        var expectedPackVersion = sim.State.ContentPackVersionV0;
+
         var beforeHash = sim.State.GetSignature();
 
         var json = sim.SaveToString();
@@ -44,6 +52,11 @@ public class SaveLoadWorldHashTests
         Assert.That(afterHash, Is.EqualTo(beforeHash), $"Save/load roundtrip changed world hash (Seed={seed}).");
         Assert.That(savedSeed, Is.EqualTo(seed), $"Save payload did not include expected seed (Seed={seed}).");
         Assert.That(resavedSeed, Is.EqualTo(seed), $"Loaded world did not preserve seed identity on re-save (Seed={seed}).");
+
+        Assert.That(sim2.State.ContentPackIdV0, Is.EqualTo(expectedPackId),
+            $"Save/load roundtrip did not preserve ContentPackIdV0 (Seed={seed} pack_id={expectedPackId} pack_version={expectedPackVersion}).");
+        Assert.That(sim2.State.ContentPackVersionV0, Is.EqualTo(expectedPackVersion),
+            $"Save/load roundtrip did not preserve ContentPackVersionV0 (Seed={seed} pack_id={expectedPackId} pack_version={expectedPackVersion}).");
     }
 
     private static int ReadEnvelopeSeed(string json)

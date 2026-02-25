@@ -25,13 +25,33 @@ public static class WorldLoader
         state.Fleets.Clear();
         state.IndustrySites.Clear();
 
+        // GATE.S3_5.CONTENT_SUBSTRATE.003
+        // Bind selected content pack identity into world identity and persist through save%load.
+        // Deterministic defaults: WorldLoader selects the embedded default pack.
+        const string contentPackIdV0 = "default_pack_v0";
+        const int contentPackVersionV0 = 0;
+
+        state.ContentPackIdV0 = contentPackIdV0;
+        state.ContentPackVersionV0 = contentPackVersionV0;
+
         // GATE.X.CONTENT_SUBSTRATE.001
         // Minimal deterministic content registry load (no runtime IO, no timestamps).
         // Ordering keys:
         // - Goods: Id (Ordinal)
         // - Recipes: Id (Ordinal), then each Inputs/Outputs: GoodId (Ordinal)
         // - Modules: Id (Ordinal)
-        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        ContentRegistryLoader.ContentRegistryV0 reg;
+        try
+        {
+            reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        }
+        catch (Exception ex)
+        {
+            // Failure must include pack identity for repro. Avoid stack traces or runtime-dependent details.
+            throw new InvalidOperationException(
+                $"Content pack load failed: pack_id={contentPackIdV0} pack_version={contentPackVersionV0} error={ex.Message}");
+        }
+
         state.ContentRegistryVersionV0 = reg.Version;
         state.ContentRegistryDigestV0 = ContentRegistryLoader.ComputeDigestUpperHex(reg);
 

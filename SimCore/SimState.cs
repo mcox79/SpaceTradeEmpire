@@ -199,12 +199,19 @@ public class SimState
     [JsonInclude] public int InitialSeed { get; private set; }
     [JsonIgnore] public Random? Rng { get; private set; }
 
+    // GATE.S3_5.CONTENT_SUBSTRATE.003
+    // Content pack identity bound into world identity and persisted through save%load.
+    // pack_id%pack_version must be stable and surfaced in failures for repro.
+    [JsonInclude] public string ContentPackIdV0 { get; set; } = "";
+    [JsonInclude] public int ContentPackVersionV0 { get; set; } = 0;
+
     // GATE.X.CONTENT_SUBSTRATE.001
     // Surfaced deterministic content registry identity (no timestamps).
     // Version is part of the registry payload; Digest is SHA256 over canonical text.
     // Stored in save%load so replay and transcripts can reference exact content identity.
     [JsonInclude] public int ContentRegistryVersionV0 { get; set; } = 0;
     [JsonInclude] public string ContentRegistryDigestV0 { get; set; } = "";
+
 
     // GATE.X.TWEAKS.DATA.001
     // Versioned tweak config loaded deterministically (defaults or JSON override).

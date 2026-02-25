@@ -5,45 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 039806d74b96a358de66d216defc6a9784f716bb",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_5.CONTENT_SUBSTRATE.003",
-                      "task_id":  "GATE.S3_5.CONTENT_SUBSTRATE.003.T005",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_5.CONTENT_SUBSTRATE.003: Content substrate world binding v0",
-                      "intent":  "WorldLoader binds selected content pack version%digest into world identity and persists through save%load; failures include pack id%version for repro.",
-                      "evidence_paths":  [
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/SimState.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "SimCore/Content/ContentRegistryLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Pack identity persisted through save%load",
-                                          "Failure messages include pack id%version",
-                                          "Deterministic default selection rules"
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1",
-                                              "Stamp pack identity into SimState and serialization payload",
-                                              "Add save%load test asserting pack identity round-trips"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore/World/WorldLoader.cs",
-                                             "candidate_key_sha256=7710e790f90b"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If save%load breaks, add a versioned envelope and deterministic fallback"
-                                               },
-                                               {
-                                                   "when":  "EVIDENCE_OUT_OF_DATE",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Update tests and serialization evidence paths together"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S4.INDU_STRUCT.001",
                       "task_id":  "GATE.S4.INDU_STRUCT.001.T007",
                       "status":  "TODO",
