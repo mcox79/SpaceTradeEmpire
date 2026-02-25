@@ -11,6 +11,11 @@ public sealed class ProgramInstance
     [JsonInclude] public string Id { get; set; } = "";
     [JsonInclude] public string Kind { get; set; } = "";
     [JsonInclude] public string FleetId { get; set; } = ""; // Optional: when set, program is scoped to a fleet.
+
+    // GATE.S4.CONSTR_PROG.001: construction programs v0
+    // When Kind is CONSTR_CAP_MODULE_V0, SiteId binds the program to an IndustrySite key in SimState.IndustrySites.
+    [JsonInclude] public string SiteId { get; set; } = "";
+
     [JsonInclude] public ProgramStatus Status { get; set; } = ProgramStatus.Paused;
 
     [JsonInclude] public int CreatedTick { get; set; } = 0;

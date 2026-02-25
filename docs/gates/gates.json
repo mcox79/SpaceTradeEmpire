@@ -83,46 +83,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S4.CONSTR_PROG.001",
-                      "task_id":  "GATE.S4.CONSTR_PROG.001.T008",
-                      "status":  "TODO",
-                      "title":  "GATE.S4.CONSTR_PROG.001: Construction programs v0",
-                      "intent":  "Program-driven construction execution (intent-driven, deterministic) that consumes schema-bound construction recipes and produces capability modules without direct mutation.",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "SimCore/Schemas/ProgramSchema.json",
-                                             "SimCore/Programs/ProgramSystem.cs",
-                                             "SimCore.Tests/Determinism/ProgramDeterminismTests.cs",
-                                             "SimCore.Tests/SaveLoad/ProgramSaveLoadContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Construction emits intents only; kernel resolves mutations",
-                                          "Deterministic ordering for program execution under ties",
-                                          "Save%load preserves program state and outcomes"
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release",
-                                              "Add construction program type and deterministic executor",
-                                              "Add integration test proving recipe consumption and module production"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "candidate_key_sha256=1c4a964e3124"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STEP_A",
-                                                   "note":  "If mutation leaks occur, add guard tests and centralize all mutations in kernel resolution"
-                                               },
-                                               {
-                                                   "when":  "TEST_FAIL",
-                                                   "route":  "STEP_B",
-                                                   "note":  "Stabilize determinism and save%load before adding UI surfaces"
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S4.PERF_BUDGET.001",
                       "task_id":  "GATE.S4.PERF_BUDGET.001.T010",
                       "status":  "TODO",

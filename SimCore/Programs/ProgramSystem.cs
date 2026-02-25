@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using SimCore.Intents;
 using SimCore.Events;
+using SimCore.Entities;
+using SimCore.Tweaks;
 
 namespace SimCore.Programs;
 
@@ -70,7 +72,71 @@ public static class ProgramSystem
             // Execute: emit intents only, never mutate ledgers directly.
             var qty = p.Quantity;
 
-            if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
+            // Execute: emit intents only, never mutate ledgers directly.
+
+            if (string.Equals(p.Kind, ProgramKind.ConstrCapModuleV0, StringComparison.Ordinal))
+            {
+                // Construction program v0:
+                // Drive the minimal construction pipeline by supplying missing stage inputs to the site market.
+                // Determinism:
+                // - Program iteration is by program id (already sorted).
+                // - All lookups are ordinal-keyed.
+                // - At most one intent emitted per runnable program per tick.
+
+                var siteId = p.SiteId ?? "";
+                if (!string.IsNullOrWhiteSpace(siteId) && state.IndustrySites is not null &&
+                    state.IndustrySites.TryGetValue(siteId, out var site) && site is not null)
+                {
+                    if (site.Active && site.ConstructionEnabled)
+                    {
+                        var marketId = site.NodeId ?? "";
+                        if (!string.IsNullOrWhiteSpace(marketId) &&
+                            state.Markets is not null && state.Markets.TryGetValue(marketId, out var market) && market is not null)
+                        {
+                            var build = state.GetOrCreateIndustryBuildState(siteId);
+
+                            // Mirror IndustrySystem clamping to avoid divergent stage interpretation.
+                            if (build.StageIndex < IndustryTweaksV0.Zero) build.StageIndex = IndustryTweaksV0.Stage0;
+                            if (build.StageIndex > IndustryTweaksV0.Stage1) build.StageIndex = IndustryTweaksV0.Stage1;
+
+                            // If a stage is running, do not interfere.
+                            if (build.StageTicksRemaining <= IndustryTweaksV0.Zero)
+                            {
+                                string inGood;
+                                int inQty;
+
+                                if (build.StageIndex == IndustryTweaksV0.Stage0)
+                                {
+                                    inGood = IndustryTweaksV0.Stage0InGood;
+                                    inQty = IndustryTweaksV0.Stage0InQty;
+                                }
+                                else
+                                {
+                                    inGood = IndustryTweaksV0.Stage1InGood;
+                                    inQty = IndustryTweaksV0.Stage1InQty;
+                                }
+
+                                if (inQty > IndustryTweaksV0.Zero && !string.IsNullOrWhiteSpace(inGood))
+                                {
+                                    var have = 0;
+                                    if (market.Inventory is not null && market.Inventory.TryGetValue(inGood, out var haveQty))
+                                        have = haveQty;
+
+                                    var missing = inQty - have;
+
+                                    if (missing > IndustryTweaksV0.Zero)
+                                    {
+                                        // Supply missing input by selling from player cargo to the market.
+                                        // The intent pipeline applies the mutation deterministically.
+                                        state.EnqueueIntent(new SellIntent(marketId, inGood, missing));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
                 if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))
                 {

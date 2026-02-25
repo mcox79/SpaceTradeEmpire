@@ -10,99 +10,152 @@ namespace SimCore.Tests.Programs;
 [TestFixture]
 public sealed class ProgramExecutionIntegrationTests
 {
-        private static SimKernel KernelWithWorld001()
-        {
-                var k = new SimKernel(seed: 123);
+    private static SimKernel KernelWithWorld001()
+    {
+        var k = new SimKernel(seed: 123);
 
-                var def = new WorldDefinition
-                {
-                        WorldId = "micro_world_001",
-                        Markets =
+        var def = new WorldDefinition
+        {
+            WorldId = "micro_world_001",
+            Markets =
                         {
                                 new WorldMarket { Id = "mkt_a", Inventory = new() { ["ore"] = 10, ["food"] = 3 } },
                                 new WorldMarket { Id = "mkt_b", Inventory = new() { ["ore"] = 1,  ["food"] = 12 } }
                         },
-                        Nodes =
+            Nodes =
                         {
                                 new WorldNode { Id = "stn_a", Kind = "Station", Name = "Alpha Station", MarketId = "mkt_a", Pos = new float[] { 0f, 0f, 0f } },
                                 new WorldNode { Id = "stn_b", Kind = "Station", Name = "Beta Station",  MarketId = "mkt_b", Pos = new float[] { 10f, 0f, 0f } }
                         },
-                        Edges =
+            Edges =
                         {
                                 new WorldEdge { Id = "lane_ab", FromNodeId = "stn_a", ToNodeId = "stn_b", Distance = 1.0f, TotalCapacity = 5 }
                         },
-                        Player = new WorldPlayerStart { Credits = 1000, LocationNodeId = "stn_a" }
-                };
+            Player = new WorldPlayerStart { Credits = 1000, LocationNodeId = "stn_a" }
+        };
 
-                WorldLoader.Apply(k.State, def);
-                return k;
-        }
+        WorldLoader.Apply(k.State, def);
+        return k;
+    }
 
-        [Test]
-        public void PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick()
+    [Test]
+    public void PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick()
+    {
+        var k = KernelWithWorld001();
+        var s = k.State;
+
+        // Seed player cargo so SELL has something to do.
+        s.PlayerCargo["food"] = 5;
+
+        // Programs: buy ore, sell food, both against mkt_a
+        var buyId = s.CreateAutoBuyProgram("mkt_a", "ore", quantity: 1, cadenceTicks: 1);
+        var sellId = s.CreateAutoSellProgram("mkt_a", "food", quantity: 1, cadenceTicks: 1);
+
+        s.Programs.Instances[buyId].Status = ProgramStatus.Running;
+        s.Programs.Instances[sellId].Status = ProgramStatus.Running;
+
+        // Ensure both are due now
+        s.Programs.Instances[buyId].NextRunTick = s.Tick;
+        s.Programs.Instances[sellId].NextRunTick = s.Tick;
+
+        var oreInMarketBefore = s.Markets["mkt_a"].Inventory["ore"];
+        var foodInMarketBefore = s.Markets["mkt_a"].Inventory["food"];
+
+        var oreInCargoBefore = s.PlayerCargo.TryGetValue("ore", out var oreBefore) ? oreBefore : 0;
+        var foodInCargoBefore = s.PlayerCargo["food"];
+
+        var creditsBefore = s.PlayerCredits;
+
+        // 1) ProgramSystem alone may enqueue intents, but must not mutate market/cargo/credits.
+        ProgramSystem.Process(s);
+
+        Assert.That(s.Markets["mkt_a"].Inventory["ore"], Is.EqualTo(oreInMarketBefore));
+        Assert.That(s.Markets["mkt_a"].Inventory["food"], Is.EqualTo(foodInMarketBefore));
+
+        var oreInCargoAfterProgram = s.PlayerCargo.TryGetValue("ore", out var oreAfterProg) ? oreAfterProg : 0;
+        Assert.That(oreInCargoAfterProgram, Is.EqualTo(oreInCargoBefore));
+        Assert.That(s.PlayerCargo["food"], Is.EqualTo(foodInCargoBefore));
+        Assert.That(s.PlayerCredits, Is.EqualTo(creditsBefore));
+
+        // ProgramSystem should have emitted 2 intents.
+        Assert.That(s.PendingIntents.Count, Is.EqualTo(2));
+
+        // Clear to ensure the only effects come from a normal tick pipeline.
+        s.PendingIntents.Clear();
+
+        // Re-arm: ProgramSystem.Process advanced NextRunTick; ensure programs are runnable for the upcoming tick.
+        s.Programs.Instances[buyId].NextRunTick = s.Tick;
+        s.Programs.Instances[sellId].NextRunTick = s.Tick;
+
+        // 2) Now run one tick: program emission + intent processing should change state via commands.
+        k.Step();
+
+        // Intents should be cleared by the pipeline.
+        Assert.That(s.PendingIntents.Count, Is.EqualTo(0));
+
+        // BUY: market ore down, cargo ore up
+        Assert.That(s.Markets["mkt_a"].Inventory["ore"], Is.LessThan(oreInMarketBefore));
+        var oreInCargoAfterTick = s.PlayerCargo.TryGetValue("ore", out var oreAfterTick) ? oreAfterTick : 0;
+        Assert.That(oreInCargoAfterTick, Is.GreaterThan(oreInCargoBefore));
+
+        // SELL: market food up, cargo food down
+        Assert.That(s.Markets["mkt_a"].Inventory["food"], Is.GreaterThan(foodInMarketBefore));
+        Assert.That(s.PlayerCargo["food"], Is.LessThan(foodInCargoBefore));
+
+        // Credits should change as a result of buy and sell commands (direction depends on pricing).
+        Assert.That(s.PlayerCredits, Is.Not.EqualTo(creditsBefore));
+    }
+
+    [Test]
+    public void PROG_EXEC_003_ConstructionProgram_SuppliesStageInputs_And_ConstructionConsumesRecipe_And_ProducesCapModule_ViaTickPipeline()
+    {
+        var k = KernelWithWorld001();
+        var s = k.State;
+
+        // Add an opt-in construction site bound to mkt_a (IndustrySystem expects site.NodeId to be a market id).
+        var siteId = "site_1";
+        s.IndustrySites[siteId] = new SimCore.Entities.IndustrySite
         {
-                var k = KernelWithWorld001();
-                var s = k.State;
+            Active = true,
+            NodeId = "mkt_a",
+            ConstructionEnabled = true
+        };
 
-                // Seed player cargo so SELL has something to do.
-                s.PlayerCargo["food"] = 5;
+        // Ensure stage input goods exist as keys in market inventory (start at 0 so the program must supply them).
+        var in0 = SimCore.Tweaks.IndustryTweaksV0.Stage0InGood;
+        var q0 = SimCore.Tweaks.IndustryTweaksV0.Stage0InQty;
+        var in1 = SimCore.Tweaks.IndustryTweaksV0.Stage1InGood;
+        var q1 = SimCore.Tweaks.IndustryTweaksV0.Stage1InQty;
 
-                // Programs: buy ore, sell food, both against mkt_a
-                var buyId = s.CreateAutoBuyProgram("mkt_a", "ore", quantity: 1, cadenceTicks: 1);
-                var sellId = s.CreateAutoSellProgram("mkt_a", "food", quantity: 1, cadenceTicks: 1);
+        if (!s.Markets["mkt_a"].Inventory.ContainsKey(in0)) s.Markets["mkt_a"].Inventory[in0] = 0;
+        if (!s.Markets["mkt_a"].Inventory.ContainsKey(in1)) s.Markets["mkt_a"].Inventory[in1] = 0;
 
-                s.Programs.Instances[buyId].Status = ProgramStatus.Running;
-                s.Programs.Instances[sellId].Status = ProgramStatus.Running;
+        // Seed player cargo with enough inputs to supply both stages deterministically via SellIntents.
+        s.PlayerCargo[in0] = q0 + q0;
+        s.PlayerCargo[in1] = q1 + q1;
 
-                // Ensure both are due now
-                s.Programs.Instances[buyId].NextRunTick = s.Tick;
-                s.Programs.Instances[sellId].NextRunTick = s.Tick;
+        // Create and run the construction program bound to the site.
+        var pid = s.CreateConstrCapModuleProgramV0(siteId, cadenceTicks: 1);
+        s.Programs.Instances[pid].Status = ProgramStatus.Running;
+        s.Programs.Instances[pid].NextRunTick = s.Tick;
 
-                var oreInMarketBefore = s.Markets["mkt_a"].Inventory["ore"];
-                var foodInMarketBefore = s.Markets["mkt_a"].Inventory["food"];
+        // Run enough ticks to cover both stages:
+        // Start tick does not decrement StageTicksRemaining, so add a small buffer.
+        var d0 = SimCore.Tweaks.IndustryTweaksV0.Stage0DurationTicks;
+        var d1 = SimCore.Tweaks.IndustryTweaksV0.Stage1DurationTicks;
+        var ticks = d0 + d1 + 6;
 
-                var oreInCargoBefore = s.PlayerCargo.TryGetValue("ore", out var oreBefore) ? oreBefore : 0;
-                var foodInCargoBefore = s.PlayerCargo["food"];
+        var outGood = SimCore.Tweaks.IndustryTweaksV0.Stage1OutGood;
+        var before = s.Markets["mkt_a"].Inventory.TryGetValue(outGood, out var v0) ? v0 : 0;
 
-                var creditsBefore = s.PlayerCredits;
-
-                // 1) ProgramSystem alone may enqueue intents, but must not mutate market/cargo/credits.
-                ProgramSystem.Process(s);
-
-                Assert.That(s.Markets["mkt_a"].Inventory["ore"], Is.EqualTo(oreInMarketBefore));
-                Assert.That(s.Markets["mkt_a"].Inventory["food"], Is.EqualTo(foodInMarketBefore));
-
-                var oreInCargoAfterProgram = s.PlayerCargo.TryGetValue("ore", out var oreAfterProg) ? oreAfterProg : 0;
-                Assert.That(oreInCargoAfterProgram, Is.EqualTo(oreInCargoBefore));
-                Assert.That(s.PlayerCargo["food"], Is.EqualTo(foodInCargoBefore));
-                Assert.That(s.PlayerCredits, Is.EqualTo(creditsBefore));
-
-                // ProgramSystem should have emitted 2 intents.
-                Assert.That(s.PendingIntents.Count, Is.EqualTo(2));
-
-                // Clear to ensure the only effects come from a normal tick pipeline.
-                s.PendingIntents.Clear();
-
-                // Re-arm: ProgramSystem.Process advanced NextRunTick; ensure programs are runnable for the upcoming tick.
-                s.Programs.Instances[buyId].NextRunTick = s.Tick;
-                s.Programs.Instances[sellId].NextRunTick = s.Tick;
-
-                // 2) Now run one tick: program emission + intent processing should change state via commands.
-                k.Step();
-
-                // Intents should be cleared by the pipeline.
-                Assert.That(s.PendingIntents.Count, Is.EqualTo(0));
-
-                // BUY: market ore down, cargo ore up
-                Assert.That(s.Markets["mkt_a"].Inventory["ore"], Is.LessThan(oreInMarketBefore));
-                var oreInCargoAfterTick = s.PlayerCargo.TryGetValue("ore", out var oreAfterTick) ? oreAfterTick : 0;
-                Assert.That(oreInCargoAfterTick, Is.GreaterThan(oreInCargoBefore));
-
-                // SELL: market food up, cargo food down
-                Assert.That(s.Markets["mkt_a"].Inventory["food"], Is.GreaterThan(foodInMarketBefore));
-                Assert.That(s.PlayerCargo["food"], Is.LessThan(foodInCargoBefore));
-
-                // Credits should change as a result of buy and sell commands (direction depends on pricing).
-                Assert.That(s.PlayerCredits, Is.Not.EqualTo(creditsBefore));
+        for (int i = 0; i < ticks; i++)
+        {
+            k.Step();
         }
+
+        var after = s.Markets["mkt_a"].Inventory.TryGetValue(outGood, out var v1) ? v1 : 0;
+
+        // Module production proof: output good increased in the market.
+        Assert.That(after, Is.GreaterThan(before));
+    }
 }

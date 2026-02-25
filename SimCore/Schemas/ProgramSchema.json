@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
   "programKinds": [
-    "AUTO_BUY"
+    "AUTO_BUY",
+    "AUTO_SELL",
+    "CONSTR_CAP_MODULE_V0"
   ],
   "programInstance": {
     "required": [
@@ -12,6 +14,10 @@
       "CadenceTicks",
       "NextRunTick",
       "LastRunTick",
+
+      "FleetId",
+      "SiteId",
+
       "MarketId",
       "GoodId",
       "Quantity"

@@ -887,6 +887,34 @@ public class SimState
         return id;
     }
 
+    // GATE.S4.CONSTR_PROG.001: construction programs v0
+    // Deterministic helper to create a construction program bound to an industry site.
+    public string CreateConstrCapModuleProgramV0(string siteId, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.ConstrCapModuleV0,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            SiteId = siteId ?? "",
+            // MarketId%GoodId%Quantity are unused by this kind; stage inputs are derived from IndustryTweaksV0 and site binding.
+            MarketId = "",
+            GoodId = "",
+            Quantity = 0
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
     public string GetSignature()
     {
         var sb = new StringBuilder();
@@ -934,7 +962,7 @@ public class SimState
             foreach (var kv in Programs.Instances.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
                 var p = kv.Value;
-                sb.Append($"Prog:{p.Id}|K:{p.Kind}|S:{p.Status}|Cad:{p.CadenceTicks}|Nx:{p.NextRunTick}|Ls:{p.LastRunTick}|M:{p.MarketId}|G:{p.GoodId}|Q:{p.Quantity}|");
+                sb.Append($"Prog:{p.Id}|K:{p.Kind}|S:{p.Status}|Cad:{p.CadenceTicks}|Nx:{p.NextRunTick}|Ls:{p.LastRunTick}|Site:{p.SiteId}|M:{p.MarketId}|G:{p.GoodId}|Q:{p.Quantity}|");
             }
         }
 
