@@ -1,16 +1,31 @@
 using SimCore.Entities;
 using System;
+using System.Linq;
 using System.Numerics;
 
 namespace SimCore.Systems;
 
 public static class FractureSystem
 {
+    // Deterministic ordering contract:
+    // - Primary key: Fleet.Id (dictionary key)
+    // - Sort: StringComparer.Ordinal
+    // - Filter: only fleets in FractureTraveling state
+    public static string[] GetFractureFleetProcessOrder(SimState state)
+    {
+        return state.Fleets.Keys
+            .Where(id => state.Fleets[id].State == FleetState.FractureTraveling)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     public static void Process(SimState state)
     {
-        foreach (var fleet in state.Fleets.Values)
+        var orderedFleetIds = GetFractureFleetProcessOrder(state);
+
+        foreach (var fleetId in orderedFleetIds)
         {
-            if (fleet.State != FleetState.FractureTraveling) continue;
+            var fleet = state.Fleets[fleetId];
 
             if (!state.Nodes.TryGetValue(fleet.CurrentNodeId, out var startNode)) continue;
             if (!state.Nodes.TryGetValue(fleet.DestinationNodeId, out var endNode)) continue;
@@ -30,7 +45,7 @@ public static class FractureSystem
                 fleet.CurrentNodeId = fleet.DestinationNodeId;
                 fleet.DestinationNodeId = "";
                 fleet.State = FleetState.Idle;
-                
+
                 // SLICE 3: TRACE GENERATION
                 // Arriving via Fracture leaves a signature in the fabric
                 endNode.Trace += 0.5f;
