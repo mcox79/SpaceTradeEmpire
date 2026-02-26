@@ -4,35 +4,5 @@
     "generated_utc":  "2026-02-25T16:59:56-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 3dbad10f60c76d77fed0b77dd4fd9a8a110e8380",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006",
-                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006.T375",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006: Tool readout v0 (CLI, no Godot UI): runner command emits player-readable Facts%Events style seeded discoveries for one seed; stable ordering and formatting; no timestamps. Proof: dotnet run SimCore.Runner discovery-readout",
-                      "intent":  "Tool readout v0 (CLI, no Godot UI): runner command emits player-readable Facts%Events style seeded discoveries for one seed; stable ordering and formatting; no timestamps. Proof: dotnet run SimCore.Runner discovery-readout",
-                      "evidence_paths":  [
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "docs/generated/discovery_readout_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Runner/Program.cs",
-                                             "candidate_key_sha256=239e3eca1034"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }

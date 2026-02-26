@@ -680,6 +680,43 @@ public static class GalaxyGenerator
         return sb.ToString();
     }
 
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.006: player-readable readout (Facts%Events style) for one seed.
+    // Deterministic ordering keys:
+    // - discovery seeds are emitted in canonical DiscoveryId (ordinal) order (already sorted by BuildDiscoverySeedSurfaceV0).
+    // Deterministic formatting:
+    // - tab-separated table with a fixed header, no timestamps, no localization.
+    public static string BuildDiscoveryReadoutV0(SimState state, int seed)
+    {
+        var seeds = BuildDiscoverySeedSurfaceV0(state, seed);
+        var classByNode = GetWorldClassIdByNodeIdV0(state);
+
+        var sb = new StringBuilder();
+        sb.Append("FACTS").Append('\n');
+        sb.Append("DiscoveryKind\tNodeId\tWorldClassId\tRefId\tSourceId\tDiscoveryId").Append('\n');
+
+        foreach (var s in seeds)
+        {
+            var wc = "";
+            if (s.NodeId is not null && classByNode.TryGetValue(s.NodeId, out var w))
+            {
+                wc = w ?? "";
+            }
+
+            sb.Append(s.DiscoveryKind ?? "").Append('\t')
+              .Append(s.NodeId ?? "").Append('\t')
+              .Append(wc).Append('\t')
+              .Append(s.RefId ?? "").Append('\t')
+              .Append(s.SourceId ?? "").Append('\t')
+              .Append(s.DiscoveryId ?? "")
+              .Append('\n');
+        }
+
+        sb.Append("SeededDiscoveriesCount=").Append(seeds.Count).Append('\n');
+        sb.Append("Result=OK").Append('\n');
+
+        return sb.ToString();
+    }
+
     private static Node ChooseBestNodeForClassV0(IReadOnlyList<Node> nodes, int seed)
     {
         // Deterministic: minimum score; tie-break by NodeId (ordinal).
