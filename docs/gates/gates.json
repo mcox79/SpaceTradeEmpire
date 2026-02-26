@@ -1,8 +1,191 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-23T17:21:33-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 039806d74b96a358de66d216defc6a9784f716bb",
+    "generated_utc":  "2026-02-25T16:59:56-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 3dbad10f60c76d77fed0b77dd4fd9a8a110e8380",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001.T269",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: Discovery seeding contract v0: define minimal DiscoverySeedSurface records with required fields and stable ID rules; contract test hard-fails with deterministic schema diff on missing fields or unstable IDs; no timestamps; stable ordering",
+                      "intent":  "Discovery seeding contract v0: define minimal DiscoverySeedSurface records with required fields and stable ID rules; contract test hard-fails with deterministic schema diff on missing fields or unstable IDs; no timestamps; stable ordering",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Invariants/DiscoverySeedingContractTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore/Schemas/WorldDefinition.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Invariants/DiscoverySeedingContractTests.cs",
+                                             "candidate_key_sha256=496c8ec1517e"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.003",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.003.T427",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.003: Corridor trace seeding v0 with explicit ordering tie-breaks; includes a small fast ordering test that pinpoints the first mismatch deterministically; no timestamps",
+                      "intent":  "Corridor trace seeding v0 with explicit ordering tie-breaks; includes a small fast ordering test that pinpoints the first mismatch deterministically; no timestamps",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/FractureTests.cs",
+                                             "SimCore/Systems/FractureSystem.cs",
+                                             "SimCore/Entities/Edge.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/FractureTests.cs",
+                                             "candidate_key_sha256=b09309994b6e"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006.T375",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.006: Tool readout v0 (CLI, no Godot UI): runner command emits player-readable Facts%Events style seeded discoveries for one seed; stable ordering and formatting; no timestamps. Proof: dotnet run SimCore.Runner discovery-readout",
+                      "intent":  "Tool readout v0 (CLI, no Godot UI): runner command emits player-readable Facts%Events style seeded discoveries for one seed; stable ordering and formatting; no timestamps. Proof: dotnet run SimCore.Runner discovery-readout",
+                      "evidence_paths":  [
+                                             "SimCore.Runner/Program.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "docs/generated/discovery_readout_seed_42_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Runner/Program.cs",
+                                             "candidate_key_sha256=239e3eca1034"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002.T908",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: Deterministic anomaly families + resource marker seeding v0 with per-seed-class guarantees; stable IDs; violations emitted as deterministic table (Seed%WorldClass%ReasonCode%PrimaryId) sorted by ReasonCode then PrimaryId then Seed",
+                      "intent":  "Deterministic anomaly families + resource marker seeding v0 with per-seed-class guarantees; stable IDs; violations emitted as deterministic table (Seed%WorldClass%ReasonCode%PrimaryId) sorted by ReasonCode then PrimaryId then Seed",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/GalaxyTests.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "SimCore/Entities/Node.cs",
+                                             "SimCore/Entities/IntelBook.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/GalaxyTests.cs",
+                                             "candidate_key_sha256=0bfacb0de499"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.004",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.004.T375",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.004: Deterministic discovery seeding report v0: runner command emits docs/generated/discovery_seeding_report_v0.txt over Seeds 1..100 with identity header (Seed range + worldgen params + content registry version%digest); exits nonzero on violations; stable formatting and ordering; no timestamps. Proof: dotnet run SimCore.Runner discovery-report",
+                      "intent":  "Deterministic discovery seeding report v0: runner command emits docs/generated/discovery_seeding_report_v0.txt over Seeds 1..100 with identity header (Seed range + worldgen params + content registry version%digest); exits nonzero on violations; stable formatting and ordering; no timestamps. Proof: dotnet run SimCore.Runner discovery-report",
+                      "evidence_paths":  [
+                                             "SimCore.Runner/Program.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "docs/generated/content_registry_digest_v0.txt",
+                                             "docs/generated/discovery_seeding_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Runner/Program.cs",
+                                             "candidate_key_sha256=82accd2cf04d"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.005",
+                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.005.T614",
+                      "status":  "TODO",
+                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.005: N-seed scenario proof v0: deterministic test runs discovery report twice and asserts byte-for-byte stability and guarantees; failure prints Seed%Phase%FirstDivergence with stable hashes; uses same formatter as report command",
+                      "intent":  "N-seed scenario proof v0: deterministic test runs discovery report twice and asserts byte-for-byte stability and guarantees; failure prints Seed%Phase%FirstDivergence with stable hashes; uses same formatter as report command",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Determinism/DiscoverySeedingScenarioProofTests.cs",
+                                             "SimCore.Tests/Determinism/LongRunWorldHashTests.cs",
+                                             "SimCore.Runner/Program.cs",
+                                             "docs/generated/discovery_seeding_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Determinism/DiscoverySeedingScenarioProofTests.cs",
+                                             "candidate_key_sha256=4684d3ee22ac"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }

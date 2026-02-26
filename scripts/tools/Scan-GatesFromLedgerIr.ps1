@@ -612,12 +612,27 @@ foreach ($g in $selected) {
   $candKey = $gateTitle
   if (-not $candKey) { $candKey = $gateId }
 
-  # evidence universe (IR shape compatibility)
-  $e0 = @()
-  foreach ($p in @(Get-IrEvidenceUniverse $g)) {
-    $np = Normalize-RepoPath ($p + "")
-    if ($np) { $e0 += $np }
+# evidence universe (IR shape compatibility)
+# Support NEW: prefix (case-insensitive) meaning "declared output path" that may not exist yet.
+$e0 = @()
+$newEvidence = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::Ordinal)
+
+foreach ($p in @(Get-IrEvidenceUniverse $g)) {
+  $raw = ($p + "").Trim()
+
+  $isNew = $false
+  # Accept "NEW:" or "New:" etc, with optional spaces after colon.
+  if ($raw -match '^(?i)\s*NEW\s*:\s*(.+)$') {
+    $isNew = $true
+    $raw = $Matches[1].Trim()
   }
+
+  $np = Normalize-RepoPath $raw
+  if ($np) {
+    $e0 += $np
+    if ($isNew) { [void]$newEvidence.Add($np) }
+  }
+}
 
   # de-dup preserve order
   $seen = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::Ordinal)
@@ -632,6 +647,12 @@ $e2 = @()
 $repairs = @()
 
 foreach ($p in $e1) {
+  # NEW: declared outputs may not exist yet; do not require FILE MAP membership.
+  if ($newEvidence.Contains($p)) {
+    $e2 += $p
+    continue
+  }
+
   # Context packet FILE MAP excludes docs/generated/** by design, so do not require membership there.
   # Still enforce on-disk existence later via MISSING_ON_DISK.
   if ($p.StartsWith("docs/generated/")) {
@@ -676,6 +697,7 @@ if ($missing.Count -gt 0) {
 # docs/generated/** may be missing because the gate may be responsible for creating it.
 $missingOnDisk = @()
 foreach ($p in $e2) {
+  if ($newEvidence.Contains($p)) { continue }
   if ($p.StartsWith("docs/generated/")) { continue }
   if (-not (Test-Path -LiteralPath $p)) { $missingOnDisk += $p }
 }

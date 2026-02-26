@@ -366,6 +366,25 @@ function Run-ContextGen {
     }
 }
 
+# Phase 1. CONTEXT GENERATION (full file map)
+function Run-ContextGenFullFileMap {
+    Log-Output ">>> EXEC: PHASE 1 CONTEXT PACKET (FULL FILE MAP)"
+    if (-not (Test-Path $ContextScript)) { Log-Output "ERROR: Missing $ContextScript"; return $false }
+
+    try {
+        & $ContextScript -IncludeFileMap | Out-Null
+        Write-DevtoolSummary "context_full_file_map" @(
+            "docs/generated/devtool_summary.json",
+            "docs/generated/01_CONTEXT_PACKET.md"
+        )
+        Log-Output "CONTEXT PACKET UPDATED (FULL FILE MAP)."
+        return $true
+    } catch {
+        Log-Output ("ERROR: " + ($_.Exception.Message))
+        return $false
+    }
+}
+
 # Phase 1. CONNECTIVITY SCAN
 function Run-ConnectivityScan {
     Log-Output ">>> EXEC: PHASE 1 CONNECTIVITY SCAN"
@@ -1451,7 +1470,7 @@ $btnFromIrToRegistry = New-DevtoolButton $tabPipeline "From IR -> Build + Apply 
         $cap = Get-QueueCapFromUi -TextBox $txtQueueCap
 
         Log-Output "IR->Registry: generating context packet"
-        $ok = Run-ContextGen
+        $ok = Run-ContextGenFullFileMap
         if (-not $ok) { Log-Output "IR->Registry: abort (Context failed)."; return }
 
         Log-Output "IR->Registry: building queue (Stage 2)"
@@ -1502,6 +1521,12 @@ $y += 45
 # Advanced (readable single-purpose buttons)
 $btnContextOnly = New-DevtoolButton $tabPipeline "Advanced: Context Packet only" 10 $y 375 40 "#6a00ff" {
     Run-ContextGen | Out-Null
+    Set-StatusText
+}
+$y += 45
+
+$btnContextFullFileMap = New-DevtoolButton $tabPipeline "Advanced: Context Packet (Full File Map)" 10 $y 375 40 "#6a00ff" {
+    Run-ContextGenFullFileMap | Out-Null
     Set-StatusText
 }
 $y += 45
