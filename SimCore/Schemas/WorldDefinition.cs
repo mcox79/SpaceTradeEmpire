@@ -17,6 +17,10 @@ public sealed class WorldDefinition
     public List<WorldEdge> Edges { get; set; } = new();
     public List<WorldFaction> Factions { get; set; } = new();
 
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: discovery seeding surface v0 (schema-bound, deterministic).
+    // Ordering contract: consumers must sort by DiscoveryId (ordinal) unless an explicit alternate ordering is declared.
+    public List<DiscoverySeedSurfaceV0> DiscoverySeedsV0 { get; set; } = new();
+
     // Optional world class definitions (v0). Each class has exactly one measurable effect: FeeMultiplier.
     public List<WorldClassDefinition> WorldClasses { get; set; } = new();
 
@@ -69,6 +73,33 @@ public sealed class WorldFaction
 
     // Relations[OtherFactionId] in {-1,0,+1}. Keep explicit 0 entries for stable diffs.
     public Dictionary<string, int> Relations { get; set; } = new();
+}
+
+// GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: minimal discovery seeding surface v0.
+// Required fields:
+// - DiscoveryId: stable unique id within the world for this seed record.
+// - DiscoveryKind: schema token (no free-text) describing the seed class.
+// - NodeId: primary anchor location.
+// - RefId: secondary anchor (good id, other node id, etc) depending on kind.
+// - SourceId: originating generator id (lane id, industry site id, etc) for traceability.
+// Stable ID rule v0:
+// - DiscoveryId MUST be minted only from deterministic inputs (DiscoveryKind + stable primary ids)
+// - No timestamps%wall-clock, no global RNG, no unordered iteration dependencies.
+// - Suggested canonical format (implemented in generator): "disc_v0|<KIND>|<NodeId>|<RefId>|<SourceId>"
+public sealed class DiscoverySeedSurfaceV0
+{
+    public string DiscoveryId { get; set; } = "";
+    public string DiscoveryKind { get; set; } = "";
+    public string NodeId { get; set; } = "";
+    public string RefId { get; set; } = "";
+    public string SourceId { get; set; } = "";
+}
+
+public static class DiscoverySeedKindsV0
+{
+    // Token set is intentionally small in v0; extend only with deterministic justification and updated contract tests.
+    public const string ResourcePoolMarker = "RESOURCE_POOL_MARKER";
+    public const string CorridorTrace = "CORRIDOR_TRACE";
 }
 
 public sealed class WorldPlayerStart

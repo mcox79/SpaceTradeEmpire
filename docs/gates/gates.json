@@ -5,36 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 3dbad10f60c76d77fed0b77dd4fd9a8a110e8380",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001",
-                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001.T269",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: Discovery seeding contract v0: define minimal DiscoverySeedSurface records with required fields and stable ID rules; contract test hard-fails with deterministic schema diff on missing fields or unstable IDs; no timestamps; stable ordering",
-                      "intent":  "Discovery seeding contract v0: define minimal DiscoverySeedSurface records with required fields and stable ID rules; contract test hard-fails with deterministic schema diff on missing fields or unstable IDs; no timestamps; stable ordering",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Invariants/DiscoverySeedingContractTests.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "SimCore/Schemas/WorldDefinition.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Invariants/DiscoverySeedingContractTests.cs",
-                                             "candidate_key_sha256=496c8ec1517e"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.003",
                       "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.003.T427",
                       "status":  "TODO",

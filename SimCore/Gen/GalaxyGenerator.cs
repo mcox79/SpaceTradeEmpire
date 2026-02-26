@@ -456,6 +456,93 @@ public static class GalaxyGenerator
         return factions;
     }
 
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: discovery seeding contract v0.
+    // Deterministic ordering keys:
+    // - Industry-derived seeds: (DiscoveryKind, NodeId, RefId, SourceId) all ordinal, then DiscoveryId.
+    // - Lane-derived seeds: normalized endpoints (min,max) ordinal, then LaneId ordinal.
+    // Output ordering: list is sorted by DiscoveryId (ordinal) as a single canonical ordering for diff stability.
+    public static IReadOnlyList<DiscoverySeedSurfaceV0> BuildDiscoverySeedSurfaceV0(SimState state)
+    {
+        var seeds = new List<DiscoverySeedSurfaceV0>();
+
+        // 1) Resource pool markers from IndustrySites outputs (deterministic: sites by Id, outputs by GoodId).
+        foreach (var site in state.IndustrySites.Values
+                     .Where(s => s is not null)
+                     .OrderBy(s => s!.Id, StringComparer.Ordinal))
+        {
+            if (site!.Outputs is null) continue;
+
+            foreach (var kv in site.Outputs.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (kv.Value <= default(int)) continue;
+
+                var kind = DiscoverySeedKindsV0.ResourcePoolMarker;
+                var nodeId = site.NodeId ?? "";
+                var refId = kv.Key ?? "";
+                var sourceId = site.Id ?? "";
+
+                seeds.Add(new DiscoverySeedSurfaceV0
+                {
+                    DiscoveryKind = kind,
+                    NodeId = nodeId,
+                    RefId = refId,
+                    SourceId = sourceId,
+                    DiscoveryId = MintDiscoveryIdV0(kind, nodeId, refId, sourceId)
+                });
+            }
+        }
+
+        // 2) Corridor traces from lanes (deterministic: normalized endpoints, then LaneId).
+        var lanes = state.Edges.Values
+            .Select(e =>
+            {
+                var u = e.FromNodeId ?? "";
+                var v = e.ToNodeId ?? "";
+                if (string.CompareOrdinal(u, v) > default(int))
+                {
+                    (u, v) = (v, u);
+                }
+                return (U: u, V: v, LaneId: e.Id ?? "");
+            })
+            .ToList();
+
+        lanes.Sort((a, b) =>
+        {
+            int c = string.CompareOrdinal(a.U, b.U);
+            if (c != default(int)) return c;
+            c = string.CompareOrdinal(a.V, b.V);
+            if (c != default(int)) return c;
+            return string.CompareOrdinal(a.LaneId, b.LaneId);
+        });
+
+        foreach (var l in lanes)
+        {
+            var kind = DiscoverySeedKindsV0.CorridorTrace;
+            var nodeId = l.U;
+            var refId = l.V;
+            var sourceId = l.LaneId;
+
+            seeds.Add(new DiscoverySeedSurfaceV0
+            {
+                DiscoveryKind = kind,
+                NodeId = nodeId,
+                RefId = refId,
+                SourceId = sourceId,
+                DiscoveryId = MintDiscoveryIdV0(kind, nodeId, refId, sourceId)
+            });
+        }
+
+        seeds.Sort((a, b) => string.CompareOrdinal(a.DiscoveryId, b.DiscoveryId));
+        return seeds;
+    }
+
+    private static string MintDiscoveryIdV0(string kind, string nodeId, string refId, string sourceId)
+    {
+        // Canonical stable id format (v0). No timestamps%wall-clock, no RNG, no unordered iteration inputs.
+        // Use '|' separators and include all components to avoid collisions.
+        return $"disc_v0|{kind}|{nodeId}|{refId}|{sourceId}";
+    }
+
     private static uint Fnv1a32Utf8(string s)
     {
         unchecked
