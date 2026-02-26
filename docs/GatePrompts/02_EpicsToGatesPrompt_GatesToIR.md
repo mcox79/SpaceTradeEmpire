@@ -1,7 +1,7 @@
 You are in STAGE_1C: Proposed Gate Table IR Extraction Mode (capped, no inference).
 
 Goal
-Convert the proposed gates from the current session message (provided as a markdown table) into a deterministic intermediate representation (IR) for a Stage 2 tool that will do deep repo scanning and compile schema v2.2 queue objects.
+Convert the proposed gates from the current session message (provided below) into a deterministic intermediate representation (IR) for a Stage 2 tool that will do deep repo scanning and compile schema v2.2 queue objects.
 
 [**markdown gates from session go here**]
 
