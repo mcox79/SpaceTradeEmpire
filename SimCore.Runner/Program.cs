@@ -33,6 +33,12 @@ namespace SimCore.Runner
                     return;
                 }
 
+                if (string.Equals(cmd, "discovery-report", StringComparison.Ordinal))
+                {
+                    RunDiscoveryReport(args);
+                    return;
+                }
+
                 // Back-compat: original runner mode expects a scenario.json path as the first arg.
                 var scenarioPath = args[0];
                 if (!File.Exists(scenarioPath))
@@ -66,6 +72,7 @@ namespace SimCore.Runner
             Console.WriteLine("  SimCore.Runner <scenario.json>");
             Console.WriteLine("  SimCore.Runner seed-explore --seed <int> [--outdir <dir>] [--starCount <int>] [--radius <float>] [--maxHops <int>] [--chokeCapLe <int>] [--maxChokepoints <int>]");
             Console.WriteLine("  SimCore.Runner seed-diff --seedA <int> --seedB <int> [--outdir <dir>] [--starCount <int>] [--radius <float>] [--maxHops <int>] [--chokeCapLe <int>] [--maxChokepoints <int>]");
+            Console.WriteLine("  SimCore.Runner discovery-report [--outdir <dir>] [--seedStart <int>] [--seedEnd <int>] [--starCount <int>] [--radius <float>]");
         }
 
         private static void RunSeedExplore(string[] args)
@@ -247,6 +254,232 @@ namespace SimCore.Runner
 
             WriteUtf8NoBom(Path.Combine(outDir, "diff_topology.txt"), topoDiff);
             WriteUtf8NoBom(Path.Combine(outDir, "diff_loops.txt"), loopsDiff);
+        }
+
+        private static void RunDiscoveryReport(string[] args)
+        {
+            // Gate: GATE.S2_5.WGEN.DISCOVERY_SEEDING.004
+            // Deterministic report over Seeds [seedStart..seedEnd], stable ordering, no timestamps.
+            int seedStart = 1;
+            int seedEnd = 100;
+            string outDir = Path.Combine("docs", "generated");
+
+            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "--outdir", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    outDir = args[i + 1];
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--seedStart", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    seedStart = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--seedEnd", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    seedEnd = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--starCount", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    starCount = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--radius", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    radius = float.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                    i++;
+                    continue;
+                }
+            }
+
+            if (seedStart > seedEnd)
+            {
+                Console.Error.WriteLine("Error: seedStart must be <= seedEnd.");
+                Environment.Exit(1);
+            }
+
+            Directory.CreateDirectory(outDir);
+
+            var digestPath = Path.Combine("docs", "generated", "content_registry_digest_v0.txt");
+            if (!File.Exists(digestPath))
+            {
+                Console.Error.WriteLine($"Error: Missing required identity artifact: {digestPath}");
+                Environment.Exit(1);
+            }
+
+            var (regVersion, regDigest) = ParseContentRegistryDigestV0(File.ReadAllText(digestPath));
+
+            var sb = new StringBuilder();
+            sb.Append("DISCOVERY_SEEDING_REPORT_V0").Append('\n');
+            sb.Append("SeedRange=").Append(seedStart).Append("..").Append(seedEnd).Append('\n');
+            sb.Append("WorldgenStarCount=").Append(starCount).Append('\n');
+            sb.Append("WorldgenRadius=").Append(radius.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            sb.Append("ContentRegistryVersion=").Append(regVersion).Append('\n');
+            sb.Append("ContentRegistryDigest=").Append(regDigest).Append('\n');
+            sb.Append('\n');
+
+            sb.Append("SUMMARY").Append('\n');
+            sb.Append("Seed\tResult\tViolationsCount").Append('\n');
+
+            int failCount = 0;
+            int totalViolationCount = 0;
+
+            // Deterministic: iterate ascending seed.
+            for (int seed = seedStart; seed <= seedEnd; seed++)
+            {
+                var kernel = new SimKernel(seed);
+                SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+                var vrep = SimCore.Gen.GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+                int violationsCount = ExtractIntFieldOrThrow(vrep, "ViolationsCount=");
+                string result = ExtractStringFieldOrThrow(vrep, "Result=");
+
+                sb.Append(seed).Append('\t')
+                  .Append(result).Append('\t')
+                  .Append(violationsCount)
+                  .Append('\n');
+
+                totalViolationCount += violationsCount;
+                if (!string.Equals(result, "PASS", StringComparison.Ordinal))
+                {
+                    failCount++;
+                }
+            }
+
+            sb.Append('\n');
+            sb.Append("DETAILS_FAILING_SEEDS_ONLY").Append('\n');
+
+            for (int seed = seedStart; seed <= seedEnd; seed++)
+            {
+                var kernel = new SimKernel(seed);
+                SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+                var vrep = SimCore.Gen.GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+                string result = ExtractStringFieldOrThrow(vrep, "Result=");
+
+                if (string.Equals(result, "PASS", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                sb.Append("BEGIN_SEED ").Append(seed).Append('\n');
+                sb.Append(vrep.TrimEnd()).Append('\n');
+                sb.Append("END_SEED ").Append(seed).Append('\n');
+            }
+
+            sb.Append('\n');
+            sb.Append("Result=").Append(failCount == 0 ? "PASS" : "FAIL").Append('\n');
+            sb.Append("FailingSeedsCount=").Append(failCount).Append('\n');
+            sb.Append("TotalViolationsCount=").Append(totalViolationCount).Append('\n');
+
+            var outPath = Path.Combine(outDir, "discovery_seeding_report_v0.txt");
+            WriteUtf8NoBom(outPath, sb.ToString());
+
+            if (failCount != 0 || totalViolationCount != 0)
+            {
+                Environment.Exit(2);
+            }
+        }
+
+        private static (string Version, string Digest) ParseContentRegistryDigestV0(string text)
+        {
+            // Deterministic parse: scan for explicit keys. If missing, hard-fail to avoid incomplete identity.
+            // Supported formats (case-insensitive keys):
+            //   CONTENT_REGISTRY_DIGEST_V0
+            //   version=0
+            //   digest_sha256_upper=<HEX>
+            // Also supports older keys:
+            //   Version=...
+            //   Digest=... or Sha256=...
+            string? version = null;
+            string? digest = null;
+
+            var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var ln = lines[i].Trim();
+                if (ln.Length == 0) continue;
+
+                if (ln.StartsWith("version=", StringComparison.OrdinalIgnoreCase))
+                {
+                    version = ln.Substring("version=".Length).Trim();
+                    continue;
+                }
+
+                if (ln.StartsWith("Version=", StringComparison.OrdinalIgnoreCase))
+                {
+                    version = ln.Substring("Version=".Length).Trim();
+                    continue;
+                }
+
+                if (ln.StartsWith("digest_sha256_upper=", StringComparison.OrdinalIgnoreCase))
+                {
+                    digest = ln.Substring("digest_sha256_upper=".Length).Trim();
+                    continue;
+                }
+
+                if (ln.StartsWith("Digest=", StringComparison.OrdinalIgnoreCase))
+                {
+                    digest = ln.Substring("Digest=".Length).Trim();
+                    continue;
+                }
+
+                if (ln.StartsWith("Sha256=", StringComparison.OrdinalIgnoreCase))
+                {
+                    digest = ln.Substring("Sha256=".Length).Trim();
+                    continue;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(digest))
+            {
+                throw new InvalidOperationException(
+                    "content_registry_digest_v0.txt missing required version and digest fields (expected version= and digest_sha256_upper=, or Version= and Digest=%Sha256=).");
+            }
+
+            return (version!, digest!);
+        }
+
+        private static int ExtractIntFieldOrThrow(string report, string prefix)
+        {
+            var lines = report.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var ln = lines[i].Trim();
+                if (!ln.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+                var s = ln.Substring(prefix.Length).Trim();
+                return int.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            throw new InvalidOperationException($"Report missing required field: {prefix}");
+        }
+
+        private static string ExtractStringFieldOrThrow(string report, string prefix)
+        {
+            var lines = report.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var ln = lines[i].Trim();
+                if (!ln.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+                return ln.Substring(prefix.Length).Trim();
+            }
+
+            throw new InvalidOperationException($"Report missing required field: {prefix}");
         }
 
         private static void WriteUtf8NoBom(string path, string contents)
