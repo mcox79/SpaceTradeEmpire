@@ -1612,3 +1612,399 @@ public class LongRunWorldHashTests
     }
 
 }
+
+public class DiscoverySeedingScenarioProofTests
+{
+    // Gate: GATE.S2_5.WGEN.DISCOVERY_SEEDING.005
+    // N-seed scenario proof v0:
+    // - Build discovery seeding report twice with the same formatter as the runner command.
+    // - Assert byte-for-byte stability.
+    // - On divergence, print Seed%Phase%FirstDivergenceLine and stable SHA256 hashes.
+
+    [Test]
+    public void DiscoverySeeding_Report_V0_NSeedScenario_Is_ByteForByte_Stable_And_Guaranteed()
+    {
+        // Mirror runner defaults (Program.RunDiscoveryReport):
+        const int seedStart = 1;
+        const int seedEnd = 100;
+
+        int starCount = GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
+        float radius = GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+
+        var (regVersion, regDigest) = LoadContentRegistryDigestV0OrThrow();
+
+        var a = BuildDiscoverySeedingReportV0(
+            seedStart: seedStart,
+            seedEnd: seedEnd,
+            starCount: starCount,
+            radius: radius,
+            regVersion: regVersion,
+            regDigest: regDigest);
+
+        var b = BuildDiscoverySeedingReportV0(
+            seedStart: seedStart,
+            seedEnd: seedEnd,
+            starCount: starCount,
+            radius: radius,
+            regVersion: regVersion,
+            regDigest: regDigest);
+
+        // Guarantees: structure + obvious time leakage guard.
+        AssertDiscoveryReportGuarantees(a, seedStart, seedEnd, starCount, radius, regVersion, regDigest);
+
+        if (!string.Equals(a, b, StringComparison.Ordinal))
+        {
+            var diag = BuildFirstDivergenceDiagnostics(a, b);
+            Assert.Fail(diag);
+        }
+    }
+
+    private static void AssertDiscoveryReportGuarantees(
+        string report,
+        int seedStart,
+        int seedEnd,
+        int starCount,
+        float radius,
+        string regVersion,
+        string regDigest)
+    {
+        Assert.That(report.StartsWith("DISCOVERY_SEEDING_REPORT_V0\n", StringComparison.Ordinal), Is.True, "Header token must be present and first.");
+
+        Assert.That(report.Contains($"SeedRange={seedStart}..{seedEnd}\n", StringComparison.Ordinal), Is.True, "SeedRange header must match inputs.");
+        Assert.That(report.Contains($"WorldgenStarCount={starCount}\n", StringComparison.Ordinal), Is.True, "WorldgenStarCount header must match inputs.");
+
+        var radiusS = radius.ToString(CultureInfo.InvariantCulture);
+        Assert.That(report.Contains($"WorldgenRadius={radiusS}\n", StringComparison.Ordinal), Is.True, "WorldgenRadius header must match inputs (InvariantCulture).");
+
+        Assert.That(report.Contains($"ContentRegistryVersion={regVersion}\n", StringComparison.Ordinal), Is.True, "ContentRegistryVersion header must match digest artifact.");
+        Assert.That(report.Contains($"ContentRegistryDigest={regDigest}\n", StringComparison.Ordinal), Is.True, "ContentRegistryDigest header must match digest artifact.");
+
+        Assert.That(report.Contains("SUMMARY\n", StringComparison.Ordinal), Is.True, "SUMMARY section must exist.");
+        Assert.That(report.Contains("Seed\tResult\tViolationsCount\n", StringComparison.Ordinal), Is.True, "SUMMARY table header must exist.");
+        Assert.That(report.Contains("DETAILS_FAILING_SEEDS_ONLY\n", StringComparison.Ordinal), Is.True, "DETAILS section must exist.");
+
+        Assert.That(report.Contains("\nResult=", StringComparison.Ordinal), Is.True, "Footer Result= must exist.");
+        Assert.That(report.Contains("\nFailingSeedsCount=", StringComparison.Ordinal), Is.True, "Footer FailingSeedsCount= must exist.");
+        Assert.That(report.Contains("\nTotalViolationsCount=", StringComparison.Ordinal), Is.True, "Footer TotalViolationsCount= must exist.");
+
+        // Determinism guard: current year string must not appear.
+        var year = DateTime.UtcNow.Year.ToString(CultureInfo.InvariantCulture);
+        Assert.That(report.Contains(year, StringComparison.Ordinal), Is.False, "Report must not contain timestamps.");
+    }
+
+    private static string BuildFirstDivergenceDiagnostics(string a, string b)
+    {
+        var aHash = Sha256UpperHex(a);
+        var bHash = Sha256UpperHex(b);
+
+        var aLines = SplitLinesNormalized(a);
+        var bLines = SplitLinesNormalized(b);
+
+        int min = Math.Min(aLines.Length, bLines.Length);
+        int firstIdx = -1;
+        for (int i = 0; i < min; i++)
+        {
+            if (!string.Equals(aLines[i], bLines[i], StringComparison.Ordinal))
+            {
+                firstIdx = i;
+                break;
+            }
+        }
+
+        if (firstIdx < 0 && aLines.Length != bLines.Length)
+            firstIdx = min; // divergence is length mismatch at EOF
+
+        // Phase classification: SUMMARY vs DETAILS vs FOOTER, using deterministic sentinels.
+        string phase = ClassifyPhase(aLines, firstIdx);
+
+        // Seed classification:
+        // - SUMMARY: line starts with "<seed>\t"
+        // - DETAILS: scan backward for "BEGIN_SEED <seed>"
+        int seed = InferSeedContext(aLines, firstIdx);
+
+        int line1Based = firstIdx >= 0 ? (firstIdx + 1) : 0;
+
+        var aSample = firstIdx >= 0 && firstIdx < aLines.Length ? aLines[firstIdx] : "<EOF>";
+        var bSample = firstIdx >= 0 && firstIdx < bLines.Length ? bLines[firstIdx] : "<EOF>";
+
+        return
+            "Discovery seeding report is not byte-for-byte stable.\n" +
+            $"Seed={seed} Phase={phase} FirstDivergenceLine={line1Based}\n" +
+            $"HashA={aHash} HashB={bHash}\n" +
+            $"LineA={aSample}\n" +
+            $"LineB={bSample}";
+    }
+
+    private static string ClassifyPhase(string[] lines, int idx)
+    {
+        if (idx < 0) return "UNKNOWN";
+
+        int summaryIdx = IndexOfLine(lines, "SUMMARY");
+        int detailsIdx = IndexOfLine(lines, "DETAILS_FAILING_SEEDS_ONLY");
+
+        if (summaryIdx >= 0 && idx <= summaryIdx) return "HEADER";
+        if (detailsIdx >= 0 && idx < detailsIdx) return "SUMMARY";
+        if (detailsIdx >= 0 && idx >= detailsIdx)
+        {
+            // Footer starts at first line that begins with "Result=" after DETAILS.
+            for (int i = detailsIdx; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("Result=", StringComparison.Ordinal))
+                {
+                    return idx >= i ? "FOOTER" : "DETAILS";
+                }
+            }
+
+            return "DETAILS";
+        }
+
+        return "UNKNOWN";
+    }
+
+    private static int InferSeedContext(string[] lines, int idx)
+    {
+        if (idx < 0) return 0;
+
+        // SUMMARY line context: "<seed>\t..."
+        if (idx < lines.Length)
+        {
+            var ln = lines[idx];
+            int tab = ln.IndexOf('\t');
+            if (tab > 0)
+            {
+                var left = ln.Substring(0, tab);
+                if (int.TryParse(left, NumberStyles.Integer, CultureInfo.InvariantCulture, out var s))
+                    return s;
+            }
+        }
+
+        // DETAILS context: scan backward for "BEGIN_SEED <seed>"
+        for (int i = Math.Min(idx, lines.Length - 1); i >= 0; i--)
+        {
+            const string pfx = "BEGIN_SEED ";
+            if (lines[i].StartsWith(pfx, StringComparison.Ordinal))
+            {
+                var rest = lines[i].Substring(pfx.Length).Trim();
+                if (int.TryParse(rest, NumberStyles.Integer, CultureInfo.InvariantCulture, out var s))
+                    return s;
+                break;
+            }
+        }
+
+        return 0;
+    }
+
+    private static int IndexOfLine(string[] lines, string exact)
+    {
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (string.Equals(lines[i], exact, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static string[] SplitLinesNormalized(string s)
+    {
+        // Deterministic normalization matching runner style: normalize CRLF to LF before split.
+        return s.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+    }
+
+    private static string Sha256UpperHex(string text)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
+    }
+
+    private static (string Version, string Digest) LoadContentRegistryDigestV0OrThrow()
+    {
+        // IMPORTANT: resolve from repo root, not the test runner working directory.
+        // Tests often execute from SimCore.Tests/bin/... so relative paths are not stable.
+        var root = LocateRepoRootOrFail_Local();
+
+        var path = System.IO.Path.Combine(root, "docs", "generated", "content_registry_digest_v0.txt");
+        if (!System.IO.File.Exists(path))
+            throw new AssertionException($"Missing required identity artifact: {path}");
+
+        var text = System.IO.File.ReadAllText(path, Encoding.UTF8);
+        return ParseContentRegistryDigestV0(text);
+    }
+
+    private static string LocateRepoRootOrFail_Local()
+    {
+        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            // Prefer existing repo sentinel used elsewhere in this file (works even if .git is not a directory, e.g. submodules/worktrees).
+            var ctx = System.IO.Path.Combine(dir.FullName, "docs", "generated", "01_CONTEXT_PACKET.md");
+            if (System.IO.File.Exists(ctx))
+                return dir.FullName;
+
+            // Secondary fallback: direct .git directory (common local case).
+            if (System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, ".git")))
+                return dir.FullName;
+
+            dir = dir.Parent;
+        }
+
+        Assert.Fail("Could not locate repo root from AppContext.BaseDirectory.");
+        return string.Empty;
+    }
+
+    private static (string Version, string Digest) ParseContentRegistryDigestV0(string text)
+    {
+        // Mirror runner parse behavior (Program.ParseContentRegistryDigestV0):
+        // scan for explicit keys, case-insensitive.
+        string? version = null;
+        string? digest = null;
+
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var ln = lines[i].Trim();
+            if (ln.Length == 0) continue;
+
+            if (ln.StartsWith("version=", StringComparison.OrdinalIgnoreCase))
+            {
+                version = ln.Substring("version=".Length).Trim();
+                continue;
+            }
+
+            if (ln.StartsWith("Version=", StringComparison.OrdinalIgnoreCase))
+            {
+                version = ln.Substring("Version=".Length).Trim();
+                continue;
+            }
+
+            if (ln.StartsWith("digest_sha256_upper=", StringComparison.OrdinalIgnoreCase))
+            {
+                digest = ln.Substring("digest_sha256_upper=".Length).Trim();
+                continue;
+            }
+
+            if (ln.StartsWith("Digest=", StringComparison.OrdinalIgnoreCase))
+            {
+                digest = ln.Substring("Digest=".Length).Trim();
+                continue;
+            }
+
+            if (ln.StartsWith("Sha256=", StringComparison.OrdinalIgnoreCase))
+            {
+                digest = ln.Substring("Sha256=".Length).Trim();
+                continue;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(digest))
+        {
+            throw new AssertionException(
+                "content_registry_digest_v0.txt missing required version and digest fields (expected version= and digest_sha256_upper=, or Version= and Digest=%Sha256=).");
+        }
+
+        return (version!, digest!);
+    }
+
+    private static string BuildDiscoverySeedingReportV0(
+        int seedStart,
+        int seedEnd,
+        int starCount,
+        float radius,
+        string regVersion,
+        string regDigest)
+    {
+        if (seedStart > seedEnd)
+            throw new AssertionException("seedStart must be <= seedEnd.");
+
+        var sb = new StringBuilder();
+        sb.Append("DISCOVERY_SEEDING_REPORT_V0").Append('\n');
+        sb.Append("SeedRange=").Append(seedStart).Append("..").Append(seedEnd).Append('\n');
+        sb.Append("WorldgenStarCount=").Append(starCount).Append('\n');
+        sb.Append("WorldgenRadius=").Append(radius.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("ContentRegistryVersion=").Append(regVersion).Append('\n');
+        sb.Append("ContentRegistryDigest=").Append(regDigest).Append('\n');
+        sb.Append('\n');
+
+        sb.Append("SUMMARY").Append('\n');
+        sb.Append("Seed\tResult\tViolationsCount").Append('\n');
+
+        int failCount = 0;
+        int totalViolationCount = 0;
+
+        // Deterministic: iterate ascending seed.
+        for (int seed = seedStart; seed <= seedEnd; seed++)
+        {
+            var kernel = new SimKernel(seed);
+            GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+            var vrep = GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+            int violationsCount = ExtractIntFieldOrThrow(vrep, "ViolationsCount=");
+            string result = ExtractStringFieldOrThrow(vrep, "Result=");
+
+            sb.Append(seed).Append('\t')
+              .Append(result).Append('\t')
+              .Append(violationsCount)
+              .Append('\n');
+
+            totalViolationCount += violationsCount;
+            if (!string.Equals(result, "PASS", StringComparison.Ordinal))
+                failCount++;
+        }
+
+        sb.Append('\n');
+        sb.Append("DETAILS_FAILING_SEEDS_ONLY").Append('\n');
+
+        for (int seed = seedStart; seed <= seedEnd; seed++)
+        {
+            var kernel = new SimKernel(seed);
+            GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+            var vrep = GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+            string result = ExtractStringFieldOrThrow(vrep, "Result=");
+
+            if (string.Equals(result, "PASS", StringComparison.Ordinal))
+                continue;
+
+            sb.Append("BEGIN_SEED ").Append(seed).Append('\n');
+            sb.Append(vrep.TrimEnd()).Append('\n');
+            sb.Append("END_SEED ").Append(seed).Append('\n');
+        }
+
+        sb.Append('\n');
+        sb.Append("Result=").Append(failCount == 0 ? "PASS" : "FAIL").Append('\n');
+        sb.Append("FailingSeedsCount=").Append(failCount).Append('\n');
+        sb.Append("TotalViolationsCount=").Append(totalViolationCount).Append('\n');
+
+        return sb.ToString();
+    }
+
+    private static int ExtractIntFieldOrThrow(string report, string prefix)
+    {
+        var lines = report.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var ln = lines[i].Trim();
+            if (!ln.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+            var s = ln.Substring(prefix.Length).Trim();
+            return int.Parse(s, CultureInfo.InvariantCulture);
+        }
+
+        throw new AssertionException($"Report missing required field: {prefix}");
+    }
+
+    private static string ExtractStringFieldOrThrow(string report, string prefix)
+    {
+        var lines = report.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var ln = lines[i].Trim();
+            if (!ln.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+            return ln.Substring(prefix.Length).Trim();
+        }
+
+        throw new AssertionException($"Report missing required field: {prefix}");
+    }
+}
