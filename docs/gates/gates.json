@@ -65,37 +65,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002",
-                      "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002.T908",
-                      "status":  "TODO",
-                      "title":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: Deterministic anomaly families + resource marker seeding v0 with per-seed-class guarantees; stable IDs; violations emitted as deterministic table (Seed%WorldClass%ReasonCode%PrimaryId) sorted by ReasonCode then PrimaryId then Seed",
-                      "intent":  "Deterministic anomaly families + resource marker seeding v0 with per-seed-class guarantees; stable IDs; violations emitted as deterministic table (Seed%WorldClass%ReasonCode%PrimaryId) sorted by ReasonCode then PrimaryId then Seed",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/GalaxyTests.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "SimCore/Entities/Node.cs",
-                                             "SimCore/Entities/IntelBook.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/GalaxyTests.cs",
-                                             "candidate_key_sha256=0bfacb0de499"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.004",
                       "task_id":  "GATE.S2_5.WGEN.DISCOVERY_SEEDING.004.T375",
                       "status":  "TODO",

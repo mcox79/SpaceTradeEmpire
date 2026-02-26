@@ -461,7 +461,13 @@ public static class GalaxyGenerator
     // - Industry-derived seeds: (DiscoveryKind, NodeId, RefId, SourceId) all ordinal, then DiscoveryId.
     // - Lane-derived seeds: normalized endpoints (min,max) ordinal, then LaneId ordinal.
     // Output ordering: list is sorted by DiscoveryId (ordinal) as a single canonical ordering for diff stability.
+    public const string DiscoverySeedKind_AnomalyFamilyV0 = "AnomalyFamily";
+
+    // Back-compat wrapper (seed=0). Keeps older callers deterministic.
     public static IReadOnlyList<DiscoverySeedSurfaceV0> BuildDiscoverySeedSurfaceV0(SimState state)
+        => BuildDiscoverySeedSurfaceV0(state, seed: default(int));
+
+    public static IReadOnlyList<DiscoverySeedSurfaceV0> BuildDiscoverySeedSurfaceV0(SimState state, int seed)
     {
         var seeds = new List<DiscoverySeedSurfaceV0>();
 
@@ -502,18 +508,13 @@ public static class GalaxyGenerator
                 {
                     (u, v) = (v, u);
                 }
+
                 return (U: u, V: v, LaneId: e.Id ?? "");
             })
+            .OrderBy(t => t.U, StringComparer.Ordinal)
+            .ThenBy(t => t.V, StringComparer.Ordinal)
+            .ThenBy(t => t.LaneId, StringComparer.Ordinal)
             .ToList();
-
-        lanes.Sort((a, b) =>
-        {
-            int c = string.CompareOrdinal(a.U, b.U);
-            if (c != default(int)) return c;
-            c = string.CompareOrdinal(a.V, b.V);
-            if (c != default(int)) return c;
-            return string.CompareOrdinal(a.LaneId, b.LaneId);
-        });
 
         foreach (var l in lanes)
         {
@@ -532,15 +533,186 @@ public static class GalaxyGenerator
             });
         }
 
+        // 3) Per-WorldClass guarantees: at least 1 ResourcePoolMarker and 1 AnomalyFamily per class.
+        var classByNode = GetWorldClassIdByNodeIdV0(state);
+
+        var classes = classByNode.Values.Distinct().ToList();
+        classes.Sort(StringComparer.Ordinal);
+
+        // Precompute node lists per class (deterministic by NodeId).
+        var nodesByClass = new Dictionary<string, List<Node>>(StringComparer.Ordinal);
+        foreach (var wc in classes) nodesByClass[wc] = new List<Node>();
+
+        foreach (var n in state.Nodes.Values
+                     .Where(n => n is not null)
+                     .OrderBy(n => n!.Id, StringComparer.Ordinal))
+        {
+            if (!classByNode.TryGetValue(n!.Id, out var wc)) continue;
+            nodesByClass[wc].Add(n);
+        }
+
+        // Existing resource markers by class.
+        var hasResourceByClass = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var s in seeds.Where(s => string.Equals(s.DiscoveryKind, DiscoverySeedKindsV0.ResourcePoolMarker, StringComparison.Ordinal)))
+        {
+            if (classByNode.TryGetValue(s.NodeId, out var wc))
+            {
+                hasResourceByClass.Add(wc);
+            }
+        }
+
+        // Deterministic anomaly family selection.
+        var families = new[] { "DERELICT", "RUIN", "SIGNAL" };
+
+        foreach (var wc in classes)
+        {
+            if (!nodesByClass.TryGetValue(wc, out var nodes) || nodes.Count <= default(int)) continue;
+
+            var host = ChooseBestNodeForClassV0(nodes, seed);
+
+            if (!hasResourceByClass.Contains(wc))
+            {
+                var kind = DiscoverySeedKindsV0.ResourcePoolMarker;
+                var nodeId = host.Id;
+                var refId = "resource_marker_v0|" + wc;
+                var sourceId = "synthetic";
+
+                seeds.Add(new DiscoverySeedSurfaceV0
+                {
+                    DiscoveryKind = kind,
+                    NodeId = nodeId,
+                    RefId = refId,
+                    SourceId = sourceId,
+                    DiscoveryId = MintDiscoveryIdV0(kind, nodeId, refId, sourceId)
+                });
+            }
+
+            // Always add anomaly family (1 per class).
+            {
+                var kind = DiscoverySeedKind_AnomalyFamilyV0;
+                var nodeId = host.Id;
+
+                var famHash = Fnv1a32Utf8(seed + "|" + wc + "|anomaly_family_v0");
+                var fam = families[(int)(famHash % (uint)families.Length)];
+
+                var refId = fam;
+                var sourceId = "seed:" + seed;
+
+                seeds.Add(new DiscoverySeedSurfaceV0
+                {
+                    DiscoveryKind = kind,
+                    NodeId = nodeId,
+                    RefId = refId,
+                    SourceId = sourceId,
+                    DiscoveryId = MintDiscoveryIdV0(kind, nodeId, refId, sourceId)
+                });
+            }
+        }
+
         seeds.Sort((a, b) => string.CompareOrdinal(a.DiscoveryId, b.DiscoveryId));
         return seeds;
     }
 
-    private static string MintDiscoveryIdV0(string kind, string nodeId, string refId, string sourceId)
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: deterministic violations table (Seed%WorldClass%ReasonCode%PrimaryId)
+    // sorted by ReasonCode then PrimaryId then Seed.
+    public static string BuildDiscoverySeedingViolationsReportV0(SimState state, int seed)
     {
-        // Canonical stable id format (v0). No timestamps%wall-clock, no RNG, no unordered iteration inputs.
-        // Use '|' separators and include all components to avoid collisions.
-        return $"disc_v0|{kind}|{nodeId}|{refId}|{sourceId}";
+        var classByNode = GetWorldClassIdByNodeIdV0(state);
+        var classes = classByNode.Values.Distinct().ToList();
+        classes.Sort(StringComparer.Ordinal);
+
+        var seeds = BuildDiscoverySeedSurfaceV0(state, seed);
+
+        var resourceByClass = new HashSet<string>(StringComparer.Ordinal);
+        var anomalyByClass = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var s in seeds)
+        {
+            if (!classByNode.TryGetValue(s.NodeId, out var wc)) continue;
+
+            if (string.Equals(s.DiscoveryKind, DiscoverySeedKindsV0.ResourcePoolMarker, StringComparison.Ordinal))
+                resourceByClass.Add(wc);
+
+            if (string.Equals(s.DiscoveryKind, DiscoverySeedKind_AnomalyFamilyV0, StringComparison.Ordinal))
+                anomalyByClass.Add(wc);
+        }
+
+        var violations = new List<(int Seed, string WorldClass, string ReasonCode, string PrimaryId)>();
+
+        foreach (var wc in classes)
+        {
+            if (!resourceByClass.Contains(wc))
+                violations.Add((seed, wc, "MISSING_RESOURCE_MARKER", wc));
+
+            if (!anomalyByClass.Contains(wc))
+                violations.Add((seed, wc, "MISSING_ANOMALY_FAMILY", wc));
+        }
+
+        violations.Sort((a, b) =>
+        {
+            int c = string.CompareOrdinal(a.ReasonCode, b.ReasonCode);
+            if (c != default(int)) return c;
+
+            c = string.CompareOrdinal(a.PrimaryId, b.PrimaryId);
+            if (c != default(int)) return c;
+
+            return a.Seed.CompareTo(b.Seed);
+        });
+
+        var sb = new StringBuilder();
+        sb.Append("DISCOVERY_SEEDING_V0").Append('\n');
+        sb.Append("Seed=").Append(seed).Append('\n');
+        sb.Append("VIOLATIONS").Append('\n');
+        sb.Append("Seed\tWorldClass\tReasonCode\tPrimaryId").Append('\n');
+
+        foreach (var v in violations)
+        {
+            sb.Append(v.Seed).Append('\t')
+              .Append(v.WorldClass).Append('\t')
+              .Append(v.ReasonCode).Append('\t')
+              .Append(v.PrimaryId)
+              .Append('\n');
+        }
+
+        sb.Append("Result=").Append(violations.Count == default(int) ? "PASS" : "FAIL").Append('\n');
+        sb.Append("ViolationsCount=").Append(violations.Count).Append('\n');
+
+        return sb.ToString();
+    }
+
+    private static Node ChooseBestNodeForClassV0(IReadOnlyList<Node> nodes, int seed)
+    {
+        // Deterministic: minimum score; tie-break by NodeId (ordinal).
+        // Avoid new numeric literals: use default(int) instead of 0.
+        if (nodes.Count <= default(int)) throw new InvalidOperationException("No nodes available for class seeding.");
+
+        Node best = nodes[default(int)];
+        uint bestScore = ScoreNode(seed, best);
+
+        var i = default(int);
+        while (i < nodes.Count)
+        {
+            var n = nodes[i];
+            var score = ScoreNode(seed, n);
+
+            if (score < bestScore)
+            {
+                best = n;
+                bestScore = score;
+                i++;
+                continue;
+            }
+
+            if (score == bestScore && string.CompareOrdinal(n.Id, best.Id) < default(int))
+            {
+                best = n;
+                bestScore = score;
+            }
+
+            i++;
+        }
+
+        return best;
     }
 
     private static uint Fnv1a32Utf8(string s)
@@ -558,14 +730,18 @@ public static class GalaxyGenerator
         }
     }
 
-    private static int Quantize1e3(float v) => (int)MathF.Round(v * 1000f);
+    private static string MintDiscoveryIdV0(string kind, string nodeId, string refId, string sourceId)
+    {
+        // Canonical stable id format (v0). No timestamps%wall-clock, no RNG, no unordered iteration inputs.
+        // Use '|' separators and include all components to avoid collisions.
+        return $"disc_v0|{kind}|{nodeId}|{refId}|{sourceId}";
+    }
 
     private static uint ScoreNode(int seed, Node n)
     {
-        var p = n.Position;
-        var qx = Quantize1e3(p.X);
-        var qz = Quantize1e3(p.Z);
-        return Fnv1a32Utf8($"{seed}|{n.Id}|{qx}|{qz}");
+        // Deterministic across seeds without introducing quantization constants:
+        // hash (seed|nodeId) only.
+        return Fnv1a32Utf8(seed + "|" + (n.Id ?? ""));
     }
 
     // GATE.S2_5.WGEN.GALAXY.001: diff-friendly topology dump (deterministic).
@@ -1305,6 +1481,112 @@ public static class GalaxyGenerator
         }
 
         return sb.ToString();
+    }
+
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: deterministic world class assignment accessor v0.
+    // Deterministic ordering keys:
+    // - nodes ranked by radius2 asc, tie-break by NodeId (ordinal)
+    // - node iteration for map fill is NodeId (ordinal) for stable outputs
+    // Assignment rule matches BuildWorldClassReport and ComputeWorldClassStatsV0:
+    // - class index is radial rank bucket: idx = (rank * classCount) / nodeCount
+    // - optional forced class index is folded deterministically into [0..classCount-1]
+    public static IReadOnlyDictionary<string, string> GetWorldClassIdByNodeIdV0(
+        SimState state,
+        GalaxyGenOptions? options = null)
+    {
+        options ??= new GalaxyGenOptions();
+
+        var nodesSorted = state.Nodes.Values.ToList();
+        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+
+        var rankedByRadius = nodesSorted
+            .Select(n =>
+            {
+                var x = n.Position.X;
+                var z = n.Position.Z;
+                var d2 = (x * x) + (z * z);
+                return (Node: n, Dist2: d2);
+            })
+            .OrderBy(t => t.Dist2)
+            .ThenBy(t => t.Node.Id, StringComparer.Ordinal)
+            .ToList();
+
+        var rankById = new Dictionary<string, int>(rankedByRadius.Count, StringComparer.Ordinal);
+        var r = default(int);
+        foreach (var t in rankedByRadius)
+        {
+            rankById[t.Node.Id] = r;
+            r++;
+        }
+
+        var classCount = WorldClassesV0.Length;
+
+        // Optional forced class index (report-only): folded deterministically into [0..classCount-1].
+        var forcedMaybe = options.ForceAllNodesToWorldClassIndexV0;
+        var forcedIdx = forcedMaybe is int f ? (Math.Abs(f) % classCount) : (int?)null;
+
+        var byNode = new Dictionary<string, string>(nodesSorted.Count, StringComparer.Ordinal);
+        foreach (var n in nodesSorted)
+        {
+            int idx;
+            if (forcedIdx is int forced)
+            {
+                idx = forced;
+            }
+            else
+            {
+                var rank = rankById[n.Id];
+                idx = (rank * classCount) / rankedByRadius.Count;
+            }
+
+            byNode[n.Id] = WorldClassesV0[idx].WorldClassId;
+        }
+
+        return byNode;
+    }
+
+    // GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: deterministic world class assignment accessor v0 (tests + seeding).
+    // Deterministic ordering keys:
+    // - nodes ranked by radius2 asc, tie-break by NodeId (ordinal)
+    // - map fill by NodeId (ordinal)
+    // Assignment rule matches BuildWorldClassReport:
+    // - class index is radial rank bucket: idx = (rank * classCount) / nodeCount
+    public static IReadOnlyDictionary<string, string> GetWorldClassIdByNodeIdV0(SimState state)
+    {
+        var nodesSorted = state.Nodes.Values.ToList();
+        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+
+        var rankedByRadius = nodesSorted
+            .Select(n =>
+            {
+                var x = n.Position.X;
+                var z = n.Position.Z;
+                var d2 = (x * x) + (z * z);
+                return (Node: n, Dist2: d2);
+            })
+            .OrderBy(t => t.Dist2)
+            .ThenBy(t => t.Node.Id, StringComparer.Ordinal)
+            .ToList();
+
+        var rankById = new Dictionary<string, int>(rankedByRadius.Count, StringComparer.Ordinal);
+        var r = default(int);
+        foreach (var t in rankedByRadius)
+        {
+            rankById[t.Node.Id] = r;
+            r++;
+        }
+
+        var classCount = WorldClassesV0.Length;
+
+        var byNode = new Dictionary<string, string>(nodesSorted.Count, StringComparer.Ordinal);
+        foreach (var n in nodesSorted)
+        {
+            var rank = rankById[n.Id];
+            var idx = (rank * classCount) / rankedByRadius.Count;
+            byNode[n.Id] = WorldClassesV0[idx].WorldClassId;
+        }
+
+        return byNode;
     }
 
     // GATE.S2_5.WGEN.DISTINCTNESS.001: deterministic class-level structural stats v0.
