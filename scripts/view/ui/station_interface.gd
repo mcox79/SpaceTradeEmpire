@@ -55,9 +55,18 @@ func refresh_market_list():
 		child.queue_free()
 
 	var market = manager_ref.sim_ref.active_markets.get(current_node_id)
-	if not market: return
+	if not market:
+		return
 
-	for item_id in market.inventory.keys():
+	var market_title = Label.new()
+	market_title.text = 'MARKET'
+	market_title.custom_minimum_size = Vector2(780, 24)
+	container.add_child(market_title)
+
+	var item_ids = market.inventory.keys()
+	item_ids.sort()
+
+	for item_id in item_ids:
 		var qty = market.inventory[item_id]
 		var demand = market.base_demand.get(item_id, 10)
 		var price = manager_ref.EconomyEngine.calculate_price(null, qty, demand)
@@ -80,8 +89,41 @@ func refresh_market_list():
 		var btn_sell = Button.new()
 		btn_sell.text = 'SELL'
 		btn_sell.pressed.connect(_on_trade.bind(item_id, 1, false))
-		if player_qty <= 0: btn_sell.disabled = true
+		if player_qty <= 0:
+			btn_sell.disabled = true
 		row.add_child(btn_sell)
+
+	var spacer = Label.new()
+	spacer.text = ''
+	spacer.custom_minimum_size = Vector2(780, 12)
+	container.add_child(spacer)
+
+	var disc_title = Label.new()
+	disc_title.text = 'DISCOVERIES'
+	disc_title.custom_minimum_size = Vector2(780, 24)
+	container.add_child(disc_title)
+
+	var bridge = get_node_or_null('/root/SimBridge')
+	if bridge and bridge.has_method('GetDiscoveryListSnapshotV0'):
+		var list = bridge.call('GetDiscoveryListSnapshotV0')
+		if typeof(list) == TYPE_ARRAY:
+			for e in list:
+				if typeof(e) != TYPE_DICTIONARY:
+					continue
+
+				var discovery_id = str(e.get('discovery_id', ''))
+				var seen_bps = int(e.get('seen_bps', 0))
+				var scanned_bps = int(e.get('scanned_bps', 0))
+				var analyzed_bps = int(e.get('analyzed_bps', 0))
+
+				var seen_pct = int(seen_bps / 100)
+				var scanned_pct = int(scanned_bps / 100)
+				var analyzed_pct = int(analyzed_bps / 100)
+
+				var line = Label.new()
+				line.text = '%s | SEEN: %s% | SCANNED: %s% | ANALYZED: %s%' % [discovery_id, seen_pct, scanned_pct, analyzed_pct]
+				line.custom_minimum_size = Vector2(780, 22)
+				container.add_child(line)
 
 func _on_trade(item_id, qty, is_buy):
 	var success = manager_ref.try_trade(current_node_id, item_id, qty, is_buy)

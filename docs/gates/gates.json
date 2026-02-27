@@ -37,39 +37,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.006",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.006.T535",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.006: Discovery UI readout min v0: minimal station UI readout shows deterministic discovery list (DiscoveryId asc) with Seen%Scanned%Analyzed sourced via SimBridge Facts-style snapshot only (no SimCore entity access); UI strings contain no timestamps",
-                      "intent":  "Discovery UI readout min v0: minimal station UI readout shows deterministic discovery list (DiscoveryId asc) with Seen%Scanned%Analyzed sourced via SimBridge Facts-style snapshot only (no SimCore entity access); UI strings contain no timestamps",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_discovery_ui_readout.gd",
-                                             "docs/generated/discovery_ui_readout_seed_42_v0.txt",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/tools/Validate-GodotScript.ps1",
-                                             "scripts/tools/common.ps1",
-                                             "scripts/view/ui/station_interface.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_discovery_ui_readout.gd",
-                                             "candidate_key_sha256=cef0fc550e7f"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_STATE.007",
                       "task_id":  "GATE.S3_6.DISCOVERY_STATE.007.T769",
                       "status":  "TODO",

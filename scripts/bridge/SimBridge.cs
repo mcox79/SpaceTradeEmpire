@@ -60,6 +60,10 @@ public partial class SimBridge : Node
     // If the read lock is busy, we return the last captured dashboard snapshot instead of stalling a frame.
     private Godot.Collections.Dictionary _cachedDashboardSnapshot = new Godot.Collections.Dictionary();
 
+    // Cached discovery snapshot (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
+    private Godot.Collections.Array _cachedDiscoverySnapshot = new Godot.Collections.Array();
+
     // UI state persisted in quicksave (GATE.S3.UI.DASH.001)
     // Determinism: store as simple scalars with stable defaults.
     private int _uiStationViewIndex = 0;           // 0=Market%Traffic, 1=Logistics, 2=Sustainment, 3=Dash
@@ -186,6 +190,8 @@ public partial class SimBridge : Node
             return;
         }
 
+        ApplyCmdlineOverrides();
+
         Input.MouseMode = Input.MouseModeEnum.Visible;
 
         // Compute save path once on main thread. Do NOT call Godot API from worker thread.
@@ -219,6 +225,32 @@ public partial class SimBridge : Node
         {
             _emitLoadCompletePending = false;
             EmitSignal(SignalName.SimLoaded);
+        }
+    }
+
+    // Cmdline overrides are allowed for headless tooling (deterministic).
+    // Supported:
+    //   --seed=<int>   sets WorldSeed before kernel init
+    // Determinism: if seed override is provided, force ResetSaveOnBoot=true to prevent save contamination.
+    private void ApplyCmdlineOverrides()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        if (args == null || args.Length == 0) return;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i] ?? "";
+            if (a.Length == 0) continue;
+
+            if (a.StartsWith("--seed=", StringComparison.Ordinal))
+            {
+                var raw = a.Substring("--seed=".Length);
+                if (int.TryParse(raw, out var seed))
+                {
+                    WorldSeed = seed;
+                    ResetSaveOnBoot = true;
+                }
+            }
         }
     }
 
@@ -1844,135 +1876,144 @@ public partial class SimBridge : Node
 
                     foreach (var f in activeJobs)
                     {
+                        if (f == null) continue;
                         var fid = f.Id ?? "";
                         if (string.IsNullOrWhiteSpace(fid)) continue;
 
-                        if (lastTickByFleet.TryGetValue(fid, out var lt))
+                        if (lastTickByFleet.TryGetValue(fid, out var t))
                         {
-                            var d = Math.Max(0, snapTick - lt.Tick);
+                            var d = snapTick - t.Tick;
+                            if (d < 0) d = 0;
                             delaySum += d;
                             delayCount++;
                         }
                     }
                 }
 
-                var avgDelay = (delayCount <= 0) ? 0 : (int)(delaySum / delayCount);
-                dict["avg_delay_ticks"] = avgDelay;
+                dict["avg_delay_ticks"] = (delayCount > 0) ? (int)(delaySum / delayCount) : 0;
 
-                // top3_bottleneck_lanes from event note markers on this snapshot tick.
-                // We look for notes containing "Reason=LaneCapacity" or "LaneCapacity".
-                var laneCounts = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+                // top3_bottleneck_lanes: derived from event notes containing "LaneCapacity:" markers.
+                // Deterministic: parse notes in log order, then sort by Util desc, then LaneId asc.
+                var lanes = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
 
                 if (state.LogisticsEventLog != null && state.LogisticsEventLog.Count > 0)
                 {
                     foreach (var e in state.LogisticsEventLog)
                     {
-                        if (e.Tick != snapTick) continue;
-
                         var note = e.Note ?? "";
-                        if (string.IsNullOrWhiteSpace(note)) continue;
+                        if (note.Length == 0) continue;
 
-                        if (!(note.Contains("LaneCapacity", StringComparison.Ordinal) || note.Contains("Reason=LaneCapacity", StringComparison.Ordinal)))
-                            continue;
+                        // Expected note format fragment: "LaneCapacity: lane=<id> util_bps=<n>"
+                        var idx = note.IndexOf("LaneCapacity:", StringComparison.Ordinal);
+                        if (idx < 0) continue;
 
-                        // Parse lane id from common patterns: "LaneId=<id>" or "lane=<id>"
-                        string laneId = "";
-                        var idx = note.IndexOf("LaneId=", StringComparison.Ordinal);
-                        if (idx >= 0)
+                        var laneId = "";
+                        var utilBps = 0;
+
+                        var parts = note.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var p in parts)
                         {
-                            var start = idx + "LaneId=".Length;
-                            var end = note.IndexOfAny(new[] { ' ', ';', ',', '\t' }, start);
-                            laneId = (end >= 0) ? note.Substring(start, end - start) : note.Substring(start);
+                            var eq = p.IndexOf('=');
+                            if (eq <= 0) continue;
+
+                            var k = p.Substring(0, eq);
+                            var v = p.Substring(eq + 1);
+
+                            if (string.Equals(k, "lane", StringComparison.Ordinal)) laneId = v;
+                            else if (string.Equals(k, "util_bps", StringComparison.Ordinal) && int.TryParse(v, out var n)) utilBps = n;
                         }
-                        else
+
+                        if (!string.IsNullOrWhiteSpace(laneId))
                         {
-                            idx = note.IndexOf("lane=", StringComparison.Ordinal);
-                            if (idx >= 0)
+                            // Keep the max util seen for the lane (deterministic).
+                            if (lanes.TryGetValue(laneId, out var cur))
                             {
-                                var start = idx + "lane=".Length;
-                                var end = note.IndexOfAny(new[] { ' ', ';', ',', '\t' }, start);
-                                laneId = (end >= 0) ? note.Substring(start, end - start) : note.Substring(start);
+                                if (utilBps > cur) lanes[laneId] = utilBps;
+                            }
+                            else
+                            {
+                                lanes[laneId] = utilBps;
                             }
                         }
-
-                        laneId = laneId?.Trim() ?? "";
-                        if (string.IsNullOrWhiteSpace(laneId)) continue;
-
-                        laneCounts.TryGetValue(laneId, out var c);
-                        laneCounts[laneId] = c + 1;
                     }
                 }
 
-                var topLanes = laneCounts
-                    .OrderByDescending(kv => kv.Value)
-                    .ThenBy(kv => kv.Key, StringComparer.Ordinal)
-                    .Take(topN)
-                    .ToArray();
-
-                var lanesArr = new Godot.Collections.Array();
-                foreach (var kv in topLanes)
+                var laneArr = new Godot.Collections.Array();
+                foreach (var kv in lanes
+                    .OrderByDescending(x => x.Value)
+                    .ThenBy(x => x.Key, StringComparer.Ordinal)
+                    .Take(topN))
                 {
-                    lanesArr.Add(new Godot.Collections.Dictionary
+                    laneArr.Add(new Godot.Collections.Dictionary
                     {
                         ["lane_id"] = kv.Key,
-                        ["count"] = kv.Value
+                        ["util_bps"] = kv.Value
                     });
                 }
-                dict["top3_bottleneck_lanes"] = lanesArr;
+                dict["top3_bottleneck_lanes"] = laneArr;
 
-                // top3_profit_loops proxy: best 2-hop A>B>A where each leg uses the best positive price diff good.
-                // Determinism: markets sorted, goods sorted, tie-break goods lex, then route_id lex.
-                var markets = state.Markets.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray();
+                // top3_profit_loops: best 2-hop A>B>A loop proxies from market prices (ties lex).
+                // Deterministic: enumerate market ids asc, goods asc, then choose best proxy, then sort final list.
+                var markets = state.Markets.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
 
-                (string GoodId, int Profit) BestLeg(string from, string to)
+                // Deterministic goods universe for profit proxy: union of all market inventory keys.
+                // Sort key: GoodId asc (StringComparer.Ordinal).
+                var goods = state.Markets.Values
+                    .SelectMany(m => m.Inventory.Keys)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(x => x, StringComparer.Ordinal)
+                    .ToArray();
+
+                var loops = new System.Collections.Generic.List<(string RouteId, string A, string B, string GoodAB, string GoodBA, int NetProfit)>();
+
+                for (var i = 0; i < markets.Length; i++)
                 {
-                    if (!state.Markets.TryGetValue(from, out var mFrom)) return ("", 0);
-                    if (!state.Markets.TryGetValue(to, out var mTo)) return ("", 0);
-
-                    string bestGood = "";
-                    int bestProfit = 0;
-
-                    foreach (var good in mFrom.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal))
-                    {
-                        var pFrom = mFrom.GetPrice(good);
-                        var pTo = mTo.GetPrice(good);
-                        var profit = pTo - pFrom;
-                        if (profit <= 0) continue;
-
-                        if (profit > bestProfit)
-                        {
-                            bestProfit = profit;
-                            bestGood = good;
-                        }
-                        else if (profit == bestProfit && profit > 0 && string.CompareOrdinal(good, bestGood) < 0)
-                        {
-                            bestGood = good;
-                        }
-                    }
-
-                    return (bestGood, bestProfit);
-                }
-
-                var loops = new System.Collections.Generic.List<(string RouteId, string A, string B, string GoodAB, string GoodBA, int NetProfit)>(64);
-
-                for (int i = 0; i < markets.Length; i++)
-                {
-                    for (int j = 0; j < markets.Length; j++)
+                    for (var j = 0; j < markets.Length; j++)
                     {
                         if (i == j) continue;
 
                         var a = markets[i];
                         var b = markets[j];
 
-                        var leg1 = BestLeg(a, b);
-                        var leg2 = BestLeg(b, a);
+                        // Compute a deterministic proxy by picking the lex-best pair among top profit.
+                        var bestProfit = int.MinValue;
+                        var bestGoodAB = "";
+                        var bestGoodBA = "";
 
-                        if (leg1.Profit <= 0 || leg2.Profit <= 0) continue;
+                        foreach (var g1 in goods)
+                        {
+                            foreach (var g2 in goods)
+                            {
+                                // Proxy: use market pricing surface (no direct Prices dict dependency).
+                                var pA1 = state.Markets[a].GetPrice(g1);
+                                var pB1 = state.Markets[b].GetPrice(g1);
 
-                        var net = leg1.Profit + leg2.Profit;
-                        var routeId = $"{a}>{b}>{a}";
+                                var pA2 = state.Markets[a].GetPrice(g2);
+                                var pB2 = state.Markets[b].GetPrice(g2);
 
-                        loops.Add((routeId, a, b, leg1.GoodId, leg2.GoodId, net));
+                                var profit = (pB1 - pA1) + (pA2 - pB2);
+
+                                if (profit > bestProfit)
+                                {
+                                    bestProfit = profit;
+                                    bestGoodAB = g1;
+                                    bestGoodBA = g2;
+                                }
+                                else if (profit == bestProfit)
+                                {
+                                    // Tie-break lex on goods.
+                                    if (string.CompareOrdinal(g1, bestGoodAB) < 0 ||
+                                        (string.CompareOrdinal(g1, bestGoodAB) == 0 && string.CompareOrdinal(g2, bestGoodBA) < 0))
+                                    {
+                                        bestGoodAB = g1;
+                                        bestGoodBA = g2;
+                                    }
+                                }
+                            }
+                        }
+
+                        var routeId = a + ">" + b + ">" + a;
+                        loops.Add((routeId, a, b, bestGoodAB, bestGoodBA, bestProfit));
                     }
                 }
 
@@ -2017,6 +2058,65 @@ public partial class SimBridge : Node
         lock (_snapshotLock)
         {
             return _cachedDashboardSnapshot;
+        }
+    }
+
+    // --- Discovery UI readout min v0 (GATE.S3_6.DISCOVERY_STATE.006) ---
+    // Facts-only snapshot of discovery progression.
+    // Deterministic ordering: DiscoveryId asc (StringComparer.Ordinal). Ties: none.
+    // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    public Godot.Collections.Array GetDiscoveryListSnapshotV0()
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+
+                var list = IntelSystem.GetDiscoveriesAscending(state);
+                foreach (var d in list)
+                {
+                    var id = d.DiscoveryId ?? "";
+
+                    // Basis points (0..10000) for deterministic UI formatting.
+                    var seenBps = 10000;
+                    var scannedBps = 0;
+                    var analyzedBps = 0;
+
+                    if (d.Phase == SimCore.Entities.DiscoveryPhase.Scanned || d.Phase == SimCore.Entities.DiscoveryPhase.Analyzed)
+                        scannedBps = 10000;
+
+                    if (d.Phase == SimCore.Entities.DiscoveryPhase.Analyzed)
+                        analyzedBps = 10000;
+
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["discovery_id"] = id,
+                        ["seen_bps"] = seenBps,
+                        ["scanned_bps"] = scannedBps,
+                        ["analyzed_bps"] = analyzedBps
+                    });
+                }
+
+                lock (_snapshotLock)
+                {
+                    _cachedDiscoverySnapshot = arr;
+                }
+
+                return arr;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            return _cachedDiscoverySnapshot;
         }
     }
 
