@@ -59,6 +59,33 @@ Prereq: use the Godot Mono console binary (the `*_console.exe` build). Configure
   Purpose: exercise galaxy generator headlessly as a deterministic regression.
   - Godot --headless --quit --script res://scripts/tests/test_galaxy_core.gd
 
+## Notes (headless script tests)
+
+Godot binary (this machine):
+  - C:\Godot\Godot_v4.6-stable_mono_win64.exe
+
+Canonical pattern for -s script tests:
+  - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=<N>
+  - The -- separator is required. Everything after -- is passed to OS.GetCmdlineUserArgs() in C#.
+  - Without --, --seed=N is consumed by the engine and never reaches ApplyCmdlineOverrides().
+
+Filtering UUIR transcript output:
+  - Append: 2>&1 | Select-String "^UUIR\|"
+
+Determinism proof pattern (two runs, hashes must match):
+  - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=42 2>&1 | Select-String "^UUIR\|" | Tee-Object -FilePath "docs/generated/<script>_run1.txt"
+  - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=42 2>&1 | Select-String "^UUIR\|" | Tee-Object -FilePath "docs/generated/<script>_run2.txt"
+  - Get-FileHash docs/generated/<script>_run1.txt, docs/generated/<script>_run2.txt -Algorithm SHA256 | Select-Object Hash, Path
+
+Exit code check:
+  - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=42 2>&1 | Out-Null; $LASTEXITCODE
+  - Expected: 0
+
+SceneTree script contract (extends SceneTree):
+  - _initialize() must not block the main thread (no OS.delay_msec polling loops).
+  - All SimBridge readiness polling must use _process() so the engine can yield between frames.
+  - SimBridge._Ready() runs on the main thread; blocking _initialize() prevents it from ever executing.
+
 ## Notes (determinism + bookkeeping)
 
 - All harness outputs must be deterministic: no timestamps, stable ordering, stable formatting; stdout%stderr hashes must be stable across reruns on unchanged repo state.

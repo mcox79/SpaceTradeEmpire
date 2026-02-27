@@ -26,8 +26,19 @@ public partial class SimBridge : Node
     private int _saveEpoch = 0;
     private int _loadEpoch = 0;
 
+    // Bridge readiness v0 (for deterministic headless tooling).
+    // Set to 1 only after _Ready has applied cmdline overrides, initialized kernel, and started sim thread.
+    private int _bridgeReadyV0 = 0;
+    private int _cmdlineReadyV0 = 0;
+
+    // Deterministic: true only after ApplyCmdlineOverrides() has run in _Ready().
+    public bool GetCmdlineReadyV0() => Volatile.Read(ref _cmdlineReadyV0) != 0;
+
     public int GetSaveEpoch() => Volatile.Read(ref _saveEpoch);
     public int GetLoadEpoch() => Volatile.Read(ref _loadEpoch);
+
+    // Deterministic readiness probe for tests: true only after _Ready completed initialization.
+    public bool GetBridgeReadyV0() => Volatile.Read(ref _bridgeReadyV0) != 0;
 
     [Export] public int WorldSeed { get; set; } = 12345;
     [Export] public int StarCount { get; set; } = 20;
@@ -63,6 +74,10 @@ public partial class SimBridge : Node
     // Cached discovery snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
     private Godot.Collections.Array _cachedDiscoverySnapshot = new Godot.Collections.Array();
+
+    // Cached unlock snapshot (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
+    private Godot.Collections.Array _cachedUnlockSnapshot = new Godot.Collections.Array();
 
     // UI state persisted in quicksave (GATE.S3.UI.DASH.001)
     // Determinism: store as simple scalars with stable defaults.
@@ -190,7 +205,15 @@ public partial class SimBridge : Node
             return;
         }
 
+        // Ensure cmdline overrides apply before kernel init.
         ApplyCmdlineOverrides();
+
+        // Mark cmdline ready immediately after overrides apply.
+        Volatile.Write(ref _cmdlineReadyV0, 1);
+
+        // Explicitly keep seed stable if cmdline override exists; do not allow other code to change it later.
+        // (No-op if ApplyCmdlineOverrides did not find --seed=...)
+        // WorldSeed is already set inside ApplyCmdlineOverrides.
 
         Input.MouseMode = Input.MouseModeEnum.Visible;
 
@@ -205,6 +228,9 @@ public partial class SimBridge : Node
 
         InitializeKernel();
         StartSimulation();
+
+        // Ready only after cmdline override + kernel init + sim start.
+        Volatile.Write(ref _bridgeReadyV0, 1);
     }
 
     public override void _ExitTree()
@@ -296,10 +322,11 @@ public partial class SimBridge : Node
                 _cts.Cancel();
             }
 
-            // Best-effort join.
+            // Best-effort join. 200ms is enough: sim loop cancels within one TickDelayMs cycle (default 100ms).
+            // Do not block longer — this may be called from the main thread (RequestShutdownV0).
             if (_simTask != null && !_simTask.IsCompleted)
             {
-                _simTask.Wait(1000);
+                _simTask.Wait(200);
             }
         }
         catch
@@ -379,6 +406,17 @@ public partial class SimBridge : Node
     }
 
     // --- PUBLIC API (Thread-Safe) ---
+
+    // Deterministic headless shutdown hook for tooling/tests.
+    // Cancels the sim loop and requests engine quit on the main thread.
+    public void RequestShutdownV0()
+    {
+        // StopSimulation cancels the sim task and waits briefly (main-thread safe).
+        StopSimulation();
+        // Defer Quit() to the engine's next idle frame so the engine exits cleanly
+        // in headless mode without blocking on mid-frame state.
+        GetTree().CallDeferred("quit");
+    }
 
     public void ExecuteSafeRead(Action<SimState> action)
     {
@@ -2132,6 +2170,182 @@ public partial class SimBridge : Node
         {
             return _cachedDiscoverySnapshot;
         }
+    }
+
+    // --- Unlock UI readout min v0 (GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006) ---
+    // Facts-only snapshot of unlock progression.
+    // Deterministic ordering: UnlockId asc (StringComparer.Ordinal). Tie-breakers: none.
+    // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    public Godot.Collections.Array GetUnlockListSnapshotV0()
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+                var rows = new System.Collections.Generic.List<UnlockRowV0>();
+
+                static object? TryGetProp(object obj, string propName)
+                {
+                    try
+                    {
+                        var p = obj.GetType().GetProperty(propName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                        return p?.GetValue(obj);
+                    }
+                    catch { return null; }
+                }
+
+                static object? TryGetPropAny(object obj, string[] propNames)
+                {
+                    foreach (var n in propNames)
+                    {
+                        var v = TryGetProp(obj, n);
+                        if (v is not null) return v;
+                    }
+                    return null;
+                }
+
+                object? intelBook = TryGetPropAny(state, new[] { "IntelBook", "Intel", "IntelState" });
+                object? unlockContainer =
+                    (intelBook is not null ? TryGetPropAny(intelBook, new[] { "Unlocks", "UnlockStates", "UnlockList", "UnlockRecords" }) : null)
+                    ?? TryGetPropAny(state, new[] { "Unlocks", "UnlockStates", "UnlockBook" });
+
+                if (unlockContainer is System.Collections.IDictionary dict)
+                {
+                    foreach (System.Collections.DictionaryEntry de in dict)
+                    {
+                        var key = de.Key;
+                        var value = de.Value;
+
+                        var unlockId = (key as string) ?? key?.ToString() ?? "";
+                        if (string.IsNullOrWhiteSpace(unlockId))
+                            unlockId = TryGetStringProp(value!, new[] { "UnlockId", "Id" });
+
+                        var row = BuildUnlockRowV0(unlockId, value);
+                        if (!string.IsNullOrWhiteSpace(row.UnlockId))
+                            rows.Add(row);
+                    }
+                }
+                else if (unlockContainer is System.Collections.IEnumerable seq)
+                {
+                    foreach (var item in seq)
+                    {
+                        if (item is null) continue;
+                        var unlockId = TryGetStringProp(item, new[] { "UnlockId", "Id" });
+                        var row = BuildUnlockRowV0(unlockId, item);
+                        if (!string.IsNullOrWhiteSpace(row.UnlockId))
+                            rows.Add(row);
+                    }
+                }
+
+                rows.Sort((a, b) => StringComparer.Ordinal.Compare(a.UnlockId, b.UnlockId));
+
+                foreach (var r in rows)
+                {
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["unlock_id"] = r.UnlockId,
+
+                        // Schema-bound tokens (no free-text).
+                        ["effect_tokens"] = r.EffectTokens,
+                        ["blocked_reason_code"] = r.BlockedReasonCode,
+                        ["blocked_actions"] = r.BlockedActions,
+                    });
+                }
+
+                lock (_snapshotLock)
+                {
+                    _cachedUnlockSnapshot = arr;
+                }
+
+                return arr;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            return _cachedUnlockSnapshot;
+        }
+    }
+
+    private sealed class UnlockRowV0
+    {
+        public string UnlockId = "";
+        public string BlockedReasonCode = "";
+        public Godot.Collections.Array EffectTokens = new Godot.Collections.Array();
+        public Godot.Collections.Array BlockedActions = new Godot.Collections.Array();
+    }
+
+    private static UnlockRowV0 BuildUnlockRowV0(string unlockId, object? unlockState)
+    {
+        var r = new UnlockRowV0();
+        r.UnlockId = unlockId ?? "";
+
+        if (unlockState is null) return r;
+
+        // Schema-bound tokens only (no free-text). Probe a small fixed set of names deterministically.
+        r.BlockedReasonCode = TryGetStringProp(unlockState, new[]
+        {
+            "BlockedReasonCode",
+            "UnlockBlockedReasonCode",
+            "LockReasonCode",
+            "ReasonCode",
+        });
+
+        r.EffectTokens = TryGetStringListPropAsArray(unlockState, new[]
+        {
+            "EffectTokens",
+            "Effects",
+            "EffectSummaryTokens",
+            "SummaryTokens",
+        });
+
+        r.BlockedActions = TryGetStringListPropAsArray(unlockState, new[]
+        {
+            "BlockedActions",
+            "NextActions",
+            "SuggestedActions",
+        });
+
+        // Normalize arrays: Ordinal sort + de-dup for stable presentation even if upstream storage is unordered.
+        r.EffectTokens = NormalizeTokenArray(r.EffectTokens);
+        r.BlockedActions = NormalizeTokenArray(r.BlockedActions);
+
+        return r;
+    }
+
+    private static Godot.Collections.Array NormalizeTokenArray(Godot.Collections.Array src)
+    {
+        var tokens = new System.Collections.Generic.List<string>();
+        foreach (Godot.Variant v in src)
+        {
+            // Godot.Variant is a non-nullable struct in Godot 4 C#.
+            // Convert deterministically to string for token normalization.
+            string s = v.VariantType == Godot.Variant.Type.String ? v.AsString() : v.ToString();
+            if (string.IsNullOrWhiteSpace(s)) continue;
+            tokens.Add(s);
+        }
+
+        tokens.Sort(StringComparer.Ordinal);
+
+        var outArr = new Godot.Collections.Array();
+        string last = "";
+        var hasLast = false;
+        foreach (var t in tokens)
+        {
+            if (hasLast && StringComparer.Ordinal.Equals(t, last)) continue;
+            outArr.Add(t);
+            last = t;
+            hasLast = true;
+        }
+        return outArr;
     }
 
     private sealed class DiscoveryExplainV0

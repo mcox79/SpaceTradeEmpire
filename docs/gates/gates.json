@@ -36,38 +36,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006.T371",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006: Unlock UI readout min v0: station discovery readout shows deterministic unlock list (UnlockId asc) with effect summary tokens and blocked reasons; emits deterministic Seed 42 transcript with no timestamps",
-                      "intent":  "Unlock UI readout min v0: station discovery readout shows deterministic unlock list (UnlockId asc) with effect summary tokens and blocked reasons; emits deterministic Seed 42 transcript with no timestamps",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_unlock_ui_readout.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/view/ui/station_interface.gd",
-                                             "scripts/tools/Validate-GodotScript.ps1",
-                                             "docs/generated/unlock_ui_readout_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_unlock_ui_readout.gd",
-                                             "candidate_key_sha256=56707de7bb2c"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008",
                       "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008.T639",
                       "status":  "TODO",

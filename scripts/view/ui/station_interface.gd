@@ -146,6 +146,42 @@ func refresh_market_list():
 					chain_line.custom_minimum_size = Vector2(780, 20)
 					container.add_child(chain_line)
 
+	var unlock_spacer = Label.new()
+	unlock_spacer.text = ''
+	unlock_spacer.custom_minimum_size = Vector2(780, 12)
+	container.add_child(unlock_spacer)
+
+	var unlock_title = Label.new()
+	unlock_title.text = 'UNLOCKS'
+	unlock_title.custom_minimum_size = Vector2(780, 24)
+	container.add_child(unlock_title)
+
+	if bridge and bridge.has_method('GetUnlockListSnapshotV0'):
+		var unlocks = bridge.call('GetUnlockListSnapshotV0')
+		if typeof(unlocks) == TYPE_ARRAY:
+			for u in unlocks:
+				if typeof(u) != TYPE_DICTIONARY:
+					continue
+
+				var unlock_id = str(u.get('unlock_id', ''))
+				var effect_tokens = u.get('effect_tokens', [])
+				var blocked_reason = str(u.get('blocked_reason_code', ''))
+				var blocked_actions = u.get('blocked_actions', [])
+
+				var effects_s = _join_tokens(effect_tokens)
+
+				var uline = Label.new()
+				uline.text = '%s | EFFECTS: %s' % [unlock_id, effects_s]
+				uline.custom_minimum_size = Vector2(780, 22)
+				container.add_child(uline)
+
+				if blocked_reason != '':
+					var udetail = Label.new()
+					var blocked_actions_s = _join_tokens(blocked_actions)
+					udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
+					udetail.custom_minimum_size = Vector2(780, 20)
+					container.add_child(udetail)
+
 func _join_tokens(tokens) -> String:
 	if typeof(tokens) != TYPE_ARRAY:
 		return ''
