@@ -114,6 +114,35 @@ public static class IntelSystem
             .ToList();
     }
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+    // Stable listing of unlocks: UnlockId asc (StringComparer.Ordinal).
+    public static IReadOnlyList<UnlockContractV0> GetUnlocksAscending(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.Intel?.Unlocks is null)
+            return Array.Empty<UnlockContractV0>();
+
+        return state.Intel.Unlocks.Values
+            .OrderBy(u => u.UnlockId, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+    // Returns the reason code for an acquire attempt on the given unlock.
+    public static UnlockReasonCode GetAcquireUnlockReasonCode(SimState state, string unlockId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrEmpty(unlockId)) return UnlockReasonCode.NotKnown;
+
+        if (state.Intel?.Unlocks is null || !state.Intel.Unlocks.TryGetValue(unlockId, out var u) || u is null)
+            return UnlockReasonCode.NotKnown;
+
+        if (u.IsAcquired) return UnlockReasonCode.AlreadyAcquired;
+        if (u.IsBlocked) return UnlockReasonCode.Blocked;
+
+        return UnlockReasonCode.Ok;
+    }
+
     // GATE.S3_6.DISCOVERY_STATE.001
     // Returns the reason code for a scan attempt on the given discovery.
     public static DiscoveryReasonCode GetScanReasonCode(SimState state, string discoveryId)

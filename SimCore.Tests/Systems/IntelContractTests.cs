@@ -322,6 +322,69 @@ public sealed class IntelContractTests
         Assert.That(ev.PhaseAfter, Is.EqualTo((int)DiscoveryPhase.Seen));
     }
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001: Unlock contract tests
+
+    [Test]
+    public void UnlockKind_HasRequiredValues()
+    {
+        Assert.That((int)UnlockKind.Permit, Is.EqualTo(0));
+        Assert.That((int)UnlockKind.Broker, Is.EqualTo(1));
+        Assert.That((int)UnlockKind.Recipe, Is.EqualTo(2));
+        Assert.That((int)UnlockKind.SiteBlueprint, Is.EqualTo(3));
+        Assert.That((int)UnlockKind.CorridorAccess, Is.EqualTo(4));
+        Assert.That((int)UnlockKind.SensorLayer, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void UnlockReasonCode_HasRequiredValues()
+    {
+        Assert.That((int)UnlockReasonCode.Ok, Is.EqualTo(0));
+        Assert.That((int)UnlockReasonCode.NotKnown, Is.EqualTo(1));
+        Assert.That((int)UnlockReasonCode.AlreadyAcquired, Is.EqualTo(2));
+        Assert.That((int)UnlockReasonCode.Blocked, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void UnlockAcquire_ReasonCode_NotKnown_WhenNotInBook()
+    {
+        var state = new SimState(11);
+        Assert.That(IntelSystem.GetAcquireUnlockReasonCode(state, "unlock_unknown"), Is.EqualTo(UnlockReasonCode.NotKnown));
+    }
+
+    [Test]
+    public void UnlockAcquire_ReasonCode_AlreadyAcquired_WhenAcquired()
+    {
+        var state = new SimState(12);
+        state.Intel.Unlocks["u1"] = new UnlockContractV0 { UnlockId = "u1", Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false };
+
+        Assert.That(IntelSystem.GetAcquireUnlockReasonCode(state, "u1"), Is.EqualTo(UnlockReasonCode.AlreadyAcquired));
+    }
+
+    [Test]
+    public void UnlockAcquire_ReasonCode_Blocked_WhenBlockedAndNotAcquired()
+    {
+        var state = new SimState(13);
+        state.Intel.Unlocks["u2"] = new UnlockContractV0 { UnlockId = "u2", Kind = UnlockKind.Recipe, IsAcquired = false, IsBlocked = true };
+
+        Assert.That(IntelSystem.GetAcquireUnlockReasonCode(state, "u2"), Is.EqualTo(UnlockReasonCode.Blocked));
+    }
+
+    [Test]
+    public void UnlockListing_StableOrdering_ByUnlockIdAsc()
+    {
+        var state = new SimState(14);
+        state.Intel.Unlocks["unlock_003"] = new UnlockContractV0 { UnlockId = "unlock_003", Kind = UnlockKind.SensorLayer, IsAcquired = false, IsBlocked = false };
+        state.Intel.Unlocks["unlock_001"] = new UnlockContractV0 { UnlockId = "unlock_001", Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false };
+        state.Intel.Unlocks["unlock_002"] = new UnlockContractV0 { UnlockId = "unlock_002", Kind = UnlockKind.CorridorAccess, IsAcquired = false, IsBlocked = true };
+
+        var list = IntelSystem.GetUnlocksAscending(state);
+
+        Assert.That(list.Count, Is.EqualTo(3));
+        Assert.That(list[0].UnlockId, Is.EqualTo("unlock_001"));
+        Assert.That(list[1].UnlockId, Is.EqualTo("unlock_002"));
+        Assert.That(list[2].UnlockId, Is.EqualTo("unlock_003"));
+    }
+
     [Test]
     public void RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved()
     {

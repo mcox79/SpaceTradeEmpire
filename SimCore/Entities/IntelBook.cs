@@ -41,6 +41,10 @@ public sealed class IntelBook
     // DiscoveryStateV0 keyed by stable DiscoveryId; ordered by DiscoveryId asc for listing.
     [JsonInclude] public Dictionary<string, DiscoveryStateV0> Discoveries { get; private set; } = new();
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+    // UnlockContractV0 keyed by stable UnlockId; ordered by UnlockId asc for listing.
+    [JsonInclude] public Dictionary<string, UnlockContractV0> Unlocks { get; private set; } = new();
+
     public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
 }
 
@@ -68,4 +72,38 @@ public sealed class DiscoveryStateV0
 {
     [JsonInclude] public string DiscoveryId { get; set; } = "";
     [JsonInclude] public DiscoveryPhase Phase { get; set; } = DiscoveryPhase.Seen;
+}
+
+// GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+public enum UnlockKind
+{
+    Permit = 0,
+    Broker = 1,
+    Recipe = 2,
+    SiteBlueprint = 3,
+    CorridorAccess = 4,
+    SensorLayer = 5
+}
+
+// GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+// Reason codes for blocked acquisition outcomes.
+public enum UnlockReasonCode
+{
+    Ok = 0,
+    NotKnown = 1,
+    AlreadyAcquired = 2,
+    Blocked = 3
+}
+
+// GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
+public sealed class UnlockContractV0
+{
+    [JsonInclude] public string UnlockId { get; set; } = "";
+    [JsonInclude] public UnlockKind Kind { get; set; } = UnlockKind.Permit;
+
+    // IntelBook-facing acquisition state.
+    [JsonInclude] public bool IsAcquired { get; set; } = false;
+
+    // Deterministic blocked flag. If true and not acquired, acquisition reason is UnlockReasonCode.Blocked.
+    [JsonInclude] public bool IsBlocked { get; set; } = false;
 }
