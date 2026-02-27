@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
+using SimCore.Programs;
 using SimCore.Systems;
 
 namespace SimCore.Tests.Systems;
@@ -383,6 +384,59 @@ public sealed class IntelContractTests
         Assert.That(list[0].UnlockId, Is.EqualTo("unlock_001"));
         Assert.That(list[1].UnlockId, Is.EqualTo("unlock_002"));
         Assert.That(list[2].UnlockId, Is.EqualTo("unlock_003"));
+    }
+
+    [Test]
+    public void UnlockExplainability_Payload_IsSchemaBound_AndUnlocksAreUnlockIdAsc()
+    {
+        var state = new SimState(1515);
+
+        state.Intel.Unlocks["unlock_003"] = new UnlockContractV0 { UnlockId = "unlock_003", Kind = UnlockKind.SensorLayer, IsAcquired = false, IsBlocked = false };
+        state.Intel.Unlocks["unlock_001"] = new UnlockContractV0 { UnlockId = "unlock_001", Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false };
+        state.Intel.Unlocks["unlock_002"] = new UnlockContractV0 { UnlockId = "unlock_002", Kind = UnlockKind.CorridorAccess, IsAcquired = false, IsBlocked = true };
+
+        var payload = IntelSystem.BuildUnlockExplainPayload(state);
+        var json = ProgramExplain.ToDeterministicJson(payload);
+
+        ProgramExplain.ValidateUnlockJsonIsSchemaBound(json);
+
+        Assert.That(payload.Unlocks.Count, Is.EqualTo(3));
+        Assert.That(payload.Unlocks[0].UnlockId, Is.EqualTo("unlock_001"));
+        Assert.That(payload.Unlocks[1].UnlockId, Is.EqualTo("unlock_002"));
+        Assert.That(payload.Unlocks[2].UnlockId, Is.EqualTo("unlock_003"));
+    }
+
+    [Test]
+    public void UnlockExplainability_ReasonTokens_AndActions_AreDeterministic_AndBounded()
+    {
+        var state = new SimState(1616);
+
+        state.Intel.Unlocks["u_ok"] = new UnlockContractV0 { UnlockId = "u_ok", Kind = UnlockKind.Permit, IsAcquired = false, IsBlocked = false };
+        state.Intel.Unlocks["u_blocked"] = new UnlockContractV0 { UnlockId = "u_blocked", Kind = UnlockKind.Recipe, IsAcquired = false, IsBlocked = true };
+        state.Intel.Unlocks["u_acquired"] = new UnlockContractV0 { UnlockId = "u_acquired", Kind = UnlockKind.Broker, IsAcquired = true, IsBlocked = false };
+
+        var payload = IntelSystem.BuildUnlockExplainPayload(state);
+
+        var ok = payload.Unlocks.Single(e => e.UnlockId == "u_ok");
+        Assert.That(ok.AcquireReasonCode, Is.EqualTo(IntelSystem.UnlockReasonToken_Ok));
+        Assert.That(ok.Actions.Count, Is.InRange(1, 3));
+        Assert.That(ok.Actions[0], Is.EqualTo(IntelSystem.UnlockActionToken_Acquire));
+
+        var blocked = payload.Unlocks.Single(e => e.UnlockId == "u_blocked");
+        Assert.That(blocked.AcquireReasonCode, Is.EqualTo(IntelSystem.UnlockReasonToken_Blocked));
+        Assert.That(blocked.Actions.Count, Is.InRange(1, 3));
+        Assert.That(blocked.Actions[0], Is.EqualTo(IntelSystem.UnlockActionToken_SatisfyPrereqs));
+        Assert.That(blocked.Actions[1], Is.EqualTo(IntelSystem.UnlockActionToken_CheckIntel));
+
+        var acquired = payload.Unlocks.Single(e => e.UnlockId == "u_acquired");
+        Assert.That(acquired.AcquireReasonCode, Is.EqualTo(IntelSystem.UnlockReasonToken_AlreadyAcquired));
+        Assert.That(acquired.Actions.Count, Is.InRange(1, 3));
+        Assert.That(acquired.Actions[0], Is.EqualTo(IntelSystem.UnlockActionToken_Use));
+
+        // ExplainChain is tokens only and stable ordered (root then reason then optional flag).
+        Assert.That(blocked.ExplainChain.Count, Is.InRange(2, 3));
+        Assert.That(blocked.ExplainChain[0], Is.EqualTo(IntelSystem.UnlockChainToken_ExplainRoot));
+        Assert.That(blocked.ExplainChain[1], Is.EqualTo(IntelSystem.UnlockReasonToken_Blocked));
     }
 
     [Test]

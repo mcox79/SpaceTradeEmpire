@@ -1,4 +1,5 @@
 using SimCore.Entities;
+using SimCore.Programs;
 
 namespace SimCore.Systems;
 
@@ -141,6 +142,101 @@ public static class IntelSystem
         if (u.IsBlocked) return UnlockReasonCode.Blocked;
 
         return UnlockReasonCode.Ok;
+    }
+
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005
+    // Unlock explainability v0: schema-bound reason tokens, 1..3 action tokens, and stable explain chain tokens.
+    // Ordering: Unlock entries sorted by UnlockId asc (StringComparer.Ordinal).
+    public const string UnlockReasonToken_Ok = "UNLOCK_RC_OK_V0";
+    public const string UnlockReasonToken_NotKnown = "UNLOCK_RC_NOT_KNOWN_V0";
+    public const string UnlockReasonToken_AlreadyAcquired = "UNLOCK_RC_ALREADY_ACQUIRED_V0";
+    public const string UnlockReasonToken_Blocked = "UNLOCK_RC_BLOCKED_V0";
+
+    public const string UnlockActionToken_Acquire = "UNLOCK_ACTION_ACQUIRE_V0";
+    public const string UnlockActionToken_Use = "UNLOCK_ACTION_USE_V0";
+    public const string UnlockActionToken_DiscoverMore = "UNLOCK_ACTION_DISCOVER_MORE_V0";
+    public const string UnlockActionToken_SatisfyPrereqs = "UNLOCK_ACTION_SATISFY_PREREQS_V0";
+    public const string UnlockActionToken_CheckIntel = "UNLOCK_ACTION_CHECK_INTEL_V0";
+
+    public const string UnlockChainToken_ExplainRoot = "UNLOCK_EXPLAIN_V0";
+    public const string UnlockChainToken_Acquired = "UNLOCK_ACQUIRED_V0";
+    public const string UnlockChainToken_BlockedFlag = "UNLOCK_BLOCKED_V0";
+
+    public static string GetAcquireUnlockReasonToken(UnlockReasonCode rc)
+    {
+        if (rc == UnlockReasonCode.Ok) return UnlockReasonToken_Ok;
+        if (rc == UnlockReasonCode.NotKnown) return UnlockReasonToken_NotKnown;
+        if (rc == UnlockReasonCode.AlreadyAcquired) return UnlockReasonToken_AlreadyAcquired;
+        if (rc == UnlockReasonCode.Blocked) return UnlockReasonToken_Blocked;
+        return UnlockReasonToken_NotKnown;
+    }
+
+    public static ProgramExplain.UnlockPayload BuildUnlockExplainPayload(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+
+        var payload = new ProgramExplain.UnlockPayload
+        {
+            Version = ProgramExplain.ExplainVersion,
+            Tick = state.Tick,
+            Unlocks = new List<ProgramExplain.UnlockEntry>()
+        };
+
+        if (state.Intel?.Unlocks is null || state.Intel.Unlocks.Count == default) return payload;
+
+        foreach (var kv in state.Intel.Unlocks.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            var unlockId = kv.Key ?? "";
+            if (unlockId.Length == default) continue;
+
+            var rc = GetAcquireUnlockReasonCode(state, unlockId);
+            var reasonToken = GetAcquireUnlockReasonToken(rc);
+
+            var actions = GetUnlockActionsForReason(rc);
+            var chain = BuildUnlockExplainChainTokens(state, unlockId, rc);
+
+            payload.Unlocks.Add(new ProgramExplain.UnlockEntry
+            {
+                UnlockId = unlockId,
+                AcquireReasonCode = reasonToken,
+                Actions = actions,
+                ExplainChain = chain
+            });
+        }
+
+        return payload;
+    }
+
+    private static List<string> GetUnlockActionsForReason(UnlockReasonCode rc)
+    {
+        // Deterministic action sets in deterministic order. No free-text. 1..3 tokens.
+        if (rc == UnlockReasonCode.Ok)
+            return new List<string> { UnlockActionToken_Acquire };
+
+        if (rc == UnlockReasonCode.AlreadyAcquired)
+            return new List<string> { UnlockActionToken_Use };
+
+        if (rc == UnlockReasonCode.Blocked)
+            return new List<string> { UnlockActionToken_SatisfyPrereqs, UnlockActionToken_CheckIntel };
+
+        // NotKnown and any unexpected values
+        return new List<string> { UnlockActionToken_DiscoverMore };
+    }
+
+    private static List<string> BuildUnlockExplainChainTokens(SimState state, string unlockId, UnlockReasonCode rc)
+    {
+        _ = unlockId;
+
+        // Stable, compact chain: root token, reason token, optional state flags.
+        var chain = new List<string> { UnlockChainToken_ExplainRoot, GetAcquireUnlockReasonToken(rc) };
+
+        if (state.Intel?.Unlocks is null) return chain;
+        if (!state.Intel.Unlocks.TryGetValue(unlockId, out var u) || u is null) return chain;
+
+        if (u.IsAcquired) chain.Add(UnlockChainToken_Acquired);
+        else if (u.IsBlocked) chain.Add(UnlockChainToken_BlockedFlag);
+
+        return chain;
     }
 
     // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004

@@ -63,6 +63,30 @@ public static class ProgramExplain
         [JsonInclude] public List<string> ExplainChain { get; set; } = new();
     }
 
+    // --- Unlock explainability v0 (GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005) ---
+    // Schema-bound explanation payload for unlock gained%blocked outcomes and suggested interventions.
+    // NOTE: Version uses ExplainVersion to avoid introducing new numeric literals in SimCore.
+    public sealed class UnlockPayload
+    {
+        [JsonInclude] public int Version { get; set; } = ExplainVersion;
+        [JsonInclude] public int Tick { get; set; } = 0;
+        [JsonInclude] public List<UnlockEntry> Unlocks { get; set; } = new();
+    }
+
+    public sealed class UnlockEntry
+    {
+        [JsonInclude] public string UnlockId { get; set; } = "";
+
+        // Schema-bound tokens (no free-text).
+        [JsonInclude] public string AcquireReasonCode { get; set; } = "";
+
+        // 1 to 3 intervention verbs (tokens) in stable order.
+        [JsonInclude] public List<string> Actions { get; set; } = new();
+
+        // Optional compact explain chain as tokens, already in stable order.
+        [JsonInclude] public List<string> ExplainChain { get; set; } = new();
+    }
+
     public sealed class EventPayload
     {
         [JsonInclude] public int Version { get; set; } = EventVersion;
@@ -143,6 +167,19 @@ public static class ProgramExplain
         return JsonSerializer.Serialize(payload, opts);
     }
 
+    public static string ToDeterministicJson(UnlockPayload payload)
+    {
+        // Determinism rule: stable property order as emitted by System.Text.Json for POCOs in declaration order.
+        var opts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never
+        };
+
+        return JsonSerializer.Serialize(payload, opts);
+    }
+
     public static void ValidateJsonIsSchemaBound(string json)
     {
         // Minimal validator: required fields exist, and no unknown fields at top-level or program-entry level.
@@ -206,6 +243,34 @@ public static class ProgramExplain
             RequireKey(item, "MarketId", JsonValueKind.String);
             RequireKey(item, "GoodId", JsonValueKind.String);
             RequireKey(item, "Note", JsonValueKind.String);
+        }
+    }
+
+    public static void ValidateUnlockJsonIsSchemaBound(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("ProgramExplain unlock payload must be a JSON object.");
+
+        RequireOnlyKeys(root, new[] { "Version", "Tick", "Unlocks" });
+        RequireKey(root, "Version", JsonValueKind.Number);
+        RequireKey(root, "Tick", JsonValueKind.Number);
+        RequireKey(root, "Unlocks", JsonValueKind.Array);
+
+        foreach (var item in root.GetProperty("Unlocks").EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Each unlock entry must be an object.");
+
+            RequireOnlyKeys(item, new[]
+            {
+                "UnlockId","AcquireReasonCode","Actions","ExplainChain"
+            });
+
+            RequireKey(item, "UnlockId", JsonValueKind.String);
+            RequireKey(item, "AcquireReasonCode", JsonValueKind.String);
+            RequireKey(item, "Actions", JsonValueKind.Array);
+            RequireKey(item, "ExplainChain", JsonValueKind.Array);
         }
     }
 

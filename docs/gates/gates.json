@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 97d8fee6abd098a82483c6fc65bec370aedbca72",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005.T707",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005: Unlock explainability v0: unlock gained%blocked emits deterministic ReasonCode plus 1 to 3 suggested action tokens; explain chain ordering stable; no free-text critical outcomes",
-                      "intent":  "Unlock explainability v0: unlock gained%blocked emits deterministic ReasonCode plus 1 to 3 suggested action tokens; explain chain ordering stable; no free-text critical outcomes",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Entities/IntelBook.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=a07cea73b60a"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007",
                       "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007.T897",
                       "status":  "TODO",
