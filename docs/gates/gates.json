@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6348fac9c6af8707189a028ac6936aa34ac29efb",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.004",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.004.T723",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.004: DiscoveryState core v0 (Analyze): hub-only Analyze transitions Scanned-\u003eAnalyzed; rejects off-hub with deterministic ReasonCode; emits deterministic analysis_outcome event payload stub (no unlocks yet)",
-                      "intent":  "DiscoveryState core v0 (Analyze): hub-only Analyze transitions Scanned-\u003eAnalyzed; rejects off-hub with deterministic ReasonCode; emits deterministic analysis_outcome event payload stub (no unlocks yet)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Events/SecurityEvents.cs",
-                                             "SimCore/Systems/ContainmentSystem.cs",
-                                             "SimCore/Systems/IntelSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=dce5b24a23fe"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_STATE.005",
                       "task_id":  "GATE.S3_6.DISCOVERY_STATE.005.T356",
                       "status":  "TODO",

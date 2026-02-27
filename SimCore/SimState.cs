@@ -496,6 +496,8 @@ public class SimState
             c = a.ProfitScore.CompareTo(b.ProfitScore); if (c != 0) return c;
             c = a.CapacityScore.CompareTo(b.CapacityScore); if (c != 0) return c;
             c = a.RiskScore.CompareTo(b.RiskScore); if (c != 0) return c;
+            c = a.ReasonCode.CompareTo(b.ReasonCode); if (c != 0) return c;
+            c = a.PhaseAfter.CompareTo(b.PhaseAfter); if (c != 0) return c;
             c = string.CompareOrdinal(a.Note ?? "", b.Note ?? ""); if (c != 0) return c;
 
             // Absolute final tiebreak: index to keep ordering deterministic even if all keys match.

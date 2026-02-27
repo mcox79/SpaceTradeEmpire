@@ -160,7 +160,84 @@ public static class IntelSystem
             return DiscoveryReasonCode.NotSeen;
         if (d.Phase == DiscoveryPhase.Analyzed)
             return DiscoveryReasonCode.AlreadyAnalyzed;
+
+        // Analyze is only valid from Scanned. Any other phase is rejected deterministically.
+        if (d.Phase != DiscoveryPhase.Scanned)
+            return DiscoveryReasonCode.NotScanned;
+
         return DiscoveryReasonCode.Ok;
+    }
+
+    // GATE.S3_6.DISCOVERY_STATE.004
+    // Applies an analyze attempt: Scanned -> Analyzed if allowed and fleet is at hub; otherwise no-op with deterministic reason code.
+    // Hub rule: fleet.CurrentNodeId must equal state.PlayerLocationNodeId (ordinal compare).
+    // Emits deterministic analysis_outcome event payload stub for all attempts (success or rejection).
+    public static DiscoveryReasonCode ApplyAnalyze(SimState state, string fleetId, string discoveryId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (fleetId is null) fleetId = "";
+
+        var rc = GetAnalyzeReasonCode(state, discoveryId);
+        if (rc != DiscoveryReasonCode.Ok)
+        {
+            EmitAnalyzeOutcome(state, fleetId, discoveryId, rc, phaseAfter: GetPhaseAfter_NoMutation(state, discoveryId));
+            return rc;
+        }
+
+        // Guaranteed present due to GetAnalyzeReasonCode pre-checks.
+        var d = state.Intel!.Discoveries[discoveryId];
+
+        if (!IsFleetAtHub(state, fleetId, out var nodeId))
+        {
+            rc = DiscoveryReasonCode.OffHub;
+            EmitAnalyzeOutcome(state, fleetId, discoveryId, rc, phaseAfter: (int)d.Phase, nodeId: nodeId);
+            return rc;
+        }
+
+        d.Phase = DiscoveryPhase.Analyzed;
+        state.Intel.Discoveries[discoveryId] = d;
+
+        EmitAnalyzeOutcome(state, fleetId, discoveryId, DiscoveryReasonCode.Ok, phaseAfter: (int)DiscoveryPhase.Analyzed, nodeId: nodeId);
+        return DiscoveryReasonCode.Ok;
+    }
+
+    private static bool IsFleetAtHub(SimState state, string fleetId, out string nodeId)
+    {
+        nodeId = "";
+
+        var hubNodeId = state.PlayerLocationNodeId ?? "";
+        if (hubNodeId.Length == default) return false;
+        if (fleetId.Length == default) return false;
+
+        if (!state.Fleets.TryGetValue(fleetId, out var f) || f is null) return false;
+
+        nodeId = f.CurrentNodeId ?? "";
+        if (nodeId.Length == default) return false;
+
+        return string.Equals(nodeId, hubNodeId, StringComparison.Ordinal);
+    }
+
+    private static int GetPhaseAfter_NoMutation(SimState state, string discoveryId)
+    {
+        if (state.Intel?.Discoveries is null) return (int)DiscoveryPhase.Seen;
+        if (string.IsNullOrEmpty(discoveryId)) return (int)DiscoveryPhase.Seen;
+        if (!state.Intel.Discoveries.TryGetValue(discoveryId, out var d) || d is null) return (int)DiscoveryPhase.Seen;
+        return (int)d.Phase;
+    }
+
+    private static void EmitAnalyzeOutcome(SimState state, string fleetId, string discoveryId, DiscoveryReasonCode reasonCode, int phaseAfter, string nodeId = "")
+    {
+        if (state is null) return;
+
+        state.EmitFleetEvent(new SimCore.Events.FleetEvents.Event
+        {
+            Type = SimCore.Events.FleetEvents.FleetEventType.DiscoveryAnalysisOutcome,
+            FleetId = fleetId ?? "",
+            DiscoveryId = discoveryId ?? "",
+            NodeId = nodeId ?? "",
+            ReasonCode = (int)reasonCode,
+            PhaseAfter = phaseAfter
+        });
     }
 
     // Gate: DiscoveryState Seen on node entry

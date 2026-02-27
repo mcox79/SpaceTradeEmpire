@@ -18,7 +18,8 @@ public static class FleetEvents
     {
         Unknown = 0,
         RouteChoice = 1,
-        DiscoverySeen = 2
+        DiscoverySeen = 2,
+        DiscoveryAnalysisOutcome = 3
     }
 
     public sealed class Event
@@ -46,6 +47,10 @@ public static class FleetEvents
         // What (discovery payload)
         [JsonInclude] public string DiscoveryId { get; set; } = "";
         [JsonInclude] public string NodeId { get; set; } = "";
+
+        // What (discovery analysis payload)
+        [JsonInclude] public int ReasonCode { get; set; } = 0;
+        [JsonInclude] public int PhaseAfter { get; set; } = 0;
 
         // What (route-choice payload)
         [JsonInclude] public string ChosenRouteId { get; set; } = "";
@@ -107,7 +112,7 @@ public static class FleetEvents
             RequireOnlyKeys(item, new[]
             {
                 "Version","Seq","Tick","Type","FleetId","Role",
-                "DiscoveryId","NodeId",
+                "DiscoveryId","NodeId","ReasonCode","PhaseAfter",
                 "ChosenRouteId","ProfitScore","CapacityScore","RiskScore","Note"
             });
 
@@ -121,6 +126,8 @@ public static class FleetEvents
 
             RequireKey(item, "DiscoveryId", JsonValueKind.String);
             RequireKey(item, "NodeId", JsonValueKind.String);
+            RequireKey(item, "ReasonCode", JsonValueKind.Number);
+            RequireKey(item, "PhaseAfter", JsonValueKind.Number);
 
             RequireKey(item, "ChosenRouteId", JsonValueKind.String);
             RequireKey(item, "ProfitScore", JsonValueKind.Number);

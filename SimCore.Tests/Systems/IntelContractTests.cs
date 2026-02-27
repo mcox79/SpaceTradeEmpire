@@ -112,6 +112,8 @@ public sealed class IntelContractTests
         Assert.That((int)DiscoveryReasonCode.Ok, Is.EqualTo(0));
         Assert.That((int)DiscoveryReasonCode.NotSeen, Is.EqualTo(1));
         Assert.That((int)DiscoveryReasonCode.AlreadyAnalyzed, Is.EqualTo(2));
+        Assert.That((int)DiscoveryReasonCode.OffHub, Is.EqualTo(3));
+        Assert.That((int)DiscoveryReasonCode.NotScanned, Is.EqualTo(4));
     }
 
     [Test]
@@ -240,6 +242,84 @@ public sealed class IntelContractTests
 
         Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.NotSeen));
         Assert.That(state.Intel.Discoveries["disc_x"].Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+    }
+
+    // GATE.S3_6.DISCOVERY_STATE.004: Analyze intent core v0 (Scanned->Analyzed) hub-only with deterministic rejection and outcome event stub.
+
+    [Test]
+    public void DiscoveryAnalyze_ApplyAnalyze_TransitionsScannedToAnalyzed_WhenAtHub()
+    {
+        var state = new SimState(10);
+        state.PlayerLocationNodeId = "hub";
+
+        state.Nodes["hub"] = new Node { Id = "hub", Name = "Hub" };
+        state.Nodes["x"] = new Node { Id = "x", Name = "X" };
+
+        state.Fleets["f1"] = new Fleet { Id = "f1", CurrentNodeId = "hub", State = FleetState.Idle };
+
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Scanned };
+
+        var rc = IntelSystem.ApplyAnalyze(state, fleetId: "f1", discoveryId: "disc_a");
+
+        Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.Ok));
+        Assert.That(state.Intel.Discoveries["disc_a"].Phase, Is.EqualTo(DiscoveryPhase.Analyzed));
+
+        var ev = state.FleetEventLog.Last(e => e.Type == SimCore.Events.FleetEvents.FleetEventType.DiscoveryAnalysisOutcome);
+        Assert.That(ev.FleetId, Is.EqualTo("f1"));
+        Assert.That(ev.DiscoveryId, Is.EqualTo("disc_a"));
+        Assert.That(ev.NodeId, Is.EqualTo("hub"));
+        Assert.That(ev.ReasonCode, Is.EqualTo((int)DiscoveryReasonCode.Ok));
+        Assert.That(ev.PhaseAfter, Is.EqualTo((int)DiscoveryPhase.Analyzed));
+    }
+
+    [Test]
+    public void DiscoveryAnalyze_ApplyAnalyze_IsNoop_WhenOffHub()
+    {
+        var state = new SimState(11);
+        state.PlayerLocationNodeId = "hub";
+
+        state.Nodes["hub"] = new Node { Id = "hub", Name = "Hub" };
+        state.Nodes["x"] = new Node { Id = "x", Name = "X" };
+
+        state.Fleets["f1"] = new Fleet { Id = "f1", CurrentNodeId = "x", State = FleetState.Idle };
+
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Scanned };
+
+        var rc = IntelSystem.ApplyAnalyze(state, fleetId: "f1", discoveryId: "disc_a");
+
+        Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.OffHub));
+        Assert.That(state.Intel.Discoveries["disc_a"].Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+
+        var ev = state.FleetEventLog.Last(e => e.Type == SimCore.Events.FleetEvents.FleetEventType.DiscoveryAnalysisOutcome);
+        Assert.That(ev.FleetId, Is.EqualTo("f1"));
+        Assert.That(ev.DiscoveryId, Is.EqualTo("disc_a"));
+        Assert.That(ev.NodeId, Is.EqualTo("x"));
+        Assert.That(ev.ReasonCode, Is.EqualTo((int)DiscoveryReasonCode.OffHub));
+        Assert.That(ev.PhaseAfter, Is.EqualTo((int)DiscoveryPhase.Scanned));
+    }
+
+    [Test]
+    public void DiscoveryAnalyze_ApplyAnalyze_IsNoop_WhenNotScanned()
+    {
+        var state = new SimState(12);
+        state.PlayerLocationNodeId = "hub";
+
+        state.Nodes["hub"] = new Node { Id = "hub", Name = "Hub" };
+        state.Fleets["f1"] = new Fleet { Id = "f1", CurrentNodeId = "hub", State = FleetState.Idle };
+
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Seen };
+
+        var rc = IntelSystem.ApplyAnalyze(state, fleetId: "f1", discoveryId: "disc_a");
+
+        Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.NotScanned));
+        Assert.That(state.Intel.Discoveries["disc_a"].Phase, Is.EqualTo(DiscoveryPhase.Seen));
+
+        var ev = state.FleetEventLog.Last(e => e.Type == SimCore.Events.FleetEvents.FleetEventType.DiscoveryAnalysisOutcome);
+        Assert.That(ev.FleetId, Is.EqualTo("f1"));
+        Assert.That(ev.DiscoveryId, Is.EqualTo("disc_a"));
+        Assert.That(ev.NodeId, Is.EqualTo(""));
+        Assert.That(ev.ReasonCode, Is.EqualTo((int)DiscoveryReasonCode.NotScanned));
+        Assert.That(ev.PhaseAfter, Is.EqualTo((int)DiscoveryPhase.Seen));
     }
 
     [Test]
