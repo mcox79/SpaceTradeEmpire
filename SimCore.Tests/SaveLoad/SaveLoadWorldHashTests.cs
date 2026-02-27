@@ -111,6 +111,52 @@ public class SaveLoadWorldHashTests
     }
 
     [Test]
+    public void SaveLoad_RoundTrip_Preserves_UnlockDigest_NoDrift()
+    {
+        const int seed = 456;
+
+        var sim = new SimKernel(seed);
+        GalaxyGenerator.Generate(sim.State, 20, 100f);
+
+        // Prefer the real unlock set. If none exist yet, add a minimal deterministic fixture without clearing.
+        if (sim.State.Intel.Unlocks.Count == 0)
+        {
+            sim.State.Intel.Unlocks["unlock_fixture_001"] = new UnlockContractV0
+            {
+                UnlockId = "unlock_fixture_001",
+                Kind = UnlockKind.Permit,
+                IsAcquired = false,
+                IsBlocked = false
+            };
+        }
+
+        var beforeDigest = ComputeUnlockDigestV0(sim.State);
+
+        var json = sim.SaveToString();
+        var sim2 = new SimKernel(seed: 999); // prove identity restored independent of ctor seed
+        sim2.LoadFromString(json);
+
+        var afterDigest = ComputeUnlockDigestV0(sim2.State);
+
+        if (!string.Equals(beforeDigest, afterDigest, StringComparison.Ordinal))
+        {
+            var first = FindFirstUnlockDigestMismatchV0(beforeDigest, afterDigest);
+
+            TestContext.Out.WriteLine($"UnlockDigest Seed: {seed}");
+            TestContext.Out.WriteLine($"UnlockDigest FirstDiff UnlockId: {first.unlockId}");
+            TestContext.Out.WriteLine($"UnlockDigest FirstDiff Field: {first.fieldName}");
+            TestContext.Out.WriteLine($"UnlockDigest Before: {first.beforeValue}");
+            TestContext.Out.WriteLine($"UnlockDigest After : {first.afterValue}");
+
+            Assert.Fail(
+                $"Unlock digest drift after save%load (Seed={seed} UnlockId={first.unlockId} Field={first.fieldName} Before={first.beforeValue} After={first.afterValue}).");
+        }
+
+        Assert.That(afterDigest, Is.EqualTo(beforeDigest),
+            $"Unlock digest drift after save%load (Seed={seed}).");
+    }
+
+    [Test]
     public void DiscoveryState_ScenarioProof_Seed42_EmitsReportV0_NoTimestamps_StableOrdering()
     {
         const int seed = 42;
@@ -406,6 +452,133 @@ public class SaveLoadWorldHashTests
 
             return map;
         }
+    }
+
+    // Digest format (v0): one line per unlock, sorted by UnlockId (Ordinal asc)
+    // <UnlockId>\t<member>=<token>...
+    // Members include all public instance fields%properties on UnlockContractV0, sorted by member name (Ordinal asc).
+    private static string ComputeUnlockDigestV0(SimState state)
+    {
+        var ids = state.Intel.Unlocks.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        return string.Join("\n", ids.Select(id =>
+        {
+            var u = state.Intel.Unlocks[id];
+
+            var tokens = new List<string>();
+            foreach (var acc in UnlockAccessorsV0())
+            {
+                var v = acc.getter(u);
+                tokens.Add($"{acc.name}={ValueToTokenV0(v)}");
+            }
+
+            return $"{id}\t{string.Join("\t", tokens)}";
+        }));
+    }
+
+    private static (string unlockId, string fieldName, string beforeValue, string afterValue)
+        FindFirstUnlockDigestMismatchV0(string before, string after)
+    {
+        var a = ParseDigest(before);
+        var b = ParseDigest(after);
+
+        var allIds = a.Keys.Concat(b.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+        foreach (var id in allIds)
+        {
+            var hasA = a.TryGetValue(id, out var av);
+            var hasB = b.TryGetValue(id, out var bv);
+
+            if (!hasA || !hasB)
+            {
+                return (
+                    id,
+                    "MISSING_ROW",
+                    hasA ? "present" : "null",
+                    hasB ? "present" : "null"
+                );
+            }
+
+            var allFields = av.Keys.Concat(bv.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+            foreach (var f in allFields)
+            {
+                av.TryGetValue(f, out var fvA);
+                bv.TryGetValue(f, out var fvB);
+
+                if (!string.Equals(fvA, fvB, StringComparison.Ordinal))
+                {
+                    return (
+                        id,
+                        f,
+                        fvA ?? "null",
+                        fvB ?? "null"
+                    );
+                }
+            }
+        }
+
+        // Should be unreachable if caller only invokes on mismatch, but keep deterministic.
+        return ("", "", "", "");
+
+        static Dictionary<string, Dictionary<string, string>> ParseDigest(string digest)
+        {
+            var map = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(digest)) return map;
+
+            foreach (var line in digest.Split('\n'))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var parts = line.Split('\t');
+                if (parts.Length < 2) continue;
+
+                var id = parts[0];
+                var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    var kv = parts[i];
+                    var eq = kv.IndexOf('=');
+                    if (eq <= 0) continue;
+
+                    var k = kv.Substring(0, eq);
+                    var v = kv.Substring(eq + 1);
+
+                    fields[k] = v;
+                }
+
+                map[id] = fields;
+            }
+
+            return map;
+        }
+    }
+
+    private static IEnumerable<(string name, Func<UnlockContractV0, object?> getter)> UnlockAccessorsV0()
+    {
+        // Deterministic: member names sorted Ordinal asc; excludes indexers.
+        var t = typeof(UnlockContractV0);
+
+        var props = t.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Where(p => p.GetIndexParameters().Length == 0 && p.GetMethod != null)
+            .Select(p => (name: p.Name, getter: (Func<UnlockContractV0, object?>)(u => p.GetValue(u))))
+            .ToList();
+
+        var fields = t.GetFields(BindingFlags.Instance | BindingFlags.Public)
+            .Select(f => (name: f.Name, getter: (Func<UnlockContractV0, object?>)(u => f.GetValue(u))))
+            .ToList();
+
+        // If both a field and property share the same name, prefer property (stable rule).
+        var merged = new Dictionary<string, Func<UnlockContractV0, object?>>(StringComparer.Ordinal);
+        foreach (var f in fields.OrderBy(x => x.name, StringComparer.Ordinal))
+        {
+            merged[f.name] = f.getter;
+        }
+        foreach (var p in props.OrderBy(x => x.name, StringComparer.Ordinal))
+        {
+            merged[p.name] = p.getter;
+        }
+
+        return merged.Keys.OrderBy(x => x, StringComparer.Ordinal).Select(k => (k, merged[k]));
     }
 
     private static DiscoveryPhase TryGetPhase(DiscoveryStateV0 d)
