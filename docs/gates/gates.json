@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6348fac9c6af8707189a028ac6936aa34ac29efb",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.005",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.005.T356",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.005: DiscoveryState determinism v0: discovery state survives save%load with no drift; regression compares stable discovery digest pre-save vs post-load; failure prints first differing DiscoveryId and bitfield delta deterministically",
-                      "intent":  "DiscoveryState determinism v0: discovery state survives save%load with no drift; regression compares stable discovery digest pre-save vs post-load; failure prints first differing DiscoveryId and bitfield delta deterministically",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "SimCore/World/WorldLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=f6210d2fe0b0"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_STATE.008",
                       "task_id":  "GATE.S3_6.DISCOVERY_STATE.008.T706",
                       "status":  "TODO",
