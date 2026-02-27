@@ -45,6 +45,12 @@ namespace SimCore.Runner
                     return;
                 }
 
+                if (string.Equals(cmd, "unlock-report", StringComparison.Ordinal))
+                {
+                    RunUnlockReport(args);
+                    return;
+                }
+
                 // Back-compat: original runner mode expects a scenario.json path as the first arg.
                 var scenarioPath = args[0];
                 if (!File.Exists(scenarioPath))
@@ -80,6 +86,7 @@ namespace SimCore.Runner
             Console.WriteLine("  SimCore.Runner seed-diff --seedA <int> --seedB <int> [--outdir <dir>] [--starCount <int>] [--radius <float>] [--maxHops <int>] [--chokeCapLe <int>] [--maxChokepoints <int>]");
             Console.WriteLine("  SimCore.Runner discovery-report [--outdir <dir>] [--seedStart <int>] [--seedEnd <int>] [--starCount <int>] [--radius <float>]");
             Console.WriteLine("  SimCore.Runner discovery-readout [--seed <int>] [--outdir <dir>] [--starCount <int>] [--radius <float>]");
+            Console.WriteLine("  SimCore.Runner unlock-report [--outdir <dir>] [--seedStart <int>] [--seedEnd <int>] [--starCount <int>] [--radius <float>]");
         }
 
         private static void RunSeedExplore(string[] args)
@@ -470,6 +477,152 @@ namespace SimCore.Runner
 
             var outPath = Path.Combine(outDir, $"discovery_readout_seed_{seed}_v0.txt");
             WriteUtf8NoBom(outPath, sb.ToString());
+        }
+
+        private static void RunUnlockReport(string[] args)
+        {
+            // Gate: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007
+            // Deterministic unlock report v0 over Seeds [seedStart..seedEnd].
+            // Stable header (SeedRange + worldgen params + content registry digest).
+            // No timestamps. Exits nonzero on violations (writes report first).
+            int seedStart = 1;
+            int seedEnd = 100;
+            string outDir = Path.Combine("docs", "generated");
+
+            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "--outdir", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    outDir = args[i + 1];
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--seedStart", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    seedStart = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--seedEnd", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    seedEnd = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--starCount", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    starCount = int.Parse(args[i + 1]);
+                    i++;
+                    continue;
+                }
+
+                if (string.Equals(args[i], "--radius", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    radius = float.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                    i++;
+                    continue;
+                }
+            }
+
+            if (seedStart > seedEnd)
+            {
+                Console.Error.WriteLine("Error: seedStart must be <= seedEnd.");
+                Environment.Exit(1);
+            }
+
+            Directory.CreateDirectory(outDir);
+
+            var digestPath = Path.Combine("docs", "generated", "content_registry_digest_v0.txt");
+            if (!File.Exists(digestPath))
+            {
+                Console.Error.WriteLine($"Error: Missing required identity artifact: {digestPath}");
+                Environment.Exit(1);
+            }
+
+            var (regVersion, regDigest) = ParseContentRegistryDigestV0(File.ReadAllText(digestPath));
+
+            var sb = new StringBuilder();
+            sb.Append("UNLOCK_REPORT_V0").Append('\n');
+            sb.Append("SeedRange=").Append(seedStart).Append("..").Append(seedEnd).Append('\n');
+            sb.Append("WorldgenStarCount=").Append(starCount).Append('\n');
+            sb.Append("WorldgenRadius=").Append(radius.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            sb.Append("ContentRegistryVersion=").Append(regVersion).Append('\n');
+            sb.Append("ContentRegistryDigest=").Append(regDigest).Append('\n');
+            sb.Append('\n');
+
+            sb.Append("SUMMARY").Append('\n');
+            sb.Append("Seed\tResult\tViolationsCount\tSiteBlueprintCount\tCorridorAccessCount\tPermitCount").Append('\n');
+
+            int failCount = 0;
+            int totalViolationCount = 0;
+
+            // Deterministic: iterate ascending seed order.
+            for (int seed = seedStart; seed <= seedEnd; seed++)
+            {
+                var kernel = new SimKernel(seed);
+                SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+                var srep = SimCore.Gen.GalaxyGenerator.BuildUnlockReportV0(kernel.State, seed);
+                int violationsCount = ExtractIntFieldOrThrow(srep, "ViolationsCount=");
+                string result = ExtractStringFieldOrThrow(srep, "Result=");
+                int siteBlueprintCount = ExtractIntFieldOrThrow(srep, "SiteBlueprintCount=");
+                int corridorAccessCount = ExtractIntFieldOrThrow(srep, "CorridorAccessCount=");
+                int permitCount = ExtractIntFieldOrThrow(srep, "PermitCount=");
+
+                sb.Append(seed).Append('\t')
+                  .Append(result).Append('\t')
+                  .Append(violationsCount).Append('\t')
+                  .Append(siteBlueprintCount).Append('\t')
+                  .Append(corridorAccessCount).Append('\t')
+                  .Append(permitCount)
+                  .Append('\n');
+
+                totalViolationCount += violationsCount;
+                if (!string.Equals(result, "PASS", StringComparison.Ordinal))
+                {
+                    failCount++;
+                }
+            }
+
+            sb.Append('\n');
+            sb.Append("DETAILS_FAILING_SEEDS_ONLY").Append('\n');
+
+            for (int seed = seedStart; seed <= seedEnd; seed++)
+            {
+                var kernel = new SimKernel(seed);
+                SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
+
+                var srep = SimCore.Gen.GalaxyGenerator.BuildUnlockReportV0(kernel.State, seed);
+                string result = ExtractStringFieldOrThrow(srep, "Result=");
+
+                if (string.Equals(result, "PASS", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                sb.Append("BEGIN_SEED ").Append(seed).Append('\n');
+                sb.Append(srep.TrimEnd()).Append('\n');
+                sb.Append("END_SEED ").Append(seed).Append('\n');
+            }
+
+            sb.Append('\n');
+            sb.Append("Result=").Append(failCount == 0 ? "PASS" : "FAIL").Append('\n');
+            sb.Append("FailingSeedsCount=").Append(failCount).Append('\n');
+            sb.Append("TotalViolationsCount=").Append(totalViolationCount).Append('\n');
+
+            var outPath = Path.Combine(outDir, "unlock_report_v0.txt");
+            WriteUtf8NoBom(outPath, sb.ToString());
+
+            if (failCount != 0 || totalViolationCount != 0)
+            {
+                Environment.Exit(2);
+            }
         }
 
         private static (string Version, string Digest) ParseContentRegistryDigestV0(string text)

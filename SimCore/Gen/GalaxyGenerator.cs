@@ -1986,6 +1986,76 @@ public static class GalaxyGenerator
         return (pass, sb.ToString());
     }
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007: deterministic per-seed unlock surface summary v0.
+    // Maps existing discovery seed kinds to implied unlock types (stable string mapping, not gameplay).
+    // Ordering: seeds sorted by DiscoveryId (ordinal) per the BuildDiscoverySeedSurfaceV0 contract.
+    // Violation: a seed with zero ResourcePoolMarker entries (no SiteBlueprint unlock opportunity).
+    public static string BuildUnlockReportV0(SimState state, int seed)
+    {
+        // Structural mapping: DiscoveryKind -> implied unlock type v0 (not gameplay-affecting).
+        const string STRUCT_UnlockType_SiteBlueprint = "SiteBlueprint";   // STRUCTURAL: unlock type label
+        const string STRUCT_UnlockType_CorridorAccess = "CorridorAccess"; // STRUCTURAL: unlock type label
+        const string STRUCT_UnlockType_Permit = "Permit";                 // STRUCTURAL: unlock type label
+        const int STRUCT_ZERO = 0;                                         // STRUCTURAL: zero sentinel for counts and violation flag
+        const int STRUCT_ONE = 1;                                          // STRUCTURAL: single violation count
+
+        var seeds = BuildDiscoverySeedSurfaceV0(state, seed);
+
+        // Count by unlock type (deterministic: fixed set of known kinds).
+        int siteBlueprintCount = STRUCT_ZERO;
+        int corridorAccessCount = STRUCT_ZERO;
+        int permitCount = STRUCT_ZERO;
+
+        // Emit per-entry lines sorted by DiscoveryId (already sorted by BuildDiscoverySeedSurfaceV0).
+        var sb = new StringBuilder();
+
+        foreach (var s in seeds)
+        {
+            string unlockType;
+            if (string.Equals(s.DiscoveryKind, DiscoverySeedKindsV0.ResourcePoolMarker, StringComparison.Ordinal))
+            {
+                unlockType = STRUCT_UnlockType_SiteBlueprint;
+                siteBlueprintCount++;
+            }
+            else if (string.Equals(s.DiscoveryKind, DiscoverySeedKindsV0.CorridorTrace, StringComparison.Ordinal))
+            {
+                unlockType = STRUCT_UnlockType_CorridorAccess;
+                corridorAccessCount++;
+            }
+            else if (string.Equals(s.DiscoveryKind, DiscoverySeedKind_AnomalyFamilyV0, StringComparison.Ordinal))
+            {
+                unlockType = STRUCT_UnlockType_Permit;
+                permitCount++;
+            }
+            else
+            {
+                // Unknown kind: surface it with a stable label so future kinds are visible.
+                unlockType = "Unknown:" + s.DiscoveryKind;
+            }
+
+            sb.Append("  DiscoveryId=").Append(s.DiscoveryId)
+              .Append(" Kind=").Append(s.DiscoveryKind)
+              .Append(" UnlockType=").Append(unlockType)
+              .Append(" NodeId=").Append(s.NodeId)
+              .Append('\n');
+        }
+
+        // Violation: no SiteBlueprint unlock opportunity (ResourcePoolMarker missing entirely).
+        bool violation = siteBlueprintCount == STRUCT_ZERO;
+        int violationsCount = violation ? STRUCT_ONE : STRUCT_ZERO;
+
+        var result = new StringBuilder();
+        result.Append("Seed=").Append(seed).Append('\n');
+        result.Append("SiteBlueprintCount=").Append(siteBlueprintCount).Append('\n');
+        result.Append("CorridorAccessCount=").Append(corridorAccessCount).Append('\n');
+        result.Append("PermitCount=").Append(permitCount).Append('\n');
+        result.Append("Result=").Append(violation ? "FAIL" : "PASS").Append('\n');
+        result.Append("ViolationsCount=").Append(violationsCount).Append('\n');
+        result.Append("Entries").Append('\n');
+        result.Append(sb);
+        return result.ToString();
+    }
+
     public static string BuildFactionSeedReport(SimState state, int seed)
     {
         // Order homes by a position-derived stable score so different seeds (different positions) produce diffs.

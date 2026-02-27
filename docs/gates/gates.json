@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 97d8fee6abd098a82483c6fc65bec370aedbca72",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007.T897",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007: Deterministic unlock report v0: runner command unlock-report emits NEW: docs/generated/unlock_report_v0.txt over Seeds 1..100 with stable header (SeedRange + worldgen params + content registry digest); stable formatting%ordering; no timestamps; exits nonzero on violations (writes report first)",
-                      "intent":  "Deterministic unlock report v0: runner command unlock-report emits NEW: docs/generated/unlock_report_v0.txt over Seeds 1..100 with stable header (SeedRange + worldgen params + content registry digest); stable formatting%ordering; no timestamps; exits nonzero on violations (writes report first)",
-                      "evidence_paths":  [
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs",
-                                             "docs/generated/content_registry_digest_v0.txt",
-                                             "docs/generated/unlock_report_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Runner/Program.cs",
-                                             "candidate_key_sha256=e0f1c2ddd7fb"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008",
                       "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008.T639",
                       "status":  "TODO",
