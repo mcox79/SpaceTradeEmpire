@@ -67,38 +67,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003.T080",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003: Economic effects v0: at least 2 unlock types produce explicit measurable economic effects (eligibility%fees%access) with deterministic before%after deltas; regression tests assert effect outcomes deterministically",
-                      "intent":  "Economic effects v0: at least 2 unlock types produce explicit measurable economic effects (eligibility%fees%access) with deterministic before%after deltas; regression tests assert effect outcomes deterministically",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/MarketTests.cs",
-                                             "SimCore/Systems/MarketSystem.cs",
-                                             "SimCore/Entities/Market.cs",
-                                             "SimCore/Entities/IntelBook.cs",
-                                             "SimCore.Tests/Determinism/MarketFeeDeterminismTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/MarketTests.cs",
-                                             "candidate_key_sha256=352adb5d2a10"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004",
                       "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004.T905",
                       "status":  "TODO",

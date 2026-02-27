@@ -17,9 +17,43 @@ public static class MarketSystem
     // - Effective fee bps may be scaled by state.Tweaks.MarketFeeMultiplier (when provided).
     public const int TransactionFeeBps = 100;
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003
+    // Market access eligibility: a market may require a Permit unlock id.
+    // Deterministic: single dictionary lookup by stable unlock id.
+    public static bool CanAccessMarket(SimState state, Market market)
+    {
+        if (market is null) return false;
+
+        var req = market.RequiresPermitUnlockId;
+        if (string.IsNullOrWhiteSpace(req)) return true;
+
+        if (state.Intel.Unlocks.TryGetValue(req, out var u))
+        {
+            return u.IsAcquired && u.Kind == UnlockKind.Permit;
+        }
+
+        return false;
+    }
+
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003
+    // Broker unlock economic effect: if any acquired Broker unlock exists, transaction fees are waived (bps=0).
+    // Deterministic: scan unlocks by UnlockId asc (Ordinal) to avoid Dictionary iteration nondeterminism.
+    private static bool HasAnyAcquiredBrokerUnlock(SimState state)
+    {
+        foreach (var kvp in state.Intel.Unlocks.OrderBy(x => x.Key, StringComparer.Ordinal))
+        {
+            var u = kvp.Value;
+            if (u.IsAcquired && u.Kind == UnlockKind.Broker) return true;
+        }
+
+        return false;
+    }
+
     public static int GetEffectiveTransactionFeeBps(SimState? state)
     {
         if (state is null) return TransactionFeeBps;
+
+        if (HasAnyAcquiredBrokerUnlock(state)) return default;
 
         // Default multiplier without introducing a new numeric literal token.
         double defaultMult = (double)TransactionFeeBps / TransactionFeeBps;
@@ -47,13 +81,15 @@ public static class MarketSystem
     {
         if (grossCredits <= 0) return 0;
 
+        long bps = GetEffectiveTransactionFeeBps(state);
+        if (bps == default) return default;
+
         // Ceil(gross * bps / 10000) using integer math.
         long gross = grossCredits;
-        long bps = GetEffectiveTransactionFeeBps(state);
         long denom = (long)(TransactionFeeBps * TransactionFeeBps);
         long fee = (gross * bps + 9999L) / denom;
 
-        if (fee <= 0) fee = 1; // ensure a nonzero fee when gross > 0
+        if (fee <= 0) fee = 1; // ensure a nonzero fee when gross > 0 and bps > 0
         if (fee > int.MaxValue) return int.MaxValue;
         return (int)fee;
     }

@@ -96,6 +96,72 @@ namespace SimCore.Tests
         }
 
         [Test]
+        public void DiscoveryUnlock_EconomicEffects_PermitUnlock_GatesMarketAccess_WithDeterministicBeforeAfterDelta()
+        {
+            const int seed = 7;
+            var sim = new SimKernel(seed);
+            var state = sim.State;
+
+            // Stable ids.
+            var permitId = "unlock_permit_trade_mkt_A_v0";
+
+            var m = new Market
+            {
+                Id = "mkt_A",
+                RequiresPermitUnlockId = permitId
+            };
+
+            // Before: not acquired => no access.
+            state.Intel.Unlocks[permitId] = new UnlockContractV0
+            {
+                UnlockId = permitId,
+                Kind = UnlockKind.Permit,
+                IsAcquired = false,
+                IsBlocked = false
+            };
+
+            Assert.That(MarketSystem.CanAccessMarket(state, m), Is.False);
+
+            // After: acquired => access.
+            state.Intel.Unlocks[permitId].IsAcquired = true;
+
+            Assert.That(MarketSystem.CanAccessMarket(state, m), Is.True);
+        }
+
+        [Test]
+        public void DiscoveryUnlock_EconomicEffects_BrokerUnlock_WaivesTransactionFees_WithDeterministicBeforeAfterDelta()
+        {
+            const int seed = 8;
+            var sim = new SimKernel(seed);
+            var state = sim.State;
+
+            const int gross = 10_000;
+
+            // Before: no broker unlock => base fee.
+            var feeBefore0 = MarketSystem.ComputeTransactionFeeCredits(state, gross);
+            var feeBefore1 = MarketSystem.ComputeTransactionFeeCredits(state, gross);
+            Assert.That(feeBefore1, Is.EqualTo(feeBefore0));
+            Assert.That(feeBefore0, Is.GreaterThan(0));
+
+            // After: add acquired broker unlock => fee waived.
+            var brokerId = "unlock_broker_fee_waiver_v0";
+            state.Intel.Unlocks[brokerId] = new UnlockContractV0
+            {
+                UnlockId = brokerId,
+                Kind = UnlockKind.Broker,
+                IsAcquired = true,
+                IsBlocked = false
+            };
+
+            var feeAfter0 = MarketSystem.ComputeTransactionFeeCredits(state, gross);
+            var feeAfter1 = MarketSystem.ComputeTransactionFeeCredits(state, gross);
+            Assert.That(feeAfter1, Is.EqualTo(feeAfter0));
+            Assert.That(feeAfter0, Is.EqualTo(0));
+
+            Assert.That(feeAfter0, Is.Not.EqualTo(feeBefore0));
+        }
+
+        [Test]
         public void AntiExploitMarketArbConstraint_MoneyPrinterScenario_ProfitGrowthIsBounded_AndExplainsFrictionReasonCodes()
         {
             // "Money printer" scenario (explicit):

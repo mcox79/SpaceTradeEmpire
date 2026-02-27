@@ -31,4 +31,29 @@ public sealed class MarketFeeDeterminismTests
 
         Assert.That(o0, Is.Not.EqualTo(d0));
     }
+
+    [Test]
+    public void MarketFees_BrokerUnlock_WaivesTransactionFee_Deterministically()
+    {
+        static int RunOnceWithBrokerUnlock()
+        {
+            var s = new SimCore.SimState(seed: 1);
+
+            var brokerId = "unlock_broker_fee_waiver_v0";
+            s.Intel.Unlocks[brokerId] = new SimCore.Entities.UnlockContractV0
+            {
+                UnlockId = brokerId,
+                Kind = SimCore.Entities.UnlockKind.Broker,
+                IsAcquired = true,
+                IsBlocked = false
+            };
+
+            return SimCore.Systems.MarketSystem.ComputeTransactionFeeCredits(s, grossCredits: 10_000);
+        }
+
+        var a0 = RunOnceWithBrokerUnlock();
+        var a1 = RunOnceWithBrokerUnlock();
+        Assert.That(a1, Is.EqualTo(a0));
+        Assert.That(a0, Is.EqualTo(0));
+    }
 }
