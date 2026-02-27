@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6348fac9c6af8707189a028ac6936aa34ac29efb",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.002",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.002.T843",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.002: DiscoveryState core v0 (Seen): entering a node with seeded discovery markers marks discovery Seen idempotently and emits deterministic Seen transition event; multi-discovery transitions processed in DiscoveryId asc order",
-                      "intent":  "DiscoveryState core v0 (Seen): entering a node with seeded discovery markers marks discovery Seen idempotently and emits deterministic Seen transition event; multi-discovery transitions processed in DiscoveryId asc order",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Events/FleetEvents.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/MovementSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=29bbf2d9fe6d"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_STATE.004",
                       "task_id":  "GATE.S3_6.DISCOVERY_STATE.004.T723",
                       "status":  "TODO",

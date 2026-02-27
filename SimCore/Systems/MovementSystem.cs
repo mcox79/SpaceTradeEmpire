@@ -73,9 +73,22 @@ public static class MovementSystem
                 fleet.TravelProgress = 0f;
 
                 // Move to the next hop node
+                var arrivedNodeId = "";
                 if (!string.IsNullOrWhiteSpace(fleet.DestinationNodeId))
                 {
+                    arrivedNodeId = fleet.DestinationNodeId;
                     fleet.CurrentNodeId = fleet.DestinationNodeId;
+                }
+
+                // GATE.S3_6.DISCOVERY_STATE.002: entering a node with seeded discovery markers marks Seen.
+                // Determinism: IntelSystem sorts by DiscoveryId Ordinal before applying.
+                if (!string.IsNullOrEmpty(arrivedNodeId)
+                    && state.Nodes.TryGetValue(arrivedNodeId, out var arrivedNode)
+                    && arrivedNode is not null
+                    && arrivedNode.SeededDiscoveryIds is not null
+                    && arrivedNode.SeededDiscoveryIds.Count != default)
+                {
+                    IntelSystem.ApplySeenFromNodeEntry(state, fleet.Id ?? "", arrivedNodeId, arrivedNode.SeededDiscoveryIds);
                 }
 
                 // Clear current edge hop state

@@ -489,6 +489,8 @@ public class SimState
             c = string.CompareOrdinal(a.FleetId ?? "", b.FleetId ?? ""); if (c != 0) return c;
             c = a.EmitOrder.CompareTo(b.EmitOrder); if (c != 0) return c;
             c = ((int)a.Type).CompareTo((int)b.Type); if (c != 0) return c;
+            c = string.CompareOrdinal(a.DiscoveryId ?? "", b.DiscoveryId ?? ""); if (c != 0) return c;
+            c = string.CompareOrdinal(a.NodeId ?? "", b.NodeId ?? ""); if (c != 0) return c;
             c = string.CompareOrdinal(a.ChosenRouteId ?? "", b.ChosenRouteId ?? ""); if (c != 0) return c;
             c = a.Role.CompareTo(b.Role); if (c != 0) return c;
             c = a.ProfitScore.CompareTo(b.ProfitScore); if (c != 0) return c;

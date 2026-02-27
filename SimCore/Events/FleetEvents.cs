@@ -17,7 +17,8 @@ public static class FleetEvents
     public enum FleetEventType
     {
         Unknown = 0,
-        RouteChoice = 1
+        RouteChoice = 1,
+        DiscoverySeen = 2
     }
 
     public sealed class Event
@@ -41,6 +42,10 @@ public static class FleetEvents
 
         // Role encoded as numeric enum for stable schema.
         [JsonInclude] public int Role { get; set; } = 0;
+
+        // What (discovery payload)
+        [JsonInclude] public string DiscoveryId { get; set; } = "";
+        [JsonInclude] public string NodeId { get; set; } = "";
 
         // What (route-choice payload)
         [JsonInclude] public string ChosenRouteId { get; set; } = "";
@@ -102,6 +107,7 @@ public static class FleetEvents
             RequireOnlyKeys(item, new[]
             {
                 "Version","Seq","Tick","Type","FleetId","Role",
+                "DiscoveryId","NodeId",
                 "ChosenRouteId","ProfitScore","CapacityScore","RiskScore","Note"
             });
 
@@ -112,6 +118,9 @@ public static class FleetEvents
 
             RequireKey(item, "FleetId", JsonValueKind.String);
             RequireKey(item, "Role", JsonValueKind.Number);
+
+            RequireKey(item, "DiscoveryId", JsonValueKind.String);
+            RequireKey(item, "NodeId", JsonValueKind.String);
 
             RequireKey(item, "ChosenRouteId", JsonValueKind.String);
             RequireKey(item, "ProfitScore", JsonValueKind.Number);
