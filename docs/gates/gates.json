@@ -4,37 +4,5 @@
     "generated_utc":  "2026-02-27T13:02:40-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 97d8fee6abd098a82483c6fc65bec370aedbca72",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008.T639",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008: Unlock scenario proof v0: headless proof discover -\u003e unlock -\u003e effect realized -\u003e save%load -\u003e verify for Seed 42; emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
-                      "intent":  "Unlock scenario proof v0: headless proof discover -\u003e unlock -\u003e effect realized -\u003e save%load -\u003e verify for Seed 42; emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/MarketSystem.cs",
-                                             "docs/generated/unlock_scenario_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=3b1f1602474f"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }

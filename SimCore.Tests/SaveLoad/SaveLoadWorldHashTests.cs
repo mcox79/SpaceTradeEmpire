@@ -707,6 +707,201 @@ public class SaveLoadWorldHashTests
             .Replace("\r", "\\r", StringComparison.Ordinal);
     }
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008
+    // Unlock scenario proof v0: discover -> unlock -> effect realized -> save/load -> verify
+    // Seed 42; no timestamps; stable ordering; failures write report first then exit nonzero.
+    [Test]
+    public void UnlockScenarioProof_Seed42_EmitsReportV0_NoTimestamps_StableOrdering()
+    {
+        const int seed = 42;
+        const string fleetId = "f1";
+        const string discoverNodeId = "node_001";
+        const string hubNodeId = "hub";
+        const string discoveryId = "disc_seed_42_001";
+        const string unlockId = "unlock_broker_seed_42_001";
+        const int grossCredits = 1000;
+
+        var sim = new SimKernel(seed);
+
+        // Minimal deterministic fixture.
+        sim.State.Nodes[discoverNodeId] = new Node { Id = discoverNodeId, Name = "DiscoverNode" };
+        sim.State.Nodes[hubNodeId] = new Node { Id = hubNodeId, Name = "Hub" };
+        sim.State.PlayerLocationNodeId = hubNodeId;
+        sim.State.Fleets[fleetId] = new Fleet { Id = fleetId, CurrentNodeId = discoverNodeId, State = FleetState.Idle };
+
+        var report = new StringBuilder();
+        report.AppendLine("UnlockScenarioProofV0");
+        report.AppendLine($"Seed: {seed}");
+        report.AppendLine($"FleetId: {fleetId}");
+        report.AppendLine($"DiscoveryId: {discoveryId}");
+        report.AppendLine($"UnlockId: {unlockId}");
+        report.AppendLine("");
+        report.AppendLine("Step%Action%ReasonCode%Effect");
+
+        // 1) discover (Seen)
+        IntelSystem.ApplySeenFromNodeEntry(sim.State, fleetId, discoverNodeId, new List<string> { discoveryId });
+        var phase1 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var dv1) ? dv1.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"1%discover_seen%{DiscoveryReasonCode.Ok}%Phase={phase1}");
+
+        // 2) scan (Seen -> Scanned)
+        var rcScan = IntelSystem.ApplyScan(sim.State, fleetId, discoveryId);
+        var phase2 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var dv2) ? dv2.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"2%scan%{rcScan}%Phase={phase2}");
+
+        // 3) dock (move fleet to hub)
+        var fleet = sim.State.Fleets[fleetId];
+        fleet.CurrentNodeId = hubNodeId;
+        sim.State.Fleets[fleetId] = fleet;
+        var phase3 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var dv3) ? dv3.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"3%dock%{DiscoveryReasonCode.Ok}%Phase={phase3}");
+
+        // 4) analyze (Scanned -> Analyzed) at hub
+        var rcAnalyze = IntelSystem.ApplyAnalyze(sim.State, fleetId, discoveryId);
+        var phase4 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var dv4) ? dv4.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"4%analyze%{rcAnalyze}%Phase={phase4}");
+
+        // 5) seed unlock in book (Broker kind; acquisition verb is 'analyze at hub' in this scenario)
+        sim.State.Intel.Unlocks[unlockId] = new UnlockContractV0
+        {
+            UnlockId = unlockId,
+            Kind = UnlockKind.Broker,
+            IsAcquired = false,
+            IsBlocked = false
+        };
+
+        // 6) acquire unlock
+        var rcAcquire = IntelSystem.GetAcquireUnlockReasonCode(sim.State, unlockId);
+        if (rcAcquire == UnlockReasonCode.Ok)
+        {
+            var u = sim.State.Intel.Unlocks[unlockId];
+            u.IsAcquired = true;
+            sim.State.Intel.Unlocks[unlockId] = u;
+        }
+        var rcAcquireAfter = IntelSystem.GetAcquireUnlockReasonCode(sim.State, unlockId);
+        report.AppendLine($"5%seed_unlock%{UnlockReasonCode.Ok}%IsAcquired=false");
+        report.AppendLine($"6%acquire%{rcAcquire}%IsAcquired={sim.State.Intel.Unlocks[unlockId].IsAcquired.ToString().ToLowerInvariant()}");
+
+        // 7) verify economic effect: Broker unlock -> fee waived (bps=0)
+        var feeBpsBeforeSave = MarketSystem.GetEffectiveTransactionFeeBps(sim.State);
+        var feeCreditsBeforeSave = MarketSystem.ComputeTransactionFeeCredits(sim.State, grossCredits);
+        report.AppendLine($"7%broker_effect%{UnlockReasonCode.Ok}%FeeBps={feeBpsBeforeSave},FeeCredits={feeCreditsBeforeSave}");
+
+        // Snapshot unlocks pre-save (filtered to proof unlock only; verb unlocks are internal mechanism)
+        var beforeSnapshot = SnapshotUnlocksV0(sim.State, unlockId);
+
+        // 8) save/load/verify
+        var json = sim.SaveToString();
+        var savedSeed = ReadEnvelopeSeed(json);
+
+        var sim2 = new SimKernel(seed: 999); // prove identity restored independent of ctor seed
+        sim2.LoadFromString(json);
+
+        var afterSnapshot = SnapshotUnlocksV0(sim2.State, unlockId);
+        var feeBpsAfterLoad = MarketSystem.GetEffectiveTransactionFeeBps(sim2.State);
+        var feeCreditsAfterLoad = MarketSystem.ComputeTransactionFeeCredits(sim2.State, grossCredits);
+        var rcAcquireAfterLoad = IntelSystem.GetAcquireUnlockReasonCode(sim2.State, unlockId);
+        var rcSaveLoad = string.Equals(beforeSnapshot, afterSnapshot, StringComparison.Ordinal) ? "Ok" : "SnapshotMismatch";
+        report.AppendLine($"8%save_load%{rcSaveLoad}%FeeBps={feeBpsAfterLoad},FeeCredits={feeCreditsAfterLoad},AcquireRc={rcAcquireAfterLoad}");
+
+        report.AppendLine("");
+        report.AppendLine("Unlocks (UnlockId asc):");
+        report.Append(SnapshotUnlocksV0(sim2.State, unlockId));
+
+        var reportText = report.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var outPath = ResolveUnlockScenarioReportPathV0();
+        WriteDeterministicTextFileV0(outPath, reportText);
+
+        if (savedSeed != seed)
+        {
+            Assert.Fail($"Unlock scenario proof save payload seed mismatch (ExpectedSeed={seed} SavedSeed={savedSeed}).");
+        }
+
+        if (!string.Equals(beforeSnapshot, afterSnapshot, StringComparison.Ordinal))
+        {
+            Assert.Fail($"Unlock scenario proof snapshot mismatch after save%load (Seed={seed}).");
+        }
+
+        Assert.That(feeBpsBeforeSave, Is.EqualTo(0),
+            $"Unlock scenario proof: Broker unlock must waive fees pre-save (Seed={seed} FeeBps={feeBpsBeforeSave}).");
+        Assert.That(feeCreditsBeforeSave, Is.EqualTo(0),
+            $"Unlock scenario proof: Broker unlock must yield zero fee credits pre-save (Seed={seed}).");
+        Assert.That(feeBpsAfterLoad, Is.EqualTo(0),
+            $"Unlock scenario proof: Broker unlock must persist fee waiver after save%load (Seed={seed} FeeBps={feeBpsAfterLoad}).");
+        Assert.That(feeCreditsAfterLoad, Is.EqualTo(0),
+            $"Unlock scenario proof: Broker unlock must persist zero fee credits after save%load (Seed={seed}).");
+        Assert.That(rcAcquireAfterLoad, Is.EqualTo(UnlockReasonCode.AlreadyAcquired),
+            $"Unlock scenario proof: unlock must remain acquired after save%load (Seed={seed} Rc={rcAcquireAfterLoad}).");
+
+        Assert.That(reportText, Is.EqualTo(ExpectedUnlockScenarioReportV0()), "Unlock scenario proof report content drifted.");
+    }
+
+    private static string SnapshotUnlocksV0(SimState state, string? filterUnlockId = null)
+    {
+        if (state.Intel?.Unlocks is null) return "";
+        var ids = state.Intel.Unlocks.Keys
+            .Where(k => filterUnlockId is null || string.Equals(k, filterUnlockId, StringComparison.Ordinal))
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        var lines = new List<string>(ids.Count);
+
+        foreach (var id in ids)
+        {
+            if (!state.Intel.Unlocks.TryGetValue(id, out var u)) continue;
+            lines.Add($"{id}\tKind={u.Kind}\tIsAcquired={u.IsAcquired.ToString().ToLowerInvariant()}\tIsBlocked={u.IsBlocked.ToString().ToLowerInvariant()}");
+        }
+
+        return string.Join("\n", lines) + (lines.Count == 0 ? "" : "\n");
+    }
+
+    private static string ResolveUnlockScenarioReportPathV0()
+    {
+        var start = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
+        var dir = start;
+
+        for (int i = 0; i < 10 && dir is not null; i++)
+        {
+            var docsDir = Path.Combine(dir.FullName, "docs");
+            if (Directory.Exists(docsDir))
+            {
+                return Path.Combine(docsDir, "generated", "unlock_scenario_seed_42_v0.txt");
+            }
+
+            dir = dir.Parent;
+        }
+
+        return Path.Combine(Environment.CurrentDirectory, "docs", "generated", "unlock_scenario_seed_42_v0.txt");
+    }
+
+    private static string ExpectedUnlockScenarioReportV0()
+    {
+        // Canonical v0 report (no timestamps; stable ordering).
+        var lines = new[]
+        {
+            "UnlockScenarioProofV0",
+            "Seed: 42",
+            "FleetId: f1",
+            "DiscoveryId: disc_seed_42_001",
+            "UnlockId: unlock_broker_seed_42_001",
+            "",
+            "Step%Action%ReasonCode%Effect",
+            "1%discover_seen%Ok%Phase=Seen",
+            "2%scan%Ok%Phase=Scanned",
+            "3%dock%Ok%Phase=Scanned",
+            "4%analyze%Ok%Phase=Analyzed",
+            "5%seed_unlock%Ok%IsAcquired=false",
+            "6%acquire%Ok%IsAcquired=true",
+            "7%broker_effect%Ok%FeeBps=0,FeeCredits=0",
+            "8%save_load%Ok%FeeBps=0,FeeCredits=0,AcquireRc=AlreadyAcquired",
+            "",
+            "Unlocks (UnlockId asc):",
+            "unlock_broker_seed_42_001\tKind=Broker\tIsAcquired=true\tIsBlocked=false",
+            ""
+        };
+
+        return string.Join("\n", lines);
+    }
+
     private static int PhaseToBits(DiscoveryPhase phase)
     {
         // Deterministic derived bitfield from phase ladder:
