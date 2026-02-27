@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Reflection;
 using System.Text.Json;
 using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
 using SimCore.Gen;
+using SimCore.Systems;
 
 namespace SimCore.Tests.SaveLoad;
 
@@ -105,6 +108,175 @@ public class SaveLoadWorldHashTests
 
         Assert.That(afterDigest, Is.EqualTo(beforeDigest),
             $"DiscoveryState digest drift after save%load (Seed={seed}).");
+    }
+
+    [Test]
+    public void DiscoveryState_ScenarioProof_Seed42_EmitsReportV0_NoTimestamps_StableOrdering()
+    {
+        const int seed = 42;
+        const string fleetId = "f1";
+        const string discoverNodeId = "node_001";
+        const string hubNodeId = "hub";
+        const string discoveryId = "disc_seed_42_001";
+
+        var sim = new SimKernel(seed);
+
+        // Minimal deterministic fixture for the scenario (avoid worldgen dependency in this proof).
+        sim.State.Nodes[discoverNodeId] = new Node { Id = discoverNodeId, Name = "DiscoverNode" };
+        sim.State.Nodes[hubNodeId] = new Node { Id = hubNodeId, Name = "Hub" };
+
+        sim.State.PlayerLocationNodeId = hubNodeId;
+
+        sim.State.Fleets[fleetId] = new Fleet
+        {
+            Id = fleetId,
+            CurrentNodeId = discoverNodeId,
+            State = FleetState.Idle
+        };
+
+        var report = new StringBuilder();
+        report.AppendLine("DiscoveryStateScenarioProofV0");
+        report.AppendLine($"Seed: {seed}");
+        report.AppendLine($"FleetId: {fleetId}");
+        report.AppendLine($"DiscoveryId: {discoveryId}");
+        report.AppendLine("");
+        report.AppendLine("Step%Action%ReasonCode%Phase");
+
+        // 1) discover (Seen)
+        IntelSystem.ApplySeenFromNodeEntry(sim.State, fleetId, discoverNodeId, new List<string> { discoveryId });
+
+        var phase1 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var d1) ? d1.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"1%discover_seen%{DiscoveryReasonCode.Ok}%{phase1}");
+
+        // 2) scan (Seen -> Scanned)
+        var rcScan = IntelSystem.ApplyScan(sim.State, fleetId, discoveryId);
+        var phase2 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var d2) ? d2.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"2%scan%{rcScan}%{phase2}");
+
+        // 3) dock (move to hub for analyze eligibility)
+        var f = sim.State.Fleets[fleetId];
+        f.CurrentNodeId = hubNodeId;
+        sim.State.Fleets[fleetId] = f;
+
+        var phase3 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var d3) ? d3.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"3%dock%{DiscoveryReasonCode.Ok}%{phase3}");
+
+        // 4) analyze (Scanned -> Analyzed) at hub
+        var rcAnalyze = IntelSystem.ApplyAnalyze(sim.State, fleetId, discoveryId);
+        var phase4 = sim.State.Intel.Discoveries.TryGetValue(discoveryId, out var d4) ? d4.Phase : DiscoveryPhase.Seen;
+        report.AppendLine($"4%analyze%{rcAnalyze}%{phase4}");
+
+        // Snapshot before save%load (deterministic ordering: DiscoveryId ordinal asc)
+        var beforeSnapshot = SnapshotDiscoveriesV0(sim.State);
+
+        // 5) save%load%verify
+        var json = sim.SaveToString();
+        var savedSeed = ReadEnvelopeSeed(json);
+
+        var sim2 = new SimKernel(seed: 999);
+        sim2.LoadFromString(json);
+
+        var afterSnapshot = SnapshotDiscoveriesV0(sim2.State);
+
+        var phaseAfter = sim2.State.Intel.Discoveries.TryGetValue(discoveryId, out var d5) ? d5.Phase : DiscoveryPhase.Seen;
+        var rcSaveLoad = string.Equals(beforeSnapshot, afterSnapshot, StringComparison.Ordinal) ? "Ok" : "SnapshotMismatch";
+        report.AppendLine($"5%save_load%{rcSaveLoad}%{phaseAfter}");
+
+        report.AppendLine("");
+        report.AppendLine("Discoveries (DiscoveryId asc):");
+        report.Append(SnapshotDiscoveriesV0(sim2.State));
+
+        var reportText = report.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var outPath = ResolveDiscoveryStateScenarioReportPathV0();
+        WriteDeterministicTextFileV0(outPath, reportText);
+
+        if (savedSeed != seed)
+        {
+            Assert.Fail($"DiscoveryState scenario proof save payload seed mismatch (ExpectedSeed={seed} SavedSeed={savedSeed}).");
+        }
+
+        if (!string.Equals(beforeSnapshot, afterSnapshot, StringComparison.Ordinal))
+        {
+            Assert.Fail($"DiscoveryState scenario proof snapshot mismatch after save%load (Seed={seed}).");
+        }
+
+        Assert.That(phaseAfter, Is.EqualTo(DiscoveryPhase.Analyzed), $"DiscoveryState scenario proof did not end in Analyzed after load (Seed={seed} DiscoveryId={discoveryId}).");
+
+        Assert.That(reportText, Is.EqualTo(ExpectedDiscoveryStateScenarioReportV0()), "DiscoveryState scenario proof report content drifted.");
+    }
+
+    private static string SnapshotDiscoveriesV0(SimState state)
+    {
+        var ids = state.Intel.Discoveries.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var lines = new List<string>(ids.Count);
+
+        for (int i = 0; i < ids.Count; i++)
+        {
+            var id = ids[i];
+            var phase = state.Intel.Discoveries.TryGetValue(id, out var d) ? d.Phase : DiscoveryPhase.Seen;
+            lines.Add($"{id}\tPhase={phase}");
+        }
+
+        return string.Join("\n", lines) + (lines.Count == 0 ? "" : "\n");
+    }
+
+    private static string ResolveDiscoveryStateScenarioReportPathV0()
+    {
+        // Deterministic repo-root probing: walk upward from NUnit work directory until "docs" exists.
+        var start = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
+        var dir = start;
+
+        for (int i = 0; i < 10 && dir is not null; i++)
+        {
+            var docsDir = Path.Combine(dir.FullName, "docs");
+            if (Directory.Exists(docsDir))
+            {
+                return Path.Combine(docsDir, "generated", "discovery_state_scenario_seed_42_v0.txt");
+            }
+
+            dir = dir.Parent;
+        }
+
+        // Fallback: relative path from current directory.
+        return Path.Combine(Environment.CurrentDirectory, "docs", "generated", "discovery_state_scenario_seed_42_v0.txt");
+    }
+
+    private static void WriteDeterministicTextFileV0(string path, string contents)
+    {
+        var dir = Path.GetDirectoryName(path) ?? "";
+        if (dir.Length != 0)
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        // Deterministic encoding: UTF-8 without BOM.
+        File.WriteAllText(path, contents, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static string ExpectedDiscoveryStateScenarioReportV0()
+    {
+        // Canonical v0 report (no timestamps; stable ordering).
+        var lines = new[]
+        {
+            "DiscoveryStateScenarioProofV0",
+            "Seed: 42",
+            "FleetId: f1",
+            "DiscoveryId: disc_seed_42_001",
+            "",
+            "Step%Action%ReasonCode%Phase",
+            "1%discover_seen%Ok%Seen",
+            "2%scan%Ok%Scanned",
+            "3%dock%Ok%Scanned",
+            "4%analyze%Ok%Analyzed",
+            "5%save_load%Ok%Analyzed",
+            "",
+            "Discoveries (DiscoveryId asc):",
+            "disc_seed_42_001\tPhase=Analyzed",
+            ""
+        };
+
+        return string.Join("\n", lines);
     }
 
     // Digest format (v0): one line per discovery, sorted by DiscoveryId (Ordinal asc)

@@ -4,37 +4,5 @@
     "generated_utc":  "2026-02-26T15:18:31-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6348fac9c6af8707189a028ac6936aa34ac29efb",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.008",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.008.T706",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.008: DiscoveryState scenario proof v0: scenario executes discover-\u003escan-\u003edock-\u003eanalyze-\u003esave-\u003eload-\u003everify for Seed 42 and emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
-                      "intent":  "DiscoveryState scenario proof v0: scenario executes discover-\u003escan-\u003edock-\u003eanalyze-\u003esave-\u003eload-\u003everify for Seed 42 and emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "docs/generated/discovery_state_scenario_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=aecfc01e0af6"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }
