@@ -207,6 +207,41 @@ public sealed class IntelContractTests
         Assert.That(evs2.Count, Is.EqualTo(2));
     }
 
+    // GATE.S3_6.DISCOVERY_STATE.003: Scan intent core v0 (Seen->Scanned) with deterministic rejection.
+
+    [Test]
+    public void DiscoveryScan_ReasonCode_NotSeen_WhenNotInSeenPhase()
+    {
+        var state = new SimState(7);
+        state.Intel.Discoveries["disc_s"] = new DiscoveryStateV0 { DiscoveryId = "disc_s", Phase = DiscoveryPhase.Scanned };
+
+        Assert.That(IntelSystem.GetScanReasonCode(state, "disc_s"), Is.EqualTo(DiscoveryReasonCode.NotSeen));
+    }
+
+    [Test]
+    public void DiscoveryScan_ApplyScan_TransitionsSeenToScanned_WhenOk()
+    {
+        var state = new SimState(8);
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Seen };
+
+        var rc = IntelSystem.ApplyScan(state, fleetId: "f1", discoveryId: "disc_a");
+
+        Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.Ok));
+        Assert.That(state.Intel.Discoveries["disc_a"].Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+    }
+
+    [Test]
+    public void DiscoveryScan_ApplyScan_IsNoop_WhenRejected()
+    {
+        var state = new SimState(9);
+        state.Intel.Discoveries["disc_x"] = new DiscoveryStateV0 { DiscoveryId = "disc_x", Phase = DiscoveryPhase.Scanned };
+
+        var rc = IntelSystem.ApplyScan(state, fleetId: "f1", discoveryId: "disc_x");
+
+        Assert.That(rc, Is.EqualTo(DiscoveryReasonCode.NotSeen));
+        Assert.That(state.Intel.Discoveries["disc_x"].Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+    }
+
     [Test]
     public void RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved()
     {

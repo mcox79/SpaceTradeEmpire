@@ -67,38 +67,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_STATE.003",
-                      "task_id":  "GATE.S3_6.DISCOVERY_STATE.003.T476",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_STATE.003: DiscoveryState core v0 (Scan): implement Scan verb as intent%command transitioning Seen-\u003eScanned; reject scan when not Seen with deterministic ReasonCode; intent processing stable and deterministic",
-                      "intent":  "DiscoveryState core v0 (Scan): implement Scan verb as intent%command transitioning Seen-\u003eScanned; reject scan when not Seen with deterministic ReasonCode; intent processing stable and deterministic",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Intents/IntentSystemTests.cs",
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Intents/IIntent.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/IntentSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Intents/IntentSystemTests.cs",
-                                             "candidate_key_sha256=1ba99114b92a"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_STATE.008",
                       "task_id":  "GATE.S3_6.DISCOVERY_STATE.008.T706",
                       "status":  "TODO",

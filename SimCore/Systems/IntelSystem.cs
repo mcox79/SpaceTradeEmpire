@@ -120,10 +120,33 @@ public static class IntelSystem
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (string.IsNullOrEmpty(discoveryId)) return DiscoveryReasonCode.NotSeen;
-        if (state.Intel?.Discoveries is null || !state.Intel.Discoveries.TryGetValue(discoveryId, out var d))
+        if (state.Intel?.Discoveries is null || !state.Intel.Discoveries.TryGetValue(discoveryId, out var d) || d is null)
             return DiscoveryReasonCode.NotSeen;
+
+        // Scan is only valid from Seen. Any other phase is rejected deterministically.
         if (d.Phase == DiscoveryPhase.Analyzed)
             return DiscoveryReasonCode.AlreadyAnalyzed;
+        if (d.Phase != DiscoveryPhase.Seen)
+            return DiscoveryReasonCode.NotSeen;
+
+        return DiscoveryReasonCode.Ok;
+    }
+
+    // GATE.S3_6.DISCOVERY_STATE.003
+    // Applies a scan attempt: Seen -> Scanned if allowed; otherwise no-op with deterministic reason code.
+    public static DiscoveryReasonCode ApplyScan(SimState state, string fleetId, string discoveryId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        _ = fleetId;
+
+        var rc = GetScanReasonCode(state, discoveryId);
+        if (rc != DiscoveryReasonCode.Ok) return rc;
+
+        // Guaranteed present due to GetScanReasonCode pre-checks.
+        var d = state.Intel!.Discoveries[discoveryId];
+        d.Phase = DiscoveryPhase.Scanned;
+        state.Intel.Discoveries[discoveryId] = d;
+
         return DiscoveryReasonCode.Ok;
     }
 
