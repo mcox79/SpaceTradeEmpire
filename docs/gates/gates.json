@@ -1,8 +1,259 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-26T15:18:31-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6348fac9c6af8707189a028ac6936aa34ac29efb",
+    "generated_utc":  "2026-02-27T13:02:40-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 97d8fee6abd098a82483c6fc65bec370aedbca72",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001.T201",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001: Unlock contract v0: define minimal UnlockContractV0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) as IntelBook-facing fields keyed by stable UnlockId; define required ReasonCode set for blocked acquisition; require stable ordering for unlock listing (UnlockId asc, Ordinal)",
+                      "intent":  "Unlock contract v0: define minimal UnlockContractV0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) as IntelBook-facing fields keyed by stable UnlockId; define required ReasonCode set for blocked acquisition; require stable ordering for unlock listing (UnlockId asc, Ordinal)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "SimCore/Entities/IntelBook.cs",
+                                             "SimCore/Systems/IntelSystem.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "candidate_key_sha256=0591c8c12da0"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.002",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.002.T496",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.002: Unlock persistence v0: unlock state is part of canonical SimCore state and survives save%load with no drift; regression asserts stable unlock digest (UnlockId Ordinal asc) pre-save vs post-load; failure prints first differing UnlockId%Field%Before%After deterministically",
+                      "intent":  "Unlock persistence v0: unlock state is part of canonical SimCore state and survives save%load with no drift; regression asserts stable unlock digest (UnlockId Ordinal asc) pre-save vs post-load; failure prints first differing UnlockId%Field%Before%After deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore/Systems/SerializationSystem.cs",
+                                             "SimCore/World/WorldLoader.cs",
+                                             "SimCore/Entities/IntelBook.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=8d4d1d5f83b0"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005.T707",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005: Unlock explainability v0: unlock gained%blocked emits deterministic ReasonCode plus 1 to 3 suggested action tokens; explain chain ordering stable; no free-text critical outcomes",
+                      "intent":  "Unlock explainability v0: unlock gained%blocked emits deterministic ReasonCode plus 1 to 3 suggested action tokens; explain chain ordering stable; no free-text critical outcomes",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "SimCore/Programs/ProgramExplain.cs",
+                                             "SimCore/Systems/IntelSystem.cs",
+                                             "SimCore/Entities/IntelBook.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "candidate_key_sha256=a07cea73b60a"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007.T897",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.007: Deterministic unlock report v0: runner command unlock-report emits NEW: docs/generated/unlock_report_v0.txt over Seeds 1..100 with stable header (SeedRange + worldgen params + content registry digest); stable formatting%ordering; no timestamps; exits nonzero on violations (writes report first)",
+                      "intent":  "Deterministic unlock report v0: runner command unlock-report emits NEW: docs/generated/unlock_report_v0.txt over Seeds 1..100 with stable header (SeedRange + worldgen params + content registry digest); stable formatting%ordering; no timestamps; exits nonzero on violations (writes report first)",
+                      "evidence_paths":  [
+                                             "SimCore.Runner/Program.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs",
+                                             "docs/generated/content_registry_digest_v0.txt",
+                                             "docs/generated/unlock_report_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Runner/Program.cs",
+                                             "candidate_key_sha256=e0f1c2ddd7fb"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003.T080",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003: Economic effects v0: at least 2 unlock types produce explicit measurable economic effects (eligibility%fees%access) with deterministic before%after deltas; regression tests assert effect outcomes deterministically",
+                      "intent":  "Economic effects v0: at least 2 unlock types produce explicit measurable economic effects (eligibility%fees%access) with deterministic before%after deltas; regression tests assert effect outcomes deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/MarketTests.cs",
+                                             "SimCore/Systems/MarketSystem.cs",
+                                             "SimCore/Entities/Market.cs",
+                                             "SimCore/Entities/IntelBook.cs",
+                                             "SimCore.Tests/Determinism/MarketFeeDeterminismTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/MarketTests.cs",
+                                             "candidate_key_sha256=352adb5d2a10"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004.T905",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004: Unlock acquisition verbs v0: scan%analyze%expedition grant unlocks deterministically; same Seed + same actions yields same ordered unlock grants; regression asserts byte-for-byte stable grant transcript and pinpoints first divergence deterministically",
+                      "intent":  "Unlock acquisition verbs v0: scan%analyze%expedition grant unlocks deterministically; same Seed + same actions yields same ordered unlock grants; regression asserts byte-for-byte stable grant transcript and pinpoints first divergence deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Intents/IntentSystemTests.cs",
+                                             "SimCore/Systems/IntelSystem.cs",
+                                             "SimCore/Systems/IntentSystem.cs",
+                                             "SimCore/Intents/IIntent.cs",
+                                             "SimCore/Gen/GalaxyGenerator.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Intents/IntentSystemTests.cs",
+                                             "candidate_key_sha256=870dd6d93910"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006.T371",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006: Unlock UI readout min v0: station discovery readout shows deterministic unlock list (UnlockId asc) with effect summary tokens and blocked reasons; emits deterministic Seed 42 transcript with no timestamps",
+                      "intent":  "Unlock UI readout min v0: station discovery readout shows deterministic unlock list (UnlockId asc) with effect summary tokens and blocked reasons; emits deterministic Seed 42 transcript with no timestamps",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_unlock_ui_readout.gd",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/view/ui/station_interface.gd",
+                                             "scripts/tools/Validate-GodotScript.ps1",
+                                             "docs/generated/unlock_ui_readout_seed_42_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_unlock_ui_readout.gd",
+                                             "candidate_key_sha256=56707de7bb2c"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008",
+                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008.T639",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.008: Unlock scenario proof v0: headless proof discover -\u003e unlock -\u003e effect realized -\u003e save%load -\u003e verify for Seed 42; emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
+                      "intent":  "Unlock scenario proof v0: headless proof discover -\u003e unlock -\u003e effect realized -\u003e save%load -\u003e verify for Seed 42; emits deterministic proof report (no timestamps; stable ordering); failures write report first then exit nonzero",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore/Systems/IntelSystem.cs",
+                                             "SimCore/Systems/MarketSystem.cs",
+                                             "docs/generated/unlock_scenario_seed_42_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "candidate_key_sha256=3b1f1602474f"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }
