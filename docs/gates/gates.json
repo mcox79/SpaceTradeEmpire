@@ -67,38 +67,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004",
-                      "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004.T905",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004: Unlock acquisition verbs v0: scan%analyze%expedition grant unlocks deterministically; same Seed + same actions yields same ordered unlock grants; regression asserts byte-for-byte stable grant transcript and pinpoints first divergence deterministically",
-                      "intent":  "Unlock acquisition verbs v0: scan%analyze%expedition grant unlocks deterministically; same Seed + same actions yields same ordered unlock grants; regression asserts byte-for-byte stable grant transcript and pinpoints first divergence deterministically",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Intents/IntentSystemTests.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/IntentSystem.cs",
-                                             "SimCore/Intents/IIntent.cs",
-                                             "SimCore/Gen/GalaxyGenerator.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Intents/IntentSystemTests.cs",
-                                             "candidate_key_sha256=870dd6d93910"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006",
                       "task_id":  "GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.006.T371",
                       "status":  "TODO",

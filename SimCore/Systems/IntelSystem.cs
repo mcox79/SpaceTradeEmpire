@@ -143,6 +143,82 @@ public static class IntelSystem
         return UnlockReasonCode.Ok;
     }
 
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004
+    // Verb unlock ids are stable tokens (not player-facing strings).
+    public const string UnlockId_DiscoveryScanVerbV0 = "UNLOCK_VERB_DISCOVERY_SCAN_V0";
+    public const string UnlockId_DiscoveryAnalyzeVerbV0 = "UNLOCK_VERB_DISCOVERY_ANALYZE_V0";
+    public const string UnlockId_DiscoveryExpeditionVerbV0 = "UNLOCK_VERB_DISCOVERY_EXPEDITION_V0";
+
+    // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004
+    // Deterministic verb unlock acquisition derived from discovery phases.
+    // Ordering: evaluation is unordered (aggregate flags only). Persisted ordering is via GetUnlocksAscending.
+    public static void RefreshVerbUnlocksFromDiscoveryPhases(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.Intel?.Discoveries is null) return;
+
+        bool anySeenOrBetter = false;
+        bool anyScannedOrBetter = false;
+        bool anyAnalyzed = false;
+
+        foreach (var kvp in state.Intel.Discoveries)
+        {
+            var d = kvp.Value;
+            if (d is null) continue;
+
+            // Discovery phases are monotonic; treat higher phases as inclusive for verb availability.
+            if (d.Phase == DiscoveryPhase.Seen)
+            {
+                anySeenOrBetter = true;
+                continue;
+            }
+
+            if (d.Phase == DiscoveryPhase.Scanned)
+            {
+                anySeenOrBetter = true;
+                anyScannedOrBetter = true;
+                continue;
+            }
+
+            if (d.Phase == DiscoveryPhase.Analyzed)
+            {
+                anySeenOrBetter = true;
+                anyScannedOrBetter = true;
+                anyAnalyzed = true;
+            }
+        }
+
+        if (!anySeenOrBetter) return;
+
+        EnsureUnlockAcquired(state, UnlockId_DiscoveryScanVerbV0);
+        if (anyScannedOrBetter) EnsureUnlockAcquired(state, UnlockId_DiscoveryAnalyzeVerbV0);
+        if (anyAnalyzed) EnsureUnlockAcquired(state, UnlockId_DiscoveryExpeditionVerbV0);
+    }
+
+    private static void EnsureUnlockAcquired(SimState state, string unlockId)
+    {
+        if (state.Intel is null) state.Intel = new IntelBook();
+        if (state.Intel.Unlocks is null) return;
+        if (string.IsNullOrEmpty(unlockId)) return;
+
+        if (state.Intel.Unlocks.TryGetValue(unlockId, out var existing) && existing is not null)
+        {
+            if (!existing.IsAcquired)
+            {
+                existing.IsAcquired = true;
+                state.Intel.Unlocks[unlockId] = existing;
+            }
+
+            return;
+        }
+
+        state.Intel.Unlocks[unlockId] = new UnlockContractV0
+        {
+            UnlockId = unlockId,
+            IsAcquired = true
+        };
+    }
+
     // GATE.S3_6.DISCOVERY_STATE.001
     // Returns the reason code for a scan attempt on the given discovery.
     public static DiscoveryReasonCode GetScanReasonCode(SimState state, string discoveryId)
@@ -175,6 +251,8 @@ public static class IntelSystem
         var d = state.Intel!.Discoveries[discoveryId];
         d.Phase = DiscoveryPhase.Scanned;
         state.Intel.Discoveries[discoveryId] = d;
+
+        RefreshVerbUnlocksFromDiscoveryPhases(state);
 
         return DiscoveryReasonCode.Ok;
     }
@@ -225,6 +303,8 @@ public static class IntelSystem
 
         d.Phase = DiscoveryPhase.Analyzed;
         state.Intel.Discoveries[discoveryId] = d;
+
+        RefreshVerbUnlocksFromDiscoveryPhases(state);
 
         EmitAnalyzeOutcome(state, fleetId, discoveryId, DiscoveryReasonCode.Ok, phaseAfter: (int)DiscoveryPhase.Analyzed, nodeId: nodeId);
         return DiscoveryReasonCode.Ok;
@@ -328,5 +408,7 @@ public static class IntelSystem
                 NodeId = nodeId ?? ""
             });
         }
+
+        RefreshVerbUnlocksFromDiscoveryPhases(state);
     }
 }
