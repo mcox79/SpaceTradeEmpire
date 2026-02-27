@@ -37,5 +37,33 @@ public sealed class IntelBook
 	// Key format: marketId|goodId
 	[JsonInclude] public Dictionary<string, IntelObservation> Observations { get; private set; } = new();
 
+	// GATE.S3_6.DISCOVERY_STATE.001
+	// DiscoveryStateV0 keyed by stable DiscoveryId; ordered by DiscoveryId asc for listing.
+	[JsonInclude] public Dictionary<string, DiscoveryStateV0> Discoveries { get; private set; } = new();
+
 	public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
+}
+
+// GATE.S3_6.DISCOVERY_STATE.001
+public enum DiscoveryPhase
+{
+	Seen = 0,
+	Scanned = 1,
+	Analyzed = 2
+}
+
+// GATE.S3_6.DISCOVERY_STATE.001
+// Reason codes for blocked scan/analyze outcomes.
+public enum DiscoveryReasonCode
+{
+	Ok = 0,
+	NotSeen = 1,
+	AlreadyAnalyzed = 2
+}
+
+// GATE.S3_6.DISCOVERY_STATE.001
+public sealed class DiscoveryStateV0
+{
+	[JsonInclude] public string DiscoveryId { get; set; } = "";
+	[JsonInclude] public DiscoveryPhase Phase { get; set; } = DiscoveryPhase.Seen;
 }

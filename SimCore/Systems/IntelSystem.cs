@@ -100,4 +100,43 @@ public static class IntelSystem
 		if (qty <= 200) return InventoryBand.High;
 		return InventoryBand.VeryHigh;
 	}
+
+	// GATE.S3_6.DISCOVERY_STATE.001
+	// Stable listing of discoveries: DiscoveryId asc (ordinal).
+	public static IReadOnlyList<DiscoveryStateV0> GetDiscoveriesAscending(SimState state)
+	{
+		if (state is null) throw new ArgumentNullException(nameof(state));
+		if (state.Intel?.Discoveries is null)
+			return Array.Empty<DiscoveryStateV0>();
+
+		return state.Intel.Discoveries.Values
+			.OrderBy(d => d.DiscoveryId, StringComparer.Ordinal)
+			.ToList();
+	}
+
+	// GATE.S3_6.DISCOVERY_STATE.001
+	// Returns the reason code for a scan attempt on the given discovery.
+	public static DiscoveryReasonCode GetScanReasonCode(SimState state, string discoveryId)
+	{
+		if (state is null) throw new ArgumentNullException(nameof(state));
+		if (string.IsNullOrEmpty(discoveryId)) return DiscoveryReasonCode.NotSeen;
+		if (state.Intel?.Discoveries is null || !state.Intel.Discoveries.TryGetValue(discoveryId, out var d))
+			return DiscoveryReasonCode.NotSeen;
+		if (d.Phase == DiscoveryPhase.Analyzed)
+			return DiscoveryReasonCode.AlreadyAnalyzed;
+		return DiscoveryReasonCode.Ok;
+	}
+
+	// GATE.S3_6.DISCOVERY_STATE.001
+	// Returns the reason code for an analyze attempt on the given discovery.
+	public static DiscoveryReasonCode GetAnalyzeReasonCode(SimState state, string discoveryId)
+	{
+		if (state is null) throw new ArgumentNullException(nameof(state));
+		if (string.IsNullOrEmpty(discoveryId)) return DiscoveryReasonCode.NotSeen;
+		if (state.Intel?.Discoveries is null || !state.Intel.Discoveries.TryGetValue(discoveryId, out var d))
+			return DiscoveryReasonCode.NotSeen;
+		if (d.Phase == DiscoveryPhase.Analyzed)
+			return DiscoveryReasonCode.AlreadyAnalyzed;
+		return DiscoveryReasonCode.Ok;
+	}
 }

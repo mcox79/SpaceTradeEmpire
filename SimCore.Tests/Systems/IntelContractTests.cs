@@ -96,6 +96,57 @@ public sealed class IntelContractTests
 		Assert.That(v5.AgeTicks, Is.EqualTo(5));
 	}
 
+	// GATE.S3_6.DISCOVERY_STATE.001: DiscoveryState contract tests
+
+	[Test]
+	public void DiscoveryPhase_HasRequiredValues()
+	{
+		Assert.That((int)DiscoveryPhase.Seen, Is.EqualTo(0));
+		Assert.That((int)DiscoveryPhase.Scanned, Is.EqualTo(1));
+		Assert.That((int)DiscoveryPhase.Analyzed, Is.EqualTo(2));
+	}
+
+	[Test]
+	public void DiscoveryReasonCode_HasRequiredValues()
+	{
+		Assert.That((int)DiscoveryReasonCode.Ok, Is.EqualTo(0));
+		Assert.That((int)DiscoveryReasonCode.NotSeen, Is.EqualTo(1));
+		Assert.That((int)DiscoveryReasonCode.AlreadyAnalyzed, Is.EqualTo(2));
+	}
+
+	[Test]
+	public void DiscoveryScan_ReasonCode_NotSeen_WhenNotInBook()
+	{
+		var state = new SimState(1);
+		Assert.That(IntelSystem.GetScanReasonCode(state, "disc_unknown"), Is.EqualTo(DiscoveryReasonCode.NotSeen));
+		Assert.That(IntelSystem.GetAnalyzeReasonCode(state, "disc_unknown"), Is.EqualTo(DiscoveryReasonCode.NotSeen));
+	}
+
+	[Test]
+	public void DiscoveryScan_ReasonCode_AlreadyAnalyzed_WhenAtMaxPhase()
+	{
+		var state = new SimState(2);
+		state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Analyzed };
+		Assert.That(IntelSystem.GetScanReasonCode(state, "disc_a"), Is.EqualTo(DiscoveryReasonCode.AlreadyAnalyzed));
+		Assert.That(IntelSystem.GetAnalyzeReasonCode(state, "disc_a"), Is.EqualTo(DiscoveryReasonCode.AlreadyAnalyzed));
+	}
+
+	[Test]
+	public void DiscoveryListing_StableOrdering_ByDiscoveryIdAsc()
+	{
+		var state = new SimState(3);
+		state.Intel.Discoveries["disc_003"] = new DiscoveryStateV0 { DiscoveryId = "disc_003", Phase = DiscoveryPhase.Seen };
+		state.Intel.Discoveries["disc_001"] = new DiscoveryStateV0 { DiscoveryId = "disc_001", Phase = DiscoveryPhase.Analyzed };
+		state.Intel.Discoveries["disc_002"] = new DiscoveryStateV0 { DiscoveryId = "disc_002", Phase = DiscoveryPhase.Scanned };
+
+		var list = IntelSystem.GetDiscoveriesAscending(state);
+
+		Assert.That(list.Count, Is.EqualTo(3));
+		Assert.That(list[0].DiscoveryId, Is.EqualTo("disc_001"));
+		Assert.That(list[1].DiscoveryId, Is.EqualTo("disc_002"));
+		Assert.That(list[2].DiscoveryId, Is.EqualTo("disc_003"));
+	}
+
 	[Test]
 	public void RemoteIntel_RemainsStale_WhenTruthChanges_UntilReobserved()
 	{
