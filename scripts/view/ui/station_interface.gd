@@ -120,10 +120,62 @@ func refresh_market_list():
 				var scanned_pct = int(scanned_bps / 100)
 				var analyzed_pct = int(analyzed_bps / 100)
 
+				var scan_reason = str(e.get('scan_reason_code', ''))
+				var analyze_reason = str(e.get('analyze_reason_code', ''))
+				var scan_actions = e.get('scan_actions', [])
+				var analyze_actions = e.get('analyze_actions', [])
+
 				var line = Label.new()
 				line.text = '%s | SEEN: %s% | SCANNED: %s% | ANALYZED: %s%' % [discovery_id, seen_pct, scanned_pct, analyzed_pct]
 				line.custom_minimum_size = Vector2(780, 22)
 				container.add_child(line)
+
+				# Explainability v0: surface deterministic reason codes + action tokens in the same readout.
+				if scan_reason != '' or analyze_reason != '':
+					var detail = Label.new()
+					var scan_actions_s = _join_tokens(scan_actions)
+					var analyze_actions_s = _join_tokens(analyze_actions)
+					detail.text = '  BLOCKED_SCAN: %s | ACTIONS: %s | BLOCKED_ANALYZE: %s | ACTIONS: %s' % [scan_reason, scan_actions_s, analyze_reason, analyze_actions_s]
+					detail.custom_minimum_size = Vector2(780, 20)
+					container.add_child(detail)
+
+				var chain = e.get('explain_chain', [])
+				if typeof(chain) == TYPE_ARRAY and chain.size() > 0:
+					var chain_line = Label.new()
+					chain_line.text = '  CHAIN: ' + _format_chain(chain)
+					chain_line.custom_minimum_size = Vector2(780, 20)
+					container.add_child(chain_line)
+
+func _join_tokens(tokens) -> String:
+	if typeof(tokens) != TYPE_ARRAY:
+		return ''
+	var out := ''
+	for i in range(tokens.size()):
+		var t = str(tokens[i])
+		if i == 0:
+			out = t
+		else:
+			out += ',' + t
+	return out
+
+
+func _format_chain(chain) -> String:
+	# Determinism: SimBridge provides stable ordering; this formatter preserves array order.
+	if typeof(chain) != TYPE_ARRAY:
+		return ''
+	var parts := ''
+	for i in range(chain.size()):
+		var e = chain[i]
+		if typeof(e) != TYPE_DICTIONARY:
+			continue
+		var phase = str(e.get('phase', ''))
+		var rc = str(e.get('reason_code', ''))
+		var seg = '%s:%s' % [phase, rc]
+		if parts == '':
+			parts = seg
+		else:
+			parts += ' | ' + seg
+	return parts
 
 func _on_trade(item_id, qty, is_buy):
 	var success = manager_ref.try_trade(current_node_id, item_id, qty, is_buy)

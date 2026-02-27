@@ -2092,12 +2092,26 @@ public partial class SimBridge : Node
                     if (d.Phase == SimCore.Entities.DiscoveryPhase.Analyzed)
                         analyzedBps = 10000;
 
+                    // Explainability v0 (GATE.S3_6.DISCOVERY_STATE.007)
+                    // Determinism: reason codes and action tokens are treated as schema-bound tokens; arrays are
+                    // normalized with Ordinal sort and de-dup.
+                    var explain = BuildDiscoveryExplainV0(d);
+
                     arr.Add(new Godot.Collections.Dictionary
                     {
                         ["discovery_id"] = id,
                         ["seen_bps"] = seenBps,
                         ["scanned_bps"] = scannedBps,
-                        ["analyzed_bps"] = analyzedBps
+                        ["analyzed_bps"] = analyzedBps,
+
+                        // Schema-bound tokens (no free-text reasons).
+                        ["scan_reason_code"] = explain.ScanReasonCode,
+                        ["analyze_reason_code"] = explain.AnalyzeReasonCode,
+                        ["scan_actions"] = explain.ScanActions,
+                        ["analyze_actions"] = explain.AnalyzeActions,
+
+                        // Stable explain chain ordering: phase "scan" then "analyze"; ties: none.
+                        ["explain_chain"] = explain.ExplainChain
                     });
                 }
 
@@ -2118,6 +2132,133 @@ public partial class SimBridge : Node
         {
             return _cachedDiscoverySnapshot;
         }
+    }
+
+    private sealed class DiscoveryExplainV0
+    {
+        public string ScanReasonCode = "";
+        public string AnalyzeReasonCode = "";
+        public Godot.Collections.Array ScanActions = new Godot.Collections.Array();
+        public Godot.Collections.Array AnalyzeActions = new Godot.Collections.Array();
+        public Godot.Collections.Array ExplainChain = new Godot.Collections.Array();
+    }
+
+    private static DiscoveryExplainV0 BuildDiscoveryExplainV0(object discovery)
+    {
+        // Failure-safety: missing properties simply yield empty tokens; never throws.
+        var ex = new DiscoveryExplainV0();
+        if (discovery is null) return ex;
+
+        // Attempt a small stable set of property names (reflection is deterministic for property lookup by name).
+        ex.ScanReasonCode = TryGetStringProp(discovery, new[]
+        {
+            "ScanReasonCode",
+            "ScanBlockedReasonCode",
+            "BlockedScanReasonCode",
+            "ScanBlockReasonCode",
+        });
+
+        ex.AnalyzeReasonCode = TryGetStringProp(discovery, new[]
+        {
+            "AnalyzeReasonCode",
+            "AnalyzeBlockedReasonCode",
+            "BlockedAnalyzeReasonCode",
+            "AnalyzeBlockReasonCode",
+        });
+
+        ex.ScanActions = TryGetStringListPropAsArray(discovery, new[]
+        {
+            "ScanActions",
+            "ScanSuggestedActions",
+            "ScanNextActions",
+        });
+
+        ex.AnalyzeActions = TryGetStringListPropAsArray(discovery, new[]
+        {
+            "AnalyzeActions",
+            "AnalyzeSuggestedActions",
+            "AnalyzeNextActions",
+        });
+
+        // Stable explain chain ordering: scan then analyze.
+        // Chain entries are schema-bound tokens only (no free-text).
+        if (!string.IsNullOrWhiteSpace(ex.ScanReasonCode))
+        {
+            ex.ExplainChain.Add(new Godot.Collections.Dictionary
+            {
+                ["phase"] = "scan",
+                ["reason_code"] = ex.ScanReasonCode,
+            });
+        }
+        if (!string.IsNullOrWhiteSpace(ex.AnalyzeReasonCode))
+        {
+            ex.ExplainChain.Add(new Godot.Collections.Dictionary
+            {
+                ["phase"] = "analyze",
+                ["reason_code"] = ex.AnalyzeReasonCode,
+            });
+        }
+
+        return ex;
+    }
+
+    private static string TryGetStringProp(object obj, string[] propNames)
+    {
+        try
+        {
+            var t = obj.GetType();
+            foreach (var n in propNames)
+            {
+                var p = t.GetProperty(n, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                if (p is null) continue;
+                var v = p.GetValue(obj);
+                if (v is string s) return s;
+            }
+        }
+        catch
+        {
+            // Swallow: failure-safe, deterministic empty.
+        }
+        return "";
+    }
+
+    private static Godot.Collections.Array TryGetStringListPropAsArray(object obj, string[] propNames)
+    {
+        var arr = new Godot.Collections.Array();
+        try
+        {
+            var t = obj.GetType();
+            foreach (var n in propNames)
+            {
+                var p = t.GetProperty(n, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                if (p is null) continue;
+                var v = p.GetValue(obj);
+                if (v is null) continue;
+
+                // Accept IEnumerable<string> only.
+                if (v is System.Collections.Generic.IEnumerable<string> ie)
+                {
+                    var list = new System.Collections.Generic.List<string>();
+                    foreach (var s in ie)
+                    {
+                        if (string.IsNullOrWhiteSpace(s)) continue;
+                        list.Add(s);
+                    }
+
+                    // Determinism: normalize ordering and de-dup.
+                    foreach (var s in list.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
+                        arr.Add(s);
+
+                    return arr;
+                }
+            }
+        }
+        catch
+        {
+            // Swallow: failure-safe, deterministic empty.
+        }
+
+        return arr;
     }
 
     public int GetUiStationViewIndex() => _uiStationViewIndex;

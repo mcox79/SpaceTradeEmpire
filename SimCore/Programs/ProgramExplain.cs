@@ -37,6 +37,32 @@ public static class ProgramExplain
         [JsonInclude] public int Quantity { get; set; } = 0;
     }
 
+    // --- Discovery explainability v0 (GATE.S3_6.DISCOVERY_STATE.007) ---
+    // Schema-bound explanation payload for discovery scan%analyze blockers and suggested interventions.
+    // NOTE: Version uses ExplainVersion to avoid introducing new numeric literals in SimCore.
+    public sealed class DiscoveryPayload
+    {
+        [JsonInclude] public int Version { get; set; } = ExplainVersion;
+        [JsonInclude] public int Tick { get; set; } = 0;
+        [JsonInclude] public List<DiscoveryEntry> Discoveries { get; set; } = new();
+    }
+
+    public sealed class DiscoveryEntry
+    {
+        [JsonInclude] public string DiscoveryId { get; set; } = "";
+
+        // Schema-bound tokens (no free-text).
+        [JsonInclude] public string ScanReasonCode { get; set; } = "";
+        [JsonInclude] public string AnalyzeReasonCode { get; set; } = "";
+
+        // Intervention verbs (tokens) in stable order.
+        [JsonInclude] public List<string> ScanActions { get; set; } = new();
+        [JsonInclude] public List<string> AnalyzeActions { get; set; } = new();
+
+        // Optional compact explain chain as "phase:reason" segments, already in stable order.
+        [JsonInclude] public List<string> ExplainChain { get; set; } = new();
+    }
+
     public sealed class EventPayload
     {
         [JsonInclude] public int Version { get; set; } = EventVersion;
@@ -180,6 +206,36 @@ public static class ProgramExplain
             RequireKey(item, "MarketId", JsonValueKind.String);
             RequireKey(item, "GoodId", JsonValueKind.String);
             RequireKey(item, "Note", JsonValueKind.String);
+        }
+    }
+
+    public static void ValidateDiscoveryJsonIsSchemaBound(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("ProgramExplain discovery payload must be a JSON object.");
+
+        RequireOnlyKeys(root, new[] { "Version", "Tick", "Discoveries" });
+        RequireKey(root, "Version", JsonValueKind.Number);
+        RequireKey(root, "Tick", JsonValueKind.Number);
+        RequireKey(root, "Discoveries", JsonValueKind.Array);
+
+        foreach (var item in root.GetProperty("Discoveries").EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Each discovery entry must be an object.");
+
+            RequireOnlyKeys(item, new[]
+            {
+                "DiscoveryId","ScanReasonCode","AnalyzeReasonCode","ScanActions","AnalyzeActions","ExplainChain"
+            });
+
+            RequireKey(item, "DiscoveryId", JsonValueKind.String);
+            RequireKey(item, "ScanReasonCode", JsonValueKind.String);
+            RequireKey(item, "AnalyzeReasonCode", JsonValueKind.String);
+            RequireKey(item, "ScanActions", JsonValueKind.Array);
+            RequireKey(item, "AnalyzeActions", JsonValueKind.Array);
+            RequireKey(item, "ExplainChain", JsonValueKind.Array);
         }
     }
 
