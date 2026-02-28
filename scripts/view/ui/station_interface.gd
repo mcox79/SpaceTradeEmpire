@@ -175,12 +175,84 @@ func refresh_market_list():
 				uline.custom_minimum_size = Vector2(780, 22)
 				container.add_child(uline)
 
-				if blocked_reason != '':
-					var udetail = Label.new()
-					var blocked_actions_s = _join_tokens(blocked_actions)
-					udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
-					udetail.custom_minimum_size = Vector2(780, 20)
-					container.add_child(udetail)
+if blocked_reason != '':
+				var udetail = Label.new()
+				var blocked_actions_s = _join_tokens(blocked_actions)
+				udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
+				udetail.custom_minimum_size = Vector2(780, 20)
+				container.add_child(udetail)
+
+	# --- [PACKAGE STATUS] section (GATE.S3_6.EXPLOITATION_PACKAGES.003) ---
+	# Facts-only exploitation package explainability v0.
+	# Renders explain chain tokens, intervention verbs, and exception policy levers.
+	# Deterministic: ordering is primary-first then secondary Ordinal asc; verbs Ordinal asc.
+	if bridge and bridge.has_method('GetExploitationPackageSummary'):
+		var pkg_spacer = Label.new()
+		pkg_spacer.text = ''
+		pkg_spacer.custom_minimum_size = Vector2(780, 12)
+		container.add_child(pkg_spacer)
+
+		var pkg_title = Label.new()
+		pkg_title.text = '[PACKAGE STATUS]'
+		pkg_title.custom_minimum_size = Vector2(780, 24)
+		container.add_child(pkg_title)
+
+		# Enumerate active programs and call GetExploitationPackageSummary for each.
+		# Programs list is Facts-only via GetProgramExplainSnapshot (already in bridge).
+		var prog_list = bridge.call('GetProgramExplainSnapshot')
+		if typeof(prog_list) == TYPE_ARRAY:
+			for prog_entry in prog_list:
+				if typeof(prog_entry) != TYPE_DICTIONARY:
+					continue
+				var prog_id = str(prog_entry.get('id', ''))
+				if prog_id == '':
+					continue
+				var pkg = bridge.call('GetExploitationPackageSummary', prog_id)
+				if typeof(pkg) != TYPE_DICTIONARY:
+					continue
+
+				var pkg_status = str(pkg.get('status', ''))
+				var pkg_chain = pkg.get('explain_chain', [])
+				var pkg_verbs = pkg.get('intervention_verbs', [])
+				var pkg_levers = pkg.get('exception_policy_levers', [])
+
+				var pline = Label.new()
+				pline.text = '%s | STATUS: %s' % [prog_id, pkg_status]
+				pline.custom_minimum_size = Vector2(780, 22)
+				container.add_child(pline)
+
+				# Explain chain: primary entries first, then secondary.
+				if typeof(pkg_chain) == TYPE_ARRAY and pkg_chain.size() > 0:
+					var chain_s := ''
+					for ci in range(pkg_chain.size()):
+						var ce = pkg_chain[ci]
+						if typeof(ce) != TYPE_DICTIONARY:
+							continue
+						var tok = str(ce.get('token', ''))
+						var is_prim = bool(ce.get('is_primary', false))
+						var seg = '%s[%s]' % [tok, 'P' if is_prim else 'S']
+						chain_s = seg if chain_s == '' else chain_s + ',' + seg
+					if chain_s != '':
+						var cline = Label.new()
+						cline.text = '  EXPLAIN: %s' % chain_s
+						cline.custom_minimum_size = Vector2(780, 20)
+						container.add_child(cline)
+
+				# Intervention verbs: >= 1 required per active disruption.
+				if typeof(pkg_verbs) == TYPE_ARRAY and pkg_verbs.size() > 0:
+					var verbs_s = _join_tokens(pkg_verbs)
+					var vline = Label.new()
+					vline.text = '  VERBS: %s' % verbs_s
+					vline.custom_minimum_size = Vector2(780, 20)
+					container.add_child(vline)
+
+				# Exception policy levers.
+				if typeof(pkg_levers) == TYPE_ARRAY and pkg_levers.size() > 0:
+					var levers_s = _join_tokens(pkg_levers)
+					var lline = Label.new()
+					lline.text = '  POLICY: %s' % levers_s
+					lline.custom_minimum_size = Vector2(780, 20)
+					container.add_child(lline)
 
 func _join_tokens(tokens) -> String:
 	if typeof(tokens) != TYPE_ARRAY:

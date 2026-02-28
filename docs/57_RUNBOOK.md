@@ -35,7 +35,10 @@ Purpose: validate gate registry schema + run deterministic repo hygiene + connec
 
 Purpose: validate GameShell wiring and capstone scripts with deterministic stdout%stderr.
 
-Prereq: use the Godot Mono console binary (the `*_console.exe` build). Configure it via the repo’s Godot exe lookup (see scripts/tools/common.ps1 Get-GodotExe) or pass an explicit path in your local environment.
+Prereq: use the Godot Mono console binary (the `*_console.exe` build). Configure it via the repo's Godot exe lookup (see scripts/tools/common.ps1 Get-GodotExe) or pass an explicit path in your local environment.
+
+Prereq (C# bridge methods): if any C# SimBridge method has changed since the last build, run `dotnet build --nologo` (full solution, not just SimCore.csproj) before running headless tests. Without this the Godot assembly is stale and bridge methods will report as missing at runtime with no other error. The canonical build command is:
+  - dotnet build --nologo
 
 - Parse gate for a .gd file (tabs-only + headless parse)
   - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1 -TargetScript "<repo-relative-path-to-file.gd>"
@@ -85,6 +88,12 @@ SceneTree script contract (extends SceneTree):
   - _initialize() must not block the main thread (no OS.delay_msec polling loops).
   - All SimBridge readiness polling must use _process() so the engine can yield between frames.
   - SimBridge._Ready() runs on the main thread; blocking _initialize() prevents it from ever executing.
+  - SimBridge is a scene node, not an autoload. Acquire it via root.get_node_or_null("SimBridge"), not load() or preload().
+
+Vacuous-pass pattern (player-created state):
+  - Some bridge snapshots (programs, exploitation packages, etc.) return empty results at world init because the state is player-created, not NPC-seeded.
+  - The correct headless assertion pattern is: verify the method exists and returns the correct schema, emit the count, and PASS vacuously if count is zero with an explanatory token (e.g. PASS|found_intervention_verb=vacuous_no_programs_at_init).
+  - Do NOT fail a headless test solely because player-created state is absent at seed=N tick=0. Fail only if the method is missing, the schema is wrong, or count > 0 and the assertion is unmet.
 
 ## Notes (determinism + bookkeeping)
 

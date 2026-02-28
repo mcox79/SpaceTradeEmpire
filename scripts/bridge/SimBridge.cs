@@ -2275,6 +2275,166 @@ public partial class SimBridge : Node
         }
     }
 
+    // --- Exploitation package summary v0 (GATE.S3_6.EXPLOITATION_PACKAGES.003) ---
+    // Facts-only snapshot of exploitation package explainability.
+    // Ordering: ExplainChain primary entries first (IsPrimary=true), then secondary; both groups Ordinal asc on token.
+    // InterventionVerbs and ExceptionPolicyLevers: Ordinal asc.
+    // Failure-safety: returns empty dict if sim holds write lock (nonblocking, uses cached pattern).
+    public Godot.Collections.Dictionary GetExploitationPackageSummary(string programId)
+    {
+        var d = new Godot.Collections.Dictionary();
+        if (IsLoading) return d;
+        if (string.IsNullOrWhiteSpace(programId)) return d;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+                if (state.Programs is null || !state.Programs.Instances.TryGetValue(programId, out var prog))
+                    return d;
+
+                var row = BuildPackageSummaryRowV0(programId, prog);
+
+                d["package_id"] = row.PackageId;
+                d["status"] = row.Status;
+                d["explain_chain"] = row.ExplainChain;
+                d["intervention_verbs"] = row.InterventionVerbs;
+                d["exception_policy_levers"] = row.ExceptionPolicyLevers;
+                return d;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        return d;
+    }
+
+    private sealed class PackageSummaryRowV0
+    {
+        public string PackageId = "";
+        public string Status = "";
+        public Godot.Collections.Array ExplainChain = new Godot.Collections.Array();
+        public Godot.Collections.Array InterventionVerbs = new Godot.Collections.Array();
+        public Godot.Collections.Array ExceptionPolicyLevers = new Godot.Collections.Array();
+    }
+
+    private static PackageSummaryRowV0 BuildPackageSummaryRowV0(string programId, object prog)
+    {
+        var row = new PackageSummaryRowV0();
+        row.PackageId = programId;
+
+        // Status: probe common property names, schema-bound token only.
+        row.Status = TryGetStringProp(prog, new[]
+        {
+            "Status",
+            "PackageStatus",
+            "ProgramStatus",
+            "State",
+        });
+        if (string.IsNullOrWhiteSpace(row.Status))
+            row.Status = prog.GetType().GetProperty("Status")?.GetValue(prog)?.ToString() ?? "";
+
+        // ExplainChain: probe for primary and secondary cause tokens.
+        // Primary causes first (IsPrimary=true); both groups sorted Ordinal asc.
+        var primaryTokens = TryGetStringListPropAsArray(prog, new[]
+        {
+            "PrimaryExplainTokens",
+            "PrimaryReasonTokens",
+            "PrimaryReasons",
+        });
+        var secondaryTokens = TryGetStringListPropAsArray(prog, new[]
+        {
+            "SecondaryExplainTokens",
+            "SecondaryReasonTokens",
+            "SecondaryReasons",
+            "ExplainTokens",
+            "ExplainChainTokens",
+        });
+
+        // Sort each group Ordinal asc, then primary first.
+        var chainList = new System.Collections.Generic.List<string>();
+        var primSorted = new System.Collections.Generic.List<string>();
+        foreach (Godot.Variant v in primaryTokens)
+        {
+            var s = v.VariantType == Godot.Variant.Type.String ? v.AsString() : v.ToString();
+            if (!string.IsNullOrWhiteSpace(s)) primSorted.Add(s);
+        }
+        primSorted.Sort(StringComparer.Ordinal);
+
+        var secSorted = new System.Collections.Generic.List<string>();
+        foreach (Godot.Variant v in secondaryTokens)
+        {
+            var s = v.VariantType == Godot.Variant.Type.String ? v.AsString() : v.ToString();
+            if (!string.IsNullOrWhiteSpace(s)) secSorted.Add(s);
+        }
+        secSorted.Sort(StringComparer.Ordinal);
+
+        foreach (var t in primSorted)
+        {
+            var entry = new Godot.Collections.Dictionary();
+            entry["token"] = t;
+            entry["is_primary"] = true;
+            row.ExplainChain.Add(entry);
+        }
+        foreach (var t in secSorted)
+        {
+            var entry = new Godot.Collections.Dictionary();
+            entry["token"] = t;
+            entry["is_primary"] = false;
+            row.ExplainChain.Add(entry);
+        }
+
+        // If no tokens found, emit a stub token derived from Status so the chain is never empty when status is non-trivial.
+        if (row.ExplainChain.Count == 0 && !string.IsNullOrWhiteSpace(row.Status))
+        {
+            var stub = new Godot.Collections.Dictionary();
+            stub["token"] = row.Status;
+            stub["is_primary"] = true;
+            row.ExplainChain.Add(stub);
+        }
+
+        // InterventionVerbs: probe for suggested action tokens (Ordinal asc).
+        row.InterventionVerbs = TryGetStringListPropAsArray(prog, new[]
+        {
+            "InterventionVerbs",
+            "SuggestedActions",
+            "NextActions",
+            "PolicyVerbs",
+        });
+        if (row.InterventionVerbs.Count == 0)
+        {
+            // Fallback: derive verbs from Status token (schema-bound).
+            var statusStr = row.Status;
+            if (!string.IsNullOrWhiteSpace(statusStr))
+            {
+                var verbArr = new Godot.Collections.Array();
+                // Programs.pause_program and Logistics.reroute are always valid verbs for an active package.
+                verbArr.Add("Programs.pause_program");
+                verbArr.Add("Logistics.reroute");
+                row.InterventionVerbs = NormalizeTokenArray(verbArr);
+            }
+        }
+        else
+        {
+            row.InterventionVerbs = NormalizeTokenArray(row.InterventionVerbs);
+        }
+
+        // ExceptionPolicyLevers: probe for policy lever tokens (Ordinal asc).
+        row.ExceptionPolicyLevers = TryGetStringListPropAsArray(prog, new[]
+        {
+            "ExceptionPolicyLevers",
+            "PolicyLevers",
+            "PolicyToggles",
+            "ExceptionPolicy",
+        });
+        row.ExceptionPolicyLevers = NormalizeTokenArray(row.ExceptionPolicyLevers);
+
+        return row;
+    }
+
     private sealed class UnlockRowV0
     {
         public string UnlockId = "";

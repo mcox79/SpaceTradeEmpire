@@ -64,39 +64,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003",
-                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003.T276",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.003: Exploitation packages explainability v0: extend SimBridge with GetExploitationPackageSummary(programId) Facts-only snapshot (status, explain chain tokens primary-first then secondary Ordinal asc then intervention verbs Ordinal asc, exception policy levers as token list); extend station_interface.gd to render [PACKAGE STATUS] section with exception summary and \u003e= 1 intervention verb per active disruption; headless Seed 42 transcript contains \u003e= 1 Programs.* or Logistics.* verb token; SHA256 stable across two runs",
-                      "intent":  "Exploitation packages explainability v0: extend SimBridge with GetExploitationPackageSummary(programId) Facts-only snapshot (status, explain chain tokens primary-first then secondary Ordinal asc then intervention verbs Ordinal asc, exception policy levers as token list); extend station_interface.gd to render [PACKAGE STATUS] section with exception summary and \u003e= 1 intervention verb per active disruption; headless Seed 42 transcript contains \u003e= 1 Programs.* or Logistics.* verb token; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_exploitation_package_explain.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/view/ui/station_interface.gd",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "scripts/tools/Validate-GodotScript.ps1",
-                                             "docs/generated/exploitation_package_explain_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_exploitation_package_explain.gd",
-                                             "candidate_key_sha256=bbfc1b44470a"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003",
                       "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003.T292",
                       "status":  "TODO",

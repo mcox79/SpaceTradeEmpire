@@ -319,6 +319,82 @@ public static class ProgramExplain
         }
     }
 
+    // --- Exploitation package explainability v0 (GATE.S3_6.EXPLOITATION_PACKAGES.003) ---
+    // Schema-bound explain snapshot for exploitation packages (TradeCharter, ResourceTap, etc.).
+    // ExplainChain ordering contract: primary entries first (IsPrimary=true), then secondary, both groups Ordinal asc on Token.
+    // InterventionVerbs ordering contract: Ordinal asc.
+    // ExceptionPolicyLevers: token list, Ordinal asc.
+    public sealed class ExploitationPackagePayload
+    {
+        [JsonInclude] public int Version { get; set; } = ExplainVersion;
+        [JsonInclude] public int Tick { get; set; } = 0;
+        [JsonInclude] public List<ExploitationPackageEntry> Packages { get; set; } = new();
+    }
+
+    public sealed class ExploitationPackageEntry
+    {
+        [JsonInclude] public string PackageId { get; set; } = "";
+        [JsonInclude] public string Status { get; set; } = "";
+
+        // Ordered: primary entries first, then secondary, both groups Ordinal asc on Token.
+        [JsonInclude] public List<ExplainChainToken> ExplainChain { get; set; } = new();
+
+        // Intervention verbs: Ordinal asc.
+        [JsonInclude] public List<string> InterventionVerbs { get; set; } = new();
+
+        // Exception policy levers: token list, Ordinal asc.
+        [JsonInclude] public List<string> ExceptionPolicyLevers { get; set; } = new();
+    }
+
+    public sealed class ExplainChainToken
+    {
+        [JsonInclude] public string Token { get; set; } = "";
+        [JsonInclude] public bool IsPrimary { get; set; } = false;
+    }
+
+    public static string ToDeterministicJson(ExploitationPackagePayload payload)
+    {
+        var opts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IncludeFields = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never
+        };
+        return JsonSerializer.Serialize(payload, opts);
+    }
+
+    public static void ValidateExploitationPackageJsonIsSchemaBound(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("ExploitationPackagePayload must be a JSON object.");
+
+        RequireOnlyKeys(root, new[] { "Version", "Tick", "Packages" });
+        RequireKey(root, "Version", JsonValueKind.Number);
+        RequireKey(root, "Tick", JsonValueKind.Number);
+        RequireKey(root, "Packages", JsonValueKind.Array);
+
+        foreach (var item in root.GetProperty("Packages").EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Each package entry must be an object.");
+            RequireOnlyKeys(item, new[] { "PackageId", "Status", "ExplainChain", "InterventionVerbs", "ExceptionPolicyLevers" });
+            RequireKey(item, "PackageId", JsonValueKind.String);
+            RequireKey(item, "Status", JsonValueKind.String);
+            RequireKey(item, "ExplainChain", JsonValueKind.Array);
+            RequireKey(item, "InterventionVerbs", JsonValueKind.Array);
+            RequireKey(item, "ExceptionPolicyLevers", JsonValueKind.Array);
+
+            foreach (var chain in item.GetProperty("ExplainChain").EnumerateArray())
+            {
+                if (chain.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("ExplainChain entry must be an object.");
+                RequireOnlyKeys(chain, new[] { "Token", "IsPrimary" });
+                RequireKey(chain, "Token", JsonValueKind.String);
+                RequireKey(chain, "IsPrimary", JsonValueKind.True == chain.GetProperty("IsPrimary").ValueKind ? JsonValueKind.True : JsonValueKind.False);
+            }
+        }
+    }
+
     private static void RequireKey(JsonElement obj, string name, JsonValueKind kind)
     {
         if (!obj.TryGetProperty(name, out var prop)) throw new InvalidOperationException($"Missing key: {name}");
