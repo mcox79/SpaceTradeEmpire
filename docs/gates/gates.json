@@ -34,36 +34,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.001",
-                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.001.T509",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.001: Rumor lead schema and IntelBook contract v0: add `RumorLead` schema to `IntelBook` (LeadId, HintPayload with region tags + coarse location token + prerequisite token list + implied payoff token, status, source verb token); register `LeadBlocked` and `LeadMissingHint` ReasonCodes in `ProgramExplain`; contract tests assert required fields, LeadId format `LEAD.\u003czero-padded-4-digit\u003e`, listing ordered LeadId Ordinal asc, ReasonCodes in registered set",
-                      "intent":  "Rumor lead schema and IntelBook contract v0: add `RumorLead` schema to `IntelBook` (LeadId, HintPayload with region tags + coarse location token + prerequisite token list + implied payoff token, status, source verb token); register `LeadBlocked` and `LeadMissingHint` ReasonCodes in `ProgramExplain`; contract tests assert required fields, LeadId format `LEAD.\u003czero-padded-4-digit\u003e`, listing ordered LeadId Ordinal asc, ReasonCodes in registered set",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Entities/IntelBook.cs",
-                                             "SimCore/Programs/ProgramExplain.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=bdb2936a7b6b"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003",
                       "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003.T292",
                       "status":  "TODO",

@@ -45,6 +45,10 @@ public sealed class IntelBook
     // UnlockContractV0 keyed by stable UnlockId; ordered by UnlockId asc for listing.
     [JsonInclude] public Dictionary<string, UnlockContractV0> Unlocks { get; private set; } = new();
 
+    // GATE.S3_6.RUMOR_INTEL_MIN.001
+    // RumorLead keyed by stable LeadId (format: LEAD.<zero-padded-4-digit>); ordered by LeadId asc for listing.
+    [JsonInclude] public Dictionary<string, RumorLead> RumorLeads { get; private set; } = new();
+
     public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
 }
 
@@ -72,6 +76,40 @@ public sealed class DiscoveryStateV0
 {
     [JsonInclude] public string DiscoveryId { get; set; } = "";
     [JsonInclude] public DiscoveryPhase Phase { get; set; } = DiscoveryPhase.Seen;
+}
+
+// GATE.S3_6.RUMOR_INTEL_MIN.001
+public enum RumorLeadStatus
+{
+    Active = 0,
+    Fulfilled = 1,
+    Dismissed = 2
+}
+
+// GATE.S3_6.RUMOR_INTEL_MIN.001
+// HintPayload carries schema-bound tokens only (no free text).
+// RegionTags: list of stable region tag tokens (Ordinal asc).
+// CoarseLocationToken: single coarse location token (e.g. "OUTER_RIM").
+// PrerequisiteTokens: list of prerequisite tokens required before lead can be pursued (Ordinal asc).
+// ImpliedPayoffToken: single payoff category token (e.g. "BROKER_UNLOCK" or "RESOURCE_SITE").
+public sealed class HintPayloadV0
+{
+    [JsonInclude] public List<string> RegionTags { get; set; } = new();
+    [JsonInclude] public string CoarseLocationToken { get; set; } = "";
+    [JsonInclude] public List<string> PrerequisiteTokens { get; set; } = new();
+    [JsonInclude] public string ImpliedPayoffToken { get; set; } = "";
+}
+
+// GATE.S3_6.RUMOR_INTEL_MIN.001
+// RumorLead: schema-bound lead record.
+// LeadId format: LEAD.<zero-padded-4-digit> (e.g. LEAD.0001).
+// SourceVerbToken: schema-bound token for acquisition verb (e.g. "SCAN", "HUB_ANALYSIS", "EXPEDITION").
+public sealed class RumorLead
+{
+    [JsonInclude] public string LeadId { get; set; } = "";
+    [JsonInclude] public HintPayloadV0 Hint { get; set; } = new();
+    [JsonInclude] public RumorLeadStatus Status { get; set; } = RumorLeadStatus.Active;
+    [JsonInclude] public string SourceVerbToken { get; set; } = "";
 }
 
 // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001

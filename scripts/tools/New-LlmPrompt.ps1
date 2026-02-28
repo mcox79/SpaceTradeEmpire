@@ -201,7 +201,14 @@ try {
   [void]$sb.Append("- STOP if you cannot state deterministic ordering keys%tie-breakers for any output list%log%table (do not guess)." + $nl)
   [void]$sb.Append("- STOP if you are about to introduce a balance constant and cannot justify Tweaks vs allowlist placement." + $nl)
   [void]$sb.Append("- STOP if the change risks violating UI boundaries or the single-mutation pipeline (do not ""just try"")." + $nl)
-  [void]$sb.Append("- STOP if you did not run proofs but are about to claim PASS." + $nl + $nl)
+  [void]$sb.Append("- STOP if you did not run proofs but are about to claim PASS." + $nl)
+  [void]$sb.Append("- STOP at PREFLIGHT if any file you need to read for anchors, conventions, or edits is not in the attachments." + $nl + $nl)
+
+  [void]$sb.Append("PREFLIGHT (required before any other output):" + $nl)
+  [void]$sb.Append("- List every file this task will touch (edits) or read for pattern-matching (anchors, conventions)." + $nl)
+  [void]$sb.Append("- List every file in that set that is NOT present in the attachments." + $nl)
+  [void]$sb.Append("- If any required file is missing: output ONLY the missing file list and STOP. Request the missing files. Do not produce any plan, patch, narrative, or analysis until all required files are in hand." + $nl)
+  [void]$sb.Append("- If all required files are present: output PREFLIGHT_CLEAR and proceed." + $nl + $nl)
 
   [void]$sb.Append("Routing (deterministic):" + $nl)
   [void]$sb.Append("- If tests failing OR connectivity violations OR Validate-Gates fails: BASELINE FIX mode." + $nl)

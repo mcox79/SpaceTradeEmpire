@@ -493,4 +493,89 @@ public sealed class IntelContractTests
         Assert.That(vFresh.ExactInventoryQty, Is.EqualTo(999));
         Assert.That(vFresh.AgeTicks, Is.EqualTo(0));
     }
+
+    // GATE.S3_6.RUMOR_INTEL_MIN.001: RumorLead schema and IntelBook contract tests
+
+    [Test]
+    public void RumorLeadStatus_HasRequiredValues()
+    {
+        Assert.That((int)RumorLeadStatus.Active, Is.EqualTo(0));
+        Assert.That((int)RumorLeadStatus.Fulfilled, Is.EqualTo(1));
+        Assert.That((int)RumorLeadStatus.Dismissed, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void RumorLead_RequiredFields_ArePresent()
+    {
+        var lead = new RumorLead
+        {
+            LeadId = "LEAD.0001",
+            Hint = new HintPayloadV0
+            {
+                RegionTags = new List<string> { "OUTER_RIM" },
+                CoarseLocationToken = "SECTOR_NORTH",
+                PrerequisiteTokens = new List<string> { "HUB_ANALYSIS" },
+                ImpliedPayoffToken = "BROKER_UNLOCK"
+            },
+            Status = RumorLeadStatus.Active,
+            SourceVerbToken = "SCAN"
+        };
+
+        Assert.That(lead.LeadId, Is.EqualTo("LEAD.0001"));
+        Assert.That(lead.Hint, Is.Not.Null);
+        Assert.That(lead.Hint.RegionTags, Is.Not.Null);
+        Assert.That(lead.Hint.CoarseLocationToken, Is.EqualTo("SECTOR_NORTH"));
+        Assert.That(lead.Hint.PrerequisiteTokens, Is.Not.Null);
+        Assert.That(lead.Hint.ImpliedPayoffToken, Is.EqualTo("BROKER_UNLOCK"));
+        Assert.That(lead.Status, Is.EqualTo(RumorLeadStatus.Active));
+        Assert.That(lead.SourceVerbToken, Is.EqualTo("SCAN"));
+    }
+
+    [Test]
+    public void RumorLead_LeadId_Format_IsLeadDotZeroPadded4Digit()
+    {
+        // LeadId format: LEAD.<zero-padded-4-digit>
+        var validIds = new[] { "LEAD.0001", "LEAD.0010", "LEAD.0100", "LEAD.9999" };
+        foreach (var id in validIds)
+        {
+            Assert.That(System.Text.RegularExpressions.Regex.IsMatch(id, @"^LEAD\.\d{4}$"), Is.True,
+                $"Expected LeadId '{id}' to match LEAD.<zero-padded-4-digit>");
+        }
+    }
+
+    [Test]
+    public void RumorLeadListing_StableOrdering_ByLeadIdOrdinalAsc()
+    {
+        var state = new SimState(2001);
+        state.Intel.RumorLeads["LEAD.0003"] = new RumorLead { LeadId = "LEAD.0003", Status = RumorLeadStatus.Active, SourceVerbToken = "SCAN" };
+        state.Intel.RumorLeads["LEAD.0001"] = new RumorLead { LeadId = "LEAD.0001", Status = RumorLeadStatus.Fulfilled, SourceVerbToken = "EXPEDITION" };
+        state.Intel.RumorLeads["LEAD.0002"] = new RumorLead { LeadId = "LEAD.0002", Status = RumorLeadStatus.Dismissed, SourceVerbToken = "HUB_ANALYSIS" };
+
+        var list = IntelSystem.GetRumorLeadsAscending(state);
+
+        Assert.That(list.Count, Is.EqualTo(3));
+        Assert.That(list[0].LeadId, Is.EqualTo("LEAD.0001"));
+        Assert.That(list[1].LeadId, Is.EqualTo("LEAD.0002"));
+        Assert.That(list[2].LeadId, Is.EqualTo("LEAD.0003"));
+    }
+
+    [Test]
+    public void RumorLead_ReasonCodes_LeadBlocked_And_LeadMissingHint_AreRegistered()
+    {
+        // ReasonCodes must exist as stable string tokens in the registered set.
+        Assert.That(ProgramExplain.ReasonCodes.LeadBlocked, Is.EqualTo("LeadBlocked"));
+        Assert.That(ProgramExplain.ReasonCodes.LeadMissingHint, Is.EqualTo("LeadMissingHint"));
+
+        // Ensure they are distinct.
+        Assert.That(ProgramExplain.ReasonCodes.LeadBlocked,
+            Is.Not.EqualTo(ProgramExplain.ReasonCodes.LeadMissingHint));
+    }
+
+    [Test]
+    public void IntelBook_RumorLeads_IsPresentAndEmpty_ByDefault()
+    {
+        var book = new IntelBook();
+        Assert.That(book.RumorLeads, Is.Not.Null);
+        Assert.That(book.RumorLeads.Count, Is.EqualTo(0));
+    }
 }

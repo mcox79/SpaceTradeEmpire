@@ -27,6 +27,10 @@ public static class ProgramExplain
         public const string InsufficientCapacity = "InsufficientCapacity";
         public const string NoExportRoute = "NoExportRoute";
         public const string BudgetExhausted = "BudgetExhausted";
+
+        // GATE.S3_6.RUMOR_INTEL_MIN.001
+        public const string LeadBlocked = "LeadBlocked";
+        public const string LeadMissingHint = "LeadMissingHint";
     }
 
     public sealed class Payload

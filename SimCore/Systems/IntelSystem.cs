@@ -128,6 +128,19 @@ public static class IntelSystem
             .ToList();
     }
 
+    // GATE.S3_6.RUMOR_INTEL_MIN.001
+    // Stable listing of rumor leads: LeadId asc (StringComparer.Ordinal).
+    public static IReadOnlyList<RumorLead> GetRumorLeadsAscending(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.Intel?.RumorLeads is null)
+            return Array.Empty<RumorLead>();
+
+        return state.Intel.RumorLeads.Values
+            .OrderBy(r => r.LeadId, StringComparer.Ordinal)
+            .ToList();
+    }
+
     // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001
     // Returns the reason code for an acquire attempt on the given unlock.
     public static UnlockReasonCode GetAcquireUnlockReasonCode(SimState state, string unlockId)
