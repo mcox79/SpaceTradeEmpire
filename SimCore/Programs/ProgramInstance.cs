@@ -16,6 +16,12 @@ public sealed class ProgramInstance
     // When Kind is CONSTR_CAP_MODULE_V0, SiteId binds the program to an IndustrySite key in SimState.IndustrySites.
     [JsonInclude] public string SiteId { get; set; } = "";
 
+    // GATE.S3_6.EXPEDITION_PROGRAMS.002: expedition programs v0
+    // ExpeditionSiteId binds the program to a discovery site node id.
+    // ExpeditionTicksRemaining tracks ticks remaining in the current run; persisted for save/load stability.
+    [JsonInclude] public string ExpeditionSiteId { get; set; } = "";
+    [JsonInclude] public int ExpeditionTicksRemaining { get; set; } = 0;
+
     [JsonInclude] public ProgramStatus Status { get; set; } = ProgramStatus.Paused;
 
     [JsonInclude] public int CreatedTick { get; set; } = 0;

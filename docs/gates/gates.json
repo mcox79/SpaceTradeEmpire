@@ -5,35 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD aba3944d25a14e2655a0f44aa2fc9b9239630f3c",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.002",
-                      "task_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.002.T525",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.EXPEDITION_PROGRAMS.002: ExpeditionProgram execution core v0: implement EXPEDITION_V0 executor in ProgramSystem; runs ExpeditionIntent over tweak-routed duration (IntelTweaksV0); produces \u003e= 1 RumorLead or unlock input on completion against Seed 42 with SiteBlueprint unlock; emits NoLeadProduced explain token (suggested action: Discoveries.RunAnalysisStep) when output set empty; save%load mid-expedition stable (SaveLoadWorldHashTests extended case ExpeditionProgram_MidExpedition_SaveLoad_Stable)",
-                      "intent":  "ExpeditionProgram execution core v0: implement EXPEDITION_V0 executor in ProgramSystem; runs ExpeditionIntent over tweak-routed duration (IntelTweaksV0); produces \u003e= 1 RumorLead or unlock input on completion against Seed 42 with SiteBlueprint unlock; emits NoLeadProduced explain token (suggested action: Discoveries.RunAnalysisStep) when output set empty; save%load mid-expedition stable (SaveLoadWorldHashTests extended case ExpeditionProgram_MidExpedition_SaveLoad_Stable)",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.csSimCore/Programs/ProgramBook.cs SimCore/Programs/ProgramExplain.cs SimCore/Programs/ProgramInstance.cs SimCore/Programs/ProgramSystem.cs SimCore/Systems/IntelSystem.cs SimCore/Tweaks/IntelTweaksV0.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "candidate_key_sha256=424c4cae80be"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002",
                       "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002.T511",
                       "status":  "TODO",

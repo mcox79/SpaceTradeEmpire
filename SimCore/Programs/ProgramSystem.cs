@@ -136,6 +136,36 @@ public static class ProgramSystem
                     }
                 }
             }
+            else if (string.Equals(p.Kind, ProgramKind.ExpeditionV0, StringComparison.Ordinal))
+            {
+                // GATE.S3_6.EXPEDITION_PROGRAMS.002: EXPEDITION_V0 executor.
+                // Ticks down ExpeditionTicksRemaining each cadence step.
+                // On completion emits ExpeditionIntentV0 (single-mutation pipeline).
+                // ExpeditionSiteId holds the LeadId (key in Intel.Discoveries).
+                // FleetId on the program instance is passed to the intent.
+                if (p.ExpeditionTicksRemaining <= 0)
+                {
+                    p.ExpeditionTicksRemaining = IntelTweaksV0.ExpeditionDurationTicks;
+                }
+                else
+                {
+                    p.ExpeditionTicksRemaining -= 1;
+                    if (p.ExpeditionTicksRemaining <= 0)
+                    {
+                        var leadId = p.ExpeditionSiteId ?? "";
+                        var fleetId = p.FleetId ?? "";
+                        if (!string.IsNullOrWhiteSpace(leadId) && !string.IsNullOrWhiteSpace(fleetId))
+                        {
+                            state.EnqueueIntent(new SimCore.Intents.ExpeditionIntentV0(
+                                leadId,
+                                SimCore.Intents.ExpeditionKind.Survey,
+                                fleetId,
+                                state.Tick + 1));
+                        }
+                        p.ExpeditionTicksRemaining = IntelTweaksV0.ExpeditionDurationTicks;
+                    }
+                }
+            }
             else if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
                 if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))

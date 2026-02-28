@@ -158,4 +158,55 @@ public sealed class ProgramExecutionIntegrationTests
         // Module production proof: output good increased in the market.
         Assert.That(after, Is.GreaterThan(before));
     }
+
+    [Test]
+    public void PROG_EXEC_004_ExpeditionProgram_ProducesAcceptedLead_Or_RejectReason_Seed42_SiteBlueprint()
+    {
+        // GATE.S3_6.EXPEDITION_PROGRAMS.002
+        // Proof: EXPEDITION_V0 program runs over IntelTweaksV0.ExpeditionDurationTicks then emits
+        // ExpeditionIntentV0 which sets LastExpeditionAcceptedLeadId (lead found in Intel.Discoveries)
+        // or LastExpeditionRejectReason (SiteNotFound). Against Seed 42.
+        const int seed = 42;
+        const string leadId = "lead_exped_42";
+        const string fleetId = "fleet_exped_42";
+
+        var k = new SimKernel(seed);
+        var s = k.State;
+
+        // Seed a discovery entry so the intent can resolve the lead.
+        s.Intel.Discoveries[leadId] = new SimCore.Entities.DiscoveryStateV0
+        {
+            DiscoveryId = leadId,
+            Phase = SimCore.Entities.DiscoveryPhase.Seen
+        };
+
+        s.Fleets[fleetId] = new SimCore.Entities.Fleet
+        {
+            Id = fleetId,
+            State = SimCore.Entities.FleetState.Idle
+        };
+
+        var pid = s.CreateExpeditionProgramV0(leadId, fleetId, cadenceTicks: 1);
+        s.Programs.Instances[pid].Status = ProgramStatus.Running;
+        s.Programs.Instances[pid].NextRunTick = s.Tick;
+
+        // First tick arms. Each subsequent tick decrements. Completion fires when TicksRemaining reaches 0.
+        var runTicks = SimCore.Tweaks.IntelTweaksV0.ExpeditionDurationTicks + 2;
+        for (int i = 0; i < runTicks; i++)
+        {
+            k.Step();
+        }
+
+        var leadSet = !string.IsNullOrEmpty(s.LastExpeditionAcceptedLeadId);
+        var rejectSet = !string.IsNullOrEmpty(s.LastExpeditionRejectReason);
+
+        Assert.That(leadSet || rejectSet, Is.True,
+            $"PROG_EXEC_004: ExpeditionIntentV0 must have fired and set LastExpeditionAcceptedLeadId or LastExpeditionRejectReason (Seed={seed} LeadId={leadId} ProgramId={pid}).");
+
+        // With a valid discovery entry the intent must succeed.
+        Assert.That(leadSet, Is.True,
+            $"PROG_EXEC_004: Expected lead accepted for known LeadId (Seed={seed} LeadId={leadId} RejectReason={s.LastExpeditionRejectReason}).");
+        Assert.That(s.LastExpeditionAcceptedLeadId, Is.EqualTo(leadId),
+            $"PROG_EXEC_004: AcceptedLeadId must match the seeded LeadId (Seed={seed}).");
+    }
 }

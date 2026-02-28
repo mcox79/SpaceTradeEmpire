@@ -925,6 +925,35 @@ public class SimState
         return id;
     }
 
+    // GATE.S3_6.EXPEDITION_PROGRAMS.002: expedition program v0 factory.
+    public string CreateExpeditionProgramV0(string leadId, string fleetId, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.ExpeditionV0,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            FleetId = fleetId ?? "",
+            ExpeditionSiteId = leadId ?? "",
+            ExpeditionTicksRemaining = 0,
+            SiteId = "",
+            MarketId = "",
+            GoodId = "",
+            Quantity = 0
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
     public string GetSignature()
     {
         var sb = new StringBuilder();

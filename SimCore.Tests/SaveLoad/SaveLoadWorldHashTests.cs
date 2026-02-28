@@ -836,6 +836,67 @@ public class SaveLoadWorldHashTests
         Assert.That(reportText, Is.EqualTo(ExpectedUnlockScenarioReportV0()), "Unlock scenario proof report content drifted.");
     }
 
+    [Test]
+    public void ExpeditionProgram_MidExpedition_SaveLoad_Stable()
+    {
+        // GATE.S3_6.EXPEDITION_PROGRAMS.002
+        // Proof: save/load mid-expedition preserves world hash and ExpeditionTicksRemaining.
+        const int seed = 42;
+        const string leadId = "lead_exped_saveload_42";
+        const string fleetId = "fleet_exped_saveload_42";
+
+        var sim = new SimKernel(seed);
+
+        sim.State.Intel.Discoveries[leadId] = new SimCore.Entities.DiscoveryStateV0
+        {
+            DiscoveryId = leadId,
+            Phase = SimCore.Entities.DiscoveryPhase.Seen
+        };
+
+        sim.State.Fleets[fleetId] = new SimCore.Entities.Fleet
+        {
+            Id = fleetId,
+            State = SimCore.Entities.FleetState.Idle
+        };
+
+        var pid = sim.State.CreateExpeditionProgramV0(leadId, fleetId, cadenceTicks: 1);
+        sim.State.Programs.Instances[pid].Status = SimCore.Programs.ProgramStatus.Running;
+        sim.State.Programs.Instances[pid].NextRunTick = sim.State.Tick;
+
+        // Advance partway through an expedition but not to completion.
+        var midPoint = SimCore.Tweaks.IntelTweaksV0.ExpeditionDurationTicks / 2;
+        for (int i = 0; i < midPoint; i++)
+        {
+            sim.Step();
+        }
+
+        var beforeHash = sim.State.GetSignature();
+        var beforeRemaining = sim.State.Programs.Instances[pid].ExpeditionTicksRemaining;
+
+        var json = sim.SaveToString();
+        var savedSeed = ReadEnvelopeSeed(json);
+
+        var sim2 = new SimKernel(seed: 999);
+        sim2.LoadFromString(json);
+
+        var afterHash = sim2.State.GetSignature();
+        var afterRemaining = sim2.State.Programs.Instances[pid].ExpeditionTicksRemaining;
+
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad Seed: {seed}");
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad SavedSeed: {savedSeed}");
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad BeforeHash: {beforeHash}");
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad AfterHash:  {afterHash}");
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad TicksRemaining Before: {beforeRemaining}");
+        TestContext.Out.WriteLine($"ExpeditionMidSaveLoad TicksRemaining After:  {afterRemaining}");
+
+        Assert.That(savedSeed, Is.EqualTo(seed),
+            $"ExpeditionProgram_MidExpedition_SaveLoad_Stable: save payload seed mismatch (Seed={seed}).");
+        Assert.That(afterHash, Is.EqualTo(beforeHash),
+            $"ExpeditionProgram_MidExpedition_SaveLoad_Stable: world hash changed after save/load (Seed={seed}).");
+        Assert.That(afterRemaining, Is.EqualTo(beforeRemaining),
+            $"ExpeditionProgram_MidExpedition_SaveLoad_Stable: ExpeditionTicksRemaining drifted after save/load (Seed={seed} Before={beforeRemaining} After={afterRemaining}).");
+    }
+
     private static string SnapshotUnlocksV0(SimState state, string? filterUnlockId = null)
     {
         if (state.Intel?.Unlocks is null) return "";
