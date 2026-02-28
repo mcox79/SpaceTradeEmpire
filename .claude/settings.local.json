@@ -1,6 +1,18 @@
 {
   "permissions": {
-    "allow": [],
+    "allow": [
+      "Bash(dotnet build SimCore.Tests/SimCore.Tests.csproj -c Release -v quiet)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build --no-restore --filter \"FullyQualifiedName!~SimCore.Tests.Determinism.LongRunWorldHashTests&FullyQualifiedName!~SimCore.Tests.GoldenReplayTests\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj --no-build -q)",
+      "Bash(dotnet build SimCore/SimCore.csproj -q)",
+      "Bash(Remove-Item -Force \"c:/Users/marsh/Documents/Space Trade Empire/SimCore/obj/Debug/net8.0/SimCore.csproj.CoreCompileInputs.cache\" -ErrorAction SilentlyContinue)",
+      "Bash(dotnet build SimCore/SimCore.csproj --no-incremental)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -q)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj --no-incremental -q)",
+      "Bash(dotnet build SimCore.Tests/SimCore.Tests.csproj --no-incremental -q)",
+      "Bash(dotnet build -q)",
+      "Bash(dotnet build --no-incremental)"
+    ],
     "ask": [
       "Bash(git:push*)"
     ]
