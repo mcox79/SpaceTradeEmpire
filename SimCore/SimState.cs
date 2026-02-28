@@ -276,6 +276,12 @@ public class SimState
 
     [JsonInclude] public IntelBook Intel { get; set; } = new();
 
+    // GATE.S3_6.EXPEDITION_PROGRAMS.001: transient per-tick expedition intent result surface (not persisted).
+    // Cleared by the kernel before each tick; written by ExpeditionIntentV0.Apply.
+    [JsonIgnore] public string? LastExpeditionRejectReason { get; set; }
+    [JsonIgnore] public string? LastExpeditionAcceptedLeadId { get; set; }
+    [JsonIgnore] public string? LastExpeditionAcceptedKind { get; set; }
+
     // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
     [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
 

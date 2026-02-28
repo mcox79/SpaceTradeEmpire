@@ -14,6 +14,14 @@ public static class ProgramExplain
     public const int ExplainVersion = 1;
     public const int EventVersion = 1;
 
+    // GATE.S3_6.EXPEDITION_PROGRAMS.001: stable rejection reason codes for expedition intents.
+    public static class ReasonCodes
+    {
+        public const string SiteNotFound = "SiteNotFound";
+        public const string InsufficientExpeditionCapacity = "InsufficientExpeditionCapacity";
+        public const string MissingSiteBlueprintUnlock = "MissingSiteBlueprintUnlock";
+    }
+
     public sealed class Payload
     {
         [JsonInclude] public int Version { get; set; } = ExplainVersion;

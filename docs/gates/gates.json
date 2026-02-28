@@ -1,8 +1,224 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-02-27T13:02:40-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 97d8fee6abd098a82483c6fc65bec370aedbca72",
+    "generated_utc":  "2026-02-27T16:58:09-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD aba3944d25a14e2655a0f44aa2fc9b9239630f3c",
     "tasks":  [
+                  {
+                      "gate_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.002",
+                      "task_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.002.T525",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.EXPEDITION_PROGRAMS.002: ExpeditionProgram execution core v0: implement EXPEDITION_V0 executor in ProgramSystem; runs ExpeditionIntent over tweak-routed duration (IntelTweaksV0); produces \u003e= 1 RumorLead or unlock input on completion against Seed 42 with SiteBlueprint unlock; emits NoLeadProduced explain token (suggested action: Discoveries.RunAnalysisStep) when output set empty; save%load mid-expedition stable (SaveLoadWorldHashTests extended case ExpeditionProgram_MidExpedition_SaveLoad_Stable)",
+                      "intent":  "ExpeditionProgram execution core v0: implement EXPEDITION_V0 executor in ProgramSystem; runs ExpeditionIntent over tweak-routed duration (IntelTweaksV0); produces \u003e= 1 RumorLead or unlock input on completion against Seed 42 with SiteBlueprint unlock; emits NoLeadProduced explain token (suggested action: Discoveries.RunAnalysisStep) when output set empty; save%load mid-expedition stable (SaveLoadWorldHashTests extended case ExpeditionProgram_MidExpedition_SaveLoad_Stable)",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.csSimCore/Programs/ProgramBook.cs SimCore/Programs/ProgramExplain.cs SimCore/Programs/ProgramInstance.cs SimCore/Programs/ProgramSystem.cs SimCore/Systems/IntelSystem.cs SimCore/Tweaks/IntelTweaksV0.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "candidate_key_sha256=424c4cae80be"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002",
+                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002.T511",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.002: Exploitation packages execution core v0: implement TRADE_CHARTER_V0 executor (buy low%sell high, budget-bounded, emits CashDelta(TradePnL) and InventoryDelta(Loaded%Unloaded)); implement RESOURCE_TAP_V0 executor (extract%refine%export via IndustrySystem%LogisticsSystem, emits InventoryDelta(Produced%Unloaded)); cycle budgets and batch sizes tweak-routed via NEW: SimCore/Tweaks/ExploitationTweaksV0.cs; BudgetExhausted and NoExportRoute explain tokens emitted on respective conditions; save%load mid-execution stable for both kinds; integration tests TradeCharter_Seed42_EmitsCashDelta and ResourceTap_Seed42_EmitsInventoryDelta pass",
+                      "intent":  "Exploitation packages execution core v0: implement TRADE_CHARTER_V0 executor (buy low%sell high, budget-bounded, emits CashDelta(TradePnL) and InventoryDelta(Loaded%Unloaded)); implement RESOURCE_TAP_V0 executor (extract%refine%export via IndustrySystem%LogisticsSystem, emits InventoryDelta(Produced%Unloaded)); cycle budgets and batch sizes tweak-routed via NEW: SimCore/Tweaks/ExploitationTweaksV0.cs; BudgetExhausted and NoExportRoute explain tokens emitted on respective conditions; save%load mid-execution stable for both kinds; integration tests TradeCharter_Seed42_EmitsCashDelta and ResourceTap_Seed42_EmitsInventoryDelta pass",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.csSimCore/Programs/ProgramInstance.cs SimCore/Programs/ProgramKind.cs SimCore/Programs/ProgramSystem.cs SimCore/Systems/IndustrySystem.cs SimCore/Systems/LogisticsSystem.cs SimCore/Systems/MarketSystem.cs SimCore/Tweaks/ExploitationTweaksV0.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
+                                             "candidate_key_sha256=f62ae3747f17"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002",
+                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002.T392",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.002: Rumor lead generation and persistence core v0: extend IntelSystem to grant RumorLead entries on explore%hub-analysis actions; GalaxyGenerator seeds \u003e= 1 lead for Seed 42 (min count tweak-routed via NEW: SimCore/Tweaks/IntelTweaksV0.cs); SerializationSystem%WorldLoader round-trip preserves lead list; SaveLoadWorldHashTests extended with lead digest regression (LeadId Ordinal asc, fields Ordinal asc, byte-stable pre/post save); divergence prints first differing LeadId%Field%Before%After deterministically",
+                      "intent":  "Rumor lead generation and persistence core v0: extend IntelSystem to grant RumorLead entries on explore%hub-analysis actions; GalaxyGenerator seeds \u003e= 1 lead for Seed 42 (min count tweak-routed via NEW: SimCore/Tweaks/IntelTweaksV0.cs); SerializationSystem%WorldLoader round-trip preserves lead list; SaveLoadWorldHashTests extended with lead digest regression (LeadId Ordinal asc, fields Ordinal asc, byte-stable pre/post save); divergence prints first differing LeadId%Field%Before%After deterministically",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "SimCore.Tests/Systems/IntelContractTests.csSimCore/Gen/GalaxyGenerator.cs SimCore/Systems/IntelSystem.cs SimCore/Systems/IntentSystem.cs SimCore/Systems/SerializationSystem.cs SimCore/Tweaks/IntelTweaksV0.cs SimCore/World/WorldLoader.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
+                                             "candidate_key_sha256=eddef2ef1101"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.001",
+                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.001.T509",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.001: Rumor lead schema and IntelBook contract v0: add `RumorLead` schema to `IntelBook` (LeadId, HintPayload with region tags + coarse location token + prerequisite token list + implied payoff token, status, source verb token); register `LeadBlocked` and `LeadMissingHint` ReasonCodes in `ProgramExplain`; contract tests assert required fields, LeadId format `LEAD.\u003czero-padded-4-digit\u003e`, listing ordered LeadId Ordinal asc, ReasonCodes in registered set",
+                      "intent":  "Rumor lead schema and IntelBook contract v0: add `RumorLead` schema to `IntelBook` (LeadId, HintPayload with region tags + coarse location token + prerequisite token list + implied payoff token, status, source verb token); register `LeadBlocked` and `LeadMissingHint` ReasonCodes in `ProgramExplain`; contract tests assert required fields, LeadId format `LEAD.\u003czero-padded-4-digit\u003e`, listing ordered LeadId Ordinal asc, ReasonCodes in registered set",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "SimCore/Entities/IntelBook.cs",
+                                             "SimCore/Programs/ProgramExplain.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "candidate_key_sha256=bdb2936a7b6b"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.001",
+                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.001.T289",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.001: Exploitation packages contract v0: add TRADE_CHARTER_V0 and RESOURCE_TAP_V0 to ProgramKind; extend ProgramQuote%ProgramQuoteSnapshot with ExploitationQuote fields (UpfrontCost, OngoingCostPerDay, TimeToActivate, ExpectedOutputBands_p10%p50%p90, TopRisks sorted magnitude desc then token Ordinal asc, SuggestedMitigations sorted verb Ordinal asc); register ServiceUnavailable%InsufficientCapacity%NoExportRoute%BudgetExhausted ReasonCodes in ProgramExplain; contract tests assert all fields and ReasonCodes present; ServiceUnavailable emitted deterministically on missing routing service",
+                      "intent":  "Exploitation packages contract v0: add TRADE_CHARTER_V0 and RESOURCE_TAP_V0 to ProgramKind; extend ProgramQuote%ProgramQuoteSnapshot with ExploitationQuote fields (UpfrontCost, OngoingCostPerDay, TimeToActivate, ExpectedOutputBands_p10%p50%p90, TopRisks sorted magnitude desc then token Ordinal asc, SuggestedMitigations sorted verb Ordinal asc); register ServiceUnavailable%InsufficientCapacity%NoExportRoute%BudgetExhausted ReasonCodes in ProgramExplain; contract tests assert all fields and ReasonCodes present; ServiceUnavailable emitted deterministically on missing routing service",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Programs/ProgramQuoteContractTests.cs",
+                                             "SimCore/Programs/ProgramKind.cs",
+                                             "SimCore/Programs/ProgramExplain.cs",
+                                             "SimCore/Programs/ProgramQuote.cs",
+                                             "SimCore/Programs/ProgramQuoteSnapshot.cs",
+                                             "SimCore.Tests/Programs/ProgramContractTests.cs"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Programs/ProgramQuoteContractTests.cs",
+                                             "candidate_key_sha256=50d7829eebd0"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003",
+                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003.T276",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.003: Exploitation packages explainability v0: extend SimBridge with GetExploitationPackageSummary(programId) Facts-only snapshot (status, explain chain tokens primary-first then secondary Ordinal asc then intervention verbs Ordinal asc, exception policy levers as token list); extend station_interface.gd to render [PACKAGE STATUS] section with exception summary and \u003e= 1 intervention verb per active disruption; headless Seed 42 transcript contains \u003e= 1 Programs.* or Logistics.* verb token; SHA256 stable across two runs",
+                      "intent":  "Exploitation packages explainability v0: extend SimBridge with GetExploitationPackageSummary(programId) Facts-only snapshot (status, explain chain tokens primary-first then secondary Ordinal asc then intervention verbs Ordinal asc, exception policy levers as token list); extend station_interface.gd to render [PACKAGE STATUS] section with exception summary and \u003e= 1 intervention verb per active disruption; headless Seed 42 transcript contains \u003e= 1 Programs.* or Logistics.* verb token; SHA256 stable across two runs",
+                      "evidence_paths":  [
+                                             "scripts/tests/test_exploitation_package_explain.gd",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/view/ui/station_interface.gd",
+                                             "SimCore/Programs/ProgramExplain.cs",
+                                             "scripts/tools/Validate-GodotScript.ps1",
+                                             "docs/generated/exploitation_package_explain_seed_42_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=scripts/tests/test_exploitation_package_explain.gd",
+                                             "candidate_key_sha256=bbfc1b44470a"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  },
+                  {
+                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003",
+                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003.T292",
+                      "status":  "TODO",
+                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.003: Rumor lead UI readout min v0: extend SimBridge with GetRumorLeads(stationId) Facts-only snapshot (LeadId asc, hint tokens, blocked reasons); extend station_interface.gd to render [RUMOR LEADS] section; headless Seed 42 transcript shows \u003e= 1 lead line with hint tokens; LeadMissingHint token rendered for leads missing payload; SHA256 stable across two runs",
+                      "intent":  "Rumor lead UI readout min v0: extend SimBridge with GetRumorLeads(stationId) Facts-only snapshot (LeadId asc, hint tokens, blocked reasons); extend station_interface.gd to render [RUMOR LEADS] section; headless Seed 42 transcript shows \u003e= 1 lead line with hint tokens; LeadMissingHint token rendered for leads missing payload; SHA256 stable across two runs",
+                      "evidence_paths":  [
+                                             "SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "scripts/bridge/SimBridge.cs",
+                                             "scripts/view/ui/station_interface.gd",
+                                             "scripts/tools/Validate-GodotScript.ps1",
+                                             "scripts/tests/test_rumor_lead_ui_readout.gd",
+                                             "docs/generated/rumor_lead_ui_readout_seed_42_v0.txt"
+                                         ],
+                      "constraints":  [
+                                          "Single-session scope: stay within evidence and expected touch paths.",
+                                          "If evidence is missing or tests fail, escalate via DEFAULT."
+                                      ],
+                      "completion_hint":  [
+                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
+                                          ],
+                      "task_preflight":  [
+                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
+                                             "candidate_key_sha256=039d7e0f2daa"
+                                         ],
+                      "escalation_rules":  [
+                                               {
+                                                   "when":  "DEFAULT",
+                                                   "route":  "STOP",
+                                                   "note":  "Escalate if blocked or scope expands."
+                                               }
+                                           ]
+                  }
               ]
 }
