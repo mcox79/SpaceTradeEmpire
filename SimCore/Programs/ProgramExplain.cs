@@ -15,11 +15,18 @@ public static class ProgramExplain
     public const int EventVersion = 1;
 
     // GATE.S3_6.EXPEDITION_PROGRAMS.001: stable rejection reason codes for expedition intents.
+    // GATE.S3_6.EXPLOITATION_PACKAGES.001: exploitation package rejection reason codes.
     public static class ReasonCodes
     {
         public const string SiteNotFound = "SiteNotFound";
         public const string InsufficientExpeditionCapacity = "InsufficientExpeditionCapacity";
         public const string MissingSiteBlueprintUnlock = "MissingSiteBlueprintUnlock";
+
+        // GATE.S3_6.EXPLOITATION_PACKAGES.001
+        public const string ServiceUnavailable = "ServiceUnavailable";
+        public const string InsufficientCapacity = "InsufficientCapacity";
+        public const string NoExportRoute = "NoExportRoute";
+        public const string BudgetExhausted = "BudgetExhausted";
     }
 
     public sealed class Payload

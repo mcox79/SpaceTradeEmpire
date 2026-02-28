@@ -11,4 +11,8 @@ public static class ProgramKind
 
     // GATE.S3_6.EXPEDITION_PROGRAMS.001: expedition program contract v0
     public const string ExpeditionV0 = "EXPEDITION_V0";
+
+    // GATE.S3_6.EXPLOITATION_PACKAGES.001: exploitation package program kinds v0
+    public const string TradeCharterV0 = "TRADE_CHARTER_V0";
+    public const string ResourceTapV0 = "RESOURCE_TAP_V0";
 }

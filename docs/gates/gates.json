@@ -93,39 +93,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.001",
-                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.001.T289",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.001: Exploitation packages contract v0: add TRADE_CHARTER_V0 and RESOURCE_TAP_V0 to ProgramKind; extend ProgramQuote%ProgramQuoteSnapshot with ExploitationQuote fields (UpfrontCost, OngoingCostPerDay, TimeToActivate, ExpectedOutputBands_p10%p50%p90, TopRisks sorted magnitude desc then token Ordinal asc, SuggestedMitigations sorted verb Ordinal asc); register ServiceUnavailable%InsufficientCapacity%NoExportRoute%BudgetExhausted ReasonCodes in ProgramExplain; contract tests assert all fields and ReasonCodes present; ServiceUnavailable emitted deterministically on missing routing service",
-                      "intent":  "Exploitation packages contract v0: add TRADE_CHARTER_V0 and RESOURCE_TAP_V0 to ProgramKind; extend ProgramQuote%ProgramQuoteSnapshot with ExploitationQuote fields (UpfrontCost, OngoingCostPerDay, TimeToActivate, ExpectedOutputBands_p10%p50%p90, TopRisks sorted magnitude desc then token Ordinal asc, SuggestedMitigations sorted verb Ordinal asc); register ServiceUnavailable%InsufficientCapacity%NoExportRoute%BudgetExhausted ReasonCodes in ProgramExplain; contract tests assert all fields and ReasonCodes present; ServiceUnavailable emitted deterministically on missing routing service",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramQuoteContractTests.cs",
-                                             "SimCore/Programs/ProgramKind.cs",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "SimCore/Programs/ProgramQuote.cs",
-                                             "SimCore/Programs/ProgramQuoteSnapshot.cs",
-                                             "SimCore.Tests/Programs/ProgramContractTests.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramQuoteContractTests.cs",
-                                             "candidate_key_sha256=50d7829eebd0"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003",
                       "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.003.T276",
                       "status":  "TODO",
