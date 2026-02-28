@@ -59,8 +59,10 @@ $QueueFullPath      = Join-Path $ProjectRoot "docs\generated\gates_queue_full.js
 $QueueReportPath    = Join-Path $ProjectRoot "docs\generated\gates_scan_preflight.md"
 $RegistryPath       = Join-Path $ProjectRoot "docs\gates\gates.json"
 
-$NextGatePacketPath = Join-Path $ProjectRoot "docs\generated\next_gate_packet.md"
-$LlmPromptPath      = Join-Path $ProjectRoot "docs\generated\llm_prompt.md"
+$NextGatePacketPath      = Join-Path $ProjectRoot "docs\generated\next_gate_packet.md"
+$LlmPromptPath           = Join-Path $ProjectRoot "docs\generated\llm_prompt.md"
+$LlmEpochPreamblePath    = Join-Path $ProjectRoot "docs\generated\llm_epoch_preamble.txt"
+$SessionDropFolderPath   = Join-Path $ProjectRoot "docs\generated\session_drop"
 $LedgerIrPromptPath      = "docs/generated/ledger_ir_prompt.md"
 $LedgerIrAttachmentsPath = "docs/generated/ledger_ir_attachments.txt"
 
@@ -695,6 +697,68 @@ function Copy-LLMPromptToClipboard {
         Log-Output "ERROR (clipboard):"
         Log-Output ($_ | Out-String)
         return $false
+    }
+}
+
+function Copy-LLMEpochPreambleToClipboard {
+    if ($global:DEVTOOL_HEADLESS) { return $false }
+
+    if (-not (Test-Path -LiteralPath $LlmEpochPreamblePath)) {
+        Log-Output "ERROR: Missing epoch preamble at $LlmEpochPreamblePath (generate prompt first)."
+        return $false
+    }
+
+    try {
+        $text = Get-Content -LiteralPath $LlmEpochPreamblePath -Raw -Encoding UTF8
+        [System.Windows.Forms.Clipboard]::SetText($text)
+        Log-Output "COPIED: Epoch preamble to clipboard."
+        return $true
+    } catch {
+        Log-Output "ERROR (clipboard):"
+        Log-Output ($_ | Out-String)
+        return $false
+    }
+}
+
+function Copy-LLMEpochPreambleAndPromptToClipboard {
+    if ($global:DEVTOOL_HEADLESS) { return $false }
+
+    if (-not (Test-Path -LiteralPath $LlmEpochPreamblePath)) {
+        Log-Output "ERROR: Missing epoch preamble at $LlmEpochPreamblePath (generate prompt first)."
+        return $false
+    }
+    if (-not (Test-Path -LiteralPath $LlmPromptPath)) {
+        Log-Output "ERROR: Missing prompt file at $LlmPromptPath (generate prompt first)."
+        return $false
+    }
+
+    try {
+        $preamble = Get-Content -LiteralPath $LlmEpochPreamblePath -Raw -Encoding UTF8
+        $prompt   = Get-Content -LiteralPath $LlmPromptPath        -Raw -Encoding UTF8
+        $nl = [Environment]::NewLine
+        $text = $preamble.TrimEnd() + $nl + $nl + $prompt.TrimStart()
+        [System.Windows.Forms.Clipboard]::SetText($text)
+        Log-Output "COPIED: Epoch preamble + LLM prompt to clipboard."
+        return $true
+    } catch {
+        Log-Output "ERROR (clipboard):"
+        Log-Output ($_ | Out-String)
+        return $false
+    }
+}
+
+function Open-SessionDropFolder {
+    if ($global:DEVTOOL_HEADLESS) { return }
+    try {
+        if (-not (Test-Path -LiteralPath $SessionDropFolderPath)) {
+            Log-Output "ERROR: Missing drop folder at $SessionDropFolderPath (generate prompt first)."
+            return
+        }
+        Start-Process -FilePath "explorer.exe" -ArgumentList @($SessionDropFolderPath) | Out-Null
+        Log-Output "OPENED: session drop folder."
+    } catch {
+        Log-Output "ERROR (open drop folder):"
+        Log-Output ($_ | Out-String)
     }
 }
 
@@ -1595,54 +1659,75 @@ $btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Pro
 }
 $y2 += 60
 
-$btnShowCurrentShard = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 40 "#444444" {
-    Open-TextFile "docs/generated/next_gate_packet.md"
+# Primary session flow: keep tight
+$btnCopyEpochAndPrompt = New-DevtoolButton $tabExec "Copy Preamble + Prompt to Clipboard" 10 $y2 375 32 "#444444" {
+    Copy-LLMEpochPreambleAndPromptToClipboard | Out-Null
     Set-StatusText
 }
-$y2 += 45
+$y2 += 38
 
-$btnShowLlmPrompt = New-DevtoolButton $tabExec "Show LLM Prompt (Read-only)" 10 $y2 375 40 "#444444" {
-    Open-TextFile "docs/generated/llm_prompt.md"
+$btnOpenDrop = New-DevtoolButton $tabExec "Open Session Drop Folder" 10 $y2 375 32 "#444444" {
+    Open-SessionDropFolder
     Set-StatusText
 }
-$y2 += 45
+$y2 += 38
 
-$btnNextGateOnly = New-DevtoolButton $tabExec "Advanced: Next Gate Packet only" 10 $y2 375 40 "#444444" {
-    Run-NextGatePacket | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnPromptOnly = New-DevtoolButton $tabExec "Advanced: LLM Prompt only (runs NextGate unless skipped)" 10 $y2 375 40 "#444444" {
-    Run-LlmPrompt | Out-Null
-    Set-StatusText
-}
-$y2 += 45
-
-$btnCopyPrompt = New-DevtoolButton $tabExec "Copy LLM Prompt to Clipboard" 10 $y2 375 40 "#444444" {
-    Copy-LLMPromptToClipboard | Out-Null
-    Set-StatusText
-}
-$y2 += 55
-
-$btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 50 "#007acc" {
+$btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 40 "#007acc" {
     Run-RunProofsCurrent
     Set-StatusText
 }
-$y2 += 60
+$y2 += 52
 
-$btnStepD = New-DevtoolButton $tabExec "Step D: Generate Closeout Patch" 10 $y2 375 40 "#444444" {
-    $ok = Run-StepDCloseoutPatch
-    if (-not $ok) { Log-Output "Step D: FAILED." }
+# Advanced (rare): demote clutter below proofs
+$btnCopyEpoch = New-DevtoolButton $tabExec "Copy Epoch Preamble to Clipboard" 10 $y2 375 32 "#444444" {
+    Copy-LLMEpochPreambleToClipboard | Out-Null
     Set-StatusText
 }
-$y2 += 45
+$y2 += 38
 
-$btnCloseoutCheck = New-DevtoolButton $tabExec "Closeout Check (read-only)" 10 $y2 375 40 "#444444" {
-    Run-CloseoutCheck | Out-Null
+$btnCopyPrompt = New-DevtoolButton $tabExec "Copy LLM Prompt to Clipboard" 10 $y2 375 32 "#444444" {
+    Copy-LLMPromptToClipboard | Out-Null
     Set-StatusText
 }
-$y2 += 45
+$y2 += 38
+
+$btnShowCurrentShard = New-DevtoolButton $tabExec "Show Current Shard (Read-only)" 10 $y2 375 32 "#444444" {
+    Open-TextFile "docs/generated/next_gate_packet.md"
+    Set-StatusText
+}
+$y2 += 38
+
+$btnShowLlmPrompt = New-DevtoolButton $tabExec "Show LLM Prompt (Read-only)" 10 $y2 375 32 "#444444" {
+    Open-TextFile "docs/generated/llm_prompt.md"
+    Set-StatusText
+}
+$y2 += 38
+
+#$btnNextGateOnly = New-DevtoolButton $tabExec "Advanced: Next Gate Packet only" 10 $y2 375 32 "#444444" {
+#    Run-NextGatePacket | Out-Null
+#    Set-StatusText
+#}
+#$y2 += 38
+
+#$btnPromptOnly = New-DevtoolButton $tabExec "Advanced: LLM Prompt only (runs NextGate unless skipped)" 10 $y2 375 32 "#444444" {
+#    Run-LlmPrompt | Out-Null
+#    Set-StatusText
+#}
+#$y2 += 38
+
+# Hide unused closeout actions from the primary flow (still available here if you ever need them)
+#$btnStepD = New-DevtoolButton $tabExec "Step D: Generate Closeout Patch (rare)" 10 $y2 375 32 "#444444" {
+#    $ok = Run-StepDCloseoutPatch
+#    if (-not $ok) { Log-Output "Step D: FAILED." }
+#    Set-StatusText
+#}
+#$y2 += 38
+
+#$btnCloseoutCheck = New-DevtoolButton $tabExec "Closeout Check (read-only, rare)" 10 $y2 375 40 "#444444" {
+#    Run-CloseoutCheck | Out-Null
+#    Set-StatusText
+#}
+#$y2 += 45
 
 $btnGitStatus = New-DevtoolButton $tabExec "Git Status" 10 $y2 375 40 "#333333" {
     Run-GitStatus | Out-Null

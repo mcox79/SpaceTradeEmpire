@@ -90,6 +90,124 @@ function Read-AttachmentsFile([string] $absPath) {
   )
 }
 
+function Get-Sha256Hex([string] $AbsPath) {
+  if (-not (Test-Path -LiteralPath $AbsPath)) { throw "Get-Sha256Hex: missing file: $AbsPath" }
+  $h = Get-FileHash -LiteralPath $AbsPath -Algorithm SHA256
+  return (($h.Hash + "").ToLowerInvariant())
+}
+
+function Clear-DropFolderChildren([string] $DropAbs, [string] $SentinelAbs) {
+  if (-not (Test-Path -LiteralPath $DropAbs)) { Ensure-Dir $DropAbs }
+
+  # Guardrail: must be inside repo and contain sentinel
+  $repoAbs = (Resolve-Path -LiteralPath $RepoRoot).Path.TrimEnd("\","/")
+  $dropResolved = (Resolve-Path -LiteralPath $DropAbs).Path.TrimEnd("\","/")
+
+  if (-not ($dropResolved.ToLowerInvariant().StartsWith($repoAbs.ToLowerInvariant()))) {
+    throw "Drop folder must be under repo root. drop=$dropResolved repo=$repoAbs"
+  }
+
+  if (-not (Test-Path -LiteralPath $SentinelAbs)) {
+    # Create sentinel on first use for the canonical location. This avoids unsafe deletes elsewhere.
+    Ensure-Dir (Split-Path -Parent $SentinelAbs)
+    Write-AtomicUtf8NoBom $SentinelAbs "OK`n"
+  }
+
+  Get-ChildItem -LiteralPath $DropAbs -Force | ForEach-Object {
+    $p = $_.FullName
+    if ($p -eq $SentinelAbs) { return }
+    Remove-Item -LiteralPath $p -Force -Recurse
+  }
+}
+
+function Stage-SessionDropFolder {
+  param(
+    [string]   $RepoRootAbs,
+    [string[]] $AttachmentRelPathsInOrder,
+    [string]   $DropRelPath
+  )
+
+  if ($null -eq $AttachmentRelPathsInOrder -or $AttachmentRelPathsInOrder.Count -le 0) {
+    throw "Stage-SessionDropFolder: empty attachment list"
+  }
+
+  $dropAbs = Join-Path $RepoRootAbs ($DropRelPath -replace "/","\")
+  Ensure-Dir $dropAbs
+
+  $sentinelAbs = Join-Path $dropAbs "._DROP_FOLDER_OK"
+  Clear-DropFolderChildren -DropAbs $dropAbs -SentinelAbs $sentinelAbs
+
+  $manifestEntries = New-Object System.Collections.Generic.List[object]
+  $nl = [Environment]::NewLine
+  $epochInput = New-Object System.Text.StringBuilder
+
+  foreach ($rel in $AttachmentRelPathsInOrder) {
+    $relNorm = Normalize-Rel $rel
+    $srcAbs = Join-Path $RepoRootAbs ($relNorm -replace "/","\")
+    if (-not (Test-Path -LiteralPath $srcAbs)) { throw "Stage-SessionDropFolder: missing source file: $relNorm" }
+
+    # Flatten into drop folder root for easy multi-select drag-drop
+    $safe = ($relNorm -replace "[\\/]", "__")
+    # Optional: keep filenames readable, but still collision-proof via index prefix
+    $dropName = ("{0:D2}__{1}" -f $manifestEntries.Count, $safe)
+    $dstAbs = Join-Path $dropAbs $dropName
+    Copy-Item -LiteralPath $srcAbs -Destination $dstAbs -Force
+
+    $fi = Get-Item -LiteralPath $srcAbs
+    $sha = Get-Sha256Hex $srcAbs
+
+    $manifestEntries.Add([ordered]@{
+    repo_path = $relNorm
+    drop_name = $dropName
+    sha256    = $sha
+    bytes     = [int64]$fi.Length
+    }) | Out-Null
+
+    [void]$epochInput.Append($relNorm + "`0" + $sha + $nl)
+  }
+
+  $epochDigest = ""
+  {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $bytes = [System.Text.Encoding]::UTF8.GetBytes($epochInput.ToString())
+      $hashBytes = $sha256.ComputeHash($bytes)
+      $epochDigest = ([BitConverter]::ToString($hashBytes) -replace "-","").ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  }
+
+  $manifestObj = [ordered]@{
+    schema_version = 1
+    context_epoch  = $epochDigest
+    drop_rel_path  = (Normalize-Rel $DropRelPath)
+    files          = $manifestEntries
+  }
+
+  $manifestJson = ($manifestObj | ConvertTo-Json -Depth 8)
+  Write-AtomicUtf8NoBom (Join-Path $dropAbs "_MANIFEST.json") ($manifestJson + $nl)
+
+  # Epoch preamble (clipboard-friendly). Not intended to be attached, but harmless if you do.
+  $sbP = New-Object System.Text.StringBuilder
+  [void]$sbP.Append("CONTEXT_EPOCH: $epochDigest" + $nl)
+  [void]$sbP.Append("AUTHORITATIVE_INPUTS: Only the files listed below and attached in this message are authoritative. Ignore any earlier snippets or file contents from prior turns." + $nl)
+  [void]$sbP.Append("FAIL_CLOSED: If a needed file is not listed, STOP and request it. Do not guess or rely on memory." + $nl + $nl)
+  [void]$sbP.Append("FILES (in order):" + $nl)
+  foreach ($e in $manifestEntries) {
+    [void]$sbP.Append("- " + $e.repo_path + " => " + $e.drop_name + " (sha256=" + $e.sha256 + ", bytes=" + $e.bytes + ")" + $nl)
+  }
+  [void]$sbP.Append($nl)
+  [void]$sbP.Append("RULES:" + $nl)
+  [void]$sbP.Append("- You may not reference contents of any file not listed above." + $nl)
+  [void]$sbP.Append("- No inference about file contents; ask for missing files." + $nl)
+  [void]$sbP.Append("- If attached files conflict with earlier text in chat, treat earlier text as stale." + $nl)
+
+  $preamble = $sbP.ToString()
+  Write-AtomicUtf8NoBom (Join-Path $RepoRootAbs "docs/generated/llm_epoch_preamble.txt") $preamble
+  Write-AtomicUtf8NoBom (Join-Path $dropAbs "_EPOCH_PREAMBLE.txt") $preamble
+}
+
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot = Get-RepoRootLocal }
 Push-Location $RepoRoot
 try {
@@ -100,6 +218,7 @@ try {
   $nextRel    = "docs/generated/next_gate_packet.md"
   $attachRel  = "docs/generated/llm_attachments.txt"
   $outRel     = "docs/generated/llm_prompt.md"
+  $dropRel    = "docs/generated/session_drop"
 
   $contextAbs = Join-Path $RepoRoot $contextRel
   $nextAbs    = Join-Path $RepoRoot $nextRel
@@ -351,7 +470,14 @@ try {
 
   Write-AtomicUtf8NoBom $outAbs ($sb.ToString())
 
-  Write-Host "New-LlmPrompt: OK (head=$headGit attachments excluding context=$count)"
+  # Stage drop folder attachments for drag-drop into the session (no zips)
+  $allAttach = New-Object System.Collections.Generic.List[string]
+  $allAttach.Add($contextRel) | Out-Null
+  foreach ($p in $final) { $allAttach.Add($p) | Out-Null }
+
+  Stage-SessionDropFolder -RepoRootAbs $RepoRoot -AttachmentRelPathsInOrder $allAttach.ToArray() -DropRelPath $dropRel
+
+  Write-Host "New-LlmPrompt: OK (head=$headGit attachments excluding context=$count drop=$dropRel epoch=docs/generated/llm_epoch_preamble.txt)"
 }
 finally {
   Pop-Location
