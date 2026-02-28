@@ -166,6 +166,36 @@ public static class ProgramSystem
                     }
                 }
             }
+            else if (string.Equals(p.Kind, ProgramKind.TradeCharterV0, StringComparison.Ordinal))
+            {
+                // GATE.S3_6.EXPLOITATION_PACKAGES.002: TRADE_CHARTER_V0 executor.
+                // Buy low from SourceMarketId, sell high to MarketId (dest).
+                // Budget-bounded via ExploitationTweaksV0. Emits CashDelta(TradePnL) and InventoryDelta tokens.
+                // Single-mutation pipeline: all state changes happen in TradeCharterIntentV0.Apply.
+                var srcMarket = p.SourceMarketId ?? "";
+                var dstMarket = p.MarketId ?? "";
+                var buyGood = p.GoodId ?? "";
+                var sellGood = p.SellGoodId ?? "";
+                if (!string.IsNullOrWhiteSpace(srcMarket) || !string.IsNullOrWhiteSpace(dstMarket))
+                {
+                    state.EnqueueIntent(new SimCore.Intents.TradeCharterIntentV0(
+                        srcMarket, dstMarket, buyGood, sellGood, p.Id));
+                }
+            }
+            else if (string.Equals(p.Kind, ProgramKind.ResourceTapV0, StringComparison.Ordinal))
+            {
+                // GATE.S3_6.EXPLOITATION_PACKAGES.002: RESOURCE_TAP_V0 executor.
+                // Extract and export good from SourceMarketId via IndustrySystem/LogisticsSystem simulation.
+                // Emits InventoryDelta(Produced/Unloaded) tokens.
+                // Single-mutation pipeline: all state changes happen in ResourceTapIntentV0.Apply.
+                var srcMarket = p.SourceMarketId ?? "";
+                var extractGood = p.GoodId ?? "";
+                if (!string.IsNullOrWhiteSpace(srcMarket) && !string.IsNullOrWhiteSpace(extractGood))
+                {
+                    state.EnqueueIntent(new SimCore.Intents.ResourceTapIntentV0(
+                        srcMarket, extractGood, p.Id));
+                }
+            }
             else if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
                 if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))

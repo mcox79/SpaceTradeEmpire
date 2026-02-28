@@ -209,4 +209,126 @@ public sealed class ProgramExecutionIntegrationTests
         Assert.That(s.LastExpeditionAcceptedLeadId, Is.EqualTo(leadId),
             $"PROG_EXEC_004: AcceptedLeadId must match the seeded LeadId (Seed={seed}).");
     }
+
+    [Test]
+    public void TradeCharter_Seed42_EmitsCashDelta()
+    {
+        // GATE.S3_6.EXPLOITATION_PACKAGES.002
+        // Proof: TRADE_CHARTER_V0 program emits TradePnL token in ExploitationEventLog
+        // and net credits change after buy+sell cycle. Seed 42.
+        // Determinism: no wall-clock, no shared RNG; token ordering stable (tick-order Apply calls).
+        const int seed = 42;
+
+        var k = new SimKernel(seed);
+        var s = k.State;
+
+        var def = new WorldDefinition
+        {
+            WorldId = "tc_world_42",
+            Markets =
+            {
+                new WorldMarket { Id = "mkt_src", Inventory = new() { ["ore"] = 20 } },
+                new WorldMarket { Id = "mkt_dst", Inventory = new() { ["ore"] = 0  } }
+            },
+            Nodes =
+            {
+                new WorldNode { Id = "stn_src", Kind = "Station", Name = "Source", MarketId = "mkt_src", Pos = new float[] { 0f, 0f, 0f } },
+                new WorldNode { Id = "stn_dst", Kind = "Station", Name = "Dest",   MarketId = "mkt_dst", Pos = new float[] { 5f, 0f, 0f } }
+            },
+            Edges =
+            {
+                new WorldEdge { Id = "lane_sd", FromNodeId = "stn_src", ToNodeId = "stn_dst", Distance = 1.0f, TotalCapacity = 5 }
+            },
+            Player = new WorldPlayerStart { Credits = 1000, LocationNodeId = "stn_src" }
+        };
+        WorldLoader.Apply(s, def);
+
+        // Seed player cargo so the sell leg fires immediately on tick 1.
+        s.PlayerCargo["ore"] = 4;
+
+        var credBefore = s.PlayerCredits;
+
+        // Create and arm: buy ore from mkt_src, sell ore to mkt_dst.
+        var pid = s.CreateTradeCharterV0Program("mkt_src", "mkt_dst", "ore", "ore", cadenceTicks: 1);
+        s.Programs.Instances[pid].Status = ProgramStatus.Running;
+        s.Programs.Instances[pid].NextRunTick = s.Tick;
+
+        for (int i = 0; i < 5; i++) k.Step();
+
+        // Credits must have changed (buy deducts, sell adds; net depends on tweaks).
+        Assert.That(s.PlayerCredits, Is.Not.EqualTo(credBefore),
+            $"TradeCharter_Seed42_EmitsCashDelta: PlayerCredits must change after buy+sell cycle (Seed={seed}).");
+
+        // ExploitationEventLog must contain TradePnL (sell leg token).
+        Assert.That(s.ExploitationEventLog.Exists(e => e.Contains("TradePnL")), Is.True,
+            $"TradeCharter_Seed42_EmitsCashDelta: ExploitationEventLog must contain TradePnL (Seed={seed} count={s.ExploitationEventLog.Count}).");
+
+        // ExploitationEventLog must contain InventoryLoaded (buy leg token).
+        Assert.That(s.ExploitationEventLog.Exists(e => e.Contains("InventoryLoaded")), Is.True,
+            $"TradeCharter_Seed42_EmitsCashDelta: ExploitationEventLog must contain InventoryLoaded (Seed={seed}).");
+
+        // Save/load mid-execution: ExploitationEventLog must survive round-trip.
+        var logCountBefore = s.ExploitationEventLog.Count;
+        var json = k.SaveToString();
+        k.LoadFromString(json);
+        Assert.That(k.State.ExploitationEventLog.Count, Is.EqualTo(logCountBefore),
+            $"TradeCharter_Seed42_EmitsCashDelta: ExploitationEventLog count must survive save/load (Seed={seed}).");
+    }
+
+    [Test]
+    public void ResourceTap_Seed42_EmitsInventoryDelta()
+    {
+        // GATE.S3_6.EXPLOITATION_PACKAGES.002
+        // Proof: RESOURCE_TAP_V0 program emits Produced and InventoryUnloaded tokens in ExploitationEventLog
+        // and moves goods to player cargo. Seed 42.
+        // Determinism: no wall-clock, no shared RNG; token ordering stable.
+        const int seed = 42;
+
+        var k = new SimKernel(seed);
+        var s = k.State;
+
+        var def = new WorldDefinition
+        {
+            WorldId = "rt_world_42",
+            Markets =
+            {
+                new WorldMarket { Id = "mkt_site", Inventory = new() { ["ore"] = 0 } }
+            },
+            Nodes =
+            {
+                new WorldNode { Id = "stn_site", Kind = "Station", Name = "Site", MarketId = "mkt_site", Pos = new float[] { 0f, 0f, 0f } }
+            },
+            Edges = { },
+            Player = new WorldPlayerStart { Credits = 500, LocationNodeId = "stn_site" }
+        };
+        WorldLoader.Apply(s, def);
+
+        var cargoBefore = s.PlayerCargo.TryGetValue("ore", out var cb) ? cb : 0;
+
+        var pid = s.CreateResourceTapV0Program("mkt_site", "ore", cadenceTicks: 1);
+        s.Programs.Instances[pid].Status = ProgramStatus.Running;
+        s.Programs.Instances[pid].NextRunTick = s.Tick;
+
+        for (int i = 0; i < 4; i++) k.Step();
+
+        // ExploitationEventLog must contain Produced token.
+        Assert.That(s.ExploitationEventLog.Exists(e => e.Contains("Produced")), Is.True,
+            $"ResourceTap_Seed42_EmitsInventoryDelta: ExploitationEventLog must contain Produced (Seed={seed} count={s.ExploitationEventLog.Count}).");
+
+        // ExploitationEventLog must contain InventoryUnloaded token.
+        Assert.That(s.ExploitationEventLog.Exists(e => e.Contains("InventoryUnloaded")), Is.True,
+            $"ResourceTap_Seed42_EmitsInventoryDelta: ExploitationEventLog must contain InventoryUnloaded (Seed={seed}).");
+
+        // Player cargo ore must have increased.
+        var cargoAfter = s.PlayerCargo.TryGetValue("ore", out var ca) ? ca : 0;
+        Assert.That(cargoAfter, Is.GreaterThan(cargoBefore),
+            $"ResourceTap_Seed42_EmitsInventoryDelta: PlayerCargo[ore] must increase (Seed={seed} before={cargoBefore} after={cargoAfter}).");
+
+        // Save/load mid-execution: ExploitationEventLog must survive round-trip.
+        var logCountBefore = s.ExploitationEventLog.Count;
+        var json = k.SaveToString();
+        k.LoadFromString(json);
+        Assert.That(k.State.ExploitationEventLog.Count, Is.EqualTo(logCountBefore),
+            $"ResourceTap_Seed42_EmitsInventoryDelta: ExploitationEventLog count must survive save/load (Seed={seed}).");
+    }
 }

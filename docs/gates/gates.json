@@ -5,35 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD aba3944d25a14e2655a0f44aa2fc9b9239630f3c",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002",
-                      "task_id":  "GATE.S3_6.EXPLOITATION_PACKAGES.002.T511",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.EXPLOITATION_PACKAGES.002: Exploitation packages execution core v0: implement TRADE_CHARTER_V0 executor (buy low%sell high, budget-bounded, emits CashDelta(TradePnL) and InventoryDelta(Loaded%Unloaded)); implement RESOURCE_TAP_V0 executor (extract%refine%export via IndustrySystem%LogisticsSystem, emits InventoryDelta(Produced%Unloaded)); cycle budgets and batch sizes tweak-routed via NEW: SimCore/Tweaks/ExploitationTweaksV0.cs; BudgetExhausted and NoExportRoute explain tokens emitted on respective conditions; save%load mid-execution stable for both kinds; integration tests TradeCharter_Seed42_EmitsCashDelta and ResourceTap_Seed42_EmitsInventoryDelta pass",
-                      "intent":  "Exploitation packages execution core v0: implement TRADE_CHARTER_V0 executor (buy low%sell high, budget-bounded, emits CashDelta(TradePnL) and InventoryDelta(Loaded%Unloaded)); implement RESOURCE_TAP_V0 executor (extract%refine%export via IndustrySystem%LogisticsSystem, emits InventoryDelta(Produced%Unloaded)); cycle budgets and batch sizes tweak-routed via NEW: SimCore/Tweaks/ExploitationTweaksV0.cs; BudgetExhausted and NoExportRoute explain tokens emitted on respective conditions; save%load mid-execution stable for both kinds; integration tests TradeCharter_Seed42_EmitsCashDelta and ResourceTap_Seed42_EmitsInventoryDelta pass",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.csSimCore/Programs/ProgramInstance.cs SimCore/Programs/ProgramKind.cs SimCore/Programs/ProgramSystem.cs SimCore/Systems/IndustrySystem.cs SimCore/Systems/LogisticsSystem.cs SimCore/Systems/MarketSystem.cs SimCore/Tweaks/ExploitationTweaksV0.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "candidate_key_sha256=f62ae3747f17"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002",
                       "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002.T392",
                       "status":  "TODO",

@@ -276,6 +276,11 @@ public class SimState
 
     [JsonInclude] public IntelBook Intel { get; set; } = new();
 
+    // GATE.S3_6.EXPLOITATION_PACKAGES.002: exploitation package ledger event log.
+    // Persisted. Append-only. Schema-bound tokens: TradePnL, InventoryLoaded, InventoryUnloaded,
+    // Produced, BudgetExhausted, NoExportRoute. Ordering: deterministic (tick-order of Apply calls).
+    [JsonInclude] public List<string> ExploitationEventLog { get; private set; } = new();
+
     // GATE.S3_6.EXPEDITION_PROGRAMS.001: transient per-tick expedition intent result surface (not persisted).
     // Cleared by the kernel before each tick; written by ExpeditionIntentV0.Apply.
     [JsonIgnore] public string? LastExpeditionRejectReason { get; set; }
@@ -377,6 +382,16 @@ public class SimState
 
     // GATE.S4.INDU.MIN_LOOP.001
     // Deterministic industry event emission (Seq assigned immediately; ordering is defined by deterministic system iteration order).
+    // GATE.S3_6.EXPLOITATION_PACKAGES.002
+    // Deterministic exploitation event emission.
+    // Ordering is deterministic: emitted in Apply order, driven by stable program-id iteration in ProgramSystem.
+    public void AppendExploitationEvent(string entry)
+    {
+        if (entry is null) entry = "";
+        ExploitationEventLog ??= new List<string>();
+        ExploitationEventLog.Add(entry);
+    }
+
     public void EmitIndustryEvent(string note)
     {
         if (note is null) note = "";
@@ -679,6 +694,8 @@ public class SimState
         // GATE.S4.INDU.MIN_LOOP.001
         IndustryBuilds ??= new Dictionary<string, IndustryBuildState>(StringComparer.Ordinal);
         IndustryEventLog ??= new List<string>();
+        // GATE.S3_6.EXPLOITATION_PACKAGES.002
+        ExploitationEventLog ??= new List<string>();
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);
 
@@ -946,6 +963,63 @@ public class SimState
             SiteId = "",
             MarketId = "",
             GoodId = "",
+            Quantity = 0
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
+    // GATE.S3_6.EXPLOITATION_PACKAGES.002: TradeCharter program v0 factory.
+    public string CreateTradeCharterV0Program(
+        string sourceMarketId, string destMarketId,
+        string buyGoodId, string sellGoodId, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.TradeCharterV0,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            SourceMarketId = sourceMarketId ?? "",
+            MarketId = destMarketId ?? "",
+            GoodId = buyGoodId ?? "",
+            SellGoodId = sellGoodId ?? "",
+            Quantity = 0
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
+    // GATE.S3_6.EXPLOITATION_PACKAGES.002: ResourceTap program v0 factory.
+    public string CreateResourceTapV0Program(
+        string sourceMarketId, string extractGoodId, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.ResourceTapV0,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            SourceMarketId = sourceMarketId ?? "",
+            GoodId = extractGoodId ?? "",
+            MarketId = "",
+            SellGoodId = "",
             Quantity = 0
         };
 

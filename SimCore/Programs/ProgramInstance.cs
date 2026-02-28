@@ -22,6 +22,13 @@ public sealed class ProgramInstance
     [JsonInclude] public string ExpeditionSiteId { get; set; } = "";
     [JsonInclude] public int ExpeditionTicksRemaining { get; set; } = 0;
 
+    // GATE.S3_6.EXPLOITATION_PACKAGES.002: exploitation package fields.
+    // TradeCharterV0: SourceMarketId = market to buy from; MarketId = dest market to sell to;
+    //                 GoodId = good to buy; SellGoodId = good to sell.
+    // ResourceTapV0:  SourceMarketId = extraction site market; GoodId = good to extract and export.
+    [JsonInclude] public string SourceMarketId { get; set; } = "";
+    [JsonInclude] public string SellGoodId { get; set; } = "";
+
     [JsonInclude] public ProgramStatus Status { get; set; } = ProgramStatus.Paused;
 
     [JsonInclude] public int CreatedTick { get; set; } = 0;
