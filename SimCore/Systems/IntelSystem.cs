@@ -520,4 +520,58 @@ public static class IntelSystem
 
         RefreshVerbUnlocksFromDiscoveryPhases(state);
     }
+
+    // GATE.S3_6.RUMOR_INTEL_MIN.002
+    // Grant a rumor lead on an explore action. leadId must be stable and caller-derived.
+    // Idempotent: no-op if leadId already present.
+    public static void GrantRumorLeadOnExplore(SimState state, string leadId, string sourceNodeId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrEmpty(leadId)) return;
+
+        if (state.Intel is null) state.Intel = new IntelBook();
+        if (state.Intel.RumorLeads.ContainsKey(leadId)) return;
+
+        state.Intel.RumorLeads[leadId] = new RumorLead
+        {
+            LeadId = leadId,
+            Status = RumorLeadStatus.Active,
+            SourceVerbToken = "EXPLORE",
+            Hint = new HintPayloadV0
+            {
+                RegionTags = new List<string> { sourceNodeId ?? "" },
+                CoarseLocationToken = sourceNodeId ?? "",
+                PrerequisiteTokens = new List<string> { "EXPLORATION" },
+                ImpliedPayoffToken = "SITE_BLUEPRINT"
+            }
+        };
+    }
+
+    // GATE.S3_6.RUMOR_INTEL_MIN.002
+    // Grant a rumor lead on a hub-analysis action. leadId must be stable and caller-derived.
+    // Idempotent: no-op if leadId already present.
+    public static void GrantRumorLeadOnHubAnalysis(SimState state, string leadId, string discoveryId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (string.IsNullOrEmpty(leadId)) return;
+
+        if (state.Intel is null) state.Intel = new IntelBook();
+        if (state.Intel.RumorLeads.ContainsKey(leadId)) return;
+
+        state.Intel.RumorLeads[leadId] = new RumorLead
+        {
+            LeadId = leadId,
+            Status = RumorLeadStatus.Active,
+            SourceVerbToken = "HUB_ANALYSIS",
+            Hint = new HintPayloadV0
+            {
+                RegionTags = new List<string>(),
+                CoarseLocationToken = "",
+                PrerequisiteTokens = new List<string> { "HUB_ANALYSIS" },
+                ImpliedPayoffToken = "BROKER_UNLOCK"
+            }
+        };
+
+        _ = discoveryId; // reserved for future hint enrichment; not gameplay-affecting in v0
+    }
 }

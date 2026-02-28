@@ -963,6 +963,130 @@ public class SaveLoadWorldHashTests
         return string.Join("\n", lines);
     }
 
+    // GATE.S3_6.RUMOR_INTEL_MIN.002
+    [Test]
+    public void SaveLoad_RoundTrip_Preserves_RumorLeadDigest_NoDrift()
+    {
+        const int seed = 42;
+
+        var sim = new SimKernel(seed);
+        GalaxyGenerator.Generate(sim.State, 20, 100f);
+
+        var minExpected = SimCore.Tweaks.IntelTweaksV0.MinRumorLeadsPerSeed;
+        Assert.That(sim.State.Intel.RumorLeads.Count, Is.GreaterThanOrEqualTo(minExpected),
+            $"RumorLead count after Generate (Seed={seed}) must be >= {minExpected}. Got {sim.State.Intel.RumorLeads.Count}.");
+
+        var beforeDigest = ComputeRumorLeadDigestV0(sim.State);
+
+        var json = sim.SaveToString();
+        var savedSeed = ReadEnvelopeSeed(json);
+
+        var sim2 = new SimKernel(seed: 999);
+        sim2.LoadFromString(json);
+
+        var afterDigest = ComputeRumorLeadDigestV0(sim2.State);
+
+        if (!string.Equals(beforeDigest, afterDigest, StringComparison.Ordinal))
+        {
+            var first = FindFirstRumorLeadDigestMismatchV0(beforeDigest, afterDigest);
+            TestContext.Out.WriteLine($"RumorLeadDigest Seed: {seed}");
+            TestContext.Out.WriteLine($"RumorLeadDigest FirstDiff LeadId: {first.leadId}");
+            TestContext.Out.WriteLine($"RumorLeadDigest FirstDiff Field: {first.fieldName}");
+            TestContext.Out.WriteLine($"RumorLeadDigest Before: {first.beforeValue}");
+            TestContext.Out.WriteLine($"RumorLeadDigest After : {first.afterValue}");
+            Assert.Fail($"RumorLead digest drift after save%load (Seed={seed} LeadId={first.leadId} Field={first.fieldName} Before={first.beforeValue} After={first.afterValue}).");
+        }
+
+        Assert.That(savedSeed, Is.EqualTo(seed),
+            $"RumorLead digest test: seed mismatch (Seed={seed} SavedSeed={savedSeed}).");
+        Assert.That(afterDigest, Is.EqualTo(beforeDigest),
+            $"RumorLead digest drift after save%load (Seed={seed}).");
+    }
+
+    private static string ComputeRumorLeadDigestV0(SimState state)
+    {
+        if (state.Intel?.RumorLeads is null) return "";
+
+        var ids = state.Intel.RumorLeads.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        return string.Join("\n", ids.Select(id =>
+        {
+            var lead = state.Intel.RumorLeads[id];
+            var tokens = new List<string>();
+            foreach (var acc in RumorLeadAccessorsV0())
+                tokens.Add($"{acc.name}={ValueToTokenV0(acc.getter(lead))}");
+            return $"{id}\t{string.Join("\t", tokens)}";
+        }));
+    }
+
+    private static (string leadId, string fieldName, string beforeValue, string afterValue)
+        FindFirstRumorLeadDigestMismatchV0(string before, string after)
+    {
+        var a = ParseLeadDigest(before);
+        var b = ParseLeadDigest(after);
+
+        var allIds = a.Keys.Concat(b.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+        foreach (var id in allIds)
+        {
+            var hasA = a.TryGetValue(id, out var av);
+            var hasB = b.TryGetValue(id, out var bv);
+
+            if (!hasA || !hasB)
+                return (id, "MISSING_ROW", hasA ? "present" : "null", hasB ? "present" : "null");
+
+            var allFields = av!.Keys.Concat(bv!.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+            foreach (var f in allFields)
+            {
+                av.TryGetValue(f, out var fvA);
+                bv.TryGetValue(f, out var fvB);
+                if (!string.Equals(fvA, fvB, StringComparison.Ordinal))
+                    return (id, f, fvA ?? "null", fvB ?? "null");
+            }
+        }
+
+        return ("", "", "", "");
+
+        static Dictionary<string, Dictionary<string, string>> ParseLeadDigest(string digest)
+        {
+            var map = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(digest)) return map;
+            foreach (var line in digest.Split('\n'))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var parts = line.Split('\t');
+                if (parts.Length < 2) continue;
+                var id = parts[0];
+                var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    var eq = parts[i].IndexOf('=');
+                    if (eq <= 0) continue;
+                    fields[parts[i].Substring(0, eq)] = parts[i].Substring(eq + 1);
+                }
+                map[id] = fields;
+            }
+            return map;
+        }
+    }
+
+    private static IEnumerable<(string name, Func<RumorLead, object?> getter)> RumorLeadAccessorsV0()
+    {
+        var t = typeof(RumorLead);
+
+        var merged = new Dictionary<string, Func<RumorLead, object?>>(StringComparer.Ordinal);
+
+        foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public)
+                           .OrderBy(x => x.Name, StringComparer.Ordinal))
+            merged[f.Name] = r => f.GetValue(r);
+
+        foreach (var p in t.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                           .Where(p => p.GetIndexParameters().Length == 0 && p.GetMethod != null)
+                           .OrderBy(x => x.Name, StringComparer.Ordinal))
+            merged[p.Name] = r => p.GetValue(r);
+
+        return merged.Keys.OrderBy(x => x, StringComparer.Ordinal).Select(k => (k, merged[k]));
+    }
+
     private static int PhaseToBits(DiscoveryPhase phase)
     {
         // Deterministic derived bitfield from phase ladder:

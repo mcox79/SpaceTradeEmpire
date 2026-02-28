@@ -299,6 +299,9 @@ public static class GalaxyGenerator
             state.Fleets.Add(fleet.Id, fleet);
         }
 
+        // GATE.S3_6.RUMOR_INTEL_MIN.002: seed rumor leads deterministically before bounds check.
+        SeedRumorLeadsV0(state);
+
         // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: enforce bounds deterministically at the generator boundary.
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
@@ -385,6 +388,49 @@ public static class GalaxyGenerator
     private static string GetSortedId(string a, string b)
     {
         return string.CompareOrdinal(a, b) < 0 ? $"{a}_{b}" : $"{b}_{a}";
+    }
+
+    // GATE.S3_6.RUMOR_INTEL_MIN.002
+    // Deterministic rumor lead seeding v0.
+    // ID format: LEAD.<seed>.<zero-padded-4-index> — stable, seed-derived, no wall-clock, no Guid.
+    // Count sourced from IntelTweaksV0.MinRumorLeadsPerSeed (tweak-routed).
+    // Idempotent: existing leads not overwritten.
+    private static void SeedRumorLeadsV0(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel is null) state.Intel = new SimCore.Entities.IntelBook();
+
+        var minCount = SimCore.Tweaks.IntelTweaksV0.MinRumorLeadsPerSeed;
+        if (minCount <= 0) return;
+
+        var existing = state.Intel.RumorLeads.Count;
+        if (existing >= minCount) return;
+
+        SimCore.Systems.SerializationSystem.TryGetAttachedSeed(state, out var seed);
+
+        var toAdd = minCount - existing;
+        var startIndex = existing;
+
+        for (int i = 0; i < toAdd; i++)
+        {
+            var index = startIndex + i;
+            var leadId = $"LEAD.{seed}.{index:D4}";
+            if (state.Intel.RumorLeads.ContainsKey(leadId)) continue;
+
+            state.Intel.RumorLeads[leadId] = new SimCore.Entities.RumorLead
+            {
+                LeadId = leadId,
+                Status = SimCore.Entities.RumorLeadStatus.Active,
+                SourceVerbToken = "WORLDGEN",
+                Hint = new SimCore.Entities.HintPayloadV0
+                {
+                    RegionTags = new List<string> { "FRONTIER" },
+                    CoarseLocationToken = "SECTOR_UNKNOWN",
+                    PrerequisiteTokens = new List<string> { "EXPLORATION" },
+                    ImpliedPayoffToken = "SITE_BLUEPRINT"
+                }
+            };
+        }
     }
 
     // GATE.S2_5.WGEN.FACTION.001: deterministic faction seeding v0.

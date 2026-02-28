@@ -5,35 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD aba3944d25a14e2655a0f44aa2fc9b9239630f3c",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002",
-                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.002.T392",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.002: Rumor lead generation and persistence core v0: extend IntelSystem to grant RumorLead entries on explore%hub-analysis actions; GalaxyGenerator seeds \u003e= 1 lead for Seed 42 (min count tweak-routed via NEW: SimCore/Tweaks/IntelTweaksV0.cs); SerializationSystem%WorldLoader round-trip preserves lead list; SaveLoadWorldHashTests extended with lead digest regression (LeadId Ordinal asc, fields Ordinal asc, byte-stable pre/post save); divergence prints first differing LeadId%Field%Before%After deterministically",
-                      "intent":  "Rumor lead generation and persistence core v0: extend IntelSystem to grant RumorLead entries on explore%hub-analysis actions; GalaxyGenerator seeds \u003e= 1 lead for Seed 42 (min count tweak-routed via NEW: SimCore/Tweaks/IntelTweaksV0.cs); SerializationSystem%WorldLoader round-trip preserves lead list; SaveLoadWorldHashTests extended with lead digest regression (LeadId Ordinal asc, fields Ordinal asc, byte-stable pre/post save); divergence prints first differing LeadId%Field%Before%After deterministically",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore.Tests/Systems/IntelContractTests.csSimCore/Gen/GalaxyGenerator.cs SimCore/Systems/IntelSystem.cs SimCore/Systems/IntentSystem.cs SimCore/Systems/SerializationSystem.cs SimCore/Tweaks/IntelTweaksV0.cs SimCore/World/WorldLoader.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=eddef2ef1101"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003",
                       "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003.T292",
                       "status":  "TODO",
