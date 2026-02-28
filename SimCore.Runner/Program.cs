@@ -51,6 +51,12 @@ namespace SimCore.Runner
                     return;
                 }
 
+                if (string.Equals(cmd, "play-loop-proof-report", StringComparison.Ordinal))
+                {
+                    RunPlayLoopProofReport(args);
+                    return;
+                }
+
                 // Back-compat: original runner mode expects a scenario.json path as the first arg.
                 var scenarioPath = args[0];
                 if (!File.Exists(scenarioPath))
@@ -87,6 +93,7 @@ namespace SimCore.Runner
             Console.WriteLine("  SimCore.Runner discovery-report [--outdir <dir>] [--seedStart <int>] [--seedEnd <int>] [--starCount <int>] [--radius <float>]");
             Console.WriteLine("  SimCore.Runner discovery-readout [--seed <int>] [--outdir <dir>] [--starCount <int>] [--radius <float>]");
             Console.WriteLine("  SimCore.Runner unlock-report [--outdir <dir>] [--seedStart <int>] [--seedEnd <int>] [--starCount <int>] [--radius <float>]");
+            Console.WriteLine("  SimCore.Runner play-loop-proof-report [--seed <int>]");
         }
 
         private static void RunSeedExplore(string[] args)
@@ -711,6 +718,50 @@ namespace SimCore.Runner
             }
 
             throw new InvalidOperationException($"Report missing required field: {prefix}");
+        }
+
+        private static void RunPlayLoopProofReport(string[] args)
+        {
+            // GATE.S3_6.PLAY_LOOP_PROOF.001
+            // Schema-only scaffold: emits deterministic schema header + canonical step token list.
+            // No timestamps. Stable ordering: ProgramExplain.PlayLoopProof.CanonicalStepTokensOrdered list index order.
+            int seed = 42;
+            bool fallbackSeedUsed = true;
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "--seed", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    seed = int.Parse(args[i + 1]);
+                    fallbackSeedUsed = false;
+                    i++;
+                    continue;
+                }
+            }
+
+            // Scaffold fields (deterministic, schema stable):
+            // - Seed: requested seed (or default)
+            // - WorldId: deterministic derived id for scaffold purposes
+            // - TickIndex: schema placeholder (0)
+            // - SeedUsed: same as Seed
+            // - FallbackSeedUsed: true iff default seed path was used
+            var worldId = $"world_seed_{seed}";
+
+            Console.WriteLine("SCHEMA_OK");
+            Console.WriteLine($"Seed={seed}");
+            Console.WriteLine($"WorldId={worldId}");
+            Console.WriteLine("TickIndex=0");
+            Console.WriteLine($"SeedUsed={seed}");
+            Console.WriteLine($"FallbackSeedUsed={(fallbackSeedUsed ? "true" : "false")}");
+            Console.WriteLine();
+
+            Console.WriteLine("CANONICAL_STEPS_V0");
+            foreach (var token in SimCore.Programs.ProgramExplain.PlayLoopProof.CanonicalStepTokensOrdered)
+            {
+                Console.WriteLine(token);
+            }
+
+            Environment.Exit(0);
         }
 
         private static void WriteUtf8NoBom(string path, string contents)

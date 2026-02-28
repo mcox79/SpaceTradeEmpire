@@ -34,37 +34,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.001",
-                      "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.001.T723",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.PLAY_LOOP_PROOF.001: Play loop proof contract and scenario scaffold v0: define canonical step token set (EXPLORE_SITE%DOCK_HUB%TRADE_LOOP_IDENTIFIED%FREIGHTER_ACQUIRED%TRADE_CHARTER_REVENUE%RESOURCE_TAP_ACTIVE%TECH_UNLOCK_REALIZED%LORE_LEAD_SURFACED%PIRACY_INCIDENT_LEGIBLE%REMOTE_RESOLUTION_COUNT_GTE_2) as compile-time ordered constant; add PlayLoopProof_ReportSchema_ContractTest in ProgramExecutionIntegrationTests asserting all tokens present and ordered; add SimCore.Runner play-loop-proof-report scaffold (--seed arg, emits SCHEMA_OK header, exits 0); report header fields: Seed%WorldId%TickIndex%SeedUsed%FallbackSeedUsed; failure format: MISSING_STEP|\u003ctoken\u003e in canonical step order; no timestamps",
-                      "intent":  "Play loop proof contract and scenario scaffold v0: define canonical step token set (EXPLORE_SITE%DOCK_HUB%TRADE_LOOP_IDENTIFIED%FREIGHTER_ACQUIRED%TRADE_CHARTER_REVENUE%RESOURCE_TAP_ACTIVE%TECH_UNLOCK_REALIZED%LORE_LEAD_SURFACED%PIRACY_INCIDENT_LEGIBLE%REMOTE_RESOLUTION_COUNT_GTE_2) as compile-time ordered constant; add PlayLoopProof_ReportSchema_ContractTest in ProgramExecutionIntegrationTests asserting all tokens present and ordered; add SimCore.Runner play-loop-proof-report scaffold (--seed arg, emits SCHEMA_OK header, exits 0); report header fields: Seed%WorldId%TickIndex%SeedUsed%FallbackSeedUsed; failure format: MISSING_STEP|\u003ctoken\u003e in canonical step order; no timestamps",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "SimCore/Programs/ProgramKind.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Programs/ProgramExecutionIntegrationTests.cs",
-                                             "candidate_key_sha256=bffa27020d8a"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.004",
                       "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.004.T537",
                       "status":  "TODO",

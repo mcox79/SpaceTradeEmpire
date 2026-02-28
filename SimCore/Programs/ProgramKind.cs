@@ -15,4 +15,7 @@ public static class ProgramKind
     // GATE.S3_6.EXPLOITATION_PACKAGES.001: exploitation package program kinds v0
     public const string TradeCharterV0 = "TRADE_CHARTER_V0";
     public const string ResourceTapV0 = "RESOURCE_TAP_V0";
+
+    // GATE.S3_6.PLAY_LOOP_PROOF.001: play loop proof report scaffold v0
+    public const string PlayLoopProofReportV0 = "PLAY_LOOP_PROOF_REPORT_V0";
 }

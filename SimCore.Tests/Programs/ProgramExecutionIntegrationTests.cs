@@ -39,6 +39,31 @@ public sealed class ProgramExecutionIntegrationTests
     }
 
     [Test]
+    public void PlayLoopProof_ReportSchema_ContractTest_CanonicalTokens_Present_And_Ordered()
+    {
+        // GATE.S3_6.PLAY_LOOP_PROOF.001
+        // Contract: canonical step token set is complete and ordered exactly as declared.
+        // Determinism: stable ordering is by explicit list index (no sorting, no timestamps).
+
+        var expected = new[]
+        {
+            ProgramExplain.PlayLoopProof.EXPLORE_SITE,
+            ProgramExplain.PlayLoopProof.DOCK_HUB,
+            ProgramExplain.PlayLoopProof.TRADE_LOOP_IDENTIFIED,
+            ProgramExplain.PlayLoopProof.FREIGHTER_ACQUIRED,
+            ProgramExplain.PlayLoopProof.TRADE_CHARTER_REVENUE,
+            ProgramExplain.PlayLoopProof.RESOURCE_TAP_ACTIVE,
+            ProgramExplain.PlayLoopProof.TECH_UNLOCK_REALIZED,
+            ProgramExplain.PlayLoopProof.LORE_LEAD_SURFACED,
+            ProgramExplain.PlayLoopProof.PIRACY_INCIDENT_LEGIBLE,
+            ProgramExplain.PlayLoopProof.REMOTE_RESOLUTION_COUNT_GTE_2
+        };
+
+        Assert.That(ProgramExplain.PlayLoopProof.CanonicalStepTokensOrdered, Is.EqualTo(expected),
+            "PlayLoopProof canonical step tokens must be present and ordered exactly as the contract declares.");
+    }
+
+    [Test]
     public void PROG_EXEC_002_TradeProgram_DrivesBuySell_Intents_AgainstWorld001_And_OnlyAffectsOutcomesViaTick()
     {
         var k = KernelWithWorld001();

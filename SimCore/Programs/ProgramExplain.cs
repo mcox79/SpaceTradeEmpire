@@ -63,6 +63,38 @@ public static class ProgramExplain
         [JsonInclude] public List<string> InterventionVerbTokens { get; set; } = new();
     }
 
+    // --- Play loop proof report schema v0 (GATE.S3_6.PLAY_LOOP_PROOF.001) ---
+    // Canonical step tokens: compile-time constants, plus a single ordered list surface.
+    // Determinism: the ordered list is the only allowed iteration surface (do not sort).
+    public static class PlayLoopProof
+    {
+        public const string EXPLORE_SITE = "EXPLORE_SITE";
+        public const string DOCK_HUB = "DOCK_HUB";
+        public const string TRADE_LOOP_IDENTIFIED = "TRADE_LOOP_IDENTIFIED";
+        public const string FREIGHTER_ACQUIRED = "FREIGHTER_ACQUIRED";
+        public const string TRADE_CHARTER_REVENUE = "TRADE_CHARTER_REVENUE";
+        public const string RESOURCE_TAP_ACTIVE = "RESOURCE_TAP_ACTIVE";
+        public const string TECH_UNLOCK_REALIZED = "TECH_UNLOCK_REALIZED";
+        public const string LORE_LEAD_SURFACED = "LORE_LEAD_SURFACED";
+        public const string PIRACY_INCIDENT_LEGIBLE = "PIRACY_INCIDENT_LEGIBLE";
+        public const string REMOTE_RESOLUTION_COUNT_GTE_2 = "REMOTE_RESOLUTION_COUNT_GTE_2";
+
+        // Stable ordering key: list index order (explicit, canonical).
+        public static readonly string[] CanonicalStepTokensOrdered =
+        {
+            EXPLORE_SITE,
+            DOCK_HUB,
+            TRADE_LOOP_IDENTIFIED,
+            FREIGHTER_ACQUIRED,
+            TRADE_CHARTER_REVENUE,
+            RESOURCE_TAP_ACTIVE,
+            TECH_UNLOCK_REALIZED,
+            LORE_LEAD_SURFACED,
+            PIRACY_INCIDENT_LEGIBLE,
+            REMOTE_RESOLUTION_COUNT_GTE_2
+        };
+    }
+
     // --- Discovery explainability v0 (GATE.S3_6.DISCOVERY_STATE.007) ---
     // Schema-bound explanation payload for discovery scan%analyze blockers and suggested interventions.
     // NOTE: Version uses ExplainVersion to avoid introducing new numeric literals in SimCore.
