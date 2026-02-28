@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
@@ -437,6 +440,67 @@ public sealed class IntelContractTests
         Assert.That(blocked.ExplainChain.Count, Is.InRange(2, 3));
         Assert.That(blocked.ExplainChain[0], Is.EqualTo(IntelSystem.UnlockChainToken_ExplainRoot));
         Assert.That(blocked.ExplainChain[1], Is.EqualTo(IntelSystem.UnlockReasonToken_Blocked));
+    }
+
+    [Test]
+    public void ExpeditionPrograms_ExplainabilityTokenSurface_V0_VacuousWhenAbsent_AndDeterministicWhenPresent()
+    {
+        static void AssertOrdinalSortedUnique(IReadOnlyList<string> tokens)
+        {
+            var prev = "";
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < tokens.Count; i++)
+            {
+                var t = tokens[i] ?? "";
+                Assert.That(t, Is.Not.EqualTo(""));
+                Assert.That(string.CompareOrdinal(prev, t) <= 0, $"tokens not Ordinal asc at index {i}: '{prev}' then '{t}'");
+                Assert.That(seen.Add(t), Is.True, $"duplicate token '{t}'");
+                prev = t;
+            }
+        }
+
+        // Seed 42 tick 0 vacuous policy: if a kind is not present in this initial state, the assertion for that kind passes.
+        var state = new SimState(42);
+        var payload = ProgramExplain.Build(state);
+
+        var expedition = payload.Programs
+            .Where(p => !string.IsNullOrEmpty(p.ExpeditionKindToken) ||
+                        (p.Kind ?? "").IndexOf("Expedition", StringComparison.OrdinalIgnoreCase) >= 0)
+            .ToList();
+
+        var requiredKinds = new[]
+        {
+            "ExpeditionKind.Survey",
+            "ExpeditionKind.Sample",
+            "ExpeditionKind.Salvage",
+            "ExpeditionKind.Analyze"
+        };
+
+        foreach (var kindToken in requiredKinds)
+        {
+            var matches = expedition
+                .Where(p => string.Equals(p.ExpeditionKindToken ?? "", kindToken, StringComparison.Ordinal))
+                .ToList();
+
+            if (matches.Count == 0)
+                continue; // vacuous pass for this kind at Seed 42 tick 0
+
+            foreach (var p in matches)
+            {
+                Assert.That(p.Status, Is.Not.EqualTo(""));
+
+                Assert.That(p.ExplainPrimaryTokens, Is.Not.Null);
+                Assert.That(p.ExplainSecondaryTokens, Is.Not.Null);
+                Assert.That(p.InterventionVerbTokens, Is.Not.Null);
+
+                AssertOrdinalSortedUnique(p.ExplainPrimaryTokens);
+                AssertOrdinalSortedUnique(p.ExplainSecondaryTokens);
+
+                // Intervention verbs are tokens and deterministic when present.
+                if (p.InterventionVerbTokens.Count > 0)
+                    AssertOrdinalSortedUnique(p.InterventionVerbTokens);
+            }
+        }
     }
 
     [Test]

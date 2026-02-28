@@ -225,39 +225,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.003",
-                      "task_id":  "GATE.S3_6.EXPEDITION_PROGRAMS.003.T754",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.EXPEDITION_PROGRAMS.003: Expedition explainability and UI readout v0 (all four kinds): extend SimBridge with GetExpeditionStatusSnapshotV0(programId) Facts-only (status token, explain chain tokens primary-first then secondary Ordinal asc, intervention verb tokens Ordinal asc, expedition kind token); extend station_interface.gd to render [EXPEDITION STATUS] section; contract tests assert all four expedition kinds (Survey%Sample%Salvage%Analyze) produce their token surface with vacuous-pass policy for kinds absent at Seed 42 tick 0; headless Seed 42 transcript contains \u003e= 1 Discoveries.* verb token; SHA256 stable across two runs",
-                      "intent":  "Expedition explainability and UI readout v0 (all four kinds): extend SimBridge with GetExpeditionStatusSnapshotV0(programId) Facts-only (status token, explain chain tokens primary-first then secondary Ordinal asc, intervention verb tokens Ordinal asc, expedition kind token); extend station_interface.gd to render [EXPEDITION STATUS] section; contract tests assert all four expedition kinds (Survey%Sample%Salvage%Analyze) produce their token surface with vacuous-pass policy for kinds absent at Seed 42 tick 0; headless Seed 42 transcript contains \u003e= 1 Discoveries.* verb token; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/view/ui/station_interface.gd",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "scripts/tests/test_expedition_status_readout.gd",
-                                             "docs/generated/expedition_status_readout_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=5237bf7d0d19"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }

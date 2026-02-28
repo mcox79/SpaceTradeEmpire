@@ -54,6 +54,13 @@ public static class ProgramExplain
         [JsonInclude] public string MarketId { get; set; } = "";
         [JsonInclude] public string GoodId { get; set; } = "";
         [JsonInclude] public int Quantity { get; set; } = 0;
+
+        // For EXPEDITION programs (GATE.S3_6.EXPEDITION_PROGRAMS.003)
+        // Tokens only. No free-text. Lists are deterministically sorted.
+        [JsonInclude] public string ExpeditionKindToken { get; set; } = "";
+        [JsonInclude] public List<string> ExplainPrimaryTokens { get; set; } = new();
+        [JsonInclude] public List<string> ExplainSecondaryTokens { get; set; } = new();
+        [JsonInclude] public List<string> InterventionVerbTokens { get; set; } = new();
     }
 
     // --- Discovery explainability v0 (GATE.S3_6.DISCOVERY_STATE.007) ---
@@ -138,10 +145,199 @@ public static class ProgramExplain
 
         if (state.Programs is null || state.Programs.Instances.Count == 0) return payload;
 
+        static string MapExpeditionKindToken(string kind)
+        {
+            if (string.IsNullOrWhiteSpace(kind)) return "";
+            // Deterministic mapping: substring checks in fixed precedence order.
+            if (kind.IndexOf("Survey", StringComparison.OrdinalIgnoreCase) >= 0) return "ExpeditionKind.Survey";
+            if (kind.IndexOf("Sample", StringComparison.OrdinalIgnoreCase) >= 0) return "ExpeditionKind.Sample";
+            if (kind.IndexOf("Salvage", StringComparison.OrdinalIgnoreCase) >= 0) return "ExpeditionKind.Salvage";
+            if (kind.IndexOf("Analyze", StringComparison.OrdinalIgnoreCase) >= 0) return "ExpeditionKind.Analyze";
+            return "";
+        }
+
+        static List<string> SortedUniqueTokens(System.Collections.Generic.IEnumerable<string>? tokens)
+        {
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            if (tokens is not null)
+            {
+                foreach (var t in tokens)
+                {
+                    if (string.IsNullOrEmpty(t)) continue;
+                    set.Add(t);
+                }
+            }
+            return set.OrderBy(t => t, StringComparer.Ordinal).ToList();
+        }
+
+        static void TryExtractExplainTokens(object program, out List<string> primary, out List<string> secondary)
+        {
+            primary = new List<string>();
+            secondary = new List<string>();
+
+            static object? TryGetProp(object obj, string propName)
+            {
+                try
+                {
+                    var p = obj.GetType().GetProperty(propName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                    return p?.GetValue(obj);
+                }
+                catch { return null; }
+            }
+
+            static object? TryGetPropAny(object obj, string[] propNames)
+            {
+                foreach (var n in propNames)
+                {
+                    var v = TryGetProp(obj, n);
+                    if (v is not null) return v;
+                }
+                return null;
+            }
+
+            static System.Collections.Generic.IEnumerable<string> AsStrings(object? obj)
+            {
+                if (obj is null) yield break;
+                if (obj is string s) { yield return s; yield break; }
+                if (obj is System.Collections.IEnumerable e)
+                {
+                    foreach (var it in e)
+                    {
+                        if (it is null) continue;
+                        yield return it.ToString() ?? "";
+                    }
+                }
+            }
+
+            // Preferred: structured explain chain entries with Token + IsPrimary + Ordinal.
+            var chainObj = TryGetPropAny(program, new[] { "ExplainChain", "ExplainChainV0", "ExplainChainEntries", "ExplainEntries" });
+            if (chainObj is System.Collections.IEnumerable seq && chainObj is not string)
+            {
+                var prim = new List<(int Ordinal, string Token)>();
+                var sec = new List<(int Ordinal, string Token)>();
+
+                foreach (var item in seq)
+                {
+                    if (item is null) continue;
+
+                    if (item is string s)
+                    {
+                        prim.Add((0, s));
+                        continue;
+                    }
+
+                    var token = TryGetPropAny(item, new[] { "Token", "token", "Value", "value" })?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(token)) continue;
+
+                    var ordinalObj = TryGetPropAny(item, new[] { "Ordinal", "Order", "Index", "index" });
+                    var ordinal = 0;
+                    if (ordinalObj is int oi) ordinal = oi;
+                    else if (ordinalObj is long ol) ordinal = (int)ol;
+                    else if (ordinalObj is string os && int.TryParse(os, out var parsed)) ordinal = parsed;
+
+                    var primaryObj = TryGetPropAny(item, new[] { "IsPrimary", "Primary", "isPrimary", "primary" });
+                    var isPrimary = primaryObj is bool b && b;
+
+                    if (isPrimary) prim.Add((ordinal, token));
+                    else sec.Add((ordinal, token));
+                }
+
+                primary = prim
+                    .OrderBy(t => t.Ordinal)
+                    .ThenBy(t => t.Token, StringComparer.Ordinal)
+                    .Select(t => t.Token)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                secondary = sec
+                    .OrderBy(t => t.Ordinal)
+                    .ThenBy(t => t.Token, StringComparer.Ordinal)
+                    .Select(t => t.Token)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                return;
+            }
+
+            // Fallback: token lists already separated.
+            var primaryObj2 = TryGetPropAny(program, new[] { "ExplainPrimaryTokens", "ExplainPrimary", "PrimaryExplainTokens" });
+            var secondaryObj2 = TryGetPropAny(program, new[] { "ExplainSecondaryTokens", "ExplainSecondary", "SecondaryExplainTokens" });
+
+            primary = SortedUniqueTokens(AsStrings(primaryObj2));
+            secondary = SortedUniqueTokens(AsStrings(secondaryObj2));
+        }
+
+        static List<string> TryExtractInterventionVerbTokens(object program)
+        {
+            static object? TryGetProp(object obj, string propName)
+            {
+                try
+                {
+                    var p = obj.GetType().GetProperty(propName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                    return p?.GetValue(obj);
+                }
+                catch { return null; }
+            }
+
+            static object? TryGetPropAny(object obj, string[] propNames)
+            {
+                foreach (var n in propNames)
+                {
+                    var v = TryGetProp(obj, n);
+                    if (v is not null) return v;
+                }
+                return null;
+            }
+
+            var verbsObj = TryGetPropAny(program, new[] { "InterventionVerbTokens", "InterventionVerbs", "ActionTokens", "SuggestedActions" });
+            if (verbsObj is null) return new List<string>();
+
+            if (verbsObj is System.Collections.IEnumerable seq && verbsObj is not string)
+            {
+                var list = new List<(int Ordinal, string Token)>();
+                foreach (var item in seq)
+                {
+                    if (item is null) continue;
+
+                    if (item is string s)
+                    {
+                        list.Add((0, s));
+                        continue;
+                    }
+
+                    var token = TryGetPropAny(item, new[] { "Token", "VerbToken", "Value", "value" })?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(token)) continue;
+
+                    var ordinalObj = TryGetPropAny(item, new[] { "Ordinal", "Order", "Index", "index" });
+                    var ordinal = 0;
+                    if (ordinalObj is int oi) ordinal = oi;
+                    else if (ordinalObj is long ol) ordinal = (int)ol;
+                    else if (ordinalObj is string os && int.TryParse(os, out var parsed)) ordinal = parsed;
+
+                    list.Add((ordinal, token));
+                }
+
+                return list
+                    .OrderBy(t => t.Ordinal)
+                    .ThenBy(t => t.Token, StringComparer.Ordinal)
+                    .Select(t => t.Token)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            return new List<string>();
+        }
+
         foreach (var kv in state.Programs.Instances.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             var p = kv.Value;
             if (p is null) continue;
+
+            TryExtractExplainTokens(p, out var explainPrimary, out var explainSecondary);
+            var interventionVerbs = TryExtractInterventionVerbTokens(p);
 
             payload.Programs.Add(new Entry
             {
@@ -153,7 +349,12 @@ public static class ProgramExplain
                 LastRunTick = p.LastRunTick,
                 MarketId = p.MarketId ?? "",
                 GoodId = p.GoodId ?? "",
-                Quantity = p.Quantity
+                Quantity = p.Quantity,
+
+                ExpeditionKindToken = MapExpeditionKindToken(p.Kind),
+                ExplainPrimaryTokens = explainPrimary,
+                ExplainSecondaryTokens = explainSecondary,
+                InterventionVerbTokens = interventionVerbs
             });
         }
 
@@ -218,7 +419,8 @@ public static class ProgramExplain
 
             RequireOnlyKeys(item, new[]
             {
-                "Id","Kind","Status","CadenceTicks","NextRunTick","LastRunTick","MarketId","GoodId","Quantity"
+                "Id","Kind","Status","CadenceTicks","NextRunTick","LastRunTick","MarketId","GoodId","Quantity",
+                "ExpeditionKindToken","ExplainPrimaryTokens","ExplainSecondaryTokens","InterventionVerbTokens"
             });
 
             RequireKey(item, "Id", JsonValueKind.String);
@@ -230,6 +432,12 @@ public static class ProgramExplain
             RequireKey(item, "MarketId", JsonValueKind.String);
             RequireKey(item, "GoodId", JsonValueKind.String);
             RequireKey(item, "Quantity", JsonValueKind.Number);
+
+            // Expedition program tokens (GATE.S3_6.EXPEDITION_PROGRAMS.003)
+            RequireKey(item, "ExpeditionKindToken", JsonValueKind.String);
+            RequireKey(item, "ExplainPrimaryTokens", JsonValueKind.Array);
+            RequireKey(item, "ExplainSecondaryTokens", JsonValueKind.Array);
+            RequireKey(item, "InterventionVerbTokens", JsonValueKind.Array);
         }
     }
 

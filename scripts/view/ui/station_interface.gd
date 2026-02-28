@@ -182,6 +182,61 @@ func refresh_market_list():
 					udetail.custom_minimum_size = Vector2(780, 20)
 					container.add_child(udetail)
 
+	# --- [EXPEDITION STATUS] section (GATE.S3_6.EXPEDITION_PROGRAMS.003) ---
+	# Facts-only expedition program readout v0.
+	# Deterministic:
+	# - Programs enumerated Id asc from GetProgramExplainSnapshot.
+	# - Explain tokens are emitted primary-first then secondary (each list already deterministic from bridge).
+	# - Intervention verbs are Ordinal asc from bridge; join preserves provided order.
+	if bridge and bridge.has_method('GetExpeditionStatusSnapshotV0') and bridge.has_method('GetProgramExplainSnapshot'):
+		var exp_spacer = Label.new()
+		exp_spacer.text = ''
+		exp_spacer.custom_minimum_size = Vector2(780, 12)
+		container.add_child(exp_spacer)
+
+		var exp_title = Label.new()
+		exp_title.text = '[EXPEDITION STATUS]'
+		exp_title.custom_minimum_size = Vector2(780, 24)
+		container.add_child(exp_title)
+
+		var prog_list2 = bridge.call('GetProgramExplainSnapshot')
+		if typeof(prog_list2) == TYPE_ARRAY:
+			for prog_entry2 in prog_list2:
+				if typeof(prog_entry2) != TYPE_DICTIONARY:
+					continue
+				var prog_id2 = str(prog_entry2.get('id', ''))
+				if prog_id2 == '':
+					continue
+				var kind2 = str(prog_entry2.get('kind', ''))
+				# Filter to expedition programs by kind naming convention.
+				if kind2.findn('expedition') == -1:
+					continue
+
+				var es = bridge.call('GetExpeditionStatusSnapshotV0', prog_id2)
+				if typeof(es) != TYPE_DICTIONARY:
+					continue
+
+				var exp_kind_tok = str(es.get('expedition_kind_token', ''))
+				var status_tok = str(es.get('status_token', ''))
+				var prim = es.get('explain_primary_tokens', [])
+				var sec = es.get('explain_secondary_tokens', [])
+				var verbs = es.get('intervention_verb_tokens', [])
+
+				var eline = Label.new()
+				eline.text = '%s | KIND: %s | STATUS: %s' % [prog_id2, exp_kind_tok, status_tok]
+				eline.custom_minimum_size = Vector2(780, 22)
+				container.add_child(eline)
+
+				var prim_s = _join_tokens(prim)
+				var sec_s = _join_tokens(sec)
+				var verbs_s = _join_tokens(verbs)
+
+				if prim_s != '' or sec_s != '' or verbs_s != '':
+					var edetail = Label.new()
+					edetail.text = '  PRIMARY: %s | SECONDARY: %s | VERBS: %s' % [prim_s, sec_s, verbs_s]
+					edetail.custom_minimum_size = Vector2(780, 20)
+					container.add_child(edetail)
+
 	# --- [RUMOR LEADS] section (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
 	# Facts-only rumor lead readout min v0.
 	# Deterministic: LeadId asc from bridge; token join preserves provided order.

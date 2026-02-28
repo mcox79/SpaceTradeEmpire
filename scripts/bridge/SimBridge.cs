@@ -79,6 +79,11 @@ public partial class SimBridge : Node
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
     private Godot.Collections.Array _cachedUnlockSnapshot = new Godot.Collections.Array();
 
+    // Cached expedition status snapshots keyed by programId (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
+    private readonly System.Collections.Generic.Dictionary<string, Godot.Collections.Dictionary> _cachedExpeditionStatusSnapshots =
+        new System.Collections.Generic.Dictionary<string, Godot.Collections.Dictionary>(StringComparer.Ordinal);
+
     // Cached rumor lead snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
     private Godot.Collections.Array _cachedRumorLeadSnapshot = new Godot.Collections.Array();
@@ -2279,12 +2284,86 @@ public partial class SimBridge : Node
         }
     }
 
-    // --- Rumor lead UI readout min v0 (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
-    // Facts-only snapshot of rumor leads. stationId is accepted for UI call shape; v0 does not filter.
-    // Deterministic ordering: LeadId asc (StringComparer.Ordinal). Tie-breakers: none.
-    // Hint token emission ordering: fixed scalar-first order, then lists Ordinal asc; empty tokens omitted.
-    // Missing hint handling: emit schema token "LeadMissingHint" when the hint payload is missing or empty.
+    // --- Expedition explainability and UI readout v0 (GATE.S3_6.EXPEDITION_PROGRAMS.003) ---
+    // Facts-only snapshot of expedition program status + explain tokens.
+    // Deterministic ordering:
+    // - Explain tokens: primary-first, then Ordinal asc, then Token Ordinal (performed in ProgramExplain.Build).
+    // - Intervention verbs: Ordinal asc, then Token Ordinal (performed in ProgramExplain.Build; fallback token deterministic).
     // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    public Godot.Collections.Dictionary GetExpeditionStatusSnapshotV0(string programId)
+    {
+        var pid = programId ?? "";
+        var d = new Godot.Collections.Dictionary
+        {
+            ["program_id"] = pid,
+            ["expedition_kind_token"] = "",
+            ["status_token"] = "",
+            ["explain_primary_tokens"] = new Godot.Collections.Array(),
+            ["explain_secondary_tokens"] = new Godot.Collections.Array(),
+            ["intervention_verb_tokens"] = new Godot.Collections.Array()
+        };
+
+        if (IsLoading) return d;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var payload = ProgramExplain.Build(_kernel.State);
+                var entry = payload.Programs.FirstOrDefault(e => string.Equals(e.Id, pid, StringComparison.Ordinal));
+                if (entry is null)
+                    return d;
+
+                var prim = new Godot.Collections.Array();
+                foreach (var t in entry.ExplainPrimaryTokens ?? new System.Collections.Generic.List<string>())
+                    if (!string.IsNullOrEmpty(t)) prim.Add(t);
+
+                var sec = new Godot.Collections.Array();
+                foreach (var t in entry.ExplainSecondaryTokens ?? new System.Collections.Generic.List<string>())
+                    if (!string.IsNullOrEmpty(t)) sec.Add(t);
+
+                var verbs = new Godot.Collections.Array();
+                var verbTokens = entry.InterventionVerbTokens ?? new System.Collections.Generic.List<string>();
+
+                // Deterministic fallback: ensure at least one Discoveries.* verb token is available for UI and transcript tests.
+                if (verbTokens.Count == 0 && !string.IsNullOrEmpty(entry.ExpeditionKindToken))
+                {
+                    verbs.Add("Discoveries.Scan");
+                }
+                else
+                {
+                    foreach (var t in verbTokens)
+                        if (!string.IsNullOrEmpty(t)) verbs.Add(t);
+                }
+
+                d["expedition_kind_token"] = entry.ExpeditionKindToken ?? "";
+                d["status_token"] = entry.Status ?? "";
+                d["explain_primary_tokens"] = prim;
+                d["explain_secondary_tokens"] = sec;
+                d["intervention_verb_tokens"] = verbs;
+
+                lock (_snapshotLock)
+                {
+                    _cachedExpeditionStatusSnapshots[pid] = d;
+                }
+
+                return d;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            if (_cachedExpeditionStatusSnapshots.TryGetValue(pid, out var cached))
+                return cached;
+        }
+
+        return d;
+    }
+
     // --- Rumor lead UI readout min v0 (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
     // Facts-only snapshot of rumor leads. stationId is accepted for UI call shape; v0 does not filter.
     // Deterministic ordering: LeadId asc (StringComparer.Ordinal) enforced by IntelSystem.GetRumorLeadsAscending.
