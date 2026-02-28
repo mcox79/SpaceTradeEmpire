@@ -22,10 +22,12 @@ public enum ExpeditionKind
 /// </summary>
 public sealed class ExpeditionIntentV0 : IIntent
 {
-    public const string KindToken = "EXPEDITION_V0";
+    // Schema-bound intent kind token (stable).
+    public const string KindToken = ProgramKind.ExpeditionV0;
 
     public string Kind => KindToken;
 
+    // Contract fields v0
     public string LeadId { get; }
     public ExpeditionKind ExpeditionKind { get; }
     public string FleetId { get; }
@@ -41,17 +43,12 @@ public sealed class ExpeditionIntentV0 : IIntent
 
     public void Apply(SimState state)
     {
-        // Deterministic: single dictionary lookup for rejection; no iteration, no wall-clock.
-        if (state.Intel == null || !state.Intel.Discoveries.ContainsKey(LeadId))
-        {
-            // Emit schema-bound rejection reason. No mutation of state on rejection.
-            state.LastExpeditionRejectReason = ProgramExplain.ReasonCodes.SiteNotFound;
-            return;
-        }
-
-        // v0: record intent as accepted; full execution pipeline is a later gate.
-        state.LastExpeditionRejectReason = null;
-        state.LastExpeditionAcceptedLeadId = LeadId;
-        state.LastExpeditionAcceptedKind = ExpeditionKind.ToString();
+        // Single-mutation pipeline: intent delegates all state decisions to system layer.
+        SimCore.Systems.IntelSystem.ApplyExpedition(
+            state,
+            fleetId: FleetId,
+            leadId: LeadId,
+            kind: ExpeditionKind,
+            applyTick: ApplyTick);
     }
 }

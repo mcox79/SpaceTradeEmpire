@@ -1,4 +1,5 @@
 using SimCore.Entities;
+using SimCore.Intents;
 using SimCore.Programs;
 
 namespace SimCore.Systems;
@@ -139,6 +140,74 @@ public static class IntelSystem
         return state.Intel.RumorLeads.Values
             .OrderBy(r => r.LeadId, StringComparer.Ordinal)
             .ToList();
+    }
+
+    // GATE.S3_6.EXPEDITION_PROGRAMS.001
+    // Expedition intent apply v0.
+    // Rejection precedence (deterministic):
+    // 1) unknown LeadId -> SiteNotFound
+    // 2) missing any acquired SiteBlueprint unlock -> MissingSiteBlueprintUnlock
+    // 3) missing fleet record -> InsufficientExpeditionCapacity
+    // Success: writes accepted lead%kind and clears reject reason.
+    public static void ApplyExpedition(SimState state, string fleetId, string leadId, ExpeditionKind kind, int applyTick)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        _ = applyTick; // v0: captured on the intent, scheduling consumed by later gates.
+
+        fleetId ??= "";
+        leadId ??= "";
+
+        // Ensure intel exists (failure-safe).
+        state.Intel ??= new IntelBook();
+
+        // Deterministic: unknown lead is always SiteNotFound regardless of other missing prerequisites.
+        // Contract: LeadId resolves against IntelBook.Discoveries (see PROG_EXEC_004).
+        if (leadId.Length == default || state.Intel.Discoveries is null || !state.Intel.Discoveries.ContainsKey(leadId))
+        {
+            state.LastExpeditionRejectReason = ProgramExplain.ReasonCodes.SiteNotFound;
+            state.LastExpeditionAcceptedLeadId = null;
+            state.LastExpeditionAcceptedKind = null;
+            return;
+        }
+
+        // Capacity gate (v0): fleet record must exist.
+        if (fleetId.Length == default || !state.Fleets.TryGetValue(fleetId, out var _))
+        {
+            state.LastExpeditionRejectReason = ProgramExplain.ReasonCodes.InsufficientExpeditionCapacity;
+            state.LastExpeditionAcceptedLeadId = null;
+            state.LastExpeditionAcceptedKind = null;
+            return;
+        }
+
+        // v0 rule: Survey requires only a known discovery lead + fleet capacity.
+        // Other kinds require an acquired SiteBlueprint unlock (deterministic scan).
+        if (kind != ExpeditionKind.Survey && !HasAnyAcquiredSiteBlueprintUnlock(state))
+        {
+            state.LastExpeditionRejectReason = ProgramExplain.ReasonCodes.MissingSiteBlueprintUnlock;
+            state.LastExpeditionAcceptedLeadId = null;
+            state.LastExpeditionAcceptedKind = null;
+            return;
+        }
+
+        state.LastExpeditionRejectReason = null;
+        state.LastExpeditionAcceptedLeadId = leadId;
+        state.LastExpeditionAcceptedKind = kind.ToString();
+    }
+
+    private static bool HasAnyAcquiredSiteBlueprintUnlock(SimState state)
+    {
+        if (state.Intel?.Unlocks is null || state.Intel.Unlocks.Count == default) return false;
+
+        foreach (var kv in state.Intel.Unlocks.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            var u = kv.Value;
+            if (u is null) continue;
+            if (u.Kind != UnlockKind.SiteBlueprint) continue;
+            if (!u.IsAcquired) continue;
+            return true;
+        }
+
+        return false;
     }
 
     // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.001

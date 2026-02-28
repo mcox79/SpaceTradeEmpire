@@ -4,6 +4,7 @@ using System.Text;
 using SimCore;
 using SimCore.Entities;
 using SimCore.Intents;
+using SimCore.Programs;
 using SimCore.Schemas;
 using SimCore.World;
 
@@ -72,6 +73,40 @@ public sealed class IntentSystemTests
 
         Assert.That(s.PendingIntents.Count, Is.EqualTo(0));
         Assert.That(s.Intel.Discoveries["disc_a"].Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+    }
+
+    [Test]
+    public void ExpeditionProgram_Contract_EnumeratesFourKinds_InDeclarationOrder()
+    {
+        // Contract: Kind{Survey,Sample,Salvage,Analyze}
+        var names = Enum.GetNames(typeof(ExpeditionKind));
+        Assert.That(names, Is.EqualTo(new[] { "Survey", "Sample", "Salvage", "Analyze" }));
+
+        // Contract: program kind token exists and is stable.
+        Assert.That(ProgramKind.ExpeditionV0, Is.EqualTo("EXPEDITION_V0"));
+    }
+
+    [Test]
+    public void ExpeditionIntent_UnknownLeadId_RejectsWithSiteNotFound_Deterministically()
+    {
+        var k = KernelWithWorld001();
+        var s = k.State;
+
+        // Ensure IntelBook exists but has no such lead.
+        s.Intel = new IntelBook();
+
+        k.EnqueueIntent(new ExpeditionIntentV0(
+            leadId: "LEAD.9999",
+            expeditionKind: ExpeditionKind.Survey,
+            fleetId: "f1",
+            applyTick: 0));
+
+        k.Step();
+
+        Assert.That(s.PendingIntents.Count, Is.EqualTo(0));
+        Assert.That(s.LastExpeditionRejectReason, Is.EqualTo(ProgramExplain.ReasonCodes.SiteNotFound));
+        Assert.That(s.LastExpeditionAcceptedLeadId, Is.Null);
+        Assert.That(s.LastExpeditionAcceptedKind, Is.Null);
     }
 
     [Test]
