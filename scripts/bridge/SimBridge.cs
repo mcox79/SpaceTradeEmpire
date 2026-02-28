@@ -79,6 +79,10 @@ public partial class SimBridge : Node
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
     private Godot.Collections.Array _cachedUnlockSnapshot = new Godot.Collections.Array();
 
+    // Cached rumor lead snapshot (nonblocking UI readout).
+    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
+    private Godot.Collections.Array _cachedRumorLeadSnapshot = new Godot.Collections.Array();
+
     // UI state persisted in quicksave (GATE.S3.UI.DASH.001)
     // Determinism: store as simple scalars with stable defaults.
     private int _uiStationViewIndex = 0;           // 0=Market%Traffic, 1=Logistics, 2=Sustainment, 3=Dash
@@ -2272,6 +2276,119 @@ public partial class SimBridge : Node
         lock (_snapshotLock)
         {
             return _cachedUnlockSnapshot;
+        }
+    }
+
+    // --- Rumor lead UI readout min v0 (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
+    // Facts-only snapshot of rumor leads. stationId is accepted for UI call shape; v0 does not filter.
+    // Deterministic ordering: LeadId asc (StringComparer.Ordinal). Tie-breakers: none.
+    // Hint token emission ordering: fixed scalar-first order, then lists Ordinal asc; empty tokens omitted.
+    // Missing hint handling: emit schema token "LeadMissingHint" when the hint payload is missing or empty.
+    // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    // --- Rumor lead UI readout min v0 (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
+    // Facts-only snapshot of rumor leads. stationId is accepted for UI call shape; v0 does not filter.
+    // Deterministic ordering: LeadId asc (StringComparer.Ordinal) enforced by IntelSystem.GetRumorLeadsAscending.
+    // Hint token emission ordering: fixed scalar-first order, then lists Ordinal asc; empty tokens omitted.
+    // Missing hint handling: emit schema token "LeadMissingHint" when the hint payload is empty.
+    // Failure safety: never blocks UI thread; returns cached snapshot when sim holds write lock.
+    public Godot.Collections.Array GetRumorLeadsSnapshotV0(string stationId)
+    {
+        var arr = new Godot.Collections.Array();
+        if (IsLoading) return arr;
+
+        if (_stateLock.TryEnterReadLock(0))
+        {
+            try
+            {
+                var state = _kernel.State;
+
+                // Stable listing (LeadId asc Ordinal) is enforced in IntelSystem.
+                var leads = IntelSystem.GetRumorLeadsAscending(state);
+
+                static bool IsHintMissing(SimCore.Entities.HintPayloadV0 hint)
+                {
+                    var hasRegion = hint.RegionTags is not null && hint.RegionTags.Count > 0;
+                    var hasPrereq = hint.PrerequisiteTokens is not null && hint.PrerequisiteTokens.Count > 0;
+                    var hasCoarse = !string.IsNullOrEmpty(hint.CoarseLocationToken);
+                    var hasPayoff = !string.IsNullOrEmpty(hint.ImpliedPayoffToken);
+                    return !(hasRegion || hasPrereq || hasCoarse || hasPayoff);
+                }
+
+                static Godot.Collections.Array SortedUniqueTokens(System.Collections.Generic.IEnumerable<string> tokens)
+                {
+                    var set = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+                    foreach (var t in tokens)
+                    {
+                        if (string.IsNullOrEmpty(t)) continue;
+                        set.Add(t);
+                    }
+
+                    var list = set.ToList();
+                    list.Sort(StringComparer.Ordinal);
+
+                    var outArr = new Godot.Collections.Array();
+                    foreach (var s in list) outArr.Add(s);
+                    return outArr;
+                }
+
+                foreach (var lead in leads)
+                {
+                    var leadId = lead.LeadId ?? "";
+
+                    var hintTokens = new Godot.Collections.Array();
+                    var blockedReasons = new Godot.Collections.Array();
+
+                    if (IsHintMissing(lead.Hint))
+                    {
+                        hintTokens.Add("LeadMissingHint");
+                    }
+                    else
+                    {
+                        // Fixed-order scalars first.
+                        if (!string.IsNullOrEmpty(lead.SourceVerbToken))
+                            hintTokens.Add(lead.SourceVerbToken);
+
+                        if (!string.IsNullOrEmpty(lead.Hint.CoarseLocationToken))
+                            hintTokens.Add(lead.Hint.CoarseLocationToken);
+
+                        if (!string.IsNullOrEmpty(lead.Hint.ImpliedPayoffToken))
+                            hintTokens.Add(lead.Hint.ImpliedPayoffToken);
+
+                        // Then stable list tokens (Ordinal asc, de-dup).
+                        var region = SortedUniqueTokens(lead.Hint.RegionTags ?? new System.Collections.Generic.List<string>());
+                        for (int i = 0; i < region.Count; i++) hintTokens.Add(region[i]);
+
+                        var prereq = SortedUniqueTokens(lead.Hint.PrerequisiteTokens ?? new System.Collections.Generic.List<string>());
+                        for (int i = 0; i < prereq.Count; i++) hintTokens.Add(prereq[i]);
+                    }
+
+                    // stationId reserved for future filtering. Keep parameter use explicit and deterministic.
+                    _ = stationId;
+
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["lead_id"] = leadId,
+                        ["hint_tokens"] = hintTokens,
+                        ["blocked_reasons"] = blockedReasons,
+                    });
+                }
+
+                lock (_snapshotLock)
+                {
+                    _cachedRumorLeadSnapshot = arr;
+                }
+
+                return arr;
+            }
+            finally
+            {
+                _stateLock.ExitReadLock();
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            return _cachedRumorLeadSnapshot;
         }
     }
 

@@ -4,38 +4,5 @@
     "generated_utc":  "2026-02-27T16:58:09-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD aba3944d25a14e2655a0f44aa2fc9b9239630f3c",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003",
-                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.003.T292",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.003: Rumor lead UI readout min v0: extend SimBridge with GetRumorLeads(stationId) Facts-only snapshot (LeadId asc, hint tokens, blocked reasons); extend station_interface.gd to render [RUMOR LEADS] section; headless Seed 42 transcript shows \u003e= 1 lead line with hint tokens; LeadMissingHint token rendered for leads missing payload; SHA256 stable across two runs",
-                      "intent":  "Rumor lead UI readout min v0: extend SimBridge with GetRumorLeads(stationId) Facts-only snapshot (LeadId asc, hint tokens, blocked reasons); extend station_interface.gd to render [RUMOR LEADS] section; headless Seed 42 transcript shows \u003e= 1 lead line with hint tokens; LeadMissingHint token rendered for leads missing payload; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/view/ui/station_interface.gd",
-                                             "scripts/tools/Validate-GodotScript.ps1",
-                                             "scripts/tests/test_rumor_lead_ui_readout.gd",
-                                             "docs/generated/rumor_lead_ui_readout_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=039d7e0f2daa"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }

@@ -49,7 +49,7 @@ Primary anchors:
 - EPIC.S2_5.WGEN.DISCOVERY_SEEDING.V0 [DONE]: Deterministic seeding of anomaly families, corridor traces, and resource pool markers with per-seed-class guarantees (gates: GATE.S2_5.WGEN.DISCOVERY_SEEDING.*)
 - EPIC.S3_6.DISCOVERY_STATE.V0 [DONE]: Minimal discovery state v0 (seen%scanned%analyzed) + deterministic persistence (gates: GATE.S3_6.DISCOVERY_STATE.*)
 - EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [DONE]: Unlock contract v0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) with explicit economic effects (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
-- EPIC.S3_6.RUMOR_INTEL_MIN.V0 [TODO]: Rumor%Intel substrate v0 for lore leads discovered via exploration%hub analysis; deterministic hints (region tags, coarse location, prerequisites); UI surfacing; save%load; no quest treadmill (gates: GATE.S3_6.RUMOR_INTEL_MIN.*)
+- EPIC.S3_6.RUMOR_INTEL_MIN.V0 [DONE]: Rumor%Intel substrate v0 for lore leads discovered via exploration%hub analysis; deterministic hints (region tags, coarse location, prerequisites); UI surfacing; save%load; no quest treadmill (gates: GATE.S3_6.RUMOR_INTEL_MIN.*)
 - EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [DONE]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); produces unlock inputs; no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
 - EPIC.S3_6.UI_DISCOVERY_MIN.V0 [TODO]: Discovery UI v0 + unlock surfaces + “deploy package” controls; deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
 - EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [DONE]: Exploitation packages v0 (TradeCharter, ResourceTap) with remote exception policies and deterministic reporting (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
@@ -589,19 +589,19 @@ Status: DONE
 Purpose: Prove the core loop early: discover -> (optional hub return) -> unlock leverage -> deploy template -> keep exploring. Also prove the first-hour golden path beats (freighter%mining%tech%lore%pressure) are achievable without rescue travel.
 
 Epics:
-- EPIC.S3_6.DISCOVERY_STATE.V0 [TODO]: Minimal discovery state v0 (seen%scanned%analyzed), bookmarking, deterministic persistence and UI surfacing (gates: GATE.S3_6.DISCOVERY_STATE.*)
-- EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [TODO]: Schema-bound unlocks with stable IDs and world-binding:
+- EPIC.S3_6.DISCOVERY_STATE.V0 [DONE]: Minimal discovery state v0 (seen%scanned%analyzed), bookmarking, deterministic persistence and UI surfacing (gates: GATE.S3_6.DISCOVERY_STATE.*)
+- EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [DONE]: Schema-bound unlocks with stable IDs and world-binding:
   - Unlock types: Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer
   - Each unlock declares explicit effects on: markets, authorities, programs, industry eligibility
   - Unlock acquisition verbs: scan, analyze at hub, complete expedition step, trade with contact (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
-- EPIC.S3_6.RUMOR_INTEL_MIN.V0 [TODO]: Rumor%Intel substrate v0 for lore leads:
+- EPIC.S3_6.RUMOR_INTEL_MIN.V0 [DONE]: Rumor%Intel substrate v0 for lore leads:
   - Lore leads are discovered via exploration%expeditions%hub analysis (not scripted tutorials)
   - Each lead carries deterministic hint payload (region tags, coarse location, prerequisites, implied payoff)
   - Leads persist through save%load and surface in UI as “go look here because X”
   - No quest treadmill requirement; leads are optional but forward-directed (gates: GATE.S3_6.RUMOR_INTEL_MIN.*)
-- EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [TODO]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
+- EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [DONE]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
 - EPIC.S3_6.UI_DISCOVERY_MIN.V0 [TODO]: Discovery UI v0 + unlock surfaces + “deploy package” controls; shows deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
-- EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [TODO]: Template-driven exploitation packages deployed from unlocks and designed to run on lanes by default:
+- EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [DONE]: Template-driven exploitation packages deployed from unlocks and designed to run on lanes by default:
   - TradeCharter v0: buy%sell bands, stockpile targets, route constraints, risk posture
   - ResourceTap v0: extract -> refine -> export loop with buffers and substitution policies
   - Packages must support remote exception policies (pause, reroute, substitute, insure, pay fee, throttle)

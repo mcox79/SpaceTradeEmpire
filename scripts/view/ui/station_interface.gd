@@ -175,12 +175,49 @@ func refresh_market_list():
 				uline.custom_minimum_size = Vector2(780, 22)
 				container.add_child(uline)
 
-if blocked_reason != '':
-				var udetail = Label.new()
-				var blocked_actions_s = _join_tokens(blocked_actions)
-				udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
-				udetail.custom_minimum_size = Vector2(780, 20)
-				container.add_child(udetail)
+				if blocked_reason != '':
+					var udetail = Label.new()
+					var blocked_actions_s = _join_tokens(blocked_actions)
+					udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
+					udetail.custom_minimum_size = Vector2(780, 20)
+					container.add_child(udetail)
+
+	# --- [RUMOR LEADS] section (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
+	# Facts-only rumor lead readout min v0.
+	# Deterministic: LeadId asc from bridge; token join preserves provided order.
+	if bridge and bridge.has_method('GetRumorLeadsSnapshotV0'):
+		var rumor_spacer = Label.new()
+		rumor_spacer.text = ''
+		rumor_spacer.custom_minimum_size = Vector2(780, 12)
+		container.add_child(rumor_spacer)
+
+		var rumor_title = Label.new()
+		rumor_title.text = '[RUMOR LEADS]'
+		rumor_title.custom_minimum_size = Vector2(780, 24)
+		container.add_child(rumor_title)
+
+		var leads = bridge.call('GetRumorLeadsSnapshotV0', current_node_id)
+		if typeof(leads) == TYPE_ARRAY:
+			for r in leads:
+				if typeof(r) != TYPE_DICTIONARY:
+					continue
+
+				var lead_id = str(r.get('lead_id', ''))
+				var hint_tokens = r.get('hint_tokens', [])
+				var blocked_reasons = r.get('blocked_reasons', [])
+
+				var hint_s = _join_tokens(hint_tokens)
+
+				var rline = Label.new()
+				rline.text = '%s | HINT: %s' % [lead_id, hint_s]
+				rline.custom_minimum_size = Vector2(780, 22)
+				container.add_child(rline)
+
+				if typeof(blocked_reasons) == TYPE_ARRAY and blocked_reasons.size() > 0:
+					var bline = Label.new()
+					bline.text = '  BLOCKED: %s' % _join_tokens(blocked_reasons)
+					bline.custom_minimum_size = Vector2(780, 20)
+					container.add_child(bline)
 
 	# --- [PACKAGE STATUS] section (GATE.S3_6.EXPLOITATION_PACKAGES.003) ---
 	# Facts-only exploitation package explainability v0.
