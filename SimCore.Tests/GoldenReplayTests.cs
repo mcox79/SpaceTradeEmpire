@@ -38,7 +38,7 @@ public class GoldenReplayTests
 
         // Helper to generate deterministic "random" inputs
         var inputRng = new System.Random(seed);
-        var markets = simA.State.Markets.Keys.ToList();
+        var markets = simA.State.Markets.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
 
         for (int i = 0; i < ticks; i++)
         {

@@ -1,15 +1,14 @@
 using SimCore.Commands;
 using SimCore.Systems;
 using SimCore.Programs;
-using System.Collections.Concurrent;
 
 namespace SimCore;
 
 public class SimKernel
 {
     private SimState _state;
-    private ConcurrentQueue<ICommand> _commandQueue = new();
-    private ConcurrentQueue<SimCore.Intents.IIntent> _intentQueue = new();
+    private Queue<ICommand> _commandQueue = new();
+    private Queue<SimCore.Intents.IIntent> _intentQueue = new();
     public SimState State => _state;
 
     public SimKernel(int seed, string? tweakConfigJsonOverride = null)

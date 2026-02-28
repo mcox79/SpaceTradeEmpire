@@ -5,6 +5,7 @@ using SimCore.Entities;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using System.Globalization;
 using SimCore.Intents;
 using SimCore.Programs;
 
@@ -678,7 +679,9 @@ public class SimState
 
     public void HydrateAfterLoad()
     {
-        Rng = new Random(InitialSeed + Tick);
+        // Rng is [JsonIgnore] and only used by GalaxyGenerator during one-time world creation.
+        // It is intentionally left null after load — post-load calls to GalaxyGenerator.Generate()
+        // will throw via the ?? guard there, making misuse explicit rather than silent.
         Programs ??= new ProgramBook();
 
         // IMPORTANT: IntentEnvelope.Intent is JsonIgnore (not persisted).
@@ -1035,7 +1038,7 @@ public class SimState
 
         sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
-        foreach (var f in Fleets.OrderBy(k => k.Key))
+        foreach (var f in Fleets.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             sb.Append($"Flt:{f.Key}_N:{f.Value.CurrentNodeId}_S:{f.Value.State}_D:{f.Value.DestinationNodeId}|");
 
@@ -1051,10 +1054,10 @@ public class SimState
             }
         }
 
-        foreach (var m in Markets.OrderBy(k => k.Key))
+        foreach (var m in Markets.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             sb.Append($"Mkt:{m.Key}|");
-            foreach (var kv in m.Value.Inventory.OrderBy(i => i.Key))
+            foreach (var kv in m.Value.Inventory.OrderBy(i => i.Key, StringComparer.Ordinal))
             {
                 sb.Append($"{kv.Key}:{kv.Value},");
             }
@@ -1088,10 +1091,10 @@ public class SimState
             }
         }
 
-        foreach (var s in IndustrySites.OrderBy(k => k.Key))
+        foreach (var s in IndustrySites.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             // Include tech sustainment state so determinism drift cannot hide.
-            sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency:F4}|Health:{s.Value.HealthBps}|BufD:{s.Value.BufferDays}|Rem:{s.Value.DegradeRemainder}|");
+            sb.Append($"Site:{s.Key}|Eff:{s.Value.Efficiency.ToString("F4", CultureInfo.InvariantCulture)}|Health:{s.Value.HealthBps}|BufD:{s.Value.BufferDays}|Rem:{s.Value.DegradeRemainder}|");
         }
 
         // GATE.S4.INDU.MIN_LOOP.001
@@ -1106,13 +1109,13 @@ public class SimState
             }
         }
 
-        foreach (var n in Nodes.OrderBy(k => k.Key))
+        foreach (var n in Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
-            if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace:F2}|");
+            if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace.ToString("F2", CultureInfo.InvariantCulture)}|");
         }
-        foreach (var e in Edges.OrderBy(k => k.Key))
+        foreach (var e in Edges.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
-            if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat:F2}|");
+            if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat.ToString("F2", CultureInfo.InvariantCulture)}|");
         }
 
         using var sha = SHA256.Create();

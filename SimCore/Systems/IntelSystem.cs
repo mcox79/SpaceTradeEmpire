@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Intents;
 using SimCore.Programs;
@@ -6,6 +7,12 @@ namespace SimCore.Systems;
 
 public static class IntelSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> GoodIds = new();
+    }
+
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     // Slice 1 rule: local market id is the same as PlayerLocationNodeId
     private static string GetLocalMarketId(SimState state) => state.PlayerLocationNodeId ?? "";
 
@@ -22,7 +29,11 @@ public static class IntelSystem
 
         // Refresh intel ONLY for the local market
         // Deterministic ordering: iterate goods in ordinal order
-        var goodIds = localMarket.Inventory.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var goodIds = scratch.GoodIds;
+        goodIds.Clear();
+        foreach (var key in localMarket.Inventory.Keys) goodIds.Add(key);
+        goodIds.Sort(StringComparer.Ordinal);
         foreach (var goodId in goodIds)
         {
             var qty = localMarket.Inventory.TryGetValue(goodId, out var v) ? v : 0;

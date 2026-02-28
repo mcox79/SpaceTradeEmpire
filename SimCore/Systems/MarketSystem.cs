@@ -37,10 +37,10 @@ public static class MarketSystem
 
     // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.003
     // Broker unlock economic effect: if any acquired Broker unlock exists, transaction fees are waived (bps=0).
-    // Deterministic: scan unlocks by UnlockId asc (Ordinal) to avoid Dictionary iteration nondeterminism.
+    // Result is order-independent (any-match), so no sort needed.
     private static bool HasAnyAcquiredBrokerUnlock(SimState state)
     {
-        foreach (var kvp in state.Intel.Unlocks.OrderBy(x => x.Key, StringComparer.Ordinal))
+        foreach (var kvp in state.Intel.Unlocks)
         {
             var u = kvp.Value;
             if (u.IsAcquired && u.Kind == UnlockKind.Broker) return true;

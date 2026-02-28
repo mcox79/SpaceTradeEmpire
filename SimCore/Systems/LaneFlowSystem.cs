@@ -56,10 +56,9 @@ public static class LaneFlowSystem
         if (!state.Markets.TryGetValue(fromMarketId, out var fromMarket)) return false;
         if (!state.Markets.TryGetValue(toMarketId, out var toMarket)) return false;
 
-        if (state.InFlightTransfers.Any(x => string.Equals(x.Id, transferId, StringComparison.Ordinal)))
-        {
-            return false;
-        }
+        // Duplicate-ID guard: foreach avoids LINQ delegate allocation; N is bounded by active logistics jobs.
+        foreach (var t in state.InFlightTransfers)
+            if (string.Equals(t.Id, transferId, StringComparison.Ordinal)) return false;
 
         var removed = InventoryLedger.TryRemoveMarket(fromMarket.Inventory, goodId, quantity);
         if (!removed) return false;

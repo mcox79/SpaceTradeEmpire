@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -11,6 +12,16 @@ namespace SimCore.Systems
         // Buffering is expressed in days of game time.
         public const int TicksPerDay = 1440;
         public const int Bps = 10000;
+
+        private sealed class Scratch
+        {
+            public readonly List<string> SiteKeys = new();
+            public readonly List<string> InputKeys = new();
+            public readonly List<string> OutputKeys = new();
+            public readonly List<string> ByproductKeys = new();
+        }
+
+        private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
 
         public static int ComputeBufferTargetUnits(IndustrySite site, string goodId)
         {
@@ -29,10 +40,17 @@ namespace SimCore.Systems
         {
             if (state is null) return;
 
-            // Deterministic ordering: IndustrySites is a Dictionary, so iterate by key.
-            foreach (var kv in state.IndustrySites.OrderBy(k => k.Key, StringComparer.Ordinal))
+            var scratch = s_scratch.GetOrCreateValue(state);
+
+            // Deterministic ordering: populate and sort site keys once per tick.
+            var siteKeys = scratch.SiteKeys;
+            siteKeys.Clear();
+            foreach (var k in state.IndustrySites.Keys) siteKeys.Add(k);
+            siteKeys.Sort(StringComparer.Ordinal);
+
+            foreach (var siteKey in siteKeys)
             {
-                var site = kv.Value;
+                var site = state.IndustrySites[siteKey];
                 if (site is null) continue;
                 if (!site.Active) continue;
                 if (string.IsNullOrWhiteSpace(site.NodeId)) continue;
@@ -40,18 +58,35 @@ namespace SimCore.Systems
 
                 // --- Slice: sustainment consumption%production (existing behavior) ---
 
+                // Populate sorted key lists once per site; inputs are iterated twice (efficiency + consume).
+                var inputKeys = scratch.InputKeys;
+                inputKeys.Clear();
+                foreach (var k in site.Inputs.Keys) inputKeys.Add(k);
+                inputKeys.Sort(StringComparer.Ordinal);
+
+                var outputKeys = scratch.OutputKeys;
+                outputKeys.Clear();
+                foreach (var k in site.Outputs.Keys) outputKeys.Add(k);
+                outputKeys.Sort(StringComparer.Ordinal);
+
+                var bypKeys = scratch.ByproductKeys;
+                bypKeys.Clear();
+                foreach (var k in site.Byproducts.Keys) bypKeys.Add(k);
+                bypKeys.Sort(StringComparer.Ordinal);
+
                 // Compute efficiency deterministically as basis points:
                 // effBps = min over inputs of floor(available * 10000 / required).
                 int effBps = Bps;
 
-                if (site.Inputs.Count > 0)
+                if (inputKeys.Count > 0)
                 {
-                    foreach (var input in site.Inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
+                    foreach (var inputKey in inputKeys)
                     {
-                        if (input.Value <= 0) continue;
+                        var inputVal = site.Inputs[inputKey];
+                        if (inputVal <= 0) continue;
 
-                        int available = InventoryLedger.Get(market.Inventory, input.Key);
-                        int required = input.Value;
+                        int available = InventoryLedger.Get(market.Inventory, inputKey);
+                        int required = inputVal;
 
                         int ratioBps;
                         if (available <= 0) ratioBps = 0;
@@ -74,40 +109,42 @@ namespace SimCore.Systems
                 if (effBps > 0)
                 {
                     // Consume inputs (preserve zero keys for markets)
-                    foreach (var input in site.Inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
+                    foreach (var inputKey in inputKeys)
                     {
-                        if (input.Value <= 0) continue;
+                        var inputVal = site.Inputs[inputKey];
+                        if (inputVal <= 0) continue;
 
-                        int available = InventoryLedger.Get(market.Inventory, input.Key);
-                        int targetConsume = (int)(((long)input.Value * effBps) / Bps);
+                        int available = InventoryLedger.Get(market.Inventory, inputKey);
+                        int targetConsume = (int)(((long)inputVal * effBps) / Bps);
                         int consume = Math.Min(available, targetConsume);
 
                         if (consume > 0)
                         {
-                            InventoryLedger.TryRemoveMarket(market.Inventory, input.Key, consume);
+                            InventoryLedger.TryRemoveMarket(market.Inventory, inputKey, consume);
                         }
                         else
                         {
-                            if (!market.Inventory.ContainsKey(input.Key)) market.Inventory[input.Key] = 0;
+                            if (!market.Inventory.ContainsKey(inputKey)) market.Inventory[inputKey] = 0;
                         }
                     }
 
                     // Produce outputs (preserve zero keys for markets)
                     // Bounded structure rule: do not produce a good that is also an input good.
-                    foreach (var output in site.Outputs.OrderBy(o => o.Key, StringComparer.Ordinal))
+                    foreach (var outputKey in outputKeys)
                     {
-                        if (output.Value <= 0) continue;
-                        if (site.Inputs.ContainsKey(output.Key)) continue;
+                        var outputVal = site.Outputs[outputKey];
+                        if (outputVal <= 0) continue;
+                        if (site.Inputs.ContainsKey(outputKey)) continue;
 
-                        int produced = (int)(((long)output.Value * effBps) / Bps);
+                        int produced = (int)(((long)outputVal * effBps) / Bps);
 
                         if (produced > 0)
                         {
-                            InventoryLedger.AddMarket(market.Inventory, output.Key, produced);
+                            InventoryLedger.AddMarket(market.Inventory, outputKey, produced);
                         }
                         else
                         {
-                            if (!market.Inventory.ContainsKey(output.Key)) market.Inventory[output.Key] = 0;
+                            if (!market.Inventory.ContainsKey(outputKey)) market.Inventory[outputKey] = 0;
                         }
                     }
 
@@ -116,21 +153,22 @@ namespace SimCore.Systems
                     // Tweak-routing guard: use tweaks-routed zero token for any zero comparisons%writes introduced by this block.
                     var zero = IndustryTweaksV0.Zero;
 
-                    foreach (var byp in site.Byproducts.OrderBy(b => b.Key, StringComparer.Ordinal))
+                    foreach (var bypKey in bypKeys)
                     {
-                        if (byp.Value <= zero) continue;
-                        if (site.Inputs.ContainsKey(byp.Key)) continue;
-                        if (site.Outputs.ContainsKey(byp.Key)) continue;
+                        var bypVal = site.Byproducts[bypKey];
+                        if (bypVal <= zero) continue;
+                        if (site.Inputs.ContainsKey(bypKey)) continue;
+                        if (site.Outputs.ContainsKey(bypKey)) continue;
 
-                        int produced = (int)(((long)byp.Value * effBps) / Bps);
+                        int produced = (int)(((long)bypVal * effBps) / Bps);
 
                         if (produced > zero)
                         {
-                            InventoryLedger.AddMarket(market.Inventory, byp.Key, produced);
+                            InventoryLedger.AddMarket(market.Inventory, bypKey, produced);
                         }
                         else
                         {
-                            if (!market.Inventory.ContainsKey(byp.Key)) market.Inventory[byp.Key] = zero;
+                            if (!market.Inventory.ContainsKey(bypKey)) market.Inventory[bypKey] = zero;
                         }
                     }
                 }
@@ -139,7 +177,7 @@ namespace SimCore.Systems
                 // Opt-in only to preserve baseline worlds and goldens.
                 if (site.ConstructionEnabled)
                 {
-                    ProcessMinimalConstructionV0(state, siteId: kv.Key, market);
+                    ProcessMinimalConstructionV0(state, siteId: siteKey, market);
                 }
             }
         }

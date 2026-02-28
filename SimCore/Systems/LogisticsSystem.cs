@@ -30,8 +30,6 @@ public static class LogisticsSystem
     private static int N10 => _S10.Length;
     private static int N64 => _S64.Length;
 
-    private static bool s_logiEventsEnabled = true;
-
     // Per-SimState scratch buffers to avoid per-tick allocations.
     // ConditionalWeakTable ensures no leaks across discarded SimState instances.
     private sealed class Scratch
@@ -47,7 +45,7 @@ public static class LogisticsSystem
 
     private static void EmitLogi(SimState state, LogisticsEvents.Event e)
     {
-        if (!s_logiEventsEnabled) return;
+        if (string.Equals(Environment.GetEnvironmentVariable("STE_LOGI_EVENTS"), "0", StringComparison.Ordinal)) return;
         state.EmitLogisticsEvent(e);
     }
 
@@ -78,12 +76,6 @@ public static class LogisticsSystem
         bool logiBreakdown = string.Equals(
             Environment.GetEnvironmentVariable("STE_LOGI_BREAKDOWN"),
             "1",
-            StringComparison.Ordinal);
-
-        // Cache once per tick, do NOT read env var per event call.
-        s_logiEventsEnabled = !string.Equals(
-            Environment.GetEnvironmentVariable("STE_LOGI_EVENTS"),
-            "0",
             StringComparison.Ordinal);
 
         long msAdvance = 0, msShortages = 0, msAssign = 0;
