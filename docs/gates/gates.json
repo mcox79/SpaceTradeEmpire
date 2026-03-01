@@ -128,39 +128,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.003",
-                      "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.003.T368",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.PLAY_LOOP_PROOF.003: Play loop headless proof phase 2: tap%tech%lore%pressure v0: implement play-loop-proof-report --phase 2 in SimCore.Runner; continues from phase 1 state; drives Seed 42 (fallback Seed 1337 if no piracy incident within tick ceiling; FallbackSeedUsed=true in header); asserts step tokens RESOURCE_TAP_ACTIVE (requires InventoryDelta(Produced) from RESOURCE_TAP_V0)%TECH_UNLOCK_REALIZED%LORE_LEAD_SURFACED%PIRACY_INCIDENT_LEGIBLE (SecurityEvents entry with non-empty CauseChain)%REMOTE_RESOLUTION_COUNT_GTE_2 (\u003e= 2 RemoteResolutionApplied events); emits NEW: docs/generated/play_loop_proof_phase2_seed_42_v0.txt (no timestamps; stable ordering); SHA256 stable across two runs",
-                      "intent":  "Play loop headless proof phase 2: tap%tech%lore%pressure v0: implement play-loop-proof-report --phase 2 in SimCore.Runner; continues from phase 1 state; drives Seed 42 (fallback Seed 1337 if no piracy incident within tick ceiling; FallbackSeedUsed=true in header); asserts step tokens RESOURCE_TAP_ACTIVE (requires InventoryDelta(Produced) from RESOURCE_TAP_V0)%TECH_UNLOCK_REALIZED%LORE_LEAD_SURFACED%PIRACY_INCIDENT_LEGIBLE (SecurityEvents entry with non-empty CauseChain)%REMOTE_RESOLUTION_COUNT_GTE_2 (\u003e= 2 RemoteResolutionApplied events); emits NEW: docs/generated/play_loop_proof_phase2_seed_42_v0.txt (no timestamps; stable ordering); SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Events/SecurityEvents.cs",
-                                             "SimCore/Intents/ExploitationIntentsV0.cs",
-                                             "SimCore/Programs/ProgramSystem.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/RiskSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Runner/Program.cs",
-                                             "candidate_key_sha256=2661d9bcc320"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }
