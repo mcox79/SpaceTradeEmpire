@@ -1,294 +1,314 @@
 using Godot;
-using SimCore.Entities;
 using SpaceTradeEmpire.Bridge;
-using SpaceTradeEmpire.UI;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SpaceTradeEmpire.View;
 
 public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
-    private StationMenu _menu;
 
-    // CACHE FOR DYNAMIC UPDATES
-    private Dictionary<string, StarNode> _starNodes = new();
-    private Dictionary<string, MeshInstance3D> _edgeMeshes = new();
+    private bool _overlayOpen = false;
 
-    private MultiMeshInstance3D _fleetMultiMeshInstance;
-    private MultiMesh _fleetMultiMesh;
+    // Visual caches (deterministic keys)
+    private readonly Dictionary<string, Node3D> _nodeRootsById = new();
+    private readonly Dictionary<string, MeshInstance3D> _edgeMeshesByKey = new();
+
+    private int _lastNodeCount = 0;
+    private int _lastEdgeCount = 0;
+    private bool _lastPlayerHighlighted = false;
 
     public override void _Ready()
     {
-        _bridge = GetNode<SimBridge>("/root/SimBridge");
+        _bridge = GetNodeOrNull<SimBridge>("/root/SimBridge");
 
-        // Initialize MultiMesh for Fleets
-        _fleetMultiMeshInstance = new MultiMeshInstance3D();
-        _fleetMultiMesh = new MultiMesh();
-        _fleetMultiMesh.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
-        _fleetMultiMesh.Mesh = new PrismMesh { Size = new Vector3(1.5f, 1.5f, 3.0f) };
-        _fleetMultiMesh.InstanceCount = 0;
-        _fleetMultiMesh.VisibleInstanceCount = 0;
-        _fleetMultiMeshInstance.Multimesh = _fleetMultiMesh;
+        // Default OFF: the playable prototype is a local-space view until Tab opens the overlay.
+        Visible = false;
+        SetProcess(false);
+    }
 
-        // Material setup: Bright Orange Emission
-        var shipMat = new StandardMaterial3D
+    public void SetOverlayOpenV0(bool isOpen)
+    {
+        _overlayOpen = isOpen;
+
+        Visible = isOpen;
+        SetProcess(isOpen);
+
+        if (isOpen)
         {
-            AlbedoColor = new Color(1f, 0.6f, 0f),
-            EmissionEnabled = true,
-            Emission = new Color(1f, 0.4f, 0f),
-            EmissionEnergyMultiplier = 2.0f
-        };
-        _fleetMultiMeshInstance.MaterialOverride = shipMat;
-        AddChild(_fleetMultiMeshInstance);
-
-        // Use the StationMenu already present in scenes/playable_prototype.tscn under UI/StationMenu
-        _menu = GetNode<StationMenu>("/root/Main/UI/StationMenu");
-        _menu.RequestUndock += OnMenuUndockRequested;
-
-        if (_bridge != null)
-        {
-            _bridge.Connect(SimBridge.SignalName.SimLoaded, new Callable(this, nameof(OnSimLoaded)));
-            CallDeferred(nameof(DrawPhysicalMap));
+            // Defer one frame so SimBridge can finish boot sequences.
+            CallDeferred(nameof(RefreshFromSnapshotV0));
         }
     }
 
-    private void OnMenuUndockRequested()
+    public Godot.Collections.Dictionary GetOverlayMetricsV0()
     {
-        var player = GetTree().GetFirstNodeInGroup("Player");
-        if (player != null && player.HasMethod("undock"))
+        return new Godot.Collections.Dictionary
         {
-            player.Call("undock");
-        }
+            ["node_count"] = _lastNodeCount,
+            ["edge_count"] = _lastEdgeCount,
+            ["player_node_highlighted"] = _lastPlayerHighlighted
+        };
     }
 
     public override void _Process(double delta)
     {
-        // StationMenu is responsible for connecting to PlayerShip.shop_toggled.
-        // Do not connect it here, or you will get duplicate connection errors.
-
+        if (!_overlayOpen) return;
         if (_bridge == null || _bridge.IsLoading) return;
 
-        if (!_bridge.TryExecuteSafeRead(state =>
-        {
-            UpdateFleets(state);
-            UpdateEnvironment(state); // New: Heat/Trace Visualization
-        }, timeoutMs: 0))
-        {
-            // Sim is stepping; do not stall the frame.
-            return;
-        }
+        RefreshFromSnapshotV0();
     }
 
-    private void DrawPhysicalMap()
+    private void RefreshFromSnapshotV0()
     {
-        if (!_bridge.TryExecuteSafeRead(state =>
+        var snap = _bridge.GetGalaxySnapshotV0();
+        if (snap == null) return;
+
+        var playerNodeId = snap.ContainsKey("player_current_node_id")
+            ? (string)snap["player_current_node_id"]
+            : "";
+
+        var rawNodes = snap.ContainsKey("system_nodes")
+            ? (Godot.Collections.Array)snap["system_nodes"]
+            : new Godot.Collections.Array();
+
+        var rawEdges = snap.ContainsKey("lane_edges")
+            ? (Godot.Collections.Array)snap["lane_edges"]
+            : new Godot.Collections.Array();
+
+        // Parse nodes into a stable, explicitly sorted list (node_id Ordinal asc).
+        var nodes = new List<NodeSnapV0>(rawNodes.Count);
+        for (int i = 0; i < rawNodes.Count; i++)
         {
-            if (state.Nodes == null) return;
-            var sphereShape = new SphereShape3D { Radius = 2.5f };
-            var starMesh = new SphereMesh { Radius = 1.0f };
+            Variant v = rawNodes[i];
+            if (v.VariantType != Variant.Type.Dictionary) continue;
 
-            // Base materials (will be overridden by dynamic updates)
-            var starMat = new StandardMaterial3D { AlbedoColor = new Color(0, 0.6f, 1.0f), EmissionEnabled = true };
-            starMesh.Material = starMat;
+            Godot.Collections.Dictionary n = v.AsGodotDictionary();
 
-            foreach (var node in state.Nodes.Values)
+            var nodeId = n.ContainsKey("node_id") ? (string)(Variant)n["node_id"] : "";
+            var stateToken = n.ContainsKey("display_state_token") ? (string)(Variant)n["display_state_token"] : "";
+            var displayText = n.ContainsKey("display_text") ? (string)(Variant)n["display_text"] : "";
+
+            // Cast from Variant to float directly to avoid locale parsing issues.
+            float x = n.ContainsKey("pos_x") ? (float)(Variant)n["pos_x"] : 0f;
+            float y = n.ContainsKey("pos_y") ? (float)(Variant)n["pos_y"] : 0f;
+            float z = n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f;
+
+            nodes.Add(new NodeSnapV0(nodeId, stateToken, displayText, new Vector3(x, y, z)));
+        }
+
+        nodes.Sort(static (a, b) => StringComparer.Ordinal.Compare(a.NodeId, b.NodeId));
+
+        // Parse edges into a stable, explicitly sorted list (from_id Ordinal asc, then to_id Ordinal asc).
+        var edges = new List<EdgeSnapV0>(rawEdges.Count);
+        for (int i = 0; i < rawEdges.Count; i++)
+        {
+            Variant v = rawEdges[i];
+            if (v.VariantType != Variant.Type.Dictionary) continue;
+
+            Godot.Collections.Dictionary e = v.AsGodotDictionary();
+
+            var fromId = e.ContainsKey("from_id") ? (string)(Variant)e["from_id"] : "";
+            var toId = e.ContainsKey("to_id") ? (string)(Variant)e["to_id"] : "";
+
+            edges.Add(new EdgeSnapV0(fromId, toId));
+        }
+
+        edges.Sort(static (a, b) =>
+        {
+            int c = StringComparer.Ordinal.Compare(a.FromId, b.FromId);
+            if (c != 0) return c;
+            return StringComparer.Ordinal.Compare(a.ToId, b.ToId);
+        });
+
+        _lastNodeCount = nodes.Count;
+        _lastEdgeCount = edges.Count;
+
+        // Nodes: create/update visuals
+        bool playerHighlighted = false;
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            var n = nodes[i];
+            if (string.IsNullOrEmpty(n.NodeId)) continue;
+
+            if (!_nodeRootsById.TryGetValue(n.NodeId, out var root))
             {
-                if (_starNodes.ContainsKey(node.Id))
-                    continue;
+                root = CreateNodeVisualV0(n.NodeId);
+                _nodeRootsById[n.NodeId] = root;
+                AddChild(root);
+            }
 
-                var starNode = new StarNode();
-                starNode.Name = node.Id;
-                starNode.NodeId = node.Id;
-                starNode.Position = new Vector3(node.Position.X, node.Position.Y, node.Position.Z);
+            root.Position = n.Position;
 
-                // Let StationMenu resolve this node deterministically
-                starNode.SetMeta("sim_market_id", node.Id);
-                starNode.AddToGroup("DockTarget");
-                starNode.AddToGroup("Station");
-                starNode.AddToGroup("Stations");
+            var label = root.GetNodeOrNull<Label3D>("NodeLabel");
+            if (label != null)
+            {
+                // Rumored nodes must not reveal their true name.
+                // Token contract: DisplayStateToken == "RUMORED" => render "???".
+                label.Text = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
+                    ? "???"
+                    : (n.DisplayText ?? "");
+            }
 
-                AddChild(starNode);
-                _starNodes[node.Id] = starNode;
-
-                // StarNode is Area3D, so it needs an enabled CollisionShape3D to generate BodyEntered.
-                var nodeCol = new CollisionShape3D { Shape = sphereShape };
-                nodeCol.Name = "StarCollider";
-                nodeCol.Disabled = false;
-                starNode.AddChild(nodeCol);
-
-                var mesh = new MeshInstance3D { Mesh = starMesh };
-                mesh.Name = "StarMesh";
-                mesh.MaterialOverride = starMat.Duplicate() as Material;
-                starNode.AddChild(mesh);
-
-                var lbl = new Label3D
+            var mesh = root.GetNodeOrNull<MeshInstance3D>("NodeMesh");
+            if (mesh != null && mesh.MaterialOverride is StandardMaterial3D mat)
+            {
+                bool isPlayer = !string.IsNullOrEmpty(playerNodeId) && StringComparer.Ordinal.Equals(n.NodeId, playerNodeId);
+                if (isPlayer)
                 {
-                    Name = "StarLabel",
-                    Text = node.Name,
-                    // keep your existing label config here (billboard, size, position, etc)
+                    playerHighlighted = true;
+                    mat.AlbedoColor = new Color(0.2f, 1.0f, 0.4f);
+                    mat.EmissionEnabled = true;
+                    mat.Emission = new Color(0.2f, 1.0f, 0.4f);
+                    mat.EmissionEnergyMultiplier = 2.0f;
+                }
+                else
+                {
+                    mat.AlbedoColor = new Color(0f, 0.6f, 1.0f);
+                    mat.EmissionEnabled = true;
+                    mat.Emission = new Color(0f, 0.6f, 1.0f);
+                    mat.EmissionEnergyMultiplier = 1.0f;
+                }
+            }
+        }
+
+        _lastPlayerHighlighted = playerHighlighted;
+
+        // Edges: create/update visuals
+        for (int i = 0; i < edges.Count; i++)
+        {
+            var e = edges[i];
+            if (string.IsNullOrEmpty(e.FromId) || string.IsNullOrEmpty(e.ToId)) continue;
+
+            // Key is deterministic for the edge list ordering.
+            string key = e.FromId + "->" + e.ToId;
+
+            if (!_edgeMeshesByKey.TryGetValue(key, out var mesh))
+            {
+                var mat = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(0.3f, 0.3f, 0.3f),
+                    EmissionEnabled = true,
+                    Emission = new Color(0.1f, 0.1f, 0.1f),
+                    EmissionEnergyMultiplier = 0.5f
                 };
-                starNode.AddChild(lbl);
-
-                // IMPORTANT: remove the DockArea child entirely. StarNode itself is the dock trigger.
+                mesh = CreateEdgeMeshV0(mat);
+                _edgeMeshesByKey[key] = mesh;
+                AddChild(mesh);
             }
 
-            if (state.Edges != null)
-            {
-                foreach (var edge in state.Edges.Values)
-                {
-                    if (_edgeMeshes.ContainsKey(edge.Id)) continue;
-                    if (!state.Nodes.ContainsKey(edge.FromNodeId) || !state.Nodes.ContainsKey(edge.ToNodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(e.FromId, out var fromRoot)) continue;
+            if (!_nodeRootsById.TryGetValue(e.ToId, out var toRoot)) continue;
 
-                    var p1 = state.Nodes[edge.FromNodeId].Position;
-                    var p2 = state.Nodes[edge.ToNodeId].Position;
-
-                    // Create unique material for this edge
-                    var lineMat = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.3f, 0.3f), EmissionEnabled = true };
-                    var meshInstance = DrawLine(new Vector3(p1.X, p1.Y, p1.Z), new Vector3(p2.X, p2.Y, p2.Z), lineMat);
-
-                    _edgeMeshes[edge.Id] = meshInstance;
-                }
-            }
-        }, timeoutMs: 0))
-        {
-            // If the sim is stepping, retry next idle frame so the map eventually draws without stalling.
-            CallDeferred(nameof(DrawPhysicalMap));
-            return;
+            UpdateEdgeTransformV0(mesh, fromRoot.GlobalPosition, toRoot.GlobalPosition);
         }
     }
 
-    private void UpdateEnvironment(SimCore.SimState state)
+    private static Node3D CreateNodeVisualV0(string nodeId)
     {
-        // 1. Update Edge Heat (Glow)
-        foreach (var edge in state.Edges.Values)
-        {
-            if (_edgeMeshes.TryGetValue(edge.Id, out var mesh))
-            {
-                if (mesh.MaterialOverride is StandardMaterial3D mat)
-                {
-                    float heat = edge.Heat;
-                    if (heat > 0.1f)
-                    {
-                        // Heat > 0.1: Glow Red/Orange
-                        float intensity = Mathf.Clamp(heat, 0f, 5f);
-                        mat.AlbedoColor = new Color(1f, 0.5f, 0.2f);
-                        mat.Emission = new Color(1f, 0.2f, 0f);
-                        mat.EmissionEnergyMultiplier = intensity;
-                    }
-                    else
-                    {
-                        // Cool: Grey
-                        mat.AlbedoColor = new Color(0.3f, 0.3f, 0.3f);
-                        mat.Emission = Colors.Black;
-                        mat.EmissionEnergyMultiplier = 0f;
-                    }
-                }
-            }
-        }
+        var root = new Node3D();
+        root.Name = "GalaxyNode_" + nodeId;
 
-        // 2. Update Node Trace (Pollution Tint)
-        foreach (var node in state.Nodes.Values)
-        {
-            if (_starNodes.TryGetValue(node.Id, out var starNode))
-            {
-                var mesh = starNode.GetNodeOrNull<MeshInstance3D>("StarMesh");
-                mesh ??= starNode.GetChildren().OfType<MeshInstance3D>().FirstOrDefault();
+        var mesh = new MeshInstance3D();
+        mesh.Name = "NodeMesh";
+        mesh.Mesh = new SphereMesh { Radius = 1.0f };
 
-                if (mesh != null && mesh.MaterialOverride is StandardMaterial3D mat)
-                {
-                    if (node.Trace > 0.5f)
-                    {
-                        float t = Mathf.Clamp(node.Trace / 5.0f, 0f, 1f);
-                        mat.AlbedoColor = new Color(0f, 0.6f, 1f).Lerp(new Color(0.6f, 0f, 1f), t);
-                        mat.Emission = mat.AlbedoColor;
-                    }
-                    else
-                    {
-                        mat.AlbedoColor = new Color(0f, 0.6f, 1f);
-                        mat.Emission = mat.AlbedoColor;
-                    }
-                }
-            }
-        }
+        mesh.MaterialOverride = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0f, 0.6f, 1.0f),
+            EmissionEnabled = true,
+            Emission = new Color(0f, 0.6f, 1.0f),
+            EmissionEnergyMultiplier = 1.0f
+        };
+
+        root.AddChild(mesh);
+
+        var lbl = new Label3D
+        {
+            Name = "NodeLabel",
+            Text = "",
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            PixelSize = 0.01f
+        };
+        lbl.Position = new Vector3(0, 3.0f, 0);
+        root.AddChild(lbl);
+
+        return root;
     }
 
-    private void UpdateFleets(SimCore.SimState state)
+    private static MeshInstance3D CreateEdgeMeshV0(Material mat)
     {
-        if (state.Fleets == null) return;
+        var mesh = new MeshInstance3D();
+        mesh.Name = "GalaxyEdge";
 
-        var visibleFleets = state.Fleets.Values.Where(f => f.OwnerId != "player").ToList();
-        int count = visibleFleets.Count;
-
-        if (_fleetMultiMesh.InstanceCount < count)
+        // Thin cylinder oriented along +Y then rotated into place.
+        var cyl = new CylinderMesh
         {
-            _fleetMultiMesh.InstanceCount = count + 100;
-        }
-        _fleetMultiMesh.VisibleInstanceCount = count;
+            TopRadius = 0.05f,
+            BottomRadius = 0.05f,
+            Height = 1.0f
+        };
+        mesh.Mesh = cyl;
+        mesh.MaterialOverride = mat;
 
-        for (int i = 0; i < count; i++)
-        {
-            var fleet = visibleFleets[i];
-            Vector3 pos = Vector3.Zero;
-            Vector3 lookTarget = Vector3.Zero;
-
-            if (state.Nodes.TryGetValue(fleet.CurrentNodeId, out var startNode))
-            {
-                pos = new Vector3(startNode.Position.X, startNode.Position.Y, startNode.Position.Z);
-            }
-
-            if (fleet.State == FleetState.Traveling && state.Nodes.TryGetValue(fleet.DestinationNodeId, out var endNode))
-            {
-                var endPos = new Vector3(endNode.Position.X, endNode.Position.Y, endNode.Position.Z);
-                pos = pos.Lerp(endPos, fleet.TravelProgress);
-                lookTarget = endPos;
-            }
-            else
-            {
-                lookTarget = pos + Vector3.Forward;
-            }
-
-            pos.Y += 2.5f;
-            lookTarget.Y += 2.5f;
-
-            Transform3D t = new Transform3D(Basis.Identity, pos);
-            if (pos.DistanceSquaredTo(lookTarget) > 0.01f)
-            {
-                t = t.LookingAt(lookTarget, Vector3.Up);
-            }
-
-            _fleetMultiMesh.SetInstanceTransform(i, t);
-        }
+        return mesh;
     }
 
-    private MeshInstance3D DrawLine(Vector3 start, Vector3 end, Material mat)
+    private static void UpdateEdgeTransformV0(MeshInstance3D mesh, Vector3 start, Vector3 end)
     {
-        var mid = (start + end) / 2f;
+        var mid = (start + end) * 0.5f;
         var dist = start.DistanceTo(end);
-        var mesh = new CylinderMesh { TopRadius = 0.05f, BottomRadius = 0.05f, Height = dist }; // Mat assigned to instance
-        var instance = new MeshInstance3D { Mesh = mesh, Position = mid };
-        instance.MaterialOverride = mat; // Must set Override to update dynamic properties
-        instance.LookAtFromPosition(mid, end, Vector3.Up);
-        instance.RotateObjectLocal(Vector3.Right, Mathf.Pi / 2f);
-        AddChild(instance);
-        return instance;
+
+        // CylinderMesh is centered; height along Y axis.
+        mesh.Position = mid;
+
+        // Build a basis that points Y towards (end-start).
+        var dir = (end - start).Normalized();
+
+        // Godot: Basis.LookingAt points -Z; we want +Y. Build from orthonormal axes.
+        Vector3 up = dir;
+        Vector3 fwd = Vector3.Forward;
+        if (Mathf.Abs(up.Dot(fwd)) > 0.99f) fwd = Vector3.Right;
+        Vector3 right = fwd.Cross(up).Normalized();
+        fwd = up.Cross(right).Normalized();
+
+        // Columns are X, Y, Z axes.
+        var basis = new Basis(right, up, fwd);
+
+        mesh.Basis = basis;
+
+        if (mesh.Mesh is CylinderMesh cyl)
+        {
+            cyl.Height = dist;
+        }
     }
 
-    private void OnSimLoaded()
+    private readonly struct NodeSnapV0
     {
-        GD.Print("[GalaxyView] Sim Loaded. Resetting visuals.");
-        if (_menu != null) _menu.Close();
-        ClearVisuals();
-        CallDeferred(nameof(DrawPhysicalMap));
+        public readonly string NodeId;
+        public readonly string DisplayStateToken;
+        public readonly string DisplayText;
+        public readonly Vector3 Position;
+
+        public NodeSnapV0(string nodeId, string displayStateToken, string displayText, Vector3 position)
+        {
+            NodeId = nodeId ?? "";
+            DisplayStateToken = displayStateToken ?? "";
+            DisplayText = displayText ?? "";
+            Position = position;
+        }
     }
 
-    private void ClearVisuals()
+    private readonly struct EdgeSnapV0
     {
-        _fleetMultiMesh.VisibleInstanceCount = 0;
-        foreach (var kv in _starNodes) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
-        _starNodes.Clear();
-        foreach (var kv in _edgeMeshes) if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
-        _edgeMeshes.Clear();
+        public readonly string FromId;
+        public readonly string ToId;
+
+        public EdgeSnapV0(string fromId, string toId)
+        {
+            FromId = fromId ?? "";
+            ToId = toId ?? "";
+        }
     }
 }

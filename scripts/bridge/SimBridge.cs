@@ -528,12 +528,27 @@ public partial class SimBridge : Node
             for (int i = 0; i < snap.SystemNodes.Count; i++)
             {
                 var n = snap.SystemNodes[i];
+
+                // Position is required for rendering, but view code must only consume snapshots.
+                float px = 0f;
+                float py = 0f;
+                float pz = 0f;
+                if (state.Nodes != null && !string.IsNullOrEmpty(n.NodeId) && state.Nodes.TryGetValue(n.NodeId, out var node))
+                {
+                    px = node.Position.X;
+                    py = node.Position.Y;
+                    pz = node.Position.Z;
+                }
+
                 nodes.Add(new Godot.Collections.Dictionary
                 {
                     ["node_id"] = n.NodeId ?? "",
                     ["display_state_token"] = n.DisplayStateToken ?? "",
                     ["display_text"] = n.DisplayText ?? "",
-                    ["object_count"] = n.ObjectCount
+                    ["object_count"] = n.ObjectCount,
+                    ["pos_x"] = px,
+                    ["pos_y"] = py,
+                    ["pos_z"] = pz
                 });
             }
 

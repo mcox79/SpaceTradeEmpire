@@ -22,6 +22,29 @@ script = ExtResource("1_gm")
 [node name="GalaxyView" type="Node3D" parent="." unique_id=1641435699]
 script = ExtResource("2_view")
 
+[node name="GalaxyOverlayCamera" type="Camera3D" parent="."]
+current = false
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 150, 150)
+
+[node name="GalaxyOverlay" type="CanvasLayer" parent="."]
+layer = 50
+visible = false
+
+[node name="Dim" type="ColorRect" parent="GalaxyOverlay"]
+layout_mode = 3
+anchors_preset = 15
+offset_right = 0.0
+offset_bottom = 0.0
+color = Color(0, 0, 0, 0.65)
+
+[node name="OverlayLabel" type="Label" parent="GalaxyOverlay/Dim"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 800.0
+offset_bottom = 60.0
+text = "GALAXY MAP (TAB to close)"
+
 [node name="Player" parent="." unique_id=458325344 instance=ExtResource("3_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
 

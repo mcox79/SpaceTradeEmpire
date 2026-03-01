@@ -67,39 +67,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S1.GALAXY_MAP.RENDER.001",
-                      "task_id":  "GATE.S1.GALAXY_MAP.RENDER.001.T273",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.GALAXY_MAP.RENDER.001: Galaxy map overlay render v0: Tab key in game_manager.gd currently calls toggle_market() which already returns immediately (dead function); rebind Tab to toggle galaxy map overlay; overlay is a CanvasLayer rendered above local space scene (no scene swap; local space scene and SimCore continue ticking while overlay is open); GalaxyView.cs galaxy-level node/edge rendering (extracted in SCENE.001 behind overlay-mode flag) activated when overlay opens; reads GetGalaxySnapshotV0 via SimBridge only â€” do NOT use galaxy_spawner.gd (reads legacy sim.gd, violates API boundary) and do NOT use TryExecuteSafeRead direct-state pattern; player current system highlighted; Rumored nodes shown as ??? label; headless UUIR tokens: node_count, edge_count, player_node_highlighted=true, local_scene_ticking=true; SHA256 stable across two runs",
-                      "intent":  "Galaxy map overlay render v0: Tab key in game_manager.gd currently calls toggle_market() which already returns immediately (dead function); rebind Tab to toggle galaxy map overlay; overlay is a CanvasLayer rendered above local space scene (no scene swap; local space scene and SimCore continue ticking while overlay is open); GalaxyView.cs galaxy-level node/edge rendering (extracted in SCENE.001 behind overlay-mode flag) activated when overlay opens; reads GetGalaxySnapshotV0 via SimBridge only â€” do NOT use galaxy_spawner.gd (reads legacy sim.gd, violates API boundary) and do NOT use TryExecuteSafeRead direct-state pattern; player current system highlighted; Rumored nodes shown as ??? label; headless UUIR tokens: node_count, edge_count, player_node_highlighted=true, local_scene_ticking=true; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_galaxy_map_overlay.gd",
-                                             "scripts/view/GalaxyView.cs",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scenes/playable_prototype.tscn",
-                                             "scripts/view/map_camera.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_galaxy_map_overlay.gd",
-                                             "candidate_key_sha256=117acb3bb973"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S1.HERO_SHIP_LOOP.DOCK.001",
                       "task_id":  "GATE.S1.HERO_SHIP_LOOP.DOCK.001.T067",
                       "status":  "TODO",
