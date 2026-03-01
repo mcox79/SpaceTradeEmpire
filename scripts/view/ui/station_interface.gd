@@ -122,6 +122,27 @@ func refresh_market_list():
 			exp_line.custom_minimum_size = Vector2(780, 22)
 			container.add_child(exp_line)
 
+			# GATE.S3_6.UI_DISCOVERY_MIN.002
+			# Render discovery exception summaries only when present (keep Seed 42 baseline unchanged if empty).
+			var active_ex = snap.get('active_exceptions', [])
+			if typeof(active_ex) == TYPE_ARRAY and active_ex.size() > 0:
+				var ex_title = Label.new()
+				ex_title.text = 'EXCEPTIONS'
+				ex_title.custom_minimum_size = Vector2(780, 24)
+				container.add_child(ex_title)
+
+				for ex in active_ex:
+					if typeof(ex) != TYPE_DICTIONARY:
+						continue
+					var ex_tok = str(ex.get('exception_token', ''))
+					var reason_tokens = ex.get('reason_tokens', [])
+					var verbs = ex.get('intervention_verbs', [])
+
+					var ex_line = Label.new()
+					ex_line.text = '%s | REASONS: %s | ACTIONS: %s' % [ex_tok, _join_tokens(reason_tokens), _join_tokens(verbs)]
+					ex_line.custom_minimum_size = Vector2(780, 22)
+					container.add_child(ex_line)
+
 			var unlocks = snap.get('unlocks', [])
 			if typeof(unlocks) == TYPE_ARRAY and unlocks.size() > 0:
 				var unlock_title = Label.new()

@@ -121,6 +121,78 @@ public static class ProgramExplain
         [JsonInclude] public List<string> ExplainChain { get; set; } = new();
     }
 
+    // --- Discovery exception summary and policy actions v0 (GATE.S3_6.UI_DISCOVERY_MIN.002) ---
+    // Schema-bound exception tokens and deterministic intervention verb suggestions.
+    // Determinism:
+    // - policy entries are ordered by Ordinal asc (explicit canonical list)
+    // - verb tokens are listed in stable order as authored (no sorting at runtime)
+    public static class DiscoveryExceptionPolicyV0
+    {
+        // Exception tokens (schema-bound; no free-text).
+        public const string SiteAccessBlocked = "SiteAccessBlocked";
+        public const string AnalysisQueueFull = "AnalysisQueueFull";
+        public const string ExpeditionStalled = "ExpeditionStalled";
+        public const string IntelStale = "IntelStale";
+
+        public sealed class PolicyEntry
+        {
+            [JsonInclude] public int Ordinal { get; set; } = 0;
+            [JsonInclude] public string ExceptionToken { get; set; } = "";
+            [JsonInclude] public List<string> InterventionVerbTokens { get; set; } = new();
+        }
+
+        // Canonical policy table (stable order is the array index order via Ordinal asc).
+        public static readonly PolicyEntry[] CanonicalEntriesOrdered =
+        {
+            new PolicyEntry
+            {
+                Ordinal = 0,
+                ExceptionToken = SiteAccessBlocked,
+                InterventionVerbTokens = new List<string>
+                {
+                    "Discoveries.DockHub",
+                    "Discoveries.RequestSiteAccess"
+                }
+            },
+            new PolicyEntry
+            {
+                Ordinal = 1,
+                ExceptionToken = AnalysisQueueFull,
+                InterventionVerbTokens = new List<string>
+                {
+                    "Programs.RunHubAnalysis",
+                    "Programs.RaiseAnalysisCapacity"
+                }
+            },
+            new PolicyEntry
+            {
+                Ordinal = 2,
+                ExceptionToken = ExpeditionStalled,
+                InterventionVerbTokens = new List<string>
+                {
+                    "Programs.RequeueExpedition",
+                    "Discoveries.SelectNewTarget"
+                }
+            },
+            new PolicyEntry
+            {
+                Ordinal = 3,
+                ExceptionToken = IntelStale,
+                InterventionVerbTokens = new List<string>
+                {
+                    "Programs.RefreshIntel",
+                    "Discoveries.Rescan"
+                }
+            }
+        };
+
+        // Stable iteration surface for tests and UI tooling.
+        public static IReadOnlyList<PolicyEntry> GetEntriesOrdered()
+        {
+            return CanonicalEntriesOrdered;
+        }
+    }
+
     // --- Unlock explainability v0 (GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.005) ---
     // Schema-bound explanation payload for unlock gained%blocked outcomes and suggested interventions.
     // NOTE: Version uses ExplainVersion to avoid introducing new numeric literals in SimCore.

@@ -4,37 +4,5 @@
     "generated_utc":  "2026-02-28T08:33:06-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 433c65dfc5cee0f620c4f8cf994ece9e03494a7b",
     "tasks":  [
-                  {
-                      "gate_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002",
-                      "task_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002.T082",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.UI_DISCOVERY_MIN.002: Discovery exception summary and policy actions v0: extend ProgramExplain with four exception tokens (SiteAccessBlocked%AnalysisQueueFull%ExpeditionStalled%IntelStale) each paired with \u003e= 1 Discoveries.* or Programs.* intervention verb; extend GetDiscoverySnapshotV0 with ActiveExceptions list (token%reason tokens Ordinal asc%intervention verbs Ordinal asc); extend [DISCOVERY] section to render exception summaries with verb tokens; contract tests assert all four tokens registered and paired; vacuous-pass if no active exceptions at Seed 42 tick 0; two-run headless SHA256 must remain stable vs gate UI_DISCOVERY_MIN.001 baseline",
-                      "intent":  "Discovery exception summary and policy actions v0: extend ProgramExplain with four exception tokens (SiteAccessBlocked%AnalysisQueueFull%ExpeditionStalled%IntelStale) each paired with \u003e= 1 Discoveries.* or Programs.* intervention verb; extend GetDiscoverySnapshotV0 with ActiveExceptions list (token%reason tokens Ordinal asc%intervention verbs Ordinal asc); extend [DISCOVERY] section to render exception summaries with verb tokens; contract tests assert all four tokens registered and paired; vacuous-pass if no active exceptions at Seed 42 tick 0; two-run headless SHA256 must remain stable vs gate UI_DISCOVERY_MIN.001 baseline",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore/Programs/ProgramExplain.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scripts/view/ui/station_interface.gd",
-                                             "scripts/tests/test_discovery_ui_readout.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=850614dfbc90"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
               ]
 }

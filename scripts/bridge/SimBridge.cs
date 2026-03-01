@@ -449,7 +449,17 @@ public partial class SimBridge : Node
                 ["discovered_site_count"] = snap.DiscoveredSiteCount,
                 ["scanned_site_count"] = snap.ScannedSiteCount,
                 ["analyzed_site_count"] = snap.AnalyzedSiteCount,
-                ["expedition_status_token"] = snap.ExpeditionStatusToken ?? ""
+                ["expedition_status_token"] = snap.ExpeditionStatusToken ?? "",
+
+                // GATE.S3_6.UI_DISCOVERY_MIN.002
+                // Active discovery exceptions (token + reason tokens + intervention verbs).
+                // Determinism:
+                // - list is expected to be ExceptionToken Ordinal asc
+                // - reason tokens Ordinal asc
+                // - intervention verbs Ordinal asc
+                // Failure safety:
+                // - empty list is valid (vacuous-pass for Seed 42 tick 0)
+                ["active_exceptions"] = new Godot.Collections.Array()
             };
 
             var unlocks = new Godot.Collections.Array();

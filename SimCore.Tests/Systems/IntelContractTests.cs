@@ -716,6 +716,49 @@ public sealed class IntelContractTests
             Is.Not.EqualTo(ProgramExplain.ReasonCodes.LeadMissingHint));
     }
 
+    // GATE.S3_6.UI_DISCOVERY_MIN.002
+    [Test]
+    public void DiscoveryExceptions_FourTokensRegistered_AndEachHasInterventionVerb()
+    {
+        var policy = ProgramExplain.DiscoveryExceptionPolicyV0.GetEntriesOrdered();
+
+        // Must be exactly the four required exceptions, in Ordinal asc.
+        Assert.That(policy.Count, Is.EqualTo(4));
+
+        Assert.That(policy[0].Ordinal, Is.EqualTo(0));
+        Assert.That(policy[0].ExceptionToken, Is.EqualTo(ProgramExplain.DiscoveryExceptionPolicyV0.SiteAccessBlocked));
+
+        Assert.That(policy[1].Ordinal, Is.EqualTo(1));
+        Assert.That(policy[1].ExceptionToken, Is.EqualTo(ProgramExplain.DiscoveryExceptionPolicyV0.AnalysisQueueFull));
+
+        Assert.That(policy[2].Ordinal, Is.EqualTo(2));
+        Assert.That(policy[2].ExceptionToken, Is.EqualTo(ProgramExplain.DiscoveryExceptionPolicyV0.ExpeditionStalled));
+
+        Assert.That(policy[3].Ordinal, Is.EqualTo(3));
+        Assert.That(policy[3].ExceptionToken, Is.EqualTo(ProgramExplain.DiscoveryExceptionPolicyV0.IntelStale));
+
+        // Each exception must be paired with at least 1 Discoveries.* or Programs.* intervention verb token.
+        foreach (var e in policy)
+        {
+            Assert.That(string.IsNullOrEmpty(e.ExceptionToken), Is.False, "ExceptionToken must be non-empty");
+            Assert.That(e.InterventionVerbTokens, Is.Not.Null);
+            Assert.That(e.InterventionVerbTokens.Count, Is.GreaterThanOrEqualTo(1));
+
+            foreach (var v in e.InterventionVerbTokens)
+            {
+                Assert.That(
+                    v.StartsWith("Discoveries.", StringComparison.Ordinal) || v.StartsWith("Programs.", StringComparison.Ordinal),
+                    Is.True,
+                    $"Intervention verb token '{v}' must start with Discoveries. or Programs."
+                );
+            }
+        }
+
+        // Tokens must be distinct.
+        var distinctTokens = policy.Select(p => p.ExceptionToken).Distinct(StringComparer.Ordinal).ToList();
+        Assert.That(distinctTokens.Count, Is.EqualTo(4));
+    }
+
     [Test]
     public void IntelBook_RumorLeads_IsPresentAndEmpty_ByDefault()
     {

@@ -134,6 +134,18 @@ func _emit_snapshot(seed_val: int, station_id: String, snap: Dictionary) -> void
 	print(PREFIX + "SITE_COUNTS:%s|%s|%s" % [discovered_count, scanned_count, analyzed_count])
 	print(PREFIX + "EXPEDITION_STATUS_TOKEN:%s" % exp_tok)
 
+	# GATE.S3_6.UI_DISCOVERY_MIN.002
+	# Emit exceptions only when present so baseline hash remains unchanged if empty.
+	var active_ex = snap.get("active_exceptions", [])
+	if typeof(active_ex) == TYPE_ARRAY and active_ex.size() > 0:
+		for ex in active_ex:
+			if typeof(ex) != TYPE_DICTIONARY:
+				continue
+			var ex_tok = str(ex.get("exception_token", ""))
+			var reason_tokens = ex.get("reason_tokens", [])
+			var verbs = ex.get("intervention_verbs", [])
+			print(PREFIX + "EXCEPTION:%s|REASONS:%s|ACTIONS:%s" % [ex_tok, _join_tokens(reason_tokens), _join_tokens(verbs)])
+
 	var unlocks = snap.get("unlocks", [])
 	if typeof(unlocks) == TYPE_ARRAY:
 		for u in unlocks:
