@@ -34,38 +34,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.004",
-                      "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.004.T537",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.PLAY_LOOP_PROOF.004: Play loop save/load continuity regression v0: extend SaveLoadWorldHashTests with PlayLoopProof_MidProof_SaveLoad_ContinuationStable; loads phase-1 checkpoint, runs to TRADE_CHARTER_REVENUE confirmation, saves, loads (no tick advance on load per SaveLoad preservation boundary), continues to LORE_LEAD_SURFACED, asserts hash digest matches pre-save state; drift detection prints first DIFF|Field|Before|After (Field sorted Ordinal asc); asserts rumor lead digest%unlock digest%program book status digest%inventory digest identical across boundary",
-                      "intent":  "Play loop save/load continuity regression v0: extend SaveLoadWorldHashTests with PlayLoopProof_MidProof_SaveLoad_ContinuationStable; loads phase-1 checkpoint, runs to TRADE_CHARTER_REVENUE confirmation, saves, loads (no tick advance on load per SaveLoad preservation boundary), continues to LORE_LEAD_SURFACED, asserts hash digest matches pre-save state; drift detection prints first DIFF|Field|Before|After (Field sorted Ordinal asc); asserts rumor lead digest%unlock digest%program book status digest%inventory digest identical across boundary",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "SimCore/World/WorldLoader.cs",
-                                             "SimCore/Entities/IntelBook.cs",
-                                             "SimCore/Programs/ProgramBook.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "candidate_key_sha256=499f6691b859"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.004",
                       "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.004.T410",
                       "status":  "TODO",

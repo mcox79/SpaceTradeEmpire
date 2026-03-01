@@ -1003,6 +1003,91 @@ public class SaveLoadWorldHashTests
             $"RumorLead digest drift after save%load (Seed={seed}).");
     }
 
+    // GATE.S3_6.PLAY_LOOP_PROOF.004
+    [Test]
+    public void PlayLoopProof_MidProof_SaveLoad_ContinuationStable()
+    {
+        const int seed = 42;
+        const string phase1ProgramId = "PROG_TRADE_CHARTER_V0_PHASE1";
+        const string loreLeadId = "LORE_LEAD_PHASE2_V0";
+
+        var sim = new SimKernel(seed);
+
+        // Phase 1 checkpoint: deterministically initialize worldgen and drive to TRADE_CHARTER_REVENUE evidence.
+        var starCount = GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
+        var radius = GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+        GalaxyGenerator.Generate(sim.State, starCount: starCount, radius: radius);
+
+        var (marketA, marketB, goodId) = SelectTwoMarketsAndGoodV0(sim.State);
+
+        EnsureTradeCharterProgramExistsV0(sim.State, phase1ProgramId, marketA, marketB, goodId);
+
+        // Ensure budget deterministically via existing tweaks (no new balance constants).
+        var creditsTarget = checked((long)SimCore.Tweaks.ExploitationTweaksV0.TradeCharterBudgetPerCycle * 10L);
+        if (sim.State.PlayerCredits < creditsTarget) sim.State.PlayerCredits = creditsTarget;
+
+        var tradePnLEventCount = 0;
+        for (int i = 0; i < 5000; i++)
+        {
+            sim.Step();
+            tradePnLEventCount = CountTradePnLEvidenceLinesV0(sim.State, phase1ProgramId);
+            if (tradePnLEventCount > 0) break;
+        }
+
+        Assert.That(tradePnLEventCount, Is.GreaterThan(0),
+            $"PlayLoopProof phase 1 did not reach TRADE_CHARTER_REVENUE evidence within tick bound (Seed={seed} ProgramId={phase1ProgramId} Tick={sim.State.Tick} marketA={marketA} marketB={marketB} goodId={goodId}).");
+
+        var tickAtCheckpoint = sim.State.Tick;
+
+        var beforeHash = sim.State.GetSignature();
+        var beforeRumorLeadDigest = ComputeRumorLeadDigestV0(sim.State);
+        var beforeUnlockDigest = ComputeUnlockDigestV0(sim.State);
+        var beforeProgramBookDigest = ComputeProgramBookStatusDigestV0(sim.State);
+        var beforeInventoryDigest = ComputeInventoryDigestV0(sim.State);
+
+        var json = sim.SaveToString();
+        var savedSeed = ReadEnvelopeSeed(json);
+
+        var sim2 = new SimKernel(seed: 999);
+        sim2.LoadFromString(json);
+
+        // SaveLoad preservation boundary: load must not advance tick.
+        Assert.That(sim2.State.Tick, Is.EqualTo(tickAtCheckpoint),
+            $"SaveLoad preservation boundary violated: Tick advanced on load (Seed={seed} BeforeTick={tickAtCheckpoint} AfterTick={sim2.State.Tick}).");
+
+        var afterHash = sim2.State.GetSignature();
+        var afterRumorLeadDigest = ComputeRumorLeadDigestV0(sim2.State);
+        var afterUnlockDigest = ComputeUnlockDigestV0(sim2.State);
+        var afterProgramBookDigest = ComputeProgramBookStatusDigestV0(sim2.State);
+        var afterInventoryDigest = ComputeInventoryDigestV0(sim2.State);
+
+        var diffs = new SortedDictionary<string, (string before, string after)>(StringComparer.Ordinal)
+        {
+            ["InventoryDigestV0"] = (beforeInventoryDigest, afterInventoryDigest),
+            ["ProgramBookStatusDigestV0"] = (beforeProgramBookDigest, afterProgramBookDigest),
+            ["RumorLeadDigestV0"] = (beforeRumorLeadDigest, afterRumorLeadDigest),
+            ["UnlockDigestV0"] = (beforeUnlockDigest, afterUnlockDigest),
+            ["WorldHash"] = (beforeHash, afterHash),
+        };
+
+        var firstDiff = FindFirstDiffV0(diffs);
+        if (!string.IsNullOrEmpty(firstDiff.field))
+        {
+            TestContext.Out.WriteLine($"DIFF|{firstDiff.field}|{firstDiff.beforeValue}|{firstDiff.afterValue}");
+            Assert.Fail(
+                $"SaveLoad drift detected (Seed={seed} Field={firstDiff.field} Before={firstDiff.beforeValue} After={firstDiff.afterValue}).");
+        }
+
+        Assert.That(savedSeed, Is.EqualTo(seed),
+            $"PlayLoopProof save/load continuity: seed mismatch (Seed={seed} SavedSeed={savedSeed}).");
+
+        // Continue after checkpoint: deterministically surface a lore lead and ensure state still behaves.
+        IntelSystem.GrantRumorLeadOnExplore(sim2.State, loreLeadId, sourceNodeId: marketA);
+
+        Assert.That(sim2.State.Intel.RumorLeads.ContainsKey(loreLeadId), Is.True,
+            $"PlayLoopProof continuation did not surface lore lead (Seed={seed} LeadId={loreLeadId}).");
+    }
+
     private static string ComputeRumorLeadDigestV0(SimState state)
     {
         if (state.Intel?.RumorLeads is null) return "";
@@ -1098,6 +1183,189 @@ public class SaveLoadWorldHashTests
             DiscoveryPhase.Analyzed => 1 | 2 | 4,
             _ => 0
         };
+    }
+
+    private static (string marketA, string marketB, string goodId) SelectTwoMarketsAndGoodV0(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.Markets is null || state.Markets.Count < 2)
+            throw new InvalidOperationException("PlayLoopProof requires at least 2 markets after worldgen.");
+
+        var marketIds = state.Markets.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var marketA = marketIds[0];
+        var marketB = marketIds[1];
+
+        if (!state.Markets.TryGetValue(marketA, out var mA) || mA is null)
+            throw new InvalidOperationException($"PlayLoopProof missing marketA record: {marketA}");
+
+        var goodIds = mA.Inventory.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        if (goodIds.Count == 0)
+            throw new InvalidOperationException($"PlayLoopProof marketA has no inventory keys (marketA={marketA}).");
+
+        string goodId = goodIds[0];
+        for (int i = 0; i < goodIds.Count; i++)
+        {
+            var g = goodIds[i];
+            var qty = mA.Inventory.TryGetValue(g, out var v) ? v : 0;
+            if (qty > 0)
+            {
+                goodId = g;
+                break;
+            }
+        }
+
+        return (marketA, marketB, goodId);
+    }
+
+    private static void EnsureTradeCharterProgramExistsV0(SimState state, string programId, string srcMarketId, string dstMarketId, string goodId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (state.Programs is null) state.Programs = new SimCore.Programs.ProgramBook();
+
+        var id = programId ?? "";
+        if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("programId required", nameof(programId));
+
+        if (!state.Programs.Instances.TryGetValue(id, out var p) || p is null)
+        {
+            p = new SimCore.Programs.ProgramInstance
+            {
+                Id = id,
+                Kind = SimCore.Programs.ProgramKind.TradeCharterV0,
+                Status = SimCore.Programs.ProgramStatus.Running,
+                CreatedTick = state.Tick,
+                CadenceTicks = 1,
+                NextRunTick = state.Tick,
+                LastRunTick = -1
+            };
+            state.Programs.Instances[id] = p;
+        }
+
+        p.SourceMarketId = srcMarketId ?? "";
+        p.MarketId = dstMarketId ?? "";
+        p.GoodId = goodId ?? "";
+        p.SellGoodId = goodId ?? "";
+        p.Status = SimCore.Programs.ProgramStatus.Running;
+
+        if (p.NextRunTick > state.Tick) p.NextRunTick = state.Tick;
+    }
+
+    private static int CountTradePnLEvidenceLinesV0(SimState state, string programId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        var pid = programId ?? "";
+
+        var events = GetExploitationEventLinesV0(state);
+        if (events.Count == 0) return 0;
+
+        var count = 0;
+        var progNeedle = "prog=" + pid;
+        for (int i = 0; i < events.Count; i++)
+        {
+            var ln = events[i] ?? "";
+            if (ln.IndexOf(progNeedle, StringComparison.Ordinal) < 0) continue;
+            if (ln.IndexOf("TradePnL", StringComparison.Ordinal) < 0) continue;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static List<string> GetExploitationEventLinesV0(SimState state)
+    {
+        var t = state.GetType();
+
+        var names = new[]
+        {
+            "ExploitationEventLog",
+            "ExploitationLog",
+            "ExploitationEvents",
+            "ExploitationEventLines"
+        };
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            var p = t.GetProperty(names[i], BindingFlags.Public | BindingFlags.Instance);
+            if (p is null) continue;
+
+            if (p.GetValue(state) is IEnumerable<string> seq)
+            {
+                return seq.ToList();
+            }
+        }
+
+        return new List<string>();
+    }
+
+    private static string ComputeProgramBookStatusDigestV0(SimState state)
+    {
+        if (state.Programs?.Instances is null) return "";
+
+        var ids = state.Programs.Instances.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        return string.Join("\n", ids.Select(id =>
+        {
+            var p = state.Programs.Instances[id];
+            if (p is null) return id + "\t(null)";
+
+            var tokens = new List<string>
+            {
+                "Kind=" + ValueToTokenV0(p.Kind),
+                "Status=" + ValueToTokenV0(p.Status),
+                "FleetId=" + ValueToTokenV0(p.FleetId),
+                "SiteId=" + ValueToTokenV0(p.SiteId),
+                "ExpeditionSiteId=" + ValueToTokenV0(p.ExpeditionSiteId),
+                "ExpeditionTicksRemaining=" + ValueToTokenV0(p.ExpeditionTicksRemaining),
+                "SourceMarketId=" + ValueToTokenV0(p.SourceMarketId),
+                "MarketId=" + ValueToTokenV0(p.MarketId),
+                "GoodId=" + ValueToTokenV0(p.GoodId),
+                "SellGoodId=" + ValueToTokenV0(p.SellGoodId),
+                "CreatedTick=" + ValueToTokenV0(p.CreatedTick),
+                "CadenceTicks=" + ValueToTokenV0(p.CadenceTicks),
+                "NextRunTick=" + ValueToTokenV0(p.NextRunTick),
+                "LastRunTick=" + ValueToTokenV0(p.LastRunTick),
+                "Quantity=" + ValueToTokenV0(p.Quantity)
+            };
+
+            return id + "\t" + string.Join("\t", tokens);
+        }));
+    }
+
+    private static string ComputeInventoryDigestV0(SimState state)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+
+        var lines = new List<string>
+        {
+            "PlayerCredits=" + state.PlayerCredits.ToString(CultureInfo.InvariantCulture),
+            "PlayerLocationNodeId=" + ValueToTokenV0(state.PlayerLocationNodeId ?? "")
+        };
+
+        if (state.PlayerCargo is not null)
+        {
+            var goods = state.PlayerCargo.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+            for (int i = 0; i < goods.Count; i++)
+            {
+                var g = goods[i];
+                var qty = state.PlayerCargo.TryGetValue(g, out var q) ? q : 0;
+                lines.Add("Cargo." + g + "=" + qty.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private static (string field, string beforeValue, string afterValue) FindFirstDiffV0(
+        SortedDictionary<string, (string before, string after)> diffs)
+    {
+        foreach (var kv in diffs)
+        {
+            if (!string.Equals(kv.Value.before, kv.Value.after, StringComparison.Ordinal))
+            {
+                return (kv.Key, kv.Value.before, kv.Value.after);
+            }
+        }
+
+        return ("", "", "");
     }
 
     private static int ReadEnvelopeSeed(string json)
