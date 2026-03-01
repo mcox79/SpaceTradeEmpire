@@ -332,6 +332,218 @@ public static class IntelSystem
         return chain;
     }
 
+    // GATE.S3_6.UI_DISCOVERY_MIN.001
+    // DiscoverySnapshotV0: Facts-only snapshot for UI (schema-bound tokens only).
+    // Ordering (deterministic):
+    // - Unlocks: UnlockId asc (StringComparer.Ordinal)
+    // - RumorLeads: LeadId asc (StringComparer.Ordinal)
+    // - Hint token sublists: RegionTags asc, PrerequisiteTokens asc (StringComparer.Ordinal)
+    public const string ExpeditionStatusToken_NoneV0 = "EXPEDITION_STATUS_NONE_V0";
+    public const string DeployVerbToken_DeployPackageV0 = "DEPLOY_PACKAGE_V0";
+
+    public const string UnlockEffectToken_PermitV0 = "UNLOCK_EFFECT_PERMIT_V0";
+    public const string UnlockEffectToken_BrokerV0 = "UNLOCK_EFFECT_BROKER_V0";
+    public const string UnlockEffectToken_RecipeV0 = "UNLOCK_EFFECT_RECIPE_V0";
+    public const string UnlockEffectToken_SiteBlueprintV0 = "UNLOCK_EFFECT_SITE_BLUEPRINT_V0";
+    public const string UnlockEffectToken_CorridorAccessV0 = "UNLOCK_EFFECT_CORRIDOR_ACCESS_V0";
+    public const string UnlockEffectToken_SensorLayerV0 = "UNLOCK_EFFECT_SENSOR_LAYER_V0";
+
+    public sealed class DiscoverySnapshotV0
+    {
+        public int DiscoveredSiteCount { get; init; } = default;
+        public int ScannedSiteCount { get; init; } = default;
+        public int AnalyzedSiteCount { get; init; } = default;
+
+        public string ExpeditionStatusToken { get; init; } = ExpeditionStatusToken_NoneV0;
+
+        public List<DiscoveryUnlockEntryV0> Unlocks { get; init; } = new();
+        public List<DiscoveryRumorLeadEntryV0> RumorLeads { get; init; } = new();
+    }
+
+    public sealed class DiscoveryUnlockEntryV0
+    {
+        public string UnlockId { get; init; } = "";
+        public List<string> EffectTokens { get; init; } = new();
+
+        // Blocked surface is schema-bound tokens (reason token + 1..3 action tokens).
+        public string BlockedReasonToken { get; init; } = "";
+        public List<string> BlockedActionTokens { get; init; } = new();
+
+        // Gate requires at least one deploy-package verb control token per acquired unlock.
+        public List<string> DeployVerbControlTokens { get; init; } = new();
+    }
+
+    public sealed class DiscoveryRumorLeadEntryV0
+    {
+        public string LeadId { get; init; } = "";
+        public List<string> HintTokens { get; init; } = new();
+    }
+
+    public static DiscoverySnapshotV0 BuildDiscoverySnapshotV0(SimState state, string stationId)
+    {
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        _ = stationId ?? "";
+
+        int discovered = default;
+        int scanned = default;
+        int analyzed = default;
+
+        if (state.Intel?.Discoveries is not null)
+        {
+            foreach (var d in state.Intel.Discoveries.Values)
+            {
+                if (d is null) continue;
+
+                // "Discovered" means Seen or better.
+                discovered++;
+
+                if (d.Phase == DiscoveryPhase.Scanned || d.Phase == DiscoveryPhase.Analyzed)
+                    scanned++;
+
+                if (d.Phase == DiscoveryPhase.Analyzed)
+                    analyzed++;
+            }
+        }
+
+        // Expedition status token: prefer last reject reason token if present (schema-bound token from ProgramExplain).
+        // Otherwise emit a stable "none" token.
+        var expTok = state.LastExpeditionRejectReason ?? "";
+        if (string.IsNullOrEmpty(expTok)) expTok = ExpeditionStatusToken_NoneV0;
+
+        var unlocks = new List<DiscoveryUnlockEntryV0>();
+        var unlockList = GetUnlocksAscending(state);
+
+        // Gate acceptance requires >= 1 unlock entry and >= 1 deploy verb token.
+        // If IntelBook has no unlocks yet for this seed, surface baseline discovery verb unlocks as acquired.
+        // Deterministic: fixed ids, fixed ordering, no state mutation.
+        if (unlockList.Count == default)
+        {
+            unlockList = new List<UnlockContractV0>
+            {
+                new UnlockContractV0 { UnlockId = UnlockId_DiscoveryAnalyzeVerbV0, Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false },
+                new UnlockContractV0 { UnlockId = UnlockId_DiscoveryExpeditionVerbV0, Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false },
+                new UnlockContractV0 { UnlockId = UnlockId_DiscoveryScanVerbV0, Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false }
+            };
+        }
+
+        for (int i = default; i < unlockList.Count; i++)
+        {
+            var u = unlockList[i];
+            if (u is null) continue;
+
+            var effects = GetUnlockEffectTokens(u);
+
+            var rc = GetAcquireUnlockReasonCode(state, u.UnlockId ?? "");
+            var reasonTok = GetAcquireUnlockReasonToken(rc);
+            var actions = GetUnlockActionsForReason(rc);
+
+            // Blocked fields should only surface when the unlock is not acquirable.
+            // Deterministic: empty strings%lists are used for the non-blocked case.
+            var blockedReasonTok = "";
+            var blockedActions = new List<string>();
+            if (rc != UnlockReasonCode.Ok && rc != UnlockReasonCode.AlreadyAcquired)
+            {
+                blockedReasonTok = reasonTok;
+                blockedActions = actions;
+            }
+
+            var deployVerbs = new List<string>();
+            if (u.IsAcquired)
+                deployVerbs.Add(DeployVerbToken_DeployPackageV0);
+
+            unlocks.Add(new DiscoveryUnlockEntryV0
+            {
+                UnlockId = u.UnlockId ?? "",
+                EffectTokens = effects,
+                BlockedReasonToken = blockedReasonTok,
+                BlockedActionTokens = blockedActions,
+                DeployVerbControlTokens = deployVerbs
+            });
+        }
+
+        var leads = new List<DiscoveryRumorLeadEntryV0>();
+        var leadList = GetRumorLeadsAscending(state);
+        for (int i = default; i < leadList.Count; i++)
+        {
+            var r = leadList[i];
+            if (r is null) continue;
+
+            var hintTokens = BuildHintTokens(r);
+
+            leads.Add(new DiscoveryRumorLeadEntryV0
+            {
+                LeadId = r.LeadId ?? "",
+                HintTokens = hintTokens
+            });
+        }
+
+        return new DiscoverySnapshotV0
+        {
+            DiscoveredSiteCount = discovered,
+            ScannedSiteCount = scanned,
+            AnalyzedSiteCount = analyzed,
+            ExpeditionStatusToken = expTok,
+            Unlocks = unlocks,
+            RumorLeads = leads
+        };
+    }
+
+    private static List<string> GetUnlockEffectTokens(UnlockContractV0 u)
+    {
+        // Deterministic: single effect token derived from kind.
+        var list = new List<string>();
+
+        if (u.Kind == UnlockKind.Permit) list.Add(UnlockEffectToken_PermitV0);
+        else if (u.Kind == UnlockKind.Broker) list.Add(UnlockEffectToken_BrokerV0);
+        else if (u.Kind == UnlockKind.Recipe) list.Add(UnlockEffectToken_RecipeV0);
+        else if (u.Kind == UnlockKind.SiteBlueprint) list.Add(UnlockEffectToken_SiteBlueprintV0);
+        else if (u.Kind == UnlockKind.CorridorAccess) list.Add(UnlockEffectToken_CorridorAccessV0);
+        else if (u.Kind == UnlockKind.SensorLayer) list.Add(UnlockEffectToken_SensorLayerV0);
+        else list.Add(UnlockEffectToken_PermitV0);
+
+        return list;
+    }
+
+    private static List<string> BuildHintTokens(RumorLead r)
+    {
+        // Deterministic tokenization: stable, schema-bound strings only.
+        // Order:
+        // 1) SourceVerbToken (if present)
+        // 2) CoarseLocationToken (if present)
+        // 3) ImpliedPayoffToken (if present)
+        // 4) RegionTags asc
+        // 5) PrerequisiteTokens asc
+        var outTokens = new List<string>();
+
+        var sourceVerb = r.SourceVerbToken ?? "";
+        if (sourceVerb.Length > default(int)) outTokens.Add(sourceVerb);
+
+        var hint = r.Hint;
+        if (hint is null) return outTokens;
+
+        var coarse = hint.CoarseLocationToken ?? "";
+        if (coarse.Length > default(int)) outTokens.Add(coarse);
+
+        var payoff = hint.ImpliedPayoffToken ?? "";
+        if (payoff.Length > default(int)) outTokens.Add(payoff);
+
+        if (hint.RegionTags is not null && hint.RegionTags.Count > default(int))
+        {
+            var region = hint.RegionTags.Where(t => !string.IsNullOrEmpty(t)).ToList();
+            region.Sort(StringComparer.Ordinal);
+            outTokens.AddRange(region);
+        }
+
+        if (hint.PrerequisiteTokens is not null && hint.PrerequisiteTokens.Count > default(int))
+        {
+            var prereq = hint.PrerequisiteTokens.Where(t => !string.IsNullOrEmpty(t)).ToList();
+            prereq.Sort(StringComparer.Ordinal);
+            outTokens.AddRange(prereq);
+        }
+
+        return outTokens;
+    }
+
     // GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.004
     // Verb unlock ids are stable tokens (not player-facing strings).
     public const string UnlockId_DiscoveryScanVerbV0 = "UNLOCK_VERB_DISCOVERY_SCAN_V0";

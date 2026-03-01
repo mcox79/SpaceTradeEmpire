@@ -19,6 +19,11 @@ namespace SpaceTradeEmpire.Bridge;
 
 public partial class SimBridge
 {
+    // Cached discovery list snapshot (legacy readout).
+    // Used by GetDiscoveryListSnapshotV0 in this partial file.
+    // Failure safety: UI callers can get a cached snapshot if a read lock cannot be taken immediately.
+    private Godot.Collections.Array _cachedDiscoveryListSnapshot = new Godot.Collections.Array();
+
     // --- Station-scoped security incident snapshot (Slice 3 / GATE.S3.RISK_MODEL.001) ---
     // Returns newest-first schema-bound incidents that touch this node (from or to).
     public Godot.Collections.Dictionary GetSecurityIncidentStationSnapshot(string nodeId, int maxItems = 12)
@@ -672,7 +677,7 @@ public partial class SimBridge
 
                 lock (_snapshotLock)
                 {
-                    _cachedDiscoverySnapshot = arr;
+                    _cachedDiscoveryListSnapshot = arr;
                 }
 
                 return arr;
@@ -685,7 +690,7 @@ public partial class SimBridge
 
         lock (_snapshotLock)
         {
-            return _cachedDiscoverySnapshot;
+            return _cachedDiscoveryListSnapshot;
         }
     }
 

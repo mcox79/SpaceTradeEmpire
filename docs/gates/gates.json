@@ -5,35 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 433c65dfc5cee0f620c4f8cf994ece9e03494a7b",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S3_6.UI_DISCOVERY_MIN.001",
-                      "task_id":  "GATE.S3_6.UI_DISCOVERY_MIN.001.T463",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.UI_DISCOVERY_MIN.001: Discovery UI readout, contract, and deploy controls v0: extend SimBridge with GetDiscoverySnapshotV0(stationId) Facts-only (DiscoveredSiteCount%ScannedSiteCount%AnalyzedSiteCount; unlock list UnlockId asc with effect tokens and blocked reasons; rumor lead list LeadId asc with hint tokens; expedition status token); contract tests in IntelContractTests assert required fields present; extend station_interface.gd [DISCOVERY] section with site counts%unlock entries%lead entries and \u003e= 1 deploy-package verb control token per active unlock; headless Seed 42 transcript shows [DISCOVERY] section with \u003e= 1 entry and \u003e= 1 verb token; SHA256 stable across two runs",
-                      "intent":  "Discovery UI readout, contract, and deploy controls v0: extend SimBridge with GetDiscoverySnapshotV0(stationId) Facts-only (DiscoveredSiteCount%ScannedSiteCount%AnalyzedSiteCount; unlock list UnlockId asc with effect tokens and blocked reasons; rumor lead list LeadId asc with hint tokens; expedition status token); contract tests in IntelContractTests assert required fields present; extend station_interface.gd [DISCOVERY] section with site counts%unlock entries%lead entries and \u003e= 1 deploy-package verb control token per active unlock; headless Seed 42 transcript shows [DISCOVERY] section with \u003e= 1 entry and \u003e= 1 verb token; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "scripts/tests/test_discovery_ui_readout.gdscripts/bridge/SimBridge.cs scripts/view/ui/station_interface.gd SimCore/Entities/IntelBook.cs SimCore/Systems/IntelSystem.csdocs/generated/discovery_ui_readout_seed_42_v1.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=22aae88d486b"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002",
                       "task_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002.T082",
                       "status":  "TODO",

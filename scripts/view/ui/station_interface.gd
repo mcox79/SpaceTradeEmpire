@@ -99,143 +99,78 @@ func refresh_market_list():
 	container.add_child(spacer)
 
 	var disc_title = Label.new()
-	disc_title.text = 'DISCOVERIES'
+	disc_title.text = '[DISCOVERY]'
 	disc_title.custom_minimum_size = Vector2(780, 24)
 	container.add_child(disc_title)
 
 	var bridge = get_node_or_null('/root/SimBridge')
-	if bridge and bridge.has_method('GetDiscoveryListSnapshotV0'):
-		var list = bridge.call('GetDiscoveryListSnapshotV0')
-		if typeof(list) == TYPE_ARRAY:
-			for e in list:
-				if typeof(e) != TYPE_DICTIONARY:
-					continue
+	if bridge and bridge.has_method('GetDiscoverySnapshotV0'):
+		var snap = bridge.call('GetDiscoverySnapshotV0', current_node_id)
+		if typeof(snap) == TYPE_DICTIONARY:
+			var discovered_count = int(snap.get('discovered_site_count', 0))
+			var scanned_count = int(snap.get('scanned_site_count', 0))
+			var analyzed_count = int(snap.get('analyzed_site_count', 0))
+			var exp_tok = str(snap.get('expedition_status_token', ''))
 
-				var discovery_id = str(e.get('discovery_id', ''))
-				var seen_bps = int(e.get('seen_bps', 0))
-				var scanned_bps = int(e.get('scanned_bps', 0))
-				var analyzed_bps = int(e.get('analyzed_bps', 0))
+			var counts_line = Label.new()
+			counts_line.text = 'SITES | DISCOVERED: %s | SCANNED: %s | ANALYZED: %s' % [discovered_count, scanned_count, analyzed_count]
+			counts_line.custom_minimum_size = Vector2(780, 22)
+			container.add_child(counts_line)
 
-				var seen_pct = int(seen_bps / 100)
-				var scanned_pct = int(scanned_bps / 100)
-				var analyzed_pct = int(analyzed_bps / 100)
+			var exp_line = Label.new()
+			exp_line.text = 'EXPEDITION_STATUS_TOKEN: %s' % exp_tok
+			exp_line.custom_minimum_size = Vector2(780, 22)
+			container.add_child(exp_line)
 
-				var scan_reason = str(e.get('scan_reason_code', ''))
-				var analyze_reason = str(e.get('analyze_reason_code', ''))
-				var scan_actions = e.get('scan_actions', [])
-				var analyze_actions = e.get('analyze_actions', [])
+			var unlocks = snap.get('unlocks', [])
+			if typeof(unlocks) == TYPE_ARRAY and unlocks.size() > 0:
+				var unlock_title = Label.new()
+				unlock_title.text = 'UNLOCKS'
+				unlock_title.custom_minimum_size = Vector2(780, 24)
+				container.add_child(unlock_title)
 
-				var line = Label.new()
-				line.text = '%s | SEEN: %s% | SCANNED: %s% | ANALYZED: %s%' % [discovery_id, seen_pct, scanned_pct, analyzed_pct]
-				line.custom_minimum_size = Vector2(780, 22)
-				container.add_child(line)
+				for u in unlocks:
+					if typeof(u) != TYPE_DICTIONARY:
+						continue
+					var unlock_id = str(u.get('unlock_id', ''))
+					var effect_tokens = u.get('effect_tokens', [])
+					var blocked_reason = str(u.get('blocked_reason_token', ''))
+					var blocked_actions = u.get('blocked_action_tokens', [])
+					var deploy_verbs = u.get('deploy_verb_control_tokens', [])
 
-				# Explainability v0: surface deterministic reason codes + action tokens in the same readout.
-				if scan_reason != '' or analyze_reason != '':
-					var detail = Label.new()
-					var scan_actions_s = _join_tokens(scan_actions)
-					var analyze_actions_s = _join_tokens(analyze_actions)
-					detail.text = '  BLOCKED_SCAN: %s | ACTIONS: %s | BLOCKED_ANALYZE: %s | ACTIONS: %s' % [scan_reason, scan_actions_s, analyze_reason, analyze_actions_s]
-					detail.custom_minimum_size = Vector2(780, 20)
-					container.add_child(detail)
+					var effects_s = _join_tokens(effect_tokens)
+					var deploy_s = _join_tokens(deploy_verbs)
 
-				var chain = e.get('explain_chain', [])
-				if typeof(chain) == TYPE_ARRAY and chain.size() > 0:
-					var chain_line = Label.new()
-					chain_line.text = '  CHAIN: ' + _format_chain(chain)
-					chain_line.custom_minimum_size = Vector2(780, 20)
-					container.add_child(chain_line)
+					var uline = Label.new()
+					uline.text = '%s | EFFECTS: %s | DEPLOY_VERB_TOKENS: %s' % [unlock_id, effects_s, deploy_s]
+					uline.custom_minimum_size = Vector2(780, 22)
+					container.add_child(uline)
 
-	var unlock_spacer = Label.new()
-	unlock_spacer.text = ''
-	unlock_spacer.custom_minimum_size = Vector2(780, 12)
-	container.add_child(unlock_spacer)
+					if blocked_reason != '':
+						var udetail = Label.new()
+						var blocked_actions_s = _join_tokens(blocked_actions)
+						udetail.text = '  BLOCKED_REASON: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
+						udetail.custom_minimum_size = Vector2(780, 20)
+						container.add_child(udetail)
 
-	var unlock_title = Label.new()
-	unlock_title.text = 'UNLOCKS'
-	unlock_title.custom_minimum_size = Vector2(780, 24)
-	container.add_child(unlock_title)
+			var leads = snap.get('rumor_leads', [])
+			if typeof(leads) == TYPE_ARRAY and leads.size() > 0:
+				var lead_title = Label.new()
+				lead_title.text = 'RUMOR_LEADS'
+				lead_title.custom_minimum_size = Vector2(780, 24)
+				container.add_child(lead_title)
 
-	if bridge and bridge.has_method('GetUnlockListSnapshotV0'):
-		var unlocks = bridge.call('GetUnlockListSnapshotV0')
-		if typeof(unlocks) == TYPE_ARRAY:
-			for u in unlocks:
-				if typeof(u) != TYPE_DICTIONARY:
-					continue
+				for r in leads:
+					if typeof(r) != TYPE_DICTIONARY:
+						continue
+					var lead_id = str(r.get('lead_id', ''))
+					var hint_tokens = r.get('hint_tokens', [])
+					var hint_s = _join_tokens(hint_tokens)
 
-				var unlock_id = str(u.get('unlock_id', ''))
-				var effect_tokens = u.get('effect_tokens', [])
-				var blocked_reason = str(u.get('blocked_reason_code', ''))
-				var blocked_actions = u.get('blocked_actions', [])
-
-				var effects_s = _join_tokens(effect_tokens)
-
-				var uline = Label.new()
-				uline.text = '%s | EFFECTS: %s' % [unlock_id, effects_s]
-				uline.custom_minimum_size = Vector2(780, 22)
-				container.add_child(uline)
-
-				if blocked_reason != '':
-					var udetail = Label.new()
-					var blocked_actions_s = _join_tokens(blocked_actions)
-					udetail.text = '  BLOCKED: %s | ACTIONS: %s' % [blocked_reason, blocked_actions_s]
-					udetail.custom_minimum_size = Vector2(780, 20)
-					container.add_child(udetail)
-
-	# --- [EXPEDITION STATUS] section (GATE.S3_6.EXPEDITION_PROGRAMS.003) ---
-	# Facts-only expedition program readout v0.
-	# Deterministic:
-	# - Programs enumerated Id asc from GetProgramExplainSnapshot.
-	# - Explain tokens are emitted primary-first then secondary (each list already deterministic from bridge).
-	# - Intervention verbs are Ordinal asc from bridge; join preserves provided order.
-	if bridge and bridge.has_method('GetExpeditionStatusSnapshotV0') and bridge.has_method('GetProgramExplainSnapshot'):
-		var exp_spacer = Label.new()
-		exp_spacer.text = ''
-		exp_spacer.custom_minimum_size = Vector2(780, 12)
-		container.add_child(exp_spacer)
-
-		var exp_title = Label.new()
-		exp_title.text = '[EXPEDITION STATUS]'
-		exp_title.custom_minimum_size = Vector2(780, 24)
-		container.add_child(exp_title)
-
-		var prog_list2 = bridge.call('GetProgramExplainSnapshot')
-		if typeof(prog_list2) == TYPE_ARRAY:
-			for prog_entry2 in prog_list2:
-				if typeof(prog_entry2) != TYPE_DICTIONARY:
-					continue
-				var prog_id2 = str(prog_entry2.get('id', ''))
-				if prog_id2 == '':
-					continue
-				var kind2 = str(prog_entry2.get('kind', ''))
-				# Filter to expedition programs by kind naming convention.
-				if kind2.findn('expedition') == -1:
-					continue
-
-				var es = bridge.call('GetExpeditionStatusSnapshotV0', prog_id2)
-				if typeof(es) != TYPE_DICTIONARY:
-					continue
-
-				var exp_kind_tok = str(es.get('expedition_kind_token', ''))
-				var status_tok = str(es.get('status_token', ''))
-				var prim = es.get('explain_primary_tokens', [])
-				var sec = es.get('explain_secondary_tokens', [])
-				var verbs = es.get('intervention_verb_tokens', [])
-
-				var eline = Label.new()
-				eline.text = '%s | KIND: %s | STATUS: %s' % [prog_id2, exp_kind_tok, status_tok]
-				eline.custom_minimum_size = Vector2(780, 22)
-				container.add_child(eline)
-
-				var prim_s = _join_tokens(prim)
-				var sec_s = _join_tokens(sec)
-				var verbs_s = _join_tokens(verbs)
-
-				if prim_s != '' or sec_s != '' or verbs_s != '':
-					var edetail = Label.new()
-					edetail.text = '  PRIMARY: %s | SECONDARY: %s | VERBS: %s' % [prim_s, sec_s, verbs_s]
-					edetail.custom_minimum_size = Vector2(780, 20)
-					container.add_child(edetail)
+					var rline = Label.new()
+					rline.text = '%s | HINT_TOKENS: %s' % [lead_id, hint_s]
+					rline.custom_minimum_size = Vector2(780, 22)
+					container.add_child(rline)
 
 	# --- [RUMOR LEADS] section (GATE.S3_6.RUMOR_INTEL_MIN.003) ---
 	# Facts-only rumor lead readout min v0.

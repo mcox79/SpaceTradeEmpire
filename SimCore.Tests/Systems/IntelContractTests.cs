@@ -446,6 +446,84 @@ public sealed class IntelContractTests
     }
 
     [Test]
+    public void DiscoverySnapshotV0_IsFactsOnly_AndDeterministicOrdering()
+    {
+        var state = new SimState(4242);
+
+        // Discoveries (unordered insert) should still produce stable aggregate counts.
+        state.Intel.Discoveries["disc_b"] = new DiscoveryStateV0 { DiscoveryId = "disc_b", Phase = DiscoveryPhase.Scanned };
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Seen };
+        state.Intel.Discoveries["disc_c"] = new DiscoveryStateV0 { DiscoveryId = "disc_c", Phase = DiscoveryPhase.Analyzed };
+
+        // Unlocks must be UnlockId asc in snapshot.
+        state.Intel.Unlocks["unlock_003"] = new UnlockContractV0 { UnlockId = "unlock_003", Kind = UnlockKind.SensorLayer, IsAcquired = false, IsBlocked = false };
+        state.Intel.Unlocks["unlock_001"] = new UnlockContractV0 { UnlockId = "unlock_001", Kind = UnlockKind.Permit, IsAcquired = true, IsBlocked = false };
+        state.Intel.Unlocks["unlock_002"] = new UnlockContractV0 { UnlockId = "unlock_002", Kind = UnlockKind.CorridorAccess, IsAcquired = false, IsBlocked = true };
+
+        // Rumor leads must be LeadId asc and hint sublists must be Ordinal asc.
+        state.Intel.RumorLeads["LEAD.0002"] = new RumorLead
+        {
+            LeadId = "LEAD.0002",
+            SourceVerbToken = "HUB_ANALYSIS",
+            Status = RumorLeadStatus.Active,
+            Hint = new HintPayloadV0
+            {
+                CoarseLocationToken = "OUTER_RIM",
+                ImpliedPayoffToken = "BROKER_UNLOCK",
+                RegionTags = new List<string> { "ZETA", "ALPHA" },
+                PrerequisiteTokens = new List<string> { "REQ_B", "REQ_A" }
+            }
+        };
+        state.Intel.RumorLeads["LEAD.0001"] = new RumorLead
+        {
+            LeadId = "LEAD.0001",
+            SourceVerbToken = "EXPLORE",
+            Status = RumorLeadStatus.Active,
+            Hint = new HintPayloadV0
+            {
+                CoarseLocationToken = "CORE",
+                ImpliedPayoffToken = "RESOURCE_SITE",
+                RegionTags = new List<string> { "BETA" },
+                PrerequisiteTokens = new List<string>()
+            }
+        };
+
+        var snap = IntelSystem.BuildDiscoverySnapshotV0(state, "");
+
+        Assert.That(snap.DiscoveredSiteCount, Is.EqualTo(3));
+        Assert.That(snap.ScannedSiteCount, Is.EqualTo(2));
+        Assert.That(snap.AnalyzedSiteCount, Is.EqualTo(1));
+        Assert.That(snap.ExpeditionStatusToken, Is.Not.EqualTo(""));
+
+        Assert.That(snap.Unlocks.Count, Is.EqualTo(3));
+        Assert.That(snap.Unlocks[0].UnlockId, Is.EqualTo("unlock_001"));
+        Assert.That(snap.Unlocks[1].UnlockId, Is.EqualTo("unlock_002"));
+        Assert.That(snap.Unlocks[2].UnlockId, Is.EqualTo("unlock_003"));
+
+        // Acquired unlock must have at least one deploy-package verb token.
+        var u1 = snap.Unlocks[0];
+        Assert.That(u1.DeployVerbControlTokens.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(u1.DeployVerbControlTokens[0], Is.EqualTo(IntelSystem.DeployVerbToken_DeployPackageV0));
+
+        // Blocked unlock must surface blocked reason%actions (schema-bound tokens).
+        var u2 = snap.Unlocks[1];
+        Assert.That(u2.BlockedReasonToken, Is.EqualTo(IntelSystem.UnlockReasonToken_Blocked));
+        Assert.That(u2.BlockedActionTokens.Count, Is.InRange(1, 3));
+
+        Assert.That(snap.RumorLeads.Count, Is.EqualTo(2));
+        Assert.That(snap.RumorLeads[0].LeadId, Is.EqualTo("LEAD.0001"));
+        Assert.That(snap.RumorLeads[1].LeadId, Is.EqualTo("LEAD.0002"));
+
+        // LEAD.0002 hint tokens must include sorted RegionTags and sorted PrerequisiteTokens.
+        var lead2 = snap.RumorLeads[1];
+        var joined = string.Join(",", lead2.HintTokens);
+        Assert.That(joined.Contains("ALPHA"), Is.True);
+        Assert.That(joined.Contains("ZETA"), Is.True);
+        Assert.That(joined.IndexOf("ALPHA", StringComparison.Ordinal), Is.LessThan(joined.IndexOf("ZETA", StringComparison.Ordinal)));
+        Assert.That(joined.IndexOf("REQ_A", StringComparison.Ordinal), Is.LessThan(joined.IndexOf("REQ_B", StringComparison.Ordinal)));
+    }
+
+    [Test]
     public void ExpeditionPrograms_ExplainabilityTokenSurface_V0_VacuousWhenAbsent_AndDeterministicWhenPresent()
     {
         static void AssertOrdinalSortedUnique(IReadOnlyList<string> tokens)

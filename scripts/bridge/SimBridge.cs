@@ -73,7 +73,7 @@ public partial class SimBridge : Node
 
     // Cached discovery snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
-    private Godot.Collections.Array _cachedDiscoverySnapshot = new Godot.Collections.Array();
+    private Godot.Collections.Dictionary _cachedDiscoverySnapshotV0 = new Godot.Collections.Dictionary();
 
     // Cached unlock snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
@@ -415,6 +415,89 @@ public partial class SimBridge : Node
     }
 
     // --- PUBLIC API (Thread-Safe) ---
+
+    private static Godot.Collections.Array ToGodotArrayStrings(System.Collections.Generic.IReadOnlyList<string>? tokens)
+    {
+        var a = new Godot.Collections.Array();
+        if (tokens == null) return a;
+
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            a.Add(tokens[i] ?? "");
+        }
+
+        return a;
+    }
+
+    // GATE.S3_6.UI_DISCOVERY_MIN.001
+    // Facts-only discovery snapshot for UI.
+    // Determinism:
+    // - ordering is produced by IntelSystem (UnlockId asc, LeadId asc, token sublists Ordinal asc)
+    // - no timestamps%wall-clock
+    // Failure safety:
+    // - if we cannot take the read lock immediately, return the cached snapshot
+    public Godot.Collections.Dictionary GetDiscoverySnapshotV0(string stationId)
+    {
+        stationId ??= "";
+
+        if (!TryExecuteSafeRead(state =>
+        {
+            var snap = IntelSystem.BuildDiscoverySnapshotV0(state, stationId);
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["discovered_site_count"] = snap.DiscoveredSiteCount,
+                ["scanned_site_count"] = snap.ScannedSiteCount,
+                ["analyzed_site_count"] = snap.AnalyzedSiteCount,
+                ["expedition_status_token"] = snap.ExpeditionStatusToken ?? ""
+            };
+
+            var unlocks = new Godot.Collections.Array();
+            for (int i = 0; i < snap.Unlocks.Count; i++)
+            {
+                var u = snap.Unlocks[i];
+                var ud = new Godot.Collections.Dictionary
+                {
+                    ["unlock_id"] = u.UnlockId ?? "",
+                    ["effect_tokens"] = ToGodotArrayStrings(u.EffectTokens),
+                    ["blocked_reason_token"] = u.BlockedReasonToken ?? "",
+                    ["blocked_action_tokens"] = ToGodotArrayStrings(u.BlockedActionTokens),
+                    ["deploy_verb_control_tokens"] = ToGodotArrayStrings(u.DeployVerbControlTokens)
+                };
+                unlocks.Add(ud);
+            }
+            d["unlocks"] = unlocks;
+
+            var leads = new Godot.Collections.Array();
+            for (int i = 0; i < snap.RumorLeads.Count; i++)
+            {
+                var r = snap.RumorLeads[i];
+                var rd = new Godot.Collections.Dictionary
+                {
+                    ["lead_id"] = r.LeadId ?? "",
+                    ["hint_tokens"] = ToGodotArrayStrings(r.HintTokens)
+                };
+                leads.Add(rd);
+            }
+            d["rumor_leads"] = leads;
+
+            lock (_snapshotLock)
+            {
+                _cachedDiscoverySnapshotV0 = d;
+            }
+        }, 0))
+        {
+            lock (_snapshotLock)
+            {
+                return _cachedDiscoverySnapshotV0;
+            }
+        }
+
+        lock (_snapshotLock)
+        {
+            return _cachedDiscoverySnapshotV0;
+        }
+    }
 
     // Deterministic headless shutdown hook for tooling/tests.
     // Cancels the sim loop and requests engine quit on the main thread.
