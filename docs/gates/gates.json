@@ -110,7 +110,7 @@
                                              "scripts/view/StarNode.cs",
                                              "scripts/view/GalaxyView.cs",
                                              "scripts/core/game_manager.gd",
-                                             "scripts/view/ui/station_interface.gd",
+                                             "scripts/ui/StationMenu.cs",
                                              "scenes/playable_prototype.tscn"
                                          ],
                       "constraints":  [

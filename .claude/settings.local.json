@@ -18,7 +18,25 @@
       "Bash(# Check the status packet for current epic/gate status cat \"\"c:/Users/marsh/Documents/Space Trade Empire/docs/generated/02_STATUS_PACKET.txt\"\")",
       "Bash(dotnet build --no-restore -v q)",
       "Bash(dotnet test --no-build -v q)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(wc -l /d/SGE/SpaceTradeEmpire/SimCore/Systems/*.cs)",
+      "Bash(wc -l /d/SGE/SpaceTradeEmpire/SimCore/Entities/*.cs)",
+      "Bash(wc -l /d/SGE/SpaceTradeEmpire/scripts/bridge/*.cs)",
+      "Bash(wc -l /d/SGE/SpaceTradeEmpire/scripts/view/ui/*.gd)",
+      "Bash(grep -n \"SimBridge\\\\|SimCore\\\\|bridge\\\\.\" /d/SGE/SpaceTradeEmpire/scripts/core/subsystems/*.gd)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --no-build)",
+      "Bash(ls -lh /d/SGE/SpaceTradeEmpire/docs/*.md)",
+      "Read(//d/SGE/SpaceTradeEmpire/**)",
+      "Bash(grep -l \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" /d/SGE/SpaceTradeEmpire/scripts/**/*.gd)",
+      "Bash(wc -l d:/SGE/SpaceTradeEmpire/SimCore/Systems/*.cs d:/SGE/SpaceTradeEmpire/SimCore/Entities/*.cs)",
+      "Bash(wc -l d:/SGE/SpaceTradeEmpire/scripts/view/ui/*.gd d:/SGE/SpaceTradeEmpire/scripts/tests/*.gd)",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|HACK\\\\|XXX\\\\|WIP\" d:/SGE/SpaceTradeEmpire/SimCore/Systems/*.cs d:/SGE/SpaceTradeEmpire/SimCore/Entities/*.cs)",
+      "Bash(ls d:/SGE/SpaceTradeEmpire/SimCore/SimState*.cs)",
+      "Bash(grep -n \"RemoveRange\\\\|prune\\\\|evict\\\\|cap\\\\b\\\\|MAX_LOG\\\\|maxLog\\\\|maxItems\\\\|_maxEv\" d:/SGE/SpaceTradeEmpire/SimCore/SimState.Events.cs d:/SGE/SpaceTradeEmpire/SimCore/Systems/*.cs)",
+      "Bash(wc -l d:/SGE/SpaceTradeEmpire/scripts/core/sim/*.gd)",
+      "Bash(dotnet build \"Space Trade Empire.csproj\" -c Debug --nologo)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -q)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo)"
     ],
     "ask": [
       "Bash(git:push*)"
