@@ -51,13 +51,14 @@ Primary anchors:
 - EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [DONE]: Unlock contract v0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) with explicit economic effects (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
 - EPIC.S3_6.RUMOR_INTEL_MIN.V0 [DONE]: Rumor%Intel substrate v0 for lore leads discovered via exploration%hub analysis; deterministic hints (region tags, coarse location, prerequisites); UI surfacing; save%load; no quest treadmill (gates: GATE.S3_6.RUMOR_INTEL_MIN.*)
 - EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [DONE]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); produces unlock inputs; no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
-- EPIC.S1.HERO_SHIP_LOOP.V0 [TODO]: Player flies their ship in-engine: physics thrust and inertia, collision with asteroids and stations, dock trigger, basic camera; proven by Godot headless scene boot and GDScript smoke test; no combat required; satisfies Architecture 1.1 “The Player is a Pilot” invariant (gates: GATE.S1.HERO_SHIP_LOOP.*)
+- EPIC.S1.HERO_SHIP_LOOP.V0 [TODO]: Player flies their ship in a physics-simulated solar system scene: thrust, inertia, collision; local space is 20,000u radius with star at origin and orbital objects (station, planets, asteroid clusters, lane gates) spawned from SimCore system data — not hardcoded scene positions (architectural constraint: data-driven from day one or procedural generation requires rework); named player states declared in GameShell (InFlight, Docked, InLaneTransit) even if InLaneTransit is minimal in v0 (architectural constraint: named state enables future interdiction%instability without restructuring); dock proximity trigger at 150u range hands off to existing station_interface or DiscoverySite scan flow; lane transit sequence: enter gate → fade → arrive at adjacent system gate, SimCore game-time advances per existing LaneFlowSystem cost; scale constants (scene radius, ship speed, dock range) declared as GameShell-only config not scene literals; basic camera; proven by Godot headless scene boot and GDScript smoke test; no combat required; satisfies Architecture 1.1 “The Player is a Pilot” invariant (gates: GATE.S1.HERO_SHIP_LOOP.*)
+- EPIC.S1.GALAXY_MAP_PROTO.V0 [TODO]: Minimal galaxy map UI (Zone C zoom-out) backed by a new GetGalaxySnapshotV0 SimBridge contract; shows all systems with discovery states (Hidden=not shown, Rumored=??? node from RumorLead location tags, Visited=named node, Mapped=named+object list), lane connections, player current system highlighted, fleet unit counts per system node; read-only in v0 (no fracture plotting); accessible via Tab zoom-out from local space; contract derives entirely from existing SimCore discovery state, RumorLead, and LaneFlowSystem data — no new SimCore simulation logic required; prerequisite for EPIC.S6.MAP_GALAXY (gates: GATE.S1.GALAXY_MAP.*)
 - EPIC.S3_6.UI_DISCOVERY_MIN.V0 [DONE]: Discovery UI v0 + unlock surfaces + “deploy package” controls; deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
 - EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [DONE]: Exploitation packages v0 (TradeCharter, ResourceTap) with remote exception policies and deterministic reporting (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
 - EPIC.S3_6.PLAY_LOOP_PROOF.V0 [DONE]: Headless proof of first 60 minutes: discover -> dock at hub -> identify 1 trade loop -> acquire 1 starter freighter -> assign TradeCharter -> discover 1 mineable site -> deploy ResourceTap -> complete 1 research%refit tech unlock -> surface 1 lore lead -> trigger 1 piracy pressure incident with explainable cause chain -> keep exploring; deterministic, no timestamps, stable ordering (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
-- EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
 - EPIC.S4.CATALOG.V0 [TODO]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
 - EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
+- EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
@@ -501,6 +502,20 @@ Purpose: Prove the core economic simulation loop in a tiny world, deterministica
 Gates: see docs/55_GATES.md (source of truth)
 Status: DONE
 
+### Slice 1 — Physical World Epics (post-lock additions, S1-prefixed IDs)
+Purpose: Build the spatial world the player inhabits. Not part of the original Slice 1 scope lock but tracked here because the epic IDs carry S1 prefix. These are next-up after Slice 3.6 DONE and are prerequisites for Slice 5 combat.
+
+Dependency order:
+- EPIC.S1.HERO_SHIP_LOOP.V0 first (physics world, dock, transit)
+- EPIC.S1.GALAXY_MAP_PROTO.V0 second (depends on SimCore data from S3.6 discovery + RumorLead, which is now DONE)
+- Both must be DONE before EPIC.S5.COMBAT_LOCAL starts
+
+Epics:
+- EPIC.S1.HERO_SHIP_LOOP.V0 [TODO]: see canonical epic bullets above (gates: GATE.S1.HERO_SHIP_LOOP.*)
+- EPIC.S1.GALAXY_MAP_PROTO.V0 [TODO]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
+
+Status: TODO
+
 ---
 
 ### Slice 1.5 (LOCKED): Tech sustainment via supply chain
@@ -539,7 +554,7 @@ Epics:
 - EPIC.S2_5.SEEDS [DONE]: Seed plumbing everywhere (world, save/load, tests, tools) (gates: GATE.S2_5.SEEDS.*)
 - EPIC.S2_5.WGEN.GALAXY.V0 [DONE]: Topology, lanes, chokepoints, capacities, regimes; starter safe region (gates: GATE.S2_5.WGEN.GALAXY.001)
 - EPIC.S2_5.WGEN.ECON.V0 [DONE]: Role distribution, recipe placement, demand sinks, initial inventories; early loop guarantees (gates: GATE.S2_5.WGEN.ECON.001)
-- EPIC.S2_5.WGEN.DISCOVERY_SEEDING.V0 [TODO]: Deterministic seeding of anomaly families, corridor traces, and resource pool markers; guarantees at least 1 frontier discovery chain and 1 monetizable resource opportunity per seed class (CORE%FRONTIER%RIM) (gates: GATE.S2_5.WGEN.DISCOVERY_SEEDING.*)
+- EPIC.S2_5.WGEN.DISCOVERY_SEEDING.V0 [DONE]: Deterministic seeding of anomaly families, corridor traces, and resource pool markers; guarantees at least 1 frontier discovery chain and 1 monetizable resource opportunity per seed class (CORE%FRONTIER%RIM) (gates: GATE.S2_5.WGEN.DISCOVERY_SEEDING.*)
 - EPIC.S2_5.WGEN.FACTION.V0 [DONE]: 3 to 5 factions, home regions, doctrines, initial relations (gates: GATE.S2_5.WGEN.FACTION.001)
 - EPIC.S2_5.WGEN.WORLD_CLASSES.V0 [DONE]: World classes v0 implemented (CORE, FRONTIER, RIM) with deterministic assignment and measurable effect (fee_multiplier) (gates: GATE.S2_5.WGEN.WORLD_CLASSES.001)
 - EPIC.S2_5.WGEN.INVARIANTS [DONE]: Connectivity, early viability, reachability, onboarding invariants (gates: GATE.S2_5.WGEN.INVARIANTS.001)
@@ -548,7 +563,7 @@ Epics:
 - EPIC.S2_5.WGEN.DISTINCTNESS.TARGETS.V0 [DONE]: Enforce class separation targets using report metrics; violations list seeds + deltas sorted; exits nonzero on failure (gates: GATE.S2_5.WGEN.DISTINCTNESS.TARGETS.*)
 - EPIC.S2_5.SAVE_IDENTITY [DONE]: Save seed%params, load exact identity, hash equivalence regression (gates: GATE.S2_5.SAVELOAD.WORLDGEN.001)
 
-Status: IN_PROGRESS
+Status: DONE
 
 ---
 
@@ -618,7 +633,7 @@ Epics:
   - >= 2 disruptions resolved via remote policy verbs (no mandatory rescue travel)
   - Evidence: deterministic proof report (no timestamps, stable ordering) recorded in gate evidence (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
 
-Status: TODO
+Status: DONE
 
 ---
 
@@ -747,7 +762,7 @@ Status: TODO
 Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
-- EPIC.S6.MAP_GALAXY [TODO]: Navigation, discovery state, bookmarking, expedition planning (builds on Slice 3.6 discovery state%unlocks) (gates: GATE.S6.MAP_GALAXY.*)
+- EPIC.S6.MAP_GALAXY [TODO]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
 - EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 that is expensive but worth it:
   - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight

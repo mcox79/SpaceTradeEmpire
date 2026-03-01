@@ -509,6 +509,56 @@ public partial class SimBridge : Node
         }
     }
 
+    // GATE.S1.GALAXY_MAP.CONTRACT.001
+    // Facts-only galaxy map snapshot for UI.
+    // Determinism:
+    // - system_nodes ordered by node_id Ordinal asc (SimCore builder)
+    // - lane_edges ordered by edge_id Ordinal asc (SimCore builder)
+    // - no timestamps%wall-clock
+    // Failure safety:
+    // - blocking read lock is acceptable for contract v0 (no cached fallback behavior)
+    public Godot.Collections.Dictionary GetGalaxySnapshotV0()
+    {
+        Godot.Collections.Dictionary d = new Godot.Collections.Dictionary();
+        ExecuteSafeRead(state =>
+        {
+            var snap = MapQueries.BuildGalaxySnapshotV0(state);
+
+            var nodes = new Godot.Collections.Array();
+            for (int i = 0; i < snap.SystemNodes.Count; i++)
+            {
+                var n = snap.SystemNodes[i];
+                nodes.Add(new Godot.Collections.Dictionary
+                {
+                    ["node_id"] = n.NodeId ?? "",
+                    ["display_state_token"] = n.DisplayStateToken ?? "",
+                    ["display_text"] = n.DisplayText ?? "",
+                    ["object_count"] = n.ObjectCount
+                });
+            }
+
+            var edges = new Godot.Collections.Array();
+            for (int i = 0; i < snap.LaneEdges.Count; i++)
+            {
+                var e = snap.LaneEdges[i];
+                edges.Add(new Godot.Collections.Dictionary
+                {
+                    ["from_id"] = e.FromNodeId ?? "",
+                    ["to_id"] = e.ToNodeId ?? ""
+                });
+            }
+
+            d = new Godot.Collections.Dictionary
+            {
+                ["system_nodes"] = nodes,
+                ["lane_edges"] = edges,
+                ["player_current_node_id"] = snap.PlayerCurrentNodeId ?? ""
+            };
+        });
+
+        return d;
+    }
+
     // Deterministic headless shutdown hook for tooling/tests.
     // Cancels the sim loop and requests engine quit on the main thread.
     public void RequestShutdownV0()

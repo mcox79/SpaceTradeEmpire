@@ -967,6 +967,121 @@ public sealed class IntelContractTests
         return startDir;
     }
 
+    // GATE.S1.GALAXY_MAP.CONTRACT.001
+
+    [Test]
+    public void GalaxySnapshot_ContractV0_AllDisplayStates_Present()
+    {
+        var state = new SimState(42);
+
+        // Nodes:
+        // - hidden: neither rumored, visited, nor mapped
+        // - rumored: active rumor lead coarse token points to node id
+        // - visited: player current node
+        // - mapped: has seeded discoveries that exist in IntelBook
+        state.Nodes["n_hidden"] = new Node { Id = "n_hidden", Name = "HiddenName" };
+        state.Nodes["n_rumor"] = new Node { Id = "n_rumor", Name = "RumorName" };
+        state.Nodes["n_visit"] = new Node { Id = "n_visit", Name = "VisitedName" };
+        state.Nodes["n_map"] = new Node
+        {
+            Id = "n_map",
+            Name = "MappedName",
+            SeededDiscoveryIds = new List<string> { "disc_b", "disc_a" } // intentionally unsorted
+        };
+
+        // Edge ordering: edge ids intentionally out of order.
+        state.Edges["e2"] = new Edge { Id = "e2", FromNodeId = "n_hidden", ToNodeId = "n_rumor", Distance = 1f };
+        state.Edges["e1"] = new Edge { Id = "e1", FromNodeId = "n_visit", ToNodeId = "n_map", Distance = 1f };
+
+        // Player location drives VISITED.
+        state.PlayerLocationNodeId = "n_visit";
+
+        // Rumor lead drives RUMORED.
+        state.Intel.RumorLeads["LEAD.0001"] = new RumorLead
+        {
+            LeadId = "LEAD.0001",
+            Status = RumorLeadStatus.Active,
+            Hint = new HintPayloadV0 { CoarseLocationToken = "n_rumor" },
+            SourceVerbToken = "HUB_ANALYSIS"
+        };
+
+        // Discoveries drive MAPPED via node.SeededDiscoveryIds membership.
+        state.Intel.Discoveries["disc_a"] = new DiscoveryStateV0 { DiscoveryId = "disc_a", Phase = DiscoveryPhase.Seen };
+        state.Intel.Discoveries["disc_b"] = new DiscoveryStateV0 { DiscoveryId = "disc_b", Phase = DiscoveryPhase.Scanned };
+
+        var snap = MapQueries.BuildGalaxySnapshotV0(state);
+
+        Assert.That(snap.PlayerCurrentNodeId, Is.EqualTo("n_visit"));
+
+        // Ordering: nodes by node id asc.
+        Assert.That(snap.SystemNodes.Count, Is.EqualTo(4));
+        Assert.That(snap.SystemNodes[0].NodeId, Is.EqualTo("n_hidden"));
+        Assert.That(snap.SystemNodes[1].NodeId, Is.EqualTo("n_map"));
+        Assert.That(snap.SystemNodes[2].NodeId, Is.EqualTo("n_rumor"));
+        Assert.That(snap.SystemNodes[3].NodeId, Is.EqualTo("n_visit"));
+
+        // Ordering: edges by edge id asc (even though edge id is not emitted).
+        Assert.That(snap.LaneEdges.Count, Is.EqualTo(2));
+        Assert.That(snap.LaneEdges[0].FromNodeId, Is.EqualTo("n_visit"));
+        Assert.That(snap.LaneEdges[0].ToNodeId, Is.EqualTo("n_map"));
+        Assert.That(snap.LaneEdges[1].FromNodeId, Is.EqualTo("n_hidden"));
+        Assert.That(snap.LaneEdges[1].ToNodeId, Is.EqualTo("n_rumor"));
+
+        var states = snap.SystemNodes.Select(n => n.DisplayStateToken).ToHashSet(StringComparer.Ordinal);
+        Assert.That(states.Contains("HIDDEN"), Is.True);
+        Assert.That(states.Contains("RUMORED"), Is.True);
+        Assert.That(states.Contains("VISITED"), Is.True);
+        Assert.That(states.Contains("MAPPED"), Is.True);
+
+        var hidden = snap.SystemNodes.Single(n => n.NodeId == "n_hidden");
+        Assert.That(hidden.DisplayStateToken, Is.EqualTo("HIDDEN"));
+        Assert.That(hidden.DisplayText, Is.EqualTo(""));
+        Assert.That(hidden.ObjectCount, Is.EqualTo(0));
+
+        var rumored = snap.SystemNodes.Single(n => n.NodeId == "n_rumor");
+        Assert.That(rumored.DisplayStateToken, Is.EqualTo("RUMORED"));
+        Assert.That(rumored.DisplayText, Is.EqualTo("???"));
+        Assert.That(rumored.ObjectCount, Is.EqualTo(0));
+
+        var visited = snap.SystemNodes.Single(n => n.NodeId == "n_visit");
+        Assert.That(visited.DisplayStateToken, Is.EqualTo("VISITED"));
+        Assert.That(visited.DisplayText, Is.EqualTo("VisitedName"));
+        Assert.That(visited.ObjectCount, Is.EqualTo(0));
+
+        var mapped = snap.SystemNodes.Single(n => n.NodeId == "n_map");
+        Assert.That(mapped.DisplayStateToken, Is.EqualTo("MAPPED"));
+        Assert.That(mapped.DisplayText, Is.EqualTo("MappedName+2"));
+        Assert.That(mapped.ObjectCount, Is.EqualTo(2));
+
+        // Deterministic digest over an explicit, ordered rendering.
+        var sb = new StringBuilder();
+        sb.Append("Seed=42\n");
+        sb.Append("PlayerCurrentNodeId=").Append(snap.PlayerCurrentNodeId).Append('\n');
+        sb.Append("SystemNodes\n");
+        for (int i = 0; i < snap.SystemNodes.Count; i++)
+        {
+            var n = snap.SystemNodes[i];
+            sb.Append(n.NodeId).Append('|')
+              .Append(n.DisplayStateToken).Append('|')
+              .Append(n.DisplayText).Append('|')
+              .Append(n.ObjectCount.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append('\n');
+        }
+        sb.Append("LaneEdges\n");
+        for (int i = 0; i < snap.LaneEdges.Count; i++)
+        {
+            var e = snap.LaneEdges[i];
+            sb.Append(e.FromNodeId).Append('|').Append(e.ToNodeId).Append('\n');
+        }
+
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString().Replace("\r\n", "\n"));
+        var hash = sha.ComputeHash(bytes);
+        var hex = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+
+        Assert.That(hex.Length, Is.EqualTo(64));
+    }
+
     private static void WriteDeterministicTextFileV0(string path, string contents)
     {
         var dir = Path.GetDirectoryName(path);
