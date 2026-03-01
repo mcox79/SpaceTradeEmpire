@@ -6,6 +6,14 @@ namespace SimCore;
 
 public partial class SimState
 {
+    // Cap constants — oldest events are evicted when a log exceeds its limit.
+    // Sized to cover several hundred ticks of typical activity while bounding save-file and LINQ cost.
+    private const int MaxLogisticsEventLog = 2000;
+    private const int MaxSecurityEventLog  = 2000;
+    private const int MaxFleetEventLog     = 2000;
+    private const int MaxExploitationEventLog = 500;
+    private const int MaxIndustryEventLog     = 500;
+
     // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
     [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
 
@@ -109,6 +117,8 @@ public partial class SimState
         if (entry is null) entry = "";
         ExploitationEventLog ??= new List<string>();
         ExploitationEventLog.Add(entry);
+        if (ExploitationEventLog.Count > MaxExploitationEventLog)
+            ExploitationEventLog.RemoveRange(0, ExploitationEventLog.Count - MaxExploitationEventLog);
     }
 
     public void EmitIndustryEvent(string note)
@@ -119,6 +129,8 @@ public partial class SimState
 
         IndustryEventLog ??= new List<string>();
         IndustryEventLog.Add($"I{seq} tick={Tick} {note}");
+        if (IndustryEventLog.Count > MaxIndustryEventLog)
+            IndustryEventLog.RemoveRange(0, IndustryEventLog.Count - MaxIndustryEventLog);
     }
 
     private void FinalizeFleetEventsForTick()
@@ -189,6 +201,9 @@ public partial class SimState
 
         for (var j = 0; j < _fleetFinalizeDest.Count; j++)
             FleetEventLog[_fleetFinalizeDest[j]] = _fleetFinalizeTemp[j];
+
+        if (FleetEventLog.Count > MaxFleetEventLog)
+            FleetEventLog.RemoveRange(0, FleetEventLog.Count - MaxFleetEventLog);
     }
 
     private void FinalizeLogisticsEventsForTick()
@@ -254,6 +269,9 @@ public partial class SimState
 
         for (var j = 0; j < _logiFinalizeDest.Count; j++)
             LogisticsEventLog[_logiFinalizeDest[j]] = _logiFinalizeTemp[j];
+
+        if (LogisticsEventLog.Count > MaxLogisticsEventLog)
+            LogisticsEventLog.RemoveRange(0, LogisticsEventLog.Count - MaxLogisticsEventLog);
     }
 
     private void FinalizeSecurityEventsForTick()
@@ -315,5 +333,8 @@ public partial class SimState
 
         for (var j = 0; j < _secFinalizeDest.Count; j++)
             SecurityEventLog[_secFinalizeDest[j]] = _secFinalizeTemp[j];
+
+        if (SecurityEventLog.Count > MaxSecurityEventLog)
+            SecurityEventLog.RemoveRange(0, SecurityEventLog.Count - MaxSecurityEventLog);
     }
 }

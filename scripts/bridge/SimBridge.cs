@@ -574,6 +574,62 @@ public partial class SimBridge : Node
         return d;
     }
 
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    // Facts-only system snapshot for UI.
+    // Determinism:
+    // - discovery_sites ordered by site_id (DiscoveryId) Ordinal asc (SimCore builder)
+    // - lane_gate ordered by edge_id Ordinal asc (SimCore builder)
+    // - no timestamps%wall-clock
+    // Contract:
+    // - no position data returned (orbital positions are GameShell seed-derived, not SimCore)
+    public Godot.Collections.Dictionary GetSystemSnapshotV0(string nodeId)
+    {
+        nodeId ??= "";
+
+        Godot.Collections.Dictionary d = new Godot.Collections.Dictionary();
+        ExecuteSafeRead(state =>
+        {
+            var snap = MapQueries.BuildSystemSnapshotV0(state, nodeId);
+
+            var station = new Godot.Collections.Dictionary
+            {
+                ["node_id"] = snap.Station.NodeId ?? "",
+                ["node_name"] = snap.Station.NodeName ?? ""
+            };
+
+            var sites = new Godot.Collections.Array();
+            for (int i = 0; i < snap.DiscoverySites.Count; i++)
+            {
+                var s = snap.DiscoverySites[i];
+                sites.Add(new Godot.Collections.Dictionary
+                {
+                    ["site_id"] = s.SiteId ?? "",
+                    ["phase_token"] = s.PhaseToken ?? ""
+                });
+            }
+
+            var laneGate = new Godot.Collections.Array();
+            for (int i = 0; i < snap.LaneGate.Count; i++)
+            {
+                var lg = snap.LaneGate[i];
+                laneGate.Add(new Godot.Collections.Dictionary
+                {
+                    ["neighbor_node_id"] = lg.NeighborNodeId ?? "",
+                    ["edge_id"] = lg.EdgeId ?? ""
+                });
+            }
+
+            d = new Godot.Collections.Dictionary
+            {
+                ["station"] = station,
+                ["discovery_sites"] = sites,
+                ["lane_gate"] = laneGate
+            };
+        });
+
+        return d;
+    }
+
     // Deterministic headless shutdown hook for tooling/tests.
     // Cancels the sim loop and requests engine quit on the main thread.
     public void RequestShutdownV0()

@@ -1082,6 +1082,44 @@ public sealed class IntelContractTests
         Assert.That(hex.Length, Is.EqualTo(64));
     }
 
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    [Test]
+    public void SystemSnapshot_ContractV0_ReturnsStationSiteAndLaneGateFields()
+    {
+        var state = new SimState(42);
+
+        state.Nodes["n1"] = new Node
+        {
+            Id = "n1",
+            Name = "Alpha",
+            SeededDiscoveryIds = new List<string> { "disc_002", "disc_001", "disc_001" } // unsorted + dup
+        };
+        state.Nodes["n2"] = new Node { Id = "n2", Name = "Beta" };
+
+        state.Edges["e1"] = new Edge { Id = "e1", FromNodeId = "n1", ToNodeId = "n2", Distance = 1f, TotalCapacity = 10, UsedCapacity = 0 };
+
+        state.Intel.Discoveries["disc_002"] = new DiscoveryStateV0 { DiscoveryId = "disc_002", Phase = DiscoveryPhase.Seen };
+        state.Intel.Discoveries["disc_001"] = new DiscoveryStateV0 { DiscoveryId = "disc_001", Phase = DiscoveryPhase.Analyzed };
+
+        var snap = MapQueries.BuildSystemSnapshotV0(state, "n1");
+
+        Assert.That(snap.Station, Is.Not.Null);
+        Assert.That(snap.Station.NodeId, Is.EqualTo("n1"));
+        Assert.That(snap.Station.NodeName, Is.EqualTo("Alpha"));
+
+        Assert.That(snap.LaneGate, Is.Not.Null);
+        Assert.That(snap.LaneGate.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(snap.LaneGate[0].EdgeId, Is.EqualTo("e1"));
+        Assert.That(snap.LaneGate[0].NeighborNodeId, Is.EqualTo("n2"));
+
+        Assert.That(snap.DiscoverySites, Is.Not.Null);
+        Assert.That(snap.DiscoverySites.Count, Is.EqualTo(2));
+        Assert.That(snap.DiscoverySites[0].SiteId, Is.EqualTo("disc_001"));
+        Assert.That(snap.DiscoverySites[0].PhaseToken, Is.EqualTo("ANALYZED"));
+        Assert.That(snap.DiscoverySites[1].SiteId, Is.EqualTo("disc_002"));
+        Assert.That(snap.DiscoverySites[1].PhaseToken, Is.EqualTo("SEEN"));
+    }
+
     private static void WriteDeterministicTextFileV0(string path, string contents)
     {
         var dir = Path.GetDirectoryName(path);

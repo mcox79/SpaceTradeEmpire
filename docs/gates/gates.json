@@ -164,39 +164,6 @@
                                                    "note":  "Escalate if blocked or scope expands."
                                                }
                                            ]
-                  },
-                  {
-                      "gate_id":  "GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001",
-                      "task_id":  "GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001.T557",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001: GetSystemSnapshotV0 SimBridge contract v0 (prerequisite for SCENE.001): new SimBridge.cs method takes a nodeId and returns (a) station record (node_id, node_name), (b) discovery_sites list ordered by DiscoveryId asc (site_id, phase_token) from existing IntelBook.Discoveries associated to this node via the same node-association pattern used by GetDiscoverySnapshotV0, (c) lane_gate list (neighbor_node_id, edge_id) from MapQueries edge lookup ordered by edge_id asc; no position data returned â€” orbital positions are GameShell seed-derived, not SimCore; contract test SystemSnapshot_ContractV0_ReturnsStationSiteAndLaneGateFields asserts station present, lane_gate_count \u003e= 1, site list stable for seed 42; dotnet test fast filter passes",
-                      "intent":  "GetSystemSnapshotV0 SimBridge contract v0 (prerequisite for SCENE.001): new SimBridge.cs method takes a nodeId and returns (a) station record (node_id, node_name), (b) discovery_sites list ordered by DiscoveryId asc (site_id, phase_token) from existing IntelBook.Discoveries associated to this node via the same node-association pattern used by GetDiscoverySnapshotV0, (c) lane_gate list (neighbor_node_id, edge_id) from MapQueries edge lookup ordered by edge_id asc; no position data returned â€” orbital positions are GameShell seed-derived, not SimCore; contract test SystemSnapshot_ContractV0_ReturnsStationSiteAndLaneGateFields asserts station present, lane_gate_count \u003e= 1, site list stable for seed 42; dotnet test fast filter passes",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/MapQueries.cs",
-                                             "SimCore/Entities/IntelBook.cs",
-                                             "SimCore/Entities/Node.cs",
-                                             "SimCore/Entities/Edge.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=d8daa322b512"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
                   }
               ]
 }

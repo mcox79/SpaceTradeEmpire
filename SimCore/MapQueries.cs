@@ -32,6 +32,128 @@ public static class MapQueries
         public string PlayerCurrentNodeId { get; set; } = "";
     }
 
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    public sealed class StationSnapV0
+    {
+        public string NodeId { get; set; } = "";
+        public string NodeName { get; set; } = "";
+    }
+
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    public sealed class DiscoverySiteSnapV0
+    {
+        public string SiteId { get; set; } = "";
+        public string PhaseToken { get; set; } = ""; // SEEN%SCANNED%ANALYZED
+    }
+
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    public sealed class LaneGateSnapV0
+    {
+        public string NeighborNodeId { get; set; } = "";
+        public string EdgeId { get; set; } = "";
+    }
+
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    public sealed class SystemSnapshotV0
+    {
+        public StationSnapV0 Station { get; set; } = new StationSnapV0();
+        public List<DiscoverySiteSnapV0> DiscoverySites { get; } = new List<DiscoverySiteSnapV0>();
+        public List<LaneGateSnapV0> LaneGate { get; } = new List<LaneGateSnapV0>();
+    }
+
+    private static string PhaseToToken(DiscoveryPhase phase)
+    {
+        return phase switch
+        {
+            DiscoveryPhase.Seen => "SEEN",
+            DiscoveryPhase.Scanned => "SCANNED",
+            DiscoveryPhase.Analyzed => "ANALYZED",
+            _ => "SEEN"
+        };
+    }
+
+    // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
+    // Facts-only snapshot builder for a single system.
+    // Determinism:
+    // - discovery_sites ordered by SiteId (DiscoveryId) Ordinal asc
+    // - lane_gate ordered by EdgeId Ordinal asc
+    // - no timestamps%wall-clock%randomness
+    public static SystemSnapshotV0 BuildSystemSnapshotV0(SimState state, string nodeId)
+    {
+        nodeId ??= "";
+
+        var snap = new SystemSnapshotV0();
+
+        if (state.Nodes.TryGetValue(nodeId, out var node))
+        {
+            snap.Station = new StationSnapV0
+            {
+                NodeId = node.Id ?? "",
+                NodeName = node.Name ?? ""
+            };
+
+            if (node.SeededDiscoveryIds is not null && node.SeededDiscoveryIds.Count > 0)
+            {
+                // Determinism: dedupe and iterate ids in Ordinal order.
+                var ids = node.SeededDiscoveryIds
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .ToList();
+
+                for (int i = 0; i < ids.Count; i++)
+                {
+                    var id = ids[i];
+                    if (!state.Intel.Discoveries.TryGetValue(id, out var disc)) continue;
+
+                    snap.DiscoverySites.Add(new DiscoverySiteSnapV0
+                    {
+                        SiteId = disc.DiscoveryId ?? id,
+                        PhaseToken = PhaseToToken(disc.Phase)
+                    });
+                }
+
+                snap.DiscoverySites.Sort((a, b) => StringComparer.Ordinal.Compare(a.SiteId, b.SiteId));
+            }
+        }
+        else
+        {
+            snap.Station = new StationSnapV0 { NodeId = "", NodeName = "" };
+        }
+
+        // Determinism: iterate incident edges in EdgeId (Ordinal) order.
+        var edges = state.Edges.Values.ToList();
+        edges.Sort((a, b) => StringComparer.Ordinal.Compare(a.Id, b.Id));
+
+        for (int i = 0; i < edges.Count; i++)
+        {
+            var e = edges[i];
+            if (string.IsNullOrEmpty(e.Id)) continue;
+
+            if (string.Equals(e.FromNodeId, nodeId, StringComparison.Ordinal))
+            {
+                snap.LaneGate.Add(new LaneGateSnapV0
+                {
+                    NeighborNodeId = e.ToNodeId ?? "",
+                    EdgeId = e.Id
+                });
+            }
+            else if (string.Equals(e.ToNodeId, nodeId, StringComparison.Ordinal))
+            {
+                snap.LaneGate.Add(new LaneGateSnapV0
+                {
+                    NeighborNodeId = e.FromNodeId ?? "",
+                    EdgeId = e.Id
+                });
+            }
+        }
+
+        // Already EdgeId-sorted by iteration order, but keep explicit sort for safety.
+        snap.LaneGate.Sort((a, b) => StringComparer.Ordinal.Compare(a.EdgeId, b.EdgeId));
+
+        return snap;
+    }
+
     public static bool TryGetEdgeId(SimState state, string fromNodeId, string toNodeId, out string edgeId)
     {
         edgeId = "";
