@@ -101,10 +101,12 @@ lowering the bar.
 
 Prefer a gate set that reaches at least one of these milestone types within the set:
 
-- **PLAYABLE_BEAT:** a player-observable behavior is provable headlessly (new verb, new UI
-  surface, new program type produces visible output).
-- **SCENARIO_PROOF:** a deterministic headless run exercises a new end-to-end path and emits
-  a stable report.
+- **PLAYABLE_BEAT:** a behavior is observable in-engine. Proof requires either 
+  (a) Godot headless scene execution (godot --headless) with visible output, OR
+  (b) a GDScript test that boots a scene and performs a player-visible action.
+  A dotnet-test-only proof does NOT qualify as PLAYABLE_BEAT.
+- **HEADLESS_PROOF:** a deterministic headless run (dotnet test) exercises a new
+  end-to-end behavior path and emits a stable report.
 - **REGRESSION_ANCHOR:** a new determinism or save/load regression locks in a new system so
   future gates can build on it safely.
 
@@ -135,14 +137,25 @@ Each candidate item MUST specify:
 
 - No more than 2 items in the set may be pure CONTRACT or pure DETERMINISM without new
   observable behavior.
-- At least 3 items must be CORE_LOGIC, UI_MIN, EXPLAINABILITY, or SCENARIO_PROOF.
+- At least 3 items must be CORE_LOGIC, UI_MIN, EXPLAINABILITY, SCENARIO_PROOF, or IN_ENGINE.
+
+---
+
+## Godot-layer balance rule (hard)
+
+- If the last 3 completed non-EPIC.X gates all have anchor paths exclusively in
+  SimCore/ or SimCore.Tests/, at least 1 gate in this candidate set MUST have its
+  primary anchor in scripts/ or scenes/.
+- This rule overrides slice completion preference.
+- If you cannot determine anchor history from the attached files, flag the uncertainty
+  and include at least 1 IN_ENGINE gate as a precaution.
 
 ---
 
 ## Player-facing proof policy
 
-- If GateType is UI_MIN, EXPLAINABILITY, or SCENARIO_PROOF, the item MUST specify a
-  player-facing proof requirement (what a player or headless script would observe).
+- If GateType is UI_MIN, EXPLAINABILITY, HEADLESS_PROOF, or IN_ENGINE, the item MUST
+  specify a player-facing proof requirement (what a player or headless script would observe).
 - Otherwise player-facing proof is optional.
 
 ---
@@ -166,10 +179,12 @@ Do NOT propose:
 - UI_MIN — minimal SimBridge query + UI readout
 - EXPLAINABILITY — cause chain, ReasonCode tokens, suggested actions surface
 - SCENARIO_PROOF — end-to-end headless proof of a new behavior path
+- IN_ENGINE — Godot scene integration: scene boots, player input works, 
+  SimBridge connects. Proof command uses `godot --headless` or a Godot test runner.
 
 **Milestone type** (pick exactly one per gate, or "none"):
 - PLAYABLE_BEAT
-- SCENARIO_PROOF
+- HEADLESS_PROOF
 - REGRESSION_ANCHOR
 - none
 

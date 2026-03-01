@@ -11,7 +11,14 @@
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj --no-incremental -q)",
       "Bash(dotnet build SimCore.Tests/SimCore.Tests.csproj --no-incremental -q)",
       "Bash(dotnet build -q)",
-      "Bash(dotnet build --no-incremental)"
+      "Bash(dotnet build --no-incremental)",
+      "Bash(xargs grep -l \"class.*System\")",
+      "Bash(xargs wc -l)",
+      "Bash(wc -l \"c:/Users/marsh/Documents/Space Trade Empire/SimCore.Tests/\"*.cs)",
+      "Bash(# Check the status packet for current epic/gate status cat \"\"c:/Users/marsh/Documents/Space Trade Empire/docs/generated/02_STATUS_PACKET.txt\"\")",
+      "Bash(dotnet build --no-restore -v q)",
+      "Bash(dotnet test --no-build -v q)",
+      "Bash(python3 -c \":*)"
     ],
     "ask": [
       "Bash(git:push*)"

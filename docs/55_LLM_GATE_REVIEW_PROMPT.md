@@ -70,6 +70,8 @@ For each Gate/Epic ID that appears in docs/54 and has evidence in 02\_STATUS\_PA
 
 \- Any determinism/testing violations (docs 20, 52)
 
+\- godot\_layer\_starvation: true/false — true if no gate with a scripts/ or scenes/ anchor path has been completed in the last 5 gate closures (check docs/55\_GATES.md). If true, flag as a priority correction item in next\_targets: at least 1 of the 3 options must target EPIC.S1.HERO\_SHIP\_LOOP.V0 or another IN\_ENGINE gate.
+
 
 
 4\) next\_targets

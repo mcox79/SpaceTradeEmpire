@@ -1629,48 +1629,8 @@ public static class GalaxyGenerator
     }
 
     // GATE.S2_5.WGEN.DISCOVERY_SEEDING.002: deterministic world class assignment accessor v0 (tests + seeding).
-    // Deterministic ordering keys:
-    // - nodes ranked by radius2 asc, tie-break by NodeId (ordinal)
-    // - map fill by NodeId (ordinal)
-    // Assignment rule matches BuildWorldClassReport:
-    // - class index is radial rank bucket: idx = (rank * classCount) / nodeCount
     public static IReadOnlyDictionary<string, string> GetWorldClassIdByNodeIdV0(SimState state)
-    {
-        var nodesSorted = state.Nodes.Values.ToList();
-        nodesSorted.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-
-        var rankedByRadius = nodesSorted
-            .Select(n =>
-            {
-                var x = n.Position.X;
-                var z = n.Position.Z;
-                var d2 = (x * x) + (z * z);
-                return (Node: n, Dist2: d2);
-            })
-            .OrderBy(t => t.Dist2)
-            .ThenBy(t => t.Node.Id, StringComparer.Ordinal)
-            .ToList();
-
-        var rankById = new Dictionary<string, int>(rankedByRadius.Count, StringComparer.Ordinal);
-        var r = default(int);
-        foreach (var t in rankedByRadius)
-        {
-            rankById[t.Node.Id] = r;
-            r++;
-        }
-
-        var classCount = WorldClassesV0.Length;
-
-        var byNode = new Dictionary<string, string>(nodesSorted.Count, StringComparer.Ordinal);
-        foreach (var n in nodesSorted)
-        {
-            var rank = rankById[n.Id];
-            var idx = (rank * classCount) / rankedByRadius.Count;
-            byNode[n.Id] = WorldClassesV0[idx].WorldClassId;
-        }
-
-        return byNode;
-    }
+        => GetWorldClassIdByNodeIdV0(state, options: null);
 
     // GATE.S2_5.WGEN.DISTINCTNESS.001: deterministic class-level structural stats v0.
     // Metrics are computed from the current SimState topology, applying report-only class scaling (no state mutation).

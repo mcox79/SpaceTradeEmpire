@@ -36,7 +36,7 @@ Hard rules
 
 4) Proof is explicit
 Each gate must include:
-- Proof command (exact command line)
+- Proof command (exact command line; for IN_ENGINE gates use `godot --headless` or a Godot test runner, NOT dotnet test alone)
 - Evidence outputs (may include NEW paths under docs/generated or new tests)
 - Determinism notes (ordering, tie-breaks, stable formatting, no timestamps)
 - Failure mode and explain surface (Facts%Events or report)
@@ -49,7 +49,8 @@ For every gate, choose 1 Anchor path from its touched paths.
 
 6) Keep touched paths small
 - Each gate must list 2 to 12 touched paths total (FOUND and NEW combined).
-- At least 1 path must be in SimCore/ or SimCore.Tests/ unless the gate bucket is DocsTooling.
+- At least 1 path must be in SimCore/, SimCore.Tests/, scripts/, or scenes/ unless the gate bucket is DocsTooling.
+- For IN_ENGINE gates, at least 1 path must be in scripts/ or scenes/.
 
 7) Ledger row output is required
 - For each proposed gate, output an exact new row formatted to match docs/55_GATES.md conventions (same columns and style).
