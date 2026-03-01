@@ -34,38 +34,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.RUMOR_INTEL_MIN.004",
-                      "task_id":  "GATE.S3_6.RUMOR_INTEL_MIN.004.T410",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.RUMOR_INTEL_MIN.004: Rumor lead scenario proof v0: RumorLeadScenarioProof_Seed42 test in IntelContractTests runs Seed 42 explore%dock%hub-analysis%lead-granted with hint payload%save%load%verify lead present with identical hint tokens; emits NEW: docs/generated/rumor_lead_scenario_seed_42_v0.txt (header: Seed=42, WorldId, TickIndex, LeadCount, HintDigest; no timestamps; stable ordering; writes report first then exits nonzero on failure); divergence prints first differing LeadId%Field%Before%After",
-                      "intent":  "Rumor lead scenario proof v0: RumorLeadScenarioProof_Seed42 test in IntelContractTests runs Seed 42 explore%dock%hub-analysis%lead-granted with hint payload%save%load%verify lead present with identical hint tokens; emits NEW: docs/generated/rumor_lead_scenario_seed_42_v0.txt (header: Seed=42, WorldId, TickIndex, LeadCount, HintDigest; no timestamps; stable ordering; writes report first then exits nonzero on failure); divergence prints first differing LeadId%Field%Before%After",
-                      "evidence_paths":  [
-                                             "SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "SimCore.Tests/SaveLoad/SaveLoadWorldHashTests.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/SerializationSystem.cs",
-                                             "docs/generated/rumor_lead_scenario_seed_42_v0.txt"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Tests/Systems/IntelContractTests.cs",
-                                             "candidate_key_sha256=035569763fe2"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002",
                       "task_id":  "GATE.S3_6.UI_DISCOVERY_MIN.002.T082",
                       "status":  "TODO",

@@ -607,7 +607,7 @@ Epics:
   - ResourceTap v0: extract -> refine -> export loop with buffers and substitution policies
   - Packages must support remote exception policies (pause, reroute, substitute, insure, pay fee, throttle)
   - Each package must produce a deterministic Quote summary before activation (expected profit bands, time-to-cash, primary risks, required services, and the top 3 policy levers) (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
-- EPIC.S3_6.PLAY_LOOP_PROOF.V0 [TODO]: Headless playable proof of exploration-first economy:
+- EPIC.S3_6.PLAY_LOOP_PROOF.V0 [DONE]: Headless playable proof of exploration-first economy:
   - Player discovers 2 sites and docks at 1 hub station
   - Player identifies 1 viable early trade loop and acquires 1 starter freighter
   - Player assigns 1 TradeCharter and sees automation generate revenue while player explores

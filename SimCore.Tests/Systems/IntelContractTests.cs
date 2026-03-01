@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
@@ -641,5 +644,263 @@ public sealed class IntelContractTests
         var book = new IntelBook();
         Assert.That(book.RumorLeads, Is.Not.Null);
         Assert.That(book.RumorLeads.Count, Is.EqualTo(0));
+    }
+
+    // GATE.S3_6.RUMOR_INTEL_MIN.004
+    [Test]
+    public void RumorLeadScenarioProof_Seed42_EmitsReportV0_SaveLoad_NoDrift()
+    {
+        const int seed = 42;
+        const string exploreNodeId = "node_explore_001";
+        const string hubNodeId = "hub";
+        const string discoveryId = "disc_seed_42_001";
+        const string leadExplore = "LEAD.0001";
+        const string leadHub = "LEAD.0002";
+
+        var sim = new SimKernel(seed);
+
+        // Minimal deterministic fixture. Do not depend on worldgen for this proof.
+        sim.State.Nodes[exploreNodeId] = new Node { Id = exploreNodeId, Name = "ExploreNode" };
+        sim.State.Nodes[hubNodeId] = new Node { Id = hubNodeId, Name = "Hub" };
+        sim.State.PlayerLocationNodeId = exploreNodeId;
+
+        // Step 1: explore -> lead granted
+        IntelSystem.GrantRumorLeadOnExplore(sim.State, leadExplore, exploreNodeId);
+
+        // Step 2: dock hub (state change only; no mutation via UI surfaces here)
+        sim.State.PlayerLocationNodeId = hubNodeId;
+
+        // Step 3: hub-analysis -> lead granted
+        IntelSystem.GrantRumorLeadOnHubAnalysis(sim.State, leadHub, discoveryId);
+
+        // Snapshot before save%load (deterministic ordering: LeadId asc; stable field order)
+        var beforeSnapshot = SnapshotRumorLeadsV0(sim.State);
+        var beforeHintDigest = ComputeSha256HexUpper(Encoding.UTF8.GetBytes(beforeSnapshot));
+
+        // Save%load%verify
+        var json = sim.SaveToString();
+        var sim2 = new SimKernel(seed: 999); // prove identity restored independent of ctor seed
+        sim2.LoadFromString(json);
+
+        var afterSnapshot = SnapshotRumorLeadsV0(sim2.State);
+        var afterHintDigest = ComputeSha256HexUpper(Encoding.UTF8.GetBytes(afterSnapshot));
+
+        // Emit report first (must exist even on failure).
+        var report = new StringBuilder();
+        report.AppendLine("RumorLeadScenarioProofV0");
+        report.AppendLine($"Seed: {seed}");
+        report.AppendLine($"WorldId: {TryReadStringMember(sim2.State, "WorldId")}");
+        report.AppendLine($"TickIndex: {TryReadLongMember(sim2.State, "TickIndex")}");
+        report.AppendLine($"LeadCount: {IntelSystem.GetRumorLeadsAscending(sim2.State).Count}");
+        report.AppendLine($"HintDigest: {afterHintDigest}");
+        report.AppendLine("");
+        report.AppendLine("RumorLeads (LeadId asc):");
+        report.Append(afterSnapshot);
+
+        var reportText = report.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
+        var outPath = ResolveRepoRelativePath("docs/generated/rumor_lead_scenario_seed_42_v0.txt");
+        WriteDeterministicTextFileV0(outPath, reportText);
+
+        // Assertions after report emit.
+        if (!string.Equals(beforeSnapshot, afterSnapshot, StringComparison.Ordinal))
+        {
+            var first = FindFirstRumorLeadSnapshotMismatchV0(beforeSnapshot, afterSnapshot);
+
+            TestContext.Out.WriteLine($"RumorLeadScenario Seed: {seed}");
+            TestContext.Out.WriteLine($"RumorLeadScenario FirstDiff: {first.leadId}%{first.fieldName}%{first.beforeValue}%{first.afterValue}");
+
+            Assert.Fail(
+                $"RumorLeadScenario snapshot mismatch after save%load (Seed={seed} {first.leadId}%{first.fieldName}%{first.beforeValue}%{first.afterValue}).");
+        }
+
+        if (!string.Equals(beforeHintDigest, afterHintDigest, StringComparison.Ordinal))
+        {
+            Assert.Fail($"RumorLeadScenario hint digest drift after save%load (Seed={seed} Before={beforeHintDigest} After={afterHintDigest}).");
+        }
+
+        Assert.That(IntelSystem.GetRumorLeadsAscending(sim2.State).Count, Is.GreaterThanOrEqualTo(1),
+            $"RumorLeadScenario expected >=1 rumor lead after scenario (Seed={seed}).");
+    }
+
+    private static string SnapshotRumorLeadsV0(SimState state)
+    {
+        var leads = IntelSystem.GetRumorLeadsAscending(state);
+        var sb = new StringBuilder();
+
+        for (int i = 0; i < leads.Count; i++)
+        {
+            var r = leads[i];
+            var leadId = r?.LeadId ?? "";
+            var status = r?.Status.ToString() ?? "";
+            var sourceVerb = r?.SourceVerbToken ?? "";
+
+            var hint = r?.Hint;
+            var regionTags = (hint?.RegionTags ?? new List<string>())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToList();
+
+            var prereq = (hint?.PrerequisiteTokens ?? new List<string>())
+                .Where(x => !string.IsNullOrEmpty(x))
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToList();
+
+            var coarse = hint?.CoarseLocationToken ?? "";
+            var payoff = hint?.ImpliedPayoffToken ?? "";
+
+            sb.Append(leadId);
+            sb.Append('%');
+            sb.Append(status);
+            sb.Append('%');
+            sb.Append(sourceVerb);
+            sb.Append('%');
+            sb.Append(string.Join(",", regionTags));
+            sb.Append('%');
+            sb.Append(coarse);
+            sb.Append('%');
+            sb.Append(string.Join(",", prereq));
+            sb.Append('%');
+            sb.Append(payoff);
+            sb.Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    private static (string leadId, string fieldName, string beforeValue, string afterValue) FindFirstRumorLeadSnapshotMismatchV0(string before, string after)
+    {
+        var bLines = before.Split('\n');
+        var aLines = after.Split('\n');
+
+        var n = Math.Min(bLines.Length, aLines.Length);
+        for (int i = 0; i < n; i++)
+        {
+            var bl = bLines[i];
+            var al = aLines[i];
+            if (string.Equals(bl, al, StringComparison.Ordinal)) continue;
+
+            // line format: LeadId%Status%SourceVerb%RegionTags%Coarse%Prereq%Payoff
+            var bp = bl.Split('%');
+            var ap = al.Split('%');
+
+            var leadId = bp.Length > 0 ? bp[0] : "";
+            var leadIdAfter = ap.Length > 0 ? ap[0] : "";
+            if (!string.Equals(leadId, leadIdAfter, StringComparison.Ordinal))
+            {
+                return (leadId.Length != 0 ? leadId : leadIdAfter, "LeadId", leadId, leadIdAfter);
+            }
+
+            var fields = new[]
+            {
+                ("Status", 1),
+                ("SourceVerbToken", 2),
+                ("RegionTags", 3),
+                ("CoarseLocationToken", 4),
+                ("PrerequisiteTokens", 5),
+                ("ImpliedPayoffToken", 6)
+            };
+
+            for (int f = 0; f < fields.Length; f++)
+            {
+                var (name, idx) = fields[f];
+                var bv = bp.Length > idx ? bp[idx] : "";
+                var av = ap.Length > idx ? ap[idx] : "";
+                if (!string.Equals(bv, av, StringComparison.Ordinal))
+                    return (leadId, name, bv, av);
+            }
+
+            return (leadId, "Line", bl, al);
+        }
+
+        // Length mismatch
+        return ("", "LineCount", bLines.Length.ToString(), aLines.Length.ToString());
+    }
+
+    private static string ComputeSha256HexUpper(byte[] bytes)
+    {
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(bytes);
+        var sb = new StringBuilder(hash.Length * 2);
+        for (int i = 0; i < hash.Length; i++)
+            sb.Append(hash[i].ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+        return sb.ToString();
+    }
+
+    private static string ResolveRepoRelativePath(string repoRelativePath)
+    {
+        var root = FindRepoRoot(TestContext.CurrentContext.WorkDirectory);
+        return Path.GetFullPath(Path.Combine(root, repoRelativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    private static string FindRepoRoot(string startDir)
+    {
+        var dir = new DirectoryInfo(startDir);
+        for (int i = 0; i < 10 && dir is not null; i++)
+        {
+            if (Directory.Exists(Path.Combine(dir.FullName, "docs")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+
+        // Failure-safe deterministic fallback: use startDir.
+        return startDir;
+    }
+
+    private static void WriteDeterministicTextFileV0(string path, string contents)
+    {
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        // UTF-8 no BOM; normalize newlines already done by caller.
+        File.WriteAllText(path, contents, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static string TryReadStringMember(object instance, string name)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+
+        var t = instance.GetType();
+
+        var p = t.GetProperty(name, flags);
+        if (p is not null && p.GetIndexParameters().Length == 0)
+        {
+            var v = p.GetValue(instance);
+            if (v is string s) return s;
+        }
+
+        var f = t.GetField(name, flags);
+        if (f is not null)
+        {
+            var v = f.GetValue(instance);
+            if (v is string s) return s;
+        }
+
+        return "";
+    }
+
+    private static long TryReadLongMember(object instance, string name)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+
+        var t = instance.GetType();
+
+        var p = t.GetProperty(name, flags);
+        if (p is not null && p.GetIndexParameters().Length == 0)
+        {
+            var v = p.GetValue(instance);
+            if (v is int i) return i;
+            if (v is long l) return l;
+        }
+
+        var f = t.GetField(name, flags);
+        if (f is not null)
+        {
+            var v = f.GetValue(instance);
+            if (v is int i) return i;
+            if (v is long l) return l;
+        }
+
+        return 0;
     }
 }
