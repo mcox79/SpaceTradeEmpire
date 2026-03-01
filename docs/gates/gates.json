@@ -67,39 +67,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S1.HERO_SHIP_LOOP.DOCK.001",
-                      "task_id":  "GATE.S1.HERO_SHIP_LOOP.DOCK.001.T067",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP_LOOP.DOCK.001: Generic proximity dock trigger extension v0: StarNode.cs already provides Area3D BodyEntered dock trigger for Station nodes â€” this gate (a) makes dock range explicit as DOCK_RANGE_U named config constant replacing the current hardcoded Area3D collision radius, (b) extends GalaxyView.cs discovery site spawning to register DiscoverySite scene objects into the DockTarget group enabling the same proximity trigger, (c) wires both dock paths to game_manager.gd PlayerShipState transition to Docked on enter and InFlight on undock; Station dock opens station_interface; DiscoverySite dock opens scan flow; headless UUIR tokens for both target type docks; SHA256 stable across two runs",
-                      "intent":  "Generic proximity dock trigger extension v0: StarNode.cs already provides Area3D BodyEntered dock trigger for Station nodes â€” this gate (a) makes dock range explicit as DOCK_RANGE_U named config constant replacing the current hardcoded Area3D collision radius, (b) extends GalaxyView.cs discovery site spawning to register DiscoverySite scene objects into the DockTarget group enabling the same proximity trigger, (c) wires both dock paths to game_manager.gd PlayerShipState transition to Docked on enter and InFlight on undock; Station dock opens station_interface; DiscoverySite dock opens scan flow; headless UUIR tokens for both target type docks; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_hero_ship_scene_boot.gd",
-                                             "scripts/view/StarNode.cs",
-                                             "scripts/view/GalaxyView.cs",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/ui/StationMenu.cs",
-                                             "scenes/playable_prototype.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_hero_ship_scene_boot.gd",
-                                             "candidate_key_sha256=6a311ecefb88"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S1.HERO_SHIP_LOOP.SCENE.001",
                       "task_id":  "GATE.S1.HERO_SHIP_LOOP.SCENE.001.T065",
                       "status":  "TODO",

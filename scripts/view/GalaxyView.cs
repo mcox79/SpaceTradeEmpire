@@ -28,6 +28,28 @@ public partial class GalaxyView : Node3D
         SetProcess(false);
     }
 
+    // Deterministic helper for spawners: mark any scene node as a proximity dock target.
+    // Ordering: no iteration; only direct node mutation (group + meta).
+    public static void RegisterDockTargetV0(Node node, string kindToken, string targetId)
+    {
+        if (node == null) return;
+
+        if (!node.IsInGroup("DockTarget"))
+        {
+            node.AddToGroup("DockTarget");
+        }
+
+        if (!string.IsNullOrEmpty(kindToken))
+        {
+            node.SetMeta("dock_target_kind", kindToken);
+        }
+
+        if (!string.IsNullOrEmpty(targetId))
+        {
+            node.SetMeta("dock_target_id", targetId);
+        }
+    }
+
     public void SetOverlayOpenV0(bool isOpen)
     {
         _overlayOpen = isOpen;

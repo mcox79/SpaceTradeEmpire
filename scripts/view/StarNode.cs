@@ -4,6 +4,10 @@ namespace SpaceTradeEmpire.View;
 
 public partial class StarNode : Area3D
 {
+    // Explicit dock trigger range (units).
+    // Godot-side only; no SimCore impact.
+    private const float DOCK_RANGE_U = 12.0f;
+
     // The SimCore ID for this star (e.g., "star_0")
     public string NodeId { get; set; } = "";
 
@@ -17,11 +21,34 @@ public partial class StarNode : Area3D
         Monitoring = true;
         Monitorable = true;
 
+        EnsureDockShapeV0();
+
         // Make sure StationMenu can resolve this node via meta (it already knows "sim_market_id")
         if (!HasMeta("sim_market_id"))
             SetMeta("sim_market_id", NodeId);
 
         BodyEntered += OnBodyEntered;
+    }
+
+    private void EnsureDockShapeV0()
+    {
+        // Make the trigger range explicit and stable regardless of scene authoring.
+        var shapeNode = GetNodeOrNull<CollisionShape3D>("DockShape")
+            ?? GetNodeOrNull<CollisionShape3D>("CollisionShape3D");
+
+        if (shapeNode == null)
+        {
+            shapeNode = new CollisionShape3D { Name = "DockShape" };
+            AddChild(shapeNode);
+        }
+
+        // Only force radius if it is a sphere or absent.
+        if (shapeNode.Shape == null || shapeNode.Shape is SphereShape3D)
+        {
+            var sphere = shapeNode.Shape as SphereShape3D ?? new SphereShape3D();
+            sphere.Radius = DOCK_RANGE_U;
+            shapeNode.Shape = sphere;
+        }
     }
 
     private void OnBodyEntered(Node3D body)
@@ -30,6 +57,13 @@ public partial class StarNode : Area3D
             return;
 
         GD.Print($"[StarNode] Player entered gravity well of {NodeId}");
+
+        // Canonical path: route docking intent through GameManager so player ship state is centralized.
+        var gm = GetTree()?.Root?.FindChild("GameManager", true, false);
+        if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
+        {
+            gm.Call("on_proximity_dock_entered_v0", this);
+        }
 
         // OPEN THE MENU for any StarNode dock.
         // This is the missing link that prevents "freeze with no menu".

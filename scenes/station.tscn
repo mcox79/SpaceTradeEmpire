@@ -13,6 +13,7 @@ transparency = 1
 albedo_color = Color(0, 1, 0, 0.3)
 
 [node name="Station" type="Area3D" unique_id=438021126]
+groups=["DockTarget","Station"]
 script = ExtResource("1_stn")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1789134323]
