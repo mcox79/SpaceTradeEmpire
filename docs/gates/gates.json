@@ -130,39 +130,6 @@
                                            ]
                   },
                   {
-                      "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.002",
-                      "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.002.T603",
-                      "status":  "TODO",
-                      "title":  "GATE.S3_6.PLAY_LOOP_PROOF.002: Play loop headless proof phase 1: discover%trade%freighter v0: implement play-loop-proof-report --phase 1 in SimCore.Runner; drives Seed 42 intents: explore -\u003e dock-hub -\u003e identify-trade-loop -\u003e acquire-freighter -\u003e assign-TradeCharter; asserts step tokens EXPLORE_SITE%DOCK_HUB%TRADE_LOOP_IDENTIFIED%FREIGHTER_ACQUIRED%TRADE_CHARTER_REVENUE (requires \u003e= 1 CashDelta(TradePnL) from TRADE_CHARTER_V0); saves checkpoint at TRADE_CHARTER_REVENUE; emits NEW: docs/generated/play_loop_proof_phase1_seed_42_v0.txt (no timestamps; stable ordering); exits nonzero on MISSING_STEP after writing report; SHA256 stable across two runs",
-                      "intent":  "Play loop headless proof phase 1: discover%trade%freighter v0: implement play-loop-proof-report --phase 1 in SimCore.Runner; drives Seed 42 intents: explore -\u003e dock-hub -\u003e identify-trade-loop -\u003e acquire-freighter -\u003e assign-TradeCharter; asserts step tokens EXPLORE_SITE%DOCK_HUB%TRADE_LOOP_IDENTIFIED%FREIGHTER_ACQUIRED%TRADE_CHARTER_REVENUE (requires \u003e= 1 CashDelta(TradePnL) from TRADE_CHARTER_V0); saves checkpoint at TRADE_CHARTER_REVENUE; emits NEW: docs/generated/play_loop_proof_phase1_seed_42_v0.txt (no timestamps; stable ordering); exits nonzero on MISSING_STEP after writing report; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "SimCore.Runner/Program.cs",
-                                             "SimCore/Intents/ExploitationIntentsV0.cs",
-                                             "SimCore/Programs/ProgramSystem.cs",
-                                             "SimCore/Systems/IntelSystem.cs",
-                                             "SimCore/Systems/MarketSystem.cs",
-                                             "SimCore/Systems/SerializationSystem.cs"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=SimCore.Runner/Program.cs",
-                                             "candidate_key_sha256=687785372e97"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S3_6.PLAY_LOOP_PROOF.003",
                       "task_id":  "GATE.S3_6.PLAY_LOOP_PROOF.003.T368",
                       "status":  "TODO",
