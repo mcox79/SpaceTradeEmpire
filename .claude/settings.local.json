@@ -37,7 +37,11 @@
       "Bash(dotnet build \"Space Trade Empire.csproj\" -c Debug --nologo)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -q)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo)",
-      "Bash(grep -v \"//.*catch\")"
+      "Bash(grep -v \"//.*catch\")",
+      "Bash(godot --headless --path . --script scripts/tests/test_hero_ship_flight.gd)",
+      "Bash(\"C:/Users/marsh/Downloads/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --headless --path . --script scripts/tests/test_hero_ship_flight.gd)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q)",
+      "Bash(dotnet build \"Space Trade Empire.csproj\" --nologo -v q)"
     ],
     "ask": [
       "Bash(git:push*)"

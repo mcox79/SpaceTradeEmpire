@@ -1642,6 +1642,47 @@ function Run-RunProofsCurrent {
     }
 }
 
+function Run-HeroShipFlightTest {
+    Log-Output ">>> EXEC: HERO SHIP FLIGHT TEST (FLIGHT.001)"
+
+    $testScript = "scripts/tests/test_hero_ship_flight.gd"
+    $testScriptFull = Join-Path $ProjectRoot ($testScript.Replace("/", "\"))
+
+    if (-not (Test-Path -LiteralPath $testScriptFull)) {
+        Log-Output "ERROR: Missing test script at $testScript"
+        return $false
+    }
+
+    $godotCmd = (Get-Command "godot" -ErrorAction SilentlyContinue)
+    if (-not $godotCmd) {
+        Log-Output "ERROR: 'godot' not found in PATH. Add Godot to PATH and retry."
+        return $false
+    }
+
+    Log-Output "RUN: godot --headless --path . --script $testScript"
+
+    try {
+        $output = & godot --headless --path $ProjectRoot --script $testScriptFull 2>&1
+        $exitCode = $LASTEXITCODE
+
+        foreach ($line in ($output | ForEach-Object { "$_" })) {
+            if ($line -match "^HSF\|") { Log-Output $line }
+        }
+
+        if ($exitCode -eq 0) {
+            Log-Output "HERO SHIP FLIGHT TEST: PASS (exit 0)"
+            return $true
+        } else {
+            Log-Output "HERO SHIP FLIGHT TEST: FAIL (exit $exitCode)"
+            return $false
+        }
+    } catch {
+        Log-Output "ERROR (hero ship flight test):"
+        Log-Output ($_ | Out-String)
+        return $false
+    }
+}
+
 $btnStartShardFresh = New-DevtoolButton $tabExec "Start Shard (Fresh): Build Prompt" 10 $y2 375 50 "#007acc" {
     $btnStartShardFresh.Enabled = $false
     try {
@@ -1677,6 +1718,17 @@ $btnRunProofs = New-DevtoolButton $tabExec "Run Proofs (current)" 10 $y2 375 40 
     Set-StatusText
 }
 $y2 += 52
+
+$btnHeroShipFlight = New-DevtoolButton $tabExec "Hero Ship: Flight Test (FLIGHT.001)" 10 $y2 375 32 "#005577" {
+    $btnHeroShipFlight.Enabled = $false
+    try {
+        Run-HeroShipFlightTest | Out-Null
+    } finally {
+        $btnHeroShipFlight.Enabled = $true
+        Set-StatusText
+    }
+}
+$y2 += 38
 
 # Advanced (rare): demote clutter below proofs
 $btnCopyEpoch = New-DevtoolButton $tabExec "Copy Epoch Preamble to Clipboard" 10 $y2 375 32 "#444444" {

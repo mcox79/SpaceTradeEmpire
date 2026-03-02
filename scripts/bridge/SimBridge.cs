@@ -642,6 +642,13 @@ public partial class SimBridge : Node
         GetTree().CallDeferred("quit");
     }
 
+    // Headless-test helper: stop the sim thread so the process can exit promptly
+    // after SceneTree.quit(). Call this from GDScript test scripts before quit().
+    public void StopSimV0()
+    {
+        StopSimulation();
+    }
+
     public void ExecuteSafeRead(Action<SimState> action)
     {
         if (IsLoading) return;

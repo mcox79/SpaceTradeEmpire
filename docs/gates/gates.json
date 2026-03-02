@@ -5,37 +5,6 @@
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 69dcb502ffcb814a1121908fee54d08ba07f0343",
     "tasks":  [
                   {
-                      "gate_id":  "GATE.S1.HERO_SHIP_LOOP.FLIGHT.001",
-                      "task_id":  "GATE.S1.HERO_SHIP_LOOP.FLIGHT.001.T237",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP_LOOP.FLIGHT.001: Ship thrust, inertia, and collision physics v0: thrust input accumulates velocity on player.tscn RigidBody3D; velocity persists after thrust release (inertia); collision with scene object changes velocity; all physics tuning values (thrust_force, max_speed, damping) declared as named config constants, no numeric literals in .gd or .tscn; GDScript smoke test asserts velocity nonzero after thrust frame and within expected range during coast; SHA256 stable across two runs",
-                      "intent":  "Ship thrust, inertia, and collision physics v0: thrust input accumulates velocity on player.tscn RigidBody3D; velocity persists after thrust release (inertia); collision with scene object changes velocity; all physics tuning values (thrust_force, max_speed, damping) declared as named config constants, no numeric literals in .gd or .tscn; GDScript smoke test asserts velocity nonzero after thrust frame and within expected range during coast; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_hero_ship_flight.gd",
-                                             "scenes/player.tscn",
-                                             "scenes/playable_prototype.tscn",
-                                             "scripts/core/game_manager.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_hero_ship_flight.gd",
-                                             "candidate_key_sha256=1534026b05ab"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
                       "gate_id":  "GATE.S1.HERO_SHIP_LOOP.STATES.001",
                       "task_id":  "GATE.S1.HERO_SHIP_LOOP.STATES.001.T740",
                       "status":  "TODO",

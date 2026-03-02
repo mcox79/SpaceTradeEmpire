@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cce80jwnp6gby"]
 
-[ext_resource type="Script" uid="uid://46aob1dji102" path="res://scripts/player.gd" id="1_3vyb7"]
+[ext_resource type="Script" path="res://scripts/core/hero_ship_flight_controller.gd" id="1_hero_flight"]
 [ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
@@ -15,8 +15,8 @@ size = Vector3(0.9, 0.5, 1.4)
 [sub_resource type="BoxMesh" id="BoxMesh_engine"]
 size = Vector3(1.0, 0.4, 0.8)
 
-[node name="Player" type="CharacterBody3D" unique_id=1454279642]
-script = ExtResource("1_3vyb7")
+[node name="Player" type="RigidBody3D" unique_id=1454279642]
+script = ExtResource("1_hero_flight")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2037409703]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)

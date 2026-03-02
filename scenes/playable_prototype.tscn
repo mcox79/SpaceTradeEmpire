@@ -1,13 +1,13 @@
 [gd_scene format=3 uid="uid://cvays47todb8v"]
 
-[ext_resource type="Script" uid="uid://c7ygffjwvisfm" path="res://scripts/core/game_manager.gd" id="1_gm"]
-[ext_resource type="Script" uid="uid://cxeqakqjrfxgf" path="res://scripts/view/GalaxyView.cs" id="2_view"]
-[ext_resource type="PackedScene" uid="uid://cce80jwnp6gby" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://scripts/core/game_manager.gd" id="1_gm"]
+[ext_resource type="Script" path="res://scripts/view/GalaxyView.cs" id="2_view"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" path="res://scenes/ghost_system.tscn" id="4_ghost"]
-[ext_resource type="PackedScene" uid="uid://c0o7mei6wfgso" path="res://scenes/station.tscn" id="5_station"]
+[ext_resource type="PackedScene" path="res://scenes/station.tscn" id="5_station"]
 [ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="6_profile"]
-[ext_resource type="Script" uid="uid://s23mtjlpu4rj" path="res://scripts/ui/StationMenu.cs" id="7_fbdop"]
-[ext_resource type="Script" uid="uid://b0uvsuf1c5qjy" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
+[ext_resource type="Script" path="res://scripts/ui/StationMenu.cs" id="7_fbdop"]
+[ext_resource type="Script" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
 [ext_resource type="Script" path="res://scripts/ui/FleetMenu.cs" id="9_fleet"]
 
 [node name="Main" type="Node3D" unique_id=1010166962]
@@ -61,7 +61,6 @@ layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
-script = ExtResource("7_fbdop")
 
 [node name="ProgramsMenu" type="Control" parent="UI" unique_id=1339761809]
 layout_mode = 3

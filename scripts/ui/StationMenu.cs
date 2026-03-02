@@ -147,17 +147,24 @@ public partial class StationMenu : Control
     {
         if (_playerSignalsConnected) return;
 
+        // If this node has been removed from the tree (e.g. scene reload), abort — do not
+        // re-defer, as GetTree() would crash on a freed object.
+        if (!IsInsideTree()) return;
+
         var player = GetTree().GetFirstNodeInGroup("Player");
         if (player == null)
         {
+            // Player not yet in scene; retry next frame.
             CallDeferred(nameof(ConnectPlayerSignals));
             return;
         }
 
         if (!player.HasSignal("shop_toggled"))
         {
-            // Player exists but the signal is not ready yet.
-            CallDeferred(nameof(ConnectPlayerSignals));
+            // Player is present but does not expose shop_toggled (e.g. hero_ship_flight_controller).
+            // Accept and stop retrying — shop-toggle wiring is not available on this player type.
+            Dbg("[StationMenu] Player has no shop_toggled signal; skipping shop toggle wiring.");
+            _playerSignalsConnected = true;
             return;
         }
 
