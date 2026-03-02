@@ -305,12 +305,36 @@ public partial class SimBridge : Node
             try
             {
                 GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
+                EnsurePlayerFleetV0(_kernel.State);
             }
             finally
             {
                 _stateLock.ExitWriteLock();
             }
         }
+    }
+
+    // Creates the canonical player fleet if absent (e.g. fresh generated world with no save file).
+    // Mirrors the fleet created by WorldLoader for loaded worlds.
+    private static void EnsurePlayerFleetV0(SimState state)
+    {
+        const string playerFleetId = "fleet_trader_1";
+        if (state.Fleets.ContainsKey(playerFleetId)) return;
+
+        state.Fleets[playerFleetId] = new SimCore.Entities.Fleet
+        {
+            Id = playerFleetId,
+            OwnerId = "player",
+            CurrentNodeId = state.PlayerLocationNodeId ?? "",
+            DestinationNodeId = "",
+            CurrentEdgeId = "",
+            State = SimCore.Entities.FleetState.Idle,
+            TravelProgress = 0f,
+            Speed = 0.5f,
+            CurrentTask = "Idle",
+            CurrentJob = null,
+            Supplies = 100
+        };
     }
 
     private void StartSimulation()
@@ -656,6 +680,35 @@ public partial class SimBridge : Node
         var gm = GetNodeOrNull<Node>("/root/GameManager");
         if (gm == null) return "UNKNOWN";
         return gm.Call("get_player_ship_state_name_v0").AsString();
+    }
+
+    // Returns the current SimCore tick index. Thread-safe read via state lock.
+    // Used by headless tests to assert tick advance after TravelCommand dispatch.
+    public int GetSimTickV0()
+    {
+        int tick = -1;
+        TryExecuteSafeRead(state => { tick = state.Tick; });
+        return tick;
+    }
+
+    // GDScript-callable wrapper: dispatches a TravelCommand for the given fleet to the target node.
+    // Equivalent to EnqueueCommand(new TravelCommand(fleetId, targetNodeId)) from C#.
+    public void DispatchTravelCommandV0(string fleetId, string targetNodeId)
+    {
+        EnqueueCommand(new TravelCommand(fleetId, targetNodeId));
+    }
+
+    // Returns the current FleetState name for the given fleet ID, or "UNKNOWN" if not found.
+    // Used by headless tests to confirm fleet moved to Traveling after TravelCommand dispatch.
+    public string GetFleetStateV0(string fleetId)
+    {
+        string result = "UNKNOWN";
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Fleets.TryGetValue(fleetId, out var f))
+                result = f.State.ToString();
+        });
+        return result;
     }
 
     public void ExecuteSafeRead(Action<SimState> action)

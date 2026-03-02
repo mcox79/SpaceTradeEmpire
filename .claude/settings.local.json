@@ -45,7 +45,8 @@
       "Bash(cd /d \"d:\\\\SGE\\\\SpaceTradeEmpire\")",
       "Bash(dotnet build \"Space Trade Empire.csproj\" --nologo)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1)",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\")"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data[0][''text''][:8000]\\)\")"
     ],
     "ask": [
       "Bash(git:push*)"

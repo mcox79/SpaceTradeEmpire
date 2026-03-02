@@ -305,7 +305,29 @@ public partial class GalaxyView : Node3D
         lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 0.5f, 0f);
         root.AddChild(lbl);
 
+        // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
+        var area = new Area3D { Name = "LaneGateArea" };
+        var shape = new CollisionShape3D
+        {
+            Name = "LaneGateShape",
+            Shape = new SphereShape3D { Radius = LaneGateMarkerRadiusU * 4.0f }
+        };
+        area.AddChild(shape);
+        // Store neighbor id for the signal handler to forward.
+        area.SetMeta("lane_neighbor_id", neighborId);
+        area.BodyEntered += (body) => _OnLaneGateBodyEnteredV0(body, neighborId);
+        root.AddChild(area);
+
         return root;
+    }
+
+    private void _OnLaneGateBodyEnteredV0(Node3D body, string neighborId)
+    {
+        if (!body.IsInGroup("PlayerShip")) return;
+        var gm = GetNodeOrNull<Node>("/root/GameManager");
+        if (gm == null) return;
+        if (gm.HasMethod("on_lane_gate_proximity_entered_v0"))
+            gm.Call("on_lane_gate_proximity_entered_v0", neighborId);
     }
 
     private Node3D CreateDiscoverySiteMarkerV0(string siteId)

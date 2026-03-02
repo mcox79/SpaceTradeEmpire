@@ -5,6 +5,9 @@ extends Node
 const Sim = preload('res://scripts/core/sim/sim.gd')
 const PlayerState = preload('res://scripts/core/state/player_state.gd')
 
+# SimCore fleet ID for the player fleet (matches WorldLoader constant).
+const PLAYER_FLEET_ID := "fleet_trader_1"
+
 # Hero ship flight tuning (v0). Keep these centralized to avoid magic numbers in physics logic.
 const HERO_THRUST_FORCE_V0: float = 55.0
 const HERO_MAX_SPEED_V0: float = 28.0
@@ -213,6 +216,23 @@ func undock_v0():
 	# Close station menu if it is open.
 	if _station_menu and _station_menu.has_method("OnShopToggled"):
 		_station_menu.call("OnShopToggled", false, "")
+
+func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
+	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
+		return
+
+	print("UUIR|LANE_ENTER|" + neighbor_node_id)
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("DispatchTravelCommandV0"):
+		bridge.call("DispatchTravelCommandV0", PLAYER_FLEET_ID, neighbor_node_id)
+
+func on_lane_arrival_v0(arrived_node_id: String) -> void:
+	if current_player_state != PlayerShipState.IN_LANE_TRANSIT:
+		return
+
+	print("UUIR|LANE_EXIT|" + arrived_node_id)
+	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 
 func _on_station_menu_request_undock():
 	undock_v0()

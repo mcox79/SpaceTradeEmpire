@@ -1,41 +1,7 @@
 {
     "queue_contract_version":  "2.2",
     "queue_ordering":  "MULTIKEY_V1",
-    "generated_utc":  "2026-03-01T11:47:09-05:00",
-    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 69dcb502ffcb814a1121908fee54d08ba07f0343",
-    “tasks”:  [
-                  {
-                      "gate_id":  "GATE.S1.HERO_SHIP_LOOP.LANE.001",
-                      "task_id":  "GATE.S1.HERO_SHIP_LOOP.LANE.001.T568",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP_LOOP.LANE.001: Lane transit bare state and SimCore time advance v0: player ship reaches lane gate marker; game_manager.gd transitions PlayerShipState to InLaneTransit; bare screen fade plays (no tunnel visual, no camera lock, no input buffer in v0); game_manager.gd dispatches TravelCommand for player_fleet_id via SimBridge to adjacent system; SimCore TickIndex advances by LaneFlowSystem edge cost; player ship spawns at adjacent system lane gate marker; PlayerShipState returns to InFlight; headless UUIR tokens: InFlight-\u003eInLaneTransit-\u003eInFlight state sequence, tick_before and tick_after; SHA256 stable across two runs",
-                      "intent":  "Lane transit bare state and SimCore time advance v0: player ship reaches lane gate marker; game_manager.gd transitions PlayerShipState to InLaneTransit; bare screen fade plays (no tunnel visual, no camera lock, no input buffer in v0); game_manager.gd dispatches TravelCommand for player_fleet_id via SimBridge to adjacent system; SimCore TickIndex advances by LaneFlowSystem edge cost; player ship spawns at adjacent system lane gate marker; PlayerShipState returns to InFlight; headless UUIR tokens: InFlight-\u003eInLaneTransit-\u003eInFlight state sequence, tick_before and tick_after; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_hero_ship_lane_transit.gd",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "SimCore/Systems/LaneFlowSystem.cs",
-                                             "SimCore/Commands/TravelCommand.cs",
-                                             "scenes/playable_prototype.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_hero_ship_lane_transit.gd",
-                                             "candidate_key_sha256=740ed35522d1"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  }
-              ]
+    "generated_utc":  "2026-03-02T18:00:00-05:00",
+    "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
+    "tasks":  []
 }
