@@ -3,71 +3,7 @@
     "queue_ordering":  "MULTIKEY_V1",
     "generated_utc":  "2026-03-01T11:47:09-05:00",
     "queue_intent":  "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 69dcb502ffcb814a1121908fee54d08ba07f0343",
-    "tasks":  [
-                  {
-                      "gate_id":  "GATE.S1.HERO_SHIP_LOOP.STATES.001",
-                      "task_id":  "GATE.S1.HERO_SHIP_LOOP.STATES.001.T740",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP_LOOP.STATES.001: Named player states contract v0: new PlayerShipState enum (InFlight, Docked, InLaneTransit) created in game_manager.gd â€” player_state.gd has no state concept, this is entirely new code; explicit transition guard on game_manager.gd (invalid transition emits INVALID_STATE_TRANSITION log token); state tracked as current_player_state field; state name readable via SimBridge string query for headless proof; Validate-GodotScript.ps1 passes; existing test_sim_skeleton.gd seed=42 ticks=120 exits 0 unmodified; dotnet build passes",
-                      "intent":  "Named player states contract v0: new PlayerShipState enum (InFlight, Docked, InLaneTransit) created in game_manager.gd â€” player_state.gd has no state concept, this is entirely new code; explicit transition guard on game_manager.gd (invalid transition emits INVALID_STATE_TRANSITION log token); state tracked as current_player_state field; state name readable via SimBridge string query for headless proof; Validate-GodotScript.ps1 passes; existing test_sim_skeleton.gd seed=42 ticks=120 exits 0 unmodified; dotnet build passes",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_sim_skeleton.gd",
-                                             "scripts/core/game_manager.gd",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scenes/playable_prototype.tscn"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_sim_skeleton.gd",
-                                             "candidate_key_sha256=9761330f9131"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
-                  {
-                      "gate_id":  "GATE.S1.HERO_SHIP_LOOP.SCENE.001",
-                      "task_id":  "GATE.S1.HERO_SHIP_LOOP.SCENE.001.T065",
-                      "status":  "TODO",
-                      "title":  "GATE.S1.HERO_SHIP_LOOP.SCENE.001: Solar system local-space scene boot v0 (depends on SYSTEM_CONTRACT.001 and STATES.001): GalaxyView.cs DrawPhysicalMap logic replaced â€” removes direct SimState TryExecuteSafeRead for scene objects and replaces with GetSystemSnapshotV0 SimBridge query; renders single current-system interior: star mesh at origin, station node at seed-derived orbit position, discovery site markers at seed-derived orbit positions, lane gate markers at scene edge one per neighbor; planets are GameShell-only seed-derived visual elements in v0 (no SimCore backing); galaxy-level node/edge rendering extracted out of DrawPhysicalMap into a new overlay-mode flag (restored in RENDER.001); all scene-radius and orbit constants declared as named C# config fields, no numeric literals in .cs or .tscn; headless script emits UUIR tokens for star_present=true, station_count\u003e=1, lane_gate_count\u003e=1, ship_spawn_valid=true; SHA256 stable across two runs",
-                      "intent":  "Solar system local-space scene boot v0 (depends on SYSTEM_CONTRACT.001 and STATES.001): GalaxyView.cs DrawPhysicalMap logic replaced â€” removes direct SimState TryExecuteSafeRead for scene objects and replaces with GetSystemSnapshotV0 SimBridge query; renders single current-system interior: star mesh at origin, station node at seed-derived orbit position, discovery site markers at seed-derived orbit positions, lane gate markers at scene edge one per neighbor; planets are GameShell-only seed-derived visual elements in v0 (no SimCore backing); galaxy-level node/edge rendering extracted out of DrawPhysicalMap into a new overlay-mode flag (restored in RENDER.001); all scene-radius and orbit constants declared as named C# config fields, no numeric literals in .cs or .tscn; headless script emits UUIR tokens for star_present=true, station_count\u003e=1, lane_gate_count\u003e=1, ship_spawn_valid=true; SHA256 stable across two runs",
-                      "evidence_paths":  [
-                                             "scripts/tests/test_hero_ship_scene_boot.gd",
-                                             "scripts/view/GalaxyView.cs",
-                                             "scripts/view/StarNode.cs",
-                                             "scripts/bridge/SimBridge.cs",
-                                             "scenes/playable_prototype.tscn",
-                                             "scripts/core/game_manager.gd"
-                                         ],
-                      "constraints":  [
-                                          "Single-session scope: stay within evidence and expected touch paths.",
-                                          "If evidence is missing or tests fail, escalate via DEFAULT."
-                                      ],
-                      "completion_hint":  [
-                                              "powershell -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1"
-                                          ],
-                      "task_preflight":  [
-                                             "anchor=scripts/tests/test_hero_ship_scene_boot.gd",
-                                             "candidate_key_sha256=cfac9e5fba2b"
-                                         ],
-                      "escalation_rules":  [
-                                               {
-                                                   "when":  "DEFAULT",
-                                                   "route":  "STOP",
-                                                   "note":  "Escalate if blocked or scope expands."
-                                               }
-                                           ]
-                  },
+    “tasks”:  [
                   {
                       "gate_id":  "GATE.S1.HERO_SHIP_LOOP.LANE.001",
                       "task_id":  "GATE.S1.HERO_SHIP_LOOP.LANE.001.T568",

@@ -19,6 +19,20 @@ public partial class GalaxyView : Node3D
     private int _lastEdgeCount = 0;
     private bool _lastPlayerHighlighted = false;
 
+    // --- Local system config (named exported fields; no numeric literals in .cs or .tscn) ---
+    [Export] public float SystemSceneRadiusU { get; set; } = 120.0f;
+    [Export] public float StationOrbitRadiusU { get; set; } = 60.0f;
+    [Export] public float LaneGateDistanceU { get; set; } = 90.0f;
+    [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 40.0f;
+    [Export] public float StarVisualRadiusU { get; set; } = 3.0f;
+    [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
+    [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
+    [Export] public PackedScene StationPrefab { get; set; }
+
+    // Local system state
+    private Node3D _localSystemRoot;
+    private string _currentNodeId = "";
+
     public override void _Ready()
     {
         _bridge = GetNodeOrNull<SimBridge>("/root/SimBridge");
@@ -26,6 +40,13 @@ public partial class GalaxyView : Node3D
         // Default OFF: the playable prototype is a local-space view until Tab opens the overlay.
         Visible = false;
         SetProcess(false);
+
+        // Allocate local system container; it will be added to the parent in the deferred boot call
+        // (adding children during _Ready while the parent is busy building children is not allowed).
+        _localSystemRoot = new Node3D { Name = "LocalSystem" };
+
+        // Defer one frame so SimBridge finishes its own _Ready before we query it.
+        CallDeferred(nameof(DrawLocalSystemBootV0));
     }
 
     // Deterministic helper for spawners: mark any scene node as a proximity dock target.
@@ -57,6 +78,10 @@ public partial class GalaxyView : Node3D
         Visible = isOpen;
         SetProcess(isOpen);
 
+        // Show/hide local system opposite to overlay: open=hide, closed=show.
+        if (_localSystemRoot != null)
+            _localSystemRoot.Visible = !isOpen;
+
         if (isOpen)
         {
             // Defer one frame so SimBridge can finish boot sequences.
@@ -74,6 +99,22 @@ public partial class GalaxyView : Node3D
         };
     }
 
+    // Returns counts of local system objects via scene groups for headless proof.
+    public Godot.Collections.Dictionary GetLocalSystemMetricsV0()
+    {
+        int starCount = GetTree().GetNodesInGroup("LocalStar").Count;
+        int stationCount = GetTree().GetNodesInGroup("Station").Count;
+        int laneGateCount = GetTree().GetNodesInGroup("LaneGate").Count;
+        int discoverySiteCount = GetTree().GetNodesInGroup("DiscoverySite").Count;
+        return new Godot.Collections.Dictionary
+        {
+            ["star_count"] = starCount,
+            ["station_count"] = stationCount,
+            ["lane_gate_count"] = laneGateCount,
+            ["discovery_site_count"] = discoverySiteCount
+        };
+    }
+
     public override void _Process(double delta)
     {
         if (!_overlayOpen) return;
@@ -81,6 +122,245 @@ public partial class GalaxyView : Node3D
 
         RefreshFromSnapshotV0();
     }
+
+    // --- Local system rendering ---
+
+    // Called deferred from _Ready: adds local system root to scene then draws.
+    // Deferred ensures the parent has finished building children before we call AddChild.
+    private void DrawLocalSystemBootV0()
+    {
+        if (_bridge == null) return;
+
+        // Safe to AddChild here — _Ready is complete and the parent is no longer busy.
+        if (_localSystemRoot != null && _localSystemRoot.GetParent() == null)
+        {
+            GetParent().AddChild(_localSystemRoot);
+        }
+
+        var galaxySnap = _bridge.GetGalaxySnapshotV0();
+        if (galaxySnap == null) return;
+
+        var nodeId = galaxySnap.ContainsKey("player_current_node_id")
+            ? (string)galaxySnap["player_current_node_id"]
+            : "";
+
+        if (string.IsNullOrEmpty(nodeId)) return;
+
+        DrawLocalSystemV0(nodeId);
+    }
+
+    // Spawns local system interior from GetSystemSnapshotV0: star, station, lane gates, discovery sites.
+    // All positions are seed-derived (deterministic, no wall-clock).
+    private void DrawLocalSystemV0(string nodeId)
+    {
+        ClearLocalSystemV0();
+        _currentNodeId = nodeId;
+
+        if (_bridge == null) return;
+
+        var snap = _bridge.GetSystemSnapshotV0(nodeId);
+        if (snap == null) return;
+
+        // 1. Star mesh at origin.
+        var star = CreateStarMeshV0();
+        star.AddToGroup("LocalStar");
+        _localSystemRoot.AddChild(star);
+
+        // 2. Station at seed-derived orbit position.
+        SpawnStationV0(snap, nodeId);
+
+        // 3. Lane gate markers (one per neighbor).
+        SpawnLaneGatesV0(snap);
+
+        // 4. Discovery site markers at seed-derived orbit positions.
+        SpawnDiscoverySitesV0(snap, nodeId);
+    }
+
+    private void ClearLocalSystemV0()
+    {
+        if (_localSystemRoot == null) return;
+        foreach (Node child in _localSystemRoot.GetChildren())
+        {
+            child.QueueFree();
+        }
+    }
+
+    private void SpawnStationV0(Godot.Collections.Dictionary snap, string nodeId)
+    {
+        var stationDict = snap.ContainsKey("station")
+            ? snap["station"].AsGodotDictionary()
+            : null;
+        if (stationDict == null) return;
+
+        var stationId = stationDict.ContainsKey("node_id")
+            ? (string)stationDict["node_id"]
+            : nodeId;
+
+        // Inline station visual: green semi-transparent box matching station.tscn appearance.
+        // Avoids GDScript preload dependencies (active_station.gd) that fail in headless.
+        var station = new Node3D { Name = "LocalStation_" + stationId };
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "StationMesh",
+            Mesh = new BoxMesh { Size = new Vector3(10f, 5f, 10f) },
+            MaterialOverride = new StandardMaterial3D
+            {
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                AlbedoColor = new Color(0f, 1f, 0f, 0.3f)
+            }
+        };
+        station.AddChild(mesh);
+
+        station.Position = DeriveOrbitPositionV0(nodeId + "_station", StationOrbitRadiusU);
+        station.AddToGroup("Station");
+        RegisterDockTargetV0(station, "STATION", stationId);
+
+        _localSystemRoot.AddChild(station);
+    }
+
+    private void SpawnLaneGatesV0(Godot.Collections.Dictionary snap)
+    {
+        if (!snap.ContainsKey("lane_gate")) return;
+        var gates = snap["lane_gate"].AsGodotArray();
+
+        for (int i = 0; i < gates.Count; i++)
+        {
+            var g = gates[i].AsGodotDictionary();
+            var neighborId = g.ContainsKey("neighbor_node_id")
+                ? (string)g["neighbor_node_id"]
+                : "";
+
+            var marker = CreateLaneGateMarkerV0(neighborId);
+            marker.Position = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
+            marker.AddToGroup("LaneGate");
+            _localSystemRoot.AddChild(marker);
+        }
+    }
+
+    private void SpawnDiscoverySitesV0(Godot.Collections.Dictionary snap, string nodeId)
+    {
+        if (!snap.ContainsKey("discovery_sites")) return;
+        var sites = snap["discovery_sites"].AsGodotArray();
+
+        for (int i = 0; i < sites.Count; i++)
+        {
+            var s = sites[i].AsGodotDictionary();
+            var siteId = s.ContainsKey("site_id") ? (string)s["site_id"] : (nodeId + "_site_" + i);
+
+            var marker = CreateDiscoverySiteMarkerV0(siteId);
+            marker.Position = DeriveOrbitPositionV0(siteId + "_discovery", DiscoverySiteOrbitRadiusU);
+            marker.AddToGroup("DiscoverySite");
+            _localSystemRoot.AddChild(marker);
+        }
+    }
+
+    private Node3D CreateStarMeshV0()
+    {
+        var root = new Node3D { Name = "LocalStar" };
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "StarMesh",
+            Mesh = new SphereMesh { Radius = StarVisualRadiusU },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1.0f, 0.8f, 0.2f),
+                EmissionEnabled = true,
+                Emission = new Color(1.0f, 0.8f, 0.2f),
+                EmissionEnergyMultiplier = 3.0f
+            }
+        };
+
+        root.AddChild(mesh);
+        root.Position = Vector3.Zero;
+        return root;
+    }
+
+    private Node3D CreateLaneGateMarkerV0(string neighborId)
+    {
+        var root = new Node3D { Name = "LaneGate_" + neighborId };
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "LaneGateMesh",
+            Mesh = new SphereMesh { Radius = LaneGateMarkerRadiusU },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.3f, 0.3f, 1.0f),
+                EmissionEnabled = true,
+                Emission = new Color(0.3f, 0.3f, 1.0f),
+                EmissionEnergyMultiplier = 1.5f
+            }
+        };
+        root.AddChild(mesh);
+
+        var lbl = new Label3D
+        {
+            Name = "GateLabel",
+            Text = "LANE\u2192" + neighborId,
+            PixelSize = 0.01f,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled
+        };
+        lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 0.5f, 0f);
+        root.AddChild(lbl);
+
+        return root;
+    }
+
+    private Node3D CreateDiscoverySiteMarkerV0(string siteId)
+    {
+        var root = new Node3D { Name = "DiscoverySite_" + siteId };
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "SiteMesh",
+            Mesh = new SphereMesh { Radius = DiscoverySiteMarkerRadiusU },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1.0f, 0.6f, 0.0f)
+            }
+        };
+        root.AddChild(mesh);
+
+        return root;
+    }
+
+    // --- Deterministic orbit position helpers ---
+
+    // FNV-1a 64-bit hash: GameShell-only math, no SimCore dependency.
+    private static ulong Fnv1a64(string s)
+    {
+        unchecked
+        {
+            const ulong offset = 14695981039346656037UL;
+            const ulong prime = 1099511628211UL;
+            ulong h = offset;
+            for (int i = 0; i < s.Length; i++)
+            {
+                h ^= (byte)s[i];
+                h *= prime;
+            }
+            return h;
+        }
+    }
+
+    // Deterministic XZ orbit position from seedKey hash. Y=0 (local physics plane).
+    private static Vector3 DeriveOrbitPositionV0(string seedKey, float radius)
+    {
+        var hash = Fnv1a64(seedKey);
+        float angle = (float)(hash % 360UL) * (MathF.PI / 180f);
+        return new Vector3(MathF.Cos(angle) * radius, 0f, MathF.Sin(angle) * radius);
+    }
+
+    // Evenly-spaced XZ positions for lane gate markers (deterministic by index+total).
+    private static Vector3 DeriveLaneGatePositionV0(int index, int total, float distance)
+    {
+        float angle = total > 0 ? ((float)index / total) * 2f * MathF.PI : 0f;
+        return new Vector3(MathF.Cos(angle) * distance, 0f, MathF.Sin(angle) * distance);
+    }
+
+    // --- Galaxy overlay rendering ---
 
     private void RefreshFromSnapshotV0()
     {

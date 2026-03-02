@@ -37,8 +37,14 @@ Purpose: validate GameShell wiring and capstone scripts with deterministic stdou
 
 Prereq: use the Godot Mono console binary (the `*_console.exe` build). Configure it via the repo's Godot exe lookup (see scripts/tools/common.ps1 Get-GodotExe) or pass an explicit path in your local environment.
 
-Prereq (C# bridge methods): if any C# SimBridge method has changed since the last build, run `dotnet build --nologo` (full solution, not just SimCore.csproj) before running headless tests. Without this the Godot assembly is stale and bridge methods will report as missing at runtime with no other error. The canonical build command is:
-  - dotnet build --nologo
+Prereq (C# bridge methods): if any C# SimBridge method has changed since the last build, run `dotnet build --nologo` on the game assembly before running headless tests. Without this the Godot assembly is stale and bridge methods will report as missing at runtime with no other error. The canonical build command is:
+  - dotnet build "Space Trade Empire.csproj" --nologo
+
+Prereq (C# script nodes in headless): C# node scripts (StationMenu.cs, GalaxyView.cs, etc.) are NOT auto-compiled by the headless runner. Without a prior build, those nodes degrade to their base Godot type (e.g. Control instead of StationMenu) and have no custom signals or methods. Always build the game assembly before running tests that load scenes with C# nodes. Use has_signal() and has_method() guards in GDScript when the C# node may be absent.
+
+Prereq (PowerShell invocation): when calling Godot from PowerShell with a quoted exe path, the & call operator is mandatory. Without it, PowerShell treats the quoted string as an expression and --headless triggers a parser error.
+  - Correct:   & "C:\...\Godot.exe" --headless --path "D:/..." --script scripts/tests/<script>.gd
+  - Wrong:     "C:\...\Godot.exe" --headless ...  (ParserError: UnexpectedToken)
 
 - Parse gate for a .gd file (tabs-only + headless parse)
   - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1 -TargetScript "<repo-relative-path-to-file.gd>"
@@ -64,11 +70,12 @@ Prereq (C# bridge methods): if any C# SimBridge method has changed since the las
 
 ## Notes (headless script tests)
 
-Godot binary (this machine):
-  - C:\Godot\Godot_v4.6-stable_mono_win64.exe
+Godot binary (path varies by machine — update when switching):
+  - Laptop:  C:\Users\marsh\Downloads\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64\Godot_v4.6-stable_mono_win64.exe
+  - Desktop: <update when confirmed>
 
-Canonical pattern for -s script tests:
-  - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=<N>
+Canonical pattern for -s script tests (substitute correct path for machine):
+  - & "<godot-exe>" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=<N>
   - The -- separator is required. Everything after -- is passed to OS.GetCmdlineUserArgs() in C#.
   - Without --, --seed=N is consumed by the engine and never reaches ApplyCmdlineOverrides().
 
@@ -83,6 +90,16 @@ Determinism proof pattern (two runs, hashes must match):
 Exit code check:
   - & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --headless --path . -s "res://scripts/tests/<script>.gd" -- --seed=42 2>&1 | Out-Null; $LASTEXITCODE
   - Expected: 0
+
+Process-hang pattern (SimBridge background thread): after quit() prints its final token, the Godot process does not return to the shell prompt promptly. Root cause: SimBridge autoload starts a C# Task (simulation thread) that keeps .NET alive. Fix: call StopSimV0() on the SimBridge node before quit() in every test script.
+  - Pattern:
+      var bridge = get_root().get_node_or_null("SimBridge")
+      if bridge and bridge.has_method("StopSimV0"):
+          bridge.call("StopSimV0")
+      quit(code)
+  - If process still hangs after StopSimV0, Ctrl+C is safe — output is already flushed before quit() is called.
+
+C# signal names from GDScript: Godot 4 exposes C# [Signal] delegate void FooEventHandler() to GDScript as "foo" (snake_case, EventHandler suffix stripped). Use has_signal("foo") guard before connecting to tolerate the headless case where the C# assembly is not loaded.
 
 SceneTree script contract (extends SceneTree):
   - _initialize() must not block the main thread (no OS.delay_msec polling loops).

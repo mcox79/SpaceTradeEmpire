@@ -21,13 +21,14 @@ var _hero_body: RigidBody3D
 enum PlayerShipState {
 	IN_FLIGHT,
 	DOCKED,
+	IN_LANE_TRANSIT,
 }
 
 var sim: Sim
 var player: PlayerState
 
 # Centralized ship state for proximity docking v0.
-var player_ship_state: PlayerShipState = PlayerShipState.IN_FLIGHT
+var current_player_state: PlayerShipState = PlayerShipState.IN_FLIGHT
 var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
 
@@ -153,15 +154,39 @@ func toggle_galaxy_map_overlay_v0():
 	if _galaxy_view and _galaxy_view.has_method("SetOverlayOpenV0"):
 		_galaxy_view.call("SetOverlayOpenV0", galaxy_overlay_open)
 
+# Valid transitions: IN_FLIGHT<->DOCKED, IN_FLIGHT<->IN_LANE_TRANSIT.
+# Emits INVALID_STATE_TRANSITION token and returns false on bad transition.
+func _transition_player_state_v0(new_state: PlayerShipState) -> bool:
+	var valid := false
+	match current_player_state:
+		PlayerShipState.IN_FLIGHT:
+			valid = new_state == PlayerShipState.DOCKED or new_state == PlayerShipState.IN_LANE_TRANSIT
+		PlayerShipState.DOCKED:
+			valid = new_state == PlayerShipState.IN_FLIGHT
+		PlayerShipState.IN_LANE_TRANSIT:
+			valid = new_state == PlayerShipState.IN_FLIGHT
+	if not valid:
+		print("INVALID_STATE_TRANSITION|" + get_player_ship_state_name_v0() + "|" + _state_name_v0(new_state))
+		return false
+	current_player_state = new_state
+	return true
+
+func get_player_ship_state_name_v0() -> String:
+	return _state_name_v0(current_player_state)
+
+func _state_name_v0(s: PlayerShipState) -> String:
+	match s:
+		PlayerShipState.IN_FLIGHT:       return "IN_FLIGHT"
+		PlayerShipState.DOCKED:          return "DOCKED"
+		PlayerShipState.IN_LANE_TRANSIT: return "IN_LANE_TRANSIT"
+	return "UNKNOWN"
+
 func on_proximity_dock_entered_v0(target: Node):
 	if target == null:
 		return
 
-	# Guard: do not re-enter dock logic on repeated physics enters.
-	if player_ship_state == PlayerShipState.DOCKED:
+	if not _transition_player_state_v0(PlayerShipState.DOCKED):
 		return
-
-	player_ship_state = PlayerShipState.DOCKED
 	dock_target_kind_token = _dock_target_kind_token_v0(target)
 	dock_target_id = _dock_target_id_v0(target)
 
@@ -175,13 +200,13 @@ func on_proximity_dock_entered_v0(target: Node):
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
 
 func undock_v0():
-	if player_ship_state != PlayerShipState.DOCKED:
+	if current_player_state != PlayerShipState.DOCKED:
 		return
 
 	# Deterministic token for headless assertions (no timestamps).
 	print("UUIR|UNDOCK|" + dock_target_kind_token + "|" + dock_target_id)
 
-	player_ship_state = PlayerShipState.IN_FLIGHT
+	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	dock_target_kind_token = ""
 	dock_target_id = ""
 

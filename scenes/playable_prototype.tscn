@@ -3,9 +3,7 @@
 [ext_resource type="Script" path="res://scripts/core/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/view/GalaxyView.cs" id="2_view"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
-[ext_resource type="PackedScene" path="res://scenes/ghost_system.tscn" id="4_ghost"]
 [ext_resource type="PackedScene" path="res://scenes/station.tscn" id="5_station"]
-[ext_resource type="Resource" path="res://resources/markets/station_alpha_profile.tres" id="6_profile"]
 [ext_resource type="Script" path="res://scripts/ui/StationMenu.cs" id="7_fbdop"]
 [ext_resource type="Script" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
 [ext_resource type="Script" path="res://scripts/ui/FleetMenu.cs" id="9_fleet"]
@@ -21,6 +19,7 @@ script = ExtResource("1_gm")
 
 [node name="GalaxyView" type="Node3D" parent="." unique_id=1641435699]
 script = ExtResource("2_view")
+StationPrefab = ExtResource("5_station")
 
 [node name="GalaxyOverlayCamera" type="Camera3D" parent="."]
 current = false
@@ -48,11 +47,6 @@ text = "GALAXY MAP (TAB to close)"
 [node name="Player" parent="." unique_id=458325344 instance=ExtResource("3_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
 
-[node name="GhostSystem" parent="." unique_id=1493523408 instance=ExtResource("4_ghost")]
-
-[node name="StationAlpha" parent="." unique_id=639576715 instance=ExtResource("5_station")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -60)
-market_profile = ExtResource("6_profile")
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=162159558]
 

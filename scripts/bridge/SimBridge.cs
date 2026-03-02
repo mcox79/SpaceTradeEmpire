@@ -649,6 +649,15 @@ public partial class SimBridge : Node
         StopSimulation();
     }
 
+    // Returns the current player ship state name from GameManager (GameShell-only query).
+    // Used by headless tests to prove the state machine surface without direct node access.
+    public string GetPlayerShipStateNameV0()
+    {
+        var gm = GetNodeOrNull<Node>("/root/GameManager");
+        if (gm == null) return "UNKNOWN";
+        return gm.Call("get_player_ship_state_name_v0").AsString();
+    }
+
     public void ExecuteSafeRead(Action<SimState> action)
     {
         if (IsLoading) return;
