@@ -56,7 +56,16 @@
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"2\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"verify\" -OutFile \"docs/generated/gmd_verify.txt\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Category=CatalogContract\")",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v normal)"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v normal)",
+      "Bash(xargs grep -l \"interface ICommand\")",
+      "Bash(xargs grep -l \"interface IIntent\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-GodotScript.ps1 -TargetScript \"scripts/tests/test_hero_ship_arrive.gd\")",
+      "Bash(powershell -NoProfile -Command \"cd ''D:/SGE/SpaceTradeEmpire''; & ''C:\\\\Users\\\\marsh\\\\Downloads\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe'' --headless --path . -s ''res://scripts/tests/test_hero_ship_arrive.gd'' 2>''docs/generated/hsa_run1_err.txt'' | Tee-Object -FilePath ''docs/generated/hsa_run1.txt''; exit $LASTEXITCODE\")",
+      "Bash(echo \"BASH_EXIT:$?\")",
+      "Bash(powershell -NoProfile -Command \"Set-Location ''D:/SGE/SpaceTradeEmpire''; $godot = ''C:\\\\Users\\\\marsh\\\\Downloads\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe''; & $godot --headless --path . -s res://scripts/tests/test_hero_ship_arrive.gd 2>docs/generated/hsa_run1_err.txt | Tee-Object docs/generated/hsa_run1.txt\")",
+      "Bash(/tmp/run_hsa2.ps1:*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File /tmp/run_hsa2.ps1)",
+      "Bash(powershell -NoProfile -Command \"Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run1.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash; Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run2.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")"
     ],
     "ask": [
       "Bash(git:push*)"

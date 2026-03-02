@@ -698,6 +698,13 @@ public partial class SimBridge : Node
         EnqueueCommand(new TravelCommand(fleetId, targetNodeId));
     }
 
+    // GDScript-callable wrapper: dispatches a PlayerArriveCommand to update the hero ship location in SimState.
+    // Called by game_manager.on_lane_arrival_v0 after the hero ship completes a lane transit.
+    public void DispatchPlayerArriveV0(string targetNodeId)
+    {
+        EnqueueCommand(new PlayerArriveCommand(targetNodeId));
+    }
+
     // Returns the current FleetState name for the given fleet ID, or "UNKNOWN" if not found.
     // Used by headless tests to confirm fleet moved to Traveling after TravelCommand dispatch.
     public string GetFleetStateV0(string fleetId)

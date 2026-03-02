@@ -239,6 +239,9 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 		return
 
 	print("UUIR|LANE_EXIT|" + arrived_node_id)
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
+		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 
 func _on_station_menu_request_undock():

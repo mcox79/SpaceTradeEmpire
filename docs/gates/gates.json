@@ -1,32 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T00:30:00-05:00",
+    "generated_utc": "2026-03-03T06:00:00Z",
     "queue_intent": "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
-    "tasks": [
-        {
-            "gate_id": "GATE.S1.HERO_SHIP_LOOP.ARRIVE.001",
-            "task_id": "GATE.S1.HERO_SHIP_LOOP.ARRIVE.001.T318",
-            "status": "TODO",
-            "title": "GATE.S1.HERO_SHIP_LOOP.ARRIVE.001: Lane transit arrival SimBridge-truth scene redraw v0",
-            "intent": "on_lane_arrival_v0 dispatches PlayerArriveCommand so SimCore sets PlayerLocationNodeId; GalaxyView.DrawLocalSystemV0 called with GetGalaxySnapshotV0 player_current_node_id (no direct arrived_id pass); headless proof asserts node_id matches destination + LocalStar/Station/LaneGate groups non-zero; SHA256 stable across two runs.",
-            "evidence_paths": [
-                "SimCore/Commands/PlayerArriveCommand.cs",
-                "scripts/core/game_manager.gd",
-                "scripts/bridge/SimBridge.cs",
-                "scripts/tests/test_hero_ship_arrive.gd",
-                "docs/generated/hsa_run1.txt",
-                "docs/generated/hsa_run2.txt"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build + godot --headless --script scripts/tests/test_hero_ship_arrive.gd (run twice, SHA256 match) + dotnet test pass"],
-            "task_preflight": ["anchor=SimCore/Commands/PlayerArriveCommand.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        }
-    ]
+    "tasks": []
 }
