@@ -467,30 +467,40 @@ public partial class GalaxyView : Node3D
             return StringComparer.Ordinal.Compare(a.ToId, b.ToId);
         });
 
-        _lastNodeCount = nodes.Count;
         _lastEdgeCount = edges.Count;
 
-        // Nodes: create/update visuals
+        // Nodes: create/update visuals (HIDDEN nodes are suppressed from the overlay).
         bool playerHighlighted = false;
+        int renderedNodeCount = 0;
         for (int i = 0; i < nodes.Count; i++)
         {
             var n = nodes[i];
             if (string.IsNullOrEmpty(n.NodeId)) continue;
 
+            bool isHidden = StringComparer.Ordinal.Equals(n.DisplayStateToken, "HIDDEN");
+
             if (!_nodeRootsById.TryGetValue(n.NodeId, out var root))
             {
+                if (isHidden) continue; // Never create a visual for HIDDEN nodes.
                 root = CreateNodeVisualV0(n.NodeId);
                 _nodeRootsById[n.NodeId] = root;
                 AddChild(root);
             }
+            else if (isHidden)
+            {
+                // Node transitioned to HIDDEN — remove its visual.
+                root.QueueFree();
+                _nodeRootsById.Remove(n.NodeId);
+                continue;
+            }
 
+            renderedNodeCount++;
             root.Position = n.Position;
 
             var label = root.GetNodeOrNull<Label3D>("NodeLabel");
             if (label != null)
             {
-                // Rumored nodes must not reveal their true name.
-                // Token contract: DisplayStateToken == "RUMORED" => render "???".
+                // Token contract: RUMORED => "???", VISITED => name, MAPPED => name+count.
                 label.Text = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
                     ? "???"
                     : (n.DisplayText ?? "");
@@ -518,6 +528,7 @@ public partial class GalaxyView : Node3D
             }
         }
 
+        _lastNodeCount = renderedNodeCount;
         _lastPlayerHighlighted = playerHighlighted;
 
         // Edges: create/update visuals

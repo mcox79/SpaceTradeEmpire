@@ -1,7 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-02T23:59:00-05:00",
+    "generated_utc": "2026-03-03T00:30:00-05:00",
     "queue_intent": "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
     "tasks": [
         {
@@ -62,28 +62,6 @@
             ],
             "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"Category=LoadoutContract\""],
             "task_preflight": ["anchor=SimCore/Entities/ModuleSlot.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
-        {
-            "gate_id": "GATE.S1.GALAXY_MAP.DISCOVERY_STATES.001",
-            "task_id": "GATE.S1.GALAXY_MAP.DISCOVERY_STATES.001.T247",
-            "status": "TODO",
-            "title": "GATE.S1.GALAXY_MAP.DISCOVERY_STATES.001: Galaxy map discovery state rendering v0",
-            "intent": "GalaxyView renders per-node display_state and discovery site phase_token from GetGalaxySnapshotV0 only; headless proof asserts HIDDEN absent, RUMORED shows ???+region tag, VISITED shows name, MAPPED shows name+object_count; SHA256 stable across two runs; dotnet test passes.",
-            "evidence_paths": [
-                "scripts/view/GalaxyView.cs",
-                "scripts/tests/test_galaxy_map_discovery_states.gd",
-                "docs/generated/gmd_run1.txt",
-                "docs/generated/gmd_run2.txt"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build + godot --headless --script scripts/tests/test_galaxy_map_discovery_states.gd (run twice, SHA256 match) + dotnet test pass"],
-            "task_preflight": ["anchor=scripts/view/GalaxyView.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ]

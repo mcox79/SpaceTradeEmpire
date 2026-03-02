@@ -51,7 +51,9 @@
       "Bash(grep -l \"class TravelCommand\\\\|class LaneFlowSystem\" \"/d/SGE/SpaceTradeEmpire/SimCore\"/*.cs \"/d/SGE/SpaceTradeEmpire/SimCore/Commands\"/*.cs \"/d/SGE/SpaceTradeEmpire/SimCore/Systems\"/*.cs)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -AssertDiscoveryDock -OutFile \"docs/generated/hsb_run1.txt\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -AssertDiscoveryDock -OutFile \"docs/generated/hsb_run2.txt\")",
-      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -OutFile \"docs/generated/hsb_noflag_run2.txt\")"
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -OutFile \"docs/generated/hsb_noflag_run2.txt\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"1\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"2\")"
     ],
     "ask": [
       "Bash(git:push*)"
