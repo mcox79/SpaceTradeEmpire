@@ -33,9 +33,13 @@ public partial class GalaxyView : Node3D
     private Node3D _localSystemRoot;
     private string _currentNodeId = "";
 
+    // Galaxy overlay camera (sibling node); repositioned in RefreshFromSnapshotV0 to frame visible nodes.
+    private Camera3D _overlayCamera;
+
     public override void _Ready()
     {
         _bridge = GetNodeOrNull<SimBridge>("/root/SimBridge");
+        _overlayCamera = GetParent()?.GetNodeOrNull<Camera3D>("GalaxyOverlayCamera");
 
         // Default OFF: the playable prototype is a local-space view until Tab opens the overlay.
         Visible = false;
@@ -472,6 +476,8 @@ public partial class GalaxyView : Node3D
         // Nodes: create/update visuals (HIDDEN nodes are suppressed from the overlay).
         bool playerHighlighted = false;
         int renderedNodeCount = 0;
+        Vector3 playerNodePos = Vector3.Zero;
+        bool playerNodePosFound = false;
         for (int i = 0; i < nodes.Count; i++)
         {
             var n = nodes[i];
@@ -513,6 +519,8 @@ public partial class GalaxyView : Node3D
                 if (isPlayer)
                 {
                     playerHighlighted = true;
+                    playerNodePos = n.Position;
+                    playerNodePosFound = true;
                     mat.AlbedoColor = new Color(0.2f, 1.0f, 0.4f);
                     mat.EmissionEnabled = true;
                     mat.Emission = new Color(0.2f, 1.0f, 0.4f);
@@ -530,6 +538,16 @@ public partial class GalaxyView : Node3D
 
         _lastNodeCount = renderedNodeCount;
         _lastPlayerHighlighted = playerHighlighted;
+
+        // Reposition overlay camera so the player's current system is always in frame.
+        // The camera keeps its 45° downward tilt (Transform3D basis from scene) and shifts
+        // its XZ position to be above+behind the player node.
+        if (_overlayCamera != null && playerNodePosFound)
+        {
+            var t = _overlayCamera.Transform;
+            t.Origin = new Vector3(playerNodePos.X, 150f, playerNodePos.Z + 150f);
+            _overlayCamera.Transform = t;
+        }
 
         // Edges: create/update visuals
         for (int i = 0; i < edges.Count; i++)
@@ -568,7 +586,7 @@ public partial class GalaxyView : Node3D
 
         var mesh = new MeshInstance3D();
         mesh.Name = "NodeMesh";
-        mesh.Mesh = new SphereMesh { Radius = 1.0f };
+        mesh.Mesh = new SphereMesh { Radius = 5.0f };
 
         mesh.MaterialOverride = new StandardMaterial3D
         {
@@ -585,9 +603,9 @@ public partial class GalaxyView : Node3D
             Name = "NodeLabel",
             Text = "",
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            PixelSize = 0.01f
+            PixelSize = 0.05f
         };
-        lbl.Position = new Vector3(0, 3.0f, 0);
+        lbl.Position = new Vector3(0, 8.0f, 0);
         root.AddChild(lbl);
 
         return root;

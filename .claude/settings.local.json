@@ -53,7 +53,8 @@
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -AssertDiscoveryDock -OutFile \"docs/generated/hsb_run2.txt\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -OutFile \"docs/generated/hsb_noflag_run2.txt\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"1\")",
-      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"2\")"
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"2\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"d:/SGE/SpaceTradeEmpire/scripts/tools/run_gmd_proof.ps1\" -RunNum \"verify\" -OutFile \"docs/generated/gmd_verify.txt\")"
     ],
     "ask": [
       "Bash(git:push*)"
