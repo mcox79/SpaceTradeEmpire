@@ -185,8 +185,9 @@ public partial class SimBridge : Node
             if (!string.Equals(qs.Format, "STE_QUICKSAVE_V2", StringComparison.Ordinal)) return false;
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            GD.PrintErr($"[SimBridge] TryParseQuickSaveV2 failed: {ex.GetType().Name}: {ex.Message}");
             qs = null;
             return false;
         }

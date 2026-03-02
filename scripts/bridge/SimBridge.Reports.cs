@@ -83,8 +83,9 @@ public partial class SimBridge
 
             return dict;
         }
-        catch
+        catch (Exception ex)
         {
+            GD.PrintErr($"[SimBridge] GetSecurityIncidentStationSnapshot failed: {ex.GetType().Name}: {ex.Message}");
             return dict;
         }
         finally

@@ -36,7 +36,8 @@
       "Bash(wc -l d:/SGE/SpaceTradeEmpire/scripts/core/sim/*.gd)",
       "Bash(dotnet build \"Space Trade Empire.csproj\" -c Debug --nologo)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -q)",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo)"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo)",
+      "Bash(grep -v \"//.*catch\")"
     ],
     "ask": [
       "Bash(git:push*)"
