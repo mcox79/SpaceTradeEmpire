@@ -5,26 +5,6 @@
     "queue_intent": "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
     "tasks": [
         {
-            "gate_id": "GATE.S4.CATALOG.GOODS.001",
-            "task_id": "GATE.S4.CATALOG.GOODS.001.T091",
-            "status": "TODO",
-            "title": "GATE.S4.CATALOG.GOODS.001: Starter goods content pack + schema validator v0",
-            "intent": "content_registry_v0.json goods entries expanded with display_name/tier/base_price_band/stackable fields; CatalogContractTests.cs asserts goods count>=2, required fields present, ordering stable by id Ordinal asc; dotnet test filter Category=CatalogContract passes.",
-            "evidence_paths": [
-                "docs/content/content_registry_v0.json",
-                "SimCore.Tests/Systems/CatalogContractTests.cs"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"Category=CatalogContract\""],
-            "task_preflight": ["anchor=docs/content/content_registry_v0.json"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
-        {
             "gate_id": "GATE.S4.CATALOG.RECIPES.001",
             "task_id": "GATE.S4.CATALOG.RECIPES.001.T174",
             "status": "TODO",

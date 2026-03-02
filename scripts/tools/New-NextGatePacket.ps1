@@ -61,13 +61,16 @@ try {
   }
 
   if ($isQueueV22) {
-    $active = @($gates) |
-      Where-Object { (($_.status + "").Trim()) -ne "DONE" } |
+    $indexed = for ($i = 0; $i -lt $gates.Count; $i++) {
+      [pscustomobject]@{ Idx = $i; Gate = $gates[$i] }
+    }
+    $active = @($indexed |
+      Where-Object { (($_.Gate.status + "").Trim()) -ne "DONE" } |
       Sort-Object `
-        @{ Expression = { $st = (($_.status + "").Trim()); if ($statusOrder.ContainsKey($st)) { [int]$statusOrder[$st] } else { 99 } }; Ascending = $true }, `
-        @{ Expression = { (($_.gate_id + "").Trim()) }; Ascending = $true }, `
-        @{ Expression = { (($_.task_id + "").Trim()) }; Ascending = $true } |
-      Select-Object -First $MaxActiveGates
+        @{ Expression = { $st = (($_.Gate.status + "").Trim()); if ($statusOrder.ContainsKey($st)) { [int]$statusOrder[$st] } else { 99 } }; Ascending = $true }, `
+        @{ Expression = { $_.Idx }; Ascending = $true } |
+      Select-Object -First $MaxActiveGates |
+      ForEach-Object { $_.Gate })
   } else {
     $active = @($gates) |
       Where-Object { (($_.status + "").Trim()) -ne "DONE" } |

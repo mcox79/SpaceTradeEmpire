@@ -1,8 +1,20 @@
 {
   "version": 0,
   "goods": [
-    { "id": "food" },
-    { "id": "ore" }
+    {
+      "id": "food",
+      "display_name": "Food Rations",
+      "tier": 1,
+      "base_price_band": "low",
+      "stackable": true
+    },
+    {
+      "id": "ore",
+      "display_name": "Raw Ore",
+      "tier": 1,
+      "base_price_band": "low",
+      "stackable": true
+    }
   ],
   "recipes": [
     {
