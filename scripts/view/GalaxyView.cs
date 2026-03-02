@@ -345,7 +345,28 @@ public partial class GalaxyView : Node3D
         };
         root.AddChild(mesh);
 
+        // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
+        var area = new Area3D { Name = "DiscoverySiteArea" };
+        var shape = new CollisionShape3D
+        {
+            Name = "DiscoverySiteShape",
+            Shape = new SphereShape3D { Radius = DiscoverySiteMarkerRadiusU * 4.0f }
+        };
+        area.AddChild(shape);
+        area.SetMeta("discovery_site_id", siteId);
+        area.BodyEntered += (body) => _OnDiscoverySiteBodyEnteredV0(body, siteId);
+        root.AddChild(area);
+
         return root;
+    }
+
+    private void _OnDiscoverySiteBodyEnteredV0(Node3D body, string siteId)
+    {
+        if (!body.IsInGroup("PlayerShip")) return;
+        var gm = GetNodeOrNull<Node>("/root/GameManager");
+        if (gm == null) return;
+        if (gm.HasMethod("on_discovery_site_proximity_entered_v0"))
+            gm.Call("on_discovery_site_proximity_entered_v0", siteId);
     }
 
     // --- Deterministic orbit position helpers ---

@@ -30,7 +30,8 @@ Read these files before doing anything else:
 5. `docs/gates/gates.json` — current queue (to understand what is already scheduled)
 
 If `docs/generated/01_CONTEXT_PACKET.md` is missing or has no `head:` line,
-stop and tell the user to run `pwsh DevTool.ps1 -Mode scan` first.
+stop and tell the user to click **"Refresh Context (Full)"** in DevTool (or run
+`pwsh DevTool.ps1` and use the Generate Next Gates section).
 
 ---
 

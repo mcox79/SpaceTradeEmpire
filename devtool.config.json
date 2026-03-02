@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "project_name": "Space Trade Empire",
+
+  "gates_file": "docs/gates/gates.json",
+  "epics_file": "docs/54_EPICS.md",
+  "gates_ledger": "docs/55_GATES.md",
+  "generated_dir": "docs/generated",
+  "session_drop_dir": "docs/generated/session_drop",
+
+  "test_command": "dotnet test SimCore.Tests -v minimal",
+
+  "context_script": "scripts/tools/New-ContextPacket.ps1",
+  "next_gate_script": "scripts/tools/New-NextGatePacket.ps1",
+  "prompt_script": "scripts/tools/New-LlmPrompt.ps1",
+  "validate_script": "scripts/tools/Validate-Gates.ps1",
+
+  "engine": "godot"
+}

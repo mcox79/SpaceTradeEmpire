@@ -46,7 +46,12 @@
       "Bash(dotnet build \"Space Trade Empire.csproj\" --nologo)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\")",
-      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data[0][''text''][:8000]\\)\")"
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data[0][''text''][:8000]\\)\")",
+      "Bash(ls -la \"/d/SGE/SpaceTradeEmpire/SimCore/SimState.\"*)",
+      "Bash(grep -l \"class TravelCommand\\\\|class LaneFlowSystem\" \"/d/SGE/SpaceTradeEmpire/SimCore\"/*.cs \"/d/SGE/SpaceTradeEmpire/SimCore/Commands\"/*.cs \"/d/SGE/SpaceTradeEmpire/SimCore/Systems\"/*.cs)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -AssertDiscoveryDock -OutFile \"docs/generated/hsb_run1.txt\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -AssertDiscoveryDock -OutFile \"docs/generated/hsb_run2.txt\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:/SGE/SpaceTradeEmpire/scripts/tools/run_hsb_proof.ps1\" -OutFile \"docs/generated/hsb_noflag_run2.txt\")"
     ],
     "ask": [
       "Bash(git:push*)"

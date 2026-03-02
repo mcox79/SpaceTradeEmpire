@@ -227,6 +227,13 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if bridge and bridge.has_method("DispatchTravelCommandV0"):
 		bridge.call("DispatchTravelCommandV0", PLAYER_FLEET_ID, neighbor_node_id)
 
+func on_discovery_site_proximity_entered_v0(site_id: String) -> void:
+	if not _transition_player_state_v0(PlayerShipState.DOCKED):
+		return
+	dock_target_kind_token = "DISCOVERY_SITE"
+	dock_target_id = site_id
+	print("UUIR|DISCOVERY_DOCK|DISCOVERY_SITE|" + site_id)
+
 func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	if current_player_state != PlayerShipState.IN_LANE_TRANSIT:
 		return
