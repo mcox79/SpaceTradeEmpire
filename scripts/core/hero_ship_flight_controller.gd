@@ -5,17 +5,19 @@ extends RigidBody3D
 signal RequestDock
 signal RequestUndock
 
-# Ship flight controller v0 (deterministic, force-based).
+# Ship flight controller v1 (force-based thrust + yaw turning).
 # Tuning values are centralized here to avoid scattered magic numbers.
 
 const THRUST_FORCE_V0: float = 55.0
+const TURN_TORQUE_V0: float = 4.0
 const MAX_SPEED_V0: float = 28.0
 const LINEAR_DAMPING_V0: float = 0.8
-const ANGULAR_DAMPING_V0: float = 1.2
+const ANGULAR_DAMPING_V0: float = 3.0
 const GRAVITY_SCALE_V0: float = 0.0
 
-# Deterministic test override (null means use live input).
+# Deterministic test overrides (null means use live input).
 var _test_thrust_axis_v0 = null
+var _test_turn_axis_v0 = null
 
 func _ready():
 	add_to_group("Player")
@@ -24,21 +26,32 @@ func _ready():
 	angular_damp = ANGULAR_DAMPING_V0
 
 func _physics_process(delta):
-	var axis: float = 0.0
+	var thrust_axis: float = 0.0
+	var turn_axis: float = 0.0
 
 	if _test_thrust_axis_v0 != null:
-		axis = float(_test_thrust_axis_v0)
+		thrust_axis = float(_test_thrust_axis_v0)
 	else:
-		# Forward: ui_up, Back: ui_down (default actions).
-		if Input.is_action_pressed("ui_up"):
-			axis += 1.0
-		if Input.is_action_pressed("ui_down"):
-			axis -= 1.0
+		if Input.is_action_pressed("ship_thrust_fwd"):
+			thrust_axis += 1.0
+		if Input.is_action_pressed("ship_thrust_back"):
+			thrust_axis -= 1.0
 
-	if axis != 0.0:
+	if _test_turn_axis_v0 != null:
+		turn_axis = float(_test_turn_axis_v0)
+	else:
+		if Input.is_action_pressed("ship_turn_left"):
+			turn_axis += 1.0
+		if Input.is_action_pressed("ship_turn_right"):
+			turn_axis -= 1.0
+
+	if thrust_axis != 0.0:
 		# Ship forward is -Z.
 		var dir: Vector3 = -global_transform.basis.z
-		apply_central_force(dir * (THRUST_FORCE_V0 * axis))
+		apply_central_force(dir * (THRUST_FORCE_V0 * thrust_axis))
+
+	if turn_axis != 0.0:
+		apply_torque(Vector3(0.0, TURN_TORQUE_V0 * turn_axis, 0.0))
 
 	# Clamp max speed deterministically.
 	var v: Vector3 = linear_velocity
@@ -51,3 +64,9 @@ func test_set_thrust_axis_v0(axis: float):
 
 func test_clear_thrust_axis_v0():
 	_test_thrust_axis_v0 = null
+
+func test_set_turn_axis_v0(axis: float):
+	_test_turn_axis_v0 = axis
+
+func test_clear_turn_axis_v0():
+	_test_turn_axis_v0 = null

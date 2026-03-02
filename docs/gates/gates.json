@@ -1,7 +1,137 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T06:00:00Z",
-    "queue_intent": "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
-    "tasks": []
+    "generated_utc": "2026-03-03T14:00:00Z",
+    "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, slots, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
+    "tasks": [
+        {
+            "gate_id": "GATE.S4.CATALOG.MARKET_BIND.001",
+            "task_id": "GATE.S4.CATALOG.MARKET_BIND.001.T583",
+            "status": "TODO",
+            "title": "GATE.S4.CATALOG.MARKET_BIND.001: Bind goods catalog to market seeding v0",
+            "intent": "GalaxyGenerator or WorldLoader seeds market good_ids from ContentRegistryLoader goods list on world gen; each generated market has >=2 good_ids present in catalog; SimBridge injects registry at gen time; dotnet test MarketCatalogBind_FreshWorld_HasCatalogGoods asserts state.Markets values contain catalog good_ids; tweak guard passes.",
+            "evidence_paths": [
+                "SimCore/World/WorldLoader.cs",
+                "SimCore/Gen/GalaxyGenerator.cs"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"MarketCatalogBind\" PASS + full dotnet test PASS"],
+            "task_preflight": ["anchor=SimCore/World/WorldLoader.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.GALAXY_MAP.FLEET_COUNTS.001",
+            "task_id": "GATE.S1.GALAXY_MAP.FLEET_COUNTS.001.T391",
+            "status": "TODO",
+            "title": "GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: Fleet counts per node in galaxy overlay v0",
+            "intent": "MapQueries.SystemNodeSnapV0 adds FleetCount int; GalaxySnapshotV0 serializes fleet_count per node from state.Fleets where CurrentNodeId==nodeId; GalaxyView renders fleet_count>0 as overlay label; test_galaxy_map_overlay.gd extended to assert fleet_count is int>=0 per node; SHA256 stable.",
+            "evidence_paths": [
+                "SimCore/MapQueries.cs",
+                "scripts/bridge/SimBridge.cs",
+                "scripts/view/GalaxyView.cs"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_galaxy_map_overlay.gd run twice; SHA256 match + dotnet test pass"],
+            "task_preflight": ["anchor=SimCore/MapQueries.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001.T754",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: Lane gate destination name labels v0",
+            "intent": "MapQueries.BuildSystemSnapshotV0 adds NeighborDisplayName per LaneGate entry from state.Nodes[neighborId].Name; SimBridge.GetSystemSnapshotV0 serializes neighbor_display_name; GalaxyView.SpawnLaneGatesV0 adds Label3D above each gate marker; test_hero_ship_scene_boot.gd --assert-lane-labels asserts lane_gate[0] has non-empty neighbor_display_name; SHA256 stable.",
+            "evidence_paths": [
+                "SimCore/MapQueries.cs",
+                "scripts/bridge/SimBridge.cs",
+                "scripts/view/GalaxyView.cs"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_scene_boot.gd -- --assert-lane-labels run twice; SHA256 match + dotnet test pass"],
+            "task_preflight": ["anchor=SimCore/MapQueries.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.HUD.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.HUD.001.T267",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.HUD.001: Persistent flight HUD v0",
+            "intent": "NEW hud.gd CanvasLayer (layer=10) in playable_prototype.tscn; SimBridge.GetPlayerStateV0 returns {credits, cargo_count, current_node_id, ship_state_token}; hud.gd Labels update each _physics_process; headless proof HSH| asserts HUD node in scene, bridge method present, credits>=0, current_node_id non-empty; SHA256 stable.",
+            "evidence_paths": [
+                "scripts/ui/hud.gd",
+                "scripts/bridge/SimBridge.cs",
+                "docs/generated/hsh_run1.txt",
+                "docs/generated/hsh_run2.txt"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_hud.gd run twice; SHA256 match + dotnet test pass"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.MODULE_MODEL.SLOTS.001",
+            "task_id": "GATE.S4.MODULE_MODEL.SLOTS.001.T456",
+            "status": "TODO",
+            "title": "GATE.S4.MODULE_MODEL.SLOTS.001: Hero ship slot model + SimBridge readout v0",
+            "intent": "ModuleSlot entity (SlotId, SlotKind enum Cargo/Weapon/Engine/Utility, InstalledModuleId nullable); Fleet.Slots List<ModuleSlot>; EnsurePlayerFleetV0 initializes hero fleet with standard slot set; SimBridge.GetHeroShipLoadoutV0 returns Array of Dicts ordered by slot_id Ordinal asc; LoadoutContractTests asserts slot count>=1, field shapes, ordering stability.",
+            "evidence_paths": [
+                "SimCore/Entities/ModuleSlot.cs",
+                "SimCore/Entities/Fleet.cs",
+                "scripts/bridge/SimBridge.cs",
+                "SimCore.Tests/Systems/LoadoutContractTests.cs"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"Category=LoadoutContract\""],
+            "task_preflight": ["anchor=SimCore/Entities/Fleet.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001.T819",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001: Hero ship buy/sell at station v0",
+            "intent": "NEW PlayerTradeCommand.cs: IsBuy decrements PlayerCredits+increments PlayerCargo, sell reverses; SimBridge.GetPlayerMarketViewV0(nodeId) returns Array of {good_id,price,quantity}; SimBridge.GetPlayerStateV0 includes credits+cargo; SimBridge.DispatchPlayerTradeV0 dispatches command; NEW hero_trade_menu.gd opens on DOCKED; headless HST| asserts credits decrease after buy; SHA256 stable.",
+            "evidence_paths": [
+                "SimCore/Commands/PlayerTradeCommand.cs",
+                "scripts/bridge/SimBridge.cs",
+                "scripts/ui/hero_trade_menu.gd",
+                "docs/generated/hst_run1.txt",
+                "docs/generated/hst_run2.txt"
+            ],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_trade.gd run twice; SHA256 match + dotnet test pass"],
+            "task_preflight": ["anchor=SimCore/Commands/PlayerTradeCommand.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        }
+    ]
 }

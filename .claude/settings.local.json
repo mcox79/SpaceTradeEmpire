@@ -65,7 +65,10 @@
       "Bash(powershell -NoProfile -Command \"Set-Location ''D:/SGE/SpaceTradeEmpire''; $godot = ''C:\\\\Users\\\\marsh\\\\Downloads\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe''; & $godot --headless --path . -s res://scripts/tests/test_hero_ship_arrive.gd 2>docs/generated/hsa_run1_err.txt | Tee-Object docs/generated/hsa_run1.txt\")",
       "Bash(/tmp/run_hsa2.ps1:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File /tmp/run_hsa2.ps1)",
-      "Bash(powershell -NoProfile -Command \"Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run1.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash; Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run2.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")"
+      "Bash(powershell -NoProfile -Command \"Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run1.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash; Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run2.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File /tmp/run_hsc.ps1)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsc.ps1\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsc2.ps1\")"
     ],
     "ask": [
       "Bash(git:push*)"

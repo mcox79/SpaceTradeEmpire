@@ -8,15 +8,10 @@ const PlayerState = preload('res://scripts/core/state/player_state.gd')
 # SimCore fleet ID for the player fleet (matches WorldLoader constant).
 const PLAYER_FLEET_ID := "fleet_trader_1"
 
-# Hero ship flight tuning (v0). Keep these centralized to avoid magic numbers in physics logic.
-const HERO_THRUST_FORCE_V0: float = 55.0
-const HERO_MAX_SPEED_V0: float = 28.0
+# Hero ship physics init values (v0). Flight logic is owned by hero_ship_flight_controller.gd.
 const HERO_LINEAR_DAMPING_V0: float = 0.8
-const HERO_ANGULAR_DAMPING_V0: float = 1.2
+const HERO_ANGULAR_DAMPING_V0: float = 3.0
 const HERO_GRAVITY_SCALE_V0: float = 0.0
-
-# Deterministic test override (null means use live input).
-var _hero_test_thrust_axis_v0 = null
 
 # Wired in _ready from the local scene (playable_prototype.tscn)
 var _hero_body: RigidBody3D
@@ -90,33 +85,6 @@ func _process(delta):
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
 
-func _physics_process(delta):
-	# Hero ship flight v0: force-based thrust with inertia.
-	# Deterministic: no wall-clock, no random, no unordered iteration, no printing here.
-	if _hero_body == null:
-		return
-
-	var thrust_axis: float = 0.0
-	if _hero_test_thrust_axis_v0 != null:
-		thrust_axis = float(_hero_test_thrust_axis_v0)
-	else:
-		# Use stock UI actions to avoid requiring a custom InputMap for this gate.
-		# Forward: ui_up, Back: ui_down
-		if Input.is_action_pressed("ui_up"):
-			thrust_axis += 1.0
-		if Input.is_action_pressed("ui_down"):
-			thrust_axis -= 1.0
-
-	if thrust_axis != 0.0:
-		# Ship forward is -Z in Godot.
-		var dir: Vector3 = -_hero_body.global_transform.basis.z
-		_hero_body.apply_central_force(dir * (HERO_THRUST_FORCE_V0 * thrust_axis))
-
-	# Clamp max speed deterministically.
-	var v: Vector3 = _hero_body.linear_velocity
-	var speed: float = v.length()
-	if speed > HERO_MAX_SPEED_V0 and speed > 0.0:
-		_hero_body.linear_velocity = v * (HERO_MAX_SPEED_V0 / speed)
 
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -127,12 +95,6 @@ func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
 	return
 
-# Test hook: deterministic thrust driving without relying on InputMap.
-func hero_test_set_thrust_axis_v0(axis: float):
-	_hero_test_thrust_axis_v0 = axis
-
-func hero_test_clear_thrust_axis_v0():
-	_hero_test_thrust_axis_v0 = null
 
 func toggle_galaxy_map_overlay_v0():
 	galaxy_overlay_open = not galaxy_overlay_open
