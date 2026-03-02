@@ -43,6 +43,10 @@ public static class ContentRegistryLoader
     public sealed class GoodDefV0
     {
         public string Id { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string BasePriceBand { get; set; } = "";
+        public int Tier { get; set; }
+        public bool Stackable { get; set; }
     }
 
     public sealed class ModuleDefV0
@@ -53,6 +57,8 @@ public static class ContentRegistryLoader
     public sealed class RecipeDefV0
     {
         public string Id { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public int ProductionTicks { get; set; }
         public List<RecipeLineV0> Inputs { get; set; } = new();
         public List<RecipeLineV0> Outputs { get; set; } = new();
     }
@@ -108,11 +114,21 @@ public static class ContentRegistryLoader
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("goods[] entries must be objects.");
 
-            AssertNoExtraPropertiesOrThrow(e, "id");
+            AssertNoExtraPropertiesOrThrow(e, "base_price_band", "display_name", "id", "stackable", "tier");
 
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("goods[] missing required field: id (string).");
-            list.Add(new GoodDefV0 { Id = idEl.GetString() ?? "" });
+
+            var good = new GoodDefV0 { Id = idEl.GetString() ?? "" };
+            if (e.TryGetProperty("display_name", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                good.DisplayName = dnEl.GetString() ?? "";
+            if (e.TryGetProperty("base_price_band", out var bpEl) && bpEl.ValueKind == JsonValueKind.String)
+                good.BasePriceBand = bpEl.GetString() ?? "";
+            if (e.TryGetProperty("tier", out var tierEl) && tierEl.ValueKind == JsonValueKind.Number)
+                good.Tier = tierEl.GetInt32();
+            if (e.TryGetProperty("stackable", out var stackEl) && (stackEl.ValueKind == JsonValueKind.True || stackEl.ValueKind == JsonValueKind.False))
+                good.Stackable = stackEl.GetBoolean();
+            list.Add(good);
         }
         return list;
     }
@@ -146,12 +162,16 @@ public static class ContentRegistryLoader
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("recipes[] entries must be objects.");
 
-            AssertNoExtraPropertiesOrThrow(e, "id", "inputs", "outputs");
+            AssertNoExtraPropertiesOrThrow(e, "display_name", "id", "inputs", "outputs", "production_ticks");
 
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("recipes[] missing required field: id (string).");
 
             var r = new RecipeDefV0 { Id = idEl.GetString() ?? "" };
+            if (e.TryGetProperty("display_name", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                r.DisplayName = dnEl.GetString() ?? "";
+            if (e.TryGetProperty("production_ticks", out var ptEl) && ptEl.ValueKind == JsonValueKind.Number)
+                r.ProductionTicks = ptEl.GetInt32();
             r.Inputs = ReadRecipeLines(e, "inputs");
             r.Outputs = ReadRecipeLines(e, "outputs");
             list.Add(r);
@@ -389,7 +409,7 @@ public static class ContentRegistryLoader
                 }
 
                 // goods
-                ValidateIdArray(root, "goods", "goods[]", failures);
+                ValidateIdArray(root, "goods", "goods[]", failures, "base_price_band", "display_name", "stackable", "tier");
 
                 // modules
                 ValidateIdArray(root, "modules", "modules[]", failures);
@@ -453,7 +473,7 @@ public static class ContentRegistryLoader
         failures.Add(token + ":" + string.Join(",", unknown));
     }
 
-    private static void ValidateIdArray(JsonElement root, string field, string label, List<string> failures)
+    private static void ValidateIdArray(JsonElement root, string field, string label, List<string> failures, params string[] extraAllowed)
     {
         if (!root.TryGetProperty(field, out var a))
         {
@@ -467,6 +487,7 @@ public static class ContentRegistryLoader
         }
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var allowedFields = new[] { "id" }.Concat(extraAllowed).ToArray();
 
         int idx = 0;
         foreach (var e in a.EnumerateArray())
@@ -478,7 +499,7 @@ public static class ContentRegistryLoader
                 continue;
             }
 
-            CollectUnknownFields(e, label + "[" + idx + "]_UNKNOWN_FIELDS", failures, "id");
+            CollectUnknownFields(e, label + "[" + idx + "]_UNKNOWN_FIELDS", failures, allowedFields);
 
             if (!e.TryGetProperty("id", out var idEl))
             {
@@ -540,7 +561,7 @@ public static class ContentRegistryLoader
                 continue;
             }
 
-            CollectUnknownFields(r, prefix + "_UNKNOWN_FIELDS", failures, "id", "inputs", "outputs");
+            CollectUnknownFields(r, prefix + "_UNKNOWN_FIELDS", failures, "display_name", "id", "inputs", "outputs", "production_ticks");
 
             string recipeId = "";
             if (!r.TryGetProperty("id", out var idEl))

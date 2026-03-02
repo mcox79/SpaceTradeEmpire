@@ -19,6 +19,8 @@
   "recipes": [
     {
       "id": "recipe_refine_ore_to_food",
+      "display_name": "Refine Ore To Food",
+      "production_ticks": 10,
       "inputs": [ { "good_id": "ore", "qty": 2 } ],
       "outputs": [ { "good_id": "food", "qty": 1 } ]
     }

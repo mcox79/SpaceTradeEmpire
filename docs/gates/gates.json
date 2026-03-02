@@ -5,48 +5,6 @@
     "queue_intent": "Stage 2 queue built from Stage 1 IR and repo truth at HEAD 6d4389af9f7575417c55123323930414b3c7b980",
     "tasks": [
         {
-            "gate_id": "GATE.S4.CATALOG.RECIPES.001",
-            "task_id": "GATE.S4.CATALOG.RECIPES.001.T174",
-            "status": "TODO",
-            "title": "GATE.S4.CATALOG.RECIPES.001: Starter recipe content pack + schema validator v0",
-            "intent": "content_registry_v0.json recipes expanded with display_name/production_ticks; all input/output good_id values reference goods in same registry; CatalogContractTests.cs recipe tests assert count>=1, field presence, good_id cross-reference, ordering stable by id Ordinal asc; dotnet test filter passes. GOODS.001 must be DONE first.",
-            "evidence_paths": [
-                "docs/content/content_registry_v0.json",
-                "SimCore.Tests/Systems/CatalogContractTests.cs"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "GOODS.001 must be complete before this gate (CatalogContractTests.cs FOUND).",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"Category=CatalogContract\""],
-            "task_preflight": ["anchor=docs/content/content_registry_v0.json"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
-        {
-            "gate_id": "GATE.S4.MODULE_MODEL.SLOTS.001",
-            "task_id": "GATE.S4.MODULE_MODEL.SLOTS.001.T803",
-            "status": "TODO",
-            "title": "GATE.S4.MODULE_MODEL.SLOTS.001: Hero ship slot model + SimBridge readout v0",
-            "intent": "ModuleSlot.cs entity (SlotId, SlotKind enum, InstalledModuleId nullable); Fleet.Slots list initialized in EnsurePlayerFleetV0; SimBridge.GetHeroShipLoadoutV0 returns slots array ordered by slot_id Ordinal asc; LoadoutContractTests.cs asserts slot count>=1, field shapes, ordering stability; dotnet test filter passes.",
-            "evidence_paths": [
-                "SimCore/Entities/ModuleSlot.cs",
-                "scripts/bridge/SimBridge.cs",
-                "SimCore.Tests/Systems/LoadoutContractTests.cs"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"Category=LoadoutContract\""],
-            "task_preflight": ["anchor=SimCore/Entities/ModuleSlot.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
-        {
             "gate_id": "GATE.S1.HERO_SHIP_LOOP.ARRIVE.001",
             "task_id": "GATE.S1.HERO_SHIP_LOOP.ARRIVE.001.T318",
             "status": "TODO",
