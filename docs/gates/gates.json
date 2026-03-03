@@ -1,7 +1,97 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T00:00:00Z",
-    "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
-    "tasks": []
+    "generated_utc": "2026-03-03T04:30:00Z",
+    "queue_intent": "Gameplay-first tranche: visible market screen, cargo display, hero loop proof, galaxy map epic close, weapons catalog, module equip. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
+    "tasks": [
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.CARGO_DISPLAY.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.CARGO_DISPLAY.001.T087",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.CARGO_DISPLAY.001: Cargo inventory section in station panel v0",
+            "intent": "Station panel shows player cargo. SimBridge.GetPlayerCargoV0() returns [{good_id, qty}]. hero_trade_menu.gd adds cargo VBoxContainer section; get_cargo_row_count_v0()>=1 after buy. test_hero_ship_trade.gd extended to emit cargo_row_count metric.",
+            "evidence_paths": ["scripts/bridge/SimBridge.cs", "scripts/ui/hero_trade_menu.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_hero_ship_trade.gd"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.LOOP_PROOF.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.LOOP_PROOF.001.T156",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.LOOP_PROOF.001: Hero ship buy-sell loop proof v0",
+            "intent": "Headless scenario: dock->buy 1 good (credits decrease)->sell same good (credits partially recover)->cargo returns to 0. Emits LOOP|buy_reduced=true|sell_recovered=<bool>. Closes EPIC.S1.HERO_SHIP_LOOP.V0.",
+            "evidence_paths": ["scripts/tests/test_hero_ship_loop_proof.gd", "scripts/bridge/SimBridge.cs"],
+            "constraints": [
+                "NEW: scripts/tests/test_hero_ship_loop_proof.gd",
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_hero_ship_loop_proof.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_hero_ship_loop_proof.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001.T042",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001: Station market screen v0",
+            "intent": "hero_trade_menu.gd renders Panel+VBoxContainer with rows per market good (good_id, buy_price, sell_price) and Buy/Sell buttons. get_panel_row_count_v0()>=1 after dock. test_hero_ship_trade.gd extended to emit panel_row_count metric. Trade still reduces credits.",
+            "evidence_paths": ["scripts/ui/hero_trade_menu.gd", "scenes/playable_prototype.tscn"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_hero_ship_trade.gd"],
+            "task_preflight": ["anchor=scripts/ui/hero_trade_menu.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.CATALOG.WEAPONS.001",
+            "task_id": "GATE.S4.CATALOG.WEAPONS.001.T461",
+            "status": "TODO",
+            "title": "GATE.S4.CATALOG.WEAPONS.001: Starter weapons content pack v0",
+            "intent": "Add weapon_cannon_mk1 and weapon_laser_mk1 to content_registry_v0.json modules[] (Ordinal asc order). Add WellKnownModuleIds.cs constants. CatalogContractTests pass with no edits.",
+            "evidence_paths": ["docs/content/content_registry_v0.json", "SimCore/Content/WellKnownModuleIds.cs"],
+            "constraints": [
+                "NEW: SimCore/Content/WellKnownModuleIds.cs",
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"CatalogContract\""],
+            "task_preflight": ["anchor=docs/content/content_registry_v0.json"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.MODULE_MODEL.EQUIP.001",
+            "task_id": "GATE.S4.MODULE_MODEL.EQUIP.001.T574",
+            "status": "TODO",
+            "title": "GATE.S4.MODULE_MODEL.EQUIP.001: Hero ship module equip via SimBridge v0",
+            "intent": "SimBridge.DispatchEquipModuleV0(slotId, moduleId) dispatches EquipModuleCommand (ICommand.Execute sets Fleet.Slots[slotId].InstalledModuleId=moduleId). GetHeroShipLoadoutV0() reflects installed_module_id=weapon_laser_mk1. Headless test confirms slot transition.",
+            "evidence_paths": ["SimCore/Commands/EquipModuleCommand.cs", "scripts/bridge/SimBridge.cs"],
+            "constraints": [
+                "NEW: SimCore/Commands/EquipModuleCommand.cs",
+                "NEW: scripts/tests/test_hero_ship_equip.gd",
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_hero_ship_equip.gd"],
+            "task_preflight": ["anchor=SimCore/Commands/EquipModuleCommand.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        }
+    ]
 }

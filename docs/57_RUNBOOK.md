@@ -101,6 +101,15 @@ Process-hang pattern (SimBridge background thread): after quit() prints its fina
 
 C# signal names from GDScript: Godot 4 exposes C# [Signal] delegate void FooEventHandler() to GDScript as "foo" (snake_case, EventHandler suffix stripped). Use has_signal("foo") guard before connecting to tolerate the headless case where the C# assembly is not loaded.
 
+GalaxyView.GetOverlayMetricsV0() metric semantics (confirmed headless, 2026-03-03):
+  - node_count     = rendered (non-HIDDEN) nodes only. In headless fresh worldgen, only the player's
+                     home system is DISCOVERED, so node_count=1 even with a full galaxy loaded.
+  - edge_count     = total lane connections in the galaxy snapshot, including lanes between HIDDEN nodes.
+                     Typical fresh-gen value: ~26. Does NOT reflect visible-only edges.
+  - player_node_highlighted = true when the player fleet's current node was found and rendered green.
+  - Write gate assertions against node_count>=1 (not >=2) unless the test explicitly seeds multiple
+    DISCOVERED nodes before opening the overlay.
+
 SceneTree script contract (extends SceneTree):
   - _initialize() must not block the main thread (no OS.delay_msec polling loops).
   - All SimBridge readiness polling must use _process() so the engine can yield between frames.
@@ -117,3 +126,10 @@ Vacuous-pass pattern (player-created state):
 - All harness outputs must be deterministic: no timestamps, stable ordering, stable formatting; stdout%stderr hashes must be stable across reruns on unchanged repo state.
 - Any determinism repro or regression artifact must include Seed (and TickIndex where applicable).
 - Session log is authoritative: update docs/56_SESSION_LOG.md and docs/55_GATES.md in the same change set as the PASS entry.
+
+Session log entry format:
+  - DATE, branch, GATE.X.Y.001 PASS (description). [Fix: <what broke and how it was resolved>.] Evidence: <files>.
+  - The Fix: field is required whenever a correction was made during the gate: wrong assertion, wrong API name,
+    wrong constant value, build step missing, behavioral misunderstanding, etc.
+  - Omit Fix: only when implementation matched the gate intent exactly with no corrections.
+  - Fix: goes between the description and Evidence:, on the same line.
