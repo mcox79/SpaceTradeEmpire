@@ -102,6 +102,10 @@ func toggle_market():
 
 
 func toggle_galaxy_map_overlay_v0():
+	# Guard: only the scene-child GameManager owns the overlay nodes.
+	# The autoload instance has null refs and must not interfere with camera state.
+	if not _galaxy_overlay_layer:
+		return
 	galaxy_overlay_open = not galaxy_overlay_open
 
 	if _galaxy_overlay_layer:
