@@ -45,11 +45,26 @@ func _initialize():
 		t1 = float(gm.get("time_accumulator"))
 	var local_scene_ticking = (t1 != t0)
 
-	print("UUIR|node_count=%d|edge_count=%d|player_node_highlighted=%s|local_scene_ticking=%s" % [
+	# GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: verify fleet_count is int >= 0 per node.
+	var fleet_counts_valid = true
+	var bridge = get_root().get_node_or_null("SimBridge")
+	if bridge and bridge.has_method("GetGalaxySnapshotV0"):
+		var galaxy_snap = bridge.call("GetGalaxySnapshotV0")
+		if typeof(galaxy_snap) == TYPE_DICTIONARY and galaxy_snap.has("system_nodes"):
+			var sys_nodes = galaxy_snap["system_nodes"]
+			for node_d in sys_nodes:
+				if typeof(node_d) == TYPE_DICTIONARY:
+					var fc = node_d.get("fleet_count", -1)
+					if typeof(fc) != TYPE_INT or fc < 0:
+						fleet_counts_valid = false
+						break
+
+	print("UUIR|node_count=%d|edge_count=%d|player_node_highlighted=%s|local_scene_ticking=%s|fleet_counts_valid=%s" % [
 		node_count,
 		edge_count,
 		str(player_node_highlighted).to_lower(),
-		str(local_scene_ticking).to_lower()
+		str(local_scene_ticking).to_lower(),
+		str(fleet_counts_valid).to_lower()
 	])
 
 	quit()

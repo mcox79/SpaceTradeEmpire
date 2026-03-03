@@ -444,7 +444,8 @@ public partial class GalaxyView : Node3D
             float y = n.ContainsKey("pos_y") ? (float)(Variant)n["pos_y"] : 0f;
             float z = n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f;
 
-            nodes.Add(new NodeSnapV0(nodeId, stateToken, displayText, new Vector3(x, y, z)));
+            int fleetCount = n.ContainsKey("fleet_count") ? (int)(Variant)n["fleet_count"] : 0;
+            nodes.Add(new NodeSnapV0(nodeId, stateToken, displayText, new Vector3(x, y, z), fleetCount));
         }
 
         nodes.Sort(static (a, b) => StringComparer.Ordinal.Compare(a.NodeId, b.NodeId));
@@ -511,6 +512,10 @@ public partial class GalaxyView : Node3D
                     ? "???"
                     : (n.DisplayText ?? "");
             }
+
+            var fleetLabel = root.GetNodeOrNull<Label3D>("FleetLabel");
+            if (fleetLabel != null)
+                fleetLabel.Text = n.FleetCount > 0 ? "[" + n.FleetCount + " fleets]" : "";
 
             var mesh = root.GetNodeOrNull<MeshInstance3D>("NodeMesh");
             if (mesh != null && mesh.MaterialOverride is StandardMaterial3D mat)
@@ -608,6 +613,18 @@ public partial class GalaxyView : Node3D
         lbl.Position = new Vector3(0, 8.0f, 0);
         root.AddChild(lbl);
 
+        // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: fleet count overlay label (hidden when zero).
+        var fleetLbl = new Label3D
+        {
+            Name = "FleetLabel",
+            Text = "",
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            PixelSize = 0.05f,
+            Modulate = new Color(1.0f, 0.8f, 0.2f)
+        };
+        fleetLbl.Position = new Vector3(0, 11.0f, 0);
+        root.AddChild(fleetLbl);
+
         return root;
     }
 
@@ -664,13 +681,15 @@ public partial class GalaxyView : Node3D
         public readonly string DisplayStateToken;
         public readonly string DisplayText;
         public readonly Vector3 Position;
+        public readonly int FleetCount;
 
-        public NodeSnapV0(string nodeId, string displayStateToken, string displayText, Vector3 position)
+        public NodeSnapV0(string nodeId, string displayStateToken, string displayText, Vector3 position, int fleetCount = 0)
         {
             NodeId = nodeId ?? "";
             DisplayStateToken = displayStateToken ?? "";
             DisplayText = displayText ?? "";
             Position = position;
+            FleetCount = fleetCount;
         }
     }
 

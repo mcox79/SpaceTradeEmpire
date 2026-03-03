@@ -76,7 +76,9 @@
       "Bash(powershell.exe -Command \"Remove-Item ''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh_sha.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_err.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_err.txt'' -ErrorAction SilentlyContinue\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"LoadoutContract\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MarketCatalogBind\")",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n)"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n)",
+      "Bash(dotnet build \"Space Trade Empire.csproj\" --nologo -c Debug)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File run_fleet_counts_proof.ps1)"
     ],
     "ask": [
       "Bash(git:push*)"

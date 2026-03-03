@@ -15,6 +15,8 @@ public static class MapQueries
         public string DisplayStateToken { get; set; } = ""; // HIDDEN%RUMORED%VISITED%MAPPED
         public string DisplayText { get; set; } = ""; // ""%???%Name%Name+Count (per token rules)
         public int ObjectCount { get; set; } = 0;
+        // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001
+        public int FleetCount { get; set; } = 0;
     }
 
     // GATE.S1.GALAXY_MAP.CONTRACT.001
@@ -202,6 +204,17 @@ public static class MapQueries
             rumored.Add(token);
         }
 
+        // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: count fleets per node for overlay display.
+        var fleetCountsByNode = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var fleet in state.Fleets.Values)
+        {
+            if (!string.IsNullOrEmpty(fleet.CurrentNodeId))
+            {
+                fleetCountsByNode.TryGetValue(fleet.CurrentNodeId, out var existing);
+                fleetCountsByNode[fleet.CurrentNodeId] = existing + 1;
+            }
+        }
+
         var nodes = state.Nodes.Values.ToList();
         nodes.Sort((a, b) => StringComparer.Ordinal.Compare(a.Id, b.Id));
 
@@ -260,7 +273,8 @@ public static class MapQueries
                 NodeId = nodeId,
                 DisplayStateToken = tokenOut,
                 DisplayText = textOut,
-                ObjectCount = objectCount
+                ObjectCount = objectCount,
+                FleetCount = fleetCountsByNode.TryGetValue(nodeId, out var fc) ? fc : 0
             });
         }
 

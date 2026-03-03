@@ -310,7 +310,7 @@ public partial class SimBridge : Node
                 // GATE.S4.CATALOG.MARKET_BIND.001: inject registry so generator validates seeded goods.
                 var _reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
                 GalaxyGenerator.Generate(_kernel.State, StarCount, 200f,
-                    new GalaxyGenOptions { Registry = _reg });
+                    new GalaxyGenerator.GalaxyGenOptions { Registry = _reg });
                 EnsurePlayerFleetV0(_kernel.State);
             }
             finally
@@ -586,6 +586,7 @@ public partial class SimBridge : Node
                     ["display_state_token"] = n.DisplayStateToken ?? "",
                     ["display_text"] = n.DisplayText ?? "",
                     ["object_count"] = n.ObjectCount,
+                    ["fleet_count"] = n.FleetCount,
                     ["pos_x"] = px,
                     ["pos_y"] = py,
                     ["pos_z"] = pz
