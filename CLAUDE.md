@@ -22,6 +22,40 @@ Large files and their approximate token cost at full read:
 
 ---
 
+## Token efficiency rules
+
+### Read once, read fully
+- If you need multiple sections of a file during a gate, read it once in full upfront (if < 300 lines). Multiple partial reads of the same file are always a net loss.
+- Files < 100 lines: always Read directly in main context. Never spin a subagent for a file this small.
+
+### Grep beats subagents for known-location searches
+- `Grep` for a known pattern in a known file costs ~50 tokens.
+- A Haiku agent doing the same search costs 5 000–20 000 tokens.
+- Use Haiku agents only when the search is open-ended (don't know which file) or multi-file exploration. Never for "find X in file Y."
+
+### Subagent sizing guide
+| Task | Right tool |
+|---|---|
+| Find method/pattern in known file | `Grep` |
+| Read small file (< 100 lines) | `Read` |
+| Search across unknown files | Haiku `Explore` agent |
+| Gate closeout (mechanical) | Haiku agent |
+| Multi-step implementation writing | Main context (Sonnet) |
+
+### Batch reads before writes
+- Do ALL reads in one parallel message before writing anything.
+- Pattern: one round-trip of reads → one round-trip of writes → verification.
+- Never interleave reads with edits to the same file.
+- If you plan to **Edit** a file, include at least one `Read` of that file in the initial batch. `Grep` alone does not satisfy the Edit tool's read precondition.
+
+### Headless verification scripts
+- Always write temp `.ps1` scripts to `D:\SGE\SpaceTradeEmpire\` — `/tmp` is inaccessible to PowerShell on this machine.
+- Use one combined script: run1 → run2 → SHA256 comparison. One `Write` + one `Bash`, not two of each.
+- Clean up temp `.ps1` files after use.
+- Use `($array) -join ""` for string joining. `Join-String` requires PS 6.2+ and is absent on this machine (Windows PowerShell 5.1).
+
+---
+
 ## gates.json encoding invariant
 
 `docs/gates/gates.json` **must contain only ASCII double-quotes**.

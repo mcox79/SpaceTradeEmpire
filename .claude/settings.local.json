@@ -68,7 +68,12 @@
       "Bash(powershell -NoProfile -Command \"Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run1.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash; Get-FileHash ''D:/SGE/SpaceTradeEmpire/docs/generated/hsa_run2.txt'' -Algorithm SHA256 | Select-Object -ExpandProperty Hash\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File /tmp/run_hsc.ps1)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsc.ps1\")",
-      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsc2.ps1\")"
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsc2.ps1\")",
+      "Bash(pwsh run_hsh.ps1)",
+      "Bash(powershell.exe -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh.ps1\")",
+      "Bash(powershell.exe -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh_sha.ps1\")",
+      "Bash(powershell.exe -Command \"dotnet test D:\\\\SGE\\\\SpaceTradeEmpire\\\\SimCore.Tests\\\\SimCore.Tests.csproj -c Release --nologo -v q 2>&1 | Select-String -Pattern ''passed|failed|error|FAILED'' | Select-Object -Last 5\")",
+      "Bash(powershell.exe -Command \"Remove-Item ''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh_sha.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_err.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_err.txt'' -ErrorAction SilentlyContinue\")"
     ],
     "ask": [
       "Bash(git:push*)"

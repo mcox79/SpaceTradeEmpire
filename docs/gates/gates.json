@@ -1,7 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T14:00:00Z",
+    "generated_utc": "2026-03-03T16:00:00Z",
     "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, slots, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
     "tasks": [
         {
@@ -62,28 +62,6 @@
             ],
             "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_scene_boot.gd -- --assert-lane-labels run twice; SHA256 match + dotnet test pass"],
             "task_preflight": ["anchor=SimCore/MapQueries.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
-        {
-            "gate_id": "GATE.S1.HERO_SHIP_LOOP.HUD.001",
-            "task_id": "GATE.S1.HERO_SHIP_LOOP.HUD.001.T267",
-            "status": "TODO",
-            "title": "GATE.S1.HERO_SHIP_LOOP.HUD.001: Persistent flight HUD v0",
-            "intent": "NEW hud.gd CanvasLayer (layer=10) in playable_prototype.tscn; SimBridge.GetPlayerStateV0 returns {credits, cargo_count, current_node_id, ship_state_token}; hud.gd Labels update each _physics_process; headless proof HSH| asserts HUD node in scene, bridge method present, credits>=0, current_node_id non-empty; SHA256 stable.",
-            "evidence_paths": [
-                "scripts/ui/hud.gd",
-                "scripts/bridge/SimBridge.cs",
-                "docs/generated/hsh_run1.txt",
-                "docs/generated/hsh_run2.txt"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_hud.gd run twice; SHA256 match + dotnet test pass"],
-            "task_preflight": ["anchor=scripts/bridge/SimBridge.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ]

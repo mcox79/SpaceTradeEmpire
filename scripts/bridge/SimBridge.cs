@@ -61,6 +61,7 @@ public partial class SimBridge : Node
     private long _cachedPlayerCredits = 0;
     private string _cachedPlayerLocation = "";
     private Godot.Collections.Dictionary _cachedPlayerCargo = new Godot.Collections.Dictionary();
+    private Godot.Collections.Dictionary _cachedPlayerStateV0 = new Godot.Collections.Dictionary();
 
     // Cached logistics snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
@@ -680,6 +681,34 @@ public partial class SimBridge : Node
         var gm = GetNodeOrNull<Node>("/root/GameManager");
         if (gm == null) return "UNKNOWN";
         return gm.Call("get_player_ship_state_name_v0").AsString();
+    }
+
+    // Returns {credits, cargo_count, current_node_id, ship_state_token} from player state.
+    // Nonblocking: returns last cached snapshot if read lock is unavailable.
+    public Godot.Collections.Dictionary GetPlayerStateV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            int cargoCount = 0;
+            foreach (var v in state.PlayerCargo.Values)
+                cargoCount += v;
+            var d = new Godot.Collections.Dictionary
+            {
+                ["credits"] = state.PlayerCredits,
+                ["cargo_count"] = cargoCount,
+                ["current_node_id"] = state.PlayerLocationNodeId ?? ""
+            };
+            lock (_snapshotLock)
+            {
+                _cachedPlayerStateV0 = d;
+            }
+        }, 0);
+        lock (_snapshotLock)
+        {
+            var result = _cachedPlayerStateV0.Duplicate();
+            result["ship_state_token"] = GetPlayerShipStateNameV0();
+            return result;
+        }
     }
 
     // Returns the current SimCore tick index. Thread-safe read via state lock.
