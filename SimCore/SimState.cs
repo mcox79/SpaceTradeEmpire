@@ -138,6 +138,8 @@ public partial class SimState
         // GATE.S4.INDU.MIN_LOOP.001
         IndustryBuilds ??= new Dictionary<string, IndustryBuildState>(StringComparer.Ordinal);
         IndustryEventLog ??= new List<string>();
+        // GATE.S4.INDU_STRUCT.SHORTFALL_LOG.001
+        ShortfallEventLog ??= new List<SimCore.Events.IndustryEvents.ShortfallEvent>();
         // GATE.S3_6.EXPLOITATION_PACKAGES.002
         ExploitationEventLog ??= new List<string>();
 

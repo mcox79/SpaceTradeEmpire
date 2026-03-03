@@ -59,6 +59,7 @@ Primary anchors:
 - EPIC.S4.CATALOG.V0 [DONE]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
 - EPIC.S4.MODULE_MODEL.V0 [DONE]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
 - EPIC.S1.PLAYABLE_BEAT.V0 [DONE]: First playable station loop with live in-game feedback — buy/sell buttons wired, ship input frozen while docked, market rows refresh after trade, collision layer fix; depends on EPIC.S1.HERO_SHIP_LOOP.V0 DONE (gates: GATE.S1.PLAYABLE_BEAT.*)
+- EPIC.S4.INDU_STRUCT [DONE]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic; recipe binding, chain graph validation, shortfall event log, and deterministic chain report (gates: GATE.S4.INDU_STRUCT.*)
 - EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
@@ -661,7 +662,7 @@ v0 scope (LOCK ONCE SLICE 4 STARTS):
 - Evidence must be deterministic: stable ordering, stable IDs, and no timestamps in emitted reports
 
 Epics:
-- EPIC.S4.INDU_STRUCT [TODO]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic (gates: GATE.S4.INDU_STRUCT.*)
+- EPIC.S4.INDU_STRUCT [DONE]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic (gates: GATE.S4.INDU_STRUCT.*)
   - Definition: a “chain” is a multi-step recipe path with explicit inputs%outputs (by stable IDs), executed over time
   - v0 bounds: max depth 3 steps per chain; max 1 byproduct per recipe; deterministic recipe ordering and tie-breaks
   - Required outputs: IndustryShortfall style explain events when blocked (missing input, storage full, no capacity, no permit)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -101,6 +102,29 @@ namespace SimCore.Systems
                 if (effBps > Bps) effBps = Bps;
 
                 site.Efficiency = effBps / (float)Bps;
+
+                // GATE.S4.INDU_STRUCT.SHORTFALL_LOG.001: emit shortfall events when undersupplied.
+                if (effBps < Bps)
+                {
+                    foreach (var inputKey in inputKeys)
+                    {
+                        var inputVal = site.Inputs[inputKey];
+                        if (inputVal <= IndustryTweaksV0.Zero) continue;
+
+                        int avail = InventoryLedger.Get(market.Inventory, inputKey);
+                        if (avail >= inputVal) continue; // this input is fully supplied
+
+                        state.EmitShortfallEvent(new SimCore.Events.IndustryEvents.ShortfallEvent
+                        {
+                            SiteId = siteKey,
+                            RecipeId = site.RecipeId ?? "",
+                            MissingGoodId = inputKey,
+                            RequiredQty = inputVal,
+                            AvailableQty = avail,
+                            EfficiencyBps = effBps
+                        });
+                    }
+                }
 
                 // Degrade deterministically when undersupplied.
                 ApplyDegradation(site, effBps);
@@ -288,6 +312,31 @@ namespace SimCore.Systems
             build.StageTicksRemaining = duration;
 
             state.EmitIndustryEvent($"site={siteId} recipe={recipeId} stage={stageName} evt=start in={inGood}:{inQty} dur={duration}");
+        }
+
+        // GATE.S4.INDU_STRUCT.RECIPE_BIND.001
+        // Validates that every IndustrySite with a non-empty RecipeId references a recipe
+        // that exists in the content registry. Empty RecipeId is allowed (natural sources).
+        public static void ValidateRecipeBindings(SimState state, ContentRegistryLoader.ContentRegistryV0 registry)
+        {
+            if (state is null) throw new ArgumentNullException(nameof(state));
+            if (registry is null) throw new ArgumentNullException(nameof(registry));
+
+            var knownRecipes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var r in registry.Recipes)
+                knownRecipes.Add(r.Id);
+
+            var siteKeys = new List<string>(state.IndustrySites.Keys);
+            siteKeys.Sort(StringComparer.Ordinal);
+
+            foreach (var key in siteKeys)
+            {
+                var site = state.IndustrySites[key];
+                if (string.IsNullOrEmpty(site.RecipeId)) continue;
+                if (!knownRecipes.Contains(site.RecipeId))
+                    throw new InvalidOperationException(
+                        $"IndustrySite '{key}' has RecipeId '{site.RecipeId}' not found in content registry.");
+            }
         }
 
         private static void ApplyDegradation(IndustrySite site, int effBps)

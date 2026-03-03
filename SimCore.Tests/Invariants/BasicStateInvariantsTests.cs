@@ -147,8 +147,10 @@ public class BasicStateInvariantsTests
         );
 
         // Case 3: impossible sink requirement => deterministic generator failure with stable report.
+        // Note: min_sinks_per_good must exceed what is achievable with forges + distribution sinks
+        // at 20 stars. With CatalogTweaksV0 forge placement, 4 is now achievable; use 10.
         var simFail = new SimKernel(seed);
-        simFail.State.LoadTweaksFromJsonOverride("{\"worldgen_min_producers_per_good\":1,\"worldgen_min_sinks_per_good\":4}");
+        simFail.State.LoadTweaksFromJsonOverride("{\"worldgen_min_producers_per_good\":1,\"worldgen_min_sinks_per_good\":10}");
         var ex = Assert.Throws<InvalidOperationException>(() => GalaxyGenerator.Generate(simFail.State, 20, 100f));
         Assert.That(ex!.Message, Does.Contain("worldgen_bounds_v0"));
     }

@@ -36,4 +36,9 @@ public class IndustrySite
     public bool ConstructionEnabled { get; set; } = false;
 
     public bool Active { get; set; } = true;
+
+    // GATE.S4.INDU_STRUCT.RECIPE_BIND.001
+    // Metadata binding to content registry recipe. Inline Inputs/Outputs remain the execution driver.
+    // Empty string means unbound (natural source, e.g. fuel wells).
+    public string RecipeId { get; set; } = "";
 }

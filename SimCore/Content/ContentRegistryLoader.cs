@@ -15,6 +15,7 @@ public static class ContentRegistryLoader
     // This must stay byte-for-byte stable unless version is bumped.
     // GATE.S4.CATALOG.MARKET_BIND.001: added fuel and metal goods (food < fuel < metal < ore, Ordinal).
     // GATE.S4.CATALOG.WEAPONS.001: added weapon_cannon_mk1 and weapon_laser_mk1 modules.
+    // GATE.S4.INDU_STRUCT.CHAIN_CONTENT.001: added hull_plating good + 3 production chain recipes.
     // Digest must match docs/content/content_registry_v0.json exactly.
     public const string DefaultRegistryJsonV0 =
         "{\n" +
@@ -22,14 +23,30 @@ public static class ContentRegistryLoader
         "  \"goods\": [\n" +
         "    { \"id\": \"food\" },\n" +
         "    { \"id\": \"fuel\" },\n" +
+        "    { \"id\": \"hull_plating\" },\n" +
         "    { \"id\": \"metal\" },\n" +
         "    { \"id\": \"ore\" }\n" +
         "  ],\n" +
         "  \"recipes\": [\n" +
         "    {\n" +
+        "      \"id\": \"recipe_extract_ore\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"ore\", \"qty\": 5 } ]\n" +
+        "    },\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_forge_hull_plating\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"hull_plating\", \"qty\": 1 } ]\n" +
+        "    },\n" +
+        "    {\n" +
         "      \"id\": \"recipe_refine_ore_to_food\",\n" +
         "      \"inputs\": [ { \"good_id\": \"ore\", \"qty\": 2 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"food\", \"qty\": 1 } ]\n" +
+        "    },\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_refine_ore_to_metal\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"ore\", \"qty\": 10 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    }\n" +
         "  ],\n" +
         "  \"modules\": [\n" +

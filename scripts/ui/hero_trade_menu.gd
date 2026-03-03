@@ -152,6 +152,9 @@ func _rebuild_rows() -> void:
 
 		_rows_container.add_child(row)
 
+	# GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001: show production info for this node
+	_rebuild_production_info()
+
 	# Update cargo summary
 	if _cargo_label:
 		var bridge = get_node_or_null("/root/SimBridge")
@@ -165,3 +168,37 @@ func _rebuild_rows() -> void:
 				_cargo_label.text = "Cargo: " + (", ".join(parts) if parts.size() > 0 else "empty")
 			else:
 				_cargo_label.text = "Cargo: empty"
+
+func _rebuild_production_info() -> void:
+	if _rows_container == null or _market_node_id.is_empty():
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if not bridge or not bridge.has_method("GetNodeIndustryV0"):
+		return
+	var industry: Array = bridge.call("GetNodeIndustryV0", _market_node_id)
+	if industry.size() == 0:
+		return
+
+	# Add a separator and header
+	_rows_container.add_child(HSeparator.new())
+	var header = Label.new()
+	header.text = "PRODUCTION"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_font_size_override("font_size", 16)
+	_rows_container.add_child(header)
+
+	for site_info in industry:
+		if typeof(site_info) != TYPE_DICTIONARY:
+			continue
+		var recipe_id: String = str(site_info.get("recipe_id", ""))
+		var eff_pct: int = int(site_info.get("efficiency_pct", 0))
+		var health_pct: int = int(site_info.get("health_pct", 0))
+		var outputs: Array = site_info.get("outputs", [])
+		var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
+
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "%s  eff:%d%%  hp:%d%%  -> %s" % [recipe_id if recipe_id != "" else "(natural)", eff_pct, health_pct, out_str]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		_rows_container.add_child(row)

@@ -199,6 +199,11 @@ public partial class SimState
     [JsonInclude] public long NextIndustryEventSeq { get; set; } = 1;
     [JsonInclude] public List<string> IndustryEventLog { get; private set; } = new();
 
+    // GATE.S4.INDU_STRUCT.SHORTFALL_LOG.001
+    // Persistent typed shortfall event log for UI explain surfaces and chain analysis.
+    [JsonInclude] public long NextShortfallEventSeq { get; set; } = 1;
+    [JsonInclude] public List<SimCore.Events.IndustryEvents.ShortfallEvent> ShortfallEventLog { get; private set; } = new();
+
     [JsonInclude] public List<SimCore.Entities.InFlightTransfer> InFlightTransfers { get; private set; } = new();
 
     [JsonInclude] public long NextIntentSeq { get; set; } = 1;

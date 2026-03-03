@@ -13,6 +13,7 @@ public partial class SimState
     private const int MaxFleetEventLog     = 2000;
     private const int MaxExploitationEventLog = 500;
     private const int MaxIndustryEventLog     = 500;
+    private const int MaxShortfallEventLog    = 500;
 
     // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
     [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
@@ -131,6 +132,25 @@ public partial class SimState
         IndustryEventLog.Add($"I{seq} tick={Tick} {note}");
         if (IndustryEventLog.Count > MaxIndustryEventLog)
             IndustryEventLog.RemoveRange(0, IndustryEventLog.Count - MaxIndustryEventLog);
+    }
+
+    // GATE.S4.INDU_STRUCT.SHORTFALL_LOG.001
+    // Emits a typed shortfall event when a site operates below full efficiency.
+    public void EmitShortfallEvent(SimCore.Events.IndustryEvents.ShortfallEvent e)
+    {
+        if (e is null) return;
+
+        var seq = NextShortfallEventSeq;
+        NextShortfallEventSeq = checked(NextShortfallEventSeq + 1);
+
+        e.Version = SimCore.Events.IndustryEvents.EventsVersion;
+        e.Seq = seq;
+        e.Tick = Tick;
+
+        ShortfallEventLog ??= new List<SimCore.Events.IndustryEvents.ShortfallEvent>();
+        ShortfallEventLog.Add(e);
+        if (ShortfallEventLog.Count > MaxShortfallEventLog)
+            ShortfallEventLog.RemoveRange(0, ShortfallEventLog.Count - MaxShortfallEventLog);
     }
 
     private void FinalizeFleetEventsForTick()

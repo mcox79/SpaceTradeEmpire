@@ -129,7 +129,8 @@ public static class GalaxyGenerator
                 {
                     Id = $"well_{i}",
                     NodeId = node.Id,
-                    Inputs = new Dictionary<string, int>(), // no inputs
+                    RecipeId = "", // natural source — no recipe (0 inputs)
+                    Inputs = new Dictionary<string, int>(),
                     Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Fuel, 5 } },
                     BufferDays = 1,
                     DegradePerDayBps = 0
@@ -157,6 +158,7 @@ public static class GalaxyGenerator
                 {
                     Id = $"mine_{i}",
                     NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.ExtractOre,
                     Inputs = new Dictionary<string, int>
                     {
                         { WellKnownGoodIds.Fuel, 1 },
@@ -187,6 +189,7 @@ public static class GalaxyGenerator
                 {
                     Id = $"fac_{i}",
                     NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.RefineOreToMetal,
                     Inputs = new Dictionary<string, int>
                     {
                         { WellKnownGoodIds.Ore, 10 },
@@ -208,12 +211,32 @@ public static class GalaxyGenerator
                 {
                     Id = $"sink_metal_{i}",
                     NodeId = node.Id,
+                    RecipeId = "", // pure sink — no production recipe
                     Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 1 } },
                     Outputs = new Dictionary<string, int>(),
                     BufferDays = 1,
                     DegradePerDayBps = 0
                 };
                 state.IndustrySites.Add(metalSink.Id, metalSink);
+            }
+
+            // GATE.S4.INDU_STRUCT.GENESIS_WIRE.001: hull_plating manufacturing sites.
+            // Every Nth node starting at offset gets a forge that converts metal → hull_plating.
+            if (i % CatalogTweaksV0.ForgeNodeModulus == CatalogTweaksV0.ForgeNodeOffset)
+            {
+                mkt.Inventory[WellKnownGoodIds.HullPlating] = CatalogTweaksV0.HullPlatingInitialStock;
+                var forge = new IndustrySite
+                {
+                    Id = $"forge_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.ForgeHullPlating,
+                    Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, CatalogTweaksV0.ForgeMetalInput } },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.HullPlating, CatalogTweaksV0.ForgeHullOutput } },
+                    BufferDays = CatalogTweaksV0.ForgeBufferDays,
+                    DegradePerDayBps = CatalogTweaksV0.ForgeDegradeBps
+                };
+                state.IndustrySites.Add(forge.Id, forge);
+                node.Name += " (Forge)";
             }
 
             state.Markets.Add(node.MarketId, mkt);

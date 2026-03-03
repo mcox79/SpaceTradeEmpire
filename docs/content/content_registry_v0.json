@@ -16,6 +16,13 @@
       "stackable": true
     },
     {
+      "id": "hull_plating",
+      "display_name": "Hull Plating",
+      "tier": 2,
+      "base_price_band": "mid",
+      "stackable": true
+    },
+    {
       "id": "metal",
       "display_name": "Refined Metal",
       "tier": 2,
@@ -32,11 +39,32 @@
   ],
   "recipes": [
     {
+      "id": "recipe_extract_ore",
+      "display_name": "Extract Ore",
+      "production_ticks": 10,
+      "inputs": [ { "good_id": "fuel", "qty": 1 } ],
+      "outputs": [ { "good_id": "ore", "qty": 5 } ]
+    },
+    {
+      "id": "recipe_forge_hull_plating",
+      "display_name": "Forge Hull Plating",
+      "production_ticks": 30,
+      "inputs": [ { "good_id": "metal", "qty": 5 } ],
+      "outputs": [ { "good_id": "hull_plating", "qty": 1 } ]
+    },
+    {
       "id": "recipe_refine_ore_to_food",
       "display_name": "Refine Ore To Food",
       "production_ticks": 10,
       "inputs": [ { "good_id": "ore", "qty": 2 } ],
       "outputs": [ { "good_id": "food", "qty": 1 } ]
+    },
+    {
+      "id": "recipe_refine_ore_to_metal",
+      "display_name": "Refine Ore To Metal",
+      "production_ticks": 20,
+      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "ore", "qty": 10 } ],
+      "outputs": [ { "good_id": "metal", "qty": 5 } ]
     }
   ],
   "modules": [

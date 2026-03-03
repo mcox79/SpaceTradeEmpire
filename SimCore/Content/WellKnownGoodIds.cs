@@ -5,8 +5,9 @@ namespace SimCore.Content;
 // GalaxyGenerator and other systems can reference goods without triggering hardcoded-string-literal violations.
 public static class WellKnownGoodIds
 {
-    public const string Food  = "food";
-    public const string Fuel  = "fuel";
-    public const string Metal = "metal";
-    public const string Ore   = "ore";
+    public const string Food         = "food";
+    public const string Fuel         = "fuel";
+    public const string HullPlating  = "hull_plating";
+    public const string Metal        = "metal";
+    public const string Ore          = "ore";
 }

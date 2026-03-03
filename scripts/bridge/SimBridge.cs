@@ -833,6 +833,74 @@ public partial class SimBridge : Node
         return result;
     }
 
+    // GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001
+    // Returns array of {site_id, recipe_id, efficiency_pct, health_pct, outputs} for a node's industry sites.
+    public Godot.Collections.Array GetNodeIndustryV0(string nodeId)
+    {
+        var result = new Godot.Collections.Array();
+        if (string.IsNullOrEmpty(nodeId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            // Deterministic ordering: sorted by site key
+            var keys = new System.Collections.Generic.List<string>();
+            foreach (var kv in state.IndustrySites)
+            {
+                if (string.Equals(kv.Value.NodeId, nodeId, StringComparison.Ordinal))
+                    keys.Add(kv.Key);
+            }
+            keys.Sort(StringComparer.Ordinal);
+
+            foreach (var key in keys)
+            {
+                var site = state.IndustrySites[key];
+                var dict = new Godot.Collections.Dictionary();
+                dict["site_id"] = site.Id;
+                dict["recipe_id"] = site.RecipeId ?? "";
+                dict["efficiency_pct"] = (int)(site.Efficiency * 100);
+                dict["health_pct"] = site.HealthBps / 100;
+
+                var outputs = new Godot.Collections.Array();
+                var outKeys = new System.Collections.Generic.List<string>(site.Outputs.Keys);
+                outKeys.Sort(StringComparer.Ordinal);
+                foreach (var ok in outKeys)
+                    outputs.Add(ok + ":" + site.Outputs[ok]);
+                dict["outputs"] = outputs;
+
+                result.Add(dict);
+            }
+        });
+
+        return result;
+    }
+
+    // GATE.S4.INDU_STRUCT.SHORTFALL_LOG.001
+    // Returns shortfall events since the given tick (inclusive).
+    public Godot.Collections.Array GetIndustryEventsV0(int sinceTick)
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var evt in state.ShortfallEventLog)
+            {
+                if (evt.Tick < sinceTick) continue;
+                var dict = new Godot.Collections.Dictionary();
+                dict["seq"] = evt.Seq;
+                dict["tick"] = evt.Tick;
+                dict["site_id"] = evt.SiteId;
+                dict["recipe_id"] = evt.RecipeId;
+                dict["missing_good_id"] = evt.MissingGoodId;
+                dict["required_qty"] = evt.RequiredQty;
+                dict["available_qty"] = evt.AvailableQty;
+                dict["efficiency_bps"] = evt.EfficiencyBps;
+                result.Add(dict);
+            }
+        });
+
+        return result;
+    }
+
     // Dispatches a TradeCommand (buy or sell) for the player at the given market node.
     // Blocks until the sim thread processes the command (up to 200ms) so callers
     // can read updated state immediately without a timer-based race.
