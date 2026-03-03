@@ -95,6 +95,10 @@ public class Fleet
     // Determinism note: when iterating/serializing, sort keys with Ordinal.
     public Dictionary<string, int> Cargo { get; set; } = new();
 
+    // SLICE 4: Hero ship slot model (GATE.S4.MODULE_MODEL.SLOTS.001)
+    // Ordered by SlotId Ordinal asc for deterministic serialization.
+    public List<ModuleSlot> Slots { get; set; } = new();
+
 
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;

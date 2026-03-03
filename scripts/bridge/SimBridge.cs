@@ -9,6 +9,7 @@ using SimCore.Systems;
 using SimCore.Programs;
 using SimCore.Events;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -334,7 +335,16 @@ public partial class SimBridge : Node
             Speed = 0.5f,
             CurrentTask = "Idle",
             CurrentJob = null,
-            Supplies = 100
+            Supplies = 100,
+            // SLICE 4: Standard hero ship slots (GATE.S4.MODULE_MODEL.SLOTS.001)
+            // Ordered by SlotId Ordinal asc: cargo < engine < utility < weapon.
+            Slots = new List<SimCore.Entities.ModuleSlot>
+            {
+                new() { SlotId = "slot_cargo_0",   SlotKind = SimCore.Entities.SlotKind.Cargo },
+                new() { SlotId = "slot_engine_0",  SlotKind = SimCore.Entities.SlotKind.Engine },
+                new() { SlotId = "slot_utility_0", SlotKind = SimCore.Entities.SlotKind.Utility },
+                new() { SlotId = "slot_weapon_0",  SlotKind = SimCore.Entities.SlotKind.Weapon },
+            }
         };
     }
 
@@ -709,6 +719,28 @@ public partial class SimBridge : Node
             result["ship_state_token"] = GetPlayerShipStateNameV0();
             return result;
         }
+    }
+
+    // Returns hero ship slot loadout ordered by slot_id Ordinal asc.
+    // Each entry: {slot_id (string), slot_kind (string), installed_module_id (string or "")}.
+    // Nonblocking: returns empty array if read lock is unavailable.
+    public Godot.Collections.Array GetHeroShipLoadoutV0()
+    {
+        var slots = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var fleet)) return;
+            foreach (var s in fleet.Slots.OrderBy(s => s.SlotId, StringComparer.Ordinal))
+            {
+                slots.Add(new Godot.Collections.Dictionary
+                {
+                    ["slot_id"] = s.SlotId,
+                    ["slot_kind"] = s.SlotKind.ToString(),
+                    ["installed_module_id"] = s.InstalledModuleId ?? ""
+                });
+            }
+        }, 0);
+        return slots;
     }
 
     // Returns the current SimCore tick index. Thread-safe read via state lock.
