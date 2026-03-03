@@ -443,5 +443,34 @@ public partial class FleetMenu : Control
             }
         }
 
+        // Hero ship loadout section.
+        _list.AddChild(new HSeparator());
+        _list.AddChild(new Label { Text = "HERO SHIP LOADOUT", Modulate = new Color(0.7f, 1f, 0.7f) });
+
+        var loadout = _bridge.GetHeroShipLoadoutV0();
+        if (loadout.Count == 0)
+        {
+            _list.AddChild(new Label { Text = "  (no slots)" });
+        }
+        else
+        {
+            foreach (var slotVar in loadout)
+            {
+                var sd = slotVar.Obj as Godot.Collections.Dictionary;
+                if (sd == null) continue;
+                var slotId = GetStr(sd, "slot_id");
+                var installed = GetStr(sd, "installed_module_id");
+                _list.AddChild(new Label
+                {
+                    Text = $"  {slotId}: {(string.IsNullOrEmpty(installed) ? "empty" : installed)}"
+                });
+            }
+        }
+    }
+
+    public int GetHeroLoadoutSlotCountV0()
+    {
+        if (_bridge == null) return 0;
+        return _bridge.GetHeroShipLoadoutV0().Count;
     }
 }

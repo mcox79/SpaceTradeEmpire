@@ -22,6 +22,7 @@ func _ready():
 	monitoring = true
 	monitorable = true
 	collision_mask = 2 # Layers: Ships
+	set_meta("dock_target_id", sim_market_id)
 
 	body_entered.connect(_on_body_entered)
 	_build_goods_index()
@@ -85,9 +86,9 @@ func sell_cargo(player, item_id: String, amount: int) -> bool:
 
 func _on_body_entered(body):
 	print("[STATION] Contact: %s" % body.name)
-	if body.has_method("dock_at_station"):
-		_refuel_via_bridge(body)
-		body.dock_at_station(self)
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("on_proximity_dock_entered_v0"):
+		gm.on_proximity_dock_entered_v0(self)
 
 func _refuel_via_bridge(player):
 	# Placeholder for future Refuel API in SimBridge

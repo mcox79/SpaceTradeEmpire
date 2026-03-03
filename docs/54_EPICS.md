@@ -56,8 +56,8 @@ Primary anchors:
 - EPIC.S3_6.UI_DISCOVERY_MIN.V0 [DONE]: Discovery UI v0 + unlock surfaces + “deploy package” controls; deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
 - EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [DONE]: Exploitation packages v0 (TradeCharter, ResourceTap) with remote exception policies and deterministic reporting (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
 - EPIC.S3_6.PLAY_LOOP_PROOF.V0 [DONE]: Headless proof of first 60 minutes: discover -> dock at hub -> identify 1 trade loop -> acquire 1 starter freighter -> assign TradeCharter -> discover 1 mineable site -> deploy ResourceTap -> complete 1 research%refit tech unlock -> surface 1 lore lead -> trigger 1 piracy pressure incident with explainable cause chain -> keep exploring; deterministic, no timestamps, stable ordering (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
-- EPIC.S4.CATALOG.V0 [TODO]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
-- EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
+- EPIC.S4.CATALOG.V0 [DONE]: Starter catalog v0 shipped as content packs (goods%recipes%modules%weapons) with named chains and deterministic validation (gates: GATE.S4.CATALOG.*)
+- EPIC.S4.MODULE_MODEL.V0 [DONE]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
 - EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
@@ -669,7 +669,7 @@ Epics:
 - EPIC.S4.MAINT_SUSTAIN [TODO]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
 - EPIC.S4.TECH_INDUSTRIALIZE [TODO]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
 - EPIC.S4.UPGRADE_PIPELINE [TODO]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
-- EPIC.S4.CATALOG.V0 [TODO]: Starter Catalog v0 (goods%recipes%modules%weapons) shipped as content packs with deterministic validation (gates: GATE.S4.CATALOG.*)
+- EPIC.S4.CATALOG.V0 [DONE]: Starter Catalog v0 (goods%recipes%modules%weapons) shipped as content packs with deterministic validation (gates: GATE.S4.CATALOG.*)
   - Scope: create a small but expressive authored catalog that supports:
     - >= 3 viable early trade loops (Greatness spec requirement)
     - 1 combat loop where loadout choice matters (shield%turret%missile%counter)
@@ -690,8 +690,14 @@ Epics:
   - Intervention verbs:
     - Discoveries: run analysis step
     - Industry: queue refit
+  - Design decision (2026-03-03, GATE.S4.CATALOG.EPIC_CLOSE.001):
+    - GetCatalogGoodsV0() is the correct query for catalog completeness — returns all registered good IDs from the content registry regardless of market stock.
+    - GetPlayerMarketViewV0(nodeId) is a market inventory snapshot — shows only goods with keys in that node's market inventory. Do NOT use it to prove catalog completeness.
+    - food is NOT seeded universally at world genesis. food is a production good requiring agricultural node profiles. Seeding it globally would undermine market class distinctness.
+    - Long-term architecture: markets should have node profiles (AgriHub, MiningColony, FuelDepot, TradeHub) that define what they trade. Market view will be driven by node profile, not inventory key presence. The MarketProfile resource (active_station.gd @export var market_profile) is the right seam for this.
+    - Any change to world genesis market state (even adding a zero-stock key) changes the determinism golden hash. Never add goods to market.Inventory unless they have an economy reason to be there.
 
-- EPIC.S4.MODULE_MODEL.V0 [TODO]: Hero module slot model v0 + fleet capability packages, all content-driven (gates: GATE.S4.MODULE_MODEL.*)
+- EPIC.S4.MODULE_MODEL.V0 [DONE]: Hero module slot model v0 + fleet capability packages, all content-driven (gates: GATE.S4.MODULE_MODEL.*)
   - Hero ship:
     - slot families v0 must include: Weapons, Defense, Power, Sensors, Utility (you may add Cargo%Drive later)
     - modules declare slot family, tags, and capability effects (no hardcoded “if weapon == X” logic)

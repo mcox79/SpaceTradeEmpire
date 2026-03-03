@@ -2,6 +2,7 @@
 using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Schemas;
+using SimCore.Tweaks;
 using System.Linq;
 using System.Collections.Generic;
 using System;
@@ -105,11 +106,13 @@ public static class GalaxyGenerator
 
             var mkt = new Market { Id = node.MarketId };
 
-            // Always ensure keys exist for deterministic price publishing and inventory semantics.
-            // Note: fuel is an economy-critical input (mines/refineries). Seed enough to avoid immediate global starvation.
-            mkt.Inventory[WellKnownGoodIds.Fuel] = 500;
-            mkt.Inventory[WellKnownGoodIds.Ore] = 0;
-            mkt.Inventory[WellKnownGoodIds.Metal] = 0;
+            // Seed fuel/metal/ore inventory keys for deterministic price publishing.
+            // Fuel gets bootstrap stock to prevent economy stall; metal/ore are key-only (require production).
+            // food is NOT seeded here: food is a production good requiring agricultural node profiles.
+            // Use SimBridge.GetCatalogGoodsV0() to verify catalog completeness — not GetPlayerMarketViewV0().
+            mkt.Inventory[WellKnownGoodIds.Fuel]  = CatalogTweaksV0.FuelInitialStock;
+            mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.MetalInitialStock;
+            mkt.Inventory[WellKnownGoodIds.Ore]   = CatalogTweaksV0.OreInitialStock;
 
             // GATE.S2_5.WGEN.ECON.001: deterministic economy placement v0 for starter region.
             // Starter region is the first N stars by generation index.

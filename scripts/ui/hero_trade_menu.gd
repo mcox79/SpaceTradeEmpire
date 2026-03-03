@@ -7,17 +7,27 @@ var _market_node_id: String = ""
 var _rows_container: VBoxContainer = null
 
 func _ready():
+	visible = false
 	var panel = Panel.new()
+	panel.custom_minimum_size = Vector2(400, 300)
 	add_child(panel)
+	var vbox = VBoxContainer.new()
+	panel.add_child(vbox)
 	_rows_container = VBoxContainer.new()
-	panel.add_child(_rows_container)
+	vbox.add_child(_rows_container)
+	var btn_undock = Button.new()
+	btn_undock.text = "Undock"
+	btn_undock.pressed.connect(_on_undock_pressed)
+	vbox.add_child(btn_undock)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
+	visible = true
 	_rebuild_rows()
 
 func close_market_v0() -> void:
 	_market_node_id = ""
+	visible = false
 
 func get_market_view_v0() -> Array:
 	if _market_node_id.is_empty():
@@ -45,6 +55,11 @@ func get_panel_row_count_v0() -> int:
 	if _rows_container == null:
 		return 0
 	return _rows_container.get_child_count()
+
+func _on_undock_pressed() -> void:
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("undock_v0"):
+		gm.call("undock_v0")
 
 func _rebuild_rows() -> void:
 	if _rows_container == null:

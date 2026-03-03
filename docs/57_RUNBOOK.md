@@ -31,6 +31,15 @@ Purpose: validate gate registry schema + run deterministic repo hygiene + connec
 - Connectivity scan (hardened)
   - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Scan-Connectivity.ps1 -Force -Harden
 
+- TweakRoutingGuard baseline re-mint (ONLY after routing new literals to Tweaks/ — see rule below)
+  - STE_TWEAK_GUARD_MINT_BASELINE=1 dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "TweakRoutingGuard_NewNumericLiterals"
+  - PowerShell: $env:STE_TWEAK_GUARD_MINT_BASELINE="1"; dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "TweakRoutingGuard_NewNumericLiterals"
+  - Rule: re-mint ONLY when literals have been moved from SimCore/ to SimCore/Tweaks/*V0.cs AND the edit shifted line numbers for pre-existing (already-baselined) literals. Do NOT re-mint to cover up new un-routed literals. Always read violations report first (docs/generated/tweak_routing_guard_violations_v0.txt) and confirm all remaining violations are line-shift artifacts, not new literal additions.
+
+- Golden hash update (REQUIRES explicit user approval — never do autonomously)
+  - STE_UPDATE_GOLDEN=1 dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "LongRun_10000Ticks_Matches_Golden|Simulation_Is_Deterministic_With_Input"
+  - Rule: NEVER update golden hashes without explicit user sign-off. A golden hash mismatch means world simulation state changed. Either it is a real determinism bug (fix the bug, do not update the hash) or it is a deliberate world-gen design change (discuss with user first). After approval, paste PASTE_LONGRUN_GENESIS and PASTE_LONGRUN_FINAL values into SimCore.Tests/Determinism/LongRunWorldHashTests.cs ExpectedGenesisHash/ExpectedFinalHash, and similarly for SimCore.Tests/GoldenReplayTests.cs.
+
 ## Godot headless (Mono)
 
 Purpose: validate GameShell wiring and capstone scripts with deterministic stdout%stderr.

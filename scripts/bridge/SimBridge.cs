@@ -816,6 +816,20 @@ public partial class SimBridge : Node
         return result;
     }
 
+    // GATE.S4.CATALOG.EPIC_CLOSE.001
+    // Returns all good IDs registered in the content catalog, sorted Ordinal.
+    // This is a catalog registry query — does not reflect market stock or node economic profile.
+    // Use this to verify catalog completeness. Use GetPlayerMarketViewV0 to see what a specific
+    // node currently has in stock. Long-term, market view will be driven by node profiles, not inventory keys.
+    public Godot.Collections.Array GetCatalogGoodsV0()
+    {
+        var result = new Godot.Collections.Array();
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        foreach (var good in reg.Goods)
+            result.Add(good.Id);
+        return result;
+    }
+
     // Dispatches a TradeCommand (buy or sell) for the player at the given market node.
     public void DispatchPlayerTradeV0(string nodeId, string goodId, int qty, bool isBuy)
     {
