@@ -13,11 +13,15 @@ public static class ContentRegistryLoader
 {
     // NOTE: No runtime IO in SimCore. World initialization uses this embedded default.
     // This must stay byte-for-byte stable unless version is bumped.
+    // GATE.S4.CATALOG.MARKET_BIND.001: added fuel and metal goods (food < fuel < metal < ore, Ordinal).
+    // Digest must match docs/content/content_registry_v0.json exactly.
     public const string DefaultRegistryJsonV0 =
         "{\n" +
         "  \"version\": 0,\n" +
         "  \"goods\": [\n" +
         "    { \"id\": \"food\" },\n" +
+        "    { \"id\": \"fuel\" },\n" +
+        "    { \"id\": \"metal\" },\n" +
         "    { \"id\": \"ore\" }\n" +
         "  ],\n" +
         "  \"recipes\": [\n" +

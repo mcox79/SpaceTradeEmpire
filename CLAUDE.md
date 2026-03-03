@@ -47,6 +47,7 @@ Large files and their approximate token cost at full read:
 - Pattern: one round-trip of reads → one round-trip of writes → verification.
 - Never interleave reads with edits to the same file.
 - If you plan to **Edit** a file, include at least one `Read` of that file in the initial batch. `Grep` alone does not satisfy the Edit tool's read precondition.
+- The Edit precondition resets between messages. A `Read` from 2+ messages ago is not reliable — read the file in the **same message** as the Edit, or the message immediately before it.
 
 ### Headless verification scripts
 - Always write temp `.ps1` scripts to `D:\SGE\SpaceTradeEmpire\` — `/tmp` is inaccessible to PowerShell on this machine.

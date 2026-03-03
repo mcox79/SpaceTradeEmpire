@@ -1,29 +1,9 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T17:00:00Z",
+    "generated_utc": "2026-03-03T18:00:00Z",
     "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
     "tasks": [
-        {
-            "gate_id": "GATE.S4.CATALOG.MARKET_BIND.001",
-            "task_id": "GATE.S4.CATALOG.MARKET_BIND.001.T583",
-            "status": "TODO",
-            "title": "GATE.S4.CATALOG.MARKET_BIND.001: Bind goods catalog to market seeding v0",
-            "intent": "GalaxyGenerator or WorldLoader seeds market good_ids from ContentRegistryLoader goods list on world gen; each generated market has >=2 good_ids present in catalog; SimBridge injects registry at gen time; dotnet test MarketCatalogBind_FreshWorld_HasCatalogGoods asserts state.Markets values contain catalog good_ids; tweak guard passes.",
-            "evidence_paths": [
-                "SimCore/World/WorldLoader.cs",
-                "SimCore/Gen/GalaxyGenerator.cs"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter \"MarketCatalogBind\" PASS + full dotnet test PASS"],
-            "task_preflight": ["anchor=SimCore/World/WorldLoader.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
         {
             "gate_id": "GATE.S1.GALAXY_MAP.FLEET_COUNTS.001",
             "task_id": "GATE.S1.GALAXY_MAP.FLEET_COUNTS.001.T391",

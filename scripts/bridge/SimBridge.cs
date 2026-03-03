@@ -2,6 +2,7 @@
 
 using Godot;
 using SimCore;
+using SimCore.Content;
 using SimCore.Gen;
 using SimCore.Commands;
 using SimCore.Intents;
@@ -306,7 +307,10 @@ public partial class SimBridge : Node
             _stateLock.EnterWriteLock();
             try
             {
-                GalaxyGenerator.Generate(_kernel.State, StarCount, 200f);
+                // GATE.S4.CATALOG.MARKET_BIND.001: inject registry so generator validates seeded goods.
+                var _reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+                GalaxyGenerator.Generate(_kernel.State, StarCount, 200f,
+                    new GalaxyGenOptions { Registry = _reg });
                 EnsurePlayerFleetV0(_kernel.State);
             }
             finally

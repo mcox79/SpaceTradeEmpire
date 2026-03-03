@@ -9,6 +9,20 @@
       "stackable": true
     },
     {
+      "id": "fuel",
+      "display_name": "Fuel Cells",
+      "tier": 1,
+      "base_price_band": "low",
+      "stackable": true
+    },
+    {
+      "id": "metal",
+      "display_name": "Refined Metal",
+      "tier": 2,
+      "base_price_band": "mid",
+      "stackable": true
+    },
+    {
       "id": "ore",
       "display_name": "Raw Ore",
       "tier": 1,

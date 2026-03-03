@@ -74,7 +74,9 @@
       "Bash(powershell.exe -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh_sha.ps1\")",
       "Bash(powershell.exe -Command \"dotnet test D:\\\\SGE\\\\SpaceTradeEmpire\\\\SimCore.Tests\\\\SimCore.Tests.csproj -c Release --nologo -v q 2>&1 | Select-String -Pattern ''passed|failed|error|FAILED'' | Select-Object -Last 5\")",
       "Bash(powershell.exe -Command \"Remove-Item ''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_hsh_sha.ps1'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run1_err.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_raw.txt'',''D:\\\\SGE\\\\SpaceTradeEmpire\\\\hsh_run2_err.txt'' -ErrorAction SilentlyContinue\")",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"LoadoutContract\")"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"LoadoutContract\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MarketCatalogBind\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n)"
     ],
     "ask": [
       "Bash(git:push*)"

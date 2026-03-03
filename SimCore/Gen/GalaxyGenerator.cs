@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Schemas;
 using System.Linq;
@@ -15,7 +16,7 @@ public static class GalaxyGenerator
 
     // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: v0 goods set for producer/sink bounds checks.
     // Keep stable and ordered for deterministic reports and failure messages.
-    private static readonly string[] WorldgenBoundsGoodsV0 = { "fuel", "ore", "metal" };
+    private static readonly string[] WorldgenBoundsGoodsV0 = { WellKnownGoodIds.Fuel, WellKnownGoodIds.Ore, WellKnownGoodIds.Metal };
 
     // GATE.S2_5.WGEN.DISTRIBUTION.001: deterministic starter region accessor for tests and reports.
     // v0 starter region: star_0..star_(StarterRegionNodeCount-1) when present (sorted ordinal).
@@ -38,6 +39,10 @@ public static class GalaxyGenerator
 
         // Optional deterministic override to force all nodes into a single class index (0..2).
         public int? ForceAllNodesToWorldClassIndexV0 { get; init; } = null;
+
+        // GATE.S4.CATALOG.MARKET_BIND.001: optional catalog registry for market good_id validation.
+        // When set, Generate() throws if any seeded market inventory key is absent from the registry.
+        public ContentRegistryLoader.ContentRegistryV0? Registry { get; init; } = null;
     }
 
     // GATE.S2_5.WGEN.WORLD_CLASSES.001: deterministic world classes v0.
@@ -102,9 +107,9 @@ public static class GalaxyGenerator
 
             // Always ensure keys exist for deterministic price publishing and inventory semantics.
             // Note: fuel is an economy-critical input (mines/refineries). Seed enough to avoid immediate global starvation.
-            mkt.Inventory["fuel"] = 500;
-            mkt.Inventory["ore"] = 0;
-            mkt.Inventory["metal"] = 0;
+            mkt.Inventory[WellKnownGoodIds.Fuel] = 500;
+            mkt.Inventory[WellKnownGoodIds.Ore] = 0;
+            mkt.Inventory[WellKnownGoodIds.Metal] = 0;
 
             // GATE.S2_5.WGEN.ECON.001: deterministic economy placement v0 for starter region.
             // Starter region is the first N stars by generation index.
@@ -115,14 +120,14 @@ public static class GalaxyGenerator
             bool isFuelWell = (i % 6) == 0;
             if (isFuelWell)
             {
-                mkt.Inventory["fuel"] = Math.Max(mkt.Inventory["fuel"], 3000); // bootstrap supply
+                mkt.Inventory[WellKnownGoodIds.Fuel] = Math.Max(mkt.Inventory[WellKnownGoodIds.Fuel], 3000); // bootstrap supply
 
                 var well = new IndustrySite
                 {
                     Id = $"well_{i}",
                     NodeId = node.Id,
                     Inputs = new Dictionary<string, int>(), // no inputs
-                    Outputs = new Dictionary<string, int> { { "fuel", 5 } },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Fuel, 5 } },
                     BufferDays = 1,
                     DegradePerDayBps = 0
                 };
@@ -136,13 +141,13 @@ public static class GalaxyGenerator
                 // MINE: supplies ore; starter region also supplies fuel and demands metal (demand sink).
                 if (isStarter)
                 {
-                    mkt.Inventory["fuel"] = 120;  // supply
-                    mkt.Inventory["ore"] = 500;   // supply
-                    mkt.Inventory["metal"] = 10;  // demand sink (scarce)
+                    mkt.Inventory[WellKnownGoodIds.Fuel] = 120;  // supply
+                    mkt.Inventory[WellKnownGoodIds.Ore] = 500;   // supply
+                    mkt.Inventory[WellKnownGoodIds.Metal] = 10;  // demand sink (scarce)
                 }
                 else
                 {
-                    mkt.Inventory["ore"] = 500;
+                    mkt.Inventory[WellKnownGoodIds.Ore] = 500;
                 }
 
                 var mine = new IndustrySite
@@ -151,16 +156,16 @@ public static class GalaxyGenerator
                     NodeId = node.Id,
                     Inputs = new Dictionary<string, int>
                     {
-                        { "fuel", 1 },
-                        { "ore", 0 } // keep ore key present in Inputs map? no, Inputs should be meaningful only
+                        { WellKnownGoodIds.Fuel, 1 },
+                        { WellKnownGoodIds.Ore, 0 } // keep ore key present in Inputs map? no, Inputs should be meaningful only
                     },
-                    Outputs = new Dictionary<string, int> { { "ore", 5 } },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Ore, 5 } },
                     BufferDays = 1,
                     DegradePerDayBps = 0
                 };
 
                 // Remove the dummy input so upkeep inputs are real only
-                mine.Inputs.Remove("ore");
+                mine.Inputs.Remove(WellKnownGoodIds.Ore);
 
                 state.IndustrySites.Add(mine.Id, mine);
                 node.Name += " (Mining)";
@@ -170,9 +175,9 @@ public static class GalaxyGenerator
                 // REFINERY: consumes ore + fuel, produces metal; starter region demands ore+fuel and supplies metal.
                 if (isStarter)
                 {
-                    mkt.Inventory["fuel"] = 10;   // demand sink (scarce)
-                    mkt.Inventory["ore"] = 0;     // demand sink (scarce)
-                    mkt.Inventory["metal"] = 200; // supply
+                    mkt.Inventory[WellKnownGoodIds.Fuel] = 10;   // demand sink (scarce)
+                    mkt.Inventory[WellKnownGoodIds.Ore] = 0;     // demand sink (scarce)
+                    mkt.Inventory[WellKnownGoodIds.Metal] = 200; // supply
                 }
 
                 var factory = new IndustrySite
@@ -181,10 +186,10 @@ public static class GalaxyGenerator
                     NodeId = node.Id,
                     Inputs = new Dictionary<string, int>
                     {
-                        { "ore", 10 },
-                        { "fuel", 1 }
+                        { WellKnownGoodIds.Ore, 10 },
+                        { WellKnownGoodIds.Fuel, 1 }
                     },
-                    Outputs = new Dictionary<string, int> { { "metal", 5 } },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 5 } },
                     BufferDays = 2,
                     DegradePerDayBps = 500 // 5% health per day at full deficit
                 };
@@ -200,7 +205,7 @@ public static class GalaxyGenerator
                 {
                     Id = $"sink_metal_{i}",
                     NodeId = node.Id,
-                    Inputs = new Dictionary<string, int> { { "metal", 1 } },
+                    Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 1 } },
                     Outputs = new Dictionary<string, int>(),
                     BufferDays = 1,
                     DegradePerDayBps = 0
@@ -213,6 +218,21 @@ public static class GalaxyGenerator
 
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
+
+        // GATE.S4.CATALOG.MARKET_BIND.001: validate all seeded market inventory keys are in the registry.
+        if (options?.Registry is { } catalogReg)
+        {
+            var catalogGoodIds = new HashSet<string>(catalogReg.Goods.Select(g => g.Id), StringComparer.Ordinal);
+            foreach (var mkt in state.Markets.Values)
+            {
+                foreach (var goodId in mkt.Inventory.Keys)
+                {
+                    if (!catalogGoodIds.Contains(goodId))
+                        throw new InvalidOperationException(
+                            $"Market {mkt.Id} seeded good '{goodId}' is absent from the content registry.");
+                }
+            }
+        }
 
         // GATE.S2_5.WGEN.GALAXY.001: deterministic topology v0.
         // Requirements:
@@ -896,7 +916,7 @@ public static class GalaxyGenerator
             MaxHops: 4,
             ChokepointCapLe: 3,
             MaxChokepoints: 1,
-            Goods: new[] { "fuel", "ore", "metal" });
+            Goods: new[] { WellKnownGoodIds.Fuel, WellKnownGoodIds.Ore, WellKnownGoodIds.Metal });
     }
 
     // GATE.S2_5.TOOL.SEED_EXPLORER.001: econ loops report (deterministic).
