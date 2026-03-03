@@ -1,7 +1,110 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T07:00:00Z",
-    "queue_intent": "Gameplay-first tranche: visible market screen, cargo display, hero loop proof, galaxy map epic close, weapons catalog, module equip. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
-    "tasks": []
+    "generated_utc": "2026-03-03T09:00:00Z",
+    "queue_intent": "Player-facing station loop tranche: wire station dock proximity trigger, market screen on dock, undock action, equip panel, full loop proof, and S4 epic closes. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
+    "tasks": [
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.MARKET_UNDOCK_V0.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.MARKET_UNDOCK_V0.001.T445",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.MARKET_UNDOCK_V0.001: Market screen on dock + undock button v0",
+            "intent": "hero_trade_menu.gd: open_market_v0() makes menu visible and populates rows; add close_market_v0(); add Undock button that calls game_manager.undock_v0(). Proof: test_station_dock_v0.gd asserts panel_row_count>0 after dock and UNDOCK|ok after undock.",
+            "evidence_paths": ["scripts/ui/hero_trade_menu.gd", "scripts/tests/test_station_dock_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_station_dock_v0.gd"],
+            "task_preflight": ["anchor=scripts/ui/hero_trade_menu.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.STATION_DOCK_PROXIMITY.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.STATION_DOCK_PROXIMITY.001.T221",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.STATION_DOCK_PROXIMITY.001: Station proximity dock wire-up v0",
+            "intent": "Replace active_station.gd body.dock_at_station() legacy path with game_manager.on_proximity_dock_entered_v0(self). Set dock_target_id metadata from sim_market_id in _ready(). Proof: headless boots scene, simulates dock enter, verifies DOCK|PASS|kind=STATION printed.",
+            "evidence_paths": ["scripts/active_station.gd", "scripts/tests/test_station_dock_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_station_dock_v0.gd"],
+            "task_preflight": ["anchor=scripts/active_station.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S1.HERO_SHIP_LOOP.STATION_LOOP_V1.001",
+            "task_id": "GATE.S1.HERO_SHIP_LOOP.STATION_LOOP_V1.001.T389",
+            "status": "TODO",
+            "title": "GATE.S1.HERO_SHIP_LOOP.STATION_LOOP_V1.001: Station dock-trade-undock-lane loop proof v1",
+            "intent": "Full in-game loop: dock at station A via game_manager, buy food, verify credits reduced, undock, enter lane via SimBridge, arrive next system, dock at next station, sell food, verify credits changed. Closes EPIC.S1.HERO_SHIP_LOOP.V0. Emits LOOP_V1|PASS.",
+            "evidence_paths": ["scripts/tests/test_station_loop_v1.gd", "scripts/core/game_manager.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_station_loop_v1.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_station_loop_v1.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.CATALOG.EPIC_CLOSE.001",
+            "task_id": "GATE.S4.CATALOG.EPIC_CLOSE.001.T523",
+            "status": "TODO",
+            "title": "GATE.S4.CATALOG.EPIC_CLOSE.001: Catalog v0 epic close proof",
+            "intent": "Headless proof: dock at station, GetPlayerMarketViewV0() returns goods with IDs food/fuel/metal/ore matching catalog registry. Catalog digest stable. Updates docs/54_EPICS.md EPIC.S4.CATALOG.V0 status to DONE. Emits CAT_CLOSE|PASS.",
+            "evidence_paths": ["scripts/tests/test_catalog_epic_close.gd", "docs/content/content_registry_v0.json"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_catalog_epic_close.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_catalog_epic_close.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.MODULE_MODEL.EPIC_CLOSE.001",
+            "task_id": "GATE.S4.MODULE_MODEL.EPIC_CLOSE.001.T742",
+            "status": "TODO",
+            "title": "GATE.S4.MODULE_MODEL.EPIC_CLOSE.001: Module model v0 epic close proof",
+            "intent": "Headless proof: GetHeroShipLoadoutV0() returns >=4 slots; equip weapon_laser_mk1 verifies via GetHeroShipLoadoutV0; FleetMenu.GetHeroLoadoutSlotCountV0() >= 4. Updates docs/54_EPICS.md EPIC.S4.MODULE_MODEL.V0 to DONE. Emits MOD_CLOSE|PASS.",
+            "evidence_paths": ["scripts/tests/test_module_model_epic_close.gd", "scripts/ui/FleetMenu.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_module_model_epic_close.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_module_model_epic_close.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        },
+        {
+            "gate_id": "GATE.S4.MODULE_MODEL.EQUIP_PANEL.001",
+            "task_id": "GATE.S4.MODULE_MODEL.EQUIP_PANEL.001.T167",
+            "status": "TODO",
+            "title": "GATE.S4.MODULE_MODEL.EQUIP_PANEL.001: Equip slot panel in station UI v0",
+            "intent": "Add hero ship loadout section to FleetMenu.cs: calls GetHeroShipLoadoutV0(), renders slot_id + installed_module_id (or 'empty') for each slot. Add public GetHeroLoadoutSlotCountV0() for headless testability. Proof: test_equip_panel.gd asserts slot_count>=4.",
+            "evidence_paths": ["scripts/ui/FleetMenu.cs", "scripts/tests/test_equip_panel.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_equip_panel.gd"],
+            "task_preflight": ["anchor=scripts/ui/FleetMenu.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ]
+        }
+    ]
 }
