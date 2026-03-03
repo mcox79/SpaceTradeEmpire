@@ -1,0 +1,6 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+SUCCESS: Global Game Manager initialized.
+[BRIDGE] Initializing SimCore Kernel...
+[BRIDGE] Simulation Thread Started.
+SUCCESS: Global Game Manager initialized.

@@ -656,7 +656,8 @@ public partial class SimBridge : Node
                 laneGate.Add(new Godot.Collections.Dictionary
                 {
                     ["neighbor_node_id"] = lg.NeighborNodeId ?? "",
-                    ["edge_id"] = lg.EdgeId ?? ""
+                    ["edge_id"] = lg.EdgeId ?? "",
+                    ["neighbor_display_name"] = lg.NeighborDisplayName ?? ""
                 });
             }
 

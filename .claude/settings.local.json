@@ -78,7 +78,17 @@
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MarketCatalogBind\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n)",
       "Bash(dotnet build \"Space Trade Empire.csproj\" --nologo -c Debug)",
-      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File run_fleet_counts_proof.ps1)"
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File run_fleet_counts_proof.ps1)",
+      "Bash(powershell -File prove_lane_label.ps1)",
+      "Bash(Stop-Process -Name \"Godot_v4.6-stable_mono_win64\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(Start-Sleep -Seconds 1)",
+      "Bash(Get-Content D:SGESpaceTradeEmpirelane_label_err1.txt)",
+      "Bash(Select-String -Pattern \"SCRIPT ERROR|parse|ERROR\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(powershell -Command \"Stop-Process -Name ''Godot_v4.6-stable_mono_win64'' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Get-Content D:\\\\SGE\\\\SpaceTradeEmpire\\\\lane_label_err1.txt\")",
+      "Bash(powershell -File probe_scene_boot.ps1)",
+      "Bash(ls /d/SGE/SpaceTradeEmpire/scripts/tests/test_hero_ship_scene_boot*)",
+      "Bash(powershell -File probe_minimal.ps1)"
     ],
     "ask": [
       "Bash(git:push*)"

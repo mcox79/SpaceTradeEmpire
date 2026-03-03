@@ -1,30 +1,9 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T18:00:00Z",
+    "generated_utc": "2026-03-03T19:30:00Z",
     "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
     "tasks": [
-        {
-            "gate_id": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001",
-            "task_id": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001.T754",
-            "status": "TODO",
-            "title": "GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: Lane gate destination name labels v0",
-            "intent": "MapQueries.BuildSystemSnapshotV0 adds NeighborDisplayName per LaneGate entry from state.Nodes[neighborId].Name; SimBridge.GetSystemSnapshotV0 serializes neighbor_display_name; GalaxyView.SpawnLaneGatesV0 adds Label3D above each gate marker; test_hero_ship_scene_boot.gd --assert-lane-labels asserts lane_gate[0] has non-empty neighbor_display_name; SHA256 stable.",
-            "evidence_paths": [
-                "SimCore/MapQueries.cs",
-                "scripts/bridge/SimBridge.cs",
-                "scripts/view/GalaxyView.cs"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_scene_boot.gd -- --assert-lane-labels run twice; SHA256 match + dotnet test pass"],
-            "task_preflight": ["anchor=SimCore/MapQueries.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        },
         {
             "gate_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001",
             "task_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001.T819",

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -File probe_committed.ps1)",
+      "Bash(powershell -File probe_minimal2.ps1)",
+      "Bash(powershell -File probe_galaxy.ps1)"
+    ]
+  }
+}

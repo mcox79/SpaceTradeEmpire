@@ -11,6 +11,7 @@ const SCENE_PATH := "res://scenes/playable_prototype.tscn"
 const BOOT_FRAMES := 60  # 30 normal boot + 30 for DrawLocalSystemBootV0 deferred call
 
 var _assert_discovery_dock := false
+var _assert_lane_labels := false
 
 func _stop_sim_and_quit(code: int) -> void:
 	var bridge = get_root().get_node_or_null("SimBridge")
@@ -30,6 +31,8 @@ func _initialize() -> void:
 	var args = OS.get_cmdline_user_args()
 	if "--assert-discovery-dock" in args:
 		_assert_discovery_dock = true
+	if "--assert-lane-labels" in args:
+		_assert_lane_labels = true
 	call_deferred("_run")
 
 func _run() -> void:
@@ -90,6 +93,30 @@ func _run() -> void:
 		_ok("sites_with_proximity_area=" + str(sites_with_area))
 		if site_count > 0 and sites_with_area < site_count:
 			_fail("DISCOVERY_SITE_MISSING_AREA3D")
+			return
+
+	# --- Lane label assertion (--assert-lane-labels flag) ---
+	# GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: first lane gate must have non-empty neighbor_display_name.
+	if _assert_lane_labels:
+		var bridge = get_root().get_node_or_null("SimBridge")
+		if bridge == null or not bridge.has_method("GetSystemSnapshotV0") or not bridge.has_method("GetPlayerStateV0"):
+			_fail("LANE_LABEL_BRIDGE_MISSING")
+			return
+		var ps = bridge.call("GetPlayerStateV0")
+		var node_id: String = ps.get("current_node_id", "")
+		var sys_snap = bridge.call("GetSystemSnapshotV0", node_id)
+		if sys_snap == null or not sys_snap.has("lane_gate"):
+			_fail("LANE_LABEL_NO_SYSTEM_SNAP")
+			return
+		var gates = sys_snap["lane_gate"]
+		if gates.size() == 0:
+			_fail("LANE_LABEL_NO_GATES")
+			return
+		var first_gate = gates[0]
+		var display_name: String = first_gate.get("neighbor_display_name", "")
+		_ok("lane_label=" + display_name)
+		if display_name.is_empty():
+			_fail("LANE_GATE_NEIGHBOR_DISPLAY_NAME_EMPTY")
 			return
 
 	_ok("DONE")

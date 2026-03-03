@@ -53,6 +53,8 @@ public static class MapQueries
     {
         public string NeighborNodeId { get; set; } = "";
         public string EdgeId { get; set; } = "";
+        // GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001
+        public string NeighborDisplayName { get; set; } = "";
     }
 
     // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
@@ -137,7 +139,8 @@ public static class MapQueries
                 snap.LaneGate.Add(new LaneGateSnapV0
                 {
                     NeighborNodeId = e.ToNodeId ?? "",
-                    EdgeId = e.Id
+                    EdgeId = e.Id,
+                    NeighborDisplayName = (state.Nodes.TryGetValue(e.ToNodeId ?? "", out var nbrT) ? nbrT.Name : null) ?? ""
                 });
             }
             else if (string.Equals(e.ToNodeId, nodeId, StringComparison.Ordinal))
@@ -145,7 +148,8 @@ public static class MapQueries
                 snap.LaneGate.Add(new LaneGateSnapV0
                 {
                     NeighborNodeId = e.FromNodeId ?? "",
-                    EdgeId = e.Id
+                    EdgeId = e.Id,
+                    NeighborDisplayName = (state.Nodes.TryGetValue(e.FromNodeId ?? "", out var nbrF) ? nbrF.Name : null) ?? ""
                 });
             }
         }

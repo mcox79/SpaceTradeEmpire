@@ -234,8 +234,11 @@ public partial class GalaxyView : Node3D
             var neighborId = g.ContainsKey("neighbor_node_id")
                 ? (string)g["neighbor_node_id"]
                 : "";
+            var displayName = g.ContainsKey("neighbor_display_name")
+                ? (string)g["neighbor_display_name"]
+                : "";
 
-            var marker = CreateLaneGateMarkerV0(neighborId);
+            var marker = CreateLaneGateMarkerV0(neighborId, displayName);
             marker.Position = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
             marker.AddToGroup("LaneGate");
             _localSystemRoot.AddChild(marker);
@@ -281,7 +284,8 @@ public partial class GalaxyView : Node3D
         return root;
     }
 
-    private Node3D CreateLaneGateMarkerV0(string neighborId)
+    // GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: displayName from NeighborDisplayName; falls back to neighborId.
+    private Node3D CreateLaneGateMarkerV0(string neighborId, string displayName = "")
     {
         var root = new Node3D { Name = "LaneGate_" + neighborId };
 
@@ -302,7 +306,7 @@ public partial class GalaxyView : Node3D
         var lbl = new Label3D
         {
             Name = "GateLabel",
-            Text = "LANE\u2192" + neighborId,
+            Text = "\u2192 " + (string.IsNullOrEmpty(displayName) ? neighborId : displayName),
             PixelSize = 0.01f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled
         };
