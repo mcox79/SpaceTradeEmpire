@@ -123,6 +123,14 @@ Vacuous-pass pattern (player-created state):
 
 ## Notes (determinism + bookkeeping)
 
+Content registry dual-source invariant (confirmed 2026-03-03):
+  - docs/content/content_registry_v0.json and SimCore/Content/ContentRegistryLoader.DefaultRegistryJsonV0
+    (embedded C# string) must always be kept in sync.
+  - ContentRegistryV0_LoadTwice_DigestAndOrderingStable_AndEmitDigestReport computes digests from both
+    and asserts equality. Any registry content change requires updating BOTH files or the test fails.
+  - The embedded string uses id-only module entries ({ "id": "..." }) while the docs JSON has full fields;
+    only the parsed IDs affect the digest, so format differences are acceptable.
+
 - All harness outputs must be deterministic: no timestamps, stable ordering, stable formatting; stdout%stderr hashes must be stable across reruns on unchanged repo state.
 - Any determinism repro or regression artifact must include Seed (and TickIndex where applicable).
 - Session log is authoritative: update docs/56_SESSION_LOG.md and docs/55_GATES.md in the same change set as the PASS entry.

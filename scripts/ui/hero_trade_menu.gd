@@ -1,13 +1,20 @@
 extends CanvasLayer
 
-# GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001
-# Hero trade menu v0: API surface for the player market at a docked station.
-# Actual widget rendering is deferred to a future gate.
+# GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001
+# Hero trade menu: Panel+VBoxContainer with one row per market good.
 
 var _market_node_id: String = ""
+var _rows_container: VBoxContainer = null
+
+func _ready():
+	var panel = Panel.new()
+	add_child(panel)
+	_rows_container = VBoxContainer.new()
+	panel.add_child(_rows_container)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
+	_rebuild_rows()
 
 func close_market_v0() -> void:
 	_market_node_id = ""
@@ -33,3 +40,36 @@ func sell_one_v0(good_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
 		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, 1, false)
+
+func get_panel_row_count_v0() -> int:
+	if _rows_container == null:
+		return 0
+	return _rows_container.get_child_count()
+
+func _rebuild_rows() -> void:
+	if _rows_container == null:
+		return
+	for child in _rows_container.get_children():
+		_rows_container.remove_child(child)
+		child.queue_free()
+	var view = get_market_view_v0()
+	for entry in view:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var row = HBoxContainer.new()
+		var lbl_id = Label.new()
+		lbl_id.text = str(entry.get("good_id", ""))
+		var lbl_buy = Label.new()
+		lbl_buy.text = "Buy:%d" % int(entry.get("buy_price", 0))
+		var lbl_sell = Label.new()
+		lbl_sell.text = "Sell:%d" % int(entry.get("sell_price", 0))
+		var btn_buy = Button.new()
+		btn_buy.text = "Buy"
+		var btn_sell = Button.new()
+		btn_sell.text = "Sell"
+		row.add_child(lbl_id)
+		row.add_child(lbl_buy)
+		row.add_child(lbl_sell)
+		row.add_child(btn_buy)
+		row.add_child(btn_sell)
+		_rows_container.add_child(row)

@@ -40,6 +40,8 @@
     }
   ],
   "modules": [
-    { "id": "cap_module_refinery" }
+    { "id": "cap_module_refinery" },
+    { "id": "weapon_cannon_mk1" },
+    { "id": "weapon_laser_mk1" }
   ]
 }

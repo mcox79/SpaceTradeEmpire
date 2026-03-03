@@ -1,8 +1,8 @@
 extends SceneTree
 
-# Headless proof for GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001
+# Headless proof for GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001 + MARKET_SCREEN.001 + CARGO_DISPLAY.001
 # Emits exactly one deterministic line:
-# HST|credits_before=N|credits_after=M|buy_reduced_credits=<bool>|market_good_count=N
+# HST|credits_before=N|credits_after=M|buy_reduced_credits=<bool>|market_good_count=N|panel_row_count=N|cargo_row_count=N
 
 func _initialize():
 	var packed = load("res://scenes/playable_prototype.tscn")
@@ -25,7 +25,7 @@ func _initialize():
 	var credits_before := int(ps.get("credits", 0))
 	var current_node_id: String = ps.get("current_node_id", "")
 
-	# Find a market node: try player's current node first, then scan all galaxy nodes
+	# Find a market node
 	var market_view = bridge.call("GetPlayerMarketViewV0", current_node_id)
 	var market_node_id := current_node_id
 
@@ -58,13 +58,9 @@ func _initialize():
 			var qty_in_market: int = int(first_good.get("quantity", 0))
 
 			if credits_before >= buy_price and qty_in_market > 0 and not good_id.is_empty():
-				# Read tick before dispatch so we can poll for the command to be processed.
 				var tick_before: int = bridge.call("GetSimTickV0")
 				bridge.call("DispatchPlayerTradeV0", market_node_id, good_id, 1, true)
 
-				# Poll until the sim advances at least 2 ticks beyond tick_before.
-				# This guarantees the command entered the queue and was executed.
-				# (TickDelayMs=100ms; 500 frames at ~16ms/frame = 8s ceiling)
 				for _i in range(500):
 					await process_frame
 					var t: int = bridge.call("GetSimTickV0")
@@ -75,11 +71,29 @@ func _initialize():
 				credits_after = int(ps2.get("credits", 0))
 				buy_reduced_credits = (credits_after < credits_before)
 
-	print("HST|credits_before=%d|credits_after=%d|buy_reduced_credits=%s|market_good_count=%d" % [
+	# GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001: panel row count via hero_trade_menu
+	var panel_row_count := 0
+	var htm = get_root().get_node_or_null("Main/UI/HeroTradeMenu")
+	if htm and htm.has_method("open_market_v0"):
+		htm.call("open_market_v0", market_node_id)
+		await process_frame
+	if htm and htm.has_method("get_panel_row_count_v0"):
+		panel_row_count = int(htm.call("get_panel_row_count_v0"))
+
+	# GATE.S1.HERO_SHIP_LOOP.CARGO_DISPLAY.001: cargo row count via SimBridge
+	var cargo_row_count := 0
+	if bridge.has_method("GetPlayerCargoV0"):
+		var cargo = bridge.call("GetPlayerCargoV0")
+		if typeof(cargo) == TYPE_ARRAY:
+			cargo_row_count = cargo.size()
+
+	print("HST|credits_before=%d|credits_after=%d|buy_reduced_credits=%s|market_good_count=%d|panel_row_count=%d|cargo_row_count=%d" % [
 		credits_before,
 		credits_after,
 		str(buy_reduced_credits).to_lower(),
-		market_good_count
+		market_good_count,
+		panel_row_count,
+		cargo_row_count
 	])
 
 	if bridge.has_method("StopSimV0"):

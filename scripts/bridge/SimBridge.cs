@@ -749,6 +749,26 @@ public partial class SimBridge : Node
         return slots;
     }
 
+    // Returns player cargo as [{good_id, qty}] ordered by good_id asc, qty > 0 only.
+    // Reads from state.PlayerCargo (the hero ship's personal inventory, updated by TradeCommand).
+    // Nonblocking: returns empty array if read lock is unavailable.
+    public Godot.Collections.Array GetPlayerCargoV0()
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var kv in state.PlayerCargo.Where(kv => kv.Value > 0).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = kv.Key,
+                    ["qty"] = kv.Value
+                });
+            }
+        }, 0);
+        return result;
+    }
+
     // Returns the current SimCore tick index. Thread-safe read via state lock.
     // Used by headless tests to assert tick advance after TravelCommand dispatch.
     public int GetSimTickV0()
@@ -801,6 +821,14 @@ public partial class SimBridge : Node
     {
         var type = isBuy ? TradeType.Buy : TradeType.Sell;
         EnqueueCommand(new TradeCommand("player", nodeId, goodId, qty, type));
+    }
+
+    // GATE.S4.MODULE_MODEL.EQUIP.001
+    // Dispatches EquipModuleCommand to install moduleId into slotId on the hero ship.
+    // Pass moduleId="" to unequip. Non-blocking; takes effect on the next sim tick.
+    public void DispatchEquipModuleV0(string slotId, string moduleId)
+    {
+        EnqueueCommand(new EquipModuleCommand("fleet_trader_1", slotId, moduleId));
     }
 
     // Returns the current FleetState name for the given fleet ID, or "UNKNOWN" if not found.

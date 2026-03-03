@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
 [ext_resource type="Script" path="res://scripts/ui/FleetMenu.cs" id="9_fleet"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
+[ext_resource type="Script" path="res://scripts/ui/hero_trade_menu.gd" id="11_htm"]
 
 [node name="Main" type="Node3D" unique_id=1010166962]
 
@@ -70,6 +71,10 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("9_fleet")
+
+[node name="HeroTradeMenu" type="CanvasLayer" parent="UI"]
+layer = 5
+script = ExtResource("11_htm")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 10

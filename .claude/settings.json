@@ -1,9 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -File probe_committed.ps1)",
-      "Bash(powershell -File probe_minimal2.ps1)",
-      "Bash(powershell -File probe_galaxy.ps1)"
+      "Bash(dotnet build \"Space Trade Empire.csproj\"*)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj*)",
+      "Bash(powershell -File *)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -Command *)",
+      "Bash(powershell -NoProfile -Command *)",
+      "Bash(powershell.exe -File *)",
+      "Bash(powershell -Command *)",
+      "Bash(rm /d/SGE/SpaceTradeEmpire/*.ps1)",
+      "Bash(rm /d/SGE/SpaceTradeEmpire/*.txt)"
+    ],
+    "ask": [
+      "Bash(git push*)"
     ]
   }
 }
