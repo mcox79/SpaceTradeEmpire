@@ -1,31 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T19:30:00Z",
+    "generated_utc": "2026-03-03T00:00:00Z",
     "queue_intent": "Playable game loop tranche: market bind, fleet counts, ship controls, lane labels, HUD, hero trading. Built from repo HEAD c14d68243a137c9361137f7e497ce06cfeb38a68",
-    "tasks": [
-        {
-            "gate_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001",
-            "task_id": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001.T819",
-            "status": "TODO",
-            "title": "GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001: Hero ship buy/sell at station v0",
-            "intent": "NEW PlayerTradeCommand.cs: IsBuy decrements PlayerCredits+increments PlayerCargo, sell reverses; SimBridge.GetPlayerMarketViewV0(nodeId) returns Array of {good_id,price,quantity}; SimBridge.GetPlayerStateV0 includes credits+cargo; SimBridge.DispatchPlayerTradeV0 dispatches command; NEW hero_trade_menu.gd opens on DOCKED; headless HST| asserts credits decrease after buy; SHA256 stable.",
-            "evidence_paths": [
-                "SimCore/Commands/PlayerTradeCommand.cs",
-                "scripts/bridge/SimBridge.cs",
-                "scripts/ui/hero_trade_menu.gd",
-                "docs/generated/hst_run1.txt",
-                "docs/generated/hst_run2.txt"
-            ],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo && godot --headless --path . -s res://scripts/tests/test_hero_ship_trade.gd run twice; SHA256 match + dotnet test pass"],
-            "task_preflight": ["anchor=SimCore/Commands/PlayerTradeCommand.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ]
-        }
-    ]
+    "tasks": []
 }

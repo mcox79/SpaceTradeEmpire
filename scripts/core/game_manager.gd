@@ -43,6 +43,7 @@ var _prev_camera: Camera3D
 
 # Optional UI surfaces (may be null in headless scenes)
 var _station_menu: Node
+var _hero_trade_menu: Node
 
 func _ready():
 	print('SUCCESS: Global Game Manager initialized.')
@@ -73,6 +74,7 @@ func _ready():
 		var c = Callable(self, "_on_station_menu_request_undock")
 		if not _station_menu.is_connected("request_undock", c):
 			_station_menu.connect("request_undock", c)
+	_hero_trade_menu = root.get_node_or_null("UI/HeroTradeMenu")
 
 	if _galaxy_overlay_layer:
 		_galaxy_overlay_layer.visible = false
@@ -160,6 +162,8 @@ func on_proximity_dock_entered_v0(target: Node):
 
 	if dock_target_kind_token == "STATION":
 		_open_station_menu_v0(target)
+		if _hero_trade_menu and _hero_trade_menu.has_method("open_market_v0"):
+			_hero_trade_menu.call("open_market_v0", dock_target_id)
 	elif dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
@@ -178,6 +182,8 @@ func undock_v0():
 	# Close station menu if it is open.
 	if _station_menu and _station_menu.has_method("OnShopToggled"):
 		_station_menu.call("OnShopToggled", false, "")
+	if _hero_trade_menu and _hero_trade_menu.has_method("close_market_v0"):
+		_hero_trade_menu.call("close_market_v0")
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):

@@ -772,6 +772,37 @@ public partial class SimBridge : Node
         EnqueueCommand(new PlayerArriveCommand(targetNodeId));
     }
 
+    // GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001
+    // Returns market listings for the given node. Each entry: { good_id, buy_price, sell_price, quantity }.
+    public Godot.Collections.Array GetPlayerMarketViewV0(string nodeId)
+    {
+        nodeId ??= "";
+        var result = new Godot.Collections.Array();
+        ExecuteSafeRead(state =>
+        {
+            if (!state.Markets.TryGetValue(nodeId, out var market)) return;
+            var goods = market.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+            foreach (var goodId in goods)
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = goodId,
+                    ["buy_price"] = market.GetBuyPrice(goodId),
+                    ["sell_price"] = market.GetSellPrice(goodId),
+                    ["quantity"] = market.Inventory.TryGetValue(goodId, out var qty) ? qty : 0
+                });
+            }
+        });
+        return result;
+    }
+
+    // Dispatches a TradeCommand (buy or sell) for the player at the given market node.
+    public void DispatchPlayerTradeV0(string nodeId, string goodId, int qty, bool isBuy)
+    {
+        var type = isBuy ? TradeType.Buy : TradeType.Sell;
+        EnqueueCommand(new TradeCommand("player", nodeId, goodId, qty, type));
+    }
+
     // Returns the current FleetState name for the given fleet ID, or "UNKNOWN" if not found.
     // Used by headless tests to confirm fleet moved to Traveling after TravelCommand dispatch.
     public string GetFleetStateV0(string fleetId)
