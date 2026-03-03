@@ -21,11 +21,20 @@ var _test_turn_axis_v0 = null
 
 func _ready():
 	add_to_group("Player")
+	collision_layer = 2  # Ships layer — station Area3D (mask=2) detects us via body_entered.
 	gravity_scale = GRAVITY_SCALE_V0
 	linear_damp = LINEAR_DAMPING_V0
 	angular_damp = ANGULAR_DAMPING_V0
 
 func _physics_process(delta):
+	# Freeze input and kill momentum while docked or in lane transit.
+	var gm = get_node_or_null("/root/GameManager")
+	var ps = gm.get("current_player_state") if gm else 0
+	if ps == 1 or ps == 2:  # DOCKED or IN_LANE_TRANSIT
+		linear_velocity = Vector3.ZERO
+		angular_velocity = Vector3.ZERO
+		return
+
 	var thrust_axis: float = 0.0
 	var turn_axis: float = 0.0
 

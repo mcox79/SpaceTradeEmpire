@@ -41,6 +41,8 @@ When a gate moves to DONE:
 | GATE.S1.HERO_SHIP_LOOP.STATION_LOOP_V1.001 | DONE | Station dock-trade-undock-lane loop proof v1 |
 | GATE.S4.CATALOG.EPIC_CLOSE.001 | DONE | Catalog v0 epic close proof |
 | GATE.S4.MODULE_MODEL.EPIC_CLOSE.001 | DONE | Module model v0 epic close proof |
+| GATE.S1.PLAYABLE_BEAT.INTERACTION_FIX.001 | DONE | Buy/sell button wiring + ship input freeze + market refresh v0 |
+| GATE.S1.PLAYABLE_BEAT.EPIC_CLOSE.001 | DONE | First playable beat epic close proof |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -327,3 +329,10 @@ When a gate moves to DONE:
 | GATE.S4.MODULE_MODEL.EQUIP_PANEL.001 | DONE | Add hero ship loadout section to FleetMenu.cs: calls GetHeroShipLoadoutV0(), renders slot_id + installed_module_id (or "empty") per slot; public GetHeroLoadoutSlotCountV0() for headless testability. Proof: godot --headless --path . -s res://scripts/tests/test_equip_panel.gd → EQUIP_PANEL|PASS|slot_count=4 | scripts/ui/FleetMenu.cs; scripts/tests/test_equip_panel.gd (NEW) |
 | GATE.S4.CATALOG.EPIC_CLOSE.001 | DONE | Headless proof: dock at station, GetPlayerMarketViewV0() returns goods with IDs food/fuel/metal/ore from catalog; catalog digest stable. Updates docs/54_EPICS.md EPIC.S4.CATALOG.V0 to DONE. Proof: godot --headless --path . -s res://scripts/tests/test_catalog_epic_close.gd → CAT_CLOSE|PASS | scripts/tests/test_catalog_epic_close.gd (NEW); docs/content/content_registry_v0.json |
 | GATE.S4.MODULE_MODEL.EPIC_CLOSE.001 | DONE | Headless proof: GetHeroShipLoadoutV0() returns >=4 slots, equip weapon_laser_mk1 verified, FleetMenu.GetHeroLoadoutSlotCountV0() >= 4. Updates docs/54_EPICS.md EPIC.S4.MODULE_MODEL.V0 to DONE. Proof: godot --headless --path . -s res://scripts/tests/test_module_model_epic_close.gd → MOD_CLOSE|PASS | scripts/tests/test_module_model_epic_close.gd (NEW); scripts/ui/FleetMenu.cs |
+
+### B14. Playable beat gates (first live in-game experience)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S1.PLAYABLE_BEAT.INTERACTION_FIX.001 | DONE | Wire buy/sell buttons in hero_trade_menu.gd to buy_one_v0/sell_one_v0 with good_id bind; refresh market rows after each trade; freeze ship thrust/turn input while docked (check GameManager.current_player_state); hero_ship_flight_controller.gd collision_layer=2. Proof: godot --headless --path . -s res://scripts/tests/test_playable_beat_v0.gd → BEAT|PASS | scripts/ui/hero_trade_menu.gd; scripts/core/hero_ship_flight_controller.gd; scripts/tests/test_playable_beat_v0.gd (NEW) |
+| GATE.S1.PLAYABLE_BEAT.EPIC_CLOSE.001 | DONE | Manual in-game proof: fly to station, dock (market appears, ship stops), buy fuel (HUD credits decrease, cargo increases), undock (market closes, ship responds), fly to lane gate, transit, dock at next station, sell fuel. Closes EPIC.S1.PLAYABLE_BEAT.V0. Proof: manual play test with screenshot or video evidence | scripts/ui/hero_trade_menu.gd; scripts/core/hero_ship_flight_controller.gd; scripts/core/game_manager.gd |

@@ -222,6 +222,7 @@ public partial class SimState
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
     [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
+    [JsonInclude] public HashSet<string> PlayerVisitedNodeIds { get; private set; } = new(StringComparer.Ordinal);
 
     [JsonInclude] public IntelBook Intel { get; set; } = new();
 

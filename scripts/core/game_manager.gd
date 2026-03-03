@@ -29,6 +29,7 @@ var player: PlayerState
 var current_player_state: PlayerShipState = PlayerShipState.IN_FLIGHT
 var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
+var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can trigger again.
 
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
@@ -86,6 +87,8 @@ func _ready():
 func _process(delta):
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
+	if _lane_cooldown_v0 > 0.0:
+		_lane_cooldown_v0 -= float(delta)
 
 
 func _unhandled_input(event):
@@ -162,8 +165,9 @@ func on_proximity_dock_entered_v0(target: Node):
 
 	if dock_target_kind_token == "STATION":
 		_open_station_menu_v0(target)
-		if _hero_trade_menu and _hero_trade_menu.has_method("open_market_v0"):
-			_hero_trade_menu.call("open_market_v0", dock_target_id)
+		var htm = _find_hero_trade_menu()
+		if htm and htm.has_method("open_market_v0"):
+			htm.call("open_market_v0", dock_target_id)
 	elif dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
@@ -182,10 +186,13 @@ func undock_v0():
 	# Close station menu if it is open.
 	if _station_menu and _station_menu.has_method("OnShopToggled"):
 		_station_menu.call("OnShopToggled", false, "")
-	if _hero_trade_menu and _hero_trade_menu.has_method("close_market_v0"):
-		_hero_trade_menu.call("close_market_v0")
+	var htm = _find_hero_trade_menu()
+	if htm and htm.has_method("close_market_v0"):
+		htm.call("close_market_v0")
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
+	if _lane_cooldown_v0 > 0.0:
+		return
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		return
 
@@ -194,6 +201,9 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchTravelCommandV0"):
 		bridge.call("DispatchTravelCommandV0", PLAYER_FLEET_ID, neighbor_node_id)
+
+	# Auto-complete lane transit after sim processes the travel command.
+	_begin_lane_transit_v0(neighbor_node_id)
 
 func on_discovery_site_proximity_entered_v0(site_id: String) -> void:
 	if not _transition_player_state_v0(PlayerShipState.DOCKED):
@@ -211,9 +221,40 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
 		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
+	_lane_cooldown_v0 = 2.0  # Prevent immediate re-trigger at destination lane gate.
+
+	# Rebuild local scene for the new star system.
+	var gv = _find_galaxy_view()
+	if gv and gv.has_method("RebuildLocalSystemV0"):
+		gv.call("RebuildLocalSystemV0", arrived_node_id)
+
+	# Reset hero ship to origin of new system.
+	if _hero_body and is_instance_valid(_hero_body):
+		_hero_body.global_position = Vector3.ZERO
+		_hero_body.linear_velocity = Vector3.ZERO
+		_hero_body.angular_velocity = Vector3.ZERO
 
 func _on_station_menu_request_undock():
 	undock_v0()
+
+func _find_galaxy_view():
+	if _galaxy_view and is_instance_valid(_galaxy_view):
+		return _galaxy_view
+	# Autoload GameManager can't find scene-child GalaxyView in _ready(); lazy-find here.
+	_galaxy_view = get_tree().root.find_child("GalaxyView", true, false)
+	return _galaxy_view
+
+func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
+	# Wait 300ms for the sim thread to process the TravelCommand, then auto-arrive.
+	await get_tree().create_timer(0.3).timeout
+	on_lane_arrival_v0(neighbor_node_id)
+
+func _find_hero_trade_menu():
+	if _hero_trade_menu and is_instance_valid(_hero_trade_menu):
+		return _hero_trade_menu
+	# Autoload GameManager can't find scene-child UI in _ready(); lazy-find here.
+	_hero_trade_menu = get_tree().root.find_child("HeroTradeMenu", true, false)
+	return _hero_trade_menu
 
 func _open_station_menu_v0(target: Node):
 	if _station_menu == null:

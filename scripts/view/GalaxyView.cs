@@ -153,6 +153,13 @@ public partial class GalaxyView : Node3D
         DrawLocalSystemV0(nodeId);
     }
 
+    // GDScript-callable: tears down the current local system and rebuilds for the given nodeId.
+    // Called by game_manager.on_lane_arrival_v0 after the hero ship completes a lane transit.
+    public void RebuildLocalSystemV0(string nodeId)
+    {
+        DrawLocalSystemV0(nodeId);
+    }
+
     // Spawns local system interior from GetSystemSnapshotV0: star, station, lane gates, discovery sites.
     // All positions are seed-derived (deterministic, no wall-clock).
     private void DrawLocalSystemV0(string nodeId)
@@ -200,9 +207,21 @@ public partial class GalaxyView : Node3D
             ? (string)stationDict["node_id"]
             : nodeId;
 
-        // Inline station visual: green semi-transparent box matching station.tscn appearance.
-        // Avoids GDScript preload dependencies (active_station.gd) that fail in headless.
-        var station = new Node3D { Name = "LocalStation_" + stationId };
+        // Station as Area3D so body_entered fires when the player ship (collision_layer=2) enters.
+        var station = new Area3D
+        {
+            Name = "LocalStation_" + stationId,
+            Monitoring = true,
+            Monitorable = true,
+            CollisionLayer = 0,  // Stations don't need their own layer.
+            CollisionMask = 2,   // Detect Ships layer (player RigidBody3D).
+        };
+
+        var collider = new CollisionShape3D
+        {
+            Shape = new BoxShape3D { Size = new Vector3(10f, 5f, 10f) }
+        };
+        station.AddChild(collider);
 
         var mesh = new MeshInstance3D
         {
@@ -219,6 +238,14 @@ public partial class GalaxyView : Node3D
         station.Position = DeriveOrbitPositionV0(nodeId + "_station", StationOrbitRadiusU);
         station.AddToGroup("Station");
         RegisterDockTargetV0(station, "STATION", stationId);
+
+        // Connect body_entered → GameManager.on_proximity_dock_entered_v0(station).
+        station.BodyEntered += (body) =>
+        {
+            var gm = GetNode<Node>("/root/GameManager");
+            if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
+                gm.Call("on_proximity_dock_entered_v0", station);
+        };
 
         _localSystemRoot.AddChild(station);
     }
@@ -314,7 +341,14 @@ public partial class GalaxyView : Node3D
         root.AddChild(lbl);
 
         // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
-        var area = new Area3D { Name = "LaneGateArea" };
+        var area = new Area3D
+        {
+            Name = "LaneGateArea",
+            Monitoring = true,
+            Monitorable = true,
+            CollisionLayer = 0,
+            CollisionMask = 2,   // Detect Ships layer (player RigidBody3D).
+        };
         var shape = new CollisionShape3D
         {
             Name = "LaneGateShape",
@@ -331,7 +365,7 @@ public partial class GalaxyView : Node3D
 
     private void _OnLaneGateBodyEnteredV0(Node3D body, string neighborId)
     {
-        if (!body.IsInGroup("PlayerShip")) return;
+        if (!body.IsInGroup("Player")) return;
         var gm = GetNodeOrNull<Node>("/root/GameManager");
         if (gm == null) return;
         if (gm.HasMethod("on_lane_gate_proximity_entered_v0"))
@@ -354,7 +388,14 @@ public partial class GalaxyView : Node3D
         root.AddChild(mesh);
 
         // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
-        var area = new Area3D { Name = "DiscoverySiteArea" };
+        var area = new Area3D
+        {
+            Name = "DiscoverySiteArea",
+            Monitoring = true,
+            Monitorable = true,
+            CollisionLayer = 0,
+            CollisionMask = 2,   // Detect Ships layer (player RigidBody3D).
+        };
         var shape = new CollisionShape3D
         {
             Name = "DiscoverySiteShape",
@@ -370,7 +411,7 @@ public partial class GalaxyView : Node3D
 
     private void _OnDiscoverySiteBodyEnteredV0(Node3D body, string siteId)
     {
-        if (!body.IsInGroup("PlayerShip")) return;
+        if (!body.IsInGroup("Player")) return;
         var gm = GetNodeOrNull<Node>("/root/GameManager");
         if (gm == null) return;
         if (gm.HasMethod("on_discovery_site_proximity_entered_v0"))

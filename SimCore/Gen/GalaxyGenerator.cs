@@ -221,6 +221,7 @@ public static class GalaxyGenerator
 
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
+        state.PlayerVisitedNodeIds.Add(nodesList[0].Id);
 
         // GATE.S4.CATALOG.MARKET_BIND.001: validate all seeded market inventory keys are in the registry.
         if (options?.Registry is { } catalogReg)

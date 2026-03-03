@@ -245,7 +245,8 @@ public static class MapQueries
             }
 
             var isMapped = objectCount > 0;
-            var isVisited = !isMapped && string.Equals(nodeId, snap.PlayerCurrentNodeId, StringComparison.Ordinal);
+            var isPlayerHere = string.Equals(nodeId, snap.PlayerCurrentNodeId, StringComparison.Ordinal);
+            var isVisited = !isMapped && (isPlayerHere || state.PlayerVisitedNodeIds.Contains(nodeId));
             var isRumored = !isMapped && !isVisited && rumored.Contains(nodeId);
 
             string tokenOut;

@@ -14,5 +14,6 @@ public class PlayerArriveCommand : ICommand
         if (string.IsNullOrWhiteSpace(TargetNodeId)) return;
         if (!state.Nodes.ContainsKey(TargetNodeId)) return;
         state.PlayerLocationNodeId = TargetNodeId;
+        state.PlayerVisitedNodeIds.Add(TargetNodeId);
     }
 }

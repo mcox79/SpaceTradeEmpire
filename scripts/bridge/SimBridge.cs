@@ -787,9 +787,12 @@ public partial class SimBridge : Node
 
     // GDScript-callable wrapper: dispatches a PlayerArriveCommand to update the hero ship location in SimState.
     // Called by game_manager.on_lane_arrival_v0 after the hero ship completes a lane transit.
+    // Blocks until the sim thread processes the command so callers can read updated state immediately.
     public void DispatchPlayerArriveV0(string targetNodeId)
     {
+        int tickBefore = GetSimTickV0();
         EnqueueCommand(new PlayerArriveCommand(targetNodeId));
+        WaitForTickAdvance(tickBefore, 200);
     }
 
     // GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001
@@ -831,10 +834,14 @@ public partial class SimBridge : Node
     }
 
     // Dispatches a TradeCommand (buy or sell) for the player at the given market node.
+    // Blocks until the sim thread processes the command (up to 200ms) so callers
+    // can read updated state immediately without a timer-based race.
     public void DispatchPlayerTradeV0(string nodeId, string goodId, int qty, bool isBuy)
     {
+        int tickBefore = GetSimTickV0();
         var type = isBuy ? TradeType.Buy : TradeType.Sell;
         EnqueueCommand(new TradeCommand("player", nodeId, goodId, qty, type));
+        WaitForTickAdvance(tickBefore, 200);
     }
 
     // GATE.S4.MODULE_MODEL.EQUIP.001
