@@ -6,9 +6,13 @@ extends Area3D
 var _velocity: Vector3 = Vector3.ZERO
 var _age: float = 0.0
 
+# Set by spawner. Damage applied on collision via SimBridge.
+var source_is_player: bool = true
+var source_fleet_id: String = ""  # AI fleet ID (for AI bullets hitting player)
+
 func _ready() -> void:
 	monitoring = true
-	monitorable = true
+	monitorable = false
 
 	# Default direction: forward (negative Z) in 3D
 	if _velocity == Vector3.ZERO:
@@ -29,8 +33,24 @@ func _physics_process(delta: float) -> void:
 
 	global_position += _velocity * delta
 
-func _on_body_entered(_body: Node) -> void:
+func _on_body_entered(body: Node) -> void:
+	# AI bullet hitting the player
+	if not source_is_player and body.is_in_group("Player"):
+		var bridge = get_node_or_null("/root/SimBridge")
+		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
+			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)
 	queue_free()
 
-func _on_area_entered(_area: Area3D) -> void:
+func _on_area_entered(area: Area3D) -> void:
+	# Player bullet hitting a fleet marker
+	if source_is_player and area.has_meta("fleet_id"):
+		var fleet_id: String = str(area.get_meta("fleet_id"))
+		if not fleet_id.is_empty():
+			var bridge = get_node_or_null("/root/SimBridge")
+			if bridge and bridge.has_method("ApplyTurretShotV0"):
+				var result: Dictionary = bridge.call("ApplyTurretShotV0", fleet_id)
+				if result.get("killed", false):
+					var gm = get_node_or_null("/root/GameManager")
+					if gm and gm.has_method("despawn_fleet_v0"):
+						gm.call("despawn_fleet_v0", fleet_id)
 	queue_free()

@@ -312,6 +312,11 @@ public partial class GalaxyView : Node3D
             marker.AddToGroup("FleetShip");
             _localSystemRoot.AddChild(marker);
         }
+
+        // Init combat HP for all fleets (idempotent).
+        var bridge = GetNodeOrNull<Node>("/root/SimBridge");
+        if (bridge != null && bridge.HasMethod("InitFleetCombatHpV0"))
+            bridge.Call("InitFleetCombatHpV0");
     }
 
     private Node3D CreateFleetMarkerV0(string fleetId)
@@ -329,13 +334,13 @@ public partial class GalaxyView : Node3D
         };
         root.AddChild(mesh);
 
-        // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
+        // Proximity trigger + bullet target: player RigidBody3D and bullets detect this.
         var area = new Area3D
         {
             Name = "FleetArea",
             Monitoring = true,
             Monitorable = true,
-            CollisionLayer = 0,
+            CollisionLayer = 4,  // FleetTarget layer (bit 2) — player bullets detect this.
             CollisionMask = 2,   // Detect Ships layer (player RigidBody3D).
         };
         var shape = new CollisionShape3D

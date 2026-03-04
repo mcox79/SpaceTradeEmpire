@@ -101,7 +101,10 @@
       "Bash(find SimCore.Tests -name \"*.cs\" -type f ! -path \"*/obj/*\" -exec grep -l \"class.*Tests\\\\|TestFixture\" {} ;)",
       "Bash(grep -r \"^\\\\s*\\\\[Test\\\\]\" SimCore.Tests --include=\"*.cs\" ! -path \"*/obj/*\")",
       "Bash(xargs -I {} bash -c 'echo \"\"=FILE: {}\"\"; grep -E \"\"^\\\\s*\\\\[TestFixture\\\\]|^\\\\s*public sealed class|^\\\\s*\\\\[Test\\\\]|^\\\\s*public void\"\" \"\"{}\"\" | head -50')",
-      "Bash(timeout 45 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_combat_loop_proof_v0.gd\")"
+      "Bash(timeout 45 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_combat_loop_proof_v0.gd\")",
+      "Bash(xargs grep -l \"local_space\\\\|LocalSpace\\\\|fleet.*marker\\\\|FleetMarker\")",
+      "Bash(xargs grep -l \"StartCombatCommand\\\\|ClearCombatCommand\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_combat_tests.ps1\")"
     ],
     "ask": [
       "Bash(git:push*)"

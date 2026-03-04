@@ -34,6 +34,16 @@ var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can tr
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
 
+# Real-time turret combat v0 — tweakable constants (sourced from CombatTweaksV0 for damage).
+const TURRET_COOLDOWN_SEC: float = 0.4
+const TURRET_RANGE: float = 80.0
+const AI_FIRE_COOLDOWN_SEC: float = 0.8
+const AI_AGGRO_RANGE: float = 60.0
+
+var _turret_cooldown: float = 0.0
+var _ai_fire_cooldown: float = 0.0
+var _bullet_scene: PackedScene = null
+
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
 var time_accumulator: float = 0.0
@@ -98,6 +108,8 @@ func _ready():
 		if not _discovery_panel.is_connected("request_undock", c):
 			_discovery_panel.connect("request_undock", c)
 
+	_bullet_scene = load("res://scenes/bullet.tscn")
+
 	if _galaxy_overlay_layer:
 		_galaxy_overlay_layer.visible = false
 	if _galaxy_overlay_camera:
@@ -110,15 +122,22 @@ func _process(delta):
 	time_accumulator += float(delta)
 	if _lane_cooldown_v0 > 0.0:
 		_lane_cooldown_v0 -= float(delta)
+	if _turret_cooldown > 0.0:
+		_turret_cooldown -= float(delta)
+	if _ai_fire_cooldown > 0.0:
+		_ai_fire_cooldown -= float(delta)
+	# AI auto-fire at player when in range
+	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
+		_ai_fire_v0()
 
 
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
-		# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: C key initiates combat
-		elif event.keycode == KEY_C and current_player_state == PlayerShipState.IN_FLIGHT:
-			initiate_combat_v0()
+		# G key fires turrets at nearest fleet in range
+		elif event.keycode == KEY_G and current_player_state == PlayerShipState.IN_FLIGHT:
+			_fire_turret_v0()
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -280,24 +299,82 @@ func on_fleet_proximity_entered_v0(fleet_id: String) -> void:
 	_targeted_fleet_id = fleet_id
 	print("UUIR|FLEET_TARGET|" + fleet_id)
 
-# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: initiate combat with targeted fleet
-func initiate_combat_v0() -> void:
-	if _targeted_fleet_id.is_empty():
-		print("UUIR|COMBAT_NO_TARGET|no targets in range")
+# Real-time turret fire: G key spawns a projectile toward nearest fleet in range.
+# Damage is applied by bullet.gd on collision via SimBridge.ApplyTurretShotV0.
+func _fire_turret_v0() -> void:
+	if _turret_cooldown > 0.0:
 		return
-	if current_player_state != PlayerShipState.IN_FLIGHT:
-		print("UUIR|COMBAT_BAD_STATE|" + get_player_ship_state_name_v0())
+	var target := _find_nearest_fleet_v0(TURRET_RANGE)
+	if target == null:
 		return
-
-	var bridge = get_node_or_null("/root/SimBridge")
-	if bridge == null or not bridge.has_method("DispatchStartCombatV0"):
-		print("UUIR|COMBAT_NO_BRIDGE")
+	if _hero_body == null or not is_instance_valid(_hero_body):
 		return
+	_spawn_bullet_v0(_hero_body.global_position, target.global_position, true, "")
+	_turret_cooldown = TURRET_COOLDOWN_SEC
 
-	print("UUIR|COMBAT_START|" + _targeted_fleet_id)
-	bridge.call("DispatchStartCombatV0", _targeted_fleet_id)
+# AI auto-fire: nearest hostile fleet in aggro range fires at player each cooldown tick.
+func _ai_fire_v0() -> void:
+	if _hero_body == null or not is_instance_valid(_hero_body):
+		return
+	var nearest := _find_nearest_fleet_v0(AI_AGGRO_RANGE)
+	if nearest == null:
+		return
+	var fleet_id: String = _get_fleet_id_from_marker(nearest)
+	if fleet_id.is_empty():
+		return
+	_spawn_bullet_v0(nearest.global_position, _hero_body.global_position, false, fleet_id)
+	_ai_fire_cooldown = AI_FIRE_COOLDOWN_SEC
 
-# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: despawn defeated fleet marker from local scene
+func _find_nearest_fleet_v0(max_range: float) -> Node3D:
+	if _hero_body == null or not is_instance_valid(_hero_body):
+		return null
+	var player_pos: Vector3 = _hero_body.global_position
+	var best: Node3D = null
+	var best_dist: float = max_range + 1.0
+	for node in get_tree().get_nodes_in_group("FleetShip"):
+		if not is_instance_valid(node):
+			continue
+		var dist: float = player_pos.distance_to(node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = node
+		elif dist == best_dist and best != null:
+			if str(node.name) < str(best.name):
+				best = node
+	if best_dist > max_range:
+		return null
+	return best
+
+func _get_fleet_id_from_marker(marker: Node3D) -> String:
+	var n: String = str(marker.name)
+	if n.begins_with("Fleet_"):
+		return n.substr(6)
+	for child in marker.get_children():
+		if child.has_meta("fleet_id"):
+			return str(child.get_meta("fleet_id"))
+	return ""
+
+func _spawn_bullet_v0(origin: Vector3, target_pos: Vector3, is_player_bullet: bool, ai_fleet_id: String) -> void:
+	if _bullet_scene == null:
+		return
+	var bullet = _bullet_scene.instantiate()
+	get_tree().root.add_child(bullet)
+	bullet.global_position = origin
+	var direction: Vector3 = (target_pos - origin).normalized()
+	if bullet.has_method("set_direction"):
+		bullet.call("set_direction", direction)
+	bullet.set("source_is_player", is_player_bullet)
+	if not is_player_bullet:
+		bullet.set("source_fleet_id", ai_fleet_id)
+	# Set collision mask: player bullets detect fleet areas (layer 4), AI bullets detect player (layer 2)
+	if is_player_bullet:
+		bullet.collision_layer = 0
+		bullet.collision_mask = 4  # Detect FleetTarget layer (bit 2)
+	else:
+		bullet.collision_layer = 0
+		bullet.collision_mask = 2  # Detect Ships layer (bit 1)
+
+# Despawn defeated fleet marker from local scene
 func despawn_fleet_v0(fleet_id: String) -> void:
 	var gv = _find_galaxy_view()
 	if gv == null:

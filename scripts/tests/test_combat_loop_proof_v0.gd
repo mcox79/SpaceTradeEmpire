@@ -1,14 +1,13 @@
 extends SceneTree
 
 # GATE.S5.COMBAT_PLAYABLE.LOOP_PROOF.001
-# End-to-end headless proof: undock from station → target fleet → combat trigger →
-# combat resolves in SimCore → enemy despawns → player still IN_FLIGHT.
-# Depends on ENCOUNTER_TRIGGER gate.
-# Determinism: same seed → same fleet positions → same combat outcome → deterministic output.
+# End-to-end headless proof: dock → undock → init HP → equip → fire turret shots →
+# kill fleet → despawn → player still IN_FLIGHT.
 # Emits: LOOPV0|COMBAT_LOOP_PROOF|PASS
 
 const PREFIX := "LOOPV0|"
 const MAX_POLLS := 600
+const MAX_SHOTS := 50
 
 enum Phase {
 	WAIT_BRIDGE, WAIT_READY,
@@ -16,13 +15,11 @@ enum Phase {
 	VERIFY_DOCKED,
 	UNDOCK,
 	VERIFY_FLIGHT,
+	INIT_HP,
 	EQUIP_WEAPONS,
-	TARGET_FLEET,
-	START_COMBAT,
-	WAIT_COMBAT_DONE,
-	VERIFY_LOG,
-	CLEAR_COMBAT,
-	WAIT_CLEARED,
+	FIND_FLEET,
+	FIRE_LOOP,
+	VERIFY_KILLED,
 	DESPAWN_FLEET,
 	VERIFY_STILL_IN_FLIGHT,
 	DONE
@@ -34,6 +31,7 @@ var _bridge = null
 var _gm = null
 var _player_node: String = ""
 var _opponent_id: String = ""
+var _shots_fired: int = 0
 
 
 func _initialize() -> void:
@@ -68,7 +66,6 @@ func _process(_delta: float) -> bool:
 					_fail("bridge_ready_timeout")
 
 		Phase.DOCK_STATION:
-			# Get player node (poll until available).
 			var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 			_player_node = str(ps.get("current_node_id", ""))
 			if _player_node.is_empty():
@@ -77,7 +74,6 @@ func _process(_delta: float) -> bool:
 					_fail("no_player_node")
 				return false
 
-			# Dock at the station using mock node.
 			var mock_sta := Node.new()
 			mock_sta.add_to_group("Station")
 			mock_sta.set_meta("dock_target_id", _player_node)
@@ -109,6 +105,13 @@ func _process(_delta: float) -> bool:
 				return false
 			print(PREFIX + "UNDOCK|PASS|state=IN_FLIGHT")
 			_polls = 0
+			_phase = Phase.INIT_HP
+
+		Phase.INIT_HP:
+			if _bridge.has_method("InitFleetCombatHpV0"):
+				_bridge.call("InitFleetCombatHpV0")
+			print(PREFIX + "INIT_HP|PASS")
+			_polls = 0
 			_phase = Phase.EQUIP_WEAPONS
 
 		Phase.EQUIP_WEAPONS:
@@ -116,10 +119,9 @@ func _process(_delta: float) -> bool:
 				_bridge.call("DispatchEquipModuleV0", "slot_weapon_0", "weapon_cannon_mk1")
 			print(PREFIX + "EQUIP|PASS")
 			_polls = 0
-			_phase = Phase.TARGET_FLEET
+			_phase = Phase.FIND_FLEET
 
-		Phase.TARGET_FLEET:
-			# Get fleet at current system from snapshot.
+		Phase.FIND_FLEET:
 			var snap: Dictionary = _bridge.call("GetSystemSnapshotV0", _player_node)
 			var fleets: Array = snap.get("fleets", [])
 			if fleets.size() == 0:
@@ -131,59 +133,39 @@ func _process(_delta: float) -> bool:
 				_fail("empty_fleet_id")
 				return false
 
-			# Simulate proximity targeting.
-			_gm.call("on_fleet_proximity_entered_v0", _opponent_id)
 			print(PREFIX + "TARGET|fleet=" + _opponent_id)
+			_shots_fired = 0
 			_polls = 0
-			_phase = Phase.START_COMBAT
+			_phase = Phase.FIRE_LOOP
 
-		Phase.START_COMBAT:
-			# Initiate combat through GameManager (same path as C key).
-			_gm.call("initiate_combat_v0")
-			print(PREFIX + "COMBAT_START|opponent=" + _opponent_id)
-			_polls = 0
-			_phase = Phase.WAIT_COMBAT_DONE
-
-		Phase.WAIT_COMBAT_DONE:
-			var cs: Dictionary = _bridge.call("GetCombatStatusV0")
-			var in_combat: bool = cs.get("in_combat", false)
-			if in_combat:
-				var ph: int = cs.get("player_hull", 0)
-				var oh: int = cs.get("opponent_hull", 0)
-				print(PREFIX + "STATUS|in_combat=true|player_hull=%d|opponent_hull=%d" % [ph, oh])
-				_polls = 0
-				_phase = Phase.VERIFY_LOG
-			else:
-				_polls += 1
-				if _polls >= MAX_POLLS:
-					_fail("combat_status_timeout")
-
-		Phase.VERIFY_LOG:
-			var log: Dictionary = _bridge.call("GetLastCombatLogV0")
-			var outcome: String = str(log.get("outcome", ""))
-			var event_count: int = int(log.get("event_count", 0))
-			if outcome.is_empty() or event_count <= 0:
-				_fail("log_incomplete|outcome=%s|events=%d" % [outcome, event_count])
+		Phase.FIRE_LOOP:
+			if _shots_fired >= MAX_SHOTS:
+				_fail("max_shots_exceeded|shots=" + str(_shots_fired))
 				return false
-			print(PREFIX + "LOG|outcome=" + outcome + "|events=%d" % event_count)
-			_polls = 0
-			_phase = Phase.CLEAR_COMBAT
 
-		Phase.CLEAR_COMBAT:
-			_bridge.call("DispatchClearCombatV0")
-			_polls = 0
-			_phase = Phase.WAIT_CLEARED
+			var result: Dictionary = _bridge.call("ApplyTurretShotV0", _opponent_id)
+			_shots_fired += 1
+			var killed: bool = result.get("killed", false)
 
-		Phase.WAIT_CLEARED:
-			var cs: Dictionary = _bridge.call("GetCombatStatusV0")
-			if not cs.get("in_combat", false):
-				print(PREFIX + "CLEAR|PASS")
-				_polls = 0
-				_phase = Phase.DESPAWN_FLEET
-			else:
-				_polls += 1
-				if _polls >= MAX_POLLS:
-					_fail("clear_timeout")
+			if _shots_fired == 1 or killed:
+				print(PREFIX + "SHOT|#%d|shield_dmg=%d|hull_dmg=%d|killed=%s" % [
+					_shots_fired,
+					int(result.get("shield_dmg", 0)),
+					int(result.get("hull_dmg", 0)),
+					str(killed)])
+
+			if killed:
+				print(PREFIX + "KILL|shots=%d" % _shots_fired)
+				_phase = Phase.VERIFY_KILLED
+
+		Phase.VERIFY_KILLED:
+			var hp: Dictionary = _bridge.call("GetFleetCombatHpV0", _opponent_id)
+			if hp.get("alive", true):
+				_fail("target_still_alive")
+				return false
+			print(PREFIX + "VERIFY_KILLED|PASS")
+			_polls = 0
+			_phase = Phase.DESPAWN_FLEET
 
 		Phase.DESPAWN_FLEET:
 			_gm.call("despawn_fleet_v0", _opponent_id)

@@ -14,7 +14,7 @@ func _ready() -> void:
 	_combat_label.name = "CombatLabel"
 	_combat_label.text = ""
 	_combat_label.add_theme_color_override("font_color", Color.RED)
-	_combat_label.position = Vector2(10, 120)
+	_combat_label.position = Vector2(10, 160)
 	add_child(_combat_label)
 
 func _physics_process(_delta: float) -> void:
@@ -26,11 +26,14 @@ func _physics_process(_delta: float) -> void:
 	_node_label.text = "System: " + str(ps.get("current_node_id", ""))
 	_state_label.text = "State: " + str(ps.get("ship_state_token", ""))
 
-	if _bridge.has_method("GetCombatStatusV0"):
-		var cs: Dictionary = _bridge.call("GetCombatStatusV0")
-		if cs.get("in_combat", false):
-			var ph: int = cs.get("player_hull", 0)
-			var ps2: int = cs.get("player_shield", 0)
-			_combat_label.text = "COMBAT  Hull:" + str(ph) + " Shield:" + str(ps2)
+	# Real-time HP display (always on when HP is initialized)
+	if _bridge.has_method("GetFleetCombatHpV0"):
+		var hp: Dictionary = _bridge.call("GetFleetCombatHpV0", "fleet_trader_1")
+		var hull: int = hp.get("hull", 0)
+		var hull_max: int = hp.get("hull_max", 0)
+		var shield: int = hp.get("shield", 0)
+		var shield_max: int = hp.get("shield_max", 0)
+		if hull_max > 0:
+			_combat_label.text = "Hull:" + str(hull) + "/" + str(hull_max) + "  Shield:" + str(shield) + "/" + str(shield_max)
 		else:
 			_combat_label.text = ""
