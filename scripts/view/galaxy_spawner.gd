@@ -61,6 +61,11 @@ func _draw_galaxy(sim):
 		star_meshes[star.id] = s
 		add_child(s)
 
+		# GATE.S1.SPATIAL_AUDIO.AMBIENT.001: register station ambient audio
+		var ambient_audio = get_tree().root.get_node_or_null("AmbientAudio")
+		if ambient_audio and ambient_audio.has_method("register_station"):
+			ambient_audio.call("register_station", s, star.id)
+
 		# GATE.S1.VISUAL_POLISH.GALAXY_MAP.001: highlight ring node (hidden by default)
 		var ring = _make_highlight_ring(star.pos, radius)
 		ring.visible = false

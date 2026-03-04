@@ -329,6 +329,14 @@ func _rebuild_research() -> void:
 	if bridge == null:
 		return
 
+	# GATE.S4.TECH_INDUSTRIALIZE.BRIDGE_DEPTH.001: Show tech tier
+	if bridge.has_method("GetTechTierV0"):
+		var tier_lbl = Label.new()
+		tier_lbl.text = "Tech Level: %d" % bridge.call("GetTechTierV0")
+		tier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tier_lbl.add_theme_font_size_override("font_size", 14)
+		_research_container.add_child(tier_lbl)
+
 	# Show current research status
 	if bridge.has_method("GetResearchStatusV0"):
 		var status: Dictionary = bridge.call("GetResearchStatusV0")
@@ -351,16 +359,18 @@ func _rebuild_research() -> void:
 	if bridge.has_method("GetTechTreeV0"):
 		var techs: Array = bridge.call("GetTechTreeV0")
 		var available: Array = []
+		var locked: Array = []
 		for t in techs:
 			if typeof(t) != TYPE_DICTIONARY:
 				continue
 			if bool(t.get("unlocked", false)):
 				continue
-			if not bool(t.get("prerequisites_met", false)):
-				continue
-			available.append(t)
+			if bool(t.get("prerequisites_met", false)):
+				available.append(t)
+			else:
+				locked.append(t)
 
-		if available.size() == 0:
+		if available.size() == 0 and locked.size() == 0:
 			return
 
 		var hdr = Label.new()
@@ -379,11 +389,44 @@ func _rebuild_research() -> void:
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(info_lbl)
 
-			var btn = Button.new()
-			btn.text = "Research"
-			btn.pressed.connect(_on_start_research.bind(tid))
-			row.add_child(btn)
+			# GATE.S4.UI_INDU.WHY_BLOCKED.001: Show block reason if research is blocked
+			if bridge.has_method("GetResearchBlockReasonV0"):
+				var block_reason: String = str(bridge.call("GetResearchBlockReasonV0", tid))
+				if not block_reason.is_empty():
+					var reason_lbl = Label.new()
+					reason_lbl.text = _format_block_reason(block_reason)
+					reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+					row.add_child(reason_lbl)
+				else:
+					var btn = Button.new()
+					btn.text = "Research"
+					btn.pressed.connect(_on_start_research.bind(tid))
+					row.add_child(btn)
+			else:
+				var btn = Button.new()
+				btn.text = "Research"
+				btn.pressed.connect(_on_start_research.bind(tid))
+				row.add_child(btn)
 			_research_container.add_child(row)
+
+		# GATE.S4.UI_INDU.WHY_BLOCKED.001: Show locked techs with block reasons
+		if locked.size() > 0 and bridge.has_method("GetResearchBlockReasonV0"):
+			for t in locked:
+				var tid: String = str(t.get("tech_id", ""))
+				var tname: String = str(t.get("display_name", tid))
+				var block_reason: String = str(bridge.call("GetResearchBlockReasonV0", tid))
+				var row = HBoxContainer.new()
+				var info_lbl = Label.new()
+				info_lbl.text = "%s (locked)" % tname
+				info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+				row.add_child(info_lbl)
+				if not block_reason.is_empty():
+					var reason_lbl = Label.new()
+					reason_lbl.text = _format_block_reason(block_reason)
+					reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+					row.add_child(reason_lbl)
+				_research_container.add_child(row)
 
 func _on_start_research(tech_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -415,6 +458,15 @@ func _rebuild_refit() -> void:
 	hdr.add_theme_font_size_override("font_size", 16)
 	_refit_container.add_child(hdr)
 
+	# GATE.S4.UPGRADE_PIPELINE.BRIDGE_QUEUE.001: Show refit queue status
+	if bridge.has_method("GetRefitProgressV0"):
+		var refit_progress: Dictionary = bridge.call("GetRefitProgressV0", "fleet_trader_1")
+		if refit_progress.get("queue_size", 0) > 0:
+			var refit_lbl = Label.new()
+			refit_lbl.text = "Refitting: %s (%d ticks left)" % [refit_progress.get("current_module", ""), refit_progress.get("ticks_remaining", 0)]
+			refit_lbl.add_theme_font_size_override("font_size", 14)
+			_refit_container.add_child(refit_lbl)
+
 	# Show current slots
 	for i in range(slots.size()):
 		var slot: Dictionary = slots[i] if typeof(slots[i]) == TYPE_DICTIONARY else {}
@@ -430,11 +482,14 @@ func _rebuild_refit() -> void:
 	# Show installable modules
 	var modules: Array = bridge.call("GetAvailableModulesV0")
 	var installable: Array = []
+	var locked_modules: Array = []
 	for m in modules:
 		if typeof(m) != TYPE_DICTIONARY:
 			continue
 		if bool(m.get("can_install", false)):
 			installable.append(m)
+		else:
+			locked_modules.append(m)
 
 	if installable.size() > 0:
 		var sub_hdr = Label.new()
@@ -453,19 +508,56 @@ func _rebuild_refit() -> void:
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(info_lbl)
 
-			# Find first matching empty slot
-			var target_slot: int = -1
-			for si in range(slots.size()):
-				var s: Dictionary = slots[si] if typeof(slots[si]) == TYPE_DICTIONARY else {}
-				if str(s.get("slot_kind", "")) == mkind and str(s.get("installed_module_id", "")).is_empty():
-					target_slot = si
-					break
+			# GATE.S4.UI_INDU.WHY_BLOCKED.001: Check block reason before showing install
+			var refit_blocked: String = ""
+			if bridge.has_method("GetRefitBlockReasonV0"):
+				refit_blocked = str(bridge.call("GetRefitBlockReasonV0", "fleet_trader_1", mid))
 
-			if target_slot >= 0:
-				var btn = Button.new()
-				btn.text = "Install"
-				btn.pressed.connect(_on_install_module.bind(target_slot, mid))
-				row.add_child(btn)
+			if not refit_blocked.is_empty():
+				var reason_lbl = Label.new()
+				reason_lbl.text = _format_block_reason(refit_blocked)
+				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+				row.add_child(reason_lbl)
+			else:
+				# Find first matching empty slot
+				var target_slot: int = -1
+				for si in range(slots.size()):
+					var s: Dictionary = slots[si] if typeof(slots[si]) == TYPE_DICTIONARY else {}
+					if str(s.get("slot_kind", "")) == mkind and str(s.get("installed_module_id", "")).is_empty():
+						target_slot = si
+						break
+
+				if target_slot >= 0:
+					var btn = Button.new()
+					btn.text = "Install"
+					btn.pressed.connect(_on_install_module.bind(target_slot, mid))
+					row.add_child(btn)
+			_refit_container.add_child(row)
+
+	# GATE.S4.UI_INDU.WHY_BLOCKED.001: Show locked modules with block reasons
+	if locked_modules.size() > 0 and bridge.has_method("GetRefitBlockReasonV0"):
+		var locked_hdr = Label.new()
+		locked_hdr.text = "Locked Modules:"
+		locked_hdr.add_theme_font_size_override("font_size", 14)
+		locked_hdr.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_refit_container.add_child(locked_hdr)
+
+		for m in locked_modules:
+			var mid: String = str(m.get("module_id", ""))
+			var mname: String = str(m.get("display_name", mid))
+			var mkind: String = str(m.get("slot_kind", ""))
+			var block_reason: String = str(bridge.call("GetRefitBlockReasonV0", "fleet_trader_1", mid))
+			var row = HBoxContainer.new()
+			var info_lbl = Label.new()
+			info_lbl.text = "%s [%s]" % [mname, mkind]
+			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			row.add_child(info_lbl)
+			if not block_reason.is_empty():
+				var reason_lbl = Label.new()
+				reason_lbl.text = _format_block_reason(block_reason)
+				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+				row.add_child(reason_lbl)
 			_refit_container.add_child(row)
 
 func _on_install_module(slot_index: int, module_id: String) -> void:
@@ -505,6 +597,15 @@ func _rebuild_maintenance() -> void:
 	hdr.add_theme_font_size_override("font_size", 16)
 	_maint_container.add_child(hdr)
 
+	# GATE.S4.MAINT_SUSTAIN.BRIDGE_SUPPLY.001: Show supply level
+	if bridge.has_method("GetSupplyLevelV0"):
+		var supply: Dictionary = bridge.call("GetSupplyLevelV0", _market_node_id)
+		if supply.size() > 0:
+			var supply_lbl = Label.new()
+			supply_lbl.text = "Supply: %d/%d" % [supply.get("supply_level", 0), supply.get("max_supply", 100)]
+			supply_lbl.add_theme_font_size_override("font_size", 14)
+			_maint_container.add_child(supply_lbl)
+
 	for s in damaged:
 		var sid: String = str(s.get("site_id", ""))
 		var recipe: String = str(s.get("recipe_id", ""))
@@ -518,11 +619,46 @@ func _rebuild_maintenance() -> void:
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 
-		var btn = Button.new()
-		btn.text = "Repair (%d cr)" % cost
-		btn.pressed.connect(_on_repair_site.bind(sid))
-		row.add_child(btn)
+		# GATE.S4.UI_INDU.WHY_BLOCKED.001: Show block reason or repair button
+		var repair_blocked: String = ""
+		if bridge.has_method("GetRepairBlockReasonV0"):
+			repair_blocked = str(bridge.call("GetRepairBlockReasonV0", sid))
+
+		if not repair_blocked.is_empty():
+			var reason_lbl = Label.new()
+			reason_lbl.text = _format_block_reason(repair_blocked)
+			reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+			row.add_child(reason_lbl)
+		else:
+			var btn = Button.new()
+			btn.text = "Repair (%d cr)" % cost
+			btn.pressed.connect(_on_repair_site.bind(sid))
+			row.add_child(btn)
 		_maint_container.add_child(row)
+
+# GATE.S4.UI_INDU.WHY_BLOCKED.001: Format block reason strings for display
+func _format_block_reason(reason: String) -> String:
+	if reason.begins_with("missing_prereq:"):
+		return "Requires: %s" % reason.substr(len("missing_prereq:"))
+	elif reason.begins_with("missing_tech:"):
+		return "Requires: %s" % reason.substr(len("missing_tech:"))
+	elif reason.begins_with("tier_locked:"):
+		return "Tech Level too low (Tier %s)" % reason.substr(len("tier_locked:"))
+	elif reason.begins_with("insufficient_credits:"):
+		return "Need %s cr" % reason.substr(len("insufficient_credits:"))
+	elif reason == "already_researching":
+		return "Already researching"
+	elif reason == "already_unlocked":
+		return "Already unlocked"
+	elif reason == "already_full_health":
+		return "Full health"
+	elif reason == "no_supply":
+		return "No supply available"
+	elif reason == "unknown_fleet":
+		return "Fleet not found"
+	elif reason == "unknown_site":
+		return "Site not found"
+	return reason
 
 func _on_repair_site(site_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")

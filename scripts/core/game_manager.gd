@@ -379,6 +379,14 @@ func _fire_turret_v0() -> void:
 	_turret_cooldown = TURRET_COOLDOWN_SEC
 	if _sfx_turret_fire:
 		_sfx_turret_fire.play()
+	# GATE.S1.CAMERA.COMBAT_SHAKE.001: small shake on turret fire
+	_apply_camera_shake_v0(0.15)
+
+# GATE.S1.CAMERA.COMBAT_SHAKE.001: relay shake to player_follow_camera.
+func _apply_camera_shake_v0(intensity: float) -> void:
+	var cam = get_viewport().get_camera_3d()
+	if cam and cam.has_method("apply_shake"):
+		cam.call("apply_shake", intensity)
 
 # AI auto-fire: nearest hostile fleet in aggro range fires at player each cooldown tick.
 func _ai_fire_v0() -> void:
@@ -498,6 +506,20 @@ func _find_galaxy_view():
 func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Wait 300ms for the sim thread to process the TravelCommand, then auto-arrive.
 	await get_tree().create_timer(0.3).timeout
+
+	# GATE.S3.RISK_SINKS.BRIDGE.001: Check for delay status before completing transit.
+	# If the fleet is delayed by a risk event, wait additional ticks before arriving.
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetDelayStatusV0"):
+		var delay_info: Dictionary = bridge.call("GetDelayStatusV0", PLAYER_FLEET_ID)
+		if delay_info.get("delayed", false):
+			var ticks_remaining: int = int(delay_info.get("ticks_remaining", 0))
+			# Convert sim ticks to approximate real-time seconds (100ms per tick default).
+			var delay_sec: float = ticks_remaining * 0.1
+			if delay_sec > 0.0:
+				print("UUIR|LANE_DELAY|" + str(ticks_remaining) + "|" + neighbor_node_id)
+				await get_tree().create_timer(delay_sec).timeout
+
 	on_lane_arrival_v0(neighbor_node_id)
 
 func _find_hero_trade_menu():

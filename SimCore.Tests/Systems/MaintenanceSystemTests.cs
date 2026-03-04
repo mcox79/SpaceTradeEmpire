@@ -169,4 +169,88 @@ public sealed class MaintenanceSystemTests
         Assert.That(s1.IndustrySites["site_a"].HealthBps, Is.EqualTo(s2.IndustrySites["site_a"].HealthBps));
         Assert.That(s1.IndustrySites["site_a"].Efficiency, Is.EqualTo(s2.IndustrySites["site_a"].Efficiency));
     }
+
+    // --- GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001: Supply-based repair tests ---
+
+    [Test]
+    public void RepairWithSupply_RestoresCondition()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].HealthBps = 5000;
+        state.IndustrySites["site_a"].SupplyLevel = 50;
+        var result = MaintenanceSystem.RepairWithSupply(state, "site_a", 4);
+        Assert.That(result.Success, Is.True);
+        // 4 units * 500 BPS/unit = 2000 BPS restored
+        Assert.That(result.BpsRestored, Is.EqualTo(2000));
+        Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(7000));
+        Assert.That(result.CreditsCost, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void RepairWithSupply_InsufficientSupply_Fails()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].HealthBps = 5000;
+        state.IndustrySites["site_a"].SupplyLevel = 2;
+        var result = MaintenanceSystem.RepairWithSupply(state, "site_a", 5);
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("insufficient_supply"));
+        // Supply should be unchanged on failure
+        Assert.That(state.IndustrySites["site_a"].SupplyLevel, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void RepairWithSupply_DeductsSupply()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].HealthBps = 5000;
+        state.IndustrySites["site_a"].SupplyLevel = 30;
+        var result = MaintenanceSystem.RepairWithSupply(state, "site_a", 6);
+        Assert.That(result.Success, Is.True);
+        Assert.That(state.IndustrySites["site_a"].SupplyLevel, Is.EqualTo(24));
+    }
+
+    [Test]
+    public void RepairWithSupply_CapsAtMaxHealth()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].HealthBps = 9500;
+        state.IndustrySites["site_a"].SupplyLevel = 50;
+        // Request 10 units * 500 = 5000 BPS, but only 500 BPS needed to cap
+        var result = MaintenanceSystem.RepairWithSupply(state, "site_a", 10);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.BpsRestored, Is.EqualTo(500));
+        Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(10000));
+    }
+
+    [Test]
+    public void ProcessDecay_ConsumesSupply()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].SupplyLevel = 50;
+        // Tick starts at 0; Tick % 10 == 0 → supply consumed on first call
+        MaintenanceSystem.ProcessDecay(state);
+        Assert.That(state.IndustrySites["site_a"].SupplyLevel, Is.EqualTo(49));
+
+        // Advance tick to a non-consumption tick (tick 1)
+        state.AdvanceTick();
+        MaintenanceSystem.ProcessDecay(state);
+        // Supply unchanged — tick 1 % 10 != 0
+        Assert.That(state.IndustrySites["site_a"].SupplyLevel, Is.EqualTo(49));
+    }
+
+    [Test]
+    public void ProcessDecay_NoSupply_FasterDecay()
+    {
+        var state = CreateState();
+        state.IndustrySites["site_a"].SupplyLevel = 0;
+        state.IndustrySites["site_a"].HealthBps = 10000;
+        int degradeRate = state.IndustrySites["site_a"].DegradePerDayBps;
+
+        MaintenanceSystem.ProcessDecay(state);
+
+        // With 0 supply, decay rate is doubled
+        int expected = 10000 - (degradeRate * MaintenanceTweaksV0.NoSupplyDecayMultiplier);
+        Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(expected));
+    }
 }

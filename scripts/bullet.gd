@@ -5,6 +5,8 @@ extends Area3D
 
 var _velocity: Vector3 = Vector3.ZERO
 var _age: float = 0.0
+# GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001: positional combat audio manager
+var combat_audio: Node = null
 
 # Set by spawner. Damage applied on collision via SimBridge.
 var source_is_player: bool = true
@@ -20,6 +22,11 @@ func _ready() -> void:
 
 	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: color bullet by source.
 	_apply_source_color()
+
+	# GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001: positional fire SFX on spawn
+	combat_audio = get_tree().root.get_node_or_null("CombatAudio")
+	if combat_audio and combat_audio.has_method("play_fire_sfx"):
+		combat_audio.call("play_fire_sfx", global_position)
 
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
@@ -65,10 +72,17 @@ func _on_body_entered(body: Node) -> void:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
 			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)
+		# GATE.S1.CAMERA.COMBAT_SHAKE.001: larger shake on damage received
+		var gm_shake = get_node_or_null("/root/GameManager")
+		if gm_shake and gm_shake.has_method("_apply_camera_shake_v0"):
+			gm_shake.call("_apply_camera_shake_v0", 0.4)
 	# GATE.S1.AUDIO.SFX_CORE.001: hit SFX
 	var gm = get_node_or_null("/root/GameManager")
 	if gm and gm.has_method("play_hit_sfx_v0"):
 		gm.call("play_hit_sfx_v0")
+	# GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001: positional impact SFX
+	if combat_audio and combat_audio.has_method("play_impact_sfx"):
+		combat_audio.call("play_impact_sfx", global_position)
 	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
 	_spawn_hit_vfx(global_position)
 	queue_free()
@@ -90,6 +104,9 @@ func _on_area_entered(area: Area3D) -> void:
 	var gm_sfx = get_node_or_null("/root/GameManager")
 	if gm_sfx and gm_sfx.has_method("play_hit_sfx_v0"):
 		gm_sfx.call("play_hit_sfx_v0")
+	# GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001: positional impact SFX
+	if combat_audio and combat_audio.has_method("play_impact_sfx"):
+		combat_audio.call("play_impact_sfx", global_position)
 	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
 	_spawn_hit_vfx(global_position)
 	queue_free()

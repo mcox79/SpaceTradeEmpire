@@ -72,6 +72,11 @@ public class SimKernel
         // GATE.S1.MISSION.SYSTEM.001: Evaluate mission triggers and advance steps.
         MissionSystem.Process(_state);
 
+        // GATE.S4: Industry pipeline — research, refit, maintenance per tick.
+        ResearchSystem.ProcessResearch(_state);
+        RefitSystem.ProcessRefitQueue(_state);
+        MaintenanceSystem.ProcessDecay(_state);
+
         _state.AdvanceTick();
     }
 

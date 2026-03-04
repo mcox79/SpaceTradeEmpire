@@ -10,6 +10,7 @@ public sealed class TechDef
     public string Description { get; set; } = "";
     public int ResearchTicks { get; set; } = 10;
     public int CreditCost { get; set; } = 100;
+    public int Tier { get; set; } = 1;
     public List<string> Prerequisites { get; set; } = new();
     public List<string> UnlockEffects { get; set; } = new();
 }
@@ -55,6 +56,7 @@ public static class TechContentV0
             Description = "Boosts production efficiency at industry sites.",
             ResearchTicks = 20,
             CreditCost = 200,
+            Tier = 2,
             Prerequisites = new List<string> { "improved_thrusters" },
             UnlockEffects = new List<string> { "production_efficiency_10pct" },
         },
@@ -65,6 +67,7 @@ public static class TechContentV0
             Description = "Increases fleet tech level, unlocking higher-tier fracture nodes.",
             ResearchTicks = 25,
             CreditCost = 300,
+            Tier = 3,
             Prerequisites = new List<string> { "shield_mk2", "weapon_systems_2" },
             UnlockEffects = new List<string> { "tech_level_increase_1" },
         },

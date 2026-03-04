@@ -14,6 +14,66 @@ namespace SimCore.Systems
     {
         private const int BpsDenom = RM.BpsDenom;
 
+        // GATE.S3.RISK_SINKS.DELAY_MODEL.001: Extract risk BPS for a given edge.
+        // Reusable query that returns (delayBps, lossBps, inspBps) after scalar + clamping.
+        public static (int delayBps, int lossBps, int inspBps) GetRiskBpsForEdge(SimState state, string edgeId)
+        {
+            if (state is null || string.IsNullOrWhiteSpace(edgeId))
+                return (0, 0, 0);
+            if (state.Edges is null || !state.Edges.TryGetValue(edgeId, out var e))
+                return (0, 0, 0);
+
+            var scalar = state.Tweaks != null ? state.Tweaks.RiskScalar : SimCore.RiskModelV0.ScalarDefault;
+            if (double.IsNaN(scalar) || double.IsInfinity(scalar)) scalar = SimCore.RiskModelV0.ScalarDefault;
+            if (scalar < SimCore.RiskModelV0.ScalarMin) scalar = SimCore.RiskModelV0.ScalarMin;
+            if (scalar > SimCore.RiskModelV0.ScalarMax) scalar = SimCore.RiskModelV0.ScalarMax;
+
+            var band = RoutePlanner.EdgeRiskBandV0(e);
+
+            int delayBps, lossBps, inspBps;
+            switch (band)
+            {
+                case RM.BandLow:
+                    delayBps = SimCore.RiskModelV0.Band0DelayBps;
+                    lossBps = SimCore.RiskModelV0.Band0LossBps;
+                    inspBps = SimCore.RiskModelV0.Band0InspBps;
+                    break;
+                case RM.BandMed:
+                    delayBps = SimCore.RiskModelV0.Band1DelayBps;
+                    lossBps = SimCore.RiskModelV0.Band1LossBps;
+                    inspBps = SimCore.RiskModelV0.Band1InspBps;
+                    break;
+                case RM.BandHigh:
+                    delayBps = SimCore.RiskModelV0.Band2DelayBps;
+                    lossBps = SimCore.RiskModelV0.Band2LossBps;
+                    inspBps = SimCore.RiskModelV0.Band2InspBps;
+                    break;
+                default:
+                    delayBps = SimCore.RiskModelV0.Band3DelayBps;
+                    lossBps = SimCore.RiskModelV0.Band3LossBps;
+                    inspBps = SimCore.RiskModelV0.Band3InspBps;
+                    break;
+            }
+
+            delayBps = ScaleBps(delayBps, scalar);
+            lossBps = ScaleBps(lossBps, scalar);
+            inspBps = ScaleBps(inspBps, scalar);
+
+            var total = delayBps + lossBps + inspBps;
+            if (total > SimCore.RiskModelV0.TotalBpsCap)
+                ClampTotal(ref delayBps, ref lossBps, ref inspBps, maxTotal: SimCore.RiskModelV0.TotalBpsCap);
+
+            return (delayBps, lossBps, inspBps);
+        }
+
+        // GATE.S3.RISK_SINKS.DELAY_MODEL.001: Query remaining delay ticks for a fleet.
+        public static int GetDelayTicksRemaining(SimState state, string fleetId)
+        {
+            if (state is null || string.IsNullOrEmpty(fleetId)) return 0;
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return 0;
+            return fleet.DelayTicksRemaining;
+        }
+
         public static void Process(SimState state)
         {
             if (state is null) return;
@@ -43,50 +103,11 @@ namespace SimCore.Systems
                 var from = e.FromNodeId ?? "";
                 var to = e.ToNodeId ?? "";
 
-                var band = RoutePlanner.EdgeRiskBandV0(e);
-
-                // Base rates per band (bps). Kept small to avoid spamming v0.
-                int delayBps, lossBps, inspBps;
-                switch (band)
-                {
-                    case RM.BandLow:
-                        delayBps = SimCore.RiskModelV0.Band0DelayBps;
-                        lossBps = SimCore.RiskModelV0.Band0LossBps;
-                        inspBps = SimCore.RiskModelV0.Band0InspBps;
-                        break;
-
-                    case RM.BandMed:
-                        delayBps = SimCore.RiskModelV0.Band1DelayBps;
-                        lossBps = SimCore.RiskModelV0.Band1LossBps;
-                        inspBps = SimCore.RiskModelV0.Band1InspBps;
-                        break;
-
-                    case RM.BandHigh:
-                        delayBps = SimCore.RiskModelV0.Band2DelayBps;
-                        lossBps = SimCore.RiskModelV0.Band2LossBps;
-                        inspBps = SimCore.RiskModelV0.Band2InspBps;
-                        break;
-
-                    default:
-                        delayBps = SimCore.RiskModelV0.Band3DelayBps;
-                        lossBps = SimCore.RiskModelV0.Band3LossBps;
-                        inspBps = SimCore.RiskModelV0.Band3InspBps;
-                        break;
-                }
-
-                delayBps = ScaleBps(delayBps, scalar);
-                lossBps = ScaleBps(lossBps, scalar);
-                inspBps = ScaleBps(inspBps, scalar);
+                // Use extracted BPS query for consistency (already scaled + clamped).
+                var (delayBps, lossBps, inspBps) = GetRiskBpsForEdge(state, edgeId);
 
                 var total = delayBps + lossBps + inspBps;
                 if (total <= default(int)) continue;
-
-                if (total > SimCore.RiskModelV0.TotalBpsCap)
-                {
-                    ClampTotal(ref delayBps, ref lossBps, ref inspBps, maxTotal: SimCore.RiskModelV0.TotalBpsCap);
-                    total = delayBps + lossBps + inspBps;
-                    if (total <= default(int)) continue;
-                }
 
                 // Deterministic roll in [0,9999]
                 var h = Hash64(state.InitialSeed, state.Tick, edgeId);
@@ -112,6 +133,7 @@ namespace SimCore.Systems
                 else
                     inspTicks = SimCore.RiskModelV0.InspMinTicks + (int)(ho % SimCore.RiskModelV0.InspMod);
 
+                var band = RoutePlanner.EdgeRiskBandV0(e);
                 var scalarText = scalar.ToString("R", CultureInfo.InvariantCulture);
                 var cause =
                     "v0 band=" + band.ToString(CultureInfo.InvariantCulture) +

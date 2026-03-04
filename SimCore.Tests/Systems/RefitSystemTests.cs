@@ -127,4 +127,69 @@ public sealed class RefitSystemTests
         var bonuses = RefitSystem.ComputeBonuses(state.Fleets["fleet_trader_1"]);
         Assert.That(bonuses.SpeedBonusPct, Is.EqualTo(20));
     }
+
+    // GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: Timed refit queue tests.
+
+    [Test]
+    public void QueueInstall_AddsToQueue()
+    {
+        var state = CreateState();
+        var result = RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        Assert.That(result.Success, Is.True);
+
+        var fleet = state.Fleets["fleet_trader_1"];
+        Assert.That(fleet.RefitQueue.Count, Is.EqualTo(1));
+        Assert.That(fleet.RefitQueue[0].ModuleId, Is.EqualTo(WellKnownModuleIds.WeaponCannonMk1));
+        Assert.That(fleet.RefitQueue[0].SlotIndex, Is.EqualTo(0));
+
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+        Assert.That(fleet.RefitQueue[0].TicksRemaining, Is.EqualTo(def.InstallTicks));
+
+        // Module should NOT be installed yet.
+        Assert.That(fleet.Slots[0].InstalledModuleId, Is.Null.Or.Empty);
+    }
+
+    [Test]
+    public void ProcessRefitQueue_Decrements()
+    {
+        var state = CreateState();
+        RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+        int initialTicks = def.InstallTicks;
+
+        RefitSystem.ProcessRefitQueue(state);
+
+        var fleet = state.Fleets["fleet_trader_1"];
+        Assert.That(fleet.RefitQueue.Count, Is.EqualTo(1));
+        Assert.That(fleet.RefitQueue[0].TicksRemaining, Is.EqualTo(initialTicks - 1));
+    }
+
+    [Test]
+    public void ProcessRefitQueue_InstallsOnCompletion()
+    {
+        var state = CreateState();
+        RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+
+        // Tick down to completion.
+        for (int i = 0; i < def.InstallTicks; i++)
+            RefitSystem.ProcessRefitQueue(state);
+
+        var fleet = state.Fleets["fleet_trader_1"];
+        // Queue should be empty after install completes.
+        Assert.That(fleet.RefitQueue.Count, Is.EqualTo(0));
+        // Module should now be installed.
+        Assert.That(fleet.Slots[0].InstalledModuleId, Is.EqualTo(WellKnownModuleIds.WeaponCannonMk1));
+    }
+
+    [Test]
+    public void QueueInstall_InvalidModule_Fails()
+    {
+        var state = CreateState();
+        var result = RefitSystem.QueueInstall(state, "fleet_trader_1", 0, "nonexistent_module_xyz");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("unknown_module"));
+    }
 }

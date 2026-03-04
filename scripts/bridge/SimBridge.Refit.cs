@@ -23,6 +23,32 @@ namespace SpaceTradeEmpire.Bridge;
 public partial class SimBridge
 {
     private Godot.Collections.Array _cachedAvailableModulesV0 = new Godot.Collections.Array();
+    private Godot.Collections.Array _cachedPlayerFleetSlotsV0 = new Godot.Collections.Array();
+
+    /// <summary>
+    /// Returns player fleet slot layout: [{slot_kind, installed_module_id}]
+    /// </summary>
+    public Godot.Collections.Array GetPlayerFleetSlotsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var fleet))
+            {
+                foreach (var slot in fleet.Slots)
+                {
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["slot_kind"] = slot.SlotKind.ToString(),
+                        ["installed_module_id"] = slot.InstalledModuleId ?? "",
+                    });
+                }
+            }
+            lock (_snapshotLock) { _cachedPlayerFleetSlotsV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedPlayerFleetSlotsV0; }
+    }
 
     /// <summary>
     /// Returns modules available for installation (filtered by tech).
@@ -52,6 +78,64 @@ public partial class SimBridge
         }, 0);
 
         lock (_snapshotLock) { return _cachedAvailableModulesV0; }
+    }
+
+    // GATE.S4.UPGRADE_PIPELINE.BRIDGE_QUEUE.001
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetRefitQueueV0(string fleetId)
+    {
+        var result = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+            foreach (var entry in fleet.RefitQueue)
+            {
+                var row = new Godot.Collections.Dictionary();
+                row["module_id"] = entry.ModuleId;
+                row["slot_index"] = entry.SlotIndex;
+                row["ticks_remaining"] = entry.TicksRemaining;
+                var moduleDef = UpgradeContentV0.GetById(entry.ModuleId);
+                row["display_name"] = moduleDef?.DisplayName ?? entry.ModuleId;
+                result.Add(row);
+            }
+        });
+        return result;
+    }
+
+    public Godot.Collections.Dictionary GetRefitProgressV0(string fleetId)
+    {
+        var d = new Godot.Collections.Dictionary { ["queue_size"] = 0 };
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+            d["queue_size"] = fleet.RefitQueue.Count;
+            if (fleet.RefitQueue.Count > 0)
+            {
+                var first = fleet.RefitQueue[0];
+                var moduleDef = UpgradeContentV0.GetById(first.ModuleId);
+                d["current_module"] = moduleDef?.DisplayName ?? first.ModuleId;
+                d["ticks_remaining"] = first.TicksRemaining;
+                d["install_ticks"] = moduleDef?.InstallTicks ?? 5;
+            }
+        });
+        return d;
+    }
+
+    // GATE.S4.UI_INDU.WHY_BLOCKED.001
+    public string GetRefitBlockReasonV0(string fleetId, string moduleId)
+    {
+        var moduleDef = UpgradeContentV0.GetById(moduleId);
+        if (moduleDef == null) return "unknown_module";
+        string reason = "";
+        TryExecuteSafeRead(state =>
+        {
+            if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
+            {
+                reason = "missing_tech"; return;
+            }
+            if (!state.Fleets.ContainsKey(fleetId)) { reason = "unknown_fleet"; return; }
+            if (state.PlayerCredits < moduleDef.CreditCost) { reason = "insufficient_credits:" + moduleDef.CreditCost; return; }
+        });
+        return reason;
     }
 
     /// <summary>

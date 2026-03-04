@@ -32,6 +32,10 @@ public static class ResearchSystem
         if (!TechContentV0.PrerequisitesMet(techId, state.Tech.UnlockedTechIds))
             return new StartResult { Success = false, Reason = "prerequisites_not_met" };
 
+        // GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001: tier gating
+        if (def.Tier > state.Tech.TechLevel + 1)
+            return new StartResult { Success = false, Reason = "tier_locked" };
+
         state.Tech.CurrentResearchTechId = techId;
         state.Tech.ResearchProgressTicks = 0;
         state.Tech.ResearchTotalTicks = def.ResearchTicks;
@@ -62,8 +66,8 @@ public static class ResearchSystem
             return;
         }
 
-        // Deduct per-tick credit cost
-        int tickCost = ResearchTweaksV0.CreditCostPerTickBase;
+        // GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001: cost scales with tier
+        int tickCost = ResearchTweaksV0.CreditCostPerTickBase * def.Tier;
         if (state.PlayerCredits < tickCost)
         {
             // Not enough credits — stall (don't progress but don't cancel)
@@ -134,6 +138,9 @@ public static class ResearchSystem
     {
         if (effect == "tech_level_increase_1")
         {
+            // GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001: increment TechState.TechLevel
+            state.Tech.TechLevel += ResearchTweaksV0.TechLevelPerFractureDrive;
+
             if (state.Fleets.TryGetValue("fleet_trader_1", out var fleet))
             {
                 fleet.TechLevel += ResearchTweaksV0.TechLevelPerFractureDrive;

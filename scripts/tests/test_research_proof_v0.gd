@@ -11,16 +11,16 @@ var _max_ticks: int = 200
 func _init():
 	print("HSS|test_research_proof_v0|start")
 
-func _process(_delta: float) -> void:
+func _process(_delta: float) -> bool:
 	if _phase == 0:
 		_bridge = root.get_node_or_null("SimBridge")
 		if _bridge == null or not _bridge.has_method("GetBridgeReadyV0"):
-			return
+			return false
 		if not _bridge.call("GetBridgeReadyV0"):
-			return
+			return false
 		print("HSS|bridge_ready")
 		_phase = 1
-		return
+		return false
 
 	if _phase == 1:
 		# Start research on improved_thrusters (no prerequisites)
@@ -31,9 +31,9 @@ func _process(_delta: float) -> void:
 			if not success:
 				print("HSL|FAIL|could_not_start_research")
 				_stop()
-				return
+				return false
 		_phase = 2
-		return
+		return false
 
 	if _phase == 2:
 		# Wait for research to complete
@@ -41,7 +41,7 @@ func _process(_delta: float) -> void:
 		if _tick_count > _max_ticks:
 			print("HSL|FAIL|research_timeout")
 			_stop()
-			return
+			return false
 
 		if _bridge.has_method("GetResearchStatusV0"):
 			var status: Dictionary = _bridge.call("GetResearchStatusV0")
@@ -49,8 +49,8 @@ func _process(_delta: float) -> void:
 			if not researching:
 				print("HSS|research_complete|ticks=%d" % _tick_count)
 				_phase = 3
-				return
-		return
+				return false
+		return false
 
 	if _phase == 3:
 		# Verify tech is unlocked
@@ -63,7 +63,7 @@ func _process(_delta: float) -> void:
 					else:
 						print("HSL|FAIL|tech_not_unlocked")
 						_stop()
-						return
+						return false
 					break
 
 		# Now try to install engine_booster_mk1 (requires improved_thrusters)
@@ -91,6 +91,9 @@ func _process(_delta: float) -> void:
 			print("HSL|PASS|research_complete_no_slots_api")
 
 		_stop()
+		return false
+
+	return false
 
 func _stop() -> void:
 	if _bridge and _bridge.has_method("StopSimV0"):

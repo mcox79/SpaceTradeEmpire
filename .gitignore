@@ -16,6 +16,7 @@ ios/
 # Generated tool outputs (never commit)
 docs/generated/
 _scratch/
+reports/experience/
 
 
 # =========================

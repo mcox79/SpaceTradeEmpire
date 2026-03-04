@@ -6,8 +6,21 @@
 # GATE.S4.MAINT.SYSTEM.001: full efficiency float literal (routed via FullEfficiencyPct but float assignment needed)
 SimCore/Systems/MaintenanceSystem.cs:1.0f
 
+# GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001: structural zero/one in supply logic (comparisons, decrement by 1)
+SimCore/Systems/MaintenanceSystem.cs:0
+SimCore/Systems/MaintenanceSystem.cs:1
+
 # GATE.S4.UPGRADE.SYSTEM.001: slot index bounds check (structural, not tuning)
 SimCore/Systems/RefitSystem.cs:0
 
+# GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: structural one (decrement by 1 per tick)
+SimCore/Systems/RefitSystem.cs:1
+
 # GATE.S4.TECH.SYSTEM.001: reset-to-zero initialization (structural, not tuning)
 SimCore/Systems/ResearchSystem.cs:0
+
+# GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001: structural +1 for tier gate check (Tier <= TechLevel + 1)
+SimCore/Systems/ResearchSystem.cs:1
+
+# GATE.S3.RISK_SINKS.DELAY_MODEL.001: structural zeros in GetRiskBpsForEdge return tuple
+SimCore/Systems/RiskSystem.cs:0

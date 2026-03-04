@@ -136,6 +136,25 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.004 | DONE | Test suite + health baseline |
 | GATE.X.HYGIENE.EPIC_REVIEW.004 | DONE | Epic status audit |
 | GATE.X.EVAL.PROGRESSION_AUDIT.001 | DONE | Progression depth evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.005 | DONE | Full test suite, warning scan, golden hash stability |
+| GATE.S1.CAMERA.ADDON_SETUP.001 | DONE | Install Phantom Camera addon, configure project.godot |
+| GATE.S1.SPATIAL_AUDIO.ENGINE_THRUST.001 | DONE | Engine thrust AudioStreamRandomizer on player ship |
+| GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001 | DONE | Tech tree tier and cost scaling in SimCore |
+| GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001 | DONE | Timed refit queue — install takes N ticks |
+| GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001 | DONE | Repair consumes supply goods, not just credits |
+| GATE.S3.RISK_SINKS.DELAY_MODEL.001 | DONE | Player-visible travel delay model in RiskSystem |
+| GATE.S1.CAMERA.FOLLOW_MODES.001 | DONE | PhantomCamera follow modes — flight, orbit, station |
+| GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001 | DONE | Positional SFX for turret fire and bullet impact |
+| GATE.S1.SPATIAL_AUDIO.AMBIENT.001 | DONE | Ambient spatial audio — station hum, lane drone |
+| GATE.S4.TECH_INDUSTRIALIZE.BRIDGE_DEPTH.001 | DONE | SimBridge queries for tech tier and tier-gated content |
+| GATE.S4.UPGRADE_PIPELINE.BRIDGE_QUEUE.001 | DONE | SimBridge refit queue status + progress polling |
+| GATE.S4.MAINT_SUSTAIN.BRIDGE_SUPPLY.001 | DONE | SimBridge supply level queries + repair-with-supply |
+| GATE.S4.UI_INDU.WHY_BLOCKED.001 | DONE | Why-blocked tooltip for locked tech/upgrades/repairs |
+| GATE.S3.RISK_SINKS.BRIDGE.001 | DONE | SimBridge delay risk queries + travel ETA |
+| GATE.S1.CAMERA.COMBAT_SHAKE.001 | DONE | Camera shake on turret fire and damage received |
+| GATE.S1.PRESENTATION.HEADLESS_PROOF.001 | DONE | Headless proof — camera + audio nodes boot |
+| GATE.X.HYGIENE.EPIC_REVIEW.005 | DONE | Audit epic statuses, close completed, recommend next |
+| GATE.X.EVAL.AUDIO_VISUAL_AUDIT.001 | DONE | Audio/visual presentation quality audit |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -602,3 +621,27 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.004 | DONE | Full repo health baseline: run full test suite (339+ tests), warning scan, dead code check, golden hash stability. Report regressions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/55_GATES.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.004 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches. Update statuses. Recommend next anchor epic for tranche 5. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.EVAL.PROGRESSION_AUDIT.001 | DONE | Progression depth evaluation: audit current progression systems (missions, research, upgrades, combat, discovery) for depth, interconnection, and player feedback. Score each axis 1-5. Identify gaps for tranche 5. Proof: written evaluation | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+
+### B32. Presentation + Industry Depth gates (tranche 5)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.005 | DONE | Full test suite, warning scan, golden hash stability. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/56_SESSION_LOG.md |
+| GATE.S1.CAMERA.ADDON_SETUP.001 | DONE | Install Phantom Camera addon into addons/, enable in project.godot, verify headless boot. Proof: godot --headless --path . --quit | FOUND: project.godot; NEW: addons/phantom_camera/plugin.cfg |
+| GATE.S1.SPATIAL_AUDIO.ENGINE_THRUST.001 | DONE | Engine thrust AudioStreamRandomizer on player ship — AudioStreamPlayer3D child on player scene, controlled by engine_audio.gd. Proof: godot --headless --path . --quit | FOUND: scenes/player.tscn; NEW: scripts/audio/engine_audio.gd |
+| GATE.S4.TECH_INDUSTRIALIZE.TIER_SCALING.001 | DONE | Add Tier field to TechDef, tier-gated prerequisite checks in ResearchSystem, scaled credit costs per tier, TechLevel counter on TechState. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "ResearchSystem" | FOUND: SimCore/Content/TechContentV0.cs; FOUND: SimCore.Tests/Systems/ResearchSystemTests.cs |
+| GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001 | DONE | Timed refit queue — QueueInstall with tick duration on RefitSystem, RefitQueue field on Fleet, InstallTicks on ModuleDef. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "RefitSystem" | FOUND: SimCore/Systems/RefitSystem.cs; FOUND: SimCore.Tests/Systems/RefitSystemTests.cs |
+| GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001 | DONE | Repair consumes supply goods not just credits — supply-based repair path in MaintenanceSystem, SupplyLevel field on IndustrySite. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "MaintenanceSystem" | FOUND: SimCore/Systems/MaintenanceSystem.cs; FOUND: SimCore.Tests/Systems/MaintenanceSystemTests.cs |
+| GATE.S3.RISK_SINKS.DELAY_MODEL.001 | DONE | Player-visible travel delay model — expose delay BPS via query in RiskSystem, DelayTicksRemaining field on Fleet, dedicated delay tests. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "RiskDelay" | FOUND: SimCore/Systems/RiskSystem.cs; NEW: SimCore.Tests/Systems/RiskDelayTests.cs |
+| GATE.S1.CAMERA.FOLLOW_MODES.001 | DONE | PhantomCamera follow modes — replace player_follow_camera with PhantomCamera3D, flight/orbit/station modes, PhantomCameraHost in main. Proof: godot --headless --path . --quit | FOUND: scripts/view/player_follow_camera.gd; FOUND: scenes/player.tscn |
+| GATE.S1.SPATIAL_AUDIO.COMBAT_SFX.001 | DONE | Positional SFX for turret fire and bullet impact — AudioStreamPlayer3D on bullet scene, combat_audio.gd controller. Proof: godot --headless --path . --quit | FOUND: scripts/bullet.gd; FOUND: scenes/bullet.tscn |
+| GATE.S1.SPATIAL_AUDIO.AMBIENT.001 | DONE | Ambient spatial audio — station hum AudioStreamPlayer3D on station scene, ambient_audio.gd controller. Proof: godot --headless --path . --quit | FOUND: scenes/station.tscn; NEW: scripts/audio/ambient_audio.gd |
+| GATE.S4.TECH_INDUSTRIALIZE.BRIDGE_DEPTH.001 | DONE | SimBridge queries for tech tier and tier-gated content — GetTechTierV0, GetTechRequirementsV0 in SimBridge.Research.cs, show tier in research panel. Proof: dotnet build && godot --headless test_research_proof_v0.gd | FOUND: scripts/bridge/SimBridge.Research.cs; FOUND: scripts/tests/test_research_proof_v0.gd |
+| GATE.S4.UPGRADE_PIPELINE.BRIDGE_QUEUE.001 | DONE | SimBridge refit queue status + progress polling — GetRefitQueueV0, GetRefitProgressV0 in SimBridge.Refit.cs, progress bar in upgrade panel. Proof: dotnet build && godot --headless test_industry_beat_v0.gd | FOUND: scripts/bridge/SimBridge.Refit.cs; FOUND: scripts/tests/test_industry_beat_v0.gd |
+| GATE.S4.MAINT_SUSTAIN.BRIDGE_SUPPLY.001 | DONE | SimBridge supply level queries + repair-with-supply intent — GetSupplyLevelV0, DispatchSupplyRepairV0 in SimBridge.Maintenance.cs, supply level in maintenance panel. Proof: dotnet build && godot --headless test_industry_beat_v0.gd | FOUND: scripts/bridge/SimBridge.Maintenance.cs; FOUND: scripts/tests/test_industry_beat_v0.gd |
+| GATE.S4.UI_INDU.WHY_BLOCKED.001 | DONE | Why-blocked tooltip — GetResearchBlockReasonV0, GetRefitBlockReasonV0, GetRepairBlockReasonV0 in bridge partials, display block reason labels in hero_trade_menu. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Research.cs; FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S3.RISK_SINKS.BRIDGE.001 | DONE | SimBridge delay risk queries + travel ETA — new SimBridge.Risk.cs partial with GetDelayStatusV0, GetTravelEtaV0, delay status in flight HUD. Proof: dotnet build | NEW: scripts/bridge/SimBridge.Risk.cs; FOUND: scripts/ui/hud.gd |
+| GATE.S1.CAMERA.COMBAT_SHAKE.001 | DONE | Camera shake on turret fire and damage received — PhantomCamera noise shake trigger, integrated with G-key fire and damage events. Proof: godot --headless --path . --quit | FOUND: scripts/view/player_follow_camera.gd; FOUND: scripts/core/game_manager.gd |
+| GATE.S1.PRESENTATION.HEADLESS_PROOF.001 | DONE | Headless proof — extends SceneTree script boots main scene, verifies PhantomCamera node present, audio nodes present, emits PRESENTATION_PROOF PASS. Proof: dotnet build && godot --headless test_presentation_proof_v0.gd | NEW: scripts/tests/test_presentation_proof_v0.gd; FOUND: scenes/player.tscn |
+| GATE.X.HYGIENE.EPIC_REVIEW.005 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches. Update statuses. Recommend next anchor epic for tranche 6. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.EVAL.AUDIO_VISUAL_AUDIT.001 | DONE | Audio/visual presentation quality audit: evaluate audio mix, spatial audio falloff, camera feel, visual polish. Score axes 1-5. Recommend polish targets. Proof: written evaluation | FOUND: docs/56_SESSION_LOG.md; FOUND: scripts/tools/aesthetic_audit.gd |

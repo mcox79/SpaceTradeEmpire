@@ -33,4 +33,18 @@ public static class MaintenanceTweaksV0
 
     // Full efficiency percentage (integer).
     public const int FullEfficiencyPct = 100;
+
+    // --- GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001: Supply-based repair ---
+
+    // BPS restored per unit of supply consumed during RepairWithSupply.
+    public const int BpsPerSupplyUnit = 500;
+
+    // Ticks between each 1-unit supply consumption for active sites.
+    public const int SupplyConsumptionIntervalTicks = 10;
+
+    // Multiplier for decay rate when SupplyLevel is 0 (integer; 2 = double speed).
+    public const int NoSupplyDecayMultiplier = 2;
+
+    // Maximum supply level (cap).
+    public const int MaxSupplyLevel = 100;
 }

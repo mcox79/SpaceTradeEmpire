@@ -160,7 +160,13 @@ public static class WorldLoader
                     Speed = 0.5f,
                     CurrentTask = "Docked",
                     CurrentJob = null,
-                    Supplies = 100
+                    Supplies = 100,
+                    Slots = new List<ModuleSlot>
+                    {
+                        new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon },
+                        new ModuleSlot { SlotId = "engine_0", SlotKind = SlotKind.Engine },
+                        new ModuleSlot { SlotId = "utility_0", SlotKind = SlotKind.Utility },
+                    }
                 };
 
                 state.Fleets.Add(playerFleetId, f);

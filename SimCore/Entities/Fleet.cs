@@ -116,6 +116,12 @@ public class Fleet
     public bool EscortDoctrineActive { get; set; } = false;
     public string EscortTargetFleetId { get; set; } = "";
 
+    // GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: Queued module installations awaiting completion.
+    [JsonInclude] public List<RefitQueueEntry> RefitQueue { get; set; } = new();
+
+    // GATE.S3.RISK_SINKS.DELAY_MODEL.001: Remaining delay ticks from risk events.
+    [JsonInclude] public int DelayTicksRemaining { get; set; } = 0;
+
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
 
@@ -149,4 +155,12 @@ public class Fleet
         EscortTargetFleetId = "";
     }
 
+}
+
+// GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: Entry in the timed refit queue.
+public sealed class RefitQueueEntry
+{
+    [JsonInclude] public string ModuleId { get; set; } = "";
+    [JsonInclude] public int SlotIndex { get; set; }
+    [JsonInclude] public int TicksRemaining { get; set; }
 }

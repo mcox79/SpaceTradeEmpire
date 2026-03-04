@@ -82,6 +82,61 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedResearchStatusV0; }
     }
 
+    // GATE.S4.TECH_INDUSTRIALIZE.BRIDGE_DEPTH.001
+    public int GetTechTierV0()
+    {
+        int level = 0;
+        TryExecuteSafeRead(state => { level = state.Tech.TechLevel; });
+        return level;
+    }
+
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetTechRequirementsV0(string techId)
+    {
+        var result = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        var def = TechContentV0.GetById(techId);
+        if (def == null) return result;
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var prereq in def.Prerequisites)
+            {
+                var row = new Godot.Collections.Dictionary();
+                row["tech_id"] = prereq;
+                row["met"] = state.Tech.UnlockedTechIds.Contains(prereq);
+                var prereqDef = TechContentV0.GetById(prereq);
+                row["display_name"] = prereqDef?.DisplayName ?? prereq;
+                result.Add(row);
+            }
+        });
+        return result;
+    }
+
+    // GATE.S4.UI_INDU.WHY_BLOCKED.001
+    public string GetResearchBlockReasonV0(string techId)
+    {
+        string reason = "";
+        var def = TechContentV0.GetById(techId);
+        if (def == null) return "unknown_tech";
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Tech.UnlockedTechIds.Contains(techId)) { reason = "already_unlocked"; return; }
+            if (state.Tech.IsResearching) { reason = "already_researching"; return; }
+            if (def.Tier > state.Tech.TechLevel + 1) { reason = "tier_locked:" + def.Tier; return; }
+            if (!TechContentV0.PrerequisitesMet(techId, state.Tech.UnlockedTechIds))
+            {
+                foreach (var prereq in def.Prerequisites)
+                {
+                    if (!state.Tech.UnlockedTechIds.Contains(prereq))
+                    {
+                        var prereqDef = TechContentV0.GetById(prereq);
+                        reason = "missing_prereq:" + (prereqDef?.DisplayName ?? prereq);
+                        return;
+                    }
+                }
+            }
+        });
+        return reason;
+    }
+
     /// <summary>
     /// Starts research on a tech. Returns {success, reason}.
     /// </summary>

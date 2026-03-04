@@ -60,6 +60,55 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.S4.MAINT_SUSTAIN.BRIDGE_SUPPLY.001
+    public Godot.Collections.Dictionary GetSupplyLevelV0(string nodeId)
+    {
+        var d = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var kv in state.IndustrySites)
+            {
+                if (string.Equals(kv.Value.NodeId, nodeId, StringComparison.Ordinal))
+                {
+                    d["site_id"] = kv.Key;
+                    d["supply_level"] = kv.Value.SupplyLevel;
+                    d["max_supply"] = 100;
+                    break;
+                }
+            }
+        });
+        return d;
+    }
+
+    public Godot.Collections.Dictionary DispatchSupplyRepairV0(string siteId, int supplyUnits)
+    {
+        var d = new Godot.Collections.Dictionary { ["success"] = false, ["reason"] = "" };
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var result = MaintenanceSystem.RepairWithSupply(_kernel.State, siteId, supplyUnits);
+            d["success"] = result.Success;
+            d["reason"] = result.Reason;
+            d["bps_restored"] = result.BpsRestored;
+            d["credits_cost"] = result.CreditsCost;
+        }
+        finally { _stateLock.ExitWriteLock(); }
+        return d;
+    }
+
+    // GATE.S4.UI_INDU.WHY_BLOCKED.001
+    public string GetRepairBlockReasonV0(string siteId)
+    {
+        string reason = "";
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.IndustrySites.TryGetValue(siteId, out var site)) { reason = "unknown_site"; return; }
+            if (site.HealthBps >= SimCore.Tweaks.MaintenanceTweaksV0.MaxHealthBps) { reason = "already_full_health"; return; }
+            if (site.SupplyLevel <= 0) { reason = "no_supply"; return; }
+        });
+        return reason;
+    }
+
     /// <summary>
     /// Repairs a site to full health. Returns {success, reason, credits_cost, bps_restored}.
     /// </summary>

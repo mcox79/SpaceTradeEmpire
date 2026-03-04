@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/core/hero_ship_flight_controller.gd" id="1_hero_flight"]
 [ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
 [ext_resource type="Script" path="res://scripts/view/engine_trail.gd" id="3_engine_trail"]
+[ext_resource type="Script" path="res://scripts/audio/engine_audio.gd" id="4_engine_audio"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
 radius = 1.0
@@ -82,3 +83,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 [node name="Camera3D" type="Camera3D" parent="CameraMount" unique_id=1607566704]
 script = ExtResource("2_followcam")
 target_path = NodePath("../..")
+
+[node name="EngineAudio" type="AudioStreamPlayer3D" parent="."]
+script = ExtResource("4_engine_audio")
+max_distance = 50.0

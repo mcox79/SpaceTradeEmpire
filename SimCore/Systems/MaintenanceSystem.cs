@@ -18,6 +18,7 @@ public static class MaintenanceSystem
 
     /// <summary>
     /// Processes degradation for all active industry sites. Called once per sim tick.
+    /// GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001: Also consumes supply and doubles decay when supply is 0.
     /// </summary>
     public static void ProcessDecay(SimState state)
     {
@@ -25,9 +26,22 @@ public static class MaintenanceSystem
         {
             var site = kv.Value;
             if (!site.Active) continue;
+
+            // Supply consumption: 1 unit per SupplyConsumptionIntervalTicks
+            if (MaintenanceTweaksV0.SupplyConsumptionIntervalTicks > 0
+                && state.Tick % MaintenanceTweaksV0.SupplyConsumptionIntervalTicks == 0
+                && site.SupplyLevel > 0)
+            {
+                site.SupplyLevel = Math.Max(0, site.SupplyLevel - 1);
+            }
+
             if (site.DegradePerDayBps <= MaintenanceTweaksV0.MinDegradeThresholdBps) continue;
 
-            site.HealthBps = Math.Max(MaintenanceTweaksV0.MinHealthBps, site.HealthBps - site.DegradePerDayBps);
+            int effectiveDegrade = site.DegradePerDayBps;
+            if (site.SupplyLevel <= 0)
+                effectiveDegrade *= MaintenanceTweaksV0.NoSupplyDecayMultiplier;
+
+            site.HealthBps = Math.Max(MaintenanceTweaksV0.MinHealthBps, site.HealthBps - effectiveDegrade);
             UpdateEfficiency(site);
         }
     }
@@ -63,6 +77,43 @@ public static class MaintenanceSystem
             Success = true,
             CreditsCost = cost,
             BpsRestored = bpsToRepair
+        };
+    }
+
+    /// <summary>
+    /// GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001: Repairs a site by consuming supply goods instead of credits.
+    /// Each supply unit restores BpsPerSupplyUnit basis points of health.
+    /// </summary>
+    public static RepairResult RepairWithSupply(SimState state, string siteId, int supplyUnitsToUse)
+    {
+        if (string.IsNullOrEmpty(siteId))
+            return new RepairResult { Success = false, Reason = "empty_site_id" };
+
+        if (!state.IndustrySites.TryGetValue(siteId, out var site))
+            return new RepairResult { Success = false, Reason = "site_not_found" };
+
+        if (supplyUnitsToUse <= 0)
+            return new RepairResult { Success = false, Reason = "invalid_amount" };
+
+        if (site.SupplyLevel < supplyUnitsToUse)
+            return new RepairResult { Success = false, Reason = "insufficient_supply" };
+
+        if (site.HealthBps >= MaintenanceTweaksV0.MaxHealthBps)
+            return new RepairResult { Success = false, Reason = "already_full_health" };
+
+        int maxBpsRestorable = MaintenanceTweaksV0.MaxHealthBps - site.HealthBps;
+        int bpsFromSupply = supplyUnitsToUse * MaintenanceTweaksV0.BpsPerSupplyUnit;
+        int bpsRestored = Math.Min(bpsFromSupply, maxBpsRestorable);
+
+        site.SupplyLevel -= supplyUnitsToUse;
+        site.HealthBps += bpsRestored;
+        UpdateEfficiency(site);
+
+        return new RepairResult
+        {
+            Success = true,
+            CreditsCost = 0,
+            BpsRestored = bpsRestored
         };
     }
 

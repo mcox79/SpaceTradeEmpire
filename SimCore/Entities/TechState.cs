@@ -13,6 +13,7 @@ public sealed class TechState
     [JsonInclude] public long ResearchCreditsSpent { get; set; } = 0;
     [JsonInclude] public List<TechEvent> EventLog { get; set; } = new();
     [JsonInclude] public long NextEventSeq { get; set; } = 1;
+    [JsonInclude] public int TechLevel { get; set; } = 0;
 
     [JsonIgnore]
     public bool IsResearching => !string.IsNullOrEmpty(CurrentResearchTechId);

@@ -37,6 +37,11 @@ public class IndustrySite
 
     public bool Active { get; set; } = true;
 
+    // GATE.S4.MAINT_SUSTAIN.SUPPLY_REPAIR.001
+    // Supply inventory at the site (0-100 scale, 100 = fully stocked).
+    // Consumed gradually by active sites; required for supply-based repair.
+    [JsonInclude] public int SupplyLevel { get; set; } = 100;
+
     // GATE.S4.INDU_STRUCT.RECIPE_BIND.001
     // Metadata binding to content registry recipe. Inline Inputs/Outputs remain the execution driver.
     // Empty string means unbound (natural source, e.g. fuel wells).

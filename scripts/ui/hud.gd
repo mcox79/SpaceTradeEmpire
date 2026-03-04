@@ -22,6 +22,9 @@ var _mission_panel: PanelContainer = null
 var _mission_title_label: Label = null
 var _mission_step_label: Label = null
 
+# GATE.S3.RISK_SINKS.BRIDGE.001: delay status label
+var _delay_label: Label = null
+
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
 # GATE.S1.SAVE_UI.SLOTS.001: save slot labels for metadata display
@@ -35,6 +38,15 @@ func _ready() -> void:
 	_combat_label.add_theme_color_override("font_color", Color.RED)
 	_combat_label.position = Vector2(10, 160)
 	add_child(_combat_label)
+
+	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status label (below combat label)
+	_delay_label = Label.new()
+	_delay_label.name = "DelayLabel"
+	_delay_label.text = ""
+	_delay_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2, 1.0))
+	_delay_label.position = Vector2(10, 180)
+	_delay_label.visible = false
+	add_child(_delay_label)
 
 	# GATE.S1.MISSION.HUD.001: mission objective panel (below cargo/credits)
 	_mission_panel = PanelContainer.new()
@@ -223,6 +235,31 @@ func _physics_process(_delta: float) -> void:
 			_mission_step_label.text = "[%d/%d] %s" % [step_num, total, obj]
 		else:
 			_mission_panel.visible = false
+
+	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status display
+	if _delay_label != null and _bridge != null:
+		var show_delay := false
+		var delay_text := ""
+		# Check ship state — only show during transit.
+		var ship_state: String = str(ps.get("ship_state_token", ""))
+		if ship_state == "Traveling" or ship_state == "FractureTraveling":
+			if _bridge.has_method("GetDelayStatusV0"):
+				var delay_info: Dictionary = _bridge.call("GetDelayStatusV0", "fleet_trader_1")
+				if delay_info.get("delayed", false):
+					show_delay = true
+					delay_text = "DELAYED: %d ticks remaining" % int(delay_info.get("ticks_remaining", 0))
+			if _bridge.has_method("GetTravelEtaV0"):
+				var node_id: String = str(ps.get("current_node_id", ""))
+				var eta_info: Dictionary = _bridge.call("GetTravelEtaV0", "fleet_trader_1", node_id)
+				var total_ticks: int = int(eta_info.get("total_ticks", 0))
+				if total_ticks > 0:
+					show_delay = true
+					if delay_text.is_empty():
+						delay_text = "ETA: %d ticks" % total_ticks
+					else:
+						delay_text += " | ETA: %d ticks" % total_ticks
+		_delay_label.visible = show_delay
+		_delay_label.text = delay_text
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(show: bool) -> void:

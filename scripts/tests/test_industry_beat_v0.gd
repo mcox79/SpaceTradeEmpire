@@ -12,16 +12,16 @@ var _results: Array = []
 func _init():
 	print("HSS|test_industry_beat_v0|start")
 
-func _process(_delta: float) -> void:
+func _process(_delta: float) -> bool:
 	if _phase == 0:
 		_bridge = root.get_node_or_null("SimBridge")
 		if _bridge == null or not _bridge.has_method("GetBridgeReadyV0"):
-			return
+			return false
 		if not _bridge.call("GetBridgeReadyV0"):
-			return
+			return false
 		print("HSS|bridge_ready")
 		_phase = 1
-		return
+		return false
 
 	if _phase == 1:
 		# Phase 1: Check we can query tech tree
@@ -30,7 +30,7 @@ func _process(_delta: float) -> void:
 			print("HSS|tech_tree_count=%d" % techs.size())
 			_results.append("tech_tree_ok")
 		_phase = 2
-		return
+		return false
 
 	if _phase == 2:
 		# Phase 2: Start research
@@ -40,7 +40,7 @@ func _process(_delta: float) -> void:
 			if bool(r.get("success", false)):
 				_results.append("research_started")
 		_phase = 3
-		return
+		return false
 
 	if _phase == 3:
 		# Phase 3: Tick until research completes
@@ -48,14 +48,14 @@ func _process(_delta: float) -> void:
 		if _tick_count > _max_ticks:
 			print("HSL|FAIL|research_timeout")
 			_stop()
-			return
+			return false
 		if _bridge.has_method("GetResearchStatusV0"):
 			var s: Dictionary = _bridge.call("GetResearchStatusV0")
 			if not bool(s.get("researching", false)):
 				print("HSS|research_done|ticks=%d" % _tick_count)
 				_results.append("research_done")
 				_phase = 4
-		return
+		return false
 
 	if _phase == 4:
 		# Phase 4: Check available modules
@@ -68,7 +68,7 @@ func _process(_delta: float) -> void:
 			print("HSS|available_modules=%d|installable=%d" % [mods.size(), installable_count])
 			_results.append("modules_queried")
 		_phase = 5
-		return
+		return false
 
 	if _phase == 5:
 		# Phase 5: Check maintenance status
@@ -80,7 +80,7 @@ func _process(_delta: float) -> void:
 				print("HSS|maintenance_sites=%d" % maint.size())
 				_results.append("maintenance_queried")
 		_phase = 6
-		return
+		return false
 
 	if _phase == 6:
 		# Phase 6: Attempt a trade (buy if market available)
@@ -97,7 +97,7 @@ func _process(_delta: float) -> void:
 						print("HSS|trade_buy|%s" % gid)
 						_results.append("trade_done")
 		_phase = 7
-		return
+		return false
 
 	if _phase == 7:
 		# Summary
@@ -113,6 +113,9 @@ func _process(_delta: float) -> void:
 		else:
 			print("HSL|FAIL|missing_required_results")
 		_stop()
+		return false
+
+	return false
 
 func _stop() -> void:
 	if _bridge and _bridge.has_method("StopSimV0"):

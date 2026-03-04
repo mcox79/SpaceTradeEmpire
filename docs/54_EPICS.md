@@ -73,6 +73,9 @@ Primary anchors:
 - EPIC.S1.SAVE_LOAD_UI.V0 [DONE]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
 - EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
 - EPIC.X.PRESSURE_FORMALIZATION.V0 [TODO]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
+- EPIC.X.EXPERIENCE_PROOF.V0 [TODO]: Automated experience validation suite — ExperienceObserver reads scene tree as structured JSON (HUD text, materials, particles, audio, camera state); ExperienceTimeline tracks trajectories over time (credits growth, state coverage, pacing); 5 headless scenario playthroughs (early game trade loop, combat integration, galaxy map, discovery, full 60s capstone); AestheticAudit with 14 visual quality flags (critical: hard-fail; non-critical: warn); ExperienceMetrics with diagnostic output pointing to investigate paths; SystemConnectivity C# invariant; reports/experience/latest_report.json for LLM-assisted review; enables Claude iteration loop without human-in-the-loop (gates: GATE.X.EXP.*)
+- EPIC.S1.CAMERA_POLISH.V0 [TODO]: Camera presentation polish v0 — Phantom Camera addon integration, flight/orbit/station follow modes, combat shake on turret fire and damage; GameShell-only, no SimCore changes (gates: GATE.S1.CAMERA.*)
+- EPIC.S1.SPATIAL_AUDIO_DEPTH.V0 [TODO]: Spatial audio depth v0 — engine thrust AudioStreamRandomizer, positional combat SFX (fire/impact), ambient station hum and lane drone; AudioStreamPlayer3D with 3D falloff; GameShell-only, no SimCore changes (gates: GATE.S1.SPATIAL_AUDIO.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -90,6 +93,9 @@ Epics:
 - EPIC.X.PLAYER_LOOP_CONTRACT: “Greatness spec” player loops and non-negotiables (see below)
 - EPIC.X.CODE_HEALTH: Code health hygiene — GalaxyGenerator split continuation, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
 - EPIC.X.PRESSURE_FORMALIZATION.V0: Pressure state ladder formalization — 5-state enum, direction indicators, max-one-jump enforcement, intervention budget QA metric (gates: GATE.X.PRESSURE.*)
+- EPIC.X.EXPERIENCE_PROOF.V0: Automated experience validation — headless scenario playthroughs, trajectory analysis, aesthetic audit, diagnostic reports for LLM-assisted iteration (gates: GATE.X.EXP.*)
+- EPIC.S1.CAMERA_POLISH.V0: Camera presentation polish — Phantom Camera addon, follow modes, combat shake (gates: GATE.S1.CAMERA.*)
+- EPIC.S1.SPATIAL_AUDIO_DEPTH.V0: Spatial audio depth — engine thrust, combat SFX, ambient audio with 3D falloff (gates: GATE.S1.SPATIAL_AUDIO.*)
 
 Greatness spec (non-negotiables, enforced by gates over time):
 - Primary loop: explore -> find cool things -> convert to empire leverage -> explore further -> pursue win scenarios

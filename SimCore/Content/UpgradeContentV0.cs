@@ -12,6 +12,9 @@ public sealed class ModuleDef
     public int CreditCost { get; set; } = 0;
     public string TechPrerequisite { get; set; } = "";
 
+    // GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: Ticks required to install this module.
+    public int InstallTicks { get; set; } = 5;
+
     // Stat bonuses (integer pct: 20 = +20%)
     public int SpeedBonusPct { get; set; } = 0;
     public int ShieldBonusFlat { get; set; } = 0;
@@ -31,6 +34,7 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 50,
             TechPrerequisite = "",
+            InstallTicks = 3, // simple starter weapon
             DamageBonusPct = 0, // base weapon, no bonus
         },
         new ModuleDef
@@ -40,6 +44,7 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 50,
             TechPrerequisite = "",
+            InstallTicks = 3, // simple starter weapon
             DamageBonusPct = 0,
         },
         // Tech-gated upgrades
@@ -50,6 +55,7 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 120,
             TechPrerequisite = "weapon_systems_2",
+            InstallTicks = 6, // advanced weapon
             DamageBonusPct = 25,
         },
         new ModuleDef
@@ -59,6 +65,7 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Utility,
             CreditCost = 100,
             TechPrerequisite = "shield_mk2",
+            InstallTicks = 8, // complex shield integration
             ShieldBonusFlat = 30,
         },
         new ModuleDef
@@ -68,6 +75,7 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Engine,
             CreditCost = 80,
             TechPrerequisite = "improved_thrusters",
+            InstallTicks = 10, // engine overhaul is most complex
             SpeedBonusPct = 20,
         },
     };

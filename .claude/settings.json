@@ -12,7 +12,13 @@
       "Bash(powershell -Command *)",
       "Bash(rm /d/SGE/SpaceTradeEmpire/*.ps1)",
       "Bash(rm /d/SGE/SpaceTradeEmpire/*.txt)",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ResearchSystem|RefitSystem|MaintenanceSystem|SaveLoadTech\")"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ResearchSystem|RefitSystem|MaintenanceSystem|SaveLoadTech\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"SystemConnectivity\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"SystemConnectivity\")",
+      "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --script scripts/tests/test_experience_early_game_v0.gd)",
+      "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --script scripts/tests/test_experience_full_loop_v0.gd)",
+      "Bash(git clone --depth 1 https://github.com/ramokz/phantom-camera \"D:/SGE/SpaceTradeEmpire/phantom-camera-temp\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo --filter \"EconomyStress\")"
     ],
     "ask": [
       "Bash(git push*)"
