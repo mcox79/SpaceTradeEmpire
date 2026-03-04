@@ -1014,6 +1014,55 @@ public partial class SimBridge : Node
         }
     }
 
+    // GATE.S1.DISCOVERY_INTERACT.SCAN.001: Advance discovery phase (Seen→Scanned or Scanned→Analyzed).
+    public Godot.Collections.Dictionary AdvanceDiscoveryPhaseV0(string discoveryId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["ok"] = false;
+        result["phase_token"] = "UNKNOWN";
+        result["reason"] = "";
+
+        if (string.IsNullOrEmpty(discoveryId) || IsLoading)
+        {
+            result["reason"] = "invalid";
+            return result;
+        }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+
+            // Try scan first (Seen → Scanned).
+            var scanReason = SimCore.Systems.IntelSystem.GetScanReasonCode(state, discoveryId);
+            if (scanReason == SimCore.Entities.DiscoveryReasonCode.Ok)
+            {
+                SimCore.Systems.IntelSystem.ApplyScan(state, "fleet_trader_1", discoveryId);
+                result["ok"] = true;
+                result["phase_token"] = "SCANNED";
+                return result;
+            }
+
+            // Try analyze (Scanned → Analyzed).
+            var analyzeReason = SimCore.Systems.IntelSystem.GetAnalyzeReasonCode(state, discoveryId);
+            if (analyzeReason == SimCore.Entities.DiscoveryReasonCode.Ok)
+            {
+                SimCore.Systems.IntelSystem.ApplyAnalyze(state, "fleet_trader_1", discoveryId);
+                result["ok"] = true;
+                result["phase_token"] = "ANALYZED";
+                return result;
+            }
+
+            result["reason"] = scanReason.ToString();
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
     // --- Fleet UI commands (Slice 3 / GATE.UI.FLEET.002, GATE.UI.FLEET.003) ---
 
     // Best-effort: block until the sim thread advances at least one tick so an immediate UI Refresh()
@@ -1068,6 +1117,51 @@ public partial class SimBridge : Node
     public void RequestLoad()
     {
         _loadRequested = true;
+    }
+
+    // GATE.S1.SAVE_UI.SLOTS.001: save slot support (3 slots).
+    public void SetActiveSaveSlotV0(int slot)
+    {
+        if (slot < 1 || slot > 3) slot = 1;
+        _savePathAbs = ProjectSettings.GlobalizePath($"user://quicksave_{slot}.json");
+    }
+
+    public Godot.Collections.Dictionary GetSaveSlotMetadataV0(int slot)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["slot"] = slot;
+        result["exists"] = false;
+        result["timestamp"] = "";
+        result["credits"] = 0;
+        result["system_name"] = "";
+
+        if (slot < 1 || slot > 3) return result;
+
+        var path = ProjectSettings.GlobalizePath($"user://quicksave_{slot}.json");
+        if (!File.Exists(path)) return result;
+
+        result["exists"] = true;
+        try
+        {
+            result["timestamp"] = File.GetLastWriteTime(path).ToString("yyyy-MM-dd HH:mm");
+
+            var text = File.ReadAllText(path);
+            if (TryParseQuickSaveV2(text, out var qs))
+            {
+                var root = qs.Kernel;
+                if (root.TryGetProperty("Fleets", out var fleets) &&
+                    fleets.TryGetProperty("fleet_trader_1", out var pf))
+                {
+                    if (pf.TryGetProperty("Credits", out var c))
+                        result["credits"] = c.GetInt32();
+                    if (pf.TryGetProperty("CurrentNodeId", out var n))
+                        result["system_name"] = n.GetString() ?? "";
+                }
+            }
+        }
+        catch { /* best-effort metadata extraction */ }
+
+        return result;
     }
 
     private void ExecuteSave()

@@ -47,6 +47,20 @@ var _turret_cooldown: float = 0.0
 var _ai_fire_cooldown: float = 0.0
 var _bullet_scene: PackedScene = null
 
+# GATE.S1.AUDIO.SFX_CORE.001: Procedural synth audio players.
+var _sfx_turret_fire: AudioStreamPlayer = null
+var _sfx_bullet_hit: AudioStreamPlayer = null
+var _sfx_explosion: AudioStreamPlayer = null
+var _sfx_engine_thrust: AudioStreamPlayer = null
+
+# GATE.S1.AUDIO.AMBIENT.001: Ambient audio players.
+var _sfx_ambient_drone: AudioStreamPlayer = null
+var _sfx_warp_whoosh: AudioStreamPlayer = null
+var _sfx_dock_chime: AudioStreamPlayer = null
+
+# GATE.S1.SAVE_UI.PAUSE_MENU.001: Pause state
+var _paused: bool = false
+
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
 var time_accumulator: float = 0.0
@@ -112,6 +126,7 @@ func _ready():
 			_discovery_panel.connect("request_undock", c)
 
 	_bullet_scene = load("res://scenes/bullet.tscn")
+	_init_sfx_v0()
 
 	if _galaxy_overlay_layer:
 		_galaxy_overlay_layer.visible = false
@@ -134,6 +149,17 @@ func _process(delta):
 		_turret_cooldown -= float(delta)
 	if _ai_fire_cooldown > 0.0:
 		_ai_fire_cooldown -= float(delta)
+	# GATE.S1.AUDIO.SFX_CORE.001: engine thrust audio loop
+	if _sfx_engine_thrust:
+		var _thrust_on := current_player_state == PlayerShipState.IN_FLIGHT and not _player_dead
+		if _thrust_on and not _sfx_engine_thrust.playing:
+			_sfx_engine_thrust.play()
+		elif not _thrust_on and _sfx_engine_thrust.playing:
+			_sfx_engine_thrust.stop()
+	# GATE.S1.AUDIO.AMBIENT.001: duck ambient during combat
+	if _sfx_ambient_drone:
+		var _hostiles_near := _find_nearest_fleet_v0(AI_AGGRO_RANGE) != null
+		_sfx_ambient_drone.volume_db = -24.0 if _hostiles_near else -18.0
 	# AI auto-fire at player when in range; check for death after each shot
 	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
 		_ai_fire_v0()
@@ -157,6 +183,9 @@ func _unhandled_input(event):
 		if _player_dead:
 			if event.keycode == KEY_R:
 				get_tree().reload_current_scene()
+			return
+		if event.keycode == KEY_ESCAPE:
+			_toggle_pause_v0()
 			return
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
@@ -240,6 +269,9 @@ func on_proximity_dock_entered_v0(target: Node):
 
 	# Deterministic token for headless assertions (no timestamps).
 	print("UUIR|DOCK_ENTER|" + dock_target_kind_token + "|" + dock_target_id)
+	# GATE.S1.AUDIO.AMBIENT.001: dock chime
+	if _sfx_dock_chime:
+		_sfx_dock_chime.play()
 
 	if dock_target_kind_token == "STATION":
 		_open_station_menu_v0(target)
@@ -278,6 +310,9 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 		return
 
 	print("UUIR|LANE_ENTER|" + neighbor_node_id)
+	# GATE.S1.AUDIO.AMBIENT.001: warp whoosh on lane jump
+	if _sfx_warp_whoosh:
+		_sfx_warp_whoosh.play()
 
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchTravelCommandV0"):
@@ -342,6 +377,8 @@ func _fire_turret_v0() -> void:
 		return
 	_spawn_bullet_v0(_hero_body.global_position, target.global_position, true, "")
 	_turret_cooldown = TURRET_COOLDOWN_SEC
+	if _sfx_turret_fire:
+		_sfx_turret_fire.play()
 
 # AI auto-fire: nearest hostile fleet in aggro range fires at player each cooldown tick.
 func _ai_fire_v0() -> void:
@@ -445,6 +482,8 @@ func despawn_fleet_v0(fleet_id: String) -> void:
 	for node in get_tree().get_nodes_in_group("FleetShip"):
 		if str(node.name) == target_name:
 			print("UUIR|FLEET_DESPAWN|" + target_name)
+			if _sfx_explosion:
+				_sfx_explosion.play()
 			node.remove_from_group("FleetShip")  # Immediate removal stops AI targeting
 			node.queue_free()
 			return
@@ -502,3 +541,123 @@ func _dock_target_id_v0(target: Node) -> String:
 			return v2
 
 	return str(target.name)
+
+# GATE.S1.AUDIO.SFX_CORE.001: Procedural synth tone generator (placeholder audio).
+func _generate_tone_v0(freq_hz: float, duration_sec: float, vol: float = 0.5, apply_decay: bool = true) -> AudioStreamWAV:
+	var sr := 22050
+	var n := int(sr * duration_sec)
+	if n < 1:
+		n = 1
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in range(n):
+		var t := float(i) / sr
+		var s := sin(2.0 * PI * freq_hz * t) * vol
+		if apply_decay:
+			s *= 1.0 - float(i) / n
+		var s16 := int(clampf(s * 32767.0, -32768.0, 32767.0))
+		data[i * 2] = s16 & 0xFF
+		data[i * 2 + 1] = (s16 >> 8) & 0xFF
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sr
+	stream.stereo = false
+	stream.data = data
+	return stream
+
+func _generate_noise_v0(duration_sec: float, vol: float = 0.3) -> AudioStreamWAV:
+	var sr := 22050
+	var n := int(sr * duration_sec)
+	if n < 1:
+		n = 1
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	for i in range(n):
+		var env := 1.0 - float(i) / n
+		var s := (rng.randf() * 2.0 - 1.0) * vol * env
+		var s16 := int(clampf(s * 32767.0, -32768.0, 32767.0))
+		data[i * 2] = s16 & 0xFF
+		data[i * 2 + 1] = (s16 >> 8) & 0xFF
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sr
+	stream.stereo = false
+	stream.data = data
+	return stream
+
+func _init_sfx_v0() -> void:
+	_sfx_turret_fire = AudioStreamPlayer.new()
+	_sfx_turret_fire.name = "SfxTurretFire"
+	_sfx_turret_fire.stream = _generate_tone_v0(440.0, 0.1)
+	_sfx_turret_fire.volume_db = -6.0
+	add_child(_sfx_turret_fire)
+
+	_sfx_bullet_hit = AudioStreamPlayer.new()
+	_sfx_bullet_hit.name = "SfxBulletHit"
+	_sfx_bullet_hit.stream = _generate_tone_v0(800.0, 0.05, 0.4)
+	_sfx_bullet_hit.volume_db = -6.0
+	add_child(_sfx_bullet_hit)
+
+	_sfx_explosion = AudioStreamPlayer.new()
+	_sfx_explosion.name = "SfxExplosion"
+	_sfx_explosion.stream = _generate_noise_v0(0.3)
+	_sfx_explosion.volume_db = -3.0
+	add_child(_sfx_explosion)
+
+	var thrust_stream := _generate_tone_v0(80.0, 1.0, 0.15, false)
+	thrust_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	thrust_stream.loop_begin = 0
+	thrust_stream.loop_end = 22050
+	_sfx_engine_thrust = AudioStreamPlayer.new()
+	_sfx_engine_thrust.name = "SfxEngineThrust"
+	_sfx_engine_thrust.stream = thrust_stream
+	_sfx_engine_thrust.volume_db = -12.0
+	add_child(_sfx_engine_thrust)
+
+	# GATE.S1.AUDIO.AMBIENT.001: ambient drone + event chimes
+	var drone := _generate_tone_v0(50.0, 2.0, 0.08, false)
+	drone.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	drone.loop_begin = 0
+	drone.loop_end = 44100
+	_sfx_ambient_drone = AudioStreamPlayer.new()
+	_sfx_ambient_drone.name = "SfxAmbientDrone"
+	_sfx_ambient_drone.stream = drone
+	_sfx_ambient_drone.volume_db = -18.0
+	add_child(_sfx_ambient_drone)
+	_sfx_ambient_drone.play()
+
+	_sfx_warp_whoosh = AudioStreamPlayer.new()
+	_sfx_warp_whoosh.name = "SfxWarpWhoosh"
+	_sfx_warp_whoosh.stream = _generate_noise_v0(0.5, 0.25)
+	_sfx_warp_whoosh.volume_db = -6.0
+	add_child(_sfx_warp_whoosh)
+
+	_sfx_dock_chime = AudioStreamPlayer.new()
+	_sfx_dock_chime.name = "SfxDockChime"
+	_sfx_dock_chime.stream = _generate_tone_v0(880.0, 0.3, 0.3)
+	_sfx_dock_chime.volume_db = -6.0
+	add_child(_sfx_dock_chime)
+
+# GATE.S1.AUDIO.SFX_CORE.001: public SFX methods for bullet.gd.
+func play_hit_sfx_v0() -> void:
+	if _sfx_bullet_hit:
+		_sfx_bullet_hit.play()
+
+func play_explosion_sfx_v0() -> void:
+	if _sfx_explosion:
+		_sfx_explosion.play()
+
+# GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause state.
+func _toggle_pause_v0() -> void:
+	if _player_dead:
+		return
+	_paused = not _paused
+	get_tree().paused = _paused
+	if _paused and galaxy_overlay_open:
+		toggle_galaxy_map_overlay_v0()
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud and hud.has_method("toggle_pause_menu_v0"):
+		hud.call("toggle_pause_menu_v0", _paused)
+	print("UUIR|PAUSE|" + str(_paused))

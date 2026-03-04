@@ -60,6 +60,10 @@ func _on_body_entered(body: Node) -> void:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
 			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)
+	# GATE.S1.AUDIO.SFX_CORE.001: hit SFX
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("play_hit_sfx_v0"):
+		gm.call("play_hit_sfx_v0")
 	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
 	_spawn_hit_vfx(global_position)
 	queue_free()
@@ -77,6 +81,10 @@ func _on_area_entered(area: Area3D) -> void:
 					var gm = get_node_or_null("/root/GameManager")
 					if gm and gm.has_method("despawn_fleet_v0"):
 						gm.call("despawn_fleet_v0", fleet_id)
+	# GATE.S1.AUDIO.SFX_CORE.001: hit SFX
+	var gm_sfx = get_node_or_null("/root/GameManager")
+	if gm_sfx and gm_sfx.has_method("play_hit_sfx_v0"):
+		gm_sfx.call("play_hit_sfx_v0")
 	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
 	_spawn_hit_vfx(global_position)
 	queue_free()
