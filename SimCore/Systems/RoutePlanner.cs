@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using SimCore.Entities;
+using SimCore.Tweaks;
 
 namespace SimCore.Systems;
 
@@ -23,6 +25,7 @@ public static class RoutePlanner
     private const int STRUCT_MIN_POSITIVE = 1; // STRUCTURAL: clamp for non-zero defaults and min tick rules
     private const int STRUCT_THOUSAND = 1000;  // STRUCTURAL: scale factor for milli-AU conversion and formatting math
 
+    private const int STRUCT_PCT_DIVISOR = 100; // STRUCTURAL: int-pct denominator for multiplier conversion
     private const int DefaultMaxCandidates = 8;
 
     public sealed class RoutePlan
@@ -415,5 +418,87 @@ public static class RoutePlanner
         var ticks = (int)Math.Ceiling(raw);
         if (ticks < 1) ticks = 1;
         return ticks;
+    }
+
+    // GATE.S6.FRACTURE.TRAVEL.001 — Fracture route plan (single direct hop, Euclidean).
+    public sealed class FractureRoutePlan
+    {
+        public string FromNodeId { get; init; } = "";
+        public string ToNodeId { get; init; } = "";
+
+        // Travel ticks: ceil(euclidean_distance / speed) * FractureFuelCostMultiplierPct / 100
+        public int TotalTravelTicks { get; init; }
+
+        // Fuel cost mirrors TotalTravelTicks (tick-based fuel model).
+        public int FuelCost { get; init; }
+
+        // Risk rating: 0=LOW, 1=MED, 2=HIGH, 3=EXTREME — derived from fracture-scaled milli-AU distance.
+        public int RiskRating { get; init; }
+
+        // Always true for fracture routes.
+        public bool IsFracture { get; init; } = true;
+    }
+
+    // GATE.S6.FRACTURE.TRAVEL.001 — Plan a direct fracture jump between two nodes.
+    // Conditions: both nodes must exist; at least one must have IsFractureNode=true.
+    // Travel ticks = ceil(euclidean_distance / speed) * FractureFuelCostMultiplierPct / 100, min 1.
+    // Risk = milli-AU distance * FractureRiskMultiplierPct / 100, mapped to band 0-3 via RiskModelV0.
+    // No pathfinding — single hop, Euclidean distance only. Integer arithmetic after distance float.
+    public static bool TryPlanFractureRoute(
+        SimState state,
+        string fromNodeId,
+        string toNodeId,
+        float speedAuPerTick,
+        out FractureRoutePlan plan)
+    {
+        plan = new FractureRoutePlan { FromNodeId = fromNodeId ?? "", ToNodeId = toNodeId ?? "" };
+
+        if (state is null) return false;
+        if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return false;
+        if (!state.Nodes.TryGetValue(fromNodeId, out var fromNode)) return false;
+        if (!state.Nodes.TryGetValue(toNodeId, out var toNode)) return false;
+
+        // At least one node must be a fracture node.
+        if (!fromNode.IsFractureNode && !toNode.IsFractureNode) return false;
+
+        var speed = speedAuPerTick > default(float) ? speedAuPerTick : STRUCT_MIN_POSITIVE;
+
+        // Euclidean distance (float), then immediately convert to integer tick math.
+        float dist = Vector3.Distance(fromNode.Position, toNode.Position);
+        if (dist < default(float)) dist = default(float);
+
+        // Base ticks = ceil(dist / speed), min 1.
+        var baseTicks = (int)Math.Ceiling(dist / speed);
+        if (baseTicks < STRUCT_MIN_POSITIVE) baseTicks = STRUCT_MIN_POSITIVE;
+
+        // Fracture travel ticks: base * FractureFuelCostMultiplierPct / 100. Min 1.
+        var fractureTicks = baseTicks * FractureTweaksV0.FractureFuelCostMultiplierPct / STRUCT_PCT_DIVISOR;
+        if (fractureTicks < STRUCT_MIN_POSITIVE) fractureTicks = STRUCT_MIN_POSITIVE;
+
+        // Risk score: milli-AU * FractureRiskMultiplierPct / 100.
+        // milli-AU = round(dist * 1000).
+        var milliAu = (int)Math.Round(dist * (float)STRUCT_THOUSAND, MidpointRounding.AwayFromZero);
+        if (milliAu < default(int)) milliAu = default(int);
+        var fractureRiskScore = milliAu * FractureTweaksV0.FractureRiskMultiplierPct / STRUCT_PCT_DIVISOR;
+        if (fractureRiskScore < default(int)) fractureRiskScore = default(int);
+
+        // Map to risk band 0-3 using existing RiskModelV0 thresholds.
+        int riskBand;
+        if (fractureRiskScore < SimCore.RiskModelV0.RiskBand0Max) riskBand = SimCore.RiskModelV0.BandLow;
+        else if (fractureRiskScore < SimCore.RiskModelV0.RiskBand1Max) riskBand = SimCore.RiskModelV0.BandMed;
+        else if (fractureRiskScore < SimCore.RiskModelV0.RiskBand2Max) riskBand = SimCore.RiskModelV0.BandHigh;
+        else riskBand = SimCore.RiskModelV0.BandExtreme;
+
+        plan = new FractureRoutePlan
+        {
+            FromNodeId = fromNodeId,
+            ToNodeId = toNodeId,
+            TotalTravelTicks = fractureTicks,
+            FuelCost = fractureTicks,
+            RiskRating = riskBand,
+            IsFracture = true
+        };
+
+        return true;
     }
 }

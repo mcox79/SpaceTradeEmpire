@@ -2,6 +2,20 @@
   "version": 0,
   "goods": [
     {
+      "id": "anomaly_samples",
+      "display_name": "Anomaly Samples",
+      "tier": 3,
+      "base_price_band": "high",
+      "stackable": true
+    },
+    {
+      "id": "exotic_crystals",
+      "display_name": "Exotic Crystals",
+      "tier": 3,
+      "base_price_band": "high",
+      "stackable": true
+    },
+    {
       "id": "food",
       "display_name": "Food Rations",
       "tier": 1,
@@ -34,6 +48,13 @@
       "display_name": "Raw Ore",
       "tier": 1,
       "base_price_band": "low",
+      "stackable": true
+    },
+    {
+      "id": "salvaged_tech",
+      "display_name": "Salvaged Technology",
+      "tier": 3,
+      "base_price_band": "high",
       "stackable": true
     }
   ],

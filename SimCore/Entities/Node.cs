@@ -21,4 +21,10 @@ public class Node
     // SLICE 3: SIGNAL LAYER
     // Precursor Trace: Accumulates from Fracture usage. Drives Containment.
     public float Trace { get; set; } = 0f;
+
+    // GATE.S6.FRACTURE.ACCESS_MODEL.001: Fracture node access properties.
+    // IsFractureNode: true if this node requires fracture access checks.
+    // FractureTier: minimum tech tier required to enter (0 = any, 1+ = tiered).
+    public bool IsFractureNode { get; set; } = false;
+    public int FractureTier { get; set; } = 0;
 }

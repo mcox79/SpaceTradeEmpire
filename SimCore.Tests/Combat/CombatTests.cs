@@ -411,3 +411,523 @@ public sealed class CombatBridgeContractTests
 		Assert.That(last.Events.Any(e => e.AttackerId == "hero" || e.DefenderId == "hero"), Is.True);
 	}
 }
+
+// ── GATE.S5.COMBAT.COUNTER_FAMILY.001: PointDefense counter family ──
+
+[TestFixture]
+[Category("CombatCounterFamily")]
+public sealed class PointDefenseCounterFamilyTests
+{
+	[Test]
+	public void CalcDamage_PointDefenseVsMissileTarget_AppliesDoubleBonus()
+	{
+		// PointDefense base damage 8, vs missile target → 2x bonus → effective 16.
+		// No shield/hull multipliers on PointDefense (uses NeutralPct = 100).
+		// All damage goes to hull (no shields).
+		int baseDmg = 8;
+		var result = CombatSystem.CalcDamage(
+			baseDmg,
+			CombatSystem.DamageFamily.PointDefense,
+			defenderShieldHp: 0,
+			defenderHullHp: 100,
+			CombatSystem.TargetWeaponFamily.Missile);
+
+		// effective = 8 * 200 / 100 = 16
+		Assert.That(result.HullDmg, Is.EqualTo(16));
+		Assert.That(result.ShieldDmg, Is.EqualTo(0));
+	}
+
+	[Test]
+	public void CalcDamage_PointDefenseVsTorpedoTarget_AppliesDoubleBonus()
+	{
+		int baseDmg = 8;
+		var result = CombatSystem.CalcDamage(
+			baseDmg,
+			CombatSystem.DamageFamily.PointDefense,
+			defenderShieldHp: 0,
+			defenderHullHp: 100,
+			CombatSystem.TargetWeaponFamily.Torpedo);
+
+		Assert.That(result.HullDmg, Is.EqualTo(16));
+	}
+
+	[Test]
+	public void CalcDamage_PointDefenseVsCannonTarget_NoBonus()
+	{
+		// PointDefense vs cannon (Other) → base damage only, no counter bonus.
+		int baseDmg = 8;
+		var result = CombatSystem.CalcDamage(
+			baseDmg,
+			CombatSystem.DamageFamily.PointDefense,
+			defenderShieldHp: 0,
+			defenderHullHp: 100,
+			CombatSystem.TargetWeaponFamily.Other);
+
+		// No bonus: effective = 8 * 100 / 100 = 8
+		Assert.That(result.HullDmg, Is.EqualTo(8));
+	}
+
+	[Test]
+	public void CalcDamage_StandardWeaponVsMissileTarget_NoCounterBonus()
+	{
+		// Kinetic weapon vs missile target → standard kinetic multipliers, no counter bonus.
+		int baseDmg = 10;
+		var resultWithTarget = CombatSystem.CalcDamage(
+			baseDmg,
+			CombatSystem.DamageFamily.Kinetic,
+			defenderShieldHp: 0,
+			defenderHullHp: 100,
+			CombatSystem.TargetWeaponFamily.Missile);
+
+		var resultWithoutTarget = CombatSystem.CalcDamage(
+			baseDmg,
+			CombatSystem.DamageFamily.Kinetic,
+			defenderShieldHp: 0,
+			defenderHullHp: 100,
+			CombatSystem.TargetWeaponFamily.Other);
+
+		// Both should produce the same result (kinetic vs hull = 10 * 150 / 100 = 15).
+		Assert.That(resultWithTarget.HullDmg, Is.EqualTo(15));
+		Assert.That(resultWithoutTarget.HullDmg, Is.EqualTo(15));
+		Assert.That(resultWithTarget.HullDmg, Is.EqualTo(resultWithoutTarget.HullDmg));
+	}
+
+	[Test]
+	public void CalcDamage_PointDefense_IsDeterministic()
+	{
+		int baseDmg = 8;
+		var a = CombatSystem.CalcDamage(baseDmg, CombatSystem.DamageFamily.PointDefense, 0, 100, CombatSystem.TargetWeaponFamily.Missile);
+		var b = CombatSystem.CalcDamage(baseDmg, CombatSystem.DamageFamily.PointDefense, 0, 100, CombatSystem.TargetWeaponFamily.Missile);
+
+		Assert.That(a.HullDmg, Is.EqualTo(b.HullDmg));
+		Assert.That(a.ShieldDmg, Is.EqualTo(b.ShieldDmg));
+	}
+
+	[Test]
+	public void ClassifyWeapon_PointDefenseModule_IsPointDefenseFamily()
+	{
+		Assert.That(
+			CombatSystem.ClassifyWeapon("weapon_point_defense_mk1"),
+			Is.EqualTo(CombatSystem.DamageFamily.PointDefense));
+	}
+
+	[Test]
+	public void ClassifyTargetWeaponFamily_MissileModule_IsMissile()
+	{
+		Assert.That(
+			CombatSystem.ClassifyTargetWeaponFamily("weapon_missile_mk1"),
+			Is.EqualTo(CombatSystem.TargetWeaponFamily.Missile));
+	}
+
+	[Test]
+	public void ClassifyTargetWeaponFamily_TorpedoModule_IsTorpedo()
+	{
+		Assert.That(
+			CombatSystem.ClassifyTargetWeaponFamily("weapon_torpedo_mk1"),
+			Is.EqualTo(CombatSystem.TargetWeaponFamily.Torpedo));
+	}
+
+	[Test]
+	public void ClassifyTargetWeaponFamily_CannonModule_IsOther()
+	{
+		Assert.That(
+			CombatSystem.ClassifyTargetWeaponFamily("weapon_cannon_mk1"),
+			Is.EqualTo(CombatSystem.TargetWeaponFamily.Other));
+	}
+
+	[Test]
+	public void CalcDamage_BackwardCompat_NoTargetFamilyOverload_SameBehavior()
+	{
+		// Existing CalcDamage(int, DamageFamily, int, int) must still work unchanged.
+		// It defaults to TargetWeaponFamily.Other, so PointDefense gets no bonus.
+		int baseDmg = 8;
+		var result = CombatSystem.CalcDamage(baseDmg, CombatSystem.DamageFamily.PointDefense, 0, 100);
+
+		// No target family supplied → Other → no bonus → 8 * 100 / 100 = 8
+		Assert.That(result.HullDmg, Is.EqualTo(8));
+	}
+}
+
+// ── GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Escort doctrine v0 ──
+
+[TestFixture]
+[Category("CombatEscortDoctrine")]
+public sealed class EscortDoctrineTests
+{
+	[Test]
+	public void Fleet_SetEscortDoctrine_ActivatesWithTarget()
+	{
+		var escort = new Fleet { Id = "escort_fleet" };
+		escort.SetEscortDoctrine("target_fleet");
+
+		Assert.That(escort.EscortDoctrineActive, Is.True);
+		Assert.That(escort.EscortTargetFleetId, Is.EqualTo("target_fleet"));
+	}
+
+	[Test]
+	public void Fleet_ClearEscortDoctrine_Deactivates()
+	{
+		var escort = new Fleet { Id = "escort_fleet" };
+		escort.SetEscortDoctrine("target_fleet");
+		escort.ClearEscortDoctrine();
+
+		Assert.That(escort.EscortDoctrineActive, Is.False);
+		Assert.That(escort.EscortTargetFleetId, Is.Empty);
+	}
+
+	[Test]
+	public void Fleet_SetEscortDoctrine_EmptyTarget_DoesNotActivate()
+	{
+		// Escort on non-existent (empty) target → doctrine stays inactive, no crash.
+		var escort = new Fleet { Id = "escort_fleet" };
+		escort.SetEscortDoctrine("");
+
+		Assert.That(escort.EscortDoctrineActive, Is.False);
+		Assert.That(escort.EscortTargetFleetId, Is.Empty);
+	}
+
+	[Test]
+	public void Fleet_SetEscortDoctrine_WhitespaceTarget_DoesNotActivate()
+	{
+		// Whitespace-only target ID also treated as invalid.
+		var escort = new Fleet { Id = "escort_fleet" };
+		escort.SetEscortDoctrine("   ");
+
+		Assert.That(escort.EscortDoctrineActive, Is.False);
+	}
+
+	[Test]
+	public void Fleet_Default_EscortDoctrineInactive()
+	{
+		// No escort on a freshly constructed fleet (baseline: no bonus).
+		var fleet = new Fleet { Id = "fleet_a" };
+
+		Assert.That(fleet.EscortDoctrineActive, Is.False);
+		Assert.That(fleet.EscortTargetFleetId, Is.Empty);
+	}
+
+	[Test]
+	public void ApplyEscortShieldReduction_WithEscort_ReducesShieldDamage()
+	{
+		// Incoming shield damage 100 → reduced by 25% → 75.
+		int incoming = 100;
+		int reduced = CombatSystem.ApplyEscortShieldReduction(incoming);
+
+		// 100 * (100 - 25) / 100 = 75
+		Assert.That(reduced, Is.EqualTo(75));
+	}
+
+	[Test]
+	public void ApplyEscortShieldReduction_ZeroDamage_StaysZero()
+	{
+		int reduced = CombatSystem.ApplyEscortShieldReduction(0);
+		Assert.That(reduced, Is.EqualTo(0));
+	}
+
+	[Test]
+	public void ApplyEscortShieldReduction_IsDeterministic()
+	{
+		int a = CombatSystem.ApplyEscortShieldReduction(40);
+		int b = CombatSystem.ApplyEscortShieldReduction(40);
+		Assert.That(a, Is.EqualTo(b));
+	}
+
+	[Test]
+	public void EscortBonus_FleetWithEscort_TargetGetsBonusVsNoEscort()
+	{
+		// Demonstrate: with escort active the reduced shield damage is less than raw damage.
+		int rawShieldDmg = 80;
+
+		var target = new Fleet { Id = "target_fleet" };
+		var escortFleet = new Fleet { Id = "escort_fleet" };
+		escortFleet.SetEscortDoctrine(target.Id);
+
+		// Simulate: shield damage to target is reduced because escort is active.
+		int reducedDmg = escortFleet.EscortDoctrineActive && escortFleet.EscortTargetFleetId == target.Id
+			? CombatSystem.ApplyEscortShieldReduction(rawShieldDmg)
+			: rawShieldDmg;
+
+		// Baseline: no escort, no reduction.
+		var soloFleet = new Fleet { Id = "solo_fleet" };
+		int baselineDmg = soloFleet.EscortDoctrineActive
+			? CombatSystem.ApplyEscortShieldReduction(rawShieldDmg)
+			: rawShieldDmg;
+
+		Assert.That(reducedDmg, Is.LessThan(baselineDmg));
+		Assert.That(reducedDmg, Is.EqualTo(60)); // 80 * 75 / 100 = 60
+		Assert.That(baselineDmg, Is.EqualTo(80));
+	}
+}
+
+// ── GATE.S5.COMBAT.STRATEGIC_RESOLVER.001 + GATE.S5.COMBAT.REPLAY_PROOF.001 ──
+
+[TestFixture]
+[Category("CombatStrategicResolver")]
+public sealed class StrategicResolverTests
+{
+	// Build a CombatProfile directly from explicit parameters (no Fleet dependency needed).
+	private static CombatSystem.CombatProfile MakeProfile(
+		int hullHp, int shieldHp,
+		params (string moduleId, int baseDamage, CombatSystem.DamageFamily family)[] weapons)
+	{
+		var profile = new CombatSystem.CombatProfile
+		{
+			HullHp = hullHp,
+			HullHpMax = hullHp,
+			ShieldHp = shieldHp,
+			ShieldHpMax = shieldHp,
+		};
+		foreach (var (moduleId, baseDamage, family) in weapons)
+		{
+			profile.Weapons.Add(new CombatSystem.WeaponInfo
+			{
+				ModuleId = moduleId,
+				BaseDamage = baseDamage,
+				Family = family,
+			});
+		}
+		return profile;
+	}
+
+	[Test]
+	public void StrategicResolver_StrongerFleetWins()
+	{
+		// Fleet A: 3 weapons, Fleet B: 1 weapon — A should win.
+		var profileA = MakeProfile(100, 50,
+			("weapon_cannon_mk1", 15, CombatSystem.DamageFamily.Kinetic),
+			("weapon_cannon_mk2", 15, CombatSystem.DamageFamily.Kinetic),
+			("weapon_cannon_mk3", 15, CombatSystem.DamageFamily.Kinetic));
+
+		var profileB = MakeProfile(100, 50,
+			("weapon_cannon_mk1", 10, CombatSystem.DamageFamily.Kinetic));
+
+		var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+		Assert.That(result.Winner, Is.EqualTo(StrategicResolverV0.Winner.A),
+			"Fleet A with 3 weapons should defeat Fleet B with 1 weapon");
+	}
+
+	[Test]
+	public void StrategicResolver_EqualFleets_DrawOrLong()
+	{
+		// Identical fleets — A fires first so has first-mover advantage.
+		// Expect A wins or Draw, and battle takes multiple rounds.
+		var profileA = MakeProfile(100, 50,
+			("weapon_cannon_mk1", 10, CombatSystem.DamageFamily.Kinetic));
+		var profileB = MakeProfile(100, 50,
+			("weapon_cannon_mk1", 10, CombatSystem.DamageFamily.Kinetic));
+
+		var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+		// With identical stats, A wins via first-mover advantage or it's a draw.
+		bool validOutcome = result.Winner == StrategicResolverV0.Winner.A
+			|| result.Winner == StrategicResolverV0.Winner.Draw;
+		Assert.That(validOutcome, Is.True,
+			$"Expected A-wins or draw; got winner={result.Winner} rounds={result.RoundsPlayed}");
+		Assert.That(result.RoundsPlayed, Is.GreaterThan(1),
+			"Equal fleets should fight for more than 1 round");
+	}
+
+	[Test]
+	public void StrategicResolver_MaxRoundsEnforced()
+	{
+		// Tanky fleets with zero weapons → neither can deal damage → goes full 50 rounds → Draw.
+		var profileA = MakeProfile(hullHp: 10000, shieldHp: 10000 /* no weapons */);
+		var profileB = MakeProfile(hullHp: 10000, shieldHp: 10000 /* no weapons */);
+
+		var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+		Assert.That(result.RoundsPlayed, Is.EqualTo(CombatTweaksV0.StrategicMaxRounds),
+			"Should play exactly the max number of rounds");
+		Assert.That(result.Winner, Is.EqualTo(StrategicResolverV0.Winner.Draw),
+			"Neither fleet destroyed → Draw");
+	}
+
+	[Test]
+	public void StrategicResolver_EscortReducesShieldDamage()
+	{
+		// Fleet A attacks Fleet B which is escorted.
+		// Fleet B (escorted) should survive longer (more hull remaining) than without escort.
+		var weaponA = ("weapon_cannon_mk1", 20, CombatSystem.DamageFamily.Kinetic);
+
+		// B has shields; escort reduces incoming shield damage.
+		var profileA = MakeProfile(100, 0, weaponA);
+		var profileB_escorted = MakeProfile(50, 100, ("weapon_cannon_mk1", 1, CombatSystem.DamageFamily.Kinetic));
+		var profileB_alone = MakeProfile(50, 100, ("weapon_cannon_mk1", 1, CombatSystem.DamageFamily.Kinetic));
+
+		var resultEscorted = StrategicResolverV0.Resolve(profileA, profileB_escorted, fleetBEscorted: true);
+		var resultAlone = StrategicResolverV0.Resolve(profileA, profileB_alone, fleetBEscorted: false);
+
+		// Escorted B should take fewer total rounds to outlast, or have more hull remaining.
+		// In all cases, escorted B should survive more rounds (or the same if B dies either way,
+		// but never fewer rounds when escorted).
+		Assert.That(resultEscorted.RoundsPlayed, Is.GreaterThanOrEqualTo(resultAlone.RoundsPlayed),
+			"Escorted fleet should last at least as long");
+	}
+
+	[Test]
+	public void StrategicResolver_PointDefenseCounterBonus()
+	{
+		// Fleet A uses PointDefense weapons. Fleet B has missile modules.
+		// PointDefense vs missile target → 2x counter bonus → A destroys B faster.
+		var profileA_pd = MakeProfile(100, 0,
+			("weapon_point_defense_mk1", 8, CombatSystem.DamageFamily.PointDefense));
+		var profileA_normal = MakeProfile(100, 0,
+			("weapon_cannon_mk1", 8, CombatSystem.DamageFamily.Kinetic));
+
+		// B has missile weapons (makes PD bonus apply) and low HP for fast resolution.
+		var profileB_missiles = MakeProfile(80, 0,
+			("weapon_missile_mk1", 5, CombatSystem.DamageFamily.Neutral));
+
+		var resultPd = StrategicResolverV0.Resolve(profileA_pd, profileB_missiles);
+		var resultNormal = StrategicResolverV0.Resolve(profileA_normal, profileB_missiles);
+
+		// PD fleet should win in fewer or equal rounds against missile fleet.
+		Assert.That(resultPd.Winner, Is.EqualTo(StrategicResolverV0.Winner.A),
+			"PD fleet should win against missile fleet");
+		Assert.That(resultPd.RoundsPlayed, Is.LessThanOrEqualTo(resultNormal.RoundsPlayed),
+			"PD counter bonus should resolve combat in fewer or equal rounds");
+	}
+
+	[Test]
+	public void StrategicResolver_IsDeterministic()
+	{
+		var profileA = MakeProfile(100, 40,
+			("weapon_cannon_mk1", 12, CombatSystem.DamageFamily.Kinetic),
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+		var profileB = MakeProfile(80, 30,
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+
+		var r1 = StrategicResolverV0.Resolve(profileA, profileB);
+		var r2 = StrategicResolverV0.Resolve(profileA, profileB);
+
+		Assert.That(r1.Winner, Is.EqualTo(r2.Winner));
+		Assert.That(r1.RoundsPlayed, Is.EqualTo(r2.RoundsPlayed));
+		Assert.That(r1.FleetAHullRemaining, Is.EqualTo(r2.FleetAHullRemaining));
+		Assert.That(r1.FleetBHullRemaining, Is.EqualTo(r2.FleetBHullRemaining));
+		Assert.That(r1.SalvageValue, Is.EqualTo(r2.SalvageValue));
+		Assert.That(r1.Frames.Count, Is.EqualTo(r2.Frames.Count));
+	}
+
+	// ── GATE.S5.COMBAT.REPLAY_PROOF.001 ──
+
+	[Test]
+	public void StrategicReplay_FrameCountMatchesRounds()
+	{
+		var profileA = MakeProfile(100, 40,
+			("weapon_cannon_mk1", 12, CombatSystem.DamageFamily.Kinetic));
+		var profileB = MakeProfile(80, 30,
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+
+		var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+		Assert.That(result.Frames.Count, Is.EqualTo(result.RoundsPlayed),
+			"One ReplayFrame per round played");
+	}
+
+	[Test]
+	public void StrategicReplay_GoldenHash()
+	{
+		// Fixed inputs → fixed SHA256 of serialized frames.
+		// GATE.S5.COMBAT.REPLAY_PROOF.001
+		// Profile: A has kinetic + energy weapons vs B with energy weapon.
+		var profileA = MakeProfile(100, 40,
+			("weapon_cannon_mk1", 12, CombatSystem.DamageFamily.Kinetic),
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+		var profileB = MakeProfile(80, 30,
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+
+		var result = StrategicResolverV0.Resolve(profileA, profileB);
+		string hash1 = StrategicResolverV0.ComputeFrameHash(result.Frames);
+
+		// Replay from identical inputs.
+		var profileA2 = MakeProfile(100, 40,
+			("weapon_cannon_mk1", 12, CombatSystem.DamageFamily.Kinetic),
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+		var profileB2 = MakeProfile(80, 30,
+			("weapon_laser_mk1", 10, CombatSystem.DamageFamily.Energy));
+
+		var result2 = StrategicResolverV0.Resolve(profileA2, profileB2);
+		string hash2 = StrategicResolverV0.ComputeFrameHash(result2.Frames);
+
+		// Both runs must produce byte-identical frame hashes (replay consistency proof).
+		// GATE.S5.COMBAT.REPLAY_PROOF.001: same inputs → same output → byte-identical.
+		Assert.That(hash1, Is.EqualTo(hash2), "Deterministic replay must yield identical frame hash");
+
+		// Golden hash locked to the value produced by the v0 resolver algorithm.
+		// NOTE: Update this value if the resolver algorithm is intentionally changed.
+		// To find the current hash, run the test with goldenLocked=false and read the output.
+		// GATE.S5.COMBAT.REPLAY_PROOF.001: Golden hash locked.
+		const string GoldenHash = "d494ba68dbdf9b4ab05e663e72f2b2c8993e948207d2db3eac2cb8f8507f675c";
+		Assert.That(hash1, Is.EqualTo(GoldenHash), "Frame hash must match golden value");
+	}
+}
+
+// ── GATE.S5.COMBAT.SLICE_CLOSE.001: Slice 5 content wave scenario proof ──
+
+[TestFixture]
+[Category("CombatSliceClose")]
+public sealed class CombatSliceCloseTests
+{
+	private static CombatSystem.CombatProfile MakeProfile(
+		int hullHp, int shieldHp,
+		params (string moduleId, int baseDamage, CombatSystem.DamageFamily family)[] weapons)
+	{
+		var profile = new CombatSystem.CombatProfile
+		{
+			HullHp = hullHp, HullHpMax = hullHp,
+			ShieldHp = shieldHp, ShieldHpMax = shieldHp,
+		};
+		foreach (var (moduleId, baseDamage, family) in weapons)
+			profile.Weapons.Add(new CombatSystem.WeaponInfo { ModuleId = moduleId, BaseDamage = baseDamage, Family = family });
+		return profile;
+	}
+
+	[Test]
+	public void SliceClose_EscortPlusAttackerWithPD_FullScenario()
+	{
+		// GATE.S5.COMBAT.SLICE_CLOSE.001: E2E scenario with doctrines.
+		// Fleet A: attacker with point-defense cannon (counter bonus vs missiles).
+		// Fleet B: missile carrier, escorted (shield damage reduction).
+		// Verify: PD counter bonus applies, escort bonus applies, replay is deterministic.
+		var attackerPD = MakeProfile(100, 50,
+			("weapon_point_defense_mk1", CombatTweaksV0.PointDefenseBaseDamage, CombatSystem.DamageFamily.PointDefense));
+		var escortedMissile = MakeProfile(80, 40,
+			("weapon_missile_mk1", CombatTweaksV0.DefaultWeaponBaseDamage, CombatSystem.DamageFamily.Neutral));
+
+		// Resolve WITH escort on fleet B.
+		var resultEscorted = StrategicResolverV0.Resolve(attackerPD, escortedMissile, fleetAEscorted: false, fleetBEscorted: true);
+
+		// Resolve WITHOUT escort for comparison.
+		var attackerPD2 = MakeProfile(100, 50,
+			("weapon_point_defense_mk1", CombatTweaksV0.PointDefenseBaseDamage, CombatSystem.DamageFamily.PointDefense));
+		var unescortedMissile = MakeProfile(80, 40,
+			("weapon_missile_mk1", CombatTweaksV0.DefaultWeaponBaseDamage, CombatSystem.DamageFamily.Neutral));
+		var resultUnescorted = StrategicResolverV0.Resolve(attackerPD2, unescortedMissile, fleetAEscorted: false, fleetBEscorted: false);
+
+		// PD counter bonus: fleet A fires point_defense vs missile target → 2x damage.
+		// This means A should win in both cases.
+		Assert.That(resultEscorted.Winner, Is.EqualTo(StrategicResolverV0.Winner.A),
+			"PD attacker should beat missile carrier (even escorted)");
+		Assert.That(resultUnescorted.Winner, Is.EqualTo(StrategicResolverV0.Winner.A),
+			"PD attacker should beat unescorted missile carrier");
+
+		// Escort makes fleet B last longer (more rounds needed).
+		Assert.That(resultEscorted.RoundsPlayed, Is.GreaterThanOrEqualTo(resultUnescorted.RoundsPlayed),
+			"Escort should make B survive at least as many rounds");
+
+		// Replay determinism: both results have valid frame sequences.
+		Assert.That(resultEscorted.Frames.Count, Is.EqualTo(resultEscorted.RoundsPlayed));
+		Assert.That(resultUnescorted.Frames.Count, Is.EqualTo(resultUnescorted.RoundsPlayed));
+
+		// Golden hash for the escorted scenario (determinism anchor for slice 5).
+		string hashEscorted = StrategicResolverV0.ComputeFrameHash(resultEscorted.Frames);
+		string hashEscorted2 = StrategicResolverV0.ComputeFrameHash(
+			StrategicResolverV0.Resolve(
+				MakeProfile(100, 50, ("weapon_point_defense_mk1", CombatTweaksV0.PointDefenseBaseDamage, CombatSystem.DamageFamily.PointDefense)),
+				MakeProfile(80, 40, ("weapon_missile_mk1", CombatTweaksV0.DefaultWeaponBaseDamage, CombatSystem.DamageFamily.Neutral)),
+				fleetAEscorted: false, fleetBEscorted: true).Frames);
+		Assert.That(hashEscorted, Is.EqualTo(hashEscorted2),
+			"Slice 5 scenario must be replay-deterministic");
+	}
+}

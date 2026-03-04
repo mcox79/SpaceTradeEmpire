@@ -55,6 +55,14 @@ public static class GalaxyGenerator
         ("RIM", 1.20f),
     };
 
+    // GATE.S6.FRACTURE.CONTENT.001: FRACTURE_OUTPOST world class identifier.
+    // Fracture outposts are nodes that lie outside the standard lane network.
+    // They host fracture-exclusive markets and require FractureAccessCheck before entry.
+    // Not included in WorldClassesV0 (which drives radial assignment for lane nodes).
+    // Fee multiplier: 1.50f (premium for high-risk high-reward fracture access).
+    public const string FractureOutpostWorldClassId = "FRACTURE_OUTPOST";
+    public static readonly float FractureOutpostFeeMultiplier = SimCore.Tweaks.FractureTweaksV0.FractureOutpostFeeMultiplier;
+
     // GATE.S2_5.WGEN.DISTINCTNESS.001: report-only class topology params v0.
     // Default lane-cap multipliers are derived deterministically from existing WorldClassesV0 fee multipliers
     // to avoid introducing new numeric literals that violate the tweak routing guard.

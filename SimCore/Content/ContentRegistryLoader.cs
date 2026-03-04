@@ -16,16 +16,20 @@ public static class ContentRegistryLoader
     // GATE.S4.CATALOG.MARKET_BIND.001: added fuel and metal goods (food < fuel < metal < ore, Ordinal).
     // GATE.S4.CATALOG.WEAPONS.001: added weapon_cannon_mk1 and weapon_laser_mk1 modules.
     // GATE.S4.INDU_STRUCT.CHAIN_CONTENT.001: added hull_plating good + 3 production chain recipes.
+    // GATE.S6.FRACTURE.CONTENT.001: added anomaly_samples, exotic_crystals, salvaged_tech (fracture-exclusive, tier=3).
     // Digest must match docs/content/content_registry_v0.json exactly.
     public const string DefaultRegistryJsonV0 =
         "{\n" +
         "  \"version\": 0,\n" +
         "  \"goods\": [\n" +
+        "    { \"id\": \"anomaly_samples\" },\n" +
+        "    { \"id\": \"exotic_crystals\" },\n" +
         "    { \"id\": \"food\" },\n" +
         "    { \"id\": \"fuel\" },\n" +
         "    { \"id\": \"hull_plating\" },\n" +
         "    { \"id\": \"metal\" },\n" +
-        "    { \"id\": \"ore\" }\n" +
+        "    { \"id\": \"ore\" },\n" +
+        "    { \"id\": \"salvaged_tech\" }\n" +
         "  ],\n" +
         "  \"recipes\": [\n" +
         "    {\n" +

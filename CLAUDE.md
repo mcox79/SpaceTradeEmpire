@@ -39,7 +39,7 @@ Large files and their approximate token cost at full read:
 | Find method/pattern in known file | `Grep` |
 | Read small file (< 100 lines) | `Read` |
 | Search across unknown files | Haiku `Explore` agent |
-| Gate closeout (mechanical) | Haiku agent |
+| Gate closeout (mechanical) | `/closeout-gate` skill |
 | Multi-step implementation writing | Main context (Sonnet) |
 
 ### Batch reads before writes
@@ -106,45 +106,17 @@ Session assignment: `core` → SimCore-only session, `bridge` → SimBridge + GD
 
 ## Gate closeout process
 
-**Invoke closeout as a Haiku subagent, NOT via the Skill tool.**
-The Skill tool runs in main context at Sonnet pricing. Closeout is mechanical — use Agent(haiku).
+Use the `/closeout-gate` skill for all gate closeouts (single or batch).
 
-```python
-Agent(
-  subagent_type="general-purpose",
-  model="haiku",
-  description="Gate closeout for GATE.X.Y.Z",
-  prompt="""
-Close out gate GATE.X.Y.Z (sha256=<value>) for SpaceTradeEmpire at d:/SGE/SpaceTradeEmpire.
-
-STEPS (all reads must use Grep or targeted Read — never full-file reads):
-
-1. PARALLEL:
-   a. Grep docs/55_GATES.md for "GATE.X.Y.Z" (content mode) — find quick-ref line number and detail line number
-   b. Grep docs/56_SESSION_LOG.md for "GATE.X.Y.Z" — if found, STOP (already logged)
-   c. Read docs/gates/gates.json in full
-   d. Read docs/56_SESSION_LOG.md offset=150 limit=20 to find the last entry
-
-2. PARALLEL edits:
-   a. Append to docs/56_SESSION_LOG.md: "- <TODAY_DATE>, main, GATE.X.Y.Z PASS (<1-line summary>). Evidence: <key files>"
-   b. In docs/55_GATES.md quick-ref row: change TODO → DONE
-   c. In docs/55_GATES.md detail row: change TODO → DONE
-
-3. Remove the GATE.X.Y.Z task from gates.json tasks array. Update generated_utc to now.
-   Write with Write tool (ASCII quotes only — never Unicode curly quotes).
-
-4. Run: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency"
-   Report PASS or FAIL.
-
-Hard rules:
-- Never read 55_GATES.md or 56_SESSION_LOG.md in full — Grep only
-- Write gates.json with Write tool, not Edit (encoding safety)
-- Never modify other gates
-"""
-)
+```
+/closeout-gate GATE.X.Y.001                          # single gate
+/closeout-gate GATE.X.Y.001 GATE.X.Y.002 GATE.X.Y.003  # batch (up to 20)
 ```
 
-Manual closeout checklist (if agent unavailable):
+The skill handles: session log PASS entry, 55_GATES.md TODO→DONE (both rows),
+gates.json task removal, and RoadmapConsistency validation.
+
+Manual closeout checklist (if skill unavailable):
 - [ ] Append PASS to `docs/56_SESSION_LOG.md`
 - [ ] `docs/55_GATES.md` quick-ref row → DONE
 - [ ] `docs/55_GATES.md` detail row → DONE

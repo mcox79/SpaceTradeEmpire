@@ -104,7 +104,17 @@
       "Bash(timeout 45 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_combat_loop_proof_v0.gd\")",
       "Bash(xargs grep -l \"local_space\\\\|LocalSpace\\\\|fleet.*marker\\\\|FleetMarker\")",
       "Bash(xargs grep -l \"StartCombatCommand\\\\|ClearCombatCommand\")",
-      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_combat_tests.ps1\")"
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_combat_tests.ps1\")",
+      "Bash(ls -la \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\.claude\\\\skills\"\" 2>/dev/null || echo \"Directory not found \")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"RoadmapConsistency\")",
+      "Bash(dotnet build SimCore/SimCore.csproj --nologo -v q)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TweakRoutingGuard\")",
+      "Bash(powershell -Command \"Get-Content docs/gates/gates.json | ConvertFrom-Json | Write-Host ''Valid JSON!''\")",
+      "Bash(powershell -Command \"$json = Get-Content docs/gates/gates.json | ConvertFrom-Json; ''Valid JSON with {0} gate tasks'' -f @\\($json.tasks\\).Count\")",
+      "Bash(python3 -c \"import json; data = json.load\\(open\\(''docs/gates/gates.json''\\)\\); print\\(f''Valid JSON with {len\\(data[\"\"tasks\"\"]\\)} gate tasks''\\)\")",
+      "Bash(dotnet build SimCore/SimCore.csproj --nologo)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"StrategicReplay_GoldenHash\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"CombatSliceClose\")"
     ],
     "ask": [
       "Bash(git:push*)"

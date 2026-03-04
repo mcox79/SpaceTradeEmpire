@@ -24,4 +24,17 @@ public static class CombatTweaksV0
 
     // Weapon base damage defaults (used when content registry doesn't specify)
     public const int DefaultWeaponBaseDamage = 10;
+
+    // GATE.S5.COMBAT.COUNTER_FAMILY.001: PointDefense weapon family constants
+    // PointDefense does 2x damage against missile/torpedo targets; base damage vs all others.
+    public const int PointDefenseBaseDamage = 8;
+    public const int PointDefenseCounterMultiplierPct = 200; // 2x = 200%
+
+    // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Escort doctrine shield bonus
+    // Escorted fleet receives +25% shield damage reduction (expressed as pct: 25 means 25%).
+    public const int EscortShieldDamageReductionPct = 25;
+
+    // GATE.S5.COMBAT.STRATEGIC_RESOLVER.001: Strategic resolver max rounds cap.
+    // Attrition resolver terminates at this round count and declares Draw if both fleets still alive.
+    public const int StrategicMaxRounds = 50;
 }

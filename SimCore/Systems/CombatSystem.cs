@@ -11,7 +11,11 @@ namespace SimCore.Systems;
 /// </summary>
 public static class CombatSystem
 {
-    public enum DamageFamily { Neutral, Kinetic, Energy }
+    // GATE.S5.COMBAT.COUNTER_FAMILY.001: PointDefense added alongside existing families.
+    public enum DamageFamily { Neutral, Kinetic, Energy, PointDefense }
+
+    // GATE.S5.COMBAT.COUNTER_FAMILY.001: weapon families that PointDefense counters.
+    public enum TargetWeaponFamily { Other, Missile, Torpedo }
 
     public sealed class DamageResult
     {
@@ -41,7 +45,19 @@ public static class CombatSystem
         if (string.IsNullOrEmpty(moduleId)) return DamageFamily.Neutral;
         if (moduleId.Contains("cannon", StringComparison.Ordinal)) return DamageFamily.Kinetic;
         if (moduleId.Contains("laser", StringComparison.Ordinal)) return DamageFamily.Energy;
+        // GATE.S5.COMBAT.COUNTER_FAMILY.001
+        if (moduleId.Contains("point_defense", StringComparison.Ordinal)) return DamageFamily.PointDefense;
         return DamageFamily.Neutral;
+    }
+
+    // GATE.S5.COMBAT.COUNTER_FAMILY.001: Classify a weapon module by its target family (used to determine
+    // whether PointDefense counter bonus applies).
+    public static TargetWeaponFamily ClassifyTargetWeaponFamily(string moduleId)
+    {
+        if (string.IsNullOrEmpty(moduleId)) return TargetWeaponFamily.Other;
+        if (moduleId.Contains("missile", StringComparison.Ordinal)) return TargetWeaponFamily.Missile;
+        if (moduleId.Contains("torpedo", StringComparison.Ordinal)) return TargetWeaponFamily.Torpedo;
+        return TargetWeaponFamily.Other;
     }
 
     public static CombatProfile BuildProfile(Fleet fleet, IReadOnlyDictionary<string, int>? weaponBaseDamage = null)
@@ -79,12 +95,30 @@ public static class CombatSystem
     /// Applies counter family multipliers, then distributes to shields first, overflow to hull.
     /// </summary>
     public static DamageResult CalcDamage(int baseDamage, DamageFamily family, int defenderShieldHp, int defenderHullHp)
+        => CalcDamage(baseDamage, family, defenderShieldHp, defenderHullHp, TargetWeaponFamily.Other);
+
+    /// <summary>
+    /// GATE.S5.COMBAT.COUNTER_FAMILY.001: Calculate damage from a single weapon hit against a defender,
+    /// with awareness of the target's weapon family for PointDefense counter bonus.
+    /// When the firing weapon is PointDefense and the target uses missiles/torpedoes, apply 2x damage multiplier.
+    /// No bonus or penalty for any other combination.
+    /// </summary>
+    public static DamageResult CalcDamage(int baseDamage, DamageFamily family, int defenderShieldHp, int defenderHullHp, TargetWeaponFamily targetWeaponFamily)
     {
+        // GATE.S5.COMBAT.COUNTER_FAMILY.001: PointDefense counter bonus.
+        int effectiveBaseDamage = baseDamage;
+        if (family == DamageFamily.PointDefense &&
+            (targetWeaponFamily == TargetWeaponFamily.Missile || targetWeaponFamily == TargetWeaponFamily.Torpedo))
+        {
+            effectiveBaseDamage = baseDamage * CombatTweaksV0.PointDefenseCounterMultiplierPct / CombatTweaksV0.NeutralPct;
+        }
+
         // Determine effective damage vs shields and hull using counter families.
         int shieldMultPct = family switch
         {
             DamageFamily.Kinetic => CombatTweaksV0.KineticVsShieldPct,
             DamageFamily.Energy => CombatTweaksV0.EnergyVsShieldPct,
+            // PointDefense uses neutral multipliers (its power comes from the counter bonus above).
             _ => CombatTweaksV0.NeutralPct,
         };
         int hullMultPct = family switch
@@ -93,6 +127,9 @@ public static class CombatSystem
             DamageFamily.Energy => CombatTweaksV0.EnergyVsHullPct,
             _ => CombatTweaksV0.NeutralPct,
         };
+
+        // Swap local variable so rest of method is unchanged.
+        baseDamage = effectiveBaseDamage;
 
         // Calculate effective damage vs each layer (integer arithmetic, no floats).
         int effectiveVsShield = baseDamage * shieldMultPct / CombatTweaksV0.NeutralPct;
@@ -125,6 +162,15 @@ public static class CombatSystem
         result.Overkill = remainingHp < 0 ? -remainingHp : 0;
 
         return result;
+    }
+
+    // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Calculate the shield damage reduction for a fleet that is
+    // being escorted. Incoming shield damage is reduced by EscortShieldDamageReductionPct percent.
+    // Returns the reduced shield damage value (integer arithmetic, deterministic, no floats).
+    public static int ApplyEscortShieldReduction(int incomingShieldDmg)
+    {
+        // Reduction formula: dmg * (100 - reductionPct) / 100
+        return incomingShieldDmg * (CombatTweaksV0.NeutralPct - CombatTweaksV0.EscortShieldDamageReductionPct) / CombatTweaksV0.NeutralPct;
     }
 
     public static void InitFleetCombatStats(Fleet fleet, bool isPlayer)

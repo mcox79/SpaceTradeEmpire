@@ -61,13 +61,16 @@ Primary anchors:
 - EPIC.S1.PLAYABLE_BEAT.V0 [DONE]: First playable station loop with live in-game feedback — buy/sell buttons wired, ship input frozen while docked, market rows refresh after trade, collision layer fix; depends on EPIC.S1.HERO_SHIP_LOOP.V0 DONE (gates: GATE.S1.PLAYABLE_BEAT.*)
 - EPIC.S4.INDU_STRUCT [DONE]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic; recipe binding, chain graph validation, shortfall event log, and deterministic chain report (gates: GATE.S4.INDU_STRUCT.*)
 - EPIC.S5.COMBAT_LOCAL [DONE]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
-- EPIC.S5.COMBAT_PLAYABLE.V0 [TODO]: In-engine combat encounters — fleet substantiation at system nodes, player-initiated combat trigger, combat loop headless proof; depends on EPIC.S5.COMBAT_LOCAL DONE (gates: GATE.S5.COMBAT_PLAYABLE.*)
+- EPIC.S5.COMBAT_PLAYABLE.V0 [DONE]: In-engine combat encounters — fleet substantiation at system nodes, player-initiated combat trigger, combat loop headless proof; depends on EPIC.S5.COMBAT_LOCAL DONE (gates: GATE.S5.COMBAT_PLAYABLE.*)
 - EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel (site_id, phase, undock) wired to existing SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
 - EPIC.X.CODE_HEALTH [TODO]: Code health hygiene — GalaxyGenerator report extraction, discovery seed extraction, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
 - EPIC.S1.VISUAL_POLISH.V0 [TODO]: Visual presentation polish v0 — skybox, celestial bodies, station/gate geometry, fleet AI, combat visuals, HUD, galaxy map styling; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_POLISH.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
+- EPIC.S5.COMBAT_DOCTRINE.V0 [TODO]: Combat doctrine v0: point defense counter family, escort doctrine, strategic fleet-vs-fleet resolver, deterministic combat replay proof; completes Slice 5 content wave (gates: GATE.S5.COMBAT.*)
+- EPIC.S1.AUDIO_MIN.V0 [TODO]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
+- EPIC.S1.SAVE_LOAD_UI.V0 [TODO]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 

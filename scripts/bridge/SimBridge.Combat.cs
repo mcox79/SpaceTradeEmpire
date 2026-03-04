@@ -253,6 +253,79 @@ public partial class SimBridge
         }
     }
 
+    // ── GATE.S5.COMBAT.BRIDGE_DOCTRINE.001: Escort doctrine queries and mutation ──
+
+    /// <summary>
+    /// Returns escort doctrine status for a fleet: {escort_active (bool), escort_target_id (string), error (string)}.
+    /// Nonblocking read — returns error dict if read lock is unavailable or fleet not found.
+    /// </summary>
+    public Godot.Collections.Dictionary GetDoctrineStatusV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["escort_active"] = false,
+            ["escort_target_id"] = "",
+            ["error"] = "",
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet))
+            {
+                result["error"] = $"fleet not found: {fleetId}";
+                return;
+            }
+            result["escort_active"] = fleet.EscortDoctrineActive;
+            result["escort_target_id"] = fleet.EscortTargetFleetId;
+        }, 0);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sets or clears escort doctrine for a fleet. Returns {ok (bool), error (string)}.
+    /// doctrineType "escort": if enabled calls fleet.SetEscortDoctrine(targetFleetId), else ClearEscortDoctrine().
+    /// Unknown doctrineType → error dict with ok=false.
+    /// </summary>
+    public Godot.Collections.Dictionary SetDoctrineV0(string fleetId, string doctrineType, bool enabled, string targetFleetId = "")
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["ok"] = false,
+            ["error"] = "",
+        };
+
+        if (!string.Equals(doctrineType, "escort", StringComparison.Ordinal))
+        {
+            result["error"] = $"unknown doctrine type: {doctrineType}";
+            return result;
+        }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet))
+            {
+                result["error"] = $"fleet not found: {fleetId}";
+                return result;
+            }
+
+            if (enabled)
+                fleet.SetEscortDoctrine(targetFleetId);
+            else
+                fleet.ClearEscortDoctrine();
+
+            result["ok"] = true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// AI fleet fires one shot at player. Weapon stats resolved from AI's slots or defaults.
     /// Returns {shield_dmg, hull_dmg, player_hull, player_shield, killed}.

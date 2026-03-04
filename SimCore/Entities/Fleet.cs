@@ -100,11 +100,21 @@ public class Fleet
     public List<ModuleSlot> Slots { get; set; } = new();
 
 
+    // GATE.S6.FRACTURE.ACCESS_MODEL.001: Fleet tech level for fracture access gating.
+    // TechLevel 0 = baseline; higher values unlock higher-tier fracture nodes.
+    public int TechLevel { get; set; } = 0;
+
     // SLICE 5: Combat HP state (GATE.S5.COMBAT_LOCAL.DAMAGE_MODEL.001)
     public int HullHp { get; set; } = -1;
     public int HullHpMax { get; set; } = -1;
     public int ShieldHp { get; set; } = -1;
     public int ShieldHpMax { get; set; } = -1;
+
+    // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Escort doctrine state.
+    // When EscortDoctrineActive is true, this fleet is escorting EscortTargetFleetId.
+    // The target fleet receives a shield damage reduction bonus in combat.
+    public bool EscortDoctrineActive { get; set; } = false;
+    public string EscortTargetFleetId { get; set; } = "";
 
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
@@ -116,6 +126,27 @@ public class Fleet
     {
         if (string.IsNullOrWhiteSpace(goodId)) return 0;
         return Cargo.TryGetValue(goodId, out var v) ? v : 0;
+    }
+
+    // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Activate escort doctrine for this fleet.
+    // targetFleetId must be non-empty; if empty the doctrine is not activated.
+    public void SetEscortDoctrine(string targetFleetId)
+    {
+        if (string.IsNullOrWhiteSpace(targetFleetId))
+        {
+            EscortDoctrineActive = false;
+            EscortTargetFleetId = "";
+            return;
+        }
+        EscortDoctrineActive = true;
+        EscortTargetFleetId = targetFleetId;
+    }
+
+    // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Deactivate escort doctrine.
+    public void ClearEscortDoctrine()
+    {
+        EscortDoctrineActive = false;
+        EscortTargetFleetId = "";
     }
 
 }
