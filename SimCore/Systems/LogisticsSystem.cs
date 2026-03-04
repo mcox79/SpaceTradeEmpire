@@ -246,16 +246,6 @@ public static class LogisticsSystem
 
         if (shortages.Count == 0)
         {
-            if (logiBreakdown)
-            {
-                Console.WriteLine(
-                    "LOGI_BREAKDOWN_V0\n" +
-                    $"advance_ms={msAdvance}\nadvance_alloc_bytes={allocAdvance}\n" +
-                    $"shortages_ms={msShortages}\nshortages_alloc_bytes={allocShortages}\n" +
-                    $"assign_ms={msAssign}\nassign_alloc_bytes={allocAssign}\n" +
-                    $"tryplan_ms={msTryPlan}\ntryplan_alloc_bytes={allocTryPlan}");
-            }
-
             return;
         }
 
@@ -318,13 +308,6 @@ public static class LogisticsSystem
                     allocTryPlan += a;
                 }
             }, out msAssign, out allocAssign);
-
-            Console.WriteLine(
-                "LOGI_BREAKDOWN_V0\n" +
-                $"advance_ms={msAdvance}\nadvance_alloc_bytes={allocAdvance}\n" +
-                $"shortages_ms={msShortages}\nshortages_alloc_bytes={allocShortages}\n" +
-                $"assign_ms={msAssign}\nassign_alloc_bytes={allocAssign}\n" +
-                $"tryplan_ms={msTryPlan}\ntryplan_alloc_bytes={allocTryPlan}");
 
         }
     }

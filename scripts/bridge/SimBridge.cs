@@ -1207,4 +1207,89 @@ public partial class SimBridge : Node
             IsLoading = false;
         }
     }
+
+    // ── GATE.S5.COMBAT_LOCAL.BRIDGE_COMBAT.001: Combat status queries ──
+
+    private Godot.Collections.Dictionary _cachedCombatStatusV0 = new Godot.Collections.Dictionary();
+
+    /// <summary>
+    /// Returns {in_combat (bool), opponent_id (string),
+    ///          player_hull (int), player_shield (int),
+    ///          opponent_hull (int), opponent_shield (int)}.
+    /// Nonblocking: returns last cached snapshot if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetCombatStatusV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary
+            {
+                ["in_combat"] = state.InCombat,
+                ["opponent_id"] = state.CombatOpponentId ?? "",
+                ["player_hull"] = 0,
+                ["player_shield"] = 0,
+                ["opponent_hull"] = 0,
+                ["opponent_shield"] = 0,
+            };
+
+            if (state.InCombat && state.Fleets.TryGetValue("fleet_trader_1", out var player))
+            {
+                d["player_hull"] = player.HullHp;
+                d["player_shield"] = player.ShieldHp;
+
+                if (!string.IsNullOrEmpty(state.CombatOpponentId)
+                    && state.Fleets.TryGetValue(state.CombatOpponentId, out var opp))
+                {
+                    d["opponent_hull"] = opp.HullHp;
+                    d["opponent_shield"] = opp.ShieldHp;
+                }
+            }
+
+            lock (_snapshotLock)
+            {
+                _cachedCombatStatusV0 = d;
+            }
+        }, 0);
+
+        lock (_snapshotLock)
+        {
+            return _cachedCombatStatusV0.Duplicate();
+        }
+    }
+
+    /// <summary>
+    /// Returns the most recent combat log: {outcome (string), cause (string), event_count (int)}.
+    /// Returns empty dict if no combat has occurred.
+    /// </summary>
+    public Godot.Collections.Dictionary GetLastCombatLogV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            if (state.CombatLogs.Count == 0) return;
+            var last = state.CombatLogs[^1];
+            result["outcome"] = last.Outcome.ToString();
+            result["cause"] = last.CauseOfDeath ?? "";
+            result["event_count"] = last.Events.Count;
+        }, 0);
+        return result;
+    }
+
+    // GATE.S5.COMBAT_LOCAL.SCENE_PROOF.001
+    // Dispatches a StartCombatCommand to run a full encounter between the player fleet and an opponent.
+    // Blocks until the sim thread processes the command so callers can read combat results immediately.
+    public void DispatchStartCombatV0(string opponentFleetId)
+    {
+        int tickBefore = GetSimTickV0();
+        EnqueueCommand(new StartCombatCommand("fleet_trader_1", opponentFleetId));
+        WaitForTickAdvance(tickBefore, 200);
+    }
+
+    // Clears combat state flags so the next GetCombatStatusV0 returns in_combat=false.
+    public void DispatchClearCombatV0()
+    {
+        int tickBefore = GetSimTickV0();
+        EnqueueCommand(new ClearCombatCommand());
+        WaitForTickAdvance(tickBefore, 200);
+    }
 }

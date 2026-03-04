@@ -66,11 +66,8 @@ public static class GalaxyGenerator
     {
         options ??= new GalaxyGenOptions();
 
-        // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: tweak-sourced bounds (generator is the source of truth).
         var minP = Math.Max(0, state.Tweaks.WorldgenMinProducersPerGood);
         var minS = Math.Max(0, state.Tweaks.WorldgenMinSinksPerGood);
-
-        // If sinks are required by tweaks, force-enable v0 distribution sinks deterministically.
         var effectiveEnableDistributionSinksV0 = options.EnableDistributionSinksV0 || (minS > 0);
 
         state.Nodes.Clear();
@@ -79,277 +76,29 @@ public static class GalaxyGenerator
         state.Fleets.Clear();
         state.IndustrySites.Clear();
 
-        // GATE.S2_5.WGEN.GALAXY.001: enforce minimum starter region size at the generator boundary.
         if (starCount < StarterRegionNodeCount)
         {
             starCount = StarterRegionNodeCount;
         }
 
-        var nodesList = new List<Node>();
-        var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
+        // Phase 1: Place star nodes (consumes RNG for positions).
+        var nodesList = StarNetworkGen.PlaceNodes(state, starCount, radius);
 
-        for (int i = 0; i < starCount; i++)
-        {
-            float x = (float)(rng.NextDouble() * 2 - 1) * radius;
-            float z = (float)(rng.NextDouble() * 2 - 1) * radius;
-
-            var node = new Node
-            {
-                Id = $"star_{i}",
-                Name = $"System {i}",
-                Position = new Vector3(x, 0, z),
-                Kind = NodeKind.Star,
-                MarketId = $"star_{i}"
-            };
-            state.Nodes.Add(node.Id, node);
-            nodesList.Add(node);
-
-            var mkt = new Market { Id = node.MarketId };
-
-            // Seed fuel/metal/ore inventory keys for deterministic price publishing.
-            // Fuel gets bootstrap stock to prevent economy stall; metal/ore are key-only (require production).
-            // food is NOT seeded here: food is a production good requiring agricultural node profiles.
-            // Use SimBridge.GetCatalogGoodsV0() to verify catalog completeness — not GetPlayerMarketViewV0().
-            mkt.Inventory[WellKnownGoodIds.Fuel]  = CatalogTweaksV0.FuelInitialStock;
-            mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.MetalInitialStock;
-            mkt.Inventory[WellKnownGoodIds.Ore]   = CatalogTweaksV0.OreInitialStock;
-
-            // GATE.S2_5.WGEN.ECON.001: deterministic economy placement v0 for starter region.
-            // Starter region is the first N stars by generation index.
-            bool isStarter = i < Math.Min(starCount, StarterRegionNodeCount);
-
-            // Deterministic fuel source v0: every 6th node has a fuel well that produces fuel with no inputs.
-            // This prevents the world from draining all seeded fuel and going globally idle.
-            bool isFuelWell = (i % 6) == 0;
-            if (isFuelWell)
-            {
-                mkt.Inventory[WellKnownGoodIds.Fuel] = Math.Max(mkt.Inventory[WellKnownGoodIds.Fuel], 3000); // bootstrap supply
-
-                var well = new IndustrySite
-                {
-                    Id = $"well_{i}",
-                    NodeId = node.Id,
-                    RecipeId = "", // natural source — no recipe (0 inputs)
-                    Inputs = new Dictionary<string, int>(),
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Fuel, 5 } },
-                    BufferDays = 1,
-                    DegradePerDayBps = 0
-                };
-
-                state.IndustrySites.Add(well.Id, well);
-                node.Name += " (Fuel Well)";
-            }
-
-            if (i % 2 == 0)
-            {
-                // MINE: supplies ore; starter region also supplies fuel and demands metal (demand sink).
-                if (isStarter)
-                {
-                    mkt.Inventory[WellKnownGoodIds.Fuel] = 120;  // supply
-                    mkt.Inventory[WellKnownGoodIds.Ore] = 500;   // supply
-                    mkt.Inventory[WellKnownGoodIds.Metal] = 10;  // demand sink (scarce)
-                }
-                else
-                {
-                    mkt.Inventory[WellKnownGoodIds.Ore] = 500;
-                }
-
-                var mine = new IndustrySite
-                {
-                    Id = $"mine_{i}",
-                    NodeId = node.Id,
-                    RecipeId = WellKnownRecipeIds.ExtractOre,
-                    Inputs = new Dictionary<string, int>
-                    {
-                        { WellKnownGoodIds.Fuel, 1 },
-                        { WellKnownGoodIds.Ore, 0 } // keep ore key present in Inputs map? no, Inputs should be meaningful only
-                    },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Ore, 5 } },
-                    BufferDays = 1,
-                    DegradePerDayBps = 0
-                };
-
-                // Remove the dummy input so upkeep inputs are real only
-                mine.Inputs.Remove(WellKnownGoodIds.Ore);
-
-                state.IndustrySites.Add(mine.Id, mine);
-                node.Name += " (Mining)";
-            }
-            else
-            {
-                // REFINERY: consumes ore + fuel, produces metal; starter region demands ore+fuel and supplies metal.
-                if (isStarter)
-                {
-                    mkt.Inventory[WellKnownGoodIds.Fuel] = 10;   // demand sink (scarce)
-                    mkt.Inventory[WellKnownGoodIds.Ore] = 0;     // demand sink (scarce)
-                    mkt.Inventory[WellKnownGoodIds.Metal] = 200; // supply
-                }
-
-                var factory = new IndustrySite
-                {
-                    Id = $"fac_{i}",
-                    NodeId = node.Id,
-                    RecipeId = WellKnownRecipeIds.RefineOreToMetal,
-                    Inputs = new Dictionary<string, int>
-                    {
-                        { WellKnownGoodIds.Ore, 10 },
-                        { WellKnownGoodIds.Fuel, 1 }
-                    },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 5 } },
-                    BufferDays = 2,
-                    DegradePerDayBps = 500 // 5% health per day at full deficit
-                };
-                state.IndustrySites.Add(factory.Id, factory);
-                node.Name += " (Refinery)";
-            }
-
-            // GATE.S2_5.WGEN.DISTRIBUTION.001: ensure a structural sink exists for starter goods.
-            // v0: add a deterministic metal demand sink on some starter nodes (OPT-IN via GalaxyGenOptions).
-            if (effectiveEnableDistributionSinksV0 && isStarter && (i % 5) == 1)
-            {
-                var metalSink = new IndustrySite
-                {
-                    Id = $"sink_metal_{i}",
-                    NodeId = node.Id,
-                    RecipeId = "", // pure sink — no production recipe
-                    Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 1 } },
-                    Outputs = new Dictionary<string, int>(),
-                    BufferDays = 1,
-                    DegradePerDayBps = 0
-                };
-                state.IndustrySites.Add(metalSink.Id, metalSink);
-            }
-
-            // GATE.S4.INDU_STRUCT.GENESIS_WIRE.001: hull_plating manufacturing sites.
-            // Every Nth node starting at offset gets a forge that converts metal → hull_plating.
-            if (i % CatalogTweaksV0.ForgeNodeModulus == CatalogTweaksV0.ForgeNodeOffset)
-            {
-                mkt.Inventory[WellKnownGoodIds.HullPlating] = CatalogTweaksV0.HullPlatingInitialStock;
-                var forge = new IndustrySite
-                {
-                    Id = $"forge_{i}",
-                    NodeId = node.Id,
-                    RecipeId = WellKnownRecipeIds.ForgeHullPlating,
-                    Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, CatalogTweaksV0.ForgeMetalInput } },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.HullPlating, CatalogTweaksV0.ForgeHullOutput } },
-                    BufferDays = CatalogTweaksV0.ForgeBufferDays,
-                    DegradePerDayBps = CatalogTweaksV0.ForgeDegradeBps
-                };
-                state.IndustrySites.Add(forge.Id, forge);
-                node.Name += " (Forge)";
-            }
-
-            state.Markets.Add(node.MarketId, mkt);
-        }
+        // Phase 2: Seed markets, inventory, and industry sites (deterministic, no RNG).
+        MarketInitGen.InitMarkets(state, nodesList, starCount, effectiveEnableDistributionSinksV0);
 
         if (nodesList.Count == 0) return;
         state.PlayerLocationNodeId = nodesList[0].Id;
         state.PlayerVisitedNodeIds.Add(nodesList[0].Id);
 
-        // GATE.S4.CATALOG.MARKET_BIND.001: validate all seeded market inventory keys are in the registry.
-        if (options?.Registry is { } catalogReg)
-        {
-            var catalogGoodIds = new HashSet<string>(catalogReg.Goods.Select(g => g.Id), StringComparer.Ordinal);
-            foreach (var mkt in state.Markets.Values)
-            {
-                foreach (var goodId in mkt.Inventory.Keys)
-                {
-                    if (!catalogGoodIds.Contains(goodId))
-                        throw new InvalidOperationException(
-                            $"Market {mkt.Id} seeded good '{goodId}' is absent from the content registry.");
-                }
-            }
-        }
+        MarketInitGen.ValidateCatalogBinding(state, options?.Registry);
 
-        // GATE.S2_5.WGEN.GALAXY.001: deterministic topology v0.
-        // Requirements:
-        // - connected starter region graph
-        // - MIN starter nodes = StarterRegionNodeCount (or all nodes if fewer)
-        // - MIN starter lanes = 18
-        // - stable LaneId minted via deterministic counter (no hash iteration)
-        int starterN = Math.Min(nodesList.Count, StarterRegionNodeCount);
-        int laneCounter = 0;
+        // Phase 3: Wire lanes and seed AI fleets.
+        StarNetworkGen.WireLanes(state, nodesList);
+        StarNetworkGen.SeedAiFleets(state, nodesList);
 
-        // Duplicate suppression key: normalized endpoints "a|b" with ordinal ordering.
-        var laneKey = new HashSet<string>(StringComparer.Ordinal);
-
-        void AddLane(Node a, Node b, int capacity)
-        {
-            var u = a.Id;
-            var v = b.Id;
-            if (string.CompareOrdinal(u, v) > 0)
-            {
-                (u, v) = (v, u);
-            }
-
-            var key = $"{u}|{v}";
-            if (!laneKey.Add(key)) return;
-
-            laneCounter++;
-            string id = $"lane_{laneCounter:D4}";
-            state.Edges.Add(id, new Edge
-            {
-                Id = id,
-                FromNodeId = u,
-                ToNodeId = v,
-                Distance = Vector3.Distance(a.Position, b.Position),
-                TotalCapacity = capacity
-            });
-        }
-
-        if (starterN >= 2)
-        {
-            // 1) Starter ring (connected).
-            for (int i = 0; i < starterN; i++)
-            {
-                var a = nodesList[i];
-                var b = nodesList[(i + 1) % starterN];
-                AddLane(a, b, capacity: 5);
-            }
-
-            // 2) Add deterministic chords until MIN starter lanes reached.
-            // First pass: step=2 chords around the ring.
-            for (int i = 0; i < starterN && laneKey.Count < 18; i++)
-            {
-                var a = nodesList[i];
-                var b = nodesList[(i + 2) % starterN];
-                AddLane(a, b, capacity: 4);
-            }
-
-            // Second pass: step=3 chords if still short (requires starterN >= 4 to add new edges).
-            for (int i = 0; i < starterN && laneKey.Count < 18; i++)
-            {
-                var a = nodesList[i];
-                var b = nodesList[(i + 3) % starterN];
-                AddLane(a, b, capacity: 3);
-            }
-        }
-
-        // 3) Attach any non-starter nodes deterministically to keep whole galaxy connected.
-        // Connect each node i to i-1 for i >= starterN.
-        for (int i = starterN; i < nodesList.Count; i++)
-        {
-            AddLane(nodesList[i - 1], nodesList[i], capacity: 5);
-        }
-
-        foreach (var node in nodesList)
-        {
-            var fleet = new Fleet
-            {
-                Id = $"ai_fleet_{node.Id}",
-                OwnerId = "ai",
-                CurrentNodeId = node.Id,
-                Speed = 0.8f,
-                State = FleetState.Idle,
-                Supplies = 100
-            };
-            state.Fleets.Add(fleet.Id, fleet);
-        }
-
-        // GATE.S3_6.RUMOR_INTEL_MIN.002: seed rumor leads deterministically before bounds check.
         SeedRumorLeadsV0(state);
 
-        // GATE.X.TWEAKS.DATA.MIGRATE.WORLDGEN_BOUNDS.001: enforce bounds deterministically at the generator boundary.
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
         {
@@ -357,9 +106,6 @@ public static class GalaxyGenerator
         }
     }
 
-    // NOTE: CreateEdge retained for back-compat callers, but now mints deterministic lane ids
-    // only when used through BuildTopology lanes above. Existing direct callers still get
-    // stable ids derived from endpoints (not used for gate proofs).
     private static (bool Pass, string Report) EvaluateWorldgenBoundsV0(SimState state, IReadOnlyList<string> goodsOrdered, int minP, int minS)
     {
         var starterNodes = new HashSet<string>(GetStarterNodeIdsSortedV0(state), StringComparer.Ordinal);
@@ -414,27 +160,6 @@ public static class GalaxyGenerator
 
         sb.Append(pass ? " PASS" : " FAIL");
         return (pass, sb.ToString());
-    }
-
-    private static void CreateEdge(SimState state, Node a, Node b)
-    {
-        string id = $"edge_{GetSortedId(a.Id, b.Id)}";
-        if (!state.Edges.ContainsKey(id))
-        {
-            state.Edges.Add(id, new Edge
-            {
-                Id = id,
-                FromNodeId = a.Id,
-                ToNodeId = b.Id,
-                Distance = Vector3.Distance(a.Position, b.Position),
-                TotalCapacity = 5
-            });
-        }
-    }
-
-    private static string GetSortedId(string a, string b)
-    {
-        return string.CompareOrdinal(a, b) < 0 ? $"{a}_{b}" : $"{b}_{a}";
     }
 
     // GATE.S3_6.RUMOR_INTEL_MIN.002

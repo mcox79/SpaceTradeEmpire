@@ -498,7 +498,7 @@ public class SaveLoadWorldHashTests
                 );
             }
 
-            var allFields = av.Keys.Concat(bv.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+            var allFields = av!.Keys.Concat(bv!.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal);
             foreach (var f in allFields)
             {
                 av.TryGetValue(f, out var fvA);

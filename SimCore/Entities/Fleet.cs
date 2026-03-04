@@ -100,6 +100,12 @@ public class Fleet
     public List<ModuleSlot> Slots { get; set; } = new();
 
 
+    // SLICE 5: Combat HP state (GATE.S5.COMBAT_LOCAL.DAMAGE_MODEL.001)
+    public int HullHp { get; set; } = -1;
+    public int HullHpMax { get; set; } = -1;
+    public int ShieldHp { get; set; } = -1;
+    public int ShieldHpMax { get; set; } = -1;
+
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
 

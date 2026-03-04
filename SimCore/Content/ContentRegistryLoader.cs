@@ -51,8 +51,8 @@ public static class ContentRegistryLoader
         "  ],\n" +
         "  \"modules\": [\n" +
         "    { \"id\": \"cap_module_refinery\" },\n" +
-        "    { \"id\": \"weapon_cannon_mk1\" },\n" +
-        "    { \"id\": \"weapon_laser_mk1\" }\n" +
+        "    { \"id\": \"weapon_cannon_mk1\", \"base_damage\": 12 },\n" +
+        "    { \"id\": \"weapon_laser_mk1\", \"base_damage\": 10 }\n" +
         "  ]\n" +
         "}\n";
 
@@ -76,6 +76,7 @@ public static class ContentRegistryLoader
     public sealed class ModuleDefV0
     {
         public string Id { get; set; } = "";
+        public int BaseDamage { get; set; } = 0;
     }
 
     public sealed class RecipeDefV0
@@ -167,11 +168,14 @@ public static class ContentRegistryLoader
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("modules[] entries must be objects.");
 
-            AssertNoExtraPropertiesOrThrow(e, "id");
+            AssertNoExtraPropertiesOrThrow(e, "base_damage", "id");
 
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("modules[] missing required field: id (string).");
-            list.Add(new ModuleDefV0 { Id = idEl.GetString() ?? "" });
+            var mod = new ModuleDefV0 { Id = idEl.GetString() ?? "" };
+            if (e.TryGetProperty("base_damage", out var bdEl) && bdEl.ValueKind == JsonValueKind.Number)
+                mod.BaseDamage = bdEl.GetInt32();
+            list.Add(mod);
         }
         return list;
     }
@@ -436,7 +440,7 @@ public static class ContentRegistryLoader
                 ValidateIdArray(root, "goods", "goods[]", failures, "base_price_band", "display_name", "stackable", "tier");
 
                 // modules
-                ValidateIdArray(root, "modules", "modules[]", failures);
+                ValidateIdArray(root, "modules", "modules[]", failures, "base_damage");
 
                 // recipes (with nested lines)
                 ValidateRecipes(root, failures);

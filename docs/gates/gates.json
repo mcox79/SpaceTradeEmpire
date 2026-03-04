@@ -1,7 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-03T20:15:00Z",
-    "queue_intent": "All EPIC.S4.INDU_STRUCT gates completed. Queue empty pending next /gen-gates.",
+    "generated_utc": "2026-03-03T23:30:00Z",
+    "queue_intent": "All 8 gates closed (3 hygiene + 5 S5 combat). Queue empty.",
     "tasks": []
 }

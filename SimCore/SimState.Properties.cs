@@ -231,6 +231,13 @@ public partial class SimState
 
     [JsonInclude] public IntelBook Intel { get; set; } = new();
 
+    // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
+    [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
+
+    // GATE.S5.COMBAT_LOCAL.BRIDGE_COMBAT.001: transient combat state (not persisted).
+    [JsonIgnore] public bool InCombat { get; set; }
+    [JsonIgnore] public string? CombatOpponentId { get; set; }
+
     // GATE.S3_6.EXPLOITATION_PACKAGES.002: exploitation package ledger event log.
     // Persisted. Append-only. Schema-bound tokens: TradePnL, InventoryLoaded, InventoryUnloaded,
     // Produced, BudgetExhausted, NoExportRoute. Ordering: deterministic (tick-order of Apply calls).
