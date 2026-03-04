@@ -11,7 +11,8 @@
       "Bash(powershell.exe -File *)",
       "Bash(powershell -Command *)",
       "Bash(rm /d/SGE/SpaceTradeEmpire/*.ps1)",
-      "Bash(rm /d/SGE/SpaceTradeEmpire/*.txt)"
+      "Bash(rm /d/SGE/SpaceTradeEmpire/*.txt)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ResearchSystem|RefitSystem|MaintenanceSystem|SaveLoadTech\")"
     ],
     "ask": [
       "Bash(git push*)"
@@ -22,7 +23,11 @@
       {
         "matcher": {
           "tool_name": "write",
-          "file_paths": ["scripts/bridge/**/*.cs", "scripts/view/**/*.cs", "scripts/ui/**/*.cs"]
+          "file_paths": [
+            "scripts/bridge/**/*.cs",
+            "scripts/view/**/*.cs",
+            "scripts/ui/**/*.cs"
+          ]
         },
         "hooks": [
           {
@@ -34,7 +39,11 @@
       {
         "matcher": {
           "tool_name": "edit",
-          "file_paths": ["scripts/bridge/**/*.cs", "scripts/view/**/*.cs", "scripts/ui/**/*.cs"]
+          "file_paths": [
+            "scripts/bridge/**/*.cs",
+            "scripts/view/**/*.cs",
+            "scripts/ui/**/*.cs"
+          ]
         },
         "hooks": [
           {
@@ -46,7 +55,10 @@
       {
         "matcher": {
           "tool_name": "write",
-          "file_paths": ["SimCore/**/*.cs", "SimCore.Tests/**/*.cs"]
+          "file_paths": [
+            "SimCore/**/*.cs",
+            "SimCore.Tests/**/*.cs"
+          ]
         },
         "hooks": [
           {
@@ -58,7 +70,10 @@
       {
         "matcher": {
           "tool_name": "edit",
-          "file_paths": ["SimCore/**/*.cs", "SimCore.Tests/**/*.cs"]
+          "file_paths": [
+            "SimCore/**/*.cs",
+            "SimCore.Tests/**/*.cs"
+          ]
         },
         "hooks": [
           {

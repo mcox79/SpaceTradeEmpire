@@ -3,4 +3,11 @@
 #   <token>               (global allow)
 #   <pathRel>:<token>     (path-scoped allow)
 
+# GATE.S4.MAINT.SYSTEM.001: full efficiency float literal (routed via FullEfficiencyPct but float assignment needed)
+SimCore/Systems/MaintenanceSystem.cs:1.0f
 
+# GATE.S4.UPGRADE.SYSTEM.001: slot index bounds check (structural, not tuning)
+SimCore/Systems/RefitSystem.cs:0
+
+# GATE.S4.TECH.SYSTEM.001: reset-to-zero initialization (structural, not tuning)
+SimCore/Systems/ResearchSystem.cs:0

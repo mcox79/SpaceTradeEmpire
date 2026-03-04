@@ -234,6 +234,9 @@ public partial class SimState
     // GATE.S1.MISSION.MODEL.001: Persisted mission state.
     [JsonInclude] public MissionState Missions { get; set; } = new();
 
+    // GATE.S4.TECH.CORE.001: Persisted tech/research state.
+    [JsonInclude] public TechState Tech { get; set; } = new();
+
     // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
     [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
 

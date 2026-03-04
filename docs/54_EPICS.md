@@ -681,9 +681,9 @@ Epics:
   - Required outputs: IndustryShortfall style explain events when blocked (missing input, storage full, no capacity, no permit)
   - Evidence: a deterministic chain report over a fixed scenario (no timestamps; stable sort order)
 - EPIC.S4.CONSTR_PROG [TODO]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
-- EPIC.S4.MAINT_SUSTAIN [TODO]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
-- EPIC.S4.TECH_INDUSTRIALIZE [TODO]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
-- EPIC.S4.UPGRADE_PIPELINE [TODO]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
+- EPIC.S4.MAINT_SUSTAIN [IN_PROGRESS]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
+- EPIC.S4.TECH_INDUSTRIALIZE [IN_PROGRESS]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
+- EPIC.S4.UPGRADE_PIPELINE [IN_PROGRESS]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
 - EPIC.S4.CATALOG.V0 [DONE]: Starter Catalog v0 (goods%recipes%modules%weapons) shipped as content packs with deterministic validation (gates: GATE.S4.CATALOG.*)
   - Scope: create a small but expressive authored catalog that supports:
     - >= 3 viable early trade loops (Greatness spec requirement)
@@ -729,7 +729,7 @@ Epics:
     - incompatible module install attempt surfaces specific reason (missing slot, missing prereq, restricted)
   - Intervention verbs:
     - Industry: queue refit
-- EPIC.S4.UI_INDU [TODO]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
+- EPIC.S4.UI_INDU [IN_PROGRESS]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
 - EPIC.S4.NPC_INDU [TODO]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
 - EPIC.S4.PERF_BUDGET [TODO]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
 

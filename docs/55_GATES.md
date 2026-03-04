@@ -118,6 +118,24 @@ When a gate moves to DONE:
 | GATE.S1.MISSION.HEADLESS_PROOF.001 | DONE | Mission 1 headless completion proof (PLAYABLE_BEAT) |
 | GATE.X.HYGIENE.EPIC_REVIEW.003 | DONE | Epic tracking audit + course correction |
 | GATE.X.HYGIENE.GREATNESS_EVAL.001 | DONE | "First 60 minutes" player experience evaluation |
+| GATE.S4.TECH.CORE.001 | DONE | Tech research entities + tweaks + content |
+| GATE.S4.UPGRADE.CORE.001 | DONE | Refit job entity + tweaks |
+| GATE.S4.MAINT.CORE.001 | DONE | Maintenance condition model + tweaks |
+| GATE.S4.TECH.SYSTEM.001 | DONE | ResearchSystem process loop + tests |
+| GATE.S4.UPGRADE.SYSTEM.001 | DONE | RefitSystem process loop + tests |
+| GATE.S4.MAINT.SYSTEM.001 | DONE | MaintenanceSystem decay/repair + tests |
+| GATE.S4.TECH.BRIDGE.001 | DONE | SimBridge research queries |
+| GATE.S4.UPGRADE.BRIDGE.001 | DONE | SimBridge refit queries |
+| GATE.S4.MAINT.BRIDGE.001 | DONE | SimBridge maintenance queries |
+| GATE.S4.TECH.SAVE.001 | DONE | Research + refit + maintenance save/load |
+| GATE.S4.UI_INDU.RESEARCH.001 | DONE | Research panel in dock menu |
+| GATE.S4.UI_INDU.UPGRADE.001 | DONE | Refit panel in dock menu |
+| GATE.S4.UI_INDU.MAINT.001 | DONE | Maintenance view in production panel |
+| GATE.S4.TECH.PROOF.001 | DONE | Research pipeline headless proof |
+| GATE.S4.INDU.PLAYABLE_BEAT.001 | DONE | Industry in-engine playable beat |
+| GATE.X.HYGIENE.REPO_HEALTH.004 | DONE | Test suite + health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.004 | DONE | Epic status audit |
+| GATE.X.EVAL.PROGRESSION_AUDIT.001 | DONE | Progression depth evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -556,3 +574,31 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.003 | DONE | Full repo health baseline: run full test suite (307+ tests), warning scan, dead code check, golden hash stability. Report regressions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/55_GATES.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.003 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches (epics still TODO with all gates DONE). Update statuses. Recommend next anchor epic. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.HYGIENE.GREATNESS_EVAL.001 | DONE | "First 60 minutes" player experience evaluation: assess current playable prototype against Greatness Spec criteria (guided objectives, economic loop, combat feel, discovery, progression, save/load). Identify gaps and prioritize. Proof: written evaluation document | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+
+### B30. Slice 4 industry pipeline gates (tranche 4)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S4.TECH.CORE.001 | DONE | Tech research foundation: TechLead/Prototype/ResearchQueue entities in SimCore/Entities/TechState.cs, ResearchTweaksV0 with time/material costs, TechContentV0 with starter tech leads tied to discovery unlocks. Add TechState to SimState. Contract tests for serialization. Proof: dotnet test SimCore.Tests -c Release | NEW: SimCore/Entities/TechState.cs; NEW: SimCore/Tweaks/ResearchTweaksV0.cs; NEW: SimCore/Content/TechContentV0.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.UPGRADE.CORE.001 | DONE | Refit foundation: RefitJob entity on Fleet (module_to_install, progress, time_cost). Add refit queue field to Fleet entity. Refit tweaks added to IndustryTweaksV0. Contract tests. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore/Entities/Fleet.cs; FOUND: SimCore/Tweaks/IndustryTweaksV0.cs |
+| GATE.S4.MAINT.CORE.001 | DONE | Maintenance foundation: Condition (0-100) field on IndustrySite with decay_rate. Maintenance tweaks added to IndustryTweaksV0 (decay_per_tick, repair_cost_per_point). Contract tests. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore/Entities/IndustrySite.cs; FOUND: SimCore/Tweaks/IndustryTweaksV0.cs |
+| GATE.S4.TECH.SYSTEM.001 | DONE | ResearchSystem: Process(state) advances active research if materials available, transitions Lead->Prototype->Manufacturable, produces new Recipe on completion. Determinism test with golden hash. Proof: dotnet test SimCore.Tests -c Release --filter "Research" | NEW: SimCore/Systems/ResearchSystem.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.UPGRADE.SYSTEM.001 | DONE | RefitSystem: Process(state) advances refit jobs for fleets docked at stations, installs/removes modules on completion. Determinism test. Proof: dotnet test SimCore.Tests -c Release --filter "Refit" | NEW: SimCore/Systems/RefitSystem.cs; FOUND: SimCore/Entities/Fleet.cs |
+| GATE.S4.MAINT.SYSTEM.001 | DONE | MaintenanceSystem: Process(state) decays condition per tick, consumes supply goods to repair, production efficiency scales with condition. Determinism test. Proof: dotnet test SimCore.Tests -c Release --filter "Maintenance" | NEW: SimCore/Systems/MaintenanceSystem.cs; FOUND: SimCore/Entities/IndustrySite.cs |
+| GATE.S4.TECH.BRIDGE.001 | DONE | SimBridge research queries: GetResearchQueueV0 (active leads, progress), StartResearchV0 (begin researching a lead), GetAvailableTechLeadsV0 (discovered but unresearched). Follows existing partial class pattern. Proof: dotnet build Space Trade Empire.csproj | NEW: scripts/bridge/SimBridge.Research.cs; FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S4.UPGRADE.BRIDGE.001 | DONE | SimBridge refit queries: GetRefitQueueV0 (active refit jobs), StartRefitV0 (begin installing module), GetRefitableModulesV0 (available modules). Proof: dotnet build Space Trade Empire.csproj | NEW: scripts/bridge/SimBridge.Refit.cs; FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S4.MAINT.BRIDGE.001 | DONE | SimBridge maintenance queries: GetMaintenanceStatusV0 (condition per site at node), RepairSiteV0 (consume goods to repair). Add to SimBridge.cs main file. Proof: dotnet build Space Trade Empire.csproj | FOUND: scripts/bridge/SimBridge.cs; FOUND: SimCore/Systems/MaintenanceSystem.cs |
+| GATE.S4.TECH.SAVE.001 | DONE | Research + refit + maintenance state save/load preservation: TechState, refit queue, and condition fields serialize correctly in QuickSaveV2. Golden hash update. Proof: dotnet test SimCore.Tests -c Release --filter "SaveLoad" | FOUND: SimCore/Systems/SerializationSystem.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.UI_INDU.RESEARCH.001 | DONE | Research panel in hero_trade_menu.gd: show available tech leads with "Research" button, active research progress bar, completed techs. Uses SimBridge.Research queries. Proof: dotnet build Space Trade Empire.csproj | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S4.UI_INDU.UPGRADE.001 | DONE | Refit panel in hero_trade_menu.gd: show available modules with "Install" button, active refit progress, current loadout. Uses SimBridge.Refit queries. Proof: dotnet build Space Trade Empire.csproj | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Refit.cs |
+| GATE.S4.UI_INDU.MAINT.001 | DONE | Maintenance view in production panel: show condition percentage per site, "Repair" button consuming goods. Integrates with existing _rebuild_production_info in hero_trade_menu.gd. Proof: dotnet build Space Trade Empire.csproj | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S4.TECH.PROOF.001 | DONE | Research pipeline headless proof: extends SceneTree script boots scene, discovers a tech lead, starts research, advances ticks until complete, verifies new recipe available. Emits RESEARCH_PROOF PASS. Proof: godot --headless --path . -s res://scripts/tests/test_research_proof_v0.gd | NEW: scripts/tests/test_research_proof_v0.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S4.INDU.PLAYABLE_BEAT.001 | DONE | Industry in-engine playable beat: extends SceneTree script boots scene, docks at station, views research panel, starts a refit, verifies maintenance condition visible in production. Emits INDUSTRY_BEAT PASS. Proof: godot --headless --path . -s res://scripts/tests/test_industry_beat_v0.gd | NEW: scripts/tests/test_industry_beat_v0.gd; FOUND: scripts/ui/hero_trade_menu.gd |
+
+### B31. Hygiene gates (tranche 4)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.004 | DONE | Full repo health baseline: run full test suite (339+ tests), warning scan, dead code check, golden hash stability. Report regressions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.004 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches. Update statuses. Recommend next anchor epic for tranche 5. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.EVAL.PROGRESSION_AUDIT.001 | DONE | Progression depth evaluation: audit current progression systems (missions, research, upgrades, combat, discovery) for depth, interconnection, and player feedback. Score each axis 1-5. Identify gaps for tranche 5. Proof: written evaluation | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |

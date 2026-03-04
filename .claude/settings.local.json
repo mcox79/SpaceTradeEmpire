@@ -120,7 +120,10 @@
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"TweakRoutingGuard\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v d --filter \"TweakRoutingGuard\")",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TweakRoutingGuard|FractureEconInvariant|MissionContract|MissionContent|MissionDeterminism\")",
-      "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s scripts/tests/test_mission_proof_v0.gd)"
+      "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s scripts/tests/test_mission_proof_v0.gd)",
+      "Bash(test -f docs/generated/01_CONTEXT_PACKET.md)",
+      "Bash(pwsh scripts/tools/New-ContextPacket.ps1)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TechState|FleetUpgrade|IndustrySiteMaintenance\")"
     ],
     "ask": [
       "Bash(git:push*)"

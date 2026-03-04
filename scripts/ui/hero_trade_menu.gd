@@ -8,6 +8,9 @@ var _rows_container: VBoxContainer = null
 var _title_label: Label = null
 var _cargo_label: Label = null
 var _missions_container: VBoxContainer = null
+var _research_container: VBoxContainer = null
+var _refit_container: VBoxContainer = null
+var _maint_container: VBoxContainer = null
 
 func _ready():
 	visible = false
@@ -62,6 +65,21 @@ func _ready():
 	_missions_container = VBoxContainer.new()
 	_missions_container.add_theme_constant_override("separation", 4)
 	vbox.add_child(_missions_container)
+
+	# GATE.S4.UI_INDU.RESEARCH.001: Research section
+	_research_container = VBoxContainer.new()
+	_research_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_research_container)
+
+	# GATE.S4.UI_INDU.UPGRADE.001: Refit section
+	_refit_container = VBoxContainer.new()
+	_refit_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_refit_container)
+
+	# GATE.S4.UI_INDU.MAINT.001: Maintenance section
+	_maint_container = VBoxContainer.new()
+	_maint_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_maint_container)
 
 	# Undock button
 	var btn_undock = Button.new()
@@ -163,6 +181,9 @@ func _rebuild_rows() -> void:
 	# GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001: show production info for this node
 	_rebuild_production_info()
 	_rebuild_missions()
+	_rebuild_research()
+	_rebuild_refit()
+	_rebuild_maintenance()
 
 	# Update cargo summary
 	if _cargo_label:
@@ -294,4 +315,217 @@ func _on_accept_mission(mission_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("AcceptMissionV0"):
 		bridge.call("AcceptMissionV0", mission_id)
+		_rebuild_rows()
+
+# GATE.S4.UI_INDU.RESEARCH.001: Research UI panel
+func _rebuild_research() -> void:
+	if _research_container == null:
+		return
+	for child in _research_container.get_children():
+		_research_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	# Show current research status
+	if bridge.has_method("GetResearchStatusV0"):
+		var status: Dictionary = bridge.call("GetResearchStatusV0")
+		var researching: bool = bool(status.get("researching", false))
+		if researching:
+			var hdr = Label.new()
+			hdr.text = "RESEARCH"
+			hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			hdr.add_theme_font_size_override("font_size", 16)
+			_research_container.add_child(hdr)
+
+			var tech_id: String = str(status.get("tech_id", ""))
+			var progress: int = int(status.get("progress_pct", 0))
+			var lbl = Label.new()
+			lbl.text = "Researching: %s (%d%%)" % [tech_id, progress]
+			_research_container.add_child(lbl)
+			return
+
+	# Show available techs to research
+	if bridge.has_method("GetTechTreeV0"):
+		var techs: Array = bridge.call("GetTechTreeV0")
+		var available: Array = []
+		for t in techs:
+			if typeof(t) != TYPE_DICTIONARY:
+				continue
+			if bool(t.get("unlocked", false)):
+				continue
+			if not bool(t.get("prerequisites_met", false)):
+				continue
+			available.append(t)
+
+		if available.size() == 0:
+			return
+
+		var hdr = Label.new()
+		hdr.text = "RESEARCH"
+		hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hdr.add_theme_font_size_override("font_size", 16)
+		_research_container.add_child(hdr)
+
+		for t in available:
+			var tid: String = str(t.get("tech_id", ""))
+			var tname: String = str(t.get("display_name", tid))
+			var tcost: int = int(t.get("credit_cost", 0))
+			var row = HBoxContainer.new()
+			var info_lbl = Label.new()
+			info_lbl.text = "%s (%d cr)" % [tname, tcost]
+			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(info_lbl)
+
+			var btn = Button.new()
+			btn.text = "Research"
+			btn.pressed.connect(_on_start_research.bind(tid))
+			row.add_child(btn)
+			_research_container.add_child(row)
+
+func _on_start_research(tech_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("StartResearchV0"):
+		bridge.call("StartResearchV0", tech_id)
+		_rebuild_rows()
+
+# GATE.S4.UI_INDU.UPGRADE.001: Refit/upgrade UI panel
+func _rebuild_refit() -> void:
+	if _refit_container == null:
+		return
+	for child in _refit_container.get_children():
+		_refit_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	if not bridge.has_method("GetPlayerFleetSlotsV0") or not bridge.has_method("GetAvailableModulesV0"):
+		return
+
+	var slots: Array = bridge.call("GetPlayerFleetSlotsV0")
+	if slots.size() == 0:
+		return
+
+	var hdr = Label.new()
+	hdr.text = "REFIT"
+	hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hdr.add_theme_font_size_override("font_size", 16)
+	_refit_container.add_child(hdr)
+
+	# Show current slots
+	for i in range(slots.size()):
+		var slot: Dictionary = slots[i] if typeof(slots[i]) == TYPE_DICTIONARY else {}
+		var slot_kind: String = str(slot.get("slot_kind", ""))
+		var installed: String = str(slot.get("installed_module_id", ""))
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "[%s] %s" % [slot_kind, installed if not installed.is_empty() else "(empty)"]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		_refit_container.add_child(row)
+
+	# Show installable modules
+	var modules: Array = bridge.call("GetAvailableModulesV0")
+	var installable: Array = []
+	for m in modules:
+		if typeof(m) != TYPE_DICTIONARY:
+			continue
+		if bool(m.get("can_install", false)):
+			installable.append(m)
+
+	if installable.size() > 0:
+		var sub_hdr = Label.new()
+		sub_hdr.text = "Available Modules:"
+		sub_hdr.add_theme_font_size_override("font_size", 14)
+		_refit_container.add_child(sub_hdr)
+
+		for m in installable:
+			var mid: String = str(m.get("module_id", ""))
+			var mname: String = str(m.get("display_name", mid))
+			var mcost: int = int(m.get("credit_cost", 0))
+			var mkind: String = str(m.get("slot_kind", ""))
+			var row = HBoxContainer.new()
+			var info_lbl = Label.new()
+			info_lbl.text = "%s [%s] %d cr" % [mname, mkind, mcost]
+			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(info_lbl)
+
+			# Find first matching empty slot
+			var target_slot: int = -1
+			for si in range(slots.size()):
+				var s: Dictionary = slots[si] if typeof(slots[si]) == TYPE_DICTIONARY else {}
+				if str(s.get("slot_kind", "")) == mkind and str(s.get("installed_module_id", "")).is_empty():
+					target_slot = si
+					break
+
+			if target_slot >= 0:
+				var btn = Button.new()
+				btn.text = "Install"
+				btn.pressed.connect(_on_install_module.bind(target_slot, mid))
+				row.add_child(btn)
+			_refit_container.add_child(row)
+
+func _on_install_module(slot_index: int, module_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("InstallModuleV0"):
+		bridge.call("InstallModuleV0", "fleet_trader_1", slot_index, module_id)
+		_rebuild_rows()
+
+# GATE.S4.UI_INDU.MAINT.001: Maintenance/repair UI panel
+func _rebuild_maintenance() -> void:
+	if _maint_container == null:
+		return
+	for child in _maint_container.get_children():
+		_maint_container.remove_child(child)
+		child.queue_free()
+
+	if _market_node_id.is_empty():
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetNodeMaintenanceV0"):
+		return
+
+	var sites: Array = bridge.call("GetNodeMaintenanceV0", _market_node_id)
+	var damaged: Array = []
+	for s in sites:
+		if typeof(s) != TYPE_DICTIONARY:
+			continue
+		if bool(s.get("needs_repair", false)):
+			damaged.append(s)
+
+	if damaged.size() == 0:
+		return
+
+	var hdr = Label.new()
+	hdr.text = "MAINTENANCE"
+	hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hdr.add_theme_font_size_override("font_size", 16)
+	_maint_container.add_child(hdr)
+
+	for s in damaged:
+		var sid: String = str(s.get("site_id", ""))
+		var recipe: String = str(s.get("recipe_id", ""))
+		var hp: int = int(s.get("health_pct", 0))
+		var eff: int = int(s.get("efficiency_pct", 0))
+		var cost: int = int(s.get("repair_cost", 0))
+
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "%s hp:%d%% eff:%d%%" % [recipe if not recipe.is_empty() else sid, hp, eff]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+
+		var btn = Button.new()
+		btn.text = "Repair (%d cr)" % cost
+		btn.pressed.connect(_on_repair_site.bind(sid))
+		row.add_child(btn)
+		_maint_container.add_child(row)
+
+func _on_repair_site(site_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("RepairSiteV0"):
+		bridge.call("RepairSiteV0", site_id)
 		_rebuild_rows()
