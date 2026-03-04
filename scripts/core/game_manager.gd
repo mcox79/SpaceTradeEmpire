@@ -34,6 +34,9 @@ var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can tr
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
 
+# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: player death state
+var _player_dead: bool = false
+
 # Real-time turret combat v0 — tweakable constants (sourced from CombatTweaksV0 for damage).
 const TURRET_COOLDOWN_SEC: float = 0.4
 const TURRET_RANGE: float = 80.0
@@ -120,19 +123,32 @@ func _ready():
 func _process(delta):
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
+
+	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: freeze all game logic when dead
+	if _player_dead:
+		return
+
 	if _lane_cooldown_v0 > 0.0:
 		_lane_cooldown_v0 -= float(delta)
 	if _turret_cooldown > 0.0:
 		_turret_cooldown -= float(delta)
 	if _ai_fire_cooldown > 0.0:
 		_ai_fire_cooldown -= float(delta)
-	# AI auto-fire at player when in range
+	# AI auto-fire at player when in range; check for death after each shot
 	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
 		_ai_fire_v0()
 
+	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll player HP each frame for death detection
+	_check_player_death_v0()
+
 
 func _unhandled_input(event):
+	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: R restarts scene; all other input frozen when dead
 	if event is InputEventKey and event.pressed and not event.echo:
+		if _player_dead:
+			if event.keycode == KEY_R:
+				get_tree().reload_current_scene()
+			return
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
 		# G key fires turrets at nearest fleet in range
@@ -324,6 +340,33 @@ func _ai_fire_v0() -> void:
 		return
 	_spawn_bullet_v0(nearest.global_position, _hero_body.global_position, false, fleet_id)
 	_ai_fire_cooldown = AI_FIRE_COOLDOWN_SEC
+
+# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll SimBridge each frame for player hull <= 0.
+func _check_player_death_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetFleetCombatHpV0"):
+		return
+	var hp: Dictionary = bridge.call("GetFleetCombatHpV0", PLAYER_FLEET_ID)
+	var hull: int = hp.get("hull", -1)
+	if hull_max_is_set_v0(hp) and hull <= 0:
+		notify_player_killed_v0()
+
+func hull_max_is_set_v0(hp: Dictionary) -> bool:
+	return hp.get("hull_max", 0) > 0
+
+# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: called after any damage source kills the player.
+func notify_player_killed_v0() -> void:
+	if _player_dead:
+		return
+	_player_dead = true
+	print("UUIR|PLAYER_DEAD")
+	# Notify HUD to show game over overlay
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud and hud.has_method("show_game_over_v0"):
+		hud.call("show_game_over_v0")
+
+func is_player_dead_v0() -> bool:
+	return _player_dead
 
 func _find_nearest_fleet_v0(max_range: float) -> Node3D:
 	if _hero_body == null or not is_instance_valid(_hero_body):

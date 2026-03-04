@@ -1,16 +1,59 @@
-[gd_scene format=3 uid="uid://c0o7mei6wfgso"]
+[gd_scene load_steps=11 format=3 uid="uid://c0o7mei6wfgso"]
 
 [ext_resource type="Script" uid="uid://xxai4ju2rc36" path="res://scripts/active_station.gd" id="1_stn"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
-size = Vector3(10, 5, 10)
+size = Vector3(12, 6, 12)
 
-[sub_resource type="BoxMesh" id="BoxMesh_station"]
-size = Vector3(10, 5, 10)
+[sub_resource type="CylinderMesh" id="CylinderMesh_hub"]
+top_radius = 2.8
+bottom_radius = 2.8
+height = 4.0
+radial_segments = 12
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_green"]
-transparency = 1
-albedo_color = Color(0, 1, 0, 0.3)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hull"]
+albedo_color = Color(0.22, 0.26, 0.30, 1)
+roughness = 0.55
+metallic = 0.45
+metallic_specular = 0.6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_ring"]
+top_radius = 5.8
+bottom_radius = 5.8
+height = 0.6
+radial_segments = 24
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring"]
+albedo_color = Color(0.18, 0.22, 0.28, 1)
+roughness = 0.45
+metallic = 0.60
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_accent"]
+top_radius = 5.82
+bottom_radius = 5.82
+height = 0.18
+radial_segments = 24
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_accent"]
+albedo_color = Color(0.3, 0.7, 1.0, 1)
+emission_enabled = true
+emission = Color(0.3, 0.7, 1.0, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spoke"]
+top_radius = 0.22
+bottom_radius = 0.22
+height = 3.1
+radial_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spoke"]
+albedo_color = Color(0.20, 0.24, 0.28, 1)
+roughness = 0.6
+metallic = 0.35
 
 [node name="Station" type="Area3D" unique_id=438021126]
 groups=["DockTarget","Station"]
@@ -19,6 +62,31 @@ script = ExtResource("1_stn")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1789134323]
 shape = SubResource("BoxShape3D_dock")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=286429693]
-mesh = SubResource("BoxMesh_station")
-surface_material_override/0 = SubResource("StandardMaterial3D_green")
+[node name="StationVisual" type="Node3D" parent="."]
+
+[node name="Hub" type="MeshInstance3D" parent="StationVisual"]
+mesh = SubResource("CylinderMesh_hub")
+surface_material_override/0 = SubResource("StandardMaterial3D_hull")
+
+[node name="Ring" type="MeshInstance3D" parent="StationVisual"]
+mesh = SubResource("CylinderMesh_ring")
+surface_material_override/0 = SubResource("StandardMaterial3D_ring")
+
+[node name="AccentBand" type="MeshInstance3D" parent="StationVisual"]
+mesh = SubResource("CylinderMesh_accent")
+surface_material_override/0 = SubResource("StandardMaterial3D_accent")
+
+[node name="Spoke0" type="MeshInstance3D" parent="StationVisual"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 4.3, 0, 0)
+mesh = SubResource("CylinderMesh_spoke")
+surface_material_override/0 = SubResource("StandardMaterial3D_spoke")
+
+[node name="Spoke1" type="MeshInstance3D" parent="StationVisual"]
+transform = Transform3D(-0.5, 0, 0.866, 0, 1, 0, -0.866, 0, -0.5, -2.15, 0, 3.72)
+mesh = SubResource("CylinderMesh_spoke")
+surface_material_override/0 = SubResource("StandardMaterial3D_spoke")
+
+[node name="Spoke2" type="MeshInstance3D" parent="StationVisual"]
+transform = Transform3D(-0.5, 0, -0.866, 0, 1, 0, 0.866, 0, -0.5, -2.15, 0, -3.72)
+mesh = SubResource("CylinderMesh_spoke")
+surface_material_override/0 = SubResource("StandardMaterial3D_spoke")

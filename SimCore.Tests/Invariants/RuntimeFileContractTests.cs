@@ -377,6 +377,7 @@ public sealed class RuntimeFileContractTests
             ".idea",
             ".godot",
             ".import",
+            ".claude",
             "bin",
             "obj",
             "node_modules",

@@ -22,7 +22,31 @@
       {
         "matcher": {
           "tool_name": "write",
-          "file_paths": ["**/*.cs"]
+          "file_paths": ["scripts/bridge/**/*.cs", "scripts/view/**/*.cs", "scripts/ui/**/*.cs"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet build \"Space Trade Empire.csproj\" --nologo -v q 2>&1 | tail -5"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool_name": "edit",
+          "file_paths": ["scripts/bridge/**/*.cs", "scripts/view/**/*.cs", "scripts/ui/**/*.cs"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet build \"Space Trade Empire.csproj\" --nologo -v q 2>&1 | tail -5"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool_name": "write",
+          "file_paths": ["SimCore/**/*.cs", "SimCore.Tests/**/*.cs"]
         },
         "hooks": [
           {
@@ -34,7 +58,7 @@
       {
         "matcher": {
           "tool_name": "edit",
-          "file_paths": ["**/*.cs"]
+          "file_paths": ["SimCore/**/*.cs", "SimCore.Tests/**/*.cs"]
         },
         "hooks": [
           {

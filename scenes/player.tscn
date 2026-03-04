@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/core/hero_ship_flight_controller.gd" id="1_hero_flight"]
 [ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
+[ext_resource type="Script" path="res://scripts/view/engine_trail.gd" id="3_engine_trail"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
 radius = 1.0
@@ -14,6 +15,20 @@ size = Vector3(0.9, 0.5, 1.4)
 
 [sub_resource type="BoxMesh" id="BoxMesh_engine"]
 size = Vector3(1.0, 0.4, 0.8)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
+lifetime_randomness = 0.3
+particle_flag_disable_z = false
+direction = Vector3(0, 0, 1)
+spread = 12.0
+initial_velocity_min = 3.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, 0, 0)
+color_ramp = null
+emission_shape = 0
+scale_min = 0.08
+scale_max = 0.18
+color = Color(1.0, 0.45, 0.05, 1.0)
 
 [node name="Player" type="RigidBody3D" unique_id=1454279642]
 script = ExtResource("1_hero_flight")
@@ -35,6 +50,15 @@ mesh = SubResource("BoxMesh_nose")
 [node name="Engine" type="MeshInstance3D" parent="ShipVisual" unique_id=990001004]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.1)
 mesh = SubResource("BoxMesh_engine")
+
+[node name="EngineTrail" type="GPUParticles3D" parent="ShipVisual/Engine" unique_id=990001005]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
+amount = 32
+lifetime = 0.5
+explosiveness = 0.0
+randomness = 0.2
+process_material = SubResource("ParticleProcessMaterial_trail")
+script = ExtResource("3_engine_trail")
 
 [node name="CameraMount" type="Node3D" parent="." unique_id=1535274258]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)

@@ -18,8 +18,29 @@ func _ready() -> void:
 	if _velocity == Vector3.ZERO:
 		_velocity = -global_transform.basis.z * speed
 
+	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: color bullet by source.
+	_apply_source_color()
+
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+
+func _apply_source_color() -> void:
+	var mesh_node := get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mesh_node == null:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.emission_enabled = true
+	if source_is_player:
+		# Player bullets: bright cyan/green
+		mat.albedo_color = Color(0.0, 1.0, 0.7, 1.0)
+		mat.emission = Color(0.0, 1.0, 0.7, 1.0)
+		mat.emission_energy_multiplier = 3.0
+	else:
+		# AI bullets: orange/red
+		mat.albedo_color = Color(1.0, 0.3, 0.05, 1.0)
+		mat.emission = Color(1.0, 0.3, 0.05, 1.0)
+		mat.emission_energy_multiplier = 3.0
+	mesh_node.material_override = mat
 
 func set_direction(direction: Vector3) -> void:
 	if direction.length() > 0.0001:
@@ -39,6 +60,8 @@ func _on_body_entered(body: Node) -> void:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
 			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)
+	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
+	_spawn_hit_vfx(global_position)
 	queue_free()
 
 func _on_area_entered(area: Area3D) -> void:
@@ -53,4 +76,48 @@ func _on_area_entered(area: Area3D) -> void:
 					var gm = get_node_or_null("/root/GameManager")
 					if gm and gm.has_method("despawn_fleet_v0"):
 						gm.call("despawn_fleet_v0", fleet_id)
+	# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: spawn hit VFX at impact point.
+	_spawn_hit_vfx(global_position)
 	queue_free()
+
+# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: 0.3s burst GPUParticles3D hit effect.
+func _spawn_hit_vfx(pos: Vector3) -> void:
+	var root = get_tree().get_root() if get_tree() else null
+	if root == null:
+		return
+
+	var particles := GPUParticles3D.new()
+	particles.name = "HitVfx"
+	particles.position = pos
+	particles.amount = 18
+	particles.lifetime = 0.3
+	particles.one_shot = true
+	particles.explosiveness = 0.92
+	particles.randomness = 0.3
+	particles.emitting = true
+
+	var proc_mat := ParticleProcessMaterial.new()
+	proc_mat.direction = Vector3(0, 1, 0)
+	proc_mat.spread = 80.0
+	proc_mat.initial_velocity_min = 4.0
+	proc_mat.initial_velocity_max = 10.0
+	proc_mat.gravity = Vector3(0, 0, 0)
+	proc_mat.scale_min = 0.06
+	proc_mat.scale_max = 0.18
+	if source_is_player:
+		proc_mat.color = Color(0.6, 1.0, 0.9, 1.0)
+	else:
+		proc_mat.color = Color(1.0, 0.7, 0.3, 1.0)
+	particles.process_material = proc_mat
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.08
+	mesh.height = 0.16
+	particles.draw_pass_1 = mesh
+
+	root.add_child(particles)
+
+	# Auto-free after burst completes (0.3s lifetime + small buffer).
+	var timer := root.get_tree().create_timer(0.5) if root.get_tree() else null
+	if timer:
+		timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())

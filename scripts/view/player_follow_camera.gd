@@ -7,8 +7,10 @@ extends Camera3D
 # Starting camera shape (used for reset + initial framing)
 @export var offset: Vector3 = Vector3(0, 40, 25)
 
-@export var follow_smooth: float = 10.0
-@export var look_smooth: float = 12.0
+# Increased smoothness: exp-smoothing coefficients.
+# follow_smooth = 5 gives a pleasantly weighty glide; raise toward 10 for snappier.
+@export var follow_smooth: float = 5.0
+@export var look_smooth: float = 8.0
 
 @export var min_distance: float = 8.0
 @export var max_distance: float = 220.0
@@ -24,6 +26,11 @@ extends Camera3D
 # Reset key (always gets you back to the initial high view)
 @export var reset_keycode: int = KEY_R
 
+# Velocity-based FOV swell: adds up to fov_boost_max degrees at top speed.
+@export var fov_base: float = 60.0
+@export var fov_boost_max: float = 6.0
+@export var fov_smooth: float = 4.0
+
 var _target: Node3D
 var _yaw: float = 0.0
 var _pitch: float = -0.25
@@ -36,8 +43,12 @@ var _default_yaw: float = 0.0
 var _default_pitch: float = -0.25
 var _default_distance: float = 18.0
 
+var _current_fov: float = 60.0
+
 func _ready() -> void:
 	set_as_top_level(true)
+	fov = fov_base
+	_current_fov = fov_base
 
 	_target = _resolve_target()
 	if _target == null:
@@ -83,14 +94,29 @@ func _physics_process(delta: float) -> void:
 		if _target == null:
 			return
 
-	var desired_pos = _desired_position()
+	# Smooth position follow using exponential decay (frame-rate independent).
+	var desired_pos := _desired_position()
 	global_position = global_position.lerp(desired_pos, 1.0 - exp(-follow_smooth * delta))
 
-	var desired_look = _target.global_position
-	var current_look = global_transform.origin + (-global_transform.basis.z * 10.0)
-	var smoothed_look = current_look.lerp(desired_look, 1.0 - exp(-look_smooth * delta))
-
+	# Smooth look-at: interpolate the look-target, then point camera there.
+	var desired_look := _target.global_position
+	var current_look := global_transform.origin + (-global_transform.basis.z * 10.0)
+	var smoothed_look := current_look.lerp(desired_look, 1.0 - exp(-look_smooth * delta))
 	look_at(smoothed_look, Vector3.UP)
+
+	# Velocity-driven FOV swell (only works if target is a RigidBody3D).
+	_update_fov(delta)
+
+func _update_fov(delta: float) -> void:
+	var speed: float = 0.0
+	if _target is RigidBody3D:
+		speed = (_target as RigidBody3D).linear_velocity.length()
+
+	# MAX_SPEED_V0 from hero_ship_flight_controller is 28.0; normalise against that.
+	var t: float = clamp(speed / 28.0, 0.0, 1.0)
+	var target_fov: float = fov_base + fov_boost_max * t
+	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
+	fov = _current_fov
 
 func _resolve_target() -> Node3D:
 	if target_path != NodePath():
@@ -105,26 +131,26 @@ func _resolve_target() -> Node3D:
 	return null
 
 func _desired_position() -> Vector3:
-	var tpos = _target.global_position
+	var tpos := _target.global_position
 
-	var cp = cos(_pitch)
-	var sp = sin(_pitch)
-	var cy = cos(_yaw)
-	var sy = sin(_yaw)
+	var cp := cos(_pitch)
+	var sp := sin(_pitch)
+	var cy := cos(_yaw)
+	var sy := sin(_yaw)
 
-	var away = Vector3(sy * cp, sp, cy * cp).normalized()
+	var away := Vector3(sy * cp, sp, cy * cp).normalized()
 	return tpos + away * _distance
 
 func _compute_defaults_from_offset() -> void:
-	var d = offset
-	var len = d.length()
+	var d := offset
+	var len := d.length()
 	if len < 0.001:
 		d = Vector3(0, 40, 25)
 		len = d.length()
 
 	_default_distance = clamp(len, min_distance, max_distance)
 
-	var dir = d.normalized()
+	var dir := d.normalized()
 	_default_yaw = atan2(dir.x, dir.z)
 	_default_pitch = asin(clamp(dir.y, -0.99, 0.99))
 	_default_pitch = clamp(_default_pitch, min_pitch, max_pitch)

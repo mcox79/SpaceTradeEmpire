@@ -1,7 +1,281 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-04T01:10:00Z",
-    "queue_intent": "queue empty",
-    "tasks": []
+    "generated_utc": "2026-03-04T04:15:00Z",
+    "queue_intent": "13 remaining gates (2 closed out: EPIC_REVIEW, PLUGIN_EVAL); HEAD=09daaae",
+    "tasks": [
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.SPACE_ENV.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.SPACE_ENV.001.T156",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.SPACE_ENV.001: Skybox + ambient star particles + directional light v0",
+            "intent": "Replace default Godot background with space skybox (procedural or asset WorldEnvironment), add ambient star particle system (GPUParticles3D), configure directional light for sun-like illumination. No SimCore changes. Visual-only.",
+            "evidence_paths": ["scenes/Playable_Prototype.tscn", "project.godot"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scenes/Playable_Prototype.tscn"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.SHIP_CAMERA.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.SHIP_CAMERA.001.T345",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.SHIP_CAMERA.001: Engine trail + camera follow tuning v0",
+            "intent": "Add engine exhaust trail to player ship (GPUParticles3D, emit while moving). Tune player_follow_camera: smoother lerp, slight offset above/behind, FOV adjustment. No SimCore changes.",
+            "evidence_paths": ["scenes/player.tscn", "scripts/view/player_follow_camera.gd", "scripts/core/hero_ship_flight_controller.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scenes/player.tscn"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.HUD_LABELS.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.HUD_LABELS.001.T517",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.HUD_LABELS.001: HP bars + credits + 3D world labels v0",
+            "intent": "Add HP bar (TextureProgressBar or ColorRect) to HUD for player hull/shield. Add credits display. Add 3D Label3D over stations and fleet ships. Reads existing SimBridge snapshots. No SimCore changes.",
+            "evidence_paths": ["scripts/ui/hud.gd", "scenes/ui_hud.tscn", "scripts/view/GalaxyView.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scripts/ui/hud.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.SIMBRIDGE_COMBAT.001",
+            "task_id": "GATE.X.HYGIENE.SIMBRIDGE_COMBAT.001.T185",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.SIMBRIDGE_COMBAT.001: Extract SimBridge combat methods to partial",
+            "intent": "Move ApplyTurretShotV0, ApplyAiShotAtPlayerV0, GetFleetCombatHpV0, InitFleetCombatHpV0, DispatchStartCombatV0, DispatchClearCombatV0, GetCombatStatusV0 from SimBridge.cs to new SimBridge.Combat.cs partial. Pure refactor.",
+            "evidence_paths": ["scripts/bridge/SimBridge.cs", "scripts/bridge/SimBridge.Combat.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo", "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q", "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.001",
+            "task_id": "GATE.X.HYGIENE.REPO_HEALTH.001.T794",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.REPO_HEALTH.001: Full repo health pass",
+            "intent": "Run full test suite, check C# compiler warnings beyond known CS8602 pair, scan for dead/unreachable code in SimCore and scripts, verify golden hash stability, check .csproj references. Output health report in session log.",
+            "evidence_paths": ["SimCore/SimCore.csproj", "SimCore.Tests/SimCore.Tests.csproj", "Space Trade Empire.csproj"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q", "dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=SimCore/SimCore.csproj"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "docs",
+            "tier": 1,
+            "blocks": [],
+            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.CELESTIAL.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.CELESTIAL.001.T289",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.CELESTIAL.001: Planet + asteroid visual upgrade v0",
+            "intent": "Replace placeholder meshes for planets/asteroids with scaled spheres + material (planets: gradient/solid by world class; asteroids: irregular gray). Add slow rotation. No SimCore changes.",
+            "evidence_paths": ["scenes/asteroid.tscn", "scripts/view/GalaxyView.cs", "scripts/view/StarNode.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scenes/asteroid.tscn"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S1.VISUAL_POLISH.SPACE_ENV.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.STRUCTURES.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.STRUCTURES.001.T604",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.STRUCTURES.001: Station + lane gate geometry upgrade v0",
+            "intent": "Upgrade station and lane gate 3D models: stations get multi-mesh geometry (ring/cylinder) with emissive materials, lane gates get arch/frame with glow. No SimCore changes.",
+            "evidence_paths": ["scenes/station.tscn", "scenes/Playable_Prototype.tscn", "scripts/view/GalaxyView.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scenes/station.tscn"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S1.VISUAL_POLISH.SPACE_ENV.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001.T738",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: Fleet meshes + bullet colors + hit VFX v0",
+            "intent": "Replace fleet marker CSGBox with ship-shaped mesh. Color bullets by source (player=green, AI=red). Add minimal hit particle (GPUParticles3D, 0.3s burst). No SimCore changes.",
+            "evidence_paths": ["scenes/bullet.tscn", "scenes/enemy.tscn", "scripts/bullet.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scenes/bullet.tscn"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S1.VISUAL_POLISH.SPACE_ENV.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.GALAXY_MAP.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.GALAXY_MAP.001.T923",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.GALAXY_MAP.001: Galaxy overlay connection styling v0",
+            "intent": "Style galaxy map connections: lane links as solid lines, fracture as dashed/dim, highlight current system. Add system-type icons or color coding. No SimCore changes.",
+            "evidence_paths": ["scripts/view/map_camera.gd", "scripts/view/galaxy_spawner.gd", "scripts/view/GalaxyView.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scripts/view/galaxy_spawner.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S1.VISUAL_POLISH.SPACE_ENV.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001",
+            "task_id": "GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001.T472",
+            "status": "TODO",
+            "title": "GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: Player death state + game-over restart v0",
+            "intent": "When player hull reaches 0, transition to DEAD state: freeze input, show Game Over overlay with restart button. Restart reloads last save or resets to starter. Death triggers on hull_hp <= 0 via CalcDamage path.",
+            "evidence_paths": ["scripts/core/game_manager.gd", "scripts/ui/hud.gd", "scripts/bridge/SimBridge.cs", "scripts/tests/test_player_death_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_player_death_v0.gd"],
+            "task_preflight": ["anchor=scripts/core/game_manager.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.X.HYGIENE.SIMBRIDGE_COMBAT.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.FLEET_AI.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.FLEET_AI.001.T067",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.FLEET_AI.001: Fleet AI patrol/dock/engage state machine v0",
+            "intent": "GDScript state machine for fleet ships: IDLE, PATROL (waypoints near node), DOCK (approach station), ENGAGE (move toward player if hostile, fire). All visual-only, no SimCore. Hostile + friendly fleets both use this.",
+            "evidence_paths": ["scripts/core/game_manager.gd", "scripts/view/GalaxyView.cs", "scripts/core/fleet_ai.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scripts/core/fleet_ai.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 3,
+            "blocks": ["GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S1.VISUAL_POLISH.SCENE_PROOF.001",
+            "task_id": "GATE.S1.VISUAL_POLISH.SCENE_PROOF.001.T412",
+            "status": "TODO",
+            "title": "GATE.S1.VISUAL_POLISH.SCENE_PROOF.001: Visual scene headless proof v0",
+            "intent": "Headless test: boot Playable_Prototype, verify WorldEnvironment exists, player has trail particles, station has upgraded mesh, fleet AI attached, HUD has HP bar. Pure existence checks.",
+            "evidence_paths": ["scenes/Playable_Prototype.tscn", "scripts/core/game_manager.gd", "scripts/tests/test_visual_scene_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_visual_scene_v0.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_visual_scene_v0.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 3,
+            "blocks": ["GATE.S1.VISUAL_POLISH.FLEET_AI.001", "GATE.S1.VISUAL_POLISH.HUD_LABELS.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.S5.COMBAT_PLAYABLE.COMBAT_BEAT.001",
+            "task_id": "GATE.S5.COMBAT_PLAYABLE.COMBAT_BEAT.001.T831",
+            "status": "TODO",
+            "title": "GATE.S5.COMBAT_PLAYABLE.COMBAT_BEAT.001: Combat beat proof (PLAYABLE_BEAT)",
+            "intent": "End-to-end headless proof: undock -> fly to fleet -> G key fires turrets -> bullets hit -> enemy HP decrements -> enemy dies -> player survives return fire. Closes EPIC.S5.COMBAT_PLAYABLE.V0.",
+            "evidence_paths": ["scripts/core/game_manager.gd", "scripts/bullet.gd", "scripts/ui/hud.gd", "scripts/tests/test_combat_beat_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_combat_beat_v0.gd"],
+            "task_preflight": ["anchor=scripts/core/game_manager.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 3,
+            "blocks": ["GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001"],
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo -v q"]
+        }
+    ]
 }

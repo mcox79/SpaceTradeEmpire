@@ -64,6 +64,7 @@ Primary anchors:
 - EPIC.S5.COMBAT_PLAYABLE.V0 [TODO]: In-engine combat encounters — fleet substantiation at system nodes, player-initiated combat trigger, combat loop headless proof; depends on EPIC.S5.COMBAT_LOCAL DONE (gates: GATE.S5.COMBAT_PLAYABLE.*)
 - EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel (site_id, phase, undock) wired to existing SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
 - EPIC.X.CODE_HEALTH [TODO]: Code health hygiene — GalaxyGenerator report extraction, discovery seed extraction, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
+- EPIC.S1.VISUAL_POLISH.V0 [TODO]: Visual presentation polish v0 — skybox, celestial bodies, station/gate geometry, fleet AI, combat visuals, HUD, galaxy map styling; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_POLISH.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)

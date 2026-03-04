@@ -229,9 +229,84 @@ public partial class GalaxyView : Node3D
         };
         station.AddChild(collider);
 
+        // GATE.S1.VISUAL_POLISH.STRUCTURES.001: ring/cylinder station geometry with slow rotation.
+        var stationVisual = new Node3D { Name = "StationVisual" };
+        // Attach spinning script for slow Y-axis rotation.
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null) stationVisual.SetScript(spinScript);
+
+        var hullMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.22f, 0.26f, 0.30f),
+            Roughness = 0.55f,
+            Metallic = 0.45f
+        };
+        var hubMesh = new MeshInstance3D
+        {
+            Name = "StationHub",
+            Mesh = new CylinderMesh
+            {
+                TopRadius = 2.8f,
+                BottomRadius = 2.8f,
+                Height = 4.0f,
+                RadialSegments = 12
+            },
+            MaterialOverride = hullMat
+        };
+        stationVisual.AddChild(hubMesh);
+
+        var ringMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.18f, 0.22f, 0.28f),
+            Roughness = 0.45f,
+            Metallic = 0.60f
+        };
+        var ringMesh = new MeshInstance3D
+        {
+            Name = "StationRing",
+            Mesh = new CylinderMesh
+            {
+                TopRadius = 5.8f,
+                BottomRadius = 5.8f,
+                Height = 0.6f,
+                RadialSegments = 24,
+                CapTop = false,
+                CapBottom = false
+            },
+            MaterialOverride = ringMat
+        };
+        stationVisual.AddChild(ringMesh);
+
+        var accentMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.3f, 0.7f, 1.0f),
+            EmissionEnabled = true,
+            Emission = new Color(0.3f, 0.7f, 1.0f),
+            EmissionEnergyMultiplier = 2.5f
+        };
+        var accentBand = new MeshInstance3D
+        {
+            Name = "StationAccent",
+            Mesh = new CylinderMesh
+            {
+                TopRadius = 5.82f,
+                BottomRadius = 5.82f,
+                Height = 0.18f,
+                RadialSegments = 24,
+                CapTop = false,
+                CapBottom = false
+            },
+            MaterialOverride = accentMat
+        };
+        stationVisual.AddChild(accentBand);
+
+        station.AddChild(stationVisual);
+
+        // Invisible legacy mesh kept so callers searching for "StationMesh" by name still work.
         var mesh = new MeshInstance3D
         {
             Name = "StationMesh",
+            Visible = false,
             Mesh = new BoxMesh { Size = new Vector3(10f, 5f, 10f) },
             MaterialOverride = new StandardMaterial3D
             {
@@ -240,6 +315,18 @@ public partial class GalaxyView : Node3D
             }
         };
         station.AddChild(mesh);
+
+        // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over station showing station name.
+        var stationLabel = new Label3D
+        {
+            Name = "StationLabel",
+            Text = stationId,
+            PixelSize = 0.12f,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            Modulate = new Color(0.4f, 1.0f, 0.4f)
+        };
+        stationLabel.Position = new Vector3(0f, 8f, 0f);
+        station.AddChild(stationLabel);
 
         station.Position = DeriveOrbitPositionV0(nodeId + "_station", StationOrbitRadiusU);
         station.AddToGroup("Station");
@@ -323,9 +410,60 @@ public partial class GalaxyView : Node3D
     {
         var root = new Node3D { Name = "Fleet_" + fleetId };
 
+        // GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: ship-shaped wedge body (elongated prism).
+        var shipMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.85f, 0.15f, 0.15f),
+            Roughness = 0.4f,
+            Metallic = 0.5f
+        };
+        // Hull: elongated box gives a ship-body silhouette.
+        var hull = new MeshInstance3D
+        {
+            Name = "FleetHull",
+            Mesh = new BoxMesh { Size = new Vector3(FleetMarkerRadiusU * 0.9f, FleetMarkerRadiusU * 0.5f, FleetMarkerRadiusU * 2.2f) },
+            MaterialOverride = shipMat
+        };
+        root.AddChild(hull);
+
+        // Cockpit wedge: narrower front section offset forward.
+        var noseMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.6f, 0.1f, 0.1f),
+            Roughness = 0.3f,
+            Metallic = 0.6f
+        };
+        var nose = new MeshInstance3D
+        {
+            Name = "FleetNose",
+            Mesh = new BoxMesh { Size = new Vector3(FleetMarkerRadiusU * 0.5f, FleetMarkerRadiusU * 0.3f, FleetMarkerRadiusU * 0.9f) },
+            MaterialOverride = noseMat
+        };
+        nose.Position = new Vector3(0f, 0f, -(FleetMarkerRadiusU * 1.5f));
+        root.AddChild(nose);
+
+        // Engine glow at tail: emissive accent.
+        var engineMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1.0f, 0.4f, 0.1f),
+            EmissionEnabled = true,
+            Emission = new Color(1.0f, 0.4f, 0.1f),
+            EmissionEnergyMultiplier = 2.0f
+        };
+        var engine = new MeshInstance3D
+        {
+            Name = "FleetEngine",
+            Mesh = new SphereMesh { Radius = FleetMarkerRadiusU * 0.28f },
+            MaterialOverride = engineMat
+        };
+        engine.Position = new Vector3(0f, 0f, FleetMarkerRadiusU * 1.1f);
+        root.AddChild(engine);
+
+        // Placeholder mesh for legacy code that looked for "FleetMesh" by name — kept hidden.
         var mesh = new MeshInstance3D
         {
             Name = "FleetMesh",
+            Visible = false,
             Mesh = new SphereMesh { Radius = FleetMarkerRadiusU },
             MaterialOverride = new StandardMaterial3D
             {
@@ -333,6 +471,18 @@ public partial class GalaxyView : Node3D
             }
         };
         root.AddChild(mesh);
+
+        // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over fleet showing fleet id.
+        var fleetLabel = new Label3D
+        {
+            Name = "FleetLabel",
+            Text = fleetId,
+            PixelSize = 0.12f,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            Modulate = new Color(1.0f, 0.4f, 0.4f)
+        };
+        fleetLabel.Position = new Vector3(0f, FleetMarkerRadiusU * 2.0f + 0.5f, 0f);
+        root.AddChild(fleetLabel);
 
         // Proximity trigger + bullet target: player RigidBody3D and bullets detect this.
         var area = new Area3D
@@ -352,6 +502,17 @@ public partial class GalaxyView : Node3D
         area.SetMeta("fleet_id", fleetId);
         area.BodyEntered += (body) => _OnFleetBodyEnteredV0(body, fleetId);
         root.AddChild(area);
+
+        // GATE.S1.VISUAL_POLISH.FLEET_AI.001: attach fleet_ai.gd for autonomous patrol/dock/engage movement.
+        // All scene-spawned fleet markers are hostile (player fleet is the Player RigidBody3D, not a marker).
+        // spawn_origin is NOT set here — fleet_ai.gd captures global_position in _ready() after the node
+        // has been inserted into the scene tree with its final position assigned.
+        var fleetAiScript = GD.Load<Script>("res://scripts/core/fleet_ai.gd");
+        if (fleetAiScript != null)
+        {
+            root.SetScript(fleetAiScript);
+            root.SetMeta("is_hostile", true);
+        }
 
         return root;
     }
@@ -388,13 +549,81 @@ public partial class GalaxyView : Node3D
     }
 
     // GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: displayName from NeighborDisplayName; falls back to neighborId.
+    // GATE.S1.VISUAL_POLISH.STRUCTURES.001: arch/frame gate geometry with emissive glow.
     private Node3D CreateLaneGateMarkerV0(string neighborId, string displayName = "")
     {
         var root = new Node3D { Name = "LaneGate_" + neighborId };
 
+        var gateMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.15f, 0.25f, 0.8f),
+            EmissionEnabled = true,
+            Emission = new Color(0.2f, 0.4f, 1.0f),
+            EmissionEnergyMultiplier = 2.0f,
+            Roughness = 0.3f,
+            Metallic = 0.7f
+        };
+
+        // Arch frame: two vertical pillars + a top crossbar forming a gate shape.
+        float R = LaneGateMarkerRadiusU;
+        float pillarH = R * 2.8f;
+        float pillarW = R * 0.28f;
+        float gateHalfWidth = R * 1.1f;
+
+        var pillarMeshBase = new BoxMesh { Size = new Vector3(pillarW, pillarH, pillarW) };
+
+        // Left pillar
+        var pillarL = new MeshInstance3D
+        {
+            Name = "GatePillarL",
+            Mesh = pillarMeshBase,
+            MaterialOverride = gateMat
+        };
+        pillarL.Position = new Vector3(-gateHalfWidth, 0f, 0f);
+        root.AddChild(pillarL);
+
+        // Right pillar
+        var pillarR = new MeshInstance3D
+        {
+            Name = "GatePillarR",
+            Mesh = pillarMeshBase,
+            MaterialOverride = gateMat
+        };
+        pillarR.Position = new Vector3(gateHalfWidth, 0f, 0f);
+        root.AddChild(pillarR);
+
+        // Top crossbar
+        var crossbar = new MeshInstance3D
+        {
+            Name = "GateCrossbar",
+            Mesh = new BoxMesh { Size = new Vector3(gateHalfWidth * 2f + pillarW, pillarW, pillarW) },
+            MaterialOverride = gateMat
+        };
+        crossbar.Position = new Vector3(0f, pillarH * 0.5f, 0f);
+        root.AddChild(crossbar);
+
+        // Central emissive orb (jump-point beacon).
+        var orbMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.5f, 0.7f, 1.0f),
+            EmissionEnabled = true,
+            Emission = new Color(0.5f, 0.7f, 1.0f),
+            EmissionEnergyMultiplier = 3.5f
+        };
+        var orb = new MeshInstance3D
+        {
+            Name = "GateOrb",
+            Mesh = new SphereMesh { Radius = R * 0.38f },
+            MaterialOverride = orbMat
+        };
+        orb.Position = new Vector3(0f, 0f, 0f);
+        root.AddChild(orb);
+
+        // Keep a hidden "LaneGateMesh" node for any legacy lookup by name.
         var mesh = new MeshInstance3D
         {
             Name = "LaneGateMesh",
+            Visible = false,
             Mesh = new SphereMesh { Radius = LaneGateMarkerRadiusU },
             MaterialOverride = new StandardMaterial3D
             {
