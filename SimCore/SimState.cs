@@ -145,6 +145,12 @@ public partial class SimState
 
         LogisticsReservations ??= new Dictionary<string, SimCore.Entities.LogisticsReservation>(StringComparer.Ordinal);
 
+        // GATE.S1.MISSION.MODEL.001: Mission state hydration.
+        Missions ??= new Entities.MissionState();
+        Missions.CompletedMissionIds ??= new List<string>();
+        Missions.ActiveSteps ??= new List<Entities.MissionActiveStep>();
+        Missions.EventLog ??= new List<Entities.MissionEvent>();
+
         InvalidateRoutePlannerCaches();
     }
 

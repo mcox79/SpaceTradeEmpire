@@ -62,16 +62,16 @@ Primary anchors:
 - EPIC.S4.INDU_STRUCT [DONE]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic; recipe binding, chain graph validation, shortfall event log, and deterministic chain report (gates: GATE.S4.INDU_STRUCT.*)
 - EPIC.S5.COMBAT_LOCAL [DONE]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
 - EPIC.S5.COMBAT_PLAYABLE.V0 [DONE]: In-engine combat encounters — fleet substantiation at system nodes, player-initiated combat trigger, combat loop headless proof; depends on EPIC.S5.COMBAT_LOCAL DONE (gates: GATE.S5.COMBAT_PLAYABLE.*)
-- EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel (site_id, phase, undock) wired to existing SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
-- EPIC.X.CODE_HEALTH [TODO]: Code health hygiene — GalaxyGenerator report extraction, discovery seed extraction, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
-- EPIC.S1.VISUAL_POLISH.V0 [TODO]: Visual presentation polish v0 — skybox, celestial bodies, station/gate geometry, fleet AI, combat visuals, HUD, galaxy map styling; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_POLISH.*)
-- EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
-- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
+- EPIC.S1.DISCOVERY_INTERACT.V0 [DONE]: Discovery site dock interaction — minimal panel (site_id, phase, undock) wired to existing SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
+- EPIC.X.CODE_HEALTH [DONE]: Code health hygiene — GalaxyGenerator report extraction, discovery seed extraction, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
+- EPIC.S1.VISUAL_POLISH.V0 [DONE]: Visual presentation polish v0 — skybox, celestial bodies, station/gate geometry, fleet AI, combat visuals, HUD, galaxy map styling; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_POLISH.*)
+- EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
+- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [DONE]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
-- EPIC.S5.COMBAT_DOCTRINE.V0 [TODO]: Combat doctrine v0: point defense counter family, escort doctrine, strategic fleet-vs-fleet resolver, deterministic combat replay proof; completes Slice 5 content wave (gates: GATE.S5.COMBAT.*)
-- EPIC.S1.AUDIO_MIN.V0 [TODO]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
-- EPIC.S1.SAVE_LOAD_UI.V0 [TODO]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
-- EPIC.S1.MISSION_RUNNER.V0 [TODO]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
+- EPIC.S5.COMBAT_DOCTRINE.V0 [DONE]: Combat doctrine v0: point defense counter family, escort doctrine, strategic fleet-vs-fleet resolver, deterministic combat replay proof; completes Slice 5 content wave (gates: GATE.S5.COMBAT.*)
+- EPIC.S1.AUDIO_MIN.V0 [DONE]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
+- EPIC.S1.SAVE_LOAD_UI.V0 [DONE]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
+- EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
 - EPIC.X.PRESSURE_FORMALIZATION.V0 [TODO]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
@@ -526,10 +526,10 @@ Dependency order:
 Epics:
 - EPIC.S1.HERO_SHIP_LOOP.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.HERO_SHIP_LOOP.*)
 - EPIC.S1.GALAXY_MAP_PROTO.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
-- EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel wired to SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
-- EPIC.S1.MISSION_RUNNER.V0 [TODO]: Deterministic mission runner v0 — mission schema, headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp (gates: GATE.S1.MISSION.*)
+- EPIC.S1.DISCOVERY_INTERACT.V0 [DONE]: Discovery site dock interaction — minimal panel wired to SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
+- EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema, headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp (gates: GATE.S1.MISSION.*)
 
-Status: TODO
+Status: DONE
 
 ---
 
@@ -768,7 +768,7 @@ Epics:
   - Intervention verbs:
     - Industry: queue refit
     - Programs: change doctrine toggle (when escort doctrine exists)
-- EPIC.S5.COMBAT_PLAYABLE.V0 [TODO]: In-engine combat encounters — fleet substantiation, player-initiated combat trigger, combat loop headless proof (gates: GATE.S5.COMBAT_PLAYABLE.*)
+- EPIC.S5.COMBAT_PLAYABLE.V0 [DONE]: In-engine combat encounters — fleet substantiation, player-initiated combat trigger, combat loop headless proof (gates: GATE.S5.COMBAT_PLAYABLE.*)
 - EPIC.S5.COMBAT_RESOLVE [TODO]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
 - EPIC.S5.ESCORT_PROG [TODO]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
 - EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)
@@ -786,12 +786,12 @@ Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 Epics:
 - EPIC.S6.MAP_GALAXY [TODO]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
 - EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
-- EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 that is expensive but worth it:
+- EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 that is expensive but worth it:
   - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight
   - Supports limited elite freighters with fracture, not mass fleet conversion
   - Enables discovered shortcuts and frontier outposts to feed lane economy
   - Integrates with exploitation packages and remote policy verbs (gates: GATE.S6.FRACTURE_COMMERCE.*)
-- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Scenario-pack invariants proving fracture does not replace lanes:
+- EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [DONE]: Scenario-pack invariants proving fracture does not replace lanes:
   - Lane wins for bulk and routine freight under normal conditions
   - Fracture wins only in defined niches and under defined frictions (tariffs, closures, extreme distance)
   - Evidence: deterministic invariants report (no timestamps, stable ordering) recorded in gate evidence; hard-fails on drift (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)

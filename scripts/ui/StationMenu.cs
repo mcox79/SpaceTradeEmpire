@@ -34,6 +34,10 @@ public partial class StationMenu : Control
 	private ScrollContainer _susScroll;
 	private ScrollContainer _dashScroll;
 
+	private Label _missionsHeader;
+	private ScrollContainer _missionsScroll;
+	private VBoxContainer _missionsList;
+
 	private SimBridge _bridge;
 
 	// What we get from the PlayerShip/shop toggle payload. Might be a node id or a market id depending on the caller.
@@ -269,6 +273,7 @@ public partial class StationMenu : Control
         _viewSelect.AddItem("Logistics", 1);
         _viewSelect.AddItem("Sustainment", 2);
         _viewSelect.AddItem("Dash", 3);
+        _viewSelect.AddItem("Missions", 4);
         _viewSelect.Selected = 0;
         _viewSelect.ItemSelected += (long idx) =>
         {
@@ -381,6 +386,17 @@ public partial class StationMenu : Control
         _dashScroll.AddChild(_dashList);
 
         vbox.AddChild(new HSeparator());
+
+        _missionsHeader = new Label { Text = "MISSIONS", Modulate = new Color(1f, 0.9f, 0.3f) };
+        vbox.AddChild(_missionsHeader);
+
+        _missionsScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260) };
+        vbox.AddChild(_missionsScroll);
+
+        _missionsList = new VBoxContainer();
+        _missionsScroll.AddChild(_missionsList);
+
+        vbox.AddChild(new HSeparator());
         var closeBtn = new Button { Text = "Undock" };
         closeBtn.Pressed += () =>
         {
@@ -395,12 +411,13 @@ public partial class StationMenu : Control
 
     private void ApplyView(int viewIdx)
     {
-        var idx = Mathf.Clamp(viewIdx, 0, 3);
+        var idx = Mathf.Clamp(viewIdx, 0, 4);
 
         var showMarket = (idx == 0);
         var showLogi = (idx == 1);
         var showSus = (idx == 2);
         var showDash = (idx == 3);
+        var showMissions = (idx == 4);
 
         if (_marketScroll != null) _marketScroll.Visible = showMarket;
         if (_trafficHeader != null) _trafficHeader.Visible = showMarket;
@@ -414,6 +431,96 @@ public partial class StationMenu : Control
 
         if (_dashHeader != null) _dashHeader.Visible = showDash;
         if (_dashScroll != null) _dashScroll.Visible = showDash;
+
+        if (_missionsHeader != null) _missionsHeader.Visible = showMissions;
+        if (_missionsScroll != null) _missionsScroll.Visible = showMissions;
+
+        if (showMissions) RefreshMissions();
+    }
+
+    private void RefreshMissions()
+    {
+        if (_missionsList == null || _bridge == null) return;
+
+        foreach (var child in _missionsList.GetChildren()) child.QueueFree();
+
+        // Show active mission status if one is running.
+        var active = _bridge.GetActiveMissionV0();
+        var activeMid = active.ContainsKey("mission_id") ? active["mission_id"].ToString() : "";
+
+        if (!string.IsNullOrWhiteSpace(activeMid))
+        {
+            var title = active.ContainsKey("title") ? active["title"].ToString() : activeMid;
+            var step = active.ContainsKey("current_step") ? (int)active["current_step"] + 1 : 0;
+            var total = active.ContainsKey("total_steps") ? (int)active["total_steps"] : 0;
+            var obj = active.ContainsKey("objective_text") ? active["objective_text"].ToString() : "";
+
+            _missionsList.AddChild(new Label
+            {
+                Text = $"ACTIVE: {title}",
+                Modulate = new Color(1f, 0.9f, 0.3f)
+            });
+            _missionsList.AddChild(new Label { Text = $"  Step {step}/{total}: {obj}" });
+            _missionsList.AddChild(new HSeparator());
+        }
+
+        // Show available missions with Accept buttons.
+        var available = _bridge.GetMissionListV0();
+
+        if (available.Count == 0 && string.IsNullOrWhiteSpace(activeMid))
+        {
+            _missionsList.AddChild(new Label { Text = "No missions available." });
+            return;
+        }
+
+        if (available.Count > 0)
+        {
+            _missionsList.AddChild(new Label
+            {
+                Text = "AVAILABLE MISSIONS:",
+                Modulate = new Color(0.7f, 1f, 0.7f)
+            });
+        }
+
+        foreach (var v in available)
+        {
+            if (v.Obj is not Godot.Collections.Dictionary m) continue;
+
+            var mid = m.ContainsKey("mission_id") ? m["mission_id"].ToString() : "";
+            var mTitle = m.ContainsKey("title") ? m["title"].ToString() : mid;
+            var desc = m.ContainsKey("description") ? m["description"].ToString() : "";
+            var reward = m.ContainsKey("reward") ? (int)m["reward"] : 0;
+
+            var row = new HBoxContainer();
+            _missionsList.AddChild(row);
+
+            var info = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.AddChild(info);
+
+            info.AddChild(new Label { Text = mTitle, Modulate = Colors.White });
+            info.AddChild(new Label
+            {
+                Text = desc,
+                Modulate = new Color(0.8f, 0.8f, 0.8f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            });
+            info.AddChild(new Label { Text = $"Reward: {reward} credits", Modulate = Colors.Gold });
+
+            // Only show Accept if no active mission.
+            if (string.IsNullOrWhiteSpace(activeMid))
+            {
+                var acceptBtn = new Button { Text = "Accept", CustomMinimumSize = new Vector2(80, 0) };
+                var capturedMid = mid;
+                acceptBtn.Pressed += () =>
+                {
+                    _bridge.AcceptMissionV0(capturedMid);
+                    RefreshMissions();
+                };
+                row.AddChild(acceptBtn);
+            }
+
+            _missionsList.AddChild(new HSeparator());
+        }
     }
 
     private void OnSimLoaded()

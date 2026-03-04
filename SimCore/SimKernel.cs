@@ -69,6 +69,9 @@ public class SimKernel
         // Consume upkeep and produce outputs.
         IndustrySystem.Process(_state);
 
+        // GATE.S1.MISSION.SYSTEM.001: Evaluate mission triggers and advance steps.
+        MissionSystem.Process(_state);
+
         _state.AdvanceTick();
     }
 

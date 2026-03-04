@@ -99,7 +99,25 @@ When a gate moves to DONE:
 | GATE.S6.FRACTURE.ECON_FEEDBACK.001 | DONE | Fracture goods flow into lane hub markets |
 | GATE.X.HYGIENE.EPIC_REVIEW.002 | DONE | Epic tracking audit + course correction |
 | GATE.X.HYGIENE.REPO_HEALTH.002 | DONE | Full repo health + test suite pass |
-| GATE.X.HYGIENE.SLICE5_AUDIT.001 | TODO | Slice 5 content wave readiness audit |
+| GATE.X.HYGIENE.SLICE5_AUDIT.001 | DONE | Slice 5 content wave readiness audit |
+| GATE.X.HYGIENE.REPO_HEALTH.003 | DONE | Full test suite + health baseline |
+| GATE.S1.MISSION.MODEL.001 | DONE | Mission schema + state model + persistence |
+| GATE.S1.MISSION.SYSTEM.001 | DONE | MissionSystem: trigger eval + step advance + events |
+| GATE.S1.MISSION.CONTENT.001 | DONE | Mission 1 "Matched Luggage" definition + loader |
+| GATE.S1.MISSION.DETERMINISM.001 | DONE | Mission state determinism + save/load regression |
+| GATE.S6.FRACTURE_ECON.INVARIANT.001 | DONE | Fracture lane-dominance 100-seed invariant tests |
+| GATE.S1.VISUAL_POLISH.EPIC_CLOSE.001 | DONE | Close EPIC.S1.VISUAL_POLISH.V0 (9 gates DONE) |
+| GATE.S1.AUDIO.EPIC_CLOSE.001 | DONE | Close EPIC.S1.AUDIO_MIN.V0 (2 gates DONE) |
+| GATE.S1.SAVE_UI.EPIC_CLOSE.001 | DONE | Close EPIC.S1.SAVE_LOAD_UI.V0 (2 gates DONE) |
+| GATE.S1.DISCOVERY_INTERACT.EPIC_CLOSE.001 | DONE | Close EPIC.S1.DISCOVERY_INTERACT.V0 (3 gates DONE) |
+| GATE.S5.COMBAT_DOCTRINE.EPIC_CLOSE.001 | DONE | Close EPIC.S5.COMBAT_DOCTRINE.V0 (6 gates DONE) |
+| GATE.S6.FRACTURE.EPIC_CLOSE.001 | DONE | Close EPIC.S6.FRACTURE_COMMERCE.V0 (6 gates DONE) |
+| GATE.X.CODE_HEALTH.EPIC_CLOSE.001 | DONE | Close EPIC.X.CODE_HEALTH (4 gates DONE) |
+| GATE.S1.MISSION.BRIDGE.001 | DONE | SimBridge mission queries (active/list/accept) |
+| GATE.S1.MISSION.HUD.001 | DONE | Mission objective panel in game HUD |
+| GATE.S1.MISSION.HEADLESS_PROOF.001 | DONE | Mission 1 headless completion proof (PLAYABLE_BEAT) |
+| GATE.X.HYGIENE.EPIC_REVIEW.003 | DONE | Epic tracking audit + course correction |
+| GATE.X.HYGIENE.GREATNESS_EVAL.001 | DONE | "First 60 minutes" player experience evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -499,3 +517,42 @@ When a gate moves to DONE:
 | GATE.S6.FRACTURE.BRIDGE.001 | DONE | GetFractureAccessV0 + FractureMarketV0 SimBridge queries: Add SimBridge.GetFractureAccessV0(fleetId, nodeId) → {allowed, reason, hull_req, tech_req} and GetFractureMarketV0(nodeId) → market listing with fracture pricing. Reads from FractureSystem. No GDScript UI yet (bridge-only). Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.cs; FOUND: SimCore/Systems/FractureSystem.cs; FOUND: SimCore/Systems/MarketSystem.cs; Proof: dotnet build |
 | GATE.S6.FRACTURE.TRAVEL.001 | DONE | Fracture route planning in RoutePlanner: Extend RoutePlanner to support off-lane fracture jumps. Fracture jumps cost 3x fuel, have risk factor (random event chance per jump). Route query returns {path, fuel_cost, risk_rating}. Contract test: fracture route vs lane route → fracture shorter but costlier. Determinism: route calculation is pure function of graph + fleet stats. Failure mode: no fracture path → return empty with "no route". Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "Route" | FOUND: SimCore/Systems/RoutePlanner.cs; FOUND: SimCore.Tests/SimCore.Tests.csproj; Proof: dotnet test --filter "Route" |
 | GATE.S6.FRACTURE.ECON_FEEDBACK.001 | DONE | Fracture goods flow into lane hub markets: When fracture goods are sold at lane hub stations, they enter lane market supply pool, gradually reducing price at the hub. Scenario test: deliver fracture goods to hub → hub price drops → proves fracture supplements lanes rather than replacing them. ECON_INVARIANT: lane total volume never decreases when fracture volume increases. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "Market" | FOUND: SimCore/Systems/MarketSystem.cs; FOUND: SimCore/Systems/FractureSystem.cs; FOUND: SimCore.Tests/SimCore.Tests.csproj; Proof: dotnet test --filter "Market" |
+
+### B25. Mission runner gates (v0) — EPIC.S1.MISSION_RUNNER.V0
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S1.MISSION.MODEL.001 | DONE | Mission schema + state model v0: MissionDef (mission_id, title, description, prerequisites, steps with trigger types, rewards), MissionState (active_mission_id, current_step_index, completed_missions, step_history), MissionTriggerType enum (VisitedNode, BoughtGood, SoldGood, EarnedCredits, DockedStation, KilledFleet, ScannedDiscovery). Persistence through SimState + SerializationSystem. Contract test: create MissionDef, advance through steps, verify state transitions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "MissionContract" | NEW: SimCore/Entities/Mission.cs; NEW: SimCore.Tests/Systems/MissionContractTests.cs; FOUND: SimCore/SimState.cs |
+| GATE.S1.MISSION.SYSTEM.001 | DONE | MissionSystem v0: EvaluateTriggers checks current step trigger against SimState (e.g., visited node matches TargetNodeId); AdvanceStep moves to next step or completes mission and applies rewards; emits schema-bound MissionEvents (Accepted, StepCompleted, MissionCompleted). Wired into SimKernel tick. Deterministic trigger evaluation with stable tie-breaks. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "MissionContract" | NEW: SimCore/Systems/MissionSystem.cs; FOUND: SimCore/Entities/Mission.cs; FOUND: SimCore/SimKernel.cs |
+| GATE.S1.MISSION.CONTENT.001 | DONE | Mission 1 "Matched Luggage" v0: static MissionDef registered in MissionSystem. 4 steps: (1) dock at starting station [DockedStation], (2) buy any good [BoughtGood], (3) travel to adjacent station [VisitedNode], (4) sell good for profit [SoldGood]. Reward: 50 credits bonus. No prerequisites. Validation test: Mission 1 loads, steps are well-formed, triggers resolve against micro-world. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "MissionContent" | NEW: SimCore.Tests/Systems/MissionContentTests.cs; FOUND: SimCore/Systems/MissionSystem.cs; FOUND: SimCore/Entities/Mission.cs |
+| GATE.S1.MISSION.DETERMINISM.001 | DONE | Mission determinism regression v0: accept Mission 1, advance through all steps via scripted commands, verify final world hash is stable across 2 runs. Save/load mid-mission preserves mission state (active_mission_id, current_step_index, completed list). Deterministic event ordering. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "MissionDeterminism" | NEW: SimCore.Tests/Determinism/MissionDeterminismTests.cs; FOUND: SimCore/Entities/Mission.cs; FOUND: SimCore/Systems/MissionSystem.cs |
+| GATE.S1.MISSION.BRIDGE.001 | DONE | SimBridge mission queries v0: GetActiveMissionV0() returns {mission_id, title, current_step, total_steps, objective_text, completed}; GetMissionListV0() returns available missions with prerequisites check; AcceptMissionV0(missionId) enqueues mission acceptance. Read lock for queries, write lock for accept. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Mission.cs; FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S1.MISSION.HUD.001 | DONE | Mission objective panel in HUD v0: persistent panel showing current mission title + current step objective text. Updates per-frame from SimBridge.GetActiveMissionV0(). Hidden when no active mission. Positioned below cargo/credits in flight HUD. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd; FOUND: scripts/core/game_manager.gd |
+| GATE.S1.MISSION.HEADLESS_PROOF.001 | DONE | Mission 1 headless completion proof (PLAYABLE_BEAT): GDScript headless test boots playable prototype, accepts Mission 1 via SimBridge, scripts dock-buy-travel-sell sequence, verifies mission completes and reward applied. Deterministic transcript with stable hash. Proof: godot --headless --path . -s scripts/tests/test_mission_proof_v0.gd | NEW: scripts/tests/test_mission_proof_v0.gd; FOUND: scripts/core/game_manager.gd; FOUND: scripts/ui/hud.gd |
+
+### B26. Fracture economy invariant gates (v0) — EPIC.S6.FRACTURE_ECON_INVARIANTS.V0
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.FRACTURE_ECON.INVARIANT.001 | DONE | Fracture lane-dominance scenario invariant v0: 100-seed sweep (seeds 1..100) with fracture goods enabled. Measure lane_volume_fraction (lane trade volume / total volume) must stay > 0.80 in every seed with fracture access. Measure fracture_unique_goods count must be >= 2 per access seed. Deterministic, stable ordering, hard-fail on drift. No timestamps. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "FractureEconInvariant" | NEW: SimCore.Tests/Systems/FractureEconInvariantTests.cs; FOUND: SimCore/Systems/FractureSystem.cs |
+
+### B27. Epic closure gates (tranche 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S1.VISUAL_POLISH.EPIC_CLOSE.001 | DONE | Close EPIC.S1.VISUAL_POLISH.V0: verify all 9 constituent gates DONE (SPACE_ENV, CELESTIAL, STRUCTURES, COMBAT_VISUAL, SHIP_CAMERA, HUD_LABELS, GALAXY_MAP, FLEET_AI, SCENE_PROOF). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms all 9 DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.S1.AUDIO.EPIC_CLOSE.001 | DONE | Close EPIC.S1.AUDIO_MIN.V0: verify all 2 constituent gates DONE (SFX_CORE.001, AMBIENT.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms both DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.S1.SAVE_UI.EPIC_CLOSE.001 | DONE | Close EPIC.S1.SAVE_LOAD_UI.V0: verify all 2 constituent gates DONE (PAUSE_MENU.001, SLOTS.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms both DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.S1.DISCOVERY_INTERACT.EPIC_CLOSE.001 | DONE | Close EPIC.S1.DISCOVERY_INTERACT.V0: verify all 3 constituent gates DONE (PANEL.001, SCAN.001, RESULTS.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms all 3 DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.S5.COMBAT_DOCTRINE.EPIC_CLOSE.001 | DONE | Close EPIC.S5.COMBAT_DOCTRINE.V0: verify all 6 constituent gates DONE (COUNTER_FAMILY.001, ESCORT_DOCTRINE.001, STRATEGIC_RESOLVER.001, REPLAY_PROOF.001, BRIDGE_DOCTRINE.001, SLICE_CLOSE.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms all 6 DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.S6.FRACTURE.EPIC_CLOSE.001 | DONE | Close EPIC.S6.FRACTURE_COMMERCE.V0: verify all 6 constituent gates DONE (ACCESS_MODEL.001, MARKET_MODEL.001, CONTENT.001, BRIDGE.001, TRAVEL.001, ECON_FEEDBACK.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms all 6 DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md |
+| GATE.X.CODE_HEALTH.EPIC_CLOSE.001 | DONE | Close EPIC.X.CODE_HEALTH: verify all 4 constituent gates DONE (GEN_REPORT_EXTRACT.001, STATION_MENU_SPLIT.001, GEN_DISCOVERY_EXTRACT.001, SIMBRIDGE_COMBAT.001). Update 54_EPICS.md status to DONE. Proof: grep 55_GATES.md confirms all 4 DONE | FOUND: docs/55_GATES.md; FOUND: docs/54_EPICS.md; FOUND: docs/56_SESSION_LOG.md |
+
+### B28. Hygiene gates (tranche 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.SLICE5_AUDIT.001 | DONE | Slice 5 content wave readiness audit: verify all S5 gates DONE (COMBAT_LOCAL 5 gates, COMBAT_PLAYABLE 4 gates, COMBAT doctrine 6 gates). No orphaned TODO S5 gates. Proof: grep 55_GATES.md for S5 gate statuses | FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.REPO_HEALTH.003 | DONE | Full repo health baseline: run full test suite (307+ tests), warning scan, dead code check, golden hash stability. Report regressions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.003 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches (epics still TODO with all gates DONE). Update statuses. Recommend next anchor epic. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.GREATNESS_EVAL.001 | DONE | "First 60 minutes" player experience evaluation: assess current playable prototype against Greatness Spec criteria (guided objectives, economic loop, combat feel, discovery, progression, save/load). Identify gaps and prioritize. Proof: written evaluation document | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |

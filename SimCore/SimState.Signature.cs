@@ -85,6 +85,26 @@ public partial class SimState
             }
         }
 
+        // GATE.S1.MISSION.MODEL.001: Mission state in signature for determinism.
+        if (Missions is not null)
+        {
+            if (!string.IsNullOrEmpty(Missions.ActiveMissionId))
+            {
+                sb.Append($"Mission:{Missions.ActiveMissionId}|Step:{Missions.CurrentStepIndex}|");
+                foreach (var step in Missions.ActiveSteps)
+                {
+                    sb.Append($"MS:{step.StepIndex}:{(step.Completed ? 1 : 0)}|");
+                }
+            }
+            if (Missions.CompletedMissionIds is not null && Missions.CompletedMissionIds.Count > 0)
+            {
+                foreach (var mId in Missions.CompletedMissionIds.OrderBy(x => x, StringComparer.Ordinal))
+                {
+                    sb.Append($"MComp:{mId}|");
+                }
+            }
+        }
+
         foreach (var n in Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace.ToString("F2", CultureInfo.InvariantCulture)}|");

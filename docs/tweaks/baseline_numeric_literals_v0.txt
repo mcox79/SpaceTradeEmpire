@@ -208,6 +208,11 @@
 0
 0
 # FILE SimCore/Systems/FractureSystem.cs
+1
+2
+10000
+5000
+100
 0.1f
 0.1f
 1.0f
@@ -353,6 +358,21 @@
 0
 0
 0.01f
+# FILE SimCore/Systems/MissionSystem.cs
+0
+0
+0
+0
+0
+0
+1
+1
+0
+1
+1
+0
+0
+0
 # FILE SimCore/Systems/MovementSystem.cs
 0.1f
 0
@@ -382,6 +402,7 @@
 1_000_000
 1
 1000
+100
 8
 0
 0
@@ -408,6 +429,9 @@
 0
 0
 0
+# FILE SimCore/Systems/StrategicResolverV0.cs
+0
+1
 # FILE SimCore/Systems/SustainmentReport.cs
 0
 0

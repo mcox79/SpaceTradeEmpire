@@ -17,6 +17,11 @@ var _game_over_panel: Control = null
 var _game_over_label: Label = null
 var _restart_label: Label = null
 
+# GATE.S1.MISSION.HUD.001: mission objective panel
+var _mission_panel: PanelContainer = null
+var _mission_title_label: Label = null
+var _mission_step_label: Label = null
+
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
 # GATE.S1.SAVE_UI.SLOTS.001: save slot labels for metadata display
@@ -30,6 +35,31 @@ func _ready() -> void:
 	_combat_label.add_theme_color_override("font_color", Color.RED)
 	_combat_label.position = Vector2(10, 160)
 	add_child(_combat_label)
+
+	# GATE.S1.MISSION.HUD.001: mission objective panel (below cargo/credits)
+	_mission_panel = PanelContainer.new()
+	_mission_panel.name = "MissionPanel"
+	_mission_panel.visible = false
+	_mission_panel.position = Vector2(10, 200)
+	_mission_panel.custom_minimum_size = Vector2(260, 0)
+	add_child(_mission_panel)
+
+	var mission_vbox := VBoxContainer.new()
+	_mission_panel.add_child(mission_vbox)
+
+	_mission_title_label = Label.new()
+	_mission_title_label.name = "MissionTitleLabel"
+	_mission_title_label.text = ""
+	_mission_title_label.add_theme_font_size_override("font_size", 14)
+	_mission_title_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3, 1.0))
+	mission_vbox.add_child(_mission_title_label)
+
+	_mission_step_label = Label.new()
+	_mission_step_label.name = "MissionStepLabel"
+	_mission_step_label.text = ""
+	_mission_step_label.add_theme_font_size_override("font_size", 12)
+	_mission_step_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
+	mission_vbox.add_child(_mission_step_label)
 
 	# Build game over overlay (hidden until player dies)
 	_game_over_panel = Control.new()
@@ -170,6 +200,20 @@ func _physics_process(_delta: float) -> void:
 
 		# Legacy text label (hidden when bars are shown)
 		_combat_label.text = ""
+
+	# GATE.S1.MISSION.HUD.001: mission objective panel
+	if _bridge != null and _bridge.has_method("GetActiveMissionV0"):
+		var mission: Dictionary = _bridge.call("GetActiveMissionV0")
+		var mid: String = str(mission.get("mission_id", ""))
+		if mid != "":
+			_mission_panel.visible = true
+			_mission_title_label.text = str(mission.get("title", ""))
+			var step_num: int = int(mission.get("current_step", 0)) + 1
+			var total: int = int(mission.get("total_steps", 0))
+			var obj: String = str(mission.get("objective_text", ""))
+			_mission_step_label.text = "[%d/%d] %s" % [step_num, total, obj]
+		else:
+			_mission_panel.visible = false
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(show: bool) -> void:
