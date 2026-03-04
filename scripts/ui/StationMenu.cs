@@ -83,9 +83,20 @@ public partial class StationMenu : Control
 	{
 		if (@event is not InputEventKey k || !k.Pressed || k.Echo) return;
 
+		// F1 toggles FleetMenu directly (works anytime, even mid-flight).
+        if (k.Keycode == Key.F1)
+        {
+            if (!EnsureFleetMenu()) return;
+            if (_fleetMenu.Visible)
+                _fleetMenu.Close();
+            else
+                _fleetMenu.Open();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
 		// F9 is the deterministic fallback: open/close StationMenu using the player's current location,
         // even if the Player ship does not emit shop_toggled for non-station docking targets.
-        // F1 is reserved for FleetMenu.
         if (k.Keycode == Key.F9)
 
         {

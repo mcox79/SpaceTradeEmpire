@@ -51,8 +51,8 @@ Primary anchors:
 - EPIC.S3_6.DISCOVERY_UNLOCK_CONTRACT.V0 [DONE]: Unlock contract v0 (Permit, Broker, Recipe, SiteBlueprint, CorridorAccess, SensorLayer) with explicit economic effects (gates: GATE.S3_6.DISCOVERY_UNLOCK_CONTRACT.*)
 - EPIC.S3_6.RUMOR_INTEL_MIN.V0 [DONE]: Rumor%Intel substrate v0 for lore leads discovered via exploration%hub analysis; deterministic hints (region tags, coarse location, prerequisites); UI surfacing; save%load; no quest treadmill (gates: GATE.S3_6.RUMOR_INTEL_MIN.*)
 - EPIC.S3_6.EXPEDITION_PROGRAMS.V0 [DONE]: ExpeditionProgram v0 focused on discovery (survey, sample, salvage, analyze); produces unlock inputs; no rescue treadmill requirement (gates: GATE.S3_6.EXPEDITION_PROGRAMS.*)
-- EPIC.S1.HERO_SHIP_LOOP.V0 [TODO]: Player flies their ship in a physics-simulated solar system scene: thrust, inertia, collision; local space is 20,000u radius with star at origin and orbital objects (station, planets, asteroid clusters, lane gates) spawned from SimCore system data — not hardcoded scene positions (architectural constraint: data-driven from day one or procedural generation requires rework); named player states declared in GameShell (InFlight, Docked, InLaneTransit) even if InLaneTransit is minimal in v0 (architectural constraint: named state enables future interdiction%instability without restructuring); dock proximity trigger at 150u range hands off to existing station_interface or DiscoverySite scan flow; lane transit sequence: enter gate → fade → arrive at adjacent system gate, SimCore game-time advances per existing LaneFlowSystem cost; scale constants (scene radius, ship speed, dock range) declared as GameShell-only config not scene literals; basic camera; proven by Godot headless scene boot and GDScript smoke test; no combat required; satisfies Architecture 1.1 “The Player is a Pilot” invariant (gates: GATE.S1.HERO_SHIP_LOOP.*)
-- EPIC.S1.GALAXY_MAP_PROTO.V0 [TODO]: Minimal galaxy map UI (Zone C zoom-out) backed by a new GetGalaxySnapshotV0 SimBridge contract; shows all systems with discovery states (Hidden=not shown, Rumored=??? node from RumorLead location tags, Visited=named node, Mapped=named+object list), lane connections, player current system highlighted, fleet unit counts per system node; read-only in v0 (no fracture plotting); accessible via Tab zoom-out from local space; contract derives entirely from existing SimCore discovery state, RumorLead, and LaneFlowSystem data — no new SimCore simulation logic required; prerequisite for EPIC.S6.MAP_GALAXY (gates: GATE.S1.GALAXY_MAP.*)
+- EPIC.S1.HERO_SHIP_LOOP.V0 [DONE]: Player flies their ship in a physics-simulated solar system scene: thrust, inertia, collision; local space is 20,000u radius with star at origin and orbital objects (station, planets, asteroid clusters, lane gates) spawned from SimCore system data — not hardcoded scene positions (architectural constraint: data-driven from day one or procedural generation requires rework); named player states declared in GameShell (InFlight, Docked, InLaneTransit) even if InLaneTransit is minimal in v0 (architectural constraint: named state enables future interdiction%instability without restructuring); dock proximity trigger at 150u range hands off to existing station_interface or DiscoverySite scan flow; lane transit sequence: enter gate → fade → arrive at adjacent system gate, SimCore game-time advances per existing LaneFlowSystem cost; scale constants (scene radius, ship speed, dock range) declared as GameShell-only config not scene literals; basic camera; proven by Godot headless scene boot and GDScript smoke test; no combat required; satisfies Architecture 1.1 “The Player is a Pilot” invariant (gates: GATE.S1.HERO_SHIP_LOOP.*)
+- EPIC.S1.GALAXY_MAP_PROTO.V0 [DONE]: Minimal galaxy map UI (Zone C zoom-out) backed by a new GetGalaxySnapshotV0 SimBridge contract; shows all systems with discovery states (Hidden=not shown, Rumored=??? node from RumorLead location tags, Visited=named node, Mapped=named+object list), lane connections, player current system highlighted, fleet unit counts per system node; read-only in v0 (no fracture plotting); accessible via Tab zoom-out from local space; contract derives entirely from existing SimCore discovery state, RumorLead, and LaneFlowSystem data — no new SimCore simulation logic required; prerequisite for EPIC.S6.MAP_GALAXY (gates: GATE.S1.GALAXY_MAP.*)
 - EPIC.S3_6.UI_DISCOVERY_MIN.V0 [DONE]: Discovery UI v0 + unlock surfaces + “deploy package” controls; deterministic exception summaries and suggested policy actions (gates: GATE.S3_6.UI_DISCOVERY_MIN.*)
 - EPIC.S3_6.EXPLOITATION_PACKAGES.V0 [DONE]: Exploitation packages v0 (TradeCharter, ResourceTap) with remote exception policies and deterministic reporting (gates: GATE.S3_6.EXPLOITATION_PACKAGES.*)
 - EPIC.S3_6.PLAY_LOOP_PROOF.V0 [DONE]: Headless proof of first 60 minutes: discover -> dock at hub -> identify 1 trade loop -> acquire 1 starter freighter -> assign TradeCharter -> discover 1 mineable site -> deploy ResourceTap -> complete 1 research%refit tech unlock -> surface 1 lore lead -> trigger 1 piracy pressure incident with explainable cause chain -> keep exploring; deterministic, no timestamps, stable ordering (gates: GATE.S3_6.PLAY_LOOP_PROOF.*)
@@ -60,7 +60,10 @@ Primary anchors:
 - EPIC.S4.MODULE_MODEL.V0 [DONE]: Hero slot model v0 + fleet capability packages (no per-ship fitting), content-driven modules and prereqs (gates: GATE.S4.MODULE_MODEL.*)
 - EPIC.S1.PLAYABLE_BEAT.V0 [DONE]: First playable station loop with live in-game feedback — buy/sell buttons wired, ship input frozen while docked, market rows refresh after trade, collision layer fix; depends on EPIC.S1.HERO_SHIP_LOOP.V0 DONE (gates: GATE.S1.PLAYABLE_BEAT.*)
 - EPIC.S4.INDU_STRUCT [DONE]: Industry structure v0: bounded production chain graph that is content-ID-driven and deterministic; recipe binding, chain graph validation, shortfall event log, and deterministic chain report (gates: GATE.S4.INDU_STRUCT.*)
-- EPIC.S5.COMBAT_LOCAL [TODO]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
+- EPIC.S5.COMBAT_LOCAL [DONE]: Starcom-like hero combat v0 (shields%hull; turrets%missiles; 1 counter family; deterministic replay proof); depends on EPIC.S1.HERO_SHIP_LOOP.V0 and EPIC.S4.MODULE_MODEL.V0 (gates: GATE.S5.COMBAT_LOCAL.*)
+- EPIC.S5.COMBAT_PLAYABLE.V0 [TODO]: In-engine combat encounters — fleet substantiation at system nodes, player-initiated combat trigger, combat loop headless proof; depends on EPIC.S5.COMBAT_LOCAL DONE (gates: GATE.S5.COMBAT_PLAYABLE.*)
+- EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel (site_id, phase, undock) wired to existing SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
+- EPIC.X.CODE_HEALTH [TODO]: Code health hygiene — GalaxyGenerator report extraction, discovery seed extraction, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [TODO]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [TODO]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
@@ -79,6 +82,7 @@ Epics:
 - EPIC.X.PRESSURE_DOMAINS: Multi-domain pressure framework (piracy%authority%fracture threat) with shared vocabulary, forecasts, response budgets, and explainability surfaces
 - EPIC.X.STORY_INTEL: Rumor%intel substrate for lore leads discovered via exploration%analysis; no quest treadmill
 - EPIC.X.PLAYER_LOOP_CONTRACT: “Greatness spec” player loops and non-negotiables (see below)
+- EPIC.X.CODE_HEALTH: Code health hygiene — GalaxyGenerator split continuation, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
 
 Greatness spec (non-negotiables, enforced by gates over time):
 - Primary loop: explore -> find cool things -> convert to empire leverage -> explore further -> pursue win scenarios
@@ -513,8 +517,9 @@ Dependency order:
 - Both must be DONE before EPIC.S5.COMBAT_LOCAL starts
 
 Epics:
-- EPIC.S1.HERO_SHIP_LOOP.V0 [TODO]: see canonical epic bullets above (gates: GATE.S1.HERO_SHIP_LOOP.*)
-- EPIC.S1.GALAXY_MAP_PROTO.V0 [TODO]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
+- EPIC.S1.HERO_SHIP_LOOP.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.HERO_SHIP_LOOP.*)
+- EPIC.S1.GALAXY_MAP_PROTO.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
+- EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel wired to SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
 
 Status: TODO
 
@@ -748,13 +753,14 @@ v0 scope (LOCK ONCE SLICE 5 STARTS):
 
 Epics:
 - EPIC.S5.SECURITY_LANES [TODO]: Risk, delay, inspections, insurance sinks, lane regimes (gates: GATE.S5.SECURITY_LANES.*)
-- EPIC.S5.COMBAT_LOCAL [TODO]: Hero ship real-time combat v0 (Starcom-like) with shields%hull and non-aimed weapons (turrets, missiles), deterministic replay, and “why we lost” explainability (gates: GATE.S5.COMBAT_LOCAL.*)
+- EPIC.S5.COMBAT_LOCAL [DONE]: Hero ship real-time combat v0 (Starcom-like) with shields%hull and non-aimed weapons (turrets, missiles), deterministic replay, and “why we lost” explainability (gates: GATE.S5.COMBAT_LOCAL.*)
   - Must not require manual aiming for baseline effectiveness (turret targeting is primary)
   - Evidence: deterministic combat replay proof as part of GameShell test suite
   - Failure mode: player loss produces a cause chain (damage timeline + missing counter) and 1 to 2 suggested actions
   - Intervention verbs:
     - Industry: queue refit
     - Programs: change doctrine toggle (when escort doctrine exists)
+- EPIC.S5.COMBAT_PLAYABLE.V0 [TODO]: In-engine combat encounters — fleet substantiation, player-initiated combat trigger, combat loop headless proof (gates: GATE.S5.COMBAT_PLAYABLE.*)
 - EPIC.S5.COMBAT_RESOLVE [TODO]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
 - EPIC.S5.ESCORT_PROG [TODO]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
 - EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)
