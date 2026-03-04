@@ -10,6 +10,7 @@ public partial class GalaxyView : Node3D
     private SimBridge _bridge;
 
     private bool _overlayOpen = false;
+    private bool _cameraPositionedThisOpen = false;
 
     // Visual caches (deterministic keys)
     private readonly Dictionary<string, Node3D> _nodeRootsById = new();
@@ -81,6 +82,7 @@ public partial class GalaxyView : Node3D
     public void SetOverlayOpenV0(bool isOpen)
     {
         _overlayOpen = isOpen;
+        _cameraPositionedThisOpen = false;
 
         Visible = isOpen;
         SetProcess(isOpen);
@@ -257,24 +259,24 @@ public partial class GalaxyView : Node3D
 
         var ringMat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.18f, 0.22f, 0.28f),
-            Roughness = 0.45f,
-            Metallic = 0.60f
+            AlbedoColor = new Color(0.25f, 0.30f, 0.38f),
+            Roughness = 0.40f,
+            Metallic = 0.65f
         };
         var ringMesh = new MeshInstance3D
         {
             Name = "StationRing",
-            Mesh = new CylinderMesh
+            Mesh = new TorusMesh
             {
-                TopRadius = 5.8f,
-                BottomRadius = 5.8f,
-                Height = 0.6f,
-                RadialSegments = 24,
-                CapTop = false,
-                CapBottom = false
+                InnerRadius = 4.8f,
+                OuterRadius = 5.8f,
+                Rings = 24,
+                RingSegments = 12
             },
             MaterialOverride = ringMat
         };
+        // Torus lies in XZ plane by default — rotate to be horizontal around the hub.
+        ringMesh.RotateX(Mathf.Pi / 2.0f);
         stationVisual.AddChild(ringMesh);
 
         var accentMat = new StandardMaterial3D
@@ -287,17 +289,16 @@ public partial class GalaxyView : Node3D
         var accentBand = new MeshInstance3D
         {
             Name = "StationAccent",
-            Mesh = new CylinderMesh
+            Mesh = new TorusMesh
             {
-                TopRadius = 5.82f,
-                BottomRadius = 5.82f,
-                Height = 0.18f,
-                RadialSegments = 24,
-                CapTop = false,
-                CapBottom = false
+                InnerRadius = 5.5f,
+                OuterRadius = 5.9f,
+                Rings = 24,
+                RingSegments = 8
             },
             MaterialOverride = accentMat
         };
+        accentBand.RotateX(Mathf.Pi / 2.0f);
         stationVisual.AddChild(accentBand);
 
         station.AddChild(stationVisual);
@@ -894,13 +895,12 @@ public partial class GalaxyView : Node3D
         _lastNodeCount = renderedNodeCount;
         _lastPlayerHighlighted = playerHighlighted;
 
-        // Reposition overlay camera so the player's current system is always in frame.
-        // The camera keeps its 45° downward tilt (Transform3D basis from scene) and shifts
-        // its XZ position to be above+behind the player node.
-        if (_overlayCamera != null && playerNodePosFound)
+        // Reposition overlay camera ONCE when overlay opens (not per-frame, so user can pan/zoom).
+        if (_overlayCamera != null && playerNodePosFound && !_cameraPositionedThisOpen)
         {
+            _cameraPositionedThisOpen = true;
             var t = _overlayCamera.Transform;
-            t.Origin = new Vector3(playerNodePos.X, 150f, playerNodePos.Z + 150f);
+            t.Origin = new Vector3(playerNodePos.X, 45f, playerNodePos.Z + 45f);
             _overlayCamera.Transform = t;
         }
 
@@ -917,10 +917,10 @@ public partial class GalaxyView : Node3D
             {
                 var mat = new StandardMaterial3D
                 {
-                    AlbedoColor = new Color(0.3f, 0.3f, 0.3f),
+                    AlbedoColor = new Color(0.4f, 0.7f, 1.0f),
                     EmissionEnabled = true,
-                    Emission = new Color(0.1f, 0.1f, 0.1f),
-                    EmissionEnergyMultiplier = 0.5f
+                    Emission = new Color(0.3f, 0.6f, 0.9f),
+                    EmissionEnergyMultiplier = 1.2f
                 };
                 mesh = CreateEdgeMeshV0(mat);
                 _edgeMeshesByKey[key] = mesh;
@@ -986,8 +986,8 @@ public partial class GalaxyView : Node3D
         // Thin cylinder oriented along +Y then rotated into place.
         var cyl = new CylinderMesh
         {
-            TopRadius = 0.05f,
-            BottomRadius = 0.05f,
+            TopRadius = 0.4f,
+            BottomRadius = 0.4f,
             Height = 1.0f
         };
         mesh.Mesh = cyl;

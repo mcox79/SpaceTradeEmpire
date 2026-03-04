@@ -26,11 +26,26 @@ initial_velocity_max = 6.0
 gravity = Vector3(0, 0, 0)
 color_ramp = null
 emission_shape = 0
-scale_min = 0.08
-scale_max = 0.18
+scale_min = 0.3
+scale_max = 0.6
 color = Color(1.0, 0.45, 0.05, 1.0)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trail_glow"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.0, 0.5, 0.1, 1.0)
+emission_enabled = true
+emission = Color(1.0, 0.4, 0.05, 1.0)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_trail_particle"]
+radius = 0.15
+height = 0.3
+material = SubResource("StandardMaterial3D_trail_glow")
+
 [node name="Player" type="RigidBody3D" unique_id=1454279642]
+collision_layer = 3
+collision_mask = 1
 script = ExtResource("1_hero_flight")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2037409703]
@@ -58,6 +73,7 @@ lifetime = 0.5
 explosiveness = 0.0
 randomness = 0.2
 process_material = SubResource("ParticleProcessMaterial_trail")
+draw_pass_1 = SubResource("SphereMesh_trail_particle")
 script = ExtResource("3_engine_trail")
 
 [node name="CameraMount" type="Node3D" parent="." unique_id=1535274258]

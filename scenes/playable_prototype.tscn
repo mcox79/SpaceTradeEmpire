@@ -8,7 +8,9 @@
 [ext_resource type="Script" path="res://scripts/ui/ProgramsMenu.cs" id="8_uyxkh"]
 [ext_resource type="Script" path="res://scripts/ui/FleetMenu.cs" id="9_fleet"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
+[ext_resource type="Script" path="res://scripts/view/star_field_follow.gd" id="12_starfollow"]
 [ext_resource type="Script" path="res://scripts/ui/hero_trade_menu.gd" id="11_htm"]
+[ext_resource type="Script" path="res://scripts/view/galaxy_camera_controller.gd" id="13_galcam"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
 sky_top_color = Color(0.01, 0.01, 0.03, 1)
@@ -37,18 +39,30 @@ glow_blend_mode = 2
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_stars"]
 emission_shape = 1
-emission_box_extents = Vector3(250, 250, 250)
+emission_box_extents = Vector3(200, 200, 200)
 direction = Vector3(0, 0, 0)
 spread = 0.0
 initial_velocity_min = 0.0
-initial_velocity_max = 0.5
+initial_velocity_max = 0.0
 gravity = Vector3(0, 0, 0)
-scale_min = 0.08
-scale_max = 0.25
-color = Color(0.9, 0.92, 1.0, 1)
+scale_min = 0.3
+scale_max = 1.0
+color = Color(0.95, 0.95, 1.0, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_star_particle"]
+transparency = 0
+billboard_mode = 1
+billboard_keep_scale = true
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.9, 0.92, 1.0, 1)
+emission_enabled = true
+emission = Color(0.8, 0.85, 1.0, 1)
+emission_energy_multiplier = 1.5
 
 [sub_resource type="QuadMesh" id="QuadMesh_star"]
-size = Vector2(0.15, 0.15)
+size = Vector2(0.03, 0.03)
+material = SubResource("StandardMaterial3D_star_particle")
 
 [node name="Main" type="Node3D" unique_id=1010166962]
 
@@ -63,15 +77,9 @@ shadow_enabled = true
 
 [node name="StarField" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-amount = 800
-lifetime = 60.0
-one_shot = false
-preprocess = 60.0
-randomness = 1.0
-fixed_fps = 0
-local_coords = false
-draw_pass_1 = SubResource("QuadMesh_star")
-process_material = SubResource("ParticleProcessMaterial_stars")
+emitting = false
+amount = 1
+visible = false
 
 [node name="GameManager" type="Node" parent="." unique_id=134181032]
 script = ExtResource("1_gm")
@@ -82,7 +90,8 @@ StationPrefab = ExtResource("5_station")
 
 [node name="GalaxyOverlayCamera" type="Camera3D" parent="."]
 current = false
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 150, 150)
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 45, 45)
+script = ExtResource("13_galcam")
 
 [node name="GalaxyOverlay" type="CanvasLayer" parent="."]
 layer = 50
@@ -93,6 +102,7 @@ layout_mode = 3
 anchors_preset = 15
 offset_right = 0.0
 offset_bottom = 0.0
+mouse_filter = 2
 color = Color(0, 0, 0, 0.65)
 
 [node name="OverlayLabel" type="Label" parent="GalaxyOverlay/Dim"]

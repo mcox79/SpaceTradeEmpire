@@ -44,7 +44,7 @@ func _draw_galaxy(sim):
 		# GATE.S1.VISUAL_POLISH.GALAXY_MAP.001: size by region — region 0 (hub) is larger
 		var region: int = star.get("region", 0)
 		var is_hub_region := (region == 0)
-		var radius: float = 0.7 if is_hub_region else 0.5
+		var radius: float = 1.8 if is_hub_region else 1.2
 		s.mesh.radius = radius
 		s.mesh.height = radius * 2.0
 		s.position = star.pos
@@ -79,8 +79,8 @@ func _draw_galaxy(sim):
 
 		if is_inter_region:
 			# Inter-region artery: dimmer gray, thinner (fracture-like)
-			l.mesh.top_radius = 0.04
-			l.mesh.bottom_radius = 0.04
+			l.mesh.top_radius = 0.15
+			l.mesh.bottom_radius = 0.15
 			var mat_inter = StandardMaterial3D.new()
 			mat_inter.albedo_color = Color(0.5, 0.5, 0.55)
 			mat_inter.emission_enabled = true
@@ -89,8 +89,8 @@ func _draw_galaxy(sim):
 			l.material_override = mat_inter
 		else:
 			# Intra-region lane: bright cyan/white, wider
-			l.mesh.top_radius = 0.07
-			l.mesh.bottom_radius = 0.07
+			l.mesh.top_radius = 0.3
+			l.mesh.bottom_radius = 0.3
 			var mat_lane = StandardMaterial3D.new()
 			mat_lane.albedo_color = Color(0.6, 0.9, 1.0)
 			mat_lane.emission_enabled = true

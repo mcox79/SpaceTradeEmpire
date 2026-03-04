@@ -62,6 +62,8 @@ func _ready() -> void:
 	look_at(_target.global_position, Vector3.UP)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not current:
+		return
 	if event is InputEventKey:
 		var k := event as InputEventKey
 		if k.pressed and not k.echo and k.keycode == reset_keycode:

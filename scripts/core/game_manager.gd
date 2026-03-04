@@ -138,6 +138,15 @@ func _process(delta):
 	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
 		_ai_fire_v0()
 
+	# G key hold-to-fire: auto-fires turrets at highest rate while held (not during galaxy map)
+	if current_player_state == PlayerShipState.IN_FLIGHT and not galaxy_overlay_open and Input.is_key_pressed(KEY_G):
+		_fire_turret_v0()
+
+	# Shield regen: 5 HP/sec for player fleet (SimBridge handles clamping to max)
+	var bridge_regen = get_node_or_null("/root/SimBridge")
+	if bridge_regen and bridge_regen.has_method("TickShieldRegenV0"):
+		bridge_regen.call("TickShieldRegenV0", PLAYER_FLEET_ID, float(delta))
+
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll player HP each frame for death detection
 	_check_player_death_v0()
 
@@ -151,9 +160,6 @@ func _unhandled_input(event):
 			return
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
-		# G key fires turrets at nearest fleet in range
-		elif event.keycode == KEY_G and current_player_state == PlayerShipState.IN_FLIGHT:
-			_fire_turret_v0()
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -167,8 +173,17 @@ func toggle_galaxy_map_overlay_v0():
 		return
 	galaxy_overlay_open = not galaxy_overlay_open
 
+	# Sync to autoload so flight controller (which reads /root/GameManager) sees the flag.
+	var autoload_gm = get_node_or_null("/root/GameManager")
+	if autoload_gm and autoload_gm != self:
+		autoload_gm.set("galaxy_overlay_open", galaxy_overlay_open)
+
 	if _galaxy_overlay_layer:
 		_galaxy_overlay_layer.visible = galaxy_overlay_open
+
+	# Hide/show player ship — it's not part of LocalSystem so GalaxyView doesn't manage it.
+	if _hero_body and is_instance_valid(_hero_body):
+		_hero_body.visible = not galaxy_overlay_open
 
 	# Camera switching: overlay uses a dedicated camera; restore previous camera on close.
 	if galaxy_overlay_open:
@@ -343,6 +358,7 @@ func _ai_fire_v0() -> void:
 
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll SimBridge each frame for player hull <= 0.
 func _check_player_death_v0() -> void:
+	return  # Disabled: player death turned off while debugging fleet combat
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null or not bridge.has_method("GetFleetCombatHpV0"):
 		return
@@ -359,6 +375,9 @@ func notify_player_killed_v0() -> void:
 	if _player_dead:
 		return
 	_player_dead = true
+	# Close galaxy overlay if open so Game Over screen is visible
+	if galaxy_overlay_open:
+		toggle_galaxy_map_overlay_v0()
 	print("UUIR|PLAYER_DEAD")
 	# Notify HUD to show game over overlay
 	var hud = get_tree().root.find_child("HUD", true, false)
@@ -401,39 +420,34 @@ func _spawn_bullet_v0(origin: Vector3, target_pos: Vector3, is_player_bullet: bo
 	if _bullet_scene == null:
 		return
 	var bullet = _bullet_scene.instantiate()
-	get_tree().root.add_child(bullet)
-	bullet.global_position = origin
-	var direction: Vector3 = (target_pos - origin).normalized()
-	if bullet.has_method("set_direction"):
-		bullet.call("set_direction", direction)
+	# Set collision and source properties BEFORE adding to tree to prevent
+	# spurious contacts on the first physics frame.
 	bullet.set("source_is_player", is_player_bullet)
 	if not is_player_bullet:
 		bullet.set("source_fleet_id", ai_fleet_id)
-	# Set collision mask: player bullets detect fleet areas (layer 4), AI bullets detect player (layer 2)
 	if is_player_bullet:
 		bullet.collision_layer = 0
 		bullet.collision_mask = 4  # Detect FleetTarget layer (bit 2)
 	else:
 		bullet.collision_layer = 0
 		bullet.collision_mask = 2  # Detect Ships layer (bit 1)
+	# Compute direction before add_child so _ready() sees non-zero velocity.
+	var direction: Vector3 = (target_pos - origin).normalized()
+	if bullet.has_method("set_direction"):
+		bullet.call("set_direction", direction)
+	get_tree().root.add_child(bullet)
+	bullet.global_position = origin
 
-# Despawn defeated fleet marker from local scene
+# Despawn defeated fleet marker from local scene.
+# Uses FleetShip group for lookup — fleet markers live under LocalSystem (sibling of GalaxyView).
 func despawn_fleet_v0(fleet_id: String) -> void:
-	var gv = _find_galaxy_view()
-	if gv == null:
-		return
-	# FleetShip group markers are named "Fleet_<fleet_id>"
 	var target_name := "Fleet_" + fleet_id
-	for child in gv.get_children():
-		_despawn_fleet_recursive_v0(child, target_name)
-
-func _despawn_fleet_recursive_v0(node: Node, target_name: String) -> void:
-	if node.name == target_name:
-		print("UUIR|FLEET_DESPAWN|" + target_name)
-		node.queue_free()
-		return
-	for child in node.get_children():
-		_despawn_fleet_recursive_v0(child, target_name)
+	for node in get_tree().get_nodes_in_group("FleetShip"):
+		if str(node.name) == target_name:
+			print("UUIR|FLEET_DESPAWN|" + target_name)
+			node.remove_from_group("FleetShip")  # Immediate removal stops AI targeting
+			node.queue_free()
+			return
 
 func _find_galaxy_view():
 	if _galaxy_view and is_instance_valid(_galaxy_view):

@@ -30,7 +30,8 @@ func _physics_process(delta):
 	# Freeze input and kill momentum while docked or in lane transit.
 	var gm = get_node_or_null("/root/GameManager")
 	var ps = gm.get("current_player_state") if gm else 0
-	if ps == 1 or ps == 2:  # DOCKED or IN_LANE_TRANSIT
+	var overlay_open = gm.get("galaxy_overlay_open") if gm else false
+	if ps == 1 or ps == 2 or overlay_open:  # DOCKED, IN_LANE_TRANSIT, or galaxy map open
 		linear_velocity = Vector3.ZERO
 		angular_velocity = Vector3.ZERO
 		return

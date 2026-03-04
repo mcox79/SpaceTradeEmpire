@@ -229,6 +229,31 @@ public partial class SimBridge
     }
 
     /// <summary>
+    /// Regenerates shield HP for a fleet at the given rate per second.
+    /// Shield never exceeds ShieldHpMax. Idempotent when already full.
+    /// </summary>
+    public void TickShieldRegenV0(string fleetId, float deltaSec)
+    {
+        const float REGEN_PER_SEC = 5.0f;
+        if (deltaSec <= 0f) return;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            if (!_kernel.State.Fleets.TryGetValue(fleetId, out var fleet)) return;
+            if (fleet.ShieldHpMax <= 0 || fleet.ShieldHp >= fleet.ShieldHpMax) return;
+            if (fleet.HullHp <= 0) return; // dead fleets don't regen
+
+            int regenAmount = (int)Math.Ceiling(REGEN_PER_SEC * deltaSec);
+            fleet.ShieldHp = Math.Min(fleet.ShieldHp + regenAmount, fleet.ShieldHpMax);
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>
     /// AI fleet fires one shot at player. Weapon stats resolved from AI's slots or defaults.
     /// Returns {shield_dmg, hull_dmg, player_hull, player_shield, killed}.
     /// </summary>
