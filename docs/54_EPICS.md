@@ -71,6 +71,8 @@ Primary anchors:
 - EPIC.S5.COMBAT_DOCTRINE.V0 [TODO]: Combat doctrine v0: point defense counter family, escort doctrine, strategic fleet-vs-fleet resolver, deterministic combat replay proof; completes Slice 5 content wave (gates: GATE.S5.COMBAT.*)
 - EPIC.S1.AUDIO_MIN.V0 [TODO]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
 - EPIC.S1.SAVE_LOAD_UI.V0 [TODO]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
+- EPIC.S1.MISSION_RUNNER.V0 [TODO]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
+- EPIC.X.PRESSURE_FORMALIZATION.V0 [TODO]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -87,6 +89,7 @@ Epics:
 - EPIC.X.STORY_INTEL: Rumor%intel substrate for lore leads discovered via exploration%analysis; no quest treadmill
 - EPIC.X.PLAYER_LOOP_CONTRACT: “Greatness spec” player loops and non-negotiables (see below)
 - EPIC.X.CODE_HEALTH: Code health hygiene — GalaxyGenerator split continuation, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
+- EPIC.X.PRESSURE_FORMALIZATION.V0: Pressure state ladder formalization — 5-state enum, direction indicators, max-one-jump enforcement, intervention budget QA metric (gates: GATE.X.PRESSURE.*)
 
 Greatness spec (non-negotiables, enforced by gates over time):
 - Primary loop: explore -> find cool things -> convert to empire leverage -> explore further -> pursue win scenarios
@@ -524,6 +527,7 @@ Epics:
 - EPIC.S1.HERO_SHIP_LOOP.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.HERO_SHIP_LOOP.*)
 - EPIC.S1.GALAXY_MAP_PROTO.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
 - EPIC.S1.DISCOVERY_INTERACT.V0 [TODO]: Discovery site dock interaction — minimal panel wired to SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
+- EPIC.S1.MISSION_RUNNER.V0 [TODO]: Deterministic mission runner v0 — mission schema, headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp (gates: GATE.S1.MISSION.*)
 
 Status: TODO
 
