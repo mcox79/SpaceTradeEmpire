@@ -55,8 +55,13 @@ func _physics_process(delta: float) -> void:
 	global_position += _velocity * delta
 
 func _on_body_entered(body: Node) -> void:
-	# AI bullet hitting the player
+	# AI bullet hitting the player — skip damage if player is docked
 	if not source_is_player and body.is_in_group("Player"):
+		var gm_check = get_node_or_null("/root/GameManager")
+		var ps = gm_check.get("current_player_state") if gm_check else 0
+		if ps != null and ps != 0:  # 0=IN_FLIGHT; skip damage if DOCKED(1) or IN_LANE_TRANSIT(2)
+			queue_free()
+			return
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
 			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)

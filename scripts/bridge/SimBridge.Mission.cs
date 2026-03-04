@@ -47,11 +47,16 @@ public partial class SimBridge
 
                 if (missions.CurrentStepIndex >= 0 && missions.CurrentStepIndex < missions.ActiveSteps.Count)
                 {
-                    d["objective_text"] = missions.ActiveSteps[missions.CurrentStepIndex].ObjectiveText;
+                    var step = missions.ActiveSteps[missions.CurrentStepIndex];
+                    d["objective_text"] = step.ObjectiveText;
+                    d["target_node_id"] = step.TargetNodeId ?? "";
+                    d["target_good_id"] = step.TargetGoodId ?? "";
                 }
                 else
                 {
                     d["objective_text"] = "";
+                    d["target_node_id"] = "";
+                    d["target_good_id"] = "";
                 }
             }
 
@@ -106,6 +111,12 @@ public partial class SimBridge
         try
         {
             result = MissionSystem.AcceptMission(_kernel.State, missionId);
+            // Immediately evaluate triggers so already-met steps (e.g. "dock at station"
+            // when already docked) advance without waiting for the next sim tick.
+            if (result)
+            {
+                MissionSystem.Process(_kernel.State);
+            }
         }
         finally
         {

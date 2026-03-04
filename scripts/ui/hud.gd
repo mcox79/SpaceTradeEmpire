@@ -211,6 +211,15 @@ func _physics_process(_delta: float) -> void:
 			var step_num: int = int(mission.get("current_step", 0)) + 1
 			var total: int = int(mission.get("total_steps", 0))
 			var obj: String = str(mission.get("objective_text", ""))
+			var tgt_node: String = str(mission.get("target_node_id", ""))
+			var tgt_good: String = str(mission.get("target_good_id", ""))
+			var details: Array = []
+			if not tgt_node.is_empty():
+				details.append(tgt_node)
+			if not tgt_good.is_empty():
+				details.append(tgt_good)
+			if details.size() > 0:
+				obj += " (%s)" % ", ".join(details)
 			_mission_step_label.text = "[%d/%d] %s" % [step_num, total, obj]
 		else:
 			_mission_panel.visible = false

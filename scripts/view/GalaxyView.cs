@@ -640,10 +640,12 @@ public partial class GalaxyView : Node3D
         {
             Name = "GateLabel",
             Text = "\u2192 " + (string.IsNullOrEmpty(displayName) ? neighborId : displayName),
-            PixelSize = 0.01f,
+            PixelSize = 0.02f,
+            FontSize = 32,
+            OutlineSize = 8,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled
         };
-        lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 0.5f, 0f);
+        lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 1.0f, 0f);
         root.AddChild(lbl);
 
         // Proximity trigger: player RigidBody3D entering this area notifies GameManager.

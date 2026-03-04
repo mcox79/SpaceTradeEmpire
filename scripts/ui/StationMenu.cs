@@ -308,6 +308,15 @@ public partial class StationMenu : Control
         };
         marketHeader.AddChild(btnFleets);
 
+        var btnMissions = new Button { Text = "Missions", Modulate = new Color(1f, 0.9f, 0.3f) };
+        btnMissions.Pressed += () =>
+        {
+            _viewSelect.Selected = 4;
+            ApplyView(4);
+            if (_bridge != null) _bridge.SetUiStationViewIndex(4);
+        };
+        marketHeader.AddChild(btnMissions);
+
         var btnSave = new Button { Text = "Save" };
         btnSave.Pressed += () => { _bridge.RequestSave(); };
         marketHeader.AddChild(btnSave);

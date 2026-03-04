@@ -7,6 +7,7 @@ var _market_node_id: String = ""
 var _rows_container: VBoxContainer = null
 var _title_label: Label = null
 var _cargo_label: Label = null
+var _missions_container: VBoxContainer = null
 
 func _ready():
 	visible = false
@@ -54,6 +55,13 @@ func _ready():
 	_cargo_label = Label.new()
 	_cargo_label.text = ""
 	vbox.add_child(_cargo_label)
+
+	vbox.add_child(HSeparator.new())
+
+	# Missions section
+	_missions_container = VBoxContainer.new()
+	_missions_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_missions_container)
 
 	# Undock button
 	var btn_undock = Button.new()
@@ -154,6 +162,7 @@ func _rebuild_rows() -> void:
 
 	# GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001: show production info for this node
 	_rebuild_production_info()
+	_rebuild_missions()
 
 	# Update cargo summary
 	if _cargo_label:
@@ -202,3 +211,87 @@ func _rebuild_production_info() -> void:
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		_rows_container.add_child(row)
+
+func _rebuild_missions() -> void:
+	if _missions_container == null:
+		return
+	for child in _missions_container.get_children():
+		_missions_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	# Show active mission status
+	if bridge.has_method("GetActiveMissionV0"):
+		var active: Dictionary = bridge.call("GetActiveMissionV0")
+		var active_id: String = str(active.get("mission_id", ""))
+		if not active_id.is_empty():
+			var hdr = Label.new()
+			hdr.text = "ACTIVE MISSION"
+			hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			hdr.add_theme_font_size_override("font_size", 16)
+			_missions_container.add_child(hdr)
+
+			var title_lbl = Label.new()
+			title_lbl.text = str(active.get("title", active_id))
+			title_lbl.add_theme_font_size_override("font_size", 14)
+			_missions_container.add_child(title_lbl)
+
+			var obj_lbl = Label.new()
+			var step_cur: int = int(active.get("current_step", 0))
+			var step_max: int = int(active.get("total_steps", 0))
+			var obj_text: String = str(active.get("objective_text", ""))
+			var target_node: String = str(active.get("target_node_id", ""))
+			var target_good: String = str(active.get("target_good_id", ""))
+			var detail_parts: Array = []
+			if not target_node.is_empty():
+				detail_parts.append(target_node)
+			if not target_good.is_empty():
+				detail_parts.append(target_good)
+			if detail_parts.size() > 0:
+				obj_text += " (%s)" % ", ".join(detail_parts)
+			obj_lbl.text = "Step %d/%d: %s" % [step_cur + 1, step_max, obj_text]
+			obj_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_missions_container.add_child(obj_lbl)
+			return  # Only one active mission at a time
+
+	# No active mission — show available missions
+	if bridge.has_method("GetMissionListV0"):
+		var missions: Array = bridge.call("GetMissionListV0")
+		if missions.size() == 0:
+			return
+
+		var hdr = Label.new()
+		hdr.text = "AVAILABLE MISSIONS"
+		hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hdr.add_theme_font_size_override("font_size", 16)
+		_missions_container.add_child(hdr)
+
+		for m in missions:
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			var mid: String = str(m.get("mission_id", ""))
+			var mtitle: String = str(m.get("title", mid))
+			var mdesc: String = str(m.get("description", ""))
+			var mreward: int = int(m.get("reward", 0))
+
+			var row = HBoxContainer.new()
+			var info_lbl = Label.new()
+			info_lbl.text = "%s (%d cr)" % [mtitle, mreward]
+			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(info_lbl)
+
+			var btn_accept = Button.new()
+			btn_accept.text = "Accept"
+			btn_accept.pressed.connect(_on_accept_mission.bind(mid))
+			row.add_child(btn_accept)
+
+			_missions_container.add_child(row)
+
+func _on_accept_mission(mission_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("AcceptMissionV0"):
+		bridge.call("AcceptMissionV0", mission_id)
+		_rebuild_rows()
