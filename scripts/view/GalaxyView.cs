@@ -27,6 +27,9 @@ public partial class GalaxyView : Node3D
     [Export] public float StarVisualRadiusU { get; set; } = 3.0f;
     [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
     [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
+    // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+    [Export] public float FleetOrbitRadiusU { get; set; } = 50.0f;
+    [Export] public float FleetMarkerRadiusU { get; set; } = 1.2f;
     [Export] public PackedScene StationPrefab { get; set; }
 
     // Local system state
@@ -185,6 +188,9 @@ public partial class GalaxyView : Node3D
 
         // 4. Discovery site markers at seed-derived orbit positions.
         SpawnDiscoverySitesV0(snap, nodeId);
+
+        // 5. Fleet markers at seed-derived orbit positions (GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001).
+        SpawnFleetsV0(snap);
     }
 
     private void ClearLocalSystemV0()
@@ -287,6 +293,71 @@ public partial class GalaxyView : Node3D
             marker.AddToGroup("DiscoverySite");
             _localSystemRoot.AddChild(marker);
         }
+    }
+
+    // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+    private void SpawnFleetsV0(Godot.Collections.Dictionary snap)
+    {
+        if (!snap.ContainsKey("fleets")) return;
+        var fleets = snap["fleets"].AsGodotArray();
+
+        for (int i = 0; i < fleets.Count; i++)
+        {
+            var f = fleets[i].AsGodotDictionary();
+            var fleetId = f.ContainsKey("fleet_id") ? (string)f["fleet_id"] : "";
+            if (string.IsNullOrEmpty(fleetId)) continue;
+
+            var marker = CreateFleetMarkerV0(fleetId);
+            marker.Position = DeriveOrbitPositionV0(fleetId + "_local", FleetOrbitRadiusU);
+            marker.AddToGroup("FleetShip");
+            _localSystemRoot.AddChild(marker);
+        }
+    }
+
+    private Node3D CreateFleetMarkerV0(string fleetId)
+    {
+        var root = new Node3D { Name = "Fleet_" + fleetId };
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "FleetMesh",
+            Mesh = new SphereMesh { Radius = FleetMarkerRadiusU },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.9f, 0.2f, 0.2f) // Red for enemy fleets
+            }
+        };
+        root.AddChild(mesh);
+
+        // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
+        var area = new Area3D
+        {
+            Name = "FleetArea",
+            Monitoring = true,
+            Monitorable = true,
+            CollisionLayer = 0,
+            CollisionMask = 2,   // Detect Ships layer (player RigidBody3D).
+        };
+        var shape = new CollisionShape3D
+        {
+            Name = "FleetShape",
+            Shape = new SphereShape3D { Radius = FleetMarkerRadiusU * 4.0f }
+        };
+        area.AddChild(shape);
+        area.SetMeta("fleet_id", fleetId);
+        area.BodyEntered += (body) => _OnFleetBodyEnteredV0(body, fleetId);
+        root.AddChild(area);
+
+        return root;
+    }
+
+    private void _OnFleetBodyEnteredV0(Node3D body, string fleetId)
+    {
+        if (!body.IsInGroup("Player")) return;
+        var gm = GetNodeOrNull<Node>("/root/GameManager");
+        if (gm == null) return;
+        if (gm.HasMethod("on_fleet_proximity_entered_v0"))
+            gm.Call("on_fleet_proximity_entered_v0", fleetId);
     }
 
     private Node3D CreateStarMeshV0()

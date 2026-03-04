@@ -88,7 +88,20 @@
       "Bash(powershell -Command \"Stop-Process -Name ''Godot_v4.6-stable_mono_win64'' -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Get-Content D:\\\\SGE\\\\SpaceTradeEmpire\\\\lane_label_err1.txt\")",
       "Bash(powershell -File probe_scene_boot.ps1)",
       "Bash(ls /d/SGE/SpaceTradeEmpire/scripts/tests/test_hero_ship_scene_boot*)",
-      "Bash(powershell -File probe_minimal.ps1)"
+      "Bash(powershell -File probe_minimal.ps1)",
+      "Bash(echo $COMPUTERNAME)",
+      "Bash(powershell.exe -NoProfile -Command \"[System.Management.Automation.PSParser]::Tokenize\\(\\(Get-Content ''c:\\\\Users\\\\marsh\\\\Documents\\\\Space Trade Empire\\\\DevTool.ps1'' -Raw\\), [ref]$null\\) | Out-Null; Write-Host ''Parse OK''\")",
+      "Bash(powershell.exe -NoProfile -File \"c:\\\\Users\\\\marsh\\\\Documents\\\\Space Trade Empire\\\\scripts\\\\tools\\\\test-parse.ps1\")",
+      "Bash(dotnet build SimCore.Tests/SimCore.Tests.csproj --nologo -v q)",
+      "Bash(dotnet build SimCore.Runner/SimCore.Runner.csproj --nologo -v q)",
+      "Bash(dotnet build --nologo -v q)",
+      "Bash(timeout 30 \"C:\\\\Users\\\\marsh\\\\Downloads\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_station_dock_v0.gd\")",
+      "Bash(timeout 30 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_station_dock_v0.gd\")",
+      "Bash(timeout 45 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_combat_encounter_v0.gd\")",
+      "Bash(find SimCore.Tests -name \"*.cs\" -type f ! -path \"*/obj/*\" -exec grep -l \"class.*Tests\\\\|TestFixture\" {} ;)",
+      "Bash(grep -r \"^\\\\s*\\\\[Test\\\\]\" SimCore.Tests --include=\"*.cs\" ! -path \"*/obj/*\")",
+      "Bash(xargs -I {} bash -c 'echo \"\"=FILE: {}\"\"; grep -E \"\"^\\\\s*\\\\[TestFixture\\\\]|^\\\\s*public sealed class|^\\\\s*\\\\[Test\\\\]|^\\\\s*public void\"\" \"\"{}\"\" | head -50')",
+      "Bash(timeout 45 \"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --headless --path . -s \"res://scripts/tests/test_combat_loop_proof_v0.gd\")"
     ],
     "ask": [
       "Bash(git:push*)"

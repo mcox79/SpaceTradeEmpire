@@ -117,6 +117,70 @@ func _run() -> void:
 		return
 
 	print(PREFIX + "UNDOCK|ok")
+
+	# --- DISCOVERY SITE DOCK (GATE.S1.DISCOVERY_INTERACT.PANEL.001) ---
+	_gm.call("on_discovery_site_proximity_entered_v0", "test_site_alpha")
+
+	var dkind2 := str(_gm.get("dock_target_kind_token"))
+	var dtarget2 := str(_gm.get("dock_target_id"))
+	var dstate2 := str(_gm.call("get_player_ship_state_name_v0"))
+
+	if dstate2 != "DOCKED":
+		print(PREFIX + "FAIL|discovery_dock_state=%s expected=DOCKED" % dstate2)
+		_quit()
+		return
+
+	if dkind2 != "DISCOVERY_SITE":
+		print(PREFIX + "FAIL|discovery_dock_kind=%s expected=DISCOVERY_SITE" % dkind2)
+		_quit()
+		return
+
+	print(PREFIX + "DISCOVERY_DOCK|PASS|kind=DISCOVERY_SITE|target=%s" % dtarget2)
+
+	# Verify panel opened with site_id and phase (fallback to "Unknown" is acceptable for test site).
+	var dp = _gm.get("_discovery_panel")
+	if dp == null:
+		print(PREFIX + "FAIL|discovery_panel_null")
+		_quit()
+		return
+
+	var dp_visible := bool(dp.get("visible"))
+	if not dp_visible:
+		print(PREFIX + "FAIL|discovery_panel_not_visible")
+		_quit()
+		return
+
+	var dp_site := str(dp.call("get_site_id_text_v0"))
+	if dp_site != "test_site_alpha":
+		print(PREFIX + "FAIL|discovery_panel_site=%s expected=test_site_alpha" % dp_site)
+		_quit()
+		return
+
+	var dp_phase := str(dp.call("get_phase_text_v0"))
+	if not dp_phase.begins_with("Phase:"):
+		print(PREFIX + "FAIL|discovery_panel_phase=%s expected=Phase:*" % dp_phase)
+		_quit()
+		return
+
+	print(PREFIX + "DISCOVERY_PANEL|PASS|site=%s|phase=%s" % [dp_site, dp_phase])
+
+	# --- UNDOCK FROM DISCOVERY SITE ---
+	_gm.call("undock_v0")
+	var dstate3 := str(_gm.call("get_player_ship_state_name_v0"))
+
+	if dstate3 != "IN_FLIGHT":
+		print(PREFIX + "FAIL|discovery_undock_state=%s expected=IN_FLIGHT" % dstate3)
+		_quit()
+		return
+
+	# Verify panel closed.
+	var dp_visible2 := bool(dp.get("visible"))
+	if dp_visible2:
+		print(PREFIX + "FAIL|discovery_panel_still_visible_after_undock")
+		_quit()
+		return
+
+	print(PREFIX + "DISCOVERY_UNDOCK|ok")
 	print(PREFIX + "ALL|PASS")
 	_quit()
 

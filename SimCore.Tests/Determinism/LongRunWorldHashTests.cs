@@ -161,14 +161,14 @@ public class LongRunWorldHashTests
         var b = new SimKernel(seed);
         GalaxyGenerator.Generate(b.State, 20, 100f);
 
-        var topoA = GalaxyGenerator.BuildTopologyDump(a.State);
-        var topoB = GalaxyGenerator.BuildTopologyDump(b.State);
+        var topoA = ReportBuilder.BuildTopologyDump(a.State);
+        var topoB = ReportBuilder.BuildTopologyDump(b.State);
 
-        var loopsA = GalaxyGenerator.BuildEconLoopsReport(a.State, seed, maxHops: 4);
-        var loopsB = GalaxyGenerator.BuildEconLoopsReport(b.State, seed, maxHops: 4);
+        var loopsA = ReportBuilder.BuildEconLoopsReport(a.State, seed, maxHops: 4);
+        var loopsB = ReportBuilder.BuildEconLoopsReport(b.State, seed, maxHops: 4);
 
-        var invA = GalaxyGenerator.BuildInvariantsReport(a.State, seed, maxHopsForLoops: 4);
-        var invB = GalaxyGenerator.BuildInvariantsReport(b.State, seed, maxHopsForLoops: 4);
+        var invA = ReportBuilder.BuildInvariantsReport(a.State, seed, maxHopsForLoops: 4);
+        var invB = ReportBuilder.BuildInvariantsReport(b.State, seed, maxHopsForLoops: 4);
 
         Assert.That(topoA, Is.EqualTo(topoB), "Topology summary must be deterministic for same seed.");
         Assert.That(loopsA, Is.EqualTo(loopsB), "Econ loops report must be deterministic for same seed.");
@@ -193,8 +193,8 @@ public class LongRunWorldHashTests
         var b1 = new SimKernel(seedB);
         GalaxyGenerator.Generate(b1.State, 20, 100f);
 
-        var dTopo1 = GalaxyGenerator.BuildTopologyDiffReport(a1.State, seedA, b1.State, seedB);
-        var dLoops1 = GalaxyGenerator.BuildLoopsDiffReport(a1.State, seedA, b1.State, seedB, maxHops: 4);
+        var dTopo1 = ReportBuilder.BuildTopologyDiffReport(a1.State, seedA, b1.State, seedB);
+        var dLoops1 = ReportBuilder.BuildLoopsDiffReport(a1.State, seedA, b1.State, seedB, maxHops: 4);
 
         var a2 = new SimKernel(seedA);
         GalaxyGenerator.Generate(a2.State, 20, 100f);
@@ -202,8 +202,8 @@ public class LongRunWorldHashTests
         var b2 = new SimKernel(seedB);
         GalaxyGenerator.Generate(b2.State, 20, 100f);
 
-        var dTopo2 = GalaxyGenerator.BuildTopologyDiffReport(a2.State, seedA, b2.State, seedB);
-        var dLoops2 = GalaxyGenerator.BuildLoopsDiffReport(a2.State, seedA, b2.State, seedB, maxHops: 4);
+        var dTopo2 = ReportBuilder.BuildTopologyDiffReport(a2.State, seedA, b2.State, seedB);
+        var dLoops2 = ReportBuilder.BuildLoopsDiffReport(a2.State, seedA, b2.State, seedB, maxHops: 4);
 
         Assert.That(dTopo1, Is.EqualTo(dTopo2), "Topology diff must be deterministic for same (seedA, seedB).");
         Assert.That(dLoops1, Is.EqualTo(dLoops2), "Loops diff must be deterministic for same (seedA, seedB).");
@@ -214,7 +214,7 @@ public class LongRunWorldHashTests
     {
         const int seed = 333;
 
-        var cfg = GalaxyGenerator.SeedExplorerV0Config.Default with
+        var cfg = ReportBuilder.SeedExplorerV0Config.Default with
         {
             StarCount = 24,
             Radius = 150f,
@@ -229,11 +229,11 @@ public class LongRunWorldHashTests
         var b = new SimKernel(seed);
         GalaxyGenerator.Generate(b.State, cfg.StarCount, cfg.Radius);
 
-        var loopsA = GalaxyGenerator.BuildEconLoopsReport(a.State, seed, cfg);
-        var loopsB = GalaxyGenerator.BuildEconLoopsReport(b.State, seed, cfg);
+        var loopsA = ReportBuilder.BuildEconLoopsReport(a.State, seed, cfg);
+        var loopsB = ReportBuilder.BuildEconLoopsReport(b.State, seed, cfg);
 
-        var invA = GalaxyGenerator.BuildInvariantsReport(a.State, seed, cfg);
-        var invB = GalaxyGenerator.BuildInvariantsReport(b.State, seed, cfg);
+        var invA = ReportBuilder.BuildInvariantsReport(a.State, seed, cfg);
+        var invB = ReportBuilder.BuildInvariantsReport(b.State, seed, cfg);
 
         Assert.That(loopsA, Is.EqualTo(loopsB), "Config override path must be deterministic for same seed.");
         Assert.That(invA, Is.EqualTo(invB), "Config override path must be deterministic for same seed.");
@@ -257,7 +257,7 @@ public class LongRunWorldHashTests
             var sim = new SimKernel(seed);
             GalaxyGenerator.Generate(sim.State, starCount, radius);
 
-            var report = GalaxyGenerator.BuildInvariantsReport(sim.State, seed, maxHopsForLoops);
+            var report = ReportBuilder.BuildInvariantsReport(sim.State, seed, maxHopsForLoops);
             ParseInvariantFailuresFromReport(seed, report, failures);
         }
 
@@ -719,7 +719,7 @@ public class LongRunWorldHashTests
 
     private static void ParseInvariantFailuresFromReport(int seed, string report, List<InvariantFailureRecord> into)
     {
-        // Expected per-record line shape (from GalaxyGenerator.BuildInvariantsReport):
+        // Expected per-record line shape (from ReportBuilder.BuildInvariantsReport):
         // F|Seed=<seed>|InvariantName=<name>|PrimaryId=<id>|DetailsKV=<kv>
         // Parsing is deterministic and failure-safe: ignore lines that do not match the expected key set.
         var lines = report.Split('\n');
@@ -1628,8 +1628,8 @@ public class DiscoverySeedingScenarioProofTests
         const int seedStart = 1;
         const int seedEnd = 100;
 
-        int starCount = GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-        float radius = GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+        int starCount = ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+        float radius = ReportBuilder.SeedExplorerV0Config.Default.Radius;
 
         var (regVersion, regDigest) = LoadContentRegistryDigestV0OrThrow();
 
@@ -1938,7 +1938,7 @@ public class DiscoverySeedingScenarioProofTests
             var kernel = new SimKernel(seed);
             GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-            var vrep = GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+            var vrep = DiscoverySeedGen.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
             int violationsCount = ExtractIntFieldOrThrow(vrep, "ViolationsCount=");
             string result = ExtractStringFieldOrThrow(vrep, "Result=");
 
@@ -1960,7 +1960,7 @@ public class DiscoverySeedingScenarioProofTests
             var kernel = new SimKernel(seed);
             GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-            var vrep = GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+            var vrep = DiscoverySeedGen.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
             string result = ExtractStringFieldOrThrow(vrep, "Result=");
 
             if (string.Equals(result, "PASS", StringComparison.Ordinal))

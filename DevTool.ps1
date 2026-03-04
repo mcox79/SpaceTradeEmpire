@@ -84,11 +84,17 @@ function Log([string] $msg) {
 # --- UI STATE REFS (assigned during GUI build, used by action functions) ----
 $script:btnRunTests   = $null
 $script:btnCommit     = $null
+$script:btnConvoPush  = $null
+$script:btnConvoPull  = $null
 $script:lblStatus     = $null
 $script:lblGateId     = $null
 $script:lblGateTitle  = $null
 $script:lblCtxStamp   = $null
 $script:lblPrmStamp   = $null
+
+# --- CONVO REPO PATH --------------------------------------------------------
+$ConvoRepoPath = Join-Path $env:USERPROFILE ".claude"
+$MachineName   = $env:COMPUTERNAME   # e.g. HOME, LAPTOP, WORK
 
 # --- BACKGROUND GIT JOB -----------------------------------------------------
 $global:GitJob   = $null
@@ -106,7 +112,9 @@ $global:GitTimer.Add_Tick({
     try { Remove-Job -Job $global:GitJob -Force -ErrorAction SilentlyContinue } catch {}
     $global:GitJob = $null
 
-    if ($null -ne $script:btnCommit) { $script:btnCommit.Enabled = $true }
+    if ($null -ne $script:btnCommit)    { $script:btnCommit.Enabled    = $true }
+    if ($null -ne $script:btnConvoPush) { $script:btnConvoPush.Enabled = $true }
+    if ($null -ne $script:btnConvoPull) { $script:btnConvoPull.Enabled = $true }
     Update-Status
 })
 
@@ -308,6 +316,89 @@ function Run-CommitPush {
     Log "Git: running in background..."
 }
 
+# --- CONVO SYNC FUNCTIONS ---------------------------------------------------
+
+function Run-ConvoPush {
+    if ($global:GitJob -and $global:GitJob.State -eq "Running") {
+        Log "Git: already running."; return
+    }
+    Log ">>> Convo Push ($MachineName)"
+    if ($null -ne $script:btnConvoPush) { $script:btnConvoPush.Enabled = $false }
+    if ($null -ne $script:btnConvoPull) { $script:btnConvoPull.Enabled = $false }
+
+    $repoPath = $ConvoRepoPath
+    $machine  = $MachineName
+
+    $global:GitJob = Start-Job -ArgumentList $repoPath, $machine -ScriptBlock {
+        param($root, $mach)
+        Set-Location $root
+        $out = @()
+
+        # Check if it's a git repo with a remote
+        $remote = (git remote 2>&1)
+        if ($LASTEXITCODE -ne 0) { $out += "FAIL: not a git repo at $root"; return $out }
+        if (-not $remote) { $out += "FAIL: no remote configured - run: git remote add origin URL"; return $out }
+
+        $out += (git add -A 2>&1)
+        $staged = @(git status --porcelain 2>&1)
+        if ($staged.Count -eq 0) {
+            $out += "Nothing new to push."
+        } else {
+            $msg = "convo sync from $mach " + (Get-Date -Format "yyyy-MM-dd HH:mm")
+            $out += (git commit -m $msg 2>&1)
+            if ($LASTEXITCODE -ne 0) { $out += "FAIL: git commit"; return $out }
+        }
+        $out += (git push 2>&1)
+        if ($LASTEXITCODE -ne 0) { $out += "FAIL: git push"; return $out }
+        $out += "CONVO PUSH: OK"
+        return $out
+    }
+    $global:GitTimer.Start()
+    Log "Convo push running..."
+}
+
+function Run-ConvoPull {
+    if ($global:GitJob -and $global:GitJob.State -eq "Running") {
+        Log "Git: already running."; return
+    }
+    Log ">>> Convo Pull"
+    if ($null -ne $script:btnConvoPush) { $script:btnConvoPush.Enabled = $false }
+    if ($null -ne $script:btnConvoPull) { $script:btnConvoPull.Enabled = $false }
+
+    $repoPath = $ConvoRepoPath
+
+    $global:GitJob = Start-Job -ArgumentList $repoPath -ScriptBlock {
+        param($root)
+        Set-Location $root
+        $out = @()
+
+        $remote = (git remote 2>&1)
+        if ($LASTEXITCODE -ne 0) { $out += "FAIL: not a git repo at $root"; return $out }
+        if (-not $remote) { $out += "FAIL: no remote configured"; return $out }
+
+        # Stash any in-flight changes (active conversation writes to disk)
+        $dirty = @(git status --porcelain 2>&1)
+        $didStash = $false
+        if ($dirty.Count -gt 0) {
+            $out += (git stash push -m "convo-pull-autostash" 2>&1)
+            if ($LASTEXITCODE -eq 0) { $didStash = $true }
+        }
+
+        $out += (git pull --rebase 2>&1)
+        $pullOk = ($LASTEXITCODE -eq 0)
+
+        if ($didStash) {
+            $out += (git stash pop 2>&1)
+        }
+
+        if (-not $pullOk) { $out += "FAIL: git pull"; return $out }
+        $out += "CONVO PULL: OK"
+        return $out
+    }
+    $global:GitTimer.Start()
+    Log "Convo pull running..."
+}
+
 # --- STATUS UPDATE ----------------------------------------------------------
 function Update-Status {
     if ($null -ne $script:lblStatus) {
@@ -394,11 +485,11 @@ function New-GroupBox([string] $title, [int] $x, [int] $y, [int] $w, [int] $h) {
     return $g
 }
 
-# Form
+# Form — two-column layout: actions left, log right
 $form             = New-Object System.Windows.Forms.Form
 $form.Text        = "DevTool - $($Config.project_name)"
-$form.Size        = New-Object System.Drawing.Size(500, 750)
-$form.MinimumSize = New-Object System.Drawing.Size(500, 700)
+$form.Size        = New-Object System.Drawing.Size(780, 500)
+$form.MinimumSize = New-Object System.Drawing.Size(700, 460)
 $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
 $form.BackColor   = $clrBg
 $form.ForeColor   = $clrFg
@@ -407,103 +498,138 @@ $form.ForeColor   = $clrFg
 $lblHeader = New-Lbl "MISSION CONTROL" 16 10 280 26 $fntHeader
 $form.Controls.Add($lblHeader)
 
-$script:lblStatus = New-Lbl "..." 16 36 460 18 $fntSmall $clrMuted
+$script:lblStatus = New-Lbl "..." 16 36 720 18 $fntSmall $clrMuted
 $form.Controls.Add($script:lblStatus)
 
-$SEP = 60   # Y start of first section
-$W   = 460  # content width
-$L   = 16   # left margin
+# Layout constants
+$SEP = 60    # Y start of first section
+$L   = 16    # left margin
+$LW  = 370   # left column width
+$BW  = 350   # button-area width inside group (LW - 20 padding)
+$BH  = 170   # half-button width
+$RX  = 394   # right column x (L + LW + 8)
+$RW  = 362   # right column width
+
+# ============ LEFT COLUMN — actions ============
 
 # PLAN section
-$grpPlan = New-GroupBox "PLAN" $L $SEP $W 120
+$grpPlan = New-GroupBox "PLAN" $L $SEP $LW 108
 $form.Controls.Add($grpPlan)
 
-$script:lblGateId    = New-Lbl "(reading gates...)" 10 20 440 20 $fntMono
-$script:lblGateTitle = New-Lbl "" 10 42 440 36 $fntSmall $clrMuted
+$script:lblGateId    = New-Lbl "(reading gates...)" 10 20 $BW 18 $fntMono
+$script:lblGateTitle = New-Lbl "" 10 40 $BW 30 $fntSmall $clrMuted
 $grpPlan.Controls.Add($script:lblGateId)
 $grpPlan.Controls.Add($script:lblGateTitle)
 
-$btnCtxFull = New-Btn "Refresh Context (Full)" 10 82 200 30 $clrGray {
+$btnCtxFull = New-Btn "Refresh Context" 10 74 $BH 28 $clrGray {
     $btnCtxFull.Enabled = $false
     try { Run-ContextRefresh -FullMap | Out-Null; Update-Status }
     finally { $btnCtxFull.Enabled = $true }
 }
+$btnCtxFull.Font = $fntNormal
 $grpPlan.Controls.Add($btnCtxFull)
 
-$btnGenGates = New-Btn "Generate Next Gates" 220 82 220 30 $clrTeal {
+$btnGenGates = New-Btn "Generate Gates" ($BH + 20) 74 $BH 28 $clrTeal {
     $btnGenGates.Enabled = $false
     try { Run-GenGatesPrep; Update-Status }
     finally { $btnGenGates.Enabled = $true }
 }
+$btnGenGates.Font = $fntNormal
 $grpPlan.Controls.Add($btnGenGates)
 
 # SESSION section
-$grpSession = New-GroupBox "SESSION" $L ($SEP + 128) $W 140
+$grpSession = New-GroupBox "SESSION" $L ($SEP + 116) $LW 120
 $form.Controls.Add($grpSession)
 
-$btnStart = New-Btn "> Start Session" 10 20 440 44 $clrBlue {
+$btnStart = New-Btn "> Start Session" 10 20 $BW 36 $clrBlue {
     $btnStart.Enabled = $false
     try { Run-StartSession; Update-Status }
     finally { $btnStart.Enabled = $true }
 }
 $grpSession.Controls.Add($btnStart)
 
-$btnCopyPrm = New-Btn "Copy Prompt" 10 72 210 28 $clrGray {
+$btnCopyPrm = New-Btn "Copy Prompt" 10 62 $BH 26 $clrGray {
     Copy-PromptToClipboard
 }
+$btnCopyPrm.Font = $fntNormal
 $grpSession.Controls.Add($btnCopyPrm)
 
-$btnDrop = New-Btn "Open Session Drop" 230 72 210 28 $clrGray {
+$btnDrop = New-Btn "Session Drop" ($BH + 20) 62 $BH 26 $clrGray {
     Open-DropFolder
 }
+$btnDrop.Font = $fntNormal
 $grpSession.Controls.Add($btnDrop)
 
-$script:lblCtxStamp = New-Lbl "Context: -" 10 106 210 18 $fntSmall $clrMuted
-$script:lblPrmStamp = New-Lbl "Prompt:  -" 230 106 210 18 $fntSmall $clrMuted
+$script:lblCtxStamp = New-Lbl "Context: -" 10 94 $BH 16 $fntSmall $clrMuted
+$script:lblPrmStamp = New-Lbl "Prompt:  -" ($BH + 20) 94 $BH 16 $fntSmall $clrMuted
 $grpSession.Controls.Add($script:lblCtxStamp)
 $grpSession.Controls.Add($script:lblPrmStamp)
 
-# VERIFY section
-$grpVerify = New-GroupBox "VERIFY" $L ($SEP + 276) $W 80
+# VERIFY + SHIP — side by side
+$grpVerify = New-GroupBox "VERIFY" $L ($SEP + 244) (($LW - 8) / 2) 70
 $form.Controls.Add($grpVerify)
 
-$script:btnRunTests = New-Btn "Run Tests" 10 20 210 44 $clrBlue {
+$vbw = (($LW - 8) / 2) - 20  # button width inside half-group
+
+$script:btnRunTests = New-Btn "Run Tests" 10 20 ($vbw / 2 - 2) 38 $clrBlue {
     Run-Tests
 }
+$script:btnRunTests.Font = $fntNormal
 $grpVerify.Controls.Add($script:btnRunTests)
 
-$btnOpenTestLog = New-Btn "Open Test Log" 230 20 210 44 $clrGray {
+$btnOpenTestLog = New-Btn "Test Log" ($vbw / 2 + 12) 20 ($vbw / 2 - 2) 38 $clrGray {
     if (Test-Path -LiteralPath $TestLogPath) {
         Start-Process "notepad.exe" -ArgumentList $TestLogPath
     } else { Log "No test log yet - run tests first." }
 }
+$btnOpenTestLog.Font = $fntNormal
 $grpVerify.Controls.Add($btnOpenTestLog)
 
-# SHIP section
-$grpShip = New-GroupBox "SHIP" $L ($SEP + 364) $W 80
+$grpShip = New-GroupBox "SHIP" ($L + ($LW - 8) / 2 + 8) ($SEP + 244) (($LW - 8) / 2) 70
 $form.Controls.Add($grpShip)
 
-$btnGitStatus = New-Btn "Git Status" 10 20 210 44 $clrDkGray {
+$btnGitStatus = New-Btn "Status" 10 20 ($vbw / 2 - 2) 38 $clrDkGray {
     Run-GitStatus; Update-Status
 }
+$btnGitStatus.Font = $fntNormal
 $grpShip.Controls.Add($btnGitStatus)
 
-$script:btnCommit = New-Btn "Commit + Push" 230 20 210 44 $clrGreen {
+$script:btnCommit = New-Btn "Commit" ($vbw / 2 + 12) 20 ($vbw / 2 - 2) 38 $clrGreen {
     Run-CommitPush
 }
+$script:btnCommit.Font = $fntNormal
 $grpShip.Controls.Add($script:btnCommit)
 
-# LOG section
-$grpLog = New-GroupBox "LOG" $L ($SEP + 452) $W 192
+# CONVO SYNC section
+$grpConvo = New-GroupBox "CONVO SYNC  [$MachineName]" $L ($SEP + 322) $LW 70
+$form.Controls.Add($grpConvo)
+
+$script:btnConvoPush = New-Btn "Push Convos" 10 20 $BH 38 $clrTeal {
+    Run-ConvoPush
+}
+$script:btnConvoPush.Font = $fntNormal
+$grpConvo.Controls.Add($script:btnConvoPush)
+
+$script:btnConvoPull = New-Btn "Pull Convos" ($BH + 20) 20 $BH 38 $clrDkGray {
+    Run-ConvoPull
+}
+$script:btnConvoPull.Font = $fntNormal
+$grpConvo.Controls.Add($script:btnConvoPull)
+
+# ============ RIGHT COLUMN — log ============
+
+$grpLog = New-GroupBox "LOG" $RX $SEP $RW 392
 $grpLog.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor
                  [System.Windows.Forms.AnchorStyles]::Bottom -bor
                  [System.Windows.Forms.AnchorStyles]::Left -bor
                  [System.Windows.Forms.AnchorStyles]::Right
 $form.Controls.Add($grpLog)
 
+$logInnerW = $RW - 20
+
 $script:txtLog = New-Object System.Windows.Forms.TextBox
 $script:txtLog.Location   = New-Object System.Drawing.Point(10, 18)
-$script:txtLog.Size       = New-Object System.Drawing.Size(440, 166)
+$script:txtLog.Size       = New-Object System.Drawing.Size($logInnerW, 340)
 $script:txtLog.Multiline  = $true
 $script:txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
 $script:txtLog.ReadOnly   = $true
@@ -516,11 +642,14 @@ $script:txtLog.Anchor     = [System.Windows.Forms.AnchorStyles]::Top -bor
                             [System.Windows.Forms.AnchorStyles]::Right
 $grpLog.Controls.Add($script:txtLog)
 
-$btnClearLog = New-Btn "Clear" 380 ($SEP + 652) 72 22 $clrDkGray {
+$btnClearLog = New-Btn "Clear Log" 10 364 $logInnerW 22 $clrDkGray {
     $script:txtLog.Clear()
 }
 $btnClearLog.Font = $fntSmall
-$form.Controls.Add($btnClearLog)
+$btnClearLog.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor
+                      [System.Windows.Forms.AnchorStyles]::Left -bor
+                      [System.Windows.Forms.AnchorStyles]::Right
+$grpLog.Controls.Add($btnClearLog)
 
 # --- STARTUP ----------------------------------------------------------------
 $form.Add_Load({

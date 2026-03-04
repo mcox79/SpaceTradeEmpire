@@ -29,11 +29,11 @@ public class GalaxyTests
 
         // Risk scalar default is emitted as r=0; the Edge model does not store risk yet (default assumed).
 
-        var dumpA = GalaxyGenerator.BuildTopologyDump(simA.State);
+        var dumpA = ReportBuilder.BuildTopologyDump(simA.State);
 
         var simA3 = new SimKernel(999);
         GalaxyGenerator.Generate(simA3.State, 12, 100f);
-        var dumpA3 = GalaxyGenerator.BuildTopologyDump(simA3.State);
+        var dumpA3 = ReportBuilder.BuildTopologyDump(simA3.State);
 
         Assert.That(dumpA, Is.EqualTo(dumpA3));
         // Write dump to repo-root docs/generated (dotnet test working dir is not repo root).
@@ -147,7 +147,7 @@ public class GalaxyTests
         var classByNode = GalaxyGenerator.GetWorldClassIdByNodeIdV0(sim.State);
 
         // Resource marker seeds from existing deterministic surface (industry outputs).
-        var surface = GalaxyGenerator.BuildDiscoverySeedSurfaceV0(sim.State, seed);
+        var surface = DiscoverySeedGen.BuildDiscoverySeedSurfaceV0(sim.State, seed);
         var resourceMarkers = surface
             .Where(s => string.Equals(s.DiscoveryKind, DiscoverySeedKindsV0.ResourcePoolMarker, StringComparison.Ordinal))
             .ToList();

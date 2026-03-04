@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build \"Space Trade Empire.csproj\"*)",
+      "Bash(dotnet build SimCore/SimCore.csproj*)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj*)",
       "Bash(powershell -File *)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *)",
@@ -14,6 +15,34 @@
     ],
     "ask": [
       "Bash(git push*)"
+    ]
+  },
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": {
+          "tool_name": "write",
+          "file_paths": ["**/*.cs"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet build SimCore/SimCore.csproj --nologo -v q 2>&1 | tail -5"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool_name": "edit",
+          "file_paths": ["**/*.cs"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet build SimCore/SimCore.csproj --nologo -v q 2>&1 | tail -5"
+          }
+        ]
+      }
     ]
   }
 }

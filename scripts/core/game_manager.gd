@@ -31,6 +31,9 @@ var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
 var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can trigger again.
 
+# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
+var _targeted_fleet_id: String = ""
+
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
 var time_accumulator: float = 0.0
@@ -45,6 +48,7 @@ var _prev_camera: Camera3D
 # Optional UI surfaces (may be null in headless scenes)
 var _station_menu: Node
 var _hero_trade_menu: Node
+var _discovery_panel: Node
 
 func _ready():
 	print('SUCCESS: Global Game Manager initialized.')
@@ -77,6 +81,23 @@ func _ready():
 			_station_menu.connect("request_undock", c)
 	_hero_trade_menu = root.get_node_or_null("UI/HeroTradeMenu")
 
+	# GATE.S1.DISCOVERY_INTERACT.PANEL.001: discovery site dock panel v0
+	_discovery_panel = root.get_node_or_null("UI/DiscoverySitePanel")
+	if _discovery_panel == null:
+		var dsp_script = load("res://scripts/ui/DiscoverySitePanel.gd")
+		if dsp_script:
+			_discovery_panel = dsp_script.new()
+			_discovery_panel.name = "DiscoverySitePanel"
+			var ui = root.get_node_or_null("UI")
+			if ui:
+				ui.add_child(_discovery_panel)
+			else:
+				add_child(_discovery_panel)
+	if _discovery_panel and _discovery_panel.has_signal("request_undock"):
+		var c = Callable(self, "_on_discovery_panel_request_undock")
+		if not _discovery_panel.is_connected("request_undock", c):
+			_discovery_panel.connect("request_undock", c)
+
 	if _galaxy_overlay_layer:
 		_galaxy_overlay_layer.visible = false
 	if _galaxy_overlay_camera:
@@ -95,6 +116,9 @@ func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
+		# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: C key initiates combat
+		elif event.keycode == KEY_C and current_player_state == PlayerShipState.IN_FLIGHT:
+			initiate_combat_v0()
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -193,6 +217,9 @@ func undock_v0():
 	var htm = _find_hero_trade_menu()
 	if htm and htm.has_method("close_market_v0"):
 		htm.call("close_market_v0")
+	# Close discovery panel if it is open.
+	if _discovery_panel and _discovery_panel.has_method("close_v0"):
+		_discovery_panel.call("close_v0")
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
@@ -215,6 +242,8 @@ func on_discovery_site_proximity_entered_v0(site_id: String) -> void:
 	dock_target_kind_token = "DISCOVERY_SITE"
 	dock_target_id = site_id
 	print("UUIR|DISCOVERY_DOCK|DISCOVERY_SITE|" + site_id)
+	if _discovery_panel and _discovery_panel.has_method("open_v0"):
+		_discovery_panel.call("open_v0", site_id)
 
 func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	if current_player_state != PlayerShipState.IN_LANE_TRANSIT:
@@ -240,6 +269,51 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 func _on_station_menu_request_undock():
 	undock_v0()
+
+func _on_discovery_panel_request_undock():
+	undock_v0()
+
+# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet proximity targeting
+func on_fleet_proximity_entered_v0(fleet_id: String) -> void:
+	if current_player_state != PlayerShipState.IN_FLIGHT:
+		return
+	_targeted_fleet_id = fleet_id
+	print("UUIR|FLEET_TARGET|" + fleet_id)
+
+# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: initiate combat with targeted fleet
+func initiate_combat_v0() -> void:
+	if _targeted_fleet_id.is_empty():
+		print("UUIR|COMBAT_NO_TARGET|no targets in range")
+		return
+	if current_player_state != PlayerShipState.IN_FLIGHT:
+		print("UUIR|COMBAT_BAD_STATE|" + get_player_ship_state_name_v0())
+		return
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("DispatchStartCombatV0"):
+		print("UUIR|COMBAT_NO_BRIDGE")
+		return
+
+	print("UUIR|COMBAT_START|" + _targeted_fleet_id)
+	bridge.call("DispatchStartCombatV0", _targeted_fleet_id)
+
+# GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: despawn defeated fleet marker from local scene
+func despawn_fleet_v0(fleet_id: String) -> void:
+	var gv = _find_galaxy_view()
+	if gv == null:
+		return
+	# FleetShip group markers are named "Fleet_<fleet_id>"
+	var target_name := "Fleet_" + fleet_id
+	for child in gv.get_children():
+		_despawn_fleet_recursive_v0(child, target_name)
+
+func _despawn_fleet_recursive_v0(node: Node, target_name: String) -> void:
+	if node.name == target_name:
+		print("UUIR|FLEET_DESPAWN|" + target_name)
+		node.queue_free()
+		return
+	for child in node.get_children():
+		_despawn_fleet_recursive_v0(child, target_name)
 
 func _find_galaxy_view():
 	if _galaxy_view and is_instance_valid(_galaxy_view):

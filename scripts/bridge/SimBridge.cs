@@ -661,11 +661,24 @@ public partial class SimBridge : Node
                 });
             }
 
+            // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+            var fleets = new Godot.Collections.Array();
+            for (int i = 0; i < snap.Fleets.Count; i++)
+            {
+                var f = snap.Fleets[i];
+                fleets.Add(new Godot.Collections.Dictionary
+                {
+                    ["fleet_id"] = f.FleetId ?? "",
+                    ["owner_id"] = f.OwnerId ?? ""
+                });
+            }
+
             d = new Godot.Collections.Dictionary
             {
                 ["station"] = station,
                 ["discovery_sites"] = sites,
-                ["lane_gate"] = laneGate
+                ["lane_gate"] = laneGate,
+                ["fleets"] = fleets
             };
         });
 

@@ -74,6 +74,36 @@ Large files and their approximate token cost at full read:
 
 ---
 
+## gates.json parallel execution fields (optional)
+
+When generating tranches of 10+ gates, include these optional fields to enable
+parallel Claude Code sessions:
+
+```json
+{
+  "gate_id": "GATE.S4.FOO.BRIDGE.001",
+  "parallel_group": "bridge",
+  "tier": 2,
+  "blocks": ["GATE.S4.FOO.MODEL.001"],
+  "verify": [
+    "dotnet build SimCore/SimCore.csproj --nologo -v q",
+    "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FooTests\""
+  ]
+}
+```
+
+| Field | Purpose |
+|---|---|
+| `parallel_group` | `core` / `bridge` / `content` / `docs` — which session owns this gate |
+| `tier` | 1 = no deps, 2 = depends on tier 1, 3 = depends on tier 2 |
+| `blocks` | Gate IDs that must be DONE before this gate starts |
+| `verify` | Machine-executable acceptance commands (exit 0 = PASS) |
+
+Session assignment: `core` → SimCore-only session, `bridge` → SimBridge + GDScript session,
+`content` → registry/docs session. See `memory/parallel_dev.md` for full guide.
+
+---
+
 ## Gate closeout process
 
 **Invoke closeout as a Haiku subagent, NOT via the Skill tool.**

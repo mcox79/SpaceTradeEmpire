@@ -1014,8 +1014,8 @@ public class SaveLoadWorldHashTests
         var sim = new SimKernel(seed);
 
         // Phase 1 checkpoint: deterministically initialize worldgen and drive to TRADE_CHARTER_REVENUE evidence.
-        var starCount = GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-        var radius = GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+        var starCount = ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+        var radius = ReportBuilder.SeedExplorerV0Config.Default.Radius;
         GalaxyGenerator.Generate(sim.State, starCount: starCount, radius: radius);
 
         var (marketA, marketB, goodId) = SelectTwoMarketsAndGoodV0(sim.State);

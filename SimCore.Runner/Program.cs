@@ -101,11 +101,11 @@ namespace SimCore.Runner
             int seed = 0;
             string outDir = Path.Combine("docs", "generated");
 
-            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
-            int maxHops = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.MaxHops;
-            int chokeCapLe = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.ChokepointCapLe;
-            int maxChokepoints = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.MaxChokepoints;
+            int starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
+            int maxHops = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.MaxHops;
+            int chokeCapLe = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.ChokepointCapLe;
+            int maxChokepoints = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.MaxChokepoints;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -161,7 +161,7 @@ namespace SimCore.Runner
 
             Directory.CreateDirectory(outDir);
 
-            var cfg = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default with
+            var cfg = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default with
             {
                 StarCount = starCount,
                 Radius = radius,
@@ -173,9 +173,9 @@ namespace SimCore.Runner
             var kernel = new SimKernel(seed);
             SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: cfg.StarCount, radius: cfg.Radius);
 
-            var topology = SimCore.Gen.GalaxyGenerator.BuildTopologyDump(kernel.State);
-            var loops = SimCore.Gen.GalaxyGenerator.BuildEconLoopsReport(kernel.State, seed, cfg);
-            var inv = SimCore.Gen.GalaxyGenerator.BuildInvariantsReport(kernel.State, seed, cfg);
+            var topology = SimCore.Gen.ReportBuilder.BuildTopologyDump(kernel.State);
+            var loops = SimCore.Gen.ReportBuilder.BuildEconLoopsReport(kernel.State, seed, cfg);
+            var inv = SimCore.Gen.ReportBuilder.BuildInvariantsReport(kernel.State, seed, cfg);
 
             WriteUtf8NoBom(Path.Combine(outDir, "topology_summary.txt"), topology);
             WriteUtf8NoBom(Path.Combine(outDir, "econ_loops.txt"), loops);
@@ -188,11 +188,11 @@ namespace SimCore.Runner
             int seedB = 0;
             string outDir = Path.Combine("docs", "generated");
 
-            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
-            int maxHops = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.MaxHops;
-            int chokeCapLe = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.ChokepointCapLe;
-            int maxChokepoints = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.MaxChokepoints;
+            int starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
+            int maxHops = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.MaxHops;
+            int chokeCapLe = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.ChokepointCapLe;
+            int maxChokepoints = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.MaxChokepoints;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -255,7 +255,7 @@ namespace SimCore.Runner
 
             Directory.CreateDirectory(outDir);
 
-            var cfg = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default with
+            var cfg = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default with
             {
                 StarCount = starCount,
                 Radius = radius,
@@ -270,8 +270,8 @@ namespace SimCore.Runner
             var b = new SimKernel(seedB);
             SimCore.Gen.GalaxyGenerator.Generate(b.State, starCount: cfg.StarCount, radius: cfg.Radius);
 
-            var topoDiff = SimCore.Gen.GalaxyGenerator.BuildTopologyDiffReport(a.State, seedA, b.State, seedB);
-            var loopsDiff = SimCore.Gen.GalaxyGenerator.BuildLoopsDiffReport(a.State, seedA, b.State, seedB, cfg);
+            var topoDiff = SimCore.Gen.ReportBuilder.BuildTopologyDiffReport(a.State, seedA, b.State, seedB);
+            var loopsDiff = SimCore.Gen.ReportBuilder.BuildLoopsDiffReport(a.State, seedA, b.State, seedB, cfg);
 
             WriteUtf8NoBom(Path.Combine(outDir, "diff_topology.txt"), topoDiff);
             WriteUtf8NoBom(Path.Combine(outDir, "diff_loops.txt"), loopsDiff);
@@ -285,8 +285,8 @@ namespace SimCore.Runner
             int seedEnd = 100;
             string outDir = Path.Combine("docs", "generated");
 
-            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+            int starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -364,7 +364,7 @@ namespace SimCore.Runner
                 var kernel = new SimKernel(seed);
                 SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-                var vrep = SimCore.Gen.GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+                var vrep = SimCore.Gen.DiscoverySeedGen.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
                 int violationsCount = ExtractIntFieldOrThrow(vrep, "ViolationsCount=");
                 string result = ExtractStringFieldOrThrow(vrep, "Result=");
 
@@ -388,7 +388,7 @@ namespace SimCore.Runner
                 var kernel = new SimKernel(seed);
                 SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-                var vrep = SimCore.Gen.GalaxyGenerator.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
+                var vrep = SimCore.Gen.DiscoverySeedGen.BuildDiscoverySeedingViolationsReportV0(kernel.State, seed);
                 string result = ExtractStringFieldOrThrow(vrep, "Result=");
 
                 if (string.Equals(result, "PASS", StringComparison.Ordinal))
@@ -422,8 +422,8 @@ namespace SimCore.Runner
             int seed = 42;
             string outDir = Path.Combine("docs", "generated");
 
-            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+            int starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -470,7 +470,7 @@ namespace SimCore.Runner
             var kernel = new SimKernel(seed);
             SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-            var readout = SimCore.Gen.GalaxyGenerator.BuildDiscoveryReadoutV0(kernel.State, seed);
+            var readout = SimCore.Gen.DiscoverySeedGen.BuildDiscoveryReadoutV0(kernel.State, seed);
 
             var sb = new StringBuilder();
             sb.Append("DISCOVERY_READOUT_V0").Append('\n');
@@ -496,8 +496,8 @@ namespace SimCore.Runner
             int seedEnd = 100;
             string outDir = Path.Combine("docs", "generated");
 
-            int starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            float radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+            int starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            float radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
 
             for (int i = 1; i < args.Length; i++)
             {
@@ -575,7 +575,7 @@ namespace SimCore.Runner
                 var kernel = new SimKernel(seed);
                 SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-                var srep = SimCore.Gen.GalaxyGenerator.BuildUnlockReportV0(kernel.State, seed);
+                var srep = SimCore.Gen.DiscoverySeedGen.BuildUnlockReportV0(kernel.State, seed);
                 int violationsCount = ExtractIntFieldOrThrow(srep, "ViolationsCount=");
                 string result = ExtractStringFieldOrThrow(srep, "Result=");
                 int siteBlueprintCount = ExtractIntFieldOrThrow(srep, "SiteBlueprintCount=");
@@ -605,7 +605,7 @@ namespace SimCore.Runner
                 var kernel = new SimKernel(seed);
                 SimCore.Gen.GalaxyGenerator.Generate(kernel.State, starCount: starCount, radius: radius);
 
-                var srep = SimCore.Gen.GalaxyGenerator.BuildUnlockReportV0(kernel.State, seed);
+                var srep = SimCore.Gen.DiscoverySeedGen.BuildUnlockReportV0(kernel.State, seed);
                 string result = ExtractStringFieldOrThrow(srep, "Result=");
 
                 if (string.Equals(result, "PASS", StringComparison.Ordinal))
@@ -808,8 +808,8 @@ namespace SimCore.Runner
             var state = kernel.State;
 
             // Worldgen is required for phase 1 (markets%inventory). Runner must initialize deterministically.
-            var starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            var radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+            var starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            var radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
             SimCore.Gen.GalaxyGenerator.Generate(state, starCount: starCount, radius: radius);
 
             // WorldId: prefer state surface if present, else deterministic fallback.
@@ -1017,8 +1017,8 @@ namespace SimCore.Runner
             var state = kernel.State;
 
             // Worldgen is required for phase 2 (markets%edges%risk ticks).
-            var starCount = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.StarCount;
-            var radius = SimCore.Gen.GalaxyGenerator.SeedExplorerV0Config.Default.Radius;
+            var starCount = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.StarCount;
+            var radius = SimCore.Gen.ReportBuilder.SeedExplorerV0Config.Default.Radius;
             SimCore.Gen.GalaxyGenerator.Generate(state, starCount: starCount, radius: radius);
 
             // WorldId: prefer state surface if present, else deterministic fallback.

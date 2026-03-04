@@ -42,6 +42,7 @@ public partial class StationMenu : Control
 	// Canonical market id used for market + intents.
 	private string _resolvedMarketId = "";
 
+	private MarketTabView _marketView;
 	private ProgramsMenu _programsMenu;
 	private FleetMenu _fleetMenu;
 
@@ -55,6 +56,9 @@ public partial class StationMenu : Control
 		SetProcessUnhandledInput(true);
 
 		SetupUI();
+
+		// GATE.X.HYGIENE.STATION_MENU_SPLIT.001: delegate market tab rendering.
+		_marketView = new MarketTabView(_bridge, _marketList, Refresh);
 
 		Visible = false;
 
@@ -710,150 +714,7 @@ public partial class StationMenu : Control
                 }
             }
 
-            foreach (var child in _marketList.GetChildren()) child.QueueFree();
-
-            if (marketEnabled && state.Markets.TryGetValue(marketId, out var market))
-            {
-                var allGoods = new HashSet<string>();
-                foreach (var k in market.Inventory.Keys) allGoods.Add(k);
-                foreach (var k in playerCargo.Keys) allGoods.Add(k.ToString());
-
-                var sortedGoods = allGoods.OrderBy(k => k);
-
-                foreach (var good in sortedGoods)
-                {
-                    int marketQty = market.Inventory.GetValueOrDefault(good, 0);
-
-                    int playerQty = 0;
-                    if (playerCargo.ContainsKey(good)) playerQty = (int)playerCargo[good];
-
-                    int price = market.GetPrice(good);
-
-                    // Slice 1 UI requirement: show intel age (must go through bridge, not SimCore.Systems)
-                    int ageTicks = _bridge != null ? _bridge.GetIntelAgeTicks_NoLock(state, marketId, good) : -1;
-                    string ageText = (ageTicks < 0) ? "?" : ageTicks.ToString();
-
-                    // Two-line row to prevent label/button overlap:
-                    // line 1: label (wraps)
-                    // line 2: buttons
-                    var row = new VBoxContainer
-                    {
-                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-                    };
-                    _marketList.AddChild(row);
-
-                    var buttons = new HBoxContainer
-                    {
-                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-                    };
-
-                    var infoColor = (price > 110) ? Colors.Salmon : (price < 90 ? Colors.LightGreen : Colors.White);
-
-                    // Program info (one per market+good for now)
-                    var key = $"{marketId}::{good}";
-                    string progSuffix = "";
-                    string progId = "";
-                    string progStatus = "";
-                    if (programsByMarketGood.TryGetValue(key, out var pd))
-                    {
-                        progId = pd.ContainsKey("id") ? pd["id"].ToString() : "";
-                        progStatus = pd.ContainsKey("status") ? pd["status"].ToString() : "";
-                        var cadence = pd.ContainsKey("cadence_ticks") ? (int)pd["cadence_ticks"] : 0;
-                        var qty = pd.ContainsKey("quantity") ? (int)pd["quantity"] : 0;
-                        string why = "";
-                        if (!string.IsNullOrWhiteSpace(progId) && programQuotesById.TryGetValue(progId, out var q))
-                        {
-                            var fails = new System.Collections.Generic.List<string>(4);
-
-                            bool getb(string k)
-                            {
-                                if (!q.ContainsKey(k)) return false;
-                                return (bool)q[k];
-                            }
-
-                            if (!getb("market_exists")) fails.Add("market_missing");
-                            if (!getb("has_enough_credits_now")) fails.Add("no_credits");
-                            if (!getb("has_enough_supply_now")) fails.Add("no_supply");
-                            if (!getb("has_enough_cargo_now")) fails.Add("no_cargo");
-
-                            if (fails.Count == 0) why = "OK";
-                            else why = "BLOCKED:" + string.Join(",", fails);
-                        }
-
-                        if (string.IsNullOrWhiteSpace(why))
-                            progSuffix = $" | AutoBuy: {progStatus} (q={qty}, cad={cadence}t)";
-                        else
-                            progSuffix = $" | AutoBuy: {progStatus} (q={qty}, cad={cadence}t) | {why}";
-                    }
-
-
-                    var lbl = new Label
-                    {
-                        Text = $"{good.PadRight(10)} | Stock: {marketQty} | Price: ${price} | You: {playerQty} | IntelAge(t): {ageText}{progSuffix}",
-                        Modulate = infoColor,
-
-                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                        AutowrapMode = TextServer.AutowrapMode.WordSmart,
-
-                        // Force no ellipsis even if the theme sets it globally.
-                        ClipText = false,
-                        TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming,
-                    };
-                    row.AddChild(lbl);
-                    row.AddChild(buttons);
-
-
-                    var btnBuy = new Button { Text = "Buy 1", CustomMinimumSize = new Vector2(70, 0) };
-                    btnBuy.Disabled = (marketQty <= 0 || playerCredits < price);
-                    btnBuy.Pressed += () => SubmitTradeIntent(good, 1, true);
-                    buttons.AddChild(btnBuy);
-
-                    var btnSell = new Button { Text = "Sell 1", CustomMinimumSize = new Vector2(70, 0) };
-                    btnSell.Disabled = (playerQty <= 0);
-                    btnSell.Pressed += () => SubmitTradeIntent(good, 1, false);
-                    buttons.AddChild(btnSell);
-
-                    // Treat Cancelled as "no active program" for control purposes,
-                    // so the player can create a new one.
-                    var hasActiveProgram = !string.IsNullOrWhiteSpace(progId) && progStatus != "Cancelled";
-
-                    if (!hasActiveProgram)
-                    {
-                        var btnCreate = new Button { Text = "AutoBuy", CustomMinimumSize = new Vector2(80, 0) };
-                        btnCreate.Pressed += () =>
-                                                {
-                                                    _bridge.CreateAutoBuyProgram(marketId, good, quantity: 1, cadenceTicks: 10);
-
-                                                    Refresh();
-
-                                                    var timer = GetTree().CreateTimer(0.05);
-                                                    timer.Timeout += () => Refresh();
-                                                };
-                        buttons.AddChild(btnCreate);
-                    }
-                    else
-                    {
-                        var btnStart = new Button { Text = "Start", CustomMinimumSize = new Vector2(70, 0) };
-                        btnStart.Disabled = progStatus == "Running";
-                        btnStart.Pressed += () => { _bridge.StartProgram(progId); Refresh(); };
-                        buttons.AddChild(btnStart);
-
-                        var btnPause = new Button { Text = "Pause", CustomMinimumSize = new Vector2(70, 0) };
-                        btnPause.Disabled = progStatus == "Paused";
-                        btnPause.Pressed += () => { _bridge.PauseProgram(progId); Refresh(); };
-                        buttons.AddChild(btnPause);
-
-                        var btnCancel = new Button { Text = "Cancel", CustomMinimumSize = new Vector2(75, 0) };
-                        btnCancel.Disabled = false;
-                        btnCancel.Pressed += () => { _bridge.CancelProgram(progId); Refresh(); };
-                        buttons.AddChild(btnCancel);
-                    }
-                }
-            }
-            else
-            {
-                _marketList.AddChild(new Label { Text = "(market disabled at this location)" });
-            }
+            _marketView.RenderMarketRows(state, marketId, playerCredits, playerCargo, programsByMarketGood, programQuotesById, GetTree());
 
             foreach (var child in _trafficList.GetChildren()) child.QueueFree();
             var fleets = state.Fleets.Values.Where(f => f.CurrentNodeId == _currentMarketId).Take(5);
@@ -1150,20 +1011,6 @@ public partial class StationMenu : Control
             // Skip this refresh; next input/frame can try again.
             return;
         }
-    }
-
-    private void SubmitTradeIntent(string good, int qty, bool isBuy)
-    {
-        if (_bridge == null) return;
-        if (string.IsNullOrWhiteSpace(good)) return;
-        if (qty <= 0) return;
-
-        if (string.IsNullOrWhiteSpace(_resolvedMarketId)) return;
-
-        if (isBuy) _bridge.SubmitBuyIntent(_resolvedMarketId, good, qty);
-        else _bridge.SubmitSellIntent(_resolvedMarketId, good, qty);
-
-        Refresh();
     }
 
     private void OnProgramsCloseRequested()

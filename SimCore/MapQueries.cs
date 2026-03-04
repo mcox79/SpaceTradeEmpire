@@ -57,12 +57,21 @@ public static class MapQueries
         public string NeighborDisplayName { get; set; } = "";
     }
 
+    // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+    public sealed class FleetSnapV0
+    {
+        public string FleetId { get; set; } = "";
+        public string OwnerId { get; set; } = "";
+    }
+
     // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
     public sealed class SystemSnapshotV0
     {
         public StationSnapV0 Station { get; set; } = new StationSnapV0();
         public List<DiscoverySiteSnapV0> DiscoverySites { get; } = new List<DiscoverySiteSnapV0>();
         public List<LaneGateSnapV0> LaneGate { get; } = new List<LaneGateSnapV0>();
+        // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+        public List<FleetSnapV0> Fleets { get; } = new List<FleetSnapV0>();
     }
 
     private static string PhaseToToken(DiscoveryPhase phase)
@@ -124,6 +133,21 @@ public static class MapQueries
         {
             snap.Station = new StationSnapV0 { NodeId = "", NodeName = "" };
         }
+
+        // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+        // Fleets at this node (excluding player fleet), ordered by FleetId Ordinal asc.
+        foreach (var fleet in state.Fleets.Values)
+        {
+            if (string.IsNullOrEmpty(fleet.CurrentNodeId)) continue;
+            if (!string.Equals(fleet.CurrentNodeId, nodeId, StringComparison.Ordinal)) continue;
+            if (string.Equals(fleet.Id, "fleet_trader_1", StringComparison.Ordinal)) continue;
+            snap.Fleets.Add(new FleetSnapV0
+            {
+                FleetId = fleet.Id ?? "",
+                OwnerId = fleet.OwnerId ?? ""
+            });
+        }
+        snap.Fleets.Sort((a, b) => StringComparer.Ordinal.Compare(a.FleetId, b.FleetId));
 
         // Determinism: iterate incident edges in EdgeId (Ordinal) order.
         var edges = state.Edges.Values.ToList();
