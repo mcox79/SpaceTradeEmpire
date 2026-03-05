@@ -21,7 +21,7 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
-  <ItemGroup>
+<ItemGroup>
     <ProjectReference Include="..\SimCore\SimCore.csproj" />
   </ItemGroup>
 

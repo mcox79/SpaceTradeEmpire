@@ -24,3 +24,22 @@ SimCore/Systems/ResearchSystem.cs:1
 
 # GATE.S3.RISK_SINKS.DELAY_MODEL.001: structural zeros in GetRiskBpsForEdge return tuple
 SimCore/Systems/RiskSystem.cs:0
+
+# GATE.S4.CONSTR_PROG.SYSTEM.001: structural zeros/ones (initialization, step index, min clamp)
+SimCore/Systems/ConstructionSystem.cs:0
+SimCore/Systems/ConstructionSystem.cs:1
+
+# GATE.S4.NPC_INDU.DEMAND.001: structural zeros (modulo check, empty-check, stock bounds)
+SimCore/Systems/NpcIndustrySystem.cs:0
+
+# GATE.X.PRESSURE.MODEL.001: structural zeros (clamp, decay floor, tier lower bounds)
+SimCore/Systems/PressureSystem.cs:0
+
+# CombatSystem: structural zero clamp (Math.Max(0, hp - damage) prevents negative HP)
+SimCore/Systems/CombatSystem.cs:0
+
+# GATE.S7.PLANET.GENERATION.001: structural zeros/ones in PlanetInitGen
+# (Clear(), empty-string init, clamp bounds, loop indices, weight accumulators, tech tier)
+SimCore/Gen/PlanetInitGen.cs:0
+SimCore/Gen/PlanetInitGen.cs:1
+SimCore/Gen/PlanetInitGen.cs:9

@@ -288,13 +288,13 @@ func _physics_process(_delta: float) -> void:
 		_delay_label.add_theme_color_override("font_color", risk_color)
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
-func toggle_pause_menu_v0(show: bool) -> void:
+func toggle_pause_menu_v0(visible_flag: bool) -> void:
 	if _pause_panel == null:
 		return
-	_pause_panel.visible = show
-	if show:
+	_pause_panel.visible = visible_flag
+	if visible_flag:
 		_refresh_slot_labels_v0()
-	print("UUIR|PAUSE_MENU|" + ("SHOW" if show else "HIDE"))
+	print("UUIR|PAUSE_MENU|" + ("SHOW" if visible_flag else "HIDE"))
 
 func _on_resume_pressed() -> void:
 	var gm = get_tree().root.find_child("GameManager", true, false)

@@ -177,8 +177,8 @@ public partial class GalaxyView : Node3D
         var snap = _bridge.GetSystemSnapshotV0(nodeId);
         if (snap == null) return;
 
-        // 1. Star mesh at origin.
-        var star = CreateStarMeshV0();
+        // 1. Star mesh at origin (color from star class via SimBridge).
+        var star = CreateStarMeshV0(nodeId);
         star.AddToGroup("LocalStar");
         _localSystemRoot.AddChild(star);
 
@@ -530,19 +530,34 @@ public partial class GalaxyView : Node3D
             gm.Call("on_fleet_proximity_entered_v0", fleetId);
     }
 
-    private Node3D CreateStarMeshV0()
+    // GATE.S7.PLANET.DOCK_VISUAL.001: Star color from star class data.
+    private Node3D CreateStarMeshV0(string nodeId)
     {
         var root = new Node3D { Name = "LocalStar" };
 
+        // Query star color from SimBridge.
+        float r = 1.0f, g = 0.8f, b = 0.2f; // Default: yellow
+        if (_bridge != null && _bridge.HasMethod("GetStarInfoV0"))
+        {
+            var info = _bridge.Call("GetStarInfoV0", nodeId).AsGodotDictionary();
+            if (info != null && info.Count > 0)
+            {
+                r = info.ContainsKey("color_r") ? (float)info["color_r"] : r;
+                g = info.ContainsKey("color_g") ? (float)info["color_g"] : g;
+                b = info.ContainsKey("color_b") ? (float)info["color_b"] : b;
+            }
+        }
+
+        var starColor = new Color(r, g, b);
         var mesh = new MeshInstance3D
         {
             Name = "StarMesh",
             Mesh = new SphereMesh { Radius = StarVisualRadiusU },
             MaterialOverride = new StandardMaterial3D
             {
-                AlbedoColor = new Color(1.0f, 0.8f, 0.2f),
+                AlbedoColor = starColor,
                 EmissionEnabled = true,
-                Emission = new Color(1.0f, 0.8f, 0.2f),
+                Emission = starColor,
                 EmissionEnergyMultiplier = 3.0f
             }
         };
@@ -552,11 +567,28 @@ public partial class GalaxyView : Node3D
         return root;
     }
 
-    // Spawn a procedural planet in the local system using planet gen addon scenes.
+    // GATE.S7.PLANET.DOCK_VISUAL.001: Spawn planet with type-matched scene.
+    // Landable planets get an Area3D dock trigger (same pattern as stations).
     private void SpawnLocalPlanetV0(string nodeId)
     {
-        int hash = nodeId.GetHashCode() & 0x7FFFFFFF;
-        var scenePath = PlanetScenes[hash % PlanetScenes.Length];
+        // Query planet info from SimBridge for type-matched scene + landability.
+        string planetType = "";
+        bool landable = false;
+        string displayName = "";
+        if (_bridge != null && _bridge.HasMethod("GetPlanetInfoV0"))
+        {
+            var info = _bridge.Call("GetPlanetInfoV0", nodeId).AsGodotDictionary();
+            if (info != null && info.Count > 0)
+            {
+                planetType = info.ContainsKey("planet_type") ? (string)info["planet_type"] : "";
+                // Use effective_landable (factors in player tech) for dock trigger.
+                landable = info.ContainsKey("effective_landable") && (bool)info["effective_landable"];
+                displayName = info.ContainsKey("display_name") ? (string)info["display_name"] : "";
+            }
+        }
+
+        // Map planet type to addon scene path.
+        var scenePath = GetPlanetScenePath(planetType);
 
         Node3D planetNode = null;
         if (Godot.FileAccess.FileExists(scenePath))
@@ -585,13 +617,78 @@ public partial class GalaxyView : Node3D
         }
 
         // Wrap in container — planet scenes have ~400x scale baked into their root transform.
-        // Setting Scale on the scene node would replace it. Scaling a parent multiplies correctly.
         var container = new Node3D();
         container.Name = "LocalPlanet";
         container.Scale = new Vector3(0.02f, 0.02f, 0.02f);
         container.Position = DeriveOrbitPositionV0(nodeId + "_planet", 25.0f);
         container.AddChild(planetNode);
+
+        if (landable)
+        {
+            // Add dockable Area3D around the planet (same pattern as station).
+            var dockArea = new Area3D
+            {
+                Name = "PlanetDock_" + nodeId,
+                Monitoring = true,
+                Monitorable = true,
+                CollisionLayer = 0,
+                CollisionMask = 2, // Detect Ships layer (player RigidBody3D).
+            };
+
+            var collider = new CollisionShape3D
+            {
+                Shape = new SphereShape3D { Radius = 12.0f }
+            };
+            dockArea.AddChild(collider);
+
+            dockArea.AddToGroup("Planet");
+            RegisterDockTargetV0(dockArea, "PLANET", nodeId);
+
+            dockArea.BodyEntered += (body) =>
+            {
+                var gm = GetNode<Node>("/root/GameManager");
+                if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
+                    gm.Call("on_proximity_dock_entered_v0", dockArea);
+            };
+
+            // Attach dock area at the planet container's position in the system root.
+            dockArea.Position = container.Position;
+
+            // Add planet name label.
+            if (!string.IsNullOrEmpty(displayName))
+            {
+                var label = new Label3D
+                {
+                    Text = displayName,
+                    PixelSize = 0.02f,
+                    FontSize = 32,
+                    OutlineSize = 8,
+                    Position = new Vector3(0, 6, 0),
+                    Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                    Modulate = new Color(0.7f, 0.85f, 1.0f)
+                };
+                dockArea.AddChild(label);
+            }
+
+            _localSystemRoot.AddChild(dockArea);
+        }
+
         _localSystemRoot.AddChild(container);
+    }
+
+    // Map PlanetType enum string to addon scene path.
+    private static string GetPlanetScenePath(string planetType)
+    {
+        return planetType switch
+        {
+            "Terrestrial" => "res://addons/naejimer_3d_planet_generator/scenes/planet_terrestrial.tscn",
+            "Ice" => "res://addons/naejimer_3d_planet_generator/scenes/planet_ice.tscn",
+            "Sand" => "res://addons/naejimer_3d_planet_generator/scenes/planet_sand.tscn",
+            "Lava" => "res://addons/naejimer_3d_planet_generator/scenes/planet_lava.tscn",
+            "Gaseous" => "res://addons/naejimer_3d_planet_generator/scenes/planet_gaseous.tscn",
+            "Barren" => "res://addons/naejimer_3d_planet_generator/scenes/planet_no_atmosphere.tscn",
+            _ => PlanetScenes[0], // Fallback to terrestrial
+        };
     }
 
     // GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: displayName from NeighborDisplayName; falls back to neighborId.

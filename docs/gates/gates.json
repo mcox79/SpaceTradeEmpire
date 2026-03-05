@@ -1,7 +1,7 @@
 {
     "queue_contract_version": "2.2",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-05T06:00:00Z",
-    "queue_intent": "Tranche 6 'Addon Wave + Content Depth' complete. All 18 gates closed. Queue empty, ready for next /gen-gates.",
+    "generated_utc": "2026-03-04T22:00:00Z",
+    "queue_intent": "Queue empty. Tranche 7 'Industry Completion + Pressure Framework' fully closed (18 gates). Ready for next /gen-gates.",
     "tasks": []
 }

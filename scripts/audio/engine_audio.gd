@@ -26,7 +26,7 @@ func _ready() -> void:
 	autoplay = true
 	max_db = min_volume_db
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _parent_body == null:
 		return
 	var speed: float = _parent_body.linear_velocity.length()

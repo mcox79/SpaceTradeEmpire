@@ -278,8 +278,8 @@ public static class CombatSystem
             var family = ClassifyWeapon(slot.InstalledModuleId);
             var result = CalcDamage(baseDmg, family, target.ShieldHp, target.HullHp);
 
-            target.ShieldHp -= result.ShieldDmg;
-            target.HullHp -= result.HullDmg;
+            target.ShieldHp = Math.Max(0, target.ShieldHp - result.ShieldDmg);
+            target.HullHp = Math.Max(0, target.HullHp - result.HullDmg);
 
             log.Events.Add(new CombatEventEntry
             {

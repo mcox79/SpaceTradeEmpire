@@ -151,6 +151,21 @@ public partial class SimState
         Missions.ActiveSteps ??= new List<Entities.MissionActiveStep>();
         Missions.EventLog ??= new List<Entities.MissionEvent>();
 
+        // GATE.S4.CONSTR_PROG.SAVE.001: Construction state hydration.
+        Construction ??= new Entities.ConstructionState();
+        Construction.Projects ??= new Dictionary<string, Entities.ConstructionProject>();
+        Construction.EventLog ??= new List<Entities.ConstructionEvent>();
+
+        // GATE.X.PRESSURE.MODEL.001: Pressure state hydration.
+        Pressure ??= new Entities.PressureStateContainer();
+        Pressure.Domains ??= new Dictionary<string, Entities.PressureDomainState>();
+        Pressure.DeltaLog ??= new List<Entities.PressureDelta>();
+        Pressure.EventLog ??= new List<Entities.PressureEvent>();
+
+        // GATE.S7.PLANET.MODEL.001: Planet + Star state hydration (backward compat: old saves have no planets).
+        Planets ??= new Dictionary<string, Entities.Planet>(StringComparer.Ordinal);
+        Stars ??= new Dictionary<string, Entities.Star>(StringComparer.Ordinal);
+
         InvalidateRoutePlannerCaches();
     }
 

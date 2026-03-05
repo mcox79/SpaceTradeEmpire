@@ -101,7 +101,10 @@ public static class GalaxyGenerator
 
         MarketInitGen.ValidateCatalogBinding(state, options?.Registry);
 
-        // Phase 3: Wire lanes and seed AI fleets.
+        // Phase 3: Generate stars and planets (deterministic from node hashes, no RNG).
+        PlanetInitGen.InitPlanets(state, nodesList);
+
+        // Phase 4: Wire lanes and seed AI fleets.
         StarNetworkGen.WireLanes(state, nodesList);
         StarNetworkGen.SeedAiFleets(state, nodesList);
 

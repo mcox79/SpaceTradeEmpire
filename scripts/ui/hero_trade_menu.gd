@@ -6,11 +6,13 @@ extends CanvasLayer
 var _market_node_id: String = ""
 var _rows_container: VBoxContainer = null
 var _title_label: Label = null
+var _planet_info_label: Label = null
 var _cargo_label: Label = null
 var _missions_container: VBoxContainer = null
 var _research_container: VBoxContainer = null
 var _refit_container: VBoxContainer = null
 var _maint_container: VBoxContainer = null
+var _construction_container: VBoxContainer = null
 
 func _ready():
 	visible = false
@@ -36,12 +38,21 @@ func _ready():
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
 
-	# Station title
+	# Station/Planet title
 	_title_label = Label.new()
 	_title_label.text = "STATION MARKET"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(_title_label)
+
+	# GATE.S7.PLANET.UI.001: Planet info subtitle (hidden for stations).
+	_planet_info_label = Label.new()
+	_planet_info_label.text = ""
+	_planet_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_planet_info_label.add_theme_font_size_override("font_size", 12)
+	_planet_info_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+	_planet_info_label.visible = false
+	vbox.add_child(_planet_info_label)
 
 	vbox.add_child(HSeparator.new())
 
@@ -88,6 +99,11 @@ func _ready():
 	_maint_container.add_theme_constant_override("separation", 4)
 	vbox.add_child(_maint_container)
 
+	# GATE.S4.CONSTR_PROG.UI.001: Construction section
+	_construction_container = VBoxContainer.new()
+	_construction_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_construction_container)
+
 	# Undock button
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
@@ -97,9 +113,45 @@ func _ready():
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
 	visible = true
+
+	# GATE.S7.PLANET.UI.001: Detect planet vs station for title + info.
+	var bridge = get_node_or_null("/root/SimBridge")
+	var planet_info: Dictionary = {}
+	if bridge and bridge.has_method("GetPlanetInfoV0"):
+		planet_info = bridge.call("GetPlanetInfoV0", node_id)
+
+	var is_planet: bool = planet_info.size() > 0 and planet_info.get("effective_landable", false)
+
 	if _title_label:
-		_title_label.text = "STATION: %s" % node_id
+		if is_planet:
+			var pname: String = str(planet_info.get("display_name", node_id))
+			_title_label.text = "PLANET: %s" % pname
+		else:
+			_title_label.text = "STATION: %s" % node_id
+
+	if _planet_info_label:
+		if is_planet:
+			var ptype: String = str(planet_info.get("planet_type", ""))
+			var spec: String = str(planet_info.get("specialization", "None"))
+			var grav: float = float(planet_info.get("gravity_bps", 5000)) / 5000.0
+			var atmo: float = float(planet_info.get("atmosphere_bps", 5000)) / 5000.0
+			var temp_bps: int = int(planet_info.get("temperature_bps", 5000))
+			var temp_label: String = _temp_label_v0(temp_bps)
+			_planet_info_label.text = "%s | %.1fg | %.0f%% atmo | %s | %s" % [
+				ptype, grav, atmo * 100.0, temp_label, spec
+			]
+			_planet_info_label.visible = true
+		else:
+			_planet_info_label.visible = false
+
 	_rebuild_rows()
+
+func _temp_label_v0(temp_bps: int) -> String:
+	if temp_bps < 2000: return "Frozen"
+	if temp_bps < 4000: return "Cold"
+	if temp_bps < 6000: return "Temperate"
+	if temp_bps < 8000: return "Hot"
+	return "Scorching"
 
 func close_market_v0() -> void:
 	_market_node_id = ""
@@ -194,6 +246,7 @@ func _rebuild_rows() -> void:
 	_rebuild_research()
 	_rebuild_refit()
 	_rebuild_maintenance()
+	_rebuild_construction()
 
 	# Update cargo summary
 	if _cargo_label:
@@ -305,7 +358,7 @@ func _rebuild_missions() -> void:
 				continue
 			var mid: String = str(m.get("mission_id", ""))
 			var mtitle: String = str(m.get("title", mid))
-			var mdesc: String = str(m.get("description", ""))
+			var _mdesc: String = str(m.get("description", ""))
 			var mreward: int = int(m.get("reward", 0))
 
 			var row = HBoxContainer.new()
@@ -668,12 +721,113 @@ func _format_block_reason(reason: String) -> String:
 		return "Fleet not found"
 	elif reason == "unknown_site":
 		return "Site not found"
+	elif reason == "max_total_projects":
+		return "Max projects reached"
+	elif reason == "max_projects_at_node":
+		return "Node at capacity"
+	elif reason == "prerequisites_not_met":
+		return "Prerequisites needed"
+	elif reason == "insufficient_credits":
+		return "Not enough credits"
 	return reason
 
 func _on_repair_site(site_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("RepairSiteV0"):
 		bridge.call("RepairSiteV0", site_id)
+		_rebuild_rows()
+
+# GATE.S4.CONSTR_PROG.UI.001: Construction project panel
+func _rebuild_construction() -> void:
+	if _construction_container == null:
+		return
+	for child in _construction_container.get_children():
+		_construction_container.remove_child(child)
+		child.queue_free()
+
+	if _market_node_id.is_empty():
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	# Show active construction projects
+	var has_active: bool = false
+	if bridge.has_method("GetConstructionProjectsV0"):
+		var projects: Array = bridge.call("GetConstructionProjectsV0")
+		for p in projects:
+			if typeof(p) != TYPE_DICTIONARY:
+				continue
+			if str(p.get("node_id", "")) != _market_node_id:
+				continue
+			if bool(p.get("completed", true)):
+				continue
+			if not has_active:
+				var hdr = Label.new()
+				hdr.text = "CONSTRUCTION"
+				hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				hdr.add_theme_font_size_override("font_size", 16)
+				_construction_container.add_child(hdr)
+				has_active = true
+			var pid: String = str(p.get("project_def_id", ""))
+			var pct: int = int(p.get("progress_pct", 0))
+			var step: int = int(p.get("current_step", 0))
+			var total: int = int(p.get("total_steps", 0))
+			var row = HBoxContainer.new()
+			var lbl = Label.new()
+			lbl.text = "%s  Step %d/%d  (%d%%)" % [pid, step, total, pct]
+			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(lbl)
+			_construction_container.add_child(row)
+
+	# Show available construction defs to start
+	if bridge.has_method("GetAvailableConstructionDefsV0") and bridge.has_method("GetConstructionBlockReasonV0"):
+		var defs: Array = bridge.call("GetAvailableConstructionDefsV0")
+		var show_header: bool = false
+		for d in defs:
+			if typeof(d) != TYPE_DICTIONARY:
+				continue
+			var def_id: String = str(d.get("project_def_id", ""))
+			var dname: String = str(d.get("display_name", def_id))
+			var cost: int = int(d.get("credit_cost_per_step", 0))
+			var prereqs_met: bool = bool(d.get("prerequisites_met", false))
+
+			var block_reason: String = str(bridge.call("GetConstructionBlockReasonV0", def_id, _market_node_id))
+
+			if not show_header and not has_active:
+				var hdr = Label.new()
+				hdr.text = "CONSTRUCTION"
+				hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				hdr.add_theme_font_size_override("font_size", 16)
+				_construction_container.add_child(hdr)
+				show_header = true
+			elif not show_header:
+				show_header = true
+
+			var row = HBoxContainer.new()
+			var info_lbl = Label.new()
+			info_lbl.text = "%s (%d cr/step)" % [dname, cost]
+			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not prereqs_met:
+				info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			row.add_child(info_lbl)
+
+			if not block_reason.is_empty():
+				var reason_lbl = Label.new()
+				reason_lbl.text = _format_block_reason(block_reason)
+				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+				row.add_child(reason_lbl)
+			else:
+				var btn = Button.new()
+				btn.text = "Build"
+				btn.pressed.connect(_on_start_construction.bind(def_id))
+				row.add_child(btn)
+			_construction_container.add_child(row)
+
+func _on_start_construction(project_def_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("StartConstructionV0"):
+		bridge.call("StartConstructionV0", project_def_id, _market_node_id)
 		_rebuild_rows()
 
 # GATE.S9.UI.TOOLTIP_DOCK.001: attach tooltip to a Control via built-in tooltip_text

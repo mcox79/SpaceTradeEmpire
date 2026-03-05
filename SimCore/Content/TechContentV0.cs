@@ -125,6 +125,18 @@ public static class TechContentV0
             Tier = 3,
             UnlockEffects = new List<string> { "unlock_module_laser_mk2" },
         },
+        // GATE.S7.PLANET.TECH_GATE.001: Planetary landing tech for harsh environments.
+        new TechDef
+        {
+            TechId = "planetary_landing_mk1",
+            DisplayName = "Planetary Landing Mk1",
+            Description = "Heat shielding and pressure suits enable landing on volcanic and barren worlds.",
+            ResearchTicks = 10,
+            CreditCost = 80,
+            Prerequisites = new List<string>(),
+            Tier = 1,
+            UnlockEffects = new List<string> { "enable_harsh_landing" },
+        },
     };
 
     private static readonly Dictionary<string, TechDef> _byId;

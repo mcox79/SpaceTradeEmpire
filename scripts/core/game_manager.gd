@@ -278,6 +278,12 @@ func on_proximity_dock_entered_v0(target: Node):
 		var htm = _find_hero_trade_menu()
 		if htm and htm.has_method("open_market_v0"):
 			htm.call("open_market_v0", dock_target_id)
+	elif dock_target_kind_token == "PLANET":
+		# GATE.S7.PLANET.DOCK_VISUAL.001: Planet docking — same menu, different title.
+		_open_station_menu_v0(target)
+		var htm2 = _find_hero_trade_menu()
+		if htm2 and htm2.has_method("open_market_v0"):
+			htm2.call("open_market_v0", dock_target_id)
 	elif dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
@@ -545,6 +551,8 @@ func _dock_target_kind_token_v0(target: Node) -> String:
 
 	if target.is_in_group("Station"):
 		return "STATION"
+	if target.is_in_group("Planet"):
+		return "PLANET"
 	if target.is_in_group("DiscoverySite"):
 		return "DISCOVERY_SITE"
 

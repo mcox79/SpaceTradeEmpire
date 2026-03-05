@@ -1,8 +1,5 @@
 extends RigidBody3D
 
-# Signals expected by UI wiring (C#) in the playable prototype.
-# Declared here so ConnectPlayerSignals can bind without crashing.
-signal RequestUndock
 
 # Ship flight controller v1 (force-based thrust + yaw turning).
 # Tuning values are centralized here to avoid scattered magic numbers.
@@ -25,7 +22,7 @@ func _ready():
 	linear_damp = LINEAR_DAMPING_V0
 	angular_damp = ANGULAR_DAMPING_V0
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	# Freeze input and kill momentum while docked or in lane transit.
 	var gm = get_node_or_null("/root/GameManager")
 	var ps = gm.get("current_player_state") if gm else 0

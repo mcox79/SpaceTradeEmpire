@@ -64,6 +64,29 @@ public static class MapQueries
         public string OwnerId { get; set; } = "";
     }
 
+    // GATE.S7.PLANET.BRIDGE.001: Planet snapshot for system view.
+    public sealed class PlanetSnapV0
+    {
+        public string NodeId { get; set; } = "";
+        public string PlanetType { get; set; } = "";       // "Terrestrial", "Ice", etc.
+        public string DisplayName { get; set; } = "";
+        public int GravityBps { get; set; }
+        public int AtmosphereBps { get; set; }
+        public int TemperatureBps { get; set; }
+        public bool Landable { get; set; }
+        public int LandingTechTier { get; set; }
+        public string Specialization { get; set; } = "";    // "Agriculture", "Mining", etc.
+    }
+
+    // GATE.S7.PLANET.BRIDGE.001: Star snapshot for system view.
+    public sealed class StarSnapV0
+    {
+        public string NodeId { get; set; } = "";
+        public string StarClass { get; set; } = "";         // "ClassG", "ClassK", etc.
+        public string DisplayName { get; set; } = "";
+        public int LuminosityBps { get; set; }
+    }
+
     // GATE.S1.HERO_SHIP.SYSTEM_CONTRACT.001
     public sealed class SystemSnapshotV0
     {
@@ -72,6 +95,9 @@ public static class MapQueries
         public List<LaneGateSnapV0> LaneGate { get; } = new List<LaneGateSnapV0>();
         // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
         public List<FleetSnapV0> Fleets { get; } = new List<FleetSnapV0>();
+        // GATE.S7.PLANET.BRIDGE.001
+        public PlanetSnapV0? Planet { get; set; }
+        public StarSnapV0? Star { get; set; }
     }
 
     private static string PhaseToToken(DiscoveryPhase phase)
@@ -132,6 +158,33 @@ public static class MapQueries
         else
         {
             snap.Station = new StationSnapV0 { NodeId = "", NodeName = "" };
+        }
+
+        // GATE.S7.PLANET.BRIDGE.001: Planet + Star snapshots.
+        if (state.Planets.TryGetValue(nodeId, out var planet))
+        {
+            snap.Planet = new PlanetSnapV0
+            {
+                NodeId = planet.NodeId ?? "",
+                PlanetType = planet.Type.ToString(),
+                DisplayName = planet.DisplayName ?? "",
+                GravityBps = planet.GravityBps,
+                AtmosphereBps = planet.AtmosphereBps,
+                TemperatureBps = planet.TemperatureBps,
+                Landable = planet.Landable,
+                LandingTechTier = planet.LandingTechTier,
+                Specialization = planet.Specialization.ToString(),
+            };
+        }
+        if (state.Stars.TryGetValue(nodeId, out var star))
+        {
+            snap.Star = new StarSnapV0
+            {
+                NodeId = star.NodeId ?? "",
+                StarClass = star.Class.ToString(),
+                DisplayName = star.DisplayName ?? "",
+                LuminosityBps = star.LuminosityBps,
+            };
         }
 
         // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001

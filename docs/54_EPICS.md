@@ -835,6 +835,7 @@ Epics:
 - EPIC.S7.BRIDGE_THRONEROOM_V0 [TODO]: Bridge layer as strategic view + unlock surface tied to factions%warfronts%tech posture (gates: GATE.S7.BRIDGE_THRONEROOM_V0.*)
 - EPIC.S7.CLASS_WARFRONT_PROFILES.V0 [TODO]: World class influences warfront seeding and supply shapes (integrates Slice 2.5 classes with Slice 7) (gates: GATE.S7.CLASS_WARFRONT_PROFILES.*)
 - EPIC.S7.PERF_BUDGET [TODO]: Tick budget tests extended for warfront systems (gates: GATE.S7.PERF_BUDGET.*)
+- EPIC.S7.PROCEDURAL_PLANETS.V0 [DONE]: Procedural planet + star generation per system node: Star class (G/K/M/F/A/O) with luminosity influencing planet temperature, PlanetType (Terrestrial/Ice/Sand/Lava/Gaseous/Barren) with gravity+atmosphere landability rules, specialization-driven planet industries (Agriculture/Mining/Manufacturing/HighTech/FuelExtraction), tech-gated landing for harsh environments, dockable Area3D trigger for landable planets, dock menu planet info UI (gates: GATE.S7.PLANET.*)
 
 Status: TODO
 

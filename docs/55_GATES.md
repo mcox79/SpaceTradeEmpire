@@ -173,6 +173,32 @@ When a gate moves to DONE:
 | GATE.S9.UI.TOOLTIP_PROOF.001 | DONE | Tooltip integration headless proof |
 | GATE.X.HYGIENE.EPIC_REVIEW.006 | DONE | Epic audit — close 7+ completed epics |
 | GATE.X.EVAL.ADDON_COMPAT.001 | DONE | Addon compatibility + integration quality audit |
+| GATE.S4.CONSTR_PROG.MODEL.001 | DONE | Construction entity model + content defs |
+| GATE.S4.CONSTR_PROG.SYSTEM.001 | DONE | ConstructionSystem process loop |
+| GATE.S4.CONSTR_PROG.SAVE.001 | DONE | Construction save/load + determinism |
+| GATE.S4.CONSTR_PROG.BRIDGE.001 | DONE | SimBridge construction queries |
+| GATE.S4.CONSTR_PROG.UI.001 | DONE | Construction panel + headless proof |
+| GATE.S4.NPC_INDU.DEMAND.001 | DONE | NPC industry demand model |
+| GATE.S4.NPC_INDU.REACTION.001 | DONE | NPC production reactions |
+| GATE.S4.NPC_INDU.BRIDGE.001 | DONE | SimBridge NPC industry queries |
+| GATE.S4.NPC_INDU.PROOF.001 | DONE | NPC industry scenario proof |
+| GATE.S4.PERF_BUDGET.INDUSTRY.001 | DONE | Industry tick budget tests |
+| GATE.X.PRESSURE.MODEL.001 | DONE | PressureState entity + enum |
+| GATE.X.PRESSURE.SYSTEM.001 | DONE | PressureSystem enforcement |
+| GATE.X.PRESSURE.BRIDGE.001 | DONE | SimBridge pressure queries |
+| GATE.X.PRESSURE.PROOF.001 | DONE | Pressure alert-count scenario test |
+| GATE.S4.SLICE_CLOSE.PROOF.001 | DONE | Slice 4 completion scenario proof |
+| GATE.X.HYGIENE.REPO_HEALTH.007 | DONE | Test suite + golden hash stability |
+| GATE.X.HYGIENE.EPIC_REVIEW.007 | DONE | Epic status audit + recommendations |
+| GATE.X.EVAL.INDUSTRY_AUDIT.001 | DONE | Industry systems completeness audit |
+| GATE.S7.PLANET.MODEL.001 | DONE | Planet + Star entity model, content defs, tweaks |
+| GATE.S7.PLANET.GENERATION.001 | DONE | PlanetInitGen + wire into GalaxyGenerator |
+| GATE.S7.PLANET.BRIDGE.001 | DONE | SimBridge planet/star queries + PlanetSnapV0 |
+| GATE.S7.PLANET.ECONOMY.001 | DONE | Planet industry seeding by specialization |
+| GATE.S7.PLANET.DOCK_VISUAL.001 | DONE | Area3D dock trigger + type-matched scenes + star color |
+| GATE.S7.PLANET.TECH_GATE.001 | DONE | planetary_landing_mk1 tech + effective_landable |
+| GATE.S7.PLANET.UI.001 | DONE | Dock menu planet title + info section |
+| GATE.S7.PLANET.PROOF.001 | DONE | 490 tests pass, golden hashes re-minted, ExplorationBot 8/8 |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -681,3 +707,39 @@ When a gate moves to DONE:
 | GATE.S9.UI.TOOLTIP_PROOF.001 | DONE | Headless proof: boot main scene, verify TooltipManager autoload present, tooltip nodes instantiated on market panel. Proof: godot --headless --path . res://scripts/tests/test_tooltip_proof_v0.gd | NEW: scripts/tests/test_tooltip_proof_v0.gd; FOUND: scripts/ui/hero_trade_menu.gd |
 | GATE.X.HYGIENE.EPIC_REVIEW.006 | DONE | Epic audit: verify CAMERA_POLISH.V0, SPATIAL_AUDIO_DEPTH.V0, RISK_SINKS.V0, MAINT_SUSTAIN, TECH_INDUSTRIALIZE, UPGRADE_PIPELINE, UI_INDU against completed gates. Close completed epics in 54_EPICS.md. Recommend next anchor. Proof: grep consistency | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.EVAL.ADDON_COMPAT.001 | DONE | Addon compatibility audit: verify all 6 addons (PhantomCamera, DebugMenu, Starlight, PlanetGen, KenneyKit, TooltipsPro) coexist without conflicts. Check load order, performance impact, C# compatibility. Proof: written evaluation | FOUND: project.godot; FOUND: docs/56_SESSION_LOG.md |
+
+## H. Tranche 7 — Industry Completion + Pressure Framework
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S4.CONSTR_PROG.MODEL.001 | DONE | ConstructionProject entity + ConstructionDef content + ConstructionTweaksV0. 4 project types: Depot, Shipyard, Refinery, ScienceCenter. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | NEW: SimCore/Entities/ConstructionProject.cs; NEW: SimCore/Content/ConstructionContentV0.cs; NEW: SimCore/Tweaks/ConstructionTweaksV0.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.CONSTR_PROG.SYSTEM.001 | DONE | ConstructionSystem: tick-based step advancement, resource consumption per step, completion triggers, stall on insufficient credits. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | NEW: SimCore/Systems/ConstructionSystem.cs; FOUND: SimCore/SimKernel.cs |
+| GATE.S4.CONSTR_PROG.SAVE.001 | DONE | Construction state save/load preservation + golden hash update. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/Determinism/LongRunWorldHashTests.cs; FOUND: docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.S4.CONSTR_PROG.BRIDGE.001 | DONE | SimBridge.Construction.cs: GetConstructionProjectsV0, StartConstructionV0, GetConstructionProgressV0, GetConstructionBlockReasonV0. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Construction.cs |
+| GATE.S4.CONSTR_PROG.UI.001 | DONE | Construction tab in dock menu (hero_trade_menu.gd): project list, start button, progress bar, why-blocked tooltip. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Construction.cs |
+| GATE.S4.NPC_INDU.DEMAND.001 | DONE | NpcIndustrySystem: NPC nodes generate demand based on world class + connected trade routes. Demand influences market prices. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | NEW: SimCore/Systems/NpcIndustrySystem.cs; NEW: SimCore/Tweaks/NpcIndustryTweaksV0.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.NPC_INDU.REACTION.001 | DONE | NPC production reactions: industry sites adjust output toward shortfalls, expand capacity when profitable. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore/Systems/NpcIndustrySystem.cs; FOUND: SimCore/SimState.cs |
+| GATE.S4.NPC_INDU.BRIDGE.001 | DONE | SimBridge NPC industry queries: GetNodeIndustryStatusV0, GetNpcDemandV0. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S4.NPC_INDU.PROOF.001 | DONE | NPC industry scenario proof: 200-tick run with shortfall → NPC adjusts production → shortfall resolved. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "NpcIndustry" | NEW: SimCore.Tests/Systems/NpcIndustrySystemTests.cs |
+| GATE.S4.PERF_BUDGET.INDUSTRY.001 | DONE | Industry tick budget tests: all industry systems (Construction, NpcIndustry, Research, Refit, Maintenance) complete 1000-tick run within budget. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "PerfBudget" | NEW: SimCore.Tests/Performance/IndustryPerfBudgetTests.cs |
+| GATE.X.PRESSURE.MODEL.001 | DONE | PressureState entity: 5-state enum (Normal/Strained/Unstable/Critical/Collapsed), PressureDirection (Improving/Stable/Worsening), PressureDomain ID, PressureDelta entry. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | NEW: SimCore/Entities/PressureState.cs; FOUND: SimCore/SimState.cs |
+| GATE.X.PRESSURE.SYSTEM.001 | DONE | PressureSystem: max-one-state-jump enforcement per window, intervention budget tracking (1-3 alerts per 10 min), domain state transitions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | NEW: SimCore/Systems/PressureSystem.cs; NEW: SimCore/Tweaks/PressureTweaksV0.cs |
+| GATE.X.PRESSURE.BRIDGE.001 | DONE | SimBridge.Pressure.cs: GetPressureDomainsV0, GetPressureAlertCountV0, GetDomainForecastV0. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Pressure.cs |
+| GATE.X.PRESSURE.PROOF.001 | DONE | Pressure alert-count scenario test: 500-tick run triggers piracy pressure, verifies max-one-jump, verifies intervention budget QA metric. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "PressureScenario" | NEW: SimCore.Tests/Systems/PressureSystemScenarioTests.cs |
+| GATE.S4.SLICE_CLOSE.PROOF.001 | DONE | Slice 4 completion scenario proof: construction + NPC industry + research + refit + maintenance all exercised in 1000-tick scenario. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --filter "Slice4" | NEW: SimCore.Tests/Scenarios/Slice4CompletionProofTests.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.007 | DONE | Full test suite pass, warning scan, golden hash stability baseline. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.007 | DONE | Audit epic statuses against completed gates, close CONSTR_PROG + NPC_INDU + PERF_BUDGET + PRESSURE_FORMALIZATION. Recommend next anchor. Proof: grep consistency | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.INDUSTRY_AUDIT.001 | DONE | Industry systems completeness audit: verify all S4 systems are wired to SimKernel.Step(), all bridge queries callable, content coverage. Proof: written evaluation | FOUND: SimCore/SimKernel.cs; FOUND: scripts/bridge/SimBridge.cs |
+
+## L. Slice 7 — Procedural Planets (EPIC.S7.PROCEDURAL_PLANETS.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.PLANET.MODEL.001 | DONE | Planet + Star entities (PlanetType, StarClass enums), PlanetTweaksV0 constants, PlanetContentV0 type/specialization distributions. Proof: dotnet test SimCore.Tests -c Release | NEW: SimCore/Entities/Planet.cs; NEW: SimCore/Entities/Star.cs; NEW: SimCore/Tweaks/PlanetTweaksV0.cs; NEW: SimCore/Content/PlanetContentV0.cs |
+| GATE.S7.PLANET.GENERATION.001 | DONE | PlanetInitGen: deterministic star+planet generation from nodeId hashes, star luminosity→planet temperature, gravity+atmosphere→landability. Wired into GalaxyGenerator Phase 3. Proof: dotnet test SimCore.Tests -c Release | NEW: SimCore/Gen/PlanetInitGen.cs; FOUND: SimCore/Gen/GalaxyGenerator.cs; FOUND: SimCore/SimState.Properties.cs; FOUND: SimCore/SimState.cs |
+| GATE.S7.PLANET.BRIDGE.001 | DONE | SimBridge.Planet.cs: GetPlanetInfoV0, GetStarInfoV0 with star visual color. PlanetSnapV0+StarSnapV0 in MapQueries SystemSnapshotV0. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/bridge/SimBridge.Planet.cs; FOUND: SimCore/MapQueries.cs |
+| GATE.S7.PLANET.ECONOMY.001 | DONE | Planet industry seeding: Agriculture→food, Mining→ore, Manufacturing→metal, HighTech→electronics, FuelExtraction→fuel. Conservative output rates. Golden hashes re-minted. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore/Gen/PlanetInitGen.cs; FOUND: SimCore/Tweaks/PlanetTweaksV0.cs |
+| GATE.S7.PLANET.DOCK_VISUAL.001 | DONE | Landable planets get Area3D dock trigger with body_entered→game_manager wiring. Planet type→addon scene mapping. Star mesh color from star class. Planet name Label3D. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/core/game_manager.gd |
+| GATE.S7.PLANET.TECH_GATE.001 | DONE | planetary_landing_mk1 tech (tier 1, 10 ticks, 80cr). effective_landable field factors in player tech unlock. GalaxyView uses effective_landable for dock trigger. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: SimCore/Content/TechContentV0.cs; FOUND: scripts/bridge/SimBridge.Planet.cs; FOUND: scripts/view/GalaxyView.cs |
+| GATE.S7.PLANET.UI.001 | DONE | Dock menu shows "PLANET: {name}" title + info subtitle (type, gravity, atmosphere, temperature, specialization) when docked at planet. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S7.PLANET.PROOF.001 | DONE | 490/490 tests pass. Golden hashes re-minted for planet industry changes. Economy stress ceiling 25x. ExplorationBot 8/8 pass, no CRITICAL flags. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/GoldenReplayTests.cs; FOUND: SimCore.Tests/Determinism/LongRunWorldHashTests.cs; FOUND: SimCore.Tests/ExperienceProof/EconomyStressTests.cs |

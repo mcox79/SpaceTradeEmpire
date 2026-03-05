@@ -77,6 +77,16 @@ public class SimKernel
         RefitSystem.ProcessRefitQueue(_state);
         MaintenanceSystem.ProcessDecay(_state);
 
+        // GATE.S4.CONSTR_PROG.SYSTEM.001: Construction step advancement.
+        ConstructionSystem.ProcessConstruction(_state);
+
+        // GATE.S4.NPC_INDU.DEMAND.001: NPC industry demand + reaction.
+        NpcIndustrySystem.ProcessNpcIndustry(_state);
+        NpcIndustrySystem.ProcessNpcReaction(_state);
+
+        // GATE.X.PRESSURE.SYSTEM.001: Pressure state transitions.
+        PressureSystem.ProcessPressure(_state);
+
         _state.AdvanceTick();
     }
 

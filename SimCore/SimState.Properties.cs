@@ -237,6 +237,16 @@ public partial class SimState
     // GATE.S4.TECH.CORE.001: Persisted tech/research state.
     [JsonInclude] public TechState Tech { get; set; } = new();
 
+    // GATE.S4.CONSTR_PROG.MODEL.001: Persisted construction state.
+    [JsonInclude] public ConstructionState Construction { get; set; } = new();
+
+    // GATE.X.PRESSURE.MODEL.001: Persisted pressure state.
+    [JsonInclude] public PressureStateContainer Pressure { get; set; } = new();
+
+    // GATE.S7.PLANET.MODEL.001: Persisted planet + star state (keyed by nodeId).
+    [JsonInclude] public Dictionary<string, Planet> Planets { get; private set; } = new(StringComparer.Ordinal);
+    [JsonInclude] public Dictionary<string, Star> Stars { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
     [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
 

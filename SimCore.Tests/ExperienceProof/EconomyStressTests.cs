@@ -13,6 +13,9 @@ namespace SimCore.Tests.ExperienceProof;
 /// Pure C# (no Godot). Validates economy invariants over long runs:
 /// prices stay bounded, inventory non-negative, trade routes remain viable,
 /// fleets move, and deterministic replay produces identical state.
+///
+/// All tests share a single [OneTimeSetUp] simulation run per seed (5 seeds × 5000 ticks)
+/// to avoid redundant computation. Intermediate data is captured at milestones.
 /// </summary>
 [TestFixture]
 public class EconomyStressTests
@@ -21,6 +24,94 @@ public class EconomyStressTests
     private const float Radius = 100f;
 
     private static readonly int[] StressSeeds = { 42, 99, 1000, 31337, 77777 };
+
+    // ── Shared simulation data ──
+
+    private class SeedRunData
+    {
+        public SimState FinalState = null!;
+        public List<(int tick, long credits)> CreditSamples = new();
+        public List<string> SpreadViolations = new();
+        public int ViableRoutesAt2000;
+        public long InitialGoodsCount;
+        public long GoodsCountAt3000;
+        public int AiFleetStartCount;
+        public int AiFleetMoveCount;
+    }
+
+    private Dictionary<int, SeedRunData> _runData = null!;
+
+    [OneTimeSetUp]
+    public void RunStressSimulations()
+    {
+        _runData = new Dictionary<int, SeedRunData>();
+
+        foreach (var seed in StressSeeds)
+        {
+            var sim = CreateWithGalaxy(seed);
+            var data = new SeedRunData();
+            data.InitialGoodsCount = CountTotalGoods(sim.State);
+
+            // Record AI fleet starting positions
+            var aiFleetStartNodes = new Dictionary<string, string>();
+            foreach (var fleet in sim.State.Fleets.Values)
+            {
+                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal))
+                    continue;
+                aiFleetStartNodes[fleet.Id] = fleet.CurrentNodeId ?? "";
+            }
+            data.AiFleetStartCount = aiFleetStartNodes.Count;
+
+            for (int tick = 0; tick < 5000; tick++)
+            {
+                // Credit sampling every 100 ticks
+                if (tick % 100 == 0)
+                    data.CreditSamples.Add((tick, sim.State.PlayerCredits));
+
+                // Spread sampling every 200 ticks in first 2000 ticks
+                if (tick < 2000 && tick % 200 == 0)
+                {
+                    foreach (var market in sim.State.Markets.Values)
+                    {
+                        foreach (var goodId in market.Inventory.Keys)
+                        {
+                            int buy = market.GetBuyPrice(goodId);
+                            int sell = market.GetSellPrice(goodId);
+                            if (buy < sell)
+                                data.SpreadViolations.Add(
+                                    $"Seed {seed} tick {tick}: spread inverted for {goodId} buy={buy} sell={sell}");
+                        }
+                    }
+                }
+
+                sim.Step();
+
+                int ticksCompleted = tick + 1;
+
+                // Capture AI fleet movement at tick 500
+                if (ticksCompleted == 500)
+                {
+                    foreach (var kvp in aiFleetStartNodes)
+                    {
+                        if (sim.State.Fleets.TryGetValue(kvp.Key, out var fleet) &&
+                            fleet.CurrentNodeId != kvp.Value)
+                            data.AiFleetMoveCount++;
+                    }
+                }
+
+                // Capture viable routes at tick 2000
+                if (ticksCompleted == 2000)
+                    data.ViableRoutesAt2000 = CountViableRoutes(sim.State);
+
+                // Capture goods count at tick 3000
+                if (ticksCompleted == 3000)
+                    data.GoodsCountAt3000 = CountTotalGoods(sim.State);
+            }
+
+            data.FinalState = sim.State;
+            _runData[seed] = data;
+        }
+    }
 
     private static SimKernel CreateWithGalaxy(int seed)
     {
@@ -41,11 +132,7 @@ public class EconomyStressTests
 
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            for (int i = 0; i < 5000; i++)
-                sim.Step();
-
-            var state = sim.State;
+            var state = _runData[seed].FinalState;
             foreach (var market in state.Markets.Values)
             {
                 foreach (var goodId in market.Inventory.Keys)
@@ -74,11 +161,7 @@ public class EconomyStressTests
     {
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            for (int i = 0; i < 5000; i++)
-                sim.Step();
-
-            foreach (var market in sim.State.Markets.Values)
+            foreach (var market in _runData[seed].FinalState.Markets.Values)
             {
                 foreach (var kvp in market.Inventory)
                 {
@@ -98,33 +181,7 @@ public class EconomyStressTests
         // at least one good with a profitable cross-market trade.
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            for (int i = 0; i < 2000; i++)
-                sim.Step();
-
-            var state = sim.State;
-            var allGoods = new HashSet<string>();
-            foreach (var market in state.Markets.Values)
-                foreach (var goodId in market.Inventory.Keys)
-                    allGoods.Add(goodId);
-
-            int viableRoutes = 0;
-            foreach (var goodId in allGoods)
-            {
-                int minBuy = int.MaxValue;
-                int maxSell = 0;
-                foreach (var market in state.Markets.Values)
-                {
-                    if (!market.Inventory.ContainsKey(goodId)) continue;
-                    int buy = market.GetBuyPrice(goodId);
-                    int sell = market.GetSellPrice(goodId);
-                    if (buy > 0 && buy < minBuy) minBuy = buy;
-                    if (sell > maxSell) maxSell = sell;
-                }
-                if (maxSell > minBuy) viableRoutes++;
-            }
-
-            Assert.That(viableRoutes, Is.GreaterThan(0),
+            Assert.That(_runData[seed].ViableRoutesAt2000, Is.GreaterThan(0),
                 $"Seed {seed}: no viable trade routes after 2000 ticks — economy collapsed");
         }
     }
@@ -135,36 +192,14 @@ public class EconomyStressTests
     public void AiFleets_MoveWithin500Ticks()
     {
         // AI fleets should move at least once within 500 ticks.
-        // Record starting node IDs, run 500 ticks, check at least one changed.
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            var state = sim.State;
-
-            var startNodes = new Dictionary<string, string>();
-            foreach (var fleet in state.Fleets.Values)
-            {
-                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal))
-                    continue;
-                startNodes[fleet.Id] = fleet.CurrentNodeId ?? "";
-            }
-
-            if (startNodes.Count == 0)
+            var data = _runData[seed];
+            if (data.AiFleetStartCount == 0)
                 continue; // No AI fleets in this seed
 
-            for (int i = 0; i < 500; i++)
-                sim.Step();
-
-            int movedCount = 0;
-            foreach (var kvp in startNodes)
-            {
-                if (!state.Fleets.TryGetValue(kvp.Key, out var fleet)) continue;
-                if (fleet.CurrentNodeId != kvp.Value)
-                    movedCount++;
-            }
-
-            Assert.That(movedCount, Is.GreaterThan(0),
-                $"Seed {seed}: no AI fleet moved in 500 ticks ({startNodes.Count} fleets)");
+            Assert.That(data.AiFleetMoveCount, Is.GreaterThan(0),
+                $"Seed {seed}: no AI fleet moved in 500 ticks ({data.AiFleetStartCount} fleets)");
         }
     }
 
@@ -174,24 +209,17 @@ public class EconomyStressTests
     public void TotalGoodsUnits_DoNotExplode()
     {
         // Total goods in the economy (markets + fleet cargo) should not grow
-        // unboundedly. Allow 5x the initial amount as upper bound.
+        // unboundedly. Allow 25x the initial amount as upper bound.
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            var state = sim.State;
+            var data = _runData[seed];
 
-            long initialTotal = CountTotalGoods(state);
-
-            for (int i = 0; i < 3000; i++)
-                sim.Step();
-
-            long finalTotal = CountTotalGoods(state);
-
-            // Industry produces goods and markets restock, so growth is expected.
-            // But >20x initial over 3000 ticks suggests a duplication bug.
-            long maxAllowed = Math.Max(initialTotal * 20, 100000);
-            Assert.That(finalTotal, Is.LessThanOrEqualTo(maxAllowed),
-                $"Seed {seed}: total goods exploded from {initialTotal} to {finalTotal}");
+            // Industry (station + planet) produces goods and markets restock, so growth is expected.
+            // But >25x initial over 3000 ticks suggests a duplication bug.
+            // (Raised from 20x for GATE.S7 planet industry sites with conservative output rates.)
+            long maxAllowed = Math.Max(data.InitialGoodsCount * 25, 100000);
+            Assert.That(data.GoodsCountAt3000, Is.LessThanOrEqualTo(maxAllowed),
+                $"Seed {seed}: total goods exploded from {data.InitialGoodsCount} to {data.GoodsCountAt3000}");
         }
     }
 
@@ -201,32 +229,16 @@ public class EconomyStressTests
     public void BuyPrice_AlwaysExceedsSellPrice()
     {
         // The market spread must never invert (buy < sell).
+        // Sampled every 200 ticks during the first 2000 ticks of each seed run.
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-
-            // Check at multiple points during simulation
-            for (int tick = 0; tick < 2000; tick++)
-            {
-                if (tick % 200 == 0) // Sample every 200 ticks
-                {
-                    foreach (var market in sim.State.Markets.Values)
-                    {
-                        foreach (var goodId in market.Inventory.Keys)
-                        {
-                            int buy = market.GetBuyPrice(goodId);
-                            int sell = market.GetSellPrice(goodId);
-                            Assert.That(buy, Is.GreaterThanOrEqualTo(sell),
-                                $"Seed {seed} tick {tick}: spread inverted for {goodId} buy={buy} sell={sell}");
-                        }
-                    }
-                }
-                sim.Step();
-            }
+            var violations = _runData[seed].SpreadViolations;
+            Assert.That(violations, Is.Empty,
+                string.Join("\n", violations));
         }
     }
 
-    // ── Deterministic replay ──
+    // ── Deterministic replay (NOT batched — requires dual independent runs) ──
 
     [Test]
     public void DeterministicReplay_ProducesIdenticalSignature()
@@ -255,23 +267,18 @@ public class EconomyStressTests
     [Test]
     public void PlayerCredits_NeverGoNegative_Over5000Ticks()
     {
-        // Sample player credits every 100 ticks over a 5000-tick run.
+        // Sampled every 100 ticks over a 5000-tick run.
         foreach (var seed in StressSeeds)
         {
-            var sim = CreateWithGalaxy(seed);
-            for (int tick = 0; tick < 5000; tick++)
+            foreach (var (tick, credits) in _runData[seed].CreditSamples)
             {
-                if (tick % 100 == 0)
-                {
-                    Assert.That(sim.State.PlayerCredits, Is.GreaterThanOrEqualTo(0),
-                        $"Seed {seed} tick {tick}: player credits went negative ({sim.State.PlayerCredits})");
-                }
-                sim.Step();
+                Assert.That(credits, Is.GreaterThanOrEqualTo(0),
+                    $"Seed {seed} tick {tick}: player credits went negative ({credits})");
             }
         }
     }
 
-    // ── Helper ──
+    // ── Helpers ──
 
     private static long CountTotalGoods(SimState state)
     {
@@ -286,5 +293,30 @@ public class EconomyStressTests
                 total += qty;
         }
         return total;
+    }
+
+    private static int CountViableRoutes(SimState state)
+    {
+        var allGoods = new HashSet<string>();
+        foreach (var market in state.Markets.Values)
+            foreach (var goodId in market.Inventory.Keys)
+                allGoods.Add(goodId);
+
+        int viableRoutes = 0;
+        foreach (var goodId in allGoods)
+        {
+            int minBuy = int.MaxValue;
+            int maxSell = 0;
+            foreach (var market in state.Markets.Values)
+            {
+                if (!market.Inventory.ContainsKey(goodId)) continue;
+                int buy = market.GetBuyPrice(goodId);
+                int sell = market.GetSellPrice(goodId);
+                if (buy > 0 && buy < minBuy) minBuy = buy;
+                if (sell > maxSell) maxSell = sell;
+            }
+            if (maxSell > minBuy) viableRoutes++;
+        }
+        return viableRoutes;
     }
 }

@@ -86,10 +86,16 @@ public sealed class ExplorationBot
     private int _combatsStarted, _combatsWon, _combatsLost;
     private bool _combatAttempted;
 
-    // Level 5: Industry/maintenance tracking (analysis only, no tracking fields needed)
+    // Level 5: Industry/maintenance — repair tracking
+    private int _repairsAttempted, _repairsSucceeded;
+    private long _repairCreditsSpent;
 
     // Level 6: Discovery tracking
     private int _discoveriesSeen, _discoveriesScanned;
+
+    // Refit tracking
+    private bool _weaponInstalled;
+    private int _refitAttempts, _refitSuccesses;
 
     // ── Public API ──
 
@@ -99,6 +105,7 @@ public sealed class ExplorationBot
         GalaxyGenerator.Generate(State, starCount, radius);
         BuildAdjacency();
         EnsurePlayerFleet();
+        TryInstallStarterWeapon();
 
         // Place player at first node
         var startNode = State.Nodes.Keys.OrderBy(k => k, StringComparer.Ordinal).First();
@@ -127,6 +134,7 @@ public sealed class ExplorationBot
                 TryMissionActions(tick);
                 TryResearchActions(tick);
                 TryCombatActions(tick);
+                TryRepairActions(tick);
             }
             else
             {
@@ -142,8 +150,12 @@ public sealed class ExplorationBot
         AnalyzeResearch();
         AnalyzeCombat();
         AnalyzeIndustryHealth();
+        AnalyzeRepairs();
         AnalyzeDiscoveries();
         AnalyzePerGoodProfitability();
+        AnalyzeRefit();
+        AnalyzeResearchEffects();
+        AssertStateInvariants();
 
         return new BotReport
         {
@@ -170,6 +182,13 @@ public sealed class ExplorationBot
             TechsResearched = new HashSet<string>(_techsResearched),
             CombatsStarted = _combatsStarted,
             CombatsWon = _combatsWon,
+            CombatsLost = _combatsLost,
+            RepairsAttempted = _repairsAttempted,
+            RepairsSucceeded = _repairsSucceeded,
+            RepairCreditsSpent = _repairCreditsSpent,
+            WeaponInstalled = _weaponInstalled,
+            RefitAttempts = _refitAttempts,
+            RefitSuccesses = _refitSuccesses,
         };
     }
 
@@ -198,6 +217,33 @@ public sealed class ExplorationBot
                 new ModuleSlot { SlotId = "utility_0", SlotKind = SlotKind.Utility },
             }
         };
+    }
+
+    /// <summary>Install a starter weapon (no tech prereq) so combat can actually deal damage.</summary>
+    private void TryInstallStarterWeapon()
+    {
+        const string pfId = "fleet_trader_1";
+        if (!State.Fleets.TryGetValue(pfId, out var fleet)) return;
+
+        // Find weapon slot index
+        int weaponSlotIdx = -1;
+        for (int i = 0; i < fleet.Slots.Count; i++)
+        {
+            if (fleet.Slots[i].SlotKind == SlotKind.Weapon && string.IsNullOrEmpty(fleet.Slots[i].InstalledModuleId))
+            {
+                weaponSlotIdx = i;
+                break;
+            }
+        }
+        if (weaponSlotIdx < 0) return;
+
+        _refitAttempts++;
+        var result = RefitSystem.InstallModule(State, pfId, weaponSlotIdx, WellKnownModuleIds.WeaponCannonMk1);
+        if (result.Success)
+        {
+            _weaponInstalled = true;
+            _refitSuccesses++;
+        }
     }
 
     // ── Decision logic ──
@@ -777,7 +823,7 @@ public sealed class ExplorationBot
         }
     }
 
-    // ── Level 4: Combat exercise ──
+    // ── Level 4: Combat exercise (uses CombatSystem.RunEncounter directly) ──
 
     private void TryCombatActions(int tick)
     {
@@ -788,57 +834,77 @@ public sealed class ExplorationBot
         if (string.IsNullOrEmpty(loc)) return;
 
         // Find an AI fleet at the same node
-        string? opponentId = null;
+        Fleet? opponent = null;
         foreach (var fleet in State.Fleets.Values)
         {
             if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
             if (fleet.CurrentNodeId == loc)
             {
-                opponentId = fleet.Id;
+                opponent = fleet;
                 break;
             }
         }
 
-        if (opponentId == null) return;
+        if (opponent == null) return;
         _combatAttempted = true;
 
-        // Initialize combat HP if needed
         var playerFleet = State.Fleets.GetValueOrDefault("fleet_trader_1");
-        var opponent = State.Fleets[opponentId];
+        if (playerFleet == null) return;
 
-        if (playerFleet != null && playerFleet.HullHp < 0)
-        {
-            playerFleet.HullHp = playerFleet.HullHpMax > 0 ? playerFleet.HullHpMax : 100;
-            playerFleet.ShieldHp = playerFleet.ShieldHpMax > 0 ? playerFleet.ShieldHpMax : 50;
-        }
+        // Ensure both fleets have valid HP
+        if (playerFleet.HullHp <= 0)
+            CombatSystem.InitFleetCombatStats(playerFleet, isPlayer: true);
+        if (opponent.HullHp <= 0)
+            CombatSystem.InitFleetCombatStats(opponent, isPlayer: false);
 
-        if (opponent.HullHp < 0)
-        {
-            opponent.HullHp = 50;
-            opponent.HullHpMax = 50;
-            opponent.ShieldHp = 0;
-            opponent.ShieldHpMax = 0;
-        }
-
-        int playerHpBefore = playerFleet?.HullHp ?? -1;
+        int playerHpBefore = playerFleet.HullHp;
         int opponentHpBefore = opponent.HullHp;
 
-        _kernel.EnqueueCommand(new StartCombatCommand("fleet_trader_1", opponentId));
-        _kernel.Step();
+        // Run a full combat encounter using the real damage model
+        var log = CombatSystem.RunEncounter(playerFleet, opponent, weaponBaseDamage: null, maxRounds: 50);
         _combatsStarted++;
 
-        // Check results
-        int playerHpAfter = playerFleet?.HullHp ?? -1;
-        int opponentHpAfter = opponent.HullHp;
+        // Record combat log in state for analysis
+        State.CombatLogs.Add(log);
 
-        if (opponentHpAfter <= 0)
+        if (log.Outcome == CombatSystem.CombatOutcome.Win)
             _combatsWon++;
-        else if (playerHpAfter <= 0)
+        else if (log.Outcome == CombatSystem.CombatOutcome.Loss)
             _combatsLost++;
 
-        // Clear combat flag
-        _kernel.EnqueueCommand(new ClearCombatCommand());
-        _kernel.Step();
+        // Restore player HP after combat so bot can continue trading
+        playerFleet.HullHp = playerFleet.HullHpMax;
+        playerFleet.ShieldHp = playerFleet.ShieldHpMax;
+    }
+
+    // ── Level 5: Repair exercise ──
+
+    private void TryRepairActions(int tick)
+    {
+        // Only try repairs every 100 action cycles to avoid draining credits
+        if (tick % (ActEveryNTicks * 100) != 0) return;
+
+        // Find degraded industry site at current node
+        var loc = State.PlayerLocationNodeId;
+        if (string.IsNullOrEmpty(loc)) return;
+
+        foreach (var site in State.IndustrySites.Values)
+        {
+            if (site.NodeId != loc) continue;
+            if (site.HealthBps >= 5000) continue; // only repair if below 50%
+
+            int cost = MaintenanceSystem.GetRepairCost(site);
+            if (cost > State.PlayerCredits) continue;
+
+            _repairsAttempted++;
+            var result = MaintenanceSystem.RepairSite(State, site.Id);
+            if (result.Success)
+            {
+                _repairsSucceeded++;
+                _repairCreditsSpent += result.CreditsCost;
+            }
+            break; // one repair per check
+        }
     }
 
     // ── Post-run analysis: new systems ──
@@ -954,16 +1020,31 @@ public sealed class ExplorationBot
             {
                 AddFlag("COMBAT_NO_LOG", "CRITICAL", -1,
                     $"Started {_combatsStarted} combat(s) but CombatLogs is empty.",
-                    "StartCombatCommand.Execute may not be calling CombatSystem.RunEncounter. " +
-                    "Files: SimCore/Commands/StartCombatCommand.cs, SimCore/Systems/CombatSystem.cs");
+                    "CombatSystem.RunEncounter should produce a CombatLog. " +
+                    "Files: SimCore/Systems/CombatSystem.cs");
+            }
+            else
+            {
+                // Verify combat log has events (damage was dealt)
+                var lastLog = State.CombatLogs[^1];
+                if (lastLog.Events.Count == 0)
+                {
+                    AddFlag("COMBAT_NO_DAMAGE", "WARNING", -1,
+                        $"Combat log exists but has 0 events. No weapons fired.",
+                        "Neither fleet had weapons equipped. Check: weapon slots, " +
+                        "InstalledModuleId on weapon slots. " +
+                        "Files: SimCore/Systems/CombatSystem.cs");
+                }
             }
 
             if (_combatsWon == 0 && _combatsLost == 0)
             {
                 AddFlag("COMBAT_NO_RESOLUTION", "WARNING", -1,
-                    $"Started {_combatsStarted} combat(s) but neither fleet reached 0 HP.",
-                    "Combat may not deal enough damage to resolve. Check: weapon definitions, " +
-                    "damage calculation. Files: SimCore/Systems/CombatSystem.cs");
+                    $"Started {_combatsStarted} combat(s) but neither fleet reached 0 HP. " +
+                    $"Weapon installed: {_weaponInstalled}.",
+                    "Combat may not deal enough damage to resolve in 50 rounds. " +
+                    "Check: weapon base damage, fleet HP values. " +
+                    "Files: SimCore/Systems/CombatSystem.cs, SimCore/Tweaks/CombatTweaksV0.cs");
             }
         }
     }
@@ -1012,6 +1093,81 @@ public sealed class ExplorationBot
         }
     }
 
+    private void AnalyzeRepairs()
+    {
+        // Check if any sites degraded enough to warrant repair
+        int degradedCount = 0;
+        foreach (var site in State.IndustrySites.Values)
+        {
+            if (site.HealthBps < 5000) degradedCount++;
+        }
+
+        if (degradedCount > 0 && _repairsAttempted == 0 && TickBudget >= 1000)
+        {
+            AddFlag("REPAIR_NEVER_ATTEMPTED", "INFO", -1,
+                $"{degradedCount} industry sites below 50% health but bot never attempted repair. " +
+                "Bot may not have visited degraded sites, or credits were too low.",
+                "The bot repairs sites at its current node when health < 50%. " +
+                "Check: bot travel patterns, MaintenanceSystem.GetRepairCost. " +
+                "Files: SimCore/Systems/MaintenanceSystem.cs");
+        }
+
+        if (_repairsAttempted > 0 && _repairsSucceeded == 0)
+        {
+            AddFlag("REPAIR_ALWAYS_FAILED", "WARNING", -1,
+                $"Bot attempted {_repairsAttempted} repair(s) but all failed.",
+                "MaintenanceSystem.RepairSite may be rejecting repairs. " +
+                "Check: credit deduction, health cap, site validation. " +
+                "Files: SimCore/Systems/MaintenanceSystem.cs");
+        }
+    }
+
+    private void AnalyzeRefit()
+    {
+        if (_refitAttempts == 0)
+        {
+            AddFlag("REFIT_NEVER_ATTEMPTED", "INFO", -1,
+                "Bot never attempted to install a module.",
+                "EnsurePlayerFleet should create weapon slots. " +
+                "Files: SimCore/Systems/RefitSystem.cs, SimCore/Content/UpgradeContentV0.cs");
+            return;
+        }
+
+        if (_refitSuccesses == 0)
+        {
+            AddFlag("REFIT_ALWAYS_FAILED", "CRITICAL", -1,
+                $"Bot attempted {_refitAttempts} module install(s) but all failed. " +
+                $"Weapon installed: {_weaponInstalled}.",
+                "RefitSystem.InstallModule may be rejecting installs. " +
+                "Check: slot kind match, tech prereqs, credit cost. " +
+                "Files: SimCore/Systems/RefitSystem.cs");
+        }
+    }
+
+    private void AnalyzeResearchEffects()
+    {
+        // After researching techs, verify that gated modules become installable
+        if (_techsResearched.Count == 0) return;
+
+        int gatedModulesNowAvailable = 0;
+        foreach (var mod in UpgradeContentV0.AllModules)
+        {
+            if (string.IsNullOrEmpty(mod.TechPrerequisite)) continue;
+            if (State.Tech.UnlockedTechIds.Contains(mod.TechPrerequisite))
+                gatedModulesNowAvailable++;
+        }
+
+        if (gatedModulesNowAvailable == 0 && _techsResearched.Count >= 3)
+        {
+            AddFlag("RESEARCH_NO_UNLOCK_EFFECT", "WARNING", -1,
+                $"Researched {_techsResearched.Count} techs but no tech-gated modules became available. " +
+                $"Techs: [{string.Join(", ", _techsResearched)}].",
+                "TechPrerequisite on ModuleDefs may not match TechIds from TechContentV0. " +
+                "Check: tech ID strings match between TechContentV0 and UpgradeContentV0. " +
+                "Files: SimCore/Content/TechContentV0.cs, SimCore/Content/UpgradeContentV0.cs");
+        }
+    }
+
     private void AnalyzeDiscoveries()
     {
         // Check intel book for discoveries that were seen during exploration
@@ -1051,6 +1207,120 @@ public sealed class ExplorationBot
                 "PlayerArriveCommand may not trigger discovery 'Seen' phase. Check: " +
                 "does arriving at a node with SeededDiscoveryIds update Intel.Discoveries? " +
                 "Files: SimCore/Commands/PlayerArriveCommand.cs");
+        }
+    }
+
+    /// <summary>
+    /// Property-based invariants that must hold after ANY bot run regardless of seed.
+    /// These catch state corruption that flag-based analysis misses entirely.
+    /// </summary>
+    private void AssertStateInvariants()
+    {
+        // 1. No negative market inventory
+        foreach (var mkt in State.Markets.Values)
+        {
+            foreach (var kv in mkt.Inventory)
+            {
+                if (kv.Value < 0)
+                {
+                    AddFlag("INVARIANT_NEGATIVE_INVENTORY", "CRITICAL", -1,
+                        $"Market '{mkt.Id}' has negative inventory: {kv.Key}={kv.Value}.",
+                        "InventoryLedger allowed inventory to go below 0. " +
+                        "Files: SimCore/Entities/Market.cs, SimCore/Systems/IndustrySystem.cs");
+                    break; // one flag is enough
+                }
+            }
+        }
+
+        // 2. No negative player credits
+        if (State.PlayerCredits < 0)
+        {
+            AddFlag("INVARIANT_NEGATIVE_CREDITS", "CRITICAL", -1,
+                $"PlayerCredits = {State.PlayerCredits}. Credits went below 0.",
+                "A command deducted more credits than available. " +
+                "Files: SimCore/Commands/BuyCommand.cs, SimCore/Systems/ResearchSystem.cs");
+        }
+
+        // 3. Player at valid node
+        if (!string.IsNullOrEmpty(State.PlayerLocationNodeId) &&
+            !State.Nodes.ContainsKey(State.PlayerLocationNodeId))
+        {
+            AddFlag("INVARIANT_INVALID_PLAYER_NODE", "CRITICAL", -1,
+                $"PlayerLocationNodeId='{State.PlayerLocationNodeId}' does not exist in State.Nodes.",
+                "Player was moved to a non-existent node. " +
+                "Files: SimCore/Commands/PlayerArriveCommand.cs");
+        }
+
+        // 4. Every fleet at a valid node
+        foreach (var fleet in State.Fleets.Values)
+        {
+            if (!string.IsNullOrEmpty(fleet.CurrentNodeId) &&
+                !State.Nodes.ContainsKey(fleet.CurrentNodeId))
+            {
+                AddFlag("INVARIANT_FLEET_INVALID_NODE", "CRITICAL", -1,
+                    $"Fleet '{fleet.Id}' at non-existent node '{fleet.CurrentNodeId}'.",
+                    "Fleet was placed at a node that doesn't exist. " +
+                    "Files: SimCore/Gen/GalaxyGenerator.cs, SimCore/Systems/MovementSystem.cs");
+                break;
+            }
+        }
+
+        // 5. Tech prerequisite chain integrity
+        foreach (var techId in State.Tech.UnlockedTechIds)
+        {
+            var def = TechContentV0.GetById(techId);
+            if (def == null) continue;
+            foreach (var prereq in def.Prerequisites)
+            {
+                if (!State.Tech.UnlockedTechIds.Contains(prereq))
+                {
+                    AddFlag("INVARIANT_TECH_PREREQ_VIOLATED", "CRITICAL", -1,
+                        $"Tech '{techId}' unlocked without prerequisite '{prereq}'.",
+                        "ResearchSystem.CompleteResearch bypassed prerequisite check. " +
+                        "Files: SimCore/Systems/ResearchSystem.cs, SimCore/Content/TechContentV0.cs");
+                    break;
+                }
+            }
+        }
+
+        // 6. Installed modules match slot kind
+        foreach (var fleet in State.Fleets.Values)
+        {
+            foreach (var slot in fleet.Slots)
+            {
+                if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                var moduleDef = UpgradeContentV0.GetById(slot.InstalledModuleId);
+                if (moduleDef == null)
+                {
+                    AddFlag("INVARIANT_UNKNOWN_MODULE", "CRITICAL", -1,
+                        $"Fleet '{fleet.Id}' slot '{slot.SlotId}' has unknown module '{slot.InstalledModuleId}'.",
+                        "Module was installed but doesn't exist in UpgradeContentV0. " +
+                        "Files: SimCore/Content/UpgradeContentV0.cs, SimCore/Systems/RefitSystem.cs");
+                    break;
+                }
+                if (moduleDef.SlotKind != slot.SlotKind)
+                {
+                    AddFlag("INVARIANT_SLOT_KIND_MISMATCH", "CRITICAL", -1,
+                        $"Fleet '{fleet.Id}' slot '{slot.SlotId}' (kind={slot.SlotKind}) has module " +
+                        $"'{slot.InstalledModuleId}' (kind={moduleDef.SlotKind}).",
+                        "RefitSystem allowed a module into the wrong slot type. " +
+                        "Files: SimCore/Systems/RefitSystem.cs");
+                    break;
+                }
+            }
+        }
+
+        // 7. No fleet with negative HP (skip uninitialized fleets where HullHpMax == -1)
+        foreach (var fleet in State.Fleets.Values)
+        {
+            if (fleet.HullHpMax >= 0 && fleet.HullHp < 0)
+            {
+                AddFlag("INVARIANT_NEGATIVE_HP", "CRITICAL", -1,
+                    $"Fleet '{fleet.Id}' has HullHp={fleet.HullHp} (HullHpMax={fleet.HullHpMax}).",
+                    "CombatSystem allowed HP to go below 0. " +
+                    "Files: SimCore/Systems/CombatSystem.cs");
+                break;
+            }
         }
     }
 
@@ -1290,6 +1560,13 @@ public sealed class BotReport
     public HashSet<string> TechsResearched { get; init; } = new();
     public int CombatsStarted { get; init; }
     public int CombatsWon { get; init; }
+    public int CombatsLost { get; init; }
+    public int RepairsAttempted { get; init; }
+    public int RepairsSucceeded { get; init; }
+    public long RepairCreditsSpent { get; init; }
+    public bool WeaponInstalled { get; init; }
+    public int RefitAttempts { get; init; }
+    public int RefitSuccesses { get; init; }
 
     /// <summary>Human-readable summary for diagnostic output.</summary>
     public string GetSummary()
@@ -1303,7 +1580,9 @@ public sealed class BotReport
         sb.AppendLine($"Goods sold: [{string.Join(", ", GoodsSold.OrderBy(g => g))}]");
         sb.AppendLine($"Missions: {MissionsAccepted} accepted, {MissionsCompleted} completed");
         sb.AppendLine($"Research: {ResearchCompleted} completed, techs: [{string.Join(", ", TechsResearched.OrderBy(t => t))}]");
-        sb.AppendLine($"Combat: {CombatsStarted} fights, {CombatsWon} won");
+        sb.AppendLine($"Combat: {CombatsStarted} fights, {CombatsWon} won, {CombatsLost} lost");
+        sb.AppendLine($"Refit: {RefitSuccesses}/{RefitAttempts} installs, weapon equipped: {WeaponInstalled}");
+        sb.AppendLine($"Repairs: {RepairsSucceeded}/{RepairsAttempted} repairs, {RepairCreditsSpent}cr spent");
 
         if (Flags.Count > 0)
         {
