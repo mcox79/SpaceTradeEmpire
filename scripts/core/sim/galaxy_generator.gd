@@ -2,7 +2,7 @@ extends RefCounted
 
 var rng_streams: RngStreams
 var rng: RandomNumberGenerator
-var seed: int = 0
+var world_seed: int = 0
 
 static func _fnv1a32(s: String) -> int:
 	var bytes: PackedByteArray = s.to_utf8_buffer()
@@ -16,13 +16,13 @@ static func _q1e3(v: float) -> int:
 	return int(round(v * 1000.0))
 
 func _init(seed_val: int = 0):
-	seed = seed_val
+	world_seed = seed_val
 	rng_streams = RngStreams.new(seed_val)
 	rng = rng_streams.get_stream(RngStreams.STREAM_GALAXY_GEN)
 
 # Entry point for GameShell worldgen: use the canonical SimState seed, without mutating it.
 func generate_for_state(state: SimState, region_count: int) -> Dictionary:
-	var local_streams := RngStreams.new(state.seed)
+	var local_streams := RngStreams.new(state.world_seed)
 	var local_rng := local_streams.get_stream(RngStreams.STREAM_GALAXY_GEN)
 	return _generate_with_rng(local_rng, region_count)
 

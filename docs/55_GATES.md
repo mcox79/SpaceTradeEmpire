@@ -155,6 +155,24 @@ When a gate moves to DONE:
 | GATE.S1.PRESENTATION.HEADLESS_PROOF.001 | DONE | Headless proof — camera + audio nodes boot |
 | GATE.X.HYGIENE.EPIC_REVIEW.005 | DONE | Audit epic statuses, close completed, recommend next |
 | GATE.X.EVAL.AUDIO_VISUAL_AUDIT.001 | DONE | Audio/visual presentation quality audit |
+| GATE.X.HYGIENE.REPO_HEALTH.006 | DONE | Full test suite + golden hash stability baseline |
+| GATE.S1.VISUAL_UPGRADE.ADDON_INSTALL.001 | DONE | Install Starlight + Planet Gen + Kenney Kit addons |
+| GATE.S9.UI.TOOLTIP_SETUP.001 | DONE | Install Tooltips Pro addon + basic tooltip |
+| GATE.S1.MISSION.CONTENT_WAVE.001 | DONE | 3 new mission defs in MissionContentV0 |
+| GATE.S4.CATALOG.TECH_WAVE.001 | DONE | Expand tech tree: 5+ techs across tiers 1-3 |
+| GATE.S4.CATALOG.MODULE_WAVE.001 | DONE | 5+ new modules: engine, utility, cargo variants |
+| GATE.S4.CATALOG.RECIPE_WAVE.001 | DONE | 3-5 new production recipes for goods chain |
+| GATE.S3.RISK_SINKS.HUD_INDICATOR.001 | DONE | Travel risk/delay indicator in flight HUD |
+| GATE.S1.VISUAL_UPGRADE.SKYBOX.001 | DONE | Wire Starlight procedural skybox into scene |
+| GATE.S1.VISUAL_UPGRADE.WORLD_MESHES.001 | DONE | Planet gen + Kenney models on planets/ships/stations |
+| GATE.S9.UI.TOOLTIP_DOCK.001 | DONE | Tooltips on market goods + industry panels |
+| GATE.S9.UI.TOOLTIP_HUD.001 | DONE | Tooltips on combat + flight HUD elements |
+| GATE.S1.MISSION.MULTI_PROOF.001 | DONE | Multi-mission scenario proof |
+| GATE.S4.CATALOG.CONTENT_PROOF.001 | DONE | Content wave determinism proof |
+| GATE.S1.VISUAL_UPGRADE.SCENE_PROOF.001 | DONE | Visual addon headless boot proof |
+| GATE.S9.UI.TOOLTIP_PROOF.001 | DONE | Tooltip integration headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.006 | DONE | Epic audit — close 7+ completed epics |
+| GATE.X.EVAL.ADDON_COMPAT.001 | DONE | Addon compatibility + integration quality audit |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -645,3 +663,21 @@ When a gate moves to DONE:
 | GATE.S1.PRESENTATION.HEADLESS_PROOF.001 | DONE | Headless proof — extends SceneTree script boots main scene, verifies PhantomCamera node present, audio nodes present, emits PRESENTATION_PROOF PASS. Proof: dotnet build && godot --headless test_presentation_proof_v0.gd | NEW: scripts/tests/test_presentation_proof_v0.gd; FOUND: scenes/player.tscn |
 | GATE.X.HYGIENE.EPIC_REVIEW.005 | DONE | Epic tracking audit: compare 54_EPICS.md epic statuses against completed gates in 55_GATES.md. Identify mismatches. Update statuses. Recommend next anchor epic for tranche 6. Proof: grep consistency check | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.EVAL.AUDIO_VISUAL_AUDIT.001 | DONE | Audio/visual presentation quality audit: evaluate audio mix, spatial audio falloff, camera feel, visual polish. Score axes 1-5. Recommend polish targets. Proof: written evaluation | FOUND: docs/56_SESSION_LOG.md; FOUND: scripts/tools/aesthetic_audit.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.006 | DONE | Full test suite pass (439 tests), golden hash stability, warning scan, dead code check. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/GoldenReplayTests.cs; FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.S1.VISUAL_UPGRADE.ADDON_INSTALL.001 | DONE | Install 3 visual addons: Starlight (skybox), 3D Planet Generator + Atmosphere Shader, Kenney Space Kit. Copy to addons/, enable in project.godot, dotnet build passes. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: addons/starlight/; NEW: addons/planet_gen/; FOUND: project.godot |
+| GATE.S9.UI.TOOLTIP_SETUP.001 | DONE | Install Tooltips Pro addon, enable in project.godot, add one test tooltip to dock menu verify instantiation. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: addons/tooltips_pro/; FOUND: project.godot; FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S1.MISSION.CONTENT_WAVE.001 | DONE | Add 3 new MissionDefs to MissionContentV0.cs: hauling, combat patrol, multi-hop delivery. Each with 2-3 steps, binding tokens, credit rewards. Determinism test with all missions. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore/Content/MissionContentV0.cs; FOUND: SimCore/Entities/Mission.cs |
+| GATE.S4.CATALOG.TECH_WAVE.001 | DONE | Add 5+ new TechDefs to TechContentV0.cs across tiers 1-3: engine efficiency, cargo expansion, sensor range, shield boost, weapon calibration. Prerequisite chains. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore/Content/TechContentV0.cs; FOUND: SimCore.Tests/Content/ContentRegistryContractTests.cs |
+| GATE.S4.CATALOG.MODULE_WAVE.001 | DONE | Add 5+ new module entries in UpgradeContentV0.cs: engine mk2, utility scanner, cargo expander, shield generator, weapon laser mk2. Update WellKnownModuleIds. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore/Content/UpgradeContentV0.cs; FOUND: SimCore/Content/WellKnownModuleIds.cs |
+| GATE.S4.CATALOG.RECIPE_WAVE.001 | DONE | Add 3-5 new recipes in content registry: advanced fuel, electronics, composite armor. Update WellKnownRecipeIds + WellKnownGoodIds as needed. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore/Content/WellKnownRecipeIds.cs; FOUND: SimCore/Content/WellKnownGoodIds.cs |
+| GATE.S3.RISK_SINKS.HUD_INDICATOR.001 | DONE | Add travel risk/delay indicator to flight HUD: query GetDelayStatusV0 + GetTravelEtaV0 from SimBridge, display estimated delay and risk level for nearest lane gate. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd; FOUND: scripts/bridge/SimBridge.Risk.cs |
+| GATE.S1.VISUAL_UPGRADE.SKYBOX.001 | DONE | Wire Starlight procedural skybox into Playable_Prototype.tscn: replace or augment WorldEnvironment, configure star density and nebula. Proof: godot --headless --path . --quit | FOUND: scenes/Playable_Prototype.tscn; FOUND: project.godot |
+| GATE.S1.VISUAL_UPGRADE.WORLD_MESHES.001 | DONE | Apply planet generator to planet nodes in GalaxyView.cs, replace player ship mesh in player.tscn with Kenney model, replace station mesh in station.tscn. Proof: godot --headless --path . --quit | FOUND: scripts/view/GalaxyView.cs; FOUND: scenes/player.tscn; FOUND: scenes/station.tscn |
+| GATE.S9.UI.TOOLTIP_DOCK.001 | DONE | Add Tooltips Pro tooltips to market goods list (price, demand trend) and industry panels (research progress, refit time, maintenance status) in hero_trade_menu.gd. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S9.UI.TOOLTIP_HUD.001 | DONE | Add Tooltips Pro tooltips to flight HUD elements (hull/shield bars, credits, cargo) and combat readouts (weapon type, damage, range) in hud.gd. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd; FOUND: scripts/bridge/SimBridge.Combat.cs |
+| GATE.S1.MISSION.MULTI_PROOF.001 | DONE | Headless scenario test: accept mission 1, complete it, accept mission 2, verify state transitions. Extends SceneTree, boots main scene, drives through SimBridge. Proof: godot --headless --path . res://scripts/tests/test_multi_mission_v0.gd | NEW: scripts/tests/test_multi_mission_v0.gd; FOUND: SimCore/Content/MissionContentV0.cs |
+| GATE.S4.CATALOG.CONTENT_PROOF.001 | DONE | Determinism test: 1000-tick run with expanded tech tree + modules + recipes, verify golden hash stable, content registry digest unchanged across loads. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release | FOUND: SimCore.Tests/Content/ContentRegistryContractTests.cs; FOUND: SimCore.Tests/GoldenReplayTests.cs |
+| GATE.S1.VISUAL_UPGRADE.SCENE_PROOF.001 | DONE | Headless proof: boot Playable_Prototype.tscn, verify Starlight skybox node present, planet meshes non-null, Kenney models loaded. Proof: godot --headless --path . res://scripts/tests/test_visual_upgrade_v0.gd | NEW: scripts/tests/test_visual_upgrade_v0.gd; FOUND: scenes/Playable_Prototype.tscn |
+| GATE.S9.UI.TOOLTIP_PROOF.001 | DONE | Headless proof: boot main scene, verify TooltipManager autoload present, tooltip nodes instantiated on market panel. Proof: godot --headless --path . res://scripts/tests/test_tooltip_proof_v0.gd | NEW: scripts/tests/test_tooltip_proof_v0.gd; FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.X.HYGIENE.EPIC_REVIEW.006 | DONE | Epic audit: verify CAMERA_POLISH.V0, SPATIAL_AUDIO_DEPTH.V0, RISK_SINKS.V0, MAINT_SUSTAIN, TECH_INDUSTRIALIZE, UPGRADE_PIPELINE, UI_INDU against completed gates. Close completed epics in 54_EPICS.md. Recommend next anchor. Proof: grep consistency | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md; FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.EVAL.ADDON_COMPAT.001 | DONE | Addon compatibility audit: verify all 6 addons (PhantomCamera, DebugMenu, Starlight, PlanetGen, KenneyKit, TooltipsPro) coexist without conflicts. Check load order, performance impact, C# compatibility. Proof: written evaluation | FOUND: project.godot; FOUND: docs/56_SESSION_LOG.md |

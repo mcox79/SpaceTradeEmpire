@@ -39,6 +39,20 @@ func _ready() -> void:
 	_combat_label.position = Vector2(10, 160)
 	add_child(_combat_label)
 
+	# GATE.S9.UI.TOOLTIP_HUD.001: tooltips on HUD elements
+	if _credits_label:
+		_credits_label.tooltip_text = "Current credits available for trade and upgrades"
+	if _cargo_label:
+		_cargo_label.tooltip_text = "Items in cargo hold"
+	if _node_label:
+		_node_label.tooltip_text = "Current star system"
+	if _state_label:
+		_state_label.tooltip_text = "Ship state: Docked, InFlight, Traveling"
+	if _hull_bar:
+		_hull_bar.tooltip_text = "Hull integrity — reach 0 and your ship is destroyed"
+	if _shield_bar:
+		_shield_bar.tooltip_text = "Shield absorbs damage before hull takes hits"
+
 	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status label (below combat label)
 	_delay_label = Label.new()
 	_delay_label.name = "DelayLabel"
@@ -236,30 +250,42 @@ func _physics_process(_delta: float) -> void:
 		else:
 			_mission_panel.visible = false
 
-	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status display
+	# GATE.S3.RISK_SINKS.HUD_INDICATOR.001: delay/ETA + risk level display
 	if _delay_label != null and _bridge != null:
 		var show_delay := false
 		var delay_text := ""
-		# Check ship state — only show during transit.
+		var risk_color := Color(1.0, 0.6, 0.2, 1.0) # default orange
 		var ship_state: String = str(ps.get("ship_state_token", ""))
 		if ship_state == "Traveling" or ship_state == "FractureTraveling":
 			if _bridge.has_method("GetDelayStatusV0"):
 				var delay_info: Dictionary = _bridge.call("GetDelayStatusV0", "fleet_trader_1")
+				var ticks_rem: int = int(delay_info.get("ticks_remaining", 0))
 				if delay_info.get("delayed", false):
 					show_delay = true
-					delay_text = "DELAYED: %d ticks remaining" % int(delay_info.get("ticks_remaining", 0))
+					delay_text = "DELAYED: %d ticks" % ticks_rem
+					# Color by severity: red if > 5 ticks, orange otherwise
+					if ticks_rem > 5:
+						risk_color = Color(1.0, 0.2, 0.2, 1.0)
 			if _bridge.has_method("GetTravelEtaV0"):
 				var node_id: String = str(ps.get("current_node_id", ""))
 				var eta_info: Dictionary = _bridge.call("GetTravelEtaV0", "fleet_trader_1", node_id)
 				var total_ticks: int = int(eta_info.get("total_ticks", 0))
+				var delay_ticks: int = int(eta_info.get("delay_ticks", 0))
 				if total_ticks > 0:
 					show_delay = true
+					var eta_str := "ETA: %d ticks" % total_ticks
+					if delay_ticks > 0:
+						eta_str += " (+%d delay)" % delay_ticks
 					if delay_text.is_empty():
-						delay_text = "ETA: %d ticks" % total_ticks
+						delay_text = eta_str
 					else:
-						delay_text += " | ETA: %d ticks" % total_ticks
+						delay_text += " | " + eta_str
+					# Green if no delay, orange if some, red if heavy
+					if delay_ticks == 0:
+						risk_color = Color(0.3, 1.0, 0.3, 1.0)
 		_delay_label.visible = show_delay
 		_delay_label.text = delay_text
+		_delay_label.add_theme_color_override("font_color", risk_color)
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(show: bool) -> void:

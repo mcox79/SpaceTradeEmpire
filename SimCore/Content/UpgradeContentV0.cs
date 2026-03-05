@@ -78,6 +78,55 @@ public static class UpgradeContentV0
             InstallTicks = 10, // engine overhaul is most complex
             SpeedBonusPct = 20,
         },
+        // GATE.S4.CATALOG.MODULE_WAVE.001: 5 new modules
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.EngineMk2,
+            DisplayName = "Engine Mk2",
+            SlotKind = SlotKind.Engine,
+            CreditCost = 150,
+            TechPrerequisite = "engine_efficiency",
+            InstallTicks = 12,
+            SpeedBonusPct = 35,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.CargoBayMk2,
+            DisplayName = "Cargo Bay Mk2",
+            SlotKind = SlotKind.Cargo,
+            CreditCost = 90,
+            TechPrerequisite = "cargo_expansion",
+            InstallTicks = 6,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.ScannerMk2,
+            DisplayName = "Scanner Mk2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 110,
+            TechPrerequisite = "sensor_suite",
+            InstallTicks = 5,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.HullPlatingMk2,
+            DisplayName = "Hull Plating Mk2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 120,
+            TechPrerequisite = "reinforced_hull",
+            InstallTicks = 8,
+            HullBonusFlat = 40,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.LaserMk2,
+            DisplayName = "Laser Mk2",
+            SlotKind = SlotKind.Weapon,
+            CreditCost = 140,
+            TechPrerequisite = "weapon_calibration",
+            InstallTicks = 7,
+            DamageBonusPct = 30,
+        },
     };
 
     private static readonly Dictionary<string, ModuleDef> _byId;

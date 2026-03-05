@@ -11,6 +11,10 @@ public static class WellKnownGoodIds
     public const string Metal        = "metal";
     public const string Ore          = "ore";
 
+    // GATE.S4.CATALOG.RECIPE_WAVE.001: advanced production goods
+    public const string CompositeArmor = "composite_armor";
+    public const string Electronics    = "electronics";
+
     // GATE.S6.FRACTURE.CONTENT.001: fracture-exclusive goods (high value, only at fracture nodes).
     public const string AnomalySamples = "anomaly_samples";
     public const string ExoticCrystals = "exotic_crystals";

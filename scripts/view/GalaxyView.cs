@@ -182,6 +182,9 @@ public partial class GalaxyView : Node3D
         star.AddToGroup("LocalStar");
         _localSystemRoot.AddChild(star);
 
+        // 1b. Planet orbiting the star, using addon planet gen scenes.
+        SpawnLocalPlanetV0(nodeId);
+
         // 2. Station at seed-derived orbit position.
         SpawnStationV0(snap, nodeId);
 
@@ -547,6 +550,48 @@ public partial class GalaxyView : Node3D
         root.AddChild(mesh);
         root.Position = Vector3.Zero;
         return root;
+    }
+
+    // Spawn a procedural planet in the local system using planet gen addon scenes.
+    private void SpawnLocalPlanetV0(string nodeId)
+    {
+        int hash = nodeId.GetHashCode() & 0x7FFFFFFF;
+        var scenePath = PlanetScenes[hash % PlanetScenes.Length];
+
+        Node3D planetNode = null;
+        if (Godot.FileAccess.FileExists(scenePath))
+        {
+            var scene = GD.Load<PackedScene>(scenePath);
+            if (scene != null)
+            {
+                planetNode = scene.Instantiate<Node3D>();
+            }
+        }
+
+        if (planetNode == null)
+        {
+            // Fallback: simple sphere
+            var mesh = new MeshInstance3D
+            {
+                Mesh = new SphereMesh { Radius = 4.0f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(0.4f, 0.5f, 0.6f),
+                    Roughness = 0.8f
+                }
+            };
+            planetNode = new Node3D();
+            planetNode.AddChild(mesh);
+        }
+
+        // Wrap in container — planet scenes have ~400x scale baked into their root transform.
+        // Setting Scale on the scene node would replace it. Scaling a parent multiplies correctly.
+        var container = new Node3D();
+        container.Name = "LocalPlanet";
+        container.Scale = new Vector3(0.02f, 0.02f, 0.02f);
+        container.Position = DeriveOrbitPositionV0(nodeId + "_planet", 25.0f);
+        container.AddChild(planetNode);
+        _localSystemRoot.AddChild(container);
     }
 
     // GATE.S1.HERO_SHIP_LOOP.LANE_GATE_LABEL.001: displayName from NeighborDisplayName; falls back to neighborId.
@@ -936,24 +981,53 @@ public partial class GalaxyView : Node3D
         }
     }
 
+    // GATE.S1.VISUAL_UPGRADE.WORLD_MESHES.001: planet type scenes from planet generator addon
+    private static readonly string[] PlanetScenes = new[]
+    {
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_terrestrial.tscn",
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_ice.tscn",
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_sand.tscn",
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_lava.tscn",
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_gaseous.tscn",
+        "res://addons/naejimer_3d_planet_generator/scenes/planet_no_atmosphere.tscn",
+    };
+
     private static Node3D CreateNodeVisualV0(string nodeId)
     {
         var root = new Node3D();
         root.Name = "GalaxyNode_" + nodeId;
 
-        var mesh = new MeshInstance3D();
-        mesh.Name = "NodeMesh";
-        mesh.Mesh = new SphereMesh { Radius = 5.0f };
-
-        mesh.MaterialOverride = new StandardMaterial3D
+        // Try to use procedural planet from addon, fall back to SphereMesh
+        Node3D planetNode = null;
+        int hash = nodeId.GetHashCode() & 0x7FFFFFFF;
+        var scenePath = PlanetScenes[hash % PlanetScenes.Length];
+        if (Godot.FileAccess.FileExists(scenePath))
         {
-            AlbedoColor = new Color(0f, 0.6f, 1.0f),
-            EmissionEnabled = true,
-            Emission = new Color(0f, 0.6f, 1.0f),
-            EmissionEnergyMultiplier = 1.0f
-        };
+            var scene = GD.Load<PackedScene>(scenePath);
+            if (scene != null)
+            {
+                planetNode = scene.Instantiate<Node3D>();
+                planetNode.Name = "NodeMesh";
+                planetNode.Scale = new Vector3(5.0f, 5.0f, 5.0f);
+            }
+        }
 
-        root.AddChild(mesh);
+        if (planetNode == null)
+        {
+            var mesh = new MeshInstance3D();
+            mesh.Name = "NodeMesh";
+            mesh.Mesh = new SphereMesh { Radius = 5.0f };
+            mesh.MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0f, 0.6f, 1.0f),
+                EmissionEnabled = true,
+                Emission = new Color(0f, 0.6f, 1.0f),
+                EmissionEnergyMultiplier = 1.0f
+            };
+            planetNode = mesh;
+        }
+
+        root.AddChild(planetNode);
 
         var lbl = new Label3D
         {

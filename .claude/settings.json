@@ -18,7 +18,26 @@
       "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --script scripts/tests/test_experience_early_game_v0.gd)",
       "Bash(timeout 30 \"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --headless --script scripts/tests/test_experience_full_loop_v0.gd)",
       "Bash(git clone --depth 1 https://github.com/ramokz/phantom-camera \"D:/SGE/SpaceTradeEmpire/phantom-camera-temp\")",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo --filter \"EconomyStress\")"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo --filter \"EconomyStress\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ExplorationBot\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"ExplorationBot\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"Bot_DiagnosticReport_Seed42\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"Bot_FlagFrequency\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"ExplorationBot|EconomyStress|SystemConnectivity\")",
+      "Bash(timeout 30 powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1\" \"res://scripts/tests/test_visual_upgrade_v0.gd\")",
+      "Bash(timeout 30 powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1\" \"res://scripts/tests/test_mission_proof_v0.gd\")",
+      "Bash(timeout 30 powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1\" \"res://scripts/tests/test_playable_beat_v0.gd\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_headless_proofs.ps1\")",
+      "Bash(timeout 20 powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1\" \"res://scripts/tests/test_minimal_v0.gd\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"& ''D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1'' ''res://scripts/tests/test_minimal_v0.gd''\")",
+      "Bash(powershell -Command \"Stop-Process -Name Godot_v4.6-stable_mono_win64,testhost,dotnet -Force -ErrorAction SilentlyContinue; Get-Process | Where-Object {$_ProcessName -like ''*godot*''} | Format-Table ProcessName,Id\")",
+      "Bash(powershell -Command \"Stop-Process -Name ''Godot_v4.6-stable_mono_win64'' -Force -ErrorAction SilentlyContinue; tasklist | findstr -i godot\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\\\SGE\\\\SpaceTradeEmpire\\\\run_one_test.ps1\" \"res://scripts/tests/test_playable_beat_v0.gd\")",
+      "Bash(tasklist)",
+      "Bash(ls -d \"c:/Users/marsh/Documents/Space Trade Empire/addons/\"*/)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"Bot_FlagFrequency_10Seeds\")",
+      "Bash(done)",
+      "Bash(grep -v \"//\")"
     ],
     "ask": [
       "Bash(git push*)"

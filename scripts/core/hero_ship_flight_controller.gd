@@ -2,7 +2,6 @@ extends RigidBody3D
 
 # Signals expected by UI wiring (C#) in the playable prototype.
 # Declared here so ConnectPlayerSignals can bind without crashing.
-signal RequestDock
 signal RequestUndock
 
 # Ship flight controller v1 (force-based thrust + yaw turning).

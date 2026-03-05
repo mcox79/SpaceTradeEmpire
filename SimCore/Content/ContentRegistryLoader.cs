@@ -18,11 +18,16 @@ public static class ContentRegistryLoader
     // GATE.S4.INDU_STRUCT.CHAIN_CONTENT.001: added hull_plating good + 3 production chain recipes.
     // GATE.S6.FRACTURE.CONTENT.001: added anomaly_samples, exotic_crystals, salvaged_tech (fracture-exclusive, tier=3).
     // Digest must match docs/content/content_registry_v0.json exactly.
+    // GATE.S4.CATALOG.MODULE_WAVE.001: added cargo_bay_mk2, engine_mk2, hull_plating_mk2, scanner_mk2, weapon_laser_mk2.
+    // GATE.S4.CATALOG.RECIPE_WAVE.001: added electronics, composite_armor goods + 3 recipes.
+    // Chain depth: electronics=1 (raw inputs), composite_armor=3 (metal=2, electronics=1), salvage_refine=1.
     public const string DefaultRegistryJsonV0 =
         "{\n" +
         "  \"version\": 0,\n" +
         "  \"goods\": [\n" +
         "    { \"id\": \"anomaly_samples\" },\n" +
+        "    { \"id\": \"composite_armor\" },\n" +
+        "    { \"id\": \"electronics\" },\n" +
         "    { \"id\": \"exotic_crystals\" },\n" +
         "    { \"id\": \"food\" },\n" +
         "    { \"id\": \"fuel\" },\n" +
@@ -33,9 +38,19 @@ public static class ContentRegistryLoader
         "  ],\n" +
         "  \"recipes\": [\n" +
         "    {\n" +
+        "      \"id\": \"recipe_assemble_electronics\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"electronics\", \"qty\": 2 } ]\n" +
+        "    },\n" +
+        "    {\n" +
         "      \"id\": \"recipe_extract_ore\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"ore\", \"qty\": 5 } ]\n" +
+        "    },\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_forge_composite_armor\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"metal\", \"qty\": 3 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"composite_armor\", \"qty\": 1 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_forge_hull_plating\",\n" +
@@ -51,12 +66,22 @@ public static class ContentRegistryLoader
         "      \"id\": \"recipe_refine_ore_to_metal\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"ore\", \"qty\": 10 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
+        "    },\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_salvage_refine\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    }\n" +
         "  ],\n" +
         "  \"modules\": [\n" +
         "    { \"id\": \"cap_module_refinery\" },\n" +
+        "    { \"id\": \"cargo_bay_mk2\" },\n" +
+        "    { \"id\": \"engine_mk2\" },\n" +
+        "    { \"id\": \"hull_plating_mk2\" },\n" +
+        "    { \"id\": \"scanner_mk2\" },\n" +
         "    { \"id\": \"weapon_cannon_mk1\", \"base_damage\": 12 },\n" +
-        "    { \"id\": \"weapon_laser_mk1\", \"base_damage\": 10 }\n" +
+        "    { \"id\": \"weapon_laser_mk1\", \"base_damage\": 10 },\n" +
+        "    { \"id\": \"weapon_laser_mk2\", \"base_damage\": 15 }\n" +
         "  ]\n" +
         "}\n";
 

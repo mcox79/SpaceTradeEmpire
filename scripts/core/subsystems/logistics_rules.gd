@@ -1,7 +1,7 @@
 extends RefCounted
 
 # Returns the credit value of the completed transaction (or 0)
-static func handle_arrival(fleet, market, tick: int) -> int:
+static func handle_arrival(fleet, market, _tick: int) -> int:
 	if fleet.active_order_ref == null: return 0
 
 	var order = fleet.active_order_ref

@@ -14,20 +14,27 @@ var _maint_container: VBoxContainer = null
 
 func _ready():
 	visible = false
-	# Center the panel on screen using a MarginContainer.
-	var margin = MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_CENTER)
-	margin.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	margin.grow_vertical = Control.GROW_DIRECTION_BOTH
-	add_child(margin)
-
+	# Panel: 420px wide, horizontally centered, fills screen height with 40px margins.
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(420, 0)
-	margin.add_child(panel)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.offset_left = -210
+	panel.offset_right = 210
+	panel.anchor_top = 0.0
+	panel.anchor_bottom = 1.0
+	panel.offset_top = 40
+	panel.offset_bottom = -40
+	add_child(panel)
+
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(scroll)
 
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
-	panel.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	# Station title
 	_title_label = Label.new()
@@ -175,6 +182,9 @@ func _rebuild_rows() -> void:
 		btn_sell.text = "Sell 1"
 		btn_sell.pressed.connect(sell_one_v0.bind(good_id))
 		row.add_child(btn_sell)
+
+		# GATE.S9.UI.TOOLTIP_DOCK.001: add tooltip to good name label
+		_attach_tooltip_v0(lbl_id, "%s\nBuy: %d cr | Sell: %d cr | Stock: %d" % [good_id, buy_price, sell_price, stock])
 
 		_rows_container.add_child(row)
 
@@ -665,3 +675,7 @@ func _on_repair_site(site_id: String) -> void:
 	if bridge and bridge.has_method("RepairSiteV0"):
 		bridge.call("RepairSiteV0", site_id)
 		_rebuild_rows()
+
+# GATE.S9.UI.TOOLTIP_DOCK.001: attach tooltip to a Control via built-in tooltip_text
+func _attach_tooltip_v0(control: Control, text: String) -> void:
+	control.tooltip_text = text

@@ -404,13 +404,13 @@ func _ai_fire_v0() -> void:
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll SimBridge each frame for player hull <= 0.
 func _check_player_death_v0() -> void:
 	return  # Disabled: player death turned off while debugging fleet combat
-	var bridge = get_node_or_null("/root/SimBridge")
-	if bridge == null or not bridge.has_method("GetFleetCombatHpV0"):
-		return
-	var hp: Dictionary = bridge.call("GetFleetCombatHpV0", PLAYER_FLEET_ID)
-	var hull: int = hp.get("hull", -1)
-	if hull_max_is_set_v0(hp) and hull <= 0:
-		notify_player_killed_v0()
+	#var bridge = get_node_or_null("/root/SimBridge")
+	#if bridge == null or not bridge.has_method("GetFleetCombatHpV0"):
+	#	return
+	#var hp: Dictionary = bridge.call("GetFleetCombatHpV0", PLAYER_FLEET_ID)
+	#var hull: int = hp.get("hull", -1)
+	#if hull_max_is_set_v0(hp) and hull <= 0:
+	#	notify_player_killed_v0()
 
 func hull_max_is_set_v0(hp: Dictionary) -> bool:
 	return hp.get("hull_max", 0) > 0

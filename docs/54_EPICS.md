@@ -74,8 +74,9 @@ Primary anchors:
 - EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
 - EPIC.X.PRESSURE_FORMALIZATION.V0 [TODO]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
 - EPIC.X.EXPERIENCE_PROOF.V0 [TODO]: Automated experience validation suite — ExperienceObserver reads scene tree as structured JSON (HUD text, materials, particles, audio, camera state); ExperienceTimeline tracks trajectories over time (credits growth, state coverage, pacing); 5 headless scenario playthroughs (early game trade loop, combat integration, galaxy map, discovery, full 60s capstone); AestheticAudit with 14 visual quality flags (critical: hard-fail; non-critical: warn); ExperienceMetrics with diagnostic output pointing to investigate paths; SystemConnectivity C# invariant; reports/experience/latest_report.json for LLM-assisted review; enables Claude iteration loop without human-in-the-loop (gates: GATE.X.EXP.*)
-- EPIC.S1.CAMERA_POLISH.V0 [TODO]: Camera presentation polish v0 — Phantom Camera addon integration, flight/orbit/station follow modes, combat shake on turret fire and damage; GameShell-only, no SimCore changes (gates: GATE.S1.CAMERA.*)
-- EPIC.S1.SPATIAL_AUDIO_DEPTH.V0 [TODO]: Spatial audio depth v0 — engine thrust AudioStreamRandomizer, positional combat SFX (fire/impact), ambient station hum and lane drone; AudioStreamPlayer3D with 3D falloff; GameShell-only, no SimCore changes (gates: GATE.S1.SPATIAL_AUDIO.*)
+- EPIC.S1.CAMERA_POLISH.V0 [DONE]: Camera presentation polish v0 — Phantom Camera addon integration, flight/orbit/station follow modes, combat shake on turret fire and damage; GameShell-only, no SimCore changes (gates: GATE.S1.CAMERA.*)
+- EPIC.S1.SPATIAL_AUDIO_DEPTH.V0 [DONE]: Spatial audio depth v0 — engine thrust AudioStreamRandomizer, positional combat SFX (fire/impact), ambient station hum and lane drone; AudioStreamPlayer3D with 3D falloff; GameShell-only, no SimCore changes (gates: GATE.S1.SPATIAL_AUDIO.*)
+- EPIC.S1.VISUAL_UPGRADE.V0 [DONE]: Addon-powered visual upgrade v0 — Starlight procedural skybox, 3D planet generator with atmosphere shader, Kenney Space Kit models for player ship, stations, and fleet markers; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_UPGRADE.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -596,7 +597,7 @@ Epics:
 - EPIC.S3.LOGI.EXEC [DONE]: Logistics job model and execution pipeline (cargo, xfer, reserve, fulfill, cancel, determinism, save%load) (gates: GATE.LOGI.*, GATE.FLEET.ROUTE.001)
 - EPIC.S3.FLEET_ROLES [DONE]: Fleet roles and constraints (trader, hauler, patrol) that deterministically influence route-choice selection (gates: GATE.S3.FLEET.ROLES.001)
 - EPIC.S3.MARKET_ARB [DONE]: Automation that exploits spreads but is not money-printing (anti-exploit constraints enforced) (gates: GATE.S3.MARKET_ARB.001)
-- EPIC.S3.RISK_SINKS.V0 [TODO]: Predictable risk frictions for automation (delays%losses%insurance-like sinks) without requiring Slice 5 combat (gates: GATE.S3.RISK_SINKS.*)
+- EPIC.S3.RISK_SINKS.V0 [DONE]: Predictable risk frictions for automation (delays%losses%insurance-like sinks) without requiring Slice 5 combat (gates: GATE.S3.RISK_SINKS.*)
 - EPIC.S3.CAPACITY_SCARCITY [DONE]: Lane slot scarcity model (queueing v0) (gates: GATE.S3.CAPACITY_SCARCITY.001)
 - EPIC.S3.UI_DASH [DONE]: Dashboards for flows, margins, bottlenecks, intel quality (gates: GATE.S3.UI.DASH.001)
 - EPIC.S3.UI_LOGISTICS [DONE]: Logistics UI readout and incident timeline (Facts%Events, deterministic ordering) (gates: GATE.UI.LOGISTICS.001, GATE.UI.LOGISTICS.EVENT.001)
@@ -687,9 +688,9 @@ Epics:
   - Required outputs: IndustryShortfall style explain events when blocked (missing input, storage full, no capacity, no permit)
   - Evidence: a deterministic chain report over a fixed scenario (no timestamps; stable sort order)
 - EPIC.S4.CONSTR_PROG [TODO]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
-- EPIC.S4.MAINT_SUSTAIN [IN_PROGRESS]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
-- EPIC.S4.TECH_INDUSTRIALIZE [IN_PROGRESS]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
-- EPIC.S4.UPGRADE_PIPELINE [IN_PROGRESS]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
+- EPIC.S4.MAINT_SUSTAIN [DONE]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
+- EPIC.S4.TECH_INDUSTRIALIZE [DONE]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
+- EPIC.S4.UPGRADE_PIPELINE [DONE]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
 - EPIC.S4.CATALOG.V0 [DONE]: Starter Catalog v0 (goods%recipes%modules%weapons) shipped as content packs with deterministic validation (gates: GATE.S4.CATALOG.*)
   - Scope: create a small but expressive authored catalog that supports:
     - >= 3 viable early trade loops (Greatness spec requirement)
@@ -735,7 +736,7 @@ Epics:
     - incompatible module install attempt surfaces specific reason (missing slot, missing prereq, restricted)
   - Intervention verbs:
     - Industry: queue refit
-- EPIC.S4.UI_INDU [IN_PROGRESS]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
+- EPIC.S4.UI_INDU [DONE]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
 - EPIC.S4.NPC_INDU [TODO]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
 - EPIC.S4.PERF_BUDGET [TODO]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
 

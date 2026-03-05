@@ -55,8 +55,8 @@ func _seed_for_stream(stream_name: String) -> int:
 func _hash_stream_name(stream_name: String) -> int:
 	# Deterministic 32-bit FNV-1a over UTF-8 bytes.
 	var bytes: PackedByteArray = stream_name.to_utf8_buffer()
-	var hash: int = 0x811c9dc5
+	var h: int = 0x811c9dc5
 	for b in bytes:
-		hash = int((hash ^ int(b)) & 0xffffffff)
-		hash = int((hash * 0x01000193) & 0xffffffff)
-	return hash
+		h = int((h ^ int(b)) & 0xffffffff)
+		h = int((h * 0x01000193) & 0xffffffff)
+	return h

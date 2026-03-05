@@ -20,11 +20,11 @@ var active_markets: Dictionary = {}
 var active_orders: Array = []
 var _nav_graph: GalaxyGraph
 var info: InfoState
-var seed: int = 42
+var world_seed: int = 42
 var pending_player_rewards: int = 0
 
 func _init(seed_val: int = 42):
-	seed = seed_val
+	world_seed = seed_val
 	_generate_universe(seed_val)
 	_initialize_markets()
 	info = InfoState.new(galaxy_map)
@@ -193,7 +193,7 @@ func get_entity_counts() -> Dictionary:
 func get_world_hash() -> String:
 	# Deterministic SHA256 over deterministically ordered, deterministically formatted state.
 	var lines: Array[String] = []
-	lines.append("seed=" + str(seed))
+	lines.append("seed=" + str(world_seed))
 	lines.append("tick=" + str(current_tick))
 
 	# Galaxy: stars (sorted by id), lanes (sorted by u,v).

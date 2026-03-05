@@ -15,6 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Space Trade Empire"
+config/version="1.0.0"
 run/main_scene="res://scenes/playable_prototype.tscn"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 
@@ -22,7 +23,11 @@ config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 
 GameManager="res://scripts/core/game_manager.gd"
 SimBridge="res://scripts/bridge/SimBridge.cs"
+PhantomCameraManager="*res://addons/phantom_camera/scripts/managers/phantom_camera_manager.gd"
 DebugMenu="*res://addons/debug_menu/debug_menu.tscn"
+TooltipManager="*res://addons/tooltips_pro/scripts/tooltip_manager.gd"
+TooltipPlaceholderVariables="*res://addons/tooltips_pro/scripts/tooltip_placeholder_variables.gd"
+TooltipLinkData="*res://addons/tooltips_pro/scripts/tooltip_link_data.gd"
 
 [display]
 
@@ -36,7 +41,7 @@ project/assembly_name="Space Trade Empire"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/phantom_camera/plugin.cfg", "res://addons/debug_menu/plugin.cfg")
+enabled=PackedStringArray("res://addons/phantom_camera/plugin.cfg", "res://addons/debug_menu/plugin.cfg", "res://addons/tooltips_pro/plugin.cfg")
 
 [input]
 
