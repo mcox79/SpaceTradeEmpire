@@ -68,7 +68,7 @@ try {
 
   $queueVer = (Get-OptProp $q "queue_contract_version") + ""
   $queueOrd = (Get-OptProp $q "queue_ordering") + ""
-  if ($queueVer -ne "2.2") { throw "Queue contract mismatch: queue_contract_version='$queueVer' (expected '2.2')" }
+  if ($queueVer -notin @("2.2","2.3")) { throw "Queue contract mismatch: queue_contract_version='$queueVer' (expected 2.2 or 2.3)" }
   if ($queueOrd -ne "MULTIKEY_V1") { throw "Queue ordering mismatch: queue_ordering='$queueOrd' (expected 'MULTIKEY_V1')" }
 
   if ($null -ne (Get-OptProp $q "pending_completion")) {

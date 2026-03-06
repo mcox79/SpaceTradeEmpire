@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://bjxwpdcglsvok"]
+[gd_scene format=3 uid="uid://chc4lk875pmp2"]
 
 [ext_resource type="Script" path="res://scripts/core/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/view/GalaxyView.cs" id="2_view"]
@@ -14,14 +14,17 @@
 [ext_resource type="Script" path="res://addons/starlight/StarGenerator.gd" id="14_stargen"]
 [ext_resource type="Shader" path="res://addons/starlight/Star.gdshader" id="15_starshader"]
 [ext_resource type="Texture2D" path="res://addons/starlight/psf-textures/airy_disk.png" id="16_starpsf"]
+[ext_resource type="Script" path="res://scripts/view/galactic_sky.gd" id="17_galsky"]
+[ext_resource type="Script" path="res://scripts/ui/DiscoverySitePanel.gd" id="18_dsp"]
+[ext_resource type="PackedScene" path="res://scenes/npc_ship.tscn" id="19_npcship"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
-sky_top_color = Color(0.01, 0.01, 0.03, 1)
-sky_horizon_color = Color(0.02, 0.03, 0.08, 1)
+sky_top_color = Color(0.005, 0.005, 0.01, 1)
+sky_horizon_color = Color(0.005, 0.005, 0.01, 1)
 sky_curve = 0.15
 sky_energy_multiplier = 0.05
 ground_bottom_color = Color(0.005, 0.005, 0.01, 1)
-ground_horizon_color = Color(0.01, 0.015, 0.04, 1)
+ground_horizon_color = Color(0.005, 0.005, 0.01, 1)
 ground_curve = 0.02
 sun_angle_max = 0.0
 
@@ -51,18 +54,21 @@ light_color = Color(1.0, 0.96, 0.88, 1)
 light_energy = 0.8
 shadow_enabled = true
 
+[node name="GalacticSky" type="MeshInstance3D" parent="."]
+script = ExtResource("17_galsky")
+
 [node name="StarlightSky" type="Node3D" parent="."]
 script = ExtResource("14_stargen")
 shader = ExtResource("15_starshader")
 size = 5000.0
-star_count = 50000
+star_count = 10000
 rng_seed = 42
 shader_params/texture_emission = ExtResource("16_starpsf")
 shader_params/texture_emission_tint = Vector3(0.252, 0.157, 0.292)
 shader_params/blur_amount = 0.5
 shader_params/emission_energy = 2e+10
-shader_params/billboard_size_deg = 8.0
-shader_params/luminosity_cap = 5e+04
+shader_params/billboard_size_deg = 45.0
+shader_params/luminosity_cap = 4e+06
 shader_params/meters_per_lightyear = 100.0
 shader_params/color_gamma = 3.0
 shader_params/texture_gamma = 1000.0
@@ -76,6 +82,7 @@ script = ExtResource("1_gm")
 [node name="GalaxyView" type="Node3D" parent="." unique_id=1641435699]
 script = ExtResource("2_view")
 StationPrefab = ExtResource("5_station")
+NpcShipScene = ExtResource("19_npcship")
 
 [node name="GalaxyOverlayCamera" type="Camera3D" parent="."]
 current = false
@@ -209,4 +216,16 @@ max_value = 100.0
 value = 100.0
 show_percentage = false
 visible = false
+
+[node name="DiscoverySitePanel" type="PanelContainer" parent="HUD"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_right = -16.0
+offset_top = -200.0
+offset_bottom = -16.0
+script = ExtResource("18_dsp")
 

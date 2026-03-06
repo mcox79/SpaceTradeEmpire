@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ste://docs/gates/gates.schema.json",
-  "title": "STE Gate Queue (v2.2)",
+  "title": "STE Gate Queue (v2.3)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
   "properties": {
     "queue_contract_version": {
       "type": "string",
-      "const": "2.2"
+      "const": "2.3"
     },
     "queue_ordering": {
       "type": "string",
@@ -151,7 +151,9 @@
         "evidence_paths",
         "constraints",
         "completion_hint",
-        "escalation_rules"
+        "escalation_rules",
+        "hash_affecting",
+        "verify"
       ],
       "properties": {
         "gate_id": { "$ref": "#/$defs/gate_id" },
@@ -232,6 +234,17 @@
           "minItems": 0,
           "maxItems": 8,
           "items": { "$ref": "#/$defs/small_string" }
+        },
+        "hash_affecting": {
+          "type": "boolean",
+          "description": "True if gate touches SimCore tick logic (Systems/, SimEngine, Content/, Entities/, World/, Gen/). Determines whether determinism tests run."
+        },
+        "verify": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/small_string" },
+          "description": "Machine-executable acceptance commands. Exit 0 = PASS. Hash-affecting gates must include determinism filter."
         }
       }
     }

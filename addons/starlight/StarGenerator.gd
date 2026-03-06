@@ -11,6 +11,12 @@ extends "res://addons/starlight/StarManager.gd"
 ## If set to true, a Sol-like star will be placed at 0,0,0.
 @export var generate_at_origin: bool = false: set = _set_generate_at_origin
 
+@export_group("Game Plane Clearance")
+## Oblate ellipsoid around the play area where stars are rejected.
+## Only affects stars near the origin — distant horizon stars are unaffected.
+@export var play_clear_xz: float = 300.0   ## XZ radius (world units)
+@export var play_clear_y: float = 60.0     ## Y half-height (world units)
+
 
 var _regenerate = true
 
@@ -145,8 +151,17 @@ func sample_sphere(rng: RandomNumberGenerator, radius: float):
 			rng.randf_range(-1.0, 1.0),
 			rng.randf_range(-1.0, 1.0)
 		)
-		if pos.length_squared() <= 1.0:
-			return pos * radius
+		if pos.length_squared() > 1.0:
+			continue
+		# Reject stars inside the play-area ellipsoid (oblate: wide in XZ, thin in Y).
+		if play_clear_xz > 0.0:
+			var wx = pos.x * radius
+			var wy = pos.y * radius
+			var wz = pos.z * radius
+			var ell = (wx * wx + wz * wz) / (play_clear_xz * play_clear_xz) + (wy * wy) / (play_clear_y * play_clear_y)
+			if ell < 1.0:
+				continue
+		return pos * radius
 
 
 func random_category(rng: RandomNumberGenerator):

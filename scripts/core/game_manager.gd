@@ -71,6 +71,12 @@ var _last_research_tech_id: String = ""
 var _last_research_active: bool = false
 var _last_player_node_id: String = ""
 
+# GATE.S6.OUTCOME.CELEBRATION.001: Discovery completion celebration polling
+var _discovery_poll_timer: float = 0.0
+const DISCOVERY_POLL_INTERVAL: float = 2.0
+var _prev_discovery_statuses: Dictionary = {}  # discovery_id -> last known status
+var _lane_origin_node_id: String = ""  # GATE.S13.WORLD.GATE_ARRIVAL.001: track origin for gate positioning
+
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
 var time_accumulator: float = 0.0
@@ -217,6 +223,12 @@ func _process(delta):
 		_toast_poll_timer = 0.0
 		_poll_toast_events_v0()
 
+	# GATE.S6.OUTCOME.CELEBRATION.001: poll discovery completions for celebration
+	_discovery_poll_timer += float(delta)
+	if _discovery_poll_timer >= DISCOVERY_POLL_INTERVAL:
+		_discovery_poll_timer = 0.0
+		_poll_discovery_celebrations_v0()
+
 
 func _unhandled_input(event):
 	# Only the autoload instance handles input (avoid dual GameManager double-fire).
@@ -345,7 +357,10 @@ func on_proximity_dock_entered_v0(target: Node):
 		var htm2 = _find_hero_trade_menu()
 		if htm2 and htm2.has_method("open_market_v0"):
 			htm2.call("open_market_v0", dock_target_id)
-	elif dock_target_kind_token == "DISCOVERY_SITE":
+	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast
+	_check_first_dock_mission_prompt_v0()
+
+	if dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
 
@@ -377,6 +392,13 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 		return
 
 	print("UUIR|LANE_ENTER|" + neighbor_node_id)
+	# GATE.S13.WORLD.GATE_ARRIVAL.001: Remember origin for arrival positioning.
+	_lane_origin_node_id = _last_player_node_id
+
+	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake on warp entry
+	_apply_camera_shake_v0(0.4)
+	_flash_warp_screen_v0()
+
 	# GATE.S1.AUDIO.AMBIENT.001: warp whoosh on lane jump
 	if _sfx_warp_whoosh:
 		_sfx_warp_whoosh.play()
@@ -402,20 +424,37 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 		return
 
 	print("UUIR|LANE_EXIT|" + arrived_node_id)
+	# GATE.S14.TRANSIT.WARP_EFFECT.001: arrival rumble
+	_apply_camera_shake_v0(0.25)
+
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
 		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	_lane_cooldown_v0 = 2.0  # Prevent immediate re-trigger at destination lane gate.
 
+	# GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Show toasts for jump events on this transit.
+	_show_jump_event_toasts_v0(bridge)
+
 	# Rebuild local scene for the new star system.
 	var gv = _find_galaxy_view()
 	if gv and gv.has_method("RebuildLocalSystemV0"):
 		gv.call("RebuildLocalSystemV0", arrived_node_id)
 
-	# Reset hero ship to origin of new system.
+	# GATE.S13.WORLD.GATE_ARRIVAL.001: Position player at the gate that corresponds to the origin system.
 	if _hero_body and is_instance_valid(_hero_body):
-		_hero_body.global_position = Vector3.ZERO
+		var arrival_pos: Vector3 = Vector3.ZERO
+		if gv and gv.has_method("GetGatePositionV0") and not _lane_origin_node_id.is_empty():
+			arrival_pos = gv.call("GetGatePositionV0", _lane_origin_node_id)
+		# If gate position found, offset slightly inward so player faces the system center
+		if arrival_pos != Vector3.ZERO:
+			var inward_dir: Vector3 = -arrival_pos.normalized()
+			_hero_body.global_position = arrival_pos + inward_dir * 10.0
+			# Face toward system center
+			if _hero_body.is_inside_tree():
+				_hero_body.look_at(Vector3.ZERO, Vector3.UP)
+		else:
+			_hero_body.global_position = Vector3.ZERO
 		_hero_body.linear_velocity = Vector3.ZERO
 		_hero_body.angular_velocity = Vector3.ZERO
 
@@ -635,101 +674,46 @@ func _dock_target_id_v0(target: Node) -> String:
 
 	return str(target.name)
 
-# GATE.S1.AUDIO.SFX_CORE.001: Procedural synth tone generator (placeholder audio).
-func _generate_tone_v0(freq_hz: float, duration_sec: float, vol: float = 0.5, apply_decay: bool = true) -> AudioStreamWAV:
-	var sr := 22050
-	var n := int(sr * duration_sec)
-	if n < 1:
-		n = 1
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	for i in range(n):
-		var t := float(i) / sr
-		var s := sin(2.0 * PI * freq_hz * t) * vol
-		if apply_decay:
-			s *= 1.0 - float(i) / n
-		var s16 := int(clampf(s * 32767.0, -32768.0, 32767.0))
-		data[i * 2] = s16 & 0xFF
-		data[i * 2 + 1] = (s16 >> 8) & 0xFF
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sr
-	stream.stereo = false
-	stream.data = data
-	return stream
-
-func _generate_noise_v0(duration_sec: float, vol: float = 0.3) -> AudioStreamWAV:
-	var sr := 22050
-	var n := int(sr * duration_sec)
-	if n < 1:
-		n = 1
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-	for i in range(n):
-		var env := 1.0 - float(i) / n
-		var s := (rng.randf() * 2.0 - 1.0) * vol * env
-		var s16 := int(clampf(s * 32767.0, -32768.0, 32767.0))
-		data[i * 2] = s16 & 0xFF
-		data[i * 2 + 1] = (s16 >> 8) & 0xFF
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sr
-	stream.stereo = false
-	stream.data = data
-	return stream
-
+# GATE.S1.AUDIO.SFX_CORE.001: Load pre-baked WAV files for all SFX.
 func _init_sfx_v0() -> void:
 	_sfx_turret_fire = AudioStreamPlayer.new()
 	_sfx_turret_fire.name = "SfxTurretFire"
-	_sfx_turret_fire.stream = _generate_tone_v0(440.0, 0.1)
-	_sfx_turret_fire.volume_db = -6.0
+	_sfx_turret_fire.stream = load("res://assets/audio/laser_fire.wav")
+	_sfx_turret_fire.volume_db = -12.0
 	add_child(_sfx_turret_fire)
 
 	_sfx_bullet_hit = AudioStreamPlayer.new()
 	_sfx_bullet_hit.name = "SfxBulletHit"
-	_sfx_bullet_hit.stream = _generate_tone_v0(800.0, 0.05, 0.4)
-	_sfx_bullet_hit.volume_db = -6.0
+	_sfx_bullet_hit.stream = load("res://assets/audio/bullet_hit.wav")
+	_sfx_bullet_hit.volume_db = -10.0
 	add_child(_sfx_bullet_hit)
 
 	_sfx_explosion = AudioStreamPlayer.new()
 	_sfx_explosion.name = "SfxExplosion"
-	_sfx_explosion.stream = _generate_noise_v0(0.3)
-	_sfx_explosion.volume_db = -3.0
+	_sfx_explosion.stream = load("res://assets/audio/explosion.wav")
+	_sfx_explosion.volume_db = -6.0
 	add_child(_sfx_explosion)
 
-	var thrust_stream := _generate_tone_v0(80.0, 1.0, 0.15, false)
-	thrust_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	thrust_stream.loop_begin = 0
-	thrust_stream.loop_end = 22050
-	_sfx_engine_thrust = AudioStreamPlayer.new()
-	_sfx_engine_thrust.name = "SfxEngineThrust"
-	_sfx_engine_thrust.stream = thrust_stream
-	_sfx_engine_thrust.volume_db = -12.0
-	add_child(_sfx_engine_thrust)
+	# Engine thrust handled by EngineAudio node on player — no duplicate here
+	_sfx_engine_thrust = null
 
 	# GATE.S1.AUDIO.AMBIENT.001: ambient drone + event chimes
-	var drone := _generate_tone_v0(50.0, 2.0, 0.08, false)
-	drone.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	drone.loop_begin = 0
-	drone.loop_end = 44100
 	_sfx_ambient_drone = AudioStreamPlayer.new()
 	_sfx_ambient_drone.name = "SfxAmbientDrone"
-	_sfx_ambient_drone.stream = drone
+	_sfx_ambient_drone.stream = load("res://assets/audio/ambient_drone.wav")
 	_sfx_ambient_drone.volume_db = -18.0
 	add_child(_sfx_ambient_drone)
 	_sfx_ambient_drone.play()
 
 	_sfx_warp_whoosh = AudioStreamPlayer.new()
 	_sfx_warp_whoosh.name = "SfxWarpWhoosh"
-	_sfx_warp_whoosh.stream = _generate_noise_v0(0.5, 0.25)
-	_sfx_warp_whoosh.volume_db = -6.0
+	_sfx_warp_whoosh.stream = load("res://assets/audio/warp_whoosh.wav")
+	_sfx_warp_whoosh.volume_db = -12.0
 	add_child(_sfx_warp_whoosh)
 
 	_sfx_dock_chime = AudioStreamPlayer.new()
 	_sfx_dock_chime.name = "SfxDockChime"
-	_sfx_dock_chime.stream = _generate_tone_v0(880.0, 0.3, 0.3)
+	_sfx_dock_chime.stream = load("res://assets/audio/dock_chime.wav")
 	_sfx_dock_chime.volume_db = -6.0
 	add_child(_sfx_dock_chime)
 
@@ -819,3 +803,119 @@ func _toggle_combat_log_v0() -> void:
 		_combat_log_panel.visible = not _combat_log_panel.visible
 		if _combat_log_panel.visible and _combat_log_panel.has_method("refresh_v0"):
 			_combat_log_panel.call("refresh_v0")
+
+# GATE.S14.TRANSIT.WARP_EFFECT.001: White screen flash on warp entry.
+func _flash_warp_screen_v0() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 100
+	add_child(canvas)
+	var rect := ColorRect.new()
+	rect.color = Color(1.0, 1.0, 1.0, 0.8)
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(rect)
+	var tween := create_tween()
+	tween.tween_property(rect, "color:a", 0.0, 0.5)
+	tween.tween_callback(canvas.queue_free)
+
+# GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Track seen jump event IDs to avoid duplicate toasts.
+var _seen_jump_event_ids: Dictionary = {}
+
+# GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Show toasts for any new jump events recorded during lane transit.
+func _show_jump_event_toasts_v0(bridge: Node) -> void:
+	if bridge == null or not bridge.has_method("GetJumpEventsV0"):
+		return
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr == null or not toast_mgr.has_method("show_toast"):
+		return
+
+	var events: Array = bridge.call("GetJumpEventsV0")
+	for evt in events:
+		var event_id: String = str(evt.get("event_id", ""))
+		if event_id.is_empty() or _seen_jump_event_ids.has(event_id):
+			continue
+		_seen_jump_event_ids[event_id] = true
+
+		var kind: String = str(evt.get("kind", "none"))
+		var color: String
+		var message: String
+		match kind:
+			"salvage":
+				color = "#22AA22"
+				var good_id: String = str(evt.get("good_id", ""))
+				var qty: int = int(evt.get("quantity", 0))
+				message = "Lane Salvage: found %d x %s!" % [qty, good_id]
+			"signal":
+				color = "#2288DD"
+				message = "Lane Signal: anomaly detected nearby!"
+			"turbulence":
+				color = "#DD4444"
+				var hull_dmg: int = int(evt.get("hull_damage", 0))
+				message = "Lane Turbulence: hull took %d damage!" % hull_dmg
+			_:
+				continue
+
+		print("UUIR|JUMP_EVENT_TOAST|" + kind + "|" + event_id)
+		if toast_mgr.has_method("show_toast_colored"):
+			toast_mgr.call("show_toast_colored", message, 4.0, color)
+		else:
+			toast_mgr.call("show_toast", message, 4.0)
+
+# GATE.S14.STARTER.MISSION_PROMPT.001: Show jobs toast on first dock at star_0.
+var _first_dock_jobs_shown: bool = false
+func _check_first_dock_mission_prompt_v0() -> void:
+	if _first_dock_jobs_shown:
+		return
+	if dock_target_kind_token != "STATION" and dock_target_kind_token != "PLANET":
+		return
+	# Only at the starter system
+	if _last_player_node_id != "star_0":
+		return
+	_first_dock_jobs_shown = true
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Check the Jobs tab for available work!", 5.0)
+
+# GATE.S6.OUTCOME.CELEBRATION.001: Poll bridge for discovery transitions to Analyzed phase.
+func _poll_discovery_celebrations_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetDiscoverySnapshotV0"):
+		return
+	var node_id: String = _last_player_node_id
+	if node_id.is_empty():
+		return
+
+	var snap = bridge.call("GetDiscoverySnapshotV0", node_id)
+	if typeof(snap) != TYPE_DICTIONARY:
+		return
+
+	var discoveries = snap.get("discoveries", [])
+	if typeof(discoveries) != TYPE_ARRAY:
+		return
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+
+	for disc in discoveries:
+		if typeof(disc) != TYPE_DICTIONARY:
+			continue
+		var disc_id: String = str(disc.get("discovery_id", ""))
+		if disc_id.is_empty():
+			continue
+		var current_status: String = str(disc.get("status", ""))
+		var prev_status: String = str(_prev_discovery_statuses.get(disc_id, ""))
+		var credit_reward: int = int(disc.get("credit_reward", 0))
+
+		# Detect transition to Analyzed from a prior non-Analyzed state
+		if current_status == "Analyzed" and prev_status != "Analyzed" and not prev_status.is_empty():
+			print("CELEBRATION|DISCOVERY_COMPLETE|" + disc_id)
+			if toast_mgr and toast_mgr.has_method("show_toast"):
+				var msg: String
+				if credit_reward > 0:
+					msg = "Discovery Complete: %s — +%d credits" % [disc_id, credit_reward]
+				else:
+					msg = "Discovery Complete: %s" % disc_id
+				if toast_mgr.has_method("show_toast_colored"):
+					toast_mgr.call("show_toast_colored", msg, 6.0, "#FFD700")
+				else:
+					toast_mgr.call("show_toast", msg, 6.0)
+
+		_prev_discovery_statuses[disc_id] = current_status

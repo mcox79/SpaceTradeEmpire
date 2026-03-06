@@ -1,9 +1,11 @@
 using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
+using SimCore.Gen;
 using SimCore.Systems;
 using SimCore.Tweaks;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimCore.Tests.Systems;
 
@@ -201,5 +203,75 @@ public sealed class NpcTradeSystemTests
         Assert.That(state.Markets["node_b"].Inventory["fuel"],
             Is.GreaterThanOrEqualTo(5),
             "Fuel stock at node B should not decrease (NPC delivers goods)");
+    }
+
+    // ── GATE.S14.NPC_ALIVE.FLEET_TESTS.001: Fleet survival + role diversity ──
+
+    [Test]
+    public void WorldLoader_Apply_Preserves_AiFleets()
+    {
+        // Full galaxy gen → WorldLoader.Apply should result in more than just the player fleet.
+        var sim = new SimKernel(42);
+        GalaxyGenerator.Generate(sim.State, 20, 100f);
+
+        int totalFleets = sim.State.Fleets.Count;
+        int aiFleets = sim.State.Fleets.Values.Count(f =>
+            !string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal));
+
+        Assert.That(totalFleets, Is.GreaterThan(1), "Should have more than just the player fleet");
+        Assert.That(aiFleets, Is.GreaterThan(0), "AI fleets should exist after generation");
+    }
+
+    [Test]
+    public void FleetSeed_RoleDiversity_WithinTolerance()
+    {
+        var sim = new SimKernel(42);
+        GalaxyGenerator.Generate(sim.State, 20, 100f);
+
+        var aiFleets = sim.State.Fleets.Values
+            .Where(f => !string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal))
+            .ToList();
+
+        int traders = aiFleets.Count(f => f.Role == FleetRole.Trader);
+        int haulers = aiFleets.Count(f => f.Role == FleetRole.Hauler);
+        int patrols = aiFleets.Count(f => f.Role == FleetRole.Patrol);
+        int total = aiFleets.Count;
+
+        Assert.That(total, Is.GreaterThan(5), "Need enough AI fleets for role distribution check");
+
+        double traderPct = (double)traders / total;
+        double haulerPct = (double)haulers / total;
+        double patrolPct = (double)patrols / total;
+
+        // Allow ±20pp tolerance: target 60/25/15
+        Assert.That(traderPct, Is.InRange(0.35, 0.85), $"Trader ratio {traderPct:P0} out of range");
+        Assert.That(haulerPct, Is.InRange(0.05, 0.50), $"Hauler ratio {haulerPct:P0} out of range");
+        Assert.That(patrolPct, Is.InRange(0.01, 0.40), $"Patrol ratio {patrolPct:P0} out of range");
+    }
+
+    [Test]
+    public void FleetSeed_TradersMove_After100Ticks()
+    {
+        var sim = new SimKernel(42);
+        GalaxyGenerator.Generate(sim.State, 20, 100f);
+
+        for (int i = 0; i < 100; i++)
+            sim.Step();
+
+        var aiTraders = sim.State.Fleets.Values
+            .Where(f => f.Role == FleetRole.Trader &&
+                        !string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal))
+            .ToList();
+
+        int active = aiTraders.Count(f =>
+            f.Cargo.Count > 0 ||
+            !string.IsNullOrEmpty(f.FinalDestinationNodeId) ||
+            !string.IsNullOrEmpty(f.DestinationNodeId));
+
+        double activePct = aiTraders.Count > 0 ? (double)active / aiTraders.Count : 0;
+
+        Assert.That(activePct, Is.GreaterThanOrEqualTo(0.30),
+            $"At least 30% of traders should be active after 100 ticks. " +
+            $"Active: {active}/{aiTraders.Count} ({activePct:P0})");
     }
 }

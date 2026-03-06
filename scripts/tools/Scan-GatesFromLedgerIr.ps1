@@ -435,7 +435,7 @@ if ($null -ne $prebuiltTasksArr) {
   if ($Mode -eq "FULL") {
     $genUtc = Get-GitCommitIsoUtc $ctx.Head
     $full = [ordered]@{
-      queue_contract_version = "2.2"
+      queue_contract_version = "2.3"
       queue_ordering = $queueOrderingConst
       generated_utc = $genUtc
       queue_intent = ("Stage 2 passthrough (IR already contains tasks) at HEAD " + $ctx.Head)
@@ -945,7 +945,7 @@ $jsonOut = ($tasks | ConvertTo-Json -Depth 50)
 if ($Mode -eq "FULL") {
   $genUtc = Get-GitCommitIsoUtc $ctx.Head
 
-  $contractVersion = "2.2"
+  $contractVersion = "2.3"
   $queueIntent = "Stage 2 queue built from Stage 1 IR and repo truth at HEAD " + $ctx.Head
 
   $full = [ordered]@{

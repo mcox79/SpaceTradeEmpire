@@ -43,7 +43,7 @@ public sealed class FleetBindingContractTests
                 var k = KernelWithWorld001();
                 var s = k.State;
 
-                Assert.That(s.Fleets.Count, Is.EqualTo(1));
+                Assert.That(s.Fleets.Count, Is.GreaterThanOrEqualTo(1));
                 Assert.That(s.Fleets.ContainsKey("fleet_trader_1"), Is.True);
 
                 var f = s.Fleets["fleet_trader_1"];

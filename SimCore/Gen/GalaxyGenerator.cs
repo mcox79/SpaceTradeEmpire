@@ -285,6 +285,84 @@ public static class GalaxyGenerator
         return factions;
     }
 
+    // GATE.S15.FEEL.FACTION_TERRITORY.001: BFS from each faction's HomeNodeId (depth ≤3).
+    // Assigns ControlledNodeIds to each faction. Contested nodes (reachable by 2+ factions) go
+    // to the faction with the shortest BFS distance; ties broken by FactionId (Ordinal).
+    public static void ComputeFactionTerritories(IList<WorldFaction> factions, IReadOnlyList<WorldEdge> edges)
+    {
+        if (factions is null || factions.Count == 0) return;
+        if (edges is null || edges.Count == 0)
+        {
+            // No edges: each faction controls only its home node.
+            foreach (var f in factions)
+            {
+                f.ControlledNodeIds = new List<string>();
+                if (!string.IsNullOrEmpty(f.HomeNodeId))
+                    f.ControlledNodeIds.Add(f.HomeNodeId);
+            }
+            return;
+        }
+
+        // Build adjacency list from edges (bidirectional).
+        var adj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var e in edges)
+        {
+            if (string.IsNullOrEmpty(e.FromNodeId) || string.IsNullOrEmpty(e.ToNodeId)) continue;
+            if (!adj.ContainsKey(e.FromNodeId)) adj[e.FromNodeId] = new List<string>();
+            if (!adj.ContainsKey(e.ToNodeId)) adj[e.ToNodeId] = new List<string>();
+            adj[e.FromNodeId].Add(e.ToNodeId);
+            adj[e.ToNodeId].Add(e.FromNodeId);
+        }
+
+        // BFS each faction up to depth 3. Track (nodeId -> (factionId, depth)).
+        var claims = new Dictionary<string, (string FactionId, int Depth)>(StringComparer.Ordinal);
+        const int maxDepth = 3;
+
+        foreach (var f in factions.OrderBy(f => f.FactionId, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrEmpty(f.HomeNodeId)) continue;
+
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            var queue = new Queue<(string NodeId, int Depth)>();
+            queue.Enqueue((f.HomeNodeId, 0));
+            visited.Add(f.HomeNodeId);
+
+            while (queue.Count > 0)
+            {
+                var (nodeId, depth) = queue.Dequeue();
+
+                // Claim: closer faction wins; tie-break by FactionId (Ordinal asc).
+                if (!claims.TryGetValue(nodeId, out var existing) ||
+                    depth < existing.Depth ||
+                    (depth == existing.Depth && string.CompareOrdinal(f.FactionId, existing.FactionId) < 0))
+                {
+                    claims[nodeId] = (f.FactionId, depth);
+                }
+
+                if (depth >= maxDepth) continue;
+
+                if (adj.TryGetValue(nodeId, out var neighbors))
+                {
+                    foreach (var neighbor in neighbors.OrderBy(n => n, StringComparer.Ordinal))
+                    {
+                        if (visited.Add(neighbor))
+                            queue.Enqueue((neighbor, depth + 1));
+                    }
+                }
+            }
+        }
+
+        // Assign controlled nodes to each faction.
+        foreach (var f in factions)
+        {
+            f.ControlledNodeIds = claims
+                .Where(kv => string.Equals(kv.Value.FactionId, f.FactionId, StringComparison.Ordinal))
+                .Select(kv => kv.Key)
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToList();
+        }
+    }
+
     internal static uint Fnv1a32Utf8(string s)
     {
         unchecked

@@ -26,5 +26,8 @@ namespace SimCore.Tweaks
         public const int Stage1DurationTicks = 120;
         public const string Stage1OutGood = "cap_module";
         public const int Stage1OutQty = 1;
+
+        // GATE.S8.TECH_EFFECTS.EFFICIENCY.001: advanced_refining production boost divisor (effBps / N = ~10% bonus).
+        public const int ProductionEfficiencyBoostDivisor = 10;
     }
 }

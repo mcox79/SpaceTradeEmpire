@@ -16,6 +16,68 @@ public partial class SimBridge
     private Godot.Collections.Array _cachedTradeRoutesV0 = new();
     private Godot.Collections.Array _cachedPriceIntelV0 = new();
 
+    // GATE.S6.OUTCOME.REWARD_BRIDGE.001: Discovery outcome bridge — completed anomaly encounters with rewards.
+    private Godot.Collections.Array _cachedDiscoveryOutcomesV0 = new();
+
+    /// <summary>
+    /// Returns completed anomaly encounters (discovery outcomes) from state.AnomalyEncounters.
+    /// Filters for entries where Status == Completed.
+    /// Each dict: encounter_id, discovery_id, family, credit_reward,
+    ///            loot_items (Array of {good_id, qty} dicts), discovery_lead_node_id, node_id.
+    /// Sorted by encounter_id for determinism.
+    /// Nonblocking: returns last cached snapshot if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetDiscoveryOutcomesV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+
+            if (state.AnomalyEncounters is null || state.AnomalyEncounters.Count == 0)
+            {
+                lock (_snapshotLock) { _cachedDiscoveryOutcomesV0 = arr; }
+                return;
+            }
+
+            var completed = state.AnomalyEncounters.Values
+                .Where(e => e.Status == AnomalyEncounterStatus.Completed)
+                .OrderBy(e => e.EncounterId, StringComparer.Ordinal);
+
+            foreach (var enc in completed)
+            {
+                var lootArr = new Godot.Collections.Array();
+                if (enc.LootItems is not null)
+                {
+                    foreach (var kv in enc.LootItems.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                    {
+                        var lootItem = new Godot.Collections.Dictionary
+                        {
+                            ["good_id"] = kv.Key,
+                            ["qty"]     = kv.Value,
+                        };
+                        lootArr.Add(lootItem);
+                    }
+                }
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["encounter_id"]            = enc.EncounterId,
+                    ["discovery_id"]            = enc.DiscoveryId,
+                    ["family"]                  = enc.Family,
+                    ["credit_reward"]           = enc.CreditReward,
+                    ["loot_items"]              = lootArr,
+                    ["discovery_lead_node_id"]  = enc.DiscoveryLeadNodeId,
+                    ["node_id"]                 = enc.NodeId,
+                };
+                arr.Add(d);
+            }
+
+            lock (_snapshotLock) { _cachedDiscoveryOutcomesV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedDiscoveryOutcomesV0; }
+    }
+
     // GATE.S10.TRADE_INTEL.BRIDGE.001
     /// <summary>
     /// Returns all discovered trade routes from state.Intel.TradeRoutes.
@@ -126,6 +188,76 @@ public partial class SimBridge
             range = IntelSystem.GetScanRange(state);
         });
         return range;
+    }
+
+    // GATE.S6.REVEAL.DISCOVERY_SNAP.001: Discovery site snapshot for a given node.
+    private Godot.Collections.Array _cachedDiscoverySnapshotV0 = new();
+
+    /// <summary>
+    /// Returns discovery site dictionaries for the given node.
+    /// Each dict: site_id (string), phase (string: SEEN/SCANNED/ANALYZED), kind (string, empty if unavailable).
+    /// Sorted by site_id for determinism.
+    /// Nonblocking: returns last cached snapshot if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetDiscoverySnapshotV0(string nodeId)
+    {
+        var nId = nodeId ?? "";
+
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+
+            if (state.Intel?.Discoveries is null || !state.Nodes.TryGetValue(nId, out var node))
+            {
+                lock (_snapshotLock) { _cachedDiscoverySnapshotV0 = arr; }
+                return;
+            }
+
+            var ids = node.SeededDiscoveryIds;
+            if (ids is null || ids.Count == 0)
+            {
+                lock (_snapshotLock) { _cachedDiscoverySnapshotV0 = arr; }
+                return;
+            }
+
+            // Collect discovery dicts, sorted by site_id for determinism.
+            var sorted = new List<(string id, string phase, string kind)>();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                if (string.IsNullOrEmpty(id)) continue;
+
+                string phase = "SEEN";
+                if (state.Intel.Discoveries.TryGetValue(id, out var disc))
+                {
+                    phase = disc.Phase switch
+                    {
+                        SimCore.Entities.DiscoveryPhase.Scanned => "SCANNED",
+                        SimCore.Entities.DiscoveryPhase.Analyzed => "ANALYZED",
+                        _ => "SEEN",
+                    };
+                }
+
+                sorted.Add((id, phase, ""));
+            }
+
+            sorted.Sort((a, b) => string.Compare(a.id, b.id, System.StringComparison.Ordinal));
+
+            foreach (var (id, phase, kind) in sorted)
+            {
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["site_id"] = id,
+                    ["phase"]   = phase,
+                    ["kind"]    = kind,
+                };
+                arr.Add(d);
+            }
+
+            lock (_snapshotLock) { _cachedDiscoverySnapshotV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedDiscoverySnapshotV0; }
     }
 
     // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Price history query for trend charts.

@@ -433,3 +433,80 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-05, main, GATE.S12.FLEET_SUBSTANCE.HEADLESS_PROOF.001 PASS (8/8 checks: FleetRoleBridge, PlayerStats, Milestones, FormatDisplayName, ProgramSnapshot, NpcTradeRoutes, NpcPatrolRoutes, EmpireDashboard). Evidence: scripts/tests/test_living_galaxy_proof_v0.gd
 - 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.011 PASS (Closed 4 epics: S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG, S6.MAP_GALAXY. 3 marked IN_PROGRESS). Evidence: docs/54_EPICS.md
 - 2026-03-05, main, GATE.X.EVAL.VISUAL_AUDIT.001 PASS (Visual audit: fleet substance, NPC flow, UX polish documented with recommendations). Evidence: docs/generated/eval_visual_audit_001.txt
+- 2026-03-05, main, GATE.S13.CAMERA.TOPDOWN.001 PASS (Top-down camera: offset (0,45,30), follow_distance 54, FOV swell 2.0). Evidence: scripts/view/player_follow_camera.gd
+- 2026-03-05, main, GATE.S13.CAMERA.PERSIST.001 PASS (Camera holds rotation on mouse release, removed snap-back lerp). Evidence: scripts/view/player_follow_camera.gd
+- 2026-03-05, main, GATE.S13.CONTROLS.TURNING.001 PASS (TURN_TORQUE 10.0, ANGULAR_DAMPING 6.0). Evidence: scripts/core/hero_ship_flight_controller.gd
+- 2026-03-05, main, GATE.S13.CONTROLS.SPEED.001 PASS (MAX_SPEED 18.0, LINEAR_DAMPING 1.5). Evidence: scripts/core/hero_ship_flight_controller.gd
+- 2026-03-05, main, GATE.S13.COMBAT.EXPLOSION_SCALE.001 PASS (Explosion particles halved, scale 0.15-0.4). Evidence: scripts/bullet.gd
+- 2026-03-05, main, GATE.S13.LABELS.CLAMP.001 PASS (Label3D distance clamping: scale <15u, fade >60u). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S13.MAP.CENTER.001 PASS (Galaxy map camera at (playerX,60,playerZ) looking straight down). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S13.LABELS.HOSTILE.001 PASS (Fleet labels show Hostile in red). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S13.NPC.VISIBLE.001 PASS (AI orbits 15-20u in ENGAGE, patrol_speed 6.0). Evidence: scripts/core/fleet_ai.gd
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.012 PASS (554 tests pass, 0 errors, golden hashes stable). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-05, main, GATE.S13.DOCK.TABS.001 PASS (3-tab dock menu: Market/Jobs/Services). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S13.DOCK.HIDE_EMPTY.001 PASS (Hide empty sections: trade routes, construction, refit, maintenance). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S13.DOCK.CONTEXT.001 PASS (Station context: Produces X,Y from GetNodeIndustryV0). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S13.EMPIRE.GATING.001 PASS (Progressive tab visibility: Trade/Production/Automation/Exploration gated). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S13.EMPIRE.OVERVIEW.001 PASS (Contextual overview messages, removed tick count). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S13.UX.TERMINOLOGY.001 PASS (Programs->Automation, Intel->Exploration in dock+dashboard). Evidence: scripts/ui/hero_trade_menu.gd, scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S13.GATES.DIRECTION.001 PASS (Gates face destination, positioned in direction of neighbor). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S13.GATES.ARRIVAL.001 PASS (Arrive at gate matching origin system, face center). Evidence: scripts/core/game_manager.gd, scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.012 PASS (Feel Overhaul epic audit, S13 epic active). Evidence: docs/54_EPICS.md
+- 2026-03-05, main, GATE.X.EVAL.FEEL_AUDIT.001 PASS (Playtest feedback: 13 Fixed, 0 Improved, 7 Deferred). Evidence: scripts/view/GalaxyView.cs, scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S14.NPC_ALIVE.FLEET_SEED.001 PASS (NPC fleet survival: SeedAiFleetsFromState in WorldLoader, role diversity 60/25/15). Evidence: SimCore/World/WorldLoader.cs, SimCore/Gen/StarNetworkGen.cs
+- 2026-03-05, main, GATE.S14.NPC_ALIVE.FLEET_TESTS.001 PASS (3 contract tests: fleet survival, role distribution, trader movement). Evidence: SimCore.Tests/Systems/NpcTradeSystemTests.cs
+- 2026-03-05, main, GATE.S14.NPC_ALIVE.EXPLORATION_BOT.001 PASS (ExplorationBot inherently validates fleet activity; NO_AI_FLEETS flag resolved by FLEET_SEED). Evidence: SimCore.Tests/ExperienceProof/ExplorationBot.cs
+- 2026-03-05, main, GATE.S14.TRANSIT.WARP_EFFECT.001 PASS (Camera shake 0.4 + white flash on enter, shake 0.25 on arrival). Evidence: scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S14.GATE_VISUAL.KENNEY_MODEL.001 PASS (gate_complex.glb loaded, scale 3.0, orb fallback). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S14.STAR.TINT_FIX.001 PASS (Dark color R*0.3/G*0.25/B*0.2, bright B*0.5). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S14.STAR.STARTER_GUARANTEE.001 PASS (star_0 forced ClassG). Evidence: SimCore/Gen/PlanetInitGen.cs
+- 2026-03-05, main, GATE.S14.ASTEROID.SHAPE_VARIETY.001 PASS (Sphere/Box/Cylinder by hash, scale 0.1-0.6u, dark variant). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S14.DOCK.VISUAL_FRAME.001 PASS (StyleBoxFlat: navy bg, 2px blue border, 6px corners). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S14.STARLIGHT.BRIGHTNESS.001 PASS (luminosity_cap 2e+07, emission_energy 5e+10). Evidence: scenes/Playable_Prototype.tscn
+- 2026-03-05, main, GATE.S14.DOCK.PROXIMITY_TIGHTEN.001 PASS (Station box 7,4,7; planet sphere radius 6). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S14.HUD.DOCK_CLEANUP.001 PASS (Mission panel hidden when docked). Evidence: scripts/ui/hud.gd
+- 2026-03-05, main, GATE.S14.MAP.PLAYER_INDICATOR.001 PASS (Pulsing green ring + YOU label on galaxy map). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S14.STARTER.MISSION_PROMPT.001 PASS (Toast "Check the Jobs tab" on first dock at star_0). Evidence: scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S14.GOLDEN.HASH_UPDATE.001 PASS (Golden + LongRun hashes updated, 557 tests pass). Evidence: SimCore.Tests/GoldenReplayTests.cs, SimCore.Tests/Determinism/LongRunWorldHashTests.cs
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.013 PASS (557 tests pass, 0 errors, 5 pre-existing warnings). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.013 PASS (S14.ALIVE_GALAXY IN_PROGRESS, no epics to close yet). Evidence: docs/54_EPICS.md
+- 2026-03-06, main, GATE.X.HYGIENE.REPO_HEALTH.014 PASS (585 tests pass, 0 errors, 0 warnings. Tranche 14 baseline). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-06, main, GATE.S6.REVEAL.SCAN_CMD.001 PASS (ScanDiscoveryCommand advances Seen->Scanned->Analyzed via IntelSystem.ApplyScan/ApplyAnalyze. 4 NUnit tests). Evidence: SimCore/Commands/ScanDiscoveryCommand.cs, SimCore.Tests/Commands/ScanDiscoveryCommandTests.cs
+- 2026-03-06, main, GATE.S6.ANOMALY.ENCOUNTER_MODEL.001 PASS (AnomalyEncounter entity with family, difficulty, status, loot. 3 NUnit tests). Evidence: SimCore/Entities/AnomalyEncounter.cs, SimCore.Tests/Systems/AnomalyEncounterTests.cs
+- 2026-03-06, main, GATE.S15.FEEL.JUMP_EVENT_SYS.001 PASS (JumpEventSystem: salvage/signal/turbulence on lane arrival. ArrivalsThisTick transient. 4 NUnit tests). Evidence: SimCore/Systems/JumpEventSystem.cs, SimCore/Tweaks/JumpEventTweaksV0.cs, SimCore.Tests/Systems/JumpEventSystemTests.cs
+- 2026-03-06, main, GATE.S15.FEEL.STAR_LIGHTING.001 PASS (DirectionalLight3D tinted by star class: O=blue-white through M=deep-red). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-06, main, GATE.S6.REVEAL.DISCOVERY_SNAP.001 PASS (GetDiscoverySnapshotV0 returns site_id, phase, kind per node). Evidence: scripts/bridge/SimBridge.TradeIntel.cs
+- 2026-03-06, main, GATE.S15.FEEL.NPC_PROXIMITY.001 PASS (RefreshLocalFleetsV0 polls every 2s, diffs fleet markers for NPC arrivals/departures). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-06, main, GATE.S6.ANOMALY.REWARD_LOOT.001 PASS (GenerateLootByFamily: DERELICT->salvaged_tech, RUIN->anomaly_samples+credits, SIGNAL->discovery lead. 5 NUnit tests). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs, SimCore.Tests/Systems/RewardLootTests.cs
+- 2026-03-06, main, GATE.S6.OUTCOME.REWARD_MODEL.001 PASS (DiscoveryOutcomeSystem: kind-specific rewards from discovery ID. RESOURCE_POOL_MARKER->RUIN, CORRIDOR_TRACE->SIGNAL. 7 NUnit tests). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs, SimCore.Tests/Systems/DiscoveryOutcomeTests.cs
+- 2026-03-06, main, GATE.S15.FEEL.FACTION_TERRITORY.001 PASS (ComputeFactionTerritories BFS depth 3. ControlledNodeIds on WorldFaction. 5 NUnit tests). Evidence: SimCore/Gen/GalaxyGenerator.cs, SimCore/Schemas/WorldDefinition.cs, SimCore.Tests/Gen/FactionTerritoryTests.cs
+- 2026-03-06, main, GATE.S6.ANOMALY.ENCOUNTER_BRIDGE.001 PASS (GetAnomalyEncounterSnapshotV0 + GetActiveEncountersV0 in SimBridge.Combat.cs). Evidence: scripts/bridge/SimBridge.Combat.cs
+- 2026-03-06, main, GATE.S6.REVEAL.DISCOVERY_HUD.001 PASS (DiscoverySitePanel.gd: phase icons, Scan button, progressive disclosure, 1s poll). Evidence: scripts/ui/DiscoverySitePanel.gd, scenes/playable_prototype.tscn
+- 2026-03-06, main, GATE.S15.FEEL.AMBIENT_SYSTEM.001 PASS (GPUParticles3D: star dust 80 particles + asteroid belt dust 30 particles). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-06, main, GATE.S15.FEEL.FACTION_LABELS.001 PASS (GetFactionMapV0 bridge query + Label3D faction names. Trader=green, Miner=orange, Pirate=red). Evidence: scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.Ui.cs
+- 2026-03-06, main, GATE.S15.FEEL.JUMP_EVENT_TOAST.001 PASS (GetJumpEventsV0 bridge + toast on lane arrival. Salvage=green, Signal=blue, Turbulence=red). Evidence: scripts/bridge/SimBridge.cs, scripts/core/game_manager.gd
+- 2026-03-06, main, GATE.S6.ANOMALY.ENCOUNTER_UI.001 PASS (Anomaly encounters in dock Services tab with family icon, difficulty, Engage button). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-06, main, GATE.S6.OUTCOME.CELEBRATION.001 PASS (Gold toast on discovery Analyzed transition. 2s poll with phase tracking). Evidence: scripts/core/game_manager.gd, scripts/ui/toast_manager.gd
+- 2026-03-06, main, GATE.S6.OUTCOME.REWARD_BRIDGE.001 PASS (GetDiscoveryOutcomesV0 bridge + reward display in DiscoverySitePanel). Evidence: scripts/bridge/SimBridge.TradeIntel.cs, scripts/ui/DiscoverySitePanel.gd
+- 2026-03-06, main, GATE.S15.FEEL.EXPLORATION_PROOF.001 PASS (Headless proof: DiscoverySitePanel, DirectionalLight3D, fleet data, bridge queries verified). Evidence: scripts/tests/test_exploration_depth_v0.gd
+- 2026-03-06, main, GATE.X.HYGIENE.EPIC_REVIEW.014 PASS (S15.EXPLORATION_FEEL.V0 advanced. S14.ALIVE_GALAXY still IN_PROGRESS. Next anchor: S6.LAYERED_REVEALS). Evidence: docs/54_EPICS.md
+- 2026-03-06, main, GATE.X.HYGIENE.EXPLORE_ARCH_EVAL.001 PASS (Exploration arch review: discovery phases complete, anomaly encounters modeled, jump events wired, faction territory computed. Gaps: no encounter combat resolution yet, no expedition programs, no artifact research. Recommend: S6.ANOMALY_ECOLOGY + S6.EXPEDITION_PROG next). Evidence: docs/56_SESSION_LOG.md
+- 2026-03-06, main, GATE.X.HYGIENE.EPIC_REVIEW.015 PASS (Epic audit: EPIC.S14.ALIVE_GALAXY.V0 closed DONE (15/15 gates), EPIC.S15.EXPLORATION_FEEL.V0 closed DONE (8/8 gates), EPIC.S16.NPC_SHIPS_ALIVE.V0 set IN_PROGRESS (19 gates queued). Next anchor: EPIC.S16.NPC_SHIPS_ALIVE or S6.EXPEDITION). Evidence: docs/54_EPICS.md
+- 2026-03-06, main, GATE.X.HYGIENE.LIMBO_EVAL.001 PASS (LimboAI v1.7.0 installed as GDExtension for Godot 4.6. Architecture: CharacterBody3D + BTPlayer child, blackboard for sim-bridge data flow, 4 custom tasks (FlyToPoint, WarpOut, SelectDestination, AtDestination). Strengths: clean separation of BT logic from flight control, reusable tasks for future AI. Scalability: BTPlayer per-ship is fine for 20-30 ships; for 100+ consider shared BTService or reducing tick rate. Determinism: BT runs presentation-only (no sim effect); sim state drives position via transit facts. Recommended adjustments: add BTService for periodic SimBridge polling rather than per-frame queries; consider object pooling for warp particles). Evidence: addons/limboai/version.txt, scripts/npc/bt_fly_to_point.gd, scripts/npc/npc_bt_builder.gd
+- 2026-03-06, main, GATE.X.HYGIENE.REPO_HEALTH.015 PASS (603 tests pass, 0 errors. Tranche 15 NPC Ships Alive baseline). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.DAMAGE_CMD.001 PASS (NpcFleetDamageCommand: shield absorb first, remainder to hull, apply DelayTicksRemaining. NUnit tests pass). Evidence: SimCore/Commands/NpcFleetDamageCommand.cs, SimCore/Entities/Fleet.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.DELAY_ENFORCE.001 PASS (MovementSystem checks DelayTicksRemaining > 0, decrements and skips movement). Evidence: SimCore/Systems/MovementSystem.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.FLEET_DESTROY.001 PASS (NpcFleetCombatSystem: destroy fleets at 0 HP, free edge capacity, wired into SimKernel.Step). Evidence: SimCore/Systems/NpcFleetCombatSystem.cs, SimCore/SimKernel.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.FLEET_RESPAWN.001 PASS (Fleet respawn after RespawnCooldownTicks with deterministic RNG). Evidence: SimCore/Systems/NpcFleetCombatSystem.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.TRANSIT_SNAP.001 PASS (GetFleetTransitFactsV0: fleet_id, role, state, travel_progress, speed, hull_hp, is_hostile per node). Evidence: scripts/bridge/SimBridge.Fleet.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.LIMBO_INSTALL.001 PASS (LimboAI v1.7.0 GDExtension installed for Godot 4.6, demo cleaned). Evidence: addons/limboai/
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.SHIP_SCENE.001 PASS (npc_ship.tscn: CharacterBody3D + CapsuleShape3D + FleetArea, npc_ship.gd script). Evidence: scenes/npc_ship.tscn, scripts/core/npc_ship.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.FLIGHT_CTRL.001 PASS (Kinematic flight: move_and_slide, slerp rotation, XZ locked, combat stagger). Evidence: scripts/npc/npc_flight_controller.gd, scripts/core/npc_ship.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.BT_TASKS.001 PASS (4 custom LimboAI tasks: BtFlyToPoint, BtWarpOut, BtSelectDestination, BtAtDestination). Evidence: scripts/npc/bt_fly_to_point.gd, scripts/npc/bt_warp_out.gd, scripts/npc/bt_select_destination.gd, scripts/npc/bt_at_destination.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.BT_ROLES.001 PASS (NpcBtBuilder: programmatic BT for Trader/Hauler/Patrol roles). Evidence: scripts/npc/npc_bt_builder.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001 PASS (SpawnNpcShipV0 replaces static markers, Quaternius models, FleetArea signals). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001 PASS (DamageNpcFleetV0 in SimBridge.Combat.cs, on_hit in npc_ship.gd). Evidence: scripts/bridge/SimBridge.Combat.cs, scripts/core/npc_ship.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.WARP_VFX.001 PASS (WarpEffect: GPUParticles3D + scale tween for warp-in/warp-out). Evidence: scripts/vfx/warp_effect.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.DESPAWN.001 PASS (RefreshLocalFleetsV0: warp-out departing, warp-in arriving fleets). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001 PASS (Label3D role letter T/H/P, HP bar with color gradient, 40u visibility). Evidence: scripts/core/npc_ship.gd
+- 2026-03-06, main, GATE.S16.NPC_ALIVE.HEADLESS_PROOF.001 PASS (test_npc_ships.gd: SimBridge APIs, NPC ship groups, transit data verification). Evidence: scripts/tests/test_npc_ships.gd

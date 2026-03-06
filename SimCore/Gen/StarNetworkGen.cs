@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SimCore.Entities;
+using SimCore.Tweaks;
 
 namespace SimCore.Gen;
 
@@ -100,16 +101,39 @@ public static class StarNetworkGen
     {
         foreach (var node in nodesList)
         {
+            // GATE.S14.NPC_ALIVE.FLEET_SEED.001: deterministic role diversity.
+            uint roleHash = GalaxyGenerator.Fnv1a32Utf8(node.Id + "_fleet_role");
+            int bucket = (int)(roleHash % FleetSeedTweaksV0.BucketSize);
+            FleetRole role;
+            float speed;
+            if (bucket < FleetSeedTweaksV0.TraderThreshold) { role = FleetRole.Trader; speed = FleetSeedTweaksV0.TraderSpeed; }
+            else if (bucket < FleetSeedTweaksV0.HaulerThreshold) { role = FleetRole.Hauler; speed = FleetSeedTweaksV0.HaulerSpeed; }
+            else { role = FleetRole.Patrol; speed = FleetSeedTweaksV0.PatrolSpeed; }
+
             var fleet = new Fleet
             {
                 Id = $"ai_fleet_{node.Id}",
                 OwnerId = "ai",
+                Role = role,
                 CurrentNodeId = node.Id,
-                Speed = 0.8f,
+                Speed = speed,
                 State = FleetState.Idle,
                 Supplies = 100
             };
             state.Fleets.Add(fleet.Id, fleet);
         }
+    }
+
+    /// <summary>
+    /// GATE.S14.NPC_ALIVE.FLEET_SEED.001: Re-seed AI fleets from existing nodes.
+    /// Called by WorldLoader after Fleets.Clear() + player fleet creation.
+    /// Uses state.Nodes for deterministic iteration order.
+    /// </summary>
+    public static void SeedAiFleetsFromState(SimState state)
+    {
+        var nodesList = new List<Node>();
+        foreach (var kv in state.Nodes.OrderBy(n => n.Key, StringComparer.Ordinal))
+            nodesList.Add(kv.Value);
+        SeedAiFleets(state, nodesList);
     }
 }

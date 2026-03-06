@@ -41,9 +41,13 @@ public partial class GalaxyView : Node3D
     // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Animated flow dots on NPC trade routes.
     private readonly Dictionary<string, MeshInstance3D> _flowDotsByKey = new();
     private double _flowAnimTime = 0.0;
+    private double _playerRingPulseTime = 0.0;
 
     // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Trade volume labels on edges.
     private readonly Dictionary<string, Label3D> _volumeLabelsByKey = new();
+
+    // GATE.S15.FEEL.FACTION_LABELS.001: Faction territory Label3D nodes keyed by faction_id.
+    private readonly Dictionary<string, Label3D> _factionLabelsByFactionId = new();
 
     private int _lastNodeCount = 0;
     private int _lastEdgeCount = 0;
@@ -61,10 +65,16 @@ public partial class GalaxyView : Node3D
     [Export] public float FleetOrbitRadiusU { get; set; } = 65.0f;
     [Export] public float FleetMarkerRadiusU { get; set; } = 1.2f;
     [Export] public PackedScene StationPrefab { get; set; }
+    // GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001
+    [Export] public PackedScene NpcShipScene { get; set; }
 
     // Local system state
     private Node3D _localSystemRoot;
     private string _currentNodeId = "";
+
+    // GATE.S15.FEEL.NPC_PROXIMITY.001: Periodic fleet refresh for NPC arrivals/departures.
+    private double _fleetRefreshTimer = 0.0;
+    private string _currentLocalNodeId = "";
 
     // Galaxy overlay camera (sibling node); repositioned in RefreshFromSnapshotV0 to frame visible nodes.
     private Camera3D _overlayCamera;
@@ -77,6 +87,8 @@ public partial class GalaxyView : Node3D
         // Default OFF: the playable prototype is a local-space view until Tab opens the overlay.
         Visible = false;
         SetProcess(false);
+        // GATE.S13.WORLD.LABEL_CLAMP.001: Physics process always on for local label distance clamping.
+        SetPhysicsProcess(true);
 
         // Allocate local system container; it will be added to the parent in the deferred boot call
         // (adding children during _Ready while the parent is busy building children is not allowed).
@@ -155,13 +167,71 @@ public partial class GalaxyView : Node3D
 
     public override void _Process(double delta)
     {
-        if (!_overlayOpen) return;
         if (_bridge == null || _bridge.IsLoading) return;
+
+        // GATE.S15.FEEL.NPC_PROXIMITY.001: Periodic fleet refresh for NPC arrivals/departures.
+        if (!_overlayOpen && !string.IsNullOrEmpty(_currentLocalNodeId))
+        {
+            _fleetRefreshTimer -= delta;
+            if (_fleetRefreshTimer <= 0.0)
+            {
+                RefreshLocalFleetsV0();
+                _fleetRefreshTimer = 2.0;
+            }
+        }
+
+        if (!_overlayOpen) return;
 
         // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Accumulate time for flow dot animation.
         _flowAnimTime += delta;
 
+        // GATE.S14.MAP.PLAYER_INDICATOR.001: Pulse the player ring on the galaxy map.
+        _PulsePlayerRingV0(delta);
+
         RefreshFromSnapshotV0();
+    }
+
+    // GATE.S13.WORLD.LABEL_CLAMP.001: Distance-based label readability for local system labels.
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_localSystemRoot == null || _overlayOpen) return;
+        var cam = GetViewport()?.GetCamera3D();
+        if (cam == null) return;
+
+        var camPos = cam.GlobalPosition;
+        ClampLabelsInSubtree(_localSystemRoot, camPos);
+    }
+
+    private static void ClampLabelsInSubtree(Node root, Vector3 camPos)
+    {
+        foreach (var child in root.GetChildren())
+        {
+            if (child is not Node3D n3d) continue;
+            // Find Label3D children (StationLabel, FleetLabel, etc.)
+            foreach (var sub in n3d.GetChildren())
+            {
+                if (sub is not Label3D label) continue;
+                float dist = camPos.DistanceTo(n3d.GlobalPosition);
+                // Sweet spot: 15-60u = full readability. <15u shrink, >80u fade out.
+                if (dist < 15f)
+                {
+                    float scale = Mathf.Clamp(dist / 15f, 0.3f, 1f);
+                    label.PixelSize = 0.12f * scale;
+                    label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, 1f);
+                }
+                else if (dist > 60f)
+                {
+                    float alpha = Mathf.Clamp(1f - (dist - 60f) / 20f, 0f, 1f);
+                    label.PixelSize = 0.12f;
+                    label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, alpha);
+                }
+                else
+                {
+                    label.PixelSize = 0.12f;
+                    label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, 1f);
+                }
+            }
+        }
     }
 
     // GATE.S6.MAP_GALAXY.NODE_CLICK.001: Click detection on galaxy overlay nodes.
@@ -292,6 +362,15 @@ public partial class GalaxyView : Node3D
         star.AddToGroup("LocalStar");
         _localSystemRoot.AddChild(star);
 
+        // GATE.S15.FEEL.STAR_LIGHTING.001: DirectionalLight3D tinted by star class.
+        var dirLight = new DirectionalLight3D
+        {
+            Name = "StarDirLight",
+            LightColor = StarClassLightColorV0(starClass),
+            LightEnergy = 0.8f,
+        };
+        _localSystemRoot.AddChild(dirLight);
+
         // 1a. Binary companion (~20% chance, seeded).
         SpawnBinaryCompanionV0(nodeId, starColor, starClass);
 
@@ -315,10 +394,87 @@ public partial class GalaxyView : Node3D
 
         // 5. Fleet markers at seed-derived orbit positions.
         SpawnFleetsV0(snap);
+
+            // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particles — star dust (all systems).
+        SpawnAmbientDustV0(nodeId);
+
+        // GATE.S15.FEEL.NPC_PROXIMITY.001: Enable periodic fleet refresh.
+        _currentLocalNodeId = nodeId;
+        _fleetRefreshTimer = 2.0;
+    }
+
+    // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particle systems.
+    // Star dust (all systems): diffuse white/pale-blue motes spread across a large sphere.
+    // Asteroid dust (60% of systems): tan/brown motes near the belt radius.
+    private void SpawnAmbientDustV0(string nodeId)
+    {
+        // ── Star dust (every system) ──
+        var starDustProc = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
+            EmissionSphereRadius = 80.0f,
+            Gravity = Vector3.Zero,
+            InitialVelocityMin = 0.1f,
+            InitialVelocityMax = 0.5f,
+            Color = new Color(0.85f, 0.90f, 1.0f, 0.55f),
+            ScaleMin = 0.08f,
+            ScaleMax = 0.22f,
+        };
+
+        var starDust = new GpuParticles3D
+        {
+            Name = "AmbientStarDust",
+            Amount = 80,
+            Lifetime = 12.0f,
+            SpeedScale = 0.25f,
+            ProcessMaterial = starDustProc,
+            DrawPass1 = new SphereMesh { Radius = 0.06f, Height = 0.12f },
+            Explosiveness = 0.0f,
+            Randomness = 1.0f,
+        };
+        _localSystemRoot.AddChild(starDust);
+
+        // ── Asteroid belt dust (~60% of systems, same seeding as SpawnAsteroidBeltV0) ──
+        var beltHash = Fnv1a64(nodeId + "_asteroids");
+        if (beltHash % 100UL < 60)
+        {
+            float beltRadius = 45.0f; // default lumScale=1; visual only
+
+            var beltDustProc = new ParticleProcessMaterial
+            {
+                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Ring,
+                EmissionRingRadius = beltRadius,
+                EmissionRingInnerRadius = beltRadius - 6.0f,
+                EmissionRingHeight = 4.0f,
+                EmissionRingAxis = Vector3.Up,
+                Gravity = Vector3.Zero,
+                InitialVelocityMin = 0.05f,
+                InitialVelocityMax = 0.2f,
+                Color = new Color(0.65f, 0.55f, 0.40f, 0.45f),
+                ScaleMin = 0.04f,
+                ScaleMax = 0.14f,
+            };
+
+            var beltDust = new GpuParticles3D
+            {
+                Name = "AmbientBeltDust",
+                Amount = 30,
+                Lifetime = 10.0f,
+                SpeedScale = 0.2f,
+                ProcessMaterial = beltDustProc,
+                DrawPass1 = new SphereMesh { Radius = 0.05f, Height = 0.10f },
+                Explosiveness = 0.0f,
+                Randomness = 1.0f,
+            };
+            _localSystemRoot.AddChild(beltDust);
+        }
     }
 
     private void ClearLocalSystemV0()
     {
+        // GATE.S15.FEEL.NPC_PROXIMITY.001: Stop periodic fleet refresh on system clear.
+        _currentLocalNodeId = "";
+
         if (_localSystemRoot == null) return;
         foreach (Node child in _localSystemRoot.GetChildren())
         {
@@ -352,7 +508,8 @@ public partial class GalaxyView : Node3D
 
         var collider = new CollisionShape3D
         {
-            Shape = new BoxShape3D { Size = new Vector3(10f, 5f, 10f) }
+            // GATE.S14.DOCK.PROXIMITY_TIGHTEN.001: Smaller station dock area.
+            Shape = new BoxShape3D { Size = new Vector3(7f, 4f, 7f) }
         };
         station.AddChild(collider);
 
@@ -449,7 +606,8 @@ public partial class GalaxyView : Node3D
             Text = stationDisplayName,
             PixelSize = 0.12f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            Modulate = new Color(0.4f, 1.0f, 0.4f)
+            Modulate = new Color(0.4f, 1.0f, 0.4f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
         stationLabel.Position = new Vector3(0f, 8f, 0f);
         station.AddChild(stationLabel);
@@ -475,6 +633,28 @@ public partial class GalaxyView : Node3D
         if (!snap.ContainsKey("lane_gate")) return;
         var gates = snap["lane_gate"].AsGodotArray();
 
+        // GATE.S13.WORLD.GATE_DIRECTION.001: Position gates in the direction of their destination.
+        // Get galaxy-level positions so gates point toward their neighbor system.
+        var galSnap = _bridge?.GetGalaxySnapshotV0();
+        var nodePositions = new System.Collections.Generic.Dictionary<string, Vector3>();
+        if (galSnap != null && galSnap.ContainsKey("system_nodes"))
+        {
+            var rawNodes = galSnap["system_nodes"].AsGodotArray();
+            for (int n = 0; n < rawNodes.Count; n++)
+            {
+                var nd = rawNodes[n].AsGodotDictionary();
+                var nid = nd.ContainsKey("node_id") ? (string)(Variant)nd["node_id"] : "";
+                float nx = nd.ContainsKey("pos_x") ? (float)(Variant)nd["pos_x"] : 0f;
+                float nz = nd.ContainsKey("pos_z") ? (float)(Variant)nd["pos_z"] : 0f;
+                if (!string.IsNullOrEmpty(nid))
+                    nodePositions[nid] = new Vector3(nx, 0f, nz);
+            }
+        }
+
+        var currentNodeId = snap.ContainsKey("node_id") ? (string)snap["node_id"] : "";
+        Vector3 currentGalPos = nodePositions.TryGetValue(currentNodeId, out var cPos)
+            ? cPos : Vector3.Zero;
+
         for (int i = 0; i < gates.Count; i++)
         {
             var g = gates[i].AsGodotDictionary();
@@ -486,9 +666,22 @@ public partial class GalaxyView : Node3D
                 : "";
 
             var marker = CreateLaneGateMarkerV0(neighborId, displayName);
-            marker.Position = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
-            marker.AddToGroup("LaneGate");
             _localSystemRoot.AddChild(marker);
+            marker.AddToGroup("LaneGate");
+
+            // Position gate in the direction of the neighbor system
+            if (nodePositions.TryGetValue(neighborId, out var neighborGalPos) && currentGalPos != neighborGalPos)
+            {
+                var dir2d = (neighborGalPos - currentGalPos).Normalized();
+                marker.Position = dir2d * LaneGateDistanceU;
+                // Rotate gate to face outward (toward destination)
+                marker.LookAt(marker.Position + dir2d, Vector3.Up);
+            }
+            else
+            {
+                // Fallback: evenly-spaced positions
+                marker.Position = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
+            }
         }
     }
 
@@ -509,7 +702,7 @@ public partial class GalaxyView : Node3D
         }
     }
 
-    // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+    // GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001: Spawn physical NPC ships from transit facts.
     private void SpawnFleetsV0(Godot.Collections.Dictionary snap)
     {
         if (!snap.ContainsKey("fleets")) return;
@@ -521,16 +714,88 @@ public partial class GalaxyView : Node3D
             var fleetId = f.ContainsKey("fleet_id") ? (string)f["fleet_id"] : "";
             if (string.IsNullOrEmpty(fleetId)) continue;
 
-            var marker = CreateFleetMarkerV0(fleetId);
-            marker.Position = DeriveOrbitPositionV0(fleetId + "_local", FleetOrbitRadiusU);
-            marker.AddToGroup("FleetShip");
-            _localSystemRoot.AddChild(marker);
+            var ship = SpawnNpcShipV0(fleetId);
+            if (ship != null)
+            {
+                ship.Position = DeriveOrbitPositionV0(fleetId + "_local", FleetOrbitRadiusU);
+                ship.AddToGroup("FleetShip");
+                _localSystemRoot.AddChild(ship);
+            }
         }
 
         // Init combat HP for all fleets (idempotent).
         var bridge = GetNodeOrNull<Node>("/root/SimBridge");
         if (bridge != null && bridge.HasMethod("InitFleetCombatHpV0"))
             bridge.Call("InitFleetCombatHpV0");
+    }
+
+    // GATE.S15.FEEL.NPC_PROXIMITY.001: Refresh fleet markers for NPC arrivals/departures.
+    private void RefreshLocalFleetsV0()
+    {
+        if (_bridge == null || _localSystemRoot == null) return;
+        if (string.IsNullOrEmpty(_currentLocalNodeId)) return;
+
+        var snap = _bridge.GetSystemSnapshotV0(_currentLocalNodeId);
+        if (snap == null || !snap.ContainsKey("fleets")) return;
+
+        var fleets = snap["fleets"].AsGodotArray();
+
+        // Collect current fleet IDs from the snapshot.
+        var snapshotFleetIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < fleets.Count; i++)
+        {
+            var f = fleets[i].AsGodotDictionary();
+            var fleetId = f.ContainsKey("fleet_id") ? (string)f["fleet_id"] : "";
+            if (!string.IsNullOrEmpty(fleetId))
+                snapshotFleetIds.Add(fleetId);
+        }
+
+        // Collect existing fleet marker IDs from the scene tree ("FleetShip" group).
+        var existingFleetIds = new HashSet<string>(StringComparer.Ordinal);
+        var existingNodes = new Dictionary<string, Node>(StringComparer.Ordinal);
+        foreach (Node child in _localSystemRoot.GetChildren())
+        {
+            if (child is Node3D n3d && n3d.IsInGroup("FleetShip"))
+            {
+                // Node name is "Fleet_<fleetId>".
+                var name = n3d.Name.ToString();
+                var id = name.StartsWith("Fleet_") ? name.Substring(6) : name;
+                existingFleetIds.Add(id);
+                existingNodes[id] = child;
+            }
+        }
+
+        // GATE.S16.NPC_ALIVE.DESPAWN.001: Warp-out departing fleets.
+        var warpScript = GD.Load<Script>("res://scripts/vfx/warp_effect.gd");
+        foreach (var id in existingFleetIds)
+        {
+            if (!snapshotFleetIds.Contains(id) && existingNodes.TryGetValue(id, out var node))
+            {
+                if (node is Node3D n3d && warpScript != null)
+                    warpScript.Call("play_warp_out", n3d);
+                else
+                    node.QueueFree();
+            }
+        }
+
+        // GATE.S16.NPC_ALIVE.DESPAWN.001: Warp-in newly arrived fleets.
+        foreach (var id in snapshotFleetIds)
+        {
+            if (!existingFleetIds.Contains(id))
+            {
+                var ship = SpawnNpcShipV0(id);
+                if (ship != null)
+                {
+                    ship.Position = DeriveOrbitPositionV0(id + "_local", FleetOrbitRadiusU);
+                    ship.AddToGroup("FleetShip");
+                    _localSystemRoot.AddChild(ship);
+
+                    // Play warp-in VFX at spawn position.
+                    if (warpScript != null)
+                        warpScript.Call("play_warp_in", _localSystemRoot, ship.Position);
+                }
+            }
+        }
     }
 
     // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Load Quaternius .tscn model by FleetRole and return as a scaled Node3D.
@@ -600,6 +865,71 @@ public partial class GalaxyView : Node3D
         return model;
     }
 
+    // GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001: Instantiate physical NPC ship from npc_ship.tscn.
+    // Falls back to CreateFleetMarkerV0 if scene not assigned.
+    private Node3D SpawnNpcShipV0(string fleetId)
+    {
+        // Player fleet still uses the old marker (player is a separate RigidBody3D).
+        if (StringComparer.Ordinal.Equals(fleetId, "fleet_trader_1"))
+            return CreateFleetMarkerV0(fleetId);
+
+        if (NpcShipScene == null)
+            return CreateFleetMarkerV0(fleetId); // fallback
+
+        var ship = NpcShipScene.Instantiate<CharacterBody3D>();
+        ship.Name = "Fleet_" + fleetId;
+        ship.Set("fleet_id", fleetId);
+
+        // Load Quaternius model and attach to ShipVisual.
+        var modelScene = LoadFleetModelSceneV0(fleetId);
+        if (modelScene != null && ship.HasMethod("load_model"))
+            ship.Call("load_model", modelScene);
+
+        // Set hostile meta for combat detection.
+        ship.SetMeta("fleet_id", fleetId);
+        ship.SetMeta("is_hostile", true);
+
+        // Wire FleetArea body_entered signal for combat proximity.
+        var area = ship.GetNodeOrNull<Area3D>("FleetArea");
+        if (area != null)
+        {
+            area.SetMeta("fleet_id", fleetId);
+            area.BodyEntered += (body) => _OnFleetBodyEnteredV0(body, fleetId);
+        }
+
+        return ship;
+    }
+
+    // Returns the PackedScene for the Quaternius model (used by SpawnNpcShipV0).
+    private PackedScene LoadFleetModelSceneV0(string fleetId)
+    {
+        uint hash = 0;
+        foreach (char c in fleetId) { hash = hash * 31 + (uint)c; }
+
+        int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
+        string[] models;
+        string[] colors;
+        switch (roleInt)
+        {
+            case 1: models = HaulerModels; colors = HaulerColors; break;
+            case 2: models = PatrolModels; colors = PatrolColors; break;
+            default: models = TraderModels; colors = TraderColors; break;
+        }
+
+        string modelName = models[hash % (uint)models.Length];
+        string colorName = colors[(hash / 7) % (uint)colors.Length];
+        string modelPath = $"res://addons/quaternius-ultimate-spaceships-pack/meshes/{modelName}/{modelName}_{colorName}.tscn";
+
+        if (Godot.FileAccess.FileExists(modelPath))
+            return GD.Load<PackedScene>(modelPath);
+
+        const string FallbackPath = "res://addons/kenney_space_kit/Models/GLTF format/craft_racer.glb";
+        if (Godot.FileAccess.FileExists(FallbackPath))
+            return GD.Load<PackedScene>(FallbackPath);
+
+        return null;
+    }
+
     private Node3D CreateFleetMarkerV0(string fleetId)
     {
         var root = new Node3D { Name = "Fleet_" + fleetId };
@@ -622,22 +952,15 @@ public partial class GalaxyView : Node3D
         };
         root.AddChild(mesh);
 
-        // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over fleet showing role name.
-        int fleetRole = _bridge != null && _bridge.HasMethod("GetFleetRoleV0")
-            ? (int)_bridge.Call("GetFleetRoleV0", fleetId) : 0;
-        string fleetDisplayName = fleetRole switch
-        {
-            2 => "Patrol",
-            1 => "Hauler",
-            _ => "Trader"
-        };
+        // GATE.S13.WORLD.HOSTILE_LABELS.001: Show "Hostile" in red for enemy fleets.
         var fleetLabel = new Label3D
         {
             Name = "FleetLabel",
-            Text = fleetDisplayName,
+            Text = "Hostile",
             PixelSize = 0.12f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            Modulate = new Color(1.0f, 0.4f, 0.4f)
+            Modulate = new Color(1.0f, 0.2f, 0.2f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
         fleetLabel.Position = new Vector3(0f, FleetMarkerRadiusU * 2.0f + 0.5f, 0f);
         root.AddChild(fleetLabel);
@@ -757,14 +1080,27 @@ public partial class GalaxyView : Node3D
         _ => 1.0f,
     };
 
+    // GATE.S15.FEEL.STAR_LIGHTING.001: Star-class to directional light color mapping.
+    private static Color StarClassLightColorV0(string starClass) => starClass switch
+    {
+        "ClassO" => new Color(0.6f, 0.7f, 1.0f),   // Blue-white
+        "ClassA" => new Color(0.9f, 0.9f, 1.0f),   // White
+        "ClassF" => new Color(1.0f, 0.95f, 0.8f),  // Yellow-white
+        "ClassG" => new Color(1.0f, 0.9f, 0.6f),   // Warm yellow
+        "ClassK" => new Color(1.0f, 0.7f, 0.4f),   // Orange
+        "ClassM" => new Color(1.0f, 0.4f, 0.2f),   // Deep red
+        _ => new Color(1.0f, 0.9f, 0.6f),          // Default warm yellow
+    };
+
     private static void TintStarShaderV0(Node3D starNode, Color starColor)
     {
         // Derive a dark and bright variant from the star class color.
-        var darkColor = new Color(starColor.R * 0.4f, starColor.G * 0.12f, starColor.B * 0.0f);
+        // GATE.S14.STAR.TINT_FIX.001: Preserve color identity instead of crushing green/blue.
+        var darkColor = new Color(starColor.R * 0.3f, starColor.G * 0.25f, starColor.B * 0.2f);
         var brightColor = new Color(
             Mathf.Min(starColor.R, 1.0f),
             Mathf.Min(starColor.G * 0.7f, 1.0f),
-            Mathf.Min(starColor.B * 0.3f, 1.0f));
+            Mathf.Min(starColor.B * 0.5f, 1.0f));
 
         // Tint body shader (root MeshInstance3D).
         if (starNode is MeshInstance3D bodyMesh && bodyMesh.Mesh != null)
@@ -909,27 +1245,42 @@ public partial class GalaxyView : Node3D
         float beltRadius = 45.0f * lumScale; // Between planet zone and discovery sites
         int rockCount = 25 + (int)(hash % 20UL); // 25-44 rocks
 
-        var rockMat = new StandardMaterial3D
+        // GATE.S14.ASTEROID.SHAPE_VARIETY.001: Mixed shapes and materials.
+        var rockMatLight = new StandardMaterial3D
         {
             AlbedoColor = new Color(0.4f, 0.35f, 0.28f),
             Roughness = 0.9f
+        };
+        var rockMatDark = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.25f, 0.22f, 0.18f),
+            Roughness = 0.95f
         };
 
         for (int i = 0; i < rockCount; i++)
         {
             var rockHash = Fnv1a64(nodeId + "_rock_" + i);
             float angle = ((float)i / rockCount) * 2.0f * MathF.PI;
-            // Jitter radius and Y to make belt look natural.
             float rJitter = beltRadius + ((float)(rockHash % 5UL) - 2.0f);
             float yJitter = ((float)(rockHash % 3UL) - 1.0f) * 0.5f;
 
-            float rockSize = 0.15f + (float)(rockHash % 4UL) * 0.1f; // 0.15-0.45u
+            float rockSize = 0.1f + (float)(rockHash % 6UL) * 0.1f; // 0.1-0.6u
+            var mat = (rockHash % 2UL == 0) ? rockMatLight : rockMatDark;
+
+            Mesh rockMesh;
+            int shapeType = (int)(rockHash % 3UL);
+            if (shapeType == 0)
+                rockMesh = new SphereMesh { Radius = rockSize * 0.5f, Height = rockSize * 0.7f };
+            else if (shapeType == 1)
+                rockMesh = new BoxMesh { Size = new Vector3(rockSize, rockSize * 0.7f, rockSize * 1.2f) };
+            else
+                rockMesh = new CylinderMesh { TopRadius = rockSize * 0.3f, BottomRadius = rockSize * 0.5f, Height = rockSize * 0.8f };
+
             var rock = new MeshInstance3D
             {
-                Mesh = new BoxMesh { Size = new Vector3(rockSize, rockSize * 0.7f, rockSize * 1.2f) },
-                MaterialOverride = rockMat
+                Mesh = rockMesh,
+                MaterialOverride = mat
             };
-            // Random rotation for irregular look.
             rock.RotateX((float)(rockHash % 360UL) * (MathF.PI / 180f));
             rock.RotateY((float)((rockHash >> 8) % 360UL) * (MathF.PI / 180f));
 
@@ -1016,7 +1367,8 @@ public partial class GalaxyView : Node3D
 
             var collider = new CollisionShape3D
             {
-                Shape = new SphereShape3D { Radius = 12.0f }
+                // GATE.S14.DOCK.PROXIMITY_TIGHTEN.001: Smaller planet dock area.
+                Shape = new SphereShape3D { Radius = 6.0f }
             };
             dockArea.AddChild(collider);
 
@@ -1044,7 +1396,8 @@ public partial class GalaxyView : Node3D
                     OutlineSize = 8,
                     Position = new Vector3(0, 6, 0),
                     Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                    Modulate = new Color(0.7f, 0.85f, 1.0f)
+                    Modulate = new Color(0.7f, 0.85f, 1.0f),
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
                 dockArea.AddChild(label);
             }
@@ -1076,71 +1429,41 @@ public partial class GalaxyView : Node3D
     private Node3D CreateLaneGateMarkerV0(string neighborId, string displayName = "")
     {
         var root = new Node3D { Name = "LaneGate_" + neighborId };
+        root.SetMeta("neighbor_node_id", neighborId);
 
-        var gateMat = new StandardMaterial3D
+        // GATE.S14.GATE_VISUAL.KENNEY_MODEL.001: Use Kenney Space Kit gate model.
+        const string GateScenePath = "res://addons/kenney_space_kit/Models/GLTF format/gate_complex.glb";
+        if (Godot.FileAccess.FileExists(GateScenePath))
         {
-            AlbedoColor = new Color(0.15f, 0.25f, 0.8f),
-            EmissionEnabled = true,
-            Emission = new Color(0.2f, 0.4f, 1.0f),
-            EmissionEnergyMultiplier = 2.0f,
-            Roughness = 0.3f,
-            Metallic = 0.7f
-        };
-
-        // Arch frame: two vertical pillars + a top crossbar forming a gate shape.
-        float R = LaneGateMarkerRadiusU;
-        float pillarH = R * 2.8f;
-        float pillarW = R * 0.28f;
-        float gateHalfWidth = R * 1.1f;
-
-        var pillarMeshBase = new BoxMesh { Size = new Vector3(pillarW, pillarH, pillarW) };
-
-        // Left pillar
-        var pillarL = new MeshInstance3D
+            var gateScene = GD.Load<PackedScene>(GateScenePath);
+            if (gateScene != null)
+            {
+                var gateModel = gateScene.Instantiate<Node3D>();
+                gateModel.Name = "GateModel";
+                // Scale Kenney model to match ~3u gate footprint.
+                float s = 3.0f;
+                gateModel.Scale = new Vector3(s, s, s);
+                root.AddChild(gateModel);
+            }
+        }
+        else
         {
-            Name = "GatePillarL",
-            Mesh = pillarMeshBase,
-            MaterialOverride = gateMat
-        };
-        pillarL.Position = new Vector3(-gateHalfWidth, 0f, 0f);
-        root.AddChild(pillarL);
-
-        // Right pillar
-        var pillarR = new MeshInstance3D
-        {
-            Name = "GatePillarR",
-            Mesh = pillarMeshBase,
-            MaterialOverride = gateMat
-        };
-        pillarR.Position = new Vector3(gateHalfWidth, 0f, 0f);
-        root.AddChild(pillarR);
-
-        // Top crossbar
-        var crossbar = new MeshInstance3D
-        {
-            Name = "GateCrossbar",
-            Mesh = new BoxMesh { Size = new Vector3(gateHalfWidth * 2f + pillarW, pillarW, pillarW) },
-            MaterialOverride = gateMat
-        };
-        crossbar.Position = new Vector3(0f, pillarH * 0.5f, 0f);
-        root.AddChild(crossbar);
-
-        // Central emissive orb (jump-point beacon).
-        var orbMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.5f, 0.7f, 1.0f),
-            EmissionEnabled = true,
-            Emission = new Color(0.5f, 0.7f, 1.0f),
-            EmissionEnergyMultiplier = 3.5f
-        };
-        var orb = new MeshInstance3D
-        {
-            Name = "GateOrb",
-            Mesh = new SphereMesh { Radius = R * 0.38f },
-            MaterialOverride = orbMat
-        };
-        orb.Position = new Vector3(0f, 0f, 0f);
-        root.AddChild(orb);
+            // Fallback: simple emissive orb if Kenney asset missing.
+            var orbMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.5f, 0.7f, 1.0f),
+                EmissionEnabled = true,
+                Emission = new Color(0.5f, 0.7f, 1.0f),
+                EmissionEnergyMultiplier = 3.5f
+            };
+            var orb = new MeshInstance3D
+            {
+                Name = "GateOrb",
+                Mesh = new SphereMesh { Radius = LaneGateMarkerRadiusU * 0.38f },
+                MaterialOverride = orbMat
+            };
+            root.AddChild(orb);
+        }
 
         // Keep a hidden "LaneGateMesh" node for any legacy lookup by name.
         var mesh = new MeshInstance3D
@@ -1165,7 +1488,8 @@ public partial class GalaxyView : Node3D
             PixelSize = 0.02f,
             FontSize = 32,
             OutlineSize = 8,
-            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
         lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 1.0f, 0f);
         root.AddChild(lbl);
@@ -1273,6 +1597,21 @@ public partial class GalaxyView : Node3D
         var hash = Fnv1a64(seedKey);
         float angle = (float)(hash % 360UL) * (MathF.PI / 180f);
         return new Vector3(MathF.Cos(angle) * radius, 0f, MathF.Sin(angle) * radius);
+    }
+
+    // GATE.S13.WORLD.GATE_ARRIVAL.001: Get gate position for a neighbor node (for arrival positioning).
+    public Vector3 GetGatePositionV0(string neighborId)
+    {
+        // Search LaneGate group for a marker with matching neighbor_node_id meta.
+        if (_localSystemRoot == null) return Vector3.Zero;
+        foreach (var child in _localSystemRoot.GetChildren())
+        {
+            if (child is not Node3D n3d) continue;
+            if (!n3d.IsInGroup("LaneGate")) continue;
+            if (n3d.HasMeta("neighbor_node_id") && (string)n3d.GetMeta("neighbor_node_id") == neighborId)
+                return n3d.Position;
+        }
+        return Vector3.Zero;
     }
 
     // Evenly-spaced XZ positions for lane gate markers (deterministic by index+total).
@@ -1427,7 +1766,43 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = new Color(0.2f, 1.0f, 0.4f);
                     mat.EmissionEnabled = true;
                     mat.Emission = new Color(0.2f, 1.0f, 0.4f);
-                    mat.EmissionEnergyMultiplier = 2.0f;
+                    mat.EmissionEnergyMultiplier = 4.0f;
+
+                    // GATE.S14.MAP.PLAYER_INDICATOR.001: "YOU" label + pulsing ring
+                    if (root.GetNodeOrNull("YouLabel") == null)
+                    {
+                        var youLabel = new Label3D
+                        {
+                            Name = "YouLabel",
+                            Text = "YOU",
+                            PixelSize = 0.2f,
+                            FontSize = 64,
+                            OutlineSize = 12,
+                            Modulate = new Color(0.2f, 1.0f, 0.4f),
+                            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                            Position = new Vector3(0, 30f, 0),
+                            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                        };
+                        root.AddChild(youLabel);
+
+                        var ringMat = new StandardMaterial3D
+                        {
+                            AlbedoColor = new Color(0.2f, 1.0f, 0.4f, 0.6f),
+                            EmissionEnabled = true,
+                            Emission = new Color(0.2f, 1.0f, 0.4f),
+                            EmissionEnergyMultiplier = 5.0f,
+                            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                        };
+                        var ringMesh = new TorusMesh { InnerRadius = 14.0f, OuterRadius = 18.0f };
+                        var ringInst = new MeshInstance3D
+                        {
+                            Name = "PlayerRing",
+                            Mesh = ringMesh,
+                            MaterialOverride = ringMat,
+                            Rotation = new Vector3(Mathf.Pi / 2f, 0, 0),
+                        };
+                        root.AddChild(ringInst);
+                    }
                 }
                 else
                 {
@@ -1438,7 +1813,7 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
                     mat.Emission = nodeColor;
-                    mat.EmissionEnergyMultiplier = 1.0f;
+                    mat.EmissionEnergyMultiplier = 2.5f;
                 }
             }
         }
@@ -1450,9 +1825,12 @@ public partial class GalaxyView : Node3D
         if (_overlayCamera != null && playerNodePosFound && !_cameraPositionedThisOpen)
         {
             _cameraPositionedThisOpen = true;
+            // GATE.S13.WORLD.MAP_CENTER.001: Center camera directly above player, looking straight down.
+            // Galaxy radius is 200 — camera at Y=350 frames ~70% of the map with good detail.
             var t = _overlayCamera.Transform;
-            t.Origin = new Vector3(playerNodePos.X, 45f, playerNodePos.Z + 45f);
+            t.Origin = new Vector3(playerNodePos.X, 350f, playerNodePos.Z);
             _overlayCamera.Transform = t;
+            _overlayCamera.LookAt(new Vector3(playerNodePos.X, 0f, playerNodePos.Z), Vector3.Back);
         }
 
         // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001: Cache trade flow edges once before iterating.
@@ -1507,6 +1885,9 @@ public partial class GalaxyView : Node3D
             UpdateNpcRouteLinesV0();
         else
             ClearNpcRouteLinesV0();
+
+        // GATE.S15.FEEL.FACTION_LABELS.001: Faction territory labels on galaxy map.
+        UpdateFactionLabelsV0();
     }
 
     // GATE.S5.SEC_LANES.UI.001: Map security BPS to lane display color.
@@ -1558,15 +1939,20 @@ public partial class GalaxyView : Node3D
         {
             var mesh = new MeshInstance3D();
             mesh.Name = "NodeMesh";
-            mesh.Mesh = new SphereMesh { Radius = 5.0f };
+            mesh.Mesh = new SphereMesh { Radius = 12.0f };
             mesh.MaterialOverride = new StandardMaterial3D
             {
                 AlbedoColor = new Color(0f, 0.6f, 1.0f),
                 EmissionEnabled = true,
                 Emission = new Color(0f, 0.6f, 1.0f),
-                EmissionEnergyMultiplier = 1.0f
+                EmissionEnergyMultiplier = 2.0f
             };
             planetNode = mesh;
+        }
+        else
+        {
+            // Addon planet scene — scale up for galaxy map visibility at camera distance 350.
+            planetNode.Scale = new Vector3(12.0f, 12.0f, 12.0f);
         }
 
         root.AddChild(planetNode);
@@ -1576,9 +1962,13 @@ public partial class GalaxyView : Node3D
             Name = "NodeLabel",
             Text = "",
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            PixelSize = 0.05f
+            PixelSize = 0.15f,
+            FontSize = 48,
+            OutlineSize = 10,
+            Modulate = new Color(0.85f, 0.85f, 0.9f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
-        lbl.Position = new Vector3(0, 8.0f, 0);
+        lbl.Position = new Vector3(0, 18.0f, 0);
         root.AddChild(lbl);
 
         // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: fleet count overlay label (hidden when zero).
@@ -1587,10 +1977,13 @@ public partial class GalaxyView : Node3D
             Name = "FleetLabel",
             Text = "",
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            PixelSize = 0.05f,
-            Modulate = new Color(1.0f, 0.8f, 0.2f)
+            PixelSize = 0.12f,
+            FontSize = 36,
+            OutlineSize = 8,
+            Modulate = new Color(1.0f, 0.8f, 0.2f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
-        fleetLbl.Position = new Vector3(0, 11.0f, 0);
+        fleetLbl.Position = new Vector3(0, 25.0f, 0);
         root.AddChild(fleetLbl);
 
         return root;
@@ -1601,11 +1994,12 @@ public partial class GalaxyView : Node3D
         var mesh = new MeshInstance3D();
         mesh.Name = "GalaxyEdge";
 
-        // Thin cylinder oriented along +Y then rotated into place.
+        // Cylinder oriented along +Y then rotated into place.
+        // Radius 2.0 visible at galaxy camera distance (350u).
         var cyl = new CylinderMesh
         {
-            TopRadius = 0.4f,
-            BottomRadius = 0.4f,
+            TopRadius = 2.0f,
+            BottomRadius = 2.0f,
             Height = 1.0f
         };
         mesh.Mesh = cyl;
@@ -1753,6 +2147,20 @@ public partial class GalaxyView : Node3D
 
     public int GetOverlayModeV0() => (int)_currentOverlayMode;
 
+    // GATE.S14.MAP.PLAYER_INDICATOR.001: Pulse the player ring scale via sine wave.
+    private void _PulsePlayerRingV0(double delta)
+    {
+        _playerRingPulseTime += delta;
+        foreach (var kv in _nodeRootsById)
+        {
+            var ring = kv.Value.GetNodeOrNull<MeshInstance3D>("PlayerRing");
+            if (ring == null) continue;
+            float s = 1.0f + 0.3f * Mathf.Sin((float)_playerRingPulseTime * 3.0f);
+            ring.Scale = new Vector3(s, s, s);
+            return; // Only one player ring
+        }
+    }
+
     // GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001: Draw route lines for NPC fleets currently traveling.
     // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Animated flow dots on trade routes.
     // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Trade volume labels on edges.
@@ -1886,7 +2294,8 @@ public partial class GalaxyView : Node3D
                         FontSize = 24,
                         Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                         OutlineSize = 6,
-                        Modulate = new Color(1.0f, 0.95f, 0.7f)
+                        Modulate = new Color(1.0f, 0.95f, 0.7f),
+                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                     };
                     _volumeLabelsByKey[volKey] = volLabel;
                     AddChild(volLabel);
@@ -1957,5 +2366,75 @@ public partial class GalaxyView : Node3D
         foreach (var lbl in _volumeLabelsByKey.Values)
             lbl.QueueFree();
         _volumeLabelsByKey.Clear();
+    }
+
+    // GATE.S15.FEEL.FACTION_LABELS.001: Draw/update faction territory Label3Ds on the galaxy map.
+    // Called each RefreshFromSnapshotV0. Labels are placed at the home node position + Y offset.
+    private void UpdateFactionLabelsV0()
+    {
+        if (_bridge == null || !_bridge.HasMethod("GetFactionMapV0")) return;
+
+        var factions = _bridge.Call("GetFactionMapV0").AsGodotArray();
+        if (factions == null || factions.Count == 0) return;
+
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+
+        for (int i = 0; i < factions.Count; i++)
+        {
+            var f = factions[i].AsGodotDictionary();
+            if (f == null || f.Count == 0) continue;
+
+            var factionId = f.ContainsKey("faction_id") ? (string)(Variant)f["faction_id"] : "";
+            var roleTag   = f.ContainsKey("role_tag")   ? (string)(Variant)f["role_tag"]   : "";
+            var homeNodeId = f.ContainsKey("home_node_id") ? (string)(Variant)f["home_node_id"] : "";
+            if (string.IsNullOrEmpty(factionId) || string.IsNullOrEmpty(homeNodeId)) continue;
+
+            seenIds.Add(factionId);
+
+            // Find home node position from the rendered node visuals.
+            if (!_nodeRootsById.TryGetValue(homeNodeId, out var homeRoot)) continue;
+
+            // Color-code by role tag.
+            Color labelColor = roleTag switch
+            {
+                "Trader" => new Color(0.2f, 1.0f, 0.4f),  // green
+                "Miner"  => new Color(1.0f, 0.6f, 0.1f),  // orange
+                "Pirate" => new Color(1.0f, 0.2f, 0.2f),  // red
+                _        => new Color(0.9f, 0.9f, 0.9f),  // white fallback
+            };
+
+            if (!_factionLabelsByFactionId.TryGetValue(factionId, out var lbl))
+            {
+                lbl = new Label3D
+                {
+                    Name = "FactionLabel_" + factionId,
+                    PixelSize = 0.02f,
+                    FontSize = 32,
+                    OutlineSize = 8,
+                    Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                _factionLabelsByFactionId[factionId] = lbl;
+                AddChild(lbl);
+            }
+
+            lbl.Text = roleTag;
+            lbl.Modulate = labelColor;
+            // Place 16u above the home node (above the NodeLabel at 8u, above the FleetLabel at 11u).
+            lbl.GlobalPosition = homeRoot.GlobalPosition + new Vector3(0f, 16f, 0f);
+        }
+
+        // Remove labels whose factions are no longer reported.
+        var toRemove = new List<string>();
+        foreach (var kv in _factionLabelsByFactionId)
+        {
+            if (!seenIds.Contains(kv.Key))
+            {
+                kv.Value.QueueFree();
+                toRemove.Add(kv.Key);
+            }
+        }
+        foreach (var key in toRemove)
+            _factionLabelsByFactionId.Remove(key);
     }
 }

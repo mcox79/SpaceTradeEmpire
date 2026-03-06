@@ -427,6 +427,151 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedRecentCombatEventsV0; }
     }
 
+    // ── GATE.S6.ANOMALY.ENCOUNTER_BRIDGE.001: Anomaly encounter snapshot queries ──
+
+    private Godot.Collections.Dictionary _cachedAnomalyEncounterSnapshotV0 = new Godot.Collections.Dictionary();
+    private Godot.Collections.Array _cachedActiveEncountersV0 = new Godot.Collections.Array();
+
+    /// <summary>
+    /// Returns a snapshot of a single anomaly encounter by ID.
+    /// Keys: encounter_id, family, difficulty, status (string "Pending"/"Completed"),
+    ///       loot_items (array of dicts with good_id+qty), credit_reward,
+    ///       discovery_lead_node_id, node_id.
+    /// Returns empty dict if encounter not found.
+    /// Nonblocking: returns last cached snapshot if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetAnomalyEncounterSnapshotV0(string encounterId)
+    {
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.AnomalyEncounters.TryGetValue(encounterId, out var enc))
+            {
+                lock (_snapshotLock) { _cachedAnomalyEncounterSnapshotV0 = new Godot.Collections.Dictionary(); }
+                return;
+            }
+
+            var lootArr = new Godot.Collections.Array();
+            foreach (var kv in enc.LootItems)
+            {
+                var lootEntry = new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = kv.Key,
+                    ["qty"] = kv.Value,
+                };
+                lootArr.Add(lootEntry);
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["encounter_id"] = enc.EncounterId,
+                ["family"] = enc.Family,
+                ["difficulty"] = enc.Difficulty,
+                ["status"] = enc.Status.ToString(),
+                ["loot_items"] = lootArr,
+                ["credit_reward"] = enc.CreditReward,
+                ["discovery_lead_node_id"] = enc.DiscoveryLeadNodeId,
+                ["node_id"] = enc.NodeId,
+            };
+
+            lock (_snapshotLock) { _cachedAnomalyEncounterSnapshotV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedAnomalyEncounterSnapshotV0.Duplicate(); }
+    }
+
+    /// <summary>
+    /// Returns an array of snapshots for all anomaly encounters, sorted by EncounterId ordinal.
+    /// Each element is a dictionary with the same keys as GetAnomalyEncounterSnapshotV0.
+    /// Nonblocking: returns last cached array if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetActiveEncountersV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            var sorted = state.AnomalyEncounters.Values
+                .OrderBy(e => e.EncounterId, StringComparer.Ordinal)
+                .ToList();
+
+            foreach (var enc in sorted)
+            {
+                var lootArr = new Godot.Collections.Array();
+                foreach (var kv in enc.LootItems)
+                {
+                    var lootEntry = new Godot.Collections.Dictionary
+                    {
+                        ["good_id"] = kv.Key,
+                        ["qty"] = kv.Value,
+                    };
+                    lootArr.Add(lootEntry);
+                }
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["encounter_id"] = enc.EncounterId,
+                    ["family"] = enc.Family,
+                    ["difficulty"] = enc.Difficulty,
+                    ["status"] = enc.Status.ToString(),
+                    ["loot_items"] = lootArr,
+                    ["credit_reward"] = enc.CreditReward,
+                    ["discovery_lead_node_id"] = enc.DiscoveryLeadNodeId,
+                    ["node_id"] = enc.NodeId,
+                };
+                arr.Add(d);
+            }
+
+            lock (_snapshotLock) { _cachedActiveEncountersV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedActiveEncountersV0; }
+    }
+
+    // GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001: Sim-driven NPC fleet damage via command queue.
+    // Enqueues NpcFleetDamageCommand for processing at next tick.
+    // Returns {destroyed (bool), hull_remaining (int), shield_remaining (int)}.
+    // 2-arg overload for GDScript call() compatibility (default params not marshalled).
+    public Godot.Collections.Dictionary DamageNpcFleetV0(string fleetId, int damage)
+        => DamageNpcFleetV0(fleetId, damage, 2);
+
+    public Godot.Collections.Dictionary DamageNpcFleetV0(string fleetId, int damage, int delayTicks)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["destroyed"] = false,
+            ["hull_remaining"] = 0,
+            ["shield_remaining"] = 0,
+        };
+
+        if (string.IsNullOrWhiteSpace(fleetId) || damage <= 0) return result;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.EnqueueCommand(new NpcFleetDamageCommand(fleetId, damage, delayTicks));
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        // Read back current HP for immediate feedback.
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Fleets.TryGetValue(fleetId, out var fleet))
+            {
+                result["hull_remaining"] = fleet.HullHp;
+                result["shield_remaining"] = fleet.ShieldHp;
+                result["destroyed"] = fleet.HullHp <= 0 && fleet.HullHpMax > 0;
+            }
+            else
+            {
+                result["destroyed"] = true;
+            }
+        }, 0);
+
+        return result;
+    }
+
     /// <summary>
     /// AI fleet fires one shot at player. Weapon stats resolved from AI's slots or defaults.
     /// Returns {shield_dmg, hull_dmg, player_hull, player_shield, killed}.

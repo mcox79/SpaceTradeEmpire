@@ -14,9 +14,9 @@ enum CameraMode {
 
 @export var target_path: NodePath
 
-# Flight mode: chase offset behind ship with damping.
-@export var flight_offset: Vector3 = Vector3(0, 8, 18)
-@export var flight_follow_distance: float = 18.0
+# Flight mode: top-down (Starcom Nexus style) — camera directly above player.
+@export var flight_offset: Vector3 = Vector3(0, 80, 1)
+@export var flight_follow_distance: float = 80.0
 @export var flight_damping: Vector3 = Vector3(0.15, 0.15, 0.15)
 
 # Orbit mode: free orbit when docked.
@@ -33,7 +33,7 @@ enum CameraMode {
 
 # FOV swell (flight mode only).
 @export var fov_base: float = 60.0
-@export var fov_boost_max: float = 6.0
+@export var fov_boost_max: float = 2.0
 @export var fov_smooth: float = 4.0
 
 # Reset key.
@@ -67,8 +67,8 @@ var _flight_rotating: bool = false
 var _flight_last_mouse: Vector2 = Vector2.ZERO
 const FLIGHT_LOOK_SENSITIVITY: float = 0.003
 const FLIGHT_LOOK_RETURN_SPEED: float = 3.0
-const FLIGHT_MAX_PITCH: float = 0.8
-const FLIGHT_MAX_YAW: float = 1.5
+const FLIGHT_MAX_PITCH: float = 1.4
+const FLIGHT_MAX_YAW: float = PI
 
 # GameManager reference for state polling.
 var _game_manager = null
@@ -274,7 +274,7 @@ func _update_fov_pcam(_delta: float) -> void:
 	var speed: float = 0.0
 	if _target is RigidBody3D:
 		speed = (_target as RigidBody3D).linear_velocity.length()
-	var t: float = clamp(speed / 28.0, 0.0, 1.0)
+	var t: float = clamp(speed / 18.0, 0.0, 1.0)
 	var target_fov: float = fov_base + fov_boost_max * t
 	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * _delta))
 	# Apply FOV to the viewport camera (PhantomCameraHost drives the actual Camera3D).
@@ -299,10 +299,8 @@ func _fallback_process(delta: float) -> void:
 	if _fallback_cam == null or _target == null:
 		return
 
-	# Smoothly return look-around offsets to center when not dragging.
-	if not _flight_rotating and _current_mode == CameraMode.FLIGHT:
-		_flight_yaw_offset = lerp(_flight_yaw_offset, 0.0, 1.0 - exp(-FLIGHT_LOOK_RETURN_SPEED * delta))
-		_flight_pitch_offset = lerp(_flight_pitch_offset, 0.0, 1.0 - exp(-FLIGHT_LOOK_RETURN_SPEED * delta))
+	# GATE.S13.CAMERA.PERSIST.001: Camera holds rotation on mouse release.
+	# No snap-back — yaw/pitch offsets persist until next right-click drag.
 
 	match _current_mode:
 		CameraMode.FLIGHT:
@@ -335,7 +333,7 @@ func _update_fov_fallback(delta: float) -> void:
 	var speed: float = 0.0
 	if _target is RigidBody3D:
 		speed = (_target as RigidBody3D).linear_velocity.length()
-	var t: float = clamp(speed / 28.0, 0.0, 1.0)
+	var t: float = clamp(speed / 18.0, 0.0, 1.0)
 	var target_fov: float = fov_base + fov_boost_max * t
 	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
 	_fallback_cam.fov = _current_fov

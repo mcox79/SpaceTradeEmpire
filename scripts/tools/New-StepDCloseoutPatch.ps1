@@ -135,7 +135,7 @@ try {
 
   $queueVer = (Get-OptProp $queue "queue_contract_version") + ""
   $queueOrd = (Get-OptProp $queue "queue_ordering") + ""
-  if ($queueVer -ne "2.2") { throw "Queue contract mismatch: queue_contract_version='$queueVer' (expected '2.2')" }
+  if ($queueVer -notin @("2.2","2.3")) { throw "Queue contract mismatch: queue_contract_version='$queueVer' (expected 2.2 or 2.3)" }
   if ($queueOrd -ne "MULTIKEY_V1") { throw "Queue ordering mismatch: queue_ordering='$queueOrd' (expected 'MULTIKEY_V1')" }
 
   $queuePc = Get-OptProp $queue "pending_completion"

@@ -27,22 +27,7 @@ func _build_ui() -> void:
 	_panel.name = "NodeDetailPanel"
 	_panel.custom_minimum_size = Vector2(280, 0)
 
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.06, 0.10, 0.92)
-	style.border_color = Color(0.3, 0.6, 1.0, 0.8)
-	style.border_width_left = 2
-	style.border_width_right = 2
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.content_margin_left = 12.0
-	style.content_margin_right = 12.0
-	style.content_margin_top = 8.0
-	style.content_margin_bottom = 10.0
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_standard())
 
 	_vbox = VBoxContainer.new()
 	_vbox.add_theme_constant_override("separation", 4)
@@ -50,7 +35,7 @@ func _build_ui() -> void:
 	# Header row: name + close button
 	var header := HBoxContainer.new()
 	_name_label = Label.new()
-	_name_label.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	_name_label.add_theme_color_override("font_color", UITheme.CYAN)
 	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_name_label)
 
@@ -66,15 +51,15 @@ func _build_ui() -> void:
 
 	# Detail labels
 	_class_label = Label.new()
-	_class_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
+	_class_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 	_vbox.add_child(_class_label)
 
 	_fleet_label = Label.new()
-	_fleet_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	_fleet_label.add_theme_color_override("font_color", UITheme.GOLD)
 	_vbox.add_child(_fleet_label)
 
 	_industry_label = Label.new()
-	_industry_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+	_industry_label.add_theme_color_override("font_color", UITheme.GREEN_SOFT)
 	_vbox.add_child(_industry_label)
 
 	_security_label = Label.new()
@@ -85,7 +70,7 @@ func _build_ui() -> void:
 
 	_market_header = Label.new()
 	_market_header.text = "Market"
-	_market_header.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	_market_header.add_theme_color_override("font_color", UITheme.CYAN)
 	_vbox.add_child(_market_header)
 
 	_market_container = VBoxContainer.new()
@@ -121,18 +106,19 @@ func show_for_node(node_id: String, screen_pos: Vector2) -> void:
 	# Security display
 	var sec_pct := security_bps / 100.0
 	var sec_text := "Security: %.0f%%" % sec_pct
-	var sec_color := Color(0.2, 1.0, 0.4)  # green
+	var band := "safe"
 	if security_bps < 3000:
-		sec_color = Color(1.0, 0.15, 0.15)  # red
+		band = "hostile"
 		sec_text += " (Hostile)"
 	elif security_bps < 5000:
-		sec_color = Color(1.0, 0.6, 0.2)  # orange
+		band = "dangerous"
 		sec_text += " (Dangerous)"
 	elif security_bps >= 8000:
 		sec_text += " (Safe)"
 	else:
-		sec_color = Color(0.4, 0.7, 1.0)  # blue
+		band = "moderate"
 		sec_text += " (Moderate)"
+	var sec_color := UITheme.security_color(band)
 	_security_label.text = sec_text
 	_security_label.add_theme_color_override("font_color", sec_color)
 
@@ -166,7 +152,7 @@ func _populate_market_v0(node_id: String) -> void:
 		_market_header.text = "Market"
 		var no_data := Label.new()
 		no_data.text = "No market data available"
-		no_data.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		no_data.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_market_container.add_child(no_data)
 		return
 
@@ -175,7 +161,7 @@ func _populate_market_v0(node_id: String) -> void:
 		_market_header.text = "Market"
 		var no_market := Label.new()
 		no_market.text = "No market at this node"
-		no_market.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		no_market.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_market_container.add_child(no_market)
 		return
 
@@ -186,26 +172,26 @@ func _populate_market_v0(node_id: String) -> void:
 	var h_good := Label.new()
 	h_good.text = "Good"
 	h_good.custom_minimum_size = Vector2(100, 0)
-	h_good.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
-	h_good.add_theme_font_size_override("font_size", 12)
+	h_good.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	h_good.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	hdr.add_child(h_good)
 	var h_buy := Label.new()
 	h_buy.text = "Buy"
 	h_buy.custom_minimum_size = Vector2(50, 0)
-	h_buy.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
-	h_buy.add_theme_font_size_override("font_size", 12)
+	h_buy.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	h_buy.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	hdr.add_child(h_buy)
 	var h_sell := Label.new()
 	h_sell.text = "Sell"
 	h_sell.custom_minimum_size = Vector2(50, 0)
-	h_sell.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
-	h_sell.add_theme_font_size_override("font_size", 12)
+	h_sell.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	h_sell.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	hdr.add_child(h_sell)
 	var h_qty := Label.new()
 	h_qty.text = "Qty"
 	h_qty.custom_minimum_size = Vector2(40, 0)
-	h_qty.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
-	h_qty.add_theme_font_size_override("font_size", 12)
+	h_qty.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	h_qty.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	hdr.add_child(h_qty)
 	_market_container.add_child(hdr)
 
@@ -216,29 +202,29 @@ func _populate_market_v0(node_id: String) -> void:
 		var good_lbl := Label.new()
 		good_lbl.text = str(entry.get("good_id", "?"))
 		good_lbl.custom_minimum_size = Vector2(100, 0)
-		good_lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
-		good_lbl.add_theme_font_size_override("font_size", 13)
+		good_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		good_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		row.add_child(good_lbl)
 
 		var buy_lbl := Label.new()
 		buy_lbl.text = str(entry.get("buy_price", 0))
 		buy_lbl.custom_minimum_size = Vector2(50, 0)
-		buy_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.3))
-		buy_lbl.add_theme_font_size_override("font_size", 13)
+		buy_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+		buy_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		row.add_child(buy_lbl)
 
 		var sell_lbl := Label.new()
 		sell_lbl.text = str(entry.get("sell_price", 0))
 		sell_lbl.custom_minimum_size = Vector2(50, 0)
-		sell_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
-		sell_lbl.add_theme_font_size_override("font_size", 13)
+		sell_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		sell_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		row.add_child(sell_lbl)
 
 		var qty_lbl := Label.new()
 		qty_lbl.text = str(entry.get("quantity", 0))
 		qty_lbl.custom_minimum_size = Vector2(40, 0)
-		qty_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
-		qty_lbl.add_theme_font_size_override("font_size", 13)
+		qty_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		qty_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		row.add_child(qty_lbl)
 
 		_market_container.add_child(row)

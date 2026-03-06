@@ -42,11 +42,23 @@ var _slot_labels: Array = []
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
+
+	# HUD status panel background (dark navy, matches UITheme.PANEL_BG)
+	var hud_bg := ColorRect.new()
+	hud_bg.name = "HudStatusBg"
+	hud_bg.color = UITheme.PANEL_BG
+	hud_bg.position = Vector2(8, 8)
+	hud_bg.size = Vector2(260, 420)
+	hud_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(hud_bg)
+	# Move bg behind existing labels (labels are scene-defined, added before _ready)
+	move_child(hud_bg, 0)
+
 	_combat_label = Label.new()
 	_combat_label.name = "CombatLabel"
 	_combat_label.text = ""
 	_combat_label.add_theme_color_override("font_color", Color.RED)
-	_combat_label.position = Vector2(10, 160)
+	_combat_label.position = Vector2(10, 256)
 	add_child(_combat_label)
 
 	# GATE.S9.UI.TOOLTIP_HUD.001: tooltips on HUD elements
@@ -67,7 +79,7 @@ func _ready() -> void:
 	_security_label = Label.new()
 	_security_label.name = "SecurityLabel"
 	_security_label.text = ""
-	_security_label.position = Vector2(10, 252)
+	_security_label.position = Vector2(10, 278)
 	_security_label.visible = false
 	add_child(_security_label)
 
@@ -75,16 +87,16 @@ func _ready() -> void:
 	_delay_label = Label.new()
 	_delay_label.name = "DelayLabel"
 	_delay_label.text = ""
-	_delay_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2, 1.0))
-	_delay_label.position = Vector2(10, 274)
+	_delay_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	_delay_label.position = Vector2(10, 300)
 	_delay_label.visible = false
 	add_child(_delay_label)
 
-	# GATE.S1.MISSION.HUD.001: mission objective panel (below cargo/credits)
+	# GATE.S1.MISSION.HUD.001: mission objective panel (below hull/shield bars)
 	_mission_panel = PanelContainer.new()
 	_mission_panel.name = "MissionPanel"
 	_mission_panel.visible = false
-	_mission_panel.position = Vector2(10, 200)
+	_mission_panel.position = Vector2(10, 322)
 	_mission_panel.custom_minimum_size = Vector2(260, 0)
 	add_child(_mission_panel)
 
@@ -94,24 +106,24 @@ func _ready() -> void:
 	_mission_title_label = Label.new()
 	_mission_title_label.name = "MissionTitleLabel"
 	_mission_title_label.text = ""
-	_mission_title_label.add_theme_font_size_override("font_size", 14)
-	_mission_title_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3, 1.0))
+	_mission_title_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	_mission_title_label.add_theme_color_override("font_color", UITheme.GOLD)
 	mission_vbox.add_child(_mission_title_label)
 
 	_mission_step_label = Label.new()
 	_mission_step_label.name = "MissionStepLabel"
 	_mission_step_label.text = ""
-	_mission_step_label.add_theme_font_size_override("font_size", 12)
-	_mission_step_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
+	_mission_step_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_mission_step_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 	mission_vbox.add_child(_mission_step_label)
 
 	# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label (below mission panel)
 	_research_label = Label.new()
 	_research_label.name = "ResearchLabel"
 	_research_label.text = "Research: Idle"
-	_research_label.add_theme_font_size_override("font_size", 13)
-	_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
-	_research_label.position = Vector2(10, 300)
+	_research_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	_research_label.position = Vector2(10, 400)
 	add_child(_research_label)
 
 	# Build game over overlay (hidden until player dies)
@@ -124,8 +136,8 @@ func _ready() -> void:
 	_game_over_label = Label.new()
 	_game_over_label.name = "GameOverLabel"
 	_game_over_label.text = "GAME OVER"
-	_game_over_label.add_theme_font_size_override("font_size", 72)
-	_game_over_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15, 1.0))
+	_game_over_label.add_theme_font_size_override("font_size", UITheme.FONT_HUD_HUGE)
+	_game_over_label.add_theme_color_override("font_color", UITheme.RED)
 	_game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_game_over_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_game_over_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -134,8 +146,8 @@ func _ready() -> void:
 	_restart_label = Label.new()
 	_restart_label.name = "RestartLabel"
 	_restart_label.text = "Press R to Restart"
-	_restart_label.add_theme_font_size_override("font_size", 32)
-	_restart_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	_restart_label.add_theme_font_size_override("font_size", UITheme.FONT_HUD_MED)
+	_restart_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
 	_restart_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_restart_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_restart_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -152,7 +164,7 @@ func _ready() -> void:
 	add_child(_pause_panel)
 
 	var pause_bg := ColorRect.new()
-	pause_bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	pause_bg.color = UITheme.PANEL_BG_OVERLAY
 	pause_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_panel.add_child(pause_bg)
 
@@ -167,8 +179,8 @@ func _ready() -> void:
 
 	var pause_title := Label.new()
 	pause_title.text = "PAUSED"
-	pause_title.add_theme_font_size_override("font_size", 48)
-	pause_title.add_theme_color_override("font_color", Color.WHITE)
+	pause_title.add_theme_font_size_override("font_size", UITheme.FONT_HUD_LARGE)
+	pause_title.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
 	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_vbox.add_child(pause_title)
 
@@ -190,8 +202,8 @@ func _ready() -> void:
 		var slot_lbl := Label.new()
 		slot_lbl.name = "SlotLabel%d" % slot_idx
 		slot_lbl.text = ""
-		slot_lbl.add_theme_font_size_override("font_size", 12)
-		slot_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+		slot_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		slot_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 		slot_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		pause_vbox.add_child(slot_lbl)
 		_slot_labels.append(slot_lbl)
@@ -277,15 +289,7 @@ func _physics_process(_delta: float) -> void:
 			var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
 			_security_label.text = "Security: %s" % band.to_upper()
 			_security_label.visible = true
-			match band:
-				"hostile":
-					_security_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
-				"dangerous":
-					_security_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-				"safe":
-					_security_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
-				_:
-					_security_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+			_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 		else:
 			_security_label.visible = false
 
@@ -293,7 +297,7 @@ func _physics_process(_delta: float) -> void:
 	if _delay_label != null and _bridge != null:
 		var show_delay := false
 		var delay_text := ""
-		var risk_color := Color(1.0, 0.6, 0.2, 1.0) # default orange
+		var risk_color := UITheme.ORANGE
 		var ship_state: String = str(ps.get("ship_state_token", ""))
 		if ship_state == "Traveling" or ship_state == "FractureTraveling":
 			if _bridge.has_method("GetDelayStatusV0"):
@@ -304,7 +308,7 @@ func _physics_process(_delta: float) -> void:
 					delay_text = "DELAYED: %d ticks" % ticks_rem
 					# Color by severity: red if > 5 ticks, orange otherwise
 					if ticks_rem > 5:
-						risk_color = Color(1.0, 0.2, 0.2, 1.0)
+						risk_color = UITheme.RED
 			if _bridge.has_method("GetTravelEtaV0"):
 				var node_id: String = str(ps.get("current_node_id", ""))
 				var eta_info: Dictionary = _bridge.call("GetTravelEtaV0", "fleet_trader_1", node_id)
@@ -321,7 +325,7 @@ func _physics_process(_delta: float) -> void:
 						delay_text += " | " + eta_str
 					# Green if no delay, orange if some, red if heavy
 					if delay_ticks == 0:
-						risk_color = Color(0.3, 1.0, 0.3, 1.0)
+						risk_color = UITheme.GREEN
 		_delay_label.visible = show_delay
 		_delay_label.text = delay_text
 		_delay_label.add_theme_color_override("font_color", risk_color)
@@ -330,13 +334,19 @@ func _physics_process(_delta: float) -> void:
 func _update_mission_hud() -> void:
 	if _bridge == null or not _bridge.has_method("GetActiveMissionV0"):
 		return
+	# GATE.S14.HUD.DOCK_CLEANUP.001: hide mission panel when docked to avoid overlap
+	if _bridge.has_method("GetPlayerStateV0"):
+		var ps_check: Dictionary = _bridge.call("GetPlayerStateV0")
+		if str(ps_check.get("ship_state_token", "")) == "DOCKED":
+			_mission_panel.visible = false
+			return
 	var mission: Dictionary = _bridge.call("GetActiveMissionV0")
 	var mid: String = str(mission.get("mission_id", ""))
 	if mid != "":
 		_mission_panel.visible = true
 		var title: String = str(mission.get("title", mid))
 		_mission_title_label.text = "MISSION: %s" % title
-		_mission_title_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3, 1.0))
+		_mission_title_label.add_theme_color_override("font_color", UITheme.GOLD)
 		var obj: String = str(mission.get("objective_text", ""))
 		var tgt_node: String = str(mission.get("target_node_id", ""))
 		var tgt_good: String = str(mission.get("target_good_id", ""))
@@ -354,7 +364,7 @@ func _update_mission_hud() -> void:
 	else:
 		_mission_panel.visible = true
 		_mission_title_label.text = "No active mission"
-		_mission_title_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		_mission_title_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_mission_step_label.text = ""
 
 # GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress update (called every 2s)
@@ -363,7 +373,7 @@ func _update_research_hud() -> void:
 		return
 	if not _bridge.has_method("GetResearchStatusV0"):
 		_research_label.text = "Research: Idle"
-		_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		return
 	var status: Dictionary = _bridge.call("GetResearchStatusV0")
 	var is_researching: bool = status.get("researching", false)
@@ -373,13 +383,13 @@ func _update_research_hud() -> void:
 		var stall: String = str(status.get("stall_reason", ""))
 		if not stall.is_empty():
 			_research_label.text = "RESEARCH: %s STALLED: %s" % [tech_id, stall]
-			_research_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2, 1.0))
+			_research_label.add_theme_color_override("font_color", UITheme.RED)
 		else:
 			_research_label.text = "RESEARCH: %s %d%%" % [tech_id, pct]
-			_research_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0, 1.0))
+			_research_label.add_theme_color_override("font_color", UITheme.CYAN)
 	else:
 		_research_label.text = "Research: Idle"
-		_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(visible_flag: bool) -> void:

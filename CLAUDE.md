@@ -74,10 +74,9 @@ Large files and their approximate token cost at full read:
 
 ---
 
-## gates.json parallel execution fields (optional)
+## gates.json parallel + test routing fields (v2.3)
 
-When generating tranches of 10+ gates, include these optional fields to enable
-parallel Claude Code sessions:
+All gates require `hash_affecting`, `verify`, `parallel_group`, `tier`, and `blocks`.
 
 ```json
 {
@@ -85,6 +84,7 @@ parallel Claude Code sessions:
   "parallel_group": "bridge",
   "tier": 2,
   "blocks": ["GATE.S4.FOO.MODEL.001"],
+  "hash_affecting": false,
   "verify": [
     "dotnet build SimCore/SimCore.csproj --nologo -v q",
     "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FooTests\""
@@ -97,7 +97,11 @@ parallel Claude Code sessions:
 | `parallel_group` | `core` / `bridge` / `content` / `docs` — which session owns this gate |
 | `tier` | 1 = no deps, 2 = depends on tier 1, 3 = depends on tier 2 |
 | `blocks` | Gate IDs that must be DONE before this gate starts |
-| `verify` | Machine-executable acceptance commands (exit 0 = PASS) |
+| `hash_affecting` | `true` if gate touches SimCore tick logic (`Systems/`, `SimEngine`, `Content/`, `Entities/`, `World/`, `Gen/`). Determines whether determinism tests run. |
+| `verify` | Machine-executable acceptance commands (exit 0 = PASS). Hash-affecting gates MUST include `--filter "FullyQualifiedName~Determinism"`. |
+
+Hash-affecting gates chain sequentially within a tier (each changes the golden
+hash baseline). Non-hash gates can fully parallelize.
 
 Session assignment: `core` → SimCore-only session, `bridge` → SimBridge + GDScript session,
 `content` → registry/docs session. See `memory/parallel_dev.md` for full guide.

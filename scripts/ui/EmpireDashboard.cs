@@ -29,7 +29,6 @@ public partial class EmpireDashboard : Control
     private Label _ovPrograms = null!;
     private Label _ovResearch = null!;
     private Label _ovMissions = null!;
-    private Label _ovTick = null!;
     private Label _ovIndustry = null!;
 
     // ── Trade list ──────────────────────────────────────────────────────────
@@ -76,7 +75,54 @@ public partial class EmpireDashboard : Control
 
     private void OnVisibilityChanged()
     {
-        if (Visible) RefreshCurrentTab();
+        if (Visible)
+        {
+            RefreshTabVisibility();
+            RefreshCurrentTab();
+        }
+    }
+
+    // GATE.S13.EMPIRE.GATING.001: Progressive tab visibility
+    private void RefreshTabVisibility()
+    {
+        if (_bridge == null) return;
+
+        // Overview + Research + Stats: always visible
+        _tabBtns[(int)Tab.Overview].Visible = true;
+        _tabBtns[(int)Tab.Research].Visible = true;
+        _tabBtns[(int)Tab.Stats].Visible = true;
+
+        // Trade: visible if any trade routes exist
+        bool showTrade = false;
+        var routes = _bridge.GetTradeRoutesV0();
+        if (routes != null && routes.Count > 0) showTrade = true;
+        _tabBtns[(int)Tab.Trade].Visible = showTrade;
+
+        // Production: visible after visiting 3+ nodes
+        bool showProd = false;
+        var summary = _bridge.GetEmpireSummaryV0();
+        if (summary != null)
+        {
+            int nodesVisited = GetInt(summary, "nodes_visited");
+            if (nodesVisited >= 3) showProd = true;
+        }
+        _tabBtns[(int)Tab.Production].Visible = showProd;
+
+        // Automation (Programs): visible if any programs exist
+        bool showProg = false;
+        var progs = _bridge.GetProgramExplainSnapshot();
+        if (progs != null && progs.Count > 0) showProg = true;
+        _tabBtns[(int)Tab.Programs].Visible = showProg;
+
+        // Exploration (Intel): visible if any intel observations exist
+        bool showIntel = false;
+        var intel = _bridge.GetIntelFreshnessByNodeV0();
+        if (intel != null && intel.Count > 0) showIntel = true;
+        _tabBtns[(int)Tab.Intel].Visible = showIntel;
+
+        // If current tab is hidden, switch to Overview
+        if (!_tabBtns[(int)_activeTab].Visible)
+            SwitchTab(Tab.Overview);
     }
 
     // ── Public API ──────────────────────────────────────────────────────────
@@ -162,7 +208,8 @@ public partial class EmpireDashboard : Control
         tabBar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         root.AddChild(tabBar);
 
-        var tabNames = new[] { "Overview", "Trade", "Production", "Programs", "Intel", "Research", "Stats" };
+        // GATE.S13.TERMINOLOGY.001: Player-friendly tab names
+        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats" };
         _tabBtns = new Button[tabNames.Length];
         for (int i = 0; i < tabNames.Length; i++)
         {
@@ -267,33 +314,49 @@ public partial class EmpireDashboard : Control
             return val;
         }
 
+        // GATE.S13.EMPIRE.OVERVIEW.001: Player-friendly labels
         _ovCredits  = Row("Credits:");
         _ovFleets   = Row("Fleets:");
-        _ovPrograms = Row("Programs Running:");
+        _ovPrograms = Row("Automation:");
         _ovResearch = Row("Research:");
-        _ovMissions = Row("Active Missions:");
-        _ovIndustry = Row("Industry Sites:");
-        _ovTick     = Row("Tick:");
+        _ovMissions = Row("Missions:");
+        _ovIndustry = Row("Production:");
 
         return box;
     }
 
+    // GATE.S13.EMPIRE.OVERVIEW.001: Contextual, player-friendly overview labels
     private void RefreshOverview()
     {
         var d = _bridge.GetEmpireSummaryV0();
         if (d == null) return;
 
         _ovCredits.Text  = FormatNum(GetInt(d, "credits"));
-        _ovFleets.Text   = $"{GetInt(d, "player_fleet_count")} player / {GetInt(d, "fleet_count")} total";
-        _ovPrograms.Text = GetStr(d, "program_count");
-        _ovMissions.Text = GetStr(d, "active_mission_count");
-        _ovIndustry.Text = $"{GetStr(d, "active_industry_count")} active / {GetStr(d, "industry_site_count")} total";
-        _ovTick.Text     = GetStr(d, "tick");
+        _ovFleets.Text   = $"{GetInt(d, "player_fleet_count")} player, {GetInt(d, "fleet_count")} in galaxy";
+
+        var progCount = GetInt(d, "program_count");
+        _ovPrograms.Text = progCount > 0
+            ? $"{progCount} running"
+            : "None — set up automation at a station";
+
+        var missionCount = GetInt(d, "active_mission_count");
+        _ovMissions.Text = missionCount > 0
+            ? $"{missionCount} active"
+            : "None — visit a station to find work";
+
+        var activeIndustry = GetInt(d, "active_industry_count");
+        var totalIndustry = GetInt(d, "industry_site_count");
+        if (activeIndustry == totalIndustry && totalIndustry > 0)
+            _ovIndustry.Text = "All sites operational";
+        else if (totalIndustry > 0)
+            _ovIndustry.Text = $"{activeIndustry} of {totalIndustry} sites active";
+        else
+            _ovIndustry.Text = "No production discovered yet";
 
         var tech = GetStr(d, "research_tech_id");
         if (string.IsNullOrWhiteSpace(tech))
         {
-            _ovResearch.Text = "Idle";
+            _ovResearch.Text = "No research in progress — dock at a station to start";
         }
         else
         {

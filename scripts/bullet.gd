@@ -120,8 +120,8 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "HitVfx"
 	particles.position = pos
-	particles.amount = 24
-	particles.lifetime = 0.35
+	particles.amount = 12
+	particles.lifetime = 0.25
 	particles.one_shot = true
 	particles.explosiveness = 0.92
 	particles.randomness = 0.3
@@ -130,11 +130,11 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 1, 0)
 	proc_mat.spread = 80.0
-	proc_mat.initial_velocity_min = 6.0
-	proc_mat.initial_velocity_max = 18.0
+	proc_mat.initial_velocity_min = 3.0
+	proc_mat.initial_velocity_max = 10.0
 	proc_mat.gravity = Vector3(0, 0, 0)
-	proc_mat.scale_min = 0.4
-	proc_mat.scale_max = 1.0
+	proc_mat.scale_min = 0.15
+	proc_mat.scale_max = 0.4
 	if source_is_player:
 		proc_mat.color = Color(0.6, 1.0, 0.9, 1.0)
 	else:
@@ -142,8 +142,8 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.35
-	mesh.height = 0.7
+	mesh.radius = 0.15
+	mesh.height = 0.3
 	particles.draw_pass_1 = mesh
 
 	root.add_child(particles)

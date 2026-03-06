@@ -74,9 +74,6 @@ public partial class SimBridge : Node
     // If the read lock is busy, we return the last captured dashboard snapshot instead of stalling a frame.
     private Godot.Collections.Dictionary _cachedDashboardSnapshot = new Godot.Collections.Dictionary();
 
-    // Cached discovery snapshot (nonblocking UI readout).
-    // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
-    private Godot.Collections.Dictionary _cachedDiscoverySnapshotV0 = new Godot.Collections.Dictionary();
 
     // Cached unlock snapshot (nonblocking UI readout).
     // If the read lock is busy, we return the last captured snapshot instead of stalling a frame.
@@ -489,79 +486,6 @@ public partial class SimBridge : Node
     // - no timestamps%wall-clock
     // Failure safety:
     // - if we cannot take the read lock immediately, return the cached snapshot
-    public Godot.Collections.Dictionary GetDiscoverySnapshotV0(string stationId)
-    {
-        stationId ??= "";
-
-        if (!TryExecuteSafeRead(state =>
-        {
-            var snap = IntelSystem.BuildDiscoverySnapshotV0(state, stationId);
-
-            var d = new Godot.Collections.Dictionary
-            {
-                ["discovered_site_count"] = snap.DiscoveredSiteCount,
-                ["scanned_site_count"] = snap.ScannedSiteCount,
-                ["analyzed_site_count"] = snap.AnalyzedSiteCount,
-                ["expedition_status_token"] = snap.ExpeditionStatusToken ?? "",
-
-                // GATE.S3_6.UI_DISCOVERY_MIN.002
-                // Active discovery exceptions (token + reason tokens + intervention verbs).
-                // Determinism:
-                // - list is expected to be ExceptionToken Ordinal asc
-                // - reason tokens Ordinal asc
-                // - intervention verbs Ordinal asc
-                // Failure safety:
-                // - empty list is valid (vacuous-pass for Seed 42 tick 0)
-                ["active_exceptions"] = new Godot.Collections.Array()
-            };
-
-            var unlocks = new Godot.Collections.Array();
-            for (int i = 0; i < snap.Unlocks.Count; i++)
-            {
-                var u = snap.Unlocks[i];
-                var ud = new Godot.Collections.Dictionary
-                {
-                    ["unlock_id"] = u.UnlockId ?? "",
-                    ["effect_tokens"] = ToGodotArrayStrings(u.EffectTokens),
-                    ["blocked_reason_token"] = u.BlockedReasonToken ?? "",
-                    ["blocked_action_tokens"] = ToGodotArrayStrings(u.BlockedActionTokens),
-                    ["deploy_verb_control_tokens"] = ToGodotArrayStrings(u.DeployVerbControlTokens)
-                };
-                unlocks.Add(ud);
-            }
-            d["unlocks"] = unlocks;
-
-            var leads = new Godot.Collections.Array();
-            for (int i = 0; i < snap.RumorLeads.Count; i++)
-            {
-                var r = snap.RumorLeads[i];
-                var rd = new Godot.Collections.Dictionary
-                {
-                    ["lead_id"] = r.LeadId ?? "",
-                    ["hint_tokens"] = ToGodotArrayStrings(r.HintTokens)
-                };
-                leads.Add(rd);
-            }
-            d["rumor_leads"] = leads;
-
-            lock (_snapshotLock)
-            {
-                _cachedDiscoverySnapshotV0 = d;
-            }
-        }, 0))
-        {
-            lock (_snapshotLock)
-            {
-                return _cachedDiscoverySnapshotV0;
-            }
-        }
-
-        lock (_snapshotLock)
-        {
-            return _cachedDiscoverySnapshotV0;
-        }
-    }
-
     // GATE.S1.GALAXY_MAP.CONTRACT.001
     // Facts-only galaxy map snapshot for UI.
     // Determinism:
@@ -835,6 +759,12 @@ public partial class SimBridge : Node
         int tickBefore = GetSimTickV0();
         EnqueueCommand(new PlayerArriveCommand(targetNodeId));
         WaitForTickAdvance(tickBefore, 200);
+    }
+
+    // GATE.S6.REVEAL.SCAN_CMD.001: Dispatch a scan/analyze action on a discovery.
+    public void DispatchScanDiscoveryV0(string discoveryId)
+    {
+        EnqueueCommand(new ScanDiscoveryCommand(discoveryId));
     }
 
     // GATE.S1.HERO_SHIP_LOOP.PLAYER_TRADE.001
@@ -1358,5 +1288,49 @@ public partial class SimBridge : Node
             }
         }
         return string.Join(" ", parts);
+    }
+
+    // ── GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Jump event queries for toast notifications ──
+
+    private Godot.Collections.Array _cachedJumpEventsV0 = new Godot.Collections.Array();
+
+    /// <summary>
+    /// Returns all jump events recorded in state.JumpEvents as a Godot Array of dicts.
+    /// Each dict keys: event_id, kind (string "salvage"/"signal"/"turbulence"/"none"),
+    ///   fleet_id, edge_id, node_id, tick, good_id, quantity, hull_damage.
+    /// Nonblocking: returns last cached array if read lock is unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetJumpEventsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            foreach (var evt in state.JumpEvents)
+            {
+                string kindStr = evt.Kind switch
+                {
+                    SimCore.Entities.JumpEventKind.Salvage     => "salvage",
+                    SimCore.Entities.JumpEventKind.Signal      => "signal",
+                    SimCore.Entities.JumpEventKind.Turbulence  => "turbulence",
+                    _                                          => "none",
+                };
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["event_id"]   = evt.EventId,
+                    ["kind"]       = kindStr,
+                    ["fleet_id"]   = evt.FleetId,
+                    ["edge_id"]    = evt.EdgeId,
+                    ["node_id"]    = evt.NodeId,
+                    ["tick"]       = evt.Tick,
+                    ["good_id"]    = evt.GoodId,
+                    ["quantity"]   = evt.Quantity,
+                    ["hull_damage"] = evt.HullDamage,
+                };
+                arr.Add(d);
+            }
+            lock (_snapshotLock) { _cachedJumpEventsV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedJumpEventsV0; }
     }
 }

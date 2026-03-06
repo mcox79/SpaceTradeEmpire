@@ -250,12 +250,32 @@ public partial class SimState
     // GATE.S12.PROGRESSION.STATS.001: Player progression statistics.
     [JsonInclude] public PlayerStats PlayerStats { get; set; } = new();
 
+    // GATE.S6.ANOMALY.ENCOUNTER_MODEL.001: Active anomaly encounters keyed by EncounterId.
+    [JsonInclude] public Dictionary<string, AnomalyEncounter> AnomalyEncounters { get; private set; } = new(StringComparer.Ordinal);
+    [JsonInclude] public long NextAnomalyEncounterSeq { get; set; } = 1;
+
+    // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Recent jump events for UI display.
+    [JsonInclude] public List<JumpEvent> JumpEvents { get; private set; } = new();
+    [JsonInclude] public long NextJumpEventSeq { get; set; } = 1;
+
     // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
     [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
 
     // GATE.S5.COMBAT_LOCAL.BRIDGE_COMBAT.001: transient combat state (not persisted).
     [JsonIgnore] public bool InCombat { get; set; }
     [JsonIgnore] public string? CombatOpponentId { get; set; }
+
+    // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Transient per-tick fleet arrival records for JumpEventSystem.
+    // Cleared at start of each tick. Populated by MovementSystem on lane arrival.
+    [JsonIgnore] public List<(string FleetId, string EdgeId, string NodeId)> ArrivalsThisTick { get; } = new();
+
+    // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Transient per-tick destroyed NPC fleet IDs.
+    // Cleared at start of each tick. Populated by NpcFleetCombatSystem.
+    [JsonIgnore] public List<string> NpcFleetsDestroyedThisTick { get; } = new();
+
+    // GATE.S16.NPC_ALIVE.FLEET_RESPAWN.001: Persisted pending respawn queue.
+    // Each entry: (FleetId, HomeNodeId, DestructionTick). Processed by NpcFleetCombatSystem.
+    [JsonInclude] public List<NpcRespawnEntry> NpcRespawnQueue { get; set; } = new();
 
     // GATE.S3_6.EXPLOITATION_PACKAGES.002: exploitation package ledger event log.
     // Persisted. Append-only. Schema-bound tokens: TradePnL, InventoryLoaded, InventoryUnloaded,

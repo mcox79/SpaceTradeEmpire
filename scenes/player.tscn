@@ -84,6 +84,5 @@ script = ExtResource("7_pcam3d")
 priority = 10
 follow_mode = 2
 
-[node name="EngineAudio" type="AudioStreamPlayer3D" parent="."]
+[node name="EngineAudio" type="AudioStreamPlayer" parent="."]
 script = ExtResource("4_engine_audio")
-max_distance = 50.0

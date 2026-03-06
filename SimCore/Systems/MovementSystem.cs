@@ -1,4 +1,5 @@
 using SimCore.Entities;
+using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,13 @@ public static class MovementSystem
             //   treat DestinationNodeId as "requested final destination" and plan a route.
             // - During route traversal, DestinationNodeId becomes "next hop" only.
             TryEnsureRoutePlanned(state, fleet);
+
+            // GATE.S16.NPC_ALIVE.DELAY_ENFORCE.001: Enforce delay — skip movement while delayed.
+            if (fleet.DelayTicksRemaining > 0)
+            {
+                fleet.DelayTicksRemaining--;
+                continue;
+            }
 
             // If not traveling, try to start the next edge if a route exists.
             // IMPORTANT: if we successfully started Traveling, we should advance travel in the same tick.
@@ -44,7 +52,7 @@ public static class MovementSystem
             // GATE.S8.TECH_EFFECTS.SPEED.001: Apply speed_bonus_20pct if improved_thrusters unlocked.
             float effectiveSpeed = fleet.Speed;
             if (fleet.OwnerId == "player" && state.Tech.UnlockedTechIds.Contains("improved_thrusters"))
-                effectiveSpeed = fleet.Speed * 1.2f;
+                effectiveSpeed = fleet.Speed * MovementTweaksV0.ImprovedThrustersMultiplier;
 
             if (!state.Edges.TryGetValue(fleet.CurrentEdgeId, out var edge))
             {
@@ -83,6 +91,12 @@ public static class MovementSystem
                 {
                     arrivedNodeId = fleet.DestinationNodeId;
                     fleet.CurrentNodeId = fleet.DestinationNodeId;
+                }
+
+                // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Record arrival for JumpEventSystem.
+                if (!string.IsNullOrEmpty(arrivedNodeId))
+                {
+                    state.ArrivalsThisTick.Add((fleet.Id ?? "", fleet.CurrentEdgeId ?? "", arrivedNodeId));
                 }
 
                 // GATE.S3_6.DISCOVERY_STATE.002: entering a node with seeded discovery markers marks Seen.

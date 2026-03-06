@@ -29,22 +29,7 @@ func _build_ui() -> void:
 	_panel.offset_top = 60
 	_panel.offset_bottom = 420
 
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.08, 0.92)
-	style.border_color = Color(1.0, 0.3, 0.3, 0.7)
-	style.border_width_left = 2
-	style.border_width_right = 2
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.content_margin_left = 12.0
-	style.content_margin_right = 12.0
-	style.content_margin_top = 8.0
-	style.content_margin_bottom = 10.0
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_standard(UITheme.BORDER_DANGER))
 
 	var outer_vbox := VBoxContainer.new()
 	outer_vbox.add_theme_constant_override("separation", 4)
@@ -53,8 +38,8 @@ func _build_ui() -> void:
 	_title_label = Label.new()
 	_title_label.text = "=== COMBAT LOG ==="
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-	_title_label.add_theme_font_size_override("font_size", 16)
+	_title_label.add_theme_color_override("font_color", UITheme.RED_LIGHT)
+	_title_label.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 	outer_vbox.add_child(_title_label)
 
 	outer_vbox.add_child(HSeparator.new())
@@ -75,8 +60,8 @@ func _build_ui() -> void:
 	var footer := Label.new()
 	footer.text = "Press L to close"
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	footer.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
-	footer.add_theme_font_size_override("font_size", 12)
+	footer.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	footer.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	outer_vbox.add_child(footer)
 
 	_panel.add_child(outer_vbox)
@@ -97,7 +82,7 @@ func refresh_v0() -> void:
 	if _bridge == null or not _bridge.has_method("GetRecentCombatEventsV0"):
 		var no_data := Label.new()
 		no_data.text = "No combat data available"
-		no_data.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		no_data.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_vbox.add_child(no_data)
 		return
 
@@ -106,7 +91,7 @@ func refresh_v0() -> void:
 	if events.size() == 0:
 		var no_events := Label.new()
 		no_events.text = "No combat events recorded"
-		no_events.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+		no_events.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_vbox.add_child(no_events)
 		_title_label.text = "=== COMBAT LOG (0) ==="
 		return
@@ -128,13 +113,13 @@ func refresh_v0() -> void:
 
 		var row_label := Label.new()
 		row_label.text = row_text
-		row_label.add_theme_font_size_override("font_size", 13)
+		row_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 
 		# Color by who is attacking: player shots gold, AI shots red
 		if attacker == "fleet_trader_1":
-			row_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+			row_label.add_theme_color_override("font_color", UITheme.GOLD)
 		else:
-			row_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.5))
+			row_label.add_theme_color_override("font_color", UITheme.RED_LIGHT)
 
 		_vbox.add_child(row_label)
 

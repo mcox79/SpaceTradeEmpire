@@ -5,6 +5,7 @@ using System.Numerics;
 using SimCore.Entities;
 using SimCore.Schemas;
 using SimCore.Content;
+using SimCore.Gen;
 
 namespace SimCore.World;
 
@@ -172,6 +173,11 @@ public static class WorldLoader
                 state.Fleets.Add(playerFleetId, f);
             }
         }
+
+        // GATE.S14.NPC_ALIVE.FLEET_SEED.001: Re-seed AI fleets after clearing.
+        // WorldLoader.Apply clears all fleets, so AI fleets from GalaxyGenerator are lost.
+        // Re-create them deterministically from the current node set.
+        StarNetworkGen.SeedAiFleetsFromState(state);
     }
 
 

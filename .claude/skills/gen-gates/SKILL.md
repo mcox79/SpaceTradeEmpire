@@ -7,7 +7,7 @@ description: >
 argument-hint: "[ANCHOR_EPIC_OVERRIDE: EPIC.xxx]"
 ---
 
-# Gate Generation Skill (v2 — parallel-first)
+# Gate Generation Skill (v3 — parallel-first, test-routed)
 
 You are running the `/gen-gates` skill for Space Trade Empire. This produces
 a tranche of 15-25 gates optimized for parallel agent execution, then writes
@@ -114,6 +114,27 @@ If unbalanced, split work or expand to another epic.
 **File conflict detection**: Within a tier, flag gates that share primary files.
 These must either be combined into one agent or placed in different tiers.
 
+### 2e-bis. Hash-affecting classification
+
+Assign each gate `hash_affecting: true` or `false` based on touched paths:
+
+| `hash_affecting: true` | `hash_affecting: false` |
+|---|---|
+| `SimCore/Systems/*.cs` | `scripts/bridge/SimBridge*.cs` |
+| `SimCore/SimEngine.cs` | `scripts/ui/`, `scripts/view/` |
+| `SimCore/Content/ContentRegistryLoader.cs` | `scenes/`, `resources/` |
+| `SimCore/Entities/*.cs` | `docs/`, GDScript UI |
+| `SimCore/World/*.cs` | `SimCore.Tests/` (test-only, no logic) |
+| `SimCore/Gen/*.cs` | |
+
+**Rules**:
+- If ANY touched path matches a `true` column entry, the gate is `hash_affecting: true`.
+- Hash-affecting gates within the same tier MUST be sequential — they share
+  golden hash expected values, and each one changes the baseline for the next.
+- Non-hash gates can fully parallelize within a tier with no coordination.
+- The `verify` field for hash-affecting gates MUST include the determinism
+  filter (see 3c).
+
 ### 2f. Constraints
 
 - Output **15–25 candidates**.
@@ -158,7 +179,8 @@ IN_ENGINE
 ### 2i. Present for review (recommendations-first)
 
 Show the user a markdown table with columns: Order, Proposed Gate ID, Label,
-GateType, Milestone, Feasibility, Epics advanced, parallel_group, tier.
+GateType, Milestone, Feasibility, Epics advanced, parallel_group, tier,
+hash_affecting.
 
 Below the table, add:
 1. **Rationale** (2-3 sentences: why this anchor, why these expansions)
@@ -193,8 +215,23 @@ For each confirmed gate:
   (unless GateType is a pure DocsTooling gate — rare).
 - For IN_ENGINE gates: at least 1 path in scripts/ or scenes/.
 
-### 3c. Proof command (required per gate)
+### 3c. Proof + verify commands (required per gate)
 
+Every gate MUST have a `verify` array in gates.json (1-8 commands, exit 0 = PASS).
+
+**For `hash_affecting: true` gates**, verify MUST include:
+```
+dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"
+```
+This runs all 31 determinism tests (golden hashes + program/logistics/mission/market
+determinism) in ~11 seconds. Add gate-specific test filters as additional entries.
+
+**For `hash_affecting: false` gates**, verify should include only:
+- Gate-specific test filter: `dotnet test ... --filter "FooTests"`
+- Or build command: `dotnet build "Space Trade Empire.csproj" --nologo`
+- Or Godot headless: `godot --headless --path . res://scripts/tests/test_foo.gd`
+
+**Proof command types** (for `completion_hint`):
 - dotnet test: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release`
   optionally with `--filter "..."`.
 - Godot/GDScript: `godot --headless --path . res://scripts/tests/test_foo.gd`
@@ -253,9 +290,14 @@ Add new task objects to the `tasks` array. Each task object:
   "parallel_group": "<core|bridge|content|docs>",
   "tier": 1,
   "blocks": ["<gate_ids this depends on>"],
+  "hash_affecting": false,
   "verify": ["<machine-executable acceptance commands>"]
 }
 ```
+
+- `hash_affecting` and `verify` are **required** (schema v2.3).
+- For `hash_affecting: true`, `verify` MUST include the determinism filter
+  (see 3c).
 
 - `task_id` T-number: pick a random 3-digit integer (001–999) not already used
   in the file.

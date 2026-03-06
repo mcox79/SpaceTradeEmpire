@@ -301,6 +301,58 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedFleetBreakdownV0; }
     }
 
+    // GATE.S16.NPC_ALIVE.TRANSIT_SNAP.001: Fleet transit snapshot for a local system.
+    // Returns all fleets at or transiting through a node (current or destination matches).
+    // GDScript uses this to position and animate NPC ships along lanes.
+    private Godot.Collections.Array _cachedFleetTransitV0 = new();
+    private string _cachedFleetTransitNodeV0 = "";
+
+    public Godot.Collections.Array GetFleetTransitFactsV0(string nodeId)
+    {
+        var arr = new Godot.Collections.Array();
+        if (string.IsNullOrEmpty(nodeId)) return arr;
+
+        TryExecuteSafeRead(state =>
+        {
+            var result = new Godot.Collections.Array();
+            foreach (var fleet in state.Fleets.Values)
+            {
+                // Fleet is relevant if it's at this node or traveling to/from it.
+                bool atNode = StringComparer.Ordinal.Equals(fleet.CurrentNodeId, nodeId);
+                bool travelingTo = fleet.State == SimCore.Entities.FleetState.Traveling
+                    && StringComparer.Ordinal.Equals(fleet.DestinationNodeId, nodeId);
+
+                if (!atNode && !travelingTo) continue;
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["fleet_id"] = fleet.Id ?? "",
+                    ["role"] = (int)fleet.Role,
+                    ["state"] = fleet.State.ToString(),
+                    ["current_node_id"] = fleet.CurrentNodeId ?? "",
+                    ["destination_node_id"] = fleet.DestinationNodeId ?? "",
+                    ["current_edge_id"] = fleet.CurrentEdgeId ?? "",
+                    ["travel_progress"] = fleet.TravelProgress,
+                    ["speed"] = fleet.Speed,
+                    ["hull_hp"] = fleet.HullHp,
+                    ["hull_hp_max"] = fleet.HullHpMax,
+                    ["is_hostile"] = fleet.Role == SimCore.Entities.FleetRole.Patrol
+                        && !StringComparer.Ordinal.Equals(fleet.OwnerId, "player")
+                };
+
+                result.Add(d);
+            }
+
+            lock (_snapshotLock)
+            {
+                _cachedFleetTransitV0 = result;
+                _cachedFleetTransitNodeV0 = nodeId;
+            }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedFleetTransitV0; }
+    }
+
     public string GetFleetPlayabilityTranscript(int maxEventsPerFleet = 10)
     {
         if (IsLoading) return "";

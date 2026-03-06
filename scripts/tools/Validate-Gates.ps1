@@ -119,18 +119,18 @@ $null = Read-JsonFile $schemaPath  # MVP: presence + parses
 
 # gates.json supports two shapes:
 # - Legacy registry (schema_version=1, gates=[...])
-# - Queue contract v2.2 (queue_contract_version=2.2, tasks=[...])
+# - Queue contract v2.2+ (queue_contract_version=2.2|2.3, tasks=[...])
 
 $hasSchemaVersion = ($null -ne $reg.PSObject.Properties["schema_version"])
 $hasQueueContract = ($null -ne $reg.PSObject.Properties["queue_contract_version"])
 
 if ($hasQueueContract) {
-  Assert (([string]$reg.queue_contract_version) -eq "2.2") "gates.json: queue_contract_version must be 2.2"
+  Assert (([string]$reg.queue_contract_version) -in @("2.2","2.3")) "gates.json: queue_contract_version must be 2.2 or 2.3"
   Assert ($null -ne $reg.PSObject.Properties["tasks"]) "gates.json: missing tasks array"
   $gates = @($reg.tasks)
   $isQueueV22 = $true
 } else {
-  Assert ($hasSchemaVersion) "gates.json: missing schema_version (legacy) or queue_contract_version (v2.2)"
+  Assert ($hasSchemaVersion) "gates.json: missing schema_version (legacy) or queue_contract_version (v2.2+)"
   Assert ($reg.schema_version -eq 1) "gates.json: schema_version must be 1"
   Assert ($null -ne $reg.PSObject.Properties["gates"]) "gates.json: missing gates array"
   $gates = @($reg.gates)

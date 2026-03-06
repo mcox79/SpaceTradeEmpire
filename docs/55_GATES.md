@@ -275,6 +275,102 @@ When a gate moves to DONE:
 | GATE.S12.FLEET_SUBSTANCE.HEADLESS_PROOF.001 | DONE | Headless proof of fleet models + UX |
 | GATE.X.HYGIENE.EPIC_REVIEW.011 | DONE | Epic audit + close stale epics |
 | GATE.X.EVAL.VISUAL_AUDIT.001 | DONE | Visual substance and UX evaluation |
+| GATE.S13.CAMERA.TOPDOWN.001 | DONE | Top-down camera angle for flight mode |
+| GATE.S13.CAMERA.PERSIST.001 | DONE | Camera holds rotation on mouse release |
+| GATE.S13.CONTROLS.TURNING.001 | DONE | Increased ship turn responsiveness |
+| GATE.S13.CONTROLS.SPEED.001 | DONE | Reduced top speed + faster deceleration |
+| GATE.S13.COMBAT.EXPLOSION_SCALE.001 | DONE | Reduced explosion and muzzle flash scale |
+| GATE.S13.DOCK.TABS.001 | DONE | Dock menu tab system (Market/Jobs/Services) |
+| GATE.S13.DOCK.HIDE_EMPTY.001 | DONE | Hide advanced sections until relevant |
+| GATE.S13.DOCK.CONTEXT.001 | DONE | Station context description at top |
+| GATE.S13.EMPIRE.GATING.001 | DONE | Progressive tab visibility in dashboard |
+| GATE.S13.EMPIRE.OVERVIEW.001 | DONE | Comprehensible overview tab labels |
+| GATE.S13.UX.TERMINOLOGY.001 | DONE | Player-facing terminology throughout UI |
+| GATE.S13.LABELS.CLAMP.001 | DONE | Distance-based label size clamping |
+| GATE.S13.GATES.ARRIVAL.001 | DONE | Arrive at corresponding gate facing inward |
+| GATE.S13.GATES.DIRECTION.001 | DONE | Gates face toward destination system |
+| GATE.S13.MAP.CENTER.001 | DONE | Galaxy map centers on player node |
+| GATE.S13.LABELS.HOSTILE.001 | DONE | Hostile fleet labels instead of role names |
+| GATE.S13.NPC.VISIBLE.001 | DONE | Fix NPC fleet visibility and AI orbit |
+| GATE.X.HYGIENE.REPO_HEALTH.012 | DONE | Full test suite + build verification |
+| GATE.X.HYGIENE.EPIC_REVIEW.012 | DONE | Epic audit + close completed |
+| GATE.X.EVAL.FEEL_AUDIT.001 | DONE | Post-implementation feel evaluation |
+| GATE.S14.NPC_ALIVE.FLEET_SEED.001 | DONE | Fix NPC fleet survival + role diversity |
+| GATE.S14.NPC_ALIVE.FLEET_TESTS.001 | DONE | Contract tests for fleet survival |
+| GATE.S14.NPC_ALIVE.EXPLORATION_BOT.001 | DONE | Update ExplorationBot for fleet activity |
+| GATE.S14.TRANSIT.WARP_EFFECT.001 | DONE | Screen flash + camera shake on lane travel |
+| GATE.S14.GATE_VISUAL.KENNEY_MODEL.001 | DONE | Replace BoxMesh gates with Kenney model |
+| GATE.S14.STAR.TINT_FIX.001 | DONE | Fix star shader tinting formula |
+| GATE.S14.STAR.STARTER_GUARANTEE.001 | DONE | star_0 always ClassG |
+| GATE.S14.ASTEROID.SHAPE_VARIETY.001 | DONE | Mixed asteroid shapes |
+| GATE.S14.DOCK.VISUAL_FRAME.001 | DONE | Dark panel with border for dock menu |
+| GATE.S14.STARLIGHT.BRIGHTNESS.001 | DONE | Increase background star visibility |
+| GATE.S14.DOCK.PROXIMITY_TIGHTEN.001 | DONE | Smaller dock collision boxes |
+| GATE.S14.HUD.DOCK_CLEANUP.001 | DONE | Hide mission panel when docked |
+| GATE.S14.MAP.PLAYER_INDICATOR.001 | DONE | Pulsing YOU on galaxy map |
+| GATE.S14.STARTER.MISSION_PROMPT.001 | DONE | Surface missions on first dock |
+| GATE.S14.GOLDEN.HASH_UPDATE.001 | DONE | Consolidate golden hash updates |
+| GATE.X.HYGIENE.REPO_HEALTH.013 | DONE | Full test suite + build verification |
+| GATE.X.HYGIENE.EPIC_REVIEW.013 | DONE | Epic audit + close completed |
+| GATE.S6.REVEAL.SCAN_CMD.001 | DONE | ScanDiscovery command to advance discovery phases |
+| GATE.S6.ANOMALY.ENCOUNTER_MODEL.001 | DONE | Anomaly encounter entity + trigger in combat system |
+| GATE.S15.FEEL.JUMP_EVENT_SYS.001 | DONE | JumpEventSystem — random events during lane transit |
+| GATE.S15.FEEL.STAR_LIGHTING.001 | DONE | Star-class DirectionalLight3D tinting in local system |
+| GATE.S6.REVEAL.DISCOVERY_SNAP.001 | DONE | SimBridge discovery phase snapshot with progress |
+| GATE.S15.FEEL.NPC_PROXIMITY.001 | DONE | NPC freighter Quaternius models on player proximity |
+| GATE.X.HYGIENE.REPO_HEALTH.014 | DONE | Repo health baseline — full test suite + hash stability |
+| GATE.S6.ANOMALY.REWARD_LOOT.001 | DONE | Anomaly encounter loot table + reward generation |
+| GATE.S6.OUTCOME.REWARD_MODEL.001 | DONE | Discovery outcome rewards model |
+| GATE.S15.FEEL.FACTION_TERRITORY.001 | DONE | Faction territory mapping in world gen |
+| GATE.S6.REVEAL.DISCOVERY_HUD.001 | DONE | Discovery HUD panel showing scan progress |
+| GATE.S6.ANOMALY.ENCOUNTER_BRIDGE.001 | DONE | SimBridge anomaly encounter queries |
+| GATE.S15.FEEL.JUMP_EVENT_TOAST.001 | DONE | Jump event toast display via toast_manager |
+| GATE.S15.FEEL.AMBIENT_SYSTEM.001 | DONE | Local system ambient particles (dust, wisps) |
+| GATE.S15.FEEL.FACTION_LABELS.001 | DONE | Faction territory labels on galaxy/local view |
+| GATE.S6.ANOMALY.ENCOUNTER_UI.001 | DONE | Anomaly encounter UI panel in dock Services tab |
+| GATE.S6.OUTCOME.CELEBRATION.001 | DONE | Discovery completion celebration VFX + toast |
+| GATE.S6.OUTCOME.REWARD_BRIDGE.001 | DONE | Discovery outcome bridge + reward display |
+| GATE.S15.FEEL.EXPLORATION_PROOF.001 | DONE | Exploration depth headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.014 | DONE | Epic status audit (tranche 14) |
+| GATE.X.HYGIENE.EXPLORE_ARCH_EVAL.001 | DONE | Exploration architecture review |
+| GATE.X.HYGIENE.REPO_HEALTH.015 | DONE | Full test suite + build verification baseline |
+| GATE.S16.NPC_ALIVE.LIMBO_INSTALL.001 | DONE | Install LimboAI addon + project.godot config |
+| GATE.S16.NPC_ALIVE.SHIP_SCENE.001 | DONE | NPC ship packed scene (CharacterBody3D + collision) |
+| GATE.S16.NPC_ALIVE.DAMAGE_CMD.001 | DONE | NpcFleetDamageCommand: apply HP damage to NPC fleet |
+| GATE.S16.NPC_ALIVE.DELAY_ENFORCE.001 | DONE | MovementSystem: enforce DelayTicksRemaining |
+| GATE.S16.NPC_ALIVE.TRANSIT_SNAP.001 | DONE | SimBridge FleetTransitFactV0 query |
+| GATE.S16.NPC_ALIVE.FLEET_DESTROY.001 | DONE | NpcFleetCombatSystem: destroy fleets at 0 HP |
+| GATE.S16.NPC_ALIVE.FLIGHT_CTRL.001 | DONE | NPC flight controller (CharacterBody3D steering) |
+| GATE.S16.NPC_ALIVE.BT_TASKS.001 | DONE | LimboAI custom BT tasks (FlyTo, Warp, SelectDest) |
+| GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001 | DONE | GalaxyView: physical NPC ship spawning |
+| GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001 | DONE | Player-NPC combat bridge (hit → damage → sim) |
+| GATE.S16.NPC_ALIVE.BT_ROLES.001 | DONE | Trader/Hauler/Patrol behavior tree resources |
+| GATE.S16.NPC_ALIVE.WARP_VFX.001 | DONE | Warp-in/warp-out visual effects at lane gates |
+| GATE.S16.NPC_ALIVE.DESPAWN.001 | DONE | NPC ship despawn on system exit |
+| GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001 | DONE | NPC role icon + HP bar overlay |
+| GATE.S16.NPC_ALIVE.FLEET_RESPAWN.001 | DONE | Fleet respawn system after NPC destruction |
+| GATE.S16.NPC_ALIVE.HEADLESS_PROOF.001 | DONE | NPC ships spawn/move/warp headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.015 | DONE | Epic audit (close S14, S15 candidates) |
+| GATE.X.HYGIENE.LIMBO_EVAL.001 | DONE | LimboAI integration architecture evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.016 | TODO | Full test suite + build verification baseline |
+| GATE.S17.REAL_SPACE.STAR_COORDS.001 | TODO | Galactic-scale 3D star positions in WorldDefinition |
+| GATE.S7.FACTION.DOCTRINE_MODEL.001 | TODO | FactionDoctrine fields + placeholder policies per faction |
+| GATE.S7.FACTION.REPUTATION_SYS.001 | TODO | Player reputation per faction (+trade, -attack) |
+| GATE.S6.FRACTURE.VOID_SITES.001 | TODO | Void discovery sites seeded between systems |
+| GATE.S17.REAL_SPACE.GALAXY_RENDER.001 | TODO | GalaxyView: persistent stars + local detail at real position + LOD |
+| GATE.S7.FACTION.TARIFF_ENFORCE.001 | TODO | MarketSystem tariff/access by reputation + doctrine |
+| GATE.S6.FRACTURE.MARKER_CMD.001 | TODO | SurveyMarker + PlaceMarkerCommand (tech-gated estimate) |
+| GATE.S6.FRACTURE.TRAVEL_CMD.001 | TODO | FractureTravelCommand: off-lane travel to void site |
+| GATE.S7.FACTION.BRIDGE_QUERIES.001 | TODO | SimBridge faction doctrine/reputation/access queries |
+| GATE.S17.REAL_SPACE.LANE_TRANSIT.001 | TODO | Physical lane traversal with tween acceleration |
+| GATE.S17.REAL_SPACE.WARP_TUNNEL.001 | TODO | Warp tunnel VFX obscuring void during transit |
+| GATE.S17.REAL_SPACE.GALAXY_MAP.001 | TODO | TAB map: high-altitude camera over real space |
+| GATE.S6.FRACTURE.SENSOR_REVEAL.001 | TODO | Sensor tech reveals void sites during transit |
+| GATE.S7.FACTION.PATROL_AGGRO.001 | TODO | NPC patrol aggro gated by player reputation |
+| GATE.S7.FACTION.UI_REPUTATION.001 | TODO | Faction rep bars + tariff warnings in UI |
+| GATE.S17.REAL_SPACE.HEADLESS_PROOF.001 | TODO | Real-space headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.016 | TODO | Epic audit (tranche 16) |
+| GATE.X.HYGIENE.REALSPACE_EVAL.001 | TODO | Real-space architecture evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -993,3 +1089,190 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.011 | DONE | Full test suite pass, golden hash stability, zero new warnings. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/generated/snapshots/golden_replay_hashes.txt |
 | GATE.X.HYGIENE.EPIC_REVIEW.011 | DONE | Audit 54_EPICS.md: close S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG, S11.GAME_FEEL, S6.MAP_GALAXY. Recommend next anchor. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
 | GATE.X.EVAL.VISUAL_AUDIT.001 | DONE | Visual substance evaluation: document model quality, NPC flow visibility, UX improvement effectiveness. Recommend next visual priorities. Proof: docs audit | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/ui/hero_trade_menu.gd |
+
+## R. Tranche 12 — "Feel Overhaul" (Slice 13 Camera + Dock + World Feel)
+
+### R1. Camera & Ship Controls
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S13.CAMERA.TOPDOWN.001 | DONE | Top-down camera: change FLIGHT offset from (0,8,18) to (0,45,30), increase follow_distance to 54, reduce FOV swell. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/player_follow_camera.gd |
+| GATE.S13.CAMERA.PERSIST.001 | DONE | Camera holds rotation on mouse release: remove snap-back lerp for yaw/pitch. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/player_follow_camera.gd |
+| GATE.S13.CONTROLS.TURNING.001 | DONE | Ship turning: increase TURN_TORQUE from 4.0 to 10.0, ANGULAR_DAMPING from 3.0 to 6.0. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/hero_ship_flight_controller.gd |
+| GATE.S13.CONTROLS.SPEED.001 | DONE | Ship speed: reduce MAX_SPEED from 28.0 to 18.0, increase LINEAR_DAMPING from 0.8 to 1.5. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/hero_ship_flight_controller.gd |
+| GATE.S13.COMBAT.EXPLOSION_SCALE.001 | DONE | Reduce explosion particle scale, muzzle flash intensity. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/game_manager.gd; FOUND: scenes/player.tscn |
+
+### R2. Station Experience
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S13.DOCK.TABS.001 | DONE | Dock menu tabs: Market/Jobs/Services replacing single scroll. One tab visible at a time. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S13.DOCK.HIDE_EMPTY.001 | DONE | Hide empty/advanced dock sections: Trade Routes hidden until scanner tech, Programs hidden until first program, Construction hidden until tech unlocked. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S13.DOCK.CONTEXT.001 | DONE | Station context: show "Mining Colony — produces Ore and Metal" derived from production sites. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S13.EMPIRE.GATING.001 | DONE | Empire dashboard progressive tabs: hide Trade/Production/Programs/Intel until discovered. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs |
+| GATE.S13.EMPIRE.OVERVIEW.001 | DONE | Overview tab: replace raw numbers with contextual messages, remove tick count. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs |
+| GATE.S13.UX.TERMINOLOGY.001 | DONE | Rename dev terms: Programs→Automation, Intel→Exploration Data, cadence ticks→seconds, nodes→systems. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/ui/EmpireDashboard.cs |
+
+### R3. World Feel
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S13.LABELS.CLAMP.001 | DONE | Distance-based label clamping: scale down when camera <15u, fade when >80u. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S13.GATES.ARRIVAL.001 | DONE | Gate arrival: position player at corresponding gate facing inward instead of origin. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/game_manager.gd; FOUND: scripts/view/GalaxyView.cs |
+| GATE.S13.GATES.DIRECTION.001 | DONE | Gates face destination: position gates in direction of destination system, rotate pillars. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S13.MAP.CENTER.001 | DONE | Galaxy map centers on player: camera straight down at (playerX, 60, playerZ), pulsing ring. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S13.LABELS.HOSTILE.001 | DONE | Hostile fleet labels: show "Hostile" in red instead of role name. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S13.NPC.VISIBLE.001 | DONE | NPC fleet visibility: AI orbits at 15-20u in ENGAGE, reduce patrol_speed to 6.0. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/fleet_ai.gd |
+
+### R4. Hygiene + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.012 | DONE | Full test suite pass, golden hash stability. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.012 | DONE | Audit 54_EPICS.md: close completed epics, recommend next anchor. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
+| GATE.X.EVAL.FEEL_AUDIT.001 | DONE | Post-implementation feel eval: grade each playtest feedback item Fixed/Improved/Deferred. Proof: docs audit | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/ui/hero_trade_menu.gd |
+
+## S. Tranche 13 "Alive Galaxy" — playtest-driven life + visual polish
+
+### S1. Life in Systems
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S14.NPC_ALIVE.FLEET_SEED.001 | DONE | Fix NPC fleet survival: add SeedNpcFleetsV0 to WorldLoader, role diversity (60% Trader, 25% Hauler, 15% Patrol). Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore/World/WorldLoader.cs; FOUND: SimCore/Gen/StarNetworkGen.cs |
+| GATE.S14.NPC_ALIVE.FLEET_TESTS.001 | DONE | Contract tests: fleet count > 1 after load, role distribution, trader movement after 100 ticks. Proof: dotnet test --filter "NpcFleetSurvival" | FOUND: SimCore.Tests/Systems/NpcTradeSystemTests.cs |
+| GATE.S14.NPC_ALIVE.EXPLORATION_BOT.001 | DONE | Update ExplorationBot: verify aiFleetCount > 0, adjust COMBAT_NEVER_ATTEMPTED thresholds. Proof: dotnet test --filter "ExplorationBot" | FOUND: SimCore.Tests/ExperienceProof/ExplorationBot.cs |
+
+### S2. Gate & Transit
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S14.TRANSIT.WARP_EFFECT.001 | DONE | Lane transit warp: camera shake 0.4 + white ColorRect flash on enter, shake 0.25 on arrival. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/game_manager.gd |
+| GATE.S14.GATE_VISUAL.KENNEY_MODEL.001 | DONE | Replace procedural BoxMesh gates with Kenney gate_complex.glb. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+
+### S3. Visual Polish
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S14.STAR.TINT_FIX.001 | DONE | Star tint: dark color (R*0.3, G*0.25, B*0.2), bright color B*0.5. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S14.STAR.STARTER_GUARANTEE.001 | DONE | star_0 always ClassG regardless of hash. Proof: dotnet test --filter "StarterStarClassG" | FOUND: SimCore/Gen/PlanetInitGen.cs |
+| GATE.S14.ASTEROID.SHAPE_VARIETY.001 | DONE | Mixed asteroid shapes: Sphere/Box/Cylinder by hash. Scale 0.1-0.6u. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S14.DOCK.VISUAL_FRAME.001 | DONE | Dock menu StyleBoxFlat: dark navy bg, 2px blue border, 6px corners. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S14.STARLIGHT.BRIGHTNESS.001 | DONE | Starlight brightness: luminosity_cap 2e+07, emission_energy 5e+10. Proof: visual check | FOUND: scenes/Playable_Prototype.tscn |
+
+### S4. UX & Navigation
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S14.DOCK.PROXIMITY_TIGHTEN.001 | DONE | Station dock box (10,5,10)->(7,4,7), planet sphere 12->6. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S14.HUD.DOCK_CLEANUP.001 | DONE | Hide mission panel when docked. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hud.gd |
+| GATE.S14.MAP.PLAYER_INDICATOR.001 | DONE | Pulsing YOU indicator on galaxy map overlay. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S14.STARTER.MISSION_PROMPT.001 | DONE | Toast on first dock: "Check the Jobs tab for work". Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/core/game_manager.gd |
+
+### S5. Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S14.GOLDEN.HASH_UPDATE.001 | DONE | Update golden hashes after FLEET_SEED + STARTER_GUARANTEE. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/GoldenReplayTests.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.013 | DONE | Full test suite + build verification. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.013 | DONE | Epic audit, close completed, recommend next anchor. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
+
+## T. Tranche 14 — "Exploration Depth" (S6.LAYERED_REVEALS + S6.ANOMALY_ECOLOGY + S6.DISCOVERY_OUTCOMES + S15.EXPLORATION_FEEL)
+
+### T1. Discovery System Presentation (EPIC.S6.LAYERED_REVEALS)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.REVEAL.SCAN_CMD.001 | DONE | ScanDiscoveryCommand: advance DiscoveryStateV0 Seen->Scanned->Analyzed on player action. Dispatch via SimBridge. Proof: dotnet test --filter "ScanDiscoveryCommand" | NEW: SimCore/Commands/ScanDiscoveryCommand.cs; NEW: SimCore.Tests/Commands/ScanDiscoveryCommandTests.cs |
+| GATE.S6.REVEAL.DISCOVERY_SNAP.001 | DONE | SimBridge discovery phase snapshot: GetDiscoverySnapshotV0 returns phase, staleness, kind, progress. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.TradeIntel.cs; FOUND: SimCore/Entities/IntelBook.cs |
+| GATE.S6.REVEAL.DISCOVERY_HUD.001 | DONE | Extend DiscoverySitePanel.gd: show scan progress bar, phase icon, kind label, Scan action button. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/DiscoverySitePanel.gd; FOUND: scripts/bridge/SimBridge.TradeIntel.cs |
+
+### T2. Anomaly Encounters (EPIC.S6.ANOMALY_ECOLOGY)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.ANOMALY.ENCOUNTER_MODEL.001 | DONE | AnomalyEncounter entity + trigger: scanning AnomalyFamily discovery to Analyzed generates encounter. Proof: dotnet test --filter "AnomalyEncounter" | NEW: SimCore/Entities/AnomalyEncounter.cs; NEW: SimCore.Tests/Systems/AnomalyEncounterTests.cs |
+| GATE.S6.ANOMALY.REWARD_LOOT.001 | DONE | Anomaly loot by family: DERELICT->salvage, RUIN->data+credits, SIGNAL->discovery leads. Proof: dotnet test --filter "AnomalyEncounter" | FOUND: SimCore/Entities/AnomalyEncounter.cs; FOUND: SimCore/Systems/CombatSystem.cs |
+| GATE.S6.ANOMALY.ENCOUNTER_BRIDGE.001 | DONE | SimBridge anomaly encounter queries: GetAnomalyEncounterSnapshotV0, GetActiveEncountersV0. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Combat.cs |
+| GATE.S6.ANOMALY.ENCOUNTER_UI.001 | DONE | Anomaly encounter UI in dock Services tab: family icon, difficulty, loot preview, Engage button. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Combat.cs |
+
+### T3. Discovery Outcomes (EPIC.S6.DISCOVERY_OUTCOMES)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.OUTCOME.REWARD_MODEL.001 | DONE | DiscoveryOutcomeSystem: Analyzed discoveries yield rewards (ResourcePool->trade bonus, Corridor->shortcut, Anomaly->encounter). Proof: dotnet test --filter "DiscoveryOutcome" | NEW: SimCore/Systems/DiscoveryOutcomeSystem.cs; NEW: SimCore.Tests/Systems/DiscoveryOutcomeTests.cs |
+| GATE.S6.OUTCOME.CELEBRATION.001 | DONE | Discovery completion celebration: gold toast, particle burst at site, reward summary. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/toast_manager.gd; FOUND: scripts/view/GalaxyView.cs |
+| GATE.S6.OUTCOME.REWARD_BRIDGE.001 | DONE | GetDiscoveryOutcomesV0 bridge query + DiscoverySitePanel outcome display. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.TradeIntel.cs; FOUND: scripts/ui/DiscoverySitePanel.gd |
+
+### T4. Exploration Feel (EPIC.S15.EXPLORATION_FEEL — NEW)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S15.FEEL.JUMP_EVENT_SYS.001 | DONE | JumpEventSystem: random events on lane transit (salvage, signal, turbulence). Wire into SimEngine. Proof: dotnet test --filter "JumpEventSystem" | NEW: SimCore/Systems/JumpEventSystem.cs; NEW: SimCore/Tweaks/JumpEventTweaksV0.cs; NEW: SimCore.Tests/Systems/JumpEventSystemTests.cs |
+| GATE.S15.FEEL.STAR_LIGHTING.001 | DONE | Star-class DirectionalLight3D tinting: O=blue-white, A=white, F=yellow-white, G=warm, K=orange, M=red. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: SimCore/Entities/Star.cs |
+| GATE.S15.FEEL.NPC_PROXIMITY.001 | DONE | NPC freighter Quaternius models substantiate dynamically when player is in same system. Poll+diff fleet list every 2s. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.Fleet.cs |
+| GATE.S15.FEEL.FACTION_TERRITORY.001 | DONE | Faction territory: BFS from HomeNodeId (depth 3) to compute ControlledNodeIds per faction. Proof: dotnet test --filter "FactionTerritory" | FOUND: SimCore/Gen/GalaxyGenerator.cs; FOUND: SimCore/Schemas/WorldDefinition.cs; NEW: SimCore.Tests/Gen/FactionTerritoryTests.cs |
+| GATE.S15.FEEL.JUMP_EVENT_TOAST.001 | DONE | Jump event toasts via toast_manager: salvage=green, signal=blue, turbulence=red. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.cs; FOUND: scripts/ui/toast_manager.gd |
+| GATE.S15.FEEL.AMBIENT_SYSTEM.001 | DONE | Local system ambient GPUParticles3D: dust motes, heat shimmer, background star dust. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S15.FEEL.FACTION_LABELS.001 | DONE | Faction territory labels on galaxy map: colored node tint, faction name Label3D near HomeNodeId. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.Ui.cs |
+| GATE.S15.FEEL.EXPLORATION_PROOF.001 | DONE | Headless proof: boot scene, travel, verify discovery HUD + star tinting + NPC fleet spawn. Proof: godot --headless | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/ui/DiscoverySitePanel.gd; NEW: scripts/tests/test_exploration_depth_v0.gd |
+
+### T5. Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.014 | DONE | Full test suite + build verification. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.014 | DONE | Epic audit, close completed, recommend next anchor. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
+| GATE.X.HYGIENE.EXPLORE_ARCH_EVAL.001 | DONE | Exploration architecture review: discovery+anomaly+faction integration gaps. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/56_SESSION_LOG.md |
+
+## U. Tranche 15 — "NPC Ships Alive" (EPIC.S16.NPC_SHIPS_ALIVE)
+
+NPC fleet ships become physical 3D entities with LimboAI behavior trees, sim-driven movement, role-based AI (Trader/Hauler/Patrol), player-NPC combat feedback to SimCore, warp effects. All ships in the player's current star system are substantiated.
+
+### U1. SimCore — Fleet Combat + Delay (core, hash_affecting)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.DAMAGE_CMD.001 | DONE | NpcFleetDamageCommand: apply specific hull/shield damage to NPC fleet. Shield absorbs first, remainder to hull. Apply DelayTicksRemaining. Proof: dotnet test --filter "NpcFleetDamage" + Determinism | NEW: SimCore/Commands/NpcFleetDamageCommand.cs, SimCore/Entities/Fleet.cs |
+| GATE.S16.NPC_ALIVE.DELAY_ENFORCE.001 | DONE | MovementSystem: check DelayTicksRemaining before advancing travel. If > 0, decrement and skip movement. Fixes existing gap where field is set but never checked. Proof: dotnet test --filter "Movement" + Determinism | FOUND: SimCore/Systems/MovementSystem.cs, SimCore/Entities/Fleet.cs |
+| GATE.S16.NPC_ALIVE.FLEET_DESTROY.001 | DONE | NpcFleetCombatSystem: check NPC fleets for HullHp == 0, remove from state.Fleets, free edge capacity. Add to SimKernel.Step(). Proof: dotnet test --filter "NpcFleetCombat" + Determinism | NEW: SimCore/Systems/NpcFleetCombatSystem.cs, SimCore/SimKernel.cs |
+| GATE.S16.NPC_ALIVE.FLEET_RESPAWN.001 | DONE | Fleet respawn after destruction: track destroyed fleet IDs + tick, recreate after NpcShipTweaksV0.RespawnCooldownTicks. Deterministic RNG. Proof: dotnet test --filter "FleetRespawn" + Determinism | FOUND: SimCore/Systems/NpcFleetCombatSystem.cs, SimCore/SimKernel.cs |
+
+### U2. SimBridge — Transit Data Query (bridge)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.TRANSIT_SNAP.001 | DONE | SimBridge GetFleetTransitFactsV0(nodeId): fleet_id, role, state, travel_progress, speed, hull_hp, is_hostile for all fleets at/through a system. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Fleet.cs, SimCore/Entities/Fleet.cs |
+
+### U3. LimboAI + NPC Ship Foundation (bridge)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.LIMBO_INSTALL.001 | DONE | Install LimboAI addon for Godot 4.6. Enable in project.godot. Verify build. Proof: dotnet build | FOUND: project.godot |
+| GATE.S16.NPC_ALIVE.SHIP_SCENE.001 | DONE | NPC ship packed scene: CharacterBody3D + CollisionShape3D + ModelMount child. Script reads meta(fleet_id, role). Groups: FleetShip, NpcShip. Proof: dotnet build | NEW: scenes/npc_ship.tscn, NEW: scripts/npc/npc_ship.gd |
+
+### U4. Flight + Behavior Trees (bridge + content)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.FLIGHT_CTRL.001 | DONE | NPC flight controller: CharacterBody3D steering toward target_position at target_speed via move_and_slide(). Smooth rotation, XZ-locked. Pausable for combat stagger. Proof: dotnet build | NEW: scripts/npc/npc_flight_controller.gd |
+| GATE.S16.NPC_ALIVE.BT_TASKS.001 | DONE | LimboAI custom BTAction tasks: FlyToPoint, WarpOut, SelectDestination (query SimBridge), AtDestination (condition). BTBlackboard for shared state. Proof: dotnet build | NEW: scripts/npc/bt_tasks.gd |
+| GATE.S16.NPC_ALIVE.BT_ROLES.001 | DONE | Trader/Hauler/Patrol BehaviorTree .tres resources. Trader: warp in -> fly to station -> dock -> fly to gate -> warp out. Hauler: station shuttle. Patrol: orbit + aggro. Proof: dotnet build | FOUND: scripts/npc/bt_tasks.gd, scenes/npc_ship.tscn |
+
+### U5. GalaxyView Integration + VFX (bridge)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001 | DONE | Replace static fleet markers with physical NPC ship instances in SpawnFleetsV0/RefreshLocalFleetsV0. Position by transit data interpolation. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, scenes/npc_ship.tscn |
+| GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001 | DONE | SimBridge DamageNpcFleetV0 method. Wire from npc_ship.gd collision: player bullet hit -> bridge damage -> sim. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Fleet.cs, scripts/npc/npc_ship.gd |
+| GATE.S16.NPC_ALIVE.WARP_VFX.001 | DONE | Warp-in (scale 0->1 + particle burst) and warp-out (scale 1->0 + streak) effects at lane gates. GPUParticles3D + Tween. Proof: dotnet build | NEW: scripts/vfx/warp_effect.gd, scripts/view/GalaxyView.cs |
+| GATE.S16.NPC_ALIVE.DESPAWN.001 | DONE | NPC ship lifecycle: clean despawn on system exit, warp-out on transit completion, warp-in for new arrivals. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, scripts/npc/npc_ship.gd |
+| GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001 | DONE | NPC role icon (T/H/P) + HP bar overlay. Label3D visible within 40u. Hostile indicator. Proof: dotnet build | FOUND: scripts/npc/npc_ship.gd, scenes/npc_ship.tscn |
+
+### U6. Proof + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S16.NPC_ALIVE.HEADLESS_PROOF.001 | DONE | Headless SceneTree test: NPC ships spawn as CharacterBody3D, move (position changes), transit data flows from SimBridge. HSL/HSS output. Proof: godot --headless | NEW: scripts/tests/test_npc_ships.gd, scripts/view/GalaxyView.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.015 | DONE | Full test suite + build verification baseline. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.015 | DONE | Epic audit: close S14 (Alive Galaxy), S15 (Exploration Feel) candidates. Recommend next anchor. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
+| GATE.X.HYGIENE.LIMBO_EVAL.001 | DONE | LimboAI integration architecture evaluation: scalability, BT pattern quality, determinism safety. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/56_SESSION_LOG.md |

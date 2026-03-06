@@ -1,7 +1,7 @@
 {
-    "queue_contract_version": "2.2",
+    "queue_contract_version": "2.3",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-05T22:00:00Z",
-    "queue_intent": "Queue empty. Tranche 11 'Living Galaxy' complete (20/20 gates closed).",
+    "generated_utc": "2026-03-06T23:59:00Z",
+    "queue_intent": "Tranche 15 'NPC Ships Alive' complete. All 19 gates closed. Queue empty.",
     "tasks": []
 }

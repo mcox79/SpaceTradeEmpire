@@ -72,22 +72,11 @@ func _create_toast(text: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# Semi-transparent dark background
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	style.content_margin_left = 12.0
-	style.content_margin_right = 12.0
-	style.content_margin_top = 8.0
-	style.content_margin_bottom = 8.0
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", UITheme.make_panel_toast())
 
 	var label := Label.new()
 	label.text = text
-	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size = Vector2(250, 0)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

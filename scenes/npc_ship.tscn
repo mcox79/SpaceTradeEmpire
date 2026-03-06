@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3 uid="uid://npcship001"]
+
+[ext_resource type="Script" path="res://scripts/core/npc_ship.gd" id="1_npc"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hull"]
+radius = 1.2
+height = 5.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_area"]
+radius = 4.8
+
+[node name="NpcShip" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_npc")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_hull")
+
+[node name="ShipVisual" type="Node3D" parent="."]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+
+[node name="FleetArea" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 2
+
+[node name="FleetShape" type="CollisionShape3D" parent="FleetArea"]
+shape = SubResource("SphereShape3D_area")

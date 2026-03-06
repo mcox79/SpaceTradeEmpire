@@ -5,10 +5,10 @@ extends RigidBody3D
 # Tuning values are centralized here to avoid scattered magic numbers.
 
 const THRUST_FORCE_V0: float = 55.0
-const TURN_TORQUE_V0: float = 4.0
-const MAX_SPEED_V0: float = 28.0
-const LINEAR_DAMPING_V0: float = 0.8
-const ANGULAR_DAMPING_V0: float = 3.0
+const TURN_TORQUE_V0: float = 10.0
+const MAX_SPEED_V0: float = 18.0
+const LINEAR_DAMPING_V0: float = 1.5
+const ANGULAR_DAMPING_V0: float = 6.0
 const GRAVITY_SCALE_V0: float = 0.0
 
 # Deterministic test overrides (null means use live input).
@@ -21,6 +21,9 @@ func _ready():
 	gravity_scale = GRAVITY_SCALE_V0
 	linear_damp = LINEAR_DAMPING_V0
 	angular_damp = ANGULAR_DAMPING_V0
+	axis_lock_linear_y = true
+	axis_lock_angular_x = true
+	axis_lock_angular_z = true
 
 func _physics_process(_delta):
 	# Freeze input and kill momentum while docked or in lane transit.

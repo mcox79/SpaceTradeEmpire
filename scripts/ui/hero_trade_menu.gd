@@ -1,12 +1,16 @@
 extends CanvasLayer
 
 # GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001
-# Hero trade menu: centered panel with station name, goods rows, cargo summary, undock button.
+# GATE.S13.DOCK.TABS.001: 3-tab dock menu (Market | Jobs | Services)
+# GATE.S13.DOCK.CONTEXT.001: Station context description
+# GATE.S13.DOCK.HIDE_EMPTY.001: Hide sections with no content
+# GATE.S13.TERMINOLOGY.001: Programs → Automation, player-friendly terms
 
 var _market_node_id: String = ""
-var _collapsed: Dictionary = {"research": true, "refit": true, "maintenance": true, "construction": true, "trade_routes": true, "programs": true}
+var _collapsed: Dictionary = {"research": true, "refit": true, "maintenance": true, "construction": true, "trade_routes": true, "programs": true, "encounters": false}
 var _rows_container: VBoxContainer = null
 var _title_label: Label = null
+var _context_label: Label = null  # GATE.S13.DOCK.CONTEXT.001
 var _planet_info_label: Label = null
 var _security_label: Label = null
 var _cargo_label: Label = null
@@ -16,11 +20,18 @@ var _refit_container: VBoxContainer = null
 var _maint_container: VBoxContainer = null
 var _construction_container: VBoxContainer = null
 var _trade_routes_container: VBoxContainer = null
-var _programs_container: VBoxContainer = null  # GATE.S11.GAME_FEEL.DOCK_ENHANCE.001
+var _programs_container: VBoxContainer = null
+var _encounters_container: VBoxContainer = null  # GATE.S6.ANOMALY.ENCOUNTER_UI.001
+
+# GATE.S13.DOCK.TABS.001: Tab state
+var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Services
+var _tab_market: VBoxContainer = null
+var _tab_jobs: VBoxContainer = null
+var _tab_services: VBoxContainer = null
+var _tab_buttons: Array = []
 
 func _ready():
 	visible = false
-	# Panel: 420px wide, horizontally centered, fills screen height with 40px margins.
 	var panel = PanelContainer.new()
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
@@ -30,6 +41,8 @@ func _ready():
 	panel.anchor_bottom = 1.0
 	panel.offset_top = 40
 	panel.offset_bottom = -40
+	# GATE.S14.DOCK.VISUAL_FRAME.001: dark navy panel with border
+	panel.add_theme_stylebox_override("panel", UITheme.make_panel_dock())
 	add_child(panel)
 
 	var scroll = ScrollContainer.new()
@@ -46,15 +59,25 @@ func _ready():
 	_title_label = Label.new()
 	_title_label.text = "STATION MARKET"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 20)
+	_title_label.add_theme_font_size_override("font_size", UITheme.FONT_TITLE)
 	vbox.add_child(_title_label)
+
+	# GATE.S13.DOCK.CONTEXT.001: Station context description
+	_context_label = Label.new()
+	_context_label.text = ""
+	_context_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_context_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_context_label.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+	_context_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_context_label.visible = false
+	vbox.add_child(_context_label)
 
 	# GATE.S7.PLANET.UI.001: Planet info subtitle (hidden for stations).
 	_planet_info_label = Label.new()
 	_planet_info_label.text = ""
 	_planet_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_planet_info_label.add_theme_font_size_override("font_size", 12)
-	_planet_info_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+	_planet_info_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_planet_info_label.add_theme_color_override("font_color", UITheme.TEXT_INFO)
 	_planet_info_label.visible = false
 	vbox.add_child(_planet_info_label)
 
@@ -62,11 +85,34 @@ func _ready():
 	_security_label = Label.new()
 	_security_label.text = ""
 	_security_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_security_label.add_theme_font_size_override("font_size", 13)
+	_security_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 	_security_label.visible = false
 	vbox.add_child(_security_label)
 
 	vbox.add_child(HSeparator.new())
+
+	# GATE.S13.DOCK.TABS.001: Tab bar
+	var tab_bar = HBoxContainer.new()
+	tab_bar.add_theme_constant_override("separation", 4)
+	tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_buttons = []
+	for tab_name in ["Market", "Jobs", "Services"]:
+		var btn = Button.new()
+		btn.text = tab_name
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.toggle_mode = true
+		var idx: int = _tab_buttons.size()
+		btn.pressed.connect(_switch_dock_tab.bind(idx))
+		tab_bar.add_child(btn)
+		_tab_buttons.append(btn)
+	vbox.add_child(tab_bar)
+
+	vbox.add_child(HSeparator.new())
+
+	# Tab 1: Market
+	_tab_market = VBoxContainer.new()
+	_tab_market.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_market)
 
 	# Column header
 	var header = HBoxContainer.new()
@@ -75,66 +121,91 @@ func _ready():
 		lbl.text = col_name
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		header.add_child(lbl)
-	vbox.add_child(header)
+	_tab_market.add_child(header)
 
 	# Goods rows
 	_rows_container = VBoxContainer.new()
 	_rows_container.add_theme_constant_override("separation", 2)
-	vbox.add_child(_rows_container)
+	_tab_market.add_child(_rows_container)
 
-	vbox.add_child(HSeparator.new())
+	_tab_market.add_child(HSeparator.new())
 
 	# Cargo summary line
 	_cargo_label = Label.new()
 	_cargo_label.text = ""
-	vbox.add_child(_cargo_label)
+	_tab_market.add_child(_cargo_label)
 
-	vbox.add_child(HSeparator.new())
+	# Tab 2: Jobs
+	_tab_jobs = VBoxContainer.new()
+	_tab_jobs.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_jobs)
 
-	# Missions section
 	_missions_container = VBoxContainer.new()
 	_missions_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_missions_container)
+	_tab_jobs.add_child(_missions_container)
+
+	# Tab 3: Services
+	_tab_services = VBoxContainer.new()
+	_tab_services.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_services)
 
 	# GATE.S4.UI_INDU.RESEARCH.001: Research section
 	_research_container = VBoxContainer.new()
 	_research_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_research_container)
+	_tab_services.add_child(_research_container)
 
 	# GATE.S4.UI_INDU.UPGRADE.001: Refit section
 	_refit_container = VBoxContainer.new()
 	_refit_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_refit_container)
+	_tab_services.add_child(_refit_container)
 
 	# GATE.S4.UI_INDU.MAINT.001: Maintenance section
 	_maint_container = VBoxContainer.new()
 	_maint_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_maint_container)
+	_tab_services.add_child(_maint_container)
 
 	# GATE.S4.CONSTR_PROG.UI.001: Construction section
 	_construction_container = VBoxContainer.new()
 	_construction_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_construction_container)
+	_tab_services.add_child(_construction_container)
 
 	# GATE.S10.TRADE_INTEL.DOCK_UI.001: Trade Routes section
 	_trade_routes_container = VBoxContainer.new()
 	_trade_routes_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_trade_routes_container)
+	_tab_services.add_child(_trade_routes_container)
 
-	# GATE.S11.GAME_FEEL.DOCK_ENHANCE.001: Programs summary section
+	# Automation section (renamed from Programs)
 	_programs_container = VBoxContainer.new()
 	_programs_container.add_theme_constant_override("separation", 4)
-	vbox.add_child(_programs_container)
+	_tab_services.add_child(_programs_container)
 
-	# Undock button
+	# GATE.S6.ANOMALY.ENCOUNTER_UI.001: Anomaly Encounters section
+	_encounters_container = VBoxContainer.new()
+	_encounters_container.add_theme_constant_override("separation", 4)
+	_tab_services.add_child(_encounters_container)
+
+	# Undock button (always visible)
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
 	btn_undock.pressed.connect(_on_undock_pressed)
 	vbox.add_child(btn_undock)
 
+	# Start on Market tab
+	_switch_dock_tab(0)
+
+# GATE.S13.DOCK.TABS.001: Switch between dock tabs
+func _switch_dock_tab(idx: int) -> void:
+	_active_dock_tab = idx
+	_tab_market.visible = (idx == 0)
+	_tab_jobs.visible = (idx == 1)
+	_tab_services.visible = (idx == 2)
+	for i in range(_tab_buttons.size()):
+		_tab_buttons[i].button_pressed = (i == idx)
+
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
 	visible = true
+	_switch_dock_tab(0)  # Always open on Market tab
 
 	# GATE.S7.PLANET.UI.001: Detect planet vs station for title + info.
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -153,6 +224,15 @@ func open_market_v0(node_id: String) -> void:
 			if bridge and bridge.has_method("GetNodeDisplayNameV0"):
 				station_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
 			_title_label.text = "STATION: %s" % station_name
+
+	# GATE.S13.DOCK.CONTEXT.001: Station context description from production
+	if _context_label and bridge:
+		var context_text: String = _build_station_context(bridge, node_id)
+		if not context_text.is_empty():
+			_context_label.text = context_text
+			_context_label.visible = true
+		else:
+			_context_label.visible = false
 
 	if _planet_info_label:
 		if is_planet:
@@ -174,17 +254,29 @@ func open_market_v0(node_id: String) -> void:
 		var band: String = str(bridge.call("GetNodeSecurityBandV0", node_id))
 		_security_label.text = "Security: %s" % band.to_upper()
 		_security_label.visible = true
-		match band:
-			"hostile":
-				_security_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
-			"dangerous":
-				_security_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-			"safe":
-				_security_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
-			_:
-				_security_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+		_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 
 	_rebuild_rows()
+
+# GATE.S13.DOCK.CONTEXT.001: Build station context from production sites
+func _build_station_context(bridge, node_id: String) -> String:
+	if not bridge.has_method("GetNodeIndustryV0"):
+		return ""
+	var industry: Array = bridge.call("GetNodeIndustryV0", node_id)
+	if industry.size() == 0:
+		return ""
+	var outputs: Array = []
+	for site_info in industry:
+		if typeof(site_info) != TYPE_DICTIONARY:
+			continue
+		var site_outputs: Array = site_info.get("outputs", [])
+		for out_good in site_outputs:
+			var formatted: String = _format_display_name(str(out_good))
+			if formatted not in outputs:
+				outputs.append(formatted)
+	if outputs.size() == 0:
+		return ""
+	return "Produces: %s" % ", ".join(outputs)
 
 func _temp_label_v0(temp_bps: int) -> String:
 	if temp_bps < 2000: return "Frozen"
@@ -356,6 +448,7 @@ func _rebuild_rows() -> void:
 	_rebuild_construction()
 	_rebuild_trade_routes()
 	_rebuild_programs()
+	_rebuild_encounters()
 
 	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: Update cargo summary with total item count
 	if _cargo_label:
@@ -392,7 +485,7 @@ func _rebuild_production_info() -> void:
 	var header = Label.new()
 	header.text = "PRODUCTION"
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.add_theme_font_size_override("font_size", 16)
+	header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 	_rows_container.add_child(header)
 
 	for site_info in industry:
@@ -432,12 +525,12 @@ func _rebuild_missions() -> void:
 			var hdr = Label.new()
 			hdr.text = "ACTIVE MISSION"
 			hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			hdr.add_theme_font_size_override("font_size", 16)
+			hdr.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 			_missions_container.add_child(hdr)
 
 			var title_lbl = Label.new()
 			title_lbl.text = str(active.get("title", active_id))
-			title_lbl.add_theme_font_size_override("font_size", 14)
+			title_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 			_missions_container.add_child(title_lbl)
 
 			var obj_lbl = Label.new()
@@ -462,12 +555,16 @@ func _rebuild_missions() -> void:
 	if bridge.has_method("GetMissionListV0"):
 		var missions: Array = bridge.call("GetMissionListV0")
 		if missions.size() == 0:
+			var empty_lbl = Label.new()
+			empty_lbl.text = "No missions available at this station."
+			empty_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+			_missions_container.add_child(empty_lbl)
 			return
 
 		var hdr = Label.new()
 		hdr.text = "AVAILABLE MISSIONS"
 		hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hdr.add_theme_font_size_override("font_size", 16)
+		hdr.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 		_missions_container.add_child(hdr)
 
 		for m in missions:
@@ -509,6 +606,23 @@ func _rebuild_research() -> void:
 	if bridge == null:
 		return
 
+	# GATE.S13.DOCK.HIDE_EMPTY.001: Hide research if no techs available
+	var has_content: bool = false
+	if bridge.has_method("GetResearchStatusV0"):
+		var status: Dictionary = bridge.call("GetResearchStatusV0")
+		if bool(status.get("researching", false)):
+			has_content = true
+	if not has_content and bridge.has_method("GetTechTreeV0"):
+		var techs: Array = bridge.call("GetTechTreeV0")
+		for t in techs:
+			if typeof(t) == TYPE_DICTIONARY and not bool(t.get("unlocked", false)):
+				has_content = true
+				break
+	if not has_content:
+		_research_container.visible = false
+		return
+	_research_container.visible = true
+
 	_add_section_header(_research_container, "research", "RESEARCH")
 	if _collapsed.get("research", false):
 		return
@@ -518,7 +632,7 @@ func _rebuild_research() -> void:
 		var tier_lbl = Label.new()
 		tier_lbl.text = "Tech Level: %d" % bridge.call("GetTechTierV0")
 		tier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tier_lbl.add_theme_font_size_override("font_size", 14)
+		tier_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 		_research_container.add_child(tier_lbl)
 
 	# Show current research status
@@ -538,7 +652,7 @@ func _rebuild_research() -> void:
 			if not stall_reason.is_empty():
 				var stall_lbl = Label.new()
 				stall_lbl.text = "STALLED: %s" % stall_reason
-				stall_lbl.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+				stall_lbl.add_theme_color_override("font_color", UITheme.RED)
 				stall_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_research_container.add_child(stall_lbl)
 
@@ -547,11 +661,6 @@ func _rebuild_research() -> void:
 				var node_lbl = Label.new()
 				node_lbl.text = "Research Node: %s" % research_node
 				_research_container.add_child(node_lbl)
-
-			var sustain_ticks: int = int(status.get("sustain_accumulator_ticks", 0))
-			var sustain_lbl = Label.new()
-			sustain_lbl.text = "Sustain Progress: %d ticks" % sustain_ticks
-			_research_container.add_child(sustain_lbl)
 
 			return
 
@@ -610,7 +719,7 @@ func _rebuild_research() -> void:
 				var info_lbl = Label.new()
 				info_lbl.text = "%s (locked)" % tname
 				info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+				info_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 				row.add_child(info_lbl)
 				if not block_reason.is_empty():
 					row.add_child(_make_block_label(_format_block_reason(block_reason)))
@@ -634,11 +743,15 @@ func _rebuild_refit() -> void:
 	if bridge == null:
 		return
 	if not bridge.has_method("GetPlayerFleetSlotsV0") or not bridge.has_method("GetAvailableModulesV0"):
+		_refit_container.visible = false
 		return
 
 	var slots: Array = bridge.call("GetPlayerFleetSlotsV0")
 	if slots.size() == 0:
+		# GATE.S13.DOCK.HIDE_EMPTY.001: Hide refit if no slots
+		_refit_container.visible = false
 		return
+	_refit_container.visible = true
 
 	_add_section_header(_refit_container, "refit", "REFIT")
 	if _collapsed.get("refit", false):
@@ -650,7 +763,7 @@ func _rebuild_refit() -> void:
 		if refit_progress.get("queue_size", 0) > 0:
 			var refit_lbl = Label.new()
 			refit_lbl.text = "Refitting: %s (%d ticks left)" % [refit_progress.get("current_module", ""), refit_progress.get("ticks_remaining", 0)]
-			refit_lbl.add_theme_font_size_override("font_size", 14)
+			refit_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 			_refit_container.add_child(refit_lbl)
 
 	# Show current slots
@@ -680,7 +793,7 @@ func _rebuild_refit() -> void:
 	if installable.size() > 0:
 		var sub_hdr = Label.new()
 		sub_hdr.text = "Available Modules:"
-		sub_hdr.add_theme_font_size_override("font_size", 14)
+		sub_hdr.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 		_refit_container.add_child(sub_hdr)
 
 		for m in installable:
@@ -721,8 +834,8 @@ func _rebuild_refit() -> void:
 	if locked_modules.size() > 0 and bridge.has_method("GetRefitBlockReasonV0"):
 		var locked_hdr = Label.new()
 		locked_hdr.text = "Locked Modules:"
-		locked_hdr.add_theme_font_size_override("font_size", 14)
-		locked_hdr.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		locked_hdr.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		locked_hdr.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_refit_container.add_child(locked_hdr)
 
 		for m in locked_modules:
@@ -734,7 +847,7 @@ func _rebuild_refit() -> void:
 			var info_lbl = Label.new()
 			info_lbl.text = "%s [%s]" % [mname, mkind]
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			info_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 			row.add_child(info_lbl)
 			if not block_reason.is_empty():
 				row.add_child(_make_block_label(_format_block_reason(block_reason)))
@@ -755,9 +868,11 @@ func _rebuild_maintenance() -> void:
 		child.queue_free()
 
 	if _market_node_id.is_empty():
+		_maint_container.visible = false
 		return
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null or not bridge.has_method("GetNodeMaintenanceV0"):
+		_maint_container.visible = false
 		return
 
 	var sites: Array = bridge.call("GetNodeMaintenanceV0", _market_node_id)
@@ -769,7 +884,10 @@ func _rebuild_maintenance() -> void:
 			damaged.append(s)
 
 	if damaged.size() == 0:
+		# GATE.S13.DOCK.HIDE_EMPTY.001: Hide maintenance if no damaged sites
+		_maint_container.visible = false
 		return
+	_maint_container.visible = true
 
 	_add_section_header(_maint_container, "maintenance", "MAINTENANCE")
 	if _collapsed.get("maintenance", false):
@@ -781,7 +899,7 @@ func _rebuild_maintenance() -> void:
 		if supply.size() > 0:
 			var supply_lbl = Label.new()
 			supply_lbl.text = "Supply: %d/%d" % [supply.get("supply_level", 0), supply.get("max_supply", 100)]
-			supply_lbl.add_theme_font_size_override("font_size", 14)
+			supply_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 			_maint_container.add_child(supply_lbl)
 
 	for s in damaged:
@@ -849,7 +967,7 @@ func _add_section_header(container: VBoxContainer, key: String, title: String) -
 	var btn = Button.new()
 	btn.text = "%s  %s" % [title, "[+]" if is_collapsed else "[-]"]
 	btn.flat = true
-	btn.add_theme_font_size_override("font_size", 16)
+	btn.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 	btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	btn.pressed.connect(_toggle_section.bind(key))
 	container.add_child(btn)
@@ -869,7 +987,7 @@ func _site_source_tag(site_id: String) -> String:
 func _make_block_label(text: String) -> Label:
 	var lbl = Label.new()
 	lbl.text = text
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+	lbl.add_theme_color_override("font_color", UITheme.ORANGE)
 	lbl.clip_text = true
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return lbl
@@ -889,10 +1007,29 @@ func _rebuild_construction() -> void:
 		child.queue_free()
 
 	if _market_node_id.is_empty():
+		_construction_container.visible = false
 		return
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null:
+		_construction_container.visible = false
 		return
+
+	# GATE.S13.DOCK.HIDE_EMPTY.001: Hide construction unless there are defs or active projects
+	var has_content: bool = false
+	if bridge.has_method("GetConstructionProjectsV0"):
+		var projects: Array = bridge.call("GetConstructionProjectsV0")
+		for p in projects:
+			if typeof(p) == TYPE_DICTIONARY and str(p.get("node_id", "")) == _market_node_id and not bool(p.get("completed", true)):
+				has_content = true
+				break
+	if not has_content and bridge.has_method("GetAvailableConstructionDefsV0"):
+		var defs: Array = bridge.call("GetAvailableConstructionDefsV0")
+		if defs.size() > 0:
+			has_content = true
+	if not has_content:
+		_construction_container.visible = false
+		return
+	_construction_container.visible = true
 
 	_add_section_header(_construction_container, "construction", "CONSTRUCTION")
 	if _collapsed.get("construction", false):
@@ -924,7 +1061,6 @@ func _rebuild_construction() -> void:
 	# Show available construction defs to start
 	if bridge.has_method("GetAvailableConstructionDefsV0") and bridge.has_method("GetConstructionBlockReasonV0"):
 		var defs: Array = bridge.call("GetAvailableConstructionDefsV0")
-		var show_header: bool = false
 		for d in defs:
 			if typeof(d) != TYPE_DICTIONARY:
 				continue
@@ -935,15 +1071,12 @@ func _rebuild_construction() -> void:
 
 			var block_reason: String = str(bridge.call("GetConstructionBlockReasonV0", def_id, _market_node_id))
 
-			if not show_header:
-				show_header = true
-
 			var row = HBoxContainer.new()
 			var info_lbl = Label.new()
 			info_lbl.text = "%s (%d cr/step)" % [dname, cost]
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			if not prereqs_met:
-				info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+				info_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 			row.add_child(info_lbl)
 
 			if not block_reason.is_empty():
@@ -971,19 +1104,28 @@ func _rebuild_trade_routes() -> void:
 
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null:
+		_trade_routes_container.visible = false
 		return
+
+	# GATE.S13.DOCK.HIDE_EMPTY.001: Hide trade routes until scanner tech is researched
+	if not bridge.has_method("GetScannerRangeV0"):
+		_trade_routes_container.visible = false
+		return
+	var scan_range: int = int(bridge.call("GetScannerRangeV0"))
+	if scan_range <= 0:
+		_trade_routes_container.visible = false
+		return
+	_trade_routes_container.visible = true
 
 	_add_section_header(_trade_routes_container, "trade_routes", "TRADE ROUTES")
 	if _collapsed.get("trade_routes", false):
 		return
 
 	# Scanner range line
-	if bridge.has_method("GetScannerRangeV0"):
-		var scan_range: int = int(bridge.call("GetScannerRangeV0"))
-		var range_lbl = Label.new()
-		range_lbl.text = "Scanner Range: %d hop(s)" % scan_range
-		range_lbl.add_theme_font_size_override("font_size", 14)
-		_trade_routes_container.add_child(range_lbl)
+	var range_lbl = Label.new()
+	range_lbl.text = "Scanner Range: %d hop(s)" % scan_range
+	range_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	_trade_routes_container.add_child(range_lbl)
 
 	if not bridge.has_method("GetTradeRoutesV0"):
 		return
@@ -994,7 +1136,7 @@ func _rebuild_trade_routes() -> void:
 		var empty_lbl = Label.new()
 		empty_lbl.text = "No routes discovered. Dock at stations to gather price intel."
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_trade_routes_container.add_child(empty_lbl)
 		return
 
@@ -1011,7 +1153,7 @@ func _rebuild_trade_routes() -> void:
 
 		var row = HBoxContainer.new()
 		var info_lbl = Label.new()
-		info_lbl.text = "Good: %s | %s → %s | +%d/unit | %s" % [_format_display_name(good_id), _format_display_name(source_node), _format_display_name(dest_node), profit, status]
+		info_lbl.text = "Good: %s | %s -> %s | +%d/unit | %s" % [_format_display_name(good_id), _format_display_name(source_node), _format_display_name(dest_node), profit, status]
 		info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		info_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(info_lbl)
@@ -1035,7 +1177,7 @@ func _on_launch_charter(source_node_id: String, dest_node_id: String, good_id: S
 		bridge.call("StartProgram", program_id)
 	_rebuild_rows()
 
-# GATE.S11.GAME_FEEL.DOCK_ENHANCE.001: Programs summary panel
+# GATE.S13.TERMINOLOGY.001: "Programs" renamed to "Automation"
 func _rebuild_programs() -> void:
 	if _programs_container == null:
 		return
@@ -1045,21 +1187,23 @@ func _rebuild_programs() -> void:
 
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null:
-		return
-
-	_add_section_header(_programs_container, "programs", "PROGRAMS")
-	if _collapsed.get("programs", false):
+		_programs_container.visible = false
 		return
 
 	if not bridge.has_method("GetProgramExplainSnapshot"):
+		_programs_container.visible = false
 		return
 
 	var programs: Array = bridge.call("GetProgramExplainSnapshot")
+	# GATE.S13.DOCK.HIDE_EMPTY.001: Hide automation until first program exists
 	if programs.size() == 0:
-		var empty_lbl = Label.new()
-		empty_lbl.text = "No active programs."
-		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		_programs_container.add_child(empty_lbl)
+		_programs_container.visible = false
+		return
+	_programs_container.visible = true
+
+	_add_section_header(_programs_container, "programs", "AUTOMATION")
+
+	if _collapsed.get("programs", false):
 		return
 
 	for p in programs:
@@ -1087,3 +1231,74 @@ func _format_display_name(id: String) -> String:
 		return str(bridge.call("FormatDisplayNameV0", id))
 	# Fallback: simple capitalize with underscore-to-space
 	return id.replace("_", " ").capitalize()
+
+# GATE.S6.ANOMALY.ENCOUNTER_UI.001: Anomaly encounters panel in Services tab.
+func _rebuild_encounters() -> void:
+	if _encounters_container == null:
+		return
+	for child in _encounters_container.get_children():
+		_encounters_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetActiveEncountersV0"):
+		_encounters_container.visible = false
+		return
+
+	var encounters: Array = bridge.call("GetActiveEncountersV0")
+	# GATE.S13.DOCK.HIDE_EMPTY.001: Hide encounters until at least one is active
+	if encounters.size() == 0:
+		_encounters_container.visible = false
+		return
+	_encounters_container.visible = true
+
+	_add_section_header(_encounters_container, "encounters", "ANOMALY ENCOUNTERS")
+	if _collapsed.get("encounters", false):
+		return
+
+	for enc in encounters:
+		if typeof(enc) != TYPE_DICTIONARY:
+			continue
+		var enc_id: String = str(enc.get("encounter_id", ""))
+		var family: String = str(enc.get("family", ""))
+		var difficulty: int = int(enc.get("difficulty", 0))
+		var status: String = str(enc.get("status", ""))
+		var loot_items: Array = enc.get("loot_items", [])
+		var credit_reward: int = int(enc.get("credit_reward", 0))
+
+		# Family icon
+		var family_icon: String
+		match family:
+			"DERELICT": family_icon = "[D]"
+			"RUIN":     family_icon = "[R]"
+			"SIGNAL":   family_icon = "[S]"
+			_:           family_icon = "[?]"
+
+		# Loot preview (first item or credit reward)
+		var loot_preview: String = ""
+		if loot_items.size() > 0:
+			loot_preview = str(loot_items[0])
+		elif credit_reward > 0:
+			loot_preview = "%d cr" % credit_reward
+
+		var row = VBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+
+		# Info label: icon | difficulty | loot | status
+		var info_lbl = Label.new()
+		info_lbl.text = "%s  Diff: %d  Loot: %s  [%s]" % [family_icon, difficulty, loot_preview, status]
+		info_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		info_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(info_lbl)
+
+		# Engage button for Pending encounters
+		if status == "Pending":
+			var btn_engage = Button.new()
+			btn_engage.text = "Engage"
+			btn_engage.pressed.connect(_on_encounter_engage_v0.bind(enc_id))
+			row.add_child(btn_engage)
+
+		_encounters_container.add_child(row)
+
+func _on_encounter_engage_v0(encounter_id: String) -> void:
+	print("ENCOUNTER_ENGAGE|" + encounter_id)

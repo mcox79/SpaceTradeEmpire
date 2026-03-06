@@ -48,10 +48,19 @@ public static class PlanetInitGen
     {
         uint hash = GalaxyGenerator.Fnv1a32Utf8(nodeId + "_star_class");
 
-        // Pick star class from world-class-biased distribution.
-        var dist = PlanetContentV0.StarDistribution.TryGetValue(worldClass, out var d)
-            ? d : PlanetContentV0.DefaultStarDistribution;
-        var starClass = PickWeighted(dist, hash);
+        // GATE.S14.STAR.STARTER_GUARANTEE.001: Player start always gets a welcoming Sol-like star.
+        StarClass starClass;
+        if (nodeId == "star_0")
+        {
+            starClass = StarClass.ClassG;
+        }
+        else
+        {
+            // Pick star class from world-class-biased distribution.
+            var dist = PlanetContentV0.StarDistribution.TryGetValue(worldClass, out var d)
+                ? d : PlanetContentV0.DefaultStarDistribution;
+            starClass = PickWeighted(dist, hash);
+        }
 
         // Derive luminosity from star class range.
         uint lumHash = GalaxyGenerator.Fnv1a32Utf8(nodeId + "_star_lum");

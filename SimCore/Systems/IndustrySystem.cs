@@ -136,7 +136,7 @@ namespace SimCore.Systems
                     // Input consumption uses raw effBps; output production uses boosted prodBps.
                     int prodBps = effBps;
                     if (state.Tech.UnlockedTechIds.Contains("advanced_refining"))
-                        prodBps = Math.Min(Bps, effBps + effBps / 10);
+                        prodBps = Math.Min(Bps, effBps + effBps / IndustryTweaksV0.ProductionEfficiencyBoostDivisor);
 
                     // Consume inputs (preserve zero keys for markets)
                     foreach (var inputKey in inputKeys)

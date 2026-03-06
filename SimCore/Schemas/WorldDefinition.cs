@@ -73,6 +73,10 @@ public sealed class WorldFaction
 
     // Relations[OtherFactionId] in {-1,0,+1}. Keep explicit 0 entries for stable diffs.
     public Dictionary<string, int> Relations { get; set; } = new();
+
+    // GATE.S15.FEEL.FACTION_TERRITORY.001: Node IDs controlled by this faction (BFS from HomeNodeId, depth ≤3).
+    // Sorted Ordinal for deterministic serialization.
+    public List<string> ControlledNodeIds { get; set; } = new();
 }
 
 // GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: minimal discovery seeding surface v0.

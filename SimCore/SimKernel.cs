@@ -47,6 +47,11 @@ public class SimKernel
             _state.EnqueueIntent(intent);
         }
 
+        // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Clear transient arrival records from previous tick.
+        _state.ArrivalsThisTick.Clear();
+        // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Clear transient destroyed fleet records.
+        _state.NpcFleetsDestroyedThisTick.Clear();
+
         // Resolve in-flight inventory arrivals first.
         LaneFlowSystem.Process(_state);
 
@@ -58,6 +63,12 @@ public class SimKernel
 
         // Apply fleet movement/state transitions.
         MovementSystem.Process(_state);
+
+        // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Remove destroyed NPC fleets.
+        NpcFleetCombatSystem.Process(_state);
+
+        // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Random events on lane arrival.
+        JumpEventSystem.Process(_state);
 
         // Slice 3 / GATE.S3.RISK_MODEL.001
         // Emit deterministic security incidents on lanes%routes (no time sources, no shared RNG coupling).
@@ -89,6 +100,9 @@ public class SimKernel
 
         // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Price history snapshot recording.
         IntelSystem.ProcessPriceHistory(_state);
+
+        // GATE.S6.OUTCOME.REWARD_MODEL.001: Discovery outcome rewards on Analyzed phase.
+        DiscoveryOutcomeSystem.Process(_state);
 
         // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
         NpcTradeSystem.ProcessNpcTrade(_state);

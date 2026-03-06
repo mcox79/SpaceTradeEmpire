@@ -5,7 +5,7 @@ extends Node3D
 # This script handles MOVEMENT only. Shooting is owned by game_manager.gd (_ai_fire_v0).
 
 # --- Tunable parameters ---
-@export var patrol_speed: float = 10.0          # units/sec during patrol
+@export var patrol_speed: float = 6.0            # units/sec during patrol
 @export var dock_speed: float = 8.0             # units/sec moving toward station
 @export var engage_speed: float = 15.0          # units/sec during engage
 @export var patrol_radius: float = 20.0         # waypoint scatter radius around spawn
@@ -154,7 +154,19 @@ func _process_engage(delta: float) -> void:
 		_enter_patrol()
 		return
 
-	_move_toward_point(player.global_position, engage_speed, delta)
+	# GATE.S13.NPC.VISIBLE.001: Orbit at 15-20u instead of flying to 0u.
+	var orbit_dist: float = 17.5
+	var dir_away: Vector3 = (global_position - player.global_position).normalized()
+	if dist < orbit_dist - 2.0:
+		# Too close — back away
+		_move_toward_point(global_position + dir_away * 5.0, engage_speed, delta)
+	elif dist > orbit_dist + 2.0:
+		# Too far — close in
+		_move_toward_point(player.global_position, engage_speed, delta)
+	else:
+		# In orbit band — strafe around player
+		var tangent := dir_away.cross(Vector3.UP).normalized()
+		_move_toward_point(global_position + tangent * 5.0, engage_speed * 0.5, delta)
 
 # --- Movement helper ---
 

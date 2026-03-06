@@ -29,6 +29,7 @@ TooltipManager="*res://addons/tooltips_pro/scripts/tooltip_manager.gd"
 TooltipPlaceholderVariables="*res://addons/tooltips_pro/scripts/tooltip_placeholder_variables.gd"
 TooltipLinkData="*res://addons/tooltips_pro/scripts/tooltip_link_data.gd"
 ToastManager="*res://scripts/ui/toast_manager.gd"
+UITheme="*res://scripts/ui/ui_theme.gd"
 
 [display]
 
