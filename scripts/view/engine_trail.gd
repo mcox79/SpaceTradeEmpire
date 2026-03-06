@@ -12,14 +12,13 @@ var _ship: RigidBody3D
 
 func _ready() -> void:
 	emitting = false
-	# Walk up: GPUParticles3D -> Engine (MeshInstance3D) -> ShipVisual (Node3D) -> Player (RigidBody3D)
-	var p = get_parent()
-	if p:
-		var pp = p.get_parent()
-		if pp:
-			var ppp = pp.get_parent()
-			if ppp is RigidBody3D:
-				_ship = ppp
+	# Walk up the tree to find the RigidBody3D ancestor.
+	var node = get_parent()
+	while node != null:
+		if node is RigidBody3D:
+			_ship = node
+			break
+		node = node.get_parent()
 
 func _process(_delta: float) -> void:
 	if _ship == null:

@@ -162,6 +162,9 @@ public partial class SimState
         Pressure.DeltaLog ??= new List<Entities.PressureDelta>();
         Pressure.EventLog ??= new List<Entities.PressureEvent>();
 
+        // GATE.S12.PROGRESSION.STATS.001: PlayerStats hydration.
+        PlayerStats ??= new Entities.PlayerStats();
+
         // GATE.S7.PLANET.MODEL.001: Planet + Star state hydration (backward compat: old saves have no planets).
         Planets ??= new Dictionary<string, Entities.Planet>(StringComparer.Ordinal);
         Stars ??= new Dictionary<string, Entities.Star>(StringComparer.Ordinal);

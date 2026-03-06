@@ -119,6 +119,11 @@ public class Fleet
     // GATE.S4.UPGRADE_PIPELINE.TIMED_REFIT.001: Queued module installations awaiting completion.
     [JsonInclude] public List<RefitQueueEntry> RefitQueue { get; set; } = new();
 
+    // GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001: Multi-hop patrol circuit (3+ node IDs forming a loop).
+    // Generated deterministically from fleet ID + galaxy topology. PatrolCircuitIndex wraps around.
+    [JsonInclude] public List<string> PatrolCircuit { get; set; } = new();
+    [JsonInclude] public int PatrolCircuitIndex { get; set; } = 0;
+
     // GATE.S3.RISK_SINKS.DELAY_MODEL.001: Remaining delay ticks from risk events.
     [JsonInclude] public int DelayTicksRemaining { get; set; } = 0;
 

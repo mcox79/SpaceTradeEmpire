@@ -310,4 +310,59 @@ public static class CombatSystem
         }
         return log;
     }
+
+    // ── GATE.S5.COMBAT_RES.SYSTEM.001: Strategic combat resolution wrapper ──
+
+    public enum CombatResolutionOutcome { Victory, Defeat, Flee }
+
+    public sealed class CombatResolution
+    {
+        public string AttackerId { get; set; } = "";
+        public string DefenderId { get; set; } = "";
+        public CombatResolutionOutcome Outcome { get; set; }
+        public int RoundsPlayed { get; set; }
+        public int AttackerHullRemaining { get; set; }
+        public int DefenderHullRemaining { get; set; }
+        public int SalvageValue { get; set; }
+    }
+
+    /// <summary>
+    /// High-level combat resolution: builds profiles, runs strategic resolver, returns outcome
+    /// with flee logic (attacker survives max rounds but loses = flee).
+    /// </summary>
+    public static CombatResolution ResolveCombatV0(
+        Fleet attacker, Fleet defender,
+        IReadOnlyDictionary<string, int>? weaponBaseDamage = null)
+    {
+        var profileA = BuildProfile(attacker, weaponBaseDamage);
+        var profileB = BuildProfile(defender, weaponBaseDamage);
+
+        var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+        var resolution = new CombatResolution
+        {
+            AttackerId = attacker.Id,
+            DefenderId = defender.Id,
+            RoundsPlayed = result.RoundsPlayed,
+            AttackerHullRemaining = result.FleetAHullRemaining,
+            DefenderHullRemaining = result.FleetBHullRemaining,
+            SalvageValue = result.SalvageValue,
+        };
+
+        if (result.Winner == StrategicResolverV0.Winner.A)
+        {
+            resolution.Outcome = CombatResolutionOutcome.Victory;
+        }
+        else if (result.Winner == StrategicResolverV0.Winner.B)
+        {
+            resolution.Outcome = CombatResolutionOutcome.Defeat;
+        }
+        else
+        {
+            // Draw (max rounds, neither destroyed) — attacker flees
+            resolution.Outcome = CombatResolutionOutcome.Flee;
+        }
+
+        return resolution;
+    }
 }

@@ -181,6 +181,9 @@ public static class MissionSystem
         }
 
         missions.CompletedMissionIds.Add(missionId);
+        // GATE.S12.PROGRESSION.STATS.001: Track missions completed.
+        if (state.PlayerStats != null)
+            state.PlayerStats.MissionsCompleted = missions.CompletedMissionIds.Count;
         EmitEvent(state, missionId, "MissionCompleted");
 
         missions.ActiveMissionId = "";

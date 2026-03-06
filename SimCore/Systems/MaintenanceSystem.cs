@@ -41,7 +41,15 @@ public static class MaintenanceSystem
             if (site.SupplyLevel <= 0)
                 effectiveDegrade *= MaintenanceTweaksV0.NoSupplyDecayMultiplier;
 
-            site.HealthBps = Math.Max(MaintenanceTweaksV0.MinHealthBps, site.HealthBps - effectiveDegrade);
+            // Accumulator pattern matching IndustrySystem: spread daily rate across TicksPerDay.
+            // Uses same denominator (TicksPerDay * Bps) so DegradeRemainder is shared correctly.
+            long maintNumer = (long)effectiveDegrade * IndustrySystem.Bps;
+            long denom = (long)IndustrySystem.TicksPerDay * IndustrySystem.Bps;
+            site.DegradeRemainder = checked(site.DegradeRemainder + maintNumer);
+            int bpsLoss = (int)(site.DegradeRemainder / denom);
+            site.DegradeRemainder = site.DegradeRemainder % denom;
+            if (bpsLoss > 0)
+                site.HealthBps = Math.Max(MaintenanceTweaksV0.MinHealthBps, site.HealthBps - bpsLoss);
             UpdateEfficiency(site);
         }
     }

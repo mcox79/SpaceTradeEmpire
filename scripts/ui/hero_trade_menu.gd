@@ -4,15 +4,19 @@ extends CanvasLayer
 # Hero trade menu: centered panel with station name, goods rows, cargo summary, undock button.
 
 var _market_node_id: String = ""
+var _collapsed: Dictionary = {"research": true, "refit": true, "maintenance": true, "construction": true, "trade_routes": true, "programs": true}
 var _rows_container: VBoxContainer = null
 var _title_label: Label = null
 var _planet_info_label: Label = null
+var _security_label: Label = null
 var _cargo_label: Label = null
 var _missions_container: VBoxContainer = null
 var _research_container: VBoxContainer = null
 var _refit_container: VBoxContainer = null
 var _maint_container: VBoxContainer = null
 var _construction_container: VBoxContainer = null
+var _trade_routes_container: VBoxContainer = null
+var _programs_container: VBoxContainer = null  # GATE.S11.GAME_FEEL.DOCK_ENHANCE.001
 
 func _ready():
 	visible = false
@@ -20,8 +24,8 @@ func _ready():
 	var panel = PanelContainer.new()
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
-	panel.offset_left = -210
-	panel.offset_right = 210
+	panel.offset_left = -275
+	panel.offset_right = 275
 	panel.anchor_top = 0.0
 	panel.anchor_bottom = 1.0
 	panel.offset_top = 40
@@ -54,11 +58,19 @@ func _ready():
 	_planet_info_label.visible = false
 	vbox.add_child(_planet_info_label)
 
+	# GATE.S5.SEC_LANES.UI.001: Security band label
+	_security_label = Label.new()
+	_security_label.text = ""
+	_security_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_security_label.add_theme_font_size_override("font_size", 13)
+	_security_label.visible = false
+	vbox.add_child(_security_label)
+
 	vbox.add_child(HSeparator.new())
 
 	# Column header
 	var header = HBoxContainer.new()
-	for col_name in ["Good", "Buy", "Sell", "", ""]:
+	for col_name in ["Good", "Buy", "Sell", "Buy", "Sell"]:
 		var lbl = Label.new()
 		lbl.text = col_name
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -104,6 +116,16 @@ func _ready():
 	_construction_container.add_theme_constant_override("separation", 4)
 	vbox.add_child(_construction_container)
 
+	# GATE.S10.TRADE_INTEL.DOCK_UI.001: Trade Routes section
+	_trade_routes_container = VBoxContainer.new()
+	_trade_routes_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_trade_routes_container)
+
+	# GATE.S11.GAME_FEEL.DOCK_ENHANCE.001: Programs summary section
+	_programs_container = VBoxContainer.new()
+	_programs_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(_programs_container)
+
 	# Undock button
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
@@ -127,7 +149,10 @@ func open_market_v0(node_id: String) -> void:
 			var pname: String = str(planet_info.get("display_name", node_id))
 			_title_label.text = "PLANET: %s" % pname
 		else:
-			_title_label.text = "STATION: %s" % node_id
+			var station_name: String = node_id
+			if bridge and bridge.has_method("GetNodeDisplayNameV0"):
+				station_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
+			_title_label.text = "STATION: %s" % station_name
 
 	if _planet_info_label:
 		if is_planet:
@@ -143,6 +168,21 @@ func open_market_v0(node_id: String) -> void:
 			_planet_info_label.visible = true
 		else:
 			_planet_info_label.visible = false
+
+	# GATE.S5.SEC_LANES.UI.001: Security readout for docked location
+	if _security_label and bridge and bridge.has_method("GetNodeSecurityBandV0"):
+		var band: String = str(bridge.call("GetNodeSecurityBandV0", node_id))
+		_security_label.text = "Security: %s" % band.to_upper()
+		_security_label.visible = true
+		match band:
+			"hostile":
+				_security_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
+			"dangerous":
+				_security_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+			"safe":
+				_security_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
+			_:
+				_security_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
 
 	_rebuild_rows()
 
@@ -165,23 +205,71 @@ func get_market_view_v0() -> Array:
 		return bridge.call("GetPlayerMarketViewV0", _market_node_id)
 	return []
 
-func buy_one_v0(good_id: String) -> void:
-	if _market_node_id.is_empty() or good_id.is_empty():
+# GATE.S12.UX_POLISH.QUANTITY.001: Quantity-aware buy/sell helpers
+func _buy_qty_v0(good_id: String, qty: int) -> void:
+	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
 		return
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
-		# DispatchPlayerTradeV0 blocks until sim tick advances — no timer race.
-		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, 1, true)
+		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, qty, true)
+		# GATE.S12.UX_POLISH.TRADE_FEEDBACK.001: toast on buy
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.call("show_toast", "Bought %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
 
-func sell_one_v0(good_id: String) -> void:
-	if _market_node_id.is_empty() or good_id.is_empty():
+func _sell_qty_v0(good_id: String, qty: int) -> void:
+	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
 		return
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
-		# DispatchPlayerTradeV0 blocks until sim tick advances — no timer race.
-		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, 1, false)
+		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, qty, false)
+		# GATE.S12.UX_POLISH.TRADE_FEEDBACK.001: toast on sell
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+
+func _max_buy_v0(_good_id: String, buy_price: int) -> int:
+	if buy_price <= 0:
+		return 0
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return 0
+	var credits: int = 0
+	if bridge.has_method("GetPlayerStateV0"):
+		var state: Dictionary = bridge.call("GetPlayerStateV0")
+		credits = int(state.get("credits", 0))
+	# Max units = floor(credits / buy_price). Bridge enforces actual limits server-side.
+	@warning_ignore("integer_division")
+	return credits / buy_price
+
+func _max_sell_v0(good_id: String) -> int:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return 0
+	if bridge.has_method("GetPlayerCargoV0"):
+		var cargo: Array = bridge.call("GetPlayerCargoV0")
+		for item in cargo:
+			if typeof(item) == TYPE_DICTIONARY and str(item.get("good_id", "")) == good_id:
+				return int(item.get("qty", 0))
+	return 0
+
+func _on_buy_max_v0(good_id: String, buy_price: int) -> void:
+	var qty: int = _max_buy_v0(good_id, buy_price)
+	if qty > 0:
+		_buy_qty_v0(good_id, qty)
+
+func _on_sell_max_v0(good_id: String) -> void:
+	var qty: int = _max_sell_v0(good_id)
+	if qty > 0:
+		_sell_qty_v0(good_id, qty)
+
+func buy_one_v0(good_id: String) -> void:
+	_buy_qty_v0(good_id, 1)
+
+func sell_one_v0(good_id: String) -> void:
+	_sell_qty_v0(good_id, 1)
 
 func get_panel_row_count_v0() -> int:
 	if _rows_container == null:
@@ -211,7 +299,7 @@ func _rebuild_rows() -> void:
 		var row = HBoxContainer.new()
 
 		var lbl_id = Label.new()
-		lbl_id.text = good_id
+		lbl_id.text = _format_display_name(good_id)
 		lbl_id.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl_id)
 
@@ -225,18 +313,37 @@ func _rebuild_rows() -> void:
 		lbl_sell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl_sell)
 
-		var btn_buy = Button.new()
-		btn_buy.text = "Buy 1"
-		btn_buy.pressed.connect(buy_one_v0.bind(good_id))
-		row.add_child(btn_buy)
+		# GATE.S12.UX_POLISH.QUANTITY.001: [1, 5, Max] buy/sell quantity buttons
+		var buy_box = HBoxContainer.new()
+		buy_box.add_theme_constant_override("separation", 2)
+		for bq in [1, 5, -1]:
+			var btn_b = Button.new()
+			if bq == -1:
+				btn_b.text = "Max"
+				btn_b.pressed.connect(_on_buy_max_v0.bind(good_id, buy_price))
+			else:
+				btn_b.text = str(bq)
+				btn_b.pressed.connect(_buy_qty_v0.bind(good_id, bq))
+			btn_b.custom_minimum_size.x = 36
+			buy_box.add_child(btn_b)
+		row.add_child(buy_box)
 
-		var btn_sell = Button.new()
-		btn_sell.text = "Sell 1"
-		btn_sell.pressed.connect(sell_one_v0.bind(good_id))
-		row.add_child(btn_sell)
+		var sell_box = HBoxContainer.new()
+		sell_box.add_theme_constant_override("separation", 2)
+		for sq in [1, 5, -1]:
+			var btn_s = Button.new()
+			if sq == -1:
+				btn_s.text = "Max"
+				btn_s.pressed.connect(_on_sell_max_v0.bind(good_id))
+			else:
+				btn_s.text = str(sq)
+				btn_s.pressed.connect(_sell_qty_v0.bind(good_id, sq))
+			btn_s.custom_minimum_size.x = 36
+			sell_box.add_child(btn_s)
+		row.add_child(sell_box)
 
 		# GATE.S9.UI.TOOLTIP_DOCK.001: add tooltip to good name label
-		_attach_tooltip_v0(lbl_id, "%s\nBuy: %d cr | Sell: %d cr | Stock: %d" % [good_id, buy_price, sell_price, stock])
+		_attach_tooltip_v0(lbl_id, "%s\nBuy: %d cr | Sell: %d cr | Stock: %d" % [_format_display_name(good_id), buy_price, sell_price, stock])
 
 		_rows_container.add_child(row)
 
@@ -247,18 +354,26 @@ func _rebuild_rows() -> void:
 	_rebuild_refit()
 	_rebuild_maintenance()
 	_rebuild_construction()
+	_rebuild_trade_routes()
+	_rebuild_programs()
 
-	# Update cargo summary
+	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: Update cargo summary with total item count
 	if _cargo_label:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("GetPlayerCargoV0"):
 			var cargo = bridge.call("GetPlayerCargoV0")
 			if typeof(cargo) == TYPE_ARRAY and cargo.size() > 0:
 				var parts: Array = []
+				var total_count: int = 0
 				for item in cargo:
 					if typeof(item) == TYPE_DICTIONARY:
-						parts.append("%s x%d" % [str(item.get("good_id", "")), int(item.get("qty", 0))])
-				_cargo_label.text = "Cargo: " + (", ".join(parts) if parts.size() > 0 else "empty")
+						var qty: int = int(item.get("qty", 0))
+						total_count += qty
+						parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
+				if parts.size() > 0:
+					_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+				else:
+					_cargo_label.text = "Cargo: empty"
 			else:
 				_cargo_label.text = "Cargo: empty"
 
@@ -283,15 +398,17 @@ func _rebuild_production_info() -> void:
 	for site_info in industry:
 		if typeof(site_info) != TYPE_DICTIONARY:
 			continue
+		var site_id: String = str(site_info.get("site_id", ""))
 		var recipe_id: String = str(site_info.get("recipe_id", ""))
 		var eff_pct: int = int(site_info.get("efficiency_pct", 0))
 		var health_pct: int = int(site_info.get("health_pct", 0))
 		var outputs: Array = site_info.get("outputs", [])
 		var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
+		var source: String = _site_source_tag(site_id)
 
 		var row = HBoxContainer.new()
 		var lbl = Label.new()
-		lbl.text = "%s  eff:%d%%  hp:%d%%  -> %s" % [recipe_id if recipe_id != "" else "(natural)", eff_pct, health_pct, out_str]
+		lbl.text = "%s%s  eff:%d%%  hp:%d%%  -> %s" % [source, recipe_id if recipe_id != "" else "(natural)", eff_pct, health_pct, out_str]
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		_rows_container.add_child(row)
@@ -392,6 +509,10 @@ func _rebuild_research() -> void:
 	if bridge == null:
 		return
 
+	_add_section_header(_research_container, "research", "RESEARCH")
+	if _collapsed.get("research", false):
+		return
+
 	# GATE.S4.TECH_INDUSTRIALIZE.BRIDGE_DEPTH.001: Show tech tier
 	if bridge.has_method("GetTechTierV0"):
 		var tier_lbl = Label.new()
@@ -405,17 +526,33 @@ func _rebuild_research() -> void:
 		var status: Dictionary = bridge.call("GetResearchStatusV0")
 		var researching: bool = bool(status.get("researching", false))
 		if researching:
-			var hdr = Label.new()
-			hdr.text = "RESEARCH"
-			hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			hdr.add_theme_font_size_override("font_size", 16)
-			_research_container.add_child(hdr)
 
 			var tech_id: String = str(status.get("tech_id", ""))
 			var progress: int = int(status.get("progress_pct", 0))
 			var lbl = Label.new()
 			lbl.text = "Researching: %s (%d%%)" % [tech_id, progress]
 			_research_container.add_child(lbl)
+
+			# GATE.S10.TRADE_INTEL.DOCK_UI.001: Sustain/stall status
+			var stall_reason: String = str(status.get("stall_reason", ""))
+			if not stall_reason.is_empty():
+				var stall_lbl = Label.new()
+				stall_lbl.text = "STALLED: %s" % stall_reason
+				stall_lbl.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+				stall_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				_research_container.add_child(stall_lbl)
+
+			var research_node: String = str(status.get("research_node_id", ""))
+			if not research_node.is_empty():
+				var node_lbl = Label.new()
+				node_lbl.text = "Research Node: %s" % research_node
+				_research_container.add_child(node_lbl)
+
+			var sustain_ticks: int = int(status.get("sustain_accumulator_ticks", 0))
+			var sustain_lbl = Label.new()
+			sustain_lbl.text = "Sustain Progress: %d ticks" % sustain_ticks
+			_research_container.add_child(sustain_lbl)
+
 			return
 
 	# Show available techs to research
@@ -436,12 +573,6 @@ func _rebuild_research() -> void:
 		if available.size() == 0 and locked.size() == 0:
 			return
 
-		var hdr = Label.new()
-		hdr.text = "RESEARCH"
-		hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hdr.add_theme_font_size_override("font_size", 16)
-		_research_container.add_child(hdr)
-
 		for t in available:
 			var tid: String = str(t.get("tech_id", ""))
 			var tname: String = str(t.get("display_name", tid))
@@ -456,10 +587,7 @@ func _rebuild_research() -> void:
 			if bridge.has_method("GetResearchBlockReasonV0"):
 				var block_reason: String = str(bridge.call("GetResearchBlockReasonV0", tid))
 				if not block_reason.is_empty():
-					var reason_lbl = Label.new()
-					reason_lbl.text = _format_block_reason(block_reason)
-					reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-					row.add_child(reason_lbl)
+					row.add_child(_make_block_label(_format_block_reason(block_reason)))
 				else:
 					var btn = Button.new()
 					btn.text = "Research"
@@ -485,10 +613,7 @@ func _rebuild_research() -> void:
 				info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 				row.add_child(info_lbl)
 				if not block_reason.is_empty():
-					var reason_lbl = Label.new()
-					reason_lbl.text = _format_block_reason(block_reason)
-					reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-					row.add_child(reason_lbl)
+					row.add_child(_make_block_label(_format_block_reason(block_reason)))
 				_research_container.add_child(row)
 
 func _on_start_research(tech_id: String) -> void:
@@ -515,11 +640,9 @@ func _rebuild_refit() -> void:
 	if slots.size() == 0:
 		return
 
-	var hdr = Label.new()
-	hdr.text = "REFIT"
-	hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hdr.add_theme_font_size_override("font_size", 16)
-	_refit_container.add_child(hdr)
+	_add_section_header(_refit_container, "refit", "REFIT")
+	if _collapsed.get("refit", false):
+		return
 
 	# GATE.S4.UPGRADE_PIPELINE.BRIDGE_QUEUE.001: Show refit queue status
 	if bridge.has_method("GetRefitProgressV0"):
@@ -577,10 +700,7 @@ func _rebuild_refit() -> void:
 				refit_blocked = str(bridge.call("GetRefitBlockReasonV0", "fleet_trader_1", mid))
 
 			if not refit_blocked.is_empty():
-				var reason_lbl = Label.new()
-				reason_lbl.text = _format_block_reason(refit_blocked)
-				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-				row.add_child(reason_lbl)
+				row.add_child(_make_block_label(_format_block_reason(refit_blocked)))
 			else:
 				# Find first matching empty slot
 				var target_slot: int = -1
@@ -617,10 +737,7 @@ func _rebuild_refit() -> void:
 			info_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 			row.add_child(info_lbl)
 			if not block_reason.is_empty():
-				var reason_lbl = Label.new()
-				reason_lbl.text = _format_block_reason(block_reason)
-				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-				row.add_child(reason_lbl)
+				row.add_child(_make_block_label(_format_block_reason(block_reason)))
 			_refit_container.add_child(row)
 
 func _on_install_module(slot_index: int, module_id: String) -> void:
@@ -654,11 +771,9 @@ func _rebuild_maintenance() -> void:
 	if damaged.size() == 0:
 		return
 
-	var hdr = Label.new()
-	hdr.text = "MAINTENANCE"
-	hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hdr.add_theme_font_size_override("font_size", 16)
-	_maint_container.add_child(hdr)
+	_add_section_header(_maint_container, "maintenance", "MAINTENANCE")
+	if _collapsed.get("maintenance", false):
+		return
 
 	# GATE.S4.MAINT_SUSTAIN.BRIDGE_SUPPLY.001: Show supply level
 	if bridge.has_method("GetSupplyLevelV0"):
@@ -676,9 +791,10 @@ func _rebuild_maintenance() -> void:
 		var eff: int = int(s.get("efficiency_pct", 0))
 		var cost: int = int(s.get("repair_cost", 0))
 
+		var source: String = _site_source_tag(sid)
 		var row = HBoxContainer.new()
 		var lbl = Label.new()
-		lbl.text = "%s hp:%d%% eff:%d%%" % [recipe if not recipe.is_empty() else sid, hp, eff]
+		lbl.text = "%s%s hp:%d%% eff:%d%%" % [source, recipe if not recipe.is_empty() else sid, hp, eff]
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 
@@ -688,10 +804,7 @@ func _rebuild_maintenance() -> void:
 			repair_blocked = str(bridge.call("GetRepairBlockReasonV0", sid))
 
 		if not repair_blocked.is_empty():
-			var reason_lbl = Label.new()
-			reason_lbl.text = _format_block_reason(repair_blocked)
-			reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-			row.add_child(reason_lbl)
+			row.add_child(_make_block_label(_format_block_reason(repair_blocked)))
 		else:
 			var btn = Button.new()
 			btn.text = "Repair (%d cr)" % cost
@@ -731,6 +844,36 @@ func _format_block_reason(reason: String) -> String:
 		return "Not enough credits"
 	return reason
 
+func _add_section_header(container: VBoxContainer, key: String, title: String) -> void:
+	var is_collapsed: bool = _collapsed.get(key, false)
+	var btn = Button.new()
+	btn.text = "%s  %s" % [title, "[+]" if is_collapsed else "[-]"]
+	btn.flat = true
+	btn.add_theme_font_size_override("font_size", 16)
+	btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	btn.pressed.connect(_toggle_section.bind(key))
+	container.add_child(btn)
+
+func _toggle_section(key: String) -> void:
+	_collapsed[key] = not _collapsed.get(key, false)
+	_rebuild_rows()
+
+func _site_source_tag(site_id: String) -> String:
+	if site_id.begins_with("planet_"): return "[Planet] "
+	if site_id.begins_with("fac_"): return "[Factory] "
+	if site_id.begins_with("forge_"): return "[Forge] "
+	if site_id.begins_with("well_"): return "[Well] "
+	if site_id.begins_with("mine_"): return "[Mine] "
+	return ""
+
+func _make_block_label(text: String) -> Label:
+	var lbl = Label.new()
+	lbl.text = text
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+	lbl.clip_text = true
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return lbl
+
 func _on_repair_site(site_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("RepairSiteV0"):
@@ -751,8 +894,12 @@ func _rebuild_construction() -> void:
 	if bridge == null:
 		return
 
+	_add_section_header(_construction_container, "construction", "CONSTRUCTION")
+	if _collapsed.get("construction", false):
+		return
+
 	# Show active construction projects
-	var has_active: bool = false
+	var _has_active: bool = false
 	if bridge.has_method("GetConstructionProjectsV0"):
 		var projects: Array = bridge.call("GetConstructionProjectsV0")
 		for p in projects:
@@ -762,13 +909,7 @@ func _rebuild_construction() -> void:
 				continue
 			if bool(p.get("completed", true)):
 				continue
-			if not has_active:
-				var hdr = Label.new()
-				hdr.text = "CONSTRUCTION"
-				hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				hdr.add_theme_font_size_override("font_size", 16)
-				_construction_container.add_child(hdr)
-				has_active = true
+			_has_active = true
 			var pid: String = str(p.get("project_def_id", ""))
 			var pct: int = int(p.get("progress_pct", 0))
 			var step: int = int(p.get("current_step", 0))
@@ -794,14 +935,7 @@ func _rebuild_construction() -> void:
 
 			var block_reason: String = str(bridge.call("GetConstructionBlockReasonV0", def_id, _market_node_id))
 
-			if not show_header and not has_active:
-				var hdr = Label.new()
-				hdr.text = "CONSTRUCTION"
-				hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				hdr.add_theme_font_size_override("font_size", 16)
-				_construction_container.add_child(hdr)
-				show_header = true
-			elif not show_header:
+			if not show_header:
 				show_header = true
 
 			var row = HBoxContainer.new()
@@ -813,10 +947,7 @@ func _rebuild_construction() -> void:
 			row.add_child(info_lbl)
 
 			if not block_reason.is_empty():
-				var reason_lbl = Label.new()
-				reason_lbl.text = _format_block_reason(block_reason)
-				reason_lbl.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
-				row.add_child(reason_lbl)
+				row.add_child(_make_block_label(_format_block_reason(block_reason)))
 			else:
 				var btn = Button.new()
 				btn.text = "Build"
@@ -830,6 +961,129 @@ func _on_start_construction(project_def_id: String) -> void:
 		bridge.call("StartConstructionV0", project_def_id, _market_node_id)
 		_rebuild_rows()
 
+# GATE.S10.TRADE_INTEL.DOCK_UI.001: Trade Routes UI panel
+func _rebuild_trade_routes() -> void:
+	if _trade_routes_container == null:
+		return
+	for child in _trade_routes_container.get_children():
+		_trade_routes_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	_add_section_header(_trade_routes_container, "trade_routes", "TRADE ROUTES")
+	if _collapsed.get("trade_routes", false):
+		return
+
+	# Scanner range line
+	if bridge.has_method("GetScannerRangeV0"):
+		var scan_range: int = int(bridge.call("GetScannerRangeV0"))
+		var range_lbl = Label.new()
+		range_lbl.text = "Scanner Range: %d hop(s)" % scan_range
+		range_lbl.add_theme_font_size_override("font_size", 14)
+		_trade_routes_container.add_child(range_lbl)
+
+	if not bridge.has_method("GetTradeRoutesV0"):
+		return
+
+	var routes: Array = bridge.call("GetTradeRoutesV0")
+
+	if routes.size() == 0:
+		var empty_lbl = Label.new()
+		empty_lbl.text = "No routes discovered. Dock at stations to gather price intel."
+		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_trade_routes_container.add_child(empty_lbl)
+		return
+
+	for route in routes:
+		if typeof(route) != TYPE_DICTIONARY:
+			continue
+
+		var _route_id: String = str(route.get("route_id", ""))
+		var source_node: String = str(route.get("source_node_id", ""))
+		var dest_node: String = str(route.get("dest_node_id", ""))
+		var good_id: String = str(route.get("good_id", ""))
+		var profit: int = int(route.get("estimated_profit_per_unit", 0))
+		var status: String = str(route.get("status", ""))
+
+		var row = HBoxContainer.new()
+		var info_lbl = Label.new()
+		info_lbl.text = "Good: %s | %s → %s | +%d/unit | %s" % [_format_display_name(good_id), _format_display_name(source_node), _format_display_name(dest_node), profit, status]
+		info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(info_lbl)
+
+		if status == "Active" or status == "Discovered":
+			var btn = Button.new()
+			btn.text = "Launch Charter"
+			btn.pressed.connect(_on_launch_charter.bind(source_node, dest_node, good_id))
+			row.add_child(btn)
+
+		_trade_routes_container.add_child(row)
+
+func _on_launch_charter(source_node_id: String, dest_node_id: String, good_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	if not bridge.has_method("CreateTradeCharterProgram") or not bridge.has_method("StartProgram"):
+		return
+	var program_id: String = str(bridge.call("CreateTradeCharterProgram", source_node_id, dest_node_id, good_id, good_id, 10))
+	if not program_id.is_empty():
+		bridge.call("StartProgram", program_id)
+	_rebuild_rows()
+
+# GATE.S11.GAME_FEEL.DOCK_ENHANCE.001: Programs summary panel
+func _rebuild_programs() -> void:
+	if _programs_container == null:
+		return
+	for child in _programs_container.get_children():
+		_programs_container.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	_add_section_header(_programs_container, "programs", "PROGRAMS")
+	if _collapsed.get("programs", false):
+		return
+
+	if not bridge.has_method("GetProgramExplainSnapshot"):
+		return
+
+	var programs: Array = bridge.call("GetProgramExplainSnapshot")
+	if programs.size() == 0:
+		var empty_lbl = Label.new()
+		empty_lbl.text = "No active programs."
+		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_programs_container.add_child(empty_lbl)
+		return
+
+	for p in programs:
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var pid: String = str(p.get("id", ""))
+		var kind: String = str(p.get("kind", ""))
+		var status: String = str(p.get("status", ""))
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "%s (%s) — %s" % [_format_display_name(pid), kind, status]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(lbl)
+		_programs_container.add_child(row)
+
 # GATE.S9.UI.TOOLTIP_DOCK.001: attach tooltip to a Control via built-in tooltip_text
 func _attach_tooltip_v0(control: Control, text: String) -> void:
 	control.tooltip_text = text
+
+# GATE.S12.UX_POLISH.DISPLAY_NAMES.001: Convert snake_case IDs to readable display names via SimBridge.
+func _format_display_name(id: String) -> String:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("FormatDisplayNameV0"):
+		return str(bridge.call("FormatDisplayNameV0", id))
+	# Fallback: simple capitalize with underscore-to-space
+	return id.replace("_", " ").capitalize()

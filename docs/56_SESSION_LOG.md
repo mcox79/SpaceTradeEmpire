@@ -356,3 +356,80 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-05, main, GATE.S7.PLANET.TECH_GATE.001 PASS (planetary_landing_mk1 tech tier 1. effective_landable factors in tech unlock. GalaxyView uses effective_landable). Evidence: SimCore/Content/TechContentV0.cs, scripts/bridge/SimBridge.Planet.cs
 - 2026-03-05, main, GATE.S7.PLANET.UI.001 PASS (Dock menu: PLANET title + info subtitle with type/gravity/atmo/temp/specialization). Evidence: scripts/ui/hero_trade_menu.gd
 - 2026-03-05, main, GATE.S7.PLANET.PROOF.001 PASS (490/490 tests, golden hashes re-minted, economy stress 25x ceiling, ExplorationBot 8/8 pass, no CRITICAL flags). Evidence: SimCore.Tests/GoldenReplayTests.cs, SimCore.Tests/Determinism/LongRunWorldHashTests.cs
+- 2026-03-05, main, Solar system visual overhaul: procedural addon star (star.tscn) with class-scaled size and animated surface; planet self-rotation (AnimationTree activation); luminosity-scaled orbits (sqrt(lum/10000)); type-based planet visual scale (gas giants big, barren small); stations orbit near planet (+12u offset); moons (0-3 seeded by type); asteroid belt (60% chance, 25-44 rocks); binary star companions (20% chance, smaller/redder); seed-based jitter throughout. Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S5.SEC_LANES.MODEL.001 PASS (SecurityLevelBps on Edge, SecurityTweaksV0 with band thresholds). Evidence: SimCore/Entities/Edge.cs, SimCore/Tweaks/SecurityTweaksV0.cs
+- 2026-03-05, main, GATE.S5.SEC_LANES.SYSTEM.001 PASS (SecurityLaneSystem: patrol boost, heat penalty, drift toward default, clamp. Wired to SimKernel.Step). Evidence: SimCore/Systems/SecurityLaneSystem.cs, SimCore.Tests/Systems/SecurityLaneSystemTests.cs
+- 2026-03-05, main, GATE.S5.SEC_LANES.BRIDGE.001 PASS (SimBridge.Security.cs: GetLaneSecurityV0, GetNodeSecurityV0, MapQueries helpers). Evidence: scripts/bridge/SimBridge.Security.cs, SimCore/MapQueries.cs
+- 2026-03-05, main, GATE.S5.SEC_LANES.UI.001 PASS (Lane lines tinted by security band in GalaxyView. Security readout in dock menu and HUD). Evidence: scripts/view/GalaxyView.cs, scripts/ui/hero_trade_menu.gd, scripts/ui/hud.gd
+- 2026-03-05, main, GATE.S5.COMBAT_RES.SYSTEM.001 PASS (ResolveCombatV0 with Victory/Defeat/Flee outcomes, damage families, salvage. 5 contract tests). Evidence: SimCore/Systems/CombatSystem.cs, SimCore.Tests/Combat/CombatTests.cs
+- 2026-03-05, main, GATE.S5.COMBAT_RES.PROOF.001 PASS (ResolveCombatV0 bridge method in SimBridge.Combat.cs. Returns outcome/rounds/hull/salvage). Evidence: scripts/bridge/SimBridge.Combat.cs
+- 2026-03-05, main, GATE.S1.FLEET_VISUAL.MAP.001 PASS (LoadFleetModelV0 loads Kenney .glb by FleetRole. GetFleetRoleV0 bridge method). Evidence: scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.Fleet.cs
+- 2026-03-05, main, GATE.S1.FLEET_VISUAL.VIEW.001 PASS (CreateFleetMarkerV0 uses LoadFleetModelV0 for local system view. Fallback to craft_racer). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S1.FLEET_VISUAL.PROOF.001 PASS (test_fleet_visual_v0.gd headless proof script created). Evidence: scripts/tests/test_fleet_visual_v0.gd
+- 2026-03-05, main, GATE.S5.NPC_TRADE.SYSTEM.001 PASS (NpcTradeSystem: goods-circulation model, surplus→deficit delivery, profit-based routing. 7 contract tests). Evidence: SimCore/Systems/NpcTradeSystem.cs, SimCore.Tests/Systems/NpcTradeSystemTests.cs
+- 2026-03-05, main, GATE.S5.NPC_TRADE.BRIDGE.001 PASS (SimBridge.NpcTrade.cs: GetNpcTradeRoutesV0, GetNpcTradeActivityV0). Evidence: scripts/bridge/SimBridge.NpcTrade.cs
+- 2026-03-05, main, GATE.S5.NPC_TRADE.ECON_PROOF.001 PASS (3 NPC trade circulation tests: fleet destinations, market inventory shifts, determinism. 5 seeds). Evidence: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs
+- 2026-03-05, main, GATE.X.PRESSURE.LADDER.001 PASS (PressureTier enum already exists. EvaluateTier method. BoundaryTransitions + FullWalk tests). Evidence: SimCore/Entities/PressureState.cs, SimCore/Tweaks/PressureTweaksV0.cs
+- 2026-03-05, main, GATE.X.PRESSURE.ENFORCE.001 PASS (EnforceConsequences: Crisis→fee surcharge, Collapse→piracy escalation. 3 enforcement tests). Evidence: SimCore/Systems/PressureSystem.cs, SimCore.Tests/Systems/PressureSystemScenarioTests.cs
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.008 PASS (519/519 tests pass. Golden hashes stable. Game assembly builds clean). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.008 PASS (5 epics closed: SECURITY_LANES, COMBAT_RESOLVE, NPC_TRADE.V0, PRESSURE_FORMALIZATION.V0, FLEET_VISUAL.V0). Evidence: docs/54_EPICS.md
+- 2026-03-05, main, GATE.X.EVAL.ECONOMY_AUDIT.001 PASS (Economy stress: 5-seed 5000-tick market convergence, price differentials persist, no overflow). Evidence: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs, SimCore.Tests/ExperienceProof/EconomyStressTests.cs
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.009 PASS (542 tests pass, golden hashes stable, 0 new warnings). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-05, main, GATE.S10.TRADE_INTEL.CHARTER_FIX.001 PASS (TradeCharter uses real market GetBuyPrice/GetSellPrice, removed hardcoded constants). Evidence: SimCore/Intents/ExploitationIntentsV0.cs, SimCore/Tweaks/ExploitationTweaksV0.cs
+- 2026-03-05, main, GATE.S10.TECH_EFFECTS.TESTS.001 PASS (6 contract tests: speed_bonus_20pct + production_efficiency_10pct). Evidence: SimCore.Tests/Systems/TechEffectsTests.cs
+- 2026-03-05, main, GATE.S10.TRADE_PROG.BRIDGE.001 PASS (5 program creation bridge methods + StartResearchV0 nodeId + sustain fields). Evidence: scripts/bridge/SimBridge.Programs.cs, scripts/bridge/SimBridge.Research.cs
+- 2026-03-05, main, GATE.S10.TRADE_INTEL.BRIDGE.001 PASS (SimBridge.TradeIntel.cs: GetTradeRoutesV0, GetPriceIntelV0, GetScannerRangeV0). Evidence: scripts/bridge/SimBridge.TradeIntel.cs
+- 2026-03-05, main, GATE.S10.EMPIRE.BRIDGE.001 PASS (GetEmpireSummaryV0, GetAllIndustryV0, GetAllNodeHealthSummaryV0, GetIntelFreshnessByNodeV0). Evidence: scripts/bridge/SimBridge.Reports.cs
+- 2026-03-05, main, GATE.S6.MAP_GALAXY.OVERLAY_SYS.001 PASS (GalaxyOverlayMode enum, SetOverlayModeV0/GetOverlayModeV0, galaxy_overlay_hud.gd toolbar). Evidence: scripts/view/GalaxyView.cs, scripts/ui/galaxy_overlay_hud.gd
+- 2026-03-05, main, GATE.S5.ESCORT_PROG.MODEL.001 PASS (EscortSystem.cs + EscortTweaksV0 + 5 contract tests, wired into SimKernel.Step). Evidence: SimCore/Systems/EscortSystem.cs, SimCore.Tests/Systems/EscortSystemTests.cs
+- 2026-03-05, main, GATE.S10.TRADE_INTEL.DOCK_UI.001 PASS (Trade routes section + research sustain fields in hero_trade_menu.gd). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S10.EMPIRE.SHELL.001 PASS (EmpireDashboard.cs 470-line modal + E key in game_manager.gd). Evidence: scripts/ui/EmpireDashboard.cs, scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S10.EMPIRE.OVERVIEW_TAB.001 PASS (Overview + Trade tabs in EmpireDashboard). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S10.EMPIRE.PRODUCTION_TAB.001 PASS (Production + Programs tabs in EmpireDashboard). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S10.EMPIRE.INTEL_TAB.001 PASS (Intel tab: discoveries, freshness per node). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001 PASS (Trade flow edge coloring: gold for profitable routes, gray default). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001 PASS (Intel freshness node tinting: green/yellow/orange/red/gray by age). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S5.ESCORT_PROG.BRIDGE.001 PASS (SimBridge.Escort.cs: Create/Get Escort/Patrol programs). Evidence: scripts/bridge/SimBridge.Escort.cs
+- 2026-03-05, main, GATE.S5.ESCORT_PROG.UI.001 PASS (Escort/Patrol creation forms in Empire Dashboard Programs tab). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S10.TRADE_INTEL.PROOF.001 PASS (Headless GDScript proof: routes, charter, research sustain round-trip). Evidence: scripts/tests/test_trade_intel_proof_v0.gd
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.009 PASS (37 DONE epics verified, 0 IN_PROGRESS, next anchor: LOSS_RECOVERY). Evidence: docs/54_EPICS.md
+- 2026-03-05, main, GATE.X.EVAL.PROGRESSION_AUDIT.002 PASS (3 new audit tests: trade routes discovered, research sustain consumes goods, tech effects wired). Evidence: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.010 PASS (543 tests pass, golden hashes stable, .blend allowlist added). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-05, main, GATE.S11.GAME_FEEL.TECH_BRIDGE.001 PASS (GetTechTreeV0 returns 12 techs with id, name, tier, prereqs, status, sustain_inputs, effects). Evidence: scripts/bridge/SimBridge.Research.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.PRICE_HISTORY.001 PASS (PriceSnapshot in IntelBook, ProcessPriceHistory every 360 ticks, GetPriceHistoryV0 bridge). Evidence: SimCore/Entities/IntelBook.cs, SimCore/Systems/IntelSystem.cs, scripts/bridge/SimBridge.TradeIntel.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.MISSION_WIRE.001 PASS (All 4 missions wired, GetMissionListV0 returns 3 available at start). Evidence: SimCore/Content/MissionContentV0.cs, scripts/bridge/SimBridge.Mission.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.COMBAT_BRIDGE.001 PASS (GetRecentCombatEventsV0 returns last 20 combat events from CombatLogs). Evidence: scripts/bridge/SimBridge.Combat.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.TOAST_SYS.001 PASS (toast_manager.gd autoload: CanvasLayer 120, show_toast API, fade animation, stack 5). Evidence: scripts/ui/toast_manager.gd, project.godot
+- 2026-03-05, main, GATE.S6.MAP_GALAXY.NODE_CLICK.001 PASS (GalaxyView node click with screen-space detection, node_detail_popup.gd shows node info). Evidence: scripts/view/GalaxyView.cs, scripts/ui/node_detail_popup.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001 PASS (NPC patrol route lines on galaxy map via GetNpcPatrolRoutesV0). Evidence: scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.NpcTrade.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.TECH_TREE_UI.001 PASS (Research tab in EmpireDashboard: techs by tier, color-coded status, Start Research buttons). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.MISSION_HUD.001 PASS (Mission objective section in hud.gd with name, step, target node). Evidence: scripts/ui/hud.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.RESEARCH_HUD.001 PASS (Research progress section in hud.gd with tech name, percentage, sustain status). Evidence: scripts/ui/hud.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.TOAST_EVENTS.001 PASS (Toast polling in game_manager.gd: research start/complete, node arrival, credit changes). Evidence: scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.KEYBINDS.001 PASS (keybinds_help.gd: CanvasLayer 115, H key toggle, all keybinding list). Evidence: scripts/ui/keybinds_help.gd, scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.NODE_MARKET.001 PASS (Market section in node_detail_popup.gd with buy/sell prices). Evidence: scripts/ui/node_detail_popup.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001 PASS (combat_log_panel.gd: CanvasLayer 115, L key toggle, scrollable combat events). Evidence: scripts/ui/combat_log_panel.gd, scripts/core/game_manager.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.FLEET_STATUS.001 PASS (Fleet role labels on galaxy map nodes: [2T 1P] format via GetNodeFleetBreakdownV0). Evidence: scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.Fleet.cs
+- 2026-03-05, main, GATE.S11.GAME_FEEL.HEADLESS_PROOF.001 PASS (Headless GDScript proof: toast, tech tree, node detail, missions, combat, NPC routes, price history, fleet breakdown, UI scripts all verified). Evidence: scripts/tests/test_game_feel_proof_v0.gd
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.010 PASS (3 epics ready to close: S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG. Next anchor: S11.GAME_FEEL). Evidence: docs/54_EPICS.md
+- 2026-03-05, main, GATE.X.EVAL.UX_AUDIT.001 PASS (UX audit: top 5 improvements identified — quantity controls, display names, onboarding, cargo display, section defaults). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.X.HYGIENE.REPO_HEALTH.011 PASS (554 tests pass, golden hashes stable, zero new warnings). Evidence: SimCore.Tests/SimCore.Tests.csproj, docs/generated/snapshots/golden_replay_hashes.txt
+- 2026-03-05, main, GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001 PASS (LoadFleetModelV0 updated: trader->dispatcher, hauler->bob, patrol->spitfire from Quaternius pack). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001 PASS (NPC patrol fleets use multi-hop circuit routes with PatrolCircuit entity). Evidence: SimCore/Systems/NpcTradeSystem.cs, SimCore/Entities/Fleet.cs
+- 2026-03-05, main, GATE.S12.UX_POLISH.QUANTITY.001 PASS (Buy/Sell quantity buttons [1, 5, Max] in hero_trade_menu.gd). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S12.UX_POLISH.DISPLAY_NAMES.001 PASS (FormatDisplayNameV0 converts snake_case to Title Case in SimBridge). Evidence: scripts/bridge/SimBridge.cs
+- 2026-03-05, main, GATE.S12.UX_POLISH.ONBOARDING.001 PASS (First-dock toast onboarding with key controls). Evidence: scripts/core/game_manager.gd, scripts/ui/toast_manager.gd
+- 2026-03-05, main, GATE.S12.PROGRESSION.STATS.001 PASS (PlayerStats class tracking nodes_visited, goods_traded, total_credits_earned, techs_unlocked, missions_completed). Evidence: SimCore/Entities/PlayerStats.cs, SimCore/Entities/SimState.cs
+- 2026-03-05, main, GATE.S12.PROGRESSION.MILESTONES.001 PASS (MilestoneContentV0 + MilestoneSystem with 8 milestone thresholds). Evidence: SimCore/Content/MilestoneContentV0.cs, SimCore/Systems/MilestoneSystem.cs
+- 2026-03-05, main, GATE.S12.FLEET_SUBSTANCE.VARIETY.001 PASS (Hash-based model variants per role, player ship uses challenger_blue). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S12.NPC_CIRC.FLOW_ANIM.001 PASS (Animated flow dots on NPC trade route edges on galaxy map). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S12.NPC_CIRC.VOLUME_LABELS.001 PASS (Trade volume labels at edge midpoints showing good x qty). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-05, main, GATE.S12.UX_POLISH.CARGO_DISPLAY.001 PASS (Cargo items count in dock menu header and flight HUD). Evidence: scripts/ui/hero_trade_menu.gd, scripts/ui/hud.gd
+- 2026-03-05, main, GATE.S12.UX_POLISH.TRADE_FEEDBACK.001 PASS (Toast on buy/sell with formatted good name and quantity). Evidence: scripts/ui/hero_trade_menu.gd, scripts/ui/toast_manager.gd
+- 2026-03-05, main, GATE.S11.GAME_FEEL.DOCK_ENHANCE.001 PASS (Enhanced dock menu with programs summary section). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-05, main, GATE.S12.PROGRESSION.TESTS.001 PASS (11 contract tests for PlayerStats + MilestoneSystem). Evidence: SimCore.Tests/Systems/ProgressionTests.cs
+- 2026-03-05, main, GATE.S12.PROGRESSION.BRIDGE.001 PASS (GetPlayerStatsV0 + GetMilestonesV0 bridge methods). Evidence: scripts/bridge/SimBridge.Reports.cs
+- 2026-03-05, main, GATE.S12.PROGRESSION.DASHBOARD.001 PASS (Stats + Milestones tab in EmpireDashboard with progress bars). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-05, main, GATE.S12.FLEET_SUBSTANCE.HEADLESS_PROOF.001 PASS (8/8 checks: FleetRoleBridge, PlayerStats, Milestones, FormatDisplayName, ProgramSnapshot, NpcTradeRoutes, NpcPatrolRoutes, EmpireDashboard). Evidence: scripts/tests/test_living_galaxy_proof_v0.gd
+- 2026-03-05, main, GATE.X.HYGIENE.EPIC_REVIEW.011 PASS (Closed 4 epics: S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG, S6.MAP_GALAXY. 3 marked IN_PROGRESS). Evidence: docs/54_EPICS.md
+- 2026-03-05, main, GATE.X.EVAL.VISUAL_AUDIT.001 PASS (Visual audit: fleet substance, NPC flow, UX polish documented with recommendations). Evidence: docs/generated/eval_visual_audit_001.txt

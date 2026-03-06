@@ -84,8 +84,29 @@ public class SimKernel
         NpcIndustrySystem.ProcessNpcIndustry(_state);
         NpcIndustrySystem.ProcessNpcReaction(_state);
 
+        // GATE.S10.TRADE_INTEL.KERNEL.001: Passive scanner + trade route evaluation.
+        IntelSystem.ProcessScannerIntel(_state);
+
+        // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Price history snapshot recording.
+        IntelSystem.ProcessPriceHistory(_state);
+
+        // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
+        NpcTradeSystem.ProcessNpcTrade(_state);
+
+        // GATE.S5.SEC_LANES.SYSTEM.001: Security lane updates.
+        SecurityLaneSystem.ProcessSecurityLanes(_state);
+
+        // GATE.S5.ESCORT_PROG.MODEL.001: Escort and patrol program advancement.
+        EscortSystem.Process(_state);
+
         // GATE.X.PRESSURE.SYSTEM.001: Pressure state transitions.
         PressureSystem.ProcessPressure(_state);
+
+        // GATE.X.PRESSURE.ENFORCE.001: Apply pressure consequences.
+        PressureSystem.EnforceConsequences(_state);
+
+        // GATE.S12.PROGRESSION.MILESTONES.001: Evaluate player milestones.
+        MilestoneSystem.Process(_state);
 
         _state.AdvanceTick();
     }

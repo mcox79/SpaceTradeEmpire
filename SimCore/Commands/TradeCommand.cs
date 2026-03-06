@@ -51,6 +51,12 @@ public class TradeCommand : ICommand
 
 			InventoryLedger.AddMarket(market.Inventory, GoodId, Quantity);
 			state.PlayerCredits += totalCost;
+			// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.
+			if (state.PlayerStats != null)
+			{
+				state.PlayerStats.GoodsTraded += Quantity;
+				state.PlayerStats.TotalCreditsEarned += totalCost;
+			}
 		}
 	}
 }

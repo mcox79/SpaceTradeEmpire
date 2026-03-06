@@ -27,4 +27,11 @@ public static class PressureTweaksV0
 
     // Crisis tier threshold (Critical or above).
     public const int CrisisTierMin = 3; // PressureTier.Critical
+
+    // GATE.X.PRESSURE.ENFORCE.001: Consequence magnitudes.
+    // Crisis fee increase (BPS: 2000 = +20% market fee).
+    public const int CrisisFeeIncreaseBps = 2000;
+
+    // Collapse piracy escalation — pressure injected into piracy domain.
+    public const int CollapsePiracyEscalationMagnitude = 500;
 }

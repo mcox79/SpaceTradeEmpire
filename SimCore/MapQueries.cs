@@ -259,6 +259,44 @@ public static class MapQueries
     public static bool AreConnected(SimState state, string fromNodeId, string toNodeId)
         => TryGetEdgeId(state, fromNodeId, toNodeId, out _);
 
+    // GATE.S5.SEC_LANES.BRIDGE.001: Returns SecurityLevelBps for the edge between fromNodeId and toNodeId.
+    // Returns SecurityTweaksV0.DefaultSecurityBps if no matching edge found.
+    public static int GetEdgeSecurityBps(SimState state, string fromNodeId, string toNodeId)
+    {
+        if (string.IsNullOrEmpty(fromNodeId) || string.IsNullOrEmpty(toNodeId))
+            return Tweaks.SecurityTweaksV0.DefaultSecurityBps;
+
+        foreach (var edge in state.Edges.Values)
+        {
+            if ((edge.FromNodeId == fromNodeId && edge.ToNodeId == toNodeId) ||
+                (edge.FromNodeId == toNodeId && edge.ToNodeId == fromNodeId))
+            {
+                return edge.SecurityLevelBps;
+            }
+        }
+        return Tweaks.SecurityTweaksV0.DefaultSecurityBps;
+    }
+
+    // GATE.S5.SEC_LANES.BRIDGE.001: Returns average SecurityLevelBps of all edges adjacent to nodeId.
+    // Returns SecurityTweaksV0.DefaultSecurityBps if nodeId has no incident edges.
+    public static int GetNodeAvgSecurityBps(SimState state, string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId))
+            return Tweaks.SecurityTweaksV0.DefaultSecurityBps;
+
+        int total = 0;
+        int count = 0;
+        foreach (var edge in state.Edges.Values)
+        {
+            if (edge.FromNodeId == nodeId || edge.ToNodeId == nodeId)
+            {
+                total += edge.SecurityLevelBps;
+                count++;
+            }
+        }
+        return count > 0 ? total / count : Tweaks.SecurityTweaksV0.DefaultSecurityBps;
+    }
+
     // GATE.S1.GALAXY_MAP.CONTRACT.001
     // Facts-only snapshot builder.
     // Determinism:

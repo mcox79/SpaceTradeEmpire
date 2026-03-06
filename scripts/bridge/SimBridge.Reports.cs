@@ -24,6 +24,12 @@ public partial class SimBridge
     // Failure safety: UI callers can get a cached snapshot if a read lock cannot be taken immediately.
     private Godot.Collections.Array _cachedDiscoveryListSnapshot = new Godot.Collections.Array();
 
+    // GATE.S10.EMPIRE.BRIDGE.001: Empire-wide summary and industry/intel query caches.
+    private Godot.Collections.Dictionary _cachedEmpireSummaryV0 = new();
+    private Godot.Collections.Array _cachedAllIndustryV0 = new();
+    private Godot.Collections.Array _cachedNodeHealthV0 = new();
+    private Godot.Collections.Array _cachedIntelFreshnessV0 = new();
+
     // --- Station-scoped security incident snapshot (Slice 3 / GATE.S3.RISK_MODEL.001) ---
     // Returns newest-first schema-bound incidents that touch this node (from or to).
     public Godot.Collections.Dictionary GetSecurityIncidentStationSnapshot(string nodeId, int maxItems = 12)
@@ -1343,5 +1349,292 @@ public partial class SimBridge
         }
 
         return arr;
+    }
+
+    // GATE.S10.EMPIRE.BRIDGE.001: Empire-wide summary snapshot.
+    // Returns top-level empire metrics: credits, fleet counts, programs, research, missions, industry.
+    // Nonblocking: returns last cached snapshot if read lock is unavailable.
+    public Godot.Collections.Dictionary GetEmpireSummaryV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var fleetCount = state.Fleets.Count;
+            var playerFleetCount = state.Fleets.Values.Count(f => string.Equals(f.OwnerId, "player", StringComparison.Ordinal));
+
+            var programCount = 0;
+            if (state.Programs?.Instances != null)
+                programCount = state.Programs.Instances.Values.Count(p => p.Status == SimCore.Programs.ProgramStatus.Running);
+
+            var tech = state.Tech;
+            var isResearching = tech.IsResearching;
+            var researchTechId = tech.CurrentResearchTechId ?? "";
+            var researchProgressPct = 0;
+            if (isResearching && tech.ResearchTotalTicks > 0)
+                researchProgressPct = (int)Math.Min(100, (long)tech.ResearchProgressTicks * 100 / tech.ResearchTotalTicks);
+            var unlockedTechCount = tech.UnlockedTechIds?.Count ?? 0;
+
+            var activeMissionCount = (!string.IsNullOrEmpty(state.Missions?.ActiveMissionId)) ? 1 : 0;
+
+            var industrySiteCount = state.IndustrySites.Count;
+            var activeIndustryCount = state.IndustrySites.Values.Count(s => s.Active);
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["credits"] = state.PlayerCredits,
+                ["fleet_count"] = fleetCount,
+                ["player_fleet_count"] = playerFleetCount,
+                ["program_count"] = programCount,
+                ["researching"] = isResearching,
+                ["research_tech_id"] = researchTechId,
+                ["research_progress_pct"] = researchProgressPct,
+                ["unlocked_tech_count"] = unlockedTechCount,
+                ["active_mission_count"] = activeMissionCount,
+                ["tick"] = state.Tick,
+                ["industry_site_count"] = industrySiteCount,
+                ["active_industry_count"] = activeIndustryCount
+            };
+            lock (_snapshotLock) { _cachedEmpireSummaryV0 = d; }
+        }, 0);
+        lock (_snapshotLock) { return _cachedEmpireSummaryV0; }
+    }
+
+    // GATE.S10.EMPIRE.BRIDGE.001: All industry sites snapshot, sorted by site id.
+    // Each entry: site_id, node_id, recipe_id, active, efficiency, health_pct, input_goods, output_goods.
+    // Nonblocking: returns last cached snapshot if read lock is unavailable.
+    public Godot.Collections.Array GetAllIndustryV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            foreach (var kv in state.IndustrySites.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var site = kv.Value;
+                var healthPct = (int)Math.Min(100, (long)site.HealthBps * 100 / 10000);
+
+                var inputGoods = new Godot.Collections.Array();
+                foreach (var g in site.Inputs.Keys.OrderBy(x => x, StringComparer.Ordinal))
+                    inputGoods.Add(g);
+
+                var outputGoods = new Godot.Collections.Array();
+                foreach (var g in site.Outputs.Keys.OrderBy(x => x, StringComparer.Ordinal))
+                    outputGoods.Add(g);
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["site_id"] = site.Id ?? kv.Key,
+                    ["node_id"] = site.NodeId ?? "",
+                    ["recipe_id"] = site.RecipeId ?? "",
+                    ["active"] = site.Active,
+                    ["efficiency"] = site.Efficiency,
+                    ["health_pct"] = healthPct,
+                    ["input_goods"] = inputGoods,
+                    ["output_goods"] = outputGoods
+                };
+                arr.Add(d);
+            }
+            lock (_snapshotLock) { _cachedAllIndustryV0 = arr; }
+        }, 0);
+        lock (_snapshotLock) { return _cachedAllIndustryV0; }
+    }
+
+    // GATE.S10.EMPIRE.BRIDGE.001: Per-node industry health summary.
+    // One entry per node that has at least one industry site, sorted by node id.
+    // Each entry: node_id, site_count, active_count, worst_health_pct, avg_efficiency.
+    // Nonblocking: returns last cached snapshot if read lock is unavailable.
+    public Godot.Collections.Array GetAllNodeHealthSummaryV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            // Group sites by node_id.
+            var byNode = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<SimCore.Entities.IndustrySite>>(StringComparer.Ordinal);
+            foreach (var site in state.IndustrySites.Values)
+            {
+                var nid = site.NodeId ?? "";
+                if (!byNode.TryGetValue(nid, out var list))
+                {
+                    list = new System.Collections.Generic.List<SimCore.Entities.IndustrySite>();
+                    byNode[nid] = list;
+                }
+                list.Add(site);
+            }
+
+            var arr = new Godot.Collections.Array();
+            foreach (var nid in byNode.Keys.OrderBy(x => x, StringComparer.Ordinal))
+            {
+                var sites = byNode[nid];
+                var siteCount = sites.Count;
+                var activeCount = sites.Count(s => s.Active);
+                var worstHealthPct = sites.Min(s => (int)Math.Min(100, (long)s.HealthBps * 100 / 10000));
+
+                float avgEfficiency = 0f;
+                var activeSites = sites.Where(s => s.Active).ToList();
+                if (activeSites.Count > 0)
+                    avgEfficiency = activeSites.Sum(s => s.Efficiency) / activeSites.Count;
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["node_id"] = nid,
+                    ["site_count"] = siteCount,
+                    ["active_count"] = activeCount,
+                    ["worst_health_pct"] = worstHealthPct,
+                    ["avg_efficiency"] = avgEfficiency
+                };
+                arr.Add(d);
+            }
+            lock (_snapshotLock) { _cachedNodeHealthV0 = arr; }
+        }, 0);
+        lock (_snapshotLock) { return _cachedNodeHealthV0; }
+    }
+
+    // GATE.S10.EMPIRE.BRIDGE.001: Intel freshness by node.
+    // One entry per node that has at least one observation, sorted by node id.
+    // Observation keys are "marketId|goodId" where marketId == nodeId.
+    // Each entry: node_id, observation_count, newest_tick, oldest_tick, age_ticks.
+    // Nonblocking: returns last cached snapshot if read lock is unavailable.
+    public Godot.Collections.Array GetIntelFreshnessByNodeV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            // Group observations by node (first segment of key, split on '|').
+            var byNode = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<SimCore.Entities.IntelObservation>>(StringComparer.Ordinal);
+            if (state.Intel?.Observations != null)
+            {
+                foreach (var kv in state.Intel.Observations)
+                {
+                    var sep = kv.Key.IndexOf('|');
+                    var nid = sep >= 0 ? kv.Key.Substring(0, sep) : kv.Key;
+                    if (!byNode.TryGetValue(nid, out var list))
+                    {
+                        list = new System.Collections.Generic.List<SimCore.Entities.IntelObservation>();
+                        byNode[nid] = list;
+                    }
+                    list.Add(kv.Value);
+                }
+            }
+
+            var arr = new Godot.Collections.Array();
+            foreach (var nid in byNode.Keys.OrderBy(x => x, StringComparer.Ordinal))
+            {
+                var obs = byNode[nid];
+                var obsCount = obs.Count;
+                var newestTick = obs.Max(o => o.ObservedTick);
+                var oldestTick = obs.Min(o => o.ObservedTick);
+                var ageTicks = state.Tick - newestTick;
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["node_id"] = nid,
+                    ["observation_count"] = obsCount,
+                    ["newest_tick"] = newestTick,
+                    ["oldest_tick"] = oldestTick,
+                    ["age_ticks"] = ageTicks
+                };
+                arr.Add(d);
+            }
+            lock (_snapshotLock) { _cachedIntelFreshnessV0 = arr; }
+        }, 0);
+        lock (_snapshotLock) { return _cachedIntelFreshnessV0; }
+    }
+
+    // GATE.S6.MAP_GALAXY.NODE_CLICK.001: Node detail for galaxy map popup.
+    // Returns: node_id, node_name, world_class_id, fleet_count, industry_count, security_bps.
+    public Godot.Collections.Dictionary GetNodeDetailV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        if (string.IsNullOrEmpty(nodeId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Nodes == null || !state.Nodes.TryGetValue(nodeId, out var node))
+                return;
+
+            result["node_id"] = nodeId;
+            result["node_name"] = node.Name ?? nodeId;
+
+            // World class
+            var worldClasses = SimCore.Gen.GalaxyGenerator.GetWorldClassIdByNodeIdV0(state);
+            result["world_class_id"] = worldClasses.TryGetValue(nodeId, out var wc) ? wc : "Unknown";
+
+            // Fleet count at this node
+            int fleetCount = 0;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (string.Equals(fleet.CurrentNodeId, nodeId, StringComparison.Ordinal))
+                    fleetCount++;
+            }
+            result["fleet_count"] = fleetCount;
+
+            // Industry site count at this node
+            int industryCount = 0;
+            foreach (var site in state.IndustrySites.Values)
+            {
+                if (string.Equals(site.NodeId, nodeId, StringComparison.Ordinal))
+                    industryCount++;
+            }
+            result["industry_count"] = industryCount;
+
+            // Security: average security BPS of edges touching this node
+            int secTotal = 0;
+            int secCount = 0;
+            foreach (var edge in state.Edges.Values)
+            {
+                if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal) ||
+                    string.Equals(edge.ToNodeId, nodeId, StringComparison.Ordinal))
+                {
+                    secTotal += edge.SecurityLevelBps;
+                    secCount++;
+                }
+            }
+            result["security_bps"] = secCount > 0 ? secTotal / secCount : 5000;
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.S12.PROGRESSION.BRIDGE.001: Player stats snapshot.
+    private Godot.Collections.Dictionary _cachedPlayerStatsV0 = new();
+    public Godot.Collections.Dictionary GetPlayerStatsV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            var stats = state.PlayerStats;
+            if (stats == null) return;
+            result["nodes_visited"] = stats.NodesVisited;
+            result["goods_traded"] = stats.GoodsTraded;
+            result["total_credits_earned"] = (int)stats.TotalCreditsEarned;
+            result["techs_unlocked"] = stats.TechsUnlocked;
+            result["missions_completed"] = stats.MissionsCompleted;
+            _cachedPlayerStatsV0 = result;
+        }, 0);
+        if (result.Count == 0) return _cachedPlayerStatsV0;
+        return result;
+    }
+
+    // GATE.S12.PROGRESSION.BRIDGE.001: Milestones list with achieved/pending status.
+    private Godot.Collections.Array _cachedMilestonesV0 = new();
+    public Godot.Collections.Array GetMilestonesV0()
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            var stats = state.PlayerStats;
+            if (stats == null) return;
+            var achieved = stats.AchievedMilestoneIds ?? new System.Collections.Generic.List<string>();
+            foreach (var def in SimCore.Content.MilestoneContentV0.All)
+            {
+                var m = new Godot.Collections.Dictionary();
+                m["id"] = def.Id;
+                m["name"] = def.Name;
+                m["stat_key"] = def.StatKey;
+                m["threshold"] = (int)def.Threshold;
+                m["achieved"] = achieved.Contains(def.Id);
+                m["current"] = (int)SimCore.Systems.MilestoneSystem.GetStatValue(stats, def.StatKey);
+                result.Add(m);
+            }
+            _cachedMilestonesV0 = result;
+        }, 0);
+        if (result.Count == 0) return _cachedMilestonesV0;
+        return result;
     }
 }

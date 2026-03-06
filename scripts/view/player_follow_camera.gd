@@ -416,6 +416,11 @@ func _find_game_manager():
 func _setup_phantom_camera_flight() -> void:
 	if _pcam == null:
 		return
+	# Snap PhantomCamera to the correct follow position immediately so it
+	# doesn't lerp from global origin (top_level = true starts at 0,0,0).
+	if _target:
+		_pcam.global_position = _target.global_position + flight_offset
+		_pcam.look_at(_target.global_position, Vector3.UP)
 	# Initial setup: flight mode with follow on the target.
 	if _pcam.has_method("set_follow_mode"):
 		_pcam.follow_mode = 2  # FollowMode.SIMPLE

@@ -1,0 +1,1023 @@
+// GATE.S10.EMPIRE.SHELL.001, GATE.S10.EMPIRE.OVERVIEW_TAB.001,
+// GATE.S10.EMPIRE.PRODUCTION_TAB.001, GATE.S10.EMPIRE.INTEL_TAB.001,
+// GATE.S5.ESCORT_PROG.UI.001
+using Godot;
+using System;
+using System.Linq;
+using Godot.Collections;
+
+namespace SpaceTradeEmpire.Ui;
+
+public partial class EmpireDashboard : Control
+{
+    // ── Bridge ──────────────────────────────────────────────────────────────
+    private Bridge.SimBridge _bridge = null!;
+
+    // ── Tab state ───────────────────────────────────────────────────────────
+    private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats }
+    private Tab _activeTab = Tab.Overview;
+
+    // ── Tab buttons ─────────────────────────────────────────────────────────
+    private Button[] _tabBtns = System.Array.Empty<Button>();
+
+    // ── Content panels (one per tab) ────────────────────────────────────────
+    private Control[] _tabPanels = System.Array.Empty<Control>();
+
+    // ── Overview labels ─────────────────────────────────────────────────────
+    private Label _ovCredits = null!;
+    private Label _ovFleets = null!;
+    private Label _ovPrograms = null!;
+    private Label _ovResearch = null!;
+    private Label _ovMissions = null!;
+    private Label _ovTick = null!;
+    private Label _ovIndustry = null!;
+
+    // ── Trade list ──────────────────────────────────────────────────────────
+    private VBoxContainer _tradeList = null!;
+
+    // ── Production list ─────────────────────────────────────────────────────
+    private VBoxContainer _prodList = null!;
+
+    // ── Programs list ───────────────────────────────────────────────────────
+    private VBoxContainer _progList = null!;
+
+    // ── Programs creation form ───────────────────────────────────────────────
+    private OptionButton _progKindDropdown = null!;
+    private LineEdit _progField1 = null!; // fleetId / marketId / sourceMarketId
+    private LineEdit _progField2 = null!; // originNodeId / goodId / destMarketId
+    private LineEdit _progField3 = null!; // destNodeId / qty / buyGoodId
+    private LineEdit _progField4 = null!; // cadence / cadence / sellGoodId
+    private LineEdit _progField5 = null!; // (blank) / (blank) / cadence
+    private Label _progField1Label = null!;
+    private Label _progField2Label = null!;
+    private Label _progField3Label = null!;
+    private Label _progField4Label = null!;
+    private Label _progField5Label = null!;
+    private Label _progCreateStatus = null!;
+
+    // ── Intel list ──────────────────────────────────────────────────────────
+    private VBoxContainer _intelList = null!;
+
+    // ── Research list ─────────────────────────────────────────────────────
+    private VBoxContainer _researchList = null!;
+
+    // ── Stats / milestones list (GATE.S12.PROGRESSION.DASHBOARD.001) ────
+    private VBoxContainer _statsList = null!;
+    private VBoxContainer _milestonesList = null!;
+
+    // ── Godot lifecycle ─────────────────────────────────────────────────────
+    public override void _Ready()
+    {
+        _bridge = GetNodeOrNull<Bridge.SimBridge>("/root/SimBridge")!;
+        BuildUI();
+        Visible = false;
+        VisibilityChanged += OnVisibilityChanged;
+    }
+
+    private void OnVisibilityChanged()
+    {
+        if (Visible) RefreshCurrentTab();
+    }
+
+    // ── Public API ──────────────────────────────────────────────────────────
+    /// <summary>Toggle visibility; refreshes data when opening.</summary>
+    public void ToggleVisibility()
+    {
+        if (Visible)
+        {
+            Hide();
+        }
+        else
+        {
+            Show();
+            RefreshCurrentTab();
+        }
+    }
+
+    // ── Build UI ─────────────────────────────────────────────────────────────
+    private void BuildUI()
+    {
+        // Full-screen modal — blocks input behind it
+        SetAnchorsPreset(LayoutPreset.FullRect);
+        OffsetLeft = 0; OffsetTop = 0; OffsetRight = 0; OffsetBottom = 0;
+        ZIndex = 300;
+        ZAsRelative = false;
+        MouseFilter = MouseFilterEnum.Stop;
+        Name = "EmpireDashboard";
+
+        // Dimmer
+        var dim = new ColorRect();
+        dim.SetAnchorsPreset(LayoutPreset.FullRect);
+        dim.Color = new Color(0f, 0f, 0f, 0.55f);
+        dim.MouseFilter = MouseFilterEnum.Stop;
+        dim.ZIndex = 0;
+        dim.ZAsRelative = false;
+        AddChild(dim);
+
+        // Outer panel — leaves 60 px margin on each side
+        var panel = new PanelContainer();
+        panel.SetAnchorsPreset(LayoutPreset.FullRect);
+        panel.OffsetLeft   =  60;
+        panel.OffsetTop    =  60;
+        panel.OffsetRight  = -60;
+        panel.OffsetBottom = -60;
+        panel.ZIndex = 1;
+        panel.ZAsRelative = false;
+        panel.MouseFilter = MouseFilterEnum.Stop;
+
+        var sb = new StyleBoxFlat();
+        sb.BgColor = new Color(0.05f, 0.05f, 0.08f, 0.97f);
+        sb.BorderColor = new Color(0.25f, 0.25f, 0.32f, 1.0f);
+        sb.SetBorderWidthAll(2);
+        sb.SetCornerRadiusAll(8);
+        panel.AddThemeStyleboxOverride("panel", sb);
+        AddChild(panel);
+
+        // Root VBox inside panel
+        var root = new VBoxContainer();
+        root.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        root.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        panel.AddChild(root);
+
+        // ── Title row ──────────────────────────────────────────────────────
+        var titleRow = new HBoxContainer();
+        titleRow.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        root.AddChild(titleRow);
+
+        var title = new Label { Text = "EMPIRE DASHBOARD" };
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        title.HorizontalAlignment = HorizontalAlignment.Center;
+        title.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1.0f));
+        titleRow.AddChild(title);
+
+        var btnClose = new Button { Text = "X" };
+        btnClose.TooltipText = "Close [E]";
+        btnClose.Pressed += () => Hide();
+        titleRow.AddChild(btnClose);
+
+        root.AddChild(new HSeparator());
+
+        // ── Tab bar ────────────────────────────────────────────────────────
+        var tabBar = new HBoxContainer();
+        tabBar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        root.AddChild(tabBar);
+
+        var tabNames = new[] { "Overview", "Trade", "Production", "Programs", "Intel", "Research", "Stats" };
+        _tabBtns = new Button[tabNames.Length];
+        for (int i = 0; i < tabNames.Length; i++)
+        {
+            var idx = i; // capture
+            var btn = new Button { Text = tabNames[i], ToggleMode = true };
+            btn.Pressed += () => SwitchTab((Tab)idx);
+            tabBar.AddChild(btn);
+            _tabBtns[i] = btn;
+        }
+        _tabBtns[0].ButtonPressed = true;
+
+        root.AddChild(new HSeparator());
+
+        // ── Content area ────────────────────────────────────────────────────
+        var contentScroll = new ScrollContainer();
+        contentScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        contentScroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        root.AddChild(contentScroll);
+
+        var contentHost = new VBoxContainer();
+        contentHost.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        contentHost.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        contentScroll.AddChild(contentHost);
+
+        _tabPanels = new Control[tabNames.Length];
+        _tabPanels[(int)Tab.Overview]    = BuildOverviewTab();
+        _tabPanels[(int)Tab.Trade]       = BuildTradeTab();
+        _tabPanels[(int)Tab.Production]  = BuildProductionTab();
+        _tabPanels[(int)Tab.Programs]    = BuildProgramsTab();
+        _tabPanels[(int)Tab.Intel]       = BuildIntelTab();
+        _tabPanels[(int)Tab.Research]    = BuildResearchTab();
+        _tabPanels[(int)Tab.Stats]       = BuildStatsTab();
+
+        foreach (var p in _tabPanels)
+        {
+            p.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            p.SizeFlagsVertical   = SizeFlags.ExpandFill;
+            contentHost.AddChild(p);
+        }
+
+        // Start on Overview
+        SwitchTab(Tab.Overview);
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────────
+    private void SwitchTab(Tab tab)
+    {
+        _activeTab = tab;
+        for (int i = 0; i < _tabPanels.Length; i++)
+        {
+            _tabPanels[i].Visible = (i == (int)tab);
+            _tabBtns[i].ButtonPressed = (i == (int)tab);
+        }
+        RefreshCurrentTab();
+    }
+
+    private void RefreshCurrentTab()
+    {
+        if (_bridge == null) return;
+        switch (_activeTab)
+        {
+            case Tab.Overview:   RefreshOverview();    break;
+            case Tab.Trade:      RefreshTrade();       break;
+            case Tab.Production: RefreshProduction();  break;
+            case Tab.Programs:   RefreshPrograms();    break;
+            case Tab.Intel:      RefreshIntel();       break;
+            case Tab.Research:   RefreshResearch();    break;
+            case Tab.Stats:      RefreshStats();       break;
+        }
+    }
+
+    // ── Handle Escape / E key while open ─────────────────────────────────────
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (!Visible) return;
+        if (@event is InputEventKey k && k.Pressed && !k.Echo)
+        {
+            if (k.Keycode == Key.Escape || k.Keycode == Key.E)
+            {
+                Hide();
+                GetViewport().SetInputAsHandled();
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // OVERVIEW TAB
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildOverviewTab()
+    {
+        var box = new VBoxContainer();
+        box.AddThemeConstantOverride("separation", 6);
+
+        Label Row(string prefix)
+        {
+            var row = new HBoxContainer();
+            row.AddChild(new Label { Text = prefix, CustomMinimumSize = new Vector2(220, 0) });
+            var val = new Label { Text = "—" };
+            val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            row.AddChild(val);
+            box.AddChild(row);
+            return val;
+        }
+
+        _ovCredits  = Row("Credits:");
+        _ovFleets   = Row("Fleets:");
+        _ovPrograms = Row("Programs Running:");
+        _ovResearch = Row("Research:");
+        _ovMissions = Row("Active Missions:");
+        _ovIndustry = Row("Industry Sites:");
+        _ovTick     = Row("Tick:");
+
+        return box;
+    }
+
+    private void RefreshOverview()
+    {
+        var d = _bridge.GetEmpireSummaryV0();
+        if (d == null) return;
+
+        _ovCredits.Text  = FormatNum(GetInt(d, "credits"));
+        _ovFleets.Text   = $"{GetInt(d, "player_fleet_count")} player / {GetInt(d, "fleet_count")} total";
+        _ovPrograms.Text = GetStr(d, "program_count");
+        _ovMissions.Text = GetStr(d, "active_mission_count");
+        _ovIndustry.Text = $"{GetStr(d, "active_industry_count")} active / {GetStr(d, "industry_site_count")} total";
+        _ovTick.Text     = GetStr(d, "tick");
+
+        var tech = GetStr(d, "research_tech_id");
+        if (string.IsNullOrWhiteSpace(tech))
+        {
+            _ovResearch.Text = "Idle";
+        }
+        else
+        {
+            var pct = GetInt(d, "research_progress_pct");
+            _ovResearch.Text = $"{tech} ({pct}%)";
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TRADE TAB
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildTradeTab()
+    {
+        var box = new VBoxContainer();
+
+        // Header
+        var hdr = new Label { Text = "Good  |  Source → Dest  |  Profit/unit  |  Status  |  Last Validated" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _tradeList = new VBoxContainer();
+        _tradeList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_tradeList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshTrade()
+    {
+        ClearChildren(_tradeList);
+        var routes = _bridge.GetTradeRoutesV0();
+        if (routes == null || routes.Count == 0)
+        {
+            _tradeList.AddChild(new Label { Text = "No trade routes discovered yet." });
+            return;
+        }
+
+        foreach (var v in routes)
+        {
+            var d = v.Obj as Dictionary;
+            if (d == null) continue;
+
+            var good   = GetStr(d, "good_id");
+            var src    = GetStr(d, "source_node_id");
+            var dest   = GetStr(d, "dest_node_id");
+            var profit = GetInt(d, "estimated_profit_per_unit");
+            var status = GetStr(d, "status");
+            var lastV  = GetInt(d, "last_validated_tick");
+
+            var lbl = new Label
+            {
+                Text = $"{good,-16}  {src} → {dest,-16}  +{profit,6} cr/u  {status,-12}  @tick {lastV}",
+                AutowrapMode = TextServer.AutowrapMode.Off
+            };
+            _tradeList.AddChild(lbl);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRODUCTION TAB
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildProductionTab()
+    {
+        var box = new VBoxContainer();
+
+        var hdr = new Label { Text = "Site  |  Node  |  Recipe  |  Health%  |  Efficiency%  |  Active" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _prodList = new VBoxContainer();
+        _prodList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_prodList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshProduction()
+    {
+        ClearChildren(_prodList);
+        var sites = _bridge.GetAllIndustryV0();
+        if (sites == null || sites.Count == 0)
+        {
+            _prodList.AddChild(new Label { Text = "No industry sites." });
+            return;
+        }
+
+        foreach (var v in sites)
+        {
+            var d = v.Obj as Dictionary;
+            if (d == null) continue;
+
+            var siteId   = GetStr(d, "site_id");
+            var nodeId   = GetStr(d, "node_id");
+            var recipe   = GetStr(d, "recipe_id");
+            var health   = GetFloat(d, "health_pct");
+            var eff      = GetFloat(d, "efficiency");
+            var active   = GetBool(d, "active") ? "YES" : "no";
+
+            var lbl = new Label
+            {
+                Text = $"{siteId,-20}  {nodeId,-16}  {recipe,-20}  hp={health:P0}  eff={eff:P0}  {active}",
+                AutowrapMode = TextServer.AutowrapMode.Off
+            };
+            _prodList.AddChild(lbl);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROGRAMS TAB  (includes Escort / Patrol creation — GATE.S5.ESCORT_PROG.UI.001)
+    // ═══════════════════════════════════════════════════════════════════════
+    private static readonly string[] ProgKinds =
+        { "AutoSell", "TradeCharter", "ResourceTap", "Escort", "Patrol" };
+
+    private Control BuildProgramsTab()
+    {
+        var outerBox = new VBoxContainer();
+        outerBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        outerBox.SizeFlagsVertical   = SizeFlags.ExpandFill;
+
+        // ── Program list ────────────────────────────────────────────────────
+        var hdr = new Label { Text = "ID  |  Kind  |  Status  |  Market  |  Good  |  Qty" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        outerBox.AddChild(hdr);
+        outerBox.AddChild(new HSeparator());
+
+        var listScroll = new ScrollContainer();
+        listScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        listScroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        listScroll.CustomMinimumSize   = new Vector2(0, 220);
+
+        _progList = new VBoxContainer();
+        _progList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        listScroll.AddChild(_progList);
+        outerBox.AddChild(listScroll);
+
+        outerBox.AddChild(new HSeparator());
+
+        // ── Creation form ────────────────────────────────────────────────────
+        var formBox = new VBoxContainer();
+        formBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        outerBox.AddChild(formBox);
+
+        var formTitle = new Label { Text = "Create Program" };
+        formTitle.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1f));
+        formBox.AddChild(formTitle);
+
+        // Kind row
+        var kindRow = new HBoxContainer();
+        kindRow.AddChild(new Label { Text = "Kind:", CustomMinimumSize = new Vector2(120, 0) });
+        _progKindDropdown = new OptionButton();
+        foreach (var k in ProgKinds) _progKindDropdown.AddItem(k);
+        _progKindDropdown.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _progKindDropdown.ItemSelected += _ => UpdateFormLabels();
+        kindRow.AddChild(_progKindDropdown);
+        formBox.AddChild(kindRow);
+
+        // Field rows (5 generic slots)
+        Control FieldRow(out Label lbl, out LineEdit edit, string defLabel)
+        {
+            var row = new HBoxContainer();
+            lbl = new Label { Text = defLabel, CustomMinimumSize = new Vector2(160, 0) };
+            edit = new LineEdit();
+            edit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            row.AddChild(lbl);
+            row.AddChild(edit);
+            return row;
+        }
+
+        formBox.AddChild(FieldRow(out _progField1Label, out _progField1, "Field 1:"));
+        formBox.AddChild(FieldRow(out _progField2Label, out _progField2, "Field 2:"));
+        formBox.AddChild(FieldRow(out _progField3Label, out _progField3, "Field 3:"));
+        formBox.AddChild(FieldRow(out _progField4Label, out _progField4, "Field 4:"));
+        formBox.AddChild(FieldRow(out _progField5Label, out _progField5, "Field 5:"));
+
+        // Cadence row (reuse field5 for cadence on kinds that need ≤4 fields)
+        var btnCreate = new Button { Text = "Create & Start" };
+        btnCreate.Pressed += OnCreateProgram;
+        formBox.AddChild(btnCreate);
+
+        _progCreateStatus = new Label { Text = "" };
+        formBox.AddChild(_progCreateStatus);
+
+        // Initialise labels for first kind
+        UpdateFormLabels();
+
+        return outerBox;
+    }
+
+    private void UpdateFormLabels()
+    {
+        int idx = _progKindDropdown.Selected;
+        var kind = idx >= 0 && idx < ProgKinds.Length ? ProgKinds[idx] : "AutoSell";
+
+        // Reset all
+        _progField1.Visible = true;
+        _progField2.Visible = true;
+        _progField3.Visible = true;
+        _progField4.Visible = true;
+        _progField5.Visible = true;
+        _progField1Label.Visible = true;
+        _progField2Label.Visible = true;
+        _progField3Label.Visible = true;
+        _progField4Label.Visible = true;
+        _progField5Label.Visible = true;
+
+        switch (kind)
+        {
+            case "AutoSell":
+                // marketId, goodId, quantity, cadenceTicks
+                _progField1Label.Text = "Market ID:";
+                _progField2Label.Text = "Good ID:";
+                _progField3Label.Text = "Quantity:";
+                _progField4Label.Text = "Cadence (ticks):";
+                _progField5.Visible = false;
+                _progField5Label.Visible = false;
+                break;
+
+            case "TradeCharter":
+                // sourceMarketId, destMarketId, buyGoodId, sellGoodId, cadenceTicks
+                _progField1Label.Text = "Source Market ID:";
+                _progField2Label.Text = "Dest Market ID:";
+                _progField3Label.Text = "Buy Good ID:";
+                _progField4Label.Text = "Sell Good ID:";
+                _progField5Label.Text = "Cadence (ticks):";
+                break;
+
+            case "ResourceTap":
+                // sourceMarketId, extractGoodId, cadenceTicks
+                _progField1Label.Text = "Source Market ID:";
+                _progField2Label.Text = "Extract Good ID:";
+                _progField3Label.Text = "Cadence (ticks):";
+                _progField4.Visible = false;
+                _progField4Label.Visible = false;
+                _progField5.Visible = false;
+                _progField5Label.Visible = false;
+                break;
+
+            case "Escort":
+                // fleetId, originNodeId, destNodeId, cadenceTicks
+                _progField1Label.Text = "Fleet ID:";
+                _progField2Label.Text = "Origin Node ID:";
+                _progField3Label.Text = "Dest Node ID:";
+                _progField4Label.Text = "Cadence (ticks):";
+                _progField5.Visible = false;
+                _progField5Label.Visible = false;
+                break;
+
+            case "Patrol":
+                // fleetId, nodeA, nodeB, cadenceTicks
+                _progField1Label.Text = "Fleet ID:";
+                _progField2Label.Text = "Node A:";
+                _progField3Label.Text = "Node B:";
+                _progField4Label.Text = "Cadence (ticks):";
+                _progField5.Visible = false;
+                _progField5Label.Visible = false;
+                break;
+        }
+    }
+
+    private void OnCreateProgram()
+    {
+        _progCreateStatus.Text = "";
+        int idx = _progKindDropdown.Selected;
+        var kind = idx >= 0 && idx < ProgKinds.Length ? ProgKinds[idx] : "AutoSell";
+
+        var f1 = _progField1.Text.Trim();
+        var f2 = _progField2.Text.Trim();
+        var f3 = _progField3.Text.Trim();
+        var f4 = _progField4.Text.Trim();
+        var f5 = _progField5.Text.Trim();
+
+        string programId;
+        try
+        {
+            switch (kind)
+            {
+                case "AutoSell":
+                {
+                    if (!int.TryParse(f3, out var qty)) { _progCreateStatus.Text = "ERR: qty must be int"; return; }
+                    if (!int.TryParse(f4, out var cad)) { _progCreateStatus.Text = "ERR: cadence must be int"; return; }
+                    programId = _bridge.CreateAutoSellProgram(f1, f2, qty, cad);
+                    break;
+                }
+                case "TradeCharter":
+                {
+                    if (!int.TryParse(f5, out var cad)) { _progCreateStatus.Text = "ERR: cadence must be int"; return; }
+                    programId = _bridge.CreateTradeCharterProgram(f1, f2, f3, f4, cad);
+                    break;
+                }
+                case "ResourceTap":
+                {
+                    if (!int.TryParse(f3, out var cad)) { _progCreateStatus.Text = "ERR: cadence must be int"; return; }
+                    programId = _bridge.CreateResourceTapProgram(f1, f2, cad);
+                    break;
+                }
+                case "Escort":
+                {
+                    if (!int.TryParse(f4, out var cad)) { _progCreateStatus.Text = "ERR: cadence must be int"; return; }
+                    programId = _bridge.CreateEscortProgramV0(f1, f2, f3, cad);
+                    break;
+                }
+                case "Patrol":
+                {
+                    if (!int.TryParse(f4, out var cad)) { _progCreateStatus.Text = "ERR: cadence must be int"; return; }
+                    programId = _bridge.CreatePatrolProgramV0(f1, f2, f3, cad);
+                    break;
+                }
+                default:
+                    _progCreateStatus.Text = "ERR: unknown kind";
+                    return;
+            }
+
+            if (string.IsNullOrWhiteSpace(programId))
+            {
+                _progCreateStatus.Text = "ERR: bridge returned empty id (check inputs)";
+                return;
+            }
+
+            _bridge.StartProgram(programId);
+            _progCreateStatus.Text = $"OK: {programId}";
+            RefreshPrograms();
+        }
+        catch (Exception ex)
+        {
+            _progCreateStatus.Text = $"ERR: {ex.Message}";
+        }
+    }
+
+    private void RefreshPrograms()
+    {
+        ClearChildren(_progList);
+        var arr = _bridge.GetProgramExplainSnapshot();
+        if (arr == null || arr.Count == 0)
+        {
+            _progList.AddChild(new Label { Text = "(no programs)" });
+            return;
+        }
+
+        var rows = arr
+            .Select(v => v.Obj as Dictionary)
+            .Where(d => d != null)
+            .OrderBy(d => GetStr(d!, "id"), StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var d in rows)
+        {
+            var id      = GetStr(d!, "id");
+            var kind    = GetStr(d!, "kind");
+            var status  = GetStr(d!, "status");
+            var market  = GetStr(d!, "market_id");
+            var good    = GetStr(d!, "good_id");
+            var qty     = GetInt(d!, "quantity");
+
+            var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            _progList.AddChild(row);
+
+            var lbl = new Label
+            {
+                Text = $"{id,-28}  {kind,-14}  {status,-10}  {market,-18}  {good,-16}  qty={qty}",
+                AutowrapMode = TextServer.AutowrapMode.Off,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill
+            };
+            row.AddChild(lbl);
+
+            var btnStart = new Button { Text = "Start" };
+            btnStart.Disabled = status == "Running" || status == "Cancelled";
+            btnStart.Pressed += () => { _bridge.StartProgram(id); RefreshPrograms(); };
+            row.AddChild(btnStart);
+
+            var btnPause = new Button { Text = "Pause" };
+            btnPause.Disabled = status == "Paused" || status == "Cancelled";
+            btnPause.Pressed += () => { _bridge.PauseProgram(id); RefreshPrograms(); };
+            row.AddChild(btnPause);
+
+            var btnCancel = new Button { Text = "Cancel" };
+            btnCancel.Disabled = status == "Cancelled";
+            btnCancel.Pressed += () => { _bridge.CancelProgram(id); RefreshPrograms(); };
+            row.AddChild(btnCancel);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INTEL TAB
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildIntelTab()
+    {
+        var box = new VBoxContainer();
+
+        var hdr = new Label { Text = "Node  |  Observations  |  Age (ticks)" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _intelList = new VBoxContainer();
+        _intelList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_intelList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshIntel()
+    {
+        ClearChildren(_intelList);
+        var entries = _bridge.GetIntelFreshnessByNodeV0();
+        if (entries == null || entries.Count == 0)
+        {
+            _intelList.AddChild(new Label { Text = "No intel observations." });
+            return;
+        }
+
+        var sorted = entries
+            .Select(v => v.Obj as Dictionary)
+            .Where(d => d != null)
+            .OrderBy(d => GetStr(d!, "node_id"), StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var d in sorted)
+        {
+            var node = GetStr(d!, "node_id");
+            var obs  = GetInt(d!, "observation_count");
+            var age  = GetInt(d!, "age_ticks");
+
+            _intelList.AddChild(new Label
+            {
+                Text = $"{node,-24}  obs={obs,5}  age={age,6} ticks",
+                AutowrapMode = TextServer.AutowrapMode.Off
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RESEARCH TAB  (GATE.S11.GAME_FEEL.TECH_TREE_UI.001)
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildResearchTab()
+    {
+        var box = new VBoxContainer();
+        box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        box.SizeFlagsVertical   = SizeFlags.ExpandFill;
+
+        var hdr = new Label { Text = "Tech  |  Status  |  Tier  |  Prerequisites  |  Sustain  |  Effects" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _researchList = new VBoxContainer();
+        _researchList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_researchList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshResearch()
+    {
+        ClearChildren(_researchList);
+        var techs = _bridge.GetTechTreeV0();
+        if (techs == null || techs.Count == 0)
+        {
+            _researchList.AddChild(new Label { Text = "No technologies available." });
+            return;
+        }
+
+        // Group by tier, sorted ascending
+        var grouped = techs
+            .Select(v => v.Obj as Dictionary)
+            .Where(d => d != null)
+            .OrderBy(d => GetInt(d!, "tier"))
+            .ThenBy(d => GetStr(d!, "tech_id"), StringComparer.Ordinal)
+            .GroupBy(d => GetInt(d!, "tier"))
+            .OrderBy(g => g.Key);
+
+        foreach (var tierGroup in grouped)
+        {
+            // Tier header
+            var tierLabel = new Label { Text = $"--- Tier {tierGroup.Key} ---" };
+            tierLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.8f, 1.0f, 1f));
+            _researchList.AddChild(tierLabel);
+
+            foreach (var d in tierGroup)
+            {
+                var techId    = GetStr(d!, "tech_id");
+                var name      = GetStr(d!, "display_name");
+                var status    = GetStr(d!, "status");
+                var prereqs   = GetStr(d!, "prereqs");
+                var sustain   = GetStr(d!, "sustain_inputs");
+                var effects   = GetStr(d!, "effects");
+                var ticks     = GetInt(d!, "research_ticks");
+                var cost      = GetInt(d!, "credit_cost");
+
+                // Color-coded status
+                Color statusColor = status switch
+                {
+                    "done"        => new Color(0.3f, 1.0f, 0.3f, 1f),   // green
+                    "researching" => new Color(1.0f, 1.0f, 0.3f, 1f),   // yellow
+                    "available"   => new Color(1.0f, 1.0f, 1.0f, 1f),   // white
+                    _             => new Color(0.5f, 0.5f, 0.5f, 1f),   // gray (locked)
+                };
+
+                var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                _researchList.AddChild(row);
+
+                var infoText = $"{name,-24}  [{status,-12}]  ticks={ticks}  cost={cost}";
+                if (!string.IsNullOrEmpty(prereqs))
+                    infoText += $"  prereqs=[{prereqs}]";
+                if (!string.IsNullOrEmpty(sustain))
+                    infoText += $"  sustain=[{sustain}]";
+                if (!string.IsNullOrEmpty(effects))
+                    infoText += $"  effects=[{effects}]";
+
+                var lbl = new Label
+                {
+                    Text = infoText,
+                    AutowrapMode = TextServer.AutowrapMode.Off,
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                };
+                lbl.AddThemeColorOverride("font_color", statusColor);
+                row.AddChild(lbl);
+
+                // "Start Research" button for available techs
+                if (status == "available")
+                {
+                    var btnStart = new Button { Text = "Start Research" };
+                    var capturedId = techId;
+                    btnStart.Pressed += () =>
+                    {
+                        _bridge.StartResearchV0(capturedId, "");
+                        RefreshResearch();
+                    };
+                    row.AddChild(btnStart);
+                }
+            }
+
+            _researchList.AddChild(new HSeparator());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STATS TAB  (GATE.S12.PROGRESSION.DASHBOARD.001)
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildStatsTab()
+    {
+        var box = new VBoxContainer();
+        box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        box.SizeFlagsVertical   = SizeFlags.ExpandFill;
+
+        // Stats section
+        var statsHdr = new Label { Text = "Player Statistics" };
+        statsHdr.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1f));
+        box.AddChild(statsHdr);
+        box.AddChild(new HSeparator());
+
+        _statsList = new VBoxContainer();
+        _statsList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _statsList.AddThemeConstantOverride("separation", 4);
+        box.AddChild(_statsList);
+
+        box.AddChild(new HSeparator());
+
+        // Milestones section
+        var msHdr = new Label { Text = "Milestones" };
+        msHdr.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1f));
+        box.AddChild(msHdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _milestonesList = new VBoxContainer();
+        _milestonesList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_milestonesList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshStats()
+    {
+        ClearChildren(_statsList);
+        ClearChildren(_milestonesList);
+
+        // Player stats
+        var stats = _bridge.GetPlayerStatsV0();
+        if (stats != null && stats.Count > 0)
+        {
+            AddStatRow("Nodes Visited", GetInt(stats, "nodes_visited"));
+            AddStatRow("Goods Traded", GetInt(stats, "goods_traded"));
+            AddStatRow("Total Credits Earned", GetInt(stats, "total_credits_earned"));
+            AddStatRow("Techs Unlocked", GetInt(stats, "techs_unlocked"));
+            AddStatRow("Missions Completed", GetInt(stats, "missions_completed"));
+        }
+        else
+        {
+            _statsList.AddChild(new Label { Text = "No stats available." });
+        }
+
+        // Milestones
+        var milestones = _bridge.GetMilestonesV0();
+        if (milestones == null || milestones.Count == 0)
+        {
+            _milestonesList.AddChild(new Label { Text = "No milestones defined." });
+            return;
+        }
+
+        foreach (var v in milestones)
+        {
+            var d = v.Obj as Dictionary;
+            if (d == null) continue;
+
+            var name     = GetStr(d, "name");
+            var achieved = GetBool(d, "achieved");
+            var current  = GetInt(d, "current");
+            var threshold = GetInt(d, "threshold");
+
+            var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            _milestonesList.AddChild(row);
+
+            // Icon: checkmark or empty
+            var icon = new Label { Text = achieved ? "[X]" : "[ ]", CustomMinimumSize = new Vector2(40, 0) };
+            icon.AddThemeColorOverride("font_color", achieved
+                ? new Color(0.3f, 1.0f, 0.3f, 1f)
+                : new Color(0.5f, 0.5f, 0.5f, 1f));
+            row.AddChild(icon);
+
+            // Name
+            var nameLbl = new Label { Text = name, CustomMinimumSize = new Vector2(200, 0) };
+            nameLbl.AddThemeColorOverride("font_color", achieved
+                ? new Color(0.3f, 1.0f, 0.3f, 1f)
+                : new Color(1.0f, 1.0f, 1.0f, 1f));
+            row.AddChild(nameLbl);
+
+            // Progress
+            if (achieved)
+            {
+                var doneLbl = new Label { Text = "Complete!" };
+                doneLbl.AddThemeColorOverride("font_color", new Color(0.3f, 1.0f, 0.3f, 1f));
+                row.AddChild(doneLbl);
+            }
+            else
+            {
+                var progBar = new ProgressBar();
+                progBar.MinValue = 0;
+                progBar.MaxValue = threshold > 0 ? threshold : 1;
+                progBar.Value = current;
+                progBar.CustomMinimumSize = new Vector2(120, 20);
+                progBar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                row.AddChild(progBar);
+
+                var progLbl = new Label { Text = $"{current} / {threshold}" };
+                progLbl.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f, 1f));
+                row.AddChild(progLbl);
+            }
+        }
+    }
+
+    private void AddStatRow(string label, int value)
+    {
+        var row = new HBoxContainer();
+        row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(220, 0) });
+        var val = new Label { Text = FormatNum(value) };
+        val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        row.AddChild(val);
+        _statsList.AddChild(row);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Helpers
+    // ═══════════════════════════════════════════════════════════════════════
+    private static void ClearChildren(Node parent)
+    {
+        foreach (var child in parent.GetChildren())
+            child.QueueFree();
+    }
+
+    private static string GetStr(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return "";
+        var v = d[key];
+        return v.VariantType == Variant.Type.Nil ? "" : v.ToString();
+    }
+
+    private static int GetInt(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return 0;
+        try { return (int)d[key]; } catch { return 0; }
+    }
+
+    private static float GetFloat(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return 0f;
+        try { return (float)d[key]; } catch { return 0f; }
+    }
+
+    private static bool GetBool(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return false;
+        try { return (bool)d[key]; } catch { return false; }
+    }
+
+    private static string FormatNum(int n) => n.ToString("N0");
+}

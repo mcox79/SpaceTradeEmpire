@@ -52,6 +52,153 @@ public partial class SimBridge
         }
     }
 
+    public string CreateAutoSellProgram(string marketId, string goodId, int quantity, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(marketId)) return "";
+        if (string.IsNullOrWhiteSpace(goodId)) return "";
+        if (quantity <= 0) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var id = _kernel.State.CreateAutoSellProgram(marketId, goodId, quantity, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: marketId,
+                        goodId: goodId,
+                        note: $"qty={quantity} cad={cadenceTicks}t");
+            }
+            return id;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    public string CreateConstrCapModuleProgram(string siteId, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(siteId)) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var id = _kernel.State.CreateConstrCapModuleProgramV0(siteId, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: siteId,
+                        goodId: "",
+                        note: $"cad={cadenceTicks}t");
+            }
+            return id;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    public string CreateExpeditionProgram(string leadId, string fleetId, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(leadId)) return "";
+        if (string.IsNullOrWhiteSpace(fleetId)) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var id = _kernel.State.CreateExpeditionProgramV0(leadId, fleetId, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: leadId,
+                        goodId: fleetId,
+                        note: $"cad={cadenceTicks}t");
+            }
+            return id;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    public string CreateTradeCharterProgram(string sourceMarketId, string destMarketId, string buyGoodId, string sellGoodId, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(sourceMarketId)) return "";
+        if (string.IsNullOrWhiteSpace(destMarketId)) return "";
+        if (string.IsNullOrWhiteSpace(buyGoodId)) return "";
+        if (string.IsNullOrWhiteSpace(sellGoodId)) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var id = _kernel.State.CreateTradeCharterV0Program(sourceMarketId, destMarketId, buyGoodId, sellGoodId, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: sourceMarketId,
+                        goodId: buyGoodId,
+                        note: $"dest={destMarketId} sell={sellGoodId} cad={cadenceTicks}t");
+            }
+            return id;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    public string CreateResourceTapProgram(string sourceMarketId, string extractGoodId, int cadenceTicks)
+    {
+        if (IsLoading) return "";
+        if (string.IsNullOrWhiteSpace(sourceMarketId)) return "";
+        if (string.IsNullOrWhiteSpace(extractGoodId)) return "";
+        if (cadenceTicks <= 0) cadenceTicks = 1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var id = _kernel.State.CreateResourceTapV0Program(sourceMarketId, extractGoodId, cadenceTicks);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                RecordProgramEvent(
+                        type: 1,
+                        tick: _kernel.State.Tick,
+                        programId: id,
+                        marketId: sourceMarketId,
+                        goodId: extractGoodId,
+                        note: $"cad={cadenceTicks}t");
+            }
+            return id;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
     public bool StartProgram(string programId)
     {
         return EnqueueProgramStatus(programId, ProgramStatus.Running);

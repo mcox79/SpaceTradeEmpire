@@ -326,6 +326,107 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.S5.COMBAT_RES.PROOF.001: Strategic combat resolution bridge.
+    // Runs full fleet-vs-fleet attrition resolver and returns outcome.
+    // Returns {outcome (string: Victory/Defeat/Flee), rounds (int),
+    //          attacker_hull (int), defender_hull (int), salvage (int)}.
+    public Godot.Collections.Dictionary ResolveCombatV0(string attackerFleetId, string defenderFleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["outcome"] = "Error",
+            ["rounds"] = 0,
+            ["attacker_hull"] = 0,
+            ["defender_hull"] = 0,
+            ["salvage"] = 0,
+        };
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.Fleets.TryGetValue(attackerFleetId, out var attacker)) return result;
+            if (!state.Fleets.TryGetValue(defenderFleetId, out var defender)) return result;
+
+            var weaponMap = GetWeaponBaseDmgMap();
+            var resolution = CombatSystem.ResolveCombatV0(attacker, defender, weaponMap);
+
+            result["outcome"] = resolution.Outcome.ToString();
+            result["rounds"] = resolution.RoundsPlayed;
+            result["attacker_hull"] = resolution.AttackerHullRemaining;
+            result["defender_hull"] = resolution.DefenderHullRemaining;
+            result["salvage"] = resolution.SalvageValue;
+
+            // Apply HP damage to fleets
+            attacker.HullHp = resolution.AttackerHullRemaining;
+            defender.HullHp = resolution.DefenderHullRemaining;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
+    // ── GATE.S11.GAME_FEEL.COMBAT_BRIDGE.001: Recent combat events ring buffer ──
+
+    private const int RecentCombatCapacity = 20;
+    private Godot.Collections.Array _cachedRecentCombatEventsV0 = new Godot.Collections.Array();
+
+    /// <summary>
+    /// Returns the most recent combat events (up to 20) across all combat logs.
+    /// Each dict: tick (int), attacker_id (string), defender_id (string),
+    ///            damage (int), outcome (string).
+    /// Newest events last. Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetRecentCombatEventsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            if (state.CombatLogs.Count == 0)
+            {
+                lock (_snapshotLock) { _cachedRecentCombatEventsV0 = arr; }
+                return;
+            }
+
+            // Collect all events from all logs, newest logs last.
+            // CombatLogs is ordered oldest→newest; within each log, Events is ordered by tick.
+            var allEvents = new List<(CombatSystem.CombatEventEntry entry, CombatSystem.CombatOutcome outcome)>();
+            foreach (var log in state.CombatLogs)
+            {
+                foreach (var evt in log.Events)
+                {
+                    allEvents.Add((evt, log.Outcome));
+                }
+            }
+
+            // Take last N events (ring buffer behavior).
+            int startIdx = allEvents.Count > RecentCombatCapacity
+                ? allEvents.Count - RecentCombatCapacity
+                : 0;
+
+            for (int i = startIdx; i < allEvents.Count; i++)
+            {
+                var (evt, outcome) = allEvents[i];
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["tick"] = evt.Tick,
+                    ["attacker_id"] = evt.AttackerId ?? "",
+                    ["defender_id"] = evt.DefenderId ?? "",
+                    ["damage"] = evt.DamageDealt,
+                    ["outcome"] = outcome.ToString(),
+                };
+                arr.Add(d);
+            }
+
+            lock (_snapshotLock) { _cachedRecentCombatEventsV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedRecentCombatEventsV0; }
+    }
+
     /// <summary>
     /// AI fleet fires one shot at player. Weapon stats resolved from AI's slots or defaults.
     /// Returns {shield_dmg, hull_dmg, player_hull, player_shield, killed}.

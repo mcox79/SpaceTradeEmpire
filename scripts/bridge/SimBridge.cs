@@ -244,6 +244,19 @@ public partial class SimBridge : Node
 
         // Ready only after cmdline override + kernel init + sim start.
         Volatile.Write(ref _bridgeReadyV0, 1);
+
+        // GATE.S10.EMPIRE.SHELL.001: Spawn EmpireDashboard into the scene tree.
+        // Wrap in a CanvasLayer so it renders above the 3D viewport.
+        if (!Engine.IsEditorHint())
+        {
+            var layer = new CanvasLayer();
+            layer.Name = "EmpireDashboardLayer";
+            layer.Layer = 100;
+            var dashboard = new SpaceTradeEmpire.Ui.EmpireDashboard();
+            dashboard.Name = "EmpireDashboard";
+            layer.AddChild(dashboard);
+            GetTree().Root.CallDeferred(Node.MethodName.AddChild, layer);
+        }
     }
 
     public override void _ExitTree()
@@ -721,11 +734,16 @@ public partial class SimBridge : Node
             int cargoCount = 0;
             foreach (var v in state.PlayerCargo.Values)
                 cargoCount += v;
+            var nodeName = state.PlayerLocationNodeId ?? "";
+            if (!string.IsNullOrEmpty(state.PlayerLocationNodeId)
+                && state.Nodes.TryGetValue(state.PlayerLocationNodeId, out var pNode))
+                nodeName = pNode.Name ?? state.PlayerLocationNodeId ?? "";
             var d = new Godot.Collections.Dictionary
             {
                 ["credits"] = state.PlayerCredits,
                 ["cargo_count"] = cargoCount,
-                ["current_node_id"] = state.PlayerLocationNodeId ?? ""
+                ["current_node_id"] = state.PlayerLocationNodeId ?? "",
+                ["node_name"] = nodeName
             };
             lock (_snapshotLock)
             {
@@ -738,6 +756,17 @@ public partial class SimBridge : Node
             result["ship_state_token"] = GetPlayerShipStateNameV0();
             return result;
         }
+    }
+
+    public string GetNodeDisplayNameV0(string nodeId)
+    {
+        string name = nodeId ?? "";
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Nodes.TryGetValue(nodeId ?? "", out var node))
+                name = node.Name ?? nodeId ?? "";
+        }, 0);
+        return name;
     }
 
     // Returns hero ship slot loadout ordered by slot_id Ordinal asc.
@@ -1313,5 +1342,21 @@ public partial class SimBridge : Node
         {
             IsLoading = false;
         }
+    }
+
+    // GATE.S12.UX_POLISH.DISPLAY_NAMES.001: Convert snake_case IDs to readable "Title Case" display names.
+    // Examples: "fuel" → "Fuel", "hull_plating" → "Hull Plating", "star_0" → "Star 0"
+    public static string FormatDisplayNameV0(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "";
+        var parts = id.Split('_');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Length > 0 && char.IsLetter(parts[i][0]))
+            {
+                parts[i] = char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1);
+            }
+        }
+        return string.Join(" ", parts);
     }
 }

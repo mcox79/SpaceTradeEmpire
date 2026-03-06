@@ -42,6 +42,8 @@ public sealed class PressureDomainState
     [JsonInclude] public int LastTransitionTick { get; set; } = -1;
     [JsonInclude] public int AlertCount { get; set; }
     [JsonInclude] public int WindowStartTick { get; set; }
+    // GATE.X.PRESSURE.ENFORCE.001: Track last tick consequences were applied (prevent per-tick spam).
+    [JsonInclude] public int LastConsequenceTick { get; set; } = -1;
 }
 
 // GATE.X.PRESSURE.MODEL.001: Pressure state container.

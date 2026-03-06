@@ -72,11 +72,18 @@ Primary anchors:
 - EPIC.S1.AUDIO_MIN.V0 [DONE]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
 - EPIC.S1.SAVE_LOAD_UI.V0 [DONE]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
 - EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema (mission_id, prerequisites, steps, triggers, assertions), headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp; no timed missions, no forced modals; gates the "first 60 minutes" Greatness Spec validation (gates: GATE.S1.MISSION.*)
-- EPIC.X.PRESSURE_FORMALIZATION.V0 [TODO]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
+- EPIC.X.PRESSURE_FORMALIZATION.V0 [DONE]: Pressure state ladder formalization — 5-state enum (Normal/Strained/Unstable/Critical/Collapsed) with mandatory direction indicator (Improving/Stable/Worsening), max-one-state-jump-per-window enforcement, intervention budget QA metric (1-3 alerts per 10 min, up to 5 in crisis), headless alert-count scenario test; binding across all pressure-emitting systems (gates: GATE.X.PRESSURE.*)
 - EPIC.X.EXPERIENCE_PROOF.V0 [TODO]: Automated experience validation suite — ExperienceObserver reads scene tree as structured JSON (HUD text, materials, particles, audio, camera state); ExperienceTimeline tracks trajectories over time (credits growth, state coverage, pacing); 5 headless scenario playthroughs (early game trade loop, combat integration, galaxy map, discovery, full 60s capstone); AestheticAudit with 14 visual quality flags (critical: hard-fail; non-critical: warn); ExperienceMetrics with diagnostic output pointing to investigate paths; SystemConnectivity C# invariant; reports/experience/latest_report.json for LLM-assisted review; enables Claude iteration loop without human-in-the-loop (gates: GATE.X.EXP.*)
 - EPIC.S1.CAMERA_POLISH.V0 [DONE]: Camera presentation polish v0 — Phantom Camera addon integration, flight/orbit/station follow modes, combat shake on turret fire and damage; GameShell-only, no SimCore changes (gates: GATE.S1.CAMERA.*)
 - EPIC.S1.SPATIAL_AUDIO_DEPTH.V0 [DONE]: Spatial audio depth v0 — engine thrust AudioStreamRandomizer, positional combat SFX (fire/impact), ambient station hum and lane drone; AudioStreamPlayer3D with 3D falloff; GameShell-only, no SimCore changes (gates: GATE.S1.SPATIAL_AUDIO.*)
 - EPIC.S1.VISUAL_UPGRADE.V0 [DONE]: Addon-powered visual upgrade v0 — Starlight procedural skybox, 3D planet generator with atmosphere shader, Kenney Space Kit models for player ship, stations, and fleet markers; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_UPGRADE.*)
+- EPIC.S1.FLEET_VISUAL.V0 [DONE]: Fleet ship substantiation v0 — replace generic wedge markers with Kenney Space Kit craft models matched to FleetRole (Trader→craft_cargoA, Hauler→craft_cargoB, Patrol→craft_speederA); galaxy map + local system view; headless proof (gates: GATE.S1.FLEET_VISUAL.*)
+- EPIC.S5.NPC_TRADE.V0 [DONE]: NPC trade circulation v0 — autonomous NPC trader fleets evaluate adjacent markets, execute profitable buy/sell/travel, stabilize price differentials, create visible lane traffic; depends on existing fleet + market systems (gates: GATE.S5.NPC_TRADE.*)
+- EPIC.S10.TRADE_DISCOVERY.V0 [DONE]: Trade intel UI surface — bridge queries for scanner/route/price intel, program creation surface (AutoSell, TradeCharter, ResourceTap, Expedition, ConstrCap), TradeCharter real market price fix, dock menu trade routes, research sustain status, headless proof; builds on already-implemented IntelSystem mechanics (gates: GATE.S10.TRADE_INTEL.*, GATE.S10.TRADE_PROG.*, GATE.S10.TECH_EFFECTS.*)
+- EPIC.S10.EMPIRE_MGMT.V0 [DONE]: Empire management dashboard — unified modal panel (E key) with overview/trade/production/programs/intel tabs, galaxy map overlays (trade flow, intel freshness); player command center for managing all operations at a glance (gates: GATE.S10.EMPIRE.*)
+- EPIC.S11.GAME_FEEL.V0 [IN_PROGRESS]: Game feel and player feedback v0 — toast notifications, tech tree UI, NPC route visualization, galaxy map node interaction, mission/research HUD indicators, keybindings help overlay, combat event log; making existing systems visible and the game world feel alive (gates: GATE.S11.GAME_FEEL.*)
+- EPIC.S12.FLEET_SUBSTANCE.V0 [IN_PROGRESS]: Fleet visual substance — replace generic wedge markers with Quaternius spaceship models matched to fleet roles (trader/hauler/patrol/player), hash-based model variety, NPC circuit routes with animated flow visualization and trade volume labels (gates: GATE.S12.FLEET_SUBSTANCE.*, GATE.S12.NPC_CIRC.*)
+- EPIC.S12.UX_POLISH.V0 [IN_PROGRESS]: UX polish and player progression — buy/sell quantity controls, display name formatting, first-dock onboarding, cargo display, trade feedback toasts, player stats tracking, milestone system with dashboard integration (gates: GATE.S12.UX_POLISH.*, GATE.S12.PROGRESSION.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -535,8 +542,9 @@ Epics:
 - EPIC.S1.GALAXY_MAP_PROTO.V0 [DONE]: see canonical epic bullets above (gates: GATE.S1.GALAXY_MAP.*)
 - EPIC.S1.DISCOVERY_INTERACT.V0 [DONE]: Discovery site dock interaction — minimal panel wired to SimBridge discovery queries (gates: GATE.S1.DISCOVERY_INTERACT.*)
 - EPIC.S1.MISSION_RUNNER.V0 [DONE]: Deterministic mission runner v0 — mission schema, headless executor, Mission 1 "Matched Luggage" proof, tutorial determinism clamp (gates: GATE.S1.MISSION.*)
+- EPIC.S1.FLEET_VISUAL.V0 [DONE]: Fleet ship substantiation — Kenney Space Kit craft models by FleetRole, galaxy map + local view (gates: GATE.S1.FLEET_VISUAL.*)
 
-Status: DONE
+Status: IN_PROGRESS
 
 ---
 
@@ -687,7 +695,7 @@ Epics:
   - v0 bounds: max depth 3 steps per chain; max 1 byproduct per recipe; deterministic recipe ordering and tie-breaks
   - Required outputs: IndustryShortfall style explain events when blocked (missing input, storage full, no capacity, no permit)
   - Evidence: a deterministic chain report over a fixed scenario (no timestamps; stable sort order)
-- EPIC.S4.CONSTR_PROG [TODO]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
+- EPIC.S4.CONSTR_PROG [DONE]: Construction programs (depots, shipyards, refineries, science centers) (gates: GATE.S4.CONSTR_PROG.*)
 - EPIC.S4.MAINT_SUSTAIN [DONE]: Maintenance as sustained supply (no repair minigame) (gates: GATE.S4.MAINT_SUSTAIN.*)
 - EPIC.S4.TECH_INDUSTRIALIZE [DONE]: Reverse engineering pipeline (lead -> prototype -> manufacturable) (gates: GATE.S4.TECH_INDUSTRIALIZE.*)
 - EPIC.S4.UPGRADE_PIPELINE [DONE]: Refit kits, install queues, yard capacity, time costs (gates: GATE.S4.UPGRADE_PIPELINE.*)
@@ -737,10 +745,10 @@ Epics:
   - Intervention verbs:
     - Industry: queue refit
 - EPIC.S4.UI_INDU [DONE]: Dependency graphs, time-to-capability, “why blocked” and “what to build next” (gates: GATE.S4.UI_INDU.*)
-- EPIC.S4.NPC_INDU [TODO]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
-- EPIC.S4.PERF_BUDGET [TODO]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
+- EPIC.S4.NPC_INDU [DONE]: NPC industry reacts to incentives and war demand (gates: GATE.S4.NPC_INDU.*)
+- EPIC.S4.PERF_BUDGET [DONE]: Tick budget tests extended for industry (gates: GATE.S4.PERF_BUDGET.*)
 
-Status: TODO
+Status: DONE
 
 ---
 
@@ -767,7 +775,7 @@ v0 scope (LOCK ONCE SLICE 5 STARTS):
   - Proof exists as a GameShell test (add a new `scripts/tests/test_combat_replay_v0.gd` if needed)
 
 Epics:
-- EPIC.S5.SECURITY_LANES [TODO]: Risk, delay, inspections, insurance sinks, lane regimes (gates: GATE.S5.SECURITY_LANES.*)
+- EPIC.S5.SECURITY_LANES [DONE]: Risk, delay, inspections, insurance sinks, lane regimes (gates: GATE.S5.SECURITY_LANES.*)
 - EPIC.S5.COMBAT_LOCAL [DONE]: Hero ship real-time combat v0 (Starcom-like) with shields%hull and non-aimed weapons (turrets, missiles), deterministic replay, and “why we lost” explainability (gates: GATE.S5.COMBAT_LOCAL.*)
   - Must not require manual aiming for baseline effectiveness (turret targeting is primary)
   - Evidence: deterministic combat replay proof as part of GameShell test suite
@@ -776,12 +784,13 @@ Epics:
     - Industry: queue refit
     - Programs: change doctrine toggle (when escort doctrine exists)
 - EPIC.S5.COMBAT_PLAYABLE.V0 [DONE]: In-engine combat encounters — fleet substantiation, player-initiated combat trigger, combat loop headless proof (gates: GATE.S5.COMBAT_PLAYABLE.*)
-- EPIC.S5.COMBAT_RESOLVE [TODO]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
-- EPIC.S5.ESCORT_PROG [TODO]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
+- EPIC.S5.COMBAT_RESOLVE [DONE]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
+- EPIC.S5.ESCORT_PROG [DONE]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
 - EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)
 - EPIC.S5.UI_SECURITY [TODO]: Threat maps, convoy planning, incident timelines, “why we lost” explain chains (gates: GATE.S5.UI_SECURITY.*)
 - EPIC.S5.COUPLING_LIMITS.V0 [TODO]: Explicit bounded coupling limits and event contracts for local -> strategic influence (gates: GATE.S5.COUPLING_LIMITS.*)
 - EPIC.S5.PERF_BUDGET [TODO]: Tick budget tests extended for security systems (gates: GATE.S5.PERF_BUDGET.*)
+- EPIC.S5.NPC_TRADE.V0 [DONE]: NPC trade circulation — autonomous NPC traders evaluate markets, execute trades, stabilize prices (gates: GATE.S5.NPC_TRADE.*)
 
 Status: TODO
 
@@ -791,7 +800,7 @@ Status: TODO
 Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
-- EPIC.S6.MAP_GALAXY [TODO]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
+- EPIC.S6.MAP_GALAXY [DONE]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
 - EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 that is expensive but worth it:
   - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight

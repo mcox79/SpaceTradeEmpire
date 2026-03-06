@@ -37,4 +37,7 @@ public static class CombatTweaksV0
     // GATE.S5.COMBAT.STRATEGIC_RESOLVER.001: Strategic resolver max rounds cap.
     // Attrition resolver terminates at this round count and declares Draw if both fleets still alive.
     public const int StrategicMaxRounds = 50;
+
+    // GATE.S5.COMBAT_RES.SYSTEM.001: Flee logic — minimum rounds before flee is possible.
+    public const int FleeMinRounds = 3;
 }

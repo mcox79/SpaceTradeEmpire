@@ -31,7 +31,14 @@ public sealed class MaintenanceSystemTests
     public void ProcessDecay_ReducesHealth()
     {
         var state = CreateState();
-        MaintenanceSystem.ProcessDecay(state);
+        // Ensure supply doesn't deplete mid-day (would double decay rate)
+        state.IndustrySites["site_a"].SupplyLevel = 9999;
+        // Run for a full game day — daily rate should apply once
+        for (int i = 0; i < IndustrySystem.TicksPerDay; i++)
+        {
+            MaintenanceSystem.ProcessDecay(state);
+            state.AdvanceTick();
+        }
         Assert.That(state.IndustrySites["site_a"].HealthBps,
             Is.EqualTo(10000 - MaintenanceTweaksV0.DefaultDegradePerTickBps));
     }
@@ -42,7 +49,12 @@ public sealed class MaintenanceSystemTests
         var state = CreateState();
         state.IndustrySites["site_a"].HealthBps = 5;
         state.IndustrySites["site_a"].DegradePerDayBps = 100;
-        MaintenanceSystem.ProcessDecay(state);
+        // Run for a full day — 100 bps daily loss exceeds 5 bps health
+        for (int i = 0; i < IndustrySystem.TicksPerDay; i++)
+        {
+            MaintenanceSystem.ProcessDecay(state);
+            state.AdvanceTick();
+        }
         Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(0));
     }
 
@@ -247,9 +259,14 @@ public sealed class MaintenanceSystemTests
         state.IndustrySites["site_a"].HealthBps = 10000;
         int degradeRate = state.IndustrySites["site_a"].DegradePerDayBps;
 
-        MaintenanceSystem.ProcessDecay(state);
+        // Run for a full day to see daily rate applied
+        for (int i = 0; i < IndustrySystem.TicksPerDay; i++)
+        {
+            MaintenanceSystem.ProcessDecay(state);
+            state.AdvanceTick();
+        }
 
-        // With 0 supply, decay rate is doubled
+        // With 0 supply, decay rate is doubled (per day)
         int expected = 10000 - (degradeRate * MaintenanceTweaksV0.NoSupplyDecayMultiplier);
         Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(expected));
     }

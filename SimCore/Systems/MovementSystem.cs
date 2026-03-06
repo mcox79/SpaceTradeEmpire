@@ -41,16 +41,21 @@ public static class MovementSystem
                 continue;
             }
 
+            // GATE.S8.TECH_EFFECTS.SPEED.001: Apply speed_bonus_20pct if improved_thrusters unlocked.
+            float effectiveSpeed = fleet.Speed;
+            if (fleet.OwnerId == "player" && state.Tech.UnlockedTechIds.Contains("improved_thrusters"))
+                effectiveSpeed = fleet.Speed * 1.2f;
+
             if (!state.Edges.TryGetValue(fleet.CurrentEdgeId, out var edge))
             {
                 // Fallback / Auto-Correction (kept from prior version)
-                fleet.TravelProgress += fleet.Speed * 0.1f;
+                fleet.TravelProgress += effectiveSpeed * 0.1f;
             }
             else
             {
                 // Distance-based progress
                 float dist = edge.Distance > 0 ? edge.Distance : 1f;
-                float step = fleet.Speed / dist;
+                float step = effectiveSpeed / dist;
                 fleet.TravelProgress += step;
 
                 // SLICE 3: HEAT GENERATION

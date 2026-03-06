@@ -235,4 +235,139 @@ public sealed class ResearchSystemTests
         Assert.That(credits1, Is.EqualTo(credits2));
         Assert.That(events1, Is.EqualTo(events2));
     }
+
+    // GATE.S8.RESEARCH_SUSTAIN.TESTS.001: Goods-consumption research tests
+
+    private SimState CreateStateWithMarket(string nodeId, Dictionary<string, int> inventory)
+    {
+        var state = CreateState();
+        var market = new Market { Id = nodeId };
+        foreach (var kvp in inventory)
+            InventoryLedger.AddMarket(market.Inventory, kvp.Key, kvp.Value);
+        state.Markets[nodeId] = market;
+        return state;
+    }
+
+    [Test]
+    public void StartResearch_WithNodeId_SetsResearchNodeId()
+    {
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 100 }, { "metal", 100 } });
+        var result = ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+        Assert.That(result.Success, Is.True);
+        Assert.That(state.Tech.ResearchNodeId, Is.EqualTo("node_a"));
+    }
+
+    [Test]
+    public void StartResearch_WithInvalidNodeId_Fails()
+    {
+        var state = CreateState();
+        var result = ResearchSystem.StartResearch(state, "improved_thrusters", "nonexistent_node");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("invalid_research_node"));
+    }
+
+    [Test]
+    public void ProcessResearch_ConsumesGoods_AtSustainInterval()
+    {
+        // improved_thrusters: SustainInputs = { fuel: 2, metal: 1 }, SustainIntervalTicks = 0 → default 60
+        // Override ResearchTotalTicks to ensure research doesn't complete before sustain fires.
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 100 }, { "metal", 100 } });
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+        state.Tech.ResearchTotalTicks = 1000; // prevent early completion
+
+        // Tick 59 times — accumulator at 59, not yet interval
+        for (int i = 0; i < 59; i++)
+            ResearchSystem.ProcessResearch(state);
+
+        var market = state.Markets["node_a"];
+        Assert.That(InventoryLedger.Get(market.Inventory, "fuel"), Is.EqualTo(100), "Goods should not be consumed before interval");
+
+        // Tick once more — accumulator hits 60, goods consumed
+        ResearchSystem.ProcessResearch(state);
+        Assert.That(InventoryLedger.Get(market.Inventory, "fuel"), Is.EqualTo(98), "fuel should be consumed (100 - 2)");
+        Assert.That(InventoryLedger.Get(market.Inventory, "metal"), Is.EqualTo(99), "metal should be consumed (100 - 1)");
+    }
+
+    [Test]
+    public void ProcessResearch_Stalls_WhenGoodsMissing()
+    {
+        // improved_thrusters needs fuel:2, metal:1
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 1 }, { "metal", 100 } });
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+        state.Tech.ResearchTotalTicks = 1000; // prevent early completion
+
+        // Tick to sustain interval
+        for (int i = 0; i < 60; i++)
+            ResearchSystem.ProcessResearch(state);
+
+        Assert.That(state.Tech.StallTicks, Is.GreaterThan(0));
+        Assert.That(state.Tech.StallReason, Does.StartWith("missing_good:"));
+    }
+
+    [Test]
+    public void ProcessResearch_AllOrNothing_NoPartialConsumption()
+    {
+        // improved_thrusters needs fuel:2, metal:1 — provide enough fuel but no metal
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 100 } });
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+        state.Tech.ResearchTotalTicks = 1000; // prevent early completion
+
+        // Tick to sustain interval
+        for (int i = 0; i < 60; i++)
+            ResearchSystem.ProcessResearch(state);
+
+        var market = state.Markets["node_a"];
+        Assert.That(InventoryLedger.Get(market.Inventory, "fuel"), Is.EqualTo(100), "fuel should NOT be consumed if metal is missing");
+    }
+
+    [Test]
+    public void ProcessResearch_NoNodeId_SkipsSustainCycle()
+    {
+        // Research without nodeId should still work (credit-only, legacy behavior)
+        var state = CreateState();
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters");
+
+        for (int i = 0; i < 8; i++)
+            ResearchSystem.ProcessResearch(state);
+
+        Assert.That(state.Tech.IsResearching, Is.False, "Should complete without goods");
+        Assert.That(state.Tech.UnlockedTechIds.Contains("improved_thrusters"), Is.True);
+    }
+
+    [Test]
+    public void CompleteResearch_ClearsAllSustainFields()
+    {
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 100 }, { "metal", 100 } });
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+
+        // Complete it
+        for (int i = 0; i < 8; i++)
+            ResearchSystem.ProcessResearch(state);
+
+        Assert.That(state.Tech.ResearchNodeId, Is.EqualTo(""));
+        Assert.That(state.Tech.SustainAccumulatorTicks, Is.EqualTo(0));
+        Assert.That(state.Tech.StallTicks, Is.EqualTo(0));
+        Assert.That(state.Tech.StallReason, Is.EqualTo(""));
+    }
+
+    [Test]
+    public void CancelResearch_ClearsAllSustainFields()
+    {
+        var state = CreateStateWithMarket("node_a", new Dictionary<string, int> { { "fuel", 100 }, { "metal", 100 } });
+        state.PlayerCredits = 100000;
+        ResearchSystem.StartResearch(state, "improved_thrusters", "node_a");
+        ResearchSystem.ProcessResearch(state); // advance a bit
+
+        ResearchSystem.CancelResearch(state);
+
+        Assert.That(state.Tech.ResearchNodeId, Is.EqualTo(""));
+        Assert.That(state.Tech.SustainAccumulatorTicks, Is.EqualTo(0));
+        Assert.That(state.Tech.StallTicks, Is.EqualTo(0));
+        Assert.That(state.Tech.StallReason, Is.EqualTo(""));
+    }
 }

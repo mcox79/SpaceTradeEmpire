@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Intents;
 using SimCore.Programs;
+using SimCore.Tweaks;
 
 namespace SimCore.Systems;
 
@@ -10,6 +11,8 @@ public static class IntelSystem
     private sealed class Scratch
     {
         public readonly List<string> GoodIds = new();
+        public readonly List<string> NodeIds = new();
+        public readonly HashSet<string> VisitedNodes = new(StringComparer.Ordinal);
     }
 
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
@@ -47,6 +50,279 @@ public static class IntelSystem
 
             obs.ObservedTick = state.Tick;
             obs.ObservedInventoryQty = qty;
+            // GATE.S10.TRADE_INTEL.MODEL.001: Record price intel.
+            obs.ObservedBuyPrice = localMarket.GetBuyPrice(goodId);
+            obs.ObservedSellPrice = localMarket.GetSellPrice(goodId);
+            obs.ObservedMidPrice = localMarket.GetMidPrice(goodId);
+        }
+    }
+
+    // GATE.S10.TRADE_INTEL.SCANNER.001: Passive scanner that records prices at remote nodes.
+    // Called from SimKernel.Step() at scan cadence.
+    public static void ProcessScannerIntel(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel is null) state.Intel = new IntelBook();
+
+        // Only scan at cadence intervals.
+        if (state.Tick % TradeIntelTweaksV0.ScanCadenceTicks != 0) return;
+
+        int range = GetScanRange(state);
+        if (range <= 0) return; // No remote scanning without tech.
+
+        var playerNodeId = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(playerNodeId)) return;
+
+        var outgoing = state.GetOutgoingEdgesByFromNodeDeterministic();
+
+        // BFS to find nodes within range hops.
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var visited = scratch.VisitedNodes;
+        visited.Clear();
+        visited.Add(playerNodeId);
+
+        var currentFrontier = new List<string> { playerNodeId };
+        var remoteNodes = new List<string>();
+
+        for (int hop = 0; hop < range; hop++)
+        {
+            var nextFrontier = new List<string>();
+            foreach (var nodeId in currentFrontier)
+            {
+                if (!outgoing.TryGetValue(nodeId, out var edges)) continue;
+                foreach (var edge in edges)
+                {
+                    var destId = edge.ToNodeId ?? "";
+                    if (string.IsNullOrEmpty(destId)) continue;
+                    if (visited.Contains(destId)) continue;
+                    visited.Add(destId);
+                    nextFrontier.Add(destId);
+                    remoteNodes.Add(destId);
+                }
+            }
+            nextFrontier.Sort(StringComparer.Ordinal);
+            currentFrontier = nextFrontier;
+        }
+
+        remoteNodes.Sort(StringComparer.Ordinal);
+
+        // Record published prices for all scanned remote nodes.
+        foreach (var nodeId in remoteNodes)
+        {
+            if (!state.Markets.TryGetValue(nodeId, out var market)) continue;
+
+            var goodIds = new List<string>(market.Inventory.Keys);
+            goodIds.Sort(StringComparer.Ordinal);
+
+            foreach (var goodId in goodIds)
+            {
+                var key = IntelBook.Key(nodeId, goodId);
+                if (!state.Intel.Observations.TryGetValue(key, out var obs))
+                {
+                    obs = new IntelObservation();
+                    state.Intel.Observations[key] = obs;
+                }
+                var qty = market.Inventory.TryGetValue(goodId, out var v) ? v : 0;
+                obs.ObservedTick = state.Tick;
+                obs.ObservedInventoryQty = qty;
+                // Use published prices for remote intel (not real-time).
+                obs.ObservedBuyPrice = market.GetPublishedBuyPrice(goodId);
+                obs.ObservedSellPrice = market.GetPublishedSellPrice(goodId);
+                obs.ObservedMidPrice = market.GetPublishedMidPrice(goodId);
+            }
+        }
+
+        // After scanning, evaluate trade routes.
+        EvaluateTradeRoutes(state);
+    }
+
+    // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Record price snapshots for trend display.
+    // Called from SimKernel.Step() at PriceHistoryCadenceTicks intervals.
+    public static void ProcessPriceHistory(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel is null) state.Intel = new IntelBook();
+        if (state.Tick % TradeIntelTweaksV0.PriceHistoryCadenceTicks != 0) return;
+
+        // Collect all market node ids deterministically.
+        var nodeIds = new List<string>(state.Markets.Keys);
+        nodeIds.Sort(StringComparer.Ordinal);
+
+        foreach (var nodeId in nodeIds)
+        {
+            if (!state.Markets.TryGetValue(nodeId, out var market)) continue;
+
+            var goodIds = new List<string>(market.Inventory.Keys);
+            goodIds.Sort(StringComparer.Ordinal);
+
+            foreach (var goodId in goodIds)
+            {
+                var snapshot = new PriceSnapshot
+                {
+                    NodeId = nodeId,
+                    GoodId = goodId,
+                    BuyPrice = market.GetBuyPrice(goodId),
+                    SellPrice = market.GetSellPrice(goodId),
+                    Tick = state.Tick,
+                };
+                state.Intel.PriceHistory.Add(snapshot);
+            }
+        }
+
+        // Trim oldest entries if over capacity (keep most recent).
+        int maxEntries = TradeIntelTweaksV0.PriceHistoryMaxEntries
+            * nodeIds.Count * Math.Max(EstimateGoodCount(state), 1);
+        if (state.Intel.PriceHistory.Count > maxEntries)
+        {
+            int excess = state.Intel.PriceHistory.Count - maxEntries;
+            state.Intel.PriceHistory.RemoveRange(0, excess);
+        }
+    }
+
+    private static int EstimateGoodCount(SimState state)
+    {
+        // Count distinct good ids across all markets for capacity sizing.
+        var goods = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var market in state.Markets.Values)
+        {
+            foreach (var gid in market.Inventory.Keys)
+                goods.Add(gid);
+        }
+        return goods.Count;
+    }
+
+    // GATE.S10.TRADE_INTEL.SCANNER.001: Compute scanner range from tech state.
+    public static int GetScanRange(SimState state)
+    {
+        int range = TradeIntelTweaksV0.BaseScanRange;
+        if (state.Tech.UnlockedTechIds.Contains("sensor_suite"))
+            range = Math.Max(range, TradeIntelTweaksV0.SensorSuiteScanRange);
+        if (state.Tech.UnlockedTechIds.Contains("trade_network"))
+            range = Math.Max(range, TradeIntelTweaksV0.TradeNetworkScanRange);
+        return range;
+    }
+
+    // GATE.S10.TRADE_INTEL.ROUTE_EVAL.001: Evaluate all node pairs with price intel for profitable trade routes.
+    public static void EvaluateTradeRoutes(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel is null) return;
+
+        // Collect unique node IDs with price observations.
+        var nodesWithIntel = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var kv in state.Intel.Observations)
+        {
+            var sepIdx = kv.Key.IndexOf('|');
+            if (sepIdx > 0 && kv.Value.ObservedMidPrice > 0)
+                nodesWithIntel.Add(kv.Key.Substring(0, sepIdx));
+        }
+
+        var nodeList = new List<string>(nodesWithIntel);
+        nodeList.Sort(StringComparer.Ordinal);
+
+        // Check connectivity: only evaluate pairs that are actually connected by edges.
+        var outgoing = state.GetOutgoingEdgesByFromNodeDeterministic();
+
+        // For each connected pair, check each good for profitability.
+        foreach (var srcNode in nodeList)
+        {
+            if (!outgoing.TryGetValue(srcNode, out var edges)) continue;
+
+            // Get adjacent nodes that also have intel.
+            var destNodes = new List<string>();
+            foreach (var edge in edges)
+            {
+                var destId = edge.ToNodeId ?? "";
+                if (!string.IsNullOrEmpty(destId) && nodesWithIntel.Contains(destId)
+                    && !destNodes.Contains(destId))
+                    destNodes.Add(destId);
+            }
+            destNodes.Sort(StringComparer.Ordinal);
+
+            // Get all goods observed at source.
+            var srcGoods = new List<string>();
+            foreach (var kv in state.Intel.Observations)
+            {
+                var sepIdx = kv.Key.IndexOf('|');
+                if (sepIdx > 0 && string.Equals(kv.Key.Substring(0, sepIdx), srcNode, StringComparison.Ordinal))
+                {
+                    var gId = kv.Key.Substring(sepIdx + 1);
+                    if (!srcGoods.Contains(gId))
+                        srcGoods.Add(gId);
+                }
+            }
+            srcGoods.Sort(StringComparer.Ordinal);
+
+            foreach (var destNode in destNodes)
+            {
+                foreach (var goodId in srcGoods)
+                {
+                    // Buy at source (player pays buy price), sell at dest (player receives sell price).
+                    var srcKey = IntelBook.Key(srcNode, goodId);
+                    var destKey = IntelBook.Key(destNode, goodId);
+
+                    if (!state.Intel.Observations.TryGetValue(srcKey, out var srcObs)) continue;
+                    if (!state.Intel.Observations.TryGetValue(destKey, out var destObs)) continue;
+                    if (srcObs.ObservedBuyPrice <= 0 || destObs.ObservedSellPrice <= 0) continue;
+
+                    int profit = destObs.ObservedSellPrice - srcObs.ObservedBuyPrice;
+                    var routeId = IntelBook.RouteKey(srcNode, destNode, goodId);
+
+                    if (profit >= TradeIntelTweaksV0.MinProfitThreshold)
+                    {
+                        if (!state.Intel.TradeRoutes.TryGetValue(routeId, out var route))
+                        {
+                            route = new TradeRouteIntel
+                            {
+                                RouteId = routeId,
+                                SourceNodeId = srcNode,
+                                DestNodeId = destNode,
+                                GoodId = goodId,
+                                DiscoveredTick = state.Tick,
+                            };
+                            state.Intel.TradeRoutes[routeId] = route;
+                        }
+                        route.EstimatedProfitPerUnit = profit;
+                        route.LastValidatedTick = state.Tick;
+
+                        // Determine freshness status.
+                        int srcAge = state.Tick - srcObs.ObservedTick;
+                        int destAge = state.Tick - destObs.ObservedTick;
+                        int worstAge = Math.Max(srcAge, destAge);
+
+                        if (worstAge > TradeIntelTweaksV0.StaleAgeTicks)
+                            route.Status = TradeRouteStatus.Stale;
+                        else if (route.Status == TradeRouteStatus.Stale || route.Status == TradeRouteStatus.Unprofitable)
+                            route.Status = TradeRouteStatus.Discovered;
+                    }
+                    else if (state.Intel.TradeRoutes.TryGetValue(routeId, out var existing))
+                    {
+                        existing.Status = TradeRouteStatus.Unprofitable;
+                        existing.EstimatedProfitPerUnit = profit;
+                        existing.LastValidatedTick = state.Tick;
+                    }
+                }
+            }
+        }
+
+        // Mark stale routes.
+        foreach (var kv in state.Intel.TradeRoutes)
+        {
+            var route = kv.Value;
+            if (route.Status != TradeRouteStatus.Discovered && route.Status != TradeRouteStatus.Active) continue;
+
+            var srcKey = IntelBook.Key(route.SourceNodeId, route.GoodId);
+            var destKey = IntelBook.Key(route.DestNodeId, route.GoodId);
+
+            int srcAge = int.MaxValue;
+            int destAge = int.MaxValue;
+            if (state.Intel.Observations.TryGetValue(srcKey, out var srcObs2))
+                srcAge = state.Tick - srcObs2.ObservedTick;
+            if (state.Intel.Observations.TryGetValue(destKey, out var destObs2))
+                destAge = state.Tick - destObs2.ObservedTick;
+
+            if (Math.Max(srcAge, destAge) > TradeIntelTweaksV0.StaleAgeTicks)
+                route.Status = TradeRouteStatus.Stale;
         }
     }
 

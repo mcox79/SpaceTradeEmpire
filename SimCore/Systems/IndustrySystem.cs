@@ -132,6 +132,12 @@ namespace SimCore.Systems
                 // If completely starved, we still degrade but we do not consume%produce.
                 if (effBps > 0)
                 {
+                    // GATE.S8.TECH_EFFECTS.EFFICIENCY.001: Apply production_efficiency_10pct boost to output.
+                    // Input consumption uses raw effBps; output production uses boosted prodBps.
+                    int prodBps = effBps;
+                    if (state.Tech.UnlockedTechIds.Contains("advanced_refining"))
+                        prodBps = Math.Min(Bps, effBps + effBps / 10);
+
                     // Consume inputs (preserve zero keys for markets)
                     foreach (var inputKey in inputKeys)
                     {
@@ -160,7 +166,7 @@ namespace SimCore.Systems
                         if (outputVal <= 0) continue;
                         if (site.Inputs.ContainsKey(outputKey)) continue;
 
-                        int produced = (int)(((long)outputVal * effBps) / Bps);
+                        int produced = (int)(((long)outputVal * prodBps) / Bps);
 
                         if (produced > 0)
                         {
@@ -184,7 +190,7 @@ namespace SimCore.Systems
                         if (site.Inputs.ContainsKey(bypKey)) continue;
                         if (site.Outputs.ContainsKey(bypKey)) continue;
 
-                        int produced = (int)(((long)bypVal * effBps) / Bps);
+                        int produced = (int)(((long)bypVal * prodBps) / Bps);
 
                         if (produced > zero)
                         {

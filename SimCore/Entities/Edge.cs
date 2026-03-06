@@ -37,4 +37,7 @@ public class Edge
     // SLICE 3: SIGNAL LAYER
     // Economic Heat: Driven by throughput/value. Drives Piracy.
     public float Heat { get; set; } = 0f;
+
+    // GATE.S5.SEC_LANES.MODEL.001: Security level (BPS). 5000 = neutral, higher = safer.
+    public int SecurityLevelBps { get; set; } = 5000;
 }

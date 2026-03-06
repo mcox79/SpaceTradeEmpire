@@ -14,6 +14,9 @@ public class PlayerArriveCommand : ICommand
         if (string.IsNullOrWhiteSpace(TargetNodeId)) return;
         if (!state.Nodes.ContainsKey(TargetNodeId)) return;
         state.PlayerLocationNodeId = TargetNodeId;
-        state.PlayerVisitedNodeIds.Add(TargetNodeId);
+        bool isNew = state.PlayerVisitedNodeIds.Add(TargetNodeId);
+        // GATE.S12.PROGRESSION.STATS.001: Track nodes visited.
+        if (isNew && state.PlayerStats != null)
+            state.PlayerStats.NodesVisited = state.PlayerVisitedNodeIds.Count;
     }
 }

@@ -5,16 +5,45 @@ using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.View;
 
+// GATE.S6.MAP_GALAXY.OVERLAY_SYS.001: Galaxy map overlay mode.
+public enum GalaxyOverlayMode
+{
+    Default = 0,       // Security coloring (existing behavior)
+    TradeFlow = 1,     // Trade route profitability + NPC volume
+    IntelFreshness = 2 // Node intel age coloring
+}
+
 public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
 
     private bool _overlayOpen = false;
+
+    // GATE.S6.MAP_GALAXY.OVERLAY_SYS.001: Active overlay mode.
+    private GalaxyOverlayMode _currentOverlayMode = GalaxyOverlayMode.Default;
     private bool _cameraPositionedThisOpen = false;
 
     // Visual caches (deterministic keys)
     private readonly Dictionary<string, Node3D> _nodeRootsById = new();
     private readonly Dictionary<string, MeshInstance3D> _edgeMeshesByKey = new();
+
+    // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001: Trade flow edge cache (populated per refresh).
+    private readonly HashSet<string> _tradeFlowEdges = new();
+    // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Intel freshness cache keyed by node_id.
+    private readonly Dictionary<string, long> _intelAgeByNode = new();
+
+    // GATE.S6.MAP_GALAXY.NODE_CLICK.001: Node detail popup reference.
+    private Node _nodeDetailPopup;
+
+    // GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001: NPC route line cache.
+    private readonly Dictionary<string, MeshInstance3D> _npcRouteMeshesByKey = new();
+
+    // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Animated flow dots on NPC trade routes.
+    private readonly Dictionary<string, MeshInstance3D> _flowDotsByKey = new();
+    private double _flowAnimTime = 0.0;
+
+    // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Trade volume labels on edges.
+    private readonly Dictionary<string, Label3D> _volumeLabelsByKey = new();
 
     private int _lastNodeCount = 0;
     private int _lastEdgeCount = 0;
@@ -24,12 +53,12 @@ public partial class GalaxyView : Node3D
     [Export] public float SystemSceneRadiusU { get; set; } = 120.0f;
     [Export] public float StationOrbitRadiusU { get; set; } = 60.0f;
     [Export] public float LaneGateDistanceU { get; set; } = 90.0f;
-    [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 40.0f;
-    [Export] public float StarVisualRadiusU { get; set; } = 3.0f;
+    [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 55.0f;
+    [Export] public float StarVisualRadiusU { get; set; } = 6.0f;
     [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
     [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
     // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
-    [Export] public float FleetOrbitRadiusU { get; set; } = 50.0f;
+    [Export] public float FleetOrbitRadiusU { get; set; } = 65.0f;
     [Export] public float FleetMarkerRadiusU { get; set; } = 1.2f;
     [Export] public PackedScene StationPrefab { get; set; }
 
@@ -129,7 +158,69 @@ public partial class GalaxyView : Node3D
         if (!_overlayOpen) return;
         if (_bridge == null || _bridge.IsLoading) return;
 
+        // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Accumulate time for flow dot animation.
+        _flowAnimTime += delta;
+
         RefreshFromSnapshotV0();
+    }
+
+    // GATE.S6.MAP_GALAXY.NODE_CLICK.001: Click detection on galaxy overlay nodes.
+    // Projects all node positions to screen space and picks the closest within threshold.
+    [Export] public float NodeClickThresholdPx { get; set; } = 30.0f;
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (!_overlayOpen) return;
+        if (@event is not InputEventMouseButton mb) return;
+        if (mb.ButtonIndex != MouseButton.Left || !mb.Pressed) return;
+        if (_overlayCamera == null || !_overlayCamera.Current) return;
+
+        var clickPos = mb.Position;
+        string closestNodeId = null;
+        float closestDist = NodeClickThresholdPx;
+
+        foreach (var kv in _nodeRootsById)
+        {
+            var root = kv.Value;
+            if (root == null || !root.IsInsideTree()) continue;
+
+            // Only pick visible nodes
+            if (!root.Visible) continue;
+
+            var worldPos = root.GlobalPosition;
+            if (_overlayCamera.IsPositionBehind(worldPos)) continue;
+
+            var screenPos = _overlayCamera.UnprojectPosition(worldPos);
+            float dist = screenPos.DistanceTo(clickPos);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closestNodeId = kv.Key;
+            }
+        }
+
+        if (closestNodeId != null)
+        {
+            ShowNodeDetailPopupV0(closestNodeId, clickPos);
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    private void ShowNodeDetailPopupV0(string nodeId, Vector2 screenPos)
+    {
+        // Lazy-load popup from autoload or create if needed
+        if (_nodeDetailPopup == null || !GodotObject.IsInstanceValid(_nodeDetailPopup))
+        {
+            var script = GD.Load<Script>("res://scripts/ui/node_detail_popup.gd");
+            if (script == null) return;
+            _nodeDetailPopup = new CanvasLayer();
+            _nodeDetailPopup.SetScript(script);
+            _nodeDetailPopup.Name = "NodeDetailPopup";
+            GetTree().Root.AddChild(_nodeDetailPopup);
+        }
+
+        if (_nodeDetailPopup.HasMethod("show_for_node"))
+            _nodeDetailPopup.Call("show_for_node", nodeId, screenPos);
     }
 
     // --- Local system rendering ---
@@ -177,16 +268,44 @@ public partial class GalaxyView : Node3D
         var snap = _bridge.GetSystemSnapshotV0(nodeId);
         if (snap == null) return;
 
-        // 1. Star mesh at origin (color from star class via SimBridge).
-        var star = CreateStarMeshV0(nodeId);
+        // Query star info upfront — luminosity drives orbit scaling.
+        float r = 1.0f, g = 0.8f, b = 0.2f;
+        int luminosityBps = 10000;
+        string starClass = "ClassG";
+        if (_bridge.HasMethod("GetStarInfoV0"))
+        {
+            var sInfo = _bridge.Call("GetStarInfoV0", nodeId).AsGodotDictionary();
+            if (sInfo != null && sInfo.Count > 0)
+            {
+                r = sInfo.ContainsKey("color_r") ? (float)sInfo["color_r"] : r;
+                g = sInfo.ContainsKey("color_g") ? (float)sInfo["color_g"] : g;
+                b = sInfo.ContainsKey("color_b") ? (float)sInfo["color_b"] : b;
+                luminosityBps = sInfo.ContainsKey("luminosity_bps") ? (int)sInfo["luminosity_bps"] : 10000;
+                starClass = sInfo.ContainsKey("star_class") ? (string)sInfo["star_class"] : "ClassG";
+            }
+        }
+        var starColor = new Color(r, g, b);
+        float lumScale = MathF.Sqrt(luminosityBps / 10000.0f);
+
+        // 1. Primary star at origin.
+        var star = CreateStarMeshV0(starColor, starClass);
         star.AddToGroup("LocalStar");
         _localSystemRoot.AddChild(star);
 
-        // 1b. Planet orbiting the star, using addon planet gen scenes.
-        SpawnLocalPlanetV0(nodeId);
+        // 1a. Binary companion (~20% chance, seeded).
+        SpawnBinaryCompanionV0(nodeId, starColor, starClass);
 
-        // 2. Station at seed-derived orbit position.
-        SpawnStationV0(snap, nodeId);
+        // 1b. Planet orbiting the star.
+        var (planetPos, planetType) = SpawnLocalPlanetV0(nodeId, lumScale);
+
+        // 1c. Moons around the planet.
+        SpawnMoonsV0(nodeId, planetPos, planetType);
+
+        // 1d. Asteroid belt between inner and outer zones.
+        SpawnAsteroidBeltV0(nodeId, lumScale);
+
+        // 2. Station orbiting near the planet.
+        SpawnStationV0(snap, nodeId, planetPos);
 
         // 3. Lane gate markers (one per neighbor).
         SpawnLaneGatesV0(snap);
@@ -194,7 +313,7 @@ public partial class GalaxyView : Node3D
         // 4. Discovery site markers at seed-derived orbit positions.
         SpawnDiscoverySitesV0(snap, nodeId);
 
-        // 5. Fleet markers at seed-derived orbit positions (GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001).
+        // 5. Fleet markers at seed-derived orbit positions.
         SpawnFleetsV0(snap);
     }
 
@@ -207,7 +326,7 @@ public partial class GalaxyView : Node3D
         }
     }
 
-    private void SpawnStationV0(Godot.Collections.Dictionary snap, string nodeId)
+    private void SpawnStationV0(Godot.Collections.Dictionary snap, string nodeId, Vector3 planetPos)
     {
         var stationDict = snap.ContainsKey("station")
             ? snap["station"].AsGodotDictionary()
@@ -217,6 +336,9 @@ public partial class GalaxyView : Node3D
         var stationId = stationDict.ContainsKey("node_id")
             ? (string)stationDict["node_id"]
             : nodeId;
+        var stationDisplayName = stationDict.ContainsKey("node_name") && !string.IsNullOrEmpty((string)stationDict["node_name"])
+            ? (string)stationDict["node_name"] + " Station"
+            : SimBridge.FormatDisplayNameV0(stationId);
 
         // Station as Area3D so body_entered fires when the player ship (collision_layer=2) enters.
         var station = new Area3D
@@ -324,7 +446,7 @@ public partial class GalaxyView : Node3D
         var stationLabel = new Label3D
         {
             Name = "StationLabel",
-            Text = stationId,
+            Text = stationDisplayName,
             PixelSize = 0.12f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             Modulate = new Color(0.4f, 1.0f, 0.4f)
@@ -332,7 +454,8 @@ public partial class GalaxyView : Node3D
         stationLabel.Position = new Vector3(0f, 8f, 0f);
         station.AddChild(stationLabel);
 
-        station.Position = DeriveOrbitPositionV0(nodeId + "_station", StationOrbitRadiusU);
+        // Station orbits near the planet (12u offset from planet position).
+        station.Position = planetPos + DeriveOrbitPositionV0(nodeId + "_station_offset", 12.0f);
         station.AddToGroup("Station");
         RegisterDockTargetV0(station, "STATION", stationId);
 
@@ -410,58 +533,81 @@ public partial class GalaxyView : Node3D
             bridge.Call("InitFleetCombatHpV0");
     }
 
+    // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Load Quaternius .tscn model by FleetRole and return as a scaled Node3D.
+    // GATE.S12.FLEET_SUBSTANCE.VARIETY.001: Hash-based model variants + player ship.
+    private static readonly string[] TraderModels = { "dispatcher", "pancake", "omen" };
+    private static readonly string[] TraderColors = { "blue", "green", "orange" };
+    private static readonly string[] HaulerModels = { "bob", "zenith" };
+    private static readonly string[] HaulerColors = { "blue", "green", "orange" };
+    private static readonly string[] PatrolModels = { "spitfire", "striker", "insurgent" };
+    private static readonly string[] PatrolColors = { "blue", "red", "orange" };
+
+    private Node3D LoadFleetModelV0(string fleetId)
+    {
+        string modelPath;
+
+        if (StringComparer.Ordinal.Equals(fleetId, "fleet_trader_1"))
+        {
+            // Player fleet always uses challenger_blue.
+            modelPath = "res://addons/quaternius-ultimate-spaceships-pack/meshes/challenger/challenger_blue.tscn";
+        }
+        else
+        {
+            // Hash-based selection for NPC fleets.
+            uint hash = 0;
+            foreach (char c in fleetId) { hash = hash * 31 + (uint)c; }
+
+            int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
+            string[] models;
+            string[] colors;
+            switch (roleInt)
+            {
+                case 1: models = HaulerModels; colors = HaulerColors; break;
+                case 2: models = PatrolModels; colors = PatrolColors; break;
+                default: models = TraderModels; colors = TraderColors; break;
+            }
+
+            string modelName = models[hash % (uint)models.Length];
+            string colorName = colors[(hash / 7) % (uint)colors.Length];
+            modelPath = $"res://addons/quaternius-ultimate-spaceships-pack/meshes/{modelName}/{modelName}_{colorName}.tscn";
+        }
+
+        Node3D model = null;
+        if (Godot.FileAccess.FileExists(modelPath))
+        {
+            var scene = GD.Load<PackedScene>(modelPath);
+            if (scene != null)
+                model = scene.Instantiate<Node3D>();
+        }
+
+        if (model == null)
+        {
+            // Fallback: try Kenney craft_racer if Quaternius model failed to load.
+            const string FallbackPath = "res://addons/kenney_space_kit/Models/GLTF format/craft_racer.glb";
+            if (Godot.FileAccess.FileExists(FallbackPath))
+            {
+                var scene = GD.Load<PackedScene>(FallbackPath);
+                if (scene != null)
+                    model = scene.Instantiate<Node3D>();
+            }
+        }
+
+        if (model != null)
+        {
+            model.Name = "FleetModel";
+            model.Scale = new Vector3(0.5f, 0.5f, 0.5f);
+        }
+        return model;
+    }
+
     private Node3D CreateFleetMarkerV0(string fleetId)
     {
         var root = new Node3D { Name = "Fleet_" + fleetId };
 
-        // GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: ship-shaped wedge body (elongated prism).
-        var shipMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.85f, 0.15f, 0.15f),
-            Roughness = 0.4f,
-            Metallic = 0.5f
-        };
-        // Hull: elongated box gives a ship-body silhouette.
-        var hull = new MeshInstance3D
-        {
-            Name = "FleetHull",
-            Mesh = new BoxMesh { Size = new Vector3(FleetMarkerRadiusU * 0.9f, FleetMarkerRadiusU * 0.5f, FleetMarkerRadiusU * 2.2f) },
-            MaterialOverride = shipMat
-        };
-        root.AddChild(hull);
-
-        // Cockpit wedge: narrower front section offset forward.
-        var noseMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.6f, 0.1f, 0.1f),
-            Roughness = 0.3f,
-            Metallic = 0.6f
-        };
-        var nose = new MeshInstance3D
-        {
-            Name = "FleetNose",
-            Mesh = new BoxMesh { Size = new Vector3(FleetMarkerRadiusU * 0.5f, FleetMarkerRadiusU * 0.3f, FleetMarkerRadiusU * 0.9f) },
-            MaterialOverride = noseMat
-        };
-        nose.Position = new Vector3(0f, 0f, -(FleetMarkerRadiusU * 1.5f));
-        root.AddChild(nose);
-
-        // Engine glow at tail: emissive accent.
-        var engineMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(1.0f, 0.4f, 0.1f),
-            EmissionEnabled = true,
-            Emission = new Color(1.0f, 0.4f, 0.1f),
-            EmissionEnergyMultiplier = 2.0f
-        };
-        var engine = new MeshInstance3D
-        {
-            Name = "FleetEngine",
-            Mesh = new SphereMesh { Radius = FleetMarkerRadiusU * 0.28f },
-            MaterialOverride = engineMat
-        };
-        engine.Position = new Vector3(0f, 0f, FleetMarkerRadiusU * 1.1f);
-        root.AddChild(engine);
+        // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Quaternius model by FleetRole.
+        var fleetModel = LoadFleetModelV0(fleetId);
+        if (fleetModel != null)
+            root.AddChild(fleetModel);
 
         // Placeholder mesh for legacy code that looked for "FleetMesh" by name — kept hidden.
         var mesh = new MeshInstance3D
@@ -476,11 +622,19 @@ public partial class GalaxyView : Node3D
         };
         root.AddChild(mesh);
 
-        // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over fleet showing fleet id.
+        // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over fleet showing role name.
+        int fleetRole = _bridge != null && _bridge.HasMethod("GetFleetRoleV0")
+            ? (int)_bridge.Call("GetFleetRoleV0", fleetId) : 0;
+        string fleetDisplayName = fleetRole switch
+        {
+            2 => "Patrol",
+            1 => "Hauler",
+            _ => "Trader"
+        };
         var fleetLabel = new Label3D
         {
             Name = "FleetLabel",
-            Text = fleetId,
+            Text = fleetDisplayName,
             PixelSize = 0.12f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             Modulate = new Color(1.0f, 0.4f, 0.4f)
@@ -530,48 +684,269 @@ public partial class GalaxyView : Node3D
             gm.Call("on_fleet_proximity_entered_v0", fleetId);
     }
 
-    // GATE.S7.PLANET.DOCK_VISUAL.001: Star color from star class data.
-    private Node3D CreateStarMeshV0(string nodeId)
+    private Node3D CreateStarMeshV0(Color starColor, string starClass, float scaleMult = 1.0f)
     {
-        var root = new Node3D { Name = "LocalStar" };
+        // Star visual size scales with class (blue giants big, red dwarfs small).
+        float classScale = StarClassVisualScaleV0(starClass) * scaleMult;
 
-        // Query star color from SimBridge.
-        float r = 1.0f, g = 0.8f, b = 0.2f; // Default: yellow
-        if (_bridge != null && _bridge.HasMethod("GetStarInfoV0"))
+        const string StarScenePath = "res://addons/naejimer_3d_planet_generator/scenes/star.tscn";
+        Node3D starNode = null;
+        if (Godot.FileAccess.FileExists(StarScenePath))
         {
-            var info = _bridge.Call("GetStarInfoV0", nodeId).AsGodotDictionary();
-            if (info != null && info.Count > 0)
+            var scene = GD.Load<PackedScene>(StarScenePath);
+            if (scene != null)
             {
-                r = info.ContainsKey("color_r") ? (float)info["color_r"] : r;
-                g = info.ContainsKey("color_g") ? (float)info["color_g"] : g;
-                b = info.ContainsKey("color_b") ? (float)info["color_b"] : b;
+                starNode = scene.Instantiate<Node3D>();
+                TintStarShaderV0(starNode, starColor);
+                ActivateAnimationTreeV0(starNode);
             }
         }
 
-        var starColor = new Color(r, g, b);
-        var mesh = new MeshInstance3D
+        if (starNode == null)
         {
-            Name = "StarMesh",
-            Mesh = new SphereMesh { Radius = StarVisualRadiusU },
-            MaterialOverride = new StandardMaterial3D
+            starNode = new Node3D { Name = "StarFallback" };
+            var mesh = new MeshInstance3D
             {
-                AlbedoColor = starColor,
-                EmissionEnabled = true,
-                Emission = starColor,
-                EmissionEnergyMultiplier = 3.0f
-            }
-        };
+                Name = "StarMesh",
+                Mesh = new SphereMesh { Radius = StarVisualRadiusU * classScale },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = starColor,
+                    EmissionEnabled = true,
+                    Emission = starColor,
+                    EmissionEnergyMultiplier = 3.0f
+                }
+            };
+            starNode.AddChild(mesh);
+        }
 
-        root.AddChild(mesh);
-        root.Position = Vector3.Zero;
-        return root;
+        // Star scene has ~1200 unit baked scale. Scale to match StarVisualRadiusU * classScale.
+        var container = new Node3D { Name = "LocalStar" };
+        float s = (StarVisualRadiusU * classScale) / 1200.0f;
+        container.Scale = new Vector3(s, s, s);
+        container.Position = Vector3.Zero;
+        container.AddChild(starNode);
+
+        // Add a point light so the star actually illuminates ships/stations/planets.
+        var starLight = new OmniLight3D
+        {
+            Name = "StarLight",
+            LightColor = new Color(
+                Mathf.Min(starColor.R * 0.8f + 0.2f, 1.0f),
+                Mathf.Min(starColor.G * 0.8f + 0.2f, 1.0f),
+                Mathf.Min(starColor.B * 0.8f + 0.2f, 1.0f)),
+            LightEnergy = 6.0f * classScale,
+            OmniRange = 200.0f,
+            OmniAttenuation = 0.5f,
+            ShadowEnabled = false,
+        };
+        // Light at world origin (star center), not inside the scaled container.
+        _localSystemRoot.CallDeferred("add_child", starLight);
+
+        return container;
     }
 
-    // GATE.S7.PLANET.DOCK_VISUAL.001: Spawn planet with type-matched scene.
-    // Landable planets get an Area3D dock trigger (same pattern as stations).
-    private void SpawnLocalPlanetV0(string nodeId)
+    private static float StarClassVisualScaleV0(string starClass) => starClass switch
     {
-        // Query planet info from SimBridge for type-matched scene + landability.
+        "ClassO" => 1.8f,   // Blue giant
+        "ClassA" => 1.3f,   // White
+        "ClassF" => 1.1f,   // White-yellow
+        "ClassG" => 1.0f,   // Sol baseline
+        "ClassK" => 0.85f,  // Orange
+        "ClassM" => 0.6f,   // Red dwarf
+        _ => 1.0f,
+    };
+
+    private static void TintStarShaderV0(Node3D starNode, Color starColor)
+    {
+        // Derive a dark and bright variant from the star class color.
+        var darkColor = new Color(starColor.R * 0.4f, starColor.G * 0.12f, starColor.B * 0.0f);
+        var brightColor = new Color(
+            Mathf.Min(starColor.R, 1.0f),
+            Mathf.Min(starColor.G * 0.7f, 1.0f),
+            Mathf.Min(starColor.B * 0.3f, 1.0f));
+
+        // Tint body shader (root MeshInstance3D).
+        if (starNode is MeshInstance3D bodyMesh && bodyMesh.Mesh != null)
+        {
+            var mat = bodyMesh.Mesh.SurfaceGetMaterial(0) as ShaderMaterial;
+            if (mat != null)
+            {
+                mat.SetShaderParameter("color_1", darkColor);
+                mat.SetShaderParameter("color_2", starColor);
+                mat.SetShaderParameter("color_3", brightColor);
+                mat.SetShaderParameter("color_4", starColor);
+                mat.SetShaderParameter("color_5", brightColor);
+            }
+        }
+
+        // Tint atmosphere shader (child named "Atmosphere").
+        var atmo = starNode.GetNodeOrNull<MeshInstance3D>("Atmosphere");
+        if (atmo != null && atmo.Mesh != null)
+        {
+            var mat = atmo.Mesh.SurfaceGetMaterial(0) as ShaderMaterial;
+            if (mat != null)
+            {
+                mat.SetShaderParameter("color_1", darkColor);
+                mat.SetShaderParameter("color_2", brightColor);
+            }
+        }
+    }
+
+    // Base planet orbit radius by type. Scaled by lumScale at call site.
+    // Star visual radius ~6u, so innermost orbit starts well clear.
+    private static float PlanetBaseOrbitV0(string planetType) => planetType switch
+    {
+        "Lava"        => 20.0f,   // Innermost — volcanic, near star
+        "Sand"        => 23.0f,   // Inner zone
+        "Terrestrial" => 26.0f,   // Habitable zone
+        "Barren"      => 29.0f,   // Outer rocky
+        "Ice"         => 32.0f,   // Outer cold zone
+        "Gaseous"     => 38.0f,   // Far out — gas giant
+        _             => 26.0f,
+    };
+
+    // Planet visual scale by type. Star is ~6u radius, planets must be smaller.
+    // Addon scenes have ~400u baked scale, so 0.01 → ~4u visible radius.
+    private static float PlanetVisualScaleV0(string planetType) => planetType switch
+    {
+        "Gaseous"     => 0.015f,   // ~6u — gas giant, nearly star-sized
+        "Terrestrial" => 0.010f,   // ~4u
+        "Ice"         => 0.008f,   // ~3.2u
+        "Sand"        => 0.008f,   // ~3.2u
+        "Lava"        => 0.007f,   // ~2.8u
+        "Barren"      => 0.006f,   // ~2.4u
+        _             => 0.010f,
+    };
+
+    // Binary star companion — ~20% of systems are binaries (seeded).
+    private void SpawnBinaryCompanionV0(string nodeId, Color starColor, string starClass)
+    {
+        var hash = Fnv1a64(nodeId + "_binary");
+        if (hash % 100UL >= 20) return; // 20% chance
+
+        // Companion is cooler/smaller: shift color toward red, scale down.
+        var companionColor = new Color(
+            Mathf.Min(starColor.R * 1.1f, 1.0f),
+            starColor.G * 0.6f,
+            starColor.B * 0.4f);
+        var companion = CreateStarMeshV0(companionColor, starClass, 0.5f);
+        companion.Name = "BinaryCompanion";
+
+        // Offset companion from primary at seed-derived angle.
+        float separation = StarVisualRadiusU * StarClassVisualScaleV0(starClass) * 2.5f;
+        companion.Position = DeriveOrbitPositionV0(nodeId + "_binary_pos", separation);
+
+        _localSystemRoot.AddChild(companion);
+    }
+
+    // Ensure addon scene AnimationTree is active so planets/stars rotate.
+    private static void ActivateAnimationTreeV0(Node3D sceneRoot)
+    {
+        var animTree = sceneRoot.GetNodeOrNull<AnimationTree>("AnimationTree");
+        if (animTree != null)
+            animTree.Active = true;
+    }
+
+    // Moon count by planet type.
+    private static int MoonCountV0(string planetType, ulong hash) => planetType switch
+    {
+        "Gaseous"     => 1 + (int)(hash % 3UL),  // 1-3 moons
+        "Terrestrial" => (int)(hash % 2UL),       // 0-1 moons
+        "Ice"         => (int)(hash % 2UL),        // 0-1 moons
+        _             => 0,
+    };
+
+    private void SpawnMoonsV0(string nodeId, Vector3 planetPos, string planetType)
+    {
+        var hash = Fnv1a64(nodeId + "_moons");
+        int count = MoonCountV0(planetType, hash);
+        if (count <= 0) return;
+
+        const string MoonScenePath = "res://addons/naejimer_3d_planet_generator/scenes/planet_no_atmosphere.tscn";
+        PackedScene moonScene = null;
+        if (Godot.FileAccess.FileExists(MoonScenePath))
+            moonScene = GD.Load<PackedScene>(MoonScenePath);
+
+        for (int i = 0; i < count; i++)
+        {
+            var moonHash = Fnv1a64(nodeId + "_moon_" + i);
+            float moonOrbit = 7.0f + (float)(moonHash % 5UL); // 7-11u from planet
+            var moonOffset = DeriveOrbitPositionV0(nodeId + "_moon_" + i, moonOrbit);
+
+            Node3D moonNode = null;
+            if (moonScene != null)
+            {
+                moonNode = moonScene.Instantiate<Node3D>();
+                ActivateAnimationTreeV0(moonNode);
+            }
+            else
+            {
+                moonNode = new Node3D();
+                moonNode.AddChild(new MeshInstance3D
+                {
+                    Mesh = new SphereMesh { Radius = 0.5f },
+                    MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.5f, 0.5f, 0.5f) }
+                });
+            }
+
+            var container = new Node3D { Name = "Moon_" + i };
+            float moonScale = 0.005f + (float)(moonHash % 3UL) * 0.001f; // Vary size
+            container.Scale = new Vector3(moonScale, moonScale, moonScale);
+            container.Position = planetPos + moonOffset;
+            container.AddChild(moonNode);
+            _localSystemRoot.AddChild(container);
+        }
+    }
+
+    // Asteroid belt — ring of rocky debris between inner and outer zones.
+    private void SpawnAsteroidBeltV0(string nodeId, float lumScale)
+    {
+        var hash = Fnv1a64(nodeId + "_asteroids");
+        // ~60% of systems have a visible asteroid belt.
+        if (hash % 100UL >= 60) return;
+
+        float beltRadius = 45.0f * lumScale; // Between planet zone and discovery sites
+        int rockCount = 25 + (int)(hash % 20UL); // 25-44 rocks
+
+        var rockMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.4f, 0.35f, 0.28f),
+            Roughness = 0.9f
+        };
+
+        for (int i = 0; i < rockCount; i++)
+        {
+            var rockHash = Fnv1a64(nodeId + "_rock_" + i);
+            float angle = ((float)i / rockCount) * 2.0f * MathF.PI;
+            // Jitter radius and Y to make belt look natural.
+            float rJitter = beltRadius + ((float)(rockHash % 5UL) - 2.0f);
+            float yJitter = ((float)(rockHash % 3UL) - 1.0f) * 0.5f;
+
+            float rockSize = 0.15f + (float)(rockHash % 4UL) * 0.1f; // 0.15-0.45u
+            var rock = new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(rockSize, rockSize * 0.7f, rockSize * 1.2f) },
+                MaterialOverride = rockMat
+            };
+            // Random rotation for irregular look.
+            rock.RotateX((float)(rockHash % 360UL) * (MathF.PI / 180f));
+            rock.RotateY((float)((rockHash >> 8) % 360UL) * (MathF.PI / 180f));
+
+            rock.Position = new Vector3(
+                MathF.Cos(angle) * rJitter,
+                yJitter,
+                MathF.Sin(angle) * rJitter);
+
+            rock.Name = "AsteroidRock_" + i;
+            _localSystemRoot.AddChild(rock);
+        }
+    }
+
+    // Spawn planet with type-matched scene, luminosity-scaled orbit, self-rotation.
+    // Returns (planetPos, planetType) so station + moons can reference it.
+    private (Vector3, string) SpawnLocalPlanetV0(string nodeId, float lumScale)
+    {
         string planetType = "";
         bool landable = false;
         string displayName = "";
@@ -581,13 +956,11 @@ public partial class GalaxyView : Node3D
             if (info != null && info.Count > 0)
             {
                 planetType = info.ContainsKey("planet_type") ? (string)info["planet_type"] : "";
-                // Use effective_landable (factors in player tech) for dock trigger.
                 landable = info.ContainsKey("effective_landable") && (bool)info["effective_landable"];
                 displayName = info.ContainsKey("display_name") ? (string)info["display_name"] : "";
             }
         }
 
-        // Map planet type to addon scene path.
         var scenePath = GetPlanetScenePath(planetType);
 
         Node3D planetNode = null;
@@ -597,13 +970,14 @@ public partial class GalaxyView : Node3D
             if (scene != null)
             {
                 planetNode = scene.Instantiate<Node3D>();
+                ActivateAnimationTreeV0(planetNode); // Self-rotation
             }
         }
 
         if (planetNode == null)
         {
-            // Fallback: simple sphere
-            var mesh = new MeshInstance3D
+            planetNode = new Node3D();
+            planetNode.AddChild(new MeshInstance3D
             {
                 Mesh = new SphereMesh { Radius = 4.0f },
                 MaterialOverride = new StandardMaterial3D
@@ -611,16 +985,21 @@ public partial class GalaxyView : Node3D
                     AlbedoColor = new Color(0.4f, 0.5f, 0.6f),
                     Roughness = 0.8f
                 }
-            };
-            planetNode = new Node3D();
-            planetNode.AddChild(mesh);
+            });
         }
 
-        // Wrap in container — planet scenes have ~400x scale baked into their root transform.
-        var container = new Node3D();
-        container.Name = "LocalPlanet";
-        container.Scale = new Vector3(0.02f, 0.02f, 0.02f);
-        container.Position = DeriveOrbitPositionV0(nodeId + "_planet", 25.0f);
+        // Orbit radius: base distance * luminosity scale + seed jitter (±1.5u).
+        float baseOrbit = PlanetBaseOrbitV0(planetType);
+        var jitterHash = Fnv1a64(nodeId + "_orbit_jitter");
+        float jitter = ((float)(jitterHash % 30UL) - 15.0f) * 0.1f; // ±1.5u
+        float orbitRadius = baseOrbit * lumScale + jitter;
+
+        // Visual scale varies by planet type (gas giants bigger).
+        float vScale = PlanetVisualScaleV0(planetType);
+
+        var container = new Node3D { Name = "LocalPlanet" };
+        container.Scale = new Vector3(vScale, vScale, vScale);
+        container.Position = DeriveOrbitPositionV0(nodeId + "_planet", orbitRadius);
         container.AddChild(planetNode);
 
         if (landable)
@@ -674,6 +1053,7 @@ public partial class GalaxyView : Node3D
         }
 
         _localSystemRoot.AddChild(container);
+        return (container.Position, planetType);
     }
 
     // Map PlanetType enum string to addon scene path.
@@ -1008,9 +1388,32 @@ public partial class GalaxyView : Node3D
                     : (n.DisplayText ?? "");
             }
 
+            // GATE.S11.GAME_FEEL.FLEET_STATUS.001: Show fleet role breakdown on galaxy map.
             var fleetLabel = root.GetNodeOrNull<Label3D>("FleetLabel");
             if (fleetLabel != null)
-                fleetLabel.Text = n.FleetCount > 0 ? "[" + n.FleetCount + " fleets]" : "";
+            {
+                if (n.FleetCount > 0 && _bridge != null && _bridge.HasMethod("GetNodeFleetBreakdownV0"))
+                {
+                    var breakdown = _bridge.Call("GetNodeFleetBreakdownV0", n.NodeId).AsGodotDictionary();
+                    var summary = breakdown.ContainsKey("summary") ? (string)(Variant)breakdown["summary"] : "";
+                    fleetLabel.Text = !string.IsNullOrEmpty(summary) ? "[" + summary + "]" : "[" + n.FleetCount + "]";
+
+                    // Color: gold for traders, blue tint for patrol presence, gray for hauler-only
+                    int patrols = breakdown.ContainsKey("patrols") ? (int)(Variant)breakdown["patrols"] : 0;
+                    int traders = breakdown.ContainsKey("traders") ? (int)(Variant)breakdown["traders"] : 0;
+                    if (patrols > 0)
+                        fleetLabel.Modulate = new Color(0.5f, 0.7f, 1.0f); // blue for patrol presence
+                    else if (traders > 0)
+                        fleetLabel.Modulate = new Color(1.0f, 0.85f, 0.3f); // gold for traders
+                    else
+                        fleetLabel.Modulate = new Color(0.7f, 0.7f, 0.7f); // gray for hauler-only
+                }
+                else
+                {
+                    fleetLabel.Text = n.FleetCount > 0 ? "[" + n.FleetCount + " fleets]" : "";
+                    fleetLabel.Modulate = new Color(1.0f, 0.8f, 0.2f);
+                }
+            }
 
             var mesh = root.GetNodeOrNull<MeshInstance3D>("NodeMesh");
             if (mesh != null && mesh.MaterialOverride is StandardMaterial3D mat)
@@ -1028,9 +1431,13 @@ public partial class GalaxyView : Node3D
                 }
                 else
                 {
-                    mat.AlbedoColor = new Color(0f, 0.6f, 1.0f);
+                    // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Tint non-player nodes by intel freshness.
+                    Color nodeColor = _currentOverlayMode == GalaxyOverlayMode.IntelFreshness
+                        ? GetIntelFreshnessNodeColor(n.NodeId)
+                        : new Color(0f, 0.6f, 1.0f);
+                    mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
-                    mat.Emission = new Color(0f, 0.6f, 1.0f);
+                    mat.Emission = nodeColor;
                     mat.EmissionEnergyMultiplier = 1.0f;
                 }
             }
@@ -1048,27 +1455,45 @@ public partial class GalaxyView : Node3D
             _overlayCamera.Transform = t;
         }
 
-        // Edges: create/update visuals
+        // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001: Cache trade flow edges once before iterating.
+        if (_currentOverlayMode == GalaxyOverlayMode.TradeFlow)
+            CacheTradeFlowEdges();
+
+        // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Cache intel freshness ages once before iterating.
+        if (_currentOverlayMode == GalaxyOverlayMode.IntelFreshness)
+            CacheIntelFreshnessNodes();
+
+        // Edges: create/update visuals — GATE.S5.SEC_LANES.UI.001: tint by security band
         for (int i = 0; i < edges.Count; i++)
         {
             var e = edges[i];
             if (string.IsNullOrEmpty(e.FromId) || string.IsNullOrEmpty(e.ToId)) continue;
 
-            // Key is deterministic for the edge list ordering.
             string key = e.FromId + "->" + e.ToId;
+            var edgeColor = GetEdgeColorForOverlay(e.FromId, e.ToId);
 
             if (!_edgeMeshesByKey.TryGetValue(key, out var mesh))
             {
                 var mat = new StandardMaterial3D
                 {
-                    AlbedoColor = new Color(0.4f, 0.7f, 1.0f),
+                    AlbedoColor = edgeColor,
                     EmissionEnabled = true,
-                    Emission = new Color(0.3f, 0.6f, 0.9f),
+                    Emission = edgeColor,
                     EmissionEnergyMultiplier = 1.2f
                 };
                 mesh = CreateEdgeMeshV0(mat);
                 _edgeMeshesByKey[key] = mesh;
                 AddChild(mesh);
+            }
+            else
+            {
+                // Update color on refresh as security levels / overlay mode changes
+                var mi = mesh as MeshInstance3D ?? mesh.GetChildOrNull<MeshInstance3D>(0);
+                if (mi?.MaterialOverride is StandardMaterial3D existingMat)
+                {
+                    existingMat.AlbedoColor = edgeColor;
+                    existingMat.Emission = edgeColor;
+                }
             }
 
             if (!_nodeRootsById.TryGetValue(e.FromId, out var fromRoot)) continue;
@@ -1076,6 +1501,26 @@ public partial class GalaxyView : Node3D
 
             UpdateEdgeTransformV0(mesh, fromRoot.GlobalPosition, toRoot.GlobalPosition);
         }
+
+        // GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001: Draw NPC fleet route lines.
+        if (_currentOverlayMode == GalaxyOverlayMode.Default || _currentOverlayMode == GalaxyOverlayMode.TradeFlow)
+            UpdateNpcRouteLinesV0();
+        else
+            ClearNpcRouteLinesV0();
+    }
+
+    // GATE.S5.SEC_LANES.UI.001: Map security BPS to lane display color.
+    private Color GetSecurityLaneColorV0(string fromId, string toId)
+    {
+        if (_bridge == null) return new Color(0.4f, 0.7f, 1.0f); // default blue
+        int bps = _bridge.GetLaneSecurityV0(fromId, toId);
+        if (bps < SimCore.Tweaks.SecurityTweaksV0.HostileBps)
+            return new Color(1.0f, 0.15f, 0.15f); // red
+        if (bps < SimCore.Tweaks.SecurityTweaksV0.DangerousBps)
+            return new Color(1.0f, 0.6f, 0.2f);   // orange
+        if (bps >= SimCore.Tweaks.SecurityTweaksV0.SafeBps)
+            return new Color(0.2f, 1.0f, 0.4f);   // green
+        return new Color(0.4f, 0.7f, 1.0f);        // default blue = moderate
     }
 
     // GATE.S1.VISUAL_UPGRADE.WORLD_MESHES.001: planet type scenes from planet generator addon
@@ -1226,5 +1671,291 @@ public partial class GalaxyView : Node3D
             FromId = fromId ?? "";
             ToId = toId ?? "";
         }
+    }
+
+    // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001: Cache profitable trade routes as bidirectional edge keys.
+    private void CacheTradeFlowEdges()
+    {
+        _tradeFlowEdges.Clear();
+        if (_bridge == null) return;
+        var routes = _bridge.Call("GetTradeRoutesV0").AsGodotArray();
+        foreach (var r in routes)
+        {
+            if (r.VariantType != Variant.Type.Dictionary) continue;
+            var d = r.AsGodotDictionary();
+            var src = d.ContainsKey("source_node_id") ? d["source_node_id"].AsString() : "";
+            var dst = d.ContainsKey("dest_node_id") ? d["dest_node_id"].AsString() : "";
+            if (string.IsNullOrEmpty(src) || string.IsNullOrEmpty(dst)) continue;
+            _tradeFlowEdges.Add(src + "|" + dst);
+            _tradeFlowEdges.Add(dst + "|" + src); // bidirectional
+        }
+    }
+
+    // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001: Return gold if a trade route runs on this edge, gray otherwise.
+    private Color GetTradeFlowEdgeColor(string fromId, string toId)
+    {
+        return _tradeFlowEdges.Contains(fromId + "|" + toId)
+            ? new Color(1.0f, 0.85f, 0.2f) // gold
+            : new Color(0.3f, 0.3f, 0.3f);  // gray
+    }
+
+    // GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001 + INTEL_OVERLAY.001: Route edge color through overlay mode.
+    private Color GetEdgeColorForOverlay(string fromId, string toId)
+    {
+        switch (_currentOverlayMode)
+        {
+            case GalaxyOverlayMode.TradeFlow:
+                return GetTradeFlowEdgeColor(fromId, toId);
+            case GalaxyOverlayMode.IntelFreshness:
+                return GetSecurityLaneColorV0(fromId, toId); // edges keep security colors in intel mode
+            default:
+                return GetSecurityLaneColorV0(fromId, toId);
+        }
+    }
+
+    // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Cache intel age_ticks keyed by node_id.
+    private void CacheIntelFreshnessNodes()
+    {
+        _intelAgeByNode.Clear();
+        if (_bridge == null) return;
+        var entries = _bridge.Call("GetIntelFreshnessByNodeV0").AsGodotArray();
+        foreach (var e in entries)
+        {
+            if (e.VariantType != Variant.Type.Dictionary) continue;
+            var d = e.AsGodotDictionary();
+            var nodeId = d.ContainsKey("node_id") ? d["node_id"].AsString() : "";
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            long ageTicks = d.ContainsKey("age_ticks") ? d["age_ticks"].AsInt64() : long.MaxValue;
+            _intelAgeByNode[nodeId] = ageTicks;
+        }
+    }
+
+    // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Map intel age to a display color (green → red gradient).
+    private Color GetIntelFreshnessNodeColor(string nodeId)
+    {
+        if (!_intelAgeByNode.TryGetValue(nodeId, out long ageTicks))
+            return new Color(0.4f, 0.4f, 0.4f); // gray — no intel
+        if (ageTicks < 500)
+            return new Color(0.2f, 1.0f, 0.4f);  // green — fresh
+        if (ageTicks < 1500)
+            return new Color(1.0f, 1.0f, 0.2f);  // yellow — aging
+        if (ageTicks < 3000)
+            return new Color(1.0f, 0.6f, 0.2f);  // orange — stale
+        return new Color(1.0f, 0.15f, 0.15f);    // red — very stale
+    }
+
+    // GATE.S6.MAP_GALAXY.OVERLAY_SYS.001: Overlay mode API for toolbar.
+    public void SetOverlayModeV0(int mode)
+    {
+        if (Enum.IsDefined(typeof(GalaxyOverlayMode), mode))
+            _currentOverlayMode = (GalaxyOverlayMode)mode;
+    }
+
+    public int GetOverlayModeV0() => (int)_currentOverlayMode;
+
+    // GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001: Draw route lines for NPC fleets currently traveling.
+    // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Animated flow dots on trade routes.
+    // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Trade volume labels on edges.
+    // Gold for traders, blue for patrol fleets.
+    private void UpdateNpcRouteLinesV0()
+    {
+        if (_bridge == null) { ClearNpcRouteLinesV0(); return; }
+        if (!_bridge.HasMethod("GetNpcTradeRoutesV0")) { ClearNpcRouteLinesV0(); return; }
+
+        // Extended tuple now carries GoodId and Qty for volume labels.
+        var allNpcRoutes = new List<(string FleetId, string SourceId, string DestId, bool IsPatrol, string GoodId, int Qty)>();
+
+        // Traders from GetNpcTradeRoutesV0
+        var tradeRoutes = _bridge.Call("GetNpcTradeRoutesV0").AsGodotArray();
+        foreach (var r in tradeRoutes)
+        {
+            if (r.VariantType != Variant.Type.Dictionary) continue;
+            var d = r.AsGodotDictionary();
+            var fleetId = d.ContainsKey("fleet_id") ? d["fleet_id"].AsString() : "";
+            var srcId = d.ContainsKey("source_node_id") ? d["source_node_id"].AsString() : "";
+            var dstId = d.ContainsKey("dest_node_id") ? d["dest_node_id"].AsString() : "";
+            if (string.IsNullOrEmpty(srcId) || string.IsNullOrEmpty(dstId)) continue;
+            if (StringComparer.Ordinal.Equals(srcId, dstId)) continue;
+            var goodId = d.ContainsKey("good_id") ? d["good_id"].AsString() : "";
+            int qty = d.ContainsKey("qty") ? d["qty"].AsInt32() : 0;
+            allNpcRoutes.Add((fleetId, srcId, dstId, false, goodId, qty));
+        }
+
+        // Patrol fleets: query via bridge.GetNpcPatrolRoutesV0 if it exists, otherwise skip.
+        if (_bridge.HasMethod("GetNpcPatrolRoutesV0"))
+        {
+            var patrolRoutes = _bridge.Call("GetNpcPatrolRoutesV0").AsGodotArray();
+            foreach (var r in patrolRoutes)
+            {
+                if (r.VariantType != Variant.Type.Dictionary) continue;
+                var d = r.AsGodotDictionary();
+                var fleetId = d.ContainsKey("fleet_id") ? d["fleet_id"].AsString() : "";
+                var srcId = d.ContainsKey("source_node_id") ? d["source_node_id"].AsString() : "";
+                var dstId = d.ContainsKey("dest_node_id") ? d["dest_node_id"].AsString() : "";
+                if (string.IsNullOrEmpty(srcId) || string.IsNullOrEmpty(dstId)) continue;
+                if (StringComparer.Ordinal.Equals(srcId, dstId)) continue;
+                allNpcRoutes.Add((fleetId, srcId, dstId, true, "", 0));
+            }
+        }
+
+        // Track which keys are active this frame to clean up stale entries.
+        var activeRouteKeys = new HashSet<string>(StringComparer.Ordinal);
+        var activeFlowKeys = new HashSet<string>(StringComparer.Ordinal);
+        var activeVolumeKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var route in allNpcRoutes)
+        {
+            var key = "npc_" + route.FleetId;
+            activeRouteKeys.Add(key);
+
+            if (!_nodeRootsById.TryGetValue(route.SourceId, out var fromRoot)) continue;
+            if (!_nodeRootsById.TryGetValue(route.DestId, out var toRoot)) continue;
+
+            var routeColor = route.IsPatrol
+                ? new Color(0.3f, 0.5f, 1.0f, 0.6f)   // Blue for patrol
+                : new Color(1.0f, 0.85f, 0.2f, 0.6f);  // Gold for trader
+
+            if (!_npcRouteMeshesByKey.TryGetValue(key, out var mesh))
+            {
+                var mat = new StandardMaterial3D
+                {
+                    AlbedoColor = routeColor,
+                    EmissionEnabled = true,
+                    Emission = new Color(routeColor.R, routeColor.G, routeColor.B),
+                    EmissionEnergyMultiplier = 1.5f,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha
+                };
+                mesh = CreateEdgeMeshV0(mat);
+                mesh.Name = "NpcRoute_" + route.FleetId;
+                _npcRouteMeshesByKey[key] = mesh;
+                AddChild(mesh);
+            }
+            else
+            {
+                if (mesh.MaterialOverride is StandardMaterial3D existingMat)
+                {
+                    existingMat.AlbedoColor = routeColor;
+                    existingMat.Emission = new Color(routeColor.R, routeColor.G, routeColor.B);
+                }
+            }
+
+            // Offset Y slightly so route lines are visually distinct from lane edges.
+            var fromPos = fromRoot.GlobalPosition + new Vector3(0f, 1.5f, 0f);
+            var toPos = toRoot.GlobalPosition + new Vector3(0f, 1.5f, 0f);
+            UpdateEdgeTransformV0(mesh, fromPos, toPos);
+
+            // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Animated flow dot along route.
+            var flowKey = "flow_" + route.FleetId;
+            activeFlowKeys.Add(flowKey);
+            if (!_flowDotsByKey.TryGetValue(flowKey, out var flowDot))
+            {
+                var dotColor = route.IsPatrol
+                    ? new Color(0.4f, 0.6f, 1.0f)   // Blue for patrol
+                    : new Color(1.0f, 0.9f, 0.3f);   // Gold for trader
+                var dotMat = new StandardMaterial3D
+                {
+                    AlbedoColor = dotColor,
+                    EmissionEnabled = true,
+                    Emission = dotColor,
+                    EmissionEnergyMultiplier = 2.0f
+                };
+                var sphere = new SphereMesh { Radius = 0.3f, Height = 0.6f };
+                flowDot = new MeshInstance3D
+                {
+                    Name = "FlowDot_" + route.FleetId,
+                    Mesh = sphere,
+                    MaterialOverride = dotMat
+                };
+                _flowDotsByKey[flowKey] = flowDot;
+                AddChild(flowDot);
+            }
+            float t = (float)((_flowAnimTime * 0.3) % 1.0);
+            flowDot.GlobalPosition = fromPos.Lerp(toPos, t);
+
+            // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Volume label at route midpoint (traders only).
+            if (!route.IsPatrol && route.Qty > 0 && !string.IsNullOrEmpty(route.GoodId))
+            {
+                var volKey = "vol_" + route.FleetId;
+                activeVolumeKeys.Add(volKey);
+                if (!_volumeLabelsByKey.TryGetValue(volKey, out var volLabel))
+                {
+                    volLabel = new Label3D
+                    {
+                        Name = "VolLabel_" + route.FleetId,
+                        PixelSize = 0.02f,
+                        FontSize = 24,
+                        Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                        OutlineSize = 6,
+                        Modulate = new Color(1.0f, 0.95f, 0.7f)
+                    };
+                    _volumeLabelsByKey[volKey] = volLabel;
+                    AddChild(volLabel);
+                }
+                volLabel.Text = $"{route.GoodId} x{route.Qty}";
+                volLabel.GlobalPosition = (fromPos + toPos) * 0.5f + new Vector3(0f, 2.0f, 0f);
+            }
+        }
+
+        // Remove stale route lines (fleets that stopped traveling).
+        RemoveStaleEntries(_npcRouteMeshesByKey, activeRouteKeys);
+
+        // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Remove stale flow dots.
+        RemoveStaleEntries(_flowDotsByKey, activeFlowKeys);
+
+        // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Remove stale volume labels.
+        RemoveStaleLabels(_volumeLabelsByKey, activeVolumeKeys);
+    }
+
+    private static void RemoveStaleEntries(Dictionary<string, MeshInstance3D> dict, HashSet<string> activeKeys)
+    {
+        var staleKeys = new List<string>();
+        foreach (var kv in dict)
+        {
+            if (!activeKeys.Contains(kv.Key))
+                staleKeys.Add(kv.Key);
+        }
+        foreach (var key in staleKeys)
+        {
+            if (dict.TryGetValue(key, out var node))
+            {
+                node.QueueFree();
+                dict.Remove(key);
+            }
+        }
+    }
+
+    private static void RemoveStaleLabels(Dictionary<string, Label3D> dict, HashSet<string> activeKeys)
+    {
+        var staleKeys = new List<string>();
+        foreach (var kv in dict)
+        {
+            if (!activeKeys.Contains(kv.Key))
+                staleKeys.Add(kv.Key);
+        }
+        foreach (var key in staleKeys)
+        {
+            if (dict.TryGetValue(key, out var node))
+            {
+                node.QueueFree();
+                dict.Remove(key);
+            }
+        }
+    }
+
+    private void ClearNpcRouteLinesV0()
+    {
+        foreach (var mesh in _npcRouteMeshesByKey.Values)
+            mesh.QueueFree();
+        _npcRouteMeshesByKey.Clear();
+
+        // GATE.S12.NPC_CIRC.FLOW_ANIM.001: Clear flow dots.
+        foreach (var dot in _flowDotsByKey.Values)
+            dot.QueueFree();
+        _flowDotsByKey.Clear();
+
+        // GATE.S12.NPC_CIRC.VOLUME_LABELS.001: Clear volume labels.
+        foreach (var lbl in _volumeLabelsByKey.Values)
+            lbl.QueueFree();
+        _volumeLabelsByKey.Clear();
     }
 }

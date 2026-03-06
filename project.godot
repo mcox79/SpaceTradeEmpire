@@ -28,6 +28,7 @@ DebugMenu="*res://addons/debug_menu/debug_menu.tscn"
 TooltipManager="*res://addons/tooltips_pro/scripts/tooltip_manager.gd"
 TooltipPlaceholderVariables="*res://addons/tooltips_pro/scripts/tooltip_placeholder_variables.gd"
 TooltipLinkData="*res://addons/tooltips_pro/scripts/tooltip_link_data.gd"
+ToastManager="*res://scripts/ui/toast_manager.gd"
 
 [display]
 
@@ -42,6 +43,10 @@ project/assembly_name="Space Trade Empire"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/phantom_camera/plugin.cfg", "res://addons/debug_menu/plugin.cfg", "res://addons/tooltips_pro/plugin.cfg")
+
+[filesystem]
+
+import/blender/enabled=false
 
 [input]
 

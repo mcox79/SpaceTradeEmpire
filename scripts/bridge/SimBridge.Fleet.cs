@@ -232,6 +232,75 @@ public partial class SimBridge
         }
     }
 
+    // GATE.S1.FLEET_VISUAL.MAP.001: returns FleetRole as int (0=Trader, 1=Hauler, 2=Patrol).
+    public int GetFleetRoleV0(string fleetId)
+    {
+        int role = 0; // default Trader
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Fleets.TryGetValue(fleetId, out var fleet))
+                role = (int)fleet.Role;
+        }, 0);
+        return role;
+    }
+
+    // GATE.S11.GAME_FEEL.FLEET_STATUS.001: Returns fleet role breakdown at a node.
+    // {traders (int), haulers (int), patrols (int), summary (string)}
+    // summary is a compact label like "2T 1P" for galaxy map display.
+    private Godot.Collections.Dictionary _cachedFleetBreakdownV0 = new();
+    private string _cachedFleetBreakdownNodeV0 = "";
+
+    public Godot.Collections.Dictionary GetNodeFleetBreakdownV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        if (string.IsNullOrEmpty(nodeId))
+        {
+            result["traders"] = 0;
+            result["haulers"] = 0;
+            result["patrols"] = 0;
+            result["summary"] = "";
+            return result;
+        }
+
+        TryExecuteSafeRead(state =>
+        {
+            int traders = 0, haulers = 0, patrols = 0;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (!StringComparer.Ordinal.Equals(fleet.CurrentNodeId, nodeId))
+                    continue;
+                switch (fleet.Role)
+                {
+                    case SimCore.Entities.FleetRole.Trader: traders++; break;
+                    case SimCore.Entities.FleetRole.Hauler: haulers++; break;
+                    case SimCore.Entities.FleetRole.Patrol: patrols++; break;
+                    default: traders++; break;
+                }
+            }
+
+            var parts = new System.Collections.Generic.List<string>(3);
+            if (traders > 0) parts.Add($"{traders}T");
+            if (haulers > 0) parts.Add($"{haulers}H");
+            if (patrols > 0) parts.Add($"{patrols}P");
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["traders"] = traders,
+                ["haulers"] = haulers,
+                ["patrols"] = patrols,
+                ["summary"] = parts.Count > 0 ? string.Join(" ", parts) : ""
+            };
+
+            lock (_snapshotLock)
+            {
+                _cachedFleetBreakdownV0 = d;
+                _cachedFleetBreakdownNodeV0 = nodeId;
+            }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedFleetBreakdownV0; }
+    }
+
     public string GetFleetPlayabilityTranscript(int maxEventsPerFleet = 10)
     {
         if (IsLoading) return "";

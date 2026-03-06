@@ -28,7 +28,7 @@ public static class ConstructionContentV0
             TotalSteps = 4,
             TicksPerStep = 30,
             CreditCostPerStep = 300,
-            Prerequisites = new List<string> { "tech_basic_engineering" },
+            Prerequisites = new List<string> { "improved_thrusters" },
             Description = "A shipyard enables fleet construction and advanced refit operations."
         },
         new ConstructionDef
@@ -50,7 +50,7 @@ public static class ConstructionContentV0
             TotalSteps = 5,
             TicksPerStep = 35,
             CreditCostPerStep = 400,
-            Prerequisites = new List<string> { "tech_basic_engineering", "tech_sensor_array" },
+            Prerequisites = new List<string> { "engine_efficiency", "sensor_suite" },
             Description = "A science center provides research throughput and artifact analysis capability."
         },
     };

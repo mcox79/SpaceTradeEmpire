@@ -30,6 +30,20 @@ public sealed class IntelObservation
 {
     [JsonInclude] public int ObservedTick { get; set; } = 0;
     [JsonInclude] public int ObservedInventoryQty { get; set; } = 0;
+    // GATE.S10.TRADE_INTEL.MODEL.001: Price intel for trade route discovery.
+    [JsonInclude] public int ObservedBuyPrice { get; set; } = 0;
+    [JsonInclude] public int ObservedSellPrice { get; set; } = 0;
+    [JsonInclude] public int ObservedMidPrice { get; set; } = 0;
+}
+
+// GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Time-series price snapshot for trend display.
+public sealed class PriceSnapshot
+{
+    [JsonInclude] public string NodeId { get; set; } = "";
+    [JsonInclude] public string GoodId { get; set; } = "";
+    [JsonInclude] public int BuyPrice { get; set; }
+    [JsonInclude] public int SellPrice { get; set; }
+    [JsonInclude] public long Tick { get; set; }
 }
 
 public sealed class IntelBook
@@ -49,7 +63,36 @@ public sealed class IntelBook
     // RumorLead keyed by stable LeadId (format: LEAD.<zero-padded-4-digit>); ordered by LeadId asc for listing.
     [JsonInclude] public Dictionary<string, RumorLead> RumorLeads { get; private set; } = new();
 
+    // GATE.S10.TRADE_INTEL.ROUTE_ENTITY.001: Discovered trade routes keyed by RouteId (sourceNode|destNode|goodId).
+    [JsonInclude] public Dictionary<string, TradeRouteIntel> TradeRoutes { get; private set; } = new();
+
+    // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Time-series price history for trend charts.
+    [JsonInclude] public List<PriceSnapshot> PriceHistory { get; private set; } = new();
+
     public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
+    public static string RouteKey(string sourceNodeId, string destNodeId, string goodId) => sourceNodeId + "|" + destNodeId + "|" + goodId;
+}
+
+// GATE.S10.TRADE_INTEL.ROUTE_ENTITY.001: Trade route status lifecycle.
+public enum TradeRouteStatus
+{
+    Discovered = 0,
+    Active = 1,
+    Stale = 2,
+    Unprofitable = 3
+}
+
+// GATE.S10.TRADE_INTEL.ROUTE_ENTITY.001: Discovered trade route with profitability estimate.
+public sealed class TradeRouteIntel
+{
+    [JsonInclude] public string RouteId { get; set; } = "";
+    [JsonInclude] public string SourceNodeId { get; set; } = "";
+    [JsonInclude] public string DestNodeId { get; set; } = "";
+    [JsonInclude] public string GoodId { get; set; } = "";
+    [JsonInclude] public int EstimatedProfitPerUnit { get; set; } = 0;
+    [JsonInclude] public int DiscoveredTick { get; set; } = 0;
+    [JsonInclude] public int LastValidatedTick { get; set; } = 0;
+    [JsonInclude] public TradeRouteStatus Status { get; set; } = TradeRouteStatus.Discovered;
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001

@@ -25,6 +25,16 @@ var _mission_step_label: Label = null
 # GATE.S3.RISK_SINKS.BRIDGE.001: delay status label
 var _delay_label: Label = null
 
+# GATE.S5.SEC_LANES.UI.001: security band indicator
+var _security_label: Label = null
+
+# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label
+var _research_label: Label = null
+
+# Timer accumulator for slow-poll HUD sections (mission + research)
+var _slow_poll_elapsed: float = 0.0
+const _SLOW_POLL_INTERVAL: float = 2.0
+
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
 # GATE.S1.SAVE_UI.SLOTS.001: save slot labels for metadata display
@@ -53,12 +63,20 @@ func _ready() -> void:
 	if _shield_bar:
 		_shield_bar.tooltip_text = "Shield absorbs damage before hull takes hits"
 
-	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status label (below combat label)
+	# GATE.S5.SEC_LANES.UI.001: security band indicator (below combat label)
+	_security_label = Label.new()
+	_security_label.name = "SecurityLabel"
+	_security_label.text = ""
+	_security_label.position = Vector2(10, 252)
+	_security_label.visible = false
+	add_child(_security_label)
+
+	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status label (below security label)
 	_delay_label = Label.new()
 	_delay_label.name = "DelayLabel"
 	_delay_label.text = ""
 	_delay_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2, 1.0))
-	_delay_label.position = Vector2(10, 180)
+	_delay_label.position = Vector2(10, 274)
 	_delay_label.visible = false
 	add_child(_delay_label)
 
@@ -86,6 +104,15 @@ func _ready() -> void:
 	_mission_step_label.add_theme_font_size_override("font_size", 12)
 	_mission_step_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
 	mission_vbox.add_child(_mission_step_label)
+
+	# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label (below mission panel)
+	_research_label = Label.new()
+	_research_label.name = "ResearchLabel"
+	_research_label.text = "Research: Idle"
+	_research_label.add_theme_font_size_override("font_size", 13)
+	_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+	_research_label.position = Vector2(10, 300)
+	add_child(_research_label)
 
 	# Build game over overlay (hidden until player dies)
 	_game_over_panel = Control.new()
@@ -192,9 +219,18 @@ func _physics_process(_delta: float) -> void:
 		return
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_label.text = "Credits: " + str(ps.get("credits", 0))
-	_cargo_label.text = "Cargo: " + str(ps.get("cargo_count", 0))
-	_node_label.text = "System: " + str(ps.get("current_node_id", ""))
-	_state_label.text = "State: " + str(ps.get("ship_state_token", ""))
+	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: show "X items" suffix
+	_cargo_label.text = "Cargo: %d items" % int(ps.get("cargo_count", 0))
+	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
+	_node_label.text = node_display
+	var raw_state = str(ps.get("ship_state_token", ""))
+	match raw_state:
+		"DOCKED":
+			_state_label.text = "Docked"
+		"IN_LANE_TRANSIT":
+			_state_label.text = "Traveling"
+		_:
+			_state_label.text = "Flying"
 
 	# HP bars: hull (red/green) and shield (blue)
 	if _bridge.has_method("GetFleetCombatHpV0"):
@@ -227,28 +263,31 @@ func _physics_process(_delta: float) -> void:
 		# Legacy text label (hidden when bars are shown)
 		_combat_label.text = ""
 
-	# GATE.S1.MISSION.HUD.001: mission objective panel
-	if _bridge != null and _bridge.has_method("GetActiveMissionV0"):
-		var mission: Dictionary = _bridge.call("GetActiveMissionV0")
-		var mid: String = str(mission.get("mission_id", ""))
-		if mid != "":
-			_mission_panel.visible = true
-			_mission_title_label.text = str(mission.get("title", ""))
-			var step_num: int = int(mission.get("current_step", 0)) + 1
-			var total: int = int(mission.get("total_steps", 0))
-			var obj: String = str(mission.get("objective_text", ""))
-			var tgt_node: String = str(mission.get("target_node_id", ""))
-			var tgt_good: String = str(mission.get("target_good_id", ""))
-			var details: Array = []
-			if not tgt_node.is_empty():
-				details.append(tgt_node)
-			if not tgt_good.is_empty():
-				details.append(tgt_good)
-			if details.size() > 0:
-				obj += " (%s)" % ", ".join(details)
-			_mission_step_label.text = "[%d/%d] %s" % [step_num, total, obj]
+	# GATE.S11.GAME_FEEL.MISSION_HUD.001 + RESEARCH_HUD.001: slow-poll (every 2s)
+	_slow_poll_elapsed += _delta
+	if _slow_poll_elapsed >= _SLOW_POLL_INTERVAL:
+		_slow_poll_elapsed = 0.0
+		_update_mission_hud()
+		_update_research_hud()
+
+	# GATE.S5.SEC_LANES.UI.001: security band display
+	if _security_label != null and _bridge != null:
+		var node_id: String = str(ps.get("current_node_id", ""))
+		if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
+			var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
+			_security_label.text = "Security: %s" % band.to_upper()
+			_security_label.visible = true
+			match band:
+				"hostile":
+					_security_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
+				"dangerous":
+					_security_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+				"safe":
+					_security_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
+				_:
+					_security_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
 		else:
-			_mission_panel.visible = false
+			_security_label.visible = false
 
 	# GATE.S3.RISK_SINKS.HUD_INDICATOR.001: delay/ETA + risk level display
 	if _delay_label != null and _bridge != null:
@@ -286,6 +325,61 @@ func _physics_process(_delta: float) -> void:
 		_delay_label.visible = show_delay
 		_delay_label.text = delay_text
 		_delay_label.add_theme_color_override("font_color", risk_color)
+
+# GATE.S11.GAME_FEEL.MISSION_HUD.001: mission objective update (called every 2s)
+func _update_mission_hud() -> void:
+	if _bridge == null or not _bridge.has_method("GetActiveMissionV0"):
+		return
+	var mission: Dictionary = _bridge.call("GetActiveMissionV0")
+	var mid: String = str(mission.get("mission_id", ""))
+	if mid != "":
+		_mission_panel.visible = true
+		var title: String = str(mission.get("title", mid))
+		_mission_title_label.text = "MISSION: %s" % title
+		_mission_title_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3, 1.0))
+		var obj: String = str(mission.get("objective_text", ""))
+		var tgt_node: String = str(mission.get("target_node_id", ""))
+		var tgt_good: String = str(mission.get("target_good_id", ""))
+		var step_parts: Array = []
+		if not obj.is_empty():
+			step_parts.append(obj)
+		var detail_parts: Array = []
+		if not tgt_node.is_empty():
+			detail_parts.append(tgt_node)
+		if not tgt_good.is_empty():
+			detail_parts.append(tgt_good)
+		if detail_parts.size() > 0:
+			step_parts.append("Target: %s" % ", ".join(detail_parts))
+		_mission_step_label.text = "\n".join(step_parts)
+	else:
+		_mission_panel.visible = true
+		_mission_title_label.text = "No active mission"
+		_mission_title_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		_mission_step_label.text = ""
+
+# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress update (called every 2s)
+func _update_research_hud() -> void:
+	if _research_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetResearchStatusV0"):
+		_research_label.text = "Research: Idle"
+		_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		return
+	var status: Dictionary = _bridge.call("GetResearchStatusV0")
+	var is_researching: bool = status.get("researching", false)
+	if is_researching:
+		var tech_id: String = str(status.get("tech_id", ""))
+		var pct: int = int(status.get("progress_pct", 0))
+		var stall: String = str(status.get("stall_reason", ""))
+		if not stall.is_empty():
+			_research_label.text = "RESEARCH: %s STALLED: %s" % [tech_id, stall]
+			_research_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2, 1.0))
+		else:
+			_research_label.text = "RESEARCH: %s %d%%" % [tech_id, pct]
+			_research_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0, 1.0))
+	else:
+		_research_label.text = "Research: Idle"
+		_research_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(visible_flag: bool) -> void:

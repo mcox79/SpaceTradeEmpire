@@ -14,4 +14,7 @@ public static class ResearchTweaksV0
 
     // Tech level increase per fracture_drive unlock.
     public const int TechLevelPerFractureDrive = 1;
+
+    // GATE.S8.RESEARCH_SUSTAIN.TWEAKS.001: Default sustain interval if tech def doesn't specify.
+    public const int DefaultSustainIntervalTicks = 60;
 }

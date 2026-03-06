@@ -4,95 +4,13 @@
 [ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
 [ext_resource type="Script" path="res://scripts/view/engine_trail.gd" id="3_engine_trail"]
 [ext_resource type="Script" path="res://scripts/audio/engine_audio.gd" id="4_engine_audio"]
+[ext_resource type="Script" path="res://addons/phantom_camera/scripts/phantom_camera_host/phantom_camera_host.gd" id="6_pcam_host"]
+[ext_resource type="Script" path="res://addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd" id="7_pcam3d"]
+[ext_resource type="PackedScene" path="res://addons/quaternius-ultimate-spaceships-pack/meshes/insurgent/insurgent_blue.tscn" id="8_ship_model"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
 radius = 1.2
 height = 5.0
-
-[sub_resource type="StandardMaterial3D" id="Mat_hull"]
-albedo_color = Color(0.25, 0.30, 0.38, 1.0)
-roughness = 0.35
-metallic = 0.7
-
-[sub_resource type="StandardMaterial3D" id="Mat_cockpit"]
-albedo_color = Color(0.15, 0.55, 0.85, 1.0)
-roughness = 0.1
-metallic = 0.9
-emission_enabled = true
-emission = Color(0.1, 0.3, 0.6, 1.0)
-emission_energy_multiplier = 0.5
-
-[sub_resource type="StandardMaterial3D" id="Mat_accent"]
-albedo_color = Color(0.45, 0.50, 0.58, 1.0)
-roughness = 0.4
-metallic = 0.6
-
-[sub_resource type="StandardMaterial3D" id="Mat_engine_housing"]
-albedo_color = Color(0.18, 0.20, 0.25, 1.0)
-roughness = 0.5
-metallic = 0.8
-
-[sub_resource type="StandardMaterial3D" id="Mat_engine_glow"]
-shading_mode = 0
-albedo_color = Color(0.2, 0.7, 1.0, 1.0)
-emission_enabled = true
-emission = Color(0.3, 0.7, 1.0, 1.0)
-emission_energy_multiplier = 4.0
-
-[sub_resource type="StandardMaterial3D" id="Mat_wing_tip"]
-albedo_color = Color(0.8, 0.2, 0.1, 1.0)
-emission_enabled = true
-emission = Color(1.0, 0.2, 0.05, 1.0)
-emission_energy_multiplier = 2.0
-
-[sub_resource type="PrismMesh" id="PrismMesh_fuselage"]
-size = Vector3(1.6, 0.6, 4.8)
-material = SubResource("Mat_hull")
-
-[sub_resource type="PrismMesh" id="PrismMesh_nose"]
-size = Vector3(0.9, 0.4, 2.2)
-material = SubResource("Mat_hull")
-
-[sub_resource type="SphereMesh" id="SphereMesh_cockpit"]
-radius = 0.35
-height = 0.5
-radial_segments = 16
-rings = 8
-material = SubResource("Mat_cockpit")
-
-[sub_resource type="BoxMesh" id="BoxMesh_wing_left"]
-size = Vector3(2.8, 0.08, 2.0)
-material = SubResource("Mat_accent")
-
-[sub_resource type="BoxMesh" id="BoxMesh_wing_right"]
-size = Vector3(2.8, 0.08, 2.0)
-material = SubResource("Mat_accent")
-
-[sub_resource type="BoxMesh" id="BoxMesh_wing_tip_l"]
-size = Vector3(0.12, 0.5, 0.6)
-material = SubResource("Mat_wing_tip")
-
-[sub_resource type="BoxMesh" id="BoxMesh_wing_tip_r"]
-size = Vector3(0.12, 0.5, 0.6)
-material = SubResource("Mat_wing_tip")
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_nacelle"]
-top_radius = 0.28
-bottom_radius = 0.35
-height = 1.8
-radial_segments = 8
-material = SubResource("Mat_engine_housing")
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_exhaust"]
-top_radius = 0.2
-bottom_radius = 0.3
-height = 0.3
-radial_segments = 8
-material = SubResource("Mat_engine_glow")
-
-[sub_resource type="BoxMesh" id="BoxMesh_dorsal_fin"]
-size = Vector3(0.06, 0.8, 1.4)
-material = SubResource("Mat_accent")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
 lifetime_randomness = 0.3
@@ -131,57 +49,16 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 
 shape = SubResource("CapsuleShape3D_hitbox")
 
 [node name="ShipVisual" type="Node3D" parent="." unique_id=990001001]
+transform = Transform3D(0.15, 0, 0, 0, 0.15, 0, 0, 0, 0.15, 0, 0, 0)
 
-[node name="Fuselage" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-mesh = SubResource("PrismMesh_fuselage")
+[node name="ShipModel" parent="ShipVisual" instance=ExtResource("8_ship_model")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
-[node name="Nose" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, -3.2)
-mesh = SubResource("PrismMesh_nose")
-
-[node name="Cockpit" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -2.5)
-mesh = SubResource("SphereMesh_cockpit")
-
-[node name="WingLeft" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 0.984808, 0.173648, 0, -0.173648, 0.984808, -2.0, -0.1, 0.4)
-mesh = SubResource("BoxMesh_wing_left")
-
-[node name="WingRight" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 0.984808, -0.173648, 0, 0.173648, 0.984808, 2.0, -0.1, 0.4)
-mesh = SubResource("BoxMesh_wing_right")
-
-[node name="WingTipLeft" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4, -0.1, 0.4)
-mesh = SubResource("BoxMesh_wing_tip_l")
-
-[node name="WingTipRight" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, -0.1, 0.4)
-mesh = SubResource("BoxMesh_wing_tip_r")
-
-[node name="DorsalFin" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0.8)
-mesh = SubResource("BoxMesh_dorsal_fin")
-
-[node name="NacelleLeft" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -1.2, -0.15, 2.0)
-mesh = SubResource("CylinderMesh_nacelle")
-
-[node name="NacelleRight" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.2, -0.15, 2.0)
-mesh = SubResource("CylinderMesh_nacelle")
-
-[node name="ExhaustLeft" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -1.2, -0.15, 3.0)
-mesh = SubResource("CylinderMesh_exhaust")
-
-[node name="ExhaustRight" type="MeshInstance3D" parent="ShipVisual"]
-transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.2, -0.15, 3.0)
-mesh = SubResource("CylinderMesh_exhaust")
+[node name="Muzzle" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3.5)
 
 [node name="EngineTrail" type="GPUParticles3D" parent="ShipVisual" unique_id=990001005]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 3.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 1.2)
 amount = 48
 lifetime = 0.6
 explosiveness = 0.0
@@ -195,6 +72,17 @@ script = ExtResource("3_engine_trail")
 [node name="Camera3D" type="Camera3D" parent="CameraMount" unique_id=1607566704]
 script = ExtResource("2_followcam")
 target_path = NodePath("../..")
+
+[node name="PhantomCameraHost" type="Node" parent="CameraMount/Camera3D"]
+process_priority = 300
+process_physics_priority = 300
+script = ExtResource("6_pcam_host")
+
+[node name="PhantomCamera3D" type="Node3D" parent="CameraMount"]
+top_level = true
+script = ExtResource("7_pcam3d")
+priority = 10
+follow_mode = 2
 
 [node name="EngineAudio" type="AudioStreamPlayer3D" parent="."]
 script = ExtResource("4_engine_audio")

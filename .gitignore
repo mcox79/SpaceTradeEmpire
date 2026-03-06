@@ -83,3 +83,4 @@ docs/generated/*
 
 
 .vscodesettings.json
+*.blend

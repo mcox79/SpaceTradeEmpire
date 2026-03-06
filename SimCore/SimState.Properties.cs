@@ -247,6 +247,9 @@ public partial class SimState
     [JsonInclude] public Dictionary<string, Planet> Planets { get; private set; } = new(StringComparer.Ordinal);
     [JsonInclude] public Dictionary<string, Star> Stars { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.S12.PROGRESSION.STATS.001: Player progression statistics.
+    [JsonInclude] public PlayerStats PlayerStats { get; set; } = new();
+
     // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
     [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
 

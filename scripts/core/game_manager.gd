@@ -61,6 +61,16 @@ var _sfx_dock_chime: AudioStreamPlayer = null
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: Pause state
 var _paused: bool = false
 
+# GATE.S12.UX_POLISH.ONBOARDING.001: First-dock onboarding toasts
+var _onboarding_shown: bool = false
+
+# GATE.S11.GAME_FEEL.TOAST_EVENTS.001: Toast event polling state
+var _toast_poll_timer: float = 0.0
+const TOAST_POLL_INTERVAL: float = 2.0
+var _last_research_tech_id: String = ""
+var _last_research_active: bool = false
+var _last_player_node_id: String = ""
+
 # Proof helper: used by headless tests to verify the local scene continues ticking
 # while the galaxy overlay is open. Do not print this value.
 var time_accumulator: float = 0.0
@@ -76,6 +86,14 @@ var _prev_camera: Camera3D
 var _station_menu: Node
 var _hero_trade_menu: Node
 var _discovery_panel: Node
+# GATE.S10.EMPIRE.SHELL.001: Empire Dashboard (C# node, created by SimBridge._Ready)
+var _empire_dashboard: Node = null
+
+# GATE.S11.GAME_FEEL.KEYBINDS.001: Help overlay (H key)
+var _keybinds_help: Node = null
+
+# GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001: Combat log panel (L key)
+var _combat_log_panel: Node = null
 
 func _ready():
 	print('SUCCESS: Global Game Manager initialized.')
@@ -135,6 +153,23 @@ func _ready():
 	if _galaxy_view and _galaxy_view.has_method("SetOverlayOpenV0"):
 		_galaxy_view.call("SetOverlayOpenV0", false)
 
+	# GATE.S12.UX_POLISH.ONBOARDING.001: Show welcome toasts on game start (delayed).
+	_show_onboarding_toasts_deferred_v0()
+
+func _show_onboarding_toasts_deferred_v0() -> void:
+	# Only the autoload instance shows onboarding (scene-child returns).
+	if get_parent() != get_tree().root:
+		return
+	if _onboarding_shown:
+		return
+	_onboarding_shown = true
+	# Delay so the screen has loaded and toasts are visible.
+	await get_tree().create_timer(2.0).timeout
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Welcome, Captain! Fly to a station to trade.", 6.0)
+		toast_mgr.call("show_toast", "Tab = Galaxy Map, E = Empire, H = Help", 8.0)
+
 func _process(delta):
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
@@ -176,8 +211,17 @@ func _process(delta):
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll player HP each frame for death detection
 	_check_player_death_v0()
 
+	# GATE.S11.GAME_FEEL.TOAST_EVENTS.001: poll research + events for toast notifications
+	_toast_poll_timer += float(delta)
+	if _toast_poll_timer >= TOAST_POLL_INTERVAL:
+		_toast_poll_timer = 0.0
+		_poll_toast_events_v0()
+
 
 func _unhandled_input(event):
+	# Only the autoload instance handles input (avoid dual GameManager double-fire).
+	if get_parent() != get_tree().root:
+		return
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: R restarts scene; all other input frozen when dead
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _player_dead:
@@ -189,6 +233,19 @@ func _unhandled_input(event):
 			return
 		if event.keycode == KEY_TAB:
 			toggle_galaxy_map_overlay_v0()
+		if event.keycode == KEY_E:
+			_toggle_empire_dashboard_v0()
+		if event.keycode == KEY_H:
+			_toggle_keybinds_help_v0()
+		if event.keycode == KEY_L:
+			_toggle_combat_log_v0()
+
+# GATE.S10.EMPIRE.SHELL.001: Toggle empire dashboard panel (created by SimBridge in C#).
+func _toggle_empire_dashboard_v0():
+	if _empire_dashboard == null:
+		_empire_dashboard = get_tree().root.find_child("EmpireDashboard", true, false)
+	if _empire_dashboard != null:
+		_empire_dashboard.visible = not _empire_dashboard.visible
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -196,8 +253,12 @@ func toggle_market():
 
 
 func toggle_galaxy_map_overlay_v0():
-	# Guard: only the scene-child GameManager owns the overlay nodes.
-	# The autoload instance has null refs and must not interfere with camera state.
+	# Lazy lookup: autoload instance won't find overlay nodes in _ready() because
+	# its parent is /root. Defer lookup to first use via scene tree search.
+	if not _galaxy_overlay_layer:
+		_galaxy_overlay_layer = get_tree().root.find_child("GalaxyOverlay", true, false)
+		_galaxy_overlay_camera = get_tree().root.find_child("GalaxyOverlayCamera", true, false)
+		_galaxy_view = get_tree().root.find_child("GalaxyView", true, false)
 	if not _galaxy_overlay_layer:
 		return
 	galaxy_overlay_open = not galaxy_overlay_open
@@ -381,7 +442,9 @@ func _fire_turret_v0() -> void:
 		return
 	if _hero_body == null or not is_instance_valid(_hero_body):
 		return
-	_spawn_bullet_v0(_hero_body.global_position, target.global_position, true, "")
+	var muzzle = _hero_body.get_node_or_null("Muzzle")
+	var fire_pos = muzzle.global_position if muzzle else _hero_body.global_position
+	_spawn_bullet_v0(fire_pos, target.global_position, true, "")
 	_turret_cooldown = TURRET_COOLDOWN_SEC
 	if _sfx_turret_fire:
 		_sfx_turret_fire.play()
@@ -691,3 +754,68 @@ func _toggle_pause_v0() -> void:
 	if hud and hud.has_method("toggle_pause_menu_v0"):
 		hud.call("toggle_pause_menu_v0", _paused)
 	print("UUIR|PAUSE|" + str(_paused))
+
+# GATE.S11.GAME_FEEL.TOAST_EVENTS.001: Poll bridge for research/travel state changes and show toasts.
+func _poll_toast_events_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr == null:
+		return
+
+	# Research completion detection
+	if bridge.has_method("GetResearchStatusV0"):
+		var status: Dictionary = bridge.call("GetResearchStatusV0")
+		var is_researching: bool = status.get("researching", false)
+		var tech_id: String = str(status.get("tech_id", ""))
+
+		# Detect research completion: was researching, now not (or tech changed)
+		if _last_research_active and not is_researching and not _last_research_tech_id.is_empty():
+			toast_mgr.call("show_toast", "Research complete: %s!" % _last_research_tech_id, 5.0)
+		# Detect new research started
+		elif not _last_research_active and is_researching and not tech_id.is_empty():
+			toast_mgr.call("show_toast", "Researching: %s" % tech_id, 3.0)
+
+		_last_research_active = is_researching
+		_last_research_tech_id = tech_id
+
+	# Node arrival detection (player moved to a new system)
+	if bridge.has_method("GetPlayerSnapshotV0"):
+		var snap: Dictionary = bridge.call("GetPlayerSnapshotV0")
+		var node_id: String = str(snap.get("location", ""))
+		if not node_id.is_empty() and node_id != _last_player_node_id and not _last_player_node_id.is_empty():
+			var display_name: String = node_id
+			if bridge.has_method("GetNodeDisplayNameV0"):
+				display_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
+			toast_mgr.call("show_toast", "Arrived at %s" % display_name, 2.5)
+		_last_player_node_id = node_id
+
+# GATE.S11.GAME_FEEL.KEYBINDS.001: Toggle keybinds help overlay (H key).
+func _toggle_keybinds_help_v0() -> void:
+	if _keybinds_help == null:
+		_keybinds_help = get_tree().root.find_child("KeybindsHelp", true, false)
+	if _keybinds_help == null:
+		# Lazy-create if not found (autoload or scene child)
+		var script = load("res://scripts/ui/keybinds_help.gd")
+		if script:
+			_keybinds_help = script.new()
+			_keybinds_help.name = "KeybindsHelp"
+			get_tree().root.add_child(_keybinds_help)
+	if _keybinds_help != null:
+		_keybinds_help.visible = not _keybinds_help.visible
+
+# GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001: Toggle combat log panel (L key).
+func _toggle_combat_log_v0() -> void:
+	if _combat_log_panel == null:
+		_combat_log_panel = get_tree().root.find_child("CombatLogPanel", true, false)
+	if _combat_log_panel == null:
+		var script = load("res://scripts/ui/combat_log_panel.gd")
+		if script:
+			_combat_log_panel = script.new()
+			_combat_log_panel.name = "CombatLogPanel"
+			get_tree().root.add_child(_combat_log_panel)
+	if _combat_log_panel != null:
+		_combat_log_panel.visible = not _combat_log_panel.visible
+		if _combat_log_panel.visible and _combat_log_panel.has_method("refresh_v0"):
+			_combat_log_panel.call("refresh_v0")

@@ -15,6 +15,12 @@ public sealed class TechState
     [JsonInclude] public long NextEventSeq { get; set; } = 1;
     [JsonInclude] public int TechLevel { get; set; } = 0;
 
+    // GATE.S8.RESEARCH_SUSTAIN.MODEL.001: Production-sustained research fields.
+    [JsonInclude] public string ResearchNodeId { get; set; } = "";
+    [JsonInclude] public int SustainAccumulatorTicks { get; set; } = 0;
+    [JsonInclude] public int StallTicks { get; set; } = 0;
+    [JsonInclude] public string StallReason { get; set; } = "";
+
     [JsonIgnore]
     public bool IsResearching => !string.IsNullOrEmpty(CurrentResearchTechId);
 }

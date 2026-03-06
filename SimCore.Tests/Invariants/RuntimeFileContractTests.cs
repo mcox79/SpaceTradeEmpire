@@ -424,8 +424,7 @@ public sealed class RuntimeFileContractTests
         // Keep minimal and explicit. Empty by default.
         var allowlistedForbiddenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            // Example:
-            // "third_party/tools/some_allowed_tool.exe",
+            "assets/blender/player_ship.blend",
         };
 
         // Backup%junk patterns (should not creep into normal working tree).

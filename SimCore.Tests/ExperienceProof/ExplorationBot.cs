@@ -89,6 +89,8 @@ public sealed class ExplorationBot
     // Level 5: Industry/maintenance — repair tracking
     private int _repairsAttempted, _repairsSucceeded;
     private long _repairCreditsSpent;
+    private int _supplyRepairsAttempted, _supplyRepairsSucceeded;
+    private int _supplyUnitsSpent;
 
     // Level 6: Discovery tracking
     private int _discoveriesSeen, _discoveriesScanned;
@@ -186,6 +188,9 @@ public sealed class ExplorationBot
             RepairsAttempted = _repairsAttempted,
             RepairsSucceeded = _repairsSucceeded,
             RepairCreditsSpent = _repairCreditsSpent,
+            SupplyRepairsAttempted = _supplyRepairsAttempted,
+            SupplyRepairsSucceeded = _supplyRepairsSucceeded,
+            SupplyUnitsSpent = _supplyUnitsSpent,
             WeaponInstalled = _weaponInstalled,
             RefitAttempts = _refitAttempts,
             RefitSuccesses = _refitSuccesses,
@@ -804,12 +809,14 @@ public sealed class ExplorationBot
             }
 
             // Find next researchable tech
+            // GATE.S8.RESEARCH_SUSTAIN.BOT.001: Pass current node for goods-sustained research.
+            var researchNodeId = State.PlayerLocationNodeId ?? "";
             foreach (var tech in TechContentV0.AllTechs)
             {
                 if (State.Tech.UnlockedTechIds.Contains(tech.TechId)) continue;
                 if (tech.CreditCost > State.PlayerCredits) continue;
 
-                var result = ResearchSystem.StartResearch(State, tech.TechId);
+                var result = ResearchSystem.StartResearch(State, tech.TechId, researchNodeId);
                 if (result.Success)
                 {
                     _researchStarted++;
@@ -881,17 +888,34 @@ public sealed class ExplorationBot
 
     private void TryRepairActions(int tick)
     {
-        // Only try repairs every 100 action cycles to avoid draining credits
-        if (tick % (ActEveryNTicks * 100) != 0) return;
+        // Try repairs every 10 action cycles (every 50 ticks) — frequent enough
+        // to actually exercise the maintenance system during a 2000-tick run.
+        if (tick % (ActEveryNTicks * 10) != 0) return;
 
-        // Find degraded industry site at current node
         var loc = State.PlayerLocationNodeId;
         if (string.IsNullOrEmpty(loc)) return;
 
         foreach (var site in State.IndustrySites.Values)
         {
             if (site.NodeId != loc) continue;
-            if (site.HealthBps >= 5000) continue; // only repair if below 50%
+
+            // Supply repair: try proactively while supply exists, even at minor damage.
+            // Supply depletes over time and never replenishes, so use it early.
+            if (site.HealthBps < 10000 && site.SupplyLevel >= 2)
+            {
+                int unitsToUse = Math.Min(site.SupplyLevel, 4);
+                _supplyRepairsAttempted++;
+                var supplyResult = MaintenanceSystem.RepairWithSupply(State, site.Id, unitsToUse);
+                if (supplyResult.Success)
+                {
+                    _supplyRepairsSucceeded++;
+                    _supplyUnitsSpent += unitsToUse;
+                    continue; // repaired this site, move to next
+                }
+            }
+
+            // Credit repair: only when health drops below 80%
+            if (site.HealthBps >= 8000) continue;
 
             int cost = MaintenanceSystem.GetRepairCost(site);
             if (cost > State.PlayerCredits) continue;
@@ -903,7 +927,7 @@ public sealed class ExplorationBot
                 _repairsSucceeded++;
                 _repairCreditsSpent += result.CreditsCost;
             }
-            break; // one repair per check
+            break; // one credit repair per check to preserve credits
         }
     }
 
@@ -1095,29 +1119,39 @@ public sealed class ExplorationBot
 
     private void AnalyzeRepairs()
     {
-        // Check if any sites degraded enough to warrant repair
         int degradedCount = 0;
         foreach (var site in State.IndustrySites.Values)
         {
             if (site.HealthBps < 5000) degradedCount++;
         }
 
-        if (degradedCount > 0 && _repairsAttempted == 0 && TickBudget >= 1000)
+        int totalRepairAttempts = _repairsAttempted + _supplyRepairsAttempted;
+
+        if (degradedCount > 0 && totalRepairAttempts == 0 && TickBudget >= 1000)
         {
             AddFlag("REPAIR_NEVER_ATTEMPTED", "INFO", -1,
                 $"{degradedCount} industry sites below 50% health but bot never attempted repair. " +
-                "Bot may not have visited degraded sites, or credits were too low.",
-                "The bot repairs sites at its current node when health < 50%. " +
-                "Check: bot travel patterns, MaintenanceSystem.GetRepairCost. " +
+                "Bot may not have visited degraded sites, or credits/supply were too low.",
+                "The bot repairs sites at its current node when health < 80%. " +
+                "Check: bot travel patterns, site.SupplyLevel. " +
                 "Files: SimCore/Systems/MaintenanceSystem.cs");
         }
 
         if (_repairsAttempted > 0 && _repairsSucceeded == 0)
         {
-            AddFlag("REPAIR_ALWAYS_FAILED", "WARNING", -1,
-                $"Bot attempted {_repairsAttempted} repair(s) but all failed.",
+            AddFlag("CREDIT_REPAIR_ALWAYS_FAILED", "WARNING", -1,
+                $"Bot attempted {_repairsAttempted} credit repair(s) but all failed.",
                 "MaintenanceSystem.RepairSite may be rejecting repairs. " +
                 "Check: credit deduction, health cap, site validation. " +
+                "Files: SimCore/Systems/MaintenanceSystem.cs");
+        }
+
+        if (_supplyRepairsAttempted > 0 && _supplyRepairsSucceeded == 0)
+        {
+            AddFlag("SUPPLY_REPAIR_ALWAYS_FAILED", "WARNING", -1,
+                $"Bot attempted {_supplyRepairsAttempted} supply repair(s) but all failed.",
+                "MaintenanceSystem.RepairWithSupply may be rejecting repairs. " +
+                "Check: supply levels, BPS per unit, health cap. " +
                 "Files: SimCore/Systems/MaintenanceSystem.cs");
         }
     }
@@ -1564,6 +1598,9 @@ public sealed class BotReport
     public int RepairsAttempted { get; init; }
     public int RepairsSucceeded { get; init; }
     public long RepairCreditsSpent { get; init; }
+    public int SupplyRepairsAttempted { get; init; }
+    public int SupplyRepairsSucceeded { get; init; }
+    public int SupplyUnitsSpent { get; init; }
     public bool WeaponInstalled { get; init; }
     public int RefitAttempts { get; init; }
     public int RefitSuccesses { get; init; }
@@ -1582,7 +1619,7 @@ public sealed class BotReport
         sb.AppendLine($"Research: {ResearchCompleted} completed, techs: [{string.Join(", ", TechsResearched.OrderBy(t => t))}]");
         sb.AppendLine($"Combat: {CombatsStarted} fights, {CombatsWon} won, {CombatsLost} lost");
         sb.AppendLine($"Refit: {RefitSuccesses}/{RefitAttempts} installs, weapon equipped: {WeaponInstalled}");
-        sb.AppendLine($"Repairs: {RepairsSucceeded}/{RepairsAttempted} repairs, {RepairCreditsSpent}cr spent");
+        sb.AppendLine($"Repairs: {RepairsSucceeded}/{RepairsAttempted} credit, {SupplyRepairsSucceeded}/{SupplyRepairsAttempted} supply ({SupplyUnitsSpent} units), {RepairCreditsSpent}cr spent");
 
         if (Flags.Count > 0)
         {

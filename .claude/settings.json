@@ -73,7 +73,27 @@
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --no-build --filter \"TweakRoutingGuard\")",
       "WebFetch(domain:poly.pizza)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"TotalGoodsUnits_DoNotExplode\")",
-      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"TotalGoodsUnits\")"
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"TotalGoodsUnits\")",
+      "Bash(pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/tools/Validate-Gates.ps1)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"CombatResolution|NpcTrade|PressureLadder|PressureSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"CancelJob\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TweakRoutingGuard|CancelJob\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"ProcessNpcTrade_FleetDeliversCargo_MarketGrows\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"SecurityLaneSystem|PressureSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"SecurityLaneSystem|PressureSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"EnforceConsequences_CollapseTier\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"SecurityLaneSystem|PressureSystem|TweakRoutingGuard\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"SecurityLaneSystem|PressureSystem|TweakRoutingGuard\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"NpcTrade_\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"SecurityLaneSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Economy_\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"Economy_\")",
+      "Bash(xargs cat)",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MaintenanceSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"MaintenanceSystem\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"LongRun_10000Ticks_Matches_Golden|Simulation_Is_Deterministic\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"Bot_ExercisesSupplyRepair\")",
+      "Bash(\"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe\" --background --python \"c:/Users/marsh/Documents/Space Trade Empire/assets/blender/generate_player_ship.py\")"
     ],
     "ask": [
       "Bash(git push*)"

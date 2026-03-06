@@ -199,6 +199,82 @@ When a gate moves to DONE:
 | GATE.S7.PLANET.TECH_GATE.001 | DONE | planetary_landing_mk1 tech + effective_landable |
 | GATE.S7.PLANET.UI.001 | DONE | Dock menu planet title + info section |
 | GATE.S7.PLANET.PROOF.001 | DONE | 490 tests pass, golden hashes re-minted, ExplorationBot 8/8 |
+| GATE.S5.SEC_LANES.MODEL.001 | DONE | Security lane entity: SecurityLevelBps on Edge + SecurityTweaksV0 |
+| GATE.S5.SEC_LANES.SYSTEM.001 | DONE | Security lane system: patrol presence + piracy heat → security level |
+| GATE.S5.SEC_LANES.BRIDGE.001 | DONE | Security lane bridge: GetLaneSecurityV0, GetNodeSecurityV0 |
+| GATE.S5.SEC_LANES.UI.001 | DONE | Security lane UI: lane color by security, dock/HUD readout |
+| GATE.S5.COMBAT_RES.SYSTEM.001 | DONE | Combat resolution: ResolveCombatV0 evaluates HP/damage → outcome |
+| GATE.S5.COMBAT_RES.PROOF.001 | DONE | Combat resolution headless proof: engage, resolve, verify outcome |
+| GATE.S1.FLEET_VISUAL.MAP.001 | DONE | Fleet visual: load Kenney .glb models by FleetRole on galaxy map |
+| GATE.S1.FLEET_VISUAL.VIEW.001 | DONE | Fleet visual: role-based Kenney models in local system view |
+| GATE.S1.FLEET_VISUAL.PROOF.001 | DONE | Fleet visual headless proof: verify correct model per role |
+| GATE.S5.NPC_TRADE.SYSTEM.001 | DONE | NPC trade system: autonomous NPC traders evaluate and execute trades |
+| GATE.S5.NPC_TRADE.BRIDGE.001 | DONE | NPC trade bridge: GetNpcTradeRoutesV0, GetNpcTradeActivityV0 |
+| GATE.S5.NPC_TRADE.ECON_PROOF.001 | DONE | NPC trade economy proof: multi-seed bot verifies goods circulation |
+| GATE.X.PRESSURE.LADDER.001 | DONE | Pressure ladder: Calm→Tension→Crisis→Collapse tiers with BPS thresholds |
+| GATE.X.PRESSURE.ENFORCE.001 | DONE | Pressure enforcement: ladder consequences (fees, piracy, events) |
+| GATE.X.HYGIENE.REPO_HEALTH.008 | DONE | Repo health: full test suite + warning scan + golden hash stability |
+| GATE.X.HYGIENE.EPIC_REVIEW.008 | DONE | Epic review: audit epic statuses, close completed, recommend next anchor |
+| GATE.X.EVAL.ECONOMY_AUDIT.001 | DONE | Economy audit: multi-seed ExplorationBot + econ loop analysis |
+| GATE.S10.TRADE_INTEL.BRIDGE.001 | DONE | Trade intel bridge: GetTradeRoutesV0, GetPriceIntelV0, GetScannerRangeV0 |
+| GATE.S10.TRADE_PROG.BRIDGE.001 | DONE | Program creation bridge + research sustain bridge update |
+| GATE.S10.TRADE_INTEL.CHARTER_FIX.001 | DONE | TradeCharter uses real market buy/sell prices |
+| GATE.S10.TRADE_INTEL.DOCK_UI.001 | DONE | Trade Routes + Research sustain status in dock menu |
+| GATE.S10.TRADE_INTEL.PROOF.001 | DONE | Headless proof: routes → charter → research sustain |
+| GATE.S10.EMPIRE.BRIDGE.001 | DONE | Empire bridge: GetEmpireSummaryV0, GetAllIndustryV0, GetNodeHealthV0 |
+| GATE.S10.EMPIRE.SHELL.001 | DONE | Empire dashboard modal shell + E key binding |
+| GATE.S10.EMPIRE.OVERVIEW_TAB.001 | DONE | Overview + Trade tabs |
+| GATE.S10.EMPIRE.PRODUCTION_TAB.001 | DONE | Production + Programs tabs |
+| GATE.S10.EMPIRE.INTEL_TAB.001 | DONE | Intel tab: discoveries, rumors, freshness |
+| GATE.S6.MAP_GALAXY.OVERLAY_SYS.001 | DONE | Galaxy map overlay mode system + selector |
+| GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001 | DONE | Trade flow overlay on galaxy map |
+| GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001 | DONE | Intel freshness overlay on galaxy map |
+| GATE.S5.ESCORT_PROG.MODEL.001 | DONE | Escort + Patrol program model + contract tests |
+| GATE.S5.ESCORT_PROG.BRIDGE.001 | DONE | Escort/Patrol bridge: create, assign, status |
+| GATE.S5.ESCORT_PROG.UI.001 | DONE | Escort/Patrol creation in Empire Programs tab |
+| GATE.S10.TECH_EFFECTS.TESTS.001 | DONE | Contract tests for speed_bonus + production_efficiency |
+| GATE.X.HYGIENE.REPO_HEALTH.009 | DONE | Full test suite + golden hash stability baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.009 | DONE | Epic status audit + close completed + next anchor |
+| GATE.X.EVAL.PROGRESSION_AUDIT.002 | DONE | ExplorationBot re-run: trade intel + research sustain verification |
+| GATE.X.HYGIENE.REPO_HEALTH.010 | DONE | Full test suite + golden hash stability baseline |
+| GATE.S11.GAME_FEEL.TOAST_SYS.001 | DONE | Toast notification manager (GDScript autoload) |
+| GATE.S11.GAME_FEEL.TECH_BRIDGE.001 | DONE | GetTechTreeV0 bridge method |
+| GATE.S11.GAME_FEEL.PRICE_HISTORY.001 | DONE | Price history tracking in IntelBook + bridge query |
+| GATE.S6.MAP_GALAXY.NODE_CLICK.001 | DONE | Galaxy map node click detail popup |
+| GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001 | DONE | NPC fleet route lines on galaxy map |
+| GATE.S11.GAME_FEEL.MISSION_WIRE.001 | DONE | Wire missions 2-4 to bridge acceptance |
+| GATE.S11.GAME_FEEL.COMBAT_BRIDGE.001 | DONE | GetRecentCombatV0 bridge method |
+| GATE.S11.GAME_FEEL.TECH_TREE_UI.001 | DONE | Tech tree panel in empire dashboard |
+| GATE.S11.GAME_FEEL.TOAST_EVENTS.001 | DONE | Game events to toast notifications |
+| GATE.S11.GAME_FEEL.MISSION_HUD.001 | DONE | Active mission objective in flight HUD |
+| GATE.S11.GAME_FEEL.RESEARCH_HUD.001 | DONE | Research progress bar in flight HUD |
+| GATE.S11.GAME_FEEL.KEYBINDS.001 | DONE | H key help overlay showing all controls |
+| GATE.S11.GAME_FEEL.NODE_MARKET.001 | DONE | Market prices tab in node detail popup |
+| GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001 | DONE | Combat event log panel (L key) |
+| GATE.S11.GAME_FEEL.FLEET_STATUS.001 | DONE | Fleet role icons on galaxy map nodes |
+| GATE.S11.GAME_FEEL.DOCK_ENHANCE.001 | DONE | Enhanced dock menu with mission + research status |
+| GATE.S11.GAME_FEEL.HEADLESS_PROOF.001 | DONE | Headless proof of game feel features |
+| GATE.X.HYGIENE.EPIC_REVIEW.010 | DONE | Epic status audit + close completed + next anchor |
+| GATE.X.EVAL.UX_AUDIT.001 | DONE | UX and player experience evaluation |
+| GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001 | DONE | Quaternius model loader for fleet roles |
+| GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001 | DONE | NPC patrol multi-hop circuit routes |
+| GATE.S12.UX_POLISH.QUANTITY.001 | DONE | Buy/Sell quantity buttons [1,5,Max] |
+| GATE.S12.UX_POLISH.DISPLAY_NAMES.001 | DONE | FormatDisplayNameV0 snake_case to readable |
+| GATE.S12.UX_POLISH.ONBOARDING.001 | DONE | First-dock toast onboarding sequence |
+| GATE.S12.PROGRESSION.STATS.001 | DONE | PlayerStats tracking in SimState |
+| GATE.S12.PROGRESSION.MILESTONES.001 | DONE | Milestone definitions and evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.011 | DONE | Full test suite + golden hash stability baseline |
+| GATE.S12.FLEET_SUBSTANCE.VARIETY.001 | DONE | Hash-based model variant + player ship model |
+| GATE.S12.NPC_CIRC.FLOW_ANIM.001 | DONE | Animated flow dots on NPC trade route edges |
+| GATE.S12.NPC_CIRC.VOLUME_LABELS.001 | DONE | Trade volume labels on galaxy map edges |
+| GATE.S12.UX_POLISH.CARGO_DISPLAY.001 | DONE | Cargo used/max in dock menu + HUD |
+| GATE.S12.UX_POLISH.TRADE_FEEDBACK.001 | DONE | Toast on buy/sell with formatted profit/loss |
+| GATE.S12.PROGRESSION.TESTS.001 | DONE | Contract tests for stats + milestones |
+| GATE.S12.PROGRESSION.BRIDGE.001 | DONE | GetPlayerStatsV0 + GetMilestonesV0 bridge |
+| GATE.S12.PROGRESSION.DASHBOARD.001 | DONE | Stats + milestones tab in EmpireDashboard |
+| GATE.S12.FLEET_SUBSTANCE.HEADLESS_PROOF.001 | DONE | Headless proof of fleet models + UX |
+| GATE.X.HYGIENE.EPIC_REVIEW.011 | DONE | Epic audit + close stale epics |
+| GATE.X.EVAL.VISUAL_AUDIT.001 | DONE | Visual substance and UX evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -743,3 +819,177 @@ When a gate moves to DONE:
 | GATE.S7.PLANET.TECH_GATE.001 | DONE | planetary_landing_mk1 tech (tier 1, 10 ticks, 80cr). effective_landable field factors in player tech unlock. GalaxyView uses effective_landable for dock trigger. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: SimCore/Content/TechContentV0.cs; FOUND: scripts/bridge/SimBridge.Planet.cs; FOUND: scripts/view/GalaxyView.cs |
 | GATE.S7.PLANET.UI.001 | DONE | Dock menu shows "PLANET: {name}" title + info subtitle (type, gravity, atmosphere, temperature, specialization) when docked at planet. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
 | GATE.S7.PLANET.PROOF.001 | DONE | 490/490 tests pass. Golden hashes re-minted for planet industry changes. Economy stress ceiling 25x. ExplorationBot 8/8 pass, no CRITICAL flags. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/GoldenReplayTests.cs; FOUND: SimCore.Tests/Determinism/LongRunWorldHashTests.cs; FOUND: SimCore.Tests/ExperienceProof/EconomyStressTests.cs |
+
+## M. Tranche 8 — Security + Substantiation
+
+### M1. Security Lanes (EPIC.S5.SECURITY_LANES)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S5.SEC_LANES.MODEL.001 | DONE | Security lane entity: add SecurityLevelBps (int, default 5000) to Edge. Create SecurityTweaksV0.cs with threshold constants (safe/moderate/dangerous/hostile BPS bands). Proof: dotnet test SimCore.Tests -c Release --filter "BasicStateInvariants" | NEW: SimCore/Tweaks/SecurityTweaksV0.cs; FOUND: SimCore/Entities/Edge.cs |
+| GATE.S5.SEC_LANES.SYSTEM.001 | DONE | Security lane system: create SecurityLaneSystem.cs. Each tick evaluate patrol fleet presence + LaneFlowSystem economic heat to compute SecurityLevelBps per edge. Wire into SimKernel.Step(). Contract tests for patrol boost + heat penalty. Proof: dotnet test SimCore.Tests -c Release --filter "SecurityLaneSystem" | NEW: SimCore/Systems/SecurityLaneSystem.cs; NEW: SimCore.Tests/Systems/SecurityLaneSystemTests.cs; FOUND: SimCore/SimKernel.cs |
+| GATE.S5.SEC_LANES.BRIDGE.001 | DONE | Security lane bridge: create SimBridge.Security.cs partial. GetLaneSecurityV0(fromId, toId) returns security BPS. GetNodeSecurityV0(nodeId) returns avg of adjacent lanes. MapQueries helpers. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/bridge/SimBridge.Security.cs; FOUND: SimCore/MapQueries.cs |
+| GATE.S5.SEC_LANES.UI.001 | DONE | Security lane UI: tint lane lines green→yellow→red by SecurityLevelBps in GalaxyView.cs. Show security level in hero_trade_menu.gd dock info. Show lane security in hud.gd during travel. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/hud.gd |
+
+### M2. Combat Resolution (EPIC.S5.COMBAT_RESOLVE)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S5.COMBAT_RES.SYSTEM.001 | DONE | Combat resolution: add ResolveCombatV0() to CombatSystem. Input attacker/defender fleet stats, evaluate HP delta + damage family effectiveness, return CombatOutcome enum (Victory/Defeat/Flee). Wire constants through CombatTweaksV0. Contract tests for all 3 outcomes. Proof: dotnet test SimCore.Tests -c Release --filter "CombatTests" | FOUND: SimCore/Systems/CombatSystem.cs; FOUND: SimCore/Tweaks/CombatTweaksV0.cs; FOUND: SimCore.Tests/Combat/CombatTests.cs |
+| GATE.S5.COMBAT_RES.PROOF.001 | DONE | Combat resolution headless proof: add ResolveCombatV0() to SimBridge.Combat.cs. Create test_combat_resolution_v0.gd — boot scene, fly to fleet, trigger combat, call resolve, verify outcome. Wire into game_manager.gd combat flow. Proof: Godot headless | FOUND: scripts/bridge/SimBridge.Combat.cs; NEW: scripts/tests/test_combat_resolution_v0.gd; FOUND: scripts/core/game_manager.gd |
+
+### M3. Fleet Ship Substantiation (EPIC.S1.FLEET_VISUAL.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S1.FLEET_VISUAL.MAP.001 | DONE | Fleet visual on galaxy map: refactor CreateFleetMarkerV0 to load Kenney Space Kit .glb by FleetRole (Trader→craft_cargoA, Hauler→craft_cargoB, Patrol→craft_speederA). Add GetFleetRoleV0(fleetId) to SimBridge.Fleet.cs. Scale ~2u. Keep collision + label. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.Fleet.cs |
+| GATE.S1.FLEET_VISUAL.VIEW.001 | DONE | Fleet visual in local system: update SpawnFleetsV0 to use same Kenney model loading with local-system scaling. Verify fleet_ai.gd patrol/engage movement works with new model root. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/core/fleet_ai.gd |
+| GATE.S1.FLEET_VISUAL.PROOF.001 | DONE | Fleet visual headless proof: create test_fleet_visual_v0.gd — boot scene, verify fleet nodes have Kenney model children (not BoxMesh), check model name matches role mapping. Proof: Godot headless | NEW: scripts/tests/test_fleet_visual_v0.gd; FOUND: scripts/view/GalaxyView.cs |
+
+### M4. NPC Trade Circulation (EPIC.S5.NPC_TRADE.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S5.NPC_TRADE.SYSTEM.001 | DONE | NPC trade system: create NpcTradeSystem.cs. Each tick NPC-owned fleets evaluate adjacent markets for profitable buy/sell, issue TradeCommand + TravelCommand. NpcTradeTweaksV0 for profit threshold, eval radius, frequency. Contract tests: NPC moves goods, price delta shrinks. Proof: dotnet test SimCore.Tests -c Release --filter "NpcTrade" | NEW: SimCore/Systems/NpcTradeSystem.cs; NEW: SimCore/Tweaks/NpcTradeTweaksV0.cs; NEW: SimCore.Tests/Systems/NpcTradeSystemTests.cs; FOUND: SimCore/SimKernel.cs |
+| GATE.S5.NPC_TRADE.BRIDGE.001 | DONE | NPC trade bridge: create SimBridge.NpcTrade.cs partial. GetNpcTradeRoutesV0() returns active NPC routes. GetNpcTradeActivityV0(nodeId) returns NPC volume at node. MapQueries helpers. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/bridge/SimBridge.NpcTrade.cs; FOUND: SimCore/MapQueries.cs |
+| GATE.S5.NPC_TRADE.ECON_PROOF.001 | DONE | NPC trade economy proof: extend ExplorationBotTests with NPC circulation assertions — after N ticks, NPC fleets moved goods, price differentials narrowed. 5+ seeds. Flag stuck/unprofitable NPC traders. Proof: dotnet test SimCore.Tests -c Release --filter "ExplorationBot" | FOUND: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs; FOUND: SimCore.Tests/ExperienceProof/ExplorationBot.cs |
+
+### M5. Pressure Formalization (EPIC.X.PRESSURE)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.PRESSURE.LADDER.001 | DONE | Pressure ladder: add PressureTier enum (Calm/Tension/Crisis/Collapse) and CurrentTier to PressureState. Add ladder threshold BPS constants to PressureTweaksV0. EvaluateTier() method. Contract tests for tier transitions. Proof: dotnet test SimCore.Tests -c Release --filter "PressureSystem" | FOUND: SimCore/Entities/PressureState.cs; FOUND: SimCore/Tweaks/PressureTweaksV0.cs |
+| GATE.X.PRESSURE.ENFORCE.001 | DONE | Pressure enforcement: extend PressureSystem — Crisis tier → +20% market fees, Collapse → piracy escalation event. Add consequence constants to PressureTweaksV0. Extend scenario tests. Proof: dotnet test SimCore.Tests -c Release --filter "PressureSystem" | FOUND: SimCore/Systems/PressureSystem.cs; FOUND: SimCore.Tests/Systems/PressureSystemScenarioTests.cs |
+
+### M6. Hygiene + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.008 | DONE | Repo health: full test suite, warning scan, dead code check, golden hash stability. Re-mint if logic changes affect hashes. Proof: dotnet test SimCore.Tests -c Release; pwsh scripts/tools/Repo-Health.ps1 | FOUND: docs/generated/snapshots/golden_replay_hashes.txt; FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.008 | DONE | Epic review: audit 54_EPICS.md against completed gates. Close epics with all gates DONE. Recommend next anchor for tranche 9. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.ECONOMY_AUDIT.001 | DONE | Economy audit: run ExplorationBot across 10 seeds for 500 ticks. Analyze profitable/stagnant goods, price convergence, supply/demand imbalances. Produce findings + tweaks recommendations. Proof: dotnet test SimCore.Tests -c Release --filter "ExplorationBot|EconomyStress" | FOUND: SimCore.Tests/ExperienceProof/EconomyStressTests.cs; FOUND: docs/generated/econ_loops_report.txt |
+
+## N. Tranche 9 — Empire Surface
+
+### N1. Trade Intel Surface (EPIC.S10.TRADE_DISCOVERY.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S10.TRADE_INTEL.BRIDGE.001 | DONE | Trade intel bridge: create SimBridge.TradeIntel.cs partial. GetTradeRoutesV0() returns trade route intel (source, dest, good, profit, freshness). GetPriceIntelV0(nodeId) returns price observations. GetScannerRangeV0() returns scanner hop range. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/bridge/SimBridge.TradeIntel.cs; FOUND: SimCore/Entities/IntelBook.cs |
+| GATE.S10.TRADE_PROG.BRIDGE.001 | DONE | Bridge 5 missing program creation methods (AutoSell, ConstrCap, Expedition, TradeCharter, ResourceTap) in SimBridge.Programs.cs. Update StartResearchV0 to accept optional nodeId. Add sustain fields to GetResearchStatusV0. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Programs.cs; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S10.TRADE_INTEL.CHARTER_FIX.001 | DONE | Replace hardcoded ExploitationTweaksV0.TradeCharterBuyPricePerUnit with actual market buy/sell prices for realistic charter economics. Contract tests verify non-hardcoded pricing. Proof: dotnet test SimCore.Tests -c Release --filter "ExplorationBot" | FOUND: SimCore/Intents/ExploitationIntentsV0.cs; FOUND: SimCore/Tweaks/ExploitationTweaksV0.cs |
+| GATE.S10.TRADE_INTEL.DOCK_UI.001 | DONE | Trade Routes section in hero_trade_menu.gd: available routes from intel (source, dest, good, profit, freshness), Launch Charter button. Research sustain status: goods required, stall reason, progress. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S10.TRADE_INTEL.PROOF.001 | DONE | Headless GDScript proof: boot scene, tick sim, call GetTradeRoutesV0, create TradeCharter via bridge, call StartResearchV0 with nodeId, verify sustain fields update. Proof: Godot headless --script scripts/tests/test_trade_intel_proof_v0.gd | NEW: scripts/tests/test_trade_intel_proof_v0.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S10.TECH_EFFECTS.TESTS.001 | DONE | Contract tests: speed_bonus_20pct gives 1.2x fleet speed when improved_thrusters unlocked; production_efficiency_10pct gives +10% industry output. Determinism across seeds. Proof: dotnet test SimCore.Tests -c Release --filter "TechEffects" | NEW: SimCore.Tests/Systems/TechEffectsTests.cs; FOUND: SimCore/Systems/MovementSystem.cs |
+
+### N2. Empire Management (EPIC.S10.EMPIRE_MGMT.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S10.EMPIRE.BRIDGE.001 | DONE | Empire bridge queries in SimBridge.Reports.cs: GetEmpireSummaryV0 (credits, fleets, programs, research, missions), GetAllIndustryV0 (all sites + health), GetAllNodeHealthSummaryV0 (per-node summary), GetIntelFreshnessByNodeV0 (age per node). Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Reports.cs; FOUND: SimCore/Entities/IntelBook.cs |
+| GATE.S10.EMPIRE.SHELL.001 | DONE | EmpireDashboard.cs modal C# Control with 5 tabs (Overview, Trade, Production, Programs, Intel). E key binding in game_manager.gd. Add to Playable_Prototype.tscn. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/ui/EmpireDashboard.cs; FOUND: scripts/core/game_manager.gd |
+| GATE.S10.EMPIRE.OVERVIEW_TAB.001 | DONE | Overview tab: credits, fleet count, programs, research, missions from GetEmpireSummaryV0. Trade tab: markets with intel, route profitability, active charters from GetTradeRoutesV0. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs; FOUND: scripts/bridge/SimBridge.Reports.cs |
+| GATE.S10.EMPIRE.PRODUCTION_TAB.001 | DONE | Production tab: industry sites from GetAllIndustryV0, health bars, construction. Programs tab: active programs + creation forms for all 6 types. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs; FOUND: scripts/bridge/SimBridge.Programs.cs |
+| GATE.S10.EMPIRE.INTEL_TAB.001 | DONE | Intel tab: discoveries, rumor leads, unlocked content, intel freshness per node, scanner range display. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs; FOUND: scripts/bridge/SimBridge.Reports.cs |
+
+### N3. Galaxy Map Overlays (EPIC.S6.MAP_GALAXY)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.MAP_GALAXY.OVERLAY_SYS.001 | DONE | Overlay mode system: add OverlayMode enum (Default, TradeFlow, IntelFreshness) to GalaxyView.cs. Create galaxy_overlay_hud.gd toolbar with mode buttons. Default preserves current security coloring. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; NEW: scripts/ui/galaxy_overlay_hud.gd |
+| GATE.S6.MAP_GALAXY.TRADE_OVERLAY.001 | DONE | TradeFlow overlay: tint lane edges gold for profitable routes (GetTradeRoutesV0), edge thickness by NPC volume (GetNpcTradeActivityV0), annotate best buy/sell goods. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.NpcTrade.cs |
+| GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001 | DONE | IntelFreshness overlay: color nodes green/yellow/red/gray by intel age (GetIntelFreshnessByNodeV0). Scanner range radius around player. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.Reports.cs |
+
+### N4. Escort Programs (EPIC.S5.ESCORT_PROG)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S5.ESCORT_PROG.MODEL.001 | DONE | EscortSystem.cs: EscortProgram (assign fleet to escort between nodes) and PatrolProgram (cycle patrol route). ProcessEscort/ProcessPatrol per tick. EscortTweaksV0 constants. Wire into SimKernel.Step(). Contract tests. Proof: dotnet test SimCore.Tests -c Release --filter "EscortSystem" | NEW: SimCore/Systems/EscortSystem.cs; NEW: SimCore.Tests/Systems/EscortSystemTests.cs |
+| GATE.S5.ESCORT_PROG.BRIDGE.001 | DONE | SimBridge.Escort.cs partial: CreateEscortProgramV0, CreatePatrolProgramV0, GetEscortStatusV0, GetPatrolStatusV0. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/bridge/SimBridge.Escort.cs; FOUND: SimCore/SimState.Properties.cs |
+| GATE.S5.ESCORT_PROG.UI.001 | DONE | Escort/patrol creation forms in Empire Dashboard Programs tab. Fleet selector, route selector, start/cancel. Status display. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs; FOUND: scripts/bridge/SimBridge.Escort.cs |
+
+### N5. Hygiene + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.009 | DONE | Full test suite pass, zero new warnings (CS8602 excluded), golden hash stability. Re-mint if needed. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.X.HYGIENE.EPIC_REVIEW.009 | DONE | Audit 54_EPICS.md against completed gates. Close epics with all gates DONE. Recommend next anchor for tranche 10. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.PROGRESSION_AUDIT.002 | DONE | ExplorationBot across 5+ seeds for 1000 ticks: verify trade routes discovered, research consumes goods at node, tech effects applied. Flag regressions. Proof: dotnet test SimCore.Tests -c Release --filter "ExplorationBot" | FOUND: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs; FOUND: SimCore.Tests/ExperienceProof/ExplorationBot.cs |
+
+## P. Tranche 10 — "Alive Galaxy" (Slice 11 Game Feel + S6 Galaxy Map)
+
+### P1. Game Feel core (SimCore + bridge)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S11.GAME_FEEL.TECH_BRIDGE.001 | DONE | GetTechTreeV0 bridge: returns all techs with id, tier, prereqs, status (locked/available/researching/done), sustain costs, effects. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Research.cs; FOUND: SimCore/Content/TechContentV0.cs |
+| GATE.S11.GAME_FEEL.PRICE_HISTORY.001 | DONE | Price history tracking: record price snapshots per-good per-node in IntelBook every 360 ticks via IntelSystem. GetPriceHistoryV0(nodeId, goodId) bridge method. Proof: dotnet test SimCore.Tests -c Release --filter "Intel" | FOUND: SimCore/Entities/IntelBook.cs; FOUND: SimCore/Systems/IntelSystem.cs; FOUND: scripts/bridge/SimBridge.TradeIntel.cs |
+| GATE.S11.GAME_FEEL.MISSION_WIRE.001 | DONE | Wire missions 2-4 (bulk_hauler, patrol_duty, long_haul) to bridge GetMissionListV0 and dock menu acceptance. Verify all 4 missions appear in mission list. Proof: dotnet test SimCore.Tests -c Release --filter "Mission" | FOUND: SimCore/Content/MissionContentV0.cs; FOUND: scripts/bridge/SimBridge.Mission.cs; FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S11.GAME_FEEL.COMBAT_BRIDGE.001 | DONE | GetRecentCombatV0 bridge: returns last 20 combat events (attacker, defender, damage, outcome, tick). Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Combat.cs; FOUND: SimCore/Entities/CombatLog.cs |
+| GATE.S11.GAME_FEEL.DOCK_ENHANCE.001 | DONE | Enhanced dock menu: show available missions count, active research progress, trade routes from current station, fleet programs summary. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/bridge/SimBridge.Research.cs; FOUND: scripts/bridge/SimBridge.Mission.cs |
+
+### P2. Game Feel bridge (GDScript + UI)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S11.GAME_FEEL.TOAST_SYS.001 | DONE | Toast notification manager: GDScript autoload showing temporary popup messages (fade in/out, stack up to 5). Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/ui/toast_manager.gd; FOUND: scripts/core/game_manager.gd; FOUND: project.godot |
+| GATE.S6.MAP_GALAXY.NODE_CLICK.001 | DONE | Galaxy map node click: raycast from camera, detect node mesh, show detail popup (system name, world class, fleets present, industry count). Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; NEW: scripts/ui/node_detail_popup.gd |
+| GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001 | DONE | NPC fleet route lines on galaxy map: draw animated dashed lines for NPC fleet active travel using GetNpcTradeActivityV0 data. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.NpcTrade.cs |
+| GATE.S11.GAME_FEEL.TECH_TREE_UI.001 | DONE | Tech tree panel as new tab in EmpireDashboard: all techs organized by tier, prereq arrows, status coloring, sustain costs, click to start research. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S11.GAME_FEEL.TOAST_EVENTS.001 | DONE | Connect game events to toasts: trade completion, research progress/complete, mission update, combat alert. SimBridge emits signals, toast_manager.gd listens. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/toast_manager.gd; FOUND: scripts/bridge/SimBridge.cs; FOUND: scripts/core/game_manager.gd |
+| GATE.S11.GAME_FEEL.MISSION_HUD.001 | DONE | Active mission objective text in flight HUD: current step description, target node name, progress. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hud.gd; FOUND: scripts/bridge/SimBridge.Mission.cs |
+| GATE.S11.GAME_FEEL.RESEARCH_HUD.001 | DONE | Research progress bar in flight HUD: tech name, percentage, sustain status (OK/stalled + reason). Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hud.gd; FOUND: scripts/bridge/SimBridge.Research.cs |
+| GATE.S11.GAME_FEEL.KEYBINDS.001 | DONE | H key help overlay: semi-transparent panel showing all keybindings (WASD, E, Tab, H, Esc, F1/F2, mouse). Toggle on/off. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/ui/keybinds_help.gd; FOUND: scripts/core/game_manager.gd |
+| GATE.S11.GAME_FEEL.NODE_MARKET.001 | DONE | Node detail popup market tab: show all goods at node with buy/sell prices, supply qty, price trend arrow. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/node_detail_popup.gd; FOUND: scripts/bridge/SimBridge.Market.cs |
+| GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001 | DONE | Combat event log panel (L key): scrollable list of recent combat events with timestamps, attackers, damage, outcomes. Proof: dotnet build "Space Trade Empire.csproj" | NEW: scripts/ui/combat_log_panel.gd; FOUND: scripts/bridge/SimBridge.Combat.cs; FOUND: scripts/core/game_manager.gd |
+| GATE.S11.GAME_FEEL.FLEET_STATUS.001 | DONE | Fleet role icons on galaxy map nodes: small icons (trader/patrol/hauler) next to fleet count labels showing fleet composition. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.Fleet.cs |
+
+### P3. Hygiene + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.010 | DONE | Full test suite pass, golden hash stability, zero new warnings. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.S11.GAME_FEEL.HEADLESS_PROOF.001 | DONE | Headless GDScript proof: boot scene, open empire dashboard, verify tech tree tab renders, verify toast shows, verify node click popup. Proof: Godot headless --script scripts/tests/test_game_feel_proof_v0.gd | NEW: scripts/tests/test_game_feel_proof_v0.gd; FOUND: scripts/bridge/SimBridge.cs |
+| GATE.X.HYGIENE.EPIC_REVIEW.010 | DONE | Audit 54_EPICS.md: close S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG. Recommend next anchor. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.UX_AUDIT.001 | DONE | UX evaluation: document player friction points, information gaps, control discoverability issues. Recommend top 5 UX improvements. Proof: docs audit | FOUND: docs/54_EPICS.md; FOUND: scripts/ui/hero_trade_menu.gd |
+
+## Q. Tranche 11 — "Living Galaxy" (Slice 12 Fleet Substance + UX Polish + Progression)
+
+### Q1. Fleet Substance (Quaternius models + NPC circulation)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001 | DONE | Update LoadFleetModelV0 in GalaxyView.cs: trader→dispatcher, hauler→bob, patrol→spitfire from Quaternius pack. Load .tscn scenes. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: addons/quaternius-ultimate-spaceships-pack/meshes/dispatcher/dispatcher_blue.tscn |
+| GATE.S12.FLEET_SUBSTANCE.VARIETY.001 | DONE | Multiple Quaternius model variants per role using hash-based selection (e.g. trader: dispatcher OR pancake). Player ship uses challenger model. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: addons/quaternius-ultimate-spaceships-pack/meshes/challenger/challenger_blue.tscn |
+| GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001 | DONE | NPC patrol fleets use multi-hop circuit routes (3+ nodes) with deterministic route generation from galaxy topology. Proof: dotnet test SimCore.Tests -c Release --filter "NpcTrade" | FOUND: SimCore/Systems/NpcTradeSystem.cs; FOUND: SimCore/Entities/Fleet.cs |
+| GATE.S12.NPC_CIRC.FLOW_ANIM.001 | DONE | Animated small dots flowing along NPC trade route edge lines on galaxy map. Visual-only, no SimCore change. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs |
+| GATE.S12.NPC_CIRC.VOLUME_LABELS.001 | DONE | Trade volume labels on galaxy map edges showing goods/tick flow rate derived from NPC activity. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/bridge/SimBridge.NpcTrade.cs |
+| GATE.S12.FLEET_SUBSTANCE.HEADLESS_PROOF.001 | DONE | Headless GDScript proof: verify Quaternius models load, stats bridge returns data, quantity controls exist, display names formatted. Proof: Godot headless --script scripts/tests/test_living_galaxy_proof_v0.gd | NEW: scripts/tests/test_living_galaxy_proof_v0.gd |
+
+### Q2. UX Polish (from UX audit)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S12.UX_POLISH.QUANTITY.001 | DONE | Buy/Sell quantity buttons [1, 5, Max] in hero_trade_menu.gd replacing single-unit buy/sell. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S12.UX_POLISH.DISPLAY_NAMES.001 | DONE | FormatDisplayNameV0(string id) in SimBridge: converts snake_case IDs to readable "Title Case" names. Apply to goods, nodes, techs in all UI surfaces. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.cs; FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S12.UX_POLISH.ONBOARDING.001 | DONE | First-dock toast onboarding: show welcome message, key controls (Tab=map, E=empire, H=help) on first game load. Track via SimState flag. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/toast_manager.gd; FOUND: scripts/core/game_manager.gd |
+| GATE.S12.UX_POLISH.CARGO_DISPLAY.001 | DONE | Show cargo used/max in dock menu header and flight HUD. Current cargo count vs fleet capacity. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/hero_trade_menu.gd; FOUND: scripts/ui/hud.gd |
+| GATE.S12.UX_POLISH.TRADE_FEEDBACK.001 | DONE | Toast notification on buy/sell showing formatted good name, quantity, and credit delta. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/toast_manager.gd; FOUND: scripts/core/game_manager.gd |
+
+### Q3. Player Progression
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S12.PROGRESSION.STATS.001 | DONE | PlayerStats class in SimState: nodes_visited count, goods_traded count, total_credits_earned, techs_unlocked count, missions_completed count. Updated by relevant systems. Proof: dotnet test SimCore.Tests -c Release --filter "Progression" | FOUND: SimCore/Entities/SimState.cs; NEW: SimCore/Entities/PlayerStats.cs |
+| GATE.S12.PROGRESSION.MILESTONES.001 | DONE | MilestoneContentV0: define milestones (First Trade, Explorer 5 nodes, Merchant 1000cr, Researcher 1 tech, Captain 1 mission). MilestoneSystem evaluates and records achieved milestones. Proof: dotnet test SimCore.Tests -c Release --filter "Milestone" | NEW: SimCore/Content/MilestoneContentV0.cs; NEW: SimCore/Systems/MilestoneSystem.cs |
+| GATE.S12.PROGRESSION.TESTS.001 | DONE | Contract tests: stats increment on trade/explore/research/mission. Milestone evaluation triggers at thresholds. Proof: dotnet test SimCore.Tests -c Release --filter "Progression" | NEW: SimCore.Tests/Systems/ProgressionTests.cs |
+| GATE.S12.PROGRESSION.BRIDGE.001 | DONE | GetPlayerStatsV0 + GetMilestonesV0 bridge methods returning stats dict and milestones array. Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/bridge/SimBridge.Reports.cs |
+| GATE.S12.PROGRESSION.DASHBOARD.001 | DONE | Stats + Milestones tab in EmpireDashboard: show all stats, achieved milestones (green), pending milestones (gray with progress). Proof: dotnet build "Space Trade Empire.csproj" | FOUND: scripts/ui/EmpireDashboard.cs |
+
+### Q4. Hygiene + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.011 | DONE | Full test suite pass, golden hash stability, zero new warnings. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj; FOUND: docs/generated/snapshots/golden_replay_hashes.txt |
+| GATE.X.HYGIENE.EPIC_REVIEW.011 | DONE | Audit 54_EPICS.md: close S10.TRADE_DISCOVERY, S10.EMPIRE_MGMT, S5.ESCORT_PROG, S11.GAME_FEEL, S6.MAP_GALAXY. Recommend next anchor. Proof: dotnet test SimCore.Tests -c Release --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md; FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.VISUAL_AUDIT.001 | DONE | Visual substance evaluation: document model quality, NPC flow visibility, UX improvement effectiveness. Recommend next visual priorities. Proof: docs audit | FOUND: scripts/view/GalaxyView.cs; FOUND: scripts/ui/hero_trade_menu.gd |

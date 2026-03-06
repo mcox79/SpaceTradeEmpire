@@ -216,6 +216,59 @@ public class PressureSystemScenarioTests
         }
     }
 
+    // GATE.X.PRESSURE.LADDER.001: Explicit ladder contract — each tier boundary maps correctly.
+    [Test]
+    public void PressureLadder_BoundaryTransitions()
+    {
+        // Verify exact threshold boundaries
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.StrainedThresholdBps - 1),
+            Is.EqualTo(PressureTier.Normal), "Just below Strained threshold = Normal");
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.StrainedThresholdBps),
+            Is.EqualTo(PressureTier.Strained), "At Strained threshold = Strained");
+
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.UnstableThresholdBps - 1),
+            Is.EqualTo(PressureTier.Strained), "Just below Unstable threshold = Strained");
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.UnstableThresholdBps),
+            Is.EqualTo(PressureTier.Unstable), "At Unstable threshold = Unstable");
+
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.CriticalThresholdBps - 1),
+            Is.EqualTo(PressureTier.Unstable), "Just below Critical threshold = Unstable");
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.CriticalThresholdBps),
+            Is.EqualTo(PressureTier.Critical), "At Critical threshold = Critical");
+
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.CollapsedThresholdBps - 1),
+            Is.EqualTo(PressureTier.Critical), "Just below Collapsed threshold = Critical");
+        Assert.That(PressureSystem.EvaluateTier(PressureTweaksV0.CollapsedThresholdBps),
+            Is.EqualTo(PressureTier.Collapsed), "At Collapsed threshold = Collapsed");
+    }
+
+    // GATE.X.PRESSURE.LADDER.001: Full ladder walk — inject progressively to walk Normal→Strained→Unstable→Critical→Collapsed.
+    [Test]
+    public void PressureLadder_FullWalk_AllTiersReached()
+    {
+        var state = CreateTestState();
+        var domainId = "ladder_walk";
+
+        // Collect all tiers reached
+        var tiersReached = new HashSet<PressureTier>();
+        tiersReached.Add(PressureTier.Normal); // start
+
+        // Walk up by injecting moderate pressure and processing many ticks
+        for (int i = 0; i < 2000; i++)
+        {
+            PressureSystem.InjectDelta(state, domainId, "escalation", 50);
+            PressureSystem.ProcessPressure(state);
+            if (state.Pressure.Domains.TryGetValue(domainId, out var d))
+                tiersReached.Add(d.Tier);
+        }
+
+        // All 5 tiers should be visited due to one-jump rule
+        Assert.That(tiersReached, Does.Contain(PressureTier.Strained), "Should reach Strained");
+        Assert.That(tiersReached, Does.Contain(PressureTier.Unstable), "Should reach Unstable");
+        Assert.That(tiersReached, Does.Contain(PressureTier.Critical), "Should reach Critical");
+        Assert.That(tiersReached, Does.Contain(PressureTier.Collapsed), "Should reach Collapsed");
+    }
+
     [Test]
     public void PressureState_SurvivesSaveLoad()
     {
@@ -230,5 +283,74 @@ public class PressureSystemScenarioTests
         Assert.That(loaded.Pressure.Domains.ContainsKey("trade_disruption"), Is.True);
         Assert.That(loaded.Pressure.Domains["trade_disruption"].AccumulatedPressureBps,
             Is.EqualTo(state.Pressure.Domains["trade_disruption"].AccumulatedPressureBps));
+    }
+
+    // GATE.X.PRESSURE.ENFORCE.001: Crisis tier logs CrisisFeeSurcharge event.
+    [Test]
+    public void EnforceConsequences_CrisisTier_LogsFeeSurchargeEvent()
+    {
+        var state = CreateTestState();
+        var domain = new PressureDomainState
+        {
+            DomainId = "test_crisis",
+            Tier = PressureTier.Critical,
+            AccumulatedPressureBps = PressureTweaksV0.CriticalThresholdBps + 100,
+        };
+        state.Pressure.Domains["test_crisis"] = domain;
+
+        PressureSystem.EnforceConsequences(state);
+
+        var events = state.Pressure.EventLog.Where(e => e.EventType == "CrisisFeeSurcharge").ToList();
+        Assert.That(events.Count, Is.GreaterThan(0), "Crisis should produce fee surcharge event");
+    }
+
+    // GATE.X.PRESSURE.ENFORCE.001: Collapse tier triggers piracy escalation.
+    [Test]
+    public void EnforceConsequences_CollapseTier_TriggersPiracyEscalation()
+    {
+        var state = CreateTestState();
+        var domain = new PressureDomainState
+        {
+            DomainId = "test_collapse",
+            Tier = PressureTier.Collapsed,
+            AccumulatedPressureBps = PressureTweaksV0.CollapsedThresholdBps + 100,
+        };
+        state.Pressure.Domains["test_collapse"] = domain;
+
+        int piracyBefore = 0;
+        if (state.Pressure.Domains.TryGetValue("piracy", out var piracyDomain))
+            piracyBefore = piracyDomain.AccumulatedPressureBps;
+
+        PressureSystem.EnforceConsequences(state);
+
+        // Should have created piracy domain and injected pressure
+        Assert.That(state.Pressure.Domains.ContainsKey("piracy"), Is.True,
+            "Collapse should create piracy domain");
+        Assert.That(state.Pressure.Domains["piracy"].AccumulatedPressureBps,
+            Is.GreaterThan(piracyBefore),
+            "Collapse should inject piracy pressure");
+
+        var events = state.Pressure.EventLog.Where(e => e.EventType == "CollapseEscalation").ToList();
+        Assert.That(events.Count, Is.GreaterThan(0), "Collapse should produce escalation event");
+    }
+
+    // GATE.X.PRESSURE.ENFORCE.001: Normal tier produces no consequence events.
+    [Test]
+    public void EnforceConsequences_NormalTier_NoConsequences()
+    {
+        var state = CreateTestState();
+        var domain = new PressureDomainState
+        {
+            DomainId = "test_normal",
+            Tier = PressureTier.Normal,
+            AccumulatedPressureBps = 500,
+        };
+        state.Pressure.Domains["test_normal"] = domain;
+
+        int eventCountBefore = state.Pressure.EventLog.Count;
+        PressureSystem.EnforceConsequences(state);
+
+        Assert.That(state.Pressure.EventLog.Count, Is.EqualTo(eventCountBefore),
+            "Normal tier should produce no consequence events");
     }
 }

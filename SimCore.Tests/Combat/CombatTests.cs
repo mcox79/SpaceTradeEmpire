@@ -931,3 +931,93 @@ public sealed class CombatSliceCloseTests
 			"Slice 5 scenario must be replay-deterministic");
 	}
 }
+
+// GATE.S5.COMBAT_RES.SYSTEM.001: Combat resolution contract tests.
+[TestFixture]
+[Category("CombatResolution")]
+public sealed class CombatResolutionTests
+{
+	private Fleet MakeFleet(string id, int hull, int shield, FleetRole role = FleetRole.Trader)
+	{
+		var f = new Fleet
+		{
+			Id = id,
+			Role = role,
+			HullHp = hull,
+			HullHpMax = hull,
+			ShieldHp = shield,
+			ShieldHpMax = shield,
+		};
+		f.Slots.Add(new ModuleSlot { SlotId = "w1", SlotKind = SlotKind.Weapon, InstalledModuleId = "weapon_laser_mk1" });
+		return f;
+	}
+
+	[Test]
+	public void ResolveCombatV0_StrongAttacker_Victory()
+	{
+		var attacker = MakeFleet("att", CombatTweaksV0.DefaultHullHpMax, CombatTweaksV0.DefaultShieldHpMax);
+		var defender = MakeFleet("def", 20, 10); // weak defender
+
+		var result = CombatSystem.ResolveCombatV0(attacker, defender);
+
+		Assert.That(result.Outcome, Is.EqualTo(CombatSystem.CombatResolutionOutcome.Victory));
+		Assert.That(result.AttackerId, Is.EqualTo("att"));
+		Assert.That(result.DefenderId, Is.EqualTo("def"));
+		Assert.That(result.RoundsPlayed, Is.GreaterThan(0));
+		Assert.That(result.AttackerHullRemaining, Is.GreaterThan(0));
+	}
+
+	[Test]
+	public void ResolveCombatV0_WeakAttacker_Defeat()
+	{
+		var attacker = MakeFleet("att", 20, 10); // weak attacker
+		var defender = MakeFleet("def", CombatTweaksV0.DefaultHullHpMax, CombatTweaksV0.DefaultShieldHpMax);
+
+		var result = CombatSystem.ResolveCombatV0(attacker, defender);
+
+		Assert.That(result.Outcome, Is.EqualTo(CombatSystem.CombatResolutionOutcome.Defeat));
+		Assert.That(result.DefenderHullRemaining, Is.GreaterThan(0));
+	}
+
+	[Test]
+	public void ResolveCombatV0_EqualForces_ResolvesDeterministically()
+	{
+		var a1 = MakeFleet("a", 80, 30);
+		var b1 = MakeFleet("b", 80, 30);
+		var result1 = CombatSystem.ResolveCombatV0(a1, b1);
+
+		var a2 = MakeFleet("a", 80, 30);
+		var b2 = MakeFleet("b", 80, 30);
+		var result2 = CombatSystem.ResolveCombatV0(a2, b2);
+
+		Assert.That(result1.Outcome, Is.EqualTo(result2.Outcome));
+		Assert.That(result1.RoundsPlayed, Is.EqualTo(result2.RoundsPlayed));
+		Assert.That(result1.AttackerHullRemaining, Is.EqualTo(result2.AttackerHullRemaining));
+	}
+
+	[Test]
+	public void ResolveCombatV0_FleeOutcome_MaxRoundsReached()
+	{
+		// Both fleets identical and strong — neither should destroy the other quickly
+		// Use very high HP to exceed max rounds
+		var attacker = MakeFleet("a", 10000, 5000);
+		var defender = MakeFleet("b", 10000, 5000);
+
+		var result = CombatSystem.ResolveCombatV0(attacker, defender);
+
+		// With very high HP, likely hits max rounds → Draw → Flee
+		Assert.That(result.RoundsPlayed, Is.EqualTo(CombatTweaksV0.StrategicMaxRounds));
+		Assert.That(result.Outcome, Is.EqualTo(CombatSystem.CombatResolutionOutcome.Flee));
+	}
+
+	[Test]
+	public void ResolveCombatV0_SalvageValue_NonNegative()
+	{
+		var attacker = MakeFleet("a", 100, 50);
+		var defender = MakeFleet("b", 40, 20);
+
+		var result = CombatSystem.ResolveCombatV0(attacker, defender);
+
+		Assert.That(result.SalvageValue, Is.GreaterThanOrEqualTo(0));
+	}
+}

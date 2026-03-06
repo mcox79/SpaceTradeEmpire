@@ -43,3 +43,32 @@ SimCore/Systems/CombatSystem.cs:0
 SimCore/Gen/PlanetInitGen.cs:0
 SimCore/Gen/PlanetInitGen.cs:1
 SimCore/Gen/PlanetInitGen.cs:9
+
+# GATE.S5.NPC_TRADE.SYSTEM.001: structural zeros (qty checks, cargo cleanup, stock clamp)
+SimCore/Systems/NpcTradeSystem.cs:0
+# GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001: structural literals (circuit size, index, hash constants)
+SimCore/Systems/NpcTradeSystem.cs:1
+SimCore/Systems/NpcTradeSystem.cs:2
+SimCore/Systems/NpcTradeSystem.cs:3
+SimCore/Systems/NpcTradeSystem.cs:14695981039346656037UL
+SimCore/Systems/NpcTradeSystem.cs:1099511628211UL
+
+# GATE.S5.SEC_LANES.SYSTEM.001: structural zeros (patrol count init, drift return)
+SimCore/Systems/SecurityLaneSystem.cs:0
+
+# GATE.S8.TECH_EFFECTS.SPEED.001: speed bonus multiplier (1.2x = 20% bonus)
+SimCore/Systems/MovementSystem.cs:1.2f
+
+# GATE.S8.TECH_EFFECTS.EFFICIENCY.001: production efficiency divisor (effBps / 10 = 10% boost)
+SimCore/Systems/IndustrySystem.cs:10
+
+# GATE.S10.TRADE_INTEL.SCANNER.001: structural zero (modulo check, BFS init, empty checks)
+SimCore/Systems/IntelSystem.cs:0
+# GATE.S10.TRADE_INTEL.SCANNER.001: structural separator index
+SimCore/Systems/IntelSystem.cs:1
+
+# GATE.S5.ESCORT_PROG.MODEL.001: reset-to-zero counter on leg completion (structural)
+SimCore/Systems/EscortSystem.cs:0
+
+# GATE.S12.PROGRESSION.MILESTONES.001: structural zero (default return for unknown stat key)
+SimCore/Systems/MilestoneSystem.cs:0

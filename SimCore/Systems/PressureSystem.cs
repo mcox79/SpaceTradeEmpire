@@ -179,4 +179,62 @@ public static class PressureSystem
             ? PressureTweaksV0.MaxAlertsPerWindowCrisis
             : PressureTweaksV0.MaxAlertsPerWindowNormal;
     }
+
+    // GATE.X.PRESSURE.ENFORCE.001: Apply consequences based on current pressure tiers.
+    public static void EnforceConsequences(SimState state)
+    {
+        if (state?.Pressure == null) return;
+
+        // Snapshot domain keys to avoid collection-modified-during-enumeration
+        // (InjectDelta may add new domains like "piracy").
+        var domainIds = new List<string>(state.Pressure.Domains.Keys);
+        domainIds.Sort(StringComparer.Ordinal);
+
+        foreach (var domainId in domainIds)
+        {
+            var domain = state.Pressure.Domains[domainId];
+
+            // Crisis: increase market fees
+            if (domain.Tier == PressureTier.Critical)
+            {
+                // Apply fee increase as a per-domain effect
+                // Market fee is global — track via event rather than mutating global state each tick
+                if (domain.LastConsequenceTick != state.Tick)
+                {
+                    state.Pressure.EventLog.Add(new PressureEvent
+                    {
+                        Seq = state.Pressure.NextEventSeq++,
+                        Tick = state.Tick,
+                        DomainId = domain.DomainId,
+                        EventType = "CrisisFeeSurcharge",
+                        OldTier = domain.Tier,
+                        NewTier = domain.Tier,
+                    });
+                    domain.LastConsequenceTick = state.Tick;
+                }
+            }
+            // Collapse: trigger piracy escalation
+            else if (domain.Tier == PressureTier.Collapsed)
+            {
+                if (domain.LastConsequenceTick != state.Tick)
+                {
+                    // Inject piracy pressure into the piracy domain
+                    InjectDelta(state, "piracy", "collapse_escalation",
+                        PressureTweaksV0.CollapsePiracyEscalationMagnitude,
+                        sourceRef: domain.DomainId);
+
+                    state.Pressure.EventLog.Add(new PressureEvent
+                    {
+                        Seq = state.Pressure.NextEventSeq++,
+                        Tick = state.Tick,
+                        DomainId = domain.DomainId,
+                        EventType = "CollapseEscalation",
+                        OldTier = domain.Tier,
+                        NewTier = domain.Tier,
+                    });
+                    domain.LastConsequenceTick = state.Tick;
+                }
+            }
+        }
+    }
 }
