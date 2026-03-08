@@ -24,7 +24,19 @@ public sealed class WorldDefinition
     // Optional world class definitions (v0). Each class has exactly one measurable effect: FeeMultiplier.
     public List<WorldClassDefinition> WorldClasses { get; set; } = new();
 
+    // GATE.S6.FRACTURE.VOID_SITES.001: Void discovery sites between star systems.
+    public List<WorldVoidSite> VoidSites { get; set; } = new();
+
     public WorldPlayerStart? Player { get; set; }
+}
+
+public sealed class WorldVoidSite
+{
+    public string Id { get; set; } = "";
+    public float[] Pos { get; set; } = new float[] { 0f, 0f, 0f };
+    public string Family { get; set; } = "AsteroidField";
+    public string NearStarA { get; set; } = "";
+    public string NearStarB { get; set; } = "";
 }
 
 public sealed class WorldClassDefinition
@@ -65,6 +77,9 @@ public sealed class WorldEdge
     public int TotalCapacity { get; set; } = 5;
 }
 
+// GATE.S7.FACTION.DOCTRINE_MODEL.001: Trade policy determines market access behavior.
+public enum TradePolicy { Open, Guarded, Closed }
+
 public sealed class WorldFaction
 {
     public string FactionId { get; set; } = "";
@@ -77,6 +92,18 @@ public sealed class WorldFaction
     // GATE.S15.FEEL.FACTION_TERRITORY.001: Node IDs controlled by this faction (BFS from HomeNodeId, depth ≤3).
     // Sorted Ordinal for deterministic serialization.
     public List<string> ControlledNodeIds { get; set; } = new();
+
+    // GATE.S7.FACTION.DOCTRINE_MODEL.001: Faction doctrine fields.
+    public TradePolicy TradePolicy { get; set; } = TradePolicy.Open;
+    public int AggressionLevel { get; set; } = 0;        // 0 = peaceful, 1 = defensive, 2 = hostile
+    public float TariffRate { get; set; } = 0f;           // 0.0-1.0 surcharge on trades
+    public List<string> PreferredGoods { get; set; } = new(); // goods this faction prioritizes
+
+    // GATE.S7.FACTION.CONTENT_DATA.001: Lore-accurate faction identity fields.
+    public string Species { get; set; } = "";
+    public string Philosophy { get; set; } = "";
+    public List<string> ProducesGoods { get; set; } = new(); // goods this faction produces
+    public List<string> NeedsGoods { get; set; } = new();    // goods this faction depends on (pentagon ring)
 }
 
 // GATE.S2_5.WGEN.DISCOVERY_SEEDING.001: minimal discovery seeding surface v0.

@@ -62,7 +62,7 @@ func show_toast(text: String, duration: float = 3.0) -> void:
 	fade_tween.tween_callback(_remove_toast.bind(toast))
 
 
-func _remove_toast(toast: Control) -> void:
+func _remove_toast(toast) -> void:
 	if is_instance_valid(toast) and toast.get_parent() == _container:
 		_container.remove_child(toast)
 		toast.queue_free()

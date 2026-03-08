@@ -1,7 +1,10 @@
 extends SceneTree
 
-## Visual Sweep Bot v2 — Drives game through visual states, capturing screenshots.
+## Visual Sweep Bot v5 — Drives game through visual states, capturing screenshots.
 ## Run WINDOWED (not --headless) — screenshots require a framebuffer.
+##
+## v3: Slower cadence (let engine settle), burst captures for animations,
+## post-capture recovery frames to avoid stutter artifacts.
 ##
 ## Usage:
 ##   & "C:\Godot\Godot_v4.6-stable_mono_win64.exe" --path . -s "res://scripts/tests/visual_sweep_bot_v0.gd"
@@ -13,6 +16,15 @@ const OUTPUT_DIR := "res://reports/visual_eval/"
 const ObserverScript = preload("res://scripts/tools/experience_observer.gd")
 const ScreenshotScript = preload("res://scripts/tools/screenshot_capture.gd")
 const AuditScript = preload("res://scripts/tools/aesthetic_audit.gd")
+
+## --- Timing constants (frames at ~60fps) ---
+## These are deliberately generous to let the engine fully render.
+const SETTLE_SCENE := 60       # After scene load / system rebuild (1.0s)
+const SETTLE_CAMERA := 45      # After camera distance change (0.75s)
+const SETTLE_UI := 20          # After UI overlay toggle (0.33s)
+const SETTLE_TAB := 15         # After dock tab switch (0.25s)
+const SETTLE_ACTION := 15      # After game action (dock, undock, buy)
+const POST_CAPTURE := 8        # Recovery after PNG save stutter
 
 enum Phase {
 	# --- Setup ---
@@ -36,13 +48,13 @@ enum Phase {
 	FLIGHT_CARGO_CAPTURE,      # 6. Flight HUD with cargo loaded
 
 	# --- NPC Showcase (Tranche 15) ---
-	NPC_ZOOM_IN,               # Lower camera to 30u for close-up
+	NPC_ZOOM_IN,               # Lower camera to 20u for close-up
 	NPC_APPROACH,              # Teleport hero near nearest NPC ship
 	NPC_CLOSEUP_CAPTURE,       # 7. NPC close-up: role label (T/H/P), 3D ship model
 	NPC_DAMAGE,                # Apply damage hits to nearby NPC
-	NPC_COMBAT_CAPTURE,        # 8. NPC combat: HP bar depleting, stagger
+	NPC_COMBAT_BURST,          # 8. Burst: 3 frames showing HP bar + stagger
 	NPC_WARP_VFX,              # Spawn WarpEffect.play_warp_in near hero
-	NPC_WARP_VFX_CAPTURE,      # 9. Warp-in VFX: blue-white particles + flash sphere
+	NPC_WARP_VFX_BURST,        # 9. Burst: 4 frames of flash sphere shrinking + particles
 	NPC_ZOOM_OUT,              # Restore camera to normal height
 
 	# --- Overlays ---
@@ -53,28 +65,31 @@ enum Phase {
 	EMPIRE_DASH_CAPTURE,       # 11. Empire dashboard overlay
 	CLOSE_EMPIRE_DASH,
 
-	# --- Warp to System 2 (with visual warp effect) ---
-	WARP_2_TRIGGER,            # Trigger lane gate proximity → flash + camera shake
-	WARP_2_CAPTURE,            # 12. Warp transit: screen flash mid-fade
-	WARP_2_WAIT,               # Wait for async arrival to complete
+	# --- Warp to System 2 ---
+	WARP_2_TRIGGER,
+	WARP_2_TRANSIT_BURST,      # 12. Burst: 3 frames of warp flash fading
+	WARP_2_WAIT,
 	WARP_2_REBUILD,
-	SYSTEM_2_CAPTURE,          # 13. System 2: different star type, different station
+	SYSTEM_2_CAPTURE,          # 13. System 2: different star type
 	SYSTEM_2_DOCK,
-	SYSTEM_2_MARKET_CAPTURE,   # 14. System 2 market: different goods/prices
+	SYSTEM_2_MARKET_CAPTURE,   # 14. System 2 market
 	SYSTEM_2_UNDOCK,
 
 	# --- Warp to System 3 ---
-	WARP_3_COOLDOWN,           # Wait for lane cooldown to expire (2s)
+	WARP_3_COOLDOWN,
 	WARP_3_TRIGGER,
 	WARP_3_WAIT,
 	WARP_3_REBUILD,
-	SYSTEM_3_CAPTURE,          # 15. System 3: third star variety
+	SYSTEM_3_CAPTURE,          # 15. System 3: dock for variety
+	SYSTEM_3_DOCK_CAPTURE,     # 15b. System 3 market
 
 	# --- Time Advancement ---
 	WAIT_TICK_200,
-	TICK_200_CAPTURE,          # 16. Economy evolution at tick 200
+	TICK_200_ZOOM_IN,          # Zoom in on a planet for close-up variety
+	TICK_200_CAPTURE,          # 16. Close-up planet/station view at tick 200
 
 	# --- Final ---
+	FINAL_ZOOM_OUT,            # Restore camera for wide final shot
 	FINAL,                     # 17. Aesthetic audit + final capture
 	DONE
 }
@@ -83,6 +98,8 @@ var _phase := Phase.LOAD_SCENE
 var _polls := 0
 var _bridge = null
 var _game_manager = null
+var _total_frames := 0
+const MAX_FRAMES := 3600  # 60s at 60fps — safety exit
 
 var _observer = null
 var _screenshot = null
@@ -94,12 +111,23 @@ var _neighbor_ids: Array = []
 var _trade_good := ""
 var _snapshots: Array = []  # [{phase, tick, screenshot, report}]
 
+# Burst capture state
+var _burst_label := ""
+var _burst_remaining := 0
+var _burst_spacing := 0
+var _burst_frame := 0
+var _after_burst_phase: Phase = Phase.DONE
+
 
 func _initialize() -> void:
 	print(PREFIX + "START")
 
 
 func _process(_delta: float) -> bool:
+	_total_frames += 1
+	if _total_frames >= MAX_FRAMES and _phase != Phase.DONE:
+		print(PREFIX + "TIMEOUT|frame=%d phase=%s" % [_total_frames, Phase.keys()[_phase]])
+		_phase = Phase.DONE
 	match _phase:
 		# ── Setup ──────────────────────────────────────────────
 		Phase.LOAD_SCENE:
@@ -157,219 +185,240 @@ func _process(_delta: float) -> bool:
 		# ── Home System ───────────────────────────────────────
 		Phase.BOOT:
 			_polls += 1
-			if _polls >= 30:
+			if _polls >= SETTLE_SCENE:
 				_capture("boot")
 				_polls = 0
 				_phase = Phase.DOCK_ENTER
 
 		Phase.DOCK_ENTER:
-			_dock_at_current_station()
-			_polls = 0
-			_phase = Phase.DOCK_MARKET_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_dock_at_current_station()
+				_polls = 0
+				_phase = Phase.DOCK_MARKET_CAPTURE
 
 		Phase.DOCK_MARKET_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
+			if _polls >= SETTLE_ACTION:
 				_capture("dock_market")
 				_polls = 0
 				_phase = Phase.DOCK_JOBS_SWITCH
 
 		Phase.DOCK_JOBS_SWITCH:
-			_switch_dock_tab(1)
-			_polls = 0
-			_phase = Phase.DOCK_JOBS_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_switch_dock_tab(1)
+				_polls = 0
+				_phase = Phase.DOCK_JOBS_CAPTURE
 
 		Phase.DOCK_JOBS_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
+			if _polls >= SETTLE_TAB:
 				_capture("dock_jobs")
 				_polls = 0
 				_phase = Phase.DOCK_SERVICES_SWITCH
 
 		Phase.DOCK_SERVICES_SWITCH:
-			_switch_dock_tab(2)
-			_polls = 0
-			_phase = Phase.DOCK_SERVICES_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_switch_dock_tab(2)
+				_polls = 0
+				_phase = Phase.DOCK_SERVICES_CAPTURE
 
 		Phase.DOCK_SERVICES_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
+			if _polls >= SETTLE_TAB:
 				_capture("dock_services")
 				_polls = 0
 				_phase = Phase.BUY_GOOD
 
 		Phase.BUY_GOOD:
-			_try_buy_good()
-			# Switch back to market tab to show updated quantities
-			_switch_dock_tab(0)
-			_polls = 0
-			_phase = Phase.POST_BUY_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_try_buy_good()
+				_switch_dock_tab(0)
+				_polls = 0
+				_phase = Phase.POST_BUY_CAPTURE
 
 		Phase.POST_BUY_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
+			if _polls >= SETTLE_TAB:
 				if not _trade_good.is_empty():
 					_capture("post_buy")
 				_polls = 0
 				_phase = Phase.UNDOCK_1
 
 		Phase.UNDOCK_1:
-			_undock()
-			_polls = 0
-			_phase = Phase.FLIGHT_CARGO_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_undock()
+				_polls = 0
+				_phase = Phase.FLIGHT_CARGO_CAPTURE
 
 		Phase.FLIGHT_CARGO_CAPTURE:
 			_polls += 1
-			if _polls >= 10:
+			if _polls >= SETTLE_ACTION:
 				_capture("flight_cargo")
 				_polls = 0
 				_phase = Phase.NPC_ZOOM_IN
 
 		# ── NPC Showcase ──────────────────────────────────────
 		Phase.NPC_ZOOM_IN:
-			_set_camera_distance(30.0)
-			_polls = 0
-			_phase = Phase.NPC_APPROACH
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_camera_distance(20.0)
+				_polls = 0
+				_phase = Phase.NPC_APPROACH
 
 		Phase.NPC_APPROACH:
-			_approach_nearest_npc()
-			_polls = 0
-			_phase = Phase.NPC_CLOSEUP_CAPTURE
+			_polls += 1
+			if _polls >= SETTLE_CAMERA:
+				_approach_nearest_npc()
+				_polls = 0
+				_phase = Phase.NPC_CLOSEUP_CAPTURE
 
 		Phase.NPC_CLOSEUP_CAPTURE:
-			# Wait for camera to lerp to new position + label visibility update
+			# Long wait: camera lerp + label visibility update
 			_polls += 1
-			if _polls >= 25:
+			if _polls >= SETTLE_CAMERA:
 				_capture("npc_closeup")
 				_polls = 0
 				_phase = Phase.NPC_DAMAGE
 
 		Phase.NPC_DAMAGE:
-			# Hit nearest NPC 5 times to deplete HP and show bar
-			_damage_nearest_npc(5, 20)
-			_polls = 0
-			_phase = Phase.NPC_COMBAT_CAPTURE
-
-		Phase.NPC_COMBAT_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
-				_capture("npc_combat")
+			if _polls >= POST_CAPTURE:
+				# Hit nearest NPC 5 times to deplete HP and show bar
+				_damage_nearest_npc(5, 20)
 				_polls = 0
-				_phase = Phase.NPC_WARP_VFX
+				_start_burst("npc_combat", 3, 20, Phase.NPC_WARP_VFX)
+				_phase = Phase.NPC_COMBAT_BURST
+
+		Phase.NPC_COMBAT_BURST:
+			_process_burst()
 
 		Phase.NPC_WARP_VFX:
-			_spawn_warp_in_vfx()
-			_polls = 0
-			_phase = Phase.NPC_WARP_VFX_CAPTURE
-
-		Phase.NPC_WARP_VFX_CAPTURE:
-			# Capture 4 frames in — flash sphere still ~2x scale, particles bursting
 			_polls += 1
-			if _polls >= 4:
-				_capture("warp_in_vfx")
+			if _polls >= POST_CAPTURE:
+				_spawn_warp_in_vfx()
 				_polls = 0
-				_phase = Phase.NPC_ZOOM_OUT
+				# Burst: 4 frames at spacing 6 — catches flash at 4x, 3x, 2x, 1x scale
+				_start_burst("warp_vfx", 4, 6, Phase.NPC_ZOOM_OUT)
+				_phase = Phase.NPC_WARP_VFX_BURST
+
+		Phase.NPC_WARP_VFX_BURST:
+			_process_burst()
 
 		Phase.NPC_ZOOM_OUT:
-			_set_camera_distance(80.0)
-			_polls = 0
-			_phase = Phase.OPEN_GALAXY_MAP
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_camera_distance(80.0)
+				_polls = 0
+				_phase = Phase.OPEN_GALAXY_MAP
 
 		# ── Overlays ──────────────────────────────────────────
 		Phase.OPEN_GALAXY_MAP:
-			_toggle_galaxy_map()
-			_polls = 0
-			_phase = Phase.GALAXY_MAP_CAPTURE
+			_polls += 1
+			if _polls >= SETTLE_CAMERA:
+				_toggle_galaxy_map()
+				_polls = 0
+				_phase = Phase.GALAXY_MAP_CAPTURE
 
 		Phase.GALAXY_MAP_CAPTURE:
 			_polls += 1
-			if _polls >= 8:
+			if _polls >= SETTLE_SCENE:  # Full second — galaxy nodes need creation + render
 				_capture("galaxy_map")
 				_polls = 0
 				_phase = Phase.CLOSE_GALAXY_MAP
 
 		Phase.CLOSE_GALAXY_MAP:
-			_toggle_galaxy_map()
-			_polls = 0
-			_phase = Phase.OPEN_EMPIRE_DASH
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_toggle_galaxy_map()
+				_polls = 0
+				_phase = Phase.OPEN_EMPIRE_DASH
 
 		Phase.OPEN_EMPIRE_DASH:
 			_polls += 1
-			if _polls >= 3:
+			if _polls >= SETTLE_UI:
 				_toggle_empire_dashboard()
 				_polls = 0
 				_phase = Phase.EMPIRE_DASH_CAPTURE
 
 		Phase.EMPIRE_DASH_CAPTURE:
 			_polls += 1
-			if _polls >= 8:
+			if _polls >= SETTLE_UI:
 				_capture("empire_dashboard")
 				_polls = 0
 				_phase = Phase.CLOSE_EMPIRE_DASH
 
 		Phase.CLOSE_EMPIRE_DASH:
-			_toggle_empire_dashboard()
-			_polls = 0
-			_phase = Phase.WARP_2_TRIGGER
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_toggle_empire_dashboard()
+				_polls = 0
+				_phase = Phase.WARP_2_TRIGGER
 
 		# ── Warp to System 2 ──────────────────────────────────
 		Phase.WARP_2_TRIGGER:
 			_polls += 1
-			if _polls >= 5:
-				if _neighbor_ids.size() >= 1:
-					# Use GameManager warp flow for visual effects (flash + shake)
+			if _polls >= SETTLE_UI:
+				if _game_manager == null:
+					print(PREFIX + "WARN|no_game_manager, skipping warp_2")
+					_phase = Phase.WAIT_TICK_200
+				elif _neighbor_ids.size() >= 1:
 					_game_manager.call("on_lane_gate_proximity_entered_v0", _neighbor_ids[0])
 					print(PREFIX + "WARP_TRIGGER|%s" % _neighbor_ids[0])
 					_polls = 0
-					_phase = Phase.WARP_2_CAPTURE
+					# Burst: 3 frames at spacing 4 — catches flash peak, mid, fade
+					_start_burst("warp_transit", 3, 4, Phase.WARP_2_WAIT)
+					_phase = Phase.WARP_2_TRANSIT_BURST
 				else:
 					print(PREFIX + "WARN|no_neighbors, skipping warp")
 					_phase = Phase.WAIT_TICK_200
 
-		Phase.WARP_2_CAPTURE:
-			# Capture 3 frames after trigger — flash still fading (alpha ~0.7)
-			_polls += 1
-			if _polls >= 3:
-				_capture("warp_transit")
-				_polls = 0
-				_phase = Phase.WARP_2_WAIT
+		Phase.WARP_2_TRANSIT_BURST:
+			_process_burst()
 
 		Phase.WARP_2_WAIT:
 			# Wait for async _begin_lane_transit_v0 to complete (~0.3s + arrival)
 			_polls += 1
-			if _polls >= 40:
+			if _polls >= SETTLE_SCENE:
 				_polls = 0
 				_phase = Phase.WARP_2_REBUILD
 
 		Phase.WARP_2_REBUILD:
-			# Rebuild local system visuals for new system
 			_rebuild_local_system(_neighbor_ids[0])
 			_polls = 0
 			_phase = Phase.SYSTEM_2_CAPTURE
 
 		Phase.SYSTEM_2_CAPTURE:
 			_polls += 1
-			if _polls >= 30:
+			if _polls >= SETTLE_SCENE:
 				_capture("system_2")
 				_polls = 0
 				_phase = Phase.SYSTEM_2_DOCK
 
 		Phase.SYSTEM_2_DOCK:
-			_dock_at_current_station()
-			_polls = 0
-			_phase = Phase.SYSTEM_2_MARKET_CAPTURE
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_dock_at_current_station()
+				_polls = 0
+				_phase = Phase.SYSTEM_2_MARKET_CAPTURE
 
 		Phase.SYSTEM_2_MARKET_CAPTURE:
 			_polls += 1
-			if _polls >= 5:
+			if _polls >= SETTLE_ACTION:
 				_capture("system_2_dock")
 				_polls = 0
 				_phase = Phase.SYSTEM_2_UNDOCK
 
 		Phase.SYSTEM_2_UNDOCK:
-			_undock()
-			_polls = 0
-			_phase = Phase.WARP_3_COOLDOWN
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_undock()
+				_polls = 0
+				_phase = Phase.WARP_3_COOLDOWN
 
 		# ── Warp to System 3 ──────────────────────────────────
 		Phase.WARP_3_COOLDOWN:
@@ -380,7 +429,10 @@ func _process(_delta: float) -> bool:
 				_phase = Phase.WARP_3_TRIGGER
 
 		Phase.WARP_3_TRIGGER:
-			if _neighbor_ids.size() >= 2:
+			if _game_manager == null:
+				print(PREFIX + "WARN|no_game_manager, skipping warp_3")
+				_phase = Phase.WAIT_TICK_200
+			elif _neighbor_ids.size() >= 2:
 				_game_manager.call("on_lane_gate_proximity_entered_v0", _neighbor_ids[1])
 				print(PREFIX + "WARP_TRIGGER|%s" % _neighbor_ids[1])
 				_polls = 0
@@ -391,7 +443,7 @@ func _process(_delta: float) -> bool:
 
 		Phase.WARP_3_WAIT:
 			_polls += 1
-			if _polls >= 40:
+			if _polls >= SETTLE_SCENE:
 				_polls = 0
 				_phase = Phase.WARP_3_REBUILD
 
@@ -402,8 +454,17 @@ func _process(_delta: float) -> bool:
 
 		Phase.SYSTEM_3_CAPTURE:
 			_polls += 1
-			if _polls >= 30:
+			if _polls >= SETTLE_SCENE:
+				# Dock at system 3 for variety (different market + star).
+				_dock_at_current_station()
+				_polls = 0
+				_phase = Phase.SYSTEM_3_DOCK_CAPTURE
+
+		Phase.SYSTEM_3_DOCK_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_ACTION:
 				_capture("system_3")
+				_undock()
 				_polls = 0
 				_phase = Phase.WAIT_TICK_200
 
@@ -412,45 +473,86 @@ func _process(_delta: float) -> bool:
 			var tick = _get_tick()
 			if tick >= 200:
 				_polls = 0
-				_phase = Phase.TICK_200_CAPTURE
+				_phase = Phase.TICK_200_ZOOM_IN
 			else:
 				_polls += 1
 				if _polls >= 300:
 					_polls = 0
-					_phase = Phase.TICK_200_CAPTURE
+					_phase = Phase.TICK_200_ZOOM_IN
+
+		Phase.TICK_200_ZOOM_IN:
+			# Fly hero toward a planet for a close-up variety shot.
+			_set_camera_distance(25.0)
+			_approach_nearest_planet()
+			_polls = 0
+			_phase = Phase.TICK_200_CAPTURE
 
 		Phase.TICK_200_CAPTURE:
-			_capture("tick_200")
-			_phase = Phase.FINAL
+			_polls += 1
+			if _polls >= SETTLE_CAMERA:
+				_capture("tick_200")
+				_polls = 0
+				_phase = Phase.FINAL_ZOOM_OUT
+
+		Phase.FINAL_ZOOM_OUT:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_camera_distance(80.0)
+				_polls = 0
+				_phase = Phase.FINAL
 
 		# ── Final ─────────────────────────────────────────────
 		Phase.FINAL:
-			var report = _observer.capture_full_report_v0()
-			var audit_results = _audit.run_audit_v0(report)
-			var critical_fails = _audit.count_critical_failures_v0(audit_results)
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				var report = _observer.capture_full_report_v0()
+				var audit_results = _audit.run_audit_v0(report)
+				var critical_fails = _audit.count_critical_failures_v0(audit_results)
 
-			for ar in audit_results:
-				var status = "PASS" if ar.get("passed", false) else "FAIL"
-				print(PREFIX + "AESTHETIC|%s|%s|%s|%s" % [
-					status, str(ar.get("flag", "")),
-					str(ar.get("severity", "")), str(ar.get("detail", ""))])
+				for ar in audit_results:
+					var status = "PASS" if ar.get("passed", false) else "FAIL"
+					print(PREFIX + "AESTHETIC|%s|%s|%s|%s" % [
+						status, str(ar.get("flag", "")),
+						str(ar.get("severity", "")), str(ar.get("detail", ""))])
 
-			print(PREFIX + "AESTHETIC_CRITICAL_FAILS|%d" % critical_fails)
-			_capture("final")
+				print(PREFIX + "AESTHETIC_CRITICAL_FAILS|%d" % critical_fails)
+				_capture("final")
 
-			_write_summary(audit_results, critical_fails)
+				_write_summary(audit_results, critical_fails)
 
-			if critical_fails == 0:
-				print(PREFIX + "PASS|screenshots=%d" % _snapshots.size())
-			else:
-				print(PREFIX + "FAIL|critical=%d screenshots=%d" % [critical_fails, _snapshots.size()])
+				if critical_fails == 0:
+					print(PREFIX + "PASS|screenshots=%d" % _snapshots.size())
+				else:
+					print(PREFIX + "FAIL|critical=%d screenshots=%d" % [critical_fails, _snapshots.size()])
 
-			_phase = Phase.DONE
+				_phase = Phase.DONE
 
 		Phase.DONE:
 			_quit()
 
 	return false
+
+
+# --- Burst capture ---
+
+func _start_burst(label: String, count: int, spacing: int, after_phase: Phase) -> void:
+	_burst_label = label
+	_burst_remaining = count
+	_burst_spacing = spacing
+	_burst_frame = 0
+	_after_burst_phase = after_phase
+	_polls = 0
+
+func _process_burst() -> void:
+	_polls += 1
+	if _polls >= _burst_spacing:
+		_polls = 0
+		_burst_frame += 1
+		_capture("%s_f%02d" % [_burst_label, _burst_frame])
+		_burst_remaining -= 1
+		if _burst_remaining <= 0:
+			_polls = 0
+			_phase = _after_burst_phase
 
 
 # --- Navigation helpers ---
@@ -485,10 +587,13 @@ func _rebuild_local_system(node_id: String) -> void:
 func _dock_at_current_station() -> void:
 	if _game_manager == null:
 		return
-	var stations = get_nodes_in_group("Station")
-	if stations.size() > 0:
-		_game_manager.call("on_proximity_dock_entered_v0", stations[0])
-		print(PREFIX + "DOCK|%s" % str(stations[0].name))
+	# Prefer Station group (actual stations), fallback to Planet group.
+	var targets = get_nodes_in_group("Station")
+	if targets.is_empty():
+		targets = get_nodes_in_group("Planet")
+	if targets.size() > 0:
+		_game_manager.call("on_proximity_dock_entered_v0", targets[0])
+		print(PREFIX + "DOCK|%s|groups=%s" % [str(targets[0].name), str(targets[0].get_groups())])
 
 
 func _undock() -> void:
@@ -585,17 +690,41 @@ func _approach_nearest_npc() -> void:
 	if nearest == null:
 		print(PREFIX + "WARN|no_npc_ships")
 		return
-	# Teleport hero to within 15u of the NPC (inside LABEL_SHOW_DIST of 40u)
+	# Teleport hero to within 10u of the NPC for close-up visibility.
 	var dir: Vector3 = (hero.global_position - nearest.global_position).normalized()
 	if dir.length_squared() < 0.01:
 		dir = Vector3(1, 0, 0)
-	hero.global_position = nearest.global_position + dir * 15.0
+	hero.global_position = nearest.global_position + dir * 10.0
 	hero.global_position.y = 0.0
 	hero.linear_velocity = Vector3.ZERO
 	print(PREFIX + "NPC_APPROACH|dist=15|npc=%s|has_on_hit=%s|groups=%s" % [
 		str(nearest.name),
 		str(nearest.has_method("on_hit")),
 		str(nearest.get_groups())])
+
+
+func _approach_nearest_planet() -> void:
+	var hero = _get_hero_body()
+	if hero == null:
+		return
+	var planets = get_nodes_in_group("Planet")
+	if planets.is_empty():
+		print(PREFIX + "WARN|no_planets")
+		return
+	var nearest = planets[0]
+	var best_dist: float = hero.global_position.distance_to(nearest.global_position)
+	for p in planets:
+		var d: float = hero.global_position.distance_to(p.global_position)
+		if d < best_dist:
+			best_dist = d
+			nearest = p
+	var dir: Vector3 = (hero.global_position - nearest.global_position).normalized()
+	if dir.length_squared() < 0.01:
+		dir = Vector3(1, 0, 0)
+	hero.global_position = nearest.global_position + dir * 12.0
+	hero.global_position.y = 0.0
+	hero.linear_velocity = Vector3.ZERO
+	print(PREFIX + "PLANET_APPROACH|%s" % str(nearest.name))
 
 
 func _damage_nearest_npc(hits: int, dmg: int) -> void:
@@ -660,7 +789,7 @@ func _spawn_warp_in_vfx() -> void:
 	effect.add_child(particles)
 	particles.emitting = true
 
-	# Flash sphere (shrinks from 4x to 0.1x)
+	# Flash sphere (shrinks from 4x to 0.1x over 0.8s)
 	var flash := MeshInstance3D.new()
 	flash.name = "WarpFlash"
 	var sphere := SphereMesh.new()
@@ -713,7 +842,7 @@ func _get_tick() -> int:
 
 func _write_summary(audit_results: Array, critical_fails: int) -> void:
 	var summary := {
-		"sweep_version": 3,
+		"sweep_version": 5,
 		"snapshot_count": _snapshots.size(),
 		"snapshots": _snapshots,
 		"aesthetic_audit": audit_results,

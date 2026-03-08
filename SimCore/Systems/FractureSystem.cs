@@ -55,6 +55,8 @@ public static class FractureSystem
     private const int STRUCT_BPS_DIVISOR = 10000; // STRUCTURAL: basis-point denominator
     private const int STRUCT_BPS_ROUND_HALF = 5000; // STRUCTURAL: half-up rounding term for BPS
     private const int STRUCT_PCT_DIVISOR = 100; // STRUCTURAL: int-pct denominator
+    private const int STRUCT_ALIVE_CHECK = 0; // STRUCTURAL: alive/positive boundary check
+    private const float STRUCT_TRACE_FLOOR = 0f; // STRUCTURAL: trace clamp floor
 
     // GATE.S6.FRACTURE.MARKET_MODEL.001: Fracture market pricing snapshot.
     // All math is deterministic integer arithmetic; no RNG.
@@ -124,7 +126,7 @@ public static class FractureSystem
     // GATE.S6.FRACTURE.ECON_FEEDBACK.001 — Fracture goods flow into lane hub markets.
     // For each non-fracture node with a market: if fracture goods exist in inventory,
     // increase supply by FractureGoodsFlowRatePct% of fracture stock per tick (integer math, min 1).
-    // Fracture goods: anomaly_samples, exotic_crystals, salvaged_tech.
+    // Fracture goods: exotic_matter, exotic_crystals, salvaged_tech.
     // Econ invariant: lane market total volume never decreases when fracture supply increases.
     // Deterministic: iterates goods in Ordinal order.
     public static void ApplyFractureGoodsFlowV0(SimState state)
@@ -134,8 +136,8 @@ public static class FractureSystem
         // Fracture good IDs (stable constants).
         var fractureGoodIds = new[]
         {
-            SimCore.Content.WellKnownGoodIds.AnomalySamples,
             SimCore.Content.WellKnownGoodIds.ExoticCrystals,
+            SimCore.Content.WellKnownGoodIds.ExoticMatter,
             SimCore.Content.WellKnownGoodIds.SalvagedTech
         };
 
@@ -195,10 +197,49 @@ public static class FractureSystem
                 fleet.DestinationNodeId = "";
                 fleet.State = FleetState.Idle;
 
-                // SLICE 3: TRACE GENERATION
-                // Arriving via Fracture leaves a signature in the fabric
-                endNode.Trace += 0.5f;
+                // GATE.S6.FRACTURE.COST_MODEL.001: Hull stress on arrival.
+                if (fleet.HullHp > STRUCT_ALIVE_CHECK)
+                {
+                    fleet.HullHp = Math.Max(STRUCT_PRICE_FLOOR, fleet.HullHp - FractureTweaksV0.FractureHullStressPerJump);
+                }
+
+                // GATE.S6.FRACTURE.COST_MODEL.001: Trace accumulation at destination.
+                endNode.Trace += FractureTweaksV0.FractureTracePerArrival;
             }
+        }
+
+        // GATE.S6.FRACTURE.DETECTION_REP.001: Detect fracture trace + apply rep penalty.
+        DetectFractureUse(state);
+    }
+
+    // GATE.S6.FRACTURE.DETECTION_REP.001: Factions detect fracture use via trace signature.
+    // When node.Trace >= threshold and node has a controlling faction, apply rep penalty to player.
+    // Also decays trace naturally per tick.
+    public static void DetectFractureUse(SimState state)
+    {
+        if (state is null) return;
+
+        var nodeIds = new System.Collections.Generic.List<string>(state.Nodes.Keys);
+        nodeIds.Sort(StringComparer.Ordinal);
+
+        foreach (var nodeId in nodeIds)
+        {
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) continue;
+
+            // Natural trace decay.
+            if (node.Trace > STRUCT_TRACE_FLOOR)
+            {
+                node.Trace -= FractureTweaksV0.TraceDecayPerTick;
+                if (node.Trace < STRUCT_TRACE_FLOOR) node.Trace = STRUCT_TRACE_FLOOR;
+            }
+
+            // Detection: trace above threshold + node has controlling faction.
+            if (node.Trace < FractureTweaksV0.TraceDetectionThreshold) continue;
+            if (!state.NodeFactionId.TryGetValue(nodeId, out var factionId)) continue;
+            if (string.IsNullOrEmpty(factionId)) continue;
+
+            // Apply rep penalty to player for detected fracture use.
+            ReputationSystem.AdjustReputation(state, factionId, FractureTweaksV0.FractureDetectionRepPenalty);
         }
     }
 }

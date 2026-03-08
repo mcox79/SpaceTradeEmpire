@@ -352,25 +352,79 @@ When a gate moves to DONE:
 | GATE.S16.NPC_ALIVE.HEADLESS_PROOF.001 | DONE | NPC ships spawn/move/warp headless proof |
 | GATE.X.HYGIENE.EPIC_REVIEW.015 | DONE | Epic audit (close S14, S15 candidates) |
 | GATE.X.HYGIENE.LIMBO_EVAL.001 | DONE | LimboAI integration architecture evaluation |
-| GATE.X.HYGIENE.REPO_HEALTH.016 | TODO | Full test suite + build verification baseline |
-| GATE.S17.REAL_SPACE.STAR_COORDS.001 | TODO | Galactic-scale 3D star positions in WorldDefinition |
-| GATE.S7.FACTION.DOCTRINE_MODEL.001 | TODO | FactionDoctrine fields + placeholder policies per faction |
-| GATE.S7.FACTION.REPUTATION_SYS.001 | TODO | Player reputation per faction (+trade, -attack) |
-| GATE.S6.FRACTURE.VOID_SITES.001 | TODO | Void discovery sites seeded between systems |
-| GATE.S17.REAL_SPACE.GALAXY_RENDER.001 | TODO | GalaxyView: persistent stars + local detail at real position + LOD |
-| GATE.S7.FACTION.TARIFF_ENFORCE.001 | TODO | MarketSystem tariff/access by reputation + doctrine |
-| GATE.S6.FRACTURE.MARKER_CMD.001 | TODO | SurveyMarker + PlaceMarkerCommand (tech-gated estimate) |
-| GATE.S6.FRACTURE.TRAVEL_CMD.001 | TODO | FractureTravelCommand: off-lane travel to void site |
-| GATE.S7.FACTION.BRIDGE_QUERIES.001 | TODO | SimBridge faction doctrine/reputation/access queries |
-| GATE.S17.REAL_SPACE.LANE_TRANSIT.001 | TODO | Physical lane traversal with tween acceleration |
-| GATE.S17.REAL_SPACE.WARP_TUNNEL.001 | TODO | Warp tunnel VFX obscuring void during transit |
-| GATE.S17.REAL_SPACE.GALAXY_MAP.001 | TODO | TAB map: high-altitude camera over real space |
-| GATE.S6.FRACTURE.SENSOR_REVEAL.001 | TODO | Sensor tech reveals void sites during transit |
-| GATE.S7.FACTION.PATROL_AGGRO.001 | TODO | NPC patrol aggro gated by player reputation |
-| GATE.S7.FACTION.UI_REPUTATION.001 | TODO | Faction rep bars + tariff warnings in UI |
-| GATE.S17.REAL_SPACE.HEADLESS_PROOF.001 | TODO | Real-space headless proof |
-| GATE.X.HYGIENE.EPIC_REVIEW.016 | TODO | Epic audit (tranche 16) |
-| GATE.X.HYGIENE.REALSPACE_EVAL.001 | TODO | Real-space architecture evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.016 | DONE | Full test suite + build verification baseline |
+| GATE.S17.REAL_SPACE.STAR_COORDS.001 | DONE | Galactic-scale 3D star positions in WorldDefinition |
+| GATE.S7.FACTION.DOCTRINE_MODEL.001 | DONE | FactionDoctrine fields + placeholder policies per faction |
+| GATE.S7.FACTION.REPUTATION_SYS.001 | DONE | Player reputation per faction (+trade, -attack) |
+| GATE.S6.FRACTURE.VOID_SITES.001 | DONE | Void discovery sites seeded between systems |
+| GATE.S17.REAL_SPACE.GALAXY_RENDER.001 | DONE | GalaxyView: persistent stars + local detail at real position + LOD |
+| GATE.S7.FACTION.TARIFF_ENFORCE.001 | DONE | MarketSystem tariff/access by reputation + doctrine |
+| GATE.S6.FRACTURE.MARKER_CMD.001 | DONE | SurveyMarker + PlaceMarkerCommand (tech-gated estimate) |
+| GATE.S6.FRACTURE.TRAVEL_CMD.001 | DONE | FractureTravelCommand: off-lane travel to void site |
+| GATE.S7.FACTION.BRIDGE_QUERIES.001 | DONE | SimBridge faction doctrine/reputation/access queries |
+| GATE.S17.REAL_SPACE.LANE_TRANSIT.001 | DONE | Physical lane traversal with tween acceleration |
+| GATE.S17.REAL_SPACE.WARP_TUNNEL.001 | DONE | Warp tunnel VFX obscuring void during transit |
+| GATE.S17.REAL_SPACE.GALAXY_MAP.001 | DONE | TAB map: high-altitude camera over real space |
+| GATE.S6.FRACTURE.SENSOR_REVEAL.001 | DONE | Sensor tech reveals void sites during transit |
+| GATE.S7.FACTION.PATROL_AGGRO.001 | DONE | NPC patrol aggro gated by player reputation |
+| GATE.S7.FACTION.UI_REPUTATION.001 | DONE | Faction rep bars + tariff warnings in UI |
+| GATE.S17.REAL_SPACE.HEADLESS_PROOF.001 | DONE | Real-space headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.016 | DONE | Epic audit (tranche 16) |
+| GATE.X.HYGIENE.REALSPACE_EVAL.001 | DONE | Real-space architecture evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.017 | DONE | Full test suite + build verification baseline |
+| GATE.S18.TRADE_GOODS.CONTENT_OVERHAUL.001 | DONE | Migrate 10→13 goods, 7→9 recipes per trade_goods_v0.md |
+| GATE.S18.SHIP_MODULES.ZONE_ARMOR.001 | DONE | Zone armor entity (Fore/Port/Stbd/Aft HP per fleet) |
+| GATE.S18.EMPIRE_DASH.DOCK_TABS.001 | DONE | Dock menu 3→5 tabs (Market/Jobs/Ship/Station/Intel) |
+| GATE.S18.TRADE_GOODS.GEO_DISTRIBUTION.001 | DONE | Geographic distribution: organics 40%, rare_metals 15%, fracture-only crystals |
+| GATE.S18.TRADE_GOODS.PRICE_BANDS.001 | DONE | Base price bands Low/Mid/High/VeryHigh per good + market spread tweaks |
+| GATE.S18.TRADE_GOODS.SUSTAIN_ALIGN.001 | DONE | Module sustain: weapons consume munitions not metal |
+| GATE.S18.SHIP_MODULES.SHIP_CLASS.001 | DONE | 8 ship classes (Shuttle→Dreadnought) with base stats |
+| GATE.S18.SHIP_MODULES.FITTING_BUDGET.001 | DONE | 3-constraint fitting: Slots + Power + Sustain |
+| GATE.S18.TRADE_GOODS.BRIDGE_MARKET.001 | DONE | SimBridge market queries for new/renamed goods |
+| GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001 | DONE | Empire Overview (F1): 6 summary cards + attention queue |
+| GATE.S18.TRADE_GOODS.CHAIN_TESTS.001 | DONE | Contract tests for all 9 production chains |
+| GATE.S18.EMPIRE_DASH.STATION_TAB.001 | DONE | Dock Station tab: health, local production, services |
+| GATE.S18.TRADE_GOODS.NPC_TRADE_UPDATE.001 | DONE | NPC traders haul new goods along geographic routes |
+| GATE.S18.SHIP_MODULES.COMBAT_ZONES.001 | DONE | Zone armor in combat: collision zones + stance hit distribution |
+| GATE.S18.EMPIRE_DASH.SHIP_TAB.001 | DONE | Dock Ship tab: class, modules, fitting budget, zone armor |
+| GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001 | DONE | Empire Economy (F2): routes, prices, supply/demand |
+| GATE.S18.TRADE_GOODS.HEADLESS_PROOF.001 | DONE | Headless proof: buy/sell new goods, verify inventory |
+| GATE.X.HYGIENE.EPIC_REVIEW.017 | DONE | Epic audit (tranche 17) |
+| GATE.X.HYGIENE.ECONOMY_EVAL.001 | DONE | 13-good economy evaluation against design pillars |
+| GATE.S7.REPUTATION.ACCESS_TIERS.001 | DONE | 5 rep tiers gate dock/trade/tech access |
+| GATE.S7.REPUTATION.PRICING_CURVES.001 | DONE | Rep-driven price modifiers in MarketSystem |
+| GATE.S7.TERRITORY.REGIME_MODEL.001 | DONE | Dynamic territory regime from doctrine+rep |
+| GATE.S6.FRACTURE.COST_MODEL.001 | DONE | Fracture costs: fuel, hull stress, trace accumulation |
+| GATE.S7.TERRITORY.PATROL_RESPONSE.001 | DONE | Patrol behavior varies by territory regime |
+| GATE.S6.FRACTURE.DETECTION_REP.001 | DONE | Factions detect fracture trace + rep penalty |
+| GATE.S6.FRACTURE.PLAYER_DISPATCH.001 | DONE | Wire DispatchFractureTravelV0 in SimBridge + game_manager |
+| GATE.S7.REPUTATION.UI_INDICATORS.001 | DONE | Trade menu: rep impact on prices + access warnings |
+| GATE.S7.TERRITORY.BRIDGE_DISPLAY.001 | DONE | Territory regime in galaxy view + dock info |
+| GATE.S6.FRACTURE.UI_PANEL.001 | DONE | Fracture travel UI: destination, cost, confirm |
+| GATE.S7.INFRA.HEADLESS_PROOF.001 | DONE | Headless: rep tiers, territory regimes, fracture travel |
+| GATE.X.HYGIENE.REPO_HEALTH.018 | DONE | Full test suite, warnings, dead code, golden hash |
+| GATE.X.HYGIENE.EPIC_REVIEW.018 | DONE | Audit epic statuses, recommend content tranche |
+| GATE.X.HYGIENE.LORE_REVIEW.001 | DONE | Map lore doc to gates for content tranche |
+| GATE.S7.FACTION.CONTENT_DATA.001 | TODO | Populate 5 factions with lore-accurate content data |
+| GATE.S7.INSTABILITY.PHASE_MODEL.001 | TODO | Per-node instability int (0-100+), 5 phase thresholds |
+| GATE.S7.WARFRONT.STATE_MODEL.001 | TODO | Warfront entity: combatants, intensity 0-4, contested nodes |
+| GATE.X.HYGIENE.REPO_HEALTH.019 | TODO | Full test suite + golden hash stability |
+| GATE.S7.FACTION.PENTAGON_RING.001 | TODO | Pentagon dependency ring + secondary cross-links |
+| GATE.S7.WARFRONT.SEEDING.001 | TODO | Seed 1 hot war + 1 cold war at tick 0 |
+| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | TODO | Wartime demand multipliers on market consumption |
+| GATE.S7.WARFRONT.TARIFF_SCALING.001 | TODO | War surcharge: BaseTariff + Surcharge * Intensity |
+| GATE.S7.INSTABILITY.WORLDGEN.001 | TODO | GalaxyGenerator assigns initial instability per node |
+| GATE.S7.WARFRONT.BRIDGE.001 | TODO | SimBridge warfront queries |
+| GATE.S7.INSTABILITY.BRIDGE.001 | TODO | SimBridge instability phase queries |
+| GATE.S7.FACTION.IDENTITY_PANEL.001 | TODO | Faction identity UI panel (species, produces/needs) |
+| GATE.S7.WARFRONT.EVOLUTION.001 | TODO | Warfront intensity evolution over ticks |
+| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | TODO | Escalating costs for neutral traders during war |
+| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | TODO | Pentagon cascade: war disrupts supply chain |
+| GATE.S7.WARFRONT.UI_MAP.001 | TODO | Galaxy map warfront overlays + tariff display |
+| GATE.S7.INSTABILITY.VISUAL.001 | TODO | Galaxy map phase-colored nodes + shimmer |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | TODO | Headless proof: factions, warfronts, demand, tariffs |
+| GATE.X.HYGIENE.EPIC_REVIEW.019 | TODO | Audit epic statuses, recommend next anchor |
+| GATE.X.HYGIENE.TENSION_EVAL.001 | TODO | Eval dynamic_tension_v0.md vs sim capabilities |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -1276,3 +1330,214 @@ NPC fleet ships become physical 3D entities with LimboAI behavior trees, sim-dri
 | GATE.X.HYGIENE.REPO_HEALTH.015 | DONE | Full test suite + build verification baseline. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
 | GATE.X.HYGIENE.EPIC_REVIEW.015 | DONE | Epic audit: close S14 (Alive Galaxy), S15 (Exploration Feel) candidates. Recommend next anchor. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
 | GATE.X.HYGIENE.LIMBO_EVAL.001 | DONE | LimboAI integration architecture evaluation: scalability, BT pattern quality, determinism safety. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/56_SESSION_LOG.md |
+
+## I. Tranche 16 "Real Space + Factions" (EPIC.S17.REAL_SPACE, EPIC.S7.FACTION_MODEL, EPIC.S6.OFFLANE_FRACTURE)
+
+### V1. SimCore — Star Coords + Faction Foundation (core, tier 1)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S17.REAL_SPACE.STAR_COORDS.001 | DONE | StarNetworkGen outputs galactic-scale 3D positions (2000-5000u between neighbors). RealSpaceTweaksV0.GalacticScaleFactor. WorldDefinition stores real positions. WorldLoader seeds from these. Proof: dotnet test --filter "Determinism" | NEW: SimCore/Tweaks/RealSpaceTweaksV0.cs, FOUND: SimCore/Gen/StarNetworkGen.cs, FOUND: SimCore/Schemas/WorldDefinition.cs, FOUND: SimCore/World/WorldLoader.cs |
+| GATE.S7.FACTION.DOCTRINE_MODEL.001 | DONE | Add doctrine fields to WorldFaction: TradePolicy enum (Open/Guarded/Closed), AggressionLevel, TariffRate, PreferredGoods. FactionTweaksV0 for default values. GalaxyGenerator assigns placeholder doctrines (Traders=Open/0.05, Miners=Guarded/0.15, Pirates=Closed/hostile). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/Schemas/WorldDefinition.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs |
+| GATE.S7.FACTION.REPUTATION_SYS.001 | DONE | ReputationSystem: player standing [-100,100] per faction. Trade at faction station -> +rep (scaled by trade value). Attack faction ship -> large -rep. Stored in SimState.FactionReputation dictionary. Wire into SimKernel.Step(). Proof: dotnet test --filter "Reputation" + Determinism | NEW: SimCore/Systems/ReputationSystem.cs, NEW: SimCore.Tests/Systems/ReputationSystemTests.cs, FOUND: SimCore/SimState.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S6.FRACTURE.VOID_SITES.001 | DONE | VoidSite entity: Id, Position3D (real coordinates between systems), Family (enum), MarkerState. World gen seeds 5-15 void sites per galaxy at midpoints/offsets between star pairs. Deterministic from galaxy seed. Proof: dotnet test --filter "VoidSite" + Determinism | NEW: SimCore/Entities/VoidSite.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs, FOUND: SimCore/Schemas/WorldDefinition.cs |
+
+### V2. SimCore — Tariff + Fracture Commands (core, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.FACTION.TARIFF_ENFORCE.001 | DONE | MarketSystem applies tariff modifier from faction doctrine * reputation. Bad rep -> higher buy prices, lower sell prices. Below threshold -> blocked from trading. Proof: dotnet test --filter "Tariff|Reputation" + Determinism | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/SimState.cs |
+| GATE.S6.FRACTURE.MARKER_CMD.001 | DONE | PlaceSurveyMarkerCommand: player marks a VoidSite. Marker estimates extractable resources based on sensor tech level (higher tech -> more accurate, reveals more types). SurveyMarker state on VoidSite entity. Proof: dotnet test --filter "SurveyMarker" + Determinism | NEW: SimCore/Commands/PlaceSurveyMarkerCommand.cs, FOUND: SimCore/Entities/VoidSite.cs |
+| GATE.S6.FRACTURE.TRAVEL_CMD.001 | DONE | FractureTravelCommand: off-lane travel to VoidSite. Much slower than lane transit (10x). Requires fracture drive tech. Sets fleet to Traveling with void site destination. Proof: dotnet test --filter "FractureTravel" + Determinism | NEW: SimCore/Commands/FractureTravelCommand.cs, FOUND: SimCore/Entities/Fleet.cs, FOUND: SimCore/Systems/MovementSystem.cs |
+
+### V3. GalaxyView Refactor (bridge, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S17.REAL_SPACE.GALAXY_RENDER.001 | DONE | GalaxyView refactor: (1) Persistent star billboards for ALL systems at real 3D positions, colored by star class. (2) DrawLocalSystemV0 at star position, not origin. (3) LOD: detail within ~200u, culled beyond. Remove ClearLocalSystemV0 teardown model. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scenes/playable_prototype.tscn |
+
+### V4. SimBridge Faction Queries (bridge, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.FACTION.BRIDGE_QUERIES.001 | DONE | New SimBridge.Faction.cs partial: GetFactionDoctrineV0(factionId) -> trade policy, tariff. GetPlayerReputationV0(factionId) -> standing. GetTerritoryAccessV0(nodeId) -> controlling faction, tariff, access level. Proof: dotnet build | NEW: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Schemas/WorldDefinition.cs |
+
+### V5. Lane Transit + VFX + Galaxy Map (bridge, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S17.REAL_SPACE.LANE_TRANSIT.001 | DONE | Rework lane transit: player moves source->dest via Tween. Acceleration (0.5s) -> cruise -> deceleration (0.5s). game_manager.gd _begin_lane_transit_v0 drives traversal. Camera follows. RebuildLocalSystemV0 on arrival. Proof: dotnet build | FOUND: scripts/core/game_manager.gd, FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/view/player_follow_camera.gd |
+| GATE.S17.REAL_SPACE.WARP_TUNNEL.001 | DONE | Warp tunnel: cylinder mesh + scrolling noise shader around player during lane transit. Particle streaks. Fully opaque by default. Opacity var for sensor tech. Proof: dotnet build | NEW: scripts/vfx/warp_tunnel.gd, FOUND: scripts/vfx/warp_effect.gd |
+| GATE.S17.REAL_SPACE.GALAXY_MAP.001 | DONE | TAB galaxy map: high-altitude orthographic camera over real 3D space. Node labels + lane lines already 3D geometry. Remove GalaxyOverlay CanvasLayer. Proof: dotnet build | FOUND: scripts/core/game_manager.gd, FOUND: scripts/view/GalaxyView.cs |
+| GATE.S6.FRACTURE.SENSOR_REVEAL.001 | DONE | Sensor tech controls warp tunnel opacity. Level 0: opaque. Level 1+: semi-transparent, void sites as distant blips. Higher levels -> family icon, distance label on blips. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/vfx/warp_tunnel.gd |
+
+### V6. NPC Behavior + UI (bridge, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.FACTION.PATROL_AGGRO.001 | DONE | NPC patrols check player reputation with their faction via SimBridge. Below aggro threshold -> attack on sight. Update bt_select_destination.gd and npc_ship.gd. Proof: dotnet build | FOUND: scripts/core/npc_ship.gd, FOUND: scripts/npc/bt_select_destination.gd, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.FACTION.UI_REPUTATION.001 | DONE | EmpireDashboard Factions tab: per-faction rep bar [-100,100], doctrine summary. Dock menu: tariff rate display, "Access Denied" when below threshold. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/ui/hero_trade_menu.gd |
+
+### V7. Proof + Meta
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S17.REAL_SPACE.HEADLESS_PROOF.001 | DONE | Headless SceneTree test: stars at real positions, system detail at star position, lane transit moves player, LOD culling. Proof: dotnet build + godot --headless | NEW: scripts/tests/test_real_space.gd, FOUND: scripts/view/GalaxyView.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.016 | DONE | Full test suite + build verification. Proof: dotnet test SimCore.Tests -c Release | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.016 | DONE | Epic audit: close S16.NPC_SHIPS_ALIVE, advance S17/S7/S6. Recommend next anchor. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md |
+| GATE.X.HYGIENE.REALSPACE_EVAL.001 | DONE | Real-space architecture eval: float precision, LOD strategy, transit feel, galaxy map integration. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/56_SESSION_LOG.md |
+
+## V. Tranche 17 "Economic Foundation" (EPIC.S18.TRADE_GOODS.V0, EPIC.S18.SHIP_MODULES.V0, EPIC.S18.EMPIRE_DASH.V0)
+
+### W1. Content Overhaul + Zone Armor + Repo Health (core, tier 1)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.017 | DONE | Full test suite + warning scan + golden hash stability baseline. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.S18.TRADE_GOODS.CONTENT_OVERHAUL.001 | DONE | Migrate ContentRegistryLoader from 10-good/7-recipe to 13-good/9-recipe system per trade_goods_v0.md. Add organics, rare_metals, munitions, components (exists). Rename composite_armor->composites, anomaly_samples->exotic_matter. Remove hull_plating recipe. Add recipe_process_food, recipe_fabricate_composites, recipe_manufacture_munitions, recipe_salvage_to_components. Update WellKnownGoodIds + WellKnownRecipeIds. Update golden hashes. Proof: dotnet test --filter "Determinism" + --filter "ContentRegistry" | FOUND: SimCore/Content/ContentRegistryLoader.cs, FOUND: SimCore/Content/WellKnownGoodIds.cs, FOUND: SimCore/Content/WellKnownRecipeIds.cs, FOUND: SimCore.Tests/Content/ContentRegistryContractTests.cs |
+| GATE.S18.SHIP_MODULES.ZONE_ARMOR.001 | DONE | Add ZoneArmor struct (Fore/Port/Stbd/Aft HP). Extend Fleet entity with ZoneArmor[4]. CombatTweaksV0 for base zone armor per ship. Damage flow: Shield->ZoneArmor[facing]->Hull. Proof: dotnet test --filter "Determinism" + --filter "ZoneArmor" | FOUND: SimCore/Entities/Fleet.cs, FOUND: SimCore/Systems/CombatSystem.cs, FOUND: SimCore/Tweaks/CombatTweaksV0.cs, NEW: SimCore.Tests/Systems/ZoneArmorTests.cs |
+
+### W2. Dock Tabs (bridge, tier 1)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.EMPIRE_DASH.DOCK_TABS.001 | DONE | Restructure dock menu from 3 tabs (Market/Jobs/Services) to 5 tabs (Market/Jobs/Ship/Station/Intel) per EmpireDashboard.md. Ship+Station+Intel tabs show placeholder until tier 2-3 gates fill them. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/ui/StationMenu.cs |
+
+### W3. Geographic Distribution + Price Bands + Sustain (core, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.TRADE_GOODS.GEO_DISTRIBUTION.001 | DONE | MarketInitGen seeds organics (~40% of nodes, agri-systems), rare_metals (~15% clustered), exotic_crystals (fracture-only). System archetype emerges from local resources. Update PlanetInitGen for resource distribution. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/MarketInitGen.cs, FOUND: SimCore/Gen/PlanetInitGen.cs, FOUND: SimCore/Content/ContentRegistryLoader.cs |
+| GATE.S18.TRADE_GOODS.PRICE_BANDS.001 | DONE | Add base_price and price_spread fields to content registry good definitions. Low (50-100), Mid (150-300), High (400-800), Very High (1000-2000). MarketSystem uses per-good base prices. NEW: MarketTweaksV0 for spread/modifier gameplay knobs. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Content/ContentRegistryLoader.cs, FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Entities/Market.cs, NEW: SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.S18.TRADE_GOODS.SUSTAIN_ALIGN.001 | DONE | Update module sustain recipes per trade_goods_v0.md. Weapon modules consume munitions instead of metal. Coilgun->1 munitions, Missile Pod->1 munitions+1 fuel, Railgun->2 munitions+1 composites, etc. Proof: dotnet test --filter "Determinism" + --filter "Sustainment" | FOUND: SimCore/Content/ContentRegistryLoader.cs, FOUND: SimCore/Systems/SustainmentReport.cs, FOUND: SimCore/Systems/SustainmentSnapshot.cs |
+
+### W4. Ship Class + Fitting (core, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.SHIP_MODULES.SHIP_CLASS.001 | DONE | Define 8 ship classes (Shuttle/Corvette/Clipper/Frigate/Hauler/Cruiser/Carrier/Dreadnought) with base stats per ship_modules_v0.md. ShipClassContentV0 in content registry: slot_count, base_power, base_zone_armor[4], mass, cargo, scan_range. Fleet references ship_class_id. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Content/ContentRegistryLoader.cs, FOUND: SimCore/Entities/Fleet.cs, NEW: SimCore/Content/ShipClassContentV0.cs |
+| GATE.S18.SHIP_MODULES.FITTING_BUDGET.001 | DONE | 3-constraint fitting: slots (count), power (gen vs draw), sustain (goods/cycle). RefitSystem validates all 3 constraints on module install. ModuleSlot tracks power_draw. Proof: dotnet test --filter "Determinism" + --filter "Refit" | FOUND: SimCore/Systems/RefitSystem.cs, FOUND: SimCore/Entities/ModuleSlot.cs, FOUND: SimCore/Content/WellKnownModuleIds.cs, FOUND: SimCore.Tests/Systems/RefitSystemTests.cs |
+
+### W5. Bridge + Market UI (bridge, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.TRADE_GOODS.BRIDGE_MARKET.001 | DONE | SimBridge.Market.cs exposes new goods (organics, rare_metals, munitions, exotic_matter) and renamed goods (composites) in market snapshots. Display names from content registry. hero_trade_menu.gd shows all 13 goods. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Market.cs, FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/ui/MarketTabView.cs |
+| GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001 | DONE | Empire Overview (F1): 6 summary cards (Economy/Fleet/Industry/Research/Exploration/Security) with KPIs + trend arrows. Needs Attention queue with clickable action buttons. Each card navigates to its tab. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Ui.cs, FOUND: scripts/bridge/SimBridge.Reports.cs |
+| GATE.S18.EMPIRE_DASH.STATION_TAB.001 | DONE | Dock Station tab: station health bar, local production (active recipes + efficiency), installed services. SimBridge queries for station/industry data. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/bridge/SimBridge.NpcIndustry.cs, FOUND: scripts/bridge/SimBridge.Maintenance.cs |
+
+### W6. Chain Tests (content, tier 2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.TRADE_GOODS.CHAIN_TESTS.001 | DONE | Contract tests for all 9 production chains. Verify recipe I/O matches trade_goods_v0.md. Test chain depth <= 3. Test Metal->Munitions/Composites/Components fork. Test Salvage->Metal/Components paths. No phantom demands. Proof: dotnet test --filter "ProductionChain or ContentRegistry" | FOUND: SimCore.Tests/Content/ContentRegistryContractTests.cs, NEW: SimCore.Tests/Content/ProductionChainTests.cs |
+
+### W7. NPC Trade + Combat Zones (core, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.TRADE_GOODS.NPC_TRADE_UPDATE.001 | DONE | NpcTradeSystem trades new goods. NPC routes prioritize geographic arbitrage (organics agri->industrial, rare_metals deposit->military). Update NpcTradeTweaksV0 good weights. Proof: dotnet test --filter "Determinism" + --filter "NpcTrade" | FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Tweaks/NpcTradeTweaksV0.cs, FOUND: SimCore.Tests/Systems/NpcTradeSystemTests.cs |
+| GATE.S18.SHIP_MODULES.COMBAT_ZONES.001 | DONE | Integrate zone armor into CombatSystem. Player hits: collision-point -> local space -> zone. NPC-vs-NPC: class-based stance hit distribution (Charge=50% Fore, Broadside=35% Port/Stbd, Kite=55% Aft). StrategicResolverV0 uses ship class for stance. Proof: dotnet test --filter "Determinism" + --filter "Combat or NpcFleetCombat" | FOUND: SimCore/Systems/CombatSystem.cs, FOUND: SimCore/Systems/StrategicResolverV0.cs, FOUND: SimCore/Tweaks/CombatTweaksV0.cs, FOUND: SimCore.Tests/Systems/NpcFleetCombatSystemTests.cs |
+
+### W8. Empire Dashboard Tabs (bridge, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.EMPIRE_DASH.SHIP_TAB.001 | DONE | Dock Ship tab: ship class display, installed modules grid, fitting budget (slots/power/sustain used vs max), zone armor diagram (4-face HP bars). SimBridge.Fleet + SimBridge.Refit queries. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/bridge/SimBridge.Fleet.cs, FOUND: scripts/bridge/SimBridge.Refit.cs |
+| GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001 | DONE | Empire Economy (F2): trade routes list, good inventory across stations, supply/demand per system. Price history mini-charts. SimBridge.TradeIntel + SimBridge.Reports queries. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.TradeIntel.cs, FOUND: scripts/bridge/SimBridge.Reports.cs |
+
+### W9. Headless Proof (bridge, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S18.TRADE_GOODS.HEADLESS_PROOF.001 | DONE | Headless GDScript test: boot game, dock, buy/sell organics + munitions, verify inventory/credits. End-to-end proof of trade goods overhaul. Proof: godot --headless --path . res://scripts/tests/test_trade_goods_v0.gd | NEW: scripts/tests/test_trade_goods_v0.gd, NEW: scenes/tests/test_trade_goods_v0.tscn |
+
+### W10. Meta (docs, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.EPIC_REVIEW.017 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 18. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.ECONOMY_EVAL.001 | DONE | Evaluate 13-good economy: chain depth <= 3, every good 2+ demands, no phantom demands, geographic distribution balance, sustain escalation curve. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/56_SESSION_LOG.md, FOUND: docs/design/trade_goods_v0.md |
+
+## W. Tranche 18 "Faction Infrastructure" (EPIC.S7.REPUTATION_INFLUENCE, EPIC.S7.TERRITORY_REGIMES, EPIC.S6.OFFLANE_FRACTURE)
+
+### W1. Reputation (core, tier 1 — hash-affecting)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.REPUTATION.ACCESS_TIERS.001 | DONE | 5 rep tiers (Allied>=75/Friendly>=25/Neutral>=-25/Hostile>=-75/Enemy<-75) gate dock access, trade access, tech purchase. Add tier enum + access check methods to ReputationSystem. Thresholds in FactionTweaksV0. Proof: dotnet test --filter "Determinism" + "ReputationAccessTier" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/Systems/MarketSystem.cs, NEW: SimCore.Tests/Systems/ReputationAccessTierTests.cs |
+| GATE.S7.REPUTATION.PRICING_CURVES.001 | DONE | Rep-driven price modifiers: Allied=-15% buy/+15% sell, Friendly=-5%/+5%, Neutral=0, Hostile=+20%/-20%, Enemy=blocked. Update MarketSystem GetEffectiveTariffBps to include rep pricing layer. Proof: dotnet test --filter "Determinism" + "ReputationPricing" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs, NEW: SimCore.Tests/Systems/ReputationPricingTests.cs |
+
+### W2. Territory (core, tier 1-2 — hash-affecting)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.TERRITORY.REGIME_MODEL.001 | DONE | Dynamic territory regime computed from faction doctrine + player rep. Open (Open+Friendly), Guarded (Open+Neutral or Guarded+Friendly), Restricted (Guarded+Hostile or any+Hostile), Hostile (Closed or Enemy). Add ComputeTerritoryRegime to ReputationSystem. Proof: dotnet test --filter "Determinism" + "TerritoryRegime" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs, NEW: SimCore.Tests/Systems/TerritoryRegimeTests.cs |
+| GATE.S7.TERRITORY.PATROL_RESPONSE.001 | DONE | NPC patrol engagement rules by regime: Open=no engagement, Guarded=scan only (flash warning), Restricted=pursue if cargo>threshold, Hostile=attack on sight. Update NpcFleetCombatSystem. Proof: dotnet test --filter "Determinism" + "TerritoryPatrol" | FOUND: SimCore/Systems/NpcFleetCombatSystem.cs, FOUND: SimCore/Systems/ReputationSystem.cs, NEW: SimCore.Tests/Systems/TerritoryPatrolTests.cs |
+
+### W3. Fracture (core, tier 1-2 — hash-affecting)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.FRACTURE.COST_MODEL.001 | DONE | Fracture travel applies costs: fuel consumption (FractureFuelPerJump), hull stress damage (FractureHullStressPerJump), trace accumulation at destination node (FractureTracePerArrival). Update FractureSystem.Process and FractureTravelCommand validation. Constants in FractureTweaksV0. Proof: dotnet test --filter "Determinism" + "FractureCost" | FOUND: SimCore/Systems/FractureSystem.cs, FOUND: SimCore/Tweaks/FractureTweaksV0.cs, FOUND: SimCore/Commands/FractureTravelCommand.cs, NEW: SimCore.Tests/Systems/FractureCostTests.cs |
+| GATE.S6.FRACTURE.DETECTION_REP.001 | DONE | Factions detect fracture use via trace signature at nodes. When node.Trace > detection threshold and node has controlling faction, apply rep penalty to player. Detection chance scales with trace level. Add DetectFractureUse to FractureSystem.Process. Proof: dotnet test --filter "Determinism" + "FractureDetection" | FOUND: SimCore/Systems/FractureSystem.cs, FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Tweaks/FractureTweaksV0.cs, NEW: SimCore.Tests/Systems/FractureDetectionTests.cs |
+
+### W4. Bridge wiring (bridge, tier 1-2 — non-hash)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S6.FRACTURE.PLAYER_DISPATCH.001 | DONE | Add DispatchFractureTravelV0(fleetId, voidSiteId) to SimBridge.Fracture.cs. Wire game_manager.gd on_fracture_travel_v0 trigger for void site interaction. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Fracture.cs, FOUND: scripts/core/game_manager.gd |
+| GATE.S7.REPUTATION.UI_INDICATORS.001 | DONE | Dock trade menu shows rep tier label (color-coded), price modifier percentage, "Access Denied" overlay when trade blocked. Enrich GetTerritoryAccessV0 with rep_tier and price_modifier fields. Proof: dotnet build | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.TERRITORY.BRIDGE_DISPLAY.001 | DONE | Add GetTerritoryRegimeV0(nodeId) to SimBridge.Faction.cs returning regime string. GalaxyView node popup shows regime. Dock info panel shows regime with color. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S6.FRACTURE.UI_PANEL.001 | DONE | New fracture_travel_panel.gd: list available void sites with distance/cost/trace-risk, confirm button dispatches fracture travel, cancel returns to flight. Wire from game_manager proximity trigger. Proof: dotnet build | NEW: scripts/ui/fracture_travel_panel.gd, FOUND: scripts/bridge/SimBridge.Fracture.cs, FOUND: scripts/core/game_manager.gd |
+
+### W5. Headless proof (bridge, tier 3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.INFRA.HEADLESS_PROOF.001 | DONE | Headless test: dock at faction station, verify rep tier affects pricing, verify territory regime displayed, initiate fracture travel round trip, verify hull stress applied. Proof: godot --headless -s test_faction_infra.gd | NEW: scripts/tests/test_faction_infra.gd, FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: scripts/bridge/SimBridge.Fracture.cs |
+
+### W6. Meta (docs, tier 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.018 | DONE | Full test suite (679+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.018 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend content tranche anchor and scope. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.LORE_REVIEW.001 | DONE | Map factions_and_lore_v0.md (RESEARCH COMPLETE) to concrete implementation gates: 6 factions, goods mapping, ship rosters, instability phases, adaptation fragments, endgame paths. Output: prioritized gate list for content tranche. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/factions_and_lore_v0.md, FOUND: docs/54_EPICS.md, FOUND: docs/56_SESSION_LOG.md |
+
+## X. Tranche 19 — Faction Content & Warfront Foundation
+
+### X1. Core (SimCore, tier 1-3, hash-affecting)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.FACTION.CONTENT_DATA.001 | TODO | Update 3 placeholder factions to 5 named factions (Concord/Chitin/Weavers/Valorin/Communion) with lore-accurate: species, TradePolicy, TariffRate, AggressionLevel, production goods, needed goods per factions_and_lore_v0.md. Update FactionTweaksV0 + WorldFaction + GalaxyGenerator. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/Schemas/WorldDefinition.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs |
+| GATE.S7.INSTABILITY.PHASE_MODEL.001 | TODO | Add InstabilityLevel int field to Node entity. 5 phases: Stable(0-24), Shimmer(25-49), Drift(50-74), Fracture(75-99), Void(100+). NEW: InstabilityTweaksV0.cs with thresholds. Add phase helper methods. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Entities/Node.cs, NEW: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/SimState.cs |
+| GATE.S7.WARFRONT.STATE_MODEL.001 | TODO | New WarfrontState entity: Id, CombatantA, CombatantB, Intensity(0-4), ContestedNodeIds, TickStarted, WarType(Hot/Cold). Store in SimState.Warfronts dictionary. NEW: WarfrontTweaksV0.cs. Proof: dotnet test --filter "Determinism" | NEW: SimCore/Entities/WarfrontState.cs, NEW: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimState.cs |
+| GATE.S7.FACTION.PENTAGON_RING.001 | TODO | Pentagon dependency model in FactionTweaksV0: primary ring (Concord->Composites from Weavers, Weavers->Electronics from Chitin, Chitin->Rare Metals from Valorin, Valorin->Exotic Crystals from Communion, Communion->Food+Fuel from Concord) + secondary cross-links. Contract test validates ring integrity. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, NEW: SimCore.Tests/Systems/FactionDependencyTests.cs |
+| GATE.S7.WARFRONT.SEEDING.001 | TODO | GalaxyGenerator seeds warfronts at world creation: 1 hot war (Valorin-Weaver territorial), 1 cold war (Concord-Chitin informational). Player starts in non-combatant space 2-3 hops from front. Contested nodes at faction borders. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, NEW: SimCore/Entities/WarfrontState.cs, FOUND: SimCore/World/WorldLoader.cs |
+| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | TODO | NEW: WarfrontDemandSystem. Factions at war consume goods at elevated rates per WarfrontTweaksV0 (Munitions 3-5x, Composites 2-3x, Fuel 2-4x). Adjusts NPC consumption multiplier based on warfront intensity. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontDemandSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S7.WARFRONT.TARIFF_SCALING.001 | TODO | Update MarketSystem tariff calculation: EffectiveTariff = BaseTariff + (WarSurcharge * NodeWarfrontIntensity). Per-system, not per-faction. WarSurcharge values in WarfrontTweaksV0. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, NEW: SimCore.Tests/Systems/WarfrontTariffTests.cs |
+| GATE.S7.INSTABILITY.WORLDGEN.001 | TODO | GalaxyGenerator assigns initial instability per node: core=0-10, frontier=10-30, rim=20-50, void sites=50-80. Discovery sites placed in Shimmer+ zones. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/Entities/Node.cs |
+| GATE.S7.WARFRONT.EVOLUTION.001 | TODO | NEW: WarfrontEvolutionSystem. Warfront intensity evolves per tick: cold war escalates to hot (tick 200-600 by seed), hot war can ceasefire (tick 600-1200). New fronts open as old ones cool. Deterministic by seed. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontEvolutionSystem.cs, FOUND: SimCore/SimKernel.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs |
+| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | TODO | MarketSystem applies neutrality surcharge for unaligned traders at war-zone stations: +5% at Intensity 2, +10% at 3, +15% at 4. Inspection frequency scaling. Access denial at Intensity 4 frontline without allegiance. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/Systems/ReputationSystem.cs |
+| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | TODO | Pentagon cascade test suite: war between A-B disrupts A production -> downstream faction supply drops -> prices spike at dependent stations. Verify cascade through NpcTradeSystem + MarketSystem. Proof: dotnet test --filter "Determinism" | NEW: SimCore.Tests/Systems/WarfrontCascadeTests.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Systems/MarketSystem.cs |
+
+### X2. Bridge (SimBridge + UI, tier 2-3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.WARFRONT.BRIDGE.001 | TODO | NEW: SimBridge.Warfront.cs partial. GetWarfrontsV0() returns array of warfront state dicts {id, combatantA, combatantB, intensity, war_type, contested_nodes}. GetNodeWarIntensityV0(nodeId) returns intensity int (0 if no warfront). Proof: dotnet build | NEW: scripts/bridge/SimBridge.Warfront.cs, FOUND: SimCore/Entities/WarfrontState.cs |
+| GATE.S7.INSTABILITY.BRIDGE.001 | TODO | Add to SimBridge.Faction.cs: GetNodeInstabilityV0(nodeId) returns {level (int), phase (string: Stable/Shimmer/Drift/Fracture/Void), effects (array of strings)}. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Entities/Node.cs |
+| GATE.S7.FACTION.IDENTITY_PANEL.001 | TODO | EmpireDashboard Factions tab enhancement: per-faction detail showing species, philosophy, trade policy, produces list, needs list, unique tech, endgame alignment. Uses GetFactionMapV0 + new GetFactionDetailV0 bridge query. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.UI_MAP.001 | TODO | GalaxyView warfront overlays: contested nodes highlighted with pulsing red border, warfront intensity gradient coloring. Dock menu shows tariff surcharge breakdown ("Tariff: 20% (base 8% + war 12%)"). Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S7.INSTABILITY.VISUAL.001 | TODO | GalaxyView phase-colored node indicators: Stable=green, Shimmer=yellow, Drift=orange, Fracture=red, Void=purple. Shimmer+ nodes get subtle pulse animation. Phase label on node hover. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | TODO | Headless proof: boot scene, verify 5 factions populated, pentagon ring valid, warfronts seeded (1 hot + 1 cold), demand shocks active, tariff scaling correct, instability phases assigned. HFWP output with SHA256. Proof: godot --headless -s res://scripts/tests/test_warfront_econ.gd | NEW: scripts/tests/test_warfront_econ.gd, FOUND: scripts/bridge/SimBridge.Warfront.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+
+### X3. Meta (docs, tier 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.019 | TODO | Full test suite (762+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.019 | TODO | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.TENSION_EVAL.001 | TODO | Evaluate dynamic_tension_v0.md 5 pillars vs current simulation capabilities. Map each pillar to existing/new systems. Identify gaps, prioritize for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/dynamic_tension_v0.md, FOUND: docs/54_EPICS.md |

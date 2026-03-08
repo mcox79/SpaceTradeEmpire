@@ -201,7 +201,15 @@ public static class NpcTradeSystem
                 int units = Math.Min(localStock, NpcTradeTweaksV0.MaxTradeUnitsPerTrip);
                 if (units <= 0) continue;
 
-                if (best == null || profitPerUnit * units > best.ProfitPerUnit * best.Units)
+                // GATE.S18.TRADE_GOODS.NPC_TRADE_UPDATE.001: Weight-adjusted scoring.
+                int weight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(goodId, out var w)
+                    ? w : NpcTradeTweaksV0.DefaultGoodWeight;
+                long score = (long)profitPerUnit * units * weight;
+                long bestScore = best != null
+                    ? (long)best.ProfitPerUnit * best.Units * (NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(best.GoodId, out var bw) ? bw : NpcTradeTweaksV0.DefaultGoodWeight)
+                    : 0;
+
+                if (best == null || score > bestScore)
                 {
                     best = new TradeOpportunity
                     {

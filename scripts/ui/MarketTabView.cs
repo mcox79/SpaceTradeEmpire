@@ -107,9 +107,12 @@ public class MarketTabView
 				}
 
 
+				// GATE.S18.TRADE_GOODS.BRIDGE_MARKET.001: Use display names from FormatDisplayNameV0.
+				var displayName = SimBridge.FormatDisplayNameV0(good);
+
 				var lbl = new Label
 				{
-					Text = $"{good.PadRight(10)} | Stock: {marketQty} | Price: ${price} | You: {playerQty} | IntelAge(t): {ageText}{progSuffix}",
+					Text = $"{displayName.PadRight(16)} | Stock: {marketQty} | Price: ${price} | You: {playerQty} | IntelAge(t): {ageText}{progSuffix}",
 					Modulate = infoColor,
 
 					SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,

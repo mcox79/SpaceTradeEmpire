@@ -27,4 +27,8 @@ public class Node
     // FractureTier: minimum tech tier required to enter (0 = any, 1+ = tiered).
     public bool IsFractureNode { get; set; } = false;
     public int FractureTier { get; set; } = 0;
+
+    // GATE.S7.INSTABILITY.PHASE_MODEL.001: Per-node instability level (0-100+).
+    // 5 phases: Stable(0-24), Shimmer(25-49), Drift(50-74), Fracture(75-99), Void(100+).
+    public int InstabilityLevel { get; set; } = 0;
 }

@@ -42,6 +42,11 @@ SimCore/Systems/PressureSystem.cs:0
 
 # CombatSystem: structural zero clamp (Math.Max(0, hp - damage) prevents negative HP)
 SimCore/Systems/CombatSystem.cs:0
+# GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: structural 4 (zone facing count) for ZoneArmorHp array
+SimCore/Systems/CombatSystem.cs:4
+
+# GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: structural zero (loop init wi = 0) in FireAllWeapons
+SimCore/Systems/StrategicResolverV0.cs:0
 
 # GATE.S7.PLANET.GENERATION.001: structural zeros/ones in PlanetInitGen
 # (Clear(), empty-string init, clamp bounds, loop indices, weight accumulators, tech tier)
@@ -77,6 +82,12 @@ SimCore/Gen/GalaxyGenerator.cs:0
 SimCore/Gen/GalaxyGenerator.cs:3
 SimCore/Gen/GalaxyGenerator.cs:1
 
+# GATE.S7.FACTION.CONTENT_DATA.001: structural literals (faction count=5, tuple index=4, FNV hash constants)
+SimCore/Gen/GalaxyGenerator.cs:5
+SimCore/Gen/GalaxyGenerator.cs:4
+SimCore/Gen/GalaxyGenerator.cs:2166136261
+SimCore/Gen/GalaxyGenerator.cs:16777619
+
 # GATE.S6.OUTCOME.REWARD_MODEL.001: structural literals (array index parts[1], format check parts.Length >= 2)
 SimCore/Systems/DiscoveryOutcomeSystem.cs:1
 SimCore/Systems/DiscoveryOutcomeSystem.cs:2
@@ -89,6 +100,37 @@ SimCore/Systems/JumpEventSystem.cs:31
 # GATE.S16.NPC_ALIVE.DELAY_ENFORCE.001: structural zero (DelayTicksRemaining > 0 comparison)
 SimCore/Systems/MovementSystem.cs:0
 
+# GATE.S6.FRACTURE.TRAVEL_CMD.001: structural literals (TravelProgress >= 1.0f arrival check, reset to 0f)
+SimCore/Systems/MovementSystem.cs:1.0f
+SimCore/Systems/MovementSystem.cs:0f
+
+# GATE.S7.FACTION.TARIFF_ENFORCE.001: structural zeros (empty string check, Math.Max(0, ...), tariff floor)
+# and ceiling calc literal (9999L for ceil division)
+SimCore/Systems/MarketSystem.cs:0
+SimCore/Systems/MarketSystem.cs:9999L
+
+# MarketInitGen: structural hash primes + modulus for deterministic geo-distribution
+SimCore/Gen/MarketInitGen.cs:7919
+SimCore/Gen/MarketInitGen.cs:1301
+SimCore/Gen/MarketInitGen.cs:100
+
+# MarketSystem: structural multiplier (symmetric interpolation: threshold * 2, spread * 2)
+# and price floor (Math.Max(1, price) — minimum 1 credit)
+SimCore/Systems/MarketSystem.cs:2
+SimCore/Systems/MarketSystem.cs:1
+
 # GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: structural zeros/ones (HP checks, clamp, loop bounds, count checks)
 SimCore/Systems/NpcFleetCombatSystem.cs:0
 SimCore/Systems/NpcFleetCombatSystem.cs:1
+
+# GATE.S7.WARFRONT.DEMAND_SHOCK.001: structural zeros (count==0 check, qty<=0 check, Math.Max(0,...) clamp)
+SimCore/Systems/WarfrontDemandSystem.cs:0
+
+# GATE.S7.WARFRONT.EVOLUTION.001: structural literals (count==0, modulus 20/33 for probability,
+# +1/-1 intensity step, FNV hash constants)
+SimCore/Systems/WarfrontEvolutionSystem.cs:0
+SimCore/Systems/WarfrontEvolutionSystem.cs:20
+SimCore/Systems/WarfrontEvolutionSystem.cs:33
+SimCore/Systems/WarfrontEvolutionSystem.cs:1
+SimCore/Systems/WarfrontEvolutionSystem.cs:2166136261
+SimCore/Systems/WarfrontEvolutionSystem.cs:16777619

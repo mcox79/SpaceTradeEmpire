@@ -174,6 +174,30 @@ public static class WorldLoader
             }
         }
 
+        // GATE.S7.FACTION.TARIFF_ENFORCE.001: Populate node-faction and tariff mappings.
+        state.NodeFactionId.Clear();
+        state.FactionTariffRates.Clear();
+        state.FactionTradePolicy.Clear();
+        state.FactionAggressionLevel.Clear();
+        if (def.Factions != null)
+        {
+            foreach (var f in def.Factions.OrderBy(x => x.FactionId, StringComparer.Ordinal))
+            {
+                if (string.IsNullOrEmpty(f.FactionId)) continue;
+                state.FactionTariffRates[f.FactionId] = f.TariffRate;
+                state.FactionTradePolicy[f.FactionId] = (int)f.TradePolicy;
+                state.FactionAggressionLevel[f.FactionId] = f.AggressionLevel;
+                if (f.ControlledNodeIds != null)
+                {
+                    foreach (var nodeId in f.ControlledNodeIds.OrderBy(x => x, StringComparer.Ordinal))
+                    {
+                        if (!string.IsNullOrEmpty(nodeId))
+                            state.NodeFactionId[nodeId] = f.FactionId;
+                    }
+                }
+            }
+        }
+
         // GATE.S14.NPC_ALIVE.FLEET_SEED.001: Re-seed AI fleets after clearing.
         // WorldLoader.Apply clears all fleets, so AI fleets from GalaxyGenerator are lost.
         // Re-create them deterministically from the current node set.

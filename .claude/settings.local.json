@@ -178,7 +178,19 @@
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"NpcFleetCombat\")",
       "Bash(\"C:/Godot/Godot_v4.6-stable_mono_win64.exe\" --path . -s \"res://scripts/tests/visual_sweep_bot_v0.gd\")",
       "Bash(gh api repos/limbonaut/limboai/releases/latest --jq '.tag_name, .assets[] | select\\(.name | test\\(\"\"gdextension\"\"\\)\\) | .name, .browser_download_url')",
-      "Bash(ls -la \"c:\\\\Users\\\\marsh\\\\Documents\\\\Space Trade Empire\\\\reports\\\\visual_eval/\"*.png)"
+      "Bash(ls -la \"c:\\\\Users\\\\marsh\\\\Documents\\\\Space Trade Empire\\\\reports\\\\visual_eval/\"*.png)",
+      "Bash(ls \"c:/Users/marsh/Documents/Space Trade Empire/reports/visual_eval/\"*.png)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(\"C:\\\\Godot\\\\Godot_v4.6-stable_mono_win64.exe\" --path . -s \"res://scripts/tests/visual_sweep_bot_v0.gd\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v n --filter \"ContentSubstrateIntegrationGuard\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Reputation\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~RoadmapConsistency\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~ExplorationBot\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Tariff|Reputation\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Tariff\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"SurveyMarker\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FractureTravelTests\")",
+      "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo --filter \"TweakRoutingGuard\" -v d)"
     ],
     "ask": [
       "Bash(git:push*)"

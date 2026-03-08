@@ -104,6 +104,12 @@ public class SimKernel
         // GATE.S6.OUTCOME.REWARD_MODEL.001: Discovery outcome rewards on Analyzed phase.
         DiscoveryOutcomeSystem.Process(_state);
 
+        // GATE.S7.WARFRONT.DEMAND_SHOCK.001: Wartime demand consumption.
+        WarfrontDemandSystem.Process(_state);
+
+        // GATE.S7.WARFRONT.EVOLUTION.001: Warfront state transitions (escalation/de-escalation).
+        WarfrontEvolutionSystem.Process(_state);
+
         // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
         NpcTradeSystem.ProcessNpcTrade(_state);
 

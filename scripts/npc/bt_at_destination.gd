@@ -16,7 +16,7 @@ func _tick(_delta: float) -> int:
 		return FAILURE
 
 	var target_pos: Vector3 = blackboard.get_var("target_pos", Vector3.ZERO)
-	var dist := ship.global_position.distance_to(target_pos)
+	var dist: float = ship.global_position.distance_to(target_pos)
 
 	if dist <= arrival_distance:
 		return SUCCESS

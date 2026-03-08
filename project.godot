@@ -30,6 +30,7 @@ TooltipPlaceholderVariables="*res://addons/tooltips_pro/scripts/tooltip_placehol
 TooltipLinkData="*res://addons/tooltips_pro/scripts/tooltip_link_data.gd"
 ToastManager="*res://scripts/ui/toast_manager.gd"
 UITheme="*res://scripts/ui/ui_theme.gd"
+MusicManager="*res://scripts/audio/music_manager.gd"
 
 [display]
 
@@ -75,3 +76,9 @@ ship_turn_right={
 [physics]
 
 3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+anti_aliasing/quality/screen_space_aa=1

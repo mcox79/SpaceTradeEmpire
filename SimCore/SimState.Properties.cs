@@ -250,6 +250,24 @@ public partial class SimState
     // GATE.S12.PROGRESSION.STATS.001: Player progression statistics.
     [JsonInclude] public PlayerStats PlayerStats { get; set; } = new();
 
+    // GATE.S7.FACTION.REPUTATION_SYS.001: Player standing per faction [-100,100].
+    [JsonInclude] public Dictionary<string, int> FactionReputation { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Node-to-faction mapping (nodeId -> factionId).
+    [JsonInclude] public Dictionary<string, string> NodeFactionId { get; private set; } = new(StringComparer.Ordinal);
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Faction base tariff rates (factionId -> rate 0.0-1.0).
+    [JsonInclude] public Dictionary<string, float> FactionTariffRates { get; private set; } = new(StringComparer.Ordinal);
+    // GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction trade policy (factionId -> TradePolicy int).
+    [JsonInclude] public Dictionary<string, int> FactionTradePolicy { get; private set; } = new(StringComparer.Ordinal);
+    // GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction aggression level (factionId -> 0=peaceful,1=defensive,2=hostile).
+    [JsonInclude] public Dictionary<string, int> FactionAggressionLevel { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S7.WARFRONT.STATE_MODEL.001: Active warfronts keyed by warfront ID.
+    [JsonInclude] public Dictionary<string, WarfrontState> Warfronts { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S6.FRACTURE.VOID_SITES.001: Void discovery sites between systems.
+    [JsonInclude] public Dictionary<string, VoidSite> VoidSites { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.S6.ANOMALY.ENCOUNTER_MODEL.001: Active anomaly encounters keyed by EncounterId.
     [JsonInclude] public Dictionary<string, AnomalyEncounter> AnomalyEncounters { get; private set; } = new(StringComparer.Ordinal);
     [JsonInclude] public long NextAnomalyEncounterSeq { get; set; } = 1;

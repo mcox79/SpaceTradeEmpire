@@ -34,6 +34,74 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.S6.FRACTURE.SENSOR_REVEAL.001: Sensor tech level for void site visibility during transit.
+    // Level 0 = no sensors, 1 = sensor_suite, 2 = advanced_sensors.
+    public int GetSensorLevelV0()
+    {
+        int level = 0;
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Tech.UnlockedTechIds.Contains(SimCore.Tweaks.SurveyTweaksV0.SensorSuiteTechId))
+                level++;
+            if (state.Tech.UnlockedTechIds.Contains(SimCore.Tweaks.SurveyTweaksV0.AdvancedSensorsTechId))
+                level++;
+        }, 0);
+        return level;
+    }
+
+    // GATE.S6.FRACTURE.PLAYER_DISPATCH.001: Initiate fracture travel for player fleet.
+    // Blocks until the sim thread processes the command so callers can read updated state.
+    public void DispatchFractureTravelV0(string fleetId, string voidSiteId)
+    {
+        int tickBefore = GetSimTickV0();
+        EnqueueCommand(new SimCore.Commands.FractureTravelCommand(fleetId, voidSiteId));
+        WaitForTickAdvance(tickBefore, 200);
+    }
+
+    // GATE.S6.FRACTURE.UI_PANEL.001: List available void sites with costs.
+    // Returns array of {id, family, marker_state, distance, fuel_cost, hull_stress, trace_risk}.
+    public Godot.Collections.Array GetAvailableVoidSitesV0()
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            string playerFleetId = "fleet_trader_1";
+            if (!state.Fleets.TryGetValue(playerFleetId, out var fleet)) return;
+            if (string.IsNullOrEmpty(fleet.CurrentNodeId)) return;
+            if (!state.Nodes.TryGetValue(fleet.CurrentNodeId, out var playerNode)) return;
+
+            var siteIds = new System.Collections.Generic.List<string>(state.VoidSites.Keys);
+            siteIds.Sort(StringComparer.Ordinal);
+
+            foreach (var siteId in siteIds)
+            {
+                var site = state.VoidSites[siteId];
+                // Only show discovered or surveyed sites
+                if (site.MarkerState == SimCore.Entities.VoidSiteMarkerState.Unknown) continue;
+
+                float dist = System.Numerics.Vector3.Distance(playerNode.Position, site.Position);
+                int fuelCost = SimCore.Tweaks.FractureTweaksV0.FractureFuelPerJump;
+                int hullStress = SimCore.Tweaks.FractureTweaksV0.FractureHullStressPerJump;
+                float traceRisk = SimCore.Tweaks.FractureTweaksV0.FractureTracePerArrival;
+
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["id"] = site.Id,
+                    ["family"] = site.Family.ToString(),
+                    ["marker_state"] = site.MarkerState.ToString(),
+                    ["distance"] = dist,
+                    ["fuel_cost"] = fuelCost,
+                    ["hull_stress"] = hullStress,
+                    ["trace_risk"] = traceRisk,
+                    ["can_afford"] = fleet.Supplies >= fuelCost,
+                });
+            }
+        }, 0);
+
+        return result;
+    }
+
     /// <summary>
     /// Returns fracture-adjusted market pricing for a good at a node.
     /// Returns {mid (int), buy (int), sell (int), volume_cap (int), error (string)}.

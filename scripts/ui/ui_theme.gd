@@ -70,7 +70,7 @@ const BORDER_W  := 2    # Standard border width
 # ============================================================================
 
 ## Dock menu panel (subtle border, compact padding).
-static func make_panel_dock() -> StyleBoxFlat:
+func make_panel_dock() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL_BG
 	s.border_color = BORDER_DEFAULT
@@ -80,7 +80,7 @@ static func make_panel_dock() -> StyleBoxFlat:
 	return s
 
 ## Standard bordered panel (popup, combat log, info panels).
-static func make_panel_standard(border_color: Color = BORDER_ACCENT) -> StyleBoxFlat:
+func make_panel_standard(border_color: Color = BORDER_ACCENT) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL_BG
 	s.border_color = border_color
@@ -93,7 +93,7 @@ static func make_panel_standard(border_color: Color = BORDER_ACCENT) -> StyleBox
 	return s
 
 ## Toast / tooltip panel (borderless, lighter bg).
-static func make_panel_toast() -> StyleBoxFlat:
+func make_panel_toast() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL_BG_LIGHT
 	s.set_corner_radius_all(CORNER_SM)
@@ -104,7 +104,7 @@ static func make_panel_toast() -> StyleBoxFlat:
 	return s
 
 ## Floating HUD element (borderless, standard bg).
-static func make_panel_hud() -> StyleBoxFlat:
+func make_panel_hud() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL_BG
 	s.set_corner_radius_all(CORNER_SM)
@@ -115,7 +115,7 @@ static func make_panel_hud() -> StyleBoxFlat:
 	return s
 
 ## Wide-padding modal (help, settings overlays).
-static func make_panel_modal() -> StyleBoxFlat:
+func make_panel_modal() -> StyleBoxFlat:
 	var s := make_panel_standard(BORDER_ACCENT)
 	s.content_margin_left = 20.0
 	s.content_margin_right = 20.0
@@ -128,7 +128,7 @@ static func make_panel_modal() -> StyleBoxFlat:
 # ============================================================================
 
 ## Security band → color mapping (used by HUD, dock menu, node popup).
-static func security_color(band: String) -> Color:
+func security_color(band: String) -> Color:
 	match band:
 		"hostile":   return RED
 		"dangerous": return ORANGE
@@ -136,7 +136,7 @@ static func security_color(band: String) -> Color:
 		_:           return BLUE
 
 ## Discovery phase → color mapping.
-static func discovery_phase_color(phase: String) -> Color:
+func discovery_phase_color(phase: String) -> Color:
 	match phase:
 		"SEEN":     return TEXT_DISABLED
 		"SCANNED":  return YELLOW
@@ -149,7 +149,7 @@ static func discovery_phase_color(phase: String) -> Color:
 
 enum Faction { NEUTRAL, TRADE, MILITARY, FRONTIER, SCIENTIFIC }
 
-static func faction_border_color(faction: Faction) -> Color:
+func faction_border_color(faction: Faction) -> Color:
 	match faction:
 		Faction.TRADE:      return Color(0.9, 0.75, 0.2, 0.8)
 		Faction.MILITARY:   return Color(0.8, 0.2, 0.2, 0.8)
@@ -157,7 +157,7 @@ static func faction_border_color(faction: Faction) -> Color:
 		Faction.SCIENTIFIC: return Color(0.5, 0.3, 0.9, 0.8)
 		_:                  return BORDER_DEFAULT
 
-static func faction_title_color(faction: Faction) -> Color:
+func faction_title_color(faction: Faction) -> Color:
 	match faction:
 		Faction.TRADE:      return GOLD
 		Faction.MILITARY:   return RED_LIGHT

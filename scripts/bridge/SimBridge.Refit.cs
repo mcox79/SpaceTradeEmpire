@@ -138,6 +138,42 @@ public partial class SimBridge
         return reason;
     }
 
+    // GATE.S18.EMPIRE_DASH.SHIP_TAB.001: Ship fitting summary for dock UI.
+    // Returns {ship_class, power_used, power_max, slot_count, slots_filled,
+    //          zone_fore, zone_fore_max, zone_port, zone_port_max,
+    //          zone_stbd, zone_stbd_max, zone_aft, zone_aft_max,
+    //          hull, hull_max, shield, shield_max}
+    public Godot.Collections.Dictionary GetPlayerShipFittingV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var fleet)) return;
+            var classDef = SimCore.Content.ShipClassContentV0.GetById(fleet.ShipClassId);
+            result["ship_class"] = classDef?.DisplayName ?? fleet.ShipClassId;
+            result["ship_class_id"] = fleet.ShipClassId;
+            result["power_used"] = SimCore.Systems.RefitSystem.ComputeTotalPowerDraw(fleet);
+            result["power_max"] = SimCore.Systems.RefitSystem.GetPowerBudget(fleet);
+            result["slot_count"] = fleet.Slots.Count;
+            int filled = 0;
+            foreach (var s in fleet.Slots) { if (!string.IsNullOrEmpty(s.InstalledModuleId)) filled++; }
+            result["slots_filled"] = filled;
+            result["zone_fore"] = fleet.ZoneArmorHp[(int)SimCore.Entities.ZoneFacing.Fore];
+            result["zone_fore_max"] = fleet.ZoneArmorHpMax[(int)SimCore.Entities.ZoneFacing.Fore];
+            result["zone_port"] = fleet.ZoneArmorHp[(int)SimCore.Entities.ZoneFacing.Port];
+            result["zone_port_max"] = fleet.ZoneArmorHpMax[(int)SimCore.Entities.ZoneFacing.Port];
+            result["zone_stbd"] = fleet.ZoneArmorHp[(int)SimCore.Entities.ZoneFacing.Starboard];
+            result["zone_stbd_max"] = fleet.ZoneArmorHpMax[(int)SimCore.Entities.ZoneFacing.Starboard];
+            result["zone_aft"] = fleet.ZoneArmorHp[(int)SimCore.Entities.ZoneFacing.Aft];
+            result["zone_aft_max"] = fleet.ZoneArmorHpMax[(int)SimCore.Entities.ZoneFacing.Aft];
+            result["hull"] = fleet.HullHp;
+            result["hull_max"] = fleet.HullHpMax;
+            result["shield"] = fleet.ShieldHp;
+            result["shield_max"] = fleet.ShieldHpMax;
+        }, 0);
+        return result;
+    }
+
     /// <summary>
     /// Installs a module into a fleet slot. Returns {success, reason}.
     /// </summary>

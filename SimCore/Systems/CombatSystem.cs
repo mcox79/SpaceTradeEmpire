@@ -24,6 +24,9 @@ public static class CombatSystem
         public int Overkill { get; set; }
     }
 
+    // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Combat stance for zone hit distribution.
+    public enum CombatStance { Charge, Broadside, Kite }
+
     public sealed class CombatProfile
     {
         public int HullHp { get; set; }
@@ -31,6 +34,9 @@ public static class CombatSystem
         public int ShieldHp { get; set; }
         public int ShieldHpMax { get; set; }
         public List<WeaponInfo> Weapons { get; set; } = new();
+        // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Zone armor HP per facing.
+        public int[] ZoneArmorHp { get; set; } = new int[4];
+        public string ShipClassId { get; set; } = "";
     }
 
     public sealed class WeaponInfo
@@ -68,7 +74,10 @@ public static class CombatSystem
             HullHpMax = fleet.HullHpMax,
             ShieldHp = fleet.ShieldHp,
             ShieldHpMax = fleet.ShieldHpMax,
+            ShipClassId = fleet.ShipClassId,
         };
+        // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Copy zone armor.
+        Array.Copy(fleet.ZoneArmorHp, profile.ZoneArmorHp, fleet.ZoneArmorHp.Length);
 
         foreach (var slot in fleet.Slots)
         {
@@ -179,14 +188,138 @@ public static class CombatSystem
         {
             fleet.HullHpMax = CombatTweaksV0.DefaultHullHpMax;
             fleet.ShieldHpMax = CombatTweaksV0.DefaultShieldHpMax;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Fore] = CombatTweaksV0.DefaultZoneArmorFore;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Port] = CombatTweaksV0.DefaultZoneArmorPort;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Starboard] = CombatTweaksV0.DefaultZoneArmorStbd;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Aft] = CombatTweaksV0.DefaultZoneArmorAft;
         }
         else
         {
             fleet.HullHpMax = CombatTweaksV0.AiHullHpMax;
             fleet.ShieldHpMax = CombatTweaksV0.AiShieldHpMax;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Fore] = CombatTweaksV0.AiZoneArmorFore;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Port] = CombatTweaksV0.AiZoneArmorPort;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Starboard] = CombatTweaksV0.AiZoneArmorStbd;
+            fleet.ZoneArmorHpMax[(int)ZoneFacing.Aft] = CombatTweaksV0.AiZoneArmorAft;
         }
         fleet.HullHp = fleet.HullHpMax;
         fleet.ShieldHp = fleet.ShieldHpMax;
+        Array.Copy(fleet.ZoneArmorHpMax, fleet.ZoneArmorHp, fleet.ZoneArmorHpMax.Length);
+    }
+
+    // GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Zone armor damage routing result.
+    public sealed class ZoneDamageResult
+    {
+        public int ShieldDmg { get; set; }
+        public int ZoneArmorDmg { get; set; }
+        public int HullDmg { get; set; }
+        public ZoneFacing Facing { get; set; }
+    }
+
+    /// <summary>
+    /// GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Calculate damage with zone armor layer.
+    /// Flow: Shield absorbs first → ZoneArmor[facing] absorbs remainder → Hull takes rest.
+    /// Integer arithmetic only, deterministic.
+    /// </summary>
+    public static ZoneDamageResult CalcDamageWithZoneArmor(
+        int baseDamage, DamageFamily family,
+        int defenderShieldHp, int zoneArmorHp, int defenderHullHp,
+        ZoneFacing facing)
+    {
+        var result = new ZoneDamageResult { Facing = facing };
+
+        // Apply counter family multipliers.
+        int shieldMultPct = family switch
+        {
+            DamageFamily.Kinetic => CombatTweaksV0.KineticVsShieldPct,
+            DamageFamily.Energy => CombatTweaksV0.EnergyVsShieldPct,
+            _ => CombatTweaksV0.NeutralPct,
+        };
+        int hullMultPct = family switch
+        {
+            DamageFamily.Kinetic => CombatTweaksV0.KineticVsHullPct,
+            DamageFamily.Energy => CombatTweaksV0.EnergyVsHullPct,
+            _ => CombatTweaksV0.NeutralPct,
+        };
+
+        int effectiveVsShield = baseDamage * shieldMultPct / CombatTweaksV0.NeutralPct;
+        int effectiveVsHull = baseDamage * hullMultPct / CombatTweaksV0.NeutralPct;
+
+        int remaining = effectiveVsShield;
+
+        // Layer 1: Shield absorbs.
+        if (defenderShieldHp > 0)
+        {
+            result.ShieldDmg = Math.Min(remaining, defenderShieldHp);
+            remaining -= result.ShieldDmg;
+            // Convert overflow from shield-effective to hull-effective damage.
+            if (remaining > 0)
+                remaining = remaining * hullMultPct / shieldMultPct;
+        }
+        else
+        {
+            remaining = effectiveVsHull;
+        }
+
+        // Layer 2: Zone armor absorbs (uses hull-effective damage).
+        if (remaining > 0 && zoneArmorHp > 0)
+        {
+            result.ZoneArmorDmg = Math.Min(remaining, zoneArmorHp);
+            remaining -= result.ZoneArmorDmg;
+        }
+
+        // Layer 3: Hull absorbs remainder.
+        if (remaining > 0)
+        {
+            result.HullDmg = Math.Min(remaining, defenderHullHp);
+        }
+
+        return result;
+    }
+
+    // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Determine stance from ship class.
+    public static CombatStance DetermineStance(string shipClassId)
+    {
+        return shipClassId switch
+        {
+            "frigate" or "dreadnought" => CombatStance.Charge,
+            "clipper" or "shuttle" => CombatStance.Kite,
+            _ => CombatStance.Broadside, // corvette, cruiser, hauler, carrier, unknown
+        };
+    }
+
+    // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Get hit distribution for a stance (Fore, Port, Stbd, Aft).
+    public static int[] GetStanceDistribution(CombatStance stance)
+    {
+        return stance switch
+        {
+            CombatStance.Charge => new[] {
+                CombatTweaksV0.ChargeForePct, CombatTweaksV0.ChargePortPct,
+                CombatTweaksV0.ChargeStbdPct, CombatTweaksV0.ChargeAftPct },
+            CombatStance.Kite => new[] {
+                CombatTweaksV0.KiteForePct, CombatTweaksV0.KitePortPct,
+                CombatTweaksV0.KiteStbdPct, CombatTweaksV0.KiteAftPct },
+            _ => new[] {
+                CombatTweaksV0.BroadsideForePct, CombatTweaksV0.BroadsidePortPct,
+                CombatTweaksV0.BroadsideStbdPct, CombatTweaksV0.BroadsideAftPct },
+        };
+    }
+
+    // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Pick zone facing based on stance distribution.
+    // Uses deterministic round-robin weighted selection: accumulates hit pct and selects
+    // the zone whose cumulative weight bracket contains (weaponIndex * 100 / totalWeapons) % 100.
+    public static ZoneFacing PickFacing(CombatStance stance, int weaponIndex, int totalWeapons)
+    {
+        if (totalWeapons <= 0) return ZoneFacing.Fore;
+        int[] dist = GetStanceDistribution(stance);
+        int slot = (weaponIndex * CombatTweaksV0.NeutralPct / totalWeapons) % CombatTweaksV0.NeutralPct;
+        int cumulative = 0;
+        for (int i = 0; i < dist.Length; i++)
+        {
+            cumulative += dist[i];
+            if (slot < cumulative) return (ZoneFacing)i;
+        }
+        return ZoneFacing.Aft;
     }
 
     // ── GATE.S5.COMBAT_LOCAL.COMBAT_TICK.001: Combat encounter lifecycle ──

@@ -14,6 +14,12 @@ var _is_hostile: bool = false
 var _travel_progress: float = 0.0
 var _fleet_state: String = "Idle"
 
+## GATE.S7.FACTION.PATROL_AGGRO.001: Reputation-based aggro state.
+var _faction_id: String = ""
+var _aggro_check_timer: float = 0.0
+const AGGRO_CHECK_INTERVAL: float = 2.0  # seconds between reputation polls
+const AGGRO_REPUTATION_THRESHOLD: int = -50  # matches FactionTweaksV0.AggroReputationThreshold
+
 ## Flight controller state.
 var target_position: Vector3 = Vector3.ZERO
 var target_speed: float = 6.0
@@ -24,6 +30,14 @@ var stagger_remaining: float = 0.0
 
 ## Stop moving when closer than this to target.
 const ARRIVAL_THRESHOLD: float = 1.5
+
+## Star avoidance — ships steer around the star (at local origin) instead of flying through it.
+const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
+
+## Local patrol — ships pick new waypoints when they reach their target.
+const PATROL_RADIUS_MIN: float = 20.0
+const PATROL_RADIUS_MAX: float = 60.0
+var _patrol_seed: int = 0
 
 ## Visual node references.
 @onready var _ship_visual: Node3D = $ShipVisual
@@ -46,6 +60,9 @@ func _ready() -> void:
 	add_to_group("NpcShip")
 	collision_layer = 4
 	collision_mask = 0
+	# Seed patrol RNG from fleet ID so each ship patrols differently.
+	for c in fleet_id:
+		_patrol_seed = _patrol_seed * 31 + c.unicode_at(0)
 	_create_status_display()
 
 
@@ -164,13 +181,57 @@ func update_transit(data: Dictionary) -> void:
 	_role = data.get("role", 0)
 	_hull_hp = data.get("hull_hp", 0)
 	_hull_hp_max = data.get("hull_hp_max", 0)
-	_is_hostile = data.get("is_hostile", false)
 	_travel_progress = data.get("travel_progress", 0.0)
 	_fleet_state = data.get("state", "Idle")
+
+	## GATE.S7.FACTION.PATROL_AGGRO.001: Resolve hostility from faction reputation.
+	var base_hostile: bool = data.get("is_hostile", false)
+	if base_hostile and _role == 2:  # Patrol
+		var current_node: String = data.get("current_node_id", "")
+		_is_hostile = _check_reputation_aggro(current_node)
+	else:
+		_is_hostile = base_hostile
 	_update_status_display()
 
 
+## GATE.S7.FACTION.PATROL_AGGRO.001: Check player reputation with the fleet's faction.
+## Returns true if reputation is below aggro threshold (player is hostile to this faction).
+func _check_reputation_aggro(current_node: String) -> bool:
+	var bridge := get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return true  # No bridge = assume hostile (safe default for patrols)
+
+	# Resolve faction from the fleet's current node.
+	if not current_node.is_empty() and bridge.has_method("GetTerritoryAccessV0"):
+		var territory: Dictionary = bridge.call("GetTerritoryAccessV0", current_node)
+		var fid: String = territory.get("faction_id", "")
+		if not fid.is_empty():
+			_faction_id = fid
+
+	# If no faction resolved, fall back to hostile.
+	if _faction_id.is_empty():
+		return true
+
+	# Query player reputation with this faction.
+	if bridge.has_method("GetPlayerReputationV0"):
+		var rep_data: Dictionary = bridge.call("GetPlayerReputationV0", _faction_id)
+		var reputation: int = rep_data.get("reputation", 0)
+		return reputation < AGGRO_REPUTATION_THRESHOLD
+
+	return true  # Fallback: hostile if bridge method missing
+
+
 func _physics_process(delta: float) -> void:
+	# GATE.S7.FACTION.PATROL_AGGRO.001: Periodic reputation re-check for patrol ships.
+	if _role == 2:  # Patrol
+		_aggro_check_timer -= delta
+		if _aggro_check_timer <= 0.0:
+			_aggro_check_timer = AGGRO_CHECK_INTERVAL
+			var old_hostile := _is_hostile
+			_is_hostile = _check_reputation_aggro("")
+			if old_hostile != _is_hostile:
+				_update_status_display()
+
 	# Combat stagger — freeze movement.
 	if stagger_remaining > 0.0:
 		stagger_remaining -= delta
@@ -179,29 +240,82 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Direction to target (XZ only).
-	var to_target := target_position - global_position
+	# Use local `position` — targets are in local system coordinates (relative
+	# to _localSystemRoot which sits at the star's galactic position).
+	var to_target := target_position - position
 	to_target.y = 0.0
 	var dist := to_target.length()
 
 	if dist < ARRIVAL_THRESHOLD:
+		# Pick a new local patrol waypoint so the ship keeps moving visibly.
+		_pick_next_patrol_waypoint()
 		velocity = Vector3.ZERO
 		move_and_slide()
 		return
 
 	var dir := to_target / dist
 
+	# Star avoidance: star is at local origin (0,0,0) since _localSystemRoot
+	# is centered on the star. Steer around it if our path passes too close.
+	dir = _apply_star_avoidance_local(dir, dist)
+
 	# Smooth rotation toward movement direction (ship forward = -Z).
 	if dir.length_squared() > 0.001:
 		var target_basis := Basis.looking_at(-dir, Vector3.UP)
-		var current_quat := global_transform.basis.get_rotation_quaternion()
+		var current_quat := transform.basis.get_rotation_quaternion()
 		var target_quat := target_basis.get_rotation_quaternion()
 		var weight := clampf(rotation_sharpness * delta, 0.0, 1.0)
-		global_transform.basis = Basis(current_quat.slerp(target_quat, weight))
+		transform.basis = Basis(current_quat.slerp(target_quat, weight))
 
 	velocity = dir * target_speed
 	velocity.y = 0.0
 	move_and_slide()
-	global_position.y = 0.0
+	position.y = 0.0
+
+
+## Pick a new random orbit waypoint for local patrol movement.
+func _pick_next_patrol_waypoint() -> void:
+	_patrol_seed += 1
+	# Simple hash for pseudo-random angle.
+	var h: int = _patrol_seed * 2654435761  # Knuth multiplicative hash
+	var angle: float = float(h % 3600) / 3600.0 * TAU
+	var radius: float = PATROL_RADIUS_MIN + float(h % 1000) / 1000.0 * (PATROL_RADIUS_MAX - PATROL_RADIUS_MIN)
+	target_position = Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+
+
+## Steer around the star (at local origin) if the direct path passes too close.
+## All positions are in local coordinates — star center is (0,0,0).
+func _apply_star_avoidance_local(dir: Vector3, dist_to_target: float) -> Vector3:
+	var to_star := -position  # Star is at origin, so direction = (0,0,0) - position
+	to_star.y = 0.0
+
+	# Project star onto the travel direction to find closest approach.
+	var dot := to_star.dot(dir)
+	# Only avoid if the star is ahead of us (not behind).
+	if dot < 0.0 or dot > dist_to_target:
+		return dir
+
+	# Perpendicular distance from star center to our travel line.
+	var closest_point := position + dir * dot
+	var perp := -closest_point  # Star at origin
+	perp.y = 0.0
+	var perp_dist := perp.length()
+
+	if perp_dist >= STAR_AVOID_RADIUS:
+		return dir  # Path clears the star.
+
+	# Steer perpendicular to the travel line, away from the star.
+	var avoid_dir: Vector3
+	if perp_dist < 0.1:
+		# Headed dead center — pick a consistent side based on position.
+		avoid_dir = Vector3(-dir.z, 0.0, dir.x)
+	else:
+		avoid_dir = -perp.normalized()  # Away from star center
+
+	# Blend: more avoidance when closer to the star.
+	var urgency := 1.0 - clampf(perp_dist / STAR_AVOID_RADIUS, 0.0, 1.0)
+	var blended := (dir + avoid_dir * urgency * 2.0).normalized()
+	return blended
 
 
 ## Apply combat stagger (seconds of movement freeze).

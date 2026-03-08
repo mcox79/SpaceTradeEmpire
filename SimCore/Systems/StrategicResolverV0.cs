@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using SimCore.Entities;
 using SimCore.Tweaks;
 
 namespace SimCore.Systems;
@@ -57,6 +58,7 @@ public static class StrategicResolverV0
     /// Resolve a strategic fleet-vs-fleet attrition combat.
     /// Operates on mutable copies of the profiles so the originals are unmodified.
     /// Deterministic: no RNG, no timestamps.
+    /// GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Now routes damage through zone armor.
     /// </summary>
     public static StrategicResult Resolve(
         CombatSystem.CombatProfile fleetA,
@@ -69,6 +71,11 @@ public static class StrategicResolverV0
         int aShield = fleetA.ShieldHp;
         int bHull = fleetB.HullHp;
         int bShield = fleetB.ShieldHp;
+        // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Mutable zone armor copies.
+        int[] aZone = (int[])fleetA.ZoneArmorHp.Clone();
+        int[] bZone = (int[])fleetB.ZoneArmorHp.Clone();
+        var aStance = CombatSystem.DetermineStance(fleetA.ShipClassId);
+        var bStance = CombatSystem.DetermineStance(fleetB.ShipClassId);
 
         int totalSalvage = STRUCT_ZERO;
         int roundsPlayed = STRUCT_ZERO;
@@ -80,10 +87,13 @@ public static class StrategicResolverV0
             int damageThisRound = STRUCT_ZERO;
 
             // ── Fleet A fires all weapons at Fleet B ──
+            // A attacks B → B's stance determines which zone gets hit.
             damageThisRound += FireAllWeapons(
                 fleetA.Weapons,
                 ref bShield,
                 ref bHull,
+                bZone,
+                bStance,
                 targetEscorted: fleetBEscorted,
                 targetWeaponFamilyForPd: DetermineTargetFamily(fleetB.Weapons));
 
@@ -94,6 +104,8 @@ public static class StrategicResolverV0
                     fleetB.Weapons,
                     ref aShield,
                     ref aHull,
+                    aZone,
+                    aStance,
                     targetEscorted: fleetAEscorted,
                     targetWeaponFamilyForPd: DetermineTargetFamily(fleetA.Weapons));
             }
@@ -146,30 +158,49 @@ public static class StrategicResolverV0
     }
 
     /// <summary>
-    /// Fire every weapon in the list at the target, applying escort shield reduction if active.
-    /// Mutates targetShield and targetHull in place.
+    /// Fire every weapon in the list at the target, routing through zone armor.
+    /// GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Uses CalcDamageWithZoneArmor + stance-based facing.
+    /// Mutates targetShield, targetHull, and targetZoneArmor in place.
     /// Returns total damage dealt this salvo.
     /// </summary>
     private static int FireAllWeapons(
         List<CombatSystem.WeaponInfo> weapons,
         ref int targetShield,
         ref int targetHull,
+        int[] targetZoneArmor,
+        CombatSystem.CombatStance targetStance,
         bool targetEscorted,
         CombatSystem.TargetWeaponFamily targetWeaponFamilyForPd)
     {
         int salvoTotal = STRUCT_ZERO;
+        int weaponCount = weapons.Count;
 
-        foreach (var weapon in weapons)
+        for (int wi = 0; wi < weaponCount; wi++)
         {
+            var weapon = weapons[wi];
             if (targetHull <= STRUCT_ZERO)
                 break;
 
-            var dmg = CombatSystem.CalcDamage(
-                weapon.BaseDamage,
+            // GATE.S5.COMBAT.COUNTER_FAMILY.001: Apply PD counter bonus before zone routing.
+            int effectiveBaseDmg = weapon.BaseDamage;
+            if (weapon.Family == CombatSystem.DamageFamily.PointDefense &&
+                (targetWeaponFamilyForPd == CombatSystem.TargetWeaponFamily.Missile ||
+                 targetWeaponFamilyForPd == CombatSystem.TargetWeaponFamily.Torpedo))
+            {
+                effectiveBaseDmg = weapon.BaseDamage * CombatTweaksV0.PointDefenseCounterMultiplierPct / CombatTweaksV0.NeutralPct;
+            }
+
+            // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Pick facing based on defender's stance.
+            var facing = CombatSystem.PickFacing(targetStance, wi, weaponCount);
+            int zoneHp = targetZoneArmor[(int)facing];
+
+            var dmg = CombatSystem.CalcDamageWithZoneArmor(
+                effectiveBaseDmg,
                 weapon.Family,
                 targetShield,
+                zoneHp,
                 targetHull,
-                targetWeaponFamilyForPd);
+                facing);
 
             // Apply escort shield damage reduction to the shield component only.
             int shieldDmg = dmg.ShieldDmg;
@@ -177,11 +208,13 @@ public static class StrategicResolverV0
                 shieldDmg = CombatSystem.ApplyEscortShieldReduction(shieldDmg);
 
             int hullDmg = dmg.HullDmg;
+            int zoneDmg = dmg.ZoneArmorDmg;
 
             targetShield = Math.Max(STRUCT_ZERO, targetShield - shieldDmg);
+            targetZoneArmor[(int)facing] = Math.Max(STRUCT_ZERO, targetZoneArmor[(int)facing] - zoneDmg);
             targetHull = Math.Max(STRUCT_ZERO, targetHull - hullDmg);
 
-            salvoTotal += shieldDmg + hullDmg;
+            salvoTotal += shieldDmg + zoneDmg + hullDmg;
         }
 
         return salvoTotal;

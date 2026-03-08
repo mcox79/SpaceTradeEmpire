@@ -37,6 +37,15 @@ public static class RefitSystem
         if (moduleDef.SlotKind != slot.SlotKind)
             return new RefitResult { Success = false, Reason = "slot_kind_mismatch" };
 
+        // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Validate power budget.
+        int currentDraw = ComputeTotalPowerDraw(fleet);
+        // Subtract power of the module being replaced (if any).
+        var existingDef = UpgradeContentV0.GetById(slot.InstalledModuleId ?? "");
+        if (existingDef != null) currentDraw -= existingDef.PowerDraw;
+        int budget = GetPowerBudget(fleet);
+        if (budget > 0 && currentDraw + moduleDef.PowerDraw > budget)
+            return new RefitResult { Success = false, Reason = "power_exceeded" };
+
         // Validate tech prerequisite
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
@@ -47,6 +56,7 @@ public static class RefitSystem
 
         state.PlayerCredits -= moduleDef.CreditCost;
         slot.InstalledModuleId = moduleId;
+        slot.PowerDraw = moduleDef.PowerDraw;
 
         return new RefitResult { Success = true };
     }
@@ -74,6 +84,14 @@ public static class RefitSystem
 
         if (moduleDef.SlotKind != slot.SlotKind)
             return new RefitResult { Success = false, Reason = "slot_kind_mismatch" };
+
+        // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Validate power budget.
+        int currentDraw = ComputeTotalPowerDraw(fleet);
+        var existingDef = UpgradeContentV0.GetById(slot.InstalledModuleId ?? "");
+        if (existingDef != null) currentDraw -= existingDef.PowerDraw;
+        int budget = GetPowerBudget(fleet);
+        if (budget > 0 && currentDraw + moduleDef.PowerDraw > budget)
+            return new RefitResult { Success = false, Reason = "power_exceeded" };
 
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
@@ -120,6 +138,9 @@ public static class RefitSystem
                     if (entry.SlotIndex >= 0 && entry.SlotIndex < fleet.Slots.Count)
                     {
                         fleet.Slots[entry.SlotIndex].InstalledModuleId = entry.ModuleId;
+                        // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Track power draw on slot.
+                        var entryDef = UpgradeContentV0.GetById(entry.ModuleId);
+                        fleet.Slots[entry.SlotIndex].PowerDraw = entryDef?.PowerDraw ?? 0;
                     }
                     fleet.RefitQueue.RemoveAt(i);
                 }
@@ -140,6 +161,7 @@ public static class RefitSystem
             return new RefitResult { Success = false, Reason = "slot_empty" };
 
         slot.InstalledModuleId = null;
+        slot.PowerDraw = 0;
         return new RefitResult { Success = true };
     }
 
@@ -161,6 +183,26 @@ public static class RefitSystem
             bonuses.DamageBonusPct += def.DamageBonusPct;
         }
         return bonuses;
+    }
+
+    // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Compute total power draw of installed modules.
+    public static int ComputeTotalPowerDraw(Fleet fleet)
+    {
+        int total = 0;
+        foreach (var slot in fleet.Slots)
+        {
+            if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+            var def = UpgradeContentV0.GetById(slot.InstalledModuleId);
+            if (def != null) total += def.PowerDraw;
+        }
+        return total;
+    }
+
+    // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Get power budget for a fleet's ship class.
+    public static int GetPowerBudget(Fleet fleet)
+    {
+        var classDef = ShipClassContentV0.GetById(fleet.ShipClassId);
+        return classDef?.BasePower ?? 0;
     }
 
     public sealed class ModuleStatBonuses

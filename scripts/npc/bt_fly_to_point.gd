@@ -20,7 +20,7 @@ func _tick(delta: float) -> int:
 
 	ship.set_target(target_pos, spd)
 
-	var dist := ship.global_position.distance_to(target_pos)
+	var dist: float = ship.global_position.distance_to(target_pos)
 	if dist < ARRIVE_DIST:
 		return SUCCESS
 	return RUNNING

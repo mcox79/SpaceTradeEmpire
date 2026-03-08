@@ -7,7 +7,7 @@ public static class DiscoveryOutcomeTweaksV0
     // --- Family-specific loot (GenerateLootByFamily) ---
     public static int DerelictSalvagedTechQty { get; } = 2;
     public static int DerelictCredits { get; } = 25;
-    public static int RuinAnomalySamplesQty { get; } = 3;
+    public static int RuinExoticMatterQty { get; } = 3;
     public static int RuinCredits { get; } = 75;
     public static int SignalCredits { get; } = 15;
 

@@ -20,11 +20,18 @@ public class BuyCommand : ICommand
 		if (Quantity <= 0) return;
 		if (!state.Markets.TryGetValue(MarketId, out var market)) return;
 
+		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Check reputation-based access.
+		if (!MarketSystem.CanTradeByReputation(state, MarketId)) return;
+
 		var available = InventoryLedger.Get(market.Inventory, GoodId);
 		if (available < Quantity) return;
 
 		int unitPrice = market.GetBuyPrice(GoodId);
 		int totalCost = unitPrice * Quantity;
+
+		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Apply tariff surcharge (increases buy cost).
+		int tariffBps = MarketSystem.GetEffectiveTariffBps(state, MarketId);
+		totalCost += MarketSystem.ComputeTariffCredits(totalCost, tariffBps);
 
 		if (state.PlayerCredits < totalCost) return;
 

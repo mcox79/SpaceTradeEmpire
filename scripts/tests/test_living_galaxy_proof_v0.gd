@@ -108,8 +108,8 @@ func _run_checks() -> void:
 	# --- CHECK 4: FormatDisplayNameV0 converts snake_case ---
 	var display_name_pass := false
 	if _bridge.has_method("FormatDisplayNameV0"):
-		var result: String = str(_bridge.call("FormatDisplayNameV0", "hull_plating"))
-		display_name_pass = result == "Hull Plating"
+		var result: String = str(_bridge.call("FormatDisplayNameV0", "exotic_matter"))
+		display_name_pass = result == "Exotic Matter"
 	print("CHECK: FormatDisplayName ... " + ("PASS" if display_name_pass else "FAIL"))
 	if display_name_pass:
 		pass_count += 1

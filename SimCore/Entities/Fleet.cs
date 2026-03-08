@@ -27,10 +27,22 @@ public enum FleetRole
     Patrol = 2
 }
 
+// GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Directional armor zones.
+public enum ZoneFacing
+{
+    Fore = 0,
+    Port = 1,
+    Starboard = 2,
+    Aft = 3
+}
+
 public class Fleet
 {
     public string Id { get; set; } = "";
     public string OwnerId { get; set; } = "";
+
+    // GATE.S18.SHIP_MODULES.SHIP_CLASS.001: Ship class identifier (e.g. "corvette", "frigate").
+    public string ShipClassId { get; set; } = "corvette";
 
     // SLICE 3: Fleet roles v0 (GATE.S3.FLEET.ROLES.001)
     // Persisted role that influences exactly one deterministic decision surface (route-choice selection).
@@ -104,11 +116,19 @@ public class Fleet
     // TechLevel 0 = baseline; higher values unlock higher-tier fracture nodes.
     public int TechLevel { get; set; } = 0;
 
+    // GATE.S6.FRACTURE.TRAVEL_CMD.001: Target void site for off-lane fracture travel.
+    public string FractureTargetSiteId { get; set; } = "";
+
     // SLICE 5: Combat HP state (GATE.S5.COMBAT_LOCAL.DAMAGE_MODEL.001)
     public int HullHp { get; set; } = -1;
     public int HullHpMax { get; set; } = -1;
     public int ShieldHp { get; set; } = -1;
     public int ShieldHpMax { get; set; } = -1;
+
+    // GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Directional zone armor (Fore/Port/Stbd/Aft).
+    // Index by (int)ZoneFacing. Length is always 4.
+    public int[] ZoneArmorHp { get; set; } = new int[4];
+    public int[] ZoneArmorHpMax { get; set; } = new int[4];
 
     // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Escort doctrine state.
     // When EscortDoctrineActive is true, this fleet is escorting EscortTargetFleetId.

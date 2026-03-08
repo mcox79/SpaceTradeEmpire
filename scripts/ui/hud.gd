@@ -35,6 +35,12 @@ var _research_label: Label = null
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
 
+# Data overlay mode label (shown when V-key cycles overlay modes)
+var _overlay_mode_label: Label = null
+
+# Overlay mode: when true, HUD status elements are hidden (galaxy map / empire dashboard open)
+var _overlay_active: bool = false
+
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
 # GATE.S1.SAVE_UI.SLOTS.001: save slot labels for metadata display
@@ -48,7 +54,7 @@ func _ready() -> void:
 	hud_bg.name = "HudStatusBg"
 	hud_bg.color = UITheme.PANEL_BG
 	hud_bg.position = Vector2(8, 8)
-	hud_bg.size = Vector2(260, 420)
+	hud_bg.size = Vector2(260, 248)
 	hud_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hud_bg)
 	# Move bg behind existing labels (labels are scene-defined, added before _ready)
@@ -221,13 +227,38 @@ func _ready() -> void:
 	quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_vbox.add_child(quit_btn)
 
+	# Data overlay mode indicator (below research label)
+	_overlay_mode_label = Label.new()
+	_overlay_mode_label.name = "OverlayModeLabel"
+	_overlay_mode_label.text = ""
+	_overlay_mode_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_overlay_mode_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_overlay_mode_label.position = Vector2(10, 422)
+	_overlay_mode_label.visible = false
+	add_child(_overlay_mode_label)
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
 	print("UUIR|GAME_OVER_SHOWN")
 
+func set_overlay_mode_v0(active: bool) -> void:
+	_overlay_active = active
+	var bg = get_node_or_null("HudStatusBg")
+	if bg: bg.visible = not active
+	for lbl in [_credits_label, _cargo_label, _node_label, _state_label,
+				_hull_bar, _shield_bar, _hull_label, _shield_label]:
+		if lbl != null: lbl.visible = not active
+	if active:
+		if _combat_label: _combat_label.visible = false
+		if _security_label: _security_label.visible = false
+		if _delay_label: _delay_label.visible = false
+		if _mission_panel: _mission_panel.visible = false
+		if _research_label: _research_label.visible = false
+		if _overlay_mode_label: _overlay_mode_label.visible = false
+
 func _physics_process(_delta: float) -> void:
-	if _bridge == null:
+	if _overlay_active or _bridge == null:
 		return
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_label.text = "Credits: " + str(ps.get("credits", 0))
@@ -433,6 +464,14 @@ func _on_load_slot_pressed(slot: int) -> void:
 	if gm and gm.has_method("_toggle_pause_v0"):
 		gm.call("_toggle_pause_v0")
 	print("UUIR|LOAD_SLOT|" + str(slot))
+
+## Called by game_manager when V-key cycles overlay mode. mode: -1=Off, 0-2=active.
+func set_data_overlay_label_v0(mode: int) -> void:
+	if _overlay_mode_label == null:
+		return
+	var names: Dictionary = {-1: "", 0: "[Security]", 1: "[Trade Flow]", 2: "[Intel Age]"}
+	_overlay_mode_label.text = names.get(mode, "")
+	_overlay_mode_label.visible = mode >= 0
 
 func _refresh_slot_labels_v0() -> void:
 	if _bridge == null or not _bridge.has_method("GetSaveSlotMetadataV0"):

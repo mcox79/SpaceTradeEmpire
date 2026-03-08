@@ -1,7 +1,7 @@
 extends CanvasLayer
 
 # GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001
-# GATE.S13.DOCK.TABS.001: 3-tab dock menu (Market | Jobs | Services)
+# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: 5-tab dock menu (Market | Jobs | Ship | Station | Intel)
 # GATE.S13.DOCK.CONTEXT.001: Station context description
 # GATE.S13.DOCK.HIDE_EMPTY.001: Hide sections with no content
 # GATE.S13.TERMINOLOGY.001: Programs → Automation, player-friendly terms
@@ -22,12 +22,22 @@ var _construction_container: VBoxContainer = null
 var _trade_routes_container: VBoxContainer = null
 var _programs_container: VBoxContainer = null
 var _encounters_container: VBoxContainer = null  # GATE.S6.ANOMALY.ENCOUNTER_UI.001
+var _station_info_container: VBoxContainer = null  # GATE.S18.EMPIRE_DASH.STATION_TAB.001
+var _ship_info_container: VBoxContainer = null  # GATE.S18.EMPIRE_DASH.SHIP_TAB.001
 
-# GATE.S13.DOCK.TABS.001: Tab state
-var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Services
+# GATE.S7.FACTION.UI_REPUTATION.001: Faction tariff & access display
+var _tariff_label: Label = null
+var _access_denied_label: Label = null
+# GATE.S7.REPUTATION.UI_INDICATORS.001: Rep tier label
+var _rep_tier_label: Label = null
+
+# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab state
+var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel
 var _tab_market: VBoxContainer = null
 var _tab_jobs: VBoxContainer = null
-var _tab_services: VBoxContainer = null
+var _tab_ship: VBoxContainer = null
+var _tab_station: VBoxContainer = null
+var _tab_intel: VBoxContainer = null
 var _tab_buttons: Array = []
 
 func _ready():
@@ -89,14 +99,40 @@ func _ready():
 	_security_label.visible = false
 	vbox.add_child(_security_label)
 
+	# GATE.S7.FACTION.UI_REPUTATION.001: Tariff rate label
+	_tariff_label = Label.new()
+	_tariff_label.text = ""
+	_tariff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tariff_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_tariff_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	_tariff_label.visible = false
+	vbox.add_child(_tariff_label)
+
+	# GATE.S7.REPUTATION.UI_INDICATORS.001: Rep tier + price modifier label
+	_rep_tier_label = Label.new()
+	_rep_tier_label.text = ""
+	_rep_tier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_rep_tier_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_rep_tier_label.visible = false
+	vbox.add_child(_rep_tier_label)
+
+	# GATE.S7.FACTION.UI_REPUTATION.001: Access denied overlay
+	_access_denied_label = Label.new()
+	_access_denied_label.text = "ACCESS DENIED — Reputation too low"
+	_access_denied_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_access_denied_label.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	_access_denied_label.add_theme_color_override("font_color", UITheme.RED)
+	_access_denied_label.visible = false
+	vbox.add_child(_access_denied_label)
+
 	vbox.add_child(HSeparator.new())
 
-	# GATE.S13.DOCK.TABS.001: Tab bar
+	# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab bar (5 tabs)
 	var tab_bar = HBoxContainer.new()
 	tab_bar.add_theme_constant_override("separation", 4)
 	tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_buttons = []
-	for tab_name in ["Market", "Jobs", "Services"]:
+	for tab_name in ["Market", "Jobs", "Ship", "Station", "Intel"]:
 		var btn = Button.new()
 		btn.text = tab_name
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -144,45 +180,65 @@ func _ready():
 	_missions_container.add_theme_constant_override("separation", 4)
 	_tab_jobs.add_child(_missions_container)
 
-	# Tab 3: Services
-	_tab_services = VBoxContainer.new()
-	_tab_services.add_theme_constant_override("separation", 4)
-	vbox.add_child(_tab_services)
+	# Tab 3: Ship (refit, maintenance)
+	_tab_ship = VBoxContainer.new()
+	_tab_ship.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_ship)
 
-	# GATE.S4.UI_INDU.RESEARCH.001: Research section
-	_research_container = VBoxContainer.new()
-	_research_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_research_container)
+	# GATE.S18.EMPIRE_DASH.SHIP_TAB.001: Ship fitting overview
+	_ship_info_container = VBoxContainer.new()
+	_ship_info_container.add_theme_constant_override("separation", 4)
+	_tab_ship.add_child(_ship_info_container)
 
 	# GATE.S4.UI_INDU.UPGRADE.001: Refit section
 	_refit_container = VBoxContainer.new()
 	_refit_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_refit_container)
+	_tab_ship.add_child(_refit_container)
 
 	# GATE.S4.UI_INDU.MAINT.001: Maintenance section
 	_maint_container = VBoxContainer.new()
 	_maint_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_maint_container)
+	_tab_ship.add_child(_maint_container)
+
+	# Tab 4: Station (research, construction)
+	_tab_station = VBoxContainer.new()
+	_tab_station.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_station)
+
+	# GATE.S18.EMPIRE_DASH.STATION_TAB.001: Station info (health, production, services)
+	_station_info_container = VBoxContainer.new()
+	_station_info_container.add_theme_constant_override("separation", 4)
+	_tab_station.add_child(_station_info_container)
+
+	# GATE.S4.UI_INDU.RESEARCH.001: Research section
+	_research_container = VBoxContainer.new()
+	_research_container.add_theme_constant_override("separation", 4)
+	_tab_station.add_child(_research_container)
 
 	# GATE.S4.CONSTR_PROG.UI.001: Construction section
 	_construction_container = VBoxContainer.new()
 	_construction_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_construction_container)
+	_tab_station.add_child(_construction_container)
+
+	# Tab 5: Intel (trade routes, automation, encounters)
+	_tab_intel = VBoxContainer.new()
+	_tab_intel.add_theme_constant_override("separation", 4)
+	vbox.add_child(_tab_intel)
 
 	# GATE.S10.TRADE_INTEL.DOCK_UI.001: Trade Routes section
 	_trade_routes_container = VBoxContainer.new()
 	_trade_routes_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_trade_routes_container)
+	_tab_intel.add_child(_trade_routes_container)
 
 	# Automation section (renamed from Programs)
 	_programs_container = VBoxContainer.new()
 	_programs_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_programs_container)
+	_tab_intel.add_child(_programs_container)
 
 	# GATE.S6.ANOMALY.ENCOUNTER_UI.001: Anomaly Encounters section
 	_encounters_container = VBoxContainer.new()
 	_encounters_container.add_theme_constant_override("separation", 4)
-	_tab_services.add_child(_encounters_container)
+	_tab_intel.add_child(_encounters_container)
 
 	# Undock button (always visible)
 	var btn_undock = Button.new()
@@ -193,12 +249,14 @@ func _ready():
 	# Start on Market tab
 	_switch_dock_tab(0)
 
-# GATE.S13.DOCK.TABS.001: Switch between dock tabs
+# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Switch between dock tabs
 func _switch_dock_tab(idx: int) -> void:
 	_active_dock_tab = idx
 	_tab_market.visible = (idx == 0)
 	_tab_jobs.visible = (idx == 1)
-	_tab_services.visible = (idx == 2)
+	_tab_ship.visible = (idx == 2)
+	_tab_station.visible = (idx == 3)
+	_tab_intel.visible = (idx == 4)
 	for i in range(_tab_buttons.size()):
 		_tab_buttons[i].button_pressed = (i == idx)
 
@@ -255,6 +313,49 @@ func open_market_v0(node_id: String) -> void:
 		_security_label.text = "Security: %s" % band.to_upper()
 		_security_label.visible = true
 		_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
+
+	# GATE.S7.FACTION.UI_REPUTATION.001: Faction tariff & access display
+	if bridge and bridge.has_method("GetTerritoryAccessV0"):
+		var access: Dictionary = bridge.call("GetTerritoryAccessV0", node_id)
+		var faction_id: String = str(access.get("faction_id", ""))
+		var can_trade: bool = bool(access.get("can_trade", true))
+		var tariff_bps: int = int(access.get("tariff_bps", 0))
+		var trade_policy: String = str(access.get("trade_policy", "Open"))
+		var rep_tier: String = str(access.get("rep_tier", "Neutral"))
+		var price_mod_bps: int = int(access.get("price_modifier_bps", 0))
+
+		if _tariff_label:
+			if not faction_id.is_empty() and tariff_bps > 0:
+				var tariff_pct: float = tariff_bps / 100.0
+				_tariff_label.text = "Tariff: %.1f%% (%s — %s)" % [tariff_pct, faction_id, trade_policy]
+				_tariff_label.visible = true
+			else:
+				_tariff_label.visible = false
+
+		# GATE.S7.REPUTATION.UI_INDICATORS.001: Rep tier + price modifier
+		if _rep_tier_label:
+			if not faction_id.is_empty():
+				var tier_color: Color = _rep_tier_color(rep_tier)
+				_rep_tier_label.add_theme_color_override("font_color", tier_color)
+				if price_mod_bps != 0:
+					var pct: float = price_mod_bps / 100.0
+					var sign: String = "+" if price_mod_bps > 0 else ""
+					_rep_tier_label.text = "Standing: %s (%s%s%% prices)" % [rep_tier, sign, "%.0f" % pct]
+				else:
+					_rep_tier_label.text = "Standing: %s" % rep_tier
+				_rep_tier_label.visible = true
+			else:
+				_rep_tier_label.visible = false
+
+		if _access_denied_label:
+			_access_denied_label.visible = not can_trade
+	else:
+		if _tariff_label:
+			_tariff_label.visible = false
+		if _rep_tier_label:
+			_rep_tier_label.visible = false
+		if _access_denied_label:
+			_access_denied_label.visible = false
 
 	_rebuild_rows()
 
@@ -441,6 +542,8 @@ func _rebuild_rows() -> void:
 
 	# GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001: show production info for this node
 	_rebuild_production_info()
+	_rebuild_station_info()
+	_rebuild_ship_info()
 	_rebuild_missions()
 	_rebuild_research()
 	_rebuild_refit()
@@ -505,6 +608,203 @@ func _rebuild_production_info() -> void:
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		_rows_container.add_child(row)
+
+# GATE.S18.EMPIRE_DASH.STATION_TAB.001: Station info panel (health, production, services)
+# GATE.S18.EMPIRE_DASH.SHIP_TAB.001: Ship fitting overview in dock Ship tab.
+func _rebuild_ship_info() -> void:
+	if _ship_info_container == null:
+		return
+	for child in _ship_info_container.get_children():
+		_ship_info_container.remove_child(child)
+		child.queue_free()
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetPlayerShipFittingV0"):
+		_ship_info_container.visible = false
+		return
+
+	var fit: Dictionary = bridge.call("GetPlayerShipFittingV0")
+	if fit.is_empty():
+		_ship_info_container.visible = false
+		return
+
+	# Ship class header
+	var class_lbl = Label.new()
+	class_lbl.text = "SHIP: %s" % str(fit.get("ship_class", "Unknown"))
+	class_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	class_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	_ship_info_container.add_child(class_lbl)
+
+	# Hull / Shield row
+	var hp_lbl = Label.new()
+	hp_lbl.text = "Hull: %d/%d   Shield: %d/%d" % [
+		int(fit.get("hull", 0)), int(fit.get("hull_max", 0)),
+		int(fit.get("shield", 0)), int(fit.get("shield_max", 0))]
+	hp_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	_ship_info_container.add_child(hp_lbl)
+
+	# Fitting budget
+	var power_used: int = int(fit.get("power_used", 0))
+	var power_max: int = int(fit.get("power_max", 0))
+	var slots_filled: int = int(fit.get("slots_filled", 0))
+	var slot_count: int = int(fit.get("slot_count", 0))
+	var budget_lbl = Label.new()
+	budget_lbl.text = "Slots: %d/%d   Power: %d/%d" % [slots_filled, slot_count, power_used, power_max]
+	if power_used > power_max * 0.8:
+		budget_lbl.add_theme_color_override("font_color", UITheme.TEXT_WARNING)
+	_ship_info_container.add_child(budget_lbl)
+
+	# Zone armor diagram (4 facing bars)
+	var zone_header = Label.new()
+	zone_header.text = "ZONE ARMOR"
+	zone_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	zone_header.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	zone_header.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+	_ship_info_container.add_child(zone_header)
+
+	var zones: Array = [
+		["Fore", "zone_fore", "zone_fore_max"],
+		["Port", "zone_port", "zone_port_max"],
+		["Stbd", "zone_stbd", "zone_stbd_max"],
+		["Aft",  "zone_aft",  "zone_aft_max"],
+	]
+	for z in zones:
+		var zname: String = z[0]
+		var zhp: int = int(fit.get(z[1], 0))
+		var zmax: int = int(fit.get(z[2], 0))
+		var row = HBoxContainer.new()
+		var name_lbl = Label.new()
+		name_lbl.text = "  %s:" % zname
+		name_lbl.custom_minimum_size.x = 50
+		row.add_child(name_lbl)
+		# HP bar using ProgressBar
+		var bar = ProgressBar.new()
+		bar.min_value = 0
+		bar.max_value = maxi(zmax, 1)
+		bar.value = zhp
+		bar.show_percentage = false
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.custom_minimum_size.y = 14
+		row.add_child(bar)
+		var val_lbl = Label.new()
+		val_lbl.text = " %d/%d" % [zhp, zmax]
+		val_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		row.add_child(val_lbl)
+		_ship_info_container.add_child(row)
+
+	# Installed modules list
+	if bridge.has_method("GetPlayerFleetSlotsV0"):
+		var slots: Array = bridge.call("GetPlayerFleetSlotsV0")
+		if slots.size() > 0:
+			var mod_header = Label.new()
+			mod_header.text = "INSTALLED MODULES"
+			mod_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			mod_header.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+			mod_header.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+			_ship_info_container.add_child(mod_header)
+			for slot in slots:
+				if typeof(slot) != TYPE_DICTIONARY:
+					continue
+				var kind: String = str(slot.get("slot_kind", ""))
+				var mod_id: String = str(slot.get("installed_module_id", ""))
+				var row = HBoxContainer.new()
+				var kind_lbl = Label.new()
+				kind_lbl.text = "  [%s]" % kind
+				kind_lbl.custom_minimum_size.x = 80
+				kind_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+				row.add_child(kind_lbl)
+				var mod_lbl = Label.new()
+				if mod_id.is_empty():
+					mod_lbl.text = "Empty"
+					mod_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+				else:
+					mod_lbl.text = _format_display_name(mod_id)
+				row.add_child(mod_lbl)
+				_ship_info_container.add_child(row)
+
+	_ship_info_container.visible = true
+
+func _rebuild_station_info() -> void:
+	if _station_info_container == null:
+		return
+	for child in _station_info_container.get_children():
+		_station_info_container.remove_child(child)
+		child.queue_free()
+	if _market_node_id.is_empty():
+		_station_info_container.visible = false
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		_station_info_container.visible = false
+		return
+
+	# Station health from sustainment
+	var has_content: bool = false
+	if bridge.has_method("GetSustainmentSnapshot"):
+		var sites: Array = bridge.call("GetSustainmentSnapshot", _market_node_id)
+		if sites.size() > 0:
+			has_content = true
+			_add_section_header(_station_info_container, "station_info", "STATION HEALTH")
+			for site in sites:
+				if typeof(site) != TYPE_DICTIONARY:
+					continue
+				var site_id: String = str(site.get("site_id", ""))
+				var health_bps: int = int(site.get("health_bps", 0))
+				var eff_bps: int = int(site.get("eff_bps_now", 0))
+				@warning_ignore("integer_division")
+				var health_pct: int = health_bps / 100
+				@warning_ignore("integer_division")
+				var eff_pct: int = eff_bps / 100
+				var source: String = _site_source_tag(site_id)
+				var row = HBoxContainer.new()
+				var lbl = Label.new()
+				lbl.text = "%s HP: %d%%  Eff: %d%%" % [source, health_pct, eff_pct]
+				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				if health_pct < 50:
+					lbl.add_theme_color_override("font_color", UITheme.TEXT_WARNING)
+				row.add_child(lbl)
+				_station_info_container.add_child(row)
+
+	# Local production from GetNodeIndustryV0
+	if bridge.has_method("GetNodeIndustryV0"):
+		var industry: Array = bridge.call("GetNodeIndustryV0", _market_node_id)
+		if industry.size() > 0:
+			has_content = true
+			_add_section_header(_station_info_container, "station_prod", "LOCAL PRODUCTION")
+			for site_info in industry:
+				if typeof(site_info) != TYPE_DICTIONARY:
+					continue
+				var recipe_id: String = str(site_info.get("recipe_id", ""))
+				var eff_pct: int = int(site_info.get("efficiency_pct", 0))
+				var outputs: Array = site_info.get("outputs", [])
+				var out_names: Array = []
+				for o in outputs:
+					out_names.append(_format_display_name(str(o)))
+				var out_str: String = ", ".join(out_names) if out_names.size() > 0 else "none"
+				var row = HBoxContainer.new()
+				var lbl = Label.new()
+				lbl.text = "%s  Eff: %d%%  -> %s" % [_format_display_name(recipe_id), eff_pct, out_str]
+				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row.add_child(lbl)
+				_station_info_container.add_child(row)
+
+	# Installed services summary
+	var services: Array = []
+	if bridge.has_method("GetResearchSnapshotV0"):
+		services.append("Research")
+	if bridge.has_method("GetConstructionSnapshotV0"):
+		services.append("Construction")
+	if bridge.has_method("GetRefitSnapshotV0"):
+		services.append("Refit")
+	if bridge.has_method("GetMaintenanceSnapshotV0"):
+		services.append("Maintenance")
+	if services.size() > 0:
+		has_content = true
+		var svc_lbl = Label.new()
+		svc_lbl.text = "Services: %s" % ", ".join(services)
+		svc_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		_station_info_container.add_child(svc_lbl)
+
+	_station_info_container.visible = has_content
 
 func _rebuild_missions() -> void:
 	if _missions_container == null:
@@ -991,6 +1291,16 @@ func _make_block_label(text: String) -> Label:
 	lbl.clip_text = true
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return lbl
+
+# GATE.S7.REPUTATION.UI_INDICATORS.001: Color by rep tier
+func _rep_tier_color(tier: String) -> Color:
+	match tier:
+		"Allied": return Color(0.2, 0.8, 1.0)    # Cyan
+		"Friendly": return Color(0.4, 1.0, 0.4)   # Green
+		"Neutral": return Color(0.8, 0.8, 0.8)    # Light gray
+		"Hostile": return Color(1.0, 0.6, 0.2)     # Orange
+		"Enemy": return Color(1.0, 0.2, 0.2)       # Red
+		_: return Color(0.8, 0.8, 0.8)
 
 func _on_repair_site(site_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")

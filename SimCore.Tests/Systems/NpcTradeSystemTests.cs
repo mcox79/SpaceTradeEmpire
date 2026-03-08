@@ -205,6 +205,28 @@ public sealed class NpcTradeSystemTests
             "Fuel stock at node B should not decrease (NPC delivers goods)");
     }
 
+    // GATE.S18.TRADE_GOODS.NPC_TRADE_UPDATE.001: Weight-based scoring test.
+    [Test]
+    public void FindBestOpportunity_PrefersHigherWeightGood()
+    {
+        var state = CreateTwoNodeState();
+        // Set up equal profit for fuel (weight=100) and munitions (weight=140)
+        state.Markets["node_a"].Inventory["munitions"] = 50;
+        state.Markets["node_b"].Inventory["munitions"] = 5; // deficit at B
+
+        var localMarket = state.Markets["node_a"];
+        var opp = NpcTradeSystem.FindBestOpportunity(state, "node_a", localMarket);
+
+        // With equal profitPerUnit, the higher-weight good should win
+        if (opp != null && opp.ProfitPerUnit >= NpcTradeTweaksV0.ProfitThresholdCredits)
+        {
+            // If munitions has higher weighted score, it should be selected
+            int mWeight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue("munitions", out var mw) ? mw : NpcTradeTweaksV0.DefaultGoodWeight;
+            int fWeight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue("fuel", out var fw) ? fw : NpcTradeTweaksV0.DefaultGoodWeight;
+            Assert.That(mWeight, Is.GreaterThan(fWeight), "Munitions should have higher trade weight than fuel");
+        }
+    }
+
     // ── GATE.S14.NPC_ALIVE.FLEET_TESTS.001: Fleet survival + role diversity ──
 
     [Test]

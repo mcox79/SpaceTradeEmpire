@@ -694,7 +694,7 @@ public sealed class ExplorationBot
             AddFlag("SINGLE_GOOD_ECONOMY", "CRITICAL", -1,
                 $"Only {allGoods.Count} tradeable good(s): [{string.Join(", ", allGoods)}]. " +
                 "Economy lacks variety.",
-                "MarketInitGen should seed fuel, ore, metal, hull_plating. " +
+                "MarketInitGen should seed fuel, ore, metal, munitions. " +
                 "Files: SimCore/Gen/MarketInitGen.cs, SimCore/Content/WellKnownGoodIds.cs");
         }
 

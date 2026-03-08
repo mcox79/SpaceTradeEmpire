@@ -27,6 +27,12 @@ var _state: State = State.IDLE
 var _is_hostile: bool = false
 var _spawn_origin: Vector3 = Vector3.ZERO
 
+# GATE.S7.FACTION.PATROL_AGGRO.001: Reputation-based aggro.
+var _faction_id: String = ""
+var _aggro_check_timer: float = 0.0
+const AGGRO_CHECK_INTERVAL: float = 2.0
+const AGGRO_REPUTATION_THRESHOLD: int = -50
+
 # IDLE
 var _idle_timer: float = 0.0
 
@@ -51,9 +57,20 @@ func _ready() -> void:
 	# Seed RNG from node name so each fleet gets a unique but repeatable sequence.
 	_rng.seed = _name_to_seed(str(name))
 
+	# GATE.S7.FACTION.PATROL_AGGRO.001: Override hardcoded hostility with reputation check.
+	if _is_hostile:
+		_is_hostile = _check_reputation_aggro()
+
 	_enter_idle()
 
 func _process(delta: float) -> void:
+	# GATE.S7.FACTION.PATROL_AGGRO.001: Periodic reputation re-check (only for originally-hostile ships).
+	if bool(get_meta("is_hostile", false)):
+		_aggro_check_timer -= delta
+		if _aggro_check_timer <= 0.0:
+			_aggro_check_timer = AGGRO_CHECK_INTERVAL
+			_is_hostile = _check_reputation_aggro()
+
 	match _state:
 		State.IDLE:
 			_process_idle(delta)
@@ -144,6 +161,11 @@ func _enter_engage() -> void:
 	_state = State.ENGAGE
 
 func _process_engage(delta: float) -> void:
+	# GATE.S7.FACTION.PATROL_AGGRO.001: Disengage if no longer hostile (reputation improved).
+	if not _is_hostile:
+		_enter_patrol()
+		return
+
 	var player := _find_player()
 	if player == null:
 		_enter_patrol()
@@ -167,6 +189,45 @@ func _process_engage(delta: float) -> void:
 		# In orbit band — strafe around player
 		var tangent := dir_away.cross(Vector3.UP).normalized()
 		_move_toward_point(global_position + tangent * 5.0, engage_speed * 0.5, delta)
+
+# --- GATE.S7.FACTION.PATROL_AGGRO.001: Reputation aggro helper ---
+
+## Checks player reputation with this fleet's faction.
+## Returns true if reputation is below aggro threshold.
+func _check_reputation_aggro() -> bool:
+	var tree := get_tree()
+	if tree == null:
+		return true  # Safe default: hostile
+	var bridge := tree.root.get_node_or_null("SimBridge")
+	if bridge == null:
+		return true
+
+	# Resolve faction from the fleet's node. Use fleet_id meta to query transit data,
+	# or fall back to finding the current node from GameManager.
+	if _faction_id.is_empty():
+		var fleet_id: String = str(get_meta("fleet_id", ""))
+		if not fleet_id.is_empty() and bridge.has_method("GetTerritoryAccessV0"):
+			# Determine which node this fleet is at. GameManager tracks current_system_id.
+			var gm := tree.root.get_node_or_null("GameManager")
+			var node_id: String = ""
+			if gm != null and gm.get("current_system_id") != null:
+				node_id = str(gm.get("current_system_id"))
+			if not node_id.is_empty():
+				var territory: Dictionary = bridge.call("GetTerritoryAccessV0", node_id)
+				var fid: String = territory.get("faction_id", "")
+				if not fid.is_empty():
+					_faction_id = fid
+
+	if _faction_id.is_empty():
+		return true  # No faction resolved — assume hostile
+
+	if bridge.has_method("GetPlayerReputationV0"):
+		var rep_data: Dictionary = bridge.call("GetPlayerReputationV0", _faction_id)
+		var reputation: int = rep_data.get("reputation", 0)
+		return reputation < AGGRO_REPUTATION_THRESHOLD
+
+	return true  # Fallback
+
 
 # --- Movement helper ---
 

@@ -242,11 +242,9 @@ vec3 galactic_coords(vec3 dir) {
 
 void vertex() {
 	POSITION = PROJECTION_MATRIX * vec4((VIEW_MATRIX * vec4(VERTEX + CAMERA_POSITION_WORLD, 1.0)).xyz, 1.0);
-	if (OUTPUT_IS_SRGB) {
-		POSITION.z = -1.0 * POSITION.w;
-	} else {
-		POSITION.z = 0.0 * POSITION.w;
-	}
+	// Push to far plane in both sRGB and linear pipelines.
+	// Godot 4 reverse-Z: z=0 is far plane.
+	POSITION.z = 0.0;
 }
 
 

@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
 namespace SimCore.Systems;
+
+// GATE.S7.TERRITORY.PATROL_RESPONSE.001: Patrol engagement response types.
+public enum PatrolResponse { None, ScanWarning, Pursue, AttackOnSight }
 
 /// <summary>
 /// Processes NPC fleet destruction (HullHp == 0) and respawn after cooldown.
@@ -109,5 +113,32 @@ public static class NpcFleetCombatSystem
         {
             state.NpcRespawnQueue.RemoveAt(respawned[i]);
         }
+    }
+
+    // GATE.S7.TERRITORY.PATROL_RESPONSE.001: Determine patrol engagement by territory regime.
+    // Open=None, Guarded=ScanWarning, Restricted=Pursue if cargo>threshold, Hostile=AttackOnSight.
+    public static PatrolResponse GetPatrolResponse(TerritoryRegime regime, int playerCargoVolume)
+    {
+        return regime switch
+        {
+            TerritoryRegime.Open => PatrolResponse.None,
+            TerritoryRegime.Guarded => PatrolResponse.ScanWarning,
+            TerritoryRegime.Restricted => playerCargoVolume > FactionTweaksV0.CargoThresholdForPursuit
+                ? PatrolResponse.Pursue
+                : PatrolResponse.ScanWarning,
+            TerritoryRegime.Hostile => PatrolResponse.AttackOnSight,
+            _ => PatrolResponse.None
+        };
+    }
+
+    // Convenience: compute patrol response for a patrol fleet at a given node.
+    public static PatrolResponse GetPatrolResponse(SimState state, string nodeId, string playerFleetId)
+    {
+        if (state is null) return PatrolResponse.None;
+        var regime = ReputationSystem.ComputeTerritoryRegime(state, nodeId);
+        int cargo = 0;
+        if (state.Fleets.TryGetValue(playerFleetId, out var fleet))
+            cargo = fleet.Cargo.Values.Sum();
+        return GetPatrolResponse(regime, cargo);
     }
 }

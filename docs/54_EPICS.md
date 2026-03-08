@@ -67,7 +67,6 @@ Primary anchors:
 - EPIC.S1.VISUAL_POLISH.V0 [DONE]: Visual presentation polish v0 — skybox, celestial bodies, station/gate geometry, fleet AI, combat visuals, HUD, galaxy map styling; GameShell-only, no SimCore changes (gates: GATE.S1.VISUAL_POLISH.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 designed for high leverage niches and elite hulls, feeding lane economy (gates: GATE.S6.FRACTURE_COMMERCE.*)
 - EPIC.S6.FRACTURE_ECON_INVARIANTS.V0 [DONE]: Deterministic scenario-pack invariants proving fracture does not replace lanes (deterministic, no timestamps, stable ordering; hard-fails on drift) (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
-- EPIC.S6.LAYERED_REVEALS.V0 [TODO]: Tech-driven layered reveals in known space (gates: GATE.S6.LAYERED_REVEALS.*)
 - EPIC.S5.COMBAT_DOCTRINE.V0 [DONE]: Combat doctrine v0: point defense counter family, escort doctrine, strategic fleet-vs-fleet resolver, deterministic combat replay proof; completes Slice 5 content wave (gates: GATE.S5.COMBAT.*)
 - EPIC.S1.AUDIO_MIN.V0 [DONE]: Minimal audio v0: engine thrust, turret fire, bullet hit, explosion SFX, ambient space drone, warp transit, dock chimes; GameShell-only, no SimCore (gates: GATE.S1.AUDIO.*)
 - EPIC.S1.SAVE_LOAD_UI.V0 [DONE]: Save/load UI v0: escape pause menu, 3 save slots with metadata, wires existing SimBridge save/load; GameShell-only (gates: GATE.S1.SAVE_UI.*)
@@ -87,7 +86,11 @@ Primary anchors:
 - EPIC.S13.FEEL_OVERHAUL.V0 [DONE]: Playtest-driven feel overhaul — top-down camera, persistent rotation, ship turning/speed retuning, dock menu tabs with progressive disclosure, empire dashboard gating, label distance clamping, gate arrival/direction fixes, galaxy map centering, hostile labels, NPC behavior tuning, terminology cleanup (gates: GATE.S13.*)
 - EPIC.S14.ALIVE_GALAXY.V0 [DONE]: Make systems feel alive — fix NPC fleet survival through WorldLoader, role diversity, gate transit warp effect, Kenney gate models, star tint fix, starter star guarantee, asteroid variety, dock visual framing, docking proximity, HUD cleanup, galaxy map player indicator, mission prompt (gates: GATE.S14.*)
 - EPIC.S15.EXPLORATION_FEEL.V0 [DONE]: Exploration atmosphere — star-class lighting, jump events (salvage/signal/turbulence), faction territory mapping + labels, ambient particles, NPC freighter proximity substantiation, exploration headless proof (gates: GATE.S15.FEEL.*)
-- EPIC.S16.NPC_SHIPS_ALIVE.V0 [IN_PROGRESS]: NPC fleet ships as physical 3D entities with LimboAI behavior trees, sim-driven movement, role-based AI (Trader/Hauler/Patrol), player-NPC combat feedback to SimCore, warp-in/out effects, fleet destruction + respawn (gates: GATE.S16.NPC_ALIVE.*)
+- EPIC.S16.NPC_SHIPS_ALIVE.V0 [DONE]: NPC fleet ships as physical 3D entities with LimboAI behavior trees, sim-driven movement, role-based AI (Trader/Hauler/Patrol), player-NPC combat feedback to SimCore, warp-in/out effects, fleet destruction + respawn (gates: GATE.S16.NPC_ALIVE.*)
+- EPIC.S17.REAL_SPACE.V0 [DONE]: Continuous real-space galaxy with physical lane traversal, LOD system detail rendering, warp tunnel VFX, and high-altitude galaxy map (gates: GATE.S17.REAL_SPACE.*)
+- EPIC.S18.TRADE_GOODS.V0 [DONE]: Trade goods overhaul from 10 to 13 goods with 9 recipes, geographic distribution, price bands, sustain alignment, NPC trade update, and headless proof per docs/design/trade_goods_v0.md (gates: GATE.S18.TRADE_GOODS.*)
+- EPIC.S18.SHIP_MODULES.V0 [DONE]: Ship module system foundation with zone armor (4-directional HP), 8 ship classes, 3-constraint fitting (slots/power/sustain), and combat zone integration per docs/design/ship_modules_v0.md (gates: GATE.S18.SHIP_MODULES.*)
+- EPIC.S18.EMPIRE_DASH.V0 [DONE]: Empire dashboard overhaul with 5-tab dock menu, Overview tab (F1), Economy tab (F2), Ship tab, Station tab per docs/design/EmpireDashboard.md (gates: GATE.S18.EMPIRE_DASH.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -805,7 +808,7 @@ Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
 - EPIC.S6.MAP_GALAXY [DONE]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
-- EPIC.S6.OFFLANE_FRACTURE [TODO]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
+- EPIC.S6.OFFLANE_FRACTURE [IN_PROGRESS]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 that is expensive but worth it:
   - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight
   - Supports limited elite freighters with fracture, not mass fleet conversion
@@ -816,7 +819,7 @@ Epics:
   - Fracture wins only in defined niches and under defined frictions (tariffs, closures, extreme distance)
   - Evidence: deterministic invariants report (no timestamps, stable ordering) recorded in gate evidence; hard-fails on drift (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.ANOMALY_ECOLOGY [TODO]: Procedural anomaly distribution with deterministic seeds and spatial logic (gates: GATE.S6.ANOMALY_ECOLOGY.*)
-- EPIC.S6.LAYERED_REVEALS.V0 [TODO]: New tech reveals new layers in previously discovered places (sensor layers, station secrets, anomaly phases) without creating mandatory maintenance travel (gates: GATE.S6.LAYERED_REVEALS.*)
+- EPIC.S6.LAYERED_REVEALS.V0 [IN_PROGRESS]: New tech reveals new layers in previously discovered places (sensor layers, station secrets, anomaly phases) without creating mandatory maintenance travel (gates: GATE.S6.LAYERED_REVEALS.*)
 - EPIC.S6.DISCOVERY_OUTCOMES [TODO]: Persistent value outputs (intel, resources, artifacts, maps, leads) (gates: GATE.S6.DISCOVERY_OUTCOMES.*)
 - EPIC.S6.ARTIFACT_RESEARCH [TODO]: Identification, containment, experiments, failure modes (trace spikes, incidents) (gates: GATE.S6.ARTIFACT_RESEARCH.*)
 - EPIC.S6.TECH_LEADS [TODO]: Tech leads become prototype candidates, gated by science throughput (gates: GATE.S6.TECH_LEADS.*)
@@ -835,18 +838,19 @@ Status: TODO
 Purpose: Logistics shapes wars and the galaxy’s political topology, with lasting consequences.
 
 Epics:
-- EPIC.S7.FACTION_MODEL [TODO]: Goals, doctrines, policies, constraints, tech preferences (gates: GATE.S7.FACTION_MODEL.*)
+- EPIC.S7.FACTION_MODEL [IN_PROGRESS]: Goals, doctrines, policies, constraints, tech preferences (gates: GATE.S7.FACTION_MODEL.*)
 - EPIC.S7.WARFRONT_THEATERS [TODO]: Procedural warfront seeding from geography and faction goals (gates: GATE.S7.WARFRONT_THEATERS.*)
 - EPIC.S7.WARFRONT_STATE [TODO]: Front lines, objectives, supply demand, attrition, morale, stability (gates: GATE.S7.WARFRONT_STATE.*)
 - EPIC.S7.SUPPLY_IMPACT [TODO]: Delivered goods and services move warfront state with persistent consequences (gates: GATE.S7.SUPPLY_IMPACT.*)
-- EPIC.S7.TERRITORY_REGIMES [TODO]: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules (gates: GATE.S7.TERRITORY_REGIMES.*)
+- EPIC.S7.TERRITORY_REGIMES [IN_PROGRESS]: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules (gates: GATE.S7.TERRITORY_REGIMES.*)
 - EPIC.S7.TECH_ACCESS [TODO]: Exclusives, embargoed tech, licensing, doctrine-based variants (gates: GATE.S7.TECH_ACCESS.*)
 - EPIC.S7.DIPLOMACY_VERBS.V0 [TODO]: Diplomacy verbs set definition and contracts (treaties%bounties%sanctions%privateering) (gates: GATE.S7.DIPLOMACY_VERBS.*)
-- EPIC.S7.REPUTATION_INFLUENCE [TODO]: Reputation drives access, pricing, inspection posture, and deal availability (gates: GATE.S7.REPUTATION_INFLUENCE.*)
+- EPIC.S7.REPUTATION_INFLUENCE [IN_PROGRESS]: Reputation drives access, pricing, inspection posture, and deal availability (gates: GATE.S7.REPUTATION_INFLUENCE.*)
 - EPIC.S7.UI_DIPLO [TODO]: Faction intel, deal making, “why policy changed” (gates: GATE.S7.UI_DIPLO.*)
 - EPIC.S7.UI_WARFRONT [TODO]: Dashboards, projected outcomes, intervention options, supply checklists (gates: GATE.S7.UI_WARFRONT.*)
 - EPIC.S7.BRIDGE_THRONEROOM_V0 [TODO]: Bridge layer as strategic view + unlock surface tied to factions%warfronts%tech posture (gates: GATE.S7.BRIDGE_THRONEROOM_V0.*)
 - EPIC.S7.CLASS_WARFRONT_PROFILES.V0 [TODO]: World class influences warfront seeding and supply shapes (integrates Slice 2.5 classes with Slice 7) (gates: GATE.S7.CLASS_WARFRONT_PROFILES.*)
+- EPIC.S7.INSTABILITY_PHASES [TODO]: Per-node instability model with 5 phases (Stable/Shimmer/Drift/Fracture/Void), worldgen assignment, phase transition mechanics, visual indicators per factions_and_lore_v0.md (gates: GATE.S7.INSTABILITY.*)
 - EPIC.S7.PERF_BUDGET [TODO]: Tick budget tests extended for warfront systems (gates: GATE.S7.PERF_BUDGET.*)
 - EPIC.S7.PROCEDURAL_PLANETS.V0 [DONE]: Procedural planet + star generation per system node: Star class (G/K/M/F/A/O) with luminosity influencing planet temperature, PlanetType (Terrestrial/Ice/Sand/Lava/Gaseous/Barren) with gravity+atmosphere landability rules, specialization-driven planet industries (Agriculture/Mining/Manufacturing/HighTech/FuelExtraction), tech-gated landing for harsh environments, dockable Area3D trigger for landable planets, dock menu planet info UI (gates: GATE.S7.PLANET.*)
 

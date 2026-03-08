@@ -28,7 +28,7 @@ public sealed class RewardLootTests
     }
 
     [Test]
-    public void Ruin_ProducesAnomalySamples()
+    public void Ruin_ProducesExoticMatter()
     {
         var enc = new AnomalyEncounter
         {
@@ -40,8 +40,8 @@ public sealed class RewardLootTests
         var state = new SimState(42);
         DiscoveryOutcomeSystem.GenerateLootByFamily(enc, state);
 
-        Assert.That(enc.LootItems, Contains.Key("anomaly_samples"));
-        Assert.That(enc.LootItems["anomaly_samples"], Is.GreaterThan(0));
+        Assert.That(enc.LootItems, Contains.Key("exotic_matter"));
+        Assert.That(enc.LootItems["exotic_matter"], Is.GreaterThan(0));
         Assert.That(enc.CreditReward, Is.GreaterThanOrEqualTo(75));
     }
 

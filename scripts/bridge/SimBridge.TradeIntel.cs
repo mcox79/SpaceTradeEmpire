@@ -260,6 +260,53 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedDiscoverySnapshotV0; }
     }
 
+    // GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001: Economy overview — aggregate good inventory across all markets.
+    // Returns [{good_id, display_name, total_qty, station_count, avg_price, min_price, max_price}]
+    public Godot.Collections.Array GetEconomyOverviewV0()
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            var agg = new Dictionary<string, (int totalQty, int stationCount, long priceSum, int minPrice, int maxPrice)>();
+            foreach (var market in state.Markets.Values)
+            {
+                foreach (var kv in market.Inventory)
+                {
+                    if (kv.Value <= 0) continue;
+                    int price = market.GetPrice(kv.Key);
+                    if (!agg.TryGetValue(kv.Key, out var entry))
+                        entry = (0, 0, 0L, int.MaxValue, 0);
+                    entry.totalQty += kv.Value;
+                    entry.stationCount += 1;
+                    entry.priceSum += price;
+                    entry.minPrice = Math.Min(entry.minPrice, price);
+                    entry.maxPrice = Math.Max(entry.maxPrice, price);
+                    agg[kv.Key] = entry;
+                }
+            }
+
+            var sorted = new List<string>(agg.Keys);
+            sorted.Sort(StringComparer.Ordinal);
+            foreach (var goodId in sorted)
+            {
+                var e = agg[goodId];
+                int avgPrice = e.stationCount > 0 ? (int)(e.priceSum / e.stationCount) : 0;
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = goodId,
+                    ["display_name"] = FormatDisplayNameV0(goodId),
+                    ["total_qty"] = e.totalQty,
+                    ["station_count"] = e.stationCount,
+                    ["avg_price"] = avgPrice,
+                    ["min_price"] = e.minPrice == int.MaxValue ? 0 : e.minPrice,
+                    ["max_price"] = e.maxPrice,
+                };
+                result.Add(d);
+            }
+        }, 0);
+        return result;
+    }
+
     // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Price history query for trend charts.
     private Godot.Collections.Array _cachedPriceHistoryV0 = new();
 

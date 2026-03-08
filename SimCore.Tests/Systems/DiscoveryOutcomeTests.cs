@@ -44,7 +44,7 @@ public sealed class DiscoveryOutcomeTests
 
         var outcome = state.AnomalyEncounters.Values.First();
         Assert.That(outcome.Family, Is.EqualTo("RUIN"));
-        Assert.That(outcome.LootItems, Contains.Key("anomaly_samples"));
+        Assert.That(outcome.LootItems, Contains.Key("exotic_matter"));
     }
 
     [Test]

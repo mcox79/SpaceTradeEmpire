@@ -29,7 +29,7 @@ public sealed class FractureEconInvariantTests
 
     private static readonly string[] FractureGoodIds = new[]
     {
-        WellKnownGoodIds.AnomalySamples,
+        WellKnownGoodIds.ExoticMatter,
         WellKnownGoodIds.ExoticCrystals,
         WellKnownGoodIds.SalvagedTech
     }.OrderBy(x => x, StringComparer.Ordinal).ToArray();
@@ -177,7 +177,7 @@ public sealed class FractureEconInvariantTests
 
     private static bool IsFractureGood(string goodId)
     {
-        return string.Equals(goodId, WellKnownGoodIds.AnomalySamples, StringComparison.Ordinal)
+        return string.Equals(goodId, WellKnownGoodIds.ExoticMatter, StringComparison.Ordinal)
             || string.Equals(goodId, WellKnownGoodIds.ExoticCrystals, StringComparison.Ordinal)
             || string.Equals(goodId, WellKnownGoodIds.SalvagedTech, StringComparison.Ordinal);
     }

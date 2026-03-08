@@ -2,15 +2,15 @@
   "version": 0,
   "goods": [
     {
-      "id": "anomaly_samples",
-      "display_name": "Anomaly Samples",
+      "id": "components",
+      "display_name": "Components",
       "tier": 3,
       "base_price_band": "high",
       "stackable": true
     },
     {
-      "id": "composite_armor",
-      "display_name": "Composite Armor",
+      "id": "composites",
+      "display_name": "Composites",
       "tier": 2,
       "base_price_band": "mid",
       "stackable": true
@@ -30,6 +30,13 @@
       "stackable": true
     },
     {
+      "id": "exotic_matter",
+      "display_name": "Exotic Matter",
+      "tier": 3,
+      "base_price_band": "high",
+      "stackable": true
+    },
+    {
       "id": "food",
       "display_name": "Food Rations",
       "tier": 1,
@@ -44,15 +51,15 @@
       "stackable": true
     },
     {
-      "id": "hull_plating",
-      "display_name": "Hull Plating",
+      "id": "metal",
+      "display_name": "Refined Metal",
       "tier": 2,
       "base_price_band": "mid",
       "stackable": true
     },
     {
-      "id": "metal",
-      "display_name": "Refined Metal",
+      "id": "munitions",
+      "display_name": "Munitions",
       "tier": 2,
       "base_price_band": "mid",
       "stackable": true
@@ -65,6 +72,20 @@
       "stackable": true
     },
     {
+      "id": "organics",
+      "display_name": "Organics",
+      "tier": 1,
+      "base_price_band": "low",
+      "stackable": true
+    },
+    {
+      "id": "rare_metals",
+      "display_name": "Rare Metals",
+      "tier": 1,
+      "base_price_band": "mid",
+      "stackable": true
+    },
+    {
       "id": "salvaged_tech",
       "display_name": "Salvaged Technology",
       "tier": 3,
@@ -73,6 +94,13 @@
     }
   ],
   "recipes": [
+    {
+      "id": "recipe_assemble_components",
+      "display_name": "Assemble Components",
+      "production_ticks": 40,
+      "inputs": [ { "good_id": "electronics", "qty": 2 }, { "good_id": "metal", "qty": 3 } ],
+      "outputs": [ { "good_id": "components", "qty": 1 } ]
+    },
     {
       "id": "recipe_assemble_electronics",
       "display_name": "Assemble Electronics",
@@ -88,36 +116,43 @@
       "outputs": [ { "good_id": "ore", "qty": 5 } ]
     },
     {
-      "id": "recipe_forge_composite_armor",
-      "display_name": "Forge Composite Armor",
-      "production_ticks": 35,
-      "inputs": [ { "good_id": "exotic_crystals", "qty": 1 }, { "good_id": "metal", "qty": 3 } ],
-      "outputs": [ { "good_id": "composite_armor", "qty": 1 } ]
-    },
-    {
-      "id": "recipe_forge_hull_plating",
-      "display_name": "Forge Hull Plating",
+      "id": "recipe_fabricate_composites",
+      "display_name": "Fabricate Composites",
       "production_ticks": 30,
-      "inputs": [ { "good_id": "metal", "qty": 5 } ],
-      "outputs": [ { "good_id": "hull_plating", "qty": 1 } ]
+      "inputs": [ { "good_id": "metal", "qty": 3 }, { "good_id": "organics", "qty": 2 } ],
+      "outputs": [ { "good_id": "composites", "qty": 2 } ]
     },
     {
-      "id": "recipe_refine_ore_to_food",
-      "display_name": "Refine Ore To Food",
-      "production_ticks": 10,
-      "inputs": [ { "good_id": "ore", "qty": 2 } ],
-      "outputs": [ { "good_id": "food", "qty": 1 } ]
+      "id": "recipe_manufacture_munitions",
+      "display_name": "Manufacture Munitions",
+      "production_ticks": 20,
+      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "metal", "qty": 2 } ],
+      "outputs": [ { "good_id": "munitions", "qty": 3 } ]
     },
     {
-      "id": "recipe_refine_ore_to_metal",
-      "display_name": "Refine Ore To Metal",
+      "id": "recipe_process_food",
+      "display_name": "Process Food",
+      "production_ticks": 15,
+      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "organics", "qty": 2 } ],
+      "outputs": [ { "good_id": "food", "qty": 3 } ]
+    },
+    {
+      "id": "recipe_refine_metal",
+      "display_name": "Refine Metal",
       "production_ticks": 20,
       "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "ore", "qty": 10 } ],
       "outputs": [ { "good_id": "metal", "qty": 5 } ]
     },
     {
-      "id": "recipe_salvage_refine",
-      "display_name": "Salvage Refine",
+      "id": "recipe_salvage_to_components",
+      "display_name": "Salvage to Components",
+      "production_ticks": 30,
+      "inputs": [ { "good_id": "electronics", "qty": 1 }, { "good_id": "salvaged_tech", "qty": 1 } ],
+      "outputs": [ { "good_id": "components", "qty": 2 } ]
+    },
+    {
+      "id": "recipe_salvage_to_metal",
+      "display_name": "Salvage to Metal",
       "production_ticks": 20,
       "inputs": [ { "good_id": "salvaged_tech", "qty": 1 } ],
       "outputs": [ { "good_id": "metal", "qty": 5 } ]

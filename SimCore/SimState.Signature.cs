@@ -105,10 +105,32 @@ public partial class SimState
             }
         }
 
+        // GATE.S7.FACTION.REPUTATION_SYS.001: Include faction reputation in signature.
+        if (FactionReputation is not null && FactionReputation.Count > 0)
+        {
+            foreach (var kv in FactionReputation.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"FRep:{kv.Key}:{kv.Value}|");
+            }
+        }
+
         foreach (var n in Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             if (n.Value.Trace > 0.001f) sb.Append($"N_Tr:{n.Key}:{n.Value.Trace.ToString("F2", CultureInfo.InvariantCulture)}|");
+            // GATE.S7.INSTABILITY.PHASE_MODEL.001: Include instability in signature.
+            if (n.Value.InstabilityLevel > 0) sb.Append($"N_Inst:{n.Key}:{n.Value.InstabilityLevel}|");
         }
+
+        // GATE.S7.WARFRONT.STATE_MODEL.001: Warfront state in signature for determinism.
+        if (Warfronts is not null && Warfronts.Count > 0)
+        {
+            foreach (var kv in Warfronts.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var w = kv.Value;
+                sb.Append($"WF:{kv.Key}|A:{w.CombatantA}|B:{w.CombatantB}|I:{(int)w.Intensity}|T:{(int)w.WarType}|Ts:{w.TickStarted}|");
+            }
+        }
+
         foreach (var e in Edges.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat.ToString("F2", CultureInfo.InvariantCulture)}|");

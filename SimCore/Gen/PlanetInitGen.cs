@@ -221,7 +221,7 @@ public static class PlanetInitGen
             {
                 Id = $"planet_factory_{nodeId}",
                 NodeId = nodeId,
-                RecipeId = Content.WellKnownRecipeIds.RefineOreToMetal,
+                RecipeId = Content.WellKnownRecipeIds.RefineMetal,
                 Inputs = new Dictionary<string, int>
                 {
                     { Content.WellKnownGoodIds.Ore, PlanetTweaksV0.ManufacturingOreInput },

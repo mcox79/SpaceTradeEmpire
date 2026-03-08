@@ -165,6 +165,9 @@ public partial class SimState
         // GATE.S12.PROGRESSION.STATS.001: PlayerStats hydration.
         PlayerStats ??= new Entities.PlayerStats();
 
+        // GATE.S7.WARFRONT.STATE_MODEL.001: Warfront state hydration.
+        Warfronts ??= new Dictionary<string, Entities.WarfrontState>(StringComparer.Ordinal);
+
         // GATE.S7.PLANET.MODEL.001: Planet + Star state hydration (backward compat: old saves have no planets).
         Planets ??= new Dictionary<string, Entities.Planet>(StringComparer.Ordinal);
         Stars ??= new Dictionary<string, Entities.Star>(StringComparer.Ordinal);

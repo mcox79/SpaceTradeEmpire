@@ -20,6 +20,12 @@ public sealed class ModuleDef
     public int ShieldBonusFlat { get; set; } = 0;
     public int HullBonusFlat { get; set; } = 0;
     public int DamageBonusPct { get; set; } = 0;
+
+    // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Power draw of this module.
+    public int PowerDraw { get; set; } = 5;
+
+    // GATE.S18.TRADE_GOODS.SUSTAIN_ALIGN.001: Goods consumed per sustain cycle.
+    public Dictionary<string, int> SustainInputs { get; set; } = new();
 }
 
 public static class UpgradeContentV0
@@ -34,8 +40,10 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 50,
             TechPrerequisite = "",
-            InstallTicks = 3, // simple starter weapon
-            DamageBonusPct = 0, // base weapon, no bonus
+            InstallTicks = 3,
+            PowerDraw = 5,
+            DamageBonusPct = 0,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = 1 },
         },
         new ModuleDef
         {
@@ -44,8 +52,10 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 50,
             TechPrerequisite = "",
-            InstallTicks = 3, // simple starter weapon
+            InstallTicks = 3,
+            PowerDraw = 8,
             DamageBonusPct = 0,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = 1, [WellKnownGoodIds.Fuel] = 1 },
         },
         // Tech-gated upgrades
         new ModuleDef
@@ -55,8 +65,10 @@ public static class UpgradeContentV0
             SlotKind = SlotKind.Weapon,
             CreditCost = 120,
             TechPrerequisite = "weapon_systems_2",
-            InstallTicks = 6, // advanced weapon
+            InstallTicks = 6,
+            PowerDraw = 10,
             DamageBonusPct = 25,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = 2 },
         },
         new ModuleDef
         {
@@ -66,6 +78,7 @@ public static class UpgradeContentV0
             CreditCost = 100,
             TechPrerequisite = "shield_mk2",
             InstallTicks = 8, // complex shield integration
+            PowerDraw = 12,
             ShieldBonusFlat = 30,
         },
         new ModuleDef
@@ -76,6 +89,7 @@ public static class UpgradeContentV0
             CreditCost = 80,
             TechPrerequisite = "improved_thrusters",
             InstallTicks = 10, // engine overhaul is most complex
+            PowerDraw = 8,
             SpeedBonusPct = 20,
         },
         // GATE.S4.CATALOG.MODULE_WAVE.001: 5 new modules
@@ -87,6 +101,7 @@ public static class UpgradeContentV0
             CreditCost = 150,
             TechPrerequisite = "engine_efficiency",
             InstallTicks = 12,
+            PowerDraw = 15,
             SpeedBonusPct = 35,
         },
         new ModuleDef
@@ -97,6 +112,7 @@ public static class UpgradeContentV0
             CreditCost = 90,
             TechPrerequisite = "cargo_expansion",
             InstallTicks = 6,
+            PowerDraw = 3,
         },
         new ModuleDef
         {
@@ -106,6 +122,7 @@ public static class UpgradeContentV0
             CreditCost = 110,
             TechPrerequisite = "sensor_suite",
             InstallTicks = 5,
+            PowerDraw = 5,
         },
         new ModuleDef
         {
@@ -115,6 +132,7 @@ public static class UpgradeContentV0
             CreditCost = 120,
             TechPrerequisite = "reinforced_hull",
             InstallTicks = 8,
+            PowerDraw = 6,
             HullBonusFlat = 40,
         },
         new ModuleDef
@@ -125,7 +143,9 @@ public static class UpgradeContentV0
             CreditCost = 140,
             TechPrerequisite = "weapon_calibration",
             InstallTicks = 7,
+            PowerDraw = 15,
             DamageBonusPct = 30,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = 2, [WellKnownGoodIds.Fuel] = 1 },
         },
     };
 

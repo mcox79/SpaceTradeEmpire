@@ -21,18 +21,18 @@ public sealed class ChainGraphTests
         Assert.That(result.Violations, Is.Empty);
         Assert.That(result.Chains.Count, Is.GreaterThan(0), "Should find at least one chain.");
 
-        // hull_plating chain should exist: fuel → ore → metal → hull_plating
-        var hullChain = result.Chains.FirstOrDefault(c => c.FinalOutput == "hull_plating");
-        Assert.That(hullChain, Is.Not.Null, "Should find hull_plating chain.");
-        Assert.That(hullChain!.Depth, Is.LessThanOrEqualTo(3), "hull_plating chain depth <= 3.");
-        Assert.That(hullChain.RecipeSequence, Does.Contain("recipe_forge_hull_plating"));
-        Assert.That(hullChain.RawInputs, Does.Contain("fuel"), "fuel is a raw input (no recipe produces it).");
+        // munitions chain should exist: fuel + metal → munitions (depth 2 via ore→metal)
+        var munChain = result.Chains.FirstOrDefault(c => c.FinalOutput == "munitions");
+        Assert.That(munChain, Is.Not.Null, "Should find munitions chain.");
+        Assert.That(munChain!.Depth, Is.LessThanOrEqualTo(3), "munitions chain depth <= 3.");
+        Assert.That(munChain.RecipeSequence, Does.Contain("recipe_manufacture_munitions"));
+        Assert.That(munChain.RawInputs, Does.Contain("fuel"), "fuel is a raw input (no recipe produces it).");
     }
 
     [Test]
-    public void ChainGraph_Depth4_IsFlagged()
+    public void ChainGraph_Depth5_IsFlagged()
     {
-        // Build a 4-deep chain: A→B→C→D→E (4 recipes)
+        // Build a 5-deep chain: A→B→C→D→E→F (5 recipes, exceeds max 4)
         var registry = new ContentRegistryLoader.ContentRegistryV0
         {
             Version = 0,
@@ -42,7 +42,8 @@ public sealed class ChainGraphTests
                 new() { Id = "b" },
                 new() { Id = "c" },
                 new() { Id = "d" },
-                new() { Id = "e" }
+                new() { Id = "e" },
+                new() { Id = "f" }
             },
             Recipes = new List<ContentRegistryLoader.RecipeDefV0>
             {
@@ -69,6 +70,12 @@ public sealed class ChainGraphTests
                     Id = "r4",
                     Inputs = new List<ContentRegistryLoader.RecipeLineV0> { new() { GoodId = "d", Qty = 1 } },
                     Outputs = new List<ContentRegistryLoader.RecipeLineV0> { new() { GoodId = "e", Qty = 1 } }
+                },
+                new()
+                {
+                    Id = "r5",
+                    Inputs = new List<ContentRegistryLoader.RecipeLineV0> { new() { GoodId = "e", Qty = 1 } },
+                    Outputs = new List<ContentRegistryLoader.RecipeLineV0> { new() { GoodId = "f", Qty = 1 } }
                 }
             },
             Modules = new List<ContentRegistryLoader.ModuleDefV0>()
@@ -76,7 +83,7 @@ public sealed class ChainGraphTests
 
         var result = ChainAnalysis.Analyze(registry);
 
-        Assert.That(result.IsValid, Is.False, "Depth-4 chain should be flagged.");
+        Assert.That(result.IsValid, Is.False, "Depth-5 chain should be flagged.");
         Assert.That(result.Violations.Any(v => v.Contains("DEPTH_EXCEEDED")), Is.True);
     }
 

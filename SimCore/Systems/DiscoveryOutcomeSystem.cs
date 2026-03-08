@@ -62,7 +62,7 @@ public static class DiscoveryOutcomeSystem
                 encounter.CreditReward += DiscoveryOutcomeTweaksV0.DerelictCredits;
                 break;
             case "RUIN":
-                encounter.LootItems[WellKnownGoodIds.AnomalySamples] = DiscoveryOutcomeTweaksV0.RuinAnomalySamplesQty;
+                encounter.LootItems[WellKnownGoodIds.ExoticMatter] = DiscoveryOutcomeTweaksV0.RuinExoticMatterQty;
                 encounter.CreditReward += DiscoveryOutcomeTweaksV0.RuinCredits;
                 break;
             case "SIGNAL":
@@ -85,7 +85,7 @@ public static class DiscoveryOutcomeSystem
             case "RESOURCE_POOL_MARKER":
                 // Permanent trade bonus: credit reward + goods.
                 outcome.Family = "RUIN";
-                outcome.LootItems[WellKnownGoodIds.AnomalySamples] = DiscoveryOutcomeTweaksV0.ResourcePoolMarkerSamplesQty;
+                outcome.LootItems[WellKnownGoodIds.ExoticMatter] = DiscoveryOutcomeTweaksV0.ResourcePoolMarkerSamplesQty;
                 outcome.CreditReward = DiscoveryOutcomeTweaksV0.ResourcePoolMarkerCredits;
                 state.PlayerCredits += DiscoveryOutcomeTweaksV0.ResourcePoolMarkerCredits;
                 break;

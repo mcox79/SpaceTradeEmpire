@@ -368,6 +368,55 @@ public partial class SimBridge
         return arr;
     }
 
+    // GATE.S18.TRADE_GOODS.BRIDGE_MARKET.001: Market snapshot with display names and effective prices.
+    public Godot.Collections.Array GetMarketGoodsSnapshotV1(string marketId)
+    {
+        var result = new Godot.Collections.Array();
+        if (IsLoading) return result;
+        if (string.IsNullOrWhiteSpace(marketId)) return result;
+
+        _stateLock.EnterReadLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.Markets.TryGetValue(marketId, out var market)) return result;
+
+            var registry = SimCore.Content.ContentRegistryLoader.LoadFromJsonOrThrow(SimCore.Content.ContentRegistryLoader.DefaultRegistryJsonV0);
+
+            // Collect all goods: market inventory + player cargo
+            var allGoods = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            foreach (var k in market.Inventory.Keys) allGoods.Add(k);
+            foreach (var k in state.PlayerCargo.Keys) allGoods.Add(k);
+
+            var sorted = new System.Collections.Generic.List<string>(allGoods);
+            sorted.Sort(StringComparer.Ordinal);
+
+            foreach (var goodId in sorted)
+            {
+                int qty = market.Inventory.TryGetValue(goodId, out var v) ? v : 0;
+                int playerQty = state.PlayerCargo.TryGetValue(goodId, out var pv) ? pv : 0;
+                int effectivePrice = SimCore.Systems.MarketSystem.GetEffectivePrice(goodId, qty, registry);
+                int publishedPrice = market.GetPrice(goodId);
+
+                var row = new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = goodId,
+                    ["display_name"] = FormatDisplayNameV0(goodId),
+                    ["market_qty"] = qty,
+                    ["player_qty"] = playerQty,
+                    ["price"] = publishedPrice > 0 ? publishedPrice : effectivePrice,
+                    ["effective_price"] = effectivePrice,
+                };
+                result.Add(row);
+            }
+        }
+        finally
+        {
+            _stateLock.ExitReadLock();
+        }
+        return result;
+    }
+
     private static string ResolveMarketIdFromNodeOrMarket(SimState state, string nodeOrMarketId)
     {
         if (state is null) return "";

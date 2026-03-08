@@ -268,7 +268,7 @@ public class FractureTests
     public void FractureContent_WellKnownGoodIds_FractureGoodsAreDefined()
     {
         // The 3 fracture-exclusive good IDs must be non-empty stable constants.
-        Assert.That(WellKnownGoodIds.AnomalySamples, Is.EqualTo("anomaly_samples"));
+        Assert.That(WellKnownGoodIds.ExoticMatter, Is.EqualTo("exotic_matter"));
         Assert.That(WellKnownGoodIds.ExoticCrystals, Is.EqualTo("exotic_crystals"));
         Assert.That(WellKnownGoodIds.SalvagedTech, Is.EqualTo("salvaged_tech"));
     }
@@ -281,8 +281,8 @@ public class FractureTests
         var goodIds = new System.Collections.Generic.HashSet<string>(
             reg.Goods.Select(g => g.Id), StringComparer.Ordinal);
 
-        Assert.That(goodIds.Contains(WellKnownGoodIds.AnomalySamples), Is.True,
-            "Registry must contain anomaly_samples.");
+        Assert.That(goodIds.Contains(WellKnownGoodIds.ExoticMatter), Is.True,
+            "Registry must contain exotic_matter.");
         Assert.That(goodIds.Contains(WellKnownGoodIds.ExoticCrystals), Is.True,
             "Registry must contain exotic_crystals.");
         Assert.That(goodIds.Contains(WellKnownGoodIds.SalvagedTech), Is.True,
@@ -470,7 +470,7 @@ public class FractureTests
             MarketId = "hub"
         });
         var market = new Market();
-        market.Inventory[WellKnownGoodIds.AnomalySamples] = 50;
+        market.Inventory[WellKnownGoodIds.ExoticMatter] = 50;
         market.Inventory[WellKnownGoodIds.ExoticCrystals] = 80;
         market.Inventory["fuel"] = 200; // non-fracture good, must be unchanged
         state.Markets.Add("hub", market);

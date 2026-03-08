@@ -108,7 +108,16 @@ public static class GalaxyGenerator
         StarNetworkGen.WireLanes(state, nodesList);
         StarNetworkGen.SeedAiFleets(state, nodesList);
 
+        // Phase 5: Seed void sites between star pairs (deterministic from node hashes, no RNG).
+        SeedVoidSitesV0(state, nodesList);
+
         SeedRumorLeadsV0(state);
+
+        // Phase 6: Assign initial instability per node (deterministic from world class + node hash).
+        SeedInstabilityV0(state);
+
+        // Phase 7: Seed warfronts (deterministic from faction territories, no RNG).
+        SeedWarfrontsV0(state);
 
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
@@ -173,6 +182,70 @@ public static class GalaxyGenerator
         return (pass, sb.ToString());
     }
 
+    // GATE.S6.FRACTURE.VOID_SITES.001: Deterministic void site seeding v0.
+    // Places 5-15 void sites at midpoints/offsets between unique star pairs.
+    // Uses Fnv1a32 hashing (no RNG consumption) for deterministic positions and families.
+    private static void SeedVoidSitesV0(SimState state, List<Entities.Node> nodesList)
+    {
+        if (nodesList.Count < Tweaks.VoidSiteTweaksV0.MinStarCount) return;
+
+        var familyValues = (Entities.VoidSiteFamily[])Enum.GetValues(typeof(Entities.VoidSiteFamily));
+        int familyCount = familyValues.Length;
+        int siteIndex = 0;
+
+        // Generate pairs: iterate edges for connected pairs.
+        foreach (var edge in state.Edges.Values.OrderBy(e => e.Id, StringComparer.Ordinal))
+        {
+            if (!state.Nodes.TryGetValue(edge.FromNodeId, out var nodeA)) continue;
+            if (!state.Nodes.TryGetValue(edge.ToNodeId, out var nodeB)) continue;
+
+            // Hash determines how many void sites on this edge.
+            uint edgeHash = Fnv1a32Utf8(edge.Id + "_void_count");
+            int count = (int)(edgeHash % (uint)Tweaks.VoidSiteTweaksV0.MaxSitesPerEdge) + 1;
+
+            for (int v = 0; v < count; v++)
+            {
+                uint siteHash = Fnv1a32Utf8(edge.Id + "_void_" + v);
+
+                // Position: midpoint with deterministic offset along the edge.
+                float t = Tweaks.VoidSiteTweaksV0.MinT
+                    + (float)(siteHash % (uint)Tweaks.VoidSiteTweaksV0.THashMod) / Tweaks.VoidSiteTweaksV0.TRangeDiv;
+                float px = nodeA.Position.X + (nodeB.Position.X - nodeA.Position.X) * t;
+                float pz = nodeA.Position.Z + (nodeB.Position.Z - nodeA.Position.Z) * t;
+
+                // Perpendicular offset to avoid sitting directly on the lane.
+                float dx = nodeB.Position.X - nodeA.Position.X;
+                float dz = nodeB.Position.Z - nodeA.Position.Z;
+                float len = MathF.Sqrt(dx * dx + dz * dz);
+                if (len > Tweaks.VoidSiteTweaksV0.MinLengthEpsilon)
+                {
+                    float perpX = -dz / len;
+                    float perpZ = dx / len;
+                    float offsetMag = (float)((siteHash >> Tweaks.VoidSiteTweaksV0.OffsetHashShift) % (uint)Tweaks.VoidSiteTweaksV0.OffsetHashMod)
+                        / Tweaks.VoidSiteTweaksV0.OffsetScale - Tweaks.VoidSiteTweaksV0.OffsetHalfRange;
+                    px += perpX * offsetMag;
+                    pz += perpZ * offsetMag;
+                }
+
+                // Family from hash.
+                var family = familyValues[(int)(siteHash % (uint)familyCount)];
+
+                var siteId = $"void_{siteIndex:D3}";
+                siteIndex++;
+
+                state.VoidSites[siteId] = new Entities.VoidSite
+                {
+                    Id = siteId,
+                    Position = new System.Numerics.Vector3(px, 0, pz),
+                    Family = family,
+                    MarkerState = Entities.VoidSiteMarkerState.Unknown,
+                    NearStarA = edge.FromNodeId,
+                    NearStarB = edge.ToNodeId,
+                };
+            }
+        }
+    }
+
     // GATE.S3_6.RUMOR_INTEL_MIN.002
     // Deterministic rumor lead seeding v0.
     // ID format: LEAD.<seed>.<zero-padded-4-index> — stable, seed-derived, no wall-clock, no Guid.
@@ -216,29 +289,31 @@ public static class GalaxyGenerator
         }
     }
 
-    // GATE.S2_5.WGEN.FACTION.001: deterministic faction seeding v0.
+    // GATE.S7.FACTION.CONTENT_DATA.001: 5 named factions with lore-accurate content.
     // Output format is intentionally diff-friendly: a table sorted by FactionId plus a relations matrix
     // with rows%cols sorted by FactionId. Avoid unordered iteration by sorting ids explicitly.
     public static IReadOnlyList<WorldFaction> SeedFactionsFromNodesSorted(IReadOnlyList<string> nodeIdsSorted)
     {
         if (nodeIdsSorted.Count == 0) throw new InvalidOperationException("No nodes available for faction seeding.");
 
-        var roles = new[] { "Trader", "Miner", "Pirate" };
-        var fids = new[] { "faction_0", "faction_1", "faction_2" };
+        var fids = Tweaks.FactionTweaksV0.AllFactionIds; // sorted ordinal: chitin, communion, concord, valorin, weavers
 
-        int idx0 = 0;
-        int idx1 = nodeIdsSorted.Count / 2;
-        int idx2 = nodeIdsSorted.Count - 1;
+        // Distribute homes evenly across node ring (5 factions, spaced by nodeCount/5).
+        int n = nodeIdsSorted.Count;
+        var homeIndices = new int[5];
+        for (int i = 0; i < 5; i++)
+            homeIndices[i] = (i * n) / 5;
 
-        var home = new[] { nodeIdsSorted[idx0], nodeIdsSorted[idx1], nodeIdsSorted[idx2] };
+        var home = new string[5];
+        for (int i = 0; i < 5; i++)
+            home[i] = nodeIdsSorted[homeIndices[i]];
 
-        // Ensure uniqueness for tiny worlds deterministically (advance to next available sorted node id).
+        // Ensure uniqueness for tiny worlds deterministically.
         var used = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < home.Length; i++)
         {
             if (used.Add(home[i])) continue;
-
-            for (int j = 0; j < nodeIdsSorted.Count; j++)
+            for (int j = 0; j < n; j++)
             {
                 if (used.Add(nodeIdsSorted[j]))
                 {
@@ -248,36 +323,80 @@ public static class GalaxyGenerator
             }
         }
 
-        // Canonical relations pattern (values in {-1,0,+1}). Keep explicit 0 entries for stable diffs.
-        var rel = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal)
+        // Faction content table: (factionId, homeIdx, roleTag, policy, aggro, tariff, species, philosophy, produces, needs)
+        // Home assignment order matches AllFactionIds sorted order: chitin=0, communion=1, concord=2, valorin=3, weavers=4
+        var content = new (string Fid, int HomeIdx, string Role, TradePolicy Policy, int Aggro, float Tariff,
+            string Species, string Philosophy, List<string> Produces, List<string> Needs, List<string> Preferred)[]
         {
-            ["faction_0"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_1"] = +1, ["faction_2"] = -1 },
-            ["faction_1"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_0"] = +1, ["faction_2"] = 0 },
-            ["faction_2"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["faction_0"] = -1, ["faction_1"] = 0 },
+            (Tweaks.FactionTweaksV0.ChitinId, 1, "Artisan", TradePolicy.Guarded, Tweaks.FactionTweaksV0.ChitinAggressionLevel,
+                Tweaks.FactionTweaksV0.ChitinTariffRate, Tweaks.FactionTweaksV0.ChitinSpecies, Tweaks.FactionTweaksV0.ChitinPhilosophy,
+                new List<string> { Content.WellKnownGoodIds.Electronics, Content.WellKnownGoodIds.Components },
+                new List<string> { Content.WellKnownGoodIds.RareMetals },
+                new List<string> { Content.WellKnownGoodIds.Electronics, Content.WellKnownGoodIds.Components }),
+            (Tweaks.FactionTweaksV0.CommunionId, 4, "Mystic", TradePolicy.Open, Tweaks.FactionTweaksV0.CommunionAggressionLevel,
+                Tweaks.FactionTweaksV0.CommunionTariffRate, Tweaks.FactionTweaksV0.CommunionSpecies, Tweaks.FactionTweaksV0.CommunionPhilosophy,
+                new List<string> { Content.WellKnownGoodIds.ExoticCrystals, Content.WellKnownGoodIds.ExoticMatter },
+                new List<string> { Content.WellKnownGoodIds.Food, Content.WellKnownGoodIds.Fuel },
+                new List<string> { Content.WellKnownGoodIds.ExoticCrystals, Content.WellKnownGoodIds.ExoticMatter }),
+            (Tweaks.FactionTweaksV0.ConcordId, 0, "Governor", TradePolicy.Open, Tweaks.FactionTweaksV0.ConcordAggressionLevel,
+                Tweaks.FactionTweaksV0.ConcordTariffRate, Tweaks.FactionTweaksV0.ConcordSpecies, Tweaks.FactionTweaksV0.ConcordPhilosophy,
+                new List<string> { Content.WellKnownGoodIds.Food, Content.WellKnownGoodIds.Fuel },
+                new List<string> { Content.WellKnownGoodIds.Composites },
+                new List<string> { Content.WellKnownGoodIds.Food, Content.WellKnownGoodIds.Fuel }),
+            (Tweaks.FactionTweaksV0.ValorinId, 3, "Warrior", TradePolicy.Guarded, Tweaks.FactionTweaksV0.ValorinAggressionLevel,
+                Tweaks.FactionTweaksV0.ValorinTariffRate, Tweaks.FactionTweaksV0.ValorinSpecies, Tweaks.FactionTweaksV0.ValorinPhilosophy,
+                new List<string> { Content.WellKnownGoodIds.RareMetals, Content.WellKnownGoodIds.Munitions },
+                new List<string> { Content.WellKnownGoodIds.ExoticCrystals },
+                new List<string> { Content.WellKnownGoodIds.RareMetals, Content.WellKnownGoodIds.Munitions }),
+            (Tweaks.FactionTweaksV0.WeaversId, 2, "Engineer", TradePolicy.Open, Tweaks.FactionTweaksV0.WeaversAggressionLevel,
+                Tweaks.FactionTweaksV0.WeaversTariffRate, Tweaks.FactionTweaksV0.WeaversSpecies, Tweaks.FactionTweaksV0.WeaversPhilosophy,
+                new List<string> { Content.WellKnownGoodIds.Composites, Content.WellKnownGoodIds.Metal },
+                new List<string> { Content.WellKnownGoodIds.Electronics },
+                new List<string> { Content.WellKnownGoodIds.Composites, Content.WellKnownGoodIds.Metal }),
         };
 
-        var factions = new List<WorldFaction>(capacity: 3);
-        for (int i = 0; i < 3; i++)
+        // Relations matrix: hot war Valorin-Weavers (-1), cold war Concord-Chitin (-1),
+        // Pentagon neighbors +1, others 0.
+        var rel = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal)
         {
-            var fid = fids[i];
-            var rmap = rel[fid];
+            [Tweaks.FactionTweaksV0.ConcordId] = new(StringComparer.Ordinal)
+                { [Tweaks.FactionTweaksV0.ChitinId] = -1, [Tweaks.FactionTweaksV0.WeaversId] = +1,
+                  [Tweaks.FactionTweaksV0.ValorinId] = 0, [Tweaks.FactionTweaksV0.CommunionId] = +1 },
+            [Tweaks.FactionTweaksV0.ChitinId] = new(StringComparer.Ordinal)
+                { [Tweaks.FactionTweaksV0.ConcordId] = -1, [Tweaks.FactionTweaksV0.WeaversId] = 0,
+                  [Tweaks.FactionTweaksV0.ValorinId] = +1, [Tweaks.FactionTweaksV0.CommunionId] = 0 },
+            [Tweaks.FactionTweaksV0.WeaversId] = new(StringComparer.Ordinal)
+                { [Tweaks.FactionTweaksV0.ConcordId] = +1, [Tweaks.FactionTweaksV0.ChitinId] = 0,
+                  [Tweaks.FactionTweaksV0.ValorinId] = -1, [Tweaks.FactionTweaksV0.CommunionId] = 0 },
+            [Tweaks.FactionTweaksV0.ValorinId] = new(StringComparer.Ordinal)
+                { [Tweaks.FactionTweaksV0.ConcordId] = 0, [Tweaks.FactionTweaksV0.ChitinId] = +1,
+                  [Tweaks.FactionTweaksV0.WeaversId] = -1, [Tweaks.FactionTweaksV0.CommunionId] = +1 },
+            [Tweaks.FactionTweaksV0.CommunionId] = new(StringComparer.Ordinal)
+                { [Tweaks.FactionTweaksV0.ConcordId] = +1, [Tweaks.FactionTweaksV0.ChitinId] = 0,
+                  [Tweaks.FactionTweaksV0.WeaversId] = 0, [Tweaks.FactionTweaksV0.ValorinId] = +1 },
+        };
+
+        var factions = new List<WorldFaction>(capacity: 5);
+        for (int i = 0; i < content.Length; i++)
+        {
+            var c = content[i];
+            var rmap = rel[c.Fid];
 
             factions.Add(new WorldFaction
             {
-                FactionId = fid,
-                HomeNodeId = home[i],
-                RoleTag = roles[i],
-                Relations = new Dictionary<string, int>(StringComparer.Ordinal)
-                {
-                    // Explicitly include all non-self entries, including zeros.
-                    ["faction_0"] = fid == "faction_0" ? 0 : rmap.GetValueOrDefault("faction_0", 0),
-                    ["faction_1"] = fid == "faction_1" ? 0 : rmap.GetValueOrDefault("faction_1", 0),
-                    ["faction_2"] = fid == "faction_2" ? 0 : rmap.GetValueOrDefault("faction_2", 0),
-                }
+                FactionId = c.Fid,
+                HomeNodeId = home[c.HomeIdx],
+                RoleTag = c.Role,
+                Relations = new Dictionary<string, int>(rmap, StringComparer.Ordinal),
+                TradePolicy = c.Policy,
+                AggressionLevel = c.Aggro,
+                TariffRate = c.Tariff,
+                PreferredGoods = c.Preferred,
+                Species = c.Species,
+                Philosophy = c.Philosophy,
+                ProducesGoods = c.Produces,
+                NeedsGoods = c.Needs,
             });
-
-            // Remove self key to keep semantics "Relations[OtherFactionId]" while still keeping stable diffs.
-            factions[i].Relations.Remove(fid);
         }
 
         // Ensure stable order by FactionId.
@@ -865,12 +984,14 @@ public static class GalaxyGenerator
         var fids = factions.Select(f => f.FactionId).OrderBy(id => id, StringComparer.Ordinal).ToList();
 
         var sb = new StringBuilder();
-        sb.AppendLine("FactionId\tHomeNodeId\tRoleTag");
+        sb.AppendLine("FactionId\tHomeNodeId\tRoleTag\tSpecies\tPhilosophy");
         foreach (var f in factions)
         {
             sb.Append(f.FactionId).Append('\t')
               .Append(f.HomeNodeId).Append('\t')
-              .Append(f.RoleTag).Append('\n');
+              .Append(f.RoleTag).Append('\t')
+              .Append(f.Species).Append('\t')
+              .Append(f.Philosophy).Append('\n');
         }
 
         sb.Append("Matrix\t");
@@ -894,5 +1015,124 @@ public static class GalaxyGenerator
         }
 
         return sb.ToString();
+    }
+
+    // GATE.S7.INSTABILITY.WORLDGEN.001: Assign initial instability per node.
+    // Core=0-10, Frontier=10-30, Rim=20-50. Deterministic from node hash.
+    private static void SeedInstabilityV0(SimState state)
+    {
+        var classMap = GetWorldClassIdByNodeIdV0(state);
+
+        foreach (var node in state.Nodes.Values)
+        {
+            int min, max;
+            if (classMap.TryGetValue(node.Id, out var worldClass))
+            {
+                (min, max) = worldClass switch
+                {
+                    "CORE" => (Tweaks.InstabilityTweaksV0.CoreInstabilityMin, Tweaks.InstabilityTweaksV0.CoreInstabilityMax),
+                    "FRONTIER" => (Tweaks.InstabilityTweaksV0.FrontierInstabilityMin, Tweaks.InstabilityTweaksV0.FrontierInstabilityMax),
+                    "RIM" => (Tweaks.InstabilityTweaksV0.RimInstabilityMin, Tweaks.InstabilityTweaksV0.RimInstabilityMax),
+                    _ => (Tweaks.InstabilityTweaksV0.FrontierInstabilityMin, Tweaks.InstabilityTweaksV0.FrontierInstabilityMax),
+                };
+            }
+            else
+            {
+                (min, max) = (Tweaks.InstabilityTweaksV0.FrontierInstabilityMin, Tweaks.InstabilityTweaksV0.FrontierInstabilityMax);
+            }
+
+            // Deterministic hash-based value within [min, max].
+            uint h = Fnv1a32Utf8(node.Id + "_instability");
+            int range = max - min + 1; // STRUCTURAL: +1 for inclusive range
+            node.InstabilityLevel = min + (int)(h % (uint)range);
+        }
+
+        // Void sites get higher instability.
+        foreach (var vs in state.VoidSites.Values)
+        {
+            // Find nearest star nodes and boost their instability for void proximity.
+            // The void sites themselves don't have Node entries, but nearby nodes feel the effect.
+            if (state.Nodes.TryGetValue(vs.NearStarA, out var nearA))
+            {
+                uint hA = Fnv1a32Utf8(vs.Id + "_void_boost_a");
+                int boost = Tweaks.InstabilityTweaksV0.VoidSiteInstabilityMin / 5 + (int)(hA % 5); // STRUCTURAL: /5 for mild boost
+                nearA.InstabilityLevel = Math.Min(nearA.InstabilityLevel + boost, Tweaks.InstabilityTweaksV0.VoidSiteInstabilityMax);
+            }
+        }
+    }
+
+    // GATE.S7.WARFRONT.SEEDING.001: Seed initial warfronts at world creation.
+    // 1 hot war (Valorin-Weavers territorial) + 1 cold war (Concord-Chitin informational).
+    // Contested nodes: border nodes where faction territories overlap (BFS depth 1 from border).
+    private static void SeedWarfrontsV0(SimState state)
+    {
+        state.Warfronts.Clear();
+
+        // Build adjacency for contested node detection.
+        var adj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var e in state.Edges.Values.OrderBy(e => e.Id, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrEmpty(e.FromNodeId) || string.IsNullOrEmpty(e.ToNodeId)) continue;
+            if (!adj.ContainsKey(e.FromNodeId)) adj[e.FromNodeId] = new List<string>();
+            if (!adj.ContainsKey(e.ToNodeId)) adj[e.ToNodeId] = new List<string>();
+            adj[e.FromNodeId].Add(e.ToNodeId);
+            adj[e.ToNodeId].Add(e.FromNodeId);
+        }
+
+        // Find contested nodes between two factions (nodes controlled by A adjacent to nodes controlled by B).
+        List<string> FindContestedNodes(string factionA, string factionB)
+        {
+            var nodesA = new HashSet<string>(StringComparer.Ordinal);
+            var nodesB = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var kv in state.NodeFactionId)
+            {
+                if (string.Equals(kv.Value, factionA, StringComparison.Ordinal)) nodesA.Add(kv.Key);
+                if (string.Equals(kv.Value, factionB, StringComparison.Ordinal)) nodesB.Add(kv.Key);
+            }
+
+            var contested = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var nodeId in nodesA)
+            {
+                if (!adj.TryGetValue(nodeId, out var neighbors)) continue;
+                foreach (var n in neighbors)
+                {
+                    if (nodesB.Contains(n))
+                    {
+                        contested.Add(nodeId);
+                        contested.Add(n);
+                    }
+                }
+            }
+
+            var result = contested.ToList();
+            result.Sort(StringComparer.Ordinal);
+            return result;
+        }
+
+        // Hot war: Valorin vs Weavers (territorial)
+        var hotContested = FindContestedNodes(Tweaks.FactionTweaksV0.ValorinId, Tweaks.FactionTweaksV0.WeaversId);
+        state.Warfronts["warfront_hot_0"] = new Entities.WarfrontState
+        {
+            Id = "warfront_hot_0",
+            CombatantA = Tweaks.FactionTweaksV0.ValorinId,
+            CombatantB = Tweaks.FactionTweaksV0.WeaversId,
+            Intensity = Entities.WarfrontIntensity.OpenWar,
+            WarType = Entities.WarType.Hot,
+            TickStarted = 0,
+            ContestedNodeIds = hotContested,
+        };
+
+        // Cold war: Concord vs Chitin (informational)
+        var coldContested = FindContestedNodes(Tweaks.FactionTweaksV0.ConcordId, Tweaks.FactionTweaksV0.ChitinId);
+        state.Warfronts["warfront_cold_0"] = new Entities.WarfrontState
+        {
+            Id = "warfront_cold_0",
+            CombatantA = Tweaks.FactionTweaksV0.ConcordId,
+            CombatantB = Tweaks.FactionTweaksV0.ChitinId,
+            Intensity = Entities.WarfrontIntensity.Tension,
+            WarType = Entities.WarType.Cold,
+            TickStarted = 0,
+            ContestedNodeIds = coldContested,
+        };
     }
 }

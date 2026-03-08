@@ -15,28 +15,33 @@ public static class ContentRegistryLoader
     // This must stay byte-for-byte stable unless version is bumped.
     // GATE.S4.CATALOG.MARKET_BIND.001: added fuel and metal goods (food < fuel < metal < ore, Ordinal).
     // GATE.S4.CATALOG.WEAPONS.001: added weapon_cannon_mk1 and weapon_laser_mk1 modules.
-    // GATE.S4.INDU_STRUCT.CHAIN_CONTENT.001: added hull_plating good + 3 production chain recipes.
-    // GATE.S6.FRACTURE.CONTENT.001: added anomaly_samples, exotic_crystals, salvaged_tech (fracture-exclusive, tier=3).
-    // Digest must match docs/content/content_registry_v0.json exactly.
-    // GATE.S4.CATALOG.MODULE_WAVE.001: added cargo_bay_mk2, engine_mk2, hull_plating_mk2, scanner_mk2, weapon_laser_mk2.
-    // GATE.S4.CATALOG.RECIPE_WAVE.001: added electronics, composite_armor goods + 3 recipes.
-    // Chain depth: electronics=1 (raw inputs), composite_armor=3 (metal=2, electronics=1), salvage_refine=1.
+    // GATE.S18.TRADE_GOODS.CONTENT_OVERHAUL.001: 13 goods, 9 recipes per trade_goods_v0.md.
+    // Migration: +organics,rare_metals,munitions,components,exotic_matter(renamed anomaly_samples),composites(renamed composite_armor). -hull_plating.
+    // Chain depth: max 3 (ore→metal→components via electronics). 3 branches from Metal: munitions/composites/components.
     public const string DefaultRegistryJsonV0 =
         "{\n" +
         "  \"version\": 0,\n" +
         "  \"goods\": [\n" +
-        "    { \"id\": \"anomaly_samples\" },\n" +
-        "    { \"id\": \"composite_armor\" },\n" +
+        "    { \"id\": \"components\" },\n" +
+        "    { \"id\": \"composites\" },\n" +
         "    { \"id\": \"electronics\" },\n" +
         "    { \"id\": \"exotic_crystals\" },\n" +
+        "    { \"id\": \"exotic_matter\" },\n" +
         "    { \"id\": \"food\" },\n" +
         "    { \"id\": \"fuel\" },\n" +
-        "    { \"id\": \"hull_plating\" },\n" +
         "    { \"id\": \"metal\" },\n" +
+        "    { \"id\": \"munitions\" },\n" +
         "    { \"id\": \"ore\" },\n" +
+        "    { \"id\": \"organics\" },\n" +
+        "    { \"id\": \"rare_metals\" },\n" +
         "    { \"id\": \"salvaged_tech\" }\n" +
         "  ],\n" +
         "  \"recipes\": [\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_assemble_components\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"electronics\", \"qty\": 2 }, { \"good_id\": \"metal\", \"qty\": 3 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"components\", \"qty\": 1 } ]\n" +
+        "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_assemble_electronics\",\n" +
         "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
@@ -48,27 +53,32 @@ public static class ContentRegistryLoader
         "      \"outputs\": [ { \"good_id\": \"ore\", \"qty\": 5 } ]\n" +
         "    },\n" +
         "    {\n" +
-        "      \"id\": \"recipe_forge_composite_armor\",\n" +
-        "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"metal\", \"qty\": 3 } ],\n" +
-        "      \"outputs\": [ { \"good_id\": \"composite_armor\", \"qty\": 1 } ]\n" +
+        "      \"id\": \"recipe_fabricate_composites\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"metal\", \"qty\": 3 }, { \"good_id\": \"organics\", \"qty\": 2 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"composites\", \"qty\": 2 } ]\n" +
         "    },\n" +
         "    {\n" +
-        "      \"id\": \"recipe_forge_hull_plating\",\n" +
-        "      \"inputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ],\n" +
-        "      \"outputs\": [ { \"good_id\": \"hull_plating\", \"qty\": 1 } ]\n" +
+        "      \"id\": \"recipe_manufacture_munitions\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"metal\", \"qty\": 2 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"munitions\", \"qty\": 3 } ]\n" +
         "    },\n" +
         "    {\n" +
-        "      \"id\": \"recipe_refine_ore_to_food\",\n" +
-        "      \"inputs\": [ { \"good_id\": \"ore\", \"qty\": 2 } ],\n" +
-        "      \"outputs\": [ { \"good_id\": \"food\", \"qty\": 1 } ]\n" +
+        "      \"id\": \"recipe_process_food\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"organics\", \"qty\": 2 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"food\", \"qty\": 3 } ]\n" +
         "    },\n" +
         "    {\n" +
-        "      \"id\": \"recipe_refine_ore_to_metal\",\n" +
+        "      \"id\": \"recipe_refine_metal\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"ore\", \"qty\": 10 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    },\n" +
         "    {\n" +
-        "      \"id\": \"recipe_salvage_refine\",\n" +
+        "      \"id\": \"recipe_salvage_to_components\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"electronics\", \"qty\": 1 }, { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"components\", \"qty\": 2 } ]\n" +
+        "    },\n" +
+        "    {\n" +
+        "      \"id\": \"recipe_salvage_to_metal\",\n" +
         "      \"inputs\": [ { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    }\n" +
@@ -100,6 +110,9 @@ public static class ContentRegistryLoader
         public string BasePriceBand { get; set; } = "";
         public int Tier { get; set; }
         public bool Stackable { get; set; }
+        // GATE.S18.TRADE_GOODS.PRICE_BANDS.001: Numeric price per trade_goods_v0.md.
+        public int BasePrice { get; set; }
+        public int PriceSpread { get; set; }
     }
 
     public sealed class ModuleDefV0

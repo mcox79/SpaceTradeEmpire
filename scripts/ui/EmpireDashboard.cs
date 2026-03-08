@@ -1,6 +1,7 @@
 // GATE.S10.EMPIRE.SHELL.001, GATE.S10.EMPIRE.OVERVIEW_TAB.001,
 // GATE.S10.EMPIRE.PRODUCTION_TAB.001, GATE.S10.EMPIRE.INTEL_TAB.001,
 // GATE.S5.ESCORT_PROG.UI.001
+// GATE.S7.FACTION.UI_REPUTATION.001
 using Godot;
 using System;
 using System.Linq;
@@ -14,7 +15,7 @@ public partial class EmpireDashboard : Control
     private Bridge.SimBridge _bridge = null!;
 
     // ── Tab state ───────────────────────────────────────────────────────────
-    private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats }
+    private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats, Factions }
     private Tab _activeTab = Tab.Overview;
 
     // ── Tab buttons ─────────────────────────────────────────────────────────
@@ -33,6 +34,8 @@ public partial class EmpireDashboard : Control
 
     // ── Trade list ──────────────────────────────────────────────────────────
     private VBoxContainer _tradeList = null!;
+    // GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001: Economy overview (inventory across stations)
+    private VBoxContainer _econList = null!;
 
     // ── Production list ─────────────────────────────────────────────────────
     private VBoxContainer _prodList = null!;
@@ -63,6 +66,9 @@ public partial class EmpireDashboard : Control
     // ── Stats / milestones list (GATE.S12.PROGRESSION.DASHBOARD.001) ────
     private VBoxContainer _statsList = null!;
     private VBoxContainer _milestonesList = null!;
+
+    // ── Factions list (GATE.S7.FACTION.UI_REPUTATION.001) ─────────────
+    private VBoxContainer _factionList = null!;
 
     // ── Godot lifecycle ─────────────────────────────────────────────────────
     public override void _Ready()
@@ -119,6 +125,12 @@ public partial class EmpireDashboard : Control
         var intel = _bridge.GetIntelFreshnessByNodeV0();
         if (intel != null && intel.Count > 0) showIntel = true;
         _tabBtns[(int)Tab.Intel].Visible = showIntel;
+
+        // Factions: visible if any factions exist (GATE.S7.FACTION.UI_REPUTATION.001)
+        bool showFactions = false;
+        var factions = _bridge.GetAllFactionsV0();
+        if (factions != null && factions.Count > 0) showFactions = true;
+        _tabBtns[(int)Tab.Factions].Visible = showFactions;
 
         // If current tab is hidden, switch to Overview
         if (!_tabBtns[(int)_activeTab].Visible)
@@ -209,7 +221,7 @@ public partial class EmpireDashboard : Control
         root.AddChild(tabBar);
 
         // GATE.S13.TERMINOLOGY.001: Player-friendly tab names
-        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats" };
+        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats", "Factions" };
         _tabBtns = new Button[tabNames.Length];
         for (int i = 0; i < tabNames.Length; i++)
         {
@@ -242,6 +254,7 @@ public partial class EmpireDashboard : Control
         _tabPanels[(int)Tab.Intel]       = BuildIntelTab();
         _tabPanels[(int)Tab.Research]    = BuildResearchTab();
         _tabPanels[(int)Tab.Stats]       = BuildStatsTab();
+        _tabPanels[(int)Tab.Factions]    = BuildFactionsTab();
 
         foreach (var p in _tabPanels)
         {
@@ -278,6 +291,7 @@ public partial class EmpireDashboard : Control
             case Tab.Intel:      RefreshIntel();       break;
             case Tab.Research:   RefreshResearch();    break;
             case Tab.Stats:      RefreshStats();       break;
+            case Tab.Factions:   RefreshFactions();    break;
         }
     }
 
@@ -298,29 +312,65 @@ public partial class EmpireDashboard : Control
     // ═══════════════════════════════════════════════════════════════════════
     // OVERVIEW TAB
     // ═══════════════════════════════════════════════════════════════════════
+    // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue label
+    private VBoxContainer _ovAttentionList = null!;
+
     private Control BuildOverviewTab()
     {
         var box = new VBoxContainer();
-        box.AddThemeConstantOverride("separation", 6);
+        box.AddThemeConstantOverride("separation", 8);
 
-        Label Row(string prefix)
+        // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: 2x3 card grid layout
+        var grid = new GridContainer { Columns = 2 };
+        grid.AddThemeConstantOverride("h_separation", 12);
+        grid.AddThemeConstantOverride("v_separation", 8);
+        grid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+        Label Card(string title, Color accent)
         {
-            var row = new HBoxContainer();
-            row.AddChild(new Label { Text = prefix, CustomMinimumSize = new Vector2(220, 0) });
+            var card = new VBoxContainer();
+            card.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var cardBg = new PanelContainer();
+            cardBg.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var sb = new StyleBoxFlat();
+            sb.BgColor = new Color(0.08f, 0.08f, 0.12f, 0.9f);
+            sb.BorderColor = accent;
+            sb.SetBorderWidthAll(1);
+            sb.SetCornerRadiusAll(4);
+            sb.SetContentMarginAll(8);
+            cardBg.AddThemeStyleboxOverride("panel", sb);
+            var inner = new VBoxContainer();
+            inner.AddThemeConstantOverride("separation", 2);
+            var hdr = new Label { Text = title };
+            hdr.AddThemeColorOverride("font_color", accent);
+            hdr.AddThemeFontSizeOverride("font_size", 13);
+            inner.AddChild(hdr);
             var val = new Label { Text = "—" };
             val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            row.AddChild(val);
-            box.AddChild(row);
+            inner.AddChild(val);
+            cardBg.AddChild(inner);
+            grid.AddChild(cardBg);
             return val;
         }
 
-        // GATE.S13.EMPIRE.OVERVIEW.001: Player-friendly labels
-        _ovCredits  = Row("Credits:");
-        _ovFleets   = Row("Fleets:");
-        _ovPrograms = Row("Automation:");
-        _ovResearch = Row("Research:");
-        _ovMissions = Row("Missions:");
-        _ovIndustry = Row("Production:");
+        _ovCredits  = Card("Economy",     new Color(0.4f, 0.8f, 0.4f));
+        _ovFleets   = Card("Fleet",       new Color(0.4f, 0.6f, 0.9f));
+        _ovIndustry = Card("Industry",    new Color(0.9f, 0.7f, 0.3f));
+        _ovResearch = Card("Research",    new Color(0.7f, 0.4f, 0.9f));
+        _ovMissions = Card("Exploration", new Color(0.3f, 0.8f, 0.8f));
+        _ovPrograms = Card("Automation",  new Color(0.8f, 0.5f, 0.3f));
+
+        box.AddChild(grid);
+
+        // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
+        var attHdr = new Label { Text = "Needs Attention" };
+        attHdr.AddThemeColorOverride("font_color", new Color(0.9f, 0.6f, 0.3f));
+        attHdr.AddThemeFontSizeOverride("font_size", 14);
+        box.AddChild(attHdr);
+
+        _ovAttentionList = new VBoxContainer();
+        _ovAttentionList.AddThemeConstantOverride("separation", 4);
+        box.AddChild(_ovAttentionList);
 
         return box;
     }
@@ -356,12 +406,42 @@ public partial class EmpireDashboard : Control
         var tech = GetStr(d, "research_tech_id");
         if (string.IsNullOrWhiteSpace(tech))
         {
-            _ovResearch.Text = "No research in progress — dock at a station to start";
+            _ovResearch.Text = "No research in progress";
         }
         else
         {
             var pct = GetInt(d, "research_progress_pct");
             _ovResearch.Text = $"{tech} ({pct}%)";
+        }
+
+        // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
+        if (_ovAttentionList != null)
+        {
+            foreach (var c in _ovAttentionList.GetChildren()) c.QueueFree();
+
+            var items = new System.Collections.Generic.List<string>();
+
+            if (GetInt(d, "credits") < 100) items.Add("Low credits — trade or complete missions");
+            if (activeIndustry < totalIndustry && totalIndustry > 0)
+                items.Add($"{totalIndustry - activeIndustry} production sites idle");
+            if (progCount == 0) items.Add("No automation running");
+            if (missionCount == 0) items.Add("No active missions");
+
+            if (items.Count == 0)
+            {
+                var ok = new Label { Text = "All systems nominal." };
+                ok.AddThemeColorOverride("font_color", new Color(0.4f, 0.8f, 0.4f));
+                _ovAttentionList.AddChild(ok);
+            }
+            else
+            {
+                foreach (var item in items)
+                {
+                    var lbl = new Label { Text = $"  ! {item}" };
+                    lbl.AddThemeColorOverride("font_color", new Color(0.9f, 0.7f, 0.3f));
+                    _ovAttentionList.AddChild(lbl);
+                }
+            }
         }
     }
 
@@ -371,17 +451,37 @@ public partial class EmpireDashboard : Control
     private Control BuildTradeTab()
     {
         var box = new VBoxContainer();
+        box.AddThemeConstantOverride("separation", 4);
 
-        // Header
+        // ── Economy Overview section ──
+        // GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001
+        var econHdr = new Label { Text = "ECONOMY — Goods Across All Stations" };
+        econHdr.AddThemeColorOverride("font_color", new Color(0.6f, 0.9f, 0.6f, 1f));
+        box.AddChild(econHdr);
+
+        var econColHdr = new Label { Text = "Good              Total  Stations  Avg Price  Range" };
+        econColHdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(econColHdr);
+
+        _econList = new VBoxContainer();
+        _econList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        box.AddChild(_econList);
+
+        box.AddChild(new HSeparator());
+
+        // ── Trade Routes section ──
+        var routeHdr = new Label { Text = "TRADE ROUTES — Discovered" };
+        routeHdr.AddThemeColorOverride("font_color", new Color(0.6f, 0.9f, 0.6f, 1f));
+        box.AddChild(routeHdr);
+
         var hdr = new Label { Text = "Good  |  Source → Dest  |  Profit/unit  |  Status  |  Last Validated" };
         hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
         box.AddChild(hdr);
-        box.AddChild(new HSeparator());
 
         var scroll = new ScrollContainer();
         scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
-        scroll.CustomMinimumSize   = new Vector2(0, 300);
+        scroll.CustomMinimumSize   = new Vector2(0, 200);
 
         _tradeList = new VBoxContainer();
         _tradeList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -393,6 +493,36 @@ public partial class EmpireDashboard : Control
 
     private void RefreshTrade()
     {
+        // ── Economy overview ──
+        // GATE.S18.EMPIRE_DASH.ECONOMY_TAB.001
+        ClearChildren(_econList);
+        var econ = _bridge.GetEconomyOverviewV0();
+        if (econ != null && econ.Count > 0)
+        {
+            foreach (var v in econ)
+            {
+                var d = v.Obj as Dictionary;
+                if (d == null) continue;
+                var name    = GetStr(d, "display_name");
+                var total   = GetInt(d, "total_qty");
+                var stations = GetInt(d, "station_count");
+                var avg     = GetInt(d, "avg_price");
+                var min     = GetInt(d, "min_price");
+                var max     = GetInt(d, "max_price");
+                var lbl = new Label
+                {
+                    Text = $"{name,-18}{total,5}    {stations,3}     {avg,6} cr   {min}-{max}",
+                    AutowrapMode = TextServer.AutowrapMode.Off
+                };
+                _econList.AddChild(lbl);
+            }
+        }
+        else
+        {
+            _econList.AddChild(new Label { Text = "No market data available." });
+        }
+
+        // ── Trade routes ──
         ClearChildren(_tradeList);
         var routes = _bridge.GetTradeRoutesV0();
         if (routes == null || routes.Count == 0)
@@ -1046,6 +1176,184 @@ public partial class EmpireDashboard : Control
         val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         row.AddChild(val);
         _statsList.AddChild(row);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FACTIONS TAB  (GATE.S7.FACTION.UI_REPUTATION.001)
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildFactionsTab()
+    {
+        var box = new VBoxContainer();
+        box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        box.SizeFlagsVertical   = SizeFlags.ExpandFill;
+
+        var hdr = new Label { Text = "Faction  |  Reputation  |  Trade Policy  |  Tariff  |  Territory" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _factionList = new VBoxContainer();
+        _factionList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _factionList.AddThemeConstantOverride("separation", 6);
+        scroll.AddChild(_factionList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshFactions()
+    {
+        ClearChildren(_factionList);
+        var factions = _bridge.GetAllFactionsV0();
+        if (factions == null || factions.Count == 0)
+        {
+            _factionList.AddChild(new Label { Text = "No factions discovered." });
+            return;
+        }
+
+        foreach (var v in factions)
+        {
+            var d = v.Obj as Dictionary;
+            if (d == null) continue;
+
+            var factionId     = GetStr(d, "faction_id");
+            var reputation    = GetInt(d, "reputation");
+            var tradePolicy   = GetStr(d, "trade_policy");
+            var tariffRate    = GetFloat(d, "tariff_rate");
+            var territoryCount = GetInt(d, "territory_count");
+
+            var row = new VBoxContainer();
+            row.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _factionList.AddChild(row);
+
+            // GATE.S7.FACTION.IDENTITY_PANEL.001: Fetch detailed faction identity.
+            var detail = _bridge.GetFactionDetailV0(factionId);
+            var species    = GetStr(detail, "species");
+            var philosophy = GetStr(detail, "philosophy");
+            var producesArr = detail.ContainsKey("produces") ? detail["produces"].As<Godot.Collections.Array>() : null;
+            var needsArr    = detail.ContainsKey("needs") ? detail["needs"].As<Godot.Collections.Array>() : null;
+
+            // Top line: faction name + species + philosophy + policy + tariff + territory
+            var topRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.AddChild(topRow);
+
+            var nameLbl = new Label { Text = factionId, CustomMinimumSize = new Vector2(140, 0) };
+            nameLbl.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1f));
+            topRow.AddChild(nameLbl);
+
+            if (!string.IsNullOrEmpty(species))
+            {
+                var speciesLbl = new Label { Text = species, CustomMinimumSize = new Vector2(90, 0) };
+                speciesLbl.AddThemeColorOverride("font_color", new Color(0.6f, 0.8f, 1.0f, 1f));
+                topRow.AddChild(speciesLbl);
+            }
+
+            if (!string.IsNullOrEmpty(philosophy))
+            {
+                var philLbl = new Label { Text = $"\"{philosophy}\"", CustomMinimumSize = new Vector2(110, 0) };
+                philLbl.AddThemeColorOverride("font_color", new Color(0.9f, 0.75f, 0.5f, 1f));
+                topRow.AddChild(philLbl);
+            }
+
+            var policyLbl = new Label { Text = tradePolicy, CustomMinimumSize = new Vector2(80, 0) };
+            Color policyColor = tradePolicy switch
+            {
+                "Open"    => new Color(0.3f, 1.0f, 0.3f, 1f),
+                "Guarded" => new Color(1.0f, 0.85f, 0.2f, 1f),
+                "Closed"  => new Color(1.0f, 0.15f, 0.15f, 1f),
+                _         => new Color(0.5f, 0.5f, 0.5f, 1f),
+            };
+            policyLbl.AddThemeColorOverride("font_color", policyColor);
+            topRow.AddChild(policyLbl);
+
+            var tariffPct = (tariffRate * 100f).ToString("F1") + "%";
+            var tariffLbl = new Label { Text = $"Tariff: {tariffPct}", CustomMinimumSize = new Vector2(100, 0) };
+            topRow.AddChild(tariffLbl);
+
+            var territoryLbl = new Label { Text = $"{territoryCount} systems" };
+            territoryLbl.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            topRow.AddChild(territoryLbl);
+
+            // Second line: produces + needs (pentagon ring dependencies)
+            if ((producesArr != null && producesArr.Count > 0) || (needsArr != null && needsArr.Count > 0))
+            {
+                var econRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                row.AddChild(econRow);
+
+                if (producesArr != null && producesArr.Count > 0)
+                {
+                    var prodStr = string.Join(", ", producesArr);
+                    var prodLbl = new Label { Text = $"  Produces: {prodStr}" };
+                    prodLbl.AddThemeColorOverride("font_color", new Color(0.5f, 0.9f, 0.5f, 1f));
+                    econRow.AddChild(prodLbl);
+                }
+
+                if (needsArr != null && needsArr.Count > 0)
+                {
+                    var needStr = string.Join(", ", needsArr);
+                    var needLbl = new Label { Text = $"  Needs: {needStr}" };
+                    needLbl.AddThemeColorOverride("font_color", new Color(1.0f, 0.6f, 0.4f, 1f));
+                    econRow.AddChild(needLbl);
+                }
+            }
+
+            // Reputation bar row
+            var repRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.AddChild(repRow);
+
+            var repLabel = new Label { Text = "Rep:", CustomMinimumSize = new Vector2(40, 0) };
+            repRow.AddChild(repLabel);
+
+            // Color-coded reputation bar: red < -25, yellow -25..25, green > 25
+            Color repColor;
+            if (reputation > 25)
+                repColor = new Color(0.3f, 1.0f, 0.3f, 1f);   // green
+            else if (reputation >= -25)
+                repColor = new Color(1.0f, 0.85f, 0.2f, 1f);  // yellow
+            else
+                repColor = new Color(1.0f, 0.15f, 0.15f, 1f); // red
+
+            var repBar = new ProgressBar();
+            repBar.MinValue = -100;
+            repBar.MaxValue = 100;
+            repBar.Value = reputation;
+            repBar.CustomMinimumSize = new Vector2(200, 20);
+            repBar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+            // Style the bar fill with reputation color
+            var fillSb = new StyleBoxFlat();
+            fillSb.BgColor = repColor;
+            fillSb.SetCornerRadiusAll(3);
+            repBar.AddThemeStyleboxOverride("fill", fillSb);
+
+            var bgSb = new StyleBoxFlat();
+            bgSb.BgColor = new Color(0.15f, 0.15f, 0.2f, 1f);
+            bgSb.SetCornerRadiusAll(3);
+            repBar.AddThemeStyleboxOverride("background", bgSb);
+
+            repRow.AddChild(repBar);
+
+            // Reputation label text
+            string repText = reputation switch
+            {
+                >= 75  => "Allied",
+                >= 25  => "Friendly",
+                >= -25 => "Neutral",
+                >= -75 => "Hostile",
+                _      => "Enemy",
+            };
+            var repValLbl = new Label { Text = $"{reputation} ({repText})", CustomMinimumSize = new Vector2(120, 0) };
+            repValLbl.AddThemeColorOverride("font_color", repColor);
+            repRow.AddChild(repValLbl);
+
+            // Separator between factions
+            row.AddChild(new HSeparator());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════

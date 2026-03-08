@@ -1,4 +1,8 @@
+using SimCore.Content;
 using SimCore.Entities;
+using SimCore.Tweaks;
+using System;
+using System.Linq;
 
 namespace SimCore.Systems;
 
@@ -131,5 +135,173 @@ public static class MarketSystem
             // Heat generated per unit of cargo
             edge.Heat += cargoVolume * 0.01f;
         }
+    }
+
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Find which faction controls the node that owns a market.
+    public static string GetControllingFactionIdForMarket(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return "";
+
+        // Find the node that references this market.
+        foreach (var kv in state.Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            if (StringComparer.Ordinal.Equals(kv.Value.MarketId, marketId))
+            {
+                if (state.NodeFactionId.TryGetValue(kv.Key, out var fid))
+                    return fid;
+                return "";
+            }
+        }
+        return "";
+    }
+
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Compute effective tariff in basis points.
+    // Formula: baseTariffBps * (1 - reputation/100) + warSurcharge.
+    // GATE.S7.WARFRONT.TARIFF_SCALING.001: War surcharge = WarSurchargeBpsPerIntensity * nodeIntensity.
+    public static int GetEffectiveTariffBps(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 0;
+
+        var factionId = GetControllingFactionIdForMarket(state, marketId);
+        if (string.IsNullOrEmpty(factionId)) return 0;
+
+        if (!state.FactionTariffRates.TryGetValue(factionId, out var tariffRate))
+            return 0;
+
+        int baseBps = (int)(tariffRate * FactionTweaksV0.TariffBpsMultiplier);
+        if (baseBps <= 0) return 0;
+
+        int rep = ReputationSystem.GetReputation(state, factionId);
+        // Scale: (1 - rep/100). At rep=100 -> 0, rep=0 -> 1, rep=-100 -> 2.
+        int effectiveBps = baseBps * (FactionTweaksV0.ReputationMax - rep) / FactionTweaksV0.ReputationMax;
+
+        // GATE.S7.WARFRONT.TARIFF_SCALING.001: Add war surcharge based on node warfront intensity.
+        int warIntensity = GetNodeWarfrontIntensity(state, marketId);
+        if (warIntensity > 0)
+        {
+            effectiveBps += WarfrontTweaksV0.WarSurchargeBpsPerIntensity * warIntensity;
+
+            // GATE.S7.WARFRONT.NEUTRALITY_TAX.001: Neutrality surcharge for non-aligned players in war zones.
+            // Applied when player reputation is in Neutral band (-25..+25) at intensity ≥ 2.
+            if (rep >= FactionTweaksV0.NeutralThreshold && rep < FactionTweaksV0.FriendlyThreshold)
+            {
+                int neutralityBps = warIntensity switch
+                {
+                    >= WarfrontTweaksV0.TotalWarIntensity => WarfrontTweaksV0.NeutralityTaxBpsIntensity4,
+                    WarfrontTweaksV0.OpenWarIntensity => WarfrontTweaksV0.NeutralityTaxBpsIntensity3,
+                    WarfrontTweaksV0.SkirmishIntensity => WarfrontTweaksV0.NeutralityTaxBpsIntensity2,
+                    _ => 0, // STRUCTURAL: no tax below intensity 2
+                };
+                effectiveBps += neutralityBps;
+            }
+        }
+
+        return Math.Max(0, effectiveBps);
+    }
+
+    // GATE.S7.WARFRONT.TARIFF_SCALING.001: Get max warfront intensity at a market's node.
+    public static int GetNodeWarfrontIntensity(SimState state, string marketId)
+    {
+        if (state?.Warfronts is null || state.Warfronts.Count == 0) return 0;
+
+        // Find node for this market.
+        string? nodeId = null;
+        foreach (var kv in state.Nodes)
+        {
+            if (StringComparer.Ordinal.Equals(kv.Value.MarketId, marketId))
+            {
+                nodeId = kv.Key;
+                break;
+            }
+        }
+        if (nodeId is null) return 0;
+
+        int maxIntensity = 0;
+        foreach (var wf in state.Warfronts.Values)
+        {
+            if (wf.ContestedNodeIds.Contains(nodeId))
+            {
+                int i = (int)wf.Intensity;
+                if (i > maxIntensity) maxIntensity = i;
+            }
+        }
+        return maxIntensity;
+    }
+
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Check if player reputation allows trading at this market.
+    public static bool CanTradeByReputation(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return true;
+
+        var factionId = GetControllingFactionIdForMarket(state, marketId);
+        if (string.IsNullOrEmpty(factionId)) return true;
+
+        int rep = ReputationSystem.GetReputation(state, factionId);
+        return rep >= FactionTweaksV0.TradeBlockedRepThreshold;
+    }
+
+    // GATE.S7.FACTION.TARIFF_ENFORCE.001: Apply tariff surcharge to a credit amount.
+    public static int ComputeTariffCredits(int baseCredits, int tariffBps)
+    {
+        if (baseCredits <= 0 || tariffBps <= 0) return 0;
+        return (int)(((long)baseCredits * tariffBps + 9999L) / FactionTweaksV0.TariffBpsMultiplier);
+    }
+
+    // GATE.S7.REPUTATION.PRICING_CURVES.001: Get rep-based price modifier in basis points.
+    // Allied=-1500, Friendly=-500, Neutral=0, Hostile=+2000.
+    public static int GetRepPricingBps(SimState state, string factionId)
+    {
+        if (state is null || string.IsNullOrEmpty(factionId)) return 0;
+        var tier = ReputationSystem.GetRepTier(state, factionId);
+        return tier switch
+        {
+            RepTier.Allied => FactionTweaksV0.AlliedPriceBps,
+            RepTier.Friendly => FactionTweaksV0.FriendlyPriceBps,
+            RepTier.Neutral => FactionTweaksV0.NeutralPriceBps,
+            RepTier.Hostile => FactionTweaksV0.HostilePriceBps,
+            _ => 0 // Enemy: trade blocked, should not reach pricing
+        };
+    }
+
+    // GATE.S7.REPUTATION.PRICING_CURVES.001: Apply rep modifier to a base price.
+    // Returns adjusted price (min 1). Positive bps = surcharge, negative = discount.
+    public static int ApplyRepPricing(int basePrice, int repBps)
+    {
+        if (basePrice <= 0 || repBps == 0) return Math.Max(1, basePrice); // STRUCTURAL: floor
+        long adjusted = (long)basePrice * (FactionTweaksV0.TariffBpsMultiplier + repBps) / FactionTweaksV0.TariffBpsMultiplier;
+        return (int)Math.Max(1, adjusted); // STRUCTURAL: floor
+    }
+
+    // GATE.S18.TRADE_GOODS.PRICE_BANDS.001: Get effective price for a good at a market.
+    // Price scales with supply: below DemandThreshold → price rises, above → falls.
+    // Integer arithmetic only, deterministic.
+    public static int GetEffectivePrice(string goodId, int currentQty, ContentRegistryLoader.ContentRegistryV0? registry)
+    {
+        int basePrice = MarketTweaksV0.PriceLowBase;
+        int spread = MarketTweaksV0.PriceLowSpread;
+
+        if (registry != null)
+        {
+            var good = registry.Goods.FirstOrDefault(g => string.Equals(g.Id, goodId, StringComparison.Ordinal));
+            if (good != null && good.BasePrice > 0)
+            {
+                basePrice = good.BasePrice;
+                spread = good.PriceSpread;
+            }
+        }
+
+        // Supply/demand: below threshold → price rises, above → falls.
+        // Linear interpolation within [basePrice - spread, basePrice + spread].
+        int threshold = MarketTweaksV0.DemandThreshold;
+        int priceDelta;
+        if (currentQty <= 0)
+            priceDelta = spread; // max price
+        else if (currentQty >= threshold * 2)
+            priceDelta = -spread; // min price
+        else
+            priceDelta = spread - (spread * 2 * currentQty / (threshold * 2));
+
+        int price = basePrice + priceDelta;
+        return Math.Max(1, price);
     }
 }

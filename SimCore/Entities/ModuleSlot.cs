@@ -15,4 +15,6 @@ public class ModuleSlot
     public string SlotId { get; set; } = "";
     public SlotKind SlotKind { get; set; } = SlotKind.Cargo;
     public string? InstalledModuleId { get; set; } = null;
+    // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Power draw of installed module.
+    public int PowerDraw { get; set; } = 0;
 }

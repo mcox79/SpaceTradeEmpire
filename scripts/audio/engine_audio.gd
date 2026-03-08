@@ -17,7 +17,7 @@ func _ready() -> void:
 		_parent_body = get_parent().get_parent() as RigidBody3D
 	if stream == null:
 		stream = load("res://assets/audio/engine_hum.wav")
-	volume_db = -18.0
+	volume_db = -30.0
 	play()
 
 func _process(_delta: float) -> void:

@@ -69,7 +69,7 @@ public static class TechContentV0
             Tier = 2,
             Prerequisites = new List<string> { "improved_thrusters" },
             UnlockEffects = new List<string> { "production_efficiency_10pct" },
-            SustainInputs = new Dictionary<string, int> { ["hull_plating"] = 1, ["metal"] = 3 },
+            SustainInputs = new Dictionary<string, int> { ["metal"] = 4 },
             SustainIntervalTicks = 60,
         },
         new TechDef
@@ -82,7 +82,7 @@ public static class TechContentV0
             Tier = 3,
             Prerequisites = new List<string> { "shield_mk2", "weapon_systems_2" },
             UnlockEffects = new List<string> { "tech_level_increase_1" },
-            SustainInputs = new Dictionary<string, int> { ["composite_armor"] = 1, ["exotic_crystals"] = 2, ["electronics"] = 1 },
+            SustainInputs = new Dictionary<string, int> { ["composites"] = 1, ["exotic_crystals"] = 2, ["electronics"] = 1 },
             SustainIntervalTicks = 60,
         },
         // GATE.S4.CATALOG.TECH_WAVE.001: 5 new techs across tiers 1-3
@@ -133,7 +133,7 @@ public static class TechContentV0
             Prerequisites = new List<string> { "shield_mk2" },
             Tier = 2,
             UnlockEffects = new List<string> { "unlock_module_hull_plating_mk2" },
-            SustainInputs = new Dictionary<string, int> { ["hull_plating"] = 2, ["metal"] = 2 },
+            SustainInputs = new Dictionary<string, int> { ["composites"] = 2, ["metal"] = 2 },
             SustainIntervalTicks = 60,
         },
         new TechDef
@@ -146,7 +146,7 @@ public static class TechContentV0
             Prerequisites = new List<string> { "weapon_systems_2", "sensor_suite" },
             Tier = 3,
             UnlockEffects = new List<string> { "unlock_module_laser_mk2" },
-            SustainInputs = new Dictionary<string, int> { ["exotic_crystals"] = 1, ["electronics"] = 2, ["hull_plating"] = 1 },
+            SustainInputs = new Dictionary<string, int> { ["exotic_crystals"] = 1, ["electronics"] = 2, ["metal"] = 1 },
             SustainIntervalTicks = 60,
         },
         // GATE.S7.PLANET.TECH_GATE.001: Planetary landing tech for harsh environments.
@@ -174,7 +174,7 @@ public static class TechContentV0
             Prerequisites = new List<string> { "sensor_suite" },
             Tier = 3,
             UnlockEffects = new List<string> { "scan_range_increase_1" },
-            SustainInputs = new Dictionary<string, int> { ["electronics"] = 3, ["hull_plating"] = 1, ["metal"] = 2 },
+            SustainInputs = new Dictionary<string, int> { ["electronics"] = 3, ["metal"] = 3 },
             SustainIntervalTicks = 60,
         },
     };

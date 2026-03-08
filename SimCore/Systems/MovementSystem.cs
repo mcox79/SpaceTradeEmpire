@@ -3,6 +3,7 @@ using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace SimCore.Systems;
 
@@ -26,6 +27,13 @@ public static class MovementSystem
             if (fleet.DelayTicksRemaining > 0)
             {
                 fleet.DelayTicksRemaining--;
+                continue;
+            }
+
+            // GATE.S6.FRACTURE.TRAVEL_CMD.001: Off-lane fracture travel (separate from lane travel).
+            if (fleet.State == FleetState.FractureTraveling)
+            {
+                ProcessFractureTravel(state, fleet);
                 continue;
             }
 
@@ -197,6 +205,51 @@ public static class MovementSystem
         {
             fleet.FinalDestinationNodeId = "";
             fleet.RouteEdgeIndex = 0;
+        }
+    }
+
+    // GATE.S6.FRACTURE.TRAVEL_CMD.001: Advance fracture travel toward a VoidSite.
+    // Speed is divided by FractureSpeedDivisor (10x slower than lane travel).
+    // Distance is computed from the departure node position to the void site position.
+    private static void ProcessFractureTravel(SimState state, Fleet fleet)
+    {
+        if (string.IsNullOrWhiteSpace(fleet.FractureTargetSiteId))
+        {
+            // Invalid state: drop to idle.
+            fleet.State = FleetState.Idle;
+            fleet.CurrentTask = "Idle";
+            return;
+        }
+
+        if (!state.VoidSites.TryGetValue(fleet.FractureTargetSiteId, out var site))
+        {
+            fleet.State = FleetState.Idle;
+            fleet.FractureTargetSiteId = "";
+            fleet.CurrentTask = "Idle";
+            return;
+        }
+
+        // Compute distance from departure node to void site.
+        float distance = FractureTweaksV0.MinFractureTravelDistance;
+        if (!string.IsNullOrWhiteSpace(fleet.CurrentNodeId)
+            && state.Nodes.TryGetValue(fleet.CurrentNodeId, out var node))
+        {
+            float d = Vector3.Distance(node.Position, site.Position);
+            if (d > FractureTweaksV0.MinFractureTravelDistance)
+                distance = d;
+        }
+
+        float effectiveSpeed = fleet.Speed / FractureTweaksV0.FractureSpeedDivisor;
+        float step = effectiveSpeed / distance;
+        fleet.TravelProgress += step;
+
+        if (fleet.TravelProgress >= 1.0f)
+        {
+            // Arrived at void site.
+            fleet.TravelProgress = 0f;
+            fleet.State = FleetState.Idle;
+            fleet.CurrentNodeId = ""; // No longer at a node.
+            fleet.CurrentTask = "AtVoidSite";
         }
     }
 

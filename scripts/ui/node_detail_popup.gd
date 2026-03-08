@@ -11,6 +11,7 @@ var _class_label: Label = null
 var _fleet_label: Label = null
 var _industry_label: Label = null
 var _security_label: Label = null
+var _regime_label: Label = null  # GATE.S7.TERRITORY.BRIDGE_DISPLAY.001
 var _market_header: Label = null
 var _market_container: VBoxContainer = null
 var _bridge: Node = null
@@ -64,6 +65,11 @@ func _build_ui() -> void:
 
 	_security_label = Label.new()
 	_vbox.add_child(_security_label)
+
+	# GATE.S7.TERRITORY.BRIDGE_DISPLAY.001: Territory regime label
+	_regime_label = Label.new()
+	_regime_label.visible = false
+	_vbox.add_child(_regime_label)
 
 	# GATE.S11.GAME_FEEL.NODE_MARKET.001: Market section
 	_vbox.add_child(HSeparator.new())
@@ -121,6 +127,15 @@ func show_for_node(node_id: String, screen_pos: Vector2) -> void:
 	var sec_color := UITheme.security_color(band)
 	_security_label.text = sec_text
 	_security_label.add_theme_color_override("font_color", sec_color)
+
+	# GATE.S7.TERRITORY.BRIDGE_DISPLAY.001: Territory regime display
+	if _regime_label and _bridge and _bridge.has_method("GetTerritoryRegimeV0"):
+		var regime_data: Dictionary = _bridge.call("GetTerritoryRegimeV0", node_id)
+		var regime: String = str(regime_data.get("regime", "Open"))
+		var regime_color: Color = regime_data.get("regime_color", Color.WHITE)
+		_regime_label.text = "Territory: %s" % regime
+		_regime_label.add_theme_color_override("font_color", regime_color)
+		_regime_label.visible = true
 
 	# GATE.S11.GAME_FEEL.NODE_MARKET.001: Populate market data
 	_populate_market_v0(node_id)

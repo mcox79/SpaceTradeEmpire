@@ -15,7 +15,7 @@ public sealed class RefitSystemTests
     {
         var state = new SimState(42);
         state.PlayerCredits = 1000;
-        var fleet = new Fleet { Id = "fleet_trader_1" };
+        var fleet = new Fleet { Id = "fleet_trader_1", ShipClassId = "corvette" };
         fleet.Slots.Add(new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon });
         fleet.Slots.Add(new ModuleSlot { SlotId = "engine_0", SlotKind = SlotKind.Engine });
         fleet.Slots.Add(new ModuleSlot { SlotId = "utility_0", SlotKind = SlotKind.Utility });
@@ -191,5 +191,119 @@ public sealed class RefitSystemTests
         var result = RefitSystem.QueueInstall(state, "fleet_trader_1", 0, "nonexistent_module_xyz");
         Assert.That(result.Success, Is.False);
         Assert.That(result.Reason, Is.EqualTo("unknown_module"));
+    }
+
+    // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Power budget tests.
+
+    [Test]
+    public void ComputeTotalPowerDraw_EmptySlots_Zero()
+    {
+        var state = CreateState();
+        int draw = RefitSystem.ComputeTotalPowerDraw(state.Fleets["fleet_trader_1"]);
+        Assert.That(draw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ComputeTotalPowerDraw_WithModule_ReturnsDraw()
+    {
+        var state = CreateState();
+        RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        int draw = RefitSystem.ComputeTotalPowerDraw(state.Fleets["fleet_trader_1"]);
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+        Assert.That(draw, Is.EqualTo(def.PowerDraw));
+    }
+
+    [Test]
+    public void GetPowerBudget_Corvette_Returns40()
+    {
+        var state = CreateState();
+        int budget = RefitSystem.GetPowerBudget(state.Fleets["fleet_trader_1"]);
+        Assert.That(budget, Is.EqualTo(40)); // corvette BasePower
+    }
+
+    [Test]
+    public void InstallModule_ExceedsPowerBudget_Fails()
+    {
+        // Shuttle has BasePower=20, Laser Mk2 has PowerDraw=15
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        state.Tech.UnlockedTechIds.Add("weapon_calibration");
+        var fleet = state.Fleets["fleet_trader_1"];
+        fleet.ShipClassId = "shuttle"; // BasePower = 20
+
+        // Install Laser Mk2 (15 power) — should succeed, 15/20
+        var r1 = RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.LaserMk2);
+        Assert.That(r1.Success, Is.True);
+
+        // Add another weapon slot and try another Laser Mk2 (15 power) — total 30 > 20
+        fleet.Slots.Add(new ModuleSlot { SlotId = "weapon_1", SlotKind = SlotKind.Weapon });
+        var r2 = RefitSystem.InstallModule(state, "fleet_trader_1", 3, WellKnownModuleIds.LaserMk2);
+        Assert.That(r2.Success, Is.False);
+        Assert.That(r2.Reason, Is.EqualTo("power_exceeded"));
+    }
+
+    [Test]
+    public void InstallModule_ReplaceModule_PowerBudgetAccountsForRemoval()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        state.Tech.UnlockedTechIds.Add("weapon_calibration");
+        var fleet = state.Fleets["fleet_trader_1"];
+        fleet.ShipClassId = "shuttle"; // BasePower = 20
+
+        // Install Cannon Mk1 (5 power) — 5/20
+        RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        // Replace with Laser Mk2 (15 power) — net change is +10, total 15/20 — should pass
+        var r = RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.LaserMk2);
+        Assert.That(r.Success, Is.True);
+    }
+
+    [Test]
+    public void InstallModule_SetsPowerDrawOnSlot()
+    {
+        var state = CreateState();
+        RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        var slot = state.Fleets["fleet_trader_1"].Slots[0];
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+        Assert.That(slot.PowerDraw, Is.EqualTo(def.PowerDraw));
+    }
+
+    [Test]
+    public void RemoveModule_ClearsPowerDraw()
+    {
+        var state = CreateState();
+        RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        RefitSystem.RemoveModule(state, "fleet_trader_1", 0);
+        Assert.That(state.Fleets["fleet_trader_1"].Slots[0].PowerDraw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void QueueInstall_ExceedsPowerBudget_Fails()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        state.Tech.UnlockedTechIds.Add("weapon_calibration");
+        var fleet = state.Fleets["fleet_trader_1"];
+        fleet.ShipClassId = "shuttle"; // BasePower = 20
+
+        RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.LaserMk2); // 15 power
+        fleet.Slots.Add(new ModuleSlot { SlotId = "weapon_1", SlotKind = SlotKind.Weapon });
+        var r = RefitSystem.QueueInstall(state, "fleet_trader_1", 3, WellKnownModuleIds.LaserMk2);
+        Assert.That(r.Success, Is.False);
+        Assert.That(r.Reason, Is.EqualTo("power_exceeded"));
+    }
+
+    [Test]
+    public void ProcessRefitQueue_SetsPowerDrawOnSlot()
+    {
+        var state = CreateState();
+        RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponCannonMk1);
+        var def = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponCannonMk1)!;
+
+        for (int i = 0; i < def.InstallTicks; i++)
+            RefitSystem.ProcessRefitQueue(state);
+
+        var slot = state.Fleets["fleet_trader_1"].Slots[0];
+        Assert.That(slot.PowerDraw, Is.EqualTo(def.PowerDraw));
     }
 }

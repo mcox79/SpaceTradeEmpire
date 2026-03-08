@@ -25,6 +25,19 @@ public static class MarketInitGen
             mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.MetalInitialStock;
             mkt.Inventory[WellKnownGoodIds.Ore]   = CatalogTweaksV0.OreInitialStock;
 
+            // GATE.S18.TRADE_GOODS.GEO_DISTRIBUTION.001: Seed organics (~40%), rare_metals (~15%).
+            int geoHash = (i * 7919 + 1301) % 100; // deterministic pseudo-random 0-99
+            if (geoHash < CatalogTweaksV0.OrganicsNodePct)
+            {
+                mkt.Inventory[WellKnownGoodIds.Organics] = CatalogTweaksV0.OrganicsInitialStock;
+                node.Name += " (Agri)";
+            }
+            if (geoHash >= (100 - CatalogTweaksV0.RareMetalsNodePct))
+            {
+                mkt.Inventory[WellKnownGoodIds.RareMetals] = CatalogTweaksV0.RareMetalsInitialStock;
+                node.Name += " (RareMin)";
+            }
+
             bool isStarter = i < Math.Min(starCount, GalaxyGenerator.StarterRegionNodeCount);
 
             // Deterministic fuel source v0: every 6th node has a fuel well.
@@ -94,7 +107,7 @@ public static class MarketInitGen
                 {
                     Id = $"fac_{i}",
                     NodeId = node.Id,
-                    RecipeId = WellKnownRecipeIds.RefineOreToMetal,
+                    RecipeId = WellKnownRecipeIds.RefineMetal,
                     Inputs = new Dictionary<string, int>
                     {
                         { WellKnownGoodIds.Ore, 10 },
@@ -123,21 +136,24 @@ public static class MarketInitGen
                 state.IndustrySites.Add(metalSink.Id, metalSink);
             }
 
-            if (i % CatalogTweaksV0.ForgeNodeModulus == CatalogTweaksV0.ForgeNodeOffset)
+            if (i % CatalogTweaksV0.MunitionsNodeModulus == CatalogTweaksV0.MunitionsNodeOffset)
             {
-                mkt.Inventory[WellKnownGoodIds.HullPlating] = CatalogTweaksV0.HullPlatingInitialStock;
-                var forge = new IndustrySite
+                var munFac = new IndustrySite
                 {
-                    Id = $"forge_{i}",
+                    Id = $"munfac_{i}",
                     NodeId = node.Id,
-                    RecipeId = WellKnownRecipeIds.ForgeHullPlating,
-                    Inputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, CatalogTweaksV0.ForgeMetalInput } },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.HullPlating, CatalogTweaksV0.ForgeHullOutput } },
-                    BufferDays = CatalogTweaksV0.ForgeBufferDays,
-                    DegradePerDayBps = CatalogTweaksV0.ForgeDegradeBps
+                    RecipeId = WellKnownRecipeIds.ManufactureMunitions,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Metal, CatalogTweaksV0.MunitionsMetalInput },
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.MunitionsFuelInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Munitions, CatalogTweaksV0.MunitionsOutput } },
+                    BufferDays = CatalogTweaksV0.MunitionsBufferDays,
+                    DegradePerDayBps = CatalogTweaksV0.MunitionsDegradeBps
                 };
-                state.IndustrySites.Add(forge.Id, forge);
-                node.Name += " (Forge)";
+                state.IndustrySites.Add(munFac.Id, munFac);
+                node.Name += " (Munitions)";
             }
 
             state.Markets.Add(node.MarketId, mkt);

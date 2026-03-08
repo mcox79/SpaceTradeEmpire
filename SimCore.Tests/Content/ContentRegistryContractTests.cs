@@ -294,6 +294,133 @@ public sealed class ContentRegistryContractTests
         "  \"additionalProperties\": false\n" +
         "}\n";
 
+    // GATE.S18.TRADE_GOODS.CHAIN_TESTS.001: Contract tests for 9 production chains.
+
+    [Test]
+    public void ProductionChain_Registry_Has9Recipes()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        Assert.That(reg.Recipes.Count, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void ProductionChain_Registry_Has13Goods()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        Assert.That(reg.Goods.Count, Is.EqualTo(13));
+    }
+
+    [Test]
+    public void ProductionChain_ExtractOre_FuelToOre()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        var r = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.ExtractOre)!;
+        Assert.That(r.Inputs, Has.Count.EqualTo(1));
+        Assert.That(r.Inputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Fuel));
+        Assert.That(r.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Ore));
+    }
+
+    [Test]
+    public void ProductionChain_RefineMetal_OreToMetal()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        var r = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.RefineMetal)!;
+        Assert.That(r.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Ore), Is.True);
+        Assert.That(r.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Fuel), Is.True);
+        Assert.That(r.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Metal));
+    }
+
+    [Test]
+    public void ProductionChain_ProcessFood_OrganicsToFood()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        var r = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.ProcessFood)!;
+        Assert.That(r.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Organics), Is.True);
+        Assert.That(r.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Food));
+    }
+
+    [Test]
+    public void ProductionChain_MetalFork_MunitionsCompositesComponents()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+
+        // Metal → Munitions
+        var rm = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.ManufactureMunitions)!;
+        Assert.That(rm.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Metal), Is.True);
+        Assert.That(rm.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Munitions));
+
+        // Metal → Composites (+ Organics)
+        var rc = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.FabricateComposites)!;
+        Assert.That(rc.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Metal), Is.True);
+        Assert.That(rc.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Organics), Is.True);
+        Assert.That(rc.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Composites));
+
+        // Metal → Components (via Electronics)
+        var ra = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.AssembleComponents)!;
+        Assert.That(ra.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Metal), Is.True);
+        Assert.That(ra.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Electronics), Is.True);
+        Assert.That(ra.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Components));
+    }
+
+    [Test]
+    public void ProductionChain_SalvagePaths_MetalAndComponents()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+
+        // Salvage → Metal
+        var sm = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.SalvageToMetal)!;
+        Assert.That(sm.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.SalvagedTech), Is.True);
+        Assert.That(sm.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Metal));
+
+        // Salvage → Components
+        var sc = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.SalvageToComponents)!;
+        Assert.That(sc.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.SalvagedTech), Is.True);
+        Assert.That(sc.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Components));
+    }
+
+    [Test]
+    public void ProductionChain_NoPhantomDemands_AllInputsAreKnownGoods()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        var goodIds = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        foreach (var g in reg.Goods) goodIds.Add(g.Id);
+
+        foreach (var recipe in reg.Recipes)
+        {
+            foreach (var input in recipe.Inputs)
+                Assert.That(goodIds.Contains(input.GoodId), Is.True,
+                    $"Recipe {recipe.Id} input '{input.GoodId}' is not a known good.");
+            foreach (var output in recipe.Outputs)
+                Assert.That(goodIds.Contains(output.GoodId), Is.True,
+                    $"Recipe {recipe.Id} output '{output.GoodId}' is not a known good.");
+        }
+    }
+
+    [Test]
+    public void ProductionChain_AllQuantitiesPositive()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        foreach (var recipe in reg.Recipes)
+        {
+            foreach (var input in recipe.Inputs)
+                Assert.That(input.Qty, Is.GreaterThan(0),
+                    $"Recipe {recipe.Id} input '{input.GoodId}' qty must be > 0.");
+            foreach (var output in recipe.Outputs)
+                Assert.That(output.Qty, Is.GreaterThan(0),
+                    $"Recipe {recipe.Id} output '{output.GoodId}' qty must be > 0.");
+        }
+    }
+
+    [Test]
+    public void ProductionChain_AssembleElectronics_ExoticCrystalsAndFuel()
+    {
+        var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+        var r = reg.Recipes.Find(x => x.Id == WellKnownRecipeIds.AssembleElectronics)!;
+        Assert.That(r.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.ExoticCrystals), Is.True);
+        Assert.That(r.Inputs.Exists(i => i.GoodId == WellKnownGoodIds.Fuel), Is.True);
+        Assert.That(r.Outputs[0].GoodId, Is.EqualTo(WellKnownGoodIds.Electronics));
+    }
+
     private static string FindRepoRootOrThrow()
     {
         // Deterministic upward walk from test base dir.
