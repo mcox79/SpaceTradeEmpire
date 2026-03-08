@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using SimCore.Entities;
 using SimCore.Tweaks;
 
 namespace SimCore.Systems;
@@ -12,12 +14,27 @@ public enum TerritoryRegime { Open, Guarded, Restricted, Hostile }
 
 // GATE.S7.FACTION.REPUTATION_SYS.001: Player faction reputation system.
 // Standing per faction clamped to [-100, 100]. Modified by trade and combat.
+// GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward neutral over time.
 public static class ReputationSystem
 {
     public static void Process(SimState state)
     {
-        // Reputation changes are applied by commands/events (trade, combat),
-        // not per-tick. This method is reserved for decay or drift mechanics later.
+        // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward 0.
+        // Every RepDecayIntervalTicks, all non-zero rep values drift 1 point toward 0.
+        if (state.Tick > 0 && state.Tick % FactionTweaksV0.RepDecayIntervalTicks == 0 // STRUCTURAL: tick guard + modulo
+            && state.FactionReputation.Count > 0) // STRUCTURAL: empty guard
+        {
+            // Snapshot keys to avoid modifying during iteration.
+            var factionIds = state.FactionReputation.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+            foreach (var factionId in factionIds)
+            {
+                int rep = state.FactionReputation[factionId];
+                if (rep > 0) // STRUCTURAL: direction check
+                    state.FactionReputation[factionId] = rep - FactionTweaksV0.RepDecayAmount;
+                else if (rep < 0) // STRUCTURAL: direction check
+                    state.FactionReputation[factionId] = rep + FactionTweaksV0.RepDecayAmount;
+            }
+        }
     }
 
     /// <summary>
@@ -56,6 +73,41 @@ public static class ReputationSystem
     public static void OnAttackFactionShip(SimState state, string factionId)
     {
         AdjustReputation(state, factionId, FactionTweaksV0.AttackRepLoss);
+    }
+
+    // GATE.S7.REPUTATION.WAR_PROFITEER.001: War profiteering rep effects.
+    // Selling war-critical goods at a belligerent faction market gives +rep with buyer, -rep with enemy.
+    public static void OnWarProfiteerTrade(SimState state, string buyerFactionId, string goodId)
+    {
+        if (state is null || string.IsNullOrEmpty(buyerFactionId) || string.IsNullOrEmpty(goodId)) return;
+
+        // Check if good is war-critical.
+        bool isWarCritical = false;
+        foreach (var wg in FactionTweaksV0.WarCriticalGoods)
+        {
+            if (StringComparer.Ordinal.Equals(wg, goodId)) { isWarCritical = true; break; }
+        }
+        if (!isWarCritical) return;
+
+        // Check if buyer is in an active warfront.
+        if (state.Warfronts is null) return;
+        foreach (var wf in state.Warfronts.Values)
+        {
+            if (wf.Intensity <= WarfrontIntensity.Peace) continue;
+
+            string? enemy = null;
+            if (StringComparer.Ordinal.Equals(wf.CombatantA, buyerFactionId))
+                enemy = wf.CombatantB;
+            else if (StringComparer.Ordinal.Equals(wf.CombatantB, buyerFactionId))
+                enemy = wf.CombatantA;
+
+            if (enemy is not null)
+            {
+                AdjustReputation(state, buyerFactionId, FactionTweaksV0.WarProfiteerBuyerGain);
+                AdjustReputation(state, enemy, FactionTweaksV0.WarProfiteerEnemyLoss);
+                return; // Only apply once per trade, even if multiple warfronts.
+            }
+        }
     }
 
     // GATE.S7.REPUTATION.ACCESS_TIERS.001: Classify reputation into tier.
@@ -113,6 +165,9 @@ public static class ReputationSystem
     }
 
     // Convenience: compute regime for a node from state data.
+    // GATE.S7.TERRITORY.REGIME_TRANSITION.001: Incorporates warfront intensity.
+    // Intensity >= 3 → minimum Restricted. Intensity >= 4 → Hostile (trade blocked for non-allied).
+    // Hysteresis: regime only improves (toward Open) at intensity <= 1.
     public static TerritoryRegime ComputeTerritoryRegime(SimState state, string nodeId)
     {
         if (state is null || string.IsNullOrEmpty(nodeId)) return TerritoryRegime.Open;
@@ -121,6 +176,27 @@ public static class ReputationSystem
 
         var repTier = GetRepTier(state, factionId);
         int policy = state.FactionTradePolicy.TryGetValue(factionId, out var p) ? p : (int)Schemas.TradePolicy.Open;
-        return ComputeTerritoryRegime(policy, repTier);
+        var baseRegime = ComputeTerritoryRegime(policy, repTier);
+
+        // GATE.S7.TERRITORY.REGIME_TRANSITION.001: War-driven regime escalation.
+        // Find node's market, check warfront intensity.
+        if (state.Nodes.TryGetValue(nodeId, out var node) && !string.IsNullOrEmpty(node.MarketId))
+        {
+            int warIntensity = MarketSystem.GetNodeWarfrontIntensity(state, node.MarketId);
+            if (warIntensity >= WarfrontTweaksV0.TotalWarIntensity)
+            {
+                // Total war: Hostile for non-allied.
+                if (repTier != RepTier.Allied)
+                    return TerritoryRegime.Hostile;
+            }
+            else if (warIntensity >= WarfrontTweaksV0.OpenWarIntensity)
+            {
+                // Open war: at least Restricted.
+                if (baseRegime < TerritoryRegime.Restricted)
+                    return TerritoryRegime.Restricted;
+            }
+        }
+
+        return baseRegime;
     }
 }

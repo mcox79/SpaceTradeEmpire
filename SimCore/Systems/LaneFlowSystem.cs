@@ -64,6 +64,15 @@ public static class LaneFlowSystem
         if (!removed) return false;
 
         var delayTicks = ComputeDelayTicks(edge);
+
+        // GATE.S7.INSTABILITY.CONSEQUENCES.001: Drift phase adds +20% lane delay.
+        if (state.Nodes.TryGetValue(fromNodeId, out var srcNode)
+            && Tweaks.InstabilityTweaksV0.GetPhaseIndex(srcNode.InstabilityLevel) >= 2) // STRUCTURAL: Drift phase index
+        {
+            int bonusPct = Tweaks.InstabilityTweaksV0.DriftLaneDelayPct;
+            delayTicks += Math.Max(1, delayTicks * bonusPct / 100); // STRUCTURAL: min 1 tick bonus, pct calc
+        }
+
         var departTick = state.Tick;
         var arriveTick = checked(departTick + delayTicks);
 

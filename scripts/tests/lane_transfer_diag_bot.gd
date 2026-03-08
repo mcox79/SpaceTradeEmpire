@@ -413,9 +413,9 @@ func _is_cinematic_active() -> bool:
 		cam_ctrl = _find_camera_controller_fallback()
 	if cam_ctrl == null:
 		return false
-	var ca = cam_ctrl.get("cinematic_active")
-	var co = cam_ctrl.get("cinematic_orbit_active")
-	return (bool(ca) if ca != null else false) or (bool(co) if co != null else false)
+	var fb = cam_ctrl.get("flyby_active")
+	var il = cam_ctrl.get("input_locked")
+	return (bool(fb) if fb != null else false) or (bool(il) if il != null else false)
 
 
 func _get_camera_info() -> String:
@@ -427,29 +427,28 @@ func _get_camera_info() -> String:
 	var alt = cam_ctrl.get("_altitude")
 	var yaw = cam_ctrl.get("_flight_yaw_offset")
 	var pitch = cam_ctrl.get("_flight_pitch_offset")
-	var cinematic = cam_ctrl.get("cinematic_active")
+	var flyby = cam_ctrl.get("flyby_active")
+	var input_lock = cam_ctrl.get("input_locked")
 	var mode = cam_ctrl.get("_current_mode")
-	var orbit_active = cam_ctrl.get("cinematic_orbit_active")
-	var orbit_angle = cam_ctrl.get("cinematic_orbit_angle")
-	var orbit_alt = cam_ctrl.get("cinematic_orbit_altitude")
-	var orbit_radius = cam_ctrl.get("cinematic_orbit_radius")
+	var flyby_pos = cam_ctrl.get("flyby_cam_pos")
+	var flyby_look = cam_ctrl.get("flyby_look_at")
 	# Also read transit altitude from GameManager to see descent curve.
 	var transit_alt_val = null
 	if _game_manager:
 		transit_alt_val = _game_manager.get("warp_transit_altitude")
-	var info := "cam_alt=%.0f|yaw=%.2f|pitch=%.2f|cine=%s|mode=%s" % [
+	var info := "cam_alt=%.0f|yaw=%.2f|pitch=%.2f|flyby=%s|locked=%s|mode=%s" % [
 		float(alt) if alt else 0.0,
 		float(yaw) if yaw else 0.0,
 		float(pitch) if pitch else 0.0,
-		str(cinematic),
+		str(flyby),
+		str(input_lock),
 		str(mode)]
 	if transit_alt_val != null:
 		info += "|transit_alt=%.0f" % float(transit_alt_val)
-	if orbit_active:
-		info += "|orbit=%.2frad|orb_alt=%.0f|orb_r=%.0f" % [
-			float(orbit_angle) if orbit_angle else 0.0,
-			float(orbit_alt) if orbit_alt else 0.0,
-			float(orbit_radius) if orbit_radius else 0.0]
+	if flyby and flyby_pos != null:
+		info += "|fb_pos=%s|fb_look=%s" % [
+			_v3_short(flyby_pos),
+			_v3_short(flyby_look) if flyby_look != null else "null"]
 	return info
 
 

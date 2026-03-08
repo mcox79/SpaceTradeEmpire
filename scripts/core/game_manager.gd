@@ -77,6 +77,9 @@ var _last_research_tech_id: String = ""
 var _last_research_active: bool = false
 var _last_player_node_id: String = ""
 
+# GATE.S7.FACTION.REP_TOAST.001: Rep change toast tracking
+var _last_rep_snapshot: Dictionary = {}  # faction_id -> last known rep value
+
 # GATE.S6.OUTCOME.CELEBRATION.001: Discovery completion celebration polling
 var _discovery_poll_timer: float = 0.0
 const DISCOVERY_POLL_INTERVAL: float = 2.0
@@ -93,6 +96,14 @@ var warp_transit_dest_pos: Vector3 = Vector3.ZERO
 var warp_transit_travel_dir: Vector3 = Vector3.ZERO
 var _transit_marker: Node3D = null
 var _transit_lane_line_ref: Node3D = null  # Stored to clean up during reveal.
+
+# Flyby orbit tuning — tweak these to adjust the arrival cinematic.
+const FLYBY_APPROACH_DIST: float = 130.0   # X: distance from star to start curving.
+const FLYBY_ORBIT_RADIUS: float = 55.0     # Y: orbit circle radius around star.
+const FLYBY_ORBIT_ALT: float = 45.0        # Camera height during orbit sweep.
+const FLYBY_CURVE_ON_TIME: float = 1.5     # Seconds to curve onto the orbit circle.
+const FLYBY_ORBIT_TIME: float = 4.0        # Seconds for the full orbital sweep.
+const FLYBY_CURVE_OFF_TIME: float = 1.5    # Seconds to settle at destination gate.
 
 # Gate approach state: player is near a gate, popup visible, awaiting confirm.
 var _approach_neighbor_id: String = ""
@@ -556,7 +567,7 @@ func _confirm_gate_transit_v0() -> void:
 		# Pre-save the real flight altitude before zoom changes it.
 		cam_ctrl.set("_pre_transit_altitude", cam_ctrl.get("_altitude"))
 		cam_ctrl.set("_pre_transit_altitude_set", true)
-		cam_ctrl.cinematic_active = true
+		cam_ctrl.input_locked = true
 		# Zoom camera IN to gate close-up (anticipation).
 		if cam_ctrl.has_method("tween_altitude_v0"):
 			cam_ctrl.call("tween_altitude_v0", 25.0, 1.0)
@@ -583,12 +594,12 @@ func _confirm_gate_transit_v0() -> void:
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		_cinematic_transit_active = false
 		if cam_ctrl:
-			cam_ctrl.cinematic_active = false
+			cam_ctrl.input_locked = false
 		return
 
 	_cinematic_transit_active = false
 	if cam_ctrl:
-		cam_ctrl.cinematic_active = false  # Transit mode handles camera itself.
+		cam_ctrl.input_locked = false  # Transit mode handles camera itself.
 
 	_begin_lane_transit_v0(neighbor_id)
 
@@ -727,209 +738,17 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 		_hero_body.linear_velocity = Vector3.ZERO
 		_hero_body.angular_velocity = Vector3.ZERO
 
-	# Camera arrival sweep: all arrivals get a rotation; first visits get the full cinematic.
-	if is_first_visit:
-		_show_system_reveal_v0(arrived_node_id, bridge)
-	else:
-		# Return visit: brief rotation sweep to orient the player in the system.
-		var cam_ctrl = _find_camera_controller()
-		if cam_ctrl and cam_ctrl.get("_flight_yaw_offset") != null:
-			cam_ctrl._flight_yaw_offset = 0.0
-			cam_ctrl._flight_pitch_offset = 0.0
-			var sweep_tween := create_tween()
-			sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.5, 2.0) \
-				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-			sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.0, 1.0) \
-				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-
-func _show_system_reveal_v0(node_id: String, bridge: Node) -> void:
-	var display_name: String = node_id
-	if bridge and bridge.has_method("GetNodeDisplayNameV0"):
-		display_name = bridge.call("GetNodeDisplayNameV0", node_id)
-
-	# --- Get the star center for orbiting ---
-	var star_center := Vector3.ZERO
-	var gv = _find_galaxy_view()
-	if gv and gv.has_method("GetCurrentStarGlobalPositionV0"):
-		star_center = gv.call("GetCurrentStarGlobalPositionV0")
-
-	# --- Audio: understated wonder sound for first arrival ---
-	if _sfx_system_arrival:
-		_sfx_system_arrival.volume_db = -14.0
-		_sfx_system_arrival.play()
-		var vol_tween := create_tween()
-		vol_tween.tween_property(_sfx_system_arrival, "volume_db", -4.0, 2.5) \
-			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
-		vol_tween.tween_interval(5.0)
-		vol_tween.tween_property(_sfx_system_arrival, "volume_db", -40.0, 3.0) \
-			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
-		vol_tween.tween_callback(_sfx_system_arrival.stop)
-	if _sfx_warp_whoosh:
-		_sfx_warp_whoosh.volume_db = -18.0
-		_sfx_warp_whoosh.play()
-
-	# --- Hide player ship + HUD + labels during cinematic ---
-	var hero_hidden := false
-	if _hero_body and is_instance_valid(_hero_body):
-		_hero_body.visible = false
-		hero_hidden = true
-	# Hide HUD during cinematic.
-	var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
-	if hud and hud.has_method("set_overlay_mode_v0"):
-		hud.call("set_overlay_mode_v0", true)
-	# Suppress labels during cinematic reveal.
-	if gv and gv.has_method("SetLocalLabelsVisibleV0"):
-		gv.call("SetLocalLabelsVisibleV0", false)
-
-	# --- Camera: gentle sweep around STAR CENTER (not player) ---
+	# Brief rotation sweep to orient the player (fallback path — main transit uses flyby).
 	var cam_ctrl = _find_camera_controller()
-	var has_cam: bool = cam_ctrl != null and cam_ctrl.get("cinematic_orbit_active") != null
-	var total_cinematic_time: float = 4.0
-	if has_cam:
-		cam_ctrl.cinematic_active = true
+	if cam_ctrl and cam_ctrl.get("_flight_yaw_offset") != null:
 		cam_ctrl._flight_yaw_offset = 0.0
 		cam_ctrl._flight_pitch_offset = 0.0
-
-		# Activate cinematic orbit mode — camera orbits star_center.
-		cam_ctrl.cinematic_orbit_blend = 1.0  # Full angled orbit.
-		cam_ctrl.cinematic_orbit_active = true
-		cam_ctrl._current_mode = 0  # CameraMode.FLIGHT — prevent stale WARP_TRANSIT triggering post-transit code.
-		cam_ctrl.cinematic_orbit_center = star_center
-		# Start angle: based on hero position relative to star (approach from gate direction).
-		var hero_dir := Vector3(1, 0, 0)
-		if _hero_body and is_instance_valid(_hero_body):
-			hero_dir = (_hero_body.global_position - star_center)
-			hero_dir.y = 0.0
-			if hero_dir.length() < 1.0:
-				hero_dir = Vector3(1, 0, 0)
-			hero_dir = hero_dir.normalized()
-		cam_ctrl.cinematic_orbit_angle = atan2(hero_dir.z, hero_dir.x)
-		cam_ctrl.cinematic_orbit_radius = 60.0  # Start close (transit already descended)
-		cam_ctrl.cinematic_orbit_altitude = star_center.y + 120.0  # Continue from transit descent
-
-		# Tween orbit: half sweep (PI) over 4s — "look around" not full orbit.
-		var orbit_tween := create_tween()
-		var start_angle: float = cam_ctrl.cinematic_orbit_angle
-		orbit_tween.tween_property(cam_ctrl, "cinematic_orbit_angle", start_angle + PI, 4.0) \
+		var sweep_tween := create_tween()
+		sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.5, 2.0) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+		sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.0, 1.0) \
 			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
 
-		# Altitude descent: 120 → 80 over 4s — smooth settle into the system.
-		var alt_tween := create_tween()
-		alt_tween.tween_property(cam_ctrl, "cinematic_orbit_altitude", star_center.y + 80.0, 4.0) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-
-		# Radius: 60 → 45 — gently pull in for intimate view.
-		var radius_tween := create_tween()
-		radius_tween.tween_property(cam_ctrl, "cinematic_orbit_radius", 45.0, 4.0) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-
-	# --- Cinematic overlay: letterbox + system name ---
-	var canvas := CanvasLayer.new()
-	canvas.layer = 90
-	add_child(canvas)
-
-	var bar_top := ColorRect.new()
-	bar_top.color = Color(0, 0, 0, 0.85)
-	bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bar_top.offset_bottom = 0.0
-	bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(bar_top)
-
-	var bar_bot := ColorRect.new()
-	bar_bot.color = Color(0, 0, 0, 0.85)
-	bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar_bot.anchor_top = 1.0
-	bar_bot.anchor_bottom = 1.0
-	bar_bot.offset_top = 0.0
-	bar_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(bar_bot)
-
-	# System name — anchored to full rect for proper centering.
-	var lbl := Label.new()
-	lbl.text = display_name
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	lbl.add_theme_font_size_override("font_size", 64)
-	lbl.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 1.0))
-	lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.2, 0.9))
-	lbl.add_theme_constant_override("shadow_offset_x", 3)
-	lbl.add_theme_constant_override("shadow_offset_y", 3)
-	lbl.modulate.a = 0.0
-	canvas.add_child(lbl)
-
-	var subtitle := Label.new()
-	subtitle.text = "~ First Discovery ~"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	subtitle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	subtitle.offset_top = 44.0
-	subtitle.add_theme_font_size_override("font_size", 24)
-	subtitle.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9, 1.0))
-	subtitle.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.15, 0.7))
-	subtitle.add_theme_constant_override("shadow_offset_x", 1)
-	subtitle.add_theme_constant_override("shadow_offset_y", 1)
-	subtitle.modulate.a = 0.0
-	canvas.add_child(subtitle)
-
-	# Tween chain: letterbox → text → hold → fade → ship reveal → cleanup.
-	var tween := create_tween()
-	tween.tween_property(bar_top, "size:y", 80.0, 0.3).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(bar_bot, "offset_top", -80.0, 0.3).set_ease(Tween.EASE_OUT)
-	tween.tween_property(lbl, "modulate:a", 1.0, 0.5).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(subtitle, "modulate:a", 1.0, 0.5).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(1.5)
-	tween.tween_property(lbl, "modulate:a", 0.0, 0.5)
-	tween.parallel().tween_property(subtitle, "modulate:a", 0.0, 0.4)
-	tween.tween_property(bar_top, "size:y", 0.0, 0.3).set_ease(Tween.EASE_IN)
-	tween.parallel().tween_property(bar_bot, "offset_top", 0.0, 0.3).set_ease(Tween.EASE_IN)
-	# End cinematic: reveal ship, restore HUD, disable orbit mode.
-	var hero_ref = _hero_body
-	var hud_ref = hud
-	tween.tween_callback(func():
-		if is_instance_valid(hero_ref):
-			hero_ref.visible = true
-		if hud_ref and is_instance_valid(hud_ref) and hud_ref.has_method("set_overlay_mode_v0"):
-			hud_ref.call("set_overlay_mode_v0", false)
-	)
-	if has_cam:
-		var cam_ref = cam_ctrl
-		tween.tween_callback(func():
-			if is_instance_valid(cam_ref):
-				cam_ref.cinematic_active = false
-				cam_ref.cinematic_orbit_active = false
-				cam_ref.cinematic_orbit_blend = 0.0
-				cam_ref._current_mode = 0  # CameraMode.FLIGHT
-				cam_ref._altitude = 80.0
-				cam_ref._flight_yaw_offset = 0.0
-				# Clean up transit-mode rendering (bypassed because cinematic skips
-				# the camera's normal WARP_TRANSIT exit path).
-				cam_ref._galaxy_map_pan_offset = Vector3.ZERO
-				var gv_ref = _find_galaxy_view()
-				if gv_ref and gv_ref.has_method("SetTransitModeV0"):
-					gv_ref.call("SetTransitModeV0", false, "", "")
-				if gv_ref and gv_ref.has_method("SetLocalLabelsVisibleV0"):
-					gv_ref.call("SetLocalLabelsVisibleV0", true)
-		)
-	tween.tween_callback(canvas.queue_free)
-
-	# Failsafe: ensure everything restored even if tween is killed.
-	if has_cam or hero_hidden:
-		var failsafe_cam = cam_ctrl
-		var failsafe_hero = _hero_body
-		var failsafe_hud = hud
-		get_tree().create_timer(total_cinematic_time + 2.0).timeout.connect(func():
-			if is_instance_valid(failsafe_cam):
-				failsafe_cam.cinematic_active = false
-				failsafe_cam.cinematic_orbit_active = false
-				failsafe_cam.cinematic_orbit_blend = 0.0
-				failsafe_cam._current_mode = 0  # CameraMode.FLIGHT
-				failsafe_cam._altitude = 80.0
-			if is_instance_valid(failsafe_hero):
-				failsafe_hero.visible = true
-			if failsafe_hud and is_instance_valid(failsafe_hud) and failsafe_hud.has_method("set_overlay_mode_v0"):
-				failsafe_hud.call("set_overlay_mode_v0", false)
-		)
 
 ## Position hero at the arrival gate corresponding to the origin system.
 ## Extracted from on_lane_arrival_v0 for reuse in reveal sweep.
@@ -969,7 +788,9 @@ func _position_hero_at_gate_v0(arrived_node_id: String, gv) -> void:
 
 
 ## Show letterbox overlay with system name during first-visit reveal.
-func _show_reveal_overlay_v0(node_id: String, bridge: Node) -> void:
+## Letterbox overlay for first-visit flyby cinematic.
+## display_duration = total time the letterbox is visible (bars + text + hold).
+func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: float) -> void:
 	var display_name: String = node_id
 	if bridge and bridge.has_method("GetNodeDisplayNameV0"):
 		display_name = bridge.call("GetNodeDisplayNameV0", node_id)
@@ -1032,12 +853,14 @@ func _show_reveal_overlay_v0(node_id: String, bridge: Node) -> void:
 	subtitle.add_theme_constant_override("shadow_offset_y", 1)
 	subtitle.modulate.a = 0.0
 	canvas.add_child(subtitle)
+	# Hold time: total duration minus bars + text fade in/out.
+	var hold_time: float = maxf(display_duration - 1.6, 1.0)
 	var tween := create_tween()
 	tween.tween_property(bar_top, "size:y", 80.0, 0.3).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(bar_bot, "offset_top", -80.0, 0.3).set_ease(Tween.EASE_OUT)
 	tween.tween_property(lbl, "modulate:a", 1.0, 0.5).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(subtitle, "modulate:a", 1.0, 0.5).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(1.5)
+	tween.tween_interval(hold_time)
 	tween.tween_property(lbl, "modulate:a", 0.0, 0.5)
 	tween.parallel().tween_property(subtitle, "modulate:a", 0.0, 0.4)
 	tween.tween_property(bar_top, "size:y", 0.0, 0.3).set_ease(Tween.EASE_IN)
@@ -1209,21 +1032,37 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	_ensure_hero_body()
 	var gv = _find_galaxy_view()
 
-	# Get origin and destination star positions in galactic space.
-	# Use the gate position within the local system if available, so the transit
-	# marker starts from the gate the player just entered (not the star center).
-	var origin_pos: Vector3 = Vector3.ZERO
-	var dest_pos: Vector3 = Vector3.ZERO
+	# Get star center positions and pre-computed gate positions from GalaxyView cache.
+	var origin_star_center: Vector3 = Vector3.ZERO
+	var dest_pos: Vector3 = Vector3.ZERO  # Destination star center.
+	var origin_gate_pos: Vector3 = Vector3.ZERO
+	var dest_gate_pos: Vector3 = Vector3.ZERO
 	if gv and gv.has_method("GetNodeScaledPositionV0"):
 		if not _lane_origin_node_id.is_empty():
-			origin_pos = gv.call("GetNodeScaledPositionV0", _lane_origin_node_id)
+			origin_star_center = gv.call("GetNodeScaledPositionV0", _lane_origin_node_id)
 		dest_pos = gv.call("GetNodeScaledPositionV0", neighbor_node_id)
-	# Offset origin to the gate position so the transit marker starts at the gate.
-	# neighbor_node_id = destination, so the origin gate pointing there has that neighbor meta.
-	if gv and gv.has_method("GetGatePositionV0"):
-		var gate_pos: Vector3 = gv.call("GetGatePositionV0", neighbor_node_id)
-		if gate_pos != Vector3.ZERO:
-			origin_pos = gate_pos
+	# Use pre-computed gate positions from GalaxyView (includes nudging for close gates).
+	if gv and gv.has_method("GetCachedGateGlobalPositionV0"):
+		if not _lane_origin_node_id.is_empty():
+			origin_gate_pos = gv.call("GetCachedGateGlobalPositionV0", _lane_origin_node_id, neighbor_node_id)
+		dest_gate_pos = gv.call("GetCachedGateGlobalPositionV0", neighbor_node_id, _lane_origin_node_id)
+	# Fallback if cache returned star center (gate at star center means offset failed).
+	# A star CAN be at (0,0,0) so check if gate equals star center, not if gate is zero.
+	if origin_gate_pos == origin_star_center and dest_pos != origin_star_center:
+		var lane_dir_fb := (dest_pos - origin_star_center).normalized()
+		origin_gate_pos = origin_star_center + lane_dir_fb * 90.0
+	if dest_gate_pos == dest_pos and dest_pos != origin_star_center:
+		var lane_dir_fb := (dest_pos - origin_star_center).normalized()
+		dest_gate_pos = dest_pos - lane_dir_fb * 90.0
+
+	# Compute lane direction from gate to gate.
+	var lane_dir := (dest_gate_pos - origin_gate_pos)
+	lane_dir.y = 0.0
+	lane_dir = lane_dir.normalized() if lane_dir.length() > 0.1 else Vector3(1, 0, 0)
+	# Origin position = origin gate (where the transit marker starts).
+	var origin_pos: Vector3 = origin_gate_pos
+	print("UUIR|LANE_GEOM|origin_star=%s|dest_star=%s|origin_gate=%s|dest_gate=%s" % [
+		str(origin_star_center), str(dest_pos), str(origin_gate_pos), str(dest_gate_pos)])
 
 	if dest_pos == Vector3.ZERO or _hero_body == null or not is_instance_valid(_hero_body):
 		# Fallback: instant transit.
@@ -1234,12 +1073,10 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	if origin_pos == Vector3.ZERO:
 		origin_pos = _hero_body.global_position
 
-	warp_transit_dest_pos = dest_pos
-	var raw_dir := (dest_pos - origin_pos)
-	raw_dir.y = 0.0
-	warp_transit_travel_dir = raw_dir.normalized() if raw_dir.length() > 0.1 else Vector3(1, 0, 0)
+	warp_transit_dest_pos = dest_gate_pos
+	warp_transit_travel_dir = lane_dir
 
-	var distance: float = origin_pos.distance_to(dest_pos)
+	var distance: float = origin_pos.distance_to(dest_gate_pos)
 	var transit_time: float = clampf(distance / 2000.0, 1.5, 3.0)
 
 	# GATE.S3.RISK_SINKS.BRIDGE.001: Add delay from risk events to transit time.
@@ -1287,14 +1124,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	if gv and gv.has_method("SetLocalLabelsVisibleV0"):
 		gv.call("SetLocalLabelsVisibleV0", false)
 
-	# Compute destination gate position (gate in dest system pointing back to origin).
-	# Lane line and transit marker end here, not at the star center.
-	var dest_gate_pos: Vector3 = dest_pos  # Fallback to star center.
-	if gv and gv.has_method("GetGatePositionV0") and not _lane_origin_node_id.is_empty():
-		var dgp: Vector3 = gv.call("GetGatePositionV0", _lane_origin_node_id)
-		if dgp != Vector3.ZERO:
-			dest_gate_pos = dgp
-
 	# Create bright lane line from origin gate to destination gate.
 	var _transit_lane_line := _create_transit_lane_line_v0(origin_pos, dest_gate_pos)
 
@@ -1321,241 +1150,259 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Store lane line ref for cleanup.
 	_transit_lane_line_ref = _transit_lane_line
 
-	if is_first_visit:
-		# === FIRST VISIT: Curved approach + orbital sweep ===
-		# The transit path curves off to one side before reaching the system,
-		# naturally entering an orbital sweep around the star.
+	# === Compute flyby geometry ===
+	var star_center: Vector3 = dest_pos  # Destination star center.
+	var entry_point := star_center - lane_dir * FLYBY_APPROACH_DIST
+	entry_point.y = 0.0
 
-		# Phase 1: Straight approach from origin toward a "diversion point" 150u from star.
-		var approach_dir := (dest_pos - origin_pos)
-		approach_dir.y = 0.0
-		approach_dir = approach_dir.normalized()
-		var divert_dist: float = 150.0  # Distance from star center to start curving.
-		var divert_pos := dest_pos - approach_dir * divert_dist
-		var straight_time: float = transit_time * 0.7
+	# Approach: marker flies to entry point (not all the way to dest gate).
+	var dist_to_entry: float = origin_pos.distance_to(entry_point)
+	var dist_to_dest: float = origin_pos.distance_to(dest_gate_pos)
+	var approach_ratio: float = clampf(dist_to_entry / maxf(dist_to_dest, 1.0), 0.3, 0.95)
+	var approach_time: float = transit_time * approach_ratio
 
-		var tween := create_tween()
-		tween.tween_property(_transit_marker, "global_position", divert_pos, straight_time) \
-			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	var tween := create_tween()
+	tween.tween_property(_transit_marker, "global_position", entry_point, approach_time) \
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
-		# Parallel altitude descent during straight approach.
-		var alt_tween := create_tween()
-		var descent_delay: float = straight_time * 0.3
-		var descent_time: float = straight_time * 0.7
-		alt_tween.tween_interval(descent_delay)
-		alt_tween.tween_property(self, "warp_transit_altitude", 200.0, descent_time) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Altitude descent during approach.
+	var alt_tween := create_tween()
+	alt_tween.tween_property(self, "warp_transit_altitude", 120.0, approach_time) \
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
-		# Fade lane line at 70% of straight approach.
-		var fade_delay: float = straight_time * 0.7
-		var fade_time: float = straight_time * 0.3
-		if _transit_lane_line and is_instance_valid(_transit_lane_line):
-			var lane_mat = _transit_lane_line.material_override as StandardMaterial3D
-			if lane_mat:
-				var lane_fade := create_tween()
-				lane_fade.tween_interval(fade_delay)
-				lane_fade.tween_property(lane_mat, "albedo_color:a", 0.0, fade_time)
-		if _transit_marker and is_instance_valid(_transit_marker):
-			var marker_mat = _transit_marker.material_override as StandardMaterial3D
-			if marker_mat:
-				var marker_fade := create_tween()
-				marker_fade.tween_interval(fade_delay)
-				marker_fade.tween_property(marker_mat, "albedo_color:a", 0.0, fade_time)
-			for child in _transit_marker.get_children():
-				if child is MeshInstance3D:
-					var glow_mat = child.material_override as StandardMaterial3D
-					if glow_mat:
-						var glow_fade := create_tween()
-						glow_fade.tween_interval(fade_delay)
-						glow_fade.tween_property(glow_mat, "albedo_color:a", 0.0, fade_time)
+	# Fade lane line + marker near end of approach.
+	var fade_delay: float = approach_time * 0.6
+	var fade_time: float = approach_time * 0.4
+	if _transit_lane_line and is_instance_valid(_transit_lane_line):
+		var lane_mat = _transit_lane_line.material_override as StandardMaterial3D
+		if lane_mat:
+			var lane_fade := create_tween()
+			lane_fade.tween_interval(fade_delay)
+			lane_fade.tween_property(lane_mat, "albedo_color:a", 0.0, fade_time)
+	if _transit_marker and is_instance_valid(_transit_marker):
+		var marker_mat = _transit_marker.material_override as StandardMaterial3D
+		if marker_mat:
+			var marker_fade := create_tween()
+			marker_fade.tween_interval(fade_delay)
+			marker_fade.tween_property(marker_mat, "albedo_color:a", 0.0, fade_time)
+		for child in _transit_marker.get_children():
+			if child is MeshInstance3D:
+				var glow_mat = child.material_override as StandardMaterial3D
+				if glow_mat:
+					var glow_fade := create_tween()
+					glow_fade.tween_interval(fade_delay)
+					glow_fade.tween_property(glow_mat, "albedo_color:a", 0.0, fade_time)
 
-		await tween.finished
+	await tween.finished
 
-		# Clean up transit marker.
-		if _transit_marker and is_instance_valid(_transit_marker):
-			_transit_marker.queue_free()
-			_transit_marker = null
-	else:
-		# === RETURN VISIT: Straight transit to destination gate ===
-		var tween := create_tween()
-		tween.tween_property(_transit_marker, "global_position", dest_gate_pos, transit_time) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Clean up transit marker + lane line.
+	if _transit_marker and is_instance_valid(_transit_marker):
+		_transit_marker.queue_free()
+		_transit_marker = null
+	if _transit_lane_line_ref and is_instance_valid(_transit_lane_line_ref):
+		_transit_lane_line_ref.queue_free()
+		_transit_lane_line_ref = null
 
-		# Altitude descent.
-		var alt_tween := create_tween()
-		var descent_delay: float = transit_time * 0.25
-		var descent_time: float = transit_time * 0.75
-		alt_tween.tween_interval(descent_delay)
-		alt_tween.tween_property(self, "warp_transit_altitude", 120.0, descent_time) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	# === Post-approach: dispatch arrival and position hero at gate ===
+	_last_arrival_first_visit = is_first_visit
+	_apply_camera_shake_v0(0.25)
 
-		# Fade lane line + marker.
-		var fade_delay: float = transit_time * 0.7
-		var fade_time: float = transit_time * 0.3
-		if _transit_lane_line and is_instance_valid(_transit_lane_line):
-			var lane_mat = _transit_lane_line.material_override as StandardMaterial3D
-			if lane_mat:
-				var lane_fade := create_tween()
-				lane_fade.tween_interval(fade_delay)
-				lane_fade.tween_property(lane_mat, "albedo_color:a", 0.0, fade_time)
-		if _transit_marker and is_instance_valid(_transit_marker):
-			var marker_mat = _transit_marker.material_override as StandardMaterial3D
-			if marker_mat:
-				var marker_fade := create_tween()
-				marker_fade.tween_interval(fade_delay)
-				marker_fade.tween_property(marker_mat, "albedo_color:a", 0.0, fade_time)
-			for child in _transit_marker.get_children():
-				if child is MeshInstance3D:
-					var glow_mat = child.material_override as StandardMaterial3D
-					if glow_mat:
-						var glow_fade := create_tween()
-						glow_fade.tween_interval(fade_delay)
-						glow_fade.tween_property(glow_mat, "albedo_color:a", 0.0, fade_time)
+	if bridge == null:
+		bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
+		bridge.call("DispatchPlayerArriveV0", neighbor_node_id)
 
-		await tween.finished
+	# Suppress labels during flyby.
+	if gv and gv.has_method("SetLocalLabelsVisibleV0"):
+		gv.call("SetLocalLabelsVisibleV0", false)
+	if gv and gv.has_method("RebuildPersistentLanesV0"):
+		gv.call("RebuildPersistentLanesV0")
 
-		# Clean up transit marker.
-		if _transit_marker and is_instance_valid(_transit_marker):
-			_transit_marker.queue_free()
-			_transit_marker = null
+	# Position hero at arrival gate (hidden during flyby).
+	if _hero_body and is_instance_valid(_hero_body):
+		var inward_dir := (star_center - dest_gate_pos).normalized()
+		_hero_body.global_position = dest_gate_pos + inward_dir * 10.0
+		_hero_body.global_position.y = 0.0
+		_hero_body.linear_velocity = Vector3.ZERO
+		_hero_body.angular_velocity = Vector3.ZERO
+		if _hero_body.is_inside_tree():
+			_hero_body.look_at(star_center, Vector3.UP)
+		_hero_body.visible = false  # Hidden during flyby.
+	var hero_pos: Vector3 = _hero_body.global_position if (_hero_body and is_instance_valid(_hero_body)) else dest_gate_pos
+	print("UUIR|HERO_AT_GATE|gate=%s|hero=%s|star=%s" % [str(dest_gate_pos), str(hero_pos), str(star_center)])
 
-	if is_first_visit:
-		# === FIRST VISIT: Cinematic orbital approach ===
-		# The camera stays in forward-tilt (comet view) and we move warp_transit_target
-		# on a circular path around the star. The forward-looking camera naturally creates
-		# a dramatic orbital sweep — no mode switch, just path manipulation.
-		_last_arrival_first_visit = true
-		_apply_camera_shake_v0(0.25)
+	# === FLYBY: Universal approach cinematic ===
+	_show_jump_event_toasts_v0(bridge)
 
-		# Dispatch sim arrival.
-		if bridge and bridge.has_method("DispatchPlayerArriveV0"):
-			bridge.call("DispatchPlayerArriveV0", neighbor_node_id)
-		# Re-suppress labels: dispatch may create new overlay nodes with fresh labels.
-		if gv and gv.has_method("SetLocalLabelsVisibleV0"):
-			gv.call("SetLocalLabelsVisibleV0", false)
+	cam_ctrl = _find_camera_controller()
+	var has_cam: bool = cam_ctrl != null and cam_ctrl.get("flyby_active") != null
 
-		# Rebuild persistent lanes for newly visible connections.
-		if gv and gv.has_method("RebuildPersistentLanesV0"):
-			gv.call("RebuildPersistentLanesV0")
+	if has_cam:
+		# Capture current camera position for seamless transition from WARP_TRANSIT.
+		var entry_cam_pos: Vector3 = cam_ctrl._cam.global_position if cam_ctrl._cam else Vector3(entry_point.x, 120.0, entry_point.z)
+		var current_tilt: float = cam_ctrl.warp_transit_tilt if cam_ctrl.get("warp_transit_tilt") != null else 0.0
+		var current_up: Vector3 = Vector3.BACK.slerp(Vector3.UP, current_tilt)
+		if current_up.length_squared() < 0.01:
+			current_up = Vector3.UP
 
-		# Position hero at arrival gate.
-		_position_hero_at_gate_v0(neighbor_node_id, gv)
-		if _hero_body and is_instance_valid(_hero_body):
-			_hero_body.visible = true
+		# Compute flyby orbit geometry using TANGENT entry.
+		# The camera approaches from a direction; it must swoop laterally to
+		# tangentially join the orbit circle, not just fly straight into it.
+		var approach_angle: float = atan2(-lane_dir.z, -lane_dir.x)  # From star toward camera.
+		var dest_gate_offset: Vector3 = dest_gate_pos - star_center
+		dest_gate_offset.y = 0.0
+		var dest_gate_angle: float = atan2(dest_gate_offset.z, dest_gate_offset.x)
 
-		# Get star center and hero position.
-		var star_center: Vector3 = Vector3.ZERO
-		if gv and gv.has_method("GetCurrentStarGlobalPositionV0"):
-			star_center = gv.call("GetCurrentStarGlobalPositionV0")
-		var hero_pos: Vector3 = _hero_body.global_position if (_hero_body and is_instance_valid(_hero_body)) else star_center
+		# Tangent entry points: 90° offset from approach gives tangential join.
+		# CW entry at approach_angle - PI/2; CCW entry at approach_angle + PI/2.
+		var tangent_cw: float = approach_angle - PI / 2.0
+		var tangent_ccw: float = approach_angle + PI / 2.0
 
-		# Clean up lane line.
-		if _transit_lane_line_ref and is_instance_valid(_transit_lane_line_ref):
-			_transit_lane_line_ref.queue_free()
-			_transit_lane_line_ref = null
+		# Pick the side that gives the LONGER sweep to dest gate (more cinematic).
+		var cw_sweep: float = fmod(tangent_cw - dest_gate_angle + TAU, TAU)
+		var ccw_sweep: float = fmod(dest_gate_angle - tangent_ccw + TAU, TAU)
 
-		# Letterbox overlay with system name + jump event toasts.
-		_show_reveal_overlay_v0(neighbor_node_id, bridge)
-		_show_jump_event_toasts_v0(bridge)
+		var tangent_angle: float
+		var orbit_dir: float
+		var sweep_total: float
+		if cw_sweep >= ccw_sweep:
+			tangent_angle = tangent_cw
+			orbit_dir = -1.0
+			sweep_total = cw_sweep
+		else:
+			tangent_angle = tangent_ccw
+			orbit_dir = 1.0
+			sweep_total = ccw_sweep
+		if sweep_total < PI:
+			sweep_total = PI * 1.25  # Ensure at least 225° for cinematic impact.
 
-		# --- Curved orbital approach from diversion point ---
-		# Camera is forward-tilted and was following the transit marker to the
-		# diversion point (150u from star). Now move warp_transit_target on a
-		# spiral path from that point inward around the star, and rotate
-		# warp_transit_travel_dir to the orbit tangent so the chase-cam naturally
-		# swings around — creating the "curved approach" visible BEFORE arrival.
-		var approach_dir2 := (dest_pos - origin_pos)
-		approach_dir2.y = 0.0
-		approach_dir2 = approach_dir2.normalized()
-		var divert_offset := (dest_pos - approach_dir2 * 150.0) - star_center
-		divert_offset.y = 0.0
-		var orbit_start_radius: float = divert_offset.length()
-		if orbit_start_radius < 20.0:
-			orbit_start_radius = 150.0
-		var start_angle: float = atan2(divert_offset.z, divert_offset.x)
+		# Activate flyby — camera switches from WARP_TRANSIT to direct position control.
+		cam_ctrl.flyby_cam_pos = entry_cam_pos
+		cam_ctrl.flyby_look_at = Vector3(dest_gate_pos.x, 5.0, dest_gate_pos.z)
+		cam_ctrl.flyby_up = current_up
+		cam_ctrl.flyby_active = true
+		cam_ctrl.input_locked = true
+		cam_ctrl._flight_yaw_offset = 0.0
+		cam_ctrl._flight_pitch_offset = 0.0
 
-		# Spiral from diversion radius (~150u) down to 50u, sweeping 300°.
-		var orbit_duration: float = 5.0
-		var orbit_sweep: float = PI * 5.0 / 3.0  # 300 degrees
-		var orbit_steps: int = 60
-		var step_time: float = orbit_duration / float(orbit_steps)
-		var orbit_start_alt: float = warp_transit_altitude
+		# Orbit timing: shorter for return visits.
+		var actual_orbit_time: float = FLYBY_ORBIT_TIME if is_first_visit else FLYBY_ORBIT_TIME * 0.5
+		var actual_sweep: float = sweep_total if is_first_visit else sweep_total * 0.6
+
+		# First-visit letterbox overlay (shown during orbit).
+		if is_first_visit:
+			_show_flyby_letterbox_v0(neighbor_node_id, bridge, FLYBY_CURVE_ON_TIME + actual_orbit_time)
+
+		print("UUIR|FLYBY_START|approach=%.2f|tangent=%.2f|dest=%.2f|sweep=%.2f|dir=%.1f" % [approach_angle, tangent_angle, dest_gate_angle, sweep_total, orbit_dir])
+
+		# Camera's actual position relative to star — used for spiral deviation.
+		var entry_star_off := Vector3(entry_cam_pos.x - star_center.x, 0.0, entry_cam_pos.z - star_center.z)
+		var entry_radius: float = maxf(entry_star_off.length(), FLYBY_ORBIT_RADIUS + 10.0)
+		var entry_alt: float = entry_cam_pos.y
+		var actual_entry_angle: float = atan2(entry_star_off.z, entry_star_off.x)
+
+		# --- Phase 1: Deviation — spiral from approach onto orbit circle tangent ---
+		# Step-based tween: interpolate angle (90° lateral swoop) and radius
+		# (compress from far to orbit radius). This creates a visible curved path.
+		var dev_steps: int = 24
+		var dev_step_time: float = FLYBY_CURVE_ON_TIME / float(dev_steps)
+		var dev_tween := create_tween()
+		for i in range(dev_steps):
+			var t: float = float(i + 1) / float(dev_steps)
+			# Angle sweeps from actual camera angle to tangent point (90° lateral).
+			var smooth_t: float = ease(t, 2.0)  # Ease in: gentle start, dramatic curve.
+			var angle: float = lerpf(actual_entry_angle, tangent_angle, smooth_t)
+			# Radius compresses from far (behind marker) to orbit radius.
+			var dev_radius: float = lerpf(entry_radius, FLYBY_ORBIT_RADIUS, ease(t, 0.8))
+			# Altitude descends smoothly to orbit altitude.
+			var dev_alt: float = lerpf(entry_alt, FLYBY_ORBIT_ALT, ease(t, 0.6))
+			var pos := Vector3(
+				star_center.x + cos(angle) * dev_radius,
+				dev_alt,
+				star_center.z + sin(angle) * dev_radius
+			)
+			dev_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, dev_step_time)
+			# Look-at transitions from destination toward star center.
+			var look_t: float = ease(t, 1.5)
+			var look_target := Vector3(
+				lerpf(dest_gate_pos.x, star_center.x, look_t),
+				lerpf(5.0, 2.0, look_t),
+				lerpf(dest_gate_pos.z, star_center.z, look_t)
+			)
+			dev_tween.parallel().tween_property(cam_ctrl, "flyby_look_at", look_target, dev_step_time)
+			# Up vector transitions to UP for angled cinematic view.
+			var up_target := current_up.slerp(Vector3.UP, t)
+			if up_target.length_squared() < 0.01:
+				up_target = Vector3.UP
+			dev_tween.parallel().tween_property(cam_ctrl, "flyby_up", up_target, dev_step_time)
+		await dev_tween.finished
+
+		# --- Phase 2: Orbital sweep around star ---
+		var orbit_steps: int = 48
+		var step_time: float = actual_orbit_time / float(orbit_steps)
 		var orbit_tween := create_tween()
-
 		for i in range(orbit_steps):
 			var t: float = float(i + 1) / float(orbit_steps)
-			var angle: float = start_angle + orbit_sweep * t
-			# Spiral: diversion radius → 50u (first 40%), 50→45 (next 30%), 45→60 (last 30%).
-			var r: float
-			if t < 0.4:
-				r = lerpf(orbit_start_radius, 50.0, t / 0.4)
-			elif t < 0.7:
-				r = lerpf(50.0, 45.0, (t - 0.4) / 0.3)
-			else:
-				r = lerpf(45.0, 60.0, (t - 0.7) / 0.3)
-			var orbit_x: float = star_center.x + cos(angle) * r
-			var orbit_z: float = star_center.z + sin(angle) * r
-			var target_pos := Vector3(orbit_x, 0.0, orbit_z)
-			orbit_tween.tween_property(self, "warp_transit_target", target_pos, step_time)
-			# Rotate travel_dir to orbit tangent — camera follows behind.
-			# Blend from approach_dir to tangent over first 15% to avoid snap.
-			var tangent := Vector3(-sin(angle), 0.0, cos(angle)).normalized()
-			var blend_t: float = clampf(t / 0.15, 0.0, 1.0)
-			var dir := approach_dir2.lerp(tangent, blend_t).normalized()
-			orbit_tween.parallel().tween_property(self, "warp_transit_travel_dir", dir, step_time)
-			# Altitude: dip from start → 40u at 40%, rise to 60u.
+			var angle: float = tangent_angle + actual_sweep * orbit_dir * t
+			# Altitude breathes: dip mid-orbit, rise at end.
 			var alt: float
-			if t < 0.4:
-				alt = lerpf(orbit_start_alt, 40.0, t / 0.4)
-			elif t < 0.7:
-				alt = lerpf(40.0, 45.0, (t - 0.4) / 0.3)
+			if t < 0.5:
+				alt = lerpf(FLYBY_ORBIT_ALT, FLYBY_ORBIT_ALT - 10.0, ease(t / 0.5, 0.5))
 			else:
-				alt = lerpf(45.0, 60.0, (t - 0.7) / 0.3)
-			orbit_tween.parallel().tween_property(self, "warp_transit_altitude", alt, step_time)
-
+				alt = lerpf(FLYBY_ORBIT_ALT - 10.0, FLYBY_ORBIT_ALT + 10.0, ease((t - 0.5) / 0.5, 2.0))
+			# Radius breathes: pull in mid-orbit.
+			var radius: float
+			if t < 0.5:
+				radius = lerpf(FLYBY_ORBIT_RADIUS, FLYBY_ORBIT_RADIUS * 0.75, ease(t / 0.5, 0.5))
+			else:
+				radius = lerpf(FLYBY_ORBIT_RADIUS * 0.75, FLYBY_ORBIT_RADIUS, ease((t - 0.5) / 0.5, 2.0))
+			var pos := Vector3(
+				star_center.x + cos(angle) * radius,
+				alt,
+				star_center.z + sin(angle) * radius
+			)
+			orbit_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, step_time)
+			orbit_tween.parallel().tween_property(cam_ctrl, "flyby_look_at",
+				Vector3(star_center.x, 2.0, star_center.z), step_time)
 		await orbit_tween.finished
 
-		# --- Settle phase (2.0s) — smooth refocus on hero ship ---
-		# Move warp_transit_target to hero position while rising to flight altitude.
-		# Untilt camera from forward to top-down.
-		cam_ctrl = _find_camera_controller()
-		var settle_tween := create_tween()
-		settle_tween.set_parallel(true)
-		settle_tween.tween_property(self, "warp_transit_target", hero_pos, 2.0) \
+		# --- Phase 3: Exit — curve from orbit to above dest gate ---
+		var settle_pos := Vector3(hero_pos.x, 80.0, hero_pos.z)
+		var settle_look := Vector3(hero_pos.x, 0.0, hero_pos.z)
+		var exit_tween := create_tween()
+		exit_tween.set_parallel(true)
+		exit_tween.tween_property(cam_ctrl, "flyby_cam_pos", settle_pos, FLYBY_CURVE_OFF_TIME) \
 			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-		settle_tween.tween_property(self, "warp_transit_altitude", 80.0, 2.0) \
+		exit_tween.tween_property(cam_ctrl, "flyby_look_at", settle_look, FLYBY_CURVE_OFF_TIME) \
 			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-		if cam_ctrl and cam_ctrl.get("warp_transit_tilt") != null:
-			settle_tween.tween_property(cam_ctrl, "warp_transit_tilt", 0.0, 2.0) \
-				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-		await settle_tween.finished
+		exit_tween.tween_property(cam_ctrl, "flyby_up", Vector3.BACK, FLYBY_CURVE_OFF_TIME) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		await exit_tween.finished
 
-		# Transition to IN_FLIGHT.
-		_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
-		_lane_cooldown_v0 = 2.0
+		# --- Handoff: flyby → flight mode ---
+		cam_ctrl.flyby_active = false
+		cam_ctrl.input_locked = false
+		cam_ctrl._altitude = 80.0
+		cam_ctrl._flight_yaw_offset = 0.0
+		cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
+		var gv_cleanup = _find_galaxy_view()
+		if gv_cleanup and gv_cleanup.has_method("SetTransitModeV0"):
+			gv_cleanup.call("SetTransitModeV0", false, "", "")
+		print("UUIR|FLYBY_END|hero=%s" % str(hero_pos))
 
-		# Restore labels.
-		var gv_restore = _find_galaxy_view()
-		if gv_restore and gv_restore.has_method("SetLocalLabelsVisibleV0"):
-			gv_restore.call("SetLocalLabelsVisibleV0", true)
+	# === Transition to IN_FLIGHT ===
+	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
+	_lane_cooldown_v0 = 2.0
 
-		# Restore hero + HUD.
-		if _hero_body and is_instance_valid(_hero_body):
-			_hero_body.visible = true
-		var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
-		if hud and hud.has_method("set_overlay_mode_v0"):
-			hud.call("set_overlay_mode_v0", false)
-	else:
-		# Return visit: fast gate-to-gate — quick untilt and arrive.
-		if cam_ctrl and cam_ctrl.get("warp_transit_tilt") != null and cam_ctrl.warp_transit_tilt > 0.01:
-			var untilt := create_tween()
-			untilt.tween_property(cam_ctrl, "warp_transit_tilt", 0.0, 0.3) \
-				.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-			await untilt.finished
-		if _transit_lane_line_ref and is_instance_valid(_transit_lane_line_ref):
-			_transit_lane_line_ref.queue_free()
-			_transit_lane_line_ref = null
-		on_lane_arrival_v0(neighbor_node_id)
+	# Restore labels + hero + HUD.
+	var gv_restore = _find_galaxy_view()
+	if gv_restore and gv_restore.has_method("SetLocalLabelsVisibleV0"):
+		gv_restore.call("SetLocalLabelsVisibleV0", true)
+	if _hero_body and is_instance_valid(_hero_body):
+		_hero_body.visible = true
+	var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+	if hud and hud.has_method("set_overlay_mode_v0"):
+		hud.call("set_overlay_mode_v0", false)
 
 func _create_transit_marker_v0(pos: Vector3) -> MeshInstance3D:
 	var marker := MeshInstance3D.new()
@@ -1782,6 +1629,30 @@ func _poll_toast_events_v0() -> void:
 				display_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
 			toast_mgr.call("show_toast", "Arrived at %s" % display_name, 2.5)
 		_last_player_node_id = node_id
+
+	# GATE.S7.FACTION.REP_TOAST.001: Rep change toast (threshold >= 5 points)
+	if bridge.has_method("GetAllFactionsV0"):
+		var factions: Array = bridge.call("GetAllFactionsV0")
+		for f_var in factions:
+			if typeof(f_var) != TYPE_DICTIONARY:
+				continue
+			var f: Dictionary = f_var
+			var fid: String = str(f.get("faction_id", ""))
+			var rep: int = int(f.get("reputation", 0))
+			if fid.is_empty():
+				continue
+			if _last_rep_snapshot.has(fid):
+				var prev_rep: int = int(_last_rep_snapshot[fid])
+				var delta_rep: int = rep - prev_rep
+				if abs(delta_rep) >= 5:
+					var sign_str: String = "+" if delta_rep > 0 else ""
+					var msg: String = "Reputation with %s: %s%d" % [fid, sign_str, delta_rep]
+					var color: String = "#66FF66" if delta_rep > 0 else "#FF6666"
+					if toast_mgr.has_method("show_toast_colored"):
+						toast_mgr.call("show_toast_colored", msg, 4.0, color)
+					else:
+						toast_mgr.call("show_toast", msg, 4.0)
+			_last_rep_snapshot[fid] = rep
 
 # GATE.S11.GAME_FEEL.KEYBINDS.001: Toggle keybinds help overlay (H key).
 func _toggle_keybinds_help_v0() -> void:

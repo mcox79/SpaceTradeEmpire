@@ -489,21 +489,35 @@ func _rebuild_rows() -> void:
 		var sell_price: int = int(entry.get("sell_price", 0))
 		var stock: int = int(entry.get("qty", 0))
 
+		# GATE.S7.TERRITORY.EMBARGO_UI.001: Check if good is embargoed at this node
+		var _bridge_ref = get_node_or_null("/root/SimBridge")
+		var is_embargoed: bool = false
+		if _bridge_ref and _bridge_ref.has_method("IsGoodEmbargoedV0"):
+			is_embargoed = bool(_bridge_ref.call("IsGoodEmbargoedV0", _market_node_id, good_id))
+
 		var row = HBoxContainer.new()
 
 		var lbl_id = Label.new()
-		lbl_id.text = _format_display_name(good_id)
+		if is_embargoed:
+			lbl_id.text = _format_display_name(good_id) + " [EMBARGOED]"
+			lbl_id.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		else:
+			lbl_id.text = _format_display_name(good_id)
 		lbl_id.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl_id)
 
 		var lbl_buy = Label.new()
 		lbl_buy.text = "%d cr" % buy_price
 		lbl_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if is_embargoed:
+			lbl_buy.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
 		row.add_child(lbl_buy)
 
 		var lbl_sell = Label.new()
 		lbl_sell.text = "%d cr" % sell_price
 		lbl_sell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if is_embargoed:
+			lbl_sell.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
 		row.add_child(lbl_sell)
 
 		# GATE.S12.UX_POLISH.QUANTITY.001: [1, 5, Max] buy/sell quantity buttons
@@ -518,6 +532,9 @@ func _rebuild_rows() -> void:
 				btn_b.text = str(bq)
 				btn_b.pressed.connect(_buy_qty_v0.bind(good_id, bq))
 			btn_b.custom_minimum_size.x = 36
+			# GATE.S7.TERRITORY.EMBARGO_UI.001: Disable buy for embargoed goods
+			if is_embargoed:
+				btn_b.disabled = true
 			buy_box.add_child(btn_b)
 		row.add_child(buy_box)
 

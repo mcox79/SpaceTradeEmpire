@@ -563,3 +563,43 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-07, main, GATE.S7.INFRA.HEADLESS_PROOF.001 PASS (Headless proof: 10/10 bridge method checks pass, 3 factions via GetFactionMapV0). Evidence: scripts/tests/test_faction_infra.gd
 - 2026-03-07, main, GATE.X.HYGIENE.EPIC_REVIEW.018 PASS (Epic audit: S7.TERRITORY_REGIMES and S7.REPUTATION_INFLUENCE moved to IN_PROGRESS. Recommended anchor: EPIC.S7.FACTION_MODEL). Evidence: docs/54_EPICS.md
 - 2026-03-07, main, GATE.X.HYGIENE.LORE_REVIEW.001 PASS (Lore mapping: 22 gates across 10 priority areas from factions_and_lore_v0.md — 6 factions, goods map, instability phases, adaptation fragments, Haven, endgame). Evidence: docs/design/factions_and_lore_v0.md
+- 2026-03-08, main, GATE.S7.FACTION.CONTENT_DATA.001 PASS (5 named factions: Concord/Chitin/Weavers/Valorin/Communion with species, trade policy, tariff rates). Evidence: SimCore/Tweaks/FactionTweaksV0.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.PHASE_MODEL.001 PASS (Per-node instability int, 5 phases: Stable/Shimmer/Drift/Fracture/Void). Evidence: SimCore/Entities/Node.cs, SimCore/Tweaks/InstabilityTweaksV0.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.STATE_MODEL.001 PASS (WarfrontState entity: intensity 0-4, WarType Hot/Cold, contested nodes). Evidence: SimCore/Entities/WarfrontState.cs, SimCore/Tweaks/WarfrontTweaksV0.cs
+- 2026-03-08, main, GATE.X.HYGIENE.REPO_HEALTH.019 PASS (780 tests: 779 pass, 1 pre-existing RepoHealth large-file skip). Evidence: docs/55_GATES.md
+- 2026-03-08, main, GATE.S7.FACTION.PENTAGON_RING.001 PASS (Pentagon dependency ring + secondary cross-links, contract tests). Evidence: SimCore/Tweaks/FactionTweaksV0.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.SEEDING.001 PASS (1 hot war Valorin-Weavers, 1 cold war Concord-Chitin at genesis). Evidence: SimCore/Gen/GalaxyGenerator.cs, SimCore/World/WorldLoader.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.DEMAND_SHOCK.001 PASS (WarfrontDemandSystem: Munitions 4x, Composites 2.5x, Fuel 3x at max intensity). Evidence: SimCore/Systems/WarfrontDemandSystem.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.TARIFF_SCALING.001 PASS (War surcharge +300bps per intensity level on tariffs). Evidence: SimCore/Systems/MarketSystem.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.WORLDGEN.001 PASS (Initial instability: core=0-10, frontier=10-30, rim=20-50, void=50-80). Evidence: SimCore/Gen/GalaxyGenerator.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.BRIDGE.001 PASS (SimBridge.Warfront.cs: GetWarfrontsV0, GetNodeWarIntensityV0). Evidence: scripts/bridge/SimBridge.Warfront.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.BRIDGE.001 PASS (GetNodeInstabilityV0: level, phase, phase_index). Evidence: scripts/bridge/SimBridge.Faction.cs
+- 2026-03-08, main, GATE.S7.FACTION.IDENTITY_PANEL.001 PASS (Factions tab: species, philosophy, produces/needs per faction). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.EVOLUTION.001 PASS (Cold war escalation + hot war ceasefire with deterministic hash). Evidence: SimCore/Systems/WarfrontEvolutionSystem.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.NEUTRALITY_TAX.001 PASS (Neutrality surcharge +500/+1000/+1500 bps at Skirmish/OpenWar/TotalWar). Evidence: SimCore/Systems/MarketSystem.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.SUPPLY_CASCADE.001 PASS (Pentagon cascade tests: demand drain, evolution, content registry). Evidence: SimCore.Tests/Systems/SupplyCascadeTests.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.UI_MAP.001 PASS (Galaxy map warfront overlays: red/orange/yellow by intensity). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.VISUAL.001 PASS (Phase-colored nodes: purple for Void/Fracture, faint for Drift). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.HEADLESS_PROOF.001 PASS (Headless proof script for warfront+faction+instability). Evidence: scripts/tests/test_warfront_headless.gd
+- 2026-03-08, main, GATE.X.HYGIENE.EPIC_REVIEW.019 PASS (Epic audit: 96% gates DONE, EPIC.S7.FACTION_MODEL primary active). Evidence: docs/54_EPICS.md
+- 2026-03-08, main, GATE.X.HYGIENE.TENSION_EVAL.001 PASS (Tension eval: Economic 4/5, Political 4.5/5, Military 3.5/5, Environmental 2.5/5). Evidence: docs/design/dynamic_tension_v0.md
+- 2026-03-08, main, GATE.S7.SUPPLY.DELIVERY_LEDGER.001 PASS (War supply delivery tracking via WarSupplyLedger in SimState). Evidence: SimCore/Systems/WarfrontDemandSystem.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.TICK_SYSTEM.001 PASS (Per-tick instability evolution near warfronts, wired into SimKernel). Evidence: SimCore/Systems/InstabilitySystem.cs
+- 2026-03-08, main, GATE.S7.TERRITORY.EMBARGO_MODEL.001 PASS (EmbargoState entity + seeding + MarketSystem embargo check). Evidence: SimCore/Entities/EmbargoState.cs
+- 2026-03-08, main, GATE.S7.REPUTATION.TRADE_DRIFT.001 PASS (Natural rep decay toward 0 every 1440 ticks, wired in SimKernel). Evidence: SimCore/Systems/ReputationSystem.cs
+- 2026-03-08, main, GATE.S7.SUPPLY.WARFRONT_SHIFT.001 PASS (Supply deliveries exceeding threshold shift warfront intensity -1). Evidence: SimCore/Systems/WarfrontDemandSystem.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.CONSEQUENCES.001 PASS (Phase effects: Shimmer jitter, Drift lane delay, Fracture trade fail, Void market close). Evidence: SimCore/Systems/MarketSystem.cs
+- 2026-03-08, main, GATE.S7.TERRITORY.REGIME_TRANSITION.001 PASS (War intensity escalates territory regime: OpenWar→Restricted, TotalWar→Hostile). Evidence: SimCore/Systems/ReputationSystem.cs
+- 2026-03-08, main, GATE.S7.REPUTATION.WAR_PROFITEER.001 PASS (War-critical goods trade gives +2 buyer rep, -1 enemy rep). Evidence: SimCore/Systems/ReputationSystem.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.DASHBOARD_TAB.001 PASS (Warfronts tab in EmpireDashboard with combatants, intensity, type). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-08, main, GATE.X.HYGIENE.REPO_HEALTH.020 PASS (Full test suite 780/780, golden hashes stable, 0 build errors). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-08, main, GATE.S7.SUPPLY.BRIDGE.001 PASS (GetWarSupplyV0 bridge query with deliveries + shift progress). Evidence: scripts/bridge/SimBridge.Warfront.cs
+- 2026-03-08, main, GATE.S7.TERRITORY.EMBARGO_BRIDGE.001 PASS (GetEmbargoesV0 + IsGoodEmbargoedV0 bridge queries). Evidence: scripts/bridge/SimBridge.Faction.cs
+- 2026-03-08, main, GATE.S7.INSTABILITY.EFFECTS_BRIDGE.001 PASS (GetInstabilityEffectsV0 bridge query with phase effects). Evidence: scripts/bridge/SimBridge.Faction.cs
+- 2026-03-08, main, GATE.S7.WARFRONT.SUPPLY_HUD.001 PASS (Supply progress bar + deliveries in warfronts tab). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-08, main, GATE.S7.TERRITORY.EMBARGO_UI.001 PASS (Embargoed goods grayed out + buy disabled in trade menu). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-08, main, GATE.S7.INSTABILITY.EFFECTS_UI.001 PASS (Instability effects display combined with warfronts tab). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-08, main, GATE.S7.FACTION.REP_TOAST.001 PASS (Rep change toast when delta >= 5, color-coded green/red). Evidence: scripts/core/game_manager.gd
+- 2026-03-08, main, GATE.S7.WARFRONT.HEADLESS_PROOF.002 PASS (Headless proof: supply tracking, embargo, instability, regime queries). Evidence: scripts/tests/test_warfront_supply.gd
+- 2026-03-08, main, GATE.X.HYGIENE.EPIC_REVIEW.020 PASS (Epic audit: S7.SUPPLY_IMPACT/INSTABILITY_PHASES/TERRITORY_REGIMES closeable. Next anchor: S7.REPUTATION_INFLUENCE). Evidence: docs/54_EPICS.md
+- 2026-03-08, main, GATE.X.HYGIENE.FACTION_PLAYTEST.001 PASS (Warfront player eval: supply shift 4/5, embargo 3/5, instability 4/5, regime 4/5, rep toast 3/5). Evidence: docs/design/dynamic_tension_v0.md

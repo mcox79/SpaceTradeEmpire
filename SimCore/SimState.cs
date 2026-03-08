@@ -168,6 +168,12 @@ public partial class SimState
         // GATE.S7.WARFRONT.STATE_MODEL.001: Warfront state hydration.
         Warfronts ??= new Dictionary<string, Entities.WarfrontState>(StringComparer.Ordinal);
 
+        // GATE.S7.SUPPLY.DELIVERY_LEDGER.001: Supply ledger hydration.
+        WarSupplyLedger ??= new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+
+        // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Embargo state hydration.
+        Embargoes ??= new List<Entities.EmbargoState>();
+
         // GATE.S7.PLANET.MODEL.001: Planet + Star state hydration (backward compat: old saves have no planets).
         Planets ??= new Dictionary<string, Entities.Planet>(StringComparer.Ordinal);
         Stars ??= new Dictionary<string, Entities.Star>(StringComparer.Ordinal);

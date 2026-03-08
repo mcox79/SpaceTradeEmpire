@@ -176,6 +176,71 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S7.TERRITORY.EMBARGO_BRIDGE.001: Embargo status queries ──
+
+    /// <summary>
+    /// Returns embargoes affecting a market: array of {good_id, faction_id, reason}.
+    /// Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Array GetEmbargoesV0(string marketId)
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            if (string.IsNullOrEmpty(marketId)) return;
+
+            // Find node for this market to get its controlling faction.
+            string? nodeId = null;
+            foreach (var kv in state.Nodes)
+            {
+                if (StringComparer.Ordinal.Equals(kv.Value.MarketId, marketId))
+                {
+                    nodeId = kv.Key;
+                    break;
+                }
+            }
+            if (nodeId == null) return;
+            if (!state.NodeFactionId.TryGetValue(nodeId, out var nodeFactionId)) return;
+
+            // Check each embargo for relevance to this market's controlling faction.
+            if (state.Embargoes == null) return;
+            foreach (var embargo in state.Embargoes)
+            {
+                if (StringComparer.Ordinal.Equals(embargo.EnforcingFactionId, nodeFactionId))
+                {
+                    result.Add(new Godot.Collections.Dictionary
+                    {
+                        ["good_id"] = embargo.GoodId,
+                        ["faction_id"] = embargo.EnforcingFactionId,
+                        ["reason"] = $"Embargo by {embargo.EnforcingFactionId} (war with {embargo.TargetFactionId})",
+                    });
+                }
+            }
+        }, 0);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns whether a specific good is embargoed at a node's market.
+    /// Accepts nodeId (looks up market internally). Nonblocking read.
+    /// </summary>
+    public bool IsGoodEmbargoedV0(string nodeId, string goodId)
+    {
+        bool embargoed = false;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(goodId)) return;
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) return;
+            if (string.IsNullOrEmpty(node.MarketId)) return;
+            embargoed = MarketSystem.IsGoodEmbargoed(state, node.MarketId, goodId);
+        }, 0);
+
+        return embargoed;
+    }
+
     // ── GATE.S7.INSTABILITY.BRIDGE.001: Node instability queries ──
 
     /// <summary>
@@ -202,6 +267,46 @@ public partial class SimBridge
             result["level"] = level;
             result["phase"] = SimCore.Tweaks.InstabilityTweaksV0.GetPhaseName(level);
             result["phase_index"] = SimCore.Tweaks.InstabilityTweaksV0.GetPhaseIndex(level);
+        }, 0);
+
+        return result;
+    }
+
+    // ── GATE.S7.INSTABILITY.EFFECTS_BRIDGE.001: Instability phase effects query ──
+
+    /// <summary>
+    /// Returns instability effects for a node: phase, price_jitter_pct, lane_delay_pct,
+    /// trade_failure_pct, market_closed.
+    /// Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Dictionary GetInstabilityEffectsV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["node_id"] = nodeId ?? "",
+            ["phase"] = "Stable",
+            ["phase_index"] = 0,
+            ["price_jitter_pct"] = 0,
+            ["lane_delay_pct"] = 0,
+            ["trade_failure_pct"] = 0,
+            ["market_closed"] = false,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (string.IsNullOrEmpty(nodeId)) return;
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) return;
+
+            int level = node.InstabilityLevel;
+            int phaseIndex = SimCore.Tweaks.InstabilityTweaksV0.GetPhaseIndex(level);
+            result["phase"] = SimCore.Tweaks.InstabilityTweaksV0.GetPhaseName(level);
+            result["phase_index"] = phaseIndex;
+
+            // Phase-based effects from tweaks
+            result["price_jitter_pct"] = phaseIndex >= 1 ? SimCore.Tweaks.InstabilityTweaksV0.ShimmerPriceJitterPct : 0;
+            result["lane_delay_pct"] = phaseIndex >= 2 ? SimCore.Tweaks.InstabilityTweaksV0.DriftLaneDelayPct : 0;
+            result["trade_failure_pct"] = phaseIndex >= 3 ? SimCore.Tweaks.InstabilityTweaksV0.FractureTradeFailurePct : 0;
+            result["market_closed"] = phaseIndex >= 4;
         }, 0);
 
         return result;

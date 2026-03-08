@@ -265,6 +265,13 @@ public partial class SimState
     // GATE.S7.WARFRONT.STATE_MODEL.001: Active warfronts keyed by warfront ID.
     [JsonInclude] public Dictionary<string, WarfrontState> Warfronts { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.S7.SUPPLY.DELIVERY_LEDGER.001: Cumulative war supply deliveries per warfront+good.
+    // Outer key = warfrontId, inner key = goodId, value = cumulative units consumed.
+    [JsonInclude] public Dictionary<string, Dictionary<string, int>> WarSupplyLedger { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Active embargoes keyed by embargo ID.
+    [JsonInclude] public List<EmbargoState> Embargoes { get; private set; } = new();
+
     // GATE.S6.FRACTURE.VOID_SITES.001: Void discovery sites between systems.
     [JsonInclude] public Dictionary<string, VoidSite> VoidSites { get; private set; } = new(StringComparer.Ordinal);
 

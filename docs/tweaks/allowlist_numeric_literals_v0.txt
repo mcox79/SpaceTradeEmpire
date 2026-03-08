@@ -108,6 +108,8 @@ SimCore/Systems/MovementSystem.cs:0f
 # and ceiling calc literal (9999L for ceil division)
 SimCore/Systems/MarketSystem.cs:0
 SimCore/Systems/MarketSystem.cs:9999L
+# GATE.S7.INSTABILITY.CONSEQUENCES.001: structural phase index (Void >= 4 check)
+SimCore/Systems/MarketSystem.cs:4
 
 # MarketInitGen: structural hash primes + modulus for deterministic geo-distribution
 SimCore/Gen/MarketInitGen.cs:7919
@@ -125,6 +127,19 @@ SimCore/Systems/NpcFleetCombatSystem.cs:1
 
 # GATE.S7.WARFRONT.DEMAND_SHOCK.001: structural zeros (count==0 check, qty<=0 check, Math.Max(0,...) clamp)
 SimCore/Systems/WarfrontDemandSystem.cs:0
+# GATE.S7.SUPPLY.WARFRONT_SHIFT.001: structural -1 intensity step
+SimCore/Systems/WarfrontDemandSystem.cs:1
+
+# GATE.S7.INSTABILITY.TICK_SYSTEM.001: structural zeros (count==0, instability>0, tick>0, Math.Max(0,...))
+SimCore/Systems/InstabilitySystem.cs:0
+
+# GATE.S7.REPUTATION.TRADE_DRIFT.001: structural zeros (tick>0, count>0, rep>0/rep<0 direction checks)
+SimCore/Systems/ReputationSystem.cs:0
+
+# GATE.S7.INSTABILITY.CONSEQUENCES.001: structural literals (Drift phase >= 2, Math.Max(1,...) clamp, /100 pct calc)
+SimCore/Systems/LaneFlowSystem.cs:2
+SimCore/Systems/LaneFlowSystem.cs:1
+SimCore/Systems/LaneFlowSystem.cs:100
 
 # GATE.S7.WARFRONT.EVOLUTION.001: structural literals (count==0, modulus 20/33 for probability,
 # +1/-1 intensity step, FNV hash constants)

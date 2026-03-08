@@ -4,8 +4,6 @@
 [ext_resource type="Script" path="res://scripts/view/player_follow_camera.gd" id="2_followcam"]
 [ext_resource type="Script" path="res://scripts/view/engine_trail.gd" id="3_engine_trail"]
 [ext_resource type="Script" path="res://scripts/audio/engine_audio.gd" id="4_engine_audio"]
-[ext_resource type="Script" path="res://addons/phantom_camera/scripts/phantom_camera_host/phantom_camera_host.gd" id="6_pcam_host"]
-[ext_resource type="Script" path="res://addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd" id="7_pcam3d"]
 [ext_resource type="PackedScene" path="res://addons/quaternius-ultimate-spaceships-pack/meshes/insurgent/insurgent_blue.tscn" id="8_ship_model"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hitbox"]
@@ -72,17 +70,6 @@ script = ExtResource("3_engine_trail")
 [node name="Camera3D" type="Camera3D" parent="CameraMount" unique_id=1607566704]
 script = ExtResource("2_followcam")
 target_path = NodePath("../..")
-
-[node name="PhantomCameraHost" type="Node" parent="CameraMount/Camera3D"]
-process_priority = 300
-process_physics_priority = 300
-script = ExtResource("6_pcam_host")
-
-[node name="PhantomCamera3D" type="Node3D" parent="CameraMount"]
-top_level = true
-script = ExtResource("7_pcam3d")
-priority = 10
-follow_mode = 2
 
 [node name="EngineAudio" type="AudioStreamPlayer" parent="."]
 script = ExtResource("4_engine_audio")

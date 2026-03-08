@@ -65,6 +65,10 @@ public partial class GalaxyView : Node3D
     private string _transitOriginId = "";
     private string _transitDestId = "";
 
+    // Pre-computed gate local positions: "nodeId|neighborId" → position relative to star center.
+    // Computed once during init; used by lane rendering, transit camera, and hero positioning.
+    private readonly Dictionary<string, Vector3> _gateLocalPositionCache = new();
+
     private int _lastNodeCount = 0;
     private int _lastEdgeCount = 0;
     private bool _lastPlayerHighlighted = false;
@@ -535,6 +539,9 @@ public partial class GalaxyView : Node3D
         var galaxySnap = _bridge.GetGalaxySnapshotV0();
         if (galaxySnap == null) return;
 
+        // Pre-compute gate positions for ALL systems upfront.
+        PrecomputeAllGatePositionsV0();
+
         var nodeId = galaxySnap.ContainsKey("player_current_node_id")
             ? (string)galaxySnap["player_current_node_id"]
             : "";
@@ -744,13 +751,10 @@ public partial class GalaxyView : Node3D
                 MaterialOverride = laneMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
-            // Connect gate-to-gate: offset each endpoint by LaneGateDistanceU toward
-            // the neighbor so the lane line starts/ends at the gate markers, not the stars.
-            var laneDir = (toPos - fromPos).Normalized();
-            float laneDist = fromPos.DistanceTo(toPos);
-            float gateOffset = MathF.Min(LaneGateDistanceU, laneDist * 0.4f);
-            var gateFrom = fromPos + laneDir * gateOffset;
-            var gateTo = toPos - laneDir * gateOffset;
+            // Connect gate-to-gate: use pre-computed gate positions so the lane line
+            // starts/ends at the exact gate marker positions.
+            var gateFrom = GetCachedGateGlobalPositionV0(fromId, toId);
+            var gateTo = GetCachedGateGlobalPositionV0(toId, fromId);
             UpdateEdgeTransformV0(mesh, gateFrom, gateTo);
             _persistentLanesRoot.AddChild(mesh);
         }
@@ -1182,31 +1186,7 @@ public partial class GalaxyView : Node3D
         if (!snap.ContainsKey("lane_gate")) return;
         var gates = snap["lane_gate"].AsGodotArray();
 
-        // GATE.S13.WORLD.GATE_DIRECTION.001: Position gates in the direction of their destination.
-        // Get galaxy-level positions so gates point toward their neighbor system.
-        var galSnap = _bridge?.GetGalaxySnapshotV0();
-        var nodePositions = new System.Collections.Generic.Dictionary<string, Vector3>();
-        if (galSnap != null && galSnap.ContainsKey("system_nodes"))
-        {
-            var rawNodes = galSnap["system_nodes"].AsGodotArray();
-            for (int n = 0; n < rawNodes.Count; n++)
-            {
-                var nd = rawNodes[n].AsGodotDictionary();
-                var nid = nd.ContainsKey("node_id") ? (string)(Variant)nd["node_id"] : "";
-                float nx = nd.ContainsKey("pos_x") ? (float)(Variant)nd["pos_x"] : 0f;
-                float nz = nd.ContainsKey("pos_z") ? (float)(Variant)nd["pos_z"] : 0f;
-                if (!string.IsNullOrEmpty(nid))
-                    nodePositions[nid] = new Vector3(nx, 0f, nz);
-            }
-        }
-
         var currentNodeId = snap.ContainsKey("node_id") ? (string)snap["node_id"] : "";
-        Vector3 currentGalPos = nodePositions.TryGetValue(currentNodeId, out var cPos)
-            ? cPos : Vector3.Zero;
-
-        // Compute gate directions first, then enforce minimum angular separation.
-        const float MinGateSeparationU = 20.0f; // Minimum distance between any two gates.
-        var gatePositions = new List<Vector3>();
 
         for (int i = 0; i < gates.Count; i++)
         {
@@ -1222,44 +1202,30 @@ public partial class GalaxyView : Node3D
             _localSystemRoot.AddChild(marker);
             marker.AddToGroup("LaneGate");
 
+            // Use pre-computed gate position from cache.
+            var cacheKey = currentNodeId + "|" + neighborId;
             Vector3 gatePos;
-            Vector3 dir2d = Vector3.Zero;
-            if (nodePositions.TryGetValue(neighborId, out var neighborGalPos) && currentGalPos != neighborGalPos)
+            if (_gateLocalPositionCache.TryGetValue(cacheKey, out var cachedPos))
             {
-                dir2d = (neighborGalPos - currentGalPos).Normalized();
-                gatePos = dir2d * LaneGateDistanceU;
+                gatePos = cachedPos;
             }
             else
             {
-                gatePos = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
-                dir2d = gatePos.Normalized();
-            }
-
-            // Enforce minimum separation: nudge gate if too close to any previously placed gate.
-            for (int attempt = 0; attempt < 8; attempt++)
-            {
-                bool tooClose = false;
-                for (int j = 0; j < gatePositions.Count; j++)
+                // Fallback: direction-based (cache may not be populated for this pair).
+                var neighborPos = GetNodeScaledPositionV0(neighborId);
+                var currentPos = GetNodeScaledPositionV0(currentNodeId);
+                if (currentPos != Vector3.Zero && neighborPos != Vector3.Zero && currentPos != neighborPos)
                 {
-                    if (gatePos.DistanceTo(gatePositions[j]) < MinGateSeparationU)
-                    {
-                        tooClose = true;
-                        break;
-                    }
+                    var dir = (neighborPos - currentPos).Normalized();
+                    gatePos = dir * LaneGateDistanceU;
                 }
-                if (!tooClose) break;
-                // Rotate gate position 15 degrees clockwise around Y.
-                float nudgeAngle = (attempt + 1) * 15.0f * MathF.PI / 180.0f;
-                gatePos = new Vector3(
-                    dir2d.X * MathF.Cos(nudgeAngle) - dir2d.Z * MathF.Sin(nudgeAngle),
-                    0f,
-                    dir2d.X * MathF.Sin(nudgeAngle) + dir2d.Z * MathF.Cos(nudgeAngle)
-                ) * LaneGateDistanceU;
+                else
+                {
+                    gatePos = DeriveLaneGatePositionV0(i, gates.Count, LaneGateDistanceU);
+                }
             }
-
-            gatePositions.Add(gatePos);
             marker.Position = gatePos;
-            if (dir2d != Vector3.Zero)
+            if (gatePos != Vector3.Zero)
                 marker.LookAt(marker.Position + gatePos.Normalized(), Vector3.Up);
         }
     }
@@ -1450,19 +1416,21 @@ public partial class GalaxyView : Node3D
     // Find a lane gate's local-space position for a given neighbor node ID.
     private Vector3 GetGateLocalPositionForNeighborV0(string neighborId)
     {
+        // Primary: pre-computed cache (no scene-tree dependency).
+        if (!string.IsNullOrEmpty(_currentLocalNodeId) && !string.IsNullOrEmpty(neighborId))
+        {
+            var cacheKey = _currentLocalNodeId + "|" + neighborId;
+            if (_gateLocalPositionCache.TryGetValue(cacheKey, out var cached))
+                return cached;
+        }
+
+        // Fallback: scene tree search.
         if (_localSystemRoot == null || string.IsNullOrEmpty(neighborId)) return Vector3.Zero;
         foreach (var child in _localSystemRoot.GetChildren())
         {
             if (child is not Node3D n3d) continue;
             if (!n3d.IsInGroup("LaneGate")) continue;
             if (n3d.HasMeta("neighbor_node_id") && (string)n3d.GetMeta("neighbor_node_id") == neighborId)
-                return n3d.Position;
-        }
-        // Fallback: search by name.
-        var expectedName = "LaneGate_" + neighborId;
-        foreach (var child in _localSystemRoot.GetChildren())
-        {
-            if (child is Node3D n3d && n3d.Name == expectedName)
                 return n3d.Position;
         }
         return Vector3.Zero;
@@ -2371,37 +2339,25 @@ public partial class GalaxyView : Node3D
     // GATE.S13.WORLD.GATE_ARRIVAL.001: Get gate position for a neighbor node (for arrival positioning).
     public Vector3 GetGatePositionV0(string neighborId)
     {
+        // Primary: use pre-computed cache (always available, no scene-tree dependency).
+        if (!string.IsNullOrEmpty(_currentNodeId) && !string.IsNullOrEmpty(neighborId))
+        {
+            var cached = GetCachedGateGlobalPositionV0(_currentNodeId, neighborId);
+            if (cached != Vector3.Zero)
+                return cached;
+        }
+
+        // Fallback: scene tree search (legacy).
         if (_localSystemRoot == null || string.IsNullOrEmpty(neighborId)) return Vector3.Zero;
         var rootPos = _localSystemRoot.IsInsideTree()
             ? _localSystemRoot.GlobalPosition
             : _localSystemRoot.Position;
-
-        // Primary: search by group + meta.
         foreach (var child in _localSystemRoot.GetChildren())
         {
             if (child is not Node3D n3d) continue;
             if (!n3d.IsInGroup("LaneGate")) continue;
             if (n3d.HasMeta("neighbor_node_id") && (string)n3d.GetMeta("neighbor_node_id") == neighborId)
                 return rootPos + n3d.Position;
-        }
-        // Fallback: search by node name (group registration may lag one frame after AddChild).
-        var expectedName = "LaneGate_" + neighborId;
-        foreach (var child in _localSystemRoot.GetChildren())
-        {
-            if (child is not Node3D n3d) continue;
-            if (n3d.Name == expectedName)
-                return rootPos + n3d.Position;
-        }
-        // Last resort: compute from galaxy data — place gate at LaneGateDistanceU toward neighbor.
-        if (_bridge != null)
-        {
-            var currentPos = GetNodeScaledPositionV0(_currentNodeId);
-            var neighborPos = GetNodeScaledPositionV0(neighborId);
-            if (currentPos != Vector3.Zero && neighborPos != Vector3.Zero && currentPos != neighborPos)
-            {
-                var dir = (neighborPos - currentPos).Normalized();
-                return currentPos + dir * LaneGateDistanceU;
-            }
         }
         return Vector3.Zero;
     }
@@ -2411,6 +2367,131 @@ public partial class GalaxyView : Node3D
     {
         float angle = total > 0 ? ((float)index / total) * 2f * MathF.PI : 0f;
         return new Vector3(MathF.Cos(angle) * distance, 0f, MathF.Sin(angle) * distance);
+    }
+
+    // Pre-compute gate positions for ALL systems from galaxy data.
+    // Uses the same direction+nudging algorithm as SpawnLaneGatesV0 but runs upfront
+    // so gate positions are known before any local system is drawn.
+    // Key: "nodeId|neighborId" → local position relative to star center.
+    private void PrecomputeAllGatePositionsV0()
+    {
+        _gateLocalPositionCache.Clear();
+        if (_bridge == null) return;
+        var galSnap = _bridge.GetGalaxySnapshotV0();
+        if (galSnap == null) return;
+
+        // Build node positions (unscaled, for direction computation only).
+        var rawNodes = galSnap.ContainsKey("system_nodes")
+            ? galSnap["system_nodes"].AsGodotArray()
+            : new Godot.Collections.Array();
+        var nodePositions = new Dictionary<string, Vector3>();
+        for (int i = 0; i < rawNodes.Count; i++)
+        {
+            var nd = rawNodes[i].AsGodotDictionary();
+            var nid = nd.ContainsKey("node_id") ? (string)(Variant)nd["node_id"] : "";
+            float nx = nd.ContainsKey("pos_x") ? (float)(Variant)nd["pos_x"] : 0f;
+            float nz = nd.ContainsKey("pos_z") ? (float)(Variant)nd["pos_z"] : 0f;
+            if (!string.IsNullOrEmpty(nid))
+                nodePositions[nid] = new Vector3(nx, 0f, nz);
+        }
+
+        // Build per-node neighbor lists from edges (sorted for deterministic nudging order).
+        var rawEdges = galSnap.ContainsKey("lane_edges")
+            ? galSnap["lane_edges"].AsGodotArray()
+            : new Godot.Collections.Array();
+        var neighborsByNode = new Dictionary<string, List<string>>();
+        for (int i = 0; i < rawEdges.Count; i++)
+        {
+            var e = rawEdges[i].AsGodotDictionary();
+            var fromId = e.ContainsKey("from_id") ? (string)(Variant)e["from_id"] : "";
+            var toId = e.ContainsKey("to_id") ? (string)(Variant)e["to_id"] : "";
+            if (string.IsNullOrEmpty(fromId) || string.IsNullOrEmpty(toId)) continue;
+            if (!neighborsByNode.ContainsKey(fromId))
+                neighborsByNode[fromId] = new List<string>();
+            if (!neighborsByNode[fromId].Contains(toId))
+                neighborsByNode[fromId].Add(toId);
+            if (!neighborsByNode.ContainsKey(toId))
+                neighborsByNode[toId] = new List<string>();
+            if (!neighborsByNode[toId].Contains(fromId))
+                neighborsByNode[toId].Add(fromId);
+        }
+
+        const float MinGateSeparationU = 20.0f;
+
+        // For each node, compute gate positions for all neighbors.
+        foreach (var kv in neighborsByNode)
+        {
+            var nodeId = kv.Key;
+            var neighbors = kv.Value;
+            neighbors.Sort(StringComparer.Ordinal); // Deterministic order for nudging.
+
+            if (!nodePositions.TryGetValue(nodeId, out var currentGalPos))
+                continue;
+
+            var placedGatePositions = new List<Vector3>();
+
+            for (int i = 0; i < neighbors.Count; i++)
+            {
+                var neighborId = neighbors[i];
+                Vector3 gatePos;
+                Vector3 dir2d;
+
+                if (nodePositions.TryGetValue(neighborId, out var neighborGalPos) && currentGalPos != neighborGalPos)
+                {
+                    dir2d = (neighborGalPos - currentGalPos).Normalized();
+                    gatePos = dir2d * LaneGateDistanceU;
+                }
+                else
+                {
+                    gatePos = DeriveLaneGatePositionV0(i, neighbors.Count, LaneGateDistanceU);
+                    dir2d = gatePos.Normalized();
+                }
+
+                // Enforce minimum separation: nudge if too close to already-placed gates.
+                for (int attempt = 0; attempt < 8; attempt++)
+                {
+                    bool tooClose = false;
+                    for (int j = 0; j < placedGatePositions.Count; j++)
+                    {
+                        if (gatePos.DistanceTo(placedGatePositions[j]) < MinGateSeparationU)
+                        {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    if (!tooClose) break;
+                    float nudgeAngle = (attempt + 1) * 15.0f * MathF.PI / 180.0f;
+                    gatePos = new Vector3(
+                        dir2d.X * MathF.Cos(nudgeAngle) - dir2d.Z * MathF.Sin(nudgeAngle),
+                        0f,
+                        dir2d.X * MathF.Sin(nudgeAngle) + dir2d.Z * MathF.Cos(nudgeAngle)
+                    ) * LaneGateDistanceU;
+                }
+
+                placedGatePositions.Add(gatePos);
+                _gateLocalPositionCache[nodeId + "|" + neighborId] = gatePos;
+            }
+        }
+    }
+
+    // Get a gate's world-space position from the pre-computed cache.
+    // Returns the galactic-scaled star position + local gate offset.
+    // Callable from GDScript for transit camera targeting.
+    public Vector3 GetCachedGateGlobalPositionV0(string nodeId, string neighborId)
+    {
+        var key = nodeId + "|" + neighborId;
+        if (_gateLocalPositionCache.TryGetValue(key, out var localPos))
+            return GetNodeScaledPositionV0(nodeId) + localPos;
+        // Fallback: direction-based estimate (no nudging).
+        // Note: a star CAN be at (0,0,0) — only reject if both positions are identical.
+        var starPos = GetNodeScaledPositionV0(nodeId);
+        var neighborPos = GetNodeScaledPositionV0(neighborId);
+        if (starPos != neighborPos)
+        {
+            var dir = (neighborPos - starPos).Normalized();
+            return starPos + dir * LaneGateDistanceU;
+        }
+        return starPos;
     }
 
     // --- Galaxy overlay rendering ---

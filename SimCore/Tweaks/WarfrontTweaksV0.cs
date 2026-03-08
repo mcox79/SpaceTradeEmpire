@@ -39,6 +39,12 @@ public static class WarfrontTweaksV0
     public const int HotWarCeasefireMinTick = 600;
     public const int HotWarCeasefireMaxTick = 1200;
 
+    // ── Supply shift thresholds ──
+    // GATE.S7.SUPPLY.WARFRONT_SHIFT.001: Cumulative supply delivery threshold to shift intensity.
+    // When total deliveries (all goods combined) exceed this, defender intensity shifts by -1.
+    // Threshold resets after each shift.
+    public const int SupplyShiftThreshold = 500;
+
     // ── Contested node detection radius (BFS depth from faction borders) ──
     public const int ContestedBfsDepth = 1;
 }

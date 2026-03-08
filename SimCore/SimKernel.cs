@@ -110,6 +110,9 @@ public class SimKernel
         // GATE.S7.WARFRONT.EVOLUTION.001: Warfront state transitions (escalation/de-escalation).
         WarfrontEvolutionSystem.Process(_state);
 
+        // GATE.S7.INSTABILITY.TICK_SYSTEM.001: Per-tick instability evolution near warfronts.
+        InstabilitySystem.Process(_state);
+
         // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
         NpcTradeSystem.ProcessNpcTrade(_state);
 
@@ -124,6 +127,9 @@ public class SimKernel
 
         // GATE.X.PRESSURE.ENFORCE.001: Apply pressure consequences.
         PressureSystem.EnforceConsequences(_state);
+
+        // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural rep decay toward neutral.
+        ReputationSystem.Process(_state);
 
         // GATE.S12.PROGRESSION.MILESTONES.001: Evaluate player milestones.
         MilestoneSystem.Process(_state);

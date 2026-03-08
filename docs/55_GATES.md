@@ -405,26 +405,46 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.018 | DONE | Full test suite, warnings, dead code, golden hash |
 | GATE.X.HYGIENE.EPIC_REVIEW.018 | DONE | Audit epic statuses, recommend content tranche |
 | GATE.X.HYGIENE.LORE_REVIEW.001 | DONE | Map lore doc to gates for content tranche |
-| GATE.S7.FACTION.CONTENT_DATA.001 | TODO | Populate 5 factions with lore-accurate content data |
-| GATE.S7.INSTABILITY.PHASE_MODEL.001 | TODO | Per-node instability int (0-100+), 5 phase thresholds |
-| GATE.S7.WARFRONT.STATE_MODEL.001 | TODO | Warfront entity: combatants, intensity 0-4, contested nodes |
-| GATE.X.HYGIENE.REPO_HEALTH.019 | TODO | Full test suite + golden hash stability |
-| GATE.S7.FACTION.PENTAGON_RING.001 | TODO | Pentagon dependency ring + secondary cross-links |
-| GATE.S7.WARFRONT.SEEDING.001 | TODO | Seed 1 hot war + 1 cold war at tick 0 |
-| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | TODO | Wartime demand multipliers on market consumption |
-| GATE.S7.WARFRONT.TARIFF_SCALING.001 | TODO | War surcharge: BaseTariff + Surcharge * Intensity |
-| GATE.S7.INSTABILITY.WORLDGEN.001 | TODO | GalaxyGenerator assigns initial instability per node |
-| GATE.S7.WARFRONT.BRIDGE.001 | TODO | SimBridge warfront queries |
-| GATE.S7.INSTABILITY.BRIDGE.001 | TODO | SimBridge instability phase queries |
-| GATE.S7.FACTION.IDENTITY_PANEL.001 | TODO | Faction identity UI panel (species, produces/needs) |
-| GATE.S7.WARFRONT.EVOLUTION.001 | TODO | Warfront intensity evolution over ticks |
-| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | TODO | Escalating costs for neutral traders during war |
-| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | TODO | Pentagon cascade: war disrupts supply chain |
-| GATE.S7.WARFRONT.UI_MAP.001 | TODO | Galaxy map warfront overlays + tariff display |
-| GATE.S7.INSTABILITY.VISUAL.001 | TODO | Galaxy map phase-colored nodes + shimmer |
-| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | TODO | Headless proof: factions, warfronts, demand, tariffs |
-| GATE.X.HYGIENE.EPIC_REVIEW.019 | TODO | Audit epic statuses, recommend next anchor |
-| GATE.X.HYGIENE.TENSION_EVAL.001 | TODO | Eval dynamic_tension_v0.md vs sim capabilities |
+| GATE.S7.FACTION.CONTENT_DATA.001 | DONE | Populate 5 factions with lore-accurate content data |
+| GATE.S7.INSTABILITY.PHASE_MODEL.001 | DONE | Per-node instability int (0-100+), 5 phase thresholds |
+| GATE.S7.WARFRONT.STATE_MODEL.001 | DONE | Warfront entity: combatants, intensity 0-4, contested nodes |
+| GATE.X.HYGIENE.REPO_HEALTH.019 | DONE | Full test suite + golden hash stability |
+| GATE.S7.FACTION.PENTAGON_RING.001 | DONE | Pentagon dependency ring + secondary cross-links |
+| GATE.S7.WARFRONT.SEEDING.001 | DONE | Seed 1 hot war + 1 cold war at tick 0 |
+| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | DONE | Wartime demand multipliers on market consumption |
+| GATE.S7.WARFRONT.TARIFF_SCALING.001 | DONE | War surcharge: BaseTariff + Surcharge * Intensity |
+| GATE.S7.INSTABILITY.WORLDGEN.001 | DONE | GalaxyGenerator assigns initial instability per node |
+| GATE.S7.WARFRONT.BRIDGE.001 | DONE | SimBridge warfront queries |
+| GATE.S7.INSTABILITY.BRIDGE.001 | DONE | SimBridge instability phase queries |
+| GATE.S7.FACTION.IDENTITY_PANEL.001 | DONE | Faction identity UI panel (species, produces/needs) |
+| GATE.S7.WARFRONT.EVOLUTION.001 | DONE | Warfront intensity evolution over ticks |
+| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | DONE | Escalating costs for neutral traders during war |
+| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | DONE | Pentagon cascade: war disrupts supply chain |
+| GATE.S7.WARFRONT.UI_MAP.001 | DONE | Galaxy map warfront overlays + tariff display |
+| GATE.S7.INSTABILITY.VISUAL.001 | DONE | Galaxy map phase-colored nodes + shimmer |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | DONE | Headless proof: factions, warfronts, demand, tariffs |
+| GATE.X.HYGIENE.EPIC_REVIEW.019 | DONE | Audit epic statuses, recommend next anchor |
+| GATE.X.HYGIENE.TENSION_EVAL.001 | DONE | Eval dynamic_tension_v0.md vs sim capabilities |
+| GATE.S7.SUPPLY.DELIVERY_LEDGER.001 | DONE | Track war supply deliveries per faction |
+| GATE.S7.INSTABILITY.TICK_SYSTEM.001 | DONE | Per-tick instability evolution near warfronts |
+| GATE.S7.TERRITORY.EMBARGO_MODEL.001 | DONE | Embargo entity + blocked goods at war markets |
+| GATE.S7.REPUTATION.TRADE_DRIFT.001 | DONE | Rep decay toward neutral + trade-based rep shifts |
+| GATE.S7.WARFRONT.DASHBOARD_TAB.001 | DONE | Warfronts tab in Empire Dashboard |
+| GATE.X.HYGIENE.REPO_HEALTH.020 | DONE | Full test suite + golden hash stability |
+| GATE.S7.SUPPLY.WARFRONT_SHIFT.001 | DONE | Supply deliveries shift warfront intensity |
+| GATE.S7.INSTABILITY.CONSEQUENCES.001 | DONE | Phase effects: price jitter, lane delays |
+| GATE.S7.TERRITORY.REGIME_TRANSITION.001 | DONE | War-driven regime shifts (Open->Restricted->Closed) |
+| GATE.S7.REPUTATION.WAR_PROFITEER.001 | DONE | War profiteering: sell war goods = rep effects |
+| GATE.S7.SUPPLY.BRIDGE.001 | DONE | SimBridge war supply delivery queries |
+| GATE.S7.TERRITORY.EMBARGO_BRIDGE.001 | DONE | SimBridge embargo status queries |
+| GATE.S7.INSTABILITY.EFFECTS_BRIDGE.001 | DONE | SimBridge instability phase effects queries |
+| GATE.S7.WARFRONT.SUPPLY_HUD.001 | DONE | Supply needs + delivery progress in warfront tab |
+| GATE.S7.TERRITORY.EMBARGO_UI.001 | DONE | Trade menu embargoed goods display |
+| GATE.S7.INSTABILITY.EFFECTS_UI.001 | DONE | Node popup instability phase effects |
+| GATE.S7.FACTION.REP_TOAST.001 | DONE | Rep change toast notifications |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.002 | DONE | Headless proof: supply + embargo + instability |
+| GATE.X.HYGIENE.EPIC_REVIEW.020 | DONE | Epic audit + next anchor recommendation |
+| GATE.X.HYGIENE.FACTION_PLAYTEST.001 | DONE | Warfront player experience evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -1511,33 +1531,72 @@ NPC fleet ships become physical 3D entities with LimboAI behavior trees, sim-dri
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.S7.FACTION.CONTENT_DATA.001 | TODO | Update 3 placeholder factions to 5 named factions (Concord/Chitin/Weavers/Valorin/Communion) with lore-accurate: species, TradePolicy, TariffRate, AggressionLevel, production goods, needed goods per factions_and_lore_v0.md. Update FactionTweaksV0 + WorldFaction + GalaxyGenerator. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/Schemas/WorldDefinition.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs |
-| GATE.S7.INSTABILITY.PHASE_MODEL.001 | TODO | Add InstabilityLevel int field to Node entity. 5 phases: Stable(0-24), Shimmer(25-49), Drift(50-74), Fracture(75-99), Void(100+). NEW: InstabilityTweaksV0.cs with thresholds. Add phase helper methods. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Entities/Node.cs, NEW: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/SimState.cs |
-| GATE.S7.WARFRONT.STATE_MODEL.001 | TODO | New WarfrontState entity: Id, CombatantA, CombatantB, Intensity(0-4), ContestedNodeIds, TickStarted, WarType(Hot/Cold). Store in SimState.Warfronts dictionary. NEW: WarfrontTweaksV0.cs. Proof: dotnet test --filter "Determinism" | NEW: SimCore/Entities/WarfrontState.cs, NEW: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimState.cs |
-| GATE.S7.FACTION.PENTAGON_RING.001 | TODO | Pentagon dependency model in FactionTweaksV0: primary ring (Concord->Composites from Weavers, Weavers->Electronics from Chitin, Chitin->Rare Metals from Valorin, Valorin->Exotic Crystals from Communion, Communion->Food+Fuel from Concord) + secondary cross-links. Contract test validates ring integrity. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, NEW: SimCore.Tests/Systems/FactionDependencyTests.cs |
-| GATE.S7.WARFRONT.SEEDING.001 | TODO | GalaxyGenerator seeds warfronts at world creation: 1 hot war (Valorin-Weaver territorial), 1 cold war (Concord-Chitin informational). Player starts in non-combatant space 2-3 hops from front. Contested nodes at faction borders. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, NEW: SimCore/Entities/WarfrontState.cs, FOUND: SimCore/World/WorldLoader.cs |
-| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | TODO | NEW: WarfrontDemandSystem. Factions at war consume goods at elevated rates per WarfrontTweaksV0 (Munitions 3-5x, Composites 2-3x, Fuel 2-4x). Adjusts NPC consumption multiplier based on warfront intensity. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontDemandSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimKernel.cs |
-| GATE.S7.WARFRONT.TARIFF_SCALING.001 | TODO | Update MarketSystem tariff calculation: EffectiveTariff = BaseTariff + (WarSurcharge * NodeWarfrontIntensity). Per-system, not per-faction. WarSurcharge values in WarfrontTweaksV0. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, NEW: SimCore.Tests/Systems/WarfrontTariffTests.cs |
-| GATE.S7.INSTABILITY.WORLDGEN.001 | TODO | GalaxyGenerator assigns initial instability per node: core=0-10, frontier=10-30, rim=20-50, void sites=50-80. Discovery sites placed in Shimmer+ zones. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/Entities/Node.cs |
-| GATE.S7.WARFRONT.EVOLUTION.001 | TODO | NEW: WarfrontEvolutionSystem. Warfront intensity evolves per tick: cold war escalates to hot (tick 200-600 by seed), hot war can ceasefire (tick 600-1200). New fronts open as old ones cool. Deterministic by seed. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontEvolutionSystem.cs, FOUND: SimCore/SimKernel.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs |
-| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | TODO | MarketSystem applies neutrality surcharge for unaligned traders at war-zone stations: +5% at Intensity 2, +10% at 3, +15% at 4. Inspection frequency scaling. Access denial at Intensity 4 frontline without allegiance. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/Systems/ReputationSystem.cs |
-| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | TODO | Pentagon cascade test suite: war between A-B disrupts A production -> downstream faction supply drops -> prices spike at dependent stations. Verify cascade through NpcTradeSystem + MarketSystem. Proof: dotnet test --filter "Determinism" | NEW: SimCore.Tests/Systems/WarfrontCascadeTests.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Systems/MarketSystem.cs |
+| GATE.S7.FACTION.CONTENT_DATA.001 | DONE | Update 3 placeholder factions to 5 named factions (Concord/Chitin/Weavers/Valorin/Communion) with lore-accurate: species, TradePolicy, TariffRate, AggressionLevel, production goods, needed goods per factions_and_lore_v0.md. Update FactionTweaksV0 + WorldFaction + GalaxyGenerator. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/Schemas/WorldDefinition.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs |
+| GATE.S7.INSTABILITY.PHASE_MODEL.001 | DONE | Add InstabilityLevel int field to Node entity. 5 phases: Stable(0-24), Shimmer(25-49), Drift(50-74), Fracture(75-99), Void(100+). NEW: InstabilityTweaksV0.cs with thresholds. Add phase helper methods. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Entities/Node.cs, NEW: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/SimState.cs |
+| GATE.S7.WARFRONT.STATE_MODEL.001 | DONE | New WarfrontState entity: Id, CombatantA, CombatantB, Intensity(0-4), ContestedNodeIds, TickStarted, WarType(Hot/Cold). Store in SimState.Warfronts dictionary. NEW: WarfrontTweaksV0.cs. Proof: dotnet test --filter "Determinism" | NEW: SimCore/Entities/WarfrontState.cs, NEW: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimState.cs |
+| GATE.S7.FACTION.PENTAGON_RING.001 | DONE | Pentagon dependency model in FactionTweaksV0: primary ring (Concord->Composites from Weavers, Weavers->Electronics from Chitin, Chitin->Rare Metals from Valorin, Valorin->Exotic Crystals from Communion, Communion->Food+Fuel from Concord) + secondary cross-links. Contract test validates ring integrity. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, NEW: SimCore.Tests/Systems/FactionDependencyTests.cs |
+| GATE.S7.WARFRONT.SEEDING.001 | DONE | GalaxyGenerator seeds warfronts at world creation: 1 hot war (Valorin-Weaver territorial), 1 cold war (Concord-Chitin informational). Player starts in non-combatant space 2-3 hops from front. Contested nodes at faction borders. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, NEW: SimCore/Entities/WarfrontState.cs, FOUND: SimCore/World/WorldLoader.cs |
+| GATE.S7.WARFRONT.DEMAND_SHOCK.001 | DONE | NEW: WarfrontDemandSystem. Factions at war consume goods at elevated rates per WarfrontTweaksV0 (Munitions 3-5x, Composites 2-3x, Fuel 2-4x). Adjusts NPC consumption multiplier based on warfront intensity. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontDemandSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S7.WARFRONT.TARIFF_SCALING.001 | DONE | Update MarketSystem tariff calculation: EffectiveTariff = BaseTariff + (WarSurcharge * NodeWarfrontIntensity). Per-system, not per-faction. WarSurcharge values in WarfrontTweaksV0. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, NEW: SimCore.Tests/Systems/WarfrontTariffTests.cs |
+| GATE.S7.INSTABILITY.WORLDGEN.001 | DONE | GalaxyGenerator assigns initial instability per node: core=0-10, frontier=10-30, rim=20-50, void sites=50-80. Discovery sites placed in Shimmer+ zones. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs, FOUND: SimCore/Entities/Node.cs |
+| GATE.S7.WARFRONT.EVOLUTION.001 | DONE | NEW: WarfrontEvolutionSystem. Warfront intensity evolves per tick: cold war escalates to hot (tick 200-600 by seed), hot war can ceasefire (tick 600-1200). New fronts open as old ones cool. Deterministic by seed. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/WarfrontEvolutionSystem.cs, FOUND: SimCore/SimKernel.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs |
+| GATE.S7.WARFRONT.NEUTRALITY_TAX.001 | DONE | MarketSystem applies neutrality surcharge for unaligned traders at war-zone stations: +5% at Intensity 2, +10% at 3, +15% at 4. Inspection frequency scaling. Access denial at Intensity 4 frontline without allegiance. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/Systems/ReputationSystem.cs |
+| GATE.S7.WARFRONT.SUPPLY_CASCADE.001 | DONE | Pentagon cascade test suite: war between A-B disrupts A production -> downstream faction supply drops -> prices spike at dependent stations. Verify cascade through NpcTradeSystem + MarketSystem. Proof: dotnet test --filter "Determinism" | NEW: SimCore.Tests/Systems/WarfrontCascadeTests.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Systems/MarketSystem.cs |
 
 ### X2. Bridge (SimBridge + UI, tier 2-3)
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.S7.WARFRONT.BRIDGE.001 | TODO | NEW: SimBridge.Warfront.cs partial. GetWarfrontsV0() returns array of warfront state dicts {id, combatantA, combatantB, intensity, war_type, contested_nodes}. GetNodeWarIntensityV0(nodeId) returns intensity int (0 if no warfront). Proof: dotnet build | NEW: scripts/bridge/SimBridge.Warfront.cs, FOUND: SimCore/Entities/WarfrontState.cs |
-| GATE.S7.INSTABILITY.BRIDGE.001 | TODO | Add to SimBridge.Faction.cs: GetNodeInstabilityV0(nodeId) returns {level (int), phase (string: Stable/Shimmer/Drift/Fracture/Void), effects (array of strings)}. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Entities/Node.cs |
-| GATE.S7.FACTION.IDENTITY_PANEL.001 | TODO | EmpireDashboard Factions tab enhancement: per-faction detail showing species, philosophy, trade policy, produces list, needs list, unique tech, endgame alignment. Uses GetFactionMapV0 + new GetFactionDetailV0 bridge query. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
-| GATE.S7.WARFRONT.UI_MAP.001 | TODO | GalaxyView warfront overlays: contested nodes highlighted with pulsing red border, warfront intensity gradient coloring. Dock menu shows tariff surcharge breakdown ("Tariff: 20% (base 8% + war 12%)"). Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hero_trade_menu.gd |
-| GATE.S7.INSTABILITY.VISUAL.001 | TODO | GalaxyView phase-colored node indicators: Stable=green, Shimmer=yellow, Drift=orange, Fracture=red, Void=purple. Shimmer+ nodes get subtle pulse animation. Phase label on node hover. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
-| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | TODO | Headless proof: boot scene, verify 5 factions populated, pentagon ring valid, warfronts seeded (1 hot + 1 cold), demand shocks active, tariff scaling correct, instability phases assigned. HFWP output with SHA256. Proof: godot --headless -s res://scripts/tests/test_warfront_econ.gd | NEW: scripts/tests/test_warfront_econ.gd, FOUND: scripts/bridge/SimBridge.Warfront.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.BRIDGE.001 | DONE | NEW: SimBridge.Warfront.cs partial. GetWarfrontsV0() returns array of warfront state dicts {id, combatantA, combatantB, intensity, war_type, contested_nodes}. GetNodeWarIntensityV0(nodeId) returns intensity int (0 if no warfront). Proof: dotnet build | NEW: scripts/bridge/SimBridge.Warfront.cs, FOUND: SimCore/Entities/WarfrontState.cs |
+| GATE.S7.INSTABILITY.BRIDGE.001 | DONE | Add to SimBridge.Faction.cs: GetNodeInstabilityV0(nodeId) returns {level (int), phase (string: Stable/Shimmer/Drift/Fracture/Void), effects (array of strings)}. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Entities/Node.cs |
+| GATE.S7.FACTION.IDENTITY_PANEL.001 | DONE | EmpireDashboard Factions tab enhancement: per-faction detail showing species, philosophy, trade policy, produces list, needs list, unique tech, endgame alignment. Uses GetFactionMapV0 + new GetFactionDetailV0 bridge query. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.UI_MAP.001 | DONE | GalaxyView warfront overlays: contested nodes highlighted with pulsing red border, warfront intensity gradient coloring. Dock menu shows tariff surcharge breakdown ("Tariff: 20% (base 8% + war 12%)"). Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.S7.INSTABILITY.VISUAL.001 | DONE | GalaxyView phase-colored node indicators: Stable=green, Shimmer=yellow, Drift=orange, Fracture=red, Void=purple. Shimmer+ nodes get subtle pulse animation. Phase label on node hover. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.001 | DONE | Headless proof: boot scene, verify 5 factions populated, pentagon ring valid, warfronts seeded (1 hot + 1 cold), demand shocks active, tariff scaling correct, instability phases assigned. HFWP output with SHA256. Proof: godot --headless -s res://scripts/tests/test_warfront_econ.gd | NEW: scripts/tests/test_warfront_econ.gd, FOUND: scripts/bridge/SimBridge.Warfront.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
 
 ### X3. Meta (docs, tier 1+3)
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.X.HYGIENE.REPO_HEALTH.019 | TODO | Full test suite (762+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
-| GATE.X.HYGIENE.EPIC_REVIEW.019 | TODO | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
-| GATE.X.HYGIENE.TENSION_EVAL.001 | TODO | Evaluate dynamic_tension_v0.md 5 pillars vs current simulation capabilities. Map each pillar to existing/new systems. Identify gaps, prioritize for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/dynamic_tension_v0.md, FOUND: docs/54_EPICS.md |
+| GATE.X.HYGIENE.REPO_HEALTH.019 | DONE | Full test suite (762+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.019 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.TENSION_EVAL.001 | DONE | Evaluate dynamic_tension_v0.md 5 pillars vs current simulation capabilities. Map each pillar to existing/new systems. Identify gaps, prioritize for tranche 20. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/dynamic_tension_v0.md, FOUND: docs/54_EPICS.md |
+
+## Tranche 20: Warfront Agency & Living Instability
+
+Anchor: EPIC.S7.FACTION_MODEL. Epics: SUPPLY_IMPACT, INSTABILITY_PHASES, TERRITORY_REGIMES, REPUTATION_INFLUENCE, UI_WARFRONT.
+
+### Y1. Core (SimCore, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.SUPPLY.DELIVERY_LEDGER.001 | DONE | Track cumulative war supply deliveries per faction in SimState. WarfrontDemandSystem records delivery totals when goods consumed from contested nodes. New WarSupplyLedger dict in SimState. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/SimState.cs, FOUND: SimCore/Systems/WarfrontDemandSystem.cs, FOUND: SimCore/Entities/WarfrontState.cs |
+| GATE.S7.INSTABILITY.TICK_SYSTEM.001 | DONE | NEW: InstabilitySystem. Per-tick instability evolution: warfront-adjacent nodes gain instability (+1/tick per intensity level). Distant nodes stabilize (-1/100 ticks). Phase transitions at thresholds. Wire into SimKernel.Step(). Proof: dotnet test --filter "Determinism" | NEW: SimCore/Systems/InstabilitySystem.cs, FOUND: SimCore/SimKernel.cs, FOUND: SimCore/Entities/Node.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs |
+| GATE.S7.TERRITORY.EMBARGO_MODEL.001 | DONE | NEW: EmbargoState entity. Factions at war embargo enemy's key goods (from pentagon ring needs). Seeded alongside warfronts. MarketSystem checks embargo before trade execution. Proof: dotnet test --filter "Determinism" | NEW: SimCore/Entities/EmbargoState.cs, FOUND: SimCore/SimState.cs, FOUND: SimCore/Systems/MarketSystem.cs, NEW: SimCore/Tweaks/EmbargoTweaksV0.cs |
+| GATE.S7.REPUTATION.TRADE_DRIFT.001 | DONE | Reputation drift: natural decay toward 0 at 1 point per 1440 ticks (1 game day). Trading at faction-controlled market gives small +rep. Add drift logic to ReputationSystem or new per-tick process. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S7.SUPPLY.WARFRONT_SHIFT.001 | DONE | Supply deliveries shift warfront intensity. When cumulative supply exceeds threshold, defender gains +1 intensity (reinforced) or attacker -1 (weakened). Threshold in WarfrontTweaksV0. Resets after shift. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/WarfrontDemandSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/Entities/WarfrontState.cs |
+| GATE.S7.INSTABILITY.CONSEQUENCES.001 | DONE | Phase-based consequences in MarketSystem/LaneFlowSystem: Shimmer=5% price jitter, Drift=+20% lane delay, Fracture=10% trade failure chance, Void=market closure (CanAccessMarket returns false). Values in InstabilityTweaksV0. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Systems/LaneFlowSystem.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs |
+| GATE.S7.TERRITORY.REGIME_TRANSITION.001 | DONE | War-driven regime transitions: intensity >= 3 triggers Restricted regime (higher tariffs, inspection chance). Intensity >= 4 triggers Closed (trade blocked for non-allied). Hysteresis: only improves at intensity <= 1. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs |
+| GATE.S7.REPUTATION.WAR_PROFITEER.001 | DONE | War profiteering reputation: selling war-critical goods (munitions, composites, fuel) at a belligerent faction's market gives +2 rep with buyer, -1 rep with their warfront enemy. Applied per NPC trade cycle at contested nodes. Proof: dotnet test --filter "Determinism" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Tweaks/FactionTweaksV0.cs |
+
+### Y2. Bridge (SimBridge + UI, tier 1-3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.WARFRONT.DASHBOARD_TAB.001 | DONE | Warfronts tab in EmpireDashboard: list active warfronts with combatants, intensity label, war type, contested node count. Uses existing GetWarfrontsV0 bridge query. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Warfront.cs |
+| GATE.S7.SUPPLY.BRIDGE.001 | DONE | Add to SimBridge.Warfront.cs: GetWarSupplyV0(warfrontId) returns {warfront_id, deliveries dict by good_id, shift_threshold, shift_progress_pct}. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Warfront.cs, FOUND: SimCore/SimState.cs |
+| GATE.S7.TERRITORY.EMBARGO_BRIDGE.001 | DONE | Add to SimBridge.Faction.cs: GetEmbargoesV0(marketId) returns array of {good_id, faction_id, reason}. IsGoodEmbargoedV0(marketId, goodId) returns bool. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Entities/EmbargoState.cs |
+| GATE.S7.INSTABILITY.EFFECTS_BRIDGE.001 | DONE | Add to SimBridge.Faction.cs: GetInstabilityEffectsV0(nodeId) returns {phase, effects array (strings describing active effects), price_jitter_pct, lane_delay_pct, trade_failure_pct, market_closed}. Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Faction.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs |
+| GATE.S7.WARFRONT.SUPPLY_HUD.001 | DONE | Warfronts tab enhancement: per-warfront supply needs list showing which goods needed, quantities delivered, progress bar toward shift threshold. Uses GetWarSupplyV0. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Warfront.cs |
+| GATE.S7.TERRITORY.EMBARGO_UI.001 | DONE | Trade menu (hero_trade_menu.gd): embargoed goods shown grayed out with "Embargoed by [Faction]" label. Uses IsGoodEmbargoedV0. Proof: dotnet build | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.INSTABILITY.EFFECTS_UI.001 | DONE | Node popup and dock menu show instability phase effects (price jitter %, lane delay %, trade failure %). COMBINE with SUPPLY_HUD for EmpireDashboard.cs file conflict. Proof: dotnet build | FOUND: scripts/ui/EmpireDashboard.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.FACTION.REP_TOAST.001 | DONE | Rep change toast: when player rep with a faction changes by >= 5 points, show toast "Reputation with [Faction]: [+/-N] ([reason])". Uses existing toast system. Proof: dotnet build | FOUND: scripts/core/game_manager.gd, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.WARFRONT.HEADLESS_PROOF.002 | DONE | Headless proof: boot scene, verify supply tracking active, embargo blocks trade, instability ticks up near warfronts, regime transitions at high intensity. 50 ticks. HFWP output. Proof: godot --headless -s res://scripts/tests/test_warfront_supply.gd | NEW: scripts/tests/test_warfront_supply.gd, FOUND: scripts/bridge/SimBridge.Warfront.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+
+### Y3. Meta (docs, tier 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.020 | DONE | Full test suite (780+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.020 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 21. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.FACTION_PLAYTEST.001 | DONE | Evaluate warfront player experience: can the player meaningfully influence wars through trade? Are embargoes creating interesting smuggling decisions? Is instability visible and impactful? Rate each tension pillar 1-5. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/dynamic_tension_v0.md, FOUND: docs/54_EPICS.md |

@@ -55,6 +55,45 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S7.SUPPLY.BRIDGE.001: War supply delivery queries ──
+
+    /// <summary>
+    /// Returns war supply delivery info for a warfront.
+    /// Returns {warfront_id, deliveries (Dictionary: goodId → int), shift_threshold (int), shift_progress_pct (int 0-100)}.
+    /// Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Dictionary GetWarSupplyV0(string warfrontId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["warfront_id"] = warfrontId ?? "",
+            ["deliveries"] = new Godot.Collections.Dictionary(),
+            ["shift_threshold"] = SimCore.Tweaks.WarfrontTweaksV0.SupplyShiftThreshold,
+            ["shift_progress_pct"] = 0,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (string.IsNullOrEmpty(warfrontId)) return;
+            if (!state.WarSupplyLedger.TryGetValue(warfrontId, out var goodLedger)) return;
+
+            var deliveries = new Godot.Collections.Dictionary();
+            int totalDeliveries = 0;
+            foreach (var kv in goodLedger)
+            {
+                deliveries[kv.Key] = kv.Value;
+                totalDeliveries += kv.Value;
+            }
+            result["deliveries"] = deliveries;
+
+            int threshold = SimCore.Tweaks.WarfrontTweaksV0.SupplyShiftThreshold;
+            int pct = threshold > 0 ? Math.Min(totalDeliveries * 100 / threshold, 100) : 0;
+            result["shift_progress_pct"] = pct;
+        }, 0);
+
+        return result;
+    }
+
     /// <summary>
     /// Returns the max warfront intensity affecting a specific node (0 = peace).
     /// Used by GalaxyView for visual war-zone indicators.

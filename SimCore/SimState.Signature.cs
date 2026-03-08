@@ -131,6 +131,27 @@ public partial class SimState
             }
         }
 
+        // GATE.S7.SUPPLY.DELIVERY_LEDGER.001: Supply ledger in signature.
+        if (WarSupplyLedger is not null && WarSupplyLedger.Count > 0)
+        {
+            foreach (var wfKv in WarSupplyLedger.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                foreach (var gKv in wfKv.Value.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    sb.Append($"WSL:{wfKv.Key}:{gKv.Key}:{gKv.Value}|");
+                }
+            }
+        }
+
+        // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Embargo state in signature.
+        if (Embargoes is not null && Embargoes.Count > 0)
+        {
+            foreach (var e in Embargoes.OrderBy(e => e.Id, StringComparer.Ordinal))
+            {
+                sb.Append($"EMB:{e.Id}|F:{e.EnforcingFactionId}|G:{e.GoodId}|");
+            }
+        }
+
         foreach (var e in Edges.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat.ToString("F2", CultureInfo.InvariantCulture)}|");

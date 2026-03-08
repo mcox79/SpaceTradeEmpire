@@ -1,8 +1,8 @@
 extends Node3D
 
-# GATE.S1.CAMERA.FOLLOW_MODES.001: PhantomCamera3D-based follow modes.
-# Three modes: Flight (chase), Orbit (docked free-orbit), Station (fixed angle).
-# Falls back to basic Camera3D follow if PhantomCamera3D is unavailable.
+# GATE.S1.CAMERA.FOLLOW_MODES.001: Camera follow modes.
+# Single Camera3D driven manually for all modes:
+#   Flight (top-down), Orbit (docked), Station (fixed), Galaxy Map, Warp Transit, Cinematic Orbit.
 
 # Tabs-only indentation policy applies.
 
@@ -19,7 +19,6 @@ enum CameraMode {
 # Flight mode: top-down (Starcom Nexus style) — camera directly above player.
 @export var flight_offset: Vector3 = Vector3(0, 80, 1)
 @export var flight_follow_distance: float = 80.0
-@export var flight_damping: Vector3 = Vector3(0.15, 0.15, 0.15)
 
 # Orbit mode: free orbit when docked.
 @export var orbit_distance: float = 30.0
@@ -44,13 +43,8 @@ enum CameraMode {
 var _current_mode: CameraMode = CameraMode.FLIGHT
 var _target: Node3D
 
-# PhantomCamera3D node reference (child of this Node3D, set in _ready or scene).
-var _pcam: Node = null
-var _pcam_available: bool = false
-
-# Fallback Camera3D (used when PhantomCamera3D is not available).
-var _fallback_cam: Camera3D = null
-var _using_fallback: bool = false
+# Camera3D — created in _ready, top_level for independent positioning.
+var _cam: Camera3D = null
 
 # Orbit state (used in orbit mode).
 var _orbit_yaw: float = 0.0
@@ -73,7 +67,7 @@ const FLIGHT_MAX_PITCH: float = 1.4
 const FLIGHT_MAX_YAW: float = PI
 
 # Seamless zoom: unified altitude variable controls camera height continuously.
-# Below PAN_THRESHOLD: PhantomCamera SIMPLE follow (chase mode).
+# Below PAN_THRESHOLD: rigid top-down above player.
 # Above PAN_THRESHOLD: manual position, WASD panning, galaxy map behavior.
 const ALTITUDE_MIN: float = 8.0
 const ALTITUDE_MAX: float = 15000.0
@@ -111,16 +105,13 @@ const COMBAT_ZOOM_OUT_DURATION: float = 0.5
 const COMBAT_ZOOM_IN_DURATION: float = 1.0
 var _combat_zoom_tween: Tween = null
 
-# Cinematic lock — blocks player camera input when true.
-var cinematic_active: bool = false
-
-# Cinematic orbit state — when set, camera orbits this point instead of following player.
-var cinematic_orbit_center: Vector3 = Vector3.ZERO
-var cinematic_orbit_angle: float = 0.0    # Current angle (radians).
-var cinematic_orbit_radius: float = 80.0  # XZ distance from center.
-var cinematic_orbit_altitude: float = 80.0 # Y height above center.
-var cinematic_orbit_active: bool = false
-var cinematic_orbit_blend: float = 0.0  # 0=top-down (matches transit), 1=full angled orbit
+# Flyby state — driven by game_manager tweens during lane transit approach.
+# When active, camera lerps to flyby_cam_pos and looks at flyby_look_at.
+var flyby_active: bool = false
+var flyby_cam_pos: Vector3 = Vector3.ZERO    # World-space camera position target.
+var flyby_look_at: Vector3 = Vector3.ZERO    # World-space look-at target.
+var flyby_up: Vector3 = Vector3.BACK         # Camera up vector.
+var input_locked: bool = false               # Blocks camera input during cinematics.
 var warp_transit_tilt: float = 0.0  # 0=top-down, 1=forward-looking chase cam
 
 func _ready() -> void:
@@ -128,24 +119,16 @@ func _ready() -> void:
 	if _target == null:
 		push_warning("[FollowCamera] Target not found. Assign target_path or ensure Player is in group 'Player'.")
 
-	# Try to find a PhantomCamera3D child node.
-	_pcam = _find_phantom_camera()
-	if _pcam != null:
-		_pcam_available = true
-		_setup_phantom_camera_flight()
-	else:
-		# Fallback: create a basic Camera3D as child.
-		push_warning("[FollowCamera] PhantomCamera3D not found — using fallback Camera3D.")
-		_using_fallback = true
-		_fallback_cam = Camera3D.new()
-		_fallback_cam.name = "FallbackCamera"
-		_fallback_cam.fov = fov_base
-		_fallback_cam.current = true
-		add_child(_fallback_cam)
-		_fallback_cam.set_as_top_level(true)
-		if _target:
-			_fallback_cam.global_position = _target.global_position + flight_offset
-			_fallback_cam.look_at(_target.global_position, Vector3.UP)
+	# Create a Camera3D as a top-level child — independent of player hierarchy.
+	_cam = Camera3D.new()
+	_cam.name = "GameCamera"
+	_cam.fov = fov_base
+	_cam.current = true
+	add_child(_cam)
+	_cam.set_as_top_level(true)
+	if _target:
+		_cam.global_position = _target.global_position + flight_offset
+		_cam.look_at(_target.global_position, Vector3.UP)
 
 	_current_fov = fov_base
 	_orbit_distance = orbit_distance
@@ -163,10 +146,13 @@ func _physics_process(delta: float) -> void:
 	if _game_manager == null:
 		_game_manager = _find_game_manager()
 
-	# Cinematic orbit: bypass ALL normal camera logic (mode switching, altitude
-	# sync, overlay state). The cinematic owns hero visibility, HUD, and camera.
-	if cinematic_orbit_active:
-		_update_cinematic_orbit(delta)
+	# Flyby: bypass ALL normal camera logic. Game_manager drives position directly.
+	if flyby_active:
+		if _cam:
+			# Tight tracking (k=30): tween provides smooth motion, camera follows crisply.
+			_cam.global_position = _cam.global_position.lerp(flyby_cam_pos, 1.0 - exp(-30.0 * delta))
+			_cam.look_at(flyby_look_at, flyby_up)
+			_cam.fov = 60.0
 		_apply_shake_offset(delta)
 		return
 
@@ -175,16 +161,13 @@ func _physics_process(delta: float) -> void:
 	_poll_combat_zoom()
 	_sync_altitude()
 
-	if _using_fallback:
-		_fallback_process(delta)
-	elif _pcam_available:
-		_pcam_process(delta)
+	_update_camera(delta)
 
 	# Apply camera shake after all camera movement.
 	_apply_shake_offset(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if cinematic_active:
+	if flyby_active or input_locked:
 		return
 	if event is InputEventKey:
 		var k := event as InputEventKey
@@ -291,36 +274,13 @@ func _poll_and_switch_mode() -> void:
 			_galaxy_view.call("SetTransitModeV0", false, "", "")
 		_switch_mode(CameraMode.FLIGHT)
 		# Smooth arrival zoom: tween from transit altitude to flight altitude.
-		var is_first_visit: bool = false
-		if _game_manager:
-			var fv = _game_manager.get("_last_arrival_first_visit")
-			if fv != null:
-				is_first_visit = bool(fv)
-		if is_first_visit:
-			# First visit: reveal sweep in WARP_TRANSIT mode already descended to
-			# flight altitude (80). Camera is already at the right position.
-			_altitude = current_transit_alt
-			_sync_altitude()
-			_sync_overlay_state()
-			# Explicitly restore hero + HUD after transit.
-			# _sync_overlay_state() only updates when the flag changes, but the hero
-			# was hidden directly by _sync_transit_lod() — not through the flag.
-			var hero = _game_manager.get("_hero_body") if _game_manager else null
-			if hero and is_instance_valid(hero):
-				hero.visible = true
-			var tree = get_tree()
-			if tree:
-				var hud = tree.root.find_child("HUD", true, false)
-				if hud and hud.has_method("set_overlay_mode_v0"):
-					hud.call("set_overlay_mode_v0", false)
-		else:
-			# Return visit: smooth direct settle.
-			_tab_tween = create_tween()
-			_tab_tween.set_trans(Tween.TRANS_CUBIC)
-			_tab_tween.set_ease(Tween.EASE_OUT)
-			_tab_tween.tween_property(self, "_altitude", _pre_transit_altitude, 1.0)
-			_sync_altitude()
-			_sync_overlay_state()
+		# Flyby handles first-visit cinematic; this path is for direct state changes.
+		_tab_tween = create_tween()
+		_tab_tween.set_trans(Tween.TRANS_CUBIC)
+		_tab_tween.set_ease(Tween.EASE_OUT)
+		_tab_tween.tween_property(self, "_altitude", _pre_transit_altitude, 1.0)
+		_sync_altitude()
+		_sync_overlay_state()
 
 	if state_val == null:
 		return
@@ -352,72 +312,15 @@ func _switch_mode(new_mode: CameraMode) -> void:
 	_current_mode = new_mode
 	match new_mode:
 		CameraMode.FLIGHT:
-			_enter_flight_mode()
+			pass  # No setup needed — _update_camera handles positioning.
 		CameraMode.ORBIT:
-			_enter_orbit_mode()
+			_reset_orbit()
 		CameraMode.STATION:
-			_enter_station_mode()
+			pass
 		CameraMode.GALAXY_MAP:
-			_enter_galaxy_map_mode()
+			_galaxy_map_active = true
 		CameraMode.WARP_TRANSIT:
-			_enter_warp_transit_mode()
-
-
-# ── PhantomCamera3D mode setup ──
-
-func _enter_flight_mode() -> void:
-	if _pcam_available and _pcam:
-		# SIMPLE follow with damping behind the ship.
-		if _pcam.has_method("set_follow_mode"):
-			_pcam.follow_mode = 2  # FollowMode.SIMPLE
-		if _pcam.has_method("set_follow_target"):
-			_pcam.set_follow_target(_target)
-		if _pcam.has_method("set_follow_offset"):
-			_pcam.set_follow_offset(flight_offset)
-		if _pcam.has_method("set_follow_distance"):
-			_pcam.set_follow_distance(flight_follow_distance)
-		if _pcam.has_method("set_follow_damping"):
-			_pcam.set_follow_damping(true)
-		if _pcam.has_method("set_follow_damping_value"):
-			_pcam.set_follow_damping_value(flight_damping)
-		# Look at the ship.
-		if _pcam.has_method("set_look_at_target"):
-			_pcam.set_look_at_target(_target)
-
-func _enter_orbit_mode() -> void:
-	_reset_orbit()
-	if _pcam_available and _pcam:
-		# Disable PhantomCamera follow — we drive position manually in orbit.
-		if _pcam.has_method("set_follow_mode"):
-			_pcam.follow_mode = 0  # FollowMode.NONE
-
-func _enter_station_mode() -> void:
-	if _pcam_available and _pcam:
-		# Fixed offset above the target.
-		if _pcam.has_method("set_follow_mode"):
-			_pcam.follow_mode = 2  # FollowMode.SIMPLE
-		if _pcam.has_method("set_follow_target"):
-			_pcam.set_follow_target(_target)
-		if _pcam.has_method("set_follow_offset"):
-			_pcam.set_follow_offset(station_offset)
-		if _pcam.has_method("set_follow_damping"):
-			_pcam.set_follow_damping(false)
-		if _pcam.has_method("set_look_at_target"):
-			_pcam.set_look_at_target(_target)
-
-# Galaxy map mode — entered when altitude crosses PAN_THRESHOLD.
-func _enter_galaxy_map_mode() -> void:
-	_galaxy_map_active = true
-	# Disable PhantomCamera follow so we can drive position manually.
-	if _pcam_available and _pcam:
-		if _pcam.has_method("set_follow_mode"):
-			_pcam.follow_mode = 0  # FollowMode.NONE
-		if _pcam.has_method("set_look_at_target"):
-			_pcam.set_look_at_target(null)
-
-func _exit_galaxy_map_mode() -> void:
-	_galaxy_map_active = false
-	_galaxy_map_pan_offset = Vector3.ZERO
+			_last_transit_lod_alt = -1.0  # Reset LOD throttle.
 
 ## Logarithmic zoom step: small at close range, larger at galaxy scale.
 func _compute_zoom_step() -> float:
@@ -428,13 +331,10 @@ func _compute_zoom_step() -> float:
 	else:
 		return _altitude * 0.08
 
-## After altitude changes, sync PhantomCamera follow distance and GalaxyView LOD.
+## After altitude changes, sync GalaxyView LOD.
 func _sync_altitude() -> void:
-	# Sync follow distance when in chase range.
 	if _altitude < PAN_THRESHOLD:
 		flight_follow_distance = _altitude
-		if _pcam_available and _pcam and _pcam.has_method("set_follow_distance"):
-			_pcam.set_follow_distance(_altitude)
 
 	# Push LOD state to GalaxyView (3D root visibility).
 	_ensure_galaxy_view()
@@ -561,15 +461,56 @@ func tween_altitude_v0(target: float, duration: float) -> void:
 	_tab_tween.set_ease(Tween.EASE_IN_OUT)
 	_tab_tween.tween_property(self, "_altitude", target, duration)
 
-func _enter_warp_transit_mode() -> void:
-	# Reset LOD throttle so first frame gets a full sync.
-	_last_transit_lod_alt = -1.0
-	# Disable PhantomCamera follow so we drive position manually.
-	if _pcam_available and _pcam:
-		if _pcam.has_method("set_follow_mode"):
-			_pcam.follow_mode = 0  # FollowMode.NONE
-		if _pcam.has_method("set_look_at_target"):
-			_pcam.set_look_at_target(null)
+
+# ── Per-frame camera update ──
+
+func _update_camera(delta: float) -> void:
+	if _cam == null or _target == null:
+		return
+
+	# GATE.S13.CAMERA.PERSIST.001: Camera holds rotation on mouse release.
+	# No snap-back — yaw/pitch offsets persist until next right-click drag.
+
+	match _current_mode:
+		CameraMode.FLIGHT:
+			# Fixed top-down camera: directly above player, looking straight down.
+			# No chase/follow lag — camera is rigidly locked to player position.
+			# Right-click yaw offset shifts the view horizontally for look-around.
+			var offset := Vector3(0.0, _altitude, 0.0)
+			if absf(_flight_yaw_offset) > 0.001:
+				offset.x += sin(_flight_yaw_offset) * _altitude * 0.3
+				offset.z += (1.0 - cos(_flight_yaw_offset)) * _altitude * 0.3
+			_cam.global_position = _target.global_position + offset
+			# Look straight down — use BACK as up vector to avoid gimbal lock.
+			var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
+			_cam.look_at(look_point, Vector3.BACK)
+			_update_fov(delta)
+
+		CameraMode.ORBIT:
+			var tpos := _target.global_position
+			var desired := _orbit_desired_position(tpos)
+			_cam.global_position = _cam.global_position.lerp(desired, 1.0 - exp(-5.0 * delta))
+			_cam.look_at(tpos, Vector3.UP)
+
+		CameraMode.STATION:
+			var desired_pos := _target.global_position + station_offset
+			_cam.global_position = _cam.global_position.lerp(desired_pos, 1.0 - exp(-5.0 * delta))
+			_cam.look_at(_target.global_position, Vector3.UP)
+
+		CameraMode.GALAXY_MAP:
+			_update_galaxy_map(delta)
+
+		CameraMode.WARP_TRANSIT:
+			_update_warp_transit(delta)
+
+func _update_fov(delta: float) -> void:
+	var speed: float = 0.0
+	if _target is RigidBody3D:
+		speed = (_target as RigidBody3D).linear_velocity.length()
+	var t: float = clamp(speed / 18.0, 0.0, 1.0)
+	var target_fov: float = fov_base + fov_boost_max * t
+	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
+	_cam.fov = _current_fov
 
 func _update_warp_transit(_delta: float) -> void:
 	# Read transit target and altitude from GameManager.
@@ -629,19 +570,13 @@ func _update_warp_transit(_delta: float) -> void:
 	if up_vec.length_squared() < 0.01:
 		up_vec = Vector3.UP
 
-	var cam: Camera3D = null
-	if _using_fallback and _fallback_cam:
-		cam = _fallback_cam
-	elif _pcam_available:
-		cam = get_viewport().get_camera_3d()
-
-	if cam == null:
+	if _cam == null:
 		return
 
 	# Snap camera — transit marker is smoothly tweened, so snapping produces smooth motion.
-	cam.global_position = desired_pos
-	cam.look_at(look_target, up_vec)
-	cam.fov = 60.0
+	_cam.global_position = desired_pos
+	_cam.look_at(look_target, up_vec)
+	_cam.fov = 60.0
 
 func _update_galaxy_map(delta: float) -> void:
 	# Get the player star world position as our anchor point.
@@ -664,174 +599,18 @@ func _update_galaxy_map(delta: float) -> void:
 	var desired_pos := anchor + _galaxy_map_pan_offset
 	desired_pos.y = _altitude
 
-	var cam: Camera3D = null
-	if _using_fallback and _fallback_cam:
-		cam = _fallback_cam
-	elif _pcam_available:
-		cam = get_viewport().get_camera_3d()
-
-	if cam == null:
+	if _cam == null:
 		return
 
 	# Smooth lerp to desired position for cinematic feel.
-	cam.global_position = cam.global_position.lerp(desired_pos, 1.0 - exp(-GALAXY_MAP_LERP_SPEED * delta))
+	_cam.global_position = _cam.global_position.lerp(desired_pos, 1.0 - exp(-GALAXY_MAP_LERP_SPEED * delta))
 
 	# Look straight down. Use Vector3.BACK as up-vector to avoid gimbal lock when looking along -Y.
-	var look_point := Vector3(cam.global_position.x, 0.0, cam.global_position.z)
-	cam.look_at(look_point, Vector3.BACK)
+	var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
+	_cam.look_at(look_point, Vector3.BACK)
 
 	# Use perspective projection with wide FOV for good galaxy overview.
-	cam.fov = 60.0
-
-
-# ── Per-frame processing ──
-
-func _pcam_process(delta: float) -> void:
-	match _current_mode:
-		CameraMode.FLIGHT:
-			_update_fov_pcam(delta)
-		CameraMode.ORBIT:
-			_update_orbit_pcam(delta)
-		CameraMode.STATION:
-			pass  # PhantomCamera3D handles station view via SIMPLE follow.
-		CameraMode.GALAXY_MAP:
-			_update_galaxy_map(delta)
-		CameraMode.WARP_TRANSIT:
-			_update_warp_transit(delta)
-
-func _update_fov_pcam(_delta: float) -> void:
-	# FOV swell based on ship velocity (flight mode only).
-	var speed: float = 0.0
-	if _target is RigidBody3D:
-		speed = (_target as RigidBody3D).linear_velocity.length()
-	var t: float = clamp(speed / 18.0, 0.0, 1.0)
-	var target_fov: float = fov_base + fov_boost_max * t
-	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * _delta))
-	# Apply FOV to the viewport camera (PhantomCameraHost drives the actual Camera3D).
-	var cam := get_viewport().get_camera_3d()
-	if cam:
-		cam.fov = _current_fov
-	# Apply right-click look-around / cinematic orbit: rotate the follow offset by yaw/pitch.
-	if _pcam_available and _pcam and _pcam.has_method("set_follow_offset"):
-		var offset_dir := flight_offset.normalized()
-		if absf(_flight_yaw_offset) > 0.001 or absf(_flight_pitch_offset) > 0.001:
-			var rotated := offset_dir.rotated(Vector3.UP, _flight_yaw_offset)
-			var right_vec := rotated.cross(Vector3.UP).normalized()
-			rotated = rotated.rotated(right_vec, _flight_pitch_offset)
-			_pcam.set_follow_offset(rotated * _altitude)
-		else:
-			_pcam.set_follow_offset(offset_dir * _altitude)
-	# Sync follow distance from altitude (and combat zoom tween).
-	if _pcam_available and _pcam and _pcam.has_method("set_follow_distance"):
-		var dist: float = flight_follow_distance if _combat_zoom_active else _altitude
-		_pcam.set_follow_distance(dist)
-
-## Cinematic orbit: camera orbits a world-space point (star center) at a given radius/altitude.
-## Angle, altitude, and radius are tweened by game_manager. This just positions the camera.
-##
-## cinematic_orbit_blend controls the camera orientation:
-##   0.0 = top-down (Vector3.BACK up) — matches WARP_TRANSIT / FLIGHT camera exactly
-##   1.0 = full angled orbit (Vector3.UP up) — dramatic 3D view of the system
-## Smoothly tweening blend 0→1→0 creates seamless entry and exit from the cinematic.
-func _update_cinematic_orbit(_delta: float) -> void:
-	var cam: Camera3D = null
-	if _using_fallback and _fallback_cam:
-		cam = _fallback_cam
-	elif get_viewport():
-		cam = get_viewport().get_camera_3d()
-	if cam == null:
-		return
-
-	var blend: float = clampf(cinematic_orbit_blend, 0.0, 1.0)
-
-	# Full orbit position: on a circle around center at radius distance.
-	var orbit_x: float = cinematic_orbit_center.x + cos(cinematic_orbit_angle) * cinematic_orbit_radius
-	var orbit_z: float = cinematic_orbit_center.z + sin(cinematic_orbit_angle) * cinematic_orbit_radius
-	var orbit_pos := Vector3(orbit_x, cinematic_orbit_altitude, orbit_z)
-
-	# Top-down position: directly above center (matches WARP_TRANSIT / FLIGHT).
-	var top_down_pos := Vector3(cinematic_orbit_center.x, cinematic_orbit_altitude, cinematic_orbit_center.z)
-
-	# Blend between top-down and orbit positions.
-	var desired := top_down_pos.lerp(orbit_pos, blend)
-
-	# Smooth lerp for butter-smooth motion.
-	cam.global_position = cam.global_position.lerp(desired, 1.0 - exp(-8.0 * _delta))
-
-	# Look-at target: star center (slightly above ground for nicer framing).
-	var look_target := Vector3(cinematic_orbit_center.x, 2.0, cinematic_orbit_center.z)
-
-	# Up vector: blend between top-down and angled orientations.
-	# At blend=0: Vector3.BACK (looking straight down, matches transit/flight).
-	# At blend=1: Vector3.UP (normal 3D orientation for dramatic angled view).
-	var up_vec := Vector3.BACK.slerp(Vector3.UP, blend)
-	if up_vec.length_squared() < 0.01:
-		up_vec = Vector3.UP  # Safety fallback.
-
-	cam.look_at(look_target, up_vec)
-	cam.fov = 60.0
-
-
-func _update_orbit_pcam(delta: float) -> void:
-	# Manual orbit: drive the PhantomCamera3D global_position around target.
-	if _target == null:
-		return
-	var tpos := _target.global_position
-	var desired := _orbit_desired_position(tpos)
-	if _pcam:
-		_pcam.global_position = _pcam.global_position.lerp(desired, 1.0 - exp(-5.0 * delta))
-		_pcam.look_at(tpos, Vector3.UP)
-
-
-# ── Fallback Camera3D processing ──
-
-func _fallback_process(delta: float) -> void:
-	if _fallback_cam == null or _target == null:
-		return
-
-	# GATE.S13.CAMERA.PERSIST.001: Camera holds rotation on mouse release.
-	# No snap-back — yaw/pitch offsets persist until next right-click drag.
-
-	match _current_mode:
-		CameraMode.FLIGHT:
-			# Fixed top-down camera: directly above player, looking straight down.
-			# No chase/follow lag — camera is rigidly locked to player position.
-			# Right-click yaw offset shifts the view horizontally for look-around.
-			var offset := Vector3(0.0, _altitude, 0.0)
-			if absf(_flight_yaw_offset) > 0.001:
-				offset.x += sin(_flight_yaw_offset) * _altitude * 0.3
-				offset.z += (1.0 - cos(_flight_yaw_offset)) * _altitude * 0.3
-			_fallback_cam.global_position = _target.global_position + offset
-			# Look straight down — use BACK as up vector to avoid gimbal lock.
-			var look_point := Vector3(_fallback_cam.global_position.x, 0.0, _fallback_cam.global_position.z)
-			_fallback_cam.look_at(look_point, Vector3.BACK)
-			_update_fov_fallback(delta)
-
-		CameraMode.ORBIT:
-			var tpos := _target.global_position
-			var desired := _orbit_desired_position(tpos)
-			_fallback_cam.global_position = _fallback_cam.global_position.lerp(desired, 1.0 - exp(-5.0 * delta))
-			_fallback_cam.look_at(tpos, Vector3.UP)
-
-		CameraMode.STATION:
-			var desired_pos := _target.global_position + station_offset
-			_fallback_cam.global_position = _fallback_cam.global_position.lerp(desired_pos, 1.0 - exp(-5.0 * delta))
-			_fallback_cam.look_at(_target.global_position, Vector3.UP)
-
-		CameraMode.GALAXY_MAP:
-			_update_galaxy_map(delta)
-
-		CameraMode.WARP_TRANSIT:
-			_update_warp_transit(delta)
-
-func _update_fov_fallback(delta: float) -> void:
-	var speed: float = 0.0
-	if _target is RigidBody3D:
-		speed = (_target as RigidBody3D).linear_velocity.length()
-	var t: float = clamp(speed / 18.0, 0.0, 1.0)
-	var target_fov: float = fov_base + fov_boost_max * t
-	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
-	_fallback_cam.fov = _current_fov
+	_cam.fov = 60.0
 
 
 # ── Orbit helpers ──
@@ -867,28 +646,6 @@ func _resolve_target() -> Node3D:
 
 	return null
 
-func _find_phantom_camera() -> Node:
-	# Look for a PhantomCamera3D child node.
-	for child in get_children():
-		if child.get_class() == "PhantomCamera3D":
-			return child
-		# Also check script class_name for GDScript-based PhantomCamera3D.
-		if child.has_method("set_follow_target") and child.has_method("set_follow_mode"):
-			return child
-
-	# Try to find one in the scene tree as a sibling or nearby node.
-	var parent = get_parent()
-	if parent:
-		for child in parent.get_children():
-			if child == self:
-				continue
-			if child.get_class() == "PhantomCamera3D":
-				return child
-			if child.has_method("set_follow_target") and child.has_method("set_follow_mode"):
-				return child
-
-	return null
-
 func _find_game_manager():
 	# Try scene-child GameManager first, then autoload.
 	var parent = get_parent()
@@ -905,30 +662,6 @@ func _find_game_manager():
 	# Last resort: search the tree.
 	var gm_found = tree.root.find_child("GameManager", true, false)
 	return gm_found
-
-func _setup_phantom_camera_flight() -> void:
-	if _pcam == null:
-		return
-	# Snap PhantomCamera to the correct follow position immediately so it
-	# doesn't lerp from global origin (top_level = true starts at 0,0,0).
-	if _target:
-		_pcam.global_position = _target.global_position + flight_offset
-		_pcam.look_at(_target.global_position, Vector3.UP)
-	# Initial setup: flight mode with follow on the target.
-	if _pcam.has_method("set_follow_mode"):
-		_pcam.follow_mode = 2  # FollowMode.SIMPLE
-	if _target and _pcam.has_method("set_follow_target"):
-		_pcam.set_follow_target(_target)
-	if _pcam.has_method("set_follow_offset"):
-		_pcam.set_follow_offset(flight_offset)
-	if _pcam.has_method("set_follow_distance"):
-		_pcam.set_follow_distance(flight_follow_distance)
-	if _pcam.has_method("set_follow_damping"):
-		_pcam.set_follow_damping(true)
-	if _pcam.has_method("set_follow_damping_value"):
-		_pcam.set_follow_damping_value(flight_damping)
-	if _target and _pcam.has_method("set_look_at_target"):
-		_pcam.set_look_at_target(_target)
 
 
 # ── Combat auto-zoom ──
@@ -985,13 +718,12 @@ func _apply_shake_offset(delta: float) -> void:
 	if _shake_trauma <= 0.0:
 		return
 	var shake_amount: float = _shake_trauma * _shake_trauma  # quadratic for snappier feel
-	var cam := get_viewport().get_camera_3d() if not _using_fallback else _fallback_cam
-	if cam == null:
+	if _cam == null:
 		return
 	var offset_x: float = randf_range(-1.0, 1.0) * SHAKE_MAX_OFFSET * shake_amount
 	var offset_y: float = randf_range(-1.0, 1.0) * SHAKE_MAX_OFFSET * shake_amount
 	var rot_z: float = randf_range(-1.0, 1.0) * SHAKE_MAX_ROTATION * shake_amount
-	cam.h_offset = offset_x
-	cam.v_offset = offset_y
-	cam.rotation.z = rot_z
+	_cam.h_offset = offset_x
+	_cam.v_offset = offset_y
+	_cam.rotation.z = rot_z
 	_shake_trauma = maxf(0.0, _shake_trauma - _shake_decay * delta)

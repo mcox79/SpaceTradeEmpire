@@ -62,6 +62,18 @@ public static class FactionTweaksV0
     public static int TradeRepGain { get; } = 1;         // per successful trade at faction station
     public static int AttackRepLoss { get; } = -25;      // per attack on faction ship
 
+    // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward neutral.
+    // Rep decays by 1 point per DecayIntervalTicks toward 0.
+    public const int RepDecayIntervalTicks = 1440;  // ~1 game day
+    public const int RepDecayAmount = 1;             // points per interval
+
+    // GATE.S7.REPUTATION.WAR_PROFITEER.001: War profiteering rep changes.
+    public const int WarProfiteerBuyerGain = 2;   // +rep with buyer faction
+    public const int WarProfiteerEnemyLoss = -1;  // -rep with enemy faction
+
+    // War-critical goods that trigger profiteering rep effects.
+    public static readonly string[] WarCriticalGoods = { "munitions", "composites", "fuel" };
+
     // GATE.S7.FACTION.TARIFF_ENFORCE.001: Reputation below this blocks trade entirely.
     public static int TradeBlockedRepThreshold { get; } = -50;
     // Tariff basis points multiplier: TariffRate 0.15 -> 1500 bps.

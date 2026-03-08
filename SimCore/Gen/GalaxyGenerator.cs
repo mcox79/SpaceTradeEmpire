@@ -1134,5 +1134,70 @@ public static class GalaxyGenerator
             TickStarted = 0,
             ContestedNodeIds = coldContested,
         };
+
+        // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Seed embargoes from warfronts.
+        SeedEmbargoesV0(state);
+    }
+
+    // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Seed embargoes from warfronts + pentagon ring.
+    // For each warfront at intensity >= MinEmbargoIntensity, each combatant embargoes
+    // the good they need from their pentagon ring partner IF partner = enemy.
+    private static void SeedEmbargoesV0(SimState state)
+    {
+        state.Embargoes.Clear();
+        int seq = 0; // STRUCTURAL: embargo ID sequence
+
+        foreach (var wf in state.Warfronts.Values.OrderBy(w => w.Id, StringComparer.Ordinal))
+        {
+            if ((int)wf.Intensity < Tweaks.EmbargoTweaksV0.MinEmbargoIntensity) continue;
+
+            // Each combatant embargoes the pentagon ring good they depend on from the enemy.
+            foreach (var ring in Tweaks.FactionTweaksV0.PentagonRing)
+            {
+                // If combatant A needs a good from combatant B (supplier), A embargoes that good.
+                if (string.Equals(ring.Consumer, wf.CombatantA, StringComparison.Ordinal)
+                    && string.Equals(ring.Supplier, wf.CombatantB, StringComparison.Ordinal))
+                {
+                    state.Embargoes.Add(new Entities.EmbargoState
+                    {
+                        Id = $"emb_{seq++}",
+                        EnforcingFactionId = wf.CombatantA,
+                        TargetFactionId = wf.CombatantB,
+                        GoodId = ring.Good,
+                        WarfrontId = wf.Id,
+                    });
+                }
+                if (string.Equals(ring.Consumer, wf.CombatantB, StringComparison.Ordinal)
+                    && string.Equals(ring.Supplier, wf.CombatantA, StringComparison.Ordinal))
+                {
+                    state.Embargoes.Add(new Entities.EmbargoState
+                    {
+                        Id = $"emb_{seq++}",
+                        EnforcingFactionId = wf.CombatantB,
+                        TargetFactionId = wf.CombatantA,
+                        GoodId = ring.Good,
+                        WarfrontId = wf.Id,
+                    });
+                }
+            }
+
+            // Always embargo munitions for both combatants.
+            state.Embargoes.Add(new Entities.EmbargoState
+            {
+                Id = $"emb_{seq++}",
+                EnforcingFactionId = wf.CombatantA,
+                TargetFactionId = wf.CombatantB,
+                GoodId = Tweaks.EmbargoTweaksV0.AlwaysEmbargoedWarGood,
+                WarfrontId = wf.Id,
+            });
+            state.Embargoes.Add(new Entities.EmbargoState
+            {
+                Id = $"emb_{seq++}",
+                EnforcingFactionId = wf.CombatantB,
+                TargetFactionId = wf.CombatantA,
+                GoodId = Tweaks.EmbargoTweaksV0.AlwaysEmbargoedWarGood,
+                WarfrontId = wf.Id,
+            });
+        }
     }
 }

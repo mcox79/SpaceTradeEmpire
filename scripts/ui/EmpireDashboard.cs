@@ -15,7 +15,8 @@ public partial class EmpireDashboard : Control
     private Bridge.SimBridge _bridge = null!;
 
     // ── Tab state ───────────────────────────────────────────────────────────
-    private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats, Factions }
+    // GATE.S7.WARFRONT.DASHBOARD_TAB.001: Added Warfronts tab
+    private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats, Factions, Warfronts }
     private Tab _activeTab = Tab.Overview;
 
     // ── Tab buttons ─────────────────────────────────────────────────────────
@@ -69,6 +70,9 @@ public partial class EmpireDashboard : Control
 
     // ── Factions list (GATE.S7.FACTION.UI_REPUTATION.001) ─────────────
     private VBoxContainer _factionList = null!;
+
+    // ── Warfronts list (GATE.S7.WARFRONT.DASHBOARD_TAB.001) ────────
+    private VBoxContainer _warfrontList = null!;
 
     // ── Godot lifecycle ─────────────────────────────────────────────────────
     public override void _Ready()
@@ -131,6 +135,12 @@ public partial class EmpireDashboard : Control
         var factions = _bridge.GetAllFactionsV0();
         if (factions != null && factions.Count > 0) showFactions = true;
         _tabBtns[(int)Tab.Factions].Visible = showFactions;
+
+        // GATE.S7.WARFRONT.DASHBOARD_TAB.001: Warfronts tab visible if any warfronts exist
+        bool showWarfronts = false;
+        var warfronts = _bridge.GetWarfrontsV0();
+        if (warfronts != null && warfronts.Count > 0) showWarfronts = true;
+        _tabBtns[(int)Tab.Warfronts].Visible = showWarfronts;
 
         // If current tab is hidden, switch to Overview
         if (!_tabBtns[(int)_activeTab].Visible)
@@ -221,7 +231,7 @@ public partial class EmpireDashboard : Control
         root.AddChild(tabBar);
 
         // GATE.S13.TERMINOLOGY.001: Player-friendly tab names
-        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats", "Factions" };
+        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats", "Factions", "Warfronts" };
         _tabBtns = new Button[tabNames.Length];
         for (int i = 0; i < tabNames.Length; i++)
         {
@@ -255,6 +265,7 @@ public partial class EmpireDashboard : Control
         _tabPanels[(int)Tab.Research]    = BuildResearchTab();
         _tabPanels[(int)Tab.Stats]       = BuildStatsTab();
         _tabPanels[(int)Tab.Factions]    = BuildFactionsTab();
+        _tabPanels[(int)Tab.Warfronts]   = BuildWarfrontsTab();
 
         foreach (var p in _tabPanels)
         {
@@ -292,6 +303,7 @@ public partial class EmpireDashboard : Control
             case Tab.Research:   RefreshResearch();    break;
             case Tab.Stats:      RefreshStats();       break;
             case Tab.Factions:   RefreshFactions();    break;
+            case Tab.Warfronts:  RefreshWarfronts();   break;
         }
     }
 
@@ -1352,6 +1364,150 @@ public partial class EmpireDashboard : Control
             repRow.AddChild(repValLbl);
 
             // Separator between factions
+            row.AddChild(new HSeparator());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GATE.S7.WARFRONT.DASHBOARD_TAB.001: Warfronts tab
+    // GATE.S7.WARFRONT.SUPPLY_HUD.001: Supply delivery progress
+    // GATE.S7.INSTABILITY.EFFECTS_UI.001: Instability effects per contested node
+    // ═══════════════════════════════════════════════════════════════════════
+    private Control BuildWarfrontsTab()
+    {
+        var box = new VBoxContainer();
+        box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        box.SizeFlagsVertical   = SizeFlags.ExpandFill;
+
+        var hdr = new Label { Text = "Warfront  |  Combatants  |  Intensity  |  Type  |  Contested Nodes" };
+        hdr.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.9f, 1f));
+        box.AddChild(hdr);
+        box.AddChild(new HSeparator());
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical   = SizeFlags.ExpandFill;
+        scroll.CustomMinimumSize   = new Vector2(0, 300);
+
+        _warfrontList = new VBoxContainer();
+        _warfrontList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _warfrontList.AddThemeConstantOverride("separation", 6);
+        scroll.AddChild(_warfrontList);
+        box.AddChild(scroll);
+
+        return box;
+    }
+
+    private void RefreshWarfronts()
+    {
+        ClearChildren(_warfrontList);
+        var warfronts = _bridge.GetWarfrontsV0();
+        if (warfronts == null || warfronts.Count == 0)
+        {
+            _warfrontList.AddChild(new Label { Text = "No active warfronts." });
+            return;
+        }
+
+        foreach (var v in warfronts)
+        {
+            var d = v.Obj as Dictionary;
+            if (d == null) continue;
+
+            var wfId           = GetStr(d, "id");
+            var combatantA     = GetStr(d, "combatant_a");
+            var combatantB     = GetStr(d, "combatant_b");
+            var intensity      = GetInt(d, "intensity");
+            var intensityLabel = GetStr(d, "intensity_label");
+            var warType        = GetStr(d, "war_type");
+            var contestedCount = GetInt(d, "contested_count");
+
+            var row = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            _warfrontList.AddChild(row);
+
+            // Top line: combatants + intensity + type + contested
+            var topRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.AddChild(topRow);
+
+            var combLbl = new Label { Text = $"{combatantA} vs {combatantB}", CustomMinimumSize = new Vector2(200, 0) };
+            combLbl.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 1.0f, 1f));
+            topRow.AddChild(combLbl);
+
+            Color intensityColor = intensity switch
+            {
+                0 => new Color(0.5f, 0.5f, 0.5f, 1f),
+                1 => new Color(1.0f, 0.85f, 0.2f, 1f),
+                2 => new Color(1.0f, 0.6f, 0.2f, 1f),
+                3 => new Color(1.0f, 0.3f, 0.15f, 1f),
+                _ => new Color(1.0f, 0.1f, 0.1f, 1f),
+            };
+            var intLbl = new Label { Text = intensityLabel, CustomMinimumSize = new Vector2(100, 0) };
+            intLbl.AddThemeColorOverride("font_color", intensityColor);
+            topRow.AddChild(intLbl);
+
+            var typeLbl = new Label { Text = warType, CustomMinimumSize = new Vector2(60, 0) };
+            topRow.AddChild(typeLbl);
+
+            var contestedLbl = new Label { Text = $"{contestedCount} contested" };
+            contestedLbl.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            topRow.AddChild(contestedLbl);
+
+            // GATE.S7.WARFRONT.SUPPLY_HUD.001: Supply delivery progress
+            var supply = _bridge.GetWarSupplyV0(wfId);
+            if (supply != null)
+            {
+                int progressPct = GetInt(supply, "shift_progress_pct");
+                int threshold   = GetInt(supply, "shift_threshold");
+
+                var supplyRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                row.AddChild(supplyRow);
+
+                var supplyLbl = new Label { Text = "Supply:", CustomMinimumSize = new Vector2(60, 0) };
+                supplyLbl.AddThemeColorOverride("font_color", new Color(0.6f, 0.8f, 1.0f, 1f));
+                supplyRow.AddChild(supplyLbl);
+
+                var supplyBar = new ProgressBar();
+                supplyBar.MinValue = 0;
+                supplyBar.MaxValue = 100;
+                supplyBar.Value = progressPct;
+                supplyBar.CustomMinimumSize = new Vector2(200, 18);
+                supplyBar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+                var sFill = new StyleBoxFlat();
+                sFill.BgColor = new Color(0.3f, 0.7f, 1.0f, 1f);
+                sFill.SetCornerRadiusAll(3);
+                supplyBar.AddThemeStyleboxOverride("fill", sFill);
+                var sBg = new StyleBoxFlat();
+                sBg.BgColor = new Color(0.15f, 0.15f, 0.2f, 1f);
+                sBg.SetCornerRadiusAll(3);
+                supplyBar.AddThemeStyleboxOverride("background", sBg);
+                supplyRow.AddChild(supplyBar);
+
+                var pctLbl = new Label { Text = $"{progressPct}% toward shift ({threshold} units)" };
+                supplyRow.AddChild(pctLbl);
+
+                // Show deliveries by good
+                var deliveries = supply.ContainsKey("deliveries") ? supply["deliveries"].As<Dictionary>() : null;
+                if (deliveries != null && deliveries.Count > 0)
+                {
+                    var delRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                    row.AddChild(delRow);
+
+                    var delLbl = new Label { Text = "  Deliveries:" };
+                    delLbl.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 0.5f, 1f));
+                    delRow.AddChild(delLbl);
+
+                    foreach (var key in deliveries.Keys)
+                    {
+                        var goodId = key.ToString();
+                        int qty = 0;
+                        try { qty = (int)deliveries[key]; } catch { }
+                        var gLbl = new Label { Text = $"  {goodId}: {qty}" };
+                        delRow.AddChild(gLbl);
+                    }
+                }
+            }
+
+            // Separator between warfronts
             row.AddChild(new HSeparator());
         }
     }

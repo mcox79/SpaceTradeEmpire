@@ -388,6 +388,7 @@ public sealed class RuntimeFileContractTests
         var excludedPathPrefixes = new[]
         {
             "docs/generated/",
+            "reports/",
         };
 
         // Hard limits (repo-wide).

@@ -272,6 +272,70 @@ public static class MarketSystem
         return (int)Math.Max(1, adjusted); // STRUCTURAL: floor
     }
 
+    // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Check if a good is embargoed at a market.
+    // Returns true if any active embargo blocks this good at this market's faction.
+    public static bool IsGoodEmbargoed(SimState state, string marketId, string goodId)
+    {
+        if (state?.Embargoes is null || state.Embargoes.Count == 0) return false;
+        if (string.IsNullOrEmpty(marketId) || string.IsNullOrEmpty(goodId)) return false;
+
+        var factionId = GetControllingFactionIdForMarket(state, marketId);
+        if (string.IsNullOrEmpty(factionId)) return false;
+
+        foreach (var embargo in state.Embargoes)
+        {
+            if (StringComparer.Ordinal.Equals(embargo.EnforcingFactionId, factionId)
+                && StringComparer.Ordinal.Equals(embargo.GoodId, goodId))
+                return true;
+        }
+        return false;
+    }
+
+    // GATE.S7.INSTABILITY.CONSEQUENCES.001: Get instability phase for a node.
+    public static int GetNodeInstabilityPhase(SimState state, string nodeId)
+    {
+        if (state is null || string.IsNullOrEmpty(nodeId)) return 0; // STRUCTURAL: default phase
+        if (!state.Nodes.TryGetValue(nodeId, out var node)) return 0; // STRUCTURAL: not found
+        return InstabilityTweaksV0.GetPhaseIndex(node.InstabilityLevel);
+    }
+
+    // GATE.S7.INSTABILITY.CONSEQUENCES.001: Get instability price jitter percentage for a market.
+    // Returns 0 for Stable, 5 for Shimmer, etc.
+    public static int GetInstabilityPriceJitterPct(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 0; // STRUCTURAL: default
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId is null) return 0; // STRUCTURAL: not found
+        int phase = GetNodeInstabilityPhase(state, nodeId);
+        return phase switch
+        {
+            1 => InstabilityTweaksV0.ShimmerPriceJitterPct,           // Shimmer
+            >= 2 => InstabilityTweaksV0.ShimmerPriceJitterPct * phase, // Scales with phase
+            _ => 0 // STRUCTURAL: Stable
+        };
+    }
+
+    // GATE.S7.INSTABILITY.CONSEQUENCES.001: Check if market is closed due to Void instability.
+    public static bool IsMarketClosedByInstability(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return false;
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId is null) return false;
+        int phase = GetNodeInstabilityPhase(state, nodeId);
+        return phase >= 4; // STRUCTURAL: Void phase index
+    }
+
+    // Helper: find the node that owns a market.
+    private static string? FindNodeForMarket(SimState state, string marketId)
+    {
+        foreach (var kv in state.Nodes)
+        {
+            if (StringComparer.Ordinal.Equals(kv.Value.MarketId, marketId))
+                return kv.Key;
+        }
+        return null;
+    }
+
     // GATE.S18.TRADE_GOODS.PRICE_BANDS.001: Get effective price for a good at a market.
     // Price scales with supply: below DemandThreshold → price rises, above → falls.
     // Integer arithmetic only, deterministic.
