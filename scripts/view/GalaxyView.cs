@@ -50,6 +50,12 @@ public partial class GalaxyView : Node3D
     // GATE.S15.FEEL.FACTION_LABELS.001: Faction territory Label3D nodes keyed by faction_id.
     private readonly Dictionary<string, Label3D> _factionLabelsByFactionId = new();
 
+    // GATE.S7.FACTION.TERRITORY_OVERLAY.001: Semi-transparent territory fill discs at claimed nodes.
+    private readonly Dictionary<string, MeshInstance3D> _territoryDiscsByNodeId = new();
+
+    // GATE.S5.LOOT.BRIDGE_PROOF.001: Loot drop markers (glowing spheres) at current node.
+    private readonly Dictionary<string, MeshInstance3D> _lootMarkersByDropId = new();
+
     // GATE.S17.REAL_SPACE.GALAXY_RENDER.001: Persistent star billboards at galactic-scale positions.
     private Node3D _persistentStarsRoot;
     // Persistent lane lines between stars (always visible in real-space flight).
@@ -423,14 +429,14 @@ public partial class GalaxyView : Node3D
                     label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, scale);
                     label.Visible = true;
                 }
-                else if (dist > 80f)
+                else if (dist > 150f)
                 {
-                    // Fully hidden beyond 80u — prevents distant label artifacts.
+                    // Fully hidden beyond 150u — prevents distant label artifacts.
                     label.Visible = false;
                 }
-                else if (dist > 60f)
+                else if (dist > 80f)
                 {
-                    float alpha = Mathf.Clamp(1f - (dist - 60f) / 20f, 0f, 1f);
+                    float alpha = Mathf.Clamp(1f - (dist - 80f) / 70f, 0f, 1f);
                     label.PixelSize = 0.12f;
                     label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, alpha);
                     label.Visible = alpha > 0.01f;
@@ -1076,12 +1082,26 @@ public partial class GalaxyView : Node3D
         ringMesh.RotateX(Mathf.Pi / 2.0f);
         stationVisual.AddChild(ringMesh);
 
+        // GATE.S7.FACTION_VIS.STATION_STYLE.001: Accent color from controlling faction.
+        var accentColor = new Color(0.3f, 0.7f, 1.0f); // default blue
+        if (_bridge != null && !string.IsNullOrEmpty(nodeId))
+        {
+            var territory = _bridge.GetTerritoryAccessV0(nodeId);
+            var factionId = territory.ContainsKey("faction_id") ? (string)territory["faction_id"] : "";
+            if (!string.IsNullOrEmpty(factionId))
+            {
+                var colors = _bridge.GetFactionColorsV0(factionId);
+                if (colors.ContainsKey("accent"))
+                    accentColor = (Color)colors["accent"];
+            }
+        }
+
         // Emissive accent band — navigation beacon / docking lights.
         var accentMat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.3f, 0.7f, 1.0f),
+            AlbedoColor = accentColor,
             EmissionEnabled = true,
-            Emission = new Color(0.3f, 0.7f, 1.0f),
+            Emission = accentColor,
             EmissionEnergyMultiplier = 3.0f,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         };
@@ -1150,6 +1170,27 @@ public partial class GalaxyView : Node3D
         };
         stationLabel.Position = new Vector3(0f, 4f, 0f);
         station.AddChild(stationLabel);
+
+        // GATE.S7.FACTION_VIS.STATION_STYLE.001: Faction name banner below station label.
+        if (_bridge != null && !string.IsNullOrEmpty(nodeId))
+        {
+            var terr = _bridge.GetTerritoryAccessV0(nodeId);
+            var fid = terr.ContainsKey("faction_id") ? (string)terr["faction_id"] : "";
+            if (!string.IsNullOrEmpty(fid))
+            {
+                var factionBanner = new Label3D
+                {
+                    Name = "FactionBanner",
+                    Text = fid,
+                    PixelSize = 0.08f,
+                    Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                    Modulate = accentColor,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                factionBanner.Position = new Vector3(0f, 3.2f, 0f);
+                station.AddChild(factionBanner);
+            }
+        }
 
         // Station orbit pivot: centered at planet position, slow orbit around planet.
         var stationOrbitPivot = new Node3D { Name = "StationOrbitPivot" };
@@ -1527,6 +1568,20 @@ public partial class GalaxyView : Node3D
         ship.SetMeta("fleet_id", fleetId);
         int role = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
         ship.SetMeta("is_hostile", role == 2);
+
+        // GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Apply faction color tint to NPC ship.
+        if (_bridge != null && ship.HasMethod("set_faction_color")
+            && !string.IsNullOrEmpty(_currentLocalNodeId))
+        {
+            var territory = _bridge.GetTerritoryAccessV0(_currentLocalNodeId);
+            var factionId = territory.ContainsKey("faction_id") ? (string)territory["faction_id"] : "";
+            if (!string.IsNullOrEmpty(factionId))
+            {
+                var colors = _bridge.GetFactionColorsV0(factionId);
+                if (colors.ContainsKey("primary"))
+                    ship.Call("set_faction_color", colors["primary"]);
+            }
+        }
 
         // Wire FleetArea body_entered signal for combat proximity.
         var area = ship.GetNodeOrNull<Area3D>("FleetArea");
@@ -2157,6 +2212,7 @@ public partial class GalaxyView : Node3D
 
         // GATE.S14.GATE_VISUAL.KENNEY_MODEL.001: Use Kenney Space Kit gate model.
         const string GateScenePath = "res://addons/kenney_space_kit/Models/GLTF format/gate_complex.glb";
+        bool gateModelLoaded = false;
         if (Godot.FileAccess.FileExists(GateScenePath))
         {
             var gateScene = GD.Load<PackedScene>(GateScenePath);
@@ -2168,11 +2224,12 @@ public partial class GalaxyView : Node3D
                 float s = 3.0f;
                 gateModel.Scale = new Vector3(s, s, s);
                 root.AddChild(gateModel);
+                gateModelLoaded = true;
             }
         }
-        else
+        if (!gateModelLoaded)
         {
-            // Fallback: simple emissive orb if Kenney asset missing.
+            // Fallback: emissive torus if Kenney asset missing or import cache stale.
             var orbMat = new StandardMaterial3D
             {
                 AlbedoColor = new Color(0.5f, 0.7f, 1.0f),
@@ -2183,7 +2240,7 @@ public partial class GalaxyView : Node3D
             var orb = new MeshInstance3D
             {
                 Name = "GateOrb",
-                Mesh = new SphereMesh { Radius = LaneGateMarkerRadiusU * 0.38f },
+                Mesh = new TorusMesh { InnerRadius = LaneGateMarkerRadiusU * 0.8f, OuterRadius = LaneGateMarkerRadiusU * 1.2f },
                 MaterialOverride = orbMat
             };
             root.AddChild(orb);
@@ -2819,6 +2876,12 @@ public partial class GalaxyView : Node3D
 
         // GATE.S15.FEEL.FACTION_LABELS.001: Faction territory labels on galaxy map.
         UpdateFactionLabelsV0();
+
+        // GATE.S7.FACTION.TERRITORY_OVERLAY.001: Territory fill discs at claimed nodes.
+        UpdateTerritoryOverlayV0();
+
+        // GATE.S5.LOOT.BRIDGE_PROOF.001: Loot drop markers.
+        UpdateLootMarkersV0();
     }
 
     // GATE.S5.SEC_LANES.UI.001: Map security BPS to lane display color.
@@ -3280,6 +3343,196 @@ public partial class GalaxyView : Node3D
         foreach (var lbl in _volumeLabelsByKey.Values)
             lbl.QueueFree();
         _volumeLabelsByKey.Clear();
+    }
+
+    // GATE.S7.FACTION.TERRITORY_OVERLAY.001: Draw/update semi-transparent territory fill discs
+    // at each claimed node. Color = faction primary color at low alpha.
+    private void UpdateTerritoryOverlayV0()
+    {
+        if (_bridge == null || !_bridge.HasMethod("GetNodeFactionMapV0")) return;
+
+        var mapping = _bridge.Call("GetNodeFactionMapV0").AsGodotArray();
+        if (mapping == null || mapping.Count == 0)
+        {
+            ClearTerritoryOverlayV0();
+            return;
+        }
+
+        // Cache faction colors: faction_id → primary color.
+        var factionColors = new Dictionary<string, Color>(StringComparer.Ordinal);
+
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        for (int i = 0; i < mapping.Count; i++)
+        {
+            var entry = mapping[i].AsGodotDictionary();
+            if (entry == null) continue;
+
+            var nodeId = entry.ContainsKey("node_id") ? (string)(Variant)entry["node_id"] : "";
+            var factionId = entry.ContainsKey("faction_id") ? (string)(Variant)entry["faction_id"] : "";
+            if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(factionId)) continue;
+
+            seenNodes.Add(nodeId);
+
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            // Resolve faction color (cached per faction).
+            if (!factionColors.TryGetValue(factionId, out var baseColor))
+            {
+                baseColor = new Color(0.5f, 0.5f, 0.8f); // fallback blue-grey
+                if (_bridge.HasMethod("GetFactionColorsV0"))
+                {
+                    var colors = _bridge.Call("GetFactionColorsV0", factionId).AsGodotDictionary();
+                    if (colors != null && colors.ContainsKey("primary"))
+                    {
+                        var hex = (string)(Variant)colors["primary"];
+                        if (!string.IsNullOrEmpty(hex))
+                            baseColor = new Color(hex);
+                    }
+                }
+                factionColors[factionId] = baseColor;
+            }
+
+            if (!_territoryDiscsByNodeId.TryGetValue(nodeId, out var disc))
+            {
+                disc = new MeshInstance3D
+                {
+                    Name = "TerritoryDisc_" + nodeId,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                var mesh = new PlaneMesh { Size = new Vector2(12f, 12f) };
+                disc.Mesh = mesh;
+                _territoryDiscsByNodeId[nodeId] = disc;
+                AddChild(disc);
+            }
+
+            // Position slightly below the node to avoid Z-fighting with other elements.
+            disc.GlobalPosition = nodeRoot.GlobalPosition + new Vector3(0f, -0.5f, 0f);
+
+            // Apply faction color with transparency.
+            var mat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(baseColor.R, baseColor.G, baseColor.B, 0.18f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
+            disc.MaterialOverride = mat;
+        }
+
+        // Remove discs for nodes no longer claimed.
+        var toRemove = new List<string>();
+        foreach (var kv in _territoryDiscsByNodeId)
+        {
+            if (!seenNodes.Contains(kv.Key))
+            {
+                kv.Value.QueueFree();
+                toRemove.Add(kv.Key);
+            }
+        }
+        foreach (var key in toRemove)
+            _territoryDiscsByNodeId.Remove(key);
+    }
+
+    // GATE.S5.LOOT.BRIDGE_PROOF.001: Show glowing sphere markers for loot drops at current node.
+    private void UpdateLootMarkersV0()
+    {
+        if (_bridge == null || !_bridge.HasMethod("GetNearbyLootV0"))
+        {
+            ClearLootMarkersV0();
+            return;
+        }
+
+        var drops = _bridge.Call("GetNearbyLootV0").AsGodotArray();
+        if (drops == null || drops.Count == 0)
+        {
+            ClearLootMarkersV0();
+            return;
+        }
+
+        // Find current node position for placing loot markers.
+        string currentNodeId = _currentLocalNodeId ?? "";
+        if (string.IsNullOrEmpty(currentNodeId) || !_nodeRootsById.TryGetValue(currentNodeId, out var nodeRoot))
+        {
+            ClearLootMarkersV0();
+            return;
+        }
+
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        int idx = 0;
+
+        for (int i = 0; i < drops.Count; i++)
+        {
+            var entry = drops[i].AsGodotDictionary();
+            if (entry == null) continue;
+            var dropId = entry.ContainsKey("drop_id") ? (string)(Variant)entry["drop_id"] : "";
+            if (string.IsNullOrEmpty(dropId)) continue;
+
+            seenIds.Add(dropId);
+            var rarity = entry.ContainsKey("rarity") ? (string)(Variant)entry["rarity"] : "Common";
+
+            if (!_lootMarkersByDropId.TryGetValue(dropId, out var marker))
+            {
+                marker = new MeshInstance3D
+                {
+                    Name = "LootMarker_" + dropId,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                marker.Mesh = new SphereMesh { Radius = 0.8f, Height = 1.6f };
+                _lootMarkersByDropId[dropId] = marker;
+                AddChild(marker);
+            }
+
+            // Spread markers in a ring around the node.
+            float angle = idx * Mathf.Tau / drops.Count;
+            float spread = 4f;
+            var offset = new Vector3(Mathf.Cos(angle) * spread, 2f, Mathf.Sin(angle) * spread);
+            marker.GlobalPosition = nodeRoot.GlobalPosition + offset;
+
+            // Rarity color.
+            Color lootColor = rarity switch
+            {
+                "Uncommon" => new Color(0.2f, 0.8f, 1.0f),
+                "Rare" => new Color(0.9f, 0.2f, 1.0f),
+                _ => new Color(1.0f, 0.9f, 0.3f), // Common = gold
+            };
+            marker.MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = lootColor,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                EmissionEnabled = true,
+                Emission = lootColor,
+            };
+            idx++;
+        }
+
+        // Remove markers for collected/despawned drops.
+        var toRemove = new List<string>();
+        foreach (var kv in _lootMarkersByDropId)
+        {
+            if (!seenIds.Contains(kv.Key))
+            {
+                kv.Value.QueueFree();
+                toRemove.Add(kv.Key);
+            }
+        }
+        foreach (var key in toRemove)
+            _lootMarkersByDropId.Remove(key);
+    }
+
+    private void ClearLootMarkersV0()
+    {
+        foreach (var kv in _lootMarkersByDropId)
+            kv.Value.QueueFree();
+        _lootMarkersByDropId.Clear();
+    }
+
+    private void ClearTerritoryOverlayV0()
+    {
+        foreach (var kv in _territoryDiscsByNodeId)
+            kv.Value.QueueFree();
+        _territoryDiscsByNodeId.Clear();
     }
 
     // GATE.S15.FEEL.FACTION_LABELS.001: Draw/update faction territory Label3Ds on the galaxy map.

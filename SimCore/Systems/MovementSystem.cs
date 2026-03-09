@@ -258,6 +258,17 @@ public static class MovementSystem
         if (fleet.RouteEdgeIds == null || fleet.RouteEdgeIds.Count == 0) return;
         if (fleet.RouteEdgeIndex < 0 || fleet.RouteEdgeIndex >= fleet.RouteEdgeIds.Count) return;
 
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Fuel shortfall immobilizes player fleets.
+        // Only enforced when fleet has non-empty cargo (has been fueled at some point).
+        if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)
+            && fleet.Cargo.Count > 0
+            && fleet.GetCargoUnits(Content.WellKnownGoodIds.Fuel) <= 0)
+        {
+            fleet.State = FleetState.Idle;
+            fleet.CurrentTask = "Immobilized:NoFuel";
+            return;
+        }
+
         var nextEdgeId = fleet.RouteEdgeIds[fleet.RouteEdgeIndex];
         if (string.IsNullOrWhiteSpace(nextEdgeId)) return;
 

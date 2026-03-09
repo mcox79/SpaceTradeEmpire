@@ -178,6 +178,9 @@ public partial class SimState
         Planets ??= new Dictionary<string, Entities.Planet>(StringComparer.Ordinal);
         Stars ??= new Dictionary<string, Entities.Star>(StringComparer.Ordinal);
 
+        // GATE.S5.LOOT.DROP_SYSTEM.001: Loot drops hydration.
+        LootDrops ??= new Dictionary<string, Entities.LootDrop>(StringComparer.Ordinal);
+
         InvalidateRoutePlannerCaches();
     }
 

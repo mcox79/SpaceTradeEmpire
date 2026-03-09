@@ -270,4 +270,107 @@ public sealed class MaintenanceSystemTests
         int expected = 10000 - (degradeRate * MaintenanceTweaksV0.NoSupplyDecayMultiplier);
         Assert.That(state.IndustrySites["site_a"].HealthBps, Is.EqualTo(expected));
     }
+
+    // --- GATE.S7.POWER.MOUNT_DEGRADE.001: Module condition decay tests ---
+
+    [Test]
+    public void ModuleCondition_DecaysOnCycleBoundary()
+    {
+        var state = CreateState();
+        var fleet = new Fleet { Id = "fleet_1", OwnerId = "player" };
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = "cannon", Condition = 100
+        });
+        state.Fleets["fleet_1"] = fleet;
+
+        // Advance to the first decay cycle boundary.
+        while (state.Tick % MaintenanceTweaksV0.ModuleConditionDecayCycleTicks != 0)
+            state.AdvanceTick();
+
+        MaintenanceSystem.ProcessDecay(state);
+
+        Assert.That(fleet.Slots[0].Condition,
+            Is.EqualTo(100 - MaintenanceTweaksV0.ModuleConditionDecayPct));
+    }
+
+    [Test]
+    public void ModuleCondition_NoDecayOffCycle()
+    {
+        var state = CreateState();
+        var fleet = new Fleet { Id = "fleet_1", OwnerId = "player" };
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = "cannon", Condition = 100
+        });
+        state.Fleets["fleet_1"] = fleet;
+
+        // Advance to tick 1 (not a cycle boundary).
+        state.AdvanceTick();
+        MaintenanceSystem.ProcessDecay(state);
+
+        Assert.That(fleet.Slots[0].Condition, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void ModuleCondition_ZeroCondition_DisablesModule()
+    {
+        var state = CreateState();
+        var fleet = new Fleet { Id = "fleet_1", OwnerId = "player" };
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = "cannon", Condition = 1, Disabled = false
+        });
+        state.Fleets["fleet_1"] = fleet;
+
+        // Advance to a decay cycle boundary.
+        while (state.Tick % MaintenanceTweaksV0.ModuleConditionDecayCycleTicks != 0)
+            state.AdvanceTick();
+
+        MaintenanceSystem.ProcessDecay(state);
+
+        Assert.That(fleet.Slots[0].Condition, Is.EqualTo(0));
+        Assert.That(fleet.Slots[0].Disabled, Is.True, "Module at 0 condition should be disabled");
+    }
+
+    [Test]
+    public void ModuleCondition_EmptySlot_NoDecay()
+    {
+        var state = CreateState();
+        var fleet = new Fleet { Id = "fleet_1", OwnerId = "player" };
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = null, Condition = 100
+        });
+        state.Fleets["fleet_1"] = fleet;
+
+        while (state.Tick % MaintenanceTweaksV0.ModuleConditionDecayCycleTicks != 0)
+            state.AdvanceTick();
+
+        MaintenanceSystem.ProcessDecay(state);
+        Assert.That(fleet.Slots[0].Condition, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void ModuleCondition_ClampsAtZero()
+    {
+        var state = CreateState();
+        var fleet = new Fleet { Id = "fleet_1", OwnerId = "player" };
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = "cannon", Condition = 0
+        });
+        state.Fleets["fleet_1"] = fleet;
+
+        while (state.Tick % MaintenanceTweaksV0.ModuleConditionDecayCycleTicks != 0)
+            state.AdvanceTick();
+
+        MaintenanceSystem.ProcessDecay(state);
+        Assert.That(fleet.Slots[0].Condition, Is.EqualTo(0));
+    }
 }

@@ -118,11 +118,13 @@ func run_audit_v0(report: Dictionary) -> Array:
 		not zero_glow or emission_count == 0,
 		"all_emission_energy_zero=%s" % str(zero_glow)))
 
-	# 11. CAMERA_TOO_FAR: camera > 500 units from origin
+	# 11. CAMERA_TOO_FAR: camera > 500 units from origin (skip during galaxy overlay)
 	var cam_pos: String = str(camera.get("position", "(0.0, 0.0, 0.0)"))
 	var cam_dist := _parse_vec3_magnitude(cam_pos)
+	var galaxy: Dictionary = report.get("galaxy", {})
+	var galaxy_open: bool = galaxy.get("galaxy_overlay_open", false)
 	results.append(_flag("CAMERA_TOO_FAR", Severity.WARNING,
-		cam_dist < 500.0 or not camera.get("found", false),
+		cam_dist < 500.0 or not camera.get("found", false) or galaxy_open,
 		"distance=%.1f" % cam_dist))
 
 	# 12. CAMERA_TOO_CLOSE: camera < 1 unit from origin
@@ -131,10 +133,10 @@ func run_audit_v0(report: Dictionary) -> Array:
 		"distance=%.1f" % cam_dist))
 
 	# 13. NO_LABEL3D: no Label3D nodes in scene (stations/fleets should have names)
-	var has_label3d := _has_type_in_tree(report, "Label3D")
+	var label3d_count: int = int(scene.get("label3d_count", 0))
 	results.append(_flag("NO_LABEL3D", Severity.WARNING,
-		has_label3d,
-		"label3d_found=%s" % str(has_label3d)))
+		label3d_count > 0,
+		"label3d_count=%d" % label3d_count))
 
 	# 14. ALL_SAME_REGION_COLOR: all stations have identical albedo
 	var unique_albedos := {}
@@ -212,3 +214,105 @@ func _has_type_in_tree(report: Dictionary, type_name: String) -> bool:
 	# For now, this is a heuristic — Label3D would appear in a separate observer pass
 	# We mark this as false by default; the observer could be extended to track Label3D
 	return false
+
+
+# --- Pixel-level audit (operates on the captured Image, not observer report) ---
+
+## Run pixel-level checks on a captured screenshot image.
+## Returns [{flag, severity, passed, detail}] — same format as run_audit_v0.
+func run_pixel_audit_v0(img: Image) -> Array:
+	var results: Array = []
+	if img == null or img.get_width() == 0 or img.get_height() == 0:
+		results.append(_flag("BLANK_FRAME", Severity.CRITICAL, false, "image=null_or_empty"))
+		return results
+
+	var samples := _sample_grid(img, 10, 10)
+
+	# 15. BLANK_FRAME: screenshot is nearly uniform (solid color)
+	var variance := _color_variance(samples)
+	results.append(_flag("BLANK_FRAME", Severity.CRITICAL,
+		variance > 0.001,
+		"variance=%.6f (threshold=0.001)" % variance))
+
+	# 16. LOW_VARIETY: fewer than 3 distinct hue buckets in sampled pixels
+	var hue_buckets := _pixel_hue_buckets(samples)
+	results.append(_flag("LOW_VARIETY", Severity.WARNING,
+		hue_buckets >= 3,
+		"hue_buckets=%d (threshold=3)" % hue_buckets))
+
+	# 17. DOMINANT_COLOR: a single hue bucket occupies >85% of samples
+	var dominant_ratio := _dominant_bucket_ratio(samples)
+	results.append(_flag("DOMINANT_COLOR", Severity.WARNING,
+		dominant_ratio <= 0.85,
+		"dominant_ratio=%.2f (threshold=0.85)" % dominant_ratio))
+
+	return results
+
+
+## Sample pixels in a grid pattern across the image.
+func _sample_grid(img: Image, cols: int, rows: int) -> Array:
+	var colors: Array = []
+	var w := img.get_width()
+	var h := img.get_height()
+	for gx in range(cols):
+		for gy in range(rows):
+			var px := int(float(gx) / float(cols - 1) * float(w - 1))
+			var py := int(float(gy) / float(rows - 1) * float(h - 1))
+			colors.append(img.get_pixel(px, py))
+	return colors
+
+
+## Compute color variance across samples (sum of per-channel variance).
+func _color_variance(samples: Array) -> float:
+	if samples.size() == 0:
+		return 0.0
+	var n := float(samples.size())
+	var avg_r := 0.0
+	var avg_g := 0.0
+	var avg_b := 0.0
+	for c: Color in samples:
+		avg_r += c.r
+		avg_g += c.g
+		avg_b += c.b
+	avg_r /= n
+	avg_g /= n
+	avg_b /= n
+	var var_sum := 0.0
+	for c: Color in samples:
+		var_sum += (c.r - avg_r) * (c.r - avg_r)
+		var_sum += (c.g - avg_g) * (c.g - avg_g)
+		var_sum += (c.b - avg_b) * (c.b - avg_b)
+	return var_sum / n
+
+
+## Count distinct hue buckets (30-degree bins) from pixel samples.
+func _pixel_hue_buckets(samples: Array) -> int:
+	var buckets := {}
+	for c: Color in samples:
+		if c.a < 0.01:
+			continue
+		# Skip near-black pixels (no meaningful hue)
+		if c.r + c.g + c.b < 0.05:
+			continue
+		var bucket: int = int(c.h * 12.0)
+		buckets[bucket] = true
+	return buckets.size()
+
+
+## Find the ratio of the most common hue bucket.
+func _dominant_bucket_ratio(samples: Array) -> float:
+	var counts := {}
+	var total := 0
+	for c: Color in samples:
+		if c.a < 0.01:
+			continue
+		var bucket: int = int(c.h * 12.0)
+		counts[bucket] = counts.get(bucket, 0) + 1
+		total += 1
+	if total == 0:
+		return 0.0
+	var max_count := 0
+	for k in counts:
+		if counts[k] > max_count:
+			max_count = counts[k]
+	return float(max_count) / float(total)

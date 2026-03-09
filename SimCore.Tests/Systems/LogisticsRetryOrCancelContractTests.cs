@@ -36,6 +36,8 @@ public sealed class LogisticsRetryOrCancelContractTests
         };
 
         WorldLoader.Apply(k.State, def);
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel so fleet isn't immobilized.
+        k.State.Fleets["fleet_trader_1"].Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
         return k;
     }
 

@@ -40,7 +40,10 @@ public sealed class LogisticsJobExecutionIntegrationTests
         WorldLoader.Apply(s, def);
 
         // Make travel single-tick per edge
-        s.Fleets["fleet_trader_1"].Speed = 1.0f;
+        var fleet = s.Fleets["fleet_trader_1"];
+        fleet.Speed = 1.0f;
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel so fleet isn't immobilized.
+        fleet.Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
 
         return s;
     }

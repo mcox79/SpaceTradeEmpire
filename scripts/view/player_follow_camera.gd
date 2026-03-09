@@ -37,6 +37,10 @@ enum CameraMode {
 @export var fov_boost_max: float = 2.0
 @export var fov_smooth: float = 4.0
 
+# FOV cinematic swell: widen during warp transit approach, narrow on arrival.
+const FLYBY_FOV_TRANSIT_BOOST: float = 8.0  # Max extra FOV degrees at low transit altitude.
+const FLYBY_FOV_SMOOTH: float = 3.0         # Lerp speed for cinematic FOV transitions.
+
 # Reset key.
 @export var reset_keycode: int = KEY_R
 
@@ -114,6 +118,15 @@ var flyby_up: Vector3 = Vector3.BACK         # Camera up vector.
 var input_locked: bool = false               # Blocks camera input during cinematics.
 var warp_transit_tilt: float = 0.0  # 0=top-down, 1=forward-looking chase cam
 
+# Flyby settle state: critically-damped spring from flyby position to flight position.
+var flyby_settle_active: bool = false
+var _settle_pos: Vector3 = Vector3.ZERO
+var _settle_vel: Vector3 = Vector3.ZERO
+var _settle_look: Vector3 = Vector3.ZERO
+var _settle_look_vel: Vector3 = Vector3.ZERO
+const FLYBY_SETTLE_OMEGA: float = 7.0      # Angular frequency — ~0.7s to settle.
+const FLYBY_SETTLE_DONE_DIST: float = 0.5  # Distance threshold to declare "settled".
+
 func _ready() -> void:
 	_target = _resolve_target()
 	if _target == null:
@@ -152,7 +165,39 @@ func _physics_process(delta: float) -> void:
 			# Tight tracking (k=30): tween provides smooth motion, camera follows crisply.
 			_cam.global_position = _cam.global_position.lerp(flyby_cam_pos, 1.0 - exp(-30.0 * delta))
 			_cam.look_at(flyby_look_at, flyby_up)
-			_cam.fov = 60.0
+			# FOV narrows smoothly toward base during flyby (arrival feel after transit boost).
+			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
+			_cam.fov = _current_fov
+		_apply_shake_offset(delta)
+		return
+
+	# Flyby settle: critically-damped spring from flyby end position to flight position.
+	if flyby_settle_active:
+		if _cam and _target and is_instance_valid(_target):
+			var flight_target := _target.global_position + Vector3(0.0, _altitude, 0.0)
+			var look_target := Vector3(_target.global_position.x, 0.0, _target.global_position.z)
+			# Critically-damped spring: force = -omega^2 * disp - 2*omega * vel
+			var omega: float = FLYBY_SETTLE_OMEGA
+			var disp := _settle_pos - flight_target
+			var spring_force := -(omega * omega) * disp - 2.0 * omega * _settle_vel
+			_settle_vel += spring_force * delta
+			_settle_pos += _settle_vel * delta
+			# Same spring for look-at.
+			var disp_look := _settle_look - look_target
+			var spring_look := -(omega * omega) * disp_look - 2.0 * omega * _settle_look_vel
+			_settle_look_vel += spring_look * delta
+			_settle_look += _settle_look_vel * delta
+			_cam.global_position = _settle_pos
+			if _settle_look.length_squared() > 0.01:
+				_cam.look_at(_settle_look, Vector3.BACK)
+			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
+			_cam.fov = _current_fov
+			# Terminate settle when converged.
+			if _settle_pos.distance_to(flight_target) < FLYBY_SETTLE_DONE_DIST and _settle_vel.length() < 0.1:
+				flyby_settle_active = false
+				_altitude = _settle_pos.y
+		else:
+			flyby_settle_active = false
 		_apply_shake_offset(delta)
 		return
 
@@ -512,7 +557,7 @@ func _update_fov(delta: float) -> void:
 	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
 	_cam.fov = _current_fov
 
-func _update_warp_transit(_delta: float) -> void:
+func _update_warp_transit(delta: float) -> void:
 	# Read transit target and altitude from GameManager.
 	var target_pos: Vector3 = Vector3.ZERO
 	var altitude: float = 500.0
@@ -576,7 +621,11 @@ func _update_warp_transit(_delta: float) -> void:
 	# Snap camera — transit marker is smoothly tweened, so snapping produces smooth motion.
 	_cam.global_position = desired_pos
 	_cam.look_at(look_target, up_vec)
-	_cam.fov = 60.0
+	# FOV swell: widen as camera descends toward destination (speed feel).
+	var transit_fov_t: float = 1.0 - clampf(altitude / 1200.0, 0.0, 1.0)
+	var target_transit_fov: float = fov_base + FLYBY_FOV_TRANSIT_BOOST * transit_fov_t
+	_current_fov = lerpf(_current_fov, target_transit_fov, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
+	_cam.fov = _current_fov
 
 func _update_galaxy_map(delta: float) -> void:
 	# Get the player star world position as our anchor point.

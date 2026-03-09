@@ -806,11 +806,22 @@ public partial class SimBridge : Node
     }
 
     // GATE.S4.INDU_STRUCT.PLAYABLE_VIEW.001
-    // Returns array of {site_id, recipe_id, efficiency_pct, health_pct, outputs} for a node's industry sites.
+    // GATE.S7.PRODUCTION.BRIDGE_READOUT.001: Enhanced with recipe_name, inputs (display names), output display names.
+    // Returns array of {site_id, recipe_id, recipe_name, efficiency_pct, health_pct, inputs, outputs} per site.
     public Godot.Collections.Array GetNodeIndustryV0(string nodeId)
     {
         var result = new Godot.Collections.Array();
         if (string.IsNullOrEmpty(nodeId)) return result;
+
+        // Load content registry once for display name lookups.
+        var reg = SimCore.Content.ContentRegistryLoader.LoadFromJsonOrThrow(
+            SimCore.Content.ContentRegistryLoader.DefaultRegistryJsonV0);
+        var goodNames = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var g in reg.Goods)
+            goodNames[g.Id] = string.IsNullOrEmpty(g.DisplayName) ? g.Id : g.DisplayName;
+        var recipeMap = new System.Collections.Generic.Dictionary<string, SimCore.Content.ContentRegistryLoader.RecipeDefV0>(StringComparer.Ordinal);
+        foreach (var r in reg.Recipes)
+            recipeMap[r.Id] = r;
 
         TryExecuteSafeRead(state =>
         {
@@ -832,11 +843,32 @@ public partial class SimBridge : Node
                 dict["efficiency_pct"] = (int)(site.Efficiency * 100);
                 dict["health_pct"] = site.HealthBps / 100;
 
+                // Recipe display name from content registry.
+                string recipeName = site.RecipeId ?? "";
+                if (!string.IsNullOrEmpty(site.RecipeId) && recipeMap.TryGetValue(site.RecipeId, out var recipeDef))
+                    recipeName = string.IsNullOrEmpty(recipeDef.DisplayName) ? site.RecipeId : recipeDef.DisplayName;
+                dict["recipe_name"] = recipeName;
+
+                // Inputs from recipe definition with display names.
+                var inputs = new Godot.Collections.Array();
+                if (!string.IsNullOrEmpty(site.RecipeId) && recipeMap.TryGetValue(site.RecipeId, out var rDef))
+                {
+                    foreach (var inp in rDef.Inputs)
+                    {
+                        goodNames.TryGetValue(inp.GoodId, out var gName);
+                        inputs.Add((gName ?? inp.GoodId) + ":" + inp.Qty);
+                    }
+                }
+                dict["inputs"] = inputs;
+
                 var outputs = new Godot.Collections.Array();
                 var outKeys = new System.Collections.Generic.List<string>(site.Outputs.Keys);
                 outKeys.Sort(StringComparer.Ordinal);
                 foreach (var ok in outKeys)
-                    outputs.Add(ok + ":" + site.Outputs[ok]);
+                {
+                    goodNames.TryGetValue(ok, out var gName);
+                    outputs.Add((gName ?? ok) + ":" + site.Outputs[ok]);
+                }
                 dict["outputs"] = outputs;
 
                 result.Add(dict);

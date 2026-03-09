@@ -46,6 +46,9 @@ var _patrol_seed: int = 0
 ## Model loaded flag.
 var _model_loaded: bool = false
 
+## GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Faction tint color (set at spawn).
+var _faction_color: Color = Color.WHITE
+
 ## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001: Status overlay nodes.
 var _role_label: Label3D = null
 var _hp_bar: MeshInstance3D = null
@@ -174,6 +177,33 @@ func load_model(model_scene: PackedScene) -> void:
 	instance.name = "FleetModel"
 	_ship_visual.add_child(instance)
 	_model_loaded = true
+	# Apply faction tint if already set.
+	if _faction_color != Color.WHITE:
+		_apply_faction_tint(instance)
+
+
+## GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Set faction color and apply tint to loaded model.
+func set_faction_color(color: Color) -> void:
+	_faction_color = color
+	if _ship_visual == null:
+		return
+	var model := _ship_visual.get_node_or_null("FleetModel")
+	if model:
+		_apply_faction_tint(model)
+
+
+## Apply faction tint to all MeshInstance3D children of a model node.
+func _apply_faction_tint(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		var mat := mi.get_active_material(0)
+		if mat is StandardMaterial3D:
+			var tinted := mat.duplicate() as StandardMaterial3D
+			# Blend faction color with existing albedo (modulate).
+			tinted.albedo_color = tinted.albedo_color.lerp(_faction_color, 0.4)
+			mi.material_override = tinted
+	for child in node.get_children():
+		_apply_faction_tint(child)
 
 
 ## Called by the spawn system each poll to update sim-driven state.

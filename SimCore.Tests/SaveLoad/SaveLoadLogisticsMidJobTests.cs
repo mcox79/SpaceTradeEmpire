@@ -52,6 +52,8 @@ public sealed class SaveLoadLogisticsMidJobTests
 
         // Make travel multi-tick per edge so there is a real "mid-job" window after load applies.
         k.State.Fleets["fleet_trader_1"].Speed = 0.5f;
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel so fleet isn't immobilized.
+        k.State.Fleets["fleet_trader_1"].Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
 
         return k;
     }

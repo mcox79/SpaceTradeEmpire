@@ -26,7 +26,9 @@ public partial class SimBridge
     private Godot.Collections.Array _cachedPlayerFleetSlotsV0 = new Godot.Collections.Array();
 
     /// <summary>
-    /// Returns player fleet slot layout: [{slot_kind, installed_module_id}]
+    /// Returns player fleet slot layout.
+    /// GATE.S7.POWER.BRIDGE_UI.001: Enhanced with condition, power_draw, disabled per slot.
+    /// [{slot_kind, installed_module_id, condition, power_draw, disabled, display_name}]
     /// </summary>
     public Godot.Collections.Array GetPlayerFleetSlotsV0()
     {
@@ -37,10 +39,20 @@ public partial class SimBridge
             {
                 foreach (var slot in fleet.Slots)
                 {
+                    string displayName = slot.InstalledModuleId ?? "";
+                    if (!string.IsNullOrEmpty(slot.InstalledModuleId))
+                    {
+                        var modDef = UpgradeContentV0.GetById(slot.InstalledModuleId);
+                        if (modDef != null) displayName = modDef.DisplayName;
+                    }
                     arr.Add(new Godot.Collections.Dictionary
                     {
                         ["slot_kind"] = slot.SlotKind.ToString(),
                         ["installed_module_id"] = slot.InstalledModuleId ?? "",
+                        ["display_name"] = displayName,
+                        ["condition"] = slot.Condition,
+                        ["power_draw"] = slot.PowerDraw,
+                        ["disabled"] = slot.Disabled,
                     });
                 }
             }

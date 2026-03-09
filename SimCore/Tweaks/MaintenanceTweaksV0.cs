@@ -47,4 +47,12 @@ public static class MaintenanceTweaksV0
 
     // Maximum supply level (cap).
     public const int MaxSupplyLevel = 100;
+
+    // --- GATE.S7.POWER.MOUNT_DEGRADE.001: Module condition decay ---
+
+    // Condition decay per cycle (percentage points, 1% per cycle).
+    public const int ModuleConditionDecayPct = 1;
+
+    // Ticks between condition decay cycles.
+    public const int ModuleConditionDecayCycleTicks = 360;
 }

@@ -603,3 +603,22 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-08, main, GATE.S7.WARFRONT.HEADLESS_PROOF.002 PASS (Headless proof: supply tracking, embargo, instability, regime queries). Evidence: scripts/tests/test_warfront_supply.gd
 - 2026-03-08, main, GATE.X.HYGIENE.EPIC_REVIEW.020 PASS (Epic audit: S7.SUPPLY_IMPACT/INSTABILITY_PHASES/TERRITORY_REGIMES closeable. Next anchor: S7.REPUTATION_INFLUENCE). Evidence: docs/54_EPICS.md
 - 2026-03-08, main, GATE.X.HYGIENE.FACTION_PLAYTEST.001 PASS (Warfront player eval: supply shift 4/5, embargo 3/5, instability 4/5, regime 4/5, rep toast 3/5). Evidence: docs/design/dynamic_tension_v0.md
+- 2026-03-09, main, GATE.X.EVAL.SUSTAIN_BALANCE.001 PASS (Multi-seed sustain balance eval: 5/5 seeds player fuel use, 5/5 NPC fuel use, 0 immobilized ticks avg, 825 tests passing). Evidence: SimCore.Tests/ExperienceProof/SustainBalanceEvalTests.cs
+- 2026-03-09, main, GATE.S7.SUSTAIN.FUEL_DEDUCT.001 PASS (SustainSystem: fuel deduction per move tick, sustain cycle goods deduction, wired into SimKernel.Step). Evidence: SimCore/Systems/SustainSystem.cs
+- 2026-03-09, main, GATE.S7.POWER.BUDGET_ENFORCE.001 PASS (PowerBudgetSystem: PowerDraw vs BasePower enforcement, over-budget module disable). Evidence: SimCore/Systems/PowerBudgetSystem.cs
+- 2026-03-09, main, GATE.S7.PRODUCTION.FULL_DEPLOY.001 PASS (All 9 recipes deployed as industry sites in MarketInitGen with geographic constraints). Evidence: SimCore/Gen/MarketInitGen.cs
+- 2026-03-09, main, GATE.S5.LOOT.DROP_SYSTEM.001 PASS (LootTableSystem + LootDrop entity with rarity tiers, drop roll on NPC kill). Evidence: SimCore/Systems/LootTableSystem.cs
+- 2026-03-09, main, GATE.S7.SUSTAIN.ECONOMY_WIRE.001 PASS (NPC fleet fuel consumption at 50% player rate via NpcTradeSystem). Evidence: SimCore/Systems/NpcTradeSystem.cs
+- 2026-03-09, main, GATE.S7.SUSTAIN.SHORTFALL.001 PASS (Fuel shortfall immobilizes player fleets, missing sustain disables modules, recovery re-enables). Evidence: SimCore/Systems/MovementSystem.cs
+- 2026-03-09, main, GATE.S7.POWER.MOUNT_DEGRADE.001 PASS (Module Condition decay via MaintenanceSystem, 0% disables module, mount type constraints). Evidence: SimCore/Systems/MaintenanceSystem.cs
+- 2026-03-09, main, GATE.S5.LOOT.TRACTOR_CMD.001 PASS (CollectLootCommand: collect loot within range, add goods/modules/credits to cargo). Evidence: SimCore/Commands/CollectLootCommand.cs
+- 2026-03-09, main, GATE.S7.FACTION_VIS.COLOR_PALETTE.001 PASS (Faction primary/secondary/accent colors in FactionTweaksV0 + GetFactionColorsV0 bridge). Evidence: SimCore/Tweaks/FactionTweaksV0.cs
+- 2026-03-09, main, GATE.S7.FACTION_VIS.SHIP_LIVERY.001 PASS (NPC ship albedo_color tinted by faction palette). Evidence: scripts/core/npc_ship.gd
+- 2026-03-09, main, GATE.S7.FACTION_VIS.STATION_STYLE.001 PASS (Station accent mesh + faction name banner colored by controlling faction). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-09, main, GATE.S7.FACTION_VIS.TERRITORY_OVERLAY.001 PASS (Galaxy map semi-transparent territory disc fill at claimed nodes). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-09, main, GATE.S7.PRODUCTION.BRIDGE_READOUT.001 PASS (Enhanced GetNodeIndustryV0 with recipe names, input display names, efficiency). Evidence: scripts/bridge/SimBridge.cs
+- 2026-03-09, main, GATE.S7.SUSTAIN.BRIDGE_PROOF.001 PASS (GetFleetSustainStatusV0 + HUD fuel indicator + test_sustain_proof.gd). Evidence: scripts/bridge/SimBridge.Fleet.cs
+- 2026-03-09, main, GATE.S7.POWER.BRIDGE_UI.001 PASS (Power budget bars + condition% + over-budget warning in dock Ship tab). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-09, main, GATE.S5.LOOT.BRIDGE_PROOF.001 PASS (GetNearbyLootV0 + DispatchCollectLootV0 + loot markers + test_loot_proof.gd). Evidence: scripts/bridge/SimBridge.Combat.cs
+- 2026-03-09, main, GATE.X.HYGIENE.REPO_HEALTH.021 PASS (Full test suite 825/825, golden hashes stable, 0 build errors). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-09, main, GATE.X.HYGIENE.EPIC_REVIEW.021 PASS (Epic audit: S7.SUSTAIN_ENFORCEMENT/PRODUCTION_CHAINS/POWER_BUDGET/S5.COMBAT_LOOT/S7.FACTION_VISUALS all closeable. Next anchor: EPIC.X.EXPERIENCE_PROOF.V0). Evidence: docs/54_EPICS.md

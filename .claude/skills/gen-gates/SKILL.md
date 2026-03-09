@@ -301,11 +301,32 @@ Add new task objects to the `tasks` array. Each task object:
 
 - `task_id` T-number: pick a random 3-digit integer (001–999) not already used
   in the file.
-- Re-sort the `tasks` array by MULTIKEY_V1:
-  `(status_rank asc, evidence_count asc, bucket_count asc, gate_id lex, task_id lex)`
-  where IN_PROGRESS=0, TODO=1.
+- Re-sort the `tasks` array by **MULTIKEY_V1** (ascending on each key):
+
+  ```
+  Sort key: (status_rank, evidence_count, bucket_count, gate_id, task_id)
+
+  Compute per task:
+    status_rank   = 0 if status == "IN_PROGRESS", else 1
+    evidence_count = len(evidence_paths)           # 2..6
+    bucket_count   = len(buckets) if present, else 0
+    gate_id        = gate_id string                # lexicographic
+    task_id        = task_id string                # lexicographic
+  ```
+
+  This puts IN_PROGRESS tasks first, then sorts by evidence breadth (narrower
+  scope first), then by optional bucket count, then alphabetically.
+
 - Update `generated_utc` to the current ISO-8601 timestamp.
 - Update `queue_intent` to reference the current HEAD sha from the context packet.
+
+**Optional fields** (use when applicable):
+
+| Field | Type | When to use |
+|---|---|---|
+| `buckets` | `string[]` | Categorize by area: `SimCore`, `Tests`, `UI`, `DocsTooling`, `DataGenerated`. Helps MULTIKEY_V1 sort and agent assignment. |
+| `expected_touch_paths` | `string[]` (max 32) | Superset of `evidence_paths` — all files the gate might touch. Useful for file-conflict detection across gates. |
+| `blocked_by` | `string[]` | Human-readable blocking reasons (distinct from `blocks` which is gate IDs). Use for external blockers like "needs design review". |
 
 ### 4c. Update docs/54_EPICS.md (if new epics proposed)
 

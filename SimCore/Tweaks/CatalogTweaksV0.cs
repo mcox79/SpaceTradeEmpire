@@ -22,6 +22,37 @@ namespace SimCore.Tweaks
         public const int MunitionsBufferDays   = 2;   // Input buffer days for munitions sites.
         public const int MunitionsDegradeBps   = 500; // 5% health loss per day at full undersupply.
 
+        // GATE.S7.PRODUCTION.FULL_DEPLOY.001: Remaining recipe placement knobs.
+        // Food processor at agri nodes (organics → food).
+        public const int FoodProcessorOrganicsInput = 2;
+        public const int FoodProcessorFuelInput = 1;
+        public const int FoodProcessorFoodOutput = 3;
+        public const int FoodProcessorDegradeBps = 300;
+
+        // Composites fabricator at industrial nodes (metal + organics → composites).
+        public const int CompositesNodeModulus = 9;
+        public const int CompositesNodeOffset = 5;
+        public const int CompositesMetalInput = 2;
+        public const int CompositesOrganicsInput = 1;
+        public const int CompositesOutput = 2;
+        public const int CompositesDegradeBps = 400;
+
+        // Components assembler (metal + electronics → components).
+        public const int ComponentsNodeModulus = 11;
+        public const int ComponentsNodeOffset = 7;
+        public const int ComponentsMetalInput = 3;
+        public const int ComponentsElectronicsInput = 1;
+        public const int ComponentsOutput = 2;
+        public const int ComponentsDegradeBps = 500;
+
+        // Salvage yard placement (salvaged_tech → metal or components).
+        public const int SalvageNodeModulus = 13;
+        public const int SalvageMetalNodeOffset = 2;
+        public const int SalvageComponentsNodeOffset = 8;
+        public const int SalvageTechInput = 1;
+        public const int SalvageMetalOutput = 3;
+        public const int SalvageComponentsOutput = 1;
+
         // ChainAnalysis: algorithm bounds.
         public const int ChainMaxTraceDepth = 10;
         public const int ChainMaxDepth = 4;          // Max recipe steps (fuel→ore→metal→electronics→components = 4).

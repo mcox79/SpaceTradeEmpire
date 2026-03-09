@@ -39,46 +39,55 @@ public static class ContentRegistryLoader
         "  \"recipes\": [\n" +
         "    {\n" +
         "      \"id\": \"recipe_assemble_components\",\n" +
+        "      \"display_name\": \"Assemble Components\",\n" +
         "      \"inputs\": [ { \"good_id\": \"electronics\", \"qty\": 2 }, { \"good_id\": \"metal\", \"qty\": 3 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"components\", \"qty\": 1 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_assemble_electronics\",\n" +
+        "      \"display_name\": \"Assemble Electronics\",\n" +
         "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"electronics\", \"qty\": 2 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_extract_ore\",\n" +
+        "      \"display_name\": \"Extract Ore\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"ore\", \"qty\": 5 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_fabricate_composites\",\n" +
+        "      \"display_name\": \"Fabricate Composites\",\n" +
         "      \"inputs\": [ { \"good_id\": \"metal\", \"qty\": 3 }, { \"good_id\": \"organics\", \"qty\": 2 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"composites\", \"qty\": 2 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_manufacture_munitions\",\n" +
+        "      \"display_name\": \"Manufacture Munitions\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"metal\", \"qty\": 2 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"munitions\", \"qty\": 3 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_process_food\",\n" +
+        "      \"display_name\": \"Process Food\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"organics\", \"qty\": 2 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"food\", \"qty\": 3 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_refine_metal\",\n" +
+        "      \"display_name\": \"Refine Metal\",\n" +
         "      \"inputs\": [ { \"good_id\": \"fuel\", \"qty\": 1 }, { \"good_id\": \"ore\", \"qty\": 10 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_salvage_to_components\",\n" +
+        "      \"display_name\": \"Salvage to Components\",\n" +
         "      \"inputs\": [ { \"good_id\": \"electronics\", \"qty\": 1 }, { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"components\", \"qty\": 2 } ]\n" +
         "    },\n" +
         "    {\n" +
         "      \"id\": \"recipe_salvage_to_metal\",\n" +
+        "      \"display_name\": \"Salvage to Metal\",\n" +
         "      \"inputs\": [ { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    }\n" +

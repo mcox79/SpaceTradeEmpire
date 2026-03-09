@@ -41,6 +41,8 @@ public sealed class LogisticsEventStreamContractTests
 
         // Make travel single-tick per edge for stable stepping.
         k.State.Fleets["fleet_trader_1"].Speed = 1.0f;
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel so fleet isn't immobilized.
+        k.State.Fleets["fleet_trader_1"].Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
 
         return k;
     }

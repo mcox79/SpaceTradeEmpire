@@ -26,7 +26,7 @@
 
 ## Core Premise
 
-Star lanes are not natural. They are **containment infrastructure** built by an ancient civilization to suppress spacetime instability. Travel was a side effect — the real purpose was stabilization. Every faction's identity is shaped by their relationship to this infrastructure.
+Star lanes are not natural. They are **containment infrastructure** built by an ancient civilization to make interstellar civilization possible. Reliable measurement and reliable transit are the same problem — both require metric consistency across light-years. The lanes solve both by suppressing spacetime's natural turbulence within fixed corridors. Every faction's identity is shaped by their relationship to this infrastructure.
 
 The player discovers a **fracture module** — Precursor technology that allows off-lane travel. No other faction has this capability. Using it has systemic consequences.
 
@@ -48,11 +48,25 @@ The entire economy is built on reliable measurement. Trade requires buyer and se
 
 ### Why Containment Makes Sense
 
-The lanes are literally a coordinate grid. They impose a stable reference frame across spacetime — survey stakes driven into reality that define "here" and "now" consistently. The ancients built them because you can't have a civilization without consistent measurement. Travel was a side effect of having stable geometry between two points.
+The lanes are literally a coordinate grid. They impose a stable reference frame across spacetime — survey stakes driven into reality that define "here" and "now" consistently. Stable geometry between two points is inherently traversable geometry. The ancients didn't build roads and accidentally enable trade — they built infrastructure for civilization, which requires both consistent measurement and reliable transit. These aren't separate goals; they're the same physics.
 
 ### Visual Signature
 
 **Parallax errors.** Objects in unstable space appear to shift position when you change viewing angle, as if existing at multiple distances simultaneously. The further instability has progressed, the more severe the parallax — at high levels, objects seem to smear across space as probability distributions. Stars appear to breathe. Station outlines double. Hull readings flicker.
+
+### The Physics: Spacetime Foam Turbulence
+
+Spacetime is not smooth. At the Planck scale (~10^-35 meters), it is a roiling foam of geometric fluctuations — virtual wormholes, topology changes, metric chaos. John Wheeler called it "spacetime foam" in 1957. At everyday scales this turbulence is invisible, the way ocean waves are invisible from orbit. But it is always there.
+
+Within the lane network, foam-scale turbulence is actively suppressed — dampened to irrelevance by infrastructure that functions as **error correction on the geometry of space itself**. The lanes detect metric fluctuations and correct them, enforcing geometric coherence within each corridor. The physical substrate being stabilized is the shape of compactified extra dimensions at each point in space. When that shape drifts, local physics changes — particle masses shift, force strengths wander, measurement becomes unreliable. That drift is metric bleed.
+
+Over interstellar distances without suppression, foam-scale noise amplifies. Microscopic geometric inconsistencies compound into macroscopic measurement breakdown — the metric bleed that makes off-lane space hostile to civilization. This amplification is not linear. Error-correcting systems have a **threshold**: below a certain error rate, they correct indefinitely; above it, they collapse suddenly. This is why lane degradation is gradual for centuries and then catastrophic overnight. The Lattice is approaching its threshold.
+
+The lanes follow natural dark matter micro-filaments between star systems — gravitational channels in the cosmic web's local structure. The ancient builders didn't impose corridors on arbitrary space; they reinforced existing lines of gravitational coherence. This is why the lane network has the topology it does: the routes were already there in the dark matter scaffolding. The builders turned faint paths into highways.
+
+**Two engineering responses to the same turbulence define the ancient schism:**
+- **Containment**: Suppress the foam. Force metric consistency by brute-force error correction. Effective but expensive, requires constant maintenance, and fails catastrophically when the error rate exceeds the correction threshold. The lane network and the Lattice are containment engineering.
+- **Accommodation**: Shape the foam. Instead of fighting turbulence, read its flow patterns and guide them into self-sustaining stable configurations — the way a riverbed shapes water into a predictable current without damming it. Cheaper, self-maintaining, but requires a deeper understanding of the underlying physics. The fracture module and the Haven are accommodation engineering.
 
 ---
 
@@ -66,7 +80,9 @@ The lanes are literally a coordinate grid. They impose a stable reference frame 
 
 ### The Adaptation Faction's Argument
 
-Metric bleed is not a disease. It is spacetime's natural state. The lanes don't "cure" instability — they suppress it, the way a dam suppresses a river. The water doesn't go away. It builds up. The Containment approach works, but requires perpetual maintenance, and the pressure behind the dam never stops growing. Every lane built creates a larger eventual failure point.
+Metric bleed is not a disease. It is spacetime's natural state — the foam turbulence that exists everywhere, always. The lanes don't "cure" instability — they suppress it, the way a dam suppresses a river. The water doesn't go away. It builds up. The Containment approach works, but requires perpetual maintenance, and the pressure behind the dam never stops growing. Every lane built creates a larger eventual failure point.
+
+The Adaptation faction's alternative: don't dam the river — *read the current and shape a channel*. Turbulence can be guided into self-sustaining stable patterns without being suppressed. A whirlpool sustains itself. An eddy persists for millennia. The Haven system is a calm eddy in the foam — not suppressed, just *shaped right* — and it has been stable for millions of years with no Lattice, no maintenance, no infrastructure. That's the proof of concept the Containment faction refused to acknowledge.
 
 ### What the Rebel Ship Carried: Accommodation Geometry
 
@@ -452,6 +468,8 @@ The accommodation-geometry lane is important because:
 - One-way outbound initially — the player can deploy from Haven but must fracture-travel home. Bidirectional at Tier 3
 - Other factions can't follow you here unless you share the route
 - Late game: the player can choose to reveal the lane to faction allies (permanent reputation boost + faction gets access to Haven system)
+
+**Why one-way?** Accommodation engineering shapes spacetime turbulence into stable flow patterns — and flow has a direction. The Haven lane is a shaped vortex: turbulence guided into a self-sustaining current that runs outbound from Haven to lane-space. Like a river, you can ride it one way without effort. Going upstream (inbound) requires actively shaping a counter-current — a harder trick that requires deeper mastery of accommodation geometry. The Tier 3 bidirectional upgrade represents exactly this breakthrough: learning to create a counter-vortex. This is why it requires multiple adaptation fragments and significant resources — it's not a power increase, it's a qualitative leap in understanding the physics.
 
 ---
 

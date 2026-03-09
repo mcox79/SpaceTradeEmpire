@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
 namespace SimCore.Systems;
 
 // GATE.S4.MAINT.SYSTEM.001: Maintenance system — tick decay, repair, efficiency coupling.
+// GATE.S7.POWER.MOUNT_DEGRADE.001: Module condition decay on equipped modules.
 public static class MaintenanceSystem
 {
     public sealed class RepairResult
@@ -51,6 +53,26 @@ public static class MaintenanceSystem
             if (bpsLoss > 0)
                 site.HealthBps = Math.Max(MaintenanceTweaksV0.MinHealthBps, site.HealthBps - bpsLoss);
             UpdateEfficiency(site);
+        }
+
+        // GATE.S7.POWER.MOUNT_DEGRADE.001: Module condition decay on equipped modules.
+        if (MaintenanceTweaksV0.ModuleConditionDecayCycleTicks > 0
+            && state.Tick % MaintenanceTweaksV0.ModuleConditionDecayCycleTicks == 0)
+        {
+            foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+            {
+                if (fleet.Slots == null) continue;
+                foreach (var slot in fleet.Slots)
+                {
+                    if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                    if (slot.Condition <= 0) continue;
+
+                    slot.Condition = Math.Max(0, slot.Condition - MaintenanceTweaksV0.ModuleConditionDecayPct);
+
+                    if (slot.Condition <= 0)
+                        slot.Disabled = true;
+                }
+            }
         }
     }
 

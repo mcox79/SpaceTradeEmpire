@@ -426,4 +426,43 @@ public partial class SimBridge
             _stateLock.ExitReadLock();
         }
     }
+
+    // GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fleet sustain status — fuel level, module sustain health.
+    public Godot.Collections.Dictionary GetFleetSustainStatusV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        if (string.IsNullOrEmpty(fleetId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+
+            int fuel = fleet.GetCargoUnits(SimCore.Content.WellKnownGoodIds.Fuel);
+            result["fleet_id"] = fleet.Id;
+            result["fuel"] = fuel;
+            result["state"] = fleet.State.ToString();
+            result["current_task"] = fleet.CurrentTask ?? "";
+            result["is_immobilized"] = string.Equals(fleet.CurrentTask, "Immobilized:NoFuel", StringComparison.Ordinal);
+
+            // Module sustain info.
+            var modules = new Godot.Collections.Array();
+            if (fleet.Slots != null)
+            {
+                foreach (var slot in fleet.Slots)
+                {
+                    if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                    var mod = new Godot.Collections.Dictionary();
+                    mod["slot_id"] = slot.SlotId;
+                    mod["module_id"] = slot.InstalledModuleId;
+                    mod["condition"] = slot.Condition;
+                    mod["disabled"] = slot.Disabled;
+                    mod["power_draw"] = slot.PowerDraw;
+                    modules.Add(mod);
+                }
+            }
+            result["modules"] = modules;
+        });
+
+        return result;
+    }
 }

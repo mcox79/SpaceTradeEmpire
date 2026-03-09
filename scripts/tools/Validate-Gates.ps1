@@ -187,6 +187,111 @@ if ($isQueueV22) {
     }
     }
     Assert ($defaultCount -eq 1) "task ${taskId}: escalation_rules must contain exactly one when=DEFAULT"
+
+    # v2.3 required fields: hash_affecting + verify
+    if (([string]$reg.queue_contract_version) -eq "2.3") {
+      Assert ($null -ne $t.PSObject.Properties["hash_affecting"]) "task ${taskId}: missing hash_affecting (required in v2.3)"
+      Assert ($null -ne $t.PSObject.Properties["verify"]) "task ${taskId}: missing verify (required in v2.3)"
+      $vf = @($t.verify)
+      Assert ($vf.Count -ge 1 -and $vf.Count -le 8) "task ${taskId}: verify must be 1..8 commands"
+    }
+  }
+
+  # ── Cross-task validations (v2.2+) ──
+
+  # Build lookup maps
+  $gateIdSet = @{}
+  $tasksByGateId = @{}
+  foreach ($t in $gates) {
+    $gid = ([string]$t.gate_id).Trim()
+    $gateIdSet[$gid] = $true
+    $tasksByGateId[$gid] = $t
+  }
+
+  # 1. Validate `blocks` references exist and detect cycles
+  foreach ($t in $gates) {
+    $gid = ([string]$t.gate_id).Trim()
+    $tid = ([string]$t.task_id).Trim()
+    if ($null -ne $t.PSObject.Properties["blocks"]) {
+      foreach ($dep in @($t.blocks)) {
+        $depId = ([string]$dep).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($depId)) {
+          Assert ($gateIdSet.ContainsKey($depId)) "task ${tid}: blocks references unknown gate $depId"
+        }
+      }
+    }
+  }
+
+  # Cycle detection via DFS
+  $visited = @{}  # 0=visiting, 1=done
+  $hasCycle = $false
+  $cycleMsg = ""
+
+  function Test-CycleFrom([string]$nodeId) {
+    if ($visited.ContainsKey($nodeId)) {
+      if ($visited[$nodeId] -eq 0) { return $true }  # back edge = cycle
+      return $false
+    }
+    $visited[$nodeId] = 0
+    $node = $tasksByGateId[$nodeId]
+    if ($null -ne $node -and $null -ne $node.PSObject.Properties["blocks"]) {
+      foreach ($dep in @($node.blocks)) {
+        $depId = ([string]$dep).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($depId) -and $gateIdSet.ContainsKey($depId)) {
+          if (Test-CycleFrom $depId) { return $true }
+        }
+      }
+    }
+    $visited[$nodeId] = 1
+    return $false
+  }
+
+  foreach ($gid in $gateIdSet.Keys) {
+    if (-not $visited.ContainsKey($gid)) {
+      if (Test-CycleFrom $gid) {
+        $hasCycle = $true
+        $cycleMsg = "circular dependency detected involving gate $gid"
+        break
+      }
+    }
+  }
+  Assert (-not $hasCycle) "blocks: $cycleMsg"
+
+  # 2. Hash-affecting gates in same tier must form a dependency chain
+  if (([string]$reg.queue_contract_version) -eq "2.3") {
+    $hashByTier = @{}
+    foreach ($t in $gates) {
+      if ($null -ne $t.PSObject.Properties["hash_affecting"] -and $t.hash_affecting -eq $true) {
+        $tier = 1
+        if ($null -ne $t.PSObject.Properties["tier"]) { $tier = [int]$t.tier }
+        if (-not $hashByTier.ContainsKey($tier)) { $hashByTier[$tier] = @() }
+        $hashByTier[$tier] += ([string]$t.gate_id).Trim()
+      }
+    }
+
+    foreach ($tier in $hashByTier.Keys) {
+      $hashGates = $hashByTier[$tier]
+      if ($hashGates.Count -le 1) { continue }
+
+      # With N hash-affecting gates in one tier, we need N-1 blocking edges
+      # to form a total order (chain). Each gate (except the first) must block
+      # on at least one other hash-affecting gate in the same tier.
+      $blocksOnSameTierHash = 0
+      foreach ($gid in $hashGates) {
+        $t = $tasksByGateId[$gid]
+        if ($null -ne $t.PSObject.Properties["blocks"]) {
+          foreach ($dep in @($t.blocks)) {
+            $depId = ([string]$dep).Trim()
+            if ($hashGates -contains $depId) {
+              $blocksOnSameTierHash++
+              break  # only count once per gate
+            }
+          }
+        }
+      }
+      Assert ($blocksOnSameTierHash -ge ($hashGates.Count - 1)) `
+        "tier ${tier}: $($hashGates.Count) hash-affecting gates must form a dependency chain (need $($hashGates.Count - 1) blocking edges, found $blocksOnSameTierHash)"
+    }
   }
 
 } else {

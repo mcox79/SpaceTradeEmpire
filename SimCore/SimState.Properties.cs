@@ -283,6 +283,9 @@ public partial class SimState
     [JsonInclude] public List<JumpEvent> JumpEvents { get; private set; } = new();
     [JsonInclude] public long NextJumpEventSeq { get; set; } = 1;
 
+    // GATE.S5.LOOT.DROP_SYSTEM.001: Active loot drops keyed by drop ID.
+    [JsonInclude] public Dictionary<string, Entities.LootDrop> LootDrops { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.S5.COMBAT_LOCAL.COMBAT_LOG.001: last N combat logs (newest first, max 10).
     [JsonInclude] public List<Systems.CombatSystem.CombatLog> CombatLogs { get; private set; } = new();
 

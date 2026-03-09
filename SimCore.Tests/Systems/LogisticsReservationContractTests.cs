@@ -41,6 +41,8 @@ public sealed class LogisticsReservationContractTests
         };
 
         WorldLoader.Apply(k.State, def);
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel so fleet isn't immobilized.
+        k.State.Fleets["fleet_trader_1"].Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
 
         // Add a second logistics fleet deterministically
         if (!k.State.Fleets.ContainsKey("fleet_trader_2"))
@@ -83,6 +85,8 @@ public sealed class LogisticsReservationContractTests
         // Make travel single-tick per edge.
         k.State.Fleets["fleet_trader_1"].Speed = 1.0f;
         k.State.Fleets["fleet_trader_2"].Speed = 1.0f;
+        // GATE.S7.SUSTAIN.SHORTFALL.001: Provide fuel for fleet_trader_2 too.
+        k.State.Fleets["fleet_trader_2"].Cargo[SimCore.Content.WellKnownGoodIds.Fuel] = 100;
 
         return k;
     }

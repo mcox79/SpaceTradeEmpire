@@ -79,11 +79,13 @@ func capture_scene_structure_v0() -> Dictionary:
 	var has_world_env := _tree.root.get_node_or_null("Main/WorldEnvironment") != null
 	var has_starfield := _tree.root.get_node_or_null("Main/StarField") != null
 	var total_nodes := _count_nodes(_tree.root)
+	var label3d_count := _find_all_of_type(_tree.root, "Label3D").size()
 	return {
 		"group_counts": counts,
 		"has_world_environment": has_world_env,
 		"has_starfield": has_starfield,
 		"total_node_count": total_nodes,
+		"label3d_count": label3d_count,
 	}
 
 
@@ -188,11 +190,16 @@ func capture_galaxy_v0() -> Dictionary:
 	var lanes = snap.get("lane_edges", null)
 	if lanes is Array:
 		lane_count = lanes.size()
+	var gm = _tree.root.get_node_or_null("GameManager")
+	var overlay_open: bool = false
+	if gm != null and "galaxy_overlay_open" in gm:
+		overlay_open = gm.galaxy_overlay_open
 	return {
 		"bridge": true,
 		"node_count": node_count,
 		"lane_count": lane_count,
 		"tick": int(snap.get("tick", 0)),
+		"galaxy_overlay_open": overlay_open,
 	}
 
 
@@ -210,9 +217,10 @@ func capture_local_system_v0() -> Dictionary:
 	var sys: Dictionary = _bridge.call("GetSystemSnapshotV0", node_id)
 	var station_count: int = 0
 	var fleet_count: int = 0
-	var stations = sys.get("stations", null)
-	if stations is Array:
-		station_count = stations.size()
+	# SimBridge returns "station" (singular dict), not "stations" (array).
+	var station_dict = sys.get("station", null)
+	if station_dict is Dictionary and not str(station_dict.get("node_id", "")).is_empty():
+		station_count = 1
 	var fleets = sys.get("fleets", null)
 	if fleets is Array:
 		fleet_count = fleets.size()

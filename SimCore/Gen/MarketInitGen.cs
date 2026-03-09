@@ -156,6 +156,102 @@ public static class MarketInitGen
                 node.Name += " (Munitions)";
             }
 
+            // GATE.S7.PRODUCTION.FULL_DEPLOY.001: Deploy remaining 5 recipes.
+
+            // ProcessFood: at agri nodes (where organics were seeded).
+            bool hasOrganics = geoHash < CatalogTweaksV0.OrganicsNodePct;
+            if (hasOrganics && i % 2 == 1) // Odd agri nodes get food processors (avoid overlap with mines)
+            {
+                state.IndustrySites[$"foodproc_{i}"] = new IndustrySite
+                {
+                    Id = $"foodproc_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.ProcessFood,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Organics, CatalogTweaksV0.FoodProcessorOrganicsInput },
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.FoodProcessorFuelInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Food, CatalogTweaksV0.FoodProcessorFoodOutput } },
+                    BufferDays = 2,
+                    DegradePerDayBps = CatalogTweaksV0.FoodProcessorDegradeBps,
+                };
+            }
+
+            // FabricateComposites: at industrial nodes.
+            if (i % CatalogTweaksV0.CompositesNodeModulus == CatalogTweaksV0.CompositesNodeOffset)
+            {
+                state.IndustrySites[$"compfab_{i}"] = new IndustrySite
+                {
+                    Id = $"compfab_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.FabricateComposites,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Metal, CatalogTweaksV0.CompositesMetalInput },
+                        { WellKnownGoodIds.Organics, CatalogTweaksV0.CompositesOrganicsInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Composites, CatalogTweaksV0.CompositesOutput } },
+                    BufferDays = 2,
+                    DegradePerDayBps = CatalogTweaksV0.CompositesDegradeBps,
+                };
+            }
+
+            // AssembleComponents: at tech-industrial nodes.
+            if (i % CatalogTweaksV0.ComponentsNodeModulus == CatalogTweaksV0.ComponentsNodeOffset)
+            {
+                state.IndustrySites[$"compasm_{i}"] = new IndustrySite
+                {
+                    Id = $"compasm_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.AssembleComponents,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Metal, CatalogTweaksV0.ComponentsMetalInput },
+                        { WellKnownGoodIds.Electronics, CatalogTweaksV0.ComponentsElectronicsInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Components, CatalogTweaksV0.ComponentsOutput } },
+                    BufferDays = 2,
+                    DegradePerDayBps = CatalogTweaksV0.ComponentsDegradeBps,
+                };
+            }
+
+            // SalvageToMetal: at salvage yards.
+            if (i % CatalogTweaksV0.SalvageNodeModulus == CatalogTweaksV0.SalvageMetalNodeOffset)
+            {
+                state.IndustrySites[$"salvmetal_{i}"] = new IndustrySite
+                {
+                    Id = $"salvmetal_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.SalvageToMetal,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.SalvagedTech, CatalogTweaksV0.SalvageTechInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, CatalogTweaksV0.SalvageMetalOutput } },
+                    BufferDays = 1,
+                    DegradePerDayBps = 0,
+                };
+            }
+
+            // SalvageToComponents: at different salvage yards.
+            if (i % CatalogTweaksV0.SalvageNodeModulus == CatalogTweaksV0.SalvageComponentsNodeOffset)
+            {
+                state.IndustrySites[$"salvcomp_{i}"] = new IndustrySite
+                {
+                    Id = $"salvcomp_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.SalvageToComponents,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.SalvagedTech, CatalogTweaksV0.SalvageTechInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Components, CatalogTweaksV0.SalvageComponentsOutput } },
+                    BufferDays = 1,
+                    DegradePerDayBps = 0,
+                };
+            }
+
             state.Markets.Add(node.MarketId, mkt);
         }
     }

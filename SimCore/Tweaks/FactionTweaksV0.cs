@@ -120,4 +120,48 @@ public static class FactionTweaksV0
         (ConcordId,   ChitinId,    "electronics"),    // Concord buys electronics from Chitin
         (ValorinId,   WeaversId,   "composites"),     // Valorin buys composites for ship hulls
     };
+
+    // ── GATE.S7.FACTION_VIS.COLOR_PALETTE.001: Faction visual color palettes ──
+    // RGB float triplets (0-1). Primary = hull/territory fill, Secondary = accent/trim, Accent = UI highlight.
+    // Concord = blue (orderly federation)
+    public static readonly (float R, float G, float B) ConcordPrimary   = (0.2f, 0.4f, 0.9f);
+    public static readonly (float R, float G, float B) ConcordSecondary = (0.5f, 0.6f, 0.95f);
+    public static readonly (float R, float G, float B) ConcordAccent    = (0.3f, 0.7f, 1.0f);
+
+    // Chitin = amber (insectoid hive)
+    public static readonly (float R, float G, float B) ChitinPrimary    = (0.85f, 0.65f, 0.1f);
+    public static readonly (float R, float G, float B) ChitinSecondary  = (0.7f, 0.5f, 0.15f);
+    public static readonly (float R, float G, float B) ChitinAccent     = (1.0f, 0.8f, 0.2f);
+
+    // Weavers = green (silicon constructors)
+    public static readonly (float R, float G, float B) WeaversPrimary   = (0.15f, 0.75f, 0.3f);
+    public static readonly (float R, float G, float B) WeaversSecondary = (0.2f, 0.6f, 0.35f);
+    public static readonly (float R, float G, float B) WeaversAccent    = (0.3f, 0.9f, 0.4f);
+
+    // Valorin = red (aggressive expansionists)
+    public static readonly (float R, float G, float B) ValorinPrimary   = (0.85f, 0.15f, 0.15f);
+    public static readonly (float R, float G, float B) ValorinSecondary = (0.7f, 0.2f, 0.2f);
+    public static readonly (float R, float G, float B) ValorinAccent    = (1.0f, 0.3f, 0.2f);
+
+    // Communion = purple (ethereal mystics)
+    public static readonly (float R, float G, float B) CommunionPrimary   = (0.6f, 0.2f, 0.8f);
+    public static readonly (float R, float G, float B) CommunionSecondary = (0.5f, 0.3f, 0.7f);
+    public static readonly (float R, float G, float B) CommunionAccent    = (0.7f, 0.4f, 1.0f);
+
+    /// <summary>
+    /// Returns (Primary, Secondary, Accent) color tuples for a given faction ID.
+    /// Returns neutral gray if faction is unknown.
+    /// </summary>
+    public static ((float R, float G, float B) Primary, (float R, float G, float B) Secondary, (float R, float G, float B) Accent) GetFactionColors(string factionId)
+    {
+        return factionId switch
+        {
+            ConcordId   => (ConcordPrimary, ConcordSecondary, ConcordAccent),
+            ChitinId    => (ChitinPrimary, ChitinSecondary, ChitinAccent),
+            WeaversId   => (WeaversPrimary, WeaversSecondary, WeaversAccent),
+            ValorinId   => (ValorinPrimary, ValorinSecondary, ValorinAccent),
+            CommunionId => (CommunionPrimary, CommunionSecondary, CommunionAccent),
+            _           => ((0.5f, 0.5f, 0.5f), (0.6f, 0.6f, 0.6f), (0.7f, 0.7f, 0.7f)),
+        };
+    }
 }

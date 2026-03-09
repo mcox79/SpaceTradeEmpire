@@ -612,16 +612,24 @@ func _rebuild_production_info() -> void:
 		if typeof(site_info) != TYPE_DICTIONARY:
 			continue
 		var site_id: String = str(site_info.get("site_id", ""))
-		var recipe_id: String = str(site_info.get("recipe_id", ""))
+		# GATE.S7.PRODUCTION.BRIDGE_READOUT.001: Use recipe_name display name.
+		var recipe_name: String = str(site_info.get("recipe_name", ""))
+		if recipe_name.is_empty():
+			recipe_name = str(site_info.get("recipe_id", "(natural)"))
 		var eff_pct: int = int(site_info.get("efficiency_pct", 0))
 		var health_pct: int = int(site_info.get("health_pct", 0))
+		var inputs: Array = site_info.get("inputs", [])
 		var outputs: Array = site_info.get("outputs", [])
+		var in_str: String = ", ".join(inputs) if inputs.size() > 0 else ""
 		var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
 		var source: String = _site_source_tag(site_id)
 
 		var row = HBoxContainer.new()
 		var lbl = Label.new()
-		lbl.text = "%s%s  eff:%d%%  hp:%d%%  -> %s" % [source, recipe_id if recipe_id != "" else "(natural)", eff_pct, health_pct, out_str]
+		if in_str.is_empty():
+			lbl.text = "%s%s  eff:%d%%  hp:%d%%  -> %s" % [source, recipe_name, eff_pct, health_pct, out_str]
+		else:
+			lbl.text = "%s%s  [%s] eff:%d%%  hp:%d%%  -> %s" % [source, recipe_name, in_str, eff_pct, health_pct, out_str]
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		_rows_container.add_child(row)
@@ -666,9 +674,27 @@ func _rebuild_ship_info() -> void:
 	var slot_count: int = int(fit.get("slot_count", 0))
 	var budget_lbl = Label.new()
 	budget_lbl.text = "Slots: %d/%d   Power: %d/%d" % [slots_filled, slot_count, power_used, power_max]
-	if power_used > power_max * 0.8:
+	if power_used > power_max:
+		budget_lbl.add_theme_color_override("font_color", UITheme.RED)
+	elif power_used > power_max * 0.8:
 		budget_lbl.add_theme_color_override("font_color", UITheme.TEXT_WARNING)
 	_ship_info_container.add_child(budget_lbl)
+
+	# GATE.S7.POWER.BRIDGE_UI.001: Power budget bar.
+	var power_bar = ProgressBar.new()
+	power_bar.min_value = 0
+	power_bar.max_value = maxi(power_max, 1)
+	power_bar.value = mini(power_used, power_max)
+	power_bar.show_percentage = false
+	power_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	power_bar.custom_minimum_size.y = 10
+	_ship_info_container.add_child(power_bar)
+	if power_used > power_max:
+		var warn_lbl = Label.new()
+		warn_lbl.text = "OVER BUDGET — modules disabled"
+		warn_lbl.add_theme_color_override("font_color", UITheme.RED)
+		warn_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		_ship_info_container.add_child(warn_lbl)
 
 	# Zone armor diagram (4 facing bars)
 	var zone_header = Label.new()
@@ -723,6 +749,11 @@ func _rebuild_ship_info() -> void:
 					continue
 				var kind: String = str(slot.get("slot_kind", ""))
 				var mod_id: String = str(slot.get("installed_module_id", ""))
+				# GATE.S7.POWER.BRIDGE_UI.001: condition + power_draw + disabled per module.
+				var condition: int = int(slot.get("condition", 100))
+				var pwr_draw: int = int(slot.get("power_draw", 0))
+				var is_disabled: bool = slot.get("disabled", false)
+				var disp_name: String = str(slot.get("display_name", ""))
 				var row = HBoxContainer.new()
 				var kind_lbl = Label.new()
 				kind_lbl.text = "  [%s]" % kind
@@ -734,7 +765,22 @@ func _rebuild_ship_info() -> void:
 					mod_lbl.text = "Empty"
 					mod_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 				else:
-					mod_lbl.text = _format_display_name(mod_id)
+					var name_str: String = disp_name if not disp_name.is_empty() else _format_display_name(mod_id)
+					var suffix := ""
+					if pwr_draw > 0:
+						suffix += "  P:%d" % pwr_draw
+					suffix += "  C:%d%%" % condition
+					if is_disabled:
+						suffix += "  [OFF]"
+					mod_lbl.text = name_str + suffix
+					# Condition color gradient: green -> yellow -> red.
+					if is_disabled:
+						mod_lbl.add_theme_color_override("font_color", UITheme.RED)
+					elif condition < 30:
+						mod_lbl.add_theme_color_override("font_color", UITheme.RED)
+					elif condition < 60:
+						mod_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+					# else default color (green/white)
 				row.add_child(mod_lbl)
 				_ship_info_container.add_child(row)
 
@@ -790,16 +836,21 @@ func _rebuild_station_info() -> void:
 			for site_info in industry:
 				if typeof(site_info) != TYPE_DICTIONARY:
 					continue
-				var recipe_id: String = str(site_info.get("recipe_id", ""))
+				# GATE.S7.PRODUCTION.BRIDGE_READOUT.001: Use recipe_name + inputs display names.
+				var recipe_name: String = str(site_info.get("recipe_name", ""))
+				if recipe_name.is_empty():
+					recipe_name = str(site_info.get("recipe_id", ""))
 				var eff_pct: int = int(site_info.get("efficiency_pct", 0))
+				var inputs: Array = site_info.get("inputs", [])
 				var outputs: Array = site_info.get("outputs", [])
-				var out_names: Array = []
-				for o in outputs:
-					out_names.append(_format_display_name(str(o)))
-				var out_str: String = ", ".join(out_names) if out_names.size() > 0 else "none"
+				var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
 				var row = HBoxContainer.new()
 				var lbl = Label.new()
-				lbl.text = "%s  Eff: %d%%  -> %s" % [_format_display_name(recipe_id), eff_pct, out_str]
+				if inputs.size() > 0:
+					var in_str: String = ", ".join(inputs)
+					lbl.text = "%s  [%s] Eff: %d%%  -> %s" % [recipe_name, in_str, eff_pct, out_str]
+				else:
+					lbl.text = "%s  Eff: %d%%  -> %s" % [recipe_name, eff_pct, out_str]
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				row.add_child(lbl)
 				_station_info_container.add_child(row)

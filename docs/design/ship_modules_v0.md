@@ -396,8 +396,8 @@ Armor modules are assigned to a **specific zone** on installation.
 | D-He3 Drive | Fusion | T2 | +30% | +15% | Medium | 1 fuel, 1 rare metal | Clean fusion. Runs cooler. Rare He-3 fuel. |
 | Antimatter Catalyst | AM | T2 | +50% | +15% | High | 2 fuel, 1 rare metal | Explosive acceleration. Power-hungry. |
 | Antimatter Vectoring | AM | T2 | +15% | +55% | High | 2 fuel, 1 rare metal | Directed annihilation jets. Turns like a fighter. |
-| Metric Drive Core | Precursor | T3 | +60% | +60% | Low | 2 exotic matter | Warps spacetime locally. Finite lifespan. |
-| Void Sail | Precursor | T3 | +50% | +30% | None | 1 exotic matter | Rides quantum vacuum fluctuations. No fuel. |
+| Metric Drive Core | Precursor | T3 | +60% | +60% | Low | 2 exotic matter | Local containment bubble — brute-force metric stabilization at ship scale. Finite lifespan: containment always degrades. |
+| Void Sail | Precursor | T3 | +50% | +30% | None | 1 exotic matter | Reads spacetime turbulence patterns and shapes them into thrust. No fuel — accommodation works with the flow. |
 
 ---
 

@@ -625,4 +625,70 @@ public partial class SimBridge
 
         return result;
     }
+
+    // GATE.S5.LOOT.BRIDGE_PROOF.001: Returns loot drops at the player's current node.
+    // [{drop_id, rarity, credits, goods_count, tick_created}]
+    public Godot.Collections.Array GetNearbyLootV0()
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            var nodeId = player.CurrentNodeId;
+            if (string.IsNullOrEmpty(nodeId)) return;
+
+            foreach (var kv in state.LootDrops)
+            {
+                var drop = kv.Value;
+                if (!string.Equals(drop.NodeId, nodeId, StringComparison.Ordinal)) continue;
+                var d = new Godot.Collections.Dictionary();
+                d["drop_id"] = drop.Id;
+                d["rarity"] = drop.Rarity.ToString();
+                d["credits"] = drop.Credits;
+                d["goods_count"] = drop.Goods?.Count ?? 0;
+                d["tick_created"] = drop.TickCreated;
+                result.Add(d);
+            }
+        });
+        return result;
+    }
+
+    // GATE.S5.LOOT.BRIDGE_PROOF.001: Dispatches collect loot command.
+    // Returns {success, credits_gained, goods_gained}
+    public Godot.Collections.Dictionary DispatchCollectLootV0(string dropId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["success"] = false;
+        result["credits_gained"] = 0;
+        result["goods_gained"] = 0;
+        if (string.IsNullOrEmpty(dropId)) return result;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.LootDrops.TryGetValue(dropId, out var drop))
+                return result;
+
+            long creditsBefore = state.PlayerCredits;
+            int cargoBefore = 0;
+            foreach (var kv in state.PlayerCargo) cargoBefore += kv.Value;
+
+            new SimCore.Commands.CollectLootCommand(dropId).Execute(state);
+
+            long creditsGained = state.PlayerCredits - creditsBefore;
+            int cargoAfter = 0;
+            foreach (var kv in state.PlayerCargo) cargoAfter += kv.Value;
+            int goodsGained = cargoAfter - cargoBefore;
+
+            result["success"] = !state.LootDrops.ContainsKey(dropId);
+            result["credits_gained"] = creditsGained;
+            result["goods_gained"] = goodsGained;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+        return result;
+    }
 }

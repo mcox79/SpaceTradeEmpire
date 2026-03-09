@@ -445,6 +445,25 @@ When a gate moves to DONE:
 | GATE.S7.WARFRONT.HEADLESS_PROOF.002 | DONE | Headless proof: supply + embargo + instability |
 | GATE.X.HYGIENE.EPIC_REVIEW.020 | DONE | Epic audit + next anchor recommendation |
 | GATE.X.HYGIENE.FACTION_PLAYTEST.001 | DONE | Warfront player experience evaluation |
+| GATE.S7.SUSTAIN.FUEL_DEDUCT.001 | DONE | Fleet fuel + module sustain resource deduction per tick |
+| GATE.S7.PRODUCTION.FULL_DEPLOY.001 | DONE | Deploy all 9 production recipes as industry sites in worldgen |
+| GATE.S5.LOOT.DROP_SYSTEM.001 | DONE | Loot drop system with rarity tiers on NPC fleet kill |
+| GATE.S7.POWER.BUDGET_ENFORCE.001 | DONE | Power budget enforcement: PowerDraw vs BasePower |
+| GATE.X.HYGIENE.REPO_HEALTH.021 | DONE | Full test suite + golden hash stability baseline |
+| GATE.S7.FACTION_VIS.COLOR_PALETTE.001 | DONE | Faction color palettes + bridge query |
+| GATE.S7.SUSTAIN.SHORTFALL.001 | DONE | Sustain shortfall: 0 fuel immobilizes, missing sustain disables modules |
+| GATE.S7.SUSTAIN.ECONOMY_WIRE.001 | DONE | NPC fleet fuel consumption creates market demand |
+| GATE.S5.LOOT.TRACTOR_CMD.001 | DONE | Tractor beam command: collect loot within range |
+| GATE.S7.POWER.MOUNT_DEGRADE.001 | DONE | Mount type constraints + module degradation per cycle |
+| GATE.S7.PRODUCTION.BRIDGE_READOUT.001 | DONE | Enhanced industry readout in dock Station + Economy tabs |
+| GATE.S7.FACTION_VIS.SHIP_LIVERY.001 | DONE | NPC ship tint by faction color palette |
+| GATE.S7.FACTION_VIS.STATION_STYLE.001 | DONE | Station accent color by controlling faction |
+| GATE.S7.FACTION_VIS.TERRITORY_OVERLAY.001 | DONE | Galaxy map faction territory fill + legend |
+| GATE.S7.SUSTAIN.BRIDGE_PROOF.001 | DONE | Sustain SimBridge queries + HUD + headless proof |
+| GATE.S7.POWER.BRIDGE_UI.001 | DONE | Power budget + mount + condition in dock Ship tab |
+| GATE.S5.LOOT.BRIDGE_PROOF.001 | DONE | Loot SimBridge queries + markers + headless proof |
+| GATE.X.HYGIENE.EPIC_REVIEW.021 | DONE | Epic audit + next anchor recommendation |
+| GATE.X.EVAL.SUSTAIN_BALANCE.001 | DONE | Multi-seed sustain economy balance evaluation |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -1600,3 +1619,54 @@ Anchor: EPIC.S7.FACTION_MODEL. Epics: SUPPLY_IMPACT, INSTABILITY_PHASES, TERRITO
 | GATE.X.HYGIENE.REPO_HEALTH.020 | DONE | Full test suite (780+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.020 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 21. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
 | GATE.X.HYGIENE.FACTION_PLAYTEST.001 | DONE | Evaluate warfront player experience: can the player meaningfully influence wars through trade? Are embargoes creating interesting smuggling decisions? Is instability visible and impactful? Rate each tension pillar 1-5. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/design/dynamic_tension_v0.md, FOUND: docs/54_EPICS.md |
+
+## Z. Tranche 21 — Sustain + Production + Power + Loot + Faction Visuals
+
+### Z1. Sustain Enforcement (core, tier 1-3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.SUSTAIN.FUEL_DEDUCT.001 | DONE | SustainSystem: fleet movement deducts fuel from cargo per tick, module sustain goods deducted per cycle. Tweaks in SustainTweaksV0. Wired into SimKernel.Step. Proof: dotnet test --filter "SustainSystem" + dotnet test --filter "Determinism" | NEW: SimCore/Systems/SustainSystem.cs, NEW: SimCore/Tweaks/SustainTweaksV0.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S7.SUSTAIN.SHORTFALL.001 | DONE | Sustain shortfall effects: 0 fuel -> fleet immobilized (MovementSystem skip). Missing module sustain -> module disabled (flagged on ModuleSlot). Contract tests for shortfall detection and recovery. Proof: dotnet test --filter "SustainSystem" + dotnet test --filter "Determinism" | FOUND: SimCore/Systems/SustainSystem.cs, FOUND: SimCore/Systems/MovementSystem.cs, FOUND: SimCore/Entities/ModuleSlot.cs |
+| GATE.S7.SUSTAIN.ECONOMY_WIRE.001 | DONE | NPC fleets consume fuel during lane transit via NpcTradeSystem at 50% of player rate (SustainTweaksV0.NpcFuelRateMultiplier), creating real fuel demand at markets. Proof: dotnet test --filter "NpcTradeSystem" + dotnet test --filter "Determinism" | FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Tweaks/SustainTweaksV0.cs |
+| GATE.S7.SUSTAIN.BRIDGE_PROOF.001 | DONE | GetFleetSustainStatusV0 (fuel level, sustain health per module) in SimBridge.Fleet.cs. HUD fuel indicator in hud.gd. Headless proof: fuel depletes -> fleet stops -> refuel -> fleet moves. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Fleet.cs, FOUND: scripts/ui/hud.gd, NEW: scripts/tests/test_sustain_proof.gd |
+
+### Z2. Production Chains (core+bridge, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.PRODUCTION.FULL_DEPLOY.001 | DONE | Instantiate remaining 5 recipes (ProcessFood, FabricateComposites, AssembleComponents, SalvageToMetal, SalvageToComponents) as industry sites in MarketInitGen + PlanetInitGen with geographic constraints (food at agri nodes, composites at industrial). Chain coverage contract tests. Proof: dotnet test --filter "ContentRegistryContract" + dotnet test --filter "Determinism" | FOUND: SimCore/Gen/MarketInitGen.cs, FOUND: SimCore/Gen/PlanetInitGen.cs |
+| GATE.S7.PRODUCTION.BRIDGE_READOUT.001 | DONE | Enhanced GetNodeIndustryV0: input/output good display names, efficiency %, recipe name. Economy tab chain visualization in EmpireDashboard. Station tab local production detail. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Reports.cs, FOUND: scripts/ui/hero_trade_menu.gd |
+
+### Z3. Power Budget (core+bridge, tier 1-3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.POWER.BUDGET_ENFORCE.001 | DONE | PowerBudgetSystem: sum equipped module PowerDraw vs ship class BasePower. Over-budget -> lowest-priority module disabled. Wired into SimKernel.Step. Proof: dotnet test --filter "PowerBudget" + dotnet test --filter "Determinism" | NEW: SimCore/Systems/PowerBudgetSystem.cs, FOUND: SimCore/SimKernel.cs |
+| GATE.S7.POWER.MOUNT_DEGRADE.001 | DONE | MountType compatibility: SlotKind must match module category, RefitSystem rejects mismatched mounts. Module Condition (0-100) decays per cycle via MaintenanceSystem, 0% -> module disabled. Repair cost in goods. Proof: dotnet test --filter "PowerBudget|RefitSystem|Maintenance" + dotnet test --filter "Determinism" | FOUND: SimCore/Entities/ModuleSlot.cs, FOUND: SimCore/Systems/RefitSystem.cs, FOUND: SimCore/Systems/MaintenanceSystem.cs |
+| GATE.S7.POWER.BRIDGE_UI.001 | DONE | Power budget bars (used/total) + mount type labels + condition% per module in dock Ship tab. Over-budget warning label. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Refit.cs, FOUND: scripts/ui/hero_trade_menu.gd |
+
+### Z4. Combat Loot (core+bridge, tier 1-3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S5.LOOT.DROP_SYSTEM.001 | DONE | LootTableSystem + LootDrop entity. Rarity tiers: Common 60, Uncommon 25, Rare 12, Epic 3 (weighted). Drop roll on NPC fleet kill via NpcFleetCombatSystem. Content in LootTweaksV0. Proof: dotnet test --filter "LootTable" + dotnet test --filter "Determinism" | NEW: SimCore/Systems/LootTableSystem.cs, NEW: SimCore/Entities/LootDrop.cs, NEW: SimCore/Tweaks/LootTweaksV0.cs |
+| GATE.S5.LOOT.TRACTOR_CMD.001 | DONE | CollectLootCommand: player collects loot within tractor range, adds goods/modules/credits to cargo. Proof: dotnet test --filter "CollectLoot" + dotnet test --filter "Determinism" | NEW: SimCore/Commands/CollectLootCommand.cs, FOUND: SimCore/Entities/Fleet.cs |
+| GATE.S5.LOOT.BRIDGE_PROOF.001 | DONE | GetNearbyLootV0, DispatchCollectLootV0 in SimBridge.Combat.cs. Loot particle markers in local space via GalaxyView. Collection toast with rarity colors. Headless proof: kill NPC -> loot drops -> collect -> cargo increased. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Combat.cs, FOUND: scripts/view/GalaxyView.cs, NEW: scripts/tests/test_loot_proof.gd |
+
+### Z5. Faction Visuals (bridge, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.FACTION_VIS.COLOR_PALETTE.001 | DONE | Faction primary/secondary/accent colors in FactionTweaksV0 (Concord=blue, Chitin=amber, Weavers=green, Valorin=red, Communion=purple). GetFactionColorsV0 bridge query. Proof: dotnet build SimCore/SimCore.csproj --nologo | FOUND: SimCore/Tweaks/FactionTweaksV0.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.FACTION_VIS.SHIP_LIVERY.001 | DONE | NPC ship StandardMaterial3D albedo_color set from faction palette in npc_ship.gd. Faction color passed during SpawnNpcShipV0. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/npc_ship.gd, FOUND: scripts/view/GalaxyView.cs |
+| GATE.S7.FACTION_VIS.STATION_STYLE.001 | DONE | Station accent mesh colored by controlling faction. Faction name banner Label3D. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Faction.cs |
+| GATE.S7.FACTION_VIS.TERRITORY_OVERLAY.001 | DONE | Galaxy map semi-transparent faction territory fill using ComputeFactionTerritories BFS data. Faction color legend panel. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/EmpireDashboard.cs |
+
+### Z6. Meta (docs, tier 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.021 | DONE | Full test suite (780+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.021 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 22. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.SUSTAIN_BALANCE.001 | DONE | Multi-seed sustain economy balance evaluation: 5 seeds x 5000 ticks. Check fleet fuel consumption rates, sustain costs vs income, immobilization frequency. Report balance gaps. Proof: dotnet test --filter "SustainBalance" | FOUND: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs, FOUND: SimCore/Tweaks/SustainTweaksV0.cs |

@@ -482,4 +482,51 @@ public partial class SimBridge
 
         return result;
     }
+
+    // ── GATE.S7.FACTION_VIS.COLOR_PALETTE.001: Faction color palette query ──
+
+    /// <summary>
+    /// Returns faction visual colors: primary, secondary, accent as Godot Color objects.
+    /// Returns {faction_id, primary (Color), secondary (Color), accent (Color), found (bool)}.
+    /// Pure lookup — no SimState needed, reads from FactionTweaksV0 constants.
+    /// </summary>
+    public Godot.Collections.Dictionary GetFactionColorsV0(string factionId)
+    {
+        bool known = System.Array.IndexOf(FactionTweaksV0.AllFactionIds, factionId) >= 0;
+        var colors = FactionTweaksV0.GetFactionColors(factionId ?? "");
+
+        return new Godot.Collections.Dictionary
+        {
+            ["faction_id"] = factionId ?? "",
+            ["primary"] = new Color(colors.Primary.R, colors.Primary.G, colors.Primary.B),
+            ["secondary"] = new Color(colors.Secondary.R, colors.Secondary.G, colors.Secondary.B),
+            ["accent"] = new Color(colors.Accent.R, colors.Accent.G, colors.Accent.B),
+            ["found"] = known,
+        };
+    }
+
+    // ── GATE.S7.FACTION_VIS.TERRITORY_OVERLAY.001: Node-to-faction territory mapping ──
+
+    /// <summary>
+    /// Returns an array of {node_id, faction_id} for all claimed nodes.
+    /// Used by galaxy map territory overlay.
+    /// </summary>
+    public Godot.Collections.Array GetNodeFactionMapV0()
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var kv in state.NodeFactionId)
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["node_id"] = kv.Key,
+                    ["faction_id"] = kv.Value,
+                });
+            }
+        }, 0);
+
+        return result;
+    }
 }

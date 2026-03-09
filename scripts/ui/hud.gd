@@ -35,11 +35,20 @@ var _research_label: Label = null
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
 
+# GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fuel indicator label.
+var _fuel_label: Label = null
+
 # Data overlay mode label (shown when V-key cycles overlay modes)
 var _overlay_mode_label: Label = null
 
+# Galaxy map header label (shown only when overlay is active)
+var _galaxy_map_label: Label = null
+
 # Overlay mode: when true, HUD status elements are hidden (galaxy map / empire dashboard open)
 var _overlay_active: bool = false
+
+# Suppress "LOW" fuel warning until player has had fuel at least once (avoid alarming at boot)
+var _fuel_ever_had: bool = false
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
@@ -131,6 +140,14 @@ func _ready() -> void:
 	_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 	_research_label.position = Vector2(10, 400)
 	add_child(_research_label)
+
+	# GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fuel indicator label.
+	_fuel_label = Label.new()
+	_fuel_label.name = "FuelLabel"
+	_fuel_label.text = ""
+	_fuel_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_fuel_label.position = Vector2(10, 446)
+	add_child(_fuel_label)
 
 	# Build game over overlay (hidden until player dies)
 	_game_over_panel = Control.new()
@@ -237,6 +254,19 @@ func _ready() -> void:
 	_overlay_mode_label.visible = false
 	add_child(_overlay_mode_label)
 
+	# Galaxy map header label (top-center, hidden by default)
+	# CanvasLayer is not Control — anchors don't work. Use explicit position + viewport size.
+	_galaxy_map_label = Label.new()
+	_galaxy_map_label.name = "GalaxyMapLabel"
+	_galaxy_map_label.text = "GALAXY MAP  (TAB to close)"
+	_galaxy_map_label.add_theme_font_size_override("font_size", UITheme.FONT_HUD_MED)
+	_galaxy_map_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	_galaxy_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_galaxy_map_label.position = Vector2(0, 12)
+	_galaxy_map_label.size = Vector2(1920, 40)
+	_galaxy_map_label.visible = false
+	add_child(_galaxy_map_label)
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
@@ -249,6 +279,11 @@ func set_overlay_mode_v0(active: bool) -> void:
 	for lbl in [_credits_label, _cargo_label, _node_label, _state_label,
 				_hull_bar, _shield_bar, _hull_label, _shield_label]:
 		if lbl != null: lbl.visible = not active
+	if _fuel_label: _fuel_label.visible = not active
+	if _galaxy_map_label:
+		if active:
+			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
+		_galaxy_map_label.visible = active
 	if active:
 		if _combat_label: _combat_label.visible = false
 		if _security_label: _security_label.visible = false
@@ -312,6 +347,7 @@ func _physics_process(_delta: float) -> void:
 		_slow_poll_elapsed = 0.0
 		_update_mission_hud()
 		_update_research_hud()
+		_update_fuel_hud()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	if _security_label != null and _bridge != null:
@@ -421,6 +457,32 @@ func _update_research_hud() -> void:
 	else:
 		_research_label.text = "Research: Idle"
 		_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+
+# GATE.S7.SUSTAIN.BRIDGE_PROOF.001: fuel indicator update
+func _update_fuel_hud() -> void:
+	if _fuel_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetFleetSustainStatusV0"):
+		_fuel_label.visible = false
+		return
+	var sustain: Dictionary = _bridge.call("GetFleetSustainStatusV0", "fleet_trader_1")
+	if sustain.size() == 0:
+		_fuel_label.visible = false
+		return
+	var fuel: int = int(sustain.get("fuel", 0))
+	var immobilized: bool = sustain.get("is_immobilized", false)
+	if fuel > 0:
+		_fuel_ever_had = true
+	_fuel_label.visible = true
+	if immobilized:
+		_fuel_label.text = "FUEL: %d  [IMMOBILIZED]" % fuel
+		_fuel_label.add_theme_color_override("font_color", UITheme.RED)
+	elif fuel <= 3 and _fuel_ever_had:
+		_fuel_label.text = "FUEL: %d  LOW" % fuel
+		_fuel_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	else:
+		_fuel_label.text = "Fuel: %d" % fuel
+		_fuel_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
 func toggle_pause_menu_v0(visible_flag: bool) -> void:

@@ -35,6 +35,7 @@ var current_player_state: PlayerShipState = PlayerShipState.IN_FLIGHT
 var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
 var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can trigger again.
+var _gate_approach_declined: bool = false  # Suppresses re-trigger until full zone exit.
 
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
@@ -133,6 +134,7 @@ var _keybinds_help: Node = null
 var _combat_log_panel: Node = null
 
 func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	print('SUCCESS: Global Game Manager initialized.')
 	sim = Sim.new()
 	player = PlayerState.new()
@@ -437,6 +439,10 @@ func on_proximity_dock_entered_v0(target: Node):
 	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast
 	_check_first_dock_mission_prompt_v0()
 
+	# Hide galaxy overlay labels so they don't bleed through dock menu panel.
+	if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
+		_galaxy_view.call("SetLocalLabelsVisibleV0", false)
+
 	if dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
@@ -461,6 +467,9 @@ func undock_v0():
 	# Close discovery panel if it is open.
 	if _discovery_panel and _discovery_panel.has_method("close_v0"):
 		_discovery_panel.call("close_v0")
+	# Restore galaxy overlay labels on undock.
+	if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
+		_galaxy_view.call("SetLocalLabelsVisibleV0", true)
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
@@ -470,6 +479,12 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 
 	print("UUIR|LANE_ENTER|" + neighbor_node_id)
 	# GATE.S13.WORLD.GATE_ARRIVAL.001: Remember origin for arrival positioning.
+	# Eager read: _last_player_node_id may not yet be set if toast poll hasn't fired.
+	if _last_player_node_id.is_empty():
+		var bridge_snap = get_node_or_null("/root/SimBridge")
+		if bridge_snap and bridge_snap.has_method("GetPlayerSnapshot"):
+			var ps: Dictionary = bridge_snap.call("GetPlayerSnapshot")
+			_last_player_node_id = str(ps.get("location", ""))
 	_lane_origin_node_id = _last_player_node_id
 
 	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake on warp entry
@@ -499,6 +514,8 @@ func _ensure_hero_body() -> void:
 func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
 		return
+	if _gate_approach_declined:
+		return
 	if not _transition_player_state_v0(PlayerShipState.GATE_APPROACH):
 		return
 	_approach_neighbor_id = neighbor_node_id
@@ -510,8 +527,9 @@ func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 		_hero_body.linear_velocity = Vector3.ZERO
 		_hero_body.angular_velocity = Vector3.ZERO
 
-	# Show transit confirmation popup.
+	# Show transit confirmation popup and freeze game while player decides.
 	_show_gate_popup_v0(neighbor_node_id)
+	get_tree().paused = true
 
 	# Pre-build galaxy overlay so transit animation starts without a hitch.
 	var gv = _find_galaxy_view()
@@ -520,12 +538,15 @@ func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 
 # Called by GalaxyView when player exits approach zone.
 func on_lane_gate_approach_exited_v0() -> void:
+	_gate_approach_declined = false
 	if current_player_state != PlayerShipState.GATE_APPROACH:
 		return
 	_cancel_gate_approach_v0()
 
 func _cancel_gate_approach_v0() -> void:
 	print("UUIR|GATE_APPROACH_CANCEL")
+	get_tree().paused = false
+	_gate_approach_declined = true
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	_approach_neighbor_id = ""
 	if _gate_popup and is_instance_valid(_gate_popup):
@@ -544,12 +565,19 @@ func _confirm_gate_transit_v0() -> void:
 		if not _gate_popup.call("can_confirm"):
 			return
 
-	# Close popup.
+	# Close popup and unpause (game was frozen during popup).
 	if _gate_popup and is_instance_valid(_gate_popup):
 		_gate_popup.queue_free()
 		_gate_popup = null
+	get_tree().paused = false
 
 	# Save origin + dest BEFORE clearing approach_neighbor_id.
+	# Eager read: _last_player_node_id may not yet be set if toast poll hasn't fired.
+	if _last_player_node_id.is_empty():
+		var bridge_snap = get_node_or_null("/root/SimBridge")
+		if bridge_snap and bridge_snap.has_method("GetPlayerSnapshot"):
+			var ps: Dictionary = bridge_snap.call("GetPlayerSnapshot")
+			_last_player_node_id = str(ps.get("location", ""))
 	_lane_origin_node_id = _last_player_node_id
 	_lane_dest_node_id = neighbor_id
 	print("UUIR|LANE_ENTER|" + neighbor_id)
@@ -1366,23 +1394,63 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 				Vector3(star_center.x, 2.0, star_center.z), step_time)
 		await orbit_tween.finished
 
-		# --- Phase 3: Exit — curve from orbit to above dest gate ---
-		var settle_pos := Vector3(hero_pos.x, 80.0, hero_pos.z)
-		var settle_look := Vector3(hero_pos.x, 0.0, hero_pos.z)
+		# --- Phase 4: Exit spiral — reverse Euler spiral from orbit back to flight altitude ---
+		# Mirrors entry spiral: curvature ramps from 1/R (orbit tangent) to 0 (straight departure).
+		var orbit_exit_angle: float = tangent_angle + actual_sweep * orbit_dir
+		var hero_star_off := hero_pos - star_center
+		hero_star_off.y = 0.0
+		var depart_angle: float
+		if hero_star_off.length() < 5.0:
+			depart_angle = orbit_exit_angle + PI * orbit_dir  # Fallback: depart opposite orbit dir.
+		else:
+			depart_angle = atan2(hero_star_off.z, hero_star_off.x)
+		var exit_settle_radius: float = 100.0  # Radius at which spiral fully straightens.
+		var exit_settle_alt: float = 80.0      # Target altitude (matches flight mode default).
+
+		var exit_steps: int = 24
+		var exit_step_time: float = FLYBY_CURVE_OFF_TIME / float(exit_steps)
 		var exit_tween := create_tween()
-		exit_tween.set_parallel(true)
-		exit_tween.tween_property(cam_ctrl, "flyby_cam_pos", settle_pos, FLYBY_CURVE_OFF_TIME) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-		exit_tween.tween_property(cam_ctrl, "flyby_look_at", settle_look, FLYBY_CURVE_OFF_TIME) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-		exit_tween.tween_property(cam_ctrl, "flyby_up", Vector3.BACK, FLYBY_CURVE_OFF_TIME) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		for i in range(exit_steps):
+			var t: float = float(i + 1) / float(exit_steps)
+			# Angle: fast departure from orbit tangent, decelerating to straight line.
+			# rev_t = 1 - (1-t)^2: ease-out quadratic (reverse of entry's ease-in).
+			var rev_t: float = 1.0 - ease(1.0 - t, 2.0)
+			var angle: float = lerpf(orbit_exit_angle, depart_angle, rev_t)
+			# Radius: expands from orbit to departure radius.
+			var exit_radius: float = lerpf(FLYBY_ORBIT_RADIUS, exit_settle_radius, ease(t, 0.8))
+			# Altitude: rises to flight mode altitude.
+			var exit_alt: float = lerpf(FLYBY_ORBIT_ALT, exit_settle_alt, ease(t, 0.6))
+			var pos := Vector3(
+				star_center.x + cos(angle) * exit_radius,
+				exit_alt,
+				star_center.z + sin(angle) * exit_radius
+			)
+			exit_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, exit_step_time)
+			# Look-at: transition from star center to hero ground position.
+			var look_t: float = ease(t, 1.5)
+			var look_target := Vector3(
+				lerpf(star_center.x, hero_pos.x, look_t),
+				lerpf(2.0, 0.0, look_t),
+				lerpf(star_center.z, hero_pos.z, look_t)
+			)
+			exit_tween.parallel().tween_property(cam_ctrl, "flyby_look_at", look_target, exit_step_time)
+			# Up vector: transition from UP (orbit) toward BACK (flight top-down).
+			var up_target: Vector3 = Vector3.UP.slerp(Vector3.BACK, t)
+			if up_target.length_squared() < 0.01:
+				up_target = Vector3.BACK
+			exit_tween.parallel().tween_property(cam_ctrl, "flyby_up", up_target, exit_step_time)
 		await exit_tween.finished
 
-		# --- Handoff: flyby → flight mode ---
+		# --- Phase 5: Handoff — flyby → flight mode with critically-damped spring settle ---
 		cam_ctrl.flyby_active = false
+		# Initialize spring state from current flyby end position.
+		cam_ctrl._settle_pos = cam_ctrl._cam.global_position if cam_ctrl._cam else hero_pos + Vector3(0.0, 80.0, 0.0)
+		cam_ctrl._settle_vel = Vector3.ZERO
+		cam_ctrl._settle_look = cam_ctrl.flyby_look_at
+		cam_ctrl._settle_look_vel = Vector3.ZERO
+		cam_ctrl._altitude = 80.0  # Spring target (not a position snap).
+		cam_ctrl.flyby_settle_active = true
 		cam_ctrl.input_locked = false
-		cam_ctrl._altitude = 80.0
 		cam_ctrl._flight_yaw_offset = 0.0
 		cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
 		var gv_cleanup = _find_galaxy_view()
@@ -1620,8 +1688,8 @@ func _poll_toast_events_v0() -> void:
 		_last_research_tech_id = tech_id
 
 	# Node arrival detection (player moved to a new system)
-	if bridge.has_method("GetPlayerSnapshotV0"):
-		var snap: Dictionary = bridge.call("GetPlayerSnapshotV0")
+	if bridge.has_method("GetPlayerSnapshot"):
+		var snap: Dictionary = bridge.call("GetPlayerSnapshot")
 		var node_id: String = str(snap.get("location", ""))
 		if not node_id.is_empty() and node_id != _last_player_node_id and not _last_player_node_id.is_empty():
 			var display_name: String = node_id

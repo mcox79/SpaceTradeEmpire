@@ -64,8 +64,14 @@ public class SimKernel
         // Apply fleet movement/state transitions.
         MovementSystem.Process(_state);
 
+        // GATE.S7.SUSTAIN.FUEL_DEDUCT.001: Fleet fuel + module sustain deduction.
+        SustainSystem.Process(_state);
+
         // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Remove destroyed NPC fleets.
         NpcFleetCombatSystem.Process(_state);
+
+        // GATE.S5.LOOT.DROP_SYSTEM.001: Despawn expired loot drops.
+        LootTableSystem.ProcessDespawn(_state);
 
         // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Random events on lane arrival.
         JumpEventSystem.Process(_state);
@@ -87,6 +93,9 @@ public class SimKernel
         ResearchSystem.ProcessResearch(_state);
         RefitSystem.ProcessRefitQueue(_state);
         MaintenanceSystem.ProcessDecay(_state);
+
+        // GATE.S7.POWER.BUDGET_ENFORCE.001: Enforce power budget after refit changes.
+        PowerBudgetSystem.Process(_state);
 
         // GATE.S4.CONSTR_PROG.SYSTEM.001: Construction step advancement.
         ConstructionSystem.ProcessConstruction(_state);

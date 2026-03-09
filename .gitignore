@@ -17,6 +17,8 @@ ios/
 docs/generated/
 _scratch/
 reports/
+!reports/baselines/
+!reports/baselines/**
 
 
 # =========================

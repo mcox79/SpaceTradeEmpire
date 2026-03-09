@@ -415,7 +415,8 @@ func _is_cinematic_active() -> bool:
 		return false
 	var fb = cam_ctrl.get("flyby_active")
 	var il = cam_ctrl.get("input_locked")
-	return (bool(fb) if fb != null else false) or (bool(il) if il != null else false)
+	var fs = cam_ctrl.get("flyby_settle_active")
+	return (bool(fb) if fb != null else false) or (bool(il) if il != null else false) or (bool(fs) if fs != null else false)
 
 
 func _get_camera_info() -> String:
@@ -432,17 +433,21 @@ func _get_camera_info() -> String:
 	var mode = cam_ctrl.get("_current_mode")
 	var flyby_pos = cam_ctrl.get("flyby_cam_pos")
 	var flyby_look = cam_ctrl.get("flyby_look_at")
+	var settle = cam_ctrl.get("flyby_settle_active")
+	var fov_val = cam_ctrl.get("_current_fov")
 	# Also read transit altitude from GameManager to see descent curve.
 	var transit_alt_val = null
 	if _game_manager:
 		transit_alt_val = _game_manager.get("warp_transit_altitude")
-	var info := "cam_alt=%.0f|yaw=%.2f|pitch=%.2f|flyby=%s|locked=%s|mode=%s" % [
+	var info := "cam_alt=%.0f|yaw=%.2f|pitch=%.2f|flyby=%s|locked=%s|mode=%s|fov=%.1f|settle=%s" % [
 		float(alt) if alt else 0.0,
 		float(yaw) if yaw else 0.0,
 		float(pitch) if pitch else 0.0,
 		str(flyby),
 		str(input_lock),
-		str(mode)]
+		str(mode),
+		float(fov_val) if fov_val != null else 60.0,
+		str(settle)]
 	if transit_alt_val != null:
 		info += "|transit_alt=%.0f" % float(transit_alt_val)
 	if flyby and flyby_pos != null:
