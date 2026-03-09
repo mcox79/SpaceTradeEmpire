@@ -5,6 +5,25 @@
 
 ---
 
+## Implementation Status (as of Tranche 20, 2026-03-08)
+
+- Faction identities & territories: ✅ Implemented (FactionTweaksV0.cs, GalaxyGenerator.cs)
+- Pentagon dependency ring: ✅ Implemented (FactionTweaksV0.PentagonRing)
+- Warfront seeding (2 wars): ✅ Implemented (GalaxyGenerator.SeedWarfrontsV0)
+- Embargo system: ✅ Implemented (EmbargoState.cs, GalaxyGenerator.SeedEmbargoesV0)
+- Instability phases (5-phase model): ✅ Implemented (InstabilitySystem.cs, InstabilityTweaksV0.cs)
+- Reputation system: ✅ Implemented (ReputationSystem.cs — tiers, decay, war profiteering)
+- Warfront demand & supply: ✅ Implemented (WarfrontDemandSystem.cs — supply ledger, intensity shift)
+- Faction tariffs/aggression: ⚠️ REDESIGN NEEDED — code values diverged from original design (see below)
+- Adaptation fragments (16): 🔮 Future — Not Yet Implemented
+- Haven starbase: 🔮 Future — Not Yet Implemented
+- Resonance pairs: 🔮 Future — Not Yet Implemented
+- Endgame paths (Reinforce/Naturalize/Renegotiate): 🔮 Future — Not Yet Implemented
+- Metric bleed gameplay effects: 🔮 Future — Not Yet Implemented
+- Lattice drones: 🔮 Future — Not Yet Implemented
+
+---
+
 ## Core Premise
 
 Star lanes are not natural. They are **containment infrastructure** built by an ancient civilization to suppress spacetime instability. Travel was a side effect — the real purpose was stabilization. Every faction's identity is shaped by their relationship to this infrastructure.
@@ -88,6 +107,8 @@ Four reasons for irreproducibility:
 - Its effectiveness is degrading over time — this is the ticking clock
 
 ### Lattice Drones as Escalating Threat
+
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
 
 As the Lattice degrades, its maintenance drones malfunction. They were repair
 bots; now they attack anything that moves in deteriorating lane segments.
@@ -279,6 +300,12 @@ volumes but viable margins.
 
 ## Instability Phases (Per-Node Integer, 0-100+)
 
+> ✅ **IMPLEMENTED** in InstabilityTweaksV0.cs and InstabilitySystem.cs.
+> Phase thresholds: Stable 0-24, Shimmer 25-49, Drift 50-74, Fracture 75-99, Void 100+.
+> Gain: BaseGainPerTick * warfront intensity at contested nodes. Decay: 1 per 100 ticks.
+> Note: Phase effects (price jitter ±5%, lane delay +20%, trade failure 10%, market closure)
+> are defined in tweaks but not yet mechanically applied to MarketSystem/LaneFlowSystem.
+
 ### Phase 0: Stable (0-24)
 *"Normal space. The lanes hold."*
 - All instruments accurate. Standard everything. No special mechanics.
@@ -335,6 +362,9 @@ Unstable space preserves pre-containment material states. Lanes crystallized mat
 **Key hook**: T3 module sustain costs consume exotic matter and exotic crystals every 60 ticks. A Dreadnought with T3 loadout needs 6-8 exotic matter per cycle. Fracture travel to off-lane void sites is the T3 supply line.
 
 ### Layer 2: Metric Arbitrage (Phase 2+ trading)
+
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
+
 In Phase 2 (Drift) space, cargo metric shift means goods have fixed fracture weight ratios — each good type consistently measures heavier or lighter when brought to stable space. Players learn these ratios through experience or scanning, creating a knowledge-based trading strategy. This is a unique opportunity that only the player can exploit — no NPC faction has fracture capability to reach these markets.
 
 Maps to existing `FractureSystem.FracturePricingV0` with 1.5x volatility and 2x spread.
@@ -379,6 +409,8 @@ What changes: Module UI updates to true name. FractureTier becomes "adaptation d
 ---
 
 ## The Haven — Player Hideout & Ancient Starbase
+
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
 
 ### Discovery
 
@@ -425,6 +457,8 @@ The accommodation-geometry lane is important because:
 
 ## Adaptation Fragment Web (16 Fragments, 8 Resonance Pairs)
 
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
+
 Each fragment is independently useful. When two fragments in a resonance pair are both found, a combined effect activates that's more than the sum of parts. No linear progression — discovery in any order.
 
 ### Navigation Fragments (found in off-lane void sites)
@@ -452,6 +486,9 @@ Each fragment is independently useful. When two fragments in a resonance pair ar
 16. **Dialogue Protocol** — Framework for structured interaction. (Solo: opens Renegotiate endgame path)
 
 ### Resonance Pairs
+
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
+
 | Fragment A | Fragment B | Combined Effect |
 |---|---|---|
 | 1 Void Cartography | 3 Depth Sensing | Full galaxy void-site map with resource estimates |
@@ -468,6 +505,8 @@ Players don't see a checklist of 16 blanks. Fragments are discovered through exp
 ---
 
 ## Three Endgame Paths (Emergent, Not Chosen)
+
+> 🔮 **FUTURE — NOT YET IMPLEMENTED**. This section describes aspirational design for future tranches.
 
 ### How Endgame Emerges
 
@@ -530,6 +569,14 @@ The endgame is not "choose your ending." By the time the crisis hits, the player
 
 ## Summary Table
 
+> **⚠️ REDESIGN PENDING**: Tariff rates and aggression levels in both this document
+> and FactionTweaksV0.cs need holistic revision to align with species/philosophy
+> lore. See EPIC.S7.FACTION_IDENTITY_REDESIGN.V0. Until redesign completes,
+> code values (FactionTweaksV0.cs) are authoritative for gameplay.
+>
+> Current code values: Concord 5%, Chitin 15%, Weavers 8%, Valorin 20%, Communion 3%.
+> Aggression: Concord 0, Chitin 1, Weavers 0, Valorin 2, Communion 0.
+
 | Faction | Policy | Tariff | Aggr | Produces | Needs | Ships | Tech | Path |
 |---------|--------|--------|------|----------|-------|-------|------|------|
 | Concord | Open | 0.08 | 1 | Food, Components, Munitions | Composites | Balanced cruisers (shield+slots) | Sensors, Shields, Utility | Reinforce |
@@ -545,6 +592,11 @@ The endgame is not "choose your ending." By the time the crisis hits, the player
 ## Warfront Seeding
 
 > See also: `dynamic_tension_v0.md` — Pillar 1 (The Galaxy Starts at War)
+
+> ✅ **IMPLEMENTED** in GalaxyGenerator.SeedWarfrontsV0.
+> Hot war: Valorin vs Weavers at OpenWar (intensity 3).
+> Cold war: Concord vs Chitin at Tension (intensity 1).
+> Contested nodes: BFS depth 1 from faction borders.
 
 The galaxy does not begin at peace. The procedural generator seeds active
 conflicts as part of world creation. The player spawns into a galaxy already

@@ -3,6 +3,34 @@
 > Design doc for the empire management screen and all sub-tab UI surfaces.
 > Companion to `ship_modules_v0.md` and `trade_goods_v0.md`.
 
+## Implementation Status (as of Tranche 20, 2026-03-08)
+
+The code implementation (scripts/ui/EmpireDashboard.cs) diverged from this design during
+development. The actual implementation has **9 tabs** (not 7), adds 3 tabs not in the
+original design, and omits the Fleet tab entirely.
+
+| Design Tab | Code Tab | Keybind | Status |
+|-----------|----------|---------|--------|
+| Overview | Overview | F1 | ✅ Implemented (basic cards + needs-attention alerts) |
+| Economy | Trade | F2 | ✅ Implemented (renamed; economy data + trade routes) |
+| Fleet | — | F3 | ❌ **NOT IMPLEMENTED** — no BuildFleetTab() exists |
+| Industry | Production | F4 | ✅ Implemented (site list table) |
+| Research | Research | F5 | ✅ Implemented (text table sorted by tier) |
+| Explore | Intel | F6 | ⚠️ Partial (market intel age only, no discovery phases) |
+| Factions | Factions | F7 | ✅ Implemented (rep bars, trade policy, territory count) |
+| — | Programs | — | ✅ Added (automation programs — not in original design) |
+| — | Stats | — | ✅ Added (player stats + milestones — not in original design) |
+| — | Warfronts | — | ✅ Added (faction warfare — not in original design) |
+
+### Key Design Aspirations NOT Yet Implemented
+- Fleet tab: master-detail panel with fleet list, cargo, modules, programs
+- Sankey-style production chain visualization
+- Graphical tech tree with prerequisite lines and domain lanes
+- Price comparison sparkline table
+- Breadcrumb navigation and global search (Ctrl+F)
+- Direct action buttons in Needs Attention queue
+- Progressive disclosure gating ("Requires [Tech]" on locked tabs)
+
 ---
 
 ## Design Principles
@@ -29,12 +57,25 @@
 
 Persistent tab bar across the top of the empire screen. Every management surface is one click away. No nested menus to reach a primary category.
 
+**Original design (7 tabs)**:
 ```
 [Overview] [Economy] [Fleet] [Industry] [Research] [Explore] [Factions]
    F1         F2       F3       F4         F5         F6        F7
 ```
 
-Seven tabs. This is the upper bound for comfortable scanning. If future mechanics require more surfaces, nest them as sub-tabs within a primary tab rather than adding an 8th+ top-level tab.
+**Current implementation (9 tabs)** — code enum: Overview, Trade, Production, Programs, Intel, Research, Stats, Factions, Warfronts:
+```
+[Overview] [Trade] [Production] [Programs] [Intel] [Research] [Stats] [Factions] [Warfronts]
+   F1        F2        F4                    F6       F5                  F7
+```
+
+> **Note**: Fleet tab (F3) was never implemented. Programs, Stats, and Warfronts tabs
+> were added during Tranches 10-20 to surface automation, player progression, and
+> faction warfare systems that didn't exist when this doc was written.
+
+Seven tabs was the original upper bound for comfortable scanning. The implementation
+exceeded this. Consider whether Programs/Stats/Warfronts should be nested as sub-tabs
+within primary tabs to reduce top-level count.
 
 **Opening the empire screen:** Single keypress (Tab or E). Opens to the Overview tab by default. Remembers the last-visited tab within a session.
 
@@ -57,6 +98,9 @@ Each segment is clickable. Prevents "where am I?" disorientation in deep views.
 ---
 
 ## Tab 1: Overview (F1)
+
+> ✅ **Implemented** (basic). 2x3 card grid + needs-attention queue with text alerts.
+> Missing: direct action buttons, clickable entity names, severity icons, trend arrows.
 
 The dashboard home. Answers "what needs my attention right now?" without forcing the player to check 6 tabs.
 
@@ -112,6 +156,10 @@ The action button is critical — it solves Victoria 3's fatal flaw of showing p
 
 ## Tab 2: Economy (F2)
 
+> ✅ **Implemented** as "Trade" tab. Economy overview + trade routes list.
+> Missing: price comparison table, sparkline history, route detail right-panel,
+> income/expense breakdown, "Best Buy/Sell" columns, stale price indication.
+
 ### Purpose
 Income/expenses breakdown, active trade routes, market price comparison across known stations.
 
@@ -160,6 +208,10 @@ Income/expenses breakdown, active trade routes, market price comparison across k
 ---
 
 ## Tab 3: Fleet (F3)
+
+> ❌ **NOT IMPLEMENTED**. No BuildFleetTab() method exists in EmpireDashboard.cs.
+> Fleet data is available via SimBridge snapshot methods but has no dedicated UI surface.
+> This is the single largest missing tab — players cannot manage fleets from the empire screen.
 
 ### Purpose
 All player fleets — location, status, cargo, programs, combat readiness.
@@ -220,6 +272,10 @@ X4's fleet management is described as "the worst I've ever seen" because standin
 ---
 
 ## Tab 4: Industry (F4)
+
+> ✅ **Implemented** as "Production" tab. Simple site list table.
+> Missing: Sankey-style production chain visualization, bottleneck highlighting,
+> efficiency breakdown on hover, repair/supply action buttons.
 
 ### Purpose
 Production chain health, site efficiency, maintenance, supply logistics.
@@ -286,6 +342,10 @@ This follows the "every number answers so what" principle. Anno 1800's biggest c
 
 ## Tab 5: Research (F5)
 
+> ✅ **Implemented** as text table sorted by tier.
+> Missing: graphical tech tree visualization, domain lanes (Combat/Trade/Exploration/Industry),
+> sustain status color coding, interactive prerequisite highlighting, "What do I need?" path.
+
 ### Purpose
 Tech tree visualization, active research progress, sustain status.
 
@@ -335,6 +395,10 @@ Tech tree visualization, active research progress, sustain status.
 ---
 
 ## Tab 6: Exploration (F6)
+
+> ⚠️ **Partially Implemented** as "Intel" tab. Shows market intel age (node observations).
+> Missing: discovery phase visualization (Seen/Scanned/Analyzed), anomaly encounters list,
+> encounter reports, scanner status/range, recent encounters log.
 
 ### Purpose
 Discovery tracker, anomaly encounters, scanner status, exploration progress.
@@ -400,6 +464,10 @@ When an anomaly encounter resolves, show a brief card:
 ---
 
 ## Tab 7: Factions (F7)
+
+> ✅ **Implemented**. Rep bars, trade policy, territory count per faction.
+> Missing: recent reputation changes log (last 5-10 actions with deltas),
+> named threshold zones on rep bar (Hostile/Neutral/Friendly/Allied).
 
 ### Purpose
 Reputation standings, faction territories, diplomatic effects.
@@ -785,6 +853,30 @@ Efficiency: 78% (was 92% 200t ago)
   Maintenance cost: 120 credits/cycle
 Output: 4 metal/cycle (peak: 5.2/cycle)
 ```
+
+---
+
+## Tabs Added During Implementation (Not in Original Design)
+
+These tabs were added during Tranches 10-20 to surface systems that didn't exist when
+this doc was written. They have no corresponding design spec above.
+
+### Programs Tab
+> ✅ **Implemented** (Tranche 10). Lists active automation programs (TradeCharter,
+> ResourceTap, Patrol, Escort, etc.) with status, cadence, and market bindings.
+> Addresses the need to manage automation that the original design placed in the
+> Economy tab's "Trade Routes" section.
+
+### Stats Tab
+> ✅ **Implemented** (Tranche 12). Player statistics (nodes visited, goods traded,
+> credits earned, techs unlocked, missions completed) and milestone achievements.
+> Player progression surface that didn't exist in the original design scope.
+
+### Warfronts Tab
+> ✅ **Implemented** (Tranche 20). Lists active warfronts with combatant factions,
+> intensity level, war type, supply progress bars, embargo status, and instability
+> effects. Surfaces faction warfare mechanics from S7 that were added after this
+> doc was written.
 
 ---
 

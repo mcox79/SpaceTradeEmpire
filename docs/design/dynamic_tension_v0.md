@@ -4,6 +4,22 @@
 > through dynamic pressure from tick 1. Companion to `trade_goods_v0.md`,
 > `ship_modules_v0.md`, and `EmpireDashboard.md`.
 
+## Implementation Status (as of Tranche 20, 2026-03-08)
+
+| Pillar | Status | Key Systems |
+|--------|--------|-------------|
+| 1. Galaxy at War | 60% Implemented | WarfrontDemandSystem.cs, GalaxyGenerator.SeedWarfrontsV0 |
+| 2. Maintenance Treadmill | 20% Implemented | MaintenanceSystem.cs (industry only) |
+| 3. Economic Cascades | 70% Implemented | MarketSystem.cs, EmbargoState.cs, WarfrontDemandSystem.cs |
+| 4. Shrinking Middle | 85% Implemented | ReputationSystem.cs, MarketSystem.cs, FactionTweaksV0.cs |
+| 5. Fracture Temptation | 50% Implemented | FractureSystem.cs, FractureTweaksV0.cs |
+
+### Open Questions — RESOLVED
+- Simultaneous warfronts: **RESOLVED** — 1 hot (Valorin vs Weavers, OpenWar) + 1 cold (Concord vs Chitin, Tension)
+- Demand shocks: **RESOLVED** — Deterministic, scaled by warfront intensity (Munitions 4x, Fuel 3x, Composites 2.5x)
+- Neutrality tax curve: **RESOLVED** — Stepped at warfront intensity thresholds (Skirmish +5%, OpenWar +10%, TotalWar +15%)
+- Ceasefire brokering: **RESOLVED** — Supply-driven only (cumulative deliveries exceed threshold → intensity decreases)
+
 ---
 
 ## The Problem
@@ -28,6 +44,13 @@ take risks until the endgame forces it.
 
 ### Pillar 1: The Galaxy Starts at War (Early Game)
 
+> **Implementation: 60%**
+> - ✅ Warfronts seeded at worldgen — 2 wars active from tick 1 (SeedWarfrontsV0)
+> - ✅ War-driven demand consumption at contested nodes (WarfrontDemandSystem.Process)
+> - ✅ Warfront tariff surcharges scale with intensity (300 bps/level, MarketSystem)
+> - ❌ Starter system not placed near warfront — uses arbitrary first node
+> - Code: WarfrontDemandSystem.cs, GalaxyGenerator.cs, WarfrontTweaksV0.cs
+
 The player spawns into active conflict, not a quiet galaxy that eventually
 heats up.
 
@@ -47,6 +70,13 @@ geography = different starting puzzles.
 
 ### Pillar 2: The Maintenance Treadmill (Baseline Urgency)
 
+> **Implementation: 20%**
+> - ✅ MaintenanceSystem exists for industry site decay/repair (health degradation, supply consumption)
+> - ❌ No passive fleet fuel consumption — ships sit docked at zero cost
+> - ❌ No module sustain enforcement — SustainInputs defined but resources never consumed
+> - ❌ No "standing still costs money" pressure — early game has no urgency
+> - Code: MaintenanceSystem.cs, MaintenanceTweaksV0.cs (industry only)
+
 Standing still costs money. The player must always be earning.
 
 - Ship consumes Fuel passively (docked or flying).
@@ -64,6 +94,14 @@ punishing — just enough to say "you need to be doing something."
 makes every journey meaningful.
 
 ### Pillar 3: Warfront Economic Cascades (Mid Game)
+
+> **Implementation: 70%**
+> - ✅ Embargo blocks trade in war-critical goods (EmbargoState, SeedEmbargoesV0)
+> - ✅ War demand drains contested node inventories → price spikes (WarfrontDemandSystem)
+> - ✅ NPC trade stabilizes prices but cannot prevent warfront-driven shortages
+> - ❌ Supply chains don't naturally break yet — only 3/9 production recipes instantiated as industry sites
+> - ❌ No cascading price shocks beyond direct war nodes (needs full production chain graph)
+> - Code: MarketSystem.cs, WarfrontDemandSystem.cs, EmbargoState.cs, NpcTradeSystem.cs
 
 When warfronts shift, the consequences are economically inescapable.
 
@@ -83,6 +121,15 @@ creating scarcity that ripples outward. The player does not fight in wars —
 they feel wars through their wallet.
 
 ### Pillar 4: The Shrinking Middle Ground (Late Mid Game)
+
+> **Implementation: 85%**
+> - ✅ Rep-based tariff scaling: allied=-15%, hostile=+20% (ReputationSystem.cs)
+> - ✅ Neutrality tax at warfront intensity ≥2: Skirmish +5%, OpenWar +10%, TotalWar +15%
+> - ✅ Trade access gating by rep tier — dock/trade/tech thresholds (Hostile blocks docking)
+> - ✅ Territory regime matrix: TradePolicy + RepTier → Open/Guarded/Restricted/Hostile
+> - ✅ War profiteering: sell war goods → +2 buyer rep, -1 enemy rep
+> - ❌ No explicit faction contract offers (neutrality cost is implicit via tariffs, not explicit)
+> - Code: ReputationSystem.cs, MarketSystem.cs, FactionTweaksV0.cs
 
 Neutrality becomes increasingly expensive as wars escalate.
 
@@ -104,6 +151,15 @@ shrinks as wars escalate. Staying neutral is a valid choice, but it is a choice
 with costs — not a free default.
 
 ### Pillar 5: The Fracture Temptation (Cross-cutting Pressure)
+
+> **Implementation: 50%**
+> - ✅ Fracture travel with fuel cost (20/jump), hull stress (10 HP/jump), 10x speed penalty
+> - ✅ Fracture market pricing: 1.5x volatility, 2x spread, 50% volume cap
+> - ✅ Trace accumulation: +0.5 per arrival, decay -0.01/tick, detection at 1.0 → -10 rep
+> - ✅ Fracture goods flow: exotic_matter/exotic_crystals/salvaged_tech at 10%/tick into lane hubs
+> - ❌ Trace consequences limited to rep penalty — no interdiction waves, supply shocks, or doom clock
+> - ❌ No delayed fracture discovery gating (available immediately, not at tick 300+)
+> - Code: FractureSystem.cs, FractureTweaksV0.cs
 
 The fracture module is **not available at game start.** The player spends
 Hours 0-3 (roughly tick 0-300) as a pure lane trader — learning markets,
@@ -186,18 +242,20 @@ it.
 
 ## Implementation Surface
 
-| Area | Current State | What Changes |
+| Area | Current State (Tranche 20) | Remaining Work |
 |---|---|---|
-| `GalaxyGenerator` | Seeds warfronts (already exists) | Warfronts active from tick 1, starter system placement near a front |
-| Sustain/Maintenance | Module sustain exists | Baseline ship fuel consumption, tuned to create ~50-80 tick runway |
-| `MarketSystem` | Price model exists | Warfront demand shocks — factions consuming goods at elevated rates during war |
-| Faction reputation | Reputation + tariffs exist | Tariff/access scaling with warfront intensity. Neutrality tax curve |
-| Fracture | Trace accumulation exists | Fracture as explicit warfront escape valve — closed lanes push player toward it |
-| Win conditions | Five defined (Slice 8) | Faction allegiance mid-game feeds into which endgame paths are viable |
+| `GalaxyGenerator` | ✅ Seeds 2 warfronts at tick 1 (SeedWarfrontsV0). Faction territories via BFS | Starter system placement near a warfront (currently arbitrary) |
+| Sustain/Maintenance | ✅ Industry site decay/repair. Module SustainInputs schema defined | Fleet fuel consumption. Module sustain enforcement. ~50-80 tick runway tuning |
+| `MarketSystem` | ✅ Warfront demand shocks (Munitions 4x, Fuel 3x, Composites 2.5x). Embargo enforcement | Full production chain instantiation (only 3/9 recipes have industry sites) |
+| Faction reputation | ✅ Rep tiers, tariff scaling, neutrality tax, regime matrix, war profiteering | Exclusive supply contracts, faction-specific deal offers |
+| Fracture | ✅ Travel costs, trace accumulation (0.5/arrival), rep penalty on detection | Trace doom clock (interdiction, supply shocks). Delayed discovery gating |
+| Win conditions | 🔮 Future (Slice 8) | Full endgame system — see factions_and_lore_v0.md aspirational sections |
 
-Most of the simulation infrastructure exists. The changes are primarily
-**tuning and connection** — making existing systems exert pressure from the
-start rather than ramping up slowly.
+Most of the simulation infrastructure exists. The priority changes are:
+1. **Instantiate remaining production chains** (6 recipes) to enable economic cascades
+2. **Fleet fuel/sustain consumption** to create early-game urgency
+3. **Starter placement near warfront** to ensure conflict from tick 1
+4. **Trace consequences** beyond rep penalty to create the dual doom clock
 
 ---
 
@@ -231,15 +289,11 @@ These principles from the broader design docs apply directly:
 
 ---
 
-## Open Questions
+## Open Questions — Status
 
-- How many simultaneous warfronts at game start? (1 active + 1 simmering seems
-  right for not overwhelming the player.)
-- Should warfront demand shocks be deterministic (predictable from faction
-  state) or stochastic (random spikes within a range)?
-- What is the exact neutrality tax curve? Linear? Exponential? Stepped at
-  warfront intensity thresholds?
-- Should the player be able to actively broker ceasefires, or are warfront
-  outcomes purely supply-driven?
+- ~~How many simultaneous warfronts at game start?~~ **RESOLVED**: 1 hot (Valorin vs Weavers, OpenWar intensity 3) + 1 cold (Concord vs Chitin, Tension intensity 1).
+- ~~Should warfront demand shocks be deterministic?~~ **RESOLVED**: Deterministic. Scaled by warfront intensity multipliers in WarfrontTweaksV0.cs.
+- ~~What is the exact neutrality tax curve?~~ **RESOLVED**: Stepped at intensity thresholds — Skirmish +500bps, OpenWar +1000bps, TotalWar +1500bps.
+- ~~Should the player be able to actively broker ceasefires?~~ **RESOLVED**: Supply-driven only. Cumulative deliveries exceeding threshold reduce warfront intensity by 1.
 - How does the Fracture temptation interact with the 5 win conditions? Does
-  each win path have a different Trace tolerance?
+  each win path have a different Trace tolerance? **STILL OPEN** — deferred to Slice 8 endgame design.

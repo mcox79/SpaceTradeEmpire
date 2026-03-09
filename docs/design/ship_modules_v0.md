@@ -1,7 +1,43 @@
 # Ship Modules & Technology Design — V0
 
-Status: DESIGN LOCKED (pending implementation)
+Status: DESIGN LOCKED — Phase 1 Implemented (Tranche 17-18)
 Date: 2026-03-06
+
+## Implementation Phases
+
+### Phase 1 — Implemented (Tranche 17-18)
+- 8 ship classes with full stat blocks (ShipClassContentV0.cs) ✅
+  - Shuttle (3 slots), Corvette (5), Clipper (4), Frigate (6), Hauler (4), Cruiser (8), Carrier (7), Dreadnought (10)
+- Zone armor: 4-directional HP with 3-layer damage routing Shield→Zone→Hull (CombatSystem.CalcDamageWithZoneArmor) ✅
+- Combat stances: Charge/Broadside/Kite per class (CombatSystem.DetermineStance) ✅
+- 10 starter modules in UpgradeContentV0.cs ✅
+  - Weapons: Cannon Mk1/Mk2, Laser Mk1/Mk2
+  - Defense: Shield Mk2, Hull Plating Mk2
+  - Engines: Engine Booster Mk1, Engine Mk2
+  - Utility: Scanner Mk2, Cargo Bay Mk2
+- Basic fitting: slot count constraint enforced ✅
+- PowerDraw field on modules, BasePower on ship classes ✅ (schema only — no enforcement)
+- SustainInputs dict on modules ✅ (schema only — resources never consumed)
+- Weapon family bonuses: Kinetic 150% vs Hull / Energy 150% vs Shield / PD +200% vs Missile ✅
+- Strategic resolver: fleet-vs-fleet with stance-based zone targeting (StrategicResolverV0.cs) ✅
+
+### Phase 2 — Next Priority
+- Power budget enforcement (sum of PowerDraw ≤ BasePower; modules cannot activate over budget)
+- Sustain consumption system (goods consumed per 60-tick cycle from fleet cargo/station reserves)
+- Mount types: Standard (360°), Broadside (120° +30% dmg), Spinal (60° +50% dmg)
+- Module degradation from zone/hull damage (engines degrade when aft zone depleted, etc.)
+- T2 Military modules: Railgun, FEL, Particle Beam, Torpedo, Reactive Plating, Fusion Torch, etc.
+- Slot layout breakdown per class (weapon/engine/utility/cargo/bay slot counts)
+- Sustain starvation: 50% power reduction when supply insufficient + 20% safety floor
+
+### Phase 3 — Aspirational
+- T3 Precursor modules (discovery-only, exotic matter sustain, cannot be manufactured)
+- Missile self-fabrication system (Magazine size, FabRate, in-combat vs peace-time production)
+- Drone system (bay slots on Carrier/Dreadnought, Interceptor/Strike/Salvage drone types)
+- Electronic warfare (Cargo Siphon, System Disruptor, Hull Cracker, Neural Override)
+- Named/Legendary variants (Precursor artifacts with unique modifiers)
+- Stat-check boarding (hull < 25% + Boarding Module → crew check → enhanced loot)
+- Mining fleet contracts (NPC miner delegation, not direct player activity)
 
 ---
 
@@ -18,6 +54,10 @@ Date: 2026-03-06
 ---
 
 ## Technology Tiers
+
+> **Implementation Note**: T1 modules are implemented (10 in UpgradeContentV0.cs).
+> T2 and T3 modules are Phase 2/3 respectively — no faction-locked or discovery-only
+> modules exist yet. All current modules are tier-agnostic.
 
 | Tier | Name | Source | Sustain Cost | Flavor |
 |------|------|--------|-------------|--------|
@@ -51,6 +91,9 @@ Date: 2026-03-06
 ---
 
 ## Health System — Three Layers
+
+> ✅ **IMPLEMENTED** in CombatSystem.CalcDamageWithZoneArmor (14 tests passing).
+> Shield → Zone Armor → Hull routing works exactly as specified below.
 
 ```
 Shield (omnidirectional bubble)
@@ -156,6 +199,9 @@ Shuttle → Corvette → Clipper / Frigate / Hauler (mid-tier sidegrades)
 
 ### Mount Types
 
+> ❌ **NOT YET IMPLEMENTED** (Phase 2). No MountType field exists on ModuleSlot.
+> All weapons currently fire as Standard (360°) without arc restrictions or damage bonuses.
+
 | Mount | Arc | Damage Modifier | Found On |
 |-------|-----|----------------|----------|
 | Standard | 360° full tracking | Base damage | All ships |
@@ -196,6 +242,9 @@ Each ship has a fixed number of weapon, engine, utility, and cargo slots. Mount 
 
 ### 2. Power Budget (Energy Limit)
 
+> ⚠️ **SCHEMA ONLY** (Phase 2). PowerDraw and BasePower fields exist but enforcement
+> logic is not implemented. Modules over budget are not prevented or degraded.
+
 - Each ship class has a base power generation value
 - Reactor modules add to power generation
 - Each installed module has a power draw value
@@ -204,6 +253,10 @@ Each ship has a fixed number of weapon, engine, utility, and cargo slots. Mount 
 - V1: Simple hard cap. No power profiles or toggling.
 
 ### 3. Sustain Cost (Economic Limit)
+
+> ⚠️ **SCHEMA ONLY** (Phase 2). SustainInputs dict populated for weapon modules
+> (Munitions, Fuel). No system consumes these resources per cycle. No degradation
+> when supply insufficient. No 20% safety floor enforcement.
 
 Sustain is **resource flow, not credits**. Each module consumes specific goods per cycle.
 
@@ -376,6 +429,8 @@ Armor modules are assigned to a **specific zone** on installation.
 
 ## Electronic Warfare Modules (Boarding Alternative)
 
+> 🔮 **FUTURE** (Phase 3). Not yet implemented.
+
 Instead of boarding, electronic warfare delivers the "clever pirate" fantasy:
 
 | Module | Tier | Slot | Effect | Sustain/Cycle |
@@ -389,6 +444,8 @@ Instead of boarding, electronic warfare delivers the "clever pirate" fantasy:
 
 ## Drones (Deferred — Post-Core Gate)
 
+> 🔮 **FUTURE** (Phase 3). Not yet implemented.
+
 Carrier and Dreadnought have bay slots. Drones are a separate implementation gate.
 
 | Drone | Tier | Role | Behavior |
@@ -400,6 +457,8 @@ Carrier and Dreadnought have bay slots. Drones are a separate implementation gat
 ---
 
 ## Missile Self-Fabrication System
+
+> 🔮 **FUTURE** (Phase 3). Not yet implemented.
 
 Missile weapons manufacture their own ammo. No resupply trips.
 
@@ -462,6 +521,8 @@ Missile weapons manufacture their own ammo. No resupply trips.
 
 ## Named / Legendary Variants (Deferred)
 
+> 🔮 **FUTURE** (Phase 3). Not yet implemented.
+
 Precursor artifacts only. Each has a base module type + unique name + 1-2 modifiers with tradeoffs.
 Not strictly better — different. Lore-carrying names that hint at Precursor civilization.
 
@@ -477,6 +538,8 @@ Examples (not final):
 ---
 
 ## Stat-Check Boarding (Deferred — Future Gate)
+
+> 🔮 **FUTURE** (Phase 3). Not yet implemented.
 
 If players request it post-launch:
 

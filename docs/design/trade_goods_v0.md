@@ -1,7 +1,40 @@
 # Trade Goods & Economy Design — V0
 
-Status: DESIGN LOCKED (pending implementation)
+Status: DESIGN LOCKED — Phase 1 Implemented (Tranche 17-18)
 Date: 2026-03-06
+
+## Implementation Phases
+
+### Phase 1 — Implemented (Tranche 17-18)
+- 13 goods defined in WellKnownGoodIds.cs ✅
+- 9 recipes defined in ContentRegistryLoader.cs ✅
+- 3 recipes instantiated as industry sites: ExtractOre, RefineMetal, ManufactureMunitions ✅
+- Geographic distribution: Organics ~40% nodes, RareMetals ~15% nodes ✅
+- Market pricing: supply/demand curves (Market.cs), transaction fees (100 bps) ✅
+- NPC trade circulation: autonomous traders stabilize prices (NpcTradeSystem.cs) ✅
+- Warfront demand shocks: Munitions 4x, Composites 2.5x, Fuel 3x at contested nodes ✅
+- Embargo enforcement: pentagon ring goods blocked when supplier = enemy ✅
+
+### Phase 2 — Next Priority
+- Instantiate remaining 6 production recipes as industry sites:
+  - ProcessFood (Organics + Fuel → Food) — currently food only from planet seeding
+  - FabricateComposites (Metal + Organics → Composites) — core defensive branch, no factory
+  - AssembleElectronics (ExoticCrystals + Fuel → Electronics) — fracture supply chain incomplete
+  - AssembleComponents (Electronics + Metal → Components) — endgame bottleneck has no production
+  - SalvageToMetal and SalvageToComponents — no salvage processors
+- Populate BasePrice + PriceSpread on GoodDefV0 (all currently 0 → everything prices at Low band)
+- Add ProductionTicks to recipe definitions (all currently 0)
+- Geographic clustering for RareMetals (currently uniform hash distribution, not spatial)
+- Non-weapon module sustain (shields→Composites, engines→Fuel, armor→Metal)
+- Warfront Rare Metals consumption (currently only Munitions/Composites/Fuel)
+
+### Phase 3 — Aspirational
+- Faction trade preference multipliers (militarist premium for Munitions)
+- Contraband goods framework and faction-specific legality
+- Cargo mass/volume physical model (currently unitless integer counts)
+- Goods decay (spoilage, leakage, theft shrink)
+- Substitution groups (demand shifting between goods when prices diverge)
+- Handling classes (Bulk, Container, Liquid, Hazardous, Refrigerated)
 
 ---
 
@@ -77,6 +110,11 @@ Cannot be manufactured. Acquired only through exploration or fracture access. Ge
 ---
 
 ## Production Chains
+
+> **Implementation Note**: All 9 recipes below are defined in ContentRegistryLoader.cs.
+> However, only 3 are instantiated as industry sites in MarketInitGen.cs:
+> ExtractOre (50% of nodes), RefineMetal (50% of nodes), ManufactureMunitions (~14% of nodes).
+> The remaining 6 recipes exist in the registry but have no factories producing their output.
 
 ### Recipe Table
 
@@ -280,6 +318,12 @@ Zero phantom demands. Every sink is an implemented or already-planned system.
 | Mid | 150–300 | Metal, Composites, Munitions, Electronics | 30–50% |
 | High | 400–800 | Components, Rare Metals, Exotic Crystals, Salvaged Tech | 40–60% |
 | Very High | 1000–2000 | Exotic Matter | 50–80% |
+
+> **Implementation Note**: Price band values are defined in MarketTweaksV0.cs
+> (Low: 50-100, Mid: 150-300, High: 400-800, Very High: 1000-2000). However,
+> GoodDefV0.BasePrice and GoodDefV0.PriceSpread fields are NOT populated in the
+> content registry — all goods currently price at Low band (~50-100 credits)
+> regardless of their intended tier. This is a Phase 2 fix.
 
 ### Supply/Demand Price Modifiers
 

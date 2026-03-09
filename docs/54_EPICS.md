@@ -91,6 +91,31 @@ Primary anchors:
 - EPIC.S18.TRADE_GOODS.V0 [DONE]: Trade goods overhaul from 10 to 13 goods with 9 recipes, geographic distribution, price bands, sustain alignment, NPC trade update, and headless proof per docs/design/trade_goods_v0.md (gates: GATE.S18.TRADE_GOODS.*)
 - EPIC.S18.SHIP_MODULES.V0 [DONE]: Ship module system foundation with zone armor (4-directional HP), 8 ship classes, 3-constraint fitting (slots/power/sustain), and combat zone integration per docs/design/ship_modules_v0.md (gates: GATE.S18.SHIP_MODULES.*)
 - EPIC.S18.EMPIRE_DASH.V0 [DONE]: Empire dashboard overhaul with 5-tab dock menu, Overview tab (F1), Economy tab (F2), Ship tab, Station tab per docs/design/EmpireDashboard.md (gates: GATE.S18.EMPIRE_DASH.*)
+- EPIC.S5.COMBAT_LOOT.V0 [TODO]: Combat drop loot from destroyed ships, tractor beam interaction, rarity tiers (gates: GATE.S5.COMBAT_LOOT.*)
+- EPIC.S6.FRACTURE_DISCOVERY_EVENT.V0 [TODO]: Fracture module discovery gating at ~tick 300+ via frontier derelict encounter (gates: GATE.S6.FRACTURE_DISCOVERY.*)
+- EPIC.S7.PRODUCTION_CHAINS.V0 [TODO]: Instantiate remaining 6/9 production recipes as industry sites in worldgen (gates: GATE.S7.PRODUCTION_CHAINS.*)
+- EPIC.S7.SUSTAIN_ENFORCEMENT.V0 [TODO]: Fleet fuel consumption + module sustain resource deduction — dynamic_tension Pillar 2 (gates: GATE.S7.SUSTAIN_ENFORCEMENT.*)
+- EPIC.S7.POWER_BUDGET.V0 [TODO]: Enforce PowerDraw ≤ BasePower, mount types, module degradation (gates: GATE.S7.POWER_BUDGET.*)
+- EPIC.S7.INSTABILITY_EFFECTS.V0 [TODO]: Wire instability phase effects into MarketSystem + LaneFlowSystem (gates: GATE.S7.INSTABILITY_EFFECTS.*)
+- EPIC.S7.T2_MODULE_CATALOG.V0 [TODO]: ~25 T2 modules with faction rep unlock thresholds (gates: GATE.S7.T2_MODULES.*)
+- EPIC.S7.STARTER_PLACEMENT.V0 [TODO]: Player start system borders contested warfront node (gates: GATE.S7.STARTER_PLACEMENT.*)
+- EPIC.S7.FACTION_VISUALS.V0 [TODO]: Faction-specific ship liveries, station aesthetics, UI themes (gates: GATE.S7.FACTION_VISUALS.*)
+- EPIC.S7.ENFORCEMENT_ESCALATION.V0 [TODO]: Pattern-based heat, confiscation, fines (gates: GATE.S7.ENFORCEMENT.*)
+- EPIC.S8.ADAPTATION_FRAGMENTS.V0 [TODO]: 16 Adaptation fragments + 8 resonance pairs, prerequisite for win scenarios (gates: GATE.S8.ADAPTATION.*)
+- EPIC.S8.HAVEN_STARBASE.V0 [TODO]: Hidden Precursor starbase with 4-tier upgrade tree (gates: GATE.S8.HAVEN.*)
+- EPIC.S8.LATTICE_DRONES.V0 [TODO]: Instability-phase-linked hostile Lattice drone NPCs (gates: GATE.S8.LATTICE_DRONES.*)
+- EPIC.S8.NARRATIVE_CONTENT.V0 [TODO]: Authored story text — fragments, Haven logs, NPC dialogue, warfront commentary (gates: GATE.S8.NARRATIVE.*)
+- EPIC.S8.T3_PRECURSOR_MODULES.V0 [TODO]: ~13 T3 discovery-only modules, exotic matter sustain (gates: GATE.S8.T3_MODULES.*)
+- EPIC.S9.MISSION_LADDER.V0 [TODO]: Missions M2-M6 introducing mining, patrol, construction, research, fracture (gates: GATE.S9.MISSIONS.*)
+- EPIC.S9.SETTINGS.V0 [TODO]: Full options screen — graphics, audio, controls, difficulty (gates: GATE.S9.SETTINGS.*)
+- EPIC.S9.MUSIC.V0 [TODO]: Background soundtrack + dynamic music system (gates: GATE.S9.MUSIC.*)
+- EPIC.S9.STEAM.V0 [TODO]: Steamworks SDK, cloud saves, achievements, build pipeline (gates: GATE.S9.STEAM.*)
+- EPIC.S9.TELEMETRY.V0 [TODO]: Opt-in session telemetry + crash reporting (gates: GATE.S9.TELEMETRY.*)
+- EPIC.S9.FLEET_TAB.V0 [TODO]: Empire Dashboard Fleet tab (F3) — master-detail fleet management (gates: GATE.S9.FLEET_TAB.*)
+- EPIC.S9.MARKET_DEPTH.V0 [TODO]: Bid/ask spread + depth-dependent pricing (gates: GATE.S9.MARKET_DEPTH.*)
+- EPIC.S9.PROGRAM_POSTMORTEMS.V0 [TODO]: Automation failure taxonomy — 7 cause codes + doctrine delta recommendations (gates: GATE.S9.POSTMORTEMS.*)
+- EPIC.S9.L10N_DECISION.V0 [TODO]: Localization architecture decision + string audit (gates: GATE.S9.L10N.*)
+- EPIC.X.LEDGER_EVENTS.V0 [TODO]: Event-sourced economic ledger — CashDelta/InventoryDelta on every change (gates: GATE.X.LEDGER_EVENTS.*)
 
 Note: Slice tables below are informational. Canonical Epic Bullets drive scanning and next-gate selection.
 
@@ -109,6 +134,8 @@ Epics:
 - EPIC.X.CODE_HEALTH: Code health hygiene — GalaxyGenerator split continuation, StationMenu per-tab split (gates: GATE.X.HYGIENE.*)
 - EPIC.X.PRESSURE_FORMALIZATION.V0: Pressure state ladder formalization — 5-state enum, direction indicators, max-one-jump enforcement, intervention budget QA metric (gates: GATE.X.PRESSURE.*)
 - EPIC.X.EXPERIENCE_PROOF.V0: Automated experience validation — headless scenario playthroughs, trajectory analysis, aesthetic audit, diagnostic reports for LLM-assisted iteration (gates: GATE.X.EXP.*)
+- EPIC.X.PERF_BUDGET [TODO]: Tick budget tests across all system slices (security, exploration, warfront, endgame). Single profiling pass covering all SimCore systems, not per-slice. Replaces individual S5/S6/S7/S8 PERF_BUDGET epics (gates: GATE.X.PERF_BUDGET.*)
+- EPIC.X.LEDGER_EVENTS.V0 [TODO]: Event-sourced economic ledger — CashDelta and InventoryDelta events on every credit/goods change with ActorId, Category, ReasonCode; ledger integrity invariant (sum of CashDeltas = wallet delta); enables automation postmortems and "where did the money go?" reconstruction (gates: GATE.X.LEDGER_EVENTS.*)
 - EPIC.S1.CAMERA_POLISH.V0: Camera presentation polish — Phantom Camera addon, follow modes, combat shake (gates: GATE.S1.CAMERA.*)
 - EPIC.S1.SPATIAL_AUDIO_DEPTH.V0: Spatial audio depth — engine thrust, combat SFX, ambient audio with 3D falloff (gates: GATE.S1.SPATIAL_AUDIO.*)
 
@@ -621,7 +648,7 @@ Epics:
 - EPIC.S3.PERF_BUDGET [DONE]: Tick budget tests extended for logistics scaling (gates: GATE.S3.PERF_BUDGET.001)
 - EPIC.S3.PLAY_LOOP_PROOF [DONE]: Headless playable trade loop proof, including deterministic save%load continuation (gates: GATE.UI.PLAY.TRADELOOP.001, GATE.UI.PLAY.TRADELOOP.SAVELOAD.001, GATE.S3.SAVELOAD.SCALING.001)
 
-Status: IN_PROGRESS
+Status: DONE — All 12 sub-epics complete. Fleet automation, logistics, route planning, UI, explainability all shipped.
 
 ---
 
@@ -793,13 +820,13 @@ Epics:
 - EPIC.S5.COMBAT_PLAYABLE.V0 [DONE]: In-engine combat encounters — fleet substantiation, player-initiated combat trigger, combat loop headless proof (gates: GATE.S5.COMBAT_PLAYABLE.*)
 - EPIC.S5.COMBAT_RESOLVE [DONE]: Deterministic strategic resolver (attrition, outcomes, salvage) (gates: GATE.S5.COMBAT_RESOLVE.*)
 - EPIC.S5.ESCORT_PROG [DONE]: Escort, patrol, interdiction, convoy programs (policy-driven) (gates: GATE.S5.ESCORT_PROG.*)
-- EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry (gates: GATE.S5.LOSS_RECOVERY.*)
+- EPIC.S5.LOSS_RECOVERY [TODO]: Salvage, capture, replacement pipelines tied to industry. **Prerequisite**: Composites + Components production chains instantiated (trade_goods_v0.md Phase 2) (gates: GATE.S5.LOSS_RECOVERY.*)
 - EPIC.S5.UI_SECURITY [TODO]: Threat maps, convoy planning, incident timelines, “why we lost” explain chains (gates: GATE.S5.UI_SECURITY.*)
 - EPIC.S5.COUPLING_LIMITS.V0 [TODO]: Explicit bounded coupling limits and event contracts for local -> strategic influence (gates: GATE.S5.COUPLING_LIMITS.*)
-- EPIC.S5.PERF_BUDGET [TODO]: Tick budget tests extended for security systems (gates: GATE.S5.PERF_BUDGET.*)
 - EPIC.S5.NPC_TRADE.V0 [DONE]: NPC trade circulation — autonomous NPC traders evaluate markets, execute trades, stabilize prices (gates: GATE.S5.NPC_TRADE.*)
+- EPIC.S5.COMBAT_LOOT.V0 [TODO]: Combat drop loot from destroyed ships (cargo + salvage), tractor beam module interaction, rarity tier visual coding, derelict yields; extends existing combat + discovery loot systems (gates: GATE.S5.COMBAT_LOOT.*)
 
-Status: TODO
+Status: IN_PROGRESS — Combat local, playable, doctrine, NPC trade, escort, security lanes all DONE (56 gates). Remaining: Loss Recovery, UI Security, Coupling Limits, Combat Loot. PERF_BUDGET merged into EPIC.X.PERF_BUDGET.
 
 ---
 
@@ -808,7 +835,7 @@ Purpose: Crazy discoveries create leverage and new strategies, feeding industry.
 
 Epics:
 - EPIC.S6.MAP_GALAXY [DONE]: Full galaxy map v1 — builds on and extends EPIC.S1.GALAXY_MAP_PROTO.V0 (prerequisite): adds fracture jump plotting (cost, Trace risk, accuracy radius, confirmation), layered reveal overlays integrating sensor unlock states, expedition planning and bookmarking, anomaly catalog overlays, system deep-inspection panel (full object list, unlock status, site phases); requires EPIC.S1.GALAXY_MAP_PROTO.V0 DONE before starting (gates: GATE.S6.MAP_GALAXY.*)
-- EPIC.S6.OFFLANE_FRACTURE [IN_PROGRESS]: Fracture travel rules, risk bands, stable discovery markers, trace generation (gates: GATE.S6.OFFLANE_FRACTURE.*)
+- EPIC.S6.OFFLANE_FRACTURE [IN_PROGRESS]: Fracture travel rules, risk bands, stable discovery markers, trace generation. Core DONE (fracture travel, risk bands, stable markers, trace generation via FractureSystem.cs). Remaining: trace consequences beyond rep penalty (gates: GATE.S6.OFFLANE_FRACTURE.*)
 - EPIC.S6.FRACTURE_COMMERCE.V0 [DONE]: Off-lane commerce v0 that is expensive but worth it:
   - Designed for small volume%high leverage (time-critical, high value, rare goods, frontier access), not bulk freight
   - Supports limited elite freighters with fracture, not mass fleet conversion
@@ -819,18 +846,18 @@ Epics:
   - Fracture wins only in defined niches and under defined frictions (tariffs, closures, extreme distance)
   - Evidence: deterministic invariants report (no timestamps, stable ordering) recorded in gate evidence; hard-fails on drift (gates: GATE.S6.FRACTURE_ECON_INVARIANTS.*)
 - EPIC.S6.ANOMALY_ECOLOGY [TODO]: Procedural anomaly distribution with deterministic seeds and spatial logic (gates: GATE.S6.ANOMALY_ECOLOGY.*)
-- EPIC.S6.LAYERED_REVEALS.V0 [IN_PROGRESS]: New tech reveals new layers in previously discovered places (sensor layers, station secrets, anomaly phases) without creating mandatory maintenance travel (gates: GATE.S6.LAYERED_REVEALS.*)
-- EPIC.S6.DISCOVERY_OUTCOMES [TODO]: Persistent value outputs (intel, resources, artifacts, maps, leads) (gates: GATE.S6.DISCOVERY_OUTCOMES.*)
-- EPIC.S6.ARTIFACT_RESEARCH [TODO]: Identification, containment, experiments, failure modes (trace spikes, incidents) (gates: GATE.S6.ARTIFACT_RESEARCH.*)
-- EPIC.S6.TECH_LEADS [TODO]: Tech leads become prototype candidates, gated by science throughput (gates: GATE.S6.TECH_LEADS.*)
+- EPIC.S6.LAYERED_REVEALS.V0 [IN_PROGRESS]: New tech reveals new layers in previously discovered places (sensor layers, station secrets, anomaly phases) without creating mandatory maintenance travel. Sensor reveal + tech unlock gates DONE. Remaining: revisit-based new-layer discovery (gates: GATE.S6.LAYERED_REVEALS.*)
+- EPIC.S6.DISCOVERY_OUTCOMES [DONE]: Persistent value outputs (intel, resources, artifacts, maps, leads). DiscoveryOutcomeSystem complete with family-specific loot (SalvagedTech, ExoticMatter, credits), discovery leads, and AnomalyEncounter records (gates: GATE.S6.DISCOVERY_OUTCOMES.*)
+- EPIC.S6.ARTIFACT_RESEARCH [TODO]: Identification, containment, experiments, failure modes (trace spikes, incidents). **Prerequisite**: T2/T3 module catalog expansion (ship_modules_v0.md Phase 2) (gates: GATE.S6.ARTIFACT_RESEARCH.*)
+- EPIC.S6.TECH_LEADS [TODO]: Tech leads become prototype candidates, gated by science throughput. **Prerequisite**: T2/T3 modules must exist as unlock targets (gates: GATE.S6.TECH_LEADS.*)
 - EPIC.S6.EXPEDITION_PROG [TODO]: Survey, salvage, multi-step expedition programs; escort optional (not a rescue treadmill) (gates: GATE.S6.EXPEDITION_PROG.*)
 - EPIC.S6.SCIENCE_CENTER [TODO]: Analysis throughput, reverse engineering gates, special material handling (gates: GATE.S6.SCIENCE_CENTER.*)
 - EPIC.S6.UI_DISCOVERY [TODO]: Anomaly catalog, hypothesis%verification UI, “next action to advance” hints (gates: GATE.S6.UI_DISCOVERY.*)
 - EPIC.S6.CLASS_DISCOVERY_PROFILES.V0 [TODO]: World class influences discovery families and outcomes (integrates Slice 2.5 classes with Slice 6) (gates: GATE.S6.CLASS_DISCOVERY_PROFILES.*)
 - EPIC.S6.MYSTERY_MARKERS.V0 [TODO]: Mystery style policy and UI contracts (systemic mystery vs explicit markers) (gates: GATE.S6.MYSTERY_MARKERS.*)
-- EPIC.S6.PERF_BUDGET [TODO]: Tick budget tests extended for exploration systems (gates: GATE.S6.PERF_BUDGET.*)
+- EPIC.S6.FRACTURE_DISCOVERY_EVENT.V0 [TODO]: Fracture module discovery gating — module unavailable until player discovers frontier derelict near warfront at ~tick 300+; derelict encounter, module acquisition narrative beat, gates the Revelation phase of the player arc per dynamic_tension_v0.md Pillar 5. Extends EPIC.S6.OFFLANE_FRACTURE (gates: GATE.S6.FRACTURE_DISCOVERY.*)
 
-Status: TODO
+Status: IN_PROGRESS — Fracture travel, commerce, econ invariants, discovery outcomes, galaxy map all DONE (60 gates). Remaining: Anomaly Ecology, Artifact Research (needs T2/T3 modules), Tech Leads (needs T2/T3 modules), Science Center, Expedition fullness, UI Discovery, Layered Reveals completion, Fracture Discovery Event. PERF_BUDGET merged into EPIC.X.PERF_BUDGET.
 
 ---
 
@@ -838,23 +865,31 @@ Status: TODO
 Purpose: Logistics shapes wars and the galaxy’s political topology, with lasting consequences.
 
 Epics:
-- EPIC.S7.FACTION_MODEL [IN_PROGRESS]: Goals, doctrines, policies, constraints, tech preferences (gates: GATE.S7.FACTION_MODEL.*)
-- EPIC.S7.WARFRONT_THEATERS [TODO]: Procedural warfront seeding from geography and faction goals (gates: GATE.S7.WARFRONT_THEATERS.*)
-- EPIC.S7.WARFRONT_STATE [TODO]: Front lines, objectives, supply demand, attrition, morale, stability (gates: GATE.S7.WARFRONT_STATE.*)
-- EPIC.S7.SUPPLY_IMPACT [TODO]: Delivered goods and services move warfront state with persistent consequences (gates: GATE.S7.SUPPLY_IMPACT.*)
-- EPIC.S7.TERRITORY_REGIMES [IN_PROGRESS]: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules (gates: GATE.S7.TERRITORY_REGIMES.*)
+- EPIC.S7.FACTION_MODEL [IN_PROGRESS]: Goals, doctrines, policies, constraints, tech preferences. Core DONE (5 factions, territories, doctrines, tariffs, aggression via FactionTweaksV0.cs + GalaxyGenerator.cs). Remaining: faction identity redesign (see EPIC.S7.FACTION_IDENTITY_REDESIGN.V0), unique faction mechanics (gates: GATE.S7.FACTION_MODEL.*)
+- EPIC.S7.WARFRONT_THEATERS [DONE]: Procedural warfront seeding from geography and faction goals. SeedWarfrontsV0 implements geography-based contested-node detection with BFS adjacency from faction territories (gates: GATE.S7.WARFRONT_THEATERS.*)
+- EPIC.S7.WARFRONT_STATE [IN_PROGRESS]: Front lines, objectives, supply demand, attrition, morale, stability. Core state + intensity transitions (WarfrontEvolutionSystem) + supply demand (WarfrontDemandSystem) DONE. Remaining: morale field, stability field, attrition mechanics, objective tracking (gates: GATE.S7.WARFRONT_STATE.*)
+- EPIC.S7.SUPPLY_IMPACT [DONE]: Delivered goods and services move warfront state with persistent consequences. WarfrontDemandSystem supply ledger tracks cumulative deliveries; intensity shifts when threshold met (gates: GATE.S7.SUPPLY_IMPACT.*)
+- EPIC.S7.TERRITORY_REGIMES [IN_PROGRESS]: Permissions, tariffs, embargoes, inspections, closures; hysteresis rules. Core DONE (embargo system, tariff scaling, regime matrix, neutrality tax via MarketSystem + ReputationSystem). Remaining: hysteresis improvement rules (gates: GATE.S7.TERRITORY_REGIMES.*)
 - EPIC.S7.TECH_ACCESS [TODO]: Exclusives, embargoed tech, licensing, doctrine-based variants (gates: GATE.S7.TECH_ACCESS.*)
 - EPIC.S7.DIPLOMACY_VERBS.V0 [TODO]: Diplomacy verbs set definition and contracts (treaties%bounties%sanctions%privateering) (gates: GATE.S7.DIPLOMACY_VERBS.*)
-- EPIC.S7.REPUTATION_INFLUENCE [IN_PROGRESS]: Reputation drives access, pricing, inspection posture, and deal availability (gates: GATE.S7.REPUTATION_INFLUENCE.*)
+- EPIC.S7.REPUTATION_INFLUENCE [IN_PROGRESS]: Reputation drives access, pricing, inspection posture, and deal availability. Core DONE (rep-driven dock/trade/tech access, tariff scaling, trade drift, war profiteering via ReputationSystem.cs). Remaining: deal availability, faction-exclusive contracts (gates: GATE.S7.REPUTATION_INFLUENCE.*)
 - EPIC.S7.UI_DIPLO [TODO]: Faction intel, deal making, “why policy changed” (gates: GATE.S7.UI_DIPLO.*)
 - EPIC.S7.UI_WARFRONT [TODO]: Dashboards, projected outcomes, intervention options, supply checklists (gates: GATE.S7.UI_WARFRONT.*)
 - EPIC.S7.BRIDGE_THRONEROOM_V0 [TODO]: Bridge layer as strategic view + unlock surface tied to factions%warfronts%tech posture (gates: GATE.S7.BRIDGE_THRONEROOM_V0.*)
 - EPIC.S7.CLASS_WARFRONT_PROFILES.V0 [TODO]: World class influences warfront seeding and supply shapes (integrates Slice 2.5 classes with Slice 7) (gates: GATE.S7.CLASS_WARFRONT_PROFILES.*)
-- EPIC.S7.INSTABILITY_PHASES [TODO]: Per-node instability model with 5 phases (Stable/Shimmer/Drift/Fracture/Void), worldgen assignment, phase transition mechanics, visual indicators per factions_and_lore_v0.md (gates: GATE.S7.INSTABILITY.*)
-- EPIC.S7.PERF_BUDGET [TODO]: Tick budget tests extended for warfront systems (gates: GATE.S7.PERF_BUDGET.*)
+- EPIC.S7.INSTABILITY_PHASES [DONE]: Per-node instability model with 5 phases (Stable/Shimmer/Drift/Fracture/Void), worldgen assignment, phase transition mechanics. InstabilitySystem.cs implements tick-based evolution, phase thresholds (0/25/50/75/100), warfront-adjacent gain, distant decay, bridge queries. Note: mechanical effects (price jitter, lane delay, trade failure, market closure) are defined in tweaks but not yet applied to MarketSystem/LaneFlowSystem — integration deferred to Phase 2 gates (gates: GATE.S7.INSTABILITY.*)
+- EPIC.S7.FACTION_IDENTITY_REDESIGN.V0 [TODO]: Holistic redesign of faction economic identities — tariff rates, aggression levels, trade policies aligned to species/philosophy lore. Updates both FactionTweaksV0.cs and factions_and_lore_v0.md. Code + doc updated together (gates: GATE.S7.FACTION.IDENTITY_REDESIGN.*)
 - EPIC.S7.PROCEDURAL_PLANETS.V0 [DONE]: Procedural planet + star generation per system node: Star class (G/K/M/F/A/O) with luminosity influencing planet temperature, PlanetType (Terrestrial/Ice/Sand/Lava/Gaseous/Barren) with gravity+atmosphere landability rules, specialization-driven planet industries (Agriculture/Mining/Manufacturing/HighTech/FuelExtraction), tech-gated landing for harsh environments, dockable Area3D trigger for landable planets, dock menu planet info UI (gates: GATE.S7.PLANET.*)
+- EPIC.S7.PRODUCTION_CHAINS.V0 [TODO]: Instantiate remaining 6/9 production recipes (ProcessFood, FabricateComposites, AssembleElectronics, AssembleComponents, SalvageToMetal, SalvageToComponents) as industry sites in worldgen; populate GoodDefV0.BasePrice and PriceSpread; add ProductionTicks to recipes; geographic clustering for RareMetals. **Prerequisite for**: economic cascades (dynamic_tension Pillar 3), EPIC.S5.LOSS_RECOVERY. Hash-affecting (gates: GATE.S7.PRODUCTION_CHAINS.*)
+- EPIC.S7.SUSTAIN_ENFORCEMENT.V0 [TODO]: Fleet fuel consumption (passive drain while docked or flying), module sustain resource deduction per 60-tick cycle, starvation reduced-power state (50% at zero sustain, 20% safety floor), ~50-80 tick runway tuning for starter ship. Implements dynamic_tension Pillar 2 (Maintenance Treadmill). Hash-affecting (gates: GATE.S7.SUSTAIN_ENFORCEMENT.*)
+- EPIC.S7.POWER_BUDGET.V0 [TODO]: Enforce sum(PowerDraw) ≤ BasePower at fitting time; modules over budget blocked; mount type implementation (Standard/Broadside/Spinal arc restrictions + damage bonuses); module degradation from zone damage. Extends EPIC.S18.SHIP_MODULES.V0 schema. Hash-affecting (gates: GATE.S7.POWER_BUDGET.*)
+- EPIC.S7.INSTABILITY_EFFECTS.V0 [TODO]: Wire instability phase mechanical effects into MarketSystem (price jitter at Drift, trade failure chance at Fracture, market closure at Void) and LaneFlowSystem (throughput reduction at Drift+); metric arbitrage opportunity in Phase 2+ space. Effects defined in InstabilityTweaksV0.cs, need system integration. Hash-affecting (gates: GATE.S7.INSTABILITY_EFFECTS.*)
+- EPIC.S7.T2_MODULE_CATALOG.V0 [TODO]: Add ~25 T2 modules to content registry: weapons (Railgun, FEL, Particle Beam, Plasma Carronade, Torpedo, Swarm Battery, Casaba Lance), defense (Reactive Plating, SiC Composite, Angled Deflector, Shield Capacitor, Magnetic Confinement), engines (Fusion Torch, D-He3 Drive, Antimatter Catalyst), utility (Compact Tokamak, Gravimetric Sensor, ECM Suite, Fuel Processor, Cargo Concealer). Faction rep unlock thresholds and rare material sourcing. **Prerequisite for**: EPIC.S6.ARTIFACT_RESEARCH, EPIC.S6.TECH_LEADS. Hash-affecting (gates: GATE.S7.T2_MODULES.*)
+- EPIC.S7.STARTER_PLACEMENT.V0 [TODO]: GalaxyGenerator constraint ensuring player start system borders at least one contested warfront node; verification test over N seeds. Implements dynamic_tension Pillar 1 requirement. Hash-affecting (gates: GATE.S7.STARTER_PLACEMENT.*)
+- EPIC.S7.FACTION_VISUALS.V0 [TODO]: Faction-specific visual identity — ship liveries/tints per faction, station aesthetic differentiation, UI color themes for faction contexts, HUD tints when in faction territory. GameShell-only (gates: GATE.S7.FACTION_VISUALS.*)
+- EPIC.S7.ENFORCEMENT_ESCALATION.V0 [TODO]: Pattern-based heat accumulation (volume + route + counterparty signals), confiscation event type, fine system, heat decay window. Extends existing SecurityLaneSystem Edge.Heat field. Hash-affecting (gates: GATE.S7.ENFORCEMENT.*)
 
-Status: TODO
+Status: IN_PROGRESS — Faction model, territory, embargo, instability, warfronts, reputation, planets all DONE (110 gates). Remaining: Warfront State (morale/attrition), Faction Identity Redesign, Tech Access, Diplomacy Verbs, UI, Production Chains, Sustain Enforcement, Power Budget, Instability Effects, T2 Modules, Starter Placement, Faction Visuals, Enforcement Escalation. PERF_BUDGET merged into EPIC.X.PERF_BUDGET.
 
 ---
 
@@ -871,9 +906,15 @@ Epics:
 - EPIC.S8.UI_WARROOM [TODO]: Warfronts + policing + megaproject pipelines + bottlenecks (gates: GATE.S8.UI_WARROOM.*)
 - EPIC.S8.STORY_STATE_MACHINE [TODO]: Story beats via discovery%trace%warfront phases, not timed missions (gates: GATE.S8.STORY_STATE_MACHINE.*)
 - EPIC.S8.BRIDGE_THRONEROOM_V1 [TODO]: Endgame readiness, scenario selection, empire posture surface (gates: GATE.S8.BRIDGE_THRONEROOM_V1.*)
-- EPIC.S8.PERF_BUDGET [TODO]: Tick budget tests extended for endgame pressure systems (gates: GATE.S8.PERF_BUDGET.*)
+- EPIC.S8.ADAPTATION_FRAGMENTS.V0 [TODO]: 16 named Adaptation fragments discoverable at void sites; opaque-name reveal mechanic; 8 resonance pairs that unlock emergent capabilities when combined (fracture navigation, exotic crystal extraction, T3 fabrication, lattice fast-travel, endgame path unlocks); fragment progression drives discovery arc. **Prerequisite for**: EPIC.S8.WIN_SCENARIOS. Per factions_and_lore_v0.md "Adaptation Fragment Web" (gates: GATE.S8.ADAPTATION.*)
+- EPIC.S8.HAVEN_STARBASE.V0 [TODO]: Hidden Precursor starbase in stable Phase-0 space; dormant until player docks; one-way outbound secret lane initially; 4-tier upgrade tree (lab, drydock, research, living quarters); bidirectional travel at tier 3; lore delivery hub; strategic asset for all three endgame paths. **Prerequisite for**: EPIC.S8.WIN_SCENARIOS. Per factions_and_lore_v0.md "The Haven" (gates: GATE.S8.HAVEN.*)
+- EPIC.S8.LATTICE_DRONES.V0 [TODO]: Lattice maintenance drone NPC entity type with instability-phase-linked AI escalation — Phase 0-1: passive, Phase 2: territorial near Lattice nodes, Phase 3: hostile patrolling lane segments, Phase 4: absent. Fragment 6 "Lattice Reading" enables temporary pacification. Per factions_and_lore_v0.md (gates: GATE.S8.LATTICE_DRONES.*)
+- EPIC.S8.NARRATIVE_CONTENT.V0 [TODO]: Authored story content for the story state machine — Adaptation Fragment lore text (16 entries), Haven starbase logs and upgrade narratives, NPC faction representative dialogue, warfront event commentary, fracture discovery revelation text, endgame path narratives. Content fills EPIC.S8.STORY_STATE_MACHINE framework (gates: GATE.S8.NARRATIVE.*)
+- EPIC.S8.T3_PRECURSOR_MODULES.V0 [TODO]: ~13 T3 discovery-only modules: weapons (Graviton Shear, Annihilation Beam, Void Lance, Void Seekers), defense (Null-Mass Lattice, Gravitational Lens, Phase Matrix), engines (Metric Drive Core, Void Sail), utility (Quantum Vacuum Cell, Graviton Tether, Resonance Comm, Seed Fabricator). Exotic matter sustain, cannot be manufactured — discovery and Haven fabrication only. **Prerequisite**: EPIC.S8.HAVEN_STARBASE.V0 tier 3+ (gates: GATE.S8.T3_MODULES.*)
 
 Status: TODO
+
+Note: EPIC.S8.WIN_SCENARIOS now has implicit prerequisites: EPIC.S8.ADAPTATION_FRAGMENTS.V0 (fragment 15+16 unlock Renegotiate path), EPIC.S8.HAVEN_STARBASE.V0 (staging ground for all 3 paths), EPIC.S7.PRODUCTION_CHAINS.V0 (supply chains for megaprojects). The Reinforce/Naturalize/Renegotiate endgame model from factions_and_lore_v0.md supersedes the older containment/alliance/dominance/escape/reconciliation terminology — reconcile during WIN_SCENARIOS gate authoring.
 
 ---
 
@@ -888,5 +929,14 @@ Epics:
 - EPIC.S9.ACCESS.V0 [TODO]: Basic accessibility and input configuration (gates: GATE.S9.ACCESS.*)
 - EPIC.S9.BALANCE_LOCK.V0 [TODO]: Tuning targets and regression bounds locked (gates: GATE.S9.BALANCE_LOCK.*)
 - EPIC.S9.CONTENT_WAVES [TODO]: Final archetype families, world classes, endgame megaproject variety (gates: GATE.S9.CONTENT_WAVES.*)
+- EPIC.S9.MISSION_LADDER.V0 [TODO]: Missions M2-M6 using existing mission runner framework — M2 Mining (extraction + mining automation), M3 Patrol (route security + escort), M4 Construction (outpost build + station supply), M5 Research (anomaly + science pipeline), M6 Fracture Drive (off-lane intro + derelict salvage). Each mission introduces one major capability with immediate automation unlock. Per 50_51_52_53 §50 (gates: GATE.S9.MISSIONS.*)
+- EPIC.S9.SETTINGS.V0 [TODO]: Full options screen — graphics settings (resolution, fullscreen, quality, vsync), audio settings (master/music/SFX volume sliders), control remapping and key binding persistence, difficulty selection UI wired to CONTRACT.X.DIFFICULTY_CURVES. GameShell-only (gates: GATE.S9.SETTINGS.*)
+- EPIC.S9.MUSIC.V0 [TODO]: Background soundtrack and dynamic music system — ambient exploration music, combat music triggers, warfront proximity tension, fracture space ambience, endgame escalation, discovery stingers; Sound Manager addon integration; audio bus architecture (music vs SFX separation). GameShell-only (gates: GATE.S9.MUSIC.*)
+- EPIC.S9.STEAM.V0 [TODO]: Steam platform integration — Steamworks SDK, Steam cloud saves wired to existing save system, 15-20 Steam achievements mapped from milestone system, Steam overlay compatibility, build/export pipeline for Godot 4 + C#/.NET 8. Distribution prerequisite (gates: GATE.S9.STEAM.*)
+- EPIC.S9.TELEMETRY.V0 [TODO]: Opt-in anonymous telemetry — session length, player death locations, trade loop profitability, system visit frequency, quit points; crash/exception reporting hook via Godot notification; simple backend or local-file fallback. EA feedback prerequisite (gates: GATE.S9.TELEMETRY.*)
+- EPIC.S9.FLEET_TAB.V0 [TODO]: Empire Dashboard Fleet tab (F3) — master-detail fleet list with per-fleet cargo, installed modules, assigned programs, status, doctrine; action buttons (assign program, change doctrine, view modules). Per EmpireDashboard.md. GameShell-only (gates: GATE.S9.FLEET_TAB.*)
+- EPIC.S9.MARKET_DEPTH.V0 [TODO]: Bid/ask spread and depth-dependent pricing — depth field per market, spread widens with volatility/low trust/inspection heat, marginal price impact on large orders, price smoothing on publish cadence. Per 50_51_52_53 §51 Phase 2. Hash-affecting (gates: GATE.S9.MARKET_DEPTH.*)
+- EPIC.S9.PROGRAM_POSTMORTEMS.V0 [TODO]: Automation failure taxonomy — 7 cause codes (BadInfo, Slippage, Queueing, Heat, LossEvent, CapitalLockup, ServiceShortage), binding constraint attribution in Explain events, decision-time fact storage, recommended doctrine delta in UI. Per 50_51_52_53 §51 Phase 2 (gates: GATE.S9.POSTMORTEMS.*)
+- EPIC.S9.L10N_DECISION.V0 [TODO]: Localization architecture decision — evaluate Godot 4 CSV/PO localization vs string table; if English-only 1.0, document decision and ensure no blocking patterns (hardcoded UI strings in format that resists extraction). Minimal gate — decision + audit, not full translation (gates: GATE.S9.L10N.*)
 
 Status: TODO
