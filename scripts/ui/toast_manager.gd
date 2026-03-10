@@ -5,9 +5,10 @@
 #        ToastManager.show_priority_toast("CONFISCATED!", "critical")
 extends CanvasLayer
 
-const MAX_VISIBLE_TOASTS := 5
+const MAX_VISIBLE_TOASTS := 4
 const SLIDE_DURATION := 0.3
-const TOAST_MARGIN := 8
+const FADE_OUT_DURATION := 0.2
+const TOAST_MARGIN := 10
 
 # GATE.S7.HUD_ARCH.TOAST_PRIORITY.001: Priority config.
 # priority -> {color (left border), duration, persist (bool)}
@@ -69,13 +70,12 @@ func show_priority_toast(text: String, priority: String = "info", duration_overr
 			count_lbl.visible = true
 		return
 
-	# Evict oldest if at capacity
+	# Evict oldest if at capacity — fade out gracefully instead of instant remove.
 	while _container.get_child_count() >= MAX_VISIBLE_TOASTS:
 		var oldest := _container.get_child(0)
 		var oldest_text: String = str(oldest.get_meta("toast_text", ""))
 		_active_bundles.erase(oldest_text)
-		_container.remove_child(oldest)
-		oldest.queue_free()
+		_fade_and_remove(oldest, oldest_text)
 
 	var toast := _create_priority_toast(text, cfg)
 	_container.add_child(toast)
@@ -112,6 +112,27 @@ func _remove_toast(toast, text: String = "") -> void:
 		toast.queue_free()
 	if not text.is_empty():
 		_active_bundles.erase(text)
+
+
+## Fade out an evicted toast over FADE_OUT_DURATION then free it.
+## Immediately removes the toast from _container (so child count decreases
+## synchronously for the while-loop guard) and queues it for freeing.
+## The brief fade gives visual feedback that the toast was dismissed.
+func _fade_and_remove(toast, text: String = "") -> void:
+	if not is_instance_valid(toast):
+		return
+	# Snapshot position before removal from VBoxContainer layout.
+	var pos: Vector2 = toast.global_position
+	# Remove from _container so get_child_count() decreases immediately.
+	_container.remove_child(toast)
+	# Re-parent under the MarginContainer's parent (this CanvasLayer) at the
+	# same screen position so the fade is visible in-place.
+	add_child(toast)
+	toast.global_position = pos
+	# Animate fade-out, then free.
+	var tween := create_tween()
+	tween.tween_property(toast, "modulate:a", 0.0, FADE_OUT_DURATION)
+	tween.tween_callback(toast.queue_free)
 
 
 func _create_priority_toast(text: String, cfg: Dictionary) -> PanelContainer:

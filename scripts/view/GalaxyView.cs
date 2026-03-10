@@ -14,6 +14,17 @@ public enum GalaxyOverlayMode
     IntelFreshness = 2 // Node intel age coloring
 }
 
+// GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: V2 overlay modes toggled via hotkeys.
+public enum GalaxyMapV2Overlay
+{
+    Off = 0,
+    Faction = 1,
+    Fleet = 2,
+    Heat = 3,
+    Exploration = 4,  // GATE.S7.GALAXY_MAP_V2.EXPLORATION_OVL.001
+    Warfront = 5,     // GATE.S7.GALAXY_MAP_V2.WARFRONT_OVL.001
+}
+
 public partial class GalaxyView : Node3D
 {
     private SimBridge _bridge;
@@ -56,6 +67,26 @@ public partial class GalaxyView : Node3D
     // GATE.S5.LOOT.BRIDGE_PROOF.001: Loot drop markers (glowing spheres) at current node.
     private readonly Dictionary<string, MeshInstance3D> _lootMarkersByDropId = new();
 
+    // ── GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: V2 overlay state ──
+    private GalaxyMapV2Overlay _v2OverlayMode = GalaxyMapV2Overlay.Off;
+    private readonly Dictionary<string, MeshInstance3D> _v2OverlayDiscsByNodeId = new();
+
+    // ── GATE.S7.GALAXY_MAP_V2.ROUTE_PLANNER.001: Route planner state ──
+    private bool _routePlannerActive = false;
+    private string _routePlannerDestNodeId = "";
+    private readonly List<MeshInstance3D> _routePolylineSegments = new();
+    private Label3D _routeTravelTimeLabel;
+
+    // ── GATE.S7.GALAXY_MAP_V2.SEARCH.001: Galaxy search bar state ──
+    private Control _searchBarRoot;
+    private LineEdit _searchLineEdit;
+    private ItemList _searchDropdown;
+    private bool _searchBarVisible = false;
+
+    // ── GATE.S7.GALAXY_MAP_V2.SEMANTIC_ZOOM.001: Semantic zoom detail levels ──
+    // Thresholds: close < 500u, medium 500-2000u, galaxy > 2000u.
+    private float _lastSemanticAltitude = 0f;
+
     // GATE.S17.REAL_SPACE.GALAXY_RENDER.001: Persistent star billboards at galactic-scale positions.
     private Node3D _persistentStarsRoot;
     // Persistent lane lines between stars (always visible in real-space flight).
@@ -68,6 +99,9 @@ public partial class GalaxyView : Node3D
     private bool _transitMode = false;
     // Label suppression during transit/cinematic (prevents ClampLabelsRecursive from re-showing).
     private bool _localLabelsHidden = false;
+    // GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: 2D UI panel active (dock menu, station menu).
+    // When true, all 3D overlay elements are hidden to prevent bleed-through.
+    private bool _uiPanelActive = false;
     private string _transitOriginId = "";
     private string _transitDestId = "";
 
@@ -169,6 +203,60 @@ public partial class GalaxyView : Node3D
             // Defer one frame so SimBridge can finish boot sequences.
             CallDeferred(nameof(RefreshFromSnapshotV0));
         }
+        else
+        {
+            // GATE.S7.GALAXY_MAP_V2: Clean up V2 overlays, route planner, and search bar on close.
+            ClearV2OverlayV0();
+            ClearRoutePlannerV0();
+            HideSearchBarV0();
+        }
+    }
+
+    /// GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Notify GalaxyView that a 2D UI panel
+    /// (dock menu, station menu) is covering the screen. When active, hide all 3D overlay
+    /// elements (node beacons, labels, edges, territory discs, persistent stars/lanes)
+    /// so they don't bleed through the 2D Control-based UI.
+    public void SetUiPanelActiveV0(bool isActive)
+    {
+        _uiPanelActive = isActive;
+
+        if (isActive)
+        {
+            // Hide persistent stars and lanes (they render through 2D panels).
+            if (_persistentStarsRoot != null)
+                _persistentStarsRoot.Visible = false;
+            if (_persistentLanesRoot != null)
+                _persistentLanesRoot.Visible = false;
+
+            // Hide all overlay node roots (beacons + labels at galactic scale).
+            foreach (var kvp in _nodeRootsById)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _edgeMeshesByKey)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _factionLabelsByFactionId)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _territoryDiscsByNodeId)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _v2OverlayDiscsByNodeId)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _npcRouteMeshesByKey)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _volumeLabelsByKey)
+                kvp.Value.Visible = false;
+            foreach (var kvp in _lootMarkersByDropId)
+                kvp.Value.Visible = false;
+        }
+        else
+        {
+            // Restore visibility — UpdateAltitudeLodV0 will set correct LOD state
+            // on the next physics frame when the camera re-syncs altitude.
+            // Persistent stars/lanes are restored by altitude LOD.
+            // Overlay nodes are restored by the next RefreshFromSnapshotV0 if overlay is open.
+            // For non-overlay mode, just ensure persistent elements are altitude-driven again.
+            // Force a LOD refresh by calling UpdateAltitudeLodV0 with current state.
+            if (_persistentStarsRoot != null)
+                _persistentStarsRoot.Visible = true; // LOD will refine on next frame.
+        }
     }
 
     /// Continuous LOD update driven by camera altitude (Feature 2: Seamless Zoom).
@@ -176,6 +264,11 @@ public partial class GalaxyView : Node3D
     /// Manages 3D scene root visibility. Overlay on/off is handled by SetOverlayOpenV0.
     public void UpdateAltitudeLodV0(float altitude)
     {
+        // GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: When a 2D UI panel is active
+        // (dock menu, station menu), suppress all 3D visibility updates. The panel
+        // covers the viewport, and 3D elements would bleed through.
+        if (_uiPanelActive) return;
+
         // Local system (star, planets, stations): visible below 500u.
         if (_localSystemRoot != null)
             _localSystemRoot.Visible = altitude < 500f;
@@ -193,6 +286,10 @@ public partial class GalaxyView : Node3D
                     currentStar.Visible = altitude >= 500f; // Only show once local system is hidden.
             }
         }
+
+        // GATE.S7.GALAXY_MAP_V2.SEMANTIC_ZOOM.001: Update detail levels by altitude.
+        if (_overlayOpen)
+            UpdateSemanticZoomV0(altitude);
 
         // Persistent 3D lane lines: fade in over 200-400u, solid above 400u.
         if (_persistentLanesRoot != null)
@@ -330,6 +427,8 @@ public partial class GalaxyView : Node3D
     public override void _Process(double delta)
     {
         if (_bridge == null || _bridge.IsLoading) return;
+        // GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Skip all processing when UI panel active.
+        if (_uiPanelActive) return;
 
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Periodic fleet refresh for NPC arrivals/departures.
         if (!_overlayOpen && !string.IsNullOrEmpty(_currentLocalNodeId))
@@ -360,6 +459,10 @@ public partial class GalaxyView : Node3D
         _PulsePlayerRingV0(delta);
 
         RefreshFromSnapshotV0();
+
+        // GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: Refresh V2 overlay visuals after snapshot.
+        if (_v2OverlayMode != GalaxyMapV2Overlay.Off)
+            UpdateV2OverlayVisualsV0();
     }
 
     // GATE.S13.WORLD.LABEL_CLAMP.001: Distance-based label readability for local system labels.
@@ -384,6 +487,8 @@ public partial class GalaxyView : Node3D
 
         if (_localSystemRoot == null || _overlayOpen) return;
         if (!_localSystemRoot.IsInsideTree()) return;
+        // GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Skip label clamping when UI panel active.
+        if (_uiPanelActive) return;
         if (_localLabelsHidden)
         {
             // Actively suppress overlay labels every physics frame during transit/cinematic.
@@ -462,6 +567,66 @@ public partial class GalaxyView : Node3D
     public override void _UnhandledInput(InputEvent @event)
     {
         if (!_overlayOpen) return;
+
+        // ── GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: Hotkey overlay toggles (F/L/H) ──
+        // ── GATE.S7.GALAXY_MAP_V2.ROUTE_PLANNER.001: Escape cancels route planner ──
+        // ── GATE.S7.GALAXY_MAP_V2.SEARCH.001: Ctrl+F toggles search bar ──
+        if (@event is InputEventKey key && key.Pressed && !key.Echo)
+        {
+            // Don't process hotkeys while search bar is focused.
+            if (_searchBarVisible && _searchLineEdit != null && _searchLineEdit.HasFocus())
+            {
+                if (key.Keycode == Key.Escape)
+                {
+                    HideSearchBarV0();
+                    GetViewport().SetInputAsHandled();
+                }
+                return;
+            }
+
+            switch (key.Keycode)
+            {
+                case Key.F when !key.CtrlPressed:
+                    ToggleV2OverlayV0(GalaxyMapV2Overlay.Faction);
+                    GetViewport().SetInputAsHandled();
+                    return;
+                case Key.L:
+                    ToggleV2OverlayV0(GalaxyMapV2Overlay.Fleet);
+                    GetViewport().SetInputAsHandled();
+                    return;
+                case Key.H:
+                    ToggleV2OverlayV0(GalaxyMapV2Overlay.Heat);
+                    GetViewport().SetInputAsHandled();
+                    return;
+                case Key.E when !key.CtrlPressed:
+                    ToggleV2OverlayV0(GalaxyMapV2Overlay.Exploration);
+                    GetViewport().SetInputAsHandled();
+                    return;
+                case Key.W when !key.CtrlPressed:
+                    ToggleV2OverlayV0(GalaxyMapV2Overlay.Warfront);
+                    GetViewport().SetInputAsHandled();
+                    return;
+                case Key.Escape:
+                    if (_routePlannerActive)
+                    {
+                        ClearRoutePlannerV0();
+                        GetViewport().SetInputAsHandled();
+                        return;
+                    }
+                    if (_searchBarVisible)
+                    {
+                        HideSearchBarV0();
+                        GetViewport().SetInputAsHandled();
+                        return;
+                    }
+                    break;
+                case Key.F when key.CtrlPressed:
+                    ToggleSearchBarV0();
+                    GetViewport().SetInputAsHandled();
+                    return;
+            }
+        }
+
         if (@event is not InputEventMouseButton mb) return;
         if (mb.ButtonIndex != MouseButton.Left || !mb.Pressed) return;
         // GATE.S17.REAL_SPACE.GALAXY_MAP.001: Use viewport camera (the follow camera at altitude).
@@ -494,6 +659,14 @@ public partial class GalaxyView : Node3D
 
         if (closestNodeId != null)
         {
+            // GATE.S7.GALAXY_MAP_V2.ROUTE_PLANNER.001: Route planner intercepts node clicks.
+            if (_routePlannerActive || Input.IsKeyPressed(Key.Shift))
+            {
+                SetRoutePlannerDestV0(closestNodeId);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
             ShowNodeDetailPopupV0(closestNodeId, clickPos);
             GetViewport().SetInputAsHandled();
         }
@@ -1006,8 +1179,9 @@ public partial class GalaxyView : Node3D
         var stationId = stationDict.ContainsKey("node_id")
             ? (string)stationDict["node_id"]
             : nodeId;
+        // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists in station names.
         var stationDisplayName = stationDict.ContainsKey("node_name") && !string.IsNullOrEmpty((string)stationDict["node_name"])
-            ? (string)stationDict["node_name"] + " Station"
+            ? TruncateResourceTypesV0((string)stationDict["node_name"]) + " Station"
             : SimBridge.FormatDisplayNameV0(stationId);
 
         // Station as Area3D so body_entered fires when the player ship (collision_layer=2) enters.
@@ -1159,6 +1333,7 @@ public partial class GalaxyView : Node3D
         station.AddChild(mesh);
 
         // GATE.S1.VISUAL_POLISH.HUD_LABELS.001: Label3D over station showing station name.
+        // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Width clamped to prevent overlap/truncation.
         var stationLabel = new Label3D
         {
             Name = "StationLabel",
@@ -1167,6 +1342,8 @@ public partial class GalaxyView : Node3D
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             Modulate = new Color(0.4f, 1.0f, 0.4f),
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Width = 200f,
+            AutowrapMode = TextServer.AutowrapMode.Off,
         };
         stationLabel.Position = new Vector3(0f, 4f, 0f);
         station.AddChild(stationLabel);
@@ -2653,10 +2830,11 @@ public partial class GalaxyView : Node3D
             if (label != null)
             {
                 // Token contract: RUMORED => "???", VISITED => name, MAPPED => name+count.
+                // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists.
                 // GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Append instability phase to node label.
                 string baseText = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
                     ? "???"
-                    : (n.DisplayText ?? "");
+                    : TruncateResourceTypesV0(n.DisplayText ?? "");
                 if (_bridge != null && !StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED"))
                 {
                     var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
@@ -2944,6 +3122,7 @@ public partial class GalaxyView : Node3D
         beacon.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         root.AddChild(beacon);
 
+        // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Width clamped to prevent overlap between adjacent nodes.
         var lbl = new Label3D
         {
             Name = "NodeLabel",
@@ -2954,6 +3133,8 @@ public partial class GalaxyView : Node3D
             OutlineSize = 10,
             Modulate = new Color(0.85f, 0.85f, 0.9f),
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Width = 200f,
+            AutowrapMode = TextServer.AutowrapMode.Off,
         };
         lbl.Position = new Vector3(0, 40.0f, 0);
         root.AddChild(lbl);
@@ -3397,9 +3578,7 @@ public partial class GalaxyView : Node3D
                     var colors = _bridge.Call("GetFactionColorsV0", factionId).AsGodotDictionary();
                     if (colors != null && colors.ContainsKey("primary"))
                     {
-                        var hex = (string)(Variant)colors["primary"];
-                        if (!string.IsNullOrEmpty(hex))
-                            baseColor = new Color(hex);
+                        baseColor = (Color)colors["primary"];
                     }
                 }
                 factionColors[factionId] = baseColor;
@@ -3615,5 +3794,719 @@ public partial class GalaxyView : Node3D
         }
         foreach (var key in toRemove)
             _factionLabelsByFactionId.Remove(key);
+    }
+
+    // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists in node/station names.
+    // If more than 2 parenthesized resource tags, show first 2 + "...".
+    // E.g., "Star-5 (RareMin)(Mining)(Munitions)" => "Star-5 (RareMin)(Mining)..."
+    private static string TruncateResourceTypesV0(string displayText)
+    {
+        if (string.IsNullOrEmpty(displayText)) return displayText;
+
+        // Find all parenthesized resource-type tags: " (Xxx)" or "(Xxx)"
+        int tagCount = 0;
+        int secondTagEndIdx = -1;
+        int idx = 0;
+        while (idx < displayText.Length)
+        {
+            int openParen = displayText.IndexOf('(', idx);
+            if (openParen < 0) break;
+
+            int closeParen = displayText.IndexOf(')', openParen);
+            if (closeParen < 0) break;
+
+            tagCount++;
+            if (tagCount == 2)
+                secondTagEndIdx = closeParen + 1;
+            if (tagCount > 2)
+            {
+                // Truncate: keep up to end of 2nd tag, append "..."
+                return displayText.Substring(0, secondTagEndIdx) + "...";
+            }
+
+            idx = closeParen + 1;
+        }
+
+        return displayText;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: V2 overlay modes (Faction / Fleet / Heat)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Toggle a V2 overlay mode; pressing the same hotkey again turns it off.
+    private void ToggleV2OverlayV0(GalaxyMapV2Overlay mode)
+    {
+        if (_v2OverlayMode == mode)
+        {
+            _v2OverlayMode = GalaxyMapV2Overlay.Off;
+            ClearV2OverlayV0();
+        }
+        else
+        {
+            _v2OverlayMode = mode;
+            // Immediate refresh on mode switch.
+            UpdateV2OverlayVisualsV0();
+        }
+    }
+
+    /// Public API for external callers (e.g., toolbar buttons).
+    public void SetV2OverlayModeV0(int mode)
+    {
+        if (mode >= 0 && mode <= 5)
+            _v2OverlayMode = (GalaxyMapV2Overlay)mode;
+        else
+            _v2OverlayMode = GalaxyMapV2Overlay.Off;
+    }
+
+    public int GetV2OverlayModeV0() => (int)_v2OverlayMode;
+
+    /// Refresh V2 overlay visuals: colored discs/indicators per system node.
+    private void UpdateV2OverlayVisualsV0()
+    {
+        if (_bridge == null) return;
+
+        switch (_v2OverlayMode)
+        {
+            case GalaxyMapV2Overlay.Faction:
+                UpdateFactionOverlayDiscsV0();
+                break;
+            case GalaxyMapV2Overlay.Fleet:
+                UpdateFleetOverlayDiscsV0();
+                break;
+            case GalaxyMapV2Overlay.Heat:
+                UpdateHeatOverlayDiscsV0();
+                break;
+            case GalaxyMapV2Overlay.Exploration:
+                UpdateExplorationOverlayDiscsV0();
+                break;
+            case GalaxyMapV2Overlay.Warfront:
+                UpdateWarfrontOverlayDiscsV0();
+                break;
+            default:
+                ClearV2OverlayV0();
+                break;
+        }
+    }
+
+    // Faction colors by faction name (deterministic palette).
+    private static Color FactionOverlayColorV0(string factionId)
+    {
+        if (string.IsNullOrEmpty(factionId)) return new Color(0.5f, 0.5f, 0.5f, 0.3f);
+        // Simple hash-to-hue for consistent faction coloring.
+        uint hash = 0;
+        foreach (char c in factionId) { hash = hash * 31 + (uint)c; }
+        float hue = (hash % 360) / 360.0f;
+        return Color.FromHsv(hue, 0.7f, 0.9f, 0.35f);
+    }
+
+    private void UpdateFactionOverlayDiscsV0()
+    {
+        var data = _bridge.GetFactionTerritoryOverlayV0();
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in data.Keys)
+        {
+            var nodeId = key.AsString();
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            seenNodes.Add(nodeId);
+
+            var info = data[key].AsGodotDictionary();
+            var factionId = info.ContainsKey("controlling_faction") ? info["controlling_faction"].AsString() : "";
+            float influence = info.ContainsKey("influence_pct") ? (float)info["influence_pct"] : 0.5f;
+
+            var color = FactionOverlayColorV0(factionId);
+            color.A = Mathf.Clamp(influence * 0.5f, 0.1f, 0.5f);
+
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 60.0f);
+        }
+
+        // Remove discs for nodes not in the current data set.
+        PruneV2OverlayDiscs(seenNodes);
+    }
+
+    private void UpdateFleetOverlayDiscsV0()
+    {
+        var data = _bridge.GetFleetPositionsOverlayV0();
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in data.Keys)
+        {
+            var nodeId = key.AsString();
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            seenNodes.Add(nodeId);
+
+            var fleetArray = data[key].AsGodotArray();
+            int fleetCount = fleetArray?.Count ?? 0;
+            if (fleetCount <= 0) continue;
+
+            // More fleets = brighter/larger indicator.
+            float intensity = Mathf.Clamp(fleetCount / 5.0f, 0.2f, 1.0f);
+            var color = new Color(0.2f, 0.8f, 1.0f, 0.2f + intensity * 0.3f);
+            float radius = 40.0f + fleetCount * 5.0f;
+
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, Mathf.Min(radius, 80.0f));
+        }
+
+        PruneV2OverlayDiscs(seenNodes);
+    }
+
+    private void UpdateHeatOverlayDiscsV0()
+    {
+        var data = _bridge.GetHeatOverlayV0();
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in data.Keys)
+        {
+            var nodeId = key.AsString();
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            float heat = (float)data[key];
+            if (heat <= 0.01f) continue;
+
+            seenNodes.Add(nodeId);
+
+            // Heat gradient: green (low) -> yellow -> red (high).
+            float r = Mathf.Clamp(heat * 2.0f, 0f, 1f);
+            float g = Mathf.Clamp(1.0f - heat, 0f, 1f);
+            var color = new Color(r, g, 0.1f, 0.15f + heat * 0.35f);
+
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 50.0f + heat * 30.0f);
+        }
+
+        PruneV2OverlayDiscs(seenNodes);
+    }
+
+    // GATE.S7.GALAXY_MAP_V2.EXPLORATION_OVL.001: Exploration status overlay.
+    private void UpdateExplorationOverlayDiscsV0()
+    {
+        var data = _bridge.GetExplorationOverlayV0();
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in data.Keys)
+        {
+            var nodeId = key.AsString();
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            var status = data[key].AsString();
+
+            Color color;
+            float size;
+            switch (status)
+            {
+                case "anomaly":
+                    color = new Color(0.7f, 0.2f, 0.9f, 0.4f);
+                    size = 65.0f;
+                    break;
+                case "mapped":
+                    color = new Color(0.2f, 0.8f, 0.3f, 0.35f);
+                    size = 55.0f;
+                    break;
+                case "visited":
+                    color = new Color(0.8f, 0.8f, 0.8f, 0.3f);
+                    size = 50.0f;
+                    break;
+                default: // "unvisited"
+                    color = new Color(0.4f, 0.4f, 0.4f, 0.2f);
+                    size = 45.0f;
+                    break;
+            }
+
+            seenNodes.Add(nodeId);
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, size);
+        }
+
+        PruneV2OverlayDiscs(seenNodes);
+    }
+
+    // GATE.S7.GALAXY_MAP_V2.WARFRONT_OVL.001: Warfront intensity overlay.
+    private void UpdateWarfrontOverlayDiscsV0()
+    {
+        var data = _bridge.GetWarfrontOverlayV0();
+        var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var key in data.Keys)
+        {
+            var nodeId = key.AsString();
+            if (string.IsNullOrEmpty(nodeId)) continue;
+            if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) continue;
+
+            float intensity = (float)data[key];
+            if (intensity <= 0.01f) continue;
+
+            seenNodes.Add(nodeId);
+
+            // Red gradient: darker red at low intensity, bright red at high.
+            float r = 0.5f + intensity * 0.5f;
+            float g = Mathf.Clamp(0.15f - intensity * 0.1f, 0f, 0.15f);
+            float b = 0.05f;
+            float a = 0.15f + intensity * 0.4f;
+            var color = new Color(r, g, b, a);
+
+            float size = 50.0f + intensity * 35.0f;
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, size);
+        }
+
+        PruneV2OverlayDiscs(seenNodes);
+    }
+
+    private void EnsureV2OverlayDisc(string nodeId, Vector3 worldPos, Color color, float size)
+    {
+        if (!_v2OverlayDiscsByNodeId.TryGetValue(nodeId, out var disc))
+        {
+            disc = new MeshInstance3D
+            {
+                Name = "V2Overlay_" + nodeId,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Mesh = new PlaneMesh { Size = new Vector2(size, size) },
+            };
+            _v2OverlayDiscsByNodeId[nodeId] = disc;
+            AddChild(disc);
+        }
+
+        disc.GlobalPosition = worldPos + new Vector3(0f, -1.0f, 0f);
+
+        // Update size if needed.
+        if (disc.Mesh is PlaneMesh pm && (pm.Size.X != size || pm.Size.Y != size))
+            pm.Size = new Vector2(size, size);
+
+        disc.MaterialOverride = new StandardMaterial3D
+        {
+            AlbedoColor = color,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            EmissionEnabled = true,
+            Emission = new Color(color.R, color.G, color.B),
+            EmissionEnergyMultiplier = 1.5f,
+        };
+    }
+
+    private void PruneV2OverlayDiscs(HashSet<string> seenNodes)
+    {
+        var toRemove = new List<string>();
+        foreach (var kv in _v2OverlayDiscsByNodeId)
+        {
+            if (!seenNodes.Contains(kv.Key))
+            {
+                kv.Value.QueueFree();
+                toRemove.Add(kv.Key);
+            }
+        }
+        foreach (var key in toRemove)
+            _v2OverlayDiscsByNodeId.Remove(key);
+    }
+
+    private void ClearV2OverlayV0()
+    {
+        _v2OverlayMode = GalaxyMapV2Overlay.Off;
+        foreach (var kv in _v2OverlayDiscsByNodeId)
+            kv.Value.QueueFree();
+        _v2OverlayDiscsByNodeId.Clear();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.S7.GALAXY_MAP_V2.ROUTE_PLANNER.001: Multi-hop route planner
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Public API: activate/deactivate route planner mode.
+    public void SetRoutePlannerActiveV0(bool active)
+    {
+        _routePlannerActive = active;
+        if (!active)
+            ClearRoutePlannerV0();
+    }
+
+    public bool IsRoutePlannerActiveV0() => _routePlannerActive;
+
+    /// Set route destination and draw the path.
+    private void SetRoutePlannerDestV0(string destNodeId)
+    {
+        if (_bridge == null || string.IsNullOrEmpty(destNodeId)) return;
+
+        _routePlannerActive = true;
+        _routePlannerDestNodeId = destNodeId;
+
+        // Clear previous route visuals.
+        ClearRouteVisualsV0();
+
+        // Query route from SimBridge.
+        var routeResult = _bridge.GetRoutePathV0(destNodeId);
+        var path = routeResult.ContainsKey("path") ? routeResult["path"].AsGodotArray() : null;
+        int travelTime = routeResult.ContainsKey("travel_time") ? (int)routeResult["travel_time"] : 0;
+
+        if (path == null || path.Count < 2)
+        {
+            // No valid route; leave planner active for next click.
+            return;
+        }
+
+        // Draw polyline segments connecting each hop.
+        var routeColor = new Color(0.0f, 1.0f, 0.6f, 0.8f);
+        var routeMat = new StandardMaterial3D
+        {
+            AlbedoColor = routeColor,
+            EmissionEnabled = true,
+            Emission = new Color(0.0f, 1.0f, 0.6f),
+            EmissionEnergyMultiplier = 3.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+
+        for (int i = 0; i < path.Count - 1; i++)
+        {
+            var fromId = path[i].AsString();
+            var toId = path[i + 1].AsString();
+
+            if (!_nodeRootsById.TryGetValue(fromId, out var fromRoot)) continue;
+            if (!_nodeRootsById.TryGetValue(toId, out var toRoot)) continue;
+
+            var segment = new MeshInstance3D
+            {
+                Name = "RouteSegment_" + i,
+                Mesh = new CylinderMesh { TopRadius = 12.0f, BottomRadius = 12.0f, Height = 1.0f },
+                MaterialOverride = routeMat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            AddChild(segment);
+
+            // Offset slightly above lane edges for visibility.
+            var fromPos = fromRoot.GlobalPosition + new Vector3(0f, 3.0f, 0f);
+            var toPos = toRoot.GlobalPosition + new Vector3(0f, 3.0f, 0f);
+            UpdateEdgeTransformV0(segment, fromPos, toPos);
+
+            _routePolylineSegments.Add(segment);
+        }
+
+        // Waypoint markers at each hop.
+        for (int i = 1; i < path.Count - 1; i++)
+        {
+            var hopId = path[i].AsString();
+            if (!_nodeRootsById.TryGetValue(hopId, out var hopRoot)) continue;
+
+            var waypoint = new MeshInstance3D
+            {
+                Name = "RouteWaypoint_" + i,
+                Mesh = new SphereMesh { Radius = 18.0f, Height = 36.0f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(0.0f, 1.0f, 0.6f, 0.5f),
+                    EmissionEnabled = true,
+                    Emission = new Color(0.0f, 1.0f, 0.6f),
+                    EmissionEnergyMultiplier = 2.0f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                },
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            waypoint.GlobalPosition = hopRoot.GlobalPosition;
+            AddChild(waypoint);
+            _routePolylineSegments.Add(waypoint);
+        }
+
+        // Destination marker: bright ring.
+        if (_nodeRootsById.TryGetValue(destNodeId, out var destRoot))
+        {
+            var destMarker = new MeshInstance3D
+            {
+                Name = "RouteDest",
+                Mesh = new TorusMesh { InnerRadius = 28.0f, OuterRadius = 36.0f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(0.0f, 1.0f, 0.6f, 0.7f),
+                    EmissionEnabled = true,
+                    Emission = new Color(0.0f, 1.0f, 0.6f),
+                    EmissionEnergyMultiplier = 4.0f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                },
+                Rotation = new Vector3(Mathf.Pi / 2f, 0, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            destMarker.GlobalPosition = destRoot.GlobalPosition;
+            AddChild(destMarker);
+            _routePolylineSegments.Add(destMarker);
+        }
+
+        // Travel time label near the destination.
+        if (_nodeRootsById.TryGetValue(destNodeId, out var destRootForLabel))
+        {
+            if (_routeTravelTimeLabel != null && GodotObject.IsInstanceValid(_routeTravelTimeLabel))
+                _routeTravelTimeLabel.QueueFree();
+
+            _routeTravelTimeLabel = new Label3D
+            {
+                Name = "RouteTravelTime",
+                Text = travelTime > 0 ? "~" + travelTime + " ticks" : "Route set",
+                PixelSize = 1.0f,
+                FontSize = 48,
+                OutlineSize = 10,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Modulate = new Color(0.0f, 1.0f, 0.6f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            _routeTravelTimeLabel.GlobalPosition = destRootForLabel.GlobalPosition + new Vector3(0f, 70.0f, 0f);
+            AddChild(_routeTravelTimeLabel);
+        }
+    }
+
+    private void ClearRouteVisualsV0()
+    {
+        foreach (var seg in _routePolylineSegments)
+        {
+            if (GodotObject.IsInstanceValid(seg))
+                seg.QueueFree();
+        }
+        _routePolylineSegments.Clear();
+
+        if (_routeTravelTimeLabel != null && GodotObject.IsInstanceValid(_routeTravelTimeLabel))
+        {
+            _routeTravelTimeLabel.QueueFree();
+            _routeTravelTimeLabel = null;
+        }
+    }
+
+    private void ClearRoutePlannerV0()
+    {
+        _routePlannerActive = false;
+        _routePlannerDestNodeId = "";
+        ClearRouteVisualsV0();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.S7.GALAXY_MAP_V2.SEARCH.001: Galaxy search bar
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Toggle search bar visibility.
+    private void ToggleSearchBarV0()
+    {
+        if (_searchBarVisible)
+            HideSearchBarV0();
+        else
+            ShowSearchBarV0();
+    }
+
+    /// Public API: show search bar.
+    public void ShowSearchBarV0()
+    {
+        _searchBarVisible = true;
+        EnsureSearchBarCreatedV0();
+        if (_searchBarRoot != null)
+        {
+            _searchBarRoot.Visible = true;
+            _searchLineEdit?.GrabFocus();
+        }
+    }
+
+    /// Public API: hide search bar.
+    public void HideSearchBarV0()
+    {
+        _searchBarVisible = false;
+        if (_searchBarRoot != null)
+            _searchBarRoot.Visible = false;
+        if (_searchDropdown != null)
+            _searchDropdown.Visible = false;
+    }
+
+    private void EnsureSearchBarCreatedV0()
+    {
+        if (_searchBarRoot != null && GodotObject.IsInstanceValid(_searchBarRoot)) return;
+
+        // Build search UI as CanvasLayer children so they render in screen space.
+        var canvasLayer = new CanvasLayer { Name = "GalaxySearchLayer", Layer = 100 };
+
+        _searchBarRoot = new Control { Name = "SearchBarRoot" };
+
+        _searchLineEdit = new LineEdit
+        {
+            Name = "GalaxySearchInput",
+            PlaceholderText = "Search system...",
+            Position = new Vector2(10, 10),
+            Size = new Vector2(300, 36),
+        };
+        _searchLineEdit.TextChanged += OnSearchTextChangedV0;
+        _searchLineEdit.TextSubmitted += OnSearchTextSubmittedV0;
+        _searchBarRoot.AddChild(_searchLineEdit);
+
+        _searchDropdown = new ItemList
+        {
+            Name = "SearchDropdown",
+            Position = new Vector2(10, 50),
+            Size = new Vector2(300, 200),
+            Visible = false,
+        };
+        _searchDropdown.ItemSelected += OnSearchItemSelectedV0;
+        _searchBarRoot.AddChild(_searchDropdown);
+
+        canvasLayer.AddChild(_searchBarRoot);
+        GetTree().Root.AddChild(canvasLayer);
+    }
+
+    private void OnSearchTextChangedV0(string newText)
+    {
+        if (_bridge == null || _searchDropdown == null) return;
+
+        _searchDropdown.Clear();
+
+        if (string.IsNullOrEmpty(newText) || newText.Length < 1)
+        {
+            _searchDropdown.Visible = false;
+            return;
+        }
+
+        var results = _bridge.GetSystemSearchV0(newText);
+        if (results == null || results.Count == 0)
+        {
+            _searchDropdown.Visible = false;
+            return;
+        }
+
+        int maxItems = Math.Min(results.Count, 10);
+        for (int i = 0; i < maxItems; i++)
+        {
+            var entry = results[i].AsGodotDictionary();
+            var systemId = entry.ContainsKey("system_id") ? entry["system_id"].AsString() : "";
+            var name = entry.ContainsKey("name") ? entry["name"].AsString() : "";
+            _searchDropdown.AddItem(name);
+            _searchDropdown.SetItemMetadata(i, systemId);
+        }
+
+        _searchDropdown.Visible = true;
+    }
+
+    private void OnSearchTextSubmittedV0(string text)
+    {
+        if (_bridge == null) return;
+
+        var results = _bridge.GetSystemSearchV0(text);
+        if (results != null && results.Count > 0)
+        {
+            var entry = results[0].AsGodotDictionary();
+            var systemId = entry.ContainsKey("system_id") ? entry["system_id"].AsString() : "";
+            SnapCameraToNodeV0(systemId);
+        }
+
+        HideSearchBarV0();
+    }
+
+    private void OnSearchItemSelectedV0(long index)
+    {
+        if (_searchDropdown == null) return;
+
+        var systemId = _searchDropdown.GetItemMetadata((int)index).AsString();
+        SnapCameraToNodeV0(systemId);
+        HideSearchBarV0();
+    }
+
+    /// Snap the camera to a node's world position on the galaxy map.
+    private void SnapCameraToNodeV0(string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId)) return;
+        if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) return;
+
+        var cam = GetViewport()?.GetCamera3D();
+        if (cam == null) return;
+
+        // Move camera X/Z to node position, keep Y (altitude).
+        var nodePos = nodeRoot.GlobalPosition;
+        cam.GlobalPosition = new Vector3(nodePos.X, cam.GlobalPosition.Y, nodePos.Z);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.S7.GALAXY_MAP_V2.SEMANTIC_ZOOM.001: Detail levels by camera altitude
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// Called from UpdateAltitudeLodV0 every physics frame. Adjusts overlay
+    /// label and detail visibility based on camera altitude thresholds.
+    /// Close (<500u): full detail with station/planet labels.
+    /// Medium (500-2000u): system names + faction colors only.
+    /// Galaxy (>2000u): minimal dots + region labels.
+    private void UpdateSemanticZoomV0(float altitude)
+    {
+        // Avoid redundant work if altitude band hasn't changed.
+        int currentBand = altitude < 500f ? 0 : (altitude < 2000f ? 1 : 2);
+        int lastBand = _lastSemanticAltitude < 500f ? 0 : (_lastSemanticAltitude < 2000f ? 1 : 2);
+
+        _lastSemanticAltitude = altitude;
+
+        if (currentBand == lastBand && _lastSemanticAltitude > 0f) return;
+
+        // Iterate overlay nodes to adjust detail levels.
+        foreach (var kv in _nodeRootsById)
+        {
+            var root = kv.Value;
+            if (root == null || !root.IsInsideTree()) continue;
+
+            var nodeLabel = root.GetNodeOrNull<Label3D>("NodeLabel");
+            var fleetLabel = root.GetNodeOrNull<Label3D>("FleetLabel");
+            var nodeBeacon = root.GetNodeOrNull<MeshInstance3D>("NodeMesh");
+            var youLabel = root.GetNodeOrNull<Label3D>("YouLabel");
+            var playerRing = root.GetNodeOrNull<MeshInstance3D>("PlayerRing");
+            var sensorRing = root.GetNodeOrNull<MeshInstance3D>("SensorRing");
+
+            switch (currentBand)
+            {
+                case 0: // Close range: full detail
+                    if (nodeLabel != null && !_localLabelsHidden) { nodeLabel.Visible = true; nodeLabel.PixelSize = 1.2f; }
+                    if (fleetLabel != null && !_localLabelsHidden) { fleetLabel.Visible = true; fleetLabel.PixelSize = 0.9f; }
+                    if (nodeBeacon != null) nodeBeacon.Visible = true;
+                    if (youLabel != null) youLabel.Visible = true;
+                    if (playerRing != null) playerRing.Visible = true;
+                    if (sensorRing != null) sensorRing.Visible = true;
+                    break;
+
+                case 1: // Medium range: system names + faction colors, no fleet detail
+                    if (nodeLabel != null && !_localLabelsHidden) { nodeLabel.Visible = true; nodeLabel.PixelSize = 1.2f; }
+                    if (fleetLabel != null) fleetLabel.Visible = false;
+                    if (nodeBeacon != null) nodeBeacon.Visible = true;
+                    if (youLabel != null) youLabel.Visible = true;
+                    if (playerRing != null) playerRing.Visible = true;
+                    if (sensorRing != null) sensorRing.Visible = true;
+                    break;
+
+                case 2: // Galaxy scale: minimal dots, no labels except region/faction
+                    if (nodeLabel != null) nodeLabel.Visible = false;
+                    if (fleetLabel != null) fleetLabel.Visible = false;
+                    if (nodeBeacon != null) nodeBeacon.Visible = true;
+                    if (youLabel != null) youLabel.Visible = true;
+                    if (playerRing != null) playerRing.Visible = true;
+                    if (sensorRing != null) sensorRing.Visible = false;
+                    break;
+            }
+        }
+
+        // Faction labels: visible only at medium+ altitude.
+        bool showFactionLabels = currentBand >= 1;
+        foreach (var kv in _factionLabelsByFactionId)
+        {
+            kv.Value.Visible = showFactionLabels;
+        }
+
+        // Territory discs: visible only at medium+ altitude.
+        bool showTerritory = currentBand >= 1;
+        foreach (var kv in _territoryDiscsByNodeId)
+        {
+            kv.Value.Visible = showTerritory;
+        }
+
+        // V2 overlay discs: visible only at medium+ altitude.
+        bool showV2Overlays = currentBand >= 1;
+        foreach (var kv in _v2OverlayDiscsByNodeId)
+        {
+            kv.Value.Visible = showV2Overlays;
+        }
+
+        // Volume labels: hidden at galaxy scale.
+        bool showVolume = currentBand < 2;
+        foreach (var kv in _volumeLabelsByKey)
+        {
+            kv.Value.Visible = showVolume;
+        }
     }
 }

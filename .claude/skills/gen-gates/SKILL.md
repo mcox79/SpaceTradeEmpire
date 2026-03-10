@@ -27,6 +27,7 @@ Read these files before doing anything else:
 3. `docs/gates/GATE_FREEZE_RULES.md` — freeze rules
 4. `docs/generated/01_CONTEXT_PACKET.md` — repo file map (HEAD sha + all paths)
 5. `docs/gates/gates.json` — current queue (to understand what is already scheduled)
+6. `docs/ACTIVE_ISSUES.md` — known bugs, visual gaps, and polish items from evals/playtesting
 
 If `docs/generated/01_CONTEXT_PACKET.md` is missing or has no `head:` line,
 stop and tell the user to click **"Refresh Context (Full)"** in DevTool (or run
@@ -50,6 +51,15 @@ stop and tell the user to click **"Refresh Context (Full)"** in DevTool (or run
 
   Pick the top-scoring epic as ANCHOR_EPIC. If two epics tie, prefer the one
   that closes a slice.
+
+### 2a-bis. Active issues cross-reference
+
+After selecting ANCHOR_EPIC, check `docs/ACTIVE_ISSUES.md` for OPEN issues
+with severity CRITICAL or HIGH. If any OPEN issues align with the selected
+epics, ensure the gate set includes gates that address them. If CRITICAL
+issues exist that NO selected epic covers, consider expanding scope or
+proposing a new epic to address them. Note which issues each proposed gate
+would fix in the gate's intent field (e.g., "Fixes ACTIVE_ISSUES C1, C2").
 
 ### 2b. Scope expansion (breadth over depth)
 

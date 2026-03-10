@@ -10,9 +10,9 @@
 
 ---
 
-## 1. Precursor Data Logs (System NOT Ready)
+## 1. Ancient Data Logs (System NOT Ready)
 
-**ID:** `LORE.PRECURSOR_LOGS`
+**ID:** `LORE.ANCIENT_LOGS`
 **System:** No data log entity or display system exists
 **System Ready:** NO — needs entity model + Discovery Web UI
 **Volume:** 20-30 conversation scripts
@@ -21,9 +21,19 @@
 
 ### Format
 
-Data logs are conversations between Precursor scientists, inspired by Outer Wilds'
+Data logs are conversations between thread-builder scientists, inspired by Outer Wilds'
 Nomai wall texts. Found at discovery sites (Ruins, Derelicts), they build the core
 mystery of the game.
+
+> **CRITICAL DESIGN RULE:** Logs are NEVER addressed to the future. They are
+> internal records — lab notebooks, arguments between colleagues, daily memos,
+> research notes. No log should contain any variation of "someone will find this,"
+> "for those who come after," or "I'm recording this because someday..." The
+> scientists recorded because that's what scientists do. The player is not the
+> intended audience — they are an accidental witness, eavesdropping on private
+> moments between people who have been dead for millions of years. Finding
+> someone's unguarded frustration is more haunting than finding their prepared
+> message to posterity.
 
 Per NarrativeDesign.md: "The player reads conversations between people who lived
 thousands of years ago and pieces together what happened."
@@ -42,15 +52,32 @@ LOG FORMAT:
   connected_fragments: [fragment_ids] (which Adaptation Fragments relate)
 ```
 
+### Mechanical Hooks — Design Rule
+
+Every lore entry must contain at least one mechanical hook: coordinates, trade
+intelligence, calibration data, or location hints. Pure atmosphere without
+gameplay utility is prohibited. Players who skip lore should miss tactical
+advantages. Players who optimize should encounter lore as a side effect.
+
+**Hook categories:**
+- **Coordinate hints:** Reference systems, orbital bodies, or sectors that
+  correspond to hidden resource caches or discovery sites.
+- **Trade intelligence:** Faction supply routes, embargo histories, or price
+  anomalies that inform profitable trade decisions.
+- **Calibration data:** Recovered sensor matrices or measurement baselines that
+  improve scanner variance reduction or anomaly detection.
+- **Resonance location hints:** Fragment descriptions that narrow the search
+  area for paired fragments (e.g., "within 3 hops of system X").
+
 ### Conversation Threads
 
 The logs should be organized into narrative threads that the player assembles
-out of order. Each thread tells one aspect of the Precursor story.
+out of order. Each thread tells one aspect of the thread-builder story.
 
 #### Thread A: The Containment Debate (6-8 logs)
 
-The central philosophical conflict. Some Precursors wanted to contain metric
-instability (build the lanes). Others wanted to accommodate it (build structures
+The central philosophical conflict. Some thread builders wanted to contain metric
+instability (build the threads). Others wanted to accommodate it (build structures
 that work regardless of metric state).
 
 ```
@@ -71,27 +98,33 @@ LOG.CONTAIN.002 (Revelation Tier 1):
   Location: Ruin near Weaver space
   "TBA — Escalation of debate. Kesh presents containment data. Vael
    presents accommodation prototype results."
+  Mechanical hook: Kesh references calibration site gamma — coordinates
+  correlate to system Kepler-7, third orbital body. Resource density:
+  anomalous. (Coordinate hint → hidden resource cache)
 
 LOG.CONTAIN.003-008: "TBA"
 ```
 
 #### Thread B: The Lattice Construction (4-6 logs)
 
-How and why the lane network was built. Technical discussions that the player
+How and why the thread network was built. Technical discussions that the player
 won't fully understand until later, but that recontextualize everything.
 
 ```
 LOG.LATTICE.001 (Revelation Tier 2):
-  Location: Derelict near lane nexus
+  Location: Derelict near thread nexus
   "TBA — Engineers discussing lattice node placement. References to
    'natural metric boundaries' that the lattice reinforces."
+  Mechanical hook: Recovered calibration matrices from lattice node
+  instrumentation. Applying to current sensor array yields ±2% variance
+  reduction in anomaly detection. (Calibration data → scanner improvement)
 
 LOG.LATTICE.002-006: "TBA"
 ```
 
 #### Thread C: The Departure (4-6 logs)
 
-Why the Precursors left. The final conversations before they disappeared.
+Why the thread builders left. The final conversations before they disappeared.
 
 ```
 LOG.DEPART.001 (Revelation Tier 3):
@@ -114,6 +147,9 @@ LOG.ACCOM.001 (Revelation Tier 2):
   "TBA — Excitement about results. Accommodation geometry works.
    But it requires understanding of how metrics vary, not just
    suppressing the variance."
+  Mechanical hook: Vael's notes mention fragment resonance detected
+  in the Outer Reach. The paired fragment may lie within 3 hops of
+  Vega. (Resonance location hint → fragment search area)
 
 LOG.ACCOM.002-006: "TBA"
 ```
@@ -128,7 +164,7 @@ LOG.WARN.001 (Revelation Tier 3):
   Location: Deep void-phase space
   "TBA — Mathematical proof that the lattice has a finite lifespan.
    Estimate: 'sufficient for any civilization to develop accommodation
-   technology independently.' The Precursors assumed their successors
+   technology independently.' The thread builders assumed their successors
    would figure it out."
 
 LOG.WARN.002-004: "TBA"
@@ -141,17 +177,22 @@ LOG.WARN.002-004: "TBA"
 **ID:** `LORE.FRAGMENTS`
 **System:** No fragment entity exists
 **System Ready:** NO — needs EPIC.S8.ADAPTATION_FRAGMENTS
-**Volume:** 16 fragment entries + 8 resonance pair descriptions
+**Volume:** 12 fragment entries + 6 resonance pair descriptions
 **Dependencies:** EPIC.S8.ADAPTATION_FRAGMENTS
 **Priority:** HIGH — core collectible/knowledge system
 
 ### Fragment Catalog
 
-Per `factions_and_lore_v0.md`, 16 named fragments exist in design:
+> **Fragment count reduced from 16 to 12 to prevent collection fatigue.**
+> Resonance pairs reduced from 8 to 6. Each remaining fragment carries more
+> narrative weight. Four fragments consolidated into adjacent entries — specific
+> pruning handled in `factions_and_lore_v0.md`.
+
+Per `factions_and_lore_v0.md`, 12 named fragments exist in design:
 
 | # | Name | Location Type | Discovery Context | Resonance Pair |
 |---|------|--------------|-------------------|----------------|
-| 1 | The Containment Argument | Ruin | Lane nexus system | Pairs with #2 |
+| 1 | The Containment Argument | Ruin | Thread nexus system | Pairs with #2 |
 | 2 | The Accommodation Thesis | Ruin | Phase 2+ space | Pairs with #1 |
 | 3 | The Pentagon Compact | Derelict | Faction border system | Pairs with #4 |
 | 4 | The Isolation Doctrine | Signal | Remote frontier system | Pairs with #3 |
@@ -163,10 +204,6 @@ Per `factions_and_lore_v0.md`, 16 named fragments exist in design:
 | 10 | The Silence Protocol | Derelict | Abandoned sector | Pairs with #9 |
 | 11 | The Builder's Intent | Ruin | Weaver territory | Pairs with #12 |
 | 12 | The Expansion Record | Derelict | Valorin frontier | Pairs with #11 |
-| 13 | The Probability Archive | Signal | Chitin territory | Pairs with #14 |
-| 14 | The Certainty Cost | Ruin | War-scarred system | Pairs with #13 |
-| 15 | The Departure Manifest | Derelict | Haven starbase | Pairs with #16 |
-| 16 | The Last Message | Signal | Deep void space | Pairs with #15 |
 
 ### Fragment Content Format
 
@@ -189,17 +226,17 @@ FRAG.001.DISCOVERY: "TBA — The Containment Argument discovery text"
 FRAG.001.IDENTIFIED: "TBA — The Containment Argument full lore"
 FRAG.001.HINT: "TBA — gameplay implication"
 FRAG.001.RESONANCE: "TBA — resonance pair unlock description"
-... (16 fragments x 4 fields = 64 entries)
+... (12 fragments x 4 fields = 48 entries)
 ```
 
-### Resonance Pair Descriptions (8 needed)
+### Resonance Pair Descriptions (6 needed)
 
 ```
 RESONANCE.001 (Fragments 1+2): "Containment + Accommodation"
   Unlock: "TBA — understanding of why both approaches exist"
   Gameplay: "TBA — enables reading instability phase boundaries"
 
-RESONANCE.002-008: "TBA"
+RESONANCE.002-006: "TBA"
 ```
 
 ---
@@ -220,8 +257,8 @@ RESONANCE.002-008: "TBA"
 | 0 | Dormant | "TBA — first dock description. Dark corridors, ancient machinery, faint hum." |
 | 1 | Laboratory | "TBA — basic analysis restored. Fragment identification becomes possible." |
 | 2 | Drydock | "TBA — ship refit bay operational. T3 module installation unlocked." |
-| 3 | Research Wing | "TBA — bidirectional lane access. Deep lore terminal activated." |
-| 4 | Living Quarters | "TBA — Haven becomes a functional base. Final Precursor records accessible." |
+| 3 | Research Wing | "TBA — bidirectional thread access. Deep lore terminal activated." |
+| 4 | Living Quarters | "TBA — Haven becomes a functional base. Final ancient records accessible." |
 
 ### Environmental Logs
 
@@ -248,11 +285,21 @@ HAVEN.LOG.002 (Tier 1): "TBA — lab notebook. Research on accommodation geometr
 
 | Faction | History Topic | Connection to Main Mystery |
 |---------|--------------|---------------------------|
-| **Concord** | Founding as lane-order federation; suppression of instability knowledge | Concord KNOWS about the lattice decay and is covering it up |
-| **Chitin** | Hive evolution; probability-based adaptation philosophy | Chitin probability models are detecting lane decay patterns |
-| **Weavers** | Construction using lane-compatible materials; builder culture | Weaver materials accidentally mirror accommodation geometry |
-| **Valorin** | Frontier expansion; first contact with void space | Valorin scouts found Precursor sites first but couldn't read them |
+| **Concord** | Founding as thread-order federation; suppression of instability knowledge | Concord KNOWS about the lattice decay and is covering it up |
+| **Chitin** | Hive evolution; probability-based adaptation philosophy | Chitin probability models are detecting thread decay patterns |
+| **Weavers** | Construction using thread-compatible materials; builder culture | Weaver materials accidentally mirror accommodation geometry |
+| **Valorin** | Frontier expansion; first contact with void space | Valorin scouts found ancient sites first but couldn't read them |
 | **Communion** | Direct experience of metric variance; mystic tradition | Communion mystics are closest to understanding the truth |
+
+**Mechanical hook rule applies to faction backstories.** Each history must embed
+trade intelligence that rewards attentive readers. Examples:
+- Chitin: "The Hive ceased rare mineral shipments through Altair after the
+  Concordance Embargo. Informed captains reroute via Deneb." (Trade route hint)
+- Valorin: "Frontier surveys cataloged anomalous resource concentrations at
+  three systems along the Vega corridor. Official records were sealed."
+  (Coordinate hint → hidden caches)
+- Concord: "Standard tariff schedules list Weaver composite alloys at 40% markup
+  through Concord hubs. Direct Weaver stations sell at base cost." (Price intel)
 
 ```
 FACTION.CONCORD.HISTORY: "TBA — 1-2 pages"
@@ -279,7 +326,7 @@ FACTION.COMMUNION.HISTORY: "TBA — 1-2 pages"
 ENDGAME.REINFORCE:
   Name: "Reinforce the Lattice"
   Alignment: Concord-adjacent (order, stability)
-  Narrative: "TBA — Strengthen the existing lane network. Buy time.
+  Narrative: "TBA — Strengthen the existing thread network. Buy time.
    The lattice will last another millennium. But the underlying
    problem remains."
   Resolution: "TBA — bittersweet ending. Stability preserved at the
@@ -288,11 +335,11 @@ ENDGAME.REINFORCE:
 ENDGAME.NATURALIZE:
   Name: "Build Accommodation"
   Alignment: Frontier/Weaver-adjacent (engineering, adaptation)
-  Narrative: "TBA — Apply Precursor accommodation geometry to modern
-   infrastructure. Lanes become optional as structures learn to
+  Narrative: "TBA — Apply ancient accommodation geometry to modern
+   infrastructure. Threads become optional as structures learn to
    exist in variable metric space."
   Resolution: "TBA — hopeful ending. Difficult transition, but the
-   galaxy gains true freedom. Lanes fade over centuries."
+   galaxy gains true freedom. Threads fade over centuries."
 
 ENDGAME.RENEGOTIATE:
   Name: "Contact the Instability"
@@ -331,14 +378,118 @@ WAR.VALORIN.RETREAT: "Valorin forces fell back from {system}. 'A tactical reposi
 
 ---
 
+## 7. Pentagon Ring Evidence (System NOT Ready)
+
+**ID:** `LORE.PENTAGON_EVIDENCE`
+**System:** Ancient data log system (same as LORE.ANCIENT_LOGS)
+**System Ready:** NO — shares dependencies with Ancient Data Logs
+**Volume:** 4-6 logs + gameplay trigger system
+**Dependencies:** EPIC.S8.STORY_STATE_MACHINE, fracture-space trade mechanics
+**Priority:** HIGH — supports the game's central narrative twist
+
+### Design Context
+
+The pentagon dependency ring is engineered — designed by the same intelligence
+that built the threads. The player discovers this through **gameplay first**
+(fracture-space trade breaks the ring pattern, a Communion station produces its
+own Food) and data logs **confirm** afterward. The logs are NOT the revelation.
+The gameplay is the revelation. The logs are the explanation.
+
+### Thread F: Economic Topology (4-6 logs)
+
+These logs show ancient engineers discussing the economic design of the
+containment system. They should feel like internal planning documents, not
+grand pronouncements.
+
+```
+LOG.ECON.001 (Revelation Tier 2):
+  Location: Ruin near faction border system
+  Speakers: Oruth (project lead), Tal (infrastructure engineer)
+  Oruth: "The containment lattice stabilizes metric fields along
+         defined corridors. But we're still seeing independent
+         resource development in the interstitial volumes."
+  Tal:   "Define 'independent.'"
+  Oruth: "Three substrate clusters have achieved productive
+         self-sufficiency within 200 cycles. They don't need
+         the corridors for material exchange. They've found
+         local alternatives."
+  Tal:   "And the problem with that is...?"
+  Oruth: "The problem is that self-sufficient clusters don't
+         maintain the lattice. Why would they? It costs resources
+         to support infrastructure you don't use."
+  [Log ends]
+
+LOG.ECON.002 (Revelation Tier 2):
+  Location: Derelict near thread nexus
+  Speakers: Oruth, Senn (experimentalist)
+  Senn:  "I've run the topology optimization. If we redistribute
+         the mineral profiles to create complementary deficiency
+         patterns—"
+  Oruth: "In plain language, Senn."
+  Senn:  "Make each region need something only its neighbor has.
+         Circular dependency. They maintain the corridors because
+         they need the corridors. The lattice becomes self-funding."
+  Oruth: "And the clusters that are already self-sufficient?"
+  Senn:  "The metric correction fields can be tuned to suppress
+         specific geological processes. Selectively. It would look
+         natural — like the local geology simply doesn't support
+         certain mineral formation."
+  Oruth: "You're describing economic engineering on a civilizational
+         scale."
+  Senn:  "I'm describing infrastructure maintenance. The lattice
+         needs users. Users need incentives. This provides both."
+  [Log ends]
+
+LOG.ECON.003 (Revelation Tier 3):
+  Location: Ruin in deep space
+  Speakers: Vael (accommodation advocate), Kesh
+  Vael:  "I found Senn's topology reports. The resource distribution
+         isn't geological. It's engineered."
+  Kesh:  "I know."
+  Vael:  "You KNOW? How long have you known?"
+  Kesh:  "Since cycle 3,800. The mineral surveys from Site Theta
+         showed impossible distribution patterns. No natural process
+         creates complementary deficiency rings across five stellar
+         clusters."
+  Vael:  "And you didn't—"
+  Kesh:  "What would I have said? 'The containment system includes
+         economic dependency by design'? The Council would classify
+         it. They'd classify me."
+  [Log ends]
+
+LOG.ECON.004-006: "TBA — Escalation. The Adaptation faction's realization
+that accommodation geometry doesn't just enable off-thread travel — it enables
+off-system economics. Freedom from the threads IS freedom from the dependency
+ring. This is what the Containment faction was actually afraid of."
+```
+
+### Player Discovery Sequence
+
+1. **Gameplay trigger (primary):** Player establishes fracture-space trade
+   route. A Communion station in fracture space begins producing goods it
+   "shouldn't" be able to produce. The pentagon ring breaks locally. UI
+   notification: "Waystation [name] has developed local Food production.
+   Concord supply dependency reduced."
+
+2. **Data logs (confirmation):** After the gameplay trigger, ancient logs
+   about economic topology become available at nearby discovery sites. The
+   player reads engineering documents that explain what they just observed.
+
+3. **Never the reverse:** The player should NEVER read about the engineered
+   ring before seeing it break through gameplay. The experience reveals.
+   The text confirms.
+
+---
+
 ## Summary
 
 | Block | ID | Volume | System Ready | Priority |
 |-------|-----|--------|-------------|----------|
-| Precursor Data Logs | LORE.PRECURSOR_LOGS | 20-30 scripts | NO | HIGH |
-| Adaptation Fragment Lore | LORE.FRAGMENTS | 64 entries | NO | HIGH |
+| Ancient Data Logs | LORE.ANCIENT_LOGS | 20-30 scripts | NO | HIGH |
+| Pentagon Ring Evidence | LORE.PENTAGON_EVIDENCE | 4-6 logs | NO | HIGH |
+| Adaptation Fragment Lore | LORE.FRAGMENTS | 48 entries | NO | HIGH |
 | Haven Starbase Lore | LORE.HAVEN | 15-20 entries | NO | MEDIUM |
 | Faction Backstories | LORE.FACTION_BACKSTORY | 5 histories | PARTIAL | MEDIUM |
 | Endgame Path Narratives | LORE.ENDGAME | 3 paths | NO | LOW |
 | Warfront Commentary | LORE.WARFRONT_COMMENTARY | ~20 lines | PARTIAL | LOW |
-| **Total** | | **~130-150** | | |
+| **Total** | | **~125-150** | | |

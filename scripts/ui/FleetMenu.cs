@@ -26,6 +26,10 @@ public partial class FleetMenu : Control
     private string _selectedFleetId = "";
     private Label _selectedLabel = null!;
 
+    // GATE.S7.FLEET_TAB.ACTIONS.001: Dismiss confirmation state.
+    private bool _dismissConfirmPending = false;
+    private string _dismissConfirmShipId = "";
+
     private double _accumMs = 0.0;
 
     private ulong _lastRefreshMs = 0;
@@ -270,6 +274,13 @@ public partial class FleetMenu : Control
         try { return (long)v; } catch { return 0L; }
     }
 
+    private static float GetFloat(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return 0f;
+        var v = d[key];
+        try { return (float)v; } catch { return 0f; }
+    }
+
     private void Refresh()
     {
         if (_bridge == null) return;
@@ -298,10 +309,462 @@ public partial class FleetMenu : Control
             return;
         }
 
+        // --- FLEET ROSTER (master list panel, GATE.S7.FLEET_TAB.LIST.001) ---
+        _list.AddChild(new Label
+        {
+            Text = "FLEET ROSTER",
+            Modulate = new Color(0.7f, 1f, 0.85f),
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+
+        _list.AddChild(new Label
+        {
+            Text = "Ship | Class | Hull | Shield | Location | Job",
+            Modulate = new Color(0.6f, 0.6f, 0.8f),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        });
+        _list.AddChild(new HSeparator());
+
+        var roster = _bridge.GetFleetRosterV0();
+        foreach (var rosterVar in roster)
+        {
+            var rd = rosterVar.Obj as Dictionary;
+            if (rd == null) continue;
+
+            var rShipId = GetStr(rd, "ship_id");
+            var rShipClass = GetStr(rd, "ship_class");
+            var rHullPct = GetFloat(rd, "hull_hp_pct");
+            var rShieldPct = GetFloat(rd, "shield_hp_pct");
+            var rLocation = GetStr(rd, "location_name");
+            var rJobStatus = GetStr(rd, "job_status");
+
+            var rosterRow = new HBoxContainer();
+
+            // Select button for roster row (GATE.S7.FLEET_TAB.DETAIL.001).
+            var capturedShipId = rShipId; // capture for closure
+            var btnRosterSelect = new Button
+            {
+                Text = (rShipId == _selectedFleetId) ? ">>>" : "Select",
+                CustomMinimumSize = new Vector2(60, 0)
+            };
+            btnRosterSelect.Disabled = (rShipId == _selectedFleetId);
+            btnRosterSelect.Pressed += () =>
+            {
+                _selectedFleetId = capturedShipId;
+                _bridge.SetUiSelectedFleetId(capturedShipId);
+                Refresh();
+            };
+            rosterRow.AddChild(btnRosterSelect);
+
+            // Ship ID + class.
+            rosterRow.AddChild(new Label
+            {
+                Text = $"{rShipId}",
+                CustomMinimumSize = new Vector2(160, 0)
+            });
+            rosterRow.AddChild(new Label
+            {
+                Text = rShipClass,
+                CustomMinimumSize = new Vector2(90, 0),
+                Modulate = new Color(0.85f, 0.85f, 1f)
+            });
+
+            // Hull HP bar.
+            var hullBar = new ProgressBar
+            {
+                MinValue = 0,
+                MaxValue = 1,
+                Value = rHullPct,
+                CustomMinimumSize = new Vector2(100, 18),
+                ShowPercentage = false
+            };
+            var hullBarSb = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
+            hullBarSb.SetContentMarginAll(0);
+            hullBar.AddThemeStyleboxOverride("background", hullBarSb);
+            var hullFillSb = new StyleBoxFlat { BgColor = rHullPct > 0.5f ? new Color(0.2f, 0.8f, 0.2f) : rHullPct > 0.25f ? new Color(0.9f, 0.7f, 0.1f) : new Color(0.9f, 0.2f, 0.2f) };
+            hullFillSb.SetContentMarginAll(0);
+            hullBar.AddThemeStyleboxOverride("fill", hullFillSb);
+
+            var hullBox = new HBoxContainer();
+            hullBox.AddChild(new Label { Text = "H:", CustomMinimumSize = new Vector2(20, 0) });
+            hullBox.AddChild(hullBar);
+            hullBox.AddChild(new Label { Text = $"{(int)(rHullPct * 100)}%", CustomMinimumSize = new Vector2(40, 0) });
+            rosterRow.AddChild(hullBox);
+
+            // Shield HP bar.
+            var shieldBar = new ProgressBar
+            {
+                MinValue = 0,
+                MaxValue = 1,
+                Value = rShieldPct,
+                CustomMinimumSize = new Vector2(100, 18),
+                ShowPercentage = false
+            };
+            var shieldBarSb = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
+            shieldBarSb.SetContentMarginAll(0);
+            shieldBar.AddThemeStyleboxOverride("background", shieldBarSb);
+            var shieldFillSb = new StyleBoxFlat { BgColor = new Color(0.2f, 0.5f, 1f) };
+            shieldFillSb.SetContentMarginAll(0);
+            shieldBar.AddThemeStyleboxOverride("fill", shieldFillSb);
+
+            var shieldBox = new HBoxContainer();
+            shieldBox.AddChild(new Label { Text = "S:", CustomMinimumSize = new Vector2(20, 0) });
+            shieldBox.AddChild(shieldBar);
+            shieldBox.AddChild(new Label { Text = $"{(int)(rShieldPct * 100)}%", CustomMinimumSize = new Vector2(40, 0) });
+            rosterRow.AddChild(shieldBox);
+
+            // Location.
+            rosterRow.AddChild(new Label
+            {
+                Text = rLocation,
+                CustomMinimumSize = new Vector2(120, 0),
+                ClipText = true
+            });
+
+            // Job status.
+            rosterRow.AddChild(new Label
+            {
+                Text = rJobStatus,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                ClipText = true,
+                Modulate = new Color(0.9f, 0.9f, 0.7f)
+            });
+
+            _list.AddChild(rosterRow);
+        }
+
+        _list.AddChild(new HSeparator());
+
+        // --- SHIP DETAIL PANEL (GATE.S7.FLEET_TAB.DETAIL.001) ---
+        // Shows detailed info for the selected ship when a roster row is clicked.
+        if (!string.IsNullOrWhiteSpace(_selectedFleetId))
+        {
+            var detail = _bridge.GetFleetShipDetailV0(_selectedFleetId);
+            if (detail != null && detail.Count > 0)
+            {
+                var detailPanel = new VBoxContainer();
+
+                // Header
+                detailPanel.AddChild(new Label
+                {
+                    Text = $"SHIP DETAIL: {GetStr(detail, "ship_id")}",
+                    Modulate = new Color(0.85f, 0.95f, 1f),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+
+                var detailClass = GetStr(detail, "ship_class");
+                detailPanel.AddChild(new Label
+                {
+                    Text = $"Class: {detailClass}",
+                    Modulate = new Color(0.85f, 0.85f, 1f)
+                });
+
+                // Hull HP bar with numeric values
+                int hullHp = GetInt(detail, "hull_hp");
+                int hullHpMax = GetInt(detail, "hull_hp_max");
+                float detailHullPct = (hullHpMax > 0) ? Math.Clamp((float)hullHp / hullHpMax, 0f, 1f) : 1f;
+
+                var detailHullRow = new HBoxContainer();
+                detailHullRow.AddChild(new Label { Text = "Hull:", CustomMinimumSize = new Vector2(50, 0) });
+                var detailHullBar = new ProgressBar
+                {
+                    MinValue = 0, MaxValue = 1, Value = detailHullPct,
+                    CustomMinimumSize = new Vector2(200, 20), ShowPercentage = false
+                };
+                var detailHullBg = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
+                detailHullBg.SetContentMarginAll(0);
+                detailHullBar.AddThemeStyleboxOverride("background", detailHullBg);
+                var detailHullFill = new StyleBoxFlat
+                {
+                    BgColor = detailHullPct > 0.5f ? new Color(0.2f, 0.8f, 0.2f)
+                        : detailHullPct > 0.25f ? new Color(0.9f, 0.7f, 0.1f)
+                        : new Color(0.9f, 0.2f, 0.2f)
+                };
+                detailHullFill.SetContentMarginAll(0);
+                detailHullBar.AddThemeStyleboxOverride("fill", detailHullFill);
+                detailHullRow.AddChild(detailHullBar);
+                detailHullRow.AddChild(new Label { Text = $"  {hullHp} / {hullHpMax}" });
+                detailPanel.AddChild(detailHullRow);
+
+                // Shield HP bar with numeric values
+                int shieldHp = GetInt(detail, "shield_hp");
+                int shieldHpMax = GetInt(detail, "shield_hp_max");
+                float detailShieldPct = (shieldHpMax > 0) ? Math.Clamp((float)shieldHp / shieldHpMax, 0f, 1f) : 1f;
+
+                var detailShieldRow = new HBoxContainer();
+                detailShieldRow.AddChild(new Label { Text = "Shield:", CustomMinimumSize = new Vector2(50, 0) });
+                var detailShieldBar = new ProgressBar
+                {
+                    MinValue = 0, MaxValue = 1, Value = detailShieldPct,
+                    CustomMinimumSize = new Vector2(200, 20), ShowPercentage = false
+                };
+                var detailShieldBg = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
+                detailShieldBg.SetContentMarginAll(0);
+                detailShieldBar.AddThemeStyleboxOverride("background", detailShieldBg);
+                var detailShieldFill = new StyleBoxFlat { BgColor = new Color(0.2f, 0.5f, 1f) };
+                detailShieldFill.SetContentMarginAll(0);
+                detailShieldBar.AddThemeStyleboxOverride("fill", detailShieldFill);
+                detailShieldRow.AddChild(detailShieldBar);
+                detailShieldRow.AddChild(new Label { Text = $"  {shieldHp} / {shieldHpMax}" });
+                detailPanel.AddChild(detailShieldRow);
+
+                // Speed
+                var detailSpeed = GetFloat(detail, "speed");
+                detailPanel.AddChild(new Label { Text = $"Speed: {detailSpeed:F2} AU/tick" });
+
+                // Location
+                var detailLocation = GetStr(detail, "location_name");
+                detailPanel.AddChild(new Label
+                {
+                    Text = $"Location: {detailLocation}",
+                    Modulate = new Color(0.9f, 0.9f, 0.7f)
+                });
+
+                // Job status
+                var detailJob = GetStr(detail, "job_status");
+                detailPanel.AddChild(new Label
+                {
+                    Text = $"Job: {detailJob}",
+                    Modulate = new Color(0.9f, 0.85f, 0.7f)
+                });
+
+                // Module loadout list
+                detailPanel.AddChild(new HSeparator());
+                detailPanel.AddChild(new Label
+                {
+                    Text = "Module Loadout",
+                    Modulate = new Color(0.7f, 1f, 0.85f)
+                });
+
+                if (detail.ContainsKey("modules"))
+                {
+                    var modules = detail["modules"].AsGodotArray();
+                    if (modules != null && modules.Count > 0)
+                    {
+                        foreach (var modVar in modules)
+                        {
+                            var md = modVar.Obj as Dictionary;
+                            if (md == null) continue;
+
+                            var modSlotId = GetStr(md, "slot_id");
+                            var modModuleId = GetStr(md, "module_id");
+                            var modDisplayName = GetStr(md, "display_name");
+
+                            string modText;
+                            if (string.IsNullOrEmpty(modModuleId))
+                            {
+                                modText = $"  [{modSlotId}] (empty)";
+                            }
+                            else
+                            {
+                                var nameLabel = string.IsNullOrEmpty(modDisplayName) ? modModuleId : modDisplayName;
+                                modText = $"  [{modSlotId}] {nameLabel}";
+                            }
+
+                            detailPanel.AddChild(new Label
+                            {
+                                Text = modText,
+                                Modulate = string.IsNullOrEmpty(modModuleId)
+                                    ? new Color(0.5f, 0.5f, 0.5f)
+                                    : new Color(0.85f, 0.95f, 0.85f)
+                            });
+                        }
+                    }
+                    else
+                    {
+                        detailPanel.AddChild(new Label { Text = "  (no modules)", Modulate = new Color(0.5f, 0.5f, 0.5f) });
+                    }
+                }
+                else
+                {
+                    detailPanel.AddChild(new Label { Text = "  (no module data)", Modulate = new Color(0.5f, 0.5f, 0.5f) });
+                }
+
+                // --- CARGO DISPLAY (GATE.S7.FLEET_TAB.CARGO.001) ---
+                detailPanel.AddChild(new HSeparator());
+                detailPanel.AddChild(new Label
+                {
+                    Text = "Cargo",
+                    Modulate = new Color(0.7f, 1f, 0.85f)
+                });
+
+                // Cargo data comes from the explain snapshot for this fleet (rows array).
+                // Find the matching row to extract structured cargo info.
+                var matchedRow = rows.FirstOrDefault(r => GetStr(r!, "id") == _selectedFleetId);
+                if (matchedRow != null)
+                {
+                    var cargoSummary = GetStr(matchedRow!, "cargo_summary");
+                    if (string.IsNullOrWhiteSpace(cargoSummary) || cargoSummary == "(empty)")
+                    {
+                        detailPanel.AddChild(new Label
+                        {
+                            Text = "  Cargo: Empty",
+                            Modulate = new Color(0.5f, 0.5f, 0.5f)
+                        });
+                    }
+                    else
+                    {
+                        // cargo_summary format: "good_id:qty, good_id:qty"
+                        var cargoEntries = cargoSummary.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        foreach (var entry in cargoEntries)
+                        {
+                            var parts = entry.Split(':', 2);
+                            string goodId = parts.Length > 0 ? parts[0].Trim() : "";
+                            string qtyStr = parts.Length > 1 ? parts[1].Trim() : "0";
+
+                            // Format good name: capitalize first letter for display.
+                            string displayName = string.IsNullOrEmpty(goodId)
+                                ? "Unknown"
+                                : char.ToUpperInvariant(goodId[0]) + goodId.Substring(1).Replace('_', ' ');
+
+                            detailPanel.AddChild(new Label
+                            {
+                                Text = $"  {displayName}: {qtyStr}",
+                                Modulate = new Color(0.9f, 0.9f, 0.8f)
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    detailPanel.AddChild(new Label
+                    {
+                        Text = "  Cargo: Empty",
+                        Modulate = new Color(0.5f, 0.5f, 0.5f)
+                    });
+                }
+
+                // --- PROGRAM ASSIGNMENT VIEW (GATE.S7.FLEET_TAB.PROGRAM.001) ---
+                detailPanel.AddChild(new HSeparator());
+                detailPanel.AddChild(new Label
+                {
+                    Text = "Program",
+                    Modulate = new Color(0.7f, 1f, 0.85f)
+                });
+
+                // Program ID comes from the explain snapshot for this fleet.
+                string programId = "";
+                if (matchedRow != null)
+                {
+                    programId = GetStr(matchedRow!, "program_id");
+                }
+
+                if (string.IsNullOrWhiteSpace(programId))
+                {
+                    detailPanel.AddChild(new Label
+                    {
+                        Text = "  Program: None",
+                        Modulate = new Color(0.5f, 0.5f, 0.5f)
+                    });
+                }
+                else
+                {
+                    detailPanel.AddChild(new Label
+                    {
+                        Text = $"  Program: {programId}",
+                        Modulate = new Color(0.85f, 0.95f, 0.85f)
+                    });
+                }
+
+                var programActionRow = new HBoxContainer();
+
+                var btnAssignProgram = new Button
+                {
+                    Text = "Assign Program (Coming Soon)",
+                    CustomMinimumSize = new Vector2(220, 30),
+                    Disabled = true
+                };
+                programActionRow.AddChild(btnAssignProgram);
+
+                detailPanel.AddChild(programActionRow);
+
+                // --- FLEET ACTION BUTTONS (GATE.S7.FLEET_TAB.ACTIONS.001) ---
+                detailPanel.AddChild(new HSeparator());
+                detailPanel.AddChild(new Label
+                {
+                    Text = "Actions",
+                    Modulate = new Color(0.7f, 1f, 0.85f)
+                });
+
+                var actionRow = new HBoxContainer();
+                var capturedActionShipId = _selectedFleetId; // capture for closures
+
+                // Recall button: sends the ship back to the player's current node.
+                var btnRecall = new Button { Text = "Recall", CustomMinimumSize = new Vector2(80, 30) };
+                btnRecall.Pressed += () =>
+                {
+                    _bridge.FleetRecallV0(capturedActionShipId);
+                    _dismissConfirmPending = false;
+                    _dismissConfirmShipId = "";
+                    Refresh();
+                };
+                actionRow.AddChild(btnRecall);
+
+                // Dismiss button: two-click confirmation. First click changes to "Confirm Dismiss?",
+                // second click actually dismisses. Cannot dismiss the player's own ship.
+                bool isPlayerShip = string.Equals(capturedActionShipId, "fleet_trader_1", StringComparison.Ordinal);
+
+                var btnDismiss = new Button { CustomMinimumSize = new Vector2(130, 30) };
+                if (isPlayerShip)
+                {
+                    btnDismiss.Text = "Dismiss (Your Ship)";
+                    btnDismiss.Disabled = true;
+                }
+                else if (_dismissConfirmPending && string.Equals(_dismissConfirmShipId, capturedActionShipId, StringComparison.Ordinal))
+                {
+                    btnDismiss.Text = "Confirm Dismiss?";
+                    btnDismiss.Modulate = new Color(1f, 0.4f, 0.4f);
+                    btnDismiss.Pressed += () =>
+                    {
+                        _bridge.FleetDismissV0(capturedActionShipId);
+                        _dismissConfirmPending = false;
+                        _dismissConfirmShipId = "";
+                        _selectedFleetId = "";
+                        _bridge.SetUiSelectedFleetId("");
+                        Refresh();
+                    };
+                }
+                else
+                {
+                    btnDismiss.Text = "Dismiss";
+                    btnDismiss.Pressed += () =>
+                    {
+                        _dismissConfirmPending = true;
+                        _dismissConfirmShipId = capturedActionShipId;
+                        Refresh();
+                    };
+                }
+                actionRow.AddChild(btnDismiss);
+
+                // Rename button: placeholder, disabled.
+                var btnRename = new Button
+                {
+                    Text = "Rename (Coming Soon)",
+                    CustomMinimumSize = new Vector2(160, 30),
+                    Disabled = true
+                };
+                actionRow.AddChild(btnRename);
+
+                detailPanel.AddChild(actionRow);
+
+                _list.AddChild(detailPanel);
+            }
+        }
+
+        _list.AddChild(new HSeparator());
+
+        // --- DETAILED FLEET VIEW (existing) ---
+        _list.AddChild(new Label
+        {
+            Text = "FLEET DETAIL",
+            Modulate = new Color(0.7f, 0.7f, 1f),
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+
         _list.AddChild(new Label
         {
             Text = "ID | Role | Node | State | Ctrl | Override | Task | JobPhase | JobGood | Remaining | Cargo | Route | Actions",
-            Modulate = new Color(0.7f, 0.7f, 1f),
+            Modulate = new Color(0.6f, 0.6f, 0.8f),
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         });
 

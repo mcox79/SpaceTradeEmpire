@@ -95,12 +95,38 @@ public static class ContentRegistryLoader
         "  \"modules\": [\n" +
         "    { \"id\": \"cap_module_refinery\" },\n" +
         "    { \"id\": \"cargo_bay_mk2\" },\n" +
+        "    { \"id\": \"defense_armor_weave_t2\" },\n" +
+        "    { \"id\": \"defense_damage_control_t2\" },\n" +
+        "    { \"id\": \"defense_hull_plating_t2\" },\n" +
+        "    { \"id\": \"defense_point_barrier_t2\" },\n" +
+        "    { \"id\": \"engine_fusion_t2\" },\n" +
+        "    { \"id\": \"engine_ion_t2\" },\n" +
         "    { \"id\": \"engine_mk2\" },\n" +
+        "    { \"id\": \"engine_plasma_t2\" },\n" +
+        "    { \"id\": \"engine_warp_t2\" },\n" +
+        "    { \"id\": \"hull_nanite_t2\" },\n" +
         "    { \"id\": \"hull_plating_mk2\" },\n" +
+        "    { \"id\": \"point_defense_t2\", \"base_damage\": 14 },\n" +
+        "    { \"id\": \"scanner_deep_t2\" },\n" +
         "    { \"id\": \"scanner_mk2\" },\n" +
+        "    { \"id\": \"shield_adaptive_t2\" },\n" +
+        "    { \"id\": \"shield_deflector_t2\" },\n" +
+        "    { \"id\": \"shield_hardened_t2\" },\n" +
+        "    { \"id\": \"shield_matrix_t2\" },\n" +
+        "    { \"id\": \"utility_cargo_expander_t2\" },\n" +
+        "    { \"id\": \"utility_ecm_t2\" },\n" +
+        "    { \"id\": \"utility_repair_drone_t2\" },\n" +
+        "    { \"id\": \"utility_scanner_array_t2\" },\n" +
+        "    { \"id\": \"weapon_autocannon_t2\", \"base_damage\": 16 },\n" +
         "    { \"id\": \"weapon_cannon_mk1\", \"base_damage\": 12 },\n" +
+        "    { \"id\": \"weapon_gauss_cannon_t2\", \"base_damage\": 21 },\n" +
         "    { \"id\": \"weapon_laser_mk1\", \"base_damage\": 10 },\n" +
-        "    { \"id\": \"weapon_laser_mk2\", \"base_damage\": 15 }\n" +
+        "    { \"id\": \"weapon_laser_mk2\", \"base_damage\": 15 },\n" +
+        "    { \"id\": \"weapon_missile_launcher_t2\", \"base_damage\": 17 },\n" +
+        "    { \"id\": \"weapon_plasma_cannon_t2\", \"base_damage\": 22 },\n" +
+        "    { \"id\": \"weapon_plasma_t2\", \"base_damage\": 18 },\n" +
+        "    { \"id\": \"weapon_point_defense_t2\", \"base_damage\": 12 },\n" +
+        "    { \"id\": \"weapon_railgun_t2\", \"base_damage\": 20 }\n" +
         "  ]\n" +
         "}\n";
 
@@ -122,6 +148,8 @@ public static class ContentRegistryLoader
         // GATE.S18.TRADE_GOODS.PRICE_BANDS.001: Numeric price per trade_goods_v0.md.
         public int BasePrice { get; set; }
         public int PriceSpread { get; set; }
+        // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Flavor text for narrative UI display.
+        public string FlavorText { get; set; } = "";
     }
 
     public sealed class ModuleDefV0
@@ -190,7 +218,7 @@ public static class ContentRegistryLoader
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("goods[] entries must be objects.");
 
-            AssertNoExtraPropertiesOrThrow(e, "base_price_band", "display_name", "id", "stackable", "tier");
+            AssertNoExtraPropertiesOrThrow(e, "base_price_band", "display_name", "flavor_text", "id", "stackable", "tier");
 
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("goods[] missing required field: id (string).");
@@ -204,6 +232,9 @@ public static class ContentRegistryLoader
                 good.Tier = tierEl.GetInt32();
             if (e.TryGetProperty("stackable", out var stackEl) && (stackEl.ValueKind == JsonValueKind.True || stackEl.ValueKind == JsonValueKind.False))
                 good.Stackable = stackEl.GetBoolean();
+            // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Optional flavor text.
+            if (e.TryGetProperty("flavor_text", out var ftEl) && ftEl.ValueKind == JsonValueKind.String)
+                good.FlavorText = ftEl.GetString() ?? "";
             list.Add(good);
         }
         return list;
@@ -488,7 +519,7 @@ public static class ContentRegistryLoader
                 }
 
                 // goods
-                ValidateIdArray(root, "goods", "goods[]", failures, "base_price_band", "display_name", "stackable", "tier");
+                ValidateIdArray(root, "goods", "goods[]", failures, "base_price_band", "display_name", "flavor_text", "stackable", "tier");
 
                 // modules
                 ValidateIdArray(root, "modules", "modules[]", failures, "base_damage");

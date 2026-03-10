@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Space Trade Empire"
 config/version="1.0.0"
-run/main_scene="res://scenes/playable_prototype.tscn"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 
 [autoload]
@@ -30,6 +30,8 @@ TooltipLinkData="*res://addons/tooltips_pro/scripts/tooltip_link_data.gd"
 ToastManager="*res://scripts/ui/toast_manager.gd"
 UITheme="*res://scripts/ui/ui_theme.gd"
 MusicManager="*res://scripts/audio/music_manager.gd"
+CombatAudio="*res://scripts/audio/combat_audio.gd"
+SettingsManager="*res://scripts/core/settings_manager.gd"
 
 [display]
 

@@ -25,7 +25,7 @@ original design, and omits the Fleet tab entirely.
 ### Key Design Aspirations NOT Yet Implemented
 - Fleet tab: master-detail panel with fleet list, cargo, modules, programs
 - Sankey-style production chain visualization
-- Graphical tech tree with prerequisite lines and domain lanes
+- Graphical tech tree with prerequisite lines and domain threads
 - Price comparison sparkline table
 - Breadcrumb navigation and global search (Ctrl+F)
 - Direct action buttons in Needs Attention queue
@@ -343,7 +343,7 @@ This follows the "every number answers so what" principle. Anno 1800's biggest c
 ## Tab 5: Research (F5)
 
 > ✅ **Implemented** as text table sorted by tier.
-> Missing: graphical tech tree visualization, domain lanes (Combat/Trade/Exploration/Industry),
+> Missing: graphical tech tree visualization, domain threads (Combat/Trade/Exploration/Industry),
 > sustain status color coding, interactive prerequisite highlighting, "What do I need?" path.
 
 ### Purpose
@@ -390,7 +390,7 @@ Tech tree visualization, active research progress, sustain status.
 
 **Hover any locked tech** to see the prerequisite path highlighted — "what do I need to unlock this?" is the #1 question players ask of any tech tree (Factorio insight).
 
-**Domain lanes.** Group techs by domain (Combat, Trade, Exploration, Industry) with horizontal lanes. This follows the Endless Space 2 quadrant approach but in vertical lanes to avoid horizontal scrolling.
+**Domain threads.** Group techs by domain (Combat, Trade, Exploration, Industry) with horizontal threads. This follows the Endless Space 2 quadrant approach but in vertical threads to avoid horizontal scrolling.
 
 ---
 

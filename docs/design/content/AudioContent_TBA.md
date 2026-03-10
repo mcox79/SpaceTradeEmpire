@@ -157,9 +157,9 @@ Per AudioDesign.md.
 
 | ID | State | Sound Character | Duration |
 |----|-------|----------------|----------|
-| AUD.AMB.LANE_TRANSIT | In-lane travel | Doppler hum + field harmonics | Loop |
+| AUD.AMB.THREAD_TRANSIT | In-thread travel | Doppler hum + field harmonics | Loop |
 | AUD.AMB.WARP_TUNNEL | Warp tunnel transit | Deep whoosh + reality strain | Loop |
-| AUD.AMB.FRACTURE_SPACE | Off-lane fracture space | Unsettling metric shimmer | Loop |
+| AUD.AMB.FRACTURE_SPACE | Off-thread fracture space | Unsettling metric shimmer | Loop |
 
 ---
 

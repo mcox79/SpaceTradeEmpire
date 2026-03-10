@@ -94,6 +94,48 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S7.GALAXY_MAP_V2.WARFRONT_OVL.001: Warfront overlay query ──
+    /// <summary>
+    /// Returns Dictionary: key=system_id (string), value=float intensity (0.0-1.0).
+    /// Intensity is the max warfront intensity affecting each node, normalized
+    /// from WarfrontIntensity (0-4) to 0.0-1.0. Only contested nodes appear.
+    /// Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Dictionary GetWarfrontOverlayV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Warfronts is null) return;
+
+            foreach (var wf in state.Warfronts.Values)
+            {
+                float normalizedIntensity = (int)wf.Intensity / 4.0f;
+                if (normalizedIntensity <= 0f) continue;
+
+                foreach (var nodeId in wf.ContestedNodeIds)
+                {
+                    if (string.IsNullOrEmpty(nodeId)) continue;
+
+                    // Take max intensity if multiple warfronts contest same node.
+                    if (result.ContainsKey(nodeId))
+                    {
+                        float existing = (float)result[nodeId];
+                        if (normalizedIntensity > existing)
+                            result[nodeId] = normalizedIntensity;
+                    }
+                    else
+                    {
+                        result[nodeId] = normalizedIntensity;
+                    }
+                }
+            }
+        }, 0);
+
+        return result;
+    }
+
     /// <summary>
     /// Returns the max warfront intensity affecting a specific node (0 = peace).
     /// Used by GalaxyView for visual war-zone indicators.

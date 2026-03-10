@@ -24,7 +24,7 @@ and how the world responds — not just the number, but the EXPERIENCE of accumu
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| RiskSystem in SimCore (lane incident generation) | Done | Deterministic, hash-roll against BPS thresholds |
+| RiskSystem in SimCore (thread incident generation) | Done | Deterministic, hash-roll against BPS thresholds |
 | SecurityLaneSystem (delay/loss/inspection events) | Done | 4 risk bands: Low/Med/High/VeryHigh |
 | Delay display in HUD | Done | Orange/red text, ETA with delay ticks |
 | GetDelayStatusV0 / GetTravelEtaV0 bridge queries | Done | Nonblocking, cached |
@@ -59,7 +59,7 @@ and how the world responds — not just the number, but the EXPERIENCE of accumu
   hostile factions send patrols, neutral factions choose sides.
 
 - **Trace** = "The authorities notice you." You've left evidence. High trace means
-  inspections, lane patrols targeting you, and potential confiscation of contraband.
+  inspections, thread patrols targeting you, and potential confiscation of contraband.
   The smuggler's meter.
 
 ---
@@ -147,7 +147,7 @@ TRACE: Elevated → High
 |-------|---------------|------------------|
 | **Calm** | Normal market behavior | Nothing unusual |
 | **Noticed** | Buy prices at frequently-traded markets increase 5% | Slightly worse deals |
-| **Elevated** | NPC traders begin competing on your routes (+1 NPC convoy) | More trade traffic on your lanes |
+| **Elevated** | NPC traders begin competing on your routes (+1 NPC convoy) | More trade traffic on your threads |
 | **High** | Supply at overtraded markets drops 20%, prices volatile | "Where did the ore go?" |
 | **Critical** | Market temporarily closes to outsiders (1-day cooldown), prices spike | Forced route diversification |
 
@@ -159,15 +159,15 @@ TRACE: Elevated → High
 | **Noticed** | Friendly factions offer 5% better terms | Slightly better deals with allies |
 | **Elevated** | Hostile factions send patrol to your system (+1 patrol fleet) | "Why are Chitin patrols here?" |
 | **High** | Neutral factions demand tribute or allegiance | Diplomatic popup: "Choose a side" |
-| **Critical** | Hostile faction declares targeted embargo on player routes | Trade lanes to hostile territory blocked |
+| **Critical** | Hostile faction declares targeted embargo on player routes | Trade threads to hostile territory blocked |
 
 ### Trace (Stealth Risk)
 
 | Level | World Response | Player Perceives |
 |-------|---------------|------------------|
-| **Calm** | Normal lane travel | No incidents |
+| **Calm** | Normal thread travel | No incidents |
 | **Noticed** | Inspection probability increases 2x | Occasional "halt for inspection" events |
-| **Elevated** | Patrol fleets appear on your most-used routes | Armed ships at lane gates |
+| **Elevated** | Patrol fleets appear on your most-used routes | Armed ships at thread gates |
 | **High** | Contraband confiscation on inspection (lose goods) | "They took my cargo!" |
 | **Critical** | Active pursuit — hostile fleet dispatched to player's current system | "I need to run" |
 

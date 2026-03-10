@@ -104,6 +104,26 @@ If it fails: show the error and STOP — do not attempt to fix gates.json manual
 
 ---
 
+### STEP 5b — Update Active Issues (if applicable)
+
+After validation passes, check `docs/ACTIVE_ISSUES.md` for any OPEN issues
+that this gate addresses. Look for issues that reference this gate ID, or
+whose description matches the gate's work.
+
+If matches are found:
+1. Read the relevant section of `docs/ACTIVE_ISSUES.md` (Grep for the issue ID)
+2. Change the issue's Status from `OPEN` to `FIXED`
+3. Add the gate ID in the Gate column
+4. Add today's date
+
+If the gate's intent field mentions "Fixes ACTIVE_ISSUES C1, C2" etc., use
+those references directly. Otherwise, use best judgment based on the gate's
+evidence paths and intent.
+
+Skip this step if no issues match.
+
+---
+
 ### STEP 6 — Report
 
 Tell the user:
@@ -113,6 +133,7 @@ Gate GATE_ID closed.
 - docs/55_GATES.md: quick-ref + detail rows -> DONE
 - gates.json: task removed, queue re-sorted
 - RoadmapConsistency: PASS
+- Active issues updated: <list of issues marked FIXED, or "none">
 ```
 
 ---
@@ -163,6 +184,12 @@ Run RoadmapConsistency **once** after all edits:
 dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency"
 ```
 
+### BATCH STEP 5b — Update Active Issues (if applicable)
+
+After validation, check `docs/ACTIVE_ISSUES.md` for OPEN issues addressed by
+any of the closed gates. Update matching issues to FIXED with gate ID and date.
+Apply all edits to ACTIVE_ISSUES.md sequentially (same file).
+
 ### BATCH STEP 6 — Report summary
 
 ```
@@ -171,6 +198,7 @@ Batch closeout complete: N gates closed.
 - Skipped (already logged): GATE.A.B.001 (if any)
 - Skipped (not found): GATE.C.D.001 (if any)
 - RoadmapConsistency: PASS
+- Active issues updated: <list of issues marked FIXED, or "none">
 ```
 
 ---

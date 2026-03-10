@@ -1,6 +1,7 @@
 using SimCore.Commands;
 using SimCore.Systems;
 using SimCore.Programs;
+using SimCore.Tweaks;
 
 namespace SimCore;
 
@@ -11,7 +12,9 @@ public class SimKernel
     private Queue<SimCore.Intents.IIntent> _intentQueue = new();
     public SimState State => _state;
 
-    public SimKernel(int seed, string? tweakConfigJsonOverride = null)
+    public SimKernel(int seed, string? tweakConfigJsonOverride = null,
+        DifficultyPreset difficulty = DifficultyPreset.Normal,
+        string? captainName = null)
     {
         _state = new SimState(seed);
 
@@ -22,6 +25,13 @@ public class SimKernel
         // GATE.X.TWEAKS.DATA.001
         // Deterministic tweak loading (override wins, else stable defaults).
         _state.LoadTweaksFromJsonOverride(tweakConfigJsonOverride);
+
+        // GATE.S7.MAIN_MENU.NEW_VOYAGE.001: Store chosen difficulty in state for save/load persistence.
+        _state.Difficulty = difficulty;
+
+        // GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Store captain name for narrative display.
+        if (!string.IsNullOrWhiteSpace(captainName))
+            _state.CaptainName = captainName;
     }
 
     public void EnqueueCommand(ICommand cmd)

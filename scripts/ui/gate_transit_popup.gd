@@ -35,7 +35,7 @@ func show_transit_v0(bridge: Node, fleet_id: String, target_node_id: String) -> 
 	_cost_label.add_theme_color_override("font_color", Color.RED if not _can_afford else Color.WHITE)
 
 	if congestion_pct > 0:
-		_congestion_label.text = "Lane traffic: %d%%" % congestion_pct
+		_congestion_label.text = "Thread traffic: %d%%" % congestion_pct
 		# Color from green (low) through yellow to red (high).
 		var t: float = clampf(float(congestion_pct) / 100.0, 0.0, 1.0)
 		var cong_color := Color(t, 1.0 - t * 0.5, 0.2)

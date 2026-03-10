@@ -35,9 +35,13 @@ const ARRIVAL_THRESHOLD: float = 1.5
 const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
 
 ## Local patrol — ships pick new waypoints when they reach their target.
-const PATROL_RADIUS_MIN: float = 20.0
-const PATROL_RADIUS_MAX: float = 60.0
+## Radius tuned so ships spread across the playable system area (visible at camera altitude ~80).
+const PATROL_RADIUS_MIN: float = 15.0
+const PATROL_RADIUS_MAX: float = 45.0
 var _patrol_seed: int = 0
+
+## GATE.S7.COMBAT_FEEL_POLISH.SHIELD_VFX.001: Track previous shield state for break detection.
+var _prev_shield_remaining: int = -1  # -1 = not yet set
 
 ## Visual node references.
 @onready var _ship_visual: Node3D = $ShipVisual
@@ -51,11 +55,12 @@ var _faction_color: Color = Color.WHITE
 
 ## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001: Status overlay nodes.
 var _role_label: Label3D = null
+var _hostile_label: Label3D = null  # GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Dedicated hostile tag
 var _hp_bar: MeshInstance3D = null
 var _hp_bar_mat: StandardMaterial3D = null
 const ROLE_LETTERS := ["T", "H", "P"]  # Trader, Hauler, Patrol
-const LABEL_SHOW_DIST := 40.0
-const HP_BAR_HEIGHT := 3.5  # Above ship center
+const LABEL_SHOW_DIST := 160.0  # Visible at camera altitude ~80 (increased for altitude clarity)
+const HP_BAR_HEIGHT := 8.0  # Above ship center (raised for altitude visibility)
 
 
 func _ready() -> void:
@@ -69,35 +74,57 @@ func _ready() -> void:
 	_create_status_display()
 
 
-## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001: Create role label + HP bar overlay.
+## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
+## Create role label + hostile label + HP bar overlay. Sized for camera altitude ~80.
 func _create_status_display() -> void:
-	# Role label (T/H/P) — billboard facing camera.
+	# Role label (T/H/P) — billboard facing camera. Enlarged for altitude ~80 visibility.
 	_role_label = Label3D.new()
 	_role_label.name = "RoleLabel"
-	_role_label.pixel_size = 0.02
-	_role_label.font_size = 32
-	_role_label.outline_size = 8
+	_role_label.pixel_size = 0.10
+	_role_label.font_size = 64
+	_role_label.outline_size = 16
 	_role_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_role_label.position = Vector3(0, HP_BAR_HEIGHT + 0.5, 0)
-	_role_label.modulate = Color(0.8, 0.8, 0.8)
+	_role_label.no_depth_test = true
+	_role_label.render_priority = 10
+	_role_label.position = Vector3(0, HP_BAR_HEIGHT + 2.5, 0)
+	_role_label.modulate = Color(0.9, 0.95, 1.0)
 	_role_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_role_label)
 
-	# HP bar — thin box mesh scaled by HP ratio.
+	# Hostile label — dedicated "HOSTILE" text below role label. Red, bright, large.
+	_hostile_label = Label3D.new()
+	_hostile_label.name = "HostileLabel"
+	_hostile_label.pixel_size = 0.10
+	_hostile_label.font_size = 56
+	_hostile_label.outline_size = 16
+	_hostile_label.outline_modulate = Color(0, 0, 0, 0.9)
+	_hostile_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_hostile_label.no_depth_test = true
+	_hostile_label.render_priority = 10
+	_hostile_label.position = Vector3(0, HP_BAR_HEIGHT + 5.0, 0)
+	_hostile_label.text = "HOSTILE"
+	_hostile_label.modulate = Color(1.0, 0.2, 0.15)
+	_hostile_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_hostile_label.visible = false
+	add_child(_hostile_label)
+
+	# HP bar — thin box mesh scaled by HP ratio. Enlarged for altitude ~80 visibility.
 	_hp_bar = MeshInstance3D.new()
 	_hp_bar.name = "HpBar"
 	var box := BoxMesh.new()
-	box.size = Vector3(2.0, 0.15, 0.05)
+	box.size = Vector3(8.0, 0.6, 0.1)
 	_hp_bar.mesh = box
 	_hp_bar_mat = StandardMaterial3D.new()
 	_hp_bar_mat.albedo_color = Color(0.2, 0.8, 0.2)
 	_hp_bar_mat.emission_enabled = true
 	_hp_bar_mat.emission = Color(0.2, 0.8, 0.2)
-	_hp_bar_mat.emission_energy_multiplier = 1.5
+	_hp_bar_mat.emission_energy_multiplier = 5.0
 	_hp_bar_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_hp_bar_mat.no_depth_test = true
 	_hp_bar.material_override = _hp_bar_mat
 	_hp_bar.position = Vector3(0, HP_BAR_HEIGHT, 0)
 	_hp_bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_hp_bar.render_priority = 10
 	_hp_bar.visible = false  # Only show when damaged
 	add_child(_hp_bar)
 
@@ -108,28 +135,32 @@ func _update_status_display() -> void:
 	if _role_label:
 		var letter: String = ROLE_LETTERS[clampi(_role, 0, 2)]
 		if _is_hostile:
-			_role_label.text = letter + " [!]"
-			_role_label.modulate = Color(1.0, 0.3, 0.3)
+			_role_label.text = letter
+			_role_label.modulate = Color(1.0, 0.4, 0.35)
 		else:
 			_role_label.text = letter
-			_role_label.modulate = Color(0.8, 0.9, 1.0)
+			_role_label.modulate = Color(0.9, 0.95, 1.0)
+
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Dedicated hostile label visibility.
+	if _hostile_label:
+		_hostile_label.visible = _is_hostile
 
 	if _hp_bar and _hull_hp_max > 0:
 		var ratio := clampf(float(_hull_hp) / float(_hull_hp_max), 0.0, 1.0)
 		_hp_bar.scale = Vector3(ratio, 1.0, 1.0)
-		# Color: green > yellow > red
+		# Color: green > yellow > red with higher emission for altitude visibility.
 		if ratio > 0.5:
-			_hp_bar_mat.albedo_color = Color(0.2, 0.8, 0.2)
-			_hp_bar_mat.emission = Color(0.2, 0.8, 0.2)
+			_hp_bar_mat.albedo_color = Color(0.2, 0.9, 0.2)
+			_hp_bar_mat.emission = Color(0.2, 0.9, 0.2)
 		elif ratio > 0.25:
-			_hp_bar_mat.albedo_color = Color(0.9, 0.8, 0.1)
-			_hp_bar_mat.emission = Color(0.9, 0.8, 0.1)
+			_hp_bar_mat.albedo_color = Color(1.0, 0.9, 0.1)
+			_hp_bar_mat.emission = Color(1.0, 0.9, 0.1)
 		else:
-			_hp_bar_mat.albedo_color = Color(0.9, 0.2, 0.1)
-			_hp_bar_mat.emission = Color(0.9, 0.2, 0.1)
+			_hp_bar_mat.albedo_color = Color(1.0, 0.2, 0.1)
+			_hp_bar_mat.emission = Color(1.0, 0.2, 0.1)
 		_hp_bar.visible = ratio < 1.0  # Only show when damaged
 
-	# Distance-based visibility.
+	# Distance-based visibility for labels.
 	var players := get_tree().get_nodes_in_group("Player") if get_tree() else []
 	var show_label := false
 	for p in players:
@@ -138,6 +169,9 @@ func _update_status_display() -> void:
 			break
 	if _role_label:
 		_role_label.visible = show_label
+	# Hostile label: visible when in range AND hostile.
+	if _hostile_label:
+		_hostile_label.visible = show_label and _is_hostile
 
 
 ## GATE.S16.NPC_ALIVE.BT_ROLES.001: Attach behavior tree for this ship's role.
@@ -385,24 +419,36 @@ func _spawn_explosion_vfx() -> void:
 		ExplosionVfx.call("spawn", vfx_parent, global_position)
 
 
-## GATE.S7.COMBAT_JUICE.SHIELD_VFX.001 + DAMAGE_NUMBERS.001: Spawn shield ripple
-## and floating damage number at the hit position.
+## GATE.S7.COMBAT_JUICE.SHIELD_VFX.001 + DAMAGE_NUMBERS.001 +
+## GATE.S7.COMBAT_FEEL_POLISH.SHIELD_VFX.001: Spawn shield ripple, hull sparks,
+## shield break flash + SFX, and floating damage number at the hit position.
 func _spawn_hit_vfx(impact_pos: Vector3, damage_amount: int, shield_remaining: int) -> void:
 	var vfx_parent := get_parent() if get_parent() else null
 	if vfx_parent == null:
 		return
 
-	# Shield ripple or shield break.
+	# Detect shield break transition: shield was >0 last hit, now <=0.
+	var shield_just_broke: bool = (_prev_shield_remaining > 0 and shield_remaining <= 0)
+	_prev_shield_remaining = shield_remaining
+
 	var ShieldVfx := load("res://scripts/vfx/shield_ripple.gd")
 	if ShieldVfx:
 		if shield_remaining > 0:
-			# Shield still up — hex ripple at impact point.
+			# Shield still up — blue hex ripple at impact point.
 			if ShieldVfx.has_method("spawn_hit"):
 				ShieldVfx.call("spawn_hit", vfx_parent, global_position, impact_pos)
-		elif shield_remaining <= 0 and _hull_hp > 0:
-			# Shield just broke — flash + discharge.
+		elif shield_just_broke:
+			# Shield just broke this hit — bright flash + electric discharge + SFX.
 			if ShieldVfx.has_method("spawn_break"):
 				ShieldVfx.call("spawn_break", vfx_parent, global_position)
+			# Play shield break SFX via combat audio.
+			var ca := get_tree().root.get_node_or_null("CombatAudio") if get_tree() else null
+			if ca and ca.has_method("play_shield_break_sfx"):
+				ca.call("play_shield_break_sfx", global_position)
+		else:
+			# Hull hit (shields already down) — orange spark shower.
+			if ShieldVfx.has_method("spawn_hull_sparks"):
+				ShieldVfx.call("spawn_hull_sparks", vfx_parent, global_position, impact_pos)
 
 	# Damage number.
 	var DmgNumVfx := load("res://scripts/vfx/damage_number.gd")

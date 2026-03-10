@@ -32,6 +32,9 @@ public partial class EmpireDashboard : Control
     private Label _ovResearch = null!;
     private Label _ovMissions = null!;
     private Label _ovIndustry = null!;
+    // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Enriched overview (U6)
+    private Label _ovRecentActivity = null!;
+    private Label _ovSystemInfo = null!;
 
     // ── Trade list ──────────────────────────────────────────────────────────
     private VBoxContainer _tradeList = null!;
@@ -384,46 +387,110 @@ public partial class EmpireDashboard : Control
         _ovAttentionList.AddThemeConstantOverride("separation", 4);
         box.AddChild(_ovAttentionList);
 
+        // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: System & recent activity sections (U6)
+        var sysHdr = new Label { Text = "Current System" };
+        sysHdr.AddThemeColorOverride("font_color", new Color(0.4f, 0.7f, 0.9f));
+        sysHdr.AddThemeFontSizeOverride("font_size", 14);
+        box.AddChild(sysHdr);
+
+        _ovSystemInfo = new Label { Text = "—" };
+        _ovSystemInfo.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
+        _ovSystemInfo.AddThemeFontSizeOverride("font_size", 12);
+        _ovSystemInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        box.AddChild(_ovSystemInfo);
+
+        var actHdr = new Label { Text = "Recent Fleet Activity" };
+        actHdr.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 0.5f));
+        actHdr.AddThemeFontSizeOverride("font_size", 14);
+        box.AddChild(actHdr);
+
+        _ovRecentActivity = new Label { Text = "—" };
+        _ovRecentActivity.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
+        _ovRecentActivity.AddThemeFontSizeOverride("font_size", 12);
+        _ovRecentActivity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        box.AddChild(_ovRecentActivity);
+
         return box;
     }
 
     // GATE.S13.EMPIRE.OVERVIEW.001: Contextual, player-friendly overview labels
+    // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Enriched overview (U6)
     private void RefreshOverview()
     {
         var d = _bridge.GetEmpireSummaryV0();
         if (d == null) return;
 
-        _ovCredits.Text  = FormatNum(GetInt(d, "credits"));
-        _ovFleets.Text   = $"{GetInt(d, "player_fleet_count")} player, {GetInt(d, "fleet_count")} in galaxy";
+        var credits = GetInt(d, "credits");
+        var tick = GetInt(d, "tick");
+        _ovCredits.Text = $"{FormatNum(credits)} credits  |  Tick {FormatNum(tick)}";
 
+        // Fleet card: player fleets + current system context
+        var playerFleets = GetInt(d, "player_fleet_count");
+        var totalFleets = GetInt(d, "fleet_count");
+        var ps = _bridge.GetPlayerStateV0();
+        var nodeName = ps != null ? GetStr(ps, "node_name") : "";
+        _ovFleets.Text = string.IsNullOrEmpty(nodeName)
+            ? $"{playerFleets} player, {totalFleets} in galaxy"
+            : $"{playerFleets} player, {totalFleets} total  |  At: {nodeName}";
+
+        // Automation card: show cycle/credits if running, guidance if not
         var progCount = GetInt(d, "program_count");
-        _ovPrograms.Text = progCount > 0
-            ? $"{progCount} running"
-            : "None — set up automation at a station";
+        if (progCount > 0)
+        {
+            var perf = _bridge.GetProgramPerformanceV0("fleet_trader_1");
+            if (perf != null && perf.Count > 0)
+            {
+                var cycles = GetInt(perf, "cycles_run");
+                var earned = GetInt(perf, "credits_earned");
+                var moved = GetInt(perf, "goods_moved");
+                _ovPrograms.Text = $"{progCount} running  |  {FormatNum(cycles)} cycles, {FormatNum(earned)} cr earned, {FormatNum(moved)} goods";
+            }
+            else
+            {
+                _ovPrograms.Text = $"{progCount} running";
+            }
+        }
+        else
+        {
+            _ovPrograms.Text = "No active programs \u2014 open Automation (A key)";
+        }
 
+        // Exploration card
         var missionCount = GetInt(d, "active_mission_count");
-        _ovMissions.Text = missionCount > 0
-            ? $"{missionCount} active"
-            : "None — visit a station to find work";
+        if (missionCount > 0)
+        {
+            _ovMissions.Text = $"{missionCount} active";
+        }
+        else
+        {
+            _ovMissions.Text = "No active missions \u2014 dock at a station (M key)";
+        }
 
+        // Industry card
         var activeIndustry = GetInt(d, "active_industry_count");
         var totalIndustry = GetInt(d, "industry_site_count");
         if (activeIndustry == totalIndustry && totalIndustry > 0)
-            _ovIndustry.Text = "All sites operational";
+            _ovIndustry.Text = $"All {totalIndustry} sites operational";
         else if (totalIndustry > 0)
-            _ovIndustry.Text = $"{activeIndustry} of {totalIndustry} sites active";
+            _ovIndustry.Text = $"{activeIndustry} of {totalIndustry} sites active  |  {totalIndustry - activeIndustry} idle";
         else
             _ovIndustry.Text = "No production discovered yet";
 
+        // Research card
         var tech = GetStr(d, "research_tech_id");
+        var unlockedCount = GetInt(d, "unlocked_tech_count");
         if (string.IsNullOrWhiteSpace(tech))
         {
-            _ovResearch.Text = "No research in progress";
+            _ovResearch.Text = unlockedCount > 0
+                ? $"Idle  |  {unlockedCount} tech unlocked"
+                : "No research in progress";
         }
         else
         {
             var pct = GetInt(d, "research_progress_pct");
-            _ovResearch.Text = $"{tech} ({pct}%)";
+            _ovResearch.Text = unlockedCount > 0
+                ? $"{tech} ({pct}%)  |  {unlockedCount} unlocked"
+                : $"{tech} ({pct}%)";
         }
 
         // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
@@ -433,11 +500,11 @@ public partial class EmpireDashboard : Control
 
             var items = new System.Collections.Generic.List<string>();
 
-            if (GetInt(d, "credits") < 100) items.Add("Low credits — trade or complete missions");
+            if (credits < 100) items.Add("Low credits \u2014 trade or complete missions");
             if (activeIndustry < totalIndustry && totalIndustry > 0)
                 items.Add($"{totalIndustry - activeIndustry} production sites idle");
-            if (progCount == 0) items.Add("No automation running");
-            if (missionCount == 0) items.Add("No active missions");
+            if (progCount == 0) items.Add("No automation running \u2014 press A to configure");
+            if (missionCount == 0) items.Add("No active missions \u2014 dock to find work");
 
             if (items.Count == 0)
             {
@@ -453,6 +520,77 @@ public partial class EmpireDashboard : Control
                     lbl.AddThemeColorOverride("font_color", new Color(0.9f, 0.7f, 0.3f));
                     _ovAttentionList.AddChild(lbl);
                 }
+            }
+        }
+
+        // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: System economy info (U6)
+        if (_ovSystemInfo != null)
+        {
+            var nodeId = ps != null ? GetStr(ps, "current_node_id") : "";
+            if (!string.IsNullOrEmpty(nodeId))
+            {
+                var routes = _bridge.GetTradeRoutesV0();
+                int routeCount = 0;
+                if (routes != null)
+                {
+                    foreach (var r in routes)
+                    {
+                        if (r.AsGodotDictionary() is Dictionary rd)
+                        {
+                            var src = GetStr(rd, "source_node_id");
+                            var dst = GetStr(rd, "dest_node_id");
+                            if (src == nodeId || dst == nodeId) routeCount++;
+                        }
+                    }
+                }
+                _ovSystemInfo.Text = string.IsNullOrEmpty(nodeName)
+                    ? $"Node {nodeId}  |  {routeCount} trade route(s) available"
+                    : $"{nodeName}  |  {routeCount} trade route(s) available";
+            }
+            else
+            {
+                _ovSystemInfo.Text = "Not docked at any system";
+            }
+        }
+
+        // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Recent fleet activity (U6)
+        if (_ovRecentActivity != null)
+        {
+            var perf = _bridge.GetProgramPerformanceV0("fleet_trader_1");
+            if (perf != null && perf.Count > 0)
+            {
+                var history = perf.ContainsKey("history") ? perf["history"].AsGodotArray() : null;
+                if (history != null && history.Count > 0)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    int shown = 0;
+                    foreach (var entry in history)
+                    {
+                        if (shown >= 3) break;
+                        if (entry.AsGodotDictionary() is Dictionary hd)
+                        {
+                            var hTick = GetInt(hd, "tick");
+                            var success = hd.ContainsKey("success") && (bool)hd["success"];
+                            var hCredits = GetInt(hd, "credits_earned");
+                            var hGoods = GetInt(hd, "goods_moved");
+                            var reason = GetStr(hd, "failure_reason");
+                            if (success)
+                                sb.AppendLine($"  Tick {hTick}: +{FormatNum(hCredits)} cr, {hGoods} goods moved");
+                            else
+                                sb.AppendLine($"  Tick {hTick}: Failed \u2014 {reason}");
+                            shown++;
+                        }
+                    }
+                    _ovRecentActivity.Text = shown > 0 ? sb.ToString().TrimEnd() : "No recent activity";
+                }
+                else
+                {
+                    _ovRecentActivity.Text = "Automation active \u2014 no history yet";
+                }
+            }
+            else
+            {
+                _ovRecentActivity.Text = "No fleet automation configured";
             }
         }
     }

@@ -43,6 +43,9 @@ var _targeted_fleet_id: String = ""
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: player death state
 var _player_dead: bool = false
 
+# GATE.S7.MAIN_MENU.SCENE.001: Main menu guard — skip gameplay logic when on menu screen.
+var _on_main_menu: bool = false
+
 # Real-time turret combat v0 — tweakable constants (sourced from CombatTweaksV0 for damage).
 const TURRET_COOLDOWN_SEC: float = 0.4
 const TURRET_RANGE: float = 80.0
@@ -65,11 +68,17 @@ var _sfx_warp_whoosh: AudioStreamPlayer = null
 var _sfx_dock_chime: AudioStreamPlayer = null
 var _sfx_system_arrival: AudioStreamPlayer = null  # Calm ambient stinger for first-visit reveals.
 
-# GATE.S1.SAVE_UI.PAUSE_MENU.001: Pause state
+# GATE.S7.MAIN_MENU.PAUSE.001: Pause menu overlay + state
+const PauseMenu = preload('res://scripts/ui/pause_menu.gd')
 var _paused: bool = false
+var _pause_menu: Control = null
 
 # GATE.S12.UX_POLISH.ONBOARDING.001: First-dock onboarding toasts
 var _onboarding_shown: bool = false
+
+# GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save cooldown (30s between saves)
+var _autosave_cooldown: float = 0.0
+const AUTOSAVE_COOLDOWN_SEC: float = 30.0
 
 # GATE.S11.GAME_FEEL.TOAST_EVENTS.001: Toast event polling state
 var _toast_poll_timer: float = 0.0
@@ -101,6 +110,7 @@ var warp_transit_dest_pos: Vector3 = Vector3.ZERO
 var warp_transit_travel_dir: Vector3 = Vector3.ZERO
 var _transit_marker: Node3D = null
 var _transit_lane_line_ref: Node3D = null  # Stored to clean up during reveal.
+var _warp_tunnel_ref: Node3D = null  # GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: warp tunnel VFX instance.
 
 # Flyby orbit tuning — tweak these to adjust the arrival cinematic.
 const FLYBY_APPROACH_DIST: float = 130.0   # X: distance from star to start curving.
@@ -137,11 +147,18 @@ var _keybinds_help: Node = null
 # GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001: Combat log panel (L key)
 var _combat_log_panel: Node = null
 
+func _is_main_menu_active() -> bool:
+	return _on_main_menu
+
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	print('SUCCESS: Global Game Manager initialized.')
 	sim = Sim.new()
 	player = PlayerState.new()
+
+	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay wiring on main menu.
+	if _is_main_menu_active():
+		return
 
 	# Bootstrap player start position from GDScript galaxy topology.
 	# galaxy_spawner.gd reads game_manager.sim for 3D star/lane mesh generation.
@@ -214,7 +231,25 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 		toast_mgr.call("show_toast", "Welcome, Captain! Fly to a station to trade.", 6.0)
 		toast_mgr.call("show_toast", "Tab = Galaxy Map, E = Empire, H = Help", 8.0)
 
+# GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save with cooldown and toast.
+func _try_autosave_v0() -> void:
+	if _autosave_cooldown > 0.0:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("AutoSaveV0"):
+		return
+	bridge.call("AutoSaveV0")
+	_autosave_cooldown = AUTOSAVE_COOLDOWN_SEC
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Auto-saved", 1.5)
+	print("UUIR|AUTO_SAVE")
+
 func _process(delta):
+	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay processing on main menu.
+	if _is_main_menu_active():
+		return
+
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
 
@@ -224,6 +259,8 @@ func _process(delta):
 
 	if _lane_cooldown_v0 > 0.0:
 		_lane_cooldown_v0 -= float(delta)
+	if _autosave_cooldown > 0.0:
+		_autosave_cooldown -= float(delta)
 	if _turret_cooldown > 0.0:
 		_turret_cooldown -= float(delta)
 	if _ai_fire_cooldown > 0.0:
@@ -273,6 +310,9 @@ func _process(delta):
 
 
 func _unhandled_input(event):
+	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay input on main menu.
+	if _is_main_menu_active():
+		return
 	# Only the autoload instance handles input (avoid dual GameManager double-fire).
 	if get_parent() != get_tree().root:
 		return
@@ -298,7 +338,7 @@ func _unhandled_input(event):
 		if event.keycode == KEY_ESCAPE:
 			_toggle_pause_v0()
 			return
-		if event.keycode == KEY_TAB and current_player_state != PlayerShipState.IN_LANE_TRANSIT:
+		if event.keycode == KEY_TAB and current_player_state != PlayerShipState.IN_LANE_TRANSIT and current_player_state != PlayerShipState.DOCKED:
 			toggle_galaxy_map_overlay_v0()
 		if event.keycode == KEY_E:
 			_toggle_empire_dashboard_v0()
@@ -319,6 +359,18 @@ func _toggle_empire_dashboard_v0():
 		var hud_ed = get_tree().root.find_child("HUD", true, false)
 		if hud_ed and hud_ed.has_method("set_overlay_mode_v0"):
 			hud_ed.call("set_overlay_mode_v0", _empire_dashboard.visible)
+		# GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001: Hide/show Label3D nodes when
+		# empire dashboard covers viewport (same 3D bleed-through issue as dock menu).
+		# GATE.S7.RUNTIME_STABILITY.GALAXY_MAP_FIX.001: When the galaxy overlay is open,
+		# keep labels visible so the map remains visible behind the dashboard's dimmer.
+		_find_galaxy_view()
+		if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
+			if galaxy_overlay_open:
+				# Galaxy map is active — always keep labels visible so map shows
+				# behind the semi-transparent empire dashboard.
+				_galaxy_view.call("SetLocalLabelsVisibleV0", true)
+			else:
+				_galaxy_view.call("SetLocalLabelsVisibleV0", not _empire_dashboard.visible)
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -348,8 +400,7 @@ func _find_camera_controller():
 
 ## V key: cycle data overlay mode (None → Security → Trade Flow → Intel Age → None).
 func _cycle_data_overlay_v0() -> void:
-	if not _galaxy_view:
-		_galaxy_view = get_tree().root.find_child("GalaxyView", true, false)
+	_find_galaxy_view()
 	if _galaxy_view == null or not _galaxy_view.has_method("GetOverlayModeV0"):
 		return
 	var current: int = _galaxy_view.call("GetOverlayModeV0")
@@ -447,13 +498,35 @@ func on_proximity_dock_entered_v0(target: Node):
 	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast
 	_check_first_dock_mission_prompt_v0()
 
+	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Close galaxy overlay if open when docking.
+	# Prevents large 3D elements (beacons, labels) from rendering at dock-distance camera.
+	if galaxy_overlay_open:
+		toggle_galaxy_map_overlay_v0()
+
+	# GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001: Lazy-find GalaxyView (autoload parent=/root/).
+	_find_galaxy_view()
+
 	# Hide galaxy overlay labels so they don't bleed through dock menu panel.
 	if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
 		_galaxy_view.call("SetLocalLabelsVisibleV0", false)
 
+	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Notify GalaxyView that a 2D UI panel
+	# is covering the screen, so it suppresses all 3D overlay rendering.
+	if _galaxy_view and _galaxy_view.has_method("SetUiPanelActiveV0"):
+		_galaxy_view.call("SetUiPanelActiveV0", true)
+
+	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Hide galaxy_spawner (old GDScript overlay)
+	# so its Label3D nodes don't bleed through 2D dock panel.
+	var galaxy_spawner = get_tree().root.find_child("GalaxySpawner", true, false)
+	if galaxy_spawner:
+		galaxy_spawner.visible = false
+
 	if dock_target_kind_token == "DISCOVERY_SITE":
 		# Scan flow wiring can be added later without changing the state machine surface.
 		print("UUIR|SCAN_FLOW_OPEN|" + dock_target_id)
+
+	# GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save on dock.
+	_try_autosave_v0()
 
 func undock_v0():
 	if current_player_state != PlayerShipState.DOCKED:
@@ -475,15 +548,46 @@ func undock_v0():
 	# Close discovery panel if it is open.
 	if _discovery_panel and _discovery_panel.has_method("close_v0"):
 		_discovery_panel.call("close_v0")
+	# GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001: Lazy-find GalaxyView on undock path too.
+	_find_galaxy_view()
+
 	# Restore galaxy overlay labels on undock.
 	if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
 		_galaxy_view.call("SetLocalLabelsVisibleV0", true)
+
+	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Restore GalaxyView rendering on undock.
+	if _galaxy_view and _galaxy_view.has_method("SetUiPanelActiveV0"):
+		_galaxy_view.call("SetUiPanelActiveV0", false)
+
+	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Restore galaxy_spawner visibility on undock.
+	var galaxy_spawner = get_tree().root.find_child("GalaxySpawner", true, false)
+	if galaxy_spawner:
+		galaxy_spawner.visible = true
+
+## GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Close all dock UI panels defensively.
+## Called before warp transit begins so no station/trade/discovery panels remain visible.
+func _close_all_dock_ui_v0() -> void:
+	if _station_menu and _station_menu.has_method("OnShopToggled"):
+		_station_menu.call("OnShopToggled", false, "")
+	var htm = _find_hero_trade_menu()
+	if htm and htm.has_method("close_market_v0"):
+		htm.call("close_market_v0")
+	if _discovery_panel and _discovery_panel.has_method("close_v0"):
+		_discovery_panel.call("close_v0")
+	# GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001: Lazy-find before restoring.
+	_find_galaxy_view()
+	# Restore GalaxyView rendering in case a panel was covering it.
+	if _galaxy_view and _galaxy_view.has_method("SetUiPanelActiveV0"):
+		_galaxy_view.call("SetUiPanelActiveV0", false)
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
 		return
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		return
+
+	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Close dock UI before warp.
+	_close_all_dock_ui_v0()
 
 	print("UUIR|LANE_ENTER|" + neighbor_node_id)
 	# GATE.S13.WORLD.GATE_ARRIVAL.001: Remember origin for arrival positioning.
@@ -494,6 +598,13 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 			var ps: Dictionary = bridge_snap.call("GetPlayerSnapshot")
 			_last_player_node_id = str(ps.get("location", ""))
 	_lane_origin_node_id = _last_player_node_id
+
+	# Save camera pre-transit altitude (gate-approach path saves this in _confirm_gate_transit_v0;
+	# proximity path must do it here so post-transit tween restores the correct flight altitude).
+	var cam_ctrl_prox = _find_camera_controller()
+	if cam_ctrl_prox:
+		cam_ctrl_prox.set("_pre_transit_altitude", cam_ctrl_prox.get("_altitude"))
+		cam_ctrl_prox.set("_pre_transit_altitude_set", true)
 
 	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake on warp entry
 	_apply_camera_shake_v0(0.4)
@@ -578,6 +689,9 @@ func _confirm_gate_transit_v0() -> void:
 		_gate_popup.queue_free()
 		_gate_popup = null
 	get_tree().paused = false
+
+	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Close dock UI before warp.
+	_close_all_dock_ui_v0()
 
 	# Save origin + dest BEFORE clearing approach_neighbor_id.
 	# Eager read: _last_player_node_id may not yet be set if toast poll hasn't fired.
@@ -707,6 +821,11 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	# GATE.S14.TRANSIT.WARP_EFFECT.001: arrival rumble
 	_apply_camera_shake_v0(0.25)
 
+	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Safety cleanup of warp tunnel on arrival.
+	if _warp_tunnel_ref and is_instance_valid(_warp_tunnel_ref):
+		_warp_tunnel_ref.queue_free()
+		_warp_tunnel_ref = null
+
 	var bridge = get_node_or_null("/root/SimBridge")
 
 	# Check first-visit BEFORE dispatch (dispatch marks it as visited).
@@ -728,6 +847,9 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 	# GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Show toasts for jump events on this transit.
 	_show_jump_event_toasts_v0(bridge)
+
+	# GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save on warp arrival.
+	_try_autosave_v0()
 
 	# Local system is pre-rendered during transit (before this function is called).
 	# Only rebuild persistent lanes to reveal newly discovered fog-of-war lanes.
@@ -1018,7 +1140,7 @@ func _get_fleet_id_from_marker(marker: Node3D) -> String:
 			return str(child.get_meta("fleet_id"))
 	return ""
 
-func _spawn_bullet_v0(origin: Vector3, target_pos: Vector3, is_player_bullet: bool, ai_fleet_id: String) -> void:
+func _spawn_bullet_v0(origin: Vector3, target_pos: Vector3, is_player_bullet: bool, ai_fleet_id: String, p_damage_family: String = "") -> void:
 	if _bullet_scene == null:
 		return
 	var bullet = _bullet_scene.instantiate()
@@ -1027,6 +1149,11 @@ func _spawn_bullet_v0(origin: Vector3, target_pos: Vector3, is_player_bullet: bo
 	bullet.set("source_is_player", is_player_bullet)
 	if not is_player_bullet:
 		bullet.set("source_fleet_id", ai_fleet_id)
+	# GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001: Set damage family for visual differentiation.
+	var family: String = p_damage_family
+	if family.is_empty():
+		family = "energy" if is_player_bullet else "kinetic"
+	bullet.set("damage_family", family)
 	if is_player_bullet:
 		bullet.collision_layer = 0
 		bullet.collision_mask = 4  # Detect FleetTarget layer (bit 2)
@@ -1158,6 +1285,20 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Create a glowing transit marker at origin gate position.
 	_transit_marker = _create_transit_marker_v0(origin_pos)
 
+	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Spawn warp tunnel VFX around transit marker.
+	# Scale to galaxy-map proportions so it is visible at cruise altitude (200-450 units).
+	if _warp_tunnel_ref and is_instance_valid(_warp_tunnel_ref):
+		_warp_tunnel_ref.queue_free()
+	_warp_tunnel_ref = WarpTunnel.new()
+	_warp_tunnel_ref.setup(0.7)
+	_transit_marker.add_child(_warp_tunnel_ref)
+	# Orient tunnel along lane direction (tunnel extends along Z by default).
+	if lane_dir.length() > 0.1:
+		_warp_tunnel_ref.look_at(_warp_tunnel_ref.global_position + lane_dir, Vector3.UP)
+	# Scale up: tunnel is designed for ship-level (radius 8); at galaxy map scale (altitude 200-450)
+	# we need 4x to make the cylinder and particles visible and dramatic.
+	_warp_tunnel_ref.scale = Vector3(4.0, 4.0, 4.0)
+
 	# Pre-render destination system now so it becomes visible as camera descends.
 	if gv and gv.has_method("RebuildLocalSystemV0"):
 		gv.call("RebuildLocalSystemV0", neighbor_node_id)
@@ -1234,12 +1375,17 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 					glow_fade.tween_interval(fade_delay)
 					glow_fade.tween_property(glow_mat, "albedo_color:a", 0.0, fade_time)
 
+	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Fade warp tunnel before cleanup.
+	if _warp_tunnel_ref and is_instance_valid(_warp_tunnel_ref) and _warp_tunnel_ref.has_method("despawn"):
+		_warp_tunnel_ref.despawn(fade_time)
+
 	await tween.finished
 
-	# Clean up transit marker + lane line.
+	# Clean up transit marker + lane line (warp tunnel is child of marker, freed with it).
 	if _transit_marker and is_instance_valid(_transit_marker):
 		_transit_marker.queue_free()
 		_transit_marker = null
+	_warp_tunnel_ref = null
 	if _transit_lane_line_ref and is_instance_valid(_transit_lane_line_ref):
 		_transit_lane_line_ref.queue_free()
 		_transit_lane_line_ref = null
@@ -1461,11 +1607,16 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		cam_ctrl._settle_vel = Vector3.ZERO
 		cam_ctrl._settle_look = cam_ctrl.flyby_look_at
 		cam_ctrl._settle_look_vel = Vector3.ZERO
-		cam_ctrl._altitude = 80.0  # Spring target (not a position snap).
+		# Notify camera that flyby handled the arrival — prevents WARP_TRANSIT exit
+		# from resetting altitude to the stale warp_transit_altitude value.
+		if cam_ctrl.has_method("notify_flyby_arrival_v0"):
+			cam_ctrl.call("notify_flyby_arrival_v0", 80.0)
+		else:
+			cam_ctrl._altitude = 80.0
+			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
 		cam_ctrl.flyby_settle_active = true
 		cam_ctrl.input_locked = false
 		cam_ctrl._flight_yaw_offset = 0.0
-		cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
 		var gv_cleanup = _find_galaxy_view()
 		if gv_cleanup and gv_cleanup.has_method("SetTransitModeV0"):
 			gv_cleanup.call("SetTransitModeV0", false, "", "")
@@ -1670,7 +1821,7 @@ func play_explosion_sfx_v0() -> void:
 	if _sfx_explosion:
 		_sfx_explosion.play()
 
-# GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause state.
+# GATE.S7.MAIN_MENU.PAUSE.001: toggle pause state with overlay menu.
 func _toggle_pause_v0() -> void:
 	if _player_dead:
 		return
@@ -1678,10 +1829,27 @@ func _toggle_pause_v0() -> void:
 	get_tree().paused = _paused
 	if _paused and galaxy_overlay_open:
 		toggle_galaxy_map_overlay_v0()
+	# Lazy-create the pause menu overlay on first use.
+	if _pause_menu == null:
+		_pause_menu = PauseMenu.new()
+		_pause_menu.name = "PauseMenuOverlay"
+		_pause_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(_pause_menu)
+		_pause_menu.resumed.connect(_on_pause_menu_resume)
+	if _paused:
+		_pause_menu.open_v0()
+	else:
+		_pause_menu.close_v0()
+	# Legacy HUD pause panel — keep in sync if present.
 	var hud = get_tree().root.find_child("HUD", true, false)
 	if hud and hud.has_method("toggle_pause_menu_v0"):
 		hud.call("toggle_pause_menu_v0", _paused)
 	print("UUIR|PAUSE|" + str(_paused))
+
+# GATE.S7.MAIN_MENU.PAUSE.001: Resume callback from pause menu overlay.
+func _on_pause_menu_resume() -> void:
+	if _paused:
+		_toggle_pause_v0()
 
 # GATE.S11.GAME_FEEL.TOAST_EVENTS.001: Poll bridge for research/travel state changes and show toasts.
 func _poll_toast_events_v0() -> void:
@@ -1838,14 +2006,14 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 				color = "#22AA22"
 				var good_id: String = str(evt.get("good_id", ""))
 				var qty: int = int(evt.get("quantity", 0))
-				message = "Lane Salvage: found %d x %s!" % [qty, good_id]
+				message = "Thread Salvage: found %d x %s!" % [qty, good_id]
 			"signal":
 				color = "#2288DD"
-				message = "Lane Signal: anomaly detected nearby!"
+				message = "Thread Signal: anomaly detected nearby!"
 			"turbulence":
 				color = "#DD4444"
 				var hull_dmg: int = int(evt.get("hull_damage", 0))
-				message = "Lane Turbulence: hull took %d damage!" % hull_dmg
+				message = "Thread Turbulence: hull took %d damage!" % hull_dmg
 			_:
 				continue
 

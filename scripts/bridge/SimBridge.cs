@@ -682,6 +682,36 @@ public partial class SimBridge : Node
         }
     }
 
+    // GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Set captain name on the live state.
+    // Called by main_menu.gd before transitioning to the game scene.
+    public void SetCaptainNameV0(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        // Clamp to 32 chars to match UI constraint.
+        if (name.Length > 32) name = name.Substring(0, 32);
+        _stateLock.EnterWriteLock();
+        try
+        {
+            if (_kernel?.State != null)
+                _kernel.State.CaptainName = name;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    // GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Query captain name for UI display.
+    public string GetCaptainNameV0()
+    {
+        string result = "Commander";
+        TryExecuteSafeRead(state =>
+        {
+            result = state.CaptainName ?? "Commander";
+        }, 0);
+        return result;
+    }
+
     public string GetNodeDisplayNameV0(string nodeId)
     {
         string name = nodeId ?? "";
@@ -1108,6 +1138,23 @@ public partial class SimBridge : Node
     public void RequestLoad()
     {
         _loadRequested = true;
+    }
+
+    // GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save to dedicated slot 0 (quicksave_auto.json).
+    // Saves to auto-save path without disturbing the active manual save slot.
+    public void AutoSaveV0()
+    {
+        var prevPath = _savePathAbs;
+        _savePathAbs = ProjectSettings.GlobalizePath("user://quicksave_auto.json");
+        _saveRequested = true;
+        // Restore previous path after flagging save. ExecuteSave picks up _savePathAbs atomically
+        // on the sim thread, so we defer restore by one frame to ensure it's read.
+        CallDeferred(nameof(_RestoreAutoSavePath), prevPath);
+    }
+
+    private void _RestoreAutoSavePath(string path)
+    {
+        _savePathAbs = path;
     }
 
     // GATE.S1.SAVE_UI.SLOTS.001: save slot support (3 slots).

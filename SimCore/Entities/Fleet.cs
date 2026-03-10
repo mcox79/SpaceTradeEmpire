@@ -130,6 +130,18 @@ public class Fleet
     public int[] ZoneArmorHp { get; set; } = new int[4];
     public int[] ZoneArmorHpMax { get; set; } = new int[4];
 
+    // GATE.S7.AUTOMATION_MGMT.DOCTRINE.001: Fleet engagement doctrine (stance, retreat, patrol radius).
+    public FleetDoctrine Doctrine { get; set; } = new();
+
+    // GATE.S7.AUTOMATION_MGMT.PROGRAM_METRICS.001: Per-fleet program cycle metrics.
+    public ProgramCycleMetrics Metrics { get; set; } = new();
+
+    // GATE.S7.AUTOMATION_MGMT.BUDGET_ENFORCEMENT.001: Per-fleet automation budget caps.
+    public AutomationBudget Budget { get; set; } = new();
+
+    // GATE.S7.AUTOMATION_MGMT.PROGRAM_HISTORY.001: Program outcome ring buffer (max 20, newest first).
+    public List<ProgramHistoryEntry> History { get; set; } = new();
+
     // GATE.S5.COMBAT.ESCORT_DOCTRINE.001: Escort doctrine state.
     // When EscortDoctrineActive is true, this fleet is escorting EscortTargetFleetId.
     // The target fleet receives a shield damage reduction bonus in combat.

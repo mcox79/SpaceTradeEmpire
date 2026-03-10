@@ -68,4 +68,84 @@ public partial class SimBridge
         });
         return d;
     }
+
+    // GATE.S7.RISK_METER_UI.BRIDGE.001: Aggregated risk meters for HUD display.
+    /// <summary>
+    /// Returns {heat (float 0-1), influence (float 0-1), trace (float 0-1),
+    ///          heat_threshold (string), influence_threshold (string), trace_threshold (string)}.
+    /// Heat: max Edge.Heat near player, normalized by ConfiscationHeatThreshold * 2.
+    /// Influence: inverse faction reputation at player node (high rep = low influence meter).
+    /// Trace: Node.Trace at player node, normalized by TraceDetectionThreshold * 2.
+    /// </summary>
+    public Godot.Collections.Dictionary GetRiskMetersV0()
+    {
+        var d = new Godot.Collections.Dictionary
+        {
+            ["heat"] = 0.0f,
+            ["influence"] = 0.0f,
+            ["trace"] = 0.0f,
+            ["heat_threshold"] = "Calm",
+            ["influence_threshold"] = "Calm",
+            ["trace_threshold"] = "Calm",
+        };
+        TryExecuteSafeRead(state =>
+        {
+            const string playerFleetId = "fleet_trader_1";
+            if (!state.Fleets.TryGetValue(playerFleetId, out var fleet))
+                return;
+
+            string nodeId = fleet.CurrentNodeId;
+            if (string.IsNullOrEmpty(nodeId))
+                return;
+
+            // Heat: max Edge.Heat on edges adjacent to player node.
+            float maxHeat = 0f;
+            float heatCap = SimCore.Tweaks.SecurityTweaksV0.ConfiscationHeatThreshold * 2.0f;
+            foreach (var edge in state.Edges.Values)
+            {
+                if (edge.FromNodeId == nodeId || edge.ToNodeId == nodeId)
+                {
+                    if (edge.Heat > maxHeat) maxHeat = edge.Heat;
+                }
+            }
+            float heatNorm = heatCap > 0f ? Math.Clamp(maxHeat / heatCap, 0f, 1f) : 0f;
+
+            // Influence: inverse of faction reputation at player's node.
+            // Rep range [-100, 100] mapped to influence [1.0, 0.0].
+            float influenceNorm = 0.5f; // default: neutral
+            if (state.NodeFactionId.TryGetValue(nodeId, out var controllingFaction) && !string.IsNullOrEmpty(controllingFaction))
+            {
+                int rep = 0;
+                state.FactionReputation.TryGetValue(controllingFaction, out rep);
+                // Map [-100, 100] -> [1.0, 0.0]: influence = (100 - rep) / 200
+                influenceNorm = Math.Clamp((100f - rep) / 200f, 0f, 1f);
+            }
+
+            // Trace: node.Trace normalized by detection threshold * 2.
+            float traceNorm = 0f;
+            if (state.Nodes.TryGetValue(nodeId, out var traceNode))
+            {
+                float traceCap = SimCore.Tweaks.FractureTweaksV0.TraceDetectionThreshold * 2.0f;
+                traceNorm = traceCap > 0f ? Math.Clamp(traceNode.Trace / traceCap, 0f, 1f) : 0f;
+            }
+
+            d["heat"] = heatNorm;
+            d["influence"] = influenceNorm;
+            d["trace"] = traceNorm;
+            d["heat_threshold"] = ThresholdName(heatNorm);
+            d["influence_threshold"] = ThresholdName(influenceNorm);
+            d["trace_threshold"] = ThresholdName(traceNorm);
+        });
+        return d;
+    }
+
+    /// Maps a 0-1 normalized value to a human-readable threshold name.
+    private static string ThresholdName(float value)
+    {
+        if (value >= 0.8f) return "Critical";
+        if (value >= 0.6f) return "High";
+        if (value >= 0.4f) return "Elevated";
+        if (value >= 0.2f) return "Noticed";
+        return "Calm";
+    }
 }

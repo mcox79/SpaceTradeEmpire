@@ -56,7 +56,7 @@ The camera lerp filter `factor = 1 - exp(-k * delta)` controls how tightly the c
 
 ---
 
-## Lane Transit Cinematic — Warp Arrival
+## Thread Transit Cinematic — Warp Arrival
 
 ### Curvature Profile (Ideal)
 
@@ -80,7 +80,7 @@ kappa(s):
 - Camera in WARP_TRANSIT mode: chase cam behind transit marker, tilted forward
 - Marker tweens from origin gate toward entry point (FLYBY_APPROACH_DIST from star)
 - Altitude descends from cruise (~200-450u) toward ~120u
-- Lane line and marker fade near end of approach
+- Thread line and marker fade near end of approach
 
 **Phase 2 — Euler Spiral Entry** (deviation)
 - Camera captures exact position from WARP_TRANSIT (zero-snap transition)

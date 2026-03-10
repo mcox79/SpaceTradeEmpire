@@ -93,6 +93,8 @@ public sealed class TradeRouteIntel
     [JsonInclude] public int DiscoveredTick { get; set; } = 0;
     [JsonInclude] public int LastValidatedTick { get; set; } = 0;
     [JsonInclude] public TradeRouteStatus Status { get; set; } = TradeRouteStatus.Discovered;
+    // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Flavor text for narrative display.
+    [JsonInclude] public string FlavorText { get; set; } = "";
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001
@@ -119,6 +121,8 @@ public sealed class DiscoveryStateV0
 {
     [JsonInclude] public string DiscoveryId { get; set; } = "";
     [JsonInclude] public DiscoveryPhase Phase { get; set; } = DiscoveryPhase.Seen;
+    // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Flavor text for narrative display.
+    [JsonInclude] public string FlavorText { get; set; } = "";
 }
 
 // GATE.S3_6.RUMOR_INTEL_MIN.001

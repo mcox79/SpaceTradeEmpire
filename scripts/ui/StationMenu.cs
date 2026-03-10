@@ -13,6 +13,7 @@ public partial class StationMenu : Control
 	private static readonly bool DEBUG_UI = false;
 
 	private Label _titleLabel;
+	private Label _greetingLabel;
 	private Label _marketStatusLabel;
 	private VBoxContainer _marketList;
 	private VBoxContainer _trafficList;
@@ -257,6 +258,18 @@ public partial class StationMenu : Control
 
         _titleLabel = new Label { Text = "STATION MENU", HorizontalAlignment = HorizontalAlignment.Center };
         vbox.AddChild(_titleLabel);
+
+        // GATE.S7.NARRATIVE_DELIVERY.FACTION_GREETING.001: Faction greeting below station name.
+        _greetingLabel = new Label
+        {
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            Modulate = new Color(0.7f, 0.85f, 0.7f),
+            Visible = false,
+        };
+        _greetingLabel.AddThemeFontSizeOverride("font_size", 13);
+        vbox.AddChild(_greetingLabel);
 
         _creditsLabel = new Label { Text = "CREDITS: 0", HorizontalAlignment = HorizontalAlignment.Right, Modulate = Colors.Gold };
         vbox.AddChild(_creditsLabel);
@@ -809,6 +822,24 @@ public partial class StationMenu : Control
                 _titleLabel.Text = state.Nodes[_currentMarketId].Name.ToUpper();
             else
                 _titleLabel.Text = _currentMarketId;
+
+            // GATE.S7.NARRATIVE_DELIVERY.FACTION_GREETING.001: Show faction greeting below title.
+            if (_greetingLabel != null)
+            {
+                string factionId = null;
+                if (state.NodeFactionId.TryGetValue(_currentMarketId, out var fid))
+                    factionId = fid;
+                if (!string.IsNullOrEmpty(factionId))
+                {
+                    _greetingLabel.Text = _bridge.GetFactionGreetingV0(factionId);
+                    _greetingLabel.Visible = true;
+                }
+                else
+                {
+                    _greetingLabel.Text = "";
+                    _greetingLabel.Visible = false;
+                }
+            }
 
             bool marketEnabled = !string.IsNullOrWhiteSpace(marketId) && state.Markets.ContainsKey(marketId);
 

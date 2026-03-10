@@ -16,8 +16,8 @@ These are treated as hard requirements for architecture, UI, and simulation. If 
 
 * **Hybrid Movement:**  
   * **In-System:** Direct physics flight. Real-time traversal of the local environment (Asteroids, Stations, Anomalies).  
-  * **Lane Travel:** Accelerated "Rail" movement between nodes, subject to Slot Capacity and Authority checks.  
-  * **Fracture/Void:** High-risk, free-form navigation outside the lane network.  
+  * **Thread Travel:** Accelerated "Rail" movement between nodes, subject to Slot Capacity and Authority checks.  
+  * **Fracture/Void:** High-risk, free-form navigation outside the Thread network.  
 * **Capacity vs. Fuel:**  
   * **Automated Fleets:** Constrained by **Slot Capacity** (traffic) and Operating Costs. They do not simulate fuel physics.  
   * **Player Ship:** Constrained by **Fuel/Energy** reserves and physics.
@@ -513,9 +513,9 @@ After a major loss cascade, the simulation temporarily reduces unrelated shock s
 **Default v0 Behavior (Slice 2\)**
 
 
-* **Algorithm:** Dijkstra/A\* on the Lane Graph.  
+* **Algorithm:** Dijkstra/A\* on the Thread Graph.  
 * **Cost Function:** Cost \= (Distance \* OperatingCost) \+ (SlotPrice) \+ (RiskPenalty).  
-  * *Note:* Lanes are constrained by slot capacity, not fuel. OperatingCost represents crew salaries, supplies, and maintenance wear per AU traveled.  
+  * *Note:* Threads are constrained by slot capacity, not fuel. OperatingCost represents crew salaries, supplies, and maintenance wear per AU traveled.  
 * **Weakness Rule:** The Planner reacts slowly to price spikes (uses "Yesterday's Average") and avoids all edges with Risk greater than Threshold. It cannot "smuggle" or "bluff." This ensures the player always has a role in high-volatility trading.
 
 
@@ -697,7 +697,7 @@ For each adopted tool, record:
 \- Known issues and rollback notes
 
 
-## **3\. World model: topology, lanes, governors, authorities (v4, updated)**
+## **3\. World model: topology, threads, governors, authorities (v4, updated)**
 
 
 This section defines the minimal entity graph and the slot primitives that everything else depends on.
@@ -730,7 +730,7 @@ This section defines the minimal entity graph and the slot primitives that every
 * intel\_visibility (what the player knows, confidence level)
 
 
-**Edge (Lane Segment)**
+**Edge (Thread Segment)**
 
 
 * edge\_id
@@ -745,7 +745,7 @@ This section defines the minimal entity graph and the slot primitives that every
 * distance (for time)
 
 
-* governor\_id (physics enforcement for this lane)
+* governor\_id (physics enforcement for this thread)
 
 
 * authority\_regime\_id (optional override; if unset, inherits from endpoint defaults or corridor owner)
@@ -935,7 +935,7 @@ Explainability requirement:
 * Standby always returns a specific outcome reason (admitted, delayed, denied).
 
 
-**Lane Transit Record**  
+**Thread Transit Record**  
  When a transit happens, emit an event referencing:
 
 
@@ -2004,7 +2004,7 @@ To keep this buildable:
 * Partial production as default shortage behavior
 
 
-## **6\. Travel model: lane travel, fracture travel, planning, failures, and implications (v4, updated)**
+## **6\. Travel model: thread travel, fracture travel, planning, failures, and implications (v4, updated)**
 
 
 This section defines how travel works mechanically and how it interfaces with slots, risk meters, encounters, and player planning.
@@ -2017,18 +2017,18 @@ This section defines how travel works mechanically and how it interfaces with sl
    * **Mechanic:** Direct thruster control (WASD). Inertia-based.  
    * **Activities:** Mining, Docking, Combat, Exploration.  
    * **Constraint:** Fuel/Energy reserves.  
-2. **Lane Travel (The Highway):**  
-   * **Mechanic:** Player flies to a "Jump Gate" or "Lane Ring."  
-   * **Action:** Request docking with the Lane.  
+2. **Thread Travel (The Highway):**
+   * **Mechanic:** Player flies to a "Jump Gate" or "Thread Ring."
+   * **Action:** Request docking with the Thread.  
    * **Result:** If approved (Slot available), the ship is "railed" at high speed to the next Node.  
    * **Player Input:** Minimal during transit, but can perform "Emergency Drop" to exit into the Void.  
 3. **Fracture Travel (The Void):**  
-   * **Mechanic:** Open-space navigation outside the lane network.  
+   * **Mechanic:** Open-space navigation outside the Thread network.  
    * **Unlock:** Requires "Fracture Drive" technology.  
    * **Experience:** Similar to *Starcom* void travel—long distances, managing drift, managing "Trace" accumulation.
 
 
-### **6.2 Lane travel mechanics**
+### **6.2 Thread travel mechanics**
 
 
 #### **6.2.1 Reservation vs standby (player mobility guarantee)**
@@ -2073,7 +2073,7 @@ Standby tuning guardrail (must be consistently felt):
   * meaningful denial probability under congestion states.
 
 
-#### **6.2.2 Lane traversal resolution**
+#### **6.2.2 Thread traversal resolution**
 
 
 When the player traverses an edge:
@@ -2179,7 +2179,7 @@ Outcome buckets must be legible:
 * Catastrophe only beyond clear redline or via rare scenario flags
 
 
-### **6.4 Fracture counterweights (so it does not replace lanes)**
+### **6.4 Fracture counterweights (so it does not replace threads)**
 
 
 Fracture must not become the dominant answer to chokepoints. It needs operational constraints beyond “a meter goes up.”
@@ -2197,7 +2197,7 @@ Fracture counterweights are modular but at least one must be active in v1:
 * **Cooldown or scheduling**: fracture attempts are limited by heat-up, cooldown, or authority attention cycles.
 
 
-* **Arrival context penalties**: arriving by fracture often places you in low intel contexts, higher immediate risk, or farther from services, forcing last-mile lane travel.
+* **Arrival context penalties**: arriving by fracture often places you in low intel contexts, higher immediate risk, or farther from services, forcing last-mile thread travel.
 
 
 * **Uncertainty is real**: arrival cone must frequently force follow-up decisions rather than delivering perfect point-to-point.
@@ -2222,13 +2222,13 @@ UI must present uncertainty in actionable terms:
 ### **6.6 Travel and automation integration**
 
 
-Automation prefers lanes. Fracture is typically manual until earned.
+Automation prefers threads. Fracture is typically manual until earned.
 
 
 Planner defaults:
 
 
-* Planner uses lane travel with reservations when possible.
+* Planner uses thread travel with reservations when possible.
 
 
 * Planner may use standby only under tight budgets or emergencies.
@@ -2261,7 +2261,7 @@ Explainability requirement:
 Travel emits drivers to meters:
 
 
-* Lane travel tends to increase Heat (throughput visibility) and can increase Influence (priority buys, compliance posture outcomes).
+* Thread travel tends to increase Heat (throughput visibility) and can increase Influence (priority buys, compliance posture outcomes).
 
 
 * Fracture travel tends to increase Trace and can increase Heat if followed by obvious high value movement.  
@@ -2274,7 +2274,7 @@ Travel emits drivers to meters:
 To keep this buildable:
 
 
-* Lane travel with reservation and standby
+* Thread travel with reservation and standby
 
 
 * Restriction state affects variance and denial
@@ -2289,7 +2289,7 @@ To keep this buildable:
 * At least one fracture counterweight active (maintenance wear recommended)
 
 
-* Planner uses lanes only in v1 unless explicitly enabled later
+* Planner uses threads only in v1 unless explicitly enabled later
 
 
 Here is the full text for **Section 7 (Risk Model)** and **Section 8 (Containment Model)**, rewritten using the **"TBD but Directional" Implementation Schema**.
@@ -2392,7 +2392,7 @@ To ensure the simulation remains a game:
 * **Default v0 Behavior (Slice 3):**  
   * **Tier 0 (Passive):** Trace under 10%. No effect.  
   * **Tier 1 (Warning):** Trace over 10%. UI Warning "Containment Scrutiny Active." Inspection chance \+10%.  
-  * **Tier 2 (Quarantine):** Trace over 30%. Specific High-Trace edges are marked RESTRICTED. Travel requires Fracture (Lanes closed).  
+  * **Tier 2 (Quarantine):** Trace over 30%. Specific High-Trace edges are marked RESTRICTED. Travel requires Fracture (Threads closed).  
   * **Tier 3 (Interdiction):** Trace over 60%. Spawns Interdictor units on Day Tick. Fracture usage triggers combat chance.  
 * **Tuning Parameters (Data-Driven):** TierThresholds (array), InterdictionSpawnRate, QuarantineEdgeSelectionLogic (e.g., "Top 3 highest trace edges").  
 * **TBD Decisions:** Exact unit stats for Interdictors; visual FX for "Quarantined Space."  
@@ -2853,10 +2853,10 @@ Automated assertions that run at the end of every DayTick in Debug/Test builds. 
 
 
 * **Objective:** Prove that buying low, selling high, and managing Slot Scarcity is engaging.  
-* **Scope:** 2 Nodes connected by 1 Lane.  
-* **Features:**  
-  * Manual Buy/Sell commands.  
-  * Lane Travel (Reservation vs. Standby).  
+* **Scope:** 2 Nodes connected by 1 Thread.
+* **Features:**
+  * Manual Buy/Sell commands.
+  * Thread Travel (Reservation vs. Standby).  
   * Basic Slot Market (Price fluctuates with usage).  
   * **Risk:** "Economic Heat" meter (Visual only, no pirates yet).  
 * **Success Metric:** Player can go bankrupt by buying Priority Slots for low-margin goods.
@@ -2872,7 +2872,7 @@ Automated assertions that run at the end of every DayTick in Debug/Test builds. 
   * **Logistics Planner:** Auto-routing based on "Target Stock" policy.  
   * **Influence Meter:** Unlocks "Inspection Waivers".  
   * **Events:** "Inspection" encounter that disrupts flow.  
-* **Success Metric:** Player can set up a factory chain that runs autonomously for 30 days, then use Influence to save it when a lane gets congested.
+* **Success Metric:** Player can set up a factory chain that runs autonomously for 30 days, then use Influence to save it when a thread gets congested.
 
 
 #### **Slice 3: The Architect (The Existential Loop)**
@@ -2972,7 +2972,7 @@ These sections define the "Sensory Layer" (how the player understands the math) 
    * **Heat Overlay:** Color-codes Edges from Blue (Cold) to Red (Hot).  
    * **Trace Overlay:** Visualizes "Pollution" density around Fracture Exits and containment zones.  
    * **Influence Overlay:** Displays "Sphere of Influence" boundaries for the player and competitors.  
-2. **No "Fog of War" on Mechanics:** While *units* might be hidden, the *rules* (e.g., "This lane is High Heat") must be visible if the player has visited the region.
+2. **No "Fog of War" on Mechanics:** While *units* might be hidden, the *rules* (e.g., "This thread is High Heat") must be visible if the player has visited the region.
 
 
 ### **TBD Decisions**

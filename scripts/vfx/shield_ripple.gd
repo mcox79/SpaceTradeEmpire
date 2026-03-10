@@ -80,16 +80,19 @@ static func spawn_hit(parent: Node, ship_pos: Vector3, impact_point: Vector3) ->
 	effect.position = ship_pos
 	parent.add_child(effect)
 
-	# Shield sphere mesh slightly larger than ship hull.
+	# Shield sphere mesh — sized to be visible at camera altitude ~80.
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged radius + render_priority
+	# for clear visibility from top-down camera.
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.name = "ShieldSphere"
 	var sphere := SphereMesh.new()
-	sphere.radius = 3.5
-	sphere.height = 7.0
+	sphere.radius = 18.0
+	sphere.height = 36.0
 	sphere.radial_segments = 32
 	sphere.rings = 16
 	mesh_inst.mesh = sphere
 	mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_inst.render_priority = 12
 
 	# Shader material.
 	var shader := Shader.new()
@@ -130,22 +133,24 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	effect.position = ship_pos
 	parent.add_child(effect)
 
-	# Flash: bright overlay sphere.
+	# Flash: bright overlay sphere — sized for camera altitude ~80.
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged + higher emission for altitude.
 	var flash := MeshInstance3D.new()
 	flash.name = "BreakFlash"
 	var sphere := SphereMesh.new()
-	sphere.radius = 4.0
-	sphere.height = 8.0
+	sphere.radius = 22.0
+	sphere.height = 44.0
 	flash.mesh = sphere
 	var flash_mat := StandardMaterial3D.new()
-	flash_mat.albedo_color = Color(0.5, 0.7, 1.0, 0.7)
+	flash_mat.albedo_color = Color(0.6, 0.8, 1.0, 0.85)
 	flash_mat.emission_enabled = true
-	flash_mat.emission = Color(0.5, 0.7, 1.0)
-	flash_mat.emission_energy_multiplier = 5.0
+	flash_mat.emission = Color(0.6, 0.8, 1.0)
+	flash_mat.emission_energy_multiplier = 12.0
 	flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flash_mat.no_depth_test = true
 	flash.material_override = flash_mat
 	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	flash.render_priority = 12
 	effect.add_child(flash)
 
 	# Flash fade tween (0.2s).
@@ -162,11 +167,12 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 			flash.queue_free()
 	)
 
-	# Electric discharge particles.
+	# Electric discharge particles — scaled for camera altitude ~80.
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged particles for altitude.
 	var particles := GPUParticles3D.new()
 	particles.name = "DischargeParticles"
-	particles.amount = 25
-	particles.lifetime = 0.4
+	particles.amount = 36
+	particles.lifetime = 0.6
 	particles.one_shot = true
 	particles.explosiveness = 0.9
 	particles.randomness = 0.5
@@ -176,11 +182,11 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 0, 0)
 	proc_mat.spread = 180.0
-	proc_mat.initial_velocity_min = 6.0
-	proc_mat.initial_velocity_max = 14.0
+	proc_mat.initial_velocity_min = 35.0
+	proc_mat.initial_velocity_max = 75.0
 	proc_mat.gravity = Vector3.ZERO
-	proc_mat.scale_min = 0.05
-	proc_mat.scale_max = 0.15
+	proc_mat.scale_min = 0.5
+	proc_mat.scale_max = 1.2
 	proc_mat.damping_min = 5.0
 	proc_mat.damping_max = 10.0
 	# Electric blue-white color with fade.
@@ -194,8 +200,8 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.08
-	mesh.height = 0.16
+	mesh.radius = 0.6
+	mesh.height = 1.2
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)
@@ -205,5 +211,63 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	if tree:
 		var timer := tree.create_timer(BREAK_DURATION + 0.2)
 		timer.timeout.connect(func(): if is_instance_valid(effect): effect.queue_free())
+
+	return effect
+
+
+## GATE.S7.COMBAT_FEEL_POLISH.SHIELD_VFX.001: Spawn orange spark shower for hull hits
+## (shields are down). Visible from camera altitude ~80: particles spread wide, bright emissive.
+static func spawn_hull_sparks(parent: Node, ship_pos: Vector3, impact_point: Vector3) -> Node3D:
+	var effect := Node3D.new()
+	effect.name = "HullSparksVfx"
+	effect.position = ship_pos
+	parent.add_child(effect)
+
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged spark particles + higher
+	# velocity spread for clear visibility from camera altitude ~80.
+	var particles := GPUParticles3D.new()
+	particles.name = "HullSparkParticles"
+	particles.amount = 32
+	particles.lifetime = 0.55
+	particles.one_shot = true
+	particles.explosiveness = 0.9
+	particles.randomness = 0.4
+	particles.emitting = true
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var proc_mat := ParticleProcessMaterial.new()
+	# Sparks fly outward from the impact direction — scaled for camera altitude ~80.
+	var local_dir := (impact_point - ship_pos).normalized()
+	proc_mat.direction = local_dir if local_dir.length() > 0.1 else Vector3(0, 1, 0)
+	proc_mat.spread = 65.0
+	proc_mat.initial_velocity_min = 30.0
+	proc_mat.initial_velocity_max = 65.0
+	proc_mat.gravity = Vector3(0, -1.0, 0)
+	proc_mat.scale_min = 0.8
+	proc_mat.scale_max = 1.8
+	proc_mat.damping_min = 4.0
+	proc_mat.damping_max = 8.0
+	# Orange-yellow spark gradient with fade — brighter for altitude visibility.
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(1.0, 0.9, 0.3, 1.0))   # Bright yellow-orange
+	gradient.add_point(0.4, Color(1.0, 0.6, 0.15, 0.9)) # Orange
+	gradient.add_point(1.0, Color(0.8, 0.2, 0.0, 0.0))  # Red-orange fade out
+	var color_ramp := GradientTexture1D.new()
+	color_ramp.gradient = gradient
+	proc_mat.color_ramp = color_ramp
+	particles.process_material = proc_mat
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.8
+	mesh.height = 1.6
+	particles.draw_pass_1 = mesh
+
+	effect.add_child(particles)
+
+	# Auto-cleanup.
+	var tree2 := parent.get_tree()
+	if tree2:
+		var timer2 := tree2.create_timer(0.6)
+		timer2.timeout.connect(func(): if is_instance_valid(effect): effect.queue_free())
 
 	return effect

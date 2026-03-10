@@ -72,6 +72,9 @@ func _draw_galaxy(sim):
 		add_child(ring)
 		_highlight_rings[star.id] = ring
 
+		# GATE.S7.RUNTIME_STABILITY.ASTEROID_VARIETY.001: scatter asteroids near star
+		_spawn_asteroids_v0(star.pos, star.id)
+
 	for lane in sim.galaxy_map.lanes:
 		# GATE.S1.VISUAL_POLISH.GALAXY_MAP.001: differentiate intra-region (bright) vs inter-region (dim)
 		var u_region: int = region_by_id.get(lane.get("u", ""), -1)
@@ -126,6 +129,41 @@ func _make_highlight_ring(pos: Vector3, star_radius: float) -> MeshInstance3D:
 	mat.emission_energy_multiplier = 3.0
 	ring.material_override = mat
 	return ring
+
+# GATE.S7.RUNTIME_STABILITY.ASTEROID_VARIETY.001: procedural asteroid field per star
+func _spawn_asteroids_v0(star_pos: Vector3, star_id: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(star_id + "_asteroids")
+
+	var count: int = rng.randi_range(5, 12)
+	for i in range(count):
+		var asteroid := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = rng.randf_range(0.1, 0.4)
+		mesh.height = mesh.radius * 2.0
+		asteroid.mesh = mesh
+
+		# Random position in a shell around the star
+		var angle := rng.randf() * TAU
+		var dist := rng.randf_range(5.0, 25.0)
+		var y_offset := rng.randf_range(-3.0, 3.0)
+		asteroid.position = star_pos + Vector3(cos(angle) * dist, y_offset, sin(angle) * dist)
+
+		# Non-uniform scale for irregular shape
+		asteroid.scale = Vector3(
+			rng.randf_range(0.6, 1.4),
+			rng.randf_range(0.4, 1.2),
+			rng.randf_range(0.6, 1.4)
+		)
+
+		# Rocky gray-brown material
+		var mat := StandardMaterial3D.new()
+		var gray := rng.randf_range(0.15, 0.35)
+		mat.albedo_color = Color(gray + 0.05, gray, gray - 0.02)
+		mat.roughness = 0.9
+		asteroid.material_override = mat
+
+		add_child(asteroid)
 
 func _process(delta):
 	var game_manager = get_node_or_null("/root/Main/GameManager")

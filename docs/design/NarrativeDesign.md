@@ -5,7 +5,7 @@
 > This doc governs how every system — exploration, audio, HUD, combat, economy,
 > automation — participates in narrative delivery.
 > Content authoring specs: `content/NarrativeContent_TBA.md` (missions, dialogue,
-> discovery text), `content/LoreContent_TBA.md` (Precursor logs, fragments, faction
+> discovery text), `content/LoreContent_TBA.md` (ancient data logs, fragments, faction
 > histories). Epics: `EPIC.S7.NARRATIVE_DELIVERY.V0` (system), `EPIC.S8.NARRATIVE_CONTENT.V0` (content).
 
 ## Why This Doc Exists
@@ -30,7 +30,7 @@ architecture.
 — what the player FEELS, not what they read.*
 
 **Act 1 — The Rules (Tick 0–400)**
-You are a trader in a galaxy at war. Lanes are safe but expensive. Warfronts
+You are a trader in a galaxy at war. Threads are safe but expensive. Warfronts
 distort prices. Factions compete. The Communion is starving. You learn the rules
 of a universe built on containment infrastructure that everyone takes for
 granted, the way we take roads for granted.
@@ -43,7 +43,7 @@ your engineers can't explain. The comfortable universe of Act 1 starts to feel
 like a cage.
 
 **Act 3 — The Truth (Tick 1200–2000+)**
-The module is older than the lanes. The lanes aren't protecting you from
+The module is older than the threads. The threads aren't protecting you from
 instability — they're suppressing spacetime's natural state. The Lattice is
 failing. The factions each have a piece of the answer and none have the whole
 picture. You've spent hundreds of trade decisions building relationships that
@@ -123,7 +123,7 @@ suddenly includes personal language), the player notices because it
 **Specific applications:**
 
 - **Concord** stations use bureaucratic euphemisms that the player gradually
-  learns are lies: "lane optimization event" = lane failure; "scheduled
+  learns are lies: "thread optimization event" = thread failure; "scheduled
   maintenance period" = emergency repair; "regulatory alignment" = censorship.
 - **Program failure messages** are clinical: "Trade Charter stalled: Proxima
   tariff now 25%, margin negative. Reroute? [Yes] [Edit Route]." The clinical
@@ -142,7 +142,7 @@ What is missing tells the story more powerfully than what is present.
 
 **For STE:**
 
-- **The Precursors** are present through absence. The lanes are containment
+- **The thread builders** are present through absence. The threads are containment
   infrastructure built by beings who are gone. The Lattice maintenance drones
   are repair bots without masters. Empty docking berths sized for ships no
   modern faction builds. Accommodation geometry structures that have been
@@ -166,23 +166,37 @@ What is missing tells the story more powerfully than what is present.
 
 **The Concord Betrayal (Political Trust):**
 - **Build phase (Act 1):** Concord stations are the safest, most comfortable,
-  most profitable places to trade. Open markets, low tariffs, predictable pricing,
-  polite NPCs. The player genuinely likes Concord.
+  most profitable places to trade. But more importantly: Concord is *visibly
+  good*. The player sees Concord relief convoys supplying struggling Communion
+  stations. Concord subsidizes Food prices to keep poor stations fed. Concord
+  medical supply chains reach everywhere. The bureaucracy is real, but so is
+  the public service. The player should genuinely respect Concord — not just
+  find them convenient.
 - **Cracks (Act 2):** Intelligence briefings with redacted sections. Stations
-  near degrading lanes with suspiciously reassuring official statements. Other
-  factions hint at Concord suppression.
-- **Break (Act 3):** At high Concord rep, the player receives unredacted
-  intelligence revealing Concord has known about lane failure for decades and
-  has been systematically suppressing the information. The comfort was a lie.
-  The low tariffs buy compliance. "Lane optimization event" meant people died.
+  near degrading threads with reassuring official statements that the player has
+  no reason to doubt yet (because Concord has been competent and honest about
+  everything else). Other factions hint at Concord being "too confident" —
+  not "corrupt," just "too sure the threads will hold."
+- **Break (Act 3):** At high Concord rep, the player discovers the suppression.
+  But the betrayal is NOT "the comfort was a lie." The comfort was real. The
+  relief convoys were real. The Food subsidies were real. The lie was about
+  the *future* — Concord knows the threads are failing and chose not to tell
+  anyone because the panic would cause more deaths than the silence. The
+  player must decide: was Concord wrong? The suppression saved lives. The
+  truth might have saved more. There's no clean answer.
 
-**The Lane Betrayal (Existential Trust):**
-- **Build phase (Act 1):** 3-4 hours of gameplay where lanes are safe, reliable,
+  **Critical design rule:** The player should feel the way you feel learning
+  a parent lied to protect you — not "I knew they were corrupt" but "they
+  did real good, and they were also hiding the most important truth in the
+  galaxy, and I don't know if that makes them wrong."
+
+**The Thread Betrayal (Existential Trust):**
+- **Build phase (Act 1):** 3-4 hours of gameplay where threads are safe, reliable,
   fast. The backbone of civilization. The player depends on them completely.
-- **Cracks (Act 2):** Fracture travel reveals that off-lane space isn't chaos —
-  it's spacetime's natural state. The lanes are artificial. The Module works
-  better the further you go from lanes, not worse.
-- **Break (Act 3):** The revelation that the lanes are containment infrastructure
+- **Cracks (Act 2):** Fracture travel reveals that off-thread space isn't chaos —
+  it's spacetime's natural state. The threads are artificial. The Module works
+  better the further you go from threads, not worse.
+- **Break (Act 3):** The revelation that the threads are containment infrastructure
   actively error-correcting spacetime's natural turbulence — the galaxy's calm
   is artificial, maintained by machinery that's failing. The thing the player
   depended on for survival is itself a kind of violence imposed on reality. The
@@ -244,12 +258,40 @@ When a fleet ship is destroyed, its name and service record are logged. The
 player should feel the loss of a ship that's been with them for 500 ticks
 differently than one commissioned yesterday.
 
-**The Communion remembers you:**
+**The Communion remembers you — and has seen this before:**
 (From `factions_and_lore_v0.md`) "You're the one who kept Waystation Kell
 alive." The Communion is the faction that treats the player as a person, not
 a customer. NPCs at other Communion stations greet you by reputation. Named
 NPCs reference your specific trade history. This is the emotional hook that
 makes the Renegotiate path personal, not just optimal.
+
+But the Communion has a secret: they recognized the player's module
+signature the first time the player docked. They've seen this before —
+every few generations, someone finds a piece of accommodation geometry.
+The Communion calls them *threshold-crossers*. Most don't last long.
+
+The Communion doesn't cultivate the player. They help everyone — it's
+their culture. They share shimmer-zone data with anyone who asks. Their
+warmth is genuine. But they ARE watching, because they always watch
+threshold-crossers. And hoping, because they always hope.
+
+The max-rep reveal is devastating in its simplicity: a Communion elder
+tells the truth directly. "You're not the first. Every few generations,
+someone finds a piece of it. We've learned that telling people what they
+carry doesn't help. So we watch. We help when you ask. We hope. You've
+gone further than any of them."
+
+The player is not special. Not chosen. Not destined. They are the latest
+in a long line — and the question becomes: am I repeating a pattern that
+always ends the same way?
+
+**The First Officer's role:** The player's First Officer (see
+`factions_and_lore_v0.md` → "The First Officer") is the personal emotional
+anchor that the Communion provides at the faction level. The FO reacts to
+revelations in real-time, making abstract twists personal. Three candidates
+with distinct archetypes (Analyst, Veteran, Pathfinder) let the player
+choose the emotional register of their narrative experience. Each aligns
+with a different endgame path but does not require it.
 
 ### 8. Economic Pressure IS Story Beats
 
@@ -279,8 +321,8 @@ feel the **cost** of their choice:
 
 | Path | What You Gain | What You Lose |
 |------|--------------|---------------|
-| **Reinforce** | Lanes stabilized. Civilization preserved. Concord gratitude. | Fracture travel sealed forever. Exotic Crystal supply dies. Communion loses their way of life. You chose the cage. |
-| **Naturalize** | Adaptation succeeds. New civilization in unstable space. Frontier freedom. | Lane-space becomes dangerous. Concord collapses. The infrastructure billions depend on crumbles. You chose the wilderness. |
+| **Reinforce** | Threads stabilized. Civilization preserved. Concord gratitude. | Fracture travel sealed forever. Exotic Crystal supply dies. Communion loses their way of life. You chose the cage. |
+| **Naturalize** | Adaptation succeeds. New civilization in unstable space. Frontier freedom. | Thread-space becomes dangerous. Concord collapses. The infrastructure billions depend on crumbles. You chose the wilderness. |
 | **Renegotiate** | Understanding. The deepest truth. Neither suppress nor adapt — communicate. | Every other faction thinks you're insane. Only the Communion supports you. The outcome is uncertain because it's genuinely new. You chose the unknown. |
 
 **The New Vegas lesson:** None of these should feel like a "good ending." They
@@ -316,31 +358,68 @@ anything.
 > Portal 2: learning that GLaDOS was built from Caroline retroactively reframes
 > GLaDOS's hostility as grief. The monster has a human origin.
 
-**STE's three recontextualizations:**
+**STE's five recontextualizations:**
 
-**Recontextualization 1 — "It's Not a Drive" (Module revelation, ~Hour 12)**
-The fracture module predates the lanes. Every fracture jump the player made
+**Recontextualization 1 — "It's Not a Drive" (Module revelation, ~Hour 8)**
+The fracture module predates the threads. Every fracture jump the player made
 wasn't damaging infrastructure — it was de-containing space. The guilt the
 player felt (Concord told them it was dangerous, NPCs warned them) was
-manufactured by a faction that benefits from keeping them on the lanes.
+manufactured by a faction that benefits from keeping them on the threads.
 
-**Recontextualization 2 — "The Lanes Aren't Protection" (~Hour 18)**
+**Recontextualization 2 — "The Threads Aren't Protection" (~Hour 12)**
 The containment approach has been failing for millennia. The Lattice is
 degrading. The accommodation approach (the fracture module, the Haven) has
 been stable for millions of years. The "safe" option was the dangerous
 one all along.
 
-**Recontextualization 3 — "Instability Is Not Entropy" (Endgame)**
+**Recontextualization 3 — "The Economy Is a Cage" (~Hour 15)**
+The pentagon dependency ring is not natural. It was engineered by the same
+intelligence that built the threads. Every trade the player has run — every
+Composites delivery, every Rare Metals haul — maintained containment
+infrastructure applied to *civilization*, not just spacetime. The player
+discovers this through gameplay: a fracture-space trade route breaks the
+ring pattern, a Communion station begins producing its own Food. The
+dependency was a rule that only applied inside the cage.
+
+**This is the twist only a trading game can deliver.** No other game can
+recontextualize 15 hours of core gameplay (trade routes) as participation
+in a conspiracy. The player wasn't a neutral trader. They were a cog in
+a machine designed to prevent species independence.
+
+**Recontextualization 4 — "The Module Is Changing Me" (~Hour 18)**
+The fracture module isn't adapting to the ship. It's adapting the pilot.
+The UI effects in unstable space — chromatic aberration, parallax,
+distortion — are not degraded perception. They are the pilot seeing
+space *more accurately* than stable-space beings can. Normal space is
+the simplified view. The "distortion" is high-fidelity.
+
+This is never stated explicitly. The player infers it: the effects feel
+less "wrong" over time, a Communion elder remarks the player "sees like
+we do now," a data log describes Adaptation scientists developing "metric
+perception." The conclusion is the player's to draw — and it raises the
+question of whether the module has shaped their judgment, not just their
+senses.
+
+**Recontextualization 5 — "Instability Is Not Entropy" (Endgame)**
 The nature of instability itself. Not decay, not chaos, not destruction.
 Something else. The game never names what it is. Each endgame path represents
 a different response to this ambiguity.
 
 **Design requirement:** For each recontextualization to land, the player must
 have **acted on the wrong assumption** for hours before it flips. The hours of
-guilt about "damaging lanes" make the revelation that you weren't hit harder.
+guilt about "damaging threads" make the revelation that you weren't hit harder.
 The hours of depending on Concord's safety make the discovery of their lies
-sting more. The hours of fearing instability make the discovery that it might
-be something other than entropy genuinely surprising.
+sting more. The hours of *running trade routes within the cage* make the
+discovery that the economy is engineered devastating. The hours of trusting
+your own perception make the discovery that the module changed you unsettling.
+The hours of fearing instability make the discovery that it might be something
+other than entropy genuinely surprising.
+
+**Critical: Recontextualizations 3 and 4 are discovered through GAMEPLAY,
+not text.** The player observes the dependency ring breaking in fracture space
+(R3) and notices that unstable-space perception feels less disorienting over
+time (R4) before any data log or NPC dialogue confirms it. The text confirms.
+The experience reveals.
 
 ### 12. The Story Serves the Core Fantasy
 
@@ -372,13 +451,13 @@ delivery mechanisms and operates at different timescales.
 ### Layer 1: Ambient Narrative (Always Present)
 
 **What it is:** The world tells its story through existing state — prices, NPC
-behavior, lane conditions, station descriptions, market data.
+behavior, thread conditions, station descriptions, market data.
 
 **Delivery mechanisms:**
 - Market prices (high Munitions price at a station = warfront nearby)
 - NPC convoy frequency (fewer traders on a route = that route is dangerous)
 - Station condition (Communion station at 50% supply vs Concord at 100%)
-- Lane security band colors (green = safe, red = hostile)
+- Thread security band colors (green = safe, red = hostile)
 - Instability phase visual effects (shimmer, parallax, distortion)
 
 **Cross-reference:** `GalaxyMap.md` (overlay modes), `HudInformationArchitecture.md`
@@ -455,43 +534,72 @@ experience. The player who allies with only one faction gets only one piece.
 The player who maintains multiple relationships gets a more complete picture —
 but at higher cost (neutrality tax, time investment).
 
-### Layer 5: Revelation Narrative (Three Major Beats)
+### Layer 5: Revelation Narrative (Five Major Beats)
 
 **What it is:** The paradigm-shifting moments that recontextualize the player's
 understanding of the world. These are the game's biggest emotional beats.
 
-**The three revelations:**
+**The five revelations:**
 
 1. **The Module Revelation (~Tick 800, ~Hour 8)**
    The fracture module is not an experimental drive. It's Adaptation faction
-   technology, older than the lanes. The player's guilt about "damaging lanes"
-   was misplaced — the module de-contains space, which weakens nearby lanes as
+   technology, older than the threads. The player's guilt about "damaging threads"
+   was misplaced — the module de-contains space, which weakens nearby threads as
    a side effect, not the primary function.
 
 2. **The Concord Revelation (~Tick 1200, ~Hour 12)**
-   At high Concord reputation, the player receives unredacted intelligence
-   showing that Concord has known about cascading lane failure for decades.
-   They've been suppressing the information. The player has been trading in a
-   galaxy built on a lie.
+   At high Concord reputation, the player discovers the suppression. But
+   Concord is not a villain — they are a genuinely good institution that made
+   a terrible compromise. The relief convoys were real. The Food subsidies
+   were real. The lie was about the future. The player must decide whether
+   Concord was wrong.
 
-3. **The Instability Revelation (Endgame, ~Tick 2000+)**
+3. **The Economy Revelation (~Tick 1500, ~Hour 15)**
+   The pentagon dependency ring is engineered. Every trade route the player
+   has been running maintained containment infrastructure applied to
+   civilization. The player discovers this through *gameplay* — a fracture-space
+   trade route breaks the ring pattern, a Communion station produces its own
+   Food — before any data log confirms it. This is the twist only a trading
+   game can deliver: 15 hours of core gameplay recontextualized as
+   participation in a system of control.
+
+4. **The Communion Revelation (~Tick 1800, ~Hour 18)**
+   The Communion elder tells the truth: they recognized the module from
+   the first dock. They've seen this before — every few generations,
+   someone finds a piece of accommodation geometry. Most don't last long.
+   The simplest, most devastating moment in the game — after every other
+   faction hid things, one faction tells the truth. What they reveal is
+   not a conspiracy but a pattern: the player is the latest in a long
+   line of threshold-crossers, and the Communion has been quietly mourning
+   most of their predecessors. Forces the Renegotiate-path player to ask:
+   am I repeating a pattern that always ends the same way?
+
+5. **The Instability Revelation (Endgame, ~Tick 2000+)**
    Instability is not entropy. It is not decay. It is *process*. The
    containment wasn't just suppressing physics — it was interrupting something.
    What that something is remains ambiguous. The three endgame paths each
-   represent a different response.
+   represent a different response. And the player cannot be certain their
+   judgment hasn't been shaped by the module's perceptual adaptation.
 
 **Design rule:** Each revelation requires the player to have been wrong for
 hours before it arrives. The wrongness must be felt through gameplay, not text.
 The player must have made decisions based on the wrong assumption — used
 fracture travel while believing it was dangerous, traded with Concord while
-believing they were honest, feared instability while misunderstanding what it
-was. The flip hits harder because of the investment.
+believing they were honest, *run trade routes within the cage without knowing
+it was a cage*, trusted the Communion's innocence, feared instability while
+misunderstanding what it was. The flip hits harder because of the investment.
+
+**Critical:** Revelations 3 (Economy) and 4 (Communion) are the game's
+strongest because they emerge from the player's *present* relationship with
+the game world, not from the archaeological past. Genre-savvy players predict
+ancient-mystery twists. Nobody predicts "the trade loop is a cage" or "the
+most honest faction was guiding you all along."
 
 ---
 
-## Precursor Data Logs — Conversation Format
+## Ancient Data Logs — Conversation Format
 
-Inspired by Outer Wilds' Nomai wall texts, Precursor data logs should be
+Inspired by Outer Wilds' Nomai wall texts, ancient data logs should be
 written as **conversations between scientists**, not as encyclopedia entries.
 
 ### Why Conversations
@@ -530,9 +638,13 @@ For life support: [section damaged]
 VAEL: We need to tell the Council.
 
 KESH: The Council shut down Site Theta. They classified the
-cycle 4,107 measurements. I am recording this because someone,
-someday, will need to know that we knew. And that they chose
-not to listen.
+cycle 4,107 measurements. Vael is transferring to the orbital
+platform. I don't think she knows they're reassigning her to
+keep her away from the data.
+
+VAEL: I know, Kesh. I've known since the audit.
+
+[Log ends]
 ```
 
 ### What This Format Achieves
@@ -542,18 +654,37 @@ not to listen.
   research — this parallels Concord's current behavior.
 - **Technical details are embedded in argument.** The player learns about
   accommodation geometry through a dispute, not a textbook.
-- **The final paragraph is heartbreaking.** Kesh recorded this for the
-  player, across millions of years. "Someone, someday, will need to know."
-  That someone is the player. The log is a letter addressed to them.
+- **The final exchange is devastating because it's private.** Neither
+  scientist is addressing the future. Neither knows anyone will ever read
+  this. Vael's quiet "I know, Kesh" is a private moment of grief between
+  colleagues, not a message in a bottle. The player is eavesdropping on
+  people who have been dead for millions of years. That intimacy — finding
+  someone's unguarded frustration rather than their prepared statement — is
+  more haunting than any letter to posterity.
+
+**Design rule for all ancient logs:** Logs are NEVER addressed to the
+future. They are internal records — lab notebooks, arguments, daily memos.
+Scientists recorded because that's what scientists do. No log should
+contain any variation of "someone will find this" or "for those who come
+after." The player is not the intended audience. They are an accidental
+witness. This makes every log feel more real and more invasive.
 
 ### Naming Convention
 
-Precursor scientists should have short, distinct names (Kesh, Vael, Oruth,
-Senn, Tal) that the player encounters across multiple logs at different sites.
-Finding a log from Kesh at a new ruin creates recognition — "I know this
-person" — which deepens investment. Over time, the player assembles a mental
-picture of these individuals: Kesh is cautious, Vael is optimistic, Oruth is
-the project lead, Senn runs the experiments, Tal builds the hardware.
+The thread-builder scientists should have short, distinct names (Kesh, Vael,
+Oruth, Senn, Tal) that the player encounters across multiple logs at different
+sites. Finding a log from Kesh at a new ruin creates recognition — "I know
+this person" — which deepens investment.
+
+**Each scientist has a personal contradiction** that transcends their debate
+position (see `factions_and_lore_v0.md` → "The Scientists Behind the Data
+Logs"). Kesh privately agrees with Vael but is too afraid to say so. Vael
+hides doubts about accommodation at extreme phases. Oruth approved the
+pentagon ring knowing it was wrong. Senn is genuinely amoral — incapable of
+seeing systems as having moral dimensions. Tal grieves the failing infrastructure
+more than any political argument. These contradictions are revealed across
+multiple logs — early logs show the public position, later logs reveal the
+private truth. No single log reveals a full personality.
 
 ---
 
@@ -574,7 +705,35 @@ music stops.
 | Finding an empty discovery site | No loot sound. No fanfare. Just a data log and a frozen scene. | The absence of reward IS the narrative — this place has been picked clean by time. |
 | The Module revelation | All audio dims except the module's own resonance (a new sound the player has never heard). | The module "speaking" for the first time should be the only sound in the world. |
 | Post-combat | Weapon sounds stop. Music fades to ambient. Engine hum returns slowly. Debris drifts. | The relief of survival. The cost of what was spent. Homeworld's post-mission silence. |
-| Entering the Haven for the first time | Music fades to a single sustained note. The Haven's stabilizer hum is warm and low. | The first truly safe place outside lane-space. Safety should sound different. |
+| Entering the Haven for the first time | Music fades to a single sustained note. The Haven's stabilizer hum is warm and low. | The first truly safe place outside thread-space. Safety should sound different. |
+
+---
+
+## Cover-Story Naming Discipline
+
+The fracture module's player-facing name is **"Structural Resonance Engine"**
+(abbreviated "SRE") until the Module Revelation (~Hour 8). The term "fracture"
+must NEVER appear in any UI element, tooltip, dialogue, loading screen, or
+player-visible text before that beat.
+
+| Context | Before Revelation | After Revelation |
+|---------|------------------|-----------------|
+| Module name in inventory | Structural Resonance Engine | Adaptation Drive |
+| Travel action label | SRE Transit | Fracture Transit |
+| Hull stress tooltip | "SRE field interference" | "Accommodation recalibration" |
+| Concord NPC dialogue | "That experimental drive is unlicensed" | "Where did you *get* that?" |
+| Trace meter tooltip | "Regulatory attention from SRE emissions" | "Lattice detection of accommodation signature" |
+
+**Rationale:** The name "fracture" telegraphs the mystery — players immediately
+connect it to the threads. "Structural Resonance Engine" sounds corporate and
+boring, which is exactly right. The cover story should feel like mundane
+technology. The revelation that it's ancient Adaptation tech should reframe
+something the player thought was ordinary, not confirm something they already
+suspected.
+
+**Internal dev docs** may continue using "fracture module" for clarity. This
+rule applies only to player-facing strings and design doc sections that define
+player-visible text.
 
 ---
 
@@ -648,9 +807,9 @@ in other design documents.
 
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
-| Discovery family templates (Derelict/Ruin/Signal) | Add "Precursor" family: accommodation geometry sites that only appear in Phase 2+ space. These use the conversation-format data logs. |
+| Discovery family templates (Derelict/Ruin/Signal) | Add "Ancient" family: accommodation geometry sites that only appear in Phase 2+ space. These use the conversation-format data logs. |
 | Knowledge graph connections | Adaptation Fragment discoveries should create gold connections (unique color) that form a separate sub-web within the Knowledge Graph — the "ancient mystery" thread visually distinguished from faction/contemporary discoveries. |
-| Narrative chaining | The three-step chain (Kepler Derelict → Altair Signal → Deneb Ruin) should culminate in chains that point toward Precursor sites. Contemporary mystery chains lead to ancient mystery chains. |
+| Narrative chaining | The three-step chain (Kepler Derelict → Altair Signal → Deneb Ruin) should culminate in chains that point toward thread-builder sites. Contemporary mystery chains lead to ancient mystery chains. |
 
 ### RiskMeters.md
 
@@ -664,7 +823,7 @@ in other design documents.
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
 | Enemy destroyed event | Lattice drone destruction should feel different from faction ship destruction: no explosion, just a power-down hum and the drone going dark. They're not alive. They're infrastructure failing. |
-| Shield break flash | Accommodation-geometry shields (Haven, Precursor sites) should have a distinct visual: instead of blue-white flash, a geometric pattern — hexagons → pentagons → irregular tessellation. The shield is adapting, not failing. |
+| Shield break flash | Accommodation-geometry shields (Haven, ancient sites) should have a distinct visual: instead of blue-white flash, a geometric pattern — hexagons → pentagons → irregular tessellation. The shield is adapting, not failing. |
 
 ### HudInformationArchitecture.md
 
@@ -697,9 +856,9 @@ in other design documents.
 |----------------|---------------------|
 | Star class visual language (O through M) | Star colors map to narrative zones. Warm gold G-types = home, safety, Act 1 comfort. Cold blue O/B-types = industrial, power, faction strongholds. Deep red M-types = frontier, danger, where derelicts and mysteries live. The color gradient IS the story gradient — safe→dangerous, known→unknown. |
 | Fog of war / exploration states | Three fog states are three narrative states: black (unknown = "what's out there?"), desaturated (stale = "things have changed since I was there"), bright (fresh = "I know what's happening here"). The fog IS the player's ignorance made visible. Dramatic fog contrast rewards exploration viscerally. |
-| Security overlay (green→red lane colors) | Security coloring tells the story of factional control. A lane that was green and turns orange is a narrative event — the warfront shifted, patrols thinned, this route got dangerous. Overlay changes over time ARE the war story told through cartography. |
+| Security overlay (green→red thread colors) | Security coloring tells the story of factional control. A thread that was green and turns orange is a narrative event — the warfront shifted, patrols thinned, this route got dangerous. Overlay changes over time ARE the war story told through cartography. |
 | Intel Freshness overlay | Freshness decay creates the "war correspondent" narrative: the player must re-visit to re-learn. A cluster of red (stale) nodes near a warfront implies "something happened there and I don't know what." Freshness is narrative uncertainty made spatial. |
-| Trade Flow overlay (gold/gray lanes) | Active trade routes (gold) are the player's economic biography drawn on the map. Seeing your routes light up across the galaxy should feel like seeing your empire's circulatory system. Gray lanes adjacent to your gold ones are narrative opportunities: "I haven't explored that connection yet." |
+| Trade Flow overlay (gold/gray threads) | Active trade routes (gold) are the player's economic biography drawn on the map. Seeing your routes light up across the galaxy should feel like seeing your empire's circulatory system. Gray threads adjacent to your gold ones are narrative opportunities: "I haven't explored that connection yet." |
 | Node detail popup | Popups should carry faction voice when showing territory info. A Concord-controlled node popup might say "Concord Commerce Zone — tariff schedule in effect." A Communion waystation popup: "Waystation Kell — supplies low, requesting assistance." The map speaks with the voice of whoever controls the space. |
 | Faction territory discs | Territory visualization IS the political map. Territory changes (disc color shifting as factions gain/lose nodes) should be among the most narratively significant visual events in the game. A Valorin disc appearing at a previously Weaver node = the frontier moved. This is the Stellaris moment: watching borders shift on the galaxy map. |
 
@@ -709,7 +868,7 @@ in other design documents.
 |----------------|---------------------|
 | Warp arrival flyby (Euler spiral orbit) | First arrival at a new system is a narrative moment. The full 270° sweep + letterbox is correct — it says "you've never been here before, take it in." Return visit 60% sweep says "you know this place." The camera IS the narrator: its behavior communicates familiarity vs. novelty. |
 | Star class visual spectacle during orbit | The flyby reveals the star's personality. A red dwarf flyby should feel cold and isolated. A blue giant flyby should feel awe-inspiring and industrial. Vary orbit altitude and speed by star class: slower, closer orbits for dramatic M-types; wider, faster sweeps for familiar G-types. |
-| Phase 5 handoff (camera settles to flight mode) | The settle phase is the "now you're here" transition. At narrative milestone systems (Haven, first Precursor site, the system where the Module was found), the settle should be slower — the camera lingers, letting the player absorb where they are. A 0.5s longer settle at narratively significant locations. |
+| Phase 5 handoff (camera settles to flight mode) | The settle phase is the "now you're here" transition. At narrative milestone systems (Haven, first ancient site, the system where the Module was found), the settle should be slower — the camera lingers, letting the player absorb where they are. A 0.5s longer settle at narratively significant locations. |
 | Letterbox overlay on first visits | Letterboxing is a cinematic grammar the player understands: "this is a moment." Reserve letterboxing for: first visits, revelation beats (arriving at a system where a major discovery awaits), and entering the Haven. Never letterbox on routine returns — it would dilute the signal. |
 
 ### dynamic_tension_v0.md
@@ -728,16 +887,16 @@ in other design documents.
 |----------------|---------------------|
 | Three branches from Metal (Offensive/Defensive/Economic) | The Metal fork is a narrative choice disguised as an economic one. "Metal + Fuel = Munitions" means "I chose to supply war." "Metal + Organics = Composites" means "I chose to protect." "Metal + Electronics = Components" means "I chose to grow." The player's production chain IS their political statement. Factions should notice and comment on which branch a player favors. |
 | The Organics Fork (Food vs. Composites) | The butter-vs-guns decision is the game's most human narrative moment. An agri-system choosing Food keeps people alive. Choosing Composites keeps fleets armored. When a Communion station is starving and the player routes Organics to Composites production instead, that should FEEL like a moral choice — not just a production optimization. NPC dialogue at Communion stations should reflect this: "The convoys are carrying armor plating. Not food. We notice." |
-| Exotic Matter (T3 sustain) | Exotic Matter is the game's narrative endgame resource. Your Dreadnought with 3 Precursor modules "literally runs on alien artifacts you have to keep finding." This is the mechanical expression of the ancient mystery — the player's endgame power depends on understanding (and finding) things the Precursors left behind. Running low on Exotic Matter should feel existential, not just inconvenient. |
-| Fracture-exclusive goods (Exotic Crystals) | The fact that the entire tech chain depends on Exotic Crystals — which only exist in fracture space — is itself a narrative. Lane civilization's most advanced technology requires materials from the space it fears. This irony should be surfaced in faction dialogue: "Your electronics run on crystals from drift space. You know that, right? Concord doesn't like to talk about where their sensor arrays come from." |
+| Exotic Matter (T3 sustain) | Exotic Matter is the game's narrative endgame resource. Your Dreadnought with 3 Relic modules "literally runs on alien artifacts you have to keep finding." This is the mechanical expression of the ancient mystery — the player's endgame power depends on understanding (and finding) things the thread builders left behind. Running low on Exotic Matter should feel existential, not just inconvenient. |
+| Fracture-exclusive goods (Exotic Crystals) | The fact that the entire tech chain depends on Exotic Crystals — which only exist in fracture space — is itself a narrative. Thread civilization's most advanced technology requires materials from the space it fears. This irony should be surfaced in faction dialogue: "Your electronics run on crystals from drift space. You know that, right? Concord doesn't like to talk about where their sensor arrays come from." |
 | Warfront demand shocks (Munitions 4x) | Warfront demand spikes are narrative pressure expressed as numbers. "Munitions 4x at contested nodes" means the war is hungry. The price of Munitions at a besieged station IS the story of that siege. When prices normalize, the ceasefire arrived. When they spike again, the front reopened. Price history charts are war diaries. |
 
 ### ship_modules_v0.md
 
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
-| Three tech tiers (Standard/Military/Precursor) | Tech tiers are narrative tiers. T1 = "the galaxy as it presents itself." T2 = "the galaxy as factions have shaped it" (locked behind reputation, requiring faction trust). T3 = "the galaxy as it actually is" (ancient tech that challenges everything you thought you knew). Each tier transition recontextualizes the player's understanding of technology. |
-| T3 Precursor modules (discovery-only) | Precursor modules are narrative artifacts, not just stat upgrades. Each should come with a data log fragment (conversation format). The module's in-game tooltip should include a line of Precursor text: "Kesh's accommodation lattice prototype — 'the material remembers what the field was, not what it is.'" This transforms every T3 module from "better stats" to "a piece of the mystery I can install on my ship." |
+| Three tech tiers (Standard/Military/Relic) | Tech tiers are narrative tiers. T1 = "the galaxy as it presents itself." T2 = "the galaxy as factions have shaped it" (locked behind reputation, requiring faction trust). T3 = "the galaxy as it actually is" (ancient tech that challenges everything you thought you knew). Each tier transition recontextualizes the player's understanding of technology. |
+| T3 Relic modules (discovery-only) | Relic modules are narrative artifacts, not just stat upgrades. Each should come with a data log fragment (conversation format). The module's in-game tooltip should include a line of ancient text: "Kesh's accommodation lattice prototype — 'the material remembers what the field was, not what it is.'" This transforms every T3 module from "better stats" to "a piece of the mystery I can install on my ship." |
 | Zone armor system (4 directional zones) | Zone damage tells combat micro-stories. A ship with depleted aft armor and intact fore tells the story of a fighting retreat. A ship with depleted port tells the story of a broadside exchange. The Fleet tab's ship detail view should show zone damage history as narrative: "*Argent Crossing*: aft armor rebuilt twice (Tick 203 Valorin ambush, Tick 567 Chitin raid)." |
 | Combat stances (Charge/Broadside/Kite) | Stances are tactical personalities. Charge = aggressive, closing to kill. Broadside = measured, trading fire. Kite = cautious, running while fighting. The stance a player's fleet uses tells a story about their combat philosophy. Fleet ships could develop "preferred stances" based on combat history — a ship that's survived 10 kite engagements "prefers" kiting. |
 | Module sustain (goods consumption per cycle) | Sustain consumption is the mechanical expression of "your empire has a metabolism." Fielding T2 modules means your fleet eats Composites and Rare Metals every 60 ticks. This creates supply chain dependencies that ARE narrative dependencies: "I can't field my best ships unless I maintain my Rare Metals trade route through Valorin space — and the Valorin are at war." The module loadout IS the supply chain story. |
@@ -747,9 +906,9 @@ in other design documents.
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
 | Pentagon dependency ring | The dependency ring is the game's deepest political narrative. Each faction needs something from a faction it philosophically opposes. This should be surfaced explicitly at high reputation: "You've been trading with us for 300 ticks. You should know — we cannot produce Composites without Weaver materials. And the Weavers cannot produce Electronics without Chitin precision tools. We are all connected, even those of us at war. Especially those of us at war." |
-| 16 Adaptation Fragments + 8 Resonance Pairs | Fragment discovery should trigger Discovery Web connections that gradually reveal the Precursor civilization's internal debate. The 8 Resonance Pairs (Containment debate, Measurement problem, etc.) are 8 conversations. Each pair, when assembled, should unlock a Precursor data log conversation between two scientists arguing about that exact topic. The fragments ARE the footnotes; the logs ARE the text they reference. |
+| 16 Adaptation Fragments + 8 Resonance Pairs | Fragment discovery should trigger Discovery Web connections that gradually reveal the thread-builder civilization's internal debate. The 8 Resonance Pairs (Containment debate, Measurement problem, etc.) are 8 conversations. Each pair, when assembled, should unlock an ancient data log conversation between two scientists arguing about that exact topic. The fragments ARE the footnotes; the logs ARE the text they reference. |
 | Three endgame paths (Reinforce/Naturalize/Renegotiate) | The endgame should emerge from accumulated play, not a dialog choice. The path available to the player should depend on which factions they allied with, which fragments they found, and what they understand. A player who never visited Communion space cannot Renegotiate — they don't have the knowledge. A player who never found Fragment 6 (Lattice authentication) cannot Reinforce — they can't operate the infrastructure. The endgame is a knowledge test disguised as a moral choice. |
-| Haven Starbase (Precursor safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. |
+| Haven Starbase (ancient safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. |
 | Instability Phases (Stable→Void) | Each phase transition at a system should be a narrative event the player can witness. Shimmer arriving at a previously stable system = "something changed here." The galaxy map should show phase spread over time — systems near fracture activity gradually shifting from Stable to Shimmer to Drift. The player can WATCH the consequences of fracture travel spreading across the map. This is the doom clock made spatial. |
 
 ### MainMenu.md
@@ -757,7 +916,7 @@ in other design documents.
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
 | Title screen foreground silhouette | The foreground element adapts to game state: a lone gate (no saves = the beginning), the player's ship class (mid-campaign = your ship is waiting), Haven starbase (completed = you've been here before). The title screen IS act zero — foreshadowing without spoiling. |
-| Rotating subtitle quote | A different Precursor fragment quote each session. The player accumulates these across sessions — mystery through repetition and variation. Never show the same quote twice until all are exhausted. The menu teaches the player to read Precursor text before they find their first fragment. |
+| Rotating subtitle quote | A different ancient fragment quote each session. The player accumulates these across sessions — mystery through repetition and variation. Never show the same quote twice until all are exhausted. The menu teaches the player to read thread-builder text before they find their first fragment. |
 | Galaxy generation messages | "Seeding fracture topology..." / "Igniting warfronts..." — generation text is world-building, not loading feedback. The player reads lore while the galaxy is born. These messages should reference systems from `factions_and_lore_v0.md` without spoiling specifics. |
 | Difficulty descriptions | Written in-universe, not in game-design language. "The galaxy is indifferent to your survival" (Standard) carries narrative weight that "Normal difficulty" does not. The difficulty selection IS the player's first narrative choice — what kind of story am I signing up for? |
 | First-launch silence (2s void) | The AudioDesign.md "void, then you're alive" principle starts at the main menu, not at tick 1. The very first thing a new player experiences is silence and darkness. Then a single note. Then stars. The menu IS the creation myth. |
@@ -772,10 +931,11 @@ in other design documents.
 
 | Gap | Impact | Notes |
 |-----|--------|-------|
-| **No Precursor data logs** | The ancient mystery has no voice. Adaptation scientists are concepts, not characters. | Write 20-30 conversation-format logs featuring 5 named scientists. Distribute across Precursor discovery sites. |
+| **No ancient data logs** | The ancient mystery has no voice. Thread-builder scientists are concepts, not characters. | Write 20-30 conversation-format logs featuring 5 named scientists with personal contradictions. Distribute across ancient discovery sites. |
 | **No Discovery Web UI** | Player cannot see connections between discoveries. Lore fragments feel isolated. | Implement Knowledge Graph in Intel/Explore tab (ExplorationDiscovery.md aspirational design exists). |
 | **No faction dialogue at stations** | Factions have personality in design docs but are silent in-game. Player has no relationship with them. | Station dock menu should have a "Comms" or faction message area showing faction-voiced text. |
-| **No revelation triggers** | The three paradigm shifts have no implementation path. | Define specific triggers (reputation thresholds, fragment counts, tick milestones) for each revelation beat. |
+| **No First Officer system** | Story lacks an emotional anchor character. Revelations land intellectually but not personally. | Implement FO candidate selection (3 archetypes). FO commentary on key beats (~30 lines total). See `factions_and_lore_v0.md` → "The First Officer." |
+| **No revelation triggers** | The five paradigm shifts have no implementation path. | Define specific triggers: R1 (module age evidence), R2 (Concord rep threshold), R3 (fracture-space trade breaks ring pattern — **#1 PRIORITY**), R4 (Communion max rep), R5 (endgame fragments + void site data). R3 and R4 are gameplay-triggered, not text-triggered. |
 
 ### Important (Enriches Story Significantly)
 
@@ -791,7 +951,7 @@ in other design documents.
 
 | Gap | Impact | Notes |
 |-----|--------|-------|
-| Precursor-scale structures visible in Phase 2+ | Environmental awe, sense of scale | Background 3D objects at extreme distance in unstable systems |
+| Ancient-scale structures visible in Phase 2+ | Environmental awe, sense of scale | Background 3D objects at extreme distance in unstable systems |
 | Faction communication register variation | Faction identity through text style | Per-faction message templates with distinct voice |
 | Haven ambient audio | Haven should feel emotionally distinct | Warm, safe, ancient — a unique soundscape |
 | Fleet ship destruction emotional beat | Loss should sting | Named ship + service record in death notification |
@@ -836,31 +996,39 @@ HOURS   PHASE          NARRATIVE LAYERS ACTIVE                     KEY STORY BEA
         │              Faction ██                                  Reputation building
         │              Discovery ███                               Derelict/ruin encounters
 4       │              Faction ███                                 Faction intel briefings begin
-        ├─ REVELATION  Economic ████                               ┌─ FRACTURE MODULE FOUND ─┐
-        │              Discovery █████                             │ First fracture jump       │
-5       │              Faction ████                                │ Trace meter activates     │
-        │              Ambient ████ (instability effects begin)    │ Haven discovered          │
+        ├─ REVELATION  Economic ████                               ┌─ SRE MODULE FOUND ───────┐
+        │              Discovery █████                             │ First SRE transit          │
+5       │              Faction ████                                │ Trace meter activates      │
+        │              Ambient ████ (instability effects begin)    │ Haven discovered           │
 7       ├─ CHOOSE      Economic █████                              ┌─ REVELATION 1: ──────────┐
         │              Discovery █████                             │ "It's Not a Drive"        │
-        │              Faction █████                               │ Module predates the lanes  │
-        │              Revelation ███                              └────────────────────────────┘
+        │              Faction █████                               │ Module predates the threads  │
+        │              Revelation ███                              │ "SRE" → Adaptation Drive   │
+        │                                                          └────────────────────────────┘
 9       │              All layers at high intensity                Neutrality tax biting
         │                                                          Faction contracts offered
-        │                                                          Pentagon ring surfaced
 11      │              Economic █████ (cascading)                  Concord intel briefings
         │              Discovery ██████ (fragments accumulating)   Discovery Web filling in
 13      ├─ COMMIT      All layers ██████                           ┌─ REVELATION 2: ──────────┐
-        │              Revelation █████                            │ "The Lanes Aren't         │
+        │              Revelation █████                            │ "The Threads Aren't       │
         │                                                          │  Protection"               │
         │                                                          │ Concord suppression exposed │
         │                                                          └────────────────────────────┘
-16      │              Economic ██████ (cascading failures)        Warfronts intensifying
-        │              Faction ██████ (alliances tested)           Doom clock visible on map
-        │              Discovery ██████ (final fragments)          Precursor story assembling
-20      ├─ ENDGAME     All layers maximum                          ┌─ REVELATION 3: ──────────┐
+15      │              Economic ███████ (cascading failures)       ┌─ REVELATION 3: ──────────┐
+        │              Faction ██████ (alliances tested)           │ "The Economy Is a Cage"   │
+        │                                                          │ Pentagon ring is engineered │
+        │                                                          │ (discovered via gameplay)   │
+        │                                                          └────────────────────────────┘
+18      │              Discovery ██████ (final fragments)          ┌─ REVELATION 4: ──────────┐
+        │              Faction ███████ (Communion truth)           │ "You're Not the First"    │
+        │                                                          │ Communion elder tells truth │
+        │                                                          │ Module adapting the pilot   │
+        │                                                          └────────────────────────────┘
+20      ├─ ENDGAME     All layers maximum                          ┌─ REVELATION 5: ──────────┐
         │              Revelation ████████                         │ "Instability Is Not       │
         │                                                          │  Entropy"                  │
         │                                                          │ The ambiguity. The choice. │
+        │                                                          │ Were my choices my own?     │
         │                                                          └────────────────────────────┘
 20-30   │              Resolution                                  Endgame path executed
         └──────────────────────────────────────────────────────────────────────────────────────
@@ -925,12 +1093,12 @@ considerations are not afterthoughts.
 
 - [ ] **Faction voice consistency.** All text that the player reads should come
   from an identifiable source. Market prices = neutral data. Station messages =
-  faction-voiced. Fleet reports = clinical professionalism. Precursor logs =
+  faction-voiced. Fleet reports = clinical professionalism. Ancient data logs =
   conversation format. Mixed register is a design bug.
 
 - [ ] **Progressive disclosure respected.** New information should appear at the
   correct tier (Tier 1 glanceable / Tier 2 readable / Tier 3 studyable). A
-  Precursor data log is Tier 3 (dedicated panel). A risk meter threshold is
+  ancient data log is Tier 3 (dedicated panel). A risk meter threshold is
   Tier 2 (contextual toast). Hull HP is Tier 1 (always visible). Information
   at the wrong tier is either invisible or clutter.
 
@@ -969,8 +1137,8 @@ considerations are not afterthoughts.
 
 These require player testing or further design iteration to resolve:
 
-1. **How much Precursor text is too much?** Dark Souls uses 2-sentence item
-   descriptions. Outer Wilds uses full conversational exchanges. STE's Precursor
+1. **How much ancient log text is too much?** Dark Souls uses 2-sentence item
+   descriptions. Outer Wilds uses full conversational exchanges. STE's ancient
    logs are closer to Outer Wilds — but there's a risk of text fatigue in a
    game about trading, not archaeology. Test: do players read the logs, or
    skip them? If skip rate > 50%, compress to 3-line fragments.
@@ -1014,7 +1182,7 @@ These require player testing or further design iteration to resolve:
 | **Sunless Sea** | Story as tradeable resource. Trade routes as narrative journeys. Quality-based narrative. |
 | **FTL** | Scarcity chains create dramatic arcs. Named characters as emotional hooks. Permadeath as narrative seal. |
 | **Freelancer** | Authored frame / open interior. Progressive world unlocking. Trade routes as world geography. |
-| **Stellaris** | Precursor chain structure. Event text that implies more than it states. Ancient catastrophes as warning. |
+| **Stellaris** | Ancient chain structure. Event text that implies more than it states. Ancient catastrophes as warning. |
 | **Elite Dangerous** | Community goals as narrative events. Existential threat gives sandbox urgency. "The outcome was yours." |
 
 ### GDC Talks Referenced
@@ -1036,4 +1204,4 @@ These require player testing or further design iteration to resolve:
   story beats to tick progression. Added Narrative Delivery Checklist for
   implementers.
 - v0 (2026-03-09): Initial document. 12 principles, 5 narrative layers,
-  delivery mechanisms, Precursor log format, integration map, gap analysis.
+  delivery mechanisms, ancient log format, integration map, gap analysis.

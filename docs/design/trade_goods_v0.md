@@ -71,7 +71,7 @@ Manufactured at stations from extraction goods. Each requires a specific recipe 
 |----|-------------|--------|-------|------------|------|
 | `metal` | Refined Metal | Ore + Fuel | 20 | Mid | Industrial backbone. Input to Munitions, Composites, AND Components. The most-moved good by volume. 5 demand sinks. |
 | `food` | Food Rations | Organics + Fuel | 15 | Low | Crew and station sustain. Universal consumption — every populated node eats Food every cycle. The one good that's always in demand everywhere. |
-| `composites` | Composites | Metal + Organics | 30 | Mid | Advanced structural material. T2 module sustain (armor, shields, ECM). Warfront premium supply. Requires both mining AND agricultural inputs — forces cross-lane trade. |
+| `composites` | Composites | Metal + Organics | 30 | Mid | Advanced structural material. T2 module sustain (armor, shields, ECM). Warfront premium supply. Requires both mining AND agricultural inputs — forces cross-thread trade. |
 | `electronics` | Electronics | Exotic Crystals + Fuel | 25 | Mid-High | Tech intermediate. The only path to Components. Supply-constrained by Exotic Crystals (fracture-only), making it inherently valuable. Creates processing hubs near fracture space. |
 | `munitions` | Munitions | Metal + Fuel | 15 | Mid | Ordnance. Consumed by ALL weapon module sustain AND warfront bulk supply. The "Metal for fighting" split — Metal builds, Munitions destroys. Any industrial system can produce it. |
 
@@ -91,7 +91,7 @@ Cannot be manufactured. Acquired only through exploration or fracture access. Ge
 |----|-------------|--------|------------|------|
 | `exotic_crystals` | Exotic Crystals | Fracture node extraction | High | The only input to Electronics. Fracture-exclusive — the reason players venture into dangerous space. Geographic scarcity engine for the entire tech chain. |
 | `salvaged_tech` | Salvaged Technology | Derelict discovery reward | High | Recyclable loot. Player chooses conversion path: → Metal (bulk, safe) or → Components (valuable, needs Electronics). The exploration-to-economy bridge. |
-| `exotic_matter` | Exotic Matter | Anomaly/ruin discovery ONLY | Very High | Cannot be manufactured, ever. Sustains ALL T3 Precursor modules. Also consumed by research programs. A Dreadnought with 3 Precursor modules eats 4-6 Exotic Matter per cycle — your endgame ship literally runs on alien artifacts you have to keep finding. |
+| `exotic_matter` | Exotic Matter | Anomaly/ruin discovery ONLY | Very High | Cannot be manufactured, ever. Sustains ALL T3 Relic modules. Also consumed by research programs. A Dreadnought with 3 Relic modules eats 4-6 Exotic Matter per cycle — your endgame ship literally runs on alien artifacts you have to keep finding. |
 
 ---
 
@@ -102,7 +102,7 @@ Cannot be manufactured. Acquired only through exploration or fracture access. Ge
 | **Polymers** | Middleman. Was Organics + Fuel → Polymers → Composites. The player decision is "Food or Composites?" — Polymers added a manufacturing step without adding a decision. Cut the middleman, connect Organics → Composites directly. |
 | **Hull Plating** | "Metal but one step later." Module doc T1 armor sustains from Metal directly. Ship repair uses Metal. Single-input, single-output good with no fork = manufacturing busywork. |
 | **Medical Supplies** | Two phantom demands: crew health system and station population growth. Neither system exists or is planned for near-term. If crew health is added later, Medical Supplies is the strongest candidate for good #14. |
-| **Water Ice** | "Second Fuel with geography." Organics already fills the geographic-scarcity-at-extraction-tier role better because it enables an entire parallel production lane, not just one recipe input. |
+| **Water Ice** | "Second Fuel with geography." Organics already fills the geographic-scarcity-at-extraction-tier role better because it enables an entire parallel production thread, not just one recipe input. |
 | **Luxury Goods** | Needs a population happiness system. "Expensive thing you sell" isn't a role, it's filler. |
 | **Weapons / Arms** | Needs faction legality system. Munitions handles the military supply fantasy without the moral-choice scope creep. |
 | **Contraband** | Needs legal/reputation system. Scope trap. |
@@ -195,7 +195,7 @@ Every ship module consumes specific goods per sustain cycle (default 60 ticks). 
 | Munitions | Munitions | Metal + Fuel (processed) | T1-T2 all weapons (kinetic, missile, energy sidearms) |
 | Composites | Composites | Metal + Organics (processed) | T2 armor, shields, ECM, EW |
 | Rare Metals | Rare Metals | Rare deposits (extraction) | T2 precision weapons, sensors, advanced engines |
-| Exotic Matter | Exotic Matter | Discovery only (exotic) | T3 Precursor modules (all) |
+| Exotic Matter | Exotic Matter | Discovery only (exotic) | T3 Relic modules (all) |
 
 ### Updated Module Sustain Recipes
 
@@ -222,7 +222,7 @@ Non-weapon modules are unchanged — armor sustains from Metal/Composites, engin
 |--------------|--------------|----------------------|
 | T1 (starter) | Metal, Fuel, Munitions | One ore mine + one fuel well. Easy. |
 | T2 (military) | + Composites, Rare Metals | Bio-supply chain (Organics) + rare deposit access. Real empire required. |
-| T3 (Precursor) | + Exotic Matter | Steady exploration of Precursor ruins. Dreadnought literally needs you to keep finding alien artifacts. |
+| T3 (Relic) | + Exotic Matter | Steady exploration of ancient ruins. Dreadnought literally needs you to keep finding alien artifacts. |
 
 ---
 
@@ -302,7 +302,7 @@ Every good verified against the "2+ demands or justified" rule.
 | Components | Automation sustain, ship refit sustain, fleet upkeep | 3 | Strong — universal tech-economy sink |
 | Exotic Crystals | Electronics manufacturing | 1 | Justified — geographic scarcity driver (fracture-only) |
 | Salvaged Tech | → Metal conversion, → Components conversion | 2 paths | Strong — player-choice recycling |
-| Exotic Matter | T3 Precursor module sustain, research program sustain | 2 | Strong — exploration-gated, cannot be manufactured |
+| Exotic Matter | T3 Relic module sustain, research program sustain | 2 | Strong — exploration-gated, cannot be manufactured |
 
 Zero phantom demands. Every sink is an implemented or already-planned system.
 
@@ -341,7 +341,7 @@ The best trade margins emerge from geographic arbitrage:
 |-------|-------------|-------------|-----|
 | Organics | Agri worlds (surplus) | Industrial hubs (need for Composites) | Industrial systems can't grow Organics |
 | Rare Metals | Rare deposit systems | Military staging areas | Warfront consumes at premium |
-| Electronics | Fracture-border processors | Deep lane systems | Long haul from fracture source to interior demand |
+| Electronics | Fracture-border processors | Deep thread systems | Long haul from fracture source to interior demand |
 | Food | Agri worlds | Frontier / war zones | Disrupted supply chains spike prices |
 | Munitions | Industrial hubs | Warfront systems | War profiteering — high risk, high reward |
 
@@ -366,7 +366,7 @@ The economy reveals itself gradually as the player expands.
 ### Late Game (Empire)
 
 **Goods encountered:** + Exotic Crystals, Salvaged Tech, Exotic Matter
-**Activity:** Fracture expeditions for Exotic Crystals → Electronics → Components. Discovery runs for Exotic Matter to sustain Precursor modules. Warfront supply logistics.
+**Activity:** Fracture expeditions for Exotic Crystals → Electronics → Components. Discovery runs for Exotic Matter to sustain Relic modules. Warfront supply logistics.
 **Decision complexity:** High. "Do I use my Exotic Matter for the Dreadnought's Graviton Shear or invest in research? Do I divert Metal from Components to Munitions for the warfront?"
 
 ### Endgame Pressure

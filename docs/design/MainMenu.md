@@ -154,7 +154,7 @@ The menu's color temperature reflects the game's emotional arc:
 - **Game title**: Clean sans-serif or thin serif. No effects, no glow, no
   animation beyond the initial fade-in. The restraint communicates confidence.
 - **Subtitle** (if any): Smaller, below title, italic. Could be a rotating
-  Precursor fragment quote that changes per session.
+  ancient fragment quote that changes per session.
 - **No tagline on-screen.** The atmosphere IS the tagline.
 
 ---
@@ -468,7 +468,7 @@ When the player starts a new voyage, the generation screen shows:
 │   ░░░░░░░░░░░░░░░░░████████░░░░░░░░░░  63%          │
 │                                                      │
 │   Seeding star systems...                            │
-│   Establishing trade lanes...                        │
+│   Establishing trade threads...                        │
 │   Igniting warfronts...                              │
 │                                                      │
 └──────────────────────────────────────────────────────┘
@@ -636,7 +636,7 @@ The main menu participates in the narrative design (see `NarrativeDesign.md`):
 | Menu Element | Narrative Function |
 |---|---|
 | **Foreground silhouette** | Foreshadowing: the gate (beginning), the ship (journey), the Haven (revelation) |
-| **Subtitle quote** | Rotating Precursor fragment — a different line each session. Player never sees them all. Mystery through accumulation |
+| **Subtitle quote** | Rotating ancient fragment — a different line each session. Player never sees them all. Mystery through accumulation |
 | **Generation messages** | "Seeding fracture topology..." — the lore is embedded in the loading text. The player reads world-building while waiting |
 | **Milestone names** | "First Trade," "Pathfinder," "Tycoon" — progression language that reinforces the pilot fantasy |
 | **Difficulty descriptions** | Written in-universe: "The galaxy is indifferent to your survival" — not "Normal difficulty" |

@@ -209,7 +209,7 @@ change. With doctrine, the player sets policy once, and programs self-adjust:
 
 ```
 Doctrine: Conservative Trade
-  Risk tolerance: LOW (pause on hostile lanes)
+  Risk tolerance: LOW (pause on hostile threads)
   Budget cap: 500 cr/day
   Profitability floor: 20 cr/run minimum
   Priority: NORMAL
@@ -296,7 +296,7 @@ Every program failure must display a specific reason code and suggested action.
 | `NO_SUPPLY` | Market has insufficient stock of target good | "Wait for restocking or change source" |
 | `NO_CARGO_SPACE` | Fleet cargo full, can't buy more | "Sell cargo first or assign larger fleet" |
 | `MARKET_GONE` | Target market no longer exists | "Edit route to different market" |
-| `ROUTE_HOSTILE` | Lane security is hostile (doctrine blocks) | "Wait for security improvement or raise risk tolerance" |
+| `ROUTE_HOSTILE` | Thread security is hostile (doctrine blocks) | "Wait for security improvement or raise risk tolerance" |
 | `FLEET_DESTROYED` | Assigned fleet is dead | "Assign new fleet or cancel program" |
 | `FLEET_BUSY` | Fleet is in manual override | "Release manual control to resume automation" |
 | `EMBARGO_ACTIVE` | Faction embargo prevents trade at destination | "Wait for embargo to lift or reroute" |

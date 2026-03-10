@@ -258,6 +258,13 @@
 1f
 3f
 7f
+# FILE SimCore/Systems/BudgetEnforcementSystem.cs
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/ChainAnalysis.cs
 # FILE SimCore/Systems/CombatSystem.cs
 4
@@ -302,9 +309,14 @@
 # FILE SimCore/Systems/DiscoveryOutcomeSystem.cs
 2
 1
+# FILE SimCore/Systems/DoctrineSystem.cs
+0
+100
 # FILE SimCore/Systems/EscortSystem.cs
 0
 0
+# FILE SimCore/Systems/FailureRecoverySystem.cs
+3
 # FILE SimCore/Systems/FractureSystem.cs
 1
 2
@@ -656,6 +668,16 @@
 0
 1
 0
+0
+# FILE SimCore/Systems/ProgramHistorySystem.cs
+20
+0
+1
+0
+0f
+0
+0
+# FILE SimCore/Systems/ProgramMetricsSystem.cs
 0
 # FILE SimCore/Systems/PressureSystem.cs
 0

@@ -10,6 +10,75 @@ namespace SpaceTradeEmpire.Bridge;
 
 public partial class SimBridge
 {
+    // ── GATE.S7.NARRATIVE_DELIVERY.FACTION_GREETING.001: Faction station greetings keyed to rep tier ──
+
+    private static readonly System.Collections.Generic.Dictionary<(string faction, string tier), string> _factionGreetings
+        = new()
+    {
+        // Concord — bureaucratic human trade federation
+        { ("concord", "Hostile"), "Attention, pilot. Your docking privileges are under review. Do not linger." },
+        { ("concord", "Neutral"), "Welcome to Concord space. Please observe all posted trade regulations." },
+        { ("concord", "Friendly"), "Welcome back, captain. Concord facilities are at your disposal." },
+        { ("concord", "Allied"), "Captain, it's good to see you. The Council extends its warmest regards." },
+
+        // Chitin — insectoid collective
+        { ("chitin", "Hostile"), "Outsider. Your presence here is... tolerated. Barely." },
+        { ("chitin", "Neutral"), "The Swarm observes your arrival. Trade fairly, or depart." },
+        { ("chitin", "Friendly"), "You carry the scent of cooperation. The Swarm welcomes you." },
+        { ("chitin", "Allied"), "Brood-friend. The hive sings at your approach. All chambers are open to you." },
+
+        // Weavers — networked energy beings
+        { ("weavers", "Hostile"), "Signal detected. Threat assessment: elevated. State your purpose." },
+        { ("weavers", "Neutral"), "Connection acknowledged. Standard protocols apply." },
+        { ("weavers", "Friendly"), "Your frequency is recognized. The Weave extends bandwidth." },
+        { ("weavers", "Allied"), "Honored partner. The Weave remembers your contributions." },
+
+        // Valorin — honor-bound warrior species
+        { ("valorin", "Hostile"), "You dare approach our walls? Speak quickly, or face the lance." },
+        { ("valorin", "Neutral"), "Stranger. Honor demands we hear you, though trust is not yet earned." },
+        { ("valorin", "Friendly"), "Well met, warrior. Your deeds have been noted in the Hall of Valor." },
+        { ("valorin", "Allied"), "Shield-kin! The Valorin stand beside you. Our armories are yours." },
+
+        // Communion — mystical psionic collective
+        { ("communion", "Hostile"), "Your thoughts are... discordant. We permit your presence, nothing more." },
+        { ("communion", "Neutral"), "We sense your arrival. The Communion offers equilibrium, if you seek it." },
+        { ("communion", "Friendly"), "Your resonance is harmonious. The Communion opens its sanctum to you." },
+        { ("communion", "Allied"), "Beloved pilgrim. Your light burns bright in the Communion's song." },
+    };
+
+    /// <summary>
+    /// Returns a greeting string for a faction station based on the player's reputation tier.
+    /// Pure lookup — reads rep tier from SimState if repTierOverride is empty, otherwise uses the override.
+    /// </summary>
+    public string GetFactionGreetingV0(string factionId, string repTierOverride = "")
+    {
+        string tier = repTierOverride;
+
+        if (string.IsNullOrEmpty(tier))
+        {
+            // Read current rep tier from SimState.
+            TryExecuteSafeRead(state =>
+            {
+                if (string.IsNullOrEmpty(factionId)) return;
+                var repTier = ReputationSystem.GetRepTier(state, factionId);
+                tier = repTier switch
+                {
+                    RepTier.Allied => "Allied",
+                    RepTier.Friendly => "Friendly",
+                    RepTier.Hostile or RepTier.Enemy => "Hostile",
+                    _ => "Neutral",
+                };
+            }, 0);
+        }
+
+        if (string.IsNullOrEmpty(tier)) tier = "Neutral";
+
+        if (_factionGreetings.TryGetValue((factionId ?? "", tier), out var greeting))
+            return greeting;
+
+        return "Docking protocols engaged.";
+    }
+
     // ── GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction doctrine, reputation, and territory access queries ──
 
     /// <summary>

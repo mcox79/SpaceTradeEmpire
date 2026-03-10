@@ -306,4 +306,58 @@ public sealed class RefitSystemTests
         var slot = state.Fleets["fleet_trader_1"].Slots[0];
         Assert.That(slot.PowerDraw, Is.EqualTo(def.PowerDraw));
     }
+
+    // GATE.S7.T2_MODULES.FITTING.001: Faction reputation gating tests.
+
+    [Test]
+    public void InstallModule_T2_Fails_InsufficientFactionRep()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        // Unlock the tech prerequisite for Railgun T2.
+        var railgunDef = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponRailgunT2)!;
+        state.Tech.UnlockedTechIds.Add(railgunDef.TechPrerequisite);
+        // Don't set faction rep — defaults to 0, which is less than FactionRepRequired (25).
+        var result = RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponRailgunT2);
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("faction_rep_insufficient"));
+    }
+
+    [Test]
+    public void InstallModule_T2_Succeeds_WithSufficientFactionRep()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        var railgunDef = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponRailgunT2)!;
+        state.Tech.UnlockedTechIds.Add(railgunDef.TechPrerequisite);
+        // Set faction rep above threshold.
+        state.FactionReputation[railgunDef.FactionId!] = railgunDef.FactionRepRequired;
+        var result = RefitSystem.InstallModule(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponRailgunT2);
+        Assert.That(result.Success, Is.True);
+    }
+
+    [Test]
+    public void QueueInstall_T2_Fails_InsufficientFactionRep()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        var railgunDef = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponRailgunT2)!;
+        state.Tech.UnlockedTechIds.Add(railgunDef.TechPrerequisite);
+        // No faction rep set.
+        var result = RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponRailgunT2);
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("faction_rep_insufficient"));
+    }
+
+    [Test]
+    public void QueueInstall_T2_Succeeds_WithSufficientFactionRep()
+    {
+        var state = CreateState();
+        state.PlayerCredits = 5000;
+        var railgunDef = UpgradeContentV0.GetById(WellKnownModuleIds.WeaponRailgunT2)!;
+        state.Tech.UnlockedTechIds.Add(railgunDef.TechPrerequisite);
+        state.FactionReputation[railgunDef.FactionId!] = railgunDef.FactionRepRequired + 10;
+        var result = RefitSystem.QueueInstall(state, "fleet_trader_1", 0, WellKnownModuleIds.WeaponRailgunT2);
+        Assert.That(result.Success, Is.True);
+    }
 }

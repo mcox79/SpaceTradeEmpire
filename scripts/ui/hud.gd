@@ -51,6 +51,15 @@ var _zone_g_risk_label: Label = null
 var _zone_g_status_label: Label = null
 var _zone_g_minimap_label: Label = null
 
+# GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Keybind hint bar (U7).
+var _keybind_hint_label: Label = null
+
+# GATE.S7.RISK_METER_UI.WIDGET.001: Risk meter bars widget in Zone G.
+var _risk_meter_widget: Control = null
+
+# GATE.S7.RISK_METER_UI.SCREEN_EDGE.001: Screen edge vignette overlay.
+var _screen_edge_tint: ColorRect = null
+
 # GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert count badge in Zone A.
 var _alert_badge: Control = null
 var _alert_badge_label: Label = null
@@ -61,6 +70,21 @@ var _overlay_active: bool = false
 
 # Suppress "LOW" fuel warning until player has had fuel at least once (avoid alarming at boot)
 var _fuel_ever_had: bool = false
+
+# GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
+var _narrative_panel = null
+
+# GATE.S7.AUTOMATION_MGMT.DASHBOARD.001: Automation management dashboard panel.
+var _automation_dashboard: PanelContainer = null
+
+# GATE.S7.AUTOMATION_MGMT.FLEET_INTEGRATION.001: Fleet automation summary.
+var _fleet_auto_panel: PanelContainer = null
+var _fleet_auto_credits_label: Label = null
+var _fleet_auto_failures_label: Label = null
+var _fleet_auto_program_label: Label = null
+
+# GATE.S7.RUNTIME_STABILITY.COMBAT_HUD.001: Zone armor + combat stance display.
+var _combat_hud: Control = null
 
 # GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
 var _pause_panel: Control = null
@@ -279,6 +303,11 @@ func _ready() -> void:
 	_galaxy_map_label.visible = false
 	add_child(_galaxy_map_label)
 
+	# GATE.S7.RISK_METER_UI.SCREEN_EDGE.001: screen edge vignette overlay.
+	var ScreenEdgeTintScript := preload("res://scripts/view/screen_edge_tint.gd")
+	_screen_edge_tint = ScreenEdgeTintScript.new()
+	add_child(_screen_edge_tint)
+
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 	_zone_g_bg = ColorRect.new()
 	_zone_g_bg.name = "ZoneGBg"
@@ -296,13 +325,22 @@ func _ready() -> void:
 	_zone_g_bar.add_theme_constant_override("separation", 24)
 	add_child(_zone_g_bar)
 
-	# Left slot: risk meters placeholder
+	# Left slot: risk meters — widget replaces placeholder label.
+	# GATE.S7.RISK_METER_UI.WIDGET.001: instantiate risk meter bars widget.
+	var RiskMeterWidgetScript := preload("res://scripts/ui/risk_meter_widget.gd")
+	_risk_meter_widget = RiskMeterWidgetScript.new()
+	_risk_meter_widget.name = "RiskMeterWidget"
+	_risk_meter_widget.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zone_g_bar.add_child(_risk_meter_widget)
+
+	# Keep fallback risk label (hidden) for Zone G text-only updates.
 	_zone_g_risk_label = Label.new()
 	_zone_g_risk_label.name = "ZoneGRisk"
 	_zone_g_risk_label.text = ""
 	_zone_g_risk_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 	_zone_g_risk_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 	_zone_g_risk_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zone_g_risk_label.visible = false
 	_zone_g_bar.add_child(_zone_g_risk_label)
 
 	# Center slot: system status
@@ -324,6 +362,69 @@ func _ready() -> void:
 	_zone_g_minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_zone_g_minimap_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zone_g_bar.add_child(_zone_g_minimap_label)
+
+	# GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Persistent keybind hints (U7).
+	_keybind_hint_label = Label.new()
+	_keybind_hint_label.name = "KeybindHintLabel"
+	_keybind_hint_label.text = "TAB Map  |  E Empire  |  H Help  |  L Log  |  V Overlay  |  ESC Pause"
+	_keybind_hint_label.add_theme_font_size_override("font_size", 11)
+	_keybind_hint_label.add_theme_color_override("font_color", Color(0.4, 0.45, 0.5, 0.6))
+	_keybind_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_keybind_hint_label.position = Vector2(0, 1076)
+	_keybind_hint_label.size = Vector2(1920, 20)
+	_keybind_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_keybind_hint_label)
+
+	# GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
+	var NarrativePanelScript := preload("res://scripts/ui/narrative_panel.gd")
+	_narrative_panel = NarrativePanelScript.new()
+	_narrative_panel.name = "NarrativePanel"
+	add_child(_narrative_panel)
+
+	# GATE.S7.AUTOMATION_MGMT.DASHBOARD.001: Automation management dashboard panel.
+	var AutomationDashboardScript := preload("res://scripts/ui/automation_dashboard.gd")
+	_automation_dashboard = AutomationDashboardScript.new()
+	add_child(_automation_dashboard)
+
+	# GATE.S7.AUTOMATION_MGMT.FLEET_INTEGRATION.001: Fleet automation summary.
+	_fleet_auto_panel = PanelContainer.new()
+	_fleet_auto_panel.name = "FleetAutoPanel"
+	_fleet_auto_panel.custom_minimum_size = Vector2(200, 0)
+	_fleet_auto_panel.position = Vector2(1700, 960)
+	_fleet_auto_panel.visible = true
+	var auto_style := StyleBoxFlat.new()
+	auto_style.bg_color = Color(0.05, 0.07, 0.12, 0.85)
+	auto_style.border_width_left = 2
+	auto_style.border_color = UITheme.CYAN
+	_fleet_auto_panel.add_theme_stylebox_override("panel", auto_style)
+	add_child(_fleet_auto_panel)
+
+	var auto_vbox := VBoxContainer.new()
+	auto_vbox.add_theme_constant_override("separation", 2)
+	_fleet_auto_panel.add_child(auto_vbox)
+
+	_fleet_auto_program_label = Label.new()
+	_fleet_auto_program_label.text = "Program: --"
+	_fleet_auto_program_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_fleet_auto_program_label.add_theme_color_override("font_color", UITheme.CYAN)
+	auto_vbox.add_child(_fleet_auto_program_label)
+
+	_fleet_auto_credits_label = Label.new()
+	_fleet_auto_credits_label.text = "Credits: 0"
+	_fleet_auto_credits_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_fleet_auto_credits_label.add_theme_color_override("font_color", UITheme.GOLD)
+	auto_vbox.add_child(_fleet_auto_credits_label)
+
+	_fleet_auto_failures_label = Label.new()
+	_fleet_auto_failures_label.text = "Failures: 0"
+	_fleet_auto_failures_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	auto_vbox.add_child(_fleet_auto_failures_label)
+
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_HUD.001: Combat HUD overlay.
+	var CombatHudScript := preload("res://scripts/ui/combat_hud.gd")
+	_combat_hud = CombatHudScript.new()
+	add_child(_combat_hud)
 
 	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
 	_alert_badge = Control.new()
@@ -375,6 +476,9 @@ func set_overlay_mode_v0(active: bool) -> void:
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Hide Zone G bar during overlay.
 	if _zone_g_bg: _zone_g_bg.visible = not active
 	if _zone_g_bar: _zone_g_bar.visible = not active
+	if _keybind_hint_label: _keybind_hint_label.visible = not active
+	if _fleet_auto_panel: _fleet_auto_panel.visible = not active
+	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
 	if active:
 		if _combat_label: _combat_label.visible = false
@@ -383,6 +487,8 @@ func set_overlay_mode_v0(active: bool) -> void:
 		if _mission_panel: _mission_panel.visible = false
 		if _research_label: _research_label.visible = false
 		if _overlay_mode_label: _overlay_mode_label.visible = false
+		if _narrative_panel and _narrative_panel.has_method("hide_narrative"):
+			_narrative_panel.hide_narrative()
 
 func _physics_process(_delta: float) -> void:
 	if _overlay_active or _bridge == null:
@@ -441,6 +547,9 @@ func _physics_process(_delta: float) -> void:
 		_update_research_hud()
 		_update_fuel_hud()
 		_update_zone_g_v0()
+		_update_fleet_auto_summary_v0()
+		if _combat_hud and _combat_hud.has_method("refresh_v0"):
+			_combat_hud.refresh_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	if _security_label != null and _bridge != null:
@@ -628,6 +737,17 @@ func set_data_overlay_label_v0(mode: int) -> void:
 	_overlay_mode_label.text = names.get(mode, "")
 	_overlay_mode_label.visible = mode >= 0
 
+# GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Show narrative text with faction styling.
+## Called by game_manager.gd or station events to display flavor text / faction greetings.
+func show_narrative_v0(text: String, faction_id: String = "") -> void:
+	if _narrative_panel != null and _narrative_panel.has_method("show_narrative"):
+		_narrative_panel.show_narrative(text, faction_id)
+
+# GATE.S7.AUTOMATION_MGMT.DASHBOARD.001: toggle automation dashboard panel.
+func toggle_automation_dashboard_v0() -> void:
+	if _automation_dashboard != null:
+		_automation_dashboard.toggle_v0()
+
 func _refresh_slot_labels_v0() -> void:
 	if _bridge == null or not _bridge.has_method("GetSaveSlotMetadataV0"):
 		return
@@ -655,6 +775,17 @@ func _update_zone_g_v0() -> void:
 	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
 		sec_band = str(_bridge.call("GetNodeSecurityBandV0", node_id))
 	_zone_g_status_label.text = "%s  |  %s" % [node_name, sec_band.to_upper()] if not sec_band.is_empty() else node_name
+	# GATE.S7.RISK_METER_UI.SCREEN_EDGE.001 + COMPOUND.001: feed risk values to vignette overlay.
+	if _screen_edge_tint != null and _bridge != null and _bridge.has_method("GetRiskMetersV0"):
+		var risk: Dictionary = _bridge.call("GetRiskMetersV0")
+		_screen_edge_tint.update_risk_levels(
+			float(risk.get("heat", 0.0)),
+			float(risk.get("influence", 0.0)),
+			float(risk.get("trace", 0.0))
+		)
+		if _risk_meter_widget != null and _risk_meter_widget.has_method("get_compound_threat"):
+			_screen_edge_tint.set_compound_threat(_risk_meter_widget.get_compound_threat())
+
 	# Left: heat indicator for current edge (if traveling).
 	if _zone_g_risk_label != null:
 		var ship_state: String = str(ps.get("ship_state_token", ""))
@@ -692,3 +823,28 @@ func _on_alert_badge_clicked(event: InputEvent) -> void:
 		var gm = get_tree().root.find_child("GameManager", true, false)
 		if gm and gm.has_method("_toggle_empire_dashboard_v0"):
 			gm.call("_toggle_empire_dashboard_v0")
+
+# GATE.S7.AUTOMATION_MGMT.FLEET_INTEGRATION.001: Update fleet automation summary.
+func _update_fleet_auto_summary_v0() -> void:
+	if _fleet_auto_panel == null or _bridge == null:
+		return
+	if _overlay_active:
+		_fleet_auto_panel.visible = false
+		return
+	_fleet_auto_panel.visible = true
+	if not _bridge.has_method("GetProgramPerformanceV0"):
+		return
+	var data: Dictionary = _bridge.call("GetProgramPerformanceV0", "fleet_trader_1")
+	if data.is_empty():
+		_fleet_auto_program_label.text = "Program: None"
+		return
+	var credits: int = int(data.get("credits_earned", 0))
+	var failures: int = int(data.get("failures", 0))
+	var cycles: int = int(data.get("cycles_run", 0))
+	_fleet_auto_program_label.text = "Auto: %d cycles" % cycles
+	_fleet_auto_credits_label.text = "Credits: %d" % credits
+	_fleet_auto_failures_label.text = "Failures: %d" % failures
+	if failures > 0:
+		_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.RED)
+	else:
+		_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)

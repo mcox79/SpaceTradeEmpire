@@ -427,6 +427,234 @@ public partial class SimBridge
         }
     }
 
+    // GATE.S7.FLEET_TAB.LIST.001: Fleet roster for the master list panel.
+    // Returns player-owned fleets as an Array of Dicts, ordered by Id Ordinal asc.
+    // Each dict: ship_id (string), ship_class (string), hull_hp_pct (float 0-1),
+    // shield_hp_pct (float 0-1), location_name (string), job_status (string).
+    // Nonblocking: returns last cached array if read lock is unavailable.
+    private Godot.Collections.Array _cachedFleetRosterV0 = new();
+
+    public Godot.Collections.Array GetFleetRosterV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var result = new Godot.Collections.Array();
+
+            // Deterministic ordering: Fleet.Id Ordinal, player-owned only.
+            var fleets = state.Fleets.Values
+                .Where(f => string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+                .OrderBy(f => f.Id, StringComparer.Ordinal)
+                .ToArray();
+
+            foreach (var f in fleets)
+            {
+                // Ship class display name from content registry.
+                var classDef = SimCore.Content.ShipClassContentV0.GetById(f.ShipClassId ?? "");
+                string shipClass = classDef?.DisplayName ?? f.ShipClassId ?? "Unknown";
+
+                // HP percentages (0-1). Guard against uninitialized (-1) or zero max.
+                float hullPct = (f.HullHpMax > 0) ? Math.Clamp((float)f.HullHp / f.HullHpMax, 0f, 1f) : 1f;
+                float shieldPct = (f.ShieldHpMax > 0) ? Math.Clamp((float)f.ShieldHp / f.ShieldHpMax, 0f, 1f) : 1f;
+
+                // Location display name from node registry.
+                string locationName = f.CurrentNodeId ?? "";
+                if (!string.IsNullOrEmpty(f.CurrentNodeId)
+                    && state.Nodes.TryGetValue(f.CurrentNodeId, out var node))
+                {
+                    locationName = node.Name ?? f.CurrentNodeId ?? "";
+                }
+
+                // Job status: concise summary for the roster row.
+                string jobStatus;
+                if (f.CurrentJob != null)
+                {
+                    var phase = f.CurrentJob.Phase.ToString();
+                    var good = f.CurrentJob.GoodId ?? "";
+                    jobStatus = string.IsNullOrEmpty(good) ? phase : $"{phase}:{good}";
+                }
+                else
+                {
+                    jobStatus = f.CurrentTask ?? "Idle";
+                }
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["ship_id"] = f.Id ?? "",
+                    ["ship_class"] = shipClass,
+                    ["hull_hp_pct"] = hullPct,
+                    ["shield_hp_pct"] = shieldPct,
+                    ["location_name"] = locationName,
+                    ["job_status"] = jobStatus
+                };
+
+                result.Add(d);
+            }
+
+            lock (_snapshotLock)
+            {
+                _cachedFleetRosterV0 = result;
+            }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedFleetRosterV0; }
+    }
+
+    // GATE.S7.FLEET_TAB.DETAIL.001: Detailed ship info for the fleet detail panel.
+    // Returns a Dictionary with: ship_id, ship_class, hull_hp, hull_hp_max, shield_hp,
+    // shield_hp_max, speed, modules (Array of Dicts with slot_id, module_id, display_name),
+    // location_name, job_status.
+    // Nonblocking: returns last cached dict if read lock is unavailable.
+    private Godot.Collections.Dictionary _cachedFleetShipDetailV0 = new();
+    private string _cachedFleetShipDetailIdV0 = "";
+
+    public Godot.Collections.Dictionary GetFleetShipDetailV0(string shipId)
+    {
+        var empty = new Godot.Collections.Dictionary();
+        if (string.IsNullOrEmpty(shipId)) return empty;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(shipId, out var fleet)) return;
+
+            // Ship class display name from content registry.
+            var classDef = SimCore.Content.ShipClassContentV0.GetById(fleet.ShipClassId ?? "");
+            string shipClass = classDef?.DisplayName ?? fleet.ShipClassId ?? "Unknown";
+
+            // Location display name from node registry.
+            string locationName = fleet.CurrentNodeId ?? "";
+            if (!string.IsNullOrEmpty(fleet.CurrentNodeId)
+                && state.Nodes.TryGetValue(fleet.CurrentNodeId, out var node))
+            {
+                locationName = node.Name ?? fleet.CurrentNodeId ?? "";
+            }
+
+            // Job status: concise summary.
+            string jobStatus;
+            if (fleet.CurrentJob != null)
+            {
+                var phase = fleet.CurrentJob.Phase.ToString();
+                var good = fleet.CurrentJob.GoodId ?? "";
+                jobStatus = string.IsNullOrEmpty(good) ? phase : $"{phase}:{good}";
+            }
+            else
+            {
+                jobStatus = fleet.CurrentTask ?? "Idle";
+            }
+
+            // Module loadout with display names from UpgradeContentV0.
+            var modules = new Godot.Collections.Array();
+            if (fleet.Slots != null)
+            {
+                foreach (var slot in fleet.Slots.OrderBy(s => s.SlotId, StringComparer.Ordinal))
+                {
+                    var modDict = new Godot.Collections.Dictionary();
+                    modDict["slot_id"] = slot.SlotId;
+                    modDict["module_id"] = slot.InstalledModuleId ?? "";
+
+                    string displayName = "";
+                    if (!string.IsNullOrEmpty(slot.InstalledModuleId))
+                    {
+                        var modDef = SimCore.Content.UpgradeContentV0.GetById(slot.InstalledModuleId);
+                        displayName = modDef?.DisplayName ?? slot.InstalledModuleId;
+                    }
+                    modDict["display_name"] = displayName;
+
+                    modules.Add(modDict);
+                }
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["ship_id"] = fleet.Id ?? "",
+                ["ship_class"] = shipClass,
+                ["hull_hp"] = fleet.HullHp,
+                ["hull_hp_max"] = fleet.HullHpMax,
+                ["shield_hp"] = fleet.ShieldHp,
+                ["shield_hp_max"] = fleet.ShieldHpMax,
+                ["speed"] = fleet.Speed,
+                ["modules"] = modules,
+                ["location_name"] = locationName,
+                ["job_status"] = jobStatus
+            };
+
+            lock (_snapshotLock)
+            {
+                _cachedFleetShipDetailV0 = d;
+                _cachedFleetShipDetailIdV0 = shipId;
+            }
+        }, 0);
+
+        lock (_snapshotLock)
+        {
+            // Return cached result only if it matches the requested shipId.
+            if (StringComparer.Ordinal.Equals(_cachedFleetShipDetailIdV0, shipId))
+                return _cachedFleetShipDetailV0;
+            return empty;
+        }
+    }
+
+    // GATE.S7.FLEET_TAB.ACTIONS.001: Recall a fleet ship back to the player's current node.
+    // Reuses FleetSetDestinationCommand with the player's current location as the target.
+    public bool FleetRecallV0(string shipId)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(shipId)) return false;
+
+        // Find the player's current node to use as the recall destination.
+        string playerNodeId = "";
+        TryExecuteSafeRead(state =>
+        {
+            playerNodeId = state.PlayerLocationNodeId ?? "";
+        });
+
+        if (string.IsNullOrEmpty(playerNodeId)) return false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.EnqueueCommand(new SimCore.Commands.FleetSetDestinationCommand(shipId, playerNodeId, "ui_recall"));
+            return true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    // GATE.S7.FLEET_TAB.ACTIONS.001: Dismiss (remove) a fleet ship from the player's fleet.
+    // Removes the fleet entry from state.Fleets entirely. Cannot dismiss the player's own ship.
+    public bool FleetDismissV0(string shipId)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(shipId)) return false;
+
+        // Never allow dismissing the player's own hero ship.
+        if (string.Equals(shipId, "fleet_trader_1", StringComparison.Ordinal)) return false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (state.Fleets.ContainsKey(shipId))
+            {
+                state.Fleets.Remove(shipId);
+                return true;
+            }
+            return false;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    // GATE.S7.FLEET_TAB.ACTIONS.001: Rename a fleet ship (placeholder — does nothing yet).
+    public bool FleetRenameV0(string shipId, string newName)
+    {
+        // Placeholder: rename functionality is not yet implemented.
+        return true;
+    }
+
     // GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fleet sustain status — fuel level, module sustain health.
     public Godot.Collections.Dictionary GetFleetSustainStatusV0(string fleetId)
     {

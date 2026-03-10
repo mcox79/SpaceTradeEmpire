@@ -17,10 +17,10 @@ the design intent behind it, and lays out the aspiration targets for future tran
 | Local system rendering | Done | Star, planet, moons, station, gates, discovery sites, fleets |
 | Seamless altitude zoom | Done | LOD transitions at 100/200/500u altitude bands |
 | Persistent star billboards | Done | Discovered = bright + colored, undiscovered = dim |
-| Persistent lane lines | Done | Cyan cylinders, fog-of-war gated |
+| Persistent thread lines | Done | Cyan cylinders, fog-of-war gated |
 | Galaxy overlay (Tab) | Done | Node/edge graph, 3 color modes |
-| Security overlay | Done | Lane edges: green/blue/orange/red by bps |
-| Trade Flow overlay | Done | Lane edges: gold (active trade) / gray (idle) |
+| Security overlay | Done | Thread edges: green/blue/orange/red by bps |
+| Trade Flow overlay | Done | Thread edges: gold (active trade) / gray (idle) |
 | Intel Freshness overlay | Done | Node colors: green→yellow→orange→red by tick age |
 | Node detail popup | Done | Name, class, fleets, industry, security, territory, market |
 | NPC route animation | Done | Gold flow dots (traders), blue (patrols), volume labels |
@@ -31,7 +31,7 @@ the design intent behind it, and lays out the aspiration targets for future tran
 | Exploration Progress overlay | Not implemented | Three-state fog with strong visual contrast |
 | Fleet Positions overlay | Not implemented | All player + NPC fleets with posture/role icons |
 | Warfront overlay | Not implemented | Active warfront zones with intensity indicators |
-| Heat/Danger overlay | Not implemented | Per-node and per-lane Heat accumulation heatmap |
+| Heat/Danger overlay | Not implemented | Per-node and per-thread Heat accumulation heatmap |
 | Route planning | Not implemented | Click destination → show optimal path + hop count + danger |
 | Galaxy search (Ctrl+F) | Not implemented | Search across system/station/fleet/good names |
 | Node clustering at wide zoom | Not implemented | Aggregate nodes when too many overlap |
@@ -59,7 +59,7 @@ These extend the seven principles from `EmpireDashboard.md` with map-specific ru
 
 3. **One lens, one color variable.** Each overlay mode recolors the entire map around ONE
    data dimension. Never stack multiple variables on the same color channel. Security colors
-   the lanes green→red by danger. Trade flow colors them gold/gray by activity. These must
+   the threads green→red by danger. Trade flow colors them gold/gray by activity. These must
    remain exclusive — applying both simultaneously creates visual noise that communicates
    nothing. (Lesson: Stellaris's map modes are praised precisely because each one strips
    away everything except the single variable you care about.)
@@ -104,7 +104,7 @@ The galaxy map is two fundamentally different screens that share a coordinate sp
 ### Local System View (altitude < 500u)
 
 The immersive, 3D flight space. The player flies their hero ship among physical objects:
-the star, its planet, moons, the docked station, lane gates, discovery sites, NPC ships.
+the star, its planet, moons, the docked station, thread gates, discovery sites, NPC ships.
 This is the Freelancer/Starcom DNA — you are IN the world, not above it.
 
 **Design role:** Spatial navigation, visual spectacle, combat encounters, docking.
@@ -113,7 +113,7 @@ not reading a chart.
 
 ### Galaxy Overlay (Tab key / altitude > 500u)
 
-The strategic, 2D planning surface. A node-link graph of all systems connected by lanes.
+The strategic, 2D planning surface. A node-link graph of all systems connected by threads.
 Color-coded by the active overlay lens. Clickable nodes open detail popups. This is the
 Stellaris/DOTLAN DNA — you are ABOVE the world, making decisions.
 
@@ -126,7 +126,7 @@ The transition between views happens through altitude-based LOD:
 |----------|---------------|---------------|
 | 0–100u | Local system only (star, planet, station, gates, fleets) | Galaxy overlay nodes, persistent stars |
 | 100–200u | Local system + persistent star billboards fade in | Overlay edges still hidden |
-| 200–500u | Persistent stars + lane lines fade in (alpha 0→1) | Local system begins to simplify |
+| 200–500u | Persistent stars + thread lines fade in (alpha 0→1) | Local system begins to simplify |
 | 500u+ | Full galaxy overlay, node-link graph | Local system hidden entirely |
 
 ---
@@ -141,7 +141,7 @@ The transition between views happens through altitude-based LOD:
                          │     at 90u)        │
                          ╰────────────────────╯
                                    │
-                                   │ lane indicator
+                                   │ thread indicator
                                    │
     ╭─ STAR ─────────╮            │
     │  G-type (gold)  │   ╭── PLANET ──────────╮
@@ -171,7 +171,7 @@ The transition between views happens through altitude-based LOD:
 | **Binary companion** | 50% scale clone, orbit barycenter | Done | Distinct complementary color if different class |
 | **Planet** | Addon shader by type (lava/sand/terrestrial/barren/ice/gas) | Done | Atmosphere glow ring, day/night terminator line |
 | **Station** | Exported prefab, orbits near planet | Done | Faction-specific station mesh variants (S7.FACTION_VISUALS) |
-| **Lane gates** | Orange/yellow spheres at 90u, one per neighbor | Done | Directional chevron arrow, destination name label, danger tint |
+| **Thread gates** | Orange/yellow spheres at 90u, one per neighbor | Done | Directional chevron arrow, destination name label, danger tint |
 | **NPC ships** | Quaternius spaceships, faction-tinted, role-specific models | Done | Formation grouping for multi-ship fleets |
 | **Player ship** | challenger_blue.tscn, pulsing torus ring | Done | Ship trail particles during flight |
 | **Discovery sites** | Small marker spheres at seed positions | Done | Phase-colored (gray/amber/green per Seen/Scanned/Analyzed) |
@@ -197,9 +197,9 @@ The color palette progresses from cold blue (power, industry) through warm gold 
 safety) to deep red (danger, isolation). This maps to the game's thematic progression:
 safe core worlds are warm; dangerous edge worlds are cold or blood-red.
 
-### Lane Gate Enhancement
+### Thread Gate Enhancement
 
-Lane gates are the most important navigational element in the local view — they're how
+Thread gates are the most important navigational element in the local view — they're how
 the player physically travels between systems. Current treatment (plain orange sphere)
 undersells their importance.
 
@@ -218,10 +218,10 @@ undersells their importance.
 
 - **Destination name** visible as Label3D above the gate
 - **Directional chevron** pointing toward the gate (pulsing when selected)
-- **Security tint** on the gate marker matching the lane's security band
+- **Security tint** on the gate marker matching the thread's security band
   (green=safe, yellow=moderate, orange=dangerous, red=hostile)
 - **Hop count** to the destination visible on hover
-- **Active trade route indicator** — gold ring if an NPC trade route uses this lane
+- **Active trade route indicator** — gold ring if an NPC trade route uses this thread
 
 ---
 
@@ -229,7 +229,7 @@ undersells their importance.
 
 ### Layout Philosophy
 
-The overlay is a 2D node-link graph. Each node is a system. Each edge is a lane.
+The overlay is a 2D node-link graph. Each node is a system. Each edge is a thread.
 The layout is derived from SimCore's galaxy topology (positions set at world genesis)
 and does not change during gameplay.
 
@@ -276,8 +276,8 @@ toolbar (`galaxy_overlay_hud.gd`).
 | Mode | What It Colors | Color Mapping | Data Source |
 |------|----------------|---------------|-------------|
 | **None** | Neutral cyan nodes, white edges | Monochrome | — |
-| **Security** | Lane edges by security bps | Green (>5000) → Blue (3000-5000) → Orange (1500-3000) → Red (<1500) | `GetSecurityBandV0` |
-| **Trade Flow** | Lane edges by NPC activity | Gold = active trade route, Gray = no activity | `GetNpcTradeRoutesV0` |
+| **Security** | Thread edges by security bps | Green (>5000) → Blue (3000-5000) → Orange (1500-3000) → Red (<1500) | `GetSecurityBandV0` |
+| **Trade Flow** | Thread edges by NPC activity | Gold = active trade route, Gray = no activity | `GetNpcTradeRoutesV0` |
 | **Intel Freshness** | Nodes by intel age | Green (<500t) → Yellow (500-1500t) → Orange (1500-3000t) → Red (>3000t) → Gray (none) | `GetIntelFreshnessByNodeV0` |
 
 #### Aspiration Modes (Not Yet Implemented)
@@ -333,7 +333,7 @@ at every altitude is Stellaris's failure mode.
 | **Galaxy** | >800u | Dot (3px), color by active lens | Thin line (1px), color by active lens | Hidden | Hidden |
 | **Sector** | 400–800u | Circle (8px), color by lens, faction border glow | Line (2px), color by lens, animated flow dots | System names (largest font, spaced) | Fleet summary badges ("3 traders"), warfront markers |
 | **Region** | 200–400u | Circle (12px), status ring, territory disc | Line (3px), flow dots, trade volume thickness | All system names, station names on hover | Individual fleet icons, discovery phase markers |
-| **Approach** | 100–200u | Transitions to persistent star billboards | Lane lines as 3D cylinders | Label3D in world space | Full detail — NPC models, gate labels |
+| **Approach** | 100–200u | Transitions to persistent star billboards | Thread lines as 3D cylinders | Label3D in world space | Full detail — NPC models, gate labels |
 
 ### Progressive Label Density
 
@@ -476,7 +476,7 @@ show them with clear "you haven't been here yet" messaging.
 
 ## Route Planning
 
-Currently, the player travels by clicking lane gates in the local system view. There is
+Currently, the player travels by clicking thread gates in the local system view. There is
 no route planning from the overlay. This forces the player to navigate one hop at a time
 with no forward visibility on security, distance, or danger.
 
@@ -495,7 +495,7 @@ the optimal route as a highlighted path.
 │                                    [KEPLER] ← destination                │
 │                                                                           │
 │  Route: Sirius → Proxima → Barnard → Altair → Kepler                    │
-│  Hops: 4  │  Est. travel: ~4 min  │  Security: ●●●○ (1 dangerous lane)  │
+│  Hops: 4  │  Est. travel: ~4 min  │  Security: ●●●○ (1 dangerous thread)  │
 │                                                                           │
 │  [Set Waypoint]  [Auto-Navigate]  [Cancel]                               │
 └───────────────────────────────────────────────────────────────────────────┘
@@ -504,17 +504,17 @@ the optimal route as a highlighted path.
 **Route display rules:**
 - Highlighted path uses thick, pulsing line (distinct from normal edges)
 - Each hop shows a directional chevron (▶)
-- Route summary bar at bottom: total hops, estimated travel time, worst-security-lane
+- Route summary bar at bottom: total hops, estimated travel time, worst-security-thread
   indicator (using the same green→red dots)
 - If multiple paths exist, show the safest by default. Offer toggle: "Shortest" vs "Safest"
   (EVE Online's route preference system is the gold standard here)
 - Path fades if the player pans away or clicks elsewhere
 
-**Route info overlay on lanes:**
-When a route is planned, each lane segment on the route shows:
+**Route info overlay on threads:**
+When a route is planned, each thread segment on the route shows:
 - Security band color (already present)
 - Hop number ("1/4", "2/4", etc.)
-- Warning icon if hostile or if active warfront crosses this lane
+- Warning icon if hostile or if active warfront crosses this thread
 
 ### Pathfinding
 
@@ -600,7 +600,7 @@ topology, but we don't visually communicate them.
     │                                    │
     ╰────────────────────────────────────╯
                          │
-              (inter-cluster lane)
+              (inter-cluster thread)
                          │
     ╭─ Frontier Reach ───────────────────╮
     │                                     │
@@ -632,7 +632,7 @@ if you've automated your trade fleets, you can hide trade fleet icons to reduce 
 | **System Names** | Text labels for system names | On | — |
 | **Discovery Sites** | Phase-colored markers for unresolved discoveries | On | — |
 | **Warfront Zones** | Pulsing zone boundaries for active wars | Off | Show only during wartime |
-| **Trade Volume** | Line thickness encoding trade volume per lane | Off | — |
+| **Trade Volume** | Line thickness encoding trade volume per thread | Off | — |
 
 Toggles are independent of the color lens. You can view the Security lens with trade
 routes visible, or the Territory lens with fleet icons hidden. This combinatorial
@@ -732,10 +732,10 @@ A fully-connected graph of 50 nodes can have hundreds of edges. Without manageme
 the map becomes a web of spaghetti.
 
 **Rules:**
-1. At galaxy zoom: show only edges between constellations (inter-cluster lanes) and hide
+1. At galaxy zoom: show only edges between constellations (inter-cluster threads) and hide
    intra-cluster edges. The cluster boundary implies internal connectivity.
 2. At sector zoom: show all edges within the visible region.
-3. Edge thickness encodes importance: trade routes are thicker, inactive lanes are thinner.
+3. Edge thickness encodes importance: trade routes are thicker, inactive threads are thinner.
 4. Edges between undiscovered systems are hidden entirely (existing fog-of-war behavior).
 
 ---
@@ -769,7 +769,7 @@ the map becomes a web of spaghetti.
 | Node popup design | Star Traders: Frontiers | Maximum info density without clutter | Enhanced popup with "so what?" context + action buttons |
 | Route planning | EVE Online | Shortest vs. safest preference toggle | Click destination → highlighted path + summary bar |
 | Icon toggles | Distant Worlds 2 | Player-controlled information density, paired with automation | 7 toggle categories independent of color lens |
-| Trade lane infrastructure | Freelancer | Physical lane gates as diegetic navigation objects | Lane gates already exist as orange sphere markers |
+| Trade thread infrastructure | Freelancer | Physical thread gates as diegetic navigation objects | Thread gates already exist as orange sphere markers |
 | Exploration overlay | Outer Wilds Ship Log | Web of discoveries with clear phase states | Three-state fog + discovery phase markers (▪/░/✓) |
 | Search | Civilization 6 | Cross-entity search with type-grouped results | Ctrl+F with systems/stations/fleets/goods/factions |
 
@@ -809,14 +809,14 @@ And the reverse — other screens linking INTO the map:
 | Query | Returns | Used By |
 |-------|---------|---------|
 | `GetGalaxySnapshotV0()` | All nodes, positions, connections | Overlay graph construction |
-| `GetSystemSnapshotV0(nodeId)` | Local system detail (star, planet, station, gates) | Local system rendering |
+| `GetSystemSnapshotV0(nodeId)` | Local system detail (star, planet, station, thread gates) | Local system rendering |
 | `GetStarInfoV0(nodeId)` | Star class, luminosity, color RGB | Star visual tinting |
 | `GetNodeDetailV0(nodeId)` | Name, class, fleet count, industry count, security bps | Node popup |
 | `GetPlayerMarketViewV0(nodeId)` | Good inventory with buy/sell prices | Popup market table |
 | `GetFleetTransitFactsV0(nodeId)` | NPC fleets at this node (role, faction, is_hostile) | Fleet markers |
 | `GetNpcTradeRoutesV0()` | Active trade routes (edges, good, volume) | Trade Flow overlay |
 | `GetIntelFreshnessByNodeV0()` | Per-node intel age in ticks | Intel Freshness overlay |
-| `GetSecurityBandV0(from, to)` | Security bps for a lane | Security overlay |
+| `GetSecurityBandV0(from, to)` | Security bps for a thread | Security overlay |
 | `GetTerritoryRegimeV0(nodeId)` | Controlling faction, regime color | Popup territory label |
 | `GetTerritoryAccessV0(nodeId)` | Access rights at this node | Popup territory detail |
 | `GetFactionColorsV0(factionId)` | Faction color palette | Territory disc tinting |

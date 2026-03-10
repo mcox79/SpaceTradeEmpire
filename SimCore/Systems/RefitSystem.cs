@@ -50,6 +50,15 @@ public static class RefitSystem
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
 
+        // GATE.S7.T2_MODULES.FITTING.001: Validate faction reputation for T2 modules.
+        if (!string.IsNullOrEmpty(moduleDef.FactionId) && moduleDef.FactionRepRequired > 0)
+        {
+            int rep = 0;
+            state.FactionReputation.TryGetValue(moduleDef.FactionId, out rep);
+            if (rep < moduleDef.FactionRepRequired)
+                return new RefitResult { Success = false, Reason = "faction_rep_insufficient" };
+        }
+
         // Deduct cost
         if (state.PlayerCredits < moduleDef.CreditCost)
             return new RefitResult { Success = false, Reason = "insufficient_credits" };
@@ -95,6 +104,15 @@ public static class RefitSystem
 
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
+
+        // GATE.S7.T2_MODULES.FITTING.001: Validate faction reputation for T2 modules.
+        if (!string.IsNullOrEmpty(moduleDef.FactionId) && moduleDef.FactionRepRequired > 0)
+        {
+            int rep = 0;
+            state.FactionReputation.TryGetValue(moduleDef.FactionId, out rep);
+            if (rep < moduleDef.FactionRepRequired)
+                return new RefitResult { Success = false, Reason = "faction_rep_insufficient" };
+        }
 
         if (state.PlayerCredits < moduleDef.CreditCost)
             return new RefitResult { Success = false, Reason = "insufficient_credits" };

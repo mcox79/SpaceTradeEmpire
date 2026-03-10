@@ -31,11 +31,11 @@ Date: 2026-03-06
 - Sustain starvation: 50% power reduction when supply insufficient + 20% safety floor
 
 ### Phase 3 — Aspirational
-- T3 Precursor modules (discovery-only, exotic matter sustain, cannot be manufactured)
+- T3 Relic modules (discovery-only, exotic matter sustain, cannot be manufactured)
 - Missile self-fabrication system (Magazine size, FabRate, in-combat vs peace-time production)
 - Drone system (bay slots on Carrier/Dreadnought, Interceptor/Strike/Salvage drone types)
 - Electronic warfare (Cargo Siphon, System Disruptor, Hull Cracker, Neural Override)
-- Named/Legendary variants (Precursor artifacts with unique modifiers)
+- Named/Legendary variants (ancient artifacts with unique modifiers)
 - Stat-check boarding (hull < 25% + Boarding Module → crew check → enhanced loot)
 - Mining fleet contracts (NPC miner delegation, not direct player activity)
 
@@ -49,7 +49,7 @@ Date: 2026-03-06
 4. **Sustain = economy** — Modules consume resources, not credits. Your fleet loadout is constrained by your supply chains
 5. **No fixed guns** — All turrets (360° coverage). Mount types (Broadside/Spinal) add arc restrictions + damage bonuses on specific ships
 6. **Self-fabricating missiles** — No resupply trips. Magazine + fab rate + sustain handles ammo
-7. **Three tech tiers** — T1 Standard (purchasable), T2 Military (faction/rare materials), T3 Precursor (found, not built)
+7. **Three tech tiers** — T1 Standard (purchasable), T2 Military (faction/rare materials), T3 Relic (found, not built)
 
 ---
 
@@ -63,7 +63,7 @@ Date: 2026-03-06
 |------|------|--------|-------------|--------|
 | T1 | Standard | Manufactured, purchasable | Common goods (metal, fuel) | Near-future fusion era |
 | T2 | Military | Faction reputation / rare materials | Uncommon goods (composites, rare metals) | Far-future, physics-respecting |
-| T3 | Precursor | Found in anomalies/ruins, not craftable | Rare goods (exotic matter — exploration only, cannot be manufactured) | Ancient alien tech with theoretical physics basis |
+| T3 | Relic | Found in anomalies/ruins, not craftable | Rare goods (exotic matter — exploration only, cannot be manufactured) | Ancient alien tech with theoretical physics basis |
 
 ---
 
@@ -181,7 +181,7 @@ equipment. This floor applies regardless of how many degradation sources stack.
 ```
 Shuttle → Corvette → Clipper / Frigate / Hauler (mid-tier sidegrades)
                         → Cruiser / Carrier (late-game)
-                           → Dreadnought (endgame aspirational — Precursor find)
+                           → Dreadnought (endgame aspirational — ancient find)
 ```
 
 ### Slot Layouts & Mount Types
@@ -195,7 +195,7 @@ Shuttle → Corvette → Clipper / Frigate / Hauler (mid-tier sidegrades)
 | Hauler | 1 | — | — | 1 | 2 | 5 | — | Purchase |
 | Cruiser | 2 | 2 | — | 2 | 4 | 2 | — | Faction rep + credits |
 | Carrier | 2 | — | — | 1 | 3 | 2 | 2 | Faction rep + credits |
-| Dreadnought | 2 | 2 | 2 | 3 | 6 | 4 | 2 | Found in Precursor ruin (1-2 per save) |
+| Dreadnought | 2 | 2 | 2 | 3 | 6 | 4 | 2 | Found in ancient ruin (1-2 per save) |
 
 ### Mount Types
 
@@ -230,7 +230,7 @@ Shuttle → Corvette → Clipper / Frigate / Hauler (mid-tier sidegrades)
 - **Hauler**: Maximum cargo. Slow, tough core, escort-dependent. The trade baron's ship.
 - **Cruiser**: Multi-role flagship. Fleet command bonus — passive buff when escorted by player-owned ships. Good at everything, great at nothing alone.
 - **Carrier**: Drone commander. Weak personal guns but deploys combat/salvage drones. Different playstyle.
-- **Dreadnought**: Precursor find. 1-2 per save. Massive reactivation cost and sustain. Spinal mounts for devastating forward weapons. "What did the Precursors need this to fight?"
+- **Dreadnought**: Ancient find. 1-2 per save. Massive reactivation cost and sustain. Spinal mounts for devastating forward weapons. "What did the thread builders need this to fight?"
 
 ---
 
@@ -268,7 +268,7 @@ Sustain is **resource flow, not credits**. Each module consumes specific goods p
 | Fuel | Fuel refineries | T1 energy weapons, engines, power modules |
 | Composite | Metal + Fuel (industrial) | T2 armor, shields |
 | Rare Metal | Rare ore deposits | T2 weapons, advanced sensors |
-| Exotic Matter | Anomaly exploration ONLY (cannot be manufactured) | T3 Precursor modules |
+| Exotic Matter | Anomaly exploration ONLY (cannot be manufactured) | T3 Relic modules |
 
 **Sustain mechanics:**
 
@@ -285,7 +285,7 @@ Sustain is **resource flow, not credits**. Each module consumes specific goods p
 
 - T1 loadout: One ore mine + one fuel refinery. Easy.
 - T2 loadout: Composite production chain (metal + fuel → composite). Real economy required.
-- T3 loadout: Steady exotic matter from exploration. Dreadnought literally needs you to keep exploring Precursor ruins.
+- T3 loadout: Steady exotic matter from exploration. Dreadnought literally needs you to keep exploring ancient ruins.
 
 ---
 
@@ -335,7 +335,7 @@ All turrets have 360° base coverage (or mount-restricted arc). Within their arc
 | Swarm Battery | Missile | N/A (guided) | 8/missile × 6 salvo | 18 | 3 per 15 ticks | 2 metal, 2 fuel | Fires in salvos of 6. Overwhelms PDC through volume. |
 | Casaba Lance | Kinetic | Heavy | 35 | 2 | 1 per 40 ticks | 2 composite, 1 rare metal | Nuclear shaped plasma spear. Devastating. |
 
-#### T3 — Precursor
+#### T3 — Relic
 
 | Module | Family | Tracking | Damage | Magazine | Fab Rate | Sustain/Cycle | Flavor |
 |--------|--------|---------|--------|----------|----------|---------------|--------|
@@ -396,8 +396,8 @@ Armor modules are assigned to a **specific zone** on installation.
 | D-He3 Drive | Fusion | T2 | +30% | +15% | Medium | 1 fuel, 1 rare metal | Clean fusion. Runs cooler. Rare He-3 fuel. |
 | Antimatter Catalyst | AM | T2 | +50% | +15% | High | 2 fuel, 1 rare metal | Explosive acceleration. Power-hungry. |
 | Antimatter Vectoring | AM | T2 | +15% | +55% | High | 2 fuel, 1 rare metal | Directed annihilation jets. Turns like a fighter. |
-| Metric Drive Core | Precursor | T3 | +60% | +60% | Low | 2 exotic matter | Local containment bubble — brute-force metric stabilization at ship scale. Finite lifespan: containment always degrades. |
-| Void Sail | Precursor | T3 | +50% | +30% | None | 1 exotic matter | Reads spacetime turbulence patterns and shapes them into thrust. No fuel — accommodation works with the flow. |
+| Metric Drive Core | Relic | T3 | +60% | +60% | Low | 2 exotic matter | Local containment bubble — brute-force metric stabilization at ship scale. Finite lifespan: containment always degrades. |
+| Void Sail | Relic | T3 | +50% | +30% | None | 1 exotic matter | Reads spacetime turbulence patterns and shapes them into thrust. No fuel — accommodation works with the flow. |
 
 ---
 
@@ -492,7 +492,7 @@ Missile weapons manufacture their own ammo. No resupply trips.
 - Anomalies yield artifacts
 - Asteroids yield minerals (via fleet contract miners)
 - Derelicts yield rare modules
-- Precursor ruins yield exotic matter + T3 modules
+- Ancient ruins yield exotic matter + T3 modules
 
 ### Collection Mechanics
 
@@ -508,7 +508,7 @@ Missile weapons manufacture their own ammo. No resupply trips.
 | Green | Uncommon | Useful components, composites |
 | Blue | Rare | T2 modules, rare metals |
 | Purple | Alien | Alien tech, faction-specific |
-| Gold | Precursor | T3 modules, exotic matter, named variants (future) |
+| Gold | Relic | T3 modules, exotic matter, named variants (future) |
 
 ### Audio/Visual Feedback
 
@@ -523,8 +523,8 @@ Missile weapons manufacture their own ammo. No resupply trips.
 
 > 🔮 **FUTURE** (Phase 3). Not yet implemented.
 
-Precursor artifacts only. Each has a base module type + unique name + 1-2 modifiers with tradeoffs.
-Not strictly better — different. Lore-carrying names that hint at Precursor civilization.
+Ancient artifacts only. Each has a base module type + unique name + 1-2 modifiers with tradeoffs.
+Not strictly better — different. Lore-carrying names that hint at the thread builders' civilization.
 
 Examples (not final):
 

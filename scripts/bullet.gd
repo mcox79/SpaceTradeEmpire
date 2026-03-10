@@ -14,6 +14,9 @@ var source_fleet_id: String = ""  # AI fleet ID (for AI bullets hitting player)
 # GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001: weapon family visual differentiation.
 # "kinetic" = short thick white, "energy" = long thin cyan, "point_defense" = rapid thin yellow.
 var weapon_type: String = ""  # Set by spawner; empty = auto (energy for player, kinetic for AI)
+# GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001: Canonical damage family property.
+# Values: "kinetic", "energy", "neutral", "pd". Maps to weapon_type for backward compat.
+var damage_family: String = ""  # Set by spawner; empty = falls back to weapon_type
 
 func _ready() -> void:
 	monitoring = true
@@ -38,30 +41,39 @@ func _apply_source_color() -> void:
 	var mesh_node := get_node_or_null("MeshInstance3D") as MeshInstance3D
 	if mesh_node == null:
 		return
-	# GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001: weapon family visual differentiation.
-	var wt: String = weapon_type if not weapon_type.is_empty() else ("energy" if source_is_player else "kinetic")
+	# GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001: Resolve effective family.
+	# Priority: damage_family > weapon_type > auto (energy for player, kinetic for AI).
+	var family: String = _resolve_damage_family()
 	var color: Color
 	var scale_x: float = 1.0
 	var scale_z: float = 1.0
 	var emission_mult: float = 3.0
-	match wt:
+	var trail_length: float = 0.0  # 0 = no trail
+	match family:
 		"kinetic":
-			color = Color(0.95, 0.95, 0.95, 1.0)  # short thick white
+			color = Color(1.0, 0.85, 0.2, 1.0)   # Yellow
 			scale_x = 1.6
 			scale_z = 0.7
 			emission_mult = 2.5
+			trail_length = 0.15  # Short trail
 		"energy":
-			color = Color(0.0, 1.0, 0.7, 1.0)  # long thin cyan
+			color = Color(0.0, 1.0, 0.9, 1.0)    # Cyan
 			scale_x = 0.6
 			scale_z = 1.5
-			emission_mult = 3.5
-		"point_defense":
-			color = Color(1.0, 0.9, 0.2, 1.0)  # rapid thin yellow
-			scale_x = 0.5
-			scale_z = 0.5
 			emission_mult = 4.0
-		_:
-			color = Color(1.0, 0.3, 0.05, 1.0) if not source_is_player else Color(0.0, 1.0, 0.7, 1.0)
+			trail_length = 0.35  # Bright glow trail
+		"pd":
+			color = Color(0.2, 1.0, 0.3, 1.0)    # Green
+			scale_x = 0.4
+			scale_z = 0.4
+			emission_mult = 4.0
+			trail_length = 0.1   # Rapid small trail
+		"neutral", _:
+			color = Color(0.9, 0.9, 0.95, 1.0)   # White
+			scale_x = 1.0
+			scale_z = 1.0
+			emission_mult = 3.0
+			trail_length = 0.2   # Standard trail
 	var mat := StandardMaterial3D.new()
 	mat.emission_enabled = true
 	mat.albedo_color = color
@@ -69,6 +81,66 @@ func _apply_source_color() -> void:
 	mat.emission_energy_multiplier = emission_mult
 	mesh_node.material_override = mat
 	mesh_node.scale = Vector3(scale_x, 1.0, scale_z)
+	# GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001: Add trail particles.
+	if trail_length > 0.0:
+		_add_trail_particles(color, trail_length)
+
+
+## GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001: Resolve the effective damage family.
+func _resolve_damage_family() -> String:
+	# damage_family takes priority.
+	if not damage_family.is_empty():
+		return damage_family
+	# Map legacy weapon_type to damage_family.
+	if not weapon_type.is_empty():
+		match weapon_type:
+			"point_defense":
+				return "pd"
+			_:
+				return weapon_type  # kinetic, energy pass through
+	# Auto: player = energy, AI = kinetic.
+	return "energy" if source_is_player else "kinetic"
+
+
+## GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
+## Attach trail GPUParticles3D to bullet. Trail color matches weapon family.
+## Enlarged for camera altitude ~80 visibility.
+func _add_trail_particles(color: Color, trail_life: float) -> void:
+	var particles := GPUParticles3D.new()
+	particles.name = "BulletTrail"
+	particles.amount = 12
+	particles.lifetime = trail_life
+	particles.one_shot = false
+	particles.explosiveness = 0.0
+	particles.randomness = 0.2
+	particles.emitting = true
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var proc_mat := ParticleProcessMaterial.new()
+	proc_mat.direction = Vector3(0, 0, 0)
+	proc_mat.spread = 8.0
+	proc_mat.initial_velocity_min = 2.0
+	proc_mat.initial_velocity_max = 5.0
+	proc_mat.gravity = Vector3.ZERO
+	proc_mat.scale_min = 0.4
+	proc_mat.scale_max = 0.9
+	proc_mat.damping_min = 2.0
+	proc_mat.damping_max = 4.0
+	# Trail gradient: full color -> fade out.
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(color.r, color.g, color.b, 0.9))
+	gradient.add_point(1.0, Color(color.r, color.g, color.b, 0.0))
+	var color_ramp := GradientTexture1D.new()
+	color_ramp.gradient = gradient
+	proc_mat.color_ramp = color_ramp
+	particles.process_material = proc_mat
+
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.5
+	mesh.height = 1.0
+	particles.draw_pass_1 = mesh
+
+	add_child(particles)
 
 func set_direction(direction: Vector3) -> void:
 	if direction.length() > 0.0001:
@@ -134,7 +206,8 @@ func _on_area_entered(area: Area3D) -> void:
 	_spawn_hit_vfx(global_position)
 	queue_free()
 
-# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001: 0.3s burst GPUParticles3D hit effect.
+# GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
+# 0.4s burst GPUParticles3D hit effect. Enlarged for camera altitude ~80 visibility.
 func _spawn_hit_vfx(pos: Vector3) -> void:
 	var root = get_tree().get_root() if get_tree() else null
 	if root == null:
@@ -143,8 +216,8 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "HitVfx"
 	particles.position = pos
-	particles.amount = 12
-	particles.lifetime = 0.25
+	particles.amount = 20
+	particles.lifetime = 0.4
 	particles.one_shot = true
 	particles.explosiveness = 0.92
 	particles.randomness = 0.3
@@ -152,12 +225,12 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 1, 0)
-	proc_mat.spread = 80.0
-	proc_mat.initial_velocity_min = 3.0
-	proc_mat.initial_velocity_max = 10.0
+	proc_mat.spread = 90.0
+	proc_mat.initial_velocity_min = 25.0
+	proc_mat.initial_velocity_max = 60.0
 	proc_mat.gravity = Vector3(0, 0, 0)
-	proc_mat.scale_min = 0.15
-	proc_mat.scale_max = 0.4
+	proc_mat.scale_min = 2.0
+	proc_mat.scale_max = 4.5
 	if source_is_player:
 		proc_mat.color = Color(0.6, 1.0, 0.9, 1.0)
 	else:
@@ -165,14 +238,14 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.15
-	mesh.height = 0.3
+	mesh.radius = 1.5
+	mesh.height = 3.0
 	particles.draw_pass_1 = mesh
 
 	root.add_child(particles)
 
-	# Auto-free after burst completes (0.3s lifetime + small buffer).
-	var timer := root.get_tree().create_timer(0.5) if root.get_tree() else null
+	# Auto-free after burst completes (0.4s lifetime + small buffer).
+	var timer := root.get_tree().create_timer(0.6) if root.get_tree() else null
 	if timer:
 		timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
 
@@ -194,16 +267,24 @@ func _spawn_npc_combat_vfx(area: Area3D, result: Dictionary) -> void:
 	var hull_dmg: int = int(result.get("hull_dmg", 0))
 	var total_dmg: int = shield_dmg + hull_dmg
 
-	# Shield ripple or shield break.
+	# GATE.S7.COMBAT_FEEL_POLISH.SHIELD_VFX.001: Shield ripple, hull sparks, or shield break.
 	var ShieldVfx = load("res://scripts/vfx/shield_ripple.gd")
 	if ShieldVfx:
 		if target_shield > 0:
+			# Shield still up — blue hex ripple.
 			if ShieldVfx.has_method("spawn_hit"):
 				ShieldVfx.call("spawn_hit", vfx_parent, ship_pos, impact_pos)
 		elif target_shield <= 0 and shield_dmg > 0:
-			# Shield just broke this hit.
+			# Shield just broke this hit — bright flash + discharge + SFX.
 			if ShieldVfx.has_method("spawn_break"):
 				ShieldVfx.call("spawn_break", vfx_parent, ship_pos)
+			var ca = get_tree().root.get_node_or_null("CombatAudio") if get_tree() else null
+			if ca and ca.has_method("play_shield_break_sfx"):
+				ca.call("play_shield_break_sfx", ship_pos)
+		elif hull_dmg > 0:
+			# Hull hit (shields already down) — orange spark shower.
+			if ShieldVfx.has_method("spawn_hull_sparks"):
+				ShieldVfx.call("spawn_hull_sparks", vfx_parent, ship_pos, impact_pos)
 
 	# Damage number.
 	if total_dmg > 0:

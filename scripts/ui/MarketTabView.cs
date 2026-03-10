@@ -12,6 +12,9 @@ public class MarketTabView
 	private readonly VBoxContainer _marketList;
 	private readonly Action _refreshCallback;
 
+	// Cached SceneTree reference for scheduling delayed refreshes after trade actions.
+	private SceneTree _cachedTree;
+
 	public MarketTabView(SimBridge bridge, VBoxContainer marketList, Action refreshCallback)
 	{
 		_bridge = bridge;
@@ -28,6 +31,7 @@ public class MarketTabView
 		Dictionary<string, Godot.Collections.Dictionary> programQuotesById,
 		SceneTree tree)
 	{
+		_cachedTree = tree;
 		foreach (var child in _marketList.GetChildren()) child.QueueFree();
 
 		bool marketEnabled = !string.IsNullOrWhiteSpace(marketId) && state.Markets.ContainsKey(marketId);
@@ -189,6 +193,16 @@ public class MarketTabView
 		if (isBuy) _bridge.SubmitBuyIntent(marketId, good, qty);
 		else _bridge.SubmitSellIntent(marketId, good, qty);
 
+		// Immediate refresh (may still show stale cargo if intent hasn't been processed yet).
 		_refreshCallback?.Invoke();
+
+		// GATE.S7.RUNTIME_STABILITY.UI_POLISH.001: Schedule a delayed re-refresh so the UI
+		// re-queries cargo state after the sim tick processes the buy/sell intent.
+		// Without this, cargo shows "empty" until the next natural UI poll (~200 ticks).
+		if (_cachedTree != null)
+		{
+			var timer = _cachedTree.CreateTimer(0.1);
+			timer.Timeout += () => _refreshCallback?.Invoke();
+		}
 	}
 }

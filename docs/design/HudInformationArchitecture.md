@@ -30,7 +30,7 @@ and notification pipeline before more UI is built.
 | Mission panel | Done | Gold text, hidden when docked |
 | Research progress | Done | Idle/active/stalled states with color coding |
 | Fuel indicator | Done | Low (orange) and immobilized (red) warnings |
-| Edgedar screen-edge arrows | Done | Lane gates (blue), hostiles (red), quests (gold), stations (green) |
+| Edgedar screen-edge arrows | Done | Thread gates (blue), hostiles (red), quests (gold), stations (green) |
 | Toast notifications | Done | Top-right, slide-in, 3s display, max 5 stack |
 | Combat log panel (L key) | Done | Right-side, 20 events, gold/red coloring |
 | Keybinds help (H key) | Done | Centered modal with bindings table |
@@ -302,7 +302,7 @@ The semantic color palette is defined once and used everywhere:
 | CYAN | Player / interactive / accent | (0.4, 0.85, 1.0) | Titles, selection, player markers |
 | GREEN | Safe / profit / healthy / fresh | (0.2, 1.0, 0.4) | Safe security, profit numbers, full bars |
 | RED | Danger / loss / critical / hostile | (1.0, 0.15, 0.15) | Hostile security, damage, alerts |
-| ORANGE | Warning / caution / stale | (1.0, 0.6, 0.2) | Dangerous lanes, low fuel, aging intel |
+| ORANGE | Warning / caution / stale | (1.0, 0.6, 0.2) | Dangerous threads, low fuel, aging intel |
 | GOLD | Commerce / reward / mission | (1.0, 0.85, 0.4) | Credits, loot, mission text |
 | BLUE | Neutral info / moderate | (0.4, 0.7, 1.0) | Moderate security, shields |
 | PURPLE_LIGHT | Discovery / anomaly / exotic | (0.9, 0.85, 1.0) | Discovery phases, anomaly markers |

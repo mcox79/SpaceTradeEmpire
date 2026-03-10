@@ -2,6 +2,21 @@ extends Camera3D
 
 # Self-contained pan/zoom for the galaxy overlay camera.
 # Active only when this camera is the current camera (overlay open).
+# GATE.S7.GALAXY_MAP_V2.SEMANTIC_ZOOM.001: Altitude accessor for semantic zoom.
+
+## Current altitude (Y-component of global_position). Used by GalaxyView semantic zoom.
+func get_altitude_v0() -> float:
+	return global_position.y
+
+## Semantic zoom band: 0 = close (<500), 1 = medium (500-2000), 2 = galaxy (>2000).
+func get_zoom_band_v0() -> int:
+	var alt := global_position.y
+	if alt < 500.0:
+		return 0
+	elif alt < 2000.0:
+		return 1
+	else:
+		return 2
 
 func _process(delta):
 	if not current:

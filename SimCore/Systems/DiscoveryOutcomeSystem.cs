@@ -1,14 +1,40 @@
 using SimCore.Entities;
 using SimCore.Content;
 using SimCore.Tweaks;
+using System;
+using System.Collections.Generic;
 
 namespace SimCore.Systems;
 
 // GATE.S6.OUTCOME.REWARD_MODEL.001: When a discovery reaches Analyzed phase, generate outcome rewards.
 // GATE.S6.ANOMALY.REWARD_LOOT.001: Family-specific loot on encounter completion.
+// GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Template-driven FlavorText for discoveries.
 public static class DiscoveryOutcomeSystem
 {
+    // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Narrative templates keyed by (family, phase).
+    // Presentation text only — not gameplay-affecting, not included in GetSignature().
+    // {system} is replaced with the node display name; {family} with the discovery family.
+    private static readonly Dictionary<(string Family, DiscoveryPhase Phase), string> FlavorTemplates
+        = new()
+    {
+        // Anomaly (RESOURCE_POOL_MARKER -> RUIN family)
+        { ("RUIN", DiscoveryPhase.Seen),     "Sensor echoes suggest ancient ruins in the {system} system." },
+        { ("RUIN", DiscoveryPhase.Scanned),  "Scans reveal a ruin site in {system} with traces of exotic matter." },
+        { ("RUIN", DiscoveryPhase.Analyzed), "Analysis complete: the {system} ruins yield valuable exotic matter samples." },
+
+        // Corridor (CORRIDOR_TRACE -> SIGNAL family)
+        { ("SIGNAL", DiscoveryPhase.Seen),    "A faint signal trace detected near {system}." },
+        { ("SIGNAL", DiscoveryPhase.Scanned), "Signal triangulation in {system} points to a hidden corridor." },
+        { ("SIGNAL", DiscoveryPhase.Analyzed),"The {system} signal resolves into a navigable shortcut between systems." },
+
+        // Generic / OUTCOME family
+        { ("OUTCOME", DiscoveryPhase.Seen),    "An unidentified discovery detected in the {system} system." },
+        { ("OUTCOME", DiscoveryPhase.Scanned), "Preliminary scan of the {system} discovery reveals promising readings." },
+        { ("OUTCOME", DiscoveryPhase.Analyzed),"Full analysis of the {system} discovery is complete." },
+    };
+
     // Called after IntelSystem. Checks for newly Analyzed discoveries and generates outcomes.
+    // Also populates FlavorText for all discoveries at any phase.
     public static void Process(SimState state)
     {
         if (state.Intel?.Discoveries is null) return;
@@ -17,6 +43,21 @@ public static class DiscoveryOutcomeSystem
         {
             var disc = kvp.Value;
             if (disc is null) continue;
+
+            // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001:
+            // Populate or update FlavorText based on family + current phase.
+            // Re-generated each tick to track phase transitions (Seen -> Scanned -> Analyzed).
+            // Pure function: deterministic, no RNG, presentation-only.
+            {
+                string kind = ParseDiscoveryKind(disc.DiscoveryId);
+                string family = MapKindToFamily(kind);
+                string nodeId = FindNodeForDiscovery(state, disc.DiscoveryId);
+                string systemName = ResolveSystemName(state, nodeId);
+                string expected = GenerateFlavorText(family, disc.Phase, systemName);
+                if (!string.Equals(disc.FlavorText, expected, StringComparison.Ordinal))
+                    disc.FlavorText = expected;
+            }
+
             if (disc.Phase != DiscoveryPhase.Analyzed) continue;
 
             // Check if we already generated an outcome for this discovery.
@@ -24,24 +65,24 @@ public static class DiscoveryOutcomeSystem
             if (state.AnomalyEncounters.ContainsKey(outcomeKey)) continue;
 
             // Find the discovery's node.
-            string nodeId = FindNodeForDiscovery(state, disc.DiscoveryId);
-            if (string.IsNullOrEmpty(nodeId)) continue;
+            string nodeId2 = FindNodeForDiscovery(state, disc.DiscoveryId);
+            if (string.IsNullOrEmpty(nodeId2)) continue;
 
             // Parse kind from discovery ID: "disc_v0|<KIND>|<NodeId>|<RefId>|<SourceId>"
-            string kind = ParseDiscoveryKind(disc.DiscoveryId);
+            string kind2 = ParseDiscoveryKind(disc.DiscoveryId);
 
             var outcome = new AnomalyEncounter
             {
                 EncounterId = outcomeKey,
-                NodeId = nodeId,
+                NodeId = nodeId2,
                 DiscoveryId = disc.DiscoveryId,
-                Family = MapKindToFamily(kind),
+                Family = MapKindToFamily(kind2),
                 Status = AnomalyEncounterStatus.Completed,
                 CreatedTick = state.Tick
             };
 
             // Generate kind-specific rewards.
-            ApplyRewardByKind(state, outcome, kind, nodeId);
+            ApplyRewardByKind(state, outcome, kind2, nodeId2);
 
             state.AnomalyEncounters[outcomeKey] = outcome;
         }
@@ -150,5 +191,28 @@ public static class DiscoveryOutcomeSystem
                 return edge.FromNodeId;
         }
         return "";
+    }
+
+    // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Resolve node display name for templates.
+    private static string ResolveSystemName(SimState state, string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId)) return "unknown space";
+        if (state.Nodes.TryGetValue(nodeId, out var node) && !string.IsNullOrEmpty(node.Name))
+            return node.Name;
+        return nodeId;
+    }
+
+    // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Generate flavor text from templates.
+    // Pure function of (family, phase, systemName). Deterministic and presentation-only.
+    public static string GenerateFlavorText(string family, DiscoveryPhase phase, string systemName)
+    {
+        if (string.IsNullOrEmpty(family)) family = "OUTCOME";
+        if (string.IsNullOrEmpty(systemName)) systemName = "unknown space";
+
+        if (FlavorTemplates.TryGetValue((family, phase), out var template))
+            return template.Replace("{system}", systemName, StringComparison.Ordinal);
+
+        // Fallback for unmapped families: generic description.
+        return $"A {family.ToLowerInvariant()} discovery in {systemName}.";
     }
 }

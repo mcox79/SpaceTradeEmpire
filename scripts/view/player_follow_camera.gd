@@ -90,6 +90,7 @@ var _galaxy_map_active: bool = false
 
 var _tab_tween: Tween = null
 var _pre_transit_altitude_set: bool = false  # True if game_manager pre-saved the pre-transit altitude.
+var _flyby_arrival_handled: bool = false  # True if flyby cinematic already handled the arrival zoom.
 # GalaxyView reference for LOD updates.
 var _galaxy_view = null
 # Throttle _sync_transit_lod: only call GalaxyView when altitude changes meaningfully.
@@ -305,25 +306,29 @@ func _poll_and_switch_mode() -> void:
 		# Kill any altitude tweens from toggle_galaxy_map_overlay_v0 calls during transit.
 		if _tab_tween and _tab_tween.is_valid():
 			_tab_tween.kill()
-		# Start from current transit altitude (not snap).
-		var current_transit_alt: float = 500.0
-		if _game_manager:
-			var a = _game_manager.get("warp_transit_altitude")
-			if a != null:
-				current_transit_alt = float(a)
-		_altitude = current_transit_alt
-		flight_follow_distance = _altitude
 		# Exit transit-mode rendering in GalaxyView.
 		_ensure_galaxy_view()
 		if _galaxy_view and _galaxy_view.has_method("SetTransitModeV0"):
 			_galaxy_view.call("SetTransitModeV0", false, "", "")
 		_switch_mode(CameraMode.FLIGHT)
-		# Smooth arrival zoom: tween from transit altitude to flight altitude.
-		# Flyby handles first-visit cinematic; this path is for direct state changes.
-		_tab_tween = create_tween()
-		_tab_tween.set_trans(Tween.TRANS_CUBIC)
-		_tab_tween.set_ease(Tween.EASE_OUT)
-		_tab_tween.tween_property(self, "_altitude", _pre_transit_altitude, 1.0)
+		if _flyby_arrival_handled:
+			# Flyby cinematic already positioned the camera and set _altitude.
+			# Just clean up the flag; no altitude reset needed.
+			_flyby_arrival_handled = false
+		else:
+			# Non-flyby fallback: tween from transit altitude down to flight altitude.
+			var current_transit_alt: float = 500.0
+			if _game_manager:
+				var a = _game_manager.get("warp_transit_altitude")
+				if a != null:
+					current_transit_alt = float(a)
+			# Clamp to avoid triggering galaxy-map mode during the tween.
+			_altitude = minf(current_transit_alt, PAN_THRESHOLD - 1.0)
+			flight_follow_distance = _altitude
+			_tab_tween = create_tween()
+			_tab_tween.set_trans(Tween.TRANS_CUBIC)
+			_tab_tween.set_ease(Tween.EASE_OUT)
+			_tab_tween.tween_property(self, "_altitude", _pre_transit_altitude, 1.0)
 		_sync_altitude()
 		_sync_overlay_state()
 
@@ -496,6 +501,15 @@ func toggle_strategic_altitude_v0() -> void:
 		# Coming back down to flight.
 		_galaxy_map_pan_offset = Vector3.ZERO
 		_tab_tween.tween_property(self, "_altitude", _pre_strategic_altitude, 0.6)
+
+## Called by game_manager after flyby cinematic completes.
+## Marks that the flyby already handled the arrival zoom so the WARP_TRANSIT exit
+## in _poll_and_switch_mode skips the altitude reset.
+func notify_flyby_arrival_v0(target_altitude: float) -> void:
+	_flyby_arrival_handled = true
+	_altitude = target_altitude
+	flight_follow_distance = _altitude
+	_galaxy_map_pan_offset = Vector3.ZERO
 
 ## Tween camera altitude to a target over a duration. Used by game_manager for approach cinematic.
 func tween_altitude_v0(target: float, duration: float) -> void:

@@ -4,7 +4,7 @@
 > management, anomaly encounters, and the visual language of curiosity and revelation.
 > Companion to `GalaxyMap.md` (fog of war, exploration overlay) and `factions_and_lore_v0.md`.
 > Content authoring specs: `content/NarrativeContent_TBA.md` (discovery text templates),
-> `content/LoreContent_TBA.md` (Precursor data logs). Epic: `EPIC.S6.UI_DISCOVERY`.
+> `content/LoreContent_TBA.md` (ancient data logs). Epic: `EPIC.S6.UI_DISCOVERY`.
 
 ## Why This Doc Exists
 
@@ -258,6 +258,32 @@ This makes the scanner feel like a tool the player is using, not a passive stat.
 
 ---
 
+### Scanner Unreliability in Instability Zones
+
+In systems experiencing metric bleed, the scanner itself becomes unreliable —
+reinforcing the core theme that measurement breaks down.
+
+| Instability Level | Scanner Effect | Player Experience |
+|---|---|---|
+| None (stable) | Normal readings, exact values | Baseline — player trusts instruments |
+| Low (Drift) | ±5% variance on market prices, fuel estimates | Subtle — player may not notice immediately |
+| Medium (Drift+) | ±15% variance, discovery phase markers occasionally flicker | Noticeable — player realizes instruments are unreliable |
+| High (Fracture) | ±30% variance, phantom discovery markers appear and vanish, ETAs drift | Alarming — player must rely on experience, not data |
+| Critical (Collapse) | Scanner sweeps return contradictory data, prices shown as ranges not values | Visceral — the game’s UI is telling you that reality is unstable |
+
+### Implementation Notes
+
+- Variance is cosmetic only — underlying SimCore values remain deterministic
+- Displayed values = true value × (1 + random_range(-variance, +variance)), rerolled each
+  UI refresh
+- Phantom markers: 10% chance per tick in Fracture+ zones to display a false discovery
+  marker that disappears on the next refresh
+- The First Officer comments on scanner unreliability at each escalation threshold
+- This mechanic is NEVER explained in a tutorial — the player discovers it by noticing
+  their instruments disagree with reality
+
+---
+
 ## Encounter Narratives
 
 ### Discovery Family Templates
@@ -350,6 +376,42 @@ pushing them toward the other's playstyle.
 **Rule:** Never show a global completion percentage on the HUD. That turns exploration
 into a progress bar, which kills curiosity. Show it ONLY in the Intel tab where the
 player deliberately looks for it.
+
+---
+
+## Discovery Density Rules — Mid-Game Pacing
+
+The mid-game (hours 3–8) is the exploration loop’s most vulnerable period. Players have
+exhausted nearby systems but haven’t reached deep frontier discoveries. Without careful
+density tuning, exploration becomes "fly to empty system, fly to next empty system."
+
+### Density Gradient
+
+| Distance from Start | Discovery Density | Rationale |
+|---|---|---|
+| 0-1 hops (starter space) | 1 guaranteed discovery in first 2 hops | Tutorial — teaches the scan/analyze loop |
+| 2-3 hops (near frontier) | 60% of systems contain discoveries | Mid-game density — maintains exploration momentum |
+| 4-5 hops (deep frontier) | 40% of systems contain discoveries | Natural thinning — but offset by higher-value finds |
+| 6+ hops (outer reach) | 25% of systems, but all are high-value | Rarity creates anticipation — every find is significant |
+
+### Jump Event Density
+
+Jump events (scanner anomalies, communication fragments, thread turbulence) bridge
+the gaps between discovery sites:
+
+| Zone | Jump Event Frequency | Types Available |
+|---|---|---|
+| Starter space | Every 5th jump | Routine only (calibration, minor readings) |
+| Near frontier | Every 3rd jump | Routine + anomaly + faction encounters |
+| Deep frontier | Every 2nd jump | Full range including instability hints |
+| Outer reach | Nearly every jump | Instability-heavy, ancient signal fragments |
+
+### Anti-Drought Rule
+
+No player should go more than 10 minutes of active play without encountering SOME
+narrative touchpoint (discovery site, jump event, faction dialogue, or First Officer
+observation). If the current route would create a drought, seed a jump event to bridge
+the gap.
 
 ---
 

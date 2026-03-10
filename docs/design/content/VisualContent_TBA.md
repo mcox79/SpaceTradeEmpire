@@ -178,13 +178,13 @@ Components:
 ### Route Planner Path (LOW Priority)
 
 **ID:** `VFX.MAP.ROUTE_PLANNER`
-**Type:** SHADER (lane highlight)
+**Type:** SHADER (thread highlight)
 **Current:** No route planning visualization
 **Target:** Multi-hop highlighted path from origin to destination
 
 ```
 Style:
-- Selected lanes: bright cyan, 2x width
+- Selected threads: bright cyan, 2x width
 - Hop numbers: small labels at each node along route
 - Cost summary: total time, fuel, risk at path end
 - Animated flow: dashed line animation along route direction

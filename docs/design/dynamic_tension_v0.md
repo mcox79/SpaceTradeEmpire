@@ -156,16 +156,16 @@ with costs — not a free default.
 > - ✅ Fracture travel with fuel cost (20/jump), hull stress (10 HP/jump), 10x speed penalty
 > - ✅ Fracture market pricing: 1.5x volatility, 2x spread, 50% volume cap
 > - ✅ Trace accumulation: +0.5 per arrival, decay -0.01/tick, detection at 1.0 → -10 rep
-> - ✅ Fracture goods flow: exotic_matter/exotic_crystals/salvaged_tech at 10%/tick into lane hubs
+> - ✅ Fracture goods flow: exotic_matter/exotic_crystals/salvaged_tech at 10%/tick into thread hubs
 > - ❌ Trace consequences limited to rep penalty — no interdiction waves, supply shocks, or doom clock
 > - ❌ No delayed fracture discovery gating (available immediately, not at tick 300+)
 > - Code: FractureSystem.cs, FractureTweaksV0.cs
 
 The fracture module is **not available at game start.** The player spends
-Hours 0-3 (roughly tick 0-300) as a pure lane trader — learning markets,
+Hours 0-3 (roughly tick 0-300) as a pure thread trader — learning markets,
 feeling warfront pressure, upgrading with standard T1 equipment. The module
 is discovered at a frontier derelict near the warfront around Hour 3-4, once
-the player has internalized the constraints of lane-space.
+the player has internalized the constraints of thread-space.
 
 This delayed discovery is critical:
 - The player learns the rules before they can break them.
@@ -178,10 +178,10 @@ This delayed discovery is critical:
 Once discovered, Fracture travel becomes the escape valve for warfront
 pressure — but using it creates its own doom clock.
 
-- When a warfront closes a critical trade lane, Fracture travel is the only
+- When a warfront closes a critical trade thread, Fracture travel is the only
   way to maintain supply chains.
 - But Fracture use accumulates Trace -> eventual interdiction waves, supply
-  shocks, lane disruptions.
+  shocks, thread disruptions.
 - The player is squeezed between two pressures: warfront economics pushing
   them toward Fracture, and Fracture consequences pulling them toward the
   endgame crisis.
@@ -193,6 +193,17 @@ pressure — but using it creates its own doom clock.
 use solves an immediate problem and creates a future one. The player who never
 uses Fracture faces warfront pressure they cannot escape. The player who
 overuses Fracture accelerates the endgame crisis.
+
+**The deeper consequence** (see `factions_and_lore_v0.md` → "The Deeper Truth:
+The Ring Is Engineered"): Fracture trade doesn't just bypass blockades — it
+demonstrates that the pentagon dependency ring is artificial. Trade routes
+established in fracture space break the ring pattern: stations can produce
+goods they "shouldn't" be able to, because the suppression of those capabilities
+was part of the thread infrastructure's economic engineering. Every fracture trade
+route the player builds is not just an economic shortcut — it is evidence that
+the galaxy's economic geography is a cage. This discovery (Revelation 3, ~Hour
+15) recontextualizes the player's entire trading career as participation in
+a system of control.
 
 > Full timing details: see `factions_and_lore_v0.md` — "Fracture Module
 > Timing" section.
@@ -234,7 +245,7 @@ for experienced players — not more tools.
 | **Endgame** | 2000+ | "Trace is critical. Warfronts are destabilizing. The module is not what I thought it was. I need to choose a path and commit before the galaxy collapses around me." |
 
 Every phase has pressure. Every phase has meaningful choices. The player is
-never coasting. The first 3-4 hours are pure lane-space — the player earns
+never coasting. The first 3-4 hours are pure thread-space — the player earns
 their understanding of the galaxy before the fracture module recontextualizes
 it.
 

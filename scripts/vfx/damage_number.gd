@@ -13,15 +13,16 @@ const COLOR_SHIELD := Color("4488FF")   # Blue
 const COLOR_HULL := Color("FF8844")     # Orange
 const COLOR_CRITICAL := Color("FFFFFF") # White
 
-## Font sizes by type.
-const SIZE_SHIELD: int = 28
-const SIZE_HULL: int = 36
-const SIZE_CRITICAL: int = 44
+## Font sizes by type — scaled for camera altitude ~80 visibility.
+## GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged for altitude clarity.
+const SIZE_SHIELD: int = 128
+const SIZE_HULL: int = 160
+const SIZE_CRITICAL: int = 192
 
-## Animation parameters.
-const DRIFT_HEIGHT: float = 2.5        # How far upward the number drifts.
-const DRIFT_DURATION: float = 0.6      # Total animation time.
-const FADE_START: float = 0.35         # When alpha fade begins (fraction of duration).
+## Animation parameters — scaled for camera altitude ~80 visibility.
+const DRIFT_HEIGHT: float = 18.0       # How far upward the number drifts (raised for altitude).
+const DRIFT_DURATION: float = 1.2      # Total animation time (slightly longer for readability).
+const FADE_START: float = 0.4          # When alpha fade begins (fraction of duration).
 const CRIT_PULSE_SCALE: float = 1.4    # Scale pulse peak for crits.
 const CRIT_PULSE_DURATION: float = 0.1 # Scale pulse time.
 
@@ -45,21 +46,24 @@ static func spawn(parent: Node, pos: Vector3, amount: int, type: String = "hull"
 	if time_now - _stack_reset_time > 0.3:
 		_stack_offset = 0
 		_stack_reset_time = time_now
-	var y_offset := float(_stack_offset) * 0.6
+	var y_offset := float(_stack_offset) * 4.0
 	_stack_offset += 1
 
 	effect.position = pos + Vector3(0, y_offset, 0)
 	parent.add_child(effect)
 
-	# Label3D — billboard, always faces camera.
+	# Label3D — billboard, always faces camera. Sized for altitude ~80.
+	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged pixel_size + render_priority
+	# so numbers are visible from top-down camera at altitude 80+.
 	var label := Label3D.new()
 	label.name = "DmgLabel"
-	label.pixel_size = 0.015
+	label.pixel_size = 0.14
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
+	label.render_priority = 15
 	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	label.outline_size = 10
-	label.outline_modulate = Color(0, 0, 0, 0.8)
+	label.outline_size = 20
+	label.outline_modulate = Color(0, 0, 0, 0.95)
 
 	# Configure by damage type.
 	match type:

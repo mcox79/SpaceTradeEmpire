@@ -8,6 +8,7 @@ using System;
 using System.Globalization;
 using SimCore.Intents;
 using SimCore.Programs;
+using SimCore.Tweaks;
 
 namespace SimCore;
 
@@ -161,6 +162,14 @@ public partial class SimState
     [JsonInclude] public int ContentRegistryVersionV0 { get; set; } = 0;
     [JsonInclude] public string ContentRegistryDigestV0 { get; set; } = "";
 
+    // GATE.S7.MAIN_MENU.NEW_VOYAGE.001: Difficulty preset chosen at world creation.
+    // Persisted so difficulty multipliers are consistent across save/load.
+    // Default Normal preserves backward compatibility with existing worlds.
+    [JsonInclude] public DifficultyPreset Difficulty { get; set; } = DifficultyPreset.Normal;
+
+    // GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Captain name chosen at voyage creation.
+    // Persisted for narrative display. Not gameplay-affecting; excluded from GetSignature().
+    [JsonInclude] public string CaptainName { get; set; } = "Commander";
 
     // GATE.X.TWEAKS.DATA.001
     // Versioned tweak config loaded deterministically (defaults or JSON override).
