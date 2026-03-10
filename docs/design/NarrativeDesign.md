@@ -386,6 +386,28 @@ recontextualize 15 hours of core gameplay (trade routes) as participation
 in a conspiracy. The player wasn't a neutral trader. They were a cog in
 a machine designed to prevent species independence.
 
+**Pentagon Revelation — Trigger Specification:**
+The revelation triggers when the player has completed trade routes touching all
+5 faction types. This is the *gameplay discovery* — the player has personally
+participated in every link of the chain. Delivery sequence:
+1. **Unmissable toast:** "Trade Analysis Complete — Pattern Detected" (Gold toast,
+   the only Gold toast in the game — reserved for this moment).
+2. **Galaxy map highlight:** All 5 faction trade routes illuminate simultaneously
+   for 3 seconds, showing the circular dependency. The pentagon shape is visible.
+3. **First Officer reaction** (personality-appropriate):
+   - Analyst: "I mapped every major trade route. They form a closed loop. Five
+     factions, five dependencies, zero redundancy. Someone designed this."
+   - Veteran: "Five factions, each dependent on the next. I've seen supply chains
+     weaponized before — but never this elegantly."
+   - Pathfinder: "It's a web. The whole economy is a web, and we've been tracing
+     its strands. Someone spun this. Someone with patience."
+4. **Discovery Web update:** A new gold-colored connection appears linking all 5
+   faction nodes in a ring, labeled "Engineered Dependency."
+
+The player cannot miss this moment — it is the narrative's structural keystone.
+No other revelation fires without the FO present. This one fires without player
+action because the trigger IS accumulated player action across the entire game.
+
 **Recontextualization 4 — "The Module Is Changing Me" (~Hour 18)**
 The fracture module isn't adapting to the ship. It's adapting the pilot.
 The UI effects in unstable space — chromatic aberration, parallax,
@@ -735,6 +757,133 @@ suspected.
 rule applies only to player-facing strings and design doc sections that define
 player-visible text.
 
+### Cover-Story Naming Enforcement
+
+All player-facing strings must be linted for pre-revelation leaks. This is not
+optional — a single misplaced word destroys the Module revelation's impact.
+
+**Forbidden terms in player-facing text before the Module revelation (~hour 8):**
+- `fracture`, `adaptation`, `accommodation`, `ancient`, `organism`
+
+**Post-revelation unlocks:**
+- After Module revelation: `fracture` and `adaptation` become permitted
+- After Communion revelation: `accommodation` becomes permitted
+- `ancient` permitted only in Discovery Web context (never in UI chrome)
+
+**CI enforcement:** Grep-based check against all string literals in
+`scripts/ui/*.gd`, `scripts/bridge/*.cs`, and toast message definitions.
+Exclude code comments and variable names — check only quoted string content.
+False positive resolution: add to an allowlist file
+(`docs/design/coverstory_allowlist.txt`) with justification.
+
+**QA process:** Before any release build, run the cover-story lint. Any
+violation is a blocker. The cost of one leaked term ("fracture drive" in a
+tooltip) is the entire Module revelation landing flat.
+
+---
+
+## Epilogue System
+
+After the player commits to an endgame path (Reinforce, Naturalize, or
+Renegotiate), a 60-90 second epilogue montage shows the consequences — not of
+the path chosen, but of the **paths not chosen.** This is the New Vegas ending
+slides principle: the player sees the full cost of their decision.
+
+### Epilogue Structure
+
+**Format:** Sequence of 4-5 text cards over a slowly zooming galaxy map.
+Ambient music only — no narration, no player input. Duration: 45-90 seconds.
+
+**Reinforce epilogue — "The Cage Holds":**
+> "The threads stabilize. Commerce resumes. The Concord broadcasts
+> 'All-clear' on every channel."
+>
+> "The frontier factions you never contacted continue their isolation.
+> The Communion's research sites go dark, one by one."
+>
+> "The fracture module in your cargo hold grows cold. Whatever it was
+> becoming, it has stopped."
+>
+> "The galaxy is safe. The galaxy is contained. The question the Communion
+> asked — was the instability something more than physics? — will not be
+> answered in your lifetime."
+
+**Naturalize epilogue — "The Cage Opens":**
+> "The Haven's accommodation geometry propagates. New stable zones form
+> in what was once drift space. Traders venture beyond the threads."
+>
+> "The Concord's monitoring systems detect the gap you left. New trade
+> dependencies form — less elegant, more fragile. Three stations lose
+> supply lines in the first cycle."
+>
+> "The Communion celebrates. Then grows quiet. They expected to feel the
+> old connection return. It hasn't. Not yet."
+>
+> "The frontier is free. The cost is unknown. The threads still stand —
+> but they are no longer the only way."
+
+**Renegotiate epilogue — "The Question":**
+> "Your mapped corridors transmit data to every faction simultaneously.
+> The instability is visible now — not as threat, but as structure."
+>
+> "The factions you excluded from your data discover the instability on
+> their own terms. Chaotically."
+>
+> "The Communion elder who told you the truth sends one final message:
+> 'You chose the answer none of us considered. We don't know what
+> happens next. Neither do you. That's the point.'"
+>
+> "The galaxy does not stabilize. It does not collapse. It changes.
+> And for the first time in millions of years, the change is observed."
+
+### Design Rule
+
+The epilogue must make the player feel the weight of their choice without
+punishing them. Every path has real losses. No path is "the good ending."
+The epilogue's job is to ensure the player thinks about their choice after
+the credits roll.
+
+---
+
+## Failure State Narratives
+
+Player death or bankruptcy should not feel like a game-over screen — it should
+feel like the end of a story. The failure screen transforms frustration into
+narrative closure by honoring the journey, not just marking its end.
+
+### On Death (Ship Destroyed)
+
+> "The *{ship_name}*'s final transmission was logged by {nearest_faction}
+> monitoring systems. Among the wreckage: {trade_count} trade records,
+> {discovery_count} discoveries, and one module of unknown origin that
+> defied salvage analysis."
+
+### On Bankruptcy (Credits Depleted)
+
+> "The Concord's debt recovery office processed another closure.
+> {player_name}'s trade license was revoked after {tick_count} cycles.
+> The *{ship_name}* was impounded at {last_station}. Its unusual module
+> was cataloged as 'anomalous hardware' and placed in deep storage."
+
+### Journey Statistics Display
+
+Both failure screens show:
+- Systems visited (out of total)
+- Discoveries made (with phase breakdown)
+- Credits earned (lifetime)
+- Factions encountered (with highest reputation)
+- Fleet ships commissioned / lost
+- Time played
+
+### Design Rule
+
+Failure is not punishment — it is the end of a particular story. The
+statistics honor the player's time. The narrative framing (the module
+"defied salvage analysis," the module was placed in "deep storage") hints
+that the story continues without this particular pilot — someone else will
+find the module eventually. This is the Communion elder's truth made
+structural: "You're not the first."
+
 ---
 
 ## Named Fleet Ships — The Homeworld Principle
@@ -906,7 +1055,7 @@ in other design documents.
 | Existing System | Narrative Enhancement |
 |----------------|---------------------|
 | Pentagon dependency ring | The dependency ring is the game's deepest political narrative. Each faction needs something from a faction it philosophically opposes. This should be surfaced explicitly at high reputation: "You've been trading with us for 300 ticks. You should know — we cannot produce Composites without Weaver materials. And the Weavers cannot produce Electronics without Chitin precision tools. We are all connected, even those of us at war. Especially those of us at war." |
-| 16 Adaptation Fragments + 8 Resonance Pairs | Fragment discovery should trigger Discovery Web connections that gradually reveal the thread-builder civilization's internal debate. The 8 Resonance Pairs (Containment debate, Measurement problem, etc.) are 8 conversations. Each pair, when assembled, should unlock an ancient data log conversation between two scientists arguing about that exact topic. The fragments ARE the footnotes; the logs ARE the text they reference. |
+| 12 Adaptation Fragments + 6 Resonance Pairs | Fragment discovery should trigger Discovery Web connections that gradually reveal the thread-builder civilization's internal debate. The 6 Resonance Pairs (Containment debate, Measurement problem, etc.) are 6 conversations. Each pair, when assembled, should unlock an ancient data log conversation between two scientists arguing about that exact topic. The fragments ARE the footnotes; the logs ARE the text they reference. |
 | Three endgame paths (Reinforce/Naturalize/Renegotiate) | The endgame should emerge from accumulated play, not a dialog choice. The path available to the player should depend on which factions they allied with, which fragments they found, and what they understand. A player who never visited Communion space cannot Renegotiate — they don't have the knowledge. A player who never found Fragment 6 (Lattice authentication) cannot Reinforce — they can't operate the infrastructure. The endgame is a knowledge test disguised as a moral choice. |
 | Haven Starbase (ancient safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. |
 | Instability Phases (Stable→Void) | Each phase transition at a system should be a narrative event the player can witness. Shimmer arriving at a previously stable system = "something changed here." The galaxy map should show phase spread over time — systems near fracture activity gradually shifting from Stable to Shimmer to Drift. The player can WATCH the consequences of fracture travel spreading across the map. This is the doom clock made spatial. |
@@ -934,7 +1083,7 @@ in other design documents.
 | **No ancient data logs** | The ancient mystery has no voice. Thread-builder scientists are concepts, not characters. | Write 20-30 conversation-format logs featuring 5 named scientists with personal contradictions. Distribute across ancient discovery sites. |
 | **No Discovery Web UI** | Player cannot see connections between discoveries. Lore fragments feel isolated. | Implement Knowledge Graph in Intel/Explore tab (ExplorationDiscovery.md aspirational design exists). |
 | **No faction dialogue at stations** | Factions have personality in design docs but are silent in-game. Player has no relationship with them. | Station dock menu should have a "Comms" or faction message area showing faction-voiced text. |
-| **No First Officer system** | Story lacks an emotional anchor character. Revelations land intellectually but not personally. | Implement FO candidate selection (3 archetypes). FO commentary on key beats (~30 lines total). See `factions_and_lore_v0.md` → "The First Officer." |
+| **No First Officer system** | **#1 NARRATIVE PRIORITY.** Without the FO, all five recontextualizations land as information rather than story. The FO transforms "the economy is a cage" from a fact into a moment. The FO is the player's emotional proxy — the character who reacts to revelations the way the player feels. | Implement FO candidate selection (3 archetypes: Analyst, Veteran, Pathfinder). FO reactive lines at all 10 milestone moments (~30 lines total, authored in `NarrativeContent_TBA.md`). FO must be present before ANY revelation triggers. See `factions_and_lore_v0.md` → "The First Officer." |
 | **No revelation triggers** | The five paradigm shifts have no implementation path. | Define specific triggers: R1 (module age evidence), R2 (Concord rep threshold), R3 (fracture-space trade breaks ring pattern — **#1 PRIORITY**), R4 (Communion max rep), R5 (endgame fragments + void site data). R3 and R4 are gameplay-triggered, not text-triggered. |
 
 ### Important (Enriches Story Significantly)
@@ -1059,6 +1208,46 @@ fires after 30 minutes of quiet trade, it feels like the world changed.
 - Faction narrative beats: every 30-60 minutes (rep threshold, intel briefing)
 - Revelation beats: 3 total in a 15-30 hour campaign (hours apart, back-loaded)
 
+### Mid-Game Narrative Density (Hours 3–8)
+
+The mid-game is the narrative's most vulnerable period. The player has exhausted
+early-game novelty but hasn't reached the first major revelation. Without
+intervention, hours 3–8 become "fly to system, trade, fly to next system" —
+the exploration loop loses its curiosity hook and the economy loop hasn't yet
+developed dramatic cascades.
+
+**Design response — four density layers:**
+
+1. **Jump event frequency increases in frontier space.** Every 3rd jump in
+   near-frontier systems triggers a micro-narrative: scanner anomaly, distress
+   signal fragment, faction patrol encounter, thread turbulence. See
+   `ExplorationDiscovery.md` → Discovery Density Rules for full frequency tables.
+
+2. **Discovery sites seeded densely 2-3 hops from starter space.** 60% of
+   near-frontier systems contain discoveries (vs 25% in outer reach). This
+   ensures the scan/analyze loop has frequent targets during the exploration
+   ramp-up. The player should never go more than 2 jumps without seeing a
+   discovery marker.
+
+3. **Faction reputation milestones unlock new dialogue every 45-60 minutes.**
+   Station greetings change at each rep tier (see `NarrativeContent_TBA.md` →
+   Faction Station Greetings). Intel snippets unlock at Friendly tier. Named
+   NPC encounters begin at Allied tier. The social layer provides narrative
+   variety between trade runs.
+
+4. **First Officer unprompted observations.** The FO comments on trading
+   patterns, foreshadowing the pentagon revelation: "Three runs between Concord
+   and Valorin space. The margins are identical every time." These observations
+   fire at trade-count milestones (5th trade, 10th trade, first multi-faction
+   route) — not on a timer. The FO notices what the player does, not what
+   the clock says.
+
+**Anti-drought rule:** No player should experience more than 10 minutes of
+active play without encountering SOME narrative touchpoint (discovery site,
+jump event, faction dialogue, FO observation, or economic cascade notification).
+If route analysis predicts a drought on the player's current heading, seed a
+jump event to bridge the gap.
+
 ---
 
 ## Narrative Delivery Checklist for Implementers
@@ -1133,6 +1322,164 @@ considerations are not afterthoughts.
 
 ---
 
+## Positioning & First-Impression Strategy
+
+### The Positioning Challenge
+
+Space Trade Empire faces a core positioning problem: it's a narrative-driven game
+wearing a trading sim's clothes. Players who want trading will find a story;
+players who want story may never try a trading game. Both audiences are served —
+but only if they start playing.
+
+The challenge is asymmetric: narrative players self-select OUT of trading games
+faster than trading players self-select out of narrative games. A Starsector fan
+who discovers a story is delighted. An Outer Wilds fan who sees "trade empire"
+in the title never clicks.
+
+### First 30 Minutes — Signal Strategy
+
+The game must signal "there's a story here" within the first 30 minutes without
+spoiling the story. These signals are planted in the opening gameplay:
+
+1. **The module notification (minute 5):** "Module Status: Nominal. Note:
+   Instrument calibration variance detected." This is meaningless on first read
+   but plants the seed that something is being monitored. Players who revisit
+   this notification after the Module revelation will realize the module was
+   already adapting from minute 5.
+
+2. **First Officer introduction (minute 10):** The FO's first line must be
+   characterful and hint at depth, not tutorial instruction. Analyst: "I've
+   been tracking the price patterns between here and {destination}. They're...
+   unusually consistent." Veteran: "Another trade run. You know, I've seen
+   this route a hundred times. Something about the margins never changes."
+   Pathfinder: "Do you ever wonder why the threads go where they go? Not the
+   engineering — the *why*."
+
+3. **First discovery site (minute 15-20):** Guaranteed discovery within 2 hops
+   of start. The scan result mentions "construction patterns that don't match
+   any known faction." This is the first bread crumb — unremarkable alone, but
+   it begins the curiosity chain. Players who skip it lose nothing mechanical.
+   Players who investigate find a data log.
+
+4. **First jump anomaly (minute 25-30):** A scanner glitch during a thread
+   transit — numbers flicker, then stabilize. The FO comments: "Did you see
+   that? Probably nothing." This is the first hint that the threads aren't
+   perfectly stable. It costs the player nothing and tells them nothing — but
+   it tells them the game is *watching*.
+
+### Target Audience Mapping
+
+**Primary:** Players who enjoyed Outer Wilds, Return of the Obra Dinn, or
+Sunless Sea — narrative-exploration players willing to engage with systems.
+These players value mystery and player-assembled meaning over hand-delivered
+plot. They will play a trading game IF they know a story awaits.
+
+**Secondary:** Trading sim fans (X4, Elite Dangerous, Starsector) who are
+curious about *why* their economy works the way it does. These players already
+love the genre — the story is a bonus that elevates a familiar loop.
+
+**Tertiary:** Strategy/roguelike fans (FTL, Into the Breach, Stellaris) attracted
+by the fleet management, automation, and procedural world layers. The faction
+politics and warfront dynamics appeal to this audience.
+
+### Store Page / Marketing Language
+
+Lead with mystery, not mechanics. The store page must signal narrative depth
+without spoiling the narrative:
+
+**Do this:**
+> "The trade routes work. The economy flows. Everything is perfectly balanced.
+> You're starting to wonder why."
+>
+> "Build a trade empire. Manage a fleet. Discover why the galaxy runs like
+> clockwork — and what happens when the clock breaks."
+
+**Not this:**
+> "Build a trade empire across 22 star systems with 5 factions and 34 ship
+> modules! Manage automated trade routes! Discover ancient artifacts!"
+
+The first version invites curiosity. The second describes a spreadsheet. The
+game IS a spreadsheet — but it's a spreadsheet with a secret, and the secret
+is what makes it worth playing for 30 hours.
+
+### The "First Trade to First Mystery" Pipeline
+
+The critical conversion funnel:
+
+```
+Trade tutorial (min 0-5) → "I understand how this works"
+         ↓
+Module notification (min 5) → "Huh, what was that?"
+         ↓
+FO introduction (min 10) → "This character is interesting"
+         ↓
+First discovery (min 15-20) → "There's something here..."
+         ↓
+First jump anomaly (min 25-30) → "This game is hiding something"
+         ↓
+Player is hooked → Story and trading reinforce each other
+```
+
+If any step in this pipeline fails (tutorial is boring, FO is generic, discovery
+is missable, anomaly is too subtle), the narrative player bounces. If any step
+is too heavy-handed (module notification says "WARNING: ANCIENT ORGANISM
+DETECTED"), the mystery is spoiled. The calibration between "too subtle" and
+"too obvious" is the single most important design challenge in the first 30
+minutes.
+
+---
+
+## Mechanical Hooks for Lore Delivery
+
+### The Problem
+
+Lore that exists only for atmosphere creates two failure modes: lore-seeking
+players feel unrewarded mechanically, and mechanic-focused players skip lore
+entirely, missing the story. Both failures are solved by the same design:
+**every piece of lore must contain at least one mechanical hook.**
+
+### What a Mechanical Hook Is
+
+A mechanical hook is information embedded in lore that is **useful for gameplay.**
+Not "read this to feel immersed" but "read this to gain a tactical advantage."
+The lore is still atmospheric — but it ALSO gives you something to act on.
+
+### Hook Types
+
+| Hook Type | Example in Lore | Gameplay Benefit |
+|-----------|----------------|-----------------|
+| **Coordinate hint** | "Calibration site gamma: readings correlate to Kepler-7, third orbital body." | Hidden resource cache at those coordinates |
+| **Trade intelligence** | "The Chitin stopped shipping rare minerals through Altair after the incident. Smart captains avoid that corridor too." | Route optimization — avoid Altair for rare minerals |
+| **Scanner calibration** | "Applying recovered calibration matrices from lattice node instrumentation. Estimated improvement: ±2% variance reduction." | Permanent scanner accuracy improvement |
+| **Fragment location** | "This fragment resonates with signals detected in the Outer Reach. The paired fragment may lie within 3 hops of Vega." | Search area for resonance pair |
+| **Faction insight** | "Weaver alloy markup through Concord trade hubs is 12-18% above direct purchase. The middleman takes their cut." | Price optimization — buy direct from Weavers |
+
+### Implementation Rule
+
+Every lore delivery system must enforce the mechanical hook requirement:
+- **Ancient data logs:** Must contain at least one coordinate, price, or
+  calibration data point
+- **Faction dialogue:** Must contain at least one trade tip, route warning,
+  or political intelligence item
+- **Discovery analysis results:** Must include scanner calibration data or
+  fragment location hints
+- **Adaptation fragment descriptions:** Must hint at resonance pair locations
+
+### The Virtuous Cycle
+
+When lore contains mechanical hooks, two things happen:
+1. **Lore-seekers are mechanically rewarded.** They gain tactical advantages
+   from reading carefully. This validates their playstyle.
+2. **Optimizers encounter lore as a side effect.** They read the data log
+   because it mentions coordinates — and in the process, they learn about
+   Kesh and Vael's argument. The story reaches them through the gameplay
+   channel they already trust.
+
+This is the Sunless Sea principle: stories ARE trade goods. Knowledge IS profit.
+The mechanical and narrative loops are the same loop.
+
+---
+
 ## Open Narrative Design Questions
 
 These require player testing or further design iteration to resolve:
@@ -1199,6 +1546,12 @@ These require player testing or further design iteration to resolve:
 
 ## Version History
 
+- v0.2 (2026-03-10): Major additions from narrative review. Pentagon revelation
+  trigger specification. Mid-game narrative density rules (hours 3-8). Epilogue
+  system (post-endgame montage). Cover-story CI lint enforcement. Failure state
+  narratives (death/bankruptcy screens). Positioning & first-impression strategy.
+  Mechanical hooks for lore delivery. FO elevated to #1 narrative priority.
+  Fragment count updated 16→12, resonance pairs 8→6.
 - v0.1 (2026-03-09): Added narrative integration points for all 13 companion
   design docs (previously only 6). Added Narrative Pacing Timeline mapping
   story beats to tick progression. Added Narrative Delivery Checklist for
