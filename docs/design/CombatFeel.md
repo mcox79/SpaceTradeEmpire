@@ -4,6 +4,8 @@
 > is dealt and received. Covers hero ship combat, fleet-vs-fleet resolution, and the
 > visual/audio language that makes combat readable and visceral.
 > Companion to `ship_modules_v0.md` (weapon/module catalog) and `AudioDesign.md`.
+> Content authoring specs: `content/AudioContent_TBA.md` (combat audio),
+> `content/VisualContent_TBA.md` (combat VFX). Epic: `EPIC.S7.COMBAT_JUICE.V0`.
 
 ## Why This Doc Exists
 

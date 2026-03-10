@@ -118,6 +118,39 @@ try {
         }
     }
 
+    # ── Step 2b: Retention cleanup — remove old video/audio from OTHER mode dirs ──
+    # Keep current + previous session (for pixel comparison), delete older.
+    $screenshotRoot = Join-Path $repoRoot 'reports/screenshot'
+    if (Test-Path $screenshotRoot) {
+        $modeDirs = Get-ChildItem -Path $screenshotRoot -Directory -ErrorAction SilentlyContinue
+        foreach ($mDir in $modeDirs) {
+            if ($mDir.FullName -eq $outputDir) { continue }  # Skip current mode dir
+            # Clean video files (.avi, .mp4) older than 1 day
+            $oldVideos = Get-ChildItem -Path $mDir.FullName -Include '*.avi','*.mp4' -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) }
+            foreach ($v in $oldVideos) {
+                Remove-Item -Path $v.FullName -Force
+                Write-Host ('Retention cleanup: removed ' + $v.Name) -ForegroundColor DarkGray
+            }
+            # Clean audio files (.wav, .ogg, .mp3) older than 1 day
+            $oldAudio = Get-ChildItem -Path $mDir.FullName -Include '*.wav','*.ogg','*.mp3' -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) }
+            foreach ($a in $oldAudio) {
+                Remove-Item -Path $a.FullName -Force
+                Write-Host ('Retention cleanup: removed ' + $a.Name) -ForegroundColor DarkGray
+            }
+            # Clean old PNGs (2+ days old) from non-baseline dirs — keep last session for comparison
+            if ($mDir.Name -ne 'baselines') {
+                $oldPngs = Get-ChildItem -Path $mDir.FullName -Filter '*.png' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-2) }
+                foreach ($p in $oldPngs) {
+                    Remove-Item -Path $p.FullName -Force
+                    Write-Host ('Retention cleanup: removed ' + $p.Name) -ForegroundColor DarkGray
+                }
+            }
+        }
+    }
+
     $stdoutFile = Join-Path $outputDir 'stdout.txt'
     $stderrFile = Join-Path $outputDir 'stderr.txt'
 

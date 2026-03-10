@@ -368,4 +368,41 @@ public static class MarketSystem
         int price = basePrice + priceDelta;
         return Math.Max(1, price);
     }
+
+    // GATE.S7.INSTABILITY_EFFECTS.MARKET.001: Instability-aware effective price.
+    // Applies volatility multiplier (scales linearly with instability level, 1.0x→1.5x)
+    // and security demand skew (fuel/munitions surcharge at Drift+ phase).
+    // Returns 0 if market is closed by Void-phase instability.
+    public static int GetEffectivePrice(SimState state, string marketId, string goodId, int currentQty, ContentRegistryLoader.ContentRegistryV0? registry)
+    {
+        int price = GetEffectivePrice(goodId, currentQty, registry);
+
+        if (state is null || string.IsNullOrEmpty(marketId)) return price;
+
+        // Void phase: market closed.
+        if (IsMarketClosedByInstability(state, marketId)) return 0;
+
+        // Find instability level for this market's node.
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId is null) return price;
+        if (!state.Nodes.TryGetValue(nodeId, out var node)) return price;
+
+        int instLevel = node.InstabilityLevel;
+        if (instLevel <= 0) return price;
+
+        // Volatility multiplier: linear from 10000 bps (1.0x) to 15000 bps (1.5x) at MaxInstability.
+        int volatilityBps = instLevel * InstabilityTweaksV0.VolatilityMaxBps / InstabilityTweaksV0.MaxInstability;
+        long adjusted = (long)price * (10000 + volatilityBps) / 10000;
+
+        // Security demand skew at Drift+ (phase ≥2): fuel/munitions get extra surcharge.
+        int phase = InstabilityTweaksV0.GetPhaseIndex(instLevel);
+        if (phase >= 2 && Content.WellKnownGoodIds.IsSecurityGood(goodId))
+        {
+            int skewSteps = phase - 1; // phase 2=1x, phase 3=2x, phase 4=3x
+            long skew = (long)price * InstabilityTweaksV0.SecurityDemandSkewBps * skewSteps / 10000;
+            adjusted += skew;
+        }
+
+        return (int)Math.Max(1, adjusted);
+    }
 }

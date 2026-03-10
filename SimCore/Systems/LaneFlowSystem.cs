@@ -60,17 +60,28 @@ public static class LaneFlowSystem
         foreach (var t in state.InFlightTransfers)
             if (string.Equals(t.Id, transferId, StringComparison.Ordinal)) return false;
 
+        // GATE.S7.INSTABILITY_EFFECTS.LANE.001: Void phase severs lanes — reject transfer.
+        int srcPhase = Tweaks.InstabilityTweaksV0.GetPhaseIndex(fromNode.InstabilityLevel);
+        int dstPhase = Tweaks.InstabilityTweaksV0.GetPhaseIndex(toNode.InstabilityLevel);
+        if (srcPhase >= 4 || dstPhase >= 4) return false; // Void = lane severed
+
         var removed = InventoryLedger.TryRemoveMarket(fromMarket.Inventory, goodId, quantity);
         if (!removed) return false;
 
         var delayTicks = ComputeDelayTicks(edge);
 
-        // GATE.S7.INSTABILITY.CONSEQUENCES.001: Drift phase adds +20% lane delay.
-        if (state.Nodes.TryGetValue(fromNodeId, out var srcNode)
-            && Tweaks.InstabilityTweaksV0.GetPhaseIndex(srcNode.InstabilityLevel) >= 2) // STRUCTURAL: Drift phase index
+        // GATE.S7.INSTABILITY_EFFECTS.LANE.001: Phase-scaled lane delay.
+        // Shimmer=+10%, Drift=+20%, Fracture=+40%. Uses max phase of both endpoints.
+        int maxPhase = Math.Max(srcPhase, dstPhase);
+        if (maxPhase >= 1)
         {
-            int bonusPct = Tweaks.InstabilityTweaksV0.DriftLaneDelayPct;
-            delayTicks += Math.Max(1, delayTicks * bonusPct / 100); // STRUCTURAL: min 1 tick bonus, pct calc
+            int bonusPct = maxPhase switch
+            {
+                >= 3 => Tweaks.InstabilityTweaksV0.FractureLaneDelayPct,
+                2 => Tweaks.InstabilityTweaksV0.DriftLaneDelayPct,
+                _ => Tweaks.InstabilityTweaksV0.ShimmerLaneDelayPct,
+            };
+            delayTicks += Math.Max(1, delayTicks * bonusPct / 100);
         }
 
         var departTick = state.Tick;

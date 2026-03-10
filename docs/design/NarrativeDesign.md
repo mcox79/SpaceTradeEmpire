@@ -4,6 +4,9 @@
 > not what the story is (see `factions_and_lore_v0.md` for content).
 > This doc governs how every system — exploration, audio, HUD, combat, economy,
 > automation — participates in narrative delivery.
+> Content authoring specs: `content/NarrativeContent_TBA.md` (missions, dialogue,
+> discovery text), `content/LoreContent_TBA.md` (Precursor logs, fragments, faction
+> histories). Epics: `EPIC.S7.NARRATIVE_DELIVERY.V0` (system), `EPIC.S8.NARRATIVE_CONTENT.V0` (content).
 
 ## Why This Doc Exists
 
@@ -748,6 +751,18 @@ in other design documents.
 | Three endgame paths (Reinforce/Naturalize/Renegotiate) | The endgame should emerge from accumulated play, not a dialog choice. The path available to the player should depend on which factions they allied with, which fragments they found, and what they understand. A player who never visited Communion space cannot Renegotiate — they don't have the knowledge. A player who never found Fragment 6 (Lattice authentication) cannot Reinforce — they can't operate the infrastructure. The endgame is a knowledge test disguised as a moral choice. |
 | Haven Starbase (Precursor safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. |
 | Instability Phases (Stable→Void) | Each phase transition at a system should be a narrative event the player can witness. Shimmer arriving at a previously stable system = "something changed here." The galaxy map should show phase spread over time — systems near fracture activity gradually shifting from Stable to Shimmer to Drift. The player can WATCH the consequences of fracture travel spreading across the map. This is the doom clock made spatial. |
+
+### MainMenu.md
+
+| Existing System | Narrative Enhancement |
+|----------------|---------------------|
+| Title screen foreground silhouette | The foreground element adapts to game state: a lone gate (no saves = the beginning), the player's ship class (mid-campaign = your ship is waiting), Haven starbase (completed = you've been here before). The title screen IS act zero — foreshadowing without spoiling. |
+| Rotating subtitle quote | A different Precursor fragment quote each session. The player accumulates these across sessions — mystery through repetition and variation. Never show the same quote twice until all are exhausted. The menu teaches the player to read Precursor text before they find their first fragment. |
+| Galaxy generation messages | "Seeding fracture topology..." / "Igniting warfronts..." — generation text is world-building, not loading feedback. The player reads lore while the galaxy is born. These messages should reference systems from `factions_and_lore_v0.md` without spoiling specifics. |
+| Difficulty descriptions | Written in-universe, not in game-design language. "The galaxy is indifferent to your survival" (Standard) carries narrative weight that "Normal difficulty" does not. The difficulty selection IS the player's first narrative choice — what kind of story am I signing up for? |
+| First-launch silence (2s void) | The AudioDesign.md "void, then you're alive" principle starts at the main menu, not at tick 1. The very first thing a new player experiences is silence and darkness. Then a single note. Then stars. The menu IS the creation myth. |
+| Milestones screen | Milestone names ("First Trade," "Pathfinder," "Tycoon") use pilot-fantasy language, not achievement-game language. The milestones screen is a captain's log, not a trophy case. Lifetime stats across voyages tell the meta-story of the player's career. |
+| "New Voyage" naming | "Voyage" instead of "Game" — reinforces the pilot identity. The player embarks on voyages. The save slots are "Voyage 1," "Voyage 2." The language of the menu is the language of the world. |
 
 ---
 

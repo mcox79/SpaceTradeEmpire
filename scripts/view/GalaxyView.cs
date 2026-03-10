@@ -2653,9 +2653,21 @@ public partial class GalaxyView : Node3D
             if (label != null)
             {
                 // Token contract: RUMORED => "???", VISITED => name, MAPPED => name+count.
-                label.Text = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
+                // GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Append instability phase to node label.
+                string baseText = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
                     ? "???"
                     : (n.DisplayText ?? "");
+                if (_bridge != null && !StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED"))
+                {
+                    var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
+                    int phaseIdx = instab.ContainsKey("phase_index") ? (int)(Variant)instab["phase_index"] : 0;
+                    if (phaseIdx >= 1) // Shimmer+
+                    {
+                        string phase = instab.ContainsKey("phase") ? (string)(Variant)instab["phase"] : "";
+                        baseText += "\n[" + phase + "]";
+                    }
+                }
+                label.Text = baseText;
                 // Suppress all overlay labels during transit/cinematic.
                 if (_localLabelsHidden)
                     label.Visible = false;

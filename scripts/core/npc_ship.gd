@@ -366,5 +366,46 @@ func on_hit(damage: int) -> void:
 	var bridge := get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DamageNpcFleetV0") and not fleet_id.is_empty():
 		var result: Dictionary = bridge.call("DamageNpcFleetV0", fleet_id, damage)
+		# GATE.S7.COMBAT_JUICE: Spawn combat VFX on hit.
+		var shield_left: int = result.get("shield_remaining", 0)
+		_spawn_hit_vfx(global_position, damage, shield_left)
 		if result.get("destroyed", false):
+			_spawn_explosion_vfx()
 			queue_free()
+
+
+## GATE.S7.COMBAT_JUICE.EXPLOSION_VFX.001: Spawn multi-phase explosion at ship position.
+## Called before queue_free on death. Adds effect to parent so it outlives the ship.
+func _spawn_explosion_vfx() -> void:
+	var vfx_parent := get_parent() if get_parent() else null
+	if vfx_parent == null:
+		return
+	var ExplosionVfx := load("res://scripts/vfx/explosion_effect.gd")
+	if ExplosionVfx and ExplosionVfx.has_method("spawn"):
+		ExplosionVfx.call("spawn", vfx_parent, global_position)
+
+
+## GATE.S7.COMBAT_JUICE.SHIELD_VFX.001 + DAMAGE_NUMBERS.001: Spawn shield ripple
+## and floating damage number at the hit position.
+func _spawn_hit_vfx(impact_pos: Vector3, damage_amount: int, shield_remaining: int) -> void:
+	var vfx_parent := get_parent() if get_parent() else null
+	if vfx_parent == null:
+		return
+
+	# Shield ripple or shield break.
+	var ShieldVfx := load("res://scripts/vfx/shield_ripple.gd")
+	if ShieldVfx:
+		if shield_remaining > 0:
+			# Shield still up — hex ripple at impact point.
+			if ShieldVfx.has_method("spawn_hit"):
+				ShieldVfx.call("spawn_hit", vfx_parent, global_position, impact_pos)
+		elif shield_remaining <= 0 and _hull_hp > 0:
+			# Shield just broke — flash + discharge.
+			if ShieldVfx.has_method("spawn_break"):
+				ShieldVfx.call("spawn_break", vfx_parent, global_position)
+
+	# Damage number.
+	var DmgNumVfx := load("res://scripts/vfx/damage_number.gd")
+	if DmgNumVfx and DmgNumVfx.has_method("spawn"):
+		var dmg_type: String = "shield" if shield_remaining > 0 else "hull"
+		DmgNumVfx.call("spawn", vfx_parent, impact_pos, damage_amount, dmg_type)

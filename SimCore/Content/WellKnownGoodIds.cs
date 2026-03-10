@@ -26,4 +26,9 @@ public static class WellKnownGoodIds
     public const string ExoticCrystals = "exotic_crystals";
     public const string SalvagedTech   = "salvaged_tech";
     public const string ExoticMatter   = "exotic_matter";
+
+    // GATE.S7.INSTABILITY_EFFECTS.MARKET.001: Security goods see demand skew in unstable regions.
+    public static bool IsSecurityGood(string goodId) =>
+        System.StringComparer.Ordinal.Equals(goodId, Fuel) ||
+        System.StringComparer.Ordinal.Equals(goodId, Munitions);
 }

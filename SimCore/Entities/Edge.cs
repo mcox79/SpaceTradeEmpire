@@ -40,4 +40,8 @@ public class Edge
 
     // GATE.S5.SEC_LANES.MODEL.001: Security level (BPS). 5000 = neutral, higher = safer.
     public int SecurityLevelBps { get; set; } = 5000;
+
+    // GATE.S7.ENFORCEMENT.HEAT_ACCUM.001: Per-window traversal count for route repetition detection.
+    // Resets each decay window. Exceeding the threshold triggers bonus heat.
+    public int TraversalCount { get; set; } = 0;
 }

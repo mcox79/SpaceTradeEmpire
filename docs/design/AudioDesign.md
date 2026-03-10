@@ -3,6 +3,8 @@
 > Design doc for the game's sound architecture: layer model, spatial audio rules,
 > combat audio priority, the silence palette, and the emotional role of sound.
 > Cross-referenced by `CombatFeel.md`, `RiskMeters.md`, and `ExplorationDiscovery.md`.
+> Content authoring specs: `content/AudioContent_TBA.md` (full asset catalog).
+> Epics: `EPIC.S7.AUDIO_WIRING.V0` (bus + wiring), `EPIC.S9.MUSIC.V0` (composition).
 
 ## Why This Doc Exists
 

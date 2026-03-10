@@ -147,6 +147,9 @@ public class Fleet
     // GATE.S3.RISK_SINKS.DELAY_MODEL.001: Remaining delay ticks from risk events.
     [JsonInclude] public int DelayTicksRemaining { get; set; } = 0;
 
+    // GATE.S7.ENFORCEMENT.CONFISCATION.001: Tick of last confiscation (cooldown tracking).
+    [JsonInclude] public int LastConfiscationTick { get; set; } = -1;
+
     // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
     public int Supplies { get; set; } = 100;
 

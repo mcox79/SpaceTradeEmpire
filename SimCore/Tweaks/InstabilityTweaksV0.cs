@@ -41,6 +41,21 @@ public static class InstabilityTweaksV0
     public const int FractureTradeFailurePct = 10; // 10% chance trade fails
     // Void = market closure (boolean, no constant needed)
 
+    // GATE.S7.INSTABILITY_EFFECTS.LANE.001: Phase-scaled lane delay percentages.
+    // Shimmer=+10%, Drift=+20% (existing), Fracture=+40%. Void=lane severed.
+    public const int ShimmerLaneDelayPct = 10;
+    public const int FractureLaneDelayPct = 40;
+
+    // GATE.S7.INSTABILITY_EFFECTS.MARKET.001: Instability price volatility.
+    // Linear scale: multiplier bps = 10000 + (level * VolatilityMaxBps / MaxInstability).
+    // At level 0: 1.0x. At level 150 (MaxInstability): 1.5x.
+    public const int VolatilityMaxBps = 5000;
+
+    // GATE.S7.INSTABILITY_EFFECTS.MARKET.001: Security demand skew at Drift+ (phase ≥2).
+    // Fuel and munitions get additional price surcharge in unstable regions.
+    // Scales with phase above Shimmer: phase 2 = 1x, phase 3 = 2x, phase 4 = 3x.
+    public const int SecurityDemandSkewBps = 2000;
+
     /// <summary>Returns the phase name for a given instability level.</summary>
     public static string GetPhaseName(int level)
     {

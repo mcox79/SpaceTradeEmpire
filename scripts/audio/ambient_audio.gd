@@ -13,7 +13,7 @@ func _ready() -> void:
 	_drone_wav = _bake_tone(40.0, 22050)    # Low 40 Hz space drone
 	_station_wav = _bake_tone(120.0, 22050)  # Higher station hum
 	_space_drone = AudioStreamPlayer.new()
-	_space_drone.bus = &"Master"
+	_space_drone.bus = &"Ambient"
 	_space_drone.volume_db = -24.0
 	_space_drone.stream = _drone_wav
 	add_child(_space_drone)

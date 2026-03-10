@@ -116,8 +116,16 @@ public static class GalaxyGenerator
         // Phase 6: Assign initial instability per node (deterministic from world class + node hash).
         SeedInstabilityV0(state);
 
+        // Phase 6.5: GATE.S7.STARTER_PLACEMENT.WARFRONT.001 — assign faction territories so
+        // warfront contested nodes are populated. Uses same scoring as BuildFactionSeedReport.
+        SeedFactionTerritoriesV0(state);
+
         // Phase 7: Seed warfronts (deterministic from faction territories, no RNG).
         SeedWarfrontsV0(state);
+
+        // Phase 8: GATE.S7.STARTER_PLACEMENT.WARFRONT.001 — relocate player start to a
+        // starter-region node that is 1-hop from a contested warfront node.
+        PickWarfrontAdjacentStarterV0(state);
 
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
@@ -1061,6 +1069,53 @@ public static class GalaxyGenerator
         }
     }
 
+    // GATE.S7.STARTER_PLACEMENT.WARFRONT.001: Compute faction territories during worldgen
+    // and populate NodeFactionId so SeedWarfrontsV0 can find contested border nodes.
+    private static void SeedFactionTerritoriesV0(SimState state)
+    {
+        // Score and sort nodes (same algorithm as BuildFactionSeedReport).
+        var scored = state.Nodes.Values
+            .Select(n => (Id: n.Id, Score: ScoreNode(state.InitialSeed, n)))
+            .ToList();
+
+        scored.Sort((a, b) =>
+        {
+            int c = b.Score.CompareTo(a.Score); // Score descending
+            if (c != 0) return c;
+            return string.CompareOrdinal(a.Id, b.Id); // Id ascending, ordinal
+        });
+
+        var nodeIds = scored.Select(t => t.Id).ToList();
+        if (nodeIds.Count == 0) return;
+
+        // Seed factions with home nodes.
+        var factions = SeedFactionsFromNodesSorted(nodeIds);
+
+        // Convert state.Edges to WorldEdge format for ComputeFactionTerritories.
+        var worldEdges = state.Edges.Values
+            .Select(e => new Schemas.WorldEdge
+            {
+                Id = e.Id,
+                FromNodeId = e.FromNodeId,
+                ToNodeId = e.ToNodeId,
+                Distance = e.Distance,
+            })
+            .ToList();
+
+        // Compute BFS territories (depth ≤3 from home).
+        ComputeFactionTerritories(factions as IList<Schemas.WorldFaction> ?? factions.ToList(), worldEdges);
+
+        // Populate state.NodeFactionId.
+        state.NodeFactionId.Clear();
+        foreach (var f in factions)
+        {
+            foreach (var nodeId in f.ControlledNodeIds)
+            {
+                state.NodeFactionId[nodeId] = f.FactionId;
+            }
+        }
+    }
+
     // GATE.S7.WARFRONT.SEEDING.001: Seed initial warfronts at world creation.
     // 1 hot war (Valorin-Weavers territorial) + 1 cold war (Concord-Chitin informational).
     // Contested nodes: border nodes where faction territories overlap (BFS depth 1 from border).
@@ -1199,5 +1254,79 @@ public static class GalaxyGenerator
                 WarfrontId = wf.Id,
             });
         }
+    }
+
+    // GATE.S7.STARTER_PLACEMENT.WARFRONT.001: Relocate player start to a starter-region
+    // node that is 1-hop adjacent to a contested warfront node. If no such node exists,
+    // keep the original star_0 placement. Deterministic: sorts candidates by ID, picks first.
+    private static void PickWarfrontAdjacentStarterV0(SimState state)
+    {
+        // Collect all contested node IDs from all warfronts.
+        var contested = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var wf in state.Warfronts.Values)
+        {
+            if (wf.ContestedNodeIds is null) continue;
+            foreach (var nid in wf.ContestedNodeIds)
+                contested.Add(nid);
+        }
+
+        if (contested.Count == 0) return; // No warfronts — keep default.
+
+        // Build adjacency from edges.
+        var adj = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var e in state.Edges.Values)
+        {
+            if (string.IsNullOrEmpty(e.FromNodeId) || string.IsNullOrEmpty(e.ToNodeId)) continue;
+            if (!adj.TryGetValue(e.FromNodeId, out var fromSet))
+            {
+                fromSet = new HashSet<string>(StringComparer.Ordinal);
+                adj[e.FromNodeId] = fromSet;
+            }
+            fromSet.Add(e.ToNodeId);
+
+            if (!adj.TryGetValue(e.ToNodeId, out var toSet))
+            {
+                toSet = new HashSet<string>(StringComparer.Ordinal);
+                adj[e.ToNodeId] = toSet;
+            }
+            toSet.Add(e.FromNodeId);
+        }
+
+        // Get starter region node IDs.
+        var starterIds = GetStarterNodeIdsSortedV0(state);
+        if (starterIds.Count == 0) return;
+
+        // Find starter nodes that are 1-hop from a contested node.
+        var candidates = new List<string>();
+        foreach (var sid in starterIds)
+        {
+            if (contested.Contains(sid))
+            {
+                // Node is itself contested — qualifies.
+                candidates.Add(sid);
+                continue;
+            }
+            if (!adj.TryGetValue(sid, out var neighbors)) continue;
+            foreach (var n in neighbors)
+            {
+                if (contested.Contains(n))
+                {
+                    candidates.Add(sid);
+                    break;
+                }
+            }
+        }
+
+        if (candidates.Count == 0) return; // No adjacent starter node — keep default.
+
+        // Deterministic pick: sort by ID and take first.
+        candidates.Sort(StringComparer.Ordinal);
+        var picked = candidates[0];
+
+        if (string.Equals(state.PlayerLocationNodeId, picked, StringComparison.Ordinal)) return;
+
+        // Update player start and visited set.
+        state.PlayerLocationNodeId = picked;
+        state.PlayerVisitedNodeIds.Add(picked);
     }
 }

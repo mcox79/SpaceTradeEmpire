@@ -3,6 +3,8 @@
 > Design doc for the persistent HUD, notification system, information tiers, screen zones,
 > and the rules governing what information appears where and when.
 > Companion to `EmpireDashboard.md` (empire screen) and `GalaxyMap.md` (overlay).
+> Content authoring specs: `content/VisualContent_TBA.md` (HUD enhancement assets).
+> Epic: `EPIC.S7.HUD_ARCHITECTURE.V0`.
 
 ## Why This Doc Exists
 

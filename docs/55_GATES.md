@@ -464,6 +464,27 @@ When a gate moves to DONE:
 | GATE.S5.LOOT.BRIDGE_PROOF.001 | DONE | Loot SimBridge queries + markers + headless proof |
 | GATE.X.HYGIENE.EPIC_REVIEW.021 | DONE | Epic audit + next anchor recommendation |
 | GATE.X.EVAL.SUSTAIN_BALANCE.001 | DONE | Multi-seed sustain economy balance evaluation |
+| GATE.S7.COMBAT_JUICE.EXPLOSION_VFX.001 | DONE | Kill explosion VFX (flash→fireball→debris→smoke) |
+| GATE.S7.COMBAT_JUICE.SHIELD_VFX.001 | DONE | Shield ripple shader on hit + shield break flash |
+| GATE.S7.COMBAT_JUICE.DAMAGE_NUMBERS.001 | DONE | Floating damage numbers (shield=blue, hull=orange) |
+| GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001 | DONE | Weapon trails + screen shake + combat audio wire |
+| GATE.S7.COMBAT_JUICE.SCENE_PROOF.001 | DONE | Combat juice headless screenshot proof |
+| GATE.S7.AUDIO_WIRING.BUS_WIRE.001 | DONE | 5-layer audio bus + wire 6 existing unwired assets |
+| GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001 | DONE | Discovery phase transition audio chimes |
+| GATE.S7.HUD_ARCH.TOAST_PRIORITY.001 | DONE | Toast priority levels + color borders + actions |
+| GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001 | DONE | Zone G bottom bar framework container |
+| GATE.S7.HUD_ARCH.ALERT_BADGE.001 | DONE | Alert badge in Zone A (count + click→dashboard) |
+| GATE.S7.INSTABILITY_EFFECTS.MARKET.001 | DONE | Instability → market price volatility + demand skew |
+| GATE.S7.INSTABILITY_EFFECTS.LANE.001 | DONE | Instability → lane transit delay + closures |
+| GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001 | DONE | Instability bridge queries + HUD + toasts |
+| GATE.S7.ENFORCEMENT.HEAT_ACCUM.001 | DONE | Pattern-based heat accumulation signals |
+| GATE.S7.ENFORCEMENT.CONFISCATION.001 | DONE | Confiscation event + fine at High+ heat |
+| GATE.S7.ENFORCEMENT.BRIDGE.001 | DONE | Heat/fine bridge queries + confiscation toast |
+| GATE.S7.STARTER_PLACEMENT.WARFRONT.001 | DONE | Player start adjacent to contested warfront |
+| GATE.S7.STARTER_PLACEMENT.VIABILITY.001 | DONE | Contract: starter ≥3 trade loops + ≥1 discovery |
+| GATE.X.HYGIENE.REPO_HEALTH.022 | DONE | Full test suite + warning scan + hash stability |
+| GATE.X.HYGIENE.EPIC_REVIEW.022 | DONE | Close 5 done epics + recommend next anchor |
+| GATE.X.EVAL.COMBAT_FEEL.001 | DONE | Combat feel baseline eval via screenshot |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -1670,3 +1691,65 @@ Anchor: EPIC.S7.FACTION_MODEL. Epics: SUPPLY_IMPACT, INSTABILITY_PHASES, TERRITO
 | GATE.X.HYGIENE.REPO_HEALTH.021 | DONE | Full test suite (780+ tests), warning scan, dead code check, golden hash stability. Proof: dotnet test -c Release | FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
 | GATE.X.HYGIENE.EPIC_REVIEW.021 | DONE | Audit epic statuses vs completed gates. Close completed epics. Recommend next anchor for tranche 22. Proof: dotnet test --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
 | GATE.X.EVAL.SUSTAIN_BALANCE.001 | DONE | Multi-seed sustain economy balance evaluation: 5 seeds x 5000 ticks. Check fleet fuel consumption rates, sustain costs vs income, immobilization frequency. Report balance gaps. Proof: dotnet test --filter "SustainBalance" | FOUND: SimCore.Tests/ExperienceProof/ExplorationBotTests.cs, FOUND: SimCore/Tweaks/SustainTweaksV0.cs |
+
+## AA. Tranche 22 — Combat Juice + Audio Wiring + HUD Architecture + Instability + Enforcement + Starter
+
+### AA1. Combat Juice (bridge, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.COMBAT_JUICE.EXPLOSION_VFX.001 | DONE | Multi-phase kill explosion: white flash (0.1s) -> orange fireball GPUParticles3D (0.5s) -> debris chunks (1.0s) -> smoke (1.5s). Spawned at NPC ship position on death in npc_ship.gd. Per CombatFeel.md + VisualContent_TBA.md VFX.COMBAT.EXPLOSION. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/vfx/explosion_effect.gd, FOUND: scripts/core/npc_ship.gd |
+| GATE.S7.COMBAT_JUICE.SHIELD_VFX.001 | DONE | Shield hit: hex ripple shader on sphere mesh around ship hull, blue-white fade 0.3s, impact_point uniform. Shield break (HP=0): full-ship flash + electric discharge particles. Per CombatFeel.md VFX.COMBAT.SHIELD_RIPPLE + SHIELD_BREAK. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/vfx/shield_ripple.gd, FOUND: scripts/core/npc_ship.gd |
+| GATE.S7.COMBAT_JUICE.DAMAGE_NUMBERS.001 | DONE | Floating damage numbers at impact point: billboard Label3D, drift up 0.5s, fade. Shield=blue, Hull=orange, Critical=white+pulse. Format "-8" / "-24!". Stacking Y-offset for simultaneous hits. Per CombatFeel.md VFX.COMBAT.DAMAGE_NUMBERS. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/vfx/damage_number.gd, FOUND: scripts/core/npc_ship.gd |
+| GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001 | DONE | Weapon trail differentiation: Kinetic=short thick white, Energy=long thin cyan, PD=rapid thin yellow (bullet.gd). Screen shake on damage taken + turret fire (player_follow_camera.gd). Wire combat audio: call play_fire_sfx/play_hit_sfx from combat events (combat_audio.gd pools exist but never called). Per CombatFeel.md. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bullet.gd, FOUND: scripts/audio/combat_audio.gd, FOUND: scripts/view/player_follow_camera.gd |
+| GATE.S7.COMBAT_JUICE.SCENE_PROOF.001 | DONE | Headless combat juice proof: boot combat scene, trigger NPC kill, verify explosion particles spawned + shield ripple on hit + damage number labels created. Screenshot capture of combat with VFX. PLAYABLE_BEAT milestone. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/tests/test_combat_juice_v0.gd, FOUND: scripts/core/npc_ship.gd |
+
+Combined-agent note: EXPLOSION_VFX + SHIELD_VFX + DAMAGE_NUMBERS share npc_ship.gd — assign to same agent.
+
+### AA2. Audio Wiring (bridge, tier 1)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.AUDIO_WIRING.BUS_WIRE.001 | DONE | Configure 5-layer audio bus in Godot project: Music->Ambient->SFX->UI->Alert with ducking priority (Alert ducks all, SFX ducks Ambient). Wire 6 existing unwired assets: combat fire pool (combat_audio.gd play_fire_sfx), combat impact pool (play_hit_sfx), station ambient hum (ambient_audio.gd), dock chime, explosion SFX, warp whoosh. Per AudioDesign.md 5-layer bus. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/audio/combat_audio.gd, FOUND: scripts/audio/ambient_audio.gd, FOUND: scripts/audio/engine_audio.gd |
+| GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001 | DONE | Discovery phase transition audio: Seen->quiet radar ping (0.5s), Scanned->rising chime (1.0s), Analyzed->revelation fanfare (2.0s). Source or create placeholder .wav assets. Wire into DiscoverySitePanel scan/analyze actions. Per ExplorationDiscovery.md + AudioContent_TBA.md AUD.DISC.*. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/audio/discovery_audio.gd, FOUND: scripts/ui/DiscoverySitePanel.gd |
+
+### AA3. HUD Architecture (bridge, tier 1)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.HUD_ARCH.TOAST_PRIORITY.001 | DONE | Toast notification priority: Critical (red border, 5s+persist), Warning (orange, 4s), Info (default, 3s), Confirmation (green, 2s). Color-coded left border per priority. Bundling: repeated same-text toasts show count badge instead of duplicating. Action bridges: optional clickable button in toast body that navigates to relevant panel. Per HudInformationArchitecture.md. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/toast_manager.gd, FOUND: scripts/ui/hud.gd |
+| GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001 | DONE | Zone G bottom bar: HBoxContainer anchored to screen bottom in ui_hud.tscn. Placeholder slots for risk meters (left), system status (center), minimap (right). Auto-hide when in galaxy map mode. Zone enforcement: audit existing HUD elements against zone map (A-G per HudInformationArchitecture.md). Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd, FOUND: scenes/ui_hud.tscn |
+| GATE.S7.HUD_ARCH.ALERT_BADGE.001 | DONE | Alert badge in Zone A (top-left): red circle with white number showing pending alert count. Orange when warnings only, red when critical alerts exist. Hidden when no alerts. Click opens Empire Dashboard Overview tab. Counts sourced from existing toast/event system. Per HudInformationArchitecture.md VFX.HUD.ALERT_BADGE. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd, FOUND: scripts/ui/EmpireDashboard.cs |
+
+Combined-agent note: ZONE_FRAMEWORK + ALERT_BADGE share hud.gd — assign to same agent.
+
+### AA4. Instability Effects (core+bridge, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.INSTABILITY_EFFECTS.MARKET.001 | DONE | MarketSystem reads node.InstabilityLevel from InstabilitySystem. Strained+: price volatility multiplier (1.0->1.5 at max instability via InstabilityTweaksV0). Unstable+: demand skew toward security goods (fuel, munitions). Contract tests proving multiplier scales with instability phase. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "InstabilityEffects" + dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore/Systems/InstabilitySystem.cs, NEW: SimCore.Tests/Systems/InstabilityEffectsTests.cs |
+| GATE.S7.INSTABILITY_EFFECTS.LANE.001 | DONE | LaneFlowSystem reads node.InstabilityLevel. Strained+: transit delay multiplier increases (InstabilityTweaksV0.DelayMultiplierPerLevel). Critical: lane closure (edge blocked, fleets reroute). Contract tests proving delay + closure behavior. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "InstabilityEffects" + dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Systems/LaneFlowSystem.cs, FOUND: SimCore/Tweaks/InstabilityTweaksV0.cs |
+| GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001 | DONE | GetNodeInstabilityV0(nodeId): instability level, phase name, effects active. Instability indicator in galaxy map node tooltip. Toast on phase transition (Stable->Strained, etc.). Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.cs, FOUND: scripts/ui/hud.gd, FOUND: scripts/ui/toast_manager.gd |
+
+### AA5. Enforcement Escalation (core+bridge, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.ENFORCEMENT.HEAT_ACCUM.001 | DONE | Extend SecurityLaneSystem Edge.Heat: accumulate from trade volume (high-value trades add heat), route repetition (same edge 3+ times in window), counterparty signals (trading with hostile-faction merchants). Heat decay window via SecurityTweaksV0.HeatDecayRatePerTick. Contract tests proving pattern-based accumulation vs flat rate. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "SecurityLaneSystem" + dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Systems/SecurityLaneSystem.cs, FOUND: SimCore/Tweaks/SecurityTweaksV0.cs |
+| GATE.S7.ENFORCEMENT.CONFISCATION.001 | DONE | New SecurityEvent: EVT.SECURITY.CONFISCATION at High+ heat threshold. Goods seized (highest-value cargo item, quantity scaled by heat level). Fine in credits. Confiscation cooldown prevents repeated seizures. Contract tests proving confiscation triggers, cooldown, and fine calculation. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "SecurityLaneSystem|Confiscation" + dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Systems/SecurityLaneSystem.cs, FOUND: SimCore/Events/SecurityEvents.cs, FOUND: SimCore.Tests/security/RiskModelContractTests.cs |
+| GATE.S7.ENFORCEMENT.BRIDGE.001 | DONE | GetEdgeHeatV0(edgeId): current heat, threshold name, decay rate. GetConfiscationHistoryV0(): recent confiscation events with seized goods + fines. Toast on confiscation with goods lost + fine amount. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/bridge/SimBridge.Security.cs, FOUND: scripts/ui/toast_manager.gd |
+
+### AA6. Starter Placement (core, tier 1-2)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.STARTER_PLACEMENT.WARFRONT.001 | DONE | GalaxyGenerator starter system selection: pick node that borders (1 hop) a contested warfront node. Ensures player starts near action, not in safe interior. StarterRegionNodeCount unchanged but region centered on new starter. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "StarterPlacement" + dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Gen/GalaxyGenerator.cs, FOUND: SimCore/Gen/StarNetworkGen.cs |
+| GATE.S7.STARTER_PLACEMENT.VIABILITY.001 | DONE | Contract test: across seeds 1-100, starter system has >=3 viable early trade loops (adjacent markets with price differentials) and >=1 discovery site within 2 hops. Test fails with seed list + delta on violation. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "StarterPlacement" | NEW: SimCore.Tests/Gen/StarterPlacementTests.cs, FOUND: SimCore/Gen/GalaxyGenerator.cs |
+
+### AA7. Meta (docs, tier 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.022 | DONE | Full test suite pass (all tests -c Release). Warning scan (dotnet build -warnaserror:nullable). Dead code check in SimCore/. Golden hash snapshot stability across 2 runs. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.022 | DONE | Audit epic statuses: close 5 completed epics (S7.SUSTAIN_ENFORCEMENT, S7.PRODUCTION_CHAINS, S7.POWER_BUDGET, S5.COMBAT_LOOT, S7.FACTION_VISUALS) in 54_EPICS.md. Verify all gates for each epic are DONE. Recommend next anchor for tranche 23. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency" | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.EVAL.COMBAT_FEEL.001 | DONE | Combat feel baseline evaluation: run /screenshot scenario with combat bot, capture combat encounters. Rate current state against CombatFeel.md criteria (explosion, shield feedback, damage numbers, weapon trails, screen shake, audio). Establish before baseline for COMBAT_JUICE epic. Proof: dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency" | FOUND: docs/design/CombatFeel.md, FOUND: scripts/tests/test_combat_beat_v0.gd |

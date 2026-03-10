@@ -2,6 +2,8 @@
 
 > Design doc for the galaxy map (local system view) and galaxy overlay (strategic view).
 > Companion to `EmpireDashboard.md` and `ship_modules_v0.md`.
+> Content authoring specs: `content/VisualContent_TBA.md` (overlay assets).
+> Epic: `EPIC.S7.GALAXY_MAP_V2.V0`.
 
 ## Implementation Status (as of Tranche 21, 2026-03-09)
 

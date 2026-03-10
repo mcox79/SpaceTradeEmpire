@@ -3,6 +3,8 @@
 > Design doc for the exploration loop: discovery phases, scanner range, knowledge
 > management, anomaly encounters, and the visual language of curiosity and revelation.
 > Companion to `GalaxyMap.md` (fog of war, exploration overlay) and `factions_and_lore_v0.md`.
+> Content authoring specs: `content/NarrativeContent_TBA.md` (discovery text templates),
+> `content/LoreContent_TBA.md` (Precursor data logs). Epic: `EPIC.S6.UI_DISCOVERY`.
 
 ## Why This Doc Exists
 

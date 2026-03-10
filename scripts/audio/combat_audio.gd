@@ -15,6 +15,7 @@ func _ready() -> void:
 		var fire_player := AudioStreamPlayer3D.new()
 		fire_player.max_distance = 80.0
 		fire_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		fire_player.bus = &"SFX"
 		fire_player.stream = fire_wav
 		add_child(fire_player)
 		_fire_pool.append(fire_player)
@@ -22,6 +23,7 @@ func _ready() -> void:
 		var impact_player := AudioStreamPlayer3D.new()
 		impact_player.max_distance = 60.0
 		impact_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		impact_player.bus = &"SFX"
 		impact_player.stream = impact_wav
 		add_child(impact_player)
 		_impact_pool.append(impact_player)

@@ -197,9 +197,22 @@ func _on_scan_pressed_v0(site_id: String) -> void:
 	if _bridge.has_method("DispatchScanDiscoveryV0"):
 		_bridge.call("DispatchScanDiscoveryV0", site_id)
 		print(PREFIX + "SCAN|site_id=" + site_id)
+		# GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001: play phase transition chime.
+		_play_discovery_chime_v0("SCANNED")
 		# Force immediate refresh after scan
 		_last_node_id = ""
 		_refresh_v0()
+
+
+# GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001: play discovery phase audio.
+func _play_discovery_chime_v0(phase: String) -> void:
+	var disc_audio := get_node_or_null("/root/DiscoveryAudio")
+	if disc_audio == null:
+		disc_audio = load("res://scripts/audio/discovery_audio.gd").new()
+		disc_audio.name = "DiscoveryAudio"
+		get_tree().root.add_child(disc_audio)
+	if disc_audio.has_method("play_phase_chime"):
+		disc_audio.call("play_phase_chime", phase)
 
 
 func _phase_display_v0(phase: String) -> String:

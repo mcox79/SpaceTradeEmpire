@@ -20,7 +20,8 @@ public static class SecurityEvents
         Unknown = 0,
         Delay = 1,
         Loss = 2,
-        Inspection = 3
+        Inspection = 3,
+        Confiscation = 4  // GATE.S7.ENFORCEMENT.CONFISCATION.001
     }
 
     public sealed class Event
@@ -49,6 +50,11 @@ public static class SecurityEvents
         [JsonInclude] public int DelayTicks { get; set; } = 0;
         [JsonInclude] public int LossUnits { get; set; } = 0;
         [JsonInclude] public int InspectionTicks { get; set; } = 0;
+
+        // GATE.S7.ENFORCEMENT.CONFISCATION.001: Confiscation-specific fields.
+        [JsonInclude] public string ConfiscatedGoodId { get; set; } = "";
+        [JsonInclude] public int ConfiscatedUnits { get; set; } = 0;
+        [JsonInclude] public int FineCredits { get; set; } = 0;
 
         // Deterministic, schema-bound cause chain (ASCII-safe).
         [JsonInclude] public string CauseChain { get; set; } = "";
@@ -109,6 +115,7 @@ public static class SecurityEvents
                 "Version","Seq","Tick","Type",
                 "EdgeId","FromNodeId","ToNodeId",
                 "RiskBand","DelayTicks","LossUnits","InspectionTicks",
+                "ConfiscatedGoodId","ConfiscatedUnits","FineCredits",
                 "CauseChain","Note"
             });
 

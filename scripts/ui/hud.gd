@@ -44,6 +44,18 @@ var _overlay_mode_label: Label = null
 # Galaxy map header label (shown only when overlay is active)
 var _galaxy_map_label: Label = null
 
+# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
+var _zone_g_bar: HBoxContainer = null
+var _zone_g_bg: ColorRect = null
+var _zone_g_risk_label: Label = null
+var _zone_g_status_label: Label = null
+var _zone_g_minimap_label: Label = null
+
+# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert count badge in Zone A.
+var _alert_badge: Control = null
+var _alert_badge_label: Label = null
+var _alert_count: int = 0
+
 # Overlay mode: when true, HUD status elements are hidden (galaxy map / empire dashboard open)
 var _overlay_active: bool = false
 
@@ -267,6 +279,82 @@ func _ready() -> void:
 	_galaxy_map_label.visible = false
 	add_child(_galaxy_map_label)
 
+	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
+	_zone_g_bg = ColorRect.new()
+	_zone_g_bg.name = "ZoneGBg"
+	_zone_g_bg.color = Color(0.05, 0.07, 0.12, 0.85)
+	_zone_g_bg.position = Vector2(0, 1040)  # Bottom 40px of 1080p screen
+	_zone_g_bg.size = Vector2(1920, 40)
+	_zone_g_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_zone_g_bg)
+
+	_zone_g_bar = HBoxContainer.new()
+	_zone_g_bar.name = "ZoneGBar"
+	_zone_g_bar.position = Vector2(8, 1044)
+	_zone_g_bar.size = Vector2(1904, 32)
+	_zone_g_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_zone_g_bar.add_theme_constant_override("separation", 24)
+	add_child(_zone_g_bar)
+
+	# Left slot: risk meters placeholder
+	_zone_g_risk_label = Label.new()
+	_zone_g_risk_label.name = "ZoneGRisk"
+	_zone_g_risk_label.text = ""
+	_zone_g_risk_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_zone_g_risk_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	_zone_g_risk_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zone_g_bar.add_child(_zone_g_risk_label)
+
+	# Center slot: system status
+	_zone_g_status_label = Label.new()
+	_zone_g_status_label.name = "ZoneGStatus"
+	_zone_g_status_label.text = ""
+	_zone_g_status_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_zone_g_status_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	_zone_g_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zone_g_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zone_g_bar.add_child(_zone_g_status_label)
+
+	# Right slot: minimap placeholder
+	_zone_g_minimap_label = Label.new()
+	_zone_g_minimap_label.name = "ZoneGMinimap"
+	_zone_g_minimap_label.text = ""
+	_zone_g_minimap_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_zone_g_minimap_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	_zone_g_minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_zone_g_minimap_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zone_g_bar.add_child(_zone_g_minimap_label)
+
+	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
+	_alert_badge = Control.new()
+	_alert_badge.name = "AlertBadge"
+	_alert_badge.position = Vector2(276, 8)  # Right of HUD status panel
+	_alert_badge.size = Vector2(28, 28)
+	_alert_badge.visible = false
+	_alert_badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_alert_badge)
+
+	var badge_bg := ColorRect.new()
+	badge_bg.name = "BadgeBg"
+	badge_bg.color = UITheme.RED
+	badge_bg.position = Vector2.ZERO
+	badge_bg.size = Vector2(28, 28)
+	badge_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_alert_badge.add_child(badge_bg)
+
+	_alert_badge_label = Label.new()
+	_alert_badge_label.name = "BadgeCount"
+	_alert_badge_label.text = "0"
+	_alert_badge_label.add_theme_font_size_override("font_size", 12)
+	_alert_badge_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	_alert_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_alert_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_alert_badge_label.position = Vector2(0, 2)
+	_alert_badge_label.size = Vector2(28, 24)
+	_alert_badge.add_child(_alert_badge_label)
+
+	_alert_badge.gui_input.connect(_on_alert_badge_clicked)
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
@@ -284,6 +372,10 @@ func set_overlay_mode_v0(active: bool) -> void:
 		if active:
 			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
 		_galaxy_map_label.visible = active
+	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Hide Zone G bar during overlay.
+	if _zone_g_bg: _zone_g_bg.visible = not active
+	if _zone_g_bar: _zone_g_bar.visible = not active
+	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
 	if active:
 		if _combat_label: _combat_label.visible = false
 		if _security_label: _security_label.visible = false
@@ -348,6 +440,7 @@ func _physics_process(_delta: float) -> void:
 		_update_mission_hud()
 		_update_research_hud()
 		_update_fuel_hud()
+		_update_zone_g_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	if _security_label != null and _bridge != null:
@@ -549,3 +642,53 @@ func _refresh_slot_labels_v0() -> void:
 			]
 		else:
 			_slot_labels[i].text = "[Empty]"
+
+# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Update Zone G bottom bar content.
+func _update_zone_g_v0() -> void:
+	if _zone_g_status_label == null or _bridge == null:
+		return
+	# Center: show current system + security band.
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
+	var node_id: String = str(ps.get("current_node_id", ""))
+	var node_name: String = str(ps.get("node_name", node_id))
+	var sec_band: String = ""
+	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
+		sec_band = str(_bridge.call("GetNodeSecurityBandV0", node_id))
+	_zone_g_status_label.text = "%s  |  %s" % [node_name, sec_band.to_upper()] if not sec_band.is_empty() else node_name
+	# Left: heat indicator for current edge (if traveling).
+	if _zone_g_risk_label != null:
+		var ship_state: String = str(ps.get("ship_state_token", ""))
+		if ship_state == "IN_LANE_TRANSIT" and _bridge.has_method("GetEdgeHeatV0"):
+			# Approximate: use player node as from, destination as to.
+			var heat_info: Dictionary = _bridge.call("GetEdgeHeatV0", node_id, "")
+			var threshold: String = str(heat_info.get("threshold_name", "safe"))
+			_zone_g_risk_label.text = "Heat: %s" % threshold.to_upper()
+			match threshold:
+				"confiscation":
+					_zone_g_risk_label.add_theme_color_override("font_color", UITheme.RED)
+				"elevated":
+					_zone_g_risk_label.add_theme_color_override("font_color", UITheme.ORANGE)
+				_:
+					_zone_g_risk_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		else:
+			_zone_g_risk_label.text = ""
+
+# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Update alert badge count.
+func set_alert_count_v0(count: int) -> void:
+	_alert_count = count
+	if _alert_badge == null:
+		return
+	_alert_badge.visible = count > 0 and not _overlay_active
+	if _alert_badge_label:
+		_alert_badge_label.text = str(count) if count < 100 else "99+"
+	# Color: red for critical alerts, orange for warnings.
+	var badge_bg = _alert_badge.get_node_or_null("BadgeBg")
+	if badge_bg:
+		badge_bg.color = UITheme.RED if count >= 3 else UITheme.ORANGE
+
+func _on_alert_badge_clicked(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# Open Empire Dashboard overview tab.
+		var gm = get_tree().root.find_child("GameManager", true, false)
+		if gm and gm.has_method("_toggle_empire_dashboard_v0"):
+			gm.call("_toggle_empire_dashboard_v0")

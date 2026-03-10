@@ -11,6 +11,9 @@ var combat_audio: Node = null
 # Set by spawner. Damage applied on collision via SimBridge.
 var source_is_player: bool = true
 var source_fleet_id: String = ""  # AI fleet ID (for AI bullets hitting player)
+# GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001: weapon family visual differentiation.
+# "kinetic" = short thick white, "energy" = long thin cyan, "point_defense" = rapid thin yellow.
+var weapon_type: String = ""  # Set by spawner; empty = auto (energy for player, kinetic for AI)
 
 func _ready() -> void:
 	monitoring = true
@@ -35,19 +38,37 @@ func _apply_source_color() -> void:
 	var mesh_node := get_node_or_null("MeshInstance3D") as MeshInstance3D
 	if mesh_node == null:
 		return
+	# GATE.S7.COMBAT_JUICE.COMBAT_PRESENT.001: weapon family visual differentiation.
+	var wt: String = weapon_type if not weapon_type.is_empty() else ("energy" if source_is_player else "kinetic")
+	var color: Color
+	var scale_x: float = 1.0
+	var scale_z: float = 1.0
+	var emission_mult: float = 3.0
+	match wt:
+		"kinetic":
+			color = Color(0.95, 0.95, 0.95, 1.0)  # short thick white
+			scale_x = 1.6
+			scale_z = 0.7
+			emission_mult = 2.5
+		"energy":
+			color = Color(0.0, 1.0, 0.7, 1.0)  # long thin cyan
+			scale_x = 0.6
+			scale_z = 1.5
+			emission_mult = 3.5
+		"point_defense":
+			color = Color(1.0, 0.9, 0.2, 1.0)  # rapid thin yellow
+			scale_x = 0.5
+			scale_z = 0.5
+			emission_mult = 4.0
+		_:
+			color = Color(1.0, 0.3, 0.05, 1.0) if not source_is_player else Color(0.0, 1.0, 0.7, 1.0)
 	var mat := StandardMaterial3D.new()
 	mat.emission_enabled = true
-	if source_is_player:
-		# Player bullets: bright cyan/green
-		mat.albedo_color = Color(0.0, 1.0, 0.7, 1.0)
-		mat.emission = Color(0.0, 1.0, 0.7, 1.0)
-		mat.emission_energy_multiplier = 3.0
-	else:
-		# AI bullets: orange/red
-		mat.albedo_color = Color(1.0, 0.3, 0.05, 1.0)
-		mat.emission = Color(1.0, 0.3, 0.05, 1.0)
-		mat.emission_energy_multiplier = 3.0
+	mat.albedo_color = color
+	mat.emission = color
+	mat.emission_energy_multiplier = emission_mult
 	mesh_node.material_override = mat
+	mesh_node.scale = Vector3(scale_x, 1.0, scale_z)
 
 func set_direction(direction: Vector3) -> void:
 	if direction.length() > 0.0001:
@@ -96,6 +117,8 @@ func _on_area_entered(area: Area3D) -> void:
 			if bridge and bridge.has_method("ApplyTurretShotV0"):
 				var result: Dictionary = bridge.call("ApplyTurretShotV0", fleet_id)
 				print("BULLET_HIT|fleet=%s|hull=%s|shield=%s|killed=%s" % [fleet_id, result.get("target_hull", "?"), result.get("target_shield", "?"), result.get("killed", false)])
+				# GATE.S7.COMBAT_JUICE: Spawn shield/damage VFX on the NPC ship.
+				_spawn_npc_combat_vfx(area, result)
 				if result.get("killed", false):
 					var gm = get_node_or_null("/root/GameManager")
 					if gm and gm.has_method("despawn_fleet_v0"):
@@ -152,3 +175,39 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var timer := root.get_tree().create_timer(0.5) if root.get_tree() else null
 	if timer:
 		timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
+
+
+# GATE.S7.COMBAT_JUICE: Spawn shield ripple + damage number on NPC ship hit.
+# `area` is the FleetArea child of the NPC ship. `result` is from ApplyTurretShotV0.
+func _spawn_npc_combat_vfx(area: Area3D, result: Dictionary) -> void:
+	var npc_ship := area.get_parent() if area else null
+	if npc_ship == null or not is_instance_valid(npc_ship):
+		return
+	var vfx_parent := npc_ship.get_parent() if npc_ship.get_parent() else null
+	if vfx_parent == null:
+		return
+
+	var impact_pos := global_position
+	var ship_pos: Vector3 = npc_ship.global_position
+	var target_shield: int = int(result.get("target_shield", 0))
+	var shield_dmg: int = int(result.get("shield_dmg", 0))
+	var hull_dmg: int = int(result.get("hull_dmg", 0))
+	var total_dmg: int = shield_dmg + hull_dmg
+
+	# Shield ripple or shield break.
+	var ShieldVfx = load("res://scripts/vfx/shield_ripple.gd")
+	if ShieldVfx:
+		if target_shield > 0:
+			if ShieldVfx.has_method("spawn_hit"):
+				ShieldVfx.call("spawn_hit", vfx_parent, ship_pos, impact_pos)
+		elif target_shield <= 0 and shield_dmg > 0:
+			# Shield just broke this hit.
+			if ShieldVfx.has_method("spawn_break"):
+				ShieldVfx.call("spawn_break", vfx_parent, ship_pos)
+
+	# Damage number.
+	if total_dmg > 0:
+		var DmgNumVfx = load("res://scripts/vfx/damage_number.gd")
+		if DmgNumVfx and DmgNumVfx.has_method("spawn"):
+			var dmg_type: String = "shield" if shield_dmg > 0 and target_shield > 0 else "hull"
+			DmgNumVfx.call("spawn", vfx_parent, impact_pos, total_dmg, dmg_type)

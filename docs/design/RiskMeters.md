@@ -3,6 +3,9 @@
 > Design doc for the three-meter risk system: visual presentation, threshold feedback,
 > world-state consequences, and the visual language of "the world is watching you."
 > Companion to `HudInformationArchitecture.md` (screen zones) and `dynamic_tension_v0.md`.
+> Content authoring specs: `content/NarrativeContent_TBA.md` (threshold warning text),
+> `content/AudioContent_TBA.md` (risk alert sounds), `content/VisualContent_TBA.md`
+> (meter widgets). Epic: `EPIC.S7.RISK_METER_UI.V0`.
 
 ## Why This Doc Exists
 

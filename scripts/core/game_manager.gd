@@ -80,6 +80,10 @@ var _last_player_node_id: String = ""
 
 # GATE.S7.FACTION.REP_TOAST.001: Rep change toast tracking
 var _last_rep_snapshot: Dictionary = {}  # faction_id -> last known rep value
+# GATE.S7.ENFORCEMENT.BRIDGE.001: Track last seen confiscation count for toast.
+var _last_confiscation_count: int = 0
+# GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Track last known instability phases for toast.
+var _last_instability_phases: Dictionary = {}  # node_id -> phase_name
 
 # GATE.S6.OUTCOME.CELEBRATION.001: Discovery completion celebration polling
 var _discovery_poll_timer: float = 0.0
@@ -412,6 +416,10 @@ func on_proximity_dock_entered_v0(target: Node):
 
 	# Don't auto-dock while click-to-fly autopilot is active.
 	if _hero_body and is_instance_valid(_hero_body) and _hero_body.get("_nav_active"):
+		return
+
+	# Don't auto-dock while hostile fleets are in aggro range.
+	if _find_nearest_fleet_v0(AI_AGGRO_RANGE) != null:
 		return
 
 	if not _transition_player_state_v0(PlayerShipState.DOCKED):
@@ -1041,6 +1049,11 @@ func despawn_fleet_v0(fleet_id: String) -> void:
 			print("UUIR|FLEET_DESPAWN|" + target_name)
 			if _sfx_explosion:
 				_sfx_explosion.play()
+			# GATE.S7.COMBAT_JUICE.EXPLOSION_VFX.001: Spawn explosion before removing ship.
+			var ExplosionVfx = load("res://scripts/vfx/explosion_effect.gd")
+			if ExplosionVfx and ExplosionVfx.has_method("spawn"):
+				var vfx_parent = node.get_parent() if node.get_parent() else get_tree().root
+				ExplosionVfx.call("spawn", vfx_parent, node.global_position)
 			node.remove_from_group("FleetShip")  # Immediate removal stops AI targeting
 			node.queue_free()
 			return
@@ -1592,20 +1605,24 @@ func _dock_target_id_v0(target: Node) -> String:
 
 # GATE.S1.AUDIO.SFX_CORE.001: Load pre-baked WAV files for all SFX.
 func _init_sfx_v0() -> void:
+	# GATE.S7.AUDIO_WIRING.BUS_WIRE.001: assign all SFX to correct buses.
 	_sfx_turret_fire = AudioStreamPlayer.new()
 	_sfx_turret_fire.name = "SfxTurretFire"
+	_sfx_turret_fire.bus = &"SFX"
 	_sfx_turret_fire.stream = load("res://assets/audio/laser_fire.wav")
 	_sfx_turret_fire.volume_db = -12.0
 	add_child(_sfx_turret_fire)
 
 	_sfx_bullet_hit = AudioStreamPlayer.new()
 	_sfx_bullet_hit.name = "SfxBulletHit"
+	_sfx_bullet_hit.bus = &"SFX"
 	_sfx_bullet_hit.stream = load("res://assets/audio/bullet_hit.wav")
 	_sfx_bullet_hit.volume_db = -10.0
 	add_child(_sfx_bullet_hit)
 
 	_sfx_explosion = AudioStreamPlayer.new()
 	_sfx_explosion.name = "SfxExplosion"
+	_sfx_explosion.bus = &"SFX"
 	_sfx_explosion.stream = load("res://assets/audio/explosion.wav")
 	_sfx_explosion.volume_db = -6.0
 	add_child(_sfx_explosion)
@@ -1616,6 +1633,7 @@ func _init_sfx_v0() -> void:
 	# GATE.S1.AUDIO.AMBIENT.001: ambient drone + event chimes
 	_sfx_ambient_drone = AudioStreamPlayer.new()
 	_sfx_ambient_drone.name = "SfxAmbientDrone"
+	_sfx_ambient_drone.bus = &"Ambient"
 	_sfx_ambient_drone.stream = load("res://assets/audio/ambient_drone.wav")
 	_sfx_ambient_drone.volume_db = -18.0
 	add_child(_sfx_ambient_drone)
@@ -1623,12 +1641,14 @@ func _init_sfx_v0() -> void:
 
 	_sfx_warp_whoosh = AudioStreamPlayer.new()
 	_sfx_warp_whoosh.name = "SfxWarpWhoosh"
+	_sfx_warp_whoosh.bus = &"SFX"
 	_sfx_warp_whoosh.stream = load("res://assets/audio/warp_whoosh.wav")
 	_sfx_warp_whoosh.volume_db = -12.0
 	add_child(_sfx_warp_whoosh)
 
 	_sfx_dock_chime = AudioStreamPlayer.new()
 	_sfx_dock_chime.name = "SfxDockChime"
+	_sfx_dock_chime.bus = &"UI"
 	_sfx_dock_chime.stream = load("res://assets/audio/dock_chime.wav")
 	_sfx_dock_chime.volume_db = -6.0
 	add_child(_sfx_dock_chime)
@@ -1636,6 +1656,7 @@ func _init_sfx_v0() -> void:
 	# System arrival stinger — calm ambient snippet for first-visit reveals.
 	_sfx_system_arrival = AudioStreamPlayer.new()
 	_sfx_system_arrival.name = "SfxSystemArrival"
+	_sfx_system_arrival.bus = &"Music"
 	_sfx_system_arrival.stream = load("res://assets/audio/music/calm_ambient_01.ogg")
 	_sfx_system_arrival.volume_db = -8.0
 	add_child(_sfx_system_arrival)
@@ -1721,6 +1742,33 @@ func _poll_toast_events_v0() -> void:
 					else:
 						toast_mgr.call("show_toast", msg, 4.0)
 			_last_rep_snapshot[fid] = rep
+
+	# GATE.S7.ENFORCEMENT.BRIDGE.001: Confiscation toast on new confiscation events.
+	if bridge.has_method("GetConfiscationHistoryV0"):
+		var history: Array = bridge.call("GetConfiscationHistoryV0")
+		var count: int = history.size()
+		if count > _last_confiscation_count and _last_confiscation_count > 0:
+			# Show toast for the newest confiscation event.
+			var latest: Dictionary = history[0] if count > 0 else {}
+			var good_id: String = str(latest.get("good_id", "cargo"))
+			var units: int = int(latest.get("units", 0))
+			var fine: int = int(latest.get("fine_credits", 0))
+			var msg: String = "CONFISCATED: %d %s seized, %d cr fine" % [units, good_id, fine]
+			toast_mgr.call("show_toast", msg, 5.0)
+		_last_confiscation_count = count
+
+	# GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Phase transition toast when node instability changes.
+	if bridge.has_method("GetNodeInstabilityV0") and bridge.has_method("GetPlayerStateV0"):
+		var ps_check: Dictionary = bridge.call("GetPlayerStateV0")
+		var cur_node: String = str(ps_check.get("current_node_id", ""))
+		if not cur_node.is_empty():
+			var instab: Dictionary = bridge.call("GetNodeInstabilityV0", cur_node)
+			var phase: String = str(instab.get("phase", "Stable"))
+			if _last_instability_phases.has(cur_node):
+				var prev_phase: String = str(_last_instability_phases[cur_node])
+				if prev_phase != phase:
+					toast_mgr.call("show_toast", "Instability shift: %s -> %s" % [prev_phase, phase], 4.0)
+			_last_instability_phases[cur_node] = phase
 
 # GATE.S11.GAME_FEEL.KEYBINDS.001: Toggle keybinds help overlay (H key).
 func _toggle_keybinds_help_v0() -> void:

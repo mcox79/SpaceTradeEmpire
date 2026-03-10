@@ -3,6 +3,7 @@
 > Design doc for the player-facing automation system: program creation, transparency,
 > override mechanics, failure feedback, and the doctrine layer.
 > Companion to `EmpireDashboard.md` (Programs tab) and `ship_modules_v0.md`.
+> Epic: `EPIC.S7.AUTOMATION_MGMT.V0`.
 
 ## Why This Doc Exists
 
