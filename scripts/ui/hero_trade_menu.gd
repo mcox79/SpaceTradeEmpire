@@ -153,23 +153,26 @@ func _ready():
 	_tab_market.add_theme_constant_override("separation", 4)
 	vbox.add_child(_tab_market)
 
-	# Column header — GATE.X.UI_POLISH.DOCK_VISUAL.001: match widths to data row layout
+	# FEEL_POST_FIX_5: Brighter column headers with clear labels.
 	var header = HBoxContainer.new()
-	# Columns: Good (expand), Price (expand), Price (expand), Buy btns (min 118), Sell btns (min 118)
-	var _col_names := ["Good", "Buy", "Sell", "Buy", "Sell"]
+	# Columns: Good (expand), Buy Price (expand), Sell Price (expand), Buy btns (min 118), Sell btns (min 118)
+	var _col_names := ["Good", "Buy Price", "Sell Price", "Buy", "Sell"]
 	for ci in range(_col_names.size()):
 		var lbl = Label.new()
 		lbl.text = _col_names[ci]
-		# FEEL_BASELINE: Boost header visibility (was FONT_CAPTION + TEXT_SECONDARY = nearly invisible).
 		lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-		lbl.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		# Bright enough to read as column headers — not confused with data.
+		lbl.add_theme_color_override("font_color", Color(0.75, 0.8, 0.85))
 		if ci < 3:
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		else:
-			# Button columns: 3 buttons * 36px + 2 gaps * 2px = 112px
 			lbl.custom_minimum_size.x = 112
 		header.add_child(lbl)
 	_tab_market.add_child(header)
+	# Thin separator below headers.
+	var header_sep = HSeparator.new()
+	header_sep.add_theme_constant_override("separation", 2)
+	_tab_market.add_child(header_sep)
 
 	# Goods rows
 	_rows_container = VBoxContainer.new()
@@ -483,7 +486,10 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Bought %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
-		_refresh_cargo_label()
+		# FEEL_POST_FIX_3: Optimistic cargo update — sim hasn't ticked yet, but we
+		# know what the player just bought. Update label immediately to avoid the
+		# "Cargo: empty" vs "Cargo: 1 Items" contradiction between dock panel and HUD.
+		_optimistic_cargo_update_v0(good_id, qty, true)
 
 func _sell_qty_v0(good_id: String, qty: int) -> void:
 	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
@@ -507,7 +513,8 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 			else:
 				toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
-		_refresh_cargo_label()
+		# FEEL_POST_FIX_3: Optimistic cargo update for sells too.
+		_optimistic_cargo_update_v0(good_id, qty, false)
 		# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Re-apply tab disclosure after trade
 		# so newly unlocked tabs (e.g., Jobs) appear immediately.
 		# Deferred: sim needs a frame to process the sell before state reads correctly.
@@ -695,6 +702,44 @@ func _rebuild_rows() -> void:
 					_cargo_label.text = "Cargo: empty"
 			else:
 				_cargo_label.text = "Cargo: empty"
+
+# FEEL_POST_FIX_3: Optimistic cargo update — reads current bridge cargo, locally
+# adjusts for the trade that was just dispatched (but not yet processed by sim),
+# and updates the dock panel cargo label immediately.
+func _optimistic_cargo_update_v0(good_id: String, qty: int, is_buy: bool) -> void:
+	if _cargo_label == null:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetPlayerCargoV0"):
+		return
+	var cargo = bridge.call("GetPlayerCargoV0")
+	# Build a mutable dictionary: good_id -> qty
+	var cargo_map: Dictionary = {}
+	if typeof(cargo) == TYPE_ARRAY:
+		for item in cargo:
+			if typeof(item) == TYPE_DICTIONARY:
+				var gid: String = str(item.get("good_id", ""))
+				cargo_map[gid] = int(item.get("qty", 0))
+	# Apply the optimistic adjustment
+	var current_qty: int = cargo_map.get(good_id, 0)
+	if is_buy:
+		cargo_map[good_id] = current_qty + qty
+	else:
+		cargo_map[good_id] = maxi(current_qty - qty, 0)
+		if cargo_map[good_id] <= 0:
+			cargo_map.erase(good_id)
+	# Rebuild the label
+	var parts: Array = []
+	var total_count: int = 0
+	for gid in cargo_map:
+		var q: int = int(cargo_map[gid])
+		if q > 0:
+			total_count += q
+			parts.append("%s x%d" % [_format_display_name(gid), q])
+	if parts.size() > 0:
+		_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+	else:
+		_cargo_label.text = "Cargo: empty"
 
 # FEEL_POST_BASELINE: Refresh cargo label after buy/sell so it stays in sync with HUD.
 func _refresh_cargo_label() -> void:
@@ -943,17 +988,19 @@ func _rebuild_ship_info() -> void:
 		bar.show_percentage = false
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.custom_minimum_size.y = 14
-		# Red-tinted fill for armor
+		# FEEL_POST_FIX_3: Health-proportional coloring — green at full, yellow at half, red at low.
 		var bar_bg = StyleBoxFlat.new()
-		bar_bg.bg_color = Color(0.15, 0.08, 0.08, 0.8)
+		bar_bg.bg_color = Color(0.1, 0.1, 0.12, 0.8)
 		bar_bg.set_corner_radius_all(2)
 		bar.add_theme_stylebox_override("background", bar_bg)
 		var bar_fill = StyleBoxFlat.new()
 		var armor_ratio: float = float(zhp) / float(maxi(zmax, 1))
 		if armor_ratio > 0.5:
-			bar_fill.bg_color = UITheme.RED.lerp(UITheme.ORANGE, (armor_ratio - 0.5) * 2.0)
+			# Green at 100% → Yellow at 50%
+			bar_fill.bg_color = Color(0.2, 0.85, 0.3).lerp(Color(0.95, 0.85, 0.2), (1.0 - armor_ratio) * 2.0)
 		else:
-			bar_fill.bg_color = Color(0.5, 0.1, 0.1).lerp(UITheme.RED, armor_ratio * 2.0)
+			# Yellow at 50% → Red at 0%
+			bar_fill.bg_color = Color(0.95, 0.85, 0.2).lerp(Color(0.9, 0.15, 0.1), (0.5 - armor_ratio) * 2.0)
 		bar_fill.set_corner_radius_all(2)
 		bar.add_theme_stylebox_override("fill", bar_fill)
 		row.add_child(bar)

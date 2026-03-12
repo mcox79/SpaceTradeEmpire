@@ -49,6 +49,11 @@ var _player_dead: bool = false
 # GATE.S7.MAIN_MENU.SCENE.001: Main menu guard — skip gameplay logic when on menu screen.
 var _on_main_menu: bool = false
 
+# FEEL_POST_FIX_3: Event-driven combat state. Countdown timer set by on_hit/bullet
+# signals. HUD reads this to show "COMBAT" without relying on proximity detection
+# (which fails when NPCs drift between ticks).
+var combat_state_timer: float = 0.0
+
 # Real-time turret combat v0 — tweakable constants (sourced from CombatTweaksV0 for damage).
 const TURRET_COOLDOWN_SEC: float = 0.4
 const TURRET_RANGE: float = 80.0
@@ -147,6 +152,8 @@ var _hero_trade_menu: Node
 var _discovery_panel: Node
 # GATE.S10.EMPIRE.SHELL.001: Empire Dashboard (C# node, created by SimBridge._Ready)
 var _empire_dashboard: Node = null
+# FEEL_POST_FIX_5: Tracked flag so camera doesn't override HUD suppression during dashboard.
+var empire_dashboard_open: bool = false
 
 # GATE.S11.GAME_FEEL.KEYBINDS.001: Help overlay (H key)
 var _keybinds_help: Node = null
@@ -245,11 +252,8 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
 		return
-	# Single prompt: meet your FO. Auto-dismisses after 8s (was persistent priority toast).
-	# FEEL_BASELINE: Reduced from priority_toast to regular toast — doesn't need to persist.
-	await get_tree().create_timer(3.0).timeout
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Press F to meet your First Officer.", 8.0)
+	# FEEL_POST_FIX_2: FO panel is always suppressed (no F-key toggle exists yet).
+	# Removed "Press F" toast — it was misleading since pressing F does nothing.
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save with cooldown and toast.
 func _try_autosave_v0() -> void:
@@ -287,6 +291,9 @@ func _process(delta):
 		_turret_cooldown -= float(delta)
 	if _ai_fire_cooldown > 0.0:
 		_ai_fire_cooldown -= float(delta)
+	# FEEL_POST_FIX_3: Decay combat state timer.
+	if combat_state_timer > 0.0:
+		combat_state_timer -= float(delta)
 	# GATE.S1.AUDIO.SFX_CORE.001: engine thrust audio loop
 	if _sfx_engine_thrust:
 		var _thrust_on := current_player_state == PlayerShipState.IN_FLIGHT and not _player_dead
@@ -389,6 +396,8 @@ func _toggle_empire_dashboard_v0():
 		_empire_dashboard = get_tree().root.find_child("EmpireDashboard", true, false)
 	if _empire_dashboard != null:
 		_empire_dashboard.visible = not _empire_dashboard.visible
+		# FEEL_POST_FIX_5: Track open state so camera doesn't override HUD suppression.
+		empire_dashboard_open = _empire_dashboard.visible
 		# Hide HUD status elements when dashboard is open.
 		var hud_ed = get_tree().root.find_child("HUD", true, false)
 		if hud_ed and hud_ed.has_method("set_overlay_mode_v0"):
@@ -1106,6 +1115,8 @@ func _fire_turret_v0() -> void:
 	var fire_pos = muzzle.global_position if muzzle else _hero_body.global_position
 	_spawn_bullet_v0(fire_pos, target.global_position, true, "")
 	_turret_cooldown = TURRET_COOLDOWN_SEC
+	# FEEL_POST_FIX_3: Player firing also triggers combat state.
+	signal_combat_v0()
 	if _sfx_turret_fire:
 		_sfx_turret_fire.play()
 	# GATE.S1.CAMERA.COMBAT_SHAKE.001: small shake on turret fire
@@ -1132,6 +1143,8 @@ func _ai_fire_v0() -> void:
 		return
 	_spawn_bullet_v0(nearest.global_position, _hero_body.global_position, false, fleet_id)
 	_ai_fire_cooldown = AI_FIRE_COOLDOWN_SEC
+	# FEEL_POST_FIX_3: AI firing at player triggers combat state.
+	signal_combat_v0()
 
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll SimBridge each frame for player hull <= 0.
 func _check_player_death_v0() -> void:
@@ -1183,6 +1196,11 @@ func _find_nearest_fleet_v0(max_range: float) -> Node3D:
 	if best_dist > max_range:
 		return null
 	return best
+
+## FEEL_POST_FIX_3: Called by npc_ship.on_hit() and bullet.gd to signal active combat.
+## Keeps HUD in "COMBAT" state for 5 seconds after the last combat event.
+func signal_combat_v0() -> void:
+	combat_state_timer = 5.0
 
 func _get_fleet_id_from_marker(marker: Node3D) -> String:
 	var n: String = str(marker.name)

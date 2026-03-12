@@ -633,6 +633,27 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.029 | DONE | Full test suite + health baseline |
 | GATE.X.HYGIENE.EPIC_REVIEW.029 | DONE | Epic audit + close S9.SETTINGS/T18.CHARACTER |
 | GATE.X.HYGIENE.SCREENSHOT_EVAL.029 | DONE | Post-tranche visual eval |
+| GATE.S7.TERRITORY.HYSTERESIS.001 | TODO | Territory regime hysteresis — sustained rep change |
+| GATE.S7.FRACTURE.OFFLANE_ROUTES.001 | TODO | Offlane fracture route gen + travel |
+| GATE.S7.FRACTURE.OFFLANE_HEADLESS.001 | TODO | Offlane fracture headless proof |
+| GATE.S7.REVEALS.DISCOVERY_REVEAL.001 | TODO | Discovery content recontextualization |
+| GATE.S7.REVEALS.WARFRONT_REVEAL.001 | TODO | Warfront intel layer reveals |
+| GATE.S7.REVEALS.HEADLESS.001 | TODO | Layered reveals headless proof |
+| GATE.S9.MISSION_EVOL.TRIGGERS.001 | TODO | 4 new mission trigger types |
+| GATE.S9.MISSION_EVOL.REWARDS.001 | TODO | Non-credit reward types + distribution |
+| GATE.S9.MISSION_EVOL.FAILURE.001 | TODO | Mission failure/abandonment + timer deadline |
+| GATE.S9.MISSION_EVOL.BRANCHING.001 | TODO | CHOICE steps + conditional paths |
+| GATE.S9.MISSION_EVOL.CONTRACT.001 | TODO | Contract tests: all mission evolution features |
+| GATE.S7.WARFRONT.ATTRITION.001 | TODO | Fleet attrition + supply pressure |
+| GATE.S7.WARFRONT.OBJECTIVES.001 | TODO | Strategic objectives + capture |
+| GATE.S7.REPUTATION.CONTRACTS.001 | TODO | Faction contracts from reputation tiers |
+| GATE.X.WARP.TUNNEL_SCALE.001 | TODO | Fix warp tunnel oversized mesh (F7) |
+| GATE.X.WARP.TRANSIT_HUD.001 | TODO | Warp transit HUD info bar (F8) |
+| GATE.X.WARP.DEPARTURE_VFX.001 | TODO | Warp departure flash + shake (F9) |
+| GATE.X.UI_POLISH.MISSION_JOURNAL.001 | TODO | Active mission journal panel |
+| GATE.X.HYGIENE.REPO_HEALTH.030 | TODO | Full test suite + health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.030 | TODO | Epic status audit + close MISSION_LADDER |
+| GATE.X.HYGIENE.FIRST_HOUR_EVAL.030 | TODO | First-hour bot eval w/ mission flow |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -2334,3 +2355,65 @@ Combined-agent notes:
 - DOCK_VISUAL + KNOWLEDGE_WEB + DATALOG_FILTER: bridge tier 1, parallel.
 - UI_FULL + CHARACTER.HEADLESS + MISSIONS.HEADLESS + BRIDGE_EXT: bridge tier 3, after core chain.
 - EPIC_REVIEW + SCREENSHOT_EVAL: docs tier 3, after all implementation.
+
+## AJ. Tranche 30 — "Mission Evolution + Closing Fronts" (EPIC.S9.MISSION_FOUNDATION.V0, EPIC.S7.TERRITORY_REGIMES, EPIC.S6.OFFLANE_FRACTURE, EPIC.S7.LAYERED_REVEALS, EPIC.S7.WARFRONT_STATE, EPIC.S7.REPUTATION_INFLUENCE, EPIC.X.UI_POLISH)
+
+Anchor: MISSION_FOUNDATION (Phase 1 per mission_design_v0.md — new triggers, rewards,
+failure, branching). Expanded to TERRITORY_REGIMES (hysteresis closer), OFFLANE_FRACTURE
+(route gen + headless closer), LAYERED_REVEALS (discovery + warfront reveals + headless closer),
+WARFRONT_STATE (attrition + objectives), REPUTATION_INFLUENCE (faction contracts), warp transit
+fixes (F7/F8/F9), mission journal UI.
+
+Tier 1 (12 gates — 8 core hash chain + 3 bridge parallel + 1 docs):
+Core hash chain: HYSTERESIS → OFFLANE_ROUTES → DISCOVERY_REVEAL → WARFRONT_REVEAL →
+ATTRITION → TRIGGERS → REWARDS → FAILURE.
+Bridge parallel: TUNNEL_SCALE, TRANSIT_HUD, DEPARTURE_VFX.
+Docs: REPO_HEALTH.
+
+Tier 2 (6 gates — 3 core hash chain + 3 bridge/core):
+Core hash chain: BRANCHING → OBJECTIVES → CONTRACTS.
+Core non-hash: MISSION_EVOL.CONTRACT (tests).
+Bridge: OFFLANE_HEADLESS, REVEALS.HEADLESS, MISSION_JOURNAL.
+
+Tier 3 (3 gates — docs): EPIC_REVIEW, FIRST_HOUR_EVAL.
+
+NEW paths (6 total):
+- NEW: SimCore/Tweaks/MissionEvolutionTweaksV0.cs — No existing mission tweaks file; gameplay values need dedicated tweaks routing.
+- NEW: SimCore.Tests/Systems/MissionEvolutionTests.cs — Existing MissionContractTests covers only original 3 triggers; new features need dedicated coverage.
+- NEW: scripts/ui/mission_journal_panel.gd — No mission-specific UI panel exists.
+- NEW: scripts/ui/warp_transit_hud.gd — No warp phase HUD overlay exists.
+- NEW: scripts/tests/test_fracture_offlane_v0.gd — No headless test for offlane fracture travel.
+- NEW: scripts/tests/test_reveals_proof_v0.gd — No headless test for layered reveals.
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.S7.TERRITORY.HYSTERESIS.001 | TODO | Territory regime hysteresis: transitions require sustained rep change over N ticks before upgrading/downgrading, preventing rapid oscillation. Add hysteresis buffer to ComputeTerritoryRegime. Closes TERRITORY_REGIMES. Hash-affecting. Proof: dotnet test --filter "TerritoryRegime" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore.Tests/Systems/TerritoryRegimeTests.cs |
+| GATE.S7.FRACTURE.OFFLANE_ROUTES.001 | TODO | Offlane fracture route gen: FractureSystem generates valid node-to-node paths through fracture space without edge adjacency. FractureTravelCommand accepts non-adjacent targets when fracture module equipped. Cost scales with graph distance. Closes OFFLANE_FRACTURE. Hash-affecting. Proof: dotnet test --filter "FractureTravel" | FOUND: SimCore/Systems/FractureSystem.cs, FOUND: SimCore/Commands/FractureTravelCommand.cs, FOUND: SimCore/Tweaks/FractureTweaksV0.cs |
+| GATE.S7.FRACTURE.OFFLANE_HEADLESS.001 | TODO | Offlane fracture headless proof: bot travels via fracture route bypassing lane gates, arrives at non-adjacent node. HEADLESS_PROOF milestone. Proof: godot --headless | FOUND: scripts/bridge/SimBridge.Fracture.cs, NEW: scripts/tests/test_fracture_offlane_v0.gd |
+| GATE.S7.REVEALS.DISCOVERY_REVEAL.001 | TODO | Discovery content recontextualization: DiscoveryOutcomeSystem delivers progressive content reveals — initial scan shows surface data, analysis reveals deeper structure, full study reveals knowledge graph connections. Recontextualization text per discovery kind. Closes LAYERED_REVEALS. Hash-affecting. Proof: dotnet test --filter "DiscoveryOutcome" | FOUND: SimCore/Systems/DiscoveryOutcomeSystem.cs, FOUND: SimCore/Systems/KnowledgeGraphSystem.cs, FOUND: SimCore/Content/KnowledgeGraphContentV0.cs |
+| GATE.S7.REVEALS.WARFRONT_REVEAL.001 | TODO | Warfront intel layer reveals: IntelSystem reveals warfront data progressively — tier 1 (presence) at sensor range, tier 2 (fleet composition) after visit, tier 3 (supply status + strategic value) after sustained observation. Hash-affecting. Proof: dotnet test --filter "Intel" | FOUND: SimCore/Systems/IntelSystem.cs, FOUND: SimCore/Tweaks/IntelTweaksV0.cs |
+| GATE.S7.REVEALS.HEADLESS.001 | TODO | Layered reveals headless proof: trigger discovery scan, verify reveal layer progression Hidden to Mapped. Verify warfront intel exposure at war-adjacent node. HEADLESS_PROOF milestone. Proof: godot --headless | FOUND: scripts/bridge/SimBridge.cs, NEW: scripts/tests/test_reveals_proof_v0.gd |
+| GATE.S9.MISSION_EVOL.TRIGGERS.001 | TODO | 4 new mission trigger types: ReputationMin (faction standing gate), CreditsMin (economic threshold), TechUnlocked (research prerequisite), TimerExpired (tick deadline). Add to MissionTriggerType enum + EvaluateTrigger. Per mission_design_v0.md Phase 1. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Entities/Mission.cs, FOUND: SimCore/Systems/MissionSystem.cs, NEW: SimCore/Tweaks/MissionEvolutionTweaksV0.cs |
+| GATE.S9.MISSION_EVOL.REWARDS.001 | TODO | Non-credit reward types: MissionRewardDef on MissionDef — ReputationReward (factionId + amount), AccessReward (market permits, tech unlocks), IntelReward (discovery leads). CompleteMission distributes all reward types. Per mission_design_v0.md Phase 1. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Entities/Mission.cs, FOUND: SimCore/Systems/MissionSystem.cs, FOUND: SimCore/Systems/ReputationSystem.cs |
+| GATE.S9.MISSION_EVOL.FAILURE.001 | TODO | Mission failure/abandonment: MissionState.FailedMissionIds, AbandonMission command (-rep), TimerExpired trigger with tick deadline, FailMission on deadline exceeded, MissionEvent 'Failed'/'Abandoned'. Per mission_design_v0.md Phase 1. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Entities/Mission.cs, FOUND: SimCore/Systems/MissionSystem.cs, NEW: SimCore/Tweaks/MissionEvolutionTweaksV0.cs |
+| GATE.S9.MISSION_EVOL.BRANCHING.001 | TODO | CHOICE steps: add CHOICE step type to MissionStepDef — 2-3 options each with target step index. Step advancement follows branch instead of linear +1. MissionActiveStep tracks chosen branch. Per mission_design_v0.md Phase 1. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Entities/Mission.cs, FOUND: SimCore/Systems/MissionSystem.cs, FOUND: SimCore/Content/MissionContentV0.cs |
+| GATE.S9.MISSION_EVOL.CONTRACT.001 | TODO | Contract tests: dedicated test class covering all Phase 1 mission features — 4 new triggers, non-credit rewards, failure/abandonment, CHOICE branching. 15+ test methods. Non-hash (test-only). Proof: dotnet test --filter "MissionEvolution" | NEW: SimCore.Tests/Systems/MissionEvolutionTests.cs, FOUND: SimCore.Tests/Systems/MissionContractTests.cs |
+| GATE.S7.WARFRONT.ATTRITION.001 | TODO | Fleet attrition + supply pressure: WarfrontEvolutionSystem applies fleet attrition when munitions/fuel depleted — fleets at starved nodes take losses per tick. Supply delivery restores strength. Creates economic pressure loop. Advances WARFRONT_STATE. Hash-affecting. Proof: dotnet test --filter "Warfront" | FOUND: SimCore/Systems/WarfrontEvolutionSystem.cs, FOUND: SimCore/Entities/WarfrontState.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs |
+| GATE.S7.WARFRONT.OBJECTIVES.001 | TODO | Strategic objectives: warfront nodes have objectives (supply depot, comm relay, factory). Faction captures when fleet strength dominant for N ticks. Capture shifts production/intel/supply for controller. Advances WARFRONT_STATE. Hash-affecting. Proof: dotnet test --filter "Warfront" | FOUND: SimCore/Systems/WarfrontEvolutionSystem.cs, FOUND: SimCore/Entities/WarfrontState.cs, FOUND: SimCore/Tweaks/WarfrontTweaksV0.cs |
+| GATE.S7.REPUTATION.CONTRACTS.001 | TODO | Faction contracts from rep tiers: faction contacts offer direct mission contracts gated by reputation (Neutral/Friendly/Allied). Contract availability via MissionSystem.GetAvailableMissions with ReputationMin trigger. Advances REPUTATION_INFLUENCE. Hash-affecting. Proof: dotnet test --filter "Reputation" | FOUND: SimCore/Systems/ReputationSystem.cs, FOUND: SimCore/Systems/MissionSystem.cs, FOUND: SimCore.Tests/Systems/ReputationSystemTests.cs |
+| GATE.X.WARP.TUNNEL_SCALE.001 | TODO | Fix warp tunnel oversized mesh: scale down tunnel proportional to player ship. Currently dominates screen. Fixes ACTIVE_ISSUES F7. Non-hash (visual-only). Proof: dotnet build | FOUND: scripts/vfx/warp_tunnel.gd, FOUND: scripts/vfx/warp_effect.gd |
+| GATE.X.WARP.TRANSIT_HUD.001 | TODO | Warp transit HUD: show destination name, ETA bar, distance remaining during warp. Currently player sees tunnel with no context. Fixes ACTIVE_ISSUES F8. Non-hash (UI-only). Proof: dotnet build | FOUND: scripts/ui/hud.gd, NEW: scripts/ui/warp_transit_hud.gd |
+| GATE.X.WARP.DEPARTURE_VFX.001 | TODO | Warp departure flash + shake: add camera shake + white flash on departure to match arrival intensity. Currently departure is visually weak. Fixes ACTIVE_ISSUES F9. Non-hash (visual-only). Proof: dotnet build | FOUND: scripts/vfx/warp_effect.gd, FOUND: scripts/core/game_manager.gd |
+| GATE.X.UI_POLISH.MISSION_JOURNAL.001 | TODO | Mission journal panel (J key): active mission(s) with step progress, objectives, rewards preview, abandon button. No mission board — journal shows only accepted missions. Reads from SimBridge.Mission queries. Non-hash (UI-only). Proof: dotnet build | NEW: scripts/ui/mission_journal_panel.gd, FOUND: scripts/bridge/SimBridge.Mission.cs, FOUND: scripts/ui/hud.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.030 | TODO | Full test suite (Release), build, warning scan, dead code check, golden hash stability. Tranche 30 baseline. Proof: dotnet test full suite | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.030 | TODO | Epic status audit. Close MISSION_LADDER (M2-M6 delivered, remaining deferred to MISSION_FOUNDATION). Close TERRITORY_REGIMES, OFFLANE_FRACTURE, LAYERED_REVEALS if all gates DONE. Recommend T31 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.FIRST_HOUR_EVAL.030 | TODO | First-hour bot eval: 31 phases, 21 assertions. Verify mission flow, warp transit fixes, territory regimes, fracture travel. REGRESSION_ANCHOR milestone. Proof: Run-FHBot.ps1 -Mode headless | FOUND: scripts/tests/test_first_hour_proof_v0.gd, FOUND: scripts/tools/Run-FHBot.ps1 |
+
+Combined-agent notes:
+- Tier 1 core hash chain (8 sequential): HYSTERESIS → OFFLANE_ROUTES → DISCOVERY_REVEAL → WARFRONT_REVEAL → ATTRITION → TRIGGERS → REWARDS → FAILURE.
+- Tier 1 bridge (3 parallel): TUNNEL_SCALE, TRANSIT_HUD, DEPARTURE_VFX — no file conflicts, different primary files.
+- Tier 1 docs (1): REPO_HEALTH — runs early as baseline.
+- Tier 2 core hash chain (3 sequential): BRANCHING → OBJECTIVES → CONTRACTS.
+- Tier 2 core non-hash (1): MISSION_EVOL.CONTRACT (tests only).
+- Tier 2 bridge (3 parallel): OFFLANE_HEADLESS, REVEALS.HEADLESS, MISSION_JOURNAL.
+- Tier 3 docs (2): EPIC_REVIEW + FIRST_HOUR_EVAL.

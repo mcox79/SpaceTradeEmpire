@@ -132,7 +132,9 @@ func _refresh_fo_state() -> void:
 	if fo.is_empty():
 		visible = false
 		return
-	visible = true
+	# FEEL_POST_FIX_2: Never self-show — FO panel is always suppressed until an
+	# F-key toggle is implemented. Without this, _refresh_fo_state overrides the
+	# hud.gd suppression every 2 seconds and the panel bleeds into galaxy map/overlays.
 	var fo_name: String = str(fo.get("name", "None"))
 	var promoted: bool = fo.get("promoted", false)
 	_name_label.text = fo_name

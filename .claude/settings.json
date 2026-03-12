@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Agent(*)",
       "Bash(dotnet build \"Space Trade Empire.csproj\"*)",
       "Bash(dotnet build SimCore/SimCore.csproj*)",
       "Bash(dotnet test SimCore.Tests/SimCore.Tests.csproj*)",

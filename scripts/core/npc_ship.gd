@@ -414,6 +414,10 @@ func set_target(pos: Vector3, spd: float) -> void:
 ## Applies stagger and routes damage through SimBridge command queue.
 func on_hit(damage: int) -> void:
 	apply_stagger(0.3)
+	# FEEL_POST_FIX_3: Signal combat event so HUD shows "COMBAT" state.
+	var gm := get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("signal_combat_v0"):
+		gm.call("signal_combat_v0")
 	var bridge := get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DamageNpcFleetV0") and not fleet_id.is_empty():
 		var result: Dictionary = bridge.call("DamageNpcFleetV0", fleet_id, damage)

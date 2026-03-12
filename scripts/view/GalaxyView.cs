@@ -31,6 +31,9 @@ public partial class GalaxyView : Node3D
 
     private bool _overlayOpen = false;
 
+    // FEEL_POST_FIX_5: Subtle dark nebula background plane for galaxy map depth.
+    private MeshInstance3D _galaxyMapBg;
+
     // GATE.S6.MAP_GALAXY.OVERLAY_SYS.001: Active overlay mode.
     private GalaxyOverlayMode _currentOverlayMode = GalaxyOverlayMode.Default;
     // GATE.S17.REAL_SPACE.GALAXY_MAP.001: _cameraPositionedThisOpen removed (follow camera drives altitude).
@@ -201,6 +204,25 @@ public partial class GalaxyView : Node3D
         // GalaxyView's own overlay rendering (nodes, edges, colors).
         Visible = isOpen;
         SetProcess(isOpen);
+
+        // FEEL_POST_FIX_4: Dim Starlight skybox during galaxy map so beacons pop.
+        // A 2D scrim dims beacons equally (they're 3D). Instead, dim the sky itself.
+        var skyParent = GetParent();
+        if (skyParent != null)
+        {
+            var starlightSky = skyParent.GetNodeOrNull<Node3D>("StarlightSky");
+            if (starlightSky != null)
+                starlightSky.Visible = !isOpen;
+            // Also dim the milky way nebula band (GalacticSky).
+            var galacticSky = skyParent.GetNodeOrNull<Node3D>("GalacticSky");
+            if (galacticSky != null)
+                galacticSky.Visible = !isOpen;
+        }
+
+        // FEEL_POST_FIX_5: Show/hide subtle galaxy background plane for depth.
+        EnsureGalaxyMapBgV0();
+        if (_galaxyMapBg != null)
+            _galaxyMapBg.Visible = isOpen;
 
         if (isOpen)
         {
@@ -1232,9 +1254,10 @@ public partial class GalaxyView : Node3D
         var stationId = stationDict.ContainsKey("node_id")
             ? (string)stationDict["node_id"]
             : nodeId;
-        // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists in station names.
+        // FEEL_POST_FIX_5: Compact station Label3D — strip ALL resource tags.
+        // Full name preserved in dock panel header. Label3D shows "System 10 Station".
         var stationDisplayName = stationDict.ContainsKey("node_name") && !string.IsNullOrEmpty((string)stationDict["node_name"])
-            ? TruncateResourceTypesV0((string)stationDict["node_name"]) + " Station"
+            ? StripResourceTagsV0((string)stationDict["node_name"]) + " Station"
             : SimBridge.FormatDisplayNameV0(stationId);
 
         // Station as Area3D so body_entered fires when the player ship (collision_layer=2) enters.
@@ -3218,35 +3241,37 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = new Color(0.2f, 1.0f, 0.4f);
                     mat.EmissionEnabled = true;
                     mat.Emission = new Color(0.2f, 1.0f, 0.4f);
-                    mat.EmissionEnergyMultiplier = 4.0f;
+                    // FEEL_POST_FIX_3: Bright enough to dominate over Starlight skybox.
+                    mat.EmissionEnergyMultiplier = 12.0f;
 
                     // GATE.S14.MAP.PLAYER_INDICATOR.001: "YOU" label + pulsing ring
                     if (root.GetNodeOrNull("YouLabel") == null)
                     {
+                        // FEEL_POST_FIX_3: Label + ring scaled for altitude ~5000u.
                         var youLabel = new Label3D
                         {
                             Name = "YouLabel",
                             Text = "YOU",
-                            PixelSize = 1.5f,
-                            FontSize = 64,
-                            OutlineSize = 12,
+                            PixelSize = 2.5f,
+                            FontSize = 72,
+                            OutlineSize = 14,
                             Modulate = new Color(0.2f, 1.0f, 0.4f),
                             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                            Position = new Vector3(0, 60f, 0),
+                            Position = new Vector3(0, 200f, 0),
                             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                         };
                         root.AddChild(youLabel);
 
                         var ringMat = new StandardMaterial3D
                         {
-                            AlbedoColor = new Color(0.2f, 1.0f, 0.4f, 0.6f),
+                            AlbedoColor = new Color(0.2f, 1.0f, 0.4f, 0.7f),
                             EmissionEnabled = true,
                             Emission = new Color(0.2f, 1.0f, 0.4f),
-                            EmissionEnergyMultiplier = 5.0f,
+                            EmissionEnergyMultiplier = 10.0f,
                             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                         };
-                        var ringMesh = new TorusMesh { InnerRadius = 30.0f, OuterRadius = 38.0f };
+                        var ringMesh = new TorusMesh { InnerRadius = 80.0f, OuterRadius = 100.0f };
                         var ringInst = new MeshInstance3D
                         {
                             Name = "PlayerRing",
@@ -3322,8 +3347,11 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
                     mat.Emission = nodeColor;
-                    // FEEL_POST_BASELINE: RUMORED nodes glow dimmer than explored nodes.
-                    mat.EmissionEnergyMultiplier = isRumored ? 1.0f : 2.5f;
+                    // FEEL_POST_FIX_3: Emission high enough to compete with Starlight skybox.
+                    // RUMORED slightly dimmer than explored to convey fog-of-war.
+                    mat.EmissionEnergyMultiplier = isRumored ? 8.0f : 15.0f;
+                    // RUMORED 0.7x (smaller/dimmer = unknown), explored stays at 1.0.
+                    root.Scale = isRumored ? new Vector3(0.7f, 0.7f, 0.7f) : Vector3.One;
                 }
             }
         }
@@ -3366,7 +3394,8 @@ public partial class GalaxyView : Node3D
                     AlbedoColor = edgeColor,
                     EmissionEnabled = true,
                     Emission = edgeColor,
-                    EmissionEnergyMultiplier = 1.2f,
+                    // FEEL_POST_FIX_3: Edge emission boosted for altitude ~5000u visibility.
+                    EmissionEnergyMultiplier = 4.0f,
                     ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                     Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 };
@@ -3437,17 +3466,17 @@ public partial class GalaxyView : Node3D
         var root = new Node3D();
         root.Name = "GalaxyNode_" + nodeId;
 
-        // Emissive beacon sphere — primary visual for galaxy map at altitude ~1800u.
-        // Must be large enough to see and unshaded (no light sources at this altitude).
+        // FEEL_POST_FIX_3: Beacon sized for altitude ~5000u (galactic scale 25x).
+        // At 5000u altitude, 60u radius ≈ 13px — barely visible. 150u ≈ 34px — clearly visible.
         var beacon = new MeshInstance3D();
         beacon.Name = "NodeBeacon";
-        beacon.Mesh = new SphereMesh { Radius = 60.0f, Height = 120.0f };
+        beacon.Mesh = new SphereMesh { Radius = 150.0f, Height = 300.0f };
         beacon.MaterialOverride = new StandardMaterial3D
         {
             AlbedoColor = new Color(0.6f, 0.9f, 1.0f, 1.0f),
             EmissionEnabled = true,
             Emission = new Color(0.6f, 0.9f, 1.0f),
-            EmissionEnergyMultiplier = 20.0f,
+            EmissionEnergyMultiplier = 30.0f,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
         };
@@ -3461,7 +3490,8 @@ public partial class GalaxyView : Node3D
             Name = "NodeLabel",
             Text = "",
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            PixelSize = 1.2f,
+            // FEEL_POST_FIX_3: Larger pixel size + offset for 150u beacons.
+            PixelSize = 2.0f,
             FontSize = 48,
             OutlineSize = 10,
             Modulate = new Color(0.85f, 0.85f, 0.9f),
@@ -3469,7 +3499,7 @@ public partial class GalaxyView : Node3D
             Width = 200f,
             AutowrapMode = TextServer.AutowrapMode.Off,
         };
-        lbl.Position = new Vector3(0, 40.0f, 0);
+        lbl.Position = new Vector3(0, 180.0f, 0);
         root.AddChild(lbl);
 
         // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: fleet count overlay label (hidden when zero).
@@ -3496,11 +3526,13 @@ public partial class GalaxyView : Node3D
         mesh.Name = "GalaxyEdge";
 
         // Cylinder oriented along +Y then rotated into place.
-        // Radius 8.0 visible at strategic altitude (~1800u).
+        // FEEL_POST_FIX_3: Radius 30u visible at strategic altitude ~5000u.
+        // At 8u radius, lanes were ~1.7px at altitude 5000 — invisible.
+        // At 30u radius, lanes are ~6.5px — clearly visible like Stellaris/MOO lane lines.
         var cyl = new CylinderMesh
         {
-            TopRadius = 8.0f,
-            BottomRadius = 8.0f,
+            TopRadius = 30.0f,
+            BottomRadius = 30.0f,
             Height = 1.0f
         };
         mesh.Mesh = cyl;
@@ -4161,6 +4193,97 @@ public partial class GalaxyView : Node3D
         }
 
         return displayText;
+    }
+
+    // FEEL_POST_FIX_5: Create a large dark-blue plane behind galaxy map beacons for depth.
+    private void EnsureGalaxyMapBgV0()
+    {
+        if (_galaxyMapBg != null) return;
+        _galaxyMapBg = new MeshInstance3D
+        {
+            Name = "GalaxyMapBg",
+            Mesh = new PlaneMesh { Size = new Vector2(20000f, 20000f) },
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoColor = new Color(0.08f, 0.07f, 0.14f),
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            },
+            Position = new Vector3(0f, -200f, 0f),
+            Visible = false,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        // Add to GalaxyView's parent so it's below beacons but in the 3D scene.
+        var parent = GetParent();
+        if (parent != null)
+            parent.AddChild(_galaxyMapBg);
+        else
+            AddChild(_galaxyMapBg);
+    }
+
+    // FEEL_POST_FIX_6: Compute camera altitude + centroid to fit all visible nodes in the viewport.
+    // Returns Dictionary with "altitude", "center_x", "center_z".
+    // Called by player_follow_camera.gd when opening galaxy map via TAB.
+    public Godot.Collections.Dictionary GetAutoFitFrameV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["altitude"] = 5000f,
+            ["center_x"] = 0f,
+            ["center_z"] = 0f,
+        };
+
+        if (_bridge == null) return result;
+        var snap = _bridge.GetGalaxySnapshotV0();
+        if (snap == null) return result;
+
+        var rawNodes = snap.ContainsKey("system_nodes")
+            ? (Godot.Collections.Array)snap["system_nodes"]
+            : null;
+        if (rawNodes == null || rawNodes.Count == 0) return result;
+
+        float galScale = SimCore.Tweaks.RealSpaceTweaksV0.GalacticScaleFactor;
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minZ = float.MaxValue, maxZ = float.MinValue;
+        int visibleCount = 0;
+
+        for (int i = 0; i < rawNodes.Count; i++)
+        {
+            if (rawNodes[i].VariantType != Variant.Type.Dictionary) continue;
+            var n = rawNodes[i].AsGodotDictionary();
+            var token = n.ContainsKey("display_state_token") ? (string)(Variant)n["display_state_token"] : "";
+            if (StringComparer.Ordinal.Equals(token, "HIDDEN")) continue;
+
+            float x = (n.ContainsKey("pos_x") ? (float)(Variant)n["pos_x"] : 0f) * galScale;
+            float z = (n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f) * galScale;
+
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (z < minZ) minZ = z;
+            if (z > maxZ) maxZ = z;
+            visibleCount++;
+        }
+
+        if (visibleCount <= 1) return result;
+
+        float dx = maxX - minX;
+        float dz = maxZ - minZ;
+        // Ensure minimum span so camera doesn't zoom too close for nearby nodes.
+        dx = Mathf.Max(dx, 2000f);
+        dz = Mathf.Max(dz, 2000f);
+
+        // For vertical FOV=60, tan(30)=0.577. Aspect 16:9=1.778.
+        float tanHalf = Mathf.Tan(30f * Mathf.Pi / 180f);
+        float aspect = 1920f / 1080f;
+        // Fit into 70% of frame (15% padding each side).
+        float hFromX = dx / (0.7f * 2f * tanHalf * aspect);
+        float hFromZ = dz / (0.7f * 2f * tanHalf);
+
+        float altitude = Mathf.Max(hFromX, hFromZ);
+        result["altitude"] = Mathf.Clamp(altitude, 3000f, 8000f);
+        result["center_x"] = (minX + maxX) / 2f;
+        result["center_z"] = (minZ + maxZ) / 2f;
+        return result;
     }
 
     // ════════════════════════════════════════════════════════════════════════

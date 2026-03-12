@@ -1,7 +1,503 @@
 {
     "queue_contract_version": "2.3",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-11T23:45:00Z",
-    "queue_intent": "Tranche 29 complete. 18/18 gates closed. Queue empty -- ready for /gen-gates tranche 30.",
-    "tasks": []
+    "generated_utc": "2026-03-12T18:00:00Z",
+    "queue_intent": "Tranche 30 'Mission Evolution + Closing Fronts'. 21 gates across 6 epics. HEAD 334ef9a. Anchor: EPIC.S9.MISSION_FOUNDATION.V0 (Phase 1 per mission_design_v0.md). Epic closers: TERRITORY_REGIMES, OFFLANE_FRACTURE, LAYERED_REVEALS.",
+    "tasks": [
+        {
+            "gate_id": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001",
+            "task_id": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001.T156",
+            "status": "TODO",
+            "title": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001: Offlane fracture headless proof",
+            "intent": "GDScript headless test: boot scene, initiate fracture travel to non-adjacent node bypassing lane gates, verify arrival. HEADLESS_PROOF milestone for OFFLANE_FRACTURE.",
+            "evidence_paths": ["scripts/bridge/SimBridge.Fracture.cs", "scripts/tests/test_fracture_offlane_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_fracture_offlane_v0.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_fracture_offlane_v0.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S7.FRACTURE.OFFLANE_ROUTES.001"],
+            "hash_affecting": false,
+            "verify": ["godot --headless --path . -s res://scripts/tests/test_fracture_offlane_v0.gd"]
+        },
+        {
+            "gate_id": "GATE.S7.REVEALS.HEADLESS.001",
+            "task_id": "GATE.S7.REVEALS.HEADLESS.001.T518",
+            "status": "TODO",
+            "title": "GATE.S7.REVEALS.HEADLESS.001: Layered reveals headless proof",
+            "intent": "GDScript headless test: trigger discovery scan, verify reveal layer progression Hidden to Mapped. Verify warfront intel exposure at war-adjacent node. HEADLESS_PROOF milestone for LAYERED_REVEALS.",
+            "evidence_paths": ["scripts/bridge/SimBridge.cs", "scripts/tests/test_reveals_proof_v0.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_reveals_proof_v0.gd"],
+            "task_preflight": ["anchor=scripts/tests/test_reveals_proof_v0.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S7.REVEALS.WARFRONT_REVEAL.001"],
+            "hash_affecting": false,
+            "verify": ["godot --headless --path . -s res://scripts/tests/test_reveals_proof_v0.gd"]
+        },
+        {
+            "gate_id": "GATE.S7.REVEALS.WARFRONT_REVEAL.001",
+            "task_id": "GATE.S7.REVEALS.WARFRONT_REVEAL.001.T291",
+            "status": "TODO",
+            "title": "GATE.S7.REVEALS.WARFRONT_REVEAL.001: Warfront intel layer reveals",
+            "intent": "IntelSystem reveals warfront data progressively: tier 1 (presence) at sensor range, tier 2 (fleet composition) after visit, tier 3 (supply status + strategic value) after sustained observation or faction contact. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/IntelSystem.cs", "SimCore/Tweaks/IntelTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Intel\""],
+            "task_preflight": ["anchor=SimCore/Systems/IntelSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.REVEALS.DISCOVERY_REVEAL.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Intel\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.TERRITORY.HYSTERESIS.001",
+            "task_id": "GATE.S7.TERRITORY.HYSTERESIS.001.T472",
+            "status": "TODO",
+            "title": "GATE.S7.TERRITORY.HYSTERESIS.001: Territory regime hysteresis rules",
+            "intent": "Regime transitions require sustained reputation change over N ticks before upgrading/downgrading, preventing rapid oscillation. Add hysteresis buffer to ComputeTerritoryRegime in ReputationSystem. Closes TERRITORY_REGIMES. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/ReputationSystem.cs", "SimCore.Tests/Systems/TerritoryRegimeTests.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TerritoryRegime\""],
+            "task_preflight": ["anchor=SimCore/Systems/ReputationSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": [],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TerritoryRegime\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.MISSION_EVOL.CONTRACT.001",
+            "task_id": "GATE.S9.MISSION_EVOL.CONTRACT.001.T942",
+            "status": "TODO",
+            "title": "GATE.S9.MISSION_EVOL.CONTRACT.001: Contract tests for mission evolution",
+            "intent": "Dedicated test class covering all Phase 1 mission features: 4 new triggers (ReputationMin, CreditsMin, TechUnlocked, TimerExpired), non-credit rewards, failure/abandonment, CHOICE branching. 15+ test methods. Non-hash (test-only).",
+            "evidence_paths": ["SimCore.Tests/Systems/MissionEvolutionTests.cs", "SimCore.Tests/Systems/MissionContractTests.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MissionEvolution\""],
+            "task_preflight": ["anchor=SimCore.Tests/Systems/MissionEvolutionTests.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.S9.MISSION_EVOL.BRANCHING.001"],
+            "hash_affecting": false,
+            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MissionEvolution\""]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.030",
+            "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.030.T165",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.EPIC_REVIEW.030: T30 epic status audit",
+            "intent": "Audit epic statuses against T30 gates. Close MISSION_LADDER (M2-M6 delivered, remaining deferred to MISSION_FOUNDATION). Close TERRITORY_REGIMES, OFFLANE_FRACTURE, LAYERED_REVEALS if all gates DONE. Recommend T31 anchor.",
+            "evidence_paths": ["docs/54_EPICS.md", "docs/55_GATES.md"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""],
+            "task_preflight": ["anchor=docs/54_EPICS.md"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "docs",
+            "tier": 3,
+            "blocks": ["GATE.S9.MISSION_EVOL.CONTRACT.001"],
+            "hash_affecting": false,
+            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030",
+            "task_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030.T543",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030: First-hour bot eval",
+            "intent": "Run first-hour experience bot (31 phases, 21 assertions). Verify mission flow, warp transit fixes, territory regimes, fracture travel. REGRESSION_ANCHOR milestone. Report pass/fail with screenshots.",
+            "evidence_paths": ["scripts/tests/test_first_hour_proof_v0.gd", "scripts/tools/Run-FHBot.ps1"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["powershell -File scripts/tools/Run-FHBot.ps1 -Mode headless"],
+            "task_preflight": ["anchor=scripts/tests/test_first_hour_proof_v0.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "docs",
+            "tier": 3,
+            "blocks": ["GATE.X.UI_POLISH.MISSION_JOURNAL.001"],
+            "hash_affecting": false,
+            "verify": ["powershell -File scripts/tools/Run-FHBot.ps1 -Mode headless"]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.030",
+            "task_id": "GATE.X.HYGIENE.REPO_HEALTH.030.T897",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.REPO_HEALTH.030: Tranche 30 health baseline",
+            "intent": "Full test suite (Release), build warnings scan, dead code check, golden hash stability. Establish T30 baseline before implementation gates begin.",
+            "evidence_paths": ["SimCore.Tests/SimCore.Tests.csproj", "docs/55_GATES.md"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"],
+            "task_preflight": ["anchor=SimCore.Tests/SimCore.Tests.csproj"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "docs",
+            "tier": 1,
+            "blocks": [],
+            "hash_affecting": false,
+            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+        },
+        {
+            "gate_id": "GATE.X.WARP.DEPARTURE_VFX.001",
+            "task_id": "GATE.X.WARP.DEPARTURE_VFX.001.T582",
+            "status": "TODO",
+            "title": "GATE.X.WARP.DEPARTURE_VFX.001: Warp departure flash + shake (F9)",
+            "intent": "Add camera shake + white flash on warp departure to match warp arrival intensity. Currently departure is visually weak vs arrival. Fixes ACTIVE_ISSUES F9. Non-hash (visual-only).",
+            "evidence_paths": ["scripts/vfx/warp_effect.gd", "scripts/core/game_manager.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/vfx/warp_effect.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "hash_affecting": false,
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+        },
+        {
+            "gate_id": "GATE.X.WARP.TRANSIT_HUD.001",
+            "task_id": "GATE.X.WARP.TRANSIT_HUD.001.T734",
+            "status": "TODO",
+            "title": "GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD info bar (F8)",
+            "intent": "Show destination name, ETA bar, and distance remaining during warp transit. Currently player sees tunnel only with no context. Fixes ACTIVE_ISSUES F8. Non-hash (UI-only).",
+            "evidence_paths": ["scripts/ui/hud.gd", "scripts/ui/warp_transit_hud.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/ui/warp_transit_hud.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "hash_affecting": false,
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+        },
+        {
+            "gate_id": "GATE.X.WARP.TUNNEL_SCALE.001",
+            "task_id": "GATE.X.WARP.TUNNEL_SCALE.001.T261",
+            "status": "TODO",
+            "title": "GATE.X.WARP.TUNNEL_SCALE.001: Fix warp tunnel oversized mesh (F7)",
+            "intent": "Scale down warp tunnel mesh to proportional size relative to player ship. Currently dominates screen and obscures travel feel. Fixes ACTIVE_ISSUES F7. Non-hash (visual-only).",
+            "evidence_paths": ["scripts/vfx/warp_tunnel.gd", "scripts/vfx/warp_effect.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/vfx/warp_tunnel.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 1,
+            "blocks": [],
+            "hash_affecting": false,
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+        },
+        {
+            "gate_id": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001",
+            "task_id": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001.T839",
+            "status": "TODO",
+            "title": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane fracture route gen + travel",
+            "intent": "FractureSystem generates valid node-to-node paths through fracture space without edge adjacency. FractureTravelCommand accepts non-adjacent targets when fracture module equipped. Cost scales with graph distance. Closes OFFLANE_FRACTURE. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/FractureSystem.cs", "SimCore/Commands/FractureTravelCommand.cs", "SimCore/Tweaks/FractureTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FractureTravel\""],
+            "task_preflight": ["anchor=SimCore/Systems/FractureSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.TERRITORY.HYSTERESIS.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FractureTravel\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.REPUTATION.CONTRACTS.001",
+            "task_id": "GATE.S7.REPUTATION.CONTRACTS.001.T486",
+            "status": "TODO",
+            "title": "GATE.S7.REPUTATION.CONTRACTS.001: Faction contracts from rep tiers",
+            "intent": "Faction contacts offer direct mission contracts gated by reputation tier (Neutral/Friendly/Allied). Contract availability surfaces through MissionSystem.GetAvailableMissions with ReputationMin trigger. Advances REPUTATION_INFLUENCE. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/ReputationSystem.cs", "SimCore/Systems/MissionSystem.cs", "SimCore.Tests/Systems/ReputationSystemTests.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Reputation\""],
+            "task_preflight": ["anchor=SimCore/Systems/ReputationSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.S7.WARFRONT.OBJECTIVES.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Reputation\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001",
+            "task_id": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001.T643",
+            "status": "TODO",
+            "title": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Discovery content recontextualization",
+            "intent": "DiscoveryOutcomeSystem delivers progressive content reveals: initial scan shows surface data, analysis reveals deeper structure, full study reveals connections to knowledge graph. Recontextualization text per discovery kind. Closes LAYERED_REVEALS. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/DiscoveryOutcomeSystem.cs", "SimCore/Systems/KnowledgeGraphSystem.cs", "SimCore/Content/KnowledgeGraphContentV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"DiscoveryOutcome\""],
+            "task_preflight": ["anchor=SimCore/Systems/DiscoveryOutcomeSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.FRACTURE.OFFLANE_ROUTES.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"DiscoveryOutcome\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.WARFRONT.ATTRITION.001",
+            "task_id": "GATE.S7.WARFRONT.ATTRITION.001.T753",
+            "status": "TODO",
+            "title": "GATE.S7.WARFRONT.ATTRITION.001: Fleet attrition + supply pressure",
+            "intent": "WarfrontEvolutionSystem applies fleet attrition based on supply levels: fleets at nodes with depleted munitions/fuel take losses per tick. Supply delivery restores fleet strength. Creates visible economic pressure loop. Advances WARFRONT_STATE. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/WarfrontEvolutionSystem.cs", "SimCore/Entities/WarfrontState.cs", "SimCore/Tweaks/WarfrontTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""],
+            "task_preflight": ["anchor=SimCore/Systems/WarfrontEvolutionSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.REVEALS.WARFRONT_REVEAL.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.WARFRONT.OBJECTIVES.001",
+            "task_id": "GATE.S7.WARFRONT.OBJECTIVES.001.T318",
+            "status": "TODO",
+            "title": "GATE.S7.WARFRONT.OBJECTIVES.001: Strategic objectives + capture",
+            "intent": "Warfront nodes have strategic objectives (supply depot, comm relay, factory). Faction captures objective when fleet strength dominant for N ticks. Capture shifts production/intel/supply for controlling faction. Advances WARFRONT_STATE. Hash-affecting.",
+            "evidence_paths": ["SimCore/Systems/WarfrontEvolutionSystem.cs", "SimCore/Entities/WarfrontState.cs", "SimCore/Tweaks/WarfrontTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""],
+            "task_preflight": ["anchor=SimCore/Systems/WarfrontEvolutionSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.S9.MISSION_EVOL.BRANCHING.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.MISSION_EVOL.BRANCHING.001",
+            "task_id": "GATE.S9.MISSION_EVOL.BRANCHING.001.T607",
+            "status": "TODO",
+            "title": "GATE.S9.MISSION_EVOL.BRANCHING.001: CHOICE steps + conditional paths",
+            "intent": "Add CHOICE step type to MissionStepDef: 2-3 options each with target step index. Step advancement follows branch instead of linear +1. MissionActiveStep tracks chosen branch. Per mission_design_v0.md Phase 1. Hash-affecting.",
+            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Content/MissionContentV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
+            "task_preflight": ["anchor=SimCore/Systems/MissionSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.S9.MISSION_EVOL.FAILURE.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.MISSION_EVOL.FAILURE.001",
+            "task_id": "GATE.S9.MISSION_EVOL.FAILURE.001.T195",
+            "status": "TODO",
+            "title": "GATE.S9.MISSION_EVOL.FAILURE.001: Mission failure/abandonment + timer",
+            "intent": "MissionState.FailedMissionIds list. AbandonMission command (-rep penalty). TimerExpired trigger with tick deadline on MissionDef. FailMission on deadline exceeded. MissionEvent 'Failed'/'Abandoned'. Per mission_design_v0.md Phase 1. Hash-affecting.",
+            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Tweaks/MissionEvolutionTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
+            "task_preflight": ["anchor=SimCore/Systems/MissionSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S9.MISSION_EVOL.REWARDS.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.MISSION_EVOL.REWARDS.001",
+            "task_id": "GATE.S9.MISSION_EVOL.REWARDS.001.T826",
+            "status": "TODO",
+            "title": "GATE.S9.MISSION_EVOL.REWARDS.001: Non-credit reward types + distribution",
+            "intent": "MissionRewardDef on MissionDef: ReputationReward (factionId + amount), AccessReward (market permits, tech unlocks), IntelReward (discovery leads). CompleteMission distributes all reward types. Per mission_design_v0.md Phase 1. Hash-affecting.",
+            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Systems/ReputationSystem.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
+            "task_preflight": ["anchor=SimCore/Entities/Mission.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S9.MISSION_EVOL.TRIGGERS.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.MISSION_EVOL.TRIGGERS.001",
+            "task_id": "GATE.S9.MISSION_EVOL.TRIGGERS.001.T374",
+            "status": "TODO",
+            "title": "GATE.S9.MISSION_EVOL.TRIGGERS.001: 4 new mission trigger types",
+            "intent": "Add ReputationMin (faction standing gate), CreditsMin (economic threshold), TechUnlocked (research prerequisite), TimerExpired (tick deadline) to MissionTriggerType enum + EvaluateTrigger. Per mission_design_v0.md Phase 1. Hash-affecting.",
+            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Tweaks/MissionEvolutionTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
+            "task_preflight": ["anchor=SimCore/Entities/Mission.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.WARFRONT.ATTRITION.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
+            ]
+        },
+        {
+            "gate_id": "GATE.X.UI_POLISH.MISSION_JOURNAL.001",
+            "task_id": "GATE.X.UI_POLISH.MISSION_JOURNAL.001.T419",
+            "status": "TODO",
+            "title": "GATE.X.UI_POLISH.MISSION_JOURNAL.001: Active mission journal panel",
+            "intent": "Mission journal panel (J key): shows active mission(s) with step progress, objectives, rewards preview, abandon button. No mission board -- journal shows only accepted missions. Reads from SimBridge.Mission queries. Non-hash (UI-only).",
+            "evidence_paths": ["scripts/ui/mission_journal_panel.gd", "scripts/bridge/SimBridge.Mission.cs", "scripts/ui/hud.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/ui/mission_journal_panel.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.S9.MISSION_EVOL.REWARDS.001"],
+            "hash_affecting": false,
+            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+        }
+    ]
 }

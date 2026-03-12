@@ -47,7 +47,7 @@ var _current_fov: float = 60.0
 # Below PAN_THRESHOLD: rigid top-down above player.
 # Above PAN_THRESHOLD: manual position, WASD panning, galaxy map behavior.
 const ALTITUDE_MIN: float = 8.0
-const ALTITUDE_MAX: float = 6000.0  # FEEL_POST_BASELINE: Raised to allow strategic view of full galaxy at 25x scale.
+const ALTITUDE_MAX: float = 8000.0  # FEEL_POST_FIX_5: Raised for auto-fit galaxy view at 25x scale.
 const PAN_THRESHOLD: float = 200.0    # Above this: WASD panning, manual drive.
 const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering active.
 const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500 so neighbor nodes are visible on map open.
@@ -392,7 +392,14 @@ func _ensure_galaxy_view() -> void:
 func _sync_overlay_state() -> void:
 	if _game_manager == null:
 		return
+	# FEEL_POST_FIX_5: Don't override HUD suppression when empire dashboard is open.
+	var ed_open: bool = false
+	var ed_val = _game_manager.get("empire_dashboard_open")
+	if ed_val != null:
+		ed_open = bool(ed_val)
 	var should_overlay: bool = _altitude >= OVERLAY_THRESHOLD
+	if ed_open and not should_overlay:
+		return  # Empire dashboard is suppressing HUD — don't toggle it back on.
 	var current = _game_manager.get("galaxy_overlay_open")
 	if current == null or bool(current) != should_overlay:
 		_game_manager.set("galaxy_overlay_open", should_overlay)
@@ -429,7 +436,20 @@ func toggle_strategic_altitude_v0() -> void:
 	if _altitude < PAN_THRESHOLD:
 		# Going up to strategic view.
 		_pre_strategic_altitude = _altitude
-		_tab_tween.tween_property(self, "_altitude", STRATEGIC_ALTITUDE, 0.6)
+		# FEEL_POST_FIX_6: Auto-fit altitude + center on galaxy centroid.
+		var target_alt := STRATEGIC_ALTITUDE
+		_ensure_galaxy_view()
+		if _galaxy_view and _galaxy_view.has_method("GetAutoFitFrameV0"):
+			var frame: Dictionary = _galaxy_view.call("GetAutoFitFrameV0")
+			target_alt = float(frame.get("altitude", STRATEGIC_ALTITUDE))
+			var cx: float = float(frame.get("center_x", 0.0))
+			var cz: float = float(frame.get("center_z", 0.0))
+			# Center camera on galaxy centroid, not player position.
+			if _target and is_instance_valid(_target):
+				_galaxy_map_pan_offset = Vector3(cx - _target.global_position.x, 0.0, cz - _target.global_position.z)
+			else:
+				_galaxy_map_pan_offset = Vector3(cx, 0.0, cz)
+		_tab_tween.tween_property(self, "_altitude", target_alt, 0.6)
 	else:
 		# Coming back down to flight.
 		_galaxy_map_pan_offset = Vector3.ZERO
@@ -470,6 +490,8 @@ func _update_camera(delta: float) -> void:
 			var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
 			_cam.look_at(look_point, Vector3.BACK)
 			_update_fov(delta)
+			# FEEL_POST_FIX_4: Reset far clip from galaxy map extension.
+			_cam.far = 4000.0
 
 		CameraMode.DOCKED:
 			var desired_pos := _target.global_position + dock_offset
@@ -594,6 +616,9 @@ func _update_galaxy_map(delta: float) -> void:
 
 	# Use perspective projection with wide FOV for good galaxy overview.
 	_cam.fov = 60.0
+	# FEEL_POST_FIX_4: Extend far clip to see beacons at galactic altitude.
+	# Default z_far=4000 culls nodes at Y=0 when camera is at altitude 5000.
+	_cam.far = 12000.0
 
 
 # ── Target resolution ──

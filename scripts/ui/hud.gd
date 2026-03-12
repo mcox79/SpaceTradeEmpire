@@ -70,6 +70,9 @@ var _alert_count: int = 0
 
 # Overlay mode: when true, HUD status elements are hidden (galaxy map / empire dashboard open)
 var _overlay_active: bool = false
+# FEEL_POST_FIX_4: Dark scrim behind galaxy map / empire dashboard so beacons pop
+# over the Starlight skybox. Without this, skybox brightness drowns out map nodes.
+var _overlay_scrim: ColorRect = null
 
 # Suppress "LOW" fuel warning until player has had fuel at least once (avoid alarming at boot)
 var _fuel_ever_had: bool = false
@@ -107,6 +110,11 @@ var _knowledge_web_panel = null
 # Dock confirmation: "Press E to dock" prompt (bottom-center).
 var _dock_prompt_label: Label = null
 
+# FEEL_POST_FIX_5: Transit destination overlay (center-bottom during warp transit).
+var _transit_dest_label: Label = null
+var _transit_progress_bar: ColorRect = null
+var _transit_progress_fill: ColorRect = null
+
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
@@ -121,6 +129,18 @@ func _ready() -> void:
 	add_child(hud_bg)
 	# Move bg behind existing labels (labels are scene-defined, added before _ready)
 	move_child(hud_bg, 0)
+
+	# FEEL_POST_FIX_4: Full-screen dark scrim — dims 3D world behind galaxy map / dashboard.
+	# Without this, Starlight skybox drowns out galaxy map beacons.
+	_overlay_scrim = ColorRect.new()
+	_overlay_scrim.name = "OverlayScrim"
+	_overlay_scrim.color = Color(0.0, 0.02, 0.05, 0.7)
+	_overlay_scrim.anchor_right = 1.0
+	_overlay_scrim.anchor_bottom = 1.0
+	_overlay_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay_scrim.visible = false
+	add_child(_overlay_scrim)
+	move_child(_overlay_scrim, 0)  # Behind all HUD elements
 
 	_combat_label = Label.new()
 	_combat_label.name = "CombatLabel"
@@ -428,6 +448,38 @@ func _ready() -> void:
 	_dock_prompt_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_dock_prompt_label)
 
+	# FEEL_POST_FIX_5: Transit destination overlay (centered, shown during warp transit).
+	_transit_dest_label = Label.new()
+	_transit_dest_label.name = "TransitDestLabel"
+	_transit_dest_label.text = ""
+	_transit_dest_label.add_theme_font_size_override("font_size", UITheme.FONT_HUD_MED)
+	_transit_dest_label.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0, 0.9))
+	_transit_dest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_transit_dest_label.position = Vector2(0, 480)
+	_transit_dest_label.size = Vector2(1920, 40)
+	_transit_dest_label.visible = false
+	_transit_dest_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_transit_dest_label)
+
+	# Transit progress bar background (thin horizontal line below destination label).
+	_transit_progress_bar = ColorRect.new()
+	_transit_progress_bar.name = "TransitProgressBg"
+	_transit_progress_bar.color = Color(0.2, 0.25, 0.35, 0.4)
+	_transit_progress_bar.position = Vector2(810, 525)
+	_transit_progress_bar.size = Vector2(300, 3)
+	_transit_progress_bar.visible = false
+	_transit_progress_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_transit_progress_bar)
+
+	_transit_progress_fill = ColorRect.new()
+	_transit_progress_fill.name = "TransitProgressFill"
+	_transit_progress_fill.color = Color(0.6, 0.75, 1.0, 0.7)
+	_transit_progress_fill.position = Vector2(810, 525)
+	_transit_progress_fill.size = Vector2(0, 3)
+	_transit_progress_fill.visible = false
+	_transit_progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_transit_progress_fill)
+
 	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
 	_alert_badge = Control.new()
 	_alert_badge.name = "AlertBadge"
@@ -465,6 +517,13 @@ func show_game_over_v0() -> void:
 
 func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	_overlay_active = active
+	# FEEL_POST_FIX_4: Show dark scrim for empire dashboard (not galaxy map or transit).
+	# Galaxy map dims Starlight directly in GalaxyView.SetOverlayOpenV0 instead,
+	# because a 2D scrim would dim the 3D beacons equally.
+	var gm = get_node_or_null("/root/GameManager")
+	if _overlay_scrim:
+		var is_galaxy_map: bool = gm != null and gm.get("galaxy_overlay_open") == true
+		_overlay_scrim.visible = active and not is_transit and not is_galaxy_map
 	var bg = get_node_or_null("HudStatusBg")
 	if bg: bg.visible = not active
 	for lbl in [_credits_label, _cargo_label, _node_label, _state_label,
@@ -472,9 +531,13 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 		if lbl != null: lbl.visible = not active
 	if _fuel_label: _fuel_label.visible = not active
 	if _galaxy_map_label:
-		if active and not is_transit:
+		# FEEL_POST_FIX_5: Only show galaxy map label when galaxy map is the active overlay,
+		# not when empire dashboard is open at flight altitude.
+		var gm_open = gm != null and gm.get("galaxy_overlay_open") == true
+		var show_map_label: bool = active and not is_transit and gm_open
+		if show_map_label:
 			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
-		_galaxy_map_label.visible = active and not is_transit
+		_galaxy_map_label.visible = show_map_label
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Hide Zone G bar during overlay.
 	if _zone_g_bg: _zone_g_bg.visible = not active
 	if _zone_g_bar: _zone_g_bar.visible = not active
@@ -497,15 +560,24 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 			_narrative_panel.hide_narrative()
 
 func _physics_process(_delta: float) -> void:
-	if _overlay_active or _bridge == null:
+	if _bridge == null:
 		return
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var raw_state = str(ps.get("ship_state_token", ""))
+	# FEEL_POST_FIX_6: Transit overlay must update regardless of overlay_active,
+	# because transit triggers overlay mode but still needs the destination label.
+	if raw_state == "IN_LANE_TRANSIT":
+		_show_transit_overlay_v0(_get_transit_dest_name())
+	else:
+		_hide_transit_overlay_v0()
+	if _overlay_active:
+		return
 	_credits_label.text = "Credits: " + str(ps.get("credits", 0))
 	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: show "X items" suffix
 	_cargo_label.text = "Cargo: %d items" % int(ps.get("cargo_count", 0))
 	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
 	_node_label.text = _truncate_resource_types(node_display)
-	var raw_state = str(ps.get("ship_state_token", ""))
+
 	match raw_state:
 		"DOCKED":
 			_state_label.text = "Docked"
@@ -516,12 +588,16 @@ func _physics_process(_delta: float) -> void:
 				_state_label.text = "Traveling..."
 			else:
 				_state_label.text = "Traveling to %s" % dest_name
+			# FEEL_POST_FIX_5: Show centered transit destination overlay.
+			_show_transit_overlay_v0(dest_name)
 		_:
 			# FEEL_POST_BASELINE: Show "COMBAT" when hostile NPCs are in aggro range.
 			var in_combat := _is_hostile_nearby()
 			if in_combat:
 				_state_label.text = "COMBAT"
-				_state_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+				# FEEL_POST_FIX_4: Bright orange-yellow to distinguish from "DANGEROUS"
+				# security label (which uses red). Both using red was ambiguous.
+				_state_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1))
 			else:
 				_state_label.text = "Flying"
 				_state_label.remove_theme_color_override("font_color")
@@ -914,16 +990,49 @@ func flash_damage_v0() -> void:
 	var tween := create_tween()
 	tween.tween_property(_damage_flash, "color:a", 0.0, 0.2)
 
-# FEEL_POST_BASELINE: Check if a hostile NPC is within aggro range of the player.
+# FEEL_POST_BASELINE: Check if combat is happening near the player.
+# Returns true if a hostile NPC is within 60u OR any fleet is within 25u (close engagement).
 func _is_hostile_nearby() -> bool:
 	var gm = get_node_or_null("/root/GameManager")
 	if gm == null:
 		return false
-	if gm.has_method("_find_nearest_fleet_v0"):
-		var nearest = gm.call("_find_nearest_fleet_v0", 60.0)
-		if nearest != null and nearest.get_meta("is_hostile", false):
-			return true
+	# FEEL_POST_FIX_3: Event-driven combat detection. combat_state_timer is set
+	# by on_hit(), turret fire, and AI fire — reliable regardless of NPC drift.
+	if gm.get("combat_state_timer") != null and float(gm.combat_state_timer) > 0.0:
+		return true
+	if not gm.has_method("_find_nearest_fleet_v0"):
+		return false
+	# Check for hostile fleet in aggro range.
+	var nearest = gm.call("_find_nearest_fleet_v0", 60.0)
+	if nearest != null and nearest.get_meta("is_hostile", false):
+		return true
 	return false
+
+# FEEL_POST_FIX_5: Show/hide transit destination overlay.
+func _show_transit_overlay_v0(dest_name: String) -> void:
+	if _transit_dest_label == null:
+		return
+	if dest_name.is_empty():
+		_transit_dest_label.text = "Traveling..."
+	else:
+		_transit_dest_label.text = "→  %s" % dest_name
+	_transit_dest_label.visible = true
+	if _transit_progress_bar:
+		_transit_progress_bar.visible = true
+	if _transit_progress_fill:
+		_transit_progress_fill.visible = true
+		# Animate fill: grow over time using a simple approach
+		# (full progress not available — use a pulse animation instead).
+		var t := fmod(Time.get_ticks_msec() / 3000.0, 1.0)
+		_transit_progress_fill.size.x = t * 300.0
+
+func _hide_transit_overlay_v0() -> void:
+	if _transit_dest_label:
+		_transit_dest_label.visible = false
+	if _transit_progress_bar:
+		_transit_progress_bar.visible = false
+	if _transit_progress_fill:
+		_transit_progress_fill.visible = false
 
 func _truncate_resource_types(display_text: String) -> String:
 	var first_open := display_text.find("(")

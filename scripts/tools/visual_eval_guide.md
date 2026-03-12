@@ -538,29 +538,60 @@ When reference screenshots are available in `reports/references/`, use them for
 
 ### Reference categories
 
-Two tiers of references:
-- **AAA references** — aspirational UX principles from high-budget games
-- **Peer references** — realistic scope/budget references from similar indie games
+Three tiers of references:
+- **Strong comp** — same camera perspective (top-down) and real-time gameplay. Directly comparable.
+- **UI comp** — 2D menu/panel design. Camera perspective doesn't matter for UI.
+- **Principle-only** — different perspective but demonstrates a UX principle worth extracting.
+
+**IMPORTANT:** Our game uses a top-down camera (Y=120 altitude). Only compare 3D
+scene composition against other top-down games (Starsector, Starcom). Do NOT
+penalize our flight/combat views for lacking depth or drama that requires a
+third-person or first-person camera (Everspace 2, Elite Dangerous, Outer Wilds).
+2D UI panels (dock, galaxy map, dashboard) are perspective-agnostic and can be
+compared against any game.
+
+#### Strong comps (top-down, real-time — directly comparable)
 
 | File | Game | Category | What principle to extract |
 |------|------|----------|--------------------------|
-| `ref_hud_elite.png` | Elite Dangerous | HUD (AAA) | Information hierarchy — shields, hull, speed, heat all glanceable through position, not just size |
-| `ref_galaxy_stellaris.png` | Stellaris | Galaxy map (AAA) | Color-coded empires, clear hyperlane topology, system icons communicate type |
-| `ref_galaxy_moo.png` | MOO 2016 | Galaxy map (AAA) | Star visual variety as language, minimalist lane topology, fleet panel with ship class thumbnails |
-| `ref_dock_moo.png` | MOO 2016 | Diplomacy/trade (AAA) | Two-party mirror layout, disposition bar, clear CTAs |
-| `ref_dock_moo_planet.png` | MOO 2016 | Colony management (AAA) | Visual anchor (planet) + compact stat card + resource breakdown tiles |
-| `ref_hud_moo_select.png` | MOO 2016 | Faction select (AAA) | Master-detail pattern: grid → portrait → traits. Personality conveyed visually |
-| `ref_hud_moo_research.png` | MOO 2016 | Research celebration (AAA) | Milestone as event, not notification. Show the thing, explain reward, one clear action |
-| `ref_atmosphere_outer_wilds.png` | Outer Wilds | Atmosphere (AAA) | Intimate scale, visible curvature, atmosphere shader creates mood |
-| `ref_atmosphere_endless2.png` | Endless Space 2 | Atmosphere (AAA) | Galaxy-scale awe, warm dust lanes against cyan core, minimal HUD |
-| `ref_combat_starcom.png` | Starcom Unknown | Combat (peer) | Top-down combat readability: shield bubbles, projectile trails, target brackets, planet depth layers |
-| `ref_dock_starcom.png` | Starcom Unknown | Tech tree (peer) | Tab navigation, node-graph tech tree, color-coded completion state, hover tooltips, station identity |
-| `ref_dialogue_starcom.png` | Starcom Nexus | Dialogue (peer) | Dialogue panel layout, character portrait, response options |
-| `ref_dock_starsector.png` | Starsector | Market/trade (peer) | Grid-based commodity inventory, tabbed categories, faction info + planet visual anchor |
-| `ref_dock_starsector_refit.png` | Starsector | Ship fitting (peer) | Ship model with hardpoint slots, weapon stat panel, hull features, dense but readable |
+| `ref_flight_starcom.jpg` | Starcom | Flight view | Top-down flight composition: ship framed inside gate ring, HUD overlay (speed/energy/hull), crosshair, dark space background. How to make a top-down view feel spatial |
+| `ref_combat_starcom.png` | Starcom | Combat | Top-down combat readability: shield bubbles, projectile trails connecting attacker to target, planet depth layers. The standard for our combat view |
 
-If no reference images exist yet, evaluate against the AAA text descriptions in
-Section 0 and the per-dimension AAA standards in Section 9.
+#### UI comps (2D panels — perspective-agnostic)
+
+| File | Game | Category | What principle to extract |
+|------|------|----------|--------------------------|
+| `ref_dock_starsector.png` | Starsector | Market/trade | Grid-based commodity inventory, tabbed categories, faction crest + planet as visual anchor. Dense but scannable |
+| `ref_dock_starsector_refit.png` | Starsector | Ship fitting | Ship model center with hardpoint slots, weapon stat panel, hull features. Dense but readable |
+| `ref_galaxy_stellaris.png` | Stellaris | Galaxy map (zoomed) | Hyperlane topology with system info panel, territory coloring, system icons |
+| `ref_galaxy_stellaris_full.jpg` | Stellaris | Galaxy map (full) | Full galaxy with color-coded empire territories, faction logos, outliner panel (planets/fleets/ships). Strategic overview gold standard |
+| `ref_empire_stellaris.png` | Stellaris | Empire overview | Outliner sidebar: planets, military fleets, civilian ships with details. How to make a dashboard feel like running an empire |
+| `ref_galaxy_moo.png` | MOO 2016 | Galaxy map | Star visual variety as language (color/size = type), minimalist lane topology, fleet panel |
+| `ref_dock_moo_planet.png` | MOO 2016 | Planet management | Visual anchor (giant planet) + compact stat cards + resource breakdown tiles around it |
+| `ref_hud_moo_select.png` | MOO 2016 | Character select | Master-detail pattern: grid → portrait → traits. Personality conveyed visually. Relevant to FO promotion |
+| `ref_hud_moo_research.png` | MOO 2016 | Research celebration | Milestone as event, not notification. Show the thing, explain reward, one clear action |
+| `ref_dock_starcom.png` | Starcom | Tech tree | Tab navigation, node-graph tech tree, color-coded completion state, hover tooltips, station identity |
+| `ref_dialogue_starcom.png` | Starcom Nexus | Dialogue | Dialogue panel layout, character portrait, response options, planet backdrop |
+| `ref_dock_moo.png` | MOO 2016 | Diplomacy | Two-party mirror layout, disposition bar, clear CTAs. Future faction negotiation reference |
+
+#### Principle-only (different perspective — extract design principles, not composition)
+
+| File | Game | Category | Limitation | Principle to extract |
+|------|------|----------|------------|---------------------|
+| `ref_hud_elite.png` | Elite Dangerous | HUD | First-person cockpit | Information hierarchy through spatial position (shields=circle, speed=left, heat=right). Glanceability without searching |
+| `ref_atmosphere_outer_wilds.png` | Outer Wilds | Atmosphere | First-person ground | Star as dominant visual anchor, atmosphere shader mood. NOT comparable for composition |
+| `ref_atmosphere_endless2.png` | Endless Space 2 | Galaxy mood | Galaxy-scale (not system) | Warm dust lanes against cyan core, minimal HUD. Aspiration for galaxy map backdrop, NOT system view |
+
+#### Known gaps (no reference collected yet)
+
+| Category | What we need | Best source game |
+|----------|-------------|-----------------|
+| Top-down fleet combat (shields, flux) | Starsector fleet battle with shield arcs + flux bars | Starsector |
+| Top-down system cruise (populated) | Starsector patrol/travel through a system with planets | Starsector |
+| Top-down HUD during real-time flight | Starsector or Starcom flight HUD overlay | Starsector |
+
+If no reference images exist for a category, evaluate against the AAA text
+descriptions in Section 0 and the per-dimension AAA standards in Section 9.
 
 ---
 
