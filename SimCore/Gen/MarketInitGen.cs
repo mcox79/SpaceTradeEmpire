@@ -35,7 +35,7 @@ public static class MarketInitGen
             if (geoHash >= (100 - CatalogTweaksV0.RareMetalsNodePct))
             {
                 mkt.Inventory[WellKnownGoodIds.RareMetals] = CatalogTweaksV0.RareMetalsInitialStock;
-                node.Name += " (RareMin)";
+                node.Name += " (Rare Min)";
             }
 
             bool isStarter = i < Math.Min(starCount, GalaxyGenerator.StarterRegionNodeCount);

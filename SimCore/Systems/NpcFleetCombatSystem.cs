@@ -59,7 +59,9 @@ public static class NpcFleetCombatSystem
                 {
                     FleetId = fleetId,
                     HomeNodeId = homeNode,
-                    DestructionTick = state.Tick
+                    DestructionTick = state.Tick,
+                    Role = fleet.Role,
+                    OwnerId = fleet.OwnerId ?? "ai",
                 });
             }
 
@@ -92,20 +94,20 @@ public static class NpcFleetCombatSystem
             // Don't respawn if fleet ID already exists (shouldn't happen, but defensive).
             if (state.Fleets.ContainsKey(entry.FleetId)) { respawned.Add(i); continue; }
 
-            // Respawn with same role derived from fleet ID (same deterministic hash as SeedAiFleets).
-            uint roleHash = SimCore.Gen.GalaxyGenerator.Fnv1a32Utf8(entry.HomeNodeId + "_fleet_role");
-            int bucket = (int)(roleHash % FleetSeedTweaksV0.BucketSize);
-            FleetRole role;
-            float speed;
-            if (bucket < FleetSeedTweaksV0.TraderThreshold) { role = FleetRole.Trader; speed = FleetSeedTweaksV0.TraderSpeed; }
-            else if (bucket < FleetSeedTweaksV0.HaulerThreshold) { role = FleetRole.Hauler; speed = FleetSeedTweaksV0.HaulerSpeed; }
-            else { role = FleetRole.Patrol; speed = FleetSeedTweaksV0.PatrolSpeed; }
+            // GATE.T30.GALPOP.RESPAWN_ENTRY.002: Use stored Role + OwnerId from respawn entry.
+            float speed = entry.Role switch
+            {
+                FleetRole.Trader => FleetSeedTweaksV0.TraderSpeed,
+                FleetRole.Hauler => FleetSeedTweaksV0.HaulerSpeed,
+                FleetRole.Patrol => FleetSeedTweaksV0.PatrolSpeed,
+                _ => FleetSeedTweaksV0.TraderSpeed,
+            };
 
             var fleet = new Fleet
             {
                 Id = entry.FleetId,
-                OwnerId = "ai",
-                Role = role,
+                OwnerId = entry.OwnerId,
+                Role = entry.Role,
                 CurrentNodeId = entry.HomeNodeId,
                 Speed = speed,
                 State = FleetState.Idle,

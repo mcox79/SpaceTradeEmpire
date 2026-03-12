@@ -28,6 +28,8 @@ var _is_hostile: bool = false
 var _spawn_origin: Vector3 = Vector3.ZERO
 
 # GATE.S7.FACTION.PATROL_AGGRO.001: Reputation-based aggro.
+# GATE.T30.GALPOP.HOSTILE_FIX.003: Owner ID from fleet meta (preferred over territory lookup).
+var _owner_id: String = ""
 var _faction_id: String = ""
 var _aggro_check_timer: float = 0.0
 const AGGRO_CHECK_INTERVAL: float = 2.0
@@ -50,6 +52,8 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 func _ready() -> void:
 	# Read meta set by GalaxyView.cs at spawn time.
 	_is_hostile = bool(get_meta("is_hostile", false))
+	# GATE.T30.GALPOP.HOSTILE_FIX.003: Read owner_id from meta for faction resolution.
+	_owner_id = str(get_meta("owner_id", ""))
 	# Capture spawn origin from global_position — _ready fires after AddChild assigns the final position.
 	# GalaxyView.cs does not set "spawn_origin" meta; we read it here from the live scene transform.
 	_spawn_origin = global_position
@@ -61,6 +65,9 @@ func _ready() -> void:
 	if _is_hostile:
 		_is_hostile = _check_reputation_aggro()
 
+	# Sync FleetLabel visibility with resolved hostility.
+	_update_fleet_label()
+
 	_enter_idle()
 
 func _process(delta: float) -> void:
@@ -69,7 +76,10 @@ func _process(delta: float) -> void:
 		_aggro_check_timer -= delta
 		if _aggro_check_timer <= 0.0:
 			_aggro_check_timer = AGGRO_CHECK_INTERVAL
+			var old_hostile := _is_hostile
 			_is_hostile = _check_reputation_aggro()
+			if old_hostile != _is_hostile:
+				_update_fleet_label()
 
 	match _state:
 		State.IDLE:
@@ -190,21 +200,24 @@ func _process_engage(delta: float) -> void:
 		var tangent := dir_away.cross(Vector3.UP).normalized()
 		_move_toward_point(global_position + tangent * 5.0, engage_speed * 0.5, delta)
 
-# --- GATE.S7.FACTION.PATROL_AGGRO.001: Reputation aggro helper ---
+# --- GATE.S7.FACTION.PATROL_AGGRO.001 + GATE.T30.GALPOP.HOSTILE_FIX.003: Reputation aggro helper ---
 
 ## Checks player reputation with this fleet's faction.
 ## Returns true if reputation is below aggro threshold.
+## Default: non-hostile (safe fallback). Hostility only when reputation is explicitly bad.
 func _check_reputation_aggro() -> bool:
 	var tree := get_tree()
 	if tree == null:
-		return true  # Safe default: hostile
+		return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: No tree = non-hostile (safe default)
 	var bridge := tree.root.get_node_or_null("SimBridge")
 	if bridge == null:
-		return true
+		return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: No bridge = non-hostile
 
-	# Resolve faction from the fleet's node. Use fleet_id meta to query transit data,
-	# or fall back to finding the current node from GameManager.
-	if _faction_id.is_empty():
+	# GATE.T30.GALPOP.HOSTILE_FIX.003: Use owner_id for faction, not territory.
+	if not _owner_id.is_empty():
+		_faction_id = _owner_id
+	elif _faction_id.is_empty():
+		# Fallback: resolve faction from territory if no owner_id.
 		var fleet_id: String = str(get_meta("fleet_id", ""))
 		if not fleet_id.is_empty() and bridge.has_method("GetTerritoryAccessV0"):
 			# Determine which node this fleet is at. GameManager tracks current_system_id.
@@ -219,14 +232,22 @@ func _check_reputation_aggro() -> bool:
 					_faction_id = fid
 
 	if _faction_id.is_empty():
-		return true  # No faction resolved — assume hostile
+		return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: No faction = non-hostile
 
 	if bridge.has_method("GetPlayerReputationV0"):
 		var rep_data: Dictionary = bridge.call("GetPlayerReputationV0", _faction_id)
 		var reputation: int = rep_data.get("reputation", 0)
 		return reputation < AGGRO_REPUTATION_THRESHOLD
 
-	return true  # Fallback
+	return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: Fallback non-hostile
+
+
+# --- FleetLabel visibility ---
+
+func _update_fleet_label() -> void:
+	var label := get_node_or_null("FleetLabel") as Label3D
+	if label != null:
+		label.visible = _is_hostile
 
 
 # --- Movement helper ---

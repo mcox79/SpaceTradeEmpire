@@ -244,6 +244,18 @@ public partial class SimBridge
         return role;
     }
 
+    // GATE.T30.GALPOP.BRIDGE_TRANSIT.007: returns fleet OwnerId (faction or "ai").
+    public string GetFleetOwnerIdV0(string fleetId)
+    {
+        string ownerId = "";
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Fleets.TryGetValue(fleetId, out var fleet))
+                ownerId = fleet.OwnerId ?? "";
+        }, 0);
+        return ownerId;
+    }
+
     // GATE.S11.GAME_FEEL.FLEET_STATUS.001: Returns fleet role breakdown at a node.
     // {traders (int), haulers (int), patrols (int), summary (string)}
     // summary is a compact label like "2T 1P" for galaxy map display.
@@ -336,8 +348,9 @@ public partial class SimBridge
                     ["speed"] = fleet.Speed,
                     ["hull_hp"] = fleet.HullHp,
                     ["hull_hp_max"] = fleet.HullHpMax,
-                    ["is_hostile"] = fleet.Role == SimCore.Entities.FleetRole.Patrol
-                        && !StringComparer.Ordinal.Equals(fleet.OwnerId, "player")
+                    // GATE.T30.GALPOP.HOSTILE_FIX.003: Compute hostile from faction reputation.
+                    ["is_hostile"] = ComputeFleetHostileV0(state, fleet),
+                    ["owner_id"] = fleet.OwnerId ?? "",
                 };
                 result.Add(d);
             }
@@ -350,6 +363,26 @@ public partial class SimBridge
         }, 0);
 
         lock (_snapshotLock) { return _cachedFleetTransitV0; }
+    }
+
+    // GATE.T30.GALPOP.HOSTILE_FIX.003: Compute hostile status from fleet owner faction + player reputation.
+    // Only Patrol fleets owned by a non-player faction can be hostile.
+    // Default: non-hostile (safe fallback). Hostility requires reputation below aggro threshold.
+    private static bool ComputeFleetHostileV0(SimCore.SimState state, SimCore.Entities.Fleet fleet)
+    {
+        if (fleet.Role != SimCore.Entities.FleetRole.Patrol)
+            return false;
+        if (StringComparer.Ordinal.Equals(fleet.OwnerId, "player"))
+            return false;
+
+        // Check player reputation with fleet's owner faction.
+        if (!string.IsNullOrEmpty(fleet.OwnerId)
+            && state.FactionReputation.TryGetValue(fleet.OwnerId, out var rep))
+        {
+            return rep < SimCore.Tweaks.FactionTweaksV0.AggroReputationThreshold;
+        }
+        // If no reputation record exists, default reputation is 0 which is > -50 threshold = non-hostile.
+        return false;
     }
 
     public string GetFleetPlayabilityTranscript(int maxEventsPerFleet = 10)

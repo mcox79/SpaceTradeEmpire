@@ -561,4 +561,65 @@ public class ExplorationBotTests
         var effTech = TechContentV0.AllTechs.First(t => t.UnlockEffects.Contains("production_efficiency_10pct"));
         TestContext.WriteLine($"  production_efficiency_10pct: {effTech.TechId} ({effTech.Tier})");
     }
+
+    // ── First-Hour Experience: verifies the new player journey works across seeds ──
+
+    [Test]
+    public void Bot_FirstHourExperience_Across5Seeds()
+    {
+        foreach (var seed in BotSeeds)
+        {
+            var bot = new ExplorationBot { TickBudget = 200 };
+            var report = bot.Run(seed);
+
+            // 1. Player starts with credits > 0
+            Assert.That(report.StartCredits, Is.GreaterThan(0),
+                $"Seed {seed}: player started with 0 credits.\n{report.GetSummary()}");
+
+            // 2. Start node has no Patrol fleet (Q5 fix)
+            var kernel = new SimKernel(seed);
+            var state = kernel.State;
+            var startNode = state.PlayerLocationNodeId;
+            bool hasPatrolAtStart = false;
+            foreach (var kvp in state.Fleets)
+            {
+                if (kvp.Value.CurrentNodeId == startNode && kvp.Value.Role == FleetRole.Patrol)
+                {
+                    hasPatrolAtStart = true;
+                    break;
+                }
+            }
+            Assert.That(hasPatrolAtStart, Is.False,
+                $"Seed {seed}: Patrol fleet found at start node '{startNode}'.");
+
+            // 3. At least 1 profitable trade in 200 ticks
+            Assert.That(report.TotalSells, Is.GreaterThan(0),
+                $"Seed {seed}: bot never sold anything in 200 ticks.\n{report.GetSummary()}");
+
+            // 4. At least 2 nodes visited
+            Assert.That(report.NodesVisited, Is.GreaterThanOrEqualTo(2),
+                $"Seed {seed}: bot visited {report.NodesVisited} nodes (need >=2).\n{report.GetSummary()}");
+
+            // 5. Missions available at start
+            Assert.That(MissionContentV0.AllMissions.Count, Is.GreaterThanOrEqualTo(1),
+                "No missions defined in MissionContentV0.");
+
+            // 6. Modules available
+            Assert.That(UpgradeContentV0.AllModules.Count, Is.GreaterThanOrEqualTo(1),
+                "No modules defined in UpgradeContentV0.");
+
+            // 7. No CRITICAL flags
+            var criticals = report.Flags.Where(f => f.Severity == "CRITICAL").ToList();
+            Assert.That(criticals, Is.Empty,
+                $"Seed {seed}: {criticals.Count} CRITICAL flag(s):\n" +
+                string.Join("\n", criticals.Select(f => $"  [{f.Id}] {f.Detail}")));
+
+            TestContext.WriteLine($"Seed {seed}: PASS — " +
+                $"credits {report.StartCredits}→{report.EndCredits}, " +
+                $"{report.NodesVisited} nodes, " +
+                $"{report.TotalBuys} buys/{report.TotalSells} sells, " +
+                $"{report.CombatsStarted} combats, " +
+                $"flags={report.Flags.Count}");
+        }
+    }
 }

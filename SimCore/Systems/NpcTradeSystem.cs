@@ -29,9 +29,14 @@ public static class NpcTradeSystem
     {
         if (state == null) return;
 
-        // Only evaluate every N ticks (skip early ticks to let galaxy stabilize)
+        // Skip early ticks to let galaxy stabilize.
         if (state.Tick < NpcTradeTweaksV0.EvalIntervalTicks) return;
-        if (state.Tick % NpcTradeTweaksV0.EvalIntervalTicks != 0) return;
+
+        // Traders and patrols evaluate every EvalIntervalTicks (15).
+        // Haulers evaluate every HaulerEvalIntervalTicks (30) for bigger batches.
+        bool isTraderTick = state.Tick % NpcTradeTweaksV0.EvalIntervalTicks == 0;
+        bool isHaulerTick = state.Tick % FleetPopulationTweaksV0.HaulerEvalIntervalTicks == 0;
+        if (!isTraderTick && !isHaulerTick) return;
 
         // Iterate NPC-owned fleets in deterministic order
         var fleetIds = new List<string>(state.Fleets.Keys);
@@ -46,12 +51,18 @@ public static class NpcTradeSystem
             if (!string.IsNullOrEmpty(fleet.CurrentEdgeId)) continue; // in transit
             if (!string.IsNullOrEmpty(fleet.FinalDestinationNodeId)) continue; // already traveling
 
-            if (fleet.Role == FleetRole.Trader)
+            if (fleet.Role == FleetRole.Trader && isTraderTick)
             {
                 if (fleet.CurrentJob != null) continue; // has active logistics job
                 ProcessFleetTrade(state, fleet);
             }
-            else if (fleet.Role == FleetRole.Patrol)
+            else if (fleet.Role == FleetRole.Hauler && isHaulerTick)
+            {
+                // GATE.T30.GALPOP.HAULER_AI.005: Hauler trade AI — wider range, bigger cargo.
+                if (fleet.CurrentJob != null) continue;
+                ProcessFleetHaulerTrade(state, fleet);
+            }
+            else if (fleet.Role == FleetRole.Patrol && isTraderTick)
             {
                 // GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001: Patrol circuit advancement.
                 ProcessPatrolCircuit(state, fleet);
@@ -115,6 +126,130 @@ public static class NpcTradeSystem
         ulong hash = 14695981039346656037UL;
         foreach (char c in input) { hash ^= (byte)c; hash *= 1099511628211UL; }
         return hash;
+    }
+
+    // GATE.T30.GALPOP.HAULER_AI.005: Hauler trade AI — wider search radius, bigger cargo.
+    // Haulers search 2 hops out (vs 1 for traders), carry 30 units (vs 10).
+    private static void ProcessFleetHaulerTrade(SimState state, Fleet fleet)
+    {
+        var currentNodeId = fleet.CurrentNodeId;
+        if (!state.Markets.TryGetValue(currentNodeId, out var localMarket)) return;
+
+        // Deliver any cargo first (same as trader)
+        var cargoGoodsToDeliver = new List<string>(fleet.Cargo.Keys);
+        cargoGoodsToDeliver.Sort(StringComparer.Ordinal);
+
+        foreach (var goodId in cargoGoodsToDeliver)
+        {
+            int qty = fleet.Cargo[goodId];
+            if (qty <= 0) continue;
+            localMarket.Inventory[goodId] = (localMarket.Inventory.TryGetValue(goodId, out var curStock) ? curStock : 0) + qty;
+            fleet.Cargo[goodId] = 0;
+        }
+
+        var toRemove = new List<string>();
+        foreach (var kv in fleet.Cargo)
+            if (kv.Value <= 0) toRemove.Add(kv.Key);
+        foreach (var k in toRemove)
+            fleet.Cargo.Remove(k);
+
+        // Find best trade opportunity within 2 hops
+        var best = FindBestOpportunityMultiHop(state, currentNodeId, localMarket,
+            FleetPopulationTweaksV0.HaulerEvalRadiusHops);
+        if (best == null) return;
+
+        int unitsToPick = Math.Min(best.Units, FleetPopulationTweaksV0.HaulerMaxCargoUnits);
+        if (unitsToPick <= 0) return;
+
+        int newLocalStock = (localMarket.Inventory.TryGetValue(best.GoodId, out var ls) ? ls : 0) - unitsToPick;
+        localMarket.Inventory[best.GoodId] = Math.Max(0, newLocalStock);
+        fleet.Cargo[best.GoodId] = (fleet.Cargo.TryGetValue(best.GoodId, out var cargoQty) ? cargoQty : 0) + unitsToPick;
+
+        fleet.FinalDestinationNodeId = best.DestNodeId;
+        fleet.DestinationNodeId = best.DestNodeId;
+    }
+
+    /// <summary>
+    /// Find best trade opportunity within N hops via BFS adjacency expansion.
+    /// </summary>
+    public static TradeOpportunity? FindBestOpportunityMultiHop(
+        SimState state, string currentNodeId, Market localMarket, int maxHops)
+    {
+        // BFS to find all reachable nodes within maxHops
+        var reachable = new HashSet<string>(StringComparer.Ordinal);
+        var frontier = new HashSet<string>(StringComparer.Ordinal) { currentNodeId };
+
+        for (int hop = 0; hop < maxHops; hop++)
+        {
+            var nextFrontier = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var nodeId in frontier)
+            {
+                foreach (var edge in state.Edges.Values)
+                {
+                    string adj = "";
+                    if (edge.FromNodeId == nodeId) adj = edge.ToNodeId;
+                    else if (edge.ToNodeId == nodeId) adj = edge.FromNodeId;
+                    if (adj.Length > 0 && !reachable.Contains(adj) && adj != currentNodeId)
+                    {
+                        reachable.Add(adj);
+                        nextFrontier.Add(adj);
+                    }
+                }
+            }
+            frontier = nextFrontier;
+        }
+
+        // Evaluate all reachable nodes for trade opportunities
+        TradeOpportunity? best = null;
+
+        var sortedReachable = new List<string>(reachable);
+        sortedReachable.Sort(StringComparer.Ordinal);
+
+        var goodIds = new List<string>(localMarket.Inventory.Keys);
+        goodIds.Sort(StringComparer.Ordinal);
+
+        foreach (var destNodeId in sortedReachable)
+        {
+            if (!state.Markets.TryGetValue(destNodeId, out var destMarket)) continue;
+
+            foreach (var goodId in goodIds)
+            {
+                int localStock = localMarket.Inventory.TryGetValue(goodId, out var lq) ? lq : 0;
+                if (localStock <= 0) continue;
+
+                int buyPrice = localMarket.GetBuyPrice(goodId);
+                int sellPrice = destMarket.GetSellPrice(goodId);
+                int profitPerUnit = sellPrice - buyPrice;
+
+                if (profitPerUnit < NpcTradeTweaksV0.ProfitThresholdCredits) continue;
+
+                int units = Math.Min(localStock, FleetPopulationTweaksV0.HaulerMaxCargoUnits);
+                if (units <= 0) continue;
+
+                int weight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(goodId, out var w)
+                    ? w : NpcTradeTweaksV0.DefaultGoodWeight;
+                long score = (long)profitPerUnit * units * weight;
+                long bestScore = best != null
+                    ? (long)best.ProfitPerUnit * best.Units * (NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(best.GoodId, out var bw) ? bw : NpcTradeTweaksV0.DefaultGoodWeight)
+                    : 0;
+
+                if (best == null || score > bestScore)
+                {
+                    best = new TradeOpportunity
+                    {
+                        GoodId = goodId,
+                        SourceNodeId = currentNodeId,
+                        DestNodeId = destNodeId,
+                        BuyPrice = buyPrice,
+                        SellPrice = sellPrice,
+                        ProfitPerUnit = profitPerUnit,
+                        Units = units,
+                    };
+                }
+            }
+        }
+
+        return best;
     }
 
     private static void ProcessFleetTrade(SimState state, Fleet fleet)

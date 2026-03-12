@@ -60,6 +60,9 @@ var _risk_meter_widget: Control = null
 # GATE.S7.RISK_METER_UI.SCREEN_EDGE.001: Screen edge vignette overlay.
 var _screen_edge_tint: ColorRect = null
 
+# FEEL_BASELINE: Screen-space damage flash overlay.
+var _damage_flash: ColorRect = null
+
 # GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert count badge in Zone A.
 var _alert_badge: Control = null
 var _alert_badge_label: Label = null
@@ -269,6 +272,16 @@ func _ready() -> void:
 	_screen_edge_tint = ScreenEdgeTintScript.new()
 	add_child(_screen_edge_tint)
 
+	# FEEL_BASELINE: Full-screen red flash for combat damage feedback.
+	_damage_flash = ColorRect.new()
+	_damage_flash.name = "DamageFlash"
+	_damage_flash.color = Color(0.8, 0.1, 0.05, 0.0)
+	_damage_flash.position = Vector2.ZERO
+	_damage_flash.size = Vector2(1920, 1080)
+	_damage_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_damage_flash.visible = true
+	add_child(_damage_flash)
+
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 	_zone_g_bg = ColorRect.new()
 	_zone_g_bg.name = "ZoneGBg"
@@ -469,7 +482,8 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _fleet_auto_panel: _fleet_auto_panel.visible = not active
 	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
-	if _fo_panel: _fo_panel.visible = not active
+	# FEEL_POST_BASELINE: FO panel always suppressed (no toggle key exists).
+	if _fo_panel: _fo_panel.visible = false
 	if _data_log_panel and active: _data_log_panel.visible = false
 	if _knowledge_web_panel and active: _knowledge_web_panel.visible = false
 	if active:
@@ -490,15 +504,32 @@ func _physics_process(_delta: float) -> void:
 	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: show "X items" suffix
 	_cargo_label.text = "Cargo: %d items" % int(ps.get("cargo_count", 0))
 	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
-	_node_label.text = node_display
+	_node_label.text = _truncate_resource_types(node_display)
 	var raw_state = str(ps.get("ship_state_token", ""))
 	match raw_state:
 		"DOCKED":
 			_state_label.text = "Docked"
 		"IN_LANE_TRANSIT":
-			_state_label.text = "Traveling"
+			# FEEL_BASELINE: Show destination name during warp transit.
+			var dest_name := _get_transit_dest_name()
+			if dest_name.is_empty():
+				_state_label.text = "Traveling..."
+			else:
+				_state_label.text = "Traveling to %s" % dest_name
 		_:
-			_state_label.text = "Flying"
+			# FEEL_POST_BASELINE: Show "COMBAT" when hostile NPCs are in aggro range.
+			var in_combat := _is_hostile_nearby()
+			if in_combat:
+				_state_label.text = "COMBAT"
+				_state_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+			else:
+				_state_label.text = "Flying"
+				_state_label.remove_theme_color_override("font_color")
+
+	# FEEL_POST_BASELINE: FO panel always hidden — it ate 20% screen width with
+	# no actionable content. No F-key toggle exists yet, so suppress entirely.
+	if _fo_panel:
+		_fo_panel.visible = false
 
 	# HP bars: hull (red/green) and shield (blue)
 	if _bridge.has_method("GetFleetCombatHpV0"):
@@ -857,3 +888,51 @@ func hide_dock_prompt_v0() -> void:
 	if _dock_prompt_label == null:
 		return
 	_dock_prompt_label.visible = false
+
+
+# Truncate system names with multiple resource type tags.
+# "System 10 (RareMin)(Mining)..." → "System 10 (RareMin)..."
+# Mirrors GalaxyView.cs TruncateResourceTypesV0.
+# FEEL_BASELINE: Read transit destination name from GameManager autoload.
+func _get_transit_dest_name() -> String:
+	var gm = get_node_or_null("/root/GameManager")
+	if gm == null:
+		return ""
+	var dest_id = gm.get("_lane_dest_node_id")
+	if dest_id == null or str(dest_id).is_empty():
+		return ""
+	# Resolve display name from bridge snapshot.
+	if _bridge and _bridge.has_method("GetNodeDisplayNameV0"):
+		return str(_bridge.call("GetNodeDisplayNameV0", str(dest_id)))
+	return str(dest_id)
+
+# FEEL_BASELINE: Flash red overlay on player damage. Called from bullet.gd.
+func flash_damage_v0() -> void:
+	if _damage_flash == null:
+		return
+	_damage_flash.color.a = 0.12
+	var tween := create_tween()
+	tween.tween_property(_damage_flash, "color:a", 0.0, 0.2)
+
+# FEEL_POST_BASELINE: Check if a hostile NPC is within aggro range of the player.
+func _is_hostile_nearby() -> bool:
+	var gm = get_node_or_null("/root/GameManager")
+	if gm == null:
+		return false
+	if gm.has_method("_find_nearest_fleet_v0"):
+		var nearest = gm.call("_find_nearest_fleet_v0", 60.0)
+		if nearest != null and nearest.get_meta("is_hostile", false):
+			return true
+	return false
+
+func _truncate_resource_types(display_text: String) -> String:
+	var first_open := display_text.find("(")
+	if first_open < 0:
+		return display_text
+	var first_close := display_text.find(")", first_open)
+	if first_close < 0:
+		return display_text
+	var second_open := display_text.find("(", first_close + 1)
+	if second_open >= 0:
+		return display_text.left(first_close + 1) + "..."
+	return display_text

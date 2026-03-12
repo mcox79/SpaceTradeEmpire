@@ -104,9 +104,8 @@ public static class GalaxyGenerator
         // Phase 3: Generate stars and planets (deterministic from node hashes, no RNG).
         PlanetInitGen.InitPlanets(state, nodesList);
 
-        // Phase 4: Wire lanes and seed AI fleets.
+        // Phase 4: Wire lanes (fleet seeding moved to Phase 7.5 — needs faction territories).
         StarNetworkGen.WireLanes(state, nodesList);
-        StarNetworkGen.SeedAiFleets(state, nodesList);
 
         // Phase 5: Seed void sites between star pairs (deterministic from node hashes, no RNG).
         SeedVoidSitesV0(state, nodesList);
@@ -129,17 +128,26 @@ public static class GalaxyGenerator
         // Phase 7: Seed warfronts (deterministic from faction territories, no RNG).
         SeedWarfrontsV0(state);
 
+        // Phase 7.5: GATE.T30.GALPOP.FACTION_SEED.004 — Seed faction-aware AI fleets.
+        // Must run AFTER SeedFactionTerritoriesV0 (Phase 6.5) so NodeFactionId is populated.
+        StarNetworkGen.SeedAiFleets(state, nodesList);
+
+        // Phase 7.6: GATE.T30.GALPOP.MARKET_DIVERSITY.006 — Apply faction market bias.
+        ApplyFactionMarketBiasV0(state);
+
         // Phase 8: GATE.S7.STARTER_PLACEMENT.WARFRONT.001 — relocate player start to a
         // starter-region node that is 1-hop from a contested warfront node.
         PickWarfrontAdjacentStarterV0(state);
 
         // Q5: After player start may have moved, ensure no hostile patrol at the final start node.
-        var startFleetId = $"ai_fleet_{state.PlayerLocationNodeId}";
-        if (state.Fleets.TryGetValue(startFleetId, out var startFleet)
-            && startFleet.Role == FleetRole.Patrol)
+        // GATE.T30.GALPOP.FACTION_SEED.004: Iterate all fleets at start node (multiple per node now).
+        foreach (var fleet in state.Fleets.Values)
         {
-            startFleet.Role = FleetRole.Trader;
-            startFleet.Speed = Tweaks.FleetSeedTweaksV0.TraderSpeed;
+            if (fleet.CurrentNodeId == state.PlayerLocationNodeId && fleet.Role == FleetRole.Patrol)
+            {
+                fleet.Role = FleetRole.Trader;
+                fleet.Speed = Tweaks.FleetSeedTweaksV0.TraderSpeed;
+            }
         }
 
         // Phase 9: GATE.T18.NARRATIVE.LOG_PLACEMENT.001 — Place data logs and Kepler chain.
@@ -1160,6 +1168,31 @@ public static class GalaxyGenerator
                 uint hA = Fnv1a32Utf8(vs.Id + "_void_boost_a");
                 int boost = Tweaks.InstabilityTweaksV0.VoidSiteInstabilityMin / 5 + (int)(hA % 5); // STRUCTURAL: /5 for mild boost
                 nearA.InstabilityLevel = Math.Min(nearA.InstabilityLevel + boost, Tweaks.InstabilityTweaksV0.VoidSiteInstabilityMax);
+            }
+        }
+    }
+
+    // GATE.T30.GALPOP.MARKET_DIVERSITY.006: Apply faction-specific market inventory bias.
+    // Each faction's territory starts with surplus of their pentagon production good and
+    // deficit of their needed good, creating natural price differentials that drive NPC trade.
+    private static void ApplyFactionMarketBiasV0(SimState state)
+    {
+        foreach (var kv in state.NodeFactionId.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            var nodeId = kv.Key;
+            var factionId = kv.Value;
+            if (!state.Markets.TryGetValue(nodeId, out var market)) continue;
+
+            var (surplusGoods, deficitGoods) = Tweaks.FleetPopulationTweaksV0.GetMarketBias(factionId);
+            foreach (var goodId in surplusGoods)
+            {
+                int current = market.Inventory.TryGetValue(goodId, out var s) ? s : 0;
+                market.Inventory[goodId] = current + Tweaks.FleetPopulationTweaksV0.SurplusAmount;
+            }
+            foreach (var goodId in deficitGoods)
+            {
+                int current = market.Inventory.TryGetValue(goodId, out var d) ? d : 0;
+                market.Inventory[goodId] = Math.Max(0, current - Tweaks.FleetPopulationTweaksV0.DeficitAmount);
             }
         }
     }

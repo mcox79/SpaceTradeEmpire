@@ -245,10 +245,11 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
 		return
-	# Single prompt: meet your FO. No keybind dump.
+	# Single prompt: meet your FO. Auto-dismisses after 8s (was persistent priority toast).
+	# FEEL_BASELINE: Reduced from priority_toast to regular toast — doesn't need to persist.
 	await get_tree().create_timer(3.0).timeout
-	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
-		toast_mgr.call("show_priority_toast", "Press F to meet your First Officer.", "fo")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Press F to meet your First Officer.", 8.0)
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save with cooldown and toast.
 func _try_autosave_v0() -> void:
@@ -1268,12 +1269,19 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		dest_gate_pos = gv.call("GetCachedGateGlobalPositionV0", neighbor_node_id, _lane_origin_node_id)
 	# Fallback if cache returned star center (gate at star center means offset failed).
 	# A star CAN be at (0,0,0) so check if gate equals star center, not if gate is zero.
-	if origin_gate_pos == origin_star_center and dest_pos != origin_star_center:
-		var lane_dir_fb := (dest_pos - origin_star_center).normalized()
-		origin_gate_pos = origin_star_center + lane_dir_fb * 90.0
-	if dest_gate_pos == dest_pos and dest_pos != origin_star_center:
-		var lane_dir_fb := (dest_pos - origin_star_center).normalized()
-		dest_gate_pos = dest_pos - lane_dir_fb * 90.0
+	if dest_pos == origin_star_center:
+		# Stars overlap — use a synthetic direction so transit has nonzero length
+		var synth_angle := float(neighbor_node_id.hash()) * 0.001
+		var synth_dir := Vector3(cos(synth_angle), 0.0, sin(synth_angle))
+		origin_gate_pos = origin_star_center - synth_dir * 90.0
+		dest_gate_pos = origin_star_center + synth_dir * 90.0
+	else:
+		if origin_gate_pos == origin_star_center:
+			var lane_dir_fb := (dest_pos - origin_star_center).normalized()
+			origin_gate_pos = origin_star_center + lane_dir_fb * 90.0
+		if dest_gate_pos == dest_pos:
+			var lane_dir_fb := (dest_pos - origin_star_center).normalized()
+			dest_gate_pos = dest_pos - lane_dir_fb * 90.0
 
 	# Compute lane direction from gate to gate.
 	var lane_dir := (dest_gate_pos - origin_gate_pos)
@@ -2116,7 +2124,6 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 
 # GATE.S14.STARTER.MISSION_PROMPT.001: Replaced by GATE.S19.ONBOARD.DOCK_DISCLOSURE.009 (progressive tabs).
 # Kept as no-op for headless test compat.
-var _first_dock_jobs_shown: bool = false
 func _check_first_dock_mission_prompt_v0() -> void:
 	pass
 

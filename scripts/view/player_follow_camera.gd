@@ -18,8 +18,9 @@ enum CameraMode {
 @export var target_path: NodePath
 
 # Flight mode: top-down (Starcom Nexus style) — camera directly above player.
-@export var flight_offset: Vector3 = Vector3(0, 80, 1)
-@export var flight_follow_distance: float = 80.0
+# VISUAL_OVERHAUL: Raised from 80 to 120 for 1.5x system scale.
+@export var flight_offset: Vector3 = Vector3(0, 120, 1)
+@export var flight_follow_distance: float = 120.0
 
 # Docked mode: fixed camera transform when docked at any target.
 @export var dock_offset: Vector3 = Vector3(0, 40, 25)
@@ -46,15 +47,16 @@ var _current_fov: float = 60.0
 # Below PAN_THRESHOLD: rigid top-down above player.
 # Above PAN_THRESHOLD: manual position, WASD panning, galaxy map behavior.
 const ALTITUDE_MIN: float = 8.0
-const ALTITUDE_MAX: float = 3000.0  # GATE.X.UI_POLISH.CAMERA_BOUNDS.001: Clamp to prevent invisible content at 3853u+.
+const ALTITUDE_MAX: float = 6000.0  # FEEL_POST_BASELINE: Raised to allow strategic view of full galaxy at 25x scale.
 const PAN_THRESHOLD: float = 200.0    # Above this: WASD panning, manual drive.
 const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering active.
-const STRATEGIC_ALTITUDE: float = 2500.0  # GATE.X.UI_POLISH.GALAXY_MAP_UX.001: Raised for full galaxy topology at 25x scale.
+const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500 so neighbor nodes are visible on map open.
 const GALAXY_MAP_PAN_SPEED: float = 2000.0
 const GALAXY_MAP_LERP_SPEED: float = 4.0
-var _altitude: float = 80.0  # Unified altitude (replaces flight_follow_distance + galaxy_map_altitude).
-var _pre_strategic_altitude: float = 80.0  # Altitude before TAB jump, for TAB toggle-back.
-var _pre_transit_altitude: float = 80.0   # Altitude before lane transit, for post-transit restore.
+# VISUAL_OVERHAUL: Raised from 80 to 120 for 1.5x system scale.
+var _altitude: float = 120.0  # Unified altitude (replaces flight_follow_distance + galaxy_map_altitude).
+var _pre_strategic_altitude: float = 120.0  # Altitude before TAB jump, for TAB toggle-back.
+var _pre_transit_altitude: float = 120.0   # Altitude before lane transit, for post-transit restore.
 var _galaxy_map_pan_offset: Vector3 = Vector3.ZERO
 var _galaxy_panning: bool = false
 var _galaxy_pan_last_mouse: Vector2 = Vector2.ZERO

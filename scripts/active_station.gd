@@ -90,7 +90,7 @@ func _on_body_entered(body):
 	if gm and gm.has_method("on_dock_proximity_v0"):
 		gm.on_dock_proximity_v0(self)
 
-func _on_body_exited(body):
+func _on_body_exited(_body):
 	var gm = get_node_or_null("/root/GameManager")
 	if gm and gm.has_method("on_dock_proximity_exit_v0"):
 		gm.on_dock_proximity_exit_v0(self)

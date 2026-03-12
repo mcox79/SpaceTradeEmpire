@@ -409,15 +409,209 @@ Check that visible UI elements conform to ui_theme.gd:
 
 ---
 
-## 9. GAME FEEL SYNTHESIS
+## 9. FEEL SCORING DIMENSIONS
 
-After reviewing all screenshots as a set:
+After reviewing all screenshots as a set, evaluate the game across five **feel
+dimensions**. These synthesize the per-screenshot evidence from Sections 1-8 into
+a holistic verdict. Each dimension asks: "Does this game meet the standard that
+successful space games have established?"
 
-- **Does the game look polished enough to show publicly?** (even as early access)
-- **Is there a consistent visual identity?** Dark space theme, navy panels, semantic colors
-- **Does information escalate naturally?** Simple in flight → detailed when docked → strategic in map/dashboard
-- **Would you want to explore this galaxy?** The ultimate space game question
-- **What's the single biggest visual improvement that would raise the bar?**
+**Important:** You are not grading isolated screenshots. You are grading the
+*experience arc* visible across the full screenshot set — boot → flight → dock →
+travel → combat → galaxy map → progression.
+
+### Dimension 1: COMPOSITION
+
+*Does the visual frame direct the player's eye correctly?*
+
+Evidence sources: Every screenshot (Section 1 first impression applies to all).
+
+| Criterion | What to look for |
+|-----------|-----------------|
+| Focal point | Each frame has a clear primary subject (ship, star, menu, planet) |
+| Visual hierarchy | Most important element is largest/brightest/most contrasted |
+| Negative space | Space feels vast but not empty — background stars, dust, distant objects fill void |
+| Balance | UI elements don't cluster on one side; 3D scene uses depth (fore/mid/background) |
+| Framing | Camera position puts the action where the eye naturally goes (center-left for flight, center for menus) |
+
+AAA standard: Everspace 2 flight views always have a clear focal planet/station with the ship framed
+against it. Stellaris galaxy map uses node size + glow to create visual hierarchy. Starsector combat
+keeps the player ship center with enemies clearly distributed around it.
+
+### Dimension 2: READABILITY
+
+*Can the player parse the game state in under 3 seconds?*
+
+Evidence sources: Sections 3 (HUD), 4 (Dock), 5 (Galaxy Map), 6 (Empire Dashboard), 8 (Technical).
+
+| Criterion | What to look for |
+|-----------|-----------------|
+| Glanceability | Health, credits, location identifiable without searching |
+| Contrast | Text readable against all backgrounds (space, panels, overlays) |
+| Information density | Enough info to act on, not so much the eye bounces without landing |
+| Typographic hierarchy | Title > heading > body > caption — sizes and weights distinguish levels |
+| State communication | Current game mode (flying/docked/transit/combat) obvious from HUD alone |
+
+AAA standard: Elite Dangerous — the entire ship state reads in one glance (shields as
+circle, hull as bar, target in center, speed left, heat right). FTL — health, fuel,
+crew, systems — all visible simultaneously without scrolling. EVE Online — despite
+extreme complexity, the overview panel prioritizes what you need NOW.
+
+### Dimension 3: SCALE & SPACE
+
+*Does the universe feel appropriately vast and the player appropriately small?*
+
+Evidence sources: Section 2 (Solar System View), Section 5 (Galaxy Map).
+
+| Criterion | What to look for |
+|-----------|-----------------|
+| Relative sizing | Stars >> planets >> stations >> ships. Hierarchy consistently maintained |
+| Depth cues | Near objects larger/brighter than far ones. Parallax between layers |
+| Vastness | Space between objects creates awe, not boredom. Systems don't feel like cluttered rooms |
+| Galaxy scope | Galaxy map conveys dozens-to-hundreds of systems. Universe feels explorable |
+| Variety across systems | Different systems genuinely look different (star color, planet count, belt presence) |
+
+AAA standard: Elite Dangerous — dropping out of supercruise near a ringed gas giant
+creates genuine awe. Stellaris — zooming from galaxy to system to planet smoothly
+conveys scale. Outer Wilds — small solar system but every angle reveals new depth.
+
+### Dimension 4: POLISH
+
+*Does the game feel finished or prototypey?*
+
+Evidence sources: Sections 3-6 (all UI panels), Section 8 (Technical Compliance).
+
+| Criterion | What to look for |
+|-----------|-----------------|
+| Alignment | UI elements aligned to grid. No 1-2px misalignments between related elements |
+| Consistency | Same element looks the same everywhere (buttons, panels, labels, borders) |
+| Empty states | "No items" is handled gracefully, not blank space or missing panel |
+| Edge cases | Long text truncates with ellipsis not overflow. Large numbers formatted correctly |
+| Visual coherence | All panels share the same dark navy aesthetic. No rogue colors or mismatched styles |
+
+AAA standard: Slay the Spire — even as indie, every card, every panel, every tooltip
+is pixel-perfect. Starsector — complex UI but every panel follows the same design
+language consistently. FTL — tiny budget, immaculate polish.
+
+### Dimension 5: ATMOSPHERE
+
+*Does this feel like a space game? Would you want to explore this galaxy?*
+
+Evidence sources: Section 2 (Solar System View), Section 7 (Time Progression), overall set.
+
+| Criterion | What to look for |
+|-----------|-----------------|
+| Mood | Lighting creates emotional tone: warm sun = safe harbor, red dwarf = desolate frontier |
+| Star field | Background stars visible, dense enough to feel cosmic, not uniform noise |
+| Emission/glow | Stars, engines, stations have glow/bloom. Space isn't lit by invisible flat lights |
+| Color identity | Each system has a distinct color personality driven by its star class |
+| Life signs | NPC ships, particle trails, station lights — the galaxy feels inhabited, not static |
+
+AAA standard: Everspace 2 — every system has a distinct color palette and mood.
+Mass Effect galaxy map — each cluster feels like a real region with character.
+Homeworld — minimal HUD, maximum atmosphere, emptiness that feels intentional.
+
+---
+
+## 10. REFERENCE COMPARISON
+
+When reference screenshots are available in `reports/references/`, use them for
+**principle comparison** — not visual copying.
+
+### How to use references
+
+**DO:**
+- Compare UX principles: "Reference shows health as a thick arc wrapping the reticle.
+  Our thin bar in the top-left corner requires the player to look away from the action."
+- Compare information hierarchy: "Reference puts credits front-center during trade.
+  Ours buries credits in a side panel."
+- Compare spatial composition: "Reference frames the station as the visual anchor
+  with the ship approaching. Ours shows station as a small object among many."
+- Compare polish level: "Reference has consistent 8px padding on all panels.
+  Ours varies between 4px and 12px."
+
+**DO NOT:**
+- Suggest copying art style, color scheme, or specific layout
+- Penalize for having a different visual identity
+- Assume the reference game's choices are always correct for this game
+- Compare asset quality (AAA budget vs indie budget is not the point)
+
+### Reference categories
+
+Two tiers of references:
+- **AAA references** — aspirational UX principles from high-budget games
+- **Peer references** — realistic scope/budget references from similar indie games
+
+| File | Game | Category | What principle to extract |
+|------|------|----------|--------------------------|
+| `ref_hud_elite.png` | Elite Dangerous | HUD (AAA) | Information hierarchy — shields, hull, speed, heat all glanceable through position, not just size |
+| `ref_galaxy_stellaris.png` | Stellaris | Galaxy map (AAA) | Color-coded empires, clear hyperlane topology, system icons communicate type |
+| `ref_galaxy_moo.png` | MOO 2016 | Galaxy map (AAA) | Star visual variety as language, minimalist lane topology, fleet panel with ship class thumbnails |
+| `ref_dock_moo.png` | MOO 2016 | Diplomacy/trade (AAA) | Two-party mirror layout, disposition bar, clear CTAs |
+| `ref_dock_moo_planet.png` | MOO 2016 | Colony management (AAA) | Visual anchor (planet) + compact stat card + resource breakdown tiles |
+| `ref_hud_moo_select.png` | MOO 2016 | Faction select (AAA) | Master-detail pattern: grid → portrait → traits. Personality conveyed visually |
+| `ref_hud_moo_research.png` | MOO 2016 | Research celebration (AAA) | Milestone as event, not notification. Show the thing, explain reward, one clear action |
+| `ref_atmosphere_outer_wilds.png` | Outer Wilds | Atmosphere (AAA) | Intimate scale, visible curvature, atmosphere shader creates mood |
+| `ref_atmosphere_endless2.png` | Endless Space 2 | Atmosphere (AAA) | Galaxy-scale awe, warm dust lanes against cyan core, minimal HUD |
+| `ref_combat_starcom.png` | Starcom Unknown | Combat (peer) | Top-down combat readability: shield bubbles, projectile trails, target brackets, planet depth layers |
+| `ref_dock_starcom.png` | Starcom Unknown | Tech tree (peer) | Tab navigation, node-graph tech tree, color-coded completion state, hover tooltips, station identity |
+| `ref_dialogue_starcom.png` | Starcom Nexus | Dialogue (peer) | Dialogue panel layout, character portrait, response options |
+| `ref_dock_starsector.png` | Starsector | Market/trade (peer) | Grid-based commodity inventory, tabbed categories, faction info + planet visual anchor |
+| `ref_dock_starsector_refit.png` | Starsector | Ship fitting (peer) | Ship model with hardpoint slots, weapon stat panel, hull features, dense but readable |
+
+If no reference images exist yet, evaluate against the AAA text descriptions in
+Section 0 and the per-dimension AAA standards in Section 9.
+
+---
+
+## 11. PRESCRIPTION OUTPUT FORMAT
+
+When evaluating for the `/feel` skill, produce **semantic prescriptions** — describe
+what should change in game-design terms, NOT in code terms. The main Claude context
+(which has codebase access) will map prescriptions to actual file/parameter changes.
+
+### Prescription structure
+
+Each prescription must include:
+
+```
+PRESCRIPTION #N
+  Dimension:    [composition | readability | scale_space | polish | atmosphere]
+  Confidence:   [high | medium | low]
+  Severity:     [critical | major | minor | suggestion]
+  Tag:          [BUG | UX | POLISH | GAP | OPINION]
+  Issue:        One-sentence description of what's wrong
+  Evidence:     Which screenshot(s) show the problem, and what specifically to look at
+  Standard:     What the AAA reference standard is for this element
+  Prescription: Specific, measurable change to make (e.g., "increase explosion radius
+                to 2-3x ship width" not "make explosions bigger")
+  Metric:       How to verify the fix worked in the next iteration
+```
+
+### Confidence levels
+
+- **High**: Objectively measurable (contrast ratio, element overlap, text truncation,
+  missing UI element). Safe to act on immediately.
+- **Medium**: Subjective but well-supported by reference standards (composition
+  imbalance, insufficient visual hierarchy). Worth addressing.
+- **Low**: Pure aesthetic opinion (color preference, layout alternative). Present
+  as option, don't prioritize.
+
+### Iteration comparison (iterations 2+)
+
+When evaluating a re-run after changes, compare against the previous iteration's
+scores and prescriptions:
+
+```
+ITERATION DELTA:
+  Improved:   [list prescriptions that were addressed and are now better]
+  Regressed:  [list dimensions that got worse — possible side effects of changes]
+  Unchanged:  [list prescriptions that were not addressed or had no visible effect]
+  New issues: [list problems that appeared in this iteration but not the previous]
+```
+
+**Regression is the most important signal.** If fixing one thing broke another, flag
+it immediately. This prevents oscillation.
 
 ---
 
@@ -434,10 +628,27 @@ For each screenshot, rate:
   Theme Compliance:  PASS / NEEDS_WORK / FAIL — notes
 ```
 
-End with:
+Then synthesize across ALL screenshots using the five feel dimensions:
+
 ```
-OVERALL SYNTHESIS:
+FEEL SYNTHESIS:
+  Composition:    PASS / NEEDS_WORK / FAIL — notes
+  Readability:    PASS / NEEDS_WORK / FAIL — notes
+  Scale & Space:  PASS / NEEDS_WORK / FAIL — notes
+  Polish:         PASS / NEEDS_WORK / FAIL — notes
+  Atmosphere:     PASS / NEEDS_WORK / FAIL — notes
+```
+
+Then list prescriptions in priority order:
+
+```
+PRESCRIPTIONS (ranked by severity × confidence):
+  #1: [prescription block]
+  #2: [prescription block]
+  ...
+
+OVERALL:
   Top 3 Strengths: ...
   Top 3 Issues: ...
-  Priority Fix: ...
+  Priority Fix: The single most impactful change for the next iteration
 ```

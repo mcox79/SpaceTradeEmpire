@@ -323,6 +323,20 @@ public static class MapQueries
             rumored.Add(token);
         }
 
+        // FEEL_BASELINE: Promote lane-connected neighbors of visited nodes to RUMORED.
+        // Ensures galaxy map shows "???" endpoints for all visible lane lines,
+        // giving the player visible destinations to plan routes toward.
+        var visited = state.PlayerVisitedNodeIds;
+        foreach (var edge in state.Edges.Values)
+        {
+            var fromId = edge.FromNodeId ?? "";
+            var toId = edge.ToNodeId ?? "";
+            if (visited.Contains(fromId) && !visited.Contains(toId) && !string.IsNullOrEmpty(toId))
+                rumored.Add(toId);
+            if (visited.Contains(toId) && !visited.Contains(fromId) && !string.IsNullOrEmpty(fromId))
+                rumored.Add(fromId);
+        }
+
         // GATE.S1.GALAXY_MAP.FLEET_COUNTS.001: count fleets per node for overlay display.
         var fleetCountsByNode = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var fleet in state.Fleets.Values)

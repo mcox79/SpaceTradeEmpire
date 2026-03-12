@@ -83,8 +83,9 @@ static func spawn_hit(parent: Node, ship_pos: Vector3, impact_point: Vector3) ->
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.name = "ShieldSphere"
 	var sphere := SphereMesh.new()
-	sphere.radius = 4.0
-	sphere.height = 8.0
+	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	sphere.radius = 30.0
+	sphere.height = 60.0
 	sphere.radial_segments = 24
 	sphere.rings = 12
 	mesh_inst.mesh = sphere
@@ -133,8 +134,9 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	var flash := MeshInstance3D.new()
 	flash.name = "BreakFlash"
 	var sphere := SphereMesh.new()
-	sphere.radius = 5.0
-	sphere.height = 10.0
+	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	sphere.radius = 35.0
+	sphere.height = 70.0
 	flash.mesh = sphere
 	var flash_mat := StandardMaterial3D.new()
 	flash_mat.albedo_color = Color(0.6, 0.8, 1.0, 0.7)
@@ -177,13 +179,14 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 0, 0)
 	proc_mat.spread = 180.0
-	proc_mat.initial_velocity_min = 35.0
-	proc_mat.initial_velocity_max = 75.0
+	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	proc_mat.initial_velocity_min = 200.0
+	proc_mat.initial_velocity_max = 450.0
 	proc_mat.gravity = Vector3.ZERO
-	proc_mat.scale_min = 0.5
-	proc_mat.scale_max = 1.2
-	proc_mat.damping_min = 5.0
-	proc_mat.damping_max = 10.0
+	proc_mat.scale_min = 3.0
+	proc_mat.scale_max = 7.0
+	proc_mat.damping_min = 15.0
+	proc_mat.damping_max = 30.0
 	# Electric blue-white color with fade.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(0.6, 0.8, 1.0, 1.0))
@@ -195,8 +198,9 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.6
-	mesh.height = 1.2
+	# FEEL_BASELINE: Scaled for altitude visibility.
+	mesh.radius = 4.0
+	mesh.height = 8.0
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)
@@ -235,13 +239,14 @@ static func spawn_hull_sparks(parent: Node, ship_pos: Vector3, impact_point: Vec
 	var local_dir := (impact_point - ship_pos).normalized()
 	proc_mat.direction = local_dir if local_dir.length() > 0.1 else Vector3(0, 1, 0)
 	proc_mat.spread = 65.0
-	proc_mat.initial_velocity_min = 30.0
-	proc_mat.initial_velocity_max = 65.0
-	proc_mat.gravity = Vector3(0, -1.0, 0)
-	proc_mat.scale_min = 0.8
-	proc_mat.scale_max = 1.8
-	proc_mat.damping_min = 4.0
-	proc_mat.damping_max = 8.0
+	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	proc_mat.initial_velocity_min = 180.0
+	proc_mat.initial_velocity_max = 400.0
+	proc_mat.gravity = Vector3(0, -5.0, 0)
+	proc_mat.scale_min = 4.0
+	proc_mat.scale_max = 10.0
+	proc_mat.damping_min = 12.0
+	proc_mat.damping_max = 25.0
 	# Orange-yellow spark gradient with fade — brighter for altitude visibility.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(1.0, 0.9, 0.3, 1.0))   # Bright yellow-orange
@@ -253,8 +258,9 @@ static func spawn_hull_sparks(parent: Node, ship_pos: Vector3, impact_point: Vec
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.8
-	mesh.height = 1.6
+	# FEEL_BASELINE: Scaled for altitude visibility.
+	mesh.radius = 5.0
+	mesh.height = 10.0
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)

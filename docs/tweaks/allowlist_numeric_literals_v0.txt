@@ -241,3 +241,6 @@ SimCore/Systems/SustainSystem.cs:0
 SimCore/Systems/NarrativeNpcSystem.cs:0
 SimCore/Systems/NarrativeNpcSystem.cs:14695981039346656037UL
 SimCore/Systems/NarrativeNpcSystem.cs:1099511628211UL
+
+# GATE.T30.GALPOP.FACTION_SEED.004: structural zeros (loop counter init, loop start index)
+SimCore/Gen/StarNetworkGen.cs:0

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using SimCore.Entities;
 using SimCore.Tweaks;
@@ -97,45 +98,56 @@ public static class StarNetworkGen
         }
     }
 
+    // GATE.T30.GALPOP.FACTION_SEED.004: Faction-aware fleet seeding.
+    // Each faction seeds its controlled nodes with a fleet composition from FleetPopulationTweaksV0.
+    // Must be called AFTER SeedFactionTerritoriesV0 so NodeFactionId is populated.
     public static void SeedAiFleets(SimState state, List<Node> nodesList)
     {
         foreach (var node in nodesList)
         {
-            // GATE.S14.NPC_ALIVE.FLEET_SEED.001: deterministic role diversity.
-            uint roleHash = GalaxyGenerator.Fnv1a32Utf8(node.Id + "_fleet_role");
-            int bucket = (int)(roleHash % FleetSeedTweaksV0.BucketSize);
-            FleetRole role;
-            float speed;
-            if (bucket < FleetSeedTweaksV0.TraderThreshold) { role = FleetRole.Trader; speed = FleetSeedTweaksV0.TraderSpeed; }
-            else if (bucket < FleetSeedTweaksV0.HaulerThreshold) { role = FleetRole.Hauler; speed = FleetSeedTweaksV0.HaulerSpeed; }
-            else { role = FleetRole.Patrol; speed = FleetSeedTweaksV0.PatrolSpeed; }
+            string factionId = state.NodeFactionId.TryGetValue(node.Id, out var fid) ? fid : "";
+            var (traders, haulers, patrols) = FleetPopulationTweaksV0.GetComposition(factionId);
+            string ownerId = string.IsNullOrEmpty(factionId) ? "ai" : factionId;
 
-            // Q5: No hostile patrol at player's starting system — new players can dock safely.
-            if (node.Id == state.PlayerLocationNodeId && role == FleetRole.Patrol)
-            {
-                role = FleetRole.Trader;
-                speed = FleetSeedTweaksV0.TraderSpeed;
-            }
-
-            var fleet = new Fleet
-            {
-                Id = $"ai_fleet_{node.Id}",
-                OwnerId = "ai",
-                Role = role,
-                CurrentNodeId = node.Id,
-                Speed = speed,
-                State = FleetState.Idle,
-                FuelCapacity = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
-                FuelCurrent = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
-            };
-            state.Fleets.Add(fleet.Id, fleet);
+            int idx = 0;
+            for (int t = 0; t < traders; t++)
+                CreateFleet(state, node.Id, ownerId, FleetRole.Trader, idx++);
+            for (int h = 0; h < haulers; h++)
+                CreateFleet(state, node.Id, ownerId, FleetRole.Hauler, idx++);
+            for (int p = 0; p < patrols; p++)
+                CreateFleet(state, node.Id, ownerId, FleetRole.Patrol, idx++);
         }
     }
 
+    private static void CreateFleet(SimState state, string nodeId, string ownerId, FleetRole role, int index)
+    {
+        float speed = role switch
+        {
+            FleetRole.Trader => FleetSeedTweaksV0.TraderSpeed,
+            FleetRole.Hauler => FleetSeedTweaksV0.HaulerSpeed,
+            FleetRole.Patrol => FleetSeedTweaksV0.PatrolSpeed,
+            _ => FleetSeedTweaksV0.TraderSpeed,
+        };
+
+        var fleet = new Fleet
+        {
+            Id = $"ai_fleet_{nodeId}_{index}",
+            OwnerId = ownerId,
+            Role = role,
+            CurrentNodeId = nodeId,
+            Speed = speed,
+            State = FleetState.Idle,
+            FuelCapacity = NpcShipTweaksV0.DefaultFuelCapacity,
+            FuelCurrent = NpcShipTweaksV0.DefaultFuelCapacity,
+        };
+        state.Fleets.Add(fleet.Id, fleet);
+    }
+
     /// <summary>
-    /// GATE.S14.NPC_ALIVE.FLEET_SEED.001: Re-seed AI fleets from existing nodes.
+    /// GATE.T30.GALPOP.FACTION_SEED.004: Re-seed AI fleets from existing nodes.
     /// Called by WorldLoader after Fleets.Clear() + player fleet creation.
     /// Uses state.Nodes for deterministic iteration order.
+    /// NodeFactionId must be populated before calling (WorldLoader does this).
     /// </summary>
     public static void SeedAiFleetsFromState(SimState state)
     {

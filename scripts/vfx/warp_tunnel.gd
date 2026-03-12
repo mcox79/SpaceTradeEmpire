@@ -93,7 +93,8 @@ func _build() -> void:
 	cyl.top_radius = 8.0
 	cyl.bottom_radius = 8.0
 	cyl.height = 200.0
-	cyl.radial_segments = 24
+	# FEEL_BASELINE: Doubled segments to smooth hard polygon edges at altitude.
+	cyl.radial_segments = 48
 	cyl.rings = 8
 	_tunnel_mesh.mesh = cyl
 	# Rotate so cylinder extends along Z (default is Y-up).
@@ -119,7 +120,8 @@ func _build() -> void:
 	inner_cyl.top_radius = 5.0
 	inner_cyl.bottom_radius = 5.0
 	inner_cyl.height = 180.0
-	inner_cyl.radial_segments = 16
+	# FEEL_BASELINE: Doubled segments to smooth edges.
+	inner_cyl.radial_segments = 32
 	inner_cyl.rings = 6
 	_inner_tunnel.mesh = inner_cyl
 	_inner_tunnel.rotation_degrees.x = 90.0
@@ -231,8 +233,9 @@ func _build() -> void:
 	gmat.initial_velocity_min = 30.0
 	gmat.initial_velocity_max = 60.0
 	gmat.gravity = Vector3.ZERO
-	gmat.scale_min = 0.3
-	gmat.scale_max = 0.8
+	# FEEL_BASELINE: Larger glow particles for softer boundary.
+	gmat.scale_min = 0.5
+	gmat.scale_max = 1.2
 	# Soft blue-purple fog.
 	var glow_gradient := Gradient.new()
 	glow_gradient.set_color(0, Color(0.3, 0.4, 1.0, 0.3))
@@ -242,15 +245,17 @@ func _build() -> void:
 	glow_ramp.gradient = glow_gradient
 	gmat.color_ramp = glow_ramp
 	gmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	gmat.emission_ring_radius = 6.0
-	gmat.emission_ring_inner_radius = 2.0
-	gmat.emission_ring_height = 1.0
+	# FEEL_BASELINE: Wider ring softens the outer cylinder edge at altitude.
+	gmat.emission_ring_radius = 10.0
+	gmat.emission_ring_inner_radius = 4.0
+	gmat.emission_ring_height = 1.5
 	gmat.emission_ring_axis = Vector3(0, 0, 1)
 	_ambient_glow.process_material = gmat
 
 	var glow_mesh := SphereMesh.new()
-	glow_mesh.radius = 0.5
-	glow_mesh.height = 1.0
+	# FEEL_BASELINE: Larger glow particles for altitude.
+	glow_mesh.radius = 1.0
+	glow_mesh.height = 2.0
 	_ambient_glow.draw_pass_1 = glow_mesh
 
 	add_child(_ambient_glow)

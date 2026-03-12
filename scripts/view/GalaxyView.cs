@@ -116,16 +116,17 @@ public partial class GalaxyView : Node3D
     // --- Local system config (named exported fields; no numeric literals in .cs or .tscn) ---
     // Pace overhaul: 1.6x spread for spacious systems. Planets 18-40u, gates 85u, radius 120u.
     // At 80u camera altitude + 60° FOV, visible radius ≈ 46u — player sees planets but must fly to gates.
-    [Export] public float SystemSceneRadiusU { get; set; } = 120.0f;
-    [Export] public float StationOrbitRadiusU { get; set; } = 36.0f;
-    [Export] public float LaneGateDistanceU { get; set; } = 85.0f;
-    [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 55.0f;
+    // VISUAL_OVERHAUL: 1.5x system scale for spacious, vast-feeling systems.
+    [Export] public float SystemSceneRadiusU { get; set; } = 180.0f;
+    [Export] public float StationOrbitRadiusU { get; set; } = 54.0f;
+    [Export] public float LaneGateDistanceU { get; set; } = 130.0f;
+    [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 85.0f;
     [Export] public float StarVisualRadiusU { get; set; } = 6.0f;
     [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
     [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
     // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
-    // Pace overhaul: fleet orbit spread from 22→35.
-    [Export] public float FleetOrbitRadiusU { get; set; } = 35.0f;
+    // VISUAL_OVERHAUL: fleet orbit spread 1.5x.
+    [Export] public float FleetOrbitRadiusU { get; set; } = 52.0f;
     [Export] public float FleetMarkerRadiusU { get; set; } = 1.2f;
     [Export] public PackedScene StationPrefab { get; set; }
     // GATE.S16.NPC_ALIVE.SPAWN_SYSTEM.001
@@ -1082,6 +1083,29 @@ public partial class GalaxyView : Node3D
         };
         _localSystemRoot.AddChild(dirLight);
 
+        // VISUAL_OVERHAUL: Star-class ambient light mood.
+        SetSystemAmbientV0(starClass);
+
+        // VISUAL_OVERHAUL: Volumetric fog near star — star-class tinted corona haze.
+        float classScale = StarClassVisualScaleV0(starClass);
+        var profile = GetSystemVisualProfileV0(starClass);
+        var fogVol = new FogVolume
+        {
+            Name = "StarFogVolume",
+            Size = new Vector3(30f * classScale, 10f * classScale, 30f * classScale),
+        };
+        var fogMat = new FogMaterial
+        {
+            Density = profile.FogDensity,
+            Albedo = profile.FogAlbedo,
+            Emission = new Color(
+                starColor.R * 0.15f,
+                starColor.G * 0.12f,
+                starColor.B * 0.10f),
+        };
+        fogVol.Material = fogMat;
+        _localSystemRoot.AddChild(fogVol);
+
         // 1a. Binary companion (~20% chance, seeded).
         SpawnBinaryCompanionV0(nodeId, starColor, starClass);
 
@@ -1111,7 +1135,7 @@ public partial class GalaxyView : Node3D
         SpawnFleetsV0(snap);
 
         // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particles — star dust (all systems).
-        SpawnAmbientDustV0(nodeId);
+        SpawnAmbientDustV0(nodeId, starClass);
 
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Enable periodic fleet refresh.
         _fleetRefreshTimer = 1.0;
@@ -1120,17 +1144,19 @@ public partial class GalaxyView : Node3D
     // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particle systems.
     // Star dust (all systems): diffuse white/pale-blue motes spread across a large sphere.
     // Asteroid dust (60% of systems): tan/brown motes near the belt radius.
-    private void SpawnAmbientDustV0(string nodeId)
+    // VISUAL_OVERHAUL: Star-class drives dust color via visual profile.
+    private void SpawnAmbientDustV0(string nodeId, string starClass = "ClassG")
     {
+        var dustProfile = GetSystemVisualProfileV0(starClass);
         // ── Star dust (every system) ──
         var starDustProc = new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-            EmissionSphereRadius = 50.0f, // GATE.X.UI_POLISH.LOCAL_DENSITY.001: match tightened system
+            EmissionSphereRadius = 75.0f, // VISUAL_OVERHAUL: 1.5x scale
             Gravity = Vector3.Zero,
             InitialVelocityMin = 0.1f,
             InitialVelocityMax = 0.5f,
-            Color = new Color(0.85f, 0.90f, 1.0f, 0.55f),
+            Color = new Color(dustProfile.DustColor.R, dustProfile.DustColor.G, dustProfile.DustColor.B, dustProfile.DustAlpha),
             ScaleMin = 0.08f,
             ScaleMax = 0.22f,
         };
@@ -1152,7 +1178,7 @@ public partial class GalaxyView : Node3D
         var beltHash = Fnv1a64(nodeId + "_asteroids");
         if (beltHash % 100UL < 60)
         {
-            float beltRadius = 45.0f; // Pace overhaul: match expanded belt (was 28)
+            float beltRadius = 68.0f; // VISUAL_OVERHAUL: 1.5x scale match
 
             var beltDustProc = new ParticleProcessMaterial
             {
@@ -1243,45 +1269,80 @@ public partial class GalaxyView : Node3D
             Emission = new Color(0.05f, 0.06f, 0.08f),
             EmissionEnergyMultiplier = 0.8f,
         };
-        // Central hub — compact cylinder (~2u diameter x 2u tall).
-        var hubMesh = new MeshInstance3D
-        {
-            Name = "StationHub",
-            Mesh = new CylinderMesh
-            {
-                TopRadius = 1.0f,
-                BottomRadius = 1.0f,
-                Height = 2.0f,
-                RadialSegments = 12
-            },
-            MaterialOverride = hullMat
-        };
-        stationVisual.AddChild(hubMesh);
 
-        var ringMat = new StandardMaterial3D
+        // VISUAL_OVERHAUL: Hash-select Kenney hangar model for station variety.
+        bool modelLoaded = false;
+        string[] stationModels =
         {
-            AlbedoColor = new Color(0.25f, 0.30f, 0.38f),
-            Roughness = 0.40f,
-            Metallic = 0.65f,
-            EmissionEnabled = true,
-            Emission = new Color(0.04f, 0.05f, 0.07f),
-            EmissionEnergyMultiplier = 0.6f,
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_largeA.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_largeB.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_roundA.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_roundB.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_roundGlass.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_smallA.glb",
+            "res://addons/kenney_space_kit/Models/GLTF format/hangar_smallB.glb",
         };
-        // Docking ring — ~4u diameter total.
-        var ringMesh = new MeshInstance3D
+        var stationHash = Fnv1a64(nodeId + "_station_model");
+        int modelIdx = (int)(stationHash % (ulong)stationModels.Length);
+        if (Godot.FileAccess.FileExists(stationModels[modelIdx]))
         {
-            Name = "StationRing",
-            Mesh = new TorusMesh
+            var modelScene = GD.Load<PackedScene>(stationModels[modelIdx]);
+            if (modelScene != null)
             {
-                InnerRadius = 1.6f,
-                OuterRadius = 2.0f,
-                Rings = 24,
-                RingSegments = 12
-            },
-            MaterialOverride = ringMat
-        };
-        ringMesh.RotateX(Mathf.Pi / 2.0f);
-        stationVisual.AddChild(ringMesh);
+                var stationModel = modelScene.Instantiate<Node3D>();
+                stationModel.Name = "StationModel";
+                stationModel.Scale = Vector3.One * 3.0f;
+                foreach (var child in stationModel.FindChildren("*", "MeshInstance3D"))
+                {
+                    if (child is MeshInstance3D meshChild)
+                        meshChild.MaterialOverride = hullMat;
+                }
+                stationVisual.AddChild(stationModel);
+                modelLoaded = true;
+            }
+        }
+
+        // Fallback: procedural hub + ring if model load fails.
+        if (!modelLoaded)
+        {
+            var hubMesh = new MeshInstance3D
+            {
+                Name = "StationHub",
+                Mesh = new CylinderMesh
+                {
+                    TopRadius = 1.0f,
+                    BottomRadius = 1.0f,
+                    Height = 2.0f,
+                    RadialSegments = 12
+                },
+                MaterialOverride = hullMat
+            };
+            stationVisual.AddChild(hubMesh);
+
+            var ringMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.25f, 0.30f, 0.38f),
+                Roughness = 0.40f,
+                Metallic = 0.65f,
+                EmissionEnabled = true,
+                Emission = new Color(0.04f, 0.05f, 0.07f),
+                EmissionEnergyMultiplier = 0.6f,
+            };
+            var ringMesh = new MeshInstance3D
+            {
+                Name = "StationRing",
+                Mesh = new TorusMesh
+                {
+                    InnerRadius = 1.6f,
+                    OuterRadius = 2.0f,
+                    Rings = 24,
+                    RingSegments = 12
+                },
+                MaterialOverride = ringMat
+            };
+            ringMesh.RotateX(Mathf.Pi / 2.0f);
+            stationVisual.AddChild(ringMesh);
+        }
 
         // GATE.S7.FACTION_VIS.STATION_STYLE.001: Accent color from controlling faction.
         var accentColor = new Color(0.3f, 0.7f, 1.0f); // default blue
@@ -1780,15 +1841,16 @@ public partial class GalaxyView : Node3D
         int role = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
         ship.SetMeta("is_hostile", role == 2);
 
-        // GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Apply faction color tint to NPC ship.
-        if (_bridge != null && ship.HasMethod("set_faction_color")
-            && !string.IsNullOrEmpty(_currentLocalNodeId))
+        // GATE.T30.GALPOP.BRIDGE_TRANSIT.007: Apply faction color from fleet's owner faction.
+        // Previously used territory of current node — now uses fleet's actual owner for
+        // correct tinting when a faction's fleet visits another faction's territory.
+        if (_bridge != null && ship.HasMethod("set_faction_color"))
         {
-            var territory = _bridge.GetTerritoryAccessV0(_currentLocalNodeId);
-            var factionId = territory.ContainsKey("faction_id") ? (string)territory["faction_id"] : "";
-            if (!string.IsNullOrEmpty(factionId))
+            var ownerId = GetFleetOwnerIdV0(fleetId);
+            if (!string.IsNullOrEmpty(ownerId))
             {
-                var colors = _bridge.GetFactionColorsV0(factionId);
+                ship.SetMeta("owner_id", ownerId);
+                var colors = _bridge.GetFactionColorsV0(ownerId);
                 if (colors.ContainsKey("primary"))
                     ship.Call("set_faction_color", colors["primary"]);
             }
@@ -1803,6 +1865,13 @@ public partial class GalaxyView : Node3D
         }
 
         return ship;
+    }
+
+    // GATE.T30.GALPOP.BRIDGE_TRANSIT.007: Get fleet owner faction ID via bridge.
+    private string GetFleetOwnerIdV0(string fleetId)
+    {
+        if (_bridge == null) return "";
+        return _bridge.GetFleetOwnerIdV0(fleetId);
     }
 
     // Returns the PackedScene for the Quaternius model (used by SpawnNpcShipV0).
@@ -1857,15 +1926,17 @@ public partial class GalaxyView : Node3D
         };
         root.AddChild(mesh);
 
-        // GATE.S13.WORLD.HOSTILE_LABELS.001: Show "Hostile" in red for enemy fleets.
+        // GATE.S13.WORLD.HOSTILE_LABELS.001: Show "HOSTILE" in red for enemy fleets.
+        // Starts hidden — fleet_ai.gd manages visibility based on reputation.
         var fleetLabel = new Label3D
         {
             Name = "FleetLabel",
-            Text = "Hostile",
+            Text = "HOSTILE",
             PixelSize = 0.12f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             Modulate = new Color(1.0f, 0.2f, 0.2f),
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Visible = false,
         };
         fleetLabel.Position = new Vector3(0f, FleetMarkerRadiusU * 2.0f + 0.5f, 0f);
         root.AddChild(fleetLabel);
@@ -1890,14 +1961,14 @@ public partial class GalaxyView : Node3D
         root.AddChild(area);
 
         // GATE.S1.VISUAL_POLISH.FLEET_AI.001: attach fleet_ai.gd for autonomous patrol/dock/engage movement.
-        // All scene-spawned fleet markers are hostile (player fleet is the Player RigidBody3D, not a marker).
-        // spawn_origin is NOT set here — fleet_ai.gd captures global_position in _ready() after the node
-        // has been inserted into the scene tree with its final position assigned.
+        // Hostile meta determined by role — only Patrol (role 2) starts hostile.
+        // fleet_ai.gd._ready() further resolves via reputation check.
         var fleetAiScript = GD.Load<Script>("res://scripts/core/fleet_ai.gd");
         if (fleetAiScript != null)
         {
             root.SetScript(fleetAiScript);
-            root.SetMeta("is_hostile", true);
+            int markerRole = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
+            root.SetMeta("is_hostile", markerRole == 2);
         }
 
         return root;
@@ -1985,6 +2056,30 @@ public partial class GalaxyView : Node3D
         _ => 1.0f,
     };
 
+    // VISUAL_OVERHAUL: Star-class visual profile — drives fog, dust, and ambient per system.
+    private record SystemVisualProfile(
+        float FogDensity, Color FogAlbedo,
+        Color DustColor, float DustAlpha,
+        float GlowMultiplier);
+
+    private static SystemVisualProfile GetSystemVisualProfileV0(string starClass) => starClass switch
+    {
+        "ClassO" => new(0.025f, new Color(0.15f, 0.20f, 0.40f),
+            new Color(0.6f, 0.7f, 1.0f), 0.4f, 1.3f),
+        "ClassA" => new(0.018f, new Color(0.25f, 0.25f, 0.35f),
+            new Color(0.7f, 0.75f, 0.9f), 0.45f, 1.1f),
+        "ClassF" => new(0.015f, new Color(0.28f, 0.26f, 0.22f),
+            new Color(0.85f, 0.88f, 1.0f), 0.5f, 1.0f),
+        "ClassG" => new(0.015f, new Color(0.30f, 0.25f, 0.15f),
+            new Color(0.85f, 0.90f, 1.0f), 0.55f, 1.0f),
+        "ClassK" => new(0.020f, new Color(0.35f, 0.20f, 0.08f),
+            new Color(0.9f, 0.7f, 0.5f), 0.5f, 0.9f),
+        "ClassM" => new(0.030f, new Color(0.30f, 0.08f, 0.04f),
+            new Color(1.0f, 0.6f, 0.4f), 0.6f, 0.8f),
+        _ => new(0.015f, new Color(0.28f, 0.26f, 0.22f),
+            new Color(0.85f, 0.88f, 1.0f), 0.5f, 1.0f),
+    };
+
     // GATE.S15.FEEL.STAR_LIGHTING.001: Star-class to directional light color mapping.
     private static Color StarClassLightColorV0(string starClass) => starClass switch
     {
@@ -2031,39 +2126,108 @@ public partial class GalaxyView : Node3D
             if (atmoMat != null)
             {
                 atmoMat.SetShaderParameter("color_2", brightColor);
-                atmoMat.SetShaderParameter("intensity", 1.5f);
-                atmoMat.SetShaderParameter("alpha", 0.08f);
-                atmoMat.SetShaderParameter("emit", false);
+                atmoMat.SetShaderParameter("intensity", 6.0f);
+                atmoMat.SetShaderParameter("alpha", 0.35f);
+                atmoMat.SetShaderParameter("emit", true);
+                atmoMat.SetShaderParameter("amount", 3.5f);
             }
         }
+    }
+
+    // VISUAL_OVERHAUL: Planet atmosphere emission + type-specific tinting.
+    private static void TintPlanetAtmosphereV0(Node3D planetNode, string planetType, string nodeId)
+    {
+        // Only planets with atmosphere child (Terrestrial, Gaseous, Ice, Sand have them).
+        var atmo = planetNode.GetNodeOrNull<MeshInstance3D>("Atmosphere");
+        if (atmo == null) return;
+        var atmoMat = atmo.Mesh?.SurfaceGetMaterial(0) as ShaderMaterial;
+        if (atmoMat == null) return;
+
+        // Enable emission so atmosphere rim blooms with post-processing.
+        atmoMat.SetShaderParameter("emit", true);
+        atmoMat.SetShaderParameter("intensity", 2.5f);
+        atmoMat.SetShaderParameter("alpha", 0.25f);
+        atmoMat.SetShaderParameter("amount", 4.0f);
+
+        // Type-specific atmosphere tint.
+        var rimColor = planetType switch
+        {
+            "Terrestrial" => new Color(0.4f, 0.65f, 1.0f),  // Earth-like blue
+            "Ice"         => new Color(0.5f, 0.7f, 1.0f),   // Cold blue
+            "Gaseous"     => new Color(0.8f, 0.6f, 0.3f),   // Warm amber
+            "Sand"        => new Color(0.7f, 0.5f, 0.2f),   // Dusty orange
+            "Lava"        => new Color(1.0f, 0.3f, 0.1f),   // Volcanic red
+            _             => new Color(0.6f, 0.65f, 0.7f),  // Neutral
+        };
+        atmoMat.SetShaderParameter("color_2", rimColor);
+
+        // Hash-driven hue shift on body shader (±15%) so two same-type planets differ.
+        var tintHash = Fnv1a64(nodeId + "_planet_tint");
+        float hueShift = ((float)(tintHash % 30UL) - 15.0f) / 100.0f;
+        if (planetNode is MeshInstance3D bodyMesh && bodyMesh.Mesh != null)
+        {
+            var bodyMat = bodyMesh.Mesh.SurfaceGetMaterial(0) as ShaderMaterial;
+            if (bodyMat != null)
+            {
+                // Shift color_2 (primary surface color) slightly for variety.
+                var origColor = bodyMat.GetShaderParameter("color_2");
+                if (origColor.VariantType == Variant.Type.Color)
+                {
+                    var c = origColor.AsColor();
+                    c.H = Mathf.PosMod(c.H + hueShift, 1.0f);
+                    bodyMat.SetShaderParameter("color_2", c);
+                }
+            }
+        }
+    }
+
+    // VISUAL_OVERHAUL: Star-class ambient light override — each system has a distinct color mood.
+    private void SetSystemAmbientV0(string starClass)
+    {
+        var we = GetNodeOrNull<WorldEnvironment>("/root/Main/WorldEnvironment");
+        if (we?.Environment == null) return;
+        var (col, energy) = starClass switch
+        {
+            "ClassO" => (new Color(0.08f, 0.10f, 0.20f), 0.25f),
+            "ClassA" => (new Color(0.12f, 0.12f, 0.18f), 0.28f),
+            "ClassF" => (new Color(0.14f, 0.13f, 0.12f), 0.30f),
+            "ClassG" => (new Color(0.15f, 0.13f, 0.10f), 0.32f),
+            "ClassK" => (new Color(0.16f, 0.10f, 0.06f), 0.28f),
+            "ClassM" => (new Color(0.14f, 0.06f, 0.04f), 0.20f),
+            _ => (new Color(0.15f, 0.13f, 0.10f), 0.30f),
+        };
+        we.Environment.AmbientLightColor = col;
+        we.Environment.AmbientLightEnergy = energy;
     }
 
     // Base planet orbit radius by type. Scaled by lumScale at call site.
     // Star visual radius ~6u, so innermost orbit starts well clear.
     // GATE.X.UI_POLISH.LOCAL_DENSITY.001: ~40% tighter orbits for denser local systems.
     // Pace overhaul: 1.6x spread so systems feel spacious at 80u camera altitude.
+    // VISUAL_OVERHAUL: 1.5x scale for vast-feeling systems.
     private static float PlanetBaseOrbitV0(string planetType) => planetType switch
     {
-        "Lava"        => 18.0f,   // Innermost — volcanic, near star (was 12)
-        "Sand"        => 22.0f,   // Inner zone (was 14)
-        "Terrestrial" => 26.0f,   // Habitable zone (was 16)
-        "Barren"      => 30.0f,   // Outer rocky (was 18)
-        "Ice"         => 34.0f,   // Outer cold zone (was 20)
-        "Gaseous"     => 40.0f,   // Far out — gas giant (was 23)
-        _             => 26.0f,
+        "Lava"        => 27.0f,   // Innermost — volcanic, near star
+        "Sand"        => 33.0f,   // Inner zone
+        "Terrestrial" => 39.0f,   // Habitable zone
+        "Barren"      => 45.0f,   // Outer rocky
+        "Ice"         => 51.0f,   // Outer cold zone
+        "Gaseous"     => 60.0f,   // Far out — gas giant
+        _             => 39.0f,
     };
 
     // Planet visual scale by type. Star is ~6u radius, largest planet ~4u (70% of star).
     // Addon scenes have ~400u baked scale, so 0.01 → ~4u visible radius.
+    // VISUAL_OVERHAUL: Increased ~25% for better visibility from camera altitude.
     private static float PlanetVisualScaleV0(string planetType) => planetType switch
     {
-        "Gaseous"     => 0.011f,   // ~4.4u — gas giant, ~70% of star
-        "Terrestrial" => 0.008f,   // ~3.2u
-        "Ice"         => 0.007f,   // ~2.8u
-        "Sand"        => 0.007f,   // ~2.8u
-        "Lava"        => 0.006f,   // ~2.4u
-        "Barren"      => 0.005f,   // ~2.0u
-        _             => 0.008f,
+        "Gaseous"     => 0.013f,   // ~5.2u — imposing gas giant
+        "Terrestrial" => 0.010f,   // ~4.0u
+        "Ice"         => 0.009f,   // ~3.6u
+        "Sand"        => 0.009f,   // ~3.6u
+        "Lava"        => 0.008f,   // ~3.2u
+        "Barren"      => 0.007f,   // ~2.8u
+        _             => 0.010f,
     };
 
     // Binary star companion — ~20% of systems are binaries (seeded).
@@ -2179,8 +2343,8 @@ public partial class GalaxyView : Node3D
         // ~60% of systems have a visible asteroid belt.
         if (hash % 100UL >= 60) return;
 
-        // Pace overhaul: belt pushed out to 45u base (was 28u) for 1.6x system spread.
-        float beltRadius = MathF.Max(45.0f * lumScale, 40.0f);
+        // VISUAL_OVERHAUL: Belt at 68u base (1.5x scale).
+        float beltRadius = MathF.Max(68.0f * lumScale, 60.0f);
         int rockCount = 40 + (int)(hash % 30UL); // 40-69 rocks
 
         // Load Kenney meteor models for realistic rocky shapes.
@@ -2225,11 +2389,31 @@ public partial class GalaxyView : Node3D
             var rockHash = Fnv1a64(nodeId + "_rock_" + i);
             float angle = ((float)i / rockCount) * 2.0f * MathF.PI;
             float rJitter = beltRadius + ((float)(rockHash % 8UL) - 4.0f);
-            float yJitter = ((float)(rockHash % 5UL) - 2.0f) * 0.6f;
+            // VISUAL_OVERHAUL: Increased Y scatter for visible 3D depth from top-down camera.
+            float yJitter = ((float)(rockHash % 9UL) - 4.0f) * 1.2f; // ±4.8u (was ±1.2u)
 
             // Visible rock sizes: 1.0-4.0u (4 size tiers for natural variety).
             float rockSize = 1.0f + (float)(rockHash % 4UL) * 1.0f; // 1.0, 2.0, 3.0, 4.0u
             var mat = (rockHash % 2UL == 0) ? rockMatLight : rockMatDark;
+
+            // VISUAL_OVERHAUL: ~15% of rocks have emissive ore veins.
+            if (rockHash % 100UL < 15)
+            {
+                var oreColor = ((rockHash >> 24) % 3UL) switch
+                {
+                    0 => new Color(0.1f, 0.4f, 0.6f), // blue crystal
+                    1 => new Color(0.5f, 0.2f, 0.1f), // copper
+                    _ => new Color(0.2f, 0.5f, 0.2f), // green mineral
+                };
+                mat = new StandardMaterial3D
+                {
+                    AlbedoColor = mat.AlbedoColor,
+                    Roughness = mat.Roughness,
+                    EmissionEnabled = true,
+                    Emission = oreColor,
+                    EmissionEnergyMultiplier = 1.5f,
+                };
+            }
 
             Node3D rock;
             int modelIdx = (int)(rockHash % (ulong)MeteorModelPaths.Length);
@@ -2300,6 +2484,7 @@ public partial class GalaxyView : Node3D
             {
                 planetNode = scene.Instantiate<Node3D>();
                 ActivateAnimationTreeV0(planetNode); // Self-rotation
+                TintPlanetAtmosphereV0(planetNode, planetType, nodeId); // VISUAL_OVERHAUL
             }
         }
 
@@ -2347,6 +2532,39 @@ public partial class GalaxyView : Node3D
         var planetOrbitPos = DeriveOrbitPositionV0(nodeId + "_planet", orbitRadius);
         container.Position = planetOrbitPos;
         container.AddChild(planetNode);
+
+        // FEEL_POST_BASELINE: Atmospheric glow halo around planets.
+        // Slightly larger additive sphere in the planet's atmosphere color.
+        var atmosColor = planetType switch
+        {
+            "Terrestrial" => new Color(0.3f, 0.5f, 0.9f, 0.08f),  // Blue haze
+            "Sand"        => new Color(0.8f, 0.6f, 0.3f, 0.06f),  // Amber haze
+            "Lava"        => new Color(0.9f, 0.3f, 0.1f, 0.10f),  // Orange glow
+            "Ice"         => new Color(0.5f, 0.7f, 1.0f, 0.07f),  // Pale blue
+            "Gaseous"     => new Color(0.4f, 0.8f, 0.6f, 0.08f),  // Teal mist
+            _             => new Color(0.4f, 0.4f, 0.5f, 0.05f),  // Neutral
+        };
+        var atmosEmission = new Color(atmosColor.R, atmosColor.G, atmosColor.B);
+        var atmosGlow = new MeshInstance3D
+        {
+            Name = "AtmosphereGlow",
+            Mesh = new SphereMesh { Radius = 5.5f, Height = 11.0f },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = atmosColor,
+                EmissionEnabled = true,
+                Emission = atmosEmission,
+                EmissionEnergyMultiplier = 2.0f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Back,
+                DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
+                NoDepthTest = true,
+            },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        container.AddChild(atmosGlow);
+
         orbitPivot.AddChild(container);
 
         if (landable)
@@ -2490,7 +2708,8 @@ public partial class GalaxyView : Node3D
         var lbl = new Label3D
         {
             Name = "GateLabel",
-            Text = "\u2192 " + (string.IsNullOrEmpty(displayName) ? neighborId : displayName),
+            // FEEL_BASELINE: Strip resource-type tags from gate labels — player only needs system name.
+            Text = "\u2192 " + StripResourceTagsV0(string.IsNullOrEmpty(displayName) ? neighborId : displayName),
             PixelSize = 0.02f,
             FontSize = 32,
             OutlineSize = 8,
@@ -2548,16 +2767,72 @@ public partial class GalaxyView : Node3D
     {
         var root = new Node3D { Name = "DiscoverySite_" + siteId };
 
+        // VISUAL_OVERHAUL: Emissive sphere + spinning ring + particle motes.
         var mesh = new MeshInstance3D
         {
             Name = "SiteMesh",
-            Mesh = new SphereMesh { Radius = DiscoverySiteMarkerRadiusU },
+            Mesh = new SphereMesh { Radius = DiscoverySiteMarkerRadiusU * 1.5f },
             MaterialOverride = new StandardMaterial3D
             {
-                AlbedoColor = new Color(1.0f, 0.6f, 0.0f)
+                AlbedoColor = new Color(1.0f, 0.7f, 0.1f),
+                EmissionEnabled = true,
+                Emission = new Color(1.0f, 0.6f, 0.0f),
+                EmissionEnergyMultiplier = 4.0f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             }
         };
         root.AddChild(mesh);
+
+        // Spinning scan ring.
+        var ringMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1.0f, 0.8f, 0.2f, 0.4f),
+            EmissionEnabled = true,
+            Emission = new Color(1.0f, 0.7f, 0.1f),
+            EmissionEnergyMultiplier = 2.0f,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        var ring = new MeshInstance3D
+        {
+            Name = "SiteRing",
+            Mesh = new TorusMesh
+            {
+                InnerRadius = DiscoverySiteMarkerRadiusU * 2.5f,
+                OuterRadius = DiscoverySiteMarkerRadiusU * 3.0f,
+            },
+            MaterialOverride = ringMat,
+        };
+        ring.RotateX(Mathf.Pi / 2.0f);
+        var ringSpinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (ringSpinScript != null)
+        {
+            ring.SetScript(ringSpinScript);
+            ring.Set("spin_speed_y", 0.5f);
+        }
+        root.AddChild(ring);
+
+        // Mystery energy particle motes.
+        var siteParticleProc = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
+            EmissionSphereRadius = 2.0f,
+            Gravity = Vector3.Zero,
+            InitialVelocityMin = 0.2f,
+            InitialVelocityMax = 0.8f,
+            Color = new Color(1.0f, 0.8f, 0.2f, 0.6f),
+            ScaleMin = 0.05f,
+            ScaleMax = 0.15f,
+        };
+        var siteParticles = new GpuParticles3D
+        {
+            Name = "SiteParticles",
+            Amount = 12,
+            Lifetime = 3.0f,
+            SpeedScale = 0.3f,
+            ProcessMaterial = siteParticleProc,
+            DrawPass1 = new SphereMesh { Radius = 0.04f, Height = 0.08f },
+        };
+        root.AddChild(siteParticles);
 
         // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
         var area = new Area3D
@@ -2773,7 +3048,11 @@ public partial class GalaxyView : Node3D
             var dir = (neighborPos - starPos).Normalized();
             return starPos + dir * LaneGateDistanceU;
         }
-        return starPos;
+        // Stars overlap — generate a deterministic offset so gates aren't on top of each other.
+        int hash = (nodeId + neighborId).GetHashCode();
+        float angle = (hash & 0x7FFFFFFF) * 0.001f;
+        var synthDir = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
+        return starPos + synthDir * LaneGateDistanceU;
     }
 
     // --- Galaxy overlay rendering ---
@@ -3005,10 +3284,15 @@ public partial class GalaxyView : Node3D
                 }
                 else
                 {
+                    // FEEL_POST_BASELINE: Dim RUMORED nodes so they appear as unknown destinations.
+                    bool isRumored = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED");
+
                     // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Tint non-player nodes by intel freshness.
-                    Color nodeColor = _currentOverlayMode == GalaxyOverlayMode.IntelFreshness
-                        ? GetIntelFreshnessNodeColor(n.NodeId)
-                        : new Color(0f, 0.6f, 1.0f);
+                    Color nodeColor = isRumored
+                        ? new Color(0.4f, 0.4f, 0.5f) // Gray-blue for unknown systems
+                        : _currentOverlayMode == GalaxyOverlayMode.IntelFreshness
+                            ? GetIntelFreshnessNodeColor(n.NodeId)
+                            : new Color(0f, 0.6f, 1.0f);
 
                     // GATE.S7.WARFRONT.UI_MAP.001: Tint contested war-zone nodes.
                     if (_bridge != null)
@@ -3038,7 +3322,8 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
                     mat.Emission = nodeColor;
-                    mat.EmissionEnergyMultiplier = 2.5f;
+                    // FEEL_POST_BASELINE: RUMORED nodes glow dimmer than explored nodes.
+                    mat.EmissionEnergyMultiplier = isRumored ? 1.0f : 2.5f;
                 }
             }
         }
@@ -3842,6 +4127,16 @@ public partial class GalaxyView : Node3D
         }
         foreach (var key in toRemove)
             _factionLabelsByFactionId.Remove(key);
+    }
+
+    // FEEL_BASELINE: Strip all parenthesized resource tags from a display name.
+    // "System 10 (RareMin)(Mining)(Munitions)" => "System 10"
+    private static string StripResourceTagsV0(string displayText)
+    {
+        if (string.IsNullOrEmpty(displayText)) return displayText;
+        int firstOpen = displayText.IndexOf('(');
+        if (firstOpen < 0) return displayText;
+        return displayText.Substring(0, firstOpen).TrimEnd();
     }
 
     // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists in node/station names.

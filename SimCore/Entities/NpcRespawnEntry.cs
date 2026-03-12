@@ -8,4 +8,6 @@ public sealed class NpcRespawnEntry
     [JsonInclude] public string FleetId { get; set; } = "";
     [JsonInclude] public string HomeNodeId { get; set; } = "";
     [JsonInclude] public int DestructionTick { get; set; }
+    [JsonInclude] public FleetRole Role { get; set; } = FleetRole.Trader;
+    [JsonInclude] public string OwnerId { get; set; } = "ai";
 }

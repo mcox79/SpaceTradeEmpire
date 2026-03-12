@@ -15,6 +15,8 @@ var _travel_progress: float = 0.0
 var _fleet_state: String = "Idle"
 
 ## GATE.S7.FACTION.PATROL_AGGRO.001: Reputation-based aggro state.
+## GATE.T30.GALPOP.HOSTILE_FIX.003: Owner ID from transit data (preferred over territory lookup).
+var _owner_id: String = ""
 var _faction_id: String = ""
 var _aggro_check_timer: float = 0.0
 const AGGRO_CHECK_INTERVAL: float = 2.0  # seconds between reputation polls
@@ -94,12 +96,13 @@ func _create_status_display() -> void:
 	_role_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_role_label)
 
-	# Hostile label — dedicated "HOSTILE" text below role label. Red, bright, large.
+	# Hostile label — dedicated "HOSTILE" text below role label. Red, readable but not dominant.
+	# FEEL_BASELINE: Reduced from 0.10/56 — was 7x wider than role letter at same size.
 	_hostile_label = Label3D.new()
 	_hostile_label.name = "HostileLabel"
-	_hostile_label.pixel_size = 0.10
-	_hostile_label.font_size = 56
-	_hostile_label.outline_size = 16
+	_hostile_label.pixel_size = 0.04
+	_hostile_label.font_size = 36
+	_hostile_label.outline_size = 10
 	_hostile_label.outline_modulate = Color(0, 0, 0, 0.9)
 	_hostile_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_hostile_label.no_depth_test = true
@@ -254,6 +257,8 @@ func update_transit(data: Dictionary) -> void:
 	_hull_hp_max = data.get("hull_hp_max", 0)
 	_travel_progress = data.get("travel_progress", 0.0)
 	_fleet_state = data.get("state", "Idle")
+	## GATE.T30.GALPOP.HOSTILE_FIX.003: Read owner_id from transit data for faction resolution.
+	_owner_id = data.get("owner_id", "")
 
 	## GATE.S7.FACTION.PATROL_AGGRO.001: Resolve hostility from faction reputation.
 	var base_hostile: bool = data.get("is_hostile", false)
@@ -265,23 +270,28 @@ func update_transit(data: Dictionary) -> void:
 	_update_status_display()
 
 
-## GATE.S7.FACTION.PATROL_AGGRO.001: Check player reputation with the fleet's faction.
+## GATE.S7.FACTION.PATROL_AGGRO.001 + GATE.T30.GALPOP.HOSTILE_FIX.003:
+## Check player reputation with the fleet's faction.
 ## Returns true if reputation is below aggro threshold (player is hostile to this faction).
+## Default: non-hostile (safe fallback). Hostility only when reputation is explicitly bad.
 func _check_reputation_aggro(current_node: String) -> bool:
 	var bridge := get_node_or_null("/root/SimBridge")
 	if bridge == null:
-		return true  # No bridge = assume hostile (safe default for patrols)
+		return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: No bridge = non-hostile (safe default)
 
-	# Resolve faction from the fleet's current node.
-	if not current_node.is_empty() and bridge.has_method("GetTerritoryAccessV0"):
+	# GATE.T30.GALPOP.HOSTILE_FIX.003: Use fleet owner_id for faction, not territory.
+	if not _owner_id.is_empty():
+		_faction_id = _owner_id
+	elif not current_node.is_empty() and bridge.has_method("GetTerritoryAccessV0"):
+		# Fallback: resolve faction from territory if no owner_id.
 		var territory: Dictionary = bridge.call("GetTerritoryAccessV0", current_node)
 		var fid: String = territory.get("faction_id", "")
 		if not fid.is_empty():
 			_faction_id = fid
 
-	# If no faction resolved, fall back to hostile.
+	# If no faction resolved, default NON-hostile.
 	if _faction_id.is_empty():
-		return true
+		return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: was true, now false
 
 	# Query player reputation with this faction.
 	if bridge.has_method("GetPlayerReputationV0"):
@@ -289,7 +299,7 @@ func _check_reputation_aggro(current_node: String) -> bool:
 		var reputation: int = rep_data.get("reputation", 0)
 		return reputation < AGGRO_REPUTATION_THRESHOLD
 
-	return true  # Fallback: hostile if bridge method missing
+	return false  # GATE.T30.GALPOP.HOSTILE_FIX.003: Fallback non-hostile if bridge method missing
 
 
 func _physics_process(delta: float) -> void:

@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-  Unified screenshot capture runner. Supports 7 modes: quick, full, transit, video, eval, regression, scenario.
+  Visual screenshot capture runner. Supports 7 modes: first-hour (default), full, transit, video, eval, regression, scenario.
+  For headless-only verification, use Run-FHBot.ps1 instead.
 .EXAMPLE
-  .\scripts\tools\Run-Screenshot.ps1 -Mode quick
+  .\scripts\tools\Run-Screenshot.ps1 -Mode first-hour
   .\scripts\tools\Run-Screenshot.ps1 -Mode full
   .\scripts\tools\Run-Screenshot.ps1 -Mode video
   .\scripts\tools\Run-Screenshot.ps1 -Mode regression
@@ -10,7 +11,7 @@
 #>
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('quick','full','transit','video','eval','regression','scenario')]
+    [ValidateSet('first-hour','full','transit','video','eval','regression','scenario')]
     [string]$Mode,
     [string]$Script = '',       # Custom script path (scenario mode only)
     [string]$Prefix = 'SCEN',   # Output prefix filter (scenario mode only)
@@ -29,12 +30,12 @@ Push-Location $repoRoot
 try {
     # ── Mode configuration ──
     $modeConfig = @{
-        'quick' = @{
-            Script = 'res://scripts/tests/quick_screenshot_bot.gd'
-            Timeout = 30
-            Prefix = 'QSCR'
-            NativeDir = 'reports/screenshot/quick'
-            CopyFrom = $null  # quick bot writes directly to unified dir
+        'first-hour' = @{
+            Script = 'res://scripts/tests/test_first_hour_proof_v0.gd'
+            Timeout = 120
+            Prefix = 'FH1'
+            NativeDir = 'reports/first_hour'
+            CopyFrom = 'reports/first_hour'
         }
         'full' = @{
             Script = 'res://scripts/tests/visual_sweep_bot_v0.gd'

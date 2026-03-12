@@ -81,11 +81,31 @@ For each CRITICAL flag, suggest investigation paths:
 
 ---
 
+## First-Hour Mode
+
+For full player-journey verification (not just economy/combat), use the **first-hour bot**
+via its dedicated runner:
+
+```bash
+# Headless (assertions only, 21 hard checks across 6 acts):
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless
+
+# Visual (assertions + 18 screenshots):
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual -Seed 42
+```
+
+The first-hour bot validates: boot credits, NPC presence, HUD elements, market trading,
+inter-system travel, mission acceptance, combat, module installation, galaxy connectivity,
+price diversity, tech tree, and fuel sustain. See `/screenshot` skill for full details.
+
+---
+
 ## Bot Script Reference
 
 | Mode | Script | Prefix | Output dir |
 |------|--------|--------|-----------|
-| All | `scripts/tests/exploration_bot_v1.gd` | `BOT\|` | `reports/bot/<mode>/` |
+| trade/combat/stress/full | `scripts/tests/exploration_bot_v1.gd` | `BOT\|` | `reports/bot/<mode>/` |
+| first-hour (headless/visual) | `scripts/tests/test_first_hour_proof_v0.gd` | `FH1\|` | `reports/first_hour/` |
 
 ## Troubleshooting
 

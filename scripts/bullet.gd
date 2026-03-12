@@ -169,6 +169,10 @@ func _on_body_entered(body: Node) -> void:
 		var gm_shake = get_node_or_null("/root/GameManager")
 		if gm_shake and gm_shake.has_method("_apply_camera_shake_v0"):
 			gm_shake.call("_apply_camera_shake_v0", 0.4)
+		# FEEL_BASELINE: Screen-space red flash on player damage.
+		var hud_node = get_node_or_null("/root/Main/HUD")
+		if hud_node and hud_node.has_method("flash_damage_v0"):
+			hud_node.call("flash_damage_v0")
 	# GATE.S1.AUDIO.SFX_CORE.001: hit SFX
 	var gm = get_node_or_null("/root/GameManager")
 	if gm and gm.has_method("play_hit_sfx_v0"):
@@ -226,11 +230,12 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 1, 0)
 	proc_mat.spread = 90.0
-	proc_mat.initial_velocity_min = 25.0
-	proc_mat.initial_velocity_max = 60.0
+	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	proc_mat.initial_velocity_min = 150.0
+	proc_mat.initial_velocity_max = 350.0
 	proc_mat.gravity = Vector3(0, 0, 0)
-	proc_mat.scale_min = 2.0
-	proc_mat.scale_max = 4.5
+	proc_mat.scale_min = 8.0
+	proc_mat.scale_max = 18.0
 	if source_is_player:
 		proc_mat.color = Color(0.6, 1.0, 0.9, 1.0)
 	else:
@@ -238,8 +243,9 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 1.5
-	mesh.height = 3.0
+	# FEEL_BASELINE: Scaled for altitude visibility.
+	mesh.radius = 8.0
+	mesh.height = 16.0
 	particles.draw_pass_1 = mesh
 
 	root.add_child(particles)

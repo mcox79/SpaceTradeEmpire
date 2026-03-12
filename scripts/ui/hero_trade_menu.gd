@@ -160,8 +160,9 @@ func _ready():
 	for ci in range(_col_names.size()):
 		var lbl = Label.new()
 		lbl.text = _col_names[ci]
-		lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
-		lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		# FEEL_BASELINE: Boost header visibility (was FONT_CAPTION + TEXT_SECONDARY = nearly invisible).
+		lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		lbl.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
 		if ci < 3:
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		else:
@@ -324,7 +325,11 @@ func _switch_dock_tab(idx: int) -> void:
 		_tab_buttons[i].button_pressed = (i == idx)
 		if _tab_seen.has(i) and i < _tab_base_names.size():
 			_tab_buttons[i].text = _tab_base_names[i]
-			_tab_buttons[i].remove_theme_color_override("font_color")
+			# FEEL_BASELINE: Explicit active/inactive tab contrast.
+			if i == idx:
+				_tab_buttons[i].add_theme_color_override("font_color", UITheme.CYAN)
+			else:
+				_tab_buttons[i].add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
@@ -478,6 +483,7 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Bought %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+		_refresh_cargo_label()
 
 func _sell_qty_v0(good_id: String, qty: int) -> void:
 	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
@@ -501,6 +507,7 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 			else:
 				toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+		_refresh_cargo_label()
 		# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Re-apply tab disclosure after trade
 		# so newly unlocked tabs (e.g., Jobs) appear immediately.
 		# Deferred: sim needs a frame to process the sell before state reads correctly.
@@ -689,6 +696,28 @@ func _rebuild_rows() -> void:
 			else:
 				_cargo_label.text = "Cargo: empty"
 
+# FEEL_POST_BASELINE: Refresh cargo label after buy/sell so it stays in sync with HUD.
+func _refresh_cargo_label() -> void:
+	if _cargo_label == null:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetPlayerCargoV0"):
+		var cargo = bridge.call("GetPlayerCargoV0")
+		if typeof(cargo) == TYPE_ARRAY and cargo.size() > 0:
+			var parts: Array = []
+			var total_count: int = 0
+			for item in cargo:
+				if typeof(item) == TYPE_DICTIONARY:
+					var qty: int = int(item.get("qty", 0))
+					total_count += qty
+					parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
+			if parts.size() > 0:
+				_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+			else:
+				_cargo_label.text = "Cargo: empty"
+		else:
+			_cargo_label.text = "Cargo: empty"
+
 func _rebuild_production_info() -> void:
 	if _rows_container == null or _market_node_id.is_empty():
 		return
@@ -725,10 +754,18 @@ func _rebuild_production_info() -> void:
 
 		var row = HBoxContainer.new()
 		var lbl = Label.new()
-		if in_str.is_empty():
-			lbl.text = "%s%s  eff:%d%%  hp:%d%%  -> %s" % [source, recipe_name, eff_pct, health_pct, out_str]
+		# FEEL_BASELINE: Human-readable production text instead of internal formula.
+		# Parse "Good:Qty" arrays into readable names.
+		var out_names := _parse_good_names(outputs)
+		var in_names := _parse_good_names(inputs)
+		var source_clean := source.strip_edges().trim_prefix("[").trim_suffix("]").strip_edges()
+		if in_names.is_empty():
+			lbl.text = "Produces %s (%s)" % [out_names, source_clean]
 		else:
-			lbl.text = "%s%s  [%s] eff:%d%%  hp:%d%%  -> %s" % [source, recipe_name, in_str, eff_pct, health_pct, out_str]
+			lbl.text = "Produces %s from %s (%s)" % [out_names, in_names, source_clean]
+		# Show degraded efficiency only when below 100%.
+		if eff_pct < 100:
+			lbl.text += "  [Eff: %d%%]" % eff_pct
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		_rows_container.add_child(row)
@@ -1556,6 +1593,18 @@ func _add_section_header(container: VBoxContainer, key: String, title: String) -
 func _toggle_section(key: String) -> void:
 	_collapsed[key] = not _collapsed.get(key, false)
 	_rebuild_rows()
+
+# FEEL_BASELINE: Parse bridge "Good:Qty" array into readable names joined with " + ".
+func _parse_good_names(items: Array) -> String:
+	var names: PackedStringArray = []
+	for item in items:
+		var s := str(item)
+		var colon := s.find(":")
+		if colon >= 0:
+			names.append(s.substr(0, colon).capitalize())
+		else:
+			names.append(s.capitalize())
+	return " + ".join(names) if names.size() > 0 else ""
 
 func _site_source_tag(site_id: String) -> String:
 	if site_id.begins_with("planet_"): return "[Planet] "
