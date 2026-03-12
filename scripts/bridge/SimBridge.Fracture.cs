@@ -94,8 +94,44 @@ public partial class SimBridge
                     ["fuel_cost"] = fuelCost,
                     ["hull_stress"] = hullStress,
                     ["trace_risk"] = traceRisk,
-                    ["can_afford"] = fleet.Supplies >= fuelCost,
+                    ["can_afford"] = fleet.FuelCurrent >= fuelCost,
                 });
+            }
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.S6.FRACTURE_DISCOVERY.BRIDGE.001: Fracture discovery status for UI.
+    // Returns {unlocked (bool), discovery_tick (int), derelict_node_id (string), analysis_progress (string)}.
+    // Nonblocking read — returns defaults on lock failure.
+    public Godot.Collections.Dictionary GetFractureDiscoveryStatusV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["unlocked"] = false,
+            ["discovery_tick"] = 0,
+            ["derelict_node_id"] = "",
+            ["analysis_progress"] = "unknown",
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            result["unlocked"] = state.FractureUnlocked;
+            result["discovery_tick"] = state.FractureDiscoveryTick;
+
+            // Find the FractureDerelict VoidSite and report its state.
+            var siteIds = new System.Collections.Generic.List<string>(state.VoidSites.Keys);
+            siteIds.Sort(StringComparer.Ordinal);
+
+            foreach (var siteId in siteIds)
+            {
+                if (!state.VoidSites.TryGetValue(siteId, out var site)) continue;
+                if (site.Family != SimCore.Entities.VoidSiteFamily.FractureDerelict) continue;
+
+                result["derelict_node_id"] = site.NearStarA;
+                result["analysis_progress"] = site.MarkerState.ToString();
+                break;
             }
         }, 0);
 

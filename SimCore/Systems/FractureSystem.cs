@@ -132,6 +132,8 @@ public static class FractureSystem
     public static void ApplyFractureGoodsFlowV0(SimState state)
     {
         if (state is null) return;
+        // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Gated behind discovery unlock.
+        if (!state.FractureUnlocked) return;
 
         // Fracture good IDs (stable constants).
         var fractureGoodIds = new[]
@@ -172,6 +174,9 @@ public static class FractureSystem
 
     public static void Process(SimState state)
     {
+        // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Gated behind discovery unlock.
+        if (!state.FractureUnlocked) return;
+
         var orderedFleetIds = GetFractureFleetProcessOrder(state);
 
         foreach (var fleetId in orderedFleetIds)

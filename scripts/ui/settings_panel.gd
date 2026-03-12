@@ -5,7 +5,8 @@
 # Toggle with toggle_v0(). Escape dismisses.
 extends CanvasLayer
 
-enum Tab { AUDIO, DISPLAY, GAMEPLAY }
+# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: added ACCESSIBILITY tab
+enum Tab { AUDIO, DISPLAY, GAMEPLAY, ACCESSIBILITY }
 
 ## Maps settings keys to AudioServer bus names.
 const AUDIO_BUS_MAP := {
@@ -21,6 +22,13 @@ var _bg: ColorRect = null
 var _tab_buttons: Array[Button] = []
 var _content_container: VBoxContainer = null
 var _current_tab: Tab = Tab.AUDIO
+
+# GATE.S9.SETTINGS.DISPLAY_REVERT.001: display revert confirmation state
+var _revert_overlay: Control = null
+var _revert_countdown_label: Label = null
+var _revert_timer: float = -1.0  # negative = inactive
+var _revert_previous_display_mode: int = 0
+const _REVERT_TIMEOUT := 15.0
 
 
 func _ready() -> void:
@@ -111,7 +119,7 @@ func _build_ui() -> void:
 	tab_bar.add_theme_constant_override("separation", UITheme.SPACE_SM)
 	outer_vbox.add_child(tab_bar)
 
-	var tab_names := ["Audio", "Display", "Gameplay"]
+	var tab_names := ["Audio", "Display", "Gameplay", "Accessibility"]
 	for i in range(tab_names.size()):
 		var btn := Button.new()
 		btn.text = tab_names[i]
@@ -178,6 +186,8 @@ func _switch_tab(tab: Tab) -> void:
 			_build_display_tab()
 		Tab.GAMEPLAY:
 			_build_gameplay_tab()
+		Tab.ACCESSIBILITY:
+			_build_accessibility_tab()
 
 
 # ── Audio tab ────────────────────────────────────────────────────────────────
@@ -193,7 +203,8 @@ func _build_audio_tab() -> void:
 # ── Display tab ──────────────────────────────────────────────────────────────
 
 func _build_display_tab() -> void:
-	_add_option_row("Window Mode", "display_mode", ["Windowed", "Fullscreen", "Borderless"])
+	# GATE.S9.SETTINGS.DISPLAY_REVERT.001: display mode uses revert confirmation
+	_add_display_mode_row()
 	_add_toggle_row("VSync", "display_vsync")
 	_add_option_row("Quality", "display_quality", ["Low", "Medium", "High"])
 	_add_info_row("Resolution changes require restart.")
@@ -207,6 +218,53 @@ func _build_gameplay_tab() -> void:
 	_add_toggle_row("Tutorial Toasts", "gameplay_tutorial_toasts")
 	_add_slider_row("Tooltip Delay (sec)", "gameplay_tooltip_delay", 0.0, 3.0)
 	_add_slider_row("Camera Sensitivity", "gameplay_camera_sensitivity", 0.5, 3.0)
+
+
+# ── Accessibility tab ────────────────────────────────────────────────────────
+# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001
+
+func _build_accessibility_tab() -> void:
+	_add_option_row("Colorblind Mode", "accessibility_colorblind_mode",
+		["None", "Deuteranopia", "Protanopia", "Tritanopia"])
+	_add_font_scale_row()
+	_add_toggle_row("High Contrast", "accessibility_high_contrast")
+	_add_toggle_row("Reduced Screen Shake", "accessibility_reduced_shake")
+	_add_info_row("Font scale changes apply to all UI elements globally.")
+
+
+## GATE.S9.ACCESSIBILITY.FONT_SCALE.001: font scale uses discrete percentage values.
+const _FONT_SCALE_VALUES := [100, 125, 150, 200]
+
+func _add_font_scale_row() -> void:
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", UITheme.SPACE_MD)
+
+	var lbl := Label.new()
+	lbl.text = "Font Scale"
+	lbl.custom_minimum_size = Vector2(180, 0)
+	lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox.add_child(lbl)
+
+	var option := OptionButton.new()
+	for val in _FONT_SCALE_VALUES:
+		option.add_item("%d%%" % val)
+	# Map current setting value to index.
+	var current_val: int = int(_get_setting("accessibility_font_scale"))
+	var idx := _FONT_SCALE_VALUES.find(current_val)
+	if idx < 0:
+		idx = 0
+	option.selected = idx
+	option.custom_minimum_size = Vector2(160, 0)
+	option.process_mode = Node.PROCESS_MODE_ALWAYS
+	hbox.add_child(option)
+
+	option.item_selected.connect(func(selected_idx: int) -> void:
+		if selected_idx >= 0 and selected_idx < _FONT_SCALE_VALUES.size():
+			_set_setting("accessibility_font_scale", _FONT_SCALE_VALUES[selected_idx])
+	)
+
+	_content_container.add_child(hbox)
 
 
 # ── Widget builders ──────────────────────────────────────────────────────────
@@ -319,6 +377,150 @@ func _add_info_row(text: String) -> void:
 	_content_container.add_child(lbl)
 
 
+# ── Display mode with revert confirmation ───────────────────────────────────
+# GATE.S9.SETTINGS.DISPLAY_REVERT.001
+
+func _add_display_mode_row() -> void:
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", UITheme.SPACE_MD)
+
+	var lbl := Label.new()
+	lbl.text = "Window Mode"
+	lbl.custom_minimum_size = Vector2(180, 0)
+	lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox.add_child(lbl)
+
+	var options := ["Windowed", "Fullscreen", "Borderless"]
+	var option := OptionButton.new()
+	for opt_text in options:
+		option.add_item(opt_text)
+	option.selected = int(_get_setting("display_mode"))
+	option.custom_minimum_size = Vector2(160, 0)
+	option.process_mode = Node.PROCESS_MODE_ALWAYS
+	hbox.add_child(option)
+
+	option.item_selected.connect(func(idx: int) -> void:
+		# Store previous value before applying the change.
+		_revert_previous_display_mode = int(_get_setting("display_mode"))
+		_set_setting("display_mode", idx)
+		_apply_display_settings()
+		# Show revert confirmation only if value actually changed.
+		if idx != _revert_previous_display_mode:
+			_show_revert_confirmation()
+	)
+
+	_content_container.add_child(hbox)
+
+
+func _show_revert_confirmation() -> void:
+	# Remove any existing revert overlay.
+	if _revert_overlay != null and is_instance_valid(_revert_overlay):
+		_revert_overlay.queue_free()
+		_revert_overlay = null
+
+	# Build revert confirmation panel overlaying settings.
+	_revert_overlay = Control.new()
+	_revert_overlay.name = "RevertOverlay"
+	_revert_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_revert_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_revert_overlay)
+
+	var overlay_bg := ColorRect.new()
+	overlay_bg.color = Color(0.0, 0.0, 0.0, 0.5)
+	overlay_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_revert_overlay.add_child(overlay_bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_revert_overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(380, 180)
+	panel.add_theme_stylebox_override("panel", UITheme.make_panel_modal())
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", UITheme.SPACE_MD)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "KEEP DISPLAY CHANGES?"
+	title.add_theme_font_size_override("font_size", UITheme.FONT_TITLE)
+	title.add_theme_color_override("font_color", UITheme.CYAN)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	_revert_countdown_label = Label.new()
+	_revert_countdown_label.text = "Reverting in 15 seconds..."
+	_revert_countdown_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	_revert_countdown_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	_revert_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_revert_countdown_label)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", UITheme.SPACE_LG)
+	vbox.add_child(btn_row)
+
+	var keep_btn := Button.new()
+	keep_btn.text = "Keep Changes"
+	keep_btn.custom_minimum_size = Vector2(140, 36)
+	keep_btn.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	keep_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	keep_btn.pressed.connect(_on_revert_keep)
+	btn_row.add_child(keep_btn)
+
+	var revert_btn := Button.new()
+	revert_btn.text = "Revert"
+	revert_btn.custom_minimum_size = Vector2(140, 36)
+	revert_btn.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	revert_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	revert_btn.pressed.connect(_on_revert_revert)
+	btn_row.add_child(revert_btn)
+
+	# Start countdown.
+	_revert_timer = _REVERT_TIMEOUT
+	print("UUIR|SETTINGS_PANEL|DISPLAY_REVERT_SHOW|prev=%d" % _revert_previous_display_mode)
+
+
+func _process(delta: float) -> void:
+	if _revert_timer < 0.0:
+		return
+	_revert_timer -= delta
+	if _revert_countdown_label != null and is_instance_valid(_revert_countdown_label):
+		_revert_countdown_label.text = "Reverting in %d seconds..." % ceili(_revert_timer)
+	if _revert_timer <= 0.0:
+		_on_revert_revert()
+
+
+func _on_revert_keep() -> void:
+	_revert_timer = -1.0
+	if _revert_overlay != null and is_instance_valid(_revert_overlay):
+		_revert_overlay.queue_free()
+		_revert_overlay = null
+	# Rebuild display tab to show current value.
+	if _current_tab == Tab.DISPLAY:
+		_switch_tab(Tab.DISPLAY)
+	print("UUIR|SETTINGS_PANEL|DISPLAY_REVERT_KEEP")
+
+
+func _on_revert_revert() -> void:
+	_revert_timer = -1.0
+	# Revert to previous display mode.
+	_set_setting("display_mode", _revert_previous_display_mode)
+	_apply_display_settings()
+	if _revert_overlay != null and is_instance_valid(_revert_overlay):
+		_revert_overlay.queue_free()
+		_revert_overlay = null
+	# Rebuild display tab to show reverted value.
+	if _current_tab == Tab.DISPLAY:
+		_switch_tab(Tab.DISPLAY)
+	print("UUIR|SETTINGS_PANEL|DISPLAY_REVERT_REVERTED|to=%d" % _revert_previous_display_mode)
+
+
 # ── Settings application ────────────────────────────────────────────────────
 
 ## Apply all saved settings to engine subsystems. Called on startup and after reset.
@@ -421,6 +623,8 @@ func _on_settings_changed(key: String, value: Variant) -> void:
 		_apply_display_settings()
 	elif key == "gameplay_auto_pause":
 		_apply_gameplay_settings()
+	# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: accessibility keys handled by their own autoloads
+	# (SettingsManager handles font_scale, ColorblindFilter handles colorblind_mode)
 
 
 # ── Settings access helpers ──────────────────────────────────────────────────

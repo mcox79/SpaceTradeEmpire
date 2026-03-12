@@ -14,8 +14,9 @@ public class FractureCostTests
     private SimState SetupFractureState()
     {
         var state = new SimState(42);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
 
-        // Create a fleet with enough supplies and hull
+        // Create a fleet with enough fuel and hull
         var fleet = new Fleet
         {
             Id = "player_fleet",
@@ -26,7 +27,8 @@ public class FractureCostTests
             TechLevel = 2,
             HullHp = 100,
             HullHpMax = 200,
-            Supplies = 50
+            FuelCapacity = 500,
+            FuelCurrent = 50
         };
         state.Fleets["player_fleet"] = fleet;
 
@@ -44,20 +46,20 @@ public class FractureCostTests
     public void FractureDeparture_DeductsFuel()
     {
         var state = SetupFractureState();
-        int suppliesBefore = state.Fleets["player_fleet"].Supplies;
+        int fuelBefore = state.Fleets["player_fleet"].FuelCurrent;
 
         new FractureTravelCommand("player_fleet", "void_1").Execute(state);
 
         var fleet = state.Fleets["player_fleet"];
         Assert.That(fleet.State, Is.EqualTo(FleetState.FractureTraveling));
-        Assert.That(fleet.Supplies, Is.EqualTo(suppliesBefore - FractureTweaksV0.FractureFuelPerJump));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(fuelBefore - FractureTweaksV0.FractureFuelPerJump));
     }
 
     [Test]
     public void FractureDeparture_InsufficientFuel_Blocked()
     {
         var state = SetupFractureState();
-        state.Fleets["player_fleet"].Supplies = FractureTweaksV0.FractureFuelPerJump - 1;
+        state.Fleets["player_fleet"].FuelCurrent = FractureTweaksV0.FractureFuelPerJump - 1;
 
         new FractureTravelCommand("player_fleet", "void_1").Execute(state);
 

@@ -339,7 +339,6 @@ public partial class SimBridge
                     ["is_hostile"] = fleet.Role == SimCore.Entities.FleetRole.Patrol
                         && !StringComparer.Ordinal.Equals(fleet.OwnerId, "player")
                 };
-
                 result.Add(d);
             }
 
@@ -665,9 +664,9 @@ public partial class SimBridge
         {
             if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
 
-            int fuel = fleet.GetCargoUnits(SimCore.Content.WellKnownGoodIds.Fuel);
             result["fleet_id"] = fleet.Id;
-            result["fuel"] = fuel;
+            result["fuel"] = fleet.FuelCurrent;
+            result["fuel_capacity"] = fleet.FuelCapacity;
             result["state"] = fleet.State.ToString();
             result["current_task"] = fleet.CurrentTask ?? "";
             result["is_immobilized"] = string.Equals(fleet.CurrentTask, "Immobilized:NoFuel", StringComparison.Ordinal);

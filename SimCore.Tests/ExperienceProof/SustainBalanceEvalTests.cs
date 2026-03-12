@@ -98,13 +98,14 @@ public sealed class SustainBalanceEvalTests
             Speed = 0.5f,
             State = FleetState.Docked,
             CurrentTask = "Docked",
+            FuelCapacity = ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SustainTweaksV0.DefaultFuelCapacity,
+            FuelCurrent = ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SustainTweaksV0.DefaultFuelCapacity,
             Slots = new System.Collections.Generic.List<ModuleSlot>
             {
                 new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon },
                 new ModuleSlot { SlotId = "engine_0", SlotKind = SlotKind.Engine },
             }
         };
-        playerFleet0.Cargo[WellKnownGoodIds.Fuel] = 50;
         kernel.State.Fleets["fleet_trader_1"] = playerFleet0;
 
         // Give the player fleet a destination so it will travel.
@@ -112,10 +113,8 @@ public sealed class SustainBalanceEvalTests
             playerFleet0.FinalDestinationNodeId = nodeIds[1];
 
         var result = new SeedResult { Seed = seed };
-        int prevPlayerFuel = playerFleet0.GetCargoUnits(WellKnownGoodIds.Fuel);
-        int prevNpcFuelTotal = 0;
-
-        prevNpcFuelTotal = SumNpcFuel(kernel.State);
+        int prevPlayerFuel = playerFleet0.FuelCurrent;
+        int prevNpcFuelTotal = SumNpcFuel(kernel.State);
 
         // Cycle player fleet between two nodes to simulate ongoing travel.
         int destIdx = 1;
@@ -126,7 +125,7 @@ public sealed class SustainBalanceEvalTests
             // Track player fuel consumption.
             if (kernel.State.Fleets.TryGetValue("fleet_trader_1", out var playerFleet))
             {
-                int currentFuel = playerFleet.GetCargoUnits(WellKnownGoodIds.Fuel);
+                int currentFuel = playerFleet.FuelCurrent;
                 if (currentFuel < prevPlayerFuel)
                     result.TotalPlayerFuelConsumed += (prevPlayerFuel - currentFuel);
                 prevPlayerFuel = currentFuel;
@@ -139,7 +138,7 @@ public sealed class SustainBalanceEvalTests
                 if (playerFleet.State == FleetState.Idle
                     && string.IsNullOrEmpty(playerFleet.FinalDestinationNodeId)
                     && (playerFleet.RouteEdgeIds == null || playerFleet.RouteEdgeIds.Count == 0)
-                    && playerFleet.GetCargoUnits(WellKnownGoodIds.Fuel) > 0
+                    && playerFleet.FuelCurrent > 0
                     && nodeIds.Count > 1)
                 {
                     destIdx = (destIdx + 1) % nodeIds.Count;
@@ -157,7 +156,7 @@ public sealed class SustainBalanceEvalTests
         // Final state.
         if (kernel.State.Fleets.TryGetValue("fleet_trader_1", out var finalFleet))
         {
-            result.PlayerFuelRemaining = finalFleet.GetCargoUnits(WellKnownGoodIds.Fuel);
+            result.PlayerFuelRemaining = finalFleet.FuelCurrent;
             if (finalFleet.Slots != null)
                 result.DisabledModuleCount = finalFleet.Slots.Count(s => s.Disabled);
         }
@@ -166,7 +165,7 @@ public sealed class SustainBalanceEvalTests
 
         foreach (var fleet in kernel.State.Fleets.Values)
         {
-            if (fleet.GetCargoUnits(WellKnownGoodIds.Fuel) > 0)
+            if (fleet.FuelCurrent > 0)
                 result.FleetsWithFuel++;
             else
                 result.FleetsWithoutFuel++;
@@ -181,7 +180,7 @@ public sealed class SustainBalanceEvalTests
         foreach (var fleet in state.Fleets.Values)
         {
             if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
-            total += fleet.GetCargoUnits(WellKnownGoodIds.Fuel);
+            total += fleet.FuelCurrent;
         }
         return total;
     }

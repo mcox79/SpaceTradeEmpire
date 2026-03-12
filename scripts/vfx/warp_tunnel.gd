@@ -29,17 +29,18 @@ func setup(opacity: float = 0.85) -> void:
 
 func despawn(duration: float = 0.3) -> void:
 	if _material:
+		# Stop particle emission immediately so streaks die out naturally.
+		if _streak_particles:
+			_streak_particles.emitting = false
+		if _fast_streaks:
+			_fast_streaks.emitting = false
+		if _ambient_glow:
+			_ambient_glow.emitting = false
 		var tween := create_tween()
 		tween.tween_property(_material, "albedo_color:a", 0.0, duration)
 		tween.parallel().tween_property(_material, "emission_energy_multiplier", 0.0, duration)
 		if _inner_material:
 			tween.parallel().tween_property(_inner_material, "albedo_color:a", 0.0, duration)
-		if _streak_particles:
-			tween.parallel().tween_property(_streak_particles, "modulate", Color(1, 1, 1, 0), duration)
-		if _fast_streaks:
-			tween.parallel().tween_property(_fast_streaks, "modulate", Color(1, 1, 1, 0), duration)
-		if _ambient_glow:
-			tween.parallel().tween_property(_ambient_glow, "modulate", Color(1, 1, 1, 0), duration)
 		tween.tween_callback(queue_free)
 	else:
 		queue_free()

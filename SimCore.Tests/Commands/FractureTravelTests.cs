@@ -38,6 +38,8 @@ public class FractureTravelTests
             State = FleetState.Docked,
             Speed = 0.5f,
             TechLevel = 1, // Meets minimum.
+            FuelCapacity = 500,
+            FuelCurrent = 500,
         };
         return state;
     }
@@ -186,6 +188,8 @@ public class FractureTravelTests
                 State = FleetState.Docked,
                 Speed = 0.5f,
                 TechLevel = 1,
+                FuelCapacity = 500,
+                FuelCurrent = 500,
             };
 
             new FractureTravelCommand("fleet_1", "void_01").Execute(state);

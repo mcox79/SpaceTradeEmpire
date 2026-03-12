@@ -28,7 +28,7 @@ public class TravelTests
         _edge = new Edge { Id = "A_B", FromNodeId = "A", ToNodeId = "B", Distance = 10f, TotalCapacity = 2 };
         _state.Edges.Add("A_B", _edge);
 
-        _fleet = new Fleet { Id = "F1", CurrentNodeId = "A", Speed = 5f, Supplies = 100 };
+        _fleet = new Fleet { Id = "F1", CurrentNodeId = "A", Speed = 5f, ShipClassId = "", FuelCapacity = 500, FuelCurrent = 500 };
         _state.Fleets.Add("F1", _fleet);
     }
 
@@ -59,5 +59,42 @@ public class TravelTests
         Assert.That(_fleet.State, Is.EqualTo(FleetState.Idle));
         Assert.That(_fleet.CurrentNodeId, Is.EqualTo("B"));
         Assert.That(_edge.UsedCapacity, Is.EqualTo(0)); // Slot freed
+    }
+
+    // --- ComputeTransitCost tests ---
+
+    [Test]
+    public void ComputeTransitCost_EmptyLane_ReturnsBaseCost()
+    {
+        var edge = new Edge { TotalCapacity = 5, UsedCapacity = 0 };
+        int cost = TravelCommand.ComputeTransitCost(edge);
+        Assert.That(cost, Is.EqualTo(SimCore.Tweaks.TransitTweaksV0.BaseCreditCost));
+    }
+
+    [Test]
+    public void ComputeTransitCost_FullLane_ReturnsBaseAndMaxSurcharge()
+    {
+        var edge = new Edge { TotalCapacity = 5, UsedCapacity = 5 };
+        int cost = TravelCommand.ComputeTransitCost(edge);
+        Assert.That(cost, Is.EqualTo(
+            SimCore.Tweaks.TransitTweaksV0.BaseCreditCost +
+            SimCore.Tweaks.TransitTweaksV0.MaxCongestionSurcharge));
+    }
+
+    [Test]
+    public void ComputeTransitCost_HalfFull_ReturnsHalfSurcharge()
+    {
+        var edge = new Edge { TotalCapacity = 4, UsedCapacity = 2 };
+        int cost = TravelCommand.ComputeTransitCost(edge);
+        int expectedSurcharge = (int)(0.5f * SimCore.Tweaks.TransitTweaksV0.MaxCongestionSurcharge);
+        Assert.That(cost, Is.EqualTo(SimCore.Tweaks.TransitTweaksV0.BaseCreditCost + expectedSurcharge));
+    }
+
+    [Test]
+    public void ComputeTransitCost_ZeroCapacity_ReturnsBaseCost()
+    {
+        var edge = new Edge { TotalCapacity = 0, UsedCapacity = 0 };
+        int cost = TravelCommand.ComputeTransitCost(edge);
+        Assert.That(cost, Is.EqualTo(SimCore.Tweaks.TransitTweaksV0.BaseCreditCost));
     }
 }

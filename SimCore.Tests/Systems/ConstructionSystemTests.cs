@@ -184,4 +184,30 @@ public class ConstructionSystemTests
 
         Assert.That(loaded.Construction.Projects.Count, Is.EqualTo(state.Construction.Projects.Count));
     }
+
+    [Test]
+    public void StartConstruction_PrerequisitesNotMet_Fails()
+    {
+        var state = CreateTestState();
+        var nodeId = state.Nodes.Keys.First();
+
+        // constr_shipyard_v0 requires "improved_thrusters" — don't unlock it
+        var result = ConstructionSystem.StartConstruction(state, "constr_shipyard_v0", nodeId);
+
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("prerequisites_not_met"));
+    }
+
+    [Test]
+    public void StartConstruction_PrerequisitesMet_Succeeds()
+    {
+        var state = CreateTestState();
+        var nodeId = state.Nodes.Keys.First();
+
+        // Unlock the prerequisite
+        state.Tech.UnlockedTechIds.Add("improved_thrusters");
+        var result = ConstructionSystem.StartConstruction(state, "constr_shipyard_v0", nodeId);
+
+        Assert.That(result.Success, Is.True);
+    }
 }

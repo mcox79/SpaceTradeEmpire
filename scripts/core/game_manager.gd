@@ -36,6 +36,9 @@ var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
 var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can trigger again.
 var _gate_approach_declined: bool = false  # Suppresses re-trigger until full zone exit.
+# Dock confirmation: target near player awaiting E key to dock.
+var _dock_available_target: Node = null
+var _undock_cooldown: float = 0.0  # Prevents re-dock prompt immediately after undock.
 
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
@@ -76,6 +79,9 @@ var _pause_menu: Control = null
 # GATE.S12.UX_POLISH.ONBOARDING.001: First-dock onboarding toasts
 var _onboarding_shown: bool = false
 
+# GATE.S19.ONBOARD.MILESTONE_TOAST.014: Track celebrated milestones to avoid repeats.
+var _celebrated_milestones: Dictionary = {}
+
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save cooldown (30s between saves)
 var _autosave_cooldown: float = 0.0
 const AUTOSAVE_COOLDOWN_SEC: float = 30.0
@@ -113,12 +119,13 @@ var _transit_lane_line_ref: Node3D = null  # Stored to clean up during reveal.
 var _warp_tunnel_ref: Node3D = null  # GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: warp tunnel VFX instance.
 
 # Flyby orbit tuning — tweak these to adjust the arrival cinematic.
-const FLYBY_APPROACH_DIST: float = 130.0   # X: distance from star to start curving.
-const FLYBY_ORBIT_RADIUS: float = 55.0     # Y: orbit circle radius around star.
-const FLYBY_ORBIT_ALT: float = 45.0        # Camera height during orbit sweep.
-const FLYBY_CURVE_ON_TIME: float = 1.5     # Seconds to curve onto the orbit circle.
-const FLYBY_ORBIT_TIME: float = 4.0        # Seconds for the full orbital sweep.
-const FLYBY_CURVE_OFF_TIME: float = 1.5    # Seconds to settle at destination gate.
+# Pace overhaul: compressed timing. First visit ~5s, return visits skip flyby entirely (~2.5s).
+const FLYBY_APPROACH_DIST: float = 160.0   # Distance from star to start curving (scaled for 120u systems).
+const FLYBY_ORBIT_RADIUS: float = 70.0     # Orbit circle radius around star (scaled for 120u systems).
+const FLYBY_ORBIT_ALT: float = 50.0        # Camera height during orbit sweep.
+const FLYBY_CURVE_ON_TIME: float = 0.6     # Seconds to curve onto orbit (was 1.5).
+const FLYBY_ORBIT_TIME: float = 1.5        # Seconds for orbital sweep — first visit only (was 4.0).
+const FLYBY_CURVE_OFF_TIME: float = 0.5    # Seconds to settle at destination gate (was 1.5).
 
 # Gate approach state: player is near a gate, popup visible, awaiting confirm.
 var _approach_neighbor_id: String = ""
@@ -146,6 +153,9 @@ var _keybinds_help: Node = null
 
 # GATE.S11.GAME_FEEL.COMBAT_LOG_UI.001: Combat log panel (L key)
 var _combat_log_panel: Node = null
+
+# GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Knowledge web panel (K key)
+var _knowledge_web_panel: Node = null
 
 func _is_main_menu_active() -> bool:
 	return _on_main_menu
@@ -224,12 +234,21 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 	if _onboarding_shown:
 		return
 	_onboarding_shown = true
-	# Delay so the screen has loaded and toasts are visible.
-	await get_tree().create_timer(2.0).timeout
+	# Q4: Concise welcome — single clear prompt, no wall of text.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	var tutorial_on: bool = true
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		tutorial_on = bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts"))
 	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Welcome, Captain! Fly to a station to trade.", 6.0)
-		toast_mgr.call("show_toast", "Tab = Galaxy Map, E = Empire, H = Help", 8.0)
+	if not tutorial_on:
+		await get_tree().create_timer(2.0).timeout
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
+		return
+	# Single prompt: meet your FO. No keybind dump.
+	await get_tree().create_timer(3.0).timeout
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "Press F to meet your First Officer.", "fo")
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save with cooldown and toast.
 func _try_autosave_v0() -> void:
@@ -259,6 +278,8 @@ func _process(delta):
 
 	if _lane_cooldown_v0 > 0.0:
 		_lane_cooldown_v0 -= float(delta)
+	if _undock_cooldown > 0.0:
+		_undock_cooldown -= float(delta)
 	if _autosave_cooldown > 0.0:
 		_autosave_cooldown -= float(delta)
 	if _turret_cooldown > 0.0:
@@ -307,6 +328,8 @@ func _process(delta):
 	if _discovery_poll_timer >= DISCOVERY_POLL_INTERVAL:
 		_discovery_poll_timer = 0.0
 		_poll_discovery_celebrations_v0()
+		# GATE.S19.ONBOARD.MILESTONE_TOAST.014: piggyback on discovery poll interval.
+		_poll_milestone_celebrations_v0()
 
 
 func _unhandled_input(event):
@@ -341,9 +364,19 @@ func _unhandled_input(event):
 		if event.keycode == KEY_TAB and current_player_state != PlayerShipState.IN_LANE_TRANSIT and current_player_state != PlayerShipState.DOCKED:
 			toggle_galaxy_map_overlay_v0()
 		if event.keycode == KEY_E:
-			_toggle_empire_dashboard_v0()
+			# Dock confirmation: E near a station docks; otherwise opens empire.
+			if _dock_available_target != null and current_player_state == PlayerShipState.IN_FLIGHT:
+				on_proximity_dock_entered_v0(_dock_available_target)
+				_dock_available_target = null
+				var hud_dk = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+				if hud_dk and hud_dk.has_method("hide_dock_prompt_v0"):
+					hud_dk.call("hide_dock_prompt_v0")
+			else:
+				_toggle_empire_dashboard_v0()
 		if event.keycode == KEY_H:
 			_toggle_keybinds_help_v0()
+		if event.keycode == KEY_K:
+			_toggle_knowledge_web_v0()
 		if event.keycode == KEY_L:
 			_toggle_combat_log_v0()
 		if event.keycode == KEY_V:
@@ -461,16 +494,37 @@ func _state_name_v0(s: PlayerShipState) -> String:
 		PlayerShipState.GATE_APPROACH:   return "GATE_APPROACH"
 	return "UNKNOWN"
 
-func on_proximity_dock_entered_v0(target: Node):
+# Dock confirmation: called by collision triggers to show "Press E to dock" prompt.
+func on_dock_proximity_v0(target: Node):
 	if target == null:
 		return
-
-	# Don't auto-dock while click-to-fly autopilot is active.
+	if current_player_state != PlayerShipState.IN_FLIGHT:
+		return
+	if _undock_cooldown > 0.0:
+		return
 	if _hero_body and is_instance_valid(_hero_body) and _hero_body.get("_nav_active"):
 		return
+	# Q5: Only block docking if the nearest fleet is hostile (Patrol).
+	# Previously ALL fleets (including peaceful traders) blocked docking.
+	var nearest_fleet := _find_nearest_fleet_v0(AI_AGGRO_RANGE)
+	if nearest_fleet != null and nearest_fleet.get_meta("is_hostile", false):
+		return
+	_dock_available_target = target
+	var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+	if hud and hud.has_method("show_dock_prompt_v0"):
+		hud.call("show_dock_prompt_v0")
 
-	# Don't auto-dock while hostile fleets are in aggro range.
-	if _find_nearest_fleet_v0(AI_AGGRO_RANGE) != null:
+# Dock confirmation: called when player leaves dock trigger area.
+func on_dock_proximity_exit_v0(target: Node):
+	if _dock_available_target == target:
+		_dock_available_target = null
+		var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+		if hud and hud.has_method("hide_dock_prompt_v0"):
+			hud.call("hide_dock_prompt_v0")
+
+# Commit dock: called by E key press or directly by test scripts.
+func on_proximity_dock_entered_v0(target: Node):
+	if target == null:
 		return
 
 	if not _transition_player_state_v0(PlayerShipState.DOCKED):
@@ -495,8 +549,10 @@ func on_proximity_dock_entered_v0(target: Node):
 		var htm2 = _find_hero_trade_menu()
 		if htm2 and htm2.has_method("open_market_v0"):
 			htm2.call("open_market_v0", dock_target_id)
-	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast
+	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast (now no-op, replaced by disclosure)
 	_check_first_dock_mission_prompt_v0()
+	# GATE.S19.ONBOARD.FO_EVENTS.012: Immediate FO poll after docking.
+	_poll_fo_immediate()
 
 	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Close galaxy overlay if open when docking.
 	# Prevents large 3D elements (beacons, labels) from rendering at dock-distance camera.
@@ -538,6 +594,8 @@ func undock_v0():
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	dock_target_kind_token = ""
 	dock_target_id = ""
+	_undock_cooldown = 1.5  # Prevent re-dock prompt immediately after undock.
+	_dock_available_target = null
 
 	# Close station menu if it is open.
 	if _station_menu and _station_menu.has_method("OnShopToggled"):
@@ -787,7 +845,8 @@ func _play_departure_vortex_v0() -> void:
 
 	# Pull ship toward vortex center over charge time.
 	var charge_tween := create_tween()
-	charge_tween.tween_property(_hero_body, "global_position", gate_pos, 1.5) \
+	# Pace overhaul: faster vortex pull (was 1.5s).
+	charge_tween.tween_property(_hero_body, "global_position", gate_pos, 0.8) \
 		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	await charge_tween.finished
 
@@ -838,7 +897,7 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
 		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
-	_lane_cooldown_v0 = 2.0  # Prevent immediate re-trigger at destination lane gate.
+	_lane_cooldown_v0 = 1.0  # Pace overhaul: shorter cooldown (was 2.0s).
 
 	# Restore local system labels (suppressed during transit).
 	var gv_labels = _find_galaxy_view()
@@ -847,6 +906,8 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 	# GATE.S15.FEEL.JUMP_EVENT_TOAST.001: Show toasts for jump events on this transit.
 	_show_jump_event_toasts_v0(bridge)
+	# GATE.S19.ONBOARD.FO_EVENTS.012: Immediate FO poll after lane arrival.
+	_poll_fo_immediate()
 
 	# GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save on warp arrival.
 	_try_autosave_v0()
@@ -896,21 +957,12 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 		_hero_body.linear_velocity = Vector3.ZERO
 		_hero_body.angular_velocity = Vector3.ZERO
 
-	# Brief rotation sweep to orient the player (fallback path — main transit uses flyby).
-	var cam_ctrl = _find_camera_controller()
-	if cam_ctrl and cam_ctrl.get("_flight_yaw_offset") != null:
-		cam_ctrl._flight_yaw_offset = 0.0
-		cam_ctrl._flight_pitch_offset = 0.0
-		var sweep_tween := create_tween()
-		sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.5, 2.0) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-		sweep_tween.tween_property(cam_ctrl, "_flight_yaw_offset", 0.0, 1.0) \
-			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	# Camera rotation sweep removed (fixed top-down camera, no yaw/pitch offsets).
 
 
 ## Position hero at the arrival gate corresponding to the origin system.
 ## Extracted from on_lane_arrival_v0 for reuse in reveal sweep.
-func _position_hero_at_gate_v0(arrived_node_id: String, gv) -> void:
+func _position_hero_at_gate_v0(_arrived_node_id: String, gv) -> void:
 	var star_center: Vector3 = Vector3.ZERO
 	if gv and gv.has_method("GetCurrentStarGlobalPositionV0"):
 		star_center = gv.call("GetCurrentStarGlobalPositionV0")
@@ -1003,7 +1055,7 @@ func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: f
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	subtitle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	subtitle.offset_top = 44.0
+	subtitle.offset_top = 90.0
 	subtitle.add_theme_font_size_override("font_size", 24)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9, 1.0))
 	subtitle.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.15, 0.7))
@@ -1245,7 +1297,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	warp_transit_travel_dir = lane_dir
 
 	var distance: float = origin_pos.distance_to(dest_gate_pos)
-	var transit_time: float = clampf(distance / 2000.0, 1.5, 3.0)
+	# Pace overhaul: faster transit (was distance/2000, 1.5-3.0s).
+	var transit_time: float = clampf(distance / 2500.0, 1.0, 2.0)
 
 	# GATE.S3.RISK_SINKS.BRIDGE.001: Add delay from risk events to transit time.
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -1310,7 +1363,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	var _transit_lane_line := _create_transit_lane_line_v0(origin_pos, dest_gate_pos)
 
 	# Smooth zoom-out: tween altitude from current camera height to cruise altitude.
-	var zoom_out_time: float = 0.6
+	# Pace overhaul: faster zoom-out (was 0.6s).
+	var zoom_out_time: float = 0.3
 	var zoom_out_tween := create_tween()
 	zoom_out_tween.tween_property(self, "warp_transit_altitude", cruise_altitude, zoom_out_time) \
 		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
@@ -1318,7 +1372,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Tilt camera forward so destination is visible during transit (comet approach).
 	if cam_ctrl and cam_ctrl.get("warp_transit_tilt") != null:
 		var tilt_tween := create_tween()
-		tilt_tween.tween_property(cam_ctrl, "warp_transit_tilt", 1.0, 0.8) \
+		# Pace overhaul: faster tilt (was 0.8s).
+		tilt_tween.tween_property(cam_ctrl, "warp_transit_tilt", 1.0, 0.4) \
 			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
 	# Wait for zoom-out to complete before marker starts moving.
@@ -1424,6 +1479,30 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	cam_ctrl = _find_camera_controller()
 	var has_cam: bool = cam_ctrl != null and cam_ctrl.get("flyby_active") != null
 
+	# Pace overhaul: return visits skip flyby entirely (~2.5s total transit).
+	if has_cam and not is_first_visit:
+		# Fast camera descent to flight altitude — no spiral, no orbit.
+		warp_transit_target = hero_pos
+		var descent := create_tween()
+		descent.tween_property(self, "warp_transit_altitude", 80.0, 0.8) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		if cam_ctrl.get("warp_transit_tilt") != null:
+			var tilt_reset := create_tween()
+			tilt_reset.tween_property(cam_ctrl, "warp_transit_tilt", 0.0, 0.8) \
+				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		await descent.finished
+		if cam_ctrl.has_method("notify_flyby_arrival_v0"):
+			cam_ctrl.call("notify_flyby_arrival_v0", 80.0)
+		else:
+			cam_ctrl._altitude = 80.0
+			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
+		cam_ctrl.flyby_settle_active = true
+		var gv_fast = _find_galaxy_view()
+		if gv_fast and gv_fast.has_method("SetTransitModeV0"):
+			gv_fast.call("SetTransitModeV0", false, "", "")
+		print("UUIR|FAST_RETURN|hero=%s" % str(hero_pos))
+		has_cam = false  # Skip first-visit flyby below.
+
 	if has_cam:
 		# Capture current camera position for seamless transition from WARP_TRANSIT.
 		var entry_cam_pos: Vector3 = cam_ctrl._cam.global_position if cam_ctrl._cam else Vector3(entry_point.x, 120.0, entry_point.z)
@@ -1469,8 +1548,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		cam_ctrl.flyby_up = current_up
 		cam_ctrl.flyby_active = true
 		cam_ctrl.input_locked = true
-		cam_ctrl._flight_yaw_offset = 0.0
-		cam_ctrl._flight_pitch_offset = 0.0
 
 		# Orbit timing: shorter for return visits.
 		var actual_orbit_time: float = FLYBY_ORBIT_TIME if is_first_visit else FLYBY_ORBIT_TIME * 0.5
@@ -1616,7 +1693,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
 		cam_ctrl.flyby_settle_active = true
 		cam_ctrl.input_locked = false
-		cam_ctrl._flight_yaw_offset = 0.0
 		var gv_cleanup = _find_galaxy_view()
 		if gv_cleanup and gv_cleanup.has_method("SetTransitModeV0"):
 			gv_cleanup.call("SetTransitModeV0", false, "", "")
@@ -1624,7 +1700,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 
 	# === Transition to IN_FLIGHT ===
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
-	_lane_cooldown_v0 = 2.0
+	_lane_cooldown_v0 = 1.0  # Pace overhaul: shorter cooldown (was 2.0s).
 
 	# Restore labels + hero + HUD.
 	var gv_restore = _find_galaxy_view()
@@ -1840,10 +1916,6 @@ func _toggle_pause_v0() -> void:
 		_pause_menu.open_v0()
 	else:
 		_pause_menu.close_v0()
-	# Legacy HUD pause panel — keep in sync if present.
-	var hud = get_tree().root.find_child("HUD", true, false)
-	if hud and hud.has_method("toggle_pause_menu_v0"):
-		hud.call("toggle_pause_menu_v0", _paused)
 	print("UUIR|PAUSE|" + str(_paused))
 
 # GATE.S7.MAIN_MENU.PAUSE.001: Resume callback from pause menu overlay.
@@ -1967,6 +2039,25 @@ func _toggle_combat_log_v0() -> void:
 		if _combat_log_panel.visible and _combat_log_panel.has_method("refresh_v0"):
 			_combat_log_panel.call("refresh_v0")
 
+# GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Toggle knowledge web panel (K key).
+func _toggle_knowledge_web_v0() -> void:
+	# Prefer HUD-owned instance (instantiated in hud.gd _ready).
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_knowledge_web_v0"):
+		hud.toggle_knowledge_web_v0()
+		return
+	# Fallback: find or lazy-create panel at scene root.
+	if _knowledge_web_panel == null:
+		_knowledge_web_panel = get_tree().root.find_child("KnowledgeWebPanel", true, false)
+	if _knowledge_web_panel == null:
+		var script = load("res://scripts/ui/knowledge_web_panel.gd")
+		if script:
+			_knowledge_web_panel = script.new()
+			_knowledge_web_panel.name = "KnowledgeWebPanel"
+			get_tree().root.add_child(_knowledge_web_panel)
+	if _knowledge_web_panel != null and _knowledge_web_panel.has_method("toggle_v0"):
+		_knowledge_web_panel.toggle_v0()
+
 # GATE.S14.TRANSIT.WARP_EFFECT.001: White screen flash on warp entry.
 func _flash_warp_screen_v0() -> void:
 	var canvas := CanvasLayer.new()
@@ -2023,20 +2114,48 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 		else:
 			toast_mgr.call("show_toast", message, 4.0)
 
-# GATE.S14.STARTER.MISSION_PROMPT.001: Show jobs toast on first dock at star_0.
+# GATE.S14.STARTER.MISSION_PROMPT.001: Replaced by GATE.S19.ONBOARD.DOCK_DISCLOSURE.009 (progressive tabs).
+# Kept as no-op for headless test compat.
 var _first_dock_jobs_shown: bool = false
 func _check_first_dock_mission_prompt_v0() -> void:
-	if _first_dock_jobs_shown:
+	pass
+
+# GATE.S19.ONBOARD.FO_EVENTS.012: Force immediate FO dialogue poll after key game events.
+# Ensures FO reacts within 0.5s instead of waiting for the 2s slow-poll cycle.
+func _poll_fo_immediate() -> void:
+	var fo_panel = get_node_or_null("/root/Main/HUD/FOPanel")
+	if fo_panel == null:
+		fo_panel = get_tree().root.find_child("FOPanel", true, false)
+	if fo_panel and fo_panel.has_method("_poll_fo_dialogue"):
+		# Brief delay so SimCore has processed the trigger on the next tick.
+		await get_tree().create_timer(0.5).timeout
+		fo_panel.call("_poll_fo_dialogue")
+
+# GATE.S19.ONBOARD.MILESTONE_TOAST.014: Poll milestones and celebrate newly achieved ones.
+func _poll_milestone_celebrations_v0() -> void:
+	# GATE.S19.ONBOARD.SETTINGS_WIRE.015: Respect tutorial toggle.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
+			return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetMilestonesV0"):
 		return
-	if dock_target_kind_token != "STATION" and dock_target_kind_token != "PLANET":
-		return
-	# Only at the starter system
-	if _last_player_node_id != "star_0":
-		return
-	_first_dock_jobs_shown = true
+	var milestones: Array = bridge.call("GetMilestonesV0")
 	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.call("show_toast", "Check the Jobs tab for available work!", 5.0)
+	if toast_mgr == null or not toast_mgr.has_method("show_priority_toast"):
+		return
+	for m in milestones:
+		var mid: String = str(m.get("id", ""))
+		var achieved: bool = m.get("achieved", false)
+		if mid.is_empty() or not achieved:
+			continue
+		if _celebrated_milestones.has(mid):
+			continue
+		_celebrated_milestones[mid] = true
+		var mname: String = str(m.get("name", mid))
+		toast_mgr.call("show_priority_toast", "Milestone: " + mname, "milestone")
+		print("UUIR|MILESTONE_CELEBRATE|" + mid)
 
 # GATE.S6.OUTCOME.CELEBRATION.001: Poll bridge for discovery transitions to Analyzed phase.
 func _poll_discovery_celebrations_v0() -> void:

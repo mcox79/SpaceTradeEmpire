@@ -281,6 +281,29 @@ public partial class SimState
     // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Active embargoes keyed by embargo ID.
     [JsonInclude] public List<EmbargoState> Embargoes { get; private set; } = new();
 
+    // GATE.T18.NARRATIVE.ENTITIES.001: Data logs keyed by LogId.
+    [JsonInclude] public Dictionary<string, Entities.DataLog> DataLogs { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T18.NARRATIVE.ENTITIES.001: Station delivery tracking keyed by "nodeId|goodId".
+    [JsonInclude] public Dictionary<string, Entities.StationDeliveryRecord> StationMemory { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T18.NARRATIVE.ENTITIES.001: War consequences keyed by Id.
+    [JsonInclude] public Dictionary<string, Entities.WarConsequence> WarConsequences { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T18.NARRATIVE.ENTITIES.001: Named story NPCs keyed by NpcId.
+    [JsonInclude] public Dictionary<string, Entities.NarrativeNpc> NarrativeNpcs { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T18.NARRATIVE.ENTITIES.001: First Officer companion state (null until candidate chosen).
+    [JsonInclude] public Entities.FirstOfficer? FirstOfficer { get; set; }
+
+    // GATE.T18.NARRATIVE.ROUTE_UNCERTAINTY.001: Cumulative fracture jumps for scanner adaptation.
+    [JsonInclude] public int FractureExposureJumps { get; set; } = 0;
+
+    // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Fracture system unlock flag (discovery-gated).
+    [JsonInclude] public bool FractureUnlocked { get; set; }
+    // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Tick when fracture was discovered/unlocked.
+    [JsonInclude] public int FractureDiscoveryTick { get; set; }
+
     // GATE.S6.FRACTURE.VOID_SITES.001: Void discovery sites between systems.
     [JsonInclude] public Dictionary<string, VoidSite> VoidSites { get; private set; } = new(StringComparer.Ordinal);
 

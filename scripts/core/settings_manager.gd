@@ -23,12 +23,37 @@ var _defaults: Dictionary = {
 	"gameplay_tutorial_toasts": true,
 	"gameplay_tooltip_delay": 1.0,
 	"gameplay_camera_sensitivity": 1.0,
+	# GATE.S9.ACCESSIBILITY.FONT_SCALE.001: font size override (100-200%)
+	"accessibility_font_scale": 100,
+	# GATE.S9.ACCESSIBILITY.COLORBLIND.001: colorblind mode (0=None, 1=Deuteranopia, 2=Protanopia, 3=Tritanopia)
+	"accessibility_colorblind_mode": 0,
+	# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: high contrast toggle
+	"accessibility_high_contrast": false,
+	# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: reduced screen shake toggle
+	"accessibility_reduced_shake": false,
+	# GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001: tracks whether first-launch prompt was shown
+	"first_launch_shown": false,
 }
 
 
 func _ready() -> void:
 	_load()
+	# GATE.S9.ACCESSIBILITY.FONT_SCALE.001: apply font scale on startup
+	_apply_font_scale(int(get_setting("accessibility_font_scale")))
+	settings_changed.connect(_on_own_settings_changed)
 	print("UUIR|SETTINGS_MANAGER|READY|keys=%d" % _settings.size())
+
+
+## GATE.S9.ACCESSIBILITY.FONT_SCALE.001: apply font scale via ThemeDB
+func _apply_font_scale(pct: int) -> void:
+	var clamped := clampi(pct, 100, 200)
+	ThemeDB.fallback_base_scale = float(clamped) / 100.0
+	print("UUIR|SETTINGS_MANAGER|FONT_SCALE=%d" % clamped)
+
+
+func _on_own_settings_changed(key: String, value: Variant) -> void:
+	if key == "accessibility_font_scale":
+		_apply_font_scale(int(value))
 
 
 ## Return a setting value, falling back to the built-in default.

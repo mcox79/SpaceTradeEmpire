@@ -1,3 +1,4 @@
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
@@ -61,6 +62,9 @@ public static class MovementSystem
             float effectiveSpeed = fleet.Speed;
             if (fleet.OwnerId == "player" && state.Tech.UnlockedTechIds.Contains("improved_thrusters"))
                 effectiveSpeed = fleet.Speed * MovementTweaksV0.ImprovedThrustersMultiplier;
+
+            // GATE.X.SHIP_CLASS.MASS_SPEED.001: Apply mass-based speed penalty.
+            effectiveSpeed = ApplyMassPenalty(effectiveSpeed, fleet.ShipClassId);
 
             if (!state.Edges.TryGetValue(fleet.CurrentEdgeId, out var edge))
             {
@@ -240,6 +244,8 @@ public static class MovementSystem
         }
 
         float effectiveSpeed = fleet.Speed / FractureTweaksV0.FractureSpeedDivisor;
+        // GATE.X.SHIP_CLASS.MASS_SPEED.001: Apply mass-based speed penalty to fracture travel.
+        effectiveSpeed = ApplyMassPenalty(effectiveSpeed, fleet.ShipClassId);
         float step = effectiveSpeed / distance;
         fleet.TravelProgress += step;
 
@@ -259,10 +265,10 @@ public static class MovementSystem
         if (fleet.RouteEdgeIndex < 0 || fleet.RouteEdgeIndex >= fleet.RouteEdgeIds.Count) return;
 
         // GATE.S7.SUSTAIN.SHORTFALL.001: Fuel shortfall immobilizes player fleets.
-        // Only enforced when fleet has non-empty cargo (has been fueled at some point).
+        // Enforced when fleet has a fuel tank (FuelCapacity > 0) but tank is empty.
         if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)
-            && fleet.Cargo.Count > 0
-            && fleet.GetCargoUnits(Content.WellKnownGoodIds.Fuel) <= 0)
+            && fleet.FuelCapacity > 0
+            && fleet.FuelCurrent <= 0)
         {
             fleet.State = FleetState.Idle;
             fleet.CurrentTask = "Immobilized:NoFuel";
@@ -299,5 +305,16 @@ public static class MovementSystem
         fleet.State = FleetState.Traveling;
         fleet.CurrentTask = "Traveling";
         fleet.TravelProgress = 0f;
+    }
+
+    // GATE.X.SHIP_CLASS.MASS_SPEED.001: Heavier ship classes move slower.
+    private static float ApplyMassPenalty(float speed, string shipClassId)
+    {
+        var classDef = ShipClassContentV0.GetById(shipClassId);
+        if (classDef == null || classDef.Mass <= 0) return speed;
+
+        float massPenalty = classDef.Mass * MovementTweaksV0.MassSpeedPenaltyPerUnit;
+        float multiplier = Math.Max(MovementTweaksV0.MinMassSpeedMultiplier, 1f - massPenalty);
+        return speed * multiplier;
     }
 }

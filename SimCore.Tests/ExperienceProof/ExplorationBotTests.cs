@@ -32,7 +32,7 @@ public class ExplorationBotTests
     {
         foreach (var seed in BotSeeds)
         {
-            var bot = new ExplorationBot { TickBudget = 2000 };
+            var bot = new ExplorationBot { TickBudget = 2500 };
             var report = bot.Run(seed);
 
             // Bot should have traded
@@ -54,7 +54,7 @@ public class ExplorationBotTests
     {
         foreach (var seed in BotSeeds)
         {
-            var bot = new ExplorationBot { TickBudget = 2000 };
+            var bot = new ExplorationBot { TickBudget = 2500 };
             var report = bot.Run(seed);
 
             float visitPct = (float)report.NodesVisited / Math.Max(1, report.TotalNodes);
@@ -70,7 +70,7 @@ public class ExplorationBotTests
     {
         foreach (var seed in BotSeeds)
         {
-            var bot = new ExplorationBot { TickBudget = 2000 };
+            var bot = new ExplorationBot { TickBudget = 2500 };
             var report = bot.Run(seed);
 
             var criticals = report.Flags.Where(f => f.Severity == "CRITICAL").ToList();

@@ -23,6 +23,7 @@ func _ready():
 	set_meta("dock_target_id", sim_market_id)
 
 	body_entered.connect(_on_body_entered)
+	body_exited.connect(_on_body_exited)
 	_build_goods_index()
 
 	# Locate Bridge (Expect it to be an Autoload or in Root)
@@ -85,8 +86,14 @@ func sell_cargo(player, item_id: String, amount: int) -> bool:
 func _on_body_entered(body):
 	print("[STATION] Contact: %s" % body.name)
 	var gm = get_node_or_null("/root/GameManager")
-	if gm and gm.has_method("on_proximity_dock_entered_v0"):
-		gm.on_proximity_dock_entered_v0(self)
+	# Dock confirmation: show prompt instead of auto-docking.
+	if gm and gm.has_method("on_dock_proximity_v0"):
+		gm.on_dock_proximity_v0(self)
+
+func _on_body_exited(body):
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("on_dock_proximity_exit_v0"):
+		gm.on_dock_proximity_exit_v0(self)
 
 func _refuel_via_bridge(player):
 	# Placeholder for future Refuel API in SimBridge

@@ -31,4 +31,7 @@ public class Node
     // GATE.S7.INSTABILITY.PHASE_MODEL.001: Per-node instability level (0-100+).
     // 5 phases: Stable(0-24), Shimmer(25-49), Drift(50-74), Fracture(75-99), Void(100+).
     public int InstabilityLevel { get; set; } = 0;
+
+    // GATE.T18.NARRATIVE.TOPOLOGY_SHIFT.001: True if edges at this node can mutate in Phase 3+.
+    public bool MutableTopology { get; set; } = false;
 }

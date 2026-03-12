@@ -146,4 +146,59 @@ public class TariffEnforcementTests
         var state = BuildTariffWorld(tariffRate: 0.15f, reputation: -51);
         Assert.That(MarketSystem.CanTradeByReputation(state, "mkt_a"), Is.False);
     }
+
+    // --- IsGoodEmbargoed tests ---
+
+    [Test]
+    public void IsGoodEmbargoed_MatchingEmbargo_ReturnsTrue()
+    {
+        var state = BuildTariffWorld();
+        state.Embargoes.Add(new EmbargoState
+        {
+            Id = "emb_1",
+            EnforcingFactionId = "faction_miners",
+            TargetFactionId = "other",
+            GoodId = "ore"
+        });
+
+        Assert.That(MarketSystem.IsGoodEmbargoed(state, "mkt_a", "ore"), Is.True);
+    }
+
+    [Test]
+    public void IsGoodEmbargoed_DifferentGood_ReturnsFalse()
+    {
+        var state = BuildTariffWorld();
+        state.Embargoes.Add(new EmbargoState
+        {
+            Id = "emb_1",
+            EnforcingFactionId = "faction_miners",
+            TargetFactionId = "other",
+            GoodId = "ore"
+        });
+
+        Assert.That(MarketSystem.IsGoodEmbargoed(state, "mkt_a", "food"), Is.False);
+    }
+
+    [Test]
+    public void IsGoodEmbargoed_NoEmbargoes_ReturnsFalse()
+    {
+        var state = BuildTariffWorld();
+        Assert.That(MarketSystem.IsGoodEmbargoed(state, "mkt_a", "ore"), Is.False);
+    }
+
+    [Test]
+    public void IsGoodEmbargoed_NoFaction_ReturnsFalse()
+    {
+        var state = BuildTariffWorld();
+        state.Embargoes.Add(new EmbargoState
+        {
+            Id = "emb_1",
+            EnforcingFactionId = "faction_miners",
+            TargetFactionId = "other",
+            GoodId = "ore"
+        });
+
+        // mkt_nonexistent has no controlling faction
+        Assert.That(MarketSystem.IsGoodEmbargoed(state, "mkt_nonexistent", "ore"), Is.False);
+    }
 }

@@ -16,6 +16,7 @@ public class FractureTests
     public void Fracture_Movement_AccumulatesTrace_OnArrival()
     {
         var state = new SimState(456);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
 
         // Setup Nodes (10 units apart)
         var n1 = new Node { Id = "n1", Position = new Vector3(0, 0, 0), Trace = 0f };
@@ -54,6 +55,7 @@ public class FractureTests
     {
         // Setup minimal state with multiple Fracture-traveling fleets inserted in non-sorted order.
         var state = new SimState(456);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
 
         // Nodes required for validity, but this test targets ordering only.
         state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0), Trace = 0f });
@@ -435,6 +437,7 @@ public class FractureTests
     {
         // Fracture goods at a lane hub market must increase inventory after ApplyFractureGoodsFlowV0.
         var state = new SimState(204);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
         state.Nodes.Add("hub", new Node
         {
             Id = "hub",
@@ -462,6 +465,7 @@ public class FractureTests
     {
         // Total inventory of all goods at a lane hub must not decrease after ApplyFractureGoodsFlowV0.
         var state = new SimState(205);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
         state.Nodes.Add("hub", new Node
         {
             Id = "hub",
@@ -489,6 +493,7 @@ public class FractureTests
         // Even a tiny fracture stock (1 unit) must flow at least 1 unit per tick.
         // 10% of 1 = 0 (integer math), but must clamp to min 1.
         var state = new SimState(206);
+        state.FractureUnlocked = true; // GATE.S6.FRACTURE_DISCOVERY.MODEL.001
         state.Nodes.Add("hub", new Node
         {
             Id = "hub",

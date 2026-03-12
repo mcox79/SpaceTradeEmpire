@@ -157,6 +157,26 @@ Exotic Crystals ────→ Electronics (+ Fuel) ──→ Components (+ Met
                      Exotic Matter ──→ T3 module sustain + Research
 ```
 
+### The Electronics Chain (Intentional Design)
+
+Electronics is the ONLY processed good whose recipe requires an exotic input (Exotic
+Crystals). This is intentional — it creates the game's deepest supply chain and the
+pentagon ring's most strategically interesting link.
+
+**The two-hop dependency**: Weavers depend on Chitin for electronics (pentagon ring).
+But Chitin depends on Communion for exotic crystals (electronics recipe input). So the
+actual chain is: **Communion → Chitin → Weavers** — three factions linked by one good.
+
+**Why this is good design:**
+- **Communion becomes strategically essential** despite being the weakest military faction. The peaceful edge-dwellers control the tech pipeline. Attacking Communion's crystal supply cascades through Chitin's electronics production, which cascades through Weaver module sustain. Three factions disrupted by one supply shock — exactly what Pillar 3 (Economic Cascades) describes.
+- **Production scarcity ≠ trade scarcity.** NPC Communion harvesters gather crystals in Phase 1 space. NPC traders bring crystals to Chitin processing stations. Electronics is available at Chitin stations from tick 1. The player doesn't need fracture access to BUY electronics — only to PRODUCE it cheaply.
+- **Fracture exploration has economic value.** The player can harvest exotic crystals themselves, sell to Chitin stations, or supply their own electronics production. This ties the exploration fantasy to the economic fantasy.
+- **The cascade validates the pentagon revelation.** When the player discovers the ring is engineered (~Hour 15), the electronics chain is the most visceral proof: a good that COULD be made from common materials is artificially constrained to require a fracture-only resource. The cage is visible in the recipe.
+
+**Cross-reference:** `factions_and_lore_v0.md` → "The Deeper Truth: The Ring Is Engineered",
+`faction_equipment_and_research_v0.md` → Pentagon Ring Enforcement sections,
+`dynamic_tension_v0.md` → Pillar 3: Economic Cascades.
+
 ### Three Branches from Metal
 
 The core economic fork. Metal is the universal industrial input. The second ingredient determines the product category:
@@ -443,9 +463,55 @@ Each tier of growth demands proportionally more supply chain investment. The eco
 
 ---
 
+## Exotic Matter Income Expectations
+
+Exotic matter is discovery-only and cannot be manufactured. To validate Haven upgrade costs
+(370 total across all tiers) and T3 module sustain (1-3 per cycle), expected income rates
+must be specified.
+
+**Expected exotic matter yields per discovery type:**
+
+| Source | Yield Range | Frequency | Design Intent |
+|--------|-----------|-----------|---------------|
+| Phase 2 anomaly | 1-3 | Common (exploration) | Baseline trickle |
+| Phase 3 ruin | 3-6 | Moderate (mid-game) | Meaningful find |
+| Phase 4 Void site | 5-10 | Rare (late game) | Jackpot |
+| Ancient derelict analysis | 2-4 | Per derelict | Exploration reward |
+| Communion enhanced yield (+50% with Metric Harmonics Array) | +50% above | When equipped | Communion alignment bonus |
+| Haven Tier 5 passive | 2 per 100 ticks | Continuous | Endgame self-sufficiency offset |
+
+**Pacing target**: First exotic matter found ~Hour 6-8 (first Phase 2 exploration).
+Average income ~3-5 per hour of active exploration in mid-game, ~8-12 per hour in late game.
+Haven Tier 3 (practical mid-game goal: 70 exotic matter total) achievable by ~Hour 14-16.
+Haven Tier 5 (endgame: 370 total) achievable by ~Hour 22-28 with dedicated exploration.
+
+**Balancing note**: These are design targets. Actual values will be tuned during playtesting.
+If exotic matter feels too scarce, increase per-discovery yields. If too abundant, reduce
+Phase 2 yields (keep Phase 3+ high to motivate deep exploration).
+
+**Cross-reference:** `haven_starbase_v0.md` → Upgrade Tiers (exotic matter costs),
+`faction_equipment_and_research_v0.md` → Part 12 (T3 exotic matter sustain),
+`ExplorationDiscovery.md` → Discovery rewards.
+
+---
+
+## Module Sustain Enforcement
+
+> **Cross-reference:** `faction_equipment_and_research_v0.md` → Part 14: Design Clarifications
+> defines sustain failure behavior: degradation to 50% effectiveness (not full disable),
+> warning toast 60 ticks before cycle, priority queue (future). All T2 faction modules
+> have specific sustain recipes defined in that doc's equipment catalogs.
+
+The module sustain enforcement in Phase 2 (below) implements the consumption mechanics.
+The failure behavior and player-facing UX are defined in `faction_equipment_and_research_v0.md`
+Part 14.
+
+---
+
 ## Open Questions (Deferred)
 
 - **NPC faction preferences**: Should certain factions pay premium for specific goods? (e.g., militarist factions value Munitions higher)
 - **Contraband / smuggling**: If faction reputation is added, some goods could become illegal in certain territories. Medical Supplies is the natural candidate for "humanitarian but faction-restricted" contraband.
 - **Decay / spoilage**: Should Food or Organics decay over time? Creates urgency but adds tracking complexity. Defer until playtesting reveals whether trade routes are too static.
 - **Good #14 (Medical Supplies)**: If crew health/morale is added as a system, Medical Supplies (Organics + Electronics) is the strongest candidate. Two clear demands: fleet crew buff + station population growth. Adds a third Organics demand and second Electronics demand.
+- **Galaxy generation resource alignment**: `GalaxyGenerator` must ensure each faction's territory contains the resources needed for their pentagon ring production good. Concord needs agri-nodes (food), Weavers need mining + agri (composites), Chitin needs fracture-border processing access (electronics), Valorin needs rare metal deposits, Communion needs Phase 1 crystal harvesting zones. Without this constraint, the pentagon ring can break at world generation.

@@ -80,25 +80,22 @@ static func spawn_hit(parent: Node, ship_pos: Vector3, impact_point: Vector3) ->
 	effect.position = ship_pos
 	parent.add_child(effect)
 
-	# Shield sphere mesh — sized to be visible at camera altitude ~80.
-	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged radius + render_priority
-	# for clear visibility from top-down camera.
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.name = "ShieldSphere"
 	var sphere := SphereMesh.new()
-	sphere.radius = 18.0
-	sphere.height = 36.0
-	sphere.radial_segments = 32
-	sphere.rings = 16
+	sphere.radius = 4.0
+	sphere.height = 8.0
+	sphere.radial_segments = 24
+	sphere.rings = 12
 	mesh_inst.mesh = sphere
 	mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mesh_inst.render_priority = 12
 
 	# Shader material.
 	var shader := Shader.new()
 	shader.code = HEX_RIPPLE_SHADER
 	var shader_mat := ShaderMaterial.new()
 	shader_mat.shader = shader
+	shader_mat.render_priority = 12
 
 	# Convert impact point to local space of the shield sphere.
 	var local_impact := impact_point - ship_pos
@@ -133,24 +130,22 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	effect.position = ship_pos
 	parent.add_child(effect)
 
-	# Flash: bright overlay sphere — sized for camera altitude ~80.
-	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Enlarged + higher emission for altitude.
 	var flash := MeshInstance3D.new()
 	flash.name = "BreakFlash"
 	var sphere := SphereMesh.new()
-	sphere.radius = 22.0
-	sphere.height = 44.0
+	sphere.radius = 5.0
+	sphere.height = 10.0
 	flash.mesh = sphere
 	var flash_mat := StandardMaterial3D.new()
-	flash_mat.albedo_color = Color(0.6, 0.8, 1.0, 0.85)
+	flash_mat.albedo_color = Color(0.6, 0.8, 1.0, 0.7)
 	flash_mat.emission_enabled = true
 	flash_mat.emission = Color(0.6, 0.8, 1.0)
-	flash_mat.emission_energy_multiplier = 12.0
+	flash_mat.emission_energy_multiplier = 4.0
 	flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flash_mat.no_depth_test = true
 	flash.material_override = flash_mat
 	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	flash.render_priority = 12
+	flash_mat.render_priority = 12
 	effect.add_child(flash)
 
 	# Flash fade tween (0.2s).

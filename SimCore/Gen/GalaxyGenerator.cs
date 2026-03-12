@@ -111,6 +111,12 @@ public static class GalaxyGenerator
         // Phase 5: Seed void sites between star pairs (deterministic from node hashes, no RNG).
         SeedVoidSitesV0(state, nodesList);
 
+        // GATE.S19.ONBOARD.DISCOVER_SEED.002: Guarantee at least 1 void site within 2 hops of star_0.
+        EnsureStarterVoidSiteV0(state);
+
+        // GATE.S6.FRACTURE_DISCOVERY.DERELICT.001: Seed fracture derelict at a frontier node.
+        DiscoverySeedGen.SeedFractureDerelictV0(state, state.InitialSeed);
+
         SeedRumorLeadsV0(state);
 
         // Phase 6: Assign initial instability per node (deterministic from world class + node hash).
@@ -126,6 +132,19 @@ public static class GalaxyGenerator
         // Phase 8: GATE.S7.STARTER_PLACEMENT.WARFRONT.001 — relocate player start to a
         // starter-region node that is 1-hop from a contested warfront node.
         PickWarfrontAdjacentStarterV0(state);
+
+        // Q5: After player start may have moved, ensure no hostile patrol at the final start node.
+        var startFleetId = $"ai_fleet_{state.PlayerLocationNodeId}";
+        if (state.Fleets.TryGetValue(startFleetId, out var startFleet)
+            && startFleet.Role == FleetRole.Patrol)
+        {
+            startFleet.Role = FleetRole.Trader;
+            startFleet.Speed = Tweaks.FleetSeedTweaksV0.TraderSpeed;
+        }
+
+        // Phase 9: GATE.T18.NARRATIVE.LOG_PLACEMENT.001 — Place data logs and Kepler chain.
+        NarrativePlacementGen.PlaceDataLogs(state);
+        NarrativePlacementGen.PlaceKeplerChain(state);
 
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
@@ -251,6 +270,82 @@ public static class GalaxyGenerator
                     NearStarB = edge.ToNodeId,
                 };
             }
+        }
+    }
+
+    // GATE.S19.ONBOARD.DISCOVER_SEED.002: Guarantee at least 1 void site within 2 hops of star_0.
+    // If no existing void site has NearStarA/NearStarB matching a node within 2 hops of the
+    // player start, force-place a ResourcePool void site on the first edge adjacent to star_0.
+    private static void EnsureStarterVoidSiteV0(SimState state)
+    {
+        var startId = state.PlayerLocationNodeId;
+        if (string.IsNullOrEmpty(startId)) return;
+
+        // Collect nodes within 2 hops of start (hop-0 = start itself).
+        var nearby = new HashSet<string>(StringComparer.Ordinal) { startId };
+
+        // Hop 1: direct neighbors of start.
+        var hop1 = new List<string>();
+        foreach (var edge in state.Edges.Values)
+        {
+            if (StringComparer.Ordinal.Equals(edge.FromNodeId, startId))
+            {
+                nearby.Add(edge.ToNodeId);
+                hop1.Add(edge.ToNodeId);
+            }
+            else if (StringComparer.Ordinal.Equals(edge.ToNodeId, startId))
+            {
+                nearby.Add(edge.FromNodeId);
+                hop1.Add(edge.FromNodeId);
+            }
+        }
+
+        // Hop 2: neighbors of hop-1 nodes.
+        hop1.Sort(StringComparer.Ordinal);
+        foreach (var mid in hop1)
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                if (StringComparer.Ordinal.Equals(edge.FromNodeId, mid))
+                    nearby.Add(edge.ToNodeId);
+                else if (StringComparer.Ordinal.Equals(edge.ToNodeId, mid))
+                    nearby.Add(edge.FromNodeId);
+            }
+        }
+
+        // Check if any existing void site is near a node within 2 hops.
+        foreach (var vs in state.VoidSites.Values)
+        {
+            if (nearby.Contains(vs.NearStarA) || nearby.Contains(vs.NearStarB))
+                return; // Already covered — nothing to do.
+        }
+
+        // Force-place on the first edge adjacent to star_0 (sorted ordinally for determinism).
+        foreach (var edge in state.Edges.Values.OrderBy(e => e.Id, StringComparer.Ordinal))
+        {
+            if (!StringComparer.Ordinal.Equals(edge.FromNodeId, startId)
+                && !StringComparer.Ordinal.Equals(edge.ToNodeId, startId))
+                continue;
+
+            if (!state.Nodes.TryGetValue(edge.FromNodeId, out var nodeA)) continue;
+            if (!state.Nodes.TryGetValue(edge.ToNodeId, out var nodeB)) continue;
+
+            // STRUCTURAL: 0.5f midpoint along edge
+            float t = 0.5f;
+            float px = nodeA.Position.X + (nodeB.Position.X - nodeA.Position.X) * t;
+            float pz = nodeA.Position.Z + (nodeB.Position.Z - nodeA.Position.Z) * t;
+
+            const string siteId = "void_starter_000";
+            state.VoidSites[siteId] = new Entities.VoidSite
+            {
+                Id = siteId,
+                Position = new System.Numerics.Vector3(px, default(int), pz),
+                Family = Entities.VoidSiteFamily.ResourceDeposit,
+                MarkerState = Entities.VoidSiteMarkerState.Unknown,
+                NearStarA = edge.FromNodeId,
+                NearStarB = edge.ToNodeId,
+            };
+            return; // Placed — done.
         }
     }
 

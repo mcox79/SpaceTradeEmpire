@@ -162,8 +162,14 @@ public class Fleet
     // GATE.S7.ENFORCEMENT.CONFISCATION.001: Tick of last confiscation (cooldown tracking).
     [JsonInclude] public int LastConfiscationTick { get; set; } = -1;
 
-    // Legacy/simple resource (kept until we explicitly replace it with Goods-based supplies).
-    public int Supplies { get; set; } = 100;
+    // GATE.T18.NARRATIVE.FRACTURE_WEIGHT.001: Tracks instability phase where each cargo good was loaded.
+    // Key = goodId, Value = instability phase (0-4) at load origin.
+    [JsonInclude] public Dictionary<string, int> CargoOriginPhase { get; set; } = new();
+
+    // Dedicated fuel tank — consumed during travel, refilled at stations.
+    // FuelCapacity set from ShipClassDef.BaseFuelCapacity + module bonuses.
+    public int FuelCurrent { get; set; } = 0;
+    public int FuelCapacity { get; set; } = 0;
 
     [JsonIgnore]
     public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;

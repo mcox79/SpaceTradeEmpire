@@ -161,7 +161,8 @@ public static class WorldLoader
                     Speed = 0.5f,
                     CurrentTask = "Docked",
                     CurrentJob = null,
-                    Supplies = 100,
+                    FuelCapacity = ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? Tweaks.SustainTweaksV0.DefaultFuelCapacity,
+                    FuelCurrent = ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? Tweaks.SustainTweaksV0.DefaultFuelCapacity,
                     Slots = new List<ModuleSlot>
                     {
                         new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon },

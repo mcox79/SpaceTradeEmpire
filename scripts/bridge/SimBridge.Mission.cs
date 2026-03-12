@@ -51,12 +51,19 @@ public partial class SimBridge
                     d["objective_text"] = step.ObjectiveText;
                     d["target_node_id"] = step.TargetNodeId ?? "";
                     d["target_good_id"] = step.TargetGoodId ?? "";
+                    // GATE.S19.ONBOARD.MISSION_DEST.004: Resolve target node display name for waypoints.
+                    var targetId = step.TargetNodeId ?? "";
+                    if (!string.IsNullOrEmpty(targetId) && state.Nodes.TryGetValue(targetId, out var targetNode))
+                        d["target_node_name"] = targetNode.Name ?? targetId;
+                    else
+                        d["target_node_name"] = targetId;
                 }
                 else
                 {
                     d["objective_text"] = "";
                     d["target_node_id"] = "";
                     d["target_good_id"] = "";
+                    d["target_node_name"] = "";
                 }
             }
 
@@ -94,6 +101,80 @@ public partial class SimBridge
         });
 
         return _cachedMissionListV0;
+    }
+
+    // GATE.S9.MISSIONS.BRIDGE_EXT.001: Mission rewards preview and prerequisites detail.
+
+    /// <summary>
+    /// Returns reward preview for a mission: {mission_id, credit_reward, step_count, description}.
+    /// Lets the player see what they'll get before accepting.
+    /// </summary>
+    public Godot.Collections.Dictionary GetMissionRewardsPreviewV0(string missionId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["mission_id"] = missionId ?? "",
+            ["credit_reward"] = (long)0,
+            ["step_count"] = 0,
+            ["description"] = "",
+            ["title"] = "",
+        };
+
+        if (string.IsNullOrEmpty(missionId)) return result;
+
+        var def = MissionSystem.GetMissionDef(missionId);
+        if (def == null) return result;
+
+        result["credit_reward"] = def.CreditReward;
+        result["step_count"] = def.Steps.Count;
+        result["description"] = def.Description;
+        result["title"] = def.Title;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns prerequisite detail for a mission: {mission_id, prerequisites: [{mission_id, title, completed}]}.
+    /// Shows what the player needs to complete before this mission unlocks.
+    /// </summary>
+    public Godot.Collections.Dictionary GetMissionPrerequisitesDetailV0(string missionId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["mission_id"] = missionId ?? "",
+            ["prerequisites"] = new Godot.Collections.Array(),
+            ["all_met"] = false,
+        };
+
+        if (string.IsNullOrEmpty(missionId)) return result;
+
+        var def = MissionSystem.GetMissionDef(missionId);
+        if (def == null) return result;
+
+        var prereqs = new Godot.Collections.Array();
+        bool allMet = true;
+
+        TryExecuteSafeRead(state =>
+        {
+            foreach (var prereqId in def.Prerequisites)
+            {
+                var prereqDef = MissionSystem.GetMissionDef(prereqId);
+                bool completed = state.Missions.CompletedMissionIds.Contains(prereqId);
+                if (!completed) allMet = false;
+
+                prereqs.Add(new Godot.Collections.Dictionary
+                {
+                    ["mission_id"] = prereqId,
+                    ["title"] = prereqDef?.Title ?? prereqId,
+                    ["completed"] = completed,
+                });
+            }
+        });
+
+        result["prerequisites"] = prereqs;
+        result["all_met"] = allMet;
+
+        return result;
     }
 
     /// <summary>

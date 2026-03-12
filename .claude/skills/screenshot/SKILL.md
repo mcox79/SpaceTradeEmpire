@@ -104,9 +104,11 @@ Expected screenshot counts:
 
 ### Mode: eval
 
-After screenshots are captured, evaluate them with aggressive multi-perspective review.
+After screenshots are captured, evaluate them using a **Sonnet subagent** for
+cost-efficient multi-perspective review. This keeps the heavy image analysis
+out of the main Opus context (~48K image tokens saved).
 
-**Step 0 — Analyze the bot log BEFORE looking at screenshots.**
+**Step 0 — Analyze the bot log in main context BEFORE dispatching the agent.**
 
 Parse the bot stdout output (VSWP|... lines) to build a phase-by-phase manifest
 of what actually happened. Key lines to extract:
@@ -119,61 +121,80 @@ of what actually happened. Key lines to extract:
 - `VSWP|UNDOCK` — confirms undock
 - `VSWP|AESTHETIC|FAIL|...` — automated audit failures
 
-Use this manifest as ground truth when interpreting screenshots. Do NOT conclude
-that a game mechanic "didn't happen" based on screenshot appearance alone — the
-bot log is authoritative.
+**Step 1 — Dispatch a Sonnet subagent for visual evaluation.**
 
-**Common LLM vision pitfalls to avoid:**
+Use the Task tool with `subagent_type: "general-purpose"` and `model: "sonnet"`.
+Include the bot log manifest in the prompt so the agent has ground truth context.
 
-- **Lane transit frames** show dark interstellar space with a blue lane line and
-  nebula backdrop. Do NOT confuse this with a dock menu background or empty scene.
-- **Combat at zoomed-out view** may show no dramatic weapon effects in static
+The agent prompt MUST include:
+
+1. The full bot log manifest (which phases ran, combat stats, etc.)
+2. Instructions to Glob for `reports/screenshot/eval/*.png` and Read ALL PNGs
+3. Instructions to Read the evaluation guide at `scripts/tools/visual_eval_guide.md`
+4. The four evaluation perspectives (copied below)
+5. Instructions to return a severity-ranked issue table
+
+**Evaluation perspectives to include in the agent prompt:**
+
+```
+For EACH screenshot, evaluate from four perspectives:
+
+A. Player First Impression
+- Would a new player understand what they're seeing?
+- Does this screen make them want to keep playing?
+- Is there a "wow" moment or is it flat/boring?
+
+B. Art Director
+- Composition: balanced frame? Clear focal point?
+- Color: coherent palette? Contrast against space?
+- Visual hierarchy: what does the eye see first?
+- Label/text rendering: overlap, clipping, wrong size?
+- Lighting: scene feels lit or flat?
+- Object scale: ships/stations/planets at right relative size?
+
+C. UX Designer
+- Information density: too much, too little, right amount?
+- Text readability: font size, contrast, background
+- Menu layout: alignment, spacing, visual grouping
+- State communication: does HUD show current state?
+- Debug leaks: any developer-facing text visible?
+
+D. Game Designer
+- Feeling: does this moment create the intended emotion?
+  (Boot -> wonder, Dock -> commerce, Combat -> tension, Warp -> speed, Map -> strategy)
+- Differentiation: do different systems feel different?
+- Drama: are dramatic moments visually dramatic?
+```
+
+**Common LLM vision pitfalls to include in agent prompt:**
+
+- Lane transit frames show dark interstellar space with a blue lane line and
+  nebula backdrop. Do NOT confuse with a dock menu background or empty scene.
+- Combat at zoomed-out view may show no dramatic weapon effects in static
   screenshots. Check bot log for NPC_DAMAGE to confirm combat occurred.
-- **Warp VFX** may be one prominent frame (large cyan sphere) followed by several
+- Warp VFX may be one prominent frame (large cyan sphere) followed by several
   fadeout frames. Don't rate the whole sequence by the later frames alone.
 
-1. Read ALL PNGs from `reports/screenshot/eval/` using the Read tool in parallel
-   batches of 6 for efficiency.
-2. Read the evaluation guide at `scripts/tools/visual_eval_guide.md`.
-3. For EACH screenshot, evaluate from four perspectives:
+**Agent must return:**
 
-   **A. Player First Impression**
-   - Would a new player understand what they're seeing?
-   - Does this screen make them want to keep playing?
-   - Is there a "wow" moment or is it flat/boring?
+A severity-ranked issue table with classification tags:
 
-   **B. Art Director**
-   - Composition: balanced frame? Clear focal point?
-   - Color: coherent palette? Contrast against space?
-   - Visual hierarchy: what does the eye see first?
-   - Label/text rendering: overlap, clipping, wrong size?
-   - Lighting: scene feels lit or flat?
-   - Object scale: ships/stations/planets at right relative size?
+| # | Severity | Tag | Issue | Screenshots |
+|---|----------|-----|-------|-------------|
+| 1 | CRITICAL | BUG | Description | which frames |
+| 2 | HIGH | GAP | Description | which frames |
+| 3 | HIGH | UX | Description | which frames |
+| ... | MEDIUM/LOW | POLISH/OPINION | ... | ... |
 
-   **C. UX Designer**
-   - Information density: too much, too little, right amount?
-   - Text readability: font size, contrast, background
-   - Menu layout: alignment, spacing, visual grouping
-   - State communication: does HUD show current state?
-   - Debug leaks: any developer-facing text visible?
+Severity: CRITICAL = visually broken, HIGH = harms experience, MEDIUM = noticeable, LOW = polish.
+Tags: BUG = broken, UX = information architecture, GAP = below best-in-class reference, POLISH = works but rough, OPINION = subjective preference.
 
-   **D. Game Designer**
-   - Feeling: does this moment create the intended emotion?
-     (Boot → wonder, Dock → commerce, Combat → tension, Warp → speed, Map → strategy)
-   - Differentiation: do different systems feel different?
-   - Drama: are dramatic moments visually dramatic?
+Plus a brief section on what's working well.
 
-4. Output a severity-ranked issue table:
+**Step 2 — Relay agent results to the user.**
 
-   | # | Severity | Issue | Screenshots |
-   |---|----------|-------|-------------|
-   | 1 | CRITICAL | Description | which frames |
-   | 2 | HIGH | Description | which frames |
-   | ... | MEDIUM/LOW | ... | ... |
-
-   Severity: CRITICAL = visually broken, HIGH = harms experience, MEDIUM = noticeable, LOW = polish.
-
-5. Note what's working well — things to preserve or expand.
+Copy the agent's issue table and highlights into your response. Add any
+observations from the bot log manifest that the agent may have missed.
 
 ### Mode: regression
 

@@ -157,6 +157,34 @@ public partial class SimState
             if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat.ToString("F2", CultureInfo.InvariantCulture)}|");
         }
 
+        // GATE.T18.NARRATIVE.ENTITIES.001: Narrative state in signature.
+        if (StationMemory is not null && StationMemory.Count > 0)
+        {
+            foreach (var kv in StationMemory.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"SM:{kv.Key}:{kv.Value.TotalDeliveries}:{kv.Value.TotalQuantity}|");
+            }
+        }
+        if (WarConsequences is not null && WarConsequences.Count > 0)
+        {
+            foreach (var kv in WarConsequences.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"WC:{kv.Key}:{(kv.Value.IsResolved ? 1 : 0)}|");
+            }
+        }
+        if (FirstOfficer is not null)
+        {
+            sb.Append($"FO:{(FirstOfficer.IsPromoted ? 1 : 0)}:{(int)FirstOfficer.CandidateType}:{(int)FirstOfficer.Tier}|");
+        }
+        if (NarrativeNpcs is not null && NarrativeNpcs.Count > 0)
+        {
+            foreach (var kv in NarrativeNpcs.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"NPC:{kv.Key}:{(kv.Value.IsAlive ? 1 : 0)}|");
+            }
+        }
+        sb.Append($"FEJ:{FractureExposureJumps}|");
+
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
         return Convert.ToHexString(bytes);

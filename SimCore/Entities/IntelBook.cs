@@ -69,6 +69,9 @@ public sealed class IntelBook
     // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Time-series price history for trend charts.
     [JsonInclude] public List<PriceSnapshot> PriceHistory { get; private set; } = new();
 
+    // GATE.T18.NARRATIVE.KNOWLEDGE_GRAPH.001: Discovery-to-discovery connections forming a knowledge graph.
+    [JsonInclude] public List<KnowledgeConnection> KnowledgeConnections { get; private set; } = new();
+
     public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
     public static string RouteKey(string sourceNodeId, string destNodeId, string goodId) => sourceNodeId + "|" + destNodeId + "|" + goodId;
 }
@@ -113,7 +116,9 @@ public enum DiscoveryReasonCode
     NotSeen = 1,
     AlreadyAnalyzed = 2,
     OffHub = 3,
-    NotScanned = 4
+    NotScanned = 4,
+    // GATE.X.SHIP_CLASS.SCAN_RANGE.001: Fleet's ScanRange too low for this discovery.
+    OutOfRange = 5
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001

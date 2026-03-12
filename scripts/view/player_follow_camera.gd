@@ -2,16 +2,17 @@ extends Node3D
 
 # GATE.S1.CAMERA.FOLLOW_MODES.001: Camera follow modes.
 # Single Camera3D driven manually for all modes:
-#   Flight (top-down), Orbit (docked), Station (fixed), Galaxy Map, Warp Transit, Cinematic Orbit.
+#   Flight (top-down fixed), Docked (fixed offset), Galaxy Map, Warp Transit, Cinematic.
+# No camera rotation in any gameplay mode — fixed perspective for spatial clarity.
+# Reference: Starcom Nexus, Starsector (industry standard for top-down space games).
 
 # Tabs-only indentation policy applies.
 
 enum CameraMode {
 	FLIGHT,
-	ORBIT,
-	STATION,
-	GALAXY_MAP,  # GATE.S17.REAL_SPACE.GALAXY_MAP.001
-	WARP_TRANSIT,  # Galaxy-map zoom during lane transit.
+	DOCKED,       # Fixed offset when docked at any target (station, planet, etc).
+	GALAXY_MAP,   # GATE.S17.REAL_SPACE.GALAXY_MAP.001
+	WARP_TRANSIT, # Galaxy-map zoom during lane transit.
 }
 
 @export var target_path: NodePath
@@ -20,17 +21,8 @@ enum CameraMode {
 @export var flight_offset: Vector3 = Vector3(0, 80, 1)
 @export var flight_follow_distance: float = 80.0
 
-# Orbit mode: free orbit when docked.
-@export var orbit_distance: float = 30.0
-@export var orbit_sensitivity: float = 0.01
-@export var orbit_min_pitch: float = -1.20
-@export var orbit_max_pitch: float = 1.50
-@export var orbit_min_distance: float = 8.0
-@export var orbit_max_distance: float = 100.0
-@export var orbit_zoom_step: float = 3.0
-
-# Station mode: fixed camera transform for station view.
-@export var station_offset: Vector3 = Vector3(0, 40, 25)
+# Docked mode: fixed camera transform when docked at any target.
+@export var dock_offset: Vector3 = Vector3(0, 40, 25)
 
 # FOV swell (flight mode only).
 @export var fov_base: float = 60.0
@@ -41,43 +33,23 @@ enum CameraMode {
 const FLYBY_FOV_TRANSIT_BOOST: float = 8.0  # Max extra FOV degrees at low transit altitude.
 const FLYBY_FOV_SMOOTH: float = 3.0         # Lerp speed for cinematic FOV transitions.
 
-# Reset key.
-@export var reset_keycode: int = KEY_R
-
 var _current_mode: CameraMode = CameraMode.FLIGHT
 var _target: Node3D
 
 # Camera3D — created in _ready, top_level for independent positioning.
 var _cam: Camera3D = null
 
-# Orbit state (used in orbit mode).
-var _orbit_yaw: float = 0.0
-var _orbit_pitch: float = -0.25
-var _orbit_distance: float = 30.0
-var _orbit_rotating: bool = false
-var _orbit_last_mouse: Vector2 = Vector2.ZERO
-
 # FOV state.
 var _current_fov: float = 60.0
-
-# Flight look-around state (right-click drag).
-var _flight_yaw_offset: float = 0.0
-var _flight_pitch_offset: float = 0.0
-var _flight_rotating: bool = false
-var _flight_last_mouse: Vector2 = Vector2.ZERO
-const FLIGHT_LOOK_SENSITIVITY: float = 0.003
-const FLIGHT_LOOK_RETURN_SPEED: float = 3.0
-const FLIGHT_MAX_PITCH: float = 1.4
-const FLIGHT_MAX_YAW: float = PI
 
 # Seamless zoom: unified altitude variable controls camera height continuously.
 # Below PAN_THRESHOLD: rigid top-down above player.
 # Above PAN_THRESHOLD: manual position, WASD panning, galaxy map behavior.
 const ALTITUDE_MIN: float = 8.0
-const ALTITUDE_MAX: float = 15000.0
+const ALTITUDE_MAX: float = 3000.0  # GATE.X.UI_POLISH.CAMERA_BOUNDS.001: Clamp to prevent invisible content at 3853u+.
 const PAN_THRESHOLD: float = 200.0    # Above this: WASD panning, manual drive.
 const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering active.
-const STRATEGIC_ALTITUDE: float = 1800.0  # TAB jump target — tuned for galaxy overview at 25x scale.
+const STRATEGIC_ALTITUDE: float = 2500.0  # GATE.X.UI_POLISH.GALAXY_MAP_UX.001: Raised for full galaxy topology at 25x scale.
 const GALAXY_MAP_PAN_SPEED: float = 2000.0
 const GALAXY_MAP_LERP_SPEED: float = 4.0
 var _altitude: float = 80.0  # Unified altitude (replaces flight_follow_distance + galaxy_map_altitude).
@@ -145,7 +117,6 @@ func _ready() -> void:
 		_cam.look_at(_target.global_position, Vector3.UP)
 
 	_current_fov = fov_base
-	_orbit_distance = orbit_distance
 
 	# Find GameManager for state polling.
 	_game_manager = _find_game_manager()
@@ -215,32 +186,6 @@ func _physics_process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if flyby_active or input_locked:
 		return
-	if event is InputEventKey:
-		var k := event as InputEventKey
-		if k.pressed and not k.echo and k.keycode == reset_keycode:
-			_reset_orbit()
-			get_viewport().set_input_as_handled()
-			return
-
-	# Orbit mode input: mouse drag and zoom.
-	if _current_mode == CameraMode.ORBIT:
-		if event is InputEventMouseButton:
-			var mb := event as InputEventMouseButton
-			if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
-				_orbit_distance = clamp(_orbit_distance - orbit_zoom_step, orbit_min_distance, orbit_max_distance)
-			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-				_orbit_distance = clamp(_orbit_distance + orbit_zoom_step, orbit_min_distance, orbit_max_distance)
-			elif mb.button_index == MOUSE_BUTTON_RIGHT:
-				_orbit_rotating = mb.pressed
-				_orbit_last_mouse = mb.position
-
-		if event is InputEventMouseMotion and _orbit_rotating:
-			var mm := event as InputEventMouseMotion
-			var mouse_delta := mm.position - _orbit_last_mouse
-			_orbit_last_mouse = mm.position
-			_orbit_yaw -= mouse_delta.x * orbit_sensitivity
-			_orbit_pitch -= mouse_delta.y * orbit_sensitivity
-			_orbit_pitch = clamp(_orbit_pitch, orbit_min_pitch, orbit_max_pitch)
 
 	# Seamless zoom: unified scroll for FLIGHT and GALAXY_MAP.
 	if _current_mode == CameraMode.FLIGHT or _current_mode == CameraMode.GALAXY_MAP:
@@ -253,16 +198,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 					_altitude = clampf(_altitude + _compute_zoom_step(), ALTITUDE_MIN, ALTITUDE_MAX)
 					_sync_altitude()
-				elif mb.button_index == MOUSE_BUTTON_RIGHT:
-					_flight_rotating = mb.pressed
-					_flight_last_mouse = mb.position
 				elif mb.button_index == MOUSE_BUTTON_LEFT and _altitude >= PAN_THRESHOLD:
 					_galaxy_panning = true
 					_galaxy_pan_last_mouse = mb.position
 			elif not mb.pressed:
-				if mb.button_index == MOUSE_BUTTON_RIGHT:
-					_flight_rotating = false
-				elif mb.button_index == MOUSE_BUTTON_LEFT:
+				if mb.button_index == MOUSE_BUTTON_LEFT:
 					_galaxy_panning = false
 		if event is InputEventMouseMotion:
 			var mm := event as InputEventMouseMotion
@@ -273,12 +213,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				var pan_scale: float = _altitude * 0.003
 				_galaxy_map_pan_offset.x -= mouse_delta.x * pan_scale
 				_galaxy_map_pan_offset.z -= mouse_delta.y * pan_scale
-			# Right-click drag: rotate view (flight) or orbit (galaxy map future).
-			if _flight_rotating:
-				var mouse_delta := mm.position - _flight_last_mouse
-				_flight_last_mouse = mm.position
-				_flight_yaw_offset = clamp(_flight_yaw_offset - mouse_delta.x * FLIGHT_LOOK_SENSITIVITY, -FLIGHT_MAX_YAW, FLIGHT_MAX_YAW)
-				_flight_pitch_offset = clamp(_flight_pitch_offset - mouse_delta.y * FLIGHT_LOOK_SENSITIVITY, -FLIGHT_MAX_PITCH, FLIGHT_MAX_PITCH)
 
 
 # ── Mode switching ──
@@ -328,7 +262,9 @@ func _poll_and_switch_mode() -> void:
 			_tab_tween = create_tween()
 			_tab_tween.set_trans(Tween.TRANS_CUBIC)
 			_tab_tween.set_ease(Tween.EASE_OUT)
-			_tab_tween.tween_property(self, "_altitude", _pre_transit_altitude, 1.0)
+			# GATE.X.UI_POLISH.CAMERA_BOUNDS.001: Clamp restore altitude to local system view on arrival.
+			var restore_alt := minf(_pre_transit_altitude, PAN_THRESHOLD - 10.0)
+			_tab_tween.tween_property(self, "_altitude", restore_alt, 1.0)
 		_sync_altitude()
 		_sync_overlay_state()
 
@@ -347,26 +283,21 @@ func _poll_and_switch_mode() -> void:
 		_sync_overlay_state()
 		return
 
-	# Map DOCKED state to camera mode.
+	# Map DOCKED state to camera mode — fixed offset for all dock types.
 	if int(state_val) == 1:  # DOCKED
-		var dock_kind = _game_manager.get("dock_target_kind_token")
-		var new_mode: CameraMode
-		if dock_kind != null and str(dock_kind) == "STATION":
-			new_mode = CameraMode.STATION
-		else:
-			new_mode = CameraMode.ORBIT
-		if new_mode != _current_mode:
-			_switch_mode(new_mode)
+		if _current_mode != CameraMode.DOCKED:
+			_switch_mode(CameraMode.DOCKED)
 
 func _switch_mode(new_mode: CameraMode) -> void:
+	# GATE.X.UI_POLISH.GALAXY_MAP_UX.001: Clear galaxy map state when leaving galaxy mode.
+	if _current_mode == CameraMode.GALAXY_MAP and new_mode != CameraMode.GALAXY_MAP:
+		_galaxy_map_active = false
 	_current_mode = new_mode
 	match new_mode:
 		CameraMode.FLIGHT:
 			pass  # No setup needed — _update_camera handles positioning.
-		CameraMode.ORBIT:
-			_reset_orbit()
-		CameraMode.STATION:
-			pass
+		CameraMode.DOCKED:
+			pass  # Fixed offset — no setup needed.
 		CameraMode.GALAXY_MAP:
 			_galaxy_map_active = true
 		CameraMode.WARP_TRANSIT:
@@ -438,7 +369,7 @@ func _sync_transit_lod() -> void:
 		if tree:
 			var hud = tree.root.find_child("HUD", true, false)
 			if hud and hud.has_method("set_overlay_mode_v0"):
-				hud.call("set_overlay_mode_v0", true)
+				hud.call("set_overlay_mode_v0", true, true)  # is_transit=true — suppress "GALAXY MAP" label
 		# Sync overlay flag to match altitude gate (controls label rendering).
 		var should_overlay: bool = transit_alt >= 350.0
 		var current = _game_manager.get("galaxy_overlay_open")
@@ -527,32 +458,19 @@ func _update_camera(delta: float) -> void:
 	if _cam == null or _target == null:
 		return
 
-	# GATE.S13.CAMERA.PERSIST.001: Camera holds rotation on mouse release.
-	# No snap-back — yaw/pitch offsets persist until next right-click drag.
-
 	match _current_mode:
 		CameraMode.FLIGHT:
 			# Fixed top-down camera: directly above player, looking straight down.
-			# No chase/follow lag — camera is rigidly locked to player position.
-			# Right-click yaw offset shifts the view horizontally for look-around.
-			var offset := Vector3(0.0, _altitude, 0.0)
-			if absf(_flight_yaw_offset) > 0.001:
-				offset.x += sin(_flight_yaw_offset) * _altitude * 0.3
-				offset.z += (1.0 - cos(_flight_yaw_offset)) * _altitude * 0.3
-			_cam.global_position = _target.global_position + offset
+			# No rotation — fixed perspective for spatial clarity (trade routes,
+			# zone armor, labels). Reference: Starcom Nexus, Starsector.
+			_cam.global_position = _target.global_position + Vector3(0.0, _altitude, 0.0)
 			# Look straight down — use BACK as up vector to avoid gimbal lock.
 			var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
 			_cam.look_at(look_point, Vector3.BACK)
 			_update_fov(delta)
 
-		CameraMode.ORBIT:
-			var tpos := _target.global_position
-			var desired := _orbit_desired_position(tpos)
-			_cam.global_position = _cam.global_position.lerp(desired, 1.0 - exp(-5.0 * delta))
-			_cam.look_at(tpos, Vector3.UP)
-
-		CameraMode.STATION:
-			var desired_pos := _target.global_position + station_offset
+		CameraMode.DOCKED:
+			var desired_pos := _target.global_position + dock_offset
 			_cam.global_position = _cam.global_position.lerp(desired_pos, 1.0 - exp(-5.0 * delta))
 			_cam.look_at(_target.global_position, Vector3.UP)
 
@@ -676,22 +594,6 @@ func _update_galaxy_map(delta: float) -> void:
 	_cam.fov = 60.0
 
 
-# ── Orbit helpers ──
-
-func _orbit_desired_position(center: Vector3) -> Vector3:
-	var cp := cos(_orbit_pitch)
-	var sp := sin(_orbit_pitch)
-	var cy := cos(_orbit_yaw)
-	var sy := sin(_orbit_yaw)
-	var away := Vector3(sy * cp, sp, cy * cp).normalized()
-	return center + away * _orbit_distance
-
-func _reset_orbit() -> void:
-	_orbit_yaw = 0.0
-	_orbit_pitch = -0.25
-	_orbit_distance = orbit_distance
-
-
 # ── Target resolution ──
 
 func _resolve_target() -> Node3D:
@@ -753,7 +655,7 @@ func _enter_combat_zoom() -> void:
 	_combat_zoom_tween = create_tween()
 	_combat_zoom_tween.set_trans(Tween.TRANS_CUBIC)
 	_combat_zoom_tween.set_ease(Tween.EASE_OUT)
-	var target_dist: float = clamp(_pre_combat_distance + COMBAT_ZOOM_OUT_DELTA, orbit_min_distance, orbit_max_distance)
+	var target_dist: float = clamp(_pre_combat_distance + COMBAT_ZOOM_OUT_DELTA, ALTITUDE_MIN, 200.0)
 	_combat_zoom_tween.tween_property(self, "flight_follow_distance", target_dist, COMBAT_ZOOM_OUT_DURATION)
 
 func _exit_combat_zoom() -> void:

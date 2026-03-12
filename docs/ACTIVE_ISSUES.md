@@ -51,7 +51,7 @@ issues FIXED when a gate addresses them).
 | V8 | HIGH | No faction territory visual indicators visible in any frame — no boundary lines, no territory shading, no regime tinting, despite EPIC.S7.FACTION_VISUALS.V0 DONE. Possibly caused by R2 faction color crash | FIXED | GATE.S7.RUNTIME_STABILITY.FACTION_COLOR.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
 | V9 | HIGH | NPC fleet ships rarely visible during normal play — 21 in galaxy per dashboard but zero naturally encountered. Bot had to navigate specifically to find one. Final system had fleet_count=0. Sim-substantiated ships not rendering or too spread/small | FIXED | GATE.S7.RUNTIME_STABILITY.SHIP_VISIBILITY.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
 | V1 | HIGH | Player ship small at default camera altitude — scale 0.35 helps but still hard to spot | FIXED | GATE.S7.RUNTIME_STABILITY.SHIP_VISIBILITY.001 | Playtesting 2026-03-10 / Fixed 2026-03-11 |
-| V2 | MEDIUM | Starter system feels barren — content IS spawned (star, planet, station, NPCs, dust) but spread over large area at small scale | OPEN | — | Playtesting 2026-03-10 |
+| V2 | MEDIUM | Starter system feels barren — content IS spawned (star, planet, station, NPCs, dust) but spread over large area at small scale | FIXED | GATE.X.UI_POLISH.LOCAL_DENSITY.001 | Playtesting 2026-03-10 / Fixed 2026-03-11 |
 | V3 | MEDIUM | Station label text overlaps/truncates when multiple resource types in name | FIXED | GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001 | Screenshot eval |
 | V10 | MEDIUM | Warp VFX underwhelming — blue sphere + ring of dots across 4 frames. Functional but not dramatic. Not the "warp tunnel" moment the design calls for | FIXED | GATE.S7.RUNTIME_STABILITY.VFX_POLISH.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
 | V11 | MEDIUM | 3D Label3D nodes render through 2D dock panel — "System 10 (RareMin)(Mining)... Station" renders through dock menu in 12+ frames. Z-ordering mismatch between 3D world and 2D UI. Previously FIXED but regressed | FIXED | GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001 | Full eval 2026-03-10 / Fixed 2026-03-11 / Regressed / Re-fixed 2026-03-11 |
@@ -60,6 +60,11 @@ issues FIXED when a gate addresses them).
 | V14 | HIGH | Warp VFX appears as kill explosion debris (white/gray spheres), not dramatic tunnel — no color-shifting walls, streaking stars, or speed lines visible. warp_vfx_f01-f04 all show same sphere cluster. V10 fix may not have been effective or warp tunnel shader not rendering | FIXED | GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001 | Full eval 2026-03-11 / Fixed 2026-03-11 |
 | V15 | MEDIUM | Warp transit frames show dock panel instead of tunnel — warp_transit_f01-f03 all show market tab still open with station behind it. No warp tunnel VFX visible during actual transit phase | FIXED | GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001 | Full eval 2026-03-11 / Fixed 2026-03-11 |
 | V16 | MEDIUM | Galaxy map not visible behind empire dashboard — galaxy_map frame shows only dashboard overlay on dark/pink background, no star nodes, threads, or map features visible beneath | FIXED | GATE.S7.RUNTIME_STABILITY.GALAXY_MAP_FIX.001 | Full eval 2026-03-11 / Fixed 2026-03-11 |
+| V17 | HIGH | Label stacking/overlap — no anti-collision logic in Label3D system. System name + "HOSTILE" + station label render on top of each other at same camera distance. ClampLabelsRecursive manages per-label visibility by distance but has zero overlap avoidance | FIXED | GATE.X.UI_POLISH.LABEL_OVERLAP.001 | Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
+| V18 | HIGH | Galaxy map default zoom shows only 1 node — at current camera position only the current system node visible with lane lines going off-screen. Cannot plan routes or see galaxy topology. May be camera altitude issue | FIXED | GATE.X.UI_POLISH.GALAXY_MAP_UX.001 | Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
+| V19 | MEDIUM | "GALAXY MAP (TAB to close)" text persists when map overlay is closed — label visible in 6+ frames where bot has explicitly toggled map off. UI label not hidden with map toggle | FIXED | GATE.X.UI_POLISH.GALAXY_MAP_UX.001 | Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
+| V20 | MEDIUM | Ship tab (services) layout flat/uninspiring — zone armor bars are plain gray lines, module slots list "Empty" with no icons or visual grouping. Reads like debug output, not ship customization UI | FIXED | GATE.X.UI_POLISH.DOCK_VISUAL.001 | Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
+| V21 | LOW | "Sal" column header truncated in market tab — "Sell" header cut off, likely column width too narrow | FIXED | GATE.X.UI_POLISH.DOCK_VISUAL.001 | Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
 
 ## UI / UX
 
@@ -71,13 +76,34 @@ issues FIXED when a gate addresses them).
 | U5 | MEDIUM | Toast notifications stack tightly — 5 toasts in top-right with minimal spacing, hard to parse individually | FIXED | GATE.S7.RUNTIME_STABILITY.UI_POLISH.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
 | U6 | LOW | Empire dashboard content sparse — placeholder messages ("None — visit a station"), limited orientation value for new players | FIXED | GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
 | U7 | LOW | No persistent keybinding hints in flight — welcome text fades, no reminder of Tab/E/H bindings | FIXED | GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001 | Full eval 2026-03-10 / Fixed 2026-03-11 |
-| U1 | LOW | CAMERA_TOO_FAR aesthetic warning fires at galactic scale (distance=2500+) — metric measures to galactic objects, not local system | OPEN | — | Aesthetic audit |
+| U1 | HIGH | CAMERA_TOO_FAR — bot camera reaches 3853u in late phases, well beyond label visibility cutoff (150u). tick_200 and final frames show empty starfield with zero game content visible. Labels, ships, planets all hidden at this distance. Needs camera distance bounds or auto-zoom to local system | FIXED | GATE.X.UI_POLISH.CAMERA_BOUNDS.001 | Aesthetic audit + Eval 2026-03-10 (T27) / Fixed 2026-03-11 |
 
 ## Audio
 
 | # | Severity | Issue | Status | Gate | Source |
 |---|----------|-------|--------|------|--------|
 | A1 | CRITICAL | Combat fire/impact SFX never play — AudioStreamPlayers exist but play methods not called | FIXED | GATE.S7.COMBAT_FEEL_POLISH.WIRE.001 | COMBAT_FEEL.001 eval (same as C2) |
+
+## First Hour / Onboarding — Flagged for Later
+
+Identified during aggressive screenshot eval against Freelancer/Elite/Starsector.
+These require significant effort (new systems, art assets, or audio) and are
+deferred to future tranches.
+
+| # | Severity | Issue | Effort | Source |
+|---|----------|-------|--------|--------|
+| F1 | MEDIUM | No cost-basis tracking in cargo — player can't see profit/loss per good without remembering buy price. Every competitor (X4, Elite, Freelancer) shows this | Large — needs SimCore accounting entity (buy price per good per batch) | Screenshot eval 2026-03-11 |
+| F2 | MEDIUM | FO panel has no portrait/avatar — dialogue appears as plain text. Competitors use character portraits for emotional connection (Freelancer, Starsector) | Medium + art — needs 3 character art assets + UI redesign | Screenshot eval 2026-03-11 |
+| F3 | LOW | No voiced FO reactions or audio cues — all feedback is visual text. Audio responses dramatically improve engagement (Freelancer's Trent/Juni voices) | Large + audio — needs audio pipeline + Sound Manager addon | Screenshot eval 2026-03-11 |
+| F4 | MEDIUM | Warp arrival lacks drama — current flyby works functionally but doesn't create the "wow" moment of Freelancer's jump gate arrivals or Elite's witch-space exit | Medium — needs camera choreography overhaul | Screenshot eval 2026-03-11 |
+| F5 | MEDIUM | No persistent objective/quest log UI — player has only edgedar waypoint + mission HUD panel. No way to review past/current objectives. Starsector's intel screen is the benchmark | Medium — needs dedicated panel design | Screenshot eval 2026-03-11 |
+| F6 | HIGH | All stations look identical — every station uses the same model with no faction visual identity. Freelancer's stations are instantly recognizable by faction. Starsector has unique station sprites | Large + art — needs per-faction station models/color schemes | Screenshot eval 2026-03-11 |
+| F7 | HIGH | Warp tunnel cone oversized — fills 40-50% of screen during transit, no ship visible, no spatial reference. Needs camera pullback + tunnel radius reduction (currently 8u radius, 200u height) | Medium — warp_tunnel.gd radius/camera rework | Eval iter3 2026-03-11 |
+| F8 | HIGH | HUD absent during warp transit — no destination name, no ETA, no "IN TRANSIT" indicator. Player has zero info during most frequent gameplay transition | Medium — needs transit-specific overlay state in hud.gd | Eval iter3 2026-03-11 |
+| F9 | HIGH | Warp VFX undersells departure — expanding sphere reads as "bright light appeared" not "initiating warp". No directional movement, no ship visible, no tunnel/streaks | Medium — warp_effect.gd needs directional streaks + ship visibility | Eval iter3 2026-03-11 |
+| F10 | MEDIUM | Galaxy map nearly empty — one green dot, thin blue lines, plain black background. No node variety, no faction colors, no size/color differentiation, no strategic info | Large — needs node visual diversity, faction overlay, economic hints | Eval iter3 2026-03-11 |
+| F11 | MEDIUM | Empire Dashboard "Needs Attention" reads as errors — "! No automation running" in bright red feels like failure, not onboarding invitation | Small — UX copywriting pass on dashboard prompts | Eval iter3 2026-03-11 |
+| F12 | MEDIUM | Market production text unformatted — "[Mine] Extract Ore [fuel:1, ore:0] eff:100%" renders as dense inline text, not structured production chain | Medium — needs production chain visualization component | Eval iter3 2026-03-11 |
 
 ## Resolved (Archive)
 

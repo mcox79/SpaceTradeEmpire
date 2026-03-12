@@ -306,6 +306,64 @@ public static class DiscoverySeedGen
         return best;
     }
 
+    // GATE.S6.FRACTURE_DISCOVERY.DERELICT.001: Seed a single FractureDerelict VoidSite at a frontier node.
+    // Deterministic: picks the node farthest from player start (star_0) using hash as tiebreaker.
+    // Called from GalaxyGenerator after SeedVoidSitesV0.
+    public static void SeedFractureDerelictV0(SimState state, int seed)
+    {
+        if (state.Nodes.Count < 2) return;
+
+        // Player start is always star_0.
+        string startNodeId = state.PlayerLocationNodeId ?? "";
+        System.Numerics.Vector3 startPos = System.Numerics.Vector3.Zero;
+        if (state.Nodes.TryGetValue(startNodeId, out var startNode))
+            startPos = startNode.Position;
+
+        // Pick the farthest node from player start (deterministic tiebreak by hash).
+        string bestNodeId = "";
+        float bestDist = -1f;
+        uint bestHash = 0;
+
+        var sortedNodeIds = new List<string>(state.Nodes.Keys);
+        sortedNodeIds.Sort(StringComparer.Ordinal);
+
+        foreach (var nodeId in sortedNodeIds)
+        {
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) continue;
+            float dist = System.Numerics.Vector3.Distance(startPos, node.Position);
+            uint h = GalaxyGenerator.Fnv1a32Utf8(seed + "|fracture_derelict|" + nodeId);
+
+            if (dist > bestDist || (dist == bestDist && h > bestHash))
+            {
+                bestDist = dist;
+                bestHash = h;
+                bestNodeId = nodeId;
+            }
+        }
+
+        if (string.IsNullOrEmpty(bestNodeId)) return;
+        var targetNode = state.Nodes[bestNodeId];
+
+        // Place the derelict near the frontier node with a perpendicular offset.
+        uint posHash = GalaxyGenerator.Fnv1a32Utf8(seed + "|fracture_derelict_pos");
+        float offsetX = ((posHash % 100u) / 100f - 0.5f) * 40f; // ±20 units
+        float offsetZ = (((posHash >> 8) % 100u) / 100f - 0.5f) * 40f;
+
+        string siteId = "void_fracture_derelict_0";
+        state.VoidSites[siteId] = new Entities.VoidSite
+        {
+            Id = siteId,
+            Position = new System.Numerics.Vector3(
+                targetNode.Position.X + offsetX,
+                0,
+                targetNode.Position.Z + offsetZ),
+            Family = Entities.VoidSiteFamily.FractureDerelict,
+            MarkerState = Entities.VoidSiteMarkerState.Discovered, // Visible from start
+            NearStarA = bestNodeId,
+            NearStarB = bestNodeId,
+        };
+    }
+
     private static string MintDiscoveryIdV0(string kind, string nodeId, string refId, string sourceId)
     {
         // Canonical stable id format (v0). No timestamps%wall-clock, no RNG, no unordered iteration inputs.

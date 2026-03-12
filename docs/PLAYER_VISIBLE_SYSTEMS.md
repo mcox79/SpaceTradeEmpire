@@ -8,7 +8,7 @@ Used by `/screenshot eval` and manual playtesting to verify nothing has regresse
 - Each item has a **Verify** hint: what to look for in screenshots or bot runs
 - Items marked (IN_PROGRESS) are partially built — note what's expected vs not-yet
 
-Last updated: 2026-03-11 (post Tranche 25)
+Last updated: 2026-03-11 (post Tranche 29)
 
 ---
 
@@ -29,6 +29,9 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Galaxy map route planner (Shift+Click) | Green polyline path + waypoint markers + travel time label. Escape cancels | S7.GALAXY_MAP_V2 |
 | Galaxy map search (Ctrl+F) | Search bar with partial-match results, Enter/click snaps camera to node | S7.GALAXY_MAP_V2 |
 | Galaxy map semantic zoom — 3 altitude bands | Close <500u full detail, Medium 500-2000u names+faction, Galaxy >2000u minimal dots | S7.GALAXY_MAP_V2 |
+| Camera altitude bounds (max 3000u) | Camera cannot zoom beyond local system range; auto-clamps to PAN_THRESHOLD on warp arrival | X.UI_POLISH |
+| Galaxy map full topology (altitude 2500u) | All star nodes and threads visible at galaxy map altitude; labels cleaned up on mode exit | X.UI_POLISH |
+| Label anti-collision — vertical stacking offset | Overlapping Label3D names (stations, gates) offset vertically instead of overlapping | X.UI_POLISH |
 | Star-class lighting — each star tints its local system | Different colored ambient light per star type | S15.EXPLORATION_FEEL |
 | Procedural skybox (Starlight addon) | Nebula/star background, not solid black | S1.VISUAL_UPGRADE |
 | 3D planets with atmosphere shaders | Spheres with visible atmosphere glow near stars | S1.VISUAL_UPGRADE |
@@ -63,6 +66,9 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Market view at docked stations (per-node inventory) | Dock market tab shows buy/sell prices, stock, supply | S1.PLAYABLE_BEAT |
 | Sustain enforcement — fleet fuel drain, module sustain | Fuel consumption visible in fleet status | S7.SUSTAIN_ENFORCEMENT |
 | Instability effects — price jitter, trade failure, closure | Market behavior changes in unstable systems | S7.INSTABILITY_EFFECTS |
+| Instability-aware pricing in buy/sell | BuyCommand/SellCommand use GetEffectivePrice with volatility/jitter/void-closure modifiers | X.INSTABILITY_PRICE_WIRING |
+| Ship class cargo capacity enforcement | Buy/pickup rejected when fleet cargo exceeds ship class CargoCapacity | X.SHIP_CLASS_ENFORCEMENT |
+| Module sustain goods consumption | Weapons consume munitions, T3 modules consume exotic matter, scanners consume energy cells per sustain cycle | X.MODULE_SUSTAIN_GOODS |
 | Price bands and spreads per good | Different goods have different price ranges | S18.TRADE_GOODS |
 
 ## Fleet & Empire Management
@@ -75,6 +81,8 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Programs — AutoSell, TradeCharter, ResourceTap, Expedition, etc. | Program creation and assignment UI | S10.TRADE_DISCOVERY |
 | Fleet tab (F3) — master-detail fleet list | Per-fleet list view with cargo, modules, programs, status | S7.FLEET_TAB |
 | Module fitting — 8 ship classes, 34 modules (15 T1 + 19 T2), zone armor, power budget | Ship tab shows slots, power, zone HP bars | S18.SHIP_MODULES + S7.POWER_BUDGET + S7.T2_MODULE_CATALOG |
+| Mass-based speed penalty | Heavier ships move slower proportional to loaded mass vs ship class Mass stat | X.SHIP_CLASS_ENFORCEMENT |
+| Scan range gating | Discovery scanning range limited by ship class ScanRange stat and equipped scanner modules | X.SHIP_CLASS_ENFORCEMENT |
 | Refit system — upgrade pipeline with yard capacity | REFIT button in Ship tab, time-based upgrades | S4.UPGRADE_PIPELINE |
 | Milestone/progression system | Dashboard integration for player milestones | S12.UX_POLISH |
 | NPC circuit routes with flow visualization + trade volume labels | Animated route lines with volume text | S12.FLEET_SUBSTANCE |
@@ -114,7 +122,8 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Exploitation packages — TradeCharter, ResourceTap | Deployable from discovery unlocks | S3_6.EXPLOITATION_PACKAGES |
 | Exploration overlay on galaxy map (E key) | Colored discs: unvisited=gray, visited=white, mapped=green, anomaly=purple | S7.GALAXY_MAP_V2 |
 | Discovery template text on discoveries | Flavor text from narrative template system | S7.NARRATIVE_DELIVERY |
-| Fracture travel — off-thread jumps with Trace risk | Fracture travel panel with cost/risk info | S6.OFFLANE_FRACTURE |
+| Fracture travel — off-thread jumps with Trace risk | Fracture travel panel with cost/risk info; gated behind fracture unlock | S6.OFFLANE_FRACTURE |
+| Fracture discovery gating — derelict encounter unlocks fracture drive | Fracture drive unavailable until frontier derelict surveyed (~tick 300+). "FRACTURE DRIVE UNLOCKED" critical toast on unlock. Derelict analysis progress shown in DiscoverySitePanel | S6.FRACTURE_DISCOVERY_EVENT |
 | Jump events — salvage/signal/turbulence on transit | Toast notifications during thread travel | S15.EXPLORATION_FEEL |
 
 ## Risk & Enforcement
@@ -145,6 +154,11 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Node detail popup | Popup with system/node info on click | S11.GAME_FEEL |
 | Galaxy overlay HUD | Overlay controls for galaxy map view | S10.EMPIRE_MGMT |
 | Tech tree UI | Research tree visualization | S11.GAME_FEEL |
+| First Officer panel — promotion, dialogue history, reactions | HUD panel with: 3 candidate cards at promotion window (choose FO type), 5-line scrollable dialogue history, FO name/tier/score display, gold "fo" toasts for FO comments | T18.CHARACTER_SYSTEMS |
+| FO contextual triggers — score-based tier advancement | FO dialogue advances via RelationshipScore thresholds (not just ticks): SUPPLY_CHAIN_NOTICED after 3 missions, KNOWLEDGE_WEB_INSIGHT after 3 connections, faction-aware recontextualization variants | T18.CHARACTER_SYSTEMS |
+| Data log viewer (L key) — list, detail, search, thread filter | Panel listing discovered logs with [NEW] indicators, detail view with BBCode, search filter. Thread filter buttons to filter logs by narrative thread (e.g. Kepler Chain) | T18.DATA_LOG_CONTENT |
+| Knowledge Web panel (K key) — connection graph | Panel showing discovered knowledge connections between lore entries. Nodes + edges visualize how narrative threads interconnect | T18.DATA_LOG_CONTENT |
+| War Faces NPCs — alive dialogue + ghost mentions | FO panel NPC section shows alive NPCs with location-aware dialogue. Dead Regular NPCs show ghost mentions ("Someone left flowers at docking bay 7..."). Enemy NPCs show recontextualization text based on player post-interdiction actions (priority-based variant selection) | T18.CHARACTER_SYSTEMS |
 
 ## NPC Life
 
@@ -179,11 +193,30 @@ Last updated: 2026-03-11 (post Tranche 25)
 |--------|--------|------------|
 | Pause menu (Escape) | Pause overlay with save/resume/quit | S1.SAVE_LOAD_UI |
 | 3 save slots with metadata | Slot selection with playtime/system info | S1.SAVE_LOAD_UI |
-| Mission runner — Mission 1 "Matched Luggage" | Tutorial mission available at starter station | S1.MISSION_RUNNER |
+| Mission runner — 7 missions with prerequisite chains | Tutorial mission (Matched Luggage), then unlocks: Mining Survey, Ore Extraction, First Research, Research Materials, First Build, Station Expansion. Each requires completing prior mission(s) | S1.MISSION_RUNNER + S9.MISSION_LADDER |
+| Mission rewards preview in dock | Dock Jobs tab shows credit reward and step count for available missions before accepting | S9.MISSION_LADDER |
+| Mission prerequisites detail in dock | Dock Jobs tab shows which prerequisite missions are needed and whether they're completed, explaining why locked missions are unavailable | S9.MISSION_LADDER |
 | Main menu as project start scene | main_menu.tscn with new voyage wizard | S7.MAIN_MENU |
+| Menu starfield shader — 4-layer parallax background | Deep stars, nebula noise x2, mid-field stars drifting behind menu | S9.MENU_ATMOSPHERE |
+| Title treatment — fade-in + rotating Precursor subtitle | "Space Trade Empire" fades in, subtitle cycles from phrase pool per session | S9.MENU_ATMOSPHERE |
+| Adaptive foreground silhouette | 3D ship/gate model in SubViewport, selected by save state (gate=new, ship=mid, haven=end) | S9.MENU_ATMOSPHERE |
+| Menu audio timing | First-launch: 2s silence then swell; returning: quick fade-in | S9.MENU_ATMOSPHERE |
+| Galaxy generation loading screen | Thematic progress messages ("Charting the void...") with progress bar before game start | S9.MENU_ATMOSPHERE |
 | Captain name input | Name entry persisted in SimState | S7.MAIN_MENU |
 | Auto-save on dock/warp/mission | Automatic save slot triggers with toast notification | S7.MAIN_MENU |
 | Difficulty selection | DifficultyTweaksV0 multipliers on new voyage | S7.MAIN_MENU |
+
+## Accessibility
+
+| System | Verify | Source Epic |
+|--------|--------|------------|
+| First-launch accessibility prompt | Shown once on first boot (no settings file): font size, colorblind mode selectors | S9.ACCESSIBILITY |
+| Colorblind post-processing shader | Deuteranopia/Protanopia/Tritanopia modes via CanvasLayer shader | S9.ACCESSIBILITY |
+| Font size override (100-200%) | ThemeDB.fallback_base_scale applied globally from settings | S9.ACCESSIBILITY |
+| High contrast mode toggle | High contrast UI option in Accessibility settings tab | S9.ACCESSIBILITY |
+| Reduced screen shake toggle | Disables camera shake for motion-sensitive players | S9.ACCESSIBILITY |
+| Accessibility tab in Settings panel | Colorblind dropdown, font scale slider, high contrast toggle, reduced shake toggle | S9.SETTINGS |
+| Display revert timer (15s) | "Keep changes?" dialog after resolution/mode change, auto-reverts on timeout | S9.SETTINGS |
 
 ## Ambient & Polish
 
@@ -194,3 +227,5 @@ Last updated: 2026-03-11 (post Tranche 25)
 | Starter star guarantee | Home system always has a visible star | S14.ALIVE_GALAXY |
 | Label distance clamping | Labels fade/shrink at extreme distances | S13.FEEL_OVERHAUL |
 | Kenney Space Kit station models | 3D station meshes at dockable nodes | S14.ALIVE_GALAXY |
+| Tighter local system density | Planets ~40% closer to star, stations 4u from planet (was 8u), belt at 28u (was 45u), lane gates at 55u (was 90u). Systems feel populated, not barren | X.UI_POLISH |
+| Dock visual polish — sell column + ship tab | Sell column properly aligned in market tab, ship tab visual cleanup | X.UI_POLISH |

@@ -33,6 +33,9 @@ public sealed class ModuleDef
 
     // GATE.S18.TRADE_GOODS.SUSTAIN_ALIGN.001: Goods consumed per sustain cycle.
     public Dictionary<string, int> SustainInputs { get; set; } = new();
+
+    // Fuel tank capacity bonus (added to ship class base capacity when installed).
+    public int FuelCapacityBonus { get; set; } = 0;
 }
 
 public static class UpgradeContentV0
@@ -509,6 +512,30 @@ public static class UpgradeContentV0
             HullBonusFlat = T2ModuleTweaksV0.DefenseArmorWeaveHullBonusFlat,
             FactionId = FactionTweaksV0.ChitinId,
             FactionRepRequired = T2ModuleTweaksV0.ChitinRepRequired,
+        },
+
+        // ── Fuel Tanks ──
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.FuelTankMk1,
+            DisplayName = "Fuel Tank Mk1",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 60,
+            TechPrerequisite = "",
+            InstallTicks = 4,
+            PowerDraw = 0,
+            FuelCapacityBonus = SustainTweaksV0.FuelTankMk1Capacity,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.FuelTankMk2,
+            DisplayName = "Fuel Tank Mk2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 150,
+            TechPrerequisite = "engine_efficiency",
+            InstallTicks = 6,
+            PowerDraw = 0,
+            FuelCapacityBonus = SustainTweaksV0.FuelTankMk2Capacity,
         },
     };
 

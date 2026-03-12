@@ -35,6 +35,7 @@ public sealed class TechEffectsTests
             OwnerId = "player",
             CurrentNodeId = "node_a",
             Speed = 1f,
+            ShipClassId = "", // No mass penalty for speed bonus tests.
             State = FleetState.Traveling,
             CurrentEdgeId = "edge_ab",
             DestinationNodeId = "node_b",
@@ -80,6 +81,7 @@ public sealed class TechEffectsTests
             OwnerId = "faction_a",
             CurrentNodeId = "node_a",
             Speed = 1f,
+            ShipClassId = "", // No mass penalty for speed bonus tests.
             State = FleetState.Traveling,
             CurrentEdgeId = "edge_ab",
             DestinationNodeId = "node_b",
@@ -231,6 +233,7 @@ public sealed class TechEffectsTests
                 OwnerId = "player",
                 CurrentNodeId = "a",
                 Speed = 1f,
+                ShipClassId = "", // No mass penalty for determinism test.
                 State = FleetState.Traveling,
                 CurrentEdgeId = "e",
                 DestinationNodeId = "b",

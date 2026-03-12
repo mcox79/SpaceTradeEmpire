@@ -6,7 +6,7 @@ extends Control
 var _bridge: Object = null
 var _zone_bars: Dictionary = {}  # "fore"/"port"/"stbd"/"aft" -> { "bar": ProgressBar, "label": Label }
 var _stance_label: Label = null
-var _visible_during_combat: bool = false
+
 
 func _ready() -> void:
 	name = "CombatHud"

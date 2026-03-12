@@ -44,4 +44,9 @@ public class Edge
     // GATE.S7.ENFORCEMENT.HEAT_ACCUM.001: Per-window traversal count for route repetition detection.
     // Resets each decay window. Exceeding the threshold triggers bonus heat.
     public int TraversalCount { get; set; } = 0;
+
+    // GATE.T18.NARRATIVE.TOPOLOGY_SHIFT.001: True if this edge can mutate in Phase 3+ space.
+    public bool IsMutable { get; set; } = false;
+    // GATE.T18.NARRATIVE.TOPOLOGY_SHIFT.001: Epoch counter incremented on each mutation.
+    public int MutationEpoch { get; set; } = 0;
 }

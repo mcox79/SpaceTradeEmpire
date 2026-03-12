@@ -48,4 +48,7 @@ public static class WellKnownModuleIds
     public const string DefensePointBarrierT2   = "defense_point_barrier_t2";
     public const string DefenseDamageControlT2  = "defense_damage_control_t2";
     public const string DefenseArmorWeaveT2     = "defense_armor_weave_t2";
+    // Fuel tanks
+    public const string FuelTankMk1             = "fuel_tank_mk1";
+    public const string FuelTankMk2             = "fuel_tank_mk2";
 }

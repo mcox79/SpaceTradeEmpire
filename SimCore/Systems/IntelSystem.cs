@@ -1,4 +1,6 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Intents;
 using SimCore.Programs;
@@ -919,7 +921,13 @@ public static class IntelSystem
     public static DiscoveryReasonCode ApplyScan(SimState state, string fleetId, string discoveryId)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
-        _ = fleetId;
+
+        // GATE.X.SHIP_CLASS.SCAN_RANGE.001: Check fleet ScanRange before allowing scan.
+        if (!string.IsNullOrEmpty(fleetId) && !string.IsNullOrEmpty(discoveryId))
+        {
+            var rangeCheck = CheckScanRange(state, fleetId, discoveryId);
+            if (rangeCheck != DiscoveryReasonCode.Ok) return rangeCheck;
+        }
 
         var rc = GetScanReasonCode(state, discoveryId);
         if (rc != DiscoveryReasonCode.Ok) return rc;
@@ -930,6 +938,31 @@ public static class IntelSystem
         state.Intel.Discoveries[discoveryId] = d;
 
         RefreshVerbUnlocksFromDiscoveryPhases(state);
+
+        return DiscoveryReasonCode.Ok;
+    }
+
+    // GATE.X.SHIP_CLASS.SCAN_RANGE.001: Check if fleet's ScanRange reaches the discovery's node.
+    private static DiscoveryReasonCode CheckScanRange(SimState state, string fleetId, string discoveryId)
+    {
+        if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return DiscoveryReasonCode.Ok;
+
+        var classDef = ShipClassContentV0.GetById(fleet.ShipClassId);
+        if (classDef == null || classDef.ScanRange <= 0) return DiscoveryReasonCode.Ok;
+
+        // Extract discovery node from ID format: disc_v0|KIND|NodeId|RefId|SourceId
+        var parts = discoveryId.Split('|');
+        string discNodeId = parts.Length >= 3 ? parts[2] : "";
+        if (string.IsNullOrEmpty(discNodeId)) return DiscoveryReasonCode.Ok;
+
+        // Get positions for distance check
+        if (string.IsNullOrEmpty(fleet.CurrentNodeId)) return DiscoveryReasonCode.Ok;
+        if (!state.Nodes.TryGetValue(fleet.CurrentNodeId, out var fleetNode)) return DiscoveryReasonCode.Ok;
+        if (!state.Nodes.TryGetValue(discNodeId, out var discNode)) return DiscoveryReasonCode.Ok;
+
+        float distance = Vector3.Distance(fleetNode.Position, discNode.Position);
+        if (distance > classDef.ScanRange)
+            return DiscoveryReasonCode.OutOfRange;
 
         return DiscoveryReasonCode.Ok;
     }

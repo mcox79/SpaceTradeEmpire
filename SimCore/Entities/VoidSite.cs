@@ -10,6 +10,7 @@ public enum VoidSiteFamily
     AbandonedStation,
     AnomalyRift,
     ResourceDeposit,
+    FractureDerelict, // GATE.S6.FRACTURE_DISCOVERY.DERELICT.001
 }
 
 public enum VoidSiteMarkerState

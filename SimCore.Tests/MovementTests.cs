@@ -32,13 +32,14 @@ public class MovementTests
 
         // 2. SPAWN FLEET
         // Speed 10 means 10 ticks to arrive (100 / 10)
-        var fleet = new Fleet 
-        { 
-            Id = "f1", 
-            CurrentNodeId = "A", 
+        var fleet = new Fleet
+        {
+            Id = "f1",
+            CurrentNodeId = "A",
             State = FleetState.Idle,
-            Speed = 10f, 
-            Supplies = 100
+            Speed = 10f,
+            ShipClassId = "", // No mass penalty for basic movement test.
+            FuelCapacity = 500, FuelCurrent = 500
         };
         kernel.State.Fleets.Add(fleet.Id, fleet);
 

@@ -6,6 +6,195 @@ Rate each category: PASS / NEEDS_WORK / FAIL with specific notes.
 
 ---
 
+## 0. VISUAL VOCABULARY — What Things Look Like
+
+You MUST read this section before evaluating any screenshot. LLM vision models
+frequently misidentify game objects. Use this reference to correctly identify
+objects, then judge them against BEST-IN-CLASS standards from reference games.
+
+### Player Ship
+- **Kenney Space Kit model** — a small detailed spacecraft (~2-4 unit wingspan)
+- **Blue engine glow**: 2-3 bright cyan/blue flame trails behind the ship (always visible when flying)
+- Usually center-left of frame in flight mode
+- The ship is SMALL relative to planets/stations — this is by design (sense of scale)
+
+### Stations
+- **Hub-and-ring model**: central cylindrical hub (r=1.0) with an outer ring (r=2.0)
+- Positioned 8 units from a planet, so they appear near planets
+- Have Label3D name tags (white text, may be small at distance)
+- Dark navy dock menu frame (StyleBoxFlat) when docked
+
+### Stars
+- **Procedural spheres** with emission glow, class-scaled:
+  - G-type: warm yellow, 1.0x size (most common, guaranteed at player start)
+  - M-type: deep red, 0.6x size
+  - O-type: blue-white, 1.8x size
+- Stars have directional light that tints the whole scene
+- 20% chance of a binary companion star nearby
+
+### Planets
+- **3D Planet Generator addon** — textured spheres with atmosphere shader
+- Types: rocky, gas giant, ice, lava — each visually distinct
+- Self-rotating on spinning pivot nodes
+- 0-3 moons per planet (small spheres nearby)
+- Distributed at 20-38 units from star (G-type reference)
+
+### Asteroid Belt
+- Present in ~60% of systems, at ~45 units from star
+- Mix of Sphere, Box, and Cylinder shapes (hash-based variety)
+- Individual rocks are 1-4 units in size
+- Forms an arc/ring pattern — NOT a random scatter
+
+### NPC Ships
+- **Kenney Quaternius models** — detailed spacecraft, NOT primitive shapes
+- CharacterBody3D with Label3D status display
+- Role indicators: T=Trader (gold), H=Hauler (gray), P=Patrol (blue)
+- May show HP bar (thin green box) when damaged
+- "HOSTILE" label (red) when aggressive toward player
+
+### Lane Gates
+- Located at ~90 units from star (outer edge of system)
+- Kenney gate_complex.glb model
+- Label3D with direction arrow and destination name
+
+### HUD Layout (top-left panel, dark navy background)
+- Credits, Cargo, System name, Ship state
+- Hull bar (green) + Shield bar (blue) — thin progress bars
+- Security label below (colored by band: green/yellow/orange/red)
+- Research label further below (cyan when active, gray when idle)
+- Zone G bottom bar: risk meters left, system status center, keybind hints bottom
+
+### Warp/Transit
+- Lane transit: dark interstellar space, blue lane line, nebula backdrop
+- Warp VFX: expanding cyan sphere, camera shake + flash
+- Arrival cinematic: letterbox bars + camera sweep from high altitude
+
+### Galaxy Map
+- Strategic altitude (2500+ units) looking down
+- Nodes as beacon points, edges as lane connections
+- "YOU" indicator (green) at player location
+- Faction territory labels and colors
+
+### BEST-IN-CLASS REFERENCES — Judge Against These
+
+When evaluating, compare what you see to these genre-leading examples:
+
+**Solar System View — Reference: Everspace 2, Stellaris, Endless Space 2**
+- Stars should have visible corona/bloom, not flat circles
+- Planets should have atmospheric haze, shadow terminator, visible surface detail
+- Space should feel vast but populated — dust, particles, distant objects
+- Lighting should create mood: warm systems feel inviting, cold systems feel desolate
+
+**HUD — Reference: Elite Dangerous, Starfield, EVE Online**
+- Health/shield bars should be immediately readable at a glance (thick, high contrast)
+- Information should have clear visual hierarchy (size, color, position)
+- HUD should feel integrated into the game world, not plastered on top
+- Status should use icons + color, not just text labels
+
+**Dock/Trade Menu — Reference: X4 Foundations, Elite Dangerous, Starsector**
+- Market data should be scannable in a table (clear columns, aligned numbers)
+- Tabs should have obvious active/inactive states
+- Station identity should be immediately clear (name, faction, services)
+
+**Galaxy Map — Reference: Stellaris, Endless Space 2, Mass Effect**
+- Lane-based topology should be instantly readable
+- Player position should be unmissable (glowing indicator, not just a label)
+- Faction territories should use color-coding, not just text
+- Zoom levels should reveal more detail, not just scale
+
+**Ship & Fleet — Reference: Homeworld 3, Starsector, FTL**
+- Player ship should be immediately identifiable (glow, outline, or scale)
+- NPC ships should communicate role visually (military=angular, trader=bulky)
+- Fleet formations should look intentional, not random scatter
+
+**DO NOT grade on a curve because this is indie.** The player doesn't care about
+development context — they compare against every game they've ever played. Flag
+real gaps honestly, but classify severity fairly (CRITICAL = broken, not just "not
+as good as EVE").
+
+---
+
+## 0b. UNIVERSAL EVALUATION HEURISTICS
+
+Apply these to EVERY screenshot, regardless of type. Based on Nielsen's 10
+Usability Heuristics and Pinelle's Game Usability Heuristics (CHI 2008).
+
+### Visibility of System Status (Nielsen #1)
+- Can the player tell what state the game is in? (flying, docked, in transit, in combat)
+- Is there feedback for the current action? (health bars, progress, ETA)
+- Are important changes communicated? (damage taken, credits earned, destination reached)
+
+### Match Between System and Real World (Nielsen #2)
+- Do labels use player-facing language, not internal identifiers?
+- Do icons/colors match intuitive meanings? (red=danger, green=safe, gold=wealth)
+- Does the visual style match the genre? (space game should feel like space)
+
+### User Control and Freedom (Nielsen #3)
+- Can the player see how to exit the current state? (undock, close menu, resume)
+- Are navigation options visible? (keybind hints, back buttons, escape)
+
+### Consistency and Standards (Nielsen #4)
+- Do similar elements look the same across screens? (buttons, panels, labels)
+- Is the color palette consistent? (same blue for shields everywhere)
+- Do fonts follow a clear hierarchy? (title > body > caption)
+
+### Recognition Rather Than Recall (Nielsen #6)
+- Is important information visible without memorization? (current system, credits, health)
+- Are interactive elements obviously interactive? (buttons look like buttons)
+
+### Aesthetic and Minimalist Design (Nielsen #8)
+- Does every visible element serve a purpose?
+- Is the screen cluttered or does it have appropriate breathing room?
+- Does the visual design direct attention to what matters?
+
+### Game-Specific: Visual Clarity During Action (Pinelle)
+- Can the player identify their ship, enemies, allies, and objects?
+- Are game objects distinguishable from each other and from the background?
+- Is the camera framing appropriate for the current game state?
+
+### Game-Specific: Appropriate Feedback (Pinelle)
+- Does the game respond visually to player actions?
+- Are state transitions visible? (entering/leaving warp, docking, combat start)
+- Do important moments feel important? (discovery, arrival, danger)
+
+---
+
+## 0c. EVALUATION RULES — Avoiding False Reports
+
+**CRITICAL: Follow these rules to prevent hallucination-based issues.**
+
+1. **Never claim absence without certainty.** Do NOT say "no engine glow" or
+   "no station visible" unless you have carefully examined the entire frame.
+   Small objects at distance are easy to miss. Say "not clearly visible" instead.
+
+2. **Separate bugs from design opinions.** Tag each issue with its classification:
+   - **BUG**: Something is visually broken (overlap, clipping, missing element, wrong color)
+   - **UX**: Information architecture problem (hard to read, confusing layout, unclear state)
+   - **POLISH**: Works but could look better (thin bars, low contrast, spacing)
+   - **GAP**: Falls short of best-in-class reference (no bloom on star, flat lighting)
+   - **OPINION**: Subjective design preference (composition, focal point, "wow factor")
+
+   The issue table must include the tag:
+   | # | Severity | Tag | Issue | Detail |
+
+3. **Check bot log before claiming a mechanic didn't work.** If the bot log says
+   combat occurred, don't mark "no combat visible" as a bug — mark it as a
+   camera/zoom issue at most.
+
+4. **Account for development stage.** This is an indie game in active development.
+   Placeholder names ("System 0") and missing polish are EXPECTED. Rate them as
+   POLISH, not CRITICAL.
+
+5. **Scale matters.** The player ship is deliberately small relative to celestial
+   objects. This creates a sense of scale and wonder. Do not flag "ship too small"
+   as an issue unless it is genuinely unidentifiable.
+
+6. **Screenshot compression.** Static screenshots cannot show: particle animation,
+   ship rotation, planet spinning, engine thrust trails in motion. Do not penalize
+   the game for things that only exist in motion.
+
+---
+
 ## 1. FIRST IMPRESSION (every screenshot)
 
 The "3-second test" — what a new player sees before reading anything.

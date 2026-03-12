@@ -110,6 +110,13 @@ public static class StarNetworkGen
             else if (bucket < FleetSeedTweaksV0.HaulerThreshold) { role = FleetRole.Hauler; speed = FleetSeedTweaksV0.HaulerSpeed; }
             else { role = FleetRole.Patrol; speed = FleetSeedTweaksV0.PatrolSpeed; }
 
+            // Q5: No hostile patrol at player's starting system — new players can dock safely.
+            if (node.Id == state.PlayerLocationNodeId && role == FleetRole.Patrol)
+            {
+                role = FleetRole.Trader;
+                speed = FleetSeedTweaksV0.TraderSpeed;
+            }
+
             var fleet = new Fleet
             {
                 Id = $"ai_fleet_{node.Id}",
@@ -118,7 +125,8 @@ public static class StarNetworkGen
                 CurrentNodeId = node.Id,
                 Speed = speed,
                 State = FleetState.Idle,
-                Supplies = 100
+                FuelCapacity = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
+                FuelCurrent = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
             };
             state.Fleets.Add(fleet.Id, fleet);
         }

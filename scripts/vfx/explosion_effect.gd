@@ -49,18 +49,17 @@ static func _add_flash(effect: Node3D) -> void:
 	light.omni_attenuation = 1.5
 	effect.add_child(light)
 
-	# Visible flash sphere — scaled for camera altitude ~80 visibility.
 	var flash_mesh := MeshInstance3D.new()
 	flash_mesh.name = "FlashSphere"
 	var sphere := SphereMesh.new()
-	sphere.radius = 12.0
-	sphere.height = 24.0
+	sphere.radius = 3.0
+	sphere.height = 6.0
 	flash_mesh.mesh = sphere
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.95, 0.8)
-	mat.emission_energy_multiplier = 10.0
+	mat.emission_energy_multiplier = 5.0
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.no_depth_test = true
 	flash_mesh.material_override = mat

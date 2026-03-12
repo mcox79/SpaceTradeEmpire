@@ -1,4 +1,7 @@
+using SimCore.Content;
 using SimCore.Systems;
+using System;
+using System.Linq;
 
 namespace SimCore.Commands;
 
@@ -26,7 +29,27 @@ public class BuyCommand : ICommand
 		var available = InventoryLedger.Get(market.Inventory, GoodId);
 		if (available < Quantity) return;
 
+		// GATE.X.SHIP_CLASS.CARGO_ENFORCE.001: Reject buy if it would exceed cargo capacity.
+		var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
+			string.Equals(f.OwnerId, "player", StringComparison.Ordinal));
+		if (playerFleet != null)
+		{
+			var classDef = ShipClassContentV0.GetById(playerFleet.ShipClassId);
+			if (classDef != null && classDef.CargoCapacity > 0)
+			{
+				int currentCargo = state.PlayerCargo.Values.Sum();
+				if (currentCargo + Quantity > classDef.CargoCapacity)
+					return;
+			}
+		}
+
+		// GATE.X.INSTAB_PRICE.WIRE.001: Block trade if market closed by instability; adjust price.
+		int instMultBps = MarketSystem.GetInstabilityPriceMultiplierBps(state, MarketId, GoodId);
+		if (instMultBps <= 0) return;
+
 		int unitPrice = market.GetBuyPrice(GoodId);
+		if (instMultBps != 10000)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * instMultBps / 10000);
 		int totalCost = unitPrice * Quantity;
 
 		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Apply tariff surcharge (increases buy cost).

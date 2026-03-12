@@ -71,6 +71,9 @@ var _overlay_active: bool = false
 # Suppress "LOW" fuel warning until player has had fuel at least once (avoid alarming at boot)
 var _fuel_ever_had: bool = false
 
+# GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Cached onboarding disclosure state.
+var _onboarding_state: Dictionary = {}
+
 # GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
 var _narrative_panel = null
 
@@ -86,10 +89,21 @@ var _fleet_auto_program_label: Label = null
 # GATE.S7.RUNTIME_STABILITY.COMBAT_HUD.001: Zone armor + combat stance display.
 var _combat_hud: Control = null
 
-# GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu overlay
-var _pause_panel: Control = null
-# GATE.S1.SAVE_UI.SLOTS.001: save slot labels for metadata display
-var _slot_labels: Array = []
+# GATE.S6.FRACTURE_DISCOVERY.UI.001: Track whether fracture unlock toast has been shown.
+var _fracture_unlock_shown: bool = false
+
+# GATE.T18.CHARACTER.UI.001: First Officer panel.
+var _fo_panel = null
+
+# GATE.T18.NARRATIVE.UI_DATALOG.001: Data log viewer panel.
+var _data_log_panel = null
+
+# GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Knowledge web panel (K key).
+var _knowledge_web_panel = null
+
+# Dock confirmation: "Press E to dock" prompt (bottom-center).
+var _dock_prompt_label: Label = null
+
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
@@ -123,8 +137,22 @@ func _ready() -> void:
 		_state_label.tooltip_text = "Ship state: Docked, InFlight, Traveling"
 	if _hull_bar:
 		_hull_bar.tooltip_text = "Hull integrity — reach 0 and your ship is destroyed"
+		# Q1: Orange/red hull bar — distinct from shield at a glance
+		var hull_style := StyleBoxFlat.new()
+		hull_style.bg_color = Color(0.9, 0.3, 0.1)
+		_hull_bar.add_theme_stylebox_override("fill", hull_style)
+		var hull_bg := StyleBoxFlat.new()
+		hull_bg.bg_color = Color(0.2, 0.08, 0.02)
+		_hull_bar.add_theme_stylebox_override("background", hull_bg)
 	if _shield_bar:
 		_shield_bar.tooltip_text = "Shield absorbs damage before hull takes hits"
+		# Q1: Cyan/blue shield bar — visually distinct from hull
+		var shield_style := StyleBoxFlat.new()
+		shield_style.bg_color = Color(0.3, 0.8, 1.0)
+		_shield_bar.add_theme_stylebox_override("fill", shield_style)
+		var shield_bg := StyleBoxFlat.new()
+		shield_bg.bg_color = Color(0.06, 0.16, 0.2)
+		_shield_bar.add_theme_stylebox_override("background", shield_bg)
 
 	# GATE.S5.SEC_LANES.UI.001: security band indicator (below combat label)
 	_security_label = Label.new()
@@ -213,73 +241,6 @@ func _ready() -> void:
 	_restart_label.offset_top = 100
 	_game_over_panel.add_child(_restart_label)
 
-	# GATE.S1.SAVE_UI.PAUSE_MENU.001: pause menu (hidden until Escape pressed)
-	_pause_panel = Control.new()
-	_pause_panel.name = "PauseMenuPanel"
-	_pause_panel.visible = false
-	_pause_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# process_mode ALWAYS so pause menu works while tree is paused
-	_pause_panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	add_child(_pause_panel)
-
-	var pause_bg := ColorRect.new()
-	pause_bg.color = UITheme.PANEL_BG_OVERLAY
-	pause_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_pause_panel.add_child(pause_bg)
-
-	var pause_vbox := VBoxContainer.new()
-	pause_vbox.set_anchors_preset(Control.PRESET_CENTER)
-	pause_vbox.offset_left = -120
-	pause_vbox.offset_right = 120
-	pause_vbox.offset_top = -150
-	pause_vbox.offset_bottom = 150
-	pause_vbox.add_theme_constant_override("separation", 12)
-	_pause_panel.add_child(pause_vbox)
-
-	var pause_title := Label.new()
-	pause_title.text = "PAUSED"
-	pause_title.add_theme_font_size_override("font_size", UITheme.FONT_HUD_LARGE)
-	pause_title.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
-	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pause_vbox.add_child(pause_title)
-
-	var resume_btn := Button.new()
-	resume_btn.text = "Resume"
-	resume_btn.pressed.connect(_on_resume_pressed)
-	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	pause_vbox.add_child(resume_btn)
-
-	# GATE.S1.SAVE_UI.SLOTS.001: save/load slot buttons
-	for slot_idx in range(1, 4):
-		var save_btn := Button.new()
-		save_btn.name = "SaveSlot%d" % slot_idx
-		save_btn.text = "Save Slot %d" % slot_idx
-		save_btn.pressed.connect(_on_save_slot_pressed.bind(slot_idx))
-		save_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-		pause_vbox.add_child(save_btn)
-
-		var slot_lbl := Label.new()
-		slot_lbl.name = "SlotLabel%d" % slot_idx
-		slot_lbl.text = ""
-		slot_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
-		slot_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
-		slot_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		pause_vbox.add_child(slot_lbl)
-		_slot_labels.append(slot_lbl)
-
-		var load_btn := Button.new()
-		load_btn.name = "LoadSlot%d" % slot_idx
-		load_btn.text = "Load Slot %d" % slot_idx
-		load_btn.pressed.connect(_on_load_slot_pressed.bind(slot_idx))
-		load_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-		pause_vbox.add_child(load_btn)
-
-	var quit_btn := Button.new()
-	quit_btn.text = "Quit"
-	quit_btn.pressed.connect(_on_quit_pressed)
-	quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	pause_vbox.add_child(quit_btn)
-
 	# Data overlay mode indicator (below research label)
 	_overlay_mode_label = Label.new()
 	_overlay_mode_label.name = "OverlayModeLabel"
@@ -366,7 +327,7 @@ func _ready() -> void:
 	# GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Persistent keybind hints (U7).
 	_keybind_hint_label = Label.new()
 	_keybind_hint_label.name = "KeybindHintLabel"
-	_keybind_hint_label.text = "TAB Map  |  E Empire  |  H Help  |  L Log  |  V Overlay  |  ESC Pause"
+	_keybind_hint_label.text = "TAB Map  |  E Empire  |  H Help  |  K Web  |  L Log  |  V Overlay  |  ESC Pause"
 	_keybind_hint_label.add_theme_font_size_override("font_size", 11)
 	_keybind_hint_label.add_theme_color_override("font_color", Color(0.4, 0.45, 0.5, 0.6))
 	_keybind_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -426,6 +387,34 @@ func _ready() -> void:
 	_combat_hud = CombatHudScript.new()
 	add_child(_combat_hud)
 
+	# GATE.T18.CHARACTER.UI.001: First Officer panel (FO reactions + War Faces NPC dialogue).
+	var FOPanelScript := preload("res://scripts/ui/fo_panel.gd")
+	_fo_panel = FOPanelScript.new()
+	add_child(_fo_panel)
+
+	# GATE.T18.NARRATIVE.UI_DATALOG.001: Data log viewer panel.
+	var DataLogPanelScript := preload("res://scripts/ui/data_log_panel.gd")
+	_data_log_panel = DataLogPanelScript.new()
+	add_child(_data_log_panel)
+
+	# GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Knowledge web panel (K key).
+	var KnowledgeWebPanelScript := preload("res://scripts/ui/knowledge_web_panel.gd")
+	_knowledge_web_panel = KnowledgeWebPanelScript.new()
+	add_child(_knowledge_web_panel)
+
+	# Dock confirmation prompt (centered above Zone G bar).
+	_dock_prompt_label = Label.new()
+	_dock_prompt_label.name = "DockPromptLabel"
+	_dock_prompt_label.text = ""
+	_dock_prompt_label.add_theme_font_size_override("font_size", UITheme.FONT_HUD_MED)
+	_dock_prompt_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	_dock_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dock_prompt_label.position = Vector2(0, 1000)
+	_dock_prompt_label.size = Vector2(1920, 36)
+	_dock_prompt_label.visible = false
+	_dock_prompt_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_dock_prompt_label)
+
 	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
 	_alert_badge = Control.new()
 	_alert_badge.name = "AlertBadge"
@@ -461,7 +450,7 @@ func show_game_over_v0() -> void:
 		_game_over_panel.visible = true
 	print("UUIR|GAME_OVER_SHOWN")
 
-func set_overlay_mode_v0(active: bool) -> void:
+func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	_overlay_active = active
 	var bg = get_node_or_null("HudStatusBg")
 	if bg: bg.visible = not active
@@ -470,9 +459,9 @@ func set_overlay_mode_v0(active: bool) -> void:
 		if lbl != null: lbl.visible = not active
 	if _fuel_label: _fuel_label.visible = not active
 	if _galaxy_map_label:
-		if active:
+		if active and not is_transit:
 			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
-		_galaxy_map_label.visible = active
+		_galaxy_map_label.visible = active and not is_transit
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Hide Zone G bar during overlay.
 	if _zone_g_bg: _zone_g_bg.visible = not active
 	if _zone_g_bar: _zone_g_bar.visible = not active
@@ -480,6 +469,9 @@ func set_overlay_mode_v0(active: bool) -> void:
 	if _fleet_auto_panel: _fleet_auto_panel.visible = not active
 	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
+	if _fo_panel: _fo_panel.visible = not active
+	if _data_log_panel and active: _data_log_panel.visible = false
+	if _knowledge_web_panel and active: _knowledge_web_panel.visible = false
 	if active:
 		if _combat_label: _combat_label.visible = false
 		if _security_label: _security_label.visible = false
@@ -550,6 +542,9 @@ func _physics_process(_delta: float) -> void:
 		_update_fleet_auto_summary_v0()
 		if _combat_hud and _combat_hud.has_method("refresh_v0"):
 			_combat_hud.refresh_v0()
+		_check_fracture_unlock_toast_v0()
+		# GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Update onboarding disclosure state.
+		_update_onboarding_disclosure_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	if _security_label != null and _bridge != null:
@@ -686,49 +681,6 @@ func _update_fuel_hud() -> void:
 		_fuel_label.text = "Fuel: %d" % fuel
 		_fuel_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 
-# GATE.S1.SAVE_UI.PAUSE_MENU.001: toggle pause overlay
-func toggle_pause_menu_v0(visible_flag: bool) -> void:
-	if _pause_panel == null:
-		return
-	_pause_panel.visible = visible_flag
-	if visible_flag:
-		_refresh_slot_labels_v0()
-	print("UUIR|PAUSE_MENU|" + ("SHOW" if visible_flag else "HIDE"))
-
-func _on_resume_pressed() -> void:
-	var gm = get_tree().root.find_child("GameManager", true, false)
-	if gm and gm.has_method("_toggle_pause_v0"):
-		gm.call("_toggle_pause_v0")
-
-func _on_quit_pressed() -> void:
-	get_tree().quit()
-
-# GATE.S1.SAVE_UI.SLOTS.001: save/load slot handlers
-func _on_save_slot_pressed(slot: int) -> void:
-	if _bridge == null:
-		return
-	if _bridge.has_method("SetActiveSaveSlotV0"):
-		_bridge.call("SetActiveSaveSlotV0", slot)
-	if _bridge.has_method("RequestSave"):
-		_bridge.call("RequestSave")
-	# Refresh labels after a short delay to allow save to complete
-	await get_tree().create_timer(0.5).timeout
-	_refresh_slot_labels_v0()
-	print("UUIR|SAVE_SLOT|" + str(slot))
-
-func _on_load_slot_pressed(slot: int) -> void:
-	if _bridge == null:
-		return
-	if _bridge.has_method("SetActiveSaveSlotV0"):
-		_bridge.call("SetActiveSaveSlotV0", slot)
-	if _bridge.has_method("RequestLoad"):
-		_bridge.call("RequestLoad")
-	# Unpause and hide menu after load
-	var gm = get_tree().root.find_child("GameManager", true, false)
-	if gm and gm.has_method("_toggle_pause_v0"):
-		gm.call("_toggle_pause_v0")
-	print("UUIR|LOAD_SLOT|" + str(slot))
-
 ## Called by game_manager when V-key cycles overlay mode. mode: -1=Off, 0-2=active.
 func set_data_overlay_label_v0(mode: int) -> void:
 	if _overlay_mode_label == null:
@@ -748,20 +700,15 @@ func toggle_automation_dashboard_v0() -> void:
 	if _automation_dashboard != null:
 		_automation_dashboard.toggle_v0()
 
-func _refresh_slot_labels_v0() -> void:
-	if _bridge == null or not _bridge.has_method("GetSaveSlotMetadataV0"):
-		return
-	for i in range(_slot_labels.size()):
-		var slot := i + 1
-		var meta: Dictionary = _bridge.call("GetSaveSlotMetadataV0", slot)
-		if meta.get("exists", false):
-			_slot_labels[i].text = "%s | Credits: %s | %s" % [
-				str(meta.get("timestamp", "")),
-				str(meta.get("credits", 0)),
-				str(meta.get("system_name", ""))
-			]
-		else:
-			_slot_labels[i].text = "[Empty]"
+# GATE.T18.NARRATIVE.UI_DATALOG.001: toggle data log viewer panel.
+func toggle_data_log_v0() -> void:
+	if _data_log_panel != null and _data_log_panel.has_method("toggle_v0"):
+		_data_log_panel.toggle_v0()
+
+# GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: toggle knowledge web panel.
+func toggle_knowledge_web_v0() -> void:
+	if _knowledge_web_panel != null and _knowledge_web_panel.has_method("toggle_v0"):
+		_knowledge_web_panel.toggle_v0()
 
 # GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Update Zone G bottom bar content.
 func _update_zone_g_v0() -> void:
@@ -848,3 +795,65 @@ func _update_fleet_auto_summary_v0() -> void:
 		_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.RED)
 	else:
 		_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+
+
+# GATE.S6.FRACTURE_DISCOVERY.UI.001: Check fracture unlock status and show one-time toast.
+func _check_fracture_unlock_toast_v0() -> void:
+	if _fracture_unlock_shown or _bridge == null:
+		return
+	if not _bridge.has_method("GetFractureDiscoveryStatusV0"):
+		return
+	var status: Dictionary = _bridge.call("GetFractureDiscoveryStatusV0")
+	if status.get("unlocked", false):
+		_fracture_unlock_shown = true
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "FRACTURE DRIVE UNLOCKED — Off-lane travel is now possible.", "critical")
+		print("UUIR|FRACTURE_UNLOCKED")
+
+# GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Progressive HUD element reveal.
+func _update_onboarding_disclosure_v0() -> void:
+	# GATE.S19.ONBOARD.SETTINGS_WIRE.015: Skip disclosure if tutorials disabled.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
+			return  # All HUD elements stay visible.
+	if _bridge == null or not _bridge.has_method("GetOnboardingStateV0"):
+		return
+	_onboarding_state = _bridge.call("GetOnboardingStateV0")
+	if _onboarding_state.is_empty():
+		return
+
+	# Fuel label: hidden until player has moved to another node
+	if _fuel_label != null:
+		var show_fuel: bool = bool(_onboarding_state.get("show_fuel_hud", true))
+		if not show_fuel and not _fuel_ever_had:
+			_fuel_label.visible = false
+
+	# Security label: hidden until player has visited 2+ nodes
+	if _security_label != null:
+		var show_faction: bool = bool(_onboarding_state.get("show_faction_hud", true))
+		if not show_faction:
+			_security_label.visible = false
+
+	# M2: Suppress NPC ship role/hostile labels until player has explored enough.
+	var hide_npc_labels: bool = int(_onboarding_state.get("nodes_visited", 0)) < 2
+	for ship in get_tree().get_nodes_in_group("FleetShip"):
+		if is_instance_valid(ship) and "_onboard_labels_hidden" in ship:
+			ship._onboard_labels_hidden = hide_npc_labels
+
+# Dock confirmation: show "Press E to dock" prompt.
+func show_dock_prompt_v0(station_name: String = "") -> void:
+	if _dock_prompt_label == null:
+		return
+	if station_name.is_empty():
+		_dock_prompt_label.text = "Press E to dock"
+	else:
+		_dock_prompt_label.text = "Press E to dock at %s" % station_name
+	_dock_prompt_label.visible = true
+
+# Dock confirmation: hide dock prompt.
+func hide_dock_prompt_v0() -> void:
+	if _dock_prompt_label == null:
+		return
+	_dock_prompt_label.visible = false

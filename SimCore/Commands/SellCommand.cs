@@ -1,4 +1,6 @@
-﻿using SimCore.Systems;
+﻿using SimCore.Content;
+using SimCore.Systems;
+using System;
 
 namespace SimCore.Commands;
 
@@ -25,7 +27,13 @@ public class SellCommand : ICommand
 
 		if (InventoryLedger.Get(state.PlayerCargo, GoodId) < Quantity) return;
 
+		// GATE.X.INSTAB_PRICE.WIRE.001: Block trade if market closed by instability; adjust price.
+		int instMultBps = MarketSystem.GetInstabilityPriceMultiplierBps(state, MarketId, GoodId);
+		if (instMultBps <= 0) return;
+
 		int unitPrice = market.GetSellPrice(GoodId);
+		if (instMultBps != 10000)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * instMultBps / 10000);
 
 		int totalValue = unitPrice * Quantity;
 
@@ -44,5 +52,12 @@ public class SellCommand : ICommand
 			state.PlayerStats.GoodsTraded += Quantity;
 			state.PlayerStats.TotalCreditsEarned += totalValue;
 		}
+
+		// GATE.T18.CHARACTER.FO_REACT.001: Fire FO trade triggers.
+		if (totalValue > 0)
+			FirstOfficerSystem.TryFireTrigger(state, "FIRST_PROFITABLE_TRADE");
+		if (string.Equals(GoodId, WellKnownGoodIds.Munitions, StringComparison.Ordinal)
+			|| string.Equals(GoodId, WellKnownGoodIds.Composites, StringComparison.Ordinal))
+			FirstOfficerSystem.TryFireTrigger(state, "FIRST_WAR_GOODS_SALE");
 	}
 }

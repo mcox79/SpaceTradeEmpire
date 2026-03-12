@@ -74,6 +74,9 @@ public class SimKernel
         // Apply fleet movement/state transitions.
         MovementSystem.Process(_state);
 
+        // GATE.T18.NARRATIVE.FRACTURE_WEIGHT.001: Cargo weight shift on arrival at stable space.
+        FractureWeightSystem.Process(_state);
+
         // GATE.S7.SUSTAIN.FUEL_DEDUCT.001: Fleet fuel + module sustain deduction.
         SustainSystem.Process(_state);
 
@@ -132,6 +135,9 @@ public class SimKernel
         // GATE.S7.INSTABILITY.TICK_SYSTEM.001: Per-tick instability evolution near warfronts.
         InstabilitySystem.Process(_state);
 
+        // GATE.T18.NARRATIVE.TOPOLOGY_SHIFT.001: Phase 3+ edge mutation on player arrival.
+        TopologyShiftSystem.Process(_state);
+
         // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
         NpcTradeSystem.ProcessNpcTrade(_state);
 
@@ -150,8 +156,24 @@ public class SimKernel
         // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural rep decay toward neutral.
         ReputationSystem.Process(_state);
 
+        // GATE.T18.NARRATIVE.WAR_CONSEQUENCE.001: Resolve mature war consequences.
+        WarConsequenceSystem.Process(_state);
+
         // GATE.S12.PROGRESSION.MILESTONES.001: Evaluate player milestones.
         MilestoneSystem.Process(_state);
+
+        // GATE.T18.NARRATIVE.FO_SYSTEM.001: First Officer tier progression.
+        FirstOfficerSystem.Process(_state);
+
+        // GATE.T18.NARRATIVE.WAR_FACES.001: Narrative NPC lifecycle (Regular vanish, Enemy encounter).
+        NarrativeNpcSystem.Process(_state);
+
+        // GATE.T18.NARRATIVE.KNOWLEDGE_GRAPH.001: Knowledge graph connection reveals.
+        KnowledgeGraphSystem.Process(_state);
+
+        // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Fracture system gated behind discovery unlock.
+        FractureSystem.Process(_state);
+        FractureSystem.ApplyFractureGoodsFlowV0(_state);
 
         _state.AdvanceTick();
     }

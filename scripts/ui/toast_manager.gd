@@ -17,6 +17,10 @@ const PRIORITY_CONFIG := {
 	"warning": {"color": Color(1.0, 0.6, 0.1), "duration": 4.0, "persist": false},
 	"info": {"color": Color(0.5, 0.7, 1.0), "duration": 3.0, "persist": false},
 	"confirm": {"color": Color(0.3, 0.9, 0.4), "duration": 2.0, "persist": false},
+	# GATE.S19.ONBOARD.TOAST_ICON.006: Milestone celebration tier (gold border, larger text).
+	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15},
+	# FO dialogue tier (subtle teal border).
+	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false},
 }
 
 var _container: VBoxContainer = null
@@ -118,7 +122,7 @@ func _remove_toast(toast, text: String = "") -> void:
 ## Immediately removes the toast from _container (so child count decreases
 ## synchronously for the while-loop guard) and queues it for freeing.
 ## The brief fade gives visual feedback that the toast was dismissed.
-func _fade_and_remove(toast, text: String = "") -> void:
+func _fade_and_remove(toast, _text: String = "") -> void:
 	if not is_instance_valid(toast):
 		return
 	# Snapshot position before removal from VBoxContainer layout.
@@ -166,6 +170,10 @@ func _create_priority_toast(text: String, cfg: Dictionary) -> PanelContainer:
 	label.custom_minimum_size = Vector2(220, 0)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# GATE.S19.ONBOARD.TOAST_ICON.006: Milestone toasts get larger font.
+	var font_sz: int = int(cfg.get("font_size", 0))
+	if font_sz > 0:
+		label.add_theme_font_size_override("font_size", font_sz)
 	hbox.add_child(label)
 
 	# Count badge (hidden until bundled).

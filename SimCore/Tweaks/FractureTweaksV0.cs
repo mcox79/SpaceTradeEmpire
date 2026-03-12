@@ -43,7 +43,7 @@ public static class FractureTweaksV0
     public const float MinFractureTravelDistance = 1f; // Floor to avoid division by zero
 
     // GATE.S6.FRACTURE.COST_MODEL.001: Fracture travel costs.
-    public const int FractureFuelPerJump = 20;         // Supplies consumed on departure
+    public const int FractureFuelPerJump = 20;         // FuelCurrent consumed on departure
     public const int FractureHullStressPerJump = 10;   // HullHp damage on arrival
     public const float FractureTracePerArrival = 0.5f; // Trace left at destination node
 
@@ -51,4 +51,7 @@ public static class FractureTweaksV0
     public const float TraceDetectionThreshold = 1.0f; // Trace level that triggers faction detection
     public const int FractureDetectionRepPenalty = -10; // Rep penalty when detected
     public const float TraceDecayPerTick = 0.01f;      // Trace decays naturally per tick
+
+    // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Minimum tick before fracture can be discovered.
+    public const int FractureDiscoveryMinTick = 200;
 }

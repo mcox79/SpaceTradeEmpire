@@ -94,4 +94,147 @@ public class ReputationSystemTests
         ReputationSystem.AdjustReputation(a, "faction_0", 10);
         Assert.That(a.GetSignature(), Is.Not.EqualTo(b.GetSignature()));
     }
+
+    // --- Process() tests (reputation decay) ---
+
+    [Test]
+    public void Process_DecaysPositiveRepTowardZero()
+    {
+        var state = new SimState(42);
+        ReputationSystem.AdjustReputation(state, "faction_0", 10);
+
+        // Advance to decay interval
+        while (state.Tick < FactionTweaksV0.RepDecayIntervalTicks)
+            state.AdvanceTick();
+
+        ReputationSystem.Process(state);
+        Assert.That(ReputationSystem.GetReputation(state, "faction_0"),
+            Is.EqualTo(10 - FactionTweaksV0.RepDecayAmount));
+    }
+
+    [Test]
+    public void Process_DecaysNegativeRepTowardZero()
+    {
+        var state = new SimState(42);
+        ReputationSystem.AdjustReputation(state, "faction_0", -10);
+
+        while (state.Tick < FactionTweaksV0.RepDecayIntervalTicks)
+            state.AdvanceTick();
+
+        ReputationSystem.Process(state);
+        Assert.That(ReputationSystem.GetReputation(state, "faction_0"),
+            Is.EqualTo(-10 + FactionTweaksV0.RepDecayAmount));
+    }
+
+    [Test]
+    public void Process_NoDecayBeforeInterval()
+    {
+        var state = new SimState(42);
+        ReputationSystem.AdjustReputation(state, "faction_0", 10);
+
+        // Advance to just before decay interval
+        while (state.Tick < FactionTweaksV0.RepDecayIntervalTicks - 1)
+            state.AdvanceTick();
+
+        ReputationSystem.Process(state);
+        Assert.That(ReputationSystem.GetReputation(state, "faction_0"), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Process_ZeroRepDoesNotDecay()
+    {
+        var state = new SimState(42);
+        state.FactionReputation["faction_0"] = 0;
+
+        while (state.Tick < FactionTweaksV0.RepDecayIntervalTicks)
+            state.AdvanceTick();
+
+        ReputationSystem.Process(state);
+        Assert.That(ReputationSystem.GetReputation(state, "faction_0"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Process_EmptyFactionReputation_NoException()
+    {
+        var state = new SimState(42);
+        while (state.Tick < FactionTweaksV0.RepDecayIntervalTicks)
+            state.AdvanceTick();
+
+        ReputationSystem.Process(state);
+        Assert.Pass();
+    }
+
+    // --- OnWarProfiteerTrade() tests ---
+
+    [Test]
+    public void OnWarProfiteerTrade_WarCriticalGood_AdjustsRepBothSides()
+    {
+        var state = new SimState(42);
+        state.Warfronts["wf_1"] = new Entities.WarfrontState
+        {
+            Id = "wf_1",
+            CombatantA = "Valorin",
+            CombatantB = "Communion",
+            Intensity = Entities.WarfrontIntensity.Skirmish
+        };
+
+        ReputationSystem.OnWarProfiteerTrade(state, "Valorin", "munitions");
+
+        Assert.That(ReputationSystem.GetReputation(state, "Valorin"),
+            Is.EqualTo(FactionTweaksV0.WarProfiteerBuyerGain));
+        Assert.That(ReputationSystem.GetReputation(state, "Communion"),
+            Is.EqualTo(FactionTweaksV0.WarProfiteerEnemyLoss));
+    }
+
+    [Test]
+    public void OnWarProfiteerTrade_NonWarGood_NoEffect()
+    {
+        var state = new SimState(42);
+        state.Warfronts["wf_1"] = new Entities.WarfrontState
+        {
+            Id = "wf_1",
+            CombatantA = "Valorin",
+            CombatantB = "Communion",
+            Intensity = Entities.WarfrontIntensity.Skirmish
+        };
+
+        ReputationSystem.OnWarProfiteerTrade(state, "Valorin", "food");
+
+        Assert.That(ReputationSystem.GetReputation(state, "Valorin"), Is.EqualTo(0));
+        Assert.That(ReputationSystem.GetReputation(state, "Communion"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void OnWarProfiteerTrade_PeaceWarfront_NoEffect()
+    {
+        var state = new SimState(42);
+        state.Warfronts["wf_1"] = new Entities.WarfrontState
+        {
+            Id = "wf_1",
+            CombatantA = "Valorin",
+            CombatantB = "Communion",
+            Intensity = Entities.WarfrontIntensity.Peace
+        };
+
+        ReputationSystem.OnWarProfiteerTrade(state, "Valorin", "munitions");
+
+        Assert.That(ReputationSystem.GetReputation(state, "Valorin"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void OnWarProfiteerTrade_BuyerNotInWarfront_NoEffect()
+    {
+        var state = new SimState(42);
+        state.Warfronts["wf_1"] = new Entities.WarfrontState
+        {
+            Id = "wf_1",
+            CombatantA = "Valorin",
+            CombatantB = "Communion",
+            Intensity = Entities.WarfrontIntensity.Skirmish
+        };
+
+        ReputationSystem.OnWarProfiteerTrade(state, "Neutral", "munitions");
+
+        Assert.That(ReputationSystem.GetReputation(state, "Neutral"), Is.EqualTo(0));
+    }
 }

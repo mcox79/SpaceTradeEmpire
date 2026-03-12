@@ -210,7 +210,7 @@ public sealed class ExplorationBot
             CurrentNodeId = startNode,
             Speed = 1.0f,
             State = FleetState.Idle,
-            Supplies = 100,
+            FuelCapacity = 500, FuelCurrent = 500,
             HullHp = 100,
             HullHpMax = 100,
             ShieldHp = 50,
@@ -342,6 +342,7 @@ public sealed class ExplorationBot
             foreach (var mktKv in State.Markets)
             {
                 if (!mktKv.Value.Inventory.ContainsKey(kv.Key)) continue;
+                if (MarketSystem.IsMarketClosedByInstability(State, mktKv.Key)) continue;
                 int sell = mktKv.Value.GetSellPrice(kv.Key);
                 if (sell > bestSellPrice)
                 {
@@ -380,6 +381,7 @@ public sealed class ExplorationBot
 
         foreach (var mktKv in State.Markets)
         {
+            if (MarketSystem.IsMarketClosedByInstability(State, mktKv.Key)) continue;
             var mkt = mktKv.Value;
             foreach (var goodId in mkt.Inventory.Keys)
             {
@@ -395,6 +397,7 @@ public sealed class ExplorationBot
                 {
                     if (otherMkt.Key == mktKv.Key) continue;
                     if (!otherMkt.Value.Inventory.ContainsKey(goodId)) continue;
+                    if (MarketSystem.IsMarketClosedByInstability(State, otherMkt.Key)) continue;
                     int sp = otherMkt.Value.GetSellPrice(goodId);
                     if (sp > bestSell) bestSell = sp;
                 }

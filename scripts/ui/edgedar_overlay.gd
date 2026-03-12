@@ -115,6 +115,28 @@ func _gather_pois(camera: Camera3D) -> Array:
 					"label": "%du" % int(dist)
 				})
 
+	# GATE.S19.ONBOARD.WAYPOINT.011: Mission objective waypoint.
+	# If player has an active mission with a target node, show a QUEST_TARGET POI
+	# pointing to the lane gate for that destination.
+	if _game_manager != null:
+		var bridge = get_node_or_null("/root/SimBridge")
+		if bridge and bridge.has_method("GetActiveMissionV0"):
+			var mission: Dictionary = bridge.call("GetActiveMissionV0")
+			var target_id: String = str(mission.get("target_node_id", ""))
+			if not target_id.is_empty():
+				# Lane gates carry meta "neighbor_node_id" matching their destination.
+				var gate_nodes = get_tree().get_nodes_in_group("LaneGate")
+				for gate in gate_nodes:
+					var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
+					if gate_target == target_id:
+						var dist: float = cam_pos.distance_to(gate.global_position)
+						if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
+							var obj_text: String = str(mission.get("objective_text", "Objective"))
+							if obj_text.is_empty():
+								obj_text = str(mission.get("target_node_name", "Objective"))
+							result.append({"pos": gate.global_position, "type": PoiType.QUEST_TARGET, "dist": dist, "label": obj_text})
+						break
+
 	# Sort by distance (closest first)
 	result.sort_custom(func(a, b): return a["dist"] < b["dist"])
 	return result

@@ -564,25 +564,75 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.026 | DONE | Full test suite + health baseline |
 | GATE.X.HYGIENE.SCREENSHOT_EVAL.026 | DONE | Post-tranche visual regression check |
 | GATE.X.HYGIENE.EPIC_REVIEW.026 | DONE | Close AUTOMATION_MGMT + GALAXY_MAP_V2 epics |
-| GATE.S6.FRACTURE_DISCOVERY.MODEL.001 | TODO | Fracture unlock flag + gate FractureSystem |
-| GATE.S6.FRACTURE_DISCOVERY.DERELICT.001 | TODO | Derelict void site in worldgen |
-| GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001 | TODO | Analyze derelict → unlock fracture |
-| GATE.S6.FRACTURE_DISCOVERY.BRIDGE.001 | TODO | GetFractureDiscoveryStatusV0 bridge |
-| GATE.S6.FRACTURE_DISCOVERY.UI.001 | TODO | Fracture unlock toast + dashboard gating |
-| GATE.S6.FRACTURE_DISCOVERY.PROOF.001 | TODO | Headless fracture discovery proof |
-| GATE.S9.MENU_ATMOSPHERE.STARFIELD.001 | TODO | Parallax starfield shader (4 layers) |
-| GATE.S9.MENU_ATMOSPHERE.TITLE.001 | TODO | Title treatment + rotating subtitle |
-| GATE.S9.MENU_ATMOSPHERE.SILHOUETTE.001 | TODO | Adaptive foreground silhouette |
-| GATE.S9.MENU_ATMOSPHERE.AUDIO.001 | TODO | Menu audio timing + silence palette |
-| GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001 | TODO | Galaxy gen screen + progress msgs |
-| GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001 | TODO | First-launch accessibility prompt |
-| GATE.S9.ACCESSIBILITY.FONT_SCALE.001 | TODO | Font size override (100-200%) |
-| GATE.S9.ACCESSIBILITY.COLORBLIND.001 | TODO | Colorblind post-processing shader |
-| GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001 | TODO | Accessibility tab in settings panel |
-| GATE.S9.SETTINGS.DISPLAY_REVERT.001 | TODO | 15s display revert timer |
-| GATE.X.HYGIENE.REPO_HEALTH.027 | TODO | Full test suite + health baseline |
-| GATE.X.HYGIENE.SCREENSHOT_EVAL.027 | TODO | Post-tranche visual + menu eval |
-| GATE.X.HYGIENE.EPIC_REVIEW.027 | TODO | Close epics + recommend T28 anchor |
+| GATE.S6.FRACTURE_DISCOVERY.MODEL.001 | DONE | Fracture unlock flag + gate FractureSystem |
+| GATE.S6.FRACTURE_DISCOVERY.DERELICT.001 | DONE | Derelict void site in worldgen |
+| GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001 | DONE | Analyze derelict → unlock fracture |
+| GATE.S6.FRACTURE_DISCOVERY.BRIDGE.001 | DONE | GetFractureDiscoveryStatusV0 bridge |
+| GATE.S6.FRACTURE_DISCOVERY.UI.001 | DONE | Fracture unlock toast + dashboard gating |
+| GATE.S6.FRACTURE_DISCOVERY.PROOF.001 | DONE | Headless fracture discovery proof |
+| GATE.S9.MENU_ATMOSPHERE.STARFIELD.001 | DONE | Parallax starfield shader (4 layers) |
+| GATE.S9.MENU_ATMOSPHERE.TITLE.001 | DONE | Title treatment + rotating subtitle |
+| GATE.S9.MENU_ATMOSPHERE.SILHOUETTE.001 | DONE | Adaptive foreground silhouette |
+| GATE.S9.MENU_ATMOSPHERE.AUDIO.001 | DONE | Menu audio timing + silence palette |
+| GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001 | DONE | Galaxy gen screen + progress msgs |
+| GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001 | DONE | First-launch accessibility prompt |
+| GATE.S9.ACCESSIBILITY.FONT_SCALE.001 | DONE | Font size override (100-200%) |
+| GATE.S9.ACCESSIBILITY.COLORBLIND.001 | DONE | Colorblind post-processing shader |
+| GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001 | DONE | Accessibility tab in settings panel |
+| GATE.S9.SETTINGS.DISPLAY_REVERT.001 | DONE | 15s display revert timer |
+| GATE.X.HYGIENE.REPO_HEALTH.027 | DONE | Full test suite + health baseline |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.027 | DONE | Post-tranche visual + menu eval |
+| GATE.X.HYGIENE.EPIC_REVIEW.027 | DONE | Close epics + recommend T28 anchor |
+| GATE.T18.NARRATIVE.ENTITIES.001 | DONE | 6 narrative entity classes |
+| GATE.T18.NARRATIVE.STATE_INTEGRATION.001 | DONE | SimState dictionaries + HydrateAfterLoad + signature |
+| GATE.T18.NARRATIVE.TWEAKS.001 | DONE | NarrativeTweaksV0 + 3 subsystem tweaks |
+| GATE.T18.EXPERIENTIAL.FRACTURE_WEIGHT.001 | DONE | FractureWeightSystem + tests |
+| GATE.T18.EXPERIENTIAL.ROUTE_UNCERTAINTY.001 | DONE | RouteUncertaintySystem + tests |
+| GATE.T18.EXPERIENTIAL.STATION_MEMORY.001 | DONE | StationMemorySystem + tests |
+| GATE.T18.EXPERIENTIAL.WAR_CONSEQUENCE.001 | DONE | WarConsequenceSystem + tests |
+| GATE.T18.EXPERIENTIAL.TOPOLOGY_SHIFT.001 | DONE | TopologyShiftSystem + tests |
+| GATE.T18.DATALOG.CONTENT.001 | DONE | 25 data logs in DataLogContentV0 |
+| GATE.T18.DATALOG.PLACEMENT.001 | DONE | NarrativePlacementGen BFS + landmarks |
+| GATE.T18.DATALOG.KEPLER_CHAIN.001 | DONE | KeplerChainContentV0 6-piece chain |
+| GATE.T18.DATALOG.KNOWLEDGE_GRAPH.001 | DONE | KnowledgeGraphSystem + content |
+| GATE.T18.INSTRUMENT.DISAGREEMENT.001 | DONE | InstrumentDisagreementSystem |
+| GATE.T18.MORAL_ARCH.DOCS.001 | DONE | Faction moral architecture in lore doc |
+| GATE.T18.CHARACTER.FO_REACT.001 | DONE | FO event-driven reactions + dialogue content |
+| GATE.T18.CHARACTER.WAR_FACES.001 | DONE | War Faces personality behavior + NPC content |
+| GATE.T18.CHARACTER.BRIDGE.001 | DONE | SimBridge.Character.cs FO + War Faces queries |
+| GATE.T18.CHARACTER.UI.001 | DONE | FO reactions + War Faces in HUD/dock |
+| GATE.T18.NARRATIVE.BRIDGE.001 | DONE | SimBridge.Narrative.cs all narrative queries |
+| GATE.T18.NARRATIVE.UI_DATALOG.001 | DONE | Data log viewer panel |
+| GATE.X.SHIP_CLASS.CARGO_ENFORCE.001 | DONE | Cargo capacity enforcement in BuyCommand |
+| GATE.X.SHIP_CLASS.MASS_SPEED.001 | DONE | Mass-based speed penalty |
+| GATE.X.SHIP_CLASS.SCAN_RANGE.001 | DONE | ScanRange gates discovery scanning |
+| GATE.X.INSTAB_PRICE.WIRE.001 | DONE | Instability-aware pricing in Buy+Sell |
+| GATE.X.MODULE_SUSTAIN.MODEL.001 | DONE | SustainGoodId on ModuleDef |
+| GATE.X.MODULE_SUSTAIN.DEDUCT.001 | DONE | Sustain cycle deducts goods from cargo |
+| GATE.X.UI_POLISH.LABEL_OVERLAP.001 | DONE | Label anti-collision (fixes V17) |
+| GATE.X.UI_POLISH.GALAXY_MAP_UX.001 | DONE | Galaxy zoom + label persist (fixes V18/V19) |
+| GATE.X.UI_POLISH.CAMERA_BOUNDS.001 | DONE | Camera distance clamp (fixes U1) |
+| GATE.X.HYGIENE.REPO_HEALTH.028 | DONE | Full test suite + health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.028 | DONE | Epic audit + tranche closeout |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.028 | DONE | Post-tranche visual eval |
+| GATE.T18.CHARACTER.FO_DIALOGUE_DEPTH.001 | DONE | FO 3 candidates x 5 dialogue tiers + blind spots |
+| GATE.T18.CHARACTER.FO_TRIGGER_WIRING.001 | DONE | FO action-based dialogue triggers |
+| GATE.T18.CHARACTER.FO_PROMO.001 | DONE | FO promotion - score, window, candidate choice |
+| GATE.T18.CHARACTER.WARFACES_DEPTH.001 | DONE | War Faces 3 behaviors (Regular/Stationmaster/Enemy) |
+| GATE.T18.CHARACTER.UI_FULL.001 | DONE | FO panel overhaul + War Faces + promotion UI |
+| GATE.T18.CHARACTER.HEADLESS.001 | DONE | Character systems headless proof |
+| GATE.S9.MISSIONS.MINING_CONTENT.001 | DONE | Mission Mining Survey definition + binding |
+| GATE.S9.MISSIONS.RESEARCH_CONTENT.001 | DONE | Mission First Research definition + binding |
+| GATE.S9.MISSIONS.CONSTRUCTION_CONTENT.001 | DONE | Mission First Build definition + binding |
+| GATE.S9.MISSIONS.BRIDGE_EXT.001 | DONE | Mission rewards preview + prereqs detail |
+| GATE.S9.MISSIONS.HEADLESS.001 | DONE | Mission M5-M7 headless proof |
+| GATE.X.UI_POLISH.DOCK_VISUAL.001 | DONE | Dock column fix (V21) + ship tab polish (V20) |
+| GATE.X.UI_POLISH.KNOWLEDGE_WEB.001 | DONE | Discovery Web panel (knowledge graph UI) |
+| GATE.X.UI_POLISH.DATALOG_FILTER.001 | DONE | Data log category filter tabs |
+| GATE.X.UI_POLISH.LOCAL_DENSITY.001 | DONE | Tighten local system spatial spread (V2) |
+| GATE.X.HYGIENE.REPO_HEALTH.029 | DONE | Full test suite + health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.029 | DONE | Epic audit + close S9.SETTINGS/T18.CHARACTER |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.029 | DONE | Post-tranche visual eval |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -2094,40 +2144,40 @@ Combined-agent notes:
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.S6.FRACTURE_DISCOVERY.MODEL.001 | TODO | Add FractureUnlocked bool + FractureDiscoveryTick to SimState. Gate FractureSystem.Tick() behind FractureUnlocked flag. Add FractureDiscoveryMinTick tweaks knob to FractureTweaksV0. Hash-affecting. Proof: dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/SimState.cs, FOUND: SimCore/Systems/FractureSystem.cs |
-| GATE.S6.FRACTURE_DISCOVERY.DERELICT.001 | TODO | Spawn derelict VoidSite at frontier node during worldgen via DiscoverySeedGen. Type "FractureDerelict" discovery kind. Deterministic placement using world seed hash. Blocks: MODEL.001. Hash-affecting. Proof: dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Gen/DiscoverySeedGen.cs, FOUND: SimCore/Entities/VoidSite.cs |
-| GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001 | TODO | Wire unlock in DiscoveryOutcomeSystem: analyze FractureDerelict -> set FractureUnlocked=true, emit EVT.DISCOVERY.FRACTURE_UNLOCKED. Contract test: advance to tick 300+, discover, analyze, verify unlock. Blocks: DERELICT.001. Hash-affecting. Proof: dotnet test --filter "FractureDiscoveryTests" | FOUND: SimCore/Systems/DiscoveryOutcomeSystem.cs, NEW: SimCore.Tests/Systems/FractureDiscoveryTests.cs |
-| GATE.S6.FRACTURE_DISCOVERY.BRIDGE.001 | TODO | SimBridge queries: GetFractureDiscoveryStatusV0 (unlocked, discoveryTick, derelictNodeId, analysisProgress). Add SimBridge.Fracture.cs partial. Blocks: MODEL.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Fracture.cs, FOUND: scripts/bridge/SimBridge.cs |
-| GATE.S6.FRACTURE_DISCOVERY.UI.001 | TODO | GDScript: fracture unlock toast in HUD when unlocked, gate fracture-related UI elements behind unlock flag in DiscoverySitePanel.gd. Blocks: BRIDGE.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd, FOUND: scripts/ui/DiscoverySitePanel.gd |
-| GATE.S6.FRACTURE_DISCOVERY.PROOF.001 | TODO | Headless proof bot: boot, advance sim to tick 300+, find derelict, analyze, verify fracture unlocked, capture screenshots. HEADLESS_PROOF milestone. Blocks: UI.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/tests/fracture_discovery_bot.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
+| GATE.S6.FRACTURE_DISCOVERY.MODEL.001 | DONE | Add FractureUnlocked bool + FractureDiscoveryTick to SimState. Gate FractureSystem.Tick() behind FractureUnlocked flag. Add FractureDiscoveryMinTick tweaks knob to FractureTweaksV0. Hash-affecting. Proof: dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/SimState.cs, FOUND: SimCore/Systems/FractureSystem.cs |
+| GATE.S6.FRACTURE_DISCOVERY.DERELICT.001 | DONE | Spawn derelict VoidSite at frontier node during worldgen via DiscoverySeedGen. Type "FractureDerelict" discovery kind. Deterministic placement using world seed hash. Blocks: MODEL.001. Hash-affecting. Proof: dotnet test --filter "FullyQualifiedName~Determinism" | FOUND: SimCore/Gen/DiscoverySeedGen.cs, FOUND: SimCore/Entities/VoidSite.cs |
+| GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001 | DONE | Wire unlock in DiscoveryOutcomeSystem: analyze FractureDerelict -> set FractureUnlocked=true, emit EVT.DISCOVERY.FRACTURE_UNLOCKED. Contract test: advance to tick 300+, discover, analyze, verify unlock. Blocks: DERELICT.001. Hash-affecting. Proof: dotnet test --filter "FractureDiscoveryTests" | FOUND: SimCore/Systems/DiscoveryOutcomeSystem.cs, NEW: SimCore.Tests/Systems/FractureDiscoveryTests.cs |
+| GATE.S6.FRACTURE_DISCOVERY.BRIDGE.001 | DONE | SimBridge queries: GetFractureDiscoveryStatusV0 (unlocked, discoveryTick, derelictNodeId, analysisProgress). Add SimBridge.Fracture.cs partial. Blocks: MODEL.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Fracture.cs, FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S6.FRACTURE_DISCOVERY.UI.001 | DONE | GDScript: fracture unlock toast in HUD when unlocked, gate fracture-related UI elements behind unlock flag in DiscoverySitePanel.gd. Blocks: BRIDGE.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/hud.gd, FOUND: scripts/ui/DiscoverySitePanel.gd |
+| GATE.S6.FRACTURE_DISCOVERY.PROOF.001 | DONE | Headless proof bot: boot, advance sim to tick 300+, find derelict, analyze, verify fracture unlocked, capture screenshots. HEADLESS_PROOF milestone. Blocks: UI.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/tests/fracture_discovery_bot.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
 
 ### AF2. Menu atmosphere (bridge, tiers 1-2)
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.S9.MENU_ATMOSPHERE.STARFIELD.001 | TODO | Parallax starfield shader: 4 GPU layers (deep stars, nebula noise x2, mid-field stars). ShaderMaterial on main_menu.tscn background ColorRect. Combine with TITLE.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, NEW: scripts/view/starfield_menu.gdshader |
-| GATE.S9.MENU_ATMOSPHERE.TITLE.001 | TODO | Title text: clean sans-serif, fade-in animation, rotating Precursor fragment subtitle per session. Combine with STARFIELD.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
-| GATE.S9.MENU_ATMOSPHERE.SILHOUETTE.001 | TODO | Adaptive foreground silhouette: gate model (no saves), player ship class (mid-campaign), Haven (completed). Blocks: STARFIELD.001. Combine with AUDIO.001+GALAXY_GEN.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
-| GATE.S9.MENU_ATMOSPHERE.AUDIO.001 | TODO | Menu audio timing: first-launch 2s silence -> single note -> drone -> theme per AudioDesign.md; returning: quick fade-in. Blocks: STARFIELD.001. Combine with SILHOUETTE.001+GALAXY_GEN.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
-| GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001 | TODO | Galaxy generation screen with thematic progress messages ("Charting the void..."), "Press any key to begin" gate after generation. Blocks: TITLE.001. Combine with SILHOUETTE.001+AUDIO.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
+| GATE.S9.MENU_ATMOSPHERE.STARFIELD.001 | DONE | Parallax starfield shader: 4 GPU layers (deep stars, nebula noise x2, mid-field stars). ShaderMaterial on main_menu.tscn background ColorRect. Combine with TITLE.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, NEW: scripts/view/starfield_menu.gdshader |
+| GATE.S9.MENU_ATMOSPHERE.TITLE.001 | DONE | Title text: clean sans-serif, fade-in animation, rotating Precursor fragment subtitle per session. Combine with STARFIELD.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
+| GATE.S9.MENU_ATMOSPHERE.SILHOUETTE.001 | DONE | Adaptive foreground silhouette: gate model (no saves), player ship class (mid-campaign), Haven (completed). Blocks: STARFIELD.001. Combine with AUDIO.001+GALAXY_GEN.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
+| GATE.S9.MENU_ATMOSPHERE.AUDIO.001 | DONE | Menu audio timing: first-launch 2s silence -> single note -> drone -> theme per AudioDesign.md; returning: quick fade-in. Blocks: STARFIELD.001. Combine with SILHOUETTE.001+GALAXY_GEN.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
+| GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001 | DONE | Galaxy generation screen with thematic progress messages ("Charting the void..."), "Press any key to begin" gate after generation. Blocks: TITLE.001. Combine with SILHOUETTE.001+AUDIO.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/main_menu.gd, FOUND: scenes/main_menu.tscn |
 
 ### AF3. Accessibility + Settings continuation (content+bridge, tiers 1-2)
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001 | TODO | First-launch accessibility prompt: font size, colorblind mode, UI scale. Shown once when no settings.json exists. Writes to settings_manager. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, FOUND: scripts/ui/settings_panel.gd |
-| GATE.S9.ACCESSIBILITY.FONT_SCALE.001 | TODO | Font size override system: 100-200% scaling via Theme override. Applied from settings_manager on change. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, FOUND: scripts/ui/hud.gd |
-| GATE.S9.ACCESSIBILITY.COLORBLIND.001 | TODO | Colorblind post-processing shader: Deuteranopia/Protanopia/Tritanopia via CanvasLayer ColorRect shader. 3 modes via uniform parameter. Blocks: FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, NEW: scripts/view/colorblind_filter.gdshader |
-| GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001 | TODO | Accessibility tab in settings_panel.gd: colorblind dropdown, font scale slider, high contrast toggle, reduced shake toggle. Blocks: FONT_SCALE.001+FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/settings_panel.gd, FOUND: scripts/core/settings_manager.gd |
-| GATE.S9.SETTINGS.DISPLAY_REVERT.001 | TODO | Display settings 15s revert timer: "Keep changes?" dialog after resolution/mode change. Auto-revert if no confirmation. Blocks: FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/settings_panel.gd, FOUND: scripts/core/settings_manager.gd |
+| GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001 | DONE | First-launch accessibility prompt: font size, colorblind mode, UI scale. Shown once when no settings.json exists. Writes to settings_manager. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, FOUND: scripts/ui/settings_panel.gd |
+| GATE.S9.ACCESSIBILITY.FONT_SCALE.001 | DONE | Font size override system: 100-200% scaling via Theme override. Applied from settings_manager on change. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, FOUND: scripts/ui/hud.gd |
+| GATE.S9.ACCESSIBILITY.COLORBLIND.001 | DONE | Colorblind post-processing shader: Deuteranopia/Protanopia/Tritanopia via CanvasLayer ColorRect shader. 3 modes via uniform parameter. Blocks: FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/settings_manager.gd, NEW: scripts/view/colorblind_filter.gdshader |
+| GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001 | DONE | Accessibility tab in settings_panel.gd: colorblind dropdown, font scale slider, high contrast toggle, reduced shake toggle. Blocks: FONT_SCALE.001+FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/settings_panel.gd, FOUND: scripts/core/settings_manager.gd |
+| GATE.S9.SETTINGS.DISPLAY_REVERT.001 | DONE | Display settings 15s revert timer: "Keep changes?" dialog after resolution/mode change. Auto-revert if no confirmation. Blocks: FIRST_LAUNCH.001. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/ui/settings_panel.gd, FOUND: scripts/core/settings_manager.gd |
 
 ### AF4. Meta (docs, tiers 1+3)
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.X.HYGIENE.REPO_HEALTH.027 | TODO | Full test suite (Release), build, warning scan, dead code check, golden hash stability. Tranche 27 baseline. Proof: dotnet test full suite | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
-| GATE.X.HYGIENE.SCREENSHOT_EVAL.027 | TODO | Post-tranche visual regression + menu atmosphere eval. Run /screenshot eval, verify fracture discovery UI, new menu visuals. REGRESSION_ANCHOR milestone. Proof: Run-Screenshot.ps1 -Mode eval | FOUND: scripts/tests/visual_sweep_bot_v0.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
-| GATE.X.HYGIENE.EPIC_REVIEW.027 | TODO | Epic status audit. Close FRACTURE_DISCOVERY_EVENT, MENU_ATMOSPHERE, ACCESSIBILITY if complete. Update ACTIVE_ISSUES. Recommend T28 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.REPO_HEALTH.027 | DONE | Full test suite (Release), build, warning scan, dead code check, golden hash stability. Tranche 27 baseline. Proof: dotnet test full suite | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.027 | DONE | Post-tranche visual regression + menu atmosphere eval. Run /screenshot eval, verify fracture discovery UI, new menu visuals. REGRESSION_ANCHOR milestone. Proof: Run-Screenshot.ps1 -Mode eval | FOUND: scripts/tests/visual_sweep_bot_v0.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.027 | DONE | Epic status audit. Close FRACTURE_DISCOVERY_EVENT, MENU_ATMOSPHERE, ACCESSIBILITY if complete. Update ACTIVE_ISSUES. Recommend T28 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
 
 Combined-agent notes:
 - STARFIELD.001 + TITLE.001: both touch main_menu.gd — single agent (tier 1).
@@ -2135,3 +2185,152 @@ Combined-agent notes:
 - MODEL.001 + DERELICT.001: hash-affecting sequential chain in tier 1 — single agent.
 - GALAXY_MAP_FIX.001 + ASTEROID_VARIETY.001: both block on LABEL3D_FIX.001 but touch different files (GalaxyView.cs vs galaxy_spawner.gd) — can parallelize (tier 2).
 - NEW path budget: 7/10 used (doctrine_panel, budget_panel, program_history_panel, combat_hud, settings_manager, settings_panel, automation_scenario_bot).
+
+## AG. Retroactive T18 — Narrative Foundation (EPIC.T18.NARRATIVE_FOUNDATION.V0, EPIC.T18.EXPERIENTIAL_MECHANICS.V0, EPIC.T18.DATA_LOG_CONTENT.V0, EPIC.T18.INSTRUMENT_DISAGREEMENT.V0, EPIC.T18.MORAL_ARCHITECTURE.V0)
+
+These gates formalize T18 narrative systems that were built code-first during sessions
+without formal gate definitions. All code verified present and tested. Retroactive closeout.
+
+### AG1. Narrative Foundation entities + state + tweaks
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.NARRATIVE.ENTITIES.001 | DONE | 6 narrative entity classes: DataLog, FirstOfficer, StationMemory, WarConsequence, NarrativeNpc, KnowledgeConnection. All in SimCore/Entities/ with SimState dictionary registration. | FOUND: SimCore/Entities/DataLog.cs, SimCore/Entities/FirstOfficer.cs, SimCore/Entities/StationMemory.cs, SimCore/Entities/WarConsequence.cs, SimCore/Entities/NarrativeNpc.cs, SimCore/Entities/KnowledgeConnection.cs |
+| GATE.T18.NARRATIVE.STATE_INTEGRATION.001 | DONE | SimState dictionaries for all 6 narrative entities + HydrateAfterLoad wiring + determinism signature coverage. | FOUND: SimCore/SimState.cs, SimCore/SimEngine.cs |
+| GATE.T18.NARRATIVE.TWEAKS.001 | DONE | NarrativeTweaksV0 + FractureWeightTweaksV0 + TopologyShiftTweaksV0 + RouteUncertaintyTweaksV0 — all gameplay constants routed through Tweaks layer. | FOUND: SimCore/Tweaks/NarrativeTweaksV0.cs, SimCore/Tweaks/FractureWeightTweaksV0.cs, SimCore/Tweaks/TopologyShiftTweaksV0.cs, SimCore/Tweaks/RouteUncertaintyTweaksV0.cs |
+
+### AG2. Experiential mechanics systems
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.EXPERIENTIAL.FRACTURE_WEIGHT.001 | DONE | FractureWeightSystem: per-edge fracture weight computation, phase classification (Stable/Drift/Storm/Collapse), deterministic hash-based jitter. Wired into SimKernel.Step(). Tests pass. | FOUND: SimCore/Systems/FractureWeightSystem.cs, SimCore.Tests/Systems/FractureWeightTests.cs |
+| GATE.T18.EXPERIENTIAL.ROUTE_UNCERTAINTY.001 | DONE | RouteUncertaintySystem: route travel-time uncertainty based on fracture weight, tick-level jitter, stage classification. Wired into SimKernel.Step(). Tests pass. | FOUND: SimCore/Systems/RouteUncertaintySystem.cs, SimCore.Tests/Systems/RouteUncertaintyTests.cs |
+| GATE.T18.EXPERIENTIAL.STATION_MEMORY.001 | DONE | StationMemorySystem: station visit tracking, memory decay, visit-count persistence. Wired into SimKernel.Step(). Tests pass. | FOUND: SimCore/Systems/StationMemorySystem.cs, SimCore.Tests/Systems/StationMemoryTests.cs |
+| GATE.T18.EXPERIENTIAL.WAR_CONSEQUENCE.001 | DONE | WarConsequenceSystem: war impact on station infrastructure, damage propagation, recovery tracking. Wired into SimKernel.Step(). Tests pass. | FOUND: SimCore/Systems/WarConsequenceSystem.cs, SimCore.Tests/Systems/WarConsequenceTests.cs |
+| GATE.T18.EXPERIENTIAL.TOPOLOGY_SHIFT.001 | DONE | TopologyShiftSystem: fracture-driven edge topology changes, edge creation/removal, deterministic hash-based selection. Wired into SimKernel.Step(). Tests pass. | FOUND: SimCore/Systems/TopologyShiftSystem.cs, SimCore.Tests/Systems/TopologyShiftTests.cs |
+
+### AG3. Data log content + placement + knowledge graph
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.DATALOG.CONTENT.001 | DONE | 25 data logs in DataLogContentV0.cs covering lore, faction history, Precursor hints, and fracture phenomena. Content registry integration. | FOUND: SimCore/Content/DataLogContentV0.cs |
+| GATE.T18.DATALOG.PLACEMENT.001 | DONE | NarrativePlacementGen: BFS-based log placement across galaxy, fixed landmark assignments, deterministic seed-based distribution. | FOUND: SimCore/Gen/NarrativePlacementGen.cs |
+| GATE.T18.DATALOG.KEPLER_CHAIN.001 | DONE | KeplerChainContentV0: 6-piece collectible chain with ordered discovery, lore progression, and completion tracking. | FOUND: SimCore/Content/KeplerChainContentV0.cs |
+| GATE.T18.DATALOG.KNOWLEDGE_GRAPH.001 | DONE | KnowledgeGraphSystem: connection tracking between discovered logs, graph traversal queries, revelation gating. KnowledgeGraphContentV0 defines connection rules. | FOUND: SimCore/Systems/KnowledgeGraphSystem.cs, SimCore/Content/KnowledgeGraphContentV0.cs |
+
+### AG4. Instrument disagreement + moral architecture
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.INSTRUMENT.DISAGREEMENT.001 | DONE | InstrumentDisagreementSystem: ComputeStandardReading vs ComputeFractureReading, deterministic divergence based on fracture weight, tick-level sensor disagreement. Tests pass. | FOUND: SimCore/Systems/InstrumentDisagreementSystem.cs, SimCore.Tests/Systems/InstrumentDisagreementTests.cs |
+| GATE.T18.MORAL_ARCH.DOCS.001 | DONE | Faction moral architecture documented in factions_and_lore_v0.md: Communion flaw (species privilege), Reinforce reframe (liberation vs control), Naturalize cost (ecological extraction). Design-only gate. | FOUND: docs/design/factions_and_lore_v0.md |
+
+## AH. Tranche 28 — "Enforcement + Narrative Surface" (EPIC.T18.CHARACTER_SYSTEMS.V0, EPIC.T18.NARRATIVE_BRIDGE.V0, EPIC.X.SHIP_CLASS_ENFORCEMENT.V0, EPIC.X.INSTABILITY_PRICE_WIRING.V0, EPIC.X.MODULE_SUSTAIN_GOODS.V0)
+
+Anchor: CHARACTER_SYSTEMS (FO reactions + War Faces). Expanded to NARRATIVE_BRIDGE
+(closes T18), three cross-cutting enforcement epics (cargo/mass/scan, instability
+pricing, module sustain goods), and UI polish fixes for 3 HIGH active issues.
+
+### AH1. Character Systems (EPIC.T18.CHARACTER_SYSTEMS.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.CHARACTER.FO_REACT.001 | DONE | FirstOfficerSystem.Process() listens for recent sim events (trade completion, combat, discovery, fracture travel, territory change) and queues FO reaction entries on the FirstOfficer entity. FirstOfficerContentV0.cs provides 15+ reaction templates with personality-weighted selection. Contract tests verify FO reacts to each trigger type. Proof: dotnet test --filter "FirstOfficerTests" + Determinism | FOUND: SimCore/Systems/FirstOfficerSystem.cs, NEW: SimCore/Content/FirstOfficerContentV0.cs, SimCore.Tests/Systems/FirstOfficerTests.cs |
+| GATE.T18.CHARACTER.WAR_FACES.001 | DONE | NarrativeNpcSystem personality-driven behavior: 5 named NPCs (one per faction) in WarFacesContentV0.cs with personality traits (aggression/friendliness/fear). Reactions modulated by faction rep + instability + war state. Tests verify NPC reactions change based on game state. Proof: dotnet test --filter "NarrativeNpcTests" + Determinism | FOUND: SimCore/Systems/NarrativeNpcSystem.cs, NEW: SimCore/Content/WarFacesContentV0.cs, SimCore.Tests/Systems/NarrativeNpcTests.cs |
+| GATE.T18.CHARACTER.BRIDGE.001 | DONE | SimBridge.Character.cs partial: GetFirstOfficerStateV0 (current reaction, mood, personality), GetWarFacesV0 (NPC list with personality + current reaction for docked station). TryExecuteSafeRead pattern. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Character.cs, FOUND: scripts/bridge/SimBridge.cs |
+| GATE.T18.CHARACTER.UI.001 | DONE | GDScript FO reaction display (toast or HUD panel for FO reactions as they trigger) + War Faces NPC dialogue in dock menu (Characters tab or contextual NPC section). Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/ui/fo_panel.gd, FOUND: scripts/ui/hud.gd |
+
+### AH2. Narrative Bridge (EPIC.T18.NARRATIVE_BRIDGE.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.NARRATIVE.BRIDGE.001 | DONE | SimBridge.Narrative.cs partial: GetDataLogSummaryV0 (collected logs, read/unread), GetKnowledgeGraphV0 (connections, revelation state), GetFractureWeightV0 (per-edge weights, phase), GetRouteUncertaintyV0 (route jitter, stage), GetStationMemoryV0 (visit history), GetInstrumentDisagreementV0 (standard vs fracture readings), GetTopologyShiftV0 (edge changes). TryExecuteSafeRead pattern. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/bridge/SimBridge.Narrative.cs, FOUND: scripts/bridge/SimBridge.cs |
+| GATE.T18.NARRATIVE.UI_DATALOG.001 | DONE | GDScript data log viewer panel: collected logs list with read/unread indicators, log content display, search/filter by category. Accessible from dock menu or HUD. Proof: dotnet build "Space Trade Empire.csproj" --nologo | NEW: scripts/ui/data_log_panel.gd, FOUND: scripts/ui/hud.gd |
+
+### AH3. Ship Class Enforcement (EPIC.X.SHIP_CLASS_ENFORCEMENT.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.SHIP_CLASS.CARGO_ENFORCE.001 | DONE | BuyCommand rejects purchase when fleet total cargo would exceed CargoCapacity from ShipClassDef. Returns appropriate reason code. Contract tests verify rejection at capacity and acceptance below. Proof: dotnet test --filter "BuyCommandTests" + Determinism | FOUND: SimCore/Commands/BuyCommand.cs, FOUND: SimCore/Content/ShipClassContentV0.cs, SimCore.Tests/Commands/BuyCommandTests.cs |
+| GATE.X.SHIP_CLASS.MASS_SPEED.001 | DONE | MovementSystem applies speed penalty proportional to loaded mass vs MaxMass from ShipClassDef. Formula: effectiveSpeed = baseSpeed * (1 - loadFraction * MassSpeedPenaltyPct/100). MassSpeedPenaltyPct routed through tweaks. Tests verify heavier fleets move slower. Proof: dotnet test --filter "MovementTests" + Determinism | FOUND: SimCore/Systems/MovementSystem.cs, FOUND: SimCore/Content/ShipClassContentV0.cs, SimCore.Tests/Systems/MovementTests.cs |
+| GATE.X.SHIP_CLASS.SCAN_RANGE.001 | DONE | IntelSystem.ApplyScan uses ScanRange from fleet's ShipClassDef to gate discovery scanning. Replace `_ = fleetId` with actual range check against discovery distance. Fleets with insufficient ScanRange get DiscoveryReasonCode.OutOfRange. Proof: dotnet test --filter "IntelContractTests" + Determinism | FOUND: SimCore/Systems/IntelSystem.cs, FOUND: SimCore/Content/ShipClassContentV0.cs, FOUND: SimCore.Tests/Systems/IntelContractTests.cs |
+
+### AH4. Instability Price Wiring (EPIC.X.INSTABILITY_PRICE_WIRING.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.INSTAB_PRICE.WIRE.001 | DONE | BuyCommand and SellCommand call MarketSystem.GetEffectivePrice instead of market.GetBuyPrice/GetSellPrice, applying instability volatility, jitter, and void-closure effects. Tests verify prices differ under instability vs baseline. Proof: dotnet test --filter "InstabilityMarketTests" + Determinism | FOUND: SimCore/Commands/BuyCommand.cs, FOUND: SimCore/Commands/SellCommand.cs, FOUND: SimCore/Systems/MarketSystem.cs, FOUND: SimCore.Tests/Systems/InstabilityMarketTests.cs |
+
+### AH5. Module Sustain Goods (EPIC.X.MODULE_SUSTAIN_GOODS.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.MODULE_SUSTAIN.MODEL.001 | DONE | Add SustainGoodId (string) and SustainQtyPerCycle (int) to ModuleDef. Populate in UpgradeContentV0: weapons→"munitions", T3 modules→"exotic_matter", scanners→"energy_cells". Register in ContentRegistryLoader. Proof: dotnet test --filter "ContentRegistryTests" + Determinism | FOUND: SimCore/Content/UpgradeContentV0.cs, FOUND: SimCore/Content/ContentRegistryLoader.cs, SimCore.Tests/Content/ContentRegistryTests.cs |
+| GATE.X.MODULE_SUSTAIN.DEDUCT.001 | DONE | SustainSystem.Process reads each equipped module's SustainGoodId and deducts SustainQtyPerCycle from fleet cargo each sustain cycle. Module disabled (PowerDraw=0 effective) when good unavailable. Tests verify consumption + disable behavior. Blocks: MODULE_SUSTAIN.MODEL.001. Proof: dotnet test --filter "SustainSystemTests" + Determinism | FOUND: SimCore/Systems/SustainSystem.cs, FOUND: SimCore.Tests/Systems/SustainSystemTests.cs, FOUND: SimCore/Content/UpgradeContentV0.cs |
+
+### AH6. UI Polish — Active Issue Fixes
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.UI_POLISH.LABEL_OVERLAP.001 | DONE | Label anti-collision in ClampLabelsRecursive: spatial hashing or vertical offset to prevent Label3D stacking when multiple labels (system name, HOSTILE, station) occupy same screen area. Fixes ACTIVE_ISSUES V17. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hud.gd |
+| GATE.X.UI_POLISH.GALAXY_MAP_UX.001 | DONE | Galaxy map default zoom shows full topology (adjust STRATEGIC_ALTITUDE or initial camera position). Fix "GALAXY MAP (TAB to close)" label persistence when map closed. Fixes ACTIVE_ISSUES V18, V19. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hud.gd |
+| GATE.X.UI_POLISH.CAMERA_BOUNDS.001 | DONE | Camera distance clamping: max altitude bound prevents camera from reaching 3853u+ where all game content is invisible. Auto-zoom to local system on arrival. Fixes ACTIVE_ISSUES U1. Proof: dotnet build "Space Trade Empire.csproj" --nologo | FOUND: scripts/core/game_manager.gd, FOUND: scripts/view/GalaxyView.cs |
+
+### AH7. Meta (docs, tiers 1+3)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.028 | DONE | Full test suite (Release), build, warning scan, dead code check, golden hash stability. Tranche 28 baseline. Proof: dotnet test full suite | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.028 | DONE | Epic status audit. Close CHARACTER_SYSTEMS and NARRATIVE_BRIDGE if complete. Close SHIP_CLASS_ENFORCEMENT, INSTABILITY_PRICE_WIRING, MODULE_SUSTAIN_GOODS if complete. Update ACTIVE_ISSUES. Recommend T29 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.028 | DONE | Post-tranche visual regression + character/narrative eval. Run /screenshot eval, verify FO reactions, data log panel, label fixes, camera bounds. REGRESSION_ANCHOR milestone. Proof: Run-Screenshot.ps1 -Mode eval | FOUND: scripts/tests/visual_sweep_bot_v0.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
+
+Combined-agent notes:
+- FO_REACT + WAR_FACES: both touch narrative systems — single core agent (tier 1).
+- CARGO_ENFORCE + MASS_SPEED + SCAN_RANGE: all enforce ShipClassDef — single core agent (tier 1).
+- LABEL_OVERLAP + GALAXY_MAP_UX + CAMERA_BOUNDS: all GDScript UI fixes — single bridge agent (tier 1).
+- EPIC_REVIEW + SCREENSHOT_EVAL: both docs — single agent (tier 3).
+
+## AI. Tranche 29 — "Character Depth & Mission Content" (EPIC.T18.CHARACTER_SYSTEMS.V0, EPIC.S9.MISSION_LADDER.V0, EPIC.X.UI_POLISH)
+
+Anchor: CHARACTER_SYSTEMS (FO dialogue depth, triggers, promotion, War Faces behavioral
+depth). Expanded to MISSION_LADDER (mining/research/construction missions) and UI polish
+(dock visual fixes V20/V21, discovery web panel, data log filters, local density V2).
+
+Tier 1 (6 gates — parallel): FO_DIALOGUE_DEPTH (core), MINING_CONTENT (core, hash chain →
+FO_DIALOGUE_DEPTH), REPO_HEALTH (docs), DOCK_VISUAL (bridge), KNOWLEDGE_WEB (bridge),
+DATALOG_FILTER (bridge).
+
+Tier 2 (6 gates — core hash chain + bridge): FO_TRIGGER → FO_PROMO → WARFACES_DEPTH →
+RESEARCH_CONTENT → CONSTRUCTION_CONTENT (sequential hash chain), LOCAL_DENSITY (bridge,
+independent).
+
+Tier 3 (6 gates): UI_FULL (bridge), CHARACTER.HEADLESS (bridge), MISSIONS.HEADLESS (bridge),
+BRIDGE_EXT (bridge), SCREENSHOT_EVAL (docs), EPIC_REVIEW (docs).
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T18.CHARACTER.FO_DIALOGUE_DEPTH.001 | DONE | FO 3 candidates (Analyst/Veteran/Pathfinder) x 5 dialogue tiers + blind spot definitions + endgame lean text. Fill FirstOfficerContentV0.cs with tiered dialogue. Hash-affecting. Proof: dotnet test --filter "FirstOfficer" | FOUND: SimCore/Content/FirstOfficerContentV0.cs, FOUND: SimCore/Systems/FirstOfficerSystem.cs |
+| GATE.T18.CHARACTER.FO_TRIGGER_WIRING.001 | DONE | FO dialogue triggers: trade→Analyst, combat→Veteran, discovery→Pathfinder. Score accumulation from player actions advances dialogue tier. Hash-affecting. Proof: dotnet test --filter "FirstOfficer" | FOUND: SimCore/Systems/FirstOfficerSystem.cs, FOUND: SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T18.CHARACTER.FO_PROMO.001 | DONE | FO promotion: score threshold triggers promotion window, player chooses from 3 candidates via PromoteFirstOfficerCommand, promoted FO gains enhanced tier + endgame lean. Irreversible. Hash-affecting. Proof: dotnet test --filter "FirstOfficer" | FOUND: SimCore/Systems/FirstOfficerSystem.cs, FOUND: SimCore/Entities/FirstOfficer.cs |
+| GATE.T18.CHARACTER.WARFACES_DEPTH.001 | DONE | War Faces behavioral depth: Regular (silent disappearance), Stationmaster (delivery-responsive), Enemy (delayed recontextualization). In NarrativeNpcSystem + WarFacesContentV0. Hash-affecting. Proof: dotnet test --filter "NarrativeNpc" | FOUND: SimCore/Systems/NarrativeNpcSystem.cs, FOUND: SimCore/Content/WarFacesContentV0.cs |
+| GATE.T18.CHARACTER.UI_FULL.001 | DONE | FO panel overhaul: dialogue history scroll, promotion UI with candidate cards + choice button, War Faces behavior state display. FO toasts with gold styling. In fo_panel.gd + toast_manager.gd. Proof: dotnet build | FOUND: scripts/ui/fo_panel.gd, FOUND: scripts/ui/toast_manager.gd |
+| GATE.T18.CHARACTER.HEADLESS.001 | DONE | GDScript headless test: boot scene, trigger FO dialogue via trade/discovery, verify response text, test promotion flow, verify War Faces state. PLAYABLE_BEAT milestone. Proof: godot --headless | NEW: scripts/tests/test_character_proof_v0.gd, FOUND: scripts/ui/fo_panel.gd |
+| GATE.S9.MISSIONS.MINING_CONTENT.001 | DONE | Mission Mining Survey: 3-step — survey discovery site, deploy ResourceTap, verify extraction. Binding tokens for nearest discovery. Introduces mining gameplay loop. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Content/MissionContentV0.cs, FOUND: SimCore/Systems/MissionSystem.cs |
+| GATE.S9.MISSIONS.RESEARCH_CONTENT.001 | DONE | Mission First Research: 3-step — dock at tech station, start research project, complete unlock. Binding tokens for available tech. Introduces research loop. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Content/MissionContentV0.cs, FOUND: SimCore/Systems/MissionSystem.cs |
+| GATE.S9.MISSIONS.CONSTRUCTION_CONTENT.001 | DONE | Mission First Build: 3-step — acquire construction materials, deliver to project site, verify construction. Binding tokens for construction project. Hash-affecting. Proof: dotnet test --filter "Mission" | FOUND: SimCore/Content/MissionContentV0.cs, FOUND: SimCore/Systems/MissionSystem.cs |
+| GATE.S9.MISSIONS.BRIDGE_EXT.001 | DONE | Extend SimBridge.Mission.cs with GetMissionRewardsPreviewV0 (rewards before accepting) and GetMissionPrerequisitesDetailV0 (requirements to start). Proof: dotnet build | FOUND: scripts/bridge/SimBridge.Mission.cs, FOUND: scripts/bridge/SimBridge.cs |
+| GATE.S9.MISSIONS.HEADLESS.001 | DONE | GDScript headless test: accept mining mission, complete steps, accept research mission, verify state transitions. HEADLESS_PROOF milestone. Proof: godot --headless | NEW: scripts/tests/test_missions_m5m7_v0.gd, FOUND: SimCore/Content/MissionContentV0.cs |
+| GATE.X.UI_POLISH.DOCK_VISUAL.001 | DONE | Dock menu visual overhaul: fix Sell column truncation (V21), ship tab zone armor color bars + module visual grouping (V20), section headers with consistent hierarchy. Fixes ACTIVE_ISSUES V20, V21. Proof: dotnet build | FOUND: scripts/ui/hero_trade_menu.gd, FOUND: scripts/ui/hud.gd |
+| GATE.X.UI_POLISH.KNOWLEDGE_WEB.001 | DONE | Discovery Web panel: knowledge graph from SimBridge.Narrative.GetKnowledgeGraphV0. Node list with log names, connection counts, thread grouping. Accessible via K key. Proof: dotnet build | NEW: scripts/ui/knowledge_web_panel.gd, FOUND: scripts/ui/hud.gd |
+| GATE.X.UI_POLISH.DATALOG_FILTER.001 | DONE | Data log 6 thread category filter buttons (Containment, Lattice, Departure, Accommodation, Warning, EconTopology). Filter by thread alongside existing text search. Proof: dotnet build | FOUND: scripts/ui/data_log_panel.gd, FOUND: scripts/bridge/SimBridge.Narrative.cs |
+| GATE.X.UI_POLISH.LOCAL_DENSITY.001 | DONE | Tighten local system spatial spread: reduce planet orbit distances ~40%, station offsets ~50% in DrawLocalSystemV0 for less barren feel. Fixes ACTIVE_ISSUES V2. Visual-only. Proof: dotnet build | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/ui/hud.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.029 | DONE | Full test suite (Release), build, warning scan, dead code check, golden hash stability. Tranche 29 baseline. Proof: dotnet test full suite | FOUND: SimCore.Tests/SimCore.Tests.csproj, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.029 | DONE | Epic status audit. Close S9.SETTINGS (all 5 gates DONE). Close S7.AUTOMATION_MGMT (all systems built). Close T18.CHARACTER_SYSTEMS if T29 gates complete. Update ACTIVE_ISSUES. Recommend T30 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md |
+| GATE.X.HYGIENE.SCREENSHOT_EVAL.029 | DONE | Post-tranche visual regression + character depth eval. Run /screenshot eval, verify FO dialogue, promotion UI, War Faces, new missions, dock polish, discovery web. REGRESSION_ANCHOR milestone. Proof: Run-Screenshot.ps1 -Mode eval | FOUND: scripts/tests/visual_sweep_bot_v0.gd, FOUND: scripts/tools/Run-Screenshot.ps1 |
+
+Combined-agent notes:
+- FO_DIALOGUE_DEPTH + MINING_CONTENT: both core tier 1, hash chain (MINING blocks FO_DIALOGUE).
+- FO_TRIGGER → FO_PROMO → WARFACES → RESEARCH → CONSTRUCTION: tier 2 sequential hash chain.
+- DOCK_VISUAL + KNOWLEDGE_WEB + DATALOG_FILTER: bridge tier 1, parallel.
+- UI_FULL + CHARACTER.HEADLESS + MISSIONS.HEADLESS + BRIDGE_EXT: bridge tier 3, after core chain.
+- EPIC_REVIEW + SCREENSHOT_EVAL: docs tier 3, after all implementation.

@@ -138,14 +138,35 @@ The tangent entry point must be **90 degrees offset** from the approach directio
 
 ### Tweakable Constants
 
-| Constant | Default | Purpose |
-|----------|---------|---------|
-| FLYBY_APPROACH_DIST | 130.0 | Distance from star to start curving |
-| FLYBY_ORBIT_RADIUS | 55.0 | Orbit circle radius around star |
-| FLYBY_ORBIT_ALT | 45.0 | Camera height during orbit |
-| FLYBY_CURVE_ON_TIME | 1.5s | Duration of entry spiral |
-| FLYBY_ORBIT_TIME | 4.0s | Duration of orbital sweep |
-| FLYBY_CURVE_OFF_TIME | 1.5s | Duration of exit spiral |
+| Constant | Value | Previous | Purpose |
+|----------|-------|----------|---------|
+| FLYBY_APPROACH_DIST | 160.0 | 130.0 | Distance from star to start curving (scaled for 120u systems) |
+| FLYBY_ORBIT_RADIUS | 70.0 | 55.0 | Orbit circle radius around star (scaled for 120u systems) |
+| FLYBY_ORBIT_ALT | 50.0 | 45.0 | Camera height during orbit |
+| FLYBY_CURVE_ON_TIME | 0.6s | 1.5s | Duration of entry spiral |
+| FLYBY_ORBIT_TIME | 1.5s | 4.0s | Duration of orbital sweep (first visit only) |
+| FLYBY_CURVE_OFF_TIME | 0.5s | 1.5s | Duration of exit spiral |
+| Vortex pull | 0.8s | 1.5s | Ship pull toward gate vortex |
+| Zoom out | 0.3s | 0.6s | Camera altitude ramp to cruise |
+| Tilt forward | 0.4s | 0.8s | Camera tilt to show destination |
+| Transit time | 1.0-2.0s | 1.5-3.0s | Lane travel duration (distance/2500) |
+| Lane cooldown | 1.0s | 2.0s | Prevent re-trigger at arrival gate |
+
+### Return Visit Fast Transit
+
+Return visits (previously visited systems) skip the flyby cinematic entirely:
+- Vortex pull + zoom out + transit = ~2.0s total
+- Camera descends smoothly from cruise altitude to 80u flight altitude over 0.8s
+- No spiral entry, no orbital sweep, no spiral exit
+- Player regains control immediately on landing
+
+**Expected timing:**
+- First visit: ~5.2s (0.8 vortex + 0.3 zoom + 1.0-2.0 transit + 0.6 entry + 1.5 orbit + 0.5 exit)
+- Return visit: ~2.9s (0.8 vortex + 0.3 zoom + 1.0-2.0 transit + 0.8 descent)
+
+**Design rationale:** First-visit cinematic reveals the star system and builds anticipation.
+Return visits should feel fast — the player already knows this system. Reference: FTL ~3s jumps
+(universally praised), Elite Dangerous ~35s (universally criticized).
 
 ---
 
@@ -153,11 +174,27 @@ The tangent entry point must be **90 degrees offset** from the approach directio
 
 | Mode | Controller | Position Logic |
 |------|-----------|----------------|
-| FLIGHT | player_follow_camera | Above player, top-down with yaw/pitch |
-| ORBIT | player_follow_camera | Orbiting target on mouse drag |
+| FLIGHT | player_follow_camera | Fixed top-down, directly above player |
+| DOCKED | player_follow_camera | Fixed offset above dock target |
 | WARP_TRANSIT | player_follow_camera | Chase cam behind transit marker |
 | FLYBY | game_manager tweens | Direct position/look-at via flyby_* vars |
 | GALAXY_MAP | player_follow_camera | High altitude strategic view |
+
+### No Camera Rotation (Design Decision)
+
+The camera is **fixed-perspective** in all gameplay modes — no right-click drag
+rotation, no orbit, no yaw/pitch offsets. This is an intentional design choice
+aligned with industry best practice for top-down space trading games:
+
+- **Starcom: Nexus** and **Starsector** both use fixed top-down cameras.
+- Fixed perspective provides **spatial stability** — players build reliable
+  mental maps of trade routes, faction territories, and combat positioning.
+- **Zone armor** (Fore/Port/Starboard/Aft) and **Label3D** elements are designed
+  for a consistent viewing angle.
+- Camera rotation in top-down games is [rarely used even when available](https://steamcommunity.com/app/1677280/discussions/0/3770113150030314564/)
+  (Company of Heroes finding).
+- Dramatic angle changes are reserved for **cinematics** (lane transit flyby,
+  warp tilt) — they feel special *because* the normal view is stable.
 
 ### Transition Rules
 - FLIGHT -> WARP_TRANSIT: On gate proximity enter. Input locked during departure vortex.
@@ -212,3 +249,5 @@ Common patterns:
 ## Version History
 
 - v0 (2026-03-08): Initial document. Euler spiral framework, flyby system, off-center swoop geometry.
+- v0.1 (2026-03-11): Removed camera rotation. Fixed-perspective design decision documented. ORBIT+STATION modes merged into DOCKED.
+- v0.2 (2026-03-11): Pace overhaul. System scale 1.6x (planets 18-40u, gates 85u). Gate travel compressed (first visit ~5s, return ~2.5s). Dock confirmation (Press E). Timing constants updated.

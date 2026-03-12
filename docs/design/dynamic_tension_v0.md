@@ -261,12 +261,18 @@ it.
 | Faction reputation | ✅ Rep tiers, tariff scaling, neutrality tax, regime matrix, war profiteering | Exclusive supply contracts, faction-specific deal offers |
 | Fracture | ✅ Travel costs, trace accumulation (0.5/arrival), rep penalty on detection | Trace doom clock (interdiction, supply shocks). Delayed discovery gating |
 | Win conditions | 🔮 Future (Slice 8) | Full endgame system — see factions_and_lore_v0.md aspirational sections |
+| Faction equipment sustain | 🔮 Designed (faction_equipment_and_research_v0.md) | 40 T2 modules + 10 signature modules with pentagon dependency sustain. Module sustain enforcement creates mid-game pressure via supply chain dependency. When enforced, warfront embargoes directly degrade your loadout |
+| Research system | 🔮 Designed (faction_equipment_and_research_v0.md Part 2) | Three research pillars (Faction Labs, Field Discovery, Haven). Rep gates research access — warfronts erode rep with enemy factions, constraining which tech trees are available. Research agenda IS affected by warfront politics |
+| Haven Starbase | 🔮 Designed (haven_starbase_v0.md) | 5-tier upgrade system consuming exotic matter. Competes with T3 module sustain for the same discovery-only resource. Creates an additional resource treadmill: exploration must continue to feed both Haven and endgame equipment |
+| Galaxy resource alignment | ❌ Not yet constrained | Each faction's territory must contain resources for their pentagon production good (see trade_goods_v0.md Open Questions). Without this, pentagon ring breaks at world gen |
 
 Most of the simulation infrastructure exists. The priority changes are:
 1. **Instantiate remaining production chains** (6 recipes) to enable economic cascades
 2. **Fleet fuel/sustain consumption** to create early-game urgency
 3. **Starter placement near warfront** to ensure conflict from tick 1
 4. **Trace consequences** beyond rep penalty to create the dual doom clock
+5. **Module sustain enforcement** to connect T2 equipment to pentagon ring pressure (see `faction_equipment_and_research_v0.md` Part 14)
+6. **Galaxy resource alignment** to ensure faction territories support pentagon production
 
 ---
 

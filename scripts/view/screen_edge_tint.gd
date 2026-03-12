@@ -25,7 +25,7 @@ void fragment() {
 
 	// Vignette mask: 0 at center, 1 at edges/corners.
 	// smoothstep inner/outer controls how far the glow reaches inward.
-	float vignette = smoothstep(0.4, 1.1, dist);
+	float vignette = smoothstep(0.8, 1.4, dist);
 
 	// Each risk channel contributes its color scaled by its level and the vignette mask.
 	vec3 heat_color      = vec3(1.0, 0.15, 0.08);  // red
@@ -40,13 +40,13 @@ void fragment() {
 	float max_level = max(heat_level, max(influence_level, trace_level));
 
 	// Intensity curve: gentle at low values, pronounced near 1.0.
-	// Square the level to keep the effect subtle until risk is genuinely high.
-	float intensity = max_level * max_level;
+	// Quartic curve: invisible at low-medium risk, visible only when genuinely critical.
+	float intensity = max_level * max_level * max_level * max_level;
 
-	// Peak edge alpha: 0.55 at maximum risk — visible but not opaque.
-	// Compound threat multiplier: 1.0 normally, up to 1.5 when 2+ meters critical.
-	float threat_mult = 1.0 + compound_threat * 0.5;
-	float alpha = vignette * intensity * 0.55 * threat_mult;
+	// Peak edge alpha: 0.15 at maximum risk — subtle tint, not a color wash.
+	// Compound threat multiplier: 1.0 normally, up to 1.2 when 2+ meters critical.
+	float threat_mult = 1.0 + compound_threat * 0.2;
+	float alpha = vignette * intensity * 0.08 * threat_mult;
 
 	COLOR = vec4(combined, alpha);
 }

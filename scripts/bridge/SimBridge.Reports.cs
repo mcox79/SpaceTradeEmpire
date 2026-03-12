@@ -1637,4 +1637,55 @@ public partial class SimBridge
         if (result.Count == 0) return _cachedMilestonesV0;
         return result;
     }
+
+    // GATE.S19.ONBOARD.ONBOARD_STATE.005: Composite onboarding disclosure flags.
+    // Determines which dock tabs, HUD elements, and features should be visible
+    // based on player progression. Pure read — no state mutation.
+    private Godot.Collections.Dictionary _cachedOnboardingStateV0 = new();
+    public Godot.Collections.Dictionary GetOnboardingStateV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            var stats = state.PlayerStats;
+            int nodesVisited = stats?.NodesVisited ?? 0;
+            int goodsTraded = stats?.GoodsTraded ?? 0;
+            int missionsCompleted = stats?.MissionsCompleted ?? 0;
+
+            bool hasTraded = goodsTraded > 0;
+            bool hasCompletedMission = missionsCompleted > 0;
+
+            // Combat detection: player fleet hull < max means combat has occurred.
+            bool hasFought = false;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (!string.Equals(fleet.OwnerId, "player", System.StringComparison.Ordinal)) continue;
+                if (fleet.HullHp >= 0 && fleet.HullHpMax > 0 && fleet.HullHp < fleet.HullHpMax)
+                {
+                    hasFought = true;
+                    break;
+                }
+            }
+
+            result["has_docked"] = nodesVisited > 0 || goodsTraded > 0;
+            result["has_traded"] = hasTraded;
+            result["has_completed_mission"] = hasCompletedMission;
+            result["has_fought"] = hasFought;
+            result["nodes_visited"] = nodesVisited;
+
+            // Dock tab disclosure
+            result["show_jobs_tab"] = hasTraded;
+            result["show_ship_tab"] = hasCompletedMission || hasFought;
+            result["show_station_tab"] = nodesVisited >= 3;
+            result["show_intel_tab"] = nodesVisited >= 3;
+
+            // HUD disclosure
+            result["show_fuel_hud"] = nodesVisited > 0;
+            result["show_faction_hud"] = nodesVisited >= 2;
+
+            _cachedOnboardingStateV0 = result;
+        }, 0);
+        if (result.Count == 0) return _cachedOnboardingStateV0;
+        return result;
+    }
 }

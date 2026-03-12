@@ -16,27 +16,17 @@
 [ext_resource type="Script" uid="uid://cv3wuxu4htb7n" path="res://scripts/ui/DiscoverySitePanel.gd" id="18_dsp"]
 [ext_resource type="PackedScene" uid="uid://npcship001" path="res://scenes/npc_ship.tscn" id="19_npcship"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
-sky_top_color = Color(0.005, 0.005, 0.01, 1)
-sky_horizon_color = Color(0.005, 0.005, 0.01, 1)
-sky_energy_multiplier = 0.05
-ground_bottom_color = Color(0.005, 0.005, 0.01, 1)
-ground_horizon_color = Color(0.005, 0.005, 0.01, 1)
-sun_angle_max = 0.0
-
-[sub_resource type="Sky" id="Sky_space"]
-sky_material = SubResource("ProceduralSkyMaterial_space")
-
 [sub_resource type="Environment" id="Environment_space"]
-background_mode = 2
-sky = SubResource("Sky_space")
-ambient_light_source = 3
+background_mode = 1
+background_color = Color(0.005, 0.005, 0.015, 1)
+ambient_light_source = 1
 ambient_light_color = Color(0.1, 0.12, 0.22, 1)
 ambient_light_energy = 0.45
 glow_enabled = true
-glow_intensity = 0.6
-glow_bloom = 0.15
-glow_blend_mode = 2
+glow_intensity = 0.3
+glow_bloom = 0.02
+glow_blend_mode = 0
+glow_hdr_threshold = 2.0
 
 [node name="Main" type="Node3D" unique_id=1010166962]
 
@@ -60,15 +50,15 @@ play_clear_xz = 150.0
 play_clear_y = 40.0
 shader = ExtResource("15_starshader")
 shader_params/texture_emission = ExtResource("16_starpsf")
-shader_params/texture_emission_tint = Vector3(0.35, 0.25, 0.4)
+shader_params/texture_emission_tint = Vector3(0.0, 0.15, 0.35)
 shader_params/blur_amount = 0.5
-shader_params/emission_energy = 500000000000.0
-shader_params/billboard_size_deg = 15.0
-shader_params/luminosity_cap = 500000000.0
+shader_params/emission_energy = 100000000000.0
+shader_params/billboard_size_deg = 8.0
+shader_params/luminosity_cap = 50000000.0
 shader_params/meters_per_lightyear = 50.0
 shader_params/color_gamma = 2.0
 shader_params/texture_gamma = 1000.0
-shader_params/clamp_output = false
+shader_params/clamp_output = true
 shader_params/min_size_ratio = 0.01
 shader_params/max_luminosity = 500000.0
 shader_params/scaling_gamma = 0.4

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://xxai4ju2rc36" path="res://scripts/active_station.gd" id="1_stn"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
-size = Vector3(12, 6, 12)
+size = Vector3(8, 4, 8)
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_hub"]
 top_radius = 2.8

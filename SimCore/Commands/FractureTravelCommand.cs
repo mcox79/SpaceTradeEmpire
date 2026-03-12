@@ -42,11 +42,11 @@ public sealed class FractureTravelCommand : ICommand
         if (string.IsNullOrWhiteSpace(fleet.CurrentNodeId)) return;
         if (!state.Nodes.TryGetValue(fleet.CurrentNodeId, out var node)) return;
 
-        // GATE.S6.FRACTURE.COST_MODEL.001: Must have enough fuel.
-        if (fleet.Supplies < FractureTweaksV0.FractureFuelPerJump) return;
+        // GATE.S6.FRACTURE.COST_MODEL.001: Must have enough fuel in tank.
+        if (fleet.FuelCurrent < FractureTweaksV0.FractureFuelPerJump) return;
 
         // GATE.S6.FRACTURE.COST_MODEL.001: Deduct fuel on departure.
-        fleet.Supplies -= FractureTweaksV0.FractureFuelPerJump;
+        fleet.FuelCurrent -= FractureTweaksV0.FractureFuelPerJump;
 
         // Initiate fracture travel.
         fleet.State = FleetState.FractureTraveling;

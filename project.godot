@@ -32,6 +32,8 @@ UITheme="*res://scripts/ui/ui_theme.gd"
 MusicManager="*res://scripts/audio/music_manager.gd"
 CombatAudio="*res://scripts/audio/combat_audio.gd"
 SettingsManager="*res://scripts/core/settings_manager.gd"
+ColorblindFilter="*res://scripts/view/colorblind_filter.gd"
+FirstLaunchPanel="*res://scripts/ui/first_launch_panel.gd"
 
 [display]
 

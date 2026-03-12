@@ -843,6 +843,26 @@ punishing them. Every path has real losses. No path is "the good ending."
 The epilogue's job is to ensure the player thinks about their choice after
 the credits roll.
 
+### Equipment State in Epilogue
+
+Per `faction_equipment_and_research_v0.md` → Design Thesis ("Your ship loadout IS
+your trade policy"), the epilogue should acknowledge the player's equipment state
+as a narrative beat. The player's loadout physically embodies their philosophical
+alignment — the epilogue can reference this without being explicit:
+
+- **Reinforce**: The player's Containment-heritage modules continue functioning.
+  The fracture module goes cold. T3 accommodation modules lose power — their exotic
+  matter sustain chain dies with the fracture trade routes. The cage holds, and the
+  player's ship reflects it.
+- **Naturalize**: Pentagon ring sustain chains degrade as containment infrastructure
+  weakens. The player's T2 faction modules slowly lose their supply lines — the
+  composites, the electronics, the rare metals. But the T3 accommodation modules
+  surge with power. The ship is transforming.
+- **Renegotiate**: All modules flicker — neither containment nor accommodation has
+  won. The module does something it's never done before. The ship's instruments
+  display data that doesn't correspond to any known physics. Whatever happens next,
+  the equipment the player spent 20 hours curating is no longer the point.
+
 ---
 
 ## Failure State Narratives
@@ -1057,7 +1077,7 @@ in other design documents.
 | Pentagon dependency ring | The dependency ring is the game's deepest political narrative. Each faction needs something from a faction it philosophically opposes. This should be surfaced explicitly at high reputation: "You've been trading with us for 300 ticks. You should know — we cannot produce Composites without Weaver materials. And the Weavers cannot produce Electronics without Chitin precision tools. We are all connected, even those of us at war. Especially those of us at war." |
 | 12 Adaptation Fragments + 6 Resonance Pairs | Fragment discovery should trigger Discovery Web connections that gradually reveal the thread-builder civilization's internal debate. The 6 Resonance Pairs (Containment debate, Measurement problem, etc.) are 6 conversations. Each pair, when assembled, should unlock an ancient data log conversation between two scientists arguing about that exact topic. The fragments ARE the footnotes; the logs ARE the text they reference. |
 | Three endgame paths (Reinforce/Naturalize/Renegotiate) | The endgame should emerge from accumulated play, not a dialog choice. The path available to the player should depend on which factions they allied with, which fragments they found, and what they understand. A player who never visited Communion space cannot Renegotiate — they don't have the knowledge. A player who never found Fragment 6 (Lattice authentication) cannot Reinforce — they can't operate the infrastructure. The endgame is a knowledge test disguised as a moral choice. |
-| Haven Starbase (ancient safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. |
+| Haven Starbase (ancient safe harbor) | The Haven is the game's emotional anchor point. The first visit should be one of the Silence Principle moments (music fades, warm ambient hum). The Haven should feel like coming home to a place you've never been — ancient, stable, designed for beings like you but not by beings like you. It is the one place in the game where the ambient narrative shifts from tension to safety. Every subsequent Haven visit should feel like relief after danger. Haven is inhabited: the Keeper (ancient accommodation construct) greets the player with ambient light, and the two unpromoted FO candidates live there permanently after discovery — providing reactions to the player's journey, data logs, and fragments. See `haven_starbase_v0.md` for full design including Coming Home transition, Haven Residents, and Haven Reflects Your Journey systems. |
 | Instability Phases (Stable→Void) | Each phase transition at a system should be a narrative event the player can witness. Shimmer arriving at a previously stable system = "something changed here." The galaxy map should show phase spread over time — systems near fracture activity gradually shifting from Stable to Shimmer to Drift. The player can WATCH the consequences of fracture travel spreading across the map. This is the doom clock made spatial. |
 
 ### MainMenu.md
@@ -1074,14 +1094,82 @@ in other design documents.
 
 ---
 
+## Implemented Narrative Systems (T18)
+
+The following systems have been implemented in SimCore as part of the A-tier
+narrative layer work. All are deterministic, hash-affecting (where noted), and
+tested (898/898 pass).
+
+### Experiential Mechanics (SimCore/Systems/)
+
+| System | File | Hash? | What It Does |
+|--------|------|-------|-------------|
+| **Fracture Weight** | `FractureWeightSystem.cs` | YES | Cargo loaded in unstable space has shifted quantities when brought to stable space. Dynamic ratios per instability phase prevent wiki-lookup. Integer math, min 1 qty. Called after MovementSystem in SimKernel. |
+| **Route Uncertainty** | `RouteUncertaintySystem.cs` | NO (query) | Phase 2+ travel times show as ranges (min, max). Scanner adaptation (FractureExposureJumps) narrows range over time. Three stages: wide (0-9 jumps), weighted (10-24), near-exact (25+). |
+| **Station Memory** | `StationMemorySystem.cs` | YES | Per-station per-good delivery tracking. Called by trade commands. Feeds Stationmaster NPC dialogue ("You're reliable"). Max 500 records. |
+| **War Consequences** | `WarConsequenceSystem.cs` | YES | Delayed downstream war feedback. Sell munitions/composites/fuel at warfront node -> 100 ticks later, toast shows what your delivery DID. Called in SimKernel before MilestoneSystem. |
+| **Topology Shift** | `TopologyShiftSystem.cs` | YES | Phase 3+ edge connections mutate on player arrival. Deterministic, connectivity-preserving (never orphans a node). Called in SimKernel after InstabilitySystem. |
+| **Instrument Disagreement** | `InstrumentDisagreementSystem.cs` | NO (query) | Dual-readout: standard sensors accurate for pricing, fracture module accurate for navigation. Deterministic divergence per instability phase. |
+
+### Content & Delivery (SimCore/Content/, SimCore/Gen/)
+
+| System | File | What It Does |
+|--------|------|-------------|
+| **Data Log Content** | `DataLogContentV0.cs` | ~25 ancient scientist conversations across 6 threads, 5 voices. Every log has at least one personal/mundane line. Scientists have relationships beyond their debate positions. |
+| **Knowledge Graph** | `KnowledgeGraphContentV0.cs` + `KnowledgeGraphSystem.cs` | Pre-authored discovery connections. "?" when both endpoints Seen, fully revealed when both Analyzed. Turns knowledge graph from record into puzzle surface. |
+| **Kepler Chain** | `KeplerChainContentV0.cs` | Six-piece proof-of-concept narrative chain. Valorin scout wreck -> Communion survey vessel -> pre-faction ruin -> containment archive -> "What were both factions looking for?" |
+| **Narrative Placement** | `NarrativePlacementGen.cs` | BFS-based deterministic placement. Fixed landmarks (starter-adjacent, warfront border, deep frontier). RevelationTier mapped to hop distance. |
+
+### Foundation Entities (SimCore/Entities/)
+
+| Entity | File | Key Fields |
+|--------|------|-----------|
+| **DataLog** | `DataLog.cs` | LogId, Thread (6 enum values), Speakers, Entries (with IsPersonal flag), RevelationTier, MechanicalHook, LocationNodeId |
+| **FirstOfficer** | `FirstOfficer.cs` | CandidateType (Analyst/Veteran/Pathfinder), DialogueTier (5 tiers), BlindSpotExposed, DialogueEventLog |
+| **StationDeliveryRecord** | `StationMemory.cs` | NodeId, GoodId, TotalDeliveries, TotalQuantity, FirstDeliveryTick, LastDeliveryTick |
+| **WarConsequence** | `WarConsequence.cs` | Kind (SupplyDelivered/CounteroffensiveDamage/CivilianCasualties), DelayTicks, ManifestText, ConsequenceText |
+| **NarrativeNpc** | `NarrativeNpc.cs` | Kind (Regular/Stationmaster/Enemy), Name, NodeId, DialogueState, IsAlive |
+| **KnowledgeConnection** | `KnowledgeConnection.cs` | SourceDiscoveryId, TargetDiscoveryId, ConnectionType (5 types), IsRevealed |
+
+### Tweaks Files (SimCore/Tweaks/)
+
+| File | Key Constants |
+|------|--------------|
+| `NarrativeTweaksV0.cs` | FOPromotionMinTick=50, WarConsequenceDelayTicks=100, StationMemoryMaxRecords=500 |
+| `FractureWeightTweaksV0.cs` | Per-phase weight ranges: P1(9500-10500), P2(8000-13000), P3(5000-20000) BPS |
+| `TopologyShiftTweaksV0.cs` | MinPhaseForMutation=75, MutationProbBps=1500, MaxMutationsPerArrival=2 |
+| `RouteUncertaintyTweaksV0.cs` | Phase2VariancePct=15, Phase3VariancePct=35, scanner stage narrowing |
+| `InstrumentDisagreementTweaksV0.cs` | StandardDriftBps per phase (100/400/800), FractureDriftBps per phase (500/1500/2500) |
+
+### Moral Architecture Updates (docs/design/factions_and_lore_v0.md)
+
+Three key additions to the lore design doc:
+
+1. **Communion Flaw — Species Privilege**: The Communion's comfort with instability
+   is an evolved species trait, not universal wisdom. Their framework of acceptance
+   projects one species' adaptation onto all five. Renegotiate is risky because it
+   assumes universal capacity for uncertainty tolerance.
+
+2. **Reinforce — Not Cowardice**: Accommodation was tested once at Haven in controlled
+   conditions. Galaxy-wide = untested experiment on 400 billion lives. Kesh's argument
+   ("this is not a testing environment") is genuinely strong. Reinforce = responsible
+   caution, not intellectual failure.
+
+3. **Naturalize — Personal Cost**: The Stationmaster NPC sends a distress beacon when
+   threads collapse. The player can respond (rescue run, station gone, "I didn't know
+   the threads did that") or not (silence). Freedom's cost is a specific person who
+   remembered your name.
+
+---
+
 ## Narrative Gaps and Priorities
 
 ### Critical (Required for Story to Work)
 
 | Gap | Impact | Notes |
 |-----|--------|-------|
-| **No ancient data logs** | The ancient mystery has no voice. Thread-builder scientists are concepts, not characters. | Write 20-30 conversation-format logs featuring 5 named scientists with personal contradictions. Distribute across ancient discovery sites. |
-| **No Discovery Web UI** | Player cannot see connections between discoveries. Lore fragments feel isolated. | Implement Knowledge Graph in Intel/Explore tab (ExplorationDiscovery.md aspirational design exists). |
+| **~~No ancient data logs~~** | ~~The ancient mystery has no voice.~~ | **IMPLEMENTED** (T18): `DataLogContentV0.cs` — 25 logs, 6 threads, 5 voices. `NarrativePlacementGen.cs` — BFS-based deterministic placement. |
+| **~~No Discovery Web UI~~** | ~~Player cannot see connections between discoveries.~~ | **IMPLEMENTED** (T18): `KnowledgeGraphSystem.cs` + `KnowledgeGraphContentV0.cs` — connection reveal logic, "?" puzzle surface. Bridge + UI pending. |
 | **No faction dialogue at stations** | Factions have personality in design docs but are silent in-game. Player has no relationship with them. | Station dock menu should have a "Comms" or faction message area showing faction-voiced text. |
 | **No First Officer system** | **#1 NARRATIVE PRIORITY.** Without the FO, all five recontextualizations land as information rather than story. The FO transforms "the economy is a cage" from a fact into a moment. The FO is the player's emotional proxy — the character who reacts to revelations the way the player feels. | Implement FO candidate selection (3 archetypes: Analyst, Veteran, Pathfinder). FO reactive lines at all 10 milestone moments (~30 lines total, authored in `NarrativeContent_TBA.md`). FO must be present before ANY revelation triggers. See `factions_and_lore_v0.md` → "The First Officer." |
 | **No revelation triggers** | The five paradigm shifts have no implementation path. | Define specific triggers: R1 (module age evidence), R2 (Concord rep threshold), R3 (fracture-space trade breaks ring pattern — **#1 PRIORITY**), R4 (Communion max rep), R5 (endgame fragments + void site data). R3 and R4 are gameplay-triggered, not text-triggered. |
@@ -1092,7 +1180,7 @@ in other design documents.
 |-----|--------|-------|
 | **No fleet ship names** | Fleet automation feels mechanical, not personal. | Add procedural name generation + service record tracking. |
 | **No environmental scenes at discovery sites** | Discoveries are loot drops, not narrative moments. | Design 10-15 "tableaux" scenes for each instability phase. |
-| **No metric instability UI feedback** | Drift/Fracture space doesn't FEEL different mechanically. | Manifest discrepancy display, instrument disagreement, travel time variance. |
+| **~~No metric instability UI feedback~~** | ~~Drift/Fracture space doesn't FEEL different mechanically.~~ | **IMPLEMENTED** (T18): `FractureWeightSystem.cs` (cargo weight shift), `RouteUncertaintySystem.cs` (ETA ranges), `InstrumentDisagreementSystem.cs` (dual readouts), `TopologyShiftSystem.cs` (edge mutation). Bridge + UI pending. |
 | **Silent discovery phases** | Phase transitions have no audio/visual celebration. | Connect discovery milestone audio (AudioDesign.md already specifies sounds). |
 | **No Communion personal relationship** | The faction designed to "remember you" has no dialogue system. | Priority for faction dialogue implementation. |
 
@@ -1546,6 +1634,11 @@ These require player testing or further design iteration to resolve:
 
 ## Version History
 
+- v0.3 (2026-03-10): T18 Narrative Layer implementation. Added "Implemented Narrative
+  Systems" section documenting all new SimCore systems (6 experiential mechanics,
+  4 content/delivery systems, 6 entities, 5 tweaks files). Updated gap table to mark
+  3 critical gaps as IMPLEMENTED. Moral architecture updates to factions_and_lore_v0.md
+  (Communion species privilege, Reinforce reframe, Naturalize personal cost).
 - v0.2 (2026-03-10): Major additions from narrative review. Pentagon revelation
   trigger specification. Mid-game narrative density rules (hours 3-8). Epilogue
   system (post-endgame montage). Cover-story CI lint enforcement. Failure state

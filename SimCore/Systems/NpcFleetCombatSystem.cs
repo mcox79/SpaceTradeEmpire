@@ -70,6 +70,10 @@ public static class NpcFleetCombatSystem
 
             // Record destruction for bridge observation.
             state.NpcFleetsDestroyedThisTick.Add(fleetId);
+
+            // GATE.S19.ONBOARD.FO_TRIGGERS.003: Increment persistent kill counter.
+            if (state.PlayerStats != null)
+                state.PlayerStats.NpcFleetsDestroyed++;
         }
     }
 
@@ -105,7 +109,8 @@ public static class NpcFleetCombatSystem
                 CurrentNodeId = entry.HomeNodeId,
                 Speed = speed,
                 State = FleetState.Idle,
-                Supplies = NpcShipTweaksV0.RespawnSupplies
+                FuelCapacity = NpcShipTweaksV0.DefaultFuelCapacity,
+                FuelCurrent = NpcShipTweaksV0.DefaultFuelCapacity,
             };
             state.Fleets[fleet.Id] = fleet;
             respawned.Add(i);

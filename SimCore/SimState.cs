@@ -181,6 +181,12 @@ public partial class SimState
         // GATE.S5.LOOT.DROP_SYSTEM.001: Loot drops hydration.
         LootDrops ??= new Dictionary<string, Entities.LootDrop>(StringComparer.Ordinal);
 
+        // GATE.T18.NARRATIVE.ENTITIES.001: Narrative system hydration.
+        DataLogs ??= new Dictionary<string, Entities.DataLog>(StringComparer.Ordinal);
+        StationMemory ??= new Dictionary<string, Entities.StationDeliveryRecord>(StringComparer.Ordinal);
+        WarConsequences ??= new Dictionary<string, Entities.WarConsequence>(StringComparer.Ordinal);
+        NarrativeNpcs ??= new Dictionary<string, Entities.NarrativeNpc>(StringComparer.Ordinal);
+
         InvalidateRoutePlannerCaches();
     }
 

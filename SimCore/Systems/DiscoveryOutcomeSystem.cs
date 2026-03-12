@@ -27,6 +27,11 @@ public static class DiscoveryOutcomeSystem
         { ("SIGNAL", DiscoveryPhase.Scanned), "Signal triangulation in {system} points to a hidden corridor." },
         { ("SIGNAL", DiscoveryPhase.Analyzed),"The {system} signal resolves into a navigable shortcut between systems." },
 
+        // Fracture derelict (GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001)
+        { ("DERELICT", DiscoveryPhase.Seen),    "A derelict vessel drifts at the edge of the {system} system, hull scorched by fracture energy." },
+        { ("DERELICT", DiscoveryPhase.Scanned), "Scans of the {system} derelict reveal an intact fracture drive core — technology thought impossible." },
+        { ("DERELICT", DiscoveryPhase.Analyzed),"Analysis complete: the {system} derelict's fracture drive is operational. Off-lane travel is now possible." },
+
         // Generic / OUTCOME family
         { ("OUTCOME", DiscoveryPhase.Seen),    "An unidentified discovery detected in the {system} system." },
         { ("OUTCOME", DiscoveryPhase.Scanned), "Preliminary scan of the {system} discovery reveals promising readings." },
@@ -85,6 +90,33 @@ public static class DiscoveryOutcomeSystem
             ApplyRewardByKind(state, outcome, kind2, nodeId2);
 
             state.AnomalyEncounters[outcomeKey] = outcome;
+        }
+
+        // GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001: Check VoidSites for analyzed FractureDerelict.
+        // When a FractureDerelict VoidSite is Surveyed and tick >= FractureDiscoveryMinTick, unlock fracture.
+        CheckFractureDerelictUnlock(state);
+    }
+
+    // GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001: Analyze derelict -> unlock fracture.
+    // Deterministic: iterates VoidSites in ordinal order.
+    public static void CheckFractureDerelictUnlock(SimState state)
+    {
+        if (state.FractureUnlocked) return;
+        if (state.Tick < Tweaks.FractureTweaksV0.FractureDiscoveryMinTick) return;
+
+        var siteIds = new List<string>(state.VoidSites.Keys);
+        siteIds.Sort(StringComparer.Ordinal);
+
+        foreach (var siteId in siteIds)
+        {
+            if (!state.VoidSites.TryGetValue(siteId, out var site)) continue;
+            if (site.Family != Entities.VoidSiteFamily.FractureDerelict) continue;
+            if (site.MarkerState != Entities.VoidSiteMarkerState.Surveyed) continue;
+
+            // Unlock fracture system.
+            state.FractureUnlocked = true;
+            state.FractureDiscoveryTick = state.Tick;
+            return;
         }
     }
 

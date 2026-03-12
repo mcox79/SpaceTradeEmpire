@@ -2,7 +2,7 @@ extends MeshInstance3D
 ## Renders a procedural Milky Way band and nearby galaxy patches on a sky sphere.
 ## Seed-driven: each procedural universe gets a unique sky.
 
-@export var sky_radius: float = 4000.0
+@export var sky_radius: float = 3500.0
 @export var shader_path: String = "res://scripts/view/galactic_sky.gdshader"
 ## Universe seed — set from GameManager or manually. Drives all noise offsets.
 @export var universe_seed: float = 42.0
@@ -21,6 +21,7 @@ func _ready() -> void:
 	var shader = load(shader_path) as Shader
 	if shader == null:
 		push_warning("[GalacticSky] Could not load shader at: " + shader_path)
+		visible = false
 		return
 	_mat = ShaderMaterial.new()
 	_mat.shader = shader

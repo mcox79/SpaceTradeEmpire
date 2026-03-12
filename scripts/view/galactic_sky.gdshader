@@ -5,9 +5,9 @@ render_mode blend_add, depth_draw_never, cull_front, shadows_disabled, unshaded;
 uniform float universe_seed : hint_range(0.0, 1000.0) = 0.0;
 
 // Milky Way band
-uniform vec3 milky_way_color_core : source_color = vec3(0.9, 0.8, 0.6);
-uniform vec3 milky_way_color_edge : source_color = vec3(0.45, 0.4, 0.7);
-uniform float milky_way_brightness : hint_range(0.0, 0.5) = 0.09;
+uniform vec3 milky_way_color_core : source_color = vec3(0.7, 0.75, 0.85);
+uniform vec3 milky_way_color_edge : source_color = vec3(0.15, 0.25, 0.55);
+uniform float milky_way_brightness : hint_range(0.0, 0.5) = 0.15;
 uniform float milky_way_width : hint_range(0.01, 0.5) = 0.14;
 uniform float milky_way_tilt_deg : hint_range(0.0, 90.0) = 60.0;
 
@@ -15,12 +15,12 @@ uniform float milky_way_tilt_deg : hint_range(0.0, 90.0) = 60.0;
 uniform float dust_strength : hint_range(0.0, 1.0) = 0.6;
 
 // Central bulge — gentle warm glow at galactic center, blends into MW band.
-uniform float bulge_brightness : hint_range(0.0, 0.3) = 0.025;
+uniform float bulge_brightness : hint_range(0.0, 0.3) = 0.05;
 uniform float bulge_width : hint_range(0.01, 0.5) = 0.25;
 uniform float bulge_height : hint_range(0.01, 0.3) = 0.10;
 
 // Nearby galaxies
-uniform float galaxy_brightness : hint_range(0.0, 0.5) = 0.12;
+uniform float galaxy_brightness : hint_range(0.0, 0.5) = 0.10;
 uniform float galaxy_angular_size : hint_range(0.02, 0.4) = 0.06;
 
 
@@ -321,13 +321,11 @@ void fragment() {
 		mw += cv * 0.02 * band;
 	}
 
-	// Color: warm center, cool edges, reddened near dust.
+	// Color: cool blue-white center, deeper blue edges.
 	float color_t = smoothstep(0.0, base_width * 1.2, plane_dist);
 	vec3 mw_color = mix(milky_way_color_core, milky_way_color_edge, color_t);
-	mw_color = mix(mw_color, vec3(0.7, 0.3, 0.2), dust * 0.25);
-	// Blue tint in low-dust regions.
-	float clear_sky = (1.0 - dust) * (1.0 - plane_factor * 0.5);
-	mw_color = mix(mw_color, vec3(0.5, 0.55, 0.8), clear_sky * 0.15);
+	// Dust darkens rather than reddens — avoids pink with additive blending.
+	mw_color *= (1.0 - dust * 0.3);
 
 	// --- Central bulge — elongated elliptical glow, not a point ---
 	// Real MW bulge: ~10° wide along plane, ~5° tall, warm yellow.
@@ -336,7 +334,7 @@ void fragment() {
 		- gal_lat * gal_lat / (2.0 * bulge_height * bulge_height)
 	);
 	float bn = fbm(sdir, 8.0, 3) * 0.15 + 0.85;
-	vec3 bulge_color = vec3(1.0, 0.82, 0.55) * bn * bulge;
+	vec3 bulge_color = vec3(0.7, 0.75, 0.9) * bn * bulge;
 
 	// --- Nearby galaxies (4-6, realistic types and Zone of Avoidance) ---
 	int num_galaxies = 4 + int(hash_seed(universe_seed * 11.0) * 2.99);
@@ -415,21 +413,21 @@ void fragment() {
 		vec3 arm_color;
 		vec3 core_color;
 		if (g_type == 0) {
-			// Spiral: blue-white arms, warm yellow core.
-			arm_color = vec3(0.35 + tint_v, 0.5, 1.0);
-			core_color = vec3(1.0, 0.88, 0.65);
+			// Spiral: blue-white arms, cool white core.
+			arm_color = vec3(0.3 + tint_v, 0.5, 1.0);
+			core_color = vec3(0.7, 0.75, 0.85);
 		} else if (g_type == 1) {
-			// Barred spiral: warmer arms, golden core.
-			arm_color = vec3(0.45 + tint_v, 0.55, 0.85);
-			core_color = vec3(1.0, 0.82, 0.5);
+			// Barred spiral: blue-white arms, pale core.
+			arm_color = vec3(0.35 + tint_v, 0.5, 0.9);
+			core_color = vec3(0.7, 0.75, 0.8);
 		} else if (g_type == 2) {
-			// Elliptical: uniform yellow-red, old stellar population.
-			arm_color = vec3(0.9, 0.7 + tint_v, 0.4);
-			core_color = vec3(1.0, 0.8, 0.5);
+			// Elliptical: pale amber, old stellar population.
+			arm_color = vec3(0.6, 0.6 + tint_v, 0.5);
+			core_color = vec3(0.7, 0.7, 0.65);
 		} else {
-			// Irregular: bright blue with pink HII star-forming regions.
-			arm_color = vec3(0.35, 0.55 + tint_v, 1.0);
-			core_color = vec3(0.9, 0.5, 0.65);
+			// Irregular: bright blue with cyan star-forming regions.
+			arm_color = vec3(0.25, 0.5 + tint_v, 1.0);
+			core_color = vec3(0.5, 0.6, 0.9);
 		}
 
 		vec3 gal = render_galaxy(dir, gal_dir, g_size, g_tilt, g_twist, g_arms,
@@ -445,7 +443,7 @@ void fragment() {
 	// --- Faint background haze ---
 	float haze = fbm(sdir, 2.0, 3) * 0.5 + 0.5;
 	haze *= haze;
-	vec3 haze_color = mix(vec3(0.15, 0.1, 0.2), vec3(0.1, 0.15, 0.2), haze) * 0.006;
+	vec3 haze_color = mix(vec3(0.04, 0.06, 0.14), vec3(0.04, 0.1, 0.16), haze) * 0.002;
 
 	// --- Combine ---
 	vec3 color = mw_color * mw

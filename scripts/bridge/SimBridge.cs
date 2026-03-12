@@ -349,7 +349,8 @@ public partial class SimBridge : Node
             Speed = 0.5f,
             CurrentTask = "Idle",
             CurrentJob = null,
-            Supplies = 100,
+            FuelCapacity = SimCore.Content.ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SimCore.Tweaks.SustainTweaksV0.DefaultFuelCapacity,
+            FuelCurrent = SimCore.Content.ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SimCore.Tweaks.SustainTweaksV0.DefaultFuelCapacity,
             // SLICE 4: Standard hero ship slots (GATE.S4.MODULE_MODEL.SLOTS.001)
             // Ordered by SlotId Ordinal asc: cargo < engine < utility < weapon.
             Slots = new List<SimCore.Entities.ModuleSlot>

@@ -114,14 +114,17 @@ public partial class GalaxyView : Node3D
     private bool _lastPlayerHighlighted = false;
 
     // --- Local system config (named exported fields; no numeric literals in .cs or .tscn) ---
+    // Pace overhaul: 1.6x spread for spacious systems. Planets 18-40u, gates 85u, radius 120u.
+    // At 80u camera altitude + 60° FOV, visible radius ≈ 46u — player sees planets but must fly to gates.
     [Export] public float SystemSceneRadiusU { get; set; } = 120.0f;
-    [Export] public float StationOrbitRadiusU { get; set; } = 60.0f;
-    [Export] public float LaneGateDistanceU { get; set; } = 90.0f;
+    [Export] public float StationOrbitRadiusU { get; set; } = 36.0f;
+    [Export] public float LaneGateDistanceU { get; set; } = 85.0f;
     [Export] public float DiscoverySiteOrbitRadiusU { get; set; } = 55.0f;
     [Export] public float StarVisualRadiusU { get; set; } = 6.0f;
     [Export] public float LaneGateMarkerRadiusU { get; set; } = 1.5f;
     [Export] public float DiscoverySiteMarkerRadiusU { get; set; } = 1.0f;
     // GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001
+    // Pace overhaul: fleet orbit spread from 22→35.
     [Export] public float FleetOrbitRadiusU { get; set; } = 35.0f;
     [Export] public float FleetMarkerRadiusU { get; set; } = 1.2f;
     [Export] public PackedScene StationPrefab { get; set; }
@@ -507,15 +510,23 @@ public partial class GalaxyView : Node3D
         ClampLabelsInSubtree(_localSystemRoot, camPos);
     }
 
+    // GATE.X.UI_POLISH.LABEL_OVERLAP.001: Track placed label positions for anti-collision.
+    private static readonly System.Collections.Generic.List<Vector3> _placedLabelPositions = new();
+
     private static void ClampLabelsInSubtree(Node root, Vector3 camPos)
     {
         // Recurse entire subtree — labels may be nested 3-4 levels deep
         // (e.g., _localSystemRoot -> PlanetRoot -> DockArea -> Station -> StationLabel).
+        _placedLabelPositions.Clear();
         ClampLabelsRecursive(root, camPos);
     }
 
     private static void ClampLabelsRecursive(Node node, Vector3 camPos)
     {
+        // Skip NPC ship subtrees — they manage their own label visibility
+        // (role label, hostile label, HP bar) via npc_ship.gd.
+        if (node.IsInGroup("FleetShip")) return;
+
         foreach (var child in node.GetChildren())
         {
             if (child is Label3D label && node is Node3D parent3d)
@@ -551,6 +562,22 @@ public partial class GalaxyView : Node3D
                     label.PixelSize = 0.12f;
                     label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, 1f);
                     label.Visible = true;
+                }
+
+                // GATE.X.UI_POLISH.LABEL_OVERLAP.001: Anti-collision vertical offset.
+                if (label.Visible)
+                {
+                    var worldPos = parent3d.GlobalPosition;
+                    float offsetY = 0f;
+                    foreach (var placed in _placedLabelPositions)
+                    {
+                        float dx = worldPos.X - placed.X;
+                        float dz = worldPos.Z - placed.Z;
+                        if (dx * dx + dz * dz < 9f) // 3u threshold
+                            offsetY += 2f;
+                    }
+                    label.Position = new Vector3(label.Position.X, offsetY, label.Position.Z);
+                    _placedLabelPositions.Add(worldPos);
                 }
             }
             else if (child is Node3D)
@@ -1099,7 +1126,7 @@ public partial class GalaxyView : Node3D
         var starDustProc = new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-            EmissionSphereRadius = 80.0f,
+            EmissionSphereRadius = 50.0f, // GATE.X.UI_POLISH.LOCAL_DENSITY.001: match tightened system
             Gravity = Vector3.Zero,
             InitialVelocityMin = 0.1f,
             InitialVelocityMax = 0.5f,
@@ -1125,7 +1152,7 @@ public partial class GalaxyView : Node3D
         var beltHash = Fnv1a64(nodeId + "_asteroids");
         if (beltHash % 100UL < 60)
         {
-            float beltRadius = 45.0f; // default lumScale=1; visual only
+            float beltRadius = 45.0f; // Pace overhaul: match expanded belt (was 28)
 
             var beltDustProc = new ParticleProcessMaterial
             {
@@ -1364,7 +1391,7 @@ public partial class GalaxyView : Node3D
                     Modulate = accentColor,
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
-                factionBanner.Position = new Vector3(0f, 3.2f, 0f);
+                factionBanner.Position = new Vector3(0f, 5.5f, 0f);
                 station.AddChild(factionBanner);
             }
         }
@@ -1379,16 +1406,23 @@ public partial class GalaxyView : Node3D
             stationOrbitPivot.Set("spin_speed_y", 0.08f); // Station orbits planet
         }
 
-        station.Position = DeriveOrbitPositionV0(nodeId + "_station_offset", 8.0f);
+        // GATE.X.UI_POLISH.LOCAL_DENSITY.001: Station closer to planet (was 8u).
+        station.Position = DeriveOrbitPositionV0(nodeId + "_station_offset", 4.0f);
         station.AddToGroup("Station");
         RegisterDockTargetV0(station, "STATION", stationId);
 
-        // Connect body_entered → GameManager.on_proximity_dock_entered_v0(station).
+        // Dock confirmation: show prompt on proximity, dock on E key.
         station.BodyEntered += (body) =>
         {
             var gm = GetNode<Node>("/root/GameManager");
-            if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
-                gm.Call("on_proximity_dock_entered_v0", station);
+            if (gm != null && gm.HasMethod("on_dock_proximity_v0"))
+                gm.Call("on_dock_proximity_v0", station);
+        };
+        station.BodyExited += (body) =>
+        {
+            var gm = GetNode<Node>("/root/GameManager");
+            if (gm != null && gm.HasMethod("on_dock_proximity_exit_v0"))
+                gm.Call("on_dock_proximity_exit_v0", station);
         };
 
         stationOrbitPivot.AddChild(station);
@@ -1966,12 +2000,12 @@ public partial class GalaxyView : Node3D
     private static void TintStarShaderV0(Node3D starNode, Color starColor)
     {
         // Derive a dark and bright variant from the star class color.
-        // GATE.S14.STAR.TINT_FIX.001: Preserve color identity instead of crushing green/blue.
-        var darkColor = new Color(starColor.R * 0.3f, starColor.G * 0.25f, starColor.B * 0.2f);
+        // GATE.S14.STAR.TINT_FIX.001: Preserve color identity — uniform scaling keeps hue intact.
+        var darkColor = new Color(starColor.R * 0.25f, starColor.G * 0.25f, starColor.B * 0.25f);
         var brightColor = new Color(
-            Mathf.Min(starColor.R, 1.0f),
-            Mathf.Min(starColor.G * 0.7f, 1.0f),
-            Mathf.Min(starColor.B * 0.5f, 1.0f));
+            Mathf.Min(starColor.R * 1.1f, 1.0f),
+            Mathf.Min(starColor.G * 1.1f, 1.0f),
+            Mathf.Min(starColor.B * 1.1f, 1.0f));
 
         // Tint body shader (root MeshInstance3D).
         if (starNode is MeshInstance3D bodyMesh && bodyMesh.Mesh != null)
@@ -1988,28 +2022,34 @@ public partial class GalaxyView : Node3D
         }
 
         // Tint atmosphere shader (child named "Atmosphere").
+        // Override baked values: disable emit so glow post-process ignores
+        // the Fresnel HDR, and reduce intensity/alpha to a subtle halo.
         var atmo = starNode.GetNodeOrNull<MeshInstance3D>("Atmosphere");
-        if (atmo != null && atmo.Mesh != null)
+        if (atmo != null)
         {
-            var mat = atmo.Mesh.SurfaceGetMaterial(0) as ShaderMaterial;
-            if (mat != null)
+            var atmoMat = atmo.Mesh?.SurfaceGetMaterial(0) as ShaderMaterial;
+            if (atmoMat != null)
             {
-                mat.SetShaderParameter("color_1", darkColor);
-                mat.SetShaderParameter("color_2", brightColor);
+                atmoMat.SetShaderParameter("color_2", brightColor);
+                atmoMat.SetShaderParameter("intensity", 1.5f);
+                atmoMat.SetShaderParameter("alpha", 0.08f);
+                atmoMat.SetShaderParameter("emit", false);
             }
         }
     }
 
     // Base planet orbit radius by type. Scaled by lumScale at call site.
     // Star visual radius ~6u, so innermost orbit starts well clear.
+    // GATE.X.UI_POLISH.LOCAL_DENSITY.001: ~40% tighter orbits for denser local systems.
+    // Pace overhaul: 1.6x spread so systems feel spacious at 80u camera altitude.
     private static float PlanetBaseOrbitV0(string planetType) => planetType switch
     {
-        "Lava"        => 20.0f,   // Innermost — volcanic, near star
-        "Sand"        => 23.0f,   // Inner zone
-        "Terrestrial" => 26.0f,   // Habitable zone
-        "Barren"      => 29.0f,   // Outer rocky
-        "Ice"         => 32.0f,   // Outer cold zone
-        "Gaseous"     => 38.0f,   // Far out — gas giant
+        "Lava"        => 18.0f,   // Innermost — volcanic, near star (was 12)
+        "Sand"        => 22.0f,   // Inner zone (was 14)
+        "Terrestrial" => 26.0f,   // Habitable zone (was 16)
+        "Barren"      => 30.0f,   // Outer rocky (was 18)
+        "Ice"         => 34.0f,   // Outer cold zone (was 20)
+        "Gaseous"     => 40.0f,   // Far out — gas giant (was 23)
         _             => 26.0f,
     };
 
@@ -2139,8 +2179,8 @@ public partial class GalaxyView : Node3D
         // ~60% of systems have a visible asteroid belt.
         if (hash % 100UL >= 60) return;
 
-        // Belt must be outside station orbit zone (planet ~30u + station 8u + buffer).
-        float beltRadius = MathF.Max(45.0f * lumScale, 42.0f);
+        // Pace overhaul: belt pushed out to 45u base (was 28u) for 1.6x system spread.
+        float beltRadius = MathF.Max(45.0f * lumScale, 40.0f);
         int rockCount = 40 + (int)(hash % 30UL); // 40-69 rocks
 
         // Load Kenney meteor models for realistic rocky shapes.
@@ -2277,6 +2317,7 @@ public partial class GalaxyView : Node3D
             });
         }
 
+
         // Orbit radius: base distance * luminosity scale + seed jitter (±1.5u).
         float baseOrbit = PlanetBaseOrbitV0(planetType);
         var jitterHash = Fnv1a64(nodeId + "_orbit_jitter");
@@ -2331,11 +2372,18 @@ public partial class GalaxyView : Node3D
             dockArea.AddToGroup("Planet");
             RegisterDockTargetV0(dockArea, "PLANET", nodeId);
 
+            // Dock confirmation: show prompt on proximity, dock on E key.
             dockArea.BodyEntered += (body) =>
             {
                 var gm = GetNode<Node>("/root/GameManager");
-                if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
-                    gm.Call("on_proximity_dock_entered_v0", dockArea);
+                if (gm != null && gm.HasMethod("on_dock_proximity_v0"))
+                    gm.Call("on_dock_proximity_v0", dockArea);
+            };
+            dockArea.BodyExited += (body) =>
+            {
+                var gm = GetNode<Node>("/root/GameManager");
+                if (gm != null && gm.HasMethod("on_dock_proximity_exit_v0"))
+                    gm.Call("on_dock_proximity_exit_v0", dockArea);
             };
 
             // Attach dock area inside orbit pivot so it moves with the planet.
@@ -2465,7 +2513,7 @@ public partial class GalaxyView : Node3D
         var shape = new CollisionShape3D
         {
             Name = "LaneGateShape",
-            Shape = new SphereShape3D { Radius = 8.0f } // Approach trigger: 8u radius (close to gate)
+            Shape = new SphereShape3D { Radius = 10.0f } // Pace overhaul: larger trigger (was 8u) to compensate for 1.6x spread
         };
         area.AddChild(shape);
         area.SetMeta("lane_neighbor_id", neighborId);
@@ -3108,13 +3156,13 @@ public partial class GalaxyView : Node3D
         // Must be large enough to see and unshaded (no light sources at this altitude).
         var beacon = new MeshInstance3D();
         beacon.Name = "NodeBeacon";
-        beacon.Mesh = new SphereMesh { Radius = 25.0f, Height = 50.0f };
+        beacon.Mesh = new SphereMesh { Radius = 60.0f, Height = 120.0f };
         beacon.MaterialOverride = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.4f, 0.75f, 1.0f, 0.9f),
+            AlbedoColor = new Color(0.6f, 0.9f, 1.0f, 1.0f),
             EmissionEnabled = true,
-            Emission = new Color(0.4f, 0.8f, 1.0f),
-            EmissionEnergyMultiplier = 6.0f,
+            Emission = new Color(0.6f, 0.9f, 1.0f),
+            EmissionEnergyMultiplier = 20.0f,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
         };
@@ -3797,34 +3845,24 @@ public partial class GalaxyView : Node3D
     }
 
     // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists in node/station names.
-    // If more than 2 parenthesized resource tags, show first 2 + "...".
-    // E.g., "Star-5 (RareMin)(Mining)(Munitions)" => "Star-5 (RareMin)(Mining)..."
+    // If more than 1 parenthesized resource tag, show first 1 + "...".
+    // E.g., "System 10 (RareMin)(Mining)(Munitions)" => "System 10 (RareMin)..."
     private static string TruncateResourceTypesV0(string displayText)
     {
         if (string.IsNullOrEmpty(displayText)) return displayText;
 
-        // Find all parenthesized resource-type tags: " (Xxx)" or "(Xxx)"
-        int tagCount = 0;
-        int secondTagEndIdx = -1;
-        int idx = 0;
-        while (idx < displayText.Length)
+        int firstOpen = displayText.IndexOf('(');
+        if (firstOpen < 0) return displayText;
+
+        int firstClose = displayText.IndexOf(')', firstOpen);
+        if (firstClose < 0) return displayText;
+
+        // Check if there's a second tag after the first.
+        int secondOpen = displayText.IndexOf('(', firstClose + 1);
+        if (secondOpen >= 0)
         {
-            int openParen = displayText.IndexOf('(', idx);
-            if (openParen < 0) break;
-
-            int closeParen = displayText.IndexOf(')', openParen);
-            if (closeParen < 0) break;
-
-            tagCount++;
-            if (tagCount == 2)
-                secondTagEndIdx = closeParen + 1;
-            if (tagCount > 2)
-            {
-                // Truncate: keep up to end of 2nd tag, append "..."
-                return displayText.Substring(0, secondTagEndIdx) + "...";
-            }
-
-            idx = closeParen + 1;
+            // Keep only the first tag, append "..."
+            return displayText.Substring(0, firstClose + 1) + "...";
         }
 
         return displayText;

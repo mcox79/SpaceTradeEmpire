@@ -70,6 +70,12 @@ SimCore/Systems/SecurityLaneSystem.cs:0
 SimCore/Systems/IntelSystem.cs:0
 # GATE.S10.TRADE_INTEL.SCANNER.001: structural separator index
 SimCore/Systems/IntelSystem.cs:1
+# GATE.X.SHIP_CLASS.SCAN_RANGE.001: STRUCTURAL: discovery ID format parse index (parts[2] = nodeId, 3 = min parts)
+SimCore/Systems/IntelSystem.cs:2
+SimCore/Systems/IntelSystem.cs:3
+
+# GATE.X.INSTAB_PRICE.WIRE.001: STRUCTURAL: basis points identity (10000 bps = 1.0x multiplier)
+SimCore/Systems/MarketSystem.cs:10000
 
 # GATE.S5.ESCORT_PROG.MODEL.001: reset-to-zero counter on leg completion (structural)
 SimCore/Systems/EscortSystem.cs:0
@@ -81,6 +87,9 @@ SimCore/Systems/MilestoneSystem.cs:0
 SimCore/Gen/GalaxyGenerator.cs:0
 SimCore/Gen/GalaxyGenerator.cs:3
 SimCore/Gen/GalaxyGenerator.cs:1
+
+# GATE.S19.ONBOARD.DISCOVER_SEED.002: structural 0.5f midpoint for starter void site placement
+SimCore/Gen/GalaxyGenerator.cs:0.5f
 
 # GATE.S7.FACTION.CONTENT_DATA.001: structural literals (faction count=5, tuple index=4, FNV hash constants)
 SimCore/Gen/GalaxyGenerator.cs:5
@@ -103,6 +112,8 @@ SimCore/Systems/MovementSystem.cs:0
 # GATE.S6.FRACTURE.TRAVEL_CMD.001: structural literals (TravelProgress >= 1.0f arrival check, reset to 0f)
 SimCore/Systems/MovementSystem.cs:1.0f
 SimCore/Systems/MovementSystem.cs:0f
+# GATE.X.SHIP_CLASS.MASS_SPEED.001: STRUCTURAL: 1f = 100% speed baseline before mass penalty
+SimCore/Systems/MovementSystem.cs:1f
 
 # GATE.S7.FACTION.TARIFF_ENFORCE.001: structural zeros (empty string check, Math.Max(0, ...), tariff floor)
 # and ceiling calc literal (9999L for ceil division)
@@ -149,3 +160,84 @@ SimCore/Systems/WarfrontEvolutionSystem.cs:33
 SimCore/Systems/WarfrontEvolutionSystem.cs:1
 SimCore/Systems/WarfrontEvolutionSystem.cs:2166136261
 SimCore/Systems/WarfrontEvolutionSystem.cs:16777619
+
+# GATE.T18.EXPERIENTIAL.FRACTURE_WEIGHT.001: structural literals (count==0, >0 comparisons, min 1 qty, phase return indices 1-4)
+SimCore/Systems/FractureWeightSystem.cs:0
+SimCore/Systems/FractureWeightSystem.cs:1
+SimCore/Systems/FractureWeightSystem.cs:2
+SimCore/Systems/FractureWeightSystem.cs:3
+SimCore/Systems/FractureWeightSystem.cs:4
+SimCore/Systems/FractureWeightSystem.cs:10000
+SimCore/Systems/FractureWeightSystem.cs:14695981039346656037UL
+SimCore/Systems/FractureWeightSystem.cs:1099511628211UL
+
+# GATE.T18.EXPERIENTIAL.ROUTE_UNCERTAINTY.001: structural literals (min 1 tick, pct calc /100, max(0.01f), stage return indices 2-3)
+SimCore/Systems/RouteUncertaintySystem.cs:0
+SimCore/Systems/RouteUncertaintySystem.cs:1
+SimCore/Systems/RouteUncertaintySystem.cs:2
+SimCore/Systems/RouteUncertaintySystem.cs:3
+SimCore/Systems/RouteUncertaintySystem.cs:0.01f
+SimCore/Systems/RouteUncertaintySystem.cs:100
+SimCore/Systems/RouteUncertaintySystem.cs:14695981039346656037UL
+SimCore/Systems/RouteUncertaintySystem.cs:1099511628211UL
+
+# GATE.T18.EXPERIENTIAL.STATION_MEMORY.001: structural zeros (qty<=0 checks)
+SimCore/Systems/StationMemorySystem.cs:0
+
+# GATE.T18.EXPERIENTIAL.WAR_CONSEQUENCE.001: structural zeros (count==0, empty checks)
+SimCore/Systems/WarConsequenceSystem.cs:0
+
+# GATE.T18.EXPERIENTIAL.TOPOLOGY_SHIFT.001: structural zeros/ones (count==0, edge count, loop bounds)
+SimCore/Systems/TopologyShiftSystem.cs:0
+SimCore/Systems/TopologyShiftSystem.cs:1
+SimCore/Systems/TopologyShiftSystem.cs:10000
+SimCore/Systems/TopologyShiftSystem.cs:14695981039346656037UL
+SimCore/Systems/TopologyShiftSystem.cs:1099511628211UL
+
+# GATE.T18.INSTRUMENT.DISAGREEMENT.001: structural literals (return 0, max(1,..), /10000, FNV hash)
+SimCore/Systems/InstrumentDisagreementSystem.cs:0
+SimCore/Systems/InstrumentDisagreementSystem.cs:1
+SimCore/Systems/InstrumentDisagreementSystem.cs:0.5f
+SimCore/Systems/InstrumentDisagreementSystem.cs:2
+SimCore/Systems/InstrumentDisagreementSystem.cs:3
+SimCore/Systems/InstrumentDisagreementSystem.cs:10000
+SimCore/Systems/InstrumentDisagreementSystem.cs:100
+SimCore/Systems/InstrumentDisagreementSystem.cs:14695981039346656037UL
+SimCore/Systems/InstrumentDisagreementSystem.cs:1099511628211UL
+
+# GATE.S6.FRACTURE_DISCOVERY.DERELICT.001: structural literals in SeedFractureDerelictV0
+# (Count < 2 guard, -1f sentinel, 0.5f centering, 100u/100f hash normalization,
+#  40f position spread, 8 bit shift, 0 Y-coordinate plane)
+SimCore/Gen/DiscoverySeedGen.cs:2
+SimCore/Gen/DiscoverySeedGen.cs:1f
+SimCore/Gen/DiscoverySeedGen.cs:0.5f
+SimCore/Gen/DiscoverySeedGen.cs:100f
+SimCore/Gen/DiscoverySeedGen.cs:100u
+SimCore/Gen/DiscoverySeedGen.cs:40f
+SimCore/Gen/DiscoverySeedGen.cs:8
+SimCore/Gen/DiscoverySeedGen.cs:0
+
+# GATE.T18.DATALOG.PLACEMENT.001: structural literals (BFS init, tier ranges, FNV hash constants, fallback indices)
+SimCore/Gen/NarrativePlacementGen.cs:0
+SimCore/Gen/NarrativePlacementGen.cs:1
+SimCore/Gen/NarrativePlacementGen.cs:2
+SimCore/Gen/NarrativePlacementGen.cs:3
+SimCore/Gen/NarrativePlacementGen.cs:4
+SimCore/Gen/NarrativePlacementGen.cs:5
+SimCore/Gen/NarrativePlacementGen.cs:99
+SimCore/Gen/NarrativePlacementGen.cs:14695981039346656037UL
+SimCore/Gen/NarrativePlacementGen.cs:1099511628211UL
+
+# GATE.T18.DATALOG.KNOWLEDGE_GRAPH.001: structural zeros (count==0, question mark count init)
+SimCore/Systems/KnowledgeGraphSystem.cs:0
+
+# GATE.T18.CHARACTER.FO_SYSTEM.001: structural zeros (empty string checks)
+SimCore/Systems/FirstOfficerSystem.cs:0
+
+# Fuel tank refactor: structural zero (PowerDraw > 0 comparison for module disable/enable)
+SimCore/Systems/SustainSystem.cs:0
+
+# GATE.T18.CHARACTER.WAR_FACES.001: structural literals (count==0, FNV hash constants, intensity > 0)
+SimCore/Systems/NarrativeNpcSystem.cs:0
+SimCore/Systems/NarrativeNpcSystem.cs:14695981039346656037UL
+SimCore/Systems/NarrativeNpcSystem.cs:1099511628211UL

@@ -1177,4 +1177,42 @@ public sealed class IntelContractTests
 
         return 0;
     }
+
+    // --- GetScanRange tests ---
+
+    [Test]
+    public void GetScanRange_NoTech_ReturnsBase()
+    {
+        var state = new SimState(42);
+        int range = IntelSystem.GetScanRange(state);
+        Assert.That(range, Is.EqualTo(SimCore.Tweaks.TradeIntelTweaksV0.BaseScanRange));
+    }
+
+    [Test]
+    public void GetScanRange_SensorSuite_ReturnsLevel1()
+    {
+        var state = new SimState(42);
+        state.Tech.UnlockedTechIds.Add("sensor_suite");
+        int range = IntelSystem.GetScanRange(state);
+        Assert.That(range, Is.EqualTo(SimCore.Tweaks.TradeIntelTweaksV0.SensorSuiteScanRange));
+    }
+
+    [Test]
+    public void GetScanRange_TradeNetwork_ReturnsLevel2()
+    {
+        var state = new SimState(42);
+        state.Tech.UnlockedTechIds.Add("trade_network");
+        int range = IntelSystem.GetScanRange(state);
+        Assert.That(range, Is.EqualTo(SimCore.Tweaks.TradeIntelTweaksV0.TradeNetworkScanRange));
+    }
+
+    [Test]
+    public void GetScanRange_BothTechs_ReturnsMax()
+    {
+        var state = new SimState(42);
+        state.Tech.UnlockedTechIds.Add("sensor_suite");
+        state.Tech.UnlockedTechIds.Add("trade_network");
+        int range = IntelSystem.GetScanRange(state);
+        Assert.That(range, Is.EqualTo(SimCore.Tweaks.TradeIntelTweaksV0.TradeNetworkScanRange));
+    }
 }

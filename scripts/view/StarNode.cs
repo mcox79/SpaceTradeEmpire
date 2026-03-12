@@ -6,7 +6,8 @@ public partial class StarNode : Area3D
 {
     // Explicit dock trigger range (units).
     // Godot-side only; no SimCore impact.
-    private const float DOCK_RANGE_U = 12.0f;
+    // Pace overhaul: tighter dock trigger (was 12u), confirmation required.
+    private const float DOCK_RANGE_U = 8.0f;
 
     // The SimCore ID for this star (e.g., "star_0")
     public string NodeId { get; set; } = "";
@@ -28,6 +29,7 @@ public partial class StarNode : Area3D
             SetMeta("sim_market_id", NodeId);
 
         BodyEntered += OnBodyEntered;
+        BodyExited += OnBodyExited;
     }
 
     private void EnsureDockShapeV0()
@@ -58,30 +60,24 @@ public partial class StarNode : Area3D
 
         GD.Print($"[StarNode] Player entered gravity well of {NodeId}");
 
-        // Canonical path: route docking intent through GameManager so player ship state is centralized.
+        // Dock confirmation: show prompt, player presses E to commit.
         var gm = GetTree()?.Root?.FindChild("GameManager", true, false);
-        if (gm != null && gm.HasMethod("on_proximity_dock_entered_v0"))
+        if (gm != null && gm.HasMethod("on_dock_proximity_v0"))
         {
-            gm.Call("on_proximity_dock_entered_v0", this);
-        }
-
-        // OPEN THE MENU for any StarNode dock.
-        // This is the missing link that prevents "freeze with no menu".
-        // Guard so we don't re-open every physics tick if Godot fires multiple enters.
-        if (!_openedForThisDock && body.HasSignal("shop_toggled"))
-        {
-            _openedForThisDock = true;
-            body.EmitSignal("shop_toggled", true, (Variant)this);
-        }
-
-        // Keep legacy behavior if you still want it (it may set player dock state / freeze)
-        if (body.HasMethod("dock_at_station"))
-        {
-            body.Call("dock_at_station", this);
+            gm.Call("on_dock_proximity_v0", this);
         }
     }
 
-    // Optional: if you ever want auto-close on leaving the gravity well, add:
-    // public override void _ExitTree() { ... } or BodyExited handling.
-    // I am not adding BodyExited by default because your docking UX seems to be "stay docked until menu close".
+    private void OnBodyExited(Node3D body)
+    {
+        if (body == null || !body.IsInGroup("Player"))
+            return;
+
+        _openedForThisDock = false;
+        var gm = GetTree()?.Root?.FindChild("GameManager", true, false);
+        if (gm != null && gm.HasMethod("on_dock_proximity_exit_v0"))
+        {
+            gm.Call("on_dock_proximity_exit_v0", this);
+        }
+    }
 }

@@ -6,6 +6,6 @@ public static class NpcShipTweaksV0
     // Ticks before a destroyed NPC fleet respawns at its home node.
     public static int RespawnCooldownTicks { get; } = 60;
 
-    // Starting supplies for a respawned NPC fleet.
-    public static int RespawnSupplies { get; } = 100;
+    // Default fuel tank capacity for NPC fleets.
+    public static int DefaultFuelCapacity { get; } = 500;
 }

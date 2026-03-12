@@ -132,6 +132,7 @@ public sealed class LogisticsMutationPipelineContractTests
 
         // Single-tick lane traversal
         s.Fleets["fleet_trader_1"].Speed = 1.0f;
+        s.Fleets["fleet_trader_1"].ShipClassId = ""; // No mass penalty for logistics test.
 
         return s;
     }

@@ -43,6 +43,7 @@ public sealed class FleetRouteTravelTests
 
         // Make travel fast: 1 AU per tick on 1 AU edges => completes in a single MovementSystem.Process.
         f.Speed = 1.0f;
+        f.ShipClassId = ""; // No mass penalty for route travel test.
 
         // Request final destination using existing field (convention in MovementSystem).
         f.State = SimCore.Entities.FleetState.Idle;

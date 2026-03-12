@@ -56,6 +56,9 @@ var _faction_color: Color = Color.WHITE
 ## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001: Status overlay nodes.
 var _role_label: Label3D = null
 var _hostile_label: Label3D = null  # GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Dedicated hostile tag
+## M2: Onboarding label suppression — hides role/hostile labels until player explores.
+## Defaults to true (hidden) — HUD disclosure poll sets to false once nodes_visited >= 2.
+var _onboard_labels_hidden: bool = true
 var _hp_bar: MeshInstance3D = null
 var _hp_bar_mat: StandardMaterial3D = null
 const ROLE_LETTERS := ["T", "H", "P"]  # Trader, Hauler, Patrol
@@ -121,10 +124,10 @@ func _create_status_display() -> void:
 	_hp_bar_mat.emission_energy_multiplier = 5.0
 	_hp_bar_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	_hp_bar_mat.no_depth_test = true
+	_hp_bar_mat.render_priority = 10
 	_hp_bar.material_override = _hp_bar_mat
 	_hp_bar.position = Vector3(0, HP_BAR_HEIGHT, 0)
 	_hp_bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_hp_bar.render_priority = 10
 	_hp_bar.visible = false  # Only show when damaged
 	add_child(_hp_bar)
 
@@ -167,6 +170,10 @@ func _update_status_display() -> void:
 		if p is Node3D and global_position.distance_to(p.global_position) < LABEL_SHOW_DIST:
 			show_label = true
 			break
+	# M2: Suppress NPC labels until player has explored (nodes_visited >= 2).
+	# Reduces visual clutter at boot — new players don't need "T/H/P" role codes yet.
+	if show_label and _onboard_labels_hidden:
+		show_label = false
 	if _role_label:
 		_role_label.visible = show_label
 	# Hostile label: visible when in range AND hostile.

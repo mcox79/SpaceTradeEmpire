@@ -15,11 +15,26 @@
 - Reputation system: ✅ Implemented (ReputationSystem.cs — tiers, decay, war profiteering)
 - Warfront demand & supply: ✅ Implemented (WarfrontDemandSystem.cs — supply ledger, intensity shift)
 - Faction tariffs/aggression: ⚠️ REDESIGN NEEDED — code values diverged from original design (see below)
+- Data log content (25 logs, 6 threads, 5 scientists): ✅ Implemented (DataLogContentV0.cs)
+- Knowledge graph system: ✅ Implemented (KnowledgeGraphSystem.cs, KnowledgeGraphContentV0.cs)
+- Kepler narrative chain (6 pieces): ✅ Implemented (KeplerChainContentV0.cs)
+- Narrative placement (BFS-based): ✅ Implemented (NarrativePlacementGen.cs)
+- Fracture weight system: ✅ Implemented (FractureWeightSystem.cs, FractureWeightTweaksV0.cs)
+- Route uncertainty system: ✅ Implemented (RouteUncertaintySystem.cs, RouteUncertaintyTweaksV0.cs)
+- Station memory system: ✅ Implemented (StationMemorySystem.cs)
+- War consequence system: ✅ Implemented (WarConsequenceSystem.cs)
+- Topology shift system: ✅ Implemented (TopologyShiftSystem.cs, TopologyShiftTweaksV0.cs)
+- Instrument disagreement system: ✅ Implemented (InstrumentDisagreementSystem.cs, InstrumentDisagreementTweaksV0.cs)
+- Narrative entities (DataLog, FirstOfficer, StationMemory, WarConsequence, NarrativeNpc, KnowledgeConnection): ✅ Implemented
+- Communion species privilege flaw: ✅ Documented (this file)
+- Reinforce moral reframe: ✅ Documented (this file)
+- Naturalize personal cost (Stationmaster beacon): ✅ Documented (this file)
+- First Officer system: 🚧 In Progress — entities defined, system pending
+- War Faces NPCs: 🚧 In Progress — entities defined, system pending
 - Adaptation fragments (12): 🔮 Future — Not Yet Implemented
 - Haven starbase: 🔮 Future — Not Yet Implemented
 - Resonance pairs: 🔮 Future — Not Yet Implemented
 - Endgame paths (Reinforce/Naturalize/Renegotiate): 🔮 Future — Not Yet Implemented
-- Metric bleed gameplay effects: 🔮 Future — Not Yet Implemented
 - Lattice drones: 🔮 Future — Not Yet Implemented
 
 ---
@@ -382,6 +397,12 @@ Anti-institutional in a setting full of institutions. The only faction that acti
 
 This sharpens the contrast: the Communion's "spirituality" comes from wading in the shallows and finding it transformative. When the player arrives with fracture capability and descriptions of Phase 3-4 space, the Communion is simultaneously awed and terrified — the player has gone deeper than any Communion pilot has ever been or could survive.
 
+**The Communion's Flaw — Species Privilege**: The Communion's comfort with instability is not philosophy. It is an **evolved species trait**. Generations of shimmer-zone living have produced neurological and perceptual adaptations that most species do not share. Their framework of "acceptance" and "uncertainty tolerance" works for THEM — but it doesn't generalize. The Chitin can't tolerate Phase 1 shimmer for more than a few hours without sensory overload. Concord humans require pharmacological support for prolonged exposure. Valorin handle it best among non-Communion species, but even they avoid shimmer zones when possible.
+
+The Communion's moral argument — "you can learn to live with the instability" — is therefore not universal wisdom. It's a projection of one species' adaptation onto all five. The Renegotiate path is risky not because the physics is wrong, but because the Communion assumes the galaxy can develop tolerance that their own biology took centuries of natural selection to produce. Vael's data logs confirm this: accommodation works for species with shimmer-zone evolutionary history, and the published error margins concealing this truth are the most dangerous numbers in the ancient archive.
+
+This makes the Communion sympathetic AND dangerous — they are genuinely kind, genuinely wise within their own context, and genuinely blind to the fact that their wisdom is a privilege rather than a universal. The player who chooses Renegotiate must reckon with whether they are projecting one species' capacity onto a galaxy that cannot share it.
+
 **The Communion's Secret**: The Communion is not as innocent as it appears. Generations of shimmer-zone dwelling have given them knowledge they don't advertise — they can read accommodation geometry signatures the way a naturalist reads animal tracks. When the player first docks at a Communion station, the Communion **recognizes the module's signature immediately**. They know what it is. They know what it means. They say nothing.
 
 But this is NOT because they selected the player. **The Communion has seen this before.** Every few generations, someone stumbles into a piece of accommodation geometry. A Valorin scout pulls a strange device from a frontier wreck. A Chitin researcher buys an anomalous artifact at auction. A nameless pilot finds a derelict. The Communion recognizes the signature. They always do.
@@ -463,6 +484,8 @@ Data logs found later CONFIRM what the player already observed:
 - Ancient engineering documents describing "economic topology optimization" — designing resource distribution to ensure no species cluster achieves productive independence
 - Arguments between Containment scientists about whether constraining civilizations was ethical ("We're not protecting them from instability. We're protecting the infrastructure from them.")
 - The Adaptation faction's realization that accommodation geometry doesn't just enable off-thread travel — it enables off-*system* economics
+
+**The hidden chain**: The pentagon's most strategically interesting link is Weavers → Chitin (electronics). Electronics requires Exotic Crystals (Communion fracture harvesting) to produce, creating a **two-hop dependency**: Communion crystals → Chitin processing → Weaver module sustain. This is the only asymmetric link in the ring, and it's intentional: disrupting Communion's crystal supply cascades through Chitin's electronics production into Weaver's defensive capabilities. Three factions disrupted by one supply shock. The electronics recipe (Exotic Crystals + Fuel) could theoretically use common inputs — the fact that it requires a fracture-only exotic resource is itself evidence of the cage's engineering.
 
 **Why this twist works for STE specifically**: No other game can deliver this revelation because no other game has the player spend 15+ hours running trade routes within the very system that turns out to be the cage. Every Composites delivery to Concord, every Rare Metals haul to Chitin — the player was maintaining containment infrastructure through commerce without knowing it. The twist recontextualizes *gameplay*, not just backstory.
 
@@ -704,12 +727,22 @@ Three accumulation vectors tracked throughout play:
 **What it costs**: Sealing off-thread space. Permanently losing fracture travel. Exotic Crystal supply chain dies. Drifter Communion loses their way of life. **And the player now knows the cage is a cage.** The pentagon ring is engineered. Reinforce means choosing to preserve the dependency architecture *with full knowledge that it constrains every species in the galaxy*. The player is choosing stability over freedom — the same choice the Containment faction made, for the same reasons, with the same blindspot.
 **The personal cost**: The Communion elder who told you the truth asks you not to do this. You do it anyway. The last Communion message: "We understand. We hoped you would choose differently. We were wrong to hope."
 
+**Why Reinforce is not cowardice**: Accommodation was tested once. Haven station. Controlled conditions. Forty subjects. Galaxy-wide accommodation means running the Haven experiment on four hundred billion people across five species with wildly different neurological tolerances. Kesh's argument in the containment logs — "this is not a testing environment" — is genuinely the strongest argument in the archive. The player who chooses Reinforce arrives at the same conclusion Kesh did, with the same horror: the cage works, and dismantling it without proven alternative kills people. Choosing Reinforce means the player agrees with Kesh — and understanding why Kesh believed what he believed, and what it cost him personally to defend a position he partly doubted, is the emotional weight of this path. The player isn't choosing comfort. They're choosing responsibility for the people who can't tolerate the alternative.
+
 ### Naturalize
 **What the player has been doing**: Running frontier routes, supplying Valorin with Exotic Crystals, trading Chitin speculative markets, building cache networks.
 **The crisis demand**: When threads fail catastrophically, the player's alternative network is the only functioning trade system.
 **Endgame activity**: Expand frontier network to rescue thread-dependent populations. Deliver Food to starving Concord stations whose supply lines died. Establish new off-thread routes.
 **What it costs**: Accepting permanent instability. Thread-space becomes more dangerous. Concord collapses. Lattice shuts down permanently. **The pentagon ring shatters.** Without engineered dependency, factions become self-sufficient — but the interdependence was also what prevented total war. The Valorin no longer need anyone. The Weavers no longer gate access to materials. The cooperation the player navigated for hours was *forced* cooperation, and removing the force doesn't guarantee the cooperation survives.
 **The personal cost**: The Concord relief convoys stop. Stations the player traded at for hours go dark. The player built the alternative network — but the people who can't reach it are dying in the transition.
+
+**The Stationmaster**: Freedom's cost is a specific person the player knows. The Stationmaster NPC — the named character at the player's most-visited station, the one who said "You're reliable. That matters more than you know" — sends a distress beacon when the threads collapse. The station's lights went out. Life support failing. The player can respond or not.
+
+If the player responds: a rescue run through collapsing infrastructure. The Stationmaster is alive. The station is gone. "I didn't know the threads did that. I thought they were just... roads."
+
+If the player does not respond: silence. The Stationmaster's last message sits in the comms log, unanswered. The station that remembered the player's deliveries disappears from the map.
+
+Freedom is an abstraction until it costs someone who remembers your name. The Naturalize path forces the player to experience the difference between believing in freedom and watching the specific consequences of freedom unfold on a person they've spent hours building a relationship with. The choice is not "freedom vs. control." The choice is "this specific person's life vs. an abstract principle." The game does not judge. It shows.
 
 ### Renegotiate
 **What the player has been doing**: Extensive fracture exploration, Exotic Crystal/Matter trading, Communion relationship-building, void site surveying.
@@ -1102,7 +1135,7 @@ The unpromoted candidates remain as secondary crew — available for faction-spe
 - **Three candidates, not four.** Clean choice. Each clearly distinct. Each aligned with a different endgame path but not REQUIRING that path — the player can choose the Analyst and still go Renegotiate
 - **Present from tick 1.** All three are crew members before the promotion. The promotion formalizes the relationship, not creates it
 - **30 lines total across 20 hours.** Restraint is the instrument. Most of the time, the First Officer is silent — their competence IS their presence. When they speak, it matters because it's rare
-- **The unpromoted stay.** Secondary crew members remain available for faction-specific intel checks or skill bonuses. Not wasted — just not the anchor
+- **The unpromoted relocate to Haven.** After Haven discovery, secondary crew members move to Haven Starbase permanently. They serve as Haven's residents — providing faction-specific intel, reacting to data logs and fragments, and making Haven feel inhabited. Each has a reason to stay: the Analyst studies accommodation geometry data, the Veteran manages station operations, the Pathfinder maps local fracture signatures. ~15 dialogue lines each across the full game. See `haven_starbase_v0.md` → "Secondary Crew" for full design
 - **Their endgame opinion is visible but not coercive.** If the player chooses a different path, the First Officer goes along (loyalty) but the cost is visible. They stay, but they're not the same
 - **Named ships reference them.** Fleet reports include the First Officer's commentary: "The *Argent Crossing* completed Trade Charter Sirius→Proxima: +340 cr." becomes "Argent Crossing home safe. +340 cr. She's getting good at that run." — only if the FO speaks in that register
 

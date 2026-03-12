@@ -40,9 +40,9 @@ public sealed class SustainSystemTests
             CurrentNodeId = nodeId,
             Speed = 0.5f,
             State = FleetState.Idle,
+            FuelCapacity = 500,
+            FuelCurrent = fuel,
         };
-        if (fuel > 0)
-            fleet.Cargo[WellKnownGoodIds.Fuel] = fuel;
         return fleet;
     }
 
@@ -59,7 +59,7 @@ public sealed class SustainSystemTests
         SustainSystem.Process(state);
 
         int expectedFuel = 10 - SustainTweaksV0.FuelPerMoveTick;
-        Assert.That(fleet.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(expectedFuel));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(expectedFuel));
     }
 
     [Test]
@@ -70,9 +70,11 @@ public sealed class SustainSystemTests
         fleet.State = FleetState.Idle;
         state.Fleets["fleet_1"] = fleet;
 
+        // Idle at node → auto-refuels to capacity. Set capacity = current to prevent refuel.
+        fleet.FuelCapacity = 10;
         SustainSystem.Process(state);
 
-        Assert.That(fleet.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(10));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(10));
     }
 
     [Test]
@@ -81,15 +83,16 @@ public sealed class SustainSystemTests
         var state = CreateMinimalState();
         var fleet = CreateFleet("fleet_1", "node_a", 10);
         fleet.State = FleetState.Docked;
+        fleet.FuelCapacity = 10; // Prevent auto-refuel from changing value
         state.Fleets["fleet_1"] = fleet;
 
         SustainSystem.Process(state);
 
-        Assert.That(fleet.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(10));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(10));
     }
 
     [Test]
-    public void FuelReachesZero_GoodRemovedFromCargo()
+    public void FuelReachesZero_ClampsAtZero()
     {
         var state = CreateMinimalState();
         var fleet = CreateFleet("fleet_1", "node_a", 1);
@@ -99,8 +102,7 @@ public sealed class SustainSystemTests
 
         SustainSystem.Process(state);
 
-        Assert.That(fleet.Cargo.ContainsKey(WellKnownGoodIds.Fuel), Is.False,
-            "Fuel key should be removed when depleted to 0");
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(0));
     }
 
     [Test]
@@ -112,10 +114,10 @@ public sealed class SustainSystemTests
         fleet.CurrentEdgeId = "edge_a_b";
         state.Fleets["fleet_1"] = fleet;
 
-        // Should not throw, and cargo should stay empty.
+        // Should not throw, and fuel should stay at 0.
         SustainSystem.Process(state);
 
-        Assert.That(fleet.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(0));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(0));
     }
 
     [Test]
@@ -129,7 +131,7 @@ public sealed class SustainSystemTests
 
         SustainSystem.Process(state);
 
-        Assert.That(fleet.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(4));
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(4));
     }
 
     [Test]
@@ -143,12 +145,59 @@ public sealed class SustainSystemTests
 
         var fleet2 = CreateFleet("fleet_2", "node_a", 5);
         fleet2.State = FleetState.Idle;
+        fleet2.FuelCapacity = 5; // Prevent auto-refuel
         state.Fleets["fleet_2"] = fleet2;
 
         SustainSystem.Process(state);
 
-        Assert.That(fleet1.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(9));
-        Assert.That(fleet2.GetCargoUnits(WellKnownGoodIds.Fuel), Is.EqualTo(5));
+        Assert.That(fleet1.FuelCurrent, Is.EqualTo(9));
+        Assert.That(fleet2.FuelCurrent, Is.EqualTo(5));
+    }
+
+    // Auto-refuel tests.
+
+    [Test]
+    public void AutoRefuel_IdleAtNode_TopsUpTank()
+    {
+        var state = CreateMinimalState();
+        var fleet = CreateFleet("fleet_1", "node_a", 10);
+        fleet.State = FleetState.Idle;
+        state.Fleets["fleet_1"] = fleet;
+
+        SustainSystem.Process(state);
+
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(fleet.FuelCapacity));
+    }
+
+    [Test]
+    public void AutoRefuel_TravelingFleet_DoesNotRefuel()
+    {
+        var state = CreateMinimalState();
+        var fleet = CreateFleet("fleet_1", "node_a", 10);
+        fleet.State = FleetState.Traveling;
+        fleet.CurrentEdgeId = "edge_a_b";
+        state.Fleets["fleet_1"] = fleet;
+
+        SustainSystem.Process(state);
+
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(9)); // Only deducted, not refueled
+    }
+
+    [Test]
+    public void AutoRefuel_NpcFleet_RefuelsFree()
+    {
+        var state = CreateMinimalState();
+        var fleet = new Fleet
+        {
+            Id = "ai_fleet_1", OwnerId = "ai", CurrentNodeId = "node_a",
+            Speed = 0.5f, State = FleetState.Idle,
+            FuelCapacity = 500, FuelCurrent = 10
+        };
+        state.Fleets["ai_fleet_1"] = fleet;
+
+        SustainSystem.Process(state);
+
+        Assert.That(fleet.FuelCurrent, Is.EqualTo(500));
     }
 
     // GATE.S7.SUSTAIN.SHORTFALL.001: Shortfall immobilization tests.
@@ -161,14 +210,28 @@ public sealed class SustainSystemTests
         fleet.State = FleetState.Idle;
         fleet.RouteEdgeIds = new List<string> { "edge_a_b" };
         fleet.RouteEdgeIndex = 0;
-        // Ensure cargo is non-empty so fuel shortfall check triggers.
-        fleet.Cargo["ore"] = 1;
+        // Fleet is at node_a but has no fuel — should auto-refuel first.
+        // To test immobilization, remove from node so auto-refuel doesn't fire.
+        fleet.CurrentNodeId = ""; // Not at a node → no auto-refuel
         state.Fleets["fleet_1"] = fleet;
+
+        // SustainSystem won't refuel (no node). MovementSystem will check fuel.
+        MovementSystem.Process(state);
+
+        // Fleet has FuelCapacity > 0 but FuelCurrent = 0 → immobilized.
+        // Note: without a CurrentNodeId, TryEnsureRoutePlanned won't start.
+        // Let's use a proper setup instead.
+        state.Fleets.Clear();
+        var fleet2 = CreateFleet("fleet_2", "node_a", 0);
+        fleet2.State = FleetState.Idle;
+        fleet2.RouteEdgeIds = new List<string> { "edge_a_b" };
+        fleet2.RouteEdgeIndex = 0;
+        state.Fleets["fleet_2"] = fleet2;
 
         MovementSystem.Process(state);
 
-        Assert.That(fleet.State, Is.EqualTo(FleetState.Idle));
-        Assert.That(fleet.CurrentTask, Is.EqualTo("Immobilized:NoFuel"));
+        Assert.That(fleet2.State, Is.EqualTo(FleetState.Idle));
+        Assert.That(fleet2.CurrentTask, Is.EqualTo("Immobilized:NoFuel"));
     }
 
     [Test]
@@ -194,15 +257,13 @@ public sealed class SustainSystemTests
         fleet.State = FleetState.Idle;
         fleet.RouteEdgeIds = new List<string> { "edge_a_b" };
         fleet.RouteEdgeIndex = 0;
-        // Ensure cargo is non-empty so fuel shortfall check triggers.
-        fleet.Cargo["ore"] = 1;
         state.Fleets["fleet_1"] = fleet;
 
         MovementSystem.Process(state);
         Assert.That(fleet.CurrentTask, Is.EqualTo("Immobilized:NoFuel"));
 
         // Re-fuel the fleet.
-        fleet.Cargo[WellKnownGoodIds.Fuel] = 10;
+        fleet.FuelCurrent = 10;
 
         MovementSystem.Process(state);
         Assert.That(fleet.State, Is.EqualTo(FleetState.Traveling));
@@ -213,6 +274,7 @@ public sealed class SustainSystemTests
     {
         var state = CreateMinimalState();
         var fleet = CreateFleet("fleet_1", "node_a", 0);
+        fleet.CurrentNodeId = ""; // No node → no auto-refuel
         fleet.Slots.Add(new ModuleSlot
         {
             SlotId = "weapon_1", SlotKind = SlotKind.Weapon,
@@ -234,6 +296,7 @@ public sealed class SustainSystemTests
     {
         var state = CreateMinimalState();
         var fleet = CreateFleet("fleet_1", "node_a", 0);
+        fleet.CurrentNodeId = ""; // No node → no auto-refuel
         fleet.Slots.Add(new ModuleSlot
         {
             SlotId = "weapon_1", SlotKind = SlotKind.Weapon,
@@ -242,7 +305,7 @@ public sealed class SustainSystemTests
         state.Fleets["fleet_1"] = fleet;
 
         // Re-fuel the fleet.
-        fleet.Cargo[WellKnownGoodIds.Fuel] = 10;
+        fleet.FuelCurrent = 10;
 
         // Advance to sustain cycle boundary.
         while (state.Tick % SustainTweaksV0.SustainCycleTicks != 0)
@@ -258,6 +321,7 @@ public sealed class SustainSystemTests
     {
         var state = CreateMinimalState();
         var fleet = CreateFleet("fleet_1", "node_a", 0);
+        fleet.CurrentNodeId = ""; // No node → no auto-refuel
         fleet.Slots.Add(new ModuleSlot
         {
             SlotId = "cargo_1", SlotKind = SlotKind.Cargo,

@@ -16,6 +16,8 @@ const _POLL_INTERVAL: float = 1.0
 var _last_node_id: String = ""
 # Keyed by discovery_id -> outcome dict (from GetDiscoveryOutcomesV0)
 var _outcomes_by_discovery: Dictionary = {}
+# GATE.S6.FRACTURE_DISCOVERY.UI.001: Derelict analysis progress label.
+var _derelict_status_label: Label = null
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
@@ -43,6 +45,16 @@ func _ready() -> void:
 	_sites_container.name = "SitesContainer"
 	_sites_container.add_theme_constant_override("separation", 8)
 	vbox.add_child(_sites_container)
+
+	# GATE.S6.FRACTURE_DISCOVERY.UI.001: Derelict analysis progress label.
+	_derelict_status_label = Label.new()
+	_derelict_status_label.name = "DerelictStatusLabel"
+	_derelict_status_label.text = ""
+	_derelict_status_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_derelict_status_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_derelict_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_derelict_status_label.visible = false
+	vbox.add_child(_derelict_status_label)
 
 	# Start hidden; poll will show/hide based on data
 	visible = false
@@ -100,6 +112,9 @@ func _refresh_v0() -> void:
 		_rebuild_sites_v0(sites)
 	else:
 		_update_site_rows_v0(sites)
+
+	# GATE.S6.FRACTURE_DISCOVERY.UI.001: Show derelict analysis progress.
+	_update_derelict_status_v0()
 
 	visible = true
 
@@ -228,3 +243,24 @@ func _phase_display_v0(phase: String) -> String:
 
 func _phase_color_v0(phase: String) -> Color:
 	return UITheme.discovery_phase_color(phase)
+
+
+# GATE.S6.FRACTURE_DISCOVERY.UI.001: Update derelict analysis progress label.
+func _update_derelict_status_v0() -> void:
+	if _derelict_status_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetFractureDiscoveryStatusV0"):
+		_derelict_status_label.visible = false
+		return
+	var status: Dictionary = _bridge.call("GetFractureDiscoveryStatusV0")
+	var progress: String = str(status.get("analysis_progress", "unknown"))
+	if progress == "unknown" or progress.is_empty():
+		_derelict_status_label.visible = false
+		return
+	_derelict_status_label.visible = true
+	if status.get("unlocked", false):
+		_derelict_status_label.text = "Fracture Drive: ACTIVE"
+		_derelict_status_label.add_theme_color_override("font_color", UITheme.GREEN)
+	else:
+		_derelict_status_label.text = "Derelict Analysis: %s" % progress
+		_derelict_status_label.add_theme_color_override("font_color", UITheme.CYAN)

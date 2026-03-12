@@ -13,6 +13,9 @@ public class PlayerStats
     [JsonInclude] public int TechsUnlocked { get; set; }
     [JsonInclude] public int MissionsCompleted { get; set; }
 
+    // GATE.S19.ONBOARD.FO_TRIGGERS.003: Cumulative NPC fleet kill counter.
+    [JsonInclude] public int NpcFleetsDestroyed { get; set; }
+
     // GATE.S12.PROGRESSION.MILESTONES.001: Achieved milestone IDs.
     [JsonInclude] public List<string> AchievedMilestoneIds { get; set; } = new();
 }

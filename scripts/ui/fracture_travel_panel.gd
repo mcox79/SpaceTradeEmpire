@@ -67,6 +67,14 @@ func _build_ui() -> void:
 func open_v0() -> void:
 	if _bridge == null:
 		_bridge = get_node_or_null("/root/SimBridge")
+	# GATE.S6.FRACTURE_DISCOVERY.UI.001: Gate behind fracture unlock.
+	if _bridge and _bridge.has_method("GetFractureDiscoveryStatusV0"):
+		var status: Dictionary = _bridge.call("GetFractureDiscoveryStatusV0")
+		if not status.get("unlocked", false):
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and toast_mgr.has_method("show_toast"):
+				toast_mgr.call("show_toast", "Fracture drive not yet discovered.")
+			return
 	_populate_sites()
 	visible = true
 

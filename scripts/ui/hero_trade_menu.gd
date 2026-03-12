@@ -39,6 +39,9 @@ var _tab_ship: VBoxContainer = null
 var _tab_station: VBoxContainer = null
 var _tab_intel: VBoxContainer = null
 var _tab_buttons: Array = []
+# M3: Track which tabs the player has clicked (to clear "NEW" badge).
+var _tab_seen: Dictionary = {0: true}  # Market always seen
+var _tab_base_names: Array = ["Market", "Jobs", "Ship", "Station", "Intel"]
 
 func _ready():
 	visible = false
@@ -150,12 +153,20 @@ func _ready():
 	_tab_market.add_theme_constant_override("separation", 4)
 	vbox.add_child(_tab_market)
 
-	# Column header
+	# Column header — GATE.X.UI_POLISH.DOCK_VISUAL.001: match widths to data row layout
 	var header = HBoxContainer.new()
-	for col_name in ["Good", "Buy", "Sell", "Buy", "Sell"]:
+	# Columns: Good (expand), Price (expand), Price (expand), Buy btns (min 118), Sell btns (min 118)
+	var _col_names := ["Good", "Buy", "Sell", "Buy", "Sell"]
+	for ci in range(_col_names.size()):
 		var lbl = Label.new()
-		lbl.text = col_name
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.text = _col_names[ci]
+		lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		if ci < 3:
+			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		else:
+			# Button columns: 3 buttons * 36px + 2 gaps * 2px = 112px
+			lbl.custom_minimum_size.x = 112
 		header.add_child(lbl)
 	_tab_market.add_child(header)
 
@@ -249,6 +260,56 @@ func _ready():
 	# Start on Market tab
 	_switch_dock_tab(0)
 
+# Deferred wrapper: waits for sim to process dispatched commands before refreshing tabs.
+func _deferred_tab_disclosure_v0() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().create_timer(0.3).timeout
+	_apply_tab_disclosure_v0()
+
+# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Progressive dock tab reveal.
+# Market always visible. Other tabs reveal as player progresses:
+#   Jobs: after first trade
+#   Ship: after first mission complete or combat
+#   Station/Intel: after visiting 3+ nodes
+func _apply_tab_disclosure_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetOnboardingStateV0"):
+		return  # No bridge = show all tabs (safe fallback)
+
+	# GATE.S19.ONBOARD.SETTINGS_WIRE.015: Respect tutorial toggle.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		var tutorial_enabled = settings_mgr.call("get_setting", "gameplay_tutorial_toasts")
+		if typeof(tutorial_enabled) == TYPE_BOOL and not tutorial_enabled:
+			return  # Tutorial disabled = show all tabs
+
+	var state: Dictionary = bridge.call("GetOnboardingStateV0")
+	if state.is_empty():
+		return  # Fallback: show all
+
+	# Market (idx 0): always visible
+	# Jobs (idx 1): visible after first trade
+	# Ship (idx 2): visible after first mission or combat
+	# Station (idx 3): visible after 3+ nodes visited
+	# Intel (idx 4): visible after 3+ nodes visited
+	var show_flags: Array = [
+		true,
+		bool(state.get("show_jobs_tab", true)),
+		bool(state.get("show_ship_tab", true)),
+		bool(state.get("show_station_tab", true)),
+		bool(state.get("show_intel_tab", true)),
+	]
+	for i in range(mini(_tab_buttons.size(), show_flags.size())):
+		_tab_buttons[i].visible = show_flags[i]
+		# M3: "NEW" badge on newly visible, unseen tabs
+		if show_flags[i] and not _tab_seen.has(i):
+			_tab_buttons[i].text = _tab_base_names[i] + " [NEW]"
+			_tab_buttons[i].add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		elif _tab_seen.has(i) and i < _tab_base_names.size():
+			_tab_buttons[i].text = _tab_base_names[i]
+			_tab_buttons[i].remove_theme_color_override("font_color")
+
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Switch between dock tabs
 func _switch_dock_tab(idx: int) -> void:
 	_active_dock_tab = idx
@@ -257,12 +318,19 @@ func _switch_dock_tab(idx: int) -> void:
 	_tab_ship.visible = (idx == 2)
 	_tab_station.visible = (idx == 3)
 	_tab_intel.visible = (idx == 4)
+	# M3: Mark tab as seen — clear "NEW" badge
+	_tab_seen[idx] = true
 	for i in range(_tab_buttons.size()):
 		_tab_buttons[i].button_pressed = (i == idx)
+		if _tab_seen.has(i) and i < _tab_base_names.size():
+			_tab_buttons[i].text = _tab_base_names[i]
+			_tab_buttons[i].remove_theme_color_override("font_color")
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
 	visible = true
+	# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Gate tab visibility by progression.
+	_apply_tab_disclosure_v0()
 	_switch_dock_tab(0)  # Always open on Market tab
 
 	# GATE.S7.PLANET.UI.001: Detect planet vs station for title + info.
@@ -339,8 +407,8 @@ func open_market_v0(node_id: String) -> void:
 				_rep_tier_label.add_theme_color_override("font_color", tier_color)
 				if price_mod_bps != 0:
 					var pct: float = price_mod_bps / 100.0
-					var sign: String = "+" if price_mod_bps > 0 else ""
-					_rep_tier_label.text = "Standing: %s (%s%s%% prices)" % [rep_tier, sign, "%.0f" % pct]
+					var sign_str: String = "+" if price_mod_bps > 0 else ""
+					_rep_tier_label.text = "Standing: %s (%s%s%% prices)" % [rep_tier, sign_str, "%.0f" % pct]
 				else:
 					_rep_tier_label.text = "Standing: %s" % rep_tier
 				_rep_tier_label.visible = true
@@ -414,14 +482,33 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 func _sell_qty_v0(good_id: String, qty: int) -> void:
 	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
 		return
+	# Q3: Capture sell price before dispatching trade for revenue toast
+	var sell_price: int = 0
+	var view = get_market_view_v0()
+	for entry in view:
+		if typeof(entry) == TYPE_DICTIONARY and str(entry.get("good_id", "")) == good_id:
+			sell_price = int(entry.get("sell_price", 0))
+			break
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
 		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, qty, false)
-		# GATE.S12.UX_POLISH.TRADE_FEEDBACK.001: toast on sell
+		# Q3: Revenue toast — "Sold 5 Organics for +250cr"
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
+			var revenue: int = qty * sell_price
+			if revenue > 0:
+				toast_mgr.call("show_toast", "Sold %d %s for +%dcr" % [qty, _format_display_name(good_id), revenue], 2.5)
+			else:
+				toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+		# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Re-apply tab disclosure after trade
+		# so newly unlocked tabs (e.g., Jobs) appear immediately.
+		# Deferred: sim needs a frame to process the sell before state reads correctly.
+		_deferred_tab_disclosure_v0()
+		# GATE.S19.ONBOARD.FO_EVENTS.012: Immediate FO poll after trade.
+		var gm = get_node_or_null("/root/GameManager")
+		if gm and gm.has_method("_poll_fo_immediate"):
+			gm.call("_poll_fo_immediate")
 
 func _max_buy_v0(_good_id: String, buy_price: int) -> int:
 	if buy_price <= 0:
@@ -481,6 +568,16 @@ func _rebuild_rows() -> void:
 		_rows_container.remove_child(child)
 		child.queue_free()
 	var view = get_market_view_v0()
+
+	# Q2: Build cargo lookup for price color-coding (player holds → green sell price)
+	var _bridge_ref = get_node_or_null("/root/SimBridge")
+	var cargo_held: Dictionary = {}  # good_id → qty
+	if _bridge_ref and _bridge_ref.has_method("GetPlayerCargoV0"):
+		var cargo: Array = _bridge_ref.call("GetPlayerCargoV0")
+		for item in cargo:
+			if typeof(item) == TYPE_DICTIONARY:
+				cargo_held[str(item.get("good_id", ""))] = int(item.get("qty", 0))
+
 	for entry in view:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -490,7 +587,6 @@ func _rebuild_rows() -> void:
 		var stock: int = int(entry.get("qty", 0))
 
 		# GATE.S7.TERRITORY.EMBARGO_UI.001: Check if good is embargoed at this node
-		var _bridge_ref = get_node_or_null("/root/SimBridge")
 		var is_embargoed: bool = false
 		if _bridge_ref and _bridge_ref.has_method("IsGoodEmbargoedV0"):
 			is_embargoed = bool(_bridge_ref.call("IsGoodEmbargoedV0", _market_node_id, good_id))
@@ -516,8 +612,11 @@ func _rebuild_rows() -> void:
 		var lbl_sell = Label.new()
 		lbl_sell.text = "%d cr" % sell_price
 		lbl_sell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Q2: Green sell price if player has cargo (actionable: you can sell for profit)
 		if is_embargoed:
 			lbl_sell.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		elif cargo_held.has(good_id) and cargo_held[good_id] > 0:
+			lbl_sell.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 		row.add_child(lbl_sell)
 
 		# GATE.S12.UX_POLISH.QUANTITY.001: [1, 5, Max] buy/sell quantity buttons
@@ -634,6 +733,21 @@ func _rebuild_production_info() -> void:
 		row.add_child(lbl)
 		_rows_container.add_child(row)
 
+# GATE.X.UI_POLISH.DOCK_VISUAL.001: Section header helper for Ship tab
+func _make_ship_section_header(title: String) -> VBoxContainer:
+	var wrapper = VBoxContainer.new()
+	wrapper.add_theme_constant_override("separation", 2)
+	var sep = HSeparator.new()
+	sep.add_theme_color_override("separator", UITheme.BORDER_DEFAULT)
+	wrapper.add_child(sep)
+	var lbl = Label.new()
+	lbl.text = title
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+	wrapper.add_child(lbl)
+	return wrapper
+
 # GATE.S18.EMPIRE_DASH.STATION_TAB.001: Station info panel (health, production, services)
 # GATE.S18.EMPIRE_DASH.SHIP_TAB.001: Ship fitting overview in dock Ship tab.
 func _rebuild_ship_info() -> void:
@@ -652,22 +766,89 @@ func _rebuild_ship_info() -> void:
 		_ship_info_container.visible = false
 		return
 
-	# Ship class header
+	# GATE.X.UI_POLISH.DOCK_VISUAL.001: Ship class header — bold, colored
 	var class_lbl = Label.new()
 	class_lbl.text = "SHIP: %s" % str(fit.get("ship_class", "Unknown"))
 	class_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	class_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	class_lbl.add_theme_color_override("font_color", UITheme.CYAN)
 	_ship_info_container.add_child(class_lbl)
 
-	# Hull / Shield row
-	var hp_lbl = Label.new()
-	hp_lbl.text = "Hull: %d/%d   Shield: %d/%d" % [
-		int(fit.get("hull", 0)), int(fit.get("hull_max", 0)),
-		int(fit.get("shield", 0)), int(fit.get("shield_max", 0))]
-	hp_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	_ship_info_container.add_child(hp_lbl)
+	# Hull bar (red) + Shield bar (blue) — visual health indicators
+	_ship_info_container.add_child(_make_ship_section_header("STATUS"))
+	var hull_cur: int = int(fit.get("hull", 0))
+	var hull_max: int = int(fit.get("hull_max", 0))
+	var shield_cur: int = int(fit.get("shield", 0))
+	var shield_max: int = int(fit.get("shield_max", 0))
+	# Hull bar row
+	var hull_row = HBoxContainer.new()
+	hull_row.add_theme_constant_override("separation", 4)
+	var hull_name = Label.new()
+	hull_name.text = "Hull:"
+	hull_name.custom_minimum_size.x = 52
+	hull_name.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	hull_name.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	hull_row.add_child(hull_name)
+	var hull_bar = ProgressBar.new()
+	hull_bar.min_value = 0
+	hull_bar.max_value = maxi(hull_max, 1)
+	hull_bar.value = hull_cur
+	hull_bar.show_percentage = false
+	hull_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hull_bar.custom_minimum_size.y = 12
+	var hull_bar_bg = StyleBoxFlat.new()
+	hull_bar_bg.bg_color = Color(0.15, 0.06, 0.06, 0.8)
+	hull_bar_bg.set_corner_radius_all(2)
+	hull_bar.add_theme_stylebox_override("background", hull_bar_bg)
+	var hull_bar_fill = StyleBoxFlat.new()
+	hull_bar_fill.bg_color = UITheme.RED
+	hull_bar_fill.set_corner_radius_all(2)
+	hull_bar.add_theme_stylebox_override("fill", hull_bar_fill)
+	hull_row.add_child(hull_bar)
+	var hull_val = Label.new()
+	hull_val.text = "%d/%d" % [hull_cur, hull_max]
+	hull_val.custom_minimum_size.x = 60
+	hull_val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hull_val.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	hull_val.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	hull_row.add_child(hull_val)
+	_ship_info_container.add_child(hull_row)
+	# Shield bar row
+	var shield_row = HBoxContainer.new()
+	shield_row.add_theme_constant_override("separation", 4)
+	var shield_name = Label.new()
+	shield_name.text = "Shield:"
+	shield_name.custom_minimum_size.x = 52
+	shield_name.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	shield_name.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	shield_row.add_child(shield_name)
+	var shield_bar = ProgressBar.new()
+	shield_bar.min_value = 0
+	shield_bar.max_value = maxi(shield_max, 1)
+	shield_bar.value = shield_cur
+	shield_bar.show_percentage = false
+	shield_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shield_bar.custom_minimum_size.y = 12
+	var shield_bar_bg = StyleBoxFlat.new()
+	shield_bar_bg.bg_color = Color(0.06, 0.08, 0.18, 0.8)
+	shield_bar_bg.set_corner_radius_all(2)
+	shield_bar.add_theme_stylebox_override("background", shield_bar_bg)
+	var shield_bar_fill = StyleBoxFlat.new()
+	shield_bar_fill.bg_color = UITheme.BLUE
+	shield_bar_fill.set_corner_radius_all(2)
+	shield_bar.add_theme_stylebox_override("fill", shield_bar_fill)
+	shield_row.add_child(shield_bar)
+	var shield_val = Label.new()
+	shield_val.text = "%d/%d" % [shield_cur, shield_max]
+	shield_val.custom_minimum_size.x = 60
+	shield_val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	shield_val.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	shield_val.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	shield_row.add_child(shield_val)
+	_ship_info_container.add_child(shield_row)
 
-	# Fitting budget
+	# GATE.X.UI_POLISH.DOCK_VISUAL.001: Fitting budget with section header
+	_ship_info_container.add_child(_make_ship_section_header("FITTING"))
 	var power_used: int = int(fit.get("power_used", 0))
 	var power_max: int = int(fit.get("power_max", 0))
 	var slots_filled: int = int(fit.get("slots_filled", 0))
@@ -696,13 +877,8 @@ func _rebuild_ship_info() -> void:
 		warn_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		_ship_info_container.add_child(warn_lbl)
 
-	# Zone armor diagram (4 facing bars)
-	var zone_header = Label.new()
-	zone_header.text = "ZONE ARMOR"
-	zone_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	zone_header.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-	zone_header.add_theme_color_override("font_color", UITheme.TEXT_INFO)
-	_ship_info_container.add_child(zone_header)
+	# GATE.X.UI_POLISH.DOCK_VISUAL.001: Zone armor — colored bars + section header
+	_ship_info_container.add_child(_make_ship_section_header("ZONE ARMOR"))
 
 	var zones: Array = [
 		["Fore", "zone_fore", "zone_fore_max"],
@@ -715,11 +891,14 @@ func _rebuild_ship_info() -> void:
 		var zhp: int = int(fit.get(z[1], 0))
 		var zmax: int = int(fit.get(z[2], 0))
 		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
 		var name_lbl = Label.new()
-		name_lbl.text = "  %s:" % zname
-		name_lbl.custom_minimum_size.x = 50
+		name_lbl.text = "%s:" % zname
+		name_lbl.custom_minimum_size.x = 44
+		name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		name_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 		row.add_child(name_lbl)
-		# HP bar using ProgressBar
+		# Colored armor bar: red fill, dark background
 		var bar = ProgressBar.new()
 		bar.min_value = 0
 		bar.max_value = maxi(zmax, 1)
@@ -727,23 +906,34 @@ func _rebuild_ship_info() -> void:
 		bar.show_percentage = false
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.custom_minimum_size.y = 14
+		# Red-tinted fill for armor
+		var bar_bg = StyleBoxFlat.new()
+		bar_bg.bg_color = Color(0.15, 0.08, 0.08, 0.8)
+		bar_bg.set_corner_radius_all(2)
+		bar.add_theme_stylebox_override("background", bar_bg)
+		var bar_fill = StyleBoxFlat.new()
+		var armor_ratio: float = float(zhp) / float(maxi(zmax, 1))
+		if armor_ratio > 0.5:
+			bar_fill.bg_color = UITheme.RED.lerp(UITheme.ORANGE, (armor_ratio - 0.5) * 2.0)
+		else:
+			bar_fill.bg_color = Color(0.5, 0.1, 0.1).lerp(UITheme.RED, armor_ratio * 2.0)
+		bar_fill.set_corner_radius_all(2)
+		bar.add_theme_stylebox_override("fill", bar_fill)
 		row.add_child(bar)
 		var val_lbl = Label.new()
-		val_lbl.text = " %d/%d" % [zhp, zmax]
+		val_lbl.text = "%d/%d" % [zhp, zmax]
 		val_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		val_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		val_lbl.custom_minimum_size.x = 60
+		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(val_lbl)
 		_ship_info_container.add_child(row)
 
-	# Installed modules list
+	# GATE.X.UI_POLISH.DOCK_VISUAL.001: Installed modules — visual grouping
 	if bridge.has_method("GetPlayerFleetSlotsV0"):
 		var slots: Array = bridge.call("GetPlayerFleetSlotsV0")
 		if slots.size() > 0:
-			var mod_header = Label.new()
-			mod_header.text = "INSTALLED MODULES"
-			mod_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			mod_header.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-			mod_header.add_theme_color_override("font_color", UITheme.TEXT_INFO)
-			_ship_info_container.add_child(mod_header)
+			_ship_info_container.add_child(_make_ship_section_header("INSTALLED MODULES"))
 			for slot in slots:
 				if typeof(slot) != TYPE_DICTIONARY:
 					continue
@@ -754,16 +944,37 @@ func _rebuild_ship_info() -> void:
 				var pwr_draw: int = int(slot.get("power_draw", 0))
 				var is_disabled: bool = slot.get("disabled", false)
 				var disp_name: String = str(slot.get("display_name", ""))
+				# Slot panel with subtle background
+				var slot_panel = PanelContainer.new()
+				slot_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				var slot_style = StyleBoxFlat.new()
+				slot_style.bg_color = Color(0.08, 0.10, 0.18, 0.6)
+				slot_style.set_corner_radius_all(3)
+				slot_style.content_margin_left = 6.0
+				slot_style.content_margin_right = 6.0
+				slot_style.content_margin_top = 3.0
+				slot_style.content_margin_bottom = 3.0
+				if is_disabled:
+					slot_style.border_color = UITheme.RED.darkened(0.5)
+					slot_style.set_border_width_all(1)
+				elif not mod_id.is_empty():
+					slot_style.border_color = UITheme.BORDER_DEFAULT
+					slot_style.set_border_width_all(1)
+				slot_panel.add_theme_stylebox_override("panel", slot_style)
 				var row = HBoxContainer.new()
+				row.add_theme_constant_override("separation", 6)
 				var kind_lbl = Label.new()
-				kind_lbl.text = "  [%s]" % kind
+				kind_lbl.text = "[%s]" % kind
 				kind_lbl.custom_minimum_size.x = 80
-				kind_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+				kind_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+				kind_lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO)
 				row.add_child(kind_lbl)
 				var mod_lbl = Label.new()
+				mod_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				if mod_id.is_empty():
-					mod_lbl.text = "Empty"
-					mod_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+					mod_lbl.text = "-- empty --"
+					mod_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+					mod_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 				else:
 					var name_str: String = disp_name if not disp_name.is_empty() else _format_display_name(mod_id)
 					var suffix := ""
@@ -773,6 +984,7 @@ func _rebuild_ship_info() -> void:
 					if is_disabled:
 						suffix += "  [OFF]"
 					mod_lbl.text = name_str + suffix
+					mod_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 					# Condition color gradient: green -> yellow -> red.
 					if is_disabled:
 						mod_lbl.add_theme_color_override("font_color", UITheme.RED)
@@ -782,7 +994,8 @@ func _rebuild_ship_info() -> void:
 						mod_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
 					# else default color (green/white)
 				row.add_child(mod_lbl)
-				_ship_info_container.add_child(row)
+				slot_panel.add_child(row)
+				_ship_info_container.add_child(slot_panel)
 
 	_ship_info_container.visible = true
 

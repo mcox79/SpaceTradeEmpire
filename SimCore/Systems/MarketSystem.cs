@@ -405,4 +405,31 @@ public static class MarketSystem
 
         return (int)Math.Max(1, adjusted);
     }
+
+    // GATE.X.INSTAB_PRICE.WIRE.001: Returns instability price multiplier in basis points (10000 = 1.0x).
+    // Returns 0 if market is closed by instability (Void phase). Returns 10000 if no instability.
+    public static int GetInstabilityPriceMultiplierBps(SimState state, string marketId, string goodId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 10000;
+        if (IsMarketClosedByInstability(state, marketId)) return 0;
+
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId is null) return 10000;
+        if (!state.Nodes.TryGetValue(nodeId, out var node)) return 10000;
+
+        int instLevel = node.InstabilityLevel;
+        if (instLevel <= 0) return 10000;
+
+        int volatilityBps = instLevel * InstabilityTweaksV0.VolatilityMaxBps / InstabilityTweaksV0.MaxInstability;
+        int multiplier = 10000 + volatilityBps;
+
+        int phase = InstabilityTweaksV0.GetPhaseIndex(instLevel);
+        if (phase >= 2 && Content.WellKnownGoodIds.IsSecurityGood(goodId))
+        {
+            int skewSteps = phase - 1;
+            multiplier += InstabilityTweaksV0.SecurityDemandSkewBps * skewSteps;
+        }
+
+        return multiplier;
+    }
 }
