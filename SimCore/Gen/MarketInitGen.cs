@@ -13,6 +13,7 @@ namespace SimCore.Gen;
 /// </summary>
 public static class MarketInitGen
 {
+    private const int STRUCT_ZERO_STOCK = 0; // STRUCTURAL: zero inventory baseline.
     public static void InitMarkets(SimState state, List<Node> nodesList, int starCount, bool enableDistributionSinksV0)
     {
         for (int i = 0; i < nodesList.Count; i++)
@@ -65,6 +66,8 @@ public static class MarketInitGen
             {
                 if (isStarter)
                 {
+                    // Even starter nodes: ore-rich mining systems. High ore stock drives
+                    // ore price down, creating profitable ore→odd-node arbitrage (141 cr/unit).
                     mkt.Inventory[WellKnownGoodIds.Fuel] = 120;
                     mkt.Inventory[WellKnownGoodIds.Ore] = 500;
                     mkt.Inventory[WellKnownGoodIds.Metal] = 10;
@@ -254,6 +257,83 @@ public static class MarketInitGen
 
             state.Markets.Add(node.MarketId, mkt);
         }
+    }
+
+    /// <summary>
+    /// Post-processing: ensure the player's starting station has at least one good with
+    /// a profitable margin (>50 cr/unit) when sold at an adjacent station.
+    /// Must run AFTER faction market bias and player relocation.
+    /// </summary>
+    public static void GuaranteeStarterArbitrageV0(SimState state)
+    {
+        var startId = state.PlayerLocationNodeId;
+        if (string.IsNullOrEmpty(startId)) return;
+        if (!state.Markets.TryGetValue(startId, out var startMarket)) return;
+
+        // Find adjacent node IDs via edges.
+        var neighborIds = new List<string>();
+        foreach (var edge in state.Edges.Values)
+        {
+            if (string.Equals(edge.FromNodeId, startId, StringComparison.Ordinal))
+                neighborIds.Add(edge.ToNodeId);
+            else if (string.Equals(edge.ToNodeId, startId, StringComparison.Ordinal))
+                neighborIds.Add(edge.FromNodeId);
+        }
+
+        int minTargetMargin = Tweaks.MarketTweaksV0.MinStarterMargin;
+
+        // Check if any good already has sufficient margin at any neighbor.
+        bool hasProfitableTrade = false;
+        string bestGood = "";
+        string bestNeighborId = "";
+        int bestExistingMargin = int.MinValue;
+
+        foreach (var nid in neighborIds)
+        {
+            if (!state.Markets.TryGetValue(nid, out var neighborMarket)) continue;
+
+            // Check all goods available at the starting market.
+            foreach (var goodId in startMarket.Inventory.Keys)
+            {
+                int buyAtStart = startMarket.GetBuyPrice(goodId);
+                int sellAtNeighbor = neighborMarket.GetSellPrice(goodId);
+                int margin = sellAtNeighbor - buyAtStart;
+
+                if (margin >= minTargetMargin)
+                {
+                    hasProfitableTrade = true;
+                    break;
+                }
+
+                if (margin > bestExistingMargin)
+                {
+                    bestExistingMargin = margin;
+                    bestGood = goodId;
+                    bestNeighborId = nid;
+                }
+            }
+            if (hasProfitableTrade) break;
+        }
+
+        if (hasProfitableTrade) return; // Already profitable — no adjustment needed.
+
+        // No profitable trade found. Create one by increasing stock at start (lowering buy price)
+        // and decreasing stock at neighbor (raising sell price).
+        if (string.IsNullOrEmpty(bestGood) || string.IsNullOrEmpty(bestNeighborId)) return;
+        if (!state.Markets.TryGetValue(bestNeighborId, out var bestNeighborMarket)) return;
+
+        // Ensure the good exists in the neighbor's inventory.
+        if (!bestNeighborMarket.Inventory.ContainsKey(bestGood))
+            bestNeighborMarket.Inventory[bestGood] = STRUCT_ZERO_STOCK;
+
+        // Increase starting stock to push buy price down, decrease neighbor stock to push sell price up.
+        // Target: buy ~5 cr, sell ~80 cr → margin ~75 cr/unit.
+        startMarket.Inventory[bestGood] = Math.Max(
+            startMarket.Inventory.GetValueOrDefault(bestGood),
+            Tweaks.MarketTweaksV0.StarterHighStock);
+        bestNeighborMarket.Inventory[bestGood] = Math.Min(
+            bestNeighborMarket.Inventory.GetValueOrDefault(bestGood),
+            Tweaks.MarketTweaksV0.StarterLowStock);
     }
 
     public static void ValidateCatalogBinding(SimState state, ContentRegistryLoader.ContentRegistryV0? registry)

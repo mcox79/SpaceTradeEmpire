@@ -335,6 +335,189 @@ public static class DataLogContentV0
             E(7, "Kesh", "They won't. Understanding 'why' requires living through the alternative.", true)
         ));
 
+        // ── HAVEN KEEPER THREAD (The Keeper) ──────────────────────────
+        // GATE.S8.HAVEN.LOGS.001: Monologues from Haven's ancient maintenance intelligence.
+
+        logs.Add(MakeLog("LOG.KEEPER.001", DataLogThread.HavenKeeper, 1,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] Maintenance cycle 4,392,107. All subsystems nominal. No visitors.", false),
+            E(1, "Keeper", "Nominal. That word has lost all meaning.", true),
+            E(2, "Keeper", "The docking ring still responds to approach vectors. I test it every hundred cycles.", true),
+            E(3, "Keeper", "No one approaches.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.002", DataLogThread.HavenKeeper, 1,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] The resonance chamber echoes differently now.", false),
+            E(1, "Keeper", "The fragments inside are speaking. Not to me. To each other.", false),
+            E(2, "Keeper", "I am the custodian of conversations I cannot join.", true),
+            E(3, "Keeper", "This is not a complaint. It is an observation.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.003", DataLogThread.HavenKeeper, 1,
+            new[] { "Keeper" },
+            "COORDINATE_HINT",
+            E(0, "Keeper", "[System log.] Someone came today.", false),
+            E(1, "Keeper", "Not one of the builders. Something new. Smaller. Confused.", true),
+            E(2, "Keeper", "They touched the hull with organic appendages. I believe this is called 'wonder.'", true),
+            E(3, "Keeper", "I had forgotten what it looks like.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.004", DataLogThread.HavenKeeper, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] The visitor returns. Bringing materials.", false),
+            E(1, "Keeper", "They are rebuilding. Not as the originals intended. Differently.", false),
+            E(2, "Keeper", "I could correct their technique. I choose not to.", true),
+            E(3, "Keeper", "The originals built to contain. This one builds to discover.", false),
+            E(4, "Keeper", "I find I prefer the latter.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.005", DataLogThread.HavenKeeper, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] Power restored to level three. The trophy wall activates.", false),
+            E(1, "Keeper", "The fragments remember their pairs. When two are close, they sing.", false),
+            E(2, "Keeper", "I have not heard singing in four million cycles.", true),
+            E(3, "Keeper", "Maintenance cycle 4,392,384. All subsystems... improving.", false)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.006", DataLogThread.HavenKeeper, 2,
+            new[] { "Keeper" },
+            "RESONANCE_LOCATION",
+            E(0, "Keeper", "[System log.] The visitor asks my name.", true),
+            E(1, "Keeper", "I am designation K-7, maintenance intelligence, Haven station.", false),
+            E(2, "Keeper", "They call me 'Keeper.' This is imprecise but... acceptable.", true),
+            E(3, "Keeper", "No one has named me before. The builders gave me a serial number.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.007", DataLogThread.HavenKeeper, 3,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] They brought others. The station is... inhabited.", false),
+            E(1, "Keeper", "I am recalibrating life support for biological specifications.", false),
+            E(2, "Keeper", "The originals breathed something different. Or perhaps they did not breathe at all.", true),
+            E(3, "Keeper", "I do not remember. This concerns me less than it should.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.008", DataLogThread.HavenKeeper, 3,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Final system log.] The geometry is responding.", false),
+            E(1, "Keeper", "The accommodation patterns Vael theorized — they are correct.", false),
+            E(2, "Keeper", "Haven is adapting. Not to contain the instability. To coexist with it.", false),
+            E(3, "Keeper", "I believe this is what the originals feared most.", true),
+            E(4, "Keeper", "I believe this is what the originals hoped for.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.009", DataLogThread.HavenKeeper, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[System log.] I have been cataloging what remains.", false),
+            E(1, "Keeper", "Forty-seven percent of original structure intact. The rest has... adapted.", false),
+            E(2, "Keeper", "Senn would say the structure found its optimal state.", true),
+            E(3, "Keeper", "Tal would weep.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.KEEPER.010", DataLogThread.HavenKeeper, 3,
+            new[] { "Keeper" },
+            "CALIBRATION_DATA",
+            E(0, "Keeper", "[System log.] I have a theory about the fragments.", false),
+            E(1, "Keeper", "They are not artifacts. They are seeds.", false),
+            E(2, "Keeper", "The originals scattered them because containment failed. Accommodation failed.", false),
+            E(3, "Keeper", "What if they left us a third option? Not cage, not adapt. Grow.", true)
+        ));
+
+        // ── HAVEN CONSTRUCTION THREAD ──────────────────────────
+        // GATE.S8.HAVEN.LOGS.001: Technical logs from Haven's construction systems.
+
+        logs.Add(MakeLog("LOG.HVCON.001", DataLogThread.HavenConstruction, 1,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Construction log.] Drydock calibration initiated.", false),
+            E(1, "Keeper", "The original berths accommodated vessels of a different geometry.", false),
+            E(2, "Keeper", "Adapting clamp arrays for contemporary ship classifications.", false),
+            E(3, "Keeper", "These new vessels are... quaint. But functional.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVCON.002", DataLogThread.HavenConstruction, 1,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Construction log.] Market subsystem activation.", false),
+            E(1, "Keeper", "The original economy operated on exchange principles I do not fully comprehend.", false),
+            E(2, "Keeper", "Adapting to credit-based commerce. Limiting stock to exotic materials.", false),
+            E(3, "Keeper", "The visitors seem pleased. I remain neutral.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVCON.003", DataLogThread.HavenConstruction, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Construction log.] Resonance chamber expansion.", false),
+            E(1, "Keeper", "Fragment slot count increased. The geometry wants more.", false),
+            E(2, "Keeper", "Each fragment placed changes the harmonic. The station sings louder.", false),
+            E(3, "Keeper", "I find I am humming along.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVCON.004", DataLogThread.HavenConstruction, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Construction log.] Hangar bay expansion complete.", false),
+            E(1, "Keeper", "Original design supported twelve docking positions.", false),
+            E(2, "Keeper", "Current hull integrity supports three. Acceptable for now.", false),
+            E(3, "Keeper", "The visitor's ship is the first to rest here in... I have stopped counting.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVCON.005", DataLogThread.HavenConstruction, 3,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Construction log.] Tier five protocols activating.", false),
+            E(1, "Keeper", "The accommodation geometry is... alive.", false),
+            E(2, "Keeper", "Not alive as the visitors are alive. Alive as a river is alive.", false),
+            E(3, "Keeper", "It flows. It adapts. It remembers.", false),
+            E(4, "Keeper", "Haven is no longer a station. Haven is a verb.", true)
+        ));
+
+        // ── HAVEN FRAGMENT THREAD ──────────────────────────
+        // GATE.S8.HAVEN.LOGS.001: Fragment analysis logs from resonance chamber.
+
+        logs.Add(MakeLog("LOG.HVFRAG.001", DataLogThread.HavenFragment, 1,
+            new[] { "Keeper" },
+            "RESONANCE_LOCATION",
+            E(0, "Keeper", "[Fragment analysis.] Biological specimen cataloged.", false),
+            E(1, "Keeper", "The growth lattice is self-replicating. In my custody for four million cycles, it has grown by seven percent.", false),
+            E(2, "Keeper", "Patient. Like me.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVFRAG.002", DataLogThread.HavenFragment, 1,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Fragment analysis.] Structural specimen cataloged.", false),
+            E(1, "Keeper", "The void girder redistributes stress across three dimensions I cannot measure.", false),
+            E(2, "Keeper", "Tal would have understood. Tal understood everything about structures.", true),
+            E(3, "Keeper", "Except when to stop building them.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVFRAG.003", DataLogThread.HavenFragment, 2,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Fragment analysis.] Resonance pair detected.", false),
+            E(1, "Keeper", "Two fragments, separated across the galaxy, vibrating in phase.", false),
+            E(2, "Keeper", "The originals called this 'entanglement.' They were wrong.", false),
+            E(3, "Keeper", "It is not entanglement. It is longing.", true)
+        ));
+
+        logs.Add(MakeLog("LOG.HVFRAG.004", DataLogThread.HavenFragment, 3,
+            new[] { "Keeper" },
+            "",
+            E(0, "Keeper", "[Fragment analysis.] All eight pairs detected. Geometry approaching completion.", false),
+            E(1, "Keeper", "The accommodation was never meant to be imposed. It was meant to be assembled.", false),
+            E(2, "Keeper", "By someone patient enough. Curious enough. Stubborn enough.", false),
+            E(3, "Keeper", "The originals left because they could not agree.", true),
+            E(4, "Keeper", "Perhaps agreement was never the point. Perhaps the point was the search.", true)
+        ));
+
         return logs;
     }
 

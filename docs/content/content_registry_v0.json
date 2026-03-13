@@ -98,100 +98,306 @@
       "id": "recipe_assemble_components",
       "display_name": "Assemble Components",
       "production_ticks": 40,
-      "inputs": [ { "good_id": "electronics", "qty": 2 }, { "good_id": "metal", "qty": 3 } ],
-      "outputs": [ { "good_id": "components", "qty": 1 } ]
+      "inputs": [
+        {
+          "good_id": "electronics",
+          "qty": 2
+        },
+        {
+          "good_id": "metal",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "components",
+          "qty": 1
+        }
+      ]
     },
     {
       "id": "recipe_assemble_electronics",
       "display_name": "Assemble Electronics",
       "production_ticks": 25,
-      "inputs": [ { "good_id": "exotic_crystals", "qty": 1 }, { "good_id": "fuel", "qty": 1 } ],
-      "outputs": [ { "good_id": "electronics", "qty": 2 } ]
+      "inputs": [
+        {
+          "good_id": "exotic_crystals",
+          "qty": 1
+        },
+        {
+          "good_id": "fuel",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "electronics",
+          "qty": 2
+        }
+      ]
     },
     {
       "id": "recipe_extract_ore",
       "display_name": "Extract Ore",
       "production_ticks": 10,
-      "inputs": [ { "good_id": "fuel", "qty": 1 } ],
-      "outputs": [ { "good_id": "ore", "qty": 5 } ]
+      "inputs": [
+        {
+          "good_id": "fuel",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "ore",
+          "qty": 5
+        }
+      ]
     },
     {
       "id": "recipe_fabricate_composites",
       "display_name": "Fabricate Composites",
       "production_ticks": 30,
-      "inputs": [ { "good_id": "metal", "qty": 3 }, { "good_id": "organics", "qty": 2 } ],
-      "outputs": [ { "good_id": "composites", "qty": 2 } ]
+      "inputs": [
+        {
+          "good_id": "metal",
+          "qty": 3
+        },
+        {
+          "good_id": "organics",
+          "qty": 2
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "composites",
+          "qty": 2
+        }
+      ]
     },
     {
       "id": "recipe_manufacture_munitions",
       "display_name": "Manufacture Munitions",
       "production_ticks": 20,
-      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "metal", "qty": 2 } ],
-      "outputs": [ { "good_id": "munitions", "qty": 3 } ]
+      "inputs": [
+        {
+          "good_id": "fuel",
+          "qty": 1
+        },
+        {
+          "good_id": "metal",
+          "qty": 2
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "munitions",
+          "qty": 3
+        }
+      ]
     },
     {
       "id": "recipe_process_food",
       "display_name": "Process Food",
       "production_ticks": 15,
-      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "organics", "qty": 2 } ],
-      "outputs": [ { "good_id": "food", "qty": 3 } ]
+      "inputs": [
+        {
+          "good_id": "fuel",
+          "qty": 1
+        },
+        {
+          "good_id": "organics",
+          "qty": 2
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "food",
+          "qty": 3
+        }
+      ]
     },
     {
       "id": "recipe_refine_metal",
       "display_name": "Refine Metal",
       "production_ticks": 20,
-      "inputs": [ { "good_id": "fuel", "qty": 1 }, { "good_id": "ore", "qty": 10 } ],
-      "outputs": [ { "good_id": "metal", "qty": 5 } ]
+      "inputs": [
+        {
+          "good_id": "fuel",
+          "qty": 1
+        },
+        {
+          "good_id": "ore",
+          "qty": 10
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "metal",
+          "qty": 5
+        }
+      ]
     },
     {
       "id": "recipe_salvage_to_components",
       "display_name": "Salvage to Components",
       "production_ticks": 30,
-      "inputs": [ { "good_id": "electronics", "qty": 1 }, { "good_id": "salvaged_tech", "qty": 1 } ],
-      "outputs": [ { "good_id": "components", "qty": 2 } ]
+      "inputs": [
+        {
+          "good_id": "electronics",
+          "qty": 1
+        },
+        {
+          "good_id": "salvaged_tech",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "components",
+          "qty": 2
+        }
+      ]
     },
     {
       "id": "recipe_salvage_to_metal",
       "display_name": "Salvage to Metal",
       "production_ticks": 20,
-      "inputs": [ { "good_id": "salvaged_tech", "qty": 1 } ],
-      "outputs": [ { "good_id": "metal", "qty": 5 } ]
+      "inputs": [
+        {
+          "good_id": "salvaged_tech",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "metal",
+          "qty": 5
+        }
+      ]
     }
   ],
   "modules": [
-    { "id": "cap_module_refinery" },
-    { "id": "cargo_bay_mk2" },
-    { "id": "defense_armor_weave_t2" },
-    { "id": "defense_damage_control_t2" },
-    { "id": "defense_hull_plating_t2" },
-    { "id": "defense_point_barrier_t2" },
-    { "id": "engine_fusion_t2" },
-    { "id": "engine_ion_t2" },
-    { "id": "engine_mk2" },
-    { "id": "engine_plasma_t2" },
-    { "id": "engine_warp_t2" },
-    { "id": "hull_nanite_t2" },
-    { "id": "hull_plating_mk2" },
-    { "id": "point_defense_t2", "base_damage": 14 },
-    { "id": "scanner_deep_t2" },
-    { "id": "scanner_mk2" },
-    { "id": "shield_adaptive_t2" },
-    { "id": "shield_deflector_t2" },
-    { "id": "shield_hardened_t2" },
-    { "id": "shield_matrix_t2" },
-    { "id": "utility_cargo_expander_t2" },
-    { "id": "utility_ecm_t2" },
-    { "id": "utility_repair_drone_t2" },
-    { "id": "utility_scanner_array_t2" },
-    { "id": "weapon_autocannon_t2", "base_damage": 16 },
-    { "id": "weapon_cannon_mk1", "base_damage": 12 },
-    { "id": "weapon_gauss_cannon_t2", "base_damage": 21 },
-    { "id": "weapon_laser_mk1", "base_damage": 10 },
-    { "id": "weapon_laser_mk2", "base_damage": 15 },
-    { "id": "weapon_missile_launcher_t2", "base_damage": 17 },
-    { "id": "weapon_plasma_cannon_t2", "base_damage": 22 },
-    { "id": "weapon_plasma_t2", "base_damage": 18 },
-    { "id": "weapon_point_defense_t2", "base_damage": 12 },
-    { "id": "weapon_railgun_t2", "base_damage": 20 }
+    {
+      "id": "cap_module_refinery"
+    },
+    {
+      "id": "cargo_bay_mk2"
+    },
+    {
+      "id": "defense_armor_weave_t2"
+    },
+    {
+      "id": "defense_damage_control_t2"
+    },
+    {
+      "id": "defense_hull_plating_t2"
+    },
+    {
+      "id": "defense_point_barrier_t2"
+    },
+    {
+      "id": "engine_fusion_t2"
+    },
+    {
+      "id": "engine_ion_t2"
+    },
+    {
+      "id": "engine_mk2"
+    },
+    {
+      "id": "engine_plasma_t2"
+    },
+    {
+      "id": "engine_warp_t2"
+    },
+    {
+      "id": "hull_nanite_t2"
+    },
+    {
+      "id": "hull_plating_mk2"
+    },
+    {
+      "id": "point_defense_t2",
+      "base_damage": 14
+    },
+    {
+      "id": "scanner_deep_t2"
+    },
+    {
+      "id": "scanner_mk2"
+    },
+    {
+      "id": "shield_adaptive_t2"
+    },
+    {
+      "id": "shield_deflector_t2"
+    },
+    {
+      "id": "shield_hardened_t2"
+    },
+    {
+      "id": "shield_matrix_t2"
+    },
+    {
+      "id": "tractor_em_array_t2"
+    },
+    {
+      "id": "tractor_graviton_t3"
+    },
+    {
+      "id": "tractor_magnetic_t1"
+    },
+    {
+      "id": "utility_cargo_expander_t2"
+    },
+    {
+      "id": "utility_ecm_t2"
+    },
+    {
+      "id": "utility_repair_drone_t2"
+    },
+    {
+      "id": "utility_scanner_array_t2"
+    },
+    {
+      "id": "weapon_autocannon_t2",
+      "base_damage": 16
+    },
+    {
+      "id": "weapon_cannon_mk1",
+      "base_damage": 12
+    },
+    {
+      "id": "weapon_gauss_cannon_t2",
+      "base_damage": 21
+    },
+    {
+      "id": "weapon_laser_mk1",
+      "base_damage": 10
+    },
+    {
+      "id": "weapon_laser_mk2",
+      "base_damage": 15
+    },
+    {
+      "id": "weapon_missile_launcher_t2",
+      "base_damage": 17
+    },
+    {
+      "id": "weapon_plasma_cannon_t2",
+      "base_damage": 22
+    },
+    {
+      "id": "weapon_plasma_t2",
+      "base_damage": 18
+    },
+    {
+      "id": "weapon_point_defense_t2",
+      "base_damage": 12
+    },
+    {
+      "id": "weapon_railgun_t2",
+      "base_damage": 20
+    }
   ]
 }

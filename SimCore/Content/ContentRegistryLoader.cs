@@ -126,7 +126,10 @@ public static class ContentRegistryLoader
         "    { \"id\": \"weapon_plasma_cannon_t2\", \"base_damage\": 22 },\n" +
         "    { \"id\": \"weapon_plasma_t2\", \"base_damage\": 18 },\n" +
         "    { \"id\": \"weapon_point_defense_t2\", \"base_damage\": 12 },\n" +
-        "    { \"id\": \"weapon_railgun_t2\", \"base_damage\": 20 }\n" +
+        "    { \"id\": \"weapon_railgun_t2\", \"base_damage\": 20 },\n" +
+        "    { \"id\": \"tractor_em_array_t2\" },\n" +
+        "    { \"id\": \"tractor_graviton_t3\" },\n" +
+        "    { \"id\": \"tractor_magnetic_t1\" }\n" +
         "  ]\n" +
         "}\n";
 

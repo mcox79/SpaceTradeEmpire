@@ -46,6 +46,7 @@ public partial class SimBridge
             result["tier"] = fo.Tier.ToString();
             result["score"] = fo.RelationshipScore;
             result["blind_spot_exposed"] = fo.BlindSpotExposed;
+            result["dialogue_count"] = fo.DialogueEventLog?.Count ?? 0;
 
             // Resolve name from content
             foreach (var c in FirstOfficerContentV0.Candidates)

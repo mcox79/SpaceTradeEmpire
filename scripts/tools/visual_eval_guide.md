@@ -81,6 +81,24 @@ objects, then judge them against BEST-IN-CLASS standards from reference games.
 - Distance label (right): remaining distance in ly/units
 - Additionally: center-bottom label "→ [Destination Name]" from main HUD
 
+### Combat Vignette (flight mode, combat only)
+- Red border glow (shader-based edge tint) during COMBAT state
+- Smoothstep from 0.7 to 1.0 creates edge-only effect (center stays clear)
+- Fades in 0.4s on combat start, fades out 0.6s on combat end
+- Indicates hostile proximity — visible in screenshots as red-tinted screen edges
+
+### Transit Label Suppression (flyby arrival)
+- Transit overlay ("→ System X") and WARP TRANSIT HUD hidden during flyby arrival
+- `suppress_transit_overlay` flag active from post-approach through flyby cinematic
+- Only cleared when state transitions to IN_FLIGHT
+- Prevents triple-stack of transit label + warp HUD + arrival cinematic
+
+### Toast System (top-right corner)
+- Event log toasts: salvage, turbulence, arrival notifications, mission updates
+- "Arrived at [System Name]" toast on lane arrival (2.5s duration)
+- Gold-tinted mission toasts, white general toasts
+- Stacks vertically if multiple fire simultaneously
+
 ### Edgedar Overlay (screen-edge arrows, flight mode only)
 - Blue arrows: lane gates (off-screen navigation targets)
 - Red arrows: hostile fleets
@@ -137,10 +155,40 @@ When evaluating, compare what you see to these genre-leading examples:
 - Faction territories should use color-coding, not just text
 - Zoom levels should reveal more detail, not just scale
 
-**Ship & Fleet — Reference: Homeworld 3, Starsector, FTL**
+**Ship & Fleet — Reference: Homeworld 3, Starsector, FTL, SPAZ 2**
 - Player ship should be immediately identifiable (glow, outline, or scale)
 - NPC ships should communicate role visually (military=angular, trader=bulky)
 - Fleet formations should look intentional, not random scatter
+- Ship spin should be visible and readable from top-down (SPAZ 2: shield arc rotates with ship)
+- Axial/spinal weapons should have a distinct visual (SPAZ 2: thick beam from bow, clearly different from turret fire)
+
+**Combat — Reference: Starsector, Starcom, SPAZ 2**
+- Weapon families should be visually distinct (beam vs projectile vs missile)
+- Spinal/axial weapons should dominate the visual frame (SPAZ 2: yellow beam cuts across entire screen)
+- Combat chaos should still be readable — weapon group indicators (SPAZ 2: numbered slots 1-4 on HUD edge)
+- Tractor beams as an active combat/scavenge tool, not passive auto-pickup (SPAZ 2: dedicated tractor binding)
+
+**NPC Interaction — Reference: Starsector, Sunless Skies, Freelancer**
+- NPCs should feel like people with agendas — portrait + personality-driven text, not just stat blocks
+- Dialogue choices should have visible consequences or at least hint at outcomes (Starsector: commission acceptance, faction standing change)
+- Officers/crew should have names, portraits, roles, and narrative prose (Sunless Skies: officer encounter text)
+- Job boards and news should feel in-universe — the player reads "news" that is actually faction/economy intel (Freelancer: news feed as world state)
+
+**Mission Journal — Reference: Starsector (intel), Starfield (mission log)**
+- Missions should be categorized by type (faction/bounty/exploration/smuggling), not just a flat list
+- Each mission should have: briefing text, objective checklist, reward preview, location on galaxy map
+- "Show on Map" should be a one-click action from the journal (Starfield: "Show All Targets" + "Set Course")
+- Completed missions should remain accessible for narrative context
+
+**Faction/Diplomacy — Reference: Mount & Blade, Starsector, Stellaris**
+- Faction standing should be a visible bar/meter, not hidden behind a tooltip
+- Relationship modifiers should be enumerated (why they like/dislike you), not just a final number
+- Multi-faction view should show all standings at once for strategic comparison (Mount & Blade: at-war/at-peace list)
+
+**Empire Dashboard — Reference: Stellaris, Distant Worlds 2**
+- Economy should show revenue AND expenses in a breakdown, not just net credits
+- Fleet/ship overview should show state (idle/combat/transit), not just existence
+- Situation log / event feed should surface the most urgent items automatically
 
 **DO NOT grade on a curve because this is indie.** The player doesn't care about
 development context — they compare against every game they've ever played. Flag
@@ -368,6 +416,39 @@ Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views hav
 
 ---
 
+## 4b. OVERLAY PANELS — Keyboard-Toggled (mission_journal, knowledge_web, combat_log)
+
+These panels are toggled via keyboard shortcuts during flight (not docked).
+
+### Mission Journal (J key) — `mission_journal` screenshot
+- Panel overlay showing mission list
+- Accept/complete status per mission
+- Prerequisites display (what must be done before accepting)
+- Reward info and description text
+- Filter buttons for mission types (if multiple missions exist)
+- Should show any active or completed missions from the bot's play session
+
+### Knowledge Web (K key) — `knowledge_web` screenshot
+- Faction, character, and lore data log entries
+- Thread filter buttons (categories for organizing entries)
+- Data entries with timestamps and source tags
+- Content populated from discoveries, faction encounters, and mission completions
+
+### Combat Log (L key) — `combat_log` screenshot
+- Combat event chronology
+- Damage dealt/received entries with timestamps
+- Kill/death records
+- Should have content from earlier NPC combat phase (bot damages NPCs before this capture)
+
+### Evaluation Criteria (all three panels)
+- Panel renders as a proper overlay (not replacing the game world)
+- Content is readable (text contrast, font size hierarchy)
+- Panel can be dismissed (toggle key noted, close button visible)
+- Panel is not blank — should have content from the bot's play session
+- Layout follows dark navy panel aesthetic (consistent with dock menu, empire dashboard)
+
+---
+
 ## 5. GALAXY MAP (galaxy_map)
 
 ### Readability
@@ -415,7 +496,7 @@ Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views hav
 - Guidance text helpful for empty states ("dock at a station to start research")
 
 ### Polish
-- Background scrim dims the game world (0.55 opacity)
+- Background scrim dims the game world (0.85 opacity)
 - Panel styling: dark navy bg, border, 8px corners
 - Scrollable if content overflows
 - Close button (X) visible
@@ -494,7 +575,7 @@ keeps the player ship center with enemies clearly distributed around it.
 
 *Can the player parse the game state in under 3 seconds?*
 
-Evidence sources: Sections 3 (HUD), 4 (Dock), 5 (Galaxy Map), 6 (Empire Dashboard), 8 (Technical).
+Evidence sources: Sections 3 (HUD), 4 (Dock), 4b (Overlay Panels), 5 (Galaxy Map), 6 (Empire Dashboard), 8 (Technical).
 
 | Criterion | What to look for |
 |-----------|-----------------|
@@ -503,6 +584,7 @@ Evidence sources: Sections 3 (HUD), 4 (Dock), 5 (Galaxy Map), 6 (Empire Dashboar
 | Information density | Enough info to act on, not so much the eye bounces without landing |
 | Typographic hierarchy | Title > heading > body > caption — sizes and weights distinguish levels |
 | State communication | Current game mode (flying/docked/transit/combat) obvious from HUD alone |
+| Panel accessibility | Can the player find mission, research, and intel info via keyboard panels (J/K/L)? |
 
 AAA standard: Elite Dangerous — the entire ship state reads in one glance (shields as
 circle, hull as bar, target in center, speed left, heat right). FTL — health, fuel,
@@ -531,7 +613,7 @@ conveys scale. Outer Wilds — small solar system but every angle reveals new de
 
 *Does the game feel finished or prototypey?*
 
-Evidence sources: Sections 3-6 (all UI panels), Section 8 (Technical Compliance).
+Evidence sources: Sections 3-6 (all UI panels), Section 4b (Overlay Panels), Section 8 (Technical Compliance).
 
 | Criterion | What to look for |
 |-----------|-----------------|
@@ -540,6 +622,7 @@ Evidence sources: Sections 3-6 (all UI panels), Section 8 (Technical Compliance)
 | Empty states | "No items" is handled gracefully, not blank space or missing panel |
 | Edge cases | Long text truncates with ellipsis not overflow. Large numbers formatted correctly |
 | Visual coherence | All panels share the same dark navy aesthetic. No rogue colors or mismatched styles |
+| Progressive disclosure | Do tabs appear with [NEW] gold badge at the right progression point? Ship tab after combat, Station+Intel after 3+ nodes |
 
 AAA standard: Slay the Spire — even as indie, every card, every panel, every tooltip
 is pixel-perfect. Starsector — complex UI but every panel follows the same design
@@ -608,6 +691,12 @@ compared against any game.
 |------|------|----------|--------------------------|
 | `ref_flight_starcom.jpg` | Starcom | Flight view | Top-down flight composition: ship framed inside gate ring, HUD overlay (speed/energy/hull), crosshair, dark space background. How to make a top-down view feel spatial |
 | `ref_combat_starcom.png` | Starcom | Combat | Top-down combat readability: shield bubbles, projectile trails connecting attacker to target, planet depth layers. The standard for our combat view |
+| `ref_combat_starsector.jpg` | Starsector | Fleet combat | **The #1 combat reference.** Shield arcs (blue/orange bubbles per facing), flux bars, beam weapons (green lasers), "Overloaded" state on stressed ships, hull/flux/CR readout. Shows how shield facings + flux pressure (= our zone armor + heat) read from top-down during fleet chaos |
+| `ref_flight_starcom_cruise.png` | Starcom Nexus | System cruise | Top-down system cruise: star with lens flare, two planets with atmosphere shaders, tiny ship centered, energy/hull bars bottom-right. How a populated system feels vast from top-down — empty space between objects creates scale |
+| `ref_flight_spaz.webp` | SPAZ 2 | Flight + HUD | Top-down flight with rotating ship, circular shield/radar indicator (green arc = shield facing), resource bars (REZ/DATA) at top, nebula + asteroid environment. Ship rotation visible during flight — directly comparable to our spin mechanic. Shows how a spinning ship reads from top-down camera |
+| `ref_combat_spaz_axial.jpg` | SPAZ 2 | Combat + axial weapon | Capital ship firing axial beam weapon (our spinal mount equivalent) while small ships swarm. Beam trail, debris particles, explosion VFX, fleet chaos. Shows how a spinal weapon reads visually from top-down — the yellow beam is the focal point through the chaos. Weapon group slots (1-4) on left edge |
+| `ref_galaxy_spaz.jpg` | SPAZ 1 | Star map | Difficulty-numbered nodes, "YOU ARE HERE" indicator, overlay filters (Colony/Mining/Science), locked/new/vendor icons, F-key command bar. Connected graph with red edges — comparable to our lane topology. Node difficulty numbers = our threat level equivalent |
+| `ref_flight_starsector_cruise.png` | Starsector | System travel | Top-down system cruise with planet approach, fleet status bar (bottom), sensor range indicator, star + planets visible. Shows how Starsector communicates travel state — fleet icon trail, destination marker, supply/fuel bars. Directly comparable to our lane transit + system arrival |
 
 #### UI comps (2D panels — perspective-agnostic)
 
@@ -615,6 +704,10 @@ compared against any game.
 |------|------|----------|--------------------------|
 | `ref_dock_starsector.png` | Starsector | Market/trade | Grid-based commodity inventory, tabbed categories, faction crest + planet as visual anchor. Dense but scannable |
 | `ref_dock_starsector_refit.png` | Starsector | Ship fitting | Ship model center with hardpoint slots, weapon stat panel, hull features. Dense but readable |
+| `ref_dock_starsector_refit2.png` | Starsector | Ship fitting (fighter bays) | Expanded refit view showing fighter bay slots, hull mod features panel, capacitor/vent allocation bars, variant naming. Shows how Starsector packs deep fitting into a single screen |
+| `ref_dock_starsector_refit3.png` | Starsector | Ship fitting (capital) | Capital ship refit with massive hull, many weapon mounts, hull features list. Scale difference between frigate and capital fitting visible |
+| `ref_hud_starsector.jpg` | Starsector | Combat HUD (full) | **Key HUD reference.** Weapon groups list (left), flux/hull/CR bars (bottom-right), ship status modifiers (left panel: CR, speed, maneuver bonuses), target info. Shows how dense combat information stays readable — weapon groups numbered 1-4 with fire mode (linked/alternating/autofire) |
+| `ref_hud_starsector_overlay.jpg` | Starsector | Target overlay | Shield arc facing indicator (orange wedge), target ship name/class/variant, range/speed readout, weapon group assignment to target. Shows how to communicate "which face am I hitting" — directly relevant to our zone armor targeting |
 | `ref_galaxy_stellaris.png` | Stellaris | Galaxy map (zoomed) | Hyperlane topology with system info panel, territory coloring, system icons |
 | `ref_galaxy_stellaris_full.jpg` | Stellaris | Galaxy map (full) | Full galaxy with color-coded empire territories, faction logos, outliner panel (planets/fleets/ships). Strategic overview gold standard |
 | `ref_empire_stellaris.png` | Stellaris | Empire overview | Outliner sidebar: planets, military fleets, civilian ships with details. How to make a dashboard feel like running an empire |
@@ -625,6 +718,22 @@ compared against any game.
 | `ref_dock_starcom.png` | Starcom | Tech tree | Tab navigation, node-graph tech tree, color-coded completion state, hover tooltips, station identity |
 | `ref_dialogue_starcom.png` | Starcom Nexus | Dialogue | Dialogue panel layout, character portrait, response options, planet backdrop |
 | `ref_dock_moo.png` | MOO 2016 | Diplomacy | Two-party mirror layout, disposition bar, clear CTAs. Future faction negotiation reference |
+| `ref_dock_x4_factory.jpg` | X4 Foundations | Station/factory building | Modular station construction: production module catalog (left), 3D station preview (center), module list (right), build resources + builder assignment (bottom). Shows how complex production chains read visually — directly relevant to our Haven starbase upgrades and industry sites |
+| `ref_hud_endless2_techweb.jpg` | Endless Space 2 | Tech web (full) | Radial tech web with 4 quadrants (military/science/economy/empire), concentric tier rings, dependency lines, research queue (left panel). The gold standard for tech tree UI — elegant, explorable, communicates breadth and depth simultaneously |
+| `ref_hud_endless2_techweb_zoom.jpg` | Endless Space 2 | Tech web (zoomed) | Zoomed tech node: icon + name + tier number, prerequisite lines, reward preview icons below each node. Shows how individual tech nodes communicate value at a glance without tooltip |
+| `ref_hud_spaz_controls.jpg` | SPAZ 2 | Controls/bindings | Controller binding screen with dedicated tractor beam, boost shields, boost engines, weapon group cycle, camera zoom bindings. Shows the input vocabulary of a top-down space combat game — tractor beam as a first-class action, shields/engines as active resource toggles |
+| `ref_dialogue_starsector_npc.png` | Starsector | NPC conversation | **Key NPC reference.** Bar encounter: NPC portrait (right), dialogue text with faction context, numbered response options ("You decide..."), commission acceptance flow, faction crest. Shows how to make an NPC feel like a person with agenda — text conveys personality, options have visible consequences |
+| `ref_hud_starsector_intel.png` | Starsector | Intel/mission screen | **Key mission reference.** Tabbed categories (Factions/Bounties/Exploration/Fleet/Hostilities/Smuggling), mission list (left), detail panel (right) with faction crest + NPC portrait, galaxy map inset showing mission location. Shows how to organize 50+ active missions without overwhelming |
+| `ref_hud_starsector_intel_map.png` | Starsector | Intel + galaxy map | Intel screen with galaxy map expanded — mission markers on map, warning beacon list, sector-wide intel at a glance. Shows how mission journal and galaxy map integrate — click mission, see it on the map |
+| `ref_hud_starsector_reports.png` | Starsector | Reports/bounties | Report detail with NPC portrait, bounty description, reward amount, location clues ("Ambiguity" field). Shows how to make a mission briefing feel like intelligence — narrative text, not just objective bullets |
+| `ref_dock_starsector_cargo.png` | Starsector | Fleet cargo transfer | Cargo transfer dialog: grid of good icons with quantities, value/unit, credit total, source/destination. Shows how to make cargo management fast — icon grid > text list, drag-and-drop implied |
+| `ref_hud_starfield_missions.png` | Starfield | Mission log | Tabbed mission log (All/Main/Faction/Misc/Mission/Activity/Completed), tree-structured objectives with checkboxes, quest description left panel. Shows modern mission journal UX — hierarchical objectives, clear completion state, "Show on Map" + "Set Course" CTAs |
+| `ref_empire_dw2_summary.png` | Distant Worlds 2 | Empire summary | **Key dashboard reference.** Economy panel (revenue/expenses breakdown), diplomacy status (war/peace per faction), ships & bases count, situation log. Shows how to pack empire-scale information into one screen — column layout, color-coded rows, sparkline-style indicators |
+| `ref_hud_stellaris_settings.png` | Stellaris | Settings/new game | Game settings as a clean two-column key-value table with sliders and dropdowns. Shows how complex configuration stays scannable — consistent row height, grouped categories, "Reset to Default" safety net |
+| `ref_dock_x4_inventory.png` | X4 Foundations | Trade/inventory | First-person station trade screen with tabular goods list (name/price/qty/supply/demand columns), station identity top-center, ship storage/pricing/transaction detail panels below. Shows how to present trade data in a cockpit context |
+| `ref_dialogue_sunlessskies_officers.png` | Sunless Skies | Officers/crew | **Key FO reference.** Named officer with portrait, narrative encounter text (personality-driven prose), numbered response choices, officer roster sidebar with role icons (Signalman, Chief Engineer, Mascot). Shows how to make crew feel like characters — prose descriptions, not stat blocks |
+| `ref_dialogue_freelancer_jobboard.png` | Freelancer | Job board / news | News feed with NPC portrait, selectable headlines, narrative text per item, resource ticker at bottom (food/fuel/goods). Shows how to deliver world state through an in-universe news interface — the player reads "news" that is actually faction/economy intel |
+| `ref_hud_mountblade_diplomacy.png` | Mount & Blade | Diplomacy/factions | **Key faction reference.** Two-party diplomacy: faction crests, at-war/at-peace list, relationship attributes (Total Strength, Cohesion, Fiefs, etc.), tribute/alliance options. Shows how to present faction standing as a comparison — side-by-side layout with clear asymmetry |
 
 #### Principle-only (different perspective — extract design principles, not composition)
 
@@ -638,9 +747,33 @@ compared against any game.
 
 | Category | What we need | Best source game |
 |----------|-------------|-----------------|
-| Top-down fleet combat (shields, flux) | Starsector fleet battle with shield arcs + flux bars | Starsector |
-| Top-down system cruise (populated) | Starsector patrol/travel through a system with planets | Starsector |
-| Top-down HUD during real-time flight | Starsector or Starcom flight HUD overlay | Starsector |
+| FTL combat cross-section | Both ships visible mid-combat, room-by-room damage (zone paperdoll reference) | FTL |
+| Cosmoteer modular ship building | Turret arc visualization during ship construction | Cosmoteer |
+| Disco Elysium skill check | Dialogue choice with visible consequence/probability | Disco Elysium |
+
+#### Recently filled gaps
+
+| Category | File | What it provides |
+|----------|------|-----------------|
+| **NPC conversation** | `ref_dialogue_starsector_npc.png` | Bar encounter with portrait, faction context, numbered responses — the key NPC interaction reference |
+| **Mission journal** | `ref_hud_starsector_intel.png`, `ref_hud_starfield_missions.png` | Tabbed mission categories, detail panel, galaxy map integration, hierarchical objectives |
+| **Mission briefing** | `ref_hud_starsector_reports.png` | Bounty detail with NPC portrait, narrative description, reward, location clues |
+| **Faction diplomacy** | `ref_hud_mountblade_diplomacy.png` | Two-party comparison, relationship attributes, war/peace status, tribute options |
+| **Officer/crew panel** | `ref_dialogue_sunlessskies_officers.png` | Named officers with portraits, narrative prose, role icons — FO reference |
+| **Job board / news** | `ref_dialogue_freelancer_jobboard.png` | In-universe news as intel delivery, NPC portrait, selectable headlines |
+| **Empire dashboard** | `ref_empire_dw2_summary.png` | Economy breakdown, diplomacy status, ships/bases, situation log — empire-at-a-glance |
+| **Cargo/inventory** | `ref_dock_starsector_cargo.png`, `ref_dock_x4_inventory.png` | Icon grid transfer, tabular trade data |
+| **Settings/config** | `ref_hud_stellaris_settings.png` | Clean key-value settings table with sliders |
+| **System travel** | `ref_flight_starsector_cruise.png` | Top-down system cruise with fleet trail, sensor range |
+| Top-down fleet combat | `ref_combat_starsector.jpg` | Shield arcs, flux, beam weapons, Overloaded state |
+| Top-down combat HUD | `ref_hud_starsector.jpg` | Weapon groups, flux/hull/CR, status modifiers |
+| Target overlay / zone facing | `ref_hud_starsector_overlay.jpg` | Shield arc wedge — "which face am I hitting" |
+| Ship fitting depth | `ref_dock_starsector_refit2.png`, `ref_dock_starsector_refit3.png` | Fighter bays, capital fitting, hull mods |
+| Station/factory | `ref_dock_x4_factory.jpg` | Modular station construction with production chains |
+| Tech tree web | `ref_hud_endless2_techweb.jpg`, `ref_hud_endless2_techweb_zoom.jpg` | Radial tech web |
+| Top-down combat + axial | `ref_combat_spaz_axial.jpg` | Spinal beam, fleet chaos, weapon groups |
+| Top-down flight + spin | `ref_flight_spaz.webp` | Rotating ship with shield arc, HUD overlay |
+| Star map topology | `ref_galaxy_spaz.jpg` | Difficulty-gated connected graph, player locator, overlay filters |
 
 If no reference images exist for a category, evaluate against the AAA text
 descriptions in Section 0 and the per-dimension AAA standards in Section 9.

@@ -36,20 +36,21 @@ references this doc.
 | Combat log panel (L key, last 20 events) | Done | Gold=player, red=AI |
 | Strategic resolver (50-round attrition, zone-aware) | Done | SHA256 replay verification |
 | NPC HP bar (3D billboard, green) | Done | Distance-gated at 40m |
-| Shield impact ripple effect | Not implemented | No visual distinction shield vs hull hit |
-| Damage numbers floating text | Not implemented | No per-hit numeric feedback |
-| Kill explosion VFX | Not implemented | Ships just disappear |
-| Shield break flash | Not implemented | No "shields down" moment |
-| Zone damage visualization | Not implemented | 4 zones exist but aren't shown |
-| Weapon trail differentiation by family | Not implemented | All bullets look the same |
+| Shield impact ripple effect | Done | COMBAT_FEEL_POLISH — shield_ripple.gd |
+| Damage numbers floating text | Done | COMBAT_JUICE — damage_number.gd |
+| Kill explosion VFX | Done | COMBAT_JUICE — explosion_effect.gd |
+| Shield break flash | Done | COMBAT_FEEL_POLISH — shield break SFX + visual |
+| Zone damage visualization | Not implemented | 4 zones exist but aren't shown on HUD paperdoll |
+| Weapon trail differentiation by family | Done | COMBAT_FEEL_POLISH — per-family trail color/shape |
 | Combat music crossfade | Done | Calm→combat transition on hostile proximity |
 | Death screen | Done but disabled | "GAME OVER" red text, press R to restart |
-| **Battle Stations spin-up** | **Not implemented** | **No spin system exists yet** |
+| **Battle Stations spin-up** | **SimCore done, visual not** | **State machine + bridge queries done (T31). No visual ship rotation or spin-up animation yet** |
 | **Spin-fire cadence** | **Not implemented** | **Turrets fire continuously, no rotation cadence** |
-| **Heat gauge HUD** | **Not implemented** | **No heat system exists yet** |
-| **Overheat cascade feedback** | **Not implemented** | **No thermal warnings or forced ceasefire** |
-| **Radiator targeting/destruction** | **Not implemented** | **No radiator subsystem HP** |
-| **Spinal mount fire** | **Not implemented** | **No mount type differentiation** |
+| **Spin turn penalty** | **Not implemented** | **Gyroscopic precession turn rate reduction during spin — designed in ship_modules_v0.md** |
+| **Heat gauge HUD** | **Done** | **COMBAT_PHASE2 — heat bar + battle stations indicator in hud.gd** |
+| **Overheat cascade feedback** | **Not implemented** | **Heat system exists but no visual/audio degradation (shimmer, glow, forced vent VFX)** |
+| **Radiator targeting/destruction** | **SimCore done, VFX not** | **Radiator HP + bonus rate in CombatSystem. No destruction VFX (tin droplet spray)** |
+| **Spinal mount fire** | **Not implemented** | **No mount type differentiation on ModuleSlot** |
 
 ---
 

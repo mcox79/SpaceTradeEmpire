@@ -9,13 +9,13 @@ func _process(delta):
 	var velocity = Vector3.ZERO
 
 	# WASD / ARROW MOVEMENT
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if Input.is_action_pressed("ship_thrust_fwd"):
 		velocity.z -= 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if Input.is_action_pressed("ship_thrust_back"):
 		velocity.z += 1
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if Input.is_action_pressed("ship_turn_left"):
 		velocity.x -= 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if Input.is_action_pressed("ship_turn_right"):
 		velocity.x += 1
 
 	if velocity.length() > 0:

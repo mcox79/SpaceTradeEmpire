@@ -591,13 +591,13 @@ func _update_galaxy_map(delta: float) -> void:
 
 	# WASD panning — speed scales proportional to altitude for consistent feel.
 	var pan_speed_scaled: float = GALAXY_MAP_PAN_SPEED * (_altitude / STRATEGIC_ALTITUDE)
-	if Input.is_key_pressed(KEY_W) or Input.is_action_pressed("ship_thrust_fwd"):
+	if Input.is_action_pressed("ship_thrust_fwd"):
 		_galaxy_map_pan_offset.z -= pan_speed_scaled * delta
-	if Input.is_key_pressed(KEY_S) or Input.is_action_pressed("ship_thrust_back"):
+	if Input.is_action_pressed("ship_thrust_back"):
 		_galaxy_map_pan_offset.z += pan_speed_scaled * delta
-	if Input.is_key_pressed(KEY_A) or Input.is_action_pressed("ship_turn_left"):
+	if Input.is_action_pressed("ship_turn_left"):
 		_galaxy_map_pan_offset.x -= pan_speed_scaled * delta
-	if Input.is_key_pressed(KEY_D) or Input.is_action_pressed("ship_turn_right"):
+	if Input.is_action_pressed("ship_turn_right"):
 		_galaxy_map_pan_offset.x += pan_speed_scaled * delta
 
 	# Compute desired camera position: above player anchor + pan offset, looking straight down.

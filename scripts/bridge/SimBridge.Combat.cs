@@ -759,6 +759,94 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S7.COMBAT_PHASE2.SPIN_BRIDGE.001: Spin state + mount type queries ──
+
+    /// <summary>
+    /// Returns spin combat state for player fleet:
+    /// {spin_rpm (int), turn_penalty_bps (int), mount_types (Array of dicts)}.
+    /// Nonblocking: returns defaults if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetSpinStateV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["spin_rpm"] = 0,
+            ["turn_penalty_bps"] = 0,
+            ["mount_types"] = new Godot.Collections.Array(),
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            result["spin_rpm"] = player.SpinRpm;
+            int penaltyBps = player.SpinRpm * SimCore.Tweaks.CombatTweaksV0.TurnPenaltyBpsPerRpm;
+            if (penaltyBps > SimCore.Tweaks.CombatTweaksV0.MaxTurnPenaltyBps)
+                penaltyBps = SimCore.Tweaks.CombatTweaksV0.MaxTurnPenaltyBps;
+            result["turn_penalty_bps"] = penaltyBps;
+
+            var mountArr = new Godot.Collections.Array();
+            foreach (var slot in player.Slots)
+            {
+                if (slot.SlotKind != SimCore.Entities.SlotKind.Weapon) continue;
+                mountArr.Add(new Godot.Collections.Dictionary
+                {
+                    ["slot_id"] = slot.SlotId ?? "",
+                    ["module_id"] = slot.InstalledModuleId ?? "",
+                    ["mount_type"] = slot.MountType.ToString(),
+                });
+            }
+            result["mount_types"] = mountArr;
+        }, 0);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns per-slot mount types for a fleet (for ship fitting UI).
+    /// Array of {slot_id, slot_kind, mount_type, installed_module_id}.
+    /// </summary>
+    public Godot.Collections.Array GetMountTypesV0(string fleetId)
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+            foreach (var slot in fleet.Slots)
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["slot_id"] = slot.SlotId ?? "",
+                    ["slot_kind"] = slot.SlotKind.ToString(),
+                    ["mount_type"] = slot.MountType.ToString(),
+                    ["installed_module_id"] = slot.InstalledModuleId ?? "",
+                });
+            }
+        }, 0);
+        return result;
+    }
+
+    // Diagnostic: returns total loot drops count + all drop node IDs for debugging.
+    public Godot.Collections.Dictionary GetLootDiagV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["total"] = 0,
+            ["player_node"] = "",
+            ["drop_nodes"] = "",
+        };
+        TryExecuteSafeRead(state =>
+        {
+            result["total"] = state.LootDrops.Count;
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var player))
+                result["player_node"] = player.CurrentNodeId ?? "";
+            var nodes = new System.Collections.Generic.List<string>();
+            foreach (var kv in state.LootDrops)
+                nodes.Add(kv.Value.NodeId ?? "null");
+            result["drop_nodes"] = string.Join(",", nodes);
+        }, 0);
+        return result;
+    }
+
     // GATE.S5.LOOT.BRIDGE_PROOF.001: Returns loot drops at the player's current node.
     // [{drop_id, rarity, credits, goods_count, tick_created}]
     public Godot.Collections.Array GetNearbyLootV0()

@@ -54,4 +54,22 @@ public static class WellKnownModuleIds
     // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator modules
     public const string RadiatorBasic           = "radiator_basic";
     public const string RadiatorAdvanced        = "radiator_advanced";
+    // GATE.S5.TRACTOR.MODEL.001: Tractor modules
+    public const string TractorMagneticT1       = "tractor_magnetic_t1";
+    public const string TractorEmArrayT2        = "tractor_em_array_t2";
+    public const string TractorGravitonT3       = "tractor_graviton_t3";
+
+    // GATE.S8.TRACTOR.WEAVER.001: Weaver faction tractor variant
+    public const string TractorWeaverSpindle    = "tractor_weaver_spindle";
+
+    // GATE.S8.T3_MODULES.CONTENT.001: T3 precursor modules (discovery-only)
+    public const string WeaponVoidLanceT3       = "weapon_void_lance_t3";
+    public const string WeaponDisruptorT3       = "weapon_disruptor_t3";
+    public const string WeaponNullCannonT3      = "weapon_null_cannon_t3";
+    public const string ShieldPhaseT3           = "shield_phase_t3";
+    public const string EngineDimensionalT3     = "engine_dimensional_t3";
+    public const string ScannerPrecursorT3      = "scanner_precursor_t3";
+    public const string UtilityTemporalT3       = "utility_temporal_stabilizer_t3";
+    public const string UtilityVoidHarvesterT3  = "utility_void_harvester_t3";
+    public const string UtilityResonanceAmpT3   = "utility_resonance_amplifier_t3";
 }

@@ -511,7 +511,7 @@ func _do_buy(loc: String, good_id: String, qty: int, credits_before: int) -> voi
 		_consecutive_idles = 0
 		# Stress: track buy price
 		if _mode in ["stress", "full"]:
-			var unit_price := (credits_before - credits_after) / max(1, qty)
+			var unit_price: int = (credits_before - credits_after) / max(1, qty)
 			_track_price(good_id, unit_price)
 	else:
 		_add_flag("TRADE_NO_EFFECT", "CRITICAL",
@@ -534,7 +534,7 @@ func _do_sell(loc: String, good_id: String, qty: int, credits_before: int) -> vo
 		_consecutive_idles = 0
 		# Stress: track sell price
 		if _mode in ["stress", "full"]:
-			var unit_price := (credits_after - credits_before) / max(1, qty)
+			var unit_price: int = (credits_after - credits_before) / max(1, qty)
 			_track_price(good_id, unit_price)
 	else:
 		_add_flag("TRADE_NO_EFFECT", "CRITICAL",

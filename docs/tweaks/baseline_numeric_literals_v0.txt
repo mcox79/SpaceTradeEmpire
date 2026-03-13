@@ -3,6 +3,19 @@
 #   # FILE <repo-relative-path>
 #   <token> (one per line, order of appearance in file)
 # FILE SimCore/Gen/DiscoverySeedGen.cs
+2
+1f
+0
+100u
+100f
+0.5f
+40f
+8
+100u
+100f
+0.5f
+40f
+0
 0
 1
 # FILE SimCore/Gen/GalaxyGenerator.cs
@@ -20,9 +33,11 @@
 0
 256
 0
+0
 1
 0
 0
+0.5f
 0
 0
 0
@@ -89,7 +104,11 @@
 0
 0
 0
+0
+0
+0
 # FILE SimCore/Gen/MarketInitGen.cs
+0
 0
 7919
 1301
@@ -134,6 +153,46 @@
 0
 1
 0
+# FILE SimCore/Gen/NarrativePlacementGen.cs
+0
+0
+0
+1
+0
+0
+0
+0
+1
+1
+1
+3
+2
+2
+5
+3
+4
+99
+1
+99
+3
+0
+0
+1
+0
+0
+1
+0
+1
+0
+0
+0
+3
+0
+0
+3
+2
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Gen/PlanetInitGen.cs
 0
 0
@@ -215,6 +274,7 @@
 0
 0
 # FILE SimCore/Gen/StarNetworkGen.cs
+0x4E414D45
 0
 2
 1
@@ -237,7 +297,15 @@
 3
 1
 5
+0
+0
+0
+0
+# FILE SimCore/Gen/SystemNameGen.cs
 100
+25
+0
+20
 # FILE SimCore/Systems/BandedTime.cs
 0
 0
@@ -283,6 +351,7 @@
 0
 0
 0
+0
 1
 0
 0
@@ -309,14 +378,36 @@
 # FILE SimCore/Systems/DiscoveryOutcomeSystem.cs
 2
 1
+0
 # FILE SimCore/Systems/DoctrineSystem.cs
 0
 100
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/EscortSystem.cs
 0
 0
 # FILE SimCore/Systems/FailureRecoverySystem.cs
 3
+# FILE SimCore/Systems/FirstOfficerSystem.cs
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/FractureSystem.cs
 1
 2
@@ -329,6 +420,40 @@
 0.1f
 1.0f
 0f
+# FILE SimCore/Systems/FractureWeightSystem.cs
+0
+0
+0
+0
+0
+10000
+1
+1
+0
+0
+4
+3
+2
+1
+0
+14695981039346656037UL
+1099511628211UL
+1099511628211UL
+1099511628211UL
+# FILE SimCore/Systems/HavenHangarSystem.cs
+1
+0
+# FILE SimCore/Systems/HavenUpgradeSystem.cs
+0
+0
+0
+1
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/IndustrySystem.cs
 1440
 10000
@@ -362,6 +487,42 @@
 0
 0
 0
+# FILE SimCore/Systems/InstrumentDisagreementSystem.cs
+0
+0
+0
+0
+2
+0
+10000
+1
+0
+0
+0
+0
+2
+0
+10000
+1
+1
+0
+0.5f
+1
+100
+1
+0
+0.5f
+1
+3
+1
+1
+0
+0
+14695981039346656037UL
+1099511628211UL
+1099511628211UL
+1099511628211UL
+1099511628211UL
 # FILE SimCore/Systems/IntelSystem.cs
 0
 0
@@ -392,6 +553,17 @@
 10
 50
 200
+0
+3
+2
+1
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/IntentSystem.cs
 0
 0
@@ -412,6 +584,9 @@
 0
 1
 31
+# FILE SimCore/Systems/KnowledgeGraphSystem.cs
+0
+0
 # FILE SimCore/Systems/LaneFlowSystem.cs
 0
 4
@@ -572,6 +747,15 @@
 1
 10000
 1
+10000
+0
+10000
+10000
+0
+10000
+10000
+2
+1
 # FILE SimCore/Systems/MilestoneSystem.cs
 0
 # FILE SimCore/Systems/MissionSystem.cs
@@ -581,8 +765,26 @@
 0
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+1
+0
+0
 1
 1
+0
+0
+0
 0
 1
 1
@@ -618,6 +820,17 @@
 0
 0
 0f
+0
+1f
+# FILE SimCore/Systems/NarrativeNpcSystem.cs
+0
+0
+1099511628211UL
+0
+0
+0
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Systems/NpcFleetCombatSystem.cs
 0
 0
@@ -637,6 +850,7 @@
 0
 0
 # FILE SimCore/Systems/NpcTradeSystem.cs
+0
 0
 2
 0
@@ -661,12 +875,34 @@
 0
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/PowerBudgetSystem.cs
 0
 0
 0
 0
 1
+0
+0
+# FILE SimCore/Systems/PressureSystem.cs
+0
+0
+0
+0
+0
 0
 0
 # FILE SimCore/Systems/ProgramHistorySystem.cs
@@ -677,17 +913,16 @@
 0f
 0
 0
+1
 # FILE SimCore/Systems/ProgramMetricsSystem.cs
-0
-# FILE SimCore/Systems/PressureSystem.cs
-0
-0
-0
-0
 0
 0
 0
 # FILE SimCore/Systems/RefitSystem.cs
+0
+0
+0
+0
 0
 0
 0
@@ -703,6 +938,7 @@
 0
 0
 # FILE SimCore/Systems/ReputationSystem.cs
+0
 0
 0
 0
@@ -754,6 +990,30 @@
 0
 1
 1
+# FILE SimCore/Systems/RouteUncertaintySystem.cs
+1
+1
+1
+1
+0.01f
+1
+0
+0
+100
+0
+1
+100
+1
+1
+3
+2
+1
+0
+3
+2
+14695981039346656037UL
+1099511628211UL
+1099511628211UL
 # FILE SimCore/Systems/SecurityLaneSystem.cs
 0
 0
@@ -788,14 +1048,36 @@
 0
 0
 0
+# FILE SimCore/Systems/StationContextSystem.cs
+0
+1
+2
+3
+0
+0
+100
+100
+# FILE SimCore/Systems/StationMemorySystem.cs
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/StrategicResolverV0.cs
 0
 1
+10000
 0
+0
+10000
+10000
 # FILE SimCore/Systems/SustainSystem.cs
 0f
 1
 1.0f
+0
+0
 0
 0
 0
@@ -831,6 +1113,28 @@
 0
 1
 # FILE SimCore/Systems/SustainmentSnapshot.cs
+# FILE SimCore/Systems/SystemicMissionSystem.cs
+0
+1
+1
+# FILE SimCore/Systems/TopologyShiftSystem.cs
+0
+0
+0
+10000
+0
+0
+0
+0
+0
+1
+14695981039346656037UL
+1099511628211UL
+1099511628211UL
+1099511628211UL
+# FILE SimCore/Systems/WarConsequenceSystem.cs
+0
+0
 # FILE SimCore/Systems/WarfrontDemandSystem.cs
 0
 0
@@ -844,6 +1148,16 @@
 0
 1
 33
+0
+1
+1
+0
+0
+0
+0
+0
+0
+0
 0
 1
 2166136261

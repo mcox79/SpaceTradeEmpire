@@ -2,6 +2,7 @@
 
 using Godot;
 using SimCore;
+using SimCore.Content;
 using System;
 
 namespace SpaceTradeEmpire.Bridge;
@@ -32,6 +33,14 @@ public partial class SimBridge
             result["last_active_tick"] = m.LastActiveTick;
             result["spent_credits_this_cycle"] = m.SpentCreditsThisCycle;
             result["spent_goods_this_cycle"] = m.SpentGoodsThisCycle;
+
+            // GATE.S7.AUTOMATION.PERF_TRACKING.001: Extended metrics.
+            result["total_expense"] = m.TotalExpense;
+            result["trades_completed"] = m.TradesCompleted;
+            result["ticks_active"] = m.TicksActive;
+            result["net_profit"] = m.CreditsEarned - m.TotalExpense;
+            result["consecutive_failures"] = m.ConsecutiveFailures;
+            result["last_failure_reason"] = m.LastFailureReason.ToString();
 
             // Budget info
             var b = fleet.Budget;
@@ -195,65 +204,28 @@ public partial class SimBridge
     }
 
     // ── GetProgramTemplatesV0 ──
-    // GATE.S7.AUTOMATION_MGMT.BRIDGE_WRITES.001: Hardcoded program preset templates.
+    // GATE.S7.AUTOMATION.TEMPLATES_UI.001: Query program preset templates from content registry.
     /// <summary>
     /// Returns an array of preset program template dictionaries.
-    /// Each entry has: template_id, name, description, program_type,
-    /// default_budget_credit, default_budget_goods.
+    /// Each entry has: template_id, display_name, description, program_kind,
+    /// default_cadence_ticks.
     /// </summary>
     public Godot.Collections.Array GetProgramTemplatesV0()
     {
         var arr = new Godot.Collections.Array();
 
-        arr.Add(new Godot.Collections.Dictionary
+        // Read from content registry (static data, no lock needed)
+        foreach (var template in SimCore.Content.ProgramTemplateContentV0.AllTemplates)
         {
-            ["template_id"] = "tpl_basic_trader",
-            ["name"] = "Basic Trader",
-            ["description"] = "Simple buy-low sell-high automation on a single route.",
-            ["program_type"] = "AutoSell",
-            ["default_budget_credit"] = 500,
-            ["default_budget_goods"] = 10,
-        });
-
-        arr.Add(new Godot.Collections.Dictionary
-        {
-            ["template_id"] = "tpl_trade_charter",
-            ["name"] = "Trade Charter",
-            ["description"] = "Multi-hop trade circuit with higher budget for bulk operations.",
-            ["program_type"] = "TradeCharter",
-            ["default_budget_credit"] = 1000,
-            ["default_budget_goods"] = 20,
-        });
-
-        arr.Add(new Godot.Collections.Dictionary
-        {
-            ["template_id"] = "tpl_resource_harvester",
-            ["name"] = "Resource Harvester",
-            ["description"] = "Collects raw materials from mining nodes and delivers to depots.",
-            ["program_type"] = "ResourceTap",
-            ["default_budget_credit"] = 300,
-            ["default_budget_goods"] = 5,
-        });
-
-        arr.Add(new Godot.Collections.Dictionary
-        {
-            ["template_id"] = "tpl_patrol_route",
-            ["name"] = "Patrol Route",
-            ["description"] = "Defensive patrol loop around owned or allied territory.",
-            ["program_type"] = "PatrolProgram",
-            ["default_budget_credit"] = 200,
-            ["default_budget_goods"] = 0,
-        });
-
-        arr.Add(new Godot.Collections.Dictionary
-        {
-            ["template_id"] = "tpl_expedition_scout",
-            ["name"] = "Expedition Scout",
-            ["description"] = "Exploratory sweep of uncharted sectors for discovery opportunities.",
-            ["program_type"] = "Expedition",
-            ["default_budget_credit"] = 500,
-            ["default_budget_goods"] = 5,
-        });
+            arr.Add(new Godot.Collections.Dictionary
+            {
+                ["template_id"] = template.TemplateId,
+                ["display_name"] = template.DisplayName,
+                ["description"] = template.Description,
+                ["program_kind"] = template.ProgramKind,
+                ["default_cadence_ticks"] = template.DefaultCadenceTicks,
+            });
+        }
 
         return arr;
     }

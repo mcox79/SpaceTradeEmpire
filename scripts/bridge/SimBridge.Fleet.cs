@@ -687,6 +687,51 @@ public partial class SimBridge
         return true;
     }
 
+    // GATE.S5.TRACTOR.BRIDGE.001: Tractor beam range query.
+    // Returns {range (int), has_tractor (bool), module_id (string)}.
+    // has_tractor is true only if an equipped module provides range > fallback.
+    public Godot.Collections.Dictionary GetTractorRangeV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["range"] = SimCore.Tweaks.HavenTweaksV0.TractorFallbackRange,
+            ["has_tractor"] = false,
+            ["module_id"] = ""
+        };
+        if (string.IsNullOrEmpty(fleetId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+
+            int bestRange = 0;
+            string bestModuleId = "";
+            if (fleet.Slots != null)
+            {
+                foreach (var slot in fleet.Slots)
+                {
+                    if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                    if (slot.Disabled) continue;
+                    var def = SimCore.Content.UpgradeContentV0.GetById(slot.InstalledModuleId);
+                    if (def != null && def.TractorRange > bestRange)
+                    {
+                        bestRange = def.TractorRange;
+                        bestModuleId = slot.InstalledModuleId;
+                    }
+                }
+            }
+
+            int effectiveRange = bestRange > 0 ? bestRange : SimCore.Tweaks.HavenTweaksV0.TractorFallbackRange;
+            bool hasTractor = bestRange > SimCore.Tweaks.HavenTweaksV0.TractorFallbackRange;
+
+            result["range"] = effectiveRange;
+            result["has_tractor"] = hasTractor;
+            result["module_id"] = bestModuleId;
+        });
+
+        return result;
+    }
+
     // GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fleet sustain status — fuel level, module sustain health.
     public Godot.Collections.Dictionary GetFleetSustainStatusV0(string fleetId)
     {
@@ -723,6 +768,49 @@ public partial class SimBridge
             result["modules"] = modules;
         });
 
+        return result;
+    }
+
+    // GATE.S5.TRACTOR.AUTO_TARGET.001: Returns nearest loot drop at the player's current node.
+    // Returns {has_loot, loot_id, rarity, credits, goods_count} or empty if none.
+    public Godot.Collections.Dictionary GetNearestLootV0()
+    {
+        var result = new Godot.Collections.Dictionary { ["has_loot"] = false };
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var fleet)) return;
+            var nodeId = fleet.CurrentNodeId;
+            if (string.IsNullOrEmpty(nodeId)) return;
+
+            // Check if fleet has a tractor module installed.
+            int tractorRange = 0;
+            foreach (var slot in fleet.Slots)
+            {
+                if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                var modDef = SimCore.Content.UpgradeContentV0.GetById(slot.InstalledModuleId);
+                if (modDef != null && modDef.TractorRange > tractorRange)
+                    tractorRange = modDef.TractorRange;
+            }
+            if (tractorRange <= 0) return;
+
+            // Find first loot drop at the same node (deterministic: earliest TickCreated).
+            SimCore.Entities.LootDrop? nearest = null;
+            foreach (var kv in state.LootDrops)
+            {
+                if (!string.Equals(kv.Value.NodeId, nodeId, StringComparison.Ordinal)) continue;
+                if (nearest == null || kv.Value.TickCreated < nearest.TickCreated)
+                    nearest = kv.Value;
+            }
+
+            if (nearest != null)
+            {
+                result["has_loot"] = true;
+                result["loot_id"] = nearest.Id;
+                result["rarity"] = nearest.Rarity.ToString();
+                result["credits"] = nearest.Credits;
+                result["goods_count"] = nearest.Goods.Count;
+            }
+        }, 0);
         return result;
     }
 }

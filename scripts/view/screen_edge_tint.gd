@@ -15,6 +15,7 @@ uniform float heat_level : hint_range(0.0, 1.0) = 0.0;
 uniform float influence_level : hint_range(0.0, 1.0) = 0.0;
 uniform float trace_level : hint_range(0.0, 1.0) = 0.0;
 uniform float compound_threat : hint_range(0.0, 1.0) = 0.0;
+uniform float combat_overheat : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	// Normalized UV centered at (0, 0) with range [-1, 1].
@@ -25,19 +26,26 @@ void fragment() {
 
 	// Vignette mask: 0 at center, 1 at edges/corners.
 	// smoothstep inner/outer controls how far the glow reaches inward.
-	float vignette = smoothstep(0.8, 1.4, dist);
+	// GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Combat overheat pushes vignette inward.
+	float inner_edge = 0.8 - combat_overheat * 0.3;
+	float vignette = smoothstep(inner_edge, 1.4, dist);
 
 	// Each risk channel contributes its color scaled by its level and the vignette mask.
 	vec3 heat_color      = vec3(1.0, 0.15, 0.08);  // red
 	vec3 influence_color = vec3(0.2, 0.45, 1.0);    // blue
 	vec3 trace_color     = vec3(0.15, 1.0, 0.35);   // green
 
+	// GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Combat overheat shimmer.
+	vec3 overheat_color = vec3(1.0, 0.5, 0.05); // orange shimmer
+	float overheat_pulse = 1.0 + 0.15 * sin(TIME * 6.0) * combat_overheat;
+
 	vec3 combined = heat_color * heat_level
 	              + influence_color * influence_level
-	              + trace_color * trace_level;
+	              + trace_color * trace_level
+	              + overheat_color * combat_overheat * overheat_pulse;
 
 	// Alpha: strongest channel drives opacity, scaled by vignette distance.
-	float max_level = max(heat_level, max(influence_level, trace_level));
+	float max_level = max(heat_level, max(influence_level, max(trace_level, combat_overheat)));
 
 	// Intensity curve: gentle at low values, pronounced near 1.0.
 	// Quartic curve: invisible at low-medium risk, visible only when genuinely critical.
@@ -90,6 +98,16 @@ func update_risk_levels(heat: float, influence: float, trace: float) -> void:
 	_shader_mat.set_shader_parameter("heat_level", clampf(heat, 0.0, 1.0))
 	_shader_mat.set_shader_parameter("influence_level", clampf(influence, 0.0, 1.0))
 	_shader_mat.set_shader_parameter("trace_level", clampf(trace, 0.0, 1.0))
+
+
+## GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Combat overheat shimmer.
+## pct: 0.0 = cool, 0.75+ = shimmer begins, 1.0 = full overheat glow.
+func set_combat_overheat(pct: float) -> void:
+	if _shader_mat == null:
+		return
+	# Remap: below 0.75 = 0, above 0.75 = 0..1 scaled
+	var mapped := clampf((pct - 0.75) / 0.25, 0.0, 1.0) if pct >= 0.75 else 0.0
+	_shader_mat.set_shader_parameter("combat_overheat", mapped)
 
 
 ## Public API — call when compound threat state changes.

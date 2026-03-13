@@ -79,6 +79,7 @@ var _credits_before_buy := 0
 var _credits_after_sell := 0
 var _trades_completed := 0
 var _combats_completed := 0
+var _credits_before_combat := 0
 var _cargo_before := 0
 var _bought_good_id := ""
 
@@ -351,6 +352,15 @@ func _do_check_fo() -> void:
 		if "Score:" in all_text: _flag("FO_PANEL_DEV_STATE|Score")
 		if "War Faces" in all_text: _flag("FO_PANEL_DEV_STATE|WarFaces")
 		if "No known NPCs" in all_text: _flag("FO_PANEL_DEV_STATE|NoKnownNPCs")
+
+	# Auto-promote FO so dialogue triggers fire during the run.
+	if _bridge.has_method("GetFirstOfficerCandidatesV0"):
+		var candidates: Array = _bridge.call("GetFirstOfficerCandidatesV0")
+		if candidates.size() > 0:
+			var ctype := str(candidates[0].get("type", ""))
+			if not ctype.is_empty() and _bridge.has_method("PromoteFirstOfficerV0"):
+				var ok: bool = _bridge.call("PromoteFirstOfficerV0", ctype)
+				_log("FO_PROMOTE|candidate=%s success=%s" % [ctype, str(ok)])
 
 	# Goal 3 probe: FO state at first dock
 	_probe_fo_state()
@@ -663,12 +673,12 @@ func _do_combat() -> void:
 		return
 
 	var ps_before: Dictionary = _bridge.call("GetPlayerStateV0")
-	var credits_before := int(ps_before.get("credits", 0))
+	_credits_before_combat = int(ps_before.get("credits", 0))
 
-	# Deal damage (5 hits of 20 dmg)
-	for i in range(5):
-		_bridge.call("DamageNpcFleetV0", fleet_id, 20)
-	_log("COMBAT|hits=5 dmg=100 target=%s" % fleet_id)
+	# Deal lethal damage in a single command to avoid race between sim thread steps.
+	# AI fleet HP: 80 hull + 30 shield = 110 total. One 150-dmg hit ensures destruction in one tick.
+	_bridge.call("DamageNpcFleetV0", fleet_id, 150)
+	_log("COMBAT|hits=1 dmg=150 target=%s" % fleet_id)
 
 	# Check player survived
 	if _bridge.has_method("GetFleetCombatHpV0"):
@@ -690,25 +700,17 @@ func _do_combat() -> void:
 
 
 func _do_post_combat() -> void:
-	# Wait for kernel to process destruction + loot roll
+	# Wait for destruction + auto-loot collection.
+	# game_manager._poll_auto_loot_v0 runs every 0.5s while IN_FLIGHT and auto-collects nearby loot.
+	# Wait 1.0s to ensure both destruction processing and auto-collection complete.
 	_busy = true
-	await create_timer(0.3).timeout
+	await create_timer(1.0).timeout
 
-	# Collect loot drops at current node
-	var loot_credits := 0
-	if _bridge.has_method("GetNearbyLootV0"):
-		var drops: Array = _bridge.call("GetNearbyLootV0")
-		for drop in drops:
-			var drop_id := str(drop.get("drop_id", ""))
-			if drop_id.is_empty():
-				continue
-			if _bridge.has_method("DispatchCollectLootV0"):
-				var result: Dictionary = _bridge.call("DispatchCollectLootV0", drop_id)
-				loot_credits += int(result.get("credits_gained", 0))
-				_log("LOOT|drop=%s credits=%d" % [drop_id, int(result.get("credits_gained", 0))])
-
+	# Measure loot via credit increase since _credits_before_combat (captured in _do_combat).
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
-	_log("POST_COMBAT|credits=%d loot=%d" % [int(ps.get("credits", 0)), loot_credits])
+	var credits_after := int(ps.get("credits", 0))
+	var loot_credits := credits_after - _credits_before_combat
+	_log("POST_COMBAT|credits=%d loot=%d" % [credits_after, loot_credits])
 	_busy = false
 	_polls = 0
 	_phase = Phase.DOCK_3
@@ -1064,14 +1066,17 @@ func _probe_fo_state() -> void:
 		str(promoted), name_str, archetype, tier])
 
 func _probe_fo_dialogue(event_name: String) -> void:
-	if _bridge == null or not _bridge.has_method("GetFirstOfficerDialogueV0"):
+	# Use dialogue_count from state (non-consuming) instead of GetFirstOfficerDialogueV0
+	# which consumes the pending line and races with FOPanel's _poll_fo_dialogue.
+	if _bridge == null or not _bridge.has_method("GetFirstOfficerStateV0"):
 		return
-	var line: String = _bridge.call("GetFirstOfficerDialogueV0")
-	if line.is_empty() or line == "null":
-		_log("GOAL|FO|post_event=%s dialogue=none" % event_name)
+	var fo: Dictionary = _bridge.call("GetFirstOfficerStateV0")
+	var count := int(fo.get("dialogue_count", 0))
+	if count > _fo_dialogue_count:
+		_log("GOAL|FO|post_event=%s dialogue_count=%d (was %d)" % [event_name, count, _fo_dialogue_count])
+		_fo_dialogue_count = count
 	else:
-		_fo_dialogue_count += 1
-		_log("GOAL|FO|post_event=%s dialogue=%s" % [event_name, line])
+		_log("GOAL|FO|post_event=%s dialogue=none" % event_name)
 
 func _probe_dock_tabs() -> void:
 	var dock_menu = root.find_child("HeroTradeMenu", true, false)

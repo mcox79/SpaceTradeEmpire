@@ -90,12 +90,12 @@ func _sync_sim_state():
 
 func _handle_flight_input(delta: float):
 	var throttle: float = 0.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): throttle += 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): throttle -= 1.0
+	if Input.is_action_pressed("ship_thrust_fwd"): throttle += 1.0
+	if Input.is_action_pressed("ship_thrust_back"): throttle -= 1.0
 
 	var turn: float = 0.0
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): turn += 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): turn -= 1.0
+	if Input.is_action_pressed("ship_turn_left"): turn += 1.0
+	if Input.is_action_pressed("ship_turn_right"): turn -= 1.0
 
 	if turn != 0.0:
 		rotate_y(turn * turn_speed * delta)

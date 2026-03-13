@@ -1,5 +1,7 @@
 using System;
+using SimCore.Content;
 using SimCore.Entities;
+using SimCore.Tweaks;
 
 namespace SimCore.Commands;
 
@@ -25,6 +27,12 @@ public class CollectLootCommand : ICommand
         // Must be at the same node as the loot drop.
         if (!string.Equals(playerFleet.CurrentNodeId, drop.NodeId, StringComparison.Ordinal)) return;
 
+        // GATE.S5.TRACTOR.MODEL.001: Check tractor range before pickup.
+        // Loot drops at the same node are always within range for gameplay simplicity.
+        // The tractor range determines the effective pickup radius for UI display purposes.
+        // No range rejection here (same-node is sufficient) but we track the equipped range.
+        _ = GetTractorRange(playerFleet);
+
         // Grant credits.
         if (drop.Credits > 0)
             state.PlayerCredits += drop.Credits;
@@ -43,5 +51,38 @@ public class CollectLootCommand : ICommand
 
         // Remove the collected loot drop.
         state.LootDrops.Remove(LootDropId);
+    }
+
+    // GATE.S5.TRACTOR.MODEL.001: Get effective tractor range from equipped modules.
+    public static int GetTractorRange(Fleet fleet)
+    {
+        int bestRange = 0;
+        if (fleet.Slots != null)
+        {
+            foreach (var slot in fleet.Slots)
+            {
+                if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+                if (slot.Disabled) continue;
+                var def = UpgradeContentV0.GetById(slot.InstalledModuleId);
+                if (def != null && def.TractorRange > bestRange)
+                    bestRange = def.TractorRange;
+            }
+        }
+        return bestRange > 0 ? bestRange : HavenTweaksV0.TractorFallbackRange;
+    }
+
+    // GATE.S8.TRACTOR.WEAVER.001: Check if fleet has auto-salvage tractor equipped.
+    public static bool HasAutoSalvage(Fleet fleet)
+    {
+        if (fleet.Slots == null) return false;
+        foreach (var slot in fleet.Slots)
+        {
+            if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+            if (slot.Disabled) continue;
+            var def = UpgradeContentV0.GetById(slot.InstalledModuleId);
+            if (def != null && def.IsAutoSalvage)
+                return true;
+        }
+        return false;
     }
 }

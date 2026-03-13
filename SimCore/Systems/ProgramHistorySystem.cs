@@ -51,4 +51,23 @@ public static class ProgramHistorySystem
         }
         return (float)successes / fleet.History.Count;
     }
+
+    /// <summary>
+    /// GATE.S7.AUTOMATION.FAILURE_REASONS.001: Count failures by reason in recent history.
+    /// Returns dictionary of reason → count.
+    /// </summary>
+    public static Dictionary<ProgramFailureReason, int> GetFailureReasonCounts(Fleet fleet)
+    {
+        var counts = new Dictionary<ProgramFailureReason, int>();
+        if (fleet == null) return counts;
+        foreach (var entry in fleet.History)
+        {
+            if (!entry.Success && entry.FailureReason != ProgramFailureReason.None)
+            {
+                counts.TryGetValue(entry.FailureReason, out int c);
+                counts[entry.FailureReason] = c + 1;
+            }
+        }
+        return counts;
+    }
 }

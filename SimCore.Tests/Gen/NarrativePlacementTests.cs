@@ -16,10 +16,10 @@ public sealed class NarrativePlacementTests
     {
         var state = new SimState(seed);
 
-        // 40 nodes to accommodate 25 data logs + 6 kepler pieces with room to spare
+        // 60 nodes to accommodate 44 data logs + 6 kepler pieces with room to spare
         state.PlayerLocationNodeId = "star_0";
         string[] factions = { "Concord", "Valorin", "Communion", "Weavers", "Chitin" };
-        for (int i = 0; i < 40; i++)
+        for (int i = 0; i < 60; i++)
         {
             state.Nodes[$"star_{i}"] = new Node
             {
@@ -30,7 +30,7 @@ public sealed class NarrativePlacementTests
         }
 
         // Linear chain for connectivity
-        for (int i = 0; i < 39; i++)
+        for (int i = 0; i < 59; i++)
         {
             string eid = $"edge_{i}_{i + 1}";
             state.Edges[eid] = new Edge

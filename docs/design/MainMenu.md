@@ -366,8 +366,8 @@ Maps directly to the 5-bus architecture in `AudioDesign.md`.
   locations. Settings persist globally (not per-save), except Difficulty which
   is per-save.
 - **Reset to defaults** button per tab, with confirmation.
-- **Keybinds**: Defer to a future gate. Current keybinds are hardcoded. When
-  implemented, keybinds get their own sub-screen under Gameplay or a 5th tab.
+- **Controls**: Implemented as 5th tab in Settings. Full rebinding for keyboard,
+  mouse, and gamepad inputs. See `docs/design/input_controls_v0.md` for details.
 
 ---
 

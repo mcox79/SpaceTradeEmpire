@@ -12,6 +12,13 @@ extends CanvasLayer
 var _bridge = null
 var _combat_label: Label = null
 
+# GATE.X.WARP.ARRIVAL_DRAMA.001: Letterbox bars + title card on every warp arrival.
+var _arrival_bar_top: ColorRect = null
+var _arrival_bar_bot: ColorRect = null
+var _arrival_card_name: Label = null
+var _arrival_card_faction: Label = null
+var _arrival_drama_tween: Tween = null
+
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: game over overlay
 var _game_over_panel: Control = null
 var _game_over_label: Label = null
@@ -62,6 +69,12 @@ var _screen_edge_tint: ColorRect = null
 
 # FEEL_BASELINE: Screen-space damage flash overlay.
 var _damage_flash: ColorRect = null
+# GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Track lockout state for vent burst flash.
+var _prev_locked_out: bool = false
+
+# FEEL_POST_FIX_9: Persistent red border vignette during combat state.
+var _combat_vignette: ColorRect = null
+var _combat_vignette_active: bool = false
 
 # GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert count badge in Zone A.
 var _alert_badge: Control = null
@@ -114,6 +127,12 @@ var _knowledge_web_panel = null
 
 # GATE.X.UI_POLISH.MISSION_JOURNAL.001: Mission journal panel (J key).
 var _mission_journal_panel = null
+
+# GATE.X.UI_POLISH.QUEST_TRACKER.001: Persistent quest tracker widget (top-right).
+var _quest_tracker_panel: PanelContainer = null
+var _quest_tracker_name_label: Label = null
+var _quest_tracker_step_label: Label = null
+var _quest_tracker_progress: ProgressBar = null
 
 # Dock confirmation: "Press E to dock" prompt (bottom-center).
 var _dock_prompt_label: Label = null
@@ -312,6 +331,9 @@ func _ready() -> void:
 	_restart_label.offset_top = 100
 	_game_over_panel.add_child(_restart_label)
 
+	# GATE.X.WARP.ARRIVAL_DRAMA.001: Setup letterbox + title card nodes.
+	_setup_arrival_drama_v0()
+
 	# Data overlay mode indicator (below research label)
 	_overlay_mode_label = Label.new()
 	_overlay_mode_label.name = "OverlayModeLabel"
@@ -349,6 +371,23 @@ func _ready() -> void:
 	_damage_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_damage_flash.visible = true
 	add_child(_damage_flash)
+
+	# FEEL_POST_FIX_9: Combat vignette — red border glow during active combat.
+	# Uses a TextureRect with a procedural gradient, but simpler: 4 edge ColorRects.
+	_combat_vignette = ColorRect.new()
+	_combat_vignette.name = "CombatVignette"
+	_combat_vignette.color = Color(0.8, 0.05, 0.02, 0.0)
+	_combat_vignette.position = Vector2.ZERO
+	_combat_vignette.size = Vector2(1920, 1080)
+	_combat_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combat_vignette.visible = true
+	# Use a shader for edge-only glow (inner area transparent, edges tinted red).
+	var vignette_shader := ShaderMaterial.new()
+	var shader_code := Shader.new()
+	shader_code.code = "shader_type canvas_item;\nuniform vec4 tint_color : source_color = vec4(0.8, 0.05, 0.02, 0.35);\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat d = max(abs(uv.x), abs(uv.y));\n\tfloat edge = smoothstep(0.6, 1.0, d);\n\tCOLOR = vec4(tint_color.rgb, tint_color.a * edge);\n}"
+	vignette_shader.shader = shader_code
+	_combat_vignette.material = vignette_shader
+	add_child(_combat_vignette)
 
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 	_zone_g_bg = ColorRect.new()
@@ -408,7 +447,7 @@ func _ready() -> void:
 	# GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Persistent keybind hints (U7).
 	_keybind_hint_label = Label.new()
 	_keybind_hint_label.name = "KeybindHintLabel"
-	_keybind_hint_label.text = "TAB Map  |  E Empire  |  H Help  |  K Web  |  L Log  |  V Overlay  |  ESC Pause"
+	_keybind_hint_label.text = _build_keybind_hint_text()
 	_keybind_hint_label.add_theme_font_size_override("font_size", 11)
 	_keybind_hint_label.add_theme_color_override("font_color", Color(0.4, 0.45, 0.5, 0.6))
 	_keybind_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -538,6 +577,60 @@ func _ready() -> void:
 	_warp_transit_hud = WarpTransitHudScript.new()
 	add_child(_warp_transit_hud)
 
+	# GATE.X.UI_POLISH.QUEST_TRACKER.001: Persistent quest tracker widget (top-right).
+	_quest_tracker_panel = PanelContainer.new()
+	_quest_tracker_panel.name = "QuestTrackerPanel"
+	_quest_tracker_panel.visible = false
+	_quest_tracker_panel.position = Vector2(1650, 8)
+	_quest_tracker_panel.custom_minimum_size = Vector2(260, 0)
+	_quest_tracker_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var qt_style := StyleBoxFlat.new()
+	qt_style.bg_color = Color(0.05, 0.07, 0.12, 0.85)
+	qt_style.border_color = UITheme.GOLD
+	qt_style.border_width_left = 2
+	qt_style.set_corner_radius_all(UITheme.CORNER_SM)
+	qt_style.content_margin_left = 10.0
+	qt_style.content_margin_right = 10.0
+	qt_style.content_margin_top = 6.0
+	qt_style.content_margin_bottom = 6.0
+	_quest_tracker_panel.add_theme_stylebox_override("panel", qt_style)
+	add_child(_quest_tracker_panel)
+
+	var qt_vbox := VBoxContainer.new()
+	qt_vbox.add_theme_constant_override("separation", 3)
+	_quest_tracker_panel.add_child(qt_vbox)
+
+	_quest_tracker_name_label = Label.new()
+	_quest_tracker_name_label.name = "QuestTrackerName"
+	_quest_tracker_name_label.text = ""
+	_quest_tracker_name_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	_quest_tracker_name_label.add_theme_color_override("font_color", UITheme.GOLD)
+	qt_vbox.add_child(_quest_tracker_name_label)
+
+	_quest_tracker_step_label = Label.new()
+	_quest_tracker_step_label.name = "QuestTrackerStep"
+	_quest_tracker_step_label.text = ""
+	_quest_tracker_step_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_quest_tracker_step_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	_quest_tracker_step_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quest_tracker_step_label.custom_minimum_size = Vector2(240, 0)
+	qt_vbox.add_child(_quest_tracker_step_label)
+
+	_quest_tracker_progress = ProgressBar.new()
+	_quest_tracker_progress.name = "QuestTrackerProgress"
+	_quest_tracker_progress.custom_minimum_size = Vector2(200, 8)
+	_quest_tracker_progress.min_value = 0.0
+	_quest_tracker_progress.max_value = 1.0
+	_quest_tracker_progress.value = 0.0
+	_quest_tracker_progress.show_percentage = false
+	var qt_fill := StyleBoxFlat.new()
+	qt_fill.bg_color = UITheme.GOLD
+	_quest_tracker_progress.add_theme_stylebox_override("fill", qt_fill)
+	var qt_bg := StyleBoxFlat.new()
+	qt_bg.bg_color = Color(0.15, 0.15, 0.15)
+	_quest_tracker_progress.add_theme_stylebox_override("background", qt_bg)
+	qt_vbox.add_child(_quest_tracker_progress)
+
 	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
 	_alert_badge = Control.new()
 	_alert_badge.name = "AlertBadge"
@@ -628,13 +721,13 @@ func _physics_process(_delta: float) -> void:
 		return
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var raw_state = str(ps.get("ship_state_token", ""))
-	# FEEL_POST_FIX_8: Belt-and-suspenders transit hide. Check BOTH bridge state
-	# AND game_manager state — hide transit UI if EITHER says not-in-transit.
-	# Also disable warp_transit_hud processing so its _process can't re-show it.
+	# FEEL_POST_FIX_9: Belt-and-suspenders transit hide. Check bridge state,
+	# game_manager state, AND suppress_transit_overlay flag (set during flyby arrival).
 	var gm = get_node_or_null("/root/GameManager")
 	var gm_in_transit: bool = gm != null and gm.get("current_player_state") == gm.PlayerShipState.IN_LANE_TRANSIT
 	var bridge_in_transit: bool = raw_state == "IN_LANE_TRANSIT"
-	if bridge_in_transit and gm_in_transit:
+	var gm_suppress: bool = gm != null and gm.get("suppress_transit_overlay") == true
+	if bridge_in_transit and gm_in_transit and not gm_suppress:
 		_show_transit_overlay_v0(_get_transit_dest_name())
 		if _warp_transit_hud:
 			_warp_transit_hud.set_process(true)
@@ -651,7 +744,8 @@ func _physics_process(_delta: float) -> void:
 	var _cc: int = int(ps.get("cargo_count", 0))
 	_cargo_label.text = "Cargo: %d %s" % [_cc, "item" if _cc == 1 else "items"]
 	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
-	_node_label.text = _truncate_resource_types(node_display)
+	# FEEL_POST_FIX_9: Strip ALL parenthesized tags for clean system name in HUD.
+	_node_label.text = _strip_paren_tags(node_display)
 
 	match raw_state:
 		"DOCKED":
@@ -677,9 +771,24 @@ func _physics_process(_delta: float) -> void:
 				_state_label.remove_theme_color_override("font_color")
 
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
+	var _in_combat_now: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
 	if _combat_hud:
-		var show_combat_hud: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
-		_combat_hud.visible = show_combat_hud
+		_combat_hud.visible = _in_combat_now
+
+	# FEEL_POST_FIX_9: Combat vignette — fade in/out red border glow.
+	# Suppress during galaxy map overlay and warp transit to prevent bleed.
+	var show_combat_vignette: bool = _in_combat_now and not _overlay_active
+	if _combat_vignette:
+		var mat = _combat_vignette.material as ShaderMaterial
+		if mat:
+			if show_combat_vignette and not _combat_vignette_active:
+				_combat_vignette_active = true
+				var tw := create_tween()
+				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.0, 0.35, 0.4)
+			elif not show_combat_vignette and _combat_vignette_active:
+				_combat_vignette_active = false
+				var tw := create_tween()
+				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.35, 0.0, 0.6)
 
 	# FEEL_POST_BASELINE: FO panel always hidden — it ate 20% screen width with
 	# no actionable content. No F-key toggle exists yet, so suppress entirely.
@@ -742,9 +851,20 @@ func _physics_process(_delta: float) -> void:
 					fill_style.bg_color = Color(0.9, 0.75, 0.1)
 				else:
 					fill_style.bg_color = Color(0.2, 0.8, 0.2)
+			# GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Feed overheat to screen edge shimmer.
+			if _screen_edge_tint and _screen_edge_tint.has_method("set_combat_overheat"):
+				_screen_edge_tint.set_combat_overheat(float(hc) / float(cap))
+			# GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Vent burst flash on lockout transition.
+			if locked_out and not _prev_locked_out and _damage_flash:
+				_damage_flash.color = Color(1.0, 0.6, 0.1, 0.35)
+				var tw := create_tween()
+				tw.tween_property(_damage_flash, "color:a", 0.0, 0.6)
+			_prev_locked_out = locked_out
 		else:
 			_heat_bar.visible = false
 			_heat_label.visible = false
+			if _screen_edge_tint and _screen_edge_tint.has_method("set_combat_overheat"):
+				_screen_edge_tint.set_combat_overheat(0.0)
 
 	if _battle_stations_label and _bridge and _bridge.has_method("GetBattleStationsStateV0"):
 		var bs: Dictionary = _bridge.call("GetBattleStationsStateV0")
@@ -774,6 +894,8 @@ func _physics_process(_delta: float) -> void:
 		if _combat_hud and _combat_hud.has_method("refresh_v0"):
 			_combat_hud.refresh_v0()
 		_check_fracture_unlock_toast_v0()
+		# GATE.X.UI_POLISH.QUEST_TRACKER.001: Update quest tracker widget.
+		_update_quest_tracker_v0()
 		# GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Update onboarding disclosure state.
 		_update_onboarding_disclosure_v0()
 
@@ -861,6 +983,30 @@ func _update_mission_hud() -> void:
 		_mission_title_label.text = "No active mission"
 		_mission_title_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_mission_step_label.text = ""
+
+# GATE.X.UI_POLISH.QUEST_TRACKER.001: Quest tracker update (called every 2s via slow poll).
+func _update_quest_tracker_v0() -> void:
+	if _quest_tracker_panel == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetActiveMissionSummaryV0"):
+		_quest_tracker_panel.visible = false
+		return
+	# Hide tracker when docked (dock menu shows mission info) or overlay active.
+	if _overlay_active:
+		_quest_tracker_panel.visible = false
+		return
+	var summary: Dictionary = _bridge.call("GetActiveMissionSummaryV0")
+	var has_mission: bool = summary.get("has_mission", false)
+	if not has_mission:
+		_quest_tracker_panel.visible = false
+		return
+	_quest_tracker_panel.visible = true
+	_quest_tracker_name_label.text = str(summary.get("mission_name", ""))
+	var step_idx: int = int(summary.get("step_index", 0))
+	var total: int = int(summary.get("total_steps", 0))
+	var step_text: String = str(summary.get("step_text", ""))
+	_quest_tracker_step_label.text = "Step %d/%d: %s" % [step_idx + 1, total, step_text] if total > 0 else step_text
+	_quest_tracker_progress.value = float(summary.get("progress", 0.0))
 
 # GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress update (called every 2s)
 func _update_research_hud() -> void:
@@ -1082,14 +1228,18 @@ func _update_onboarding_disclosure_v0() -> void:
 		if is_instance_valid(ship) and "_onboard_labels_hidden" in ship:
 			ship._onboard_labels_hidden = hide_npc_labels
 
-# Dock confirmation: show "Press E to dock" prompt.
+# Dock confirmation: show dock prompt with dynamic key label.
 func show_dock_prompt_v0(station_name: String = "") -> void:
 	if _dock_prompt_label == null:
 		return
+	var dock_key: String = "E"
+	var input_mgr = get_node_or_null("/root/InputManager")
+	if input_mgr:
+		dock_key = input_mgr.get_action_label("ui_dock_confirm")
 	if station_name.is_empty():
-		_dock_prompt_label.text = "Press E to dock"
+		_dock_prompt_label.text = "Press %s to dock" % dock_key
 	else:
-		_dock_prompt_label.text = "Press E to dock at %s" % station_name
+		_dock_prompt_label.text = "Press %s to dock at %s" % [dock_key, station_name]
 	_dock_prompt_label.visible = true
 
 # Dock confirmation: hide dock prompt.
@@ -1103,6 +1253,21 @@ func hide_dock_prompt_v0() -> void:
 # "System 10 (RareMin)(Mining)..." → "System 10 (RareMin)..."
 # Mirrors GalaxyView.cs TruncateResourceTypesV0.
 # FEEL_BASELINE: Read transit destination name from GameManager autoload.
+func _build_keybind_hint_text() -> String:
+	var input_mgr = get_node_or_null("/root/InputManager")
+	if input_mgr == null:
+		return "M Map  |  E Empire  |  H Help  |  K Web  |  L Log  |  V Overlay  |  ESC Pause"
+	var parts: Array[String] = []
+	parts.append("%s Map" % input_mgr.get_action_label("ui_galaxy_map"))
+	parts.append("%s Empire" % input_mgr.get_action_label("ui_empire_dashboard"))
+	parts.append("%s Help" % input_mgr.get_action_label("ui_keybinds_help"))
+	parts.append("%s Web" % input_mgr.get_action_label("ui_knowledge_web"))
+	parts.append("%s Log" % input_mgr.get_action_label("ui_combat_log"))
+	parts.append("%s Overlay" % input_mgr.get_action_label("ui_data_overlay"))
+	parts.append("%s Pause" % input_mgr.get_action_label("ui_pause"))
+	return "  |  ".join(parts)
+
+
 func _get_transit_dest_name() -> String:
 	var gm = get_node_or_null("/root/GameManager")
 	if gm == null:
@@ -1188,3 +1353,156 @@ func _truncate_resource_types(display_text: String) -> String:
 	if second_open >= 0:
 		return display_text.left(first_close + 1) + "..."
 	return display_text
+
+# ============================================================================
+# GATE.X.WARP.ARRIVAL_DRAMA.001: Warp arrival letterbox + title card
+# ============================================================================
+
+## Creates letterbox bars (top/bottom) and centered title card labels.
+## All start hidden/off-screen; activated by show_arrival_drama_v0().
+func _setup_arrival_drama_v0() -> void:
+	# Top bar: anchored full width at top, 0 height initially (slides down).
+	_arrival_bar_top = ColorRect.new()
+	_arrival_bar_top.name = "ArrivalBarTop"
+	_arrival_bar_top.color = Color(0.0, 0.0, 0.0, 0.85)
+	_arrival_bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_arrival_bar_top.offset_bottom = 0.0  # height = 0 (collapsed)
+	_arrival_bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrival_bar_top.visible = false
+	add_child(_arrival_bar_top)
+
+	# Bottom bar: anchored full width at bottom, offset_top = 0 (collapsed).
+	_arrival_bar_bot = ColorRect.new()
+	_arrival_bar_bot.name = "ArrivalBarBot"
+	_arrival_bar_bot.color = Color(0.0, 0.0, 0.0, 0.85)
+	_arrival_bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_arrival_bar_bot.anchor_top = 1.0
+	_arrival_bar_bot.anchor_bottom = 1.0
+	_arrival_bar_bot.offset_top = 0.0  # collapsed upward
+	_arrival_bar_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrival_bar_bot.visible = false
+	add_child(_arrival_bar_bot)
+
+	# System name label: large, centered, white with shadow.
+	_arrival_card_name = Label.new()
+	_arrival_card_name.name = "ArrivalCardName"
+	_arrival_card_name.text = ""
+	_arrival_card_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arrival_card_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_arrival_card_name.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_arrival_card_name.offset_top = -30.0  # Slightly above center
+	_arrival_card_name.add_theme_font_size_override("font_size", 48)
+	_arrival_card_name.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 1.0))
+	_arrival_card_name.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.2, 0.9))
+	_arrival_card_name.add_theme_constant_override("shadow_offset_x", 2)
+	_arrival_card_name.add_theme_constant_override("shadow_offset_y", 2)
+	_arrival_card_name.modulate.a = 0.0
+	_arrival_card_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrival_card_name.visible = false
+	add_child(_arrival_card_name)
+
+	# Faction / context subtitle: smaller, centered below system name.
+	_arrival_card_faction = Label.new()
+	_arrival_card_faction.name = "ArrivalCardFaction"
+	_arrival_card_faction.text = ""
+	_arrival_card_faction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arrival_card_faction.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_arrival_card_faction.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_arrival_card_faction.offset_top = 30.0  # Below center
+	_arrival_card_faction.add_theme_font_size_override("font_size", 22)
+	_arrival_card_faction.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9, 1.0))
+	_arrival_card_faction.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.15, 0.7))
+	_arrival_card_faction.add_theme_constant_override("shadow_offset_x", 1)
+	_arrival_card_faction.add_theme_constant_override("shadow_offset_y", 1)
+	_arrival_card_faction.modulate.a = 0.0
+	_arrival_card_faction.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrival_card_faction.visible = false
+	add_child(_arrival_card_faction)
+
+## Show arrival drama: letterbox bars slide in, title card fades in, holds, then all fade out.
+## system_name: display name of the arrived system.
+## faction_name: controlling faction (empty string if unclaimed).
+func show_arrival_drama_v0(system_name: String, faction_name: String) -> void:
+	# Kill any existing drama tween to avoid overlap.
+	hide_arrival_drama_v0()
+
+	if not _arrival_bar_top or not _arrival_bar_bot:
+		return
+
+	# Reset bar sizes.
+	_arrival_bar_top.offset_bottom = 0.0
+	_arrival_bar_bot.offset_top = 0.0
+	_arrival_bar_top.visible = true
+	_arrival_bar_bot.visible = true
+
+	# Set card text.
+	_arrival_card_name.text = system_name
+	_arrival_card_name.modulate.a = 0.0
+	_arrival_card_name.visible = true
+
+	var subtitle_text: String = ""
+	if not faction_name.is_empty():
+		subtitle_text = faction_name + " Territory"
+	_arrival_card_faction.text = subtitle_text
+	_arrival_card_faction.modulate.a = 0.0
+	_arrival_card_faction.visible = not subtitle_text.is_empty()
+
+	# Tween sequence:
+	# 0.0-0.3s: bars slide in (60px each)
+	# 0.3-0.7s: title card fades in
+	# 0.7-2.2s: hold (1.5s)
+	# 2.2-2.6s: title card fades out
+	# 2.6-2.9s: bars slide out
+	_arrival_drama_tween = create_tween()
+
+	# Phase 1: Bars slide in.
+	_arrival_drama_tween.tween_property(_arrival_bar_top, "offset_bottom", 60.0, 0.3) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_arrival_drama_tween.parallel().tween_property(_arrival_bar_bot, "offset_top", -60.0, 0.3) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+	# Phase 2: Title card fades in.
+	_arrival_drama_tween.tween_property(_arrival_card_name, "modulate:a", 1.0, 0.4) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	if not subtitle_text.is_empty():
+		_arrival_drama_tween.parallel().tween_property(_arrival_card_faction, "modulate:a", 1.0, 0.4) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+
+	# Phase 3: Hold.
+	_arrival_drama_tween.tween_interval(1.5)
+
+	# Phase 4: Title card fades out.
+	_arrival_drama_tween.tween_property(_arrival_card_name, "modulate:a", 0.0, 0.4) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	if not subtitle_text.is_empty():
+		_arrival_drama_tween.parallel().tween_property(_arrival_card_faction, "modulate:a", 0.0, 0.3)
+
+	# Phase 5: Bars slide out.
+	_arrival_drama_tween.tween_property(_arrival_bar_top, "offset_bottom", 0.0, 0.3) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	_arrival_drama_tween.parallel().tween_property(_arrival_bar_bot, "offset_top", 0.0, 0.3) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+	# Cleanup: hide all elements when done.
+	_arrival_drama_tween.tween_callback(_hide_arrival_drama_elements)
+
+## Immediately hide/cancel arrival drama (e.g., on dock, menu open, etc.).
+func hide_arrival_drama_v0() -> void:
+	if _arrival_drama_tween and _arrival_drama_tween.is_valid():
+		_arrival_drama_tween.kill()
+		_arrival_drama_tween = null
+	_hide_arrival_drama_elements()
+
+func _hide_arrival_drama_elements() -> void:
+	if _arrival_bar_top:
+		_arrival_bar_top.visible = false
+		_arrival_bar_top.offset_bottom = 0.0
+	if _arrival_bar_bot:
+		_arrival_bar_bot.visible = false
+		_arrival_bar_bot.offset_top = 0.0
+	if _arrival_card_name:
+		_arrival_card_name.visible = false
+		_arrival_card_name.modulate.a = 0.0
+	if _arrival_card_faction:
+		_arrival_card_faction.visible = false
+		_arrival_card_faction.modulate.a = 0.0

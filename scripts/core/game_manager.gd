@@ -7,6 +7,7 @@ const PlayerState = preload('res://scripts/core/state/player_state.gd')
 const WarpTunnel = preload('res://scripts/vfx/warp_tunnel.gd')
 const GateVortex = preload('res://scripts/vfx/gate_vortex.gd')
 const GateTransitPopup = preload('res://scripts/ui/gate_transit_popup.gd')
+const TractorBeam = preload('res://scripts/vfx/tractor_beam.gd')
 
 
 # SimCore fleet ID for the player fleet (matches WorldLoader constant).
@@ -108,10 +109,17 @@ var _last_instability_phases: Dictionary = {}  # node_id -> phase_name
 # GATE.S6.OUTCOME.CELEBRATION.001: Discovery completion celebration polling
 var _discovery_poll_timer: float = 0.0
 const DISCOVERY_POLL_INTERVAL: float = 2.0
+
+# GATE.S5.TRACTOR.VFX.001: Auto-loot collection poll (every 0.5s while in flight).
+var _loot_poll_timer: float = 0.0
+const LOOT_POLL_INTERVAL: float = 0.5
 var _prev_discovery_statuses: Dictionary = {}  # discovery_id -> last known status
 var _lane_origin_node_id: String = ""  # GATE.S13.WORLD.GATE_ARRIVAL.001: track origin for gate positioning
 var _lane_dest_node_id: String = ""    # Transit destination — read by camera for transit-mode rendering.
 var _cinematic_transit_active: bool = false  # Blocks Esc during approach cinematic.
+# FEEL_POST_FIX_9: Suppress transit overlay during flyby arrival (state is still IN_LANE_TRANSIT
+# but the player has visually "arrived" — showing transit labels during flyby is confusing).
+var suppress_transit_overlay: bool = false
 var _last_arrival_first_visit: bool = false  # Read by camera for first-visit vista hold.
 
 # Warp transit camera state — read by player_follow_camera during IN_LANE_TRANSIT.
@@ -314,8 +322,8 @@ func _process(delta):
 	if current_player_state == PlayerShipState.IN_FLIGHT and _ai_fire_cooldown <= 0.0:
 		_ai_fire_v0()
 
-	# G key hold-to-fire: auto-fires turrets at highest rate while held (not during galaxy map)
-	if current_player_state == PlayerShipState.IN_FLIGHT and not galaxy_overlay_open and Input.is_key_pressed(KEY_G):
+	# Primary fire: hold-to-fire turrets at highest rate (not during galaxy map)
+	if current_player_state == PlayerShipState.IN_FLIGHT and not galaxy_overlay_open and Input.is_action_pressed("combat_fire_primary"):
 		_fire_turret_v0()
 
 	# Shield regen: 5 HP/sec for player fleet (SimBridge handles clamping to max)
@@ -344,6 +352,13 @@ func _process(delta):
 		# GATE.S19.ONBOARD.MILESTONE_TOAST.014: piggyback on discovery poll interval.
 		_poll_milestone_celebrations_v0()
 
+	# GATE.S5.TRACTOR.VFX.001: Auto-collect nearby loot and show tractor beam VFX.
+	if current_player_state == PlayerShipState.IN_FLIGHT:
+		_loot_poll_timer += float(delta)
+		if _loot_poll_timer >= LOOT_POLL_INTERVAL:
+			_loot_poll_timer = 0.0
+			_poll_auto_loot_v0()
+
 
 func _unhandled_input(event):
 	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay input on main menu.
@@ -353,49 +368,50 @@ func _unhandled_input(event):
 	if get_parent() != get_tree().root:
 		return
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: R restarts scene; all other input frozen when dead
-	if event is InputEventKey and event.pressed and not event.echo:
-		if _player_dead:
-			if event.keycode == KEY_R:
-				get_tree().reload_current_scene()
+	if _player_dead:
+		if event.is_action_pressed("combat_target_nearest"):
+			get_tree().reload_current_scene()
+		return
+	# Block input during approach cinematic (vortex + zoom-in playing).
+	if _cinematic_transit_active:
+		return
+	# Gate approach: confirm or cancel.
+	if current_player_state == PlayerShipState.GATE_APPROACH:
+		if event.is_action_pressed("ui_gate_confirm"):
+			_confirm_gate_transit_v0()
+			get_viewport().set_input_as_handled()
 			return
-		# Gate approach: Enter/Space to confirm, Esc to cancel.
-		# Block input during approach cinematic (vortex + zoom-in playing).
-		if _cinematic_transit_active:
+		if event.is_action_pressed("ui_gate_cancel"):
+			_cancel_gate_approach_v0()
+			get_viewport().set_input_as_handled()
 			return
-		if current_player_state == PlayerShipState.GATE_APPROACH:
-			if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or event.keycode == KEY_SPACE:
-				_confirm_gate_transit_v0()
-				get_viewport().set_input_as_handled()
-				return
-			if event.keycode == KEY_ESCAPE:
-				_cancel_gate_approach_v0()
-				get_viewport().set_input_as_handled()
-				return
-		if event.keycode == KEY_ESCAPE:
-			_toggle_pause_v0()
-			return
-		if event.keycode == KEY_TAB and current_player_state != PlayerShipState.IN_LANE_TRANSIT and current_player_state != PlayerShipState.DOCKED:
-			toggle_galaxy_map_overlay_v0()
-		if event.keycode == KEY_E:
-			# Dock confirmation: E near a station docks; otherwise opens empire.
-			if _dock_available_target != null and current_player_state == PlayerShipState.IN_FLIGHT:
-				on_proximity_dock_entered_v0(_dock_available_target)
-				_dock_available_target = null
-				var hud_dk = get_tree().root.find_child("HUD", true, false) if get_tree() else null
-				if hud_dk and hud_dk.has_method("hide_dock_prompt_v0"):
-					hud_dk.call("hide_dock_prompt_v0")
-			else:
-				_toggle_empire_dashboard_v0()
-		if event.keycode == KEY_H:
-			_toggle_keybinds_help_v0()
-		if event.keycode == KEY_K:
-			_toggle_knowledge_web_v0()
-		if event.keycode == KEY_J:
-			_toggle_mission_journal_v0()
-		if event.keycode == KEY_L:
-			_toggle_combat_log_v0()
-		if event.keycode == KEY_V:
-			_cycle_data_overlay_v0()
+	if event.is_action_pressed("ui_pause"):
+		_toggle_pause_v0()
+		return
+	if event.is_action_pressed("ui_galaxy_map") and current_player_state != PlayerShipState.IN_LANE_TRANSIT and current_player_state != PlayerShipState.DOCKED:
+		toggle_galaxy_map_overlay_v0()
+	if event.is_action_pressed("ui_dock_confirm"):
+		# Dock confirmation: E near a station docks; ui_empire_dashboard handles the else.
+		if _dock_available_target != null and current_player_state == PlayerShipState.IN_FLIGHT:
+			on_proximity_dock_entered_v0(_dock_available_target)
+			_dock_available_target = null
+			var hud_dk = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+			if hud_dk and hud_dk.has_method("hide_dock_prompt_v0"):
+				hud_dk.call("hide_dock_prompt_v0")
+	if event.is_action_pressed("ui_empire_dashboard"):
+		# Empire dashboard: only when dock is NOT available (E shared between dock + empire)
+		if _dock_available_target == null or current_player_state != PlayerShipState.IN_FLIGHT:
+			_toggle_empire_dashboard_v0()
+	if event.is_action_pressed("ui_keybinds_help"):
+		_toggle_keybinds_help_v0()
+	if event.is_action_pressed("ui_knowledge_web"):
+		_toggle_knowledge_web_v0()
+	if event.is_action_pressed("ui_mission_journal"):
+		_toggle_mission_journal_v0()
+	if event.is_action_pressed("ui_combat_log"):
+		_toggle_combat_log_v0()
+	if event.is_action_pressed("ui_data_overlay"):
+		_cycle_data_overlay_v0()
 
 # GATE.S10.EMPIRE.SHELL.001: Toggle empire dashboard panel (created by SimBridge in C#).
 func _toggle_empire_dashboard_v0():
@@ -555,6 +571,15 @@ func on_proximity_dock_entered_v0(target: Node):
 	if _sfx_dock_chime:
 		_sfx_dock_chime.play()
 
+	# FEEL_POST_FIX_10: Kill any lingering flyby letterbox on dock so text doesn't persist.
+	# CanvasLayer inherits Node (no `visible`). Remove children to hide, then free.
+	_kill_flyby_letterbox_v0()
+
+	# GATE.X.WARP.ARRIVAL_DRAMA.001: Kill arrival drama on dock.
+	var hud_dock = get_tree().root.find_child("HUD", true, false)
+	if hud_dock and hud_dock.has_method("hide_arrival_drama_v0"):
+		hud_dock.call("hide_arrival_drama_v0")
+
 	if dock_target_kind_token == "STATION":
 		_open_station_menu_v0(target)
 		var htm = _find_hero_trade_menu()
@@ -657,6 +682,9 @@ func _close_all_dock_ui_v0() -> void:
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
+		return
+	# Guard: ignore lane proximity while docked (gate collision can fire during dock entry).
+	if current_player_state == PlayerShipState.DOCKED:
 		return
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		return
@@ -921,6 +949,9 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
 		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
+	# Eager-update: ensure _last_player_node_id reflects arrival so the next
+	# lane entry reads the correct origin (toast poll may not have fired yet).
+	_last_player_node_id = arrived_node_id
 	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	_lane_cooldown_v0 = 1.0  # Pace overhaul: shorter cooldown (was 2.0s).
 
@@ -984,6 +1015,11 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 	# Camera rotation sweep removed (fixed top-down camera, no yaw/pitch offsets).
 
+	# GATE.X.WARP.ARRIVAL_DRAMA.001: Show arrival drama (letterbox + title card).
+	# Skip if this is a first-visit (which uses the full flyby letterbox instead).
+	if not is_first_visit:
+		_show_arrival_drama_v0(arrived_node_id, bridge)
+
 
 ## Position hero at the arrival gate corresponding to the origin system.
 ## Extracted from on_lane_arrival_v0 for reuse in reveal sweep.
@@ -1026,6 +1062,10 @@ func _position_hero_at_gate_v0(_arrived_node_id: String, gv) -> void:
 ## Letterbox overlay for first-visit flyby cinematic.
 ## display_duration = total time the letterbox is visible (bars + text + hold).
 func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: float) -> void:
+	# FEEL_POST_FIX_10: Don't create letterbox if player is already docked
+	# (transit coroutine may still be running after _force_arrival + dock).
+	if current_player_state == PlayerShipState.DOCKED:
+		return
 	var display_name: String = node_id
 	if bridge and bridge.has_method("GetNodeDisplayNameV0"):
 		display_name = bridge.call("GetNodeDisplayNameV0", node_id)
@@ -1051,8 +1091,16 @@ func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: f
 
 	# Letterbox + system name overlay.
 	var canvas := CanvasLayer.new()
+	canvas.name = "FlybyLetterbox"
 	canvas.layer = 90
+	canvas.add_to_group("flyby_letterbox")
 	add_child(canvas)
+	# FEEL_POST_FIX_10: Full-screen dark blue scrim for cooler cinematic tone.
+	var scrim := ColorRect.new()
+	scrim.color = Color(0.02, 0.04, 0.10, 0.70)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(scrim)
 	var bar_top := ColorRect.new()
 	bar_top.color = Color(0, 0, 0, 0.85)
 	bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -1106,6 +1154,62 @@ func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: f
 	tween.parallel().tween_property(bar_bot, "offset_top", 0.0, 0.3).set_ease(Tween.EASE_IN)
 	tween.tween_callback(canvas.queue_free)
 
+## FEEL_POST_FIX_10: Remove flyby letterbox from both GameManagers.
+## CanvasLayer has no `visible` property — must remove all children to hide instantly.
+func _kill_flyby_letterbox_v0() -> void:
+	# Search both this GM and the autoload GM for any FlybyLetterbox nodes.
+	var targets: Array = []
+	var lb = get_node_or_null("FlybyLetterbox")
+	if lb:
+		targets.append(lb)
+	# Also check autoload GM (dual-GM architecture).
+	var autoload_gm = get_node_or_null("/root/GameManager")
+	if autoload_gm and autoload_gm != self:
+		var lb2 = autoload_gm.get_node_or_null("FlybyLetterbox")
+		if lb2:
+			targets.append(lb2)
+	# Also check scene GM.
+	if get_tree():
+		var scene_gm = get_tree().root.find_child("GameManager", true, false)
+		if scene_gm and scene_gm != self and scene_gm != autoload_gm:
+			var lb3 = scene_gm.get_node_or_null("FlybyLetterbox")
+			if lb3:
+				targets.append(lb3)
+	for t in targets:
+		# Remove all children (labels, bars, scrim) so nothing renders.
+		for child in t.get_children():
+			t.remove_child(child)
+			child.queue_free()
+		# Then remove the CanvasLayer itself.
+		if t.get_parent():
+			t.get_parent().remove_child(t)
+		t.queue_free()
+	if targets.size() > 0:
+		print("UUIR|LETTERBOX_KILLED|count=%d" % targets.size())
+
+## GATE.X.WARP.ARRIVAL_DRAMA.001: Trigger HUD arrival drama (letterbox + title card).
+## Used for return visits (non-first-visit arrivals). First visits use _show_flyby_letterbox_v0.
+func _show_arrival_drama_v0(node_id: String, bridge_ref: Node) -> void:
+	# Get system display name.
+	var display_name: String = node_id
+	if bridge_ref and bridge_ref.has_method("GetNodeDisplayNameV0"):
+		display_name = bridge_ref.call("GetNodeDisplayNameV0", node_id)
+	# Strip parenthesized production tags for clean display.
+	var paren_idx: int = display_name.find("(")
+	if paren_idx > 0:
+		display_name = display_name.substr(0, paren_idx).strip_edges()
+
+	# Get controlling faction name (if any).
+	var faction_name: String = ""
+	if bridge_ref and bridge_ref.has_method("GetTerritoryAccessV0"):
+		var territory: Dictionary = bridge_ref.call("GetTerritoryAccessV0", node_id)
+		faction_name = str(territory.get("faction_id", ""))
+
+	# Find HUD and trigger drama.
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud and hud.has_method("show_arrival_drama_v0"):
+		hud.call("show_arrival_drama_v0", display_name, faction_name)
+		print("UUIR|ARRIVAL_DRAMA|system=%s|faction=%s" % [display_name, faction_name])
 
 func _on_station_menu_request_undock():
 	undock_v0()
@@ -1496,6 +1600,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		_transit_lane_line_ref = null
 
 	# === Post-approach: dispatch arrival and position hero at gate ===
+	# FEEL_POST_FIX_9: Suppress transit overlay now — player has visually arrived.
+	suppress_transit_overlay = true
 	_last_arrival_first_visit = is_first_visit
 	_apply_camera_shake_v0(0.25)
 
@@ -1749,7 +1855,10 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		print("UUIR|FLYBY_END|hero=%s" % str(hero_pos))
 
 	# === Transition to IN_FLIGHT ===
-	_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
+	suppress_transit_overlay = false  # FEEL_POST_FIX_9
+	# Guard: on_lane_arrival_v0() already transitioned to IN_FLIGHT for return visits.
+	if current_player_state != PlayerShipState.IN_FLIGHT:
+		_transition_player_state_v0(PlayerShipState.IN_FLIGHT)
 	_lane_cooldown_v0 = 1.0  # Pace overhaul: shorter cooldown (was 2.0s).
 
 	# Restore labels + hero + HUD.
@@ -2006,6 +2115,10 @@ func _poll_toast_events_v0() -> void:
 			var display_name: String = node_id
 			if bridge.has_method("GetNodeDisplayNameV0"):
 				display_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
+			# FEEL_POST_FIX_9: Strip parenthesized production tags from arrival toast.
+			var _pti: int = display_name.find("(")
+			if _pti > 0:
+				display_name = display_name.substr(0, _pti).strip_edges()
 			toast_mgr.call("show_toast", "Arrived at %s" % display_name, 2.5)
 		_last_player_node_id = node_id
 
@@ -2212,6 +2325,58 @@ func _poll_milestone_celebrations_v0() -> void:
 		var mname: String = str(m.get("name", mid))
 		toast_mgr.call("show_priority_toast", "Milestone: " + mname, "milestone")
 		print("UUIR|MILESTONE_CELEBRATE|" + mid)
+
+# GATE.S5.TRACTOR.VFX.001: Auto-collect nearby loot drops and spawn tractor beam VFX.
+func _poll_auto_loot_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	if not bridge.has_method("GetNearbyLootV0") or not bridge.has_method("DispatchCollectLootV0"):
+		return
+
+	var drops: Array = bridge.call("GetNearbyLootV0")
+	if drops.is_empty():
+		return
+
+	_ensure_hero_body()
+	var ship_pos := Vector3.ZERO
+	if _hero_body and is_instance_valid(_hero_body):
+		ship_pos = _hero_body.global_position
+
+	for drop in drops:
+		var drop_id: String = str(drop.get("drop_id", ""))
+		if drop_id.is_empty():
+			continue
+
+		var result: Dictionary = bridge.call("DispatchCollectLootV0", drop_id)
+		var success: bool = result.get("success", false)
+		if not success:
+			continue
+
+		# Determine loot marker world position for the beam target.
+		# Loot markers are children of GalaxyView named "LootMarker_<dropId>".
+		var target_pos := ship_pos + Vector3(0, 2, 0)  # Fallback: slightly above ship.
+		if _galaxy_view and is_instance_valid(_galaxy_view):
+			var marker = _galaxy_view.find_child("LootMarker_" + drop_id, true, false)
+			if marker and is_instance_valid(marker):
+				target_pos = marker.global_position
+
+		# Spawn tractor beam VFX from ship to loot position.
+		TractorBeam.spawn(get_tree().current_scene, ship_pos, target_pos)
+
+		var credits: int = int(result.get("credits_gained", 0))
+		var goods: int = int(result.get("goods_gained", 0))
+		print("UUIR|LOOT_COLLECTED|drop=%s credits=%d goods=%d" % [drop_id, credits, goods])
+
+		# Show toast for collected loot.
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast_colored"):
+			var msg := "Loot collected!"
+			if credits > 0:
+				msg = "Collected %d credits!" % credits
+			elif goods > 0:
+				msg = "Salvage collected!"
+			toast_mgr.call("show_toast_colored", msg, 2.5, "#22CCFF")
 
 # GATE.S6.OUTCOME.CELEBRATION.001: Poll bridge for discovery transitions to Analyzed phase.
 func _poll_discovery_celebrations_v0() -> void:

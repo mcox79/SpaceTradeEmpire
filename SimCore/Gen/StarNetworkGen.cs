@@ -18,6 +18,13 @@ public static class StarNetworkGen
         var rng = state.Rng ?? throw new InvalidOperationException("SimState.Rng is null.");
         var nodesList = new List<Node>();
 
+        // Generate unique system names from a separate RNG (derived from main seed)
+        // so name generation doesn't shift position RNG sequence.
+        // STRUCTURAL: Separate RNG for names so position sequence is unchanged.
+        const int STRUCT_NAME_SALT = 0x4E414D45; // "NAME" as ASCII hex
+        var nameRng = new Random(state.InitialSeed ^ STRUCT_NAME_SALT);
+        var names = SystemNameGen.GenerateUnique(nameRng, starCount);
+
         for (int i = 0; i < starCount; i++)
         {
             float x = (float)(rng.NextDouble() * 2 - 1) * radius;
@@ -26,7 +33,7 @@ public static class StarNetworkGen
             var node = new Node
             {
                 Id = $"star_{i}",
-                Name = $"System {i}",
+                Name = names[i],
                 Position = new Vector3(x, 0, z),
                 Kind = NodeKind.Star,
                 MarketId = $"star_{i}"

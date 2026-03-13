@@ -118,7 +118,8 @@ public static class StrategicResolverV0
                 targetEscorted: fleetBEscorted,
                 targetWeaponFamilyForPd: DetermineTargetFamily(fleetB.Weapons),
                 damagePct: aDamagePct,
-                heat: ref aHeat);
+                heat: ref aHeat,
+                spinRpm: fleetA.SpinRpm); // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
 
             // ── Fleet B fires back (only if still alive) ──
             if (bHull > STRUCT_ZERO)
@@ -132,7 +133,8 @@ public static class StrategicResolverV0
                     targetEscorted: fleetAEscorted,
                     targetWeaponFamilyForPd: DetermineTargetFamily(fleetA.Weapons),
                     damagePct: bDamagePct,
-                    heat: ref bHeat);
+                    heat: ref bHeat,
+                    spinRpm: fleetB.SpinRpm); // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
             }
 
             // GATE.S7.COMBAT_PHASE2.RADIATOR.001: If aft zone is destroyed, lose radiator bonus.
@@ -206,6 +208,41 @@ public static class StrategicResolverV0
     /// Mutates targetShield, targetHull, and targetZoneArmor in place.
     /// Returns total damage dealt this salvo.
     /// </summary>
+    // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Compute turn penalty from spin RPM.
+    // Returns basis points of damage reduction (0 = no penalty, 5000 = 50% penalty).
+    // Spinal weapons are exempt (fire along axis). Standard weapons take full penalty.
+    // Broadside weapons get fixed arc efficiency instead.
+    private static int ComputeSpinTurnPenaltyBps(int spinRpm)
+    {
+        if (spinRpm <= STRUCT_ZERO) return STRUCT_ZERO;
+        int penalty = spinRpm * CombatTweaksV0.TurnPenaltyBpsPerRpm;
+        return Math.Min(penalty, CombatTweaksV0.MaxTurnPenaltyBps);
+    }
+
+    // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Compute effective damage multiplier (bps) per mount type.
+    // Standard: reduced by spin turn penalty. Broadside: fixed efficiency. Spinal: full damage.
+    private static int ComputeMountEfficiencyBps(MountType mount, int spinTurnPenaltyBps)
+    {
+        return mount switch
+        {
+            MountType.Spinal => CombatTweaksV0.SpinalArcEfficiencyBps,
+            MountType.Broadside => CombatTweaksV0.BroadsideArcEfficiencyBps,
+            _ => 10000 - spinTurnPenaltyBps, // STRUCTURAL: 10000 bps = 100%
+        };
+    }
+
+    // GATE.S7.COMBAT_PHASE2.SPIN_FIRE.001: Compute fire cadence (bps) per mount type.
+    // Represents fraction of each rotation where the weapon has a firing solution.
+    private static int ComputeFireCadenceBps(MountType mount)
+    {
+        return mount switch
+        {
+            MountType.Spinal => CombatTweaksV0.SpinalFireCadenceBps,
+            MountType.Broadside => CombatTweaksV0.BroadsideFireCadenceBps,
+            _ => CombatTweaksV0.StandardFireCadenceBps,
+        };
+    }
+
     // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Compute damage multiplier based on heat state.
     // Returns pct (0-100): 100 = full damage, 50 = overheat degradation, 0 = lockout.
     private static int ComputeHeatDamagePct(int heatCurrent, int heatCapacity)
@@ -227,11 +264,15 @@ public static class StrategicResolverV0
         bool targetEscorted,
         CombatSystem.TargetWeaponFamily targetWeaponFamilyForPd,
         int damagePct,
-        ref int heat)
+        ref int heat,
+        int spinRpm = 0) // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
     {
         // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Lockout — no weapons fire.
         if (damagePct <= STRUCT_ZERO)
             return STRUCT_ZERO;
+
+        // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Pre-compute spin turn penalty for this salvo.
+        int spinPenaltyBps = ComputeSpinTurnPenaltyBps(spinRpm);
 
         int salvoTotal = STRUCT_ZERO;
         int weaponCount = weapons.Count;
@@ -253,6 +294,17 @@ public static class StrategicResolverV0
 
             // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Apply overheat damage degradation.
             effectiveBaseDmg = effectiveBaseDmg * damagePct / CombatTweaksV0.NeutralPct;
+
+            // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001 + MOUNT_TYPE.001: Apply mount-type efficiency.
+            int mountBps = ComputeMountEfficiencyBps(weapon.MountType, spinPenaltyBps);
+            effectiveBaseDmg = (int)((long)effectiveBaseDmg * mountBps / 10000); // STRUCTURAL: 10000 = 100%
+
+            // GATE.S7.COMBAT_PHASE2.SPIN_FIRE.001: Apply fire cadence (only when spinning).
+            if (spinRpm > STRUCT_ZERO)
+            {
+                int cadenceBps = ComputeFireCadenceBps(weapon.MountType);
+                effectiveBaseDmg = (int)((long)effectiveBaseDmg * cadenceBps / 10000); // STRUCTURAL: 10000 = 100%
+            }
 
             // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Pick facing based on defender's stance.
             var facing = CombatSystem.PickFacing(targetStance, wi, weaponCount);

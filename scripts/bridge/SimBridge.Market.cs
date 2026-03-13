@@ -537,6 +537,86 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S9.SYSTEMIC.CONTEXT_BRIDGE.001: Station context queries ──
+
+    /// <summary>
+    /// Returns the current station's economic context (shortages, opportunities, demand).
+    /// {context_type (string), primary_good_id (string), last_update_tick (int)}.
+    /// Enables dock UI to show situation not just menu.
+    /// </summary>
+    public Godot.Collections.Dictionary GetStationContextV0(string nodeOrMarketId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["context_type"] = "Calm",
+            ["primary_good_id"] = "",
+            ["last_update_tick"] = 0,
+        };
+        if (string.IsNullOrWhiteSpace(nodeOrMarketId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            // Resolve market ID from node or market
+            var marketId = ResolveMarketIdFromNodeOrMarket(state, nodeOrMarketId);
+            if (string.IsNullOrWhiteSpace(marketId)) return;
+
+            if (state.StationContexts != null &&
+                state.StationContexts.TryGetValue(marketId, out var ctx))
+            {
+                result["context_type"] = ctx.ContextType.ToString();
+                result["primary_good_id"] = ctx.PrimaryGoodId ?? "";
+                result["last_update_tick"] = ctx.LastUpdateTick;
+            }
+        }, 0);
+
+        return result;
+    }
+
+    // ── GATE.X.LEDGER.COST_BASIS_BRIDGE.001: Cargo with cost basis + unrealized P/L ──
+
+    /// <summary>
+    /// Returns per-good cargo with avg buy price + current market price + unrealized P/L.
+    /// Array of {good_id, qty, avg_cost, market_price, unrealized_pl}.
+    /// market_price is the sell price at the specified market (0 if not at a market).
+    /// </summary>
+    public Godot.Collections.Array GetCargoWithCostBasisV0(string marketId)
+    {
+        var result = new Godot.Collections.Array();
+        if (IsLoading) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            SimCore.Entities.Market? market = null;
+            if (!string.IsNullOrWhiteSpace(marketId))
+                state.Markets.TryGetValue(marketId, out market);
+
+            var sorted = new System.Collections.Generic.List<string>(state.PlayerCargo.Keys);
+            sorted.Sort(StringComparer.Ordinal);
+
+            foreach (var goodId in sorted)
+            {
+                int qty = state.PlayerCargo.TryGetValue(goodId, out var v) ? v : 0;
+                if (qty <= 0) continue;
+
+                state.PlayerCargoCostBasis.TryGetValue(goodId, out int avgCost);
+                int marketPrice = market != null ? market.GetSellPrice(goodId) : 0;
+                int unrealizedPl = marketPrice > 0 ? (marketPrice - avgCost) * qty : 0;
+
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = goodId,
+                    ["display_name"] = FormatDisplayNameV0(goodId),
+                    ["qty"] = qty,
+                    ["avg_cost"] = avgCost,
+                    ["market_price"] = marketPrice,
+                    ["unrealized_pl"] = unrealizedPl,
+                });
+            }
+        }, 0);
+
+        return result;
+    }
+
     public string GetMarketExplainTranscript(string marketId)
     {
         if (IsLoading) return "";
@@ -644,4 +724,5 @@ public partial class SimBridge
             _stateLock.ExitReadLock();
         }
     }
+
 }

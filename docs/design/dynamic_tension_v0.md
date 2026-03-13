@@ -314,3 +314,358 @@ These principles from the broader design docs apply directly:
 - ~~Should the player be able to actively broker ceasefires?~~ **RESOLVED**: Supply-driven only. Cumulative deliveries exceeding threshold reduce warfront intensity by 1.
 - How does the Fracture temptation interact with the 5 win conditions? Does
   each win path have a different Trace tolerance? **STILL OPEN** — deferred to Slice 8 endgame design.
+
+---
+
+## Mechanical Specification: Pressure System
+
+> Quantitative specification for how tension is computed, accumulated, and
+> enforced. These systems implement the philosophy above as tick-level mechanics.
+> See `PressureSystem.cs`, `InstabilitySystem.cs`, `LaneFlowSystem.cs`.
+
+### Pressure Domain Model
+
+The PressureSystem tracks accumulated stress across named **domains** (e.g.,
+"trade", "piracy", "warfront"). Each domain has independent state:
+
+```
+PressureDomainState
+  DomainId: string
+  AccumulatedPressureBps: int (0–10000, basis points)
+  Tier: PressureTier enum (Normal, Strained, Unstable, Critical, Collapsed)
+  Direction: PressureDirection (Stable, Worsening, Improving)
+  WindowStartTick: int
+  LastTransitionTick: int
+  AlertCount: int
+  LastConsequenceTick: int
+```
+
+### 5-Tier Pressure Ladder
+
+| Tier | Threshold (bps) | Player Impact | Reference |
+|------|-----------------|---------------|-----------|
+| **Normal** | 0–1999 | No effects. Standard trade conditions. | Stellaris peacetime |
+| **Strained** | 2000–3999 | UI warning indicators. FO commentary. | "Margins are tightening" |
+| **Unstable** | 4000–6999 | Market price jitter begins. | Starsector supply warning |
+| **Critical** | 7000–8999 | +20% market fee surcharge. Crisis alerts. | Stellaris deficit penalty |
+| **Collapsed** | 9000–10000 | Piracy escalation injected. Domain crisis. | Starsector 0-CR cripple |
+
+### Pressure Lifecycle
+
+**Injection**: External systems inject deltas into specific domains:
+```
+PressureSystem.InjectDelta(state, domainId, reasonCode, magnitude)
+```
+Deltas are clamped to [0, MaxAccumulatedBps] after accumulation.
+
+**CRITICAL: Injection Sources (NOT YET IMPLEMENTED)**
+
+No gameplay system currently calls `InjectDelta` — only the piracy self-cascade
+and test code do. The following injection points must be wired:
+
+| Source System | Domain | Reason Code | Magnitude | Trigger |
+|--------------|--------|-------------|-----------|---------|
+| `WarfrontDemandSystem` | `"warfront"` | `"intensity_change"` | intensity × 500 | Warfront intensity increases |
+| `WarfrontDemandSystem` | `"supply"` | `"war_goods_shortage"` | 200 per good at 0 stock | Contested node market depleted |
+| `IndustrySystem` | `"supply"` | `"shortfall"` | efficiencyDeficit / 10 | ShortfallEvent emitted |
+| `MarketSystem` | `"trade"` | `"embargo_active"` | 300 per active embargo | Embargo blocks trade |
+| `FractureSystem` | `"fracture"` | `"trace_detection"` | 1000 | Trace exceeds threshold |
+| `NpcTradeSystem` | `"piracy"` | `"patrol_gap"` | 100 | Patrol circuit has >3 uncovered nodes |
+| `MaintenanceSystem` | `"supply"` | `"site_critical"` | 500 | Site health below 25% |
+
+**Design Decision**: Pressure injection should happen at NATURAL system boundaries
+(where events already emit), not as a separate scanning pass. Each system above
+already computes the relevant metric — it just needs to call `InjectDelta` when
+thresholds cross.
+
+**Natural Decay**: Every tick, accumulated pressure decays by `NaturalDecayBps` (10 bps).
+This means unrefreshed pressure naturally resolves over ~1000 ticks (10000/10).
+
+**Tier Evaluation**: Each tick, the system maps accumulated pressure to a target tier.
+
+**One-Jump Rule**: Tier transitions are rate-limited:
+- Max 1 tier jump per enforcement window (50 ticks)
+- If already transitioned this window, further jumps are held
+- Prevents catastrophic tier collapse from a single spike event
+
+**Direction Tracking**: The system reports whether pressure is worsening (above
+tier threshold), improving (below tier lower bound), or stable.
+
+### Consequence Enforcement
+
+| Tier | Consequence |
+|------|-------------|
+| **Critical** | `CrisisFeeSurcharge` event emitted → +20% market fees (2000 bps) |
+| **Collapsed** | `CollapseEscalation` event → injects 500 bps into "piracy" domain |
+
+**Collapsed → Piracy Cascade**: When a domain collapses, it injects pressure into
+the piracy domain, which can itself escalate to Critical/Collapsed, creating a
+cascading failure. This models how economic collapse breeds lawlessness.
+
+### AAA Comparison (Pressure)
+
+| Game | Pressure Model | Our Analog |
+|------|---------------|------------|
+| **Stellaris** | Resource deficit → fleet/empire debuffs. Monthly check. | Accumulated bps → tier → fee/piracy |
+| **Rimworld** | Colony mood bar. Events push mood down, time restores. | AccumulatedBps decays via NaturalDecayBps |
+| **Dwarf Fortress** | Tantrum spiral — stress cascades through population. | Collapsed → piracy injection (cross-domain cascade) |
+| **Civilization** | War Weariness accumulates, decays in peace. | EnforcementWindow + NaturalDecay |
+
+---
+
+## Mechanical Specification: Instability System
+
+### Per-Node Instability Model
+
+Every node has an `InstabilityLevel` (0–150) determining its phase:
+
+| Phase | Level Range | Effects |
+|-------|-------------|---------|
+| **Stable** | 0–24 | Normal trade conditions. Standard lane capacity. |
+| **Shimmer** | 25–49 | ±5% price jitter. +10% lane delay. Sensor ghosts. |
+| **Drift** | 50–74 | +15% trade route instability. +20% lane delay. Discovery sites shift. |
+| **Fracture** | 75–99 | +30% price spikes. +40% lane delay. Lane closures possible. Hostile anomalies. |
+| **Void** | 100+ | Markets may fail. Lanes severed. Void entities. Fracture travel required. |
+
+### Instability Evolution (Per-Tick)
+
+```
+For each node (sorted by ID):
+  if node is warfront-contested:
+    gain = BaseGainPerTick (1) × warfront intensity (1-4)
+    InstabilityLevel = min(InstabilityLevel + gain, MaxInstability=150)
+  else if InstabilityLevel > 0:
+    every DecayIntervalTicks (100) ticks:
+      InstabilityLevel = max(0, InstabilityLevel - DecayAmountPerInterval=1)
+```
+
+**Key Properties**:
+- Warfront-contested nodes gain instability proportional to war intensity
+- TotalWar (intensity 4) pushes nodes to Void phase in ~25 ticks
+- Distant nodes stabilize very slowly (1 point per 100 ticks)
+- A node at Void (100) takes 10,000 ticks to fully stabilize after war ends
+
+### Instability Consequences
+
+**Lane Delay Scaling** (LaneFlowSystem integration):
+```
+maxPhase = max(source phase, destination phase)
+delay bonus:
+  Shimmer (1): +10%
+  Drift (2):   +20%
+  Fracture (3): +40%
+  Void (4):    lane SEVERED — no transfers possible
+```
+
+**Market Volatility**:
+```
+volatility multiplier = 10000 + (level × VolatilityMaxBps / MaxInstability)
+At level 0:   1.0x prices
+At level 150: 1.5x prices
+```
+
+**Security Demand Skew** (Drift+ only):
+```
+Fuel and munitions get +SecurityDemandSkewBps (2000) per phase above Shimmer
+Phase 2 (Drift):    +2000 bps (+20%)
+Phase 3 (Fracture): +4000 bps (+40%)
+Phase 4 (Void):     +6000 bps (+60%)
+```
+
+### AAA Comparison (Instability)
+
+| Game | Instability Model | Our Analog |
+|------|------------------|------------|
+| **Stellaris** | War in Heaven / Crisis — galaxy-wide threat escalation | Void phase = regional crisis, not global |
+| **Starsector** | Hyperspace storms — temporary route disruption | Shimmer/Drift = trade delay scaling |
+| **Sunless Sea** | Terror accumulation in darkness → crew mutiny | InstabilityLevel climbs near warfronts |
+| **FTL** | Rebel fleet advancing — time pressure on movement | Void phase severs lanes, forces fracture travel |
+
+---
+
+## Mechanical Specification: Lane Flow System
+
+### Goods-in-Transit Model
+
+The LaneFlowSystem manages deterministic goods transfers between markets. Unlike
+fleet-based movement (MovementSystem), these transfers represent background
+trade infrastructure — automated supply chains, NPC logistics, and player
+automation programs.
+
+### Transfer Lifecycle
+
+1. **Enqueue**: `TryEnqueueTransfer(from, to, goodId, quantity, transferId)`
+   - Validates: edge exists, markets exist, no duplicate ID
+   - **Void check**: if either endpoint is phase 4 (Void), transfer rejected
+   - Removes goods from source market immediately
+   - Computes delay: `ceil(edge.Distance)` ticks, minimum 1
+   - Applies instability delay bonus (10-40% based on max endpoint phase)
+
+2. **In-Flight**: Transfer exists in `state.InFlightTransfers` until arrival tick
+
+3. **Delivery**: When `ArriveTick <= currentTick`:
+   - Delivers up to `edge.TotalCapacity` units per lane per tick
+   - Overflow is deterministically deferred to next tick (`ArriveTick = now + 1`)
+   - Delivered goods added to destination market inventory
+
+4. **Cleanup**: Fully delivered transfers (quantity = 0) removed from state
+
+### Capacity Enforcement
+
+```
+Per lane per tick:
+  capacity = edge.TotalCapacity (if > 0)
+           = state.Tweaks.DefaultLaneCapacityK (if > 0)
+           = unlimited (legacy behavior)
+
+  Transfers processed in order: ArriveTick → EdgeId → TransferId
+  When capacity exhausted: remaining transfers deferred to next tick
+```
+
+**Sustained overload** creates multi-tick delays via repeated deferrals. This
+models traffic congestion — a heavily-used trade lane becomes a bottleneck.
+
+### Lane Utilization Report
+
+Each tick, the system emits a deterministic report:
+```
+LANE_UTILIZATION_REPORT_V0
+tick=N
+lane_id|delivered|capacity|queued
+edge_001|50|100|0
+edge_002|100|100|25    ← congested lane
+```
+
+This report feeds the empire dashboard's trade infrastructure health display.
+
+---
+
+## Pressure Constants Reference
+
+All values in `SimCore/Tweaks/PressureTweaksV0.cs`:
+
+```
+# Tier Thresholds (bps)
+StrainedThresholdBps       = 2000   (20%)
+UnstableThresholdBps       = 4000   (40%)
+CriticalThresholdBps       = 7000   (70%)
+CollapsedThresholdBps      = 9000   (90%)
+MaxAccumulatedBps          = 10000  (100%)
+
+# Rate Limiting
+MaxTierJumpPerWindow       = 1
+EnforcementWindowTicks     = 50
+MaxAlertsPerWindowNormal   = 3
+MaxAlertsPerWindowCrisis   = 5
+NaturalDecayBps            = 10
+
+# Consequences
+CrisisFeeIncreaseBps       = 2000   (+20% market fee)
+CollapsePiracyEscalationMagnitude = 500
+CrisisTierMin              = 3      (Critical)
+```
+
+All values in `SimCore/Tweaks/InstabilityTweaksV0.cs`:
+
+```
+# Phase Thresholds
+StableMin=0, ShimmerMin=25, DriftMin=50, FractureMin=75, VoidMin=100
+
+# Evolution
+BaseGainPerTick            = 1      (per intensity level)
+DecayAmountPerInterval     = 1
+DecayIntervalTicks         = 100
+MaxInstability             = 150
+
+# Lane Delay
+ShimmerLaneDelayPct        = 10
+DriftLaneDelayPct          = 20
+FractureLaneDelayPct       = 40
+
+# Market Effects
+ShimmerPriceJitterPct      = 5      (±5%)
+VolatilityMaxBps           = 5000   (max +50% at level 150)
+SecurityDemandSkewBps      = 2000   (per phase above Shimmer)
+```
+
+---
+
+## Cross-System Tick Execution Order
+
+`SimKernel.Step()` executes all systems in a fixed order each tick. This ordering
+is load-bearing — systems depend on prior systems' writes within the same tick.
+
+```
+SimKernel.Step():
+  ┌─ PHASE 1: Input Resolution ──────────────────────────────────────
+  │  LaneFlowSystem          — resolve in-flight goods arrivals
+  │  ProgramSystem            — emit automation intents
+  │  IntentSystem             — resolve competing route choices
+  │  MovementSystem           — fleet traversal, arrivals
+  │  FractureWeightSystem     — cargo weight shift on arrival
+  │  SustainSystem            — fuel drain, module sustain cycle
+  │  NpcFleetCombatSystem     — destroy NPC fleets
+  │  LootTableSystem          — despawn expired loot
+  │  JumpEventSystem          — random events on arrival
+  │  RiskSystem               — security incidents
+  │
+  ├─ PHASE 2: Economic Simulation ───────────────────────────────────
+  │  LogisticsSystem          — shortage detection, fleet jobs
+  │  IndustrySystem           — input→output production, efficiency
+  │  StationContextSystem     — per-station economic context
+  │  MissionSystem            — mission trigger/advance
+  │  SystemicMissionSystem    — world-state mission detection
+  │  ResearchSystem           — tech research progress
+  │  RefitSystem              — module installation queue
+  │  MaintenanceSystem        — health decay, efficiency coupling
+  │  PowerBudgetSystem        — power budget enforcement
+  │  HavenUpgradeSystem       — station tier progression
+  │  ConstructionSystem       — construction step advancement
+  │  NpcIndustrySystem (×2)   — NPC demand drain + reaction boost
+  │
+  ├─ PHASE 3: Intel & Discovery ─────────────────────────────────────
+  │  IntelSystem (×3)         — observation, scanner, price history
+  │  DiscoveryOutcomeSystem   — rewards on Analyzed phase
+  │
+  ├─ PHASE 4: Warfront & Pressure ───────────────────────────────────
+  │  WarfrontDemandSystem     — war goods consumption
+  │  WarfrontEvolutionSystem  — intensity transitions
+  │  InstabilitySystem        — per-node instability evolution
+  │  TopologyShiftSystem      — edge mutation on arrival
+  │
+  ├─ PHASE 5: NPC & Security ───────────────────────────────────────
+  │  NpcTradeSystem           — NPC trade circulation
+  │  SecurityLaneSystem       — security lane updates
+  │  EscortSystem             — escort/patrol programs
+  │
+  ├─ PHASE 6: Pressure & Reputation ─────────────────────────────────
+  │  PressureSystem (×2)      — tier transitions + consequence enforce
+  │  ReputationSystem         — natural rep decay
+  │  WarConsequenceSystem     — narrative war consequences
+  │
+  └─ PHASE 7: Player Feedback ──────────────────────────────────────
+     MilestoneSystem          — milestone evaluation
+     FirstOfficerSystem       — FO commentary triggers
+     NarrativeNpcSystem       — war faces lifecycle
+     KnowledgeGraphSystem     — connection reveals
+     FractureSystem (×2)      — fracture gate + goods flow
+```
+
+### Critical Ordering Dependencies
+
+| Dependency | Reason |
+|------------|--------|
+| LaneFlowSystem → IndustrySystem | Goods must arrive at markets before production consumes them |
+| MovementSystem → JumpEventSystem | Arrivals must be recorded before jump events fire |
+| IndustrySystem → NpcIndustrySystem | Production must run before NPC demand drains |
+| WarfrontDemandSystem → WarfrontEvolutionSystem | War goods drain before intensity transitions |
+| WarfrontEvolutionSystem → InstabilitySystem | Intensity must be set before instability evolves |
+| PressureSystem → MilestoneSystem | Pressure consequences applied before milestone check |
+| All systems → KnowledgeGraphSystem | Discovery phases from intel must be final before graph evaluates |
+
+### KNOWN GAP: No Injection Wiring
+
+`PressureSystem.InjectDelta()` is never called by any gameplay system (only tests
+and self-cascade). The injection sources table in the Pressure System section above
+documents the INTENDED wiring — each row requires a 1-line call added to the source
+system. This is the single highest-impact gap for dynamic tension.

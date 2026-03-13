@@ -150,9 +150,19 @@ public static class GalaxyGenerator
             }
         }
 
+        // Phase 8.5: Guarantee profitable first-trade arbitrage at player start.
+        // Must run AFTER faction bias (Phase 7.6) and player relocation (Phase 8).
+        MarketInitGen.GuaranteeStarterArbitrageV0(state);
+
         // Phase 9: GATE.T18.NARRATIVE.LOG_PLACEMENT.001 — Place data logs and Kepler chain.
         NarrativePlacementGen.PlaceDataLogs(state);
         NarrativePlacementGen.PlaceKeplerChain(state);
+
+        // Phase 10: GATE.S8.HAVEN.DISCOVERY.001 — Seed Haven at a deep-space node.
+        SeedHavenV0(state);
+
+        // Phase 11: GATE.S8.ADAPTATION.PLACEMENT.001 — Seed adaptation fragments across galaxy.
+        DiscoverySeedGen.SeedAdaptationFragmentsV0(state, state.InitialSeed);
 
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
@@ -220,6 +230,91 @@ public static class GalaxyGenerator
     // GATE.S6.FRACTURE.VOID_SITES.001: Deterministic void site seeding v0.
     // Places 5-15 void sites at midpoints/offsets between unique star pairs.
     // Uses Fnv1a32 hashing (no RNG consumption) for deterministic positions and families.
+    // GATE.S8.HAVEN.DISCOVERY.001: Seed Haven at the farthest node from player start.
+    private static void SeedHavenV0(SimState state)
+    {
+        if (state.Nodes.Count < StarterRegionNodeCount) return;
+
+        // Pick the node farthest from player start (by Euclidean distance).
+        var startId = state.PlayerLocationNodeId;
+        if (string.IsNullOrEmpty(startId) || !state.Nodes.TryGetValue(startId, out var startNode)) return;
+
+        string bestNodeId = "";
+        float bestDist = 0;
+
+        foreach (var kv in state.Nodes)
+        {
+            if (string.Equals(kv.Key, startId, StringComparison.Ordinal)) continue;
+            var dx = kv.Value.Position.X - startNode.Position.X;
+            var dz = kv.Value.Position.Z - startNode.Position.Z;
+            var dist = dx * dx + dz * dz;
+            if (dist > bestDist)
+            {
+                bestDist = dist;
+                bestNodeId = kv.Key;
+            }
+        }
+
+        if (string.IsNullOrEmpty(bestNodeId)) return;
+
+        // Store Haven node reference — Haven itself is not a node on the map.
+        // It lives at a hidden location near this node, discoverable via fracture scan.
+        state.Haven ??= new Entities.HavenStarbase();
+        state.Haven.NodeId = bestNodeId;
+
+        // Haven market ID is assigned but market is NOT added to state.Markets until
+        // Haven is discovered (avoids polluting bot/trade scanning with an inaccessible market).
+        state.Haven.MarketId = "haven_market";
+        // Haven starts undiscovered — player must find it.
+    }
+
+    /// <summary>
+    /// Refresh Haven market stock for a given tier (called on tier upgrade).
+    /// </summary>
+    public static void RefreshHavenMarketV0(SimState state, Entities.HavenTier tier)
+    {
+        if (state.Haven == null || string.IsNullOrEmpty(state.Haven.MarketId)) return;
+
+        // Create Haven market on first access (deferred from world gen to avoid polluting trade scans).
+        if (!state.Markets.TryGetValue(state.Haven.MarketId, out var mkt))
+        {
+            mkt = new Entities.Market { Id = state.Haven.MarketId };
+            state.Markets[state.Haven.MarketId] = mkt;
+        }
+
+        // T1: exotic_crystals
+        mkt.Inventory[Content.WellKnownGoodIds.ExoticCrystals] =
+            Math.Max(mkt.Inventory.GetValueOrDefault(Content.WellKnownGoodIds.ExoticCrystals),
+                     Tweaks.HavenTweaksV0.MarketStockTier1);
+
+        if (tier >= Entities.HavenTier.Inhabited)
+        {
+            // T2: +fuel, metal, organics
+            SetMinStock(mkt, Content.WellKnownGoodIds.Fuel, Tweaks.HavenTweaksV0.MarketStockTier2);
+            SetMinStock(mkt, Content.WellKnownGoodIds.Metal, Tweaks.HavenTweaksV0.MarketStockTier2);
+            SetMinStock(mkt, Content.WellKnownGoodIds.Organics, Tweaks.HavenTweaksV0.MarketStockTier2);
+        }
+
+        if (tier >= Entities.HavenTier.Operational)
+        {
+            // T3: +exotic_matter, salvaged_tech
+            SetMinStock(mkt, Content.WellKnownGoodIds.ExoticMatter, Tweaks.HavenTweaksV0.MarketStockTier3);
+            SetMinStock(mkt, Content.WellKnownGoodIds.SalvagedTech, Tweaks.HavenTweaksV0.MarketStockTier3);
+        }
+
+        if (tier >= Entities.HavenTier.Expanded)
+        {
+            // T4: boost all stocks
+            foreach (var key in mkt.Inventory.Keys.ToArray())
+                SetMinStock(mkt, key, Tweaks.HavenTweaksV0.MarketStockTier4);
+        }
+    }
+
+    private static void SetMinStock(Entities.Market mkt, string goodId, int minStock)
+    {
+        mkt.Inventory[goodId] = Math.Max(mkt.Inventory.GetValueOrDefault(goodId), minStock);
+    }
+
     private static void SeedVoidSitesV0(SimState state, List<Entities.Node> nodesList)
     {
         if (nodesList.Count < Tweaks.VoidSiteTweaksV0.MinStarCount) return;

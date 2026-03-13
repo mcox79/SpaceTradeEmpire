@@ -14,6 +14,14 @@ public class PlayerArriveCommand : ICommand
         if (string.IsNullOrWhiteSpace(TargetNodeId)) return;
         if (!state.Nodes.ContainsKey(TargetNodeId)) return;
         state.PlayerLocationNodeId = TargetNodeId;
+
+        // Keep player fleet entity in sync with PlayerLocationNodeId.
+        if (state.Fleets.TryGetValue("fleet_trader_1", out var playerFleet))
+        {
+            playerFleet.CurrentNodeId = TargetNodeId;
+            playerFleet.State = Entities.FleetState.Idle;
+        }
+
         bool isNew = state.PlayerVisitedNodeIds.Add(TargetNodeId);
         // GATE.S12.PROGRESSION.STATS.001: Track nodes visited.
         if (isNew && state.PlayerStats != null)

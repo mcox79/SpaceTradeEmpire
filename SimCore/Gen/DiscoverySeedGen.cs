@@ -364,6 +364,73 @@ public static class DiscoverySeedGen
         };
     }
 
+    // GATE.S8.ADAPTATION.PLACEMENT.001: Deterministic fragment placement across galaxy nodes.
+    // Spreads 16 fragments across nodes far from player start using hash-based assignment.
+    public static void SeedAdaptationFragmentsV0(SimState state, int seed)
+    {
+        var content = Content.AdaptationFragmentContentV0.AllFragments;
+        if (content.Count == 0) return;
+        if (state.Nodes.Count < Tweaks.AdaptationTweaksV0.PlacementMinDistanceFromStart) return;
+
+        // Player start position.
+        var startId = state.PlayerLocationNodeId ?? "";
+        System.Numerics.Vector3 startPos = System.Numerics.Vector3.Zero;
+        if (state.Nodes.TryGetValue(startId, out var startNode))
+            startPos = startNode.Position;
+
+        // Build sorted candidate nodes by distance from start (descending).
+        var candidates = new List<(string NodeId, float DistSq)>();
+        foreach (var kv in state.Nodes)
+        {
+            if (kv.Value is null) continue;
+            var dx = kv.Value.Position.X - startPos.X;
+            var dz = kv.Value.Position.Z - startPos.Z;
+            candidates.Add((kv.Key, dx * dx + dz * dz));
+        }
+        candidates.Sort((a, b) =>
+        {
+            int c = b.DistSq.CompareTo(a.DistSq); // descending by distance
+            return c != 0 ? c : string.CompareOrdinal(a.NodeId, b.NodeId);
+        });
+
+        // Skip closest nodes (placement min distance).
+        int skipCount = System.Math.Min(Tweaks.AdaptationTweaksV0.PlacementMinDistanceFromStart, candidates.Count / 2);
+        int eligibleCount = System.Math.Max(candidates.Count - skipCount, 1);
+        eligibleCount = System.Math.Min(eligibleCount, candidates.Count); // clamp to available
+        var eligible = candidates.GetRange(0, eligibleCount);
+
+        // Hash-based assignment: each fragment gets a deterministic node.
+        var usedNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        for (int i = 0; i < content.Count; i++)
+        {
+            var fDef = content[i];
+            uint h = GalaxyGenerator.Fnv1a32Utf8(seed + "|frag_place|" + fDef.FragmentId);
+            int idx = (int)(h % (uint)eligible.Count);
+
+            // Linear probe to avoid collisions.
+            int attempts = 0;
+            while (usedNodes.Contains(eligible[idx].NodeId) && attempts < eligible.Count)
+            {
+                idx = (idx + 1) % eligible.Count;
+                attempts++;
+            }
+
+            var nodeId = eligible[idx].NodeId;
+            usedNodes.Add(nodeId);
+
+            state.AdaptationFragments[fDef.FragmentId] = new Entities.AdaptationFragment
+            {
+                FragmentId = fDef.FragmentId,
+                Name = fDef.Name,
+                Description = fDef.Description,
+                Kind = fDef.Kind,
+                ResonancePairId = fDef.ResonancePairId,
+                NodeId = nodeId,
+            };
+        }
+    }
+
     private static string MintDiscoveryIdV0(string kind, string nodeId, string refId, string sourceId)
     {
         // Canonical stable id format (v0). No timestamps%wall-clock, no RNG, no unordered iteration inputs.

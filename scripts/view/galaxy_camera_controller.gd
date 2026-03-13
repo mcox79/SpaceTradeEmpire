@@ -28,13 +28,13 @@ func _process(delta):
 	var pan_right := Vector3(right.x, 0, right.z).normalized()
 	var pan_fwd := Vector3(fwd.x, 0, fwd.z).normalized()
 	var move := Vector3.ZERO
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if Input.is_action_pressed("ship_thrust_fwd"):
 		move += pan_fwd * pan_speed
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if Input.is_action_pressed("ship_thrust_back"):
 		move -= pan_fwd * pan_speed
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if Input.is_action_pressed("ship_turn_left"):
 		move -= pan_right * pan_speed
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if Input.is_action_pressed("ship_turn_right"):
 		move += pan_right * pan_speed
 	if move.length() > 0.01:
 		global_position += move

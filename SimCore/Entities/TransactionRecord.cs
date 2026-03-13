@@ -9,4 +9,6 @@ public sealed class TransactionRecord
     public int Quantity { get; set; }
     public string Source { get; set; } = "";   // "Buy", "Sell", "MissionReward", "Sustain"
     public string NodeId { get; set; } = "";   // Market/node where transaction occurred
+    // GATE.X.LEDGER.COST_BASIS.001: Realized profit on sell (sell revenue - cost basis). 0 on buys.
+    public int ProfitDelta { get; set; }
 }

@@ -47,6 +47,13 @@ public class SellCommand : ICommand
 		InventoryLedger.AddMarket(market.Inventory, GoodId, Quantity);
 		state.PlayerCredits += totalValue;
 
+		// GATE.X.LEDGER.COST_BASIS.001: Compute realized profit on sell.
+		state.PlayerCargoCostBasis.TryGetValue(GoodId, out int costBasis);
+		int profitDelta = totalValue - costBasis * Quantity;
+		// Clean up cost basis if no cargo remains.
+		if (InventoryLedger.Get(state.PlayerCargo, GoodId) <= 0)
+			state.PlayerCargoCostBasis.Remove(GoodId);
+
 		// GATE.X.LEDGER.TX_MODEL.001: Record sell transaction for audit trail.
 		state.AppendTransaction(new TransactionRecord
 		{
@@ -55,6 +62,7 @@ public class SellCommand : ICommand
 			Quantity = Quantity,
 			Source = "Sell",
 			NodeId = MarketId,
+			ProfitDelta = profitDelta,
 		});
 
 		// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.

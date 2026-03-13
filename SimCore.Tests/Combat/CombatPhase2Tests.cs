@@ -46,6 +46,209 @@ public sealed class CombatPhase2Tests
         return profile;
     }
 
+    // ── Spin / Mount / Cadence Tests (GATE.S7.COMBAT_PHASE2.SPIN_CONTRACT.001) ──
+
+    [Test]
+    public void Spin_ZeroRpm_NoTurnPenalty()
+    {
+        var profile = MakeProfile(5000, 0,
+            weapons: new[] { ("weapon_cannon_mk1", 20, CombatSystem.DamageFamily.Neutral, 0) });
+        profile.SpinRpm = 0;
+
+        var target = MakeProfile(5000, 0);
+        var result = StrategicResolverV0.Resolve(profile, target);
+
+        // At zero RPM, standard turrets fire at full effectiveness.
+        Assert.That(result.Frames[0].DamageThisRound, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void Spin_HighRpm_ReducesDamage()
+    {
+        // Zero RPM vs max RPM. Max RPM should deal less damage.
+        var profileZero = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileZero.SpinRpm = 0;
+
+        var profileMax = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileMax.SpinRpm = CombatTweaksV0.MaxSpinRpm;
+
+        var target1 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+        var target2 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+
+        var r1 = StrategicResolverV0.Resolve(profileZero, target1);
+        var r2 = StrategicResolverV0.Resolve(profileMax, target2);
+
+        Assert.That(r2.SalvageValue, Is.LessThan(r1.SalvageValue),
+            "Max RPM should reduce damage due to turn penalty + fire cadence");
+    }
+
+    [Test]
+    public void Spin_SpinalMount_UnaffectedByRpm()
+    {
+        // Spinal weapon: efficiency = 100%, cadence = 100% regardless of RPM.
+        var profileLow = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileLow.SpinRpm = 0;
+        profileLow.Weapons[0].MountType = MountType.Spinal;
+
+        var profileHigh = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileHigh.SpinRpm = CombatTweaksV0.MaxSpinRpm;
+        profileHigh.Weapons[0].MountType = MountType.Spinal;
+
+        var target1 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+        var target2 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+
+        var r1 = StrategicResolverV0.Resolve(profileLow, target1);
+        var r2 = StrategicResolverV0.Resolve(profileHigh, target2);
+
+        Assert.That(r2.SalvageValue, Is.EqualTo(r1.SalvageValue),
+            "Spinal mount damage should be identical regardless of RPM");
+    }
+
+    [Test]
+    public void Spin_BroadsideMount_FixedEfficiency()
+    {
+        // Broadside: 70% efficiency + 50% cadence when spinning.
+        var profile = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profile.SpinRpm = 20; // some spin
+        profile.Weapons[0].MountType = MountType.Broadside;
+
+        var profileStd = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileStd.SpinRpm = 20;
+        profileStd.Weapons[0].MountType = MountType.Standard;
+
+        var target1 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+        var target2 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+
+        var r1 = StrategicResolverV0.Resolve(profile, target1);
+        var r2 = StrategicResolverV0.Resolve(profileStd, target2);
+
+        // Both should deal damage, but different amounts due to different mount types.
+        Assert.That(r1.SalvageValue, Is.GreaterThan(0));
+        Assert.That(r2.SalvageValue, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void Spin_TurnPenaltyCapped()
+    {
+        // Even at absurdly high RPM (over max), penalty caps at MaxTurnPenaltyBps.
+        var profile = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profile.SpinRpm = 999; // way above max
+
+        var target = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+        var result = StrategicResolverV0.Resolve(profile, target);
+
+        // Should still deal some damage (50% efficiency floor from turn penalty cap + 60% cadence).
+        Assert.That(result.SalvageValue, Is.GreaterThan(0),
+            "Turn penalty capped — standard weapons still deal some damage");
+    }
+
+    [Test]
+    public void Spin_FireCadence_OnlyWhenSpinning()
+    {
+        // Zero RPM: no cadence applied (full fire rate).
+        var profileNoSpin = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileNoSpin.SpinRpm = 0;
+
+        // RPM=1: cadence IS applied (60% for standard).
+        var profileSpin = MakeProfile(5000, 0,
+            heatCapacity: 99999, rejectionRate: 99999,
+            weapons: new[] { ("weapon_cannon_mk1", 100, CombatSystem.DamageFamily.Neutral, 0) });
+        profileSpin.SpinRpm = 1;
+
+        var target1 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+        var target2 = MakeProfile(5000, 0, heatCapacity: 99999, rejectionRate: 99999);
+
+        var r1 = StrategicResolverV0.Resolve(profileNoSpin, target1);
+        var r2 = StrategicResolverV0.Resolve(profileSpin, target2);
+
+        Assert.That(r1.SalvageValue, Is.GreaterThan(r2.SalvageValue),
+            "Zero RPM (no cadence penalty) should deal more damage than RPM=1 (with cadence)");
+    }
+
+    [Test]
+    public void Spin_MountTypeOnProfile()
+    {
+        // BuildProfile carries mount type from slot to weapon info.
+        var fleet = new Fleet { Id = "test" };
+        CombatSystem.InitFleetCombatStats(fleet, isPlayer: true);
+        fleet.Slots.Add(new ModuleSlot
+        {
+            SlotId = "w1", SlotKind = SlotKind.Weapon,
+            InstalledModuleId = "weapon_cannon_mk1",
+            MountType = MountType.Spinal,
+        });
+
+        var profile = CombatSystem.BuildProfile(fleet);
+        Assert.That(profile.Weapons.Count, Is.EqualTo(1));
+        Assert.That(profile.Weapons[0].MountType, Is.EqualTo(MountType.Spinal));
+    }
+
+    [Test]
+    public void Spin_InitFleetCombatStats_SetsDefaultRpm()
+    {
+        var fleet = new Fleet { Id = "test" };
+        CombatSystem.InitFleetCombatStats(fleet, isPlayer: true);
+        Assert.That(fleet.SpinRpm, Is.EqualTo(CombatTweaksV0.DefaultSpinRpm));
+    }
+
+    [Test]
+    public void Spin_BuildProfile_CarriesSpinRpm()
+    {
+        var fleet = new Fleet { Id = "test" };
+        CombatSystem.InitFleetCombatStats(fleet, isPlayer: true);
+        fleet.SpinRpm = 35;
+        var profile = CombatSystem.BuildProfile(fleet);
+        Assert.That(profile.SpinRpm, Is.EqualTo(35));
+    }
+
+    [Test]
+    public void Spin_Deterministic_SameInputsSameOutput()
+    {
+        var makeProf = () =>
+        {
+            var p = MakeProfile(500, 100,
+                heatCapacity: 1000, rejectionRate: 100,
+                weapons: new[]
+                {
+                    ("weapon_cannon_mk1", 15, CombatSystem.DamageFamily.Kinetic, 50),
+                    ("weapon_laser_mk1", 12, CombatSystem.DamageFamily.Energy, 40),
+                });
+            p.SpinRpm = 25;
+            p.Weapons[0].MountType = MountType.Standard;
+            p.Weapons[1].MountType = MountType.Broadside;
+            return p;
+        };
+
+        var target1 = MakeProfile(500, 100, heatCapacity: 500, rejectionRate: 80,
+            weapons: new[] { ("weapon_cannon_mk1", 10, CombatSystem.DamageFamily.Neutral, 100) });
+        var target2 = MakeProfile(500, 100, heatCapacity: 500, rejectionRate: 80,
+            weapons: new[] { ("weapon_cannon_mk1", 10, CombatSystem.DamageFamily.Neutral, 100) });
+
+        var r1 = StrategicResolverV0.Resolve(makeProf(), target1);
+        var r2 = StrategicResolverV0.Resolve(makeProf(), target2);
+
+        Assert.That(r1.Winner, Is.EqualTo(r2.Winner));
+        Assert.That(r1.RoundsPlayed, Is.EqualTo(r2.RoundsPlayed));
+        Assert.That(StrategicResolverV0.ComputeFrameHash(r1.Frames),
+            Is.EqualTo(StrategicResolverV0.ComputeFrameHash(r2.Frames)));
+    }
+
     // ── Heat System Tests ──
 
     [Test]

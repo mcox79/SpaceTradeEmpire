@@ -6,7 +6,7 @@
 extends CanvasLayer
 
 # GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: added ACCESSIBILITY tab
-enum Tab { AUDIO, DISPLAY, GAMEPLAY, ACCESSIBILITY }
+enum Tab { AUDIO, DISPLAY, GAMEPLAY, ACCESSIBILITY, CONTROLS }
 
 ## Maps settings keys to AudioServer bus names.
 const AUDIO_BUS_MAP := {
@@ -30,6 +30,11 @@ var _revert_timer: float = -1.0  # negative = inactive
 var _revert_previous_display_mode: int = 0
 const _REVERT_TIMEOUT := 15.0
 
+# Controls tab: rebinding state
+var _listening_action: String = ""  # Action currently being rebound ("" = not listening)
+var _listening_gamepad: bool = false  # True if listening for gamepad event
+var _listening_label: Label = null  # Label showing "[ Press a key... ]"
+
 
 func _ready() -> void:
 	layer = 120
@@ -45,6 +50,31 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
+		return
+	# Rebinding capture: intercept next key/mouse/gamepad input.
+	if _listening_action != "":
+		if event is InputEventKey and event.pressed:
+			if event.keycode == KEY_ESCAPE:
+				_cancel_listening()
+				get_viewport().set_input_as_handled()
+				return
+			_apply_rebind(event)
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				return  # Ignore scroll wheel during rebinding
+			_apply_rebind(event)
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventJoypadButton and event.pressed:
+			_apply_rebind(event)
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventJoypadMotion and absf(event.axis_value) > 0.5:
+			_apply_rebind(event)
+			get_viewport().set_input_as_handled()
+			return
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		toggle_v0()
@@ -119,7 +149,7 @@ func _build_ui() -> void:
 	tab_bar.add_theme_constant_override("separation", UITheme.SPACE_SM)
 	outer_vbox.add_child(tab_bar)
 
-	var tab_names := ["Audio", "Display", "Gameplay", "Accessibility"]
+	var tab_names := ["Audio", "Display", "Gameplay", "Accessibility", "Controls"]
 	for i in range(tab_names.size()):
 		var btn := Button.new()
 		btn.text = tab_names[i]
@@ -188,6 +218,8 @@ func _switch_tab(tab: Tab) -> void:
 			_build_gameplay_tab()
 		Tab.ACCESSIBILITY:
 			_build_accessibility_tab()
+		Tab.CONTROLS:
+			_build_controls_tab()
 
 
 # ── Audio tab ────────────────────────────────────────────────────────────────
@@ -230,6 +262,162 @@ func _build_accessibility_tab() -> void:
 	_add_toggle_row("High Contrast", "accessibility_high_contrast")
 	_add_toggle_row("Reduced Screen Shake", "accessibility_reduced_shake")
 	_add_info_row("Font scale changes apply to all UI elements globally.")
+
+
+# ── Controls tab ────────────────────────────────────────────────────────────
+
+func _build_controls_tab() -> void:
+	var input_mgr = get_node_or_null("/root/InputManager")
+	if input_mgr == null:
+		_add_info_row("InputManager not available.")
+		return
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 280)
+	_content_container.add_child(scroll)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
+
+	var labels: Dictionary = input_mgr.ACTION_LABELS
+	for action in labels:
+		_add_keybind_row(vbox, action, labels[action], input_mgr)
+
+	# Reset All Bindings button at bottom.
+	var reset_btn := Button.new()
+	reset_btn.text = "Reset All Bindings"
+	reset_btn.custom_minimum_size = Vector2(160, 32)
+	reset_btn.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	reset_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	reset_btn.pressed.connect(func() -> void:
+		input_mgr.reset_all_bindings()
+		_switch_tab(Tab.CONTROLS)
+	)
+	_content_container.add_child(reset_btn)
+
+
+func _add_keybind_row(parent: VBoxContainer, action: String, label_text: String, input_mgr) -> void:
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", UITheme.SPACE_SM)
+
+	# Action name label.
+	var name_lbl := Label.new()
+	name_lbl.text = label_text
+	name_lbl.custom_minimum_size = Vector2(160, 0)
+	name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox.add_child(name_lbl)
+
+	# Keyboard binding label.
+	var kb_lbl := Label.new()
+	kb_lbl.text = input_mgr.get_action_label(action)
+	kb_lbl.custom_minimum_size = Vector2(80, 0)
+	kb_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	kb_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+	kb_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hbox.add_child(kb_lbl)
+
+	# Bind keyboard button.
+	var kb_btn := Button.new()
+	kb_btn.text = "Bind"
+	kb_btn.custom_minimum_size = Vector2(60, 28)
+	kb_btn.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	kb_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	kb_btn.pressed.connect(func() -> void:
+		_start_listening(action, false, kb_lbl)
+	)
+	hbox.add_child(kb_btn)
+
+	# Gamepad binding label.
+	var gp_lbl := Label.new()
+	gp_lbl.text = input_mgr.get_action_gamepad_label(action)
+	gp_lbl.custom_minimum_size = Vector2(80, 0)
+	gp_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	gp_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	gp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hbox.add_child(gp_lbl)
+
+	# Bind gamepad button.
+	var gp_btn := Button.new()
+	gp_btn.text = "Pad"
+	gp_btn.custom_minimum_size = Vector2(60, 28)
+	gp_btn.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	gp_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	gp_btn.pressed.connect(func() -> void:
+		_start_listening(action, true, gp_lbl)
+	)
+	hbox.add_child(gp_btn)
+
+	# Reset single action.
+	var reset_btn := Button.new()
+	reset_btn.text = "X"
+	reset_btn.custom_minimum_size = Vector2(28, 28)
+	reset_btn.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	reset_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	reset_btn.pressed.connect(func() -> void:
+		input_mgr.reset_action(action)
+		kb_lbl.text = input_mgr.get_action_label(action)
+		gp_lbl.text = input_mgr.get_action_gamepad_label(action)
+	)
+	hbox.add_child(reset_btn)
+
+	parent.add_child(hbox)
+
+
+func _start_listening(action: String, gamepad: bool, label: Label) -> void:
+	_listening_action = action
+	_listening_gamepad = gamepad
+	_listening_label = label
+	label.text = "[ Press... ]"
+	label.add_theme_color_override("font_color", UITheme.ORANGE)
+
+
+func _cancel_listening() -> void:
+	if _listening_label != null and is_instance_valid(_listening_label):
+		var input_mgr = get_node_or_null("/root/InputManager")
+		if input_mgr:
+			if _listening_gamepad:
+				_listening_label.text = input_mgr.get_action_gamepad_label(_listening_action)
+				_listening_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			else:
+				_listening_label.text = input_mgr.get_action_label(_listening_action)
+				_listening_label.add_theme_color_override("font_color", UITheme.GOLD)
+	_listening_action = ""
+	_listening_label = null
+
+
+func _apply_rebind(event: InputEvent) -> void:
+	var input_mgr = get_node_or_null("/root/InputManager")
+	if input_mgr == null:
+		_cancel_listening()
+		return
+
+	# Check for conflicts.
+	var conflict: String = input_mgr.find_conflict(_listening_action, event)
+	if conflict != "":
+		var conflict_label: String = input_mgr.ACTION_LABELS.get(conflict, conflict)
+		print("UUIR|SETTINGS_PANEL|BIND_CONFLICT|%s|%s" % [_listening_action, conflict_label])
+		# Allow the rebind anyway — user chose it.
+
+	if _listening_gamepad:
+		input_mgr.rebind_action_gamepad(_listening_action, event)
+	else:
+		input_mgr.rebind_action(_listening_action, event)
+
+	# Update label with new binding.
+	if _listening_label != null and is_instance_valid(_listening_label):
+		if _listening_gamepad:
+			_listening_label.text = input_mgr.get_action_gamepad_label(_listening_action)
+			_listening_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		else:
+			_listening_label.text = input_mgr.get_action_label(_listening_action)
+			_listening_label.add_theme_color_override("font_color", UITheme.GOLD)
+
+	_listening_action = ""
+	_listening_label = null
 
 
 ## GATE.S9.ACCESSIBILITY.FONT_SCALE.001: font scale uses discrete percentage values.

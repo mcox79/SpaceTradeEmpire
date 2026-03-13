@@ -73,6 +73,8 @@ enum Phase {
 	SYSTEM_2_CAPTURE,          # 13. System 2: different star type
 	SYSTEM_2_DOCK,
 	SYSTEM_2_MARKET_CAPTURE,   # 14. System 2 market
+	SYSTEM_2_SHIP_TAB_SWITCH,  # Switch to Ship tab (unlocked after combat)
+	SYSTEM_2_SHIP_TAB_CAPTURE, # 15. Ship tab: refit, maintenance, modules
 	SYSTEM_2_UNDOCK,
 
 	# --- Warp to System 3 ---
@@ -82,6 +84,22 @@ enum Phase {
 	WARP_3_REBUILD,
 	SYSTEM_3_CAPTURE,          # 15. System 3: dock for variety
 	SYSTEM_3_DOCK_CAPTURE,     # 15b. System 3 market
+	SYSTEM_3_STATION_TAB_SWITCH,   # Switch to Station tab (unlocked at 3+ nodes)
+	SYSTEM_3_STATION_TAB_CAPTURE,  # 16. Station tab: research, construction
+	SYSTEM_3_INTEL_TAB_SWITCH,     # Switch to Intel tab
+	SYSTEM_3_INTEL_TAB_CAPTURE,    # 17. Intel tab: trade routes, automation
+	SYSTEM_3_UNDOCK,
+
+	# --- Overlay Panels (keyboard-toggled) ---
+	OPEN_MISSION_JOURNAL,
+	MISSION_JOURNAL_CAPTURE,       # 18. Mission journal (J key)
+	CLOSE_MISSION_JOURNAL,
+	OPEN_KNOWLEDGE_WEB,
+	KNOWLEDGE_WEB_CAPTURE,         # 19. Knowledge web (K key)
+	CLOSE_KNOWLEDGE_WEB,
+	OPEN_COMBAT_LOG,
+	COMBAT_LOG_CAPTURE,            # 20. Combat log (L key)
+	CLOSE_COMBAT_LOG,
 
 	# --- Time Advancement ---
 	WAIT_TICK_200,
@@ -388,6 +406,7 @@ func _process(_delta: float) -> bool:
 				_phase = Phase.WARP_2_REBUILD
 
 		Phase.WARP_2_REBUILD:
+			_force_arrival(_neighbor_ids[0])
 			_rebuild_local_system(_neighbor_ids[0])
 			_polls = 0
 			_phase = Phase.SYSTEM_2_CAPTURE
@@ -410,6 +429,20 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= SETTLE_ACTION:
 				_capture("system_2_dock")
+				_polls = 0
+				_phase = Phase.SYSTEM_2_SHIP_TAB_SWITCH
+
+		Phase.SYSTEM_2_SHIP_TAB_SWITCH:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_switch_dock_tab(2)  # Ship tab
+				_polls = 0
+				_phase = Phase.SYSTEM_2_SHIP_TAB_CAPTURE
+
+		Phase.SYSTEM_2_SHIP_TAB_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_TAB:
+				_capture("ship_tab")
 				_polls = 0
 				_phase = Phase.SYSTEM_2_UNDOCK
 
@@ -448,6 +481,7 @@ func _process(_delta: float) -> bool:
 				_phase = Phase.WARP_3_REBUILD
 
 		Phase.WARP_3_REBUILD:
+			_force_arrival(_neighbor_ids[1])
 			_rebuild_local_system(_neighbor_ids[1])
 			_polls = 0
 			_phase = Phase.SYSTEM_3_CAPTURE
@@ -464,7 +498,104 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= SETTLE_ACTION:
 				_capture("system_3")
+				_polls = 0
+				_phase = Phase.SYSTEM_3_STATION_TAB_SWITCH
+
+		Phase.SYSTEM_3_STATION_TAB_SWITCH:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_switch_dock_tab(3)  # Station tab
+				_polls = 0
+				_phase = Phase.SYSTEM_3_STATION_TAB_CAPTURE
+
+		Phase.SYSTEM_3_STATION_TAB_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_TAB:
+				_capture("station_tab")
+				_polls = 0
+				_phase = Phase.SYSTEM_3_INTEL_TAB_SWITCH
+
+		Phase.SYSTEM_3_INTEL_TAB_SWITCH:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_switch_dock_tab(4)  # Intel tab
+				_polls = 0
+				_phase = Phase.SYSTEM_3_INTEL_TAB_CAPTURE
+
+		Phase.SYSTEM_3_INTEL_TAB_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_TAB:
+				_capture("intel_tab")
+				_polls = 0
+				_phase = Phase.SYSTEM_3_UNDOCK
+
+		Phase.SYSTEM_3_UNDOCK:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
 				_undock()
+				_polls = 0
+				_phase = Phase.OPEN_MISSION_JOURNAL
+
+		Phase.OPEN_MISSION_JOURNAL:
+			_polls += 1
+			if _polls >= SETTLE_ACTION:
+				_toggle_panel("_toggle_mission_journal_v0")
+				_polls = 0
+				_phase = Phase.MISSION_JOURNAL_CAPTURE
+
+		Phase.MISSION_JOURNAL_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("mission_journal")
+				_polls = 0
+				_phase = Phase.CLOSE_MISSION_JOURNAL
+
+		Phase.CLOSE_MISSION_JOURNAL:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_toggle_panel("_toggle_mission_journal_v0")
+				_polls = 0
+				_phase = Phase.OPEN_KNOWLEDGE_WEB
+
+		Phase.OPEN_KNOWLEDGE_WEB:
+			_polls += 1
+			if _polls >= SETTLE_ACTION:
+				_toggle_panel("_toggle_knowledge_web_v0")
+				_polls = 0
+				_phase = Phase.KNOWLEDGE_WEB_CAPTURE
+
+		Phase.KNOWLEDGE_WEB_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("knowledge_web")
+				_polls = 0
+				_phase = Phase.CLOSE_KNOWLEDGE_WEB
+
+		Phase.CLOSE_KNOWLEDGE_WEB:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_toggle_panel("_toggle_knowledge_web_v0")
+				_polls = 0
+				_phase = Phase.OPEN_COMBAT_LOG
+
+		Phase.OPEN_COMBAT_LOG:
+			_polls += 1
+			if _polls >= SETTLE_ACTION:
+				_toggle_panel("_toggle_combat_log_v0")
+				_polls = 0
+				_phase = Phase.COMBAT_LOG_CAPTURE
+
+		Phase.COMBAT_LOG_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("combat_log")
+				_polls = 0
+				_phase = Phase.CLOSE_COMBAT_LOG
+
+		Phase.CLOSE_COMBAT_LOG:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_toggle_panel("_toggle_combat_log_v0")
 				_polls = 0
 				_phase = Phase.WAIT_TICK_200
 
@@ -610,6 +741,18 @@ func _toggle_galaxy_map() -> void:
 func _toggle_empire_dashboard() -> void:
 	if _game_manager != null:
 		_game_manager.call("_toggle_empire_dashboard_v0")
+
+
+func _force_arrival(node_id: String) -> void:
+	if _game_manager != null and _game_manager.has_method("on_lane_arrival_v0"):
+		_game_manager.call("on_lane_arrival_v0", node_id)
+		print(PREFIX + "FORCE_ARRIVAL|%s" % node_id)
+
+
+func _toggle_panel(method_name: String) -> void:
+	if _game_manager != null and _game_manager.has_method(method_name):
+		_game_manager.call(method_name)
+		print(PREFIX + "PANEL_TOGGLE|%s" % method_name)
 
 
 func _switch_dock_tab(idx: int) -> void:

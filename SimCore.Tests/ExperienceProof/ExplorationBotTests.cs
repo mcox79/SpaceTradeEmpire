@@ -500,7 +500,8 @@ public class ExplorationBotTests
             "engine_efficiency has no SustainInputs — test needs a tech with goods requirements");
 
         // Find a node with a market and seed it with required goods.
-        var nodeId = kernel.State.Markets.Keys.OrderBy(k => k, StringComparer.Ordinal).First();
+        // Skip special markets (e.g., haven_market) that don't correspond to node IDs.
+        var nodeId = kernel.State.Markets.Keys.Where(k => k.StartsWith("star_", StringComparison.Ordinal)).OrderBy(k => k, StringComparer.Ordinal).First();
         var market = kernel.State.Markets[nodeId];
         foreach (var kv in techDef.SustainInputs)
             market.Inventory[kv.Key] = kv.Value * 100;

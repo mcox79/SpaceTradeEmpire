@@ -99,6 +99,9 @@ public class SimKernel
         // Consume upkeep and produce outputs.
         IndustrySystem.Process(_state);
 
+        // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context.
+        StationContextSystem.Process(_state);
+
         // GATE.S1.MISSION.SYSTEM.001: Evaluate mission triggers and advance steps.
         MissionSystem.Process(_state);
 
@@ -112,6 +115,9 @@ public class SimKernel
 
         // GATE.S7.POWER.BUDGET_ENFORCE.001: Enforce power budget after refit changes.
         PowerBudgetSystem.Process(_state);
+
+        // GATE.S8.HAVEN.UPGRADE_SYSTEM.001: Haven tier upgrade progression.
+        HavenUpgradeSystem.Process(_state);
 
         // GATE.S4.CONSTR_PROG.SYSTEM.001: Construction step advancement.
         ConstructionSystem.ProcessConstruction(_state);

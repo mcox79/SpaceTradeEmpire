@@ -44,6 +44,8 @@ public static class CombatSystem
         public int ReadinessDamagePct { get; set; } = CombatTweaksV0.NeutralPct;
         // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Total radiator bonus (removed if aft zone destroyed).
         public int RadiatorBonusRate { get; set; }
+        // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Spin RPM for turn penalty computation.
+        public int SpinRpm { get; set; }
     }
 
     public sealed class WeaponInfo
@@ -53,6 +55,8 @@ public static class CombatSystem
         public DamageFamily Family { get; set; } = DamageFamily.Neutral;
         // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat generated per weapon fire.
         public int HeatPerShot { get; set; } = CombatTweaksV0.DefaultHeatPerShot;
+        // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Mount classification for arc restrictions.
+        public MountType MountType { get; set; } = MountType.Standard;
     }
 
     public static DamageFamily ClassifyWeapon(string moduleId)
@@ -91,6 +95,8 @@ public static class CombatSystem
                 BattleStationsState.SpinningUp => CombatTweaksV0.SpinningUpDamagePct,
                 _ => CombatTweaksV0.NeutralPct,
             },
+            // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Copy spin RPM for turn penalty.
+            SpinRpm = fleet.SpinRpm,
         };
         // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Copy zone armor.
         Array.Copy(fleet.ZoneArmorHp, profile.ZoneArmorHp, fleet.ZoneArmorHp.Length);
@@ -112,6 +118,8 @@ public static class CombatSystem
                     ModuleId = slot.InstalledModuleId,
                     BaseDamage = baseDmg,
                     Family = ClassifyWeapon(slot.InstalledModuleId),
+                    // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Carry mount type from slot.
+                    MountType = slot.MountType,
                 });
             }
 
@@ -233,6 +241,8 @@ public static class CombatSystem
         fleet.HullHp = fleet.HullHpMax;
         fleet.ShieldHp = fleet.ShieldHpMax;
         Array.Copy(fleet.ZoneArmorHpMax, fleet.ZoneArmorHp, fleet.ZoneArmorHpMax.Length);
+        // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Default spin RPM for combat.
+        fleet.SpinRpm = CombatTweaksV0.DefaultSpinRpm;
     }
 
     // GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Zone armor damage routing result.

@@ -193,6 +193,19 @@ public partial class SimState
         WarConsequences ??= new Dictionary<string, Entities.WarConsequence>(StringComparer.Ordinal);
         NarrativeNpcs ??= new Dictionary<string, Entities.NarrativeNpc>(StringComparer.Ordinal);
 
+        // GATE.S8.HAVEN.ENTITY.001: Haven starbase hydration.
+        Haven ??= new Entities.HavenStarbase();
+        Haven.StoredShipIds ??= new List<string>();
+        Haven.InstalledFragmentIds ??= new List<string>();
+        Haven.Residents ??= new List<Entities.HavenResident>();
+        Haven.TrophyWall ??= new Dictionary<string, int>();
+
+        // GATE.S8.ADAPTATION.ENTITY.001: Adaptation fragments hydration.
+        AdaptationFragments ??= new Dictionary<string, Entities.AdaptationFragment>(StringComparer.Ordinal);
+
+        // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Station context hydration.
+        StationContexts ??= new Dictionary<string, Systems.StationContext>(StringComparer.Ordinal);
+
         // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Intel book hydration.
         Intel ??= new Entities.IntelBook();
 

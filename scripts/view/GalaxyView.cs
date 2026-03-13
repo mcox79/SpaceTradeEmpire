@@ -70,6 +70,10 @@ public partial class GalaxyView : Node3D
     // GATE.S5.LOOT.BRIDGE_PROOF.001: Loot drop markers (glowing spheres) at current node.
     private readonly Dictionary<string, MeshInstance3D> _lootMarkersByDropId = new();
 
+    // GATE.S8.HAVEN.GALAXY_ICON.001: Haven starbase icon on galaxy map (visible when discovered).
+    private MeshInstance3D _havenIconMesh;
+    private Label3D _havenIconLabel;
+
     // ── GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: V2 overlay state ──
     private GalaxyMapV2Overlay _v2OverlayMode = GalaxyMapV2Overlay.Off;
     private readonly Dictionary<string, MeshInstance3D> _v2OverlayDiscsByNodeId = new();
@@ -1483,8 +1487,8 @@ public partial class GalaxyView : Node3D
             Width = 200f,
             AutowrapMode = TextServer.AutowrapMode.Off,
         };
-        // FEEL_POST_FIX_7: Raised from Y=4 to Y=10 to prevent overlap with planet label (Y=6).
-        stationLabel.Position = new Vector3(0f, 10f, 0f);
+        // FEEL_POST_FIX_10: Raised from Y=18 to Y=28 to prevent overlap with faction banner (Y=13).
+        stationLabel.Position = new Vector3(0f, 28f, 0f);
         station.AddChild(stationLabel);
 
         // GATE.S7.FACTION_VIS.STATION_STYLE.001: Faction name banner below station label.
@@ -1503,7 +1507,8 @@ public partial class GalaxyView : Node3D
                     Modulate = accentColor,
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
-                factionBanner.Position = new Vector3(0f, 5.5f, 0f);
+                // FEEL_POST_FIX_9: Positioned between planet label (Y=6) and station label (Y=18).
+                factionBanner.Position = new Vector3(0f, 13f, 0f);
                 station.AddChild(factionBanner);
             }
         }
@@ -3210,10 +3215,14 @@ public partial class GalaxyView : Node3D
                 // Token contract: RUMORED => "???", VISITED => name, MAPPED => name+count.
                 // FEEL_POST_FIX_8: Use StripResourceTagsV0 for clean system names on galaxy map.
                 // GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Append instability phase to node label.
-                string baseText = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
-                    ? "???"
-                    : StripResourceTagsV0(n.DisplayText ?? "");
-                if (_bridge != null && !StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED"))
+                // Only show real system names for nodes the player has visited/mapped.
+                // All other states (RUMORED, HIDDEN that somehow survived) → "???".
+                bool isKnownNode = StringComparer.Ordinal.Equals(n.DisplayStateToken, "VISITED")
+                    || StringComparer.Ordinal.Equals(n.DisplayStateToken, "MAPPED");
+                string baseText = isKnownNode
+                    ? StripResourceTagsV0(n.DisplayText ?? "")
+                    : "???";
+                if (_bridge != null && isKnownNode)
                 {
                     var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
                     int phaseIdx = instab.ContainsKey("phase_index") ? (int)(Variant)instab["phase_index"] : 0;
@@ -3224,9 +3233,11 @@ public partial class GalaxyView : Node3D
                     }
                 }
                 label.Text = baseText;
-                // Suppress all overlay labels during transit/cinematic.
-                if (_localLabelsHidden)
-                    label.Visible = false;
+                // FEEL_POST_FIX_10: Explicitly set label visibility based on current state.
+                // Previously only hid labels; now also shows them when not hidden,
+                // ensuring RefreshFromSnapshotV0 (deferred) doesn't leave labels invisible
+                // after UpdateSemanticZoomV0 already ran for the current band.
+                label.Visible = !_localLabelsHidden;
             }
 
             // GATE.S11.GAME_FEEL.FLEET_STATUS.001: Show fleet role breakdown on galaxy map.
@@ -3254,9 +3265,8 @@ public partial class GalaxyView : Node3D
                     fleetLabel.Text = n.FleetCount > 0 ? "[" + n.FleetCount + " fleets]" : "";
                     fleetLabel.Modulate = new Color(1.0f, 0.8f, 0.2f);
                 }
-                // Suppress all overlay labels during transit/cinematic.
-                if (_localLabelsHidden)
-                    fleetLabel.Visible = false;
+                // FEEL_POST_FIX_10: Sync fleet label visibility with label hidden state.
+                fleetLabel.Visible = !_localLabelsHidden;
             }
 
             var mesh = root.GetNodeOrNull<MeshInstance3D>("NodeMesh");
@@ -3462,6 +3472,9 @@ public partial class GalaxyView : Node3D
 
         // GATE.S5.LOOT.BRIDGE_PROOF.001: Loot drop markers.
         UpdateLootMarkersV0();
+
+        // GATE.S8.HAVEN.GALAXY_ICON.001: Haven starbase icon on galaxy map.
+        UpdateHavenIconV0();
     }
 
     // GATE.S5.SEC_LANES.UI.001: Map security BPS to lane display color.
@@ -4110,6 +4123,110 @@ public partial class GalaxyView : Node3D
         foreach (var kv in _lootMarkersByDropId)
             kv.Value.QueueFree();
         _lootMarkersByDropId.Clear();
+    }
+
+    // GATE.S8.HAVEN.GALAXY_ICON.001: Show a distinct Haven icon on the galaxy map when discovered.
+    // Diamond-shaped mesh (rotated box) in gold/amber, with a "HAVEN" label above.
+    // Sized for visibility at STRATEGIC_ALTITUDE (~1800u).
+    private void UpdateHavenIconV0()
+    {
+        if (_bridge == null || !_bridge.HasMethod("GetHavenStatusV0"))
+        {
+            ClearHavenIconV0();
+            return;
+        }
+
+        var status = _bridge.Call("GetHavenStatusV0").AsGodotDictionary();
+        if (status == null || status.Count == 0)
+        {
+            ClearHavenIconV0();
+            return;
+        }
+
+        bool discovered = status.ContainsKey("discovered") && (bool)status["discovered"];
+        string nodeId = status.ContainsKey("node_id") ? (string)(Variant)status["node_id"] : "";
+
+        if (!discovered || string.IsNullOrEmpty(nodeId))
+        {
+            ClearHavenIconV0();
+            return;
+        }
+
+        // Find the node position from rendered galaxy nodes.
+        if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot))
+        {
+            ClearHavenIconV0();
+            return;
+        }
+
+        // Haven icon color: gold/amber to stand out from blue star beacons.
+        var havenColor = new Color(1.0f, 0.85f, 0.2f, 1.0f);
+
+        // Create or update the diamond mesh.
+        if (_havenIconMesh == null)
+        {
+            _havenIconMesh = new MeshInstance3D
+            {
+                Name = "HavenIcon",
+                // Diamond shape: rotated box (45 degrees on Y and Z).
+                Mesh = new BoxMesh
+                {
+                    Size = new Vector3(200.0f, 200.0f, 200.0f),
+                },
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            // Rotate 45 degrees on Z axis to create diamond silhouette.
+            _havenIconMesh.RotationDegrees = new Vector3(0f, 45f, 45f);
+            _havenIconMesh.MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = havenColor,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                EmissionEnabled = true,
+                Emission = havenColor,
+                EmissionEnergyMultiplier = 25.0f,
+            };
+            AddChild(_havenIconMesh);
+        }
+
+        // Position at the Haven node, slightly above the beacon.
+        _havenIconMesh.GlobalPosition = nodeRoot.GlobalPosition + new Vector3(0f, 250.0f, 0f);
+        _havenIconMesh.Visible = true;
+
+        // Create or update the "HAVEN" label.
+        if (_havenIconLabel == null)
+        {
+            string tierName = status.ContainsKey("tier_name") ? (string)(Variant)status["tier_name"] : "";
+            _havenIconLabel = new Label3D
+            {
+                Name = "HavenLabel",
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                PixelSize = 4.0f,
+                FontSize = 64,
+                OutlineSize = 14,
+                Modulate = havenColor,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            AddChild(_havenIconLabel);
+        }
+
+        // Update label text with tier info.
+        string currentTierName = status.ContainsKey("tier_name") ? (string)(Variant)status["tier_name"] : "";
+        _havenIconLabel.Text = string.IsNullOrEmpty(currentTierName) ? "HAVEN" : $"HAVEN ({currentTierName})";
+        _havenIconLabel.GlobalPosition = nodeRoot.GlobalPosition + new Vector3(0f, 420.0f, 0f);
+        _havenIconLabel.Visible = true;
+    }
+
+    private void ClearHavenIconV0()
+    {
+        if (_havenIconMesh != null)
+        {
+            _havenIconMesh.Visible = false;
+        }
+        if (_havenIconLabel != null)
+        {
+            _havenIconLabel.Visible = false;
+        }
     }
 
     private void ClearTerritoryOverlayV0()

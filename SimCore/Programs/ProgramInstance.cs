@@ -43,6 +43,9 @@ public sealed class ProgramInstance
     [JsonInclude] public string GoodId { get; set; } = "";
     [JsonInclude] public int Quantity { get; set; } = 0;
 
+    // GATE.S7.AUTOMATION.TEMPLATES.001: Template that created this program (empty = manual).
+    [JsonInclude] public string TemplateId { get; set; } = "";
+
     public bool IsRunnableAt(int tick)
     {
         if (Status != ProgramStatus.Running) return false;

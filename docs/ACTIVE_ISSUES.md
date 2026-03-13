@@ -92,15 +92,15 @@ deferred to future tranches.
 
 | # | Severity | Issue | Effort | Source |
 |---|----------|-------|--------|--------|
-| F1 | MEDIUM | No cost-basis tracking in cargo — player can't see profit/loss per good without remembering buy price. Every competitor (X4, Elite, Freelancer) shows this | Large — needs SimCore accounting entity (buy price per good per batch) | Screenshot eval 2026-03-11 |
+| ~~F1~~ | ~~MEDIUM~~ | ~~No cost-basis tracking in cargo~~ — FIXED by GATE.X.LEDGER.COST_BASIS.001 + GATE.X.LEDGER.COST_BASIS_BRIDGE.001 (weighted avg cost basis, realized profit on sell, GetCargoWithCostBasisV0 bridge) | — | 2026-03-13 |
 | F2 | MEDIUM | FO panel has no portrait/avatar — dialogue appears as plain text. Competitors use character portraits for emotional connection (Freelancer, Starsector) | Medium + art — needs 3 character art assets + UI redesign | Screenshot eval 2026-03-11 |
 | F3 | LOW | No voiced FO reactions or audio cues — all feedback is visual text. Audio responses dramatically improve engagement (Freelancer's Trent/Juni voices) | Large + audio — needs audio pipeline + Sound Manager addon | Screenshot eval 2026-03-11 |
-| F4 | MEDIUM | Warp arrival lacks drama — current flyby works functionally but doesn't create the "wow" moment of Freelancer's jump gate arrivals or Elite's witch-space exit | Medium — needs camera choreography overhaul | Screenshot eval 2026-03-11 |
-| F5 | MEDIUM | No persistent objective/quest log UI — player has only edgedar waypoint + mission HUD panel. No way to review past/current objectives. Starsector's intel screen is the benchmark | Medium — needs dedicated panel design | Screenshot eval 2026-03-11 |
-| F6 | HIGH | All stations look identical — every station uses the same model with no faction visual identity. Freelancer's stations are instantly recognizable by faction. Starsector has unique station sprites | Large + art — needs per-faction station models/color schemes | Screenshot eval 2026-03-11 |
+| ~~F4~~ | ~~MEDIUM~~ | ~~Warp arrival lacks drama~~ — FIXED by GATE.X.WARP.ARRIVAL_DRAMA.001 (letterbox bars + system title card tween on lane arrival) | — | 2026-03-13 |
+| ~~F5~~ | ~~MEDIUM~~ | ~~No persistent objective/quest log UI~~ — FIXED by GATE.X.UI_POLISH.QUEST_TRACKER.001 (HUD quest tracker widget with mission name, step text, progress bar) | — | 2026-03-13 |
+| ~~F6~~ | ~~HIGH~~ | ~~All stations look identical~~ — FIXED by GATE.X.STATION_IDENTITY.VISUAL.001 (per-faction color tint + tier-based size scaling) | — | 2026-03-12 |
 | F10 | MEDIUM | Galaxy map nearly empty — one green dot, thin blue lines, plain black background. No node variety, no faction colors, no size/color differentiation, no strategic info | Large — needs node visual diversity, faction overlay, economic hints | Eval iter3 2026-03-11 |
-| F11 | MEDIUM | Empire Dashboard "Needs Attention" reads as errors — "! No automation running" in bright red feels like failure, not onboarding invitation | Small — UX copywriting pass on dashboard prompts | Eval iter3 2026-03-11 |
-| F12 | MEDIUM | Market production text unformatted — "[Mine] Extract Ore [fuel:1, ore:0] eff:100%" renders as dense inline text, not structured production chain | Medium — needs production chain visualization component | Eval iter3 2026-03-11 |
+| ~~F11~~ | ~~MEDIUM~~ | ~~Empire Dashboard "Needs Attention" reads as errors~~ — FIXED by GATE.X.UI_POLISH.DASHBOARD_UX.001 (renamed to 'Opportunities', info-blue) | — | 2026-03-12 |
+| ~~F12~~ | ~~MEDIUM~~ | ~~Market production text unformatted~~ — FIXED by GATE.X.UI_POLISH.MARKET_FORMAT.001 (arrow separators, color-coded surplus/deficit) | — | 2026-03-12 |
 
 ## Resolved (Archive)
 

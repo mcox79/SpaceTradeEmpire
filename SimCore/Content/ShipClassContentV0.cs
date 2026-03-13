@@ -72,6 +72,47 @@ public static class ShipClassContentV0
             SlotCount = 10, BasePower = 100, CargoCapacity = 50, Mass = 120, ScanRange = 80,
             BaseZoneArmor = new[] { 50, 45, 45, 35 }, CoreHull = 150, BaseShield = 80, BaseFuelCapacity = 500,
         },
+
+        // GATE.S8.ANCIENT_HULLS.CONTENT.001: 3 ancient ship hulls (discovered at deep void sites, restored at Haven T3+).
+        new ShipClassDef
+        {
+            ClassId = "ancient_bastion", DisplayName = "Hull Type XV-1",
+            SlotCount = Tweaks.AncientHullTweaksV0.BastionSlotCount,
+            BasePower = Tweaks.AncientHullTweaksV0.BastionBasePower,
+            CargoCapacity = Tweaks.AncientHullTweaksV0.BastionCargoCapacity,
+            Mass = Tweaks.AncientHullTweaksV0.BastionMass,
+            ScanRange = Tweaks.AncientHullTweaksV0.BastionScanRange,
+            BaseZoneArmor = new[] { Tweaks.AncientHullTweaksV0.BastionArmorFore, Tweaks.AncientHullTweaksV0.BastionArmorPort, Tweaks.AncientHullTweaksV0.BastionArmorStbd, Tweaks.AncientHullTweaksV0.BastionArmorAft },
+            CoreHull = Tweaks.AncientHullTweaksV0.BastionCoreHull,
+            BaseShield = Tweaks.AncientHullTweaksV0.BastionBaseShield,
+            BaseFuelCapacity = Tweaks.AncientHullTweaksV0.BastionBaseFuelCapacity,
+        },
+        new ShipClassDef
+        {
+            ClassId = "ancient_seeker", DisplayName = "Hull Type XV-2",
+            SlotCount = Tweaks.AncientHullTweaksV0.SeekerSlotCount,
+            BasePower = Tweaks.AncientHullTweaksV0.SeekerBasePower,
+            CargoCapacity = Tweaks.AncientHullTweaksV0.SeekerCargoCapacity,
+            Mass = Tweaks.AncientHullTweaksV0.SeekerMass,
+            ScanRange = Tweaks.AncientHullTweaksV0.SeekerScanRange,
+            BaseZoneArmor = new[] { Tweaks.AncientHullTweaksV0.SeekerArmorFore, Tweaks.AncientHullTweaksV0.SeekerArmorPort, Tweaks.AncientHullTweaksV0.SeekerArmorStbd, Tweaks.AncientHullTweaksV0.SeekerArmorAft },
+            CoreHull = Tweaks.AncientHullTweaksV0.SeekerCoreHull,
+            BaseShield = Tweaks.AncientHullTweaksV0.SeekerBaseShield,
+            BaseFuelCapacity = Tweaks.AncientHullTweaksV0.SeekerBaseFuelCapacity,
+        },
+        new ShipClassDef
+        {
+            ClassId = "ancient_threshold", DisplayName = "Hull Type XV-3",
+            SlotCount = Tweaks.AncientHullTweaksV0.ThresholdSlotCount,
+            BasePower = Tweaks.AncientHullTweaksV0.ThresholdBasePower,
+            CargoCapacity = Tweaks.AncientHullTweaksV0.ThresholdCargoCapacity,
+            Mass = Tweaks.AncientHullTweaksV0.ThresholdMass,
+            ScanRange = Tweaks.AncientHullTweaksV0.ThresholdScanRange,
+            BaseZoneArmor = new[] { Tweaks.AncientHullTweaksV0.ThresholdArmorFore, Tweaks.AncientHullTweaksV0.ThresholdArmorPort, Tweaks.AncientHullTweaksV0.ThresholdArmorStbd, Tweaks.AncientHullTweaksV0.ThresholdArmorAft },
+            CoreHull = Tweaks.AncientHullTweaksV0.ThresholdCoreHull,
+            BaseShield = Tweaks.AncientHullTweaksV0.ThresholdBaseShield,
+            BaseFuelCapacity = Tweaks.AncientHullTweaksV0.ThresholdBaseFuelCapacity,
+        },
     };
 
     private static readonly Dictionary<string, ShipClassDef> _byId;

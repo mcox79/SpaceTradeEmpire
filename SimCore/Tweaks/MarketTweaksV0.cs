@@ -22,4 +22,11 @@ public static class MarketTweaksV0
     public const int MaxPriceMultBps    = 20000;
     // Min price multiplier in basis points (25% = 2500 bps).
     public const int MinPriceMultBps    = 2500;
+
+    // Starter arbitrage guarantee: ensures first-trade has a profitable route.
+    // MinStarterMargin: minimum buy→sell margin (cr/unit) required at player start.
+    public const int MinStarterMargin   = 50;
+    // Stock targets when adjusting starter node inventory to guarantee margin.
+    public const int StarterHighStock   = 145;  // Push buy price low (~5 cr).
+    public const int StarterLowStock    = 10;   // Push sell price high (~80 cr).
 }

@@ -11,7 +11,11 @@ public enum DataLogThread
     Departure = 2,
     Accommodation = 3,
     Warning = 4,
-    EconTopology = 5
+    EconTopology = 5,
+    // GATE.S8.HAVEN.LOGS.001: Haven-specific threads.
+    HavenKeeper = 6,
+    HavenConstruction = 7,
+    HavenFragment = 8
 }
 
 // GATE.T18.NARRATIVE.DATALOG_MODEL.001: Single entry in a data log conversation.

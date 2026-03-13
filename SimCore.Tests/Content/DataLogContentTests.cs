@@ -124,7 +124,7 @@ public sealed class DataLogContentTests
     [Test]
     public void LogCount_IsExpected()
     {
-        // Design calls for 25 logs across 6 threads
-        Assert.That(DataLogContentV0.AllLogs, Has.Count.EqualTo(25));
+        // Design calls for 25 original logs + 19 Haven logs across 9 threads
+        Assert.That(DataLogContentV0.AllLogs, Has.Count.EqualTo(44));
     }
 }

@@ -234,6 +234,8 @@ public partial class SimState
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
 
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
+    // GATE.X.LEDGER.COST_BASIS.001: Weighted average buy price per cargo good (credits per unit).
+    [JsonInclude] public Dictionary<string, int> PlayerCargoCostBasis { get; set; } = new();
     [JsonInclude] public string PlayerLocationNodeId { get; set; } = "";
     [JsonInclude] public string PlayerSelectedDestinationNodeId { get; set; } = "";
     [JsonInclude] public HashSet<string> PlayerVisitedNodeIds { get; private set; } = new(StringComparer.Ordinal);
@@ -302,6 +304,15 @@ public partial class SimState
 
     // GATE.T18.NARRATIVE.ENTITIES.001: First Officer companion state (null until candidate chosen).
     [JsonInclude] public Entities.FirstOfficer? FirstOfficer { get; set; }
+
+    // GATE.S8.HAVEN.ENTITY.001: Haven starbase state.
+    [JsonInclude] public Entities.HavenStarbase Haven { get; set; } = new();
+
+    // GATE.S8.ADAPTATION.ENTITY.001: Adaptation fragments keyed by FragmentId.
+    [JsonInclude] public Dictionary<string, Entities.AdaptationFragment> AdaptationFragments { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context cache.
+    [JsonInclude] public Dictionary<string, Systems.StationContext> StationContexts { get; set; } = new(StringComparer.Ordinal);
 
     // GATE.T18.NARRATIVE.ROUTE_UNCERTAINTY.001: Cumulative fracture jumps for scanner adaptation.
     [JsonInclude] public int FractureExposureJumps { get; set; } = 0;

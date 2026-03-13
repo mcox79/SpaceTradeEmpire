@@ -50,6 +50,10 @@ public static class RefitSystem
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
 
+        // GATE.S8.T3_MODULES.DISCOVERY_GATE.001: Block station purchase of discovery-only modules.
+        if (moduleDef.IsDiscoveryOnly)
+            return new RefitResult { Success = false, Reason = "discovery_only" };
+
         // GATE.S7.T2_MODULES.FITTING.001: Validate faction reputation for T2 modules.
         if (!string.IsNullOrEmpty(moduleDef.FactionId) && moduleDef.FactionRepRequired > 0)
         {
@@ -104,6 +108,10 @@ public static class RefitSystem
 
         if (!UpgradeContentV0.CanInstall(moduleId, state.Tech.UnlockedTechIds))
             return new RefitResult { Success = false, Reason = "tech_not_unlocked" };
+
+        // GATE.S8.T3_MODULES.DISCOVERY_GATE.001: Block station purchase of discovery-only modules.
+        if (moduleDef.IsDiscoveryOnly)
+            return new RefitResult { Success = false, Reason = "discovery_only" };
 
         // GATE.S7.T2_MODULES.FITTING.001: Validate faction reputation for T2 modules.
         if (!string.IsNullOrEmpty(moduleDef.FactionId) && moduleDef.FactionRepRequired > 0)

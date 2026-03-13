@@ -988,6 +988,55 @@ public partial class EmpireDashboard : Control
     private void RefreshPrograms()
     {
         ClearChildren(_progList);
+
+        // GATE.S7.AUTOMATION.UI.001: Performance summary + budget header.
+        var perf = _bridge.GetProgramPerformanceV0("fleet_trader_1");
+        if (perf != null && perf.Count > 0)
+        {
+            var netProfit = GetLong(perf, "net_profit");
+            var trades = GetInt(perf, "trades_completed");
+            var failures = GetInt(perf, "consecutive_failures");
+            var lastReason = GetStr(perf, "last_failure_reason");
+            var budgetCap = GetLong(perf, "budget_credit_cap");
+            var spentCycle = GetLong(perf, "spent_credits_this_cycle");
+
+            var profitColor = netProfit >= 0
+                ? new Color(0.4f, 0.9f, 0.4f)
+                : new Color(0.9f, 0.4f, 0.4f);
+            var profitSign = netProfit >= 0 ? "+" : "";
+            var summaryLbl = new Label
+            {
+                Text = $"Net P/L: {profitSign}{netProfit:N0} cr  |  Trades: {trades}  |  Failures: {failures}",
+            };
+            summaryLbl.AddThemeColorOverride("font_color", profitColor);
+            _progList.AddChild(summaryLbl);
+
+            // Budget line
+            if (budgetCap > 0)
+            {
+                var budgetLbl = new Label
+                {
+                    Text = $"Budget: {spentCycle:N0} / {budgetCap:N0} cr this cycle",
+                };
+                budgetLbl.AddThemeColorOverride("font_color",
+                    spentCycle > budgetCap ? new Color(0.9f, 0.3f, 0.3f) : new Color(0.7f, 0.7f, 0.8f));
+                _progList.AddChild(budgetLbl);
+            }
+
+            // Failure reason (if consecutive failures > 0)
+            if (failures > 0 && !string.IsNullOrEmpty(lastReason) && lastReason != "None")
+            {
+                var reasonLbl = new Label
+                {
+                    Text = $"Last failure: {FormatFailureReason(lastReason)}",
+                };
+                reasonLbl.AddThemeColorOverride("font_color", new Color(0.9f, 0.6f, 0.3f));
+                _progList.AddChild(reasonLbl);
+            }
+
+            _progList.AddChild(new HSeparator());
+        }
+
         var arr = _bridge.GetProgramExplainSnapshot();
         if (arr == null || arr.Count == 0)
         {
@@ -1036,6 +1085,21 @@ public partial class EmpireDashboard : Control
             btnCancel.Pressed += () => { _bridge.CancelProgram(id); RefreshPrograms(); };
             row.AddChild(btnCancel);
         }
+    }
+
+    // GATE.S7.AUTOMATION.UI.001: Human-readable failure reasons.
+    private static string FormatFailureReason(string reason)
+    {
+        return reason switch
+        {
+            "InsufficientCredits" => "Not enough credits to execute trade",
+            "InsufficientCargo" => "No cargo available to sell",
+            "MarketNotFound" => "Target market no longer accessible",
+            "BudgetExceeded" => "Spending would exceed budget cap",
+            "FleetNotAtMarket" => "Fleet not at the designated market",
+            "GoodNotAvailable" => "Good not available at this market",
+            _ => reason,
+        };
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1676,6 +1740,13 @@ public partial class EmpireDashboard : Control
     {
         if (!d.ContainsKey(key)) return 0;
         try { return (int)d[key]; } catch { return 0; }
+    }
+
+    // GATE.S7.AUTOMATION.UI.001: Long variant for credit values.
+    private static long GetLong(Dictionary d, string key)
+    {
+        if (!d.ContainsKey(key)) return 0;
+        try { return (long)d[key]; } catch { return 0; }
     }
 
     private static float GetFloat(Dictionary d, string key)

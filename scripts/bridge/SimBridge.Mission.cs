@@ -242,8 +242,9 @@ public partial class SimBridge
     }
 
     /// <summary>
-    /// Accept a systemic mission offer by ID. Creates a delivery mission from the offer
-    /// and sets it as the active mission. Write lock required.
+    /// Accept a systemic mission offer by ID. Delegates to
+    /// SystemicMissionSystem.AcceptSystemicMission which builds a proper MissionDef
+    /// from the offer and activates it. Write lock required.
     /// Returns true if accepted successfully.
     /// </summary>
     public bool AcceptSystemicMissionV0(string offerId)
@@ -256,50 +257,9 @@ public partial class SimBridge
         _stateLock.EnterWriteLock();
         try
         {
-            var state = _kernel.State;
-            var offers = state.SystemicOffers;
-            if (offers is null) return false;
-
-            SimCore.Entities.SystemicMissionOffer? found = null;
-            for (int i = 0; i < offers.Count; i++)
-            {
-                if (string.Equals(offers[i].OfferId, offerId, StringComparison.Ordinal))
-                {
-                    found = offers[i];
-                    break;
-                }
-            }
-
-            if (found is null) return false;
-
-            // Cannot accept if player already has an active mission
-            if (state.Missions is not null && !string.IsNullOrEmpty(state.Missions.ActiveMissionId))
-                return false;
-
-            // Set up mission state from the systemic offer
-            state.Missions ??= new SimCore.Entities.MissionState();
-            state.Missions.ActiveMissionId = offerId;
-            state.Missions.CurrentStepIndex = 0;
-            state.Missions.ActiveSteps = new System.Collections.Generic.List<SimCore.Entities.MissionActiveStep>
-            {
-                new SimCore.Entities.MissionActiveStep
-                {
-                    StepIndex = 0,
-                    TriggerType = SimCore.Entities.MissionTriggerType.ArriveAtNode,
-                    TargetNodeId = found.NodeId,
-                    TargetGoodId = found.GoodId,
-                    ObjectiveText = $"Deliver {found.GoodId} to {found.NodeId}",
-                    Completed = false,
-                },
-            };
-
-            // Remove the offer from systemic offers
-            offers.RemoveAll(o => string.Equals(o.OfferId, offerId, StringComparison.Ordinal));
-
-            // Process immediately so already-met conditions advance
-            MissionSystem.Process(state);
-
-            result = true;
+            result = SystemicMissionSystem.AcceptSystemicMission(_kernel.State, offerId);
+            if (result)
+                MissionSystem.Process(_kernel.State);
         }
         finally
         {
@@ -307,6 +267,58 @@ public partial class SimBridge
         }
 
         return result;
+    }
+
+    // GATE.X.UI_POLISH.QUEST_TRACKER.001: Lightweight active mission summary for HUD tracker.
+    private Godot.Collections.Dictionary _cachedActiveMissionSummaryV0 = new Godot.Collections.Dictionary();
+
+    /// <summary>
+    /// Returns a compact active mission summary for the HUD quest tracker widget.
+    /// {has_mission, mission_name, step_text, step_index, total_steps, progress}.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetActiveMissionSummaryV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary();
+            var missions = state.Missions;
+
+            if (missions is null || string.IsNullOrEmpty(missions.ActiveMissionId))
+            {
+                d["has_mission"] = false;
+                d["mission_name"] = "";
+                d["step_text"] = "";
+                d["step_index"] = 0;
+                d["total_steps"] = 0;
+                d["progress"] = 0.0f;
+            }
+            else
+            {
+                d["has_mission"] = true;
+                var def = MissionSystem.GetMissionDef(missions.ActiveMissionId);
+                d["mission_name"] = def?.Title ?? missions.ActiveMissionId;
+                d["total_steps"] = missions.ActiveSteps.Count;
+                d["step_index"] = missions.CurrentStepIndex;
+
+                if (missions.CurrentStepIndex >= 0 && missions.CurrentStepIndex < missions.ActiveSteps.Count)
+                {
+                    d["step_text"] = missions.ActiveSteps[missions.CurrentStepIndex].ObjectiveText;
+                }
+                else
+                {
+                    d["step_text"] = "";
+                }
+
+                d["progress"] = missions.ActiveSteps.Count > 0
+                    ? (float)missions.CurrentStepIndex / missions.ActiveSteps.Count
+                    : 0.0f;
+            }
+
+            _cachedActiveMissionSummaryV0 = d;
+        });
+
+        return _cachedActiveMissionSummaryV0;
     }
 
     // GATE.X.UI_POLISH.MISSION_JOURNAL.001: Abandon the active mission.

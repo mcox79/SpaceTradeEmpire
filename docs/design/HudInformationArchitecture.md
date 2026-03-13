@@ -33,7 +33,7 @@ and notification pipeline before more UI is built.
 | Edgedar screen-edge arrows | Done | Thread gates (blue), hostiles (red), quests (gold), stations (green) |
 | Toast notifications | Done | Top-right, slide-in, 3s display, max 5 stack |
 | Combat log panel (L key) | Done | Right-side, 20 events, gold/red coloring |
-| Keybinds help (H key) | Done | Centered modal with bindings table |
+| Keybinds help (H key) | Done | Dynamic bindings from InputManager; rebuilds on show |
 | Gate transit popup | Done | Center screen, fee + traffic + balance |
 | Three-tier information model | Partial | Tiers exist implicitly but aren't designed as a system |
 | Screen zone allocation | Not designed | Elements placed ad-hoc |

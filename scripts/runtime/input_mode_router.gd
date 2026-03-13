@@ -20,10 +20,9 @@ func _ready() -> void:
 	_apply_mode()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_TAB:
-			_mode = Mode.MAP if _mode == Mode.PILOT else Mode.PILOT
-			_apply_mode()
+	if event.is_action_pressed("ui_galaxy_map"):
+		_mode = Mode.MAP if _mode == Mode.PILOT else Mode.PILOT
+		_apply_mode()
 
 func _apply_mode() -> void:
 	var pilot := (_mode == Mode.PILOT)

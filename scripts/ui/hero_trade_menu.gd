@@ -2,6 +2,7 @@ extends CanvasLayer
 
 # GATE.S1.HERO_SHIP_LOOP.MARKET_SCREEN.001
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: 5-tab dock menu (Market | Jobs | Ship | Station | Intel)
+# GATE.S8.HAVEN.DOCK_PANEL.001: Haven tab (conditional, only when docked at Haven)
 # GATE.S13.DOCK.CONTEXT.001: Station context description
 # GATE.S13.DOCK.HIDE_EMPTY.001: Hide sections with no content
 # GATE.S13.TERMINOLOGY.001: Programs → Automation, player-friendly terms
@@ -32,12 +33,16 @@ var _access_denied_label: Label = null
 var _rep_tier_label: Label = null
 
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab state
-var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel
+var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel, 5=Haven
 var _tab_market: VBoxContainer = null
 var _tab_jobs: VBoxContainer = null
 var _tab_ship: VBoxContainer = null
 var _tab_station: VBoxContainer = null
 var _tab_intel: VBoxContainer = null
+var _tab_haven: VBoxContainer = null  # GATE.S8.HAVEN.DOCK_PANEL.001
+var _haven_panel = null  # haven_panel.gd instance
+var _haven_tab_button: Button = null  # GATE.S8.HAVEN.DOCK_PANEL.001
+var _tab_bar: HBoxContainer = null  # GATE.S8.HAVEN.DOCK_PANEL.001: ref for dynamic Haven button
 var _tab_buttons: Array = []
 # M3: Track which tabs the player has clicked (to clear "NEW" badge).
 var _tab_seen: Dictionary = {0: true}  # Market always seen
@@ -130,10 +135,10 @@ func _ready():
 
 	vbox.add_child(HSeparator.new())
 
-	# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab bar (5 tabs)
-	var tab_bar = HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", 4)
-	tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab bar (5 tabs + conditional Haven)
+	_tab_bar = HBoxContainer.new()
+	_tab_bar.add_theme_constant_override("separation", 4)
+	_tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_buttons = []
 	for tab_name in ["Market", "Jobs", "Ship", "Station", "Intel"]:
 		var btn = Button.new()
@@ -142,9 +147,9 @@ func _ready():
 		btn.toggle_mode = true
 		var idx: int = _tab_buttons.size()
 		btn.pressed.connect(_switch_dock_tab.bind(idx))
-		tab_bar.add_child(btn)
+		_tab_bar.add_child(btn)
 		_tab_buttons.append(btn)
-	vbox.add_child(tab_bar)
+	vbox.add_child(_tab_bar)
 
 	vbox.add_child(HSeparator.new())
 
@@ -255,6 +260,25 @@ func _ready():
 	_encounters_container.add_theme_constant_override("separation", 4)
 	_tab_intel.add_child(_encounters_container)
 
+	# GATE.S8.HAVEN.DOCK_PANEL.001: Tab 6: Haven (conditional — hidden unless docked at Haven)
+	_tab_haven = VBoxContainer.new()
+	_tab_haven.add_theme_constant_override("separation", 4)
+	_tab_haven.visible = false
+	vbox.add_child(_tab_haven)
+
+	var HavenPanelScript = preload("res://scripts/ui/haven_panel.gd")
+	_haven_panel = HavenPanelScript.new()
+	_tab_haven.add_child(_haven_panel)
+
+	# GATE.S8.HAVEN.DOCK_PANEL.001: Haven tab button (shown/hidden dynamically)
+	_haven_tab_button = Button.new()
+	_haven_tab_button.text = "Haven"
+	_haven_tab_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_haven_tab_button.toggle_mode = true
+	_haven_tab_button.pressed.connect(_switch_dock_tab.bind(5))
+	_haven_tab_button.visible = false  # Hidden by default; shown in open_market_v0
+	_tab_bar.add_child(_haven_tab_button)
+
 	# Undock button (always visible)
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
@@ -315,6 +339,7 @@ func _apply_tab_disclosure_v0() -> void:
 			_tab_buttons[i].remove_theme_color_override("font_color")
 
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Switch between dock tabs
+# GATE.S8.HAVEN.DOCK_PANEL.001: Added Haven tab (idx 5)
 func _switch_dock_tab(idx: int) -> void:
 	_active_dock_tab = idx
 	_tab_market.visible = (idx == 0)
@@ -322,6 +347,8 @@ func _switch_dock_tab(idx: int) -> void:
 	_tab_ship.visible = (idx == 2)
 	_tab_station.visible = (idx == 3)
 	_tab_intel.visible = (idx == 4)
+	if _tab_haven:
+		_tab_haven.visible = (idx == 5)
 	# M3: Mark tab as seen — clear "NEW" badge
 	_tab_seen[idx] = true
 	for i in range(_tab_buttons.size()):
@@ -333,12 +360,34 @@ func _switch_dock_tab(idx: int) -> void:
 				_tab_buttons[i].add_theme_color_override("font_color", UITheme.CYAN)
 			else:
 				_tab_buttons[i].add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	# GATE.S8.HAVEN.DOCK_PANEL.001: Haven tab button highlight
+	if _haven_tab_button:
+		_haven_tab_button.button_pressed = (idx == 5)
+		if idx == 5:
+			_haven_tab_button.add_theme_color_override("font_color", UITheme.CYAN)
+		else:
+			_haven_tab_button.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
 	visible = true
 	# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Gate tab visibility by progression.
 	_apply_tab_disclosure_v0()
+
+	# GATE.S8.HAVEN.DOCK_PANEL.001: Show Haven tab if docked at Haven node.
+	var _is_haven_dock: bool = false
+	var _bridge_ref_haven = get_node_or_null("/root/SimBridge")
+	if _bridge_ref_haven and _bridge_ref_haven.has_method("GetHavenStatusV0"):
+		var haven_st: Dictionary = _bridge_ref_haven.call("GetHavenStatusV0")
+		var haven_node: String = str(haven_st.get("node_id", ""))
+		var haven_disc: bool = bool(haven_st.get("discovered", false))
+		if haven_disc and haven_node == node_id:
+			_is_haven_dock = true
+	if _haven_tab_button:
+		_haven_tab_button.visible = _is_haven_dock
+	if _is_haven_dock and _haven_panel and _haven_panel.has_method("refresh"):
+		_haven_panel.call("refresh", node_id)
+
 	_switch_dock_tab(0)  # Always open on Market tab
 
 	# GATE.S7.PLANET.UI.001: Detect planet vs station for title + info.
@@ -365,10 +414,32 @@ func open_market_v0(node_id: String) -> void:
 			_title_label.text = "STATION: %s" % station_name
 
 	# GATE.S13.DOCK.CONTEXT.001: Station context description from production
+	# GATE.S9.SYSTEMIC.CONTEXT_UI.001: Economic context banner.
 	if _context_label and bridge:
 		var context_text: String = _build_station_context(bridge, node_id)
+		# Economic context from StationContextSystem
+		var econ_context: String = ""
+		if bridge.has_method("GetStationContextV0"):
+			var ctx: Dictionary = bridge.call("GetStationContextV0", node_id)
+			var ctx_type: String = str(ctx.get("context_type", "Calm"))
+			var ctx_good: String = str(ctx.get("primary_good_id", ""))
+			match ctx_type:
+				"Shortage":
+					econ_context = "SUPPLY SHORTAGE" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
+					_context_label.add_theme_color_override("font_color", UITheme.ORANGE)
+				"Opportunity":
+					econ_context = "PRICE OPPORTUNITY" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
+					_context_label.add_theme_color_override("font_color", UITheme.GREEN)
+				"WarfrontDemand":
+					econ_context = "WARFRONT DEMAND" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
+					_context_label.add_theme_color_override("font_color", UITheme.RED)
+				_:
+					_context_label.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+		var combined: String = econ_context
 		if not context_text.is_empty():
-			_context_label.text = context_text
+			combined = (combined + "  |  " + context_text) if not combined.is_empty() else context_text
+		if not combined.is_empty():
+			_context_label.text = combined
 			_context_label.visible = true
 		else:
 			_context_label.visible = false
@@ -687,6 +758,8 @@ func _rebuild_rows() -> void:
 	_rebuild_trade_routes()
 	_rebuild_programs()
 	_rebuild_encounters()
+	# FEEL_POST_FIX_10: Show empty-state hint when all Intel sub-sections are hidden.
+	_rebuild_intel_empty_state()
 
 	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: Update cargo summary with total item count
 	if _cargo_label:
@@ -1175,6 +1248,12 @@ func _rebuild_station_info() -> void:
 				else:
 					lbl.text = "%s  Eff: %d%%  -> %s" % [recipe_name, eff_pct, out_str]
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				# FEEL_POST_FIX_10: Color-code efficiency and add tooltip.
+				if eff_pct == 0:
+					lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+					lbl.tooltip_text = "0% efficiency — missing input goods or station damaged"
+				elif eff_pct < 50:
+					lbl.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
 				row.add_child(lbl)
 				_station_info_container.add_child(row)
 
@@ -1618,6 +1697,12 @@ func _rebuild_maintenance() -> void:
 		var lbl = Label.new()
 		lbl.text = "%s%s hp:%d%% eff:%d%%" % [source, recipe if not recipe.is_empty() else sid, hp, eff]
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# FEEL_POST_FIX_10: Color-code efficiency in maintenance view.
+		if eff == 0:
+			lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+			lbl.tooltip_text = "0% efficiency — repair needed or missing inputs"
+		elif eff < 50:
+			lbl.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
 		row.add_child(lbl)
 
 		# GATE.S4.UI_INDU.WHY_BLOCKED.001: Show block reason or repair button
@@ -2042,3 +2127,25 @@ func _rebuild_encounters() -> void:
 
 func _on_encounter_engage_v0(encounter_id: String) -> void:
 	print("ENCOUNTER_ENGAGE|" + encounter_id)
+
+# FEEL_POST_FIX_10: Show an empty-state hint on Intel tab when all sub-sections are hidden.
+func _rebuild_intel_empty_state() -> void:
+	if _tab_intel == null:
+		return
+	# Remove any previous empty-state label (immediate removal to prevent duplicates).
+	var old = _tab_intel.get_node_or_null("IntelEmptyState")
+	if old:
+		_tab_intel.remove_child(old)
+		old.queue_free()
+	# If any sub-container is visible, no empty state needed.
+	if (_trade_routes_container and _trade_routes_container.visible) \
+		or (_programs_container and _programs_container.visible) \
+		or (_encounters_container and _encounters_container.visible):
+		return
+	var lbl = Label.new()
+	lbl.name = "IntelEmptyState"
+	lbl.text = "No intel available yet.\nResearch scanner tech and run automation programs to populate this tab."
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.add_theme_color_override("font_color", Color(0.55, 0.60, 0.70, 0.8))
+	_tab_intel.add_child(lbl)

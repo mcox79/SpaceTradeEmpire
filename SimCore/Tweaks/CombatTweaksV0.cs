@@ -85,6 +85,26 @@ public static class CombatTweaksV0
     public const int SpinningUpDamagePct = 50;        // 50% damage while spinning up
     // BattleReady = 100% (NeutralPct) — full damage
 
+    // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Spin RPM and turn penalty model.
+    // RPM is integer (10 = 1.0 RPM, 35 = 3.5 RPM). TurnPenaltyBpsPerRpm: basis points per RPM unit.
+    // At 35 RPM (3.5 RPM), penalty = 35 * 100 = 3500 bps = 35% damage reduction from turn sluggishness.
+    public const int DefaultSpinRpm = 20;           // 2.0 RPM default combat spin
+    public const int MaxSpinRpm = 50;               // 5.0 RPM ceiling
+    public const int TurnPenaltyBpsPerRpm = 100;    // 1% turn penalty per RPM unit (100 bps)
+    public const int MaxTurnPenaltyBps = 5000;      // Cap at 50% turn penalty
+
+    // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Mount type arc modifiers (basis points).
+    // Broadside weapons only fire from side arcs — effective when target is abeam.
+    // Spinal weapons fire along axis, unaffected by turn penalty.
+    public const int BroadsideArcEfficiencyBps = 7000;  // 70% base efficiency (side arcs only)
+    public const int SpinalArcEfficiencyBps = 10000;     // 100% (axis-aligned, no spin penalty)
+
+    // GATE.S7.COMBAT_PHASE2.SPIN_FIRE.001: Fire cadence (fraction of rotation with target in arc).
+    // Applied only when spinning (SpinRpm > 0). Reduces effective DPS per mount type.
+    public const int StandardFireCadenceBps = 6000;    // 60% of rotation in firing arc
+    public const int BroadsideFireCadenceBps = 5000;   // 50% (narrower side arcs)
+    public const int SpinalFireCadenceBps = 10000;     // 100% (axis-aligned, always on target)
+
     // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module cooling bonuses.
     public const int BasicRadiatorBonusRate = 75;      // Additional cooling per round
     public const int AdvancedRadiatorBonusRate = 150;   // Additional cooling per round

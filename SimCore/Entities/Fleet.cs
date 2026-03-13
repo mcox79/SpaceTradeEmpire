@@ -178,10 +178,17 @@ public class Fleet
     public BattleStationsState BattleStations { get; set; } = BattleStationsState.StandDown;
     public int BattleStationsSpinUpTicksRemaining { get; set; } = 0;
 
+    // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Ship spin RPM (gyroscopic precession model).
+    // Higher RPM = more gyroscopic inertia = degraded turn rate.
+    public int SpinRpm { get; set; } = 0;
+
     // Dedicated fuel tank — consumed during travel, refilled at stations.
     // FuelCapacity set from ShipClassDef.BaseFuelCapacity + module bonuses.
     public int FuelCurrent { get; set; } = 0;
     public int FuelCapacity { get; set; } = 0;
+
+    // GATE.S8.HAVEN.HANGAR.001: True when this fleet is stored in Haven hangar (not active).
+    public bool IsStored { get; set; } = false;
 
     [JsonIgnore]
     public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;

@@ -225,4 +225,48 @@ public partial class SimBridge
         }
         return result;
     }
+
+    // GATE.S8.T3_MODULES.BRIDGE.001: T3 precursor module catalog with discovery gating.
+    private Godot.Collections.Array _cachedT3ModuleCatalogV0 = new Godot.Collections.Array();
+
+    public Godot.Collections.Array GetT3ModuleCatalogV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            foreach (var mod in UpgradeContentV0.AllModules)
+            {
+                if (!mod.IsDiscoveryOnly) continue;
+
+                // A T3 module is "discovered" if the player has found it at a discovery site.
+                // For now, check if player has the precursor_integration tech.
+                bool discovered = UpgradeContentV0.CanInstall(mod.ModuleId, state.Tech.UnlockedTechIds);
+
+                // Build sustain description from SustainInputs dict.
+                string sustainDesc = "";
+                if (mod.SustainInputs.Count > 0)
+                {
+                    var parts = mod.SustainInputs.Select(kv => $"{kv.Value}x {kv.Key}");
+                    sustainDesc = string.Join(", ", parts);
+                }
+
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["module_id"] = mod.ModuleId,
+                    ["display_name"] = mod.DisplayName,
+                    ["slot_kind"] = mod.SlotKind.ToString(),
+                    ["discovered"] = discovered,
+                    ["speed_bonus_pct"] = mod.SpeedBonusPct,
+                    ["shield_bonus_flat"] = mod.ShieldBonusFlat,
+                    ["hull_bonus_flat"] = mod.HullBonusFlat,
+                    ["damage_bonus_pct"] = mod.DamageBonusPct,
+                    ["power_draw"] = mod.PowerDraw,
+                    ["sustain_description"] = sustainDesc,
+                });
+            }
+            lock (_snapshotLock) { _cachedT3ModuleCatalogV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedT3ModuleCatalogV0; }
+    }
 }

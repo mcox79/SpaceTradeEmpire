@@ -211,6 +211,39 @@ public partial class SimState
         }
         sb.Append($"FEJ:{FractureExposureJumps}|");
 
+        // GATE.S8.HAVEN.ENTITY.001: Haven state in signature.
+        if (Haven is not null && Haven.Discovered)
+        {
+            sb.Append($"HVN:{(int)Haven.Tier}|UT:{Haven.UpgradeTicksRemaining}|");
+            if (Haven.StoredShipIds is not null && Haven.StoredShipIds.Count > 0)
+            {
+                sb.Append("HS:");
+                foreach (var sid in Haven.StoredShipIds)
+                    sb.Append($"{sid},");
+                sb.Append("|");
+            }
+            // GATE.S8.HAVEN.TROPHY_WALL.001: Trophy wall in signature.
+            if (Haven.TrophyWall is not null && Haven.TrophyWall.Count > 0)
+            {
+                sb.Append("TW:");
+                foreach (var kv in Haven.TrophyWall.OrderBy(k => k.Key, StringComparer.Ordinal))
+                    sb.Append($"{kv.Key}={kv.Value},");
+                sb.Append("|");
+            }
+        }
+
+        // GATE.S8.ADAPTATION.COLLECTION.001: Adaptation fragment collection in signature.
+        if (AdaptationFragments is not null && AdaptationFragments.Count > 0)
+        {
+            sb.Append("AF:");
+            foreach (var kv in AdaptationFragments.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (kv.Value.IsCollected)
+                    sb.Append($"{kv.Key}:{kv.Value.CollectedTick},");
+            }
+            sb.Append("|");
+        }
+
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
         return Convert.ToHexString(bytes);

@@ -6,6 +6,9 @@ extends Control
 var _bridge: Object = null
 var _zone_bars: Dictionary = {}  # "fore"/"port"/"stbd"/"aft" -> { "bar": ProgressBar, "label": Label }
 var _stance_label: Label = null
+# GATE.S7.COMBAT_PHASE2.ZONE_HUD.001: Spin RPM + radiator status display.
+var _spin_label: Label = null
+var _radiator_label: Label = null
 
 
 func _ready() -> void:
@@ -67,6 +70,20 @@ func _build_ui() -> void:
 		vbox.add_child(hbox)
 		_zone_bars[zone_name.to_lower()] = {"bar": bar, "label": val_lbl}
 
+	# GATE.S7.COMBAT_PHASE2.ZONE_HUD.001: Spin RPM indicator.
+	_spin_label = Label.new()
+	_spin_label.text = "SPIN: 0 RPM"
+	_spin_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_spin_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	vbox.add_child(_spin_label)
+
+	# GATE.S7.COMBAT_PHASE2.ZONE_HUD.001: Radiator status.
+	_radiator_label = Label.new()
+	_radiator_label.text = ""
+	_radiator_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_radiator_label.add_theme_color_override("font_color", UITheme.GREEN)
+	vbox.add_child(_radiator_label)
+
 func refresh_v0() -> void:
 	if _bridge == null:
 		_bridge = get_tree().root.get_node_or_null("SimBridge")
@@ -80,6 +97,35 @@ func refresh_v0() -> void:
 		_update_zone("port", int(fit.get("zone_port", 0)), int(fit.get("zone_port_max", 1)))
 		_update_zone("stbd", int(fit.get("zone_stbd", 0)), int(fit.get("zone_stbd_max", 1)))
 		_update_zone("aft", int(fit.get("zone_aft", 0)), int(fit.get("zone_aft_max", 1)))
+
+	# GATE.S7.COMBAT_PHASE2.ZONE_HUD.001: Spin RPM + radiator status.
+	if _bridge.has_method("GetSpinStateV0"):
+		var spin: Dictionary = _bridge.call("GetSpinStateV0")
+		var rpm: int = spin.get("spin_rpm", 0)
+		var penalty_bps: int = spin.get("turn_penalty_bps", 0)
+		if _spin_label:
+			_spin_label.text = "SPIN: %d RPM (%d%% penalty)" % [rpm, penalty_bps / 100]
+			if penalty_bps > 3000:
+				_spin_label.add_theme_color_override("font_color", UITheme.RED)
+			elif penalty_bps > 1000:
+				_spin_label.add_theme_color_override("font_color", UITheme.ORANGE)
+			else:
+				_spin_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+
+	if _bridge.has_method("GetRadiatorStatusV0"):
+		var rad: Dictionary = _bridge.call("GetRadiatorStatusV0")
+		var intact: bool = rad.get("is_intact", true)
+		var bonus: int = rad.get("bonus_rate", 0)
+		if _radiator_label:
+			if bonus > 0:
+				if intact:
+					_radiator_label.text = "RAD: +%d cooling" % bonus
+					_radiator_label.add_theme_color_override("font_color", UITheme.GREEN)
+				else:
+					_radiator_label.text = "RAD: DESTROYED"
+					_radiator_label.add_theme_color_override("font_color", UITheme.RED)
+			else:
+				_radiator_label.text = ""
 
 	# Stance
 	if _bridge.has_method("GetDoctrineSettingsV0"):

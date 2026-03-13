@@ -250,3 +250,39 @@ SimCore/Systems/NarrativeNpcSystem.cs:1099511628211UL
 
 # GATE.T30.GALPOP.FACTION_SEED.004: structural zeros (loop counter init, loop start index)
 SimCore/Gen/StarNetworkGen.cs:0
+
+# GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: structural 10000 bps = 100% identity in mount efficiency calc
+SimCore/Systems/StrategicResolverV0.cs:10000
+
+# GATE.S9.SYSTEMIC.STATION_CONTEXT.001: structural 100 for pct calc, 0 for empty checks, enum values
+SimCore/Systems/StationContextSystem.cs:100
+SimCore/Systems/StationContextSystem.cs:0
+SimCore/Systems/StationContextSystem.cs:1
+SimCore/Systems/StationContextSystem.cs:2
+SimCore/Systems/StationContextSystem.cs:3
+
+# GATE.S7.AUTOMATION.BUDGET_CAPS.001: structural zeros (null checks, unlimited cap, counter resets)
+SimCore/Systems/DoctrineSystem.cs:0
+
+# GATE.S7.AUTOMATION_MGMT.PROGRAM_HISTORY.001: structural counter increment
+SimCore/Systems/ProgramHistorySystem.cs:1
+
+# GATE.S7.AUTOMATION_MGMT.PROGRAM_METRICS.001: structural counter zero/reset
+SimCore/Systems/ProgramMetricsSystem.cs:0
+
+# GATE.S8.HAVEN.UPGRADE_SYSTEM.001: structural zeros (UpgradeTicksRemaining <= 0, tier comparisons, count checks)
+SimCore/Systems/HavenUpgradeSystem.cs:0
+SimCore/Systems/HavenUpgradeSystem.cs:1
+
+# GATE.S8.HAVEN.HANGAR.001: structural zeros (count check, bay calc)
+SimCore/Systems/HavenHangarSystem.cs:0
+SimCore/Systems/HavenHangarSystem.cs:1
+
+# GATE.S8.HAVEN.DISCOVERY.001: structural zero (distance squared comparison init)
+SimCore/Gen/GalaxyGenerator.cs:0f
+
+# GATE.S8.ADAPTATION.COLLECTION.001: structural zeros (empty checks, collection state)
+SimCore/Systems/AdaptationFragmentSystem.cs:0
+
+# GATE.S8.ADAPTATION.PLACEMENT.001: structural literals (linear probe, count guards, hash modulus)
+SimCore/Gen/DiscoverySeedGen.cs:1

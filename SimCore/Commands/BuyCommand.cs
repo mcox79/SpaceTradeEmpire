@@ -63,6 +63,16 @@ public class BuyCommand : ICommand
 		state.PlayerCredits -= totalCost;
 		InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
 
+		// GATE.X.LEDGER.COST_BASIS.001: Update weighted average cost basis.
+		{
+			int totalQty = InventoryLedger.Get(state.PlayerCargo, GoodId); // qty after this buy
+			int prevQty = totalQty - Quantity;
+			if (prevQty < 0) prevQty = 0;
+			state.PlayerCargoCostBasis.TryGetValue(GoodId, out int prevAvg);
+			long totalBasis = (long)prevQty * prevAvg + (long)Quantity * unitPrice;
+			state.PlayerCargoCostBasis[GoodId] = totalQty > 0 ? (int)(totalBasis / totalQty) : 0;
+		}
+
 		// GATE.X.LEDGER.TX_MODEL.001: Record buy transaction for audit trail.
 		state.AppendTransaction(new TransactionRecord
 		{

@@ -40,6 +40,16 @@ public sealed class ModuleDef
     // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module — additional cooling rate.
     public bool IsRadiator { get; set; } = false;
     public int RadiatorBonusRate { get; set; } = 0;
+
+    // GATE.S5.TRACTOR.MODEL.001: Tractor beam range in units (0 = not a tractor module).
+    public int TractorRange { get; set; } = 0;
+
+    // GATE.S8.TRACTOR.WEAVER.001: Auto-salvage — automatically collects loot on arrival.
+    public bool IsAutoSalvage { get; set; } = false;
+
+    // GATE.S8.T3_MODULES.DISCOVERY_GATE.001: Discovery-only modules cannot be purchased at stations.
+    // Acquired exclusively from void site discoveries or Haven restoration.
+    public bool IsDiscoveryOnly { get; set; } = false;
 }
 
 public static class UpgradeContentV0
@@ -566,6 +576,178 @@ public static class UpgradeContentV0
             PowerDraw = CombatTweaksV0.AdvancedRadiatorPowerDraw,
             IsRadiator = true,
             RadiatorBonusRate = CombatTweaksV0.AdvancedRadiatorBonusRate,
+        },
+
+        // GATE.S5.TRACTOR.MODEL.001: Tractor modules (3 tiers)
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.TractorMagneticT1,
+            DisplayName = "Magnetic Grapple",
+            SlotKind = SlotKind.Utility,
+            CreditCost = HavenTweaksV0.TractorT1Range,  // 15 credits (matches range)
+            TechPrerequisite = "",
+            InstallTicks = 4,
+            PowerDraw = 3,
+            TractorRange = HavenTweaksV0.TractorT1Range,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.TractorEmArrayT2,
+            DisplayName = "EM Tractor Array",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 120,
+            TechPrerequisite = "sensor_suite",
+            InstallTicks = 6,
+            PowerDraw = 8,
+            TractorRange = HavenTweaksV0.TractorT2Range,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.TractorGravitonT3,
+            DisplayName = "Graviton Tether",
+            SlotKind = SlotKind.Utility,
+            CreditCost = 300,
+            TechPrerequisite = "reinforced_hull",
+            InstallTicks = 10,
+            PowerDraw = 15,
+            TractorRange = HavenTweaksV0.TractorT3Range,
+        },
+
+        // GATE.S8.TRACTOR.WEAVER.001: Weaver faction variant — auto-salvage capable.
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.TractorWeaverSpindle,
+            DisplayName = "Spindle Tractor",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.WeaverSpindleCreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.WeaverSpindleTechPrereq,
+            InstallTicks = T3ModuleTweaksV0.WeaverSpindleInstallTicks,
+            PowerDraw = T3ModuleTweaksV0.WeaverSpindlePowerDraw,
+            TractorRange = T3ModuleTweaksV0.WeaverSpindleTractorRange,
+            IsAutoSalvage = true,
+            FactionId = FactionTweaksV0.WeaversId,
+            FactionRepRequired = T3ModuleTweaksV0.WeaverSpindleFactionRepRequired,
+        },
+
+        // ════════════════════════════════════════════════════════════════════════
+        // GATE.S8.T3_MODULES.CONTENT.001: T3 precursor modules (discovery-only)
+        // Not purchasable at stations. Acquired from void site discoveries.
+        // All require exotic_matter sustain.
+        // ════════════════════════════════════════════════════════════════════════
+
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.WeaponVoidLanceT3,
+            DisplayName = "Void Lance",
+            SlotKind = SlotKind.Weapon,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.VoidLancePowerDraw,
+            DamageBonusPct = T3ModuleTweaksV0.VoidLanceDamageBonusPct,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.VoidLanceSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.WeaponDisruptorT3,
+            DisplayName = "Disruptor Array",
+            SlotKind = SlotKind.Weapon,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.DisruptorPowerDraw,
+            DamageBonusPct = T3ModuleTweaksV0.DisruptorDamageBonusPct,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.DisruptorSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.WeaponNullCannonT3,
+            DisplayName = "Null Cannon",
+            SlotKind = SlotKind.Weapon,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.NullCannonPowerDraw,
+            DamageBonusPct = T3ModuleTweaksV0.NullCannonDamageBonusPct,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.NullCannonSustainExotic, [WellKnownGoodIds.Munitions] = T3ModuleTweaksV0.NullCannonSustainMunitions },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.ShieldPhaseT3,
+            DisplayName = "Phase Shield",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.PhaseShieldPowerDraw,
+            ShieldBonusFlat = T3ModuleTweaksV0.PhaseShieldBonusFlat,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.PhaseShieldSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.EngineDimensionalT3,
+            DisplayName = "Dimensional Drive",
+            SlotKind = SlotKind.Engine,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.DimensionalDrivePowerDraw,
+            SpeedBonusPct = T3ModuleTweaksV0.DimensionalDriveSpeedBonusPct,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.DimensionalDriveSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.ScannerPrecursorT3,
+            DisplayName = "Precursor Scanner",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.PrecursorScannerPowerDraw,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.PrecursorScannerSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.UtilityTemporalT3,
+            DisplayName = "Temporal Stabilizer",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.TemporalStabilizerPowerDraw,
+            HullBonusFlat = T3ModuleTweaksV0.TemporalStabilizerHullBonusFlat,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.TemporalStabilizerSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.UtilityVoidHarvesterT3,
+            DisplayName = "Void Harvester",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.VoidHarvesterPowerDraw,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.VoidHarvesterSustainExotic },
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.UtilityResonanceAmpT3,
+            DisplayName = "Resonance Amplifier",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T3ModuleTweaksV0.T3CreditCost,
+            TechPrerequisite = T3ModuleTweaksV0.T3TechPrerequisite,
+            InstallTicks = T3ModuleTweaksV0.T3InstallTicks,
+            IsDiscoveryOnly = true,
+            PowerDraw = T3ModuleTweaksV0.ResonanceAmplifierPowerDraw,
+            SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.ResonanceAmplifierSustainExotic },
         },
     };
 
