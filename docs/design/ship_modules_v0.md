@@ -133,16 +133,16 @@ Being caught at 0 RPM by energy weapons is devastating — the laser sits on one
 
 Smaller ships spin faster (less rotational inertia). This is the primary defense advantage of small ships against energy weapons — they are physically hard to burn through. Large ships rely on raw armor thickness instead.
 
-| Class | Combat RPM | Spin-Up Time | Effective Armor vs Energy | Spin-Fire DPS | Identity |
-|-------|-----------|-------------|--------------------------|---------------|----------|
-| Shuttle | 4.0 | 2s | 3.5x zone armor | ~45% of continuous | Gyrates wildly — lasers can barely touch it |
-| Corvette | 3.5 | 2.5s | 3.0x zone armor | ~48% of continuous | Fast spin, good all-round defense |
-| Clipper | 3.0 | 3s | 2.5x zone armor | ~50% of continuous | Quick spin for a freighter |
-| Frigate | 2.5 | 3.5s | 2.2x zone armor | ~53% of continuous |Good spin, charge + broadside cadence |
-| Hauler | 1.5 | 5s | 1.5x zone armor | ~65% of continuous | Sluggish rotation, escort-dependent |
-| Cruiser | 1.5 | 5s | 1.5x zone armor | ~65% of continuous | Mass limits spin, compensates with thick armor |
-| Carrier | 1.0 | 6s | 1.3x zone armor | ~70% of continuous | Barely rotates — relies on drones + escorts |
-| Dreadnought | 0.5 | 8s | 1.2x zone armor | ~80% of continuous | Crawling spin. Raw armor thickness is the defense. |
+| Class | Combat RPM | Spin-Up Time | Effective Armor vs Energy | Spin-Fire DPS | Turn Penalty | Identity |
+|-------|-----------|-------------|--------------------------|---------------|-------------|----------|
+| Shuttle | 4.0 | 2s | 3.5x zone armor | ~45% of continuous | -50% turn rate | Gyrates wildly — lasers can barely touch it, but committed to the spin |
+| Corvette | 3.5 | 2.5s | 3.0x zone armor | ~48% of continuous | -45% turn rate | Fast spin, good all-round defense. Penalty hurts in chases |
+| Clipper | 3.0 | 3s | 2.5x zone armor | ~50% of continuous | -40% turn rate | Quick spin for a freighter |
+| Frigate | 2.5 | 3.5s | 2.2x zone armor | ~53% of continuous | -35% turn rate | Good spin, charge + broadside cadence |
+| Hauler | 1.5 | 5s | 1.5x zone armor | ~65% of continuous | -25% turn rate | Sluggish rotation, escort-dependent |
+| Cruiser | 1.5 | 5s | 1.5x zone armor | ~65% of continuous | -25% turn rate | Mass limits spin, compensates with thick armor |
+| Carrier | 1.0 | 6s | 1.3x zone armor | ~70% of continuous | -20% turn rate | Barely rotates — relies on drones + escorts |
+| Dreadnought | 0.5 | 8s | 1.2x zone armor | ~80% of continuous | -15% turn rate | Crawling spin. Raw armor thickness is the defense. |
 
 **Spin-Fire DPS** is the fraction of continuous-fire DPS a turret achieves while spinning, because each turret can only fire during its engagement arc (~120° of the 360° revolution). Faster spin = shorter windows = lower DPS. Broadside mounts (120° perpendicular arc) get proportionally longer firing windows during spin, making them more efficient than standard turrets on spinning ships.
 
@@ -175,6 +175,32 @@ At 0.5 RPM (Dreadnought), this is only +5% — negligible.
 Small ships spin fast, reject heat well, but deal less DPS (short firing windows).
 Large ships spin slow, reject heat poorly, but deal more sustained DPS (long firing windows).
 The tradeoff is intrinsic to one mechanic.
+
+### Spin + Maneuverability
+
+A spinning ship fights gyroscopic precession when changing heading. Thrusters must overcome existing angular momentum before redirecting the ship, reducing effective turn rate proportional to spin RPM.
+
+```
+effective_turn_rate = base_turn_rate * (1 - turn_penalty_at_combat_rpm)
+```
+
+Turn penalty scales **linearly during spin-up/spin-down** — at half RPM, half the penalty applies. This means the spin-up window is also a maneuverability commitment window: the player is progressively trading agility for defense as RPM climbs.
+
+**Design rationale:** Without this penalty, spinning is a strict upgrade — zone armor distribution across all 4 faces with no cost. The turn penalty creates the core tactical decision:
+
+| Mode | Defense | Offense / Maneuver |
+|------|---------|-------------------|
+| **Not spinning** | Enemy focuses one zone → fast breach | Full turn rate, full weapon tracking, full chase capability |
+| **Spinning** | Damage spread across 4 zones → up to 4x effective zone HP | Degraded turn rate — harder to bring guns to bear, harder to chase or flee |
+
+**Weapon interaction:** Turreted weapons compensate for spin (independent tracking). Fixed-forward weapons (spinal mounts) suffer convergence scatter proportional to spin rate — the ship's rotation means the bore axis sweeps, degrading aim on distant targets. This naturally favors turret-heavy builds for spin-tanking and spinal builds for stationary jousting.
+
+**Class identity implications:**
+- **Shuttles/Corvettes**: Highest spin → highest turn penalty. They WANT to spin (best energy defense), but spinning locks them into a slugfight instead of using their natural speed to disengage. A spinning Corvette is a *tank*; a non-spinning Corvette is a *dogfighter*. The player picks a role per engagement.
+- **Haulers/Cruisers**: Moderate spin, moderate penalty. They're slow anyway — the turn penalty matters less because their base turn rate is already low. Spin is almost always correct for capitals.
+- **Dreadnoughts**: Minimal spin, minimal penalty. The penalty barely registers because the Dreadnought was never going to out-turn anything. Raw armor thickness is the defense.
+
+This creates a natural skill curve: small-ship pilots must read the fight and decide whether to spin (tank) or stay nimble (kite). Capital pilots almost always spin. The decision space lives where it should — in the cockpit of the ship that's fast enough for it to matter.
 
 ---
 

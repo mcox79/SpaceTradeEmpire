@@ -148,6 +148,7 @@ public partial class SimState
         // GATE.S1.MISSION.MODEL.001: Mission state hydration.
         Missions ??= new Entities.MissionState();
         Missions.CompletedMissionIds ??= new List<string>();
+        Missions.FailedMissionIds ??= new List<string>();
         Missions.ActiveSteps ??= new List<Entities.MissionActiveStep>();
         Missions.EventLog ??= new List<Entities.MissionEvent>();
 
@@ -164,6 +165,11 @@ public partial class SimState
 
         // GATE.S12.PROGRESSION.STATS.001: PlayerStats hydration.
         PlayerStats ??= new Entities.PlayerStats();
+
+        // GATE.S7.TERRITORY.HYSTERESIS.001: Regime hysteresis hydration.
+        NodeRegimeCommitted ??= new Dictionary<string, int>(StringComparer.Ordinal);
+        NodeRegimeProposed ??= new Dictionary<string, int>(StringComparer.Ordinal);
+        NodeRegimeProposedSinceTick ??= new Dictionary<string, int>(StringComparer.Ordinal);
 
         // GATE.S7.WARFRONT.STATE_MODEL.001: Warfront state hydration.
         Warfronts ??= new Dictionary<string, Entities.WarfrontState>(StringComparer.Ordinal);
@@ -186,6 +192,9 @@ public partial class SimState
         StationMemory ??= new Dictionary<string, Entities.StationDeliveryRecord>(StringComparer.Ordinal);
         WarConsequences ??= new Dictionary<string, Entities.WarConsequence>(StringComparer.Ordinal);
         NarrativeNpcs ??= new Dictionary<string, Entities.NarrativeNpc>(StringComparer.Ordinal);
+
+        // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Intel book hydration.
+        Intel ??= new Entities.IntelBook();
 
         InvalidateRoutePlannerCaches();
     }

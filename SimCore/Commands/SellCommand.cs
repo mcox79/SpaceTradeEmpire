@@ -46,6 +46,17 @@ public class SellCommand : ICommand
 
 		InventoryLedger.AddMarket(market.Inventory, GoodId, Quantity);
 		state.PlayerCredits += totalValue;
+
+		// GATE.X.LEDGER.TX_MODEL.001: Record sell transaction for audit trail.
+		state.AppendTransaction(new TransactionRecord
+		{
+			CashDelta = totalValue,
+			GoodId = GoodId,
+			Quantity = Quantity,
+			Source = "Sell",
+			NodeId = MarketId,
+		});
+
 		// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.
 		if (state.PlayerStats != null)
 		{

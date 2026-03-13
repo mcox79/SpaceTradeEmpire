@@ -102,4 +102,82 @@ public sealed class DiscoveryOutcomeTests
     {
         Assert.That(DiscoveryOutcomeSystem.ParseDiscoveryKind(""), Is.EqualTo(""));
     }
+
+    // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Progressive reveal tests.
+
+    [Test]
+    public void RevealContent_SeenPhase_OnlySurfaceText()
+    {
+        var state = new SimState(42);
+        state.Nodes["n1"] = new Node { Id = "n1", Kind = NodeKind.Station, Name = "Alpha" };
+        state.Nodes["n1"].SeededDiscoveryIds.Add("disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+        state.Intel.Discoveries["disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1"] = new DiscoveryStateV0
+        {
+            DiscoveryId = "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1",
+            Phase = DiscoveryPhase.Seen
+        };
+
+        var result = DiscoveryOutcomeSystem.GetRevealContent(state, "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+
+        Assert.That(result.Phase, Is.EqualTo(DiscoveryPhase.Seen));
+        Assert.That(result.SurfaceText, Is.Not.Empty);
+        Assert.That(result.DeepText, Is.Empty, "Seen phase must not reveal deep text.");
+        Assert.That(result.ConnectionText, Is.Empty, "Seen phase must not reveal connections.");
+    }
+
+    [Test]
+    public void RevealContent_ScannedPhase_IncludesDeepText()
+    {
+        var state = new SimState(42);
+        state.Nodes["n1"] = new Node { Id = "n1", Kind = NodeKind.Station, Name = "Alpha" };
+        state.Nodes["n1"].SeededDiscoveryIds.Add("disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+        state.Intel.Discoveries["disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1"] = new DiscoveryStateV0
+        {
+            DiscoveryId = "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1",
+            Phase = DiscoveryPhase.Scanned
+        };
+
+        var result = DiscoveryOutcomeSystem.GetRevealContent(state, "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+
+        Assert.That(result.Phase, Is.EqualTo(DiscoveryPhase.Scanned));
+        Assert.That(result.SurfaceText, Is.Not.Empty);
+        Assert.That(result.DeepText, Is.Not.Empty, "Scanned phase must include deep text.");
+        Assert.That(result.ConnectionText, Is.Empty, "Scanned phase must not reveal connections.");
+    }
+
+    [Test]
+    public void RevealContent_AnalyzedPhase_IncludesConnectionText()
+    {
+        var state = CreateStateWithAnalyzedDiscovery("disc_v0|CORRIDOR_TRACE|n1|ref1|src1", "n1");
+
+        var result = DiscoveryOutcomeSystem.GetRevealContent(state, "disc_v0|CORRIDOR_TRACE|n1|ref1|src1");
+
+        Assert.That(result.Phase, Is.EqualTo(DiscoveryPhase.Analyzed));
+        Assert.That(result.SurfaceText, Is.Not.Empty);
+        Assert.That(result.DeepText, Is.Not.Empty);
+        Assert.That(result.ConnectionText, Is.Not.Empty, "Analyzed phase must include connection text.");
+    }
+
+    [Test]
+    public void RevealContent_RecontextualizationDiffersPerPhase()
+    {
+        var state = new SimState(42);
+        state.Nodes["n1"] = new Node { Id = "n1", Kind = NodeKind.Station, Name = "Alpha" };
+        state.Nodes["n1"].SeededDiscoveryIds.Add("disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+
+        // Phase: Seen
+        state.Intel.Discoveries["disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1"] = new DiscoveryStateV0
+        {
+            DiscoveryId = "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1",
+            Phase = DiscoveryPhase.Seen
+        };
+        var seenResult = DiscoveryOutcomeSystem.GetRevealContent(state, "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+
+        // Advance to Analyzed.
+        state.Intel.Discoveries["disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1"].Phase = DiscoveryPhase.Analyzed;
+        var analyzedResult = DiscoveryOutcomeSystem.GetRevealContent(state, "disc_v0|RESOURCE_POOL_MARKER|n1|ref1|src1");
+
+        Assert.That(analyzedResult.SurfaceText, Is.EqualTo(seenResult.SurfaceText), "Surface text must be consistent across phases.");
+        Assert.That(analyzedResult.ConnectionText, Is.Not.EqualTo(seenResult.ConnectionText), "Connection text must differ between Seen and Analyzed.");
+    }
 }

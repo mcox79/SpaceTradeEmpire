@@ -19,9 +19,9 @@ const SIZE_HULL: int = 56
 const SIZE_CRITICAL: int = 72
 
 ## Animation parameters.
-# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
-const DRIFT_HEIGHT: float = 40.0
-const DRIFT_DURATION: float = 0.8
+# FEEL_POST_FIX_7: Scaled for visibility at camera altitude ~2500u.
+const DRIFT_HEIGHT: float = 60.0
+const DRIFT_DURATION: float = 1.0
 const FADE_START: float = 0.4
 const CRIT_PULSE_SCALE: float = 1.3
 const CRIT_PULSE_DURATION: float = 0.1
@@ -54,8 +54,8 @@ static func spawn(parent: Node, pos: Vector3, amount: int, type: String = "hull"
 
 	var label := Label3D.new()
 	label.name = "DmgLabel"
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
-	label.pixel_size = 0.4
+	# FEEL_POST_FIX_7: Larger for visibility at camera altitude ~2500u.
+	label.pixel_size = 0.8
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.render_priority = 15

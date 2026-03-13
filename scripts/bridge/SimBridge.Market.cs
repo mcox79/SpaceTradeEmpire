@@ -435,6 +435,108 @@ public partial class SimBridge
         return "";
     }
 
+    // GATE.X.LEDGER.BRIDGE.001: Transaction ledger queries.
+
+    /// <summary>
+    /// Returns the last N transaction records from the ledger.
+    /// Each entry: {tick, cash_delta, good_id, quantity, source, node_id}.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetTransactionLogV0(int maxRecords = 50)
+    {
+        var result = new Godot.Collections.Array();
+        if (IsLoading) return result;
+        if (maxRecords <= 0) maxRecords = 50;
+
+        TryExecuteSafeRead(state =>
+        {
+            var log = state.TransactionLog;
+            if (log is null || log.Count == 0) return;
+
+            int start = log.Count > maxRecords ? log.Count - maxRecords : 0;
+            for (int i = start; i < log.Count; i++)
+            {
+                var tx = log[i];
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["tick"] = tx.Tick,
+                    ["cash_delta"] = tx.CashDelta,
+                    ["good_id"] = tx.GoodId ?? "",
+                    ["quantity"] = tx.Quantity,
+                    ["source"] = tx.Source ?? "",
+                    ["node_id"] = tx.NodeId ?? "",
+                });
+            }
+        });
+
+        return result;
+    }
+
+    /// <summary>
+    /// Aggregates the transaction log to compute profit summary.
+    /// Returns {total_revenue, total_expense, net_profit, top_good}.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetProfitSummaryV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["total_revenue"] = (long)0,
+            ["total_expense"] = (long)0,
+            ["net_profit"] = (long)0,
+            ["top_good"] = "",
+        };
+        if (IsLoading) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            var log = state.TransactionLog;
+            if (log is null || log.Count == 0) return;
+
+            long totalRevenue = 0;
+            long totalExpense = 0;
+            var profitByGood = new System.Collections.Generic.Dictionary<string, long>(StringComparer.Ordinal);
+
+            foreach (var tx in log)
+            {
+                if (tx.CashDelta > 0)
+                {
+                    totalRevenue += tx.CashDelta;
+                }
+                else if (tx.CashDelta < 0)
+                {
+                    totalExpense += -tx.CashDelta; // Store as positive number
+                }
+
+                var goodId = tx.GoodId ?? "";
+                if (!string.IsNullOrEmpty(goodId) && tx.CashDelta > 0)
+                {
+                    if (!profitByGood.TryGetValue(goodId, out var current))
+                        current = 0;
+                    profitByGood[goodId] = current + tx.CashDelta;
+                }
+            }
+
+            string topGood = "";
+            long topProfit = 0;
+            foreach (var kv in profitByGood)
+            {
+                if (kv.Value > topProfit)
+                {
+                    topProfit = kv.Value;
+                    topGood = kv.Key;
+                }
+            }
+
+            result["total_revenue"] = totalRevenue;
+            result["total_expense"] = totalExpense;
+            result["net_profit"] = totalRevenue - totalExpense;
+            result["top_good"] = topGood;
+        });
+
+        return result;
+    }
+
     public string GetMarketExplainTranscript(string marketId)
     {
         if (IsLoading) return "";

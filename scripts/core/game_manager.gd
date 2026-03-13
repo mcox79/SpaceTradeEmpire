@@ -123,6 +123,11 @@ var _transit_marker: Node3D = null
 var _transit_lane_line_ref: Node3D = null  # Stored to clean up during reveal.
 var _warp_tunnel_ref: Node3D = null  # GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: warp tunnel VFX instance.
 
+# GATE.X.WARP.TRANSIT_HUD.001: Transit timing for HUD progress bar.
+var warp_transit_start_msec: int = 0       # Time.get_ticks_msec() when transit begins.
+var warp_transit_duration_sec: float = 0.0 # Total transit duration in seconds.
+var warp_transit_origin_pos: Vector3 = Vector3.ZERO  # Origin gate position for distance calc.
+
 # Flyby orbit tuning — tweak these to adjust the arrival cinematic.
 # Pace overhaul: compressed timing. First visit ~5s, return visits skip flyby entirely (~2.5s).
 const FLYBY_APPROACH_DIST: float = 160.0   # Distance from star to start curving (scaled for 120u systems).
@@ -385,6 +390,8 @@ func _unhandled_input(event):
 			_toggle_keybinds_help_v0()
 		if event.keycode == KEY_K:
 			_toggle_knowledge_web_v0()
+		if event.keycode == KEY_J:
+			_toggle_mission_journal_v0()
 		if event.keycode == KEY_L:
 			_toggle_combat_log_v0()
 		if event.keycode == KEY_V:
@@ -677,6 +684,10 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake on warp entry
 	_apply_camera_shake_v0(0.4)
 	_flash_warp_screen_v0()
+	# GATE.X.WARP.DEPARTURE_VFX.001: 3D departure flash at ship position.
+	_ensure_hero_body()
+	if _hero_body and is_instance_valid(_hero_body):
+		WarpEffect.play_departure_flash(get_tree().root, _hero_body.global_position)
 
 	# GATE.S1.AUDIO.AMBIENT.001: warp whoosh on lane jump
 	if _sfx_warp_whoosh:
@@ -807,6 +818,10 @@ func _confirm_gate_transit_v0() -> void:
 	# === Phase 2: Launch ===
 	_apply_camera_shake_v0(0.6)
 	_flash_warp_screen_v0()
+	# GATE.X.WARP.DEPARTURE_VFX.001: 3D departure flash at ship position.
+	_ensure_hero_body()
+	if _hero_body and is_instance_valid(_hero_body):
+		WarpEffect.play_departure_flash(get_tree().root, _hero_body.global_position)
 
 	# NOW transition to IN_LANE_TRANSIT → camera switches to WARP_TRANSIT.
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
@@ -1014,6 +1029,10 @@ func _show_flyby_letterbox_v0(node_id: String, bridge: Node, display_duration: f
 	var display_name: String = node_id
 	if bridge and bridge.has_method("GetNodeDisplayNameV0"):
 		display_name = bridge.call("GetNodeDisplayNameV0", node_id)
+	# FEEL_POST_FIX_8: Strip parenthesized production tags for clean arrival text.
+	var paren_idx: int = display_name.find("(")
+	if paren_idx > 0:
+		display_name = display_name.substr(0, paren_idx).strip_edges()
 
 	# Audio.
 	if _sfx_system_arrival:
@@ -1340,6 +1359,11 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Freeze ship movement.
 	_hero_body.linear_velocity = Vector3.ZERO
 	_hero_body.angular_velocity = Vector3.ZERO
+
+	# GATE.X.WARP.TRANSIT_HUD.001: Record transit timing for HUD progress overlay.
+	warp_transit_start_msec = Time.get_ticks_msec()
+	warp_transit_duration_sec = transit_time
+	warp_transit_origin_pos = origin_pos
 
 	# === ZOOM OUT & FOLLOW ALONG THE LANE ===
 	# Camera follows the transit marker as it moves along the lane.
@@ -2084,6 +2108,12 @@ func _toggle_knowledge_web_v0() -> void:
 	if _knowledge_web_panel != null and _knowledge_web_panel.has_method("toggle_v0"):
 		_knowledge_web_panel.toggle_v0()
 
+# GATE.X.UI_POLISH.MISSION_JOURNAL.001: Toggle mission journal panel (J key).
+func _toggle_mission_journal_v0() -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_mission_journal_v0"):
+		hud.toggle_mission_journal_v0()
+
 # GATE.S14.TRANSIT.WARP_EFFECT.001: White screen flash on warp entry.
 func _flash_warp_screen_v0() -> void:
 	var canvas := CanvasLayer.new()
@@ -2118,19 +2148,20 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 		var kind: String = str(evt.get("kind", "none"))
 		var color: String
 		var message: String
+		# FEEL_POST_FIX_8: Clean player-facing event text (no "Thread" prefix).
 		match kind:
 			"salvage":
 				color = "#22AA22"
 				var good_id: String = str(evt.get("good_id", ""))
 				var qty: int = int(evt.get("quantity", 0))
-				message = "Thread Salvage: found %d x %s!" % [qty, good_id]
+				message = "Salvage: found %d x %s!" % [qty, good_id]
 			"signal":
 				color = "#2288DD"
-				message = "Thread Signal: anomaly detected nearby!"
+				message = "Anomaly detected nearby!"
 			"turbulence":
 				color = "#DD4444"
 				var hull_dmg: int = int(evt.get("hull_damage", 0))
-				message = "Thread Turbulence: hull took %d damage!" % hull_dmg
+				message = "Turbulence: hull took %d damage!" % hull_dmg
 			_:
 				continue
 

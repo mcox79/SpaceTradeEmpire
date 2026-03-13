@@ -47,4 +47,24 @@ public static class WarfrontTweaksV0
 
     // ── Contested node detection radius (BFS depth from faction borders) ──
     public const int ContestedBfsDepth = 1;
+
+    // ── Fleet attrition (GATE.S7.WARFRONT.ATTRITION.001) ──
+    // Base attrition per tick at Skirmish+ (scales with intensity).
+    public const int BaseAttritionPerTick = 1;
+    // Bonus attrition when supply is depleted (no recent supply delivery).
+    public const int UnsuppliedAttritionBonus = 2;
+    // Fleet strength restored per supply delivery batch.
+    public const int SupplyRestorePerDelivery = 5;
+    // Maximum fleet strength.
+    public const int MaxFleetStrength = 100;
+    // Minimum intensity for attrition to apply.
+    public const int AttritionMinIntensity = 2; // Skirmish
+
+    // ── Strategic objectives (GATE.S7.WARFRONT.OBJECTIVES.001) ──
+    // Ticks of fleet dominance required to capture an objective.
+    public const int CaptureDominanceTicks = 30;
+    // Supply depot: bonus fleet restore per delivery when controlled.
+    public const int SupplyDepotRestoreBonus = 3;
+    // Factory: bonus fleet strength regen per tick when controlled.
+    public const int FactoryRegenPerTick = 1;
 }

@@ -54,4 +54,10 @@ public static class FractureTweaksV0
 
     // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Minimum tick before fracture can be discovered.
     public const int FractureDiscoveryMinTick = 200;
+
+    // GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane jump constants (non-adjacent node-to-node).
+    public const int OfflaneFuelCostPerUnit = 5;        // Fuel per unit of Euclidean distance
+    public const int OfflaneHullStressPerUnit = 2;      // Hull stress per unit of distance
+    public const float OfflaneMinDistance = 0.5f;       // Distance floor to avoid zero cost
+    public const int OfflaneMinTechLevel = 2;           // Minimum fleet TechLevel for offlane jumps
 }

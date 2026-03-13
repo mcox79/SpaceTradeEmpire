@@ -27,6 +27,14 @@ public enum FleetRole
     Patrol = 2
 }
 
+// GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Battle readiness state.
+public enum BattleStationsState
+{
+    StandDown = 0,
+    SpinningUp = 1,
+    BattleReady = 2
+}
+
 // GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Directional armor zones.
 public enum ZoneFacing
 {
@@ -165,6 +173,10 @@ public class Fleet
     // GATE.T18.NARRATIVE.FRACTURE_WEIGHT.001: Tracks instability phase where each cargo good was loaded.
     // Key = goodId, Value = instability phase (0-4) at load origin.
     [JsonInclude] public Dictionary<string, int> CargoOriginPhase { get; set; } = new();
+
+    // GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Battle readiness.
+    public BattleStationsState BattleStations { get; set; } = BattleStationsState.StandDown;
+    public int BattleStationsSpinUpTicksRemaining { get; set; } = 0;
 
     // Dedicated fuel tank — consumed during travel, refilled at stations.
     // FuelCapacity set from ShipClassDef.BaseFuelCapacity + module bonuses.

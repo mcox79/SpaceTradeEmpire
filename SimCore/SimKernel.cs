@@ -102,6 +102,9 @@ public class SimKernel
         // GATE.S1.MISSION.SYSTEM.001: Evaluate mission triggers and advance steps.
         MissionSystem.Process(_state);
 
+        // GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: World-state mission trigger detection.
+        SystemicMissionSystem.Process(_state);
+
         // GATE.S4: Industry pipeline — research, refit, maintenance per tick.
         ResearchSystem.ProcessResearch(_state);
         RefitSystem.ProcessRefitQueue(_state);
@@ -116,6 +119,9 @@ public class SimKernel
         // GATE.S4.NPC_INDU.DEMAND.001: NPC industry demand + reaction.
         NpcIndustrySystem.ProcessNpcIndustry(_state);
         NpcIndustrySystem.ProcessNpcReaction(_state);
+
+        // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Node observation tracking for progressive intel.
+        IntelSystem.UpdateNodeObservation(_state);
 
         // GATE.S10.TRADE_INTEL.KERNEL.001: Passive scanner + trade route evaluation.
         IntelSystem.ProcessScannerIntel(_state);

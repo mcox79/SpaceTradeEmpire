@@ -72,6 +72,10 @@ public sealed class IntelBook
     // GATE.T18.NARRATIVE.KNOWLEDGE_GRAPH.001: Discovery-to-discovery connections forming a knowledge graph.
     [JsonInclude] public List<KnowledgeConnection> KnowledgeConnections { get; private set; } = new();
 
+    // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Consecutive ticks player has observed each node.
+    // Key = nodeId, Value = consecutive observation ticks. Reset when player leaves node.
+    [JsonInclude] public Dictionary<string, int> NodeObservationTicks { get; private set; } = new(StringComparer.Ordinal);
+
     public static string Key(string marketId, string goodId) => marketId + "|" + goodId;
     public static string RouteKey(string sourceNodeId, string destNodeId, string goodId) => sourceNodeId + "|" + destNodeId + "|" + goodId;
 }

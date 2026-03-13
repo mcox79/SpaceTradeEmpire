@@ -357,6 +357,11 @@ func open_market_v0(node_id: String) -> void:
 			var station_name: String = node_id
 			if bridge and bridge.has_method("GetNodeDisplayNameV0"):
 				station_name = str(bridge.call("GetNodeDisplayNameV0", node_id))
+			# FEEL_POST_FIX_7: Strip parenthesized resource tags from station name.
+			# "System 10 (Rare Min) (Mining) (Munitions)" → "System 10 Station"
+			var paren_idx: int = station_name.find("(")
+			if paren_idx > 0:
+				station_name = station_name.substr(0, paren_idx).strip_edges() + " Station"
 			_title_label.text = "STATION: %s" % station_name
 
 	# GATE.S13.DOCK.CONTEXT.001: Station context description from production
@@ -697,7 +702,7 @@ func _rebuild_rows() -> void:
 						total_count += qty
 						parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
 				if parts.size() > 0:
-					_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+					_cargo_label.text = "Cargo: %d %s — %s" % [total_count, "item" if total_count == 1 else "items", ", ".join(parts)]
 				else:
 					_cargo_label.text = "Cargo: empty"
 			else:
@@ -737,7 +742,7 @@ func _optimistic_cargo_update_v0(good_id: String, qty: int, is_buy: bool) -> voi
 			total_count += q
 			parts.append("%s x%d" % [_format_display_name(gid), q])
 	if parts.size() > 0:
-		_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+		_cargo_label.text = "Cargo: %d %s — %s" % [total_count, "item" if total_count == 1 else "items", ", ".join(parts)]
 	else:
 		_cargo_label.text = "Cargo: empty"
 
@@ -757,7 +762,7 @@ func _refresh_cargo_label() -> void:
 					total_count += qty
 					parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
 			if parts.size() > 0:
-				_cargo_label.text = "Cargo: %d items — %s" % [total_count, ", ".join(parts)]
+				_cargo_label.text = "Cargo: %d %s — %s" % [total_count, "item" if total_count == 1 else "items", ", ".join(parts)]
 			else:
 				_cargo_label.text = "Cargo: empty"
 		else:
@@ -781,39 +786,60 @@ func _rebuild_production_info() -> void:
 	header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 	_rows_container.add_child(header)
 
+	# GATE.X.UI_POLISH.MARKET_FORMAT.001: Formatted production chain display
+	# with arrow separators and color-coded surplus/deficit.
 	for site_info in industry:
 		if typeof(site_info) != TYPE_DICTIONARY:
 			continue
 		var site_id: String = str(site_info.get("site_id", ""))
-		# GATE.S7.PRODUCTION.BRIDGE_READOUT.001: Use recipe_name display name.
-		var recipe_name: String = str(site_info.get("recipe_name", ""))
-		if recipe_name.is_empty():
-			recipe_name = str(site_info.get("recipe_id", "(natural)"))
 		var eff_pct: int = int(site_info.get("efficiency_pct", 0))
-		var health_pct: int = int(site_info.get("health_pct", 0))
 		var inputs: Array = site_info.get("inputs", [])
 		var outputs: Array = site_info.get("outputs", [])
-		var in_str: String = ", ".join(inputs) if inputs.size() > 0 else ""
-		var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
 		var source: String = _site_source_tag(site_id)
-
-		var row = HBoxContainer.new()
-		var lbl = Label.new()
-		# FEEL_BASELINE: Human-readable production text instead of internal formula.
-		# Parse "Good:Qty" arrays into readable names.
-		var out_names := _parse_good_names(outputs)
-		var in_names := _parse_good_names(inputs)
 		var source_clean := source.strip_edges().trim_prefix("[").trim_suffix("]").strip_edges()
-		if in_names.is_empty():
-			lbl.text = "Produces %s (%s)" % [out_names, source_clean]
-		else:
-			lbl.text = "Produces %s from %s (%s)" % [out_names, in_names, source_clean]
-		# Show degraded efficiency only when below 100%.
+
+		# Build a rich production chain row: [Source] Input1 + Input2 -> Output1 + Output2
+		var chain_row = HBoxContainer.new()
+		chain_row.add_theme_constant_override("separation", 4)
+
+		# Source tag label (muted)
+		var src_lbl = Label.new()
+		src_lbl.text = source_clean
+		src_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		src_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		chain_row.add_child(src_lbl)
+
+		# Input goods (red = consumed/deficit)
+		if inputs.size() > 0:
+			var in_lbl = Label.new()
+			in_lbl.text = _parse_good_names_arrow(inputs)
+			in_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+			in_lbl.add_theme_color_override("font_color", UITheme.RED_LIGHT)
+			chain_row.add_child(in_lbl)
+
+			# Arrow separator
+			var arrow_lbl = Label.new()
+			arrow_lbl.text = " \u2192 "
+			arrow_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+			arrow_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+			chain_row.add_child(arrow_lbl)
+
+		# Output goods (green = produced/surplus)
+		var out_lbl = Label.new()
+		out_lbl.text = _parse_good_names_arrow(outputs) if outputs.size() > 0 else "none"
+		out_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		out_lbl.add_theme_color_override("font_color", UITheme.GREEN_SOFT)
+		chain_row.add_child(out_lbl)
+
+		# Efficiency indicator (only when degraded)
 		if eff_pct < 100:
-			lbl.text += "  [Eff: %d%%]" % eff_pct
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-		_rows_container.add_child(row)
+			var eff_lbl = Label.new()
+			eff_lbl.text = "  Eff: %d%%" % eff_pct
+			eff_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			eff_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+			chain_row.add_child(eff_lbl)
+
+		_rows_container.add_child(chain_row)
 
 # GATE.X.UI_POLISH.DOCK_VISUAL.001: Section header helper for Ship tab
 func _make_ship_section_header(title: String) -> VBoxContainer:
@@ -1237,21 +1263,34 @@ func _rebuild_missions() -> void:
 				continue
 			var mid: String = str(m.get("mission_id", ""))
 			var mtitle: String = str(m.get("title", mid))
-			var _mdesc: String = str(m.get("description", ""))
+			var mdesc: String = str(m.get("description", ""))
 			var mreward: int = int(m.get("reward", 0))
+
+			# FEEL_POST_FIX_7: Card layout with title, reward, description.
+			var card = VBoxContainer.new()
 
 			var row = HBoxContainer.new()
 			var info_lbl = Label.new()
-			info_lbl.text = "%s (%d cr)" % [mtitle, mreward]
+			info_lbl.text = "%s — %d cr" % [mtitle, mreward]
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			info_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 			row.add_child(info_lbl)
 
 			var btn_accept = Button.new()
 			btn_accept.text = "Accept"
 			btn_accept.pressed.connect(_on_accept_mission.bind(mid))
 			row.add_child(btn_accept)
+			card.add_child(row)
 
-			_missions_container.add_child(row)
+			if mdesc != "":
+				var desc_lbl = Label.new()
+				desc_lbl.text = mdesc
+				desc_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+				desc_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+				desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				card.add_child(desc_lbl)
+
+			_missions_container.add_child(card)
 
 func _on_accept_mission(mission_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -1652,6 +1691,20 @@ func _parse_good_names(items: Array) -> String:
 		else:
 			names.append(s.capitalize())
 	return " + ".join(names) if names.size() > 0 else ""
+
+# GATE.X.UI_POLISH.MARKET_FORMAT.001: Arrow-style good names with quantities.
+func _parse_good_names_arrow(items: Array) -> String:
+	var parts: PackedStringArray = []
+	for item in items:
+		var s := str(item)
+		var colon := s.find(":")
+		if colon >= 0:
+			var good_name := s.substr(0, colon).capitalize()
+			var qty := s.substr(colon + 1)
+			parts.append("%s x%s" % [good_name, qty])
+		else:
+			parts.append(s.capitalize())
+	return ", ".join(parts) if parts.size() > 0 else ""
 
 func _site_source_tag(site_id: String) -> String:
 	if site_id.begins_with("planet_"): return "[Planet] "

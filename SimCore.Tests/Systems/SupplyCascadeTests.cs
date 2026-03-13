@@ -140,6 +140,9 @@ public class SupplyCascadeTests
             Intensity = WarfrontIntensity.Tension,
             WarType = WarType.Cold,
             TickStarted = 0,
+            // High fleet strength to survive attrition during 600+ tick escalation window.
+            FleetStrengthA = 5000,
+            FleetStrengthB = 5000,
         };
 
         // Run past the max escalation window.

@@ -206,4 +206,126 @@ public partial class SimBridge
 
         return result;
     }
+
+    // GATE.S9.SYSTEMIC.BRIDGE.001: Systemic mission offer queries and acceptance.
+
+    /// <summary>
+    /// Returns the active systemic mission offers from world state.
+    /// Each entry: {offer_id, trigger_type, node_id, good_id, created_tick, expiry_tick}.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetSystemicOffersV0()
+    {
+        var result = new Godot.Collections.Array();
+        if (IsLoading) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            var offers = state.SystemicOffers;
+            if (offers is null || offers.Count == 0) return;
+
+            foreach (var o in offers)
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["offer_id"] = o.OfferId ?? "",
+                    ["trigger_type"] = o.TriggerType.ToString(),
+                    ["node_id"] = o.NodeId ?? "",
+                    ["good_id"] = o.GoodId ?? "",
+                    ["created_tick"] = o.CreatedTick,
+                    ["expiry_tick"] = o.ExpiryTick,
+                });
+            }
+        });
+
+        return result;
+    }
+
+    /// <summary>
+    /// Accept a systemic mission offer by ID. Creates a delivery mission from the offer
+    /// and sets it as the active mission. Write lock required.
+    /// Returns true if accepted successfully.
+    /// </summary>
+    public bool AcceptSystemicMissionV0(string offerId)
+    {
+        if (string.IsNullOrWhiteSpace(offerId)) return false;
+        if (IsLoading) return false;
+
+        bool result = false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            var offers = state.SystemicOffers;
+            if (offers is null) return false;
+
+            SimCore.Entities.SystemicMissionOffer? found = null;
+            for (int i = 0; i < offers.Count; i++)
+            {
+                if (string.Equals(offers[i].OfferId, offerId, StringComparison.Ordinal))
+                {
+                    found = offers[i];
+                    break;
+                }
+            }
+
+            if (found is null) return false;
+
+            // Cannot accept if player already has an active mission
+            if (state.Missions is not null && !string.IsNullOrEmpty(state.Missions.ActiveMissionId))
+                return false;
+
+            // Set up mission state from the systemic offer
+            state.Missions ??= new SimCore.Entities.MissionState();
+            state.Missions.ActiveMissionId = offerId;
+            state.Missions.CurrentStepIndex = 0;
+            state.Missions.ActiveSteps = new System.Collections.Generic.List<SimCore.Entities.MissionActiveStep>
+            {
+                new SimCore.Entities.MissionActiveStep
+                {
+                    StepIndex = 0,
+                    TriggerType = SimCore.Entities.MissionTriggerType.ArriveAtNode,
+                    TargetNodeId = found.NodeId,
+                    TargetGoodId = found.GoodId,
+                    ObjectiveText = $"Deliver {found.GoodId} to {found.NodeId}",
+                    Completed = false,
+                },
+            };
+
+            // Remove the offer from systemic offers
+            offers.RemoveAll(o => string.Equals(o.OfferId, offerId, StringComparison.Ordinal));
+
+            // Process immediately so already-met conditions advance
+            MissionSystem.Process(state);
+
+            result = true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
+    // GATE.X.UI_POLISH.MISSION_JOURNAL.001: Abandon the active mission.
+    public bool AbandonMissionV0()
+    {
+        if (IsLoading) return false;
+
+        bool result = false;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            result = MissionSystem.AbandonMission(_kernel.State);
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
 }

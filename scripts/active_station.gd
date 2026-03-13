@@ -103,3 +103,35 @@ func _refuel_via_bridge(player):
 
 func get_sim_market_id() -> String:
 	return sim_market_id
+
+# GATE.X.STATION_IDENTITY.VISUAL.001: Per-faction color tint and tier-based size variation.
+# Faction colors: communion=cyan, valorin=red, weaver=purple, chitin=amber, naturalize=green, neutral=gray.
+# Tier scaling: 0 (outpost)=0.6, 1 (hub)=1.0, 2 (capital)=1.5.
+func setup(faction_id: String, tier: int) -> void:
+	var color := _faction_color(faction_id)
+	var tier_scale := _tier_scale(tier)
+	var visual := get_node_or_null("StationVisual")
+	if visual:
+		visual.scale = Vector3.ONE * tier_scale
+		for child in visual.get_children():
+			if child is MeshInstance3D:
+				var mat := StandardMaterial3D.new()
+				mat.albedo_color = color
+				mat.roughness = 0.5
+				mat.metallic = 0.5
+				child.material_override = mat
+
+func _faction_color(faction_id: String) -> Color:
+	match faction_id:
+		"communion": return Color("#00CED1")
+		"valorin": return Color("#DC143C")
+		"weaver": return Color("#8B008B")
+		"chitin": return Color("#FFD700")
+		"naturalize": return Color("#228B22")
+		_: return Color("#808080")
+
+func _tier_scale(tier: int) -> float:
+	match tier:
+		0: return 0.6
+		2: return 1.5
+		_: return 1.0

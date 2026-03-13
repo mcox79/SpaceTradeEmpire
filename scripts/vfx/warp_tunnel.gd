@@ -14,6 +14,7 @@ var _tunnel_mesh: MeshInstance3D
 var _streak_particles: GPUParticles3D
 var _fast_streaks: GPUParticles3D
 var _ambient_glow: GPUParticles3D
+var _outer_haze: GPUParticles3D
 var _material: StandardMaterial3D
 var _inner_material: StandardMaterial3D
 var _inner_tunnel: MeshInstance3D
@@ -36,6 +37,8 @@ func despawn(duration: float = 0.3) -> void:
 			_fast_streaks.emitting = false
 		if _ambient_glow:
 			_ambient_glow.emitting = false
+		if _outer_haze:
+			_outer_haze.emitting = false
 		var tween := create_tween()
 		tween.tween_property(_material, "albedo_color:a", 0.0, duration)
 		tween.parallel().tween_property(_material, "emission_energy_multiplier", 0.0, duration)
@@ -90,9 +93,9 @@ func _build() -> void:
 	_tunnel_mesh = MeshInstance3D.new()
 	_tunnel_mesh.name = "TunnelCylinder"
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 8.0
-	cyl.bottom_radius = 8.0
-	cyl.height = 200.0
+	cyl.top_radius = 3.2
+	cyl.bottom_radius = 3.2
+	cyl.height = 80.0
 	# FEEL_BASELINE: Doubled segments to smooth hard polygon edges at altitude.
 	cyl.radial_segments = 48
 	cyl.rings = 8
@@ -117,9 +120,9 @@ func _build() -> void:
 	_inner_tunnel = MeshInstance3D.new()
 	_inner_tunnel.name = "InnerTunnel"
 	var inner_cyl := CylinderMesh.new()
-	inner_cyl.top_radius = 5.0
-	inner_cyl.bottom_radius = 5.0
-	inner_cyl.height = 180.0
+	inner_cyl.top_radius = 2.0
+	inner_cyl.bottom_radius = 2.0
+	inner_cyl.height = 72.0
 	# FEEL_BASELINE: Doubled segments to smooth edges.
 	inner_cyl.radial_segments = 32
 	inner_cyl.rings = 6
@@ -147,13 +150,13 @@ func _build() -> void:
 	_streak_particles.amount = 96
 	_streak_particles.lifetime = 0.6
 	_streak_particles.randomness = 0.3
-	_streak_particles.visibility_aabb = AABB(Vector3(-20, -20, -120), Vector3(40, 40, 240))
+	_streak_particles.visibility_aabb = AABB(Vector3(-8, -8, -48), Vector3(16, 16, 96))
 
 	var pmat := ParticleProcessMaterial.new()
 	pmat.direction = Vector3(0, 0, -1)
 	pmat.spread = 12.0
-	pmat.initial_velocity_min = 120.0
-	pmat.initial_velocity_max = 200.0
+	pmat.initial_velocity_min = 48.0
+	pmat.initial_velocity_max = 80.0
 	pmat.gravity = Vector3.ZERO
 	pmat.scale_min = 0.02
 	pmat.scale_max = 0.06
@@ -167,15 +170,15 @@ func _build() -> void:
 	pmat.color_ramp = streak_ramp
 	# Emit from a ring around the player.
 	pmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	pmat.emission_ring_radius = 7.0
-	pmat.emission_ring_inner_radius = 3.0
+	pmat.emission_ring_radius = 2.8
+	pmat.emission_ring_inner_radius = 1.2
 	pmat.emission_ring_height = 0.5
 	pmat.emission_ring_axis = Vector3(0, 0, 1)
 	_streak_particles.process_material = pmat
 
 	# Elongated mesh for streak look.
 	var streak_mesh := BoxMesh.new()
-	streak_mesh.size = Vector3(0.04, 0.04, 3.0)
+	streak_mesh.size = Vector3(0.04, 0.04, 1.2)
 	_streak_particles.draw_pass_1 = streak_mesh
 
 	add_child(_streak_particles)
@@ -187,13 +190,13 @@ func _build() -> void:
 	_fast_streaks.amount = 48
 	_fast_streaks.lifetime = 0.35
 	_fast_streaks.randomness = 0.2
-	_fast_streaks.visibility_aabb = AABB(Vector3(-12, -12, -100), Vector3(24, 24, 200))
+	_fast_streaks.visibility_aabb = AABB(Vector3(-5, -5, -40), Vector3(10, 10, 80))
 
 	var fmat := ParticleProcessMaterial.new()
 	fmat.direction = Vector3(0, 0, -1)
 	fmat.spread = 8.0
-	fmat.initial_velocity_min = 200.0
-	fmat.initial_velocity_max = 350.0
+	fmat.initial_velocity_min = 80.0
+	fmat.initial_velocity_max = 140.0
 	fmat.gravity = Vector3.ZERO
 	fmat.scale_min = 0.01
 	fmat.scale_max = 0.04
@@ -206,14 +209,14 @@ func _build() -> void:
 	fast_ramp.gradient = fast_gradient
 	fmat.color_ramp = fast_ramp
 	fmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	fmat.emission_ring_radius = 4.0
-	fmat.emission_ring_inner_radius = 1.0
+	fmat.emission_ring_radius = 1.6
+	fmat.emission_ring_inner_radius = 0.4
 	fmat.emission_ring_height = 0.3
 	fmat.emission_ring_axis = Vector3(0, 0, 1)
 	_fast_streaks.process_material = fmat
 
 	var fast_mesh := BoxMesh.new()
-	fast_mesh.size = Vector3(0.03, 0.03, 5.0)
+	fast_mesh.size = Vector3(0.03, 0.03, 2.0)
 	_fast_streaks.draw_pass_1 = fast_mesh
 
 	add_child(_fast_streaks)
@@ -225,17 +228,17 @@ func _build() -> void:
 	_ambient_glow.amount = 24
 	_ambient_glow.lifetime = 1.5
 	_ambient_glow.randomness = 0.6
-	_ambient_glow.visibility_aabb = AABB(Vector3(-15, -15, -80), Vector3(30, 30, 160))
+	_ambient_glow.visibility_aabb = AABB(Vector3(-6, -6, -32), Vector3(12, 12, 64))
 
 	var gmat := ParticleProcessMaterial.new()
 	gmat.direction = Vector3(0, 0, -1)
 	gmat.spread = 30.0
-	gmat.initial_velocity_min = 30.0
-	gmat.initial_velocity_max = 60.0
+	gmat.initial_velocity_min = 12.0
+	gmat.initial_velocity_max = 24.0
 	gmat.gravity = Vector3.ZERO
 	# FEEL_BASELINE: Larger glow particles for softer boundary.
-	gmat.scale_min = 0.5
-	gmat.scale_max = 1.2
+	gmat.scale_min = 0.2
+	gmat.scale_max = 0.5
 	# Soft blue-purple fog.
 	var glow_gradient := Gradient.new()
 	glow_gradient.set_color(0, Color(0.3, 0.4, 1.0, 0.3))
@@ -246,20 +249,60 @@ func _build() -> void:
 	gmat.color_ramp = glow_ramp
 	gmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
 	# FEEL_BASELINE: Wider ring softens the outer cylinder edge at altitude.
-	gmat.emission_ring_radius = 10.0
-	gmat.emission_ring_inner_radius = 4.0
+	gmat.emission_ring_radius = 4.0
+	gmat.emission_ring_inner_radius = 1.6
 	gmat.emission_ring_height = 1.5
 	gmat.emission_ring_axis = Vector3(0, 0, 1)
 	_ambient_glow.process_material = gmat
 
 	var glow_mesh := SphereMesh.new()
 	# FEEL_BASELINE: Larger glow particles for altitude.
-	glow_mesh.radius = 1.0
-	glow_mesh.height = 2.0
+	glow_mesh.radius = 0.4
+	glow_mesh.height = 0.8
 	_ambient_glow.draw_pass_1 = glow_mesh
 
 	add_child(_ambient_glow)
 	_ambient_glow.emitting = true
+
+	# === Layer 4: Outer haze — wide, faint ring to soften cylinder boundary. ===
+	# FEEL_POST_FIX_7: Softens the hard cylinder edge visible at camera altitude.
+	_outer_haze = GPUParticles3D.new()
+	_outer_haze.name = "OuterHaze"
+	_outer_haze.amount = 32
+	_outer_haze.lifetime = 1.2
+	_outer_haze.randomness = 0.7
+	_outer_haze.visibility_aabb = AABB(Vector3(-12, -12, -48), Vector3(24, 24, 96))
+
+	var hmat := ParticleProcessMaterial.new()
+	hmat.direction = Vector3(0, 0, -1)
+	hmat.spread = 25.0
+	hmat.initial_velocity_min = 16.0
+	hmat.initial_velocity_max = 32.0
+	hmat.gravity = Vector3.ZERO
+	hmat.scale_min = 0.4
+	hmat.scale_max = 1.0
+	# Very faint blue-white fog to blur the boundary.
+	var haze_gradient := Gradient.new()
+	haze_gradient.set_color(0, Color(0.4, 0.6, 1.0, 0.15))
+	haze_gradient.add_point(0.5, Color(0.3, 0.5, 0.9, 0.1))
+	haze_gradient.add_point(1.0, Color(0.2, 0.3, 0.7, 0.0))
+	var haze_ramp := GradientTexture1D.new()
+	haze_ramp.gradient = haze_gradient
+	hmat.color_ramp = haze_ramp
+	hmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	hmat.emission_ring_radius = 5.5
+	hmat.emission_ring_inner_radius = 3.0
+	hmat.emission_ring_height = 2.0
+	hmat.emission_ring_axis = Vector3(0, 0, 1)
+	_outer_haze.process_material = hmat
+
+	var haze_mesh := SphereMesh.new()
+	haze_mesh.radius = 0.6
+	haze_mesh.height = 1.2
+	_outer_haze.draw_pass_1 = haze_mesh
+
+	add_child(_outer_haze)
+	_outer_haze.emitting = true
 
 	# Fade in.
 	_material.albedo_color.a = 0.0

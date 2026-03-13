@@ -98,9 +98,6 @@ deferred to future tranches.
 | F4 | MEDIUM | Warp arrival lacks drama — current flyby works functionally but doesn't create the "wow" moment of Freelancer's jump gate arrivals or Elite's witch-space exit | Medium — needs camera choreography overhaul | Screenshot eval 2026-03-11 |
 | F5 | MEDIUM | No persistent objective/quest log UI — player has only edgedar waypoint + mission HUD panel. No way to review past/current objectives. Starsector's intel screen is the benchmark | Medium — needs dedicated panel design | Screenshot eval 2026-03-11 |
 | F6 | HIGH | All stations look identical — every station uses the same model with no faction visual identity. Freelancer's stations are instantly recognizable by faction. Starsector has unique station sprites | Large + art — needs per-faction station models/color schemes | Screenshot eval 2026-03-11 |
-| F7 | HIGH | Warp tunnel cone oversized — fills 40-50% of screen during transit, no ship visible, no spatial reference. Needs camera pullback + tunnel radius reduction (currently 8u radius, 200u height) | Medium — warp_tunnel.gd radius/camera rework | Eval iter3 2026-03-11 |
-| F8 | HIGH | HUD absent during warp transit — no destination name, no ETA, no "IN TRANSIT" indicator. Player has zero info during most frequent gameplay transition | Medium — needs transit-specific overlay state in hud.gd | Eval iter3 2026-03-11 |
-| F9 | HIGH | Warp VFX undersells departure — expanding sphere reads as "bright light appeared" not "initiating warp". No directional movement, no ship visible, no tunnel/streaks | Medium — warp_effect.gd needs directional streaks + ship visibility | Eval iter3 2026-03-11 |
 | F10 | MEDIUM | Galaxy map nearly empty — one green dot, thin blue lines, plain black background. No node variety, no faction colors, no size/color differentiation, no strategic info | Large — needs node visual diversity, faction overlay, economic hints | Eval iter3 2026-03-11 |
 | F11 | MEDIUM | Empire Dashboard "Needs Attention" reads as errors — "! No automation running" in bright red feels like failure, not onboarding invitation | Small — UX copywriting pass on dashboard prompts | Eval iter3 2026-03-11 |
 | F12 | MEDIUM | Market production text unformatted — "[Mine] Extract Ore [fuel:1, ore:0] eff:100%" renders as dense inline text, not structured production chain | Medium — needs production chain visualization component | Eval iter3 2026-03-11 |
@@ -111,3 +108,6 @@ deferred to future tranches.
 |---|-------|--------|------|------|
 | R1-old | Station keeps orbiting when player is docked | FIXED | — (hotfix) | 2026-03-10 |
 | R2-old | Screenshot runner doesn't clean up old video/audio files | FIXED | — (hotfix) | 2026-03-10 |
+| F7 | Warp tunnel cone oversized — fills 40-50% of screen during transit | FIXED | GATE.X.WARP.TUNNEL_SCALE.001 | 2026-03-12 |
+| F8 | HUD absent during warp transit — no destination name, no ETA | FIXED | GATE.X.WARP.TRANSIT_HUD.001 | 2026-03-12 |
+| F9 | Warp VFX undersells departure — no directional movement/streaks | FIXED | GATE.X.WARP.DEPARTURE_VFX.001 | 2026-03-12 |

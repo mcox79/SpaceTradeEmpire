@@ -95,6 +95,11 @@ var _fleet_auto_program_label: Label = null
 # GATE.S7.RUNTIME_STABILITY.COMBAT_HUD.001: Zone armor + combat stance display.
 var _combat_hud: Control = null
 
+# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge + battle stations indicator.
+var _heat_bar: ProgressBar = null
+var _heat_label: Label = null
+var _battle_stations_label: Label = null
+
 # GATE.S6.FRACTURE_DISCOVERY.UI.001: Track whether fracture unlock toast has been shown.
 var _fracture_unlock_shown: bool = false
 
@@ -107,6 +112,9 @@ var _data_log_panel = null
 # GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Knowledge web panel (K key).
 var _knowledge_web_panel = null
 
+# GATE.X.UI_POLISH.MISSION_JOURNAL.001: Mission journal panel (J key).
+var _mission_journal_panel = null
+
 # Dock confirmation: "Press E to dock" prompt (bottom-center).
 var _dock_prompt_label: Label = null
 
@@ -114,6 +122,9 @@ var _dock_prompt_label: Label = null
 var _transit_dest_label: Label = null
 var _transit_progress_bar: ColorRect = null
 var _transit_progress_fill: ColorRect = null
+
+# GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD overlay (destination + ETA + distance).
+var _warp_transit_hud = null
 
 
 func _ready() -> void:
@@ -176,6 +187,43 @@ func _ready() -> void:
 		var shield_bg := StyleBoxFlat.new()
 		shield_bg.bg_color = Color(0.06, 0.16, 0.2)
 		_shield_bar.add_theme_stylebox_override("background", shield_bg)
+
+	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge bar (below combat label).
+	_heat_bar = ProgressBar.new()
+	_heat_bar.name = "HeatBar"
+	_heat_bar.position = Vector2(10, 258)
+	_heat_bar.size = Vector2(120, 14)
+	_heat_bar.min_value = 0
+	_heat_bar.max_value = 100
+	_heat_bar.value = 0
+	_heat_bar.show_percentage = false
+	_heat_bar.visible = false
+	var heat_fill := StyleBoxFlat.new()
+	heat_fill.bg_color = Color(0.2, 0.8, 0.2)  # Green by default
+	_heat_bar.add_theme_stylebox_override("fill", heat_fill)
+	var heat_bg := StyleBoxFlat.new()
+	heat_bg.bg_color = Color(0.15, 0.15, 0.15)
+	_heat_bar.add_theme_stylebox_override("background", heat_bg)
+	add_child(_heat_bar)
+
+	_heat_label = Label.new()
+	_heat_label.name = "HeatLabel"
+	_heat_label.text = "HEAT"
+	_heat_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_heat_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	_heat_label.position = Vector2(135, 256)
+	_heat_label.visible = false
+	add_child(_heat_label)
+
+	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Battle stations state indicator.
+	_battle_stations_label = Label.new()
+	_battle_stations_label.name = "BattleStationsLabel"
+	_battle_stations_label.text = ""
+	_battle_stations_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_battle_stations_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	_battle_stations_label.position = Vector2(185, 256)
+	_battle_stations_label.visible = false
+	add_child(_battle_stations_label)
 
 	# GATE.S5.SEC_LANES.UI.001: security band indicator (below combat label)
 	_security_label = Label.new()
@@ -435,6 +483,11 @@ func _ready() -> void:
 	_knowledge_web_panel = KnowledgeWebPanelScript.new()
 	add_child(_knowledge_web_panel)
 
+	# GATE.X.UI_POLISH.MISSION_JOURNAL.001: Mission journal panel (J key).
+	var MissionJournalPanelScript := preload("res://scripts/ui/mission_journal_panel.gd")
+	_mission_journal_panel = MissionJournalPanelScript.new()
+	add_child(_mission_journal_panel)
+
 	# Dock confirmation prompt (centered above Zone G bar).
 	_dock_prompt_label = Label.new()
 	_dock_prompt_label.name = "DockPromptLabel"
@@ -479,6 +532,11 @@ func _ready() -> void:
 	_transit_progress_fill.visible = false
 	_transit_progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_transit_progress_fill)
+
+	# GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD overlay (replaces basic transit label).
+	var WarpTransitHudScript := preload("res://scripts/ui/warp_transit_hud.gd")
+	_warp_transit_hud = WarpTransitHudScript.new()
+	add_child(_warp_transit_hud)
 
 	# GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert badge (top-left Zone A).
 	_alert_badge = Control.new()
@@ -533,8 +591,10 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _galaxy_map_label:
 		# FEEL_POST_FIX_5: Only show galaxy map label when galaxy map is the active overlay,
 		# not when empire dashboard is open at flight altitude.
+		# FEEL_POST_FIX_7: Also hide when empire dashboard is open on top of galaxy map.
 		var gm_open = gm != null and gm.get("galaxy_overlay_open") == true
-		var show_map_label: bool = active and not is_transit and gm_open
+		var dash_open = gm != null and gm.get("empire_dashboard_open") == true
+		var show_map_label: bool = active and not is_transit and gm_open and not dash_open
 		if show_map_label:
 			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
 		_galaxy_map_label.visible = show_map_label
@@ -549,6 +609,10 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _fo_panel: _fo_panel.visible = false
 	if _data_log_panel and active: _data_log_panel.visible = false
 	if _knowledge_web_panel and active: _knowledge_web_panel.visible = false
+	if _mission_journal_panel and active: _mission_journal_panel.visible = false
+	if _heat_bar: _heat_bar.visible = not active
+	if _heat_label: _heat_label.visible = not active
+	if _battle_stations_label: _battle_stations_label.visible = not active
 	if active:
 		if _combat_label: _combat_label.visible = false
 		if _security_label: _security_label.visible = false
@@ -564,17 +628,28 @@ func _physics_process(_delta: float) -> void:
 		return
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var raw_state = str(ps.get("ship_state_token", ""))
-	# FEEL_POST_FIX_6: Transit overlay must update regardless of overlay_active,
-	# because transit triggers overlay mode but still needs the destination label.
-	if raw_state == "IN_LANE_TRANSIT":
+	# FEEL_POST_FIX_8: Belt-and-suspenders transit hide. Check BOTH bridge state
+	# AND game_manager state — hide transit UI if EITHER says not-in-transit.
+	# Also disable warp_transit_hud processing so its _process can't re-show it.
+	var gm = get_node_or_null("/root/GameManager")
+	var gm_in_transit: bool = gm != null and gm.get("current_player_state") == gm.PlayerShipState.IN_LANE_TRANSIT
+	var bridge_in_transit: bool = raw_state == "IN_LANE_TRANSIT"
+	if bridge_in_transit and gm_in_transit:
 		_show_transit_overlay_v0(_get_transit_dest_name())
+		if _warp_transit_hud:
+			_warp_transit_hud.set_process(true)
 	else:
 		_hide_transit_overlay_v0()
+		if _warp_transit_hud:
+			_warp_transit_hud.visible = false
+			_warp_transit_hud.set_process(false)
 	if _overlay_active:
 		return
 	_credits_label.text = "Credits: " + str(ps.get("credits", 0))
 	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: show "X items" suffix
-	_cargo_label.text = "Cargo: %d items" % int(ps.get("cargo_count", 0))
+	# FEEL_POST_FIX_7: Correct pluralization ("1 item" not "1 items").
+	var _cc: int = int(ps.get("cargo_count", 0))
+	_cargo_label.text = "Cargo: %d %s" % [_cc, "item" if _cc == 1 else "items"]
 	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
 	_node_label.text = _truncate_resource_types(node_display)
 
@@ -588,8 +663,7 @@ func _physics_process(_delta: float) -> void:
 				_state_label.text = "Traveling..."
 			else:
 				_state_label.text = "Traveling to %s" % dest_name
-			# FEEL_POST_FIX_5: Show centered transit destination overlay.
-			_show_transit_overlay_v0(dest_name)
+			# Transit overlay already managed above (FEEL_POST_FIX_8).
 		_:
 			# FEEL_POST_BASELINE: Show "COMBAT" when hostile NPCs are in aggro range.
 			var in_combat := _is_hostile_nearby()
@@ -601,6 +675,11 @@ func _physics_process(_delta: float) -> void:
 			else:
 				_state_label.text = "Flying"
 				_state_label.remove_theme_color_override("font_color")
+
+	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
+	if _combat_hud:
+		var show_combat_hud: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
+		_combat_hud.visible = show_combat_hud
 
 	# FEEL_POST_BASELINE: FO panel always hidden — it ate 20% screen width with
 	# no actionable content. No F-key toggle exists yet, so suppress entirely.
@@ -637,6 +716,51 @@ func _physics_process(_delta: float) -> void:
 
 		# Legacy text label (hidden when bars are shown)
 		_combat_label.text = ""
+
+	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge + battle stations indicator.
+	if _heat_bar and _bridge and _bridge.has_method("GetHeatSnapshotV0"):
+		var heat: Dictionary = _bridge.call("GetHeatSnapshotV0")
+		var hc: int = heat.get("heat_current", 0)
+		var cap: int = heat.get("heat_capacity", 1000)
+		var overheated: bool = heat.get("is_overheated", false)
+		var locked_out: bool = heat.get("is_locked_out", false)
+		if cap > 0:
+			_heat_bar.max_value = cap * 2  # Show up to 2x capacity for overheat/lockout
+			_heat_bar.value = hc
+			_heat_bar.visible = true
+			_heat_label.visible = true
+			# Color coding: green (<50%), yellow (50-99%), red (overheated), pulsing red (lockout)
+			var fill_style: StyleBoxFlat = _heat_bar.get_theme_stylebox("fill") as StyleBoxFlat
+			if fill_style:
+				if locked_out:
+					# Pulsing red for lockout: alternate between red and dark red
+					var pulse := absf(sin(Time.get_ticks_msec() * 0.005))
+					fill_style.bg_color = Color(0.9, 0.1 * pulse, 0.1 * pulse)
+				elif overheated:
+					fill_style.bg_color = Color(0.9, 0.15, 0.1)
+				elif hc > cap / 2:
+					fill_style.bg_color = Color(0.9, 0.75, 0.1)
+				else:
+					fill_style.bg_color = Color(0.2, 0.8, 0.2)
+		else:
+			_heat_bar.visible = false
+			_heat_label.visible = false
+
+	if _battle_stations_label and _bridge and _bridge.has_method("GetBattleStationsStateV0"):
+		var bs: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		var bs_state: String = bs.get("state", "StandDown")
+		match bs_state:
+			"BattleReady":
+				_battle_stations_label.text = "BATTLE READY"
+				_battle_stations_label.add_theme_color_override("font_color", UITheme.RED)
+				_battle_stations_label.visible = true
+			"SpinningUp":
+				var ticks_left: int = bs.get("spin_up_ticks_remaining", 0)
+				_battle_stations_label.text = "SPINNING UP (%d)" % ticks_left
+				_battle_stations_label.add_theme_color_override("font_color", UITheme.ORANGE)
+				_battle_stations_label.visible = true
+			_:
+				_battle_stations_label.visible = false
 
 	# GATE.S11.GAME_FEEL.MISSION_HUD.001 + RESEARCH_HUD.001: slow-poll (every 2s)
 	_slow_poll_elapsed += _delta
@@ -817,6 +941,11 @@ func toggle_knowledge_web_v0() -> void:
 	if _knowledge_web_panel != null and _knowledge_web_panel.has_method("toggle_v0"):
 		_knowledge_web_panel.toggle_v0()
 
+# GATE.X.UI_POLISH.MISSION_JOURNAL.001: toggle mission journal panel.
+func toggle_mission_journal_v0() -> void:
+	if _mission_journal_panel != null and _mission_journal_panel.has_method("toggle_v0"):
+		_mission_journal_panel.toggle_v0()
+
 # GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Update Zone G bottom bar content.
 func _update_zone_g_v0() -> void:
 	if _zone_g_status_label == null or _bridge == null:
@@ -825,6 +954,10 @@ func _update_zone_g_v0() -> void:
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
 	var node_id: String = str(ps.get("current_node_id", ""))
 	var node_name: String = str(ps.get("node_name", node_id))
+	# FEEL_POST_FIX_7: Strip parenthesized resource tags from bottom bar name.
+	var paren_pos: int = node_name.find("(")
+	if paren_pos > 0:
+		node_name = node_name.substr(0, paren_pos).strip_edges()
 	var sec_band: String = ""
 	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
 		sec_band = str(_bridge.call("GetNodeSecurityBandV0", node_id))
@@ -979,16 +1112,26 @@ func _get_transit_dest_name() -> String:
 		return ""
 	# Resolve display name from bridge snapshot.
 	if _bridge and _bridge.has_method("GetNodeDisplayNameV0"):
-		return str(_bridge.call("GetNodeDisplayNameV0", str(dest_id)))
+		var raw_name: String = str(_bridge.call("GetNodeDisplayNameV0", str(dest_id)))
+		return _strip_paren_tags(raw_name)
 	return str(dest_id)
+
+# FEEL_POST_FIX_8: Strip all parenthesized tags from system names for clean player-facing text.
+# "System 10 (Rare Min)(Mining)(Munitions)" → "System 10"
+static func _strip_paren_tags(s: String) -> String:
+	var idx: int = s.find("(")
+	if idx > 0:
+		return s.substr(0, idx).strip_edges()
+	return s
 
 # FEEL_BASELINE: Flash red overlay on player damage. Called from bullet.gd.
 func flash_damage_v0() -> void:
 	if _damage_flash == null:
 		return
-	_damage_flash.color.a = 0.12
+	# FEEL_POST_FIX_7: Stronger flash (0.22 alpha, 0.35s fade) for visible combat feedback.
+	_damage_flash.color.a = 0.22
 	var tween := create_tween()
-	tween.tween_property(_damage_flash, "color:a", 0.0, 0.2)
+	tween.tween_property(_damage_flash, "color:a", 0.0, 0.35)
 
 # FEEL_POST_BASELINE: Check if combat is happening near the player.
 # Returns true if a hostile NPC is within 60u OR any fleet is within 25u (close engagement).

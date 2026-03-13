@@ -123,6 +123,57 @@ public static class FractureSystem
             .ToArray();
     }
 
+    // GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane route validation + cost result.
+    public sealed class OfflaneRouteResult
+    {
+        public bool Valid { get; init; }
+        public string Reason { get; init; } = "";
+        public float Distance { get; init; }
+        public int FuelCost { get; init; }
+        public int HullStress { get; init; }
+    }
+
+    // GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Compute whether an offlane fracture jump is valid
+    // and its cost. Non-adjacent nodes are reachable through fracture space without edge adjacency.
+    // Cost scales linearly with Euclidean distance between nodes.
+    public static OfflaneRouteResult ComputeOfflaneRoute(SimState state, string fleetId, string fromNodeId, string toNodeId)
+    {
+        if (state is null || string.IsNullOrEmpty(fleetId))
+            return new OfflaneRouteResult { Valid = false, Reason = "null state or fleet" };
+
+        if (string.IsNullOrEmpty(fromNodeId) || string.IsNullOrEmpty(toNodeId))
+            return new OfflaneRouteResult { Valid = false, Reason = "missing node ID" };
+
+        if (string.Equals(fromNodeId, toNodeId, StringComparison.Ordinal))
+            return new OfflaneRouteResult { Valid = false, Reason = "same node" };
+
+        if (!state.FractureUnlocked)
+            return new OfflaneRouteResult { Valid = false, Reason = "fracture not unlocked" };
+
+        if (!state.Fleets.TryGetValue(fleetId, out var fleet))
+            return new OfflaneRouteResult { Valid = false, Reason = "fleet not found" };
+
+        if (fleet.TechLevel < FractureTweaksV0.OfflaneMinTechLevel)
+            return new OfflaneRouteResult { Valid = false, Reason = $"tech_level {fleet.TechLevel} below minimum {FractureTweaksV0.OfflaneMinTechLevel}" };
+
+        if (!state.Nodes.TryGetValue(fromNodeId, out var fromNode))
+            return new OfflaneRouteResult { Valid = false, Reason = "origin node not found" };
+
+        if (!state.Nodes.TryGetValue(toNodeId, out var toNode))
+            return new OfflaneRouteResult { Valid = false, Reason = "target node not found" };
+
+        float dist = Vector3.Distance(fromNode.Position, toNode.Position);
+        if (dist < FractureTweaksV0.OfflaneMinDistance) dist = FractureTweaksV0.OfflaneMinDistance;
+
+        int fuelCost = Math.Max(STRUCT_PRICE_FLOOR, (int)(dist * FractureTweaksV0.OfflaneFuelCostPerUnit));
+        int hullStress = Math.Max(STRUCT_PRICE_FLOOR, (int)(dist * FractureTweaksV0.OfflaneHullStressPerUnit));
+
+        if (fleet.FuelCurrent < fuelCost)
+            return new OfflaneRouteResult { Valid = false, Reason = "insufficient fuel", Distance = dist, FuelCost = fuelCost, HullStress = hullStress };
+
+        return new OfflaneRouteResult { Valid = true, Distance = dist, FuelCost = fuelCost, HullStress = hullStress };
+    }
+
     // GATE.S6.FRACTURE.ECON_FEEDBACK.001 — Fracture goods flow into lane hub markets.
     // For each non-fracture node with a market: if fracture goods exist in inventory,
     // increase supply by FractureGoodsFlowRatePct% of fracture stock per tick (integer math, min 1).

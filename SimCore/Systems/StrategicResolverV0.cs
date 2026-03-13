@@ -33,13 +33,16 @@ public static class StrategicResolverV0
         public int BShieldRemaining { get; set; }
         /// <summary>Total damage dealt by both sides in this round.</summary>
         public int DamageThisRound { get; set; }
+        // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat state per frame for replay.
+        public int AHeat { get; set; }
+        public int BHeat { get; set; }
 
         /// <summary>
         /// Deterministic pipe-delimited serialization (no floats, no culture-dependent output).
-        /// Format: "round|ahull|ashield|bhull|bshield|damage"
+        /// Format: "round|ahull|ashield|bhull|bshield|damage|aheat|bheat"
         /// </summary>
         public string Serialize() =>
-            $"{Round}|{AHullRemaining}|{AShieldRemaining}|{BHullRemaining}|{BShieldRemaining}|{DamageThisRound}";
+            $"{Round}|{AHullRemaining}|{AShieldRemaining}|{BHullRemaining}|{BShieldRemaining}|{DamageThisRound}|{AHeat}|{BHeat}";
     }
 
     public sealed class StrategicResult
@@ -77,6 +80,16 @@ public static class StrategicResolverV0
         var aStance = CombatSystem.DetermineStance(fleetA.ShipClassId);
         var bStance = CombatSystem.DetermineStance(fleetB.ShipClassId);
 
+        // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat tracking (starts at zero each combat).
+        int aHeat = STRUCT_ZERO;
+        int bHeat = STRUCT_ZERO;
+
+        // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Mutable rejection rates (radiator loss reduces cooling).
+        int aRejection = fleetA.RejectionRate;
+        int bRejection = fleetB.RejectionRate;
+        bool aRadiatorLost = false;
+        bool bRadiatorLost = false;
+
         int totalSalvage = STRUCT_ZERO;
         int roundsPlayed = STRUCT_ZERO;
 
@@ -85,6 +98,14 @@ public static class StrategicResolverV0
         for (int round = STRUCT_FIRST_ROUND; round <= CombatTweaksV0.StrategicMaxRounds; round++)
         {
             int damageThisRound = STRUCT_ZERO;
+
+            // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001 + BATTLE_STATIONS.001:
+            // Combined damage multiplier = min(heatPct, readinessPct).
+            // Heat and readiness independently limit damage output.
+            int aHeatPct = ComputeHeatDamagePct(aHeat, fleetA.HeatCapacity);
+            int aDamagePct = Math.Min(aHeatPct, fleetA.ReadinessDamagePct);
+            int bHeatPct = ComputeHeatDamagePct(bHeat, fleetB.HeatCapacity);
+            int bDamagePct = Math.Min(bHeatPct, fleetB.ReadinessDamagePct);
 
             // ── Fleet A fires all weapons at Fleet B ──
             // A attacks B → B's stance determines which zone gets hit.
@@ -95,7 +116,9 @@ public static class StrategicResolverV0
                 bZone,
                 bStance,
                 targetEscorted: fleetBEscorted,
-                targetWeaponFamilyForPd: DetermineTargetFamily(fleetB.Weapons));
+                targetWeaponFamilyForPd: DetermineTargetFamily(fleetB.Weapons),
+                damagePct: aDamagePct,
+                heat: ref aHeat);
 
             // ── Fleet B fires back (only if still alive) ──
             if (bHull > STRUCT_ZERO)
@@ -107,8 +130,26 @@ public static class StrategicResolverV0
                     aZone,
                     aStance,
                     targetEscorted: fleetAEscorted,
-                    targetWeaponFamilyForPd: DetermineTargetFamily(fleetA.Weapons));
+                    targetWeaponFamilyForPd: DetermineTargetFamily(fleetA.Weapons),
+                    damagePct: bDamagePct,
+                    heat: ref bHeat);
             }
+
+            // GATE.S7.COMBAT_PHASE2.RADIATOR.001: If aft zone is destroyed, lose radiator bonus.
+            if (!aRadiatorLost && fleetA.RadiatorBonusRate > STRUCT_ZERO && aZone[(int)ZoneFacing.Aft] <= STRUCT_ZERO)
+            {
+                aRejection = Math.Max(STRUCT_ZERO, aRejection - fleetA.RadiatorBonusRate);
+                aRadiatorLost = true;
+            }
+            if (!bRadiatorLost && fleetB.RadiatorBonusRate > STRUCT_ZERO && bZone[(int)ZoneFacing.Aft] <= STRUCT_ZERO)
+            {
+                bRejection = Math.Max(STRUCT_ZERO, bRejection - fleetB.RadiatorBonusRate);
+                bRadiatorLost = true;
+            }
+
+            // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Passive cooling at end of round.
+            aHeat = Math.Max(STRUCT_ZERO, aHeat - aRejection);
+            bHeat = Math.Max(STRUCT_ZERO, bHeat - bRejection);
 
             totalSalvage += damageThisRound;
             roundsPlayed = round;
@@ -122,6 +163,8 @@ public static class StrategicResolverV0
                 BHullRemaining = bHull,
                 BShieldRemaining = bShield,
                 DamageThisRound = damageThisRound,
+                AHeat = aHeat,
+                BHeat = bHeat,
             });
 
             // Check termination.
@@ -163,6 +206,18 @@ public static class StrategicResolverV0
     /// Mutates targetShield, targetHull, and targetZoneArmor in place.
     /// Returns total damage dealt this salvo.
     /// </summary>
+    // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Compute damage multiplier based on heat state.
+    // Returns pct (0-100): 100 = full damage, 50 = overheat degradation, 0 = lockout.
+    private static int ComputeHeatDamagePct(int heatCurrent, int heatCapacity)
+    {
+        if (heatCapacity <= STRUCT_ZERO) return CombatTweaksV0.NeutralPct;
+        if (heatCurrent > heatCapacity * CombatTweaksV0.LockoutThresholdMultiplier)
+            return STRUCT_ZERO; // Weapon lockout
+        if (heatCurrent > heatCapacity)
+            return CombatTweaksV0.OverheatDamagePct; // Degraded fire rate
+        return CombatTweaksV0.NeutralPct; // Normal
+    }
+
     private static int FireAllWeapons(
         List<CombatSystem.WeaponInfo> weapons,
         ref int targetShield,
@@ -170,8 +225,14 @@ public static class StrategicResolverV0
         int[] targetZoneArmor,
         CombatSystem.CombatStance targetStance,
         bool targetEscorted,
-        CombatSystem.TargetWeaponFamily targetWeaponFamilyForPd)
+        CombatSystem.TargetWeaponFamily targetWeaponFamilyForPd,
+        int damagePct,
+        ref int heat)
     {
+        // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Lockout — no weapons fire.
+        if (damagePct <= STRUCT_ZERO)
+            return STRUCT_ZERO;
+
         int salvoTotal = STRUCT_ZERO;
         int weaponCount = weapons.Count;
 
@@ -189,6 +250,9 @@ public static class StrategicResolverV0
             {
                 effectiveBaseDmg = weapon.BaseDamage * CombatTweaksV0.PointDefenseCounterMultiplierPct / CombatTweaksV0.NeutralPct;
             }
+
+            // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Apply overheat damage degradation.
+            effectiveBaseDmg = effectiveBaseDmg * damagePct / CombatTweaksV0.NeutralPct;
 
             // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Pick facing based on defender's stance.
             var facing = CombatSystem.PickFacing(targetStance, wi, weaponCount);
@@ -215,6 +279,9 @@ public static class StrategicResolverV0
             targetHull = Math.Max(STRUCT_ZERO, targetHull - hullDmg);
 
             salvoTotal += shieldDmg + zoneDmg + hullDmg;
+
+            // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Accumulate heat per weapon fire.
+            heat += weapon.HeatPerShot;
         }
 
         return salvoTotal;

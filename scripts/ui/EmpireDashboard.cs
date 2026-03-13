@@ -179,7 +179,8 @@ public partial class EmpireDashboard : Control
         // Dimmer
         var dim = new ColorRect();
         dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        dim.Color = new Color(0f, 0f, 0f, 0.55f);
+        // FEEL_POST_FIX_8: Increased from 0.55 to 0.85 to fully obscure 3D world behind panel.
+        dim.Color = new Color(0f, 0f, 0f, 0.85f);
         dim.MouseFilter = MouseFilterEnum.Stop;
         dim.ZIndex = 0;
         dim.ZAsRelative = false;
@@ -378,8 +379,9 @@ public partial class EmpireDashboard : Control
         box.AddChild(grid);
 
         // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
-        var attHdr = new Label { Text = "Needs Attention" };
-        attHdr.AddThemeColorOverride("font_color", new Color(0.9f, 0.6f, 0.3f));
+        // GATE.X.UI_POLISH.DASHBOARD_UX.001: Renamed to "Opportunities" with info-blue tone.
+        var attHdr = new Label { Text = "Opportunities" };
+        attHdr.AddThemeColorOverride("font_color", new Color(0.4f, 0.7f, 1.0f));
         attHdr.AddThemeFontSizeOverride("font_size", 14);
         box.AddChild(attHdr);
 
@@ -429,6 +431,9 @@ public partial class EmpireDashboard : Control
         var totalFleets = GetInt(d, "fleet_count");
         var ps = _bridge.GetPlayerStateV0();
         var nodeName = ps != null ? GetStr(ps, "node_name") : "";
+        // FEEL_POST_FIX_8: Strip parenthesized production tags for clean display.
+        var parenIdx = nodeName.IndexOf('(');
+        if (parenIdx > 0) nodeName = nodeName[..parenIdx].Trim();
         _ovFleets.Text = string.IsNullOrEmpty(nodeName)
             ? $"{playerFleets} player, {totalFleets} in galaxy"
             : $"{playerFleets} player, {totalFleets} total  |  At: {nodeName}";
@@ -514,10 +519,11 @@ public partial class EmpireDashboard : Control
             }
             else
             {
+                // GATE.X.UI_POLISH.DASHBOARD_UX.001: Friendlier info-blue tone instead of warning orange.
                 foreach (var item in items)
                 {
-                    var lbl = new Label { Text = $"  ! {item}" };
-                    lbl.AddThemeColorOverride("font_color", new Color(0.9f, 0.7f, 0.3f));
+                    var lbl = new Label { Text = $"  \u2022 {item}" };
+                    lbl.AddThemeColorOverride("font_color", new Color(0.55f, 0.75f, 0.95f));
                     _ovAttentionList.AddChild(lbl);
                 }
             }

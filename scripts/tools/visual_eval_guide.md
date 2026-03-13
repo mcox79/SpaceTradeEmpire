@@ -59,21 +59,56 @@ objects, then judge them against BEST-IN-CLASS standards from reference games.
 
 ### HUD Layout (top-left panel, dark navy background)
 - Credits, Cargo, System name, Ship state
-- Hull bar (green) + Shield bar (blue) — thin progress bars
+- Hull bar (orange/red) + Shield bar (cyan/blue) — thin progress bars
 - Security label below (colored by band: green/yellow/orange/red)
 - Research label further below (cyan when active, gray when idle)
+- Fuel label (warns LOW in red)
+- Mission panel (gold title + white objective, hidden when no mission active)
+- Combat label (red "COMBAT" during fights)
 - Zone G bottom bar: risk meters left, system status center, keybind hints bottom
 
+### First Officer Panel (left sidebar, below status)
+- Appears after onboarding gate (2+ nodes visited)
+- Shows FO name, status, scrollable dialogue history (teal text)
+- Promotion section with 3 candidates (Analyst Maren, Veteran Dask, Pathfinder Lira)
+- **Suppressed during**: docked, in transit, when overlay/dashboard is open
+
+### Warp Transit HUD (top-center during lane transit)
+- Appears during IN_LANE_TRANSIT state
+- "WARP TRANSIT > [System Name]" header text
+- Cyan progress bar showing transit completion percentage
+- ETA label (left): "ETA: X.Xs" counting down to "Arriving..."
+- Distance label (right): remaining distance in ly/units
+- Additionally: center-bottom label "→ [Destination Name]" from main HUD
+
+### Edgedar Overlay (screen-edge arrows, flight mode only)
+- Blue arrows: lane gates (off-screen navigation targets)
+- Red arrows: hostile fleets
+- Gold arrows: quest/mission targets
+- Green arrows: stations
+
+### Combat HUD (bottom-center during combat)
+- Stance indicator label
+- 4 zone armor progress bars: Fore / Port / Stbd / Aft (cyan fill with percentage)
+
 ### Warp/Transit
-- Lane transit: dark interstellar space, blue lane line, nebula backdrop
-- Warp VFX: expanding cyan sphere, camera shake + flash
-- Arrival cinematic: letterbox bars + camera sweep from high altitude
+- Lane transit: warp tunnel VFX wraps player (cylinder mesh + speed streak particles + glow ring)
+- Transit HUD: "WARP TRANSIT > [Dest]" + progress bar + ETA + distance readout at top-center
+- Destination label: "→ [System Name]" at center-bottom of screen during transit
+- Warp arrival VFX: expanding cyan sphere, camera shake + flash
+- Arrival cinematic: first visit = full flyby cinematic (~5s orbital sweep); return visit = fast descent (~2.5s)
 
 ### Galaxy Map
-- Strategic altitude (2500+ units) looking down
-- Nodes as beacon points, edges as lane connections
-- "YOU" indicator (green) at player location
-- Faction territory labels and colors
+- Strategic altitude (auto-fit to visible nodes, ~3000-8000u) looking down
+- Camera auto-centers on the centroid of all visible star nodes (not player position)
+- Dark navy-purple background plane for depth (not pure black)
+- "GALAXY MAP (TAB to close)" header label at top-center
+- Nodes as beacon spheres (25u radius, colored by faction territory)
+- Lane edges between connected systems (persistent lines)
+- "YOU" indicator (green pulsing beacon) at player location
+- Faction territory fill discs (semi-transparent, colored per faction)
+- Faction name labels (Label3D)
+- Fog-of-war: unvisited neighbors shown as RUMORED ("???" dimmed), truly unknown nodes HIDDEN
 
 ### BEST-IN-CLASS REFERENCES — Judge Against These
 
@@ -284,10 +319,12 @@ Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views hav
 
 ### Layout & Structure
 - Menu centered on screen, ~550px wide
-- 3-tab bar visible at top (Market | Jobs | Services)
+- 5-tab bar at top: Market | Jobs | Ship | Station | Intel
+  - **Progressive disclosure**: Jobs revealed after first trade; Ship after first mission/combat; Station and Intel after 3+ nodes visited. Tabs show "[NEW]" gold badge when first revealed
 - Active tab visually distinguished from inactive tabs
-- Station name and context description visible at top
-- Security band label present with correct color
+- Station name and context description visible at top ("Produces: X")
+- Security band label, tariff rate label, reputation tier label present
+- Planet info (type/gravity/atmosphere/temperature) shown when docked at planet
 
 ### Market Tab
 - Goods listed with clear columns (Good, Buy price, Sell price, Quantity)
@@ -296,14 +333,27 @@ Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views hav
 - Production section shows what the station makes
 
 ### Jobs Tab
-- Mission listings (if any) with clear objective text
-- Automation programs listed
+- Mission listings (if any) with clear objective text and Accept buttons
 - Empty state handled gracefully ("No missions available" vs blank space)
+- Revealed after first trade (progressive disclosure)
 
-### Services Tab
-- Refit, maintenance, research sections visible
-- Each section clearly separated
-- Empty sections hidden (not showing blank areas)
+### Ship Tab
+- Ship fitting overview: slot count, power draw, cargo, zone armor, hull/shield totals
+- Refit section: install modules (timed installation)
+- Maintenance section: ship health and repair options
+- Revealed after first mission or combat
+
+### Station Tab
+- Station health, production, and services info
+- Research section: start tech research projects (consume goods per sustain)
+- Construction section: build station upgrades
+- Revealed after 3+ nodes visited
+
+### Intel Tab
+- Trade routes: discovered price differentials and profitable routes
+- Automation section: configure trade/fleet automation programs
+- Anomaly encounters: review and resolve anomaly results
+- Revealed after 3+ nodes visited
 
 ### Polish
 - ScrollContainer works if content overflows
@@ -333,14 +383,16 @@ Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views hav
 - Trade flow visualization (if enabled) readable
 
 ### Navigation
-- "GALAXY MAP (TAB to close)" header visible
-- It's obvious how to navigate (zoom, pan)
-- Map centered on player location or galaxy center
+- "GALAXY MAP (TAB to close)" header visible at top-center
+- Map auto-fits to show all visible nodes centered in the viewport
+- Node detail popup appears on left-click (name, star class, fleet count, prices)
 
 ### Visual Quality
-- Not just dots and lines — nodes have character (size, color, glow)
-- Background doesn't compete with map elements
-- Overlay dim/scrim makes map readable over 3D scene
+- Nodes are beacon spheres with glow, colored by faction territory
+- Dark navy-purple background plane provides depth contrast
+- Overlay scrim dims the 3D world behind (prevents starlight washout)
+- Lane connections visible as persistent lines between nodes
+- Faction territory shown as semi-transparent colored discs
 
 ### Best Practice Reference
 - Stellaris: galaxy map with clear territory coloring, zoom levels, search

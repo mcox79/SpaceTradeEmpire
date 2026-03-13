@@ -1,131 +1,184 @@
 {
     "queue_contract_version": "2.3",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-12T18:00:00Z",
-    "queue_intent": "Tranche 30 'Mission Evolution + Closing Fronts'. 21 gates across 6 epics. HEAD 334ef9a. Anchor: EPIC.S9.MISSION_FOUNDATION.V0 (Phase 1 per mission_design_v0.md). Epic closers: TERRITORY_REGIMES, OFFLANE_FRACTURE, LAYERED_REVEALS.",
+    "generated_utc": "2026-03-12T23:00:00Z",
+    "queue_intent": "Tranche 31 'Combat Heat + Dynamic Economy' (20 gates). HEAD: 334ef9a93a7aa5130e817d0f39961d10d1bef67a. Anchor: EPIC.S7.COMBAT_PHASE2.V0. Expands: EPIC.S9.SYSTEMIC_MISSIONS.V0, EPIC.X.LEDGER_EVENTS.V0, EPIC.X.STATION_IDENTITY.V0 (NEW), EPIC.X.PERF_BUDGET.",
     "tasks": [
         {
-            "gate_id": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001",
-            "task_id": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001.T156",
+            "gate_id": "GATE.S7.COMBAT_PHASE2.BRIDGE.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.BRIDGE.001.T862",
             "status": "TODO",
-            "title": "GATE.S7.FRACTURE.OFFLANE_HEADLESS.001: Offlane fracture headless proof",
-            "intent": "GDScript headless test: boot scene, initiate fracture travel to non-adjacent node bypassing lane gates, verify arrival. HEADLESS_PROOF milestone for OFFLANE_FRACTURE.",
-            "evidence_paths": ["scripts/bridge/SimBridge.Fracture.cs", "scripts/tests/test_fracture_offlane_v0.gd"],
+            "title": "GATE.S7.COMBAT_PHASE2.BRIDGE.001: SimBridge heat/battleStations/radiator queries",
+            "intent": "SimBridge.Combat.cs: GetHeatSnapshotV0 (HeatCurrent, HeatCapacity, RejectionRate, IsOverheated, IsLockedOut), GetBattleStationsStateV0 (State, SpinUpTicksRemaining), GetRadiatorStatusV0 (IsIntact, BonusRate). ToggleBattleStationsV0 command.",
+            "evidence_paths": ["scripts/bridge/SimBridge.Combat.cs", "SimCore/Systems/CombatSystem.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
-            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_fracture_offlane_v0.gd"],
-            "task_preflight": ["anchor=scripts/tests/test_fracture_offlane_v0.gd"],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.Combat.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 3,
+            "blocks": ["GATE.S7.COMBAT_PHASE2.RADIATOR.001"],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.COMBAT_PHASE2.CONTRACT.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.CONTRACT.001.T218",
+            "status": "TODO",
+            "title": "GATE.S7.COMBAT_PHASE2.CONTRACT.001: Contract tests for heat + battle stations + radiator",
+            "intent": "12+ test methods: heat accumulation per weapon fire, passive cooling per tick, overheat fire rate degradation at >capacity, weapon lockout at >2x capacity, battle stations state transitions (STAND_DOWN to SPINNING_UP to READY), damage scaling by readiness, radiator RejectionRate bonus, radiator destruction reducing cooling.",
+            "evidence_paths": ["SimCore.Tests/Combat/CombatTests.cs", "SimCore/Systems/CombatSystem.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~CombatTests\""],
+            "task_preflight": ["anchor=SimCore.Tests/Combat/CombatTests.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 3,
+            "blocks": ["GATE.S7.COMBAT_PHASE2.RADIATOR.001"],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~CombatTests\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.COMBAT_PHASE2.HEAT_HUD.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.HEAT_HUD.001.T438",
+            "status": "TODO",
+            "title": "GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge + battle stations HUD widget",
+            "intent": "Heat gauge bar in hud.gd below hull/shield: HeatCurrent/HeatCapacity ratio. Color: green (<50%), yellow (50-99%), red (>100% overheat), pulsing red (>200% lockout). Battle stations indicator icon with state text. Reads SimBridge combat queries. IN_ENGINE gate.",
+            "evidence_paths": ["scripts/ui/hud.gd", "scripts/bridge/SimBridge.Combat.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/ui/hud.gd"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 3,
+            "blocks": ["GATE.S7.COMBAT_PHASE2.BRIDGE.001"],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
+        },
+        {
+            "gate_id": "GATE.S9.SYSTEMIC.BRIDGE.001",
+            "task_id": "GATE.S9.SYSTEMIC.BRIDGE.001.T796",
+            "status": "TODO",
+            "title": "GATE.S9.SYSTEMIC.BRIDGE.001: SimBridge systemic mission queries",
+            "intent": "SimBridge.Mission.cs: GetSystemicOffersV0 returns available procedural mission offers with trigger reason, reward preview, expiry tick. AcceptSystemicMissionV0 command converts offer to active mission via MissionSystem.",
+            "evidence_paths": ["scripts/bridge/SimBridge.Mission.cs", "SimCore/Systems/MissionSystem.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.Mission.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
             "parallel_group": "bridge",
             "tier": 2,
-            "blocks": ["GATE.S7.FRACTURE.OFFLANE_ROUTES.001"],
+            "blocks": ["GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001"],
             "hash_affecting": false,
-            "verify": ["godot --headless --path . -s res://scripts/tests/test_fracture_offlane_v0.gd"]
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
         },
         {
-            "gate_id": "GATE.S7.REVEALS.HEADLESS.001",
-            "task_id": "GATE.S7.REVEALS.HEADLESS.001.T518",
+            "gate_id": "GATE.S9.SYSTEMIC.HEADLESS.001",
+            "task_id": "GATE.S9.SYSTEMIC.HEADLESS.001.T315",
             "status": "TODO",
-            "title": "GATE.S7.REVEALS.HEADLESS.001: Layered reveals headless proof",
-            "intent": "GDScript headless test: trigger discovery scan, verify reveal layer progression Hidden to Mapped. Verify warfront intel exposure at war-adjacent node. HEADLESS_PROOF milestone for LAYERED_REVEALS.",
-            "evidence_paths": ["scripts/bridge/SimBridge.cs", "scripts/tests/test_reveals_proof_v0.gd"],
+            "title": "GATE.S9.SYSTEMIC.HEADLESS.001: Headless proof — systemic missions from world state",
+            "intent": "Headless proof: boot game, advance ticks until warfront creates supply shortage, verify SystemicMissionSystem generates WAR_DEMAND offer via SimBridge, accept offer, complete delivery, verify rewards. PLAYABLE_BEAT milestone.",
+            "evidence_paths": ["scripts/bridge/SimBridge.Mission.cs", "scripts/bridge/SimBridge.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
-            "completion_hint": ["godot --headless --path . -s res://scripts/tests/test_reveals_proof_v0.gd"],
-            "task_preflight": ["anchor=scripts/tests/test_reveals_proof_v0.gd"],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.Mission.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
             "parallel_group": "bridge",
-            "tier": 2,
-            "blocks": ["GATE.S7.REVEALS.WARFRONT_REVEAL.001"],
+            "tier": 3,
+            "blocks": ["GATE.S9.SYSTEMIC.BRIDGE.001"],
             "hash_affecting": false,
-            "verify": ["godot --headless --path . -s res://scripts/tests/test_reveals_proof_v0.gd"]
-        },
-        {
-            "gate_id": "GATE.S7.REVEALS.WARFRONT_REVEAL.001",
-            "task_id": "GATE.S7.REVEALS.WARFRONT_REVEAL.001.T291",
-            "status": "TODO",
-            "title": "GATE.S7.REVEALS.WARFRONT_REVEAL.001: Warfront intel layer reveals",
-            "intent": "IntelSystem reveals warfront data progressively: tier 1 (presence) at sensor range, tier 2 (fleet composition) after visit, tier 3 (supply status + strategic value) after sustained observation or faction contact. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/IntelSystem.cs", "SimCore/Tweaks/IntelTweaksV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Intel\""],
-            "task_preflight": ["anchor=SimCore/Systems/IntelSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S7.REVEALS.DISCOVERY_REVEAL.001"],
-            "hash_affecting": true,
             "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Intel\""
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
             ]
         },
         {
-            "gate_id": "GATE.S7.TERRITORY.HYSTERESIS.001",
-            "task_id": "GATE.S7.TERRITORY.HYSTERESIS.001.T472",
+            "gate_id": "GATE.S9.SYSTEMIC.OFFER_GEN.001",
+            "task_id": "GATE.S9.SYSTEMIC.OFFER_GEN.001.T587",
             "status": "TODO",
-            "title": "GATE.S7.TERRITORY.HYSTERESIS.001: Territory regime hysteresis rules",
-            "intent": "Regime transitions require sustained reputation change over N ticks before upgrading/downgrading, preventing rapid oscillation. Add hysteresis buffer to ComputeTerritoryRegime in ReputationSystem. Closes TERRITORY_REGIMES. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/ReputationSystem.cs", "SimCore.Tests/Systems/TerritoryRegimeTests.cs"],
+            "title": "GATE.S9.SYSTEMIC.OFFER_GEN.001: Generate mission offers from world-state triggers",
+            "intent": "SystemicMissionSystem.GenerateOffers: convert trigger detections into MissionDef offers. WAR_DEMAND -> delivery mission (carry goods to contested node, faction rep reward). PRICE_SPIKE -> trade arbitrage. SUPPLY_SHORTAGE -> supply run. Bind templates to actual nodes/goods/factions. Max 3 active systemic offers, expire after N ticks.",
+            "evidence_paths": ["SimCore/Systems/MissionSystem.cs", "SimCore/Content/MissionContentV0.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TerritoryRegime\""],
-            "task_preflight": ["anchor=SimCore/Systems/ReputationSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": [],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"TerritoryRegime\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S9.MISSION_EVOL.CONTRACT.001",
-            "task_id": "GATE.S9.MISSION_EVOL.CONTRACT.001.T942",
-            "status": "TODO",
-            "title": "GATE.S9.MISSION_EVOL.CONTRACT.001: Contract tests for mission evolution",
-            "intent": "Dedicated test class covering all Phase 1 mission features: 4 new triggers (ReputationMin, CreditsMin, TechUnlocked, TimerExpired), non-credit rewards, failure/abandonment, CHOICE branching. 15+ test methods. Non-hash (test-only).",
-            "evidence_paths": ["SimCore.Tests/Systems/MissionEvolutionTests.cs", "SimCore.Tests/Systems/MissionContractTests.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MissionEvolution\""],
-            "task_preflight": ["anchor=SimCore.Tests/Systems/MissionEvolutionTests.cs"],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/Systems/MissionSystem.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
             "parallel_group": "core",
             "tier": 2,
-            "blocks": ["GATE.S9.MISSION_EVOL.BRANCHING.001"],
-            "hash_affecting": false,
-            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"MissionEvolution\""]
+            "blocks": ["GATE.S7.COMBAT_PHASE2.RADIATOR.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Mission\""
+            ]
         },
         {
-            "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.030",
-            "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.030.T165",
+            "gate_id": "GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001",
+            "task_id": "GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001.T619",
             "status": "TODO",
-            "title": "GATE.X.HYGIENE.EPIC_REVIEW.030: T30 epic status audit",
-            "intent": "Audit epic statuses against T30 gates. Close MISSION_LADDER (M2-M6 delivered, remaining deferred to MISSION_FOUNDATION). Close TERRITORY_REGIMES, OFFLANE_FRACTURE, LAYERED_REVEALS if all gates DONE. Recommend T31 anchor.",
+            "title": "GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: World-state mission trigger detection",
+            "intent": "Add SystemicMissionSystem: detect world conditions for procedural mission generation. 3 trigger types: WAR_DEMAND (warfront goods shortage at contested nodes), PRICE_SPIKE (good price > 2x base), SUPPLY_SHORTAGE (production < 50% near instability). Emit SystemicMissionOffer per trigger. Configurable thresholds via SystemicMissionTweaksV0. Wire into SimKernel.Step.",
+            "evidence_paths": ["SimCore/Systems/MissionSystem.cs", "SimCore/SimKernel.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/SimKernel.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.X.LEDGER.TX_MODEL.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""
+            ]
+        },
+        {
+            "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.031",
+            "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.031.T974",
+            "status": "TODO",
+            "title": "GATE.X.HYGIENE.EPIC_REVIEW.031: Epic status audit + T32 anchor recommendation",
+            "intent": "Audit epic statuses against completed gates. Identify epics ready to close after T31. Review COMBAT_PHASE2, SYSTEMIC_MISSIONS, LEDGER_EVENTS advancement. Recommend T32 anchor epic. Update 54_EPICS.md statuses. RoadmapConsistency pass.",
             "evidence_paths": ["docs/54_EPICS.md", "docs/55_GATES.md"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
@@ -138,38 +191,42 @@
             ],
             "parallel_group": "docs",
             "tier": 3,
-            "blocks": ["GATE.S9.MISSION_EVOL.CONTRACT.001"],
+            "blocks": [],
             "hash_affecting": false,
-            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""]
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"RoadmapConsistency\""
+            ]
         },
         {
-            "gate_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030",
-            "task_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030.T543",
+            "gate_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.031",
+            "task_id": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.031.T062",
             "status": "TODO",
-            "title": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.030: First-hour bot eval",
-            "intent": "Run first-hour experience bot (31 phases, 21 assertions). Verify mission flow, warp transit fixes, territory regimes, fracture travel. REGRESSION_ANCHOR milestone. Report pass/fail with screenshots.",
+            "title": "GATE.X.HYGIENE.FIRST_HOUR_EVAL.031: First-hour bot eval w/ combat heat",
+            "intent": "First-hour bot eval: 31 phases, 21 assertions. Verify heat gauge appears during combat, battle stations toggle works, station visual variety visible, dashboard UX improvements, market format fix. REGRESSION_ANCHOR milestone.",
             "evidence_paths": ["scripts/tests/test_first_hour_proof_v0.gd", "scripts/tools/Run-FHBot.ps1"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
-            "completion_hint": ["powershell -File scripts/tools/Run-FHBot.ps1 -Mode headless"],
+            "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless"],
             "task_preflight": ["anchor=scripts/tests/test_first_hour_proof_v0.gd"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
             "parallel_group": "docs",
             "tier": 3,
-            "blocks": ["GATE.X.UI_POLISH.MISSION_JOURNAL.001"],
+            "blocks": [],
             "hash_affecting": false,
-            "verify": ["powershell -File scripts/tools/Run-FHBot.ps1 -Mode headless"]
+            "verify": [
+                "powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless"
+            ]
         },
         {
-            "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.030",
-            "task_id": "GATE.X.HYGIENE.REPO_HEALTH.030.T897",
+            "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.031",
+            "task_id": "GATE.X.HYGIENE.REPO_HEALTH.031.T105",
             "status": "TODO",
-            "title": "GATE.X.HYGIENE.REPO_HEALTH.030: Tranche 30 health baseline",
-            "intent": "Full test suite (Release), build warnings scan, dead code check, golden hash stability. Establish T30 baseline before implementation gates begin.",
+            "title": "GATE.X.HYGIENE.REPO_HEALTH.031: Full test suite + health baseline",
+            "intent": "Full test suite pass (Release), build verification, golden hash stability, dead code scan. Tranche 31 baseline. Report test count, warning count, hash stability.",
             "evidence_paths": ["SimCore.Tests/SimCore.Tests.csproj", "docs/55_GATES.md"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
@@ -184,21 +241,95 @@
             "tier": 1,
             "blocks": [],
             "hash_affecting": false,
-            "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"
+            ]
         },
         {
-            "gate_id": "GATE.X.WARP.DEPARTURE_VFX.001",
-            "task_id": "GATE.X.WARP.DEPARTURE_VFX.001.T582",
+            "gate_id": "GATE.X.LEDGER.BRIDGE.001",
+            "task_id": "GATE.X.LEDGER.BRIDGE.001.T341",
             "status": "TODO",
-            "title": "GATE.X.WARP.DEPARTURE_VFX.001: Warp departure flash + shake (F9)",
-            "intent": "Add camera shake + white flash on warp departure to match warp arrival intensity. Currently departure is visually weak vs arrival. Fixes ACTIVE_ISSUES F9. Non-hash (visual-only).",
-            "evidence_paths": ["scripts/vfx/warp_effect.gd", "scripts/core/game_manager.gd"],
+            "title": "GATE.X.LEDGER.BRIDGE.001: SimBridge transaction ledger queries",
+            "intent": "SimBridge transaction ledger query: GetTransactionLogV0 returns list of (Tick, CashDelta, GoodId, Quantity, Source, NodeId). GetProfitSummaryV0 returns (TotalRevenue, TotalExpense, NetProfit, TopGoodByProfit). Enable UI economic visibility.",
+            "evidence_paths": ["scripts/bridge/SimBridge.Market.cs", "SimCore/SimState.Events.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
             "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
-            "task_preflight": ["anchor=scripts/vfx/warp_effect.gd"],
+            "task_preflight": ["anchor=scripts/bridge/SimBridge.Market.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "bridge",
+            "tier": 2,
+            "blocks": ["GATE.X.LEDGER.TX_MODEL.001"],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
+        },
+        {
+            "gate_id": "GATE.X.LEDGER.INTEGRITY.001",
+            "task_id": "GATE.X.LEDGER.INTEGRITY.001.T689",
+            "status": "TODO",
+            "title": "GATE.X.LEDGER.INTEGRITY.001: Ledger integrity — sum transactions = balance",
+            "intent": "Ledger integrity test: after N ticks with trades, verify sum of TransactionRecord.CashDelta equals final Credits minus starting Credits. Verify inventory deltas match cargo changes per good. Catch untracked money creation/destruction.",
+            "evidence_paths": ["SimCore/SimState.Events.cs", "SimCore/Commands/BuyCommand.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Ledger\""],
+            "task_preflight": ["anchor=SimCore/SimState.Events.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.X.LEDGER.TX_MODEL.001"],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Ledger\""
+            ]
+        },
+        {
+            "gate_id": "GATE.X.PERF.TICK_BASELINE.001",
+            "task_id": "GATE.X.PERF.TICK_BASELINE.001.T721",
+            "status": "TODO",
+            "title": "GATE.X.PERF.TICK_BASELINE.001: Tick budget performance baseline",
+            "intent": "Measure SimKernel.Step() tick timing across 1000 ticks at different fleet/node counts. Establish baseline: mean, P95, P99 tick duration. Flag any system consuming >20% of tick budget. Output results to docs/generated/ for future tracking.",
+            "evidence_paths": ["SimCore.Tests/SimCore.Tests.csproj", "docs/55_GATES.md"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"],
+            "task_preflight": ["anchor=SimCore.Tests/SimCore.Tests.csproj"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "docs",
+            "tier": 3,
+            "blocks": [],
+            "hash_affecting": false,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"
+            ]
+        },
+        {
+            "gate_id": "GATE.X.UI_POLISH.DASHBOARD_UX.001",
+            "task_id": "GATE.X.UI_POLISH.DASHBOARD_UX.001.T153",
+            "status": "TODO",
+            "title": "GATE.X.UI_POLISH.DASHBOARD_UX.001: Dashboard Needs Attention UX fix (F11)",
+            "intent": "Fix F11: Dashboard 'Needs Attention' reads as errors. Rename to 'Opportunities' or 'Suggestions', change warning icon to info icon, soften color from red/orange to blue/neutral. EmpireDashboard.cs label and style updates. Fixes ACTIVE_ISSUES F11.",
+            "evidence_paths": ["scripts/ui/EmpireDashboard.cs", "scripts/ui/hud.gd"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
+            "task_preflight": ["anchor=scripts/ui/EmpireDashboard.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
@@ -206,21 +337,23 @@
             "tier": 1,
             "blocks": [],
             "hash_affecting": false,
-            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
         },
         {
-            "gate_id": "GATE.X.WARP.TRANSIT_HUD.001",
-            "task_id": "GATE.X.WARP.TRANSIT_HUD.001.T734",
+            "gate_id": "GATE.X.UI_POLISH.MARKET_FORMAT.001",
+            "task_id": "GATE.X.UI_POLISH.MARKET_FORMAT.001.T527",
             "status": "TODO",
-            "title": "GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD info bar (F8)",
-            "intent": "Show destination name, ETA bar, and distance remaining during warp transit. Currently player sees tunnel only with no context. Fixes ACTIVE_ISSUES F8. Non-hash (UI-only).",
-            "evidence_paths": ["scripts/ui/hud.gd", "scripts/ui/warp_transit_hud.gd"],
+            "title": "GATE.X.UI_POLISH.MARKET_FORMAT.001: Market production text formatting (F12)",
+            "intent": "Fix F12: Market production text unformatted. hero_trade_menu.gd: format production chains with indentation, arrow separators, quantity display, color coding for surplus (green) vs deficit (red). Fixes ACTIVE_ISSUES F12.",
+            "evidence_paths": ["scripts/ui/hero_trade_menu.gd", "scripts/bridge/SimBridge.Market.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
             "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
-            "task_preflight": ["anchor=scripts/ui/warp_transit_hud.gd"],
+            "task_preflight": ["anchor=scripts/ui/hero_trade_menu.gd"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
@@ -228,21 +361,98 @@
             "tier": 1,
             "blocks": [],
             "hash_affecting": false,
-            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
         },
         {
-            "gate_id": "GATE.X.WARP.TUNNEL_SCALE.001",
-            "task_id": "GATE.X.WARP.TUNNEL_SCALE.001.T261",
+            "gate_id": "GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001.T831",
             "status": "TODO",
-            "title": "GATE.X.WARP.TUNNEL_SCALE.001: Fix warp tunnel oversized mesh (F7)",
-            "intent": "Scale down warp tunnel mesh to proportional size relative to player ship. Currently dominates screen and obscures travel feel. Fixes ACTIVE_ISSUES F7. Non-hash (visual-only).",
-            "evidence_paths": ["scripts/vfx/warp_tunnel.gd", "scripts/vfx/warp_effect.gd"],
+            "title": "GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Battle stations state machine",
+            "intent": "BattleStations state on Fleet: STAND_DOWN (default) -> SPINNING_UP (N-tick timer) -> BATTLE_READY. ToggleBattleStations command. StrategicResolverV0 gates weapon effectiveness: STAND_DOWN=25%, SPINNING_UP=50%, READY=100% damage multiplier. Spin-up ticks configurable via CombatTweaksV0.",
+            "evidence_paths": ["SimCore/Systems/CombatSystem.cs", "SimCore/Entities/Fleet.cs", "SimCore/Tweaks/CombatTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/Systems/CombatSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~CombatTests\""
+            ]
+        },
+        {
+            "gate_id": "GATE.S7.COMBAT_PHASE2.RADIATOR.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.RADIATOR.001.T394",
+            "status": "TODO",
+            "title": "GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module — targetable, affects cooling",
+            "intent": "Radiator module type: ModuleDef with IsRadiator flag, RadiatorBonus (additional RejectionRate). CombatSystem.BuildProfile sums base RejectionRate + radiator bonuses. Radiator is targetable zone: when radiator zone HP=0, RadiatorBonus removed. Content entries for Basic/Advanced Radiator. CombatTweaksV0 radiator defaults.",
+            "evidence_paths": ["SimCore/Systems/CombatSystem.cs", "SimCore/Content/ContentRegistryLoader.cs", "SimCore/Tweaks/CombatTweaksV0.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/Systems/CombatSystem.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 2,
+            "blocks": ["GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~CombatTests\""
+            ]
+        },
+        {
+            "gate_id": "GATE.X.LEDGER.TX_MODEL.001",
+            "task_id": "GATE.X.LEDGER.TX_MODEL.001.T256",
+            "status": "TODO",
+            "title": "GATE.X.LEDGER.TX_MODEL.001: Transaction event entity + logging",
+            "intent": "TransactionRecord entity in SimState.Events: CashDelta (int), GoodId, Quantity, Source (Buy/Sell/MissionReward/Sustain), Tick, NodeId. SimState.TransactionLog list (max 5000). BuyCommand and SellCommand append records on success. Mission completion rewards append. Economic audit trail.",
+            "evidence_paths": ["SimCore/SimState.Events.cs", "SimCore/Commands/BuyCommand.cs", "SimCore/Commands/SellCommand.cs"],
+            "constraints": [
+                "Single-session scope: stay within evidence and expected touch paths.",
+                "If evidence is missing or tests fail, escalate via DEFAULT."
+            ],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/SimState.Events.cs"],
+            "escalation_rules": [
+                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
+            ],
+            "parallel_group": "core",
+            "tier": 1,
+            "blocks": ["GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001"],
+            "hash_affecting": true,
+            "verify": [
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~TradeCommand\""
+            ]
+        },
+        {
+            "gate_id": "GATE.X.STATION_IDENTITY.VISUAL.001",
+            "task_id": "GATE.X.STATION_IDENTITY.VISUAL.001.T743",
+            "status": "TODO",
+            "title": "GATE.X.STATION_IDENTITY.VISUAL.001: Station visual variety per faction (F6)",
+            "intent": "Fix F6: all stations identical. Per-faction station coloring via material tint (5 faction colors). Station size scales by trade volume (3 tiers: outpost 0.6x, hub 1.0x, capital 1.5x). active_station.gd reads faction_id and tier from SimBridge, applies color + scale. Runtime variation on existing station.tscn. Fixes ACTIVE_ISSUES F6.",
+            "evidence_paths": ["scripts/active_station.gd", "scenes/station.tscn", "scripts/view/GalaxyView.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
             "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
-            "task_preflight": ["anchor=scripts/vfx/warp_tunnel.gd"],
+            "task_preflight": ["anchor=scripts/active_station.gd"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
@@ -250,254 +460,34 @@
             "tier": 1,
             "blocks": [],
             "hash_affecting": false,
-            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
+            "verify": [
+                "dotnet build \"Space Trade Empire.csproj\" --nologo"
+            ]
         },
         {
-            "gate_id": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001",
-            "task_id": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001.T839",
+            "gate_id": "GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001",
+            "task_id": "GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001.T472",
             "status": "TODO",
-            "title": "GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane fracture route gen + travel",
-            "intent": "FractureSystem generates valid node-to-node paths through fracture space without edge adjacency. FractureTravelCommand accepts non-adjacent targets when fracture module equipped. Cost scales with graph distance. Closes OFFLANE_FRACTURE. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/FractureSystem.cs", "SimCore/Commands/FractureTravelCommand.cs", "SimCore/Tweaks/FractureTweaksV0.cs"],
+            "title": "GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat accumulation + overheat cascade",
+            "intent": "Heat model on CombatProfile: HeatCurrent, HeatCapacity (default 1000), HeatPerShot per weapon, RejectionRate (passive cooling/tick). StrategicResolverV0 accumulates heat on fire, reduces by RejectionRate each round. Overheat: >capacity = 50% fire rate, >2x capacity = weapon lockout. Int-based fixed-point. CombatTweaksV0 heat constants.",
+            "evidence_paths": ["SimCore/Systems/CombatSystem.cs", "SimCore/Systems/StrategicResolverV0.cs", "SimCore/Tweaks/CombatTweaksV0.cs", "SimCore/Entities/Fleet.cs"],
             "constraints": [
                 "Single-session scope: stay within evidence and expected touch paths.",
                 "If evidence is missing or tests fail, escalate via DEFAULT."
             ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FractureTravel\""],
-            "task_preflight": ["anchor=SimCore/Systems/FractureSystem.cs"],
+            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\""],
+            "task_preflight": ["anchor=SimCore/Systems/CombatSystem.cs"],
             "escalation_rules": [
                 { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
             ],
             "parallel_group": "core",
             "tier": 1,
-            "blocks": ["GATE.S7.TERRITORY.HYSTERESIS.001"],
+            "blocks": [],
             "hash_affecting": true,
             "verify": [
                 "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FractureTravel\""
+                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~CombatTests\""
             ]
-        },
-        {
-            "gate_id": "GATE.S7.REPUTATION.CONTRACTS.001",
-            "task_id": "GATE.S7.REPUTATION.CONTRACTS.001.T486",
-            "status": "TODO",
-            "title": "GATE.S7.REPUTATION.CONTRACTS.001: Faction contracts from rep tiers",
-            "intent": "Faction contacts offer direct mission contracts gated by reputation tier (Neutral/Friendly/Allied). Contract availability surfaces through MissionSystem.GetAvailableMissions with ReputationMin trigger. Advances REPUTATION_INFLUENCE. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/ReputationSystem.cs", "SimCore/Systems/MissionSystem.cs", "SimCore.Tests/Systems/ReputationSystemTests.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Reputation\""],
-            "task_preflight": ["anchor=SimCore/Systems/ReputationSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 2,
-            "blocks": ["GATE.S7.WARFRONT.OBJECTIVES.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Reputation\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001",
-            "task_id": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001.T643",
-            "status": "TODO",
-            "title": "GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Discovery content recontextualization",
-            "intent": "DiscoveryOutcomeSystem delivers progressive content reveals: initial scan shows surface data, analysis reveals deeper structure, full study reveals connections to knowledge graph. Recontextualization text per discovery kind. Closes LAYERED_REVEALS. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/DiscoveryOutcomeSystem.cs", "SimCore/Systems/KnowledgeGraphSystem.cs", "SimCore/Content/KnowledgeGraphContentV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"DiscoveryOutcome\""],
-            "task_preflight": ["anchor=SimCore/Systems/DiscoveryOutcomeSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S7.FRACTURE.OFFLANE_ROUTES.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"DiscoveryOutcome\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S7.WARFRONT.ATTRITION.001",
-            "task_id": "GATE.S7.WARFRONT.ATTRITION.001.T753",
-            "status": "TODO",
-            "title": "GATE.S7.WARFRONT.ATTRITION.001: Fleet attrition + supply pressure",
-            "intent": "WarfrontEvolutionSystem applies fleet attrition based on supply levels: fleets at nodes with depleted munitions/fuel take losses per tick. Supply delivery restores fleet strength. Creates visible economic pressure loop. Advances WARFRONT_STATE. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/WarfrontEvolutionSystem.cs", "SimCore/Entities/WarfrontState.cs", "SimCore/Tweaks/WarfrontTweaksV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""],
-            "task_preflight": ["anchor=SimCore/Systems/WarfrontEvolutionSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S7.REVEALS.WARFRONT_REVEAL.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S7.WARFRONT.OBJECTIVES.001",
-            "task_id": "GATE.S7.WARFRONT.OBJECTIVES.001.T318",
-            "status": "TODO",
-            "title": "GATE.S7.WARFRONT.OBJECTIVES.001: Strategic objectives + capture",
-            "intent": "Warfront nodes have strategic objectives (supply depot, comm relay, factory). Faction captures objective when fleet strength dominant for N ticks. Capture shifts production/intel/supply for controlling faction. Advances WARFRONT_STATE. Hash-affecting.",
-            "evidence_paths": ["SimCore/Systems/WarfrontEvolutionSystem.cs", "SimCore/Entities/WarfrontState.cs", "SimCore/Tweaks/WarfrontTweaksV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""],
-            "task_preflight": ["anchor=SimCore/Systems/WarfrontEvolutionSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 2,
-            "blocks": ["GATE.S9.MISSION_EVOL.BRANCHING.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Warfront\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S9.MISSION_EVOL.BRANCHING.001",
-            "task_id": "GATE.S9.MISSION_EVOL.BRANCHING.001.T607",
-            "status": "TODO",
-            "title": "GATE.S9.MISSION_EVOL.BRANCHING.001: CHOICE steps + conditional paths",
-            "intent": "Add CHOICE step type to MissionStepDef: 2-3 options each with target step index. Step advancement follows branch instead of linear +1. MissionActiveStep tracks chosen branch. Per mission_design_v0.md Phase 1. Hash-affecting.",
-            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Content/MissionContentV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
-            "task_preflight": ["anchor=SimCore/Systems/MissionSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 2,
-            "blocks": ["GATE.S9.MISSION_EVOL.FAILURE.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S9.MISSION_EVOL.FAILURE.001",
-            "task_id": "GATE.S9.MISSION_EVOL.FAILURE.001.T195",
-            "status": "TODO",
-            "title": "GATE.S9.MISSION_EVOL.FAILURE.001: Mission failure/abandonment + timer",
-            "intent": "MissionState.FailedMissionIds list. AbandonMission command (-rep penalty). TimerExpired trigger with tick deadline on MissionDef. FailMission on deadline exceeded. MissionEvent 'Failed'/'Abandoned'. Per mission_design_v0.md Phase 1. Hash-affecting.",
-            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Tweaks/MissionEvolutionTweaksV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
-            "task_preflight": ["anchor=SimCore/Systems/MissionSystem.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S9.MISSION_EVOL.REWARDS.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S9.MISSION_EVOL.REWARDS.001",
-            "task_id": "GATE.S9.MISSION_EVOL.REWARDS.001.T826",
-            "status": "TODO",
-            "title": "GATE.S9.MISSION_EVOL.REWARDS.001: Non-credit reward types + distribution",
-            "intent": "MissionRewardDef on MissionDef: ReputationReward (factionId + amount), AccessReward (market permits, tech unlocks), IntelReward (discovery leads). CompleteMission distributes all reward types. Per mission_design_v0.md Phase 1. Hash-affecting.",
-            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Systems/ReputationSystem.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
-            "task_preflight": ["anchor=SimCore/Entities/Mission.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S9.MISSION_EVOL.TRIGGERS.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
-            ]
-        },
-        {
-            "gate_id": "GATE.S9.MISSION_EVOL.TRIGGERS.001",
-            "task_id": "GATE.S9.MISSION_EVOL.TRIGGERS.001.T374",
-            "status": "TODO",
-            "title": "GATE.S9.MISSION_EVOL.TRIGGERS.001: 4 new mission trigger types",
-            "intent": "Add ReputationMin (faction standing gate), CreditsMin (economic threshold), TechUnlocked (research prerequisite), TimerExpired (tick deadline) to MissionTriggerType enum + EvaluateTrigger. Per mission_design_v0.md Phase 1. Hash-affecting.",
-            "evidence_paths": ["SimCore/Entities/Mission.cs", "SimCore/Systems/MissionSystem.cs", "SimCore/Tweaks/MissionEvolutionTweaksV0.cs"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""],
-            "task_preflight": ["anchor=SimCore/Entities/Mission.cs"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "core",
-            "tier": 1,
-            "blocks": ["GATE.S7.WARFRONT.ATTRITION.001"],
-            "hash_affecting": true,
-            "verify": [
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FullyQualifiedName~Determinism\"",
-                "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"Mission\""
-            ]
-        },
-        {
-            "gate_id": "GATE.X.UI_POLISH.MISSION_JOURNAL.001",
-            "task_id": "GATE.X.UI_POLISH.MISSION_JOURNAL.001.T419",
-            "status": "TODO",
-            "title": "GATE.X.UI_POLISH.MISSION_JOURNAL.001: Active mission journal panel",
-            "intent": "Mission journal panel (J key): shows active mission(s) with step progress, objectives, rewards preview, abandon button. No mission board -- journal shows only accepted missions. Reads from SimBridge.Mission queries. Non-hash (UI-only).",
-            "evidence_paths": ["scripts/ui/mission_journal_panel.gd", "scripts/bridge/SimBridge.Mission.cs", "scripts/ui/hud.gd"],
-            "constraints": [
-                "Single-session scope: stay within evidence and expected touch paths.",
-                "If evidence is missing or tests fail, escalate via DEFAULT."
-            ],
-            "completion_hint": ["dotnet build \"Space Trade Empire.csproj\" --nologo"],
-            "task_preflight": ["anchor=scripts/ui/mission_journal_panel.gd"],
-            "escalation_rules": [
-                { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-            ],
-            "parallel_group": "bridge",
-            "tier": 2,
-            "blocks": ["GATE.S9.MISSION_EVOL.REWARDS.001"],
-            "hash_affecting": false,
-            "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
         }
     ]
 }

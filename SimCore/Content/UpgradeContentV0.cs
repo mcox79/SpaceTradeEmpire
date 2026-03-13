@@ -36,6 +36,10 @@ public sealed class ModuleDef
 
     // Fuel tank capacity bonus (added to ship class base capacity when installed).
     public int FuelCapacityBonus { get; set; } = 0;
+
+    // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module — additional cooling rate.
+    public bool IsRadiator { get; set; } = false;
+    public int RadiatorBonusRate { get; set; } = 0;
 }
 
 public static class UpgradeContentV0
@@ -536,6 +540,32 @@ public static class UpgradeContentV0
             InstallTicks = 6,
             PowerDraw = 0,
             FuelCapacityBonus = SustainTweaksV0.FuelTankMk2Capacity,
+        },
+
+        // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator modules — additional cooling.
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.RadiatorBasic,
+            DisplayName = "Basic Radiator",
+            SlotKind = SlotKind.Utility,
+            CreditCost = CombatTweaksV0.BasicRadiatorCreditCost,
+            TechPrerequisite = "",
+            InstallTicks = CombatTweaksV0.BasicRadiatorInstallTicks,
+            PowerDraw = CombatTweaksV0.BasicRadiatorPowerDraw,
+            IsRadiator = true,
+            RadiatorBonusRate = CombatTweaksV0.BasicRadiatorBonusRate,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.RadiatorAdvanced,
+            DisplayName = "Advanced Radiator",
+            SlotKind = SlotKind.Utility,
+            CreditCost = CombatTweaksV0.AdvancedRadiatorCreditCost,
+            TechPrerequisite = "weapon_systems_2",
+            InstallTicks = CombatTweaksV0.AdvancedRadiatorInstallTicks,
+            PowerDraw = CombatTweaksV0.AdvancedRadiatorPowerDraw,
+            IsRadiator = true,
+            RadiatorBonusRate = CombatTweaksV0.AdvancedRadiatorBonusRate,
         },
     };
 

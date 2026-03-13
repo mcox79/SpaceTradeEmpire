@@ -18,6 +18,24 @@ public enum WarType
     Cold = 1   // informational, espionage, economic pressure
 }
 
+// GATE.S7.WARFRONT.OBJECTIVES.001: Strategic objective types.
+public enum ObjectiveType
+{
+    SupplyDepot = 0,
+    CommRelay = 1,
+    Factory = 2
+}
+
+// GATE.S7.WARFRONT.OBJECTIVES.001: A capturable strategic objective at a warfront node.
+public class WarfrontObjective
+{
+    public string NodeId { get; set; } = "";
+    public ObjectiveType Type { get; set; } = ObjectiveType.SupplyDepot;
+    public string ControllingFactionId { get; set; } = "";
+    public int DominanceTicks { get; set; } = 0;
+    public string DominantFactionId { get; set; } = "";
+}
+
 public class WarfrontState
 {
     public string Id { get; set; } = "";
@@ -27,4 +45,12 @@ public class WarfrontState
     public WarType WarType { get; set; } = WarType.Hot;
     public int TickStarted { get; set; } = 0;
     public List<string> ContestedNodeIds { get; set; } = new();
+
+    // GATE.S7.WARFRONT.ATTRITION.001: Fleet strength per combatant (0-100).
+    // Depleted by attrition at Skirmish+ intensity, restored by supply deliveries.
+    public int FleetStrengthA { get; set; } = 100;
+    public int FleetStrengthB { get; set; } = 100;
+
+    // GATE.S7.WARFRONT.OBJECTIVES.001: Strategic objectives at contested nodes.
+    public List<WarfrontObjective> Objectives { get; set; } = new();
 }

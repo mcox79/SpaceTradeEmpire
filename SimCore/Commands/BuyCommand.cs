@@ -62,5 +62,15 @@ public class BuyCommand : ICommand
 
 		state.PlayerCredits -= totalCost;
 		InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
+
+		// GATE.X.LEDGER.TX_MODEL.001: Record buy transaction for audit trail.
+		state.AppendTransaction(new TransactionRecord
+		{
+			CashDelta = -totalCost,
+			GoodId = GoodId,
+			Quantity = Quantity,
+			Source = "Buy",
+			NodeId = MarketId,
+		});
 	}
 }

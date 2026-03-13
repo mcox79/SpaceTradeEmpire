@@ -264,6 +264,114 @@ public class FractureTests
         Assert.That(r2.VolumeCap, Is.EqualTo(r1.VolumeCap));
     }
 
+    // GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane route tests.
+
+    [Test]
+    public void OfflaneRoute_ValidJump_ReturnsValidWithCosts()
+    {
+        var state = new SimState(500);
+        state.FractureUnlocked = true;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("n2", new Node { Id = "n2", Position = new Vector3(10, 0, 0) });
+        state.Fleets.Add("f1", new Fleet { Id = "f1", CurrentNodeId = "n1", TechLevel = 2, FuelCurrent = 200 });
+
+        var result = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "n2");
+
+        Assert.That(result.Valid, Is.True);
+        Assert.That(result.Distance, Is.GreaterThan(0f));
+        // Distance=10, FuelCost=10*5=50, HullStress=10*2=20.
+        Assert.That(result.FuelCost, Is.EqualTo(50));
+        Assert.That(result.HullStress, Is.EqualTo(20));
+    }
+
+    [Test]
+    public void OfflaneRoute_InsufficientFuel_ReturnsInvalid()
+    {
+        var state = new SimState(501);
+        state.FractureUnlocked = true;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("n2", new Node { Id = "n2", Position = new Vector3(10, 0, 0) });
+        state.Fleets.Add("f1", new Fleet { Id = "f1", CurrentNodeId = "n1", TechLevel = 2, FuelCurrent = 10 });
+
+        var result = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "n2");
+
+        Assert.That(result.Valid, Is.False);
+        Assert.That(result.Reason, Does.Contain("insufficient fuel"));
+        // Still reports the cost.
+        Assert.That(result.FuelCost, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void OfflaneRoute_LowTechLevel_ReturnsInvalid()
+    {
+        var state = new SimState(502);
+        state.FractureUnlocked = true;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("n2", new Node { Id = "n2", Position = new Vector3(5, 0, 0) });
+        state.Fleets.Add("f1", new Fleet { Id = "f1", CurrentNodeId = "n1", TechLevel = 1, FuelCurrent = 200 });
+
+        var result = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "n2");
+
+        Assert.That(result.Valid, Is.False);
+        Assert.That(result.Reason, Does.Contain("tech_level"));
+    }
+
+    [Test]
+    public void OfflaneRoute_FractureNotUnlocked_ReturnsInvalid()
+    {
+        var state = new SimState(503);
+        state.FractureUnlocked = false;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("n2", new Node { Id = "n2", Position = new Vector3(5, 0, 0) });
+        state.Fleets.Add("f1", new Fleet { Id = "f1", CurrentNodeId = "n1", TechLevel = 3, FuelCurrent = 200 });
+
+        var result = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "n2");
+
+        Assert.That(result.Valid, Is.False);
+        Assert.That(result.Reason, Does.Contain("fracture not unlocked"));
+    }
+
+    [Test]
+    public void OfflaneRoute_CostScalesWithDistance()
+    {
+        var state = new SimState(504);
+        state.FractureUnlocked = true;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("near", new Node { Id = "near", Position = new Vector3(5, 0, 0) });
+        state.Nodes.Add("far", new Node { Id = "far", Position = new Vector3(20, 0, 0) });
+        state.Fleets.Add("f1", new Fleet { Id = "f1", CurrentNodeId = "n1", TechLevel = 2, FuelCurrent = 500 });
+
+        var nearRoute = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "near");
+        var farRoute = FractureSystem.ComputeOfflaneRoute(state, "f1", "n1", "far");
+
+        Assert.That(nearRoute.Valid, Is.True);
+        Assert.That(farRoute.Valid, Is.True);
+        Assert.That(farRoute.FuelCost, Is.GreaterThan(nearRoute.FuelCost));
+        Assert.That(farRoute.HullStress, Is.GreaterThan(nearRoute.HullStress));
+    }
+
+    [Test]
+    public void OfflaneJumpCommand_InitiatesFractureTravel()
+    {
+        var state = new SimState(505);
+        state.FractureUnlocked = true;
+        state.Nodes.Add("n1", new Node { Id = "n1", Position = new Vector3(0, 0, 0) });
+        state.Nodes.Add("n2", new Node { Id = "n2", Position = new Vector3(10, 0, 0) });
+        state.Fleets.Add("f1", new Fleet
+        {
+            Id = "f1", CurrentNodeId = "n1", TechLevel = 2, FuelCurrent = 200,
+            State = FleetState.Idle, Speed = 1f
+        });
+
+        var cmd = new SimCore.Commands.OfflaneJumpCommand("f1", "n2");
+        cmd.Execute(state);
+
+        var fleet = state.Fleets["f1"];
+        Assert.That(fleet.State, Is.EqualTo(FleetState.FractureTraveling));
+        Assert.That(fleet.DestinationNodeId, Is.EqualTo("n2"));
+        Assert.That(fleet.FuelCurrent, Is.LessThan(200), "Fuel must be deducted on departure.");
+    }
+
     // GATE.S6.FRACTURE.CONTENT.001 contract tests.
 
     [Test]

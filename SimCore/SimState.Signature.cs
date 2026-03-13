@@ -121,13 +121,30 @@ public partial class SimState
             if (n.Value.InstabilityLevel > 0) sb.Append($"N_Inst:{n.Key}:{n.Value.InstabilityLevel}|");
         }
 
+        // GATE.S7.TERRITORY.HYSTERESIS.001: Committed regime in signature for determinism.
+        if (NodeRegimeCommitted is not null && NodeRegimeCommitted.Count > 0)
+        {
+            foreach (var kv in NodeRegimeCommitted.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"NRC:{kv.Key}:{kv.Value}|");
+            }
+        }
+
         // GATE.S7.WARFRONT.STATE_MODEL.001: Warfront state in signature for determinism.
         if (Warfronts is not null && Warfronts.Count > 0)
         {
             foreach (var kv in Warfronts.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
                 var w = kv.Value;
-                sb.Append($"WF:{kv.Key}|A:{w.CombatantA}|B:{w.CombatantB}|I:{(int)w.Intensity}|T:{(int)w.WarType}|Ts:{w.TickStarted}|");
+                sb.Append($"WF:{kv.Key}|A:{w.CombatantA}|B:{w.CombatantB}|I:{(int)w.Intensity}|T:{(int)w.WarType}|Ts:{w.TickStarted}|FSA:{w.FleetStrengthA}|FSB:{w.FleetStrengthB}|");
+                // GATE.S7.WARFRONT.OBJECTIVES.001: Objective state in signature.
+                if (w.Objectives is not null && w.Objectives.Count > 0)
+                {
+                    foreach (var obj in w.Objectives)
+                    {
+                        sb.Append($"OBJ:{obj.NodeId}|OT:{(int)obj.Type}|OC:{obj.ControllingFactionId}|OD:{obj.DominanceTicks}|OF:{obj.DominantFactionId}|");
+                    }
+                }
             }
         }
 
@@ -149,6 +166,15 @@ public partial class SimState
             foreach (var e in Embargoes.OrderBy(e => e.Id, StringComparer.Ordinal))
             {
                 sb.Append($"EMB:{e.Id}|F:{e.EnforcingFactionId}|G:{e.GoodId}|");
+            }
+        }
+
+        // GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: Systemic offers in signature.
+        if (SystemicOffers is not null && SystemicOffers.Count > 0)
+        {
+            foreach (var o in SystemicOffers.OrderBy(o => o.OfferId, StringComparer.Ordinal))
+            {
+                sb.Append($"SYS:{o.OfferId}|{(int)o.TriggerType}|{o.NodeId}|{o.GoodId}|{o.ExpiryTick}|");
             }
         }
 

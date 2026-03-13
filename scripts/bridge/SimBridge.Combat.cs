@@ -626,6 +626,139 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GATE.S7.COMBAT_PHASE2.BRIDGE.001: Heat, battle stations, and radiator queries ──
+
+    private Godot.Collections.Dictionary _cachedHeatSnapshotV0 = new Godot.Collections.Dictionary();
+
+    /// <summary>
+    /// Returns heat system state for player fleet:
+    /// {heat_current (int), heat_capacity (int), rejection_rate (int),
+    ///  is_overheated (bool), is_locked_out (bool)}.
+    /// Nonblocking: returns last cached snapshot if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetHeatSnapshotV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary
+            {
+                ["heat_current"] = 0,
+                ["heat_capacity"] = SimCore.Tweaks.CombatTweaksV0.DefaultHeatCapacity,
+                ["rejection_rate"] = SimCore.Tweaks.CombatTweaksV0.DefaultRejectionRate,
+                ["is_overheated"] = false,
+                ["is_locked_out"] = false,
+            };
+
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var player))
+            {
+                var profile = CombatSystem.BuildProfile(player);
+                d["heat_current"] = 0; // Heat is per-combat; zero outside active combat
+                d["heat_capacity"] = profile.HeatCapacity;
+                d["rejection_rate"] = profile.RejectionRate;
+                d["is_overheated"] = false; // Heat tracked per-combat, not persisted
+                d["is_locked_out"] = false;
+            }
+
+            lock (_snapshotLock)
+            {
+                _cachedHeatSnapshotV0 = d;
+            }
+        }, 0);
+
+        lock (_snapshotLock)
+        {
+            return _cachedHeatSnapshotV0.Duplicate();
+        }
+    }
+
+    /// <summary>
+    /// Returns battle stations state for player fleet:
+    /// {state (string: StandDown/SpinningUp/BattleReady), spin_up_ticks_remaining (int)}.
+    /// </summary>
+    public Godot.Collections.Dictionary GetBattleStationsStateV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["state"] = "StandDown",
+            ["spin_up_ticks_remaining"] = 0,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            result["state"] = player.BattleStations.ToString();
+            result["spin_up_ticks_remaining"] = player.BattleStationsSpinUpTicksRemaining;
+        }, 0);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns radiator module status for player fleet:
+    /// {is_intact (bool), bonus_rate (int)}.
+    /// is_intact indicates whether aft zone armor is still alive (radiator bonus active).
+    /// </summary>
+    public Godot.Collections.Dictionary GetRadiatorStatusV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["is_intact"] = true,
+            ["bonus_rate"] = 0,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            var profile = CombatSystem.BuildProfile(player);
+            result["bonus_rate"] = profile.RadiatorBonusRate;
+            result["is_intact"] = player.ZoneArmorHp[(int)SimCore.Entities.ZoneFacing.Aft] > 0 || profile.RadiatorBonusRate == 0;
+        }, 0);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Toggles battle stations for the player fleet.
+    /// If currently StandDown → starts SpinningUp (ticks remaining = SpinUpTicks).
+    /// If currently SpinningUp or BattleReady → resets to StandDown.
+    /// Returns {new_state (string), ok (bool)}.
+    /// </summary>
+    public Godot.Collections.Dictionary ToggleBattleStationsV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["new_state"] = "StandDown",
+            ["ok"] = false,
+        };
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return result;
+
+            if (player.BattleStations == SimCore.Entities.BattleStationsState.StandDown)
+            {
+                player.BattleStations = SimCore.Entities.BattleStationsState.SpinningUp;
+                player.BattleStationsSpinUpTicksRemaining = SimCore.Tweaks.CombatTweaksV0.BattleStationsSpinUpTicks;
+            }
+            else
+            {
+                player.BattleStations = SimCore.Entities.BattleStationsState.StandDown;
+                player.BattleStationsSpinUpTicksRemaining = 0;
+            }
+
+            result["new_state"] = player.BattleStations.ToString();
+            result["ok"] = true;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
     // GATE.S5.LOOT.BRIDGE_PROOF.001: Returns loot drops at the player's current node.
     // [{drop_id, rarity, credits, goods_count, tick_created}]
     public Godot.Collections.Array GetNearbyLootV0()

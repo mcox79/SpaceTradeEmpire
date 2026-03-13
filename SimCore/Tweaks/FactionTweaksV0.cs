@@ -97,6 +97,10 @@ public static class FactionTweaksV0
     public const int NeutralPriceBps = 0;
     public const int HostilePriceBps = 2000;
 
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Regime hysteresis — improvement toward Open requires
+    // sustained stability for this many ticks. Worsening (toward Hostile) is instant.
+    public const int RegimeHysteresisMinTicks = 30;
+
     // GATE.S7.TERRITORY.PATROL_RESPONSE.001: Cargo threshold for Restricted regime pursuit.
     public const int CargoThresholdForPursuit = 5;
 

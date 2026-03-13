@@ -70,4 +70,28 @@ public static class CombatTweaksV0
 
     // GATE.S5.COMBAT_RES.SYSTEM.001: Flee logic — minimum rounds before flee is possible.
     public const int FleeMinRounds = 3;
+
+    // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat accumulation model.
+    // Int-based fixed-point: HeatCapacity 1000 = max heat before overheat penalties.
+    public const int DefaultHeatCapacity = 1000;
+    public const int DefaultHeatPerShot = 100;       // Heat generated per weapon fire
+    public const int DefaultRejectionRate = 150;      // Passive cooling per round
+    public const int OverheatDamagePct = 50;          // 50% damage when overheated (heat > capacity)
+    public const int LockoutThresholdMultiplier = 2;  // Weapons lock out at 2x capacity
+
+    // GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Battle readiness model.
+    public const int BattleStationsSpinUpTicks = 3;   // Ticks to transition from SpinningUp to Ready
+    public const int StandDownDamagePct = 25;         // 25% damage when standing down
+    public const int SpinningUpDamagePct = 50;        // 50% damage while spinning up
+    // BattleReady = 100% (NeutralPct) — full damage
+
+    // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module cooling bonuses.
+    public const int BasicRadiatorBonusRate = 75;      // Additional cooling per round
+    public const int AdvancedRadiatorBonusRate = 150;   // Additional cooling per round
+    public const int BasicRadiatorCreditCost = 100;
+    public const int AdvancedRadiatorCreditCost = 250;
+    public const int BasicRadiatorPowerDraw = 5;
+    public const int AdvancedRadiatorPowerDraw = 10;
+    public const int BasicRadiatorInstallTicks = 4;
+    public const int AdvancedRadiatorInstallTicks = 8;
 }

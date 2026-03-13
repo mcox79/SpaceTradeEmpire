@@ -81,11 +81,15 @@ references this doc.
    win/loss probability) because individual hits are too fast to track. This is the
    FTL insight: pause-to-plan for complexity, real-time for visceral moments.
 
-6. **Spin is the heartbeat of combat.** The ship's rotation creates a rhythmic pulse:
+6. **Spin is the heartbeat of combat — and a commitment.** The ship's rotation creates a rhythmic pulse:
    turrets fire as they sweep past the engagement arc, then silence during the away-arc.
    This cadence — fire-silence-fire-silence — is the combat's tempo. Faster spin =
    faster pulse, shorter bursts. Slower spin = longer sustained volleys. The player
    should feel the rhythm in their bones before they understand the mechanics.
+   But spin has a cost: **gyroscopic precession degrades turning.** A spinning Corvette
+   is a tank, not a dogfighter. The player must feel the sluggishness when they try to
+   chase or reposition while spinning — and the snap of agility when they spin down.
+   This tradeoff is the core tactical decision of small-ship combat.
 
 7. **Heat is visible tension.** The heat gauge is a rising threat — like a fuse burning
    toward a bomb. The player should feel mounting anxiety as heat climbs, relief when
@@ -104,7 +108,9 @@ references this doc.
 | **Visual** | N/A | Ship mesh begins rotating around long axis. Smooth acceleration from 0 to combat RPM. Running lights shift from white (transit) to red (combat). |
 | **Audio** | N/A | Low mechanical groan → rising gyro whine → steady thrum at combat RPM. Pitch and tempo scale with spin rate. |
 | **Camera** | N/A | Brief 0.2 shake on spin engagement (RCS thrusters firing). Camera does NOT spin with ship — it stays stable, ship rotates within it. |
-| **UI** | N/A | "BATTLE STATIONS" text flash (gold, 1.0s). Spin RPM gauge appears in combat HUD. Heat gauge appears. |
+| **UI** | N/A | "BATTLE STATIONS" text flash (gold, 1.0s). Spin RPM gauge appears in combat HUD. Heat gauge appears. **Turn rate indicator dims progressively as RPM climbs — visual cue that maneuverability is being traded for defense.** |
+
+**Maneuverability feel during spin-up:** As the ship spins up, steering should feel progressively heavier. The player's turn inputs produce less response. This should NOT feel like input lag — it should feel like mass. The ship is still responding immediately, just turning slower. A Corvette at full 3.5 RPM should feel like flying a Frigate. The moment the player spins down, the snap back to full agility should feel like a weight being lifted.
 
 **Audio signature:** The spin thrum should be a constant low-frequency drone during combat — the ship's heartbeat. It modulates with RPM: emergency 4 RPM has a higher-pitched, urgent thrum; 0.5 RPM Dreadnought has a deep, slow pulse. This is ambient, not attention-demanding — like a submarine's reactor hum in a naval film.
 
@@ -277,7 +283,9 @@ references this doc.
 | **Visual** | N/A | Ship rotation visibly decelerates. Running lights shift from red back to white. |
 | **Audio** | N/A | Spin thrum pitch drops, winds down to silence. Mechanical deceleration sound. |
 | **Camera** | N/A | None |
-| **UI** | N/A | "STAND DOWN" text (subtle, white). Spin RPM gauge decreases to 0. Heat gauge fades out. Zone armor display collapses to compact view. |
+| **UI** | N/A | "STAND DOWN" text (subtle, white). Spin RPM gauge decreases to 0. Heat gauge fades out. Zone armor display collapses to compact view. **Turn rate indicator brightens as agility returns — the ship feels lighter.** |
+
+**Spin-down agility recovery:** The return of full turn rate during spin-down is a reward moment. The player should feel the ship "wake up" — snappy, responsive, free. This contrast is what makes the spin decision meaningful. If the player never feels the penalty, the recovery has no payoff. If they never feel the recovery, the penalty feels like a permanent tax. Both halves must be felt.
 
 ---
 

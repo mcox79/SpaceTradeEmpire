@@ -7,7 +7,20 @@ namespace SimCore.Content;
 // Content definitions live here, not in SimCore/Systems/, per Tweak Routing Policy.
 public static class MissionContentV0
 {
-    public static readonly IReadOnlyList<MissionDef> AllMissions = new List<MissionDef>
+    // GATE.S9.MISSION_EVOL.REWARDS.001: Test support — mutable mission list backing the readonly view.
+    private static readonly List<MissionDef> _missions = new();
+    public static readonly IReadOnlyList<MissionDef> AllMissions = _missions;
+
+    // Test-only: register/unregister custom mission definitions.
+    public static void RegisterTestMission(MissionDef def) { _missions.Add(def); }
+    public static void UnregisterTestMission(string missionId) { _missions.RemoveAll(m => m.MissionId == missionId); }
+
+    static MissionContentV0()
+    {
+        _missions.AddRange(_builtInMissions);
+    }
+
+    private static readonly List<MissionDef> _builtInMissions = new List<MissionDef>
     {
         new MissionDef
         {

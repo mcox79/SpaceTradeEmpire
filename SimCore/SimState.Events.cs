@@ -14,6 +14,8 @@ public partial class SimState
     private const int MaxExploitationEventLog = 500;
     private const int MaxIndustryEventLog     = 500;
     private const int MaxShortfallEventLog    = 500;
+    // GATE.X.LEDGER.TX_MODEL.001: Transaction ledger cap.
+    private const int MaxTransactionLog       = 5000;
 
     // Logistics event stream (Slice 3 / GATE.LOGI.EVENT.001)
     [JsonInclude] public long NextLogisticsEventSeq { get; set; } = 1;
@@ -151,6 +153,19 @@ public partial class SimState
         ShortfallEventLog.Add(e);
         if (ShortfallEventLog.Count > MaxShortfallEventLog)
             ShortfallEventLog.RemoveRange(0, ShortfallEventLog.Count - MaxShortfallEventLog);
+    }
+
+    // GATE.X.LEDGER.TX_MODEL.001: Economic transaction ledger.
+    [JsonInclude] public List<TransactionRecord> TransactionLog { get; set; } = new();
+
+    public void AppendTransaction(TransactionRecord tx)
+    {
+        if (tx is null) return;
+        tx.Tick = Tick;
+        TransactionLog ??= new List<TransactionRecord>();
+        TransactionLog.Add(tx);
+        if (TransactionLog.Count > MaxTransactionLog)
+            TransactionLog.RemoveRange(0, TransactionLog.Count - MaxTransactionLog);
     }
 
     private void FinalizeFleetEventsForTick()

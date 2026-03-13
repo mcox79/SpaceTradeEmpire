@@ -1283,13 +1283,40 @@ public partial class GalaxyView : Node3D
         var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
         if (spinScript != null) stationVisual.SetScript(spinScript);
 
+        // GATE.X.STATION_IDENTITY.VISUAL.001: Faction hull tint and tier-based size variation.
+        var hullTint = new Color(0.28f, 0.30f, 0.34f); // default neutral gray
+        string stationFactionId = "";
+        if (_bridge != null && !string.IsNullOrEmpty(nodeId))
+        {
+            var terr = _bridge.GetTerritoryAccessV0(nodeId);
+            stationFactionId = terr.ContainsKey("faction_id") ? (string)terr["faction_id"] : "";
+            if (!string.IsNullOrEmpty(stationFactionId))
+            {
+                var fColors = _bridge.GetFactionColorsV0(stationFactionId);
+                if (fColors.ContainsKey("primary"))
+                {
+                    var fc = (Color)fColors["primary"];
+                    // Blend faction primary with hull base for subtle tint (40% faction, 60% base).
+                    hullTint = new Color(
+                        0.6f * 0.28f + 0.4f * fc.R,
+                        0.6f * 0.30f + 0.4f * fc.G,
+                        0.6f * 0.34f + 0.4f * fc.B);
+                }
+            }
+        }
+        // Tier heuristic: lane_gate count → outpost (1) / hub (2-3) / capital (4+).
+        int laneGateCount = snap.ContainsKey("lane_gate") ? snap["lane_gate"].AsGodotArray().Count : 0;
+        int stationTier = laneGateCount >= 4 ? 2 : (laneGateCount <= 1 ? 0 : 1); // STRUCTURAL: 0/1/2
+        float tierScale = stationTier switch { 0 => 0.6f, 2 => 1.5f, _ => 1.0f }; // STRUCTURAL: tier scale factors
+        stationVisual.Scale = Vector3.One * tierScale;
+
         var hullMat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.28f, 0.30f, 0.34f),
+            AlbedoColor = hullTint,
             Roughness = 0.50f,
             Metallic = 0.55f,
             EmissionEnabled = true,
-            Emission = new Color(0.05f, 0.06f, 0.08f),
+            Emission = new Color(hullTint.R * 0.2f, hullTint.G * 0.2f, hullTint.B * 0.2f),
             EmissionEnergyMultiplier = 0.8f,
         };
 
@@ -1456,7 +1483,8 @@ public partial class GalaxyView : Node3D
             Width = 200f,
             AutowrapMode = TextServer.AutowrapMode.Off,
         };
-        stationLabel.Position = new Vector3(0f, 4f, 0f);
+        // FEEL_POST_FIX_7: Raised from Y=4 to Y=10 to prevent overlap with planet label (Y=6).
+        stationLabel.Position = new Vector3(0f, 10f, 0f);
         station.AddChild(stationLabel);
 
         // GATE.S7.FACTION_VIS.STATION_STYLE.001: Faction name banner below station label.
@@ -3180,11 +3208,11 @@ public partial class GalaxyView : Node3D
             if (label != null)
             {
                 // Token contract: RUMORED => "???", VISITED => name, MAPPED => name+count.
-                // GATE.S7.GALAXY_MAP_V2.LABEL_FIX.001: Truncate long resource-type lists.
+                // FEEL_POST_FIX_8: Use StripResourceTagsV0 for clean system names on galaxy map.
                 // GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Append instability phase to node label.
                 string baseText = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED")
                     ? "???"
-                    : TruncateResourceTypesV0(n.DisplayText ?? "");
+                    : StripResourceTagsV0(n.DisplayText ?? "");
                 if (_bridge != null && !StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED"))
                 {
                     var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
@@ -3490,10 +3518,10 @@ public partial class GalaxyView : Node3D
             Name = "NodeLabel",
             Text = "",
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            // FEEL_POST_FIX_3: Larger pixel size + offset for 150u beacons.
-            PixelSize = 2.0f,
-            FontSize = 48,
-            OutlineSize = 10,
+            // FEEL_POST_FIX_7: Larger text for readability at auto-fit altitude (3000-8000u).
+            PixelSize = 4.0f,
+            FontSize = 64,
+            OutlineSize = 14,
             Modulate = new Color(0.85f, 0.85f, 0.9f),
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Width = 200f,

@@ -4,6 +4,8 @@ using NUnit.Framework;
 using SimCore;
 using SimCore.Entities;
 using SimCore.Systems;
+using SimCore.Content;
+using SimCore.Tweaks;
 
 namespace SimCore.Tests.Systems;
 
@@ -343,6 +345,280 @@ public sealed class MissionContractTests
 
         var available = MissionSystem.GetAvailableMissions(state);
         Assert.That(available.Any(m => m.MissionId == "mission_matched_luggage"), Is.False);
+    }
+
+    // ── GATE.S9.MISSION_EVOL.CONTRACT.001: Phase 1 evolution feature coverage ──
+
+    private static MissionDef CreateEvolutionTestMission(string id, MissionTriggerType triggerType)
+    {
+        var step = new MissionStepDef
+        {
+            StepIndex = 0, ObjectiveText = "Phase 1 test", TriggerType = triggerType,
+            TargetNodeId = "node_a", TargetGoodId = "fuel", TargetQuantity = 5,
+        };
+        return new MissionDef
+        {
+            MissionId = id, Title = "Evo " + id, Description = "Test",
+            Steps = new List<MissionStepDef> { step }, CreditReward = 100,
+        };
+    }
+
+    private void WithEvoMission(MissionDef def, System.Action<SimState> test)
+    {
+        MissionContentV0.RegisterTestMission(def);
+        try { test(MakeTradeWorldState()); }
+        finally { MissionContentV0.UnregisterTestMission(def.MissionId); }
+    }
+
+    [Test]
+    public void EvoTrigger_ReputationMin_Fires()
+    {
+        var def = CreateEvolutionTestMission("evo_rep", MissionTriggerType.ReputationMin);
+        def.Steps[0].TargetFactionId = "faction_x";
+        def.Steps[0].TargetQuantity = 50;
+        WithEvoMission(def, state =>
+        {
+            state.FactionReputation["faction_x"] = 60;
+            MissionSystem.AcceptMission(state, "evo_rep");
+            MissionSystem.Process(state);
+            Assert.That(state.Missions.CompletedMissionIds, Does.Contain("evo_rep"));
+        });
+    }
+
+    [Test]
+    public void EvoTrigger_CreditsMin_Fires()
+    {
+        var def = CreateEvolutionTestMission("evo_cred", MissionTriggerType.CreditsMin);
+        def.Steps[0].TargetQuantity = 500;
+        WithEvoMission(def, state =>
+        {
+            state.PlayerCredits = 600;
+            MissionSystem.AcceptMission(state, "evo_cred");
+            MissionSystem.Process(state);
+            Assert.That(state.Missions.CompletedMissionIds, Does.Contain("evo_cred"));
+        });
+    }
+
+    [Test]
+    public void EvoTrigger_TechUnlocked_Fires()
+    {
+        var def = CreateEvolutionTestMission("evo_tech", MissionTriggerType.TechUnlocked);
+        def.Steps[0].TargetTechId = "warp_drive";
+        WithEvoMission(def, state =>
+        {
+            state.Tech.UnlockedTechIds.Add("warp_drive");
+            MissionSystem.AcceptMission(state, "evo_tech");
+            MissionSystem.Process(state);
+            Assert.That(state.Missions.CompletedMissionIds, Does.Contain("evo_tech"));
+        });
+    }
+
+    [Test]
+    public void EvoTrigger_TimerExpired_Fires()
+    {
+        var def = CreateEvolutionTestMission("evo_timer", MissionTriggerType.TimerExpired);
+        def.Steps[0].DeadlineTicks = 10;
+        WithEvoMission(def, state =>
+        {
+            MissionSystem.AcceptMission(state, "evo_timer");
+            for (int i = 0; i < 11; i++) state.AdvanceTick();
+            MissionSystem.Process(state);
+            Assert.That(state.Missions.CompletedMissionIds, Does.Contain("evo_timer"));
+        });
+    }
+
+    [Test]
+    public void EvoReward_ReputationAndTech_BothApplied()
+    {
+        var def = CreateEvolutionTestMission("evo_rew", MissionTriggerType.ArriveAtNode);
+        def.Steps[0].TargetNodeId = "node_a";
+        def.Rewards = new List<MissionRewardDef>
+        {
+            new MissionRewardDef { ReputationFactionId = "faction_a", ReputationAmount = 20 },
+            new MissionRewardDef { TechUnlockId = "sensors_v2" },
+        };
+        WithEvoMission(def, state =>
+        {
+            state.FactionReputation["faction_a"] = 50;
+            MissionSystem.AcceptMission(state, "evo_rew");
+            MissionSystem.Process(state);
+            Assert.That(state.FactionReputation["faction_a"], Is.EqualTo(70));
+            Assert.That(state.Tech.UnlockedTechIds, Does.Contain("sensors_v2"));
+        });
+    }
+
+    [Test]
+    public void EvoFailure_AbandonAppliesRepPenalty()
+    {
+        var def = CreateEvolutionTestMission("evo_abandon", MissionTriggerType.ArriveAtNode);
+        def.Steps[0].TargetNodeId = "node_b"; // Not there.
+        WithEvoMission(def, state =>
+        {
+            state.FactionReputation["faction_a"] = 50;
+            MissionSystem.AcceptMission(state, "evo_abandon");
+            MissionSystem.AbandonMission(state);
+            Assert.That(state.Missions.FailedMissionIds, Does.Contain("evo_abandon"));
+            Assert.That(state.FactionReputation["faction_a"], Is.EqualTo(50 + MissionEvolutionTweaksV0.AbandonRepPenalty));
+        });
+    }
+
+    [Test]
+    public void EvoFailure_DeadlineExceeded_AutoFails()
+    {
+        var def = CreateEvolutionTestMission("evo_dl", MissionTriggerType.ArriveAtNode);
+        def.Steps[0].TargetNodeId = "node_b";
+        def.DeadlineTicks = 5;
+        WithEvoMission(def, state =>
+        {
+            MissionSystem.AcceptMission(state, "evo_dl");
+            for (int i = 0; i < 6; i++) state.AdvanceTick();
+            MissionSystem.Process(state);
+            Assert.That(state.Missions.FailedMissionIds, Does.Contain("evo_dl"));
+        });
+    }
+
+    [Test]
+    public void EvoBranching_ChoiceJumps_ToCorrectPath()
+    {
+        var def = new MissionDef
+        {
+            MissionId = "evo_branch", Title = "Branch", Description = "Test",
+            Steps = new List<MissionStepDef>
+            {
+                new MissionStepDef { StepIndex = 0, ObjectiveText = "Start", TriggerType = MissionTriggerType.ArriveAtNode, TargetNodeId = "node_a" },
+                new MissionStepDef
+                {
+                    StepIndex = 1, ObjectiveText = "Choose", TriggerType = MissionTriggerType.Choice,
+                    ChoiceOptions = new List<MissionChoiceOption>
+                    {
+                        new MissionChoiceOption { Label = "A", TargetStepIndex = 2 },
+                        new MissionChoiceOption { Label = "B", TargetStepIndex = 3 },
+                    }
+                },
+                new MissionStepDef { StepIndex = 2, ObjectiveText = "Path A", TriggerType = MissionTriggerType.ArriveAtNode, TargetNodeId = "node_b" },
+                new MissionStepDef { StepIndex = 3, ObjectiveText = "Path B", TriggerType = MissionTriggerType.ArriveAtNode, TargetNodeId = "node_a" },
+            },
+            CreditReward = 100,
+        };
+        WithEvoMission(def, state =>
+        {
+            MissionSystem.AcceptMission(state, "evo_branch");
+            MissionSystem.Process(state); // Step 0.
+            MissionSystem.MakeChoice(state, 1); // Path B → step 3.
+            Assert.That(state.Missions.CurrentStepIndex, Is.EqualTo(3));
+            MissionSystem.Process(state); // At node_a, step 3 completes.
+            Assert.That(state.Missions.CompletedMissionIds, Does.Contain("evo_branch"));
+        });
+    }
+
+    [Test]
+    public void EvoFactionContract_GatedByRep()
+    {
+        var def = CreateEvolutionTestMission("evo_fc", MissionTriggerType.ArriveAtNode);
+        def.FactionId = "faction_x";
+        def.RequiredRepTier = (int)RepTier.Friendly;
+        WithEvoMission(def, state =>
+        {
+            state.FactionReputation["faction_x"] = 0;
+            Assert.That(MissionSystem.GetAvailableMissions(state).Any(m => m.MissionId == "evo_fc"), Is.False);
+            state.FactionReputation["faction_x"] = 30;
+            Assert.That(MissionSystem.GetAvailableMissions(state).Any(m => m.MissionId == "evo_fc"), Is.True);
+        });
+    }
+
+    [Test]
+    public void EvoReward_IntelLead_CreatesRumorLead()
+    {
+        var def = CreateEvolutionTestMission("evo_intel", MissionTriggerType.ArriveAtNode);
+        def.Steps[0].TargetNodeId = "node_a";
+        def.Rewards = new List<MissionRewardDef>
+        {
+            new MissionRewardDef { IntelLeadNodeId = "node_b" }
+        };
+        WithEvoMission(def, state =>
+        {
+            MissionSystem.AcceptMission(state, "evo_intel");
+            MissionSystem.Process(state);
+            Assert.That(state.Intel.RumorLeads, Contains.Key("LEAD.MISSION.evo_intel.node_b"));
+        });
+    }
+
+    [Test]
+    public void EvoChoice_InvalidIndex_ReturnsFalse()
+    {
+        var def = new MissionDef
+        {
+            MissionId = "evo_bad_choice", Title = "Bad", Description = "Test",
+            Steps = new List<MissionStepDef>
+            {
+                new MissionStepDef { StepIndex = 0, ObjectiveText = "Start", TriggerType = MissionTriggerType.ArriveAtNode, TargetNodeId = "node_a" },
+                new MissionStepDef
+                {
+                    StepIndex = 1, ObjectiveText = "Choose", TriggerType = MissionTriggerType.Choice,
+                    ChoiceOptions = new List<MissionChoiceOption>
+                    {
+                        new MissionChoiceOption { Label = "Only", TargetStepIndex = 2 },
+                    }
+                },
+                new MissionStepDef { StepIndex = 2, ObjectiveText = "End", TriggerType = MissionTriggerType.ArriveAtNode, TargetNodeId = "node_a" },
+            },
+            CreditReward = 50,
+        };
+        WithEvoMission(def, state =>
+        {
+            MissionSystem.AcceptMission(state, "evo_bad_choice");
+            MissionSystem.Process(state);
+            Assert.That(MissionSystem.MakeChoice(state, 99), Is.False);
+        });
+    }
+
+    [Test]
+    public void EvoTriggers_NegativeCases_DoNotFire()
+    {
+        // ReputationMin: not enough rep.
+        var step1 = new MissionActiveStep { TriggerType = MissionTriggerType.ReputationMin, TargetFactionId = "f", TargetQuantity = 50 };
+        var state = MakeTradeWorldState();
+        state.FactionReputation["f"] = 10;
+        Assert.That(MissionSystem.EvaluateTrigger(state, step1), Is.False);
+
+        // CreditsMin: not enough credits.
+        var step2 = new MissionActiveStep { TriggerType = MissionTriggerType.CreditsMin, TargetQuantity = 5000 };
+        state.PlayerCredits = 100;
+        Assert.That(MissionSystem.EvaluateTrigger(state, step2), Is.False);
+
+        // TechUnlocked: tech not present.
+        var step3 = new MissionActiveStep { TriggerType = MissionTriggerType.TechUnlocked, TargetTechId = "nonexistent" };
+        Assert.That(MissionSystem.EvaluateTrigger(state, step3), Is.False);
+
+        // TimerExpired: before deadline.
+        var step4 = new MissionActiveStep { TriggerType = MissionTriggerType.TimerExpired, DeadlineTick = 999 };
+        Assert.That(MissionSystem.EvaluateTrigger(state, step4), Is.False);
+    }
+
+    [Test]
+    public void EvoPrerequisites_BlockUntilSatisfied()
+    {
+        var prereq = CreateEvolutionTestMission("evo_p1", MissionTriggerType.ArriveAtNode);
+        prereq.Steps[0].TargetNodeId = "node_a";
+        var gated = CreateEvolutionTestMission("evo_p2", MissionTriggerType.ArriveAtNode);
+        gated.Steps[0].TargetNodeId = "node_a";
+        gated.Prerequisites = new List<string> { "evo_p1" };
+
+        MissionContentV0.RegisterTestMission(prereq);
+        MissionContentV0.RegisterTestMission(gated);
+        try
+        {
+            var state = MakeTradeWorldState();
+            Assert.That(MissionSystem.GetAvailableMissions(state).Any(m => m.MissionId == "evo_p2"), Is.False);
+            MissionSystem.AcceptMission(state, "evo_p1");
+            MissionSystem.Process(state);
+            Assert.That(MissionSystem.GetAvailableMissions(state).Any(m => m.MissionId == "evo_p2"), Is.True);
+        }
+        finally
+        {
+            MissionContentV0.UnregisterTestMission("evo_p1");
+            MissionContentV0.UnregisterTestMission("evo_p2");
+        }
     }
 
     // --- helpers ---

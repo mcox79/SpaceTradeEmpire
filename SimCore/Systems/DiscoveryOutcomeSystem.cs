@@ -3,6 +3,7 @@ using SimCore.Content;
 using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimCore.Systems;
 
@@ -246,5 +247,108 @@ public static class DiscoveryOutcomeSystem
 
         // Fallback for unmapped families: generic description.
         return $"A {family.ToLowerInvariant()} discovery in {systemName}.";
+    }
+
+    // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Progressive content reveal per discovery phase.
+    // Seen: surface data only. Scanned: deeper structural detail. Analyzed: knowledge graph links.
+    public sealed class RevealContentResult
+    {
+        public string SurfaceText { get; init; } = "";
+        public string DeepText { get; init; } = "";
+        public string ConnectionText { get; init; } = "";
+        public string[] LinkedKnowledgeNodeIds { get; init; } = Array.Empty<string>();
+        public DiscoveryPhase Phase { get; init; }
+    }
+
+    // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Recontextualization templates per (kind, phase).
+    // Deeper than FlavorText — provides structural interpretation that changes as understanding deepens.
+    private static readonly Dictionary<(string Kind, DiscoveryPhase Phase), string> RecontextTemplates
+        = new()
+    {
+        { ("RESOURCE_POOL_MARKER", DiscoveryPhase.Seen),     "Surface scans detect mineral concentrations." },
+        { ("RESOURCE_POOL_MARKER", DiscoveryPhase.Scanned),  "Subsurface analysis reveals an ancient excavation site — someone was here before." },
+        { ("RESOURCE_POOL_MARKER", DiscoveryPhase.Analyzed), "The extraction patterns match no known faction technology. This predates current civilization." },
+
+        { ("CORRIDOR_TRACE", DiscoveryPhase.Seen),     "Unusual energy readings detected along a narrow band." },
+        { ("CORRIDOR_TRACE", DiscoveryPhase.Scanned),  "The energy band is a stable tunnel through fracture-space, artificially maintained." },
+        { ("CORRIDOR_TRACE", DiscoveryPhase.Analyzed), "This corridor was engineered. Its maintenance systems still function after millennia." },
+
+        { ("FRACTURE_DERELICT", DiscoveryPhase.Seen),     "A vessel of unknown origin, dead in space." },
+        { ("FRACTURE_DERELICT", DiscoveryPhase.Scanned),  "The hull material doesn't match any known alloy. Drive core readings are unprecedented." },
+        { ("FRACTURE_DERELICT", DiscoveryPhase.Analyzed), "This ship traveled through fracture-space routinely. Its drive design rewrites physics." },
+    };
+
+    // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Get progressive reveal content for a discovery.
+    public static RevealContentResult GetRevealContent(SimState state, string discoveryId)
+    {
+        if (state?.Intel?.Discoveries is null || string.IsNullOrEmpty(discoveryId))
+            return new RevealContentResult { SurfaceText = "No data available." };
+
+        if (!state.Intel.Discoveries.TryGetValue(discoveryId, out var disc))
+            return new RevealContentResult { SurfaceText = "Discovery not found." };
+
+        string kind = ParseDiscoveryKind(discoveryId);
+        string nodeId = FindNodeForDiscovery(state, discoveryId);
+        string systemName = ResolveSystemName(state, nodeId);
+
+        // Surface text: always available.
+        string surfaceText = "";
+        if (RecontextTemplates.TryGetValue((kind, DiscoveryPhase.Seen), out var st))
+            surfaceText = st;
+        else
+            surfaceText = $"An anomalous reading in {systemName}.";
+
+        // Deep text: available at Scanned+.
+        string deepText = "";
+        if (disc.Phase >= DiscoveryPhase.Scanned)
+        {
+            if (RecontextTemplates.TryGetValue((kind, DiscoveryPhase.Scanned), out var dt))
+                deepText = dt;
+            else
+                deepText = $"Detailed scans reveal complex underlying structure in {systemName}.";
+        }
+
+        // Connection text + knowledge graph links: available at Analyzed.
+        string connectionText = "";
+        string[] linkedNodes = Array.Empty<string>();
+        if (disc.Phase >= DiscoveryPhase.Analyzed)
+        {
+            if (RecontextTemplates.TryGetValue((kind, DiscoveryPhase.Analyzed), out var ct))
+                connectionText = ct;
+            else
+                connectionText = $"Full analysis complete. Cross-referencing with knowledge database.";
+
+            // Find knowledge graph connections involving this discovery.
+            linkedNodes = FindKnowledgeGraphLinks(state, discoveryId);
+        }
+
+        return new RevealContentResult
+        {
+            SurfaceText = surfaceText,
+            DeepText = deepText,
+            ConnectionText = connectionText,
+            LinkedKnowledgeNodeIds = linkedNodes,
+            Phase = disc.Phase
+        };
+    }
+
+    // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Find knowledge graph connections for a discovery.
+    private static string[] FindKnowledgeGraphLinks(SimState state, string discoveryId)
+    {
+        var connections = state.Intel?.KnowledgeConnections;
+        if (connections is null || connections.Count == 0)
+            return Array.Empty<string>();
+
+        var links = new List<string>();
+        foreach (var conn in connections.OrderBy(c => c.ConnectionId, StringComparer.Ordinal))
+        {
+            if (conn is null) continue;
+            if (string.Equals(conn.SourceDiscoveryId, discoveryId, StringComparison.Ordinal) ||
+                string.Equals(conn.TargetDiscoveryId, discoveryId, StringComparison.Ordinal))
+            {
+                links.Add(conn.ConnectionId);
+            }
+        }
+        return links.ToArray();
     }
 }

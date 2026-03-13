@@ -145,7 +145,7 @@ public static class NpcFleetCombatSystem
     public static PatrolResponse GetPatrolResponse(SimState state, string nodeId, string playerFleetId)
     {
         if (state is null) return PatrolResponse.None;
-        var regime = ReputationSystem.ComputeTerritoryRegime(state, nodeId);
+        var regime = ReputationSystem.GetEffectiveRegime(state, nodeId);
         int cargo = 0;
         if (state.Fleets.TryGetValue(playerFleetId, out var fleet))
             cargo = fleet.Cargo.Values.Sum();

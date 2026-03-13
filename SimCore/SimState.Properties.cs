@@ -271,6 +271,13 @@ public partial class SimState
     // GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction aggression level (factionId -> 0=peaceful,1=defensive,2=hostile).
     [JsonInclude] public Dictionary<string, int> FactionAggressionLevel { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Committed territory regime per node (int cast of TerritoryRegime).
+    [JsonInclude] public Dictionary<string, int> NodeRegimeCommitted { get; private set; } = new(StringComparer.Ordinal);
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Proposed improvement regime per node (int cast of TerritoryRegime).
+    [JsonInclude] public Dictionary<string, int> NodeRegimeProposed { get; private set; } = new(StringComparer.Ordinal);
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Tick when proposed regime was first set per node.
+    [JsonInclude] public Dictionary<string, int> NodeRegimeProposedSinceTick { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.S7.WARFRONT.STATE_MODEL.001: Active warfronts keyed by warfront ID.
     [JsonInclude] public Dictionary<string, WarfrontState> Warfronts { get; private set; } = new(StringComparer.Ordinal);
 
@@ -310,6 +317,9 @@ public partial class SimState
     // GATE.S6.ANOMALY.ENCOUNTER_MODEL.001: Active anomaly encounters keyed by EncounterId.
     [JsonInclude] public Dictionary<string, AnomalyEncounter> AnomalyEncounters { get; private set; } = new(StringComparer.Ordinal);
     [JsonInclude] public long NextAnomalyEncounterSeq { get; set; } = 1;
+
+    // GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: Active systemic mission offers from world-state triggers.
+    [JsonInclude] public List<SystemicMissionOffer> SystemicOffers { get; private set; } = new();
 
     // GATE.S15.FEEL.JUMP_EVENT_SYS.001: Recent jump events for UI display.
     [JsonInclude] public List<JumpEvent> JumpEvents { get; private set; } = new();

@@ -35,6 +35,69 @@ public static class ReputationSystem
                     state.FactionReputation[factionId] = rep + FactionTweaksV0.RepDecayAmount;
             }
         }
+
+        // GATE.S7.TERRITORY.HYSTERESIS.001: Update committed regimes with hysteresis.
+        ProcessRegimeHysteresis(state);
+    }
+
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Asymmetric hysteresis for territory regime transitions.
+    // Worsening (toward Hostile) commits instantly. Improvement (toward Open) requires
+    // sustained stability for RegimeHysteresisMinTicks before committing.
+    public static void ProcessRegimeHysteresis(SimState state)
+    {
+        if (state.NodeFactionId.Count == 0) return; // STRUCTURAL: empty guard
+
+        var nodeIds = state.NodeFactionId.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+        foreach (var nodeId in nodeIds)
+        {
+            var rawRegime = ComputeTerritoryRegime(state, nodeId);
+            int rawVal = (int)rawRegime;
+
+            if (!state.NodeRegimeCommitted.TryGetValue(nodeId, out var committedVal))
+            {
+                // First time: commit immediately (no hysteresis for initial assignment).
+                state.NodeRegimeCommitted[nodeId] = rawVal;
+                continue;
+            }
+
+            if (rawVal == committedVal)
+            {
+                // Stable at committed: clear any pending proposal.
+                state.NodeRegimeProposed.Remove(nodeId);
+                state.NodeRegimeProposedSinceTick.Remove(nodeId);
+                continue;
+            }
+
+            if (rawVal > committedVal)
+            {
+                // Worsening (higher enum = more hostile): commit instantly.
+                state.NodeRegimeCommitted[nodeId] = rawVal;
+                state.NodeRegimeProposed.Remove(nodeId);
+                state.NodeRegimeProposedSinceTick.Remove(nodeId);
+            }
+            else
+            {
+                // Improving (lower enum = more open): apply hysteresis.
+                if (state.NodeRegimeProposed.TryGetValue(nodeId, out var proposedVal) && proposedVal == rawVal)
+                {
+                    // Same proposal persists — check duration.
+                    int sinceTick = state.NodeRegimeProposedSinceTick.TryGetValue(nodeId, out var st) ? st : state.Tick;
+                    if (state.Tick - sinceTick >= FactionTweaksV0.RegimeHysteresisMinTicks)
+                    {
+                        // Sustained long enough: commit improvement.
+                        state.NodeRegimeCommitted[nodeId] = rawVal;
+                        state.NodeRegimeProposed.Remove(nodeId);
+                        state.NodeRegimeProposedSinceTick.Remove(nodeId);
+                    }
+                }
+                else
+                {
+                    // New or changed proposal direction: start fresh.
+                    state.NodeRegimeProposed[nodeId] = rawVal;
+                    state.NodeRegimeProposedSinceTick[nodeId] = state.Tick;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -140,6 +203,16 @@ public static class ReputationSystem
     {
         int rep = GetReputation(state, factionId);
         return rep >= FactionTweaksV0.TechRequiresMinTier;
+    }
+
+    // GATE.S7.TERRITORY.HYSTERESIS.001: Returns the committed (hysteresis-buffered) regime for a node.
+    // Falls back to ComputeTerritoryRegime if no committed value exists yet.
+    public static TerritoryRegime GetEffectiveRegime(SimState state, string nodeId)
+    {
+        if (state is null || string.IsNullOrEmpty(nodeId)) return TerritoryRegime.Open;
+        if (state.NodeRegimeCommitted.TryGetValue(nodeId, out var committed))
+            return (TerritoryRegime)committed;
+        return ComputeTerritoryRegime(state, nodeId);
     }
 
     // GATE.S7.TERRITORY.REGIME_MODEL.001: Compute territory regime from TradePolicy + RepTier.

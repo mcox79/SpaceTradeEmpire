@@ -37,6 +37,13 @@ public static class CombatSystem
         // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Zone armor HP per facing.
         public int[] ZoneArmorHp { get; set; } = new int[4];
         public string ShipClassId { get; set; } = "";
+        // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat management fields.
+        public int HeatCapacity { get; set; } = CombatTweaksV0.DefaultHeatCapacity;
+        public int RejectionRate { get; set; } = CombatTweaksV0.DefaultRejectionRate;
+        // GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Readiness damage multiplier (pct).
+        public int ReadinessDamagePct { get; set; } = CombatTweaksV0.NeutralPct;
+        // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Total radiator bonus (removed if aft zone destroyed).
+        public int RadiatorBonusRate { get; set; }
     }
 
     public sealed class WeaponInfo
@@ -44,6 +51,8 @@ public static class CombatSystem
         public string ModuleId { get; set; } = "";
         public int BaseDamage { get; set; }
         public DamageFamily Family { get; set; } = DamageFamily.Neutral;
+        // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Heat generated per weapon fire.
+        public int HeatPerShot { get; set; } = CombatTweaksV0.DefaultHeatPerShot;
     }
 
     public static DamageFamily ClassifyWeapon(string moduleId)
@@ -75,26 +84,45 @@ public static class CombatSystem
             ShieldHp = fleet.ShieldHp,
             ShieldHpMax = fleet.ShieldHpMax,
             ShipClassId = fleet.ShipClassId,
+            // GATE.S7.COMBAT_PHASE2.BATTLE_STATIONS.001: Readiness from fleet state.
+            ReadinessDamagePct = fleet.BattleStations switch
+            {
+                BattleStationsState.StandDown => CombatTweaksV0.StandDownDamagePct,
+                BattleStationsState.SpinningUp => CombatTweaksV0.SpinningUpDamagePct,
+                _ => CombatTweaksV0.NeutralPct,
+            },
         };
         // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Copy zone armor.
         Array.Copy(fleet.ZoneArmorHp, profile.ZoneArmorHp, fleet.ZoneArmorHp.Length);
 
+        // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Sum radiator bonus from installed modules.
+        int totalRadiatorBonus = 0; // STRUCTURAL: accumulator init
         foreach (var slot in fleet.Slots)
         {
-            if (slot.SlotKind != SlotKind.Weapon) continue;
             if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
 
-            int baseDmg = CombatTweaksV0.DefaultWeaponBaseDamage;
-            if (weaponBaseDamage != null && weaponBaseDamage.TryGetValue(slot.InstalledModuleId, out var d))
-                baseDmg = d;
-
-            profile.Weapons.Add(new WeaponInfo
+            if (slot.SlotKind == SlotKind.Weapon)
             {
-                ModuleId = slot.InstalledModuleId,
-                BaseDamage = baseDmg,
-                Family = ClassifyWeapon(slot.InstalledModuleId),
-            });
+                int baseDmg = CombatTweaksV0.DefaultWeaponBaseDamage;
+                if (weaponBaseDamage != null && weaponBaseDamage.TryGetValue(slot.InstalledModuleId, out var d))
+                    baseDmg = d;
+
+                profile.Weapons.Add(new WeaponInfo
+                {
+                    ModuleId = slot.InstalledModuleId,
+                    BaseDamage = baseDmg,
+                    Family = ClassifyWeapon(slot.InstalledModuleId),
+                });
+            }
+
+            // Sum radiator bonus from any slot type.
+            var moduleDef = UpgradeContentV0.GetById(slot.InstalledModuleId);
+            if (moduleDef is { IsRadiator: true })
+                totalRadiatorBonus += moduleDef.RadiatorBonusRate;
         }
+
+        profile.RejectionRate += totalRadiatorBonus;
+        profile.RadiatorBonusRate = totalRadiatorBonus;
 
         return profile;
     }

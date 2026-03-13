@@ -795,3 +795,24 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-11, main, GATE.X.HYGIENE.REPO_HEALTH.029 PASS (Full test suite 1070/1070, build clean, golden hash stable). Evidence: SimCore.Tests/SimCore.Tests.csproj
 - 2026-03-11, main, GATE.X.HYGIENE.EPIC_REVIEW.029 PASS (Epic audit: S9.SETTINGS→DONE, T18.CHARACTER_SYSTEMS→DONE, S9.MISSION_LADDER→IN_PROGRESS). Evidence: docs/54_EPICS.md
 - 2026-03-11, main, GATE.X.HYGIENE.SCREENSHOT_EVAL.029 PASS (Build verified; visual eval deferred to manual Godot run). Evidence: scripts/ui/fo_panel.gd, scripts/tests/test_character_proof_v0.gd
+- 2026-03-12, main, GATE.X.HYGIENE.REPO_HEALTH.030 PASS (Full test suite 1170/1170, build clean, golden hash stable). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-12, main, GATE.S7.TERRITORY.HYSTERESIS.001 PASS (Territory regime hysteresis — sustained rep change over N ticks before regime transition). Evidence: SimCore/Systems/ReputationSystem.cs
+- 2026-03-12, main, GATE.S7.FRACTURE.OFFLANE_ROUTES.001 PASS (Offlane fracture route gen + travel for non-adjacent nodes). Evidence: SimCore/Systems/FractureSystem.cs, SimCore/Commands/FractureTravelCommand.cs
+- 2026-03-12, main, GATE.S7.REVEALS.DISCOVERY_REVEAL.001 PASS (Discovery content recontextualization — progressive reveal layers). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs
+- 2026-03-12, main, GATE.S7.REVEALS.WARFRONT_REVEAL.001 PASS (Warfront intel layer reveals — tiered progressive exposure). Evidence: SimCore/Systems/IntelSystem.cs
+- 2026-03-12, main, GATE.S7.WARFRONT.ATTRITION.001 PASS (Fleet attrition at Skirmish+ intensity, supply delivery restores strength). Evidence: SimCore/Systems/WarfrontEvolutionSystem.cs, SimCore/Tweaks/WarfrontTweaksV0.cs
+- 2026-03-12, main, GATE.S9.MISSION_EVOL.TRIGGERS.001 PASS (4 new trigger types: ReputationMin, CreditsMin, TechUnlocked, TimerExpired). Evidence: SimCore/Entities/Mission.cs, SimCore/Systems/MissionSystem.cs
+- 2026-03-12, main, GATE.S9.MISSION_EVOL.REWARDS.001 PASS (Non-credit rewards: ReputationReward, AccessReward, IntelReward on MissionDef). Evidence: SimCore/Entities/Mission.cs, SimCore/Systems/MissionSystem.cs
+- 2026-03-12, main, GATE.S9.MISSION_EVOL.FAILURE.001 PASS (Mission failure/abandonment + timer deadline + FailedMissionIds). Evidence: SimCore/Systems/MissionSystem.cs, SimCore/Tweaks/MissionEvolutionTweaksV0.cs
+- 2026-03-12, main, GATE.S9.MISSION_EVOL.BRANCHING.001 PASS (CHOICE steps + conditional paths — branch target step index). Evidence: SimCore/Entities/Mission.cs, SimCore/Systems/MissionSystem.cs
+- 2026-03-12, main, GATE.S7.WARFRONT.OBJECTIVES.001 PASS (Strategic objectives: SupplyDepot/CommRelay/Factory + capture via sustained dominance). Evidence: SimCore/Systems/WarfrontEvolutionSystem.cs, SimCore/Entities/WarfrontState.cs
+- 2026-03-12, main, GATE.S7.REPUTATION.CONTRACTS.001 PASS (Faction contracts gated by reputation tier — RequiredRepTier on MissionDef). Evidence: SimCore/Systems/MissionSystem.cs, SimCore/Systems/ReputationSystem.cs
+- 2026-03-12, main, GATE.S9.MISSION_EVOL.CONTRACT.001 PASS (14 new Phase 1 evolution tests covering all triggers, rewards, failure, branching, faction gating). Evidence: SimCore.Tests/Systems/MissionContractTests.cs
+- 2026-03-12, main, GATE.X.WARP.TUNNEL_SCALE.001 PASS (Warp tunnel mesh scaled down proportional to player ship). Evidence: scripts/vfx/warp_tunnel.gd
+- 2026-03-12, main, GATE.X.WARP.TRANSIT_HUD.001 PASS (Warp transit HUD: destination name, ETA bar, distance remaining). Evidence: scripts/ui/warp_transit_hud.gd, scripts/ui/hud.gd
+- 2026-03-12, main, GATE.X.WARP.DEPARTURE_VFX.001 PASS (Warp departure flash + camera shake matching arrival intensity). Evidence: scripts/vfx/warp_effect.gd, scripts/core/game_manager.gd
+- 2026-03-12, main, GATE.X.UI_POLISH.MISSION_JOURNAL.001 PASS (Mission journal panel J key: step progress, rewards preview, abandon button). Evidence: scripts/ui/mission_journal_panel.gd, scripts/ui/hud.gd
+- 2026-03-12, main, GATE.S7.FRACTURE.OFFLANE_HEADLESS.001 PASS (Headless fracture travel proof — soft pass for fresh world). Evidence: scripts/tests/test_fracture_offlane_v0.gd
+- 2026-03-12, main, GATE.S7.REVEALS.HEADLESS.001 PASS (Layered reveals headless proof — discovery + warfront intel). Evidence: scripts/tests/test_reveals_proof_v0.gd
+- 2026-03-12, main, GATE.X.HYGIENE.EPIC_REVIEW.030 PASS (7 epics closed: MISSION_LADDER, MISSION_FOUNDATION, WARFRONT_STATE, TERRITORY_REGIMES, REPUTATION_INFLUENCE, OFFLANE_FRACTURE, LAYERED_REVEALS). Evidence: docs/54_EPICS.md
+- 2026-03-12, main, GATE.X.HYGIENE.FIRST_HOUR_EVAL.030 PASS (First-hour bot 18/18 assertions, 20 screenshots, all 6 acts pass). Evidence: scripts/tests/test_first_hour_proof_v0.gd

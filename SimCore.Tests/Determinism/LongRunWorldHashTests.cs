@@ -24,8 +24,8 @@ public class LongRunWorldHashTests
     //
     // Diagnostics:
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
-    private const string ExpectedGenesisHash = "4C020D383AAC3FCA8F62AD79BCFEEFEF791D264E421A6E883C41F3614B6028C4";
-    private const string ExpectedFinalHash = "3433B64CE0F61968C6C1BE278B5DE2D45E4A624CF91BDD2D7832ACE01B423992";
+    private const string ExpectedGenesisHash = "B44F8F4B615407A38E782479A21EE420D5A5BCB72C50FC11944496A4D903193D";
+    private const string ExpectedFinalHash = "C4281EECB118F6FBF98FC35023506E6B2B2650DF8B4C6E1C4AE0E2FA89B74863";
 
     // Gate: GATE.S2_5.WGEN.NSEED.001 (N-seed batch invariants v0)
     // Golden is SHA256 over the emitted INVARIANTS_BATCH_V0 summary (UTF8), to prevent silent format churn.

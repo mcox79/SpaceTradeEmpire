@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using SimCore.Content;
@@ -1174,5 +1176,102 @@ public static class IntelSystem
         };
 
         _ = discoveryId; // reserved for future hint enrichment; not gameplay-affecting in v0
+    }
+
+    // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Update consecutive observation ticks at player's current node.
+    // Called each tick. Increments counter for current node, resets all others.
+    public static void UpdateNodeObservation(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel is null) state.Intel = new IntelBook();
+
+        var playerNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(playerNode)) return;
+
+        // Increment current node's observation ticks.
+        state.Intel.NodeObservationTicks.TryGetValue(playerNode, out var current);
+        state.Intel.NodeObservationTicks[playerNode] = current + 1;
+
+        // Reset all other nodes' observation ticks (player left).
+        var keysToRemove = new List<string>();
+        foreach (var kv in state.Intel.NodeObservationTicks)
+        {
+            if (!string.Equals(kv.Key, playerNode, StringComparison.Ordinal))
+                keysToRemove.Add(kv.Key);
+        }
+        foreach (var key in keysToRemove)
+            state.Intel.NodeObservationTicks.Remove(key);
+    }
+
+    // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Progressive warfront intel tier for a node.
+    // Tier 0: no intel (not in sensor range).
+    // Tier 1 (Presence): node is within scan range — warfront existence detected.
+    // Tier 2 (Composition): player has visited the node — fleet strength visible.
+    // Tier 3 (Strategic): player has observed node for N+ consecutive ticks — supply + strategic value.
+    public static int GetWarfrontIntelLevel(SimState state, string nodeId)
+    {
+        if (state is null || string.IsNullOrEmpty(nodeId)) return 0;
+
+        var playerNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(playerNode)) return 0;
+
+        // Tier 3: sustained observation at this node.
+        if (string.Equals(playerNode, nodeId, StringComparison.Ordinal))
+        {
+            if (state.Intel?.NodeObservationTicks != null &&
+                state.Intel.NodeObservationTicks.TryGetValue(nodeId, out var obs) &&
+                obs >= IntelTweaksV0.WarfrontIntelTier3ObservationTicks)
+                return IntelTweaksV0.WarfrontIntelTier3;
+        }
+
+        // Tier 2: player has previously visited this node.
+        if (state.PlayerVisitedNodeIds.Contains(nodeId))
+            return IntelTweaksV0.WarfrontIntelTier2;
+
+        // Tier 1: node is within sensor range of player's current position.
+        int scanRange = GetScanRange(state);
+        if (scanRange > 0 && IsWithinRange(state, playerNode, nodeId, scanRange))
+            return IntelTweaksV0.WarfrontIntelTier1;
+
+        return 0;
+    }
+
+    // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Check if targetNode is within hop range of sourceNode.
+    private static bool IsWithinRange(SimState state, string sourceNode, string targetNode, int maxHops)
+    {
+        if (string.Equals(sourceNode, targetNode, StringComparison.Ordinal)) return true;
+        if (maxHops <= 0) return false;
+
+        // BFS up to maxHops.
+        var visited = new HashSet<string>(StringComparer.Ordinal) { sourceNode };
+        var frontier = new List<string> { sourceNode };
+
+        for (int hop = 0; hop < maxHops; hop++)
+        {
+            var nextFrontier = new List<string>();
+            foreach (var node in frontier)
+            {
+                foreach (var edgeKvp in state.Edges)
+                {
+                    var edge = edgeKvp.Value;
+                    string? neighbor = null;
+                    if (string.Equals(edge.FromNodeId, node, StringComparison.Ordinal))
+                        neighbor = edge.ToNodeId;
+                    else if (string.Equals(edge.ToNodeId, node, StringComparison.Ordinal))
+                        neighbor = edge.FromNodeId;
+
+                    if (neighbor != null && visited.Add(neighbor))
+                    {
+                        if (string.Equals(neighbor, targetNode, StringComparison.Ordinal))
+                            return true;
+                        nextFrontier.Add(neighbor);
+                    }
+                }
+            }
+            frontier = nextFrontier;
+            if (frontier.Count == 0) break;
+        }
+
+        return false;
     }
 }

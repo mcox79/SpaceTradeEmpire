@@ -52,6 +52,8 @@ func _build_ui() -> void:
 		["E", "Empire Dashboard"],
 		["Tab", "Galaxy Map Overlay"],
 		["H", "Help (this panel)"],
+		["J", "Mission Journal"],
+		["K", "Discovery Web"],
 		["L", "Combat Log"],
 		["Esc", "Pause Menu"],
 		["R", "Restart (when dead)"],

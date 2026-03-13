@@ -27,6 +27,12 @@ public static class WarfrontEvolutionSystem
             {
                 ProcessHotWar(wf, age, state.Tick);
             }
+
+            // GATE.S7.WARFRONT.ATTRITION.001: Fleet attrition at Skirmish+ intensity.
+            ApplyFleetAttrition(state, wf);
+
+            // GATE.S7.WARFRONT.OBJECTIVES.001: Process strategic objective capture.
+            ProcessObjectives(wf);
         }
     }
 
@@ -72,6 +78,114 @@ public static class WarfrontEvolutionSystem
             if (wf.Intensity > WarfrontIntensity.Peace)
                 wf.Intensity = (WarfrontIntensity)((int)wf.Intensity - 1); // STRUCTURAL: -1 intensity step
         }
+    }
+
+    // GATE.S7.WARFRONT.ATTRITION.001: Apply fleet strength attrition based on intensity + supply.
+    // At Skirmish+, both combatant fleets lose BaseAttritionPerTick * (intensity - 1).
+    // If a combatant has no recent supply (no WarSupplyLedger entries), add UnsuppliedAttritionBonus.
+    // When fleet strength hits 0, force de-escalation.
+    public static void ApplyFleetAttrition(SimState state, WarfrontState wf)
+    {
+        if (wf is null) return;
+        int intensity = (int)wf.Intensity;
+        if (intensity < WarfrontTweaksV0.AttritionMinIntensity) return;
+
+        int baseAttrition = WarfrontTweaksV0.BaseAttritionPerTick * (intensity - 1);
+
+        // Check supply status for each combatant.
+        bool aSupplied = HasRecentSupply(state, wf.Id, wf.CombatantA);
+        bool bSupplied = HasRecentSupply(state, wf.Id, wf.CombatantB);
+
+        int attritionA = baseAttrition + (aSupplied ? 0 : WarfrontTweaksV0.UnsuppliedAttritionBonus);
+        int attritionB = baseAttrition + (bSupplied ? 0 : WarfrontTweaksV0.UnsuppliedAttritionBonus);
+
+        wf.FleetStrengthA = Math.Max(0, wf.FleetStrengthA - attritionA);
+        wf.FleetStrengthB = Math.Max(0, wf.FleetStrengthB - attritionB);
+
+        // If either fleet is depleted, de-escalate.
+        if (wf.FleetStrengthA <= 0 || wf.FleetStrengthB <= 0)
+        {
+            if (wf.Intensity > WarfrontIntensity.Tension)
+                wf.Intensity = WarfrontIntensity.Tension;
+        }
+    }
+
+    // GATE.S7.WARFRONT.ATTRITION.001: Restore fleet strength from supply deliveries.
+    // Called from supply delivery logic to restore strength when goods are delivered.
+    public static void RestoreFleetStrength(WarfrontState wf, string factionId, int amount)
+    {
+        if (wf is null || string.IsNullOrEmpty(factionId)) return;
+        int restore = amount * WarfrontTweaksV0.SupplyRestorePerDelivery;
+
+        if (string.Equals(factionId, wf.CombatantA, StringComparison.Ordinal))
+            wf.FleetStrengthA = Math.Min(WarfrontTweaksV0.MaxFleetStrength, wf.FleetStrengthA + restore);
+        else if (string.Equals(factionId, wf.CombatantB, StringComparison.Ordinal))
+            wf.FleetStrengthB = Math.Min(WarfrontTweaksV0.MaxFleetStrength, wf.FleetStrengthB + restore);
+    }
+
+    // Check if a faction has any supply delivery for this warfront.
+    private static bool HasRecentSupply(SimState state, string warfrontId, string factionId)
+    {
+        if (state.WarSupplyLedger is null) return false;
+        if (!state.WarSupplyLedger.TryGetValue(warfrontId, out var goods)) return false;
+        // If any good has been delivered, faction is considered supplied.
+        // In practice, checking total delivery > 0 is sufficient.
+        foreach (var kv in goods)
+        {
+            if (kv.Value > 0) return true;
+        }
+        return false;
+    }
+
+    // GATE.S7.WARFRONT.OBJECTIVES.001: Process strategic objective capture + factory regen.
+    // Dominant faction (by fleet strength) accumulates DominanceTicks.
+    // At CaptureDominanceTicks, objective is captured by that faction.
+    // Factory objectives regen fleet strength for the controlling faction each tick.
+    public static void ProcessObjectives(WarfrontState wf)
+    {
+        if (wf is null || wf.Objectives is null || wf.Objectives.Count == 0) return;
+
+        string dominant = GetDominantFaction(wf);
+
+        foreach (var obj in wf.Objectives)
+        {
+            if (!string.IsNullOrEmpty(dominant))
+            {
+                if (string.Equals(obj.DominantFactionId, dominant, StringComparison.Ordinal))
+                {
+                    obj.DominanceTicks++;
+                }
+                else
+                {
+                    obj.DominantFactionId = dominant;
+                    obj.DominanceTicks = 1;
+                }
+
+                if (obj.DominanceTicks >= WarfrontTweaksV0.CaptureDominanceTicks &&
+                    !string.Equals(obj.ControllingFactionId, dominant, StringComparison.Ordinal))
+                {
+                    obj.ControllingFactionId = dominant;
+                }
+            }
+
+            // Factory bonus: controlling faction gets fleet regen each tick.
+            if (obj.Type == ObjectiveType.Factory && !string.IsNullOrEmpty(obj.ControllingFactionId))
+            {
+                if (string.Equals(obj.ControllingFactionId, wf.CombatantA, StringComparison.Ordinal))
+                    wf.FleetStrengthA = Math.Min(WarfrontTweaksV0.MaxFleetStrength, wf.FleetStrengthA + WarfrontTweaksV0.FactoryRegenPerTick);
+                else if (string.Equals(obj.ControllingFactionId, wf.CombatantB, StringComparison.Ordinal))
+                    wf.FleetStrengthB = Math.Min(WarfrontTweaksV0.MaxFleetStrength, wf.FleetStrengthB + WarfrontTweaksV0.FactoryRegenPerTick);
+            }
+        }
+    }
+
+    // GATE.S7.WARFRONT.OBJECTIVES.001: Determine which faction is dominant by fleet strength.
+    public static string GetDominantFaction(WarfrontState wf)
+    {
+        if (wf is null) return "";
+        if (wf.FleetStrengthA > wf.FleetStrengthB) return wf.CombatantA;
+        if (wf.FleetStrengthB > wf.FleetStrengthA) return wf.CombatantB;
+        return ""; // Tied — no dominant faction.
     }
 
     // STRUCTURAL: FNV-1a hash for deterministic pseudo-random decisions.

@@ -100,6 +100,12 @@ SimCore/Gen/GalaxyGenerator.cs:16777619
 # GATE.S6.OUTCOME.REWARD_MODEL.001: structural literals (array index parts[1], format check parts.Length >= 2)
 SimCore/Systems/DiscoveryOutcomeSystem.cs:1
 SimCore/Systems/DiscoveryOutcomeSystem.cs:2
+# GATE.S7.REVEALS.DISCOVERY_REVEAL.001: structural zero (Count == 0 empty check)
+SimCore/Systems/DiscoveryOutcomeSystem.cs:0
+
+# GATE.S9.MISSION_EVOL.FAILURE.001: structural literals (CurrentStepIndex = 0/+1, MissionDeadlineTick = 0 reset)
+SimCore/Systems/MissionSystem.cs:0
+SimCore/Systems/MissionSystem.cs:1
 
 # GATE.S15.FEEL.JUMP_EVENT_SYS.001: structural literals (empty checks, clamp floors, hash prime)
 SimCore/Systems/JumpEventSystem.cs:0

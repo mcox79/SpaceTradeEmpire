@@ -858,7 +858,7 @@ public sealed class StrategicResolverTests
 		// NOTE: Update this value if the resolver algorithm is intentionally changed.
 		// To find the current hash, run the test with goldenLocked=false and read the output.
 		// GATE.S5.COMBAT.REPLAY_PROOF.001: Golden hash locked.
-		const string GoldenHash = "d494ba68dbdf9b4ab05e663e72f2b2c8993e948207d2db3eac2cb8f8507f675c";
+		const string GoldenHash = "3793469812a89366b188c9c09896e33f17ca3353269a393d3ca7f95148bf4228";
 		Assert.That(hash1, Is.EqualTo(GoldenHash), "Frame hash must match golden value");
 	}
 }
