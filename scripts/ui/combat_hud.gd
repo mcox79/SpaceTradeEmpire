@@ -1,5 +1,7 @@
 # scripts/ui/combat_hud.gd
 # GATE.S7.RUNTIME_STABILITY.COMBAT_HUD.001: Zone armor bars + combat stance display.
+# GATE.S7.COMBAT_DEPTH2.HUD.001: Tracking accuracy per weapon, armor pen indicator,
+# pre-combat projection panel.
 # Fixes C8 (zone armor invisible) and C9 (no combat HUD).
 extends Control
 
@@ -9,6 +11,11 @@ var _stance_label: Label = null
 # GATE.S7.COMBAT_PHASE2.ZONE_HUD.001: Spin RPM + radiator status display.
 var _spin_label: Label = null
 var _radiator_label: Label = null
+# GATE.S7.COMBAT_DEPTH2.HUD.001: Weapon tracking + projection displays.
+var _tracking_container: VBoxContainer = null
+var _projection_label: Label = null
+# GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Capturable targets display.
+var _capture_container: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -84,6 +91,23 @@ func _build_ui() -> void:
 	_radiator_label.add_theme_color_override("font_color", UITheme.GREEN)
 	vbox.add_child(_radiator_label)
 
+	# GATE.S7.COMBAT_DEPTH2.HUD.001: Pre-combat projection display.
+	_projection_label = Label.new()
+	_projection_label.text = ""
+	_projection_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_projection_label.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+	vbox.add_child(_projection_label)
+
+	# GATE.S7.COMBAT_DEPTH2.HUD.001: Weapon tracking details container.
+	_tracking_container = VBoxContainer.new()
+	_tracking_container.add_theme_constant_override("separation", 1)
+	vbox.add_child(_tracking_container)
+
+	# GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Capturable targets section.
+	_capture_container = VBoxContainer.new()
+	_capture_container.add_theme_constant_override("separation", 2)
+	vbox.add_child(_capture_container)
+
 func refresh_v0() -> void:
 	if _bridge == null:
 		_bridge = get_tree().root.get_node_or_null("SimBridge")
@@ -104,7 +128,7 @@ func refresh_v0() -> void:
 		var rpm: int = spin.get("spin_rpm", 0)
 		var penalty_bps: int = spin.get("turn_penalty_bps", 0)
 		if _spin_label:
-			_spin_label.text = "SPIN: %d RPM (%d%% penalty)" % [rpm, penalty_bps / 100]
+			_spin_label.text = "SPIN: %d RPM (%d%% penalty)" % [rpm, int(penalty_bps / 100.0)]
 			if penalty_bps > 3000:
 				_spin_label.add_theme_color_override("font_color", UITheme.RED)
 			elif penalty_bps > 1000:
@@ -138,6 +162,123 @@ func refresh_v0() -> void:
 			"evasive": _stance_label.add_theme_color_override("font_color", UITheme.GREEN)
 			_: _stance_label.add_theme_color_override("font_color", UITheme.CYAN)
 
+	# GATE.S7.COMBAT_DEPTH2.HUD.001: Pre-combat projection.
+	_update_projection_v0()
+
+	# GATE.S7.COMBAT_DEPTH2.HUD.001: Weapon tracking details.
+	_update_tracking_v0()
+
+	# GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Capturable targets.
+	_update_capture_targets_v0()
+
+# GATE.S7.COMBAT_DEPTH2.HUD.001: Show combat projection against current target.
+func _update_projection_v0() -> void:
+	if _projection_label == null:
+		return
+	if _bridge == null or not _bridge.has_method("GetCombatStatusV0"):
+		_projection_label.text = ""
+		return
+
+	var status: Dictionary = _bridge.call("GetCombatStatusV0")
+	var in_combat: bool = status.get("in_combat", false)
+	var opponent_id: String = str(status.get("opponent_id", ""))
+
+	if not in_combat or opponent_id.is_empty():
+		_projection_label.text = ""
+		return
+
+	if not _bridge.has_method("GetCombatProjectionV0"):
+		_projection_label.text = ""
+		return
+
+	var proj: Dictionary = _bridge.call("GetCombatProjectionV0", "fleet_trader_1", opponent_id)
+	var outcome: String = str(proj.get("outcome", "stalemate"))
+	var atk_loss: int = int(proj.get("attacker_loss_pct", 0))
+	var def_loss: int = int(proj.get("defender_loss_pct", 0))
+	var rounds: int = int(proj.get("estimated_rounds", 0))
+
+	_projection_label.text = "PROJ: %s  You:-%d%%  Them:-%d%%  ~%d rds" % [
+		outcome.to_upper(), atk_loss, def_loss, rounds
+	]
+
+	match outcome:
+		"victory": _projection_label.add_theme_color_override("font_color", UITheme.GREEN)
+		"defeat": _projection_label.add_theme_color_override("font_color", UITheme.RED)
+		"pyrrhic": _projection_label.add_theme_color_override("font_color", UITheme.ORANGE)
+		_: _projection_label.add_theme_color_override("font_color", UITheme.YELLOW)
+
+# GATE.S7.COMBAT_DEPTH2.HUD.001: Show per-weapon tracking accuracy and armor pen.
+func _update_tracking_v0() -> void:
+	if _tracking_container == null:
+		return
+
+	# Clear old rows.
+	for child in _tracking_container.get_children():
+		child.queue_free()
+
+	if _bridge == null or not _bridge.has_method("GetWeaponTrackingV0"):
+		return
+
+	var weapons: Array = _bridge.call("GetWeaponTrackingV0", "fleet_trader_1")
+	if weapons.size() == 0:
+		return
+
+	# Header row.
+	var header := Label.new()
+	header.text = "WEAPON TRACKING"
+	header.add_theme_font_size_override("font_size", 10)
+	header.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	_tracking_container.add_child(header)
+
+	for wep in weapons:
+		var _slot_id: String = str(wep.get("slot_id", "?"))
+		var module_id: String = str(wep.get("module_id", "?"))
+		var hit_pct: int = int(wep.get("hit_pct", 0))
+		var armor_pen_bps: int = int(wep.get("armor_pen_bps", 0))
+
+		# Use short module name (strip prefix).
+		var display_name: String = module_id
+		if display_name.begins_with("weapon_"):
+			display_name = display_name.substr(7)
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+
+		var name_lbl := Label.new()
+		name_lbl.text = display_name
+		name_lbl.custom_minimum_size = Vector2(90, 0)
+		name_lbl.add_theme_font_size_override("font_size", 10)
+		name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		name_lbl.clip_text = true
+		row.add_child(name_lbl)
+
+		# Hit chance indicator.
+		var hit_lbl := Label.new()
+		hit_lbl.text = "%d%% hit" % hit_pct
+		hit_lbl.custom_minimum_size = Vector2(50, 0)
+		hit_lbl.add_theme_font_size_override("font_size", 10)
+		if hit_pct >= 70:
+			hit_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		elif hit_pct >= 40:
+			hit_lbl.add_theme_color_override("font_color", UITheme.YELLOW)
+		else:
+			hit_lbl.add_theme_color_override("font_color", UITheme.RED)
+		row.add_child(hit_lbl)
+
+		# Armor pen indicator.
+		var pen_pct: int = int(armor_pen_bps / 100.0)
+		var pen_lbl := Label.new()
+		pen_lbl.text = "%d%% pen" % pen_pct
+		pen_lbl.custom_minimum_size = Vector2(50, 0)
+		pen_lbl.add_theme_font_size_override("font_size", 10)
+		if pen_pct >= 50:
+			pen_lbl.add_theme_color_override("font_color", UITheme.CYAN)
+		else:
+			pen_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		row.add_child(pen_lbl)
+
+		_tracking_container.add_child(row)
+
 func _update_zone(zone: String, hp: int, hp_max: int) -> void:
 	if not _zone_bars.has(zone):
 		return
@@ -159,3 +300,63 @@ func _update_zone(zone: String, hp: int, hp_max: int) -> void:
 	else:
 		fill.bg_color = UITheme.RED
 		lbl.add_theme_color_override("font_color", UITheme.RED)
+
+# GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Show capturable NPC targets (hull < 10%).
+func _update_capture_targets_v0() -> void:
+	if _capture_container == null:
+		return
+	for child in _capture_container.get_children():
+		child.queue_free()
+
+	if _bridge == null or not _bridge.has_method("GetCaptureTargetsV0"):
+		return
+
+	var targets: Array = _bridge.call("GetCaptureTargetsV0")
+	if targets.size() == 0:
+		return
+
+	var header := Label.new()
+	header.text = "CAPTURE TARGETS"
+	header.add_theme_font_size_override("font_size", 10)
+	header.add_theme_color_override("font_color", UITheme.ORANGE)
+	_capture_container.add_child(header)
+
+	for t in targets:
+		var fleet_id: String = str(t.get("fleet_id", "?"))
+		var hull_pct: int = int(t.get("hull_pct", 0))
+		var role: String = str(t.get("role", "?"))
+		var can_capture: bool = bool(t.get("can_capture", false))
+		var reason: String = str(t.get("reason", ""))
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+
+		var info := Label.new()
+		info.text = "%s (%s) %d%% hull" % [fleet_id, role, hull_pct]
+		info.add_theme_font_size_override("font_size", 10)
+		info.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.clip_text = true
+		row.add_child(info)
+
+		if can_capture:
+			var btn := Button.new()
+			btn.text = "Capture"
+			btn.pressed.connect(_on_capture_ship.bind(fleet_id))
+			row.add_child(btn)
+		else:
+			var block := Label.new()
+			block.text = reason
+			block.add_theme_font_size_override("font_size", 10)
+			block.add_theme_color_override("font_color", UITheme.RED)
+			row.add_child(block)
+
+		_capture_container.add_child(row)
+
+func _on_capture_ship(target_fleet_id: String) -> void:
+	if _bridge and _bridge.has_method("CaptureShipV0"):
+		var result: Dictionary = _bridge.call("CaptureShipV0", target_fleet_id)
+		if result.get("success", false):
+			print("CAPTURE|SUCCESS|%s" % str(result.get("captured_fleet_id", "")))
+		else:
+			print("CAPTURE|FAIL|%s" % str(result.get("reason", "")))

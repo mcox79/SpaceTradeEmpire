@@ -6,6 +6,7 @@ using SimCore.Entities;
 using SimCore.Schemas;
 using SimCore.Content;
 using SimCore.Gen;
+using SimCore.Systems;
 
 namespace SimCore.World;
 
@@ -172,6 +173,11 @@ public static class WorldLoader
                 };
 
                 state.Fleets.Add(playerFleetId, f);
+
+                // Initialize combat stats so hull/shield are valid from tick 0.
+                // Previously deferred to GalaxyView.SpawnFleetsV0 (presentation layer),
+                // causing HUD to show broken hull values at game start.
+                CombatSystem.InitFleetCombatStats(f, isPlayer: true);
             }
         }
 

@@ -81,6 +81,19 @@ public static class UpgradeContentV0
             DamageBonusPct = 0,
             SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = 1, [WellKnownGoodIds.Fuel] = 1 },
         },
+        // GATE.S8.LATTICE_DRONES.ENTITY.001: Lattice drone weapon (NPC-only, not purchasable)
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.WeaponLatticePulse,
+            DisplayName = "Lattice Pulse",
+            SlotKind = SlotKind.Weapon,
+            CreditCost = 0,
+            TechPrerequisite = "",
+            InstallTicks = 0,
+            PowerDraw = 5,
+            DamageBonusPct = 0,
+            SustainInputs = new Dictionary<string, int>(),
+        },
         // Tech-gated upgrades
         new ModuleDef
         {

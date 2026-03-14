@@ -118,19 +118,19 @@ func run_audit_v0(report: Dictionary) -> Array:
 		not zero_glow or emission_count == 0,
 		"all_emission_energy_zero=%s" % str(zero_glow)))
 
-	# 11. CAMERA_TOO_FAR: camera > 500 units from origin (skip during galaxy overlay)
+	# 11. CAMERA_TOO_FAR: camera altitude (Y) > 500 units (skip during galaxy overlay)
 	var cam_pos: String = str(camera.get("position", "(0.0, 0.0, 0.0)"))
-	var cam_dist := _parse_vec3_magnitude(cam_pos)
+	var cam_altitude := _parse_vec3_y(cam_pos)
 	var galaxy: Dictionary = report.get("galaxy", {})
 	var galaxy_open: bool = galaxy.get("galaxy_overlay_open", false)
 	results.append(_flag("CAMERA_TOO_FAR", Severity.WARNING,
-		cam_dist < 500.0 or not camera.get("found", false) or galaxy_open,
-		"distance=%.1f" % cam_dist))
+		cam_altitude < 500.0 or not camera.get("found", false) or galaxy_open,
+		"distance=%.1f" % cam_altitude))
 
-	# 12. CAMERA_TOO_CLOSE: camera < 1 unit from origin
+	# 12. CAMERA_TOO_CLOSE: camera altitude < 10 units
 	results.append(_flag("CAMERA_TOO_CLOSE", Severity.WARNING,
-		cam_dist > 1.0 or not camera.get("found", false),
-		"distance=%.1f" % cam_dist))
+		cam_altitude > 10.0 or not camera.get("found", false),
+		"distance=%.1f" % cam_altitude))
 
 	# 13. NO_LABEL3D: no Label3D nodes in scene (stations/fleets should have names)
 	var label3d_count: int = int(scene.get("label3d_count", 0))
@@ -147,6 +147,19 @@ func run_audit_v0(report: Dictionary) -> Array:
 	results.append(_flag("ALL_SAME_REGION_COLOR", Severity.WARNING,
 		unique_albedos.size() != 1 or scene_stations <= 1,
 		"unique_station_colors=%d" % unique_albedos.size()))
+
+	# 15. FPS_FLOOR: check if performance data indicates sub-30 FPS
+	var perf: Dictionary = report.get("performance", {})
+	var fps_min: float = perf.get("fps_min", 60.0)
+	results.append(_flag("FPS_FLOOR", Severity.WARNING,
+		fps_min >= 30.0 or perf.is_empty(),
+		"fps_min=%.1f" % fps_min))
+
+	# 16. CONTENT_JARGON: dev strings leaked into visible UI
+	var jargon_count: int = int(perf.get("jargon_flags", 0))
+	results.append(_flag("CONTENT_JARGON", Severity.WARNING,
+		jargon_count == 0,
+		"jargon_flags=%d" % jargon_count))
 
 	return results
 
@@ -206,6 +219,14 @@ func _parse_vec3_magnitude(s: String) -> float:
 	var y := float(parts[1].strip_edges())
 	var z := float(parts[2].strip_edges())
 	return sqrt(x * x + y * y + z * z)
+
+
+func _parse_vec3_y(s: String) -> float:
+	var clean := s.replace("(", "").replace(")", "").strip_edges()
+	var parts := clean.split(",")
+	if parts.size() < 2:
+		return 0.0
+	return absf(float(parts[1].strip_edges()))
 
 
 func _has_type_in_tree(report: Dictionary, type_name: String) -> bool:

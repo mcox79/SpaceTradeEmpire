@@ -402,6 +402,457 @@ public sealed class HavenTests
         Assert.That(tpl, Is.Null);
     }
 
+    // --- GATE.S8.HAVEN.KEEPER.001: Keeper progression tests ---
+
+    [Test]
+    public void Keeper_StartsDormant()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Dormant));
+    }
+
+    [Test]
+    public void Keeper_AdvancesToAware_OnExoticMatterDelivery()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.ExoticMatterDelivered = HavenTweaksV0.KeeperAwareExoticMatter;
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Aware));
+    }
+
+    [Test]
+    public void Keeper_AdvancesToGuiding_WhenFragmentsAndExotic()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.ExoticMatterDelivered = HavenTweaksV0.KeeperGuidingExoticMatter;
+        kernel.State.Haven.InstalledFragmentIds.Add("frag_1");
+        kernel.State.Haven.InstalledFragmentIds.Add("frag_2");
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Guiding));
+    }
+
+    [Test]
+    public void Keeper_AdvancesToCommunicating_WhenAllThresholdsMet()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.ExoticMatterDelivered = HavenTweaksV0.KeeperCommunicatingExoticMatter;
+        for (int i = 0; i < HavenTweaksV0.KeeperCommunicatingFragments; i++)
+            kernel.State.Haven.InstalledFragmentIds.Add($"frag_{i}");
+        kernel.State.Haven.DataLogsDiscovered = HavenTweaksV0.KeeperCommunicatingDataLogs;
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Communicating));
+    }
+
+    [Test]
+    public void Keeper_AdvancesToAwakened_WhenFullyInvested()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.ExoticMatterDelivered = HavenTweaksV0.KeeperAwakenedExoticMatter;
+        for (int i = 0; i < HavenTweaksV0.KeeperAwakenedFragments; i++)
+            kernel.State.Haven.InstalledFragmentIds.Add($"frag_{i}");
+        kernel.State.Haven.DataLogsDiscovered = HavenTweaksV0.KeeperAwakenedDataLogs;
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Awakened));
+    }
+
+    [Test]
+    public void Keeper_DoesNotRegress()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.ExoticMatterDelivered = HavenTweaksV0.KeeperAwareExoticMatter;
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Aware));
+
+        // Remove exotic matter — Keeper should NOT regress.
+        kernel.State.Haven.ExoticMatterDelivered = 0;
+        kernel.Step();
+        Assert.That(kernel.State.Haven.KeeperLevel, Is.EqualTo(KeeperTier.Aware));
+    }
+
+    // --- GATE.S8.HAVEN.RESONANCE.001: Resonance Chamber tests ---
+
+    private void SetupResonancePairCollected(SimState state, string pairId)
+    {
+        var pair = AdaptationFragmentContentV0.GetPairById(pairId)!;
+        state.AdaptationFragments[pair.FragmentA] = new AdaptationFragment
+        {
+            FragmentId = pair.FragmentA, CollectedTick = 1, ResonancePairId = pairId
+        };
+        state.AdaptationFragments[pair.FragmentB] = new AdaptationFragment
+        {
+            FragmentId = pair.FragmentB, CollectedTick = 2, ResonancePairId = pairId
+        };
+    }
+
+    [Test]
+    public void Resonance_CombineSuccess_WhenTierAndFragmentsMet()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded; // Tier 4
+        SetupResonancePairCollected(state, "pair_01");
+
+        var result = AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.PairId, Is.EqualTo("pair_01"));
+        Assert.That(result.BonusDescription, Is.Not.Empty);
+        Assert.That(state.Haven.ActivatedResonancePairs, Does.Contain("pair_01"));
+    }
+
+    [Test]
+    public void Resonance_RejectsTierTooLow()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Operational; // Tier 3, needs 4
+        SetupResonancePairCollected(state, "pair_01");
+
+        var result = AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("tier_too_low"));
+    }
+
+    [Test]
+    public void Resonance_RejectsCooldown()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        state.Haven.ResonanceCooldownUntilTick = state.Tick + 100;
+        SetupResonancePairCollected(state, "pair_01");
+
+        var result = AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("cooldown_active"));
+    }
+
+    [Test]
+    public void Resonance_RejectsAlreadyActivated()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        SetupResonancePairCollected(state, "pair_01");
+
+        // First combine succeeds.
+        AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        // Reset cooldown for second attempt.
+        state.Haven.ResonanceCooldownUntilTick = 0;
+
+        var result = AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("already_activated"));
+    }
+
+    [Test]
+    public void Resonance_RejectsFragmentsNotCollected()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        // Don't set up fragments — they're not collected.
+
+        var result = AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("fragments_not_collected"));
+    }
+
+    [Test]
+    public void Resonance_GetAvailablePairs_ExcludesActivated()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        SetupResonancePairCollected(state, "pair_01");
+        SetupResonancePairCollected(state, "pair_02");
+
+        var available = AdaptationFragmentSystem.GetAvailableResonancePairs(state);
+        Assert.That(available, Does.Contain("pair_01"));
+        Assert.That(available, Does.Contain("pair_02"));
+
+        // Activate pair_01.
+        AdaptationFragmentSystem.CombineResonancePair(state, "pair_01");
+
+        available = AdaptationFragmentSystem.GetAvailableResonancePairs(state);
+        Assert.That(available, Does.Not.Contain("pair_01"));
+        Assert.That(available, Does.Contain("pair_02"));
+    }
+
+    // --- GATE.S8.HAVEN.FABRICATOR.001: Fabricator tests ---
+
+    [Test]
+    public void Fabricator_StartSuccess_WhenTierAndCredits()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        state.PlayerCredits = HavenTweaksV0.FabricateExoticMatterCost + 100;
+
+        var result = HavenFabricatorSystem.StartFabrication(state, "mod_test_t3");
+        Assert.That(result.Success, Is.True);
+        Assert.That(state.Haven.FabricatingModuleId, Is.EqualTo("mod_test_t3"));
+        Assert.That(state.Haven.FabricationTicksRemaining, Is.EqualTo(HavenTweaksV0.FabricateDurationTicks));
+        Assert.That(state.PlayerCredits, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void Fabricator_RejectsTierTooLow()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Operational;
+        state.PlayerCredits = 10000;
+
+        var result = HavenFabricatorSystem.StartFabrication(state, "mod_test_t3");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("tier_too_low"));
+    }
+
+    [Test]
+    public void Fabricator_RejectsInsufficientCredits()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        state.PlayerCredits = HavenTweaksV0.FabricateExoticMatterCost - 1;
+
+        var result = HavenFabricatorSystem.StartFabrication(state, "mod_test_t3");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("insufficient_exotic_matter"));
+    }
+
+    [Test]
+    public void Fabricator_RejectsAlreadyInProgress()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        state.PlayerCredits = 10000;
+
+        HavenFabricatorSystem.StartFabrication(state, "mod_a");
+        var result = HavenFabricatorSystem.StartFabrication(state, "mod_b");
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Reason, Is.EqualTo("fabrication_in_progress"));
+    }
+
+    [Test]
+    public void Fabricator_CompletesAfterDurationTicks()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Expanded;
+        state.PlayerCredits = 10000;
+
+        HavenFabricatorSystem.StartFabrication(state, "mod_test_t3");
+
+        // Step through fabrication duration.
+        for (int i = 0; i < HavenTweaksV0.FabricateDurationTicks; i++)
+            kernel.Step();
+
+        Assert.That(state.Haven.FabricatingModuleId, Is.Null);
+        Assert.That(state.Haven.FabricationTicksRemaining, Is.EqualTo(0));
+        Assert.That(state.Haven.CompletedFabricationIds, Does.Contain("mod_test_t3"));
+    }
+
+    // --- GATE.S8.HAVEN.MARKET_EVOLUTION.001: Market evolution tests ---
+
+    [Test]
+    public void HavenMarket_RestocksOnInterval()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Inhabited; // Tier 2
+
+        // Manually create Haven market.
+        SimCore.Gen.GalaxyGenerator.RefreshHavenMarketV0(state, state.Haven.Tier);
+        Assert.That(state.Markets.ContainsKey(state.Haven.MarketId), Is.True);
+
+        var mkt = state.Markets[state.Haven.MarketId];
+        // Drain fuel stock (stocked at Tier 2).
+        mkt.Inventory["fuel"] = 0;
+
+        // Step to next restock interval.
+        for (int i = 0; i < HavenTweaksV0.MarketRestockIntervalTicks; i++)
+            kernel.Step();
+
+        // Market should have restocked fuel.
+        Assert.That(mkt.Inventory["fuel"], Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void HavenMarket_DoesNotRestockBeforeInterval()
+    {
+        var kernel = CreateKernel();
+        var state = kernel.State;
+        state.Haven.Discovered = true;
+        state.Haven.Tier = HavenTier.Inhabited;
+
+        SimCore.Gen.GalaxyGenerator.RefreshHavenMarketV0(state, state.Haven.Tier);
+        var mkt = state.Markets[state.Haven.MarketId];
+        mkt.Inventory["fuel"] = 0;
+
+        // First step at tick=0 restocks (0%50==0). Advance past that.
+        kernel.Step(); // tick 0→1, restocks fuel
+        mkt.Inventory["fuel"] = 0; // drain again after tick-0 restock
+
+        // Step fewer ticks than interval — next restock at tick 50, we're at tick 1.
+        for (int i = 0; i < HavenTweaksV0.MarketRestockIntervalTicks - 2; i++)
+            kernel.Step();
+
+        // Still haven't reached tick 50, so no restock.
+        Assert.That(mkt.Inventory["fuel"], Is.EqualTo(0));
+    }
+
+    // --- GATE.S8.HAVEN.ENDGAME_PATHS.001: Endgame path tests ---
+
+    [Test]
+    public void ChooseEndgamePath_Success_AtTier4()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Expanded;
+
+        var result = HavenEndgameSystem.ChooseEndgamePath(kernel.State, EndgamePath.Reinforce);
+        Assert.That(result, Is.True);
+        Assert.That(kernel.State.Haven.ChosenEndgamePath, Is.EqualTo(EndgamePath.Reinforce));
+    }
+
+    [Test]
+    public void ChooseEndgamePath_Fails_BelowTier4()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Operational;
+
+        var result = HavenEndgameSystem.ChooseEndgamePath(kernel.State, EndgamePath.Naturalize);
+        Assert.That(result, Is.False);
+        Assert.That(kernel.State.Haven.ChosenEndgamePath, Is.EqualTo(EndgamePath.None));
+    }
+
+    [Test]
+    public void ChooseEndgamePath_Fails_WhenAlreadyChosen()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Expanded;
+
+        HavenEndgameSystem.ChooseEndgamePath(kernel.State, EndgamePath.Reinforce);
+        var result = HavenEndgameSystem.ChooseEndgamePath(kernel.State, EndgamePath.Naturalize);
+        Assert.That(result, Is.False);
+        Assert.That(kernel.State.Haven.ChosenEndgamePath, Is.EqualTo(EndgamePath.Reinforce));
+    }
+
+    [Test]
+    public void EndgamePath_Reinforce_DriftsConcordRep()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Expanded;
+        kernel.State.Haven.ChosenEndgamePath = EndgamePath.Reinforce;
+        kernel.State.FactionReputation[Tweaks.FactionTweaksV0.ConcordId] = 0;
+
+        // Step to a drift interval tick.
+        for (int i = 0; i < Tweaks.EndgameTweaksV0.PathDriftIntervalTicks; i++)
+            kernel.Step();
+
+        Assert.That(kernel.State.FactionReputation[Tweaks.FactionTweaksV0.ConcordId],
+            Is.GreaterThan(0));
+    }
+
+    // --- GATE.S8.HAVEN.ACCOMMODATION.001: Accommodation thread tests ---
+
+    [Test]
+    public void Accommodation_InitializesThreads_AtTier3()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Operational;
+        kernel.Step();
+
+        foreach (var threadId in AccommodationThreadIds.All)
+            Assert.That(kernel.State.Haven.AccommodationProgress.ContainsKey(threadId), Is.True);
+    }
+
+    [Test]
+    public void Accommodation_DiscoveryThread_AdvancesWithFragments()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Operational;
+        kernel.State.StoryState.CollectedFragmentCount = 5;
+        kernel.Step();
+
+        Assert.That(kernel.State.Haven.AccommodationProgress[AccommodationThreadIds.Discovery],
+            Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void Accommodation_NotInitialized_BelowTier3()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Inhabited;
+        kernel.Step();
+
+        Assert.That(kernel.State.Haven.AccommodationProgress.Count, Is.EqualTo(0));
+    }
+
+    // --- GATE.S8.HAVEN.COMMUNION_REP.001: Communion Representative tests ---
+
+    [Test]
+    public void CommunionRep_Present_WhenTier3AndPositiveRep()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Operational;
+        kernel.State.FactionReputation[Tweaks.FactionTweaksV0.CommunionId] = 10;
+        kernel.Step();
+
+        Assert.That(kernel.State.Haven.CommunionRep.Present, Is.True);
+    }
+
+    [Test]
+    public void CommunionRep_NotPresent_WhenTier2()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Inhabited;
+        kernel.State.FactionReputation[Tweaks.FactionTweaksV0.CommunionId] = 50;
+        kernel.Step();
+
+        Assert.That(kernel.State.Haven.CommunionRep.Present, Is.False);
+    }
+
+    [Test]
+    public void CommunionRep_NotPresent_WhenNegativeRep()
+    {
+        var kernel = CreateKernel();
+        kernel.State.Haven.Discovered = true;
+        kernel.State.Haven.Tier = HavenTier.Operational;
+        kernel.State.FactionReputation[Tweaks.FactionTweaksV0.CommunionId] = -10;
+        kernel.Step();
+
+        Assert.That(kernel.State.Haven.CommunionRep.Present, Is.False);
+    }
+
     private static string GetFirstFleetId(SimState state)
     {
         var e = state.Fleets.Keys.GetEnumerator();

@@ -79,10 +79,20 @@ public static class PlanetInitGen
     private static Planet GeneratePlanet(string nodeId, string worldClass, Star star)
     {
         // 1. Pick planet type from world-class-biased distribution.
+        // GATE.S14.STAR.STARTER_GUARANTEE.001: Start system always gets Terrestrial
+        // (habitable zone, moon-capable, best visual impression).
         uint typeHash = GalaxyGenerator.Fnv1a32Utf8(nodeId + "_planet_type");
-        var typeDist = PlanetContentV0.TypeDistribution.TryGetValue(worldClass, out var td)
-            ? td : PlanetContentV0.DefaultTypeDistribution;
-        var planetType = PickWeighted(typeDist, typeHash);
+        PlanetType planetType;
+        if (nodeId == "star_0")
+        {
+            planetType = PlanetType.Terrestrial;
+        }
+        else
+        {
+            var typeDist = PlanetContentV0.TypeDistribution.TryGetValue(worldClass, out var td)
+                ? td : PlanetContentV0.DefaultTypeDistribution;
+            planetType = PickWeighted(typeDist, typeHash);
+        }
 
         // 2. Derive physical properties from type ranges.
         uint gravHash = GalaxyGenerator.Fnv1a32Utf8(nodeId + "_planet_grav");

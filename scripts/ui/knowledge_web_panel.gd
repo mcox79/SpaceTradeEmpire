@@ -1,5 +1,7 @@
 # scripts/ui/knowledge_web_panel.gd
 # GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Discovery Web panel for the knowledge graph.
+# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Enhanced with connection type labels, source
+# attribution, filter by faction/region.
 # Shows knowledge graph connections grouped by type, with revealed vs unknown status.
 # Toggled via K key.
 extends PanelContainer
@@ -7,6 +9,9 @@ extends PanelContainer
 var _bridge = null
 var _list_container: VBoxContainer = null
 var _stats_label: Label = null
+# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Filter state.
+var _filter_buttons: HBoxContainer = null
+var _active_filter: String = "all"  # "all", or a connection type like "faction", "region", etc.
 
 func _ready() -> void:
 	name = "KnowledgeWebPanel"
@@ -48,7 +53,18 @@ func _ready() -> void:
 	_stats_label.add_theme_color_override("font_color", UITheme.GOLD)
 	root_vbox.add_child(_stats_label)
 
-	# Separator below stats.
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Filter button row.
+	_filter_buttons = HBoxContainer.new()
+	_filter_buttons.add_theme_constant_override("separation", UITheme.SPACE_SM)
+	root_vbox.add_child(_filter_buttons)
+
+	# "All" filter button (always present).
+	var all_btn := Button.new()
+	all_btn.text = "ALL"
+	all_btn.pressed.connect(func(): _set_filter("all"))
+	_filter_buttons.add_child(all_btn)
+
+	# Separator below filters.
 	var sep := HSeparator.new()
 	root_vbox.add_child(sep)
 
@@ -68,6 +84,11 @@ func toggle_v0() -> void:
 	visible = not visible
 	if visible:
 		_refresh()
+
+# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Set active filter and refresh.
+func _set_filter(filter_name: String) -> void:
+	_active_filter = filter_name
+	_refresh()
 
 func _refresh() -> void:
 	# Clear existing children.
@@ -90,6 +111,9 @@ func _refresh() -> void:
 		_show_empty_state()
 		return
 
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Build dynamic filter buttons from available types.
+	_rebuild_filter_buttons(connections)
+
 	# Group connections by type.
 	var groups: Dictionary = {}
 	for conn in connections:
@@ -98,14 +122,41 @@ func _refresh() -> void:
 			groups[conn_type] = []
 		groups[conn_type].append(conn)
 
-	# Render each group.
+	# Render each group (filtered).
 	var sorted_types: Array = groups.keys()
 	sorted_types.sort()
 	for conn_type in sorted_types:
+		# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Apply active filter.
+		if _active_filter != "all" and conn_type != _active_filter:
+			continue
 		var group_conns: Array = groups[conn_type]
 		_add_group_header(conn_type, group_conns)
 		for conn in group_conns:
 			_add_connection_row(conn)
+
+# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Rebuild filter buttons dynamically.
+func _rebuild_filter_buttons(connections: Array) -> void:
+	# Collect unique types.
+	var types: Dictionary = {}
+	for conn in connections:
+		var t: String = str(conn.get("type", "unknown"))
+		types[t] = true
+
+	# Remove old dynamic buttons (keep first "ALL" button).
+	while _filter_buttons.get_child_count() > 1:
+		var child = _filter_buttons.get_child(_filter_buttons.get_child_count() - 1)
+		_filter_buttons.remove_child(child)
+		child.queue_free()
+
+	# Add a button per type.
+	var sorted_types: Array = types.keys()
+	sorted_types.sort()
+	for t in sorted_types:
+		var btn := Button.new()
+		btn.text = str(t).to_upper()
+		var filter_name: String = t
+		btn.pressed.connect(func(): _set_filter(filter_name))
+		_filter_buttons.add_child(btn)
 
 func _update_stats() -> void:
 	if _bridge == null or not _bridge.has_method("GetKnowledgeGraphStatsV0"):
@@ -118,10 +169,12 @@ func _update_stats() -> void:
 	_stats_label.text = "%d revealed / %d total" % [revealed, total]
 	if question_marks > 0:
 		_stats_label.text += "  (%d unknown)" % question_marks
+	if _active_filter != "all":
+		_stats_label.text += "  [filter: %s]" % _active_filter.to_upper()
 
 func _show_empty_state() -> void:
 	var empty := Label.new()
-	empty.text = "No discoveries yet."
+	empty.text = "Explore distant systems to uncover discoveries.\nEquip sensor modules to scan for anomalies."
 	empty.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 	empty.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 	_list_container.add_child(empty)
@@ -141,10 +194,14 @@ func _add_group_header(conn_type: String, group_conns: Array) -> void:
 func _add_connection_row(conn: Dictionary) -> void:
 	var source_id: String = str(conn.get("source_id", "?"))
 	var target_id: String = str(conn.get("target_id", "?"))
-	var _conn_type: String = str(conn.get("type", ""))
+	var conn_type: String = str(conn.get("type", ""))
 	var is_revealed: bool = conn.get("revealed", false)
 	var row_visible: bool = conn.get("visible", false)
 	var description: String = str(conn.get("description", ""))
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Source attribution and faction/region info.
+	var source_label: String = str(conn.get("source_label", ""))
+	var faction_id: String = str(conn.get("faction_id", ""))
+	var region_id: String = str(conn.get("region_id", ""))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", UITheme.SPACE_SM)
@@ -164,6 +221,14 @@ func _add_connection_row(conn: Dictionary) -> void:
 	status_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 	row.add_child(status_lbl)
 
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Connection type label.
+	var type_lbl := Label.new()
+	type_lbl.text = "[%s]" % conn_type.to_upper()
+	type_lbl.custom_minimum_size = Vector2(80, 0)
+	type_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	type_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	row.add_child(type_lbl)
+
 	# Connection label: source -> target.
 	var conn_lbl := Label.new()
 	if is_revealed:
@@ -178,6 +243,27 @@ func _add_connection_row(conn: Dictionary) -> void:
 	conn_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 	conn_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(conn_lbl)
+
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Source attribution (who/what discovered this).
+	if is_revealed and not source_label.is_empty():
+		var src_lbl := Label.new()
+		src_lbl.text = "via %s" % source_label
+		src_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		src_lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+		row.add_child(src_lbl)
+
+	# GATE.S6.UI_DISCOVERY.KG_PANEL.001: Faction/region tag.
+	if is_revealed and (not faction_id.is_empty() or not region_id.is_empty()):
+		var tag_lbl := Label.new()
+		var tag_parts: Array = []
+		if not faction_id.is_empty():
+			tag_parts.append(faction_id)
+		if not region_id.is_empty():
+			tag_parts.append(region_id)
+		tag_lbl.text = " ".join(tag_parts)
+		tag_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		tag_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+		row.add_child(tag_lbl)
 
 	# Description tooltip (if revealed and has description).
 	if is_revealed and not description.is_empty():

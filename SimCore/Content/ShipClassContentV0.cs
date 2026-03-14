@@ -73,6 +73,14 @@ public static class ShipClassContentV0
             BaseZoneArmor = new[] { 50, 45, 45, 35 }, CoreHull = 150, BaseShield = 80, BaseFuelCapacity = 500,
         },
 
+        // GATE.S8.LATTICE_DRONES.ENTITY.001: Lattice drone — small, agile, light armor.
+        new ShipClassDef
+        {
+            ClassId = "lattice_drone", DisplayName = "Lattice Drone",
+            SlotCount = 1, BasePower = 10, CargoCapacity = 0, Mass = 10, ScanRange = 30,
+            BaseZoneArmor = new[] { 5, 5, 5, 5 }, CoreHull = 40, BaseShield = 20, BaseFuelCapacity = 0,
+        },
+
         // GATE.S8.ANCIENT_HULLS.CONTENT.001: 3 ancient ship hulls (discovered at deep void sites, restored at Haven T3+).
         new ShipClassDef
         {

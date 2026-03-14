@@ -290,6 +290,27 @@ The "3-second test" — what a new player sees before reading anything.
 
 Reference: EVE Online, Stellaris, Endless Space 2 — even their basic views have visual drama.
 
+### Boot Frame Critical Checks (boot/01_boot screenshot ONLY)
+
+These checks apply specifically to the very first frame the player sees:
+
+- **Welcome/Onboarding**: Is there a welcome overlay, intro popup, or clear
+  guidance for a first-time player? Dropping the player into the game with
+  zero context = FAIL. A toast is insufficient — there should be a proper
+  welcome screen with controls and a first objective.
+- **Camera Introduction**: Does the game open with a cinematic camera movement?
+  (Galaxy zoom, system flyby, altitude descent?) Static snap to default = WARN.
+- **Combat Artifacts**: Are any combat effects visible? (Red screen tint/vignette,
+  heat bar, damage flash, shield effects?) These should NEVER be visible at boot.
+  If present = CRITICAL BUG — player thinks the game is broken.
+- **Unwanted UI Panels**: Are any panels open that shouldn't be? (Data log,
+  combat log, mission journal?) This usually indicates a keybind conflict with
+  movement keys. If present = CRITICAL BUG.
+- **Starting System Richness**: Does the starting system have a star, at least
+  one planet, a station, and NPC activity? If it's just empty space with a
+  distant star = FAIL. The first system the player sees sets their expectations
+  for the entire game.
+
 ---
 
 ## 2. SOLAR SYSTEM VIEW (boot, hud_flight, system_2, system_3, tick_*)
@@ -780,6 +801,72 @@ descriptions in Section 0 and the per-dimension AAA standards in Section 9.
 
 ---
 
+## 10b. MISSING UI SURFACE CRITERIA (v2 expansion)
+
+These UI surfaces exist in the game but had no prior visual evaluation criteria.
+Apply the same scoring methodology (1-5 per dimension) when screenshots capture
+these elements.
+
+### Combat HUD
+
+When combat is active, the following elements should be visible:
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| Heat bar | Shows accumulation during sustained fire | Smooth fill, color transitions (green→yellow→red), clear overheat warning | Absent or always at 0 |
+| Battle stations indicator | Shows SpinningUp/BattleReady state | Clear icon + label, state transition visible | Missing or always shows "StandDown" |
+| Zone armor display | Shows directional HP (fore/port/starboard/aft) | 4-zone diagram or bars, damage visible per zone | No zone display |
+| Damage numbers | Float above targets | Readable, color-coded (shield=blue, hull=red) | Invisible or overlapping |
+| Radiator status | Shows cooling rate | Present during combat, responds to damage | Absent |
+
+**Anti-hallucination:** If the bot used one-shot kills, combat HUD elements may
+never have had time to display. Score based on what IS visible, not what should
+be. Note: "combat too fast for heat to accumulate" as a prescriptive observation.
+
+### First Officer Panel
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| FO name | Visible in panel header | Name displayed prominently, archetype shown | No name or "unnamed" |
+| Dialogue area | Shows recent FO lines | Multiple lines scrollable, personality evident | Empty or single static text |
+| Tier indicator | Shows promotion tier (0-3) | Clear tier badge or progress | No progression visible |
+| Portrait area | Reserved for character art | Placeholder or art present | Nothing — blank space |
+
+### Toast Notification System
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| Toast position | Top-center or side panel | Non-overlapping, visible against game scene | Overlapping HUD or cut off |
+| Toast duration | 3-5 seconds | Enough time to read, fades gracefully | Too fast or permanent |
+| Toast priority | Important events prominent | FO dialogue, loot, discovery distinct from routine | All toasts look identical |
+
+### Discovery / Scan UI
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| Discovery site panel | Shows phase progression | Clear phase indicator (Unknown→Scanned→Analyzed) | Raw IDs or no phase info |
+| Scan progress | Visual feedback during scan | Progress bar or animation | Instant with no feedback |
+| Outcome display | Shows what was found | Reward preview, lore snippet, FO reaction | Raw data or nothing |
+
+### Warfront / Territory UI
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| Faction territory labels | Visible on galaxy map | Color-coded regions, faction names at borders | No territory indication |
+| War intensity indicators | Show conflict zones | Heat coloring on nodes/edges, intensity scale | No conflict visibility |
+| Tariff/embargo warnings | Show at faction borders | Clear warning before entering hostile territory | No warning — player surprised |
+
+### Haven Starbase
+
+| Element | Expected State | Score 5 | Score 1 |
+|---------|---------------|---------|---------|
+| Haven icon on galaxy map | Visible as distinct marker | Unique icon, clearly different from regular stations | Same as any station |
+| Tier display | Shows current upgrade tier | Clear tier indicator (1-5) with progress | No tier info |
+| Hangar / stored ships | Shows available bay slots | Ship previews, swap interface clear | No hangar UI |
+| Trophy wall | Shows collected fragments | Visual fragment display with names | Empty or missing |
+
+---
+
 ## 11. PRESCRIPTION OUTPUT FORMAT
 
 When evaluating for the `/feel` skill, produce **semantic prescriptions** — describe
@@ -795,12 +882,18 @@ PRESCRIPTION #N
   Dimension:    [composition | readability | scale_space | polish | atmosphere]
   Confidence:   [high | medium | low]
   Severity:     [critical | major | minor | suggestion]
-  Tag:          [BUG | UX | POLISH | GAP | OPINION]
+  Tag:          [BUG | UX | POLISH | GAP | OPINION | SUPPRESSED | UNWIRED]
   Issue:        One-sentence description of what's wrong
   Evidence:     Which screenshot(s) show the problem, and what specifically to look at
   Standard:     What the AAA reference standard is for this element
   Prescription: Specific, measurable change to make (e.g., "increase explosion radius
                 to 2-3x ship width" not "make explosions bigger")
+
+Tag notes:
+  SUPPRESSED = UI panel/element exists and is fully built but is force-hidden
+               (visible=false). Fix is a visibility toggle, not new development.
+  UNWIRED    = Bridge data exists but no UI element renders it. Needs a new
+               GDScript consumer (design input required).
   Metric:       How to verify the fix worked in the next iteration
 ```
 
@@ -859,9 +952,14 @@ Then list prescriptions in priority order:
 
 ```
 PRESCRIPTIONS (ranked by severity × confidence):
-  #1: [prescription block]
-  #2: [prescription block]
+  #1: [prescription block]  EA_TIER: EA_BLOCKER / EA_HIGH / EA_NICE / EA_LATER
+  #2: [prescription block]  EA_TIER: ...
   ...
+
+EA READINESS:
+  Status: NOT_READY / CONDITIONAL / READY
+  Blockers: [list any EA_BLOCKER prescriptions]
+  High-priority: [count of EA_HIGH items]
 
 OVERALL:
   Top 3 Strengths: ...

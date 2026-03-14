@@ -8,10 +8,21 @@ var _vbox: VBoxContainer = null
 var _title_label: Label = null
 var _bridge: Node = null
 
+var _refresh_counter: int = 0
+
 func _ready() -> void:
 	layer = 115
 	visible = false
 	_build_ui()
+
+
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+	_refresh_counter += 1
+	if _refresh_counter >= 30:  # Refresh every ~0.5s when visible
+		_refresh_counter = 0
+		refresh_v0()
 
 
 func _build_ui() -> void:
@@ -36,7 +47,7 @@ func _build_ui() -> void:
 
 	# Title
 	_title_label = Label.new()
-	_title_label.text = "=== COMBAT LOG ==="
+	_title_label.text = "COMBAT LOG"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_color_override("font_color", UITheme.RED_LIGHT)
 	_title_label.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
@@ -93,10 +104,10 @@ func refresh_v0() -> void:
 		no_events.text = "No combat events recorded"
 		no_events.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_vbox.add_child(no_events)
-		_title_label.text = "=== COMBAT LOG (0) ==="
+		_title_label.text = "COMBAT LOG"
 		return
 
-	_title_label.text = "=== COMBAT LOG (%d) ===" % events.size()
+	_title_label.text = "COMBAT LOG (%d)" % events.size()
 
 	# Show events newest-first (events array is oldest-last per bridge contract)
 	for i in range(events.size() - 1, -1, -1):
@@ -107,9 +118,9 @@ func refresh_v0() -> void:
 		var damage: int = int(evt.get("damage", 0))
 		var outcome: String = str(evt.get("outcome", ""))
 
-		var row_text := "Tick %d: %s -> %s  %d dmg" % [tick, _short_id(attacker), _short_id(defender), damage]
-		if not outcome.is_empty():
-			row_text += " (%s)" % outcome
+		var row_text := "Tick %d: %s → %s  %d dmg" % [tick, _display_name(attacker), _display_name(defender), damage]
+		if not outcome.is_empty() and outcome != "InProgress":
+			row_text += " (%s)" % _humanize_outcome(outcome)
 
 		var row_label := Label.new()
 		row_label.text = row_text
@@ -124,8 +135,32 @@ func refresh_v0() -> void:
 		_vbox.add_child(row_label)
 
 
-# Shorten fleet IDs for display: "fleet_trader_1" -> "trader_1", "fleet_patrol_4" -> "patrol_4"
-func _short_id(fleet_id: String) -> String:
+# Resolve internal fleet IDs to human-readable names.
+func _display_name(fleet_id: String) -> String:
+	if fleet_id == "fleet_trader_1":
+		return "Your Fleet"
+	if fleet_id.begins_with("ai_fleet_") or fleet_id.begins_with("at_fleet_"):
+		if fleet_id.contains("patrol"):
+			return "Raider Patrol"
+		return "Raider"
+	if fleet_id.begins_with("fleet_patrol"):
+		return "Sector Patrol"
+	if fleet_id.begins_with("fleet_hauler"):
+		return "Hauler"
+	if fleet_id.begins_with("fleet_trader"):
+		return "Trader"
 	if fleet_id.begins_with("fleet_"):
-		return fleet_id.substr(6)
+		return fleet_id.substr(6).replace("_", " ").capitalize()
 	return fleet_id
+
+
+# Humanize C# enum outcome strings for player display.
+func _humanize_outcome(raw: String) -> String:
+	match raw:
+		"Win": return "Destroyed"
+		"Loss": return "Defeated"
+		"Draw": return "Disengaged"
+		"Victory": return "Destroyed"
+		"Defeat": return "Defeated"
+		"Flee": return "Fled"
+		_: return raw

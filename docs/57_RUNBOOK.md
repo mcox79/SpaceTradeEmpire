@@ -150,3 +150,70 @@ Session log entry format:
     wrong constant value, build step missing, behavioral misunderstanding, etc.
   - Omit Fix: only when implementation matched the gate intent exactly with no corrections.
   - Fix: goes between the description and Evidence:, on the same line.
+
+## Localization (L10N) — GATE.S9.L10N.DECISION.001
+
+**Decision: English-only for v1.0 (EA launch).**
+
+Rationale: Single developer, narrative-heavy game with lore-specific terminology
+(Communion, Fracture, Lattice Drones, Adaptation Fragments). Translation quality
+matters for story impact. Defer L10N to post-EA based on community demand.
+
+### Current string audit (2026-03-13)
+
+| Category | Count | Location |
+|----------|-------|----------|
+| UI label assignments (`.text = "..."`) | ~456 | `scripts/ui/`, `scripts/view/` |
+| Toast/notification strings | ~50 | `scripts/ui/toast_system.gd`, various |
+| SimBridge display names | ~80 | `scripts/bridge/SimBridge.*.cs` |
+| Content registry names | ~200 | `SimCore/Content/*ContentV0.cs` |
+
+Total: ~786 hardcoded English strings.
+
+### Extraction-ready patterns for future L10N
+
+When L10N is added post-EA:
+
+1. **GDScript**: Replace `label.text = "MARKET"` with `label.text = tr("MARKET")`.
+   Godot's built-in `tr()` function reads from `.po`/`.csv` translation files.
+2. **SimBridge display names**: Route through a `DisplayNameRegistry` that maps
+   internal IDs to localized strings.
+3. **Content registry**: Add `display_name_key` field to content definitions,
+   resolve via translation table.
+4. **Lore text** (data logs, FO dialogue, mission descriptions): Keep in separate
+   translation files organized by content type.
+5. **Number/date formatting**: Use `CultureInfo` in SimBridge for locale-aware
+   number formatting.
+
+### Do NOT localize
+
+- Gate IDs, debug logs, test assertions, console output
+- Internal entity IDs and content type strings
+- File paths and JSON keys
+
+## Steam Integration — GATE.S9.STEAM.SDK.001
+
+**Addon**: GodotSteam 4.x (GDExtension). Not yet installed — placeholder wiring only.
+
+### Setup steps (when ready to install)
+
+1. Download GodotSteam 4.x from https://godotsteam.com/
+2. Extract to `addons/godotsteam/`
+3. Enable in Project Settings → Plugins
+4. Replace placeholder App ID (`480` = Spacewar test app) in `steam_appid.txt`
+   with actual Steam App ID from Steamworks partner dashboard
+5. Rebuild: `dotnet build "Space Trade Empire.csproj" --nologo`
+
+### Runtime behavior
+
+- `game_manager.gd::_init_steam_v0()` initializes Steam on startup
+- Graceful fallback: if GodotSteam addon not present or Steam client not running,
+  `_steam_enabled = false` and game runs normally
+- Check `game_manager.is_steam_enabled()` before calling Steam APIs
+- `steam_appid.txt` must be in project root for dev builds (Steam ignores it for
+  shipped builds — the app ID comes from the Steam client)
+
+### Files
+
+- `steam_appid.txt` — placeholder App ID (480 = Spacewar test app)
+- `scripts/core/game_manager.gd` — `_init_steam_v0()`, `is_steam_enabled()`

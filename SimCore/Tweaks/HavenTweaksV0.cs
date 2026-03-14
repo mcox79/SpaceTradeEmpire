@@ -80,4 +80,65 @@ public static class HavenTweaksV0
 
     // Discovery: Communion rep threshold for breadcrumb.
     public const int CommunionRepBreadcrumbThreshold = 50;
+
+    // GATE.S8.HAVEN.KEEPER.001: Keeper tier progression thresholds.
+    // Keeper advances based on cumulative player investment in Haven.
+    public const int KeeperAwareExoticMatter = 10;      // Delivered exotic matter for Aware
+    public const int KeeperGuidingExoticMatter = 30;    // For Guiding
+    public const int KeeperGuidingFragments = 2;         // Installed fragments for Guiding
+    public const int KeeperCommunicatingExoticMatter = 80; // For Communicating
+    public const int KeeperCommunicatingFragments = 4;   // Installed fragments for Communicating
+    public const int KeeperCommunicatingDataLogs = 10;   // Data logs discovered for Communicating
+    public const int KeeperAwakenedExoticMatter = 150;   // For Awakened
+    public const int KeeperAwakenedFragments = 8;        // Installed fragments for Awakened
+    public const int KeeperAwakenedDataLogs = 20;        // Data logs discovered for Awakened
+
+    // GATE.S8.HAVEN.RESONANCE.001: Resonance Chamber cooldown (ticks between activations).
+    public const int ResonanceCooldownTicks = 50;
+
+    // GATE.S8.HAVEN.FABRICATOR.001: T3 module fabrication costs.
+    public const int FabricateExoticMatterCost = 50;
+    public const int FabricateExoticCrystalsCost = 20;
+    public const int FabricateDurationTicks = 100;
+
+    // GATE.S8.HAVEN.MARKET_EVOLUTION.001: Haven market restock interval.
+    public const int MarketRestockIntervalTicks = 50;
+
+    // GATE.S8.HAVEN.RESEARCH_LAB.001: Haven research lab slot counts per tier.
+    public const int ResearchSlotsTier2 = 1;  // T3 utility only
+    public const int ResearchSlotsTier3 = 2;  // T3 weapons/defense added
+    public const int ResearchSlotsTier4 = 3;  // All T3 categories
+
+    // Haven research speed multiplier (percentage of normal speed).
+    public const int ResearchLabSpeedPct = 100;
+
+    // Credit cost per tick per active research slot at Haven.
+    public const int ResearchLabCreditPerTick = 5;
+
+    // GATE.S8.HAVEN.ACCOMMODATION_FX.001: Per-thread bonus percentages at 33/66/100 progress.
+    // Discovery: scan range bonus.
+    public const int AccDiscoveryScanTier1Pct = 5;
+    public const int AccDiscoveryScanTier2Pct = 10;
+    public const int AccDiscoveryScanTier3Pct = 15;
+    // Commerce: market price discount.
+    public const int AccCommercePriceTier1Pct = 3;
+    public const int AccCommercePriceTier2Pct = 6;
+    public const int AccCommercePriceTier3Pct = 10;
+    // Conflict: damage bonus.
+    public const int AccConflictDamageTier1Pct = 5;
+    public const int AccConflictDamageTier2Pct = 10;
+    public const int AccConflictDamageTier3Pct = 15;
+    // Harmony: rep gain bonus.
+    public const int AccHarmonyRepTier1Pct = 10;
+    public const int AccHarmonyRepTier2Pct = 20;
+    public const int AccHarmonyRepTier3Pct = 30;
+
+    // Progress thresholds for bonus tiers.
+    public const int AccBonusTier1Threshold = 33;
+    public const int AccBonusTier2Threshold = 66;
+    public const int AccBonusTier3Threshold = 100;
+
+    // GATE.S8.HAVEN.REVEAL_THREAD.001: Reveal Haven to faction.
+    public const int RevealMinFactionRep = 25;  // Minimum rep to reveal
+    public const int RevealRepBonus = 15;       // One-time rep boost on reveal
 }

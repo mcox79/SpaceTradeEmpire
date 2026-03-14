@@ -54,6 +54,40 @@ Do NOT proceed to evaluation with zero screenshots.
 
 ---
 
+## Step 2b: Feature Presence Check
+
+Before evaluating screenshots, build a brief inventory of **suppressed UI
+elements** — panels that are built but intentionally hidden. This prevents
+the evaluator from scoring empty screen space as "missing feature" when the
+feature is complete and just needs a visibility toggle.
+
+### 2b.1: Check UI Suppression
+
+Grep for suppression patterns in the UI layer:
+
+```bash
+grep -rn "visible = false\|visible=false" scripts/ui/hud.gd scripts/ui/fo_panel.gd scripts/ui/knowledge_web*.gd scripts/ui/data_log*.gd
+```
+
+### 2b.2: Build Suppressed UI List
+
+For each suppressed panel found, note:
+- **Panel name** (e.g., FO panel, knowledge web, data log)
+- **Suppression location** (file:line)
+- **Reason if commented** (e.g., "awaiting F-key toggle", "ate 20% screen width")
+
+Example output:
+```
+Suppressed UI Elements:
+  fo_panel       — hud.gd:702 — "FO panel always suppressed until F-key toggle"
+  knowledge_web  — hud.gd:704 — "hidden when dock panel active"
+  data_log       — hud.gd:703 — "hidden when dock panel active"
+```
+
+Include this list in the subagent prompt (Step 6).
+
+---
+
 ## Step 3: Collect Artifacts
 
 1. Glob for all PNGs: `reports/screenshot/full/*.png` and `reports/visual_eval/*.png`
@@ -101,14 +135,22 @@ Use the Task tool with `subagent_type: "general-purpose"` and `model: "sonnet"`.
 The agent prompt MUST include:
 
 1. **The phase manifest** from Step 3
-2. **Instruction to Read the evaluation guide**: `scripts/tools/visual_eval_guide.md`
+2. **The Suppressed UI Elements list** from Step 2b
+3. **Instruction to Read the evaluation guide**: `scripts/tools/visual_eval_guide.md`
    — the agent MUST read this file in full before evaluating
-3. **Instruction to Glob and Read ALL PNGs** from the iteration output directory
-4. **If references exist**: instruction to Read reference PNGs from `reports/references/`
-5. **If previous iteration exists**: the previous evaluation.md content, with instruction
+4. **Instruction to Glob and Read ALL PNGs** from the iteration output directory
+5. **If references exist**: instruction to Read reference PNGs from `reports/references/`
+6. **If previous iteration exists**: the previous evaluation.md content, with instruction
    to produce ITERATION DELTA
-6. **The five evaluation perspectives:**
+7. **The five evaluation perspectives + suppression awareness:**
 
+   > **Suppressed UI awareness:** Some UI panels are built but intentionally
+   > hidden (see Suppressed UI Elements list). If a screenshot shows empty space
+   > where a panel should be, check the suppression list before scoring it as a
+   > missing feature. Tag these as `SUPPRESSED` — not `GAP`. The fix is a
+   > visibility toggle, not new development. SUPPRESSED items are typically the
+   > highest-leverage fixes available (large visual impact, small code change).
+   >
    > Evaluate each screenshot, then synthesize across the full set using these five
    > perspectives. You are not five people — you are one expert evaluator who considers
    > all five angles:
@@ -132,8 +174,28 @@ The agent prompt MUST include:
    > Everspace 2 — or does it feel like a prototype? Would you want to keep playing?
    > Would you show this to a friend?
 
-7. **Output format**: Follow the RATING TEMPLATE in the evaluation guide exactly.
+8. **Output format**: Follow the RATING TEMPLATE in the evaluation guide exactly.
    End with FEEL SYNTHESIS, then PRESCRIPTIONS (Section 11 format), then OVERALL.
+
+9. **EA Readiness Classification**: After prescriptions, include an EA READINESS section:
+
+   > Classify each prescription by EA impact tier:
+   >
+   > | Tier | Definition |
+   > |------|-----------|
+   > | EA_BLOCKER | Would cause refund requests or negative reviews on day 1 |
+   > | EA_HIGH | Noticeable quality gap vs indie EA competitors |
+   > | EA_NICE | Polish item that improves feel but won't lose players |
+   > | EA_LATER | Can be deferred to post-EA updates |
+   >
+   > End with overall EA READINESS status:
+   > - **NOT READY**: Any EA_BLOCKER prescriptions exist
+   > - **CONDITIONAL**: No blockers but 3+ EA_HIGH items
+   > - **READY**: No blockers, fewer than 3 EA_HIGH items
+   >
+   > Also evaluate **Content Quality**: Scan screenshots for visible dev jargon
+   > (raw IDs like "star_10", version suffixes like "V0", underscore_case).
+   > Flag any found as EA_BLOCKER (players should never see internal identifiers).
 
 ---
 

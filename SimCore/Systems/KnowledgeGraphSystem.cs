@@ -1,3 +1,4 @@
+using SimCore.Content;
 using SimCore.Entities;
 using System;
 using System.Linq;
@@ -11,12 +12,16 @@ namespace SimCore.Systems;
 // Connection reveal logic:
 //   Both endpoints Seen     → connection appears as "?" (something links these)
 //   Both endpoints Analyzed → connection type and description revealed
+//
+// GATE.S8.STORY.KG_REVELATION.001: Revelation-triggered connections are
+// force-revealed when their associated revelation fires (no Analyzed requirement).
 public static class KnowledgeGraphSystem
 {
     /// <summary>
     /// Evaluate knowledge graph connections. When both endpoints of a connection
     /// are discovered, mark the connection visible. When both are Analyzed,
     /// fully reveal the connection type and description.
+    /// Also force-reveal revelation connections when revelations fire.
     /// </summary>
     public static void Process(SimState state)
     {
@@ -46,6 +51,50 @@ public static class KnowledgeGraphSystem
             }
             // Otherwise the connection exists but shows as "?" — no state change needed,
             // the bridge layer checks both endpoint phases to determine display mode.
+        }
+
+        // GATE.S8.STORY.KG_REVELATION.001: Force-reveal revelation connections.
+        ProcessRevelationConnections(state);
+    }
+
+    /// <summary>
+    /// Force-reveal revelation-triggered connections when their associated revelation fires.
+    /// These are standalone connections (no discovery endpoints) that appear in the
+    /// knowledge web as narrative insights.
+    /// </summary>
+    private static void ProcessRevelationConnections(SimState state)
+    {
+        var ss = state.StoryState;
+        if (ss == null) return;
+
+        foreach (var rc in KnowledgeGraphContentV0.RevelationConnections)
+        {
+            // Skip if revelation hasn't fired yet
+            if (!ss.HasRevelation(rc.RequiredRevelation)) continue;
+
+            // Skip if already added to the knowledge graph
+            bool exists = false;
+            foreach (var conn in state.Intel.KnowledgeConnections)
+            {
+                if (string.Equals(conn.ConnectionId, rc.ConnectionId, StringComparison.Ordinal))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (exists) continue;
+
+            // Create and immediately reveal the connection
+            state.Intel.KnowledgeConnections.Add(new KnowledgeConnection
+            {
+                ConnectionId = rc.ConnectionId,
+                SourceDiscoveryId = "", // Revelation connections have no discovery endpoints
+                TargetDiscoveryId = "",
+                ConnectionType = KnowledgeConnectionType.LoreFragment,
+                IsRevealed = true,
+                RevealedTick = state.Tick,
+                Description = rc.Description
+            });
         }
     }
 

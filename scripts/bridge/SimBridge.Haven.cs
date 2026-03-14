@@ -444,6 +444,299 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedAncientHullsV0; }
     }
 
+    // --- GATE.S8.HAVEN.DEPTH_BRIDGE.001: Haven depth query methods ---
+
+    // GATE.S8.HAVEN.DEPTH_BRIDGE.001: Keeper ambient state snapshot.
+    // Returns keeper tier, display name, and progression counters.
+    private Godot.Collections.Dictionary _cachedKeeperStateV0 = new();
+
+    public Godot.Collections.Dictionary GetKeeperStateV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            if (haven == null)
+            {
+                var empty = new Godot.Collections.Dictionary
+                {
+                    ["keeper_level"] = 0,
+                    ["keeper_name"] = "Dormant",
+                    ["exotic_matter_delivered"] = 0,
+                    ["data_logs_discovered"] = 0,
+                    ["installed_fragments"] = 0
+                };
+                lock (_snapshotLock) { _cachedKeeperStateV0 = empty; }
+                return;
+            }
+
+            int levelInt = (int)haven.KeeperLevel;
+            string keeperName = haven.KeeperLevel switch
+            {
+                SimCore.Entities.KeeperTier.Dormant        => "Dormant",
+                SimCore.Entities.KeeperTier.Aware          => "Aware",
+                SimCore.Entities.KeeperTier.Guiding        => "Guiding",
+                SimCore.Entities.KeeperTier.Communicating  => "Communicating",
+                SimCore.Entities.KeeperTier.Awakened       => "Awakened",
+                _                                          => "Unknown"
+            };
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["keeper_level"]            = levelInt,
+                ["keeper_name"]             = keeperName,
+                ["exotic_matter_delivered"] = haven.ExoticMatterDelivered,
+                ["data_logs_discovered"]    = haven.DataLogsDiscovered,
+                ["installed_fragments"]     = haven.InstalledFragmentIds?.Count ?? 0
+            };
+            lock (_snapshotLock) { _cachedKeeperStateV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedKeeperStateV0; }
+    }
+
+    // GATE.S8.HAVEN.DEPTH_BRIDGE.001: Resonance chamber snapshot.
+    // Returns availability, cooldown remaining, and activated/available pair lists.
+    private Godot.Collections.Dictionary _cachedResonanceChamberV0 = new();
+
+    public Godot.Collections.Dictionary GetResonanceChamberV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            bool available = haven != null && (int)haven.Tier >= (int)SimCore.Entities.HavenTier.Expanded;
+
+            int cooldownRemaining = 0;
+            var activatedPairs = new Godot.Collections.Array();
+            var availablePairs = new Godot.Collections.Array();
+
+            if (haven != null)
+            {
+                // Cooldown remaining: ticks until ResonanceCooldownUntilTick, floor 0.
+                if (haven.ResonanceCooldownUntilTick > state.Tick)
+                    cooldownRemaining = haven.ResonanceCooldownUntilTick - state.Tick;
+
+                // Activated pairs.
+                if (haven.ActivatedResonancePairs != null)
+                {
+                    foreach (var pairId in haven.ActivatedResonancePairs)
+                        activatedPairs.Add(pairId ?? "");
+                }
+
+                // Available pairs: completed (both fragments deposited) but not yet activated.
+                var completedPairs = AdaptationFragmentSystem.GetAvailableResonancePairs(state);
+                foreach (var pairId in completedPairs)
+                {
+                    bool alreadyActivated = haven.ActivatedResonancePairs != null
+                        && haven.ActivatedResonancePairs.Contains(pairId);
+                    if (!alreadyActivated)
+                        availablePairs.Add(pairId ?? "");
+                }
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["available"]        = available,
+                ["cooldown_remaining"] = cooldownRemaining,
+                ["activated_pairs"]  = activatedPairs,
+                ["available_pairs"]  = availablePairs
+            };
+            lock (_snapshotLock) { _cachedResonanceChamberV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedResonanceChamberV0; }
+    }
+
+    // GATE.S8.HAVEN.DEPTH_BRIDGE.001: Fabricator snapshot.
+    // Returns availability, current fabrication state, and completed module list.
+    private Godot.Collections.Dictionary _cachedFabricatorV0 = new();
+
+    public Godot.Collections.Dictionary GetFabricatorV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            bool available = haven != null && (int)haven.Tier >= (int)SimCore.Entities.HavenTier.Expanded;
+
+            string fabricatingModule = "";
+            int ticksRemaining = 0;
+            var completedModules = new Godot.Collections.Array();
+
+            if (haven != null)
+            {
+                fabricatingModule = haven.FabricatingModuleId ?? "";
+                ticksRemaining = haven.FabricationTicksRemaining;
+                if (haven.CompletedFabricationIds != null)
+                {
+                    foreach (var modId in haven.CompletedFabricationIds)
+                        completedModules.Add(modId ?? "");
+                }
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["available"]          = available,
+                ["fabricating_module"] = fabricatingModule,
+                ["ticks_remaining"]    = ticksRemaining,
+                ["completed_modules"]  = completedModules,
+                ["exotic_matter_cost"] = SimCore.Tweaks.HavenTweaksV0.FabricateExoticMatterCost,
+                ["duration_ticks"]     = SimCore.Tweaks.HavenTweaksV0.FabricateDurationTicks
+            };
+            lock (_snapshotLock) { _cachedFabricatorV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedFabricatorV0; }
+    }
+
+    // GATE.S8.HAVEN.DEPTH_BRIDGE.001: Haven market metadata snapshot.
+    // Returns tier, market_id, has_market, and restock_interval constants.
+    // (Note: use GetHavenMarketV0 for the goods list Array.)
+    private Godot.Collections.Dictionary _cachedHavenMarketInfoV0 = new();
+
+    public Godot.Collections.Dictionary GetHavenMarketInfoV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            int tier = haven != null ? (int)haven.Tier : 0;
+            string marketId = haven?.MarketId ?? "";
+            bool hasMarket = !string.IsNullOrEmpty(marketId) && state.Markets.ContainsKey(marketId);
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["tier"]             = tier,
+                ["market_id"]        = marketId,
+                ["has_market"]       = hasMarket,
+                ["restock_interval"] = SimCore.Tweaks.HavenTweaksV0.MarketRestockIntervalTicks
+            };
+            lock (_snapshotLock) { _cachedHavenMarketInfoV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedHavenMarketInfoV0; }
+    }
+
+    // GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Endgame path state snapshot.
+    private Godot.Collections.Dictionary _cachedEndgamePathsV0 = new();
+
+    public Godot.Collections.Dictionary GetEndgamePathsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            bool canChoose = haven != null && haven.Discovered
+                && haven.ChosenEndgamePath == SimCore.Entities.EndgamePath.None
+                && (int)haven.Tier >= (int)EndgameTweaksV0.MinTierForChoice;
+
+            var paths = new Godot.Collections.Array();
+            if (canChoose)
+            {
+                paths.Add(new Godot.Collections.Dictionary
+                {
+                    ["id"] = "Reinforce",
+                    ["description"] = "Strengthen existing faction order. Boosts Concord rep over time.",
+                });
+                paths.Add(new Godot.Collections.Dictionary
+                {
+                    ["id"] = "Naturalize",
+                    ["description"] = "Embrace Lattice integration. Boosts Communion rep over time.",
+                });
+                paths.Add(new Godot.Collections.Dictionary
+                {
+                    ["id"] = "Renegotiate",
+                    ["description"] = "Challenge all factions. Mild rep penalty across all factions.",
+                });
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["chosen_path"] = haven != null ? haven.ChosenEndgamePath.ToString() : "None",
+                ["chosen_path_tick"] = haven?.EndgamePathChosenTick ?? 0,
+                ["can_choose"] = canChoose,
+                ["available_paths"] = paths,
+                ["min_tier"] = (int)EndgameTweaksV0.MinTierForChoice,
+            };
+
+            lock (_snapshotLock) { _cachedEndgamePathsV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedEndgamePathsV0; }
+    }
+
+    // GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Choose endgame path command.
+    public bool ChooseEndgamePathV0(string pathName)
+    {
+        if (IsLoading) return false;
+        if (string.IsNullOrWhiteSpace(pathName)) return false;
+
+        if (!System.Enum.TryParse<SimCore.Entities.EndgamePath>(pathName, true, out var path))
+            return false;
+        if (path == SimCore.Entities.EndgamePath.None)
+            return false;
+
+        int tickBefore;
+        _stateLock.EnterReadLock();
+        try { tickBefore = _kernel.State.Tick; }
+        finally { _stateLock.ExitReadLock(); }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            HavenEndgameSystem.ChooseEndgamePath(_kernel.State, path);
+        }
+        finally { _stateLock.ExitWriteLock(); }
+
+        return true;
+    }
+
+    // GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Accommodation thread progress snapshot.
+    private Godot.Collections.Dictionary _cachedAccommodationProgressV0 = new();
+
+    public Godot.Collections.Dictionary GetAccommodationProgressV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            var d = new Godot.Collections.Dictionary();
+
+            if (haven != null && haven.AccommodationProgress != null)
+            {
+                foreach (var kv in haven.AccommodationProgress)
+                {
+                    d[kv.Key] = kv.Value;
+                }
+            }
+
+            d["max_progress"] = EndgameTweaksV0.AccommodationMaxProgress;
+            d["tier_required"] = (int)SimCore.Entities.HavenTier.Operational;
+
+            lock (_snapshotLock) { _cachedAccommodationProgressV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedAccommodationProgressV0; }
+    }
+
+    // GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Communion Representative state snapshot.
+    private Godot.Collections.Dictionary _cachedCommunionRepV0 = new();
+
+    public Godot.Collections.Dictionary GetCommunionRepV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            var rep = haven?.CommunionRep;
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["present"] = rep?.Present ?? false,
+                ["dialogue_tier"] = rep?.DialogueTier ?? 0,
+                ["last_interaction_tick"] = rep?.LastInteractionTick ?? 0,
+            };
+
+            lock (_snapshotLock) { _cachedCommunionRepV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedCommunionRepV0; }
+    }
+
     // Initiate ancient hull restoration at Haven.
     public Godot.Collections.Dictionary RestoreAncientHullV0(string shipClassId)
     {

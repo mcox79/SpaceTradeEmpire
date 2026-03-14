@@ -372,6 +372,10 @@
       "base_damage": 21
     },
     {
+      "id": "weapon_lattice_pulse",
+      "base_damage": 8
+    },
+    {
       "id": "weapon_laser_mk1",
       "base_damage": 10
     },

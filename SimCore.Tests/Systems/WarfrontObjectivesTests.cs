@@ -34,7 +34,7 @@ public sealed class WarfrontObjectivesTests
     {
         var wf = CreateWarfrontWithObjective();
         // A is dominant (80 > 60).
-        WarfrontEvolutionSystem.ProcessObjectives(wf);
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.Objectives[0].DominantFactionId, Is.EqualTo("faction_a"));
         Assert.That(wf.Objectives[0].DominanceTicks, Is.EqualTo(1));
@@ -45,7 +45,7 @@ public sealed class WarfrontObjectivesTests
     {
         var wf = CreateWarfrontWithObjective();
         for (int i = 0; i < 5; i++)
-            WarfrontEvolutionSystem.ProcessObjectives(wf);
+            WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.Objectives[0].DominanceTicks, Is.EqualTo(5));
     }
@@ -54,12 +54,12 @@ public sealed class WarfrontObjectivesTests
     public void ProcessObjectives_DominantSwitches_Resets()
     {
         var wf = CreateWarfrontWithObjective();
-        WarfrontEvolutionSystem.ProcessObjectives(wf); // A dominant.
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf); // A dominant.
         Assert.That(wf.Objectives[0].DominanceTicks, Is.EqualTo(1));
 
         wf.FleetStrengthA = 50;
         wf.FleetStrengthB = 70; // B now dominant.
-        WarfrontEvolutionSystem.ProcessObjectives(wf);
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.Objectives[0].DominantFactionId, Is.EqualTo("faction_b"));
         Assert.That(wf.Objectives[0].DominanceTicks, Is.EqualTo(1));
@@ -71,7 +71,7 @@ public sealed class WarfrontObjectivesTests
         var wf = CreateWarfrontWithObjective();
         wf.FleetStrengthA = 70;
         wf.FleetStrengthB = 70;
-        WarfrontEvolutionSystem.ProcessObjectives(wf);
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         // No dominant faction when tied.
         Assert.That(wf.Objectives[0].DominanceTicks, Is.EqualTo(0));
@@ -83,7 +83,7 @@ public sealed class WarfrontObjectivesTests
         var wf = CreateWarfrontWithObjective();
         // Run enough ticks to exceed CaptureDominanceTicks.
         for (int i = 0; i < WarfrontTweaksV0.CaptureDominanceTicks; i++)
-            WarfrontEvolutionSystem.ProcessObjectives(wf);
+            WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.Objectives[0].ControllingFactionId, Is.EqualTo("faction_a"));
     }
@@ -93,7 +93,7 @@ public sealed class WarfrontObjectivesTests
     {
         var wf = CreateWarfrontWithObjective();
         for (int i = 0; i < WarfrontTweaksV0.CaptureDominanceTicks - 1; i++)
-            WarfrontEvolutionSystem.ProcessObjectives(wf);
+            WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.Objectives[0].ControllingFactionId, Is.EqualTo(""));
     }
@@ -105,7 +105,7 @@ public sealed class WarfrontObjectivesTests
         wf.Objectives[0].ControllingFactionId = "faction_a";
         wf.FleetStrengthA = 50;
 
-        WarfrontEvolutionSystem.ProcessObjectives(wf);
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.FleetStrengthA, Is.EqualTo(50 + WarfrontTweaksV0.FactoryRegenPerTick));
     }
@@ -117,7 +117,7 @@ public sealed class WarfrontObjectivesTests
         wf.Objectives[0].ControllingFactionId = "faction_a";
         wf.FleetStrengthA = WarfrontTweaksV0.MaxFleetStrength;
 
-        WarfrontEvolutionSystem.ProcessObjectives(wf);
+        WarfrontEvolutionSystem.ProcessObjectives(null, wf);
 
         Assert.That(wf.FleetStrengthA, Is.EqualTo(WarfrontTweaksV0.MaxFleetStrength));
     }

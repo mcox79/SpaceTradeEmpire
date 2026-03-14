@@ -44,6 +44,8 @@ const AUDIO_THEME := "res://assets/audio/menu_theme.ogg"
 # --- Node references ---
 var _btn_continue: Button
 var _btn_new_voyage: Button
+var _btn_milestones: Button
+var _btn_credits: Button
 var _btn_settings: Button
 var _btn_quit: Button
 var _save_card: PanelContainer
@@ -171,11 +173,15 @@ func _ready() -> void:
 	# Buttons.
 	_btn_continue = _make_button("Continue", _menu_vbox)
 	_btn_new_voyage = _make_button("New Voyage", _menu_vbox)
+	_btn_milestones = _make_button("Milestones", _menu_vbox)
+	_btn_credits = _make_button("Credits", _menu_vbox)
 	_btn_settings = _make_button("Settings", _menu_vbox)
 	_btn_quit = _make_button("Quit", _menu_vbox)
 
 	_btn_continue.pressed.connect(_on_continue)
 	_btn_new_voyage.pressed.connect(_on_new_voyage)
+	_btn_milestones.pressed.connect(_on_milestones)
+	_btn_credits.pressed.connect(_on_credits)
 	_btn_settings.pressed.connect(_on_settings)
 	_btn_quit.pressed.connect(_on_quit)
 
@@ -187,6 +193,7 @@ func _ready() -> void:
 		if _has_save:
 			_build_save_card(_menu_vbox, _save_meta)
 	_btn_continue.disabled = not _has_save
+	_btn_milestones.disabled = not _has_save
 
 	# ---- Galaxy gen overlay (GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001) ----
 	_build_galaxy_gen_overlay()
@@ -605,6 +612,10 @@ func _on_continue() -> void:
 
 
 func _on_new_voyage() -> void:
+	# Flag new game so GameManager shows welcome overlay (not on continue/load).
+	var gm = get_node_or_null("/root/GameManager")
+	if gm:
+		gm.set("_is_new_game", true)
 	# GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Pass captain name to SimBridge before starting.
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("SetCaptainNameV0"):
@@ -614,6 +625,24 @@ func _on_new_voyage() -> void:
 		bridge.call("SetCaptainNameV0", name_text)
 	# GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001: Show galaxy gen screen before transitioning.
 	_start_galaxy_gen()
+
+
+func _on_milestones() -> void:
+	# GATE.S9.MILESTONES.VIEWER.001: Open milestone viewer panel as overlay.
+	var viewer_script = load("res://scripts/ui/milestone_viewer.gd")
+	if viewer_script:
+		var viewer := Control.new()
+		viewer.set_script(viewer_script)
+		add_child(viewer)
+
+
+func _on_credits() -> void:
+	# GATE.S9.CREDITS.SCROLL.001: Open credits scroll overlay.
+	var credits_script = load("res://scripts/ui/credits_scroll.gd")
+	if credits_script:
+		var credits := Control.new()
+		credits.set_script(credits_script)
+		add_child(credits)
 
 
 func _on_settings() -> void:

@@ -88,10 +88,10 @@ func _process(_delta: float) -> bool:
 
 		Phase.VERIFY_HAVEN_BRIDGE:
 			# Verify bridge methods exist
-			var has_status := _bridge.has_method("GetHavenStatusV0")
-			var has_market := _bridge.has_method("GetHavenMarketV0")
-			var has_upgrade := _bridge.has_method("UpgradeHavenV0")
-			var has_swap := _bridge.has_method("SwapShipV0")
+			var has_status: bool = _bridge.has_method("GetHavenStatusV0")
+			var has_market: bool = _bridge.has_method("GetHavenMarketV0")
+			var has_upgrade: bool = _bridge.has_method("UpgradeHavenV0")
+			var has_swap: bool = _bridge.has_method("SwapShipV0")
 			if not has_status or not has_market:
 				_fail("haven_bridge_methods_missing|status=%s|market=%s" % [
 					str(has_status), str(has_market)])

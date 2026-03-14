@@ -42,6 +42,8 @@ public static class InstabilitySystem
         {
             var node = kv.Value;
 
+            int oldPhase = InstabilityTweaksV0.GetPhaseIndex(node.InstabilityLevel);
+
             if (contestedNodes.Contains(kv.Key))
             {
                 // Warfront-adjacent: gain instability.
@@ -56,6 +58,14 @@ public static class InstabilitySystem
                 {
                     node.InstabilityLevel = Math.Max(0, node.InstabilityLevel - InstabilityTweaksV0.DecayAmountPerInterval); // STRUCTURAL: floor at zero
                 }
+            }
+
+            // GATE.X.PRESSURE_INJECT.INSTABILITY.001: Inject pressure on phase transition.
+            int newPhase = InstabilityTweaksV0.GetPhaseIndex(node.InstabilityLevel);
+            if (newPhase != oldPhase)
+            {
+                PressureSystem.InjectDelta(state, "instability", "phase_transition",
+                    PressureTweaksV0.InstabilityPhaseMagnitude, targetRef: kv.Key);
             }
         }
     }

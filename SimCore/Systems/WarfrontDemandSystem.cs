@@ -57,7 +57,12 @@ public static class WarfrontDemandSystem
             // Shift intensity down by 1 (supplies are meeting demand).
             if (wf.Intensity > WarfrontIntensity.Peace)
             {
-                wf.Intensity = (WarfrontIntensity)((int)wf.Intensity - 1); // STRUCTURAL: step -1
+                int oldIntensity = (int)wf.Intensity;
+                wf.Intensity = (WarfrontIntensity)(oldIntensity - 1); // STRUCTURAL: step -1
+
+                // GATE.X.PRESSURE_INJECT.WARFRONT.001: Inject pressure on intensity shift.
+                PressureSystem.InjectDelta(state, "warfront_demand", "intensity_shift",
+                    PressureTweaksV0.WarfrontShiftMagnitude, targetRef: wf.Id);
             }
 
             // Reset ledger for this warfront.

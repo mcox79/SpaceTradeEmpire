@@ -40,6 +40,8 @@ var _gate_approach_declined: bool = false  # Suppresses re-trigger until full zo
 # Dock confirmation: target near player awaiting E key to dock.
 var _dock_available_target: Node = null
 var _undock_cooldown: float = 0.0  # Prevents re-dock prompt immediately after undock.
+# GATE.S8.HAVEN.COMING_HOME.001: Haven first-dock cinematic flag (once per session).
+var _haven_cinematic_played: bool = false
 
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
@@ -48,7 +50,14 @@ var _targeted_fleet_id: String = ""
 var _player_dead: bool = false
 
 # GATE.S7.MAIN_MENU.SCENE.001: Main menu guard — skip gameplay logic when on menu screen.
-var _on_main_menu: bool = false
+# Default true: autoload _ready fires before main_menu sets this, so we must assume menu until told otherwise.
+var _on_main_menu: bool = true
+
+# True when player chose "New Voyage" (not "Continue"). Controls welcome overlay.
+var _is_new_game: bool = false
+
+# GATE.S9.STEAM.SDK.001: Steam integration state.
+var _steam_enabled: bool = false
 
 # FEEL_POST_FIX_3: Event-driven combat state. Countdown timer set by on_hit/bullet
 # signals. HUD reads this to show "COMBAT" without relying on proximity detection
@@ -114,6 +123,11 @@ const DISCOVERY_POLL_INTERVAL: float = 2.0
 var _loot_poll_timer: float = 0.0
 const LOOT_POLL_INTERVAL: float = 0.5
 var _prev_discovery_statuses: Dictionary = {}  # discovery_id -> last known status
+
+# GATE.S8.WIN.GAME_OVER_WIRE.001: Endgame transition state.
+var _game_over_triggered: bool = false
+var _game_over_poll_timer: float = 0.0
+const GAME_OVER_POLL_INTERVAL: float = 1.0
 var _lane_origin_node_id: String = ""  # GATE.S13.WORLD.GATE_ARRIVAL.001: track origin for gate positioning
 var _lane_dest_node_id: String = ""    # Transit destination — read by camera for transit-mode rendering.
 var _cinematic_transit_active: bool = false  # Blocks Esc during approach cinematic.
@@ -185,10 +199,17 @@ func _ready():
 	print('SUCCESS: Global Game Manager initialized.')
 	sim = Sim.new()
 	player = PlayerState.new()
+	_init_steam_v0()
 
 	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay wiring on main menu.
 	if _is_main_menu_active():
 		return
+
+	# Background starfield: CanvasLayer -1 behind 3D scene.
+	var bg_starfield_script = load("res://scripts/view/background_starfield.gd")
+	if bg_starfield_script:
+		var bg_starfield = bg_starfield_script.new()
+		add_child(bg_starfield)
 
 	# Bootstrap player start position from GDScript galaxy topology.
 	# galaxy_spawner.gd reads game_manager.sim for 3D star/lane mesh generation.
@@ -237,8 +258,8 @@ func _ready():
 	if _galaxy_view and _galaxy_view.has_method("SetOverlayOpenV0"):
 		_galaxy_view.call("SetOverlayOpenV0", false)
 
-	# GATE.S12.UX_POLISH.ONBOARDING.001: Show welcome toasts on game start (delayed).
-	_show_onboarding_toasts_deferred_v0()
+	# GATE.S12.UX_POLISH.ONBOARDING.001: Onboarding now triggered from _process
+	# after scene transition (camera controller must exist for dramatic reveal).
 
 	# Edgedar: screen-edge direction indicators for off-screen POIs.
 	var edgedar_script = load("res://scripts/ui/edgedar_overlay.gd")
@@ -254,19 +275,164 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 	if _onboarding_shown:
 		return
 	_onboarding_shown = true
-	# Q4: Concise welcome — single clear prompt, no wall of text.
-	var settings_mgr = get_node_or_null("/root/SettingsManager")
-	var tutorial_on: bool = true
-	if settings_mgr and settings_mgr.has_method("get_setting"):
-		tutorial_on = bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts"))
-	var toast_mgr = get_node_or_null("/root/ToastManager")
-	if not tutorial_on:
-		await get_tree().create_timer(2.0).timeout
+	# Only show full welcome overlay on new game, not continue/load.
+	if not _is_new_game:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		await get_tree().create_timer(1.0).timeout
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
 		return
-	# FEEL_POST_FIX_2: FO panel is always suppressed (no F-key toggle exists yet).
-	# Removed "Press F" toast — it was misleading since pressing F does nothing.
+	# New game cinematic: galaxy image → crossfade reveals solar system → controls.
+	# Camera stays at default altitude (80) — the galaxy IMAGE is a 2D overlay that
+	# covers the entire screen. No camera movement during galaxy phase.
+	var cam_ctrl = _find_camera_controller()
+	if cam_ctrl:
+		cam_ctrl.set("input_locked", true)
+	# Freeze hero ship during intro.
+	if _hero_body:
+		_hero_body.freeze = true
+	# Galaxy image overlay — hold, zoom in, crossfade out (~6.5s).
+	var galaxy_overlay_script = load("res://scripts/ui/galaxy_intro_overlay.gd")
+	if galaxy_overlay_script:
+		var galaxy_overlay = galaxy_overlay_script.new()
+		add_child(galaxy_overlay)
+		await galaxy_overlay.play_intro()
+		galaxy_overlay.queue_free()
+	# Brief settle after galaxy fades, then show controls.
+	await get_tree().create_timer(0.5).timeout
+	_show_welcome_overlay_v0()
+
+func _show_welcome_overlay_v0() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 110
+	canvas.name = "WelcomeOverlay"
+	add_child(canvas)
+
+	# Dim background.
+	var bg := ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.05, 0.7)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	canvas.add_child(bg)
+
+	# Center panel.
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -280
+	panel.offset_right = 280
+	panel.offset_top = -200
+	panel.offset_bottom = 200
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.06, 0.08, 0.14, 0.95)
+	panel_style.border_color = Color(0.4, 0.85, 1.0, 0.6)
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(30)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	bg.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	# Title.
+	var title := Label.new()
+	title.text = "SPACE TRADE EMPIRE"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	# Subtitle.
+	var subtitle := Label.new()
+	subtitle.text = "The galaxy awaits, Captain."
+	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(subtitle)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	vbox.add_child(spacer)
+
+	# Controls.
+	var controls := Label.new()
+	controls.text = "W / S  —  Thrust forward / reverse\nA / D  —  Turn left / right\nE  —  Dock at stations\nM  —  Galaxy map\nTab  —  Empire dashboard\nH  —  All keybindings\nClick  —  Autopilot to location"
+	controls.add_theme_font_size_override("font_size", 13)
+	controls.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(controls)
+
+	var spacer2 := Control.new()
+	spacer2.custom_minimum_size = Vector2(0, 4)
+	vbox.add_child(spacer2)
+
+	# Hint.
+	var hint := Label.new()
+	hint.text = "Fly to the station and press E to dock.\nBuy low, sell high at neighboring systems."
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
+
+	var spacer3 := Control.new()
+	spacer3.custom_minimum_size = Vector2(0, 8)
+	vbox.add_child(spacer3)
+
+	# Dismiss prompt.
+	var dismiss := Label.new()
+	dismiss.text = "[ Press any key to begin ]"
+	dismiss.add_theme_font_size_override("font_size", 13)
+	dismiss.add_theme_color_override("font_color", Color(0.5, 0.7, 0.9, 0.8))
+	dismiss.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(dismiss)
+
+	# Pulse the dismiss text.
+	var tw := create_tween().set_loops()
+	tw.tween_property(dismiss, "modulate:a", 0.4, 1.0).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(dismiss, "modulate:a", 1.0, 1.0).set_ease(Tween.EASE_IN_OUT)
+
+	# Wait for any input to dismiss.
+	await _wait_for_any_input_v0(bg)
+	tw.kill()
+	var fade := create_tween()
+	fade.tween_property(bg, "modulate:a", 0.0, 0.4)
+	await fade.finished
+	canvas.queue_free()
+	# Descent already completed before overlay was shown. Just unlock controls.
+	var cam_ctrl = _find_camera_controller()
+	if cam_ctrl:
+		cam_ctrl.set("input_locked", false)
+	if _hero_body:
+		_hero_body.freeze = false
+
+var _welcome_dismissed := true  # Set false only while welcome overlay is waiting for input.
+
+func _wait_for_any_input_v0(_control: Control) -> void:
+	# Block until any key or mouse press. _unhandled_input sets _welcome_dismissed.
+	_welcome_dismissed = false
+	var deadline := 60.0  # Long timeout for real players; bots set _welcome_dismissed directly.
+	if DisplayServer.get_name() == "headless":
+		deadline = 3.0
+	while not _welcome_dismissed and deadline > 0.0:
+		await get_tree().create_timer(0.2).timeout
+		deadline -= 0.2
+	_welcome_dismissed = true
+
+
+# Force-remove welcome overlay on any major state change (dock, galaxy map, warp).
+func _dismiss_welcome_overlay_v0() -> void:
+	_welcome_dismissed = true
+	var overlay = get_node_or_null("WelcomeOverlay")
+	if overlay:
+		overlay.queue_free()
+		# Also ensure camera/ship are unlocked.
+		var cam_ctrl = _find_camera_controller()
+		if cam_ctrl and cam_ctrl.has_method("tween_altitude_v0"):
+			cam_ctrl.call("tween_altitude_v0", 80.0, 1.5)
+			cam_ctrl.set("input_locked", false)
+		if _hero_body:
+			_hero_body.freeze = false
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save with cooldown and toast.
 func _try_autosave_v0() -> void:
@@ -286,6 +452,12 @@ func _process(delta):
 	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay processing on main menu.
 	if _is_main_menu_active():
 		return
+
+	# Trigger onboarding once after scene transition (camera controller must exist).
+	if not _onboarding_shown and get_parent() == get_tree().root:
+		var cam = _find_camera_controller()
+		if cam:
+			_show_onboarding_toasts_deferred_v0()
 
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
@@ -338,6 +510,12 @@ func _process(delta):
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: poll player HP each frame for death detection
 	_check_player_death_v0()
 
+	# GATE.S8.WIN.GAME_OVER_WIRE.001: poll SimBridge for terminal game result
+	_game_over_poll_timer += float(delta)
+	if _game_over_poll_timer >= GAME_OVER_POLL_INTERVAL:
+		_game_over_poll_timer = 0.0
+		_poll_game_over_v0()
+
 	# GATE.S11.GAME_FEEL.TOAST_EVENTS.001: poll research + events for toast notifications
 	_toast_poll_timer += float(delta)
 	if _toast_poll_timer >= TOAST_POLL_INTERVAL:
@@ -366,6 +544,12 @@ func _unhandled_input(event):
 		return
 	# Only the autoload instance handles input (avoid dual GameManager double-fire).
 	if get_parent() != get_tree().root:
+		return
+	# Welcome overlay dismiss — any key or click.
+	if not _welcome_dismissed:
+		if (event is InputEventKey and event.pressed) or (event is InputEventMouseButton and event.pressed):
+			_welcome_dismissed = true
+			get_viewport().set_input_as_handled()
 		return
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: R restarts scene; all other input frozen when dead
 	if _player_dead:
@@ -410,6 +594,16 @@ func _unhandled_input(event):
 		_toggle_mission_journal_v0()
 	if event.is_action_pressed("ui_combat_log"):
 		_toggle_combat_log_v0()
+	if event.is_action_pressed("ui_warfront_dashboard"):
+		_toggle_warfront_dashboard_v0()
+	if event.is_action_pressed("ui_megaproject"):
+		_toggle_megaproject_panel_v0()
+	if event.is_action_pressed("ui_fo_panel"):
+		_toggle_fo_panel_v0()
+	if event.is_action_pressed("ui_automation"):
+		_toggle_automation_dashboard_v0()
+	if event.is_action_pressed("ui_data_log"):
+		_toggle_data_log_v0()
 	if event.is_action_pressed("ui_data_overlay"):
 		_cycle_data_overlay_v0()
 
@@ -444,6 +638,7 @@ func toggle_market():
 
 
 func toggle_galaxy_map_overlay_v0():
+	_dismiss_welcome_overlay_v0()
 	# Seamless zoom: TAB tells the camera to tween altitude up/down.
 	# The camera's _sync_overlay_state() handles galaxy_overlay_open, ship visibility, HUD, etc.
 	var cam_controller = _find_camera_controller()
@@ -557,6 +752,7 @@ func on_dock_proximity_exit_v0(target: Node):
 
 # Commit dock: called by E key press or directly by test scripts.
 func on_proximity_dock_entered_v0(target: Node):
+	_dismiss_welcome_overlay_v0()
 	if target == null:
 		return
 
@@ -570,6 +766,9 @@ func on_proximity_dock_entered_v0(target: Node):
 	# GATE.S1.AUDIO.AMBIENT.001: dock chime
 	if _sfx_dock_chime:
 		_sfx_dock_chime.play()
+
+	# GATE.S8.HAVEN.COMING_HOME.001: Haven dock cinematic (first dock per session).
+	_try_haven_cinematic_v0()
 
 	# FEEL_POST_FIX_10: Kill any lingering flyby letterbox on dock so text doesn't persist.
 	# CanvasLayer inherits Node (no `visible`). Remove children to hide, then free.
@@ -681,6 +880,7 @@ func _close_all_dock_ui_v0() -> void:
 		_galaxy_view.call("SetUiPanelActiveV0", false)
 
 func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
+	_dismiss_welcome_overlay_v0()
 	if _lane_cooldown_v0 > 0.0:
 		return
 	# Guard: ignore lane proximity while docked (gate collision can fire during dock entry).
@@ -709,9 +909,12 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 		cam_ctrl_prox.set("_pre_transit_altitude", cam_ctrl_prox.get("_altitude"))
 		cam_ctrl_prox.set("_pre_transit_altitude_set", true)
 
-	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake on warp entry
+	# GATE.S14.TRANSIT.WARP_EFFECT.001: screen flash + camera shake + FOV punch on warp entry
 	_apply_camera_shake_v0(0.4)
 	_flash_warp_screen_v0()
+	var cam_fov = _find_camera_controller()
+	if cam_fov and cam_fov.has_method("punch_fov_v0"):
+		cam_fov.call("punch_fov_v0", 8.0, 0.5)
 	# GATE.X.WARP.DEPARTURE_VFX.001: 3D departure flash at ship position.
 	_ensure_hero_body()
 	if _hero_body and is_instance_valid(_hero_body):
@@ -846,6 +1049,9 @@ func _confirm_gate_transit_v0() -> void:
 	# === Phase 2: Launch ===
 	_apply_camera_shake_v0(0.6)
 	_flash_warp_screen_v0()
+	var cam_fov2 = _find_camera_controller()
+	if cam_fov2 and cam_fov2.has_method("punch_fov_v0"):
+		cam_fov2.call("punch_fov_v0", 10.0, 0.5)
 	# GATE.X.WARP.DEPARTURE_VFX.001: 3D departure flash at ship position.
 	_ensure_hero_body()
 	if _hero_body and is_instance_valid(_hero_body):
@@ -930,7 +1136,8 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 		return
 
 	print("UUIR|LANE_EXIT|" + arrived_node_id)
-	# GATE.S14.TRANSIT.WARP_EFFECT.001: arrival rumble
+	# GATE.S14.TRANSIT.WARP_EFFECT.001: arrival flash + rumble
+	_flash_warp_screen_v0()
 	_apply_camera_shake_v0(0.25)
 
 	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Safety cleanup of warp tunnel on arrival.
@@ -1300,6 +1507,31 @@ func notify_player_killed_v0() -> void:
 func is_player_dead_v0() -> bool:
 	return _player_dead
 
+# GATE.S8.WIN.GAME_OVER_WIRE.001: Poll SimBridge for terminal game state and transition.
+func _poll_game_over_v0() -> void:
+	if _game_over_triggered:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetGameResultV0"):
+		return
+	var result: Dictionary = bridge.call("GetGameResultV0")
+	if not result.get("is_terminal", false):
+		return
+	_game_over_triggered = true
+	# Auto-save before transition.
+	if bridge.has_method("AutoSaveV0"):
+		bridge.call("AutoSaveV0")
+	# Stop the sim before scene change.
+	if bridge.has_method("StopSimV0"):
+		bridge.call("StopSimV0")
+	var result_code: int = result.get("result", 0)
+	print("UUIR|GAME_OVER|result=%d" % result_code)
+	# Victory = 1, Death = 2, Bankruptcy = 3
+	if result_code == 1:
+		get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")
+	elif result_code == 2 or result_code == 3:
+		get_tree().change_scene_to_file("res://scenes/ui/loss_screen.tscn")
+
 func _find_nearest_fleet_v0(max_range: float) -> Node3D:
 	if _hero_body == null or not is_instance_valid(_hero_body):
 		return null
@@ -1570,19 +1802,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			var lane_fade := create_tween()
 			lane_fade.tween_interval(fade_delay)
 			lane_fade.tween_property(lane_mat, "albedo_color:a", 0.0, fade_time)
-	if _transit_marker and is_instance_valid(_transit_marker):
-		var marker_mat = _transit_marker.material_override as StandardMaterial3D
-		if marker_mat:
-			var marker_fade := create_tween()
-			marker_fade.tween_interval(fade_delay)
-			marker_fade.tween_property(marker_mat, "albedo_color:a", 0.0, fade_time)
-		for child in _transit_marker.get_children():
-			if child is MeshInstance3D:
-				var glow_mat = child.material_override as StandardMaterial3D
-				if glow_mat:
-					var glow_fade := create_tween()
-					glow_fade.tween_interval(fade_delay)
-					glow_fade.tween_property(glow_mat, "albedo_color:a", 0.0, fade_time)
+	# Transit marker is now invisible (sphere removed) — no fade needed.
 
 	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Fade warp tunnel before cleanup.
 	if _warp_tunnel_ref and is_instance_valid(_warp_tunnel_ref) and _warp_tunnel_ref.has_method("despawn"):
@@ -1871,39 +2091,9 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	if hud and hud.has_method("set_overlay_mode_v0"):
 		hud.call("set_overlay_mode_v0", false)
 
-func _create_transit_marker_v0(pos: Vector3) -> MeshInstance3D:
-	var marker := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 8.0
-	sphere.height = 16.0
-	sphere.radial_segments = 16
-	sphere.rings = 8
-	marker.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.4, 0.7, 1.0, 0.95)
-	mat.emission_enabled = true
-	mat.emission = Color(0.5, 0.8, 1.0)
-	mat.emission_energy_multiplier = 8.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	marker.material_override = mat
-	# Outer glow — slightly larger transparent sphere for bloom-like effect.
-	var glow := MeshInstance3D.new()
-	var glow_sphere := SphereMesh.new()
-	glow_sphere.radius = 10.0
-	glow_sphere.height = 20.0
-	glow_sphere.radial_segments = 12
-	glow_sphere.rings = 6
-	glow.mesh = glow_sphere
-	var glow_mat := StandardMaterial3D.new()
-	glow_mat.albedo_color = Color(0.3, 0.6, 1.0, 0.12)
-	glow_mat.emission_enabled = true
-	glow_mat.emission = Color(0.4, 0.7, 1.0)
-	glow_mat.emission_energy_multiplier = 3.0
-	glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.material_override = glow_mat
-	marker.add_child(glow)
+func _create_transit_marker_v0(pos: Vector3) -> Node3D:
+	# Invisible anchor node for warp tunnel VFX — sphere removed (was placeholder).
+	var marker := Node3D.new()
 	get_tree().root.add_child(marker)
 	marker.global_position = pos
 	return marker
@@ -2227,16 +2417,53 @@ func _toggle_mission_journal_v0() -> void:
 	if hud != null and hud.has_method("toggle_mission_journal_v0"):
 		hud.toggle_mission_journal_v0()
 
-# GATE.S14.TRANSIT.WARP_EFFECT.001: White screen flash on warp entry.
+# GATE.S7.UI_WARFRONT.DASHBOARD.001: Toggle warfront dashboard panel (N key).
+func _toggle_warfront_dashboard_v0() -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_warfront_dashboard_v0"):
+		hud.toggle_warfront_dashboard_v0()
+
+# GATE.S8.MEGAPROJECT.UI.001: Toggle megaproject panel (M key).
+func _toggle_megaproject_panel_v0(node_id: String = "") -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_megaproject_panel_v0"):
+		hud.toggle_megaproject_panel_v0(node_id)
+
+# Toggle FO panel visibility (F key).
+func _toggle_fo_panel_v0() -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_fo_panel_v0"):
+		hud.toggle_fo_panel_v0()
+
+# Toggle automation dashboard (B key).
+func _toggle_automation_dashboard_v0() -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_automation_dashboard_v0"):
+		hud.toggle_automation_dashboard_v0()
+
+# Toggle data log panel (D key).
+func _toggle_data_log_v0() -> void:
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud != null and hud.has_method("toggle_data_log_v0"):
+		hud.toggle_data_log_v0()
+
+# GATE.S14.TRANSIT.WARP_EFFECT.001: Two-stage warp screen flash.
+# Phase 1: Bright white flash (0.15s). Phase 2: Blue-shift afterglow fade (0.4s).
+# Gives visible animation progression across multiple captured frames.
 func _flash_warp_screen_v0() -> void:
 	var canvas := CanvasLayer.new()
 	canvas.layer = 100
 	add_child(canvas)
 	var rect := ColorRect.new()
-	rect.color = Color(1.0, 1.0, 1.0, 0.5)
+	rect.color = Color(1.0, 1.0, 1.0, 0.6)
 	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	canvas.add_child(rect)
 	var tween := create_tween()
+	# Phase 1: bright white flash fades quickly
+	tween.tween_property(rect, "color:a", 0.3, 0.12)
+	# Phase 2: shift to blue-cyan afterglow
+	tween.tween_property(rect, "color", Color(0.2, 0.5, 1.0, 0.25), 0.15)
+	# Phase 3: afterglow fades out
 	tween.tween_property(rect, "color:a", 0.0, 0.35)
 	tween.tween_callback(canvas.queue_free)
 
@@ -2289,6 +2516,40 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 func _check_first_dock_mission_prompt_v0() -> void:
 	pass
 
+
+# GATE.S8.HAVEN.COMING_HOME.001: Haven dock cinematic — camera pullback + sweep on first dock.
+func _try_haven_cinematic_v0() -> void:
+	if _haven_cinematic_played:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetHavenStatusV0"):
+		return
+	var status: Dictionary = bridge.call("GetHavenStatusV0")
+	if not status.get("discovered", false):
+		return
+	var haven_node_id: String = str(status.get("node_id", ""))
+	if haven_node_id.is_empty() or haven_node_id != dock_target_id:
+		return
+
+	_haven_cinematic_played = true
+	print("UUIR|HAVEN_CINEMATIC|dock_at_haven")
+
+	# Camera pullback + slow approach tween.
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+
+	var original_pos := cam.global_position
+	var pullback_pos := original_pos + Vector3(0, 30, 40)
+
+	var tween := create_tween()
+	# Pull back.
+	tween.tween_property(cam, "global_position", pullback_pos, 1.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	# Hold for a beat.
+	tween.tween_interval(0.8)
+	# Sweep back in slowly.
+	tween.tween_property(cam, "global_position", original_pos, 2.0).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_QUAD)
+
 # GATE.S19.ONBOARD.FO_EVENTS.012: Force immediate FO dialogue poll after key game events.
 # Ensures FO reacts within 0.5s instead of waiting for the 2s slow-poll cycle.
 func _poll_fo_immediate() -> void:
@@ -2325,6 +2586,8 @@ func _poll_milestone_celebrations_v0() -> void:
 		var mname: String = str(m.get("name", mid))
 		toast_mgr.call("show_priority_toast", "Milestone: " + mname, "milestone")
 		print("UUIR|MILESTONE_CELEBRATE|" + mid)
+		# GATE.S9.STEAM.ACHIEVEMENTS.001: Unlock Steam achievement on milestone.
+		_unlock_steam_achievement_v0(mid)
 
 # GATE.S5.TRACTOR.VFX.001: Auto-collect nearby loot drops and spawn tractor beam VFX.
 func _poll_auto_loot_v0() -> void:
@@ -2422,3 +2685,41 @@ func _poll_discovery_celebrations_v0() -> void:
 					toast_mgr.call("show_toast", msg, 6.0)
 
 		_prev_discovery_statuses[disc_id] = current_status
+
+# GATE.S9.STEAM.SDK.001: Initialize Steam with graceful fallback.
+func _init_steam_v0():
+	if not ClassDB.class_exists(&"Steam"):
+		print("[Steam] GodotSteam not available — running without Steam integration.")
+		_steam_enabled = false
+		return
+
+	var steam = Engine.get_singleton("Steam")
+	if steam == null:
+		print("[Steam] Steam singleton not found — running without Steam.")
+		_steam_enabled = false
+		return
+
+	var init_result = steam.steamInitEx(false, 480)
+	if init_result["status"] != 0:
+		print("[Steam] Steam init failed (status %d) — running without Steam." % init_result["status"])
+		_steam_enabled = false
+		return
+
+	_steam_enabled = true
+	print("[Steam] Steam initialized. User: %s" % steam.getPersonaName())
+
+func is_steam_enabled() -> bool:
+	return _steam_enabled
+
+# GATE.S9.STEAM.ACHIEVEMENTS.001: Milestone → Steam achievement mapping.
+# Achievement API names match milestone IDs (configured in Steamworks dashboard).
+func _unlock_steam_achievement_v0(milestone_id: String) -> void:
+	if not _steam_enabled:
+		return
+	var steam = Engine.get_singleton("Steam")
+	if steam == null:
+		return
+	# Steam achievement API name = milestone ID (e.g., "first_trade", "explorer_5").
+	steam.setAchievement(milestone_id)
+	steam.storeStats()
+	print("[Steam] Achievement unlocked: %s" % milestone_id)

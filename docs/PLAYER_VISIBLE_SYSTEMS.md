@@ -8,7 +8,7 @@ Used by `/screenshot eval` and manual playtesting to verify nothing has regresse
 - Each item has a **Verify** hint: what to look for in screenshots or bot runs
 - Items marked (IN_PROGRESS) are partially built — note what's expected vs not-yet
 
-Last updated: 2026-03-11 (post Tranche 29)
+Last updated: 2026-03-13 (post Tranche 40)
 
 ---
 
@@ -44,6 +44,7 @@ Last updated: 2026-03-11 (post Tranche 29)
 | Real-time hero combat — shields/hull, turrets, missiles | Player can fire at NPCs, damage is dealt | S5.COMBAT_LOCAL |
 | Point defense counter family | PD weapons intercept missiles | S5.COMBAT_DOCTRINE |
 | Kill explosion VFX — fireball (scale 12) + debris + smoke | Large visible explosion when NPC ship destroyed | S7.COMBAT_JUICE |
+| Ship capture — board disabled NPC | Combat HUD shows capturable targets (<10% hull) with Capture button; captured ship stored in Haven hangar (requires Tier 3+) | S5.LOSS_RECOVERY |
 | Shield ripple shader on hit (radius 14) | Blue/white ripple on shield surface when hit, visible at altitude 80 | S7.COMBAT_JUICE + S7.RUNTIME_STABILITY |
 | Shield break flash (radius 18) + discharge particles | Flash + 30 particles when shields reach 0 | S7.COMBAT_JUICE + S7.RUNTIME_STABILITY |
 | Floating damage numbers (font 96-160, pixel_size 0.12) | Large numeric values float up from hit location, visible at game altitude | S7.COMBAT_JUICE + S7.RUNTIME_STABILITY |
@@ -108,6 +109,12 @@ Last updated: 2026-03-11 (post Tranche 29)
 | Warfront overlay on galaxy map (W key) | Red intensity discs showing active combat zones, disputed territory | S7.GALAXY_MAP_V2 |
 | Faction territory labels on galaxy map | Text labels showing faction ownership | S15.EXPLORATION_FEEL |
 | Embargo system + tariff scaling | Trade restrictions at hostile factions | S7.TERRITORY_REGIMES |
+| Diplomacy tab in dock menu (6th tab) | Treaties, bounties, proposals (accept/reject), sanctions — all visible when docked | S7.DIPLOMACY_VERBS |
+| Treaty system — non-aggression + trade agreements | Active treaties show faction, tariff reduction %, safe passage status, expiry tick | S7.DIPLOMACY_VERBS |
+| Bounty board — faction-posted kill contracts | Bounty list with target fleet, reward credits + reputation, issuing faction | S7.DIPLOMACY_VERBS |
+| Diplomatic proposals — faction AI offers | Pending proposals from faction AI with accept/reject buttons; faction personality drives offer types | S7.DIPLOMACY_VERBS |
+| Treaty violation + sanctions | Attacking treaty partner breaks treaty, applies rep penalty + tariff sanction with expiry | S7.DIPLOMACY_VERBS |
+| Faction-locked modules — rep tier gating | Refit panel shows locked modules with "[FactionName]" tag; requires Friendly/Allied rep to install | S7.TECH_ACCESS |
 
 ## Exploration & Discovery
 
@@ -229,3 +236,17 @@ Last updated: 2026-03-11 (post Tranche 29)
 | Kenney Space Kit station models | 3D station meshes at dockable nodes | S14.ALIVE_GALAXY |
 | Tighter local system density | Planets ~40% closer to star, stations 4u from planet (was 8u), belt at 28u (was 45u), lane gates at 55u (was 90u). Systems feel populated, not barren | X.UI_POLISH |
 | Dock visual polish — sell column + ship tab | Sell column properly aligned in market tab, ship tab visual cleanup | X.UI_POLISH |
+| Haven visual tiers — icon scales with upgrade level | Galaxy map Haven icon grows (200-440u), emission brightens (25-65), color shifts gold→white-gold with tier | S8.HAVEN_STARBASE |
+| Warp arrival drama — letterbox + system title card | Letterbox bars + system name tween on lane arrival | X.WARP |
+| Quest tracker HUD widget | Persistent mission name, step text, progress bar in flight HUD | X.UI_POLISH |
+| Station identity — per-faction color + tier size | Stations tinted by faction, sized by economic tier | X.STATION_IDENTITY |
+| Cost-basis tracking in cargo | Weighted average cost basis per good, realized profit shown on sell | X.LEDGER |
+| Dashboard UX — "Opportunities" (was "Needs Attention") | Info-blue styling, positive framing for actionable items | X.UI_POLISH |
+| Market production formatting | Arrow separators, color-coded surplus/deficit in production display | X.UI_POLISH |
+| Mission evolution — triggers, non-credit rewards, branching | Missions with 4 trigger types, faction contract gating, CHOICE branching, failure/abandonment | S9.MISSION_LADDER |
+| Strategic warfront objectives | SupplyDepot/CommRelay/Factory capture targets on warfront overlay | S7.WARFRONT_STATE |
+| Fleet attrition at Skirmish+ intensity | Faction fleets take losses in active warfronts | S7.WARFRONT_STATE |
+| Territory regime hysteresis | Faction control changes smoothly with resistance to oscillation | S7.TERRITORY_REGIMES |
+| Offlane fracture routes | Alternative routes through fracture space between non-adjacent systems | S7.OFFLANE_FRACTURE |
+| Layered reveals — discovery recontextualization + warfront intel tiers | Progressive information disclosure tied to exploration progress and warfront participation | S7.LAYERED_REVEALS |
+| Mission journal panel (J key) | Scrollable mission log with active/completed missions, step history | S9.MISSION_LADDER |

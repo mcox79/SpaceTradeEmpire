@@ -498,7 +498,7 @@ public partial class SimBridge : Node
     public Godot.Collections.Dictionary GetGalaxySnapshotV0()
     {
         Godot.Collections.Dictionary d = new Godot.Collections.Dictionary();
-        ExecuteSafeRead(state =>
+        TryExecuteSafeRead(state =>
         {
             var snap = MapQueries.BuildGalaxySnapshotV0(state);
 
@@ -566,7 +566,7 @@ public partial class SimBridge : Node
         nodeId ??= "";
 
         Godot.Collections.Dictionary d = new Godot.Collections.Dictionary();
-        ExecuteSafeRead(state =>
+        TryExecuteSafeRead(state =>
         {
             var snap = MapQueries.BuildSystemSnapshotV0(state, nodeId);
 
@@ -787,7 +787,7 @@ public partial class SimBridge : Node
     // Blocks until the sim thread processes the command so callers can read updated state immediately.
     public void DispatchPlayerArriveV0(string targetNodeId)
     {
-        int tickBefore = GetSimTickV0();
+        int tickBefore = GetSimTickBlocking();
         EnqueueCommand(new PlayerArriveCommand(targetNodeId));
         WaitForTickAdvance(tickBefore, 200);
     }
@@ -804,7 +804,7 @@ public partial class SimBridge : Node
     {
         nodeId ??= "";
         var result = new Godot.Collections.Array();
-        ExecuteSafeRead(state =>
+        TryExecuteSafeRead(state =>
         {
             if (!state.Markets.TryGetValue(nodeId, out var market)) return;
             var goods = market.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
@@ -941,7 +941,7 @@ public partial class SimBridge : Node
     // can read updated state immediately without a timer-based race.
     public void DispatchPlayerTradeV0(string nodeId, string goodId, int qty, bool isBuy)
     {
-        int tickBefore = GetSimTickV0();
+        int tickBefore = GetSimTickBlocking();
         var type = isBuy ? TradeType.Buy : TradeType.Sell;
         EnqueueCommand(new TradeCommand("player", nodeId, goodId, qty, type));
         WaitForTickAdvance(tickBefore, 200);
@@ -1087,6 +1087,15 @@ public partial class SimBridge : Node
 
     // --- Fleet UI commands (Slice 3 / GATE.UI.FLEET.002, GATE.UI.FLEET.003) ---
 
+    // Blocking tick read for dispatch methods — waits for the read lock unlike GetSimTickV0().
+    // Returns the current tick or -1 if the lock cannot be acquired within timeoutMs.
+    private int GetSimTickBlocking(int timeoutMs = 200)
+    {
+        if (!_stateLock.TryEnterReadLock(timeoutMs)) return -1;
+        try { return _kernel.State.Tick; }
+        finally { _stateLock.ExitReadLock(); }
+    }
+
     // Best-effort: block until the sim thread advances at least one tick so an immediate UI Refresh()
     // reflects the deterministic post-command state (job cleared, route cleared, task updated).
     private bool WaitForTickAdvance(int tickBefore, int timeoutMs)
@@ -1096,18 +1105,20 @@ public partial class SimBridge : Node
         var sw = System.Diagnostics.Stopwatch.StartNew();
         while (sw.ElapsedMilliseconds < timeoutMs)
         {
-            int now;
-            _stateLock.EnterReadLock();
-            try
+            if (_stateLock.TryEnterReadLock(5))
             {
-                now = _kernel.State.Tick;
-            }
-            finally
-            {
-                _stateLock.ExitReadLock();
-            }
+                int now;
+                try
+                {
+                    now = _kernel.State.Tick;
+                }
+                finally
+                {
+                    _stateLock.ExitReadLock();
+                }
 
-            if (now > tickBefore) return true;
+                if (now > tickBefore) return true;
+            }
             Thread.Sleep(1);
         }
 
@@ -1199,6 +1210,50 @@ public partial class SimBridge : Node
             }
         }
         catch { /* best-effort metadata extraction */ }
+
+        return result;
+    }
+
+    // GATE.S9.SAVE.INTEGRITY.001: Check save file integrity before loading.
+    public Godot.Collections.Dictionary GetSaveIntegrityV0(int slot)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["slot"] = slot;
+        result["valid"] = false;
+        result["error"] = "";
+        result["warnings"] = new Godot.Collections.Array();
+
+        if (slot < 1 || slot > 3) { result["error"] = "invalid_slot"; return result; }
+
+        var path = ProjectSettings.GlobalizePath($"user://quicksave_{slot}.json");
+        if (!File.Exists(path)) { result["error"] = "file_not_found"; return result; }
+
+        try
+        {
+            var text = File.ReadAllText(path);
+            string kernelJson;
+
+            if (TryParseQuickSaveV2(text, out var qs))
+            {
+                kernelJson = qs.Kernel.GetRawText();
+            }
+            else
+            {
+                kernelJson = text;
+            }
+
+            var dr = SimCore.Systems.SerializationSystem.TryDeserializeSafe(kernelJson);
+            result["valid"] = dr.Success;
+            result["error"] = dr.Error;
+
+            var warningArray = new Godot.Collections.Array();
+            foreach (var w in dr.Warnings) warningArray.Add(w);
+            result["warnings"] = warningArray;
+        }
+        catch (Exception ex)
+        {
+            result["error"] = $"io_error: {ex.Message}";
+        }
 
         return result;
     }

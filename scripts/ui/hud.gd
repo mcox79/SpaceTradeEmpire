@@ -38,6 +38,10 @@ var _security_label: Label = null
 # GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label
 var _research_label: Label = null
 
+# GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Scan progress display.
+var _scan_progress_label: Label = null
+var _scan_progress_bar: ProgressBar = null
+
 # Timer accumulator for slow-poll HUD sections (mission + research)
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
@@ -128,11 +132,23 @@ var _knowledge_web_panel = null
 # GATE.X.UI_POLISH.MISSION_JOURNAL.001: Mission journal panel (J key).
 var _mission_journal_panel = null
 
+# GATE.S8.MEGAPROJECT.UI.001: Megaproject construction panel (M key).
+var _megaproject_panel = null
+
+# GATE.S7.UI_WARFRONT.DASHBOARD.001: Warfront dashboard panel (N key).
+var _warfront_panel = null
+
 # GATE.X.UI_POLISH.QUEST_TRACKER.001: Persistent quest tracker widget (top-right).
 var _quest_tracker_panel: PanelContainer = null
 var _quest_tracker_name_label: Label = null
 var _quest_tracker_step_label: Label = null
 var _quest_tracker_progress: ProgressBar = null
+
+# GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Active discovery leads panel (left side, below scan).
+var _active_leads_panel: PanelContainer = null
+var _active_leads_vbox: VBoxContainer = null
+var _active_leads_title: Label = null
+var _active_leads_labels: Array = []  # Up to 3 Label nodes
 
 # Dock confirmation: "Press E to dock" prompt (bottom-center).
 var _dock_prompt_label: Label = null
@@ -144,6 +160,12 @@ var _transit_progress_fill: ColorRect = null
 
 # GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD overlay (destination + ETA + distance).
 var _warp_transit_hud = null
+
+# GATE.S8.STORY_STATE.DELIVERY_UI.001: Gold toast + map highlight + FO reaction for revelation moments.
+var _last_revelation_count: int = -1
+
+# GATE.S8.THREAT.ALERT_UI.001: Supply shock alert label.
+var _supply_alert_label: Label = null
 
 
 func _ready() -> void:
@@ -295,6 +317,67 @@ func _ready() -> void:
 	_research_label.position = Vector2(10, 400)
 	add_child(_research_label)
 
+	# GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Scan progress indicator.
+	_scan_progress_label = Label.new()
+	_scan_progress_label.name = "ScanProgressLabel"
+	_scan_progress_label.text = ""
+	_scan_progress_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_scan_progress_label.add_theme_color_override("font_color", UITheme.YELLOW)
+	_scan_progress_label.position = Vector2(10, 420)
+	_scan_progress_label.visible = false
+	add_child(_scan_progress_label)
+
+	_scan_progress_bar = ProgressBar.new()
+	_scan_progress_bar.name = "ScanProgressBar"
+	_scan_progress_bar.custom_minimum_size = Vector2(140, 10)
+	_scan_progress_bar.max_value = 100
+	_scan_progress_bar.value = 0
+	_scan_progress_bar.show_percentage = false
+	_scan_progress_bar.position = Vector2(10, 440)
+	_scan_progress_bar.visible = false
+	var scan_fill := StyleBoxFlat.new()
+	scan_fill.bg_color = UITheme.YELLOW
+	_scan_progress_bar.add_theme_stylebox_override("fill", scan_fill)
+	var scan_bg := StyleBoxFlat.new()
+	scan_bg.bg_color = Color(0.1, 0.12, 0.15, 0.8)
+	_scan_progress_bar.add_theme_stylebox_override("background", scan_bg)
+	add_child(_scan_progress_bar)
+
+	# GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Active discovery leads panel.
+	_active_leads_panel = PanelContainer.new()
+	_active_leads_panel.name = "ActiveLeadsPanel"
+	_active_leads_panel.visible = false
+	_active_leads_panel.position = Vector2(8, 462)
+	_active_leads_panel.custom_minimum_size = Vector2(250, 0)
+	_active_leads_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var leads_style := StyleBoxFlat.new()
+	leads_style.bg_color = Color(0.05, 0.07, 0.12, 0.85)
+	leads_style.border_width_left = 2
+	leads_style.border_color = UITheme.PURPLE_LIGHT
+	_active_leads_panel.add_theme_stylebox_override("panel", leads_style)
+	add_child(_active_leads_panel)
+
+	_active_leads_vbox = VBoxContainer.new()
+	_active_leads_vbox.add_theme_constant_override("separation", 2)
+	_active_leads_panel.add_child(_active_leads_vbox)
+
+	_active_leads_title = Label.new()
+	_active_leads_title.text = "ACTIVE LEADS"
+	_active_leads_title.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_active_leads_title.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT)
+	_active_leads_vbox.add_child(_active_leads_title)
+
+	_active_leads_labels = []
+	for i in range(3):
+		var lbl := Label.new()
+		lbl.name = "LeadLabel%d" % i
+		lbl.text = ""
+		lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		lbl.visible = false
+		_active_leads_vbox.add_child(lbl)
+		_active_leads_labels.append(lbl)
+
 	# GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fuel indicator label.
 	_fuel_label = Label.new()
 	_fuel_label.name = "FuelLabel"
@@ -384,7 +467,7 @@ func _ready() -> void:
 	# Use a shader for edge-only glow (inner area transparent, edges tinted red).
 	var vignette_shader := ShaderMaterial.new()
 	var shader_code := Shader.new()
-	shader_code.code = "shader_type canvas_item;\nuniform vec4 tint_color : source_color = vec4(0.8, 0.05, 0.02, 0.35);\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat d = max(abs(uv.x), abs(uv.y));\n\tfloat edge = smoothstep(0.6, 1.0, d);\n\tCOLOR = vec4(tint_color.rgb, tint_color.a * edge);\n}"
+	shader_code.code = "shader_type canvas_item;\nuniform vec4 tint_color : source_color = vec4(0.8, 0.05, 0.02, 0.0);\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat d = max(abs(uv.x), abs(uv.y));\n\tfloat edge = smoothstep(0.6, 1.0, d);\n\tCOLOR = vec4(tint_color.rgb, tint_color.a * edge);\n}"
 	vignette_shader.shader = shader_code
 	_combat_vignette.material = vignette_shader
 	add_child(_combat_vignette)
@@ -472,7 +555,7 @@ func _ready() -> void:
 	_fleet_auto_panel.name = "FleetAutoPanel"
 	_fleet_auto_panel.custom_minimum_size = Vector2(200, 0)
 	_fleet_auto_panel.position = Vector2(1700, 960)
-	_fleet_auto_panel.visible = true
+	_fleet_auto_panel.visible = false
 	var auto_style := StyleBoxFlat.new()
 	auto_style.bg_color = Color(0.05, 0.07, 0.12, 0.85)
 	auto_style.border_width_left = 2
@@ -526,6 +609,16 @@ func _ready() -> void:
 	var MissionJournalPanelScript := preload("res://scripts/ui/mission_journal_panel.gd")
 	_mission_journal_panel = MissionJournalPanelScript.new()
 	add_child(_mission_journal_panel)
+
+	# GATE.S8.MEGAPROJECT.UI.001: Megaproject construction panel (M key).
+	var MegaprojectPanelScript := preload("res://scripts/ui/megaproject_panel.gd")
+	_megaproject_panel = MegaprojectPanelScript.new()
+	add_child(_megaproject_panel)
+
+	# GATE.S7.UI_WARFRONT.DASHBOARD.001: Warfront dashboard panel (N key).
+	var WarfrontPanelScript := preload("res://scripts/ui/warfront_panel.gd")
+	_warfront_panel = WarfrontPanelScript.new()
+	add_child(_warfront_panel)
 
 	# Dock confirmation prompt (centered above Zone G bar).
 	_dock_prompt_label = Label.new()
@@ -661,6 +754,17 @@ func _ready() -> void:
 
 	_alert_badge.gui_input.connect(_on_alert_badge_clicked)
 
+	# GATE.S8.THREAT.ALERT_UI.001: Supply shock alert label (left side, below active leads).
+	_supply_alert_label = Label.new()
+	_supply_alert_label.name = "SupplyAlertLabel"
+	_supply_alert_label.text = ""
+	_supply_alert_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_supply_alert_label.add_theme_color_override("font_color", UITheme.RED)
+	_supply_alert_label.position = Vector2(8, 520)
+	_supply_alert_label.visible = false
+	_supply_alert_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_supply_alert_label)
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
@@ -696,13 +800,15 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _zone_g_bar: _zone_g_bar.visible = not active
 	if _keybind_hint_label: _keybind_hint_label.visible = not active
 	if _fleet_auto_panel: _fleet_auto_panel.visible = not active
+	if _active_leads_panel: _active_leads_panel.visible = not active
 	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
-	# FEEL_POST_BASELINE: FO panel always suppressed (no toggle key exists).
-	if _fo_panel: _fo_panel.visible = false
+	# FO panel: hide during galaxy overlay (same as data_log, knowledge_web).
+	if _fo_panel and active: _fo_panel.visible = false
 	if _data_log_panel and active: _data_log_panel.visible = false
 	if _knowledge_web_panel and active: _knowledge_web_panel.visible = false
 	if _mission_journal_panel and active: _mission_journal_panel.visible = false
+	if _warfront_panel and active: _warfront_panel.visible = false
 	if _heat_bar: _heat_bar.visible = not active
 	if _heat_label: _heat_label.visible = not active
 	if _battle_stations_label: _battle_stations_label.visible = not active
@@ -790,11 +896,6 @@ func _physics_process(_delta: float) -> void:
 				var tw := create_tween()
 				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.35, 0.0, 0.6)
 
-	# FEEL_POST_BASELINE: FO panel always hidden — it ate 20% screen width with
-	# no actionable content. No F-key toggle exists yet, so suppress entirely.
-	if _fo_panel:
-		_fo_panel.visible = false
-
 	# HP bars: hull (red/green) and shield (blue)
 	if _bridge.has_method("GetFleetCombatHpV0"):
 		var hp: Dictionary = _bridge.call("GetFleetCombatHpV0", "fleet_trader_1")
@@ -806,7 +907,20 @@ func _physics_process(_delta: float) -> void:
 		if hull_max > 0:
 			_hull_bar.max_value = hull_max
 			_hull_bar.value = hull
-			_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
+			# Hull urgency coloring: red < 20%, yellow 20-50%, white > 50%.
+			var hull_pct: float = float(hull) / float(hull_max)
+			if hull_pct < 0.15 and hull_pct > 0.0:
+				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max) + "  CRITICAL"
+				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.15))
+			elif hull_pct < 0.2:
+				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
+				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+			elif hull_pct < 0.5:
+				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
+				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+			else:
+				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
+				_hull_label.remove_theme_color_override("font_color")
 			_hull_bar.visible = true
 			_hull_label.visible = true
 		else:
@@ -827,13 +941,18 @@ func _physics_process(_delta: float) -> void:
 		_combat_label.text = ""
 
 	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge + battle stations indicator.
+	# Only show heat bar during active combat (BattleReady) — not at rest.
+	var _show_heat := false
 	if _heat_bar and _bridge and _bridge.has_method("GetHeatSnapshotV0"):
+		if _bridge.has_method("GetBattleStationsStateV0"):
+			var _bs_check: Dictionary = _bridge.call("GetBattleStationsStateV0")
+			_show_heat = _bs_check.get("state", "StandDown") == "BattleReady"
 		var heat: Dictionary = _bridge.call("GetHeatSnapshotV0")
 		var hc: int = heat.get("heat_current", 0)
 		var cap: int = heat.get("heat_capacity", 1000)
 		var overheated: bool = heat.get("is_overheated", false)
 		var locked_out: bool = heat.get("is_locked_out", false)
-		if cap > 0:
+		if cap > 0 and _show_heat:
 			_heat_bar.max_value = cap * 2  # Show up to 2x capacity for overheat/lockout
 			_heat_bar.value = hc
 			_heat_bar.visible = true
@@ -847,7 +966,7 @@ func _physics_process(_delta: float) -> void:
 					fill_style.bg_color = Color(0.9, 0.1 * pulse, 0.1 * pulse)
 				elif overheated:
 					fill_style.bg_color = Color(0.9, 0.15, 0.1)
-				elif hc > cap / 2:
+				elif hc > int(cap / 2.0):
 					fill_style.bg_color = Color(0.9, 0.75, 0.1)
 				else:
 					fill_style.bg_color = Color(0.2, 0.8, 0.2)
@@ -889,6 +1008,7 @@ func _physics_process(_delta: float) -> void:
 		_update_mission_hud()
 		_update_research_hud()
 		_update_fuel_hud()
+		_update_scan_progress_v0()
 		_update_zone_g_v0()
 		_update_fleet_auto_summary_v0()
 		if _combat_hud and _combat_hud.has_method("refresh_v0"):
@@ -896,15 +1016,22 @@ func _physics_process(_delta: float) -> void:
 		_check_fracture_unlock_toast_v0()
 		# GATE.X.UI_POLISH.QUEST_TRACKER.001: Update quest tracker widget.
 		_update_quest_tracker_v0()
+		# GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Update active leads panel.
+		_update_active_leads_v0()
 		# GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Update onboarding disclosure state.
 		_update_onboarding_disclosure_v0()
+		# GATE.S8.STORY_STATE.DELIVERY_UI.001: Check for new revelation moments.
+		_check_revelation_delivery_v0()
+		# GATE.S8.THREAT.ALERT_UI.001: Check for supply shock alerts.
+		_check_supply_alerts_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	if _security_label != null and _bridge != null:
 		var node_id: String = str(ps.get("current_node_id", ""))
 		if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
 			var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
-			_security_label.text = "Security: %s" % band.to_upper()
+			var display_band: String = _security_display_name(band)
+			_security_label.text = display_band
 			_security_label.visible = true
 			_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 		else:
@@ -972,9 +1099,17 @@ func _update_mission_hud() -> void:
 			step_parts.append(obj)
 		var detail_parts: Array = []
 		if not tgt_node.is_empty():
-			detail_parts.append(tgt_node)
+			var node_display: String = tgt_node
+			if _bridge and _bridge.has_method("GetNodeDisplayNameV0"):
+				node_display = str(_bridge.call("GetNodeDisplayNameV0", tgt_node))
+			if node_display.is_empty() or node_display == tgt_node:
+				node_display = tgt_node.replace("_", " ").capitalize()
+			detail_parts.append(node_display)
 		if not tgt_good.is_empty():
-			detail_parts.append(tgt_good)
+			var good_display: String = tgt_good.replace("_", " ").capitalize()
+			if _bridge and _bridge.has_method("FormatDisplayNameV0"):
+				good_display = str(_bridge.call("FormatDisplayNameV0", tgt_good))
+			detail_parts.append(good_display)
 		if detail_parts.size() > 0:
 			step_parts.append("Target: %s" % ", ".join(detail_parts))
 		_mission_step_label.text = "\n".join(step_parts)
@@ -1008,6 +1143,65 @@ func _update_quest_tracker_v0() -> void:
 	_quest_tracker_step_label.text = "Step %d/%d: %s" % [step_idx + 1, total, step_text] if total > 0 else step_text
 	_quest_tracker_progress.value = float(summary.get("progress", 0.0))
 
+# GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Active leads update (called every 2s via slow poll).
+func _update_active_leads_v0() -> void:
+	if _active_leads_panel == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetActiveLeadsV0"):
+		_active_leads_panel.visible = false
+		return
+	# Flight mode only: hide when overlay (galaxy map / dashboard) is active.
+	if _overlay_active:
+		_active_leads_panel.visible = false
+		return
+	var leads: Array = _bridge.call("GetActiveLeadsV0")
+	if leads.size() == 0:
+		_active_leads_panel.visible = false
+		return
+	_active_leads_panel.visible = true
+	for i in range(3):
+		var lbl: Label = _active_leads_labels[i]
+		if i < leads.size():
+			var lead: Dictionary = leads[i]
+			var node_name: String = str(lead.get("node_name", ""))
+			var payoff: String = str(lead.get("payoff_token", "")).replace("_", " ").to_lower()
+			var verb: String = str(lead.get("source_verb", ""))
+			var icon: String = _lead_type_icon(verb)
+			# Humanize raw internal node names (e.g., "T1SECTOR_UNKNOWN" → "Unknown Sector").
+			node_name = _humanize_lead_name(node_name)
+			if node_name.is_empty():
+				lbl.text = "%s %s" % [icon, payoff]
+			else:
+				lbl.text = "%s %s — %s" % [icon, node_name, payoff]
+			lbl.visible = true
+		else:
+			lbl.text = ""
+			lbl.visible = false
+
+func _humanize_lead_name(raw: String) -> String:
+	if raw.is_empty():
+		return ""
+	# Strip internal prefixes and IDs.
+	if raw.begins_with("T1") or raw.begins_with("T2") or raw.begins_with("T3"):
+		return "Unknown Sector"
+	if "UNKNOWN" in raw.to_upper():
+		return "Unknown Sector"
+	# Convert star_N to "System N+1" for readability.
+	if raw.begins_with("star_"):
+		var idx_str := raw.substr(5)
+		if idx_str.is_valid_int():
+			return "System %d" % (int(idx_str) + 1)
+	# Replace underscores and title-case.
+	return raw.replace("_", " ").capitalize()
+
+func _lead_type_icon(verb: String) -> String:
+	match verb:
+		"EXPLORE":       return "[E]"
+		"HUB_ANALYSIS":  return "[H]"
+		"SCAN":          return "[S]"
+		"EXPEDITION":    return "[X]"
+		_:               return "[?]"
+
 # GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress update (called every 2s)
 func _update_research_hud() -> void:
 	if _research_label == null or _bridge == null:
@@ -1031,6 +1225,54 @@ func _update_research_hud() -> void:
 	else:
 		_research_label.text = "Research: Idle"
 		_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+
+# GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: scan progress update
+func _update_scan_progress_v0() -> void:
+	if _scan_progress_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetDiscoverySnapshotV0") or not _bridge.has_method("GetPlayerStateV0"):
+		_scan_progress_label.visible = false
+		if _scan_progress_bar: _scan_progress_bar.visible = false
+		return
+
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0") if _bridge.has_method("GetPlayerStateV0") else {}
+	var node_id: String = str(ps.get("current_node_id", ""))
+	if node_id.is_empty():
+		_scan_progress_label.visible = false
+		if _scan_progress_bar: _scan_progress_bar.visible = false
+		return
+
+	var discoveries: Array = _bridge.call("GetDiscoverySnapshotV0", node_id)
+	if discoveries.size() == 0:
+		_scan_progress_label.visible = false
+		if _scan_progress_bar: _scan_progress_bar.visible = false
+		return
+
+	# Show scan status for the first discoverable site.
+	var disc: Dictionary = discoveries[0]
+	var phase: String = str(disc.get("phase", "SEEN"))
+	var site_id: String = str(disc.get("site_id", ""))
+
+	_scan_progress_label.visible = true
+	if _scan_progress_bar: _scan_progress_bar.visible = true
+
+	match phase:
+		"SEEN":
+			_scan_progress_label.text = "SCAN: %s [READY]" % site_id.substr(0, 16)
+			_scan_progress_label.add_theme_color_override("font_color", UITheme.YELLOW)
+			if _scan_progress_bar: _scan_progress_bar.value = 0
+		"SCANNED":
+			_scan_progress_label.text = "SCAN: %s [SCANNED]" % site_id.substr(0, 16)
+			_scan_progress_label.add_theme_color_override("font_color", UITheme.GREEN)
+			if _scan_progress_bar: _scan_progress_bar.value = 50
+		"ANALYZED":
+			_scan_progress_label.text = "SCAN: %s [ANALYZED]" % site_id.substr(0, 16)
+			_scan_progress_label.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT)
+			if _scan_progress_bar: _scan_progress_bar.value = 100
+		_:
+			_scan_progress_label.text = "SCAN: %s" % phase
+			_scan_progress_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+			if _scan_progress_bar: _scan_progress_bar.value = 0
 
 # GATE.S7.SUSTAIN.BRIDGE_PROOF.001: fuel indicator update
 func _update_fuel_hud() -> void:
@@ -1092,6 +1334,21 @@ func toggle_mission_journal_v0() -> void:
 	if _mission_journal_panel != null and _mission_journal_panel.has_method("toggle_v0"):
 		_mission_journal_panel.toggle_v0()
 
+# GATE.S8.MEGAPROJECT.UI.001: toggle megaproject panel.
+func toggle_megaproject_panel_v0(node_id: String = "") -> void:
+	if _megaproject_panel != null and _megaproject_panel.has_method("toggle_v0"):
+		_megaproject_panel.toggle_v0(node_id)
+
+# GATE.S7.UI_WARFRONT.DASHBOARD.001: toggle warfront dashboard panel.
+func toggle_warfront_dashboard_v0() -> void:
+	if _warfront_panel != null and _warfront_panel.has_method("toggle_v0"):
+		_warfront_panel.toggle_v0()
+
+# Toggle FO panel visibility (F key). Replaces blanket suppression.
+func toggle_fo_panel_v0() -> void:
+	if _fo_panel != null:
+		_fo_panel.visible = not _fo_panel.visible
+
 # GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Update Zone G bottom bar content.
 func _update_zone_g_v0() -> void:
 	if _zone_g_status_label == null or _bridge == null:
@@ -1107,7 +1364,8 @@ func _update_zone_g_v0() -> void:
 	var sec_band: String = ""
 	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
 		sec_band = str(_bridge.call("GetNodeSecurityBandV0", node_id))
-	_zone_g_status_label.text = "%s  |  %s" % [node_name, sec_band.to_upper()] if not sec_band.is_empty() else node_name
+	var sec_display: String = _security_display_name(sec_band) if not sec_band.is_empty() else ""
+	_zone_g_status_label.text = "%s  |  %s" % [node_name, sec_display] if not sec_display.is_empty() else node_name
 	# GATE.S7.RISK_METER_UI.SCREEN_EDGE.001 + COMPOUND.001: feed risk values to vignette overlay.
 	if _screen_edge_tint != null and _bridge != null and _bridge.has_method("GetRiskMetersV0"):
 		var risk: Dictionary = _bridge.call("GetRiskMetersV0")
@@ -1164,16 +1422,21 @@ func _update_fleet_auto_summary_v0() -> void:
 	if _overlay_active:
 		_fleet_auto_panel.visible = false
 		return
-	_fleet_auto_panel.visible = true
 	if not _bridge.has_method("GetProgramPerformanceV0"):
+		_fleet_auto_panel.visible = false
 		return
 	var data: Dictionary = _bridge.call("GetProgramPerformanceV0", "fleet_trader_1")
 	if data.is_empty():
-		_fleet_auto_program_label.text = "Program: None"
+		_fleet_auto_panel.visible = false
 		return
 	var credits: int = int(data.get("credits_earned", 0))
 	var failures: int = int(data.get("failures", 0))
 	var cycles: int = int(data.get("cycles_run", 0))
+	# Only show when automation has actually run at least one cycle.
+	if cycles <= 0:
+		_fleet_auto_panel.visible = false
+		return
+	_fleet_auto_panel.visible = true
 	_fleet_auto_program_label.text = "Auto: %d cycles" % cycles
 	_fleet_auto_credits_label.text = "Credits: %d" % credits
 	_fleet_auto_failures_label.text = "Failures: %d" % failures
@@ -1192,9 +1455,13 @@ func _check_fracture_unlock_toast_v0() -> void:
 	var status: Dictionary = _bridge.call("GetFractureDiscoveryStatusV0")
 	if status.get("unlocked", false):
 		_fracture_unlock_shown = true
+		# GATE.X.COVER_STORY.UI_ENFORCE.001: Use cover name pre-revelation.
+		var drive_name: String = "FRACTURE DRIVE"
+		if _bridge.has_method("GetCoverNameV0"):
+			drive_name = str(_bridge.call("GetCoverNameV0", "Fracture Drive")).to_upper()
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
-			toast_mgr.call("show_priority_toast", "FRACTURE DRIVE UNLOCKED — Off-lane travel is now possible.", "critical")
+			toast_mgr.call("show_priority_toast", "%s UNLOCKED — Off-lane travel is now possible." % drive_name, "critical")
 		print("UUIR|FRACTURE_UNLOCKED")
 
 # GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Progressive HUD element reveal.
@@ -1256,15 +1523,17 @@ func hide_dock_prompt_v0() -> void:
 func _build_keybind_hint_text() -> String:
 	var input_mgr = get_node_or_null("/root/InputManager")
 	if input_mgr == null:
-		return "M Map  |  E Empire  |  H Help  |  K Web  |  L Log  |  V Overlay  |  ESC Pause"
+		return "M Map  |  E Empire  |  F FO  |  K Web  |  L Log  |  D Data  |  B Auto  |  V Overlay  |  H Help"
 	var parts: Array[String] = []
 	parts.append("%s Map" % input_mgr.get_action_label("ui_galaxy_map"))
 	parts.append("%s Empire" % input_mgr.get_action_label("ui_empire_dashboard"))
-	parts.append("%s Help" % input_mgr.get_action_label("ui_keybinds_help"))
+	parts.append("%s FO" % input_mgr.get_action_label("ui_fo_panel"))
 	parts.append("%s Web" % input_mgr.get_action_label("ui_knowledge_web"))
 	parts.append("%s Log" % input_mgr.get_action_label("ui_combat_log"))
+	parts.append("%s Data" % input_mgr.get_action_label("ui_data_log"))
+	parts.append("%s Auto" % input_mgr.get_action_label("ui_automation"))
 	parts.append("%s Overlay" % input_mgr.get_action_label("ui_data_overlay"))
-	parts.append("%s Pause" % input_mgr.get_action_label("ui_pause"))
+	parts.append("%s Help" % input_mgr.get_action_label("ui_keybinds_help"))
 	return "  |  ".join(parts)
 
 
@@ -1364,7 +1633,7 @@ func _setup_arrival_drama_v0() -> void:
 	# Top bar: anchored full width at top, 0 height initially (slides down).
 	_arrival_bar_top = ColorRect.new()
 	_arrival_bar_top.name = "ArrivalBarTop"
-	_arrival_bar_top.color = Color(0.0, 0.0, 0.0, 0.85)
+	_arrival_bar_top.color = Color(0.0, 0.0, 0.0, 0.4)
 	_arrival_bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_arrival_bar_top.offset_bottom = 0.0  # height = 0 (collapsed)
 	_arrival_bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1374,7 +1643,7 @@ func _setup_arrival_drama_v0() -> void:
 	# Bottom bar: anchored full width at bottom, offset_top = 0 (collapsed).
 	_arrival_bar_bot = ColorRect.new()
 	_arrival_bar_bot.name = "ArrivalBarBot"
-	_arrival_bar_bot.color = Color(0.0, 0.0, 0.0, 0.85)
+	_arrival_bar_bot.color = Color(0.0, 0.0, 0.0, 0.4)
 	_arrival_bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_arrival_bar_bot.anchor_top = 1.0
 	_arrival_bar_bot.anchor_bottom = 1.0
@@ -1506,3 +1775,98 @@ func _hide_arrival_drama_elements() -> void:
 	if _arrival_card_faction:
 		_arrival_card_faction.visible = false
 		_arrival_card_faction.modulate.a = 0.0
+
+# ============================================================================
+# GATE.S8.STORY_STATE.DELIVERY_UI.001: Revelation moment delivery
+# ============================================================================
+
+## Polls bridge for new revelation state every slow-poll cycle (~2s).
+## When a new revelation fires, emits a gold toast using the milestone priority.
+## FO reaction is handled by fo_panel.gd via its own bridge polling.
+## Defensive: uses has_method() guards since SimBridge.Story.cs may not exist yet.
+func _check_revelation_delivery_v0() -> void:
+	if _bridge == null:
+		return
+	if not _bridge.has_method("GetRevelationStateV0"):
+		return
+	var state: Dictionary = _bridge.call("GetRevelationStateV0")
+	var count: int = int(state.get("revelation_count", 0))
+	# First poll: initialise baseline without firing toasts.
+	if _last_revelation_count < 0:
+		_last_revelation_count = count
+		return
+	if count <= _last_revelation_count:
+		return
+	# One or more new revelations have fired since last poll.
+	# Fetch the most recent revelation ID and its display text.
+	var revelation_id: String = str(state.get("latest_revelation_id", ""))
+	var toast_title: String = "REVELATION"
+	var toast_body: String = ""
+	if not revelation_id.is_empty() and _bridge.has_method("GetRevelationTextV0"):
+		var text_data: Dictionary = _bridge.call("GetRevelationTextV0", revelation_id)
+		toast_title = str(text_data.get("gold_toast_title", toast_title))
+		toast_body = str(text_data.get("gold_toast_body", ""))
+	_last_revelation_count = count
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr == null:
+		return
+	# Use milestone priority (gold border, larger font) for revelation moments.
+	var msg: String = toast_title if toast_body.is_empty() else "%s\n%s" % [toast_title, toast_body]
+	if toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", msg, "milestone")
+	elif toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", msg, 5.0)
+	print("UUIR|REVELATION_TOAST|id=%s" % revelation_id)
+
+# ============================================================================
+# GATE.S8.THREAT.ALERT_UI.001: Supply shock alert HUD element
+# ============================================================================
+
+## Polls bridge for supply shock summary every slow-poll cycle (~2s).
+## Shows a red "Supply Disrupted: X goods" label briefly on count change, then auto-hides.
+## Defensive: skips gracefully if GetSupplyShockSummaryV0 does not exist yet.
+func _check_supply_alerts_v0() -> void:
+	if _supply_alert_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetSupplyShockSummaryV0"):
+		_supply_alert_label.visible = false
+		return
+	var summary: Dictionary = _bridge.call("GetSupplyShockSummaryV0")
+	var disrupted: int = int(summary.get("disrupted_count", 0))
+	var prev_count: int = int(_supply_alert_label.get_meta("prev_disrupted", 0))
+	if disrupted > 0 and disrupted != prev_count:
+		_supply_alert_label.set_meta("prev_disrupted", disrupted)
+		_supply_alert_label.text = "Supply Disrupted: %d %s" % [disrupted, "good" if disrupted == 1 else "goods"]
+		_supply_alert_label.visible = true
+		# Auto-hide after 8 seconds — don't persist as permanent HUD clutter.
+		var tw := create_tween()
+		tw.tween_interval(8.0)
+		tw.tween_property(_supply_alert_label, "modulate:a", 0.0, 1.0)
+		tw.tween_callback(func():
+			if is_instance_valid(_supply_alert_label):
+				_supply_alert_label.visible = false
+				_supply_alert_label.modulate.a = 1.0)
+		# Emit a red warning toast once per disruption spike.
+		var already_toasted: bool = bool(_supply_alert_label.get_meta("supply_toasted", false))
+		if not already_toasted:
+			_supply_alert_label.set_meta("supply_toasted", true)
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				toast_mgr.call("show_priority_toast",
+					"Supply Disrupted: %d %s affected" % [disrupted, "good" if disrupted == 1 else "goods"],
+					"warning")
+			print("UUIR|SUPPLY_ALERT|disrupted=%d" % disrupted)
+	elif disrupted <= 0:
+		_supply_alert_label.visible = false
+		_supply_alert_label.set_meta("prev_disrupted", 0)
+		# Reset toast flag so a new disruption wave will toast again.
+		_supply_alert_label.set_meta("supply_toasted", false)
+
+
+## Map internal security band names to player-friendly labels.
+func _security_display_name(band: String) -> String:
+	match band:
+		"hostile":   return "Threat: High"
+		"dangerous": return "Threat: Elevated"
+		"safe":      return "Secure Space"
+		_:           return "Threat: Moderate"

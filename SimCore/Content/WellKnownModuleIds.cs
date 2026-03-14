@@ -51,6 +51,8 @@ public static class WellKnownModuleIds
     // Fuel tanks
     public const string FuelTankMk1             = "fuel_tank_mk1";
     public const string FuelTankMk2             = "fuel_tank_mk2";
+    // GATE.S8.LATTICE_DRONES.SPAWN.001: Lattice drone weapon
+    public const string WeaponLatticePulse    = "weapon_lattice_pulse";
     // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator modules
     public const string RadiatorBasic           = "radiator_basic";
     public const string RadiatorAdvanced        = "radiator_advanced";

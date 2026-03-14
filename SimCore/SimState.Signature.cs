@@ -10,7 +10,7 @@ public partial class SimState
     public string GetSignature()
     {
         var sb = new StringBuilder();
-        sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|");
+        sb.Append($"Tick:{Tick}|Cred:{PlayerCredits}|Loc:{PlayerLocationNodeId}|GR:{(int)GameResultValue}|");
 
         sb.Append($"Nodes:{Nodes.Count}|Edges:{Edges.Count}|Markets:{Markets.Count}|Fleets:{Fleets.Count}|Sites:{IndustrySites.Count}|");
 
@@ -169,6 +169,15 @@ public partial class SimState
             }
         }
 
+        // GATE.S7.DIPLOMACY.FRAMEWORK.001: Diplomatic acts in signature.
+        if (DiplomaticActs is not null && DiplomaticActs.Count > 0)
+        {
+            foreach (var kv in DiplomaticActs.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append($"DA:{kv.Key}|T:{(int)kv.Value.ActType}|S:{(int)kv.Value.Status}|F:{kv.Value.FactionId}|");
+            }
+        }
+
         // GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: Systemic offers in signature.
         if (SystemicOffers is not null && SystemicOffers.Count > 0)
         {
@@ -214,7 +223,7 @@ public partial class SimState
         // GATE.S8.HAVEN.ENTITY.001: Haven state in signature.
         if (Haven is not null && Haven.Discovered)
         {
-            sb.Append($"HVN:{(int)Haven.Tier}|UT:{Haven.UpgradeTicksRemaining}|");
+            sb.Append($"HVN:{(int)Haven.Tier}|UT:{Haven.UpgradeTicksRemaining}|KT:{(int)Haven.KeeperLevel}|EMD:{Haven.ExoticMatterDelivered}|DLD:{Haven.DataLogsDiscovered}|");
             if (Haven.StoredShipIds is not null && Haven.StoredShipIds.Count > 0)
             {
                 sb.Append("HS:");
@@ -230,6 +239,44 @@ public partial class SimState
                     sb.Append($"{kv.Key}={kv.Value},");
                 sb.Append("|");
             }
+            // GATE.S8.HAVEN.FABRICATOR.001: Fabrication state in signature.
+            if (!string.IsNullOrEmpty(Haven.FabricatingModuleId))
+                sb.Append($"FAB:{Haven.FabricatingModuleId}|FTR:{Haven.FabricationTicksRemaining}|");
+            if (Haven.CompletedFabricationIds is not null && Haven.CompletedFabricationIds.Count > 0)
+            {
+                sb.Append("CFAB:");
+                foreach (var mid in Haven.CompletedFabricationIds)
+                    sb.Append($"{mid},");
+                sb.Append("|");
+            }
+            // GATE.S8.HAVEN.RESEARCH_LAB.001: Research lab slots in signature.
+            if (Haven.ResearchLabSlots is not null && Haven.ResearchLabSlots.Count > 0)
+            {
+                foreach (var slot in Haven.ResearchLabSlots)
+                {
+                    if (slot.IsActive)
+                        sb.Append($"HRL:{slot.SlotIndex}|T:{slot.TechId}|P:{slot.ProgressTicks}/{slot.TotalTicks}|");
+                }
+            }
+        }
+
+        // GATE.S8.MEGAPROJECT.ENTITY.001: Megaproject state in signature.
+        if (Megaprojects is not null && Megaprojects.Count > 0)
+        {
+            foreach (var kv in Megaprojects.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var mp = kv.Value;
+                sb.Append($"MP:{kv.Key}|T:{mp.TypeId}|N:{mp.NodeId}|S:{mp.Stage}/{mp.MaxStages}|P:{mp.ProgressTicks}|C:{mp.CompletedTick}|M:{(mp.MutationApplied ? 1 : 0)}|");
+            }
+        }
+
+        // GATE.S8.MEGAPROJECT.MAP_RULES.001: Sensor pylon nodes in signature.
+        if (SensorPylonNodes is not null && SensorPylonNodes.Count > 0)
+        {
+            sb.Append("SPN:");
+            foreach (var nid in SensorPylonNodes.OrderBy(x => x, StringComparer.Ordinal))
+                sb.Append($"{nid},");
+            sb.Append("|");
         }
 
         // GATE.S8.ADAPTATION.COLLECTION.001: Adaptation fragment collection in signature.
@@ -242,6 +289,32 @@ public partial class SimState
                     sb.Append($"{kv.Key}:{kv.Value.CollectedTick},");
             }
             sb.Append("|");
+        }
+
+        // GATE.S8.STORY_STATE.ENTITY.001: Story state in signature.
+        if (StoryState is not null)
+        {
+            sb.Append($"SS:{(int)StoryState.RevealedFlags}|Act:{(int)StoryState.CurrentAct}|PTF:{StoryState.PentagonTradeFlags}|FXC:{StoryState.FractureExposureCount}|LVC:{StoryState.LatticeVisitCount}|FC:{StoryState.CollectedFragmentCount}|");
+            // GATE.S8.PENTAGON.DETECT.001: Pentagon cascade state in signature.
+            if (StoryState.PentagonCascadeActive)
+                sb.Append($"PCA:{(StoryState.PentagonCascadeActive ? 1 : 0)}|PCT:{StoryState.PentagonCascadeTick}|");
+        }
+
+        // GATE.S8.HAVEN.ENDGAME_PATHS.001: Endgame path + accommodation in signature.
+        if (Haven is not null && Haven.Discovered)
+        {
+            if (Haven.ChosenEndgamePath != Entities.EndgamePath.None)
+                sb.Append($"EP:{(int)Haven.ChosenEndgamePath}|EPT:{Haven.EndgamePathChosenTick}|");
+            if (Haven.AccommodationProgress is not null && Haven.AccommodationProgress.Count > 0)
+            {
+                sb.Append("ACC:");
+                foreach (var kv in Haven.AccommodationProgress.OrderBy(k => k.Key, StringComparer.Ordinal))
+                    sb.Append($"{kv.Key}={kv.Value},");
+                sb.Append("|");
+            }
+            // GATE.S8.HAVEN.COMMUNION_REP.001: Communion rep state in signature.
+            if (Haven.CommunionRep is not null && Haven.CommunionRep.Present)
+                sb.Append($"CR:{(Haven.CommunionRep.Present ? 1 : 0)}|CRD:{Haven.CommunionRep.DialogueTier}|");
         }
 
         using var sha = SHA256.Create();

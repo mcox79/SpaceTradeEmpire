@@ -33,19 +33,28 @@ func _tick(_delta: float) -> int:
 			var dest_node: String = fact.get("destination_node_id", "")
 			var speed: float = fact.get("speed", 6.0)
 
+			var final_dest: String = fact.get("final_destination_node_id", "")
+			var role: int = fact.get("role", 0)
+
 			# If traveling, find the lane gate position for the destination.
 			if state == "Traveling" and not dest_node.is_empty():
 				var gate_pos := _find_lane_gate_position(dest_node)
 				if gate_pos != Vector3.ZERO:
 					blackboard.set_var("target_pos", gate_pos)
-					blackboard.set_var("move_speed", speed)
+					blackboard.set_var("move_speed", speed if role != 2 else speed * 1.3)
 					return SUCCESS
 
-			# If idle, pick a random patrol/orbit point.
-			var orbit_pos := _pick_orbit_point(ship.global_position)
-			blackboard.set_var("target_pos", orbit_pos)
-			blackboard.set_var("move_speed", speed * 0.5)
-			return SUCCESS
+			# Fleet has a queued destination — head toward departure gate.
+			if not final_dest.is_empty() and not dest_node.is_empty():
+				var gate_pos := _find_lane_gate_position(dest_node)
+				if gate_pos != Vector3.ZERO:
+					blackboard.set_var("target_pos", gate_pos)
+					blackboard.set_var("move_speed", speed * 0.8)
+					return SUCCESS
+
+			# Idle with no destination — don't override GalaxyView's target.
+			# Return FAILURE so the BT waits for the next eval cycle.
+			return FAILURE
 
 	return FAILURE
 
@@ -66,10 +75,3 @@ func _find_lane_gate_position(dest_node_id: String) -> Vector3:
 		if node.has_meta("dest_node_id") and node.get_meta("dest_node_id") == dest_node_id:
 			return node.global_position
 	return Vector3.ZERO
-
-
-func _pick_orbit_point(origin: Vector3) -> Vector3:
-	# Simple random offset for idle orbit.
-	var angle := randf() * TAU
-	var radius := 15.0 + randf() * 10.0
-	return origin + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)

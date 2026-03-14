@@ -858,7 +858,7 @@ public sealed class StrategicResolverTests
 		// NOTE: Update this value if the resolver algorithm is intentionally changed.
 		// To find the current hash, run the test with goldenLocked=false and read the output.
 		// GATE.S5.COMBAT.REPLAY_PROOF.001: Golden hash locked.
-		const string GoldenHash = "3793469812a89366b188c9c09896e33f17ca3353269a393d3ca7f95148bf4228";
+		const string GoldenHash = "2101326fc1295c8ab45a0c72fb2dd0fedf553b5c01bd85fef3fb52027a4fb167"; // GATE.S7.COMBAT_DEPTH2: tracking+variance+armorPen+foreKill
 		Assert.That(hash1, Is.EqualTo(GoldenHash), "Frame hash must match golden value");
 	}
 }
@@ -947,6 +947,7 @@ public sealed class CombatResolutionTests
 			HullHpMax = hull,
 			ShieldHp = shield,
 			ShieldHpMax = shield,
+			BattleStations = BattleStationsState.BattleReady, // Ensure full damage output for combat tests
 		};
 		f.Slots.Add(new ModuleSlot { SlotId = "w1", SlotKind = SlotKind.Weapon, InstalledModuleId = "weapon_laser_mk1" });
 		return f;
@@ -1021,3 +1022,5 @@ public sealed class CombatResolutionTests
 		Assert.That(result.SalvageValue, Is.GreaterThanOrEqualTo(0));
 	}
 }
+
+

@@ -97,7 +97,10 @@ public sealed class LedgerIntegrityTests
 
         Assert.That(state.TransactionLog.Count, Is.EqualTo(1));
         var tx = state.TransactionLog[0];
-        Assert.That(tx.CashDelta, Is.EqualTo(-buyPrice * 3));
+        // GATE.X.MARKET_PRICING.FEE_WIRE.001: CashDelta includes transaction fee.
+        int grossCost = buyPrice * 3;
+        int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
+        Assert.That(tx.CashDelta, Is.EqualTo(-(grossCost + fee)));
         Assert.That(tx.GoodId, Is.EqualTo(Fuel));
         Assert.That(tx.Quantity, Is.EqualTo(3));
         Assert.That(tx.Source, Is.EqualTo("Buy"));
@@ -115,7 +118,10 @@ public sealed class LedgerIntegrityTests
 
         Assert.That(state.TransactionLog.Count, Is.EqualTo(1));
         var tx = state.TransactionLog[0];
-        Assert.That(tx.CashDelta, Is.EqualTo(sellPrice * 4));
+        // GATE.X.MARKET_PRICING.FEE_WIRE.001: CashDelta has fee deducted from sell revenue.
+        int grossValue = sellPrice * 4;
+        int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
+        Assert.That(tx.CashDelta, Is.EqualTo(grossValue - fee));
         Assert.That(tx.GoodId, Is.EqualTo(Fuel));
         Assert.That(tx.Quantity, Is.EqualTo(4));
         Assert.That(tx.Source, Is.EqualTo("Sell"));

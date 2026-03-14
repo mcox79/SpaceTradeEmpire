@@ -136,6 +136,38 @@ public static class HavenUpgradeSystem
         return HavenTweaksV0.HangarBaysTier1;
     }
 
+    // GATE.S8.HAVEN.KEEPER.001: Keeper ambient tier progression.
+    // Called per tick — checks if Keeper should advance based on cumulative player investment.
+    public static void ProcessKeeper(SimState state)
+    {
+        var haven = state.Haven;
+        if (haven == null || !haven.Discovered) return;
+        if (haven.KeeperLevel >= KeeperTier.Awakened) return; // Max Keeper tier
+
+        int exo = haven.ExoticMatterDelivered;
+        int frags = haven.InstalledFragmentIds?.Count ?? 0;
+        int logs = haven.DataLogsDiscovered;
+
+        KeeperTier target = KeeperTier.Dormant;
+
+        if (exo >= HavenTweaksV0.KeeperAwakenedExoticMatter
+            && frags >= HavenTweaksV0.KeeperAwakenedFragments
+            && logs >= HavenTweaksV0.KeeperAwakenedDataLogs)
+            target = KeeperTier.Awakened;
+        else if (exo >= HavenTweaksV0.KeeperCommunicatingExoticMatter
+            && frags >= HavenTweaksV0.KeeperCommunicatingFragments
+            && logs >= HavenTweaksV0.KeeperCommunicatingDataLogs)
+            target = KeeperTier.Communicating;
+        else if (exo >= HavenTweaksV0.KeeperGuidingExoticMatter
+            && frags >= HavenTweaksV0.KeeperGuidingFragments)
+            target = KeeperTier.Guiding;
+        else if (exo >= HavenTweaksV0.KeeperAwareExoticMatter)
+            target = KeeperTier.Aware;
+
+        if (target > haven.KeeperLevel)
+            haven.KeeperLevel = target;
+    }
+
     private static int GetPlayerGood(SimState state, string goodId)
     {
         return state.PlayerCargo.TryGetValue(goodId, out var qty) ? qty : 0;

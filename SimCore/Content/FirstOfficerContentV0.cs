@@ -257,6 +257,40 @@ public static class FirstOfficerContentV0
         new DialogueLine { TriggerToken = "KNOWLEDGE_WEB_INSIGHT", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Revelation,
             Text = "Do you see the web now? Every log, every site, every shifted lane — they're all part of the same conversation. And we're finally learning the language.", RelationshipDelta = 3 },
 
+        // GATE.S8.STORY.FO_REVELATION.001: FO reactions to the 5 Recontextualizations.
+
+        // REVELATION_MODULE_ORIGIN (R1): Fracture drive modules aren't human-made.
+        new DialogueLine { TriggerToken = "REVELATION_MODULE_ORIGIN", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "The crystalline lattice in the drive core isn't manufactured. It's grown. The isotope ratios predate human metallurgy by millennia. We've been flying something we never built.", RelationshipDelta = 4 },
+        new DialogueLine { TriggerToken = "REVELATION_MODULE_ORIGIN", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "I've maintained these drives for fifteen years. Replaced parts, tuned resonance, calibrated frequency. And the core was never ours? What were we even maintaining?", RelationshipDelta = 4 },
+        new DialogueLine { TriggerToken = "REVELATION_MODULE_ORIGIN", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "The module... sings. I always thought it was sympathetic vibration. But it's not resonating with the ship. It's resonating with wherever it came from.", RelationshipDelta = 4 },
+
+        // REVELATION_CONCORD_SUPPRESSION (R2): Concord knew about fracture space — containment not peacekeeping.
+        new DialogueLine { TriggerToken = "REVELATION_CONCORD_SUPPRESSION", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Revelation,
+            Text = "Containment. Not peacekeeping — containment. The regulatory framework, the trade restrictions, the research embargoes. They weren't protecting commerce. They were hiding what's beyond the lanes.", RelationshipDelta = 4 },
+        new DialogueLine { TriggerToken = "REVELATION_CONCORD_SUPPRESSION", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Revelation,
+            Text = "I served the Concord for a decade. Enforced their checkpoints. Believed in their mission. And the whole time... they knew. They KNEW and they let me believe I was keeping the peace.", RelationshipDelta = 5 },
+        new DialogueLine { TriggerToken = "REVELATION_CONCORD_SUPPRESSION", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Revelation,
+            Text = "All those restricted zones. All those 'navigational hazard' warnings. I flew around them every time. They weren't hazards. They were doors, and the Concord nailed them shut.", RelationshipDelta = 4 },
+
+        // REVELATION_COMMUNION_TRUTH (R4): Communion 'unity' masks species privilege.
+        new DialogueLine { TriggerToken = "REVELATION_COMMUNION_TRUTH", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Revelation,
+            Text = "The Communion's 'universal harmony' model has a species-weighted utility function. Their definition of unity was always hierarchical. The math doesn't lie — but they used it to.", RelationshipDelta = 4 },
+        new DialogueLine { TriggerToken = "REVELATION_COMMUNION_TRUTH", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Revelation,
+            Text = "They talk about unity like it's a gift. But it's not given equally, is it? Some species are more unified than others. Some voices count more in their chorus.", RelationshipDelta = 4 },
+        new DialogueLine { TriggerToken = "REVELATION_COMMUNION_TRUTH", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Revelation,
+            Text = "I wanted to believe them. The outreach, the shared songs, the promise that everyone belongs. But belonging isn't the same as being heard. And they never let everyone speak.", RelationshipDelta = 5 },
+
+        // REVELATION_LIVING_GEOMETRY (R5): Fracture space is alive — trade network is the wound.
+        new DialogueLine { TriggerToken = "REVELATION_LIVING_GEOMETRY", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Endgame,
+            Text = "The geometry responds to stimulus. It adapts. It heals. The fracture zones aren't damage — they're immune responses. We built a civilization inside a wound and the wound is waking up.", RelationshipDelta = 5 },
+        new DialogueLine { TriggerToken = "REVELATION_LIVING_GEOMETRY", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Endgame,
+            Text = "Alive. All of it. The lattice drones, the topology shifts, the instability — it's not random. It's not hostile. It's trying to close the wound we carved into it.", RelationshipDelta = 5 },
+        new DialogueLine { TriggerToken = "REVELATION_LIVING_GEOMETRY", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Endgame,
+            Text = "I felt it. In the fracture jumps, in the way the module hums when we approach void sites. It's been talking to us the whole time. We just didn't know how to listen.", RelationshipDelta = 5 },
+
         // PENTAGON_BREAK
         new DialogueLine { TriggerToken = "PENTAGON_BREAK", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Revelation,
             Text = "The dependency ring is engineered. I should have seen it. The probability distributions were too clean. Too stable. I was looking at a designed system and calling it emergent.", RelationshipDelta = 4 },

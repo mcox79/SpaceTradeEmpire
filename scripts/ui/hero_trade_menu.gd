@@ -15,6 +15,7 @@ var _context_label: Label = null  # GATE.S13.DOCK.CONTEXT.001
 var _planet_info_label: Label = null
 var _security_label: Label = null
 var _cargo_label: Label = null
+var _profit_label: Label = null
 var _missions_container: VBoxContainer = null
 var _research_container: VBoxContainer = null
 var _refit_container: VBoxContainer = null
@@ -42,6 +43,9 @@ var _tab_intel: VBoxContainer = null
 var _tab_haven: VBoxContainer = null  # GATE.S8.HAVEN.DOCK_PANEL.001
 var _haven_panel = null  # haven_panel.gd instance
 var _haven_tab_button: Button = null  # GATE.S8.HAVEN.DOCK_PANEL.001
+var _tab_diplomacy: VBoxContainer = null  # GATE.S7.DIPLOMACY.UI.001
+var _diplomacy_tab_button: Button = null  # GATE.S7.DIPLOMACY.UI.001
+var _diplomacy_content: VBoxContainer = null  # GATE.S7.DIPLOMACY.UI.001
 var _tab_bar: HBoxContainer = null  # GATE.S8.HAVEN.DOCK_PANEL.001: ref for dynamic Haven button
 var _tab_buttons: Array = []
 # M3: Track which tabs the player has clicked (to clear "NEW" badge).
@@ -50,6 +54,16 @@ var _tab_base_names: Array = ["Market", "Jobs", "Ship", "Station", "Intel"]
 
 func _ready():
 	visible = false
+	# Scrim: full-screen dark overlay behind the dock panel to dim the 3D world.
+	var scrim = ColorRect.new()
+	scrim.color = UITheme.PANEL_BG_OVERLAY  # Color(0, 0, 0, 0.6)
+	scrim.anchor_left = 0.0
+	scrim.anchor_right = 1.0
+	scrim.anchor_top = 0.0
+	scrim.anchor_bottom = 1.0
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scrim)
+
 	var panel = PanelContainer.new()
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
@@ -191,6 +205,12 @@ func _ready():
 	_cargo_label.text = ""
 	_tab_market.add_child(_cargo_label)
 
+	# Profit summary line — wired to GetProfitSummaryV0
+	_profit_label = Label.new()
+	_profit_label.text = ""
+	_profit_label.add_theme_font_size_override("font_size", 13)
+	_tab_market.add_child(_profit_label)
+
 	# Tab 2: Jobs
 	_tab_jobs = VBoxContainer.new()
 	_tab_jobs.add_theme_constant_override("separation", 4)
@@ -279,6 +299,22 @@ func _ready():
 	_haven_tab_button.visible = false  # Hidden by default; shown in open_market_v0
 	_tab_bar.add_child(_haven_tab_button)
 
+	# GATE.S7.DIPLOMACY.UI.001: Tab 7: Diplomacy (always visible when docked)
+	_tab_diplomacy = VBoxContainer.new()
+	_tab_diplomacy.add_theme_constant_override("separation", 4)
+	_tab_diplomacy.visible = false
+	vbox.add_child(_tab_diplomacy)
+	_diplomacy_content = VBoxContainer.new()
+	_diplomacy_content.add_theme_constant_override("separation", 4)
+	_tab_diplomacy.add_child(_diplomacy_content)
+
+	_diplomacy_tab_button = Button.new()
+	_diplomacy_tab_button.text = "Diplomacy"
+	_diplomacy_tab_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_diplomacy_tab_button.toggle_mode = true
+	_diplomacy_tab_button.pressed.connect(_switch_dock_tab.bind(6))
+	_tab_bar.add_child(_diplomacy_tab_button)
+
 	# Undock button (always visible)
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
@@ -347,8 +383,17 @@ func _switch_dock_tab(idx: int) -> void:
 	_tab_ship.visible = (idx == 2)
 	_tab_station.visible = (idx == 3)
 	_tab_intel.visible = (idx == 4)
+	# Refresh Intel data on tab switch so newly-created programs appear.
+	if idx == 4:
+		_rebuild_programs()
+		_rebuild_encounters()
+		_rebuild_intel_empty_state()
 	if _tab_haven:
 		_tab_haven.visible = (idx == 5)
+	if _tab_diplomacy:
+		_tab_diplomacy.visible = (idx == 6)
+		if idx == 6:
+			_rebuild_diplomacy()
 	# M3: Mark tab as seen — clear "NEW" badge
 	_tab_seen[idx] = true
 	for i in range(_tab_buttons.size()):
@@ -367,6 +412,13 @@ func _switch_dock_tab(idx: int) -> void:
 			_haven_tab_button.add_theme_color_override("font_color", UITheme.CYAN)
 		else:
 			_haven_tab_button.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	# GATE.S7.DIPLOMACY.UI.001: Diplomacy tab button highlight
+	if _diplomacy_tab_button:
+		_diplomacy_tab_button.button_pressed = (idx == 6)
+		if idx == 6:
+			_diplomacy_tab_button.add_theme_color_override("font_color", UITheme.CYAN)
+		else:
+			_diplomacy_tab_button.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
@@ -425,7 +477,7 @@ func open_market_v0(node_id: String) -> void:
 			var ctx_good: String = str(ctx.get("primary_good_id", ""))
 			match ctx_type:
 				"Shortage":
-					econ_context = "SUPPLY SHORTAGE" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
+					econ_context = "Low Supply" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
 					_context_label.add_theme_color_override("font_color", UITheme.ORANGE)
 				"Opportunity":
 					econ_context = "PRICE OPPORTUNITY" + (" — " + _format_display_name(ctx_good) if not ctx_good.is_empty() else "")
@@ -462,7 +514,8 @@ func open_market_v0(node_id: String) -> void:
 	# GATE.S5.SEC_LANES.UI.001: Security readout for docked location
 	if _security_label and bridge and bridge.has_method("GetNodeSecurityBandV0"):
 		var band: String = str(bridge.call("GetNodeSecurityBandV0", node_id))
-		_security_label.text = "Security: %s" % band.to_upper()
+		var sec_names := {"hostile": "Threat: High", "dangerous": "Threat: Elevated", "safe": "Secure Space"}
+		_security_label.text = sec_names.get(band, "Threat: Moderate")
 		_security_label.visible = true
 		_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 
@@ -510,6 +563,7 @@ func open_market_v0(node_id: String) -> void:
 			_access_denied_label.visible = false
 
 	_rebuild_rows()
+	call_deferred("_refresh_profit_label_v0")
 
 # GATE.S13.DOCK.CONTEXT.001: Build station context from production sites
 func _build_station_context(bridge, node_id: String) -> String:
@@ -562,6 +616,7 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Bought %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+		call_deferred("_refresh_profit_label_v0")
 		# FEEL_POST_FIX_3: Optimistic cargo update — sim hasn't ticked yet, but we
 		# know what the player just bought. Update label immediately to avoid the
 		# "Cargo: empty" vs "Cargo: 1 Items" contradiction between dock panel and HUD.
@@ -589,6 +644,7 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 			else:
 				toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
 		_rebuild_rows()
+		call_deferred("_refresh_profit_label_v0")
 		# FEEL_POST_FIX_3: Optimistic cargo update for sells too.
 		_optimistic_cargo_update_v0(good_id, qty, false)
 		# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Re-apply tab disclosure after trade
@@ -742,7 +798,27 @@ func _rebuild_rows() -> void:
 		row.add_child(sell_box)
 
 		# GATE.S9.UI.TOOLTIP_DOCK.001: add tooltip to good name label
-		_attach_tooltip_v0(lbl_id, "%s\nBuy: %d cr | Sell: %d cr | Stock: %d" % [_format_display_name(good_id), buy_price, sell_price, stock])
+		# GATE.X.MARKET_PRICING.BREAKDOWN_UI.001: show price breakdown in tooltip
+		var _tip_text: String = "%s\nBuy: %d cr | Sell: %d cr | Stock: %d" % [_format_display_name(good_id), buy_price, sell_price, stock]
+		if _bridge_ref and _bridge_ref.has_method("GetPriceBreakdownV0"):
+			var bd: Dictionary = _bridge_ref.call("GetPriceBreakdownV0", _market_node_id, good_id, true)
+			if bd.get("total", 0) > 0:
+				_tip_text += "\n--- Price Breakdown (Buy) ---"
+				_tip_text += "\nBase: %d" % int(bd.get("base", 0))
+				var rep_mod: int = int(bd.get("rep_mod", 0))
+				if rep_mod != 0:
+					_tip_text += "\nRep: %+d" % rep_mod
+				var tariff: int = int(bd.get("tariff", 0))
+				if tariff != 0:
+					_tip_text += "\nTariff: +%d" % tariff
+				var inst: int = int(bd.get("instability", 0))
+				if inst != 0:
+					_tip_text += "\nInstability: %+d" % inst
+				var fee: int = int(bd.get("fee", 0))
+				if fee != 0:
+					_tip_text += "\nFee: +%d" % fee
+				_tip_text += "\nTotal: %d cr" % int(bd.get("total", 0))
+		_attach_tooltip_v0(lbl_id, _tip_text)
 
 		_rows_container.add_child(row)
 
@@ -840,6 +916,29 @@ func _refresh_cargo_label() -> void:
 				_cargo_label.text = "Cargo: empty"
 		else:
 			_cargo_label.text = "Cargo: empty"
+
+func _refresh_profit_label_v0() -> void:
+	if _profit_label == null:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetProfitSummaryV0"):
+		var summary: Dictionary = bridge.call("GetProfitSummaryV0")
+		var net: int = int(summary.get("net_profit", 0))
+		var top_good: String = str(summary.get("top_good", ""))
+		if net == 0 and top_good.is_empty():
+			_profit_label.text = ""
+			return
+		var sign_str: String = "+" if net >= 0 else ""
+		var text: String = "Net: %s%dcr" % [sign_str, net]
+		if not top_good.is_empty():
+			text += " | Best: %s" % _format_display_name(top_good)
+		_profit_label.text = text
+		if net > 0:
+			_profit_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.4))
+		elif net < 0:
+			_profit_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
+		else:
+			_profit_label.remove_theme_color_override("font_color")
 
 func _rebuild_production_info() -> void:
 	if _rows_container == null or _market_node_id.is_empty():
@@ -1235,18 +1334,18 @@ func _rebuild_station_info() -> void:
 				# GATE.S7.PRODUCTION.BRIDGE_READOUT.001: Use recipe_name + inputs display names.
 				var recipe_name: String = str(site_info.get("recipe_name", ""))
 				if recipe_name.is_empty():
-					recipe_name = str(site_info.get("recipe_id", ""))
+					recipe_name = _format_display_name(str(site_info.get("recipe_id", "")))
 				var eff_pct: int = int(site_info.get("efficiency_pct", 0))
 				var inputs: Array = site_info.get("inputs", [])
 				var outputs: Array = site_info.get("outputs", [])
-				var out_str: String = ", ".join(outputs) if outputs.size() > 0 else "none"
+				var out_str: String = _parse_good_names_arrow(outputs) if outputs.size() > 0 else "none"
 				var row = HBoxContainer.new()
 				var lbl = Label.new()
 				if inputs.size() > 0:
-					var in_str: String = ", ".join(inputs)
-					lbl.text = "%s  [%s] Eff: %d%%  -> %s" % [recipe_name, in_str, eff_pct, out_str]
+					var in_str: String = _parse_good_names_arrow(inputs)
+					lbl.text = "%s: %s → %s" % [recipe_name, in_str, out_str]
 				else:
-					lbl.text = "%s  Eff: %d%%  -> %s" % [recipe_name, eff_pct, out_str]
+					lbl.text = "%s → %s" % [recipe_name, out_str]
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				# FEEL_POST_FIX_10: Color-code efficiency and add tooltip.
 				if eff_pct == 0:
@@ -1396,7 +1495,8 @@ func _rebuild_research() -> void:
 		if bool(status.get("researching", false)):
 			has_content = true
 	if not has_content and bridge.has_method("GetTechTreeV0"):
-		var techs: Array = bridge.call("GetTechTreeV0")
+		var _techs_raw = bridge.call("GetTechTreeV0")
+		var techs: Array = _techs_raw if _techs_raw is Array else []
 		for t in techs:
 			if typeof(t) == TYPE_DICTIONARY and not bool(t.get("unlocked", false)):
 				has_content = true
@@ -1449,7 +1549,8 @@ func _rebuild_research() -> void:
 
 	# Show available techs to research
 	if bridge.has_method("GetTechTreeV0"):
-		var techs: Array = bridge.call("GetTechTreeV0")
+		var _techs_raw = bridge.call("GetTechTreeV0")
+		var techs: Array = _techs_raw if _techs_raw is Array else []
 		var available: Array = []
 		var locked: Array = []
 		for t in techs:
@@ -1586,7 +1687,11 @@ func _rebuild_refit() -> void:
 			var mkind: String = str(m.get("slot_kind", ""))
 			var row = HBoxContainer.new()
 			var info_lbl = Label.new()
-			info_lbl.text = "%s [%s] %d cr" % [mname, mkind, mcost]
+			# GATE.S7.TECH_ACCESS.UI.001: Show faction lock origin on modules
+			var tech_tag: String = ""
+			if bool(m.get("is_locked", false)):
+				tech_tag = " [%s]" % str(m.get("lock_faction_id", ""))
+			info_lbl.text = "%s [%s] %d cr%s" % [mname, mkind, mcost, tech_tag]
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(info_lbl)
 
@@ -1628,7 +1733,13 @@ func _rebuild_refit() -> void:
 			var block_reason: String = str(bridge.call("GetRefitBlockReasonV0", "fleet_trader_1", mid))
 			var row = HBoxContainer.new()
 			var info_lbl = Label.new()
-			info_lbl.text = "%s [%s]" % [mname, mkind]
+			# GATE.S7.TECH_ACCESS.UI.001: Show faction lock on locked modules
+			var tech_tag: String = ""
+			if bool(m.get("is_locked", false)):
+				var fid: String = str(m.get("lock_faction_id", ""))
+				var req_rep: int = int(m.get("lock_required_rep", 0))
+				tech_tag = " [%s rep %d req]" % [fid, req_rep]
+			info_lbl.text = "%s [%s]%s" % [mname, mkind, tech_tag]
 			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			info_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 			row.add_child(info_lbl)
@@ -1692,10 +1803,11 @@ func _rebuild_maintenance() -> void:
 		var eff: int = int(s.get("efficiency_pct", 0))
 		var cost: int = int(s.get("repair_cost", 0))
 
-		var source: String = _site_source_tag(sid)
+		var source: String = _site_source_tag(sid).strip_edges().trim_prefix("[").trim_suffix("]").strip_edges()
+		var recipe_display: String = _format_display_name(recipe) if not recipe.is_empty() else source
 		var row = HBoxContainer.new()
 		var lbl = Label.new()
-		lbl.text = "%s%s hp:%d%% eff:%d%%" % [source, recipe if not recipe.is_empty() else sid, hp, eff]
+		lbl.text = "%s — HP: %d%%, Eff: %d%%" % [recipe_display, hp, eff]
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		# FEEL_POST_FIX_10: Color-code efficiency in maintenance view.
 		if eff == 0:
@@ -2149,3 +2261,156 @@ func _rebuild_intel_empty_state() -> void:
 	lbl.add_theme_font_size_override("font_size", 14)
 	lbl.add_theme_color_override("font_color", Color(0.55, 0.60, 0.70, 0.8))
 	_tab_intel.add_child(lbl)
+
+# GATE.S7.DIPLOMACY.UI.001: Populate Diplomacy tab with treaties, bounties, proposals, sanctions.
+func _rebuild_diplomacy() -> void:
+	if _diplomacy_content == null:
+		return
+	# Clear previous content
+	for child in _diplomacy_content.get_children():
+		_diplomacy_content.remove_child(child)
+		child.queue_free()
+
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	# Section: Active Treaties
+	var treaty_header = Label.new()
+	treaty_header.text = "ACTIVE TREATIES"
+	treaty_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	treaty_header.add_theme_color_override("font_color", UITheme.CYAN)
+	_diplomacy_content.add_child(treaty_header)
+
+	if bridge.has_method("GetActiveTreatiesV0"):
+		var treaties: Array = bridge.call("GetActiveTreatiesV0")
+		if treaties.size() == 0:
+			var none_lbl = Label.new()
+			none_lbl.text = "No active treaties."
+			none_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			none_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			_diplomacy_content.add_child(none_lbl)
+		for t in treaties:
+			var row = HBoxContainer.new()
+			var info = Label.new()
+			var tariff_txt = "-%0.1f%% tariffs" % (float(t.get("tariff_reduction_bps", 0)) / 100.0)
+			var safe_txt = " + Safe Passage" if t.get("safe_passage", false) else ""
+			info.text = "%s: %s%s  (expires tick %d)" % [
+				str(t.get("faction_id", "?")), tariff_txt, safe_txt, int(t.get("expiry_tick", 0))]
+			info.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			row.add_child(info)
+			_diplomacy_content.add_child(row)
+
+	_diplomacy_content.add_child(HSeparator.new())
+
+	# Section: Bounty Board
+	var bounty_header = Label.new()
+	bounty_header.text = "BOUNTY BOARD"
+	bounty_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	bounty_header.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	_diplomacy_content.add_child(bounty_header)
+
+	if bridge.has_method("GetAvailableBountiesV0"):
+		var bounties: Array = bridge.call("GetAvailableBountiesV0")
+		if bounties.size() == 0:
+			var none_lbl = Label.new()
+			none_lbl.text = "No active bounties."
+			none_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			none_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			_diplomacy_content.add_child(none_lbl)
+		for b in bounties:
+			var row = HBoxContainer.new()
+			var info = Label.new()
+			info.text = "Target: %s — Reward: %d cr, +%d rep (%s)" % [
+				str(b.get("target_fleet_id", "?")),
+				int(b.get("reward_credits", 0)),
+				int(b.get("reward_rep", 0)),
+				str(b.get("faction_id", "?"))]
+			info.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			row.add_child(info)
+			_diplomacy_content.add_child(row)
+
+	_diplomacy_content.add_child(HSeparator.new())
+
+	# Section: Proposals (accept/reject)
+	var proposal_header = Label.new()
+	proposal_header.text = "DIPLOMATIC PROPOSALS"
+	proposal_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	proposal_header.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	_diplomacy_content.add_child(proposal_header)
+
+	if bridge.has_method("GetDiplomaticProposalsV0"):
+		var proposals: Array = bridge.call("GetDiplomaticProposalsV0")
+		if proposals.size() == 0:
+			var none_lbl = Label.new()
+			none_lbl.text = "No pending proposals."
+			none_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			none_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			_diplomacy_content.add_child(none_lbl)
+		for p in proposals:
+			var row = VBoxContainer.new()
+			var info = Label.new()
+			info.text = "%s proposes treaty: -%0.1f%% tariffs%s" % [
+				str(p.get("faction_id", "?")),
+				float(p.get("tariff_reduction_bps", 0)) / 100.0,
+				" + Safe Passage" if p.get("safe_passage", false) else ""]
+			info.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			row.add_child(info)
+			var btn_row = HBoxContainer.new()
+			btn_row.add_theme_constant_override("separation", 8)
+			var act_id: String = str(p.get("act_id", ""))
+			var btn_accept = Button.new()
+			btn_accept.text = "Accept"
+			btn_accept.pressed.connect(_on_diplomacy_accept.bind(act_id))
+			btn_row.add_child(btn_accept)
+			var btn_reject = Button.new()
+			btn_reject.text = "Reject"
+			btn_reject.pressed.connect(_on_diplomacy_reject.bind(act_id))
+			btn_row.add_child(btn_reject)
+			row.add_child(btn_row)
+			_diplomacy_content.add_child(row)
+
+	_diplomacy_content.add_child(HSeparator.new())
+
+	# Section: Active Sanctions
+	var sanction_header = Label.new()
+	sanction_header.text = "SANCTIONS"
+	sanction_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	sanction_header.add_theme_color_override("font_color", UITheme.RED)
+	_diplomacy_content.add_child(sanction_header)
+
+	if bridge.has_method("GetSanctionsV0"):
+		var sanctions: Array = bridge.call("GetSanctionsV0")
+		if sanctions.size() == 0:
+			var none_lbl = Label.new()
+			none_lbl.text = "No active sanctions."
+			none_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			none_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			_diplomacy_content.add_child(none_lbl)
+		for s in sanctions:
+			var info = Label.new()
+			info.text = "%s: +%0.1f%% tariff penalty (expires tick %d)" % [
+				str(s.get("faction_id", "?")),
+				float(s.get("tariff_increase_bps", 0)) / 100.0,
+				int(s.get("expiry_tick", 0))]
+			info.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+			info.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
+			info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_diplomacy_content.add_child(info)
+
+func _on_diplomacy_accept(act_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("AcceptProposalV0"):
+		bridge.call("AcceptProposalV0", act_id)
+	_rebuild_diplomacy()
+
+func _on_diplomacy_reject(act_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("RejectProposalV0"):
+		bridge.call("RejectProposalV0", act_id)
+	_rebuild_diplomacy()

@@ -417,6 +417,73 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.X.MARKET_PRICING.BREAKDOWN_BRIDGE.001: Price breakdown query.
+    // Returns line-item breakdown: base, scarcity, rep_mod, tariff, instability, fee, total.
+    public Godot.Collections.Dictionary GetPriceBreakdownV0(string nodeOrMarketId, string goodId, bool isBuy)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["base"] = 0,
+            ["scarcity"] = 0,
+            ["rep_mod"] = 0,
+            ["tariff"] = 0,
+            ["instability"] = 0,
+            ["fee"] = 0,
+            ["total"] = 0,
+        };
+        if (string.IsNullOrWhiteSpace(nodeOrMarketId) || string.IsNullOrWhiteSpace(goodId))
+            return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            var marketId = ResolveMarketIdFromNodeOrMarket(state, nodeOrMarketId);
+            if (string.IsNullOrWhiteSpace(marketId)) return;
+            if (!state.Markets.TryGetValue(marketId, out var market)) return;
+
+            // Base price from market
+            int basePrice = isBuy ? market.GetBuyPrice(goodId) : market.GetSellPrice(goodId);
+            result["base"] = basePrice;
+
+            // Scarcity component (effective price - base reference)
+            var registry = SimCore.Content.ContentRegistryLoader.LoadFromJsonOrThrow(
+                SimCore.Content.ContentRegistryLoader.DefaultRegistryJsonV0);
+            int qty = market.Inventory.TryGetValue(goodId, out var v) ? v : 0;
+            int effectivePrice = MarketSystem.GetEffectivePrice(goodId, qty, registry);
+            int scarcity = effectivePrice - basePrice;
+            result["scarcity"] = scarcity;
+
+            // Rep pricing modifier
+            int repMod = 0;
+            string controlFaction = MarketSystem.GetControllingFactionIdForMarket(state, marketId);
+            if (!string.IsNullOrEmpty(controlFaction))
+            {
+                int repBps = MarketSystem.GetRepPricingBps(state, controlFaction);
+                repMod = MarketSystem.ApplyRepPricing(basePrice, repBps) - basePrice;
+            }
+            result["rep_mod"] = repMod;
+
+            // Tariff
+            int tariffBps = MarketSystem.GetEffectiveTariffBps(state, marketId);
+            int tariff = (int)((long)basePrice * tariffBps / 10000L);
+            result["tariff"] = tariff;
+
+            // Instability multiplier
+            int instMultBps = MarketSystem.GetInstabilityPriceMultiplierBps(state, marketId, goodId);
+            int instMod = (instMultBps != 10000) ? (int)((long)basePrice * (instMultBps - 10000) / 10000L) : 0;
+            result["instability"] = instMod;
+
+            // Fee
+            int subtotal = basePrice + repMod + tariff + instMod;
+            int fee = MarketSystem.ComputeTransactionFeeCredits(state, subtotal);
+            result["fee"] = fee;
+
+            // Total
+            result["total"] = subtotal + fee;
+        }, 0);
+
+        return result;
+    }
+
     private static string ResolveMarketIdFromNodeOrMarket(SimState state, string nodeOrMarketId)
     {
         if (state is null) return "";
@@ -614,6 +681,36 @@ public partial class SimBridge
             }
         }, 0);
 
+        return result;
+    }
+
+    // GATE.S8.STORY_STATE.COVER_NAMES.001: Pre/post-revelation name switching.
+    public string GetCoverNameV0(string rawName)
+    {
+        bool hasR1 = false;
+        TryExecuteSafeRead(state =>
+        {
+            hasR1 = state.StoryState?.HasRevelation(SimCore.Entities.RevelationFlags.R1_Module) ?? false;
+        });
+        return ApplyCoverName(rawName, hasR1);
+    }
+
+    /// <summary>Lock-free cover-name substitution. Call from inside TryExecuteSafeRead lambdas.</summary>
+    private static string ApplyCoverName(string rawName, bool hasR1)
+    {
+        var result = rawName ?? "";
+        if (!hasR1)
+        {
+            result = result switch
+            {
+                "Fracture Drive" => "Structural Resonance Engine",
+                "fracture" => "spatial distortion",
+                "Fracture" => "Spatial Distortion",
+                "instability" => "metric anomaly",
+                "Instability" => "Metric Anomaly",
+                _ => result
+            };
+        }
         return result;
     }
 

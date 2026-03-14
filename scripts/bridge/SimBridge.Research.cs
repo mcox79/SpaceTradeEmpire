@@ -35,6 +35,9 @@ public partial class SimBridge
     {
         TryExecuteSafeRead(state =>
         {
+            // GATE.X.COVER_STORY.BRIDGE_WIRE.001: Inline cover-name logic to avoid recursive read lock.
+            bool hasR1 = state.StoryState?.HasRevelation(SimCore.Entities.RevelationFlags.R1_Module) ?? false;
+
             var arr = new Godot.Collections.Array();
             foreach (var tech in TechContentV0.AllTechs)
             {
@@ -66,11 +69,13 @@ public partial class SimBridge
                     ? string.Join(",", tech.UnlockEffects)
                     : "";
 
+                // GATE.X.COVER_STORY.BRIDGE_WIRE.001: Apply cover-story naming to tech names.
+                var coveredName = ApplyCoverName(tech.DisplayName, hasR1);
                 var d = new Godot.Collections.Dictionary
                 {
                     ["tech_id"] = tech.TechId,
-                    ["name"] = tech.DisplayName,
-                    ["display_name"] = tech.DisplayName,
+                    ["name"] = coveredName,
+                    ["display_name"] = coveredName,
                     ["description"] = tech.Description,
                     ["tier"] = tech.Tier,
                     ["prereqs"] = prereqsCsv,

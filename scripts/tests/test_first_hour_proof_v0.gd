@@ -24,6 +24,14 @@ const MAX_POLLS := 600
 const OUTPUT_DIR := "res://reports/first_hour/"
 var _user_seed := -1  # -1 = no seed override
 
+# Performance tracking
+var _fps_samples: Array[float] = []
+var _fps_min := 999.0
+var _fps_max := 0.0
+
+# Dispatch failure tracking
+var _dispatch_failures := 0
+
 const ObserverScript = preload("res://scripts/tools/experience_observer.gd")
 const ScreenshotScript = preload("res://scripts/tools/screenshot_capture.gd")
 const AuditScript = preload("res://scripts/tools/aesthetic_audit.gd")
@@ -48,7 +56,11 @@ enum Phase {
 	# Act 5: Galaxy Opens (15:00-30:00)
 	GALAXY_MAP, UNDOCK_4, MULTI_HOP, SETTLE_HOP, TRADE_ROUTE, CHECK_SUSTAIN,
 	# Act 6: Scale Reveal (30:00-60:00)
-	DEEP_EXPLORE, SETTLE_DEEP, PRICE_DIVERSITY, CHECK_RESEARCH, FINAL_TRADE, AUDIT,
+	DEEP_EXPLORE, SETTLE_DEEP, PRICE_DIVERSITY, CHECK_RESEARCH, FINAL_TRADE,
+	# Act 7: Depth Probes (added for coverage)
+	PROBE_SYSTEMIC, PROBE_FACTIONS, PROBE_KNOWLEDGE, PROBE_RESEARCH_START, PROBE_LEDGER,
+	PROBE_REFIT, PROBE_AUTOMATION, PROBE_CONSTRUCTION, PROBE_FRACTURE,
+	AUDIT,
 	DONE
 }
 
@@ -100,14 +112,39 @@ var _fo_dialogue_count := 0
 var _hard_fail := false
 var _fail_reason := ""
 
+# Experience dimension tracking (Sea of Thieves / GEQ-inspired)
+var _min_hull_seen := 100
+var _factions_visited: Dictionary = {}
+var _systems_introduced: Array[String] = []
+var _reward_moment := false  # True if mission reward or discovery unlock
+var _last_phase_change_frame := 0  # Stall watchdog
+
+# Coverage tracking
+var _bridge_methods_called: Dictionary = {}
+var _goods_traded: Dictionary = {}
+
 
 func _process(_delta: float) -> bool:
 	if _busy:
 		return false
 	_total_frames += 1
+	# FPS sampling every 30 frames
+	if _total_frames % 30 == 0:
+		var fps := Engine.get_frames_per_second()
+		if fps > 0.0:
+			_fps_samples.append(fps)
+			if fps < _fps_min:
+				_fps_min = fps
+			if fps > _fps_max:
+				_fps_max = fps
 	if _total_frames >= MAX_FRAMES and _phase != Phase.DONE:
 		_log("TIMEOUT|frame=%d phase=%s" % [_total_frames, Phase.keys()[_phase]])
 		_fail("timeout_at_%s" % Phase.keys()[_phase])
+	# Stall watchdog: if phase hasn't changed in 360 frames (~6s), flag soft-lock
+	if _total_frames - _last_phase_change_frame > 360 and _phase != Phase.DONE:
+		_log("SOFT_LOCK|phase=%s stalled_frames=%d" % [Phase.keys()[_phase], _total_frames - _last_phase_change_frame])
+		_flag("SOFT_LOCK_%s" % Phase.keys()[_phase])
+		_last_phase_change_frame = _total_frames  # Reset to avoid spamming
 	match _phase:
 		Phase.LOAD_SCENE: _do_load_scene()
 		Phase.WAIT_SCENE: _do_wait(_phase, SETTLE_SCENE, Phase.WAIT_BRIDGE)
@@ -156,6 +193,16 @@ func _process(_delta: float) -> bool:
 		Phase.PRICE_DIVERSITY: _do_price_diversity()
 		Phase.CHECK_RESEARCH: _do_check_research()
 		Phase.FINAL_TRADE: _do_final_trade()
+		# Act 7: Depth probes
+		Phase.PROBE_SYSTEMIC: _do_probe_systemic()
+		Phase.PROBE_FACTIONS: _do_probe_factions()
+		Phase.PROBE_KNOWLEDGE: _do_probe_knowledge()
+		Phase.PROBE_RESEARCH_START: _do_probe_research_start()
+		Phase.PROBE_LEDGER: _do_probe_ledger()
+		Phase.PROBE_REFIT: _do_probe_refit()
+		Phase.PROBE_AUTOMATION: _do_probe_automation()
+		Phase.PROBE_CONSTRUCTION: _do_probe_construction()
+		Phase.PROBE_FRACTURE: _do_probe_fracture()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
 	return false
@@ -210,6 +257,9 @@ func _do_wait_ready() -> void:
 		_screenshot = ScreenshotScript.new()
 		_audit = AuditScript.new()
 		_game_manager = root.get_node_or_null("GameManager")
+		# Bot bypasses main menu — clear menu guard so _process runs game logic.
+		if _game_manager:
+			_game_manager.set("_on_main_menu", false)
 		_init_navigation()
 		_phase = Phase.WAIT_LOCAL_SYSTEM
 	else:
@@ -250,6 +300,34 @@ func _do_boot() -> void:
 	_assert(not hostile_found, "boot_no_hostile", "")
 	if hostile_found:
 		_flag("HOSTILE_AT_START")
+
+	# ASSERT: no combat visual artifacts at boot (vignette, heat bar)
+	var hud = root.find_child("HUD", true, false)
+	if hud:
+		# Check combat vignette — should be invisible at boot.
+		var vignette = hud.get("_combat_vignette_rect")
+		if vignette and vignette is CanvasItem and vignette.visible:
+			var shader_mat = vignette.get("material")
+			if shader_mat and shader_mat.has_method("get_shader_parameter"):
+				var tint = shader_mat.get_shader_parameter("tint_color")
+				if tint is Color and tint.a > 0.01:
+					_flag("COMBAT_VIGNETTE_AT_BOOT")
+					_log("GOAL|ALIVE|combat_vignette_alpha=%.2f" % tint.a)
+
+	# Check for keybind conflicts — movement keys (WASD) vs UI toggle keys.
+	var movement_keys := [KEY_W, KEY_A, KEY_S, KEY_D]
+	var movement_actions := ["ship_thrust_fwd", "ship_thrust_back", "ship_turn_left", "ship_turn_right"]
+	var ui_actions := InputMap.get_actions()
+	for ui_action in ui_actions:
+		if ui_action in movement_actions:
+			continue
+		if not str(ui_action).begins_with("ui_"):
+			continue
+		for ev in InputMap.action_get_events(ui_action):
+			if ev is InputEventKey:
+				if ev.physical_keycode in movement_keys:
+					_flag("KEYBIND_CONFLICT_%s" % str(ui_action).to_upper())
+					_log("BOOT|keybind_conflict=%s key=%d" % [str(ui_action), ev.physical_keycode])
 
 	_capture("01_boot")
 	_polls = 0
@@ -334,6 +412,7 @@ func _do_dock() -> void:
 			break
 	_log("GOAL|TEACHES|tutorial_text_found=%s" % str(tutorial_found))
 	_log("GOAL|TEACHES|system_introduced=market")
+	_track_system_introduced("market")
 	_probe_dock_tabs()
 
 	_busy = false
@@ -431,9 +510,10 @@ func _do_buy() -> void:
 	var buy_qty := mini(5, _credits_before_buy / best_price)
 	if buy_qty < 1:
 		buy_qty = 1
-	_bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
+	var dispatch_result = _bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
 	_bought_good_id = best_good
-	_log("BUY|good=%s qty=%d price=%d" % [best_good, buy_qty, best_price])
+	_goods_traded[best_good] = true
+	_log("BUY|good=%s qty=%d price=%d dispatch=%s" % [best_good, buy_qty, best_price, str(dispatch_result)])
 
 	# Goal 4 probe: log the computed margin
 	_log("GOAL|PROFIT|margin=%d good=%s" % [best_margin, best_good])
@@ -444,6 +524,11 @@ func _do_buy() -> void:
 	var ps2: Dictionary = _bridge.call("GetPlayerStateV0")
 	var credits_after := int(ps2.get("credits", 0))
 	var cargo_after := int(ps2.get("cargo_count", 0))
+
+	# Detect silent dispatch failure
+	if credits_after == _credits_before_buy and cargo_after == _cargo_before:
+		_dispatch_failures += 1
+		_flag("DISPATCH_SILENT_FAIL|buy good=%s dispatch=%s" % [best_good, str(dispatch_result)])
 
 	_assert(credits_after < _credits_before_buy, "buy_credits_decreased",
 		"before=%d after=%d" % [_credits_before_buy, credits_after])
@@ -497,6 +582,7 @@ func _do_arrival_1() -> void:
 	_assert(current != _home_node_id, "arrival_different_system",
 		"home=%s current=%s" % [_home_node_id, current])
 	_log("ARRIVAL_1|node=%s" % current)
+	_track_faction(current)
 	_capture("09_arrival_1")
 
 	# Dock at new station
@@ -532,17 +618,22 @@ func _do_sell() -> void:
 	var node_id := str(ps.get("current_node_id", ""))
 	var credits_before_sell := int(ps.get("credits", 0))
 
+	var cargo_before_sell := int(ps.get("cargo_count", 0))
 	if not _bought_good_id.is_empty():
-		var cargo := int(ps.get("cargo_count", 0))
-		if cargo > 0:
-			_bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, cargo, false)
-			_log("SELL|good=%s qty=%d" % [_bought_good_id, cargo])
+		if cargo_before_sell > 0:
+			var sell_result = _bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, cargo_before_sell, false)
+			_log("SELL|good=%s qty=%d dispatch=%s" % [_bought_good_id, cargo_before_sell, str(sell_result)])
 
 	_busy = true
 	await create_timer(0.2).timeout
 	var ps2: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_after_sell = int(ps2.get("credits", 0))
 	var cargo_after := int(ps2.get("cargo_count", 0))
+
+	# Detect silent dispatch failure
+	if cargo_before_sell > 0 and cargo_after == cargo_before_sell and _credits_after_sell == credits_before_sell:
+		_dispatch_failures += 1
+		_flag("DISPATCH_SILENT_FAIL|sell good=%s" % _bought_good_id)
 
 	if _credits_after_sell > credits_before_sell:
 		_trades_completed += 1
@@ -551,6 +642,7 @@ func _do_sell() -> void:
 
 	# Goal 2 probe: selling is the second system introduced
 	_log("GOAL|TEACHES|system_introduced=selling")
+	_track_system_introduced("selling")
 
 	_capture("11_post_sell")
 	_busy = false
@@ -590,6 +682,7 @@ func _do_check_missions() -> void:
 
 	# Goal 2 probe: missions are the third system introduced
 	_log("GOAL|TEACHES|system_introduced=missions")
+	_track_system_introduced("missions")
 	_polls = 0
 	_phase = Phase.ACCEPT_MISSION
 
@@ -672,27 +765,50 @@ func _do_combat() -> void:
 		_phase = Phase.POST_COMBAT
 		return
 
+	# Initialize combat HP for all fleets (player + NPC) before first hit.
+	if _bridge.has_method("InitFleetCombatHpV0"):
+		_bridge.call("InitFleetCombatHpV0")
+
 	var ps_before: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_before_combat = int(ps_before.get("credits", 0))
 
-	# Deal lethal damage in a single command to avoid race between sim thread steps.
-	# AI fleet HP: 80 hull + 30 shield = 110 total. One 150-dmg hit ensures destruction in one tick.
-	_bridge.call("DamageNpcFleetV0", fleet_id, 150)
-	_log("COMBAT|hits=1 dmg=150 target=%s" % fleet_id)
+	# Multi-hit combat: 3 hits with pauses so VFX (shield ripple, damage numbers,
+	# hull sparks) have time to render and be captured in screenshots.
+	_busy = true
+	var total_dmg := 0
+	var hit_count := 3
+	var dmg_per_hit := 50  # 50 x 3 = 150 total, same as before
+	for i in range(hit_count):
+		_bridge.call("DamageNpcFleetV0", fleet_id, dmg_per_hit)
+		total_dmg += dmg_per_hit
+		if i == 0:
+			# Capture after first hit — shield ripple + damage numbers visible
+			await create_timer(0.15).timeout
+			_capture("18a_combat_hit1")
+		elif i < hit_count - 1:
+			await create_timer(0.1).timeout
+	_log("COMBAT|hits=%d dmg=%d target=%s" % [hit_count, total_dmg, fleet_id])
+	_busy = false
 
-	# Check player survived
+	# Check player survived + track min hull for tension metric
 	if _bridge.has_method("GetFleetCombatHpV0"):
 		var hp: Dictionary = _bridge.call("GetFleetCombatHpV0", "fleet_trader_1")
 		var hull := int(hp.get("hull", 100))
+		var hull_max := int(hp.get("hull_max", 100))
+		if hull_max > 0:
+			var hull_pct := (hull * 100) / hull_max
+			if hull_pct < _min_hull_seen:
+				_min_hull_seen = hull_pct
 		if hull <= 0:
 			_flag("COMBAT_ONE_SHOT")
-		_log("COMBAT|player_hull=%d" % hull)
+		_log("COMBAT|player_hull=%d min_hull_pct=%d" % [hull, _min_hull_seen])
 
 	_combats_completed += 1
 	_capture("18_combat")
 
 	# Goal 2 + Goal 3 probes: combat introduced, FO reaction
 	_log("GOAL|TEACHES|system_introduced=combat")
+	_track_system_introduced("combat")
 	_probe_fo_dialogue("COMBAT")
 
 	_polls = 0
@@ -779,6 +895,7 @@ func _do_install_module() -> void:
 
 	# Goal 2 + Goal 5 probes: fitting introduced, remaining empty slots
 	_log("GOAL|TEACHES|system_introduced=fitting")
+	_track_system_introduced("fitting")
 	var empty_slots := 0
 	if _bridge.has_method("GetPlayerFleetSlotsV0"):
 		var all_slots: Array = _bridge.call("GetPlayerFleetSlotsV0")
@@ -994,6 +1111,239 @@ func _do_final_trade() -> void:
 	_capture("30_final_trade")
 	_busy = false
 	_polls = 0
+	_phase = Phase.PROBE_SYSTEMIC
+
+
+# ===================== Act 7: Depth Probes =====================
+
+func _do_probe_systemic() -> void:
+	# Probe systemic mission offers (WAR_DEMAND/PRICE_SPIKE/SUPPLY_SHORTAGE)
+	if _bridge.has_method("GetSystemicOffersV0"):
+		var offers: Array = _bridge.call("GetSystemicOffersV0")
+		_log("SYSTEMIC|offers=%d" % offers.size())
+		_log("GOAL|SYSTEMIC|offers=%d" % offers.size())
+		if offers.size() > 0:
+			var offer = offers[0]
+			_log("SYSTEMIC|first_offer trigger=%s good=%s" % [
+				str(offer.get("trigger_type", "")), str(offer.get("good_id", ""))])
+	else:
+		_log("SYSTEMIC|no_method")
+	_polls = 0
+	_phase = Phase.PROBE_FACTIONS
+
+
+func _do_probe_factions() -> void:
+	# Probe faction system — reputation, territory, doctrines
+	if _bridge.has_method("GetAllFactionsV0"):
+		var factions: Array = _bridge.call("GetAllFactionsV0")
+		_log("FACTIONS|count=%d" % factions.size())
+		_log("GOAL|ALIVE|factions=%d" % factions.size())
+
+		# Check reputation with each faction
+		if _bridge.has_method("GetPlayerReputationV0"):
+			for f in factions:
+				var fid := str(f.get("faction_id", ""))
+				if not fid.is_empty():
+					var rep: Dictionary = _bridge.call("GetPlayerReputationV0", fid)
+					var tier := str(rep.get("tier", ""))
+					_log("FACTIONS|%s rep_tier=%s" % [fid, tier])
+
+	# Probe warfronts
+	if _bridge.has_method("GetWarfrontsV0"):
+		var warfronts: Array = _bridge.call("GetWarfrontsV0")
+		_log("WARFRONT|count=%d" % warfronts.size())
+		_log("GOAL|ALIVE|warfronts=%d" % warfronts.size())
+
+	# Probe territory at current node
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	if _bridge.has_method("GetTerritoryAccessV0"):
+		var access: Dictionary = _bridge.call("GetTerritoryAccessV0", node_id)
+		_log("FACTIONS|territory=%s" % str(access))
+
+	_polls = 0
+	_phase = Phase.PROBE_KNOWLEDGE
+
+
+func _do_probe_knowledge() -> void:
+	# Probe knowledge web content
+	if _bridge.has_method("GetKnowledgeGraphV0"):
+		var graph: Array = _bridge.call("GetKnowledgeGraphV0")
+		_log("KNOWLEDGE|entries=%d" % graph.size())
+		_log("GOAL|DEPTH|knowledge_entries=%d" % graph.size())
+
+	if _bridge.has_method("GetKnowledgeGraphStatsV0"):
+		var stats: Dictionary = _bridge.call("GetKnowledgeGraphStatsV0")
+		_log("KNOWLEDGE|stats=%s" % str(stats))
+
+	# Data logs
+	if _bridge.has_method("GetDiscoveredDataLogsV0"):
+		var logs: Array = _bridge.call("GetDiscoveredDataLogsV0")
+		_log("KNOWLEDGE|data_logs=%d" % logs.size())
+
+	# Station memory
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	if _bridge.has_method("GetStationMemoryV0"):
+		var memory: Dictionary = _bridge.call("GetStationMemoryV0", node_id)
+		_log("KNOWLEDGE|station_memory_keys=%d" % memory.size())
+
+	_polls = 0
+	_phase = Phase.PROBE_RESEARCH_START
+
+
+func _do_probe_research_start() -> void:
+	# Attempt to start research if available
+	if _bridge.has_method("StartResearchV0") and _bridge.has_method("GetTechTreeV0"):
+		var techs: Array = _bridge.call("GetTechTreeV0")
+		for tech in techs:
+			var can_research: bool = tech.get("can_research", false)
+			if can_research:
+				var tid := str(tech.get("tech_id", ""))
+				var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+				var node_id := str(ps.get("current_node_id", ""))
+				var result: Dictionary = _bridge.call("StartResearchV0", tid, node_id)
+				var success: bool = result.get("success", false)
+				_log("RESEARCH|start=%s success=%s" % [tid, str(success)])
+				_log("GOAL|DEPTH|research_started=%s" % str(success))
+				if success:
+					_reward_moment = true
+				break
+
+	# Check research status
+	if _bridge.has_method("GetResearchStatusV0"):
+		var status: Dictionary = _bridge.call("GetResearchStatusV0")
+		_log("RESEARCH|status=%s" % str(status))
+
+	_polls = 0
+	_phase = Phase.PROBE_LEDGER
+
+
+func _do_probe_ledger() -> void:
+	# Transaction ledger
+	if _bridge.has_method("GetTransactionLogV0"):
+		var log_entries: Array = _bridge.call("GetTransactionLogV0", 10)
+		_log("LEDGER|transactions=%d" % log_entries.size())
+		_log("GOAL|ECONOMY|ledger_entries=%d" % log_entries.size())
+
+	# Profit summary
+	if _bridge.has_method("GetProfitSummaryV0"):
+		var profit: Dictionary = _bridge.call("GetProfitSummaryV0")
+		_log("LEDGER|profit=%s" % str(profit))
+
+	# Player stats
+	if _bridge.has_method("GetPlayerStatsV0"):
+		var stats: Dictionary = _bridge.call("GetPlayerStatsV0")
+		_log("STATS|player=%s" % str(stats))
+		_log("GOAL|STATS|nodes_visited=%s trades=%s" % [
+			str(stats.get("nodes_visited", 0)), str(stats.get("trades_completed", 0))])
+
+	# Milestones
+	if _bridge.has_method("GetMilestonesV0"):
+		var milestones: Array = _bridge.call("GetMilestonesV0")
+		_log("STATS|milestones=%d" % milestones.size())
+
+	_polls = 0
+	_phase = Phase.PROBE_REFIT
+
+
+func _do_probe_refit() -> void:
+	# Probe current fleet loadout for evaluator evidence
+	if _bridge.has_method("GetPlayerFleetSlotsV0"):
+		var slots: Array = _bridge.call("GetPlayerFleetSlotsV0")
+		var equipped := 0
+		var empty := 0
+		for slot in slots:
+			if str(slot.get("installed_module_id", "")).is_empty():
+				empty += 1
+			else:
+				equipped += 1
+		_log("REFIT|slots=%d equipped=%d empty=%d" % [slots.size(), equipped, empty])
+		_log("GOAL|DEPTH|refit_slots=%d equipped=%d" % [slots.size(), equipped])
+		_track_system_introduced("REFIT")
+
+	# Available modules count (promise of depth)
+	if _bridge.has_method("GetAvailableModulesV0"):
+		var modules: Array = _bridge.call("GetAvailableModulesV0")
+		var installable := 0
+		for mod in modules:
+			if mod.get("can_install", false):
+				installable += 1
+		_log("REFIT|available=%d installable=%d" % [modules.size(), installable])
+		_log("GOAL|DEPTH|modules_available=%d installable=%d" % [modules.size(), installable])
+
+	_polls = 0
+	_phase = Phase.PROBE_AUTOMATION
+
+
+func _do_probe_automation() -> void:
+	# Probe automation program templates
+	if _bridge.has_method("GetProgramTemplatesV0"):
+		var templates: Array = _bridge.call("GetProgramTemplatesV0")
+		_log("AUTOMATION|templates=%d" % templates.size())
+		_log("GOAL|DEPTH|automation_templates=%d" % templates.size())
+		_track_system_introduced("AUTOMATION")
+
+	# Probe current program state
+	if _bridge.has_method("GetProgramExplainSnapshot"):
+		var programs: Array = _bridge.call("GetProgramExplainSnapshot")
+		_log("AUTOMATION|active_programs=%d" % programs.size())
+
+	# Probe performance metrics
+	if _bridge.has_method("GetProgramPerformanceV0"):
+		var perf: Dictionary = _bridge.call("GetProgramPerformanceV0", "fleet_trader_1")
+		_log("AUTOMATION|performance_cycles=%s" % str(perf.get("cycles_run", 0)))
+
+	_polls = 0
+	_phase = Phase.PROBE_CONSTRUCTION
+
+
+func _do_probe_construction() -> void:
+	# Probe construction project definitions
+	if _bridge.has_method("GetAvailableConstructionDefsV0"):
+		var defs: Array = _bridge.call("GetAvailableConstructionDefsV0")
+		var buildable := 0
+		for d in defs:
+			if d.get("prerequisites_met", false):
+				buildable += 1
+		_log("CONSTRUCTION|defs=%d buildable=%d" % [defs.size(), buildable])
+		_log("GOAL|DEPTH|construction_defs=%d buildable=%d" % [defs.size(), buildable])
+		_track_system_introduced("CONSTRUCTION")
+
+	# Check active construction
+	if _bridge.has_method("GetConstructionProjectsV0"):
+		var projects: Array = _bridge.call("GetConstructionProjectsV0")
+		_log("CONSTRUCTION|active=%d" % projects.size())
+
+	_polls = 0
+	_phase = Phase.PROBE_FRACTURE
+
+
+func _do_probe_fracture() -> void:
+	# Probe fracture access status
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+
+	if _bridge.has_method("GetFractureAccessV0"):
+		var access: Dictionary = _bridge.call("GetFractureAccessV0", "fleet_trader_1", node_id)
+		var allowed: bool = access.get("allowed", false)
+		var reason := str(access.get("reason", ""))
+		_log("FRACTURE|access=%s reason=%s" % [str(allowed), reason])
+		_log("GOAL|DEPTH|fracture_access=%s" % str(allowed))
+		_track_system_introduced("FRACTURE")
+
+	# Probe void sites
+	if _bridge.has_method("GetAvailableVoidSitesV0"):
+		var sites: Array = _bridge.call("GetAvailableVoidSitesV0")
+		_log("FRACTURE|void_sites=%d" % sites.size())
+		_log("GOAL|DEPTH|void_sites=%d" % sites.size())
+
+	# Sensor level
+	if _bridge.has_method("GetSensorLevelV0"):
+		var level := int(_bridge.call("GetSensorLevelV0"))
+		_log("FRACTURE|sensor_level=%d" % level)
+
+	_polls = 0
 	_phase = Phase.AUDIT
 
 
@@ -1008,17 +1358,121 @@ func _do_audit() -> void:
 	_assert(_trades_completed >= 1, "trades_completed", "count=%d" % _trades_completed)
 	_assert(_combats_completed >= 1, "combat_completed", "count=%d" % _combats_completed)
 
-	# Check for dev jargon in Label3D
+	# === Experience Dimension Assertions (GEQ/PENS-inspired) ===
+
+	# FLOW: credit growth rate should be positive but not trivially huge
+	var credit_growth := 0.0
+	if _credits_at_start > 0:
+		credit_growth = float(_credits_after_sell - _credits_at_start) / float(_credits_at_start)
+	_log("EXPERIENCE|flow_credit_growth=%.2f" % credit_growth)
+	_log("GOAL|FLOW|credit_growth=%.2f min_hull=%d factions=%d goods=%d" % [
+		credit_growth, _min_hull_seen, _factions_visited.size(), _goods_traded.size()])
+	# Warn if credit growth is zero or negative (player isn't progressing)
+	if credit_growth <= 0.0:
+		_flag("FLOW_NO_PROFIT|growth=%.2f" % credit_growth)
+	# Warn if credit growth is absurdly high (trivially broken economy)
+	if credit_growth > 10.0:
+		_flag("FLOW_TRIVIALLY_RICH|growth=%.2f" % credit_growth)
+
+	# TENSION: player should have experienced some challenge
+	_log("EXPERIENCE|tension_min_hull=%d" % _min_hull_seen)
+	if _min_hull_seen >= 100:
+		_flag("TENSION_NO_DAMAGE_TAKEN")
+
+	# IMMERSION: faction territory diversity
+	_log("EXPERIENCE|factions_visited=%d" % _factions_visited.size())
+
+	# COMPETENCE: goods diversity traded
+	_log("EXPERIENCE|goods_traded=%d" % _goods_traded.size())
+
+	# COVERAGE: systems introduced during first hour
+	_log("EXPERIENCE|systems_introduced=%s" % str(_systems_introduced))
+
+	# Stranded player guard: verify player has viable next action
+	var final_ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var final_credits := int(final_ps.get("credits", 0))
+	var has_viable_action := final_credits > 50
+	if not has_viable_action:
+		if _bridge.has_method("GetActiveMissionV0"):
+			var active: Dictionary = _bridge.call("GetActiveMissionV0")
+			if not active.is_empty() and str(active.get("id", "")) != "":
+				has_viable_action = true
+	if not has_viable_action:
+		_flag("STRANDED_PLAYER|credits=%d" % final_credits)
+
+	# === FPS Performance Report ===
+	if _fps_samples.size() > 0:
+		var fps_sum := 0.0
+		for s in _fps_samples:
+			fps_sum += s
+		var fps_avg := fps_sum / float(_fps_samples.size())
+		_log("PERF|fps_min=%.1f fps_max=%.1f fps_avg=%.1f samples=%d" % [_fps_min, _fps_max, fps_avg, _fps_samples.size()])
+		if _fps_min < 30.0:
+			_flag("FPS_BELOW_30|min=%.1f" % _fps_min)
+		if fps_avg < 45.0:
+			_flag("FPS_AVG_LOW|avg=%.1f" % fps_avg)
+	else:
+		_log("PERF|no_fps_data")
+
+	# === Dispatch Failure Summary ===
+	if _dispatch_failures > 0:
+		_log("DISPATCH|silent_failures=%d" % _dispatch_failures)
+		_flag("DISPATCH_FAILURES_TOTAL|count=%d" % _dispatch_failures)
+
+	# === Content String Lint — scan visible Labels for dev jargon ===
+	# Check Label3D nodes
 	for label in _find_all_label3d():
-		if label.visible and label.text.length() > 40:
-			_flag("LABEL_TOO_LONG|%s" % label.text.left(50))
-		if label.visible and "RareMIn" in label.text:
-			_flag("DEV_JARGON|%s" % label.text)
+		if not label.visible:
+			continue
+		var txt: String = label.text
+		if txt.length() > 40:
+			_flag("LABEL_TOO_LONG|%s" % txt.left(50))
+		_lint_string(txt, "Label3D")
+
+	# Check HUD Label nodes for dev jargon / raw IDs
+	var hud_node = root.find_child("HUD", true, false)
+	if hud_node != null:
+		var hud_labels := _find_all_labels(hud_node)
+		for lbl in hud_labels:
+			if not lbl.visible or lbl.text.is_empty():
+				continue
+			_lint_string(lbl.text, "HUD:" + str(lbl.name))
+
+	# === Save/Load Cycle Test ===
+	if _bridge != null and _bridge.has_method("SaveGameV0") and _bridge.has_method("LoadGameV0"):
+		var pre_save_ps: Dictionary = _bridge.call("GetPlayerStateV0")
+		var pre_credits := int(pre_save_ps.get("credits", 0))
+		var pre_node := str(pre_save_ps.get("current_node_id", ""))
+		var pre_cargo := int(pre_save_ps.get("cargo_count", 0))
+		_bridge.call("SaveGameV0")
+		_bridge.call("LoadGameV0")
+		_busy = true
+		await create_timer(0.3).timeout
+		var post_load_ps: Dictionary = _bridge.call("GetPlayerStateV0")
+		var post_credits := int(post_load_ps.get("credits", 0))
+		var post_node := str(post_load_ps.get("current_node_id", ""))
+		var post_cargo := int(post_load_ps.get("cargo_count", 0))
+		var save_ok := pre_credits == post_credits and pre_node == post_node and pre_cargo == post_cargo
+		_assert(save_ok, "save_load_roundtrip",
+			"credits=%d/%d node=%s/%s cargo=%d/%d" % [pre_credits, post_credits, pre_node, post_node, pre_cargo, post_cargo])
+		_log("SAVE_LOAD|roundtrip=%s" % str(save_ok))
+		_busy = false
+	else:
+		_log("SAVE_LOAD|not_available")
 
 	# Run aesthetic audit
 	var audit_critical := 0
 	if _observer != null and _audit != null:
 		var report = _observer.capture_full_report_v0()
+		# Inject tracked FPS data and jargon count into performance section
+		if report.has("performance"):
+			report["performance"]["fps_min"] = _fps_min if _fps_samples.size() > 0 else 60.0
+			# Count jargon flags
+			var jargon_count := 0
+			for f in _flags:
+				if f.begins_with("DEV_JARGON"):
+					jargon_count += 1
+			report["performance"]["jargon_flags"] = jargon_count
 		var audit_results = _audit.run_audit_v0(report)
 		audit_critical = _audit.count_critical_failures_v0(audit_results)
 		for ar in audit_results:
@@ -1030,6 +1484,16 @@ func _do_audit() -> void:
 	# Print all flags
 	for f in _flags:
 		_log("FLAG|%s" % f)
+
+	# Coverage report
+	var total_nodes := _all_nodes.size()
+	var coverage_pct := 0
+	if total_nodes > 0:
+		coverage_pct = (_visited.size() * 100) / total_nodes
+	_log("COVERAGE|nodes=%d/%d(%d%%) trades=%d goods=%d factions=%d systems_intro=%d" % [
+		_visited.size(), total_nodes, coverage_pct,
+		_trades_completed, _goods_traded.size(), _factions_visited.size(),
+		_systems_introduced.size()])
 
 	_log("SUMMARY|visited=%d trades=%d combats=%d flags=%d audit_critical=%d hard_fail=%s" % [
 		_visited.size(), _trades_completed, _combats_completed,
@@ -1099,6 +1563,12 @@ func _probe_dock_tabs() -> void:
 
 # ===================== Helpers =====================
 
+func _set_phase(p: Phase) -> void:
+	_phase = p
+	_last_phase_change_frame = _total_frames
+	_polls = 0
+
+
 func _log(msg: String) -> void:
 	print(PREFIX + msg)
 
@@ -1132,6 +1602,33 @@ func _capture(label: String) -> void:
 	var img_path = _screenshot.capture_v0(self, filename, OUTPUT_DIR)
 	_snapshots.append({"phase": label, "tick": tick})
 	_log("CAPTURE|%s|tick=%d" % [label, tick])
+
+
+func _lint_string(txt: String, source: String) -> void:
+	# Flag raw internal IDs (star_10, fleet_trader_1, good_organics_v0, etc.)
+	var raw_id_pattern := RegEx.new()
+	raw_id_pattern.compile("\\b(star_\\d+|fleet_\\w+_\\d+|good_\\w+_v\\d+|at_fleet_|ai_fleet_)")
+	if raw_id_pattern.search(txt) != null:
+		_flag("DEV_JARGON_ID|%s|%s" % [source, txt.left(60)])
+	# Flag v0/v1 suffix patterns (method names leaking to UI)
+	var version_pattern := RegEx.new()
+	version_pattern.compile("\\w+V\\d+$|_v\\d+$")
+	if version_pattern.search(txt) != null:
+		_flag("DEV_JARGON_VERSION|%s|%s" % [source, txt.left(60)])
+	# Flag underscore_case identifiers (3+ chars with underscore in middle)
+	var underscore_pattern := RegEx.new()
+	underscore_pattern.compile("\\b\\w{3,}_\\w{3,}_\\w+\\b")
+	if underscore_pattern.search(txt) != null and "%" not in txt:
+		_flag("DEV_JARGON_UNDERSCORE|%s|%s" % [source, txt.left(60)])
+
+
+func _find_all_labels(node: Node) -> Array:
+	var result: Array = []
+	if node is Label:
+		result.append(node)
+	for child in node.get_children():
+		result.append_array(_find_all_labels(child))
+	return result
 
 
 func _get_tick() -> int:
@@ -1227,6 +1724,20 @@ func _collect_label_text(node: Node) -> String:
 	for child in node.get_children():
 		text += _collect_label_text(child)
 	return text
+
+
+func _track_faction(node_id: String) -> void:
+	if _bridge == null or not _bridge.has_method("GetTerritoryAccessV0"):
+		return
+	var access: Dictionary = _bridge.call("GetTerritoryAccessV0", node_id)
+	var faction := str(access.get("faction_id", ""))
+	if not faction.is_empty():
+		_factions_visited[faction] = true
+
+
+func _track_system_introduced(system_name: String) -> void:
+	if system_name not in _systems_introduced:
+		_systems_introduced.append(system_name)
 
 
 func _markets_differ(market_a: Array, market_b: Array) -> bool:

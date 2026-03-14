@@ -36,10 +36,7 @@ const ARRIVAL_THRESHOLD: float = 1.5
 ## Star avoidance — ships steer around the star (at local origin) instead of flying through it.
 const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
 
-## Local patrol — ships pick new waypoints when they reach their target.
-## Radius tuned so ships spread across the playable system area (visible at camera altitude ~80).
-const PATROL_RADIUS_MIN: float = 15.0
-const PATROL_RADIUS_MAX: float = 45.0
+## Patrol seed (used for deterministic initial position).
 var _patrol_seed: int = 0
 
 ## GATE.S7.COMBAT_FEEL_POLISH.SHIELD_VFX.001: Track previous shield state for break detection.
@@ -63,7 +60,13 @@ var _hostile_label: Label3D = null  # GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.00
 var _onboard_labels_hidden: bool = true
 var _hp_bar: MeshInstance3D = null
 var _hp_bar_mat: StandardMaterial3D = null
-const ROLE_LETTERS := ["T", "H", "P"]  # Trader, Hauler, Patrol
+var _fleet_pip: MeshInstance3D = null  # Removed: was placeholder sphere
+const ROLE_NAMES := ["Trader", "Hauler", "Patrol"]
+const ROLE_COLORS := [
+	Color(1.0, 0.85, 0.3),   # Trader — gold
+	Color(0.4, 0.8, 0.8),    # Hauler — teal
+	Color(0.5, 0.7, 1.0),    # Patrol — blue
+]
 const LABEL_SHOW_DIST := 160.0  # Visible at camera altitude ~80 (increased for altitude clarity)
 const HP_BAR_HEIGHT := 8.0  # Above ship center (raised for altitude visibility)
 
@@ -80,9 +83,11 @@ func _ready() -> void:
 
 
 ## GATE.S16.NPC_ALIVE.STATUS_DISPLAY.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
-## Create role label + hostile label + HP bar overlay. Sized for camera altitude ~80.
+## Create role label + hostile label + HP bar overlay. Sized for camera altitude ~120.
 func _create_status_display() -> void:
-	# Role label (T/H/P) — billboard facing camera. Enlarged for altitude ~80 visibility.
+	# FleetPip sphere removed — was placeholder programmer art.
+
+	# Role label (full name) — billboard facing camera. Sized for altitude ~120.
 	_role_label = Label3D.new()
 	_role_label.name = "RoleLabel"
 	_role_label.pixel_size = 0.10
@@ -100,8 +105,8 @@ func _create_status_display() -> void:
 	# FEEL_BASELINE: Reduced from 0.10/56 — was 7x wider than role letter at same size.
 	_hostile_label = Label3D.new()
 	_hostile_label.name = "HostileLabel"
-	_hostile_label.pixel_size = 0.04
-	_hostile_label.font_size = 36
+	_hostile_label.pixel_size = 0.07
+	_hostile_label.font_size = 48
 	_hostile_label.outline_size = 10
 	_hostile_label.outline_modulate = Color(0, 0, 0, 0.9)
 	_hostile_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -139,17 +144,18 @@ func _create_status_display() -> void:
 
 func _update_status_display() -> void:
 	if _role_label:
-		var letter: String = ROLE_LETTERS[clampi(_role, 0, 2)]
+		var role_idx: int = clampi(_role, 0, 2)
+		_role_label.text = ROLE_NAMES[role_idx]
 		if _is_hostile:
-			_role_label.text = letter
 			_role_label.modulate = Color(1.0, 0.4, 0.35)
 		else:
-			_role_label.text = letter
-			_role_label.modulate = Color(0.9, 0.95, 1.0)
+			_role_label.modulate = ROLE_COLORS[role_idx]
 
 	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Dedicated hostile label visibility.
 	if _hostile_label:
 		_hostile_label.visible = _is_hostile
+
+	# FleetPip coloring removed — was placeholder sphere.
 
 	if _hp_bar and _hull_hp_max > 0:
 		var ratio := clampf(float(_hull_hp) / float(_hull_hp_max), 0.0, 1.0)
@@ -267,6 +273,8 @@ func update_transit(data: Dictionary) -> void:
 		_is_hostile = _check_reputation_aggro(current_node)
 	else:
 		_is_hostile = base_hostile
+	# Sync meta so game_manager._ai_fire_v0() reads current hostility.
+	set_meta("is_hostile", _is_hostile)
 	_update_status_display()
 
 
@@ -311,6 +319,7 @@ func _physics_process(delta: float) -> void:
 			var old_hostile := _is_hostile
 			_is_hostile = _check_reputation_aggro("")
 			if old_hostile != _is_hostile:
+				set_meta("is_hostile", _is_hostile)
 				_update_status_display()
 
 	# Combat stagger — freeze movement.
@@ -328,8 +337,8 @@ func _physics_process(delta: float) -> void:
 	var dist := to_target.length()
 
 	if dist < ARRIVAL_THRESHOLD:
-		# Pick a new local patrol waypoint so the ship keeps moving visibly.
-		_pick_next_patrol_waypoint()
+		# At target — slow drift until RefreshLocalFleetsV0 supplies next target.
+		target_speed = 1.0
 		velocity = Vector3.ZERO
 		move_and_slide()
 		return
@@ -352,16 +361,6 @@ func _physics_process(delta: float) -> void:
 	velocity.y = 0.0
 	move_and_slide()
 	position.y = 0.0
-
-
-## Pick a new random orbit waypoint for local patrol movement.
-func _pick_next_patrol_waypoint() -> void:
-	_patrol_seed += 1
-	# Simple hash for pseudo-random angle.
-	var h: int = _patrol_seed * 2654435761  # Knuth multiplicative hash
-	var angle: float = float(h % 3600) / 3600.0 * TAU
-	var radius: float = PATROL_RADIUS_MIN + float(h % 1000) / 1000.0 * (PATROL_RADIUS_MAX - PATROL_RADIUS_MIN)
-	target_position = Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 
 ## Steer around the star (at local origin) if the direct path passes too close.
@@ -471,8 +470,7 @@ func _spawn_hit_vfx(impact_pos: Vector3, damage_amount: int, shield_remaining: i
 			if ShieldVfx.has_method("spawn_hull_sparks"):
 				ShieldVfx.call("spawn_hull_sparks", vfx_parent, global_position, impact_pos)
 
-	# Damage number.
-	var DmgNumVfx := load("res://scripts/vfx/damage_number.gd")
-	if DmgNumVfx and DmgNumVfx.has_method("spawn"):
-		var dmg_type: String = "shield" if shield_remaining > 0 else "hull"
-		DmgNumVfx.call("spawn", vfx_parent, impact_pos, damage_amount, dmg_type)
+	# Damage number — use class_name directly (static func on loaded GDScript
+	# resource isn't reliably callable via .has_method / .call).
+	var dmg_type: String = "shield" if shield_remaining > 0 else "hull"
+	DamageNumber.spawn(vfx_parent, impact_pos, damage_amount, dmg_type)

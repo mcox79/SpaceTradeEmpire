@@ -112,14 +112,47 @@ public static class ReputationSystem
 
     /// <summary>
     /// Adjust player reputation with a faction by delta, clamped to [-100, 100].
+    /// GATE.S7.FACTION_COMMISSION.INFAMY.001: Also clamped by infamy cap.
     /// </summary>
     public static void AdjustReputation(SimState state, string factionId, int delta)
     {
         if (string.IsNullOrEmpty(factionId)) return;
 
+        // GATE.S8.HAVEN.ACCOMMODATION_FX.001: Harmony thread bonus amplifies positive rep gains.
+        if (delta > 0)
+        {
+            int harmonyPct = HavenEndgameSystem.GetAccommodationBonusPct(state, Entities.AccommodationThreadIds.Harmony);
+            if (harmonyPct > 0)
+                delta = delta + delta * harmonyPct / 100;
+        }
+
         var current = GetReputation(state, factionId);
-        var next = Math.Clamp(current + delta, FactionTweaksV0.ReputationMin, FactionTweaksV0.ReputationMax);
+        int maxRep = GetMaxRepForInfamy(state, factionId);
+        var next = Math.Clamp(current + delta, FactionTweaksV0.ReputationMin, maxRep);
         state.FactionReputation[factionId] = next;
+    }
+
+    // GATE.S7.FACTION_COMMISSION.INFAMY.001: Get max achievable reputation for a faction based on infamy.
+    public static int GetMaxRepForInfamy(SimState state, string factionId)
+    {
+        if (state is null || string.IsNullOrEmpty(factionId)) return FactionTweaksV0.ReputationMax;
+        if (!state.InfamyByFaction.TryGetValue(factionId, out int infamy) || infamy <= 0) // STRUCTURAL: no infamy
+            return FactionTweaksV0.ReputationMax;
+
+        if (infamy >= CommissionTweaksV0.InfamyCapNeutral)
+            return FactionTweaksV0.NeutralThreshold; // capped at Neutral ceiling
+        if (infamy >= CommissionTweaksV0.InfamyCapFriendly)
+            return FactionTweaksV0.FriendlyThreshold; // capped at Friendly ceiling
+
+        return FactionTweaksV0.ReputationMax;
+    }
+
+    // GATE.S7.FACTION_COMMISSION.INFAMY.001: Accumulate infamy with a faction.
+    public static void AccumulateInfamy(SimState state, string factionId, int amount)
+    {
+        if (state is null || string.IsNullOrEmpty(factionId) || amount <= 0) return; // STRUCTURAL: guard
+        state.InfamyByFaction.TryGetValue(factionId, out int current);
+        state.InfamyByFaction[factionId] = current + amount;
     }
 
     /// <summary>
@@ -132,10 +165,12 @@ public static class ReputationSystem
 
     /// <summary>
     /// Apply combat reputation loss: player attacked a ship belonging to factionId.
+    /// GATE.S7.FACTION_COMMISSION.INFAMY.001: Also accumulates infamy.
     /// </summary>
     public static void OnAttackFactionShip(SimState state, string factionId)
     {
         AdjustReputation(state, factionId, FactionTweaksV0.AttackRepLoss);
+        AccumulateInfamy(state, factionId, CommissionTweaksV0.InfamyPerAttack);
     }
 
     // GATE.S7.REPUTATION.WAR_PROFITEER.001: War profiteering rep effects.
@@ -168,6 +203,8 @@ public static class ReputationSystem
             {
                 AdjustReputation(state, buyerFactionId, FactionTweaksV0.WarProfiteerBuyerGain);
                 AdjustReputation(state, enemy, FactionTweaksV0.WarProfiteerEnemyLoss);
+                // GATE.S7.FACTION_COMMISSION.INFAMY.001: War profiteering adds infamy with enemy.
+                AccumulateInfamy(state, enemy, CommissionTweaksV0.InfamyPerWarProfiteer);
                 return; // Only apply once per trade, even if multiple warfronts.
             }
         }

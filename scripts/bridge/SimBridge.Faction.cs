@@ -598,4 +598,86 @@ public partial class SimBridge
 
         return result;
     }
+
+    // GATE.S7.FACTION_COMMISSION.BRIDGE.001: Active commission query.
+    // Returns {has_commission, faction_id, start_tick, stipend_credits, elapsed_ticks}.
+    public Godot.Collections.Dictionary GetActiveCommissionV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["has_commission"] = false,
+            ["faction_id"] = "",
+            ["start_tick"] = 0,
+            ["stipend_credits"] = 0,
+            ["elapsed_ticks"] = 0,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.ActiveCommission == null) return;
+            var c = state.ActiveCommission;
+            result["has_commission"] = true;
+            result["faction_id"] = c.FactionId ?? "";
+            result["start_tick"] = c.StartTick;
+            result["stipend_credits"] = c.StipendCreditsPerCycle;
+            result["elapsed_ticks"] = state.Tick - c.StartTick;
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.S7.FACTION_COMMISSION.BRIDGE.001: Rep modifier stack — named breakdown of modifiers.
+    // Returns Array of {source, delta, description} for a faction's reputation.
+    public Godot.Collections.Array GetRepModifierStackV0(string factionId)
+    {
+        var result = new Godot.Collections.Array();
+        if (string.IsNullOrEmpty(factionId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            int rep = ReputationSystem.GetReputation(state, factionId);
+            int infamy = state.InfamyByFaction.TryGetValue(factionId, out var inf) ? inf : 0;
+            int maxRep = ReputationSystem.GetMaxRepForInfamy(state, factionId);
+
+            result.Add(new Godot.Collections.Dictionary
+            {
+                ["source"] = "Standing",
+                ["value"] = rep,
+                ["description"] = $"Current reputation: {rep}",
+            });
+
+            if (infamy > 0)
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["source"] = "Infamy",
+                    ["value"] = infamy,
+                    ["description"] = $"Infamy {infamy} — max rep capped at {maxRep}",
+                });
+            }
+
+            // Commission bonus
+            if (state.ActiveCommission != null
+                && string.Equals(state.ActiveCommission.FactionId, factionId, StringComparison.Ordinal))
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["source"] = "Commission",
+                    ["value"] = SimCore.Tweaks.CommissionTweaksV0.EmployerRepGainPerCycle,
+                    ["description"] = $"+{SimCore.Tweaks.CommissionTweaksV0.EmployerRepGainPerCycle}/cycle from commission",
+                });
+            }
+
+            // Rep tier label
+            var tier = ReputationSystem.GetRepTier(rep);
+            result.Add(new Godot.Collections.Dictionary
+            {
+                ["source"] = "Tier",
+                ["value"] = (int)tier,
+                ["description"] = $"Tier: {tier}",
+            });
+        }, 0);
+
+        return result;
+    }
 }

@@ -51,5 +51,24 @@ public sealed class NpcFleetDamageCommand : ICommand
         {
             fleet.DelayTicksRemaining += DelayTicks;
         }
+
+        // Log combat event so combat log panel (L key) shows real-time hits.
+        var log = new CombatSystem.CombatLog();
+        log.Events.Add(new CombatSystem.CombatEventEntry
+        {
+            Tick = state.Tick,
+            AttackerId = "fleet_trader_1",
+            DefenderId = FleetId,
+            WeaponId = "realtime_hit",
+            DamageDealt = Damage,
+            DefenderHullRemaining = fleet.HullHp,
+            DefenderShieldRemaining = fleet.ShieldHp,
+        });
+        log.Outcome = fleet.HullHp <= 0
+            ? CombatSystem.CombatOutcome.Win
+            : CombatSystem.CombatOutcome.InProgress;
+        if (state.CombatLogs.Count >= 10)
+            state.CombatLogs.RemoveAt(0);
+        state.CombatLogs.Add(log);
     }
 }

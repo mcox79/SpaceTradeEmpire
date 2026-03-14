@@ -158,6 +158,12 @@ public static class GalaxyGenerator
         NarrativePlacementGen.PlaceDataLogs(state);
         NarrativePlacementGen.PlaceKeplerChain(state);
 
+        // Phase 9.5: GATE.T18.KG_SEED.RESOLVE.001 — Resolve knowledge graph templates.
+        NarrativePlacementGen.ResolveKnowledgeGraphTemplates(state);
+
+        // Phase 9.6: GATE.T18.KG_SEED.PROXIMITY.001 — Procedural proximity + faction connections.
+        NarrativePlacementGen.GenerateProceduralConnections(state);
+
         // Phase 10: GATE.S8.HAVEN.DISCOVERY.001 — Seed Haven at a deep-space node.
         SeedHavenV0(state);
 

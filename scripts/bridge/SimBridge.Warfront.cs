@@ -136,6 +136,58 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.S8.THREAT.ALERT_UI.001: Supply shock summary for HUD alert.
+    // Returns {disrupted_count, contested_nodes, max_intensity_label}.
+    private Godot.Collections.Dictionary _cachedSupplyShockSummaryV0 = new();
+
+    public Godot.Collections.Dictionary GetSupplyShockSummaryV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            int disruptedCount = 0;
+            int contestedNodes = 0;
+            string maxLabel = "Peace";
+            int maxInt = 0;
+
+            if (state.Warfronts != null)
+            {
+                foreach (var wf in state.Warfronts.Values)
+                {
+                    if ((int)wf.Intensity < (int)WarfrontIntensity.Skirmish) continue;
+                    contestedNodes += wf.ContestedNodeIds.Count;
+                    if ((int)wf.Intensity > maxInt)
+                    {
+                        maxInt = (int)wf.Intensity;
+                        maxLabel = wf.Intensity switch
+                        {
+                            WarfrontIntensity.Skirmish => "Skirmish",
+                            WarfrontIntensity.OpenWar => "Open War",
+                            WarfrontIntensity.TotalWar => "Total War",
+                            _ => "Conflict",
+                        };
+                    }
+                }
+            }
+
+            // Count industry sites with reduced efficiency due to supply shock.
+            foreach (var kv in state.IndustrySites)
+            {
+                if (kv.Value != null && kv.Value.Efficiency < 1.0f)
+                    disruptedCount++;
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["disrupted_count"] = disruptedCount,
+                ["contested_nodes"] = contestedNodes,
+                ["max_intensity_label"] = maxLabel,
+            };
+            lock (_snapshotLock) { _cachedSupplyShockSummaryV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedSupplyShockSummaryV0; }
+    }
+
     /// <summary>
     /// Returns the max warfront intensity affecting a specific node (0 = peace).
     /// Used by GalaxyView for visual war-zone indicators.

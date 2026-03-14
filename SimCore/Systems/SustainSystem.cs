@@ -84,9 +84,29 @@ public static class SustainSystem
             {
                 bool isPlayer = string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal);
                 var cargo = isPlayer ? state.PlayerCargo : fleet.Cargo;
+
+                // GATE.X.PRESSURE_INJECT.SUSTAIN.001: Track disabled count before sustain check.
+                int disabledBefore = CountDisabledSlots(fleet);
                 ProcessModuleSustain(fleet, cargo);
+                int disabledAfter = CountDisabledSlots(fleet);
+
+                if (disabledAfter > disabledBefore)
+                {
+                    PressureSystem.InjectDelta(state, "supply_shortage", "sustain_starvation",
+                        PressureTweaksV0.SustainStarvationMagnitude, targetRef: fleet.Id);
+                }
             }
         }
+    }
+
+    // GATE.X.PRESSURE_INJECT.SUSTAIN.001: Count disabled slots for pressure injection tracking.
+    private static int CountDisabledSlots(Fleet fleet)
+    {
+        if (fleet.Slots == null) return 0;
+        int count = 0;
+        foreach (var slot in fleet.Slots)
+            if (slot.Disabled) count++;
+        return count;
     }
 
     /// <summary>

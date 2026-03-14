@@ -29,6 +29,27 @@ var _residents_list: VBoxContainer = null
 # --- Trophy Wall section (GATE.S8.HAVEN.TROPHY_BRIDGE.001) ---
 var _trophy_list: VBoxContainer = null
 
+# --- Endgame Progress section (GATE.S8.WIN.PROGRESS_UI.001) ---
+var _endgame_section: VBoxContainer = null
+
+# --- Keeper section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+var _keeper_section: VBoxContainer = null
+
+# --- Resonance Chamber section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+var _resonance_section: VBoxContainer = null
+
+# --- Fabricator section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+var _fabricator_section: VBoxContainer = null
+
+# --- Endgame Path Choice section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+var _path_choice_section: VBoxContainer = null
+
+# --- Accommodation section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+var _accommodation_section: VBoxContainer = null
+
+# --- Communion Rep section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+var _communion_section: VBoxContainer = null
+
 # --- Ancient Hulls section (GATE.S8.ANCIENT_HULLS.BRIDGE.001) ---
 var _hulls_list: VBoxContainer = null
 
@@ -156,6 +177,105 @@ func _ready():
 
 	add_child(HSeparator.new())
 
+	# --- Endgame Progress Section (GATE.S8.WIN.PROGRESS_UI.001) ---
+	var endgame_header = Label.new()
+	endgame_header.text = "ENDGAME PROGRESS"
+	endgame_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	endgame_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	endgame_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
+	add_child(endgame_header)
+
+	_endgame_section = VBoxContainer.new()
+	_endgame_section.add_theme_constant_override("separation", 4)
+	_endgame_section.visible = false
+	add_child(_endgame_section)
+
+	add_child(HSeparator.new())
+
+	# --- Keeper Section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+	var keeper_header = Label.new()
+	keeper_header.text = "KEEPER"
+	keeper_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	keeper_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	keeper_header.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT)
+	add_child(keeper_header)
+
+	_keeper_section = VBoxContainer.new()
+	_keeper_section.add_theme_constant_override("separation", 2)
+	add_child(_keeper_section)
+
+	add_child(HSeparator.new())
+
+	# --- Resonance Chamber Section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+	var resonance_header = Label.new()
+	resonance_header.text = "RESONANCE CHAMBER"
+	resonance_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	resonance_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	resonance_header.add_theme_color_override("font_color", UITheme.CYAN)
+	add_child(resonance_header)
+
+	_resonance_section = VBoxContainer.new()
+	_resonance_section.add_theme_constant_override("separation", 2)
+	add_child(_resonance_section)
+
+	add_child(HSeparator.new())
+
+	# --- Fabricator Section (GATE.S8.HAVEN.DEPTH_BRIDGE.001) ---
+	var fab_header = Label.new()
+	fab_header.text = "FABRICATOR"
+	fab_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fab_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	fab_header.add_theme_color_override("font_color", UITheme.ORANGE)
+	add_child(fab_header)
+
+	_fabricator_section = VBoxContainer.new()
+	_fabricator_section.add_theme_constant_override("separation", 2)
+	add_child(_fabricator_section)
+
+	add_child(HSeparator.new())
+
+	# --- Endgame Path Choice Section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+	var path_header = Label.new()
+	path_header.text = "ENDGAME PATH"
+	path_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	path_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	path_header.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
+	add_child(path_header)
+
+	_path_choice_section = VBoxContainer.new()
+	_path_choice_section.add_theme_constant_override("separation", 4)
+	add_child(_path_choice_section)
+
+	add_child(HSeparator.new())
+
+	# --- Accommodation Section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+	var accom_header = Label.new()
+	accom_header.text = "ACCOMMODATION THREADS"
+	accom_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	accom_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	accom_header.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT)
+	add_child(accom_header)
+
+	_accommodation_section = VBoxContainer.new()
+	_accommodation_section.add_theme_constant_override("separation", 4)
+	add_child(_accommodation_section)
+
+	add_child(HSeparator.new())
+
+	# --- Communion Rep Section (GATE.S8.HAVEN.ENDGAME_BRIDGE.001) ---
+	var comm_header = Label.new()
+	comm_header.text = "COMMUNION REPRESENTATIVE"
+	comm_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	comm_header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	comm_header.add_theme_color_override("font_color", Color(0.5, 0.9, 1.0))
+	add_child(comm_header)
+
+	_communion_section = VBoxContainer.new()
+	_communion_section.add_theme_constant_override("separation", 2)
+	add_child(_communion_section)
+
+	add_child(HSeparator.new())
+
 	# --- Ancient Hulls Section (GATE.S8.ANCIENT_HULLS.BRIDGE.001) ---
 	var hulls_header = Label.new()
 	hulls_header.text = "HULL RESTORATION"
@@ -191,6 +311,13 @@ func refresh(node_id: String = "") -> void:
 	_update_market()
 	_update_residents()
 	_update_trophy_wall()
+	_update_endgame_progress(status)
+	_update_keeper()
+	_update_resonance_chamber()
+	_update_fabricator()
+	_update_path_choice()
+	_update_accommodation()
+	_update_communion_rep()
 	_update_hulls()
 
 
@@ -597,6 +724,415 @@ func _update_hulls() -> void:
 			row.add_child(restore_btn)
 
 		_hulls_list.add_child(row)
+
+
+# GATE.S8.WIN.PROGRESS_UI.001: Endgame progress section.
+func _update_endgame_progress(status: Dictionary) -> void:
+	if _endgame_section == null:
+		return
+	# Clear previous content.
+	for c in _endgame_section.get_children():
+		c.queue_free()
+
+	var tier: int = int(status.get("tier", 0))
+	# Only show endgame progress at Haven Tier 4+.
+	if tier < 4:
+		_endgame_section.visible = false
+		return
+
+	if bridge == null or not bridge.has_method("GetEndgameProgressV0"):
+		_endgame_section.visible = false
+		return
+
+	var progress: Dictionary = bridge.call("GetEndgameProgressV0")
+	var pct: int = int(progress.get("completion_percent", 0))
+
+	# Check if an endgame path has been chosen (completion > 0 or path chosen).
+	var game_result: Dictionary = {}
+	if bridge.has_method("GetGameResultV0"):
+		game_result = bridge.call("GetGameResultV0")
+	var path_name: String = str(game_result.get("chosen_path_name", "None"))
+	if path_name == "None":
+		# No path chosen yet — show prompt.
+		var prompt_lbl = Label.new()
+		prompt_lbl.text = "Choose your endgame path at Haven."
+		prompt_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		prompt_lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+		_endgame_section.add_child(prompt_lbl)
+		_endgame_section.visible = true
+		return
+
+	_endgame_section.visible = true
+
+	# Path name + completion bar.
+	var path_lbl = Label.new()
+	path_lbl.text = "Path: %s — %d%% Complete" % [path_name, pct]
+	path_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	if pct >= 100:
+		path_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+	else:
+		path_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
+	_endgame_section.add_child(path_lbl)
+
+	# Progress bar.
+	var bar = ProgressBar.new()
+	bar.min_value = 0
+	bar.max_value = 100
+	bar.value = pct
+	bar.custom_minimum_size = Vector2(0, 16)
+	bar.show_percentage = false
+	_endgame_section.add_child(bar)
+
+	# Requirements checklist.
+	_add_requirement_row("Haven Tier", progress.get("haven_tier_met", false),
+		"%d / %d" % [int(progress.get("haven_tier_current", 0)), int(progress.get("haven_tier_required", 0))])
+
+	var rep1_id: String = str(progress.get("faction_rep1_id", ""))
+	if not rep1_id.is_empty():
+		_add_requirement_row("%s Rep" % rep1_id.capitalize(), progress.get("faction_rep1_met", false),
+			"%d / %d" % [int(progress.get("faction_rep1_current", 0)), int(progress.get("faction_rep1_required", 0))])
+
+	var rep2_id: String = str(progress.get("faction_rep2_id", ""))
+	if not rep2_id.is_empty():
+		_add_requirement_row("%s Rep" % rep2_id.capitalize(), progress.get("faction_rep2_met", false),
+			"%d / %d" % [int(progress.get("faction_rep2_current", 0)), int(progress.get("faction_rep2_required", 0))])
+
+	var frag1_id: String = str(progress.get("fragment1_id", ""))
+	if not frag1_id.is_empty():
+		_add_requirement_row("Fragment: %s" % frag1_id, progress.get("fragment1_met", false))
+
+	var frag2_id: String = str(progress.get("fragment2_id", ""))
+	if not frag2_id.is_empty():
+		_add_requirement_row("Fragment: %s" % frag2_id, progress.get("fragment2_met", false))
+
+	var rev_req: int = int(progress.get("revelations_required", 0))
+	if rev_req > 0:
+		_add_requirement_row("Revelations", progress.get("revelations_met", false),
+			"%d / %d" % [int(progress.get("revelations_current", 0)), rev_req])
+
+
+func _add_requirement_row(label_text: String, met: bool, value_text: String = "") -> void:
+	var row = HBoxContainer.new()
+	var icon_lbl = Label.new()
+	icon_lbl.text = "OK" if met else "--"
+	icon_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	icon_lbl.add_theme_color_override("font_color", UITheme.GREEN if met else UITheme.TEXT_DISABLED)
+	icon_lbl.custom_minimum_size = Vector2(24, 0)
+	row.add_child(icon_lbl)
+
+	var name_lbl = Label.new()
+	name_lbl.text = label_text
+	name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY if met else UITheme.TEXT_DISABLED)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+
+	if not value_text.is_empty():
+		var val_lbl = Label.new()
+		val_lbl.text = value_text
+		val_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		val_lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO if met else UITheme.TEXT_DISABLED)
+		row.add_child(val_lbl)
+
+	_endgame_section.add_child(row)
+
+
+# GATE.S8.HAVEN.DEPTH_BRIDGE.001: Keeper ambient state display.
+func _update_keeper() -> void:
+	if _keeper_section == null:
+		return
+	for c in _keeper_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetKeeperStateV0"):
+		return
+
+	var keeper: Dictionary = bridge.call("GetKeeperStateV0")
+	var level: int = int(keeper.get("keeper_level", 0))
+	var name_str: String = str(keeper.get("keeper_name", "Dormant"))
+	var exotic: int = int(keeper.get("exotic_matter_delivered", 0))
+	var logs: int = int(keeper.get("data_logs_discovered", 0))
+	var frags: int = int(keeper.get("installed_fragments", 0))
+
+	var level_lbl = Label.new()
+	level_lbl.text = "Level %d — %s" % [level, name_str]
+	level_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	level_lbl.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT if level >= 3 else UITheme.TEXT_PRIMARY)
+	_keeper_section.add_child(level_lbl)
+
+	var stats_lbl = Label.new()
+	stats_lbl.text = "Exotic Matter: %d | Data Logs: %d | Fragments: %d" % [exotic, logs, frags]
+	stats_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	stats_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	_keeper_section.add_child(stats_lbl)
+
+
+# GATE.S8.HAVEN.DEPTH_BRIDGE.001: Resonance chamber display.
+func _update_resonance_chamber() -> void:
+	if _resonance_section == null:
+		return
+	for c in _resonance_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetResonanceChamberV0"):
+		return
+
+	var chamber: Dictionary = bridge.call("GetResonanceChamberV0")
+	if not bool(chamber.get("available", false)):
+		var locked_lbl = Label.new()
+		locked_lbl.text = "Requires Haven Tier 3+"
+		locked_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		locked_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_resonance_section.add_child(locked_lbl)
+		return
+
+	var cooldown: int = int(chamber.get("cooldown_remaining", 0))
+	if cooldown > 0:
+		var cd_lbl = Label.new()
+		cd_lbl.text = "Cooldown: %d ticks" % cooldown
+		cd_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		cd_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+		_resonance_section.add_child(cd_lbl)
+
+	var activated: Array = chamber.get("activated_pairs", [])
+	if activated.size() > 0:
+		var act_lbl = Label.new()
+		act_lbl.text = "Active Pairs: %d" % activated.size()
+		act_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		act_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		_resonance_section.add_child(act_lbl)
+
+	var available_pairs: Array = chamber.get("available_pairs", [])
+	if available_pairs.size() > 0:
+		var avail_lbl = Label.new()
+		avail_lbl.text = "Ready to Activate: %d" % available_pairs.size()
+		avail_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		avail_lbl.add_theme_color_override("font_color", UITheme.CYAN)
+		_resonance_section.add_child(avail_lbl)
+
+		for pair_id in available_pairs:
+			var btn = Button.new()
+			btn.text = "Activate: %s" % str(pair_id).replace("_", " ").capitalize()
+			var pid: String = str(pair_id)
+			btn.pressed.connect(_on_activate_resonance.bind(pid))
+			btn.disabled = cooldown > 0
+			_resonance_section.add_child(btn)
+
+	if activated.size() == 0 and available_pairs.size() == 0:
+		var none_lbl = Label.new()
+		none_lbl.text = "Deposit fragment pairs to unlock resonance"
+		none_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		none_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_resonance_section.add_child(none_lbl)
+
+
+func _on_activate_resonance(pair_id: String) -> void:
+	if bridge == null or not bridge.has_method("ActivateResonancePairV0"):
+		return
+	bridge.call("ActivateResonancePairV0", pair_id)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Resonance pair activated!", 2.0)
+	refresh(_market_node_id)
+
+
+# GATE.S8.HAVEN.DEPTH_BRIDGE.001: Fabricator display.
+func _update_fabricator() -> void:
+	if _fabricator_section == null:
+		return
+	for c in _fabricator_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetFabricatorV0"):
+		return
+
+	var fab: Dictionary = bridge.call("GetFabricatorV0")
+	if not bool(fab.get("available", false)):
+		var locked_lbl = Label.new()
+		locked_lbl.text = "Requires Haven Tier 3+"
+		locked_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		locked_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_fabricator_section.add_child(locked_lbl)
+		return
+
+	var fabricating: String = str(fab.get("fabricating_module", ""))
+	var ticks_left: int = int(fab.get("ticks_remaining", 0))
+
+	if not fabricating.is_empty() and ticks_left > 0:
+		var progress_lbl = Label.new()
+		progress_lbl.text = "Fabricating: %s (%d ticks)" % [fabricating.replace("_", " ").capitalize(), ticks_left]
+		progress_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		progress_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+		_fabricator_section.add_child(progress_lbl)
+	else:
+		var idle_lbl = Label.new()
+		idle_lbl.text = "Idle — ready to fabricate"
+		idle_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		idle_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		_fabricator_section.add_child(idle_lbl)
+
+	var completed: Array = fab.get("completed_modules", [])
+	if completed.size() > 0:
+		var done_lbl = Label.new()
+		done_lbl.text = "Completed: %d modules" % completed.size()
+		done_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		done_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		_fabricator_section.add_child(done_lbl)
+
+	var cost_lbl = Label.new()
+	cost_lbl.text = "Cost: %d exotic matter | Duration: %d ticks" % [int(fab.get("exotic_matter_cost", 0)), int(fab.get("duration_ticks", 0))]
+	cost_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	cost_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	_fabricator_section.add_child(cost_lbl)
+
+
+# GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Endgame path choice display.
+func _update_path_choice() -> void:
+	if _path_choice_section == null:
+		return
+	for c in _path_choice_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetEndgamePathsV0"):
+		return
+
+	var paths: Dictionary = bridge.call("GetEndgamePathsV0")
+	var chosen: String = str(paths.get("chosen_path", "None"))
+
+	if chosen != "None":
+		var chosen_lbl = Label.new()
+		chosen_lbl.text = "Chosen: %s" % chosen
+		chosen_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		chosen_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+		_path_choice_section.add_child(chosen_lbl)
+		return
+
+	if not bool(paths.get("can_choose", false)):
+		var locked_lbl = Label.new()
+		locked_lbl.text = "Requires Haven Tier %d+" % int(paths.get("min_tier", 4))
+		locked_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		locked_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_path_choice_section.add_child(locked_lbl)
+		return
+
+	var available: Array = paths.get("available_paths", [])
+	for p in available:
+		if typeof(p) != TYPE_DICTIONARY:
+			continue
+		var pid: String = str(p.get("id", ""))
+		var desc: String = str(p.get("description", ""))
+
+		var row = VBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+
+		var btn = Button.new()
+		btn.text = "Choose: %s" % pid
+		btn.pressed.connect(_on_choose_path.bind(pid))
+		row.add_child(btn)
+
+		var desc_lbl = Label.new()
+		desc_lbl.text = desc
+		desc_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		desc_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(desc_lbl)
+
+		_path_choice_section.add_child(row)
+
+
+func _on_choose_path(path_id: String) -> void:
+	if bridge == null or not bridge.has_method("ChooseEndgamePathV0"):
+		return
+	var ok: bool = bridge.call("ChooseEndgamePathV0", path_id)
+	if ok:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.call("show_toast", "Endgame path chosen: %s" % path_id, 3.0)
+	refresh(_market_node_id)
+
+
+# GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Accommodation thread progress display.
+func _update_accommodation() -> void:
+	if _accommodation_section == null:
+		return
+	for c in _accommodation_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetAccommodationProgressV0"):
+		return
+
+	var progress: Dictionary = bridge.call("GetAccommodationProgressV0")
+	var max_prog: int = int(progress.get("max_progress", 100))
+	var _tier_req: int = int(progress.get("tier_required", 3))
+
+	var threads := ["Discovery", "Commerce", "Conflict", "Harmony"]
+	var thread_colors := {
+		"Discovery": UITheme.CYAN,
+		"Commerce": UITheme.GOLD,
+		"Conflict": UITheme.RED_LIGHT,
+		"Harmony": UITheme.GREEN,
+	}
+
+	var any_progress := false
+	for thread_name in threads:
+		var val: int = int(progress.get(thread_name, 0))
+		if val > 0:
+			any_progress = true
+
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+
+		var name_lbl = Label.new()
+		name_lbl.text = thread_name
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		name_lbl.add_theme_color_override("font_color", thread_colors.get(thread_name, UITheme.TEXT_PRIMARY))
+		row.add_child(name_lbl)
+
+		var val_lbl = Label.new()
+		val_lbl.text = "%d / %d" % [val, max_prog]
+		val_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		val_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		row.add_child(val_lbl)
+
+		_accommodation_section.add_child(row)
+
+	if not any_progress:
+		var hint_lbl = Label.new()
+		hint_lbl.text = "Trade, explore, and fight to advance threads"
+		hint_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		hint_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_accommodation_section.add_child(hint_lbl)
+
+
+# GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Communion Representative display.
+func _update_communion_rep() -> void:
+	if _communion_section == null:
+		return
+	for c in _communion_section.get_children():
+		c.queue_free()
+
+	if bridge == null or not bridge.has_method("GetCommunionRepV0"):
+		return
+
+	var rep: Dictionary = bridge.call("GetCommunionRepV0")
+	if not bool(rep.get("present", false)):
+		var absent_lbl = Label.new()
+		absent_lbl.text = "Not yet arrived (Haven Tier 3+)"
+		absent_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		absent_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		_communion_section.add_child(absent_lbl)
+		return
+
+	var tier: int = int(rep.get("dialogue_tier", 0))
+	var tier_names := ["Introduction", "Trust", "Revelation"]
+	var tier_name: String = tier_names[mini(tier, tier_names.size() - 1)]
+
+	var status_lbl = Label.new()
+	status_lbl.text = "Dialogue: %s (Tier %d)" % [tier_name, tier]
+	status_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	status_lbl.add_theme_color_override("font_color", Color(0.5, 0.9, 1.0))
+	_communion_section.add_child(status_lbl)
 
 
 func _on_restore_hull(ship_class_id: String) -> void:

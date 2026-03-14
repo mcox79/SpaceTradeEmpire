@@ -38,7 +38,10 @@ public sealed class TradeCommandContractTests
 
 		new BuyCommand(MarketId, Fuel, qty).Execute(state);
 
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - pricePer * qty));
+		// GATE.X.MARKET_PRICING.FEE_WIRE.001: totalCost includes 1% transaction fee.
+		int grossCost = pricePer * qty;
+		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - grossCost - fee));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(qty));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock - qty));
 	}
@@ -113,7 +116,10 @@ public sealed class TradeCommandContractTests
 
 		new SellCommand(MarketId, Fuel, qty).Execute(state);
 
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + pricePer * qty));
+		// GATE.X.MARKET_PRICING.FEE_WIRE.001: totalValue has 1% fee deducted.
+		int grossValue = pricePer * qty;
+		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + grossValue - fee));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(5));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock + qty));
 	}
@@ -164,7 +170,10 @@ public sealed class TradeCommandContractTests
 
 		new TradeCommand("player", MarketId, Fuel, qty, TradeType.Buy).Execute(state);
 
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - pricePer * qty));
+		// TradeCommand delegates to BuyCommand which includes transaction fee.
+		int grossCost = pricePer * qty;
+		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossCost);
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits - grossCost - fee));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(qty));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock - qty));
 	}
@@ -179,7 +188,10 @@ public sealed class TradeCommandContractTests
 
 		new TradeCommand("player", MarketId, Fuel, qty, TradeType.Sell).Execute(state);
 
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + pricePer * qty));
+		// TradeCommand delegates to SellCommand which includes transaction fee.
+		int grossValue = pricePer * qty;
+		int fee = MarketSystem.ComputeTransactionFeeCredits(state, grossValue);
+		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits + grossValue - fee));
 		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(6));
 		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock + qty));
 	}

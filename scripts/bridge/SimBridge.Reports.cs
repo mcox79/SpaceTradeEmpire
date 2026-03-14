@@ -1638,6 +1638,29 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.S9.MILESTONES.VIEWER.001: Lifetime stats summary for milestone viewer.
+    private Godot.Collections.Dictionary _cachedLifetimeStatsV0 = new();
+    public Godot.Collections.Dictionary GetLifetimeStatsV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            var stats = state.PlayerStats;
+            if (stats == null) return;
+            result["nodes_visited"] = stats.NodesVisited;
+            result["goods_traded"] = stats.GoodsTraded;
+            result["total_credits_earned"] = (long)stats.TotalCreditsEarned;
+            result["techs_unlocked"] = stats.TechsUnlocked;
+            result["missions_completed"] = stats.MissionsCompleted;
+            result["npc_fleets_destroyed"] = stats.NpcFleetsDestroyed;
+            result["milestones_achieved"] = stats.AchievedMilestoneIds?.Count ?? 0;
+            result["tick"] = state.Tick;
+            _cachedLifetimeStatsV0 = result;
+        }, 0);
+        if (result.Count == 0) return _cachedLifetimeStatsV0;
+        return result;
+    }
+
     // GATE.S19.ONBOARD.ONBOARD_STATE.005: Composite onboarding disclosure flags.
     // Determines which dock tabs, HUD elements, and features should be visible
     // based on player progression. Pure read — no state mutation.

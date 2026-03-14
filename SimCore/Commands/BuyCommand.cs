@@ -1,5 +1,6 @@
 using SimCore.Content;
 using SimCore.Systems;
+using SimCore.Tweaks;
 using System;
 using System.Linq;
 
@@ -45,9 +46,21 @@ public class BuyCommand : ICommand
 
 		// GATE.X.INSTAB_PRICE.WIRE.001: Block trade if market closed by instability; adjust price.
 		int instMultBps = MarketSystem.GetInstabilityPriceMultiplierBps(state, MarketId, GoodId);
-		if (instMultBps <= 0) return;
+		if (instMultBps <= 0)
+		{
+			// GATE.X.PRESSURE_INJECT.MARKET.001: Market closed by instability — inject pressure.
+			PressureSystem.InjectDelta(state, "trade_disruption", "market_blocked",
+				PressureTweaksV0.MarketBlockedMagnitude, targetRef: MarketId);
+			return;
+		}
 
 		int unitPrice = market.GetBuyPrice(GoodId);
+
+		// GATE.X.MARKET_PRICING.REP_WIRE.001: Apply reputation-based price modifier.
+		var factionId = MarketSystem.GetControllingFactionIdForMarket(state, MarketId);
+		int repBps = MarketSystem.GetRepPricingBps(state, factionId);
+		unitPrice = MarketSystem.ApplyRepPricing(unitPrice, repBps);
+
 		if (instMultBps != 10000)
 			unitPrice = (int)Math.Max(1, (long)unitPrice * instMultBps / 10000);
 		int totalCost = unitPrice * Quantity;
@@ -55,6 +68,9 @@ public class BuyCommand : ICommand
 		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Apply tariff surcharge (increases buy cost).
 		int tariffBps = MarketSystem.GetEffectiveTariffBps(state, MarketId);
 		totalCost += MarketSystem.ComputeTariffCredits(totalCost, tariffBps);
+
+		// GATE.X.MARKET_PRICING.FEE_WIRE.001: Deduct transaction fee.
+		totalCost += MarketSystem.ComputeTransactionFeeCredits(state, totalCost);
 
 		if (state.PlayerCredits < totalCost) return;
 

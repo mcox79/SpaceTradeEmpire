@@ -23,40 +23,16 @@ public class TradeCommand : ICommand
 
 	public void Execute(SimState state)
 	{
-		if (Quantity <= 0) return;
-		if (!state.Markets.TryGetValue(MarketNodeId, out var market)) return;
-
-		int pricePerUnit = (Type == TradeType.Buy)
-			? market.GetBuyPrice(GoodId)
-			: market.GetSellPrice(GoodId);
-	
-		int totalCost = pricePerUnit * Quantity;
-
-
+		// Delegate to BuyCommand/SellCommand which handle tariffs, fees,
+		// instability pricing, reputation modifiers, cost basis, and
+		// transaction ledger recording.
 		if (Type == TradeType.Buy)
 		{
-			if (state.PlayerCredits < totalCost) return;
-			if (InventoryLedger.Get(market.Inventory, GoodId) < Quantity) return;
-
-			if (!InventoryLedger.TryRemoveMarket(market.Inventory, GoodId, Quantity)) return;
-
-			state.PlayerCredits -= totalCost;
-			InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
+			new BuyCommand(MarketNodeId, GoodId, Quantity).Execute(state);
 		}
 		else
 		{
-			if (InventoryLedger.Get(state.PlayerCargo, GoodId) < Quantity) return;
-
-			if (!InventoryLedger.TryRemoveCargo(state.PlayerCargo, GoodId, Quantity)) return;
-
-			InventoryLedger.AddMarket(market.Inventory, GoodId, Quantity);
-			state.PlayerCredits += totalCost;
-			// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.
-			if (state.PlayerStats != null)
-			{
-				state.PlayerStats.GoodsTraded += Quantity;
-				state.PlayerStats.TotalCreditsEarned += totalCost;
-			}
+			new SellCommand(MarketNodeId, GoodId, Quantity).Execute(state);
 		}
 	}
 }

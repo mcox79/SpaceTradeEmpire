@@ -15,9 +15,11 @@ const GRAVITY_SCALE_V0: float = 0.0
 const NAV_ARRIVE_DIST: float = 8.0  # Stop autopilot when within this distance.
 const NAV_TURN_GAIN: float = 12.0   # Torque multiplier for autopilot steering.
 
-# Solar wind repulsion — smooth force pushes ship away from stars.
-const SOLAR_REPEL_RADIUS: float = 15.0  # Distance at which repulsion begins.
-const SOLAR_REPEL_FORCE: float = 300.0  # Max force at star surface.
+# Solar wind repulsion — progressive nudge away from stars.
+# Cubic falloff: gentle at edge, strong only very close. Player can graze the star
+# but cannot reach the core. Force exceeds thrust only inside ~40% of the radius.
+const SOLAR_REPEL_RADIUS: float = 25.0  # Distance at which gentle nudge begins.
+const SOLAR_REPEL_FORCE: float = 400.0  # Max force at star surface (cubic peak).
 
 var _nav_target: Vector3 = Vector3.ZERO
 var _nav_active: bool = false
@@ -123,13 +125,15 @@ func _physics_process(_delta):
 	if turn_axis != 0.0:
 		apply_torque(Vector3(0.0, TURN_TORQUE_V0 * turn_axis, 0.0))
 
-	# Solar wind repulsion — smooth force pushes ship away from nearby stars.
+	# Solar wind repulsion — progressive nudge away from nearby stars.
+	# Cubic falloff: imperceptible at edge, gentle in middle, overwhelming near core.
 	for star in get_tree().get_nodes_in_group("LocalStar"):
 		var to_star: Vector3 = star.global_position - global_position
 		to_star.y = 0.0
 		var star_dist: float = to_star.length()
 		if star_dist < SOLAR_REPEL_RADIUS and star_dist > 0.1:
-			var strength: float = (1.0 - star_dist / SOLAR_REPEL_RADIUS) * SOLAR_REPEL_FORCE
+			var t: float = 1.0 - star_dist / SOLAR_REPEL_RADIUS  # 0 at edge, 1 at center
+			var strength: float = t * t * t * SOLAR_REPEL_FORCE  # Cubic: gentle nudge → hard push
 			apply_central_force(-to_star.normalized() * strength)
 
 	# Clamp max speed deterministically.

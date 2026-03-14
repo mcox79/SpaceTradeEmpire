@@ -254,6 +254,20 @@ SimCore/Gen/StarNetworkGen.cs:0
 # GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: structural 10000 bps = 100% identity in mount efficiency calc
 SimCore/Systems/StrategicResolverV0.cs:10000
 
+# GATE.S7.COMBAT_DEPTH2.TRACKING.001: structural FNV hash constants + bps identity in combat depth
+SimCore/Systems/CombatSystem.cs:14695981039346656037UL
+SimCore/Systems/CombatSystem.cs:1099511628211UL
+
+# GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: structural 10000 bps = 100% identity in armor pen calc
+SimCore/Systems/CombatSystem.cs:10000
+
+# GATE.S7.COMBAT_DEPTH2.TRACKING.001: structural 10000 bps for hit roll range + variance offset primes
+SimCore/Systems/StrategicResolverV0.cs:7919
+SimCore/Systems/StrategicResolverV0.cs:1301
+# GATE.S7.COMBAT_DEPTH2.DAMAGE_VAR.001: structural *2+1 for variance range calculation
+SimCore/Systems/StrategicResolverV0.cs:2
+SimCore/Systems/StrategicResolverV0.cs:1
+
 # GATE.S9.SYSTEMIC.STATION_CONTEXT.001: structural 100 for pct calc, 0 for empty checks, enum values
 SimCore/Systems/StationContextSystem.cs:100
 SimCore/Systems/StationContextSystem.cs:0
@@ -286,3 +300,95 @@ SimCore/Systems/AdaptationFragmentSystem.cs:0
 
 # GATE.S8.ADAPTATION.PLACEMENT.001: structural literals (linear probe, count guards, hash modulus)
 SimCore/Gen/DiscoverySeedGen.cs:1
+
+# GATE.X.FLEET_UPKEEP.DRAIN.001: structural zeros (null guard, cycle guard, cost floor), min 1 cr
+SimCore/Systems/FleetUpkeepSystem.cs:0
+SimCore/Systems/FleetUpkeepSystem.cs:1
+
+# GATE.T18.KG_SEED.RESOLVE.001: structural prefix length (7 = len("KEPLER_"))
+SimCore/Gen/NarrativePlacementGen.cs:7
+
+# GATE.S7.FACTION_COMMISSION.ENTITY.001: structural zeros (null guard, cycle guard, stipend floor)
+SimCore/Systems/CommissionSystem.cs:0
+
+# GATE.S7.COMBAT_DEPTH2.PROJECTION.001: structural literals (frame count > 0 checks, *100 pct calc, 50% pyrrhic threshold, Math.Max(0,...))
+SimCore/Systems/CombatSystem.cs:1
+SimCore/Systems/CombatSystem.cs:100
+SimCore/Systems/CombatSystem.cs:50
+
+# GATE.S8.LATTICE_DRONES.SPAWN.001: structural zeros (null guard, count==0 check, phase floor)
+SimCore/Systems/LatticeDroneSpawnSystem.cs:0
+
+# GATE.S8.LATTICE_DRONES.COMBAT.001: structural zeros/ones (HP<=0 guards, grace>0 check, Math.Max(0,...), frame count, frame[^1] index)
+SimCore/Systems/LatticeDroneCombatSystem.cs:0
+SimCore/Systems/LatticeDroneCombatSystem.cs:1
+
+# Arbitrage guarantee post-validation: structural multiplier (2x) and minimum floor (1 unit)
+SimCore/Gen/MarketInitGen.cs:2
+SimCore/Gen/MarketInitGen.cs:1
+
+# GATE.S8.HAVEN.FABRICATOR.001: Structural zero guard for fabrication tick countdown
+SimCore/Systems/HavenFabricatorSystem.cs:0
+
+# GATE.S8.HAVEN.MARKET_EVOLUTION.001: STRUCTURAL: modulo zero check
+SimCore/Systems/HavenMarketSystem.cs:0
+
+# GATE.S8.THREAT.SUPPLY_SHOCK.001: STRUCTURAL: null/empty guards, Math.Max floor, percentage-to-factor arithmetic
+SimCore/Systems/SupplyShockSystem.cs:0
+SimCore/Systems/SupplyShockSystem.cs:0f
+SimCore/Systems/SupplyShockSystem.cs:100
+SimCore/Systems/SupplyShockSystem.cs:100f
+
+# GATE.S8.PENTAGON.DETECT.001: STRUCTURAL: modulo check (Tick % interval), zero guards
+SimCore/Systems/PentagonBreakSystem.cs:0
+
+# GATE.S8.HAVEN.ENDGAME_PATHS.001: STRUCTURAL: zero guards, Math.Clamp, count checks, division by factionCount
+SimCore/Systems/HavenEndgameSystem.cs:0
+SimCore/Systems/HavenEndgameSystem.cs:10
+
+# GATE.S8.WIN.LOSS_DETECT.001: STRUCTURAL: HullHp == 0 death check, cargoValue = 0 init
+SimCore/Systems/LossDetectionSystem.cs:0
+
+# GATE.S8.WIN.PATH_EVAL.001 + PROGRESS_TRACK.001: STRUCTURAL: ternary 0/1 for bool-to-int, 25 = 100/4 per-req pct, >= 100 victory threshold
+SimCore/Systems/WinConditionSystem.cs:0
+SimCore/Systems/WinConditionSystem.cs:1
+SimCore/Systems/WinConditionSystem.cs:25
+SimCore/Systems/WinConditionSystem.cs:100
+
+# GATE.S7.DIPLOMACY.FRAMEWORK.001: structural literals (modulo % interval, hash modulus 100UL/2UL, default 50/50 weight, FNV hash primes)
+SimCore/Systems/DiplomacySystem.cs:0
+SimCore/Systems/DiplomacySystem.cs:50
+SimCore/Systems/DiplomacySystem.cs:100UL
+SimCore/Systems/DiplomacySystem.cs:2UL
+SimCore/Systems/DiplomacySystem.cs:14695981039346656037UL
+SimCore/Systems/DiplomacySystem.cs:1099511628211UL
+
+# GATE.S5.LOSS_RECOVERY.CAPTURE.001: structural literals (10% threshold divisor, tier 3 minimum, bay calc -1)
+SimCore/Commands/CaptureShipCommand.cs:0
+SimCore/Commands/CaptureShipCommand.cs:1
+SimCore/Commands/CaptureShipCommand.cs:10
+SimCore/Commands/CaptureShipCommand.cs:3
+
+# GATE.S8.HAVEN.ACCOMMODATION_FX.001: Accommodation bonus tier switch arms
+SimCore/Systems/HavenEndgameSystem.cs:0
+SimCore/Systems/HavenEndgameSystem.cs:1
+SimCore/Systems/HavenEndgameSystem.cs:2
+SimCore/Systems/HavenEndgameSystem.cs:3
+
+# GATE.S8.HAVEN.RESEARCH_LAB.001: structural guards (slot bounds, zero checks)
+SimCore/Systems/HavenResearchLabSystem.cs:0
+SimCore/Systems/HavenResearchLabSystem.cs:1
+
+# GATE.S8.MEGAPROJECT.SYSTEM.001: structural guards (qty/stage checks, empty validation)
+SimCore/Systems/MegaprojectSystem.cs:0
+SimCore/Systems/MegaprojectSystem.cs:1
+
+# GATE.S8.MEGAPROJECT.MAP_RULES.001: speed multiplier base (100 = 100%)
+SimCore/Systems/MegaprojectSystem.cs:100
+SimCore/Systems/RoutePlanner.cs:100
+SimCore/Systems/ReputationSystem.cs:100
+
+# GATE.S9.SAVE.MIGRATION.001: structural version constants (save format version, default version)
+SimCore/Systems/SerializationSystem.cs:0
+SimCore/Systems/SerializationSystem.cs:1
+SimCore/Systems/SerializationSystem.cs:2

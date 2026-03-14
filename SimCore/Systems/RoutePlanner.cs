@@ -413,6 +413,10 @@ public static class RoutePlanner
         var speed = speedAuPerTick > default(float) ? speedAuPerTick : STRUCT_MIN_POSITIVE;
         var dist = e.Distance > default(float) ? e.Distance : STRUCT_MIN_POSITIVE;
 
+        // GATE.S8.MEGAPROJECT.MAP_RULES.001: Trade Corridor speed boost.
+        if (e.SpeedMultiplierPct > 100)
+            speed = speed * e.SpeedMultiplierPct / 100;
+
         // ceil(dist / speed), min 1.
         var raw = dist / speed;
         var ticks = (int)Math.Ceiling(raw);

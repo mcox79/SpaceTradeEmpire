@@ -73,17 +73,23 @@ public partial class SimBridge
             var arr = new Godot.Collections.Array();
             foreach (var mod in UpgradeContentV0.AllModules)
             {
+                // GATE.S7.TECH_ACCESS.BRIDGE.001: Include tech access lock status per module.
+                var techAccess = SimCore.Tweaks.TechAccessTweaksV0.CheckAccess(mod.ModuleId, state.FactionReputation);
                 arr.Add(new Godot.Collections.Dictionary
                 {
                     ["module_id"] = mod.ModuleId,
                     ["display_name"] = mod.DisplayName,
                     ["slot_kind"] = mod.SlotKind.ToString(),
                     ["credit_cost"] = mod.CreditCost,
-                    ["can_install"] = UpgradeContentV0.CanInstall(mod.ModuleId, state.Tech.UnlockedTechIds),
+                    ["can_install"] = UpgradeContentV0.CanInstall(mod.ModuleId, state.Tech.UnlockedTechIds)
+                                      && (!techAccess.IsLocked || techAccess.HasAccess),
                     ["speed_bonus_pct"] = mod.SpeedBonusPct,
                     ["shield_bonus_flat"] = mod.ShieldBonusFlat,
                     ["hull_bonus_flat"] = mod.HullBonusFlat,
                     ["damage_bonus_pct"] = mod.DamageBonusPct,
+                    ["is_locked"] = techAccess.IsLocked && !techAccess.HasAccess,
+                    ["lock_faction_id"] = techAccess.FactionId,
+                    ["lock_required_rep"] = techAccess.RequiredRep,
                 });
             }
             lock (_snapshotLock) { _cachedAvailableModulesV0 = arr; }

@@ -93,7 +93,7 @@ public partial class SimBridge
     // Blocks until the sim thread processes the command so callers can read combat results immediately.
     public void DispatchStartCombatV0(string opponentFleetId)
     {
-        int tickBefore = GetSimTickV0();
+        int tickBefore = GetSimTickBlocking();
         EnqueueCommand(new StartCombatCommand("fleet_trader_1", opponentFleetId));
         WaitForTickAdvance(tickBefore, 200);
     }
@@ -101,7 +101,7 @@ public partial class SimBridge
     // Clears combat state flags so the next GetCombatStatusV0 returns in_combat=false.
     public void DispatchClearCombatV0()
     {
-        int tickBefore = GetSimTickV0();
+        int tickBefore = GetSimTickBlocking();
         EnqueueCommand(new ClearCombatCommand());
         WaitForTickAdvance(tickBefore, 200);
     }
@@ -609,8 +609,19 @@ public partial class SimBridge
             var family = CombatSystem.ClassifyWeapon(weaponId);
             var dmg = CombatSystem.CalcDamage(baseDmg, family, player.ShieldHp, player.HullHp);
 
+            int hullBefore = player.HullHp;
             player.ShieldHp -= dmg.ShieldDmg;
             player.HullHp -= dmg.HullDmg;
+
+            // Damage floor: prevent one-shot kills. If hull was above 25% before
+            // this hit, clamp to at least 15% after. Gives the player a chance to react.
+            if (player.HullHpMax > 0)
+            {
+                int floor25 = player.HullHpMax / 4;
+                int floor15 = player.HullHpMax * 15 / 100;
+                if (hullBefore > floor25 && player.HullHp < floor15)
+                    player.HullHp = floor15;
+            }
 
             result["shield_dmg"] = dmg.ShieldDmg;
             result["hull_dmg"] = dmg.HullDmg;
@@ -911,5 +922,193 @@ public partial class SimBridge
             _stateLock.ExitWriteLock();
         }
         return result;
+    }
+
+    // ── GATE.S7.COMBAT_DEPTH2.BRIDGE.001: Combat projection + weapon tracking queries ──
+
+    private Godot.Collections.Dictionary _cachedCombatProjectionV0 = new Godot.Collections.Dictionary();
+
+    /// <summary>
+    /// Returns a pre-combat projection comparing two fleets.
+    /// Keys: outcome (string: "victory"/"defeat"/"pyrrhic"/"stalemate"),
+    ///       attacker_loss_pct (int 0-100), defender_loss_pct (int 0-100),
+    ///       estimated_rounds (int).
+    /// Nonblocking: returns last cached snapshot if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetCombatProjectionV0(string fleetId, string targetFleetId)
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary
+            {
+                ["outcome"] = "stalemate",
+                ["attacker_loss_pct"] = 0,
+                ["defender_loss_pct"] = 0,
+                ["estimated_rounds"] = 0,
+            };
+
+            if (!state.Fleets.TryGetValue(fleetId, out var attacker)
+                || !state.Fleets.TryGetValue(targetFleetId, out var defender))
+            {
+                lock (_snapshotLock) { _cachedCombatProjectionV0 = d; }
+                return;
+            }
+
+            var projection = CombatSystem.ProjectOutcome(attacker, defender);
+            d["outcome"] = projection.Outcome switch
+            {
+                CombatSystem.ProjectedOutcome.Victory => "victory",
+                CombatSystem.ProjectedOutcome.Defeat => "defeat",
+                CombatSystem.ProjectedOutcome.Pyrrhic => "pyrrhic",
+                CombatSystem.ProjectedOutcome.Stalemate => "stalemate",
+                _ => "stalemate",
+            };
+            d["attacker_loss_pct"] = projection.AttackerLossPct;
+            d["defender_loss_pct"] = projection.DefenderLossPct;
+            d["estimated_rounds"] = projection.EstimatedRounds;
+
+            lock (_snapshotLock) { _cachedCombatProjectionV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedCombatProjectionV0.Duplicate(); }
+    }
+
+    private Godot.Collections.Array _cachedWeaponTrackingV0 = new Godot.Collections.Array();
+
+    /// <summary>
+    /// Returns per-weapon-slot tracking details for a fleet.
+    /// Array of dicts: slot_id (string), module_id (string), tracking_bps (int),
+    ///                 ship_evasion_bps (int), hit_pct (int), armor_pen_bps (int).
+    /// Nonblocking: returns last cached array if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetWeaponTrackingV0(string fleetId)
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet))
+            {
+                lock (_snapshotLock) { _cachedWeaponTrackingV0 = arr; }
+                return;
+            }
+
+            int shipEvasionBps = CombatSystem.GetShipClassEvasionBps(fleet.ShipClassId);
+
+            foreach (var slot in fleet.Slots)
+            {
+                if (slot.SlotKind != SimCore.Entities.SlotKind.Weapon) continue;
+                if (string.IsNullOrEmpty(slot.InstalledModuleId)) continue;
+
+                var family = CombatSystem.ClassifyWeapon(slot.InstalledModuleId);
+                int trackingBps = CombatSystem.GetWeaponTrackingBps(slot.InstalledModuleId, family);
+                int armorPenBps = CombatSystem.GetWeaponArmorPenBps(family, slot.MountType);
+
+                // Hit chance: tracking vs evasion. Clamp 5%-95%.
+                int hitBps = Math.Max(trackingBps - shipEvasionBps, 500);
+                if (hitBps > 9500) hitBps = 9500;
+                int hitPct = hitBps / 100;
+
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["slot_id"] = slot.SlotId ?? "",
+                    ["module_id"] = slot.InstalledModuleId ?? "",
+                    ["tracking_bps"] = trackingBps,
+                    ["ship_evasion_bps"] = shipEvasionBps,
+                    ["hit_pct"] = hitPct,
+                    ["armor_pen_bps"] = armorPenBps,
+                });
+            }
+
+            lock (_snapshotLock) { _cachedWeaponTrackingV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedWeaponTrackingV0; }
+    }
+
+    // ── GATE.S8.LATTICE_DRONES.BRIDGE.001: Drone queries + alerts ──
+
+    private Godot.Collections.Array _cachedLatticeDroneAlertsV0 = new Godot.Collections.Array();
+    private Godot.Collections.Dictionary _cachedDroneActivityV0 = new Godot.Collections.Dictionary();
+
+    /// <summary>
+    /// Returns drone alerts at a specific node.
+    /// Array of dicts: fleet_id (string), hull_hp (int), shield_hp (int),
+    ///                 grace_ticks_remaining (int), is_hostile (bool).
+    /// Nonblocking: returns last cached array if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetLatticeDroneAlertsV0(string nodeId)
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+
+            if (string.IsNullOrEmpty(nodeId))
+            {
+                lock (_snapshotLock) { _cachedLatticeDroneAlertsV0 = arr; }
+                return;
+            }
+
+            foreach (var kv in state.Fleets)
+            {
+                var fleet = kv.Value;
+                if (!fleet.IsLatticeDrone) continue;
+                if (!string.Equals(fleet.CurrentNodeId, nodeId, StringComparison.Ordinal)) continue;
+
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["fleet_id"] = fleet.Id ?? "",
+                    ["hull_hp"] = fleet.HullHp,
+                    ["shield_hp"] = fleet.ShieldHp,
+                    ["grace_ticks_remaining"] = fleet.LatticeDroneGraceTicksRemaining,
+                    ["is_hostile"] = fleet.LatticeDroneGraceTicksRemaining <= 0,
+                });
+            }
+
+            lock (_snapshotLock) { _cachedLatticeDroneAlertsV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedLatticeDroneAlertsV0; }
+    }
+
+    /// <summary>
+    /// Returns global drone activity summary.
+    /// Keys: total_drones (int), nodes_with_drones (int), hostile_count (int), territorial_count (int).
+    /// Nonblocking: returns last cached snapshot if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Dictionary GetDroneActivityV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            int total = 0;
+            int hostile = 0;
+            int territorial = 0;
+            var nodesWithDrones = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var kv in state.Fleets)
+            {
+                var fleet = kv.Value;
+                if (!fleet.IsLatticeDrone) continue;
+                total++;
+                if (!string.IsNullOrEmpty(fleet.CurrentNodeId))
+                    nodesWithDrones.Add(fleet.CurrentNodeId);
+                if (fleet.LatticeDroneGraceTicksRemaining <= 0)
+                    hostile++;
+                else
+                    territorial++;
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["total_drones"] = total,
+                ["nodes_with_drones"] = nodesWithDrones.Count,
+                ["hostile_count"] = hostile,
+                ["territorial_count"] = territorial,
+            };
+
+            lock (_snapshotLock) { _cachedDroneActivityV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedDroneActivityV0.Duplicate(); }
     }
 }

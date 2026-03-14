@@ -34,4 +34,14 @@ public static class PressureTweaksV0
 
     // Collapse piracy escalation — pressure injected into piracy domain.
     public const int CollapsePiracyEscalationMagnitude = 500;
+
+    // GATE.X.PRESSURE_INJECT.*.001: Source system injection magnitudes (bps).
+    // Warfront demand: injected when supply deliveries shift intensity down.
+    public const int WarfrontShiftMagnitude = 300;
+    // Instability: injected when a node crosses a phase threshold (0→1, 1→2, etc).
+    public const int InstabilityPhaseMagnitude = 200;
+    // Market blocked: injected when instability closes a market (Void phase).
+    public const int MarketBlockedMagnitude = 400;
+    // Sustain starvation: injected when a fleet's module is disabled by supply shortfall.
+    public const int SustainStarvationMagnitude = 250;
 }

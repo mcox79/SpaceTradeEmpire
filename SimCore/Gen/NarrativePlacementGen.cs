@@ -420,4 +420,172 @@ public static class NarrativePlacementGen
         }
         return h;
     }
+
+    // GATE.T18.KG_SEED.PROXIMITY.001: Generate procedural proximity + faction link connections.
+    // Proximity: data logs within BFS ≤2 hops get SameOrigin connections.
+    // Faction links: logs at faction-owned nodes get FactionLink connections.
+    public static void GenerateProceduralConnections(SimState state)
+    {
+        if (state?.Intel == null) return;
+
+        // Collect placed log node locations
+        var logNodes = new Dictionary<string, string>(StringComparer.Ordinal); // logId → nodeId
+        foreach (var kv in state.DataLogs)
+        {
+            if (!string.IsNullOrEmpty(kv.Value.LocationNodeId))
+                logNodes[kv.Key] = kv.Value.LocationNodeId;
+        }
+        if (logNodes.Count == 0) return; // STRUCTURAL: empty guard
+
+        // Build adjacency from edges for BFS proximity check
+        var adj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var edge in state.Edges.Values)
+        {
+            if (!adj.TryGetValue(edge.FromNodeId, out var fromList))
+            {
+                fromList = new List<string>();
+                adj[edge.FromNodeId] = fromList;
+            }
+            fromList.Add(edge.ToNodeId);
+
+            if (!adj.TryGetValue(edge.ToNodeId, out var toList))
+            {
+                toList = new List<string>();
+                adj[edge.ToNodeId] = toList;
+            }
+            toList.Add(edge.FromNodeId);
+        }
+
+        // Existing connection IDs to avoid duplicates
+        var existingIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var conn in state.Intel.KnowledgeConnections)
+            existingIds.Add(conn.ConnectionId);
+
+        // Proximity connections: pairs of logs whose nodes are ≤2 hops apart
+        var logIds = logNodes.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+        int proxCount = 0; // STRUCTURAL: counter
+        for (int i = 0; i < logIds.Count; i++)
+        {
+            string nodeA = logNodes[logIds[i]];
+            var reachable = GetNodesWithinHops(adj, nodeA, 2);
+
+            for (int j = i + 1; j < logIds.Count; j++)
+            {
+                string nodeB = logNodes[logIds[j]];
+                if (!reachable.Contains(nodeB)) continue;
+
+                string connId = $"KC.PROX.{logIds[i]}_{logIds[j]}";
+                if (existingIds.Contains(connId)) continue;
+
+                existingIds.Add(connId);
+                state.Intel.KnowledgeConnections.Add(new KnowledgeConnection
+                {
+                    ConnectionId = connId,
+                    SourceDiscoveryId = logIds[i],
+                    TargetDiscoveryId = logIds[j],
+                    ConnectionType = KnowledgeConnectionType.SameOrigin,
+                    Description = "These sites are in close proximity.",
+                    IsRevealed = false,
+                });
+                proxCount++;
+            }
+        }
+
+        // Faction link connections: logs placed at faction-owned nodes
+        foreach (var logId in logIds)
+        {
+            string nodeId = logNodes[logId];
+            if (!state.NodeFactionId.TryGetValue(nodeId, out var factionId)) continue;
+            if (string.IsNullOrEmpty(factionId)) continue;
+
+            string connId = $"KC.FACTION.{logId}_{factionId}";
+            if (existingIds.Contains(connId)) continue;
+
+            existingIds.Add(connId);
+            state.Intel.KnowledgeConnections.Add(new KnowledgeConnection
+            {
+                ConnectionId = connId,
+                SourceDiscoveryId = logId,
+                TargetDiscoveryId = factionId,
+                ConnectionType = KnowledgeConnectionType.FactionLink,
+                Description = $"Located in {factionId} territory.",
+                IsRevealed = false,
+            });
+        }
+    }
+
+    // BFS: return all nodes within maxHops of source.
+    private static HashSet<string> GetNodesWithinHops(
+        Dictionary<string, List<string>> adj, string source, int maxHops)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<(string nodeId, int depth)>();
+        visited.Add(source);
+        queue.Enqueue((source, 0)); // STRUCTURAL: BFS start at 0
+
+        while (queue.Count > 0) // STRUCTURAL: empty guard
+        {
+            var (nodeId, depth) = queue.Dequeue();
+            if (depth >= maxHops) continue;
+
+            if (adj.TryGetValue(nodeId, out var neighbors))
+            {
+                foreach (var nb in neighbors)
+                {
+                    if (visited.Add(nb))
+                        queue.Enqueue((nb, depth + 1));
+                }
+            }
+        }
+
+        return visited;
+    }
+
+    // GATE.T18.KG_SEED.RESOLVE.001: Resolve knowledge graph templates into KnowledgeConnection entities.
+    // Runs after data logs and Kepler chain are placed. Replaces pattern tokens with actual IDs.
+    public static void ResolveKnowledgeGraphTemplates(SimState state)
+    {
+        if (state?.Intel == null) return;
+
+        foreach (var template in KnowledgeGraphContentV0.AllTemplates)
+        {
+            string sourceId = ResolvePatternToken(template.SourcePattern);
+            string targetId = ResolvePatternToken(template.TargetPattern);
+
+            // Only create connection if both endpoints exist in state data
+            if (!state.DataLogs.ContainsKey(sourceId) || !state.DataLogs.ContainsKey(targetId))
+                continue; // STRUCTURAL: skip if either endpoint is missing
+
+            state.Intel.KnowledgeConnections.Add(new KnowledgeConnection
+            {
+                ConnectionId = template.TemplateId,
+                SourceDiscoveryId = sourceId,
+                TargetDiscoveryId = targetId,
+                ConnectionType = template.ConnectionType,
+                Description = template.Description,
+                IsRevealed = false,
+            });
+        }
+    }
+
+    // Resolve a pattern token to an actual discovery/log ID.
+    // $KEPLER_N → "KEPLER.00N", $LOG.X.Y → "LOG.X.Y" (strip $).
+    private static string ResolvePatternToken(string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern)) return pattern;
+        if (!pattern.StartsWith("$", StringComparison.Ordinal)) return pattern;
+
+        string token = pattern.Substring(1); // STRUCTURAL: strip $ prefix
+
+        // $KEPLER_1 through $KEPLER_6 → KEPLER.001 through KEPLER.006
+        if (token.StartsWith("KEPLER_", StringComparison.Ordinal) && token.Length > 7) // STRUCTURAL: prefix length
+        {
+            string num = token.Substring(7); // STRUCTURAL: after "KEPLER_"
+            if (int.TryParse(num, out int idx))
+                return $"KEPLER.{idx:D3}";
+        }
+
+        // $LOG.CONTAIN.003 → LOG.CONTAIN.003
+        return token;
+    }
 }

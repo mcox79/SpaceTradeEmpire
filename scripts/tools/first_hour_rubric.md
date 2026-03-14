@@ -92,6 +92,62 @@ Goal 3 (FO):
 Use this evidence to ground your scores. Never score based on what you *assume*
 should be happening — score based on what the evidence and screenshots show.
 
+### New Evidence Categories (v2 — depth probes)
+
+The FH bot now emits additional probe lines for systems it exercises beyond the
+core first-hour loop. Parse these into supplemental evidence blocks:
+
+```
+Systemic Economy:
+  FH1|SYSTEMIC|offers=2
+  FH1|GOAL|SYSTEMIC|offers=2
+  FH1|LEDGER|transactions=5
+  FH1|GOAL|ECONOMY|ledger_entries=5
+  → 2 dynamic mission offers present. 5 transactions in the ledger.
+
+Factions & Warfronts:
+  FH1|FACTIONS|count=5
+  FH1|GOAL|ALIVE|factions=5
+  FH1|WARFRONT|count=2
+  FH1|GOAL|ALIVE|warfronts=2
+  → 5 factions exist, 2 active warfronts. Galaxy has political tension.
+
+Knowledge & Depth:
+  FH1|KNOWLEDGE|entries=8
+  FH1|GOAL|DEPTH|knowledge_entries=8
+  FH1|RESEARCH|start=nav_sensors success=true
+  FH1|GOAL|DEPTH|research_started=true
+  → 8 knowledge web entries discovered. Research is actionable.
+
+Experience Dimensions:
+  FH1|EXPERIENCE|flow_credit_growth=0.68
+  FH1|EXPERIENCE|tension_min_hull=100
+  FH1|EXPERIENCE|factions_visited=2
+  FH1|EXPERIENCE|goods_traded=3
+  FH1|EXPERIENCE|systems_introduced=["market", "selling", "missions", "combat", "fitting"]
+  FH1|GOAL|FLOW|credit_growth=0.68 min_hull=100 factions=2 goods=3
+  → Player profited 68%. Never took damage (tension gap). Visited 2 factions.
+
+Coverage:
+  FH1|COVERAGE|nodes=8/20(40%) trades=3 goods=2 factions=2 systems_intro=5
+  → Explored 40% of galaxy. 3 trades across 2 goods. 5 game systems introduced.
+```
+
+These lines feed into the scoring refinements below. Goal scores should account
+for these supplemental evidence lines when present.
+
+### Experience Dimension Flags
+
+The bot now tracks and flags experience quality issues:
+
+| Flag | Meaning | Impact |
+|------|---------|--------|
+| `FLOW_NO_PROFIT` | Player didn't grow credits | Goal 4 score <= 2 |
+| `FLOW_TRIVIALLY_RICH` | Credit growth > 1000% | Goal 4 — economy broken |
+| `TENSION_NO_DAMAGE_TAKEN` | Hull never dropped below 100% | Goal 1 — galaxy not dangerous |
+| `STRANDED_PLAYER` | < 50 credits, no mission, no fuel | CRITICAL — player soft-locked |
+| `SOFT_LOCK_<PHASE>` | Bot stuck in a phase for 3+ seconds | CRITICAL — game bug |
+
 ---
 
 ## Section 2 — Per-Goal Scoring
@@ -174,6 +230,74 @@ Score each goal 1-5 using the evidence + screenshots.
 
 ---
 
+## Section 2b — Supplemental Scoring Dimensions
+
+These dimensions don't replace the five goals but provide additional scoring
+context. Report them as a separate table alongside the goal scores.
+
+### Combat Feel
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Heat system responds, battle stations spin-up visible, zone armor feedback, AI shoots back, combat feels reactive |
+| 4 | Combat resolves correctly, damage numbers visible, NPC destroyed, loot dropped |
+| 3 | Combat works but feels instant — one-shot kill, no tension buildup |
+| 2 | Combat mechanically present but no feedback (no damage numbers, no VFX evidence) |
+| 1 | Combat broken or absent |
+
+**Key evidence:** `FH1|COMBAT|` lines, `FH1|POST_COMBAT|loot=` value, `FH1|EXPERIENCE|tension_min_hull=`.
+If `min_hull=100`, player never took damage — combat had zero tension.
+
+### Systemic Economy
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Systemic offers present (>= 3), offers match world state (warfront goods, price spikes), transaction ledger shows trade history |
+| 4 | Some systemic offers present, ledger has entries, profit summary non-zero |
+| 3 | Systemic offers exist but feel random, ledger is sparse |
+| 2 | Zero systemic offers in 200 ticks, or ledger empty after multiple trades |
+| 1 | System broken — methods missing or errors |
+
+**Key evidence:** `FH1|GOAL|SYSTEMIC|offers=`, `FH1|GOAL|ECONOMY|ledger_entries=`, `FH1|LEDGER|profit=`.
+
+### Faction & Warfront Presence
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Multiple factions visible, territory access varies, warfronts active, player visited 2+ faction territories |
+| 4 | Factions exist, territory queryable, at least one warfront |
+| 3 | Faction data present but player stayed in one faction's territory |
+| 2 | Factions exist in data but zero visual/experiential presence |
+| 1 | No faction data or zero warfronts |
+
+**Key evidence:** `FH1|GOAL|ALIVE|factions=`, `FH1|GOAL|ALIVE|warfronts=`, `FH1|EXPERIENCE|factions_visited=`.
+
+### Mission Quality
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Missions available (3+), accepted mission has clear reward preview, prerequisites visible, mission types vary |
+| 4 | Missions available and accepted, reward preview works |
+| 3 | Missions exist but rewards unclear, or only one mission type offered |
+| 2 | Only 1 mission available, or accept fails, or reward preview empty |
+| 1 | Zero missions or system broken |
+
+**Key evidence:** `FH1|ASSERT_PASS|missions_available|count=`, mission accept lines.
+
+### Player Progression Tracking
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Player stats tracked (nodes, trades, credits earned), milestones accumulating, coverage > 30% |
+| 4 | Stats present and non-zero, some milestones |
+| 3 | Stats present but sparse, milestones = 0 |
+| 2 | Stats method exists but returns empty data |
+| 1 | Stats system missing |
+
+**Key evidence:** `FH1|GOAL|STATS|`, `FH1|STATS|milestones=`, `FH1|COVERAGE|`.
+
+---
+
 ## Section 3 — Screenshot-to-Goal Map
 
 | Screenshot | Goal 1 | Goal 2 | Goal 3 | Goal 4 | Goal 5 |
@@ -203,6 +327,51 @@ Score each goal 1-5 using the evidence + screenshots.
 
 ---
 
+## Section 3b — Boot Experience Checks
+
+These are critical first-30-seconds checks that determine whether the player
+even gets to the five-goal evaluation. Score each PASS/WARN/FAIL.
+
+### Welcome / Onboarding
+- Is there a welcome overlay, intro popup, or clear "what to do first" guidance?
+- If the player is dropped into the game with zero context, score FAIL.
+- A subtle toast ("Welcome back, Captain") is WARN — better than nothing but
+  insufficient for a first-time player.
+- A proper welcome overlay with controls and first objective is PASS.
+
+### Camera Introduction
+- Does the game open with any kind of cinematic reveal? (Camera descent, system
+  sweep, flyby, zoom from galaxy to system level?)
+- If the camera just snaps to default position with no fanfare, score WARN.
+- If there's a dramatic camera movement that reveals the starting system, PASS.
+
+### Starting System Quality
+- Is the starting system visually interesting? (Star, planets, station nearby,
+  NPC activity?)
+- If the starting system is empty space with only a star, score FAIL.
+- If it has a station but no planets or is sparse, score WARN.
+
+### Input Conflicts
+- Do any movement keys (WASD) conflict with UI toggle keys?
+- Check project.godot for duplicate physical_keycode bindings.
+- If a movement key also opens/closes a UI panel, score CRITICAL — this is a
+  game-breaking UX bug that makes the game appear broken.
+
+### Visual Artifacts at Boot
+- Are there any combat effects visible at game start? (Red vignette, heat bar,
+  damage numbers, shield effects?)
+- Combat visual elements should be invisible until combat starts.
+- If any combat overlay is visible at boot, score FAIL — player thinks the game
+  is broken.
+
+### Physics Walls
+- Can the player fly into a star? Is there a hard invisible wall or a
+  progressive soft repulsion?
+- Hard walls (ship suddenly stops) = FAIL.
+- Progressive nudge (ship gradually pushed away) = PASS.
+
+---
+
 ## Section 4 — Anti-Hallucination Rules
 
 1. **Never claim absence without certainty.** If you can't see the FO panel in a
@@ -211,7 +380,8 @@ Score each goal 1-5 using the evidence + screenshots.
 
 2. **Tag every issue.** Use one of: `BUG` (broken), `UX` (usable but confusing),
    `POLISH` (works but feels unfinished), `GAP` (designed feature not yet built),
-   `OPINION` (subjective preference).
+   `OPINION` (subjective preference), `SUPPRESSED` (fully implemented but UI
+   hidden/disabled), `UNWIRED` (bridge method exists but no UI consumer).
 
 3. **Check evidence before scoring.** If `FH1|GOAL|FO|total_lines=3` says the
    FO spoke 3 times, don't score Goal 3 as 1. The evidence trumps screenshot
@@ -229,6 +399,28 @@ Score each goal 1-5 using the evidence + screenshots.
    art are `POLISH` or `GAP`, not `BUG`. Score the experience design, not the
    production value.
 
+7. **Check for suppression before scoring low.** If a system scores 1/5 and the
+   Feature Visibility Report (from Step 2b of the /first-hour skill) shows it as
+   `BUILT_BUT_HIDDEN`, note that the fix is a UI toggle, not a system rebuild.
+   Report both the **player experience score** (what they see now) and the **code
+   capability score** (what the system could deliver if unsuppressed). Example:
+   "Goal 3 (FO): Player=1/5, Code=4/5 — FO system fully built with 87 dialogue
+   lines but panel is force-hidden in hud.gd."
+
+---
+
+## Section 4b — Tag Definitions
+
+| Tag | Meaning | Typical Fix | Auto-fixable? |
+|-----|---------|-------------|---------------|
+| `BUG` | Code is broken — wrong behavior | Fix the logic | Usually yes |
+| `UX` | Works but confusing to player | Adjust UI flow | Usually yes |
+| `POLISH` | Works but feels unfinished | Visual/audio pass | Sometimes |
+| `GAP` | Feature not yet built | New code required | No |
+| `OPINION` | Subjective preference | Optional | No |
+| `SUPPRESSED` | Fully implemented in code but UI is hidden/disabled. The system works — the player just can't see it. These are typically the highest-leverage fixes: large impact, small code change (remove a `visible = false` line or add a keybind) | Toggle visibility | Almost always yes |
+| `UNWIRED` | Bridge method exists and returns real data, but no GDScript UI code calls it. The data pipeline is complete through the sim layer — it just needs a UI consumer | Build UI widget | No (design needed) |
+
 ---
 
 ## Section 5 — Prescription Format
@@ -240,7 +432,7 @@ PRESCRIPTION #N
   Goal:         [alive | teaches | fo_person | profit_discovery | promise_depth]
   Confidence:   [high | medium | low]
   Severity:     [critical | major | minor | suggestion]
-  Tag:          [BUG | UX | POLISH | GAP | OPINION]
+  Tag:          [BUG | UX | POLISH | GAP | OPINION | SUPPRESSED | UNWIRED]
   Issue:        One sentence describing the problem
   Evidence:     Which goal probes / screenshots support this
   Standard:     What the design doc says should happen
@@ -341,7 +533,14 @@ The evaluator must return all of the following, in this order:
 1. **ASSERTION CHECK** — list any FAIL assertions as CRITICAL blockers
 2. **GOAL EVIDENCE SUMMARY** — parsed goal probe data, one block per goal
 3. **GOAL SCORES** — table of 5 goals with score and one-line justification
-4. **PRESCRIPTIONS** — ranked by (severity x confidence), auto-fixable flagged
-5. **ITERATION DELTA** — if previous iteration exists
-6. **MANUAL PLAYTEST CHECKLIST** — filled-in template from Section 6
-7. **OVERALL** — top 3 strengths, top 3 issues, single priority fix
+4. **SUPPLEMENTAL DIMENSIONS** — table with:
+   - Performance: FPS min/avg/max from FH1|PERF| data. Score: PASS (min>=30, avg>=50) / WARN / FAIL
+   - Stability: Save/load roundtrip, soft-lock count. Score: PASS / WARN / FAIL
+   - Content Quality: Dev jargon flags, label overflow. Score: PASS (zero flags) / WARN / FAIL
+   - Dispatch Reliability: Silent failure count. Score: PASS (zero) / WARN / FAIL
+5. **EA READINESS** — classification: BLOCKED / NOT_READY / CONDITIONAL / READY with justification
+6. **CODE vs EXPERIENCE GAP** — ACTIVE / BUILT_BUT_HIDDEN / NO_UI_CONSUMER counts
+7. **PRESCRIPTIONS** — ranked by (severity x confidence), EA tier tagged, auto-fixable flagged
+8. **ITERATION DELTA** — if previous iteration exists
+9. **MANUAL PLAYTEST CHECKLIST** — filled-in template from Section 6
+10. **OVERALL** — top 3 strengths, top 3 issues, single priority fix

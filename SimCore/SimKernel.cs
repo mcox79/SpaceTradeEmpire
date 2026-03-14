@@ -80,8 +80,17 @@ public class SimKernel
         // GATE.S7.SUSTAIN.FUEL_DEDUCT.001: Fleet fuel + module sustain deduction.
         SustainSystem.Process(_state);
 
+        // GATE.X.FLEET_UPKEEP.DRAIN.001: Per-cycle fleet upkeep credit drain.
+        FleetUpkeepSystem.Process(_state);
+
         // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Remove destroyed NPC fleets.
         NpcFleetCombatSystem.Process(_state);
+
+        // GATE.S8.LATTICE_DRONES.SPAWN.001: Spawn/despawn lattice drones per instability phase.
+        LatticeDroneSpawnSystem.Process(_state);
+
+        // GATE.S8.LATTICE_DRONES.COMBAT.001: Drone auto-engage at player node.
+        LatticeDroneCombatSystem.Process(_state);
 
         // GATE.S5.LOOT.DROP_SYSTEM.001: Despawn expired loot drops.
         LootTableSystem.ProcessDespawn(_state);
@@ -98,6 +107,9 @@ public class SimKernel
 
         // Consume upkeep and produce outputs.
         IndustrySystem.Process(_state);
+
+        // GATE.S8.THREAT.SUPPLY_SHOCK.001: Warfront disrupts production chains.
+        SupplyShockSystem.Process(_state);
 
         // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context.
         StationContextSystem.Process(_state);
@@ -118,6 +130,21 @@ public class SimKernel
 
         // GATE.S8.HAVEN.UPGRADE_SYSTEM.001: Haven tier upgrade progression.
         HavenUpgradeSystem.Process(_state);
+
+        // GATE.S8.HAVEN.KEEPER.001: Keeper ambient tier progression.
+        HavenUpgradeSystem.ProcessKeeper(_state);
+
+        // GATE.S8.HAVEN.RESEARCH_LAB.001: Haven parallel research slot progression.
+        HavenResearchLabSystem.Process(_state);
+
+        // GATE.S8.HAVEN.FABRICATOR.001: T3 module fabrication tick.
+        HavenFabricatorSystem.Process(_state);
+
+        // GATE.S8.HAVEN.MARKET_EVOLUTION.001: Haven market periodic restocking.
+        HavenMarketSystem.Process(_state);
+
+        // GATE.S8.MEGAPROJECT.SYSTEM.001: Megaproject construction progression.
+        MegaprojectSystem.Process(_state);
 
         // GATE.S4.CONSTR_PROG.SYSTEM.001: Construction step advancement.
         ConstructionSystem.ProcessConstruction(_state);
@@ -168,6 +195,9 @@ public class SimKernel
         // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural rep decay toward neutral.
         ReputationSystem.Process(_state);
 
+        // GATE.S7.FACTION_COMMISSION.ENTITY.001: Commission passive rep + stipend.
+        CommissionSystem.Process(_state);
+
         // GATE.T18.NARRATIVE.WAR_CONSEQUENCE.001: Resolve mature war consequences.
         WarConsequenceSystem.Process(_state);
 
@@ -186,6 +216,24 @@ public class SimKernel
         // GATE.S6.FRACTURE_DISCOVERY.MODEL.001: Fracture system gated behind discovery unlock.
         FractureSystem.Process(_state);
         FractureSystem.ApplyFractureGoodsFlowV0(_state);
+
+        // GATE.S8.STORY_STATE.TRIGGERS.001: Story state machine — 5 revelation triggers.
+        StoryStateMachineSystem.Process(_state);
+
+        // GATE.S8.PENTAGON.DETECT.001: Pentagon break detection + economic cascade.
+        PentagonBreakSystem.Process(_state);
+
+        // GATE.S8.HAVEN.ENDGAME_PATHS.001: Endgame path effects + accommodation + Communion rep.
+        HavenEndgameSystem.Process(_state);
+
+        // GATE.S7.DIPLOMACY.FRAMEWORK.001: Diplomacy — treaties, bounties, sanctions.
+        DiplomacySystem.Process(_state);
+
+        // GATE.S8.WIN.LOSS_DETECT.001: Detect death (hull 0) and bankruptcy (credits below threshold).
+        LossDetectionSystem.Process(_state);
+
+        // GATE.S8.WIN.PATH_EVAL.001: Evaluate per-path victory conditions.
+        WinConditionSystem.Process(_state);
 
         _state.AdvanceTick();
     }

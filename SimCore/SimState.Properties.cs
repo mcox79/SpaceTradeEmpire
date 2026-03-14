@@ -231,6 +231,12 @@ public partial class SimState
     [JsonInclude] public long NextProgramSeq { get; set; } = 1;
     [JsonInclude] public ProgramBook Programs { get; set; } = new();
 
+    // GATE.S8.WIN.GAME_RESULT.001: Current game result state.
+    [JsonInclude] public GameResult GameResultValue { get; set; } = GameResult.InProgress;
+
+    // GATE.S8.WIN.PROGRESS_TRACK.001: Current endgame progress snapshot (updated each tick).
+    [JsonIgnore] public EndgameProgress EndgameProgress { get; set; } = new();
+
     [JsonInclude] public long PlayerCredits { get; set; } = 1000;
 
     [JsonInclude] public Dictionary<string, int> PlayerCargo { get; private set; } = new();
@@ -261,6 +267,9 @@ public partial class SimState
     // GATE.S12.PROGRESSION.STATS.001: Player progression statistics.
     [JsonInclude] public PlayerStats PlayerStats { get; set; } = new();
 
+    // GATE.S7.FACTION_COMMISSION.ENTITY.001: Player's active faction commission (null = none).
+    [JsonInclude] public Commission? ActiveCommission { get; set; }
+
     // GATE.S7.FACTION.REPUTATION_SYS.001: Player standing per faction [-100,100].
     [JsonInclude] public Dictionary<string, int> FactionReputation { get; private set; } = new(StringComparer.Ordinal);
 
@@ -272,6 +281,9 @@ public partial class SimState
     [JsonInclude] public Dictionary<string, int> FactionTradePolicy { get; private set; } = new(StringComparer.Ordinal);
     // GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction aggression level (factionId -> 0=peaceful,1=defensive,2=hostile).
     [JsonInclude] public Dictionary<string, int> FactionAggressionLevel { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S7.FACTION_COMMISSION.INFAMY.001: Infamy per faction. Caps max achievable RepTier.
+    [JsonInclude] public Dictionary<string, int> InfamyByFaction { get; private set; } = new(StringComparer.Ordinal);
 
     // GATE.S7.TERRITORY.HYSTERESIS.001: Committed territory regime per node (int cast of TerritoryRegime).
     [JsonInclude] public Dictionary<string, int> NodeRegimeCommitted { get; private set; } = new(StringComparer.Ordinal);
@@ -289,6 +301,10 @@ public partial class SimState
 
     // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Active embargoes keyed by embargo ID.
     [JsonInclude] public List<EmbargoState> Embargoes { get; private set; } = new();
+
+    // GATE.S7.DIPLOMACY.FRAMEWORK.001: Active diplomatic acts keyed by act ID.
+    [JsonInclude] public Dictionary<string, Entities.DiplomaticAct> DiplomaticActs { get; private set; } = new(StringComparer.Ordinal);
+    [JsonInclude] public long NextDiplomaticActSeq { get; set; } = 1;
 
     // GATE.T18.NARRATIVE.ENTITIES.001: Data logs keyed by LogId.
     [JsonInclude] public Dictionary<string, Entities.DataLog> DataLogs { get; private set; } = new(StringComparer.Ordinal);
@@ -308,8 +324,18 @@ public partial class SimState
     // GATE.S8.HAVEN.ENTITY.001: Haven starbase state.
     [JsonInclude] public Entities.HavenStarbase Haven { get; set; } = new();
 
+    // GATE.S8.MEGAPROJECT.ENTITY.001: Active megaprojects keyed by Id.
+    [JsonInclude] public Dictionary<string, Entities.Megaproject> Megaprojects { get; private set; } = new(StringComparer.Ordinal);
+    [JsonInclude] public long NextMegaprojectSeq { get; set; } = 1;
+
+    // GATE.S8.MEGAPROJECT.MAP_RULES.001: Sensor Pylon node IDs for scan range extension.
+    [JsonInclude] public HashSet<string> SensorPylonNodes { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.S8.ADAPTATION.ENTITY.001: Adaptation fragments keyed by FragmentId.
     [JsonInclude] public Dictionary<string, Entities.AdaptationFragment> AdaptationFragments { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.S8.STORY_STATE.ENTITY.001: Story progression state (5 Recontextualizations).
+    [JsonInclude] public Entities.StoryState StoryState { get; set; } = new();
 
     // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context cache.
     [JsonInclude] public Dictionary<string, Systems.StationContext> StationContexts { get; set; } = new(StringComparer.Ordinal);

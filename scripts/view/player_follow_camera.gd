@@ -20,7 +20,7 @@ enum CameraMode {
 # Flight mode: top-down (Starcom Nexus style) — camera directly above player.
 # VISUAL_OVERHAUL: Raised from 80 to 120 for 1.5x system scale.
 @export var flight_offset: Vector3 = Vector3(0, 120, 1)
-@export var flight_follow_distance: float = 120.0
+@export var flight_follow_distance: float = 80.0
 
 # Docked mode: fixed camera transform when docked at any target.
 @export var dock_offset: Vector3 = Vector3(0, 40, 25)
@@ -53,10 +53,10 @@ const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering ac
 const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500 so neighbor nodes are visible on map open.
 const GALAXY_MAP_PAN_SPEED: float = 2000.0
 const GALAXY_MAP_LERP_SPEED: float = 4.0
-# VISUAL_OVERHAUL: Raised from 80 to 120 for 1.5x system scale.
-var _altitude: float = 120.0  # Unified altitude (replaces flight_follow_distance + galaxy_map_altitude).
-var _pre_strategic_altitude: float = 120.0  # Altitude before TAB jump, for TAB toggle-back.
-var _pre_transit_altitude: float = 120.0   # Altitude before lane transit, for post-transit restore.
+# Default flight altitude. System layout: planets 18-40u, belt 45u, lane gates 85u.
+var _altitude: float = 80.0
+var _pre_strategic_altitude: float = 80.0  # Altitude before TAB jump, for TAB toggle-back.
+var _pre_transit_altitude: float = 80.0   # Altitude before lane transit, for post-transit restore.
 var _galaxy_map_pan_offset: Vector3 = Vector3.ZERO
 var _galaxy_panning: bool = false
 var _galaxy_pan_last_mouse: Vector2 = Vector2.ZERO
@@ -463,6 +463,18 @@ func notify_flyby_arrival_v0(target_altitude: float) -> void:
 	_altitude = target_altitude
 	flight_follow_distance = _altitude
 	_galaxy_map_pan_offset = Vector3.ZERO
+
+## FOV punch: quick widen then return to base. Used for warp departure impact.
+func punch_fov_v0(extra_degrees: float = 8.0, duration: float = 0.5) -> void:
+	if _cam == null:
+		return
+	var peak_fov: float = _current_fov + extra_degrees
+	var restore_fov: float = _current_fov
+	var tw := create_tween()
+	tw.tween_property(self, "_current_fov", peak_fov, duration * 0.3) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(self, "_current_fov", restore_fov, duration * 0.7) \
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 
 ## Tween camera altitude to a target over a duration. Used by game_manager for approach cinematic.
 func tween_altitude_v0(target: float, duration: float) -> void:

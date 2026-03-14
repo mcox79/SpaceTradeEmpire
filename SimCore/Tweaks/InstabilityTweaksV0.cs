@@ -24,9 +24,9 @@ public static class InstabilityTweaksV0
     public const int FrontierInstabilityMin = 10;
     public const int FrontierInstabilityMax = 30;
     public const int RimInstabilityMin = 20;
-    public const int RimInstabilityMax = 50;
-    public const int VoidSiteInstabilityMin = 50;
-    public const int VoidSiteInstabilityMax = 80;
+    public const int RimInstabilityMax = 45;       // Below DriftMin (50) — drones only spawn when warfronts push instability past threshold
+    public const int VoidSiteInstabilityMin = 30;  // Shimmer-range, not Drift — void proximity feels uneasy but isn't immediately dangerous
+    public const int VoidSiteInstabilityMax = 48;   // Just below DriftMin — a powder keg that warfronts ignite
 
     // GATE.S7.INSTABILITY.TICK_SYSTEM.001: Per-tick evolution tuning.
     // Warfront-adjacent nodes gain instability; distant nodes decay.

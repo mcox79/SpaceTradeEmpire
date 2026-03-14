@@ -74,6 +74,13 @@ public partial class GalaxyView : Node3D
     private MeshInstance3D _havenIconMesh;
     private Label3D _havenIconLabel;
 
+    // GATE.S8.PENTAGON.DELIVERY.001: Pentagon trade dependency overlay on galaxy map.
+    private readonly System.Collections.Generic.List<MeshInstance3D> _pentagonEdgeMeshes = new();
+    private bool _pentagonOverlayVisible;
+
+    // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001: Discovery phase markers on galaxy map.
+    private readonly Dictionary<string, MeshInstance3D> _discoveryPhaseMarkersByDiscId = new();
+
     // ── GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: V2 overlay state ──
     private GalaxyMapV2Overlay _v2OverlayMode = GalaxyMapV2Overlay.Off;
     private readonly Dictionary<string, MeshInstance3D> _v2OverlayDiscsByNodeId = new();
@@ -221,6 +228,18 @@ public partial class GalaxyView : Node3D
             var galacticSky = skyParent.GetNodeOrNull<Node3D>("GalacticSky");
             if (galacticSky != null)
                 galacticSky.Visible = !isOpen;
+        }
+
+        // Hide background starfield CanvasLayer during galaxy map so procedural stars
+        // don't visually compete with actual star system nodes.
+        var bgGroup = GetTree()?.GetNodesInGroup("BackgroundStarfield");
+        if (bgGroup != null)
+        {
+            for (int bi = 0; bi < bgGroup.Count; bi++)
+            {
+                if (bgGroup[bi] is CanvasLayer bgCanvas)
+                    bgCanvas.Visible = !isOpen;
+            }
         }
 
         // FEEL_POST_FIX_5: Show/hide subtle galaxy background plane for depth.
@@ -493,6 +512,13 @@ public partial class GalaxyView : Node3D
         // GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: Refresh V2 overlay visuals after snapshot.
         if (_v2OverlayMode != GalaxyMapV2Overlay.Off)
             UpdateV2OverlayVisualsV0();
+
+        // GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Update scan pulse animation.
+        UpdateScanPulseV0((float)delta);
+
+        // GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Discovery highlight at current node.
+        if (!_overlayOpen)
+            UpdateDiscoveryHighlightsV0();
     }
 
     // GATE.S13.WORLD.LABEL_CLAMP.001: Distance-based label readability for local system labels.
@@ -856,8 +882,8 @@ public partial class GalaxyView : Node3D
                 r = 0.7f; g = 0.7f; b = 0.75f;
             }
 
-            float emissionStrength = isDiscovered ? 8.0f : 1.5f;
-            float starSize = isDiscovered ? 4.0f : 2.0f;
+            float emissionStrength = isDiscovered ? 12.0f : 2.5f;
+            float starSize = isDiscovered ? 6.0f : 3.0f;
             var starColor = new Color(r, g, b);
             var star = new MeshInstance3D
             {
@@ -875,6 +901,32 @@ public partial class GalaxyView : Node3D
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             star.AddToGroup("PersistentStar");
+
+            // Discovered stars get a ring halo for visual differentiation from background.
+            // Stellaris-style: colored ring around each known system node.
+            if (isDiscovered)
+            {
+                var ringMat = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(starColor.R, starColor.G, starColor.B, 0.5f),
+                    EmissionEnabled = true,
+                    Emission = starColor,
+                    EmissionEnergyMultiplier = 6.0f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+                    NoDepthTest = true,
+                };
+                var ring = new MeshInstance3D
+                {
+                    Name = "StarRing",
+                    Mesh = new TorusMesh { InnerRadius = starSize * 1.8f, OuterRadius = starSize * 2.5f, Rings = 16, RingSegments = 24 },
+                    MaterialOverride = ringMat,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                star.AddChild(ring);
+            }
+
             _persistentStarsRoot.AddChild(star);
         }
     }
@@ -924,10 +976,10 @@ public partial class GalaxyView : Node3D
 
         _sharedLaneMaterial = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.3f, 0.5f, 0.9f, LaneBaseAlpha),
+            AlbedoColor = new Color(0.4f, 0.6f, 1.0f, LaneBaseAlpha),
             EmissionEnabled = true,
-            Emission = new Color(0.3f, 0.5f, 0.9f),
-            EmissionEnergyMultiplier = 3.0f,
+            Emission = new Color(0.4f, 0.6f, 1.0f),
+            EmissionEnergyMultiplier = 5.0f,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
         };
@@ -1481,15 +1533,42 @@ public partial class GalaxyView : Node3D
             Name = "StationLabel",
             Text = stationDisplayName,
             PixelSize = 0.12f,
+            FontSize = 32,
+            OutlineSize = 10,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            Modulate = new Color(0.4f, 1.0f, 0.4f),
+            Modulate = new Color(0.85f, 0.9f, 1.0f),   // Soft white-blue, not green box
+            OutlineModulate = new Color(0.05f, 0.08f, 0.15f, 0.9f), // Dark navy outline
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Width = 200f,
             AutowrapMode = TextServer.AutowrapMode.Off,
         };
-        // FEEL_POST_FIX_10: Raised from Y=18 to Y=28 to prevent overlap with faction banner (Y=13).
-        stationLabel.Position = new Vector3(0f, 28f, 0f);
+        // Raised to Y=35 to prevent label collision with planet names (Y=6) at close zoom.
+        stationLabel.Position = new Vector3(0f, 35f, 0f);
         station.AddChild(stationLabel);
+
+        // Station billboard beacon: faction-colored emissive diamond visible at distance.
+        // Shows at camera altitude > 80u when the 3D mesh is too small to read.
+        var beaconMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(accentColor.R, accentColor.G, accentColor.B, 0.9f),
+            EmissionEnabled = true,
+            Emission = accentColor,
+            EmissionEnergyMultiplier = 6.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+            NoDepthTest = true,
+            RenderPriority = 5,
+        };
+        var beaconMesh = new MeshInstance3D
+        {
+            Name = "StationBeacon",
+            Mesh = new SphereMesh { Radius = 6.0f, Height = 12.0f, RadialSegments = 8, Rings = 4 },
+            MaterialOverride = beaconMat,
+            Position = new Vector3(0f, 8f, 0f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        station.AddChild(beaconMesh);
 
         // GATE.S7.FACTION_VIS.STATION_STYLE.001: Faction name banner below station label.
         if (_bridge != null && !string.IsNullOrEmpty(nodeId))
@@ -1653,11 +1732,14 @@ public partial class GalaxyView : Node3D
             ship.AddToGroup("FleetShip");
             _localSystemRoot.AddChild(ship);
 
-            // Set movement target: idle ships patrol around, arriving ships fly to orbit.
+            // Set movement target based on role.
             if (ship.HasMethod("set_target"))
             {
-                var targetPos = DeriveOrbitPositionV0(fleetId + "_local", FleetOrbitRadiusU);
-                ship.Call("set_target", targetPos, (float)6.0);
+                var role = f.ContainsKey("role") ? (int)f["role"] : 0;
+                float orbitR = role == 2 ? 65.0f : 25.0f; // Patrol wider
+                float spd = role == 2 ? 8.0f : role == 1 ? 4.5f : 5.0f;
+                var targetPos = DeriveOrbitPositionV0(fleetId + "_local", orbitR);
+                ship.Call("set_target", targetPos, spd);
             }
             if (ship.HasMethod("update_transit"))
                 ship.Call("update_transit", f);
@@ -1747,7 +1829,12 @@ public partial class GalaxyView : Node3D
 
                 // Set target to orbit position so the ship flies inward from the gate.
                 if (ship.HasMethod("set_target"))
-                    ship.Call("set_target", DeriveOrbitPositionV0(id + "_local", FleetOrbitRadiusU), (float)6.0);
+                {
+                    int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
+                    float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
+                    float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
+                    ship.Call("set_target", DeriveOrbitPositionV0(id + "_local", arrOrbit), arrSpd);
+                }
                 if (ship.HasMethod("update_transit"))
                     ship.Call("update_transit", f);
             }
@@ -1756,6 +1843,8 @@ public partial class GalaxyView : Node3D
                 // Update movement target for existing ships based on transit state.
                 var state = f.ContainsKey("state") ? (string)f["state"] : "Idle";
                 var destNodeId = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+                var finalDestId = f.ContainsKey("final_destination_node_id") ? (string)f["final_destination_node_id"] : "";
+                int role = f.ContainsKey("role") ? (int)f["role"] : 0;
 
                 if (existingNode.HasMethod("update_transit"))
                     existingNode.Call("update_transit", f);
@@ -1763,6 +1852,8 @@ public partial class GalaxyView : Node3D
                 if (existingNode.HasMethod("set_target"))
                 {
                     Vector3 target;
+                    float speed;
+
                     if (state == "Traveling" && !string.IsNullOrEmpty(destNodeId)
                         && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId))
                     {
@@ -1770,13 +1861,32 @@ public partial class GalaxyView : Node3D
                         target = GetGateLocalPositionForNeighborV0(destNodeId);
                         if (target == Vector3.Zero)
                             target = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
+                        speed = role == 2 ? 8.0f : 6.0f; // Patrol faster
+                    }
+                    else if (!string.IsNullOrEmpty(finalDestId)
+                        && !StringComparer.Ordinal.Equals(finalDestId, _currentLocalNodeId))
+                    {
+                        // Fleet has a destination queued (about to depart): fly toward departure gate.
+                        // Use finalDest's first hop neighbor if available, else finalDest directly.
+                        var gateNeighbor = !string.IsNullOrEmpty(destNodeId) ? destNodeId : finalDestId;
+                        target = GetGateLocalPositionForNeighborV0(gateNeighbor);
+                        if (target == Vector3.Zero)
+                            target = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
+                        speed = role == 2 ? 8.0f : 5.0f;
+                    }
+                    else if (role == 2) // Patrol
+                    {
+                        // Patrol ships orbit wider and faster.
+                        target = DeriveOrbitPositionV0(id + "_patrol", 65.0f);
+                        speed = 8.0f;
                     }
                     else
                     {
-                        // Idle or docked: orbit around the system.
-                        target = DeriveOrbitPositionV0(id + "_local", FleetOrbitRadiusU);
+                        // Trader/Hauler idle: orbit near station area.
+                        target = DeriveOrbitPositionV0(id + "_local", 25.0f);
+                        speed = role == 1 ? 4.5f : 5.0f; // Haulers slower
                     }
-                    existingNode.Call("set_target", target, (float)6.0);
+                    existingNode.Call("set_target", target, speed);
                 }
             }
         }
@@ -1892,10 +2002,9 @@ public partial class GalaxyView : Node3D
         if (modelScene != null && ship.HasMethod("load_model"))
             ship.Call("load_model", modelScene);
 
-        // Set hostile meta — only Patrol fleets (role 2) are hostile.
+        // Set hostile meta — default non-hostile; npc_ship.gd resolves from reputation.
         ship.SetMeta("fleet_id", fleetId);
-        int role = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
-        ship.SetMeta("is_hostile", role == 2);
+        ship.SetMeta("is_hostile", false);
 
         // GATE.T30.GALPOP.BRIDGE_TRANSIT.007: Apply faction color from fleet's owner faction.
         // Previously used territory of current node — now uses fleet's actual owner for
@@ -2017,14 +2126,12 @@ public partial class GalaxyView : Node3D
         root.AddChild(area);
 
         // GATE.S1.VISUAL_POLISH.FLEET_AI.001: attach fleet_ai.gd for autonomous patrol/dock/engage movement.
-        // Hostile meta determined by role — only Patrol (role 2) starts hostile.
-        // fleet_ai.gd._ready() further resolves via reputation check.
+        // Default non-hostile; npc_ship.gd resolves hostility from faction reputation.
         var fleetAiScript = GD.Load<Script>("res://scripts/core/fleet_ai.gd");
         if (fleetAiScript != null)
         {
             root.SetScript(fleetAiScript);
-            int markerRole = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
-            root.SetMeta("is_hostile", markerRole == 2);
+            root.SetMeta("is_hostile", false);
         }
 
         return root;
@@ -2589,37 +2696,7 @@ public partial class GalaxyView : Node3D
         container.Position = planetOrbitPos;
         container.AddChild(planetNode);
 
-        // FEEL_POST_BASELINE: Atmospheric glow halo around planets.
-        // Slightly larger additive sphere in the planet's atmosphere color.
-        var atmosColor = planetType switch
-        {
-            "Terrestrial" => new Color(0.3f, 0.5f, 0.9f, 0.08f),  // Blue haze
-            "Sand"        => new Color(0.8f, 0.6f, 0.3f, 0.06f),  // Amber haze
-            "Lava"        => new Color(0.9f, 0.3f, 0.1f, 0.10f),  // Orange glow
-            "Ice"         => new Color(0.5f, 0.7f, 1.0f, 0.07f),  // Pale blue
-            "Gaseous"     => new Color(0.4f, 0.8f, 0.6f, 0.08f),  // Teal mist
-            _             => new Color(0.4f, 0.4f, 0.5f, 0.05f),  // Neutral
-        };
-        var atmosEmission = new Color(atmosColor.R, atmosColor.G, atmosColor.B);
-        var atmosGlow = new MeshInstance3D
-        {
-            Name = "AtmosphereGlow",
-            Mesh = new SphereMesh { Radius = 5.5f, Height = 11.0f },
-            MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoColor = atmosColor,
-                EmissionEnabled = true,
-                Emission = atmosEmission,
-                EmissionEnergyMultiplier = 2.0f,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                CullMode = BaseMaterial3D.CullModeEnum.Back,
-                DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
-                NoDepthTest = true,
-            },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        container.AddChild(atmosGlow);
+        // AtmosphereGlow sphere removed — was placeholder programmer art.
 
         orbitPivot.AddChild(container);
 
@@ -3222,16 +3299,8 @@ public partial class GalaxyView : Node3D
                 string baseText = isKnownNode
                     ? StripResourceTagsV0(n.DisplayText ?? "")
                     : "???";
-                if (_bridge != null && isKnownNode)
-                {
-                    var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
-                    int phaseIdx = instab.ContainsKey("phase_index") ? (int)(Variant)instab["phase_index"] : 0;
-                    if (phaseIdx >= 1) // Shimmer+
-                    {
-                        string phase = instab.ContainsKey("phase") ? (string)(Variant)instab["phase"] : "";
-                        baseText += "\n[" + phase + "]";
-                    }
-                }
+                // Instability phase tag stripped from galaxy map labels for cleaner presentation.
+                // Phase info available via overlay tooltip instead.
                 label.Text = baseText;
                 // FEEL_POST_FIX_10: Explicitly set label visibility based on current state.
                 // Previously only hid labels; now also shows them when not hidden,
@@ -3385,11 +3454,24 @@ public partial class GalaxyView : Node3D
                     mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
                     mat.Emission = nodeColor;
-                    // FEEL_POST_FIX_3: Emission high enough to compete with Starlight skybox.
-                    // RUMORED slightly dimmer than explored to convey fog-of-war.
-                    mat.EmissionEnergyMultiplier = isRumored ? 8.0f : 15.0f;
-                    // RUMORED 0.7x (smaller/dimmer = unknown), explored stays at 1.0.
-                    root.Scale = isRumored ? new Vector3(0.7f, 0.7f, 0.7f) : Vector3.One;
+                    // FEEL_POST_FIX_3: Emission + scale vary by discovery state.
+                    // RUMORED = dim/small (fog-of-war), VISITED = medium, MAPPED = bright/large.
+                    bool isMapped = StringComparer.Ordinal.Equals(n.DisplayStateToken, "MAPPED");
+                    if (isRumored)
+                    {
+                        mat.EmissionEnergyMultiplier = 8.0f;
+                        root.Scale = new Vector3(0.6f, 0.6f, 0.6f);
+                    }
+                    else if (isMapped)
+                    {
+                        mat.EmissionEnergyMultiplier = 20.0f;
+                        root.Scale = new Vector3(1.15f, 1.15f, 1.15f);
+                    }
+                    else // VISITED
+                    {
+                        mat.EmissionEnergyMultiplier = 15.0f;
+                        root.Scale = Vector3.One;
+                    }
                 }
             }
         }
@@ -3475,7 +3557,26 @@ public partial class GalaxyView : Node3D
 
         // GATE.S8.HAVEN.GALAXY_ICON.001: Haven starbase icon on galaxy map.
         UpdateHavenIconV0();
+
+        // GATE.S8.PENTAGON.DELIVERY.001: Pentagon trade dependency overlay.
+        UpdatePentagonOverlayV0();
+
+        // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001: Discovery phase markers on galaxy map.
+        UpdateDiscoveryPhaseMarkersV0();
+
+        // GATE.S7.TERRITORY_SHIFT.MAP_UPDATE.001: Periodic territory overlay refresh.
+        // Re-poll node-faction map every ~2 seconds to catch mid-game territory shifts.
+        _territoryRefreshTimer -= Engine.GetProcessFrames() > 0 ? (1.0 / 60.0) : 0.016;
+        if (_territoryRefreshTimer <= 0.0)
+        {
+            UpdateTerritoryOverlayV0();
+            UpdateFactionLabelsV0();
+            _territoryRefreshTimer = 2.0;
+        }
     }
+
+    // GATE.S7.TERRITORY_SHIFT.MAP_UPDATE.001: Timer for periodic territory refresh.
+    private double _territoryRefreshTimer = 2.0;
 
     // GATE.S5.SEC_LANES.UI.001: Map security BPS to lane display color.
     private Color GetSecurityLaneColorV0(string fromId, string toId)
@@ -4034,88 +4135,8 @@ public partial class GalaxyView : Node3D
     // GATE.S5.LOOT.BRIDGE_PROOF.001: Show glowing sphere markers for loot drops at current node.
     private void UpdateLootMarkersV0()
     {
-        if (_bridge == null || !_bridge.HasMethod("GetNearbyLootV0"))
-        {
-            ClearLootMarkersV0();
-            return;
-        }
-
-        var drops = _bridge.Call("GetNearbyLootV0").AsGodotArray();
-        if (drops == null || drops.Count == 0)
-        {
-            ClearLootMarkersV0();
-            return;
-        }
-
-        // Find current node position for placing loot markers.
-        string currentNodeId = _currentLocalNodeId ?? "";
-        if (string.IsNullOrEmpty(currentNodeId) || !_nodeRootsById.TryGetValue(currentNodeId, out var nodeRoot))
-        {
-            ClearLootMarkersV0();
-            return;
-        }
-
-        var seenIds = new HashSet<string>(StringComparer.Ordinal);
-        int idx = 0;
-
-        for (int i = 0; i < drops.Count; i++)
-        {
-            var entry = drops[i].AsGodotDictionary();
-            if (entry == null) continue;
-            var dropId = entry.ContainsKey("drop_id") ? (string)(Variant)entry["drop_id"] : "";
-            if (string.IsNullOrEmpty(dropId)) continue;
-
-            seenIds.Add(dropId);
-            var rarity = entry.ContainsKey("rarity") ? (string)(Variant)entry["rarity"] : "Common";
-
-            if (!_lootMarkersByDropId.TryGetValue(dropId, out var marker))
-            {
-                marker = new MeshInstance3D
-                {
-                    Name = "LootMarker_" + dropId,
-                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                };
-                marker.Mesh = new SphereMesh { Radius = 0.8f, Height = 1.6f };
-                _lootMarkersByDropId[dropId] = marker;
-                AddChild(marker);
-            }
-
-            // Spread markers in a ring around the node.
-            float angle = idx * Mathf.Tau / drops.Count;
-            float spread = 4f;
-            var offset = new Vector3(Mathf.Cos(angle) * spread, 2f, Mathf.Sin(angle) * spread);
-            marker.GlobalPosition = nodeRoot.GlobalPosition + offset;
-
-            // Rarity color.
-            Color lootColor = rarity switch
-            {
-                "Uncommon" => new Color(0.2f, 0.8f, 1.0f),
-                "Rare" => new Color(0.9f, 0.2f, 1.0f),
-                _ => new Color(1.0f, 0.9f, 0.3f), // Common = gold
-            };
-            marker.MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoColor = lootColor,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                EmissionEnabled = true,
-                Emission = lootColor,
-            };
-            idx++;
-        }
-
-        // Remove markers for collected/despawned drops.
-        var toRemove = new List<string>();
-        foreach (var kv in _lootMarkersByDropId)
-        {
-            if (!seenIds.Contains(kv.Key))
-            {
-                kv.Value.QueueFree();
-                toRemove.Add(kv.Key);
-            }
-        }
-        foreach (var key in toRemove)
-            _lootMarkersByDropId.Remove(key);
+        // LootMarker spheres removed — were placeholder programmer art.
+        ClearLootMarkersV0();
     }
 
     private void ClearLootMarkersV0()
@@ -4159,8 +4180,15 @@ public partial class GalaxyView : Node3D
             return;
         }
 
-        // Haven icon color: gold/amber to stand out from blue star beacons.
-        var havenColor = new Color(1.0f, 0.85f, 0.2f, 1.0f);
+        // GATE.S8.HAVEN.VISUAL_TIERS.001: Haven icon scales with tier level.
+        int tierLevel = status.ContainsKey("tier") ? (int)(Variant)status["tier"] : 1;
+        // Tier 1=200, 2=260, 3=320, 4=380, 5=440 size; emission 25→65.
+        float iconSize = 200.0f + (tierLevel - 1) * 60.0f;
+        float emissionEnergy = 25.0f + (tierLevel - 1) * 10.0f;
+
+        // Haven color shifts from gold (T1) toward bright white-gold (T5).
+        float whiteMix = (tierLevel - 1) * 0.05f; // 0..0.20
+        var havenColor = new Color(1.0f, 0.85f + whiteMix, 0.2f + whiteMix * 2.0f, 1.0f);
 
         // Create or update the diamond mesh.
         if (_havenIconMesh == null)
@@ -4168,14 +4196,12 @@ public partial class GalaxyView : Node3D
             _havenIconMesh = new MeshInstance3D
             {
                 Name = "HavenIcon",
-                // Diamond shape: rotated box (45 degrees on Y and Z).
                 Mesh = new BoxMesh
                 {
-                    Size = new Vector3(200.0f, 200.0f, 200.0f),
+                    Size = new Vector3(iconSize, iconSize, iconSize),
                 },
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
-            // Rotate 45 degrees on Z axis to create diamond silhouette.
             _havenIconMesh.RotationDegrees = new Vector3(0f, 45f, 45f);
             _havenIconMesh.MaterialOverride = new StandardMaterial3D
             {
@@ -4184,9 +4210,21 @@ public partial class GalaxyView : Node3D
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 EmissionEnabled = true,
                 Emission = havenColor,
-                EmissionEnergyMultiplier = 25.0f,
+                EmissionEnergyMultiplier = emissionEnergy,
             };
             AddChild(_havenIconMesh);
+        }
+        else
+        {
+            // Update existing mesh size and material for tier changes.
+            if (_havenIconMesh.Mesh is BoxMesh box)
+                box.Size = new Vector3(iconSize, iconSize, iconSize);
+            if (_havenIconMesh.MaterialOverride is StandardMaterial3D mat)
+            {
+                mat.AlbedoColor = havenColor;
+                mat.Emission = havenColor;
+                mat.EmissionEnergyMultiplier = emissionEnergy;
+            }
         }
 
         // Position at the Haven node, slightly above the beacon.
@@ -4227,6 +4265,141 @@ public partial class GalaxyView : Node3D
         {
             _havenIconLabel.Visible = false;
         }
+    }
+
+    // GATE.S8.PENTAGON.DELIVERY.001: Pentagon trade dependency overlay.
+    // Shows 5 faction home nodes connected by lines. Active cascade = red broken link.
+    private void UpdatePentagonOverlayV0()
+    {
+        if (_bridge == null || !_bridge.HasMethod("GetPentagonStateV0") || !_bridge.HasMethod("GetFactionMapV0"))
+        {
+            ClearPentagonOverlayV0();
+            return;
+        }
+
+        var pentState = _bridge.Call("GetPentagonStateV0").AsGodotDictionary();
+        if (pentState == null || pentState.Count == 0)
+        {
+            ClearPentagonOverlayV0();
+            return;
+        }
+
+        bool cascadeActive = pentState.ContainsKey("cascade_active") && (bool)(Variant)pentState["cascade_active"];
+        bool hasR3 = pentState.ContainsKey("has_r3") && (bool)(Variant)pentState["has_r3"];
+        if (!hasR3)
+        {
+            ClearPentagonOverlayV0();
+            return;
+        }
+
+        // Get faction home node positions.
+        var factions = _bridge.Call("GetFactionMapV0").AsGodotArray();
+        if (factions == null || factions.Count == 0) { ClearPentagonOverlayV0(); return; }
+
+        // Pentagon ring order: concord, weavers, chitin, valorin, communion.
+        string[] ringOrder = { "concord", "weavers", "chitin", "valorin", "communion" };
+        var positions = new System.Collections.Generic.Dictionary<string, Vector3>();
+
+        foreach (var fv in factions)
+        {
+            var f = fv.AsGodotDictionary();
+            if (f == null) continue;
+            var fid = f.ContainsKey("faction_id") ? (string)(Variant)f["faction_id"] : "";
+            var homeId = f.ContainsKey("home_node_id") ? (string)(Variant)f["home_node_id"] : "";
+            if (string.IsNullOrEmpty(fid) || string.IsNullOrEmpty(homeId)) continue;
+
+            var nodeRoot = FindChild(homeId, true, false) as Node3D;
+            if (nodeRoot != null)
+                positions[fid] = nodeRoot.GlobalPosition + new Vector3(0f, 200.0f, 0f);
+        }
+
+        if (positions.Count < 5) { ClearPentagonOverlayV0(); return; }
+
+        // Create/update edge meshes.
+        while (_pentagonEdgeMeshes.Count < 5)
+        {
+            var mesh = new MeshInstance3D { Name = $"PentagonEdge{_pentagonEdgeMeshes.Count}" };
+            AddChild(mesh);
+            _pentagonEdgeMeshes.Add(mesh);
+        }
+
+        for (int i = 0; i < 5; i++)
+        {
+            var fromFaction = ringOrder[i];
+            var toFaction = ringOrder[(i + 1) % 5];
+
+            if (!positions.TryGetValue(fromFaction, out var fromPos) ||
+                !positions.TryGetValue(toFaction, out var toPos))
+            {
+                _pentagonEdgeMeshes[i].Visible = false;
+                continue;
+            }
+
+            // Line as a stretched cylinder between two points.
+            var midpoint = (fromPos + toPos) / 2f;
+            var direction = toPos - fromPos;
+            float length = direction.Length();
+            if (length < 1f) { _pentagonEdgeMeshes[i].Visible = false; continue; }
+
+            var cylinder = new CylinderMesh
+            {
+                TopRadius = 4.0f,
+                BottomRadius = 4.0f,
+                Height = length,
+                RadialSegments = 6,
+            };
+            _pentagonEdgeMeshes[i].Mesh = cylinder;
+            _pentagonEdgeMeshes[i].GlobalPosition = midpoint;
+
+            // Orient cylinder along the edge direction.
+            var up = direction.Normalized();
+            var right = up.Cross(Vector3.Up).Normalized();
+            if (right.LengthSquared() < 0.01f)
+                right = up.Cross(Vector3.Right).Normalized();
+            var forward = right.Cross(up).Normalized();
+            _pentagonEdgeMeshes[i].GlobalTransform = new Transform3D(
+                new Basis(right, up, forward),
+                midpoint
+            );
+
+            // Color: gold normally, red if cascade is active (broken dependency).
+            var edgeColor = cascadeActive
+                ? new Color(1.0f, 0.2f, 0.15f)
+                : new Color(0.9f, 0.75f, 0.2f);
+            _pentagonEdgeMeshes[i].MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = edgeColor,
+                EmissionEnabled = true,
+                Emission = edgeColor,
+                EmissionEnergyMultiplier = 15.0f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            };
+            _pentagonEdgeMeshes[i].Visible = true;
+        }
+        _pentagonOverlayVisible = true;
+    }
+
+    private void ClearPentagonOverlayV0()
+    {
+        foreach (var mesh in _pentagonEdgeMeshes)
+            mesh.Visible = false;
+        _pentagonOverlayVisible = false;
+    }
+
+    // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001: Draw discovery phase markers on the galaxy map.
+    // Unknown/Seen = gray circle, Scanned = amber diamond, Analyzed = green star.
+    // Markers are positioned at the node's galactic position with an offset.
+    private void UpdateDiscoveryPhaseMarkersV0()
+    {
+        // DiscPhaseMarker spheres/boxes/prisms removed — were placeholder programmer art.
+        ClearDiscoveryPhaseMarkersV0();
+    }
+
+    private void ClearDiscoveryPhaseMarkersV0()
+    {
+        foreach (var kv in _discoveryPhaseMarkersByDiscId)
+            kv.Value.QueueFree();
+        _discoveryPhaseMarkersByDiscId.Clear();
     }
 
     private void ClearTerritoryOverlayV0()
@@ -4627,10 +4800,20 @@ public partial class GalaxyView : Node3D
     }
 
     // GATE.S7.GALAXY_MAP_V2.WARFRONT_OVL.001: Warfront intensity overlay.
+    // GATE.S7.UI_WARFRONT.MAP_OVERLAY.001: Enhanced warfront overlay with pulsing contested nodes,
+    // objective icons, and supply line edges.
+    private float _warfrontPulseTime = 0f;
+    private readonly Dictionary<string, MeshInstance3D> _supplyLineMeshesByKey = new();
+    private readonly Dictionary<string, MeshInstance3D> _objectiveMarkersByNodeId = new();
+
     private void UpdateWarfrontOverlayDiscsV0()
     {
         var data = _bridge.GetWarfrontOverlayV0();
         var seenNodes = new HashSet<string>(StringComparer.Ordinal);
+
+        // Pulse: time-based sinusoidal alpha oscillation for contested nodes.
+        _warfrontPulseTime += 0.016f; // ~60fps tick
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_warfrontPulseTime * 3.0f);
 
         foreach (var key in data.Keys)
         {
@@ -4644,10 +4827,12 @@ public partial class GalaxyView : Node3D
             seenNodes.Add(nodeId);
 
             // Red gradient: darker red at low intensity, bright red at high.
+            // Pulse contested nodes (high intensity pulses more).
             float r = 0.5f + intensity * 0.5f;
             float g = Mathf.Clamp(0.15f - intensity * 0.1f, 0f, 0.15f);
             float b = 0.05f;
-            float a = 0.15f + intensity * 0.4f;
+            float baseAlpha = 0.15f + intensity * 0.4f;
+            float a = baseAlpha * (0.6f + 0.4f * pulse); // Pulse alpha
             var color = new Color(r, g, b, a);
 
             float size = 50.0f + intensity * 35.0f;
@@ -4655,6 +4840,212 @@ public partial class GalaxyView : Node3D
         }
 
         PruneV2OverlayDiscs(seenNodes);
+
+        // GATE.S7.UI_WARFRONT.SUPPLY.001: Draw supply lines from warfront data.
+        UpdateSupplyLineVisualsV0();
+
+        // GATE.S7.UI_WARFRONT.MAP_OVERLAY.001: Objective markers at contested nodes.
+        UpdateObjectiveMarkersV0(data);
+    }
+
+    // GATE.S7.UI_WARFRONT.MAP_OVERLAY.001: Objective markers (small icon meshes at strategic objectives).
+    private void UpdateObjectiveMarkersV0(Godot.Collections.Dictionary overlayData)
+    {
+        // ObjMarker spheres removed — were placeholder programmer art.
+        // Clean up any existing markers from prior frames.
+        foreach (var kv in _objectiveMarkersByNodeId) kv.Value.QueueFree();
+        _objectiveMarkersByNodeId.Clear();
+    }
+
+    // GATE.S7.UI_WARFRONT.SUPPLY.001: Supply line visualization — edges from
+    // faction HQ nodes to front-line contested nodes. Severed/weak lines shown red.
+    private void UpdateSupplyLineVisualsV0()
+    {
+        var overlayData = _bridge.GetWarfrontOverlayV0();
+        var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        // Build list of contested nodes.
+        var contestedNodeIds = new List<string>();
+        foreach (var key in overlayData.Keys)
+        {
+            var nodeId = key.AsString();
+            if (!string.IsNullOrEmpty(nodeId)) contestedNodeIds.Add(nodeId);
+        }
+
+        if (contestedNodeIds.Count == 0)
+        {
+            ClearSupplyLinesV0();
+            return;
+        }
+
+        // Draw supply edges between adjacent contested nodes.
+        // Pairs: for each pair of contested nodes that share an edge, draw a supply line.
+        for (int i = 0; i < contestedNodeIds.Count; i++)
+        {
+            for (int j = i + 1; j < contestedNodeIds.Count; j++)
+            {
+                var fromId = contestedNodeIds[i];
+                var toId = contestedNodeIds[j];
+
+                // Check if these nodes have an edge.
+                string edgeKey = fromId + "->" + toId;
+                string edgeKeyRev = toId + "->" + fromId;
+                bool hasEdge = _edgeMeshesByKey.ContainsKey(edgeKey) || _edgeMeshesByKey.ContainsKey(edgeKeyRev);
+                if (!hasEdge) continue;
+
+                seenKeys.Add(edgeKey);
+
+                if (!_nodeRootsById.TryGetValue(fromId, out var fromRoot)) continue;
+                if (!_nodeRootsById.TryGetValue(toId, out var toRoot)) continue;
+
+                float fromIntensity = overlayData.ContainsKey(fromId) ? (float)overlayData[fromId] : 0f;
+                float toIntensity = overlayData.ContainsKey(toId) ? (float)overlayData[toId] : 0f;
+                float avgIntensity = (fromIntensity + toIntensity) * 0.5f;
+
+                // High intensity = severed/broken (red), low = intact (orange/yellow).
+                Color lineColor;
+                if (avgIntensity >= 0.75f)
+                    lineColor = new Color(1.0f, 0.1f, 0.1f, 0.8f); // Severed — bright red
+                else if (avgIntensity >= 0.5f)
+                    lineColor = new Color(1.0f, 0.4f, 0.1f, 0.6f); // Stressed — orange
+                else
+                    lineColor = new Color(1.0f, 0.8f, 0.2f, 0.4f); // Intact — yellow
+
+                if (!_supplyLineMeshesByKey.TryGetValue(edgeKey, out var lineMesh))
+                {
+                    var mat = new StandardMaterial3D
+                    {
+                        AlbedoColor = lineColor,
+                        EmissionEnabled = true,
+                        Emission = new Color(lineColor.R, lineColor.G, lineColor.B),
+                        EmissionEnergyMultiplier = 3.0f,
+                        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    };
+                    lineMesh = CreateEdgeMeshV0(mat);
+                    _supplyLineMeshesByKey[edgeKey] = lineMesh;
+                    AddChild(lineMesh);
+                }
+
+                // Position the supply line slightly above the normal edge.
+                UpdateEdgeTransformV0(lineMesh, fromRoot.GlobalPosition + new Vector3(0, 5, 0),
+                                      toRoot.GlobalPosition + new Vector3(0, 5, 0));
+
+                if (lineMesh.MaterialOverride is StandardMaterial3D existingMat)
+                {
+                    existingMat.AlbedoColor = lineColor;
+                    existingMat.Emission = new Color(lineColor.R, lineColor.G, lineColor.B);
+                }
+            }
+        }
+
+        // Prune stale supply line meshes.
+        var toRemove = new List<string>();
+        foreach (var kv in _supplyLineMeshesByKey)
+        {
+            if (!seenKeys.Contains(kv.Key))
+            {
+                kv.Value.QueueFree();
+                toRemove.Add(kv.Key);
+            }
+        }
+        foreach (var k in toRemove) _supplyLineMeshesByKey.Remove(k);
+    }
+
+    private void ClearSupplyLinesV0()
+    {
+        foreach (var kv in _supplyLineMeshesByKey) kv.Value.QueueFree();
+        _supplyLineMeshesByKey.Clear();
+        foreach (var kv in _objectiveMarkersByNodeId) kv.Value.QueueFree();
+        _objectiveMarkersByNodeId.Clear();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Scan pulse effect + discovery highlights
+    // ════════════════════════════════════════════════════════════════════════
+
+    private MeshInstance3D _scanPulseRing;
+    private float _scanPulseRadius = 0f;
+    private bool _scanPulseActive = false;
+    private float _scanPulseMaxRadius = 120.0f;
+    private float _scanPulseSpeed = 80.0f; // units per second
+    private Vector3 _scanPulseOrigin;
+    private readonly Dictionary<string, MeshInstance3D> _discoveryHighlightsByNodeId = new();
+
+    /// <summary>
+    /// Trigger a scanning pulse effect from a node position.
+    /// Called when player initiates a scan at their current node.
+    /// </summary>
+    public void TriggerScanPulseV0(string nodeId)
+    {
+        if (!_nodeRootsById.TryGetValue(nodeId, out var nodeRoot)) return;
+
+        _scanPulseOrigin = nodeRoot.GlobalPosition;
+        _scanPulseRadius = 0f;
+        _scanPulseActive = true;
+
+        if (_scanPulseRing == null)
+        {
+            _scanPulseRing = new MeshInstance3D
+            {
+                Name = "ScanPulseRing",
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            AddChild(_scanPulseRing);
+        }
+    }
+
+    /// <summary>
+    /// Update scan pulse animation each frame.
+    /// Called from _Process if scan is active.
+    /// </summary>
+    private void UpdateScanPulseV0(float delta)
+    {
+        if (!_scanPulseActive || _scanPulseRing == null) return;
+
+        _scanPulseRadius += _scanPulseSpeed * delta;
+
+        if (_scanPulseRadius >= _scanPulseMaxRadius)
+        {
+            _scanPulseActive = false;
+            _scanPulseRing.Visible = false;
+            return;
+        }
+
+        _scanPulseRing.Visible = true;
+        _scanPulseRing.GlobalPosition = _scanPulseOrigin + new Vector3(0f, 2.0f, 0f);
+
+        // Scale the ring as an expanding torus/disc.
+        float fade = 1.0f - (_scanPulseRadius / _scanPulseMaxRadius);
+        var pulseColor = new Color(0.4f, 0.85f, 1.0f, fade * 0.6f); // Cyan fade
+
+        _scanPulseRing.Mesh = new TorusMesh
+        {
+            InnerRadius = _scanPulseRadius - 3.0f,
+            OuterRadius = _scanPulseRadius + 3.0f,
+        };
+
+        _scanPulseRing.MaterialOverride = new StandardMaterial3D
+        {
+            AlbedoColor = pulseColor,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            EmissionEnabled = true,
+            Emission = new Color(0.4f, 0.85f, 1.0f),
+            EmissionEnergyMultiplier = 2.0f,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+    }
+
+    /// <summary>
+    /// Highlight nodes that have discoverable sites. Yellow pulsing glow for SEEN,
+    /// green for SCANNED, purple for anomalies.
+    /// </summary>
+    public void UpdateDiscoveryHighlightsV0()
+    {
+        // DiscHighlight spheres removed — were placeholder programmer art.
+        foreach (var kv in _discoveryHighlightsByNodeId) kv.Value.QueueFree();
+        _discoveryHighlightsByNodeId.Clear();
     }
 
     private void EnsureV2OverlayDisc(string nodeId, Vector3 worldPos, Color color, float size)
@@ -4710,6 +5101,8 @@ public partial class GalaxyView : Node3D
         foreach (var kv in _v2OverlayDiscsByNodeId)
             kv.Value.QueueFree();
         _v2OverlayDiscsByNodeId.Clear();
+        // GATE.S7.UI_WARFRONT.SUPPLY.001: Clear supply lines and objective markers.
+        ClearSupplyLinesV0();
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -4786,30 +5179,7 @@ public partial class GalaxyView : Node3D
         }
 
         // Waypoint markers at each hop.
-        for (int i = 1; i < path.Count - 1; i++)
-        {
-            var hopId = path[i].AsString();
-            if (!_nodeRootsById.TryGetValue(hopId, out var hopRoot)) continue;
-
-            var waypoint = new MeshInstance3D
-            {
-                Name = "RouteWaypoint_" + i,
-                Mesh = new SphereMesh { Radius = 18.0f, Height = 36.0f },
-                MaterialOverride = new StandardMaterial3D
-                {
-                    AlbedoColor = new Color(0.0f, 1.0f, 0.6f, 0.5f),
-                    EmissionEnabled = true,
-                    Emission = new Color(0.0f, 1.0f, 0.6f),
-                    EmissionEnergyMultiplier = 2.0f,
-                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                },
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            };
-            waypoint.GlobalPosition = hopRoot.GlobalPosition;
-            AddChild(waypoint);
-            _routePolylineSegments.Add(waypoint);
-        }
+        // RouteWaypoint spheres removed — were placeholder programmer art.
 
         // Destination marker: bright ring.
         if (_nodeRootsById.TryGetValue(destNodeId, out var destRoot))

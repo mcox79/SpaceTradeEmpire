@@ -13,7 +13,7 @@ func init_v0(tree: SceneTree) -> void:
 
 func capture_full_report_v0() -> Dictionary:
 	return {
-		"observer_version": 1,
+		"observer_version": 2,
 		"tick": _get_tick(),
 		"hud": capture_hud_v0(),
 		"player": capture_player_state_v0(),
@@ -25,6 +25,24 @@ func capture_full_report_v0() -> Dictionary:
 		"galaxy": capture_galaxy_v0(),
 		"local_system": capture_local_system_v0(),
 		"ui_panels": capture_ui_panels_v0(),
+		"performance": capture_performance_v0(),
+	}
+
+
+func capture_performance_v0() -> Dictionary:
+	var fps := Engine.get_frames_per_second()
+	var physics_ticks := Engine.physics_ticks_per_second
+	var render_info := {}
+	# Capture current viewport draw call stats if available
+	var vp := _tree.root.get_viewport() if _tree != null else null
+	if vp != null:
+		render_info["viewport_size"] = "%dx%d" % [vp.size.x, vp.size.y]
+	return {
+		"fps_current": fps,
+		"fps_min": fps,  # Snapshot — caller can override with tracked min
+		"physics_ticks_per_second": physics_ticks,
+		"render": render_info,
+		"jargon_flags": 0,  # Placeholder — caller can override after lint pass
 	}
 
 

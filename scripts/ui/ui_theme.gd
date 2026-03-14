@@ -41,11 +41,11 @@ const BORDER_DANGER    := Color(1.0, 0.3, 0.3, 0.7)     # Combat/danger border
 # ============================================================================
 # TYPOGRAPHY SCALE
 # ============================================================================
-const FONT_TITLE    := 20   # Panel titles
-const FONT_SECTION  := 16   # Section headers
-const FONT_BODY     := 14   # Body text, sub-headers
-const FONT_SMALL    := 13   # Detail rows, contextual info
-const FONT_CAPTION  := 12   # Column headers, fine print
+const FONT_TITLE    := 22   # Panel titles
+const FONT_SECTION  := 18   # Section headers
+const FONT_BODY     := 16   # Body text, sub-headers
+const FONT_SMALL    := 15   # Detail rows, contextual info
+const FONT_CAPTION  := 13   # Column headers, fine print
 const FONT_HUD_HUGE  := 72  # GAME OVER
 const FONT_HUD_LARGE := 48  # PAUSED
 const FONT_HUD_MED   := 32  # Restart prompt

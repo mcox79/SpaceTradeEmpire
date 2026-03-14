@@ -53,7 +53,7 @@ public partial class SimBridge
     // Blocks until the sim thread processes the command so callers can read updated state.
     public void DispatchFractureTravelV0(string fleetId, string voidSiteId)
     {
-        int tickBefore = GetSimTickV0();
+        int tickBefore = GetSimTickBlocking();
         EnqueueCommand(new SimCore.Commands.FractureTravelCommand(fleetId, voidSiteId));
         WaitForTickAdvance(tickBefore, 200);
     }

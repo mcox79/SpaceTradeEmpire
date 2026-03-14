@@ -133,4 +133,53 @@ public static class KnowledgeGraphContentV0
             Description = "The ancient ruin contains the first containment debate fragment."
         },
     };
+
+    // GATE.S8.STORY.KG_REVELATION.001: Revelation-triggered knowledge connections.
+    // These are force-revealed (bypassing Analyzed requirement) when revelations fire.
+    // They connect discoveries to the revelation insight, updating the knowledge web.
+    public sealed class RevelationConnection
+    {
+        public string ConnectionId { get; init; } = "";
+        public RevelationFlags RequiredRevelation { get; init; }
+        public string Description { get; init; } = "";
+    }
+
+    public static readonly IReadOnlyList<RevelationConnection> RevelationConnections = new List<RevelationConnection>
+    {
+        // R1: Module Origin — connects fracture drive tech to ancient builders.
+        new RevelationConnection
+        {
+            ConnectionId = "REV.R1.MODULE_ORIGIN",
+            RequiredRevelation = RevelationFlags.R1_Module,
+            Description = "The fracture drive modules were never human-made. Their crystalline cores predate all known civilizations."
+        },
+        // R2: Concord Suppression — reframes Concord's role.
+        new RevelationConnection
+        {
+            ConnectionId = "REV.R2.CONCORD_SUPPRESSION",
+            RequiredRevelation = RevelationFlags.R2_Concord,
+            Description = "The Concord's regulatory framework was always containment. They knew about fracture space and chose to hide it."
+        },
+        // R3: Pentagon Break — the dependency cascade is engineered.
+        new RevelationConnection
+        {
+            ConnectionId = "REV.R3.PENTAGON_BREAK",
+            RequiredRevelation = RevelationFlags.R3_Pentagon,
+            Description = "The five-faction trade dependency ring was designed, not emergent. Breaking one link cascades through all five."
+        },
+        // R4: Communion Truth — unity masks hierarchy.
+        new RevelationConnection
+        {
+            ConnectionId = "REV.R4.COMMUNION_TRUTH",
+            RequiredRevelation = RevelationFlags.R4_Communion,
+            Description = "The Communion's 'universal harmony' conceals a species-weighted hierarchy. Not all voices carry equal weight in their chorus."
+        },
+        // R5: Living Geometry — fracture space is alive.
+        new RevelationConnection
+        {
+            ConnectionId = "REV.R5.LIVING_GEOMETRY",
+            RequiredRevelation = RevelationFlags.R5_Instability,
+            Description = "Fracture space is a living geometry. The instability, topology shifts, and lattice drones are immune responses to the wound of the trade network."
+        },
+    };
 }

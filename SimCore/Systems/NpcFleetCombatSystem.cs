@@ -68,6 +68,9 @@ public static class NpcFleetCombatSystem
             // GATE.S5.LOOT.DROP_SYSTEM.001: Roll loot before removing fleet.
             LootTableSystem.RollLoot(state, fleetId, homeNode);
 
+            // GATE.S7.DIPLOMACY.BOUNTY.001: Check bounty completion on NPC destruction.
+            DiplomacySystem.CheckBountyCompletion(state, fleetId);
+
             state.Fleets.Remove(fleetId);
 
             // Record destruction for bridge observation.

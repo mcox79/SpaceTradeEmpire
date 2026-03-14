@@ -205,7 +205,8 @@ public static class ResearchSystem
         state.Tech.StallReason = "";
     }
 
-    private static void ApplyUnlockEffect(SimState state, string effect)
+    // GATE.S8.HAVEN.RESEARCH_LAB.001: Made public for HavenResearchLabSystem reuse.
+    public static void ApplyUnlockEffect(SimState state, string effect)
     {
         if (effect == "tech_level_increase_1")
         {

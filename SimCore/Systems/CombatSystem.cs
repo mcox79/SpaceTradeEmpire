@@ -46,6 +46,8 @@ public static class CombatSystem
         public int RadiatorBonusRate { get; set; }
         // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Spin RPM for turn penalty computation.
         public int SpinRpm { get; set; }
+        // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Ship evasion (bps).
+        public int EvasionBps { get; set; } = CombatDepthTweaksV0.DefaultEvasionBps;
     }
 
     public sealed class WeaponInfo
@@ -57,6 +59,10 @@ public static class CombatSystem
         public int HeatPerShot { get; set; } = CombatTweaksV0.DefaultHeatPerShot;
         // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Mount classification for arc restrictions.
         public MountType MountType { get; set; } = MountType.Standard;
+        // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Per-weapon tracking accuracy (bps).
+        public int TrackingBps { get; set; } = CombatDepthTweaksV0.DefaultTrackingBps;
+        // GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: Armor penetration fraction (bps).
+        public int ArmorPenBps { get; set; } = CombatDepthTweaksV0.DefaultArmorPenBps;
     }
 
     public static DamageFamily ClassifyWeapon(string moduleId)
@@ -97,6 +103,8 @@ public static class CombatSystem
             },
             // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001: Copy spin RPM for turn penalty.
             SpinRpm = fleet.SpinRpm,
+            // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Evasion from ship class.
+            EvasionBps = GetShipClassEvasionBps(fleet.ShipClassId),
         };
         // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Copy zone armor.
         Array.Copy(fleet.ZoneArmorHp, profile.ZoneArmorHp, fleet.ZoneArmorHp.Length);
@@ -113,13 +121,18 @@ public static class CombatSystem
                 if (weaponBaseDamage != null && weaponBaseDamage.TryGetValue(slot.InstalledModuleId, out var d))
                     baseDmg = d;
 
+                var weaponFamily = ClassifyWeapon(slot.InstalledModuleId);
                 profile.Weapons.Add(new WeaponInfo
                 {
                     ModuleId = slot.InstalledModuleId,
                     BaseDamage = baseDmg,
-                    Family = ClassifyWeapon(slot.InstalledModuleId),
+                    Family = weaponFamily,
                     // GATE.S7.COMBAT_PHASE2.MOUNT_TYPE.001: Carry mount type from slot.
                     MountType = slot.MountType,
+                    // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Per-weapon tracking.
+                    TrackingBps = GetWeaponTrackingBps(slot.InstalledModuleId, weaponFamily),
+                    // GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: Per-weapon armor penetration.
+                    ArmorPenBps = GetWeaponArmorPenBps(weaponFamily, slot.MountType),
                 });
             }
 
@@ -257,12 +270,13 @@ public static class CombatSystem
     /// <summary>
     /// GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Calculate damage with zone armor layer.
     /// Flow: Shield absorbs first → ZoneArmor[facing] absorbs remainder → Hull takes rest.
+    /// GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: armorPenBps fraction bypasses zone armor to hull.
     /// Integer arithmetic only, deterministic.
     /// </summary>
     public static ZoneDamageResult CalcDamageWithZoneArmor(
         int baseDamage, DamageFamily family,
         int defenderShieldHp, int zoneArmorHp, int defenderHullHp,
-        ZoneFacing facing)
+        ZoneFacing facing, int armorPenBps = 0)
     {
         var result = new ZoneDamageResult { Facing = facing };
 
@@ -299,14 +313,23 @@ public static class CombatSystem
             remaining = effectiveVsHull;
         }
 
-        // Layer 2: Zone armor absorbs (uses hull-effective damage).
+        // GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: Split remaining into armor-routed and pen-bypass.
+        int penDirect = 0; // STRUCTURAL: pen damage accumulator
+        if (armorPenBps > 0 && remaining > 0)
+        {
+            penDirect = (int)((long)remaining * armorPenBps / 10000); // STRUCTURAL: 10000 bps = 100%
+            remaining -= penDirect;
+        }
+
+        // Layer 2: Zone armor absorbs non-pen portion.
         if (remaining > 0 && zoneArmorHp > 0)
         {
             result.ZoneArmorDmg = Math.Min(remaining, zoneArmorHp);
             remaining -= result.ZoneArmorDmg;
         }
 
-        // Layer 3: Hull absorbs remainder.
+        // Layer 3: Hull absorbs remainder + pen bypass.
+        remaining += penDirect;
         if (remaining > 0)
         {
             result.HullDmg = Math.Min(remaining, defenderHullHp);
@@ -535,5 +558,123 @@ public static class CombatSystem
         }
 
         return resolution;
+    }
+
+    // ── GATE.S7.COMBAT_DEPTH2.PROJECTION.001: Pre-combat outcome projection ──
+
+    public enum ProjectedOutcome { Victory, Defeat, Pyrrhic, Stalemate }
+
+    public sealed class CombatProjection
+    {
+        public ProjectedOutcome Outcome { get; set; }
+        public int EstimatedRounds { get; set; }
+        public int AttackerLossPct { get; set; }     // 0-100: % of total HP lost
+        public int DefenderLossPct { get; set; }     // 0-100: % of total HP lost
+    }
+
+    /// <summary>
+    /// Project combat outcome without mutating fleet state.
+    /// Starsector-inspired pre-engagement assessment.
+    /// </summary>
+    public static CombatProjection ProjectOutcome(Fleet attacker, Fleet defender)
+    {
+        var profileA = BuildProfile(attacker);
+        var profileB = BuildProfile(defender);
+
+        var result = StrategicResolverV0.Resolve(profileA, profileB);
+
+        int aTotalHp = profileA.HullHp + profileA.ShieldHp;
+        int bTotalHp = profileB.HullHp + profileB.ShieldHp;
+        int aRemaining = result.FleetAHullRemaining + (result.Frames.Count > 0 ? result.Frames[^1].AShieldRemaining : 0); // STRUCTURAL: null-safe
+        int bRemaining = result.FleetBHullRemaining + (result.Frames.Count > 0 ? result.Frames[^1].BShieldRemaining : 0);
+
+        int aLossPct = aTotalHp > 0 ? (aTotalHp - aRemaining) * 100 / aTotalHp : 0; // STRUCTURAL: div guard
+        int dLossPct = bTotalHp > 0 ? (bTotalHp - bRemaining) * 100 / bTotalHp : 0;
+
+        ProjectedOutcome outcome;
+        if (result.Winner == StrategicResolverV0.Winner.A)
+        {
+            outcome = aLossPct > 50 ? ProjectedOutcome.Pyrrhic : ProjectedOutcome.Victory; // STRUCTURAL: 50% threshold
+        }
+        else if (result.Winner == StrategicResolverV0.Winner.B)
+        {
+            outcome = ProjectedOutcome.Defeat;
+        }
+        else
+        {
+            outcome = ProjectedOutcome.Stalemate;
+        }
+
+        return new CombatProjection
+        {
+            Outcome = outcome,
+            EstimatedRounds = result.RoundsPlayed,
+            AttackerLossPct = aLossPct,
+            DefenderLossPct = dLossPct,
+        };
+    }
+
+    // ── GATE.S7.COMBAT_DEPTH2.TRACKING.001: Ship class evasion lookup ──
+    public static int GetShipClassEvasionBps(string shipClassId)
+    {
+        return shipClassId switch
+        {
+            "shuttle" => CombatDepthTweaksV0.ShuttleEvasionBps,
+            "clipper" => CombatDepthTweaksV0.ClipperEvasionBps,
+            "corvette" => CombatDepthTweaksV0.CorvetteEvasionBps,
+            "frigate" => CombatDepthTweaksV0.FrigateEvasionBps,
+            "cruiser" => CombatDepthTweaksV0.CruiserEvasionBps,
+            "hauler" => CombatDepthTweaksV0.HaulerEvasionBps,
+            "carrier" => CombatDepthTweaksV0.CarrierEvasionBps,
+            "dreadnought" => CombatDepthTweaksV0.DreadnoughtEvasionBps,
+            "lattice_drone" => LatticeDroneTweaksV0.DroneEvasionBps,
+            _ => CombatDepthTweaksV0.DefaultEvasionBps,
+        };
+    }
+
+    // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Weapon tracking lookup by module classification.
+    public static int GetWeaponTrackingBps(string moduleId, DamageFamily family)
+    {
+        if (string.IsNullOrEmpty(moduleId)) return CombatDepthTweaksV0.DefaultTrackingBps;
+        if (moduleId.Contains("spinal", StringComparison.Ordinal)) return CombatDepthTweaksV0.SpinalTrackingBps;
+        if (moduleId.Contains("torpedo", StringComparison.Ordinal)) return CombatDepthTweaksV0.TorpedoTrackingBps;
+        if (moduleId.Contains("missile", StringComparison.Ordinal)) return CombatDepthTweaksV0.MissileTrackingBps;
+        if (moduleId.Contains("point_defense", StringComparison.Ordinal)) return CombatDepthTweaksV0.PointDefenseTrackingBps;
+        return family switch
+        {
+            DamageFamily.Energy => CombatDepthTweaksV0.LaserTrackingBps,
+            DamageFamily.Kinetic => CombatDepthTweaksV0.CannonTrackingBps,
+            _ => CombatDepthTweaksV0.DefaultTrackingBps,
+        };
+    }
+
+    // GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: Weapon armor penetration lookup.
+    public static int GetWeaponArmorPenBps(DamageFamily family, MountType mount)
+    {
+        // Spinal weapons get highest pen regardless of family.
+        if (mount == MountType.Spinal) return CombatDepthTweaksV0.SpinalArmorPenBps;
+        return family switch
+        {
+            DamageFamily.Energy => CombatDepthTweaksV0.LaserArmorPenBps,
+            DamageFamily.Kinetic => CombatDepthTweaksV0.CannonArmorPenBps,
+            DamageFamily.PointDefense => CombatDepthTweaksV0.PointDefenseArmorPenBps,
+            _ => CombatDepthTweaksV0.DefaultArmorPenBps,
+        };
+    }
+
+    // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Deterministic FNV-1a 64-bit hash.
+    public static ulong Fnv1a64Combat(int tick, int weaponIndex, string fleetId)
+    {
+        ulong hash = 14695981039346656037UL; // STRUCTURAL: FNV offset basis
+        // Mix tick
+        hash ^= (uint)tick; hash *= 1099511628211UL; // STRUCTURAL: FNV prime
+        // Mix weapon index
+        hash ^= (uint)weaponIndex; hash *= 1099511628211UL;
+        // Mix fleet id
+        foreach (char c in fleetId)
+        {
+            hash ^= (byte)c; hash *= 1099511628211UL;
+        }
+        return hash;
     }
 }

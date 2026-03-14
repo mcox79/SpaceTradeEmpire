@@ -63,6 +63,11 @@ public static class RefitSystem
                 return new RefitResult { Success = false, Reason = "faction_rep_insufficient" };
         }
 
+        // GATE.S7.TECH_ACCESS.LOCK.001: Check faction-locked module access.
+        var techAccess = Tweaks.TechAccessTweaksV0.CheckAccess(moduleId, state.FactionReputation);
+        if (techAccess.IsLocked && !techAccess.HasAccess)
+            return new RefitResult { Success = false, Reason = "tech_access_locked" };
+
         // Deduct cost
         if (state.PlayerCredits < moduleDef.CreditCost)
             return new RefitResult { Success = false, Reason = "insufficient_credits" };
@@ -121,6 +126,11 @@ public static class RefitSystem
             if (rep < moduleDef.FactionRepRequired)
                 return new RefitResult { Success = false, Reason = "faction_rep_insufficient" };
         }
+
+        // GATE.S7.TECH_ACCESS.LOCK.001: Check faction-locked module access.
+        var techAccessQ = Tweaks.TechAccessTweaksV0.CheckAccess(moduleId, state.FactionReputation);
+        if (techAccessQ.IsLocked && !techAccessQ.HasAccess)
+            return new RefitResult { Success = false, Reason = "tech_access_locked" };
 
         if (state.PlayerCredits < moduleDef.CreditCost)
             return new RefitResult { Success = false, Reason = "insufficient_credits" };

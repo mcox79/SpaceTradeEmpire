@@ -123,4 +123,77 @@ public static class AdaptationFragmentSystem
         var completed = GetCompletedResonancePairs(state);
         return completed.Contains("pair_04") ? AdaptationTweaksV0.FractureCostReductionPct : 0;
     }
+
+    // GATE.S8.HAVEN.RESONANCE.001: Combine a resonance pair in the Resonance Chamber.
+    public sealed class ResonanceCombineResult
+    {
+        public bool Success { get; set; }
+        public string Reason { get; set; } = "";
+        public string? PairId { get; set; }
+        public string? BonusDescription { get; set; }
+    }
+
+    public static ResonanceCombineResult CombineResonancePair(SimState state, string pairId)
+    {
+        if (string.IsNullOrEmpty(pairId))
+            return new ResonanceCombineResult { Success = false, Reason = "empty_pair_id" };
+
+        var haven = state.Haven;
+        if (haven == null || !haven.Discovered)
+            return new ResonanceCombineResult { Success = false, Reason = "haven_not_available" };
+
+        // Resonance Chamber requires Tier 4+.
+        if (haven.Tier < Entities.HavenTier.Expanded)
+            return new ResonanceCombineResult { Success = false, Reason = "tier_too_low" };
+
+        // Check cooldown.
+        if (haven.ResonanceCooldownUntilTick > state.Tick)
+            return new ResonanceCombineResult { Success = false, Reason = "cooldown_active" };
+
+        // Check not already activated.
+        haven.ActivatedResonancePairs ??= new List<string>();
+        if (haven.ActivatedResonancePairs.Contains(pairId))
+            return new ResonanceCombineResult { Success = false, Reason = "already_activated" };
+
+        // Validate the pair exists.
+        var pair = AdaptationFragmentContentV0.GetPairById(pairId);
+        if (pair == null)
+            return new ResonanceCombineResult { Success = false, Reason = "pair_not_found" };
+
+        // Both fragments must be collected.
+        bool hasA = state.AdaptationFragments.TryGetValue(pair.FragmentA, out var fragA) && fragA.IsCollected;
+        bool hasB = state.AdaptationFragments.TryGetValue(pair.FragmentB, out var fragB) && fragB.IsCollected;
+
+        if (!hasA || !hasB)
+            return new ResonanceCombineResult { Success = false, Reason = "fragments_not_collected" };
+
+        // Activate the pair.
+        haven.ActivatedResonancePairs.Add(pairId);
+        haven.ResonanceCooldownUntilTick = state.Tick + Tweaks.HavenTweaksV0.ResonanceCooldownTicks;
+
+        return new ResonanceCombineResult
+        {
+            Success = true,
+            PairId = pairId,
+            BonusDescription = pair.BonusDescription
+        };
+    }
+
+    // Get list of available (not yet activated) resonance pairs for the player.
+    public static List<string> GetAvailableResonancePairs(SimState state)
+    {
+        var available = new List<string>();
+        var haven = state.Haven;
+        if (haven == null) return available;
+
+        var activated = haven.ActivatedResonancePairs ?? new List<string>();
+        var completed = GetCompletedResonancePairs(state);
+
+        foreach (var pairId in completed)
+        {
+            if (!activated.Contains(pairId))
+                available.Add(pairId);
+        }
+        return available;
+    }
 }

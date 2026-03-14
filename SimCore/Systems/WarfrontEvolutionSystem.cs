@@ -32,7 +32,8 @@ public static class WarfrontEvolutionSystem
             ApplyFleetAttrition(state, wf);
 
             // GATE.S7.WARFRONT.OBJECTIVES.001: Process strategic objective capture.
-            ProcessObjectives(wf);
+            // GATE.S7.TERRITORY_SHIFT.RECOMPUTE.001: Pass state for territory update on capture.
+            ProcessObjectives(state, wf);
         }
     }
 
@@ -141,7 +142,8 @@ public static class WarfrontEvolutionSystem
     // Dominant faction (by fleet strength) accumulates DominanceTicks.
     // At CaptureDominanceTicks, objective is captured by that faction.
     // Factory objectives regen fleet strength for the controlling faction each tick.
-    public static void ProcessObjectives(WarfrontState wf)
+    // GATE.S7.TERRITORY_SHIFT.RECOMPUTE.001: Updates NodeFactionId on capture.
+    public static void ProcessObjectives(SimState state, WarfrontState wf)
     {
         if (wf is null || wf.Objectives is null || wf.Objectives.Count == 0) return;
 
@@ -164,7 +166,22 @@ public static class WarfrontEvolutionSystem
                 if (obj.DominanceTicks >= WarfrontTweaksV0.CaptureDominanceTicks &&
                     !string.Equals(obj.ControllingFactionId, dominant, StringComparison.Ordinal))
                 {
+                    string oldFaction = obj.ControllingFactionId;
                     obj.ControllingFactionId = dominant;
+
+                    // GATE.S7.TERRITORY_SHIFT.RECOMPUTE.001: Update node faction on capture.
+                    if (state != null && !string.IsNullOrEmpty(obj.NodeId))
+                    {
+                        state.NodeFactionId[obj.NodeId] = dominant;
+
+                        // GATE.S7.TERRITORY_SHIFT.REGIME_FLIP.001: Refresh regime for captured node.
+                        // Worsening commits instantly via hysteresis, so recompute + commit now.
+                        var newRegime = ReputationSystem.ComputeTerritoryRegime(state, obj.NodeId);
+                        state.NodeRegimeCommitted[obj.NodeId] = (int)newRegime;
+                        // Clear any pending hysteresis proposal — ownership just changed.
+                        state.NodeRegimeProposed.Remove(obj.NodeId);
+                        state.NodeRegimeProposedSinceTick.Remove(obj.NodeId);
+                    }
                 }
             }
 

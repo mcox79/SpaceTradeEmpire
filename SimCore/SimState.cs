@@ -199,9 +199,23 @@ public partial class SimState
         Haven.InstalledFragmentIds ??= new List<string>();
         Haven.Residents ??= new List<Entities.HavenResident>();
         Haven.TrophyWall ??= new Dictionary<string, int>();
+        // GATE.S8.HAVEN.RESONANCE.001: Resonance pair activation hydration.
+        Haven.ActivatedResonancePairs ??= new List<string>();
+        // GATE.S8.HAVEN.FABRICATOR.001: Fabrication state hydration.
+        Haven.CompletedFabricationIds ??= new List<string>();
+        // GATE.S8.HAVEN.RESEARCH_LAB.001: Research lab slot hydration.
+        Haven.ResearchLabSlots ??= new List<Entities.HavenResearchSlot>();
+
+        // GATE.S8.MEGAPROJECT.ENTITY.001: Megaproject hydration.
+        Megaprojects ??= new Dictionary<string, Entities.Megaproject>(StringComparer.Ordinal);
+        // GATE.S8.MEGAPROJECT.MAP_RULES.001: Sensor pylon nodes hydration.
+        SensorPylonNodes ??= new HashSet<string>(StringComparer.Ordinal);
 
         // GATE.S8.ADAPTATION.ENTITY.001: Adaptation fragments hydration.
         AdaptationFragments ??= new Dictionary<string, Entities.AdaptationFragment>(StringComparer.Ordinal);
+
+        // GATE.S8.STORY_STATE.ENTITY.001: Story state hydration.
+        StoryState ??= new Entities.StoryState();
 
         // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Station context hydration.
         StationContexts ??= new Dictionary<string, Systems.StationContext>(StringComparer.Ordinal);

@@ -246,6 +246,62 @@ public partial class SimBridge
         return result;
     }
 
+    // ── GetDiscoveryPhaseMarkersV0 ──
+    // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001
+    /// <summary>
+    /// Returns Array of Dictionaries, one per known discovery site:
+    ///   "node_id" (string), "discovery_id" (string), "phase" (string: "seen"/"scanned"/"analyzed"),
+    ///   "pos_x"/"pos_y"/"pos_z" (float — node galactic position).
+    /// Only includes discoveries the player has found (present in Intel.Discoveries).
+    /// Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Array GetDiscoveryPhaseMarkersV0()
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.Discoveries == null) return;
+
+            foreach (var node in state.Nodes.Values)
+            {
+                if (node.SeededDiscoveryIds is null || node.SeededDiscoveryIds.Count == 0)
+                    continue;
+
+                var nodeId = node.Id ?? "";
+                if (string.IsNullOrEmpty(nodeId)) continue;
+
+                for (int i = 0; i < node.SeededDiscoveryIds.Count; i++)
+                {
+                    var did = node.SeededDiscoveryIds[i];
+                    if (string.IsNullOrEmpty(did)) continue;
+
+                    if (!state.Intel.Discoveries.TryGetValue(did, out var disc))
+                        continue;
+
+                    string phaseStr = disc.Phase switch
+                    {
+                        SimCore.Entities.DiscoveryPhase.Scanned => "scanned",
+                        SimCore.Entities.DiscoveryPhase.Analyzed => "analyzed",
+                        _ => "seen",
+                    };
+
+                    result.Add(new Godot.Collections.Dictionary
+                    {
+                        ["node_id"] = nodeId,
+                        ["discovery_id"] = disc.DiscoveryId ?? did,
+                        ["phase"] = phaseStr,
+                        ["pos_x"] = node.Position.X,
+                        ["pos_y"] = node.Position.Y,
+                        ["pos_z"] = node.Position.Z,
+                    });
+                }
+            }
+        }, 0);
+
+        return result;
+    }
+
     // ── GetSystemSearchV0 ──
     /// <summary>
     /// Returns Array of Dictionaries with "system_id" and "name" for systems

@@ -49,4 +49,7 @@ public class Edge
     public bool IsMutable { get; set; } = false;
     // GATE.T18.NARRATIVE.TOPOLOGY_SHIFT.001: Epoch counter incremented on each mutation.
     public int MutationEpoch { get; set; } = 0;
+
+    // GATE.S8.MEGAPROJECT.MAP_RULES.001: Speed multiplier from Trade Corridor (100 = normal, 130 = 30% faster).
+    public int SpeedMultiplierPct { get; set; } = 100;
 }

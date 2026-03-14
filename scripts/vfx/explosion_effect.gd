@@ -40,26 +40,27 @@ static func spawn(parent: Node, pos: Vector3) -> Node3D:
 
 
 ## Phase 1: Bright white flash that fades quickly.
+## FEEL_POST_FIX_9: All sizes scaled for camera altitude ~2500u.
 static func _add_flash(effect: Node3D) -> void:
 	var light := OmniLight3D.new()
 	light.name = "FlashLight"
 	light.light_color = Color(1.0, 0.95, 0.8)
 	light.light_energy = 8.0
-	light.omni_range = 40.0
+	light.omni_range = 400.0
 	light.omni_attenuation = 1.5
 	effect.add_child(light)
 
 	var flash_mesh := MeshInstance3D.new()
 	flash_mesh.name = "FlashSphere"
 	var sphere := SphereMesh.new()
-	sphere.radius = 3.0
-	sphere.height = 6.0
+	sphere.radius = 25.0
+	sphere.height = 50.0
 	flash_mesh.mesh = sphere
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.95, 0.8)
-	mat.emission_energy_multiplier = 5.0
+	mat.emission_energy_multiplier = 8.0
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.no_depth_test = true
 	flash_mesh.material_override = mat
@@ -83,6 +84,7 @@ static func _add_flash(effect: Node3D) -> void:
 
 
 ## Phase 2: Orange/yellow expanding fireball.
+## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
 static func _add_fireball(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "FireballParticles"
@@ -97,13 +99,13 @@ static func _add_fireball(effect: Node3D) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 0.5, 0)
 	proc_mat.spread = 180.0
-	proc_mat.initial_velocity_min = 15.0
-	proc_mat.initial_velocity_max = 45.0
+	proc_mat.initial_velocity_min = 150.0
+	proc_mat.initial_velocity_max = 350.0
 	proc_mat.gravity = Vector3(0, 0, 0)
-	proc_mat.scale_min = 1.5
-	proc_mat.scale_max = 4.0
-	proc_mat.damping_min = 3.0
-	proc_mat.damping_max = 6.0
+	proc_mat.scale_min = 3.0
+	proc_mat.scale_max = 8.0
+	proc_mat.damping_min = 10.0
+	proc_mat.damping_max = 20.0
 	# Orange-yellow gradient via color ramp.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(1.0, 0.9, 0.3, 1.0))   # Bright yellow
@@ -115,8 +117,8 @@ static func _add_fireball(effect: Node3D) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 1.2
-	mesh.height = 2.4
+	mesh.radius = 5.0
+	mesh.height = 10.0
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)
@@ -132,6 +134,7 @@ static func _add_fireball(effect: Node3D) -> void:
 
 
 ## Phase 3: Debris chunks flying outward.
+## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
 static func _add_debris(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "DebrisParticles"
@@ -146,20 +149,20 @@ static func _add_debris(effect: Node3D) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 0.3, 0)
 	proc_mat.spread = 180.0
-	proc_mat.initial_velocity_min = 30.0
-	proc_mat.initial_velocity_max = 70.0
-	proc_mat.gravity = Vector3(0, -2.0, 0)
-	proc_mat.scale_min = 0.8
-	proc_mat.scale_max = 2.5
+	proc_mat.initial_velocity_min = 200.0
+	proc_mat.initial_velocity_max = 500.0
+	proc_mat.gravity = Vector3(0, -5.0, 0)
+	proc_mat.scale_min = 2.0
+	proc_mat.scale_max = 5.0
 	proc_mat.angular_velocity_min = -720.0
 	proc_mat.angular_velocity_max = 720.0
-	proc_mat.damping_min = 1.0
-	proc_mat.damping_max = 3.0
+	proc_mat.damping_min = 5.0
+	proc_mat.damping_max = 12.0
 	proc_mat.color = Color(0.5, 0.4, 0.3, 1.0)  # Dull metallic
 	particles.process_material = proc_mat
 
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.8, 0.4, 0.5)
+	mesh.size = Vector3(4.0, 2.0, 3.0)
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)
@@ -175,6 +178,7 @@ static func _add_debris(effect: Node3D) -> void:
 
 
 ## Phase 4: Lingering smoke/ember particles.
+## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
 static func _add_smoke(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "SmokeParticles"
@@ -189,13 +193,13 @@ static func _add_smoke(effect: Node3D) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 1.0, 0)
 	proc_mat.spread = 60.0
-	proc_mat.initial_velocity_min = 8.0
-	proc_mat.initial_velocity_max = 18.0
-	proc_mat.gravity = Vector3(0, 0.5, 0)  # Drift upward in space
-	proc_mat.scale_min = 0.8
-	proc_mat.scale_max = 2.0
-	proc_mat.damping_min = 1.0
-	proc_mat.damping_max = 2.0
+	proc_mat.initial_velocity_min = 60.0
+	proc_mat.initial_velocity_max = 140.0
+	proc_mat.gravity = Vector3(0, 2.0, 0)  # Drift upward in space
+	proc_mat.scale_min = 2.0
+	proc_mat.scale_max = 5.0
+	proc_mat.damping_min = 3.0
+	proc_mat.damping_max = 8.0
 	# Smoke: grey with embers.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(1.0, 0.6, 0.2, 0.6))    # Embers
@@ -207,8 +211,8 @@ static func _add_smoke(effect: Node3D) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.8
-	mesh.height = 1.6
+	mesh.radius = 4.0
+	mesh.height = 8.0
 	particles.draw_pass_1 = mesh
 
 	effect.add_child(particles)

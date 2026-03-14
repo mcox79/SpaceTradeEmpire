@@ -351,6 +351,8 @@ public partial class SimBridge
                     // GATE.T30.GALPOP.HOSTILE_FIX.003: Compute hostile from faction reputation.
                     ["is_hostile"] = ComputeFleetHostileV0(state, fleet),
                     ["owner_id"] = fleet.OwnerId ?? "",
+                    ["final_destination_node_id"] = fleet.FinalDestinationNodeId ?? "",
+                    ["current_task"] = fleet.CurrentTask ?? "",
                 };
                 result.Add(d);
             }
@@ -547,6 +549,7 @@ public partial class SimBridge
         TryExecuteSafeRead(state =>
         {
             if (!state.Fleets.TryGetValue(shipId, out var fleet)) return;
+            bool hasR1 = state.StoryState?.HasRevelation(SimCore.Entities.RevelationFlags.R1_Module) ?? false;
 
             // Ship class display name from content registry.
             var classDef = SimCore.Content.ShipClassContentV0.GetById(fleet.ShipClassId ?? "");
@@ -588,6 +591,8 @@ public partial class SimBridge
                     {
                         var modDef = SimCore.Content.UpgradeContentV0.GetById(slot.InstalledModuleId);
                         displayName = modDef?.DisplayName ?? slot.InstalledModuleId;
+                        // GATE.X.COVER_STORY.BRIDGE_WIRE.001: Apply cover-story naming.
+                        displayName = ApplyCoverName(displayName, hasR1);
                     }
                     modDict["display_name"] = displayName;
 
@@ -732,6 +737,77 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.X.FLEET_UPKEEP.BRIDGE.001: Per-fleet upkeep cost and cycle info.
+    // Returns {fleet_id, upkeep_cost, cycle_ticks, is_docked, delinquent_cycles}.
+    public Godot.Collections.Dictionary GetFleetUpkeepV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["fleet_id"] = fleetId ?? "",
+            ["upkeep_cost"] = 0,
+            ["cycle_ticks"] = SimCore.Tweaks.FleetUpkeepTweaksV0.UpkeepCycleTicks,
+            ["is_docked"] = false,
+            ["delinquent_cycles"] = 0,
+        };
+        if (string.IsNullOrEmpty(fleetId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+
+            int baseCost = FleetUpkeepSystem.GetUpkeepForClass(fleet.ShipClassId);
+            bool isDocked = !fleet.IsMoving && !string.IsNullOrEmpty(fleet.CurrentNodeId);
+            int cost = isDocked
+                ? (int)((long)baseCost * SimCore.Tweaks.FleetUpkeepTweaksV0.DockedMultiplierBps / SimCore.Tweaks.FleetUpkeepTweaksV0.BpsDivisor)
+                : baseCost;
+            if (cost <= 0) cost = 1;
+
+            result["upkeep_cost"] = cost;
+            result["is_docked"] = isDocked;
+            result["delinquent_cycles"] = fleet.UpkeepDelinquentCycles;
+        });
+
+        return result;
+    }
+
+    // GATE.X.FLEET_UPKEEP.BRIDGE.001: Empire total upkeep.
+    // Returns {total_upkeep, fleet_count, cycle_ticks}.
+    public Godot.Collections.Dictionary GetTotalUpkeepV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["total_upkeep"] = 0,
+            ["fleet_count"] = 0,
+            ["cycle_ticks"] = SimCore.Tweaks.FleetUpkeepTweaksV0.UpkeepCycleTicks,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            int total = 0;
+            int count = 0;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (!string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+
+                int baseCost = FleetUpkeepSystem.GetUpkeepForClass(fleet.ShipClassId);
+                if (baseCost <= 0) continue;
+
+                bool isDocked = !fleet.IsMoving && !string.IsNullOrEmpty(fleet.CurrentNodeId);
+                int cost = isDocked
+                    ? (int)((long)baseCost * SimCore.Tweaks.FleetUpkeepTweaksV0.DockedMultiplierBps / SimCore.Tweaks.FleetUpkeepTweaksV0.BpsDivisor)
+                    : baseCost;
+                if (cost <= 0) cost = 1;
+
+                total += cost;
+                count++;
+            }
+            result["total_upkeep"] = total;
+            result["fleet_count"] = count;
+        });
+
+        return result;
+    }
+
     // GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fleet sustain status — fuel level, module sustain health.
     public Godot.Collections.Dictionary GetFleetSustainStatusV0(string fleetId)
     {
@@ -811,6 +887,84 @@ public partial class SimBridge
                 result["goods_count"] = nearest.Goods.Count;
             }
         }, 0);
+        return result;
+    }
+
+    // GATE.S5.LOSS_RECOVERY.CAPTURE_BRIDGE.001: Capture target queries + capture action.
+
+    /// <summary>
+    /// Returns NPC fleets at player's node with hull below capture threshold (10%).
+    /// [{fleet_id, ship_class_id, hull_hp, hull_hp_max, owner_id}]
+    /// </summary>
+    public Godot.Collections.Array GetCaptureTargetsV0()
+    {
+        var arr = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+                if (fleet.HullHpMax <= 0) continue;
+                if (!string.Equals(fleet.CurrentNodeId, player.CurrentNodeId, StringComparison.Ordinal)) continue;
+                int threshold = Math.Max(1, fleet.HullHpMax / 10);
+                if (fleet.HullHp > threshold) continue;
+
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["fleet_id"] = fleet.Id,
+                    ["ship_class_id"] = fleet.ShipClassId,
+                    ["hull_hp"] = fleet.HullHp,
+                    ["hull_hp_max"] = fleet.HullHpMax,
+                    ["owner_id"] = fleet.OwnerId,
+                });
+            }
+        }, 0);
+        return arr;
+    }
+
+    /// <summary>
+    /// Capture a disabled NPC ship. Returns {success, reason, captured_fleet_id}.
+    /// </summary>
+    public Godot.Collections.Dictionary CaptureShipV0(string targetFleetId)
+    {
+        var result = new Godot.Collections.Dictionary { ["success"] = false, ["reason"] = "", ["captured_fleet_id"] = "" };
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            // Pre-check for meaningful error messages
+            if (!state.Fleets.TryGetValue(targetFleetId, out var target))
+            {
+                result["reason"] = "target_not_found";
+                return result;
+            }
+            if (state.Haven == null || !state.Haven.Discovered || (int)state.Haven.Tier < 3)
+            {
+                result["reason"] = "haven_tier_insufficient";
+                return result;
+            }
+
+            var cmd = new SimCore.Commands.CaptureShipCommand(targetFleetId);
+            cmd.Execute(state);
+
+            // Check if capture was successful (target fleet removed)
+            if (!state.Fleets.ContainsKey(targetFleetId))
+            {
+                result["success"] = true;
+                // Find the captured fleet ID (last added to haven stored ships)
+                if (state.Haven.StoredShipIds.Count > 0)
+                    result["captured_fleet_id"] = state.Haven.StoredShipIds[state.Haven.StoredShipIds.Count - 1];
+            }
+            else
+            {
+                result["reason"] = "capture_failed";
+            }
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
         return result;
     }
 }

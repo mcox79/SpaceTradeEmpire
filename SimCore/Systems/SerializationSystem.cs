@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -22,6 +24,9 @@ public static class SerializationSystem
     }
 
     private static readonly ConditionalWeakTable<SimState, SeedBox> _seedIdentity = new();
+
+    // GATE.S9.SAVE.MIGRATION.001: Current save format version.
+    public const int CurrentVersion = 2;
 
     private sealed class SaveEnvelope
     {
@@ -58,6 +63,7 @@ public static class SerializationSystem
 
         var envelope = new SaveEnvelope
         {
+            Version = CurrentVersion,
             Seed = ExtractSeed(state),
             State = state
         };
@@ -74,6 +80,9 @@ public static class SerializationSystem
         // - Old format: { ...SimState... }
         if (LooksLikeEnvelope(json))
         {
+            // GATE.S9.SAVE.MIGRATION.001: Apply migration chain before deserializing state.
+            json = ApplyMigrations(json);
+
             var env = JsonSerializer.Deserialize<SaveEnvelope>(json, _options)
                 ?? throw new InvalidOperationException("Failed to deserialize save envelope.");
 
@@ -94,6 +103,57 @@ public static class SerializationSystem
 
         legacyState.HydrateAfterLoad();
         return legacyState;
+    }
+
+    // GATE.S9.SAVE.MIGRATION.001: Version-routed migration chain.
+    // Each step transforms the JSON from version N to N+1.
+    private static string ApplyMigrations(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        int version = 1; // STRUCTURAL: default version for envelopes without Version field
+        if (root.TryGetProperty("Version", out var vProp) && vProp.ValueKind == JsonValueKind.Number)
+            version = vProp.GetInt32();
+
+        if (version >= CurrentVersion)
+            return json;
+
+        // Parse into mutable DOM for transforms.
+        var mutableDoc = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+
+        if (version < 2) // STRUCTURAL: version threshold
+            MigrateV1ToV2(mutableDoc);
+
+        mutableDoc["Version"] = CurrentVersion;
+
+        return mutableDoc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    // v1→v2: Ensure Haven, Megaprojects, and SensorPylonNodes exist in State.
+    private static void MigrateV1ToV2(System.Text.Json.Nodes.JsonObject envelope)
+    {
+        if (!envelope.TryGetPropertyValue("State", out var stateNode) || stateNode is not System.Text.Json.Nodes.JsonObject state)
+            return;
+
+        // Ensure Haven object exists with defaults.
+        if (!state.ContainsKey("Haven"))
+            state["Haven"] = new System.Text.Json.Nodes.JsonObject();
+
+        // Ensure Haven.ResearchLabSlots array exists.
+        if (state["Haven"] is System.Text.Json.Nodes.JsonObject haven)
+        {
+            if (!haven.ContainsKey("ResearchLabSlots"))
+                haven["ResearchLabSlots"] = new System.Text.Json.Nodes.JsonArray();
+        }
+
+        // Ensure Megaprojects dict exists.
+        if (!state.ContainsKey("Megaprojects"))
+            state["Megaprojects"] = new System.Text.Json.Nodes.JsonObject();
+
+        // Ensure SensorPylonNodes array exists.
+        if (!state.ContainsKey("SensorPylonNodes"))
+            state["SensorPylonNodes"] = new System.Text.Json.Nodes.JsonArray();
     }
 
     private static bool LooksLikeEnvelope(string json)
@@ -240,5 +300,82 @@ public static class SerializationSystem
                 value = 0;
                 return false;
         }
+    }
+
+    // GATE.S9.SAVE.INTEGRITY.001: Corruption-safe deserialization with validation.
+    public sealed class DeserializeResult
+    {
+        public bool Success { get; init; }
+        public SimState? State { get; init; }
+        public string Error { get; init; } = "";
+        public List<string> Warnings { get; init; } = new();
+    }
+
+    public static DeserializeResult TryDeserializeSafe(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new DeserializeResult { Success = false, Error = "save_empty" };
+
+        try
+        {
+            // Quick JSON validity check.
+            using var checkDoc = JsonDocument.Parse(json);
+            if (checkDoc.RootElement.ValueKind != JsonValueKind.Object)
+                return new DeserializeResult { Success = false, Error = "save_not_object" };
+        }
+        catch (JsonException)
+        {
+            return new DeserializeResult { Success = false, Error = "save_malformed_json" };
+        }
+
+        SimState state;
+        try
+        {
+            state = Deserialize(json);
+        }
+        catch (Exception ex)
+        {
+            return new DeserializeResult { Success = false, Error = $"save_deserialize_failed: {ex.Message}" };
+        }
+
+        var warnings = ValidateState(state);
+        return new DeserializeResult { Success = true, State = state, Warnings = warnings };
+    }
+
+    // GATE.S9.SAVE.INTEGRITY.001: Post-load validation. Returns list of warnings (non-fatal).
+    public static List<string> ValidateState(SimState state)
+    {
+        var warnings = new List<string>();
+
+        if (state.Nodes.Count == 0)
+            warnings.Add("no_nodes");
+
+        if (state.PlayerCredits < 0)
+            warnings.Add("negative_credits");
+
+        // Validate fleet references.
+        foreach (var (fleetId, fleet) in state.Fleets)
+        {
+            if (!string.IsNullOrEmpty(fleet.CurrentNodeId) && !state.Nodes.ContainsKey(fleet.CurrentNodeId))
+                warnings.Add($"fleet_invalid_node:{fleetId}");
+        }
+
+        // Validate edge references.
+        foreach (var (edgeId, edge) in state.Edges)
+        {
+            if (!state.Nodes.ContainsKey(edge.FromNodeId))
+                warnings.Add($"edge_invalid_from:{edgeId}");
+            if (!state.Nodes.ContainsKey(edge.ToNodeId))
+                warnings.Add($"edge_invalid_to:{edgeId}");
+        }
+
+        // Validate megaproject node references.
+        foreach (var (mpId, mp) in state.Megaprojects)
+        {
+            if (!state.Nodes.ContainsKey(mp.NodeId))
+                warnings.Add($"megaproject_invalid_node:{mpId}");
+        }
+
+        return warnings;
     }
 }

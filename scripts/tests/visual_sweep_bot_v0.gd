@@ -73,6 +73,7 @@ enum Phase {
 	SYSTEM_2_CAPTURE,          # 13. System 2: different star type
 	SYSTEM_2_DOCK,
 	SYSTEM_2_MARKET_CAPTURE,   # 14. System 2 market
+	SETUP_REFIT,               # Install a module so Ship tab shows equipped state
 	SYSTEM_2_SHIP_TAB_SWITCH,  # Switch to Ship tab (unlocked after combat)
 	SYSTEM_2_SHIP_TAB_CAPTURE, # 15. Ship tab: refit, maintenance, modules
 	SYSTEM_2_UNDOCK,
@@ -84,13 +85,16 @@ enum Phase {
 	WARP_3_REBUILD,
 	SYSTEM_3_CAPTURE,          # 15. System 3: dock for variety
 	SYSTEM_3_DOCK_CAPTURE,     # 15b. System 3 market
+	SETUP_CONSTRUCTION,            # Start a construction project so Station tab shows progress
 	SYSTEM_3_STATION_TAB_SWITCH,   # Switch to Station tab (unlocked at 3+ nodes)
 	SYSTEM_3_STATION_TAB_CAPTURE,  # 16. Station tab: research, construction
+	SETUP_AUTOMATION,              # Create an auto-buy program so Intel tab shows active
 	SYSTEM_3_INTEL_TAB_SWITCH,     # Switch to Intel tab
 	SYSTEM_3_INTEL_TAB_CAPTURE,    # 17. Intel tab: trade routes, automation
 	SYSTEM_3_UNDOCK,
 
 	# --- Overlay Panels (keyboard-toggled) ---
+	SETUP_MISSION,                 # Accept a mission so journal shows active entry
 	OPEN_MISSION_JOURNAL,
 	MISSION_JOURNAL_CAPTURE,       # 18. Mission journal (J key)
 	CLOSE_MISSION_JOURNAL,
@@ -184,6 +188,8 @@ func _process(_delta: float) -> bool:
 				_screenshot = ScreenshotScript.new()
 				_audit = AuditScript.new()
 				_game_manager = root.get_node_or_null("GameManager")
+				if _game_manager:
+					_game_manager.set("_on_main_menu", false)
 				_init_navigation()
 				_phase = Phase.WAIT_LOCAL_SYSTEM
 			else:
@@ -430,6 +436,13 @@ func _process(_delta: float) -> bool:
 			if _polls >= SETTLE_ACTION:
 				_capture("system_2_dock")
 				_polls = 0
+				_phase = Phase.SETUP_REFIT
+
+		Phase.SETUP_REFIT:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_setup_refit()
+				_polls = 0
 				_phase = Phase.SYSTEM_2_SHIP_TAB_SWITCH
 
 		Phase.SYSTEM_2_SHIP_TAB_SWITCH:
@@ -499,6 +512,13 @@ func _process(_delta: float) -> bool:
 			if _polls >= SETTLE_ACTION:
 				_capture("system_3")
 				_polls = 0
+				_phase = Phase.SETUP_CONSTRUCTION
+
+		Phase.SETUP_CONSTRUCTION:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_setup_construction()
+				_polls = 0
 				_phase = Phase.SYSTEM_3_STATION_TAB_SWITCH
 
 		Phase.SYSTEM_3_STATION_TAB_SWITCH:
@@ -512,6 +532,13 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= SETTLE_TAB:
 				_capture("station_tab")
+				_polls = 0
+				_phase = Phase.SETUP_AUTOMATION
+
+		Phase.SETUP_AUTOMATION:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_setup_automation()
 				_polls = 0
 				_phase = Phase.SYSTEM_3_INTEL_TAB_SWITCH
 
@@ -533,6 +560,13 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= POST_CAPTURE:
 				_undock()
+				_polls = 0
+				_phase = Phase.SETUP_MISSION
+
+		Phase.SETUP_MISSION:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_setup_mission()
 				_polls = 0
 				_phase = Phase.OPEN_MISSION_JOURNAL
 
@@ -778,6 +812,104 @@ func _try_buy_good() -> void:
 			print(PREFIX + "BUY|%s" % _trade_good)
 			return
 	print(PREFIX + "WARN|no_goods_to_buy")
+
+
+# --- State setup helpers (populate UI before capture) ---
+
+func _setup_refit() -> void:
+	## Install a module into an empty slot so Ship tab shows equipped state.
+	if _bridge == null:
+		print(PREFIX + "WARN|setup_refit_no_bridge")
+		return
+	if not _bridge.has_method("GetPlayerFleetSlotsV0"):
+		print(PREFIX + "WARN|setup_refit_no_method")
+		return
+	var fleet_id := "fleet_trader_1"
+	var slots: Array = _bridge.call("GetPlayerFleetSlotsV0")
+	var avail: Array = _bridge.call("GetAvailableModulesV0")
+	# Try to install a module into any slot (empty or occupied after remove)
+	for i in range(slots.size()):
+		var slot: Dictionary = slots[i]
+		var slot_kind: String = str(slot.get("slot_kind", ""))
+		var current_id: String = str(slot.get("installed_module_id", ""))
+		# If slot occupied, remove first
+		if not current_id.is_empty():
+			_bridge.call("RemoveModuleV0", fleet_id, i)
+		# Find a module matching this slot kind
+		for mod in avail:
+			var mod_id: String = str(mod.get("module_id", ""))
+			if str(mod.get("slot_kind", "")) == slot_kind and mod_id != current_id:
+				var result: Dictionary = _bridge.call("InstallModuleV0", fleet_id, i, mod_id)
+				if bool(result.get("success", false)):
+					print(PREFIX + "SETUP_REFIT|slot=%d kind=%s installed=%s" % [i, slot_kind, mod_id])
+					return
+	print(PREFIX + "WARN|setup_refit_failed|slots=%d avail=%d" % [slots.size(), avail.size()])
+
+
+func _setup_construction() -> void:
+	## Start a construction project so Station tab shows in-progress work.
+	if _bridge == null:
+		print(PREFIX + "WARN|setup_construction_no_bridge")
+		return
+	if not _bridge.has_method("GetAvailableConstructionDefsV0"):
+		print(PREFIX + "WARN|setup_construction_no_method")
+		return
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id: String = str(ps.get("current_node_id", ""))
+	var defs: Array = _bridge.call("GetAvailableConstructionDefsV0")
+	for d in defs:
+		var def_id: String = str(d.get("def_id", ""))
+		var reason: String = str(_bridge.call("GetConstructionBlockReasonV0", def_id, node_id))
+		if reason.is_empty() or reason == "none" or reason == "<null>":
+			var result: Dictionary = _bridge.call("StartConstructionV0", def_id, node_id)
+			print(PREFIX + "SETUP_CONSTRUCTION|def=%s node=%s ok=%s" % [def_id, node_id, str(result.get("success", false))])
+			return
+	print(PREFIX + "WARN|setup_construction_all_blocked|defs=%d" % defs.size())
+
+
+func _setup_automation() -> void:
+	## Create an auto-buy program so Intel tab shows active automation.
+	if _bridge == null:
+		print(PREFIX + "WARN|setup_automation_no_bridge")
+		return
+	if not _bridge.has_method("CreateAutoBuyProgram"):
+		print(PREFIX + "WARN|setup_automation_no_method")
+		return
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id: String = str(ps.get("current_node_id", ""))
+	# Find a good available at this market
+	var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
+	for item in market:
+		if int(item.get("quantity", 0)) > 0:
+			var good_id: String = str(item.get("good_id", ""))
+			var pid: String = str(_bridge.call("CreateAutoBuyProgram", node_id, good_id, 1, 30))
+			print(PREFIX + "SETUP_AUTOMATION|good=%s pid=%s" % [good_id, pid])
+			return
+	print(PREFIX + "WARN|setup_automation_no_goods")
+
+
+func _setup_mission() -> void:
+	## Accept a mission so Mission Journal shows an active entry.
+	if _bridge == null:
+		print(PREFIX + "WARN|setup_mission_no_bridge")
+		return
+	if not _bridge.has_method("GetMissionListV0"):
+		print(PREFIX + "WARN|setup_mission_no_method")
+		return
+	# Check if already have an active mission
+	if _bridge.has_method("GetActiveMissionV0"):
+		var active: Dictionary = _bridge.call("GetActiveMissionV0")
+		if not str(active.get("mission_id", "")).is_empty():
+			print(PREFIX + "SETUP_MISSION|already_active=%s" % str(active.get("mission_id", "")))
+			return
+	var missions: Array = _bridge.call("GetMissionListV0")
+	for m in missions:
+		var mid: String = str(m.get("mission_id", ""))
+		if not mid.is_empty():
+			var result = _bridge.call("AcceptMissionV0", mid)
+			print(PREFIX + "SETUP_MISSION|id=%s ok=%s" % [mid, str(result)])
+			return
+	print(PREFIX + "WARN|setup_mission_no_available")
 
 
 # --- NPC showcase helpers ---

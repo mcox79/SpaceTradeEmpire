@@ -77,6 +77,9 @@ public static class StrategicResolverV0
         // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Mutable zone armor copies.
         int[] aZone = (int[])fleetA.ZoneArmorHp.Clone();
         int[] bZone = (int[])fleetB.ZoneArmorHp.Clone();
+        // GATE.S7.COMBAT_DEPTH2.FORE_KILL.001: Only track fore-kill for ships that have zone armor.
+        bool aHasZoneArmor = Array.Exists(fleetA.ZoneArmorHp, z => z > 0); // STRUCTURAL: check
+        bool bHasZoneArmor = Array.Exists(fleetB.ZoneArmorHp, z => z > 0); // STRUCTURAL: check
         var aStance = CombatSystem.DetermineStance(fleetA.ShipClassId);
         var bStance = CombatSystem.DetermineStance(fleetB.ShipClassId);
 
@@ -119,7 +122,11 @@ public static class StrategicResolverV0
                 targetWeaponFamilyForPd: DetermineTargetFamily(fleetB.Weapons),
                 damagePct: aDamagePct,
                 heat: ref aHeat,
-                spinRpm: fleetA.SpinRpm); // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
+                spinRpm: fleetA.SpinRpm,
+                targetEvasionBps: fleetB.EvasionBps,
+                round: round,
+                shooterId: "A",
+                shooterZoneArmor: aHasZoneArmor ? aZone : null); // GATE.S7.COMBAT_DEPTH2
 
             // ── Fleet B fires back (only if still alive) ──
             if (bHull > STRUCT_ZERO)
@@ -134,7 +141,11 @@ public static class StrategicResolverV0
                     targetWeaponFamilyForPd: DetermineTargetFamily(fleetA.Weapons),
                     damagePct: bDamagePct,
                     heat: ref bHeat,
-                    spinRpm: fleetB.SpinRpm); // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
+                    spinRpm: fleetB.SpinRpm,
+                    targetEvasionBps: fleetA.EvasionBps,
+                    round: round,
+                    shooterId: "B",
+                    shooterZoneArmor: bHasZoneArmor ? bZone : null); // GATE.S7.COMBAT_DEPTH2
             }
 
             // GATE.S7.COMBAT_PHASE2.RADIATOR.001: If aft zone is destroyed, lose radiator bonus.
@@ -265,7 +276,11 @@ public static class StrategicResolverV0
         CombatSystem.TargetWeaponFamily targetWeaponFamilyForPd,
         int damagePct,
         ref int heat,
-        int spinRpm = 0) // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
+        int spinRpm = 0, // GATE.S7.COMBAT_PHASE2.SPIN_TURN.001
+        int targetEvasionBps = 0, // GATE.S7.COMBAT_DEPTH2.TRACKING.001
+        int round = 0, // GATE.S7.COMBAT_DEPTH2.DAMAGE_VAR.001
+        string shooterId = "", // GATE.S7.COMBAT_DEPTH2.TRACKING.001
+        int[]? shooterZoneArmor = null) // GATE.S7.COMBAT_DEPTH2.FORE_KILL.001
     {
         // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Lockout — no weapons fire.
         if (damagePct <= STRUCT_ZERO)
@@ -282,6 +297,33 @@ public static class StrategicResolverV0
             var weapon = weapons[wi];
             if (targetHull <= STRUCT_ZERO)
                 break;
+
+            // GATE.S7.COMBAT_DEPTH2.TRACKING.001: Hit check via FNV1a64.
+            int hitBps = Math.Clamp(weapon.TrackingBps - targetEvasionBps,
+                CombatDepthTweaksV0.MinHitBps, CombatDepthTweaksV0.MaxHitBps);
+            ulong hitHash = CombatSystem.Fnv1a64Combat(round, wi, shooterId);
+            int hitRoll = (int)(hitHash % 10000); // STRUCTURAL: 10000 bps = 100%
+            if (hitRoll >= hitBps)
+            {
+                // Miss — weapon fires but fails to connect.
+                heat += weapon.HeatPerShot;
+                continue;
+            }
+
+            // GATE.S7.COMBAT_DEPTH2.FORE_KILL.001: Fore zone soft-kill — shooter's own fore zone.
+            // If the shooter's fore zone armor is depleted, fore-mounted weapons go offline.
+            if (shooterZoneArmor != null && shooterZoneArmor[(int)ZoneFacing.Fore] <= STRUCT_ZERO)
+            {
+                // Only fore-slot weapons affected (first ~50% of weapons for Charge stance ships).
+                var shooterFacing = CombatSystem.PickFacing(CombatSystem.CombatStance.Charge, wi, weaponCount);
+                if (shooterFacing == ZoneFacing.Fore)
+                {
+                    heat += weapon.HeatPerShot;
+                    continue;
+                }
+            }
+
+            var facing = CombatSystem.PickFacing(targetStance, wi, weaponCount);
 
             // GATE.S5.COMBAT.COUNTER_FAMILY.001: Apply PD counter bonus before zone routing.
             int effectiveBaseDmg = weapon.BaseDamage;
@@ -306,17 +348,25 @@ public static class StrategicResolverV0
                 effectiveBaseDmg = (int)((long)effectiveBaseDmg * cadenceBps / 10000); // STRUCTURAL: 10000 = 100%
             }
 
-            // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: Pick facing based on defender's stance.
-            var facing = CombatSystem.PickFacing(targetStance, wi, weaponCount);
+            // GATE.S7.COMBAT_DEPTH2.DAMAGE_VAR.001: ±20% deterministic damage variance.
+            ulong varHash = CombatSystem.Fnv1a64Combat(round + 7919, wi + 1301, shooterId); // STRUCTURAL: offset primes for independence from hit hash
+            int varRoll = (int)(varHash % (uint)(CombatDepthTweaksV0.VarianceRangeBps * 2 + 1)); // STRUCTURAL: range [0, 2*range]
+            int varOffset = varRoll - CombatDepthTweaksV0.VarianceRangeBps; // center around 0
+            effectiveBaseDmg = (int)((long)effectiveBaseDmg * (10000 + varOffset) / 10000); // STRUCTURAL: 10000 bps = 100%
+            if (effectiveBaseDmg < STRUCT_ZERO) effectiveBaseDmg = STRUCT_ZERO;
+
+            // GATE.S18.SHIP_MODULES.COMBAT_ZONES.001: facing already picked above.
             int zoneHp = targetZoneArmor[(int)facing];
 
+            // GATE.S7.COMBAT_DEPTH2.ARMOR_PEN.001: Pass armor pen to zone damage calc.
             var dmg = CombatSystem.CalcDamageWithZoneArmor(
                 effectiveBaseDmg,
                 weapon.Family,
                 targetShield,
                 zoneHp,
                 targetHull,
-                facing);
+                facing,
+                weapon.ArmorPenBps);
 
             // Apply escort shield damage reduction to the shield component only.
             int shieldDmg = dmg.ShieldDmg;

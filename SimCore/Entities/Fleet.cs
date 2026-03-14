@@ -182,6 +182,12 @@ public class Fleet
     // Higher RPM = more gyroscopic inertia = degraded turn rate.
     public int SpinRpm { get; set; } = 0;
 
+    // GATE.S8.LATTICE_DRONES.ENTITY.001: Lattice drone flag. Drones spawn from instability.
+    public bool IsLatticeDrone { get; set; }
+    public int LatticeDroneSpawnTick { get; set; }
+    public int LatticeDroneGraceTicksRemaining { get; set; }
+    public int LatticeDroneLastEngagementTick { get; set; } = -1;
+
     // Dedicated fuel tank — consumed during travel, refilled at stations.
     // FuelCapacity set from ShipClassDef.BaseFuelCapacity + module bonuses.
     public int FuelCurrent { get; set; } = 0;
@@ -189,6 +195,9 @@ public class Fleet
 
     // GATE.S8.HAVEN.HANGAR.001: True when this fleet is stored in Haven hangar (not active).
     public bool IsStored { get; set; } = false;
+
+    // GATE.X.FLEET_UPKEEP.DRAIN.001: Consecutive upkeep cycles where credits were insufficient.
+    public int UpkeepDelinquentCycles { get; set; } = 0;
 
     [JsonIgnore]
     public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;

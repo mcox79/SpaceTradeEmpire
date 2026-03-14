@@ -282,58 +282,54 @@ public static class MarketInitGen
 
         int minTargetMargin = Tweaks.MarketTweaksV0.MinStarterMargin;
 
-        // Check if any good already has sufficient margin at any neighbor.
-        bool hasProfitableTrade = false;
-        string bestGood = "";
-        string bestNeighborId = "";
-        int bestExistingMargin = int.MinValue;
+        // Find the cheapest good at the starting market — this is what new players buy.
+        string cheapestGood = "";
+        int cheapestPrice = int.MaxValue;
+        foreach (var goodId in startMarket.Inventory.Keys)
+        {
+            int buyPrice = startMarket.GetBuyPrice(goodId);
+            if (buyPrice < cheapestPrice)
+            {
+                cheapestPrice = buyPrice;
+                cheapestGood = goodId;
+            }
+        }
 
+        if (string.IsNullOrEmpty(cheapestGood)) return;
+
+        // Guarantee profitable margin for the cheapest good at EVERY neighbor.
+        // A new player will pick the cheapest good and travel to any neighbor.
         foreach (var nid in neighborIds)
         {
             if (!state.Markets.TryGetValue(nid, out var neighborMarket)) continue;
 
-            // Check all goods available at the starting market.
-            foreach (var goodId in startMarket.Inventory.Keys)
+            // Ensure the good exists at the neighbor.
+            if (!neighborMarket.Inventory.ContainsKey(cheapestGood))
+                neighborMarket.Inventory[cheapestGood] = Market.IdealStock;
+
+            int buyAtStart = startMarket.GetBuyPrice(cheapestGood);
+            int sellAtNeighbor = neighborMarket.GetSellPrice(cheapestGood);
+            int margin = sellAtNeighbor - buyAtStart;
+
+            if (margin >= minTargetMargin) continue; // Already profitable here.
+
+            // Push start stock high (low buy price) and neighbor stock low (high sell price).
+            startMarket.Inventory[cheapestGood] = Math.Max(
+                startMarket.Inventory.GetValueOrDefault(cheapestGood),
+                Tweaks.MarketTweaksV0.StarterHighStock);
+            neighborMarket.Inventory[cheapestGood] = Math.Min(
+                neighborMarket.Inventory.GetValueOrDefault(cheapestGood),
+                Tweaks.MarketTweaksV0.StarterLowStock);
+
+            // Post-validate: if still below target, force extreme stock levels.
+            int newBuy = startMarket.GetBuyPrice(cheapestGood);
+            int newSell = neighborMarket.GetSellPrice(cheapestGood);
+            if (newSell - newBuy < minTargetMargin)
             {
-                int buyAtStart = startMarket.GetBuyPrice(goodId);
-                int sellAtNeighbor = neighborMarket.GetSellPrice(goodId);
-                int margin = sellAtNeighbor - buyAtStart;
-
-                if (margin >= minTargetMargin)
-                {
-                    hasProfitableTrade = true;
-                    break;
-                }
-
-                if (margin > bestExistingMargin)
-                {
-                    bestExistingMargin = margin;
-                    bestGood = goodId;
-                    bestNeighborId = nid;
-                }
+                startMarket.Inventory[cheapestGood] = Tweaks.MarketTweaksV0.StarterHighStock * 2;
+                neighborMarket.Inventory[cheapestGood] = 1;
             }
-            if (hasProfitableTrade) break;
         }
-
-        if (hasProfitableTrade) return; // Already profitable — no adjustment needed.
-
-        // No profitable trade found. Create one by increasing stock at start (lowering buy price)
-        // and decreasing stock at neighbor (raising sell price).
-        if (string.IsNullOrEmpty(bestGood) || string.IsNullOrEmpty(bestNeighborId)) return;
-        if (!state.Markets.TryGetValue(bestNeighborId, out var bestNeighborMarket)) return;
-
-        // Ensure the good exists in the neighbor's inventory.
-        if (!bestNeighborMarket.Inventory.ContainsKey(bestGood))
-            bestNeighborMarket.Inventory[bestGood] = STRUCT_ZERO_STOCK;
-
-        // Increase starting stock to push buy price down, decrease neighbor stock to push sell price up.
-        // Target: buy ~5 cr, sell ~80 cr → margin ~75 cr/unit.
-        startMarket.Inventory[bestGood] = Math.Max(
-            startMarket.Inventory.GetValueOrDefault(bestGood),
-            Tweaks.MarketTweaksV0.StarterHighStock);
-        bestNeighborMarket.Inventory[bestGood] = Math.Min(
-            bestNeighborMarket.Inventory.GetValueOrDefault(bestGood),
-            Tweaks.MarketTweaksV0.StarterLowStock);
     }
 
     public static void ValidateCatalogBinding(SimState state, ContentRegistryLoader.ContentRegistryV0? registry)

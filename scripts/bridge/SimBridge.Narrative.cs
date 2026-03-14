@@ -43,6 +43,7 @@ public partial class SimBridge
 
             result["promoted"] = fo.IsPromoted;
             result["type"] = fo.CandidateType.ToString();
+            result["archetype"] = fo.CandidateType.ToString();
             result["tier"] = fo.Tier.ToString();
             result["score"] = fo.RelationshipScore;
             result["blind_spot_exposed"] = fo.BlindSpotExposed;
@@ -511,6 +512,48 @@ public partial class SimBridge
             {
                 int diff = Math.Abs(stdPrice - fracPrice);
                 result["divergence_pct"] = diff * 100 / stdPrice;
+            }
+        }, 0);
+
+        return result;
+    }
+
+    // ── Active Leads ──────────────────────────────────────────────
+
+    /// <summary>
+    /// GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Returns up to 3 active rumor leads
+    /// from IntelBook for HUD display: [{lead_id, source_verb, location_token, payoff_token, node_name}].
+    /// </summary>
+    public Godot.Collections.Array GetActiveLeadsV0()
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.RumorLeads is null) return;
+
+            int count = 0;
+            foreach (var kv in state.Intel.RumorLeads)
+            {
+                if (count >= 3) break;
+                var lead = kv.Value;
+                if (lead.Status != RumorLeadStatus.Active) continue;
+
+                string locationToken = lead.Hint?.CoarseLocationToken ?? "";
+                string nodeName = locationToken;
+                // Resolve node display name if location token is a node ID.
+                if (!string.IsNullOrEmpty(locationToken) && state.Nodes.TryGetValue(locationToken, out var node))
+                    nodeName = node.Name ?? locationToken;
+
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["lead_id"] = lead.LeadId,
+                    ["source_verb"] = lead.SourceVerbToken ?? "",
+                    ["location_token"] = locationToken,
+                    ["payoff_token"] = lead.Hint?.ImpliedPayoffToken ?? "",
+                    ["node_name"] = nodeName,
+                });
+                count++;
             }
         }, 0);
 
