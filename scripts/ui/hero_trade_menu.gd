@@ -357,12 +357,15 @@ func _apply_tab_disclosure_v0() -> void:
 	# Ship (idx 2): visible after first mission or combat
 	# Station (idx 3): visible after 3+ nodes visited
 	# Intel (idx 4): visible after 3+ nodes visited
+	var show_diplomacy: bool = int(state.get("nodes_visited", 0)) >= 3
 	var show_flags: Array = [
 		true,
 		bool(state.get("show_jobs_tab", true)),
 		bool(state.get("show_ship_tab", true)),
 		bool(state.get("show_station_tab", true)),
 		bool(state.get("show_intel_tab", true)),
+		true,  # Haven (idx 5) — context-gated elsewhere
+		show_diplomacy,  # Diplomacy (idx 6) — hidden until 3+ nodes
 	]
 	for i in range(mini(_tab_buttons.size(), show_flags.size())):
 		_tab_buttons[i].visible = show_flags[i]
@@ -440,7 +443,18 @@ func open_market_v0(node_id: String) -> void:
 	if _is_haven_dock and _haven_panel and _haven_panel.has_method("refresh"):
 		_haven_panel.call("refresh", node_id)
 
-	_switch_dock_tab(0)  # Always open on Market tab
+	# Default to Station overview tab (3) post-tutorial. During tutorial, Market (0).
+	var _default_tab := 3
+	var _tut_bridge = get_node_or_null("/root/SimBridge")
+	if _tut_bridge and _tut_bridge.has_method("GetTutorialStateV0"):
+		var _tut_st: Dictionary = _tut_bridge.call("GetTutorialStateV0")
+		var _tut_phase: String = str(_tut_st.get("phase_name", ""))
+		if _tut_phase != "" and _tut_phase != "Tutorial_Complete":
+			_default_tab = 0  # Market tab during entire tutorial
+	# Respect tab disclosure: if default tab is hidden, fall back to Market (0).
+	if _default_tab < _tab_buttons.size() and not _tab_buttons[_default_tab].visible:
+		_default_tab = 0
+	_switch_dock_tab(_default_tab)
 
 	# GATE.S7.PLANET.UI.001: Detect planet vs station for title + info.
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -511,16 +525,33 @@ func open_market_v0(node_id: String) -> void:
 		else:
 			_planet_info_label.visible = false
 
-	# GATE.S5.SEC_LANES.UI.001: Security readout for docked location
-	if _security_label and bridge and bridge.has_method("GetNodeSecurityBandV0"):
-		var band: String = str(bridge.call("GetNodeSecurityBandV0", node_id))
-		var sec_names := {"hostile": "Threat: High", "dangerous": "Threat: Elevated", "safe": "Secure Space"}
-		_security_label.text = sec_names.get(band, "Threat: Moderate")
-		_security_label.visible = true
-		_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
+	# Check if tutorial is active — hide threat/faction UI that hasn't been introduced.
+	var _in_tutorial := false
+	if _tut_bridge and _tut_bridge.has_method("GetTutorialStateV0"):
+		var _ts: Dictionary = _tut_bridge.call("GetTutorialStateV0")
+		var _tp: String = str(_ts.get("phase_name", ""))
+		if _tp != "" and _tp != "Tutorial_Complete":
+			_in_tutorial = true
 
-	# GATE.S7.FACTION.UI_REPUTATION.001: Faction tariff & access display
-	if bridge and bridge.has_method("GetTerritoryAccessV0"):
+	# GATE.S5.SEC_LANES.UI.001: Security readout for docked location.
+	# Hidden during tutorial — threat is not introduced yet and overwhelms new players.
+	if _security_label and bridge and bridge.has_method("GetNodeSecurityBandV0"):
+		if _in_tutorial:
+			_security_label.visible = false
+		else:
+			var band: String = str(bridge.call("GetNodeSecurityBandV0", node_id))
+			var sec_names := {"hostile": "Threat: High", "dangerous": "Threat: Elevated", "safe": "Secure Space"}
+			_security_label.text = sec_names.get(band, "Threat: Moderate")
+			_security_label.visible = true
+			_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
+
+	# GATE.S7.FACTION.UI_REPUTATION.001: Faction tariff & access display.
+	# Hidden during tutorial — factions not introduced yet.
+	if _in_tutorial:
+		if _tariff_label: _tariff_label.visible = false
+		if _rep_tier_label: _rep_tier_label.visible = false
+		if _access_denied_label: _access_denied_label.visible = false
+	elif bridge and bridge.has_method("GetTerritoryAccessV0"):
 		var access: Dictionary = bridge.call("GetTerritoryAccessV0", node_id)
 		var faction_id: String = str(access.get("faction_id", ""))
 		var can_trade: bool = bool(access.get("can_trade", true))
@@ -732,6 +763,21 @@ func _rebuild_rows() -> void:
 			if typeof(item) == TYPE_DICTIONARY:
 				cargo_held[str(item.get("good_id", ""))] = int(item.get("qty", 0))
 
+	# Pre-scan: find cheapest non-embargoed good to highlight as best buy.
+	var _best_buy_id: String = ""
+	var _best_buy_price: int = 999999
+	for entry in view:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var gid: String = str(entry.get("good_id", ""))
+		var bp: int = int(entry.get("buy_price", 0))
+		var emb: bool = false
+		if _bridge_ref and _bridge_ref.has_method("IsGoodEmbargoedV0"):
+			emb = bool(_bridge_ref.call("IsGoodEmbargoedV0", _market_node_id, gid))
+		if not emb and bp > 0 and bp < _best_buy_price:
+			_best_buy_price = bp
+			_best_buy_id = gid
+
 	for entry in view:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -745,12 +791,17 @@ func _rebuild_rows() -> void:
 		if _bridge_ref and _bridge_ref.has_method("IsGoodEmbargoedV0"):
 			is_embargoed = bool(_bridge_ref.call("IsGoodEmbargoedV0", _market_node_id, good_id))
 
+		var is_best_buy: bool = (good_id == _best_buy_id)
+
 		var row = HBoxContainer.new()
 
 		var lbl_id = Label.new()
 		if is_embargoed:
 			lbl_id.text = _format_display_name(good_id) + " [EMBARGOED]"
 			lbl_id.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		elif is_best_buy:
+			lbl_id.text = _format_display_name(good_id) + "  [BEST BUY]"
+			lbl_id.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
 		else:
 			lbl_id.text = _format_display_name(good_id)
 		lbl_id.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -761,10 +812,10 @@ func _rebuild_rows() -> void:
 		lbl_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if is_embargoed:
 			lbl_buy.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		elif is_best_buy:
+			lbl_buy.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
 		else:
 			# Color-code buy prices: green = surplus (good buy), red = scarce (bad buy).
-			# Stock > IdealStock (50) means price is below base → green (buy opportunity).
-			# Stock < 20 means price is well above base → red (avoid buying here).
 			if stock > 50:
 				lbl_buy.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
 			elif stock < 20:
@@ -962,6 +1013,11 @@ func _rebuild_production_info() -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if not bridge or not bridge.has_method("GetNodeIndustryV0"):
 		return
+	# Gate production chains behind onboarding disclosure (hidden until 3+ nodes).
+	if bridge.has_method("GetOnboardingStateV0"):
+		var onboard: Dictionary = bridge.call("GetOnboardingStateV0")
+		if not onboard.is_empty() and not bool(onboard.get("show_production_info", true)):
+			return
 	var industry: Array = bridge.call("GetNodeIndustryV0", _market_node_id)
 	if industry.size() == 0:
 		return

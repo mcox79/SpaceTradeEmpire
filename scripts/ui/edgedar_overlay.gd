@@ -23,6 +23,8 @@ var _indicators: Array = []  # Array of {root: Control, arrow: ArrowDraw, label:
 var _game_manager = null
 var _poi_cache: Array = []
 var _poi_refresh_timer: float = 0.0
+# Tutorial trade waypoint: set by tutorial_director to point to sell destination.
+var tutorial_target_node_id: String = ""
 
 
 func _ready() -> void:
@@ -114,6 +116,17 @@ func _gather_pois(camera: Camera3D) -> Array:
 					"dist": dist,
 					"label": "%du" % int(dist)
 				})
+
+	# Tutorial trade waypoint: gold arrow to sell destination.
+	if not tutorial_target_node_id.is_empty():
+		var gate_nodes_tut = get_tree().get_nodes_in_group("LaneGate")
+		for gate in gate_nodes_tut:
+			var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
+			if gate_target == tutorial_target_node_id and gate is Node3D:
+				var dist: float = cam_pos.distance_to(gate.global_position)
+				if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
+					result.append({"pos": gate.global_position, "type": PoiType.QUEST_TARGET, "dist": dist, "label": "Sell here"})
+				break
 
 	# GATE.S19.ONBOARD.WAYPOINT.011: Mission objective waypoint.
 	# If player has an active mission with a target node, show a QUEST_TARGET POI

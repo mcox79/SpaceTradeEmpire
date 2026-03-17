@@ -61,7 +61,7 @@ static func build_ship(role: int, faction_color: Color = Color.WHITE, fleet_hash
 # ═══════════════════════════════════════════════════════════
 
 ## Player ship: sleek fighter with swept wings and twin tail fins.
-static func _build_player_ship(root: Node3D, hull: Color, accent: Color, h: int) -> void:
+static func _build_player_ship(root: Node3D, hull: Color, accent: Color, _h: int) -> void:
 	# Main fuselage — elongated tapered body.
 	var fuse := _create_fuselage(2.0, 5.5, 0.7, 0.20, hull)
 	root.add_child(fuse)
@@ -99,7 +99,7 @@ static func _build_player_ship(root: Node3D, hull: Color, accent: Color, h: int)
 
 
 ## Trader: utilitarian freighter with wide flat hull and stubby wings.
-static func _build_trader_ship(root: Node3D, hull: Color, accent: Color, h: int) -> void:
+static func _build_trader_ship(root: Node3D, hull: Color, accent: Color, _h: int) -> void:
 	# Wider, flatter fuselage.
 	var fuse := _create_fuselage(2.2, 5.0, 0.9, 0.45, hull)
 	root.add_child(fuse)
@@ -128,7 +128,7 @@ static func _build_trader_ship(root: Node3D, hull: Color, accent: Color, h: int)
 
 
 ## Hauler: massive heavy freighter with blocky hull and side nacelles.
-static func _build_hauler_ship(root: Node3D, hull: Color, accent: Color, h: int) -> void:
+static func _build_hauler_ship(root: Node3D, hull: Color, accent: Color, _h: int) -> void:
 	# Thick, blocky fuselage — less taper.
 	var fuse := _create_fuselage(3.0, 6.0, 1.3, 0.55, hull)
 	root.add_child(fuse)
@@ -165,7 +165,7 @@ static func _build_hauler_ship(root: Node3D, hull: Color, accent: Color, h: int)
 
 
 ## Patrol: aggressive interceptor with forward-swept wings and angular hull.
-static func _build_patrol_ship(root: Node3D, hull: Color, accent: Color, h: int) -> void:
+static func _build_patrol_ship(root: Node3D, hull: Color, accent: Color, _h: int) -> void:
 	# Narrow, angular fuselage — sharp taper.
 	var fuse := _create_fuselage(1.6, 6.0, 0.55, 0.10, hull)
 	root.add_child(fuse)

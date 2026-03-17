@@ -1706,6 +1706,12 @@ public partial class SimBridge
             result["show_fuel_hud"] = nodesVisited > 0;
             result["show_faction_hud"] = nodesVisited >= 2;
 
+            // Extended HUD disclosure — hide advanced UI until player is ready
+            result["show_research_hud"] = nodesVisited >= 5;
+            result["show_leads_hud"] = nodesVisited >= 3;
+            result["show_risk_hud"] = nodesVisited >= 2;
+            result["show_production_info"] = nodesVisited >= 3;
+
             _cachedOnboardingStateV0 = result;
         }, 0);
         if (result.Count == 0) return _cachedOnboardingStateV0;

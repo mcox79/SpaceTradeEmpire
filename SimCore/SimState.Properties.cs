@@ -337,6 +337,9 @@ public partial class SimState
     // GATE.S8.STORY_STATE.ENTITY.001: Story progression state (5 Recontextualizations).
     [JsonInclude] public Entities.StoryState StoryState { get; set; } = new();
 
+    // Tutorial state machine (null for existing saves / tutorial skipped).
+    [JsonInclude] public Entities.TutorialState? TutorialState { get; set; }
+
     // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context cache.
     [JsonInclude] public Dictionary<string, Systems.StationContext> StationContexts { get; set; } = new(StringComparer.Ordinal);
 

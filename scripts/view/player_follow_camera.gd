@@ -157,7 +157,6 @@ func _physics_process(delta: float) -> void:
 	# === Detect flyby→normal transition: start post-cinematic soft settle ===
 	if _was_flyby_active and not flyby_active:
 		_post_cinematic_timer = POST_CINEMATIC_HOLD_TIME
-		print("DEBUG_SPRING|post_cinematic_settle_started|hold=%.1f" % POST_CINEMATIC_HOLD_TIME)
 	_was_flyby_active = flyby_active
 	if _post_cinematic_timer > 0.0:
 		_post_cinematic_timer -= delta
@@ -655,21 +654,13 @@ func _compute_warp_transit_targets(_delta: float) -> void:
 	_spring_target_up = up_vec
 	_spring_omega = SPRING_OMEGA_TRANSIT
 
-func _compute_galaxy_map_targets(delta: float) -> void:
+func _compute_galaxy_map_targets(_delta: float) -> void:
 	var anchor: Vector3 = Vector3.ZERO
 	if _target and is_instance_valid(_target):
 		anchor = _target.global_position
 
-	# WASD panning — speed scales proportional to altitude for consistent feel.
-	var pan_speed_scaled: float = GALAXY_MAP_PAN_SPEED * (_altitude / STRATEGIC_ALTITUDE)
-	if Input.is_action_pressed("ship_thrust_fwd"):
-		_galaxy_map_pan_offset.z -= pan_speed_scaled * delta
-	if Input.is_action_pressed("ship_thrust_back"):
-		_galaxy_map_pan_offset.z += pan_speed_scaled * delta
-	if Input.is_action_pressed("ship_turn_left"):
-		_galaxy_map_pan_offset.x -= pan_speed_scaled * delta
-	if Input.is_action_pressed("ship_turn_right"):
-		_galaxy_map_pan_offset.x += pan_speed_scaled * delta
+	# Galaxy map pans by click-drag only (handled in _unhandled_input).
+	# WASD is reserved for ship controls — no keyboard panning on the map.
 
 	var desired_pos := anchor + _galaxy_map_pan_offset
 	desired_pos.y = _altitude

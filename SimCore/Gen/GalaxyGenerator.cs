@@ -170,10 +170,74 @@ public static class GalaxyGenerator
         // Phase 11: GATE.S8.ADAPTATION.PLACEMENT.001 — Seed adaptation fragments across galaxy.
         DiscoverySeedGen.SeedAdaptationFragmentsV0(state, state.InitialSeed);
 
+        // Phase 12: Pre-run NPC trade evaluations so fleets start with active routes.
+        // Without this, all NPC ships sit idle at tick 0 — breaks immersion on first system visit.
+        // Run enough cycles for each fleet to pick a destination and begin traveling.
+        PreRunNpcTradeRoutesV0(state);
+
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
         {
             throw new InvalidOperationException(report);
+        }
+    }
+
+    /// <summary>
+    /// Assign NPC fleets initial destinations during worldgen so they start mid-route.
+    /// Each fleet picks a random adjacent node as its first trade target.
+    /// Without this, all NPC ships sit idle at tick 0 — breaks immersion.
+    /// </summary>
+    private static void PreRunNpcTradeRoutesV0(SimState state)
+    {
+        // Build adjacency map from edges for quick neighbor lookup.
+        var adjacency = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var e in state.Edges.Values)
+        {
+            if (!adjacency.TryGetValue(e.FromNodeId, out var fromList))
+            {
+                fromList = new List<string>();
+                adjacency[e.FromNodeId] = fromList;
+            }
+            fromList.Add(e.ToNodeId);
+
+            if (!adjacency.TryGetValue(e.ToNodeId, out var toList))
+            {
+                toList = new List<string>();
+                adjacency[e.ToNodeId] = toList;
+            }
+            toList.Add(e.FromNodeId);
+        }
+
+        var fleetIds = new List<string>(state.Fleets.Keys);
+        fleetIds.Sort(StringComparer.Ordinal);
+
+        foreach (var fleetId in fleetIds)
+        {
+            var fleet = state.Fleets[fleetId];
+            if (fleet.OwnerId == "player") continue;
+            if (string.IsNullOrEmpty(fleet.CurrentNodeId)) continue;
+            if (!adjacency.TryGetValue(fleet.CurrentNodeId, out var neighbors)) continue;
+            if (neighbors.Count == 0) continue;
+
+            // Deterministic neighbor pick seeded from fleet ID.
+            uint hash = 0; // STRUCTURAL: hash seed
+            foreach (char c in fleetId) { hash = hash * 31 + (uint)c; } // STRUCTURAL: FNV-like hash
+            neighbors.Sort(StringComparer.Ordinal);
+            var destId = neighbors[(int)(hash % (uint)neighbors.Count)];
+
+            // Set fleet destination so it's already traveling when the player first sees it.
+            fleet.FinalDestinationNodeId = destId;
+            fleet.DestinationNodeId = destId;
+            // Randomize travel progress so ships are spread out, not all at origin.
+            fleet.TravelProgress = (float)((hash >> 8) % 80 + 10) / 100.0f; // 0.1 to 0.9
+            fleet.State = FleetState.Traveling;
+            // Set the edge they're traveling on.
+            int cmp = StringComparer.Ordinal.Compare(fleet.CurrentNodeId, destId);
+            var edgeId = cmp < 0
+                ? fleet.CurrentNodeId + "|" + destId
+                : destId + "|" + fleet.CurrentNodeId;
+            if (state.Edges.ContainsKey(edgeId))
+                fleet.CurrentEdgeId = edgeId;
         }
     }
 

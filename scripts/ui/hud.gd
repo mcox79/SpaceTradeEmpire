@@ -838,11 +838,17 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 func _physics_process(_delta: float) -> void:
 	if _bridge == null:
 		return
+	# Suppress entire HUD during intro sequence and tutorial FO selection.
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.get("intro_active"):
+		visible = false
+		return
+	if not visible:
+		visible = true
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var raw_state = str(ps.get("ship_state_token", ""))
 	# FEEL_POST_FIX_9: Belt-and-suspenders transit hide. Check bridge state,
 	# game_manager state, AND suppress_transit_overlay flag (set during flyby arrival).
-	var gm = get_node_or_null("/root/GameManager")
 	var gm_in_transit: bool = gm != null and gm.get("current_player_state") == gm.PlayerShipState.IN_LANE_TRANSIT
 	var bridge_in_transit: bool = raw_state == "IN_LANE_TRANSIT"
 	var gm_suppress: bool = gm != null and gm.get("suppress_transit_overlay") == true
@@ -1508,6 +1514,24 @@ func _update_onboarding_disclosure_v0() -> void:
 		if is_instance_valid(ship) and "_onboard_labels_hidden" in ship:
 			ship._onboard_labels_hidden = hide_npc_labels
 
+	# Research label: hidden until 5+ nodes visited
+	if _research_label != null:
+		var show_research: bool = bool(_onboarding_state.get("show_research_hud", true))
+		if not show_research:
+			_research_label.visible = false
+
+	# Active leads panel: hidden until 3+ nodes visited
+	if _active_leads_panel != null:
+		var show_leads: bool = bool(_onboarding_state.get("show_leads_hud", true))
+		if not show_leads:
+			_active_leads_panel.visible = false
+
+	# Risk/threat label: hidden until 2+ nodes visited
+	if _zone_g_risk_label != null:
+		var show_risk: bool = bool(_onboarding_state.get("show_risk_hud", true))
+		if not show_risk:
+			_zone_g_risk_label.visible = false
+
 	# Captain's Guide: update objective breadcrumb.
 	_update_guide_objective_v0()
 
@@ -1522,6 +1546,12 @@ func _update_guide_objective_v0() -> void:
 		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
 			_guide_objective_label.visible = false
 			return
+
+	# During FO-voiced tutorial, the tutorial_director sets the objective directly.
+	# Let it drive the label instead of the legacy onboarding state checks.
+	if _bridge and _bridge.has_method("IsTutorialActiveV0"):
+		if bool(_bridge.call("IsTutorialActiveV0")):
+			return  # Tutorial director manages the objective label
 
 	var has_docked: bool = bool(_onboarding_state.get("has_docked", false))
 	var has_traded: bool = bool(_onboarding_state.get("has_traded", false))
@@ -1565,6 +1595,26 @@ func show_dock_prompt_v0(station_name: String = "") -> void:
 
 # Dock confirmation: hide dock prompt.
 func hide_dock_prompt_v0() -> void:
+	if _dock_prompt_label == null:
+		return
+	_dock_prompt_label.visible = false
+
+# Gate prompt: "Press E to jump to {dest}" — reuses dock prompt label (mutually exclusive).
+func show_gate_prompt_v0(dest_name: String = "") -> void:
+	if _dock_prompt_label == null:
+		return
+	var dock_key: String = "E"
+	var input_mgr = get_node_or_null("/root/InputManager")
+	if input_mgr:
+		dock_key = input_mgr.get_action_label("ui_dock_confirm")
+	if dest_name.is_empty():
+		_dock_prompt_label.text = "Press %s to jump" % dock_key
+	else:
+		_dock_prompt_label.text = "Press %s to jump to %s" % [dock_key, dest_name]
+	_dock_prompt_label.visible = true
+
+# Gate prompt: hide.
+func hide_gate_prompt_v0() -> void:
 	if _dock_prompt_label == null:
 		return
 	_dock_prompt_label.visible = false

@@ -97,6 +97,13 @@ SimCore/Gen/GalaxyGenerator.cs:4
 SimCore/Gen/GalaxyGenerator.cs:2166136261
 SimCore/Gen/GalaxyGenerator.cs:16777619
 
+# NPC fleet bootstrap: FNV-like hash (31), travel progress spread (10/80/100.0f), bit shift (8)
+SimCore/Gen/GalaxyGenerator.cs:31
+SimCore/Gen/GalaxyGenerator.cs:10
+SimCore/Gen/GalaxyGenerator.cs:80
+SimCore/Gen/GalaxyGenerator.cs:100.0f
+SimCore/Gen/GalaxyGenerator.cs:8
+
 # GATE.S6.OUTCOME.REWARD_MODEL.001: structural literals (array index parts[1], format check parts.Length >= 2)
 SimCore/Systems/DiscoveryOutcomeSystem.cs:1
 SimCore/Systems/DiscoveryOutcomeSystem.cs:2
@@ -400,3 +407,6 @@ SimCore/Systems/SerializationSystem.cs:1
 SimCore/Systems/SerializationSystem.cs:2
 # STRUCTURAL: StationConsumptionSystem — 0 literals are inventory key presence checks and comparison floors
 SimCore/Systems/StationConsumptionSystem.cs:0
+
+# TutorialSystem: structural zeros (count==0, >0 comparisons, empty checks)
+SimCore/Systems/TutorialSystem.cs:0

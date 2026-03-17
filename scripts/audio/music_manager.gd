@@ -19,13 +19,15 @@ var _combat_player: AudioStreamPlayer = null
 var _calm_tween: Tween = null
 var _combat_tween: Tween = null
 var _in_combat := false
+var _intro_was_active := true  # Start true; swell calm music when intro_active goes false.
 
 func _ready() -> void:
 	# Music must keep playing during tree pause (gate transit popup, pause menu).
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# GATE.S7.AUDIO_WIRING.BUS_WIRE.001: 5-layer audio bus setup.
 	_setup_audio_buses_v0()
-	_calm_player = _make_player(CALM_TRACK, CALM_DB)
+	# Start both silent — swell calm music when intro finishes.
+	_calm_player = _make_player(CALM_TRACK, SILENT_DB)
 	_combat_player = _make_player(COMBAT_TRACK, SILENT_DB)
 	# Assign music players to Music bus.
 	_calm_player.bus = &"Music"
@@ -42,6 +44,14 @@ func _make_player(track: AudioStream, vol_db: float) -> AudioStreamPlayer:
 	return p
 
 func _process(_delta: float) -> void:
+	# Swell calm music when intro finishes (intro_active transitions true → false).
+	if _intro_was_active:
+		var gm = get_tree().root.get_node_or_null("GameManager") if get_tree() else null
+		var intro: bool = gm.get("intro_active") if gm else true
+		if not intro:
+			_intro_was_active = false
+			_fade(_calm_player, _calm_tween, CALM_DB, FADE_IN_SEC)
+
 	var hostiles_near := _check_hostiles_near()
 	if hostiles_near and not _in_combat:
 		_in_combat = true

@@ -14,25 +14,16 @@ const PLAYABLE_SCENE := "res://scenes/playable_prototype.tscn"
 const PRECURSOR_FRAGMENTS: Array[String] = [
 	"The lanes remember what stars forget.",
 	"Between the gates, silence trades in secrets.",
-	"Every empire begins at the edge of the unknown.",
 	"The void is patient. Commerce is not.",
 	"Dead stars still cast long shadows on the ledger.",
-	"Fractures in space are doors left ajar.",
-	"What the Precursors built, the bold inherit.",
 	"A ship without cargo is a question without an answer.",
 	"The first trade route was drawn in starlight.",
 	"In the hum of the gate, a forgotten language stirs.",
 	"Empires rise on credit lines and courage.",
 	"Somewhere beyond the rift, prices are better.",
-]
-
-# --- Galaxy gen progress messages (GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001) ---
-const GEN_MESSAGES: Array[String] = [
-	"Charting the void...",
-	"Igniting warfronts...",
-	"Seeding trade routes...",
-	"Awakening factions...",
-	"Calibrating jump drives...",
+	"Every station remembers its best customer.",
+	"The difference between profit and loss is one jump.",
+	"Someone built the gates. Nobody asks why.",
 ]
 
 # --- Audio resource paths (GATE.S9.MENU_ATMOSPHERE.AUDIO.001) ---
@@ -49,9 +40,6 @@ var _btn_credits: Button
 var _btn_settings: Button
 var _btn_quit: Button
 var _save_card: PanelContainer
-# GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Captain name input for new voyage wizard.
-var _captain_name_input: LineEdit
-
 # GATE.S9.MENU_ATMOSPHERE.TITLE.001: Title + subtitle refs.
 var _title_label: Label
 var _subtitle_label: Label
@@ -67,18 +55,6 @@ var _silhouette_viewport: SubViewport
 var _silhouette_mesh: MeshInstance3D
 var _silhouette_camera: Camera3D
 var _silhouette_rotation_speed: float = 0.3
-
-# GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001: Galaxy gen overlay.
-var _gen_overlay: ColorRect
-var _gen_message_label: Label
-var _gen_progress_bar: ProgressBar
-var _gen_continue_label: Label
-var _gen_active: bool = false
-var _gen_elapsed: float = 0.0
-var _gen_duration: float = 3.0
-var _gen_message_timer: float = 0.0
-var _gen_message_index: int = 0
-var _gen_complete: bool = false
 
 # Menu VBox (needed for galaxy gen overlay positioning).
 var _menu_vbox: VBoxContainer
@@ -149,27 +125,6 @@ func _ready() -> void:
 	spacer.custom_minimum_size = Vector2(0, 40)
 	_menu_vbox.add_child(spacer)
 
-	# GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Captain name input.
-	var name_label := Label.new()
-	name_label.text = "Captain Name"
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 18)
-	name_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85))
-	_menu_vbox.add_child(name_label)
-
-	_captain_name_input = LineEdit.new()
-	_captain_name_input.text = "Commander"
-	_captain_name_input.placeholder_text = "Enter captain name"
-	_captain_name_input.max_length = 32
-	_captain_name_input.custom_minimum_size = Vector2(280, 40)
-	_captain_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_captain_name_input.add_theme_font_size_override("font_size", 18)
-	_menu_vbox.add_child(_captain_name_input)
-
-	var name_spacer := Control.new()
-	name_spacer.custom_minimum_size = Vector2(0, 8)
-	_menu_vbox.add_child(name_spacer)
-
 	# Buttons.
 	_btn_continue = _make_button("Continue", _menu_vbox)
 	_btn_new_voyage = _make_button("New Voyage", _menu_vbox)
@@ -194,9 +149,6 @@ func _ready() -> void:
 			_build_save_card(_menu_vbox, _save_meta)
 	_btn_continue.disabled = not _has_save
 	_btn_milestones.disabled = not _has_save
-
-	# ---- Galaxy gen overlay (GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001) ----
-	_build_galaxy_gen_overlay()
 
 	# Tell GameManager we're on the main menu.
 	var gm = get_node_or_null("/root/GameManager")
@@ -368,88 +320,6 @@ func _start_returning_audio_sequence() -> void:
 	audio_tween.parallel().tween_property(_audio_drone, "volume_db", -10.0, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 
 
-# =============================================================================
-# GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001: Galaxy generation overlay
-# =============================================================================
-
-func _build_galaxy_gen_overlay() -> void:
-	_gen_overlay = ColorRect.new()
-	_gen_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_gen_overlay.color = Color(0.01, 0.01, 0.04, 0.95)
-	_gen_overlay.visible = false
-	_gen_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block input to menu behind.
-	add_child(_gen_overlay)
-
-	var gen_vbox := VBoxContainer.new()
-	gen_vbox.set_anchors_preset(Control.PRESET_CENTER)
-	gen_vbox.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	gen_vbox.grow_vertical = Control.GROW_DIRECTION_BOTH
-	gen_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	gen_vbox.add_theme_constant_override("separation", 24)
-	_gen_overlay.add_child(gen_vbox)
-
-	# Title for generation screen.
-	var gen_title := Label.new()
-	gen_title.text = "INITIALIZING GALAXY"
-	gen_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gen_title.add_theme_font_size_override("font_size", 36)
-	gen_title.add_theme_color_override("font_color", Color(0.7, 0.8, 1.0))
-	gen_vbox.add_child(gen_title)
-
-	# Progress message.
-	_gen_message_label = Label.new()
-	_gen_message_label.text = GEN_MESSAGES[0]
-	_gen_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gen_message_label.add_theme_font_size_override("font_size", 20)
-	_gen_message_label.add_theme_color_override("font_color", Color(0.5, 0.6, 0.8))
-	gen_vbox.add_child(_gen_message_label)
-
-	# Progress bar.
-	_gen_progress_bar = ProgressBar.new()
-	_gen_progress_bar.custom_minimum_size = Vector2(400, 20)
-	_gen_progress_bar.min_value = 0.0
-	_gen_progress_bar.max_value = 1.0
-	_gen_progress_bar.value = 0.0
-	_gen_progress_bar.show_percentage = false
-	# Style the progress bar.
-	var bar_bg := StyleBoxFlat.new()
-	bar_bg.bg_color = Color(0.05, 0.05, 0.12)
-	bar_bg.border_color = Color(0.2, 0.25, 0.4)
-	bar_bg.set_border_width_all(1)
-	bar_bg.set_corner_radius_all(4)
-	_gen_progress_bar.add_theme_stylebox_override("background", bar_bg)
-	var bar_fill := StyleBoxFlat.new()
-	bar_fill.bg_color = Color(0.25, 0.4, 0.8)
-	bar_fill.set_corner_radius_all(3)
-	_gen_progress_bar.add_theme_stylebox_override("fill", bar_fill)
-	gen_vbox.add_child(_gen_progress_bar)
-
-	# "Press any key to continue" label (hidden until generation complete).
-	_gen_continue_label = Label.new()
-	_gen_continue_label.text = "Press any key to continue..."
-	_gen_continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gen_continue_label.add_theme_font_size_override("font_size", 18)
-	_gen_continue_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.8, 1.0))
-	_gen_continue_label.modulate.a = 0.0
-	gen_vbox.add_child(_gen_continue_label)
-
-
-func _start_galaxy_gen() -> void:
-	_gen_active = true
-	_gen_complete = false
-	_gen_elapsed = 0.0
-	_gen_message_timer = 0.0
-	_gen_message_index = 0
-	_gen_progress_bar.value = 0.0
-	_gen_message_label.text = GEN_MESSAGES[0]
-	_gen_continue_label.modulate.a = 0.0
-	_gen_overlay.visible = true
-
-	# Fade in the overlay.
-	_gen_overlay.modulate.a = 0.0
-	var fade_tween := create_tween()
-	fade_tween.tween_property(_gen_overlay, "modulate:a", 1.0, 0.4).set_ease(Tween.EASE_OUT)
-
 
 # =============================================================================
 # Process loop
@@ -459,43 +329,6 @@ func _process(delta: float) -> void:
 	# Rotate silhouette mesh (GATE.S9.MENU_ATMOSPHERE.SILHOUETTE.001).
 	if _silhouette_mesh:
 		_silhouette_mesh.rotate_y(delta * _silhouette_rotation_speed)
-
-	# Galaxy gen overlay update (GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001).
-	if _gen_active and not _gen_complete:
-		_gen_elapsed += delta
-		var progress := clampf(_gen_elapsed / _gen_duration, 0.0, 1.0)
-		_gen_progress_bar.value = progress
-
-		# Cycle progress messages.
-		_gen_message_timer += delta
-		var message_interval: float = _gen_duration / float(GEN_MESSAGES.size())
-		if _gen_message_timer >= message_interval and _gen_message_index < GEN_MESSAGES.size() - 1:
-			_gen_message_timer = 0.0
-			_gen_message_index += 1
-			_gen_message_label.text = GEN_MESSAGES[_gen_message_index]
-
-		# Generation complete.
-		if _gen_elapsed >= _gen_duration:
-			_gen_complete = true
-			_gen_progress_bar.value = 1.0
-			_gen_message_label.text = "Galaxy initialized."
-			# Fade in continue prompt.
-			var prompt_tween := create_tween()
-			prompt_tween.tween_property(_gen_continue_label, "modulate:a", 1.0, 0.8).set_ease(Tween.EASE_IN_OUT)
-			# Gentle pulse on the continue label.
-			prompt_tween.set_loops()
-			prompt_tween.tween_property(_gen_continue_label, "modulate:a", 0.4, 1.2).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-			prompt_tween.tween_property(_gen_continue_label, "modulate:a", 1.0, 1.2).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-
-
-func _input(event: InputEvent) -> void:
-	# GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001: "Press any key" gate after gen complete.
-	if _gen_complete and _gen_active:
-		if event is InputEventKey or event is InputEventMouseButton:
-			if event.is_pressed():
-				_gen_active = false
-				get_viewport().set_input_as_handled()
-				_transition_to_game()
 
 
 # =============================================================================
@@ -612,20 +445,17 @@ func _on_continue() -> void:
 
 
 func _on_new_voyage() -> void:
-	# Flag new game so GameManager shows welcome overlay (not on continue/load).
+	# Reset sim kernel for fresh galaxy (handles Continue → Menu → New Voyage case).
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("ReinitializeForNewGameV0"):
+		bridge.call("ReinitializeForNewGameV0")
+	# Flag new game so GameManager runs intro sequence (not on continue/load).
 	var gm = get_node_or_null("/root/GameManager")
 	if gm:
 		gm.set("_is_new_game", true)
-		gm.set("intro_active", true)  # Suppress gameplay from frame 1 until welcome overlay dismisses.
-	# GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Pass captain name to SimBridge before starting.
-	var bridge = get_node_or_null("/root/SimBridge")
-	if bridge and bridge.has_method("SetCaptainNameV0"):
-		var name_text: String = _captain_name_input.text.strip_edges()
-		if name_text == "":
-			name_text = "Commander"
-		bridge.call("SetCaptainNameV0", name_text)
-	# GATE.S9.MENU_ATMOSPHERE.GALAXY_GEN.001: Show galaxy gen screen before transitioning.
-	_start_galaxy_gen()
+		gm.set("intro_active", true)  # Suppress gameplay until intro sequence completes.
+		gm.set("_onboarding_shown", false)  # Reset so tutorial triggers again.
+	_transition_to_game()
 
 
 func _on_milestones() -> void:

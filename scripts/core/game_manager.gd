@@ -37,6 +37,7 @@ var dock_target_kind_token: String = ""
 var dock_target_id: String = ""
 var _lane_cooldown_v0: float = 0.0  # Seconds remaining before lane gates can trigger again.
 var _gate_approach_declined: bool = false  # Suppresses re-trigger until full zone exit.
+var _gate_available_target: String = ""  # Gate near player awaiting E key to jump.
 # Dock confirmation: target near player awaiting E key to dock.
 var _dock_available_target: Node = null
 var _undock_cooldown: float = 0.0  # Prevents re-dock prompt immediately after undock.
@@ -97,7 +98,6 @@ var _onboarding_shown: bool = false
 # Intro sequence active — suppresses all gameplay (AI, combat, NPC movement, music)
 # until the welcome overlay is dismissed. Prevents jarring first frames.
 var intro_active: bool = false
-var _intro_black_screen: CanvasLayer = null  # Black screen to prevent game flash before galaxy overlay.
 
 # GATE.S19.ONBOARD.MILESTONE_TOAST.014: Track celebrated milestones to avoid repeats.
 var _celebrated_milestones: Dictionary = {}
@@ -286,7 +286,7 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 	if _onboarding_shown:
 		return
 	_onboarding_shown = true
-	# Only show full welcome overlay on new game, not continue/load.
+	# Only show full intro sequence on new game, not continue/load.
 	if not _is_new_game:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		await get_tree().create_timer(1.0).timeout
@@ -295,41 +295,32 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 		return
 	# Activate intro mode — suppresses gameplay (AI fire, NPC movement, combat music).
 	intro_active = true
-	# New game cinematic: galaxy image → crossfade reveals solar system → controls.
-	# Camera stays at default altitude (80) — the galaxy IMAGE is a 2D overlay that
-	# covers the entire screen. No camera movement during galaxy phase.
 	var cam_ctrl = _find_camera_controller()
 	if cam_ctrl:
 		cam_ctrl.set("input_locked", true)
 	# Freeze hero ship during intro.
 	if _hero_body:
 		_hero_body.freeze = true
-	# Black screen: prevents flash of game world before galaxy overlay.
-	# Galaxy overlay at layer 200 will render on top; we remove this once it's active.
-	if _intro_black_screen == null:
-		_intro_black_screen = CanvasLayer.new()
-		_intro_black_screen.layer = 199  # Just below galaxy overlay (200)
-		_intro_black_screen.name = "IntroBlackScreen"
-		var black := ColorRect.new()
-		black.color = Color(0.0, 0.0, 0.02, 1.0)
-		black.set_anchors_preset(Control.PRESET_FULL_RECT)
-		black.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_intro_black_screen.add_child(black)
-		add_child(_intro_black_screen)
-	# Galaxy image overlay — hold, zoom in, crossfade out (~6.5s).
-	var galaxy_overlay_script = load("res://scripts/ui/galaxy_intro_overlay.gd")
-	if galaxy_overlay_script:
-		var galaxy_overlay = galaxy_overlay_script.new()
-		add_child(galaxy_overlay)
-		# Galaxy overlay is now covering the screen — remove black screen.
-		if _intro_black_screen:
-			_intro_black_screen.queue_free()
-			_intro_black_screen = null
-		await galaxy_overlay.play_intro()
-		galaxy_overlay.queue_free()
-	# Brief settle after galaxy fades, then show controls.
-	await get_tree().create_timer(0.5).timeout
-	_show_welcome_overlay_v0()
+	# Intro sequence: Ship Computer cold open → galaxy cinematic → captain name → FO selection.
+	var intro_script = load("res://scripts/ui/intro_sequence.gd")
+	if intro_script:
+		var intro = intro_script.new()
+		add_child(intro)
+		intro.start()
+		var captain_name: String = await intro.intro_complete
+		# Send captain name to SimBridge.
+		var bridge = get_node_or_null("/root/SimBridge")
+		if bridge and bridge.has_method("SetCaptainNameV0"):
+			bridge.call("SetCaptainNameV0", captain_name)
+	# Start tutorial (FO selection → guided phases) or legacy welcome overlay.
+	var _use_tutorial := true
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		_use_tutorial = bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts"))
+	if _use_tutorial:
+		_start_tutorial_v0()
+	else:
+		_show_welcome_overlay_v0()
 
 func _show_welcome_overlay_v0() -> void:
 	var canvas := CanvasLayer.new()
@@ -454,6 +445,19 @@ func _wait_for_any_input_v0(_control: Control) -> void:
 	_welcome_dismissed = true
 
 
+# Start the FO-voiced tutorial system (replaces welcome overlay for new games).
+func _start_tutorial_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("StartTutorialV0"):
+		bridge.call("StartTutorialV0")
+	# Create and attach the tutorial director as a child of GameManager.
+	var director_script = load("res://scripts/ui/tutorial_director.gd")
+	if director_script:
+		var director = director_script.new()
+		director.name = "TutorialDirector"
+		add_child(director)
+	print("UUIR|TUTORIAL|STARTED")
+
 # Force-remove welcome overlay on any major state change (dock, galaxy map, warp).
 func _dismiss_welcome_overlay_v0() -> void:
 	_welcome_dismissed = true
@@ -487,11 +491,16 @@ func _process(delta):
 	if _is_main_menu_active():
 		return
 
-	# Trigger onboarding once after scene transition (camera controller must exist).
+	# Trigger onboarding once after scene transition.
+	# New game: start intro sequence immediately (don't wait for camera — prevents flash).
+	# Continue: wait for camera controller (onboarding toasts need HUD).
 	if not _onboarding_shown and get_parent() == get_tree().root:
-		var cam = _find_camera_controller()
-		if cam:
+		if _is_new_game:
 			_show_onboarding_toasts_deferred_v0()
+		else:
+			var cam = _find_camera_controller()
+			if cam:
+				_show_onboarding_toasts_deferred_v0()
 
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
@@ -499,6 +508,9 @@ func _process(delta):
 	# Suppress all gameplay during intro cinematic + welcome overlay.
 	if intro_active:
 		return
+	# Start ambient drone once intro finishes (deferred from _init_sfx_v0).
+	if _sfx_ambient_drone and not _sfx_ambient_drone.playing:
+		_sfx_ambient_drone.play()
 
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: freeze all game logic when dead
 	if _player_dead:
@@ -619,13 +631,16 @@ func _unhandled_input(event):
 	if event.is_action_pressed("ui_galaxy_map") and current_player_state != PlayerShipState.IN_LANE_TRANSIT and current_player_state != PlayerShipState.DOCKED:
 		toggle_galaxy_map_overlay_v0()
 	if event.is_action_pressed("ui_dock_confirm"):
-		# Dock confirmation: E near a station docks; ui_empire_dashboard handles the else.
+		# Dock confirmation: E near a station docks (priority); else E near a gate triggers gate.
 		if _dock_available_target != null and current_player_state == PlayerShipState.IN_FLIGHT:
 			on_proximity_dock_entered_v0(_dock_available_target)
 			_dock_available_target = null
 			var hud_dk = get_tree().root.find_child("HUD", true, false) if get_tree() else null
 			if hud_dk and hud_dk.has_method("hide_dock_prompt_v0"):
 				hud_dk.call("hide_dock_prompt_v0")
+		elif not _gate_available_target.is_empty() and current_player_state == PlayerShipState.IN_FLIGHT:
+			# E key triggers gate: transition to GATE_APPROACH, stop ship, show popup, pause.
+			_trigger_gate_from_prompt_v0()
 	if event.is_action_pressed("ui_empire_dashboard"):
 		# Empire dashboard: only when dock is NOT available (E shared between dock + empire)
 		if _dock_available_target == null or current_player_state != PlayerShipState.IN_FLIGHT:
@@ -836,10 +851,18 @@ func on_proximity_dock_entered_v0(target: Node):
 			htm2.call("open_market_v0", dock_target_id)
 	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast (now no-op, replaced by disclosure)
 	_check_first_dock_mission_prompt_v0()
-	# Captain's Guide: dock hint.
-	_fire_guide_hint_v0("GUIDE_DOCK", "Open the Market tab and buy the cheapest good. Fly to the next station and sell it where the price is higher.")
+	# Notify tutorial system of dock event (advances Dock_Prompt → Docked_First).
+	var _tut_bridge = get_node_or_null("/root/SimBridge")
+	if _tut_bridge and _tut_bridge.has_method("NotifyTutorialDockV0"):
+		_tut_bridge.call("NotifyTutorialDockV0")
+	# Captain's Guide: dock hint (legacy — suppressed during tutorial by _poll guard).
+	_fire_guide_hint_v0("GUIDE_DOCK", "Look for the BEST BUY tag in the Market. Buy it, then fly to the next station and sell where the price is higher.")
 	# GATE.S19.ONBOARD.FO_EVENTS.012: Immediate FO poll after docking.
 	_poll_fo_immediate()
+	# Tutorial nudge: if stuck on an action phase, FO reminds the player what to do.
+	var _tut_dir = get_node_or_null("TutorialDirector")
+	if _tut_dir and _tut_dir.has_method("on_dock_nudge"):
+		_tut_dir.call("on_dock_nudge")
 
 	# GATE.S7.RUNTIME_STABILITY.GALAXY_VIEW_FIX.001: Close galaxy overlay if open when docking.
 	# Prevents large 3D elements (beacons, labels) from rendering at dock-distance camera.
@@ -994,7 +1017,7 @@ func _ensure_hero_body() -> void:
 		return
 	_hero_body = get_tree().root.find_child("Player", true, false) as RigidBody3D
 
-# ── Gate approach flow (stop-and-confirm) ──
+# ── Gate approach flow (E-key prompt, no auto-pause) ──
 # Called by GalaxyView on the autoload GameManager (owns _unhandled_input).
 func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
@@ -1004,35 +1027,60 @@ func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 	# Don't trigger a new approach while cinematic departure is in progress.
 	if _cinematic_transit_active:
 		return
-	if not _transition_player_state_v0(PlayerShipState.GATE_APPROACH):
+	# Must be in flight to show gate prompt.
+	if current_player_state != PlayerShipState.IN_FLIGHT:
 		return
-	_approach_neighbor_id = neighbor_node_id
-	print("UUIR|GATE_APPROACH|" + neighbor_node_id)
+	_gate_available_target = neighbor_node_id
+	print("UUIR|GATE_PROMPT|" + neighbor_node_id)
 
-	# Auto-decelerate ship on approach.
-	_ensure_hero_body()
-	if _hero_body and is_instance_valid(_hero_body):
-		_hero_body.linear_velocity = Vector3.ZERO
-		_hero_body.angular_velocity = Vector3.ZERO
-
-	# Show transit confirmation popup and freeze game while player decides.
-	_show_gate_popup_v0(neighbor_node_id)
-	get_tree().paused = true
-
-	# Pre-build galaxy overlay so transit animation starts without a hitch.
-	var gv = _find_galaxy_view()
-	if gv and gv.has_method("PrewarmOverlayV0"):
-		gv.call("PrewarmOverlayV0")
+	# Resolve destination name for the HUD prompt.
+	var dest_name: String = neighbor_node_id
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetTransitCostV0"):
+		var info: Dictionary = bridge.call("GetTransitCostV0", PLAYER_FLEET_ID, neighbor_node_id)
+		dest_name = str(info.get("destination_name", neighbor_node_id))
+	var hud_gate = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+	if hud_gate and hud_gate.has_method("show_gate_prompt_v0"):
+		hud_gate.call("show_gate_prompt_v0", dest_name)
 
 # Called by GalaxyView when player exits approach zone.
 func on_lane_gate_approach_exited_v0() -> void:
 	_gate_approach_declined = false
-	if current_player_state != PlayerShipState.GATE_APPROACH:
-		return
-	# Don't cancel if cinematic departure is in progress (ship tween exits the zone).
+	# If player already confirmed (cinematic active or GATE_APPROACH state), don't cancel.
 	if _cinematic_transit_active:
 		return
-	_cancel_gate_approach_v0()
+	if current_player_state == PlayerShipState.GATE_APPROACH:
+		_cancel_gate_approach_v0()
+		return
+	# Clear E-key prompt if we were just showing it.
+	_gate_available_target = ""
+	var hud_gate = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+	if hud_gate and hud_gate.has_method("hide_gate_prompt_v0"):
+		hud_gate.call("hide_gate_prompt_v0")
+
+# E-key gate trigger: skip popup, go straight to transit.
+func _trigger_gate_from_prompt_v0() -> void:
+	var neighbor_node_id := _gate_available_target
+	_gate_available_target = ""
+	# Hide the E-key prompt.
+	var hud_gate = get_tree().root.find_child("HUD", true, false) if get_tree() else null
+	if hud_gate and hud_gate.has_method("hide_gate_prompt_v0"):
+		hud_gate.call("hide_gate_prompt_v0")
+	# Transition to GATE_APPROACH state (needed for cinematic transit).
+	if not _transition_player_state_v0(PlayerShipState.GATE_APPROACH):
+		return
+	_approach_neighbor_id = neighbor_node_id
+	print("UUIR|GATE_APPROACH|" + neighbor_node_id)
+	_ensure_hero_body()
+	if _hero_body and is_instance_valid(_hero_body):
+		_hero_body.linear_velocity = Vector3.ZERO
+		_hero_body.angular_velocity = Vector3.ZERO
+	# Pre-build galaxy overlay for transit animation.
+	var gv = _find_galaxy_view()
+	if gv and gv.has_method("PrewarmOverlayV0"):
+		gv.call("PrewarmOverlayV0")
+	# Skip popup — go directly to transit confirmation.
+	_confirm_gate_transit_v0()
 
 func _cancel_gate_approach_v0() -> void:
 	print("UUIR|GATE_APPROACH_CANCEL")
@@ -1115,7 +1163,6 @@ func _confirm_gate_transit_v0() -> void:
 	var gate_dir: Vector3 = (gate_pos - star_center)
 	gate_dir.y = 0.0
 	gate_dir = gate_dir.normalized() if gate_dir.length() > 0.1 else Vector3(1, 0, 0)
-	print("DEBUG_WARP|gate_pos=%s star_center=%s hero=%s neighbor=%s" % [str(gate_pos), str(star_center), str(_hero_body.global_position) if _hero_body and is_instance_valid(_hero_body) else "null", _approach_neighbor_id])
 
 	# === Departure cinematic with C2-continuous camera ===
 	# Key principle: initialize flyby from CURRENT camera position, then TWEEN to
@@ -1157,7 +1204,6 @@ func _confirm_gate_transit_v0() -> void:
 			cam_tween.parallel().tween_property(cam_ctrl, "flyby_up", Vector3.UP, 1.0) \
 				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 		await pull_tween.finished
-	print("DEBUG_DEPART|phase1_done|hero=%s|gate=%s|cam=%s" % [str(_hero_body.global_position) if _hero_body else "null", str(gate_pos), str(cam_ctrl._cam.global_position) if cam_ctrl and cam_ctrl._cam else "null"])
 
 	# Phase 2: Vortex charge-up (1.5s) — progressive shake + ship tremble.
 	if _sfx_warp_whoosh:
@@ -1212,7 +1258,6 @@ func _confirm_gate_transit_v0() -> void:
 	# No manual zoom-up needed; C2 continuity is guaranteed by the spring.
 	if cam_ctrl:
 		cam_ctrl.flyby_active = false
-	print("DEBUG_DEPART|phase5_done|warp_start")
 
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		_cinematic_transit_active = false
@@ -1626,7 +1671,6 @@ func _ai_fire_v0() -> void:
 	var fleet_id: String = _get_fleet_id_from_marker(nearest)
 	if fleet_id.is_empty():
 		return
-	print("DEBUG_COMBAT|AI_FIRE|fleet=%s hostile=%s dist=%.1f" % [fleet_id, str(is_hostile), nearest.global_position.distance_to(_hero_body.global_position)])
 	_spawn_bullet_v0(nearest.global_position, _hero_body.global_position, false, fleet_id)
 	_ai_fire_cooldown = AI_FIRE_COOLDOWN_SEC
 	# FEEL_POST_FIX_3: AI firing at player triggers combat state.
@@ -1824,7 +1868,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	lane_dir = lane_dir.normalized() if lane_dir.length() > 0.1 else Vector3(1, 0, 0)
 	print("UUIR|LANE_GEOM|origin_star=%s|dest_star=%s|origin_gate=%s|dest_gate=%s" % [
 		str(origin_star_center), str(dest_pos), str(origin_gate_pos), str(dest_gate_pos)])
-	print("DEBUG_TRANSIT|origin_pos=%s|lane_dir=%s|distance=%.1f" % [str(origin_pos), str(lane_dir), origin_pos.distance_to(dest_gate_pos)])
 
 	if dest_pos == Vector3.ZERO or _hero_body == null or not is_instance_valid(_hero_body):
 		# Fallback: instant transit.
@@ -2014,7 +2057,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	cam_ctrl = _find_camera_controller()
 	var has_cam: bool = cam_ctrl != null and cam_ctrl.get("flyby_active") != null
 
-	print("DEBUG_ARRIVAL|first_visit=%s|has_cam=%s|hero=%s|dest_gate=%s" % [str(is_first_visit), str(has_cam), str(hero_pos), str(dest_gate_pos)])
 	# Pace overhaul: return visits skip flyby entirely (~2.5s total transit).
 	if has_cam and not is_first_visit:
 		# Fast camera descent to flight altitude — no spiral, no orbit.
@@ -2033,7 +2075,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			cam_ctrl._altitude = 80.0
 			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
 		# Spring handles settle automatically — no manual settle state needed.
-		print("DEBUG_RETURN|cam=%s|hero=%s" % [str(cam_ctrl._cam.global_position) if cam_ctrl._cam else "null", str(hero_pos)])
 		var gv_fast = _find_galaxy_view()
 		if gv_fast and gv_fast.has_method("SetTransitModeV0"):
 			gv_fast.call("SetTransitModeV0", false, "", "")
@@ -2101,7 +2142,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		var entry_radius: float = maxf(entry_star_off.length(), FLYBY_ORBIT_RADIUS + 10.0)
 		var entry_alt: float = entry_cam_pos.y
 		var actual_entry_angle: float = atan2(entry_star_off.z, entry_star_off.x)
-		print("DEBUG_FLYBY|entry_cam=%s|entry_alt=%.1f|entry_radius=%.1f|star=%s" % [str(entry_cam_pos), entry_alt, entry_radius, str(star_center)])
 
 		# --- Phase 1: Deviation — spiral from approach onto orbit circle tangent ---
 		# Step-based tween: interpolate angle (90° lateral swoop) and radius
@@ -2370,7 +2410,9 @@ func _init_sfx_v0() -> void:
 	_sfx_ambient_drone.stream = load("res://assets/audio/ambient_drone.wav")
 	_sfx_ambient_drone.volume_db = -18.0
 	add_child(_sfx_ambient_drone)
-	_sfx_ambient_drone.play()
+	# Defer drone start until intro finishes — prevents audio leak during galaxy cinematic.
+	if not intro_active:
+		_sfx_ambient_drone.play()
 
 	_sfx_warp_whoosh = AudioStreamPlayer.new()
 	_sfx_warp_whoosh.name = "SfxWarpWhoosh"
@@ -2763,9 +2805,13 @@ func _fire_guide_hint_v0(step_id: String, text: String) -> bool:
 	return true
 
 # Captain's Guide: polled hints — check game state and fire contextual guide toasts.
+# Suppressed during FO-voiced tutorial (tutorial director handles all guidance).
 func _poll_guide_hints_v0() -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge == null or not bridge.has_method("GetOnboardingStateV0"):
+		return
+	# Skip polled hints while tutorial is active — tutorial director handles all guidance.
+	if bridge.has_method("IsTutorialActiveV0") and bool(bridge.call("IsTutorialActiveV0")):
 		return
 	var os: Dictionary = bridge.call("GetOnboardingStateV0")
 	if os.is_empty():

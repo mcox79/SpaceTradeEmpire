@@ -234,33 +234,23 @@ func _do_check_intro_active() -> void:
 
 
 func _do_welcome_overlay() -> void:
-	# Check welcome overlay presence. In headless, auto-dismiss is 3s so it may be gone.
+	# Intro sequence (Ship Computer cold open → galaxy cinematic → captain name) self-frees
+	# in headless mode immediately. Check for IntroSequence or legacy WelcomeOverlay.
+	var intro = null
 	var overlay = null
 	if _gm:
+		intro = _gm.get_node_or_null("IntroSequence")
 		overlay = _gm.get_node_or_null("WelcomeOverlay")
-	if overlay != null:
+	if intro != null:
+		_a.hard(intro is CanvasLayer, "intro_sequence_is_canvas_layer")
+		_a.log("INTRO_SEQUENCE|present=true")
+	elif overlay != null:
 		_a.hard(overlay is CanvasLayer, "welcome_overlay_is_canvas_layer")
-		if overlay is CanvasLayer:
-			_a.hard(overlay.layer == 110, "welcome_overlay_layer_110", "layer=%d" % overlay.layer)
-		var title_found := false
-		var lore_found := false
-		var controls_found := false
-		for label in _find_all_labels(overlay):
-			var txt: String = label.text
-			if "SPACE TRADE EMPIRE" in txt:
-				title_found = true
-			if "threads" in txt.to_lower() or "failing" in txt.to_lower():
-				lore_found = true
-			if "WASD" in txt:
-				controls_found = true
-		_a.hard(title_found, "welcome_title_text")
-		_a.hard(lore_found, "welcome_lore_text")
-		_a.hard(controls_found, "welcome_controls_text")
-		_a.log("WELCOME_OVERLAY|present=true")
+		_a.log("WELCOME_OVERLAY|present=true (legacy)")
 	else:
-		# Headless auto-dismissed — non-fatal.
-		_a.warn(false, "welcome_overlay_visible", "headless_auto_dismissed")
-		_a.log("WELCOME_OVERLAY|present=false (auto-dismissed)")
+		# Headless: intro_sequence emits immediately and self-frees — expected.
+		_a.warn(false, "intro_sequence_visible", "headless_auto_completed")
+		_a.log("INTRO_SEQUENCE|present=false (headless auto-completed)")
 	_set_phase(Phase.WELCOME_SCREENSHOT)
 
 
@@ -270,9 +260,13 @@ func _do_welcome_screenshot() -> void:
 
 
 func _do_welcome_dismiss() -> void:
-	# Force dismiss and ensure GUIDE_FLIGHT fires.
+	# Force dismiss intro/welcome and ensure GUIDE_FLIGHT fires.
 	if _gm:
 		_gm.set("_welcome_dismissed", true)
+		# Clean up any lingering intro or welcome overlay.
+		var intro = _gm.get_node_or_null("IntroSequence")
+		if intro:
+			intro.queue_free()
 		var overlay = _gm.get_node_or_null("WelcomeOverlay")
 		if overlay:
 			overlay.queue_free()

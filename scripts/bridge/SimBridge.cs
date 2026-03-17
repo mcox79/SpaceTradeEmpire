@@ -303,6 +303,37 @@ public partial class SimBridge : Node
         }
     }
 
+    /// <summary>
+    /// Reset the sim kernel for a new game (Continue → Main Menu → New Voyage).
+    /// Stops sim, creates fresh kernel + galaxy, restarts sim.
+    /// Called by main_menu.gd on New Voyage.
+    /// </summary>
+    public void ReinitializeForNewGameV0()
+    {
+        StopSimulation();
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel = new SimKernel(WorldSeed);
+            var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
+            GalaxyGenerator.Generate(_kernel.State, StarCount, 200f,
+                new GalaxyGenerator.GalaxyGenOptions { Registry = reg });
+            EnsurePlayerFleetV0(_kernel.State);
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+        // Delete stale quicksave so continue doesn't reload old state.
+        if (File.Exists(_savePathAbs))
+        {
+            try { File.Delete(_savePathAbs); }
+            catch (Exception ex) { GD.PrintErr(ex.ToString()); }
+        }
+        StartSimulation();
+        GD.Print("[BRIDGE] Reinitialized for new game.");
+    }
+
     private void InitializeKernel()
     {
         GD.Print("[BRIDGE] Initializing SimCore Kernel...");

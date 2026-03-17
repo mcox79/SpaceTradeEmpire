@@ -49,7 +49,9 @@ public static class FirstOfficerSystem
             fo.Tier = newTier;
 
         // GATE.T18.CHARACTER.FO_REACT.001: Auto-detect state-based triggers each tick.
-        TryAutoDetectTriggers(state);
+        // Suppress reactive triggers during tutorial to prevent overlap with scripted dialogue.
+        if (!TutorialSystem.IsActive(state))
+            TryAutoDetectTriggers(state);
     }
 
     /// <summary>

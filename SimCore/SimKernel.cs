@@ -207,6 +207,9 @@ public class SimKernel
         // GATE.S12.PROGRESSION.MILESTONES.001: Evaluate player milestones.
         MilestoneSystem.Process(_state);
 
+        // Tutorial state machine: gate evaluation + phase advancement.
+        TutorialSystem.Process(_state);
+
         // GATE.T18.NARRATIVE.FO_SYSTEM.001: First Officer tier progression.
         FirstOfficerSystem.Process(_state);
 
