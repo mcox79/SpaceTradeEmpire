@@ -150,6 +150,9 @@ var _active_leads_vbox: VBoxContainer = null
 var _active_leads_title: Label = null
 var _active_leads_labels: Array = []  # Up to 3 Label nodes
 
+# Captain's Guide: objective breadcrumb label (below HUD status panel).
+var _guide_objective_label: Label = null
+
 # Dock confirmation: "Press E to dock" prompt (bottom-center).
 var _dock_prompt_label: Label = null
 
@@ -200,6 +203,16 @@ func _ready() -> void:
 	_combat_label.add_theme_color_override("font_color", Color.RED)
 	_combat_label.position = Vector2(10, 256)
 	add_child(_combat_label)
+
+	# Captain's Guide: objective breadcrumb (gold, below status panel).
+	_guide_objective_label = Label.new()
+	_guide_objective_label.name = "GuideObjective"
+	_guide_objective_label.text = ""
+	_guide_objective_label.add_theme_font_size_override("font_size", 13)
+	_guide_objective_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	_guide_objective_label.position = Vector2(10, 272)
+	_guide_objective_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_guide_objective_label)
 
 	# GATE.S9.UI.TOOLTIP_HUD.001: tooltips on HUD elements
 	if _credits_label:
@@ -1495,6 +1508,47 @@ func _update_onboarding_disclosure_v0() -> void:
 		if is_instance_valid(ship) and "_onboard_labels_hidden" in ship:
 			ship._onboard_labels_hidden = hide_npc_labels
 
+	# Captain's Guide: update objective breadcrumb.
+	_update_guide_objective_v0()
+
+# Captain's Guide: objective breadcrumb progression.
+# Disappears after first program/automation setup (not after first trade).
+func _update_guide_objective_v0() -> void:
+	if _guide_objective_label == null:
+		return
+	# Respect tutorial toggle.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
+			_guide_objective_label.visible = false
+			return
+
+	var has_docked: bool = bool(_onboarding_state.get("has_docked", false))
+	var has_traded: bool = bool(_onboarding_state.get("has_traded", false))
+	var nodes_visited: int = int(_onboarding_state.get("nodes_visited", 0))
+
+	# Check if player has created a program (automation learned — objective complete).
+	var has_program: bool = false
+	if _bridge and _bridge.has_method("GetActiveProgramCountV0"):
+		has_program = int(_bridge.call("GetActiveProgramCountV0")) > 0
+
+	if has_program:
+		_guide_objective_label.visible = false
+	elif has_traded and nodes_visited >= 2:
+		_guide_objective_label.text = "\u25b8 Set up a program to automate this route"
+		_guide_objective_label.visible = true
+	elif has_traded:
+		_guide_objective_label.text = "\u25b8 Sell at another system for profit"
+		_guide_objective_label.visible = true
+	elif has_docked:
+		_guide_objective_label.text = "\u25b8 Buy goods from the Market"
+		_guide_objective_label.visible = true
+	elif not _onboarding_state.is_empty():
+		_guide_objective_label.text = "\u25b8 Dock at the station ahead"
+		_guide_objective_label.visible = true
+	else:
+		_guide_objective_label.visible = false
+
 # Dock confirmation: show dock prompt with dynamic key label.
 func show_dock_prompt_v0(station_name: String = "") -> void:
 	if _dock_prompt_label == null:
@@ -1829,6 +1883,10 @@ func _check_supply_alerts_v0() -> void:
 	if _supply_alert_label == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetSupplyShockSummaryV0"):
+		_supply_alert_label.visible = false
+		return
+	# Don't show supply alerts until the player has explored enough to understand them.
+	if int(_onboarding_state.get("nodes_visited", 0)) < 5:
 		_supply_alert_label.visible = false
 		return
 	var summary: Dictionary = _bridge.call("GetSupplyShockSummaryV0")

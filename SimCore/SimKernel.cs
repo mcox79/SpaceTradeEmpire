@@ -108,6 +108,9 @@ public class SimKernel
         // Consume upkeep and produce outputs.
         IndustrySystem.Process(_state);
 
+        // Station population consumption: food + fuel drain per station per cadence.
+        StationConsumptionSystem.Process(_state);
+
         // GATE.S8.THREAT.SUPPLY_SHOCK.001: Warfront disrupts production chains.
         SupplyShockSystem.Process(_state);
 

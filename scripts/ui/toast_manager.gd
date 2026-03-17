@@ -21,6 +21,9 @@ const PRIORITY_CONFIG := {
 	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15},
 	# FO dialogue tier (subtle teal border).
 	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false},
+	# Captain's Guide hint tier (warm amber, slightly larger).
+	# Persists until explicitly dismissed (e.g. on undock) so the player has time to read.
+	"guide": {"color": Color(0.9, 0.7, 0.3), "duration": 0.0, "persist": true, "font_size": 14},
 }
 
 var _container: VBoxContainer = null
@@ -86,7 +89,7 @@ func show_priority_toast(text: String, priority: String = "info", duration_overr
 
 	# Track for bundling.
 	var count_label = toast.get_node_or_null("HBox/CountLabel")
-	_active_bundles[text] = {"panel": toast, "count_label": count_label, "count": 1}
+	_active_bundles[text] = {"panel": toast, "count_label": count_label, "count": 1, "priority": priority}
 
 	# Animate: slide in from right + fade in
 	toast.modulate.a = 0.0
@@ -108,6 +111,23 @@ func show_priority_toast(text: String, priority: String = "info", duration_overr
 		fade_tween.tween_interval(15.0)
 		fade_tween.tween_property(toast, "modulate:a", 0.0, SLIDE_DURATION)
 		fade_tween.tween_callback(_remove_toast.bind(toast, text))
+
+
+## Dismiss all guide-priority toasts (called on undock so hints don't linger).
+func dismiss_guide_toasts() -> void:
+	if _container == null:
+		return
+	var to_remove: Array = []
+	for txt in _active_bundles.keys():
+		var bundle: Dictionary = _active_bundles[txt]
+		if str(bundle.get("priority", "")) != "guide":
+			continue
+		var panel = bundle.get("panel")
+		if is_instance_valid(panel):
+			to_remove.append({"toast": panel, "text": txt})
+	for entry in to_remove:
+		_fade_and_remove(entry["toast"], entry["text"])
+		_active_bundles.erase(entry["text"])
 
 
 func _remove_toast(toast, text: String = "") -> void:

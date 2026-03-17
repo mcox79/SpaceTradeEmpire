@@ -210,6 +210,7 @@ namespace SimCore.Systems
                     ProcessMinimalConstructionV0(state, siteId: siteKey, market);
                 }
             }
+
         }
 
         private static void ProcessMinimalConstructionV0(SimState state, string siteId, Market market)
@@ -344,6 +345,7 @@ namespace SimCore.Systems
                         $"IndustrySite '{key}' has RecipeId '{site.RecipeId}' not found in content registry.");
             }
         }
+
 
         private static void ApplyDegradation(IndustrySite site, int effBps)
         {

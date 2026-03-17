@@ -158,6 +158,11 @@ public partial class GalaxyView : Node3D
     private double _fleetRefreshTimer = 0.0;
     private string _currentLocalNodeId = "";
 
+    // Arrival warp queue — spawn arriving ships one at a time for visible warp-in sequence.
+    private readonly Queue<(string fleetId, Godot.Collections.Dictionary data, Vector3 spawnPos, Vector3 targetPos, float speed)> _arrivalQueue = new();
+    private float _arrivalQueueTimer = 0f;
+    private const float ArrivalWarpInterval = 2.5f; // seconds between arrival warps
+
     // GATE.S17.REAL_SPACE.GALAXY_MAP.001: No dedicated overlay camera — the follow camera
     // raises to altitude. Use GetViewport().GetCamera3D() for projection queries.
 
@@ -487,6 +492,18 @@ public partial class GalaxyView : Node3D
             {
                 RefreshLocalFleetsV0();
                 _fleetRefreshTimer = 1.0;
+            }
+
+            // Process arrival warp queue — spawn one arriving ship at a time.
+            if (_arrivalQueue.Count > 0)
+            {
+                _arrivalQueueTimer -= (float)delta;
+                if (_arrivalQueueTimer <= 0f)
+                {
+                    _arrivalQueueTimer = ArrivalWarpInterval;
+                    var (fleetId, data, spawnPos, targetPos, speed) = _arrivalQueue.Dequeue();
+                    SpawnQueuedArrivalV0(fleetId, data, spawnPos, targetPos, speed);
+                }
             }
         }
 
@@ -1040,6 +1057,12 @@ public partial class GalaxyView : Node3D
             // starts/ends at the exact gate marker positions.
             var gateFrom = GetCachedGateGlobalPositionV0(fromId, toId);
             var gateTo = GetCachedGateGlobalPositionV0(toId, fromId);
+            if (drawnKeys.Count <= 3) // Debug first 3 lanes
+            {
+                var starFrom = GetNodeScaledPositionV0(fromId);
+                var starTo = GetNodeScaledPositionV0(toId);
+                GD.Print($"DEBUG_LANE|{fromId}→{toId} starFrom={starFrom} gateFrom={gateFrom} starTo={starTo} gateTo={gateTo}");
+            }
             UpdateEdgeTransformV0(mesh, gateFrom, gateTo);
             _persistentLanesRoot.AddChild(mesh);
         }
@@ -1145,10 +1168,10 @@ public partial class GalaxyView : Node3D
         var starColor = new Color(r, g, b);
         float lumScale = MathF.Sqrt(luminosityBps / 10000.0f);
 
-        // 1. Primary star at origin.
-        var star = CreateStarMeshV0(starColor, starClass);
-        star.AddToGroup("LocalStar");
-        _localSystemRoot.AddChild(star);
+        // 1. Star system (single / binary / trinary with mutual orbits).
+        var starAnchor = SpawnStarSystemV0(nodeId, starColor, starClass);
+        starAnchor.AddToGroup("LocalStar");
+        _localSystemRoot.AddChild(starAnchor);
 
         // Solar repulsion is handled by the flight controller (checks "LocalStar" group distance).
 
@@ -1184,16 +1207,16 @@ public partial class GalaxyView : Node3D
         fogVol.Material = fogMat;
         _localSystemRoot.AddChild(fogVol);
 
-        // 1a. Binary companion (~20% chance, seeded).
-        SpawnBinaryCompanionV0(nodeId, starColor, starClass);
-
         // 1b. Planet orbiting the star.
         var (planetPos, planetType, planetOrbitPivot) = SpawnLocalPlanetV0(nodeId, lumScale);
 
         // 1c. Moons around the planet (orbit inside planet pivot).
         SpawnMoonsV0(nodeId, planetPos, planetType, planetOrbitPivot);
 
-        // 1d. Asteroid belt between inner and outer zones.
+        // 1d. Visual-only outer planets for system depth.
+        SpawnOuterPlanetsV0(nodeId, lumScale, planetType);
+
+        // 1e. Asteroid belt between inner and outer zones.
         SpawnAsteroidBeltV0(nodeId, lumScale);
 
         // 2. Station orbiting near the planet (orbit inside planet pivot).
@@ -1256,7 +1279,7 @@ public partial class GalaxyView : Node3D
         var beltHash = Fnv1a64(nodeId + "_asteroids");
         if (beltHash % 100UL < 60)
         {
-            float beltRadius = 68.0f; // VISUAL_OVERHAUL: 1.5x scale match
+            float beltRadius = 120.0f;
 
             var beltDustProc = new ParticleProcessMaterial
             {
@@ -1546,29 +1569,7 @@ public partial class GalaxyView : Node3D
         stationLabel.Position = new Vector3(0f, 35f, 0f);
         station.AddChild(stationLabel);
 
-        // Station billboard beacon: faction-colored emissive diamond visible at distance.
-        // Shows at camera altitude > 80u when the 3D mesh is too small to read.
-        var beaconMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(accentColor.R, accentColor.G, accentColor.B, 0.9f),
-            EmissionEnabled = true,
-            Emission = accentColor,
-            EmissionEnergyMultiplier = 6.0f,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
-            NoDepthTest = true,
-            RenderPriority = 5,
-        };
-        var beaconMesh = new MeshInstance3D
-        {
-            Name = "StationBeacon",
-            Mesh = new SphereMesh { Radius = 6.0f, Height = 12.0f, RadialSegments = 8, Rings = 4 },
-            MaterialOverride = beaconMat,
-            Position = new Vector3(0f, 8f, 0f),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        station.AddChild(beaconMesh);
+        // StationBeacon sphere removed — was placeholder programmer art.
 
         // GATE.S7.FACTION_VIS.STATION_STYLE.001: Faction name banner below station label.
         if (_bridge != null && !string.IsNullOrEmpty(nodeId))
@@ -1634,7 +1635,8 @@ public partial class GalaxyView : Node3D
         if (!snap.ContainsKey("lane_gate")) return;
         var gates = snap["lane_gate"].AsGodotArray();
 
-        var currentNodeId = snap.ContainsKey("node_id") ? (string)snap["node_id"] : "";
+        // Use _currentNodeId (set by DrawLocalSystemV0) — snap doesn't contain "node_id".
+        var currentNodeId = _currentNodeId ?? "";
 
         for (int i = 0; i < gates.Count; i++)
         {
@@ -1673,6 +1675,7 @@ public partial class GalaxyView : Node3D
                 }
             }
             marker.Position = gatePos;
+            GD.Print($"DEBUG_GATE|LOCAL_MARKER|node={currentNodeId} neighbor={neighborId} localPos={gatePos} globalPos={GetNodeScaledPositionV0(currentNodeId) + gatePos}");
             if (gatePos != Vector3.Zero)
                 marker.LookAt(marker.Position + gatePos.Normalized(), Vector3.Up);
         }
@@ -1713,36 +1716,91 @@ public partial class GalaxyView : Node3D
             var ship = SpawnNpcShipV0(fleetId);
             if (ship == null) continue;
 
-            var state = f.ContainsKey("state") ? (string)f["state"] : "Idle";
+            // Use the same travel-progress-based positioning as RefreshLocalFleetsV0.
+            var currentNodeId = f.ContainsKey("current_node_id") ? (string)f["current_node_id"] : "";
             var destNodeId = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+            var fleetState = f.ContainsKey("state") ? (string)f["state"] : "Idle";
+            float travelProgress = f.ContainsKey("travel_progress") ? (float)f["travel_progress"] : 0f;
+            int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
+            float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
+            float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
+            var currentTask = f.ContainsKey("current_task") ? (string)f["current_task"] : "Idle";
+            var finalDest = f.ContainsKey("final_destination_node_id") ? (string)f["final_destination_node_id"] : "";
 
-            // Position ship based on state.
-            if (state == "Traveling" && !string.IsNullOrEmpty(destNodeId))
+            bool atThisNode = StringComparer.Ordinal.Equals(currentNodeId, _currentLocalNodeId);
+            Vector3 spawnPos;
+            Vector3 targetPos;
+
+            if (atThisNode && fleetState != "Traveling")
             {
-                // Arriving from a neighboring system — start at the gate.
+                // Fleet is idle/docked — spawn near station. If it has a destination, target the gate.
+                spawnPos = DeriveOrbitPositionV0(fleetId + "_local", arrOrbit);
+                var idleDest = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+                if (!string.IsNullOrEmpty(idleDest) && !StringComparer.Ordinal.Equals(idleDest, _currentLocalNodeId))
+                {
+                    targetPos = GetGateLocalPositionForNeighborV0(idleDest);
+                    if (targetPos == Vector3.Zero)
+                        targetPos = DeriveOrbitPositionV0(fleetId + "_depart", LaneGateDistanceU);
+                }
+                else
+                {
+                    targetPos = DeriveOrbitPositionV0(fleetId + "_hold", arrOrbit * 0.8f);
+                }
+            }
+            else if (atThisNode && fleetState == "Traveling" && !string.IsNullOrEmpty(destNodeId)
+                && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId))
+            {
+                // Fleet is departing — position between station and departure gate.
                 var gatePos = GetGateLocalPositionForNeighborV0(destNodeId);
-                ship.Position = gatePos != Vector3.Zero ? gatePos : DeriveOrbitPositionV0(fleetId + "_local", LaneGateDistanceU);
+                if (gatePos == Vector3.Zero)
+                    gatePos = DeriveOrbitPositionV0(fleetId + "_depart", LaneGateDistanceU);
+                var stationPos = DeriveOrbitPositionV0(fleetId + "_local", arrOrbit);
+                spawnPos = stationPos.Lerp(gatePos, Mathf.Clamp(travelProgress * 2f, 0f, 1f));
+                targetPos = gatePos;
             }
             else
             {
-                // Idle at this node — orbit position.
-                ship.Position = DeriveOrbitPositionV0(fleetId + "_local", FleetOrbitRadiusU);
+                // Fleet arriving from another system — queue for staggered warp-in.
+                var sourceNeighbor = !string.IsNullOrEmpty(currentNodeId) ? currentNodeId : "";
+                var gatePos = !string.IsNullOrEmpty(sourceNeighbor)
+                    ? GetGateLocalPositionForNeighborV0(sourceNeighbor)
+                    : Vector3.Zero;
+                if (gatePos == Vector3.Zero)
+                    gatePos = DeriveOrbitPositionV0(fleetId + "_arrive", LaneGateDistanceU);
+                var orbitPos = DeriveOrbitPositionV0(fleetId + "_local", arrOrbit);
+
+                // If well past the gate (progress > 0.7), spawn immediately (already in-system).
+                if (travelProgress > 0.7f)
+                {
+                    float arrivalT = Mathf.Clamp((travelProgress - 0.5f) * 2f, 0f, 1f);
+                    spawnPos = gatePos.Lerp(orbitPos, arrivalT);
+                    targetPos = orbitPos;
+                }
+                else
+                {
+                    // Enqueue for staggered warp-in at gate. Ship not yet spawned.
+                    ship.QueueFree(); // Don't spawn yet — SpawnQueuedArrivalV0 will re-create.
+                    _arrivalQueue.Enqueue((fleetId, f, gatePos, orbitPos, arrSpd));
+                    GD.Print($"DEBUG_NPC|ARRIVAL_QUEUED|fleet={fleetId} role={arrRole} progress={travelProgress:F2}");
+                    continue;
+                }
             }
 
+            GD.Print($"DEBUG_NPC|INIT_SPAWN|fleet={fleetId} role={arrRole} state={fleetState} task={currentTask} dest={destNodeId} final={finalDest} progress={travelProgress:F2} pos={spawnPos}");
+            ship.Position = spawnPos;
             ship.AddToGroup("FleetShip");
             _localSystemRoot.AddChild(ship);
 
-            // Set movement target based on role.
-            if (ship.HasMethod("set_target"))
-            {
-                var role = f.ContainsKey("role") ? (int)f["role"] : 0;
-                float orbitR = role == 2 ? 65.0f : 25.0f; // Patrol wider
-                float spd = role == 2 ? 8.0f : role == 1 ? 4.5f : 5.0f;
-                var targetPos = DeriveOrbitPositionV0(fleetId + "_local", orbitR);
-                ship.Call("set_target", targetPos, spd);
-            }
             if (ship.HasMethod("update_transit"))
                 ship.Call("update_transit", f);
+
+            // Mark departing fleets so they warp out at the gate.
+            bool isDeparting = atThisNode && fleetState == "Traveling" && !string.IsNullOrEmpty(destNodeId)
+                && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId);
+            if (isDeparting && ship.HasMethod("begin_departure_v0"))
+                ship.Call("begin_departure_v0", targetPos);
+            else if (ship.HasMethod("set_target"))
+                ship.Call("set_target", targetPos, arrSpd);
         }
 
         // Init combat HP for all fleets (idempotent).
@@ -1759,6 +1817,8 @@ public partial class GalaxyView : Node3D
         if (string.IsNullOrEmpty(_currentLocalNodeId)) return;
 
         var transitFacts = _bridge.GetFleetTransitFactsV0(_currentLocalNodeId);
+        if (transitFacts.Count > 0 && _fleetRefreshTimer <= 0.1)
+            GD.Print($"DEBUG_FLEET|REFRESH|node={_currentLocalNodeId} fleets={transitFacts.Count}");
 
         // Collect fleet IDs from transit facts.
         var transitFleetIds = new HashSet<string>(StringComparer.Ordinal);
@@ -1787,16 +1847,27 @@ public partial class GalaxyView : Node3D
             }
         }
 
-        // Departing fleets: fly to departure gate, then warp out.
+        // Departing fleets: mark for departure. They'll fly to the nearest gate
+        // and warp out when they arrive (handled by npc_ship.gd _physics_process).
         var warpScript = GD.Load<Script>("res://scripts/vfx/warp_effect.gd");
         foreach (var id in existingFleetIds)
         {
             if (!transitFleetIds.Contains(id) && existingNodes.TryGetValue(id, out var node))
             {
-                if (node is Node3D n3d && warpScript != null)
-                    warpScript.Call("play_warp_out", n3d);
+                if (node is Node3D n3d && n3d.HasMethod("begin_departure_v0"))
+                {
+                    // Find the nearest gate for this fleet to fly toward.
+                    var gatePos = FindNearestGateLocalPositionV0(n3d.Position);
+                    n3d.Call("begin_departure_v0", gatePos);
+                }
+                else if (node is Node3D n3d2 && warpScript != null)
+                {
+                    warpScript.Call("play_warp_out", n3d2);
+                }
                 else
+                {
                     node.QueueFree();
+                }
             }
         }
 
@@ -1809,34 +1880,102 @@ public partial class GalaxyView : Node3D
                 var ship = SpawnNpcShipV0(id);
                 if (ship == null) continue;
 
-                // Determine arrival gate from the fleet's source edge/neighbor.
+                // Determine spawn position based on fleet transit state + progress.
                 var currentNodeId = f.ContainsKey("current_node_id") ? (string)f["current_node_id"] : "";
                 var destNodeId = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
-                var sourceNeighbor = !StringComparer.Ordinal.Equals(currentNodeId, _currentLocalNodeId) ? currentNodeId : "";
-                var gatePos = !string.IsNullOrEmpty(sourceNeighbor)
-                    ? GetGateLocalPositionForNeighborV0(sourceNeighbor)
-                    : Vector3.Zero;
-                if (gatePos == Vector3.Zero)
-                    gatePos = DeriveOrbitPositionV0(id + "_arrive", LaneGateDistanceU);
+                var fleetState = f.ContainsKey("state") ? (string)f["state"] : "Idle";
+                float travelProgress = f.ContainsKey("travel_progress") ? (float)f["travel_progress"] : 0f;
+                int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
+                float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
+                float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
 
-                ship.Position = gatePos;
+                // Is this fleet already at our node, or arriving from elsewhere?
+                bool atThisNode = StringComparer.Ordinal.Equals(currentNodeId, _currentLocalNodeId);
+
+                Vector3 spawnPos;
+                Vector3 targetPos;
+                bool playWarpIn = false;
+
+                if (atThisNode && fleetState != "Traveling")
+                {
+                    // Fleet is idle/docked — spawn near station, target gate if has destination.
+                    spawnPos = DeriveOrbitPositionV0(id + "_local", arrOrbit);
+                    var idleDest = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+                    if (!string.IsNullOrEmpty(idleDest) && !StringComparer.Ordinal.Equals(idleDest, _currentLocalNodeId))
+                    {
+                        targetPos = GetGateLocalPositionForNeighborV0(idleDest);
+                        if (targetPos == Vector3.Zero)
+                            targetPos = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
+                    }
+                    else
+                    {
+                        targetPos = DeriveOrbitPositionV0(id + "_hold", arrOrbit * 0.8f);
+                    }
+                }
+                else if (atThisNode && fleetState == "Traveling" && !string.IsNullOrEmpty(destNodeId)
+                    && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId))
+                {
+                    // Fleet is departing — position between station and departure gate based on progress.
+                    var gatePos = GetGateLocalPositionForNeighborV0(destNodeId);
+                    if (gatePos == Vector3.Zero)
+                        gatePos = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
+                    var stationPos = DeriveOrbitPositionV0(id + "_local", arrOrbit);
+                    // Lerp from station to gate based on travel progress.
+                    spawnPos = stationPos.Lerp(gatePos, Mathf.Clamp(travelProgress * 2f, 0f, 1f));
+                    targetPos = gatePos;
+                }
+                else
+                {
+                    // Fleet arriving from another system — queue for staggered warp-in.
+                    var sourceNeighbor = !string.IsNullOrEmpty(currentNodeId) ? currentNodeId : "";
+                    var gatePos = !string.IsNullOrEmpty(sourceNeighbor)
+                        ? GetGateLocalPositionForNeighborV0(sourceNeighbor)
+                        : Vector3.Zero;
+                    if (gatePos == Vector3.Zero)
+                        gatePos = DeriveOrbitPositionV0(id + "_arrive", LaneGateDistanceU);
+                    var orbitPos = DeriveOrbitPositionV0(id + "_local", arrOrbit);
+
+                    if (travelProgress > 0.7f)
+                    {
+                        // Already well into system — spawn immediately.
+                        float arrivalT = Mathf.Clamp((travelProgress - 0.5f) * 2f, 0f, 1f);
+                        spawnPos = gatePos.Lerp(orbitPos, arrivalT);
+                        targetPos = orbitPos;
+                    }
+                    else
+                    {
+                        // Queue for staggered warp-in at gate.
+                        ship.QueueFree();
+                        _arrivalQueue.Enqueue((id, f, gatePos, orbitPos, arrSpd));
+                        GD.Print($"DEBUG_NPC|ARRIVAL_QUEUED|fleet={id} role={arrRole} progress={travelProgress:F2}");
+                        continue;
+                    }
+                    playWarpIn = false; // Handled by queue system now.
+                }
+
+                var arrTask = f.ContainsKey("current_task") ? (string)f["current_task"] : "Idle";
+                var arrFinalDest = f.ContainsKey("final_destination_node_id") ? (string)f["final_destination_node_id"] : "";
+                var arrDest = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+                GD.Print($"DEBUG_NPC|REFRESH_SPAWN|fleet={id} role={arrRole} task={arrTask} dest={arrDest} final={arrFinalDest} progress={travelProgress:F2} pos={spawnPos}");
+                ship.Position = spawnPos;
                 ship.AddToGroup("FleetShip");
                 _localSystemRoot.AddChild(ship);
 
-                // Play warp-in VFX at the gate.
-                if (warpScript != null)
-                    warpScript.Call("play_warp_in", _localSystemRoot, gatePos);
+                if (playWarpIn && warpScript != null)
+                    warpScript.Call("play_warp_in", _localSystemRoot, spawnPos);
 
-                // Set target to orbit position so the ship flies inward from the gate.
-                if (ship.HasMethod("set_target"))
-                {
-                    int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
-                    float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
-                    float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
-                    ship.Call("set_target", DeriveOrbitPositionV0(id + "_local", arrOrbit), arrSpd);
-                }
                 if (ship.HasMethod("update_transit"))
                     ship.Call("update_transit", f);
+
+                // Check if this newly-spawned ship is departing — mark it so it warps out at gate.
+                var spawnFleetState = f.ContainsKey("state") ? (string)f["state"] : "Idle";
+                var spawnDest = f.ContainsKey("destination_node_id") ? (string)f["destination_node_id"] : "";
+                bool spawnDeparting = atThisNode && spawnFleetState == "Traveling" && !string.IsNullOrEmpty(spawnDest)
+                    && !StringComparer.Ordinal.Equals(spawnDest, _currentLocalNodeId);
+                if (spawnDeparting && ship.HasMethod("begin_departure_v0"))
+                    ship.Call("begin_departure_v0", targetPos);
+                else if (ship.HasMethod("set_target"))
+                    ship.Call("set_target", targetPos, arrSpd);
             }
             else if (existingNodes.TryGetValue(id, out var existingNode))
             {
@@ -1849,47 +1988,132 @@ public partial class GalaxyView : Node3D
                 if (existingNode.HasMethod("update_transit"))
                     existingNode.Call("update_transit", f);
 
+                var currentTask = f.ContainsKey("current_task") ? (string)f["current_task"] : "Idle";
+
                 if (existingNode.HasMethod("set_target"))
                 {
                     Vector3 target;
                     float speed;
+                    string reason;
 
                     if (state == "Traveling" && !string.IsNullOrEmpty(destNodeId)
                         && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId))
                     {
-                        // Fleet leaving this system: fly to the departure gate.
+                        // Fleet leaving this system: fly to the departure gate and warp out.
                         target = GetGateLocalPositionForNeighborV0(destNodeId);
                         if (target == Vector3.Zero)
                             target = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
-                        speed = role == 2 ? 8.0f : 6.0f; // Patrol faster
+                        speed = role == 2 ? 8.0f : 6.0f;
+                        reason = $"departing→{destNodeId}";
+                        // Mark as departing so NPC warps out at gate.
+                        if (existingNode.HasMethod("begin_departure_v0"))
+                            existingNode.Call("begin_departure_v0", target);
                     }
                     else if (!string.IsNullOrEmpty(finalDestId)
                         && !StringComparer.Ordinal.Equals(finalDestId, _currentLocalNodeId))
                     {
                         // Fleet has a destination queued (about to depart): fly toward departure gate.
-                        // Use finalDest's first hop neighbor if available, else finalDest directly.
-                        var gateNeighbor = !string.IsNullOrEmpty(destNodeId) ? destNodeId : finalDestId;
+                        var gateNeighbor = !string.IsNullOrEmpty(destNodeId)
+                            && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId)
+                            ? destNodeId : finalDestId;
                         target = GetGateLocalPositionForNeighborV0(gateNeighbor);
                         if (target == Vector3.Zero)
-                            target = DeriveOrbitPositionV0(id + "_depart", LaneGateDistanceU);
-                        speed = role == 2 ? 8.0f : 5.0f;
+                        {
+                            target = DeriveOrbitPositionV0(id + "_hold", role == 2 ? 50.0f : 20.0f);
+                            speed = 2.0f;
+                            reason = $"no_gate_for_queued→{gateNeighbor}";
+                        }
+                        else
+                        {
+                            speed = role == 2 ? 8.0f : 5.0f;
+                            reason = $"queued→{finalDestId}";
+                        }
                     }
-                    else if (role == 2) // Patrol
+                    else if (!string.IsNullOrEmpty(destNodeId)
+                        && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId))
                     {
-                        // Patrol ships orbit wider and faster.
-                        target = DeriveOrbitPositionV0(id + "_patrol", 65.0f);
-                        speed = 8.0f;
+                        // Fleet idle but has a destination at a DIFFERENT node — fly toward departure gate.
+                        target = GetGateLocalPositionForNeighborV0(destNodeId);
+                        if (target == Vector3.Zero)
+                        {
+                            // No gate for this neighbor — hold near station instead.
+                            target = DeriveOrbitPositionV0(id + "_hold", role == 2 ? 50.0f : 20.0f);
+                            speed = 2.0f;
+                            reason = $"no_gate_for→{destNodeId}";
+                        }
+                        else
+                        {
+                            speed = role == 2 ? 6.0f : role == 1 ? 4.0f : 4.5f;
+                            reason = $"heading_to_gate→{destNodeId}";
+                        }
                     }
                     else
                     {
-                        // Trader/Hauler idle: orbit near station area.
-                        target = DeriveOrbitPositionV0(id + "_local", 25.0f);
-                        speed = role == 1 ? 4.5f : 5.0f; // Haulers slower
+                        // Truly idle, no destination or dest is current node — hold position near station.
+                        target = DeriveOrbitPositionV0(id + "_hold", role == 2 ? 50.0f : 20.0f);
+                        speed = 2.0f;
+                        reason = "station_hold";
                     }
                     existingNode.Call("set_target", target, speed);
+                    // Log once per fleet refresh (every ~2s) so we can see fleet intent.
+                    if (_fleetRefreshTimer <= 0.1)
+                        GD.Print($"DEBUG_NPC|REFRESH_TARGET|fleet={id} role={role} task={currentTask} reason={reason} dest={destNodeId} final={finalDestId}");
                 }
             }
         }
+    }
+
+    // Spawn a single queued arrival: create ship at gate, play warp-in VFX, fly inward.
+    private void SpawnQueuedArrivalV0(string fleetId, Godot.Collections.Dictionary data, Vector3 gatePos, Vector3 orbitPos, float speed)
+    {
+        if (_localSystemRoot == null) return;
+
+        // Check if this fleet is still relevant (might have left by the time we process the queue).
+        var transitFacts = _bridge?.GetFleetTransitFactsV0(_currentLocalNodeId ?? "");
+        if (transitFacts != null)
+        {
+            bool stillPresent = false;
+            for (int i = 0; i < transitFacts.Count; i++)
+            {
+                var tf = transitFacts[i].AsGodotDictionary();
+                if (tf.ContainsKey("fleet_id") && (string)tf["fleet_id"] == fleetId)
+                {
+                    stillPresent = true;
+                    break;
+                }
+            }
+            if (!stillPresent)
+            {
+                GD.Print($"DEBUG_NPC|ARRIVAL_STALE|fleet={fleetId} (no longer in transit facts, skipping)");
+                return;
+            }
+        }
+
+        // Check if ship already exists in scene.
+        foreach (Node child in _localSystemRoot.GetChildren())
+        {
+            if (child is Node3D n3d && n3d.IsInGroup("FleetShip") && n3d.Name.ToString() == "Fleet_" + fleetId)
+                return; // Already spawned.
+        }
+
+        var ship = SpawnNpcShipV0(fleetId);
+        if (ship == null) return;
+
+        ship.Position = gatePos;
+        ship.AddToGroup("FleetShip");
+        _localSystemRoot.AddChild(ship);
+
+        // Play warp-in VFX at gate.
+        var warpScript = GD.Load<Script>("res://scripts/vfx/warp_effect.gd");
+        if (warpScript != null)
+            warpScript.Call("play_warp_in", _localSystemRoot, gatePos);
+
+        if (ship.HasMethod("update_transit"))
+            ship.Call("update_transit", data);
+        if (ship.HasMethod("set_target"))
+            ship.Call("set_target", orbitPos, speed);
+
+        GD.Print($"DEBUG_NPC|ARRIVAL_WARP_IN|fleet={fleetId} gate={gatePos} target={orbitPos}");
     }
 
     // Find a lane gate's local-space position for a given neighbor node ID.
@@ -1915,70 +2139,44 @@ public partial class GalaxyView : Node3D
         return Vector3.Zero;
     }
 
-    // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Load Quaternius .tscn model by FleetRole and return as a scaled Node3D.
+    // Find the nearest lane gate position to the given local-space position.
+    private Vector3 FindNearestGateLocalPositionV0(Vector3 fromPos)
+    {
+        if (_localSystemRoot == null) return new Vector3(LaneGateDistanceU, 0, 0);
+        float bestDist = float.MaxValue;
+        Vector3 bestPos = new Vector3(LaneGateDistanceU, 0, 0);
+        foreach (var child in _localSystemRoot.GetChildren())
+        {
+            if (child is not Node3D n3d || !n3d.IsInGroup("LaneGate")) continue;
+            float dist = n3d.Position.DistanceTo(fromPos);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                bestPos = n3d.Position;
+            }
+        }
+        return bestPos;
+    }
+
+    // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Procedural ship model by FleetRole via ShipMeshBuilder.
     // GATE.S12.FLEET_SUBSTANCE.VARIETY.001: Hash-based model variants + player ship.
-    private static readonly string[] TraderModels = { "dispatcher", "pancake", "omen" };
-    private static readonly string[] TraderColors = { "blue", "green", "orange" };
-    private static readonly string[] HaulerModels = { "bob", "zenith" };
-    private static readonly string[] HaulerColors = { "blue", "green", "orange" };
-    private static readonly string[] PatrolModels = { "spitfire", "striker", "insurgent" };
-    private static readonly string[] PatrolColors = { "blue", "red", "orange" };
+    private static GDScript _shipMeshBuilderScript;
 
     private Node3D LoadFleetModelV0(string fleetId)
     {
-        string modelPath;
+        _shipMeshBuilderScript ??= GD.Load<GDScript>("res://scripts/view/ship_mesh_builder.gd");
+        if (_shipMeshBuilderScript == null) return null;
 
+        int roleInt;
         if (StringComparer.Ordinal.Equals(fleetId, "fleet_trader_1"))
-        {
-            // Player fleet always uses challenger_blue.
-            modelPath = "res://addons/quaternius-ultimate-spaceships-pack/meshes/challenger/challenger_blue.tscn";
-        }
+            roleInt = -1; // Player ship
         else
-        {
-            // Hash-based selection for NPC fleets.
-            uint hash = 0;
-            foreach (char c in fleetId) { hash = hash * 31 + (uint)c; }
+            roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
 
-            int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
-            string[] models;
-            string[] colors;
-            switch (roleInt)
-            {
-                case 1: models = HaulerModels; colors = HaulerColors; break;
-                case 2: models = PatrolModels; colors = PatrolColors; break;
-                default: models = TraderModels; colors = TraderColors; break;
-            }
+        uint hash = 0;
+        foreach (char c in fleetId) { hash = hash * 31 + (uint)c; }
 
-            string modelName = models[hash % (uint)models.Length];
-            string colorName = colors[(hash / 7) % (uint)colors.Length];
-            modelPath = $"res://addons/quaternius-ultimate-spaceships-pack/meshes/{modelName}/{modelName}_{colorName}.tscn";
-        }
-
-        Node3D model = null;
-        if (Godot.FileAccess.FileExists(modelPath))
-        {
-            var scene = GD.Load<PackedScene>(modelPath);
-            if (scene != null)
-                model = scene.Instantiate<Node3D>();
-        }
-
-        if (model == null)
-        {
-            // Fallback: try Kenney craft_racer if Quaternius model failed to load.
-            const string FallbackPath = "res://addons/kenney_space_kit/Models/GLTF format/craft_racer.glb";
-            if (Godot.FileAccess.FileExists(FallbackPath))
-            {
-                var scene = GD.Load<PackedScene>(FallbackPath);
-                if (scene != null)
-                    model = scene.Instantiate<Node3D>();
-            }
-        }
-
-        if (model != null)
-        {
-            model.Name = "FleetModel";
-            model.Scale = new Vector3(0.5f, 0.5f, 0.5f);
-        }
+        var model = (Node3D)_shipMeshBuilderScript.Call("build_ship", roleInt, Colors.White, (int)hash);
         return model;
     }
 
@@ -1997,10 +2195,10 @@ public partial class GalaxyView : Node3D
         ship.Name = "Fleet_" + fleetId;
         ship.Set("fleet_id", fleetId);
 
-        // Load Quaternius model and attach to ShipVisual.
-        var modelScene = LoadFleetModelSceneV0(fleetId);
-        if (modelScene != null && ship.HasMethod("load_model"))
-            ship.Call("load_model", modelScene);
+        // Build procedural ship model by fleet role.
+        int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
+        if (ship.HasMethod("load_model_v1"))
+            ship.Call("load_model_v1", roleInt);
 
         // Set hostile meta — default non-hostile; npc_ship.gd resolves from reputation.
         ship.SetMeta("fleet_id", fleetId);
@@ -2039,41 +2237,11 @@ public partial class GalaxyView : Node3D
         return _bridge.GetFleetOwnerIdV0(fleetId);
     }
 
-    // Returns the PackedScene for the Quaternius model (used by SpawnNpcShipV0).
-    private PackedScene LoadFleetModelSceneV0(string fleetId)
-    {
-        uint hash = 0;
-        foreach (char c in fleetId) { hash = hash * 31 + (uint)c; }
-
-        int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
-        string[] models;
-        string[] colors;
-        switch (roleInt)
-        {
-            case 1: models = HaulerModels; colors = HaulerColors; break;
-            case 2: models = PatrolModels; colors = PatrolColors; break;
-            default: models = TraderModels; colors = TraderColors; break;
-        }
-
-        string modelName = models[hash % (uint)models.Length];
-        string colorName = colors[(hash / 7) % (uint)colors.Length];
-        string modelPath = $"res://addons/quaternius-ultimate-spaceships-pack/meshes/{modelName}/{modelName}_{colorName}.tscn";
-
-        if (Godot.FileAccess.FileExists(modelPath))
-            return GD.Load<PackedScene>(modelPath);
-
-        const string FallbackPath = "res://addons/kenney_space_kit/Models/GLTF format/craft_racer.glb";
-        if (Godot.FileAccess.FileExists(FallbackPath))
-            return GD.Load<PackedScene>(FallbackPath);
-
-        return null;
-    }
-
     private Node3D CreateFleetMarkerV0(string fleetId)
     {
         var root = new Node3D { Name = "Fleet_" + fleetId };
 
-        // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Quaternius model by FleetRole.
+        // GATE.S12.FLEET_SUBSTANCE.QUATERNIUS.001: Procedural model by FleetRole.
         var fleetModel = LoadFleetModelV0(fleetId);
         if (fleetModel != null)
             root.AddChild(fleetModel);
@@ -2370,36 +2538,52 @@ public partial class GalaxyView : Node3D
     // VISUAL_OVERHAUL: 1.5x scale for vast-feeling systems.
     private static float PlanetBaseOrbitV0(string planetType) => planetType switch
     {
-        "Lava"        => 27.0f,   // Innermost — volcanic, near star
-        "Sand"        => 33.0f,   // Inner zone
-        "Terrestrial" => 39.0f,   // Habitable zone
-        "Barren"      => 45.0f,   // Outer rocky
-        "Ice"         => 51.0f,   // Outer cold zone
-        "Gaseous"     => 60.0f,   // Far out — gas giant
-        _             => 39.0f,
+        "Lava"        => 45.0f,   // Innermost — volcanic, near star
+        "Sand"        => 55.0f,   // Inner warm zone
+        "Terrestrial" => 65.0f,   // Habitable zone
+        "Barren"      => 75.0f,   // Outer rocky
+        "Ice"         => 88.0f,   // Outer cold zone
+        "Gaseous"     => 105.0f,  // Far out — gas giant
+        _             => 65.0f,
     };
+
+    // Kepler orbital speed: ω = K / r^1.5. Higher K = faster orbits.
+    private const float KeplerK_Planet = 42.0f; // STRUCTURAL: tuned so Terrestrial@65u ≈ 0.08 rad/s
+    private const float KeplerK_Moon = 4.0f;    // STRUCTURAL: tuned so moon@9u ≈ 0.15 rad/s
+    private static float KeplerOrbitSpeed(float radius, float k) =>
+        Mathf.Clamp(k / MathF.Pow(radius, 1.5f), 0.01f, 0.20f);
 
     // Planet visual scale by type. Star is ~6u radius, largest planet ~4u (70% of star).
     // Addon scenes have ~400u baked scale, so 0.01 → ~4u visible radius.
     // VISUAL_OVERHAUL: Increased ~25% for better visibility from camera altitude.
     private static float PlanetVisualScaleV0(string planetType) => planetType switch
     {
-        "Gaseous"     => 0.013f,   // ~5.2u — imposing gas giant
-        "Terrestrial" => 0.010f,   // ~4.0u
-        "Ice"         => 0.009f,   // ~3.6u
-        "Sand"        => 0.009f,   // ~3.6u
-        "Lava"        => 0.008f,   // ~3.2u
-        "Barren"      => 0.007f,   // ~2.8u
-        _             => 0.010f,
+        "Gaseous"     => 0.022f,   // ~8.8u — imposing gas giant
+        "Terrestrial" => 0.017f,   // ~6.8u
+        "Ice"         => 0.015f,   // ~6.0u
+        "Sand"        => 0.015f,   // ~6.0u
+        "Lava"        => 0.014f,   // ~5.6u
+        "Barren"      => 0.012f,   // ~4.8u
+        _             => 0.017f,
     };
 
     // Binary star companion — ~20% of systems are binaries (seeded).
-    private void SpawnBinaryCompanionV0(string nodeId, Color starColor, string starClass)
+    // Spawn single, binary (20%), or trinary (5%) star system with mutual orbits.
+    // Returns the root anchor node (may be a barycenter pivot for multi-star systems).
+    private Node3D SpawnStarSystemV0(string nodeId, Color starColor, string starClass)
     {
-        var hash = Fnv1a64(nodeId + "_binary");
-        if (hash % 100UL >= 20) return; // 20% chance
+        var primary = CreateStarMeshV0(starColor, starClass);
+        primary.Name = "PrimaryStar";
 
-        // Companion is cooler/smaller: shift color toward red, scale down.
+        var hash = Fnv1a64(nodeId + "_binary");
+        bool isBinary = hash % 100UL < 20; // 20% binary
+        if (!isBinary) return primary;
+
+        // Binary: create barycenter pivot for mutual orbit.
+        float classScl = StarClassVisualScaleV0(starClass);
+        float separation = StarVisualRadiusU * classScl * 3.0f; // STRUCTURAL: 3x star radius apart
+        const float massRatio = 0.3f; // STRUCTURAL: companion is 30% mass of primary
+
         var companionColor = new Color(
             Mathf.Min(starColor.R * 1.1f, 1.0f),
             starColor.G * 0.6f,
@@ -2407,11 +2591,56 @@ public partial class GalaxyView : Node3D
         var companion = CreateStarMeshV0(companionColor, starClass, 0.5f);
         companion.Name = "BinaryCompanion";
 
-        // Offset companion from primary at seed-derived angle.
-        float separation = StarVisualRadiusU * StarClassVisualScaleV0(starClass) * 2.5f;
-        companion.Position = DeriveOrbitPositionV0(nodeId + "_binary_pos", separation);
+        var barycenter = new Node3D { Name = "BinaryBarycenter" };
+        var orbitSpin = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (orbitSpin != null)
+        {
+            barycenter.SetScript(orbitSpin);
+            barycenter.Set("spin_speed_y", 0.003f); // STRUCTURAL: slow majestic mutual orbit
+            barycenter.Set("pause_when_docked", true);
+        }
 
-        _localSystemRoot.AddChild(companion);
+        // Primary offset from barycenter (toward companion side, small).
+        float angle = (float)(hash % 360UL) * Mathf.DegToRad(1.0f);
+        float primaryOff = separation * massRatio;
+        primary.Position = new Vector3(MathF.Cos(angle) * -primaryOff, 0f, MathF.Sin(angle) * -primaryOff);
+        companion.Position = new Vector3(MathF.Cos(angle) * (separation - primaryOff), 0f,
+                                          MathF.Sin(angle) * (separation - primaryOff));
+        barycenter.AddChild(primary);
+        barycenter.AddChild(companion);
+
+        // Trinary: 25% of binaries also get a C star (5% total).
+        var triHash = Fnv1a64(nodeId + "_trinary");
+        if (triHash % 100UL < 25)
+        {
+            float cSeparation = 40.0f + (float)(triHash % 20UL); // 40-60u from AB
+            var cColor = new Color(
+                Mathf.Min(starColor.R * 1.05f, 1.0f),
+                starColor.G * 0.8f,
+                starColor.B * 0.5f);
+            var cStar = CreateStarMeshV0(cColor, starClass, 0.35f);
+            cStar.Name = "TrinaryStar";
+
+            // Outer orbit pivot for C around AB barycenter.
+            var outerPivot = new Node3D { Name = "TrinaryOuterPivot" };
+            if (orbitSpin != null)
+            {
+                outerPivot.SetScript(orbitSpin);
+                outerPivot.Set("spin_speed_y", 0.001f); // STRUCTURAL: very slow wide orbit
+                outerPivot.Set("pause_when_docked", true);
+            }
+            float cAngle = (float)(triHash % 360UL) * Mathf.DegToRad(1.0f);
+            cStar.Position = new Vector3(MathF.Cos(cAngle) * cSeparation, 0f,
+                                          MathF.Sin(cAngle) * cSeparation);
+            outerPivot.AddChild(cStar);
+
+            var root = new Node3D { Name = "TrinarySystem" };
+            root.AddChild(barycenter);
+            root.AddChild(outerPivot);
+            return root;
+        }
+
+        return barycenter;
     }
 
     // Ensure addon scene AnimationTree is active so planets/stars rotate.
@@ -2420,6 +2649,19 @@ public partial class GalaxyView : Node3D
         var animTree = sceneRoot.GetNodeOrNull<AnimationTree>("AnimationTree");
         if (animTree != null)
             animTree.Active = true;
+    }
+
+    // Increase SphereMesh resolution on all mesh instances in a planet scene tree.
+    private static void UpgradePlanetMeshResolutionV0(Node3D root)
+    {
+        foreach (var child in root.FindChildren("*", "MeshInstance3D"))
+        {
+            if (child is MeshInstance3D meshInst && meshInst.Mesh is SphereMesh sphere)
+            {
+                sphere.RadialSegments = 128;
+                sphere.Rings = 64;
+            }
+        }
     }
 
     // Moon count by planet type.
@@ -2455,6 +2697,7 @@ public partial class GalaxyView : Node3D
             {
                 moonNode = moonScene.Instantiate<Node3D>();
                 ActivateAnimationTreeV0(moonNode);
+                UpgradePlanetMeshResolutionV0(moonNode);
             }
             else
             {
@@ -2478,7 +2721,7 @@ public partial class GalaxyView : Node3D
             if (moonSpin != null)
             {
                 moonOrbitPivot.SetScript(moonSpin);
-                float orbitSpeed = 0.15f + (float)(moonHash % 5UL) * 0.05f; // 0.15-0.35
+                float orbitSpeed = KeplerOrbitSpeed(moonOrbit, KeplerK_Moon);
                 moonOrbitPivot.Set("spin_speed_y", orbitSpeed);
             }
             moonOrbitPivot.AddChild(container);
@@ -2503,14 +2746,31 @@ public partial class GalaxyView : Node3D
     private void SpawnAsteroidBeltV0(string nodeId, float lumScale)
     {
         var hash = Fnv1a64(nodeId + "_asteroids");
-        // ~60% of systems have a visible asteroid belt.
-        if (hash % 100UL >= 60) return;
+        if (hash % 100UL >= 60) return; // ~60% of systems have a belt
 
-        // VISUAL_OVERHAUL: Belt at 68u base (1.5x scale).
-        float beltRadius = MathF.Max(68.0f * lumScale, 60.0f);
-        int rockCount = 40 + (int)(hash % 30UL); // 40-69 rocks
+        float beltRadius = MathF.Max(120.0f * lumScale, 100.0f);
 
-        // Load Kenney meteor models for realistic rocky shapes.
+        // Richness tiers: sparse / normal / dense — vary rock count and band width.
+        ulong richnessRoll = hash % 100UL;
+        int rockCount;
+        float bandWidth;
+        if (richnessRoll < 12) // 12/60 ≈ 20% sparse
+        {
+            rockCount = 25 + (int)((hash >> 8) % 15UL);  // 25-39
+            bandWidth = 6.0f;
+        }
+        else if (richnessRoll < 42) // 30/60 ≈ 50% normal
+        {
+            rockCount = 55 + (int)((hash >> 8) % 30UL);  // 55-84
+            bandWidth = 12.0f;
+        }
+        else // 18/60 ≈ 30% dense
+        {
+            rockCount = 95 + (int)((hash >> 8) % 40UL);  // 95-134
+            bandWidth = 18.0f;
+        }
+
+        // Load Kenney meteor models.
         var meteorScenes = new PackedScene[MeteorModelPaths.Length];
         int loadedCount = 0;
         for (int m = 0; m < MeteorModelPaths.Length; m++)
@@ -2519,73 +2779,74 @@ public partial class GalaxyView : Node3D
             if (meteorScenes[m] != null) loadedCount++;
         }
 
-        // Belt pivot: all rocks orbit the star together, very slow rotation.
-        var beltPivot = new Node3D { Name = "AsteroidBeltPivot" };
-        var beltSpin = GD.Load<Script>("res://scripts/spinning_node.gd");
-        if (beltSpin != null)
+        // 5-material palette: carbonaceous, silicate, metallic, icy, iron-rich.
+        var rockMaterials = new StandardMaterial3D[]
         {
-            beltPivot.SetScript(beltSpin);
-            beltPivot.Set("spin_speed_y", 0.005f);
-        }
+            new() { AlbedoColor = new Color(0.22f, 0.20f, 0.17f), Roughness = 0.92f,
+                     EmissionEnabled = true, Emission = new Color(0.04f, 0.03f, 0.02f), EmissionEnergyMultiplier = 0.3f },
+            new() { AlbedoColor = new Color(0.52f, 0.47f, 0.38f), Roughness = 0.85f,
+                     EmissionEnabled = true, Emission = new Color(0.08f, 0.07f, 0.05f), EmissionEnergyMultiplier = 0.4f },
+            new() { AlbedoColor = new Color(0.55f, 0.52f, 0.48f), Roughness = 0.60f, Metallic = 0.7f,
+                     EmissionEnabled = true, Emission = new Color(0.06f, 0.06f, 0.06f), EmissionEnergyMultiplier = 0.5f },
+            new() { AlbedoColor = new Color(0.65f, 0.70f, 0.78f), Roughness = 0.70f,
+                     EmissionEnabled = true, Emission = new Color(0.05f, 0.06f, 0.08f), EmissionEnergyMultiplier = 0.6f },
+            new() { AlbedoColor = new Color(0.40f, 0.28f, 0.20f), Roughness = 0.88f,
+                     EmissionEnabled = true, Emission = new Color(0.07f, 0.04f, 0.02f), EmissionEnergyMultiplier = 0.35f },
+        };
 
-        // GATE.S14.ASTEROID.SHAPE_VARIETY.001: Mixed shapes and materials.
-        // Rocks need subtle emission to be visible from camera altitude (~80u).
-        var rockMatLight = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.45f, 0.40f, 0.32f),
-            Roughness = 0.85f,
-            EmissionEnabled = true,
-            Emission = new Color(0.08f, 0.07f, 0.05f),
-            EmissionEnergyMultiplier = 0.5f,
-        };
-        var rockMatDark = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.30f, 0.26f, 0.20f),
-            Roughness = 0.90f,
-            EmissionEnabled = true,
-            Emission = new Color(0.05f, 0.04f, 0.03f),
-            EmissionEnergyMultiplier = 0.4f,
-        };
+        // Belt container (no spin — individual rocks orbit independently).
+        var beltPivot = new Node3D { Name = "AsteroidBeltPivot" };
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        float baseOrbitalSpeed = KeplerOrbitSpeed(beltRadius, KeplerK_Planet);
 
         for (int i = 0; i < rockCount; i++)
         {
             var rockHash = Fnv1a64(nodeId + "_rock_" + i);
             float angle = ((float)i / rockCount) * 2.0f * MathF.PI;
-            float rJitter = beltRadius + ((float)(rockHash % 8UL) - 4.0f);
-            // VISUAL_OVERHAUL: Increased Y scatter for visible 3D depth from top-down camera.
-            float yJitter = ((float)(rockHash % 9UL) - 4.0f) * 1.2f; // ±4.8u (was ±1.2u)
+            float rJitter = beltRadius + ((float)(rockHash % (ulong)(bandWidth * 2)) - bandWidth);
+            float yJitter = ((float)(rockHash % 9UL) - 4.0f) * 1.2f; // ±4.8u vertical
 
-            // Visible rock sizes: 1.0-4.0u (4 size tiers for natural variety).
-            float rockSize = 1.0f + (float)(rockHash % 4UL) * 1.0f; // 1.0, 2.0, 3.0, 4.0u
-            var mat = (rockHash % 2UL == 0) ? rockMatLight : rockMatDark;
+            // Continuous size distribution: many small, few large.
+            ulong sizeRoll = (rockHash >> 12) % 100UL;
+            float rockSize;
+            if (sizeRoll < 50)      // 50% small
+                rockSize = 0.5f + (float)((rockHash >> 20) % 15UL) * 0.1f;  // 0.5-2.0u
+            else if (sizeRoll < 80) // 30% medium
+                rockSize = 2.0f + (float)((rockHash >> 20) % 20UL) * 0.1f;  // 2.0-4.0u
+            else                     // 20% large
+                rockSize = 4.0f + (float)((rockHash >> 20) % 30UL) * 0.1f;  // 4.0-7.0u
 
-            // VISUAL_OVERHAUL: ~15% of rocks have emissive ore veins.
-            if (rockHash % 100UL < 15)
+            // Material: 5 types. Icy only in outer belts (beltRadius > 110u).
+            int matIdx = (int)((rockHash >> 4) % 5UL);
+            if (matIdx == 3 && beltRadius < 110.0f) matIdx = 0; // No icy in inner belts
+            var mat = rockMaterials[matIdx];
+
+            // Ore veins: probability varies by material type.
+            int oreChance = matIdx switch { 2 => 20, 4 => 20, 1 => 15, 3 => 5, _ => 8 };
+            if ((int)(rockHash % 100UL) < oreChance)
             {
-                var oreColor = ((rockHash >> 24) % 3UL) switch
+                var oreColor = ((rockHash >> 24) % 4UL) switch
                 {
-                    0 => new Color(0.1f, 0.4f, 0.6f), // blue crystal
-                    1 => new Color(0.5f, 0.2f, 0.1f), // copper
-                    _ => new Color(0.2f, 0.5f, 0.2f), // green mineral
+                    0 => new Color(0.1f, 0.4f, 0.6f),  // blue crystal
+                    1 => new Color(0.5f, 0.2f, 0.1f),  // copper
+                    2 => new Color(0.6f, 0.5f, 0.1f),  // gold
+                    _ => new Color(0.2f, 0.5f, 0.2f),  // green mineral
                 };
                 mat = new StandardMaterial3D
                 {
-                    AlbedoColor = mat.AlbedoColor,
-                    Roughness = mat.Roughness,
-                    EmissionEnabled = true,
-                    Emission = oreColor,
-                    EmissionEnergyMultiplier = 1.5f,
+                    AlbedoColor = mat.AlbedoColor, Roughness = mat.Roughness,
+                    Metallic = mat.Metallic,
+                    EmissionEnabled = true, Emission = oreColor, EmissionEnergyMultiplier = 1.5f,
                 };
             }
 
+            // Instantiate rock mesh.
             Node3D rock;
             int modelIdx = (int)(rockHash % (ulong)MeteorModelPaths.Length);
             if (loadedCount > 0 && meteorScenes[modelIdx] != null)
             {
-                // Use Kenney meteor models — irregular rocky shapes.
                 rock = meteorScenes[modelIdx].Instantiate<Node3D>();
                 rock.Scale = Vector3.One * rockSize * 0.5f;
-                // Apply asteroid material to all mesh children.
                 foreach (var child in rock.FindChildren("*", "MeshInstance3D"))
                 {
                     if (child is MeshInstance3D meshChild)
@@ -2594,13 +2855,11 @@ public partial class GalaxyView : Node3D
             }
             else
             {
-                // Fallback: deformed sphere if models unavailable.
-                var meshInst = new MeshInstance3D
+                rock = new MeshInstance3D
                 {
                     Mesh = new SphereMesh { Radius = rockSize * 0.5f, Height = rockSize * 0.7f },
                     MaterialOverride = mat,
                 };
-                rock = meshInst;
             }
 
             rock.RotateX((float)(rockHash % 360UL) * (MathF.PI / 180f));
@@ -2611,9 +2870,18 @@ public partial class GalaxyView : Node3D
                 MathF.Cos(angle) * rJitter,
                 yJitter,
                 MathF.Sin(angle) * rJitter);
-
             rock.Name = "AsteroidRock_" + i;
-            beltPivot.AddChild(rock);
+
+            // Per-rock orbit pivot with individual Kepler speed ±10% perturbation.
+            var rockPivot = new Node3D { Name = "AsteroidOrbit_" + i };
+            if (spinScript != null)
+            {
+                rockPivot.SetScript(spinScript);
+                float perturbation = 1.0f + ((float)(rockHash % 20UL) - 10.0f) * 0.01f;
+                rockPivot.Set("spin_speed_y", baseOrbitalSpeed * perturbation);
+            }
+            rockPivot.AddChild(rock);
+            beltPivot.AddChild(rockPivot);
         }
 
         _localSystemRoot.AddChild(beltPivot);
@@ -2648,6 +2916,7 @@ public partial class GalaxyView : Node3D
                 planetNode = scene.Instantiate<Node3D>();
                 ActivateAnimationTreeV0(planetNode); // Self-rotation
                 TintPlanetAtmosphereV0(planetNode, planetType, nodeId); // VISUAL_OVERHAUL
+                UpgradePlanetMeshResolutionV0(planetNode);
             }
         }
 
@@ -2681,12 +2950,7 @@ public partial class GalaxyView : Node3D
         if (orbitSpin != null)
         {
             orbitPivot.SetScript(orbitSpin);
-            float orbitSpeed = planetType switch
-            {
-                "Gaseous" => 0.06f,
-                "Ice"     => 0.08f,
-                _         => 0.12f,
-            };
+            float orbitSpeed = KeplerOrbitSpeed(orbitRadius, KeplerK_Planet);
             orbitPivot.Set("spin_speed_y", orbitSpeed);
         }
 
@@ -2749,7 +3013,7 @@ public partial class GalaxyView : Node3D
                     PixelSize = 0.02f,
                     FontSize = 32,
                     OutlineSize = 8,
-                    Position = new Vector3(0, 6, 0),
+                    Position = new Vector3(0, 12, 0),
                     Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                     Modulate = new Color(0.7f, 0.85f, 1.0f),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
@@ -2762,6 +3026,66 @@ public partial class GalaxyView : Node3D
 
         _localSystemRoot.AddChild(orbitPivot);
         return (planetOrbitPos, planetType, orbitPivot);
+    }
+
+    // Visual-only outer planets — no collision, no dock, no labels. Add system depth.
+    private static readonly string[] OuterPlanetPool = { "Barren", "Ice", "Gaseous", "Sand", "Terrestrial" };
+    private void SpawnOuterPlanetsV0(string nodeId, float lumScale, string canonicalType)
+    {
+        var hash = Fnv1a64(nodeId + "_outer_planets");
+        int count = 1 + (int)(hash % 2UL); // 1-2 outer planets
+
+        float canonicalOrbit = PlanetBaseOrbitV0(canonicalType) * lumScale;
+        var orbitSpin = GD.Load<Script>("res://scripts/spinning_node.gd");
+
+        for (int i = 0; i < count; i++)
+        {
+            var pH = Fnv1a64(nodeId + "_outer_" + i);
+            // Pick type, skipping canonical to avoid visual duplicate at similar distance.
+            string outerType = OuterPlanetPool[(int)(pH % (ulong)OuterPlanetPool.Length)];
+            if (outerType == canonicalType)
+                outerType = OuterPlanetPool[(int)((pH + 1UL) % (ulong)OuterPlanetPool.Length)];
+
+            float orbitRadius = canonicalOrbit + (i + 1) * 25.0f + ((float)(pH % 6UL) - 3.0f);
+            float vScale = PlanetVisualScaleV0(outerType);
+
+            var scenePath = GetPlanetScenePath(outerType);
+            Node3D planetNode = null;
+            if (Godot.FileAccess.FileExists(scenePath))
+            {
+                var scene = GD.Load<PackedScene>(scenePath);
+                if (scene != null)
+                {
+                    planetNode = scene.Instantiate<Node3D>();
+                    ActivateAnimationTreeV0(planetNode);
+                    TintPlanetAtmosphereV0(planetNode, outerType, nodeId + "_outer_" + i);
+                    UpgradePlanetMeshResolutionV0(planetNode);
+                }
+            }
+            if (planetNode == null)
+            {
+                planetNode = new Node3D();
+                planetNode.AddChild(new MeshInstance3D
+                {
+                    Mesh = new SphereMesh { Radius = 4.0f },
+                    MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.5f, 0.5f, 0.55f) }
+                });
+            }
+
+            var container = new Node3D { Name = "OuterPlanet_" + i };
+            container.Scale = new Vector3(vScale, vScale, vScale);
+            container.Position = DeriveOrbitPositionV0(nodeId + "_outer_pos_" + i, orbitRadius);
+            container.AddChild(planetNode);
+
+            var pivot = new Node3D { Name = "OuterPlanetOrbit_" + i };
+            if (orbitSpin != null)
+            {
+                pivot.SetScript(orbitSpin);
+                pivot.Set("spin_speed_y", KeplerOrbitSpeed(orbitRadius, KeplerK_Planet));
+            }
+            pivot.AddChild(container);
+            _localSystemRoot.AddChild(pivot);
+        }
     }
 
     // Map PlanetType enum string to addon scene path.
@@ -2786,40 +3110,40 @@ public partial class GalaxyView : Node3D
         var root = new Node3D { Name = "LaneGate_" + neighborId };
         root.SetMeta("neighbor_node_id", neighborId);
 
-        // GATE.S14.GATE_VISUAL.KENNEY_MODEL.001: Use Kenney Space Kit gate model.
-        const string GateScenePath = "res://addons/kenney_space_kit/Models/GLTF format/gate_complex.glb";
-        bool gateModelLoaded = false;
-        if (Godot.FileAccess.FileExists(GateScenePath))
+        // Centered emissive torus — upright gate ring. Origin-aligned so vortex VFX matches.
+        var orbMat = new StandardMaterial3D
         {
-            var gateScene = GD.Load<PackedScene>(GateScenePath);
-            if (gateScene != null)
-            {
-                var gateModel = gateScene.Instantiate<Node3D>();
-                gateModel.Name = "GateModel";
-                // Scale Kenney model to match ~3u gate footprint.
-                float s = 3.0f;
-                gateModel.Scale = new Vector3(s, s, s);
-                root.AddChild(gateModel);
-                gateModelLoaded = true;
-            }
-        }
-        if (!gateModelLoaded)
+            AlbedoColor = new Color(0.4f, 0.6f, 1.0f, 0.85f),
+            EmissionEnabled = true,
+            Emission = new Color(0.4f, 0.65f, 1.0f),
+            EmissionEnergyMultiplier = 5.0f,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        var orb = new MeshInstance3D
         {
-            // Fallback: emissive torus if Kenney asset missing or import cache stale.
-            var orbMat = new StandardMaterial3D
+            Name = "GateOrb",
+            Mesh = new TorusMesh { InnerRadius = 6.0f, OuterRadius = 8.0f, Rings = 32, RingSegments = 24 },
+            MaterialOverride = orbMat,
+            // Upright ring (XY plane) — parent marker's LookAt orients it to face the lane.
+            // Ship flies through the ring opening when approaching.
+            Rotation = new Vector3(Mathf.DegToRad(90f), 0f, 0f),
+        };
+        root.AddChild(orb);
+
+        // Stargate-like event horizon disc inside the torus ring.
+        var portalShader = GD.Load<Shader>("res://scripts/vfx/gate_portal.gdshader");
+        if (portalShader != null)
+        {
+            var portalMat = new ShaderMaterial { Shader = portalShader };
+            var portal = new MeshInstance3D
             {
-                AlbedoColor = new Color(0.5f, 0.7f, 1.0f),
-                EmissionEnabled = true,
-                Emission = new Color(0.5f, 0.7f, 1.0f),
-                EmissionEnergyMultiplier = 3.5f
+                Name = "GatePortal",
+                Mesh = new PlaneMesh { Size = new Vector2(12.0f, 12.0f) }, // Inner radius 6u → diameter 12u
+                MaterialOverride = portalMat,
+                Rotation = new Vector3(Mathf.DegToRad(90f), 0f, 0f), // Same plane as torus
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
-            var orb = new MeshInstance3D
-            {
-                Name = "GateOrb",
-                Mesh = new TorusMesh { InnerRadius = LaneGateMarkerRadiusU * 0.8f, OuterRadius = LaneGateMarkerRadiusU * 1.2f },
-                MaterialOverride = orbMat
-            };
-            root.AddChild(orb);
+            root.AddChild(portal);
         }
 
         // Keep a hidden "LaneGateMesh" node for any legacy lookup by name.
@@ -2849,7 +3173,7 @@ public partial class GalaxyView : Node3D
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
-        lbl.Position = new Vector3(0f, LaneGateMarkerRadiusU + 1.0f, 0f);
+        lbl.Position = new Vector3(0f, 10.0f, 0f);  // Above the upright torus (8u radius).
         root.AddChild(lbl);
 
         // Approach zone: player RigidBody3D entering triggers GATE_APPROACH state + popup.
@@ -3026,6 +3350,20 @@ public partial class GalaxyView : Node3D
         return new Vector3(MathF.Cos(angle) * radius, 0f, MathF.Sin(angle) * radius);
     }
 
+    // Continuous circular orbit target: each fleet gets a hash-based starting angle
+    // that advances smoothly over time. The target is always ~90° ahead on the circle
+    // so the ship naturally follows a circular path.
+    private static Vector3 ComputeOrbitTargetV0(string fleetId, float radius, float angularSpeed)
+    {
+        var hash = Fnv1a64(fleetId);
+        float baseAngle = (float)(hash % 360UL) * (MathF.PI / 180f);
+        float elapsed = (float)Time.GetTicksMsec() / 1000f;
+        // Current angle = base + time * speed. Target is 90° ahead (quarter circle).
+        float currentAngle = baseAngle + elapsed * angularSpeed;
+        float targetAngle = currentAngle + MathF.PI * 0.5f; // 90° ahead
+        return new Vector3(MathF.Cos(targetAngle) * radius, 0f, MathF.Sin(targetAngle) * radius);
+    }
+
     // GATE.S13.WORLD.GATE_ARRIVAL.001: Get gate position for a neighbor node (for arrival positioning).
     public Vector3 GetGatePositionV0(string neighborId)
     {
@@ -3171,7 +3509,12 @@ public partial class GalaxyView : Node3D
     {
         var key = nodeId + "|" + neighborId;
         if (_gateLocalPositionCache.TryGetValue(key, out var localPos))
-            return GetNodeScaledPositionV0(nodeId) + localPos;
+        {
+            var cachedStarPos = GetNodeScaledPositionV0(nodeId);
+            if (cachedStarPos == Vector3.Zero)
+                GD.Print($"DEBUG_GATE_CACHE|ZERO_STAR|key={key} nodeId={nodeId} bridge={(_bridge != null)} localPos={localPos}");
+            return cachedStarPos + localPos;
+        }
         // Fallback: direction-based estimate (no nudging).
         // Note: a star CAN be at (0,0,0) — only reject if both positions are identical.
         var starPos = GetNodeScaledPositionV0(nodeId);

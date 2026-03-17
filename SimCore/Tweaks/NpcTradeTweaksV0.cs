@@ -9,7 +9,9 @@ public static class NpcTradeTweaksV0
     public const int EvalIntervalTicks = 15;
 
     // Minimum price difference (sell price at dest - buy price at source) to justify a trade.
-    public const int ProfitThresholdCredits = 5;
+    // Lowered from 5 to 3: ensures NPC traders move even when adjacent same-type nodes
+    // have moderate stock differences (fuel/metal variance within mining/refinery clusters).
+    public const int ProfitThresholdCredits = 3;
 
     // Max goods an NPC trader can carry per trip.
     public const int MaxTradeUnitsPerTrip = 10;

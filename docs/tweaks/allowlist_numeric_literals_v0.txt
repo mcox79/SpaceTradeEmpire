@@ -323,6 +323,9 @@ SimCore/Systems/LatticeDroneSpawnSystem.cs:0
 SimCore/Systems/LatticeDroneCombatSystem.cs:0
 SimCore/Systems/LatticeDroneCombatSystem.cs:1
 
+# MarketInitGen: structural zeros (DegradePerDayBps = 0, STRUCT_ZERO_STOCK, empty inventories)
+SimCore/Gen/MarketInitGen.cs:0
+
 # Arbitrage guarantee post-validation: structural multiplier (2x) and minimum floor (1 unit)
 SimCore/Gen/MarketInitGen.cs:2
 SimCore/Gen/MarketInitGen.cs:1
@@ -388,7 +391,12 @@ SimCore/Systems/MegaprojectSystem.cs:100
 SimCore/Systems/RoutePlanner.cs:100
 SimCore/Systems/ReputationSystem.cs:100
 
+# GATE.X.STARTER_ARBITRAGE.PROTECTION.001: structural zeros (GoodsTraded > 0, count == 0, dec <= 0, Math.Max(0,...))
+SimCore/Systems/IndustrySystem.cs:0
+
 # GATE.S9.SAVE.MIGRATION.001: structural version constants (save format version, default version)
 SimCore/Systems/SerializationSystem.cs:0
 SimCore/Systems/SerializationSystem.cs:1
 SimCore/Systems/SerializationSystem.cs:2
+# STRUCTURAL: StationConsumptionSystem — 0 literals are inventory key presence checks and comparison floors
+SimCore/Systems/StationConsumptionSystem.cs:0

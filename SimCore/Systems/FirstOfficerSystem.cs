@@ -123,6 +123,20 @@ public static class FirstOfficerSystem
             TryFireTrigger(state, "FIRST_DOCK_WARZONE");
         }
 
+        // FIRST_INDUSTRY_SEEN: player fleet docked at a node with IndustrySites
+        if (!string.IsNullOrEmpty(playerFleet.CurrentNodeId)
+            && playerFleet.State != FleetState.Traveling)
+        {
+            foreach (var site in state.IndustrySites.Values)
+            {
+                if (string.Equals(site.NodeId, playerFleet.CurrentNodeId, StringComparison.Ordinal))
+                {
+                    TryFireTrigger(state, "FIRST_INDUSTRY_SEEN");
+                    break;
+                }
+            }
+        }
+
         // ── MID TIER triggers ──
 
         // FACTION_REP_GAINED: any faction reputation above 0

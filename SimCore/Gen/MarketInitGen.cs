@@ -74,7 +74,10 @@ public static class MarketInitGen
                 }
                 else
                 {
-                    mkt.Inventory[WellKnownGoodIds.Ore] = 500;
+                    // Mining nodes: ore surplus, metal/fuel deficit → NPC traders haul ore out.
+                    mkt.Inventory[WellKnownGoodIds.Ore] = CatalogTweaksV0.MiningOreBase + (geoHash * CatalogTweaksV0.MiningOreVarianceMul);
+                    mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.MiningMetalBase + (geoHash % CatalogTweaksV0.MiningMetalVarianceMod);
+                    mkt.Inventory[WellKnownGoodIds.Fuel] = CatalogTweaksV0.MiningFuelBase + (geoHash % CatalogTweaksV0.MiningFuelVarianceMod);
                 }
 
                 var mine = new IndustrySite
@@ -84,10 +87,10 @@ public static class MarketInitGen
                     RecipeId = WellKnownRecipeIds.ExtractOre,
                     Inputs = new Dictionary<string, int>
                     {
-                        { WellKnownGoodIds.Fuel, 1 },
-                        { WellKnownGoodIds.Ore, 0 }
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.MineFuelInput },
+                        { WellKnownGoodIds.Ore, STRUCT_ZERO_STOCK }
                     },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Ore, 5 } },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Ore, CatalogTweaksV0.MineOreOutput } },
                     BufferDays = 1,
                     DegradePerDayBps = 0
                 };
@@ -101,9 +104,16 @@ public static class MarketInitGen
             {
                 if (isStarter)
                 {
-                    mkt.Inventory[WellKnownGoodIds.Fuel] = 10;
-                    mkt.Inventory[WellKnownGoodIds.Ore] = 0;
-                    mkt.Inventory[WellKnownGoodIds.Metal] = 200;
+                    mkt.Inventory[WellKnownGoodIds.Fuel] = CatalogTweaksV0.StarterRefineryFuel;
+                    mkt.Inventory[WellKnownGoodIds.Ore] = STRUCT_ZERO_STOCK;
+                    mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.StarterRefineryMetal;
+                }
+                else
+                {
+                    // Refinery nodes: metal surplus, ore/fuel deficit → NPC traders haul ore in.
+                    mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.RefineryMetalBase + (geoHash * CatalogTweaksV0.RefineryMetalVarianceMul);
+                    mkt.Inventory[WellKnownGoodIds.Ore] = geoHash % CatalogTweaksV0.RefineryOreVarianceMod;
+                    mkt.Inventory[WellKnownGoodIds.Fuel] = CatalogTweaksV0.RefineryFuelBase + (geoHash % CatalogTweaksV0.RefineryFuelVarianceMod);
                 }
 
                 var factory = new IndustrySite
@@ -113,18 +123,18 @@ public static class MarketInitGen
                     RecipeId = WellKnownRecipeIds.RefineMetal,
                     Inputs = new Dictionary<string, int>
                     {
-                        { WellKnownGoodIds.Ore, 10 },
-                        { WellKnownGoodIds.Fuel, 1 }
+                        { WellKnownGoodIds.Ore, CatalogTweaksV0.FactoryOreInput },
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.FactoryFuelInput }
                     },
-                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, 5 } },
-                    BufferDays = 2,
-                    DegradePerDayBps = 500
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.Metal, CatalogTweaksV0.FactoryMetalOutput } },
+                    BufferDays = CatalogTweaksV0.FactoryBufferDays,
+                    DegradePerDayBps = CatalogTweaksV0.FactoryDegradeBps
                 };
                 state.IndustrySites.Add(factory.Id, factory);
                 node.Name += " (Refinery)";
             }
 
-            if (enableDistributionSinksV0 && isStarter && (i % 5) == 1)
+            if (enableDistributionSinksV0 && isStarter && (i % CatalogTweaksV0.SinkPlacementModulus) == CatalogTweaksV0.SinkPlacementOffset)
             {
                 var metalSink = new IndustrySite
                 {
@@ -330,6 +340,7 @@ public static class MarketInitGen
                 neighborMarket.Inventory[cheapestGood] = 1;
             }
         }
+
     }
 
     public static void ValidateCatalogBinding(SimState state, ContentRegistryLoader.ContentRegistryV0? registry)

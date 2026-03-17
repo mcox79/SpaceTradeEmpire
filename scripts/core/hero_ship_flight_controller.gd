@@ -4,11 +4,11 @@ extends RigidBody3D
 # Ship flight controller v1 (force-based thrust + yaw turning).
 # Tuning values are centralized here to avoid scattered magic numbers.
 
-const THRUST_FORCE_V0: float = 55.0
+const THRUST_FORCE_V0: float = 60.0
 const TURN_TORQUE_V0: float = 10.0
 const MAX_SPEED_V0: float = 18.0
-const LINEAR_DAMPING_V0: float = 1.5
-const ANGULAR_DAMPING_V0: float = 6.0
+const LINEAR_DAMPING_V0: float = 1.0  # Coast briefly then stop (was 1.5 = snappy, 0.6 = drift forever).
+const ANGULAR_DAMPING_V0: float = 5.0 # Slight turn carry (was 6.0).
 const GRAVITY_SCALE_V0: float = 0.0
 
 # Click-to-fly autopilot.
@@ -37,6 +37,7 @@ func _ready():
 	axis_lock_linear_y = true
 	axis_lock_angular_x = true
 	axis_lock_angular_z = true
+	_build_player_model()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -161,3 +162,17 @@ func test_set_turn_axis_v0(axis: float):
 
 func test_clear_turn_axis_v0():
 	_test_turn_axis_v0 = null
+
+
+## Build the player ship model procedurally (replaces Quaternius asset).
+func _build_player_model() -> void:
+	var visual := get_node_or_null("ShipVisual")
+	if visual == null:
+		return
+	# Clear any existing children (safety).
+	for child in visual.get_children():
+		child.queue_free()
+	# Role -1 = player ship.
+	var model := ShipMeshBuilder.build_ship(-1)
+	visual.add_child(model)
+	# Ship faces -Z; model is already aligned (nose at -Z, rear at +Z).

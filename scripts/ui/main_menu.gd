@@ -616,6 +616,7 @@ func _on_new_voyage() -> void:
 	var gm = get_node_or_null("/root/GameManager")
 	if gm:
 		gm.set("_is_new_game", true)
+		gm.set("intro_active", true)  # Suppress gameplay from frame 1 until welcome overlay dismisses.
 	# GATE.S7.MAIN_MENU.CAPTAIN_NAME.001: Pass captain name to SimBridge before starting.
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("SetCaptainNameV0"):

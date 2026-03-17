@@ -13,13 +13,30 @@ namespace SimCore.Tweaks
         public const int RareMetalsNodePct     = 15;   // ~15% of nodes seed rare_metals (clustered).
         public const int RareMetalsInitialStock = 150; // Starting rare_metals inventory.
 
+        // Non-starter node stock variance: creates NPC trade routes galaxy-wide.
+        // Wide variance within same node type ensures profitable trades even between
+        // two mining or two refinery nodes (overcomes the 10% bid-ask spread).
+        // Mining nodes (even): ore surplus, metal/fuel deficit.
+        public const int MiningOreBase = 200;
+        public const int MiningOreVarianceMul = 5;      // ore = Base + geoHash * Mul (200-695)
+        public const int MiningMetalBase = 2;
+        public const int MiningMetalVarianceMod = 35;   // metal = Base + geoHash % Mod (2-36)
+        public const int MiningFuelBase = 30;
+        public const int MiningFuelVarianceMod = 120;   // fuel = Base + geoHash % Mod (30-149)
+        // Refinery nodes (odd): metal surplus, ore/fuel deficit.
+        public const int RefineryMetalBase = 100;
+        public const int RefineryMetalVarianceMul = 3;   // metal = Base + geoHash * Mul (100-397)
+        public const int RefineryOreVarianceMod = 40;    // ore = geoHash % Mod (0-39)
+        public const int RefineryFuelBase = 10;
+        public const int RefineryFuelVarianceMod = 80;   // fuel = Base + geoHash % Mod (10-89)
+
         // Munitions factory placement (replaces hull_plating forge).
         public const int MunitionsNodeModulus  = 7;   // Every Nth node gets a munitions factory.
         public const int MunitionsNodeOffset   = 3;   // Modular offset for placement (i % Modulus == Offset).
         public const int MunitionsMetalInput   = 2;   // Metal consumed per tick per trade_goods_v0.md.
         public const int MunitionsFuelInput    = 1;   // Fuel consumed per tick.
         public const int MunitionsOutput       = 3;   // Munitions produced per tick.
-        public const int MunitionsBufferDays   = 2;   // Input buffer days for munitions sites.
+        public const int MunitionsBufferDays   = 0;   // No pre-buffering; consume inputs as they arrive.
         public const int MunitionsDegradeBps   = 500; // 5% health loss per day at full undersupply.
 
         // GATE.S7.PRODUCTION.FULL_DEPLOY.001: Remaining recipe placement knobs.
@@ -52,6 +69,25 @@ namespace SimCore.Tweaks
         public const int SalvageTechInput = 1;
         public const int SalvageMetalOutput = 3;
         public const int SalvageComponentsOutput = 1;
+
+        // Mine recipe: fuel → ore extraction.
+        public const int MineOreOutput = 5;            // Ore produced per tick at mine sites.
+        public const int MineFuelInput = 1;            // Fuel consumed per tick at mine sites.
+
+        // Refinery recipe: ore + fuel → metal.
+        public const int FactoryOreInput = 10;         // Ore consumed per tick at refineries.
+        public const int FactoryMetalOutput = 5;       // Metal produced per tick at refineries.
+        public const int FactoryFuelInput = 1;         // Fuel consumed per tick at refineries.
+        public const int FactoryBufferDays = 0;        // No pre-buffering; consume inputs as they arrive.
+        public const int FactoryDegradeBps = 500;      // 5% health loss per day at full undersupply.
+
+        // Starter refinery node stock (odd starter nodes).
+        public const int StarterRefineryFuel = 10;     // Low fuel drives traders to haul fuel in.
+        public const int StarterRefineryMetal = 200;   // High metal drives traders to haul metal out.
+
+        // Distribution sink placement (starter region).
+        public const int SinkPlacementModulus = 5;     // Every Nth starter node gets a metal sink.
+        public const int SinkPlacementOffset = 1;      // Modular offset for sink placement.
 
         // ChainAnalysis: algorithm bounds.
         public const int ChainMaxTraceDepth = 10;

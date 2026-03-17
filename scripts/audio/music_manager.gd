@@ -21,6 +21,8 @@ var _combat_tween: Tween = null
 var _in_combat := false
 
 func _ready() -> void:
+	# Music must keep playing during tree pause (gate transit popup, pause menu).
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# GATE.S7.AUDIO_WIRING.BUS_WIRE.001: 5-layer audio bus setup.
 	_setup_audio_buses_v0()
 	_calm_player = _make_player(CALM_TRACK, CALM_DB)
@@ -101,6 +103,10 @@ func _check_hostiles_near() -> bool:
 	var tree := get_tree()
 	if tree == null:
 		return false
+	# Suppress combat music during intro cinematic.
+	var gm = tree.root.get_node_or_null("GameManager")
+	if gm and gm.get("intro_active"):
+		return false
 	var hero: Node3D = null
 	for node in tree.get_nodes_in_group("Player"):
 		hero = node
@@ -108,6 +114,11 @@ func _check_hostiles_near() -> bool:
 	if hero == null:
 		return false
 	for node in tree.get_nodes_in_group("FleetShip"):
-		if is_instance_valid(node) and hero.global_position.distance_to(node.global_position) < HOSTILE_CHECK_RANGE:
+		if not is_instance_valid(node):
+			continue
+		if hero.global_position.distance_to(node.global_position) > HOSTILE_CHECK_RANGE:
+			continue
+		# Only trigger combat music for actually hostile ships, not friendly traders/haulers.
+		if node.get_meta("is_hostile", false):
 			return true
 	return false

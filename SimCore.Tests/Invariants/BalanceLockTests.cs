@@ -74,6 +74,7 @@ public class BalanceLockTests
         Assert.That(values.Count, Is.GreaterThan(100), "Expected > 100 tweak constants across all TweaksV0 classes");
     }
 
+
     private static SortedDictionary<string, object> SnapshotAllTweakConsts()
     {
         var result = new SortedDictionary<string, object>(StringComparer.Ordinal);

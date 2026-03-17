@@ -14,7 +14,7 @@ class_name WarpEffect
 
 ## Play warp-in effect: blue/white particle burst + expanding flash + speed streaks.
 ## Returns the effect node (auto-frees after animation).
-static func play_warp_in(parent: Node, pos: Vector3, duration: float = 0.5) -> Node3D:
+static func play_warp_in(parent: Node, pos: Vector3, duration: float = 0.8) -> Node3D:
 	var effect := Node3D.new()
 	effect.name = "WarpInVfx"
 	effect.position = pos
@@ -35,30 +35,32 @@ static func play_warp_in(parent: Node, pos: Vector3, duration: float = 0.5) -> N
 	effect.add_child(flash)
 
 	var tween := effect.create_tween()
-	# Phase 1: Sphere rapidly expands with bright flash.
-	tween.tween_property(flash, "scale", Vector3(4.0, 4.0, 4.0), duration * 0.3) \
-		.from(Vector3(0.1, 0.1, 0.1)) \
-		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	# Phase 2: Sphere contracts and fades.
-	tween.tween_property(flash, "scale", Vector3(0.3, 0.3, 0.3), duration * 0.7) \
-		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
-	tween.parallel().tween_property(flash, "transparency", 1.0, duration * 0.7)
-
-	# Color shift on the flash: white -> cyan -> blue.
-	var mat: StandardMaterial3D = flash.material_override
-	if mat:
-		var color_tween := effect.create_tween()
-		color_tween.tween_method(
-			func(t: float):
-				if is_instance_valid(mat):
-					var c: Color
-					if t < 0.5:
-						c = Color(1.0, 1.0, 1.0).lerp(Color(0.3, 0.9, 1.0), t * 2.0)
-					else:
-						c = Color(0.3, 0.9, 1.0).lerp(Color(0.2, 0.4, 1.0), (t - 0.5) * 2.0)
-					mat.emission = c,
-			0.0, 1.0, duration
-		)
+	var smat := flash.material_override as ShaderMaterial
+	if smat:
+		# Portal disc: scale up from small, flare emission, then fade.
+		tween.tween_property(flash, "scale", Vector3(1.0, 1.0, 1.0), duration * 0.3) \
+			.from(Vector3(0.1, 0.1, 0.1)) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.parallel().tween_method(
+			func(v: float): smat.set_shader_parameter("emission_energy", v),
+			12.0, 6.0, duration * 0.3)
+		# Settle and fade.
+		tween.tween_method(
+			func(v: float): smat.set_shader_parameter("emission_energy", v),
+			6.0, 0.0, duration * 0.7)
+		tween.parallel().tween_method(
+			func(v: float): smat.set_shader_parameter("alpha_base", v),
+			0.8, 0.0, duration * 0.7)
+		tween.parallel().tween_property(flash, "scale", Vector3(0.5, 0.5, 0.5), duration * 0.7) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	else:
+		# Fallback sphere animation.
+		tween.tween_property(flash, "scale", Vector3(6.0, 6.0, 6.0), duration * 0.3) \
+			.from(Vector3(0.1, 0.1, 0.1)) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(flash, "scale", Vector3(0.3, 0.3, 0.3), duration * 0.7) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+		tween.parallel().tween_property(flash, "transparency", 1.0, duration * 0.7)
 
 	# Auto-cleanup
 	var tree := parent.get_tree()
@@ -70,7 +72,7 @@ static func play_warp_in(parent: Node, pos: Vector3, duration: float = 0.5) -> N
 
 
 ## Play warp-out effect on ship: streak particles + pulsating scale-down, then queue_free.
-static func play_warp_out(ship: Node3D, duration: float = 0.5) -> void:
+static func play_warp_out(ship: Node3D, duration: float = 0.7) -> void:
 	if ship == null or not is_instance_valid(ship):
 		return
 
@@ -91,7 +93,7 @@ static func play_warp_out(ship: Node3D, duration: float = 0.5) -> void:
 	tween.tween_property(ship, "scale", Vector3(1.3, 1.3, 1.3), duration * 0.15) \
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	# Rapid collapse.
-	tween.tween_property(ship, "scale", Vector3.ZERO, duration * 0.85) \
+	tween.tween_property(ship, "scale", Vector3(0.01, 0.01, 0.01), duration * 0.85) \
 		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 	tween.tween_callback(ship.queue_free)
 
@@ -118,31 +120,34 @@ static func play_departure_flash(parent: Node, pos: Vector3, duration: float = 0
 	effect.add_child(streaks)
 	streaks.emitting = true
 
-	# Bright white flash sphere — rapid expand and fade (shorter than warp_in).
-	var flash := _create_departure_flash_mesh()
+	# Portal disc flash — rapid flare and fade (shorter than warp_in).
+	var flash := _create_flash_mesh()
 	effect.add_child(flash)
 
 	var tween := effect.create_tween()
-	# Rapid expansion — white sphere bursts outward quickly.
-	tween.tween_property(flash, "scale", Vector3(3.0, 3.0, 3.0), duration * 0.25) \
-		.from(Vector3(0.2, 0.2, 0.2)) \
-		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	# Quick fade — sphere dissipates as ship enters warp.
-	tween.tween_property(flash, "scale", Vector3(5.0, 5.0, 5.0), duration * 0.75) \
-		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	tween.parallel().tween_property(flash, "transparency", 1.0, duration * 0.75)
-
-	# Color shift: bright white -> cyan (departure is cleaner/sharper than arrival).
-	var mat: StandardMaterial3D = flash.material_override
-	if mat:
-		var color_tween := effect.create_tween()
-		color_tween.tween_method(
-			func(t: float):
-				if is_instance_valid(mat):
-					var c := Color(1.0, 1.0, 1.0).lerp(Color(0.4, 0.8, 1.0), t)
-					mat.emission = c,
-			0.0, 1.0, duration
-		)
+	var smat := flash.material_override as ShaderMaterial
+	if smat:
+		# Bright flare then rapid fade.
+		smat.set_shader_parameter("emission_energy", 14.0)
+		smat.set_shader_parameter("ripple_speed", 3.5)
+		smat.set_shader_parameter("swirl_speed", 1.5)
+		tween.tween_property(flash, "scale", Vector3(1.2, 1.2, 1.2), duration * 0.25) \
+			.from(Vector3(0.3, 0.3, 0.3)) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_method(
+			func(v: float): smat.set_shader_parameter("emission_energy", v),
+			14.0, 0.0, duration * 0.75)
+		tween.parallel().tween_method(
+			func(v: float): smat.set_shader_parameter("alpha_base", v),
+			0.9, 0.0, duration * 0.75)
+	else:
+		# Fallback sphere animation.
+		tween.tween_property(flash, "scale", Vector3(3.0, 3.0, 3.0), duration * 0.25) \
+			.from(Vector3(0.2, 0.2, 0.2)) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(flash, "scale", Vector3(5.0, 5.0, 5.0), duration * 0.75) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.parallel().tween_property(flash, "transparency", 1.0, duration * 0.75)
 
 	# Auto-cleanup.
 	var tree := parent.get_tree()
@@ -216,8 +221,8 @@ static func _create_departure_flash_mesh() -> MeshInstance3D:
 static func _create_warp_particles() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
 	particles.name = "WarpParticles"
-	particles.amount = 32
-	particles.lifetime = 0.5
+	particles.amount = 48
+	particles.lifetime = 0.8
 	particles.one_shot = true
 	particles.explosiveness = 0.9
 	particles.randomness = 0.3
@@ -226,11 +231,11 @@ static func _create_warp_particles() -> GPUParticles3D:
 	var mat := ParticleProcessMaterial.new()
 	mat.direction = Vector3(0, 0, 0)
 	mat.spread = 180.0
-	mat.initial_velocity_min = 8.0
-	mat.initial_velocity_max = 25.0
+	mat.initial_velocity_min = 12.0
+	mat.initial_velocity_max = 40.0
 	mat.gravity = Vector3.ZERO
-	mat.scale_min = 0.08
-	mat.scale_max = 0.25
+	mat.scale_min = 0.15
+	mat.scale_max = 0.5
 	# Color gradient: white core to blue-cyan trail.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(1.0, 1.0, 1.0, 1.0))      # White flash
@@ -242,8 +247,8 @@ static func _create_warp_particles() -> GPUParticles3D:
 	particles.process_material = mat
 
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.15
-	mesh.height = 0.3
+	mesh.radius = 0.3
+	mesh.height = 0.6
 	particles.draw_pass_1 = mesh
 
 	return particles
@@ -253,8 +258,8 @@ static func _create_warp_particles() -> GPUParticles3D:
 static func _create_speed_streaks(converging: bool) -> GPUParticles3D:
 	var streaks := GPUParticles3D.new()
 	streaks.name = "SpeedStreaks"
-	streaks.amount = 24
-	streaks.lifetime = 0.4
+	streaks.amount = 36
+	streaks.lifetime = 0.6
 	streaks.one_shot = true
 	streaks.explosiveness = 0.85
 	streaks.randomness = 0.2
@@ -276,7 +281,7 @@ static func _create_speed_streaks(converging: bool) -> GPUParticles3D:
 	mat.scale_max = 0.03
 	# Emit from a sphere shell.
 	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = 4.0
+	mat.emission_sphere_radius = 6.0
 	# Bright cyan-white.
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(0.8, 0.95, 1.0, 1.0))
@@ -289,7 +294,7 @@ static func _create_speed_streaks(converging: bool) -> GPUParticles3D:
 
 	# Elongated box for speed-line look.
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.03, 0.03, 1.5)
+	mesh.size = Vector3(0.06, 0.06, 2.5)
 	streaks.draw_pass_1 = mesh
 
 	return streaks
@@ -298,19 +303,39 @@ static func _create_speed_streaks(converging: bool) -> GPUParticles3D:
 static func _create_flash_mesh() -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
 	mesh.name = "WarpFlash"
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.0
-	sphere.height = 2.0
-	sphere.radial_segments = 16
-	sphere.rings = 8
-	mesh.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.6, 0.85, 1.0, 0.7)
-	mat.emission_enabled = true
-	mat.emission = Color(0.7, 0.9, 1.0, 1.0)
-	mat.emission_energy_multiplier = 6.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.no_depth_test = true
-	mesh.material_override = mat
+	var shader := load("res://scripts/vfx/gate_portal.gdshader") as Shader
+	if shader:
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(12.0, 12.0)
+		mesh.mesh = plane
+		var smat := ShaderMaterial.new()
+		smat.shader = shader
+		smat.set_shader_parameter("emission_energy", 10.0)
+		smat.set_shader_parameter("alpha_base", 0.8)
+		smat.set_shader_parameter("ripple_speed", 3.0)
+		smat.set_shader_parameter("swirl_speed", 1.2)
+		smat.set_shader_parameter("distortion_strength", 0.1)
+		smat.set_shader_parameter("color_core", Color(0.5, 0.75, 1.0, 1.0))
+		smat.set_shader_parameter("color_highlight", Color(1.0, 1.0, 1.0, 1.0))
+		mesh.material_override = smat
+		# Upright disc matching torus orientation.
+		mesh.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0)
+	else:
+		# Fallback sphere if shader missing.
+		var sphere := SphereMesh.new()
+		sphere.radius = 2.0
+		sphere.height = 4.0
+		sphere.radial_segments = 16
+		sphere.rings = 8
+		mesh.mesh = sphere
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.6, 0.85, 1.0, 0.7)
+		mat.emission_enabled = true
+		mat.emission = Color(0.7, 0.9, 1.0, 1.0)
+		mat.emission_energy_multiplier = 10.0
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.no_depth_test = true
+		mesh.material_override = mat
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mesh

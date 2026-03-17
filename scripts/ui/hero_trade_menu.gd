@@ -621,6 +621,10 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		# know what the player just bought. Update label immediately to avoid the
 		# "Cargo: empty" vs "Cargo: 1 Items" contradiction between dock panel and HUD.
 		_optimistic_cargo_update_v0(good_id, qty, true)
+		# Captain's Guide: first buy hint.
+		var gm_buy = get_node_or_null("/root/GameManager")
+		if gm_buy and gm_buy.has_method("_fire_guide_hint_v0"):
+			gm_buy.call("_fire_guide_hint_v0", "GUIDE_BUY", "Cargo loaded. Fly to the next system and sell for a higher price.")
 
 func _sell_qty_v0(good_id: String, qty: int) -> void:
 	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
@@ -647,6 +651,10 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 		call_deferred("_refresh_profit_label_v0")
 		# FEEL_POST_FIX_3: Optimistic cargo update for sells too.
 		_optimistic_cargo_update_v0(good_id, qty, false)
+		# Captain's Guide: first sell hint.
+		var gm_sell = get_node_or_null("/root/GameManager")
+		if gm_sell and gm_sell.has_method("_fire_guide_hint_v0"):
+			gm_sell.call("_fire_guide_hint_v0", "GUIDE_SELL", "Profit. You've found a trade route. Now automate it.")
 		# GATE.S19.ONBOARD.DOCK_DISCLOSURE.009: Re-apply tab disclosure after trade
 		# so newly unlocked tabs (e.g., Jobs) appear immediately.
 		# Deferred: sim needs a frame to process the sell before state reads correctly.
@@ -753,6 +761,14 @@ func _rebuild_rows() -> void:
 		lbl_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if is_embargoed:
 			lbl_buy.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		else:
+			# Color-code buy prices: green = surplus (good buy), red = scarce (bad buy).
+			# Stock > IdealStock (50) means price is below base → green (buy opportunity).
+			# Stock < 20 means price is well above base → red (avoid buying here).
+			if stock > 50:
+				lbl_buy.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
+			elif stock < 20:
+				lbl_buy.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
 		row.add_child(lbl_buy)
 
 		var lbl_sell = Label.new()

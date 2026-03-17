@@ -243,6 +243,14 @@ func play_intro() -> void:
 	await intro_finished
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not _playing:
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_playing = false
+		intro_finished.emit()
+		get_viewport().set_input_as_handled()
+
 func _process(delta: float) -> void:
 	if not _playing:
 		return

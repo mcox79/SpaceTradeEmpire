@@ -67,13 +67,13 @@ public static class FirstOfficerContentV0
     {
         // ── EARLY TIER (tick 0-300): Establish personality ──────────
 
-        // FIRST_WARP
+        // FIRST_WARP — thread lore: introduce the infrastructure mystery
         new DialogueLine { TriggerToken = "FIRST_WARP", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
-            Text = "Transit complete. Travel time matched prediction to within 0.3%. I like lanes — they're honest about where they take you.", RelationshipDelta = 1 },
+            Text = "Transit complete. The thread held steady — 0.3% variance. I wonder how long they've been maintaining these lanes. The infrastructure cost must be... significant.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_WARP", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
-            Text = "Clean jump. The lanes here are well-maintained — someone's spending credits keeping them stable. That's a good sign.", RelationshipDelta = 1 },
+            Text = "Clean jump. These lanes are well-maintained. Someone's pouring credits into keeping the network alive. In the service, we never asked who. Maybe we should have.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_WARP", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
-            Text = "Did you feel the way the ship hums differently in each lane? Every route has its own texture. I've been cataloging them.", RelationshipDelta = 1 },
+            Text = "Did you feel it? The hum changes in every lane. Each thread has its own frequency. Like they're singing. Or straining.", RelationshipDelta = 1 },
 
         // FIRST_NPC_MET
         new DialogueLine { TriggerToken = "FIRST_NPC_MET", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
@@ -107,21 +107,29 @@ public static class FirstOfficerContentV0
         new DialogueLine { TriggerToken = "FIRST_PROFITABLE_TRADE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
             Text = "Did you notice the station felt different when we left with their money? Lighter, somehow.", RelationshipDelta = 1 },
 
-        // FIRST_DOCK_WARZONE
+        // FIRST_DOCK_WARZONE — warfront economics + faction dependency
         new DialogueLine { TriggerToken = "FIRST_DOCK_WARZONE", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
-            Text = "Warzone pricing active. Margins are wider but so is the spread on everything else. Careful.", RelationshipDelta = 1 },
+            Text = "Contested space. Demand data shows munitions at 3-4x baseline, fuel spiking too. Wars are expensive — for them, profitable for us. Neutrality carries a tariff surcharge.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_DOCK_WARZONE", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
-            Text = "I've seen stations like this. The docking clamps work fine. It's the people inside who are strained.", RelationshipDelta = 1 },
+            Text = "Warzone. I've seen what happens when the supply lines break. These factions can't fight without each other's goods. That dependency... it's the real weapon here.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_DOCK_WARZONE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
-            Text = "The air recyclers here taste different. Fear, I think. Or just overdue maintenance. Hard to tell the difference.", RelationshipDelta = 1 },
+            Text = "Feel that tension? Two factions tearing at each other, but they still need what the other produces. The threads connect enemies. Strange, isn't it?", RelationshipDelta = 1 },
 
-        // GATE.S19.ONBOARD.FO_TRIGGERS.003: FIRST_SALE_COMPLETE (fires after first trade — distinct from FIRST_PROFITABLE_TRADE)
+        // FIRST_INDUSTRY_SEEN — when docked at node with IndustrySites
+        new DialogueLine { TriggerToken = "FIRST_INDUSTRY_SEEN", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "Active industry here — converting inputs to outputs. Supply the chain and the margins compound. Worth programming a resource tap.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FIRST_INDUSTRY_SEEN", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "Mining and refining. Ore goes in, metal comes out. Automate the supply line and this station prints credits for us.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FIRST_INDUSTRY_SEEN", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "Listen — you can hear the refineries. This station eats ore and breathes metal. Beautiful. And profitable, if we keep it fed.", RelationshipDelta = 1 },
+
+        // GATE.S19.ONBOARD.FO_TRIGGERS.003: FIRST_SALE_COMPLETE — supply chain + automation hint
         new DialogueLine { TriggerToken = "FIRST_SALE_COMPLETE", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
-            Text = "Transaction complete. {GOOD} sold at {STATION}. I've noted the margin — {DEST} might offer better rates next time.", RelationshipDelta = 1 },
+            Text = "Transaction logged. {GOOD} at {STATION}. A profitable route like this should be automated — programs run it while we pursue other opportunities.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_SALE_COMPLETE", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
-            Text = "Good trade. The Jobs tab should have work available now — missions are steadier income than freelance runs.", RelationshipDelta = 1 },
+            Text = "Good trade. These stations can't survive without each other. Set up a program for this route, Captain. We've got bigger fish to find.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "FIRST_SALE_COMPLETE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
-            Text = "First trade done. The station crew already knows our name. That's how it starts — one deal at a time.", RelationshipDelta = 1 },
+            Text = "One station's surplus, another's lifeline. You could automate this run and go looking for what else is out there.", RelationshipDelta = 1 },
 
         // GATE.S19.ONBOARD.FO_TRIGGERS.003: FIRST_COMBAT_WIN (fires after first NPC kill)
         new DialogueLine { TriggerToken = "FIRST_COMBAT_WIN", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
@@ -131,13 +139,13 @@ public static class FirstOfficerContentV0
         new DialogueLine { TriggerToken = "FIRST_COMBAT_WIN", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
             Text = "They're gone. I hope they had somewhere to respawn. The Ship tab has upgrades that might keep us out of fights like that.", RelationshipDelta = 1 },
 
-        // GATE.S19.ONBOARD.FO_TRIGGERS.003: ARRIVAL_NEW_SYSTEM (fires on 2nd node visited — first real arrival)
+        // GATE.S19.ONBOARD.FO_TRIGGERS.003: ARRIVAL_NEW_SYSTEM — galaxy map + faction territory
         new DialogueLine { TriggerToken = "ARRIVAL_NEW_SYSTEM", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
-            Text = "New system. Market data suggests different price distributions here. Tab opens the galaxy map — useful for route planning.", RelationshipDelta = 1 },
+            Text = "New system. Different faction territory, different tariffs. The galaxy map (M) tracks where each faction holds sway. Profitable data.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "ARRIVAL_NEW_SYSTEM", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
-            Text = "Unfamiliar stars. The galaxy map shows where we've been and where we haven't. Tab key, Captain.", RelationshipDelta = 1 },
+            Text = "New stars, new rules. Every faction controls its own space. Press M — the galaxy map shows whose territory you're trading in.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "ARRIVAL_NEW_SYSTEM", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
-            Text = "Look at this place. Every system has its own personality. The galaxy map is starting to fill in — press Tab to see it.", RelationshipDelta = 1 },
+            Text = "Different stars, different people, different stories. Press M — you can see where one faction's reach ends and another begins.", RelationshipDelta = 1 },
 
         // ── MID TIER (tick 300-600): Reveal moral lens ─────────────
 

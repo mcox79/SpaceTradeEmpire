@@ -26,12 +26,35 @@ const AGGRO_REPUTATION_THRESHOLD: int = -50  # matches FactionTweaksV0.AggroRepu
 var target_position: Vector3 = Vector3.ZERO
 var target_speed: float = 6.0
 var stagger_remaining: float = 0.0
+var _current_speed: float = 0.0  # Actual speed (builds up via acceleration)
+var _departing: bool = false      # Set true when flying to gate for warp-out.
+var _departure_gate_pos: Vector3 = Vector3.ZERO
+var _waiting_at_gate: bool = false  # Holding position while gate is busy.
+var _warp_out_started: bool = false  # True after warp-out VFX triggered — freeze movement.
 
-## Rotation smoothing (higher = snappier turn).
-@export var rotation_sharpness: float = 5.0
+## Gate warp queue — only one ship warps per gate at a time.
+## Static so all NPC ships share the cooldown.
+static var _last_gate_warp_msec: int = 0
+const GATE_WARP_COOLDOWN_MS: int = 2500  # 2.5 seconds between gate warps.
+const GATE_HOLD_RADIUS: float = 8.0      # Orbit radius while waiting at gate.
+
+## Rotation smoothing (higher = snappier turn). Tuned for gradual arcing turns.
+@export var rotation_sharpness: float = 2.5
+
+## Thrust physics — ships accelerate in their facing direction, creating natural arcs.
+const ACCELERATION: float = 4.0       # Units/s² — how fast ships build speed
+const DECELERATION: float = 6.0       # Units/s² — braking rate when approaching target
+const BRAKE_DISTANCE: float = 12.0    # Start decelerating this far from target
+const MIN_DRIFT_SPEED: float = 0.3    # Minimum creep speed (prevents dead stops mid-turn)
 
 ## Stop moving when closer than this to target.
 const ARRIVAL_THRESHOLD: float = 1.5
+
+## Orbit mode — smooth continuous circular orbit driven per-frame.
+var _orbiting: bool = false
+var _orbit_radius: float = 20.0
+var _orbit_angular_speed: float = 0.1
+var _orbit_angle: float = 0.0  # Current angle on orbit circle (radians).
 
 ## Star avoidance — ships steer around the star (at local origin) instead of flying through it.
 const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
@@ -48,6 +71,7 @@ var _prev_shield_remaining: int = -1  # -1 = not yet set
 
 ## Model loaded flag.
 var _model_loaded: bool = false
+var _cached_role: int = 0
 
 ## GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Faction tint color (set at spawn).
 var _faction_color: Color = Color.WHITE
@@ -60,14 +84,13 @@ var _hostile_label: Label3D = null  # GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.00
 var _onboard_labels_hidden: bool = true
 var _hp_bar: MeshInstance3D = null
 var _hp_bar_mat: StandardMaterial3D = null
-var _fleet_pip: MeshInstance3D = null  # Removed: was placeholder sphere
 const ROLE_NAMES := ["Trader", "Hauler", "Patrol"]
 const ROLE_COLORS := [
 	Color(1.0, 0.85, 0.3),   # Trader — gold
 	Color(0.4, 0.8, 0.8),    # Hauler — teal
 	Color(0.5, 0.7, 1.0),    # Patrol — blue
 ]
-const LABEL_SHOW_DIST := 160.0  # Visible at camera altitude ~80 (increased for altitude clarity)
+const LABEL_SHOW_DIST := 30.0  # Only show role label when player is close (was 160)
 const HP_BAR_HEIGHT := 8.0  # Above ship center (raised for altitude visibility)
 
 
@@ -76,6 +99,7 @@ func _ready() -> void:
 	add_to_group("NpcShip")
 	collision_layer = 4
 	collision_mask = 0
+	print("DEBUG_NPC|SPAWN|fleet=%s pos=%s role=%d" % [fleet_id, str(position), _role])
 	# Seed patrol RNG from fleet ID so each ship patrols differently.
 	for c in fleet_id:
 		_patrol_seed = _patrol_seed * 31 + c.unicode_at(0)
@@ -87,37 +111,25 @@ func _ready() -> void:
 func _create_status_display() -> void:
 	# FleetPip sphere removed — was placeholder programmer art.
 
-	# Role label (full name) — billboard facing camera. Sized for altitude ~120.
+	# Role label — small, subtle. Only visible on close proximity (< 30u).
+	# Ships in space don't broadcast their type — player discovers by getting close.
 	_role_label = Label3D.new()
 	_role_label.name = "RoleLabel"
-	_role_label.pixel_size = 0.10
-	_role_label.font_size = 64
-	_role_label.outline_size = 16
+	_role_label.pixel_size = 0.04
+	_role_label.font_size = 36
+	_role_label.outline_size = 8
+	_role_label.outline_modulate = Color(0, 0, 0, 0.7)
 	_role_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_role_label.no_depth_test = true
 	_role_label.render_priority = 10
-	_role_label.position = Vector3(0, HP_BAR_HEIGHT + 2.5, 0)
-	_role_label.modulate = Color(0.9, 0.95, 1.0)
+	_role_label.position = Vector3(0, HP_BAR_HEIGHT + 1.5, 0)
+	_role_label.modulate = Color(0.7, 0.75, 0.8, 0.8)
 	_role_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_role_label.visible = false  # Hidden until player is close.
 	add_child(_role_label)
 
-	# Hostile label — dedicated "HOSTILE" text below role label. Red, readable but not dominant.
-	# FEEL_BASELINE: Reduced from 0.10/56 — was 7x wider than role letter at same size.
-	_hostile_label = Label3D.new()
-	_hostile_label.name = "HostileLabel"
-	_hostile_label.pixel_size = 0.07
-	_hostile_label.font_size = 48
-	_hostile_label.outline_size = 10
-	_hostile_label.outline_modulate = Color(0, 0, 0, 0.9)
-	_hostile_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_hostile_label.no_depth_test = true
-	_hostile_label.render_priority = 10
-	_hostile_label.position = Vector3(0, HP_BAR_HEIGHT + 5.0, 0)
-	_hostile_label.text = "HOSTILE"
-	_hostile_label.modulate = Color(1.0, 0.2, 0.15)
-	_hostile_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_hostile_label.visible = false
-	add_child(_hostile_label)
+	# Hostile label — NOT created at spawn. Only created lazily for patrol ships
+	# that actually become hostile. Prevents phantom HOSTILE labels on non-patrols.
 
 	# HP bar — thin box mesh scaled by HP ratio. Enlarged for altitude ~80 visibility.
 	_hp_bar = MeshInstance3D.new()
@@ -151,26 +163,53 @@ func _update_status_display() -> void:
 		else:
 			_role_label.modulate = ROLE_COLORS[role_idx]
 
-	# GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001: Dedicated hostile label visibility.
+	# Hostile label: only exists on patrol ships that are hostile.
+	# Lazy create: if patrol becomes hostile, create the label. Otherwise never created.
+	var should_show_hostile: bool = _is_hostile and _role == 2
+	if _is_hostile and _role != 2:
+		print("DEBUG_HOSTILE|DISPLAY_BUG|fleet=%s role=%d _is_hostile=true but role!=2 — forcing false" % [fleet_id, _role])
+		_is_hostile = false
+		set_meta("is_hostile", false)
+		should_show_hostile = false
+	if should_show_hostile and _hostile_label == null:
+		_hostile_label = Label3D.new()
+		_hostile_label.name = "HostileLabel"
+		_hostile_label.pixel_size = 0.07
+		_hostile_label.font_size = 48
+		_hostile_label.outline_size = 10
+		_hostile_label.outline_modulate = Color(0, 0, 0, 0.9)
+		_hostile_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_hostile_label.no_depth_test = true
+		_hostile_label.render_priority = 10
+		_hostile_label.position = Vector3(0, HP_BAR_HEIGHT + 5.0, 0)
+		_hostile_label.text = "HOSTILE"
+		_hostile_label.modulate = Color(1.0, 0.2, 0.15)
+		_hostile_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_hostile_label)
+		print("DEBUG_HOSTILE|LABEL_CREATED|fleet=%s role=%d" % [fleet_id, _role])
 	if _hostile_label:
-		_hostile_label.visible = _is_hostile
+		_hostile_label.visible = should_show_hostile
 
 	# FleetPip coloring removed — was placeholder sphere.
 
 	if _hp_bar and _hull_hp_max > 0:
 		var ratio := clampf(float(_hull_hp) / float(_hull_hp_max), 0.0, 1.0)
-		_hp_bar.scale = Vector3(ratio, 1.0, 1.0)
-		# Color: green > yellow > red with higher emission for altitude visibility.
-		if ratio > 0.5:
-			_hp_bar_mat.albedo_color = Color(0.2, 0.9, 0.2)
-			_hp_bar_mat.emission = Color(0.2, 0.9, 0.2)
-		elif ratio > 0.25:
-			_hp_bar_mat.albedo_color = Color(1.0, 0.9, 0.1)
-			_hp_bar_mat.emission = Color(1.0, 0.9, 0.1)
-		else:
-			_hp_bar_mat.albedo_color = Color(1.0, 0.2, 0.1)
-			_hp_bar_mat.emission = Color(1.0, 0.2, 0.1)
-		_hp_bar.visible = ratio < 1.0  # Only show when damaged
+		var should_show := ratio < 0.999  # Threshold avoids float jitter at full HP
+		if _hp_bar.visible != should_show:
+			_hp_bar.visible = should_show
+		if should_show:
+			_hp_bar.scale = Vector3(ratio, 1.0, 1.0)
+			# Color: green > yellow > red with higher emission for altitude visibility.
+			var new_color: Color
+			if ratio > 0.5:
+				new_color = Color(0.2, 0.9, 0.2)
+			elif ratio > 0.25:
+				new_color = Color(1.0, 0.9, 0.1)
+			else:
+				new_color = Color(1.0, 0.2, 0.1)
+			if _hp_bar_mat.albedo_color != new_color:
+				_hp_bar_mat.albedo_color = new_color
+				_hp_bar_mat.emission = new_color
 
 	# Distance-based visibility for labels.
 	var players := get_tree().get_nodes_in_group("Player") if get_tree() else []
@@ -185,9 +224,9 @@ func _update_status_display() -> void:
 		show_label = false
 	if _role_label:
 		_role_label.visible = show_label
-	# Hostile label: visible when in range AND hostile.
+	# Hostile label: visible when in range AND hostile AND patrol.
 	if _hostile_label:
-		_hostile_label.visible = show_label and _is_hostile
+		_hostile_label.visible = show_label and _is_hostile and _role == 2
 
 
 ## GATE.S16.NPC_ALIVE.BT_ROLES.001: Attach behavior tree for this ship's role.
@@ -212,34 +251,37 @@ func attach_behavior_tree(role: int) -> void:
 	add_child(bt_player)
 
 
-## Called by the spawn system to load the correct Quaternius model.
-## May be called before _ready() — resolves ShipVisual lazily.
-func load_model(model_scene: PackedScene) -> void:
-	if model_scene == null:
-		return
+## Called by the spawn system to build ship model by role.
+## role: 0=trader, 1=hauler, 2=patrol. May be called before _ready().
+func load_model_v1(role_int: int) -> void:
+	_cached_role = role_int
 	if _ship_visual == null:
 		_ship_visual = get_node_or_null("ShipVisual")
 	if _ship_visual == null:
 		return
 	for child in _ship_visual.get_children():
 		child.queue_free()
-	var instance := model_scene.instantiate()
-	instance.name = "FleetModel"
+	# Hash fleet_id for deterministic model variety.
+	var h: int = 0
+	for c in fleet_id:
+		h = h * 31 + c.unicode_at(0)
+	var instance := ShipMeshBuilder.build_ship(role_int, _faction_color, h)
 	_ship_visual.add_child(instance)
 	_model_loaded = true
-	# Apply faction tint if already set.
-	if _faction_color != Color.WHITE:
-		_apply_faction_tint(instance)
+
+
+## Legacy: accept PackedScene (kept for backward compat, builds procedural instead).
+func load_model(_model_scene: PackedScene) -> void:
+	load_model_v1(0)  # Default to trader shape.
 
 
 ## GATE.S7.FACTION_VIS.SHIP_LIVERY.001: Set faction color and apply tint to loaded model.
 func set_faction_color(color: Color) -> void:
 	_faction_color = color
-	if _ship_visual == null:
+	if not _model_loaded:
 		return
-	var model := _ship_visual.get_node_or_null("FleetModel")
-	if model:
-		_apply_faction_tint(model)
+	# Rebuild with new faction color baked into hull material.
+	load_model_v1(_cached_role)
 
 
 ## Apply faction tint to all MeshInstance3D children of a model node.
@@ -258,21 +300,32 @@ func _apply_faction_tint(node: Node) -> void:
 
 ## Called by the spawn system each poll to update sim-driven state.
 func update_transit(data: Dictionary) -> void:
+	var old_state := _fleet_state
 	_role = data.get("role", 0)
 	_hull_hp = data.get("hull_hp", 0)
 	_hull_hp_max = data.get("hull_hp_max", 0)
 	_travel_progress = data.get("travel_progress", 0.0)
 	_fleet_state = data.get("state", "Idle")
+	var _dest_node: String = data.get("destination_node_id", "")
+	var _final_dest: String = data.get("final_destination_node_id", "")
+	var _current_task: String = data.get("current_task", "Idle")
+	if old_state != _fleet_state:
+		print("DEBUG_NPC|TRANSIT|fleet=%s state=%s→%s role=%d task=%s dest=%s final=%s" % [fleet_id, old_state, _fleet_state, _role, _current_task, _dest_node, _final_dest])
 	## GATE.T30.GALPOP.HOSTILE_FIX.003: Read owner_id from transit data for faction resolution.
 	_owner_id = data.get("owner_id", "")
 
 	## GATE.S7.FACTION.PATROL_AGGRO.001: Resolve hostility from faction reputation.
+	## Only Patrol ships (role 2) can ever be hostile. Haulers/Traders are always non-hostile.
 	var base_hostile: bool = data.get("is_hostile", false)
-	if base_hostile and _role == 2:  # Patrol
+	# DEBUG: Trace hostility resolution for all ships.
+	if base_hostile and _role != 2:
+		print("DEBUG_HOSTILE|BUG|fleet=%s role=%d base_hostile=true — forcing non-hostile (only patrols can be hostile)" % [fleet_id, _role])
+	if _role == 2 and base_hostile:  # Patrol only
 		var current_node: String = data.get("current_node_id", "")
 		_is_hostile = _check_reputation_aggro(current_node)
+		print("DEBUG_HOSTILE|PATROL|fleet=%s hostile=%s owner=%s faction=%s" % [fleet_id, str(_is_hostile), _owner_id, _faction_id])
 	else:
-		_is_hostile = base_hostile
+		_is_hostile = false
 	# Sync meta so game_manager._ai_fire_v0() reads current hostility.
 	set_meta("is_hostile", _is_hostile)
 	_update_status_display()
@@ -311,6 +364,12 @@ func _check_reputation_aggro(current_node: String) -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	# Warp-out in progress — freeze all movement, let tween handle scale-down + queue_free.
+	if _warp_out_started:
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
+
 	# GATE.S7.FACTION.PATROL_AGGRO.001: Periodic reputation re-check for patrol ships.
 	if _role == 2:  # Patrol
 		_aggro_check_timer -= delta
@@ -329,6 +388,14 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
+	# Orbit mode: advance angle per-frame for smooth circular motion.
+	if _orbiting and not _departing:
+		_orbit_angle += _orbit_angular_speed * delta
+		# Target is a small lead ahead on the circle — ship chases it smoothly.
+		var lead_angle := _orbit_angle + 0.4
+		target_position = Vector3(cos(lead_angle) * _orbit_radius, 0.0, sin(lead_angle) * _orbit_radius)
+		target_speed = _orbit_radius * _orbit_angular_speed * 1.2  # Slightly faster than orbit to keep up.
+
 	# Direction to target (XZ only).
 	# Use local `position` — targets are in local system coordinates (relative
 	# to _localSystemRoot which sits at the star's galactic position).
@@ -337,27 +404,91 @@ func _physics_process(delta: float) -> void:
 	var dist := to_target.length()
 
 	if dist < ARRIVAL_THRESHOLD:
-		# At target — slow drift until RefreshLocalFleetsV0 supplies next target.
-		target_speed = 1.0
-		velocity = Vector3.ZERO
-		move_and_slide()
-		return
+		# Departing ship reached gate — check if gate is clear, then warp out.
+		if _departing:
+			var now_ms: int = Time.get_ticks_msec()
+			if now_ms - _last_gate_warp_msec < GATE_WARP_COOLDOWN_MS:
+				# Gate is busy — hold position in a small orbit while waiting.
+				if not _waiting_at_gate:
+					_waiting_at_gate = true
+					print("DEBUG_NPC|GATE_WAIT|fleet=%s (gate busy, holding)" % fleet_id)
+				# Orbit near the gate while waiting.
+				var hold_angle := float(now_ms) / 2000.0 + float(_patrol_seed % 360) * 0.0174533
+				var hold_pos := _departure_gate_pos + Vector3(cos(hold_angle) * GATE_HOLD_RADIUS, 0.0, sin(hold_angle) * GATE_HOLD_RADIUS)
+				target_position = Vector3(hold_pos.x, 0.0, hold_pos.z)
+				# Don't return — let normal movement handle flying to the hold pos.
+			else:
+				# Gate is clear — warp out!
+				_last_gate_warp_msec = now_ms
+				_waiting_at_gate = false
+				_warp_out_started = true
+				print("DEBUG_NPC|WARP_OUT|fleet=%s at_gate=%s" % [fleet_id, str(position).substr(0,25)])
+				var warp_script = load("res://scripts/vfx/warp_effect.gd")
+				if warp_script and get_parent():
+					warp_script.call("play_warp_out", self)
+				else:
+					queue_free()
+				return
+		else:
+			# Non-departing ship at target — decelerate to stop.
+			_current_speed = maxf(_current_speed - DECELERATION * delta, 0.0)
+			if _current_speed < 0.1:
+				_current_speed = 0.0
+				velocity = Vector3.ZERO
+				move_and_slide()
+				return
+			# Drift forward in facing direction while decelerating.
+			var drift_dir := -transform.basis.z
+			drift_dir.y = 0.0
+			if drift_dir.length_squared() > 0.001:
+				drift_dir = drift_dir.normalized()
+			velocity = drift_dir * _current_speed
+			velocity.y = 0.0
+			move_and_slide()
+			position.y = 0.0
+			return
 
-	var dir := to_target / dist
+	var desired_dir := to_target / dist
 
-	# Star avoidance: star is at local origin (0,0,0) since _localSystemRoot
-	# is centered on the star. Steer around it if our path passes too close.
-	dir = _apply_star_avoidance_local(dir, dist)
+	# Star avoidance disabled — was causing oscillation (ships deflected left/right
+	# each frame when crossing near the star, never committing to a side).
 
-	# Smooth rotation toward movement direction (ship forward = -Z).
-	if dir.length_squared() > 0.001:
-		var target_basis := Basis.looking_at(-dir, Vector3.UP)
+	# Smooth rotation toward desired direction (ship forward = -Z).
+	# Lower rotation_sharpness = wider arcing turns.
+	# Boost rotation when facing away from target to avoid slow jittery 180° turns.
+	if desired_dir.length_squared() > 0.001:
+		var target_basis := Basis.looking_at(desired_dir, Vector3.UP)
 		var current_quat := transform.basis.get_rotation_quaternion()
 		var target_quat := target_basis.get_rotation_quaternion()
-		var weight := clampf(rotation_sharpness * delta, 0.0, 1.0)
+		var raw_align := (-transform.basis.z).normalized().dot(desired_dir)
+		var turn_boost := 1.0 if raw_align > 0.0 else lerpf(3.0, 1.0, clampf(raw_align + 1.0, 0.0, 1.0))
+		var weight := clampf(rotation_sharpness * turn_boost * delta, 0.0, 1.0)
 		transform.basis = Basis(current_quat.slerp(target_quat, weight))
 
-	velocity = dir * target_speed
+	# Thrust in facing direction (not directly at target) — creates natural arcs.
+	var facing := -transform.basis.z
+	facing.y = 0.0
+	if facing.length_squared() > 0.001:
+		facing = facing.normalized()
+
+	# How aligned are we with the target? Reduce thrust when facing away (prevents overshoot on turns).
+	var alignment := clampf(facing.dot(desired_dir), 0.0, 1.0)
+
+	# Target speed modulation: brake near target, reduce when misaligned.
+	var desired_speed := target_speed
+	if dist < BRAKE_DISTANCE:
+		# Smooth deceleration as we approach.
+		desired_speed *= clampf(dist / BRAKE_DISTANCE, 0.1, 1.0)
+	desired_speed *= lerpf(0.3, 1.0, alignment)  # Slow in sharp turns
+	desired_speed = maxf(desired_speed, MIN_DRIFT_SPEED)
+
+	# Accelerate/decelerate toward desired speed.
+	if _current_speed < desired_speed:
+		_current_speed = minf(_current_speed + ACCELERATION * delta, desired_speed)
+	else:
+		_current_speed = maxf(_current_speed - DECELERATION * delta, desired_speed)
+
+	velocity = facing * _current_speed
 	velocity.y = 0.0
 	move_and_slide()
 	position.y = 0.0
@@ -398,6 +529,37 @@ func _apply_star_avoidance_local(dir: Vector3, dist_to_target: float) -> Vector3
 	return blended
 
 
+## Begin departure sequence: fly to gate, then warp out on arrival.
+func begin_departure_v0(gate_pos: Vector3) -> void:
+	if _departing:
+		return  # Already departing — don't spam.
+	_departing = true
+	_orbiting = false  # Exit orbit — head straight for gate.
+	_departure_gate_pos = gate_pos
+	target_position = Vector3(gate_pos.x, 0.0, gate_pos.z)
+	target_speed = 8.0  # Faster than normal — heading for the exit.
+	print("DEBUG_NPC|DEPART|fleet=%s gate=%s" % [fleet_id, str(gate_pos).substr(0,25)])
+
+
+## Enter orbit mode: ship circles the star at given radius and angular speed.
+## Orbit angle advances per-frame in _physics_process — no polling jitter.
+func set_orbit_v0(radius: float, angular_speed: float) -> void:
+	if not _orbiting:
+		# Initialize angle from current position so ship doesn't snap.
+		_orbit_angle = atan2(position.z, position.x)
+	_orbiting = true
+	_orbit_radius = radius
+	_orbit_angular_speed = angular_speed
+	# Set target ahead on circle so ship starts moving immediately.
+	var lead_angle := _orbit_angle + 0.4  # ~23° ahead — gentle lead.
+	target_position = Vector3(cos(lead_angle) * radius, 0.0, sin(lead_angle) * radius)
+
+
+## Exit orbit mode (e.g. when ship starts departing).
+func stop_orbit_v0() -> void:
+	_orbiting = false
+
+
 ## Apply combat stagger (seconds of movement freeze).
 func apply_stagger(duration: float) -> void:
 	stagger_remaining += duration
@@ -405,8 +567,19 @@ func apply_stagger(duration: float) -> void:
 
 ## Set movement target from world position.
 func set_target(pos: Vector3, spd: float) -> void:
+	var old_target := target_position
 	target_position = Vector3(pos.x, 0.0, pos.z)
 	target_speed = spd
+	var moved := old_target.distance_to(target_position) > 1.0
+	if moved:
+		print("DEBUG_NPC|TARGET|fleet=%s from=%s to=%s spd=%.1f state=%s dist=%.0f" % [fleet_id, str(old_target).substr(0,20), str(target_position).substr(0,20), spd, _fleet_state, position.distance_to(target_position)])
+	# Snap facing toward target on first call (ship hasn't moved yet) so NPC
+	# ships don't all spawn facing the default +Z direction.
+	if _current_speed < 0.01:
+		var dir := target_position - position
+		dir.y = 0.0
+		if dir.length_squared() > 1.0:
+			transform.basis = Basis.looking_at(dir.normalized(), Vector3.UP)
 
 
 ## GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001: Called when this ship takes a hit.

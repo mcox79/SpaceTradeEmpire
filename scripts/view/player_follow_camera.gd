@@ -93,14 +93,35 @@ var flyby_up: Vector3 = Vector3.BACK         # Camera up vector.
 var input_locked: bool = false               # Blocks camera input during cinematics.
 var warp_transit_tilt: float = 0.0  # 0=top-down, 1=forward-looking chase cam
 
-# Flyby settle state: critically-damped spring from flyby position to flight position.
+# === Universal camera spring — enforces C2 continuity on ALL transitions ===
+# Every mode sets _spring_target_*. The spring moves _cam toward the target.
+# This guarantees smooth transitions even when mode or target changes abruptly.
+# THE ONLY place _cam.global_position is written is _update_spring().
+var _spring_pos: Vector3 = Vector3.ZERO
+var _spring_vel: Vector3 = Vector3.ZERO
+var _spring_look: Vector3 = Vector3.ZERO
+var _spring_look_vel: Vector3 = Vector3.ZERO
+var _spring_up: Vector3 = Vector3.BACK
+var _spring_up_vel: Vector3 = Vector3.ZERO
+var _spring_initialized: bool = false
+var _spring_target_pos: Vector3 = Vector3.ZERO
+var _spring_target_look: Vector3 = Vector3.ZERO
+var _spring_target_up: Vector3 = Vector3.BACK
+# Stiffness per mode (higher omega = tighter tracking).
+const SPRING_OMEGA_FLIGHT: float = 30.0     # Near-instant, player expects responsive.
+const SPRING_OMEGA_DOCKED: float = 8.0      # Soft settle into dock view.
+const SPRING_OMEGA_GALAXY: float = 8.0      # Smooth pan feel.
+const SPRING_OMEGA_TRANSIT: float = 30.0    # Transit marker already smooth.
+const SPRING_OMEGA_FLYBY: float = 30.0      # Flyby tweens already smooth.
+const SPRING_OMEGA_CINEMATIC: float = 6.0   # Slow dramatic arcs (departure/arrival).
+const SPRING_OMEGA_POST_CINEMATIC: float = 4.0  # Extra-soft settle after cinematic ends.
+const POST_CINEMATIC_HOLD_TIME: float = 1.5     # Seconds to hold soft omega after cinematic.
+var _spring_omega: float = SPRING_OMEGA_FLIGHT
+var _post_cinematic_timer: float = 0.0          # Counts down after flyby/cinematic ends.
+var _was_flyby_active: bool = false              # Edge detection for flyby→normal transition.
+
+# Legacy compat — kept for game_manager references but no longer used for camera.
 var flyby_settle_active: bool = false
-var _settle_pos: Vector3 = Vector3.ZERO
-var _settle_vel: Vector3 = Vector3.ZERO
-var _settle_look: Vector3 = Vector3.ZERO
-var _settle_look_vel: Vector3 = Vector3.ZERO
-const FLYBY_SETTLE_OMEGA: float = 7.0      # Angular frequency — ~0.7s to settle.
-const FLYBY_SETTLE_DONE_DIST: float = 0.5  # Distance threshold to declare "settled".
 
 func _ready() -> void:
 	_target = _resolve_target()
@@ -133,56 +154,34 @@ func _physics_process(delta: float) -> void:
 	if _game_manager == null:
 		_game_manager = _find_game_manager()
 
-	# Flyby: bypass ALL normal camera logic. Game_manager drives position directly.
+	# === Detect flyby→normal transition: start post-cinematic soft settle ===
+	if _was_flyby_active and not flyby_active:
+		_post_cinematic_timer = POST_CINEMATIC_HOLD_TIME
+		print("DEBUG_SPRING|post_cinematic_settle_started|hold=%.1f" % POST_CINEMATIC_HOLD_TIME)
+	_was_flyby_active = flyby_active
+	if _post_cinematic_timer > 0.0:
+		_post_cinematic_timer -= delta
+
+	# === All mode logic sets _spring_target_* and _spring_omega ===
 	if flyby_active:
-		if _cam:
-			# Tight tracking (k=30): tween provides smooth motion, camera follows crisply.
-			_cam.global_position = _cam.global_position.lerp(flyby_cam_pos, 1.0 - exp(-30.0 * delta))
-			_cam.look_at(flyby_look_at, flyby_up)
-			# FOV narrows smoothly toward base during flyby (arrival feel after transit boost).
-			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
-			_cam.fov = _current_fov
-		_apply_shake_offset(delta)
-		return
+		_spring_target_pos = flyby_cam_pos
+		_spring_target_look = flyby_look_at
+		_spring_target_up = flyby_up
+		_spring_omega = SPRING_OMEGA_FLYBY
+	else:
+		flyby_settle_active = false  # Clear legacy flag.
+		_poll_and_switch_mode()
+		_poll_combat_zoom()
+		_sync_altitude()
+		_update_mode_targets(delta)
 
-	# Flyby settle: critically-damped spring from flyby end position to flight position.
-	if flyby_settle_active:
-		if _cam and _target and is_instance_valid(_target):
-			var flight_target := _target.global_position + Vector3(0.0, _altitude, 0.0)
-			var look_target := Vector3(_target.global_position.x, 0.0, _target.global_position.z)
-			# Critically-damped spring: force = -omega^2 * disp - 2*omega * vel
-			var omega: float = FLYBY_SETTLE_OMEGA
-			var disp := _settle_pos - flight_target
-			var spring_force := -(omega * omega) * disp - 2.0 * omega * _settle_vel
-			_settle_vel += spring_force * delta
-			_settle_pos += _settle_vel * delta
-			# Same spring for look-at.
-			var disp_look := _settle_look - look_target
-			var spring_look := -(omega * omega) * disp_look - 2.0 * omega * _settle_look_vel
-			_settle_look_vel += spring_look * delta
-			_settle_look += _settle_look_vel * delta
-			_cam.global_position = _settle_pos
-			if _settle_look.length_squared() > 0.01:
-				_cam.look_at(_settle_look, Vector3.BACK)
-			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
-			_cam.fov = _current_fov
-			# Terminate settle when converged.
-			if _settle_pos.distance_to(flight_target) < FLYBY_SETTLE_DONE_DIST and _settle_vel.length() < 0.1:
-				flyby_settle_active = false
-				_altitude = _settle_pos.y
-		else:
-			flyby_settle_active = false
-		_apply_shake_offset(delta)
-		return
+	# === Universal spring — THE ONLY place _cam.global_position is written ===
+	_update_spring(delta)
 
-	# Poll game state and switch modes accordingly.
-	_poll_and_switch_mode()
-	_poll_combat_zoom()
-	_sync_altitude()
+	# FOV (separate from position).
+	_update_fov_for_mode(delta)
 
-	_update_camera(delta)
-
-	# Apply camera shake after all camera movement.
+	# Camera shake applied as offset AFTER spring.
 	_apply_shake_offset(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -486,46 +485,122 @@ func tween_altitude_v0(target: float, duration: float) -> void:
 	_tab_tween.tween_property(self, "_altitude", target, duration)
 
 
-# ── Per-frame camera update ──
+# ── Per-frame mode target update — sets _spring_target_* for the universal spring ──
 
-func _update_camera(delta: float) -> void:
+func _update_mode_targets(delta: float) -> void:
 	if _cam == null or _target == null:
 		return
 
 	match _current_mode:
 		CameraMode.FLIGHT:
-			# Fixed top-down camera: directly above player, looking straight down.
-			# No rotation — fixed perspective for spatial clarity (trade routes,
-			# zone armor, labels). Reference: Starcom Nexus, Starsector.
-			_cam.global_position = _target.global_position + Vector3(0.0, _altitude, 0.0)
-			# Look straight down — use BACK as up vector to avoid gimbal lock.
-			var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
-			_cam.look_at(look_point, Vector3.BACK)
-			_update_fov(delta)
+			_spring_target_pos = _target.global_position + Vector3(0.0, _altitude, 0.0)
+			_spring_target_look = Vector3(_spring_target_pos.x, 0.0, _spring_target_pos.z)
+			_spring_target_up = Vector3.BACK
+			_spring_omega = SPRING_OMEGA_FLIGHT
 			# FEEL_POST_FIX_4: Reset far clip from galaxy map extension.
-			_cam.far = 4000.0
+			if _cam:
+				_cam.far = 4000.0
 
 		CameraMode.DOCKED:
-			var desired_pos := _target.global_position + dock_offset
-			_cam.global_position = _cam.global_position.lerp(desired_pos, 1.0 - exp(-5.0 * delta))
-			_cam.look_at(_target.global_position, Vector3.UP)
+			_spring_target_pos = _target.global_position + dock_offset
+			_spring_target_look = _target.global_position
+			_spring_target_up = Vector3.UP
+			_spring_omega = SPRING_OMEGA_DOCKED
 
 		CameraMode.GALAXY_MAP:
-			_update_galaxy_map(delta)
+			_compute_galaxy_map_targets(delta)
 
 		CameraMode.WARP_TRANSIT:
-			_update_warp_transit(delta)
+			_compute_warp_transit_targets(delta)
 
-func _update_fov(delta: float) -> void:
-	var speed: float = 0.0
-	if _target is RigidBody3D:
-		speed = (_target as RigidBody3D).linear_velocity.length()
-	var t: float = clamp(speed / 18.0, 0.0, 1.0)
-	var target_fov: float = fov_base + fov_boost_max * t
-	_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
+## Universal spring update — called ONCE per frame. THE ONLY place _cam.global_position is set.
+## Critically-damped spring: no overshoot, fastest convergence, C2 continuous.
+func _update_spring(delta: float) -> void:
+	if _cam == null:
+		return
+	if not _spring_initialized:
+		_spring_pos = _spring_target_pos
+		_spring_look = _spring_target_look
+		_spring_up = _spring_target_up
+		_spring_vel = Vector3.ZERO
+		_spring_look_vel = Vector3.ZERO
+		_spring_up_vel = Vector3.ZERO
+		_spring_initialized = true
+
+	# Adaptive omega: soften during large target jumps (mode switches),
+	# tighten as camera converges. This turns snappy mode switches into
+	# visible smooth arcs while keeping steady-state tracking crisp.
+	var displacement := _spring_pos.distance_to(_spring_target_pos)
+	var omega := _spring_omega
+	if displacement > 50.0:
+		# Major mode switch (e.g. flight→galaxy, transit→flyby): full cinematic
+		omega = SPRING_OMEGA_CINEMATIC
+	elif displacement > 10.0:
+		# Medium jump: blend between cinematic and mode omega
+		var blend := (displacement - 10.0) / 40.0  # 0..1 over 10..50 range
+		omega = lerpf(_spring_omega, SPRING_OMEGA_CINEMATIC, blend)
+	# else: steady-state, use full mode omega for responsive tracking
+
+	# Post-cinematic hold: keep omega extra-soft after flyby ends so the
+	# camera settles gracefully back to flight view instead of snapping.
+	if _post_cinematic_timer > 0.0:
+		var hold_blend := _post_cinematic_timer / POST_CINEMATIC_HOLD_TIME  # 1→0
+		omega = lerpf(omega, SPRING_OMEGA_POST_CINEMATIC, hold_blend)
+
+	# Position spring: F = -omega^2 * displacement - 2*omega * velocity
+	var d := _spring_pos - _spring_target_pos
+	var f := -(omega * omega) * d - 2.0 * omega * _spring_vel
+	_spring_vel += f * delta
+	_spring_pos += _spring_vel * delta
+	# Look-at spring
+	d = _spring_look - _spring_target_look
+	f = -(omega * omega) * d - 2.0 * omega * _spring_look_vel
+	_spring_look_vel += f * delta
+	_spring_look += _spring_look_vel * delta
+	# Up vector spring
+	d = _spring_up - _spring_target_up
+	f = -(omega * omega) * d - 2.0 * omega * _spring_up_vel
+	_spring_up_vel += f * delta
+	_spring_up += _spring_up_vel * delta
+
+	_cam.global_position = _spring_pos
+	var up := _spring_up.normalized()
+	if up.length_squared() < 0.01:
+		up = Vector3.BACK
+	if _spring_look.distance_squared_to(_spring_pos) > 0.1:
+		_cam.look_at(_spring_look, up)
+
+## FOV update dispatched per mode.
+func _update_fov_for_mode(delta: float) -> void:
+	if _cam == null:
+		return
+	match _current_mode:
+		CameraMode.FLIGHT:
+			var speed: float = 0.0
+			if _target is RigidBody3D:
+				speed = (_target as RigidBody3D).linear_velocity.length()
+			var t: float = clamp(speed / 18.0, 0.0, 1.0)
+			var target_fov: float = fov_base + fov_boost_max * t
+			_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
+		CameraMode.DOCKED:
+			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-fov_smooth * delta))
+		CameraMode.GALAXY_MAP:
+			_current_fov = lerpf(_current_fov, 60.0, 1.0 - exp(-fov_smooth * delta))
+			_cam.far = 12000.0
+		CameraMode.WARP_TRANSIT:
+			var transit_alt: float = 500.0
+			if _game_manager:
+				var a = _game_manager.get("warp_transit_altitude")
+				if a != null:
+					transit_alt = float(a)
+			var transit_fov_t: float = 1.0 - clampf(transit_alt / 1200.0, 0.0, 1.0)
+			var target_transit_fov: float = fov_base + FLYBY_FOV_TRANSIT_BOOST * transit_fov_t
+			_current_fov = lerpf(_current_fov, target_transit_fov, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
+	if flyby_active:
+		_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
 	_cam.fov = _current_fov
 
-func _update_warp_transit(delta: float) -> void:
+func _compute_warp_transit_targets(_delta: float) -> void:
 	# Read transit target and altitude from GameManager.
 	var target_pos: Vector3 = Vector3.ZERO
 	var altitude: float = 500.0
@@ -539,25 +614,21 @@ func _update_warp_transit(delta: float) -> void:
 
 	var tilt: float = clampf(warp_transit_tilt, 0.0, 1.0)
 
-	# Get travel direction (constant throughout transit, stored by game_manager).
 	var travel_dir: Vector3 = Vector3.ZERO
 	if _game_manager:
 		var td = _game_manager.get("warp_transit_travel_dir")
 		if td != null and td.length() > 0.1:
 			travel_dir = td
-
-	# If travel direction is unknown, stay top-down regardless of tilt.
 	if travel_dir == Vector3.ZERO:
 		tilt = 0.0
 
-	# Get destination position for forward-looking mode.
 	var dest_pos: Vector3 = Vector3.ZERO
 	if _game_manager:
 		var dp = _game_manager.get("warp_transit_dest_pos")
 		if dp != null:
 			dest_pos = dp
 
-	# === Top-down position (tilt=0): directly above marker with look-ahead ===
+	# Top-down position (tilt=0).
 	var look_ahead := Vector3.ZERO
 	var look_ahead_scale := clampf((altitude - 80.0) / 100.0, 0.0, 1.0)
 	if look_ahead_scale > 0.01 and travel_dir.length() > 0.1:
@@ -565,8 +636,7 @@ func _update_warp_transit(delta: float) -> void:
 	var top_down_pos := Vector3(target_pos.x + look_ahead.x, altitude, target_pos.z + look_ahead.z)
 	var look_down := Vector3(target_pos.x, 0.0, target_pos.z)
 
-	# === Forward position (tilt=1): chase cam behind marker, looking at destination ===
-	# Like a comet approaching its star — destination grows dramatically as you rush in.
+	# Forward position (tilt=1): chase cam behind marker.
 	var behind_dist: float = clampf(altitude * 0.4, 20.0, 200.0)
 	var fwd_alt: float = clampf(altitude * 0.4, 25.0, 250.0)
 	var fwd_pos := Vector3(
@@ -576,27 +646,16 @@ func _update_warp_transit(delta: float) -> void:
 	)
 	var look_fwd := Vector3(dest_pos.x, 5.0, dest_pos.z) if dest_pos != Vector3.ZERO else look_down
 
-	# === Blend based on tilt ===
-	var desired_pos := top_down_pos.lerp(fwd_pos, tilt)
-	var look_target := look_down.lerp(look_fwd, tilt)
+	# Blend based on tilt → set spring targets.
+	_spring_target_pos = top_down_pos.lerp(fwd_pos, tilt)
+	_spring_target_look = look_down.lerp(look_fwd, tilt)
 	var up_vec := Vector3.BACK.slerp(Vector3.UP, tilt)
 	if up_vec.length_squared() < 0.01:
 		up_vec = Vector3.UP
+	_spring_target_up = up_vec
+	_spring_omega = SPRING_OMEGA_TRANSIT
 
-	if _cam == null:
-		return
-
-	# Snap camera — transit marker is smoothly tweened, so snapping produces smooth motion.
-	_cam.global_position = desired_pos
-	_cam.look_at(look_target, up_vec)
-	# FOV swell: widen as camera descends toward destination (speed feel).
-	var transit_fov_t: float = 1.0 - clampf(altitude / 1200.0, 0.0, 1.0)
-	var target_transit_fov: float = fov_base + FLYBY_FOV_TRANSIT_BOOST * transit_fov_t
-	_current_fov = lerpf(_current_fov, target_transit_fov, 1.0 - exp(-FLYBY_FOV_SMOOTH * delta))
-	_cam.fov = _current_fov
-
-func _update_galaxy_map(delta: float) -> void:
-	# Get the player star world position as our anchor point.
+func _compute_galaxy_map_targets(delta: float) -> void:
 	var anchor: Vector3 = Vector3.ZERO
 	if _target and is_instance_valid(_target):
 		anchor = _target.global_position
@@ -612,25 +671,13 @@ func _update_galaxy_map(delta: float) -> void:
 	if Input.is_action_pressed("ship_turn_right"):
 		_galaxy_map_pan_offset.x += pan_speed_scaled * delta
 
-	# Compute desired camera position: above player anchor + pan offset, looking straight down.
 	var desired_pos := anchor + _galaxy_map_pan_offset
 	desired_pos.y = _altitude
 
-	if _cam == null:
-		return
-
-	# Smooth lerp to desired position for cinematic feel.
-	_cam.global_position = _cam.global_position.lerp(desired_pos, 1.0 - exp(-GALAXY_MAP_LERP_SPEED * delta))
-
-	# Look straight down. Use Vector3.BACK as up-vector to avoid gimbal lock when looking along -Y.
-	var look_point := Vector3(_cam.global_position.x, 0.0, _cam.global_position.z)
-	_cam.look_at(look_point, Vector3.BACK)
-
-	# Use perspective projection with wide FOV for good galaxy overview.
-	_cam.fov = 60.0
-	# FEEL_POST_FIX_4: Extend far clip to see beacons at galactic altitude.
-	# Default z_far=4000 culls nodes at Y=0 when camera is at altitude 5000.
-	_cam.far = 12000.0
+	_spring_target_pos = desired_pos
+	_spring_target_look = Vector3(desired_pos.x, 0.0, desired_pos.z)
+	_spring_target_up = Vector3.BACK
+	_spring_omega = SPRING_OMEGA_GALAXY
 
 
 # ── Target resolution ──

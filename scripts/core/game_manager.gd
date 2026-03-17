@@ -94,8 +94,18 @@ var _pause_menu: Control = null
 # GATE.S12.UX_POLISH.ONBOARDING.001: First-dock onboarding toasts
 var _onboarding_shown: bool = false
 
+# Intro sequence active — suppresses all gameplay (AI, combat, NPC movement, music)
+# until the welcome overlay is dismissed. Prevents jarring first frames.
+var intro_active: bool = false
+var _intro_black_screen: CanvasLayer = null  # Black screen to prevent game flash before galaxy overlay.
+
 # GATE.S19.ONBOARD.MILESTONE_TOAST.014: Track celebrated milestones to avoid repeats.
 var _celebrated_milestones: Dictionary = {}
+
+# Captain's Guide: fire-once guide step tracking.
+var _guide_steps_seen: Dictionary = {}
+var _guide_poll_timer: float = 0.0
+const GUIDE_POLL_INTERVAL: float = 2.0
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save cooldown (30s between saves)
 var _autosave_cooldown: float = 0.0
@@ -130,6 +140,7 @@ var _game_over_poll_timer: float = 0.0
 const GAME_OVER_POLL_INTERVAL: float = 1.0
 var _lane_origin_node_id: String = ""  # GATE.S13.WORLD.GATE_ARRIVAL.001: track origin for gate positioning
 var _lane_dest_node_id: String = ""    # Transit destination — read by camera for transit-mode rendering.
+var _lane_dest_is_first_visit: bool = false  # Cached before DispatchTravelCommandV0 marks node visited.
 var _cinematic_transit_active: bool = false  # Blocks Esc during approach cinematic.
 # FEEL_POST_FIX_9: Suppress transit overlay during flyby arrival (state is still IN_LANE_TRANSIT
 # but the player has visually "arrived" — showing transit labels during flyby is confusing).
@@ -153,8 +164,8 @@ var warp_transit_origin_pos: Vector3 = Vector3.ZERO  # Origin gate position for 
 # Flyby orbit tuning — tweak these to adjust the arrival cinematic.
 # Pace overhaul: compressed timing. First visit ~5s, return visits skip flyby entirely (~2.5s).
 const FLYBY_APPROACH_DIST: float = 160.0   # Distance from star to start curving (scaled for 120u systems).
-const FLYBY_ORBIT_RADIUS: float = 70.0     # Orbit circle radius around star (scaled for 120u systems).
-const FLYBY_ORBIT_ALT: float = 50.0        # Camera height during orbit sweep.
+const FLYBY_ORBIT_RADIUS: float = 90.0     # Orbit circle radius around star (breathing room inside 120u system).
+const FLYBY_ORBIT_ALT: float = 70.0        # Camera height during orbit sweep (above planet level).
 const FLYBY_CURVE_ON_TIME: float = 0.6     # Seconds to curve onto orbit (was 1.5).
 const FLYBY_ORBIT_TIME: float = 1.5        # Seconds for orbital sweep — first visit only (was 4.0).
 const FLYBY_CURVE_OFF_TIME: float = 0.5    # Seconds to settle at destination gate (was 1.5).
@@ -282,6 +293,8 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "Welcome back, Captain.", 4.0)
 		return
+	# Activate intro mode — suppresses gameplay (AI fire, NPC movement, combat music).
+	intro_active = true
 	# New game cinematic: galaxy image → crossfade reveals solar system → controls.
 	# Camera stays at default altitude (80) — the galaxy IMAGE is a 2D overlay that
 	# covers the entire screen. No camera movement during galaxy phase.
@@ -291,11 +304,27 @@ func _show_onboarding_toasts_deferred_v0() -> void:
 	# Freeze hero ship during intro.
 	if _hero_body:
 		_hero_body.freeze = true
+	# Black screen: prevents flash of game world before galaxy overlay.
+	# Galaxy overlay at layer 200 will render on top; we remove this once it's active.
+	if _intro_black_screen == null:
+		_intro_black_screen = CanvasLayer.new()
+		_intro_black_screen.layer = 199  # Just below galaxy overlay (200)
+		_intro_black_screen.name = "IntroBlackScreen"
+		var black := ColorRect.new()
+		black.color = Color(0.0, 0.0, 0.02, 1.0)
+		black.set_anchors_preset(Control.PRESET_FULL_RECT)
+		black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_intro_black_screen.add_child(black)
+		add_child(_intro_black_screen)
 	# Galaxy image overlay — hold, zoom in, crossfade out (~6.5s).
 	var galaxy_overlay_script = load("res://scripts/ui/galaxy_intro_overlay.gd")
 	if galaxy_overlay_script:
 		var galaxy_overlay = galaxy_overlay_script.new()
 		add_child(galaxy_overlay)
+		# Galaxy overlay is now covering the screen — remove black screen.
+		if _intro_black_screen:
+			_intro_black_screen.queue_free()
+			_intro_black_screen = null
 		await galaxy_overlay.play_intro()
 		galaxy_overlay.queue_free()
 	# Brief settle after galaxy fades, then show controls.
@@ -320,8 +349,8 @@ func _show_welcome_overlay_v0() -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.offset_left = -280
 	panel.offset_right = 280
-	panel.offset_top = -200
-	panel.offset_bottom = 200
+	panel.offset_top = -240
+	panel.offset_bottom = 240
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.06, 0.08, 0.14, 0.95)
 	panel_style.border_color = Color(0.4, 0.85, 1.0, 0.6)
@@ -343,37 +372,38 @@ func _show_welcome_overlay_v0() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	# Subtitle.
-	var subtitle := Label.new()
-	subtitle.text = "The galaxy awaits, Captain."
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(subtitle)
+	# Lore intro.
+	var lore := Label.new()
+	lore.text = "The threads that held the galaxy together are failing.\nFive factions cling to a network they don't understand,\nlocked in a dependency none of them chose.\nTwo wars are already burning. More will follow.\n\nYour ship carries something ancient — a drive that\nshouldn't exist. It lets you go where the threads don't reach.\n\nNobody knows what you have. Not yet."
+	lore.add_theme_font_size_override("font_size", 13)
+	lore.add_theme_color_override("font_color", Color(0.75, 0.78, 0.88))
+	lore.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lore)
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
+	spacer.custom_minimum_size = Vector2(0, 6)
 	vbox.add_child(spacer)
 
-	# Controls.
-	var controls := Label.new()
-	controls.text = "W / S  —  Thrust forward / reverse\nA / D  —  Turn left / right\nE  —  Dock at stations\nM  —  Galaxy map\nTab  —  Empire dashboard\nH  —  All keybindings\nClick  —  Autopilot to location"
-	controls.add_theme_font_size_override("font_size", 13)
-	controls.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
-	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(controls)
+	# Objective hint.
+	var hint := Label.new()
+	hint.text = "▸ Dock at the station ahead. Learn the markets."
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
 
 	var spacer2 := Control.new()
 	spacer2.custom_minimum_size = Vector2(0, 4)
 	vbox.add_child(spacer2)
 
-	# Hint.
-	var hint := Label.new()
-	hint.text = "Fly to the station and press E to dock.\nBuy low, sell high at neighboring systems."
-	hint.add_theme_font_size_override("font_size", 12)
-	hint.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(hint)
+	# Controls (compact).
+	var controls := Label.new()
+	controls.text = "WASD Fly  ·  E Dock  ·  M Map  ·  H Help"
+	controls.add_theme_font_size_override("font_size", 12)
+	controls.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
+	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(controls)
 
 	var spacer3 := Control.new()
 	spacer3.custom_minimum_size = Vector2(0, 8)
@@ -405,6 +435,10 @@ func _show_welcome_overlay_v0() -> void:
 		cam_ctrl.set("input_locked", false)
 	if _hero_body:
 		_hero_body.freeze = false
+	# End intro mode — gameplay resumes (AI, combat, NPC movement, music).
+	intro_active = false
+	# Captain's Guide: first hint after welcome overlay dismisses.
+	_fire_guide_hint_v0("GUIDE_FLIGHT", "The station ahead is your first stop. Fly close and press E to dock.")
 
 var _welcome_dismissed := true  # Set false only while welcome overlay is waiting for input.
 
@@ -461,6 +495,10 @@ func _process(delta):
 
 	# Local ticking must continue while overlay is open. This is used only as a boolean check in tests.
 	time_accumulator += float(delta)
+
+	# Suppress all gameplay during intro cinematic + welcome overlay.
+	if intro_active:
+		return
 
 	# GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: freeze all game logic when dead
 	if _player_dead:
@@ -529,6 +567,12 @@ func _process(delta):
 		_poll_discovery_celebrations_v0()
 		# GATE.S19.ONBOARD.MILESTONE_TOAST.014: piggyback on discovery poll interval.
 		_poll_milestone_celebrations_v0()
+
+	# Captain's Guide: poll contextual hints every 2s.
+	_guide_poll_timer += float(delta)
+	if _guide_poll_timer >= GUIDE_POLL_INTERVAL:
+		_guide_poll_timer = 0.0
+		_poll_guide_hints_v0()
 
 	# GATE.S5.TRACTOR.VFX.001: Auto-collect nearby loot and show tractor beam VFX.
 	if current_player_state == PlayerShipState.IN_FLIGHT:
@@ -792,6 +836,8 @@ func on_proximity_dock_entered_v0(target: Node):
 			htm2.call("open_market_v0", dock_target_id)
 	# GATE.S14.STARTER.MISSION_PROMPT.001: first-dock jobs toast (now no-op, replaced by disclosure)
 	_check_first_dock_mission_prompt_v0()
+	# Captain's Guide: dock hint.
+	_fire_guide_hint_v0("GUIDE_DOCK", "Open the Market tab and buy the cheapest good. Fly to the next station and sell it where the price is higher.")
 	# GATE.S19.ONBOARD.FO_EVENTS.012: Immediate FO poll after docking.
 	_poll_fo_immediate()
 
@@ -836,6 +882,11 @@ func undock_v0():
 	dock_target_kind_token = ""
 	dock_target_id = ""
 	_undock_cooldown = 1.5  # Prevent re-dock prompt immediately after undock.
+
+	# Dismiss guide hints so they don't obscure flight view.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("dismiss_guide_toasts"):
+		toast_mgr.call("dismiss_guide_toasts")
 	_dock_available_target = null
 
 	# Close station menu if it is open.
@@ -924,7 +975,12 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 	if _sfx_warp_whoosh:
 		_sfx_warp_whoosh.play()
 
+	# Cache first-visit status BEFORE travel command marks the destination visited.
 	var bridge = get_node_or_null("/root/SimBridge")
+	_lane_dest_is_first_visit = false
+	if bridge and bridge.has_method("IsFirstVisitV0"):
+		_lane_dest_is_first_visit = bridge.call("IsFirstVisitV0", neighbor_node_id)
+
 	if bridge and bridge.has_method("DispatchTravelCommandV0"):
 		bridge.call("DispatchTravelCommandV0", PLAYER_FLEET_ID, neighbor_node_id)
 
@@ -944,6 +1000,9 @@ func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 	if _lane_cooldown_v0 > 0.0:
 		return
 	if _gate_approach_declined:
+		return
+	# Don't trigger a new approach while cinematic departure is in progress.
+	if _cinematic_transit_active:
 		return
 	if not _transition_player_state_v0(PlayerShipState.GATE_APPROACH):
 		return
@@ -969,6 +1028,9 @@ func on_lane_gate_approach_entered_v0(neighbor_node_id: String) -> void:
 func on_lane_gate_approach_exited_v0() -> void:
 	_gate_approach_declined = false
 	if current_player_state != PlayerShipState.GATE_APPROACH:
+		return
+	# Don't cancel if cinematic departure is in progress (ship tween exits the zone).
+	if _cinematic_transit_active:
 		return
 	_cancel_gate_approach_v0()
 
@@ -1014,50 +1076,144 @@ func _confirm_gate_transit_v0() -> void:
 	_lane_dest_node_id = neighbor_id
 	print("UUIR|LANE_ENTER|" + neighbor_id)
 
-	# Dispatch travel command (deducts fuel + toll in SimCore).
+	# Cache first-visit status BEFORE travel command marks the destination visited.
 	var bridge = get_node_or_null("/root/SimBridge")
+	_lane_dest_is_first_visit = false
+	if bridge and bridge.has_method("IsFirstVisitV0"):
+		_lane_dest_is_first_visit = bridge.call("IsFirstVisitV0", neighbor_id)
+
+	# Dispatch travel command (deducts fuel + toll in SimCore).
 	if bridge and bridge.has_method("DispatchTravelCommandV0"):
 		bridge.call("DispatchTravelCommandV0", PLAYER_FLEET_ID, neighbor_id)
 
-	# === Phase 1: Approach cinematic ===
-	# Stay in GATE_APPROACH so camera remains in FLIGHT mode (close to ship).
+	# === Cinematic departure: ship→gate→bubble→warp ===
 	_cinematic_transit_active = true
 	var cam_ctrl = _find_camera_controller()
 	if cam_ctrl:
-		# Pre-save the real flight altitude before zoom changes it.
 		cam_ctrl.set("_pre_transit_altitude", cam_ctrl.get("_altitude"))
 		cam_ctrl.set("_pre_transit_altitude_set", true)
 		cam_ctrl.input_locked = true
-		# Zoom camera IN to gate close-up (anticipation).
-		if cam_ctrl.has_method("tween_altitude_v0"):
-			cam_ctrl.call("tween_altitude_v0", 25.0, 1.0)
 
-	# Camera shake + warp sound.
-	_apply_camera_shake_v0(0.4)
+	# Resolve gate position from the ACTUAL scene node (single source of truth).
+	var gv = _find_galaxy_view()
+	var gate_pos: Vector3 = _hero_body.global_position if _hero_body and is_instance_valid(_hero_body) else Vector3.ZERO
+	# Primary: find the LaneGate scene node directly.
+	var gate_nodes := get_tree().get_nodes_in_group("LaneGate") if get_tree() else []
+	for gn in gate_nodes:
+		if gn is Node3D and gn.has_meta("neighbor_node_id") and str(gn.get_meta("neighbor_node_id")) == _approach_neighbor_id:
+			gate_pos = gn.global_position
+			break
+	# Fallback: cache (if no scene node found).
+	if gate_pos == (_hero_body.global_position if _hero_body and is_instance_valid(_hero_body) else Vector3.ZERO):
+		if gv and gv.has_method("GetGatePositionV0") and not _approach_neighbor_id.is_empty():
+			var gp: Vector3 = gv.call("GetGatePositionV0", _approach_neighbor_id)
+			if gp != Vector3.ZERO:
+				gate_pos = gp
+	var star_center: Vector3 = Vector3.ZERO
+	if gv and gv.has_method("GetCurrentStarGlobalPositionV0"):
+		star_center = gv.call("GetCurrentStarGlobalPositionV0")
+	var gate_dir: Vector3 = (gate_pos - star_center)
+	gate_dir.y = 0.0
+	gate_dir = gate_dir.normalized() if gate_dir.length() > 0.1 else Vector3(1, 0, 0)
+	print("DEBUG_WARP|gate_pos=%s star_center=%s hero=%s neighbor=%s" % [str(gate_pos), str(star_center), str(_hero_body.global_position) if _hero_body and is_instance_valid(_hero_body) else "null", _approach_neighbor_id])
+
+	# === Departure cinematic with C2-continuous camera ===
+	# Key principle: initialize flyby from CURRENT camera position, then TWEEN to
+	# the cinematic view. k=30 lerp tracks a smooth tween = C2 at the join.
+	_ensure_hero_body()
+	var gate_front: Vector3 = gate_pos - gate_dir * 15.0
+	gate_front.y = 0.0
+
+	# Cinematic camera target: behind + above ship, looking through gate toward destination.
+	var cam_behind: Vector3 = gate_front - gate_dir * 30.0
+	cam_behind.y = 20.0
+	var cam_look_at: Vector3 = gate_pos + gate_dir * 50.0  # Look PAST the gate toward destination.
+	cam_look_at.y = 0.0
+
+	# Phase 1: Activate flyby FROM CURRENT spring state (C2 join — velocity preserved).
+	# Then simultaneously tween camera to cinematic view AND pull ship to gate.
+	if cam_ctrl:
+		cam_ctrl.flyby_cam_pos = cam_ctrl._spring_pos   # Start where spring IS.
+		cam_ctrl.flyby_look_at = cam_ctrl._spring_look   # Preserve current look target.
+		cam_ctrl.flyby_up = cam_ctrl._spring_up           # Preserve current up vector.
+		cam_ctrl.flyby_active = true  # Spring target = current pos → zero movement.
+
+	if _hero_body and is_instance_valid(_hero_body):
+		_hero_body.look_at(_hero_body.global_position + gate_dir, Vector3.UP)
+
+		# Ship pull + camera swoop happen in parallel (1.0s cubic ease).
+		var pull_tween := create_tween()
+		pull_tween.tween_property(_hero_body, "global_position", gate_front, 1.0) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		if cam_ctrl:
+			# Camera position: smooth cubic arc from top-down to behind-ship.
+			var cam_tween := create_tween()
+			cam_tween.tween_property(cam_ctrl, "flyby_cam_pos", cam_behind, 1.0) \
+				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+			# Look-at: from ground below player to past the gate (forward view).
+			cam_tween.parallel().tween_property(cam_ctrl, "flyby_look_at", cam_look_at, 1.0) \
+				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+			# Up vector: from BACK (top-down) to UP (3rd person) smoothly.
+			cam_tween.parallel().tween_property(cam_ctrl, "flyby_up", Vector3.UP, 1.0) \
+				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+		await pull_tween.finished
+	print("DEBUG_DEPART|phase1_done|hero=%s|gate=%s|cam=%s" % [str(_hero_body.global_position) if _hero_body else "null", str(gate_pos), str(cam_ctrl._cam.global_position) if cam_ctrl and cam_ctrl._cam else "null"])
+
+	# Phase 2: Vortex charge-up (1.5s) — progressive shake + ship tremble.
 	if _sfx_warp_whoosh:
 		_sfx_warp_whoosh.play()
+	var vortex := GateVortex.new()
+	get_tree().root.add_child(vortex)
+	vortex.global_position = gate_pos
+	vortex.setup()
 
-	# Vortex pulls ship toward gate over 1.5s (uses _approach_neighbor_id for gate pos).
-	await _play_departure_vortex_v0()
+	var charge_time := 1.5
+	var charge_steps := 15
+	var charge_step_time := charge_time / float(charge_steps)
+	if _hero_body and is_instance_valid(_hero_body):
+		var base_pos: Vector3 = _hero_body.global_position
+		for i in range(charge_steps):
+			var t: float = float(i + 1) / float(charge_steps)
+			_apply_camera_shake_v0(0.1 + t * 0.5)
+			if _hero_body and is_instance_valid(_hero_body):
+				var tremble_amp: float = 0.05 + t * 0.3
+				var tremble_off := Vector3(
+					sin(float(i) * 7.3) * tremble_amp,
+					0.0,
+					cos(float(i) * 5.1) * tremble_amp
+				)
+				_hero_body.global_position = base_pos + tremble_off
+			await get_tree().create_timer(charge_step_time).timeout
+		_hero_body.global_position = base_pos
+	else:
+		await get_tree().create_timer(charge_time).timeout
 
-	# Clear approach_neighbor_id AFTER vortex used it (fixes gate position bug).
+	# Phase 3: Ship pulled INTO the vortex (0.5s).
+	if _hero_body and is_instance_valid(_hero_body):
+		var enter_tween := create_tween()
+		enter_tween.tween_property(_hero_body, "global_position", gate_pos, 0.5) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		if cam_ctrl and cam_ctrl.has_method("punch_fov_v0"):
+			cam_ctrl.call("punch_fov_v0", 10.0, 0.5)
+		await enter_tween.finished
+
+	# Phase 4: Flash + big shake at moment of entry.
+	_flash_warp_screen_v0()
+	_apply_camera_shake_v0(0.8)
+	WarpEffect.play_departure_flash(get_tree().root, gate_pos)
+
+	if vortex and is_instance_valid(vortex) and vortex.has_method("despawn"):
+		vortex.call("despawn", 0.3)
+
 	_approach_neighbor_id = ""
 
-	# Brief hold at gate close-up.
-	await get_tree().create_timer(0.3).timeout
+	# Phase 5: Disable flyby — the universal spring automatically carries the
+	# camera from the cinematic position to wherever WARP_TRANSIT targets it.
+	# No manual zoom-up needed; C2 continuity is guaranteed by the spring.
+	if cam_ctrl:
+		cam_ctrl.flyby_active = false
+	print("DEBUG_DEPART|phase5_done|warp_start")
 
-	# === Phase 2: Launch ===
-	_apply_camera_shake_v0(0.6)
-	_flash_warp_screen_v0()
-	var cam_fov2 = _find_camera_controller()
-	if cam_fov2 and cam_fov2.has_method("punch_fov_v0"):
-		cam_fov2.call("punch_fov_v0", 10.0, 0.5)
-	# GATE.X.WARP.DEPARTURE_VFX.001: 3D departure flash at ship position.
-	_ensure_hero_body()
-	if _hero_body and is_instance_valid(_hero_body):
-		WarpEffect.play_departure_flash(get_tree().root, _hero_body.global_position)
-
-	# NOW transition to IN_LANE_TRANSIT → camera switches to WARP_TRANSIT.
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		_cinematic_transit_active = false
 		if cam_ctrl:
@@ -1066,7 +1222,7 @@ func _confirm_gate_transit_v0() -> void:
 
 	_cinematic_transit_active = false
 	if cam_ctrl:
-		cam_ctrl.input_locked = false  # Transit mode handles camera itself.
+		cam_ctrl.input_locked = false
 
 	_begin_lane_transit_v0(neighbor_id)
 
@@ -1147,10 +1303,8 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 
 	var bridge = get_node_or_null("/root/SimBridge")
 
-	# Check first-visit BEFORE dispatch (dispatch marks it as visited).
-	var is_first_visit: bool = false
-	if bridge and bridge.has_method("IsFirstVisitV0"):
-		is_first_visit = bridge.call("IsFirstVisitV0", arrived_node_id)
+	# Use cached first-visit (saved before DispatchTravelCommandV0 marked node visited).
+	var is_first_visit: bool = _lane_dest_is_first_visit
 	# Store for camera to read during arrival zoom.
 	_last_arrival_first_visit = is_first_visit
 
@@ -1466,11 +1620,13 @@ func _ai_fire_v0() -> void:
 	if nearest == null:
 		return
 	# Only hostile fleets fire at the player (traders/haulers are peaceful).
-	if not nearest.get_meta("is_hostile", false):
+	var is_hostile: bool = nearest.get_meta("is_hostile", false)
+	if not is_hostile:
 		return
 	var fleet_id: String = _get_fleet_id_from_marker(nearest)
 	if fleet_id.is_empty():
 		return
+	print("DEBUG_COMBAT|AI_FIRE|fleet=%s hostile=%s dist=%.1f" % [fleet_id, str(is_hostile), nearest.global_position.distance_to(_hero_body.global_position)])
 	_spawn_bullet_v0(nearest.global_position, _hero_body.global_position, false, fleet_id)
 	_ai_fire_cooldown = AI_FIRE_COOLDOWN_SEC
 	# FEEL_POST_FIX_3: AI firing at player triggers combat state.
@@ -1656,14 +1812,19 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			var lane_dir_fb := (dest_pos - origin_star_center).normalized()
 			dest_gate_pos = dest_pos - lane_dir_fb * 90.0
 
-	# Compute lane direction from gate to gate.
-	var lane_dir := (dest_gate_pos - origin_gate_pos)
+	# Origin position = hero body (ship is visually at the gate after cinematic pull).
+	var origin_pos: Vector3 = origin_gate_pos
+	if _hero_body and is_instance_valid(_hero_body):
+		origin_pos = Vector3(_hero_body.global_position.x, 0.0, _hero_body.global_position.z)
+	# Compute lane direction from ACTUAL origin (hero pos) to destination gate.
+	# Using hero pos instead of cached origin_gate_pos avoids tunnel misalignment
+	# when the scene node gate position differs from the cache.
+	var lane_dir := (dest_gate_pos - origin_pos)
 	lane_dir.y = 0.0
 	lane_dir = lane_dir.normalized() if lane_dir.length() > 0.1 else Vector3(1, 0, 0)
-	# Origin position = origin gate (where the transit marker starts).
-	var origin_pos: Vector3 = origin_gate_pos
 	print("UUIR|LANE_GEOM|origin_star=%s|dest_star=%s|origin_gate=%s|dest_gate=%s" % [
 		str(origin_star_center), str(dest_pos), str(origin_gate_pos), str(dest_gate_pos)])
+	print("DEBUG_TRANSIT|origin_pos=%s|lane_dir=%s|distance=%.1f" % [str(origin_pos), str(lane_dir), origin_pos.distance_to(dest_gate_pos)])
 
 	if dest_pos == Vector3.ZERO or _hero_body == null or not is_instance_valid(_hero_body):
 		# Fallback: instant transit.
@@ -1765,10 +1926,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Wait for zoom-out to complete before marker starts moving.
 	await zoom_out_tween.finished
 
-	# Check first visit BEFORE transit starts (dispatch marks it as visited).
-	var is_first_visit: bool = false
-	if bridge and bridge.has_method("IsFirstVisitV0"):
-		is_first_visit = bridge.call("IsFirstVisitV0", neighbor_node_id)
+	# Use cached first-visit (saved before DispatchTravelCommandV0 marked node visited).
+	var is_first_visit: bool = _lane_dest_is_first_visit
 
 	# Store lane line ref for cleanup.
 	_transit_lane_line_ref = _transit_lane_line
@@ -1855,6 +2014,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	cam_ctrl = _find_camera_controller()
 	var has_cam: bool = cam_ctrl != null and cam_ctrl.get("flyby_active") != null
 
+	print("DEBUG_ARRIVAL|first_visit=%s|has_cam=%s|hero=%s|dest_gate=%s" % [str(is_first_visit), str(has_cam), str(hero_pos), str(dest_gate_pos)])
 	# Pace overhaul: return visits skip flyby entirely (~2.5s total transit).
 	if has_cam and not is_first_visit:
 		# Fast camera descent to flight altitude — no spiral, no orbit.
@@ -1872,7 +2032,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		else:
 			cam_ctrl._altitude = 80.0
 			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
-		cam_ctrl.flyby_settle_active = true
+		# Spring handles settle automatically — no manual settle state needed.
+		print("DEBUG_RETURN|cam=%s|hero=%s" % [str(cam_ctrl._cam.global_position) if cam_ctrl._cam else "null", str(hero_pos)])
 		var gv_fast = _find_galaxy_view()
 		if gv_fast and gv_fast.has_method("SetTransitModeV0"):
 			gv_fast.call("SetTransitModeV0", false, "", "")
@@ -1940,6 +2101,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		var entry_radius: float = maxf(entry_star_off.length(), FLYBY_ORBIT_RADIUS + 10.0)
 		var entry_alt: float = entry_cam_pos.y
 		var actual_entry_angle: float = atan2(entry_star_off.z, entry_star_off.x)
+		print("DEBUG_FLYBY|entry_cam=%s|entry_alt=%.1f|entry_radius=%.1f|star=%s" % [str(entry_cam_pos), entry_alt, entry_radius, str(star_center)])
 
 		# --- Phase 1: Deviation — spiral from approach onto orbit circle tangent ---
 		# Step-based tween: interpolate angle (90° lateral swoop) and radius
@@ -1951,7 +2113,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			var t: float = float(i + 1) / float(dev_steps)
 			# Angle sweeps from actual camera angle to tangent point (90° lateral).
 			var smooth_t: float = ease(t, 2.0)  # Ease in: gentle start, dramatic curve.
-			var angle: float = lerpf(actual_entry_angle, tangent_angle, smooth_t)
+			var angle: float = lerp_angle(actual_entry_angle, tangent_angle, smooth_t)
 			# Radius compresses from far (behind marker) to orbit radius.
 			var dev_radius: float = lerpf(entry_radius, FLYBY_ORBIT_RADIUS, ease(t, 0.8))
 			# Altitude descends smoothly to orbit altitude.
@@ -2027,7 +2189,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 			# Angle: fast departure from orbit tangent, decelerating to straight line.
 			# rev_t = 1 - (1-t)^2: ease-out quadratic (reverse of entry's ease-in).
 			var rev_t: float = 1.0 - ease(1.0 - t, 2.0)
-			var angle: float = lerpf(orbit_exit_angle, depart_angle, rev_t)
+			var angle: float = lerp_angle(orbit_exit_angle, depart_angle, rev_t)
 			# Radius: expands from orbit to departure radius.
 			var exit_radius: float = lerpf(FLYBY_ORBIT_RADIUS, exit_settle_radius, ease(t, 0.8))
 			# Altitude: rises to flight mode altitude.
@@ -2055,11 +2217,6 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 
 		# --- Phase 5: Handoff — flyby → flight mode with critically-damped spring settle ---
 		cam_ctrl.flyby_active = false
-		# Initialize spring state from current flyby end position.
-		cam_ctrl._settle_pos = cam_ctrl._cam.global_position if cam_ctrl._cam else hero_pos + Vector3(0.0, 80.0, 0.0)
-		cam_ctrl._settle_vel = Vector3.ZERO
-		cam_ctrl._settle_look = cam_ctrl.flyby_look_at
-		cam_ctrl._settle_look_vel = Vector3.ZERO
 		# Notify camera that flyby handled the arrival — prevents WARP_TRANSIT exit
 		# from resetting altitude to the stale warp_transit_altitude value.
 		if cam_ctrl.has_method("notify_flyby_arrival_v0"):
@@ -2067,7 +2224,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 		else:
 			cam_ctrl._altitude = 80.0
 			cam_ctrl._galaxy_map_pan_offset = Vector3.ZERO
-		cam_ctrl.flyby_settle_active = true
+		# Spring handles settle automatically when flyby_active goes false.
 		cam_ctrl.input_locked = false
 		var gv_cleanup = _find_galaxy_view()
 		if gv_cleanup and gv_cleanup.has_method("SetTransitModeV0"):
@@ -2588,6 +2745,117 @@ func _poll_milestone_celebrations_v0() -> void:
 		print("UUIR|MILESTONE_CELEBRATE|" + mid)
 		# GATE.S9.STEAM.ACHIEVEMENTS.001: Unlock Steam achievement on milestone.
 		_unlock_steam_achievement_v0(mid)
+
+# Captain's Guide: fire a one-shot guide toast. Returns true if fired.
+func _fire_guide_hint_v0(step_id: String, text: String) -> bool:
+	if _guide_steps_seen.has(step_id):
+		return false
+	# Respect tutorial toggle.
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
+			return false
+	_guide_steps_seen[step_id] = true
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", text, "guide")
+	print("UUIR|GUIDE_HINT|" + step_id)
+	return true
+
+# Captain's Guide: polled hints — check game state and fire contextual guide toasts.
+func _poll_guide_hints_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetOnboardingStateV0"):
+		return
+	var os: Dictionary = bridge.call("GetOnboardingStateV0")
+	if os.is_empty():
+		return
+
+	var nodes_visited: int = int(os.get("nodes_visited", 0))
+	var has_traded: bool = bool(os.get("has_traded", false))
+	var has_fought: bool = bool(os.get("has_fought", false))
+
+	# Phase 1: Automation bridge — after 2+ goods traded, hint toward programs.
+	if has_traded:
+		_fire_guide_hint_v0("GUIDE_AUTOMATE", "Programs run trades automatically. Set up a route once — it profits while you explore.")
+
+	# Phase 2: World systems.
+	if nodes_visited >= 2:
+		_fire_guide_hint_v0("GUIDE_MAP", "Press M for the Galaxy Map. Each system produces different goods — plan your routes.")
+
+	if bool(os.get("show_faction_hud", false)):
+		_fire_guide_hint_v0("GUIDE_FACTION", "Faction territory. They set tariffs on trade and guard their technology. Earn reputation to unlock both.")
+
+	if has_fought:
+		_fire_guide_hint_v0("GUIDE_COMBAT", "Shields absorb first, then zone armor, then hull. Weapons generate heat — manage it.")
+
+	if bool(os.get("show_ship_tab", false)):
+		_fire_guide_hint_v0("GUIDE_SHIP_TAB", "Ship tab unlocked. Install modules to improve weapons, engines, shields, and cargo.")
+
+	if bool(os.get("show_jobs_tab", false)):
+		_fire_guide_hint_v0("GUIDE_JOBS", "Missions pay credits and build faction reputation. Check the Jobs tab.")
+
+	# FO promotion window check.
+	if bridge.has_method("IsInFOPromotionWindowV0"):
+		if bool(bridge.call("IsInFOPromotionWindowV0")):
+			_fire_guide_hint_v0("GUIDE_FO_PROMO", "A crew member wants to serve as First Officer. Open the FO panel to choose.")
+
+	# Phase 3: Depth systems.
+	if nodes_visited >= 5:
+		_fire_guide_hint_v0("GUIDE_RESEARCH", "Research unlocks better modules. Factions guard their best tech — earn trust first.")
+
+	if nodes_visited >= 7:
+		_fire_guide_hint_v0("GUIDE_SUPPLY_CHAIN", "Every faction needs what another produces. The dependency is galaxy-wide — and wars break the chain.")
+
+	if bool(os.get("show_station_tab", false)):
+		_fire_guide_hint_v0("GUIDE_STATION_TAB", "Station tab shows local industry, faction presence, and production chains.")
+
+	# Warfront hints: check if player is at a warfront node.
+	if bridge.has_method("GetWarfrontStatusV0"):
+		var wf_status: Dictionary = bridge.call("GetWarfrontStatusV0")
+		if not wf_status.is_empty() and bool(wf_status.get("at_warfront", false)):
+			_fire_guide_hint_v0("GUIDE_WARFRONT", "Active warzone. Munitions demand surges here — prices spike. Profit or peril, Captain.")
+			if has_traded:
+				_fire_guide_hint_v0("GUIDE_WAR_ECONOMY", "Wars reshape the economy. Contested stations pay premiums for fuel and munitions. Supply the front — or avoid it.")
+
+	# Instability hint.
+	if bridge.has_method("GetNodeInstabilityV0") and bridge.has_method("GetPlayerStateV0"):
+		var ps_hint: Dictionary = bridge.call("GetPlayerStateV0")
+		var hint_node: String = str(ps_hint.get("current_node_id", ""))
+		if not hint_node.is_empty():
+			var instab_d: Dictionary = bridge.call("GetNodeInstabilityV0", hint_node)
+			var instab_level: float = float(instab_d.get("level", 0))
+			if instab_level > 25.0:
+				_fire_guide_hint_v0("GUIDE_INSTABILITY", "Spacetime is unstable here. Prices fluctuate. Travel times shift. Tread carefully.")
+
+	# Phase 4: Late game.
+	if nodes_visited >= 10:
+		_fire_guide_hint_v0("GUIDE_FRACTURE", "Your drive reaches where threads don't. The void holds salvage, ruins, and answers.")
+
+	# Pentagon insight — check faction reputation count.
+	if bridge.has_method("GetFactionReputationsV0"):
+		var reps: Dictionary = bridge.call("GetFactionReputationsV0")
+		var positive_count: int = 0
+		for val in reps.values():
+			if int(val) > 0:
+				positive_count += 1
+		if positive_count >= 3:
+			_fire_guide_hint_v0("GUIDE_PENTAGON", "Five factions. Each needs what another produces. The dependency was engineered. Wars break the chain — and create opportunity.")
+
+	# Diplomacy hint.
+	if bridge.has_method("IsDiplomacyAvailableV0"):
+		if bool(bridge.call("IsDiplomacyAvailableV0")):
+			_fire_guide_hint_v0("GUIDE_DIPLOMACY", "Diplomacy shapes faction relationships. Propose treaties, set bounties, broker peace — or profit from the chaos.")
+
+	# Megaproject hint.
+	if bridge.has_method("IsMegaprojectAvailableV0"):
+		if bool(bridge.call("IsMegaprojectAvailableV0")):
+			_fire_guide_hint_v0("GUIDE_MEGAPROJECT", "Megaprojects reshape the galaxy. They require massive resources and define your legacy.")
+
+	# Endgame hint.
+	if bridge.has_method("GetStoryActV0"):
+		if int(bridge.call("GetStoryActV0")) >= 2:
+			_fire_guide_hint_v0("GUIDE_ENDGAME", "Three paths: reinforce what exists, build something new, or renegotiate reality itself.")
 
 # GATE.S5.TRACTOR.VFX.001: Auto-collect nearby loot drops and spawn tractor beam VFX.
 func _poll_auto_loot_v0() -> void:

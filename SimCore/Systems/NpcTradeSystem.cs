@@ -79,6 +79,23 @@ public static class NpcTradeSystem
             fleet.PatrolCircuitIndex = 0;
         }
 
+        // Fallback: if circuit generation couldn't find unvisited nodes (dead-end topology),
+        // pick any adjacent node for a simple back-and-forth patrol.
+        if (fleet.PatrolCircuit.Count < 2)
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                string adj = "";
+                if (edge.FromNodeId == fleet.CurrentNodeId) adj = edge.ToNodeId;
+                else if (edge.ToNodeId == fleet.CurrentNodeId) adj = edge.FromNodeId;
+                if (adj.Length > 0)
+                {
+                    fleet.PatrolCircuit = new List<string> { fleet.CurrentNodeId, adj };
+                    break;
+                }
+            }
+        }
+
         if (fleet.PatrolCircuit.Count < 2) return;
 
         fleet.PatrolCircuitIndex = (fleet.PatrolCircuitIndex + 1) % fleet.PatrolCircuit.Count;

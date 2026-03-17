@@ -141,8 +141,8 @@ The tangent entry point must be **90 degrees offset** from the approach directio
 | Constant | Value | Previous | Purpose |
 |----------|-------|----------|---------|
 | FLYBY_APPROACH_DIST | 160.0 | 130.0 | Distance from star to start curving (scaled for 120u systems) |
-| FLYBY_ORBIT_RADIUS | 70.0 | 55.0 | Orbit circle radius around star (scaled for 120u systems) |
-| FLYBY_ORBIT_ALT | 50.0 | 45.0 | Camera height during orbit |
+| FLYBY_ORBIT_RADIUS | 90.0 | 70.0 | Orbit circle radius around star (breathing room inside 120u systems) |
+| FLYBY_ORBIT_ALT | 70.0 | 50.0 | Camera height during orbit (above planet level) |
 | FLYBY_CURVE_ON_TIME | 0.6s | 1.5s | Duration of entry spiral |
 | FLYBY_ORBIT_TIME | 1.5s | 4.0s | Duration of orbital sweep (first visit only) |
 | FLYBY_CURVE_OFF_TIME | 0.5s | 1.5s | Duration of exit spiral |
