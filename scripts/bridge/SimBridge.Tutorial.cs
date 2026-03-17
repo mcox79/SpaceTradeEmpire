@@ -33,7 +33,8 @@ public partial class SimBridge
 
     /// <summary>
     /// Returns tutorial state: {phase (int), phase_name (string), candidate (string),
-    /// dialogue_dismissed (bool), stall_ticks (int), objective (string), pre_selection (bool)}.
+    /// dialogue_dismissed (bool), stall_ticks (int), objective (string), pre_selection (bool),
+    /// is_ship_computer (bool), is_dask_cameo (bool), is_lira_cameo (bool)}.
     /// Returns empty dict if tutorial state is null (existing saves).
     /// </summary>
     public Godot.Collections.Dictionary GetTutorialStateV0()
@@ -51,9 +52,20 @@ public partial class SimBridge
             result["dialogue_dismissed"] = ts.DialogueDismissed;
             result["stall_ticks"] = ts.TicksSincePhaseChange;
             result["objective"] = TutorialContentV0.GetObjectiveText(ts.Phase);
+
+            // Pre-selection: Maren speaks during Acts 2-3 (phases Maren_Hail through First_Profit).
             result["pre_selection"] = ts.SelectedCandidate == FirstOfficerCandidate.None
-                && (int)ts.Phase >= (int)TutorialPhase.Flight_Intro
-                && (int)ts.Phase <= (int)TutorialPhase.Sell_Complete;
+                && (int)ts.Phase >= (int)TutorialPhase.Maren_Hail
+                && (int)ts.Phase <= (int)TutorialPhase.First_Profit;
+
+            // Ship Computer phases: Act 1 (Awaken, Flight_Intro).
+            result["is_ship_computer"] = ts.Phase == TutorialPhase.Awaken
+                || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Graduation_Summary;
+
+            // Cameo phases: Dask speaks during combat (Act 5), Lira during mystery (Act 6).
+            result["is_dask_cameo"] = ts.Phase == TutorialPhase.Dask_Hail;
+            result["is_lira_cameo"] = ts.Phase == TutorialPhase.Lira_Tease;
         });
 
         return result;
@@ -61,7 +73,9 @@ public partial class SimBridge
 
     /// <summary>
     /// Returns the tutorial dialogue line for the current phase.
-    /// Post-selection: uses selected candidate. Pre-selection: uses rotating candidate.
+    /// Post-selection: uses selected candidate. Pre-selection: uses Maren (Analyst).
+    /// Ship Computer phases return Ship Computer lines.
+    /// Cameo phases (Dask_Hail, Lira_Tease) return the cameo character's line.
     /// Returns empty string if no line for current phase or tutorial not active.
     /// </summary>
     public string GetTutorialDialogueV0()
@@ -73,11 +87,34 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
 
+            // Ship Computer phases
+            if (ts.Phase == TutorialPhase.Awaken
+                || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Graduation_Summary)
+            {
+                line = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence);
+                return;
+            }
+
+            // Dask cameo (always Dask regardless of selection)
+            if (ts.Phase == TutorialPhase.Dask_Hail)
+            {
+                line = TutorialContentV0.GetDaskCameoLine();
+                return;
+            }
+
+            // Lira cameo (always Lira regardless of selection)
+            if (ts.Phase == TutorialPhase.Lira_Tease)
+            {
+                line = TutorialContentV0.GetLiraCameoLine();
+                return;
+            }
+
             // Determine which candidate speaks.
             var speaker = ts.SelectedCandidate;
             if (speaker == FirstOfficerCandidate.None)
             {
-                // Pre-selection: use rotating candidate for this phase.
+                // Pre-selection: Maren speaks all pre-selection phases.
                 speaker = TutorialContentV0.GetRotatingCandidate(ts.Phase);
                 if (speaker == FirstOfficerCandidate.None) return;
             }
@@ -90,7 +127,8 @@ public partial class SimBridge
 
     /// <summary>
     /// Returns the rotating FO dialogue data for the current phase (pre-selection mode).
-    /// Returns {type, name, text, color_r, color_g, color_b} or empty dict if not in pre-selection.
+    /// Returns {type, name, text, color_r, color_g, color_b} or empty dict if not applicable.
+    /// Also handles Ship Computer and cameo phases.
     /// </summary>
     public Godot.Collections.Dictionary GetRotatingFODialogueV0()
     {
@@ -101,6 +139,53 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
 
+            // Ship Computer phases
+            if (ts.Phase == TutorialPhase.Awaken
+                || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Graduation_Summary)
+            {
+                string scText = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence);
+                if (string.IsNullOrEmpty(scText)) return;
+                result["type"] = "ShipComputer";
+                result["name"] = "SHIP COMPUTER";
+                result["text"] = scText;
+                result["color_r"] = 0.5f;
+                result["color_g"] = 0.5f;
+                result["color_b"] = 0.6f;
+                return;
+            }
+
+            // Dask cameo
+            if (ts.Phase == TutorialPhase.Dask_Hail)
+            {
+                string dText = TutorialContentV0.GetDaskCameoLine();
+                if (string.IsNullOrEmpty(dText)) return;
+                var col = _foColorMap[FirstOfficerCandidate.Veteran];
+                result["type"] = "Veteran";
+                result["name"] = "Dask";
+                result["text"] = dText;
+                result["color_r"] = col.Item1;
+                result["color_g"] = col.Item2;
+                result["color_b"] = col.Item3;
+                return;
+            }
+
+            // Lira cameo
+            if (ts.Phase == TutorialPhase.Lira_Tease)
+            {
+                string lText = TutorialContentV0.GetLiraCameoLine();
+                if (string.IsNullOrEmpty(lText)) return;
+                var col = _foColorMap[FirstOfficerCandidate.Pathfinder];
+                result["type"] = "Pathfinder";
+                result["name"] = "Lira";
+                result["text"] = lText;
+                result["color_r"] = col.Item1;
+                result["color_g"] = col.Item2;
+                result["color_b"] = col.Item3;
+                return;
+            }
+
+            // Normal: selected FO or rotating Maren
             var speaker = ts.SelectedCandidate != FirstOfficerCandidate.None
                 ? ts.SelectedCandidate
                 : TutorialContentV0.GetRotatingCandidate(ts.Phase);
@@ -109,20 +194,20 @@ public partial class SimBridge
             string text = TutorialContentV0.GetLine(ts.Phase, speaker, ts.DialogueSequence);
             if (string.IsNullOrEmpty(text)) return;
 
-            var col = _foColorMap.GetValueOrDefault(speaker, (0.5f, 0.5f, 0.5f));
+            var c = _foColorMap.GetValueOrDefault(speaker, (0.5f, 0.5f, 0.5f));
             result["type"] = speaker.ToString();
             result["name"] = _foNameMap.GetValueOrDefault(speaker, speaker.ToString());
             result["text"] = text;
-            result["color_r"] = col.Item1;
-            result["color_g"] = col.Item2;
-            result["color_b"] = col.Item3;
+            result["color_r"] = c.Item1;
+            result["color_g"] = c.Item2;
+            result["color_b"] = c.Item3;
         });
 
         return result;
     }
 
     /// <summary>
-    /// Returns true when in pre-selection mode (rotating FO auditions).
+    /// Returns true when in pre-selection mode (Maren speaks, no FO selected yet).
     /// </summary>
     public bool IsPreSelectionModeV0()
     {
@@ -132,8 +217,8 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
             result = ts.SelectedCandidate == FirstOfficerCandidate.None
-                && (int)ts.Phase >= (int)TutorialPhase.Flight_Intro
-                && (int)ts.Phase <= (int)TutorialPhase.Sell_Complete;
+                && (int)ts.Phase >= (int)TutorialPhase.Maren_Hail
+                && (int)ts.Phase <= (int)TutorialPhase.First_Profit;
         });
         return result;
     }
@@ -164,19 +249,10 @@ public partial class SimBridge
 
     /// <summary>
     /// Returns the narrator prompt text for the FO selection screen.
-    /// Returns post-trade prompt if in FO_Selection_PostTrade phase.
     /// </summary>
     public string GetTutorialNarratorPromptV0()
     {
-        bool postTrade = false;
-        TryExecuteSafeRead(state =>
-        {
-            if (state.TutorialState != null)
-                postTrade = state.TutorialState.Phase == TutorialPhase.FO_Selection_PostTrade;
-        });
-        return postTrade
-            ? TutorialContentV0.NarratorSelectionPromptPostTrade
-            : TutorialContentV0.NarratorSelectionPrompt;
+        return TutorialContentV0.NarratorSelectionPrompt;
     }
 
     /// <summary>
@@ -209,7 +285,7 @@ public partial class SimBridge
 
     /// <summary>
     /// Initialize tutorial state for a new game. Called by game_manager on new voyage.
-    /// Creates the TutorialState entity and sets phase to FO_Selection.
+    /// Creates the TutorialState entity and sets phase to Awaken.
     /// </summary>
     public void StartTutorialV0()
     {
@@ -220,7 +296,7 @@ public partial class SimBridge
             // Always create fresh tutorial state (handles Continue → Menu → New Voyage).
             state.TutorialState = new TutorialState
             {
-                Phase = TutorialPhase.FO_Selection
+                Phase = TutorialPhase.Awaken
             };
         }
         finally
@@ -275,6 +351,28 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
 
+            // For Ship Computer phases, check ShipComputerLines for next sequence.
+            if (ts.Phase == TutorialPhase.Awaken
+                || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Graduation_Summary)
+            {
+                string nextSC = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence + 1);
+                if (!string.IsNullOrEmpty(nextSC))
+                {
+                    ts.DialogueSequence++;
+                    return;
+                }
+                ts.DialogueDismissed = true;
+                return;
+            }
+
+            // For cameo phases (Dask_Hail, Lira_Tease), single line — always dismiss.
+            if (ts.Phase == TutorialPhase.Dask_Hail || ts.Phase == TutorialPhase.Lira_Tease)
+            {
+                ts.DialogueDismissed = true;
+                return;
+            }
+
             // Determine which candidate's lines to check for next sequence.
             var speaker = ts.SelectedCandidate;
             if (speaker == FirstOfficerCandidate.None)
@@ -303,7 +401,7 @@ public partial class SimBridge
 
     /// <summary>
     /// Notify tutorial that player docked. Called by game_manager on dock event.
-    /// Advances Dock_Prompt → Docked_First if in that phase.
+    /// Handles multiple dock-gated phases across all acts.
     /// </summary>
     public void NotifyTutorialDockV0()
     {
@@ -314,21 +412,33 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
 
-            if (ts.Phase == TutorialPhase.Dock_Prompt)
+            // Act 1: First_Dock — player docks for the first time.
+            if (ts.Phase == TutorialPhase.First_Dock)
             {
-                ts.Phase = TutorialPhase.Docked_First;
+                ts.Phase = TutorialPhase.Maren_Hail;
                 ts.DialogueDismissed = false;
+                ts.DialogueSequence = 0;
                 ts.TicksSincePhaseChange = 0;
             }
-            // Also handle Travel_Prompt → Sell_Prompt on dock at new station
+            // Act 3: Arrival_Dock — dock at new station after travel.
+            else if (ts.Phase == TutorialPhase.Arrival_Dock)
+            {
+                ts.Phase = TutorialPhase.Sell_Prompt;
+                ts.DialogueDismissed = false;
+                ts.DialogueSequence = 0;
+                ts.TicksSincePhaseChange = 0;
+                if (state.PlayerStats != null)
+                    ts.GoodsTradedAtPhaseEntry = state.PlayerStats.GoodsTraded;
+            }
+            // Act 3: Travel_Prompt — also handle dock at new station.
             else if (ts.Phase == TutorialPhase.Travel_Prompt
                 && state.PlayerStats != null
                 && state.PlayerStats.NodesVisited > ts.NodesVisitedAtPhaseEntry)
             {
-                ts.Phase = TutorialPhase.Sell_Prompt;
+                ts.Phase = TutorialPhase.Arrival_Dock;
                 ts.DialogueDismissed = false;
+                ts.DialogueSequence = 0;
                 ts.TicksSincePhaseChange = 0;
-                ts.GoodsTradedAtPhaseEntry = state.PlayerStats.GoodsTraded;
             }
         }
         finally
@@ -398,10 +508,15 @@ public partial class SimBridge
 
             int buyPrice = state.PlayerCargoCostBasis.GetValueOrDefault(cargoGood, 0);
 
-            // Find adjacent nodes via edges.
+            // Find adjacent nodes via edges — prefer profitable destinations.
             int bestSellPrice = 0;
             string bestNodeId = "";
             string bestNodeName = "";
+            // Also track best among 2-hop neighbors if no 1-hop is profitable.
+            int bestSellPrice2 = 0;
+            string bestNodeId2 = "";
+            string bestNodeName2 = "";
+            var visitedNeighbors = new HashSet<string>();
 
             foreach (var edge in state.Edges.Values)
             {
@@ -410,12 +525,15 @@ public partial class SimBridge
                 else if (edge.ToNodeId == currentNodeId) neighborId = edge.FromNodeId;
                 if (string.IsNullOrEmpty(neighborId)) continue;
 
+                visitedNeighbors.Add(neighborId);
+
                 if (!state.Nodes.TryGetValue(neighborId, out var neighborNode)) continue;
                 if (string.IsNullOrEmpty(neighborNode.MarketId)) continue;
                 if (!state.Markets.TryGetValue(neighborNode.MarketId, out var market)) continue;
 
                 int sellPrice = market.GetSellPrice(cargoGood);
-                if (sellPrice > bestSellPrice)
+                // Only accept if sell price > buy cost (actual profit).
+                if (sellPrice > buyPrice && sellPrice > bestSellPrice)
                 {
                     bestSellPrice = sellPrice;
                     bestNodeId = neighborId;
@@ -423,6 +541,36 @@ public partial class SimBridge
                 }
             }
 
+            // If no 1-hop neighbor is profitable, search 2-hop neighbors.
+            if (string.IsNullOrEmpty(bestNodeId))
+            {
+                foreach (var hop1Id in visitedNeighbors)
+                {
+                    foreach (var edge2 in state.Edges.Values)
+                    {
+                        string hop2Id = "";
+                        if (edge2.FromNodeId == hop1Id) hop2Id = edge2.ToNodeId;
+                        else if (edge2.ToNodeId == hop1Id) hop2Id = edge2.FromNodeId;
+                        if (string.IsNullOrEmpty(hop2Id)) continue;
+                        if (hop2Id == currentNodeId) continue;
+                        if (visitedNeighbors.Contains(hop2Id)) continue;
+
+                        if (!state.Nodes.TryGetValue(hop2Id, out var hop2Node)) continue;
+                        if (string.IsNullOrEmpty(hop2Node.MarketId)) continue;
+                        if (!state.Markets.TryGetValue(hop2Node.MarketId, out var hop2Market)) continue;
+
+                        int sellPrice2 = hop2Market.GetSellPrice(cargoGood);
+                        if (sellPrice2 > buyPrice && sellPrice2 > bestSellPrice2)
+                        {
+                            bestSellPrice2 = sellPrice2;
+                            bestNodeId2 = hop2Id;
+                            bestNodeName2 = hop2Node.Name;
+                        }
+                    }
+                }
+            }
+
+            // Prefer 1-hop profitable, then 2-hop profitable.
             if (!string.IsNullOrEmpty(bestNodeId))
             {
                 result["node_id"] = bestNodeId;
@@ -430,6 +578,15 @@ public partial class SimBridge
                 result["good_name"] = cargoGood;
                 result["sell_price"] = bestSellPrice;
                 result["buy_price"] = buyPrice;
+            }
+            else if (!string.IsNullOrEmpty(bestNodeId2))
+            {
+                result["node_id"] = bestNodeId2;
+                result["node_name"] = bestNodeName2;
+                result["good_name"] = cargoGood;
+                result["sell_price"] = bestSellPrice2;
+                result["buy_price"] = buyPrice;
+                result["two_hop"] = true;
             }
         });
 
@@ -513,7 +670,7 @@ public partial class SimBridge
             if (speaker == FirstOfficerCandidate.None)
                 speaker = TutorialContentV0.GetRotatingCandidate(ts.Phase);
             if (speaker == FirstOfficerCandidate.None)
-                speaker = FirstOfficerCandidate.Pathfinder; // Fallback
+                speaker = FirstOfficerCandidate.Analyst; // Fallback to Maren
 
             text = TutorialContentV0.GetWrongStationText(speaker)
                 .Replace("{station}", betterStationName);

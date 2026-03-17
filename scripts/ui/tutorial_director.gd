@@ -1,7 +1,8 @@
 # scripts/ui/tutorial_director.gd
 # Tutorial orchestrator: polls SimBridge for tutorial phase, drives UI (dialogue box,
 # selection overlay, input blocking), and calls bridge to advance phases.
-# Rotating FO auditions: pre-selection, each FO takes turns advising. Post-trade, player chooses.
+# 10 acts, 45 phases. Ship Computer narrates Act 1, Maren speaks Acts 2-3 (pre-selection),
+# selected FO speaks Acts 4+. Dask/Lira cameo hails in Acts 5/6.
 extends Node
 
 const FODialogueBox = preload("res://scripts/ui/fo_dialogue_box.gd")
@@ -100,44 +101,154 @@ func _poll_tutorial_state() -> void:
 
 func _on_phase_changed(phase: int, phase_name: String, state: Dictionary) -> void:
 	var pre_selection: bool = bool(state.get("pre_selection", false))
+	var _is_ship_computer: bool = bool(state.get("is_ship_computer", false))
+	var _is_dask_cameo: bool = bool(state.get("is_dask_cameo", false))
+	var _is_lira_cameo: bool = bool(state.get("is_lira_cameo", false))
 
 	match phase_name:
-		"FO_Selection":
-			_show_fo_hails()
-		"FO_Selection_PostTrade":
-			_show_post_trade_selection()
-		"Flight_Intro", "Docked_First", "Market_Explain", \
-		"Buy_Complete", "Sell_Prompt", "Sell_Complete":
+		# ── Act 1: Cold Open (Ship Computer) ──
+		"Awaken":
+			_show_ship_computer_dialogue(phase, phase_name)
+		"Flight_Intro":
+			_show_ship_computer_dialogue(phase, phase_name)
+
+		# ── Act 2: The Crew (Maren pre-selection) ──
+		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_React":
+			_show_rotating_fo_dialogue(phase, phase_name)
+
+		# ── Act 3: The Trade ──
+		"Sell_Prompt", "First_Profit":
 			if pre_selection:
 				_show_rotating_fo_dialogue(phase, phase_name)
 			else:
 				_show_phase_dialogue(phase, phase_name)
-		"FO_Selected_Settle", "Faction_Explain", \
-		"Explore_Prompt", "Explore_Complete", "Automation_Explain", \
-		"Automation_Complete", "Mystery_Tease", "Tutorial_Complete":
+		"FO_Selection":
+			_show_post_trade_selection()
+
+		# ── Act 4: The World (Selected FO) ──
+		"World_Intro", "Explore_Prompt", "Explore_Complete", "Galaxy_Map_Prompt":
 			_show_phase_dialogue(phase, phase_name)
-		"Dock_Prompt", "Buy_Prompt", "Travel_Prompt", "Automation_Prompt":
-			# Action phases — no dialogue on entry (player must act).
+
+		# ── Act 5: The Threat ──
+		"Threat_Warning":
+			_show_phase_dialogue(phase, phase_name)
+		"Dask_Hail":
+			# Dask cameo — always shows Dask regardless of selection.
+			_show_cameo_dialogue(phase, phase_name)
+		"Combat_Debrief":
+			_show_phase_dialogue(phase, phase_name)
+
+		# ── Act 6: The Upgrade ──
+		"Module_Intro", "Module_React":
+			_show_phase_dialogue(phase, phase_name)
+		"Lira_Tease":
+			# Lira cameo — always shows Lira regardless of selection.
+			_show_cameo_dialogue(phase, phase_name)
+
+		# ── Act 7: The Empire ──
+		"Automation_Intro", "Automation_React", "Commission_Intro":
+			_show_phase_dialogue(phase, phase_name)
+
+		# ── Act 8: The Haven ──
+		"Haven_Tour", "Haven_React":
+			_show_phase_dialogue(phase, phase_name)
+
+		# ── Act 9: The Frontier ──
+		"Research_Intro", "Research_React", "Knowledge_Intro", "Frontier_Tease":
+			_show_phase_dialogue(phase, phase_name)
+
+		# ── Act 10: Graduation ──
+		"Mystery_Reveal":
+			_show_phase_dialogue(phase, phase_name)
+		"Graduation_Summary":
+			_show_ship_computer_dialogue(phase, phase_name)
+		"FO_Farewell", "Milestone_Award":
+			_show_phase_dialogue(phase, phase_name)
+
+		# ── Action phases (no dialogue on entry) ──
+		"First_Dock", "Buy_Prompt", "Travel_Prompt", "Arrival_Dock", \
+		"Combat_Engage", "Repair_Prompt", "Module_Equip", \
+		"Automation_Create", "Automation_Running", "Haven_Discovery", \
+		"Haven_Upgrade_Prompt", "Research_Start":
 			pass
+		"Tutorial_Complete":
+			_clear_trade_waypoint()
 		_:
 			pass
 
-	# On Flight_Intro: brief silence after FO greeting, then unlock controls.
+	# On Flight_Intro: brief silence after Ship Computer message, then unlock controls.
 	if phase_name == "Flight_Intro":
 		if not _is_headless:
 			await get_tree().create_timer(1.5).timeout
 		_unlock_controls()
 
-	# On Buy_Complete: set up trade guidance waypoint.
-	if phase_name == "Buy_Complete":
+	# On Buy_React: set up trade guidance waypoint.
+	if phase_name == "Buy_React":
 		_setup_trade_waypoint()
 
-	# On Tutorial_Complete: clean up.
-	if phase_name == "Tutorial_Complete":
-		_clear_trade_waypoint()
+
+# ── Ship Computer Dialogue (Act 1 + Graduation) ────────────────────
+
+func _show_ship_computer_dialogue(phase: int, phase_name: String) -> void:
+	if _dialogue_shown_for_phase == phase:
+		return
+	_dialogue_shown_for_phase = phase
+
+	if _dialogue_box == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetRotatingFODialogueV0"):
+		return
+
+	var fo_data: Dictionary = _bridge.call("GetRotatingFODialogueV0")
+	if fo_data.is_empty():
+		_bridge.call("DismissTutorialDialogueV0")
+		return
+
+	var text: String = str(fo_data.get("text", ""))
+	_dialogue_box.show_line("SHIP COMPUTER", Color(0.5, 0.5, 0.6), text)
+	print("UUIR|TUTORIAL|SHIP_COMPUTER|%s|%s" % [phase_name, text.left(60)])
+
+	if _is_headless:
+		await get_tree().process_frame
+		if _dialogue_box.is_waiting_for_advance():
+			_dialogue_box.advance_dialogue()
 
 
-# ── FO Hails (Phase 1: FO_Selection) ────────────────────────────────
+# ── Cameo Dialogue (Dask/Lira hails) ──────────────────────────────
+
+func _show_cameo_dialogue(phase: int, phase_name: String) -> void:
+	if _dialogue_shown_for_phase == phase:
+		return
+	_dialogue_shown_for_phase = phase
+
+	if _dialogue_box == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetRotatingFODialogueV0"):
+		return
+
+	var fo_data: Dictionary = _bridge.call("GetRotatingFODialogueV0")
+	if fo_data.is_empty():
+		_bridge.call("DismissTutorialDialogueV0")
+		return
+
+	var fo_name: String = str(fo_data.get("name", ""))
+	var text: String = str(fo_data.get("text", ""))
+	var col := Color(
+		float(fo_data.get("color_r", 0.5)),
+		float(fo_data.get("color_g", 0.5)),
+		float(fo_data.get("color_b", 0.6))
+	)
+
+	_dialogue_box.show_line(fo_name, col, text)
+	print("UUIR|TUTORIAL|CAMEO|%s|%s|%s" % [phase_name, fo_name, text.left(60)])
+
+	if _is_headless:
+		await get_tree().process_frame
+		if _dialogue_box.is_waiting_for_advance():
+			_dialogue_box.advance_dialogue()
+
+
+# ── FO Hails (Act 1: Awaken cinematic → hails) ───────────────────
 
 func _show_fo_hails() -> void:
 	if not _bridge.has_method("GetTutorialFOHailsV0"):
@@ -152,17 +263,7 @@ func _show_fo_hails() -> void:
 	if not _is_headless:
 		await get_tree().create_timer(0.3).timeout
 
-	# Ship Computer preamble.
-	_dialogue_box.show_line("SHIP COMPUTER", Color(0.5, 0.5, 0.6),
-		"Three officers responded to your posting. Incoming transmissions.")
-	print("UUIR|TUTORIAL|HAIL|SHIP_COMPUTER")
-	if _is_headless:
-		await get_tree().process_frame
-		_dialogue_box.advance_dialogue()
-	else:
-		await _dialogue_box.line_dismissed
-
-	# Each FO hails the captain.
+	# Each FO hails the captain during intro cinematic.
 	for hail in hails:
 		var col := Color(
 			float(hail.get("color_r", 0.5)),
@@ -179,24 +280,10 @@ func _show_fo_hails() -> void:
 		else:
 			await _dialogue_box.line_dismissed
 
-	# Ship Computer handoff: "I'll patch them through one at a time."
-	_dialogue_box.show_line("SHIP COMPUTER", Color(0.5, 0.5, 0.6),
-		"I'll patch them through one at a time for a trial run. See who fits.")
-	print("UUIR|TUTORIAL|HAIL|SHIP_COMPUTER_HANDOFF")
-	if _is_headless:
-		await get_tree().process_frame
-		_dialogue_box.advance_dialogue()
-	else:
-		await _dialogue_box.line_dismissed
-
 	_in_hail_sequence = false
 
-	# Dismiss to advance phase (FO_Selection → Flight_Intro).
-	if _bridge.has_method("DismissTutorialDialogueV0"):
-		_bridge.call("DismissTutorialDialogueV0")
 
-
-# ── Rotating FO Dialogue (Pre-Selection) ────────────────────────────
+# ── Rotating FO Dialogue (Pre-Selection — Maren) ─────────────────
 
 func _show_rotating_fo_dialogue(phase: int, phase_name: String) -> void:
 	if _dialogue_shown_for_phase == phase:
@@ -214,7 +301,7 @@ func _show_rotating_fo_dialogue(phase: int, phase_name: String) -> void:
 		_bridge.call("DismissTutorialDialogueV0")
 		return
 
-	var fo_type: String = str(fo_data.get("type", ""))
+	var _fo_type_unused: String = str(fo_data.get("type", ""))
 	var fo_name: String = str(fo_data.get("name", ""))
 	var text: String = str(fo_data.get("text", ""))
 	var col := Color(
@@ -233,7 +320,7 @@ func _show_rotating_fo_dialogue(phase: int, phase_name: String) -> void:
 			_dialogue_box.advance_dialogue()
 
 
-# ── Post-Trade FO Selection (Phase 20) ──────────────────────────────
+# ── Post-Trade FO Selection ──────────────────────────────────────
 
 func _show_post_trade_selection() -> void:
 	if _selection_overlay != null:
@@ -447,13 +534,47 @@ func on_dock_nudge() -> void:
 	var nudge_text := ""
 	match phase_name:
 		"Buy_Prompt":
-			nudge_text = "Open the Market tab and buy a surplus good — look for the BEST BUY tag."
+			# FO scans adjacent markets and gives a specific trade recommendation.
+			var specific_tip := ""
+			if _bridge.has_method("GetPlayerStateV0"):
+				var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+				var cur_node: String = str(ps.get("current_node_id", ""))
+				if not cur_node.is_empty() and _bridge.has_method("GetPlayerMarketViewV0"):
+					var mview: Array = _bridge.call("GetPlayerMarketViewV0", cur_node)
+					var best_good := ""
+					var best_profit: int = 0
+					var best_dest := ""
+					for row in mview:
+						if typeof(row) != TYPE_DICTIONARY:
+							continue
+						var p: int = int(row.get("profit_estimate", 0))
+						if p > best_profit:
+							best_profit = p
+							best_good = str(row.get("good_id", ""))
+							best_dest = str(row.get("best_sell_node_name", ""))
+					if best_profit > 0 and not best_good.is_empty():
+						specific_tip = "I'd load up on %s \u2014 should sell well at %s." % [
+							best_good.capitalize(), best_dest]
+			if specific_tip.is_empty():
+				nudge_text = "Open the Market tab and buy something to resell at another station."
+			else:
+				nudge_text = specific_tip
 		"Travel_Prompt":
 			nudge_text = "Undock and fly to a lane gate to travel to another system."
 		"Sell_Prompt":
-			nudge_text = "Check the Market here — sell your cargo where the price is higher."
-		"Automation_Prompt":
-			nudge_text = "Open the Programs tab and create an automated trade route."
+			nudge_text = "Check the Market here \u2014 sell your cargo where the price is higher."
+		"Automation_Create":
+			nudge_text = "Open the Jobs tab and create an automated trade route."
+		"Combat_Engage":
+			nudge_text = "Close to weapons range and engage the hostile. You can take them."
+		"Repair_Prompt":
+			nudge_text = "Dock at any station to repair your hull damage."
+		"Module_Equip":
+			nudge_text = "Open the Ship tab and install the salvaged module."
+		"Haven_Discovery":
+			nudge_text = "Travel to Haven \u2014 it's marked on your galaxy map."
+		"Research_Start":
+			nudge_text = "Start a research project at Haven's research lab."
 		_:
 			return  # Not an action phase or already handled.
 	if nudge_text.is_empty():
@@ -499,7 +620,7 @@ func check_wrong_station_warning() -> void:
 	if warning.is_empty():
 		return
 
-	# Show warning via dialogue box using the active rotating FO.
+	# Show warning via dialogue box using Maren (pre-selection) or selected FO.
 	var fo_data: Dictionary = {}
 	if _bridge.has_method("GetRotatingFODialogueV0"):
 		fo_data = _bridge.call("GetRotatingFODialogueV0")

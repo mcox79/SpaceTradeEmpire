@@ -96,6 +96,8 @@ var _fuel_ever_had: bool = false
 
 # GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Cached onboarding disclosure state.
 var _onboarding_state: Dictionary = {}
+# Tutorial active flag: cached per-frame to prevent flicker from sub-update order.
+var _tutorial_active: bool = true  # Default to suppressed; cleared when bridge confirms tutorial complete.
 
 # GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
 var _narrative_panel = null
@@ -845,6 +847,17 @@ func _physics_process(_delta: float) -> void:
 		return
 	if not visible:
 		visible = true
+
+	# Cache tutorial-active flag once per frame to prevent HUD element flicker.
+	# IMPORTANT: Only update on successful bridge read. On lock contention
+	# (TryExecuteSafeRead returns false → empty dict), keep previous value.
+	# This prevents one-frame flicker when the sim thread holds the write lock.
+	if _bridge.has_method("GetTutorialStateV0"):
+		var tut: Dictionary = _bridge.call("GetTutorialStateV0")
+		if not tut.is_empty():
+			var phase: String = str(tut.get("phase_name", ""))
+			_tutorial_active = phase != "" and phase != "Tutorial_Complete"
+
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var raw_state = str(ps.get("ship_state_token", ""))
 	# FEEL_POST_FIX_9: Belt-and-suspenders transit hide. Check bridge state,
@@ -896,7 +909,8 @@ func _physics_process(_delta: float) -> void:
 				_state_label.remove_theme_color_override("font_color")
 
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
-	var _in_combat_now: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
+	# Also hide during tutorial — combat not yet introduced.
+	var _in_combat_now: bool = not _tutorial_active and raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
 	if _combat_hud:
 		_combat_hud.visible = _in_combat_now
 
@@ -1045,19 +1059,31 @@ func _physics_process(_delta: float) -> void:
 		_check_supply_alerts_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
+	# Hidden during tutorial — threat hasn't been introduced yet.
 	if _security_label != null and _bridge != null:
-		var node_id: String = str(ps.get("current_node_id", ""))
-		if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
-			var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
-			var display_band: String = _security_display_name(band)
-			_security_label.text = display_band
-			_security_label.visible = true
-			_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
-		else:
+		var _hud_in_tutorial := false
+		if _bridge.has_method("GetTutorialStateV0"):
+			var _tut_st: Dictionary = _bridge.call("GetTutorialStateV0")
+			var _tut_ph: String = str(_tut_st.get("phase_name", ""))
+			if _tut_ph != "" and _tut_ph != "Tutorial_Complete":
+				_hud_in_tutorial = true
+		if _hud_in_tutorial:
 			_security_label.visible = false
+		else:
+			var node_id: String = str(ps.get("current_node_id", ""))
+			if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
+				var band: String = str(_bridge.call("GetNodeSecurityBandV0", node_id))
+				var display_band: String = _security_display_name(band)
+				_security_label.text = display_band
+				_security_label.visible = true
+				_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
+			else:
+				_security_label.visible = false
 
 	# GATE.S3.RISK_SINKS.HUD_INDICATOR.001: delay/ETA + risk level display
-	if _delay_label != null and _bridge != null:
+	if _tutorial_active and _delay_label != null:
+		_delay_label.visible = false
+	elif _delay_label != null and _bridge != null:
 		var show_delay := false
 		var delay_text := ""
 		var risk_color := UITheme.ORANGE
@@ -1093,8 +1119,27 @@ func _physics_process(_delta: float) -> void:
 		_delay_label.text = delay_text
 		_delay_label.add_theme_color_override("font_color", risk_color)
 
+	# ── TUTORIAL FINAL SUPPRESSION (whitelist approach) ─────────────────
+	# Every-frame: hide ALL children, then re-show only the whitelist.
+	# Future-proof — any new HUD element is hidden during tutorial by
+	# default without needing an explicit entry here.
+	if _tutorial_active:
+		for child in get_children():
+			if child is CanvasItem:
+				child.visible = false
+		# Whitelist: only these survive during tutorial.
+		_credits_label.visible = true
+		_cargo_label.visible = true
+		_node_label.visible = true
+		_state_label.visible = true
+		if _guide_objective_label: _guide_objective_label.visible = _guide_objective_label.text != ""
+		if _dock_prompt_label: _dock_prompt_label.visible = _dock_prompt_label.text != ""
+
 # GATE.S11.GAME_FEEL.MISSION_HUD.001: mission objective update (called every 2s)
 func _update_mission_hud() -> void:
+	if _tutorial_active:
+		if _mission_panel: _mission_panel.visible = false
+		return
 	if _bridge == null or not _bridge.has_method("GetActiveMissionV0"):
 		return
 	# GATE.S14.HUD.DOCK_CLEANUP.001: hide mission panel when docked to avoid overlap
@@ -1140,6 +1185,9 @@ func _update_mission_hud() -> void:
 
 # GATE.X.UI_POLISH.QUEST_TRACKER.001: Quest tracker update (called every 2s via slow poll).
 func _update_quest_tracker_v0() -> void:
+	if _tutorial_active:
+		if _quest_tracker_panel: _quest_tracker_panel.visible = false
+		return
 	if _quest_tracker_panel == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetActiveMissionSummaryV0"):
@@ -1164,6 +1212,9 @@ func _update_quest_tracker_v0() -> void:
 
 # GATE.S6.UI_DISCOVERY.ACTIVE_LEADS.001: Active leads update (called every 2s via slow poll).
 func _update_active_leads_v0() -> void:
+	if _tutorial_active:
+		if _active_leads_panel: _active_leads_panel.visible = false
+		return
 	if _active_leads_panel == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetActiveLeadsV0"):
@@ -1223,6 +1274,9 @@ func _lead_type_icon(verb: String) -> String:
 
 # GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress update (called every 2s)
 func _update_research_hud() -> void:
+	if _tutorial_active:
+		if _research_label: _research_label.visible = false
+		return
 	if _research_label == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetResearchStatusV0"):
@@ -1247,6 +1301,10 @@ func _update_research_hud() -> void:
 
 # GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: scan progress update
 func _update_scan_progress_v0() -> void:
+	if _tutorial_active:
+		if _scan_progress_label: _scan_progress_label.visible = false
+		if _scan_progress_bar: _scan_progress_bar.visible = false
+		return
 	if _scan_progress_label == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetDiscoverySnapshotV0") or not _bridge.has_method("GetPlayerStateV0"):
@@ -1295,6 +1353,9 @@ func _update_scan_progress_v0() -> void:
 
 # GATE.S7.SUSTAIN.BRIDGE_PROOF.001: fuel indicator update
 func _update_fuel_hud() -> void:
+	if _tutorial_active:
+		if _fuel_label: _fuel_label.visible = false
+		return
 	if _fuel_label == null or _bridge == null:
 		return
 	if not _bridge.has_method("GetFleetSustainStatusV0"):
@@ -1380,8 +1441,15 @@ func _update_zone_g_v0() -> void:
 	var paren_pos: int = node_name.find("(")
 	if paren_pos > 0:
 		node_name = node_name.substr(0, paren_pos).strip_edges()
+	# Hide security band during tutorial — threat hasn't been introduced yet.
+	var _zone_g_in_tutorial := false
+	if _bridge.has_method("GetTutorialStateV0"):
+		var _zg_tut: Dictionary = _bridge.call("GetTutorialStateV0")
+		var _zg_ph: String = str(_zg_tut.get("phase_name", ""))
+		if _zg_ph != "" and _zg_ph != "Tutorial_Complete":
+			_zone_g_in_tutorial = true
 	var sec_band: String = ""
-	if not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
+	if not _zone_g_in_tutorial and not node_id.is_empty() and _bridge.has_method("GetNodeSecurityBandV0"):
 		sec_band = str(_bridge.call("GetNodeSecurityBandV0", node_id))
 	var sec_display: String = _security_display_name(sec_band) if not sec_band.is_empty() else ""
 	_zone_g_status_label.text = "%s  |  %s" % [node_name, sec_display] if not sec_display.is_empty() else node_name
@@ -1436,6 +1504,9 @@ func _on_alert_badge_clicked(event: InputEvent) -> void:
 
 # GATE.S7.AUTOMATION_MGMT.FLEET_INTEGRATION.001: Update fleet automation summary.
 func _update_fleet_auto_summary_v0() -> void:
+	if _tutorial_active:
+		if _fleet_auto_panel: _fleet_auto_panel.visible = false
+		return
 	if _fleet_auto_panel == null or _bridge == null:
 		return
 	if _overlay_active:

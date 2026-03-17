@@ -156,6 +156,11 @@ public partial class GalaxyView : Node3D
     private Node3D _localSystemRoot;
     private string _currentNodeId = "";
 
+    // Binary star layout state — reset per system in DrawLocalSystemV0.
+    private bool _currentSystemIsBinary = false;
+    private float _binaryPlanetScaleFactor = 1.0f; // 1.6 for binary, 1.0 for solo
+    private float _binarySeparation = 0f;
+
     // GATE.S15.FEEL.NPC_PROXIMITY.001: Periodic fleet refresh for NPC arrivals/departures.
     private double _fleetRefreshTimer = 0.0;
     private string _currentLocalNodeId = "";
@@ -1139,6 +1144,11 @@ public partial class GalaxyView : Node3D
         ClearLocalSystemV0();
         _currentNodeId = nodeId;
 
+        // Reset binary state for this system.
+        _currentSystemIsBinary = false;
+        _binaryPlanetScaleFactor = 1.0f;
+        _binarySeparation = 0f;
+
         // GATE.S17.REAL_SPACE.GALAXY_RENDER.001: Position local system at star's galactic-scale position.
         if (_localSystemRoot != null)
         {
@@ -1282,7 +1292,7 @@ public partial class GalaxyView : Node3D
         var beltHash = Fnv1a64(nodeId + "_asteroids");
         if (beltHash % 100UL < 60)
         {
-            float beltRadius = 120.0f;
+            float beltRadius = _currentSystemIsBinary ? 155.0f : 120.0f;
 
             var beltDustProc = new ParticleProcessMaterial
             {
@@ -1639,9 +1649,10 @@ public partial class GalaxyView : Node3D
             marker.Position = gatePos;
             if (gatePos != Vector3.Zero)
             {
-                // Gate faces outward (ring opening toward approaching player).
-                var flatDir = new Vector3(gatePos.X, 0f, gatePos.Z).Normalized();
-                marker.LookAt(marker.Position + flatDir, Vector3.Up);
+                // Gate faces outward — explicit Y rotation only (no tilting).
+                // atan2(X, Z) gives the angle from +Z toward +X in the XZ plane.
+                float yaw = MathF.Atan2(gatePos.X, gatePos.Z);
+                marker.Rotation = new Vector3(0f, yaw, 0f);
             }
         }
     }
@@ -1687,7 +1698,9 @@ public partial class GalaxyView : Node3D
             var fleetState = f.ContainsKey("state") ? (string)f["state"] : "Idle";
             float travelProgress = f.ContainsKey("travel_progress") ? (float)f["travel_progress"] : 0f;
             int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
-            float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
+            float arrOrbit = _currentSystemIsBinary
+                ? (arrRole == 2 ? 130.0f : 95.0f)   // Binary: outside stability zone
+                : (arrRole == 2 ? 65.0f  : 25.0f);  // Solo: unchanged
             float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
             var currentTask = f.ContainsKey("current_task") ? (string)f["current_task"] : "Idle";
             var finalDest = f.ContainsKey("final_destination_node_id") ? (string)f["final_destination_node_id"] : "";
@@ -1853,7 +1866,9 @@ public partial class GalaxyView : Node3D
                 var fleetState = f.ContainsKey("state") ? (string)f["state"] : "Idle";
                 float travelProgress = f.ContainsKey("travel_progress") ? (float)f["travel_progress"] : 0f;
                 int arrRole = f.ContainsKey("role") ? (int)f["role"] : 0;
-                float arrOrbit = arrRole == 2 ? 65.0f : 25.0f;
+                float arrOrbit = _currentSystemIsBinary
+                ? (arrRole == 2 ? 130.0f : 95.0f)   // Binary: outside stability zone
+                : (arrRole == 2 ? 65.0f  : 25.0f);  // Solo: unchanged
                 float arrSpd = arrRole == 2 ? 8.0f : arrRole == 1 ? 4.5f : 5.0f;
 
                 // Is this fleet already at our node, or arriving from elsewhere?
@@ -2159,6 +2174,10 @@ public partial class GalaxyView : Node3D
         var ship = NpcShipScene.Instantiate<CharacterBody3D>();
         ship.Name = "Fleet_" + fleetId;
         ship.Set("fleet_id", fleetId);
+
+        // Binary exclusion zone: tell NPC ships how far to stay from origin in binary systems.
+        if (_currentSystemIsBinary)
+            ship.Set("binary_exclusion_zone", _binarySeparation * 0.7f + 10.0f); // ~45u for ClassG
 
         // Build procedural ship model by fleet role.
         int roleInt = (_bridge != null) ? _bridge.GetFleetRoleV0(fleetId) : 0;
@@ -2535,6 +2554,9 @@ public partial class GalaxyView : Node3D
     // Binary star companion — ~20% of systems are binaries (seeded).
     // Spawn single, binary (20%), or trinary (5%) star system with mutual orbits.
     // Returns the root anchor node (may be a barycenter pivot for multi-star systems).
+    // Kepler constant for binary mutual orbit speed (rad/s = K / sep^1.5).
+    private const float KeplerK_Binary = 3.5f;
+
     private Node3D SpawnStarSystemV0(string nodeId, Color starColor, string starClass)
     {
         var primary = CreateStarMeshV0(starColor, starClass);
@@ -2546,8 +2568,13 @@ public partial class GalaxyView : Node3D
 
         // Binary: create barycenter pivot for mutual orbit.
         float classScl = StarClassVisualScaleV0(starClass);
-        float separation = StarVisualRadiusU * classScl * 3.0f; // STRUCTURAL: 3x star radius apart
+        float separation = StarVisualRadiusU * classScl * 2.5f; // Holman-Wiegert: 2.5x star radius
         const float massRatio = 0.3f; // STRUCTURAL: companion is 30% mass of primary
+
+        // Publish binary state for planet/fleet orbit scaling.
+        _currentSystemIsBinary = true;
+        _binarySeparation = separation;
+        _binaryPlanetScaleFactor = 1.6f; // Holman-Wiegert stability compression
 
         var companionColor = new Color(
             Mathf.Min(starColor.R * 1.1f, 1.0f),
@@ -2561,7 +2588,9 @@ public partial class GalaxyView : Node3D
         if (orbitSpin != null)
         {
             barycenter.SetScript(orbitSpin);
-            barycenter.Set("spin_speed_y", 0.003f); // STRUCTURAL: slow majestic mutual orbit
+            // Kepler-derived binary orbit speed: visible arc from camera altitude.
+            float binaryOrbitSpeed = Mathf.Clamp(KeplerK_Binary / MathF.Pow(separation, 1.5f), 0.005f, 0.04f);
+            barycenter.Set("spin_speed_y", binaryOrbitSpeed);
             barycenter.Set("pause_when_docked", true);
         }
 
@@ -2575,10 +2604,11 @@ public partial class GalaxyView : Node3D
         barycenter.AddChild(companion);
 
         // Trinary: 25% of binaries also get a C star (5% total).
+        // Hierarchical stability: C star at >3× AB separation (Alpha Centauri architecture).
         var triHash = Fnv1a64(nodeId + "_trinary");
         if (triHash % 100UL < 25)
         {
-            float cSeparation = 40.0f + (float)(triHash % 20UL); // 40-60u from AB
+            float cSeparation = separation * 3.0f + (float)(triHash % 30UL); // 3× AB + jitter
             var cColor = new Color(
                 Mathf.Min(starColor.R * 1.05f, 1.0f),
                 starColor.G * 0.8f,
@@ -2591,7 +2621,8 @@ public partial class GalaxyView : Node3D
             if (orbitSpin != null)
             {
                 outerPivot.SetScript(orbitSpin);
-                outerPivot.Set("spin_speed_y", 0.001f); // STRUCTURAL: very slow wide orbit
+                float cOrbitSpeed = Mathf.Clamp(KeplerK_Binary / MathF.Pow(cSeparation, 1.5f), 0.001f, 0.01f);
+                outerPivot.Set("spin_speed_y", cOrbitSpeed);
                 outerPivot.Set("pause_when_docked", true);
             }
             float cAngle = (float)(triHash % 360UL) * Mathf.DegToRad(1.0f);
@@ -2695,7 +2726,8 @@ public partial class GalaxyView : Node3D
         var hash = Fnv1a64(nodeId + "_asteroids");
         if (hash % 100UL >= 60) return; // ~60% of systems have a belt
 
-        float beltRadius = MathF.Max(120.0f * lumScale, 100.0f);
+        float beltRadiusBase = _currentSystemIsBinary ? 155.0f : 120.0f;
+        float beltRadius = MathF.Max(beltRadiusBase * lumScale, _currentSystemIsBinary ? 130.0f : 100.0f);
 
         // Richness tiers: sparse / normal / dense — vary rock count and band width.
         ulong richnessRoll = hash % 100UL;
@@ -2833,10 +2865,11 @@ public partial class GalaxyView : Node3D
 
 
         // Orbit radius: base distance * luminosity scale + seed jitter (±1.5u).
+        // Binary systems: ×1.6 factor pushes planets outside Holman-Wiegert stability radius.
         float baseOrbit = PlanetBaseOrbitV0(planetType);
         var jitterHash = Fnv1a64(nodeId + "_orbit_jitter");
         float jitter = ((float)(jitterHash % 30UL) - 15.0f) * 0.1f; // ±1.5u
-        float orbitRadius = baseOrbit * lumScale + jitter;
+        float orbitRadius = (baseOrbit * lumScale + jitter) * _binaryPlanetScaleFactor;
 
         // Visual scale varies by planet type (gas giants bigger).
         float vScale = PlanetVisualScaleV0(planetType);
@@ -2933,7 +2966,7 @@ public partial class GalaxyView : Node3D
             }
             usedTypes.Add(outerType);
 
-            float orbitRadius = canonicalOrbit + (i + 1) * 25.0f + ((float)(pH % 6UL) - 3.0f);
+            float orbitRadius = (canonicalOrbit + (i + 1) * 25.0f + ((float)(pH % 6UL) - 3.0f)) * _binaryPlanetScaleFactor;
             float vScale = PlanetVisualScaleV0(outerType);
 
             Node3D planetNode = CreateProceduralPlanetV0(outerType, nodeId + "_outer_" + i);

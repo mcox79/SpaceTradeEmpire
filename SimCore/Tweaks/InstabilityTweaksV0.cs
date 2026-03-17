@@ -30,7 +30,8 @@ public static class InstabilityTweaksV0
 
     // GATE.S7.INSTABILITY.TICK_SYSTEM.001: Per-tick evolution tuning.
     // Warfront-adjacent nodes gain instability; distant nodes decay.
-    public const int BaseGainPerTick = 1;          // gain per tick per intensity level
+    public const int BaseGainPerInterval = 1;       // gain per interval per intensity level
+    public const int GainIntervalTicks = 100;      // ticks between gain steps (matches decay cadence)
     public const int DecayAmountPerInterval = 1;   // loss per decay interval
     public const int DecayIntervalTicks = 100;     // ticks between decay steps
     public const int MaxInstability = 150;

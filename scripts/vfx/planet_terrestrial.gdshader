@@ -17,25 +17,29 @@ uniform float rotation_speed : hint_range(0.0, 0.05) = 0.01;
 varying vec3 model_pos;
 void vertex() { model_pos = VERTEX; }
 
-// ── Noise ──
-float hash3(vec3 p) {
-	p = fract(p * vec3(443.8975, 397.2973, 491.1871));
-	p += dot(p.zxy, p.yxz + 19.19);
-	return fract(p.x * p.y * p.z);
+// ── Gradient noise (no lattice artifacts) ──
+vec3 hash33(vec3 p) {
+	p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
+	         dot(p, vec3(269.5, 183.3, 246.1)),
+	         dot(p, vec3(113.5, 271.9, 124.6)));
+	return fract(sin(p) * 43758.5453123) * 2.0 - 1.0;
 }
-float vnoise3(vec3 p) {
+float gnoise3(vec3 p) {
 	vec3 i = floor(p); vec3 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(
-		mix(mix(hash3(i),             hash3(i+vec3(1,0,0)), f.x),
-		    mix(hash3(i+vec3(0,1,0)), hash3(i+vec3(1,1,0)), f.x), f.y),
-		mix(mix(hash3(i+vec3(0,0,1)), hash3(i+vec3(1,0,1)), f.x),
-		    mix(hash3(i+vec3(0,1,1)), hash3(i+vec3(1,1,1)), f.x), f.y),
-		f.z);
+	vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+	return mix(mix(mix(dot(hash33(i + vec3(0,0,0)), f - vec3(0,0,0)),
+	                   dot(hash33(i + vec3(1,0,0)), f - vec3(1,0,0)), u.x),
+	               mix(dot(hash33(i + vec3(0,1,0)), f - vec3(0,1,0)),
+	                   dot(hash33(i + vec3(1,1,0)), f - vec3(1,1,0)), u.x), u.y),
+	           mix(mix(dot(hash33(i + vec3(0,0,1)), f - vec3(0,0,1)),
+	                   dot(hash33(i + vec3(1,0,1)), f - vec3(1,0,1)), u.x),
+	               mix(dot(hash33(i + vec3(0,1,1)), f - vec3(0,1,1)),
+	                   dot(hash33(i + vec3(1,1,1)), f - vec3(1,1,1)), u.x), u.y),
+	           u.z) * 0.5 + 0.5;
 }
 float fbm(vec3 p, int oct) {
 	float v = 0.0, a = 0.5, freq = 1.0;
-	for (int i = 0; i < oct; i++) { v += a * vnoise3(p * freq); freq *= 2.0; a *= 0.5; }
+	for (int i = 0; i < oct; i++) { v += a * gnoise3(p * freq); freq *= 2.0; a *= 0.5; }
 	return v;
 }
 
@@ -62,7 +66,7 @@ void fragment() {
 
 	// Polar ice caps.
 	float pole = abs(normalize(model_pos).y);
-	col = mix(col, snow_cap, smoothstep(0.7, 0.85, pole));
+	col = mix(col, snow_cap, smoothstep(0.82, 0.93, pole));
 
 	ALBEDO = col;
 

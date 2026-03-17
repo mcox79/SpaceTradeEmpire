@@ -20,18 +20,19 @@ public class SellCommand : ICommand
 
 	public void Execute(SimState state)
 	{
-		if (Quantity <= 0) return;
-		if (!state.Markets.TryGetValue(MarketId, out var market)) return;
+		if (Quantity <= 0) { System.Console.Error.WriteLine($"DEBUG_SELL_CMD|REJECT|qty<=0 market={MarketId} good={GoodId} qty={Quantity}"); return; }
+		if (!state.Markets.TryGetValue(MarketId, out var market)) { System.Console.Error.WriteLine($"DEBUG_SELL_CMD|REJECT|market_not_found market={MarketId} good={GoodId}"); return; }
 
 		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Check reputation-based access.
-		if (!MarketSystem.CanTradeByReputation(state, MarketId)) return;
+		if (!MarketSystem.CanTradeByReputation(state, MarketId)) { System.Console.Error.WriteLine($"DEBUG_SELL_CMD|REJECT|reputation_blocked market={MarketId} good={GoodId}"); return; }
 
-		if (InventoryLedger.Get(state.PlayerCargo, GoodId) < Quantity) return;
+		if (InventoryLedger.Get(state.PlayerCargo, GoodId) < Quantity) { System.Console.Error.WriteLine($"DEBUG_SELL_CMD|REJECT|insufficient_cargo market={MarketId} good={GoodId} qty={Quantity} have={InventoryLedger.Get(state.PlayerCargo, GoodId)}"); return; }
 
 		// GATE.X.INSTAB_PRICE.WIRE.001: Block trade if market closed by instability; adjust price.
 		int instMultBps = MarketSystem.GetInstabilityPriceMultiplierBps(state, MarketId, GoodId);
 		if (instMultBps <= 0)
 		{
+			System.Console.Error.WriteLine($"DEBUG_SELL_CMD|REJECT|market_closed_instability market={MarketId} good={GoodId}");
 			// GATE.X.PRESSURE_INJECT.MARKET.001: Market closed by instability — inject pressure.
 			PressureSystem.InjectDelta(state, "trade_disruption", "market_blocked",
 				PressureTweaksV0.MarketBlockedMagnitude, targetRef: MarketId);

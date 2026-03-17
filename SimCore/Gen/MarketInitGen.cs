@@ -292,52 +292,57 @@ public static class MarketInitGen
 
         int minTargetMargin = Tweaks.MarketTweaksV0.MinStarterMargin;
 
-        // Find the cheapest good at the starting market — this is what new players buy.
-        string cheapestGood = "";
-        int cheapestPrice = int.MaxValue;
-        foreach (var goodId in startMarket.Inventory.Keys)
+        // Guarantee profitable margin for EVERY good at the starter station
+        // at the BEST adjacent neighbor.  The tutorial may recommend any good,
+        // so we need at least one neighbor where each good is profitable.
+        foreach (var goodId in startMarket.Inventory.Keys.ToList())
         {
-            int buyPrice = startMarket.GetBuyPrice(goodId);
-            if (buyPrice < cheapestPrice)
+            int buyAtStart = startMarket.GetBuyPrice(goodId);
+
+            // Find the best neighbor sell price for this good.
+            int bestMargin = int.MinValue;
+            string bestNid = "";
+            foreach (var nid in neighborIds)
             {
-                cheapestPrice = buyPrice;
-                cheapestGood = goodId;
+                if (!state.Markets.TryGetValue(nid, out var nm)) continue;
+                if (!nm.Inventory.ContainsKey(goodId)) continue;
+                int sell = nm.GetSellPrice(goodId);
+                int margin = sell - buyAtStart;
+                if (margin > bestMargin)
+                {
+                    bestMargin = margin;
+                    bestNid = nid;
+                }
             }
-        }
 
-        if (string.IsNullOrEmpty(cheapestGood)) return;
+            if (bestMargin >= minTargetMargin) continue; // Already profitable somewhere.
 
-        // Guarantee profitable margin for the cheapest good at EVERY neighbor.
-        // A new player will pick the cheapest good and travel to any neighbor.
-        foreach (var nid in neighborIds)
-        {
-            if (!state.Markets.TryGetValue(nid, out var neighborMarket)) continue;
+            // Pick the best neighbor (or first) and force profitability.
+            if (string.IsNullOrEmpty(bestNid) && neighborIds.Count > 0)
+                bestNid = neighborIds[0];
+            if (string.IsNullOrEmpty(bestNid)) continue;
+
+            if (!state.Markets.TryGetValue(bestNid, out var neighborMarket)) continue;
 
             // Ensure the good exists at the neighbor.
-            if (!neighborMarket.Inventory.ContainsKey(cheapestGood))
-                neighborMarket.Inventory[cheapestGood] = Market.IdealStock;
-
-            int buyAtStart = startMarket.GetBuyPrice(cheapestGood);
-            int sellAtNeighbor = neighborMarket.GetSellPrice(cheapestGood);
-            int margin = sellAtNeighbor - buyAtStart;
-
-            if (margin >= minTargetMargin) continue; // Already profitable here.
+            if (!neighborMarket.Inventory.ContainsKey(goodId))
+                neighborMarket.Inventory[goodId] = Market.IdealStock;
 
             // Push start stock high (low buy price) and neighbor stock low (high sell price).
-            startMarket.Inventory[cheapestGood] = Math.Max(
-                startMarket.Inventory.GetValueOrDefault(cheapestGood),
+            startMarket.Inventory[goodId] = Math.Max(
+                startMarket.Inventory.GetValueOrDefault(goodId),
                 Tweaks.MarketTweaksV0.StarterHighStock);
-            neighborMarket.Inventory[cheapestGood] = Math.Min(
-                neighborMarket.Inventory.GetValueOrDefault(cheapestGood),
+            neighborMarket.Inventory[goodId] = Math.Min(
+                neighborMarket.Inventory.GetValueOrDefault(goodId),
                 Tweaks.MarketTweaksV0.StarterLowStock);
 
             // Post-validate: if still below target, force extreme stock levels.
-            int newBuy = startMarket.GetBuyPrice(cheapestGood);
-            int newSell = neighborMarket.GetSellPrice(cheapestGood);
+            int newBuy = startMarket.GetBuyPrice(goodId);
+            int newSell = neighborMarket.GetSellPrice(goodId);
             if (newSell - newBuy < minTargetMargin)
             {
-                startMarket.Inventory[cheapestGood] = Tweaks.MarketTweaksV0.StarterHighStock * 2;
-                neighborMarket.Inventory[cheapestGood] = 1;
+                startMarket.Inventory[goodId] = Tweaks.MarketTweaksV0.StarterHighStock * 2;
+                neighborMarket.Inventory[goodId] = 1;
             }
         }
 

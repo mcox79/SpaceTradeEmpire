@@ -1,39 +1,60 @@
 # Edgedar: screen-edge direction indicators for off-screen POIs.
 # Inspired by Starcom: Nexus. Shows arrows at viewport edges pointing toward
-# lane gates, hostile fleets, quest targets, and stations.
+# lane gates, fleets, stations, planets, and quest targets.
 extends CanvasLayer
 
-const MAX_INDICATORS: int = 12
+const MAX_INDICATORS: int = 20
 const EDGE_MARGIN: float = 40.0  # px inset from screen edge
-const MIN_DISTANCE: float = 30.0  # hide indicator if POI closer than this (units)
+const MIN_DISTANCE: float = 20.0  # hide indicator if POI closer than this (units)
 const MAX_DISTANCE: float = 500.0  # fade indicator beyond this distance
 const ARROW_SIZE: float = 12.0
+const ARROW_SIZE_HIGHLIGHT: float = 18.0  # larger for highlighted/quest targets
 const POI_REFRESH_INTERVAL: float = 0.25
 
-enum PoiType { LANE_GATE, HOSTILE_FLEET, QUEST_TARGET, STATION }
+enum PoiType { LANE_GATE, HOSTILE_FLEET, QUEST_TARGET, STATION, PLANET, FRIENDLY_FLEET, GATE_HIGHLIGHT }
 
 var _poi_colors: Dictionary = {
-	0: Color(0.4, 0.7, 1.0),   # LANE_GATE: blue
-	1: Color(1.0, 0.15, 0.15), # HOSTILE: red
-	2: Color(1.0, 0.85, 0.4),  # QUEST: gold
-	3: Color(0.2, 1.0, 0.4),   # STATION: green
+	PoiType.LANE_GATE: Color(0.4, 0.7, 1.0, 0.7),       # blue (dim)
+	PoiType.HOSTILE_FLEET: Color(1.0, 0.15, 0.15, 0.9),  # red
+	PoiType.QUEST_TARGET: Color(1.0, 0.85, 0.4, 1.0),    # gold
+	PoiType.STATION: Color(0.2, 1.0, 0.4, 0.7),          # green
+	PoiType.PLANET: Color(0.5, 0.55, 0.6, 0.4),          # gray (subtle)
+	PoiType.FRIENDLY_FLEET: Color(0.3, 0.7, 0.8, 0.5),   # dim cyan
+	PoiType.GATE_HIGHLIGHT: Color(1.0, 0.9, 0.3, 1.0),   # bright gold
 }
 
 var _indicators: Array = []  # Array of {root: Control, arrow: ArrowDraw, label: Label}
 var _game_manager = null
 var _poi_cache: Array = []
 var _poi_refresh_timer: float = 0.0
-# Tutorial trade waypoint: set by tutorial_director to point to sell destination.
+# Tutorial/destination trade waypoint: set by tutorial_director or route planner.
 var tutorial_target_node_id: String = ""
+# General destination: set by player (e.g., via galaxy map route selection).
+var destination_node_id: String = ""
 
+
+var _debug_timer: float = 0.0
 
 func _ready() -> void:
 	layer = 10
 	_game_manager = get_node_or_null("/root/GameManager")
 	_build_indicator_pool()
+	print("DEBUG_EDGEDAR|READY|indicators=%d" % _indicators.size())
 
 
 func _physics_process(delta: float) -> void:
+	# Periodic debug logging (every 3s).
+	_debug_timer += delta
+	if _debug_timer >= 3.0:
+		_debug_timer = 0.0
+		var cam = get_viewport().get_camera_3d() if get_viewport() else null
+		var gates = get_tree().get_nodes_in_group("LaneGate") if get_tree() else []
+		var stations = get_tree().get_nodes_in_group("Station") if get_tree() else []
+		print("DEBUG_EDGEDAR|TICK|show=%s|tut_target=%s|cam=%s|gates=%d|stations=%d|pois=%d|gm=%s" % [
+			_should_show(), tutorial_target_node_id,
+			cam != null, gates.size(), stations.size(), _poi_cache.size(),
+			_game_manager != null])
+
 	if not _should_show():
 		_hide_all()
 		return
@@ -57,11 +78,16 @@ func _should_show() -> bool:
 		_game_manager = get_node_or_null("/root/GameManager")
 	if _game_manager == null:
 		return false
-	var state = _game_manager.get("current_player_state")
-	if state == null or int(state) != 0:  # Only IN_FLIGHT
-		return false
+	# Hide during galaxy overlay (map open).
 	var overlay = _game_manager.get("galaxy_overlay_open")
 	if overlay != null and bool(overlay):
+		return false
+	# Always show if tutorial/destination waypoint is active (even while docked).
+	if not tutorial_target_node_id.is_empty() or not destination_node_id.is_empty():
+		return true
+	# Otherwise only show in flight.
+	var state = _game_manager.get("current_player_state")
+	if state == null or int(state) != 0:  # Only IN_FLIGHT
 		return false
 	return true
 
@@ -70,76 +96,108 @@ func _gather_pois(camera: Camera3D) -> Array:
 	var cam_pos: Vector3 = camera.global_position
 	var result: Array = []
 
-	# Lane gates
-	for node in get_tree().get_nodes_in_group("LaneGate"):
-		if node is Node3D:
-			var dist: float = cam_pos.distance_to(node.global_position)
-			if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
-				var lbl_text: String = ""
-				if node.has_meta("neighbor_node_id"):
-					lbl_text = str(node.get_meta("neighbor_node_id"))
-					# Shorten long IDs to last segment
-					if lbl_text.contains("_"):
-						lbl_text = lbl_text.rsplit("_", true, 1)[-1]
-				result.append({
-					"pos": node.global_position,
-					"type": PoiType.LANE_GATE,
-					"dist": dist,
-					"label": lbl_text
-				})
-
-	# Stations
-	for node in get_tree().get_nodes_in_group("Station"):
-		if node is Node3D:
-			var dist: float = cam_pos.distance_to(node.global_position)
-			if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
-				result.append({
-					"pos": node.global_position,
-					"type": PoiType.STATION,
-					"dist": dist,
-					"label": "Station"
-				})
-
-	# Fleet ships (hostile detection via meta)
-	for node in get_tree().get_nodes_in_group("FleetShip"):
-		if node is Node3D:
-			var is_hostile: bool = false
-			if node.has_meta("is_hostile"):
-				is_hostile = bool(node.get_meta("is_hostile"))
-			if not is_hostile:
-				continue
-			var dist: float = cam_pos.distance_to(node.global_position)
-			if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
-				result.append({
-					"pos": node.global_position,
-					"type": PoiType.HOSTILE_FLEET,
-					"dist": dist,
-					"label": "%du" % int(dist)
-				})
-
-	# Tutorial trade waypoint: gold arrow to sell destination.
+	# Determine which gate is the "highlighted" destination.
+	var highlight_target: String = ""
 	if not tutorial_target_node_id.is_empty():
-		var gate_nodes_tut = get_tree().get_nodes_in_group("LaneGate")
-		for gate in gate_nodes_tut:
-			var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
-			if gate_target == tutorial_target_node_id and gate is Node3D:
-				var dist: float = cam_pos.distance_to(gate.global_position)
-				if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
-					result.append({"pos": gate.global_position, "type": PoiType.QUEST_TARGET, "dist": dist, "label": "Sell here"})
-				break
+		highlight_target = tutorial_target_node_id
+	elif not destination_node_id.is_empty():
+		highlight_target = destination_node_id
 
-	# GATE.S19.ONBOARD.WAYPOINT.011: Mission objective waypoint.
-	# If player has an active mission with a target node, show a QUEST_TARGET POI
-	# pointing to the lane gate for that destination.
+	# ── Lane Gates ────────────────────────────────────────────────────
+	for node in get_tree().get_nodes_in_group("LaneGate"):
+		if not (node is Node3D):
+			continue
+		var dist: float = cam_pos.distance_to(node.global_position)
+		if dist < MIN_DISTANCE or dist > MAX_DISTANCE:
+			continue
+
+		var neighbor_id: String = str(node.get_meta("neighbor_node_id", ""))
+		var is_highlight: bool = (not highlight_target.is_empty() and neighbor_id == highlight_target)
+
+		# Label: shortened neighbor name.
+		var lbl_text: String = neighbor_id
+		if lbl_text.contains("_"):
+			lbl_text = lbl_text.rsplit("_", true, 1)[-1]
+
+		if is_highlight:
+			# Highlighted destination gate — gold, large, always on top.
+			result.append({
+				"pos": node.global_position,
+				"type": PoiType.GATE_HIGHLIGHT,
+				"dist": dist,
+				"label": lbl_text,
+				"priority": 0,  # highest
+			})
+		else:
+			result.append({
+				"pos": node.global_position,
+				"type": PoiType.LANE_GATE,
+				"dist": dist,
+				"label": lbl_text,
+				"priority": 3,
+			})
+
+	# ── Stations ──────────────────────────────────────────────────────
+	for node in get_tree().get_nodes_in_group("Station"):
+		if not (node is Node3D):
+			continue
+		var dist: float = cam_pos.distance_to(node.global_position)
+		if dist < MIN_DISTANCE or dist > MAX_DISTANCE:
+			continue
+		var station_name: String = "Station"
+		if node.has_meta("station_name"):
+			station_name = str(node.get_meta("station_name"))
+		result.append({
+			"pos": node.global_position,
+			"type": PoiType.STATION,
+			"dist": dist,
+			"label": station_name,
+			"priority": 2,
+		})
+
+	# ── Planets ───────────────────────────────────────────────────────
+	for node in get_tree().get_nodes_in_group("Planet"):
+		if not (node is Node3D):
+			continue
+		var dist: float = cam_pos.distance_to(node.global_position)
+		if dist < MIN_DISTANCE or dist > MAX_DISTANCE:
+			continue
+		result.append({
+			"pos": node.global_position,
+			"type": PoiType.PLANET,
+			"dist": dist,
+			"label": "",  # planets don't need labels
+			"priority": 5,
+		})
+
+	# ── Fleet Ships (NPC) ─────────────────────────────────────────────
+	for node in get_tree().get_nodes_in_group("FleetShip"):
+		if not (node is Node3D):
+			continue
+		var dist: float = cam_pos.distance_to(node.global_position)
+		if dist < MIN_DISTANCE or dist > MAX_DISTANCE:
+			continue
+		var is_hostile: bool = bool(node.get_meta("is_hostile", false))
+		var fleet_type: int = PoiType.HOSTILE_FLEET if is_hostile else PoiType.FRIENDLY_FLEET
+		var lbl: String = ""
+		if is_hostile:
+			lbl = "%du" % int(dist)
+		result.append({
+			"pos": node.global_position,
+			"type": fleet_type,
+			"dist": dist,
+			"label": lbl,
+			"priority": 1 if is_hostile else 4,
+		})
+
+	# ── Mission Objective Waypoint ────────────────────────────────────
 	if _game_manager != null:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("GetActiveMissionV0"):
 			var mission: Dictionary = bridge.call("GetActiveMissionV0")
 			var target_id: String = str(mission.get("target_node_id", ""))
 			if not target_id.is_empty():
-				# Lane gates carry meta "neighbor_node_id" matching their destination.
-				var gate_nodes = get_tree().get_nodes_in_group("LaneGate")
-				for gate in gate_nodes:
+				for gate in get_tree().get_nodes_in_group("LaneGate"):
 					var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
 					if gate_target == target_id:
 						var dist: float = cam_pos.distance_to(gate.global_position)
@@ -147,11 +205,21 @@ func _gather_pois(camera: Camera3D) -> Array:
 							var obj_text: String = str(mission.get("objective_text", "Objective"))
 							if obj_text.is_empty():
 								obj_text = str(mission.get("target_node_name", "Objective"))
-							result.append({"pos": gate.global_position, "type": PoiType.QUEST_TARGET, "dist": dist, "label": obj_text})
+							result.append({
+								"pos": gate.global_position,
+								"type": PoiType.QUEST_TARGET,
+								"dist": dist,
+								"label": obj_text,
+								"priority": 0,
+							})
 						break
 
-	# Sort by distance (closest first)
-	result.sort_custom(func(a, b): return a["dist"] < b["dist"])
+	# Sort by priority (lowest first = most important), then by distance.
+	result.sort_custom(func(a, b):
+		if a.get("priority", 5) != b.get("priority", 5):
+			return a.get("priority", 5) < b.get("priority", 5)
+		return a["dist"] < b["dist"]
+	)
 	return result
 
 
@@ -184,21 +252,40 @@ func _update_indicators(camera: Camera3D) -> void:
 		var indicator: Dictionary = _indicators[i]
 		var color: Color = _poi_colors.get(poi_type, Color.WHITE)
 
-		# Distance-based alpha fade.
-		var alpha: float = 1.0
-		if dist > MAX_DISTANCE * 0.7:
-			alpha = clampf(1.0 - (dist - MAX_DISTANCE * 0.7) / (MAX_DISTANCE * 0.3), 0.1, 1.0)
+		# Distance-based alpha fade (except for highlighted targets).
+		var alpha: float = color.a
+		if poi_type != PoiType.GATE_HIGHLIGHT and poi_type != PoiType.QUEST_TARGET:
+			if dist > MAX_DISTANCE * 0.7:
+				alpha = clampf(color.a * (1.0 - (dist - MAX_DISTANCE * 0.7) / (MAX_DISTANCE * 0.3)), 0.05, color.a)
+
+		# Highlighted targets pulse gently.
+		if poi_type == PoiType.GATE_HIGHLIGHT or poi_type == PoiType.QUEST_TARGET:
+			var pulse: float = 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.004)
+			alpha *= pulse
+
+		# Arrow size: larger for highlighted/quest targets.
+		var sz: float = ARROW_SIZE
+		if poi_type == PoiType.GATE_HIGHLIGHT or poi_type == PoiType.QUEST_TARGET:
+			sz = ARROW_SIZE_HIGHLIGHT
 
 		if inner_rect.has_point(screen_pos) and not is_behind:
-			# POI is on-screen — hide indicator (it's visible in 3D)
-			indicator["root"].visible = false
+			# POI is on-screen — hide indicator (it's visible in 3D).
+			# Exception: highlighted gates show a subtle on-screen diamond marker.
+			if poi_type == PoiType.GATE_HIGHLIGHT or poi_type == PoiType.QUEST_TARGET:
+				indicator["root"].visible = true
+				indicator["root"].position = screen_pos - Vector2(sz, sz)
+				indicator["root"].modulate = Color(color.r, color.g, color.b, alpha * 0.5)
+				indicator["arrow"].rotation = 0
+				indicator["label"].text = poi.get("label", "")
+			else:
+				indicator["root"].visible = false
 		else:
 			# Clamp to screen edge.
 			var dir: Vector2 = (screen_pos - center).normalized()
 			var clamped: Vector2 = _clamp_to_rect_edge(center, dir, inner_rect)
 
 			indicator["root"].visible = true
-			indicator["root"].position = clamped - Vector2(ARROW_SIZE, ARROW_SIZE)
+			indicator["root"].position = clamped - Vector2(sz, sz)
 			indicator["root"].modulate = Color(color.r, color.g, color.b, alpha)
 
 			# Rotate arrow to point toward actual position.
@@ -242,28 +329,32 @@ func _clamp_to_rect_edge(origin: Vector2, dir: Vector2, rect: Rect2) -> Vector2:
 
 
 func _build_indicator_pool() -> void:
+	var pool_sz := Vector2(ARROW_SIZE_HIGHLIGHT * 2 + 80, ARROW_SIZE_HIGHLIGHT * 2)
 	for i in range(MAX_INDICATORS):
 		var root := Control.new()
 		root.name = "Indicator%d" % i
 		root.visible = false
 		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.custom_minimum_size = Vector2(ARROW_SIZE * 2, ARROW_SIZE * 2)
+		root.size = pool_sz
+		root.custom_minimum_size = pool_sz
+		root.clip_contents = false
 		add_child(root)
 
 		var arrow := ArrowDraw.new()
 		arrow.name = "Arrow"
 		arrow.arrow_size = ARROW_SIZE
-		arrow.custom_minimum_size = Vector2(ARROW_SIZE * 2, ARROW_SIZE * 2)
+		arrow.size = Vector2(ARROW_SIZE_HIGHLIGHT * 2, ARROW_SIZE_HIGHLIGHT * 2)
+		arrow.custom_minimum_size = Vector2(ARROW_SIZE_HIGHLIGHT * 2, ARROW_SIZE_HIGHLIGHT * 2)
 		arrow.position = Vector2.ZERO
 		arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		arrow.pivot_offset = Vector2(ARROW_SIZE, ARROW_SIZE)
+		arrow.pivot_offset = Vector2(ARROW_SIZE_HIGHLIGHT, ARROW_SIZE_HIGHLIGHT)
 		root.add_child(arrow)
 
 		var lbl := Label.new()
 		lbl.name = "DistLabel"
 		lbl.add_theme_font_size_override("font_size", 11)
 		lbl.add_theme_color_override("font_color", Color.WHITE)
-		lbl.position = Vector2(ARROW_SIZE * 2 + 2, 2)
+		lbl.position = Vector2(ARROW_SIZE_HIGHLIGHT * 2 + 2, 2)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(lbl)
 

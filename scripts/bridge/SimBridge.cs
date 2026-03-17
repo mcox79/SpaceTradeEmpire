@@ -793,7 +793,7 @@ public partial class SimBridge : Node
                     ["qty"] = kv.Value
                 });
             }
-        }, 0);
+        }, 50); // 50ms timeout — UI reads during dock can afford a brief wait
         return result;
     }
 
@@ -818,9 +818,8 @@ public partial class SimBridge : Node
     // Blocks until the sim thread processes the command so callers can read updated state immediately.
     public void DispatchPlayerArriveV0(string targetNodeId)
     {
-        int tickBefore = GetSimTickBlocking();
-        EnqueueCommand(new PlayerArriveCommand(targetNodeId));
-        WaitForTickAdvance(tickBefore, 200);
+        int tickAtEnqueue = EnqueueCommandAndGetTick(new PlayerArriveCommand(targetNodeId));
+        WaitForTickAdvance(tickAtEnqueue, 200);
     }
 
     // GATE.S6.REVEAL.SCAN_CMD.001: Dispatch a scan/analyze action on a discovery.
@@ -838,16 +837,55 @@ public partial class SimBridge : Node
         TryExecuteSafeRead(state =>
         {
             if (!state.Markets.TryGetValue(nodeId, out var market)) return;
+
+            // Build set of adjacent node IDs for cross-market profit computation.
+            var neighborIds = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            foreach (var edge in state.Edges.Values)
+            {
+                if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal))
+                    neighborIds.Add(edge.ToNodeId);
+                else if (string.Equals(edge.ToNodeId, nodeId, StringComparison.Ordinal))
+                    neighborIds.Add(edge.FromNodeId);
+            }
+
             var goods = market.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
             foreach (var goodId in goods)
             {
-                result.Add(new Godot.Collections.Dictionary
+                int buyPrice = market.GetBuyPrice(goodId);
+
+                // Find highest sell price at any adjacent market for this good.
+                int bestSellElsewhere = 0;
+                string bestSellNodeId = "";
+                foreach (var nid in neighborIds)
+                {
+                    if (!state.Markets.TryGetValue(nid, out var nMarket)) continue;
+                    if (!nMarket.Inventory.ContainsKey(goodId)) continue;
+                    int nSell = nMarket.GetSellPrice(goodId);
+                    if (nSell > bestSellElsewhere)
+                    {
+                        bestSellElsewhere = nSell;
+                        bestSellNodeId = nid;
+                    }
+                }
+
+                var entry = new Godot.Collections.Dictionary
                 {
                     ["good_id"] = goodId,
-                    ["buy_price"] = market.GetBuyPrice(goodId),
+                    ["buy_price"] = buyPrice,
                     ["sell_price"] = market.GetSellPrice(goodId),
-                    ["quantity"] = market.Inventory.TryGetValue(goodId, out var qty) ? qty : 0
-                });
+                    ["quantity"] = market.Inventory.TryGetValue(goodId, out var qty) ? qty : 0,
+                    ["best_sell_elsewhere"] = bestSellElsewhere,
+                    ["best_sell_node_id"] = bestSellNodeId,
+                    ["profit_estimate"] = bestSellElsewhere > 0 ? bestSellElsewhere - buyPrice : 0,
+                };
+
+                // Resolve display name for the best-sell destination.
+                if (!string.IsNullOrEmpty(bestSellNodeId) && state.Nodes.TryGetValue(bestSellNodeId, out var destNode))
+                    entry["best_sell_node_name"] = destNode.Name ?? bestSellNodeId;
+                else
+                    entry["best_sell_node_name"] = bestSellNodeId;
+
+                result.Add(entry);
             }
         });
         return result;
@@ -972,10 +1010,31 @@ public partial class SimBridge : Node
     // can read updated state immediately without a timer-based race.
     public void DispatchPlayerTradeV0(string nodeId, string goodId, int qty, bool isBuy)
     {
-        int tickBefore = GetSimTickBlocking();
         var type = isBuy ? TradeType.Buy : TradeType.Sell;
-        EnqueueCommand(new TradeCommand("player", nodeId, goodId, qty, type));
-        WaitForTickAdvance(tickBefore, 200);
+
+        // DEBUG: Pre-dispatch diagnostics (stdout via GD.Print so visible in log).
+        if (!isBuy)
+        {
+            try
+            {
+                _stateLock.EnterReadLock();
+                try
+                {
+                    var s = _kernel.State;
+                    bool hasMkt = s.Markets.ContainsKey(nodeId);
+                    int cargo = SimCore.Systems.InventoryLedger.Get(s.PlayerCargo, goodId);
+                    bool canTrade = SimCore.Systems.MarketSystem.CanTradeByReputation(s, nodeId);
+                    int instMult = hasMkt ? SimCore.Systems.MarketSystem.GetInstabilityPriceMultiplierBps(s, nodeId, goodId) : -1;
+                    int sellPrice = hasMkt ? s.Markets[nodeId].GetSellPrice(goodId) : -1;
+                    GD.Print($"DEBUG_SELL_PRE|market={nodeId} good={goodId} qty={qty} hasMkt={hasMkt} cargo={cargo} canTrade={canTrade} instMult={instMult} sellPrice={sellPrice} credits={s.PlayerCredits}");
+                }
+                finally { _stateLock.ExitReadLock(); }
+            }
+            catch (System.Exception ex) { GD.Print($"DEBUG_SELL_PRE|ERROR|{ex.Message}"); }
+        }
+
+        int tickAtEnqueue = EnqueueCommandAndGetTick(new TradeCommand("player", nodeId, goodId, qty, type));
+        WaitForTickAdvance(tickAtEnqueue, 200);
     }
 
     // GATE.S4.MODULE_MODEL.EQUIP.001
@@ -1045,6 +1104,26 @@ public partial class SimBridge : Node
         try
         {
             _kernel.EnqueueCommand(cmd);
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+    }
+
+    // Atomically enqueue a command and snapshot the current tick under the same write lock.
+    // This prevents the race where the sim thread advances a tick between GetSimTickBlocking()
+    // and EnqueueCommand(), causing WaitForTickAdvance() to return immediately before the
+    // command is processed.
+    private int EnqueueCommandAndGetTick(ICommand cmd)
+    {
+        if (IsLoading) return -1;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.EnqueueCommand(cmd);
+            return _kernel.State.Tick;
         }
         finally
         {

@@ -32,11 +32,13 @@ var _departure_gate_pos: Vector3 = Vector3.ZERO
 var _waiting_at_gate: bool = false  # Holding position while gate is busy.
 var _warp_out_started: bool = false  # True after warp-out VFX triggered — freeze movement.
 
-## Gate warp queue — only one ship warps per gate at a time.
-## Static so all NPC ships share the cooldown.
+## Gate departure queue — only one ship approaches each gate at a time.
+## Key = rounded gate position string, Value = fleet_id of the ship with reservation.
+static var _gate_reservations: Dictionary = {}
+## Gate warp cooldown — minimum time between consecutive warps at any gate.
 static var _last_gate_warp_msec: int = 0
-const GATE_WARP_COOLDOWN_MS: int = 2500  # 2.5 seconds between gate warps.
-const GATE_HOLD_RADIUS: float = 8.0      # Orbit radius while waiting at gate.
+const GATE_WARP_COOLDOWN_MS: int = 2000  # 2.0 seconds between gate warps.
+const GATE_HOLD_RADIUS: float = 12.0     # Orbit radius while waiting for gate turn.
 
 ## Rotation smoothing (higher = snappier turn). Tuned for gradual arcing turns.
 @export var rotation_sharpness: float = 2.5
@@ -58,6 +60,9 @@ var _orbit_angle: float = 0.0  # Current angle on orbit circle (radians).
 
 ## Star avoidance — ships steer around the star (at local origin) instead of flying through it.
 const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
+## Binary exclusion zone — set by GalaxyView at spawn for binary systems.
+## Extends star avoidance to cover the full binary orbit envelope.
+var binary_exclusion_zone: float = 0.0
 
 ## Patrol seed (used for deterministic initial position).
 var _patrol_seed: int = 0
@@ -93,6 +98,11 @@ const ROLE_COLORS := [
 const LABEL_SHOW_DIST := 30.0  # Only show role label when player is close (was 160)
 const HP_BAR_HEIGHT := 8.0  # Above ship center (raised for altitude visibility)
 
+
+func _exit_tree() -> void:
+	# Release gate reservation if this ship is removed (combat death, system change, etc.).
+	if _departing or _waiting_at_gate:
+		_release_gate_reservation()
 
 func _ready() -> void:
 	_fleet_area.set_meta("fleet_id", fleet_id)
@@ -403,25 +413,31 @@ func _physics_process(delta: float) -> void:
 	to_target.y = 0.0
 	var dist := to_target.length()
 
+	# Waiting NPC that hasn't started departing yet — retry gate reservation each frame.
+	if _waiting_at_gate and not _departing and _departure_gate_pos != Vector3.ZERO:
+		if _try_reserve_gate(_departure_gate_pos):
+			# Got the reservation — start actual departure.
+			_departing = true
+			_waiting_at_gate = false
+			_orbiting = false
+			target_position = Vector3(_departure_gate_pos.x, 0.0, _departure_gate_pos.z)
+			target_speed = 8.0
+
 	if dist < ARRIVAL_THRESHOLD:
-		# Departing ship reached gate — check if gate is clear, then warp out.
+		# Departing ship reached gate — check warp cooldown, then warp out.
 		if _departing:
 			var now_ms: int = Time.get_ticks_msec()
 			if now_ms - _last_gate_warp_msec < GATE_WARP_COOLDOWN_MS:
-				# Gate is busy — hold position in a small orbit while waiting.
-				if not _waiting_at_gate:
-					_waiting_at_gate = true
-					print("DEBUG_NPC|GATE_WAIT|fleet=%s (gate busy, holding)" % fleet_id)
-				# Orbit near the gate while waiting.
+				# Warp cooldown active — orbit near gate briefly.
 				var hold_angle := float(now_ms) / 2000.0 + float(_patrol_seed % 360) * 0.0174533
 				var hold_pos := _departure_gate_pos + Vector3(cos(hold_angle) * GATE_HOLD_RADIUS, 0.0, sin(hold_angle) * GATE_HOLD_RADIUS)
 				target_position = Vector3(hold_pos.x, 0.0, hold_pos.z)
-				# Don't return — let normal movement handle flying to the hold pos.
 			else:
-				# Gate is clear — warp out!
+				# Gate is clear — warp out! Release reservation for next ship.
 				_last_gate_warp_msec = now_ms
 				_waiting_at_gate = false
 				_warp_out_started = true
+				_release_gate_reservation()
 				print("DEBUG_NPC|WARP_OUT|fleet=%s at_gate=%s" % [fleet_id, str(position).substr(0,25)])
 				var warp_script = load("res://scripts/vfx/warp_effect.gd")
 				if warp_script and get_parent():
@@ -450,8 +466,10 @@ func _physics_process(delta: float) -> void:
 
 	var desired_dir := to_target / dist
 
-	# Star avoidance disabled — was causing oscillation (ships deflected left/right
-	# each frame when crossing near the star, never committing to a side).
+	# Star avoidance: re-enabled for binary systems where ships must avoid the
+	# exclusion zone. Solo systems keep it disabled (oscillation issue at 25u).
+	if binary_exclusion_zone > 0.0:
+		desired_dir = _apply_star_avoidance_local(desired_dir, dist)
 
 	# Smooth rotation toward desired direction (ship forward = -Z).
 	# Lower rotation_sharpness = wider arcing turns.
@@ -497,6 +515,7 @@ func _physics_process(delta: float) -> void:
 ## Steer around the star (at local origin) if the direct path passes too close.
 ## All positions are in local coordinates — star center is (0,0,0).
 func _apply_star_avoidance_local(dir: Vector3, dist_to_target: float) -> Vector3:
+	var avoid_radius := maxf(STAR_AVOID_RADIUS, binary_exclusion_zone)
 	var to_star := -position  # Star is at origin, so direction = (0,0,0) - position
 	to_star.y = 0.0
 
@@ -512,7 +531,7 @@ func _apply_star_avoidance_local(dir: Vector3, dist_to_target: float) -> Vector3
 	perp.y = 0.0
 	var perp_dist := perp.length()
 
-	if perp_dist >= STAR_AVOID_RADIUS:
+	if perp_dist >= avoid_radius:
 		return dir  # Path clears the star.
 
 	# Steer perpendicular to the travel line, away from the star.
@@ -524,18 +543,44 @@ func _apply_star_avoidance_local(dir: Vector3, dist_to_target: float) -> Vector3
 		avoid_dir = -perp.normalized()  # Away from star center
 
 	# Blend: more avoidance when closer to the star.
-	var urgency := 1.0 - clampf(perp_dist / STAR_AVOID_RADIUS, 0.0, 1.0)
+	var urgency := 1.0 - clampf(perp_dist / avoid_radius, 0.0, 1.0)
 	var blended := (dir + avoid_dir * urgency * 2.0).normalized()
 	return blended
 
 
+## Gate key for reservation dictionary (rounded position to group near-same gates).
+static func _gate_key(gate_pos: Vector3) -> String:
+	return "%d_%d" % [int(gate_pos.x), int(gate_pos.z)]
+
+## Try to reserve a gate for departure. Returns true if reservation acquired.
+func _try_reserve_gate(gate_pos: Vector3) -> bool:
+	var key := _gate_key(gate_pos)
+	if _gate_reservations.has(key):
+		var holder: String = str(_gate_reservations[key])
+		if holder != fleet_id:
+			return false  # Another ship has the reservation.
+	_gate_reservations[key] = fleet_id
+	return true
+
+## Release gate reservation (called after warp-out or if departure is cancelled).
+func _release_gate_reservation() -> void:
+	var key := _gate_key(_departure_gate_pos)
+	if _gate_reservations.has(key) and str(_gate_reservations[key]) == fleet_id:
+		_gate_reservations.erase(key)
+
 ## Begin departure sequence: fly to gate, then warp out on arrival.
+## If gate is occupied by another departing ship, stays in orbit and retries.
 func begin_departure_v0(gate_pos: Vector3) -> void:
 	if _departing:
 		return  # Already departing — don't spam.
-	_departing = true
-	_orbiting = false  # Exit orbit — head straight for gate.
 	_departure_gate_pos = gate_pos
+	# Try to reserve the gate. If busy, mark as waiting (stay in orbit).
+	if not _try_reserve_gate(gate_pos):
+		_waiting_at_gate = true
+		return
+	_departing = true
+	_waiting_at_gate = false
+	_orbiting = false  # Exit orbit — head straight for gate.
 	target_position = Vector3(gate_pos.x, 0.0, gate_pos.z)
 	target_speed = 8.0  # Faster than normal — heading for the exit.
 	print("DEBUG_NPC|DEPART|fleet=%s gate=%s" % [fleet_id, str(gate_pos).substr(0,25)])

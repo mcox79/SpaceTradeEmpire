@@ -174,15 +174,15 @@ func _ready():
 
 	# FEEL_POST_FIX_5: Brighter column headers with clear labels.
 	var header = HBoxContainer.new()
-	# Columns: Good (expand), Buy Price (expand), Sell Price (expand), Buy btns (min 118), Sell btns (min 118)
-	var _col_names := ["Good", "Buy Price", "Sell Price", "Buy", "Sell"]
+	# Columns: Good (expand), Stock (expand), Buy Price (expand), Sell Price (expand), Buy btns (min 118), Sell btns (min 118)
+	var _col_names := ["Good", "Stock", "Buy Price", "Sell Price", "Buy", "Sell"]
 	for ci in range(_col_names.size()):
 		var lbl = Label.new()
 		lbl.text = _col_names[ci]
 		lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 		# Bright enough to read as column headers — not confused with data.
 		lbl.add_theme_color_override("font_color", Color(0.75, 0.8, 0.85))
-		if ci < 3:
+		if ci < 4:
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		else:
 			lbl.custom_minimum_size.x = 112
@@ -313,6 +313,7 @@ func _ready():
 	_diplomacy_tab_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_diplomacy_tab_button.toggle_mode = true
 	_diplomacy_tab_button.pressed.connect(_switch_dock_tab.bind(6))
+	_diplomacy_tab_button.visible = false  # Hidden by default; shown by disclosure system
 	_tab_bar.add_child(_diplomacy_tab_button)
 
 	# Undock button (always visible)
@@ -355,17 +356,14 @@ func _apply_tab_disclosure_v0() -> void:
 	# Market (idx 0): always visible
 	# Jobs (idx 1): visible after first trade
 	# Ship (idx 2): visible after first mission or combat
-	# Station (idx 3): visible after 3+ nodes visited
+	# Station (idx 3): always visible (provides useful overview even during tutorial)
 	# Intel (idx 4): visible after 3+ nodes visited
-	var show_diplomacy: bool = int(state.get("nodes_visited", 0)) >= 3
 	var show_flags: Array = [
 		true,
 		bool(state.get("show_jobs_tab", true)),
 		bool(state.get("show_ship_tab", true)),
-		bool(state.get("show_station_tab", true)),
+		true,  # Station always visible
 		bool(state.get("show_intel_tab", true)),
-		true,  # Haven (idx 5) — context-gated elsewhere
-		show_diplomacy,  # Diplomacy (idx 6) — hidden until 3+ nodes
 	]
 	for i in range(mini(_tab_buttons.size(), show_flags.size())):
 		_tab_buttons[i].visible = show_flags[i]
@@ -376,6 +374,10 @@ func _apply_tab_disclosure_v0() -> void:
 		elif _tab_seen.has(i) and i < _tab_base_names.size():
 			_tab_buttons[i].text = _tab_base_names[i]
 			_tab_buttons[i].remove_theme_color_override("font_color")
+
+	# Diplomacy tab (separate button, not in _tab_buttons array): show after 3+ nodes.
+	if _diplomacy_tab_button:
+		_diplomacy_tab_button.visible = int(state.get("nodes_visited", 0)) >= 3
 
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Switch between dock tabs
 # GATE.S8.HAVEN.DOCK_PANEL.001: Added Haven tab (idx 5)
@@ -641,17 +643,28 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 		return
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
+		# Snapshot credits before trade to detect if SimCore accepted or rejected.
+		var credits_before: int = 0
+		if bridge.has_method("GetPlayerStateV0"):
+			var ps: Dictionary = bridge.call("GetPlayerStateV0")
+			credits_before = int(ps.get("credits", 0))
 		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, qty, true)
-		# GATE.S12.UX_POLISH.TRADE_FEEDBACK.001: toast on buy
+		# Check if trade actually executed (credits changed).
+		var credits_after: int = credits_before
+		if bridge.has_method("GetPlayerStateV0"):
+			var ps2: Dictionary = bridge.call("GetPlayerStateV0")
+			credits_after = int(ps2.get("credits", 0))
+		if credits_after >= credits_before:
+			# Trade was rejected by SimCore — don't show toast or update cargo.
+			_rebuild_rows()
+			return
+		# GATE.S12.UX_POLISH.TRADE_FEEDBACK.001: toast on buy (only if trade succeeded)
+		var actual_spent: int = credits_before - credits_after
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_toast"):
-			toast_mgr.call("show_toast", "Bought %d x %s" % [qty, _format_display_name(good_id)], 2.0)
+			toast_mgr.call("show_toast", "Bought %s for %dcr" % [_format_display_name(good_id), actual_spent], 2.0)
 		_rebuild_rows()
 		call_deferred("_refresh_profit_label_v0")
-		# FEEL_POST_FIX_3: Optimistic cargo update — sim hasn't ticked yet, but we
-		# know what the player just bought. Update label immediately to avoid the
-		# "Cargo: empty" vs "Cargo: 1 Items" contradiction between dock panel and HUD.
-		_optimistic_cargo_update_v0(good_id, qty, true)
 		# Captain's Guide: first buy hint.
 		var gm_buy = get_node_or_null("/root/GameManager")
 		if gm_buy and gm_buy.has_method("_fire_guide_hint_v0"):
@@ -660,28 +673,34 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 func _sell_qty_v0(good_id: String, qty: int) -> void:
 	if _market_node_id.is_empty() or good_id.is_empty() or qty <= 0:
 		return
-	# Q3: Capture sell price before dispatching trade for revenue toast
-	var sell_price: int = 0
-	var view = get_market_view_v0()
-	for entry in view:
-		if typeof(entry) == TYPE_DICTIONARY and str(entry.get("good_id", "")) == good_id:
-			sell_price = int(entry.get("sell_price", 0))
-			break
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerTradeV0"):
+		# Snapshot credits before trade to detect if SimCore accepted or rejected.
+		var credits_before: int = 0
+		if bridge.has_method("GetPlayerStateV0"):
+			var ps: Dictionary = bridge.call("GetPlayerStateV0")
+			credits_before = int(ps.get("credits", 0))
 		bridge.call("DispatchPlayerTradeV0", _market_node_id, good_id, qty, false)
-		# Q3: Revenue toast — "Sold 5 Organics for +250cr"
+		# Check if trade actually executed (credits increased for sell).
+		var credits_after: int = credits_before
+		if bridge.has_method("GetPlayerStateV0"):
+			var ps2: Dictionary = bridge.call("GetPlayerStateV0")
+			credits_after = int(ps2.get("credits", 0))
+		if credits_after <= credits_before:
+			# Trade was rejected by SimCore — don't show success toast.
+			print("DEBUG_SELL|REJECTED|good=%s qty=%d credits_before=%d credits_after=%d market=%s" % [good_id, qty, credits_before, credits_after, _market_node_id])
+			var toast_mgr_fail = get_node_or_null("/root/ToastManager")
+			if toast_mgr_fail and toast_mgr_fail.has_method("show_toast"):
+				toast_mgr_fail.call("show_toast", "Trade failed — try again", 2.0)
+			_rebuild_rows()
+			return
+		# Trade succeeded — show revenue toast with actual credits earned.
+		var actual_revenue: int = credits_after - credits_before
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_toast"):
-			var revenue: int = qty * sell_price
-			if revenue > 0:
-				toast_mgr.call("show_toast", "Sold %d %s for +%dcr" % [qty, _format_display_name(good_id), revenue], 2.5)
-			else:
-				toast_mgr.call("show_toast", "Sold %d x %s" % [qty, _format_display_name(good_id)], 2.0)
+			toast_mgr.call("show_toast", "Sold %d %s for +%dcr" % [qty, _format_display_name(good_id), actual_revenue], 2.5)
 		_rebuild_rows()
 		call_deferred("_refresh_profit_label_v0")
-		# FEEL_POST_FIX_3: Optimistic cargo update for sells too.
-		_optimistic_cargo_update_v0(good_id, qty, false)
 		# Captain's Guide: first sell hint.
 		var gm_sell = get_node_or_null("/root/GameManager")
 		if gm_sell and gm_sell.has_method("_fire_guide_hint_v0"):
@@ -763,20 +782,22 @@ func _rebuild_rows() -> void:
 			if typeof(item) == TYPE_DICTIONARY:
 				cargo_held[str(item.get("good_id", ""))] = int(item.get("qty", 0))
 
-	# Pre-scan: find cheapest non-embargoed good to highlight as best buy.
+	# Pre-scan: find good with highest profit potential at neighboring stations.
 	var _best_buy_id: String = ""
-	var _best_buy_price: int = 999999
+	var _best_profit: int = 0
+	var _best_dest_name: String = ""
 	for entry in view:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var gid: String = str(entry.get("good_id", ""))
-		var bp: int = int(entry.get("buy_price", 0))
+		var profit_est: int = int(entry.get("profit_estimate", 0))
 		var emb: bool = false
 		if _bridge_ref and _bridge_ref.has_method("IsGoodEmbargoedV0"):
 			emb = bool(_bridge_ref.call("IsGoodEmbargoedV0", _market_node_id, gid))
-		if not emb and bp > 0 and bp < _best_buy_price:
-			_best_buy_price = bp
+		if not emb and profit_est > _best_profit:
+			_best_profit = profit_est
 			_best_buy_id = gid
+			_best_dest_name = str(entry.get("best_sell_node_name", ""))
 
 	for entry in view:
 		if typeof(entry) != TYPE_DICTIONARY:
@@ -784,7 +805,7 @@ func _rebuild_rows() -> void:
 		var good_id: String = str(entry.get("good_id", ""))
 		var buy_price: int = int(entry.get("buy_price", 0))
 		var sell_price: int = int(entry.get("sell_price", 0))
-		var stock: int = int(entry.get("qty", 0))
+		var stock: int = int(entry.get("quantity", 0))
 
 		# GATE.S7.TERRITORY.EMBARGO_UI.001: Check if good is embargoed at this node
 		var is_embargoed: bool = false
@@ -799,20 +820,32 @@ func _rebuild_rows() -> void:
 		if is_embargoed:
 			lbl_id.text = _format_display_name(good_id) + " [EMBARGOED]"
 			lbl_id.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
-		elif is_best_buy:
-			lbl_id.text = _format_display_name(good_id) + "  [BEST BUY]"
+		elif is_best_buy and _best_profit > 0:
+			# FO recommendation — only shown during tutorial or with trade intel tech.
+			lbl_id.text = _format_display_name(good_id) + "  [FO TIP]"
 			lbl_id.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
 		else:
 			lbl_id.text = _format_display_name(good_id)
 		lbl_id.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl_id)
 
+		var lbl_stock = Label.new()
+		lbl_stock.text = str(stock)
+		lbl_stock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if is_embargoed:
+			lbl_stock.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+		elif stock > 50:
+			lbl_stock.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
+		elif stock < 20:
+			lbl_stock.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
+		row.add_child(lbl_stock)
+
 		var lbl_buy = Label.new()
 		lbl_buy.text = "%d cr" % buy_price
 		lbl_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if is_embargoed:
 			lbl_buy.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
-		elif is_best_buy:
+		elif is_best_buy and _best_profit > 0:
 			lbl_buy.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
 		else:
 			# Color-code buy prices: green = surplus (good buy), red = scarce (bad buy).
@@ -904,25 +937,28 @@ func _rebuild_rows() -> void:
 	# FEEL_POST_FIX_10: Show empty-state hint when all Intel sub-sections are hidden.
 	_rebuild_intel_empty_state()
 
-	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: Update cargo summary with total item count
+	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: Update cargo summary with total item count.
+	# Only update on successful bridge read — keep previous text on lock contention.
 	if _cargo_label:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("GetPlayerCargoV0"):
 			var cargo = bridge.call("GetPlayerCargoV0")
-			if typeof(cargo) == TYPE_ARRAY and cargo.size() > 0:
-				var parts: Array = []
-				var total_count: int = 0
-				for item in cargo:
-					if typeof(item) == TYPE_DICTIONARY:
-						var qty: int = int(item.get("qty", 0))
-						total_count += qty
-						parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
-				if parts.size() > 0:
-					_cargo_label.text = "Cargo: %d %s — %s" % [total_count, "item" if total_count == 1 else "items", ", ".join(parts)]
+			if typeof(cargo) == TYPE_ARRAY:
+				if cargo.size() > 0:
+					var parts: Array = []
+					var total_count: int = 0
+					for item in cargo:
+						if typeof(item) == TYPE_DICTIONARY:
+							var qty: int = int(item.get("qty", 0))
+							total_count += qty
+							parts.append("%s x%d" % [_format_display_name(str(item.get("good_id", ""))), qty])
+					if parts.size() > 0:
+						_cargo_label.text = "Cargo: %d %s — %s" % [total_count, "item" if total_count == 1 else "items", ", ".join(parts)]
+					else:
+						_cargo_label.text = "Cargo: empty"
 				else:
 					_cargo_label.text = "Cargo: empty"
-			else:
-				_cargo_label.text = "Cargo: empty"
+			# else: TryExecuteSafeRead failed — keep previous cargo label text
 
 # FEEL_POST_FIX_3: Optimistic cargo update — reads current bridge cargo, locally
 # adjusts for the trade that was just dispatched (but not yet processed by sim),

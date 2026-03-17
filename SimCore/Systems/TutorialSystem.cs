@@ -7,6 +7,7 @@ namespace SimCore.Systems;
 // Hard-gated tutorial state machine. Evaluates gate conditions each tick
 // and advances TutorialPhase when satisfied. All dialogue presentation
 // is handled by GDScript (tutorial_director.gd) via SimBridge.
+// 10 acts, 45 phases. Acts 1-3 replace the original tutorial.
 public static class TutorialSystem
 {
     /// <summary>
@@ -26,36 +27,32 @@ public static class TutorialSystem
                 // Waiting for GDScript to start tutorial via bridge call.
                 break;
 
-            case TutorialPhase.FO_Selection:
-                // Rotating auditions: hails shown → dialogue dismissed → skip to Flight_Intro.
-                // Selection happens later at FO_Selection_PostTrade (phase 20).
-                // Legacy save guard: if candidate already selected, advance directly.
-                if (ts.SelectedCandidate != FirstOfficerCandidate.None)
-                    AdvanceTo(state, ts, TutorialPhase.FO_Selected_Settle);
-                else if (ts.DialogueDismissed)
-                    AdvanceTo(state, ts, TutorialPhase.Flight_Intro);
-                break;
-
-            case TutorialPhase.FO_Selected_Settle:
-                // Gate: dialogue dismissed by player.
+            // ── Act 1: Cold Open ──────────────────────────────────────
+            case TutorialPhase.Awaken:
+                // Gate: dialogue dismissed (intro cinematic acknowledged).
                 if (ts.DialogueDismissed)
                     AdvanceTo(state, ts, TutorialPhase.Flight_Intro);
                 break;
 
             case TutorialPhase.Flight_Intro:
-                // Gate: dialogue dismissed (controls explained).
+                // Gate: dialogue dismissed (Ship Computer message read).
                 if (ts.DialogueDismissed)
-                    AdvanceTo(state, ts, TutorialPhase.Dock_Prompt);
+                    AdvanceTo(state, ts, TutorialPhase.First_Dock);
                 break;
 
-            case TutorialPhase.Dock_Prompt:
-                // Gate: player docked (has_docked = nodesVisited > 0 || goodsTraded > 0).
-                // In practice, docking fires on_proximity_dock_entered which is GDScript.
-                // We detect it via PlayerStats changes or PlayerLocationNodeId changes.
-                // The bridge will call AdvanceTutorialPhaseV0 when dock event fires.
+            case TutorialPhase.First_Dock:
+                // Gate: player docked (bridge NotifyTutorialDockV0 fires).
+                // Advancement handled by bridge NotifyTutorialDockV0.
                 break;
 
-            case TutorialPhase.Docked_First:
+            // ── Act 2: The Crew ───────────────────────────────────────
+            case TutorialPhase.Maren_Hail:
+                // Gate: dialogue dismissed (2-beat sequence via DialogueSequence).
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Maren_Settle);
+                break;
+
+            case TutorialPhase.Maren_Settle:
                 // Gate: dialogue dismissed.
                 if (ts.DialogueDismissed)
                     AdvanceTo(state, ts, TutorialPhase.Market_Explain);
@@ -70,23 +67,28 @@ public static class TutorialSystem
             case TutorialPhase.Buy_Prompt:
                 // Gate: player bought something (cargo count increased).
                 if (state.PlayerCargo.Values.Sum() > 0)
-                    AdvanceTo(state, ts, TutorialPhase.Buy_Complete);
+                    AdvanceTo(state, ts, TutorialPhase.Buy_React);
                 break;
 
-            case TutorialPhase.Buy_Complete:
+            case TutorialPhase.Buy_React:
                 // Gate: dialogue dismissed.
                 if (ts.DialogueDismissed)
                     AdvanceTo(state, ts, TutorialPhase.Travel_Prompt);
                 break;
 
+            // ── Act 3: The Trade ──────────────────────────────────────
             case TutorialPhase.Travel_Prompt:
-                // Gate: nodesVisited increased AND player arrived at a new node.
+                // Gate: nodesVisited increased (traveled to new system).
                 if (state.PlayerStats != null
                     && state.PlayerStats.NodesVisited > ts.NodesVisitedAtPhaseEntry)
                 {
-                    // Bridge will also advance on dock event at new station.
-                    AdvanceTo(state, ts, TutorialPhase.Sell_Prompt);
+                    AdvanceTo(state, ts, TutorialPhase.Arrival_Dock);
                 }
+                break;
+
+            case TutorialPhase.Arrival_Dock:
+                // Gate: player docked at new station (bridge NotifyTutorialDockV0).
+                // Advancement handled by bridge.
                 break;
 
             case TutorialPhase.Sell_Prompt:
@@ -94,36 +96,29 @@ public static class TutorialSystem
                 if (state.PlayerStats != null
                     && state.PlayerStats.GoodsTraded > ts.GoodsTradedAtPhaseEntry)
                 {
-                    AdvanceTo(state, ts, TutorialPhase.Sell_Complete);
+                    AdvanceTo(state, ts, TutorialPhase.First_Profit);
                 }
                 break;
 
-            case TutorialPhase.Sell_Complete:
-                // Gate: dialogue dismissed (emotional peak acknowledged).
-                // If no FO selected yet (rotating auditions), go to post-trade selection.
+            case TutorialPhase.First_Profit:
+                // Gate: dialogue dismissed (2-beat: profit → "we need help").
                 if (ts.DialogueDismissed)
-                {
-                    if (ts.SelectedCandidate == FirstOfficerCandidate.None)
-                        AdvanceTo(state, ts, TutorialPhase.FO_Selection_PostTrade);
-                    else
-                        AdvanceTo(state, ts, TutorialPhase.Faction_Explain);
-                }
+                    AdvanceTo(state, ts, TutorialPhase.FO_Selection);
                 break;
 
-            case TutorialPhase.FO_Selection_PostTrade:
-                // Gate: FO candidate selected (player chose from enriched overlay).
+            case TutorialPhase.FO_Selection:
+                // Gate: FO candidate selected.
                 if (ts.SelectedCandidate != FirstOfficerCandidate.None)
-                    AdvanceTo(state, ts, TutorialPhase.FO_Selected_Settle);
+                    AdvanceTo(state, ts, TutorialPhase.World_Intro);
                 break;
 
-            case TutorialPhase.Faction_Explain:
-                // Gate: dialogue dismissed.
+            // ── Act 4: The World ──────────────────────────────────────
+            case TutorialPhase.World_Intro:
                 if (ts.DialogueDismissed)
                     AdvanceTo(state, ts, TutorialPhase.Explore_Prompt);
                 break;
 
             case TutorialPhase.Explore_Prompt:
-                // Gate: 3+ nodes visited.
                 if (state.PlayerStats != null
                     && state.PlayerStats.NodesVisited >= TutorialTweaksV0.ExploreCompleteNodes)
                 {
@@ -132,31 +127,180 @@ public static class TutorialSystem
                 break;
 
             case TutorialPhase.Explore_Complete:
-                // Gate: dialogue dismissed.
                 if (ts.DialogueDismissed)
-                    AdvanceTo(state, ts, TutorialPhase.Automation_Explain);
+                    AdvanceTo(state, ts, TutorialPhase.Galaxy_Map_Prompt);
                 break;
 
-            case TutorialPhase.Automation_Explain:
-                // Gate: dialogue dismissed.
+            case TutorialPhase.Galaxy_Map_Prompt:
                 if (ts.DialogueDismissed)
-                    AdvanceTo(state, ts, TutorialPhase.Automation_Prompt);
+                    AdvanceTo(state, ts, TutorialPhase.Threat_Warning);
                 break;
 
-            case TutorialPhase.Automation_Prompt:
-                // Gate: player has at least one active program.
+            // ── Act 5: The Threat ─────────────────────────────────────
+            case TutorialPhase.Threat_Warning:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Dask_Hail);
+                break;
+
+            case TutorialPhase.Dask_Hail:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Combat_Engage);
+                break;
+
+            case TutorialPhase.Combat_Engage:
+                // Gate: combat completed (NPC fleets destroyed increased).
+                if (state.PlayerStats != null
+                    && state.PlayerStats.NpcFleetsDestroyed > ts.NpcFleetsDestroyedAtPhaseEntry)
+                {
+                    AdvanceTo(state, ts, TutorialPhase.Combat_Debrief);
+                }
+                break;
+
+            case TutorialPhase.Combat_Debrief:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Repair_Prompt);
+                break;
+
+            case TutorialPhase.Repair_Prompt:
+                // Gate: hull restored (player fleet hull >= max hull, or docked).
+                {
+                    var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
+                        string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal));
+                    if (playerFleet != null && playerFleet.HullHp >= playerFleet.HullHpMax)
+                        AdvanceTo(state, ts, TutorialPhase.Module_Intro);
+                }
+                break;
+
+            // ── Act 6: The Upgrade ────────────────────────────────────
+            case TutorialPhase.Module_Intro:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Module_Equip);
+                break;
+
+            case TutorialPhase.Module_Equip:
+                // Gate: player has equipped at least 1 module.
+                {
+                    var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
+                        string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal));
+                    if (playerFleet != null && playerFleet.Slots != null
+                        && playerFleet.Slots.Any(s => !string.IsNullOrEmpty(s.InstalledModuleId)))
+                    {
+                        AdvanceTo(state, ts, TutorialPhase.Module_React);
+                    }
+                }
+                break;
+
+            case TutorialPhase.Module_React:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Lira_Tease);
+                break;
+
+            case TutorialPhase.Lira_Tease:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Automation_Intro);
+                break;
+
+            // ── Act 7: The Empire ─────────────────────────────────────
+            case TutorialPhase.Automation_Intro:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Automation_Create);
+                break;
+
+            case TutorialPhase.Automation_Create:
                 if (state.Programs != null && state.Programs.Instances.Count > 0)
-                    AdvanceTo(state, ts, TutorialPhase.Automation_Complete);
+                    AdvanceTo(state, ts, TutorialPhase.Automation_Running);
                 break;
 
-            case TutorialPhase.Automation_Complete:
-                // Gate: dialogue dismissed.
+            case TutorialPhase.Automation_Running:
+                if (ts.TicksSincePhaseChange >= TutorialTweaksV0.AutomationWaitTicks)
+                    AdvanceTo(state, ts, TutorialPhase.Automation_React);
+                break;
+
+            case TutorialPhase.Automation_React:
                 if (ts.DialogueDismissed)
-                    AdvanceTo(state, ts, TutorialPhase.Mystery_Tease);
+                    AdvanceTo(state, ts, TutorialPhase.Commission_Intro);
                 break;
 
-            case TutorialPhase.Mystery_Tease:
-                // Gate: dialogue dismissed.
+            case TutorialPhase.Commission_Intro:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Haven_Discovery);
+                break;
+
+            // ── Act 8: The Haven ──────────────────────────────────────
+            case TutorialPhase.Haven_Discovery:
+                // Gate: player docks at Haven (bridge fires NotifyTutorialDockV0 with Haven check).
+                if (state.Haven != null && state.Haven.Discovered)
+                    AdvanceTo(state, ts, TutorialPhase.Haven_Tour);
+                break;
+
+            case TutorialPhase.Haven_Tour:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Haven_Upgrade_Prompt);
+                break;
+
+            case TutorialPhase.Haven_Upgrade_Prompt:
+                // Soft gate: advance if player starts upgrade OR stall timer expires.
+                if (ts.TicksSincePhaseChange >= TutorialTweaksV0.HavenUpgradeStallTicks)
+                    AdvanceTo(state, ts, TutorialPhase.Haven_React);
+                // Also advance if any Haven upgrade is in progress.
+                else if (state.Haven != null && state.Haven.UpgradeTicksRemaining > 0)
+                {
+                    AdvanceTo(state, ts, TutorialPhase.Haven_React);
+                }
+                break;
+
+            case TutorialPhase.Haven_React:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Research_Intro);
+                break;
+
+            // ── Act 9: The Frontier ───────────────────────────────────
+            case TutorialPhase.Research_Intro:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Research_Start);
+                break;
+
+            case TutorialPhase.Research_Start:
+                // Gate: any Haven research slot is active.
+                if (state.Haven?.ResearchLabSlots != null
+                    && state.Haven.ResearchLabSlots.Any(s => s.IsActive))
+                {
+                    AdvanceTo(state, ts, TutorialPhase.Research_React);
+                }
+                break;
+
+            case TutorialPhase.Research_React:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Knowledge_Intro);
+                break;
+
+            case TutorialPhase.Knowledge_Intro:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Frontier_Tease);
+                break;
+
+            case TutorialPhase.Frontier_Tease:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Mystery_Reveal);
+                break;
+
+            // ── Act 10: Graduation ────────────────────────────────────
+            case TutorialPhase.Mystery_Reveal:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Graduation_Summary);
+                break;
+
+            case TutorialPhase.Graduation_Summary:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.FO_Farewell);
+                break;
+
+            case TutorialPhase.FO_Farewell:
+                if (ts.DialogueDismissed)
+                    AdvanceTo(state, ts, TutorialPhase.Milestone_Award);
+                break;
+
+            case TutorialPhase.Milestone_Award:
                 if (ts.DialogueDismissed)
                     AdvanceTo(state, ts, TutorialPhase.Tutorial_Complete);
                 break;
@@ -178,6 +322,8 @@ public static class TutorialSystem
         {
             ts.GoodsTradedAtPhaseEntry = state.PlayerStats.GoodsTraded;
             ts.NodesVisitedAtPhaseEntry = state.PlayerStats.NodesVisited;
+            ts.NpcFleetsDestroyedAtPhaseEntry = state.PlayerStats.NpcFleetsDestroyed;
+            ts.TechsUnlockedAtPhaseEntry = state.PlayerStats.TechsUnlocked;
         }
     }
 

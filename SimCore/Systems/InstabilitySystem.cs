@@ -46,10 +46,13 @@ public static class InstabilitySystem
 
             if (contestedNodes.Contains(kv.Key))
             {
-                // Warfront-adjacent: gain instability.
-                int intensity = nodeIntensity.TryGetValue(kv.Key, out var i) ? i : maxIntensityByNode_default;
-                int gain = InstabilityTweaksV0.BaseGainPerTick * intensity;
-                node.InstabilityLevel = Math.Min(node.InstabilityLevel + gain, InstabilityTweaksV0.MaxInstability);
+                // Warfront-adjacent: gain instability once per gain interval (not every tick).
+                if (state.Tick > 0 && state.Tick % InstabilityTweaksV0.GainIntervalTicks == 0) // STRUCTURAL: tick guard
+                {
+                    int intensity = nodeIntensity.TryGetValue(kv.Key, out var i) ? i : maxIntensityByNode_default;
+                    int gain = InstabilityTweaksV0.BaseGainPerInterval * intensity;
+                    node.InstabilityLevel = Math.Min(node.InstabilityLevel + gain, InstabilityTweaksV0.MaxInstability);
+                }
             }
             else if (node.InstabilityLevel > 0) // STRUCTURAL: skip stable nodes
             {

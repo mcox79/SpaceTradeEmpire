@@ -28,9 +28,11 @@ public class BuyCommand : ICommand
 		if (!MarketSystem.CanTradeByReputation(state, MarketId)) return;
 
 		var available = InventoryLedger.Get(market.Inventory, GoodId);
-		if (available < Quantity) return;
+		// Clamp to available stock.
+		int qty = Math.Min(Quantity, available);
+		if (qty <= 0) return;
 
-		// GATE.X.SHIP_CLASS.CARGO_ENFORCE.001: Reject buy if it would exceed cargo capacity.
+		// GATE.X.SHIP_CLASS.CARGO_ENFORCE.001: Clamp to cargo capacity.
 		var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
 			string.Equals(f.OwnerId, "player", StringComparison.Ordinal));
 		if (playerFleet != null)
@@ -39,8 +41,9 @@ public class BuyCommand : ICommand
 			if (classDef != null && classDef.CargoCapacity > 0)
 			{
 				int currentCargo = state.PlayerCargo.Values.Sum();
-				if (currentCargo + Quantity > classDef.CargoCapacity)
-					return;
+				int cargoSpace = classDef.CargoCapacity - currentCargo;
+				qty = Math.Min(qty, cargoSpace);
+				if (qty <= 0) return;
 			}
 		}
 
@@ -63,29 +66,50 @@ public class BuyCommand : ICommand
 
 		if (instMultBps != 10000)
 			unitPrice = (int)Math.Max(1, (long)unitPrice * instMultBps / 10000);
-		int totalCost = unitPrice * Quantity;
+
+		// Compute effective cost per unit including tariffs and fees, then clamp qty to affordable.
+		int tariffBps = MarketSystem.GetEffectiveTariffBps(state, MarketId);
+		int sampleCost = unitPrice;
+		sampleCost += MarketSystem.ComputeTariffCredits(sampleCost, tariffBps);
+		sampleCost += MarketSystem.ComputeTransactionFeeCredits(state, sampleCost);
+		int effectiveUnitCost = Math.Max(1, sampleCost);
+		qty = (int)Math.Min(qty, state.PlayerCredits / effectiveUnitCost);
+		if (qty <= 0) return;
+
+		// Recompute exact total for the clamped quantity.
+		int totalCost = unitPrice * qty;
 
 		// GATE.S7.FACTION.TARIFF_ENFORCE.001: Apply tariff surcharge (increases buy cost).
-		int tariffBps = MarketSystem.GetEffectiveTariffBps(state, MarketId);
 		totalCost += MarketSystem.ComputeTariffCredits(totalCost, tariffBps);
 
 		// GATE.X.MARKET_PRICING.FEE_WIRE.001: Deduct transaction fee.
 		totalCost += MarketSystem.ComputeTransactionFeeCredits(state, totalCost);
 
-		if (state.PlayerCredits < totalCost) return;
+		// Final safety: if rounding pushed total over budget, reduce by one.
+		while (qty > 0 && totalCost > state.PlayerCredits)
+		{
+			qty--;
+			totalCost = unitPrice * qty;
+			totalCost += MarketSystem.ComputeTariffCredits(totalCost, tariffBps);
+			totalCost += MarketSystem.ComputeTransactionFeeCredits(state, totalCost);
+		}
+		if (qty <= 0) return;
 
-		if (!InventoryLedger.TryRemoveMarket(market.Inventory, GoodId, Quantity)) return;
+		// Update Quantity to reflect clamped amount (for transaction record).
+		Quantity = qty;
+
+		if (!InventoryLedger.TryRemoveMarket(market.Inventory, GoodId, qty)) return;
 
 		state.PlayerCredits -= totalCost;
-		InventoryLedger.AddCargo(state.PlayerCargo, GoodId, Quantity);
+		InventoryLedger.AddCargo(state.PlayerCargo, GoodId, qty);
 
 		// GATE.X.LEDGER.COST_BASIS.001: Update weighted average cost basis.
 		{
 			int totalQty = InventoryLedger.Get(state.PlayerCargo, GoodId); // qty after this buy
-			int prevQty = totalQty - Quantity;
+			int prevQty = totalQty - qty;
 			if (prevQty < 0) prevQty = 0;
 			state.PlayerCargoCostBasis.TryGetValue(GoodId, out int prevAvg);
-			long totalBasis = (long)prevQty * prevAvg + (long)Quantity * unitPrice;
+			long totalBasis = (long)prevQty * prevAvg + (long)qty * unitPrice;
 			state.PlayerCargoCostBasis[GoodId] = totalQty > 0 ? (int)(totalBasis / totalQty) : 0;
 		}
 
@@ -94,7 +118,7 @@ public class BuyCommand : ICommand
 		{
 			CashDelta = -totalCost,
 			GoodId = GoodId,
-			Quantity = Quantity,
+			Quantity = qty,
 			Source = "Buy",
 			NodeId = MarketId,
 		});

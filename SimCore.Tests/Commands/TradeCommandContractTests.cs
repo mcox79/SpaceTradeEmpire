@@ -60,15 +60,17 @@ public sealed class TradeCommandContractTests
 	}
 
 	[Test]
-	public void BuyCommand_InsufficientStock_NoChange()
+	public void BuyCommand_OverStock_ClampsToAvailable()
 	{
 		var state = MakeState();
+		state.PlayerCredits = 1_000_000; // enough for all stock
 		int overStock = InitialStock + 1;
 
 		new BuyCommand(MarketId, Fuel, overStock).Execute(state);
 
-		Assert.That(state.PlayerCredits, Is.EqualTo(InitialCredits));
-		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(InitialStock));
+		// Clamped to InitialStock — buys all available, not rejected.
+		Assert.That(InventoryLedger.Get(state.PlayerCargo, Fuel), Is.EqualTo(InitialStock));
+		Assert.That(InventoryLedger.Get(state.Markets[MarketId].Inventory, Fuel), Is.EqualTo(0));
 	}
 
 	[Test]
