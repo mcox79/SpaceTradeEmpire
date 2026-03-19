@@ -63,14 +63,10 @@ func _build_ui() -> void:
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_panel.custom_minimum_size = Vector2(300, 0)
 
-	# Dark semi-transparent background.
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.08, 0.15, 0.92)
-	style.border_color = Color(0.3, 0.5, 0.8, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(16)
-	_panel.add_theme_stylebox_override("panel", style)
+	# L1.1: Ship computer panel style.
+	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
+	UITheme.add_corner_brackets(_panel)
+	UITheme.add_scanline_overlay(_panel)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)

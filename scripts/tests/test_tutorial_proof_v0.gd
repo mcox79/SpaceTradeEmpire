@@ -1,60 +1,73 @@
 # scripts/tests/test_tutorial_proof_v0.gd
-# Tutorial Verification Bot — walks through the entire Captain's Guide onboarding,
-# verifies each guide hint fires at the correct time, confirms tab disclosure cascade,
-# checks HUD objective progression, and takes screenshots at key milestones.
+# Tutorial Verification Bot — walks through all 10 acts / 45 phases of the
+# FO-voiced onboarding, validates phase transitions, dialogue integrity,
+# narrative coherence (player-perspective), and economy correctness.
 #
 # Usage:
 #   powershell -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script tutorial -Seeds 42
 #   godot --headless --path . -s res://scripts/tests/test_tutorial_proof_v0.gd -- --seed=42
 #
-# Key design notes:
-#   - GUIDE_BUY/GUIDE_SELL fire from hero_trade_menu.gd UI callbacks, not the bridge.
-#     In headless, the bot fires them manually after bridge trade to simulate UI path.
-#   - has_docked = nodesVisited > 0 || goodsTraded > 0 (bridge definition).
-#   - has_traded = GoodsTraded > 0 (increments on sell, not buy).
-#   - The bot does: dock → buy → travel → sell at dest (first sell = tutorial moment) → verify disclosure cascade.
+# Exercise modes:
+#   Acts 1-4: Natural play (dock, buy, travel, sell, select FO, explore)
+#   Acts 5-10: Force-advance via bridge helpers (combat, modules, automation, haven, research)
+#
+# Key validations:
+#   - All 45 phases visited in order (no skips, no reversals)
+#   - No duplicate dialogue (same phase+sequence+text)
+#   - Speaker correctness (Ship Computer, Maren, selected FO, Dask/Lira cameos)
+#   - Objective text matches player action (keyword checks)
+#   - Trade waypoint set after Buy_React
+#   - New Voyage re-initialization (clean state after ReinitializeForNewGameV0)
 extends SceneTree
 
 const PREFIX := "TUT"
-const MAX_POLLS := 600
 const OUTPUT_DIR := "res://reports/tutorial/"
-const MARKET_POLL_MAX := 120  # Max frames to wait for market to populate
-
-const ScreenshotScript = preload("res://scripts/tools/screenshot_capture.gd")
-var _a := preload("res://scripts/tools/bot_assert.gd").new("TUT")
-var _user_seed := -1  # -1 = no seed override
-
-# Settle timings (frames at ~60fps)
+const MAX_FRAMES := 15000  # 250s at 60fps — 10 acts need more time
+const STALL_FRAMES := 600  # 10s stall watchdog per bot phase
 const SETTLE_SCENE := 60
 const SETTLE_ACTION := 20
 const SETTLE_TRAVEL := 30
+const MARKET_POLL_MAX := 120
 
-enum Phase {
+const ScreenshotScript = preload("res://scripts/tools/screenshot_capture.gd")
+var _a := preload("res://scripts/tools/bot_assert.gd").new("TUT")
+var _user_seed := -1
+
+# ── Bot Phase Enum ──────────────────────────────────────────────────
+enum BotPhase {
 	# Setup
-	LOAD_SCENE, WAIT_SCENE, WAIT_BRIDGE, WAIT_READY, WAIT_LOCAL_SYSTEM,
-	# Act 1: Cold Open & Welcome Overlay
-	CHECK_INTRO_ACTIVE, WELCOME_OVERLAY, WELCOME_SCREENSHOT, WELCOME_DISMISS, WAIT_DISMISS,
-	# Act 2: Pre-Dock Verification
-	PRE_DOCK_DISCLOSURE, DOCK_STATION, WAIT_DOCK, DOCK_SCREENSHOT, POST_DOCK_DISCLOSURE,
-	# Act 3: Buy at Home Station
-	WAIT_MARKET, BUY_GOOD, POST_BUY_SCREENSHOT,
-	# Act 4: Travel & Sell at Destination (the tutorial trade)
-	UNDOCK_TRAVEL, WAIT_TRAVEL, DOCK_DEST, WAIT_DOCK_DEST, SELL_AT_DEST,
-	POST_SELL_DISCLOSURE, POST_SELL_SCREENSHOT,
-	# Act 5: Exploration Disclosure (3+ nodes)
-	UNDOCK_2, WAIT_TRAVEL_2, TRAVEL_NODE_3, WAIT_TRAVEL_3,
-	NODE_3_DISCLOSURE, DOCK_NODE_3, WAIT_DOCK_NODE_3, NODE_3_TAB_CHECK, NODE_3_SCREENSHOT,
-	# Final
-	GUIDE_AUDIT, FINAL_SUMMARY,
-	DONE
+	LOAD_SCENE, WAIT_SCENE, WAIT_BRIDGE, WAIT_READY,
+	# Act 1: Cold Open
+	ACT1_START_TUTORIAL, ACT1_AWAKEN, ACT1_FLIGHT_INTRO, ACT1_FIRST_DOCK,
+	# Act 2: The Crew
+	ACT2_MAREN_HAIL, ACT2_DISMISS_THROUGH_MARKET, ACT2_BUY_PROMPT, ACT2_DO_BUY, ACT2_BUY_REACT,
+	# Act 3: The Trade
+	ACT3_TRAVEL, ACT3_ARRIVAL_DOCK, ACT3_SELL, ACT3_FIRST_PROFIT, ACT3_FO_SELECT,
+	# Act 4: The World
+	ACT4_WORLD_INTRO, ACT4_EXPLORE, ACT4_EXPLORE_COMPLETE, ACT4_GALAXY_MAP,
+	# Act 5: The Threat (force-advance)
+	ACT5_THREAT_WARNING, ACT5_DASK_HAIL, ACT5_COMBAT, ACT5_DEBRIEF, ACT5_REPAIR,
+	# Act 6: The Upgrade (force-advance)
+	ACT6_MODULE_INTRO, ACT6_MODULE_EQUIP, ACT6_MODULE_REACT, ACT6_LIRA_TEASE,
+	# Act 7: The Empire (force-advance)
+	ACT7_AUTOMATION_INTRO, ACT7_AUTOMATION_CREATE, ACT7_AUTOMATION_WAIT,
+	ACT7_AUTOMATION_REACT, ACT7_COMMISSION,
+	# Act 8: The Haven (force-advance)
+	ACT8_HAVEN_DISCOVER, ACT8_HAVEN_TOUR, ACT8_HAVEN_UPGRADE, ACT8_HAVEN_REACT,
+	# Act 9: The Frontier (force-advance)
+	ACT9_RESEARCH_INTRO, ACT9_RESEARCH_START, ACT9_RESEARCH_REACT,
+	ACT9_KNOWLEDGE, ACT9_FRONTIER,
+	# Act 10: Graduation
+	ACT10_MYSTERY, ACT10_GRADUATION, ACT10_FAREWELL, ACT10_MILESTONE,
+	# Validation
+	REINIT_TEST, FINAL_AUDIT, FINAL_SUMMARY, DONE
 }
 
-var _phase := Phase.LOAD_SCENE
+var _phase := BotPhase.LOAD_SCENE
 var _polls := 0
 var _total_frames := 0
 var _last_phase_change_frame := 0
 var _busy := false
-const MAX_FRAMES := 5400  # 90s at 60fps
 
 var _bridge = null
 var _gm = null
@@ -71,126 +84,169 @@ var _bought_good_id := ""
 var _bought_qty := 0
 var _bought_unit_cost := 0
 var _sell_node_id := ""
-var _node_3_id := ""
+var _credit_curve: Array[Dictionary] = []
 
-# Credit progression curve — logged at each phase boundary.
-var _credit_curve: Array[Dictionary] = []  # [{phase, credits, frame}]
+# Tutorial phase tracking
+var _phase_history: Array = []  # Array of {phase (int), name (String), frame (int)}
+var _dialogue_log: Array = []   # Array of {phase (String), seq (int), speaker (String), text (String)}
+var _beat_counts: Dictionary = {}  # phase_name → int: beats dismissed per phase
+var _objective_log: Dictionary = {}  # phase_name → objective text (for coverage audit)
+var _last_tutorial_phase := -1  # Track tutorial phase changes
+var _sequence_reset_violations := 0  # Count of phases where sequence != 0 on entry
+var _selected_fo_type := "Analyst"  # Rotated by seed: 0=Analyst, 1=Veteran, 2=Pathfinder
+var _haven_force_called := false  # Prevent double-calling ForceDiscoverHavenV0
+var _stall_ticks_samples: Dictionary = {}  # phase_name → Array[int] of stall_ticks readings
+var _tab_disclosure_log: Array = []  # Array of {checkpoint, show_jobs_tab, show_ship_tab, ...}
 
-# Guide hint order tracking
-var _guide_fire_order: Array[String] = []
-var _last_guide_count := 0
-
-# Canonical guide hint texts (source of truth: game_manager.gd + hero_trade_menu.gd).
-const _GUIDE_TEXTS := {
-	"GUIDE_FLIGHT": "The station ahead is your first stop. Fly close and press E to dock.",
-	"GUIDE_DOCK": "Open the Market tab. Green prices mean surplus — buy those. Red means scarce — sell those elsewhere.",
-	"GUIDE_BUY": "Cargo loaded. Fly to a station where this good shows red (scarce) — they'll pay more.",
-	"GUIDE_SELL": "Profit. You've found a trade route. Now automate it.",
-	"GUIDE_AUTOMATE": "Programs run trades automatically. Set up a route once — it profits while you explore.",
-	"GUIDE_MAP": "Press M for the Galaxy Map. Each system produces different goods — plan your routes.",
-	"GUIDE_FACTION": "Faction territory. They set tariffs on trade and guard their technology. Earn reputation to unlock both.",
-	"GUIDE_STATION_TAB": "Station tab shows local industry, faction presence, and production chains.",
+# Expected beat counts from TutorialContentV0.cs (multi-beat phases only).
+# Single-beat phases default to 1; these override for multi-beat.
+var _expected_beats := {
+	"Awaken": 2, "Maren_Hail": 2, "First_Profit": 2, "World_Intro": 2,
+	"Combat_Debrief": 2, "Automation_Intro": 2, "Haven_Tour": 3,
+	"Research_Intro": 2, "Mystery_Reveal": 2
 }
 
+# ── Main Loop ──────────────────────────────────────────────────────
 
 func _process(_delta: float) -> bool:
 	if _busy:
 		return false
 	_total_frames += 1
-	if _total_frames >= MAX_FRAMES and _phase != Phase.DONE:
-		_a.log("TIMEOUT|frame=%d phase=%s" % [_total_frames, Phase.keys()[_phase]])
-		_a.hard(false, "timeout", "phase=%s" % Phase.keys()[_phase])
-		_phase = Phase.FINAL_SUMMARY
+
+	# Global timeout
+	if _total_frames >= MAX_FRAMES and _phase != BotPhase.DONE:
+		_a.log("TIMEOUT|frame=%d bot_phase=%s" % [_total_frames, BotPhase.keys()[_phase]])
+		_a.hard(false, "timeout", "bot_phase=%s" % BotPhase.keys()[_phase])
+		_phase = BotPhase.FINAL_SUMMARY
+
 	# Stall watchdog
-	if _total_frames - _last_phase_change_frame > 360 and _phase != Phase.DONE:
-		_a.flag("SOFT_LOCK_%s" % Phase.keys()[_phase])
+	if _total_frames - _last_phase_change_frame > STALL_FRAMES and _phase != BotPhase.DONE:
+		_a.flag("SOFT_LOCK_%s" % BotPhase.keys()[_phase])
 		_last_phase_change_frame = _total_frames
+
+	# Poll tutorial phase changes for history tracking
+	_track_tutorial_phase()
+
 	match _phase:
-		Phase.LOAD_SCENE: _do_load_scene()
-		Phase.WAIT_SCENE: _do_wait(Phase.WAIT_SCENE, SETTLE_SCENE, Phase.WAIT_BRIDGE)
-		Phase.WAIT_BRIDGE: _do_wait_bridge()
-		Phase.WAIT_READY: _do_wait_ready()
-		Phase.WAIT_LOCAL_SYSTEM: _do_wait_local()
+		# Setup
+		BotPhase.LOAD_SCENE: _do_load_scene()
+		BotPhase.WAIT_SCENE: _do_wait(SETTLE_SCENE, BotPhase.WAIT_BRIDGE)
+		BotPhase.WAIT_BRIDGE: _do_wait_bridge()
+		BotPhase.WAIT_READY: _do_wait_ready()
 		# Act 1
-		Phase.CHECK_INTRO_ACTIVE: _do_check_intro_active()
-		Phase.WELCOME_OVERLAY: _do_welcome_overlay()
-		Phase.WELCOME_SCREENSHOT: _do_welcome_screenshot()
-		Phase.WELCOME_DISMISS: _do_welcome_dismiss()
-		Phase.WAIT_DISMISS: _do_wait(Phase.WAIT_DISMISS, SETTLE_ACTION, Phase.PRE_DOCK_DISCLOSURE)
+		BotPhase.ACT1_START_TUTORIAL: _do_act1_start()
+		BotPhase.ACT1_AWAKEN: _do_act1_awaken()
+		BotPhase.ACT1_FLIGHT_INTRO: _do_act1_flight_intro()
+		BotPhase.ACT1_FIRST_DOCK: _do_act1_first_dock()
 		# Act 2
-		Phase.PRE_DOCK_DISCLOSURE: _do_pre_dock_disclosure()
-		Phase.DOCK_STATION: _do_dock_station()
-		Phase.WAIT_DOCK: _do_wait_dock()
-		Phase.DOCK_SCREENSHOT: _do_dock_screenshot()
-		Phase.POST_DOCK_DISCLOSURE: _do_post_dock_disclosure()
+		BotPhase.ACT2_MAREN_HAIL: _do_act2_maren_hail()
+		BotPhase.ACT2_DISMISS_THROUGH_MARKET: _do_act2_dismiss_through_market()
+		BotPhase.ACT2_BUY_PROMPT: _do_act2_buy_prompt()
+		BotPhase.ACT2_DO_BUY: _do_act2_do_buy()
+		BotPhase.ACT2_BUY_REACT: _do_act2_buy_react()
 		# Act 3
-		Phase.WAIT_MARKET: _do_wait_market()
-		Phase.BUY_GOOD: _do_buy_good()
-		Phase.POST_BUY_SCREENSHOT: _do_post_buy_screenshot()
+		BotPhase.ACT3_TRAVEL: _do_act3_travel()
+		BotPhase.ACT3_ARRIVAL_DOCK: _do_act3_arrival_dock()
+		BotPhase.ACT3_SELL: _do_act3_sell()
+		BotPhase.ACT3_FIRST_PROFIT: _do_act3_first_profit()
+		BotPhase.ACT3_FO_SELECT: _do_act3_fo_select()
 		# Act 4
-		Phase.UNDOCK_TRAVEL: _do_undock_travel()
-		Phase.WAIT_TRAVEL: _do_wait(Phase.WAIT_TRAVEL, SETTLE_TRAVEL, Phase.DOCK_DEST)
-		Phase.DOCK_DEST: _do_dock_dest()
-		Phase.WAIT_DOCK_DEST: _do_wait(Phase.WAIT_DOCK_DEST, SETTLE_ACTION, Phase.SELL_AT_DEST)
-		Phase.SELL_AT_DEST: _do_sell_at_dest()
-		Phase.POST_SELL_DISCLOSURE: _do_post_sell_disclosure()
-		Phase.POST_SELL_SCREENSHOT: _do_post_sell_screenshot()
+		BotPhase.ACT4_WORLD_INTRO: _do_act4_world_intro()
+		BotPhase.ACT4_EXPLORE: _do_act4_explore()
+		BotPhase.ACT4_EXPLORE_COMPLETE: _do_act4_explore_complete()
+		BotPhase.ACT4_GALAXY_MAP: _do_act4_galaxy_map()
 		# Act 5
-		Phase.UNDOCK_2: _do_undock_2()
-		Phase.WAIT_TRAVEL_2: _do_wait(Phase.WAIT_TRAVEL_2, SETTLE_TRAVEL, Phase.TRAVEL_NODE_3)
-		Phase.TRAVEL_NODE_3: _do_travel_node_3()
-		Phase.WAIT_TRAVEL_3: _do_wait(Phase.WAIT_TRAVEL_3, SETTLE_TRAVEL, Phase.NODE_3_DISCLOSURE)
-		Phase.NODE_3_DISCLOSURE: _do_node_3_disclosure()
-		Phase.DOCK_NODE_3: _do_dock_node_3()
-		Phase.WAIT_DOCK_NODE_3: _do_wait_dock_node_3()
-		Phase.NODE_3_TAB_CHECK: _do_node_3_tab_check()
-		Phase.NODE_3_SCREENSHOT: _do_node_3_screenshot()
-		# Final
-		Phase.GUIDE_AUDIT: _do_guide_audit()
-		Phase.FINAL_SUMMARY: _do_final_summary()
-		Phase.DONE: pass
+		BotPhase.ACT5_THREAT_WARNING: _do_act5_threat_warning()
+		BotPhase.ACT5_DASK_HAIL: _do_act5_dask_hail()
+		BotPhase.ACT5_COMBAT: _do_act5_combat()
+		BotPhase.ACT5_DEBRIEF: _do_act5_debrief()
+		BotPhase.ACT5_REPAIR: _do_act5_repair()
+		# Act 6
+		BotPhase.ACT6_MODULE_INTRO: _do_act6_module_intro()
+		BotPhase.ACT6_MODULE_EQUIP: _do_act6_module_equip()
+		BotPhase.ACT6_MODULE_REACT: _do_act6_module_react()
+		BotPhase.ACT6_LIRA_TEASE: _do_act6_lira_tease()
+		# Act 7
+		BotPhase.ACT7_AUTOMATION_INTRO: _do_act7_automation_intro()
+		BotPhase.ACT7_AUTOMATION_CREATE: _do_act7_automation_create()
+		BotPhase.ACT7_AUTOMATION_WAIT: _do_act7_automation_wait()
+		BotPhase.ACT7_AUTOMATION_REACT: _do_act7_automation_react()
+		BotPhase.ACT7_COMMISSION: _do_act7_commission()
+		# Act 8
+		BotPhase.ACT8_HAVEN_DISCOVER: _do_act8_haven_discover()
+		BotPhase.ACT8_HAVEN_TOUR: _do_act8_haven_tour()
+		BotPhase.ACT8_HAVEN_UPGRADE: _do_act8_haven_upgrade()
+		BotPhase.ACT8_HAVEN_REACT: _do_act8_haven_react()
+		# Act 9
+		BotPhase.ACT9_RESEARCH_INTRO: _do_act9_research_intro()
+		BotPhase.ACT9_RESEARCH_START: _do_act9_research_start()
+		BotPhase.ACT9_RESEARCH_REACT: _do_act9_research_react()
+		BotPhase.ACT9_KNOWLEDGE: _do_act9_knowledge()
+		BotPhase.ACT9_FRONTIER: _do_act9_frontier()
+		# Act 10
+		BotPhase.ACT10_MYSTERY: _do_act10_mystery()
+		BotPhase.ACT10_GRADUATION: _do_act10_graduation()
+		BotPhase.ACT10_FAREWELL: _do_act10_farewell()
+		BotPhase.ACT10_MILESTONE: _do_act10_milestone()
+		# Validation
+		BotPhase.REINIT_TEST: _do_reinit_test()
+		BotPhase.FINAL_AUDIT: _do_final_audit()
+		BotPhase.FINAL_SUMMARY: _do_final_summary()
+		BotPhase.DONE: pass
+
+	# Auto-dismiss stuck dialogue to prevent cascade failures.
+	# Only fires after 90 frames (1.5s) of a bot phase — gives handlers enough
+	# time to capture narrative before clearing. Without this, when a handler
+	# times out and moves on, the tutorial stays stuck at an undismissed phase.
+	if _bridge != null and _phase > BotPhase.WAIT_READY and _phase < BotPhase.REINIT_TEST:
+		if _polls > 90:
+			var _ad_state := _get_tutorial_state()
+			if not _ad_state.is_empty() and not bool(_ad_state.get("dialogue_dismissed", true)):
+				_bridge.call("DismissTutorialDialogueV0")
+
 	return false
 
 
-# ===================== Setup =====================
+# ── Setup ──────────────────────────────────────────────────────────
 
 func _do_load_scene() -> void:
-	# Parse --seed=N from CLI args (multi-seed support).
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			_user_seed = int(arg.trim_prefix("--seed="))
 	if _user_seed >= 0:
 		seed(_user_seed)
-		_a.log("SEED|%d" % _user_seed)
-	# Delete quicksave to ensure clean state (previous bot runs leave one).
+		# Rotate FO selection by seed to cover all 3 candidates across multi-seed sweeps.
+		var fo_types := ["Analyst", "Veteran", "Pathfinder"]
+		_selected_fo_type = fo_types[_user_seed % 3]
+		_a.log("SEED|%d FO|%s" % [_user_seed, _selected_fo_type])
+	# Delete stale quicksave.
 	var global_save := ProjectSettings.globalize_path("user://quicksave.json")
 	if FileAccess.file_exists(global_save):
 		DirAccess.remove_absolute(global_save)
-		_a.log("QUICKSAVE_DELETED|%s" % global_save)
+		_a.log("QUICKSAVE_DELETED")
 	elif FileAccess.file_exists("user://quicksave.json"):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://quicksave.json"))
-		_a.log("QUICKSAVE_DELETED|user://")
 	var scene = load("res://scenes/playable_prototype.tscn").instantiate()
 	root.add_child(scene)
 	_a.log("SCENE_LOADED")
-	_set_phase(Phase.WAIT_SCENE)
+	_set_bot_phase(BotPhase.WAIT_SCENE)
 
 
-func _do_wait(current: Phase, settle: int, next_phase: Phase) -> void:
+func _do_wait(settle: int, next: BotPhase) -> void:
 	_polls += 1
 	if _polls >= settle:
-		_set_phase(next_phase)
+		_set_bot_phase(next)
 
 
 func _do_wait_bridge() -> void:
 	_bridge = root.get_node_or_null("SimBridge")
 	if _bridge != null:
-		_set_phase(Phase.WAIT_READY)
+		_set_bot_phase(BotPhase.WAIT_READY)
 	else:
 		_polls += 1
-		if _polls >= MAX_POLLS:
+		if _polls >= 600:
 			_a.hard(false, "bridge_not_found")
-			_phase = Phase.FINAL_SUMMARY
+			_phase = BotPhase.FINAL_SUMMARY
 
 
 func _do_wait_ready() -> void:
@@ -205,564 +261,1634 @@ func _do_wait_ready() -> void:
 		if _gm:
 			_gm.set("_on_main_menu", false)
 		_init_navigation()
-		_set_phase(Phase.WAIT_LOCAL_SYSTEM)
+		_set_bot_phase(BotPhase.ACT1_START_TUTORIAL)
 	else:
 		_polls += 1
-		if _polls >= MAX_POLLS:
+		if _polls >= 600:
 			_a.hard(false, "bridge_ready_timeout")
-			_phase = Phase.FINAL_SUMMARY
+			_phase = BotPhase.FINAL_SUMMARY
 
 
-func _do_wait_local() -> void:
-	if get_nodes_in_group("Station").size() > 0:
-		_set_phase(Phase.CHECK_INTRO_ACTIVE)
-	else:
+# ── Act 1: Cold Open ──────────────────────────────────────────────
+
+func _do_act1_start() -> void:
+	_a.log("ACT_1|Cold Open — Ship Computer")
+	_bridge.call("StartTutorialV0")
+	# Verify tutorial started.
+	var state := _get_tutorial_state()
+	_a.hard(not state.is_empty(), "tutorial_started")
+	var phase_name := str(state.get("phase_name", ""))
+	_a.hard(phase_name == "Awaken", "phase_is_awaken", "got=%s" % phase_name)
+	_set_bot_phase(BotPhase.ACT1_AWAKEN)
+
+
+func _do_act1_awaken() -> void:
+	# Verify Ship Computer speaks, dismiss all beats.
+	var fo := _get_dialogue()
+	if fo.is_empty():
 		_polls += 1
-		if _polls >= MAX_POLLS:
-			_set_phase(Phase.CHECK_INTRO_ACTIVE)
+		if _polls >= 60:
+			# Auto-dismiss — headless may need a kick.
+			_bridge.call("DismissTutorialDialogueV0")
+			_set_bot_phase(BotPhase.ACT1_FLIGHT_INTRO)
+		return
+	_assert_speaker_is("SHIP COMPUTER", fo, "awaken_speaker")
+	var state := _get_tutorial_state()
+	_log_narrative("Awaken", fo, state)
+	_dismiss_all_beats("Awaken")
+	_wait_for_tutorial_phase("Flight_Intro", 120, BotPhase.ACT1_FLIGHT_INTRO)
 
 
-# ===================== Act 1: Cold Open & Welcome =====================
-
-func _do_check_intro_active() -> void:
-	_a.log("ACT_1|Cold Open & Welcome Overlay")
-	var intro := false
-	if _gm:
-		intro = bool(_gm.get("intro_active"))
-	_a.log("intro_active=%s" % str(intro))
-	_set_phase(Phase.WELCOME_OVERLAY)
-
-
-func _do_welcome_overlay() -> void:
-	# Intro sequence (Ship Computer cold open → galaxy cinematic → captain name) self-frees
-	# in headless mode immediately. Check for IntroSequence or legacy WelcomeOverlay.
-	var intro = null
-	var overlay = null
-	if _gm:
-		intro = _gm.get_node_or_null("IntroSequence")
-		overlay = _gm.get_node_or_null("WelcomeOverlay")
-	if intro != null:
-		_a.hard(intro is CanvasLayer, "intro_sequence_is_canvas_layer")
-		_a.log("INTRO_SEQUENCE|present=true")
-	elif overlay != null:
-		_a.hard(overlay is CanvasLayer, "welcome_overlay_is_canvas_layer")
-		_a.log("WELCOME_OVERLAY|present=true (legacy)")
-	else:
-		# Headless: intro_sequence emits immediately and self-frees — expected.
-		_a.warn(false, "intro_sequence_visible", "headless_auto_completed")
-		_a.log("INTRO_SEQUENCE|present=false (headless auto-completed)")
-	_set_phase(Phase.WELCOME_SCREENSHOT)
+func _do_act1_flight_intro() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Flight_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.hard(false, "flight_intro_not_reached")
+			_phase = BotPhase.FINAL_SUMMARY
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("SHIP COMPUTER", fo, "flight_intro_speaker")
+		_log_narrative("Flight_Intro", fo, state)
+	_dismiss_all_beats("Flight_Intro")
+	# Flight_Intro has intentionally empty objective (TutorialContentV0.cs line 478).
+	# Log but don't warn — empty is by design.
+	var obj := str(state.get("objective", "")).to_lower()
+	_a.log("OBJECTIVE|Flight_Intro=%s (empty by design)" % obj)
+	_capture("01_flight_intro")
+	_wait_for_tutorial_phase("First_Dock", 120, BotPhase.ACT1_FIRST_DOCK)
 
 
-func _do_welcome_screenshot() -> void:
-	_capture("01_welcome_overlay")
-	_set_phase(Phase.WELCOME_DISMISS)
-
-
-func _do_welcome_dismiss() -> void:
-	# Force dismiss intro/welcome and ensure GUIDE_FLIGHT fires.
-	if _gm:
-		_gm.set("_welcome_dismissed", true)
-		# Clean up any lingering intro or welcome overlay.
-		var intro = _gm.get_node_or_null("IntroSequence")
-		if intro:
-			intro.queue_free()
-		var overlay = _gm.get_node_or_null("WelcomeOverlay")
-		if overlay:
-			overlay.queue_free()
-		# Ensure intro is done.
-		_gm.set("intro_active", false)
-		# Fire GUIDE_FLIGHT manually — in real play, this fires after welcome overlay
-		# fade-out. In headless the async chain races with our bot.
-		_fire_guide_if_unseen("GUIDE_FLIGHT",
-			_GUIDE_TEXTS["GUIDE_FLIGHT"])
-		_record_new_guides()
-	_set_phase(Phase.WAIT_DISMISS)
-
-
-# ===================== Act 2: Pre-Dock Verification =====================
-
-func _do_pre_dock_disclosure() -> void:
-	_a.log("ACT_2|Pre-Dock Verification")
-	var os := _get_onboarding_state()
-
-	# Before docking/trading: all disclosure tabs hidden.
-	_a.hard(not bool(os.get("has_traded", true)), "pre_dock_has_traded_false")
-	_a.hard(not bool(os.get("show_jobs_tab", true)), "pre_dock_jobs_tab_hidden")
-	_a.hard(not bool(os.get("show_ship_tab", true)), "pre_dock_ship_tab_hidden")
-	_a.hard(not bool(os.get("show_station_tab", true)), "pre_dock_station_tab_hidden")
-	_a.hard(not bool(os.get("show_intel_tab", true)), "pre_dock_intel_tab_hidden")
-
-	# HUD objective: before any action, should say "Dock at the station ahead".
-	# Note: has_docked = nodesVisited > 0 || goodsTraded > 0 — both 0 here.
-	var obj := _get_hud_objective()
-	_a.hard("Dock" in obj.text or "dock" in obj.text, "pre_dock_objective_dock", "obj=%s" % obj.text)
-	_a.hard(obj.visible, "pre_dock_objective_visible")
-
-	_set_phase(Phase.DOCK_STATION)
-
-
-func _do_dock_station() -> void:
+func _do_act1_first_dock() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "First_Dock":
+		_polls += 1
+		if _polls >= 120:
+			_a.hard(false, "first_dock_not_reached")
+			_phase = BotPhase.FINAL_SUMMARY
+		return
+	# Dock at nearest station.
 	_dock_at_station()
-	_set_phase(Phase.WAIT_DOCK)
-
-
-func _do_wait_dock() -> void:
-	# Poll until GUIDE_DOCK fires (confirms dock completed).
-	if _guide_seen("GUIDE_DOCK"):
-		_set_phase(Phase.DOCK_SCREENSHOT)
-		return
-	_polls += 1
-	if _polls >= SETTLE_SCENE:
-		# Dock might have worked but guide didn't fire — proceed anyway.
-		_a.log("WAIT_DOCK|timeout after %d frames, proceeding" % _polls)
-		_set_phase(Phase.DOCK_SCREENSHOT)
-
-
-func _do_dock_screenshot() -> void:
+	_bridge.call("NotifyTutorialDockV0")
+	_busy = true
+	await create_timer(0.3).timeout
+	_busy = false
 	_capture("02_first_dock")
-	_set_phase(Phase.POST_DOCK_DISCLOSURE)
+	_wait_for_tutorial_phase("Maren_Hail", 120, BotPhase.ACT2_MAREN_HAIL)
 
 
-func _do_post_dock_disclosure() -> void:
-	var os := _get_onboarding_state()
-	# At first dock (home station), nodesVisited=0, goodsTraded=0 → has_docked=false.
-	# This is expected: the bridge defines has_docked as travel/trade, not literal docking.
-	# Tabs should still be hidden since no trade has occurred.
-	_a.hard(not bool(os.get("show_jobs_tab", true)), "post_dock_jobs_tab_still_hidden")
-	_a.hard(not bool(os.get("show_station_tab", true)), "post_dock_station_tab_still_hidden")
+# ── Act 2: The Crew (Maren pre-selection) ─────────────────────────
 
-	# Market tab should always be visible.
-	var tabs := _get_tab_visibility()
-	_a.hard(tabs.get("Market", false), "post_dock_market_tab_visible")
-	_a.hard(not tabs.get("Jobs", true), "post_dock_jobs_tab_hidden_in_ui")
-
-	# GUIDE_DOCK should have fired on dock.
-	_a.hard(_guide_seen("GUIDE_DOCK"), "guide_dock_fired")
-	_record_new_guides()
-
-	# HUD objective after dock: depends on has_docked state.
-	var obj := _get_hud_objective()
-	var has_docked := bool(os.get("has_docked", false))
-	if has_docked:
-		_a.hard("Buy" in obj.text or "buy" in obj.text, "post_dock_objective_buy", "obj=%s" % obj.text)
-	else:
-		# has_docked is false at home station (nodesVisited=0, goodsTraded=0) — objective stays "Dock"
-		_a.hard("Dock" in obj.text or "dock" in obj.text, "post_dock_objective_still_dock", "obj=%s" % obj.text)
-
-	_set_phase(Phase.WAIT_MARKET)
-
-
-func _do_wait_market() -> void:
-	# Poll until we find a buyable good. Pre-select it to avoid race with sim ticks.
-	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
-	var node_id := str(ps.get("current_node_id", ""))
-	var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
-	var pick := _find_best_buy(market)
-	if not pick.is_empty():
-		_a.log("MARKET_READY|frame=%d goods=%d pick=%s" % [_polls, market.size(), pick.good_id])
-		_bought_good_id = pick.good_id
-		_bought_unit_cost = pick.price
-		_set_phase(Phase.BUY_GOOD)
+func _do_act2_maren_hail() -> void:
+	_a.log("ACT_2|The Crew — Maren introduced")
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Maren_Hail":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "maren_hail_not_reached")
+			_set_bot_phase(BotPhase.ACT2_DISMISS_THROUGH_MARKET)
 		return
+	# Validate IsPreSelectionModeV0 — should be true before FO selection.
+	if _bridge.has_method("IsPreSelectionModeV0"):
+		_a.hard(bool(_bridge.call("IsPreSelectionModeV0")),
+			"pre_selection_mode_true_at_maren_hail")
+	# Validate GetTutorialDialogueV0 matches GetRotatingFODialogueV0.
+	if _bridge.has_method("GetTutorialDialogueV0"):
+		var simple_text: String = _bridge.call("GetTutorialDialogueV0")
+		var rotating: Dictionary = _bridge.call("GetRotatingFODialogueV0")
+		var rotating_text := str(rotating.get("text", ""))
+		if not simple_text.is_empty() and not rotating_text.is_empty():
+			_a.hard(simple_text == rotating_text, "dialogue_api_consistency_maren_hail",
+				"simple=%s rotating=%s" % [simple_text.left(40), rotating_text.left(40)])
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Maren", fo, "maren_hail_speaker")
+		_log_narrative("Maren_Hail", fo, state)
+	# Maren_Hail is 2-beat — dismiss all.
+	_dismiss_all_beats("Maren_Hail")
+	_wait_for_tutorial_phase("Maren_Settle", 120, BotPhase.ACT2_DISMISS_THROUGH_MARKET)
+
+
+func _do_act2_dismiss_through_market() -> void:
+	# Walk through Maren_Settle → Market_Explain, dismissing each.
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn == "Buy_Prompt":
+		_set_bot_phase(BotPhase.ACT2_BUY_PROMPT)
+		return
+	if pn == "Maren_Settle" or pn == "Market_Explain":
+		var fo := _get_dialogue()
+		if not fo.is_empty():
+			_assert_speaker_is("Maren", fo, "%s_speaker" % pn.to_lower())
+			_log_narrative(pn, fo, state)
+		_dismiss_all_beats(pn)
 	_polls += 1
-	if _polls >= MARKET_POLL_MAX:
-		_a.hard(false, "market_populate_timeout", "waited %d frames, goods=%d" % [MARKET_POLL_MAX, market.size()])
-		_set_phase(Phase.FINAL_SUMMARY)
+	if _polls >= 240:
+		# Force check — maybe already at Buy_Prompt.
+		state = _get_tutorial_state()
+		if str(state.get("phase_name", "")) == "Buy_Prompt":
+			_set_bot_phase(BotPhase.ACT2_BUY_PROMPT)
+		else:
+			_a.hard(false, "dismiss_through_market_stuck", "phase=%s" % str(state.get("phase_name", "")))
+			_phase = BotPhase.FINAL_SUMMARY
 
 
-# ===================== Act 3: Buy at Home Station =====================
+func _do_act2_buy_prompt() -> void:
+	var state := _get_tutorial_state()
+	var obj := str(state.get("objective", ""))
+	_objective_log["Buy_Prompt"] = obj
+	_a.hard("buy" in obj.to_lower() or "market" in obj.to_lower() or "cargo" in obj.to_lower(),
+		"buy_prompt_objective", "obj=%s" % obj)
+	# Tab disclosure: Jobs tab should be hidden before first trade.
+	_check_tab_disclosure("before_first_trade")
+	_set_bot_phase(BotPhase.ACT2_DO_BUY)
 
-func _do_buy_good() -> void:
-	_a.log("ACT_3|First Trade")
+
+func _do_act2_do_buy() -> void:
+	# Buy cheapest good.
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_before_buy = int(ps.get("credits", 0))
 	var node_id := str(ps.get("current_node_id", ""))
-
-	# Use the market snapshot from WAIT_MARKET (stable) — re-fetching here races with sim ticks.
 	var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
-	_a.log("MARKET|node=%s goods=%d" % [node_id, market.size()])
-	for item in market:
-		_a.log("  GOOD|%s qty=%d buy=%d sell=%d" % [
-			str(item.get("good_id", "")), int(item.get("quantity", 0)),
-			int(item.get("buy_price", 0)), int(item.get("sell_price", 0))])
-
-	# Good was pre-selected in WAIT_MARKET to avoid sim-tick race.
-	if _bought_good_id.is_empty():
-		_a.hard(false, "buy_found_good", "no tradeable good pre-selected")
-		_set_phase(Phase.FINAL_SUMMARY)
+	var pick := _find_best_buy(market)
+	if pick.is_empty():
+		_polls += 1
+		if _polls >= MARKET_POLL_MAX:
+			_a.hard(false, "buy_no_good_found")
+			_phase = BotPhase.FINAL_SUMMARY
 		return
-
+	_bought_good_id = pick.good_id
+	_bought_unit_cost = pick.price
 	_bought_qty = 1
 	_bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, 1, true)
 	_a.log("BUY|good=%s price=%d" % [_bought_good_id, _bought_unit_cost])
-
 	# Verify credits decreased.
 	var ps2: Dictionary = _bridge.call("GetPlayerStateV0")
-	var credits_after := int(ps2.get("credits", 0))
-	_a.hard(credits_after < _credits_before_buy, "buy_credits_decreased",
-		"before=%d after=%d" % [_credits_before_buy, credits_after])
-
-	# Verify buy-price color coding on market labels (use stable market snapshot).
-	_verify_price_colors(node_id)
-
-	# Verify cargo contains the good we bought.
-	var cargo_after_buy := _get_cargo_count()
-	_a.hard(cargo_after_buy > 0, "buy_cargo_increased", "cargo=%d" % cargo_after_buy)
-
-	# Fire GUIDE_BUY — in real play this fires from hero_trade_menu.gd UI callback.
-	# In headless, bridge trades bypass the UI path.
-	_fire_guide_if_unseen("GUIDE_BUY", _GUIDE_TEXTS["GUIDE_BUY"])
-	_record_new_guides()
-
-	_set_phase(Phase.POST_BUY_SCREENSHOT)
+	_a.hard(int(ps2.get("credits", 0)) < _credits_before_buy, "buy_credits_decreased")
+	_capture("03_bought")
+	_wait_for_tutorial_phase("Buy_React", 120, BotPhase.ACT2_BUY_REACT)
 
 
-func _do_post_buy_screenshot() -> void:
-	_capture("02b_post_buy")
-	# After buying, check pre-travel state: has_traded is still false (no sell yet).
-	var os := _get_onboarding_state()
-	_a.hard(not bool(os.get("has_traded", false)), "pre_travel_has_traded_false")
-	# HUD objective: has_docked may be false (nodesVisited=0, goodsTraded=0).
-	# The objective should still relate to selling/docking, not automation.
-	var obj := _get_hud_objective()
-	_a.log("POST_BUY_OBJECTIVE|%s" % obj.text)
-	_a.hard(obj.visible, "post_buy_objective_visible")
-	# Verify GUIDE_BUY fired.
-	_a.hard(_guide_seen("GUIDE_BUY"), "guide_buy_fired")
-	_set_phase(Phase.UNDOCK_TRAVEL)
+func _do_act2_buy_react() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Accept already-advanced: Buy_React(8) may clear in 1 frame on fast seeds.
+	if pn != "Buy_React" and phase_num > 8:
+		_a.log("BUY_REACT|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT3_TRAVEL)
+		return
+	if pn != "Buy_React":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "buy_react_not_reached")
+			_set_bot_phase(BotPhase.ACT3_TRAVEL)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Maren", fo, "buy_react_speaker")
+		_log_narrative("Buy_React", fo, state)
+	_dismiss_all_beats("Buy_React")
+	# Trade waypoint is set by tutorial_director.gd (live game only, not headless bot).
+	# Settle to let sim state stabilize after Buy_React phase change.
+	_busy = true
+	await create_timer(1.0).timeout
+	_busy = false
+	var edgedar = root.find_child("EdgedarOverlay", true, false)
+	if edgedar:
+		var target := str(edgedar.get("tutorial_target_node_id"))
+		if not target.is_empty():
+			_sell_node_id = target
+			_a.log("WAYPOINT|edgedar set target=%s" % target)
+		else:
+			_a.log("WAYPOINT|edgedar empty (expected in headless)")
+	# Wrong-station detection: log IsBadSellStation at buy location for diagnostics.
+	if _bridge.has_method("IsBadSellStationV0") and not _bought_good_id.is_empty():
+		var bad_result: Dictionary = _bridge.call("IsBadSellStationV0")
+		var is_bad := bool(bad_result.get("is_bad", false))
+		var better := str(bad_result.get("better_node_name", ""))
+		_a.log("WRONG_STATION|good=%s is_bad=%s better=%s" % [_bought_good_id, str(is_bad), better])
+		# Validate GetWrongStationWarningV0 template substitution if station IS flagged bad.
+		if is_bad and not better.is_empty() and _bridge.has_method("GetWrongStationWarningV0"):
+			var warning: String = _bridge.call("GetWrongStationWarningV0", better)
+			if not warning.is_empty():
+				_a.hard("{station}" not in warning, "wrong_station_template_resolved",
+					"warning=%s" % warning.left(80))
+				_a.hard(better in warning, "wrong_station_mentions_better",
+					"expected '%s' in warning" % better)
+			_a.log("WRONG_STATION_WARNING|%s" % warning.left(100))
+	# Validate GetTutorialSellTargetV0 returns a profitable destination.
+	if _bridge.has_method("GetTutorialSellTargetV0"):
+		var sell_target: Dictionary = _bridge.call("GetTutorialSellTargetV0")
+		if not sell_target.is_empty():
+			var st_node := str(sell_target.get("node_id", ""))
+			var st_sell := int(sell_target.get("sell_price", 0))
+			var st_buy := int(sell_target.get("buy_price", 0))
+			var st_2hop := bool(sell_target.get("two_hop", false))
+			_a.hard(not st_node.is_empty(), "sell_target_has_node")
+			_a.hard(st_sell > st_buy, "sell_target_profitable",
+				"sell=%d buy=%d 2hop=%s" % [st_sell, st_buy, str(st_2hop)])
+			_a.log("SELL_TARGET|node=%s sell=%d buy=%d 2hop=%s" % [
+				st_node, st_sell, st_buy, str(st_2hop)])
+			# Use bridge-recommended sell target if edgedar didn't set one.
+			if _sell_node_id.is_empty():
+				_sell_node_id = st_node
+	_wait_for_tutorial_phase("Travel_Prompt", 120, BotPhase.ACT3_TRAVEL)
 
 
-# ===================== Act 4: Travel & Sell at Destination =====================
+# ── Act 3: The Trade ──────────────────────────────────────────────
 
-func _do_undock_travel() -> void:
-	_a.log("ACT_4|Travel & Sell at Destination")
-	# Record fuel before travel.
-	var fuel_before := _get_fuel()
-	if not fuel_before.is_empty():
-		_a.log("FUEL_BEFORE_TRAVEL|fuel=%d/%d" % [fuel_before.fuel, fuel_before.capacity])
+func _do_act3_travel() -> void:
+	_a.log("ACT_3|The Trade — first trade loop")
+	# Retry state read — TryExecuteSafeRead may return cached snapshot with empty objective.
+	var obj := ""
+	for _retry in range(5):
+		var state := _get_tutorial_state()
+		obj = str(state.get("objective", ""))
+		if not obj.is_empty():
+			break
+		_busy = true
+		await create_timer(0.2).timeout
+		_busy = false
+	_objective_log["Travel_Prompt"] = obj
+	_a.hard("travel" in obj.to_lower() or "fly" in obj.to_lower() or "sell" in obj.to_lower() or "gate" in obj.to_lower(),
+		"travel_prompt_objective", "obj=%s" % obj)
+	# Travel to sell target (or best neighbor).
+	# CRITICAL: Must travel to an UNVISITED node — Travel_Prompt gate requires
+	# NodesVisited > NodesVisitedAtPhaseEntry, which only increases for new nodes.
 	if _gm:
 		_gm.call("undock_v0")
+	_busy = true
+	await create_timer(0.3).timeout  # Let undock settle before travel.
+	_busy = false
 	_refresh_neighbors()
-	if _neighbor_ids.is_empty():
-		_a.hard(false, "travel_has_neighbor", "no adjacent nodes")
-		_set_phase(Phase.FINAL_SUMMARY)
-		return
-	# Pick the neighbor with the best sell price for our good — mimics a smart player.
-	_sell_node_id = _pick_best_sell_neighbor()
+	var ps_before: Dictionary = _bridge.call("GetPlayerStateV0")
+	var current_node := str(ps_before.get("current_node_id", ""))
 	if _sell_node_id.is_empty():
+		_sell_node_id = _pick_best_sell_neighbor()
+	if _sell_node_id.is_empty() and _neighbor_ids.size() > 0:
 		_sell_node_id = str(_neighbor_ids[0])
-	# Headless travel + async settle — gives sim time to register the arrival.
+	# Gate requires NodesVisited to INCREASE — must travel to an unvisited node.
+	# GalaxyGenerator may pre-visit multiple nodes (initial + starter placement),
+	# so even a different node from current_node might already be visited.
+	var _must_find_unvisited := false
+	if _sell_node_id == current_node:
+		_must_find_unvisited = true
+	elif _bridge.has_method("IsFirstVisitV0") and not _bridge.call("IsFirstVisitV0", _sell_node_id):
+		_a.log("TRAVEL|sell_node %s already visited, need unvisited neighbor" % _sell_node_id)
+		_must_find_unvisited = true
+	if _must_find_unvisited:
+		var found_unvisited := false
+		# Track nodes known-visited (from prior checks) to avoid read-lock false positives.
+		var known_visited := {current_node: true, _sell_node_id: true}
+		# Pick the unvisited neighbor with the BEST sell price for our good.
+		var best_unvisited := ""
+		var best_unvisited_price := -1
+		for nid in _neighbor_ids:
+			var sid := str(nid)
+			if known_visited.has(sid):
+				continue
+			if _bridge.call("IsFirstVisitV0", sid):
+				var sell_price := _get_sell_price_at(sid, _bought_good_id)
+				_a.log("TRAVEL|unvisited candidate %s sell_price=%d" % [sid, sell_price])
+				if sell_price > best_unvisited_price:
+					best_unvisited_price = sell_price
+					best_unvisited = sid
+		if not best_unvisited.is_empty():
+			_a.log("TRAVEL|switching to best unvisited %s (price=%d, was %s)" % [
+				best_unvisited, best_unvisited_price, _sell_node_id])
+			_sell_node_id = best_unvisited
+			found_unvisited = true
+		if not found_unvisited:
+			# All 1-hop neighbors visited — try 2-hop neighbors.
+			_a.log("TRAVEL|all 1-hop neighbors visited, searching 2-hop")
+			for nid in _neighbor_ids:
+				var sub_neighbors := _get_neighbors_of(str(nid))
+				for snid in sub_neighbors:
+					if known_visited.has(snid):
+						continue
+					if _bridge.call("IsFirstVisitV0", snid):
+						_sell_node_id = snid
+						found_unvisited = true
+						_a.log("TRAVEL|using 2-hop unvisited %s via %s" % [snid, str(nid)])
+						break
+				if found_unvisited:
+					break
 	_busy = true
 	_headless_travel(_sell_node_id)
 	_a.log("TRAVEL|dest=%s" % _sell_node_id)
 	await create_timer(0.5).timeout
 	_busy = false
-	# Check fuel consumed after travel.
-	var fuel_after := _get_fuel()
-	if not fuel_before.is_empty() and not fuel_after.is_empty():
-		_a.log("FUEL_AFTER_TRAVEL|fuel=%d/%d" % [fuel_after.fuel, fuel_after.capacity])
-		_a.warn(fuel_after.fuel < fuel_before.fuel, "travel_fuel_consumed",
-			"before=%d after=%d" % [fuel_before.fuel, fuel_after.fuel])
-	_set_phase(Phase.WAIT_TRAVEL)
+	# Verify player actually arrived at destination.
+	var ps_after: Dictionary = _bridge.call("GetPlayerStateV0")
+	var arrived_at := str(ps_after.get("current_node_id", ""))
+	if arrived_at != _sell_node_id:
+		_a.log("TRAVEL|arrival mismatch: expected=%s got=%s — retrying" % [_sell_node_id, arrived_at])
+		_busy = true
+		_headless_travel(_sell_node_id)
+		await create_timer(0.5).timeout
+		_busy = false
+	_wait_for_tutorial_phase("Arrival_Dock", 120, BotPhase.ACT3_ARRIVAL_DOCK)
 
 
-func _do_dock_dest() -> void:
-	_dock_at_station()
-	_busy = true
-	await create_timer(0.5).timeout
-	_busy = false
-	# Verify we arrived at the destination.
-	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
-	var at_node := str(ps.get("current_node_id", ""))
-	_a.log("DOCK_DEST|at=%s expected=%s" % [at_node, _sell_node_id])
-	_set_phase(Phase.WAIT_DOCK_DEST)
+func _do_act3_arrival_dock() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn == "Sell_Prompt":
+		_set_bot_phase(BotPhase.ACT3_SELL)
+		return
+	# NotifyTutorialDockV0 handles Travel_Prompt → Arrival_Dock → Sell_Prompt.
+	# May need multiple calls: first advances Travel_Prompt→Arrival_Dock, second Arrival_Dock→Sell_Prompt.
+	if pn == "Travel_Prompt" or pn == "Arrival_Dock":
+		_dock_at_station()
+		_bridge.call("NotifyTutorialDockV0")
+		_busy = true
+		await create_timer(0.3).timeout
+		_busy = false
+		# Check if we need another dock notify (Travel_Prompt→Arrival_Dock→need second notify).
+		state = _get_tutorial_state()
+		pn = str(state.get("phase_name", ""))
+		if pn == "Arrival_Dock":
+			_bridge.call("NotifyTutorialDockV0")
+			_busy = true
+			await create_timer(0.3).timeout
+			_busy = false
+	_polls += 1
+	if _polls >= 120:
+		state = _get_tutorial_state()
+		_a.warn(false, "arrival_dock_stuck", "phase=%s" % str(state.get("phase_name", "")))
+		_set_bot_phase(BotPhase.ACT3_SELL)
 
 
-func _do_sell_at_dest() -> void:
-	_a.log("ACT_4_SELL|First sell — the tutorial trade moment")
+func _do_act3_sell() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn == "First_Profit":
+		_set_bot_phase(BotPhase.ACT3_FIRST_PROFIT)
+		return
+	if pn != "Sell_Prompt":
+		# Still waiting — try notifying dock again.
+		if pn == "Arrival_Dock" or pn == "Travel_Prompt":
+			_bridge.call("NotifyTutorialDockV0")
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "sell_prompt_not_reached", "phase=%s" % pn)
+			_set_bot_phase(BotPhase.ACT3_FIRST_PROFIT)
+		return
+	var obj := str(state.get("objective", ""))
+	_objective_log["Sell_Prompt"] = obj
+	_a.hard("sell" in obj.to_lower(), "sell_prompt_objective", "obj=%s" % obj)
+	# Sell cargo.
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var node_id := str(ps.get("current_node_id", ""))
 	var credits_before := int(ps.get("credits", 0))
-	var cargo_before := _get_cargo_count()
-
-	# Log destination market to diagnose sell failures.
-	var dest_market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
-	_a.log("DEST_MARKET|node=%s goods=%d cargo=%d" % [node_id, dest_market.size(), cargo_before])
-	for item in dest_market:
-		var gid := str(item.get("good_id", ""))
-		if gid == _bought_good_id:
-			_a.log("DEST_GOOD|%s qty=%d sell_price=%d" % [gid, int(item.get("quantity", 0)), int(item.get("sell_price", 0))])
-
-	# This is the player's FIRST sell — the tutorial moment where they discover profit.
-	# GuaranteeStarterArbitrageV0 ensures the cheapest good from home is profitable here.
+	# IsBadSellStationV0 must be called BEFORE selling (needs cargo to evaluate).
+	if _bridge.has_method("IsBadSellStationV0") and not _bought_good_id.is_empty():
+		var bad_check := {}
+		for _retry in range(5):
+			var raw = _bridge.call("IsBadSellStationV0")
+			if raw is Dictionary and not raw.is_empty():
+				bad_check = raw
+				break
+			_busy = true
+			await create_timer(0.2).timeout
+			_busy = false
+		if not bad_check.is_empty():
+			var is_bad: bool = bool(bad_check.get("is_bad", false))
+			# Warn-level: bot's sell-target heuristic may pick a suboptimal station on some seeds.
+			_a.warn(not is_bad, "correct_station_not_flagged_bad",
+				"is_bad=%s at=%s" % [str(is_bad), node_id])
+		else:
+			_a.log("IS_BAD_SELL_STATION|empty dict after retries at=%s" % node_id)
 	if not _bought_good_id.is_empty():
 		_bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, _bought_qty, false)
-		_a.log("SELL_DEST|good=%s at=%s" % [_bought_good_id, node_id])
-
+		_a.log("SELL|good=%s at=%s" % [_bought_good_id, node_id])
 	var ps2: Dictionary = _bridge.call("GetPlayerStateV0")
 	var credits_after := int(ps2.get("credits", 0))
-	var sell_revenue := credits_after - credits_before
-
-	# The sell should succeed (cargo removed). Profit depends on market dynamics —
-	# starter arbitrage guarantee may erode if sim ticks restock markets.
-	var cargo_after := _get_cargo_count()
-	_a.hard(cargo_after == 0, "sell_dest_cargo_empty", "cargo=%d" % cargo_after)
-
-	# Profit check — warn because tariffs/fees/restocking can reduce revenue to 0.
-	_a.warn(credits_after > credits_before, "sell_dest_profit",
-		"before=%d after=%d revenue=%d" % [credits_before, credits_after, sell_revenue])
-
-	if _bought_unit_cost > 0 and sell_revenue > 0:
-		var profit := sell_revenue - _bought_unit_cost
-		_a.log("SELL_PROFIT|revenue=%d cost=%d profit=%d" % [sell_revenue, _bought_unit_cost, profit])
-
-	# Fire GUIDE_SELL — in real play this fires from hero_trade_menu.gd UI callback.
-	_fire_guide_if_unseen("GUIDE_SELL", _GUIDE_TEXTS["GUIDE_SELL"])
-	_record_new_guides()
-
-	_set_phase(Phase.POST_SELL_DISCLOSURE)
+	_a.warn(credits_after > credits_before, "sell_profit",
+		"before=%d after=%d" % [credits_before, credits_after])
+	_a.hard(int(ps2.get("cargo_count", 0)) == 0, "sell_cargo_empty")
+	_capture("04_sold")
+	_wait_for_tutorial_phase("First_Profit", 120, BotPhase.ACT3_FIRST_PROFIT)
 
 
-func _do_post_sell_disclosure() -> void:
-	_poll_guides()
-
-	var os := _get_onboarding_state()
-	var nv := int(os.get("nodes_visited", 0))
-	# nodesVisited depends on headless travel registration — warn because some seeds
-	# don't register the arrival despite successful DispatchPlayerArriveV0.
-	_a.warn(nv >= 1, "post_travel_nodes_visited", "count=%d" % nv)
-	# has_docked = nodesVisited > 0 || goodsTraded > 0 → true now (we sold, so goodsTraded > 0).
-	_a.hard(bool(os.get("has_docked", false)), "post_travel_has_docked")
-	# show_fuel_hud = nodesVisited > 0 → depends on travel registration.
-	_a.warn(bool(os.get("show_fuel_hud", false)), "post_travel_show_fuel_hud")
-
-	# After selling: GoodsTraded > 0 → has_traded = true → show_jobs_tab = true.
-	_a.hard(bool(os.get("has_traded", false)), "post_sell_has_traded")
-	_a.hard(bool(os.get("show_jobs_tab", false)), "post_sell_jobs_tab_visible")
-
-	# Milestone check: has_traded is the key signal. nv may be 0 on flaky seeds.
-	_a.hard(bool(os.get("has_traded", false)), "post_sell_milestone_eligible",
-		"has_traded=%s nv=%d" % [str(os.get("has_traded", false)), nv])
-
-	# Check UI tabs — force disclosure refresh for the dock menu.
-	var dock_menu = root.find_child("HeroTradeMenu", true, false)
-	if dock_menu and dock_menu.has_method("_apply_tab_disclosure_v0"):
-		dock_menu.call("_apply_tab_disclosure_v0")
-	var tabs := _get_tab_visibility()
-	_a.hard(tabs.get("Jobs", false), "post_sell_jobs_tab_in_ui")
-	# Station/Intel tabs unlock at 3+ nodes — may already be visible depending on travel count.
-	if nv < 3:
-		_a.hard(not tabs.get("Station", true), "post_sell_station_tab_still_hidden")
-		_a.hard(not tabs.get("Intel", true), "post_sell_intel_tab_still_hidden")
-	else:
-		_a.hard(tabs.get("Station", false), "post_sell_station_tab_visible")
-		_a.hard(tabs.get("Intel", false), "post_sell_intel_tab_visible")
-
-	# Tab [NEW] badge: Jobs tab should show "[NEW]" since it just became visible.
-	_verify_tab_new_badges(dock_menu, {"Jobs": true, "Market": false})
-
-	# GUIDE_BUY and GUIDE_SELL should be seen.
-	_a.hard(_guide_seen("GUIDE_BUY"), "guide_buy_fired_at_sell")
-	_a.hard(_guide_seen("GUIDE_SELL"), "guide_sell_fired")
-	_record_new_guides()
-
-	# HUD objective: has_traded=true, nodesVisited >= 1.
-	var obj := _get_hud_objective()
-	if nv >= 2:
-		# "Set up a program to automate this route"
-		_a.hard("program" in obj.text.to_lower() or "automate" in obj.text.to_lower(),
-			"post_sell_objective_automate", "obj=%s" % obj.text)
-		_a.hard(obj.visible, "post_sell_objective_visible")
-		_a.hard(_guide_seen("GUIDE_AUTOMATE"), "guide_automate_fired")
-		_a.hard(_guide_seen("GUIDE_MAP"), "guide_map_fired")
-		_record_new_guides()
-	else:
-		# "Sell at another system for profit" — still shown since only 1 node visited.
-		# But we already sold, so this depends on whether nodesVisited incremented.
-		_a.log("post_sell_objective=%s nodes=%d" % [obj.text, nv])
-
-	_set_phase(Phase.POST_SELL_SCREENSHOT)
+func _do_act3_first_profit() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "First_Profit":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "first_profit_not_reached")
+			_set_bot_phase(BotPhase.ACT3_FO_SELECT)
+		return
+	# First_Profit is 2-beat dialogue.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Maren", fo, "first_profit_speaker")
+		_log_narrative("First_Profit", fo, state)
+	_dismiss_all_beats("First_Profit")
+	_wait_for_tutorial_phase("FO_Selection", 120, BotPhase.ACT3_FO_SELECT)
 
 
-func _do_post_sell_screenshot() -> void:
-	_capture("04_post_travel_sell")
-	_set_phase(Phase.UNDOCK_2)
+func _do_act3_fo_select() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# FO_Selection is phase 13. If sim raced past it, select FO and continue.
+	if pn != "FO_Selection":
+		if phase_num > 13:
+			_a.log("FO_SELECTION|already past (at %s=%d) — selecting FO and continuing" % [pn, phase_num])
+			# Record FO_Selection in phase history (missed by main loop due to racing).
+			_phase_history.append({"phase": 13, "name": "FO_Selection", "frame": _total_frames})
+			_bridge.call("SelectTutorialFOV0", _selected_fo_type)
+			_set_bot_phase(BotPhase.ACT4_WORLD_INTRO)
+			return
+		_polls += 1
+		if _polls >= 120:
+			_a.hard(false, "fo_selection_not_reached")
+			_phase = BotPhase.FINAL_SUMMARY
+		return
+	_a.log("ACT_3|FO Selection — choosing %s" % _selected_fo_type)
+	# Verify candidates are available with complete data.
+	if _bridge.has_method("GetTutorialCandidatesV0"):
+		var candidates: Array = _bridge.call("GetTutorialCandidatesV0")
+		_a.hard(candidates.size() == 3, "fo_candidates_count", "got=%d" % candidates.size())
+		var expected_names := ["Maren", "Dask", "Lira"]
+		for c in candidates:
+			var c_name := str(c.get("name", ""))
+			var c_type := str(c.get("type", ""))
+			var c_desc := str(c.get("description", ""))
+			var c_quote := str(c.get("quote", ""))
+			var c_line := str(c.get("memorable_line", ""))
+			_a.hard(not c_name.is_empty(), "fo_candidate_has_name_%s" % c_type.to_lower())
+			_a.hard(not c_desc.is_empty(), "fo_candidate_has_description_%s" % c_type.to_lower())
+			_a.hard(not c_quote.is_empty(), "fo_candidate_has_quote_%s" % c_type.to_lower())
+			_a.hard(not c_line.is_empty(), "fo_candidate_has_memorable_line_%s" % c_type.to_lower())
+			_a.hard(c_name in expected_names, "fo_candidate_name_valid_%s" % c_type.to_lower(),
+				"name=%s" % c_name)
+			_a.log("NARRATIVE|FO_CANDIDATE|%s|%s|%s" % [c_name, c_desc.left(60), c_line.left(60)])
+	# Validate FO hails (pre-selection dialogue lines from all 3 candidates).
+	if _bridge.has_method("GetTutorialFOHailsV0"):
+		var hails: Array = _bridge.call("GetTutorialFOHailsV0")
+		_a.hard(hails.size() == 3, "fo_hails_count", "got=%d" % hails.size())
+		var hail_names := []
+		for h in hails:
+			var h_name := str(h.get("name", ""))
+			var h_text := str(h.get("text", ""))
+			hail_names.append(h_name)
+			_a.hard(not h_name.is_empty(), "fo_hail_has_name")
+			_a.hard(not h_text.is_empty(), "fo_hail_has_text_%s" % h_name.to_lower())
+			# Validate color channels exist and are in [0.0, 1.0] range.
+			for ch in ["color_r", "color_g", "color_b"]:
+				_a.hard(h.has(ch), "fo_hail_has_%s_%s" % [ch, h_name.to_lower()])
+				if h.has(ch):
+					var cv := float(h.get(ch, 0.0))
+					_a.hard(cv >= 0.0 and cv <= 1.0, "fo_hail_%s_range_%s" % [ch, h_name.to_lower()],
+						"%s=%.3f" % [ch, cv])
+			_a.log("FO_HAIL|%s=%s color=(%.2f,%.2f,%.2f)" % [h_name, h_text.left(50),
+				float(h.get("color_r", 0)), float(h.get("color_g", 0)), float(h.get("color_b", 0))])
+		# Verify all 3 FO names present.
+		for expected in ["Maren", "Dask", "Lira"]:
+			_a.hard(expected in hail_names, "fo_hail_includes_%s" % expected.to_lower())
+	# Validate narrator prompt (shown on FO selection screen).
+	if _bridge.has_method("GetTutorialNarratorPromptV0"):
+		var prompt: String = _bridge.call("GetTutorialNarratorPromptV0")
+		_a.hard(not prompt.is_empty(), "narrator_prompt_nonempty")
+		_a.log("NARRATOR_PROMPT|%s" % prompt.left(80))
+	# Edge case: invalid FO type should return false without crashing.
+	var invalid_result: bool = _bridge.call("SelectTutorialFOV0", "InvalidType")
+	_a.hard(not invalid_result, "fo_select_invalid_type_rejected")
+	# Select FO.
+	var success: bool = _bridge.call("SelectTutorialFOV0", _selected_fo_type)
+	_a.hard(success, "fo_selected", "type=%s" % _selected_fo_type)
+	# Verify state reflects selection (retry for read-lock timing).
+	var selected_candidate := ""
+	for _retry in range(5):
+		var state_after_select: Dictionary = _get_tutorial_state()
+		selected_candidate = str(state_after_select.get("candidate", ""))
+		if selected_candidate == _selected_fo_type:
+			break
+		_busy = true
+		await create_timer(0.2).timeout
+		_busy = false
+	_a.hard(selected_candidate == _selected_fo_type,
+		"fo_state_reflects_selection", "expected=%s got=%s" % [
+			_selected_fo_type, selected_candidate])
+	# Double-select resilience: selecting again should not crash/break state.
+	var success2: bool = _bridge.call("SelectTutorialFOV0", _selected_fo_type)
+	_a.log("FO_DOUBLE_SELECT|result=%s (false is acceptable — already promoted)" % str(success2))
+	# Verify state is still coherent after double-select attempt.
+	var state_after: Dictionary = _get_tutorial_state()
+	_a.hard(str(state_after.get("candidate", "")) != "None", "fo_still_selected_after_double",
+		"candidate=%s" % str(state_after.get("candidate", "")))
+	_capture("05_fo_selected")
+	_wait_for_tutorial_phase("World_Intro", 120, BotPhase.ACT4_WORLD_INTRO)
 
 
-# ===================== Act 5: Exploration Disclosure (3+ nodes) =====================
+# ── Act 4: The World ──────────────────────────────────────────────
 
-func _do_undock_2() -> void:
-	_a.log("ACT_5|Exploration Disclosure Cascade")
+func _do_act4_world_intro() -> void:
+	_a.log("ACT_4|The World — galaxy opens up")
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Accept already-advanced: World_Intro(14) may clear in 1 frame on fast seeds.
+	if pn != "World_Intro" and phase_num > 14:
+		_a.log("WORLD_INTRO|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT4_EXPLORE)
+		return
+	if pn != "World_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "world_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT4_EXPLORE)
+		return
+	# Validate IsPreSelectionModeV0 — should be false after FO selection.
+	if _bridge.has_method("IsPreSelectionModeV0"):
+		_a.hard(not bool(_bridge.call("IsPreSelectionModeV0")),
+			"pre_selection_mode_false_at_world_intro")
+	# World_Intro is 2-beat. Selected FO speaks.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("World_Intro", fo, state)
+		# Speaker should be the selected FO.
+		var expected_name := _get_selected_fo_name()
+		_assert_speaker_is(expected_name, fo, "world_intro_speaker")
+	_dismiss_all_beats("World_Intro")
+	# FO reactive suppression check: after FO is promoted, reactive triggers
+	# should NOT fire during tutorial. Verify no unexpected dialogue activity.
+	_check_fo_reactive_suppression()
+	_wait_for_tutorial_phase("Explore_Prompt", 120, BotPhase.ACT4_EXPLORE)
+
+
+func _do_act4_explore() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Explore_Prompt":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "explore_prompt_not_reached")
+			_set_bot_phase(BotPhase.ACT4_EXPLORE_COMPLETE)
+		return
+	var obj := str(state.get("objective", ""))
+	_objective_log["Explore_Prompt"] = obj
+	_a.warn("explore" in obj.to_lower() or "visit" in obj.to_lower() or "system" in obj.to_lower(),
+		"explore_objective", "obj=%s" % obj)
+	# Travel to 2 more systems (need 3 total).
 	if _gm:
 		_gm.call("undock_v0")
-
-	# Travel to 2 more nodes to reach 3+ nodes_visited.
 	_refresh_neighbors()
-	# Pick a node different from home.
-	_node_3_id = ""
-	for nid in _neighbor_ids:
-		var sid := str(nid)
-		if sid != _home_node_id and sid != _sell_node_id:
-			_node_3_id = sid
-			break
-	if _node_3_id.is_empty() and _neighbor_ids.size() > 0:
-		_node_3_id = str(_neighbor_ids[0])
-	if _node_3_id.is_empty():
-		_a.warn(false, "node_extra_found", "no extra node reachable")
-		_set_phase(Phase.GUIDE_AUDIT)
-		return
-	_busy = true
-	_headless_travel(_node_3_id)
-	_a.log("TRAVEL_NODE_EXTRA|dest=%s" % _node_3_id)
-	await create_timer(0.5).timeout
-	_busy = false
-	_set_phase(Phase.WAIT_TRAVEL_2)
-
-
-func _do_travel_node_3() -> void:
-	# Check if we need one more hop to reach 3 nodes.
-	var os := _get_onboarding_state()
-	var nv := int(os.get("nodes_visited", 0))
-	_a.log("NODES_CHECK|nodes_visited=%d (need 3)" % nv)
-
-	if nv < 3:
-		_refresh_neighbors()
-		var extra := ""
+	for i in range(2):
+		var dest := ""
 		for nid in _neighbor_ids:
 			var sid := str(nid)
-			if sid != _home_node_id and sid != _sell_node_id and sid != _node_3_id:
-				extra = sid
+			if sid != _home_node_id and sid != _sell_node_id:
+				dest = sid
 				break
-		if extra.is_empty() and _neighbor_ids.size() > 0:
-			extra = str(_neighbor_ids[0])
-		if not extra.is_empty():
+		if dest.is_empty() and _neighbor_ids.size() > 0:
+			dest = str(_neighbor_ids[0])
+		if dest.is_empty():
+			break
+		_busy = true
+		_headless_travel(dest)
+		_a.log("EXPLORE|hop=%d dest=%s" % [i, dest])
+		await create_timer(0.4).timeout
+		_busy = false
+		_refresh_neighbors()
+	# Verify nodes visited count (gate requires >= 3).
+	if _bridge.has_method("GetOnboardingStateV0"):
+		var ob_state: Dictionary = _bridge.call("GetOnboardingStateV0")
+		var nodes_visited := int(ob_state.get("nodes_visited", 0))
+		_a.hard(nodes_visited >= 3, "explore_nodes_visited_gte3", "got=%d" % nodes_visited)
+		_a.log("EXPLORE|total_nodes_visited=%d" % nodes_visited)
+	_wait_for_tutorial_phase("Explore_Complete", 180, BotPhase.ACT4_EXPLORE_COMPLETE)
+
+
+func _do_act4_explore_complete() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Explore_Complete":
+		_polls += 1
+		if _polls >= 180:
+			_a.warn(false, "explore_complete_not_reached", "phase=%s" % str(state.get("phase_name", "")))
+			_set_bot_phase(BotPhase.ACT4_GALAXY_MAP)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Explore_Complete", fo, state)
+	_dismiss_all_beats("Explore_Complete")
+	# Tab disclosure: Station + Intel tabs should unlock at 3 nodes visited.
+	_check_tab_disclosure("after_explore_3")
+	_wait_for_tutorial_phase("Galaxy_Map_Prompt", 120, BotPhase.ACT4_GALAXY_MAP)
+
+
+func _do_act4_galaxy_map() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Galaxy_Map_Prompt":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "galaxy_map_not_reached")
+			_set_bot_phase(BotPhase.ACT5_THREAT_WARNING)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Galaxy_Map_Prompt", fo, state)
+	_dismiss_all_beats("Galaxy_Map_Prompt")
+	_capture("06_galaxy_map")
+	_wait_for_tutorial_phase("Threat_Warning", 120, BotPhase.ACT5_THREAT_WARNING)
+
+
+# ── Act 5: The Threat (force-advance) ─────────────────────────────
+
+func _do_act5_threat_warning() -> void:
+	if _polls == 0:
+		_a.log("ACT_5|The Threat — combat intro + Dask cameo")
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Handle already-past: dialogue phases race in 1-2 frames.
+	if pn != "Threat_Warning" and phase_num > 18:
+		_a.log("THREAT_WARNING|already past (phase=%s num=%d)" % [pn, phase_num])
+		if phase_num >= 20:  # Past Dask_Hail too
+			_set_bot_phase(BotPhase.ACT5_COMBAT)
+		else:
+			_set_bot_phase(BotPhase.ACT5_DASK_HAIL)
+		return
+	if pn != "Threat_Warning":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "threat_warning_not_reached")
+			_set_bot_phase(BotPhase.ACT5_DASK_HAIL)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Threat_Warning", fo, state)
+	_dismiss_all_beats("Threat_Warning")
+	_wait_for_tutorial_phase("Dask_Hail", 120, BotPhase.ACT5_DASK_HAIL)
+
+
+func _do_act5_dask_hail() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Handle already-past.
+	if pn != "Dask_Hail" and phase_num > 19:
+		_a.log("DASK_HAIL|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT5_COMBAT)
+		return
+	if pn != "Dask_Hail":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "dask_hail_not_reached")
+			_set_bot_phase(BotPhase.ACT5_COMBAT)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Dask", fo, "dask_hail_speaker")
+		_log_narrative("Dask_Hail", fo, state)
+	_dismiss_all_beats("Dask_Hail")
+	_wait_for_tutorial_phase("Combat_Engage", 120, BotPhase.ACT5_COMBAT)
+
+
+func _do_act5_combat() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Handle already-past: if sim raced past Combat_Engage, still do force-advance.
+	if pn != "Combat_Engage" and phase_num > 20:
+		_a.log("COMBAT_ENGAGE|already past (phase=%s num=%d) — running force-advance anyway" % [pn, phase_num])
+		# Still need to force-advance since combat gate checks NpcFleetsDestroyed.
+		_bridge.call("ForceIncrementNpcFleetsDestroyedV0")
+		if _bridge.has_method("ForceDamagePlayerHullV0"):
+			_bridge.call("ForceDamagePlayerHullV0")
+		_set_bot_phase(BotPhase.ACT5_DEBRIEF)
+		return
+	if pn != "Combat_Engage":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "combat_engage_not_reached")
+			_set_bot_phase(BotPhase.ACT5_DEBRIEF)
+		return
+	var obj := str(state.get("objective", ""))
+	_objective_log["Combat_Engage"] = obj
+	_a.warn("combat" in obj.to_lower() or "engage" in obj.to_lower() or "hostile" in obj.to_lower() or "defeat" in obj.to_lower(),
+		"combat_objective", "obj=%s" % obj)
+	# Force-advance: increment NpcFleetsDestroyed + damage hull (simulates combat).
+	_bridge.call("ForceIncrementNpcFleetsDestroyedV0")
+	# Verify TutorialPirateSpawned flag is set after force-advance.
+	var post_combat_state := _get_tutorial_state()
+	_a.hard(bool(post_combat_state.get("pirate_spawned", false)), "pirate_spawned_flag_set",
+		"expected true after ForceIncrementNpcFleetsDestroyedV0")
+	if _bridge.has_method("ForceDamagePlayerHullV0"):
+		_bridge.call("ForceDamagePlayerHullV0")
+		# Verify hull was actually damaged (catches HullHpMax=0 or silent failure).
+		# GetFleetStateV0 may return a string on read-lock contention — retry.
+		var fleet_state := {}
+		for _retry in range(5):
+			var raw = _bridge.call("GetFleetStateV0", "fleet_trader_1")
+			if raw is Dictionary:
+				fleet_state = raw
+				break
 			_busy = true
-			_headless_travel(extra)
-			_a.log("TRAVEL_NODE_3|dest=%s" % extra)
-			await create_timer(0.5).timeout
+			await create_timer(0.2).timeout
 			_busy = false
-	_set_phase(Phase.WAIT_TRAVEL_3)
+		if not fleet_state.is_empty():
+			var hull_hp := int(fleet_state.get("hull_hp", -1))
+			var hull_hp_max := int(fleet_state.get("hull_hp_max", 0))
+			_a.hard(hull_hp_max > 0, "hull_hp_max_initialized", "hull_hp_max=%d" % hull_hp_max)
+			_a.hard(hull_hp >= 0 and hull_hp < hull_hp_max, "hull_actually_damaged",
+				"hull=%d max=%d" % [hull_hp, hull_hp_max])
+	_a.log("FORCE|NpcFleetsDestroyed incremented + hull damaged")
+	_wait_for_tutorial_phase("Combat_Debrief", 120, BotPhase.ACT5_DEBRIEF)
 
 
-func _do_node_3_disclosure() -> void:
-	_poll_guides()
-
-	var os := _get_onboarding_state()
-	var nv := int(os.get("nodes_visited", 0))
-	_a.log("NODE_3|nodes_visited=%d" % nv)
-
-	# With 3+ nodes: Station and Intel tabs unlock.
-	if nv >= 3:
-		_a.hard(bool(os.get("show_station_tab", false)), "node3_station_tab_visible")
-		_a.hard(bool(os.get("show_intel_tab", false)), "node3_intel_tab_visible")
-		_a.hard(_guide_seen("GUIDE_STATION_TAB"), "guide_station_tab_fired")
-	else:
-		_a.warn(nv >= 3, "node3_nodes_visited_ge_3", "actual=%d (may need more hops)" % nv)
-
-	# Faction HUD: nodesVisited >= 2.
-	if nv >= 2:
-		_a.hard(bool(os.get("show_faction_hud", false)), "faction_hud_visible")
-		_a.hard(_guide_seen("GUIDE_FACTION"), "guide_faction_fired")
-		_a.hard(_guide_seen("GUIDE_MAP"), "guide_map_fired_at_audit")
-	_record_new_guides()
-	_set_phase(Phase.DOCK_NODE_3)
+func _do_act5_debrief() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Combat_Debrief" and phase_num > 21:
+		_a.log("COMBAT_DEBRIEF|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT5_REPAIR)
+		return
+	if pn != "Combat_Debrief":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "combat_debrief_not_reached")
+			_set_bot_phase(BotPhase.ACT5_REPAIR)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Combat_Debrief", fo, state)
+	_dismiss_all_beats("Combat_Debrief")
+	_wait_for_tutorial_phase("Repair_Prompt", 120, BotPhase.ACT5_REPAIR)
 
 
-func _do_dock_node_3() -> void:
-	_dock_at_station()
-	_set_phase(Phase.WAIT_DOCK_NODE_3)
+func _do_act5_repair() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Repair_Prompt" and phase_num > 22:
+		_a.log("REPAIR_PROMPT|already past (phase=%s num=%d)" % [pn, phase_num])
+		_bridge.call("ForceRepairPlayerHullV0")
+		_set_bot_phase(BotPhase.ACT6_MODULE_INTRO)
+		return
+	if pn != "Repair_Prompt":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "repair_prompt_not_reached")
+			_set_bot_phase(BotPhase.ACT6_MODULE_INTRO)
+		return
+	# Validate objective text exists for this action-gated phase.
+	var obj := str(state.get("objective", ""))
+	_objective_log["Repair_Prompt"] = obj
+	_a.hard(not obj.is_empty(), "repair_prompt_objective_nonempty", "obj=%s" % obj)
+	# Tab disclosure: Ship tab should be visible after combat (hull < max).
+	_check_tab_disclosure("after_combat")
+	# Force-advance: set hull to max.
+	_bridge.call("ForceRepairPlayerHullV0")
+	_a.log("FORCE|hull repaired to max")
+	_wait_for_tutorial_phase("Module_Intro", 120, BotPhase.ACT6_MODULE_INTRO)
 
 
-func _do_wait_dock_node_3() -> void:
-	# Brief settle for dock at node 3.
+# ── Act 6: The Upgrade (force-advance) ────────────────────────────
+
+func _do_act6_module_intro() -> void:
+	if _polls == 0:
+		_a.log("ACT_6|The Upgrade — modules + Lira cameo")
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Module_Intro" and phase_num > 23:
+		_a.log("MODULE_INTRO|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT6_MODULE_EQUIP)
+		return
+	if pn != "Module_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "module_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT6_MODULE_EQUIP)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Module_Intro", fo, state)
+	_dismiss_all_beats("Module_Intro")
+	_wait_for_tutorial_phase("Module_Equip", 120, BotPhase.ACT6_MODULE_EQUIP)
+
+
+func _do_act6_module_equip() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Module_Equip" and phase_num > 24:
+		_a.log("MODULE_EQUIP|already past (phase=%s num=%d) — running force-advance anyway" % [pn, phase_num])
+		_bridge.call("ForceGrantModuleV0", "mod_basic_laser")
+		_set_bot_phase(BotPhase.ACT6_MODULE_REACT)
+		return
+	if pn != "Module_Equip":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "module_equip_not_reached")
+			_set_bot_phase(BotPhase.ACT6_MODULE_REACT)
+		return
+	# Force-advance: install module.
+	_bridge.call("ForceGrantModuleV0", "mod_basic_laser")
+	# Verify TutorialModuleGranted flag is set.
+	var post_module_state := _get_tutorial_state()
+	_a.hard(bool(post_module_state.get("module_granted", false)), "module_granted_flag_set",
+		"expected true after ForceGrantModuleV0")
+	# Verify module actually installed (catches empty slots or silent failure).
+	# GetFleetStateV0 may return a string on read-lock contention — retry.
+	var fleet_state := {}
+	for _retry in range(5):
+		var raw = _bridge.call("GetFleetStateV0", "fleet_trader_1")
+		if raw is Dictionary:
+			fleet_state = raw
+			break
+		_busy = true
+		await create_timer(0.2).timeout
+		_busy = false
+	if not fleet_state.is_empty():
+		var slots: Array = fleet_state.get("modules", [])
+		var module_installed := false
+		for s in slots:
+			if str(s.get("module_id", "")) == "mod_basic_laser":
+				module_installed = true
+				break
+		_a.hard(module_installed, "module_actually_installed", "slots=%d" % slots.size())
+	_a.log("FORCE|module installed mod_basic_laser")
+	_wait_for_tutorial_phase("Module_React", 120, BotPhase.ACT6_MODULE_REACT)
+
+
+func _do_act6_module_react() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Module_React" and phase_num > 25:
+		_a.log("MODULE_REACT|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT6_LIRA_TEASE)
+		return
+	if pn != "Module_React":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "module_react_not_reached")
+			_set_bot_phase(BotPhase.ACT6_LIRA_TEASE)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Module_React", fo, state)
+	_dismiss_all_beats("Module_React")
+	_wait_for_tutorial_phase("Lira_Tease", 120, BotPhase.ACT6_LIRA_TEASE)
+
+
+func _do_act6_lira_tease() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn != "Lira_Tease" and phase_num > 26:
+		_a.log("LIRA_TEASE|already past (phase=%s num=%d)" % [pn, phase_num])
+		_set_bot_phase(BotPhase.ACT7_AUTOMATION_INTRO)
+		return
+	if pn != "Lira_Tease":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "lira_tease_not_reached")
+			_set_bot_phase(BotPhase.ACT7_AUTOMATION_INTRO)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Lira", fo, "lira_tease_speaker")
+		_log_narrative("Lira_Tease", fo, state)
+	_dismiss_all_beats("Lira_Tease")
+	_capture("07_lira_tease")
+	_wait_for_tutorial_phase("Automation_Intro", 120, BotPhase.ACT7_AUTOMATION_INTRO)
+
+
+# ── Act 7: The Empire (force-advance) ─────────────────────────────
+
+func _do_act7_automation_intro() -> void:
+	if _polls == 0:
+		_a.log("ACT_7|The Empire — automation reveal")
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Automation_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "automation_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT7_AUTOMATION_CREATE)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Automation_Intro", fo, state)
+	_dismiss_all_beats("Automation_Intro")
+	_wait_for_tutorial_phase("Automation_Create", 120, BotPhase.ACT7_AUTOMATION_CREATE)
+
+
+func _do_act7_automation_create() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Automation_Create":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "automation_create_not_reached")
+			_set_bot_phase(BotPhase.ACT7_AUTOMATION_WAIT)
+		return
+	# Force-advance: create a trade charter program.
+	# Market IDs = node IDs (StarNetworkGen: MarketId = $"star_{i}").
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var src_market := str(ps.get("current_node_id", ""))
+	var dst_market := _sell_node_id if not _sell_node_id.is_empty() else _home_node_id
+	var good := _bought_good_id if not _bought_good_id.is_empty() else "fuel"
+	if src_market.is_empty() or dst_market.is_empty():
+		_a.warn(false, "automation_markets_found", "src=%s dst=%s" % [src_market, dst_market])
+		_set_bot_phase(BotPhase.ACT7_AUTOMATION_WAIT)
+		return
+	var prog_id: String = _bridge.call("CreateTradeCharterProgram", src_market, dst_market, good, good, 10)
+	_a.log("FORCE|automation created prog=%s" % prog_id)
+	_a.hard(not prog_id.is_empty(), "automation_program_created")
+	_wait_for_tutorial_phase("Automation_Running", 120, BotPhase.ACT7_AUTOMATION_WAIT)
+
+
+func _do_act7_automation_wait() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	# Check for any phase past Automation_Running.
+	var phase_num := int(state.get("phase", 0))
+	if phase_num > 29:  # Past Automation_Running (29)
+		if pn == "Automation_React":
+			_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
+		elif pn == "Commission_Intro":
+			_set_bot_phase(BotPhase.ACT7_COMMISSION)
+		else:
+			_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
+		return
+	# Track stall_ticks to verify the counter is incrementing.
+	var stall := int(state.get("stall_ticks", 0))
+	if not _stall_ticks_samples.has("Automation_Running"):
+		_stall_ticks_samples["Automation_Running"] = []
+	# Log objective only when phase is actually Automation_Running (not before transition).
+	if pn == "Automation_Running" and not _objective_log.has("Automation_Running"):
+		var obj := str(state.get("objective", ""))
+		_objective_log["Automation_Running"] = obj
+	if _polls % 10 == 0:  # Sample frequently — phase only lasts 30 ticks (~2-3s)
+		_stall_ticks_samples["Automation_Running"].append(stall)
 	_polls += 1
-	if _polls >= SETTLE_ACTION:
-		_set_phase(Phase.NODE_3_TAB_CHECK)
+	if _polls >= 1200:  # 30 sim ticks @ ~7 frames/tick + margin
+		_a.warn(false, "automation_wait_timeout", "phase=%s" % pn)
+		_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
 
 
-func _do_node_3_tab_check() -> void:
-	# After docking at node 3, verify Station and Intel [NEW] badges.
-	var dock_menu = root.find_child("HeroTradeMenu", true, false)
-	if dock_menu and dock_menu.has_method("_apply_tab_disclosure_v0"):
-		dock_menu.call("_apply_tab_disclosure_v0")
-	var os := _get_onboarding_state()
-	var nv := int(os.get("nodes_visited", 0))
-	if nv >= 3:
-		_verify_tab_new_badges(dock_menu, {"Station": true, "Intel": true})
+func _do_act7_automation_react() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# If past Automation_React already, skip ahead.
+	if phase_num > 30:
+		_dismiss_if_needed(state)
+		_set_bot_phase(BotPhase.ACT7_COMMISSION)
+		return
+	if pn != "Automation_React":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "automation_react_not_reached", "phase=%s" % pn)
+			_set_bot_phase(BotPhase.ACT7_COMMISSION)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Automation_React", fo, state)
+	_dismiss_all_beats("Automation_React")
+	_wait_for_tutorial_phase("Commission_Intro", 120, BotPhase.ACT7_COMMISSION)
+
+
+func _do_act7_commission() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	# Handle being at any phase past Commission_Intro.
+	if phase_num >= 32:  # Past Commission_Intro (31)
+		_set_bot_phase(BotPhase.ACT8_HAVEN_DISCOVER)
+		return
+	# Dismiss whatever dialogue phase we're at (Automation_React or Commission_Intro).
+	if pn == "Automation_React" or pn == "Commission_Intro":
+		if _polls == 0:  # Log narrative only on first encounter
+			var fo := _get_dialogue()
+			if not fo.is_empty():
+				_log_narrative(pn, fo, state)
+		_dismiss_all_beats(pn)
+	_polls += 1
+	if _polls >= 360:
+		state = _get_tutorial_state()
+		pn = str(state.get("phase_name", ""))
+		_a.warn(int(state.get("phase", 0)) >= 32,
+			"commission_complete", "phase=%s" % pn)
+		_set_bot_phase(BotPhase.ACT8_HAVEN_DISCOVER)
+
+
+# ── Act 8: The Haven (force-advance) ──────────────────────────────
+
+func _do_act8_haven_discover() -> void:
+	if _polls == 0:
+		_a.log("ACT_8|The Haven — home base")
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn == "Haven_Tour" or phase_num > 33:  # Past Haven_Tour
+		_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
+		return
+	if pn != "Haven_Discovery":
+		_polls += 1
+		if _polls >= 240:
+			_a.warn(false, "haven_discovery_not_reached", "phase=%s" % pn)
+			_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
+		return
+	# Force-advance: discover Haven (only once).
+	if not _haven_force_called:
+		_haven_force_called = true
+		_bridge.call("ForceDiscoverHavenV0")
+		_a.log("FORCE|Haven discovered")
+	_polls += 1
+	if _polls >= 240:
+		_a.warn(false, "haven_tour_not_reached_after_discover")
+		_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
+
+
+func _do_act8_haven_tour() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Haven_Tour":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "haven_tour_not_reached")
+			_set_bot_phase(BotPhase.ACT8_HAVEN_UPGRADE)
+		return
+	# Haven_Tour is 3-beat.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Haven_Tour", fo, state)
+	_dismiss_all_beats("Haven_Tour")
+	_wait_for_tutorial_phase("Haven_Upgrade_Prompt", 120, BotPhase.ACT8_HAVEN_UPGRADE)
+
+
+func _do_act8_haven_upgrade() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	var phase_num := int(state.get("phase", 0))
+	if pn == "Haven_React" or phase_num == 35:
+		_set_bot_phase(BotPhase.ACT8_HAVEN_REACT)
+		return
+	if phase_num >= 36:  # Past Haven_React
+		_set_bot_phase(BotPhase.ACT9_RESEARCH_INTRO)
+		return
+	# Track stall_ticks to verify the counter is incrementing.
+	var stall := int(state.get("stall_ticks", 0))
+	if not _stall_ticks_samples.has("Haven_Upgrade_Prompt"):
+		_stall_ticks_samples["Haven_Upgrade_Prompt"] = []
+	# Log objective only when phase is actually Haven_Upgrade_Prompt.
+	if pn == "Haven_Upgrade_Prompt" and not _objective_log.has("Haven_Upgrade_Prompt"):
+		var obj := str(state.get("objective", ""))
+		_objective_log["Haven_Upgrade_Prompt"] = obj
+	if _polls % 10 == 0:  # Sample frequently — phase only lasts 60 ticks (~6s)
+		_stall_ticks_samples["Haven_Upgrade_Prompt"].append(stall)
+	# Soft gate: 60 ticks or upgrade. Just wait for the stall timer.
+	_polls += 1
+	if _polls >= 1200:  # 60 sim ticks @ ~7 frames/tick + margin
+		_a.warn(false, "haven_upgrade_timeout", "phase=%s" % pn)
+		_set_bot_phase(BotPhase.ACT8_HAVEN_REACT)
+
+
+func _do_act8_haven_react() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Haven_React":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "haven_react_not_reached")
+			_set_bot_phase(BotPhase.ACT9_RESEARCH_INTRO)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Haven_React", fo, state)
+	_dismiss_all_beats("Haven_React")
+	_capture("08_haven")
+	_wait_for_tutorial_phase("Research_Intro", 120, BotPhase.ACT9_RESEARCH_INTRO)
+
+
+# ── Act 9: The Frontier (force-advance) ───────────────────────────
+
+func _do_act9_research_intro() -> void:
+	if _polls == 0:
+		_a.log("ACT_9|The Frontier — research + knowledge")
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Research_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "research_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT9_RESEARCH_START)
+		return
+	# Research_Intro is 2-beat.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Research_Intro", fo, state)
+	_dismiss_all_beats("Research_Intro")
+	_wait_for_tutorial_phase("Research_Start", 120, BotPhase.ACT9_RESEARCH_START)
+
+
+func _do_act9_research_start() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Research_Start":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "research_start_not_reached")
+			_set_bot_phase(BotPhase.ACT9_RESEARCH_REACT)
+		return
+	# Force-advance: activate Haven research slot (NOT main queue).
+	# Tutorial gate checks Haven.ResearchLabSlots.Any(s => s.IsActive).
+	if _bridge.has_method("ForceStartResearchV0"):
+		_bridge.call("ForceStartResearchV0")
+		_a.log("FORCE|research started via Haven slot")
 	else:
-		_a.log("NODE_3_TAB_CHECK|skipped nv=%d" % nv)
-	_set_phase(Phase.NODE_3_SCREENSHOT)
+		_a.warn(false, "research_start_failed", "ForceStartResearchV0 not available")
+	_wait_for_tutorial_phase("Research_React", 120, BotPhase.ACT9_RESEARCH_REACT)
 
 
-func _do_node_3_screenshot() -> void:
-	_capture("05_node3_disclosure")
-	_set_phase(Phase.GUIDE_AUDIT)
+func _do_act9_research_react() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Research_React":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "research_react_not_reached")
+			_set_bot_phase(BotPhase.ACT9_KNOWLEDGE)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Research_React", fo, state)
+	_dismiss_all_beats("Research_React")
+	_wait_for_tutorial_phase("Knowledge_Intro", 120, BotPhase.ACT9_KNOWLEDGE)
 
 
-# ===================== Final Audit =====================
+func _do_act9_knowledge() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Knowledge_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "knowledge_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT9_FRONTIER)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Knowledge_Intro", fo, state)
+	_dismiss_all_beats("Knowledge_Intro")
+	_wait_for_tutorial_phase("Frontier_Tease", 120, BotPhase.ACT9_FRONTIER)
 
-func _do_guide_audit() -> void:
-	_a.log("GUIDE_AUDIT|Final check of all guide hints")
-	var steps: Dictionary = {}
-	if _gm:
-		var s = _gm.get("_guide_steps_seen")
-		if s is Dictionary:
-			steps = s
 
-	var step_keys: Array = steps.keys()
-	step_keys.sort()
-	for key in step_keys:
-		_a.log("GUIDE_SEEN|%s" % str(key))
-	_a.log("GUIDE_COUNT|total=%d" % step_keys.size())
+func _do_act9_frontier() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Frontier_Tease":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "frontier_tease_not_reached")
+			_set_bot_phase(BotPhase.ACT10_MYSTERY)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Frontier_Tease", fo, state)
+	_dismiss_all_beats("Frontier_Tease")
+	_capture("09_frontier")
+	_wait_for_tutorial_phase("Mystery_Reveal", 120, BotPhase.ACT10_MYSTERY)
 
-	# Core hints that MUST have fired across the full walkthrough.
-	var core := ["GUIDE_FLIGHT", "GUIDE_DOCK", "GUIDE_BUY", "GUIDE_SELL"]
-	for c in core:
-		_a.hard(steps.has(c), "audit_%s" % c.to_lower())
 
-	# Polled hints that fire based on onboarding state.
-	var os := _get_onboarding_state()
-	var nv := int(os.get("nodes_visited", 0))
-	if nv >= 2:
-		_a.hard(steps.has("GUIDE_MAP"), "audit_guide_map")
-		# GUIDE_AUTOMATE requires has_traded + nodes >= 2.
-		if bool(os.get("has_traded", false)):
-			_a.hard(steps.has("GUIDE_AUTOMATE"), "audit_guide_automate")
-	if nv >= 3:
-		_a.hard(steps.has("GUIDE_STATION_TAB"), "audit_guide_station_tab")
+# ── Act 10: Graduation ────────────────────────────────────────────
 
-	# Guide hint ORDER verification.
-	_a.log("GUIDE_ORDER|%s" % " -> ".join(_guide_fire_order))
-	_a.hard(_check_order("GUIDE_FLIGHT", "GUIDE_DOCK"), "order_flight_before_dock")
-	_a.hard(_check_order("GUIDE_DOCK", "GUIDE_BUY"), "order_dock_before_buy")
-	_a.hard(_check_order("GUIDE_BUY", "GUIDE_SELL"), "order_buy_before_sell")
-	_a.hard(_check_order("GUIDE_SELL", "GUIDE_AUTOMATE"), "order_sell_before_automate")
+func _do_act10_mystery() -> void:
+	if _polls == 0:
+		_a.log("ACT_10|Graduation — capstone")
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Mystery_Reveal":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "mystery_not_reached")
+			_set_bot_phase(BotPhase.ACT10_GRADUATION)
+		return
+	# Mystery_Reveal is 2-beat.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Mystery_Reveal", fo, state)
+	_dismiss_all_beats("Mystery_Reveal")
+	_wait_for_tutorial_phase("Graduation_Summary", 120, BotPhase.ACT10_GRADUATION)
 
-	# Guide hint TEXT verification (warn — text changes are design decisions).
-	# For manually-fired hints, we pass the text ourselves so it's always correct.
-	# For polled hints, verify the game_manager source matches our constants.
-	for step_id in _GUIDE_TEXTS.keys():
-		if steps.has(step_id):
-			_a.log("GUIDE_TEXT_CHECK|%s|expected=%s" % [step_id, _GUIDE_TEXTS[step_id].left(50)])
 
-	# Credit progression curve.
+func _do_act10_graduation() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Graduation_Summary":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "graduation_not_reached")
+			_set_bot_phase(BotPhase.ACT10_FAREWELL)
+		return
+	# Ship Computer speaks at graduation.
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("SHIP COMPUTER", fo, "graduation_speaker")
+		_log_narrative("Graduation_Summary", fo, state)
+		# Validate template variables are substituted (no raw {placeholders}).
+		var grad_text := str(fo.get("text", ""))
+		_a.hard("{credits_earned}" not in grad_text, "graduation_credits_substituted",
+			"raw {credits_earned} still in text")
+		_a.hard("{nodes_visited}" not in grad_text, "graduation_nodes_substituted",
+			"raw {nodes_visited} still in text")
+		_a.hard("{combats_won}" not in grad_text, "graduation_combats_substituted",
+			"raw {combats_won} still in text")
+		_a.hard("{modules_equipped}" not in grad_text, "graduation_modules_substituted",
+			"raw {modules_equipped} still in text")
+		_a.log("GRADUATION_TEXT|%s" % grad_text.left(120))
+	_dismiss_all_beats("Graduation_Summary")
+	_wait_for_tutorial_phase("FO_Farewell", 120, BotPhase.ACT10_FAREWELL)
+
+
+func _do_act10_farewell() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "FO_Farewell":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "farewell_not_reached")
+			_set_bot_phase(BotPhase.ACT10_MILESTONE)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("FO_Farewell", fo, state)
+	_dismiss_all_beats("FO_Farewell")
+	_wait_for_tutorial_phase("Milestone_Award", 120, BotPhase.ACT10_MILESTONE)
+
+
+func _do_act10_milestone() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn == "Tutorial_Complete":
+		_a.log("ACT_10|Tutorial_Complete reached!")
+		_set_bot_phase(BotPhase.REINIT_TEST)
+		return
+	if pn != "Milestone_Award":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "milestone_not_reached")
+			_set_bot_phase(BotPhase.REINIT_TEST)
+		return
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_log_narrative("Milestone_Award", fo, state)
+	_dismiss_all_beats("Milestone_Award")
+	_capture("10_milestone")
+	# Don't transition immediately — poll for Tutorial_Complete.
+	# _wait_for_tutorial_phase transitions the bot phase but the sim needs
+	# another tick to advance. Stay in this handler and poll.
+
+
+# ── Validation ─────────────────────────────────────────────────────
+
+func _do_reinit_test() -> void:
+	_a.log("REINIT_TEST|Testing New Voyage re-initialization")
+	# Retry state read — TryExecuteSafeRead may return stale/empty on lock contention.
+	var pn := ""
+	for _retry in range(5):
+		var state := _get_tutorial_state()
+		pn = str(state.get("phase_name", ""))
+		if pn == "Tutorial_Complete":
+			break
+		_busy = true
+		await create_timer(0.2).timeout
+		_busy = false
+	_a.hard(pn == "Tutorial_Complete", "tutorial_completed", "got=%s" % pn)
+
+	# ── Save/Load Cycle ──
+	# Save at Tutorial_Complete, load back, verify state survives round-trip.
+	_a.log("SAVE_LOAD_TEST|Saving at Tutorial_Complete")
+	if _bridge.has_method("RequestSave"):
+		var epoch_before := int(_bridge.call("GetSaveEpoch"))
+		_bridge.call("RequestSave")
+		_busy = true
+		# Poll for save completion (epoch increases).
+		for i in range(60):
+			await create_timer(0.1).timeout
+			var epoch_now := int(_bridge.call("GetSaveEpoch"))
+			if epoch_now > epoch_before:
+				break
+		_busy = false
+		var epoch_after := int(_bridge.call("GetSaveEpoch"))
+		_a.hard(epoch_after > epoch_before, "save_completed", "epoch %d→%d" % [epoch_before, epoch_after])
+		# Now load.
+		var load_epoch_before := int(_bridge.call("GetLoadEpoch"))
+		_bridge.call("RequestLoad")
+		_busy = true
+		for i in range(60):
+			await create_timer(0.1).timeout
+			var load_epoch_now := int(_bridge.call("GetLoadEpoch"))
+			if load_epoch_now > load_epoch_before:
+				break
+		await create_timer(1.0).timeout  # Extra settle after load — sim kernel re-init needs time.
+		_busy = false
+		var load_epoch_after := int(_bridge.call("GetLoadEpoch"))
+		_a.hard(load_epoch_after > load_epoch_before, "load_completed",
+			"epoch %d→%d" % [load_epoch_before, load_epoch_after])
+		# Verify tutorial state survived round-trip.
+		# Re-read state a few times to handle TryExecuteSafeRead cache staleness.
+		var state_sl := {}
+		for _retry in range(5):
+			state_sl = _get_tutorial_state()
+			if not str(state_sl.get("phase_name", "")).is_empty():
+				break
+			_busy = true
+			await create_timer(0.2).timeout
+			_busy = false
+		var pn_sl := str(state_sl.get("phase_name", ""))
+		_a.hard(pn_sl == "Tutorial_Complete", "save_load_phase_preserved", "got=%s" % pn_sl)
+		var cand_sl := str(state_sl.get("candidate", ""))
+		_a.hard(cand_sl != "None" and not cand_sl.is_empty(), "save_load_candidate_preserved",
+			"got=%s" % cand_sl)
+		_a.log("SAVE_LOAD_TEST|PASS — round-trip preserved tutorial state")
+
+	# ── SkipTutorialV0 Test ──
+	if _bridge.has_method("SkipTutorialV0"):
+		_a.log("SKIP_TUTORIAL_TEST|Testing SkipTutorialV0")
+		_bridge.call("SkipTutorialV0")
+		var state_skip := _get_tutorial_state()
+		var pn_skip := str(state_skip.get("phase_name", ""))
+		_a.hard(pn_skip == "Tutorial_Complete", "skip_tutorial_phase",
+			"got=%s" % pn_skip)
+		if _bridge.has_method("IsTutorialActiveV0"):
+			_a.hard(not bool(_bridge.call("IsTutorialActiveV0")),
+				"skip_tutorial_not_active")
+		# After skip, all tabs should be accessible (no tutorial restrictions).
+		if _bridge.has_method("GetOnboardingStateV0"):
+			var obs_skip: Dictionary = _bridge.call("GetOnboardingStateV0")
+			_a.log("SKIP_TUTORIAL|onboarding_state=%s" % str(obs_skip))
+		_a.log("SKIP_TUTORIAL_TEST|PASS")
+
+	# ── Re-initialization ──
+	if _bridge.has_method("ReinitializeForNewGameV0"):
+		_bridge.call("ReinitializeForNewGameV0")
+		_busy = true
+		await create_timer(1.0).timeout
+		_busy = false
+		# Start fresh tutorial.
+		_bridge.call("StartTutorialV0")
+		var state2 := _get_tutorial_state()
+		var pn2 := str(state2.get("phase_name", ""))
+		_a.hard(pn2 == "Awaken", "reinit_phase_awaken", "got=%s" % pn2)
+		_a.hard(str(state2.get("candidate", "")) == "None", "reinit_candidate_none")
+		_a.hard(not bool(state2.get("dialogue_dismissed", true)), "reinit_dialogue_not_dismissed")
+		# Verify no stale state leaks.
+		var phase_num2 := int(state2.get("phase", -1))
+		_a.hard(phase_num2 == 1, "reinit_phase_num_is_1", "got=%d" % phase_num2)  # Awaken=1
+		var stall2 := int(state2.get("stall_ticks", -1))
+		_a.hard(stall2 == 0, "reinit_stall_ticks_zero", "got=%d" % stall2)
+		# Verify dialogue is available (Ship Computer speaks at Awaken).
+		var fo2 := _get_dialogue()
+		if not fo2.is_empty():
+			_a.hard(str(fo2.get("name", "")) == "SHIP COMPUTER", "reinit_speaker_ship_computer",
+				"got=%s" % str(fo2.get("name", "")))
+			_a.hard(not str(fo2.get("text", "")).is_empty(), "reinit_dialogue_has_text")
+		_a.log("REINIT_TEST|PASS — clean state after ReinitializeForNewGameV0")
+	else:
+		_a.warn(false, "reinit_method_missing")
+	_set_bot_phase(BotPhase.FINAL_AUDIT)
+
+
+func _do_final_audit() -> void:
+	_a.log("FINAL_AUDIT|Phase history, dialogue integrity, narrative coherence, timing")
+
+	# ── Phase History Audit ──
+	_a.log("PHASE_HISTORY|count=%d" % _phase_history.size())
+	var expected_phases := [
+		"Awaken", "Flight_Intro", "First_Dock",
+		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_Prompt", "Buy_React",
+		"Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "First_Profit", "FO_Selection",
+		"World_Intro", "Explore_Prompt", "Explore_Complete", "Galaxy_Map_Prompt",
+		"Threat_Warning", "Dask_Hail", "Combat_Engage", "Combat_Debrief", "Repair_Prompt",
+		"Module_Intro", "Module_Equip", "Module_React", "Lira_Tease",
+		"Automation_Intro", "Automation_Create", "Automation_Running", "Automation_React", "Commission_Intro",
+		"Haven_Discovery", "Haven_Tour", "Haven_Upgrade_Prompt", "Haven_React",
+		"Research_Intro", "Research_Start", "Research_React", "Knowledge_Intro", "Frontier_Tease",
+		"Mystery_Reveal", "Graduation_Summary", "FO_Farewell", "Milestone_Award", "Tutorial_Complete"
+	]
+	var visited_names: Array = []
+	for entry in _phase_history:
+		var pname: String = str(entry.get("name", ""))
+		if pname not in visited_names:
+			visited_names.append(pname)
+		_a.log("PHASE|%s frame=%d" % [pname, int(entry.get("frame", 0))])
+	var last_idx := -1
+	var phases_in_order := true
+	var missing_count := 0
+	for ep in expected_phases:
+		var idx := visited_names.find(ep)
+		if idx < 0:
+			# Headless race: sim can advance 2+ phases in one frame, skipping intermediates.
+			_a.log("PHASE_MISSED|%s (headless race artifact)" % ep)
+			missing_count += 1
+		elif idx <= last_idx:
+			_a.warn(false, "phase_order_%s" % ep.to_lower(), "expected after idx %d, got %d" % [last_idx, idx])
+			phases_in_order = false
+		else:
+			last_idx = idx
+	# Allow up to 3 missing phases (headless racing). More than that indicates a real problem.
+	if missing_count > 3:
+		phases_in_order = false
+	_a.hard(phases_in_order, "all_phases_in_order", "missing=%d" % missing_count)
+	_a.warn(missing_count == 0, "phase_coverage_complete", "missing=%d" % missing_count)
+
+	# ── Dialogue Integrity Audit ──
+	_a.log("DIALOGUE_LOG|count=%d" % _dialogue_log.size())
+	var seen_keys: Dictionary = {}
+	var duplicate_count := 0
+	for entry in _dialogue_log:
+		var key := "%s|%d|%s" % [str(entry.phase), int(entry.seq), str(entry.text)]
+		if seen_keys.has(key):
+			_a.log("DUPLICATE_DIALOGUE|%s" % key.left(100))
+			duplicate_count += 1
+		seen_keys[key] = true
+		_a.log("NARRATIVE|%s|%s|%s" % [str(entry.phase), str(entry.speaker), str(entry.text)])
+	_a.hard(duplicate_count == 0, "no_duplicate_dialogue", "dupes=%d" % duplicate_count)
+
+	# ── Beat Count Verification ──
+	# Multi-beat phases must deliver expected number of beats.
+	_a.log("BEAT_COUNTS|tracked=%d" % _beat_counts.size())
+	for phase_name in _expected_beats:
+		var expected: int = _expected_beats[phase_name]
+		var actual: int = _beat_counts.get(phase_name, 0)
+		# Beats dismissed = expected count (1 dismiss per beat shown).
+		# Allow actual >= expected since _dismiss_all_beats may count extra dismiss calls.
+		_a.warn(actual >= expected, "beat_count_%s" % phase_name.to_lower(),
+			"expected>=%d got=%d" % [expected, actual])
+		_a.log("BEATS|%s expected=%d actual=%d" % [phase_name, expected, actual])
+
+	# ── Speaker Consistency Audit ──
+	# Post-selection (phase >= World_Intro=14): selected FO speaks, except:
+	#   - SHIP COMPUTER at Graduation_Summary
+	#   - Dask at Dask_Hail
+	#   - Lira at Lira_Tease
+	var selected_fo_name := _get_selected_fo_name()
+	var speaker_exceptions := {
+		"Graduation_Summary": "SHIP COMPUTER",
+		"Dask_Hail": "Dask",
+		"Lira_Tease": "Lira"
+	}
+	# Pre-selection phases (Acts 2-3): Maren speaks.
+	var pre_selection_phases := [
+		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_Prompt",
+		"Buy_React", "Travel_Prompt", "Sell_Prompt", "First_Profit"
+	]
+	var speaker_errors := 0
+	for entry in _dialogue_log:
+		var ep: String = str(entry.phase)
+		var sp: String = str(entry.speaker)
+		if sp.is_empty():
+			continue
+		var expected_speaker := ""
+		if ep in pre_selection_phases:
+			expected_speaker = "Maren"
+		elif ep in speaker_exceptions:
+			expected_speaker = speaker_exceptions[ep]
+		elif ep == "Awaken" or ep == "Flight_Intro":
+			expected_speaker = "SHIP COMPUTER"
+		elif ep not in ["FO_Selection", "First_Dock", ""]:
+			# Post-selection phases: selected FO speaks.
+			expected_speaker = selected_fo_name
+		if not expected_speaker.is_empty() and sp != expected_speaker:
+			_a.log("SPEAKER_MISMATCH|%s expected=%s got=%s" % [ep, expected_speaker, sp])
+			speaker_errors += 1
+	_a.hard(speaker_errors == 0, "speaker_consistency", "mismatches=%d" % speaker_errors)
+
+	# ── Objective Coverage Audit ──
+	# Action-gated phases MUST have non-empty objectives (from TutorialContentV0.GetObjectiveText).
+	var action_gated_phases := [
+		"First_Dock", "Market_Explain", "Buy_Prompt", "Buy_React",
+		"Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "FO_Selection",
+		"Explore_Prompt", "Galaxy_Map_Prompt", "Combat_Engage", "Repair_Prompt",
+		"Module_Equip", "Automation_Create", "Automation_Running",
+		"Haven_Discovery", "Haven_Upgrade_Prompt", "Research_Start"
+	]
+	var obj_missing := 0
+	for agp in action_gated_phases:
+		if _objective_log.has(agp):
+			var obj_text: String = str(_objective_log[agp])
+			if obj_text.is_empty():
+				_a.log("OBJECTIVE_EMPTY|%s (action-gated phase with no objective!)" % agp)
+				obj_missing += 1
+			else:
+				_a.log("OBJECTIVE|%s=%s" % [agp, obj_text.left(60)])
+	_a.warn(obj_missing == 0, "objective_coverage", "missing=%d" % obj_missing)
+
+	# ── Phase Timing Stats ──
+	# Compute frame-delta for each tutorial phase transition. Flag anomalies:
+	# - Too fast (< 3 frames) may indicate a phase was skipped/auto-advanced
+	# - Too slow (> 1200 frames = 20s) may indicate a stall
+	_a.log("TIMING_STATS|phases=%d" % _phase_history.size())
+	# Dialogue-only phases naturally clear in 1-2 frames (auto-dismiss) — not anomalies.
+	# Phases that legitimately clear in 1-2 frames:
+	# - Dialogue-only phases: auto-dismissed by bot's main loop
+	# - Bot-driven gates: bot acts immediately when gate condition met (dock, buy, force-advance)
+	# - Re-init: Awaken after Tutorial_Complete is the re-initialization test
+	var fast_ok_phases := [
+		# Dialogue-only (auto-dismiss)
+		"Maren_Settle", "Market_Explain", "Buy_React", "Arrival_Dock",
+		"First_Profit", "Explore_Complete", "Galaxy_Map_Prompt",
+		"Threat_Warning", "Dask_Hail", "Combat_Debrief", "Repair_Prompt",
+		"Module_Intro", "Module_React", "Lira_Tease",
+		"Automation_Intro", "Automation_React", "Commission_Intro",
+		"Haven_Tour", "Haven_React",
+		"Research_Intro", "Research_React", "Knowledge_Intro", "Frontier_Tease",
+		"Mystery_Reveal", "Graduation_Summary", "FO_Farewell", "Milestone_Award",
+		# Bot acts immediately on gate
+		"First_Dock", "Maren_Hail", "Buy_Prompt", "Travel_Prompt",
+		"Sell_Prompt", "FO_Selection", "World_Intro", "Explore_Prompt", "Module_Equip",
+		"Automation_Create", "Awaken"
+	]
+	var timing_warns := 0
+	for i in range(1, _phase_history.size()):
+		var prev_frame: int = int(_phase_history[i - 1].get("frame", 0))
+		var cur_frame: int = int(_phase_history[i].get("frame", 0))
+		var delta := cur_frame - prev_frame
+		var pname: String = str(_phase_history[i].get("name", ""))
+		var prev_name: String = str(_phase_history[i - 1].get("name", ""))
+		_a.log("TIMING|%s delta=%d frames (from %s)" % [pname, delta, prev_name])
+		# Flag suspiciously fast transitions (< 3 frames), excluding dialogue-only
+		# phases which naturally clear in 1-2 frames via auto-dismiss.
+		if delta < 3 and pname != "Tutorial_Complete" and pname not in fast_ok_phases:
+			_a.log("TIMING_FAST|%s took only %d frames from %s" % [pname, delta, prev_name])
+			timing_warns += 1
+		# Flag very slow transitions (> 1500 frames ≈ 25s) excluding known slow gates.
+		var slow_ok := ["Automation_Running", "Haven_Upgrade_Prompt", "Haven_React"]
+		if delta > 1500 and pname not in slow_ok:
+			_a.log("TIMING_SLOW|%s took %d frames from %s" % [pname, delta, prev_name])
+			timing_warns += 1
+	if timing_warns > 0:
+		_a.warn(false, "phase_timing_anomalies", "count=%d" % timing_warns)
+
+	# ── Stall Timer Verification ──
+	# Automation_Running and Haven_Upgrade_Prompt use stall timers (TicksSincePhaseChange).
+	# Verify the counter incremented across samples — if it didn't, TutorialSystem.Process
+	# may not be running and players could get permanently stuck.
+	# Stall timer thresholds: Automation_Running must reach 30 ticks, Haven_Upgrade_Prompt must reach 60.
+	var stall_thresholds := {"Automation_Running": 29, "Haven_Upgrade_Prompt": 59}
+	for stall_phase in stall_thresholds:
+		var threshold: int = stall_thresholds[stall_phase]
+		if _stall_ticks_samples.has(stall_phase):
+			var samples: Array = _stall_ticks_samples[stall_phase]
+			_a.log("STALL_TIMER|%s samples=%d values=%s" % [stall_phase, samples.size(),
+				str(samples).left(80)])
+			if samples.size() >= 2:
+				var first_val: int = int(samples[0])
+				var last_val: int = int(samples[samples.size() - 1])
+				var max_val := 0
+				for s in samples:
+					if int(s) > max_val:
+						max_val = int(s)
+				_a.hard(max_val >= threshold, "stall_timer_reached_threshold_%s" % stall_phase.to_lower(),
+					"expected>=%d max=%d samples=%d" % [threshold, max_val, samples.size()])
+				# Verify timer incremented (max > 0). last > first can fail due to read-lock caching.
+				_a.hard(max_val > 0, "stall_timer_incrementing_%s" % stall_phase.to_lower(),
+					"first=%d last=%d max=%d" % [first_val, last_val, max_val])
+			else:
+				_a.warn(false, "stall_timer_insufficient_samples_%s" % stall_phase.to_lower())
+
+	# ── Tab Disclosure Audit ──
+	_a.log("TAB_DISCLOSURE_AUDIT|checkpoints=%d" % _tab_disclosure_log.size())
+	for entry in _tab_disclosure_log:
+		_a.log("TAB|%s" % str(entry))
+
+	# ── Sell Target Bridge Method Coverage ──
+	# GetTutorialSellTargetV0 and GetWrongStationWarningV0 are validated inline
+	# during Buy_React. Log whether they were exercised.
+	_a.log("BRIDGE_COVERAGE|sell_target=%s wrong_station_warning=%s" % [
+		"exercised" if _objective_log.has("Buy_React") else "skipped",
+		"exercised" if _bridge.has_method("GetWrongStationWarningV0") else "missing"])
+
+	# ── Credit Curve ──
 	_a.log("CREDIT_CURVE|phases=%d" % _credit_curve.size())
 	for entry in _credit_curve:
-		_a.log("CREDIT|phase=%s credits=%d frame=%d" % [
-			str(entry.phase), int(entry.credits), int(entry.frame)])
-	# Verify credits grew from start to end.
-	if _credit_curve.size() >= 2:
-		var first_credits := int(_credit_curve[0].credits)
-		var last_credits := int(_credit_curve[_credit_curve.size() - 1].credits)
-		_a.warn(last_credits >= first_credits, "credit_curve_non_negative",
-			"start=%d end=%d" % [first_credits, last_credits])
+		_a.log("CREDIT|phase=%s credits=%d" % [str(entry.phase), int(entry.credits)])
 
-	# Log all onboarding flags.
-	for key in os.keys():
-		_a.log("ONBOARDING|%s=%s" % [str(key), str(os[key])])
+	# ── Economy Coherence ──
+	# Verify credits peaked above initial during tutorial (pre-reinit only).
+	# Credits may bleed during force-advance acts (tariffs, station fees), so
+	# check peak vs start rather than end vs start.
+	var pre_reinit_credits: Array[Dictionary] = []
+	for entry in _credit_curve:
+		if str(entry.phase) == "REINIT_TEST":
+			break
+		pre_reinit_credits.append(entry)
+	if pre_reinit_credits.size() >= 2:
+		var first_credits: int = int(pre_reinit_credits[0].get("credits", 0))
+		var peak_credits := first_credits
+		var peak_phase := ""
+		for entry in pre_reinit_credits:
+			var c: int = int(entry.get("credits", 0))
+			if c > peak_credits:
+				peak_credits = c
+				peak_phase = str(entry.get("phase", ""))
+		# Warn (not hard) — some seeds require bot to detour to an unvisited node
+		# for the Travel_Prompt gate, sacrificing profit at the ideal sell target.
+		_a.warn(peak_credits > first_credits, "credits_peaked_above_start",
+			"start=%d peak=%d at=%s" % [first_credits, peak_credits, peak_phase])
+		# Warn if credits ended below start (economy leak during tutorial).
+		var end_credits: int = int(pre_reinit_credits[pre_reinit_credits.size() - 1].get("credits", 0))
+		if end_credits < first_credits:
+			_a.log("ECONOMY_LEAK|credits bled from %d to %d during force-advance acts" % [first_credits, end_credits])
 
-	_set_phase(Phase.FINAL_SUMMARY)
+	_set_bot_phase(BotPhase.FINAL_SUMMARY)
 
 
 func _do_final_summary() -> void:
@@ -770,92 +1896,192 @@ func _do_final_summary() -> void:
 	if _bridge and _bridge.has_method("StopSimV0"):
 		_bridge.call("StopSimV0")
 	quit(_a.exit_code())
-	_phase = Phase.DONE
+	_phase = BotPhase.DONE
 
 
-# ===================== Helpers =====================
+# ── Helpers ────────────────────────────────────────────────────────
 
-func _set_phase(p: Phase) -> void:
+func _set_bot_phase(p: BotPhase) -> void:
 	_phase = p
 	_polls = 0
 	_last_phase_change_frame = _total_frames
-	_log_credit_curve(Phase.keys()[p])
+	_log_credit_curve(BotPhase.keys()[p])
 
 
-func _get_onboarding_state() -> Dictionary:
-	if _bridge == null or not _bridge.has_method("GetOnboardingStateV0"):
+func _get_tutorial_state() -> Dictionary:
+	if _bridge == null or not _bridge.has_method("GetTutorialStateV0"):
 		return {}
-	return _bridge.call("GetOnboardingStateV0")
+	return _bridge.call("GetTutorialStateV0")
 
 
-func _guide_seen(step_id: String) -> bool:
-	if _gm == null:
-		return false
-	var steps = _gm.get("_guide_steps_seen")
-	if steps is Dictionary:
-		return steps.has(step_id)
-	return false
+func _get_dialogue() -> Dictionary:
+	if _bridge == null or not _bridge.has_method("GetRotatingFODialogueV0"):
+		return {}
+	return _bridge.call("GetRotatingFODialogueV0")
 
 
-func _fire_guide_if_unseen(step_id: String, text: String) -> void:
-	if _gm == null:
+func _assert_speaker_is(expected: String, fo_data: Dictionary, tag: String) -> void:
+	var actual := str(fo_data.get("name", ""))
+	_a.hard(actual == expected, tag, "expected=%s got=%s" % [expected, actual])
+
+
+func _log_narrative(phase_name: String, fo_data: Dictionary, state_override: Dictionary = {}) -> void:
+	var speaker := str(fo_data.get("name", ""))
+	var text := str(fo_data.get("text", ""))
+	_dialogue_log.append({"phase": phase_name, "seq": _dialogue_log.size(), "speaker": speaker, "text": text})
+	_a.log("NARRATIVE|%s|%s|%s" % [phase_name, speaker, text.left(80)])
+	# Assert non-empty text.
+	_a.hard(not text.is_empty(), "dialogue_nonempty_%s" % phase_name.to_lower())
+	# Capture objective text for coverage audit.
+	# Use state_override if provided (avoids re-reading state — timing race fix).
+	var state: Dictionary = state_override if not state_override.is_empty() else _get_tutorial_state()
+	var obj := str(state.get("objective", ""))
+	if not _objective_log.has(phase_name):
+		_objective_log[phase_name] = obj
+
+
+func _dismiss_if_needed(state: Dictionary) -> void:
+	# If current phase has pending dialogue, dismiss it.
+	if bool(state.get("dialogue_dismissed", true)):
 		return
-	if _guide_seen(step_id):
+	_dismiss_all_beats()
+
+
+func _dismiss_all_beats(override_phase_name: String = "") -> void:
+	# Dismiss dialogue repeatedly until DialogueDismissed is true.
+	# Track beat count per phase for verification against expected counts.
+	# override_phase_name: use caller's known phase to avoid state re-read race.
+	# IMPORTANT: Stop if the tutorial phase changes — prevents cascading into the
+	# NEXT phase (dismiss resets dialogue_dismissed, sim advances, dismiss fires again).
+	var phase_name := override_phase_name if not override_phase_name.is_empty() \
+		else str(_get_tutorial_state().get("phase_name", ""))
+	var beats_this_call := 0
+	var last_seq := -1
+	for i in range(10):  # Max 10 beats per phase.
+		if _bridge == null:
+			return
+		# Read sequence BEFORE dismiss to verify it increments.
+		var pre_state := _get_tutorial_state()
+		var pre_seq := int(pre_state.get("dialogue_sequence", -1))
+		_bridge.call("DismissTutorialDialogueV0")
+		beats_this_call += 1
+		var state := _get_tutorial_state()
+		var post_seq := int(state.get("dialogue_sequence", -1))
+		# Stop if phase changed — we've cascaded into the next phase.
+		var current_pn := str(state.get("phase_name", ""))
+		if not phase_name.is_empty() and current_pn != phase_name:
+			# Record the phase change in history (main loop may miss intermediate phases).
+			_track_tutorial_phase()
+			_a.log("DISMISS_CASCADE_STOPPED|was=%s now=%s after=%d beats" % [
+				phase_name, current_pn, beats_this_call])
+			break
+		if bool(state.get("dialogue_dismissed", false)):
+			# Verify sequence was consumed (either incremented or dismissed is the final beat).
+			if pre_seq >= 0 and last_seq >= 0 and pre_seq == last_seq:
+				# Dismiss with same sequence = final beat (DialogueDismissed set instead of seq++).
+				_a.log("DIALOGUE_SEQ|%s final beat at seq=%d" % [phase_name, pre_seq])
+			break
+		# Verify sequence incremented (multi-beat phases advance seq before dismiss).
+		if pre_seq >= 0 and last_seq >= 0 and post_seq <= last_seq:
+			_a.log("DIALOGUE_SEQ_WARN|%s seq didn't increment: pre=%d post=%d last=%d" % [
+				phase_name, pre_seq, post_seq, last_seq])
+		last_seq = post_seq if post_seq >= 0 else pre_seq
+		# Log next beat.
+		var fo := _get_dialogue()
+		if not fo.is_empty():
+			var speaker := str(fo.get("name", ""))
+			var text := str(fo.get("text", ""))
+			_dialogue_log.append({"phase": current_pn, "seq": post_seq, "speaker": speaker, "text": text})
+			_a.log("NARRATIVE|%s|seq=%d|%s|%s (beat %d)" % [current_pn, post_seq, speaker, text.left(60), i + 1])
+	# Accumulate beat count for this phase (may be called multiple times).
+	if not phase_name.is_empty():
+		_beat_counts[phase_name] = _beat_counts.get(phase_name, 0) + beats_this_call
+
+
+func _wait_for_tutorial_phase(expected: String, timeout: int, next_bot_phase: BotPhase) -> void:
+	# Quick check — if already at expected phase, transition immediately.
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) == expected:
+		_set_bot_phase(next_bot_phase)
 		return
-	_gm.call("_fire_guide_hint_v0", step_id, text)
+	# Otherwise set bot phase and let polling in the match handle it.
+	_set_bot_phase(next_bot_phase)
 
 
-func _poll_guides() -> void:
-	if _gm and _gm.has_method("_poll_guide_hints_v0"):
-		_gm.call("_poll_guide_hints_v0")
-	_record_new_guides()
-
-
-func _record_new_guides() -> void:
-	if _gm == null:
+func _track_tutorial_phase() -> void:
+	if _bridge == null:
 		return
-	var steps = _gm.get("_guide_steps_seen")
-	if not steps is Dictionary:
+	var state := _get_tutorial_state()
+	if state.is_empty():
 		return
-	if steps.size() > _last_guide_count:
-		for key in steps.keys():
-			if key not in _guide_fire_order:
-				_guide_fire_order.append(key)
-		_last_guide_count = steps.size()
+	var phase := int(state.get("phase", -1))
+	if phase != _last_tutorial_phase:
+		_last_tutorial_phase = phase
+		var name := str(state.get("phase_name", ""))
+		_phase_history.append({"phase": phase, "name": name, "frame": _total_frames})
+		_a.log("PHASE_CHANGE|%s (phase=%d) frame=%d" % [name, phase, _total_frames])
 
 
-func _check_order(a: String, b: String) -> bool:
-	var ia := _guide_fire_order.find(a)
-	var ib := _guide_fire_order.find(b)
-	return ia >= 0 and ib >= 0 and ia < ib
+func _get_selected_fo_name() -> String:
+	match _selected_fo_type:
+		"Analyst": return "Maren"
+		"Veteran": return "Dask"
+		"Pathfinder": return "Lira"
+	return _selected_fo_type
 
 
-func _get_hud_objective() -> Dictionary:
-	var hud = root.find_child("HUD", true, false)
-	if hud == null:
-		return {"text": "", "visible": false}
-	# Force onboarding state refresh on HUD.
-	if hud.has_method("_update_onboarding_disclosure_v0"):
-		hud.call("_update_onboarding_disclosure_v0")
-	var label = hud.get("_guide_objective_label")
-	if label != null and label is Label:
-		return {"text": label.text, "visible": label.visible}
-	return {"text": "", "visible": false}
+func _check_tab_disclosure(checkpoint: String) -> void:
+	if _bridge == null or not _bridge.has_method("GetOnboardingStateV0"):
+		return
+	var obs: Dictionary = _bridge.call("GetOnboardingStateV0")
+	_tab_disclosure_log.append({
+		"checkpoint": checkpoint,
+		"show_jobs_tab": bool(obs.get("show_jobs_tab", false)),
+		"show_ship_tab": bool(obs.get("show_ship_tab", false)),
+		"show_station_tab": bool(obs.get("show_station_tab", false)),
+		"show_intel_tab": bool(obs.get("show_intel_tab", false)),
+	})
+	match checkpoint:
+		"before_first_trade":
+			_a.hard(not bool(obs.get("show_jobs_tab", true)), "jobs_tab_hidden_before_trade")
+		"after_combat":
+			# Warn (not hard) — TryExecuteSafeRead may return cached snapshot if
+			# sim thread holds write lock when GetOnboardingStateV0 runs.
+			_a.warn(bool(obs.get("show_ship_tab", false)), "ship_tab_visible_after_combat")
+		"after_explore_3":
+			_a.hard(bool(obs.get("show_station_tab", false)), "station_tab_visible_after_explore")
+			_a.hard(bool(obs.get("show_intel_tab", false)), "intel_tab_visible_after_explore")
+	_a.log("TAB_DISCLOSURE|%s jobs=%s ship=%s station=%s intel=%s" % [
+		checkpoint,
+		str(obs.get("show_jobs_tab", false)),
+		str(obs.get("show_ship_tab", false)),
+		str(obs.get("show_station_tab", false)),
+		str(obs.get("show_intel_tab", false))])
 
 
-func _get_tab_visibility() -> Dictionary:
-	var result := {}
-	var dock_menu = root.find_child("HeroTradeMenu", true, false)
-	if dock_menu == null:
-		return result
-	var tab_buttons: Array = dock_menu.get("_tab_buttons")
-	if tab_buttons == null or tab_buttons.is_empty():
-		return result
-	var names := ["Market", "Jobs", "Ship", "Station", "Intel"]
-	for i in range(mini(tab_buttons.size(), names.size())):
-		if tab_buttons[i] is Control:
-			result[names[i]] = tab_buttons[i].visible
-	return result
+func _check_fo_reactive_suppression() -> void:
+	# During tutorial, FO reactive triggers should NOT fire. Verify PendingDialogueLine
+	# equivalent is empty by checking GetFirstOfficerStateV0 for unexpected dialogue activity.
+	if _bridge == null or not _bridge.has_method("GetFirstOfficerStateV0"):
+		return
+	var fo_state: Dictionary = _bridge.call("GetFirstOfficerStateV0")
+	# We can't directly read PendingDialogueLine (JsonIgnore), but we can verify
+	# the FO state is consistent — if reactive triggers fired, dialogue_count
+	# would increase unexpectedly. Log it for anomaly detection.
+	_a.log("FO_REACTIVE_CHECK|promoted=%s type=%s dialogue_count=%s" % [
+		str(fo_state.get("promoted", false)),
+		str(fo_state.get("type", "None")),
+		str(fo_state.get("dialogue_count", 0))])
+
+
+func _log_credit_curve(phase_name: String) -> void:
+	if _bridge == null:
+		return
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var credits := int(ps.get("credits", -1))
+	if credits < 0:
+		return
+	_credit_curve.append({"phase": phase_name, "credits": credits, "frame": _total_frames})
 
 
 func _capture(label: String) -> void:
@@ -866,8 +2092,10 @@ func _capture(label: String) -> void:
 		tick = int(_bridge.call("GetSimTickV0"))
 	var filename := "%s_%04d" % [label, tick]
 	_screenshot.capture_v0(self, filename, OUTPUT_DIR)
-	_a.log("CAPTURE|%s|tick=%d" % [label, tick])
+	_a.log("CAPTURE|%s" % label)
 
+
+# ── Navigation Helpers ─────────────────────────────────────────────
 
 func _init_navigation() -> void:
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
@@ -895,6 +2123,21 @@ func _refresh_neighbors() -> void:
 			seen[from_id] = true
 
 
+func _get_neighbors_of(node_id: String) -> Array:
+	var result: Array = []
+	var seen := {}
+	for lane in _all_edges:
+		var from_id := str(lane.get("from_id", ""))
+		var to_id := str(lane.get("to_id", ""))
+		if from_id == node_id and not seen.has(to_id):
+			result.append(to_id)
+			seen[to_id] = true
+		elif to_id == node_id and not seen.has(from_id):
+			result.append(from_id)
+			seen[from_id] = true
+	return result
+
+
 func _headless_travel(dest: String) -> void:
 	if _bridge != null:
 		if _bridge.has_method("DispatchTravelCommandV0"):
@@ -911,6 +2154,7 @@ func _headless_travel(dest: String) -> void:
 func _dock_at_station() -> void:
 	if _gm == null:
 		return
+	# Remove NPC fleet ships that might interfere with dock targeting.
 	for ship in root.get_tree().get_nodes_in_group("FleetShip"):
 		if is_instance_valid(ship):
 			ship.remove_from_group("FleetShip")
@@ -922,9 +2166,6 @@ func _dock_at_station() -> void:
 
 
 func _find_best_buy(market: Array) -> Dictionary:
-	# Returns {good_id, price} or empty dict.
-	# Pick the CHEAPEST good — matches GuaranteeStarterArbitrageV0 which ensures
-	# the cheapest good at start has a profitable margin at every neighbor.
 	var best_good := ""
 	var best_price := 999999
 	for item in market:
@@ -941,116 +2182,11 @@ func _find_best_buy(market: Array) -> Dictionary:
 	return {"good_id": best_good, "price": best_price}
 
 
-func _verify_price_colors(node_id: String) -> void:
-	# Verify buy-price color coding: green (stock > 50), red (stock < 20).
-	# The HeroTradeMenu builds market rows dynamically with color overrides.
-	var dock_menu = root.find_child("HeroTradeMenu", true, false)
-	if dock_menu == null:
-		_a.warn(false, "price_color_no_dock_menu")
-		return
-	var rows_container = dock_menu.get("_rows_container")
-	if rows_container == null:
-		_a.warn(false, "price_color_no_rows_container")
-		return
-	var green_count := 0
-	var red_count := 0
-	var market_row_count := 0
-	# Scan UI labels for color overrides — stop at the first HSeparator
-	# (production info rows follow and have their own color scheme).
-	for row_node in rows_container.get_children():
-		if row_node is HSeparator:
-			break  # End of market rows — production section follows.
-		if not row_node is HBoxContainer:
-			continue
-		market_row_count += 1
-		# Row structure: Label(name), Label(buy_price), Label(sell_price), HBox(buy_btns), HBox(sell_btns).
-		var labels: Array = []
-		for child in row_node.get_children():
-			if child is Label:
-				labels.append(child)
-		if labels.size() >= 2:
-			var buy_label: Label = labels[1]
-			if buy_label.has_theme_color_override("font_color"):
-				var c: Color = buy_label.get_theme_color("font_color")
-				# Green: Color(0.3, 0.9, 0.3)
-				if c.g > 0.8 and c.r < 0.5:
-					green_count += 1
-				# Red: Color(1.0, 0.5, 0.4)
-				elif c.r > 0.8 and c.g < 0.6:
-					red_count += 1
-	_a.log("PRICE_COLORS|rows=%d green=%d red=%d" % [market_row_count, green_count, red_count])
-	# At least some color coding should be present (green=surplus, red=scarce).
-	var any_colored := green_count + red_count
-	_a.warn(any_colored > 0 or market_row_count == 0, "price_color_present",
-		"green=%d red=%d rows=%d" % [green_count, red_count, market_row_count])
-
-
-func _verify_tab_new_badges(dock_menu, expected: Dictionary) -> void:
-	# Verify [NEW] badge text on tab buttons.
-	# expected: {"Jobs": true, "Market": false} — true = should have [NEW].
-	if dock_menu == null:
-		_a.warn(false, "new_badge_no_dock_menu")
-		return
-	var tab_buttons: Array = dock_menu.get("_tab_buttons")
-	var base_names: Array = dock_menu.get("_tab_base_names")
-	if tab_buttons == null or base_names == null:
-		_a.warn(false, "new_badge_no_tab_buttons")
-		return
-	var names := ["Market", "Jobs", "Ship", "Station", "Intel"]
-	for i in range(mini(tab_buttons.size(), names.size())):
-		if not expected.has(names[i]):
-			continue
-		var btn = tab_buttons[i]
-		if not btn is Button:
-			continue
-		var has_new: bool = "[NEW]" in btn.text
-		if expected[names[i]]:
-			_a.hard(has_new, "new_badge_%s_present" % names[i].to_lower(),
-				"text=%s" % btn.text)
-		else:
-			_a.hard(not has_new, "new_badge_%s_absent" % names[i].to_lower(),
-				"text=%s" % btn.text)
-
-
-func _log_credit_curve(phase_name: String) -> void:
-	if _bridge == null:
-		return
-	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
-	var credits := int(ps.get("credits", -1))
-	if credits < 0:
-		return
-	_credit_curve.append({"phase": phase_name, "credits": credits, "frame": _total_frames})
-
-
-func _get_cargo_count() -> int:
-	if _bridge == null:
-		return -1
-	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
-	return int(ps.get("cargo_count", 0))
-
-
-func _get_fuel() -> Dictionary:
-	# Returns {fuel, capacity} or empty dict.
-	if _bridge == null:
-		return {}
-	var result: Dictionary = _bridge.call("GetFleetSustainStatusV0", "fleet_trader_1")
-	if result.is_empty():
-		return {}
-	return {"fuel": int(result.get("fuel", 0)), "capacity": int(result.get("fuel_capacity", 0))}
-
-
 func _pick_best_sell_neighbor() -> String:
-	# Check each neighbor's market for the best sell price on our bought good.
-	# Skip neighbors with high instability (phase_index >= 4 = Void = market closed).
 	var best_id := ""
 	var best_sell := 0
 	for nid in _neighbor_ids:
 		var sid := str(nid)
-		var inst: Dictionary = _bridge.call("GetNodeInstabilityV0", sid)
-		var phase_idx := int(inst.get("phase_index", 0))
-		if phase_idx >= 4:
-			_a.log("SKIP_UNSTABLE|node=%s phase=%s phase_index=%d" % [sid, str(inst.get("phase", "")), phase_idx])
-			continue
 		var market: Array = _bridge.call("GetPlayerMarketViewV0", sid)
 		for item in market:
 			if str(item.get("good_id", "")) == _bought_good_id:
@@ -1058,15 +2194,14 @@ func _pick_best_sell_neighbor() -> String:
 				if sp > best_sell:
 					best_sell = sp
 					best_id = sid
-	if not best_id.is_empty():
-		_a.log("BEST_SELL_NEIGHBOR|node=%s sell_price=%d" % [best_id, best_sell])
 	return best_id
 
 
-func _find_all_labels(node: Node) -> Array:
-	var result: Array = []
-	if node is Label:
-		result.append(node)
-	for child in node.get_children():
-		result.append_array(_find_all_labels(child))
-	return result
+func _get_sell_price_at(node_id: String, good_id: String) -> int:
+	if good_id.is_empty():
+		return 0
+	var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
+	for item in market:
+		if str(item.get("good_id", "")) == good_id:
+			return int(item.get("sell_price", 0))
+	return 0

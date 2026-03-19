@@ -50,6 +50,12 @@ public partial class GalaxyView : Node3D
     // GATE.S6.MAP_GALAXY.NODE_CLICK.001: Node detail popup reference.
     private Node _nodeDetailPopup;
 
+    // L2.4: Hover-to-show node detail popup state.
+    private string _hoveredNodeId = "";
+    private float _hoverDwellTime = 0f;
+    private const float HoverDwellThreshold = 0.3f; // seconds before popup appears
+    [Export] public float NodeHoverThresholdPx { get; set; } = 40.0f;
+
     // GATE.S11.GAME_FEEL.NPC_ROUTE_VIS.001: NPC route line cache.
     private readonly Dictionary<string, MeshInstance3D> _npcRouteMeshesByKey = new();
 
@@ -160,6 +166,7 @@ public partial class GalaxyView : Node3D
     private bool _currentSystemIsBinary = false;
     private float _binaryPlanetScaleFactor = 1.0f; // 1.6 for binary, 1.0 for solo
     private float _binarySeparation = 0f;
+    private float _minPlanetOrbitRadius = 0f; // Outermost star edge + margin; planets must orbit beyond this.
 
     // GATE.S15.FEEL.NPC_PROXIMITY.001: Periodic fleet refresh for NPC arrivals/departures.
     private double _fleetRefreshTimer = 0.0;
@@ -169,6 +176,10 @@ public partial class GalaxyView : Node3D
     private readonly Queue<(string fleetId, Godot.Collections.Dictionary data, Vector3 spawnPos, Vector3 targetPos, float speed)> _arrivalQueue = new();
     private float _arrivalQueueTimer = 0f;
     private const float ArrivalWarpInterval = 2.5f; // seconds between arrival warps
+
+    // Deferred spawn queue — staggers idle/docked fleet spawning across frames to avoid FPS spikes.
+    private readonly Queue<(string fleetId, Vector3 spawnPos, Vector3 targetPos, float orbitRadius, float orbitSpeed, bool isDeparting, Godot.Collections.Dictionary data)> _deferredSpawnQueue = new();
+    private int _deferredSpawnPerFrame = 1; // spawn 1 ship per frame
 
     // GATE.S17.REAL_SPACE.GALAXY_MAP.001: No dedicated overlay camera — the follow camera
     // raises to altitude. Use GetViewport().GetCamera3D() for projection queries.
@@ -270,6 +281,7 @@ public partial class GalaxyView : Node3D
             ClearV2OverlayV0();
             ClearRoutePlannerV0();
             HideSearchBarV0();
+            HideNodeDetailPopupV0();
         }
     }
 
@@ -513,9 +525,19 @@ public partial class GalaxyView : Node3D
                     SpawnQueuedArrivalV0(fleetId, data, spawnPos, targetPos, speed);
                 }
             }
+
+            // Process deferred spawn queue — 1 ship per frame to avoid FPS spikes.
+            if (_deferredSpawnQueue.Count > 0)
+            {
+                var (dfId, dfSpawn, dfTarget, dfOrbit, dfOrbitSpd, dfDepart, dfData) = _deferredSpawnQueue.Dequeue();
+                SpawnDeferredFleetV0(dfId, dfSpawn, dfTarget, dfOrbit, dfOrbitSpd, dfDepart, dfData);
+            }
         }
 
         if (!_overlayOpen) return;
+
+        // L2.4: Hover detection — find nearest node to mouse and show popup after dwell.
+        UpdateHoverDetectionV0((float)delta);
 
         // In transit mode, skip per-frame refresh — prewarmed data is sufficient.
         // Only animate flow dots and player ring pulse.
@@ -792,6 +814,77 @@ public partial class GalaxyView : Node3D
 
         if (_nodeDetailPopup.HasMethod("show_for_node"))
             _nodeDetailPopup.Call("show_for_node", nodeId, screenPos);
+    }
+
+    private void HideNodeDetailPopupV0()
+    {
+        if (_nodeDetailPopup != null && GodotObject.IsInstanceValid(_nodeDetailPopup))
+        {
+            _nodeDetailPopup.Set("visible", false);
+        }
+        _hoveredNodeId = "";
+        _hoverDwellTime = 0f;
+    }
+
+    /// <summary>
+    /// Bot helper: directly show node detail popup without mouse hover.
+    /// </summary>
+    public void ShowNodePopupForBot(string nodeId)
+    {
+        var vpSize = GetViewport().GetVisibleRect().Size;
+        ShowNodeDetailPopupV0(nodeId, vpSize * 0.5f);
+    }
+
+    /// <summary>
+    /// L2.4: Per-frame hover detection — find closest node to mouse cursor.
+    /// After HoverDwellThreshold seconds on the same node, show the detail popup.
+    /// </summary>
+    private void UpdateHoverDetectionV0(float delta)
+    {
+        var activeCam = GetViewport()?.GetCamera3D();
+        if (activeCam == null) return;
+
+        var mousePos = GetViewport().GetMousePosition();
+        string closestNodeId = null;
+        float closestDist = NodeHoverThresholdPx;
+
+        foreach (var kv in _nodeRootsById)
+        {
+            var root = kv.Value;
+            if (root == null || !root.IsInsideTree() || !root.Visible) continue;
+
+            var worldPos = root.GlobalPosition;
+            if (activeCam.IsPositionBehind(worldPos)) continue;
+
+            var screenPos = activeCam.UnprojectPosition(worldPos);
+            float dist = screenPos.DistanceTo(mousePos);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closestNodeId = kv.Key;
+            }
+        }
+
+        if (closestNodeId == null)
+        {
+            _hoveredNodeId = "";
+            _hoverDwellTime = 0f;
+            return;
+        }
+
+        if (closestNodeId != _hoveredNodeId)
+        {
+            _hoveredNodeId = closestNodeId;
+            _hoverDwellTime = 0f;
+            return;
+        }
+
+        _hoverDwellTime += delta;
+        if (_hoverDwellTime >= HoverDwellThreshold && _hoverDwellTime - delta < HoverDwellThreshold)
+        {
+            // Just crossed the threshold — show popup at mouse position.
+            ShowNodeDetailPopupV0(closestNodeId, mousePos);
+        }
     }
 
     // --- Local system rendering ---
@@ -1148,6 +1241,7 @@ public partial class GalaxyView : Node3D
         _currentSystemIsBinary = false;
         _binaryPlanetScaleFactor = 1.0f;
         _binarySeparation = 0f;
+        _minPlanetOrbitRadius = 0f;
 
         // GATE.S17.REAL_SPACE.GALAXY_RENDER.001: Position local system at star's galactic-scale position.
         if (_localSystemRoot != null)
@@ -1208,14 +1302,18 @@ public partial class GalaxyView : Node3D
             Name = "StarFogVolume",
             Size = new Vector3(30f * classScale, 10f * classScale, 30f * classScale),
         };
+        // Per-system hue tint on fog for visual variety.
+        var tintedFog = ApplySystemHueTintV0(profile.FogAlbedo, nodeId);
+        // Emission scales with glow multiplier — hot stars have brighter corona haze.
+        float glowMul = profile.GlowMultiplier;
         var fogMat = new FogMaterial
         {
             Density = profile.FogDensity,
-            Albedo = profile.FogAlbedo,
+            Albedo = tintedFog,
             Emission = new Color(
-                starColor.R * 0.15f,
-                starColor.G * 0.12f,
-                starColor.B * 0.10f),
+                starColor.R * 0.15f * glowMul,
+                starColor.G * 0.12f * glowMul,
+                starColor.B * 0.10f * glowMul),
         };
         fogVol.Material = fogMat;
         _localSystemRoot.AddChild(fogVol);
@@ -1262,6 +1360,8 @@ public partial class GalaxyView : Node3D
     private void SpawnAmbientDustV0(string nodeId, string starClass = "ClassG")
     {
         var dustProfile = GetSystemVisualProfileV0(starClass);
+        // Per-system hue tint applied to dust for visual variety.
+        var tintedDust = ApplySystemHueTintV0(dustProfile.DustColor, nodeId);
         // ── Star dust (every system) ──
         var starDustProc = new ParticleProcessMaterial
         {
@@ -1270,7 +1370,7 @@ public partial class GalaxyView : Node3D
             Gravity = Vector3.Zero,
             InitialVelocityMin = 0.1f,
             InitialVelocityMax = 0.5f,
-            Color = new Color(dustProfile.DustColor.R, dustProfile.DustColor.G, dustProfile.DustColor.B, dustProfile.DustAlpha),
+            Color = new Color(tintedDust.R, tintedDust.G, tintedDust.B, dustProfile.DustAlpha),
             ScaleMin = 0.08f,
             ScaleMax = 0.22f,
         };
@@ -1328,6 +1428,7 @@ public partial class GalaxyView : Node3D
     {
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Stop periodic fleet refresh on system clear.
         _currentLocalNodeId = "";
+        _deferredSpawnQueue.Clear();
 
         if (_localSystemRoot == null) return;
         foreach (Node child in _localSystemRoot.GetChildren())
@@ -1572,7 +1673,9 @@ public partial class GalaxyView : Node3D
         }
 
         // Station orbits well outside planet sphere (planets up to ~9u visual radius).
-        station.Position = DeriveOrbitPositionV0(nodeId + "_station_offset", 15.0f);
+        var stationOrbitPos = DeriveOrbitPositionV0(nodeId + "_station_offset", 15.0f);
+        station.Position = new Vector3(stationOrbitPos.X, 1.0f, stationOrbitPos.Z); // Y=1 so station renders above ships.
+        station.SetMeta("avoidance_radius", 8.0);
         station.AddToGroup("Station");
         RegisterDockTargetV0(station, "STATION", stationId);
 
@@ -1679,6 +1782,7 @@ public partial class GalaxyView : Node3D
     private void SpawnFleetsV0(Godot.Collections.Dictionary snap)
     {
         if (_bridge == null) return;
+        bool firstShipSpawned = false; // Spawn first ship immediately for instant world presence
         var transitFacts = _bridge.GetFleetTransitFactsV0(_currentLocalNodeId ?? "");
 
         for (int i = 0; i < transitFacts.Count; i++)
@@ -1763,26 +1867,33 @@ public partial class GalaxyView : Node3D
                 }
             }
 
-            ship.Position = spawnPos;
-            ship.AddToGroup("FleetShip");
-            _localSystemRoot.AddChild(ship);
-
-            if (ship.HasMethod("update_transit"))
-                ship.Call("update_transit", f);
-
-            // Mark departing fleets so they warp out at the gate.
             bool isDeparting = atThisNode && fleetState == "Traveling" && !string.IsNullOrEmpty(destNodeId)
                 && !StringComparer.Ordinal.Equals(destNodeId, _currentLocalNodeId);
-            if (isDeparting && ship.HasMethod("begin_departure_v0"))
-                ship.Call("begin_departure_v0", targetPos);
-            else if (atThisNode && fleetState != "Traveling" && ship.HasMethod("set_orbit_v0"))
+            float orbitAngularSpeed = (atThisNode && fleetState != "Traveling")
+                ? KeplerOrbitSpeed(arrOrbit, KeplerK_Planet) * 0.5f : 0f;
+
+            if (!firstShipSpawned)
             {
-                // Idle/docked fleets orbit the star — keeps the system feeling alive.
-                float orbitAngularSpeed = KeplerOrbitSpeed(arrOrbit, KeplerK_Planet) * 0.5f;
-                ship.Call("set_orbit_v0", arrOrbit, orbitAngularSpeed);
+                // Spawn first ship immediately so the system has instant NPC presence.
+                firstShipSpawned = true;
+                ship.Position = spawnPos;
+                ship.AddToGroup("FleetShip");
+                _localSystemRoot.AddChild(ship);
+                if (ship.HasMethod("update_transit"))
+                    ship.Call("update_transit", f);
+                if (isDeparting && ship.HasMethod("begin_departure_v0"))
+                    ship.Call("begin_departure_v0", targetPos);
+                else if (orbitAngularSpeed > 0f && ship.HasMethod("set_orbit_v0"))
+                    ship.Call("set_orbit_v0", arrOrbit, orbitAngularSpeed);
+                else if (ship.HasMethod("set_target"))
+                    ship.Call("set_target", targetPos, arrSpd);
             }
-            else if (ship.HasMethod("set_target"))
-                ship.Call("set_target", targetPos, arrSpd);
+            else
+            {
+                // Defer remaining ships to next frames — avoids synchronous mesh building.
+                ship.QueueFree();
+                _deferredSpawnQueue.Enqueue((fleetId, spawnPos, targetPos, arrOrbit, orbitAngularSpeed, isDeparting, f));
+            }
         }
 
         // Init combat HP for all fleets (idempotent).
@@ -2096,6 +2207,36 @@ public partial class GalaxyView : Node3D
             ship.Call("set_target", orbitPos, speed);
     }
 
+    // Spawn a deferred fleet ship — called 1 per frame from _Process to avoid FPS spikes.
+    private void SpawnDeferredFleetV0(string fleetId, Vector3 spawnPos, Vector3 targetPos, float orbitRadius, float orbitSpeed, bool isDeparting, Godot.Collections.Dictionary data)
+    {
+        if (_localSystemRoot == null) return;
+
+        // Check if ship already exists.
+        foreach (Node child in _localSystemRoot.GetChildren())
+        {
+            if (child is Node3D n3d && n3d.IsInGroup("FleetShip") && n3d.Name.ToString() == "Fleet_" + fleetId)
+                return;
+        }
+
+        var ship = SpawnNpcShipV0(fleetId);
+        if (ship == null) return;
+
+        ship.Position = spawnPos;
+        ship.AddToGroup("FleetShip");
+        _localSystemRoot.AddChild(ship);
+
+        if (ship.HasMethod("update_transit"))
+            ship.Call("update_transit", data);
+
+        if (isDeparting && ship.HasMethod("begin_departure_v0"))
+            ship.Call("begin_departure_v0", targetPos);
+        else if (orbitSpeed > 0f && ship.HasMethod("set_orbit_v0"))
+            ship.Call("set_orbit_v0", orbitRadius, orbitSpeed);
+        else if (ship.HasMethod("set_target"))
+            ship.Call("set_target", targetPos, orbitSpeed > 0f ? 5.0f : 5.0f);
+    }
+
     // Find a lane gate's local-space position for a given neighbor node ID.
     private Vector3 GetGateLocalPositionForNeighborV0(string neighborId)
     {
@@ -2302,44 +2443,66 @@ public partial class GalaxyView : Node3D
     {
         // Star visual size scales with class (blue giants big, red dwarfs small).
         float classScale = StarClassVisualScaleV0(starClass) * scaleMult;
+        float radius = StarVisualRadiusU * classScale;
 
-        const string StarScenePath = "res://addons/naejimer_3d_planet_generator/scenes/star.tscn";
-        Node3D starNode = null;
-        if (Godot.FileAccess.FileExists(StarScenePath))
-        {
-            var scene = GD.Load<PackedScene>(StarScenePath);
-            if (scene != null)
-            {
-                starNode = scene.Instantiate<Node3D>();
-                TintStarShaderV0(starNode, starColor);
-                ActivateAnimationTreeV0(starNode);
-            }
-        }
-
-        if (starNode == null)
-        {
-            starNode = new Node3D { Name = "StarFallback" };
-            var mesh = new MeshInstance3D
-            {
-                Name = "StarMesh",
-                Mesh = new SphereMesh { Radius = StarVisualRadiusU * classScale },
-                MaterialOverride = new StandardMaterial3D
-                {
-                    AlbedoColor = starColor,
-                    EmissionEnabled = true,
-                    Emission = starColor,
-                    EmissionEnergyMultiplier = 3.0f
-                }
-            };
-            starNode.AddChild(mesh);
-        }
-
-        // Star scene has ~1200 unit baked scale. Scale to match StarVisualRadiusU * classScale.
         var container = new Node3D { Name = "LocalStar" };
-        float s = (StarVisualRadiusU * classScale) / 1200.0f;
-        container.Scale = new Vector3(s, s, s);
         container.Position = Vector3.Zero;
-        container.AddChild(starNode);
+
+        // Seed for per-star noise variation.
+        var seedHash = Fnv1a64((_currentNodeId ?? "star") + "_star_seed");
+        float seedOffset = (float)(seedHash % 100UL) * 0.37f;
+
+        // ── Photosphere: procedural surface shader on a sphere ──
+        var bodySphere = new SphereMesh
+        {
+            Radius = radius, Height = radius * 2.0f,
+            RadialSegments = 48, Rings = 32,
+        };
+        var bodyMI = new MeshInstance3D
+        {
+            Name = "StarBody",
+            Mesh = bodySphere,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        var surfaceShader = GD.Load<Shader>("res://scripts/vfx/star_surface.gdshader");
+        if (surfaceShader != null)
+        {
+            var mat = new ShaderMaterial { Shader = surfaceShader };
+            // Per-class color ramp: center(white) → mid(yellow) → limb(orange/red).
+            var (center, mid, limb) = StarClassDiskColorsV0(starColor, starClass);
+            mat.SetShaderParameter("color_center", center);
+            mat.SetShaderParameter("color_mid", mid);
+            mat.SetShaderParameter("color_limb", limb);
+            // Per-class emission: hotter stars are brighter.
+            mat.SetShaderParameter("emission_peak", StarClassEmissionPeakV0(starClass));
+            // Vary granule density per star — readable convection cells, not subpixel noise.
+            mat.SetShaderParameter("granule_scale", 18.0f + (float)(seedHash % 8UL));
+            bodyMI.MaterialOverride = mat;
+        }
+        else
+        {
+            GD.PrintErr("STAR_SHADER_MISSING: star_surface.gdshader not found!");
+            bodyMI.MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = starColor,
+                EmissionEnabled = true,
+                Emission = starColor,
+                EmissionEnergyMultiplier = 2.0f
+            };
+        }
+        container.AddChild(bodyMI);
+
+        // Corona removed — the surface shader's Fresnel rim glow + WorldEnvironment
+        // bloom handle the star halo. A separate geometry sphere creates an ugly
+        // "atmosphere ring" artifact that reads as a planet, not a star.
+
+        // ── Spinning rotation for surface animation variety ──
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null)
+        {
+            container.SetScript(spinScript);
+            container.Set("spin_speed_y", 0.02f); // Very slow rotation.
+        }
 
         // Add a point light so the star actually illuminates ships/stations/planets.
         var starLight = new OmniLight3D
@@ -2360,14 +2523,59 @@ public partial class GalaxyView : Node3D
         return container;
     }
 
+    // Per-class disk color ramp: center → mid → limb.
+    // Derived from blackbody radiation (Tanner Helland algorithm), with saturation
+    // boosted for SDO/H-alpha dramatic aesthetic. Limb darkening makes edges ~2000K cooler.
+    // O: 40000K blue-white, A: 10000K pale blue, F: 7500K yellow-white,
+    // G: 5800K warm yellow, K: 4000K orange, M: 3000K deep red-orange.
+    private static (Color center, Color mid, Color limb) StarClassDiskColorsV0(Color starColor, string starClass) => starClass switch
+    {
+        "ClassO" => (new Color(0.65f, 0.78f, 1.0f),   // 40000K blue-white center
+                     new Color(0.45f, 0.60f, 1.0f),   // 25000K blue mid
+                     new Color(0.30f, 0.50f, 0.95f)),  // 15000K deep blue limb
+        "ClassA" => (new Color(0.82f, 0.85f, 1.0f),   // 10000K pale blue-white center
+                     new Color(0.75f, 0.75f, 0.95f),  // 8000K lavender mid
+                     new Color(0.60f, 0.60f, 0.85f)),  // 6000K blue-gray limb
+        "ClassF" => (new Color(1.0f, 0.90f, 0.75f),   // 7500K warm white center
+                     new Color(1.0f, 0.78f, 0.50f),   // 6000K warm yellow mid
+                     new Color(1.0f, 0.60f, 0.25f)),   // 4500K orange limb
+        "ClassG" => (new Color(1.0f, 0.85f, 0.50f),   // 5800K bright warm yellow center
+                     new Color(1.0f, 0.60f, 0.18f),   // 4500K deep orange mid
+                     new Color(0.90f, 0.30f, 0.06f)),  // 3500K deep red-orange limb
+        "ClassK" => (new Color(1.0f, 0.70f, 0.25f),   // 4000K orange center
+                     new Color(1.0f, 0.50f, 0.10f),   // 3200K deep orange mid
+                     new Color(0.85f, 0.25f, 0.04f)),  // 2500K red limb
+        "ClassM" => (new Color(1.0f, 0.55f, 0.12f),   // 3000K deep orange center
+                     new Color(0.90f, 0.35f, 0.05f),  // 2500K red-orange mid
+                     new Color(0.70f, 0.15f, 0.02f)),  // 2000K deep red limb
+        _ =>        (new Color(1.0f, 0.85f, 0.50f),
+                     new Color(1.0f, 0.60f, 0.18f),
+                     new Color(0.90f, 0.30f, 0.06f)),
+    };
+
+    // Per-class emission peak: tuned for ACES filmic tonemapping (tonemap_white=6.0).
+    // Values above ~4.0 enter the ACES desaturation zone → gray instead of white.
+    // Keep center in sweet spot; Fresnel corona (fresnel_glow=1.5) creates bloom halo.
+    private static float StarClassEmissionPeakV0(string starClass) => starClass switch
+    {
+        "ClassO" => 5.0f,   // Blazing blue — just under ACES gray-out
+        "ClassA" => 4.5f,   // Brilliant white
+        "ClassF" => 3.8f,   // Warm white
+        "ClassG" => 3.2f,   // Sol — warm white center, Fresnel does the bloom
+        "ClassK" => 2.5f,   // Subdued orange
+        "ClassM" => 1.8f,   // Dim red dwarf — brooding
+        _ => 3.2f,
+    };
+
+    // Enhanced visual scale range for more dramatic star class differences.
     private static float StarClassVisualScaleV0(string starClass) => starClass switch
     {
-        "ClassO" => 1.8f,   // Blue giant
-        "ClassA" => 1.3f,   // White
-        "ClassF" => 1.1f,   // White-yellow
+        "ClassO" => 2.0f,   // Blue giant — imposing
+        "ClassA" => 1.4f,   // White — large
+        "ClassF" => 1.15f,  // White-yellow
         "ClassG" => 1.0f,   // Sol baseline
-        "ClassK" => 0.85f,  // Orange
-        "ClassM" => 0.6f,   // Red dwarf
+        "ClassK" => 0.8f,   // Orange — compact
+        "ClassM" => 0.55f,  // Red dwarf — small and dim
         _ => 1.0f,
     };
 
@@ -2407,47 +2615,7 @@ public partial class GalaxyView : Node3D
         _ => new Color(1.0f, 0.9f, 0.6f),          // Default warm yellow
     };
 
-    private static void TintStarShaderV0(Node3D starNode, Color starColor)
-    {
-        // Derive a dark and bright variant from the star class color.
-        // GATE.S14.STAR.TINT_FIX.001: Preserve color identity — uniform scaling keeps hue intact.
-        var darkColor = new Color(starColor.R * 0.25f, starColor.G * 0.25f, starColor.B * 0.25f);
-        var brightColor = new Color(
-            Mathf.Min(starColor.R * 1.1f, 1.0f),
-            Mathf.Min(starColor.G * 1.1f, 1.0f),
-            Mathf.Min(starColor.B * 1.1f, 1.0f));
-
-        // Tint body shader (root MeshInstance3D).
-        if (starNode is MeshInstance3D bodyMesh && bodyMesh.Mesh != null)
-        {
-            var mat = bodyMesh.Mesh.SurfaceGetMaterial(0) as ShaderMaterial;
-            if (mat != null)
-            {
-                mat.SetShaderParameter("color_1", darkColor);
-                mat.SetShaderParameter("color_2", starColor);
-                mat.SetShaderParameter("color_3", brightColor);
-                mat.SetShaderParameter("color_4", starColor);
-                mat.SetShaderParameter("color_5", brightColor);
-            }
-        }
-
-        // Tint atmosphere shader (child named "Atmosphere").
-        // Override baked values: disable emit so glow post-process ignores
-        // the Fresnel HDR, and reduce intensity/alpha to a subtle halo.
-        var atmo = starNode.GetNodeOrNull<MeshInstance3D>("Atmosphere");
-        if (atmo != null)
-        {
-            var atmoMat = atmo.Mesh?.SurfaceGetMaterial(0) as ShaderMaterial;
-            if (atmoMat != null)
-            {
-                atmoMat.SetShaderParameter("color_2", brightColor);
-                atmoMat.SetShaderParameter("intensity", 6.0f);
-                atmoMat.SetShaderParameter("alpha", 0.35f);
-                atmoMat.SetShaderParameter("emit", true);
-                atmoMat.SetShaderParameter("amount", 3.5f);
-            }
-        }
-    }
+    // TintStarShaderV0 removed — procedural star shaders accept star_color directly.
 
     // VISUAL_OVERHAUL: Planet atmosphere emission + type-specific tinting.
     private static void TintPlanetAtmosphereV0(Node3D planetNode, string planetType, string nodeId)
@@ -2496,7 +2664,26 @@ public partial class GalaxyView : Node3D
         }
     }
 
+    // Per-system hue tinting: HSV-space rotation from node ID hash.
+    // Additive RGB on dark ambient colors was invisible — HSV rotation works
+    // regardless of brightness because it shifts the hue angle directly.
+    private static Color ApplySystemHueTintV0(Color baseColor, string nodeId)
+    {
+        var hash = Fnv1a64(nodeId + "_hue_tint");
+        // ±0.10 hue rotation (±36° of 360°) — clearly visible color temperature shift.
+        float hueShift = ((float)(hash % 200UL) - 100.0f) / 1000.0f; // ±0.10
+        // ±15% saturation boost/cut — makes some systems more vivid, others more muted.
+        float satMul = 1.0f + ((float)((hash >> 8) % 30UL) - 15.0f) / 100.0f; // 0.85–1.15
+
+        float h = baseColor.H + hueShift;
+        if (h < 0f) h += 1f;
+        if (h > 1f) h -= 1f;
+        float s = Mathf.Clamp(baseColor.S * satMul, 0f, 1f);
+        return Color.FromHsv(h, s, baseColor.V, baseColor.A);
+    }
+
     // VISUAL_OVERHAUL: Star-class ambient light override — each system has a distinct color mood.
+    // Per-system hue tint applied so no two systems of same class look identical.
     private void SetSystemAmbientV0(string starClass)
     {
         var we = GetNodeOrNull<WorldEnvironment>("/root/Main/WorldEnvironment");
@@ -2511,6 +2698,7 @@ public partial class GalaxyView : Node3D
             "ClassM" => (new Color(0.14f, 0.06f, 0.04f), 0.20f),
             _ => (new Color(0.15f, 0.13f, 0.10f), 0.30f),
         };
+        col = ApplySystemHueTintV0(col, _currentNodeId ?? "default");
         we.Environment.AmbientLightColor = col;
         we.Environment.AmbientLightEnergy = energy;
     }
@@ -2564,7 +2752,13 @@ public partial class GalaxyView : Node3D
 
         var hash = Fnv1a64(nodeId + "_binary");
         bool isBinary = hash % 100UL < 20; // 20% binary
-        if (!isBinary) return primary;
+        if (!isBinary)
+        {
+            // Solo star: planets must clear the star's visual edge + 10u margin.
+            float primaryRadius = StarVisualRadiusU * StarClassVisualScaleV0(starClass);
+            _minPlanetOrbitRadius = primaryRadius + 10.0f;
+            return primary;
+        }
 
         // Binary: create barycenter pivot for mutual orbit.
         float classScl = StarClassVisualScaleV0(starClass);
@@ -2603,6 +2797,11 @@ public partial class GalaxyView : Node3D
         barycenter.AddChild(primary);
         barycenter.AddChild(companion);
 
+        // Binary minimum orbit: companion edge + 15u safety margin.
+        float companionRadius = StarVisualRadiusU * classScl * 0.5f;
+        float companionEdge = (separation - primaryOff) + companionRadius;
+        _minPlanetOrbitRadius = companionEdge + 15.0f;
+
         // Trinary: 25% of binaries also get a C star (5% total).
         // Hierarchical stability: C star at >3× AB separation (Alpha Centauri architecture).
         var triHash = Fnv1a64(nodeId + "_trinary");
@@ -2630,6 +2829,10 @@ public partial class GalaxyView : Node3D
                                           MathF.Sin(cAngle) * cSeparation);
             outerPivot.AddChild(cStar);
 
+            // Trinary: planets must clear the C star orbit + C star radius + margin.
+            float cRadius = StarVisualRadiusU * classScl * 0.35f;
+            _minPlanetOrbitRadius = cSeparation + cRadius + 15.0f;
+
             var root = new Node3D { Name = "TrinarySystem" };
             root.AddChild(barycenter);
             root.AddChild(outerPivot);
@@ -2640,12 +2843,7 @@ public partial class GalaxyView : Node3D
     }
 
     // Ensure addon scene AnimationTree is active so planets/stars rotate.
-    private static void ActivateAnimationTreeV0(Node3D sceneRoot)
-    {
-        var animTree = sceneRoot.GetNodeOrNull<AnimationTree>("AnimationTree");
-        if (animTree != null)
-            animTree.Active = true;
-    }
+    // ActivateAnimationTreeV0 removed — procedural stars animate via shader TIME.
 
     // Set SphereMesh resolution appropriate for viewing distance (~80u top-down camera).
     // 24/24 segments looks perfectly smooth from that distance (1,152 tris vs 8,192 at 128/64).
@@ -2870,9 +3068,13 @@ public partial class GalaxyView : Node3D
         var jitterHash = Fnv1a64(nodeId + "_orbit_jitter");
         float jitter = ((float)(jitterHash % 30UL) - 15.0f) * 0.1f; // ±1.5u
         float orbitRadius = (baseOrbit * lumScale + jitter) * _binaryPlanetScaleFactor;
+        // Clamp: planet must orbit beyond all stars in the system (binary/trinary safe).
+        if (orbitRadius < _minPlanetOrbitRadius)
+            orbitRadius = _minPlanetOrbitRadius;
 
         // Visual scale varies by planet type (gas giants bigger).
-        float vScale = PlanetVisualScaleV0(planetType);
+        // Canonical planet gets 1.4x scale for clear size hierarchy over outer planets.
+        float vScale = PlanetVisualScaleV0(planetType) * 1.4f;
 
         // Orbital motion: pivot at star center rotates slowly, planet child orbits.
         var orbitPivot = new Node3D { Name = "PlanetOrbitPivot" };
@@ -2889,6 +3091,12 @@ public partial class GalaxyView : Node3D
         var planetOrbitPos = DeriveOrbitPositionV0(nodeId + "_planet", orbitRadius);
         container.Position = planetOrbitPos;
         container.AddChild(planetNode);
+
+        // Avoidance metadata: ships use this to Y-lift over planets.
+        float visualRadius = vScale * 400.0f; // Addon scenes have ~400u baked scale.
+        container.SetMeta("avoidance_radius", (double)(visualRadius + 5.0f));
+        container.SetMeta("visual_radius", (double)visualRadius);
+        container.AddToGroup("PlanetBody"); // All planets (landable or not) for ship avoidance.
 
         // AtmosphereGlow sphere removed — was placeholder programmer art.
 
@@ -2966,7 +3174,13 @@ public partial class GalaxyView : Node3D
             }
             usedTypes.Add(outerType);
 
-            float orbitRadius = (canonicalOrbit + (i + 1) * 25.0f + ((float)(pH % 6UL) - 3.0f)) * _binaryPlanetScaleFactor;
+            // Phi-ratio spacing: golden ratio progression for naturalistic orbital gaps.
+            float phi = 1.618f;
+            float gap = 20.0f * MathF.Pow(phi, i); // ~20u, ~32u, ~52u...
+            float orbitRadius = (canonicalOrbit + gap + ((float)(pH % 6UL) - 3.0f)) * _binaryPlanetScaleFactor;
+            // Clamp: outer planets must also clear all stars in the system.
+            if (orbitRadius < _minPlanetOrbitRadius)
+                orbitRadius = _minPlanetOrbitRadius + gap;
             float vScale = PlanetVisualScaleV0(outerType);
 
             Node3D planetNode = CreateProceduralPlanetV0(outerType, nodeId + "_outer_" + i);
@@ -2975,6 +3189,12 @@ public partial class GalaxyView : Node3D
             container.Scale = new Vector3(vScale, vScale, vScale);
             container.Position = DeriveOrbitPositionV0(nodeId + "_outer_pos_" + i, orbitRadius);
             container.AddChild(planetNode);
+
+            // Avoidance metadata for ship Y-lift.
+            float outerVisualRadius = vScale * 400.0f;
+            container.SetMeta("avoidance_radius", (double)(outerVisualRadius + 5.0f));
+            container.SetMeta("visual_radius", (double)outerVisualRadius);
+            container.AddToGroup("PlanetBody");
 
             var pivot = new Node3D { Name = "OuterPlanetOrbit_" + i };
             if (orbitSpin != null)
@@ -3022,6 +3242,7 @@ public partial class GalaxyView : Node3D
         "Sand"        => new Color(0.95f, 0.7f, 0.4f),
         "Lava"        => new Color(1.0f, 0.3f, 0.05f),
         "Gaseous"     => new Color(0.9f, 0.75f, 0.55f),
+        "Barren"      => new Color(0.4f, 0.4f, 0.45f),   // Cool gray silhouette glow.
         _             => new Color(0.5f, 0.5f, 0.5f),
     };
 
@@ -3033,7 +3254,7 @@ public partial class GalaxyView : Node3D
         "Sand"        => 0.40f,  // Mars-like: sometimes thin haze
         "Ice"         => 0.25f,  // Rare thin frost haze
         "Lava"        => 0.20f,  // Rare volcanic outgassing
-        "Barren"      => 0.0f,   // Never
+        "Barren"      => 1.0f,   // Always — subtle silhouette glow (not atmosphere, just rim).
         _             => 0.0f,
     };
 
@@ -3045,6 +3266,7 @@ public partial class GalaxyView : Node3D
         "Sand"        => 0.4f,   // Thin dusty haze
         "Ice"         => 0.3f,   // Very subtle frost shimmer
         "Lava"        => 0.6f,   // Volcanic glow haze
+        "Barren"      => 0.15f,  // Very faint — just enough to see the edge against space.
         _             => 0.0f,
     };
 
@@ -3076,6 +3298,8 @@ public partial class GalaxyView : Node3D
         {
             var mat = new ShaderMaterial { Shader = shader };
             float seedOffset = (float)(seedHash % 100UL) * 0.37f;
+            // All planet types get seed_offset for per-seed color + noise variation.
+            mat.SetShaderParameter("seed_offset", seedOffset);
             if (planetType == "Gaseous")
             {
                 mat.SetShaderParameter("band_freq", 6.0f + (float)(seedHash % 8UL));
@@ -3713,9 +3937,10 @@ public partial class GalaxyView : Node3D
                 if (isPlayer)
                 {
                     playerHighlighted = true;
-                    mat.AlbedoColor = new Color(0.2f, 1.0f, 0.4f);
+                    // L2.1: Cyan player marker per ship-computer visual language.
+                    mat.AlbedoColor = new Color(0.4f, 0.85f, 1.0f);
                     mat.EmissionEnabled = true;
-                    mat.Emission = new Color(0.2f, 1.0f, 0.4f);
+                    mat.Emission = new Color(0.4f, 0.85f, 1.0f);
                     // FEEL_POST_FIX_3: Bright enough to dominate over Starlight skybox.
                     mat.EmissionEnergyMultiplier = 12.0f;
 
@@ -3730,7 +3955,7 @@ public partial class GalaxyView : Node3D
                             PixelSize = 2.5f,
                             FontSize = 72,
                             OutlineSize = 14,
-                            Modulate = new Color(0.2f, 1.0f, 0.4f),
+                            Modulate = new Color(1.0f, 0.9f, 0.2f),
                             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                             Position = new Vector3(0, 200f, 0),
                             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
@@ -3739,12 +3964,13 @@ public partial class GalaxyView : Node3D
 
                         var ringMat = new StandardMaterial3D
                         {
-                            AlbedoColor = new Color(0.2f, 1.0f, 0.4f, 0.7f),
+                            AlbedoColor = new Color(1.0f, 0.85f, 0.15f, 0.8f),
                             EmissionEnabled = true,
-                            Emission = new Color(0.2f, 1.0f, 0.4f),
-                            EmissionEnergyMultiplier = 10.0f,
+                            Emission = new Color(1.0f, 0.75f, 0.0f),
+                            EmissionEnergyMultiplier = 12.0f,
                             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                            NoDepthTest = true,
                         };
                         var ringMesh = new TorusMesh { InnerRadius = 80.0f, OuterRadius = 100.0f };
                         var ringInst = new MeshInstance3D
@@ -3755,6 +3981,28 @@ public partial class GalaxyView : Node3D
                             Rotation = new Vector3(Mathf.Pi / 2f, 0, 0),
                         };
                         root.AddChild(ringInst);
+
+                        // Outer ring for visual separation from node glow.
+                        var outerRingMat = new StandardMaterial3D
+                        {
+                            AlbedoColor = new Color(1.0f, 0.85f, 0.1f, 0.4f),
+                            EmissionEnabled = true,
+                            Emission = new Color(1.0f, 0.75f, 0.0f),
+                            EmissionEnergyMultiplier = 6.0f,
+                            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                            NoDepthTest = true,
+                        };
+                        var outerRingMesh = new TorusMesh { InnerRadius = 120.0f, OuterRadius = 130.0f };
+                        var outerRingInst = new MeshInstance3D
+                        {
+                            Name = "PlayerOuterRing",
+                            Mesh = outerRingMesh,
+                            MaterialOverride = outerRingMat,
+                            Rotation = new Vector3(Mathf.Pi / 2f, 0, 0),
+                            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                        };
+                        root.AddChild(outerRingInst);
 
                         // Sensor range ring: faint circle showing detection radius.
                         if (SensorRangeGalacticU > 0)
@@ -4991,6 +5239,16 @@ public partial class GalaxyView : Node3D
             // Immediate refresh on mode switch.
             UpdateV2OverlayVisualsV0();
         }
+        // L2.3: Notify HUD of V2 mode change for legend + mode label.
+        NotifyHudV2ModeV0();
+    }
+
+    /// Notify the HUD of the current V2 overlay mode.
+    private void NotifyHudV2ModeV0()
+    {
+        var hud = GetTree()?.Root?.FindChild("HUD", true, false);
+        if (hud != null && hud.HasMethod("set_v2_overlay_mode_v0"))
+            hud.Call("set_v2_overlay_mode_v0", (int)_v2OverlayMode);
     }
 
     /// Public API for external callers (e.g., toolbar buttons).
@@ -5000,6 +5258,12 @@ public partial class GalaxyView : Node3D
             _v2OverlayMode = (GalaxyMapV2Overlay)mode;
         else
             _v2OverlayMode = GalaxyMapV2Overlay.Off;
+        // Immediate visual refresh so bot screenshots capture the change.
+        if (_v2OverlayMode != GalaxyMapV2Overlay.Off)
+            UpdateV2OverlayVisualsV0();
+        else
+            ClearV2OverlayV0();
+        NotifyHudV2ModeV0();
     }
 
     public int GetV2OverlayModeV0() => (int)_v2OverlayMode;
@@ -5061,9 +5325,9 @@ public partial class GalaxyView : Node3D
             float influence = info.ContainsKey("influence_pct") ? (float)info["influence_pct"] : 0.5f;
 
             var color = FactionOverlayColorV0(factionId);
-            color.A = Mathf.Clamp(influence * 0.5f, 0.1f, 0.5f);
+            color.A = Mathf.Clamp(influence * 0.6f, 0.35f, 0.65f);
 
-            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 60.0f);
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 350.0f);
         }
 
         // Remove discs for nodes not in the current data set.
@@ -5090,10 +5354,13 @@ public partial class GalaxyView : Node3D
             // More fleets = brighter/larger indicator.
             float intensity = Mathf.Clamp(fleetCount / 5.0f, 0.2f, 1.0f);
             var color = new Color(0.2f, 0.8f, 1.0f, 0.2f + intensity * 0.3f);
-            float radius = 40.0f + fleetCount * 5.0f;
+            float radius = 250.0f + fleetCount * 30.0f;
 
-            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, Mathf.Min(radius, 80.0f));
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, Mathf.Min(radius, 450.0f));
         }
+
+        // Always show player location in fleet overlay.
+        EnsurePlayerFallbackDiscV0(seenNodes, new Color(0.2f, 0.8f, 1.0f, 0.4f), 280.0f);
 
         PruneV2OverlayDiscs(seenNodes);
     }
@@ -5119,8 +5386,11 @@ public partial class GalaxyView : Node3D
             float g = Mathf.Clamp(1.0f - heat, 0f, 1f);
             var color = new Color(r, g, 0.1f, 0.15f + heat * 0.35f);
 
-            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 50.0f + heat * 30.0f);
+            EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, 300.0f + heat * 150.0f);
         }
+
+        // Always show player location in heat overlay (cool = no heat).
+        EnsurePlayerFallbackDiscV0(seenNodes, new Color(0.2f, 0.6f, 0.2f, 0.4f), 280.0f);
 
         PruneV2OverlayDiscs(seenNodes);
     }
@@ -5144,20 +5414,20 @@ public partial class GalaxyView : Node3D
             switch (status)
             {
                 case "anomaly":
-                    color = new Color(0.7f, 0.2f, 0.9f, 0.4f);
-                    size = 65.0f;
+                    color = new Color(0.7f, 0.2f, 0.9f, 0.5f);
+                    size = 130.0f;
                     break;
                 case "mapped":
-                    color = new Color(0.2f, 0.8f, 0.3f, 0.35f);
-                    size = 55.0f;
+                    color = new Color(0.1f, 0.9f, 0.3f, 0.55f);
+                    size = 320.0f;
                     break;
                 case "visited":
-                    color = new Color(0.8f, 0.8f, 0.8f, 0.3f);
-                    size = 50.0f;
+                    color = new Color(0.5f, 0.7f, 1.0f, 0.5f);
+                    size = 300.0f;
                     break;
                 default: // "unvisited"
-                    color = new Color(0.4f, 0.4f, 0.4f, 0.2f);
-                    size = 45.0f;
+                    color = new Color(0.3f, 0.3f, 0.35f, 0.4f);
+                    size = 280.0f;
                     break;
             }
 
@@ -5204,7 +5474,7 @@ public partial class GalaxyView : Node3D
             float a = baseAlpha * (0.6f + 0.4f * pulse); // Pulse alpha
             var color = new Color(r, g, b, a);
 
-            float size = 50.0f + intensity * 35.0f;
+            float size = 300.0f + intensity * 150.0f;
             EnsureV2OverlayDisc(nodeId, nodeRoot.GlobalPosition, color, size);
         }
 
@@ -5419,23 +5689,34 @@ public partial class GalaxyView : Node3D
 
     private void EnsureV2OverlayDisc(string nodeId, Vector3 worldPos, Color color, float size)
     {
+        float radius = size * 0.5f;
         if (!_v2OverlayDiscsByNodeId.TryGetValue(nodeId, out var disc))
         {
             disc = new MeshInstance3D
             {
                 Name = "V2Overlay_" + nodeId,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                Mesh = new PlaneMesh { Size = new Vector2(size, size) },
+                Mesh = new CylinderMesh
+                {
+                    TopRadius = radius,
+                    BottomRadius = radius,
+                    Height = 0.5f,
+                    RadialSegments = 32,
+                    Rings = 0,
+                },
             };
             _v2OverlayDiscsByNodeId[nodeId] = disc;
             AddChild(disc);
         }
 
-        disc.GlobalPosition = worldPos + new Vector3(0f, -1.0f, 0f);
+        disc.GlobalPosition = worldPos + new Vector3(0f, 8.0f, 0f);
 
-        // Update size if needed.
-        if (disc.Mesh is PlaneMesh pm && (pm.Size.X != size || pm.Size.Y != size))
-            pm.Size = new Vector2(size, size);
+        // Update radius if needed.
+        if (disc.Mesh is CylinderMesh cm && Mathf.Abs(cm.TopRadius - radius) > 1f)
+        {
+            cm.TopRadius = radius;
+            cm.BottomRadius = radius;
+        }
 
         disc.MaterialOverride = new StandardMaterial3D
         {
@@ -5443,10 +5724,27 @@ public partial class GalaxyView : Node3D
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            NoDepthTest = true,
             EmissionEnabled = true,
             Emission = new Color(color.R, color.G, color.B),
-            EmissionEnergyMultiplier = 1.5f,
+            EmissionEnergyMultiplier = 4.0f,
         };
+    }
+
+    /// <summary>
+    /// Ensure the player's current node always has a disc in overlays that might
+    /// otherwise be empty early-game (fleet, heat).
+    /// </summary>
+    private void EnsurePlayerFallbackDiscV0(HashSet<string> seenNodes, Color color, float size)
+    {
+        var ps = _bridge.GetPlayerStateV0();
+        var playerNodeId = ps.ContainsKey("current_node_id") ? ps["current_node_id"].AsString() : "";
+        if (!string.IsNullOrEmpty(playerNodeId) && !seenNodes.Contains(playerNodeId)
+            && _nodeRootsById.TryGetValue(playerNodeId, out var playerRoot))
+        {
+            seenNodes.Add(playerNodeId);
+            EnsureV2OverlayDisc(playerNodeId, playerRoot.GlobalPosition, color, size);
+        }
     }
 
     private void PruneV2OverlayDiscs(HashSet<string> seenNodes)

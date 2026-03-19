@@ -164,10 +164,10 @@ public partial class SimBridge
         TryExecuteSafeRead(state =>
         {
             if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
-            result["hull"] = fleet.HullHp;
-            result["hull_max"] = fleet.HullHpMax;
-            result["shield"] = fleet.ShieldHp;
-            result["shield_max"] = fleet.ShieldHpMax;
+            result["hull"] = Math.Max(0, fleet.HullHp);
+            result["hull_max"] = Math.Max(0, fleet.HullHpMax);
+            result["shield"] = Math.Max(0, fleet.ShieldHp);
+            result["shield_max"] = Math.Max(0, fleet.ShieldHpMax);
             result["alive"] = fleet.HullHp > 0;
         }, 0);
 

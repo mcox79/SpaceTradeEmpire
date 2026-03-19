@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -10,6 +11,15 @@ namespace SimCore.Systems;
 // without a credits model. This creates price convergence the player can observe and exploit.
 public static class NpcTradeSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> FleetIds = new();
+        public readonly List<string> CargoKeys = new();
+        public readonly List<string> ToRemove = new();
+        public readonly List<string> EdgeIds = new();
+        public readonly List<string> GoodIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class TradeOpportunity
     {
         public string GoodId { get; set; } = "";
@@ -38,8 +48,12 @@ public static class NpcTradeSystem
         bool isHaulerTick = state.Tick % FleetPopulationTweaksV0.HaulerEvalIntervalTicks == 0;
         if (!isTraderTick && !isHaulerTick) return;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Iterate NPC-owned fleets in deterministic order
-        var fleetIds = new List<string>(state.Fleets.Keys);
+        var fleetIds = scratch.FleetIds;
+        fleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) fleetIds.Add(k);
         fleetIds.Sort(StringComparer.Ordinal);
 
         foreach (var fleetId in fleetIds)
@@ -152,8 +166,12 @@ public static class NpcTradeSystem
         var currentNodeId = fleet.CurrentNodeId;
         if (!state.Markets.TryGetValue(currentNodeId, out var localMarket)) return;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Deliver any cargo first (same as trader)
-        var cargoGoodsToDeliver = new List<string>(fleet.Cargo.Keys);
+        var cargoGoodsToDeliver = scratch.CargoKeys;
+        cargoGoodsToDeliver.Clear();
+        foreach (var k in fleet.Cargo.Keys) cargoGoodsToDeliver.Add(k);
         cargoGoodsToDeliver.Sort(StringComparer.Ordinal);
 
         foreach (var goodId in cargoGoodsToDeliver)
@@ -164,7 +182,8 @@ public static class NpcTradeSystem
             fleet.Cargo[goodId] = 0;
         }
 
-        var toRemove = new List<string>();
+        var toRemove = scratch.ToRemove;
+        toRemove.Clear();
         foreach (var kv in fleet.Cargo)
             if (kv.Value <= 0) toRemove.Add(kv.Key);
         foreach (var k in toRemove)
@@ -222,7 +241,10 @@ public static class NpcTradeSystem
         var sortedReachable = new List<string>(reachable);
         sortedReachable.Sort(StringComparer.Ordinal);
 
-        var goodIds = new List<string>(localMarket.Inventory.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var goodIds = scratch.GoodIds;
+        goodIds.Clear();
+        foreach (var k in localMarket.Inventory.Keys) goodIds.Add(k);
         goodIds.Sort(StringComparer.Ordinal);
 
         foreach (var destNodeId in sortedReachable)
@@ -274,8 +296,12 @@ public static class NpcTradeSystem
         var currentNodeId = fleet.CurrentNodeId;
         if (!state.Markets.TryGetValue(currentNodeId, out var localMarket)) return;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // If fleet has cargo, deliver to current location (add to market inventory)
-        var cargoGoodsToDeliver = new List<string>(fleet.Cargo.Keys);
+        var cargoGoodsToDeliver = scratch.CargoKeys;
+        cargoGoodsToDeliver.Clear();
+        foreach (var k in fleet.Cargo.Keys) cargoGoodsToDeliver.Add(k);
         cargoGoodsToDeliver.Sort(StringComparer.Ordinal);
 
         foreach (var goodId in cargoGoodsToDeliver)
@@ -289,7 +315,8 @@ public static class NpcTradeSystem
         }
 
         // Clean up zero-qty cargo entries
-        var toRemove = new List<string>();
+        var toRemove = scratch.ToRemove;
+        toRemove.Clear();
         foreach (var kv in fleet.Cargo)
             if (kv.Value <= 0) toRemove.Add(kv.Key);
         foreach (var k in toRemove)
@@ -317,9 +344,19 @@ public static class NpcTradeSystem
     {
         TradeOpportunity? best = null;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Check adjacent nodes via edges
-        var edgeIds = new List<string>(state.Edges.Keys);
+        var edgeIds = scratch.EdgeIds;
+        edgeIds.Clear();
+        foreach (var k in state.Edges.Keys) edgeIds.Add(k);
         edgeIds.Sort(StringComparer.Ordinal);
+
+        // Pre-sort good IDs once (stable across inner loop iterations).
+        var goodIds = scratch.GoodIds;
+        goodIds.Clear();
+        foreach (var k in localMarket.Inventory.Keys) goodIds.Add(k);
+        goodIds.Sort(StringComparer.Ordinal);
 
         foreach (var edgeId in edgeIds)
         {
@@ -334,10 +371,6 @@ public static class NpcTradeSystem
                 continue;
 
             if (!state.Markets.TryGetValue(adjNodeId, out var adjMarket)) continue;
-
-            // Evaluate each good available locally
-            var goodIds = new List<string>(localMarket.Inventory.Keys);
-            goodIds.Sort(StringComparer.Ordinal);
 
             foreach (var goodId in goodIds)
             {

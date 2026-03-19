@@ -17,6 +17,9 @@ public static class IntelSystem
         public readonly List<string> GoodIds = new();
         public readonly List<string> NodeIds = new();
         public readonly HashSet<string> VisitedNodes = new(StringComparer.Ordinal);
+        public readonly List<string> CurrentFrontier = new();
+        public readonly List<string> NextFrontier = new();
+        public readonly List<string> RemoteNodes = new();
     }
 
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
@@ -85,12 +88,18 @@ public static class IntelSystem
         visited.Clear();
         visited.Add(playerNodeId);
 
-        var currentFrontier = new List<string> { playerNodeId };
-        var remoteNodes = new List<string>();
+        var frontierA = scratch.CurrentFrontier;
+        var frontierB = scratch.NextFrontier;
+        frontierA.Clear();
+        frontierA.Add(playerNodeId);
+        var remoteNodes = scratch.RemoteNodes;
+        remoteNodes.Clear();
+        var currentFrontier = frontierA;
 
         for (int hop = 0; hop < range; hop++)
         {
-            var nextFrontier = new List<string>();
+            var nextFrontier = (currentFrontier == frontierA) ? frontierB : frontierA;
+            nextFrontier.Clear();
             foreach (var nodeId in currentFrontier)
             {
                 if (!outgoing.TryGetValue(nodeId, out var edges)) continue;
@@ -115,7 +124,9 @@ public static class IntelSystem
         {
             if (!state.Markets.TryGetValue(nodeId, out var market)) continue;
 
-            var goodIds = new List<string>(market.Inventory.Keys);
+            var goodIds = scratch.GoodIds;
+            goodIds.Clear();
+            foreach (var g in market.Inventory.Keys) goodIds.Add(g);
             goodIds.Sort(StringComparer.Ordinal);
 
             foreach (var goodId in goodIds)
@@ -149,17 +160,22 @@ public static class IntelSystem
         if (state.Tick % TradeIntelTweaksV0.PriceHistoryCadenceTicks != 0) return;
 
         // Collect all market node ids deterministically.
-        var nodeIds = new List<string>(state.Markets.Keys);
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var nodeIds = scratch2.NodeIds;
+        nodeIds.Clear();
+        foreach (var k in state.Markets.Keys) nodeIds.Add(k);
         nodeIds.Sort(StringComparer.Ordinal);
 
         foreach (var nodeId in nodeIds)
         {
             if (!state.Markets.TryGetValue(nodeId, out var market)) continue;
 
-            var goodIds = new List<string>(market.Inventory.Keys);
-            goodIds.Sort(StringComparer.Ordinal);
+            var goodIds2 = scratch2.GoodIds;
+            goodIds2.Clear();
+            foreach (var g in market.Inventory.Keys) goodIds2.Add(g);
+            goodIds2.Sort(StringComparer.Ordinal);
 
-            foreach (var goodId in goodIds)
+            foreach (var goodId in goodIds2)
             {
                 var snapshot = new PriceSnapshot
                 {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -8,6 +9,11 @@ namespace SimCore.Systems;
 // GATE.S4.NPC_INDU.DEMAND.001: NPC industry — demand generation + production reactions.
 public static class NpcIndustrySystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SiteIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     // GATE.S4.NPC_INDU.DEMAND.001: Process NPC industry per tick.
     // NPC industry sites consume inputs from local markets, creating demand pressure.
     public static void ProcessNpcIndustry(SimState state)
@@ -18,7 +24,10 @@ public static class NpcIndustrySystem
         if (state.Tick % NpcIndustryTweaksV0.ProcessIntervalTicks != 0) return;
 
         // Iterate industry sites in deterministic order
-        var siteIds = new List<string>(state.IndustrySites.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var siteIds = scratch.SiteIds;
+        siteIds.Clear();
+        foreach (var k in state.IndustrySites.Keys) siteIds.Add(k);
         siteIds.Sort(StringComparer.Ordinal);
 
         foreach (var siteId in siteIds)
@@ -65,10 +74,13 @@ public static class NpcIndustrySystem
         // Only process every N ticks (slower than demand)
         if (state.Tick % NpcIndustryTweaksV0.ReactionIntervalTicks != 0) return;
 
-        var siteIds = new List<string>(state.IndustrySites.Keys);
-        siteIds.Sort(StringComparer.Ordinal);
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var siteIds2 = scratch2.SiteIds;
+        siteIds2.Clear();
+        foreach (var k in state.IndustrySites.Keys) siteIds2.Add(k);
+        siteIds2.Sort(StringComparer.Ordinal);
 
-        foreach (var siteId in siteIds)
+        foreach (var siteId in siteIds2)
         {
             var site = state.IndustrySites[siteId];
             if (site == null || !site.Active) continue;

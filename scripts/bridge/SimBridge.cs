@@ -694,12 +694,26 @@ public partial class SimBridge : Node
             if (!string.IsNullOrEmpty(state.PlayerLocationNodeId)
                 && state.Nodes.TryGetValue(state.PlayerLocationNodeId, out var pNode))
                 nodeName = pNode.Name ?? state.PlayerLocationNodeId ?? "";
+            // Resolve cargo capacity from player fleet ship class.
+            int cargoCapacity = 50; // fallback default
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var pFleet))
+            {
+                var classDef = SimCore.Content.ShipClassContentV0.GetById(pFleet.ShipClassId);
+                if (classDef != null) cargoCapacity = classDef.CargoCapacity;
+            }
+
+            int fuelCurrent = pFleet?.FuelCurrent ?? 0;
+            int fuelCapacity = pFleet?.FuelCapacity ?? 0;
+
             var d = new Godot.Collections.Dictionary
             {
                 ["credits"] = state.PlayerCredits,
                 ["cargo_count"] = cargoCount,
+                ["cargo_capacity"] = cargoCapacity,
                 ["current_node_id"] = state.PlayerLocationNodeId ?? "",
-                ["node_name"] = nodeName
+                ["node_name"] = nodeName,
+                ["fuel"] = fuelCurrent,
+                ["fuel_capacity"] = fuelCapacity
             };
             lock (_snapshotLock)
             {

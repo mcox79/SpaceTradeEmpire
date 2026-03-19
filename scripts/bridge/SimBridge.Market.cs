@@ -604,6 +604,43 @@ public partial class SimBridge
         return result;
     }
 
+    /// <summary>
+    /// Returns recent credit balance history as 10 data points for spark-chart display.
+    /// Each point = cumulative credit delta over a tick bucket. Returns {points: int[], current_credits: int}.
+    /// </summary>
+    public Godot.Collections.Dictionary GetCreditHistoryV0()
+    {
+        var points = new Godot.Collections.Array();
+        var result = new Godot.Collections.Dictionary { ["points"] = points, ["current_credits"] = (long)0 };
+        if (IsLoading) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            result["current_credits"] = state.PlayerCredits;
+            var log = state.TransactionLog;
+            if (log is null || log.Count == 0) return;
+
+            // Find tick range of last 100 ticks (or full log if shorter).
+            int currentTick = state.Tick;
+            int startTick = Math.Max(0, currentTick - 100);
+            int bucketSize = Math.Max(1, (currentTick - startTick) / 10);
+
+            // Build 10 buckets of net credit delta.
+            var buckets = new long[10];
+            foreach (var tx in log)
+            {
+                if (tx.Tick < startTick) continue;
+                int idx = Math.Min((tx.Tick - startTick) / bucketSize, 9);
+                buckets[idx] += tx.CashDelta;
+            }
+
+            foreach (var b in buckets)
+                points.Add(b);
+        });
+
+        return result;
+    }
+
     // ── GATE.S9.SYSTEMIC.CONTEXT_BRIDGE.001: Station context queries ──
 
     /// <summary>

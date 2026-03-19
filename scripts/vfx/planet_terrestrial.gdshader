@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode cull_back, diffuse_lambert, specular_schlick_ggx;
 
 // Procedural terrestrial planet: continents, oceans, polar ice caps, slow rotation.
+// Per-seed color variation via seed_offset uniform.
 
 uniform vec3 ocean_deep    : source_color = vec3(0.01, 0.12, 0.4);
 uniform vec3 ocean_shallow : source_color = vec3(0.05, 0.35, 0.7);
@@ -13,6 +14,7 @@ uniform float continent_scale : hint_range(1.0, 6.0) = 2.5;
 uniform float sea_level : hint_range(0.3, 0.6) = 0.48;
 uniform float atmo_strength : hint_range(0.0, 3.0) = 1.8;
 uniform float rotation_speed : hint_range(0.0, 0.05) = 0.01;
+uniform float seed_offset : hint_range(0.0, 100.0) = 0.0;
 
 varying vec3 model_pos;
 void vertex() { model_pos = VERTEX; }
@@ -43,23 +45,36 @@ float fbm(vec3 p, int oct) {
 	return v;
 }
 
+// Cosine palette: attempt hue variation from seed.
+vec3 seed_color_shift(vec3 base, float seed) {
+	float h = fract(seed * 0.618034) * 0.15 - 0.075; // ±7.5% hue shift
+	float s = fract(seed * 0.314159) * 0.1 - 0.05;    // ±5% saturation
+	return clamp(base + vec3(h, h * 0.5, -h) + s, 0.0, 1.0);
+}
+
 void fragment() {
 	vec3 p = normalize(model_pos) * continent_scale;
 	float t = TIME * rotation_speed;
 	mat3 rot = mat3(vec3(cos(t),0,sin(t)), vec3(0,1,0), vec3(-sin(t),0,cos(t)));
-	p = rot * p;
+	p = rot * p + vec3(seed_offset);
 
-	float n = fbm(p, 5);
+	float n = fbm(p, 4);
 	float detail = fbm(p * 3.1 + vec3(7.3), 3);
+
+	// Per-seed color variation.
+	vec3 my_ocean_deep = seed_color_shift(ocean_deep, seed_offset);
+	vec3 my_ocean_shallow = seed_color_shift(ocean_shallow, seed_offset + 1.0);
+	vec3 my_land_low = seed_color_shift(land_low, seed_offset + 2.0);
+	vec3 my_land_high = seed_color_shift(land_high, seed_offset + 3.0);
 
 	vec3 col;
 	if (n < sea_level) {
 		float depth = smoothstep(0.0, sea_level, n);
-		col = mix(ocean_deep, ocean_shallow, depth);
+		col = mix(my_ocean_deep, my_ocean_shallow, depth);
 		ROUGHNESS = 0.05; METALLIC = 0.3;
 	} else {
 		float elev = (n - sea_level) / (1.0 - sea_level) + detail * 0.15;
-		col = mix(land_low, land_high, smoothstep(0.2, 0.7, elev));
+		col = mix(my_land_low, my_land_high, smoothstep(0.2, 0.7, elev));
 		col = mix(col, snow_cap, smoothstep(0.75, 0.95, elev));
 		ROUGHNESS = 0.85; METALLIC = 0.0;
 	}

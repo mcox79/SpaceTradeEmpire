@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
@@ -12,6 +12,12 @@ namespace SimCore.Systems;
 // GATE.S7.SUSTAIN.SHORTFALL.001: Module disable on sustain shortfall, recovery on re-supply.
 public static class SustainSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedFleetIds = new();
+        public readonly List<string> SustainKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Deducts fuel from moving fleets and sustain goods from equipped modules on cycle boundaries.
     /// Called once per tick after MovementSystem.
@@ -31,8 +37,16 @@ public static class SustainSystem
         bool isSustainCycle = SustainTweaksV0.SustainCycleTicks > 0
             && state.Tick % SustainTweaksV0.SustainCycleTicks == 0;
 
-        foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedFleetIds = scratch.SortedFleetIds;
+        sortedFleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) sortedFleetIds.Add(k);
+        sortedFleetIds.Sort(StringComparer.Ordinal);
+
+        foreach (var fleetId in sortedFleetIds)
         {
+            var fleet = state.Fleets[fleetId];
+
             // Fuel deduction: moving fleets burn fuel each tick from their dedicated tank.
             if (fleet.IsMoving)
             {
@@ -43,7 +57,7 @@ public static class SustainSystem
                 {
                     // Still process sustain cycle for NPC fleets even if not deducting fuel.
                     if (isSustainCycle)
-                        ProcessModuleSustain(fleet, fleet.Cargo);
+                        ProcessModuleSustain(fleet, fleet.Cargo, scratch.SustainKeys);
                     continue;
                 }
 
@@ -79,6 +93,31 @@ public static class SustainSystem
                 }
             }
 
+            // Auto-repair hull: docked player fleet pays per-HP fee.
+            if (!fleet.IsMoving
+                && !string.IsNullOrEmpty(fleet.CurrentNodeId)
+                && string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)
+                && fleet.HullHp > 0 && fleet.HullHpMax > 0
+                && fleet.HullHp < fleet.HullHpMax)
+            {
+                int hullDeficit = fleet.HullHpMax - fleet.HullHp;
+                int costPerHp = SustainTweaksV0.HullRepairCreditCostPerHp;
+                if (costPerHp > 0)
+                {
+                    int affordable = (int)(state.PlayerCredits / costPerHp);
+                    int repairAmount = Math.Min(hullDeficit, affordable);
+                    if (repairAmount > 0)
+                    {
+                        fleet.HullHp += repairAmount;
+                        state.PlayerCredits -= (int)(repairAmount * costPerHp);
+                    }
+                }
+                else
+                {
+                    fleet.HullHp = fleet.HullHpMax;
+                }
+            }
+
             // GATE.S7.SUSTAIN.SHORTFALL.001: Module sustain check on cycle boundary.
             if (isSustainCycle)
             {
@@ -87,7 +126,7 @@ public static class SustainSystem
 
                 // GATE.X.PRESSURE_INJECT.SUSTAIN.001: Track disabled count before sustain check.
                 int disabledBefore = CountDisabledSlots(fleet);
-                ProcessModuleSustain(fleet, cargo);
+                ProcessModuleSustain(fleet, cargo, scratch.SustainKeys);
                 int disabledAfter = CountDisabledSlots(fleet);
 
                 if (disabledAfter > disabledBefore)
@@ -114,7 +153,7 @@ public static class SustainSystem
     /// If fleet has fuel, check SustainInputs goods and deduct from cargo. Disable on shortfall.
     /// GATE.X.MODULE_SUSTAIN.DEDUCT.001: Per-module good consumption during sustain cycle.
     /// </summary>
-    private static void ProcessModuleSustain(Fleet fleet, Dictionary<string, int> cargo)
+    private static void ProcessModuleSustain(Fleet fleet, Dictionary<string, int> cargo, List<string> sustainKeys)
     {
         if (fleet.Slots == null || fleet.Slots.Count == 0) return;
 
@@ -139,7 +178,9 @@ public static class SustainSystem
                 {
                     // Check if all required goods are available (deterministic: sort keys).
                     bool canSustain = true;
-                    var keys = new List<string>(moduleDef.SustainInputs.Keys);
+                    var keys = sustainKeys;
+                    keys.Clear();
+                    foreach (var k in moduleDef.SustainInputs.Keys) keys.Add(k);
                     keys.Sort(StringComparer.Ordinal);
 
                     foreach (var goodId in keys)

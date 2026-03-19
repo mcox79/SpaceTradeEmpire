@@ -175,6 +175,18 @@ public static class GalaxyGenerator
         // Run enough cycles for each fleet to pick a destination and begin traveling.
         PreRunNpcTradeRoutesV0(state);
 
+        // Phase 12b: Clear heat on edges adjacent to the player's starting node.
+        // NPC pre-run accumulates trade heat which triggers a red vignette at boot —
+        // alarming before the player has any context about the heat system.
+        foreach (var edge in state.Edges.Values)
+        {
+            if (edge.FromNodeId == state.PlayerLocationNodeId ||
+                edge.ToNodeId == state.PlayerLocationNodeId)
+            {
+                edge.Heat = 0f;
+            }
+        }
+
         var (pass, report) = EvaluateWorldgenBoundsV0(state, WorldgenBoundsGoodsV0, minP, minS);
         if (!pass)
         {

@@ -306,6 +306,8 @@ func _walk_hud_node(node: Node, labels: Array, bars: Array, buttons: Array) -> v
 			"name": str(lbl.name),
 			"text": lbl.text,
 			"visible": lbl.visible,
+			"clip_text": lbl.clip_text,
+			"autowrap": lbl.autowrap_mode != TextServer.AUTOWRAP_OFF,
 		})
 	elif node is ProgressBar:
 		var bar: ProgressBar = node as ProgressBar

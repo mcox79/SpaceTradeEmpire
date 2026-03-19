@@ -1,13 +1,19 @@
 using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
 public static class FractureSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
 
     // GATE.S6.FRACTURE.ACCESS_MODEL.001: Access check result.
     public sealed class FractureAccessResult
@@ -117,10 +123,16 @@ public static class FractureSystem
     // - Filter: only fleets in FractureTraveling state
     public static string[] GetFractureFleetProcessOrder(SimState state)
     {
-        return state.Fleets.Keys
-            .Where(id => state.Fleets[id].State == FleetState.FractureTraveling)
-            .OrderBy(id => id, StringComparer.Ordinal)
-            .ToArray();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sorted = scratch.SortedKeys;
+        sorted.Clear();
+        foreach (var id in state.Fleets.Keys)
+        {
+            if (state.Fleets[id].State == FleetState.FractureTraveling)
+                sorted.Add(id);
+        }
+        sorted.Sort(StringComparer.Ordinal);
+        return sorted.ToArray();
     }
 
     // GATE.S7.FRACTURE.OFFLANE_ROUTES.001: Offlane route validation + cost result.
@@ -195,7 +207,10 @@ public static class FractureSystem
         };
 
         // Process nodes in deterministic order (Ordinal by node id).
-        var nodeIds = new System.Collections.Generic.List<string>(state.Nodes.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var nodeIds = scratch.SortedKeys;
+        nodeIds.Clear();
+        foreach (var k in state.Nodes.Keys) nodeIds.Add(k);
         nodeIds.Sort(StringComparer.Ordinal);
 
         foreach (var nodeId in nodeIds)
@@ -275,10 +290,13 @@ public static class FractureSystem
     {
         if (state is null) return;
 
-        var nodeIds = new System.Collections.Generic.List<string>(state.Nodes.Keys);
-        nodeIds.Sort(StringComparer.Ordinal);
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var nodeIds2 = scratch2.SortedKeys;
+        nodeIds2.Clear();
+        foreach (var k in state.Nodes.Keys) nodeIds2.Add(k);
+        nodeIds2.Sort(StringComparer.Ordinal);
 
-        foreach (var nodeId in nodeIds)
+        foreach (var nodeId in nodeIds2)
         {
             if (!state.Nodes.TryGetValue(nodeId, out var node)) continue;
 

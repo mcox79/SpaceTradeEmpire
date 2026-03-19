@@ -3,7 +3,7 @@ using SimCore.Content;
 using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
@@ -12,6 +12,12 @@ namespace SimCore.Systems;
 // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Template-driven FlavorText for discoveries.
 public static class DiscoveryOutcomeSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedKeys = new();
+        public readonly List<string> Links = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001: Narrative templates keyed by (family, phase).
     // Presentation text only — not gameplay-affecting, not included in GetSignature().
     // {system} is replaced with the node display name; {family} with the discovery family.
@@ -105,7 +111,10 @@ public static class DiscoveryOutcomeSystem
         if (state.FractureUnlocked) return;
         if (state.Tick < Tweaks.FractureTweaksV0.FractureDiscoveryMinTick) return;
 
-        var siteIds = new List<string>(state.VoidSites.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var siteIds = scratch.SortedKeys;
+        siteIds.Clear();
+        foreach (var k in state.VoidSites.Keys) siteIds.Add(k);
         siteIds.Sort(StringComparer.Ordinal);
 
         foreach (var siteId in siteIds)
@@ -215,9 +224,14 @@ public static class DiscoveryOutcomeSystem
     // Find the first adjacent node by scanning edges (deterministic: sorted by edge id).
     private static string FindAdjacentNode(SimState state, string nodeId)
     {
-        foreach (var edgeKvp in state.Edges.OrderBy(e => e.Key, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedEdgeKeys = scratch.SortedKeys;
+        sortedEdgeKeys.Clear();
+        foreach (var k in state.Edges.Keys) sortedEdgeKeys.Add(k);
+        sortedEdgeKeys.Sort(StringComparer.Ordinal);
+        foreach (var edgeKey in sortedEdgeKeys)
         {
-            var edge = edgeKvp.Value;
+            var edge = state.Edges[edgeKey];
             if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal))
                 return edge.ToNodeId;
             if (string.Equals(edge.ToNodeId, nodeId, StringComparison.Ordinal))
@@ -339,8 +353,10 @@ public static class DiscoveryOutcomeSystem
         if (connections is null || connections.Count == 0)
             return Array.Empty<string>();
 
-        var links = new List<string>();
-        foreach (var conn in connections.OrderBy(c => c.ConnectionId, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var links = scratch.Links;
+        links.Clear();
+        foreach (var conn in connections)
         {
             if (conn is null) continue;
             if (string.Equals(conn.SourceDiscoveryId, discoveryId, StringComparison.Ordinal) ||
@@ -349,6 +365,7 @@ public static class DiscoveryOutcomeSystem
                 links.Add(conn.ConnectionId);
             }
         }
+        links.Sort(StringComparer.Ordinal);
         return links.ToArray();
     }
 }

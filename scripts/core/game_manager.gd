@@ -87,6 +87,11 @@ var _sfx_warp_whoosh: AudioStreamPlayer = null
 var _sfx_dock_chime: AudioStreamPlayer = null
 var _sfx_system_arrival: AudioStreamPlayer = null  # Calm ambient stinger for first-visit reveals.
 
+# Diegetic UI SFX — procedural synth tones for ship computer feel.
+var _sfx_ui_open: AudioStreamPlayer = null
+var _sfx_ui_trade: AudioStreamPlayer = null
+var _sfx_ui_research: AudioStreamPlayer = null
+
 # GATE.S7.MAIN_MENU.PAUSE.001: Pause menu overlay + state
 const PauseMenu = preload('res://scripts/ui/pause_menu.gd')
 var _paused: bool = false
@@ -124,6 +129,9 @@ var _last_rep_snapshot: Dictionary = {}  # faction_id -> last known rep value
 var _last_confiscation_count: int = 0
 # GATE.S7.INSTABILITY_EFFECTS.BRIDGE.001: Track last known instability phases for toast.
 var _last_instability_phases: Dictionary = {}  # node_id -> phase_name
+# L3.2: Price alert throttle — max 1 alert per 30 ticks
+var _last_price_alert_tick: int = -30
+var _last_cargo_prices: Dictionary = {}  # good_id -> last_known_sell_price
 
 # GATE.S6.OUTCOME.CELEBRATION.001: Discovery completion celebration polling
 var _discovery_poll_timer: float = 0.0
@@ -676,13 +684,20 @@ func _toggle_empire_dashboard_v0():
 	if _empire_dashboard == null:
 		_empire_dashboard = get_tree().root.find_child("EmpireDashboard", true, false)
 	if _empire_dashboard != null:
-		_empire_dashboard.visible = not _empire_dashboard.visible
+		var was_visible: bool = _empire_dashboard.visible
+		if was_visible:
+			UITheme.animate_close(_empire_dashboard, func():
+				_empire_dashboard.visible = false
+			)
+		else:
+			_empire_dashboard.visible = true
+			UITheme.animate_open(_empire_dashboard)
 		# FEEL_POST_FIX_5: Track open state so camera doesn't override HUD suppression.
-		empire_dashboard_open = _empire_dashboard.visible
+		empire_dashboard_open = not was_visible
 		# Hide HUD status elements when dashboard is open.
 		var hud_ed = get_tree().root.find_child("HUD", true, false)
 		if hud_ed and hud_ed.has_method("set_overlay_mode_v0"):
-			hud_ed.call("set_overlay_mode_v0", _empire_dashboard.visible)
+			hud_ed.call("set_overlay_mode_v0", not was_visible)
 		# GATE.S7.RUNTIME_STABILITY.LABEL3D_FIX.001: Hide/show Label3D nodes when
 		# empire dashboard covers viewport (same 3D bleed-through issue as dock menu).
 		# GATE.S7.RUNTIME_STABILITY.GALAXY_MAP_FIX.001: When the galaxy overlay is open,
@@ -690,11 +705,9 @@ func _toggle_empire_dashboard_v0():
 		_find_galaxy_view()
 		if _galaxy_view and _galaxy_view.has_method("SetLocalLabelsVisibleV0"):
 			if galaxy_overlay_open:
-				# Galaxy map is active — always keep labels visible so map shows
-				# behind the semi-transparent empire dashboard.
 				_galaxy_view.call("SetLocalLabelsVisibleV0", true)
 			else:
-				_galaxy_view.call("SetLocalLabelsVisibleV0", not _empire_dashboard.visible)
+				_galaxy_view.call("SetLocalLabelsVisibleV0", was_visible)
 
 func toggle_market():
 	# No-op stub. Station UI is driven by C# StationMenu via SimBridge.
@@ -1191,6 +1204,15 @@ func _confirm_gate_transit_v0() -> void:
 		cam_ctrl.flyby_up = cam_ctrl._spring_up           # Preserve current up vector.
 		cam_ctrl.flyby_active = true  # Spring target = current pos → zero movement.
 
+	# Spawn vortex early — gate "wakes up" as ship approaches (Mass Effect relay pattern).
+	var vortex := GateVortex.new()
+	get_tree().root.add_child(vortex)
+	vortex.global_position = gate_pos
+	# Orient vortex disc to face along gate direction.
+	if gate_dir.length() > 0.1:
+		vortex.look_at(vortex.global_position + gate_dir, Vector3.UP)
+	vortex.setup_staged()  # Gentle 30% glow — full charge comes in Phase 2.
+
 	if _hero_body and is_instance_valid(_hero_body):
 		# Phase 0: Smooth turn toward gate (0.5s quaternion slerp).
 		# AAA pattern: ship locks onto target with deliberate rotation before accelerating.
@@ -1221,46 +1243,113 @@ func _confirm_gate_transit_v0() -> void:
 				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
 		await pull_tween.finished
 
-	# Phase 2: Vortex charge-up (0.8s) — ship drifts forward into the ring while trembling.
+	# === Phase 2: CHARGE (1.2s) — gate responds, speed lines, FOV compression ===
 	if _sfx_warp_whoosh:
 		_sfx_warp_whoosh.play()
-	var vortex := GateVortex.new()
-	get_tree().root.add_child(vortex)
-	vortex.global_position = gate_pos
-	vortex.setup()
 
-	# Phase 2: Vortex charge-up (0.8s) — smooth drift into ring.
-	# AAA principle: VFX + camera shake carry the drama, ship stays on a clean trajectory.
-	var charge_time := 0.8
+	# Vortex: full charge ramp from staged (30%) to peak.
+	vortex.charge_full(1.0)
+
+	# Speed lines: converging particles toward gate (AAA directional energy cue).
+	var speed_streaks := _create_gate_speed_streaks_v0(gate_pos, gate_dir, true)
+
+	var charge_time := 1.2
+	# Save base FOV for restoration.
+	var base_fov: float = cam_ctrl._cam.fov if (cam_ctrl and cam_ctrl._cam) else 75.0
+
 	if _hero_body and is_instance_valid(_hero_body):
+		# Ship drift toward gate (unchanged trajectory).
 		var drift_target: Vector3 = _hero_body.global_position.lerp(gate_pos, 0.6)
 		drift_target.y = 0.0
 		var drift_tween := create_tween()
 		drift_tween.tween_property(_hero_body, "global_position", drift_target, charge_time) \
 			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
-		# Escalating camera shake provides the "energy building" feel.
+
+		# FOV compression: narrow by 4° (tunnel vision — being pulled in).
+		if cam_ctrl and cam_ctrl._cam:
+			var fov_tween := create_tween()
+			fov_tween.tween_property(cam_ctrl._cam, "fov", base_fov - 4.0, 1.0) \
+				.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+
+		# Camera dolly push: 6u closer to gate during charge.
+		if cam_ctrl:
+			var dolly_target: Vector3 = cam_ctrl.flyby_cam_pos + gate_dir * 6.0
+			var dolly_tween := create_tween()
+			dolly_tween.tween_property(cam_ctrl, "flyby_cam_pos", dolly_target, charge_time) \
+				.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+
+		# Escalating camera shake (subtler start than before).
 		var shake_steps := 8
 		for i in range(shake_steps):
-			var t: float = float(i + 1) / float(shake_steps)
-			_apply_camera_shake_v0(0.05 + t * 0.4)
+			var st: float = float(i + 1) / float(shake_steps)
+			_apply_camera_shake_v0(0.02 + st * 0.28)
 			await get_tree().create_timer(charge_time / float(shake_steps)).timeout
 		if drift_tween.is_running():
 			await drift_tween.finished
 	else:
 		await get_tree().create_timer(charge_time).timeout
 
-	# Phase 3: Ship pulled THROUGH the gate ring (0.4s) — exits the other side.
+	# === Phase 2.5: APERTURE PAUSE (0.3s) — commitment moment ===
+	# Brief dramatic pause at the threshold — "eye of the storm" before the pull-through.
+	# The calm tells the player: you're committed now.
+
+	# Move ship to aperture edge (just outside gate center).
+	var aperture_pos: Vector3 = gate_pos - gate_dir * 2.0
+	aperture_pos.y = 0.0
+	if _hero_body and is_instance_valid(_hero_body):
+		var pause_tween := create_tween()
+		pause_tween.tween_property(_hero_body, "global_position", aperture_pos, 0.15) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		await pause_tween.finished
+
+	# Vortex emission spike — gate reaches peak energy.
+	vortex.flash_peak(12.0, 0.15)
+
+	# FOV: one last squeeze (2° more compression before the big expansion).
+	if cam_ctrl and cam_ctrl._cam:
+		var squeeze_tween := create_tween()
+		squeeze_tween.tween_property(cam_ctrl._cam, "fov", base_fov - 6.0, 0.15) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+
+	# Hold — no shake for 0.15s (sudden calm).
+	await get_tree().create_timer(0.15).timeout
+
+	# === Phase 3: PULL-THROUGH (0.6s) — ship accelerates through gate ===
 	var gate_exit: Vector3 = gate_pos + gate_dir * 8.0
 	gate_exit.y = 0.0
 	if _hero_body and is_instance_valid(_hero_body):
 		var enter_tween := create_tween()
-		enter_tween.tween_property(_hero_body, "global_position", gate_exit, 0.4) \
+		enter_tween.tween_property(_hero_body, "global_position", gate_exit, 0.6) \
 			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+		# FOV punches WIDE — dramatic expansion after compression (+12°).
 		if cam_ctrl and cam_ctrl.has_method("punch_fov_v0"):
-			cam_ctrl.call("punch_fov_v0", 10.0, 0.4)
+			cam_ctrl.call("punch_fov_v0", 12.0, 0.5)
+		# Also restore base FOV (punch_fov handles the snap-back internally).
+		if cam_ctrl and cam_ctrl._cam:
+			cam_ctrl._cam.fov = base_fov  # Reset to base so punch_fov works from correct baseline.
+
+		# Vortex despawns (fast fade as ship passes through).
+		if vortex and is_instance_valid(vortex):
+			vortex.despawn(0.2)
+
+		# Camera shake spikes at the crossing.
+		_apply_camera_shake_v0(0.6)
+
+		await get_tree().create_timer(0.3).timeout
+
+		# Speed lines: switch to diverging (ejected through the other side).
+		if speed_streaks and is_instance_valid(speed_streaks):
+			speed_streaks.queue_free()
+		speed_streaks = _create_gate_speed_streaks_v0(gate_pos, gate_dir, false)
+
 		await enter_tween.finished
 
-	# Phase 4: Flash + big shake at moment of entry.
+	# Clean up speed streaks.
+	if speed_streaks and is_instance_valid(speed_streaks):
+		speed_streaks.queue_free()
+
+	# Phase 4: Flash + big shake at moment of full entry.
 	_flash_warp_screen_v0()
 	_apply_camera_shake_v0(0.8)
 	WarpEffect.play_departure_flash(get_tree().root, gate_pos)
@@ -2198,8 +2287,13 @@ func _play_first_visit_flyby_v0(
 	cam_ctrl.flyby_active = true
 	cam_ctrl.input_locked = true
 
-	var actual_orbit_time: float = FLYBY_ORBIT_TIME
-	var actual_sweep: float = sweep_total
+	# Per-system arrival variation: hash destination node ID for ±20% orbit time
+	# and ±15% sweep angle. Each system feels slightly different on arrival.
+	var dest_hash: int = hash(_lane_dest_node_id) if not _lane_dest_node_id.is_empty() else 0
+	var orbit_variation: float = 0.8 + (abs(dest_hash % 40) / 100.0)  # 0.80 to 1.19
+	var sweep_variation: float = 0.85 + (abs((dest_hash >> 8) % 30) / 100.0)  # 0.85 to 1.14
+	var actual_orbit_time: float = FLYBY_ORBIT_TIME * orbit_variation
+	var actual_sweep: float = sweep_total * sweep_variation
 
 	# First-visit letterbox overlay (shown during orbit).
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -2321,6 +2415,63 @@ func _play_first_visit_flyby_v0(
 	if gv_cleanup and gv_cleanup.has_method("SetTransitModeV0"):
 		gv_cleanup.call("SetTransitModeV0", false, "", "")
 	print("UUIR|FLYBY_END|hero=%s" % str(hero_pos))
+
+## Create speed streak particles for gate approach cinematic.
+## converging=true: streaks flow toward gate (charge-up). false: flow away (ejection).
+func _create_gate_speed_streaks_v0(gate_pos: Vector3, gate_dir: Vector3, converging: bool) -> GPUParticles3D:
+	var streaks := GPUParticles3D.new()
+	streaks.name = "GateSpeedStreaks"
+	streaks.amount = 24
+	streaks.lifetime = 0.4
+	streaks.randomness = 0.2
+	streaks.visibility_aabb = AABB(Vector3(-30, -5, -30), Vector3(60, 10, 60))
+
+	var pmat := ParticleProcessMaterial.new()
+	# Emit from a ring behind the ship (for converging) or at gate (for diverging).
+	pmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	pmat.emission_ring_radius = 8.0
+	pmat.emission_ring_inner_radius = 2.0
+	pmat.emission_ring_height = 0.5
+	pmat.emission_ring_axis = Vector3(0, 1, 0)
+
+	# Velocity: toward gate (converging) or away (diverging).
+	var vel_dir: Vector3 = gate_dir if converging else -gate_dir
+	pmat.direction = vel_dir
+	pmat.spread = 15.0  # Tight cone toward gate.
+	pmat.initial_velocity_min = 30.0
+	pmat.initial_velocity_max = 60.0
+	pmat.gravity = Vector3.ZERO
+	pmat.scale_min = 0.04
+	pmat.scale_max = 0.08
+
+	# Cyan-white gradient matching gate vortex palette.
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.9, 0.95, 1.0, 0.9))
+	gradient.add_point(0.5, Color(0.4, 0.7, 1.0, 0.7))
+	gradient.add_point(1.0, Color(0.2, 0.4, 0.9, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = gradient
+	pmat.color_ramp = ramp
+	streaks.process_material = pmat
+
+	# Elongated box mesh (speed streak shape).
+	var pmesh := BoxMesh.new()
+	pmesh.size = Vector3(0.06, 0.06, 2.5)
+	streaks.draw_pass_1 = pmesh
+
+	get_tree().root.add_child(streaks)
+	# Position: behind ship for converging, at gate for diverging.
+	if converging:
+		var behind_pos: Vector3 = gate_pos - gate_dir * 15.0
+		behind_pos.y = 0.0
+		streaks.global_position = behind_pos
+	else:
+		streaks.global_position = gate_pos
+	# Orient streaks along gate direction.
+	if gate_dir.length() > 0.1:
+		streaks.look_at(streaks.global_position + gate_dir, Vector3.UP)
+	streaks.emitting = true
+	return streaks
 
 func _create_transit_marker_v0(pos: Vector3) -> Node3D:
 	# Invisible anchor node for warp tunnel VFX — sphere removed (was placeholder).
@@ -2462,6 +2613,30 @@ func _init_sfx_v0() -> void:
 	_sfx_dock_chime.volume_db = -6.0
 	add_child(_sfx_dock_chime)
 
+	# Diegetic UI SFX — procedural synth tones for ship computer terminal feel.
+	# Short sine-wave bursts with amplitude envelope: attack→sustain→decay.
+	# Reference: Dead Space (holographic UI clicks), Elite Dangerous (panel tones).
+	_sfx_ui_open = AudioStreamPlayer.new()
+	_sfx_ui_open.name = "SfxUiOpen"
+	_sfx_ui_open.bus = &"UI"
+	_sfx_ui_open.stream = _synth_tone_v0(880.0, 0.08, 0.25)  # A5, 80ms, quiet
+	_sfx_ui_open.volume_db = -16.0
+	add_child(_sfx_ui_open)
+
+	_sfx_ui_trade = AudioStreamPlayer.new()
+	_sfx_ui_trade.name = "SfxUiTrade"
+	_sfx_ui_trade.bus = &"UI"
+	_sfx_ui_trade.stream = _synth_two_tone_v0(660.0, 880.0, 0.06, 0.06, 0.35)  # E5→A5 chirp
+	_sfx_ui_trade.volume_db = -12.0
+	add_child(_sfx_ui_trade)
+
+	_sfx_ui_research = AudioStreamPlayer.new()
+	_sfx_ui_research.name = "SfxUiResearch"
+	_sfx_ui_research.bus = &"UI"
+	_sfx_ui_research.stream = _synth_two_tone_v0(523.0, 784.0, 0.12, 0.18, 0.4)  # C5→G5 chime
+	_sfx_ui_research.volume_db = -8.0
+	add_child(_sfx_ui_research)
+
 	# System arrival stinger — calm ambient snippet for first-visit reveals.
 	_sfx_system_arrival = AudioStreamPlayer.new()
 	_sfx_system_arrival.name = "SfxSystemArrival"
@@ -2478,6 +2653,91 @@ func play_hit_sfx_v0() -> void:
 func play_explosion_sfx_v0() -> void:
 	if _sfx_explosion:
 		_sfx_explosion.play()
+
+## Diegetic UI SFX — call from UI scripts for panel/trade/research feedback.
+func play_ui_open_sfx_v0() -> void:
+	if _sfx_ui_open:
+		_sfx_ui_open.play()
+
+func play_ui_trade_sfx_v0() -> void:
+	if _sfx_ui_trade:
+		_sfx_ui_trade.play()
+
+func play_ui_research_sfx_v0() -> void:
+	if _sfx_ui_research:
+		_sfx_ui_research.play()
+
+## Procedural synth: single sine tone with amplitude envelope (attack 5ms, decay to zero).
+## freq_hz: pitch, duration_s: total length, peak_amp: 0.0–1.0.
+## Returns AudioStreamWAV (8-bit, 22050 Hz — tiny footprint, clean enough for UI bleeps).
+func _synth_tone_v0(freq_hz: float, duration_s: float, peak_amp: float) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var n_samples := int(duration_s * sample_rate)
+	var attack_samples := int(0.005 * sample_rate)  # 5ms attack
+	var data := PackedByteArray()
+	data.resize(n_samples)
+	for i in range(n_samples):
+		var t := float(i) / sample_rate
+		# Sine oscillator
+		var sample := sin(t * freq_hz * TAU)
+		# Amplitude envelope: linear attack, exponential decay
+		var env := 1.0
+		if i < attack_samples:
+			env = float(i) / attack_samples
+		else:
+			# Exponential decay over remaining duration
+			var decay_t: float = float(i - attack_samples) / float(max(n_samples - attack_samples, 1))
+			env = (1.0 - decay_t) * (1.0 - decay_t)  # Quadratic decay — smooth falloff
+		sample *= env * peak_amp
+		# Convert to 8-bit signed (-128..127)
+		data[i] = int(clampf(sample * 127.0, -128.0, 127.0)) & 0xFF
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = sample_rate
+	stream.data = data
+	return stream
+
+## Procedural synth: two-tone chirp (tone1 → tone2) for confirmation/achievement feel.
+func _synth_two_tone_v0(freq1: float, freq2: float, dur1: float, dur2: float, peak_amp: float) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var n1 := int(dur1 * sample_rate)
+	var n2 := int(dur2 * sample_rate)
+	var gap := int(0.015 * sample_rate)  # 15ms silence between tones
+	var total := n1 + gap + n2
+	var attack_samples := int(0.003 * sample_rate)  # 3ms attack
+	var data := PackedByteArray()
+	data.resize(total)
+	for i in range(total):
+		var sample := 0.0
+		if i < n1:
+			# First tone
+			var t := float(i) / sample_rate
+			sample = sin(t * freq1 * TAU)
+			var env := 1.0
+			if i < attack_samples:
+				env = float(i) / attack_samples
+			else:
+				var decay_t: float = float(i - attack_samples) / float(max(n1 - attack_samples, 1))
+				env = 1.0 - decay_t * 0.3  # Gentle decay on first tone
+			sample *= env * peak_amp
+		elif i >= n1 + gap:
+			# Second tone
+			var j := i - n1 - gap
+			var t := float(j) / sample_rate
+			sample = sin(t * freq2 * TAU)
+			var env := 1.0
+			if j < attack_samples:
+				env = float(j) / attack_samples
+			else:
+				var decay_t: float = float(j - attack_samples) / float(max(n2 - attack_samples, 1))
+				env = (1.0 - decay_t) * (1.0 - decay_t)  # Quadratic decay
+			sample *= env * peak_amp
+		data[i] = int(clampf(sample * 127.0, -128.0, 127.0)) & 0xFF
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = sample_rate
+	stream.data = data
+	return stream
 
 # GATE.S7.MAIN_MENU.PAUSE.001: toggle pause state with overlay menu.
 func _toggle_pause_v0() -> void:
@@ -2596,6 +2856,41 @@ func _poll_toast_events_v0() -> void:
 					toast_mgr.call("show_toast", "Instability shift: %s -> %s" % [prev_phase, phase], 4.0)
 			_last_instability_phases[cur_node] = phase
 
+	# L3.2: Price alert toasts — notify when cargo goods rise in price at known stations.
+	if bridge.has_method("GetPlayerStateV0") and bridge.has_method("GetCargoWithCostBasisV0"):
+		var _pa_ps: Dictionary = bridge.call("GetPlayerStateV0")
+		var _pa_tick: int = int(_pa_ps.get("tick", 0))
+		var _pa_node: String = str(_pa_ps.get("current_node_id", ""))
+		# Throttle: max 1 price alert per 30 ticks
+		if _pa_tick - _last_price_alert_tick >= 30 and not _pa_node.is_empty():
+			var _pa_cargo: Array = bridge.call("GetCargoWithCostBasisV0", _pa_node)
+			var _best_delta: int = 0
+			var _best_good: String = ""
+			var _best_price: int = 0
+			for item in _pa_cargo:
+				var gid: String = str(item.get("good_id", ""))
+				var qty: int = int(item.get("qty", 0))
+				if qty <= 0 or gid.is_empty():
+					continue
+				var mp: int = int(item.get("market_price", 0))
+				var avg_cost: int = int(item.get("avg_cost", 0))
+				# Check if sell price increased since last check
+				if _last_cargo_prices.has(gid):
+					var prev_price: int = int(_last_cargo_prices[gid])
+					var delta: int = mp - prev_price
+					if delta > _best_delta and mp > avg_cost:
+						_best_delta = delta
+						_best_good = gid
+						_best_price = mp
+				_last_cargo_prices[gid] = mp
+			if _best_delta > 0 and not _best_good.is_empty():
+				var _pa_display: String = _best_good.replace("_", " ").capitalize()
+				if toast_mgr.has_method("show_priority_toast"):
+					toast_mgr.call("show_priority_toast", "Price Alert: %s up to %d cr (+%d)" % [_pa_display, _best_price, _best_delta], "info", 4.0)
+				else:
+					toast_mgr.call("show_toast", "Price Alert: %s up to %d cr (+%d)" % [_pa_display, _best_price, _best_delta], 4.0)
+				_last_price_alert_tick = _pa_tick
+
 # GATE.S11.GAME_FEEL.KEYBINDS.001: Toggle keybinds help overlay (H key).
 func _toggle_keybinds_help_v0() -> void:
 	if _keybinds_help == null:
@@ -2621,9 +2916,12 @@ func _toggle_combat_log_v0() -> void:
 			_combat_log_panel.name = "CombatLogPanel"
 			get_tree().root.add_child(_combat_log_panel)
 	if _combat_log_panel != null:
-		_combat_log_panel.visible = not _combat_log_panel.visible
-		if _combat_log_panel.visible and _combat_log_panel.has_method("refresh_v0"):
-			_combat_log_panel.call("refresh_v0")
+		if _combat_log_panel.has_method("toggle_v0"):
+			_combat_log_panel.call("toggle_v0")
+		else:
+			_combat_log_panel.visible = not _combat_log_panel.visible
+			if _combat_log_panel.visible and _combat_log_panel.has_method("refresh_v0"):
+				_combat_log_panel.call("refresh_v0")
 
 # GATE.X.UI_POLISH.KNOWLEDGE_WEB.001: Toggle knowledge web panel (K key).
 func _toggle_knowledge_web_v0() -> void:

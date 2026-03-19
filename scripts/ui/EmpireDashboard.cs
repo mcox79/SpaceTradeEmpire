@@ -35,6 +35,10 @@ public partial class EmpireDashboard : Control
     // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: Enriched overview (U6)
     private Label _ovRecentActivity = null!;
     private Label _ovSystemInfo = null!;
+    private Label _ovTradeStats = null!;
+    // Spark-chart for credit trend in Economy card
+    private HBoxContainer _sparkChart = null!;
+    private Label _sparkChartSummary = null!;
 
     // ── Trade list ──────────────────────────────────────────────────────────
     private VBoxContainer _tradeList = null!;
@@ -197,11 +201,20 @@ public partial class EmpireDashboard : Control
         panel.ZAsRelative = false;
         panel.MouseFilter = MouseFilterEnum.Stop;
 
+        // L1.1: Ship computer panel style.
         var sb = new StyleBoxFlat();
-        sb.BgColor = new Color(0.05f, 0.05f, 0.08f, 0.97f);
-        sb.BorderColor = new Color(0.25f, 0.25f, 0.32f, 1.0f);
-        sb.SetBorderWidthAll(2);
-        sb.SetCornerRadiusAll(8);
+        sb.BgColor = new Color(0.05f, 0.07f, 0.12f, 0.94f);
+        sb.BorderColor = new Color(0.3f, 0.6f, 1.0f, 0.7f);
+        sb.SetBorderWidthAll(1);
+        sb.BorderWidthLeft = 2; // Thicker left edge — ship computer readout feel
+        sb.SetCornerRadiusAll(2); // Sharp corners — military precision
+        sb.ContentMarginLeft = 12;
+        sb.ContentMarginRight = 12;
+        sb.ContentMarginTop = 10;
+        sb.ContentMarginBottom = 10;
+        sb.ShadowColor = new Color(0.0f, 0.1f, 0.2f, 0.3f);
+        sb.ShadowSize = 4;
+        sb.ShadowOffset = new Vector2(0, 2);
         panel.AddThemeStyleboxOverride("panel", sb);
         AddChild(panel);
 
@@ -277,6 +290,13 @@ public partial class EmpireDashboard : Control
             p.SizeFlagsVertical   = SizeFlags.ExpandFill;
             contentHost.AddChild(p);
         }
+
+        // Footer dismiss hint
+        var footerHint = new Label { Text = "Press E to close" };
+        footerHint.HorizontalAlignment = HorizontalAlignment.Center;
+        footerHint.AddThemeColorOverride("font_color", new Color(0.55f, 0.55f, 0.65f, 1f));
+        footerHint.AddThemeFontSizeOverride("font_size", 13);
+        root.AddChild(footerHint);
 
         // Start on Overview
         SwitchTab(Tab.Overview);
@@ -370,6 +390,22 @@ public partial class EmpireDashboard : Control
         }
 
         _ovCredits  = Card("Economy",     new Color(0.4f, 0.8f, 0.4f));
+        // Spark-chart: mini bar chart inside Economy card
+        var sparkOuter = new VBoxContainer();
+        sparkOuter.AddThemeConstantOverride("separation", 2);
+        var sparkLabel = new Label { Text = "Credit Flow" };
+        sparkLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 0.5f, 0.7f));
+        sparkLabel.AddThemeFontSizeOverride("font_size", 10);
+        sparkOuter.AddChild(sparkLabel);
+        _sparkChart = new HBoxContainer();
+        _sparkChart.AddThemeConstantOverride("separation", 2);
+        _sparkChart.CustomMinimumSize = new Vector2(0, 36);
+        sparkOuter.AddChild(_sparkChart);
+        _sparkChartSummary = new Label { Text = "" };
+        _sparkChartSummary.AddThemeColorOverride("font_color", new Color(0.6f, 0.8f, 0.6f, 0.8f));
+        _sparkChartSummary.AddThemeFontSizeOverride("font_size", 10);
+        sparkOuter.AddChild(_sparkChartSummary);
+        _ovCredits.GetParent().AddChild(sparkOuter);
         _ovFleets   = Card("Fleet",       new Color(0.4f, 0.6f, 0.9f));
         _ovIndustry = Card("Industry",    new Color(0.9f, 0.7f, 0.3f));
         _ovResearch = Card("Research",    new Color(0.7f, 0.4f, 0.9f));
@@ -377,6 +413,12 @@ public partial class EmpireDashboard : Control
         _ovPrograms = Card("Automation",  new Color(0.8f, 0.5f, 0.3f));
 
         box.AddChild(grid);
+
+        // Thin rule separating cards from detail sections
+        var rule1 = new ColorRect { CustomMinimumSize = new Vector2(0, 1), Color = new Color(0.3f, 0.6f, 0.8f, 0.25f) };
+        rule1.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        rule1.MouseFilter = MouseFilterEnum.Ignore;
+        box.AddChild(rule1);
 
         // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
         // GATE.X.UI_POLISH.DASHBOARD_UX.001: Renamed to "Opportunities" with info-blue tone.
@@ -387,30 +429,69 @@ public partial class EmpireDashboard : Control
 
         _ovAttentionList = new VBoxContainer();
         _ovAttentionList.AddThemeConstantOverride("separation", 4);
+        _ovAttentionList.SizeFlagsVertical = SizeFlags.ExpandFill;
         box.AddChild(_ovAttentionList);
 
+        // Thin rule before system section
+        var rule2 = new ColorRect { CustomMinimumSize = new Vector2(0, 1), Color = new Color(0.3f, 0.6f, 0.8f, 0.25f) };
+        rule2.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        rule2.MouseFilter = MouseFilterEnum.Ignore;
+        box.AddChild(rule2);
+
         // GATE.S7.RUNTIME_STABILITY.DASHBOARD_CONTENT.001: System & recent activity sections (U6)
+        // Two-column layout for system info and activity side by side
+        var bottomGrid = new GridContainer { Columns = 2 };
+        bottomGrid.AddThemeConstantOverride("h_separation", 24);
+        bottomGrid.AddThemeConstantOverride("v_separation", 4);
+        bottomGrid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+        var sysCol = new VBoxContainer();
+        sysCol.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        sysCol.AddThemeConstantOverride("separation", 2);
         var sysHdr = new Label { Text = "Current System" };
         sysHdr.AddThemeColorOverride("font_color", new Color(0.4f, 0.7f, 0.9f));
         sysHdr.AddThemeFontSizeOverride("font_size", 14);
-        box.AddChild(sysHdr);
-
+        sysCol.AddChild(sysHdr);
         _ovSystemInfo = new Label { Text = "—" };
         _ovSystemInfo.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
         _ovSystemInfo.AddThemeFontSizeOverride("font_size", 12);
         _ovSystemInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        box.AddChild(_ovSystemInfo);
+        sysCol.AddChild(_ovSystemInfo);
+        bottomGrid.AddChild(sysCol);
 
+        var actCol = new VBoxContainer();
+        actCol.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        actCol.AddThemeConstantOverride("separation", 2);
         var actHdr = new Label { Text = "Recent Fleet Activity" };
         actHdr.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 0.5f));
         actHdr.AddThemeFontSizeOverride("font_size", 14);
-        box.AddChild(actHdr);
-
+        actCol.AddChild(actHdr);
         _ovRecentActivity = new Label { Text = "—" };
         _ovRecentActivity.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
         _ovRecentActivity.AddThemeFontSizeOverride("font_size", 12);
         _ovRecentActivity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        box.AddChild(_ovRecentActivity);
+        actCol.AddChild(_ovRecentActivity);
+        bottomGrid.AddChild(actCol);
+
+        box.AddChild(bottomGrid);
+
+        // Trade Performance footer — fills remaining space with lifetime stats
+        var rule3 = new ColorRect { CustomMinimumSize = new Vector2(0, 1), Color = new Color(0.3f, 0.6f, 0.8f, 0.25f) };
+        rule3.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        rule3.MouseFilter = MouseFilterEnum.Ignore;
+        box.AddChild(rule3);
+
+        var tradeHdr = new Label { Text = "Trade Performance" };
+        tradeHdr.AddThemeColorOverride("font_color", new Color(0.9f, 0.8f, 0.3f));
+        tradeHdr.AddThemeFontSizeOverride("font_size", 14);
+        box.AddChild(tradeHdr);
+
+        _ovTradeStats = new Label { Text = "—" };
+        _ovTradeStats.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
+        _ovTradeStats.AddThemeFontSizeOverride("font_size", 12);
+        _ovTradeStats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _ovTradeStats.SizeFlagsVertical = SizeFlags.ExpandFill;
+        box.AddChild(_ovTradeStats);
 
         return box;
     }
@@ -424,7 +505,22 @@ public partial class EmpireDashboard : Control
 
         var credits = GetInt(d, "credits");
         var tick = GetInt(d, "tick");
-        _ovCredits.Text = $"{FormatNum(credits)} credits  |  Tick {FormatNum(tick)}";
+        // L3.1: Credit trend arrow from profit summary
+        string trendStr = "";
+        if (_bridge.HasMethod("GetProfitSummaryV0"))
+        {
+            var profitData = _bridge.Call("GetProfitSummaryV0").AsGodotDictionary();
+            if (profitData != null)
+            {
+                int netProfit = GetInt(profitData, "net_profit");
+                if (netProfit > 0) trendStr = $"  \u2191 +{FormatNum(netProfit)} cr";
+                else if (netProfit < 0) trendStr = $"  \u2193 {FormatNum(netProfit)} cr";
+            }
+        }
+        _ovCredits.Text = $"{FormatNum(credits)} credits  |  Tick {FormatNum(tick)}{trendStr}";
+
+        // Spark-chart: mini credit trend bars
+        RefreshSparkChart();
 
         // Fleet card: player fleets + current system context
         var playerFleets = GetInt(d, "player_fleet_count");
@@ -498,32 +594,99 @@ public partial class EmpireDashboard : Control
                 : $"{tech} ({pct}%)";
         }
 
-        // GATE.S18.EMPIRE_DASH.OVERVIEW_TAB.001: Needs Attention queue
+        // L3.1: Proactive Opportunities — trade intel, research guidance, warfront impact.
         if (_ovAttentionList != null)
         {
             foreach (var c in _ovAttentionList.GetChildren()) c.QueueFree();
 
-            var items = new System.Collections.Generic.List<string>();
+            // Collect proactive items: (text, color)
+            var items = new System.Collections.Generic.List<(string text, Color color)>();
+            var infoBlue = new Color(0.55f, 0.75f, 0.95f);
+            var gold = new Color(1.0f, 0.85f, 0.4f);
+            var warningOrange = new Color(1.0f, 0.6f, 0.2f);
+            var green = new Color(0.4f, 0.8f, 0.4f);
 
-            if (credits < 100) items.Add("Low credits \u2014 trade or complete missions");
+            // Best trade route from GetTradeRoutesV0
+            var routes = _bridge.GetTradeRoutesV0();
+            if (routes != null && routes.Count > 0)
+            {
+                int bestProfit = 0;
+                string bestGood = "";
+                string bestDest = "";
+                foreach (var r in routes)
+                {
+                    if (r.AsGodotDictionary() is not Dictionary rd) continue;
+                    int profit = GetInt(rd, "estimated_profit_per_unit");
+                    if (profit > bestProfit)
+                    {
+                        bestProfit = profit;
+                        bestGood = GetStr(rd, "good_id");
+                        bestDest = GetStr(rd, "dest_node_id");
+                    }
+                }
+                if (bestProfit > 0 && !string.IsNullOrEmpty(bestGood))
+                {
+                    // Strip paren tags from dest name
+                    var destDisplay = bestDest;
+                    var pi = destDisplay.IndexOf('(');
+                    if (pi > 0) destDisplay = destDisplay[..pi].Trim();
+                    items.Add(($"Best trade: {bestGood} +{bestProfit} cr/unit \u2192 {destDisplay}", gold));
+                }
+            }
+
+            // Research: show available tech count if idle
+            if (string.IsNullOrWhiteSpace(tech))
+            {
+                var techTree = _bridge.GetTechTreeV0();
+                int availCount = 0;
+                if (techTree != null)
+                {
+                    foreach (var t in techTree)
+                    {
+                        if (t.AsGodotDictionary() is Dictionary td && GetStr(td, "status") == "available")
+                            availCount++;
+                    }
+                }
+                if (availCount > 0)
+                    items.Add(($"{availCount} tech available \u2014 dock at a station to research", infoBlue));
+            }
+
+            // Warfront impact
+            var warfronts = _bridge.GetWarfrontsV0();
+            int activeWarfronts = 0;
+            if (warfronts != null)
+            {
+                foreach (var w in warfronts)
+                {
+                    if (w.AsGodotDictionary() is Dictionary wd)
+                    {
+                        int intensity = GetInt(wd, "intensity");
+                        if (intensity > 0) activeWarfronts++;
+                    }
+                }
+            }
+            if (activeWarfronts > 0)
+                items.Add(($"{activeWarfronts} warfront{(activeWarfronts > 1 ? "s" : "")} active \u2014 prices disrupted in contested zones", warningOrange));
+
+            // Original attention items (lower priority)
+            if (credits < 100) items.Add(("Low credits \u2014 trade or complete missions", warningOrange));
             if (activeIndustry < totalIndustry && totalIndustry > 0)
-                items.Add($"{totalIndustry - activeIndustry} production sites idle");
-            if (progCount == 0) items.Add("No automation running \u2014 press A to configure");
-            if (missionCount == 0) items.Add("No active missions \u2014 dock to find work");
+                items.Add(($"{totalIndustry - activeIndustry} production sites idle", infoBlue));
+            if (progCount == 0) items.Add(("No automation running \u2014 press A to configure", infoBlue));
+            if (missionCount == 0) items.Add(("No active missions \u2014 dock to find work", infoBlue));
 
             if (items.Count == 0)
             {
                 var ok = new Label { Text = "All systems nominal." };
-                ok.AddThemeColorOverride("font_color", new Color(0.4f, 0.8f, 0.4f));
+                ok.AddThemeColorOverride("font_color", green);
                 _ovAttentionList.AddChild(ok);
             }
             else
             {
-                // GATE.X.UI_POLISH.DASHBOARD_UX.001: Friendlier info-blue tone instead of warning orange.
-                foreach (var item in items)
+                foreach (var (itemText, itemColor) in items)
                 {
-                    var lbl = new Label { Text = $"  \u2022 {item}" };
-                    lbl.AddThemeColorOverride("font_color", new Color(0.55f, 0.75f, 0.95f));
+                    var lbl = new Label { Text = $"  \u2022 {itemText}" };
+                    lbl.AddThemeColorOverride("font_color", itemColor);
                     _ovAttentionList.AddChild(lbl);
                 }
             }
@@ -549,9 +712,25 @@ public partial class EmpireDashboard : Control
                         }
                     }
                 }
+                // L3.1: Show best trade from current system
+                string bestRouteStr = "";
+                if (routes != null)
+                {
+                    int bestP = 0; string bestG = "";
+                    foreach (var r in routes)
+                    {
+                        if (r.AsGodotDictionary() is not Dictionary rd2) continue;
+                        var src = GetStr(rd2, "source_node_id");
+                        if (src != nodeId) continue;
+                        int p = GetInt(rd2, "estimated_profit_per_unit");
+                        if (p > bestP) { bestP = p; bestG = GetStr(rd2, "good_id"); }
+                    }
+                    if (bestP > 0 && !string.IsNullOrEmpty(bestG))
+                        bestRouteStr = $"  |  Best: {bestG} +{bestP}/u";
+                }
                 _ovSystemInfo.Text = string.IsNullOrEmpty(nodeName)
-                    ? $"Node {nodeId}  |  {routeCount} trade route(s) available"
-                    : $"{nodeName}  |  {routeCount} trade route(s) available";
+                    ? $"Node {nodeId}  |  {routeCount} route(s){bestRouteStr}"
+                    : $"{nodeName}  |  {routeCount} route(s){bestRouteStr}";
             }
             else
             {
@@ -597,6 +776,34 @@ public partial class EmpireDashboard : Control
             else
             {
                 _ovRecentActivity.Text = "No fleet automation configured";
+            }
+        }
+
+        // Trade Performance stats
+        if (_ovTradeStats != null && _bridge.HasMethod("GetProfitSummaryV0"))
+        {
+            var profitData = _bridge.Call("GetProfitSummaryV0").AsGodotDictionary();
+            if (profitData != null)
+            {
+                var revenue = GetInt(profitData, "total_revenue");
+                var expense = GetInt(profitData, "total_expense");
+                var netProfit = GetInt(profitData, "net_profit");
+                var topGood = GetStr(profitData, "top_good");
+                if (revenue > 0 || expense > 0)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    sb.Append($"Revenue: {FormatNum(revenue)} cr  |  Spent: {FormatNum(expense)} cr  |  Net: {(netProfit >= 0 ? "+" : "")}{FormatNum(netProfit)} cr");
+                    if (!string.IsNullOrEmpty(topGood))
+                        sb.Append($"\nTop good: {topGood}");
+                    _ovTradeStats.Text = sb.ToString();
+                    _ovTradeStats.AddThemeColorOverride("font_color", netProfit >= 0
+                        ? new Color(0.5f, 0.9f, 0.5f)
+                        : new Color(0.9f, 0.5f, 0.4f));
+                }
+                else
+                {
+                    _ovTradeStats.Text = "No trades yet \u2014 dock at a station to buy goods";
+                }
             }
         }
     }
@@ -645,6 +852,54 @@ public partial class EmpireDashboard : Control
         box.AddChild(scroll);
 
         return box;
+    }
+
+    private void RefreshSparkChart()
+    {
+        if (_sparkChart == null || !_bridge.HasMethod("GetCreditHistoryV0")) return;
+        // Clear old bars
+        foreach (var child in _sparkChart.GetChildren())
+            child.QueueFree();
+
+        var histData = _bridge.Call("GetCreditHistoryV0").AsGodotDictionary();
+        if (histData == null) return;
+        var points = histData["points"].AsGodotArray();
+        if (points == null || points.Count == 0) return;
+
+        // Find max absolute value for normalization
+        long maxAbs = 1;
+        foreach (var p in points)
+        {
+            long v = Math.Abs(p.AsInt64());
+            if (v > maxAbs) maxAbs = v;
+        }
+
+        long netTotal = 0;
+        foreach (var p in points)
+        {
+            long val = p.AsInt64();
+            netTotal += val;
+            float ratio = (float)Math.Abs(val) / maxAbs;
+            var bar = new ColorRect();
+            bar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            bar.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+            bar.CustomMinimumSize = new Vector2(0, Math.Max(3, ratio * 36));
+            bar.Color = val >= 0
+                ? new Color(0.3f, 0.8f, 0.5f, 0.7f)   // profit = green tint
+                : new Color(0.9f, 0.35f, 0.25f, 0.7f); // loss = red tint
+            _sparkChart.AddChild(bar);
+        }
+
+        // Summary label: net credit flow
+        if (_sparkChartSummary != null)
+        {
+            string sign = netTotal >= 0 ? "+" : "";
+            _sparkChartSummary.Text = $"Net: {sign}{netTotal:N0} cr";
+            _sparkChartSummary.AddThemeColorOverride("font_color",
+                netTotal >= 0
+                    ? new Color(0.3f, 0.8f, 0.5f, 0.8f)
+                    : new Color(0.9f, 0.35f, 0.25f, 0.8f));
+        }
     }
 
     private void RefreshTrade()

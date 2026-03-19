@@ -6,7 +6,7 @@ extends PanelContainer
 
 var _bridge = null
 var _content_container: VBoxContainer = null
-var _no_mission_label: Label = null
+var _no_mission_label: Control = null
 var _title_label: Label = null
 var _objective_label: Label = null
 var _progress_label: Label = null
@@ -24,6 +24,8 @@ func _ready() -> void:
 	offset_bottom = 240
 	custom_minimum_size = Vector2(600, 480)
 	var style := UITheme.make_panel_standard()
+	# FEEL_PASS3: Full opacity — floating panels over space need solid backdrop.
+	style.bg_color.a = 1.0
 	add_theme_stylebox_override("panel", style)
 
 	var root_vbox := VBoxContainer.new()
@@ -50,12 +52,8 @@ func _ready() -> void:
 	# Separator.
 	root_vbox.add_child(HSeparator.new())
 
-	# No mission label (shown when no active mission).
-	_no_mission_label = Label.new()
-	_no_mission_label.text = "No active mission. Accept a mission at a station dock."
-	_no_mission_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-	_no_mission_label.add_theme_color_override("font_color", UITheme.GOLD)
-	_no_mission_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# No mission state (shown when no active mission).
+	_no_mission_label = UITheme.make_empty_state("◇", "No active mission", "Accept a mission at a station dock")
 	root_vbox.add_child(_no_mission_label)
 
 	# Content container (visible when mission is active).
@@ -107,9 +105,14 @@ func _ready() -> void:
 	_abandon_btn.pressed.connect(_on_abandon_pressed)
 	_content_container.add_child(_abandon_btn)
 
+	root_vbox.add_child(UITheme.make_dismiss_hint("J"))
+
 func toggle_v0() -> void:
-	visible = not visible
 	if visible:
+		UITheme.animate_close(self, func(): visible = false)
+	else:
+		visible = true
+		UITheme.animate_open(self)
 		_refresh()
 
 func _refresh() -> void:

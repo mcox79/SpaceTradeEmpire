@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -8,6 +9,12 @@ namespace SimCore.Systems;
 // GATE.S5.SEC_LANES.SYSTEM.001: Security lane system — patrol presence + piracy heat to security level.
 public static class SecurityLaneSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> EdgeIds = new();
+        public readonly List<string> FleetIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Process security levels on all edges each tick.
     /// Patrol fleets on adjacent nodes raise security. Economic heat lowers it.
@@ -20,7 +27,10 @@ public static class SecurityLaneSystem
         // GATE.S7.ENFORCEMENT.HEAT_ACCUM.001: Decay heat before security calculation.
         DecayHeat(state);
 
-        var edgeIds = new List<string>(state.Edges.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var edgeIds = scratch.EdgeIds;
+        edgeIds.Clear();
+        foreach (var k in state.Edges.Keys) edgeIds.Add(k);
         edgeIds.Sort(StringComparer.Ordinal);
 
         foreach (var edgeId in edgeIds)
@@ -148,7 +158,10 @@ public static class SecurityLaneSystem
     {
         if (state.Fleets is null || state.Fleets.Count == 0) return;
 
-        var fleetIds = new List<string>(state.Fleets.Keys);
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var fleetIds = scratch2.FleetIds;
+        fleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) fleetIds.Add(k);
         fleetIds.Sort(StringComparer.Ordinal);
 
         foreach (var fleetId in fleetIds)

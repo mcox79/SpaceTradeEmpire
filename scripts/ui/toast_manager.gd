@@ -19,6 +19,8 @@ const PRIORITY_CONFIG := {
 	"confirm": {"color": Color(0.3, 0.9, 0.4), "duration": 2.0, "persist": false},
 	# GATE.S19.ONBOARD.TOAST_ICON.006: Milestone celebration tier (gold border, larger text).
 	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15},
+	# Cost/expense tier (orange-red — player lost credits).
+	"cost": {"color": Color(0.9, 0.4, 0.3), "duration": 3.0, "persist": false},
 	# FO dialogue tier (subtle teal border).
 	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false},
 	# Captain's Guide hint tier (warm amber, slightly larger).
@@ -106,9 +108,9 @@ func show_priority_toast(text: String, priority: String = "info", duration_overr
 		fade_tween.tween_property(toast, "modulate:a", 0.0, SLIDE_DURATION)
 		fade_tween.tween_callback(_remove_toast.bind(toast, text))
 	else:
-		# Persistent toasts fade out after extended duration (15s)
+		# Persistent toasts fade out after extended duration (8s — enough to read, not so long they stack).
 		var fade_tween := create_tween()
-		fade_tween.tween_interval(15.0)
+		fade_tween.tween_interval(8.0)
 		fade_tween.tween_property(toast, "modulate:a", 0.0, SLIDE_DURATION)
 		fade_tween.tween_callback(_remove_toast.bind(toast, text))
 

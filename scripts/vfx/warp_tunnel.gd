@@ -59,8 +59,10 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 
 	# Pulsating tunnel emission — rhythmic energy surges.
+	# FEEL_PASS5: Ease in pulse amplitude over first 1s to prevent bright→dim "deflation".
 	if _material:
-		var pulse: float = 1.0 + 0.4 * sin(_elapsed * 6.0) + 0.2 * sin(_elapsed * 13.0)
+		var ease_in: float = clampf(_elapsed / 1.0, 0.0, 1.0)  # 0→1 over first second
+		var pulse: float = 1.0 + ease_in * (0.4 * sin(_elapsed * 6.0) + 0.2 * sin(_elapsed * 13.0))
 		_material.emission_energy_multiplier = _base_emission_energy * pulse
 
 	# Color shift: blue -> white -> cyan over time (cycles every ~3s).

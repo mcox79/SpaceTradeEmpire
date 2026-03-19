@@ -53,13 +53,17 @@ enum Phase {
 	CHECK_MISSIONS, ACCEPT_MISSION, UNDOCK_2, TRAVEL_2, SETTLE_ARRIVAL_2, ARRIVAL_2,
 	# Act 4: First Combat + Upgrade (8:00-15:00)
 	FIND_HOSTILE, COMBAT, POST_COMBAT, DOCK_3, CHECK_MODULES, INSTALL_MODULE,
+	TAB_CYCLE,  # Capture all visible dock tabs
 	# Act 5: Galaxy Opens (15:00-30:00)
 	GALAXY_MAP, UNDOCK_4, MULTI_HOP, SETTLE_HOP, TRADE_ROUTE, CHECK_SUSTAIN,
 	# Act 6: Scale Reveal (30:00-60:00)
 	DEEP_EXPLORE, SETTLE_DEEP, PRICE_DIVERSITY, CHECK_RESEARCH, FINAL_TRADE,
+	CAPTURE_EMPIRE_DASH, CAPTURE_GALAXY_MAP,  # UI panel captures
 	# Act 7: Depth Probes (added for coverage)
 	PROBE_SYSTEMIC, PROBE_FACTIONS, PROBE_KNOWLEDGE, PROBE_RESEARCH_START, PROBE_LEDGER,
 	PROBE_REFIT, PROBE_AUTOMATION, PROBE_CONSTRUCTION, PROBE_FRACTURE,
+	PROBE_DIPLOMACY, PROBE_STORY, PROBE_ENDGAME, PROBE_ECONOMY_SIGNAL,
+	PROBE_OVERLAYS,
 	AUDIT,
 	DONE
 }
@@ -68,7 +72,7 @@ var _phase := Phase.LOAD_SCENE
 var _polls := 0
 var _total_frames := 0
 var _busy := false  # Guard against await re-entry
-const MAX_FRAMES := 3600  # 60s at 60fps
+const MAX_FRAMES := 4200  # 70s at 60fps (extra for tab cycle + panel captures)
 
 var _bridge = null
 var _game_manager = null
@@ -123,6 +127,49 @@ var _last_phase_change_frame := 0  # Stall watchdog
 var _bridge_methods_called: Dictionary = {}
 var _goods_traded: Dictionary = {}
 
+# Report card evidence (stashed from phases for scoring)
+var _npc_count_at_boot := 0
+var _fo_promoted := false
+var _fo_post_event_reactions := 0
+var _tutorial_text_found := false
+var _tech_count := 0
+var _empty_slots_at_fit := 0
+var _profit_margin := 0
+var _fo_reacted_to_profit := false
+var _missions_available_count := 0
+var _mission_accepted := false
+var _systemic_offers := 0
+var _ledger_entries := 0
+var _warfront_count := 0
+var _milestone_count := 0
+var _credit_direction_changes := 0  # Computed in audit, saved for report
+
+# Expansion tracking vars (plan changes 1-13)
+var _heat_capacity := 0
+var _radiator_intact := false
+var _systemic_mission_accepted := false
+var _boot_tutorial_suppressed := false
+var _boot_intro_dismissed := false
+var _dock1_onboarding := {}
+var _dock3_onboarding := {}
+var _price_history_entries := 0
+var _discovery_scan_attempted := false
+var _overlay_territory_nodes := 0
+var _economy_overview_goods := 0
+var _ui_panels_found := 0
+var _haven_tier := 0
+var _fracture_travel_attempted := false
+var _faction_bfs_path: Array = []  # Shared BFS path across multi_hop + deep_explore
+var _faction_map := {}  # node_id -> faction_id from territory overlay
+
+# Pacing time-series (Valve AI Director inspired)
+var _pacing_credits: Array[int] = []
+var _pacing_hull_pct: Array[int] = []
+var _pacing_tick: Array[int] = []
+var _fo_last_dialogue_frame := 0
+var _fo_longest_silence := 0
+var _act_start_frames: Dictionary = {}  # "ACT_N" -> frame
+
 
 func _process(_delta: float) -> bool:
 	if _busy:
@@ -137,6 +184,26 @@ func _process(_delta: float) -> bool:
 				_fps_min = fps
 			if fps > _fps_max:
 				_fps_max = fps
+	# Pacing time-series: sample every 30 frames (~0.5s) — headless bots complete in ~200 frames
+	if _total_frames % 30 == 0 and _bridge != null and _phase > Phase.WAIT_LOCAL_SYSTEM:
+		var ps_snap: Dictionary = _bridge.call("GetPlayerStateV0")
+		_pacing_credits.append(int(ps_snap.get("credits", 0)))
+		_pacing_tick.append(_get_tick())
+		var hp_snap: Dictionary = {}
+		if _bridge.has_method("GetFleetCombatHpV0"):
+			hp_snap = _bridge.call("GetFleetCombatHpV0", "fleet_trader_1")
+		var hull_max_s := int(hp_snap.get("hull_max", 100))
+		var hull_s := int(hp_snap.get("hull", hull_max_s))
+		_pacing_hull_pct.append((hull_s * 100) / maxi(hull_max_s, 1))
+		# FO silence tracking
+		var fo_now := _fo_dialogue_count
+		if fo_now > 0 and fo_now == int(get_meta("_fo_last_count", 0)):
+			var silence := _total_frames - _fo_last_dialogue_frame
+			if silence > _fo_longest_silence:
+				_fo_longest_silence = silence
+		else:
+			_fo_last_dialogue_frame = _total_frames
+		set_meta("_fo_last_count", fo_now)
 	if _total_frames >= MAX_FRAMES and _phase != Phase.DONE:
 		_log("TIMEOUT|frame=%d phase=%s" % [_total_frames, Phase.keys()[_phase]])
 		_fail("timeout_at_%s" % Phase.keys()[_phase])
@@ -180,6 +247,7 @@ func _process(_delta: float) -> bool:
 		Phase.DOCK_3: _do_dock_3()
 		Phase.CHECK_MODULES: _do_check_modules()
 		Phase.INSTALL_MODULE: _do_install_module()
+		Phase.TAB_CYCLE: _do_tab_cycle()
 		# Act 5
 		Phase.GALAXY_MAP: _do_galaxy_map()
 		Phase.UNDOCK_4: _do_undock(Phase.MULTI_HOP)
@@ -193,6 +261,8 @@ func _process(_delta: float) -> bool:
 		Phase.PRICE_DIVERSITY: _do_price_diversity()
 		Phase.CHECK_RESEARCH: _do_check_research()
 		Phase.FINAL_TRADE: _do_final_trade()
+		Phase.CAPTURE_EMPIRE_DASH: _do_capture_empire_dash()
+		Phase.CAPTURE_GALAXY_MAP: _do_capture_galaxy_map()
 		# Act 7: Depth probes
 		Phase.PROBE_SYSTEMIC: _do_probe_systemic()
 		Phase.PROBE_FACTIONS: _do_probe_factions()
@@ -203,6 +273,11 @@ func _process(_delta: float) -> bool:
 		Phase.PROBE_AUTOMATION: _do_probe_automation()
 		Phase.PROBE_CONSTRUCTION: _do_probe_construction()
 		Phase.PROBE_FRACTURE: _do_probe_fracture()
+		Phase.PROBE_DIPLOMACY: _do_probe_diplomacy()
+		Phase.PROBE_STORY: _do_probe_story()
+		Phase.PROBE_ENDGAME: _do_probe_endgame()
+		Phase.PROBE_ECONOMY_SIGNAL: _do_probe_economy_signal()
+		Phase.PROBE_OVERLAYS: _do_probe_overlays()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
 	return false
@@ -218,6 +293,12 @@ func _do_load_scene() -> void:
 	if _user_seed >= 0:
 		seed(_user_seed)
 		_log("SEED|%d" % _user_seed)
+
+	# Delete stale quicksave to prevent contamination between seeds
+	var save_path := "user://quicksave.json"
+	if FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+		_log("CLEANUP|deleted_quicksave")
 
 	var scene = load("res://scenes/playable_prototype.tscn").instantiate()
 	root.add_child(scene)
@@ -329,6 +410,36 @@ func _do_boot() -> void:
 					_flag("KEYBIND_CONFLICT_%s" % str(ui_action).to_upper())
 					_log("BOOT|keybind_conflict=%s key=%d" % [str(ui_action), ev.physical_keycode])
 
+	# Boot census: T38-T40 bridge method wiring check (non-fatal)
+	var _census := {
+		"diplomacy": _bridge.has_method("GetActiveTreatiesV0"),
+		"story": _bridge.has_method("GetStoryProgressV0"),
+		"endgame": _bridge.has_method("GetEndgameProgressV0"),
+		"megaprojects": _bridge.has_method("GetMegaprojectsV0"),
+		"supply_shock": _bridge.has_method("GetSupplyShockSummaryV0"),
+		"upkeep": _bridge.has_method("GetFleetUpkeepV0"),
+		"lattice": _bridge.has_method("GetLatticeDroneAlertsV0"),
+		"haven_market": _bridge.has_method("GetHavenMarketV0"),
+	}
+	var census_parts: Array[String] = []
+	for k in _census:
+		census_parts.append("%s=%s" % [k, "T" if _census[k] else "F"])
+	_log("CENSUS|%s" % " ".join(census_parts))
+	# Change 4: Boot experience checks
+	if _bridge.has_method("IsTutorialActiveV0"):
+		var tut_active: bool = _bridge.call("IsTutorialActiveV0")
+		_log("BOOT|tutorial_active=%s" % str(tut_active))
+		_boot_tutorial_suppressed = not tut_active
+	if _game_manager != null:
+		var intro = _game_manager.get("intro_active")
+		if intro != null:
+			_log("BOOT|intro_active=%s" % str(intro))
+			_boot_intro_dismissed = not bool(intro)
+		else:
+			_boot_intro_dismissed = true  # No intro property = dismissed
+
+	_act_start_frames["ACT_1"] = _total_frames
+
 	_capture("01_boot")
 	_polls = 0
 	_phase = Phase.CHECK_NPC
@@ -336,6 +447,7 @@ func _do_boot() -> void:
 
 func _do_check_npc() -> void:
 	var npcs = get_nodes_in_group("FleetShip")
+	_npc_count_at_boot = npcs.size()
 	_log("CHECK_NPC|count=%d" % npcs.size())
 	_assert(npcs.size() >= 1, "npc_present", "count=%d" % npcs.size())
 
@@ -401,6 +513,11 @@ func _do_dock() -> void:
 	_log("DOCK|goods_with_price=%d" % goods_with_price)
 
 	_market_snapshots[_home_node_id] = market
+	# Ensure Market tab is visible for the screenshot (dock may default to Station tab).
+	var _dock_menu = root.find_child("HeroTradeMenu", true, false)
+	if _dock_menu and _dock_menu.has_method("_switch_dock_tab"):
+		_dock_menu.call("_switch_dock_tab", 0)
+		await create_timer(0.15).timeout
 	_capture("04_dock_market")
 
 	# Goal 2 probe: tutorial text scan + dock tab count
@@ -410,10 +527,16 @@ func _do_dock() -> void:
 		if "tutorial" in lt or "press x" in lt or "click here" in lt:
 			tutorial_found = true
 			break
+	_tutorial_text_found = tutorial_found
 	_log("GOAL|TEACHES|tutorial_text_found=%s" % str(tutorial_found))
 	_log("GOAL|TEACHES|system_introduced=market")
 	_track_system_introduced("market")
 	_probe_dock_tabs()
+
+	# Change 5+13: Onboarding state at first dock
+	if _bridge.has_method("GetOnboardingStateV0"):
+		_dock1_onboarding = _bridge.call("GetOnboardingStateV0").duplicate()
+		_log("ONBOARDING|dock1=%s" % str(_dock1_onboarding))
 
 	_busy = false
 	_polls = 0
@@ -424,6 +547,7 @@ func _do_dock() -> void:
 
 func _do_check_fo() -> void:
 	_log("ACT_2|First Trade")
+	_act_start_frames["ACT_2"] = _total_frames
 	var fo_panel = root.find_child("FOPanel", true, false)
 	if fo_panel != null:
 		# Scan for dev-facing text
@@ -439,6 +563,7 @@ func _do_check_fo() -> void:
 			var ctype := str(candidates[0].get("type", ""))
 			if not ctype.is_empty() and _bridge.has_method("PromoteFirstOfficerV0"):
 				var ok: bool = _bridge.call("PromoteFirstOfficerV0", ctype)
+				_fo_promoted = ok
 				_log("FO_PROMOTE|candidate=%s success=%s" % [ctype, str(ok)])
 
 	# Goal 3 probe: FO state at first dock
@@ -516,6 +641,7 @@ func _do_buy() -> void:
 	_log("BUY|good=%s qty=%d price=%d dispatch=%s" % [best_good, buy_qty, best_price, str(dispatch_result)])
 
 	# Goal 4 probe: log the computed margin
+	_profit_margin = best_margin
 	_log("GOAL|PROFIT|margin=%d good=%s" % [best_margin, best_good])
 
 	# Wait for state update
@@ -644,6 +770,12 @@ func _do_sell() -> void:
 	_log("GOAL|TEACHES|system_introduced=selling")
 	_track_system_introduced("selling")
 
+	# Switch to Market tab so profit flash / updated balances are visible
+	var _dock_menu = root.find_child("HeroTradeMenu", true, false)
+	if _dock_menu and _dock_menu.has_method("_switch_dock_tab"):
+		_dock_menu.call("_switch_dock_tab", 0)
+		await create_timer(0.15).timeout
+
 	_capture("11_post_sell")
 	_busy = false
 	_polls = 0
@@ -662,6 +794,7 @@ func _do_profit_check() -> void:
 	# Goal 4 probe: profit delta + FO reaction
 	_probe_fo_dialogue("SELL")
 	var fo_reacted := _fo_dialogue_count > 0
+	_fo_reacted_to_profit = fo_reacted
 	_log("GOAL|PROFIT|delta=%d pct=%d fo_reacted=%s" % [delta, pct, str(fo_reacted)])
 
 	_polls = 0
@@ -672,11 +805,13 @@ func _do_profit_check() -> void:
 
 func _do_check_missions() -> void:
 	_log("ACT_3|First Mission")
+	_act_start_frames["ACT_3"] = _total_frames
 	if not _bridge.has_method("GetMissionListV0"):
 		_log("MISSIONS|bridge_missing_method")
 		_phase = Phase.FIND_HOSTILE
 		return
 	var missions: Array = _bridge.call("GetMissionListV0")
+	_missions_available_count = missions.size()
 	_assert(missions.size() >= 1, "missions_available", "count=%d" % missions.size())
 	_log("MISSIONS|available=%d" % missions.size())
 
@@ -698,6 +833,7 @@ func _do_accept_mission() -> void:
 			var accepted: bool = _bridge.call("AcceptMissionV0", mission_id)
 			_log("ACCEPT|mission=%s success=%s" % [mission_id, str(accepted)])
 			if accepted:
+				_mission_accepted = true
 				var active: Dictionary = _bridge.call("GetActiveMissionV0")
 				_assert(not active.is_empty(), "mission_active", "")
 	_capture("14_mission_accepted")
@@ -717,6 +853,7 @@ func _do_arrival_2() -> void:
 
 func _do_find_hostile() -> void:
 	_log("ACT_4|First Combat")
+	_act_start_frames["ACT_4"] = _total_frames
 	# Use GetSystemSnapshotV0 to find NPC fleets at current system
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var node_id := str(ps.get("current_node_id", ""))
@@ -769,25 +906,72 @@ func _do_combat() -> void:
 	if _bridge.has_method("InitFleetCombatHpV0"):
 		_bridge.call("InitFleetCombatHpV0")
 
+	# Battle stations spin-up (Change 1)
+	if _bridge.has_method("ToggleBattleStationsV0"):
+		var bs: Dictionary = _bridge.call("ToggleBattleStationsV0")
+		var new_state := str(bs.get("new_state", ""))
+		_log("COMBAT|battle_stations=%s" % new_state)
+	if _bridge.has_method("GetBattleStationsStateV0"):
+		var bss: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		_log("COMBAT|bs_state=%s" % str(bss))
+
 	var ps_before: Dictionary = _bridge.call("GetPlayerStateV0")
 	_credits_before_combat = int(ps_before.get("credits", 0))
 
-	# Multi-hit combat: 3 hits with pauses so VFX (shield ripple, damage numbers,
-	# hull sparks) have time to render and be captured in screenshots.
+	# Interleaved combat: player hit → NPC shot → player hit → NPC shot → player hit.
+	# NPC must fire BEFORE being destroyed by player's 3rd hit (150 total kills most NPCs).
 	_busy = true
 	var total_dmg := 0
-	var hit_count := 3
-	var dmg_per_hit := 50  # 50 x 3 = 150 total, same as before
-	for i in range(hit_count):
-		_bridge.call("DamageNpcFleetV0", fleet_id, dmg_per_hit)
-		total_dmg += dmg_per_hit
-		if i == 0:
-			# Capture after first hit — shield ripple + damage numbers visible
-			await create_timer(0.15).timeout
-			_capture("18a_combat_hit1")
-		elif i < hit_count - 1:
-			await create_timer(0.1).timeout
-	_log("COMBAT|hits=%d dmg=%d target=%s" % [hit_count, total_dmg, fleet_id])
+	var npc_shots_fired := 0
+	var has_ai_shot: bool = _bridge.has_method("ApplyAiShotAtPlayerV0")
+
+	# Round 1: player fires, NPC returns fire
+	_bridge.call("DamageNpcFleetV0", fleet_id, 50)
+	total_dmg += 50
+	await create_timer(0.15).timeout
+	_capture("18a_combat_hit1")
+	if has_ai_shot:
+		var shot1: Dictionary = _bridge.call("ApplyAiShotAtPlayerV0", fleet_id)
+		_log("COMBAT|npc_shot hull=%d shield=%d" % [int(shot1.get("player_hull", -1)), int(shot1.get("player_shield", -1))])
+		npc_shots_fired += 1
+		await create_timer(0.1).timeout
+
+	# Round 2: NPC fires multiple shots to deplete shield and hit hull (combat tension)
+	# Fire rapid volleys without pausing — SustainSystem auto-repairs between awaits
+	for _volley in range(14):
+		if has_ai_shot:
+			var shot_v: Dictionary = _bridge.call("ApplyAiShotAtPlayerV0", fleet_id)
+			var shot_hull: int = int(shot_v.get("player_hull", 100))
+			_log("COMBAT|npc_shot hull=%d shield=%d" % [shot_hull, int(shot_v.get("player_shield", -1))])
+			# Track min hull inline — auto-repair races the post-combat HP read
+			if shot_hull < _min_hull_seen:
+				_min_hull_seen = shot_hull
+			npc_shots_fired += 1
+
+	# Round 3: player fires twice, finishing blow (NPC likely dead after this)
+	_bridge.call("DamageNpcFleetV0", fleet_id, 50)
+	total_dmg += 50
+	await create_timer(0.1).timeout
+	_bridge.call("DamageNpcFleetV0", fleet_id, 50)
+	total_dmg += 50
+
+	_log("COMBAT|hits=3 dmg=%d npc_shots=%d target=%s" % [total_dmg, npc_shots_fired, fleet_id])
+
+	# Heat system probe (Change 1)
+	if _bridge.has_method("GetHeatSnapshotV0"):
+		var heat: Dictionary = _bridge.call("GetHeatSnapshotV0")
+		_heat_capacity = int(heat.get("heat_capacity", 0))
+		_log("COMBAT|heat_capacity=%d rejection_rate=%s" % [
+			_heat_capacity, str(heat.get("rejection_rate", 0))])
+	if _bridge.has_method("GetRadiatorStatusV0"):
+		var rad: Dictionary = _bridge.call("GetRadiatorStatusV0")
+		_radiator_intact = bool(rad.get("is_intact", false))
+		_log("COMBAT|radiator_intact=%s bonus_rate=%s" % [
+			str(_radiator_intact), str(rad.get("bonus_rate", 0))])
+	if _bridge.has_method("GetRecentCombatEventsV0"):
+		var events: Array = _bridge.call("GetRecentCombatEventsV0")
+		_log("COMBAT|recent_events=%d" % events.size())
+
 	_busy = false
 
 	# Check player survived + track min hull for tension metric
@@ -836,6 +1020,12 @@ func _do_dock_3() -> void:
 	_dock_at_station()
 	_busy = true
 	await create_timer(0.3).timeout
+
+	# Change 5+13: Onboarding state at third dock (post-combat)
+	if _bridge.has_method("GetOnboardingStateV0"):
+		_dock3_onboarding = _bridge.call("GetOnboardingStateV0").duplicate()
+		_log("ONBOARDING|dock3=%s" % str(_dock3_onboarding))
+
 	_capture("20_dock_upgrade")
 	_busy = false
 	_polls = 0
@@ -887,6 +1077,15 @@ func _do_install_module() -> void:
 		var result: Dictionary = _bridge.call("InstallModuleV0", "fleet_trader_1", install_slot, install_module)
 		var success: bool = result.get("success", false)
 		_log("INSTALL|module=%s slot=%d success=%s" % [install_module, install_slot, str(success)])
+
+		# Change 2: Module remove + re-install
+		if success and _bridge.has_method("RemoveModuleV0"):
+			var remove_result: Dictionary = _bridge.call("RemoveModuleV0", "fleet_trader_1", install_slot)
+			var removed: bool = remove_result.get("success", false)
+			_log("REMOVE|slot=%d success=%s" % [install_slot, str(removed)])
+			# Re-install so the rest of the bot works with upgraded ship
+			if removed:
+				_bridge.call("InstallModuleV0", "fleet_trader_1", install_slot, install_module)
 	elif install_slot < 0:
 		_log("INSTALL|no_matching_slot")
 	else:
@@ -904,8 +1103,43 @@ func _do_install_module() -> void:
 			if inst.is_empty() or inst == "null" or inst == "None":
 				empty_slots += 1
 	_log("GOAL|DEPTH|empty_slots=%d" % empty_slots)
+	_empty_slots_at_fit = empty_slots
 
 	_capture("22_ship_fitted")
+	_polls = 0
+	_phase = Phase.TAB_CYCLE
+
+
+# ── Tab Cycle: Capture all visible dock tabs ──────────────────────
+
+func _do_tab_cycle() -> void:
+	_busy = true
+	var dock_menu = root.find_child("HeroTradeMenu", true, false)
+	if dock_menu == null or not dock_menu.has_method("_switch_dock_tab"):
+		_log("TAB_CYCLE|skip no_dock_menu")
+		_busy = false
+		_phase = Phase.GALAXY_MAP
+		return
+
+	# Tab indices: 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel, 6=Diplomacy
+	var tabs_to_capture: Array = [
+		[1, "23_tab_jobs"],
+		[2, "23_tab_ship"],
+		[4, "23_tab_intel"],
+		[6, "23_tab_diplo"],
+	]
+	for entry in tabs_to_capture:
+		var idx: int = entry[0]
+		var label: String = entry[1]
+		dock_menu.call("_switch_dock_tab", idx)
+		await create_timer(0.15).timeout
+		_capture(label)
+
+	# Return to Station tab
+	dock_menu.call("_switch_dock_tab", 3)
+	await create_timer(0.1).timeout
+	_log("TAB_CYCLE|captured %d tabs" % tabs_to_capture.size())
+	_busy = false
 	_polls = 0
 	_phase = Phase.GALAXY_MAP
 
@@ -914,6 +1148,7 @@ func _do_install_module() -> void:
 
 func _do_galaxy_map() -> void:
 	_log("ACT_5|Galaxy Opens")
+	_act_start_frames["ACT_5"] = _total_frames
 	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
 	var nodes: Array = galaxy.get("system_nodes", [])
 	var edges: Array = galaxy.get("lane_edges", [])
@@ -933,20 +1168,57 @@ func _do_galaxy_map() -> void:
 
 func _do_multi_hop() -> void:
 	# Navigate to 2 more systems (4th and 5th unique) with settle between hops
+	# Build faction BFS path (shared with deep_explore) for up to 5 total hops
 	_busy = true
+
+	# Build faction map from territory overlay
+	if _bridge.has_method("GetFactionTerritoryOverlayV0"):
+		var terr: Dictionary = _bridge.call("GetFactionTerritoryOverlayV0")
+		for nid in terr:
+			var info: Dictionary = terr[nid]
+			var fid := str(info.get("controlling_faction", ""))
+			if not fid.is_empty():
+				_faction_map[str(nid)] = fid
+
+	# BFS to nearest new-faction node (up to 5 hops: 2 multi_hop + 3 deep_explore)
+	var bfs_result: Array = _bfs_to_new_faction(_faction_map)
+	if bfs_result.size() > 0:
+		_faction_bfs_path = bfs_result[0]
+		var bfs_target: String = bfs_result[1] if bfs_result.size() > 1 else ""
+		_log("FACTION_BFS|path=%s target=%s faction=%s" % [
+			str(_faction_bfs_path), bfs_target, str(_faction_map.get(bfs_target, ""))])
+
 	for _hop_i in range(2):
-		_refresh_neighbors()
 		var target := ""
-		for nid in _neighbor_ids:
-			if not _visited.has(nid):
-				target = str(nid)
-				break
+		# Use BFS path if available (indexes 0-1 for multi_hop)
+		if _hop_i < _faction_bfs_path.size():
+			target = str(_faction_bfs_path[_hop_i])
+		else:
+			_refresh_neighbors()
+			# Priority 1: unvisited neighbor in a NEW faction
+			for nid in _neighbor_ids:
+				if _visited.has(nid):
+					continue
+				var nid_faction := _get_node_faction(str(nid))
+				if not nid_faction.is_empty() and not _factions_visited.has(nid_faction):
+					target = str(nid)
+					break
+			# Priority 2: any unvisited neighbor
+			if target.is_empty():
+				for nid in _neighbor_ids:
+					if not _visited.has(nid):
+						target = str(nid)
+						break
 		if target.is_empty() and _neighbor_ids.size() > 0:
 			target = str(_neighbor_ids[0])
 		if not target.is_empty():
 			_log("MULTI_HOP|dest=%s" % target)
 			_headless_travel(target)
 			_visited[target] = true
+			if _faction_map.has(target) and not str(_faction_map[target]).is_empty():
+				_factions_visited[str(_faction_map[target])] = true
+			else:
+				_track_faction(target)
 			await create_timer(0.5).timeout  # Let scene rebuild between hops
 
 	_capture("24_system_5")
@@ -985,6 +1257,7 @@ func _do_trade_route() -> void:
 			# Sell immediately at same station (may not profit, but tests the loop)
 			_bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, false)
 			_trades_completed += 1
+			_goods_traded[best_good] = true
 			_log("TRADE_ROUTE|good=%s qty=%d" % [best_good, buy_qty])
 	else:
 		_log("TRADE_ROUTE|no_goods_at_%s" % node_id)
@@ -1014,27 +1287,104 @@ func _do_check_sustain() -> void:
 
 func _do_deep_explore() -> void:
 	_log("ACT_6|Scale Reveal")
-	# Navigate to 3 more unique systems with settle between hops
+	_act_start_frames["ACT_6"] = _total_frames
 	_busy = true
+
+	_log("DEEP|factions_visited=%s bfs_remaining=%d" % [
+		str(_factions_visited.keys()), maxi(0, _faction_bfs_path.size() - 2)])
+
+	# Navigate up to 3 hops — continue BFS path from multi_hop (index 2+), else greedy
 	for _hop in range(3):
-		_refresh_neighbors()
+		var bfs_idx := _hop + 2  # multi_hop used indexes 0-1
 		var target := ""
-		for nid in _neighbor_ids:
-			if not _visited.has(nid):
-				target = str(nid)
-				break
+		if bfs_idx < _faction_bfs_path.size():
+			target = str(_faction_bfs_path[bfs_idx])
+		else:
+			_refresh_neighbors()
+			# Priority 1: unvisited neighbor in a NEW faction
+			for nid in _neighbor_ids:
+				if _visited.has(nid):
+					continue
+				var nid_faction := _get_node_faction(str(nid))
+				if not nid_faction.is_empty() and not _factions_visited.has(nid_faction):
+					target = str(nid)
+					break
+			# Priority 2: any unvisited neighbor
+			if target.is_empty():
+				for nid in _neighbor_ids:
+					if not _visited.has(nid):
+						target = str(nid)
+						break
 		if target.is_empty():
-			_log("DEEP|hop=%d no_unvisited_neighbor" % _hop)
+			_log("DEEP|hop=%d no_target" % _hop)
 			break
 		_headless_travel(target)
 		_visited[target] = true
-		_log("DEEP|hop=%d dest=%s" % [_hop, target])
+		if _faction_map.has(target) and not str(_faction_map[target]).is_empty():
+			_factions_visited[str(_faction_map[target])] = true
+		else:
+			_track_faction(target)
+		_log("DEEP|hop=%d dest=%s faction=%s" % [_hop, target, str(_faction_map.get(target, ""))])
 		await create_timer(0.5).timeout  # Let scene rebuild between hops
 
 	_capture("27_deep_explore")
 	_busy = false
 	_polls = 0
 	_phase = Phase.SETTLE_DEEP
+
+
+## BFS from current node to nearest node with a faction not yet visited.
+## Searches the full graph, returns [path_array (max 5 steps), target_node_id].
+func _bfs_to_new_faction(faction_map: Dictionary) -> Array:
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var start := str(ps.get("current_node_id", ""))
+	if start.is_empty():
+		return []
+
+	# Build adjacency from edge list
+	var adj := {}  # node_id -> Array[node_id]
+	for lane in _all_edges:
+		var from_id := str(lane.get("from_id", ""))
+		var to_id := str(lane.get("to_id", ""))
+		if not adj.has(from_id): adj[from_id] = []
+		if not adj.has(to_id): adj[to_id] = []
+		adj[from_id].append(to_id)
+		adj[to_id].append(from_id)
+
+	# BFS with parent tracking — no depth limit (galaxy is only 20 nodes)
+	var queue: Array = [start]
+	var parent := {}  # node_id -> parent_node_id
+	parent[start] = ""
+	var found := ""
+
+	while queue.size() > 0:
+		var node: String = queue.pop_front()
+		# Check if this node has a new faction (skip start node)
+		if node != start and faction_map.has(node):
+			var f: String = faction_map[node]
+			if not f.is_empty() and not _factions_visited.has(f):
+				found = node
+				break
+		# Expand neighbors
+		if adj.has(node):
+			for neighbor in adj[node]:
+				if not parent.has(neighbor):
+					parent[neighbor] = node
+					queue.append(neighbor)
+
+	if found.is_empty():
+		return []
+
+	# Reconstruct full path from start to found
+	var full_path: Array = []
+	var cur := found
+	while cur != start and not cur.is_empty():
+		full_path.push_front(cur)
+		cur = parent.get(cur, "")
+
+	# Return [path (max 5 steps: 2 multi_hop + 3 deep_explore), target_node_id]
+	var path: Array = full_path.slice(0, 5) if full_path.size() > 5 else full_path
+	return [path, found]
 
 
 func _do_price_diversity() -> void:
@@ -1074,6 +1424,7 @@ func _do_check_research() -> void:
 	var techs: Array = _bridge.call("GetTechTreeV0")
 	_assert(techs.size() >= 1, "tech_available", "count=%d" % techs.size())
 	_log("RESEARCH|techs=%d" % techs.size())
+	_tech_count = techs.size()
 
 	# Goal 5 probe: tech depth
 	_log("GOAL|DEPTH|tech_count=%d" % techs.size())
@@ -1107,8 +1458,50 @@ func _do_final_trade() -> void:
 		_bridge.call("DispatchPlayerTradeV0", node_id, best_good, 1, true)
 		_bridge.call("DispatchPlayerTradeV0", node_id, best_good, 1, false)
 		_trades_completed += 1
+		_goods_traded[best_good] = true
 
 	_capture("30_final_trade")
+	_busy = false
+	_polls = 0
+	_phase = Phase.CAPTURE_EMPIRE_DASH
+
+
+# ── Empire Dashboard + Galaxy Map Captures ──────────────────────
+
+func _do_capture_empire_dash() -> void:
+	_busy = true
+	# Undock first if still docked
+	var gm = root.get_node_or_null("GameManager")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	if str(ps.get("ship_state_token", "")) == "DOCKED" and gm and gm.has_method("undock_v0"):
+		gm.call("undock_v0")
+		await create_timer(0.3).timeout
+
+	if gm and gm.has_method("_toggle_empire_dashboard_v0"):
+		gm.call("_toggle_empire_dashboard_v0")
+		await create_timer(0.3).timeout
+		_capture("32_empire_dashboard")
+		# Close it
+		gm.call("_toggle_empire_dashboard_v0")
+		await create_timer(0.15).timeout
+	else:
+		_log("EMPIRE_DASH|skip no_method")
+	_busy = false
+	_polls = 0
+	_phase = Phase.CAPTURE_GALAXY_MAP
+
+func _do_capture_galaxy_map() -> void:
+	_busy = true
+	var gm = root.get_node_or_null("GameManager")
+	if gm and gm.has_method("toggle_galaxy_map_overlay_v0"):
+		gm.call("toggle_galaxy_map_overlay_v0")
+		await create_timer(0.3).timeout
+		_capture("33_galaxy_map")
+		# Close it
+		gm.call("toggle_galaxy_map_overlay_v0")
+		await create_timer(0.15).timeout
+	else:
+		_log("GALAXY_MAP_CAP|skip no_method")
 	_busy = false
 	_polls = 0
 	_phase = Phase.PROBE_SYSTEMIC
@@ -1120,12 +1513,20 @@ func _do_probe_systemic() -> void:
 	# Probe systemic mission offers (WAR_DEMAND/PRICE_SPIKE/SUPPLY_SHORTAGE)
 	if _bridge.has_method("GetSystemicOffersV0"):
 		var offers: Array = _bridge.call("GetSystemicOffersV0")
+		_systemic_offers = offers.size()
 		_log("SYSTEMIC|offers=%d" % offers.size())
 		_log("GOAL|SYSTEMIC|offers=%d" % offers.size())
 		if offers.size() > 0:
 			var offer = offers[0]
 			_log("SYSTEMIC|first_offer trigger=%s good=%s" % [
 				str(offer.get("trigger_type", "")), str(offer.get("good_id", ""))])
+			# Change 3: Accept the first systemic mission
+			if _bridge.has_method("AcceptSystemicMissionV0"):
+				var offer_id := str(offer.get("offer_id", ""))
+				if not offer_id.is_empty():
+					var accepted: bool = _bridge.call("AcceptSystemicMissionV0", offer_id)
+					_log("SYSTEMIC|accept=%s success=%s" % [offer_id, str(accepted)])
+					_systemic_mission_accepted = accepted
 	else:
 		_log("SYSTEMIC|no_method")
 	_polls = 0
@@ -1151,6 +1552,7 @@ func _do_probe_factions() -> void:
 	# Probe warfronts
 	if _bridge.has_method("GetWarfrontsV0"):
 		var warfronts: Array = _bridge.call("GetWarfrontsV0")
+		_warfront_count = warfronts.size()
 		_log("WARFRONT|count=%d" % warfronts.size())
 		_log("GOAL|ALIVE|warfronts=%d" % warfronts.size())
 
@@ -1223,6 +1625,7 @@ func _do_probe_ledger() -> void:
 	# Transaction ledger
 	if _bridge.has_method("GetTransactionLogV0"):
 		var log_entries: Array = _bridge.call("GetTransactionLogV0", 10)
+		_ledger_entries = log_entries.size()
 		_log("LEDGER|transactions=%d" % log_entries.size())
 		_log("GOAL|ECONOMY|ledger_entries=%d" % log_entries.size())
 
@@ -1238,10 +1641,21 @@ func _do_probe_ledger() -> void:
 		_log("GOAL|STATS|nodes_visited=%s trades=%s" % [
 			str(stats.get("nodes_visited", 0)), str(stats.get("trades_completed", 0))])
 
-	# Milestones
+	# Milestones — count achieved, not total definitions
 	if _bridge.has_method("GetMilestonesV0"):
 		var milestones: Array = _bridge.call("GetMilestonesV0")
-		_log("STATS|milestones=%d" % milestones.size())
+		var achieved := 0
+		for m in milestones:
+			if bool(m.get("achieved", false)):
+				achieved += 1
+		_milestone_count = achieved
+		_log("STATS|milestones_achieved=%d/%d" % [achieved, milestones.size()])
+
+	# Change 6: Price history probe
+	if _bridge.has_method("GetPriceHistoryV0") and not _bought_good_id.is_empty():
+		var history: Array = _bridge.call("GetPriceHistoryV0", _home_node_id, _bought_good_id)
+		_price_history_entries = history.size()
+		_log("PRICE_HISTORY|entries=%d good=%s node=%s" % [history.size(), _bought_good_id, _home_node_id])
 
 	_polls = 0
 	_phase = Phase.PROBE_REFIT
@@ -1343,11 +1757,236 @@ func _do_probe_fracture() -> void:
 		var level := int(_bridge.call("GetSensorLevelV0"))
 		_log("FRACTURE|sensor_level=%d" % level)
 
+	# Change 7: Discovery scan probe
+	if _bridge.has_method("GetDiscoverySnapshotV0") and _bridge.has_method("DispatchScanDiscoveryV0"):
+		for nid in _visited:
+			var discoveries: Array = _bridge.call("GetDiscoverySnapshotV0", str(nid))
+			if discoveries.size() > 0:
+				var disc_id := str(discoveries[0].get("site_id", ""))
+				var phase_before := str(discoveries[0].get("phase", ""))
+				if not disc_id.is_empty():
+					_bridge.call("DispatchScanDiscoveryV0", disc_id)
+					_log("DISCOVERY|scan_dispatched=%s phase=%s" % [disc_id, phase_before])
+					_discovery_scan_attempted = true
+					break
+
+	# Change 12: Fracture travel attempt
+	if _bridge.has_method("GetFractureAccessV0") and _bridge.has_method("DispatchFractureTravelV0"):
+		var f_access: Dictionary = _bridge.call("GetFractureAccessV0", "fleet_trader_1", node_id)
+		var f_allowed: bool = f_access.get("allowed", false)
+		if f_allowed and _bridge.has_method("GetAvailableVoidSitesV0"):
+			var void_sites: Array = _bridge.call("GetAvailableVoidSitesV0")
+			if void_sites.size() > 0:
+				var site_id := str(void_sites[0].get("site_id", ""))
+				if not site_id.is_empty():
+					_bridge.call("DispatchFractureTravelV0", "fleet_trader_1", site_id)
+					_log("FRACTURE|travel_dispatched=%s" % site_id)
+					_fracture_travel_attempted = true
+
+	_polls = 0
+	_phase = Phase.PROBE_DIPLOMACY
+
+
+func _do_probe_diplomacy() -> void:
+	var treaties := 0
+	var bounties := 0
+	var proposals := 0
+	var sanctions := 0
+	if _bridge.has_method("GetActiveTreatiesV0"):
+		var arr: Array = _bridge.call("GetActiveTreatiesV0")
+		treaties = arr.size()
+	if _bridge.has_method("GetAvailableBountiesV0"):
+		var arr: Array = _bridge.call("GetAvailableBountiesV0")
+		bounties = arr.size()
+	if _bridge.has_method("GetDiplomaticProposalsV0"):
+		var arr: Array = _bridge.call("GetDiplomaticProposalsV0")
+		proposals = arr.size()
+	if _bridge.has_method("GetSanctionsV0"):
+		var arr: Array = _bridge.call("GetSanctionsV0")
+		sanctions = arr.size()
+	_log("DIPLOMACY|treaties=%d bounties=%d proposals=%d sanctions=%d" % [treaties, bounties, proposals, sanctions])
+	_log("GOAL|DEPTH|diplomacy_total=%d" % (treaties + bounties + proposals + sanctions))
+	_track_system_introduced("DIPLOMACY")
+	_polls = 0
+	_phase = Phase.PROBE_STORY
+
+
+func _do_probe_story() -> void:
+	if _bridge.has_method("GetStoryProgressV0"):
+		var story: Dictionary = _bridge.call("GetStoryProgressV0")
+		var act := str(story.get("act", ""))
+		var phase := str(story.get("phase", ""))
+		_log("STORY|act=%s phase=%s keys=%d" % [act, phase, story.size()])
+	if _bridge.has_method("GetPentagonStateV0"):
+		var pentagon: Dictionary = _bridge.call("GetPentagonStateV0")
+		_log("STORY|pentagon_keys=%d" % pentagon.size())
+		for k in pentagon:
+			_log("STORY|pentagon_%s=%s" % [str(k), str(pentagon[k])])
+	_track_system_introduced("STORY")
+	_polls = 0
+	_phase = Phase.PROBE_ENDGAME
+
+
+func _do_probe_endgame() -> void:
+	# Census of late-game bridge wiring — confirms methods exist and return data
+	var methods_found := 0
+	var total_methods := 11
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+
+	if _bridge.has_method("GetEndgameProgressV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetEndgameProgressV0")
+		_log("ENDGAME|progress_keys=%d" % d.size())
+	if _bridge.has_method("GetEndgamePathsV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetEndgamePathsV0")
+		_log("ENDGAME|paths_keys=%d" % d.size())
+	if _bridge.has_method("GetGameResultV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetGameResultV0")
+		_log("ENDGAME|result=%s" % str(d.get("result", "none")))
+	if _bridge.has_method("GetLossInfoV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetLossInfoV0")
+		_log("ENDGAME|loss_keys=%d" % d.size())
+	if _bridge.has_method("GetMegaprojectsV0"):
+		methods_found += 1
+		var arr: Array = _bridge.call("GetMegaprojectsV0")
+		_log("ENDGAME|megaprojects=%d" % arr.size())
+	if _bridge.has_method("GetMegaprojectTypesV0"):
+		methods_found += 1
+		var arr: Array = _bridge.call("GetMegaprojectTypesV0")
+		_log("ENDGAME|megaproject_types=%d" % arr.size())
+	if _bridge.has_method("GetSupplyShockSummaryV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetSupplyShockSummaryV0")
+		_log("ENDGAME|supply_shock_keys=%d" % d.size())
+	if _bridge.has_method("GetFleetUpkeepV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetFleetUpkeepV0", "fleet_trader_1")
+		_log("ENDGAME|upkeep=%s" % str(d))
+	if _bridge.has_method("GetLatticeDroneAlertsV0"):
+		methods_found += 1
+		var arr: Array = _bridge.call("GetLatticeDroneAlertsV0", node_id)
+		_log("ENDGAME|lattice_alerts=%d" % arr.size())
+	if _bridge.has_method("GetHavenMarketV0"):
+		methods_found += 1
+		var arr: Array = _bridge.call("GetHavenMarketV0")
+		_log("ENDGAME|haven_market=%d" % arr.size())
+	if _bridge.has_method("GetHavenMarketInfoV0"):
+		methods_found += 1
+		var d: Dictionary = _bridge.call("GetHavenMarketInfoV0")
+		_log("ENDGAME|haven_market_info_keys=%d" % d.size())
+
+	_log("ENDGAME|methods_found=%d/%d" % [methods_found, total_methods])
+
+	# Change 9: Haven probe
+	if _bridge.has_method("GetHavenStatusV0"):
+		var haven: Dictionary = _bridge.call("GetHavenStatusV0")
+		_haven_tier = int(haven.get("tier", 0))
+		_log("HAVEN|tier=%d name=%s node=%s" % [_haven_tier, str(haven.get("tier_name", "")), str(haven.get("node_id", ""))])
+		if _haven_tier > 0 and _bridge.has_method("UpgradeHavenV0"):
+			var upgraded: bool = _bridge.call("UpgradeHavenV0")
+			_log("HAVEN|upgrade_attempted=%s" % str(upgraded))
+
+	_polls = 0
+	_phase = Phase.PROBE_ECONOMY_SIGNAL
+
+
+func _do_probe_economy_signal() -> void:
+	# Valve-inspired economy signal clarity probe
+	# For each good, find best margin (max sell - min buy) across visited markets
+	var good_best_buy: Dictionary = {}   # good_id -> min buy price
+	var good_best_sell: Dictionary = {}  # good_id -> max sell price
+	var good_worst_buy: Dictionary = {}  # good_id -> max buy price
+	var good_worst_sell: Dictionary = {} # good_id -> min sell price
+
+	for nid in _market_snapshots:
+		var market: Array = _market_snapshots[nid]
+		for item in market:
+			var gid := str(item.get("good_id", ""))
+			var buy_p := int(item.get("buy_price", 0))
+			var sell_p := int(item.get("sell_price", 0))
+			if gid.is_empty() or buy_p <= 0:
+				continue
+			if sell_p <= 0:
+				sell_p = int(buy_p * 0.9)  # Estimate from bid-ask spread
+			if not good_best_buy.has(gid) or buy_p < good_best_buy[gid]:
+				good_best_buy[gid] = buy_p
+			if not good_best_sell.has(gid) or sell_p > good_best_sell[gid]:
+				good_best_sell[gid] = sell_p
+			if not good_worst_buy.has(gid) or buy_p > good_worst_buy[gid]:
+				good_worst_buy[gid] = buy_p
+			if not good_worst_sell.has(gid) or sell_p < good_worst_sell[gid]:
+				good_worst_sell[gid] = sell_p
+
+	var profitable_count := 0
+	var total_goods := good_best_buy.size()
+	var best_margin := -999999
+	var worst_margin := 999999
+	var all_profitable := true
+
+	for gid in good_best_buy:
+		if good_best_sell.has(gid):
+			var margin: int = int(good_best_sell[gid]) - int(good_best_buy[gid])
+			if margin > best_margin:
+				best_margin = margin
+			if margin > 0:
+				profitable_count += 1
+		if good_worst_sell.has(gid) and good_worst_buy.has(gid):
+			var w_margin: int = int(good_worst_sell[gid]) - int(good_worst_buy[gid])
+			if w_margin < worst_margin:
+				worst_margin = w_margin
+			if w_margin <= 0:
+				all_profitable = false
+
+	_log("ECONOMY_SIGNAL|best_margin=%d worst_margin=%d profitable=%d/%d snapshots=%d" % [
+		best_margin, worst_margin, profitable_count, total_goods, _market_snapshots.size()])
+
+	if total_goods > 0 and profitable_count == 0:
+		_flag("ECONOMY_NO_PROFITABLE_ROUTE")
+	if total_goods > 2 and all_profitable and _market_snapshots.size() >= 3:
+		_flag("ECONOMY_ALL_ROUTES_PROFIT")
+
+	_polls = 0
+	_phase = Phase.PROBE_OVERLAYS
+
+
+func _do_probe_overlays() -> void:
+	# Change 8: Overlay data probes
+	if _bridge.has_method("GetFactionTerritoryOverlayV0"):
+		var terr: Dictionary = _bridge.call("GetFactionTerritoryOverlayV0")
+		_overlay_territory_nodes = terr.size()
+		_log("OVERLAY|territory_nodes=%d" % terr.size())
+	if _bridge.has_method("GetFleetPositionsOverlayV0"):
+		var fleets: Dictionary = _bridge.call("GetFleetPositionsOverlayV0")
+		_log("OVERLAY|fleet_nodes=%d" % fleets.size())
+	if _bridge.has_method("GetWarfrontOverlayV0"):
+		var wf: Dictionary = _bridge.call("GetWarfrontOverlayV0")
+		_log("OVERLAY|warfront_nodes=%d" % wf.size())
+	if _bridge.has_method("GetHeatOverlayV0"):
+		var heat: Dictionary = _bridge.call("GetHeatOverlayV0")
+		_log("OVERLAY|heat_nodes=%d" % heat.size())
+	if _bridge.has_method("GetPressureDomainsV0"):
+		var domains: Array = _bridge.call("GetPressureDomainsV0")
+		_log("OVERLAY|pressure_domains=%d" % domains.size())
+		for d in domains:
+			_log("OVERLAY|domain=%s tier=%s crisis=%s" % [
+				str(d.get("domain_id", "")), str(d.get("tier_name", "")), str(d.get("is_crisis", false))])
+	if _bridge.has_method("GetEconomyOverviewV0"):
+		var econ: Array = _bridge.call("GetEconomyOverviewV0")
+		_economy_overview_goods = econ.size()
+		_log("OVERLAY|economy_goods=%d" % econ.size())
+	if _bridge.has_method("GetNpcTradeActivityV0"):
+		var activity: int = _bridge.call("GetNpcTradeActivityV0", _home_node_id)
+		_log("OVERLAY|npc_trade_activity=%d node=%s" % [activity, _home_node_id])
 	_polls = 0
 	_phase = Phase.AUDIT
 
 
 func _do_audit() -> void:
+	_act_start_frames["ACT_7"] = _total_frames
 	# Goal 3 probe: total FO dialogue count
 	_log("GOAL|FO|total_lines=%d" % _fo_dialogue_count)
 
@@ -1388,6 +2027,50 @@ func _do_audit() -> void:
 	# COVERAGE: systems introduced during first hour
 	_log("EXPERIENCE|systems_introduced=%s" % str(_systems_introduced))
 
+	# === Pacing Time-Series Analysis (Valve AI Director inspired) ===
+	var credit_direction_changes := 0
+	if _pacing_credits.size() >= 3:
+		for i in range(1, _pacing_credits.size() - 1):
+			var prev_dir := _pacing_credits[i] - _pacing_credits[i - 1]
+			var next_dir := _pacing_credits[i + 1] - _pacing_credits[i]
+			if (prev_dir > 0 and next_dir < 0) or (prev_dir < 0 and next_dir > 0):
+				credit_direction_changes += 1
+		_credit_direction_changes = credit_direction_changes
+		if credit_direction_changes < 2:
+			_flag("PACING_MONOTONE_CREDITS|changes=%d samples=%d" % [credit_direction_changes, _pacing_credits.size()])
+
+	# Hull tension-relief pattern
+	var hull_dropped := false
+	var hull_recovered := false
+	for hp in _pacing_hull_pct:
+		if hp < 80:
+			hull_dropped = true
+		if hull_dropped and hp > 90:
+			hull_recovered = true
+	if hull_dropped and hull_recovered:
+		_log("PACING|TENSION_RELIEF|hull dropped and recovered")
+
+	# FO silence budget
+	if _fo_longest_silence > 600:
+		_flag("FO_LONG_SILENCE|frames=%d" % _fo_longest_silence)
+
+	# Act timing balance
+	var act_keys := _act_start_frames.keys()
+	act_keys.sort()
+	if act_keys.size() >= 2:
+		var act_durations: Array[String] = []
+		for i in range(act_keys.size()):
+			var start_f: int = _act_start_frames[act_keys[i]]
+			var end_f: int = _total_frames if i == act_keys.size() - 1 else _act_start_frames[act_keys[i + 1]]
+			var dur := end_f - start_f
+			act_durations.append("%s=%d" % [str(act_keys[i]), dur])
+			if _total_frames > 0 and float(dur) / float(_total_frames) > 0.4:
+				_flag("PACING_ACT_IMBALANCE|%s took %d%%" % [str(act_keys[i]), (dur * 100) / _total_frames])
+		_log("PACING|act_frames=%s" % " ".join(act_durations))
+
+	_log("PACING|samples=%d credit_changes=%d hull_min=%d fo_silence=%d" % [
+		_pacing_credits.size(), credit_direction_changes, _min_hull_seen, _fo_longest_silence])
+
 	# Stranded player guard: verify player has viable next action
 	var final_ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var final_credits := int(final_ps.get("credits", 0))
@@ -1418,6 +2101,19 @@ func _do_audit() -> void:
 	if _dispatch_failures > 0:
 		_log("DISPATCH|silent_failures=%d" % _dispatch_failures)
 		_flag("DISPATCH_FAILURES_TOTAL|count=%d" % _dispatch_failures)
+
+	# Change 10: UI panel visibility checks
+	var panel_names := ["FOPanel", "CombatHud", "KnowledgeWebPanel", "WarfrontPanel", "MegaprojectPanel"]
+	var panels_found := 0
+	for pname in panel_names:
+		var panel_node = root.find_child(pname, true, false)
+		if panel_node != null:
+			panels_found += 1
+			_log("UI|%s found=true visible=%s" % [pname, str(panel_node.visible)])
+		else:
+			_log("UI|%s found=false" % pname)
+	_ui_panels_found = panels_found
+	_log("UI|panels=%d/%d" % [panels_found, panel_names.size()])
 
 	# === Content String Lint — scan visible Labels for dev jargon ===
 	# Check Label3D nodes
@@ -1506,7 +2202,388 @@ func _do_audit() -> void:
 	else:
 		_log("PASS|screenshots=%d" % _snapshots.size())
 
+	# Self-evaluation report card (rubric-scored)
+	_score_and_report()
+
 	_phase = Phase.DONE
+
+
+# ===================== Report Card (Rubric Self-Evaluation) =====================
+
+func _score_and_report() -> void:
+	# --- Goal Scores (1-5 scale from first_hour_rubric.md) ---
+	var price_profiles := _market_snapshots.size()
+
+	# Goal 1: Alive — world feels inhabited and dynamic
+	var g1 := 1
+	if _npc_count_at_boot >= 3 and price_profiles >= 4 and _factions_visited.size() >= 2:
+		g1 = 5
+	elif _npc_count_at_boot >= 2 and price_profiles >= 3:
+		g1 = 4
+	elif _npc_count_at_boot >= 1 and price_profiles >= 2:
+		g1 = 3
+	elif _npc_count_at_boot >= 1:
+		g1 = 2
+
+	# Goal 2: Teaches — learn by doing, no tutorial text
+	var g2 := 1
+	if not _tutorial_text_found and _systems_introduced.size() >= 5:
+		g2 = 5
+	elif not _tutorial_text_found and _systems_introduced.size() >= 4:
+		g2 = 4
+	elif _systems_introduced.size() >= 3:
+		g2 = 3
+	elif _systems_introduced.size() >= 1 or _tutorial_text_found:
+		g2 = 2
+
+	# Goal 3: First Officer feels like a person
+	var g3 := 1
+	if _fo_promoted and _fo_dialogue_count >= 3 and _fo_post_event_reactions >= 2:
+		g3 = 5
+	elif _fo_promoted and _fo_dialogue_count >= 2:
+		g3 = 4
+	elif _fo_promoted and _fo_dialogue_count >= 1:
+		g3 = 3
+	elif _fo_promoted:
+		g3 = 2
+
+	# Goal 4: Profit discovery — player finds profitable trade
+	var credit_growth := 0.0
+	if _credits_at_start > 0:
+		credit_growth = float(_credits_after_sell - _credits_at_start) / float(_credits_at_start) * 100.0
+	var g4 := 1
+	if _profit_margin > 100 and credit_growth > 50.0 and _fo_reacted_to_profit:
+		g4 = 5
+	elif credit_growth > 30.0:
+		g4 = 4
+	elif credit_growth > 10.0:
+		g4 = 3
+	elif credit_growth > 0.0:
+		g4 = 2
+
+	# Goal 5: Promise of depth — tantalizing unseen content
+	var explored_pct := 0.0
+	if _all_nodes.size() > 0:
+		explored_pct = float(_visited.size()) / float(_all_nodes.size()) * 100.0
+	var g5 := 1
+	if explored_pct < 50.0 and _tech_count >= 8 and _empty_slots_at_fit >= 2:
+		g5 = 5
+	elif explored_pct < 50.0 and _tech_count >= 4:
+		g5 = 4
+	elif _tech_count >= 1:
+		g5 = 3
+	elif explored_pct >= 50.0:
+		g5 = 2
+
+	# --- Supplemental Scores (1-5) ---
+
+	# Combat Feel (enhanced with heat data — Change 15)
+	var s_combat := 1
+	if _min_hull_seen < 50 and _combats_completed >= 2 and _heat_capacity > 0:
+		s_combat = 5
+	elif _min_hull_seen < 70 and _combats_completed >= 1 and _heat_capacity > 0:
+		s_combat = 4
+	elif _min_hull_seen < 90 and _combats_completed >= 1:
+		s_combat = 3
+	elif _combats_completed >= 1:
+		s_combat = 2
+
+	# Systemic Economy — ledger entries are reliable; systemic offers are seed-dependent
+	var s_economy := 1
+	if _ledger_entries >= 6 and _systemic_offers >= 1:
+		s_economy = 5
+	elif _ledger_entries >= 6:
+		s_economy = 4
+	elif _ledger_entries >= 3:
+		s_economy = 3
+	elif _ledger_entries >= 1:
+		s_economy = 2
+
+	# Faction Presence
+	var s_faction := 1
+	if _factions_visited.size() >= 3 and _warfront_count >= 2:
+		s_faction = 5
+	elif _factions_visited.size() >= 2 and _warfront_count >= 1:
+		s_faction = 4
+	elif _factions_visited.size() >= 1 and _warfront_count >= 1:
+		s_faction = 3
+	elif _factions_visited.size() >= 1:
+		s_faction = 2
+
+	# Mission Quality
+	var s_mission := 1
+	if _mission_accepted and _missions_available_count >= 3:
+		s_mission = 5
+	elif _mission_accepted and _missions_available_count >= 2:
+		s_mission = 4
+	elif _missions_available_count >= 1:
+		s_mission = 3
+	elif _missions_available_count > 0:
+		s_mission = 2
+
+	# Player Progression (18 milestones exist; first-hour bot achieves ~3-4)
+	var s_progress := 1
+	if _milestone_count >= 4 and explored_pct >= 30.0:
+		s_progress = 5
+	elif _milestone_count >= 3 and explored_pct >= 20.0:
+		s_progress = 4
+	elif _milestone_count >= 2:
+		s_progress = 3
+	elif _milestone_count >= 1:
+		s_progress = 2
+
+	# Heat System (Change 15)
+	var s_heat := 1
+	if _heat_capacity > 0 and _radiator_intact:
+		s_heat = 4
+	elif _heat_capacity > 0:
+		s_heat = 3
+	elif _combats_completed >= 1:
+		s_heat = 2
+
+	# Boot Experience (Change 15)
+	var s_boot := 1
+	if _boot_tutorial_suppressed and _boot_intro_dismissed:
+		s_boot = 5
+	elif _boot_intro_dismissed:
+		s_boot = 4
+	elif _boot_tutorial_suppressed:
+		s_boot = 3
+
+	# Progressive Disclosure (Change 15)
+	var s_disclosure := 1
+	var d1_tabs := int(_dock1_onboarding.get("show_jobs_tab", false)) + int(_dock1_onboarding.get("show_ship_tab", false)) + int(_dock1_onboarding.get("show_intel_tab", false))
+	var d3_tabs := int(_dock3_onboarding.get("show_jobs_tab", false)) + int(_dock3_onboarding.get("show_ship_tab", false)) + int(_dock3_onboarding.get("show_intel_tab", false))
+	if d3_tabs > d1_tabs:
+		s_disclosure = 5
+	elif d3_tabs == d1_tabs and d3_tabs > 0:
+		s_disclosure = 3
+
+	# Overlay Health (Change 15) — territory is always populated; economy may be empty on some seeds
+	var s_overlay := 1
+	if _overlay_territory_nodes >= 10 and _economy_overview_goods > 0:
+		s_overlay = 5
+	elif _overlay_territory_nodes >= 10:
+		s_overlay = 4
+	elif _overlay_territory_nodes > 0:
+		s_overlay = 3
+	elif _economy_overview_goods > 0:
+		s_overlay = 2
+
+	# --- Pacing Ratings ---
+	var pacing_credit := "PASS"
+	if _credit_direction_changes < 2:
+		pacing_credit = "WARN"
+
+	var pacing_tension := "PASS"
+	if _min_hull_seen >= 100:
+		pacing_tension = "WARN"
+
+	var pacing_fo := "PASS"
+	if _fo_longest_silence > 600:
+		pacing_fo = "WARN"
+
+	var pacing_act := "PASS"
+	for f in _flags:
+		if f.begins_with("PACING_ACT_IMBALANCE"):
+			pacing_act = "WARN"
+			break
+
+	# --- Economy Signal ---
+	var econ_profitable_routes := 0
+	var econ_total_goods := 0
+	var good_best_buy: Dictionary = {}
+	var good_best_sell: Dictionary = {}
+	for node_id in _market_snapshots:
+		var market: Array = _market_snapshots[node_id]
+		for item in market:
+			var gid := str(item.get("good_id", ""))
+			var buy_p := int(item.get("buy_price", 0))
+			var sell_p := int(item.get("sell_price", 0))
+			if gid.is_empty():
+				continue
+			if not good_best_buy.has(gid) or buy_p < int(good_best_buy[gid]):
+				good_best_buy[gid] = buy_p
+			if not good_best_sell.has(gid) or sell_p > int(good_best_sell[gid]):
+				good_best_sell[gid] = sell_p
+	for gid in good_best_buy:
+		if good_best_sell.has(gid):
+			econ_total_goods += 1
+			var margin: int = int(good_best_sell[gid]) - int(good_best_buy[gid])
+			if margin > 0:
+				econ_profitable_routes += 1
+
+	var econ_route := "PASS"
+	if econ_total_goods > 0 and econ_profitable_routes == 0:
+		econ_route = "FAIL"
+	elif econ_total_goods > 0 and float(econ_profitable_routes) / float(econ_total_goods) < 0.3:
+		econ_route = "WARN"
+
+	var econ_diversity := "PASS"
+	if price_profiles < 3:
+		econ_diversity = "WARN"
+
+	# --- Prescriptions (severity-ranked) ---
+	var prescriptions: Array[Dictionary] = []
+
+	if s_combat <= 2:
+		prescriptions.append({
+			"severity": "CRITICAL", "confidence": "high",
+			"issue": "Combat has zero tension - player takes no damage",
+			"evidence": "min_hull=%d combats=%d" % [_min_hull_seen, _combats_completed],
+			"fix": "Tune NPC aggression so player takes 10-30% hull damage in first combat",
+			"metric": "min_hull < 90 in next run"
+		})
+
+	if pacing_credit == "WARN":
+		prescriptions.append({
+			"severity": "CRITICAL" if _credit_direction_changes == 0 else "MAJOR",
+			"confidence": "high",
+			"issue": "Credit flow is monotonically increasing - no tension dips",
+			"evidence": "credit_direction_changes=%d samples=%d" % [_credit_direction_changes, _pacing_credits.size()],
+			"fix": "Add a cost event (repair, fuel, toll) between trades",
+			"metric": "credit_direction_changes >= 3"
+		})
+
+	if g3 < 4:
+		prescriptions.append({
+			"severity": "MAJOR", "confidence": "medium",
+			"issue": "First Officer feels flat - insufficient dialogue or reactions",
+			"evidence": "promoted=%s lines=%d reactions=%d" % [str(_fo_promoted), _fo_dialogue_count, _fo_post_event_reactions],
+			"fix": "Add FO reactions to combat/trade/arrival events",
+			"metric": "fo_dialogue >= 3 and fo_reactions >= 2"
+		})
+
+	if s_faction <= 2:
+		prescriptions.append({
+			"severity": "MINOR", "confidence": "medium",
+			"issue": "Faction presence weak - few territories visited",
+			"evidence": "factions_visited=%d warfronts=%d" % [_factions_visited.size(), _warfront_count],
+			"fix": "Seed starting system closer to faction borders",
+			"metric": "factions_visited >= 2"
+		})
+
+	if g1 < 4:
+		prescriptions.append({
+			"severity": "MAJOR", "confidence": "high",
+			"issue": "World doesn't feel alive - insufficient NPCs or market diversity",
+			"evidence": "npcs=%d price_profiles=%d factions=%d" % [_npc_count_at_boot, price_profiles, _factions_visited.size()],
+			"fix": "Increase NPC count at boot and market price variance",
+			"metric": "npcs >= 3 and price_profiles >= 4"
+		})
+
+	if g2 < 4:
+		prescriptions.append({
+			"severity": "MAJOR", "confidence": "medium",
+			"issue": "Teaching through play incomplete - too few systems introduced",
+			"evidence": "systems_introduced=%d tutorial_text=%s" % [_systems_introduced.size(), str(_tutorial_text_found)],
+			"fix": "Ensure dock, trade, travel, combat, fitting all happen naturally",
+			"metric": "systems_introduced >= 5"
+		})
+
+	if g5 < 4:
+		prescriptions.append({
+			"severity": "MINOR", "confidence": "medium",
+			"issue": "Depth promise weak - player sees too much or too little tech",
+			"evidence": "explored=%.0f%% techs=%d empty_slots=%d" % [explored_pct, _tech_count, _empty_slots_at_fit],
+			"fix": "Ensure tech tree has 4+ visible items and 2+ open slots",
+			"metric": "techs >= 4 and empty_slots >= 2"
+		})
+
+	if econ_route == "FAIL":
+		prescriptions.append({
+			"severity": "CRITICAL", "confidence": "high",
+			"issue": "No profitable trade routes exist",
+			"evidence": "profitable=%d/%d goods" % [econ_profitable_routes, econ_total_goods],
+			"fix": "Increase inter-station price variance in MarketInitGen",
+			"metric": "profitable_routes > 0"
+		})
+
+	if s_heat <= 2:
+		prescriptions.append({
+			"severity": "MINOR", "confidence": "medium",
+			"issue": "Heat system invisible - capacity=0 or radiator missing",
+			"evidence": "heat_capacity=%d radiator=%s" % [_heat_capacity, str(_radiator_intact)],
+			"fix": "Ensure default ship has heat profile and radiator module",
+			"metric": "heat_capacity > 0"
+		})
+
+	if s_disclosure <= 1 and _dock1_onboarding.size() > 0:
+		prescriptions.append({
+			"severity": "MINOR", "confidence": "medium",
+			"issue": "Progressive disclosure not working - tabs unchanged between docks",
+			"evidence": "dock1_tabs=%d dock3_tabs=%d" % [d1_tabs, d3_tabs],
+			"fix": "Verify onboarding state gates (trade/combat/visit) unlock tabs",
+			"metric": "dock3_tabs > dock1_tabs"
+		})
+
+	if s_overlay <= 2:
+		prescriptions.append({
+			"severity": "MINOR", "confidence": "low",
+			"issue": "Overlay data sparse - territory or economy overview empty",
+			"evidence": "territory=%d economy=%d" % [_overlay_territory_nodes, _economy_overview_goods],
+			"fix": "Ensure faction territory and economy overview are populated",
+			"metric": "territory_nodes > 0 and economy_goods > 0"
+		})
+
+	# Sort prescriptions: CRITICAL > MAJOR > MINOR
+	var severity_order := {"CRITICAL": 0, "MAJOR": 1, "MINOR": 2}
+	prescriptions.sort_custom(func(a, b): return severity_order.get(a["severity"], 9) < severity_order.get(b["severity"], 9))
+
+	# --- Output Report Card ---
+	var goal_avg := float(g1 + g2 + g3 + g4 + g5) / 5.0
+
+	_log("REPORT|=============== FIRST-HOUR REPORT CARD ===============")
+	_log("REPORT|")
+	_log("REPORT|GOAL SCORES:")
+	_log("REPORT|  Goal 1 (Alive):           %d/5 - NPCs=%d prices=%d factions=%d" % [g1, _npc_count_at_boot, price_profiles, _factions_visited.size()])
+	_log("REPORT|  Goal 2 (Teaches):         %d/5 - %ssystems=%d introduced" % [g2, "tutorial_text " if _tutorial_text_found else "", _systems_introduced.size()])
+	_log("REPORT|  Goal 3 (FO):              %d/5 - promoted=%s lines=%d reactions=%d" % [g3, str(_fo_promoted), _fo_dialogue_count, _fo_post_event_reactions])
+	_log("REPORT|  Goal 4 (Profit):          %d/5 - margin=%d growth=%.0f%% fo_reacted=%s" % [g4, _profit_margin, credit_growth, str(_fo_reacted_to_profit)])
+	_log("REPORT|  Goal 5 (Depth):           %d/5 - explored=%.0f%% techs=%d slots=%d" % [g5, explored_pct, _tech_count, _empty_slots_at_fit])
+	_log("REPORT|")
+	_log("REPORT|SUPPLEMENTAL:")
+	_log("REPORT|  Combat Feel:              %d/5 - min_hull=%d combats=%d heat=%d" % [s_combat, _min_hull_seen, _combats_completed, _heat_capacity])
+	_log("REPORT|  Systemic Economy:         %d/5 - offers=%d ledger=%d" % [s_economy, _systemic_offers, _ledger_entries])
+	_log("REPORT|  Faction Presence:         %d/5 - visited=%d warfronts=%d" % [s_faction, _factions_visited.size(), _warfront_count])
+	_log("REPORT|  Mission Quality:          %d/5 - available=%d accepted=%s" % [s_mission, _missions_available_count, str(_mission_accepted)])
+	_log("REPORT|  Player Progression:       %d/5 - milestones=%d explored=%.0f%%" % [s_progress, _milestone_count, explored_pct])
+	_log("REPORT|  Heat System:              %d/5 - capacity=%d radiator=%s" % [s_heat, _heat_capacity, str(_radiator_intact)])
+	_log("REPORT|  Boot Experience:          %d/5 - tutorial_off=%s intro_off=%s" % [s_boot, str(_boot_tutorial_suppressed), str(_boot_intro_dismissed)])
+	_log("REPORT|  Progressive Disclosure:   %d/5 - dock1_tabs=%d dock3_tabs=%d" % [s_disclosure, d1_tabs, d3_tabs])
+	_log("REPORT|  Overlay Health:           %d/5 - territory=%d economy=%d" % [s_overlay, _overlay_territory_nodes, _economy_overview_goods])
+	_log("REPORT|")
+	_log("REPORT|PACING:")
+	_log("REPORT|  Credit Flow:              %s - %d direction changes in %d samples" % [pacing_credit, _credit_direction_changes, _pacing_credits.size()])
+	_log("REPORT|  Tension Arc:              %s - hull min=%d%%" % [pacing_tension, _min_hull_seen])
+	_log("REPORT|  FO Engagement:            %s - silence gap %d frames" % [pacing_fo, _fo_longest_silence])
+	_log("REPORT|  Act Balance:              %s" % pacing_act)
+	_log("REPORT|")
+	_log("REPORT|ECONOMY SIGNAL:")
+	_log("REPORT|  Route Profitability:      %s - %d/%d goods profitable" % [econ_route, econ_profitable_routes, econ_total_goods])
+	_log("REPORT|  Market Diversity:          %s - %d unique price profiles" % [econ_diversity, price_profiles])
+	_log("REPORT|")
+
+	if prescriptions.size() > 0:
+		_log("REPORT|PRESCRIPTIONS (ranked by severity):")
+		for i in range(prescriptions.size()):
+			var p: Dictionary = prescriptions[i]
+			_log("REPORT|  #%d [%s|%s] %s" % [i + 1, p["severity"], p["confidence"], p["issue"]])
+			_log("REPORT|     Evidence: %s" % p["evidence"])
+			_log("REPORT|     Fix: %s" % p["fix"])
+			_log("REPORT|     Metric: %s" % p["metric"])
+		_log("REPORT|")
+	else:
+		_log("REPORT|PRESCRIPTIONS: None - all goals met!")
+		_log("REPORT|")
+
+	var top_fix := "None"
+	if prescriptions.size() > 0:
+		top_fix = prescriptions[0]["issue"]
+	_log("REPORT|OVERALL: %.1f/5.0 avg - Top fix: %s" % [goal_avg, top_fix])
+	_log("REPORT|SCORES|g1=%d g2=%d g3=%d g4=%d g5=%d s_combat=%d s_economy=%d s_faction=%d s_mission=%d s_progress=%d s_heat=%d s_boot=%d s_disclosure=%d s_overlay=%d" % [
+		g1, g2, g3, g4, g5, s_combat, s_economy, s_faction, s_mission, s_progress, s_heat, s_boot, s_disclosure, s_overlay])
+	_log("REPORT|===============================================")
 
 
 func _do_done() -> void:
@@ -1537,8 +2614,10 @@ func _probe_fo_dialogue(event_name: String) -> void:
 	var fo: Dictionary = _bridge.call("GetFirstOfficerStateV0")
 	var count := int(fo.get("dialogue_count", 0))
 	if count > _fo_dialogue_count:
-		_log("GOAL|FO|post_event=%s dialogue_count=%d (was %d)" % [event_name, count, _fo_dialogue_count])
+		var tick_now := _get_tick()
+		_log("GOAL|FO|post_event=%s dialogue_count=%d (was %d) tick=%d frame=%d" % [event_name, count, _fo_dialogue_count, tick_now, _total_frames])
 		_fo_dialogue_count = count
+		_fo_post_event_reactions += 1
 	else:
 		_log("GOAL|FO|post_event=%s dialogue=none" % event_name)
 
@@ -1602,6 +2681,30 @@ func _capture(label: String) -> void:
 	var img_path = _screenshot.capture_v0(self, filename, OUTPUT_DIR)
 	_snapshots.append({"phase": label, "tick": tick})
 	_log("CAPTURE|%s|tick=%d" % [label, tick])
+
+	# Automated blank-region detection on dock/panel screenshots.
+	# Check center panel region (~350-610 x, 90-500 y at 960x540) for blank content.
+	if DisplayServer.get_name() != "headless":
+		var viewport := root.get_viewport()
+		if viewport != null:
+			var img := viewport.get_texture().get_image()
+			if img != null:
+				var iw := img.get_width()
+				var ih := img.get_height()
+				# Dock panel content region (center ~37%-63% x, 15%-85% y)
+				var dock_rect := Rect2(iw * 0.37, ih * 0.15, iw * 0.26, ih * 0.70)
+				# Only check dock/tab screenshots (labels containing "dock", "tab", "market", "trade", "empire", "galaxy")
+				var check_labels := ["dock", "tab_", "market", "trade", "empire", "galaxy", "sell", "mission"]
+				var should_check := false
+				for cl in check_labels:
+					if label.to_lower().find(cl) >= 0:
+						should_check = true
+						break
+				if should_check:
+					var warn: String = _screenshot.assert_region_nonempty(img, dock_rect, label)
+					if warn != "":
+						_log("BLANK_WARN|%s" % warn)
+						_flag("BLANK_PANEL_%s" % label)
 
 
 func _lint_string(txt: String, source: String) -> void:
@@ -1733,6 +2836,13 @@ func _track_faction(node_id: String) -> void:
 	var faction := str(access.get("faction_id", ""))
 	if not faction.is_empty():
 		_factions_visited[faction] = true
+
+
+func _get_node_faction(node_id: String) -> String:
+	if _bridge == null or not _bridge.has_method("GetTerritoryAccessV0"):
+		return ""
+	var access: Dictionary = _bridge.call("GetTerritoryAccessV0", node_id)
+	return str(access.get("faction_id", ""))
 
 
 func _track_system_introduced(system_name: String) -> void:

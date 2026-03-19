@@ -718,6 +718,7 @@ func _apply_all_settings() -> void:
 		_apply_audio_volume(key, float(val) if val != null else 1.0)
 	_apply_display_settings()
 	_apply_gameplay_settings()
+	_apply_colorblind_setting()
 
 
 ## Map a linear 0-1 slider value to an AudioServer bus.
@@ -811,8 +812,16 @@ func _on_settings_changed(key: String, value: Variant) -> void:
 		_apply_display_settings()
 	elif key == "gameplay_auto_pause":
 		_apply_gameplay_settings()
-	# GATE.S9.SETTINGS.ACCESSIBILITY_TAB.001: accessibility keys handled by their own autoloads
-	# (SettingsManager handles font_scale, ColorblindFilter handles colorblind_mode)
+	elif key == "accessibility_colorblind_mode":
+		_apply_colorblind_setting()
+
+
+## Push the colorblind setting to UITheme so all UI picks up accessible colors.
+func _apply_colorblind_setting() -> void:
+	var val = _get_setting("accessibility_colorblind_mode")
+	var theme_node = get_node_or_null("/root/UITheme")
+	if theme_node:
+		theme_node.colorblind_mode = (int(val) if val != null else 0) > 0
 
 
 # ── Settings access helpers ──────────────────────────────────────────────────

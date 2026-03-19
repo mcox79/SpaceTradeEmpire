@@ -156,7 +156,7 @@ try {
     $stderrFile = Join-Path $outputDir 'stderr.txt'
 
     # ── Step 3: Build Godot arguments ──
-    $godotArgs = @('--path', '.', '-s', $cfg.Script)
+    $godotArgs = @('--path', '.', '--resolution', '1920x1080', '-s', $cfg.Script)
 
     if ($Mode -eq 'video') {
         $videoPath = Join-Path $outputDir 'sweep.avi'
@@ -217,7 +217,7 @@ try {
     if ($cfg.CopyFrom -and $outputDir -ne (Join-Path $repoRoot $cfg.CopyFrom)) {
         $sourceDir = Join-Path $repoRoot $cfg.CopyFrom
         if (Test-Path $sourceDir) {
-            $sourceFiles = Get-ChildItem -Path $sourceDir -File -ErrorAction SilentlyContinue
+            $sourceFiles = @(Get-ChildItem -Path $sourceDir -File -ErrorAction SilentlyContinue)
             if ($sourceFiles.Count -gt 0) {
                 Copy-Item -Path (Join-Path $sourceDir '*') -Destination $outputDir -Force
                 Write-Host "Copied $($sourceFiles.Count) files to $outputDir" -ForegroundColor DarkGray
@@ -228,10 +228,10 @@ try {
     # ── Step 7: Report ──
     Write-Host ''
     Write-Host '=== Screenshots ===' -ForegroundColor Cyan
-    $pngs = Get-ChildItem -Path $outputDir -Filter '*.png' -ErrorAction SilentlyContinue
+    $pngs = @(Get-ChildItem -Path $outputDir -Filter '*.png' -ErrorAction SilentlyContinue)
     if ($pngs.Count -eq 0) {
         # Check native dir as fallback
-        $pngs = Get-ChildItem -Path $nativeDir -Filter '*.png' -ErrorAction SilentlyContinue
+        $pngs = @(Get-ChildItem -Path $nativeDir -Filter '*.png' -ErrorAction SilentlyContinue)
     }
 
     if ($pngs.Count -eq 0) {

@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -17,6 +18,13 @@ public enum TerritoryRegime { Open, Guarded, Restricted, Hostile }
 // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward neutral over time.
 public static class ReputationSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedFactionIds = new();
+        public readonly List<string> SortedNodeIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward 0.
@@ -25,7 +33,11 @@ public static class ReputationSystem
             && state.FactionReputation.Count > 0) // STRUCTURAL: empty guard
         {
             // Snapshot keys to avoid modifying during iteration.
-            var factionIds = state.FactionReputation.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+            var scratch = s_scratch.GetOrCreateValue(state);
+            var factionIds = scratch.SortedFactionIds;
+            factionIds.Clear();
+            foreach (var k in state.FactionReputation.Keys) factionIds.Add(k);
+            factionIds.Sort(StringComparer.Ordinal);
             foreach (var factionId in factionIds)
             {
                 int rep = state.FactionReputation[factionId];
@@ -47,7 +59,11 @@ public static class ReputationSystem
     {
         if (state.NodeFactionId.Count == 0) return; // STRUCTURAL: empty guard
 
-        var nodeIds = state.NodeFactionId.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var nodeIds = scratch.SortedNodeIds;
+        nodeIds.Clear();
+        foreach (var k in state.NodeFactionId.Keys) nodeIds.Add(k);
+        nodeIds.Sort(StringComparer.Ordinal);
         foreach (var nodeId in nodeIds)
         {
             var rawRegime = ComputeTerritoryRegime(state, nodeId);

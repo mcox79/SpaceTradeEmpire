@@ -152,6 +152,27 @@ try {
         }
     }
 
+    # ── Step 7b: Report Card ──
+    if (Test-Path $stdoutFile) {
+        $reportLines = Get-Content $stdoutFile | Where-Object { $_ -match '^FH1\|REPORT\|' }
+        if ($reportLines.Count -gt 0) {
+            Write-Host ''
+            Write-Host '=== Report Card ===' -ForegroundColor Magenta
+            foreach ($rl in $reportLines) {
+                $text = $rl -replace '^FH1\|REPORT\|', ''
+                if ($text -match 'CRITICAL') {
+                    Write-Host $text -ForegroundColor Red
+                } elseif ($text -match 'MAJOR') {
+                    Write-Host $text -ForegroundColor Yellow
+                } elseif ($text -match 'OVERALL') {
+                    Write-Host $text -ForegroundColor Cyan
+                } else {
+                    Write-Host $text
+                }
+            }
+        }
+    }
+
     # ── Step 8: Verdict ──
     Write-Host ''
     Write-Host ('Assertions: ' + $assertPassCount + '/' + $assertCount + ' passed') -ForegroundColor Cyan

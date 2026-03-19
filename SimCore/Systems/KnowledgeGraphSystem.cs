@@ -1,7 +1,8 @@
 using SimCore.Content;
 using SimCore.Entities;
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
@@ -17,6 +18,11 @@ namespace SimCore.Systems;
 // force-revealed when their associated revelation fires (no Analyzed requirement).
 public static class KnowledgeGraphSystem
 {
+    private sealed class Scratch
+    {
+        public readonly HashSet<string> ExistingConnectionIds = new(StringComparer.Ordinal);
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Evaluate knowledge graph connections. When both endpoints of a connection
     /// are discovered, mark the connection visible. When both are Analyzed,
@@ -67,22 +73,19 @@ public static class KnowledgeGraphSystem
         var ss = state.StoryState;
         if (ss == null) return;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var existingIds = scratch.ExistingConnectionIds;
+        existingIds.Clear();
+        foreach (var conn in state.Intel.KnowledgeConnections)
+            existingIds.Add(conn.ConnectionId);
+
         foreach (var rc in KnowledgeGraphContentV0.RevelationConnections)
         {
             // Skip if revelation hasn't fired yet
             if (!ss.HasRevelation(rc.RequiredRevelation)) continue;
 
             // Skip if already added to the knowledge graph
-            bool exists = false;
-            foreach (var conn in state.Intel.KnowledgeConnections)
-            {
-                if (string.Equals(conn.ConnectionId, rc.ConnectionId, StringComparison.Ordinal))
-                {
-                    exists = true;
-                    break;
-                }
-            }
-            if (exists) continue;
+            if (existingIds.Contains(rc.ConnectionId)) continue;
 
             // Create and immediately reveal the connection
             state.Intel.KnowledgeConnections.Add(new KnowledgeConnection

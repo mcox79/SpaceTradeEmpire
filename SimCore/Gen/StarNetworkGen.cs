@@ -136,6 +136,11 @@ public static class StarNetworkGen
             _ => FleetSeedTweaksV0.TraderSpeed,
         };
 
+        // NPC weapon assignment by role: patrols get cannons, others get lasers.
+        string weaponId = role == FleetRole.Patrol
+            ? Content.WellKnownModuleIds.WeaponCannonMk1
+            : Content.WellKnownModuleIds.WeaponLaserMk1;
+
         var fleet = new Fleet
         {
             Id = $"ai_fleet_{nodeId}_{index}",
@@ -147,6 +152,12 @@ public static class StarNetworkGen
             FuelCapacity = NpcShipTweaksV0.DefaultFuelCapacity,
             FuelCurrent = NpcShipTweaksV0.DefaultFuelCapacity,
         };
+        fleet.Slots.Add(new Entities.ModuleSlot
+        {
+            SlotId = "npc_weapon_0",
+            SlotKind = Entities.SlotKind.Weapon,
+            InstalledModuleId = weaponId,
+        });
         state.Fleets.Add(fleet.Id, fleet);
     }
 

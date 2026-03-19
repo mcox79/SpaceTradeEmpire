@@ -98,10 +98,12 @@ func run_audit_v0(report: Dictionary) -> Array:
 		emitting_count > 0 or particles.size() == 0,
 		"emitting=%d / total=%d" % [emitting_count, particles.size()]))
 
-	# 9. HUD_OVERFLOW: any label text > 80 chars
+	# 9. HUD_OVERFLOW: any label text > 80 chars (skip labels with clip_text or autowrap)
 	var overflow_labels: Array = []
 	for lbl in labels:
-		if str(lbl.get("text", "")).length() > 80:
+		if str(lbl.get("text", "")).length() > 80 \
+				and not bool(lbl.get("clip_text", false)) \
+				and not bool(lbl.get("autowrap", false)):
 			overflow_labels.append(str(lbl.get("name", "")))
 	results.append(_flag("HUD_OVERFLOW", Severity.WARNING,
 		overflow_labels.size() == 0,

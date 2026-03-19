@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -11,12 +12,24 @@ namespace SimCore.Systems;
 // Uses deterministic hash of warfront ID + tick for transition decisions.
 public static class WarfrontEvolutionSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedWarfrontIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state.Warfronts is null || state.Warfronts.Count == 0) return;
 
-        foreach (var wf in state.Warfronts.Values.OrderBy(w => w.Id, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedIds = scratch.SortedWarfrontIds;
+        sortedIds.Clear();
+        foreach (var k in state.Warfronts.Keys) sortedIds.Add(k);
+        sortedIds.Sort(StringComparer.Ordinal);
+        foreach (var wfId in sortedIds)
         {
+            var wf = state.Warfronts[wfId];
             int age = state.Tick - wf.TickStarted;
 
             if (wf.WarType == WarType.Cold)

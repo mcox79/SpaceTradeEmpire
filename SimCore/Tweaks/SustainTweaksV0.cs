@@ -21,6 +21,10 @@ public static class SustainTweaksV0
     // 1 cr/unit = gentle pressure (~500cr per full refuel on a 500-fuel Corvette).
     public const int RefuelCreditCostPerUnit = 1;
 
+    // Credit cost per hull HP restored when docked at a station.
+    // 2 cr/HP = repairing 50 HP damage costs 100 cr.
+    public const int HullRepairCreditCostPerHp = 2;
+
     // Fuel tank module capacity bonuses.
     public const int FuelTankMk1Capacity = 150;
     public const int FuelTankMk2Capacity = 350;

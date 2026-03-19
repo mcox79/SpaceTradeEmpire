@@ -39,9 +39,11 @@ func _ready() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Panel style: dark bg with blue accent border (standard panel pattern).
-	var style := UITheme.make_panel_standard(UITheme.BORDER_ACCENT)
+	# L1.1: Ship computer panel style.
+	var style := UITheme.make_panel_ship_computer()
 	add_theme_stylebox_override("panel", style)
+	UITheme.add_corner_brackets(self)
+	UITheme.add_scanline_overlay(self)
 
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0)
 
@@ -112,13 +114,17 @@ func _build_ui() -> void:
 	_doctrine_section.name = "DoctrineSection"
 	_doctrine_section.add_theme_constant_override("separation", UITheme.SPACE_XS)
 	vbox.add_child(_doctrine_section)
+	vbox.add_child(UITheme.make_dismiss_hint("A"))
 
 
 ## Toggle panel visibility. Refreshes data on show.
 func toggle_v0() -> void:
-	visible = !visible
 	if visible:
+		UITheme.animate_close(self, func(): visible = false)
+	else:
+		visible = true
 		_position_panel()
+		UITheme.animate_open(self)
 		refresh_v0()
 
 

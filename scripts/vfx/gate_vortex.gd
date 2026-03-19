@@ -15,6 +15,39 @@ func setup() -> void:
 	_animate_charge()
 
 
+## Staged setup: portal fades in gently (30% intensity). Call charge_full() later.
+## Used by the E-key gate approach so the gate "wakes up" during ship approach.
+func setup_staged() -> void:
+	name = "GateVortex"
+	_build_portal_disc()
+	_build_swirl_particles()
+	var tween := create_tween()
+	tween.tween_method(_set_alpha, 0.0, 0.3, 0.6)
+	tween.parallel().tween_method(_set_emission_energy, 0.5, 2.0, 0.6)
+	tween.parallel().tween_property(self, "scale", Vector3(0.9, 0.9, 0.9), 0.6) \
+		.from(Vector3(0.5, 0.5, 0.5)).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+
+## Full charge: ramp from staged state to peak intensity.
+func charge_full(duration: float = 1.0) -> void:
+	var tween := create_tween()
+	tween.tween_method(_set_alpha, 0.3, 0.85, duration * 0.3)
+	tween.parallel().tween_method(_set_emission_energy, 2.0, 8.0, duration) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.parallel().tween_method(_set_ripple_speed, 1.0, 3.5, duration)
+	tween.parallel().tween_method(_set_swirl_speed, 0.2, 1.5, duration)
+	tween.parallel().tween_method(_set_distortion, 0.03, 0.12, duration)
+	tween.parallel().tween_property(self, "scale", Vector3(1.15, 1.15, 1.15), duration) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+
+## Brief emission spike at aperture moment (commitment flash).
+func flash_peak(emission: float = 12.0, duration: float = 0.15) -> void:
+	var tween := create_tween()
+	tween.tween_method(_set_emission_energy, 8.0, emission, duration * 0.3)
+	tween.tween_method(_set_emission_energy, emission, 6.0, duration * 0.7)
+
+
 func despawn(duration: float = 0.3) -> void:
 	var tween := create_tween()
 	if _shader_mat:

@@ -64,6 +64,9 @@ const STAR_AVOID_RADIUS: float = 25.0  # Minimum clearance from star center
 ## Extends star avoidance to cover the full binary orbit envelope.
 var binary_exclusion_zone: float = 0.0
 
+## Obstacle avoidance — Y-lift over planets, XZ steering around stations/ships.
+var _target_y: float = 0.0  # Managed altitude (0 = flight plane, >0 = lifting over planet).
+
 ## Patrol seed (used for deterministic initial position).
 var _patrol_seed: int = 0
 
@@ -132,7 +135,7 @@ func _create_status_display() -> void:
 	_role_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_role_label.no_depth_test = true
 	_role_label.render_priority = 10
-	_role_label.position = Vector3(0, HP_BAR_HEIGHT + 1.5, 0)
+	_role_label.position = Vector3(5.0, HP_BAR_HEIGHT + 3.0, 0)
 	_role_label.modulate = Color(0.7, 0.75, 0.8, 0.8)
 	_role_label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_role_label.visible = false  # Hidden until player is close.
@@ -461,7 +464,7 @@ func _physics_process(delta: float) -> void:
 			velocity = drift_dir * _current_speed
 			velocity.y = 0.0
 			move_and_slide()
-			position.y = 0.0
+			_apply_managed_y(delta)
 			return
 
 	var desired_dir := to_target / dist
@@ -506,10 +509,78 @@ func _physics_process(delta: float) -> void:
 	else:
 		_current_speed = maxf(_current_speed - DECELERATION * delta, desired_speed)
 
-	velocity = facing * _current_speed
+	# XZ obstacle avoidance: blend away from stations and other ships.
+	var avoid_xz := _compute_xz_avoidance()
+	var final_dir := (facing + avoid_xz).normalized() if avoid_xz.length_squared() > 0.001 else facing
+	velocity = final_dir * _current_speed
 	velocity.y = 0.0
 	move_and_slide()
-	position.y = 0.0
+	_apply_managed_y(delta)
+
+
+## Managed Y: lift over planets, return to flight plane when clear.
+func _apply_managed_y(delta: float) -> void:
+	_target_y = 0.0
+	for planet in get_tree().get_nodes_in_group("PlanetBody"):
+		var p_node: Node3D = planet as Node3D
+		if p_node == null:
+			continue
+		var to_planet: Vector3 = p_node.global_position - global_position
+		to_planet.y = 0.0
+		var dist: float = to_planet.length()
+		var avoid_r: float = p_node.get_meta("avoidance_radius", 12.0)
+		if dist < avoid_r and dist > 0.1:
+			var visual_r: float = p_node.get_meta("visual_radius", 8.0)
+			var lift: float = visual_r + 3.0
+			# Scale lift by proximity (cubic ramp — gentle at edge).
+			var t: float = 1.0 - dist / avoid_r
+			_target_y = maxf(_target_y, lift * t * t * t + lift * 0.3 * (1.0 - t))
+	position.y = lerpf(position.y, _target_y, clampf(4.0 * delta, 0.0, 1.0))
+
+
+## XZ avoidance: repulsion from stations and other ships.
+func _compute_xz_avoidance() -> Vector3:
+	var avoidance := Vector3.ZERO
+	# Stations.
+	for station in get_tree().get_nodes_in_group("Station"):
+		var s_node: Node3D = station as Node3D
+		if s_node == null:
+			continue
+		var to_station: Vector3 = s_node.global_position - global_position
+		to_station.y = 0.0
+		var dist: float = to_station.length()
+		var avoid_r: float = s_node.get_meta("avoidance_radius", 8.0)
+		if dist < avoid_r and dist > 0.1:
+			var t: float = 1.0 - dist / avoid_r
+			avoidance -= to_station.normalized() * t * t * 0.6
+	# Other NPC ships.
+	for ship in get_tree().get_nodes_in_group("NpcShip"):
+		if ship == self:
+			continue
+		var sh_node: Node3D = ship as Node3D
+		if sh_node == null:
+			continue
+		var to_ship: Vector3 = sh_node.global_position - global_position
+		to_ship.y = 0.0
+		var dist: float = to_ship.length()
+		if dist < 10.0 and dist > 0.1:
+			var t: float = 1.0 - dist / 10.0
+			avoidance -= to_ship.normalized() * t * t * 0.4
+	# Player ship.
+	for player in get_tree().get_nodes_in_group("Player"):
+		# Skip player avoidance during ENGAGE state (combat approach is intentional).
+		if _fleet_state == "Engaging" or _fleet_state == "Attacking":
+			continue
+		var pl_node: Node3D = player as Node3D
+		if pl_node == null:
+			continue
+		var to_player: Vector3 = pl_node.global_position - global_position
+		to_player.y = 0.0
+		var dist: float = to_player.length()
+		if dist < 8.0 and dist > 0.1:
+			var t: float = 1.0 - dist / 8.0
+			avoidance -= to_player.normalized() * t * t * 0.4
+	return avoidance
 
 
 ## Steer around the star (at local origin) if the direct path passes too close.

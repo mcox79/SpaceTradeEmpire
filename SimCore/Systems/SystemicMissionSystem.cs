@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
@@ -15,6 +15,16 @@ public static class SystemicMissionSystem
     private const int STRUCT_STEP_1 = 1; // STRUCTURAL: second step index in multi-step missions
     private const int STRUCT_NOT_FOUND = -1; // STRUCTURAL: sentinel for not-found index
 
+    private sealed class Scratch
+    {
+        public readonly HashSet<string> ExistingKeys = new(StringComparer.Ordinal);
+        public readonly List<string> SortedWarfrontIds = new();
+        public readonly List<string> SortedMarketKeys = new();
+        public readonly List<string> SortedNodeKeys = new();
+        public readonly List<string> SortedGoodIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state.Tick % SystemicMissionTweaksV0.ScanIntervalTicks != STRUCT_ZERO) return;
@@ -25,24 +35,32 @@ public static class SystemicMissionSystem
         // Don't exceed max offers.
         if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Build set of existing offer keys to avoid duplicates.
-        var existingKeys = new HashSet<string>(StringComparer.Ordinal);
+        var existingKeys = scratch.ExistingKeys;
+        existingKeys.Clear();
         foreach (var o in state.SystemicOffers)
             existingKeys.Add($"{(int)o.TriggerType}|{o.NodeId}|{o.GoodId}");
 
         // Scan triggers in deterministic order.
-        ScanWarDemand(state, existingKeys);
-        ScanPriceSpike(state, existingKeys);
-        ScanSupplyShortage(state, existingKeys);
+        ScanWarDemand(state, existingKeys, scratch);
+        ScanPriceSpike(state, existingKeys, scratch);
+        ScanSupplyShortage(state, existingKeys, scratch);
     }
 
     // WAR_DEMAND: Warfront goods shortage at contested nodes.
-    private static void ScanWarDemand(SimState state, HashSet<string> existingKeys)
+    private static void ScanWarDemand(SimState state, HashSet<string> existingKeys, Scratch scratch)
     {
         if (state.Warfronts is null || state.Warfronts.Count == STRUCT_ZERO) return;
 
-        foreach (var wf in state.Warfronts.Values.OrderBy(w => w.Id, StringComparer.Ordinal))
+        var sortedWarfrontIds = scratch.SortedWarfrontIds;
+        sortedWarfrontIds.Clear();
+        foreach (var k in state.Warfronts.Keys) sortedWarfrontIds.Add(k);
+        sortedWarfrontIds.Sort(StringComparer.Ordinal);
+        foreach (var wfId in sortedWarfrontIds)
         {
+            var wf = state.Warfronts[wfId];
             if (wf.Intensity < WarfrontIntensity.Skirmish) continue;
 
             foreach (var nodeId in wf.ContestedNodeIds)
@@ -74,13 +92,17 @@ public static class SystemicMissionSystem
     }
 
     // PRICE_SPIKE: Good price exceeds threshold × base price.
-    private static void ScanPriceSpike(SimState state, HashSet<string> existingKeys)
+    private static void ScanPriceSpike(SimState state, HashSet<string> existingKeys, Scratch scratch)
     {
-        foreach (var mkv in state.Markets.OrderBy(k => k.Key, StringComparer.Ordinal))
+        var sortedMarketKeys = scratch.SortedMarketKeys;
+        sortedMarketKeys.Clear();
+        foreach (var k in state.Markets.Keys) sortedMarketKeys.Add(k);
+        sortedMarketKeys.Sort(StringComparer.Ordinal);
+        foreach (var marketKey in sortedMarketKeys)
         {
             if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
-            var market = mkv.Value;
+            var market = state.Markets[marketKey];
             // Find the node that owns this market.
             string nodeId = "";
             foreach (var nkv in state.Nodes)
@@ -93,7 +115,11 @@ public static class SystemicMissionSystem
             }
             if (string.IsNullOrEmpty(nodeId)) continue;
 
-            foreach (var goodId in market.Inventory.Keys.OrderBy(g => g, StringComparer.Ordinal))
+            var sortedGoodIds = scratch.SortedGoodIds;
+            sortedGoodIds.Clear();
+            foreach (var g in market.Inventory.Keys) sortedGoodIds.Add(g);
+            sortedGoodIds.Sort(StringComparer.Ordinal);
+            foreach (var goodId in sortedGoodIds)
             {
                 if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
@@ -110,28 +136,36 @@ public static class SystemicMissionSystem
     }
 
     // SUPPLY_SHORTAGE: Low inventory at high-instability nodes.
-    private static void ScanSupplyShortage(SimState state, HashSet<string> existingKeys)
+    private static void ScanSupplyShortage(SimState state, HashSet<string> existingKeys, Scratch scratch)
     {
-        foreach (var nkv in state.Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
+        var sortedNodeKeys = scratch.SortedNodeKeys;
+        sortedNodeKeys.Clear();
+        foreach (var k in state.Nodes.Keys) sortedNodeKeys.Add(k);
+        sortedNodeKeys.Sort(StringComparer.Ordinal);
+        foreach (var nodeKey in sortedNodeKeys)
         {
             if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
-            var node = nkv.Value;
+            var node = state.Nodes[nodeKey];
             if (node.InstabilityLevel < SystemicMissionTweaksV0.SupplyShortageInstabilityMin) continue;
             if (string.IsNullOrEmpty(node.MarketId)) continue;
             if (!state.Markets.TryGetValue(node.MarketId, out var market)) continue;
 
-            foreach (var goodId in market.Inventory.Keys.OrderBy(g => g, StringComparer.Ordinal))
+            var sortedGoodIds = scratch.SortedGoodIds;
+            sortedGoodIds.Clear();
+            foreach (var g in market.Inventory.Keys) sortedGoodIds.Add(g);
+            sortedGoodIds.Sort(StringComparer.Ordinal);
+            foreach (var goodId in sortedGoodIds)
             {
                 if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
                 var stock = market.Inventory.TryGetValue(goodId, out var qty) ? qty : STRUCT_ZERO;
                 if (stock >= SystemicMissionTweaksV0.SupplyShortageInventoryThreshold) continue;
 
-                var key = $"{(int)SystemicTriggerType.SupplyShortage}|{nkv.Key}|{goodId}";
+                var key = $"{(int)SystemicTriggerType.SupplyShortage}|{nodeKey}|{goodId}";
                 if (existingKeys.Contains(key)) continue;
 
-                EmitOffer(state, existingKeys, SystemicTriggerType.SupplyShortage, nkv.Key, goodId);
+                EmitOffer(state, existingKeys, SystemicTriggerType.SupplyShortage, nodeKey, goodId);
             }
         }
     }

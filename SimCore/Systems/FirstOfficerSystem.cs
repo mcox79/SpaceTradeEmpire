@@ -2,7 +2,8 @@ using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
@@ -12,6 +13,11 @@ namespace SimCore.Systems;
 // The FO is the player's emotional proxy — reacts to revelations.
 public static class FirstOfficerSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Per-tick processing: advance dialogue tier based on current tick.
     /// </summary>
@@ -152,7 +158,15 @@ public static class FirstOfficerSystem
         }
 
         // FIRST_MODULE_REFIT: player fleet has any installed modules
-        if (playerFleet.Slots != null && playerFleet.Slots.Any(s => !string.IsNullOrEmpty(s.InstalledModuleId)))
+        bool hasModule = false;
+        if (playerFleet.Slots != null)
+        {
+            foreach (var s in playerFleet.Slots)
+            {
+                if (!string.IsNullOrEmpty(s.InstalledModuleId)) { hasModule = true; break; }
+            }
+        }
+        if (hasModule)
         {
             TryFireTrigger(state, "FIRST_MODULE_REFIT");
         }
@@ -173,7 +187,7 @@ public static class FirstOfficerSystem
 
         // FRACTURE_WEIGHT_SURPRISE: player carrying cargo with fracture origin phase > 0
         if (playerFleet.CargoOriginPhase != null && playerFleet.CargoOriginPhase.Count > 0
-            && playerFleet.CargoOriginPhase.Values.Any(v => v > 0))
+            && HasPositiveOriginPhase(playerFleet))
         {
             TryFireTrigger(state, "FRACTURE_WEIGHT_SURPRISE");
         }
@@ -383,9 +397,14 @@ public static class FirstOfficerSystem
             string goodName = "cargo";
             if (state.Markets.TryGetValue(nodeId, out var market) && market.Inventory != null)
             {
-                foreach (var kv in market.Inventory.OrderBy(k => k.Key, StringComparer.Ordinal))
+                var scratch = s_scratch.GetOrCreateValue(state);
+                var sortedGoods = scratch.SortedKeys;
+                sortedGoods.Clear();
+                foreach (var k in market.Inventory.Keys) sortedGoods.Add(k);
+                sortedGoods.Sort(StringComparer.Ordinal);
+                foreach (var goodKey in sortedGoods)
                 {
-                    if (kv.Value > 0) { goodName = kv.Key; break; }
+                    if (market.Inventory.TryGetValue(goodKey, out var qty) && qty > 0) { goodName = goodKey; break; }
                 }
             }
             text = text.Replace("{GOOD}", goodName);
@@ -395,8 +414,14 @@ public static class FirstOfficerSystem
         if (text.Contains("{DEST}"))
         {
             string destName = "the next system";
-            foreach (var edge in state.Edges.Values.OrderBy(e => e.Id, StringComparer.Ordinal))
+            var scratchEdge = s_scratch.GetOrCreateValue(state);
+            var sortedEdgeIds = scratchEdge.SortedKeys;
+            sortedEdgeIds.Clear();
+            foreach (var k in state.Edges.Keys) sortedEdgeIds.Add(k);
+            sortedEdgeIds.Sort(StringComparer.Ordinal);
+            foreach (var edgeId in sortedEdgeIds)
             {
+                var edge = state.Edges[edgeId];
                 if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal))
                 {
                     if (state.Nodes.TryGetValue(edge.ToNodeId, out var destNode))
@@ -420,5 +445,15 @@ public static class FirstOfficerSystem
         }
 
         return text;
+    }
+
+    private static bool HasPositiveOriginPhase(Fleet fleet)
+    {
+        if (fleet.CargoOriginPhase == null) return false;
+        foreach (var v in fleet.CargoOriginPhase.Values)
+        {
+            if (v > 0) return true;
+        }
+        return false;
     }
 }

@@ -61,11 +61,16 @@ func _ready() -> void:
 	_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list_container)
 
+	root_vbox.add_child(UITheme.make_dismiss_hint("N"))
+
 	_bridge = get_node_or_null("/root/SimBridge")
 
 func toggle_v0() -> void:
-	visible = not visible
 	if visible:
+		UITheme.animate_close(self, func(): visible = false)
+	else:
+		visible = true
+		UITheme.animate_open(self)
 		_refresh()
 
 func _refresh() -> void:
@@ -92,11 +97,7 @@ func _refresh() -> void:
 		_add_warfront_section(wf)
 
 func _show_empty_state(msg: String) -> void:
-	var lbl := Label.new()
-	lbl.text = msg
-	lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-	lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
-	_list_container.add_child(lbl)
+	_list_container.add_child(UITheme.make_empty_state("⚔", msg, "Warfronts emerge from faction conflicts"))
 
 func _add_warfront_section(wf: Dictionary) -> void:
 	var wf_id: String = str(wf.get("id", "unknown"))

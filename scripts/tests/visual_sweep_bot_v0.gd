@@ -60,6 +60,14 @@ enum Phase {
 	# --- Overlays ---
 	OPEN_GALAXY_MAP,
 	GALAXY_MAP_CAPTURE,        # 10. Galaxy map: network graph, node colors, YOU indicator
+	# V2 overlay captures (L2.3 differentiation)
+	V2_FACTION_SET,
+	V2_FACTION_CAPTURE,        # 10b. Galaxy map V2 faction territory overlay
+	V2_EXPLORATION_SET,
+	V2_EXPLORATION_CAPTURE,    # 10c. Galaxy map V2 exploration overlay
+	V2_WARFRONT_SET,
+	V2_WARFRONT_CAPTURE,       # 10d. Galaxy map V2 warfront overlay
+	V2_OFF_SET,
 	CLOSE_GALAXY_MAP,
 	OPEN_EMPIRE_DASH,
 	EMPIRE_DASH_CAPTURE,       # 11. Empire dashboard overlay
@@ -218,6 +226,8 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= POST_CAPTURE:
 				_dock_at_current_station()
+				# Promote FO so Port Briefing has an FO greeting on station tab.
+				_promote_fo()
 				_polls = 0
 				_phase = Phase.DOCK_MARKET_CAPTURE
 
@@ -352,6 +362,56 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= SETTLE_SCENE:  # Full second — galaxy nodes need creation + render
 				_capture("galaxy_map")
+				_polls = 0
+				_phase = Phase.V2_FACTION_SET
+
+		# V2 overlay captures — cycle faction, exploration, warfront
+		Phase.V2_FACTION_SET:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_v2_overlay(1)  # Faction
+				_polls = 0
+				_phase = Phase.V2_FACTION_CAPTURE
+
+		Phase.V2_FACTION_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("galaxy_v2_faction")
+				_polls = 0
+				_phase = Phase.V2_EXPLORATION_SET
+
+		Phase.V2_EXPLORATION_SET:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_v2_overlay(4)  # Exploration
+				_polls = 0
+				_phase = Phase.V2_EXPLORATION_CAPTURE
+
+		Phase.V2_EXPLORATION_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("galaxy_v2_exploration")
+				_polls = 0
+				_phase = Phase.V2_WARFRONT_SET
+
+		Phase.V2_WARFRONT_SET:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_v2_overlay(5)  # Warfront
+				_polls = 0
+				_phase = Phase.V2_WARFRONT_CAPTURE
+
+		Phase.V2_WARFRONT_CAPTURE:
+			_polls += 1
+			if _polls >= SETTLE_UI:
+				_capture("galaxy_v2_warfront")
+				_polls = 0
+				_phase = Phase.V2_OFF_SET
+
+		Phase.V2_OFF_SET:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_set_v2_overlay(0)  # Off
 				_polls = 0
 				_phase = Phase.CLOSE_GALAXY_MAP
 
@@ -742,6 +802,13 @@ func _init_navigation() -> void:
 	print(PREFIX + "NAV|home=%s neighbors=%d" % [_home_node_id, _neighbor_ids.size()])
 
 
+func _set_v2_overlay(mode: int) -> void:
+	var gv = root.find_child("GalaxyView", true, false)
+	if gv != null and gv.has_method("SetV2OverlayModeV0"):
+		gv.call("SetV2OverlayModeV0", mode)
+		print(PREFIX + "V2_OVERLAY|mode=%d" % mode)
+
+
 func _rebuild_local_system(node_id: String) -> void:
 	var gv = root.find_child("GalaxyView", true, false)
 	if gv and gv.has_method("RebuildLocalSystemV0"):
@@ -815,6 +882,30 @@ func _try_buy_good() -> void:
 
 
 # --- State setup helpers (populate UI before capture) ---
+
+func _promote_fo() -> void:
+	## Promote FO so Port Briefing has a named speaker for observations.
+	if _bridge == null:
+		return
+	if not _bridge.has_method("PromoteFirstOfficerV0"):
+		return
+	# Check if already promoted.
+	if _bridge.has_method("GetFirstOfficerStateV0"):
+		var fo: Dictionary = _bridge.call("GetFirstOfficerStateV0")
+		if fo.get("promoted", false):
+			return
+	# Try Analyst first (best for trade observations).
+	var ok: bool = _bridge.call("PromoteFirstOfficerV0", "Analyst")
+	if ok:
+		print(PREFIX + "FO_PROMOTE|Analyst")
+	else:
+		# Fallback to any candidate.
+		for candidate in ["Veteran", "Pathfinder"]:
+			ok = _bridge.call("PromoteFirstOfficerV0", candidate)
+			if ok:
+				print(PREFIX + "FO_PROMOTE|%s" % candidate)
+				break
+
 
 func _setup_refit() -> void:
 	## Install a module into an empty slot so Ship tab shows equipped state.

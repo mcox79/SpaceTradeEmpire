@@ -351,14 +351,41 @@ public static class PlanetInitGen
 
     private static string GenerateDisplayName(PlanetType type, uint hash)
     {
-        string prefix = PlanetContentV0.GetTypeDisplayName(type);
-        // Generate a short suffix like "Alpha", "Beta", etc. based on hash.
-        string[] suffixes = { "Alpha", "Beta", "Gamma", "Delta", "Epsilon",
-                              "Zeta", "Eta", "Theta", "Iota", "Kappa",
-                              "Lambda", "Mu", "Nu", "Xi", "Omicron" };
-        int idx = (int)(hash % (uint)suffixes.Length);
-        int numeral = (int)((hash / (uint)suffixes.Length) % 9) + 1;
-        return $"{prefix} {suffixes[idx]}-{numeral}";
+        // Thematic name pools per planet type — avoids "Terrestrial World Delta-5" dev feel.
+        string[] terrestrialNames = { "Haven", "Verdance", "Prospect", "Meridian", "Solace",
+                                       "Crestfall", "Beacon", "Ashford", "Windreach", "Thornfield",
+                                       "Glenmore", "Copperleaf", "Millhaven", "Ironwick", "Dawnrise" };
+        string[] iceNames = { "Frostholm", "Borealis", "Glacier Peak", "Rimward", "Crystalis",
+                               "Snowdrift", "Permafrost", "Iceveil", "Wintermere", "Hailstone",
+                               "Shardfall", "Coldreach", "Pale Summit", "Neverspring", "Tundrine" };
+        string[] sandNames = { "Dusthaven", "Scorchwind", "Red Mesa", "Sandrift", "Aridspire",
+                                "Dunebreak", "Sunstone", "Mirage Flat", "Amber Reach", "Bleachrock",
+                                "Caldera", "Oasis Point", "Siltspur", "Drymouth", "Cinderfield" };
+        string[] lavaNames = { "Magmaris", "Ashfall", "Emberpeak", "Crucible", "Pyrrhus",
+                                "Cindervault", "Forge Mouth", "Brimstone", "Sulphur Rift", "Hearthcore",
+                                "Obsidian Deep", "Smoldervein", "Flamecrest", "Ignatius", "Scoria" };
+        string[] gasNames = { "Tempest", "Titan's Eye", "Stormveil", "Chromos", "Aurealis",
+                               "Zephyria", "Cloudrift", "Thundermaw", "Bellows", "Maelstrom",
+                               "Gasgiant Minor", "Iridium Deep", "Cyclonia", "Vortessa", "Nimbus" };
+        string[] barrenNames = { "Dustrock", "Graymere", "Hollow Ridge", "Craterfield", "Ashpit",
+                                  "Bleakstone", "Dead Reach", "Scrapyard", "Rubble Point", "Ironflat",
+                                  "Pockmark", "Slagheap", "Wastrel", "Gritstone", "Desolace" };
+
+        string[] pool = type switch
+        {
+            PlanetType.Terrestrial => terrestrialNames,
+            PlanetType.Ice => iceNames,
+            PlanetType.Sand => sandNames,
+            PlanetType.Lava => lavaNames,
+            PlanetType.Gaseous => gasNames,
+            PlanetType.Barren => barrenNames,
+            _ => terrestrialNames,
+        };
+
+        int idx = (int)(hash % (uint)pool.Length);
+        // Optional numeral suffix for uniqueness (only if hash collision likely).
+        int numeral = (int)((hash / (uint)pool.Length) % 9) + 1;
+        return numeral <= 1 ? pool[idx] : $"{pool[idx]} {numeral}";
     }
 
     // ── Property range lookups ──

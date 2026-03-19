@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
@@ -10,6 +10,11 @@ namespace SimCore.Systems;
 // GATE.S4.CONSTR_PROG.SYSTEM.001: Construction system — start, tick progress, complete.
 public static class ConstructionSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedProjectIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class StartResult
     {
         public bool Success { get; set; }
@@ -88,7 +93,10 @@ public static class ConstructionSystem
         if (state?.Construction == null) return;
 
         // Iterate active projects in deterministic order
-        var projectIds = new List<string>(state.Construction.Projects.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var projectIds = scratch.SortedProjectIds;
+        projectIds.Clear();
+        foreach (var k in state.Construction.Projects.Keys) projectIds.Add(k);
         projectIds.Sort(StringComparer.Ordinal);
 
         foreach (var pid in projectIds)

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -10,6 +10,12 @@ namespace SimCore.Systems;
 // Per CommissionCycleTicks: +1 rep with employer, -1 rep with each rival, +stipend credits.
 public static class CommissionSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedFactionIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state is null) return; // STRUCTURAL: null guard
@@ -25,7 +31,10 @@ public static class CommissionSystem
         ReputationSystem.AdjustReputation(state, comm.FactionId, CommissionTweaksV0.EmployerRepGainPerCycle);
 
         // -rep with rival factions (all other known factions)
-        var factionIds = new List<string>(state.FactionReputation.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var factionIds = scratch.SortedFactionIds;
+        factionIds.Clear();
+        foreach (var k in state.FactionReputation.Keys) factionIds.Add(k);
         factionIds.Sort(StringComparer.Ordinal);
         foreach (var fid in factionIds)
         {

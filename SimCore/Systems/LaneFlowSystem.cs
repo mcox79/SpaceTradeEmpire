@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using SimCore.Entities;
 
@@ -19,6 +18,17 @@ public static class LaneFlowSystem
     }
 
     private static readonly ConditionalWeakTable<SimState, PerStateReport> _reports = new();
+
+    private sealed class Scratch
+    {
+        public readonly List<InFlightTransfer> Due = new();
+        public readonly Dictionary<string, int> DeliveredByLane = new(StringComparer.Ordinal);
+        public readonly HashSet<string> DueIds = new(StringComparer.Ordinal);
+        public readonly List<string> SortedLaneIds = new();
+        public readonly Dictionary<string, List<InFlightTransfer>> LaneGroups = new(StringComparer.Ordinal);
+        public readonly List<string> SortedGroupKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
 
     public static string GetLastLaneUtilizationReport(SimState state)
     {
@@ -110,57 +120,84 @@ public static class LaneFlowSystem
         if (state.InFlightTransfers.Count == 0) return;
 
         var now = state.Tick;
+        var scratch = s_scratch.GetOrCreateValue(state);
 
         // Collect due transfers deterministically.
-        var due = state.InFlightTransfers
-            .Where(x => x.ArriveTick <= now)
-            .OrderBy(x => x.ArriveTick)
-            .ThenBy(x => x.EdgeId, StringComparer.Ordinal)
-            .ThenBy(x => x.Id, StringComparer.Ordinal)
-            .ToList();
-
+        var due = scratch.Due;
+        due.Clear();
+        foreach (var x in state.InFlightTransfers)
+        {
+            if (x.ArriveTick <= now) due.Add(x);
+        }
         if (due.Count == 0) return;
+
+        // Sort: ArriveTick, then EdgeId (Ordinal), then Id (Ordinal).
+        due.Sort((a, b) =>
+        {
+            int c = a.ArriveTick.CompareTo(b.ArriveTick);
+            if (c != 0) return c;
+            c = StringComparer.Ordinal.Compare(a.EdgeId, b.EdgeId);
+            if (c != 0) return c;
+            return StringComparer.Ordinal.Compare(a.Id, b.Id);
+        });
 
         // Capacity scarcity v0:
         // For each lane per tick, deliver up to edge.TotalCapacity (if > 0).
         // Overflow is queued deterministically by setting ArriveTick = now + 1.
         // Sustained overload creates multi-tick delay via repeated next-tick deferrals.
-        var deliveredByLane = new Dictionary<string, int>(StringComparer.Ordinal);
+        var deliveredByLane = scratch.DeliveredByLane;
+        deliveredByLane.Clear();
 
-        foreach (var laneGroup in due.GroupBy(x => x.EdgeId, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
+        // Group by EdgeId manually.
+        var laneGroups = scratch.LaneGroups;
+        foreach (var lg in laneGroups.Values) lg.Clear();
+        foreach (var t in due)
         {
-            var laneId = laneGroup.Key;
+            if (!laneGroups.TryGetValue(t.EdgeId, out var list))
+            {
+                list = new List<InFlightTransfer>();
+                laneGroups[t.EdgeId] = list;
+            }
+            list.Add(t);
+        }
+
+        var sortedGroupKeys = scratch.SortedGroupKeys;
+        sortedGroupKeys.Clear();
+        foreach (var k in laneGroups.Keys)
+        {
+            if (laneGroups[k].Count > 0) sortedGroupKeys.Add(k);
+        }
+        sortedGroupKeys.Sort(StringComparer.Ordinal);
+
+        foreach (var laneId in sortedGroupKeys)
+        {
+            var group = laneGroups[laneId];
 
             var capacity = int.MaxValue;
             if (state.Edges.TryGetValue(laneId, out var edge))
             {
-                // TotalCapacity > 0 is explicit.
-                // TotalCapacity <= 0 uses tweak default if > 0, else unlimited (preserves pre-migration behavior).
-                if (edge.TotalCapacity > 0) capacity = edge.TotalCapacity;
+                if (edge.TotalCapacity > default(int)) capacity = edge.TotalCapacity;
                 else
                 {
-                    var k = state.Tweaks?.DefaultLaneCapacityK ?? 0;
-                    if (k > 0) capacity = k;
+                    var k = state.Tweaks?.DefaultLaneCapacityK ?? default(int);
+                    if (k > default(int)) capacity = k;
                 }
             }
 
             var remaining = capacity;
 
-            // laneGroup preserves due's ordering (already ordered by ArriveTick, EdgeId, Id).
-            foreach (var t in laneGroup)
+            foreach (var t in group)
             {
                 if (t.Quantity <= default(int)) continue;
 
                 if (remaining <= default(int))
                 {
-                    // Fully queued.
                     t.ArriveTick = checked(now + 1);
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(t.ToMarketId))
                 {
-                    // Invalid destination; keep deterministic behavior: drop from due by marking queued and letting it retry next tick.
                     t.ArriveTick = checked(now + 1);
                     continue;
                 }
@@ -188,18 +225,22 @@ public static class LaneFlowSystem
 
                 if (t.Quantity > 0)
                 {
-                    // Partial fill; queue remainder deterministically.
                     t.ArriveTick = checked(now + 1);
                 }
             }
         }
 
         // Remove transfers that are fully delivered (Quantity <= 0) and were due this tick.
-        var dueIds = new HashSet<string>(due.Select(x => x.Id), StringComparer.Ordinal);
+        var dueIds = scratch.DueIds;
+        dueIds.Clear();
+        foreach (var x in due) dueIds.Add(x.Id);
         state.InFlightTransfers.RemoveAll(x => dueIds.Contains(x.Id) && x.Quantity <= 0);
 
         // Emit deterministic lane utilization report sorted by lane_id.
-        var laneIds = state.Edges.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var laneIds = scratch.SortedLaneIds;
+        laneIds.Clear();
+        foreach (var k in state.Edges.Keys) laneIds.Add(k);
+        laneIds.Sort(StringComparer.Ordinal);
         var lines = new List<string>(capacity: 4 + laneIds.Count)
         {
             "LANE_UTILIZATION_REPORT_V0",
@@ -222,9 +263,12 @@ public static class LaneFlowSystem
                 }
             }
 
-            var queued = state.InFlightTransfers
-                .Where(x => string.Equals(x.EdgeId, laneId, StringComparison.Ordinal))
-                .Sum(x => Math.Max(default(int), x.Quantity));
+            int queued = default(int);
+            foreach (var x in state.InFlightTransfers)
+            {
+                if (string.Equals(x.EdgeId, laneId, StringComparison.Ordinal) && x.Quantity > default(int))
+                    queued += x.Quantity;
+            }
 
             var capText = cap == int.MaxValue ? "inf" : cap.ToString();
             lines.Add($"{laneId}|{delivered}|{capText}|{queued}");

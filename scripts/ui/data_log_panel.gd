@@ -112,11 +112,19 @@ func _ready() -> void:
 	_detail_content.add_theme_color_override("default_color", UITheme.TEXT_PRIMARY)
 	detail_scroll.add_child(_detail_content)
 
+	# Footer hint — navigate up to root_vbox
+	var _hint_vbox: Node = detail_scroll.get_parent()
+	if _hint_vbox:
+		_hint_vbox.add_child(UITheme.make_dismiss_hint("D"))
+
 	_bridge = get_node_or_null("/root/SimBridge")
 
 func toggle_v0() -> void:
-	visible = not visible
 	if visible:
+		UITheme.animate_close(self, func(): visible = false)
+	else:
+		visible = true
+		UITheme.animate_open(self)
 		_showing_detail = false
 		_show_list()
 		_refresh_list()

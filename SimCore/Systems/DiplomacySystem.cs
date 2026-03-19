@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -9,6 +9,11 @@ namespace SimCore.Systems;
 // GATE.S7.DIPLOMACY.FRAMEWORK.001: Diplomacy system — treaties, bounties, sanctions.
 public static class DiplomacySystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> TempIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Per-tick processing: expire acts, generate faction proposals, check bounties.
     /// Called from SimKernel.Step().
@@ -25,7 +30,9 @@ public static class DiplomacySystem
 
     private static void ProcessExpiry(SimState state)
     {
-        var toRemove = new List<string>();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var toRemove = scratch.TempIds;
+        toRemove.Clear();
         foreach (var kv in state.DiplomaticActs)
         {
             var act = kv.Value;
@@ -238,7 +245,9 @@ public static class DiplomacySystem
     {
         if (state is null || string.IsNullOrEmpty(destroyedFleetId)) return;
 
-        var completedBounties = new List<string>();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var completedBounties = scratch.TempIds;
+        completedBounties.Clear();
         foreach (var kv in state.DiplomaticActs)
         {
             var act = kv.Value;
@@ -274,7 +283,9 @@ public static class DiplomacySystem
     {
         if (state is null || string.IsNullOrEmpty(attackedFactionId)) return;
 
-        var violated = new List<string>();
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var violated = scratch2.TempIds;
+        violated.Clear();
         foreach (var kv in state.DiplomaticActs)
         {
             var act = kv.Value;

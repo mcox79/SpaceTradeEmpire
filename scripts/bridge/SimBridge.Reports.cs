@@ -1678,17 +1678,11 @@ public partial class SimBridge
             bool hasTraded = goodsTraded > 0;
             bool hasCompletedMission = missionsCompleted > 0;
 
-            // Combat detection: player fleet hull < max means combat has occurred.
-            bool hasFought = false;
-            foreach (var fleet in state.Fleets.Values)
-            {
-                if (!string.Equals(fleet.OwnerId, "player", System.StringComparison.Ordinal)) continue;
-                if (fleet.HullHp >= 0 && fleet.HullHpMax > 0 && fleet.HullHp < fleet.HullHpMax)
-                {
-                    hasFought = true;
-                    break;
-                }
-            }
+            // Combat detection: NpcFleetsDestroyed > 0 is a durable signal.
+            // Hull damage was previously used, but SustainSystem auto-repairs every
+            // tick when docked, erasing the evidence before UI can observe it.
+            int npcFleetsDestroyed = stats?.NpcFleetsDestroyed ?? 0;
+            bool hasFought = npcFleetsDestroyed > 0;
 
             result["has_docked"] = nodesVisited > 0 || goodsTraded > 0;
             result["has_traded"] = hasTraded;

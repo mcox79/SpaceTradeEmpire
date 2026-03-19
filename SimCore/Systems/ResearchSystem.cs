@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
@@ -10,6 +11,11 @@ namespace SimCore.Systems;
 // GATE.S8.RESEARCH_SUSTAIN.SYSTEM.001: Production-sustained research (goods consumption).
 public static class ResearchSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> InputKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class StartResult
     {
         public bool Success { get; set; }
@@ -104,7 +110,10 @@ public static class ResearchSystem
             if (state.Tech.SustainAccumulatorTicks >= interval)
             {
                 // Check all inputs are available — sort keys for determinism.
-                var inputKeys = new List<string>(def.SustainInputs.Keys);
+                var scratch = s_scratch.GetOrCreateValue(state);
+                var inputKeys = scratch.InputKeys;
+                inputKeys.Clear();
+                foreach (var k in def.SustainInputs.Keys) inputKeys.Add(k);
                 inputKeys.Sort(StringComparer.Ordinal);
 
                 foreach (var goodId in inputKeys)

@@ -5,6 +5,8 @@ extends PanelContainer
 
 var _bridge = null
 var _name_label: Label = null
+var _archetype_label: Label = null
+var _tier_label: Label = null
 var _status_label: Label = null
 
 # Dialogue history — scrollable, last 5 lines.
@@ -25,14 +27,20 @@ var _npc_section: VBoxContainer = null
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
 
+# Auto-show: flash panel visible on dialogue/promotion, then auto-hide after timeout.
+var _auto_show_timer: float = -1.0
+const _AUTO_SHOW_DURATION: float = 6.0
+
 
 func _ready() -> void:
 	name = "FOPanel"
 	visible = false
 	custom_minimum_size = Vector2(280, 0)
 	position = Vector2(10, 470)
-	var style := UITheme.make_panel_hud()
+	var style := UITheme.make_panel_ship_computer()
 	add_theme_stylebox_override("panel", style)
+	UITheme.add_corner_brackets(self)
+	UITheme.add_scanline_overlay(self)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var vbox := VBoxContainer.new()
@@ -46,12 +54,27 @@ func _ready() -> void:
 	title.add_theme_color_override("font_color", UITheme.CYAN)
 	vbox.add_child(title)
 
-	# --- FO identity ---
+	# --- FO identity row: archetype icon + name + tier badge ---
+	var identity_row := HBoxContainer.new()
+	identity_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(identity_row)
+
+	_archetype_label = Label.new()
+	_archetype_label.text = ""
+	_archetype_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	identity_row.add_child(_archetype_label)
+
 	_name_label = Label.new()
 	_name_label.text = ""
 	_name_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 	_name_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(_name_label)
+	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity_row.add_child(_name_label)
+
+	_tier_label = Label.new()
+	_tier_label.text = ""
+	_tier_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	identity_row.add_child(_tier_label)
 
 	_status_label = Label.new()
 	_status_label.text = ""
@@ -64,7 +87,7 @@ func _ready() -> void:
 	vbox.add_child(dialogue_sep)
 
 	var dialogue_title := Label.new()
-	dialogue_title.text = "Dialogue"
+	dialogue_title.text = "COMMS LOG"
 	dialogue_title.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
 	dialogue_title.add_theme_color_override("font_color", UITheme.CYAN)
 	vbox.add_child(dialogue_title)
@@ -107,6 +130,13 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Auto-show countdown: hide panel after duration expires.
+	if _auto_show_timer > 0.0:
+		_auto_show_timer -= delta
+		if _auto_show_timer <= 0.0:
+			_auto_show_timer = -1.0
+			visible = false
+
 	_slow_poll_elapsed += delta
 	if _slow_poll_elapsed < _SLOW_POLL_INTERVAL:
 		return
@@ -135,8 +165,31 @@ func _refresh_fo_state() -> void:
 	# FO panel visibility controlled by F-key toggle in hud.gd/game_manager.gd.
 	# Panel does not self-show — user toggles with F key.
 	var fo_name: String = str(fo.get("name", "None"))
+	var fo_type: String = str(fo.get("type", "None"))
+	var fo_tier: String = str(fo.get("tier", "Early"))
 	var promoted: bool = fo.get("promoted", false)
+	# FEEL_PASS5_P5: Archetype icon with color coding.
+	match fo_type:
+		"Analyst":
+			_archetype_label.text = "◈"
+			_archetype_label.add_theme_color_override("font_color", UITheme.GOLD)
+		"Veteran":
+			_archetype_label.text = "⚔"
+			_archetype_label.add_theme_color_override("font_color", UITheme.CYAN)
+		"Pathfinder":
+			_archetype_label.text = "◉"
+			_archetype_label.add_theme_color_override("font_color", UITheme.ORANGE)
+		_:
+			_archetype_label.text = "◇"
+			_archetype_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 	_name_label.text = fo_name
+	# Tier badge.
+	match fo_tier:
+		"Early": _tier_label.text = "I"
+		"Mid": _tier_label.text = "II"
+		"Late": _tier_label.text = "III"
+		_: _tier_label.text = ""
+	_tier_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 	if promoted:
 		_status_label.text = "Promoted"
 		_status_label.add_theme_color_override("font_color", UITheme.GREEN)
@@ -160,6 +213,8 @@ func _poll_fo_dialogue() -> void:
 	if _dialogue_history.size() > _MAX_DIALOGUE_LINES:
 		_dialogue_history = _dialogue_history.slice(_dialogue_history.size() - _MAX_DIALOGUE_LINES)
 	_rebuild_dialogue_ui()
+	# Auto-show panel briefly so player sees the FO character.
+	_flash_panel()
 	# Show as toast with "fo" category (gold).
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
@@ -265,6 +320,8 @@ func _on_promote_pressed(candidate_type: String) -> void:
 		_clear_children(_promo_section)
 		_promo_section.visible = false
 		_refresh_fo_state()
+		# Auto-show panel so player sees the promoted FO.
+		_flash_panel(8.0)
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "First Officer promoted!", "fo")
@@ -323,6 +380,18 @@ func _set_npc_section_visible(vis: bool) -> void:
 		_npc_title.visible = vis
 	if _npc_section:
 		_npc_section.visible = vis
+
+
+## Flash the panel visible for a duration, then auto-hide.
+## If the player manually toggled the panel (F key), auto-hide is skipped.
+func _flash_panel(duration: float = _AUTO_SHOW_DURATION) -> void:
+	if visible:
+		# Already visible (player toggled) — extend auto-hide or skip.
+		if _auto_show_timer > 0.0:
+			_auto_show_timer = duration  # Reset timer
+		return
+	visible = true
+	_auto_show_timer = duration
 
 
 func _clear_children(container: Control) -> void:

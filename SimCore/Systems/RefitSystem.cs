@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 
@@ -9,6 +9,11 @@ namespace SimCore.Systems;
 // GATE.S4.UPGRADE.SYSTEM.001: Refit system — install/remove modules, validate slots.
 public static class RefitSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> FleetIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class RefitResult
     {
         public bool Success { get; set; }
@@ -155,7 +160,10 @@ public static class RefitSystem
         if (state is null) return;
 
         // Deterministic fleet order.
-        var fleetIds = new List<string>(state.Fleets.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var fleetIds = scratch.FleetIds;
+        fleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) fleetIds.Add(k);
         fleetIds.Sort(StringComparer.Ordinal);
 
         foreach (var fid in fleetIds)

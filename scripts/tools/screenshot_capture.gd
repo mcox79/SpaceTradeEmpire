@@ -53,3 +53,69 @@ func capture_v0(tree: SceneTree, label: String, output_dir: String = OUTPUT_DIR)
 
 	print("EXPV0|SCREENSHOT|OK|%s" % filepath)
 	return filepath
+
+
+## Sample the average color of a rectangular region (20 evenly-spaced pixels).
+static func sample_region_avg_color(image: Image, rect: Rect2) -> Color:
+	var r_sum := 0.0
+	var g_sum := 0.0
+	var b_sum := 0.0
+	var count := 0
+	var samples := 20
+	var x0 := int(rect.position.x)
+	var y0 := int(rect.position.y)
+	var w := int(rect.size.x)
+	var h := int(rect.size.y)
+	var img_w := image.get_width()
+	var img_h := image.get_height()
+	for i in range(samples):
+		var t := float(i) / float(samples - 1) if samples > 1 else 0.5
+		# Sample diagonally across the rect
+		var px := clampi(x0 + int(t * w), 0, img_w - 1)
+		var py := clampi(y0 + int(t * h), 0, img_h - 1)
+		var c := image.get_pixel(px, py)
+		r_sum += c.r
+		g_sum += c.g
+		b_sum += c.b
+		count += 1
+	if count == 0:
+		return Color.BLACK
+	return Color(r_sum / count, g_sum / count, b_sum / count)
+
+
+## Returns a WARN string if >95% of sampled pixels are near-black (blank panel).
+## Returns empty string if the region has visible content.
+static func assert_region_nonempty(image: Image, rect: Rect2, label: String) -> String:
+	var dark_count := 0
+	var samples := 20
+	var x0 := int(rect.position.x)
+	var y0 := int(rect.position.y)
+	var w := int(rect.size.x)
+	var h := int(rect.size.y)
+	var img_w := image.get_width()
+	var img_h := image.get_height()
+	for i in range(samples):
+		var t := float(i) / float(samples - 1) if samples > 1 else 0.5
+		var px := clampi(x0 + int(t * w), 0, img_w - 1)
+		var py := clampi(y0 + int(t * h), 0, img_h - 1)
+		var c := image.get_pixel(px, py)
+		if c.r + c.g + c.b < 0.1:
+			dark_count += 1
+	var dark_ratio := float(dark_count) / float(samples)
+	if dark_ratio > 0.95:
+		return "%s: region appears blank (%.0f%% dark)" % [label, dark_ratio * 100]
+	return ""
+
+
+## Returns a WARN string if the average color deviates from expected beyond tolerance.
+## Returns empty string if within tolerance.
+static func assert_region_color(image: Image, rect: Rect2, expected: Color, tolerance: float, label: String) -> String:
+	var avg := sample_region_avg_color(image, rect)
+	var dr := absf(avg.r - expected.r)
+	var dg := absf(avg.g - expected.g)
+	var db := absf(avg.b - expected.b)
+	var max_dev := maxf(dr, maxf(dg, db))
+	if max_dev > tolerance:
+		return "%s: color deviation %.2f > %.2f (avg=%.2f,%.2f,%.2f expected=%.2f,%.2f,%.2f)" % [
+			label, max_dev, tolerance, avg.r, avg.g, avg.b, expected.r, expected.g, expected.b]
+	return ""

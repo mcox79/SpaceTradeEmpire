@@ -23,6 +23,8 @@ func _ready() -> void:
 	offset_bottom = 260
 	custom_minimum_size = Vector2(640, 520)
 	var style := UITheme.make_panel_standard()
+	# FEEL_PASS3: Full opacity — floating panels over space need solid backdrop.
+	style.bg_color.a = 1.0
 	add_theme_stylebox_override("panel", style)
 
 	var root_vbox := VBoxContainer.new()
@@ -78,11 +80,19 @@ func _ready() -> void:
 	_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(_list_container)
 
+	# Footer hint — navigate up from scroll → root_vbox
+	var _hint_parent: Node = list_scroll.get_parent()
+	if _hint_parent:
+		_hint_parent.add_child(UITheme.make_dismiss_hint("K"))
+
 	_bridge = get_node_or_null("/root/SimBridge")
 
 func toggle_v0() -> void:
-	visible = not visible
 	if visible:
+		UITheme.animate_close(self, func(): visible = false)
+	else:
+		visible = true
+		UITheme.animate_open(self)
 		_refresh()
 
 # GATE.S6.UI_DISCOVERY.KG_PANEL.001: Set active filter and refresh.
@@ -173,11 +183,52 @@ func _update_stats() -> void:
 		_stats_label.text += "  [filter: %s]" % _active_filter.to_upper()
 
 func _show_empty_state() -> void:
-	var empty := Label.new()
-	empty.text = "Explore distant systems to uncover discoveries.\nEquip sensor modules to scan for anomalies."
-	empty.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-	empty.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
-	_list_container.add_child(empty)
+	# Show active leads as "signals detected" rumors instead of a blank panel.
+	if _bridge and _bridge.has_method("GetActiveLeadsV0"):
+		var leads: Array = _bridge.call("GetActiveLeadsV0")
+		if leads.size() > 0:
+			_show_rumors(leads)
+			return
+	_list_container.add_child(UITheme.make_empty_state("◈", "No discoveries yet", "Explore distant systems and equip sensor modules to scan for anomalies"))
+
+
+func _show_rumors(leads: Array) -> void:
+	var header := Label.new()
+	header.text = "SIGNALS DETECTED"
+	header.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	header.add_theme_color_override("font_color", UITheme.PURPLE_LIGHT)
+	_list_container.add_child(header)
+
+	var hint := Label.new()
+	hint.text = "Your sensors have picked up faint readings. Explore to reveal more."
+	hint.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	hint.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_list_container.add_child(hint)
+
+	var sep := HSeparator.new()
+	_list_container.add_child(sep)
+
+	for lead in leads:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", UITheme.SPACE_SM)
+		_list_container.add_child(row)
+
+		var icon_lbl := Label.new()
+		icon_lbl.text = "[?]"
+		icon_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		icon_lbl.add_theme_color_override("font_color", UITheme.YELLOW)
+		row.add_child(icon_lbl)
+
+		var location: String = str(lead.get("location_token", "UNKNOWN")).replace("_", " ").to_lower().capitalize()
+		var payoff: String = str(lead.get("payoff_token", "")).replace("_", " ").to_lower().capitalize()
+		var desc_lbl := Label.new()
+		desc_lbl.text = "Signal from %s — %s" % [location, payoff]
+		desc_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		desc_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(desc_lbl)
 
 func _add_group_header(conn_type: String, group_conns: Array) -> void:
 	# Count revealed in this group.

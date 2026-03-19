@@ -45,6 +45,7 @@ var _scan_progress_bar: ProgressBar = null
 # Timer accumulator for slow-poll HUD sections (mission + research)
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
+var _research_fast_path: bool = false  # true when research active → update every frame
 
 # GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fuel indicator label.
 var _fuel_label: Label = null
@@ -54,6 +55,23 @@ var _overlay_mode_label: Label = null
 
 # Galaxy map header label (shown only when overlay is active)
 var _galaxy_map_label: Label = null
+
+# L3.3: Context-aware HUD promotion — contested zone warning
+var _contested_label: Label = null
+# L3.3: Cargo full pulse state
+var _cargo_pulse_active: bool = false
+# L3.3: Hull critical pulse state
+var _hull_pulse_active: bool = false
+
+# L2.2: Galaxy map legend panel (bottom-left, mode-specific)
+var _galaxy_legend_panel: PanelContainer = null
+var _galaxy_legend_vbox: VBoxContainer = null
+var _galaxy_legend_toggle: Button = null
+var _galaxy_legend_content: VBoxContainer = null
+var _galaxy_legend_collapsed: bool = false
+
+# L2.3: V2 overlay mode label (top-center, below galaxy map label)
+var _v2_mode_label: Label = null
 
 # GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 var _zone_g_bar: HBoxContainer = null
@@ -80,6 +98,14 @@ var _prev_locked_out: bool = false
 var _combat_vignette: ColorRect = null
 var _combat_vignette_active: bool = false
 
+# Combat engagement banner — top-center, large text during combat.
+var _combat_banner: Label = null
+var _combat_banner_visible: bool = false
+
+# Feedback: track research state for completion celebration.
+var _prev_researching: bool = false
+var _prev_research_tech: String = ""
+
 # GATE.S7.HUD_ARCH.ALERT_BADGE.001: Alert count badge in Zone A.
 var _alert_badge: Control = null
 var _alert_badge_label: Label = null
@@ -93,6 +119,13 @@ var _overlay_scrim: ColorRect = null
 
 # Suppress "LOW" fuel warning until player has had fuel at least once (avoid alarming at boot)
 var _fuel_ever_had: bool = false
+
+# L0.1/L0.5: Credits animation state.
+var _credits_display: int = -1  # Displayed value (animates toward actual)
+var _credits_actual: int = 0
+var _credits_tween: Tween = null
+# L0.1: Credits flash overlay for trade feedback.
+var _credits_flash: ColorRect = null
 
 # GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Cached onboarding disclosure state.
 var _onboarding_state: Dictionary = {}
@@ -216,6 +249,19 @@ func _ready() -> void:
 	_guide_objective_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_guide_objective_label)
 
+	# L0.1: Credits flash overlay — thin highlight behind credits label for trade feedback.
+	_credits_flash = ColorRect.new()
+	_credits_flash.name = "CreditsFlash"
+	_credits_flash.color = Color(0.2, 1.0, 0.4, 0.0)  # Start transparent
+	_credits_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_credits_flash.visible = false
+	if _credits_label:
+		UITheme.apply_mono(_credits_label)
+		# FEEL_PASS4_P1: Gold color for credits — visual hierarchy.
+		_credits_label.add_theme_color_override("font_color", UITheme.GOLD)
+		_credits_label.add_child(_credits_flash)
+		_credits_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+
 	# GATE.S9.UI.TOOLTIP_HUD.001: tooltips on HUD elements
 	if _credits_label:
 		_credits_label.tooltip_text = "Current credits available for trade and upgrades"
@@ -223,6 +269,8 @@ func _ready() -> void:
 		_cargo_label.tooltip_text = "Items in cargo hold"
 	if _node_label:
 		_node_label.tooltip_text = "Current star system"
+		# FEEL_PASS4_P1: Cyan for system name — visual hierarchy.
+		_node_label.add_theme_color_override("font_color", UITheme.CYAN)
 	if _state_label:
 		_state_label.tooltip_text = "Ship state: Docked, InFlight, Traveling"
 	if _hull_bar:
@@ -289,6 +337,16 @@ func _ready() -> void:
 	_security_label.visible = false
 	add_child(_security_label)
 
+	# L3.3: Contested zone warning (right of security label)
+	_contested_label = Label.new()
+	_contested_label.name = "ContestedLabel"
+	_contested_label.text = "CONTESTED ZONE"
+	_contested_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_contested_label.add_theme_color_override("font_color", UITheme.RED)
+	_contested_label.position = Vector2(180, 278)
+	_contested_label.visible = false
+	add_child(_contested_label)
+
 	# GATE.S3.RISK_SINKS.BRIDGE.001: delay/ETA status label (below security label)
 	_delay_label = Label.new()
 	_delay_label.name = "DelayLabel"
@@ -323,14 +381,25 @@ func _ready() -> void:
 	_mission_step_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 	mission_vbox.add_child(_mission_step_label)
 
-	# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label (below mission panel)
+	# GATE.S11.GAME_FEEL.RESEARCH_HUD.001: research progress label with background panel.
+	var research_bg := PanelContainer.new()
+	research_bg.name = "ResearchBg"
+	research_bg.position = Vector2(8, 125)
+	var rbg_style := StyleBoxFlat.new()
+	rbg_style.bg_color = Color(0.02, 0.04, 0.08, 0.8)
+	rbg_style.set_corner_radius_all(4)
+	rbg_style.content_margin_left = 8.0
+	rbg_style.content_margin_right = 8.0
+	rbg_style.content_margin_top = 3.0
+	rbg_style.content_margin_bottom = 3.0
+	research_bg.add_theme_stylebox_override("panel", rbg_style)
+	add_child(research_bg)
 	_research_label = Label.new()
 	_research_label.name = "ResearchLabel"
 	_research_label.text = "Research: Idle"
-	_research_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_research_label.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
 	_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
-	_research_label.position = Vector2(10, 400)
-	add_child(_research_label)
+	research_bg.add_child(_research_label)
 
 	# GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Scan progress indicator.
 	_scan_progress_label = Label.new()
@@ -389,6 +458,8 @@ func _ready() -> void:
 		lbl.text = ""
 		lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		lbl.clip_text = true
+		lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		lbl.visible = false
 		_active_leads_vbox.add_child(lbl)
 		_active_leads_labels.append(lbl)
@@ -455,6 +526,21 @@ func _ready() -> void:
 	_galaxy_map_label.visible = false
 	add_child(_galaxy_map_label)
 
+	# L2.3: V2 overlay mode label (centered, below galaxy map label)
+	_v2_mode_label = Label.new()
+	_v2_mode_label.name = "V2ModeLabel"
+	_v2_mode_label.text = ""
+	_v2_mode_label.add_theme_font_size_override("font_size", UITheme.FONT_SECTION)
+	_v2_mode_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_v2_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_v2_mode_label.position = Vector2(0, 52)
+	_v2_mode_label.size = Vector2(1920, 30)
+	_v2_mode_label.visible = false
+	add_child(_v2_mode_label)
+
+	# L2.2: Galaxy map legend panel (bottom-left corner)
+	_build_galaxy_legend_v0()
+
 	# GATE.S7.RISK_METER_UI.SCREEN_EDGE.001: screen edge vignette overlay.
 	var ScreenEdgeTintScript := preload("res://scripts/view/screen_edge_tint.gd")
 	_screen_edge_tint = ScreenEdgeTintScript.new()
@@ -486,6 +572,20 @@ func _ready() -> void:
 	vignette_shader.shader = shader_code
 	_combat_vignette.material = vignette_shader
 	add_child(_combat_vignette)
+
+	# FEEL_PASS2_P9: Combat engagement banner — large top-center text during combat.
+	# Provides a clear visual tell even at high camera altitude where ships are tiny.
+	_combat_banner = Label.new()
+	_combat_banner.name = "CombatBanner"
+	_combat_banner.text = "ENGAGING HOSTILE"
+	_combat_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_combat_banner.position = Vector2(660, 80)
+	_combat_banner.size = Vector2(600, 50)
+	_combat_banner.add_theme_font_size_override("font_size", 28)
+	_combat_banner.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1, 1.0))
+	_combat_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combat_banner.visible = false
+	add_child(_combat_banner)
 
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Zone G bottom bar.
 	_zone_g_bg = ColorRect.new()
@@ -549,6 +649,7 @@ func _ready() -> void:
 	_keybind_hint_label.add_theme_font_size_override("font_size", 11)
 	_keybind_hint_label.add_theme_color_override("font_color", Color(0.4, 0.45, 0.5, 0.6))
 	_keybind_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_keybind_hint_label.clip_text = true
 	_keybind_hint_label.position = Vector2(0, 1076)
 	_keybind_hint_label.size = Vector2(1920, 20)
 	_keybind_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -810,6 +911,18 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 		if show_map_label:
 			_galaxy_map_label.size.x = get_viewport().get_visible_rect().size.x
 		_galaxy_map_label.visible = show_map_label
+	# L2.2: Show/hide galaxy legend with galaxy map
+	if _galaxy_legend_panel:
+		var gm_open2 = gm != null and gm.get("galaxy_overlay_open") == true
+		var dash_open2 = gm != null and gm.get("empire_dashboard_open") == true
+		_galaxy_legend_panel.visible = active and not is_transit and gm_open2 and not dash_open2
+		if _galaxy_legend_panel.visible:
+			# Position at bottom-left of viewport
+			var vp_h: float = get_viewport().get_visible_rect().size.y
+			_galaxy_legend_panel.position.y = vp_h - 280
+	# L2.3: Hide V2 mode label when galaxy map closes
+	if _v2_mode_label and (not active or is_transit):
+		_v2_mode_label.visible = false
 	# GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Hide Zone G bar during overlay.
 	if _zone_g_bg: _zone_g_bg.visible = not active
 	if _zone_g_bar: _zone_g_bar.visible = not active
@@ -830,6 +943,7 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if active:
 		if _combat_label: _combat_label.visible = false
 		if _security_label: _security_label.visible = false
+		if _contested_label: _contested_label.visible = false
 		if _delay_label: _delay_label.visible = false
 		if _mission_panel: _mission_panel.visible = false
 		if _research_label: _research_label.visible = false
@@ -876,43 +990,87 @@ func _physics_process(_delta: float) -> void:
 			_warp_transit_hud.set_process(false)
 	if _overlay_active:
 		return
-	_credits_label.text = "Credits: " + str(ps.get("credits", 0))
-	# GATE.S12.UX_POLISH.CARGO_DISPLAY.001: show "X items" suffix
-	# FEEL_POST_FIX_7: Correct pluralization ("1 item" not "1 items").
+	# L0.5: Animated credits counter — smooth count-up/down on change.
+	_credits_actual = int(ps.get("credits", 0))
+	if _credits_display < 0:
+		_credits_display = _credits_actual  # First frame: snap
+	if _credits_display != _credits_actual:
+		_animate_credits_v0(_credits_actual)
+	# FEEL_PASS4_P1: Unicode prefix icons for visual structure.
+	_credits_label.text = "◆  %s" % UITheme.fmt_credits(_credits_display)
+	# L0.4: Cargo capacity display with icon prefix.
 	var _cc: int = int(ps.get("cargo_count", 0))
-	_cargo_label.text = "Cargo: %d %s" % [_cc, "item" if _cc == 1 else "items"]
+	var _cap: int = int(ps.get("cargo_capacity", 50))
+	_cargo_label.text = "▦  %d / %d" % [_cc, _cap]
+	if _cap > 0 and _cc >= _cap:
+		_cargo_label.add_theme_color_override("font_color", UITheme.RED)
+		# L3.3: Pulse cargo label when full — subtle alpha oscillation.
+		if not _cargo_pulse_active:
+			_cargo_pulse_active = true
+			var tw := create_tween().set_loops()
+			tw.tween_property(_cargo_label, "modulate:a", 0.5, 0.6)
+			tw.tween_property(_cargo_label, "modulate:a", 1.0, 0.6)
+	elif _cap > 0 and float(_cc) / float(_cap) > 0.8:
+		_cargo_label.add_theme_color_override("font_color", UITheme.ORANGE)
+		if _cargo_pulse_active:
+			_cargo_pulse_active = false
+			_cargo_label.modulate.a = 1.0
+	else:
+		_cargo_label.remove_theme_color_override("font_color")
+		if _cargo_pulse_active:
+			_cargo_pulse_active = false
+			_cargo_label.modulate.a = 1.0
 	var node_display = str(ps.get("node_name", ps.get("current_node_id", "")))
 	# FEEL_POST_FIX_9: Strip ALL parenthesized tags for clean system name in HUD.
-	_node_label.text = _strip_paren_tags(node_display)
+	# FEEL_PASS4_P1: Unicode prefix icon.
+	_node_label.text = "◉  %s" % _strip_paren_tags(node_display)
 
+	# FEEL_PASS4_P1: State icons for visual structure.
 	match raw_state:
 		"DOCKED":
-			_state_label.text = "Docked"
+			_state_label.text = "⚓  Docked"
+			_state_label.add_theme_color_override("font_color", UITheme.CYAN)
 		"IN_LANE_TRANSIT":
 			# FEEL_BASELINE: Show destination name during warp transit.
 			var dest_name := _get_transit_dest_name()
 			if dest_name.is_empty():
-				_state_label.text = "Traveling..."
+				_state_label.text = "▸  Traveling..."
 			else:
-				_state_label.text = "Traveling to %s" % dest_name
+				_state_label.text = "▸  Traveling to %s" % dest_name
+			_state_label.add_theme_color_override("font_color", UITheme.TEXT_INFO)
 			# Transit overlay already managed above (FEEL_POST_FIX_8).
 		_:
 			# FEEL_POST_BASELINE: Show "COMBAT" when hostile NPCs are in aggro range.
 			var in_combat := _is_hostile_nearby()
 			if in_combat:
-				_state_label.text = "COMBAT"
+				_state_label.text = "⚔  COMBAT"
 				# FEEL_POST_FIX_4: Bright orange-yellow to distinguish from "DANGEROUS"
 				# security label (which uses red). Both using red was ambiguous.
 				_state_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1))
 			else:
-				_state_label.text = "Flying"
-				_state_label.remove_theme_color_override("font_color")
+				_state_label.text = "▸  Flying"
+				_state_label.add_theme_color_override("font_color", UITheme.GREEN)
 
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
 	# Also hide during tutorial — combat not yet introduced.
 	var _in_combat_now: bool = not _tutorial_active and raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
 	if _combat_hud:
 		_combat_hud.visible = _in_combat_now
+
+	# FEEL_PASS2_P9: Combat engagement banner — show/hide with fade.
+	if _combat_banner:
+		var show_banner: bool = _in_combat_now and not _overlay_active
+		if show_banner and not _combat_banner_visible:
+			_combat_banner_visible = true
+			_combat_banner.visible = true
+			_combat_banner.modulate.a = 0.0
+			var tw := create_tween()
+			tw.tween_property(_combat_banner, "modulate:a", 1.0, 0.3)
+		elif not show_banner and _combat_banner_visible:
+			_combat_banner_visible = false
+			var tw := create_tween()
+			tw.tween_property(_combat_banner, "modulate:a", 0.0, 0.4)
+			tw.tween_callback(func(): _combat_banner.visible = false)
 
 	# FEEL_POST_FIX_9: Combat vignette — fade in/out red border glow.
 	# Suppress during galaxy map overlay and warp transit to prevent bleed.
@@ -956,9 +1114,21 @@ func _physics_process(_delta: float) -> void:
 				_hull_label.remove_theme_color_override("font_color")
 			_hull_bar.visible = true
 			_hull_label.visible = true
+			# L3.3: Hull critical pulse — bar pulses when below 25%.
+			if hull_pct < 0.25 and hull_pct > 0.0:
+				if not _hull_pulse_active:
+					_hull_pulse_active = true
+					var tw := create_tween().set_loops()
+					tw.tween_property(_hull_bar, "modulate:a", 0.4, 0.5)
+					tw.tween_property(_hull_bar, "modulate:a", 1.0, 0.5)
+			elif _hull_pulse_active:
+				_hull_pulse_active = false
+				_hull_bar.modulate.a = 1.0
 		else:
 			_hull_bar.visible = false
 			_hull_label.visible = false
+			if _hull_pulse_active:
+				_hull_pulse_active = false
 
 		if shield_max > 0:
 			_shield_bar.max_value = shield_max
@@ -1034,6 +1204,10 @@ func _physics_process(_delta: float) -> void:
 			_:
 				_battle_stations_label.visible = false
 
+	# Fast-path: keep research label current every frame while research is active.
+	if _research_fast_path:
+		_update_research_hud()
+
 	# GATE.S11.GAME_FEEL.MISSION_HUD.001 + RESEARCH_HUD.001: slow-poll (every 2s)
 	_slow_poll_elapsed += _delta
 	if _slow_poll_elapsed >= _SLOW_POLL_INTERVAL:
@@ -1079,6 +1253,25 @@ func _physics_process(_delta: float) -> void:
 				_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 			else:
 				_security_label.visible = false
+
+	# L3.3: Contested zone warning — show when current node is in an active warfront.
+	if _contested_label != null and _bridge != null:
+		var _contested_visible := false
+		if not _tutorial_active and _bridge.has_method("GetWarfrontOverlayV0"):
+			var node_id_c: String = str(ps.get("current_node_id", ""))
+			if not node_id_c.is_empty():
+				var wf_overlay: Dictionary = _bridge.call("GetWarfrontOverlayV0")
+				if wf_overlay.has(node_id_c):
+					var intensity: float = float(wf_overlay[node_id_c])
+					if intensity > 0.0:
+						_contested_visible = true
+						if intensity >= 0.75:
+							_contested_label.text = "WARZONE"
+							_contested_label.add_theme_color_override("font_color", UITheme.RED)
+						else:
+							_contested_label.text = "CONTESTED ZONE"
+							_contested_label.add_theme_color_override("font_color", UITheme.ORANGE)
+		_contested_label.visible = _contested_visible
 
 	# GATE.S3.RISK_SINKS.HUD_INDICATOR.001: delay/ETA + risk level display
 	if _tutorial_active and _delay_label != null:
@@ -1132,7 +1325,18 @@ func _physics_process(_delta: float) -> void:
 		_cargo_label.visible = true
 		_node_label.visible = true
 		_state_label.visible = true
-		if _guide_objective_label: _guide_objective_label.visible = _guide_objective_label.text != ""
+		if _guide_objective_label:
+			var _show_obj: bool = _guide_objective_label.text != ""
+			# Context-aware: suppress stale objectives during dock/warp/combat.
+			if _show_obj:
+				var _ps_tut = _bridge.call("GetPlayerStateV0") if _bridge and _bridge.has_method("GetPlayerStateV0") else {}
+				if _ps_tut is Dictionary:
+					var _st: String = str(_ps_tut.get("ship_state_token", ""))
+					if _st == "WARP_TRANSIT" or _st == "WARPING" or _st == "IN_LANE_TRANSIT" or _st == "COMBAT":
+						_show_obj = false
+					elif _st == "DOCKED" and _guide_objective_label.text.find("Dock at") >= 0:
+						_show_obj = false
+			_guide_objective_label.visible = _show_obj
 		if _dock_prompt_label: _dock_prompt_label.visible = _dock_prompt_label.text != ""
 
 # GATE.S11.GAME_FEEL.MISSION_HUD.001: mission objective update (called every 2s)
@@ -1285,19 +1489,56 @@ func _update_research_hud() -> void:
 		return
 	var status: Dictionary = _bridge.call("GetResearchStatusV0")
 	var is_researching: bool = status.get("researching", false)
+	_research_fast_path = is_researching
 	if is_researching:
 		var tech_id: String = str(status.get("tech_id", ""))
+		_prev_research_tech = tech_id
 		var pct: int = int(status.get("progress_pct", 0))
 		var stall: String = str(status.get("stall_reason", ""))
+		var progress_ticks: int = int(status.get("progress_ticks", 0))
+		var total_ticks: int = int(status.get("total_ticks", 0))
+		var remaining: int = max(0, total_ticks - progress_ticks)
 		if not stall.is_empty():
 			_research_label.text = "RESEARCH: %s STALLED: %s" % [tech_id, stall]
 			_research_label.add_theme_color_override("font_color", UITheme.RED)
+		elif remaining <= 10 and remaining > 0:
+			# L3.3: Promote research near-completion to attention
+			_research_label.text = "RESEARCH: %s — %d ticks left!" % [tech_id, remaining]
+			_research_label.add_theme_color_override("font_color", UITheme.GOLD)
 		else:
 			_research_label.text = "RESEARCH: %s %d%%" % [tech_id, pct]
 			_research_label.add_theme_color_override("font_color", UITheme.CYAN)
 	else:
+		# Detect research completion: was researching last check, now idle.
+		if _prev_researching and not _prev_research_tech.is_empty():
+			_spawn_research_complete_feedback(_prev_research_tech)
+			_prev_research_tech = ""
 		_research_label.text = "Research: Idle"
 		_research_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	_prev_researching = is_researching
+
+## Floating "RESEARCH COMPLETE" celebration label.
+func _spawn_research_complete_feedback(tech_id: String) -> void:
+	var lbl := Label.new()
+	lbl.text = "RESEARCH COMPLETE: %s" % tech_id
+	lbl.add_theme_font_size_override("font_size", 22)
+	lbl.add_theme_color_override("font_color", UITheme.GOLD)
+	lbl.z_index = 100
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var vp_size := get_viewport().get_visible_rect().size
+	lbl.position = Vector2(vp_size.x * 0.5 - 150, vp_size.y * 0.25)
+	add_child(lbl)
+	# Scale up from 0.8 → 1.0 + float upward + fade out.
+	lbl.scale = Vector2(0.8, 0.8)
+	var tw := create_tween()
+	tw.tween_property(lbl, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(lbl, "position:y", lbl.position.y - 40.0, 2.5)
+	tw.parallel().tween_property(lbl, "modulate:a", 0.0, 2.5).set_delay(1.0)
+	tw.tween_callback(lbl.queue_free)
+	# Diegetic research completion chime.
+	var gm_sfx = get_node_or_null("/root/GameManager")
+	if gm_sfx and gm_sfx.has_method("play_ui_research_sfx_v0"):
+		gm_sfx.call("play_ui_research_sfx_v0")
 
 # GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: scan progress update
 func _update_scan_progress_v0() -> void:
@@ -1428,6 +1669,8 @@ func toggle_warfront_dashboard_v0() -> void:
 func toggle_fo_panel_v0() -> void:
 	if _fo_panel != null:
 		_fo_panel.visible = not _fo_panel.visible
+		# Cancel auto-hide timer — player took manual control.
+		_fo_panel._auto_show_timer = -1.0
 
 # GATE.S7.HUD_ARCH.ZONE_FRAMEWORK.001: Update Zone G bottom bar content.
 func _update_zone_g_v0() -> void:
@@ -1528,7 +1771,7 @@ func _update_fleet_auto_summary_v0() -> void:
 		return
 	_fleet_auto_panel.visible = true
 	_fleet_auto_program_label.text = "Auto: %d cycles" % cycles
-	_fleet_auto_credits_label.text = "Credits: %d" % credits
+	_fleet_auto_credits_label.text = "Credits: %s" % UITheme.fmt_credits(credits)
 	_fleet_auto_failures_label.text = "Failures: %d" % failures
 	if failures > 0:
 		_fleet_auto_failures_label.add_theme_color_override("font_color", UITheme.RED)
@@ -1618,6 +1861,22 @@ func _update_guide_objective_v0() -> void:
 			_guide_objective_label.visible = false
 			return
 
+	# Context-aware: suppress during combat/warp states regardless of who set the hint.
+	var ship_state: String = ""
+	if _bridge and _bridge.has_method("GetPlayerStateV0"):
+		var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+		if ps is Dictionary:
+			ship_state = str(ps.get("ship_state_token", ""))
+	var in_combat: bool = (ship_state == "COMBAT")
+	var in_warp: bool = (ship_state == "WARP_TRANSIT" or ship_state == "WARPING" or ship_state == "IN_LANE_TRANSIT")
+	var is_docked: bool = (ship_state == "DOCKED")
+	if in_combat or in_warp:
+		_guide_objective_label.visible = false
+		return
+	# Suppress stale "dock at" hint when already docked (tutorial may have set it pre-dock).
+	if is_docked and _guide_objective_label.text.find("Dock at") >= 0:
+		_guide_objective_label.visible = false
+
 	# During FO-voiced tutorial, the tutorial_director sets the objective directly.
 	# Let it drive the label instead of the legacy onboarding state checks.
 	if _bridge and _bridge.has_method("IsTutorialActiveV0"):
@@ -1637,16 +1896,16 @@ func _update_guide_objective_v0() -> void:
 		_guide_objective_label.visible = false
 	elif has_traded and nodes_visited >= 2:
 		_guide_objective_label.text = "\u25b8 Set up a program to automate this route"
-		_guide_objective_label.visible = true
+		_guide_objective_label.visible = not is_docked
 	elif has_traded:
-		_guide_objective_label.text = "\u25b8 Sell at another system for profit"
-		_guide_objective_label.visible = true
+		_guide_objective_label.text = "\u25b8 Fly to another system and sell for profit"
+		_guide_objective_label.visible = not is_docked
 	elif has_docked:
 		_guide_objective_label.text = "\u25b8 Buy goods from the Market"
-		_guide_objective_label.visible = true
+		_guide_objective_label.visible = is_docked
 	elif not _onboarding_state.is_empty():
 		_guide_objective_label.text = "\u25b8 Dock at the station ahead"
-		_guide_objective_label.visible = true
+		_guide_objective_label.visible = not is_docked
 	else:
 		_guide_objective_label.visible = false
 
@@ -1698,7 +1957,7 @@ func hide_gate_prompt_v0() -> void:
 func _build_keybind_hint_text() -> String:
 	var input_mgr = get_node_or_null("/root/InputManager")
 	if input_mgr == null:
-		return "M Map  |  E Empire  |  F FO  |  K Web  |  L Log  |  D Data  |  B Auto  |  V Overlay  |  H Help"
+		return "M Map | E Empire | F FO | K Web | L Log | D Data | B Auto | V Overlay"
 	var parts: Array[String] = []
 	parts.append("%s Map" % input_mgr.get_action_label("ui_galaxy_map"))
 	parts.append("%s Empire" % input_mgr.get_action_label("ui_empire_dashboard"))
@@ -1708,8 +1967,7 @@ func _build_keybind_hint_text() -> String:
 	parts.append("%s Data" % input_mgr.get_action_label("ui_data_log"))
 	parts.append("%s Auto" % input_mgr.get_action_label("ui_automation"))
 	parts.append("%s Overlay" % input_mgr.get_action_label("ui_data_overlay"))
-	parts.append("%s Help" % input_mgr.get_action_label("ui_keybinds_help"))
-	return "  |  ".join(parts)
+	return " | ".join(parts)
 
 
 func _get_transit_dest_name() -> String:
@@ -2049,3 +2307,194 @@ func _security_display_name(band: String) -> String:
 		"dangerous": return "Threat: Elevated"
 		"safe":      return "Secure Space"
 		_:           return "Threat: Moderate"
+
+
+# ── L0.1 / L0.5: Credits animation + trade feedback flash ──
+
+## Animate credits counter from current displayed value to target.
+func _animate_credits_v0(target: int) -> void:
+	if _credits_tween and _credits_tween.is_valid():
+		_credits_tween.kill()
+	var start_val: int = _credits_display
+	_credits_tween = create_tween()
+	_credits_tween.tween_method(_set_credits_display.bind(start_val, target), 0.0, 1.0, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+func _set_credits_display(t: float, start: int, target: int) -> void:
+	_credits_display = int(lerpf(float(start), float(target), t))
+	_credits_label.text = "Credits: %s" % UITheme.fmt_credits(_credits_display)
+
+## Flash the credits label for trade feedback. Called externally by hero_trade_menu.
+## is_profit: true = green flash (sell/income), false = red flash (buy/expense).
+func flash_credits_v0(is_profit: bool) -> void:
+	if _credits_flash == null:
+		return
+	var flash_color := UITheme.profit_color() if is_profit else UITheme.loss_color()
+	_credits_flash.color = Color(flash_color.r, flash_color.g, flash_color.b, 0.35)
+	_credits_flash.visible = true
+	var tw := create_tween()
+	tw.tween_property(_credits_flash, "color:a", 0.0, 0.4).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func(): _credits_flash.visible = false)
+
+# ============================================================================
+# L2.2: GALAXY MAP LEGEND
+# ============================================================================
+
+func _build_galaxy_legend_v0() -> void:
+	_galaxy_legend_panel = PanelContainer.new()
+	_galaxy_legend_panel.name = "GalaxyLegend"
+	_galaxy_legend_panel.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
+	_galaxy_legend_panel.position = Vector2(12, 600)
+	_galaxy_legend_panel.custom_minimum_size = Vector2(220, 0)
+	_galaxy_legend_panel.visible = false
+	_galaxy_legend_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	_galaxy_legend_vbox = VBoxContainer.new()
+	_galaxy_legend_vbox.add_theme_constant_override("separation", 4)
+
+	# Header row: LEGEND title + collapse toggle
+	var hdr := HBoxContainer.new()
+	var title_lbl := Label.new()
+	title_lbl.text = "LEGEND"
+	title_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	title_lbl.add_theme_color_override("font_color", UITheme.CYAN)
+	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hdr.add_child(title_lbl)
+	_galaxy_legend_toggle = Button.new()
+	_galaxy_legend_toggle.text = "Hide"
+	_galaxy_legend_toggle.custom_minimum_size = Vector2(40, 20)
+	_galaxy_legend_toggle.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_galaxy_legend_toggle.pressed.connect(_toggle_legend_collapse_v0)
+	_galaxy_legend_toggle.mouse_filter = Control.MOUSE_FILTER_STOP
+	hdr.add_child(_galaxy_legend_toggle)
+	hdr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_galaxy_legend_vbox.add_child(hdr)
+
+	# Thin rule under header
+	var rule := ColorRect.new()
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.color = Color(UITheme.CYAN.r, UITheme.CYAN.g, UITheme.CYAN.b, 0.35)
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_galaxy_legend_vbox.add_child(rule)
+
+	# Content area (populated per mode)
+	_galaxy_legend_content = VBoxContainer.new()
+	_galaxy_legend_content.name = "LegendContent"
+	_galaxy_legend_content.add_theme_constant_override("separation", 2)
+	_galaxy_legend_vbox.add_child(_galaxy_legend_content)
+
+	_galaxy_legend_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_galaxy_legend_panel.add_child(_galaxy_legend_vbox)
+	add_child(_galaxy_legend_panel)
+
+	# Populate default legend
+	_update_galaxy_legend_v0(-1)
+
+func _toggle_legend_collapse_v0() -> void:
+	_galaxy_legend_collapsed = not _galaxy_legend_collapsed
+	if _galaxy_legend_content:
+		_galaxy_legend_content.visible = not _galaxy_legend_collapsed
+	if _galaxy_legend_toggle:
+		_galaxy_legend_toggle.text = "Show" if _galaxy_legend_collapsed else "Hide"
+
+func _update_galaxy_legend_v0(v2_mode: int) -> void:
+	if _galaxy_legend_content == null:
+		return
+	# Clear previous content
+	for child in _galaxy_legend_content.get_children():
+		_galaxy_legend_content.remove_child(child)
+		child.queue_free()
+
+	# Mode-specific legend entries
+	var entries: Array = []
+	match v2_mode:
+		1:  # Faction
+			entries = [
+				{"color": Color(0.9, 0.75, 0.2, 0.6), "text": "Territory (faction color)"},
+				{"color": Color(0.5, 0.5, 0.5, 0.4), "text": "Unclaimed / neutral"},
+			]
+		2:  # Fleet
+			entries = [
+				{"color": Color(0.2, 0.8, 1.0, 0.5), "text": "1-5 ships (small)"},
+				{"color": Color(0.2, 0.8, 1.0, 0.7), "text": "6-15 ships (medium)"},
+				{"color": Color(0.2, 0.8, 1.0, 0.9), "text": "16+ ships (large)"},
+			]
+		3:  # Heat
+			entries = [
+				{"color": Color(0.0, 1.0, 0.1, 0.5), "text": "Cold (low activity)"},
+				{"color": Color(1.0, 1.0, 0.0, 0.5), "text": "Warm (moderate)"},
+				{"color": Color(1.0, 0.0, 0.1, 0.5), "text": "Hot (high activity)"},
+			]
+		4:  # Exploration
+			entries = [
+				{"color": Color(0.4, 0.4, 0.4, 0.4), "text": "Unknown"},
+				{"color": Color(0.8, 0.8, 0.8, 0.5), "text": "Visited"},
+				{"color": Color(0.2, 0.8, 0.3, 0.5), "text": "Mapped"},
+				{"color": Color(0.7, 0.2, 0.9, 0.6), "text": "Anomaly"},
+			]
+		5:  # Warfront
+			entries = [
+				{"color": Color(0.7, 0.15, 0.05, 0.4), "text": "Low intensity"},
+				{"color": Color(1.0, 0.4, 0.1, 0.6), "text": "Stressed supply"},
+				{"color": Color(1.0, 0.1, 0.1, 0.8), "text": "Severed / contested"},
+			]
+		_:  # Default / no V2 overlay — show security
+			entries = [
+				{"color": UITheme.GREEN, "text": "Safe"},
+				{"color": UITheme.BLUE, "text": "Moderate"},
+				{"color": UITheme.ORANGE, "text": "Dangerous"},
+				{"color": UITheme.RED, "text": "Hostile"},
+			]
+
+	# Hotkeys hint
+	var hint_lbl := Label.new()
+	hint_lbl.text = "F:Faction  L:Fleet  H:Heat"
+	hint_lbl.add_theme_font_size_override("font_size", 11)
+	hint_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	hint_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_galaxy_legend_content.add_child(hint_lbl)
+	var hint_lbl2 := Label.new()
+	hint_lbl2.text = "E:Explore  W:Warfront"
+	hint_lbl2.add_theme_font_size_override("font_size", 11)
+	hint_lbl2.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+	hint_lbl2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_galaxy_legend_content.add_child(hint_lbl2)
+
+	# Add spacer
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 2)
+	_galaxy_legend_content.add_child(spacer)
+
+	# Build legend rows
+	for entry in entries:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var swatch := ColorRect.new()
+		swatch.custom_minimum_size = Vector2(12, 12)
+		swatch.color = entry["color"]
+		swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(swatch)
+		var lbl := Label.new()
+		lbl.text = entry["text"]
+		lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
+		_galaxy_legend_content.add_child(row)
+
+# ============================================================================
+# L2.3: V2 OVERLAY MODE LABEL UPDATE
+# ============================================================================
+
+## Called by GalaxyView when a V2 overlay mode is toggled.
+## mode: 0=Off, 1=Faction, 2=Fleet, 3=Heat, 4=Exploration, 5=Warfront
+func set_v2_overlay_mode_v0(mode: int) -> void:
+	var mode_names: Dictionary = {
+		0: "", 1: "FACTION TERRITORY", 2: "FLEET POSITIONS",
+		3: "COMBAT HEAT", 4: "EXPLORATION STATUS", 5: "WARFRONT INTENSITY"
+	}
+	if _v2_mode_label:
+		_v2_mode_label.text = mode_names.get(mode, "")
+		_v2_mode_label.visible = mode > 0
+	_update_galaxy_legend_v0(mode)

@@ -292,17 +292,29 @@ public static class MarketInitGen
 
         int minTargetMargin = Tweaks.MarketTweaksV0.MinStarterMargin;
 
+        // Tutorial Travel_Prompt gate requires visiting an UNVISITED node.
+        // Pre-visited nodes (star_0 + starter) cannot satisfy this gate, so the
+        // profitable route MUST exist at an unvisited neighbor — otherwise the
+        // player's first trade is guaranteed unprofitable.
+        var unvisitedNeighborIds = neighborIds
+            .Where(nid => !state.PlayerVisitedNodeIds.Contains(nid))
+            .ToList();
+
         // Guarantee profitable margin for EVERY good at the starter station
         // at the BEST adjacent neighbor.  The tutorial may recommend any good,
         // so we need at least one neighbor where each good is profitable.
+        // Prioritize UNVISITED neighbors so the tutorial travel gate is satisfiable.
         foreach (var goodId in startMarket.Inventory.Keys.ToList())
         {
             int buyAtStart = startMarket.GetBuyPrice(goodId);
 
-            // Find the best neighbor sell price for this good.
+            // Find the best UNVISITED neighbor sell price for this good.
+            // Fall back to any neighbor if no unvisited ones exist.
+            var candidateNeighbors = unvisitedNeighborIds.Count > 0
+                ? unvisitedNeighborIds : neighborIds;
             int bestMargin = int.MinValue;
             string bestNid = "";
-            foreach (var nid in neighborIds)
+            foreach (var nid in candidateNeighbors)
             {
                 if (!state.Markets.TryGetValue(nid, out var nm)) continue;
                 if (!nm.Inventory.ContainsKey(goodId)) continue;
@@ -317,9 +329,9 @@ public static class MarketInitGen
 
             if (bestMargin >= minTargetMargin) continue; // Already profitable somewhere.
 
-            // Pick the best neighbor (or first) and force profitability.
-            if (string.IsNullOrEmpty(bestNid) && neighborIds.Count > 0)
-                bestNid = neighborIds[0];
+            // Pick the best neighbor (or first unvisited) and force profitability.
+            if (string.IsNullOrEmpty(bestNid) && candidateNeighbors.Count > 0)
+                bestNid = candidateNeighbors[0];
             if (string.IsNullOrEmpty(bestNid)) continue;
 
             if (!state.Markets.TryGetValue(bestNid, out var neighborMarket)) continue;

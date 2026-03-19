@@ -21,6 +21,14 @@ const NAV_TURN_GAIN: float = 12.0   # Torque multiplier for autopilot steering.
 const SOLAR_REPEL_RADIUS: float = 25.0  # Distance at which gentle nudge begins.
 const SOLAR_REPEL_FORCE: float = 400.0  # Max force at star surface (cubic peak).
 
+# Obstacle avoidance — Y-lift over planets, XZ steering around stations/ships.
+const Y_SPRING_K: float = 40.0          # Return-to-zero spring stiffness.
+const Y_DAMP_K: float = 12.0            # Y-axis velocity damping to prevent oscillation.
+const PLANET_LIFT_FORCE: float = 300.0   # Upward force when near a planet.
+const STATION_REPEL_FORCE: float = 150.0 # XZ push away from stations.
+const SHIP_SEPARATION_FORCE: float = 80.0 # XZ push away from other ships.
+const SHIP_SEPARATION_RADIUS: float = 8.0
+
 var _nav_target: Vector3 = Vector3.ZERO
 var _nav_active: bool = false
 
@@ -34,7 +42,7 @@ func _ready():
 	gravity_scale = GRAVITY_SCALE_V0
 	linear_damp = LINEAR_DAMPING_V0
 	angular_damp = ANGULAR_DAMPING_V0
-	axis_lock_linear_y = true
+	axis_lock_linear_y = false  # Unlocked: Y-lift avoidance over planets.
 	axis_lock_angular_x = true
 	axis_lock_angular_z = true
 	_build_player_model()
@@ -137,11 +145,15 @@ func _physics_process(_delta):
 			var strength: float = t * t * t * SOLAR_REPEL_FORCE  # Cubic: gentle nudge → hard push
 			apply_central_force(-to_star.normalized() * strength)
 
-	# Clamp max speed deterministically.
+	# Obstacle avoidance: Y-lift over planets, XZ steering around stations/ships.
+	_apply_obstacle_avoidance()
+
+	# Clamp max speed (XZ only — don't clamp Y-lift velocity).
 	var v: Vector3 = linear_velocity
-	var speed: float = v.length()
-	if speed > MAX_SPEED_V0 and speed > 0.0:
-		linear_velocity = v * (MAX_SPEED_V0 / speed)
+	var xz_speed: float = Vector2(v.x, v.z).length()
+	if xz_speed > MAX_SPEED_V0 and xz_speed > 0.0:
+		var scale_factor: float = MAX_SPEED_V0 / xz_speed
+		linear_velocity = Vector3(v.x * scale_factor, v.y, v.z * scale_factor)
 
 func set_nav_target_v0(world_pos: Vector3) -> void:
 	_nav_target = world_pos
@@ -162,6 +174,52 @@ func test_set_turn_axis_v0(axis: float):
 
 func test_clear_turn_axis_v0():
 	_test_turn_axis_v0 = null
+
+
+## Obstacle avoidance: Y-lift over planets, XZ repulsion around stations/ships.
+func _apply_obstacle_avoidance() -> void:
+	# ── Y-return spring: always pull ship back toward Y=0 flight plane ──
+	var y_pos: float = global_position.y
+	var y_vel: float = linear_velocity.y
+	apply_central_force(Vector3(0.0, -y_pos * Y_SPRING_K - y_vel * Y_DAMP_K, 0.0))
+
+	# ── Planets: Y-lift (fly over the sphere) ──
+	for planet in get_tree().get_nodes_in_group("PlanetBody"):
+		var to_planet: Vector3 = planet.global_position - global_position
+		to_planet.y = 0.0
+		var dist: float = to_planet.length()
+		var avoid_r: float = planet.get_meta("avoidance_radius", 12.0)
+		if dist < avoid_r and dist > 0.1:
+			var visual_r: float = planet.get_meta("visual_radius", 8.0)
+			var target_y: float = visual_r + 3.0  # Clear the top of the sphere.
+			# Cubic ramp: gentle at edge, strong close to planet center.
+			var t: float = 1.0 - dist / avoid_r  # 0 at edge, 1 at center
+			var lift: float = t * t * t * PLANET_LIFT_FORCE
+			# Scale lift by how far below target altitude we are.
+			var y_deficit: float = target_y - global_position.y
+			if y_deficit > 0.0:
+				apply_central_force(Vector3(0.0, lift * clampf(y_deficit / target_y, 0.0, 1.0), 0.0))
+
+	# ── Stations: XZ repulsion (steer around flat structures) ──
+	for station in get_tree().get_nodes_in_group("Station"):
+		var to_station: Vector3 = station.global_position - global_position
+		to_station.y = 0.0
+		var dist: float = to_station.length()
+		var avoid_r: float = station.get_meta("avoidance_radius", 8.0)
+		if dist < avoid_r and dist > 0.1:
+			var t: float = 1.0 - dist / avoid_r
+			var strength: float = t * t * t * STATION_REPEL_FORCE
+			apply_central_force(-to_station.normalized() * strength)
+
+	# ── Ship-ship separation: XZ repulsion from NPC ships ──
+	for ship in get_tree().get_nodes_in_group("NpcShip"):
+		var to_ship: Vector3 = ship.global_position - global_position
+		to_ship.y = 0.0
+		var dist: float = to_ship.length()
+		if dist < SHIP_SEPARATION_RADIUS and dist > 0.1:
+			var t: float = 1.0 - dist / SHIP_SEPARATION_RADIUS
+			var strength: float = t * t * SHIP_SEPARATION_FORCE
+			apply_central_force(-to_ship.normalized() * strength)
 
 
 ## Build the player ship model procedurally (replaces Quaternius asset).

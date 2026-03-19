@@ -254,14 +254,60 @@ func _update_fleet_label() -> void:
 
 func _move_toward_point(target: Vector3, speed: float, delta: float) -> void:
 	var direction: Vector3 = (target - global_position)
+	direction.y = 0.0
 	var dist: float = direction.length()
 	if dist < 0.01:
+		_apply_managed_y(delta)
 		return
+	var move_dir := direction.normalized()
+
+	# XZ avoidance: blend away from stations and other ships.
+	var avoid := _compute_xz_avoidance()
+	if avoid.length_squared() > 0.001:
+		move_dir = (move_dir + avoid).normalized()
+
 	var step: float = speed * delta
 	if step >= dist:
-		global_position = target
+		global_position.x = target.x
+		global_position.z = target.z
 	else:
-		global_position += direction.normalized() * step
+		global_position += Vector3(move_dir.x, 0.0, move_dir.z) * step
+	_apply_managed_y(delta)
+
+
+## Managed Y: lift over planets, return to flight plane when clear.
+func _apply_managed_y(delta: float) -> void:
+	var target_y: float = 0.0
+	var tree := get_tree()
+	if tree:
+		for planet in tree.get_nodes_in_group("PlanetBody"):
+			var to_planet := planet.global_position - global_position
+			to_planet.y = 0.0
+			var dist := to_planet.length()
+			var avoid_r: float = planet.get_meta("avoidance_radius", 12.0)
+			if dist < avoid_r and dist > 0.1:
+				var visual_r: float = planet.get_meta("visual_radius", 8.0)
+				var lift: float = visual_r + 3.0
+				var t: float = 1.0 - dist / avoid_r
+				target_y = maxf(target_y, lift * t * t * t + lift * 0.3 * (1.0 - t))
+	global_position.y = lerpf(global_position.y, target_y, clampf(4.0 * delta, 0.0, 1.0))
+
+
+## XZ avoidance: repulsion from stations and other ships.
+func _compute_xz_avoidance() -> Vector3:
+	var avoidance := Vector3.ZERO
+	var tree := get_tree()
+	if tree == null:
+		return avoidance
+	for station in tree.get_nodes_in_group("Station"):
+		var to_station := station.global_position - global_position
+		to_station.y = 0.0
+		var dist := to_station.length()
+		var avoid_r: float = station.get_meta("avoidance_radius", 8.0)
+		if dist < avoid_r and dist > 0.1:
+			var t: float = 1.0 - dist / avoid_r
+			avoidance -= to_station.normalized() * t * t * 0.5
+	return avoidance
 
 # --- Scene helpers ---
 

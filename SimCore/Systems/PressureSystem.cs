@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -8,6 +9,11 @@ namespace SimCore.Systems;
 // GATE.X.PRESSURE.SYSTEM.001: Pressure system — process deltas, enforce one-jump, track budget.
 public static class PressureSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> DomainIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Injects a pressure delta into the specified domain.
     /// </summary>
@@ -54,7 +60,10 @@ public static class PressureSystem
     {
         if (state?.Pressure == null) return;
 
-        var domainIds = new List<string>(state.Pressure.Domains.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var domainIds = scratch.DomainIds;
+        domainIds.Clear();
+        foreach (var k in state.Pressure.Domains.Keys) domainIds.Add(k);
         domainIds.Sort(StringComparer.Ordinal);
 
         foreach (var domainId in domainIds)
@@ -187,7 +196,10 @@ public static class PressureSystem
 
         // Snapshot domain keys to avoid collection-modified-during-enumeration
         // (InjectDelta may add new domains like "piracy").
-        var domainIds = new List<string>(state.Pressure.Domains.Keys);
+        var scratch2 = s_scratch.GetOrCreateValue(state);
+        var domainIds = scratch2.DomainIds;
+        domainIds.Clear();
+        foreach (var k in state.Pressure.Domains.Keys) domainIds.Add(k);
         domainIds.Sort(StringComparer.Ordinal);
 
         foreach (var domainId in domainIds)

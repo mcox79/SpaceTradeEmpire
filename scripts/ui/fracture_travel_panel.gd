@@ -24,8 +24,10 @@ func _build_ui() -> void:
 	_panel.offset_right = 220
 	_panel.anchor_top = 0.15
 	_panel.anchor_bottom = 0.85
-	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_dock())
+	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
 	add_child(_panel)
+	UITheme.add_corner_brackets(_panel)
+	UITheme.add_scanline_overlay(_panel)
 
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

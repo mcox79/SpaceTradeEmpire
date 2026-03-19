@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 
@@ -10,12 +11,24 @@ namespace SimCore.Systems;
 // Under-budget fleets have previously disabled modules re-enabled if they fit.
 public static class PowerBudgetSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedFleetIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
 
-        foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedFleetIds = scratch.SortedFleetIds;
+        sortedFleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) sortedFleetIds.Add(k);
+        sortedFleetIds.Sort(StringComparer.Ordinal);
+        foreach (var fleetId in sortedFleetIds)
         {
+            var fleet = state.Fleets[fleetId];
             if (fleet.Slots.Count == 0) continue;
 
             var classDef = ShipClassContentV0.GetById(fleet.ShipClassId);

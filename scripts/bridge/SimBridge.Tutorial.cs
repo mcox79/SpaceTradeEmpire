@@ -50,8 +50,11 @@ public partial class SimBridge
             result["phase_name"] = ts.Phase.ToString();
             result["candidate"] = ts.SelectedCandidate.ToString();
             result["dialogue_dismissed"] = ts.DialogueDismissed;
+            result["dialogue_sequence"] = ts.DialogueSequence;
             result["stall_ticks"] = ts.TicksSincePhaseChange;
             result["objective"] = TutorialContentV0.GetObjectiveText(ts.Phase);
+            result["pirate_spawned"] = ts.TutorialPirateSpawned;
+            result["module_granted"] = ts.TutorialModuleGranted;
 
             // Pre-selection: Maren speaks during Acts 2-3 (phases Maren_Hail through First_Profit).
             result["pre_selection"] = ts.SelectedCandidate == FirstOfficerCandidate.None
@@ -146,6 +149,28 @@ public partial class SimBridge
             {
                 string scText = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence);
                 if (string.IsNullOrEmpty(scText)) return;
+
+                // Graduation_Summary has template variables — substitute with actual stats.
+                if (ts.Phase == TutorialPhase.Graduation_Summary)
+                {
+                    var stats = state.PlayerStats;
+                    int modulesEquipped = 0;
+                    var fleet = state.Fleets.GetValueOrDefault("fleet_trader_1");
+                    if (fleet != null)
+                    {
+                        foreach (var slot in fleet.Slots)
+                        {
+                            if (!string.IsNullOrEmpty(slot.InstalledModuleId))
+                                modulesEquipped++;
+                        }
+                    }
+                    scText = scText
+                        .Replace("{credits_earned}", ((int)stats.TotalCreditsEarned).ToString())
+                        .Replace("{nodes_visited}", stats.NodesVisited.ToString())
+                        .Replace("{combats_won}", stats.NpcFleetsDestroyed.ToString())
+                        .Replace("{modules_equipped}", modulesEquipped.ToString());
+                }
+
                 result["type"] = "ShipComputer";
                 result["name"] = "SHIP COMPUTER";
                 result["text"] = scText;
@@ -652,6 +677,151 @@ public partial class SimBridge
         });
 
         return result;
+    }
+
+    // ── Bot Force-Advance Helpers (headless testing only) ──────────
+
+    /// <summary>
+    /// Force-discover Haven for tutorial bot. Sets Haven.Discovered = true.
+    /// </summary>
+    public void ForceDiscoverHavenV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            state.Haven ??= new HavenStarbase();
+            state.Haven.Discovered = true;
+            // Set tier to Inhabited so research lab slots are available.
+            if (state.Haven.Tier < HavenTier.Inhabited)
+                state.Haven.Tier = HavenTier.Inhabited;
+            // Ensure Haven has research lab slots for Act 9.
+            if (state.Haven.ResearchLabSlots == null || state.Haven.ResearchLabSlots.Count == 0)
+            {
+                state.Haven.ResearchLabSlots = new List<HavenResearchSlot> { new() };
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-start research in Haven slot 0 for tutorial bot (Research_Start gate).
+    /// Picks the first tier-1 tech with no prerequisites.
+    /// </summary>
+    public void ForceStartResearchV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            state.Haven ??= new HavenStarbase();
+            if (state.Haven.Tier < HavenTier.Inhabited)
+                state.Haven.Tier = HavenTier.Inhabited;
+            if (state.Haven.ResearchLabSlots == null || state.Haven.ResearchLabSlots.Count == 0)
+                state.Haven.ResearchLabSlots = new List<HavenResearchSlot> { new() };
+
+            var slot = state.Haven.ResearchLabSlots[0];
+            if (!slot.IsActive)
+            {
+                // Find first available tech.
+                foreach (var tech in TechContentV0.AllTechs)
+                {
+                    if (state.Tech.UnlockedTechIds.Contains(tech.TechId)) continue;
+                    if (!TechContentV0.PrerequisitesMet(tech.TechId, state.Tech.UnlockedTechIds)) continue;
+                    slot.TechId = tech.TechId;
+                    slot.ProgressTicks = 0;
+                    slot.TotalTicks = tech.ResearchTicks;
+                    break;
+                }
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-set player fleet hull to max for tutorial bot (Repair_Prompt gate).
+    /// </summary>
+    /// <summary>
+    /// Force-damage player hull to simulate combat for tutorial bot.
+    /// Sets hull to 50% of max.
+    /// </summary>
+    public void ForceDamagePlayerHullV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal))
+                {
+                    fleet.HullHp = fleet.HullHpMax / 2;
+                    break;
+                }
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    public void ForceRepairPlayerHullV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal))
+                {
+                    fleet.HullHp = fleet.HullHpMax;
+                    break;
+                }
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-increment NpcFleetsDestroyed stat for tutorial bot (Combat_Engage gate).
+    /// </summary>
+    public void ForceIncrementNpcFleetsDestroyedV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (state.PlayerStats != null)
+                state.PlayerStats.NpcFleetsDestroyed++;
+            // Arm the pirate-spawned guard so future code that checks this flag
+            // won't double-spawn the tutorial pirate after save/load.
+            if (state.TutorialState != null)
+                state.TutorialState.TutorialPirateSpawned = true;
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-grant a module to player fleet slot 0 for tutorial bot (Module_Equip gate).
+    /// </summary>
+    public void ForceGrantModuleV0(string moduleId)
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (!string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+                if (fleet.Slots == null || fleet.Slots.Count == 0) continue;
+                fleet.Slots[0].InstalledModuleId = moduleId;
+                break;
+            }
+            // Arm the module-granted guard so future code that checks this flag
+            // won't re-grant the tutorial module after save/load.
+            if (state.TutorialState != null)
+                state.TutorialState.TutorialModuleGranted = true;
+        }
+        finally { _stateLock.ExitWriteLock(); }
     }
 
     /// <summary>

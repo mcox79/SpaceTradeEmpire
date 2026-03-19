@@ -40,7 +40,9 @@ func _build_ui() -> void:
 	_panel.offset_top = 60
 	_panel.offset_bottom = 420
 
-	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_standard(UITheme.BORDER_DANGER))
+	_panel.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer(UITheme.BORDER_DANGER))
+	UITheme.add_corner_brackets(_panel, UITheme.BORDER_DANGER)
+	UITheme.add_scanline_overlay(_panel)
 
 	var outer_vbox := VBoxContainer.new()
 	outer_vbox.add_theme_constant_override("separation", 4)
@@ -66,6 +68,7 @@ func _build_ui() -> void:
 	_scroll.add_child(_vbox)
 
 	outer_vbox.add_child(_scroll)
+	UITheme.add_scroll_fade(_scroll)
 
 	# Footer
 	var footer := Label.new()
@@ -77,6 +80,15 @@ func _build_ui() -> void:
 
 	_panel.add_child(outer_vbox)
 	add_child(_panel)
+
+
+func toggle_v0() -> void:
+	if visible:
+		UITheme.animate_close(_panel, func(): visible = false)
+	else:
+		visible = true
+		UITheme.animate_open(_panel)
+		refresh_v0()
 
 
 func refresh_v0() -> void:
@@ -100,39 +112,130 @@ func refresh_v0() -> void:
 	var events: Array = _bridge.call("GetRecentCombatEventsV0")
 
 	if events.size() == 0:
-		var no_events := Label.new()
-		no_events.text = "No combat events recorded"
-		no_events.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
-		_vbox.add_child(no_events)
+		_vbox.add_child(UITheme.make_empty_state("⬡", "No combat events recorded", "Events will appear when combat occurs"))
 		_title_label.text = "COMBAT LOG"
 		return
 
-	_title_label.text = "COMBAT LOG (%d)" % events.size()
+	# FEEL_PASS4_P2: Aggregate same-tick same-combatant events into single rows.
+	# Group events by (tick, attacker, defender) — show hit count + total damage.
+	var grouped: Array = _aggregate_events(events)
+	_title_label.text = "COMBAT LOG (%d)" % grouped.size()
 
-	# Show events newest-first (events array is oldest-last per bridge contract)
-	for i in range(events.size() - 1, -1, -1):
-		var evt: Dictionary = events[i]
+	# Running totals for footer.
+	var total_dealt: int = 0
+	var total_taken: int = 0
+
+	# Show events newest-first.
+	for i in range(grouped.size() - 1, -1, -1):
+		var grp: Dictionary = grouped[i]
+		var tick: int = int(grp.get("tick", 0))
+		var attacker: String = str(grp.get("attacker_id", "?"))
+		var defender: String = str(grp.get("defender_id", "?"))
+		var total_dmg: int = int(grp.get("total_damage", 0))
+		var hit_count: int = int(grp.get("hit_count", 1))
+		var outcome: String = str(grp.get("outcome", ""))
+		var is_player_shot: bool = attacker == "fleet_trader_1"
+
+		if is_player_shot:
+			total_dealt += total_dmg
+		else:
+			total_taken += total_dmg
+
+		# Structured row: [tick] [dir] [combatants] [hits] [damage] [outcome]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+
+		# Tick number (monospace, muted)
+		var tick_lbl := Label.new()
+		tick_lbl.text = "%03d" % tick
+		tick_lbl.custom_minimum_size = Vector2(36, 0)
+		tick_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		tick_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		UITheme.apply_mono(tick_lbl)
+		row.add_child(tick_lbl)
+
+		# Direction indicator
+		var dir_lbl := Label.new()
+		dir_lbl.text = "▸" if is_player_shot else "◂"
+		dir_lbl.custom_minimum_size = Vector2(14, 0)
+		dir_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		dir_lbl.add_theme_color_override("font_color", UITheme.GOLD if is_player_shot else UITheme.RED_LIGHT)
+		row.add_child(dir_lbl)
+
+		# Combatants (with hit count if > 1)
+		var names_lbl := Label.new()
+		var names_text: String = "%s → %s" % [_display_name(attacker), _display_name(defender)]
+		if hit_count > 1:
+			names_text += "  ×%d" % hit_count
+		names_lbl.text = names_text
+		names_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		names_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		names_lbl.add_theme_color_override("font_color", UITheme.GOLD if is_player_shot else UITheme.RED_LIGHT)
+		row.add_child(names_lbl)
+
+		# Total damage (monospace, right-aligned)
+		var dmg_lbl := Label.new()
+		dmg_lbl.text = "%d" % total_dmg
+		dmg_lbl.custom_minimum_size = Vector2(40, 0)
+		dmg_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		dmg_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		dmg_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+		UITheme.apply_mono(dmg_lbl)
+		row.add_child(dmg_lbl)
+
+		# Outcome badge (only if resolved)
+		if not outcome.is_empty() and outcome != "InProgress":
+			var out_lbl := Label.new()
+			out_lbl.text = _humanize_outcome(outcome)
+			out_lbl.custom_minimum_size = Vector2(70, 0)
+			out_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			out_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			var out_color := UITheme.GOLD if outcome in ["Win", "Victory"] else UITheme.RED_LIGHT
+			out_lbl.add_theme_color_override("font_color", out_color)
+			row.add_child(out_lbl)
+
+		_vbox.add_child(row)
+
+	# Summary footer row.
+	if total_dealt > 0 or total_taken > 0:
+		_vbox.add_child(HSeparator.new())
+		var summary := Label.new()
+		summary.text = "Dealt: %d dmg  ·  Taken: %d dmg" % [total_dealt, total_taken]
+		summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		summary.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		summary.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		_vbox.add_child(summary)
+
+
+# FEEL_PASS4_P2: Aggregate same-tick same-combatant events into single rows.
+func _aggregate_events(events: Array) -> Array:
+	var result: Array = []
+	for evt in events:
 		var tick: int = int(evt.get("tick", 0))
 		var attacker: String = str(evt.get("attacker_id", "?"))
 		var defender: String = str(evt.get("defender_id", "?"))
 		var damage: int = int(evt.get("damage", 0))
 		var outcome: String = str(evt.get("outcome", ""))
-
-		var row_text := "Tick %d: %s → %s  %d dmg" % [tick, _display_name(attacker), _display_name(defender), damage]
-		if not outcome.is_empty() and outcome != "InProgress":
-			row_text += " (%s)" % _humanize_outcome(outcome)
-
-		var row_label := Label.new()
-		row_label.text = row_text
-		row_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-
-		# Color by who is attacking: player shots gold, AI shots red
-		if attacker == "fleet_trader_1":
-			row_label.add_theme_color_override("font_color", UITheme.GOLD)
-		else:
-			row_label.add_theme_color_override("font_color", UITheme.RED_LIGHT)
-
-		_vbox.add_child(row_label)
+		# Try to merge with last group if same tick + same combatants.
+		if result.size() > 0:
+			var last: Dictionary = result[result.size() - 1]
+			if int(last.get("tick", -1)) == tick \
+				and str(last.get("attacker_id", "")) == attacker \
+				and str(last.get("defender_id", "")) == defender:
+				last["total_damage"] = int(last.get("total_damage", 0)) + damage
+				last["hit_count"] = int(last.get("hit_count", 1)) + 1
+				if not outcome.is_empty() and outcome != "InProgress":
+					last["outcome"] = outcome
+				continue
+		result.append({
+			"tick": tick,
+			"attacker_id": attacker,
+			"defender_id": defender,
+			"total_damage": damage,
+			"hit_count": 1,
+			"outcome": outcome,
+		})
+	return result
 
 
 # Resolve internal fleet IDs to human-readable names.

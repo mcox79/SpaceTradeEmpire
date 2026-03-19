@@ -1,4 +1,7 @@
-using System.Linq;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using SimCore.Entities;
 using SimCore.Programs;
 using SimCore.Tweaks;
 
@@ -12,6 +15,11 @@ namespace SimCore.Systems;
 //   Each leg completion updates LastRunTick; the patrol continues indefinitely.
 public static class EscortSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> SortedProgramIds = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// Process all Running EscortV0 and PatrolV0 programs each tick.
     /// Called once per tick from SimKernel.Step().
@@ -20,10 +28,14 @@ public static class EscortSystem
     {
         if (state?.Programs?.Instances is null) return;
 
-        // Sorted by Id (Ordinal) for determinism.
-        foreach (var kv in state.Programs.Instances.OrderBy(k => k.Key, System.StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedIds = scratch.SortedProgramIds;
+        sortedIds.Clear();
+        foreach (var k in state.Programs.Instances.Keys) sortedIds.Add(k);
+        sortedIds.Sort(StringComparer.Ordinal);
+        foreach (var progId in sortedIds)
         {
-            var prog = kv.Value;
+            var prog = state.Programs.Instances[progId];
 
             if (prog.Status != ProgramStatus.Running) continue;
 

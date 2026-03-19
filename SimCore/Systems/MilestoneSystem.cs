@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
 
@@ -9,6 +10,12 @@ namespace SimCore.Systems;
 // Records achieved milestones in PlayerStats.AchievedMilestoneIds.
 public static class MilestoneSystem
 {
+    private sealed class Scratch
+    {
+        public readonly HashSet<string> AchievedSet = new(StringComparer.Ordinal);
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state?.PlayerStats == null) return;
@@ -16,9 +23,14 @@ public static class MilestoneSystem
         var stats = state.PlayerStats;
         stats.AchievedMilestoneIds ??= new List<string>();
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var achievedSet = scratch.AchievedSet;
+        achievedSet.Clear();
+        foreach (var id in stats.AchievedMilestoneIds) achievedSet.Add(id);
+
         foreach (var def in MilestoneContentV0.All)
         {
-            if (stats.AchievedMilestoneIds.Contains(def.Id)) continue;
+            if (achievedSet.Contains(def.Id)) continue;
 
             long current = GetStatValue(stats, def.StatKey);
             if (current >= def.Threshold)
@@ -37,6 +49,7 @@ public static class MilestoneSystem
             "TotalCreditsEarned" => stats.TotalCreditsEarned,
             "TechsUnlocked" => stats.TechsUnlocked,
             "MissionsCompleted" => stats.MissionsCompleted,
+            "NpcFleetsDestroyed" => stats.NpcFleetsDestroyed,
             _ => 0
         };
     }
