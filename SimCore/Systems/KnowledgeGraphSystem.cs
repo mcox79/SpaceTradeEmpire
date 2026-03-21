@@ -133,6 +133,13 @@ public static class KnowledgeGraphSystem
 
         if (state.Intel.Discoveries.TryGetValue(discoveryId, out var ds))
             return ds.Phase;
+
+        // Data logs are stored separately from discoveries but can be
+        // endpoints of knowledge connections. Treat discovered logs as
+        // Analyzed (the player has read the full conversation).
+        if (state.DataLogs.TryGetValue(discoveryId, out var dl))
+            return dl.IsDiscovered ? DiscoveryPhase.Analyzed : null;
+
         return null;
     }
 }

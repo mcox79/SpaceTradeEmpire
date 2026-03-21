@@ -19,6 +19,10 @@
 #   - Fracture travel (access check, dispatch attempt)
 #   - Construction (list defs, start project)
 #   - Mission completion (accept → satisfy trigger → tick to complete)
+#   - Haven depth (status, upgrade, fragments, fabricator, ancient hulls, endgame paths)
+#   - Endgame state (win/loss conditions, progress, game result)
+#   - Story state machine (revelations, pentagon, cascade effects)
+#   - Fleet management (doctrine, patrol/survey programs)
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless -Script deep_systems
@@ -60,6 +64,14 @@ enum Phase {
 	CHECK_OVERLAYS,
 	# Save/load
 	SAVE_LOAD_TEST,
+	# Haven depth
+	HAVEN_DEPTH,
+	# Endgame state
+	ENDGAME_CHECK,
+	# Story state machine
+	STORY_CHECK,
+	# Fleet management
+	FLEET_MANAGEMENT,
 	# Audit
 	AUDIT, DONE
 }
@@ -118,6 +130,10 @@ func _process(_delta: float) -> bool:
 		Phase.CHECK_LEDGER: _do_check_ledger()
 		Phase.CHECK_OVERLAYS: _do_check_overlays()
 		Phase.SAVE_LOAD_TEST: _do_save_load_test()
+		Phase.HAVEN_DEPTH: _do_haven_depth()
+		Phase.ENDGAME_CHECK: _do_endgame_check()
+		Phase.STORY_CHECK: _do_story_check()
+		Phase.FLEET_MANAGEMENT: _do_fleet_management()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
 	return false
@@ -860,6 +876,22 @@ func _do_check_warfront() -> void:
 		var intensity := int(_bridge.call("GetNodeWarIntensityV0", node_id))
 		_a.log("WARFRONT|node=%s intensity=%d" % [node_id, intensity])
 
+	# Supply shock summary
+	if _bridge.has_method("GetSupplyShockSummaryV0"):
+		var shock: Dictionary = _bridge.call("GetSupplyShockSummaryV0")
+		_a.log("WARFRONT|supply_shock=%s" % str(shock))
+		_a.goal("WARFRONT", "disrupted=%d" % int(shock.get("disrupted_count", 0)))
+
+	# Lattice drone alerts at current node
+	if _bridge.has_method("GetLatticeDroneAlertsV0"):
+		var alerts: Array = _bridge.call("GetLatticeDroneAlertsV0", node_id)
+		_a.log("WARFRONT|drone_alerts=%d node=%s" % [alerts.size(), node_id])
+
+	# Drone activity summary
+	if _bridge.has_method("GetDroneActivityV0"):
+		var drones: Dictionary = _bridge.call("GetDroneActivityV0")
+		_a.log("WARFRONT|drone_activity=%s" % str(drones))
+
 	_polls = 0
 	_phase = Phase.CHECK_DISCOVERY
 
@@ -903,6 +935,32 @@ func _do_check_discovery() -> void:
 	if _bridge.has_method("GetActiveEncountersV0"):
 		var encounters: Array = _bridge.call("GetActiveEncountersV0")
 		_a.log("DISCOVERY|active_encounters=%d" % encounters.size())
+
+	# Trade intel from discoveries
+	if _bridge.has_method("GetDiscoveryTradeIntelV0"):
+		var intel: Array = _bridge.call("GetDiscoveryTradeIntelV0")
+		_a.log("DISCOVERY|trade_intel=%d" % intel.size())
+		_a.goal("DISCOVERY", "trade_intel_routes=%d" % intel.size())
+
+	# Anomaly chains
+	if _bridge.has_method("GetActiveChainsV0"):
+		var chains: Array = _bridge.call("GetActiveChainsV0")
+		_a.log("DISCOVERY|active_chains=%d" % chains.size())
+		_a.hard(chains.size() >= 1, "anomaly_chains_exist", "count=%d" % chains.size())
+		_a.goal("DISCOVERY", "chains=%d" % chains.size())
+
+		# Chain progress for first chain
+		if chains.size() > 0 and _bridge.has_method("GetChainProgressV0"):
+			var chain_id := str(chains[0].get("chain_id", ""))
+			if not chain_id.is_empty():
+				var progress: Dictionary = _bridge.call("GetChainProgressV0", chain_id)
+				_a.log("DISCOVERY|chain_progress=%s" % str(progress))
+				_a.warn(progress.get("found", false), "chain_progress_found", "id=%s" % chain_id)
+
+	# Instability-revealed sites
+	if _bridge.has_method("GetInstabilityRevealedSitesV0"):
+		var sites: Array = _bridge.call("GetInstabilityRevealedSitesV0")
+		_a.log("DISCOVERY|instability_sites=%d" % sites.size())
 
 	_polls = 0
 	_phase = Phase.FRACTURE_CHECK
@@ -1096,6 +1154,222 @@ func _do_save_load_test() -> void:
 		_busy = false
 	else:
 		_a.warn(false, "save_method_exists", "AutoSaveV0 missing")
+
+	_polls = 0
+	_phase = Phase.HAVEN_DEPTH
+
+
+# ===================== Haven Depth =====================
+
+func _do_haven_depth() -> void:
+	# Force-discover haven if available
+	if _bridge.has_method("ForceDiscoverHavenV0"):
+		_bridge.call("ForceDiscoverHavenV0")
+		_a.log("HAVEN|force_discovered")
+
+	# Haven status
+	if _bridge.has_method("GetHavenStatusV0"):
+		var haven: Dictionary = _bridge.call("GetHavenStatusV0")
+		var tier := int(haven.get("tier", -1))
+		var discovered: bool = haven.get("discovered", false)
+		var node_id := str(haven.get("node_id", ""))
+		_a.log("HAVEN|discovered=%s tier=%d node=%s" % [str(discovered), tier, node_id])
+		_a.hard(discovered, "haven_discovered", "discovered=%s" % str(discovered))
+		_a.goal("HAVEN", "tier=%d discovered=%s node=%s" % [tier, str(discovered), node_id])
+
+		# Haven market
+		if _bridge.has_method("GetHavenMarketV0"):
+			var market: Array = _bridge.call("GetHavenMarketV0")
+			_a.log("HAVEN|market_goods=%d" % market.size())
+			_a.goal("HAVEN", "market_goods=%d" % market.size())
+
+		# Haven market info
+		if _bridge.has_method("GetHavenMarketInfoV0"):
+			var info: Dictionary = _bridge.call("GetHavenMarketInfoV0")
+			_a.log("HAVEN|market_info=%s" % str(info))
+
+		# Haven residents
+		if _bridge.has_method("GetHavenResidentsV0"):
+			var residents: Array = _bridge.call("GetHavenResidentsV0")
+			_a.log("HAVEN|residents=%d" % residents.size())
+			_a.goal("HAVEN", "residents=%d" % residents.size())
+
+		# Keeper state
+		if _bridge.has_method("GetKeeperStateV0"):
+			var keeper: Dictionary = _bridge.call("GetKeeperStateV0")
+			_a.log("HAVEN|keeper=%s" % str(keeper))
+			_a.warn(keeper.has("keeper_level"), "haven_keeper_state", "has_level=%s" % str(keeper.has("keeper_level")))
+
+		# Upgrade attempt
+		if _bridge.has_method("UpgradeHavenV0"):
+			var upgrade_ok: bool = _bridge.call("UpgradeHavenV0")
+			_a.log("HAVEN|upgrade_attempt=%s" % str(upgrade_ok))
+			_a.warn(true, "haven_upgrade_called", "result=%s" % str(upgrade_ok))
+
+	# Adaptation fragments
+	if _bridge.has_method("GetAdaptationFragmentsV0"):
+		var fragments: Array = _bridge.call("GetAdaptationFragmentsV0")
+		_a.log("HAVEN|fragments=%d" % fragments.size())
+		_a.hard(fragments.size() == 16, "fragment_count", "count=%d expected=16" % fragments.size())
+		var collected := 0
+		for f in fragments:
+			if f.get("collected", false):
+				collected += 1
+		_a.goal("FRAGMENTS", "total=%d collected=%d" % [fragments.size(), collected])
+
+	# Resonance pairs
+	if _bridge.has_method("GetResonancePairsV0"):
+		var pairs: Array = _bridge.call("GetResonancePairsV0")
+		_a.log("HAVEN|resonance_pairs=%d" % pairs.size())
+		_a.warn(pairs.size() == 8, "resonance_pair_count", "count=%d expected=8" % pairs.size())
+
+	# Trophy wall
+	if _bridge.has_method("GetTrophyWallV0"):
+		var trophies: Array = _bridge.call("GetTrophyWallV0")
+		_a.log("HAVEN|trophies=%d" % trophies.size())
+
+	# Resonance chamber
+	if _bridge.has_method("GetResonanceChamberV0"):
+		var chamber: Dictionary = _bridge.call("GetResonanceChamberV0")
+		_a.log("HAVEN|chamber=%s" % str(chamber))
+
+	# Fabricator
+	if _bridge.has_method("GetFabricatorV0"):
+		var fab: Dictionary = _bridge.call("GetFabricatorV0")
+		_a.log("HAVEN|fabricator=%s" % str(fab))
+		_a.warn(fab.has("available"), "fabricator_state", "keys=%s" % str(fab.keys()))
+
+	# Ancient hulls
+	if _bridge.has_method("GetAncientHullsV0"):
+		var hulls: Array = _bridge.call("GetAncientHullsV0")
+		_a.log("HAVEN|ancient_hulls=%d" % hulls.size())
+		_a.goal("HAVEN_DEPTH", "hulls=%d" % hulls.size())
+
+	# Endgame paths
+	if _bridge.has_method("GetEndgamePathsV0"):
+		var paths: Dictionary = _bridge.call("GetEndgamePathsV0")
+		_a.log("HAVEN|endgame_paths=%s" % str(paths))
+		var available_paths: Array = paths.get("available_paths", [])
+		_a.warn(available_paths.size() >= 1, "endgame_paths_exist", "count=%d" % available_paths.size())
+		_a.goal("HAVEN_DEPTH", "endgame_paths=%d" % available_paths.size())
+
+	# Accommodation progress
+	if _bridge.has_method("GetAccommodationProgressV0"):
+		var accom: Dictionary = _bridge.call("GetAccommodationProgressV0")
+		_a.log("HAVEN|accommodation=%s" % str(accom))
+
+	# Communion rep
+	if _bridge.has_method("GetCommunionRepV0"):
+		var comm: Dictionary = _bridge.call("GetCommunionRepV0")
+		_a.log("HAVEN|communion_rep=%s" % str(comm))
+
+	_polls = 0
+	_phase = Phase.ENDGAME_CHECK
+
+
+# ===================== Endgame State =====================
+
+func _do_endgame_check() -> void:
+	# Game result (should be 0 = not terminal during mid-game)
+	if _bridge.has_method("GetGameResultV0"):
+		var result: Dictionary = _bridge.call("GetGameResultV0")
+		var result_code := int(result.get("result", -1))
+		var result_name := str(result.get("result_name", ""))
+		_a.log("ENDGAME|result=%d name=%s" % [result_code, result_name])
+		_a.hard(result_code == 0, "game_not_terminal", "result=%d name=%s" % [result_code, result_name])
+		_a.goal("ENDGAME", "result=%d terminal=%s" % [result_code, str(result.get("is_terminal", false))])
+
+	# Endgame progress
+	if _bridge.has_method("GetEndgameProgressV0"):
+		var progress: Dictionary = _bridge.call("GetEndgameProgressV0")
+		var pct := int(progress.get("completion_percent", -1))
+		_a.log("ENDGAME|progress=%s" % str(progress))
+		_a.hard(progress.has("completion_percent"), "endgame_progress_structure", "has_pct=%s" % str(progress.has("completion_percent")))
+		_a.goal("ENDGAME", "progress_pct=%d" % pct)
+
+	# Loss info (should return empty/default during normal play)
+	if _bridge.has_method("GetLossInfoV0"):
+		var loss: Dictionary = _bridge.call("GetLossInfoV0")
+		_a.log("ENDGAME|loss_info_keys=%d" % loss.size())
+		_a.warn(loss.has("loss_reason"), "loss_info_structure", "keys=%d" % loss.size())
+
+	# Victory info (should return empty/default during normal play)
+	if _bridge.has_method("GetVictoryInfoV0"):
+		var victory: Dictionary = _bridge.call("GetVictoryInfoV0")
+		_a.log("ENDGAME|victory_info_keys=%d" % victory.size())
+		_a.warn(victory.has("chosen_path"), "victory_info_structure", "keys=%d" % victory.size())
+
+	_polls = 0
+	_phase = Phase.STORY_CHECK
+
+
+# ===================== Story State Machine =====================
+
+func _do_story_check() -> void:
+	# Revelation state
+	if _bridge.has_method("GetRevelationStateV0"):
+		var rev: Dictionary = _bridge.call("GetRevelationStateV0")
+		var count := int(rev.get("revelation_count", 0))
+		_a.log("STORY|revelations=%d act=%s" % [count, str(rev.get("current_act", ""))])
+		_a.hard(rev.has("revelation_count"), "revelation_state_structure", "has_count=%s" % str(rev.has("revelation_count")))
+		_a.goal("STORY", "revelations=%d" % count)
+
+	# Story progress
+	if _bridge.has_method("GetStoryProgressV0"):
+		var progress: Dictionary = _bridge.call("GetStoryProgressV0")
+		_a.log("STORY|progress=%s" % str(progress))
+
+	# Pentagon state
+	if _bridge.has_method("GetPentagonStateV0"):
+		var pent: Dictionary = _bridge.call("GetPentagonStateV0")
+		var all_traded: bool = pent.get("all_traded", false)
+		var cascade: bool = pent.get("cascade_active", false)
+		_a.log("STORY|pentagon all_traded=%s cascade=%s" % [str(all_traded), str(cascade)])
+		_a.warn(pent.has("all_traded"), "pentagon_state_complete", "keys=%s" % str(pent.keys()))
+		_a.goal("STORY", "pentagon_traded=%s cascade=%s" % [str(all_traded), str(cascade)])
+
+	# Cascade effects
+	if _bridge.has_method("GetCascadeEffectsV0"):
+		var cascade: Dictionary = _bridge.call("GetCascadeEffectsV0")
+		_a.log("STORY|cascade_effects=%s" % str(cascade))
+
+	# Pending revelation
+	if _bridge.has_method("GetPendingRevelationV0"):
+		var pending: Dictionary = _bridge.call("GetPendingRevelationV0")
+		_a.log("STORY|pending=%s" % str(pending))
+
+	_polls = 0
+	_phase = Phase.FLEET_MANAGEMENT
+
+
+# ===================== Fleet Management =====================
+
+func _do_fleet_management() -> void:
+	# Doctrine status
+	if _bridge.has_method("GetDoctrineStatusV0"):
+		var doctrine: Dictionary = _bridge.call("GetDoctrineStatusV0", "fleet_trader_1")
+		_a.log("FLEET|doctrine=%s" % str(doctrine))
+		_a.warn(doctrine.has("escort_active"), "doctrine_status", "keys=%s" % str(doctrine.keys()))
+		_a.goal("FLEET", "doctrine_checked=true")
+
+	# Set doctrine (enable escort, then disable)
+	if _bridge.has_method("SetDoctrineV0"):
+		var set_result: Dictionary = _bridge.call("SetDoctrineV0", "fleet_trader_1", "escort", true, "")
+		_a.log("FLEET|set_doctrine_escort=%s" % str(set_result))
+		# Disable it again
+		_bridge.call("SetDoctrineV0", "fleet_trader_1", "escort", false, "")
+		_a.log("FLEET|doctrine_escort_disabled")
+
+	# Survey unlock check
+	if _bridge.has_method("IsSurveyUnlockedV0"):
+		var unlocked: bool = _bridge.call("IsSurveyUnlockedV0", "SIGNAL")
+		_a.log("FLEET|survey_signal_unlocked=%s" % str(unlocked))
+		_a.goal("FLEET", "survey_unlocked=%s" % str(unlocked))
+
+	# Survey program status
+	if _bridge.has_method("GetSurveyProgramStatusV0"):
+		var survey: Dictionary = _bridge.call("GetSurveyProgramStatusV0")
+		_a.log("FLEET|survey_programs=%s" % str(survey))
 
 	_polls = 0
 	_phase = Phase.AUDIT

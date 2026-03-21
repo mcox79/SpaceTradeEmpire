@@ -73,10 +73,14 @@ public static class LogisticsSystem
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
 
+#if DEBUG
         bool logiBreakdown = string.Equals(
             Environment.GetEnvironmentVariable("STE_LOGI_BREAKDOWN"),
             "1",
             StringComparison.Ordinal);
+#else
+        const bool logiBreakdown = false;
+#endif
 
         long msAdvance = 0, msShortages = 0, msAssign = 0;
         long allocAdvance = 0, allocShortages = 0, allocAssign = 0;
