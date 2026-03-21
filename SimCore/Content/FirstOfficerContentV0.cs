@@ -67,6 +67,14 @@ public static class FirstOfficerContentV0
     {
         // ── EARLY TIER (tick 0-300): Establish personality ──────────
 
+        // FIRST_DOCK — first social moment: observational, not instructional
+        new DialogueLine { TriggerToken = "FIRST_DOCK", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "Docking clamps engaged. Eight commodities on the board — the spread between {GOOD} here and the next system over is worth calculating.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FIRST_DOCK", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "Station secure. I can tell a lot about a place by its docking bay — this one's seen heavy traffic. Good sign for trade.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FIRST_DOCK", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "Smell that? Every station has its own atmosphere. Recycled air, engine grease, whatever they're refining. This one smells like opportunity.", RelationshipDelta = 1 },
+
         // FIRST_WARP — thread lore: introduce the infrastructure mystery
         new DialogueLine { TriggerToken = "FIRST_WARP", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
             Text = "Transit complete. The thread held steady — 0.3% variance. I wonder how long they've been maintaining these lanes. The infrastructure cost must be... significant.", RelationshipDelta = 1 },
@@ -340,6 +348,98 @@ public static class FirstOfficerContentV0
             Text = "Every threshold-crosser before you either died or vanished. The Communion told you that. And you're still going. I don't understand. But I'm not leaving.", RelationshipDelta = 1 },
         new DialogueLine { TriggerToken = "ENDGAME_RENEGOTIATE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Endgame,
             Text = "Yes. This is what the module was for. This is what WE'RE for. I've felt it since the first fracture jump. Haven't you?", RelationshipDelta = 5 },
+
+        // ── GATE.T41 Discovery-as-Automation triggers ────────────
+
+        // FIRST_TRADE_ROUTE_DISCOVERED: discovery yielded a trade route
+        new DialogueLine { TriggerToken = "FIRST_TRADE_ROUTE_DISCOVERED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "That discovery just generated a trade route. Estimated profit per unit logged. This is what exploration is supposed to feed — automation opportunities.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FIRST_TRADE_ROUTE_DISCOVERED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "Found something useful in the unknown — a trade route. Set up a charter on that route, Captain. Let the discovery pay for itself.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FIRST_TRADE_ROUTE_DISCOVERED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "See? The void gives back. That anomaly just showed us where the money flows. Automate it, and go find the next one.", RelationshipDelta = 2 },
+
+        // SURVEY_AUTOMATION_SUGGESTED: player has manually scanned enough to suggest automation
+        new DialogueLine { TriggerToken = "SURVEY_AUTOMATION_SUGGESTED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "You've scanned three sites manually. I've modeled a survey program that could handle the initial scans automatically. You'd still do the deep analysis — but the grunt work? Let the machine handle it.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "SURVEY_AUTOMATION_SUGGESTED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "Three manual scans. That's the threshold. In the service, we'd deploy a survey drone at this point. You can set up a survey program — it'll scan the easy ones while you focus on the interesting ones.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "SURVEY_AUTOMATION_SUGGESTED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "You're good at finding things, Captain. But you're wasting time on the obvious ones. A survey program could handle the routine scans. Save your instincts for what matters.", RelationshipDelta = 2 },
+
+        // CHAIN_LINK_DISCOVERED: player advanced an anomaly chain
+        new DialogueLine { TriggerToken = "CHAIN_LINK_DISCOVERED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "That discovery connects to the previous one. The coordinates form a vector. Someone left a trail. Deliberate, mathematical, and very, very old.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "CHAIN_LINK_DISCOVERED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "It's linked. The first site wasn't isolated — it's part of something bigger. I've seen supply chains. This is a supply chain of knowledge.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "CHAIN_LINK_DISCOVERED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "Did you feel it? The way the second site echoed the first? Like a sentence that started somewhere else and just... continued. Follow it.", RelationshipDelta = 3 },
+
+        // CHAIN_COMPLETED: full anomaly chain completed
+        new DialogueLine { TriggerToken = "CHAIN_COMPLETED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Chain complete. Full data set acquired. The pattern is... comprehensive. Whoever left this wanted the finder to understand something specific. And I think I do. I think I finally do.", RelationshipDelta = 5 },
+        new DialogueLine { TriggerToken = "CHAIN_COMPLETED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "End of the trail. Everything leads here. I've followed orders my whole career, but this... this is the first time I've followed evidence. It changes things.", RelationshipDelta = 5 },
+        new DialogueLine { TriggerToken = "CHAIN_COMPLETED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "The whole story, laid out across light-years. They wanted someone to find this. Not just anyone — someone who would keep looking. That's us, Captain.", RelationshipDelta = 5 },
+
+        // TRADE_INTEL_STALE: valuable discovery route going stale — urgency signal
+        new DialogueLine { TriggerToken = "TRADE_INTEL_STALE", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "That discovery trade route is going stale. Estimated profit: still above threshold, but decaying. If we're going to automate it, now is the time.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "TRADE_INTEL_STALE", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "Our intel on that route is aging. Markets shift. The opportunity from that discovery won't last forever. Either we act or we lose it.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "TRADE_INTEL_STALE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "That route the anomaly showed us? It's fading. Knowledge decays when you don't use it. The void doesn't wait for anyone.", RelationshipDelta = 1 },
+
+        // ── GATE.T42 Planet Scan triggers (6 triggers × 3 FO types = 18 lines) ──
+
+        // FIRST_PLANET_SURVEYED: first orbital scan completes
+        new DialogueLine { TriggerToken = "FIRST_PLANET_SURVEYED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "Scanner calibrated. You chose the scan mode — the planet determines what we find. Landing would give us deeper data.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FIRST_PLANET_SURVEYED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "First orbital scan logged. Different modes pick up different things. If this world is landable, the surface scan will tell us more.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FIRST_PLANET_SURVEYED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "The scanner sees what you point it at. There might be more here if you switch modes — or land and look closer.", RelationshipDelta = 2 },
+
+        // SCAN_MODE_MISMATCH: wrong mode for planet type
+        new DialogueLine { TriggerToken = "SCAN_MODE_MISMATCH", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "Low-affinity results. This planet's characteristics don't align well with our current scan mode. Consider switching.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "SCAN_MODE_MISMATCH", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "Weak readings. Wrong tool for this rock. Try a different mode — the geology here is better suited to other approaches.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "SCAN_MODE_MISMATCH", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "The scanner's struggling here. This world has secrets, but not the kind we're looking for with this mode.", RelationshipDelta = 1 },
+
+        // PATTERN_RECOGNIZED: 5+ scans with same mode
+        new DialogueLine { TriggerToken = "PATTERN_RECOGNIZED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "I'm compiling your scan data. A pattern is emerging — certain planet types consistently yield better results with specific modes.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "PATTERN_RECOGNIZED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "After enough scans, you start to see it. The planet tells you what it has — you just need the right ears.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "PATTERN_RECOGNIZED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "You're mapping the patterns. I can see it in your scan choices — you know which worlds favor which modes now.", RelationshipDelta = 2 },
+
+        // RARE_FIND: Fragment Cache or investigatable Physical Evidence
+        new DialogueLine { TriggerToken = "RARE_FIND", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "Anomalous reading. This finding is outside normal parameters. I recommend thorough documentation.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "RARE_FIND", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "I've scanned a lot of worlds. This is... not like the others. Whatever this is, someone built it to last.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "RARE_FIND", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "I felt that one through the hull. The scanner didn't find this — it found us.", RelationshipDelta = 3 },
+
+        // SIGNAL_TRIANGULATED: two signal leads resolve to coordinates
+        new DialogueLine { TriggerToken = "SIGNAL_TRIANGULATED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "Cross-referencing with the first signal. Triangulation complete — I have precise coordinates.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "SIGNAL_TRIANGULATED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "Second signal locked. Two points make a line — and this line points somewhere specific.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "SIGNAL_TRIANGULATED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "The signals are talking to each other. They've been pointing at the same place this whole time.", RelationshipDelta = 3 },
+
+        // LORE_DISCOVERY: Data Archive found
+        new DialogueLine { TriggerToken = "LORE_DISCOVERY", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "Data archive recovered. Cross-referencing with existing knowledge graph entries. The connection implications are significant.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "LORE_DISCOVERY", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "Someone left this here on purpose. They knew we'd come looking eventually. Read it carefully.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "LORE_DISCOVERY", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "Another voice from the past. They're not explaining — they're confessing. Pay attention to what they don't say.", RelationshipDelta = 2 },
 
         // FO_FAREWELL
         new DialogueLine { TriggerToken = "FO_FAREWELL", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Endgame,

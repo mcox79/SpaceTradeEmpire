@@ -47,7 +47,7 @@ var _current_fov: float = 60.0
 # Below PAN_THRESHOLD: rigid top-down above player.
 # Above PAN_THRESHOLD: manual position, WASD panning, galaxy map behavior.
 const ALTITUDE_MIN: float = 8.0
-const ALTITUDE_MAX: float = 8000.0  # FEEL_POST_FIX_5: Raised for auto-fit galaxy view at 25x scale.
+const ALTITUDE_MAX: float = 15000.0  # FEEL_POST_FIX_6: Raised further — 8000 was insufficient for 25x galaxy bounding box.
 const PAN_THRESHOLD: float = 200.0    # Above this: WASD panning, manual drive.
 const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering active.
 const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500 so neighbor nodes are visible on map open.
@@ -122,6 +122,20 @@ var _was_flyby_active: bool = false              # Edge detection for flyby→no
 
 # Legacy compat — kept for game_manager references but no longer used for camera.
 var flyby_settle_active: bool = false
+
+# === 2.5D orbit/tilt state — RMB drag in galaxy map mode ===
+var _orbit_yaw: float = 0.0          # Horizontal rotation around look-at (radians).
+var _orbit_pitch: float = 0.0        # Vertical tilt (0 = top-down, max ~60°).
+var _orbit_dragging: bool = false
+var _orbit_last_mouse: Vector2 = Vector2.ZERO
+var _orbit_tween: Tween = null
+const ORBIT_PITCH_MIN: float = 0.0
+const ORBIT_PITCH_MAX: float = 1.047        # ~60 degrees in radians.
+const ORBIT_YAW_SENSITIVITY: float = 0.005  # Radians per pixel of mouse drag.
+const ORBIT_PITCH_SENSITIVITY: float = 0.004
+const ORBIT_RESET_DURATION: float = 0.4     # Seconds to tween back to top-down.
+var _last_rmb_click_time: float = 0.0
+const ORBIT_DOUBLE_CLICK_WINDOW: float = 0.3
 
 func _ready() -> void:
 	_target = _resolve_target()
@@ -201,9 +215,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif mb.button_index == MOUSE_BUTTON_LEFT and _altitude >= PAN_THRESHOLD:
 					_galaxy_panning = true
 					_galaxy_pan_last_mouse = mb.position
+				elif mb.button_index == MOUSE_BUTTON_RIGHT and _altitude >= PAN_THRESHOLD:
+					# 2.5D orbit: RMB drag rotates camera around galaxy.
+					# Double-click resets to top-down.
+					var now := Time.get_ticks_msec() / 1000.0
+					if now - _last_rmb_click_time < ORBIT_DOUBLE_CLICK_WINDOW:
+						_reset_orbit_to_top_down()
+					_last_rmb_click_time = now
+					_orbit_dragging = true
+					_orbit_last_mouse = mb.position
+					get_viewport().set_input_as_handled()
 			elif not mb.pressed:
 				if mb.button_index == MOUSE_BUTTON_LEFT:
 					_galaxy_panning = false
+				elif mb.button_index == MOUSE_BUTTON_RIGHT:
+					_orbit_dragging = false
 		if event is InputEventMouseMotion:
 			var mm := event as InputEventMouseMotion
 			# Galaxy map: left-click drag pans the map view.
@@ -213,6 +239,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				var pan_scale: float = _altitude * 0.003
 				_galaxy_map_pan_offset.x -= mouse_delta.x * pan_scale
 				_galaxy_map_pan_offset.z -= mouse_delta.y * pan_scale
+			# 2.5D orbit: RMB drag rotates camera yaw/pitch.
+			if _orbit_dragging and _altitude >= PAN_THRESHOLD:
+				var orbit_delta := mm.position - _orbit_last_mouse
+				_orbit_last_mouse = mm.position
+				_orbit_yaw += orbit_delta.x * ORBIT_YAW_SENSITIVITY
+				_orbit_pitch = clampf(_orbit_pitch - orbit_delta.y * ORBIT_PITCH_SENSITIVITY,
+					ORBIT_PITCH_MIN, ORBIT_PITCH_MAX)
 
 
 # ── Mode switching ──
@@ -292,16 +325,19 @@ func _switch_mode(new_mode: CameraMode) -> void:
 	# GATE.X.UI_POLISH.GALAXY_MAP_UX.001: Clear galaxy map state when leaving galaxy mode.
 	if _current_mode == CameraMode.GALAXY_MAP and new_mode != CameraMode.GALAXY_MAP:
 		_galaxy_map_active = false
+		_orbit_dragging = false
 	_current_mode = new_mode
 	match new_mode:
 		CameraMode.FLIGHT:
-			pass  # No setup needed — _update_camera handles positioning.
+			# 2.5D: tween orbit back to top-down when returning to flight.
+			_reset_orbit_to_top_down()
 		CameraMode.DOCKED:
-			pass  # Fixed offset — no setup needed.
+			_reset_orbit_to_top_down()
 		CameraMode.GALAXY_MAP:
 			_galaxy_map_active = true
 		CameraMode.WARP_TRANSIT:
 			_last_transit_lod_alt = -1.0  # Reset LOD throttle.
+			_reset_orbit_to_top_down()
 
 ## Logarithmic zoom step: small at close range, larger at galaxy scale.
 func _compute_zoom_step() -> float:
@@ -493,18 +529,20 @@ func _update_mode_targets(delta: float) -> void:
 	match _current_mode:
 		CameraMode.FLIGHT:
 			_spring_target_pos = _target.global_position + Vector3(0.0, _altitude, 0.0)
-			_spring_target_look = Vector3(_spring_target_pos.x, 0.0, _spring_target_pos.z)
+			_spring_target_look = _target.global_position
 			_spring_target_up = Vector3.BACK
 			_spring_omega = SPRING_OMEGA_FLIGHT
 			# FEEL_POST_FIX_4: Reset far clip from galaxy map extension.
 			if _cam:
-				_cam.far = 4000.0
+				_cam.far = 10000.0
 
 		CameraMode.DOCKED:
 			_spring_target_pos = _target.global_position + dock_offset
 			_spring_target_look = _target.global_position
 			_spring_target_up = Vector3.UP
 			_spring_omega = SPRING_OMEGA_DOCKED
+			if _cam:
+				_cam.far = 10000.0  # Neighbors visible while docked.
 
 		CameraMode.GALAXY_MAP:
 			_compute_galaxy_map_targets(delta)
@@ -578,14 +616,16 @@ func _update_fov_for_mode(delta: float) -> void:
 			var speed: float = 0.0
 			if _target is RigidBody3D:
 				speed = (_target as RigidBody3D).linear_velocity.length()
-			var t: float = clamp(speed / 18.0, 0.0, 1.0)
-			var target_fov: float = fov_base + fov_boost_max * t
+			var ref_speed: float = 18.0
+			var fov_boost: float = fov_boost_max
+			var t: float = clamp(speed / ref_speed, 0.0, 1.0)
+			var target_fov: float = fov_base + fov_boost * t
 			_current_fov = lerp(_current_fov, target_fov, 1.0 - exp(-fov_smooth * delta))
 		CameraMode.DOCKED:
 			_current_fov = lerpf(_current_fov, fov_base, 1.0 - exp(-fov_smooth * delta))
 		CameraMode.GALAXY_MAP:
 			_current_fov = lerpf(_current_fov, 60.0, 1.0 - exp(-fov_smooth * delta))
-			_cam.far = 12000.0
+			_cam.far = 40000.0
 		CameraMode.WARP_TRANSIT:
 			var transit_alt: float = 500.0
 			if _game_manager:
@@ -662,13 +702,41 @@ func _compute_galaxy_map_targets(_delta: float) -> void:
 	# Galaxy map pans by click-drag only (handled in _unhandled_input).
 	# WASD is reserved for ship controls — no keyboard panning on the map.
 
-	var desired_pos := anchor + _galaxy_map_pan_offset
-	desired_pos.y = _altitude
+	var look_at_point := anchor + _galaxy_map_pan_offset
+	look_at_point.y = 0.0  # Look at the galactic plane.
 
-	_spring_target_pos = desired_pos
-	_spring_target_look = Vector3(desired_pos.x, 0.0, desired_pos.z)
-	_spring_target_up = Vector3.BACK
+	# 2.5D orbit: spherical offset from orbit yaw/pitch.
+	# pitch=0 → directly above (top-down, identical to previous behavior).
+	# pitch>0 → tilted view, yaw rotates around the look-at point.
+	var cam_offset := Vector3.ZERO
+	cam_offset.x = _altitude * sin(_orbit_pitch) * sin(_orbit_yaw)
+	cam_offset.y = _altitude * cos(_orbit_pitch)
+	cam_offset.z = _altitude * sin(_orbit_pitch) * cos(_orbit_yaw)
+
+	_spring_target_pos = look_at_point + cam_offset
+	_spring_target_look = look_at_point
+	# Up vector: blend from BACK (top-down) to UP (tilted) based on pitch.
+	var pitch_t := clampf(_orbit_pitch / ORBIT_PITCH_MAX, 0.0, 1.0)
+	_spring_target_up = Vector3.BACK.slerp(Vector3.UP, pitch_t)
+	if _spring_target_up.length_squared() < 0.01:
+		_spring_target_up = Vector3.UP
 	_spring_omega = SPRING_OMEGA_GALAXY
+
+
+# ── 2.5D orbit reset ──
+
+## Tween orbit angles back to top-down. Called on mode switch and RMB double-click.
+func _reset_orbit_to_top_down() -> void:
+	if absf(_orbit_pitch) < 0.01 and absf(_orbit_yaw) < 0.01:
+		return
+	if _orbit_tween and _orbit_tween.is_valid():
+		_orbit_tween.kill()
+	_orbit_tween = create_tween()
+	_orbit_tween.set_trans(Tween.TRANS_CUBIC)
+	_orbit_tween.set_ease(Tween.EASE_OUT)
+	_orbit_tween.set_parallel(true)
+	_orbit_tween.tween_property(self, "_orbit_pitch", 0.0, ORBIT_RESET_DURATION)
+	_orbit_tween.tween_property(self, "_orbit_yaw", 0.0, ORBIT_RESET_DURATION)
 
 
 # ── Target resolution ──

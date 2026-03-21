@@ -1,5 +1,5 @@
 # scripts/tests/test_tutorial_proof_v0.gd
-# Tutorial Verification Bot — walks through all 10 acts / 45 phases of the
+# Tutorial Verification Bot — walks through all 7 acts / ~30 phases of the
 # FO-voiced onboarding, validates phase transitions, dialogue integrity,
 # narrative coherence (player-perspective), and economy correctness.
 #
@@ -8,15 +8,15 @@
 #   godot --headless --path . -s res://scripts/tests/test_tutorial_proof_v0.gd -- --seed=42
 #
 # Exercise modes:
-#   Acts 1-4: Natural play (dock, buy, travel, sell, select FO, explore)
-#   Acts 5-10: Force-advance via bridge helpers (combat, modules, automation, haven, research)
+#   Acts 1-4: Natural play (dock, buy, travel ×3, explore)
+#   Acts 5-7: Force-advance via bridge helpers (combat, modules, automation, FO select)
 #
 # Key validations:
-#   - All 45 phases visited in order (no skips, no reversals)
+#   - All ~30 active phases visited in order (no skips, no reversals)
 #   - No duplicate dialogue (same phase+sequence+text)
 #   - Speaker correctness (Ship Computer, Maren, selected FO, Dask/Lira cameos)
 #   - Objective text matches player action (keyword checks)
-#   - Trade waypoint set after Buy_React
+#   - Trade loop: 3 manual trades before automation
 #   - New Voyage re-initialization (clean state after ReinitializeForNewGameV0)
 extends SceneTree
 
@@ -40,25 +40,21 @@ enum BotPhase {
 	# Act 1: Cold Open
 	ACT1_START_TUTORIAL, ACT1_AWAKEN, ACT1_FLIGHT_INTRO, ACT1_FIRST_DOCK,
 	# Act 2: The Crew
-	ACT2_MAREN_HAIL, ACT2_DISMISS_THROUGH_MARKET, ACT2_BUY_PROMPT, ACT2_DO_BUY, ACT2_BUY_REACT,
-	# Act 3: The Trade
-	ACT3_TRAVEL, ACT3_ARRIVAL_DOCK, ACT3_SELL, ACT3_FIRST_PROFIT, ACT3_FO_SELECT,
+	ACT2_MODULE_CALIBRATION, ACT2_MAREN_HAIL, ACT2_DISMISS_THROUGH_MARKET,
+	ACT2_BUY_PROMPT, ACT2_DO_BUY, ACT2_BUY_REACT,
+	# Act 3: The Trade Loop (repeats 3x)
+	ACT3_CRUISE_INTRO, ACT3_TRAVEL, ACT3_JUMP_ANOMALY,
+	ACT3_ARRIVAL_DOCK, ACT3_SELL, ACT3_FIRST_PROFIT,
 	# Act 4: The World
-	ACT4_WORLD_INTRO, ACT4_EXPLORE, ACT4_EXPLORE_COMPLETE, ACT4_GALAXY_MAP,
+	ACT4_WORLD_INTRO, ACT4_EXPLORE, ACT4_GALAXY_MAP,
 	# Act 5: The Threat (force-advance)
 	ACT5_THREAT_WARNING, ACT5_DASK_HAIL, ACT5_COMBAT, ACT5_DEBRIEF, ACT5_REPAIR,
 	# Act 6: The Upgrade (force-advance)
 	ACT6_MODULE_INTRO, ACT6_MODULE_EQUIP, ACT6_MODULE_REACT, ACT6_LIRA_TEASE,
-	# Act 7: The Empire (force-advance)
+	# Act 7: The Empire + Graduation (force-advance)
 	ACT7_AUTOMATION_INTRO, ACT7_AUTOMATION_CREATE, ACT7_AUTOMATION_WAIT,
-	ACT7_AUTOMATION_REACT, ACT7_COMMISSION,
-	# Act 8: The Haven (force-advance)
-	ACT8_HAVEN_DISCOVER, ACT8_HAVEN_TOUR, ACT8_HAVEN_UPGRADE, ACT8_HAVEN_REACT,
-	# Act 9: The Frontier (force-advance)
-	ACT9_RESEARCH_INTRO, ACT9_RESEARCH_START, ACT9_RESEARCH_REACT,
-	ACT9_KNOWLEDGE, ACT9_FRONTIER,
-	# Act 10: Graduation
-	ACT10_MYSTERY, ACT10_GRADUATION, ACT10_FAREWELL, ACT10_MILESTONE,
+	ACT7_AUTOMATION_REACT, ACT7_FO_SELECT,
+	ACT7_MYSTERY, ACT7_GRADUATION, ACT7_FAREWELL, ACT7_MILESTONE,
 	# Validation
 	REINIT_TEST, FINAL_AUDIT, FINAL_SUMMARY, DONE
 }
@@ -94,16 +90,15 @@ var _objective_log: Dictionary = {}  # phase_name → objective text (for covera
 var _last_tutorial_phase := -1  # Track tutorial phase changes
 var _sequence_reset_violations := 0  # Count of phases where sequence != 0 on entry
 var _selected_fo_type := "Analyst"  # Rotated by seed: 0=Analyst, 1=Veteran, 2=Pathfinder
-var _haven_force_called := false  # Prevent double-calling ForceDiscoverHavenV0
+var _trade_loop_count := 0  # Track manual trades completed (0→3)
 var _stall_ticks_samples: Dictionary = {}  # phase_name → Array[int] of stall_ticks readings
 var _tab_disclosure_log: Array = []  # Array of {checkpoint, show_jobs_tab, show_ship_tab, ...}
 
 # Expected beat counts from TutorialContentV0.cs (multi-beat phases only).
 # Single-beat phases default to 1; these override for multi-beat.
 var _expected_beats := {
-	"Awaken": 2, "Maren_Hail": 2, "First_Profit": 2, "World_Intro": 2,
-	"Combat_Debrief": 2, "Automation_Intro": 2, "Haven_Tour": 3,
-	"Research_Intro": 2, "Mystery_Reveal": 2
+	"Awaken": 2, "Maren_Hail": 2, "World_Intro": 2,
+	"Combat_Debrief": 2, "Automation_Intro": 2, "Mystery_Reveal": 2
 }
 
 # ── Main Loop ──────────────────────────────────────────────────────
@@ -139,21 +134,22 @@ func _process(_delta: float) -> bool:
 		BotPhase.ACT1_FLIGHT_INTRO: _do_act1_flight_intro()
 		BotPhase.ACT1_FIRST_DOCK: _do_act1_first_dock()
 		# Act 2
+		BotPhase.ACT2_MODULE_CALIBRATION: _do_act2_module_calibration()
 		BotPhase.ACT2_MAREN_HAIL: _do_act2_maren_hail()
 		BotPhase.ACT2_DISMISS_THROUGH_MARKET: _do_act2_dismiss_through_market()
 		BotPhase.ACT2_BUY_PROMPT: _do_act2_buy_prompt()
 		BotPhase.ACT2_DO_BUY: _do_act2_do_buy()
 		BotPhase.ACT2_BUY_REACT: _do_act2_buy_react()
-		# Act 3
+		# Act 3 (trade loop ×3)
+		BotPhase.ACT3_CRUISE_INTRO: _do_act3_cruise_intro()
 		BotPhase.ACT3_TRAVEL: _do_act3_travel()
+		BotPhase.ACT3_JUMP_ANOMALY: _do_act3_jump_anomaly()
 		BotPhase.ACT3_ARRIVAL_DOCK: _do_act3_arrival_dock()
 		BotPhase.ACT3_SELL: _do_act3_sell()
 		BotPhase.ACT3_FIRST_PROFIT: _do_act3_first_profit()
-		BotPhase.ACT3_FO_SELECT: _do_act3_fo_select()
 		# Act 4
 		BotPhase.ACT4_WORLD_INTRO: _do_act4_world_intro()
 		BotPhase.ACT4_EXPLORE: _do_act4_explore()
-		BotPhase.ACT4_EXPLORE_COMPLETE: _do_act4_explore_complete()
 		BotPhase.ACT4_GALAXY_MAP: _do_act4_galaxy_map()
 		# Act 5
 		BotPhase.ACT5_THREAT_WARNING: _do_act5_threat_warning()
@@ -166,28 +162,16 @@ func _process(_delta: float) -> bool:
 		BotPhase.ACT6_MODULE_EQUIP: _do_act6_module_equip()
 		BotPhase.ACT6_MODULE_REACT: _do_act6_module_react()
 		BotPhase.ACT6_LIRA_TEASE: _do_act6_lira_tease()
-		# Act 7
+		# Act 7 + Graduation
 		BotPhase.ACT7_AUTOMATION_INTRO: _do_act7_automation_intro()
 		BotPhase.ACT7_AUTOMATION_CREATE: _do_act7_automation_create()
 		BotPhase.ACT7_AUTOMATION_WAIT: _do_act7_automation_wait()
 		BotPhase.ACT7_AUTOMATION_REACT: _do_act7_automation_react()
-		BotPhase.ACT7_COMMISSION: _do_act7_commission()
-		# Act 8
-		BotPhase.ACT8_HAVEN_DISCOVER: _do_act8_haven_discover()
-		BotPhase.ACT8_HAVEN_TOUR: _do_act8_haven_tour()
-		BotPhase.ACT8_HAVEN_UPGRADE: _do_act8_haven_upgrade()
-		BotPhase.ACT8_HAVEN_REACT: _do_act8_haven_react()
-		# Act 9
-		BotPhase.ACT9_RESEARCH_INTRO: _do_act9_research_intro()
-		BotPhase.ACT9_RESEARCH_START: _do_act9_research_start()
-		BotPhase.ACT9_RESEARCH_REACT: _do_act9_research_react()
-		BotPhase.ACT9_KNOWLEDGE: _do_act9_knowledge()
-		BotPhase.ACT9_FRONTIER: _do_act9_frontier()
-		# Act 10
-		BotPhase.ACT10_MYSTERY: _do_act10_mystery()
-		BotPhase.ACT10_GRADUATION: _do_act10_graduation()
-		BotPhase.ACT10_FAREWELL: _do_act10_farewell()
-		BotPhase.ACT10_MILESTONE: _do_act10_milestone()
+		BotPhase.ACT7_FO_SELECT: _do_act7_fo_select()
+		BotPhase.ACT7_MYSTERY: _do_act7_mystery()
+		BotPhase.ACT7_GRADUATION: _do_act7_graduation()
+		BotPhase.ACT7_FAREWELL: _do_act7_farewell()
+		BotPhase.ACT7_MILESTONE: _do_act7_milestone()
 		# Validation
 		BotPhase.REINIT_TEST: _do_reinit_test()
 		BotPhase.FINAL_AUDIT: _do_final_audit()
@@ -335,10 +319,25 @@ func _do_act1_first_dock() -> void:
 	await create_timer(0.3).timeout
 	_busy = false
 	_capture("02_first_dock")
-	_wait_for_tutorial_phase("Maren_Hail", 120, BotPhase.ACT2_MAREN_HAIL)
+	_wait_for_tutorial_phase("Module_Calibration_Notice", 120, BotPhase.ACT2_MODULE_CALIBRATION)
 
 
 # ── Act 2: The Crew (Maren pre-selection) ─────────────────────────
+
+func _do_act2_module_calibration() -> void:
+	var state := _get_tutorial_state()
+	if str(state.get("phase_name", "")) != "Module_Calibration_Notice":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "module_calibration_not_reached")
+			_set_bot_phase(BotPhase.ACT2_MAREN_HAIL)
+		return
+	_a.log("ACT_2|Module_Calibration_Notice — Ship Computer mystery seed")
+	# Validate Ship Computer speaks.
+	_a.hard(bool(state.get("is_ship_computer", false)), "module_calibration_is_ship_computer")
+	_dismiss_all_beats("Module_Calibration_Notice")
+	_set_bot_phase(BotPhase.ACT2_MAREN_HAIL)
+
 
 func _do_act2_maren_hail() -> void:
 	_a.log("ACT_2|The Crew — Maren introduced")
@@ -437,13 +436,13 @@ func _do_act2_buy_react() -> void:
 	# Accept already-advanced: Buy_React(8) may clear in 1 frame on fast seeds.
 	if pn != "Buy_React" and phase_num > 8:
 		_a.log("BUY_REACT|already past (phase=%s num=%d)" % [pn, phase_num])
-		_set_bot_phase(BotPhase.ACT3_TRAVEL)
+		_set_bot_phase(BotPhase.ACT3_CRUISE_INTRO)
 		return
 	if pn != "Buy_React":
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "buy_react_not_reached")
-			_set_bot_phase(BotPhase.ACT3_TRAVEL)
+			_set_bot_phase(BotPhase.ACT3_CRUISE_INTRO)
 		return
 	var fo := _get_dialogue()
 	if not fo.is_empty():
@@ -494,13 +493,47 @@ func _do_act2_buy_react() -> void:
 			# Use bridge-recommended sell target if edgedar didn't set one.
 			if _sell_node_id.is_empty():
 				_sell_node_id = st_node
-	_wait_for_tutorial_phase("Travel_Prompt", 120, BotPhase.ACT3_TRAVEL)
+	_wait_for_tutorial_phase("Cruise_Intro", 120, BotPhase.ACT3_CRUISE_INTRO)
 
 
-# ── Act 3: The Trade ──────────────────────────────────────────────
+# ── Act 3: The Trade Loop (×3) ─────────────────────────────────────
+
+func _do_act3_cruise_intro() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn != "Cruise_Intro":
+		_polls += 1
+		if _polls >= 120:
+			_a.warn(false, "cruise_intro_not_reached")
+			_set_bot_phase(BotPhase.ACT3_TRAVEL)
+		return
+	_a.log("ACT_3|Cruise_Intro — Ship Computer cruise drive notification")
+	_a.hard(bool(state.get("is_ship_computer", false)), "cruise_intro_is_ship_computer")
+	_dismiss_all_beats("Cruise_Intro")
+	_set_bot_phase(BotPhase.ACT3_TRAVEL)
+
+
+func _do_act3_jump_anomaly() -> void:
+	var state := _get_tutorial_state()
+	var pn := str(state.get("phase_name", ""))
+	if pn != "Jump_Anomaly":
+		_polls += 1
+		if _polls >= 60:
+			# Jump_Anomaly only fires on first trade — skip if not reached.
+			_a.log("JUMP_ANOMALY|skipped (not first trade or raced past)")
+			_set_bot_phase(BotPhase.ACT3_ARRIVAL_DOCK)
+		return
+	_a.log("ACT_3|Jump_Anomaly — Maren world-is-watching seed")
+	var fo := _get_dialogue()
+	if not fo.is_empty():
+		_assert_speaker_is("Maren", fo, "jump_anomaly_speaker")
+		_log_narrative("Jump_Anomaly", fo, state)
+	_dismiss_all_beats("Jump_Anomaly")
+	_set_bot_phase(BotPhase.ACT3_ARRIVAL_DOCK)
+
 
 func _do_act3_travel() -> void:
-	_a.log("ACT_3|The Trade — first trade loop")
+	_a.log("ACT_3|The Trade — trade loop %d/3" % (_trade_loop_count + 1))
 	# Retry state read — TryExecuteSafeRead may return cached snapshot with empty objective.
 	var obj := ""
 	for _retry in range(5):
@@ -679,36 +712,62 @@ func _do_act3_first_profit() -> void:
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "first_profit_not_reached")
-			_set_bot_phase(BotPhase.ACT3_FO_SELECT)
+			_set_bot_phase(BotPhase.ACT4_WORLD_INTRO)
 		return
-	# First_Profit is 2-beat dialogue.
+	# First_Profit is single-beat (repeatable for trade loop).
 	var fo := _get_dialogue()
 	if not fo.is_empty():
 		_assert_speaker_is("Maren", fo, "first_profit_speaker")
 		_log_narrative("First_Profit", fo, state)
 	_dismiss_all_beats("First_Profit")
-	_wait_for_tutorial_phase("FO_Selection", 120, BotPhase.ACT3_FO_SELECT)
+	_trade_loop_count += 1
+	_a.log("TRADE_LOOP|completed trade %d/3" % _trade_loop_count)
+	# Check ManualTradesCompleted via bridge.
+	var manual_trades := 0
+	if _bridge.has_method("GetTutorialManualTradesV0"):
+		manual_trades = int(_bridge.call("GetTutorialManualTradesV0"))
+	_a.log("TRADE_LOOP|bridge ManualTradesCompleted=%d" % manual_trades)
+	if _trade_loop_count >= 3:
+		# 3 trades done → advance to World_Intro.
+		# Bridge reads may lag by 1 tick — retry before asserting.
+		if manual_trades < 3:
+			_busy = true
+			for _retry in range(5):
+				await create_timer(0.3).timeout
+				if _bridge.has_method("GetTutorialManualTradesV0"):
+					manual_trades = int(_bridge.call("GetTutorialManualTradesV0"))
+				if manual_trades >= 3:
+					break
+			_busy = false
+			_a.log("TRADE_LOOP|after retry ManualTradesCompleted=%d" % manual_trades)
+		_a.hard(manual_trades >= 3, "manual_trades_gte_3", "got=%d" % manual_trades)
+		_wait_for_tutorial_phase("World_Intro", 120, BotPhase.ACT4_WORLD_INTRO)
+	else:
+		# Loop back for another trade. Buy goods at current station first.
+		_buy_goods_for_loop()
+		_sell_node_id = ""  # Clear so travel picks a new unvisited node.
+		_wait_for_tutorial_phase("Travel_Prompt", 120, BotPhase.ACT3_TRAVEL)
 
 
-func _do_act3_fo_select() -> void:
+func _do_act7_fo_select() -> void:
 	var state := _get_tutorial_state()
 	var pn := str(state.get("phase_name", ""))
 	var phase_num := int(state.get("phase", 0))
-	# FO_Selection is phase 13. If sim raced past it, select FO and continue.
+	# FO_Selection is phase 13. In the new 7-act flow, it comes after Automation_React(30).
+	# "Already past" means we've reached Mystery_Reveal(41) or later.
 	if pn != "FO_Selection":
-		if phase_num > 13:
+		if phase_num >= 41:
 			_a.log("FO_SELECTION|already past (at %s=%d) — selecting FO and continuing" % [pn, phase_num])
-			# Record FO_Selection in phase history (missed by main loop due to racing).
 			_phase_history.append({"phase": 13, "name": "FO_Selection", "frame": _total_frames})
 			_bridge.call("SelectTutorialFOV0", _selected_fo_type)
-			_set_bot_phase(BotPhase.ACT4_WORLD_INTRO)
+			_set_bot_phase(BotPhase.ACT7_MYSTERY)
 			return
 		_polls += 1
 		if _polls >= 120:
 			_a.hard(false, "fo_selection_not_reached")
 			_phase = BotPhase.FINAL_SUMMARY
 		return
-	_a.log("ACT_3|FO Selection — choosing %s" % _selected_fo_type)
+	_a.log("ACT_7|FO Selection — choosing %s" % _selected_fo_type)
 	# Verify candidates are available with complete data.
 	if _bridge.has_method("GetTutorialCandidatesV0"):
 		var candidates: Array = _bridge.call("GetTutorialCandidatesV0")
@@ -782,7 +841,7 @@ func _do_act3_fo_select() -> void:
 	_a.hard(str(state_after.get("candidate", "")) != "None", "fo_still_selected_after_double",
 		"candidate=%s" % str(state_after.get("candidate", "")))
 	_capture("05_fo_selected")
-	_wait_for_tutorial_phase("World_Intro", 120, BotPhase.ACT4_WORLD_INTRO)
+	_wait_for_tutorial_phase("Mystery_Reveal", 120, BotPhase.ACT7_MYSTERY)
 
 
 # ── Act 4: The World ──────────────────────────────────────────────
@@ -803,21 +862,17 @@ func _do_act4_world_intro() -> void:
 			_a.warn(false, "world_intro_not_reached")
 			_set_bot_phase(BotPhase.ACT4_EXPLORE)
 		return
-	# Validate IsPreSelectionModeV0 — should be false after FO selection.
+	# Validate IsPreSelectionModeV0 — should be true (FO not yet selected in 7-act flow).
 	if _bridge.has_method("IsPreSelectionModeV0"):
-		_a.hard(not bool(_bridge.call("IsPreSelectionModeV0")),
-			"pre_selection_mode_false_at_world_intro")
-	# World_Intro is 2-beat. Selected FO speaks.
+		_a.hard(bool(_bridge.call("IsPreSelectionModeV0")),
+			"pre_selection_mode_true_at_world_intro")
+	# World_Intro is 2-beat. Rotating FO speaks (Maren for Act 4).
 	var fo := _get_dialogue()
 	if not fo.is_empty():
 		_log_narrative("World_Intro", fo, state)
-		# Speaker should be the selected FO.
-		var expected_name := _get_selected_fo_name()
-		_assert_speaker_is(expected_name, fo, "world_intro_speaker")
+		# Speaker should be the rotating FO (Maren for Act 4).
+		_assert_speaker_is("Maren", fo, "world_intro_speaker")
 	_dismiss_all_beats("World_Intro")
-	# FO reactive suppression check: after FO is promoted, reactive triggers
-	# should NOT fire during tutorial. Verify no unexpected dialogue activity.
-	_check_fo_reactive_suppression()
 	_wait_for_tutorial_phase("Explore_Prompt", 120, BotPhase.ACT4_EXPLORE)
 
 
@@ -827,13 +882,13 @@ func _do_act4_explore() -> void:
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "explore_prompt_not_reached")
-			_set_bot_phase(BotPhase.ACT4_EXPLORE_COMPLETE)
+			_set_bot_phase(BotPhase.ACT4_GALAXY_MAP)
 		return
 	var obj := str(state.get("objective", ""))
 	_objective_log["Explore_Prompt"] = obj
 	_a.warn("explore" in obj.to_lower() or "visit" in obj.to_lower() or "system" in obj.to_lower(),
 		"explore_objective", "obj=%s" % obj)
-	# Travel to 2 more systems (need 3 total).
+	# Travel to 2 more systems (need ExploreCompleteNodes total).
 	if _gm:
 		_gm.call("undock_v0")
 	_refresh_neighbors()
@@ -854,30 +909,15 @@ func _do_act4_explore() -> void:
 		await create_timer(0.4).timeout
 		_busy = false
 		_refresh_neighbors()
-	# Verify nodes visited count (gate requires >= 3).
+	# Verify nodes visited count (gate requires >= ExploreCompleteNodes).
 	if _bridge.has_method("GetOnboardingStateV0"):
 		var ob_state: Dictionary = _bridge.call("GetOnboardingStateV0")
 		var nodes_visited := int(ob_state.get("nodes_visited", 0))
 		_a.hard(nodes_visited >= 3, "explore_nodes_visited_gte3", "got=%d" % nodes_visited)
 		_a.log("EXPLORE|total_nodes_visited=%d" % nodes_visited)
-	_wait_for_tutorial_phase("Explore_Complete", 180, BotPhase.ACT4_EXPLORE_COMPLETE)
-
-
-func _do_act4_explore_complete() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Explore_Complete":
-		_polls += 1
-		if _polls >= 180:
-			_a.warn(false, "explore_complete_not_reached", "phase=%s" % str(state.get("phase_name", "")))
-			_set_bot_phase(BotPhase.ACT4_GALAXY_MAP)
-		return
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Explore_Complete", fo, state)
-	_dismiss_all_beats("Explore_Complete")
-	# Tab disclosure: Station + Intel tabs should unlock at 3 nodes visited.
+	# Tab disclosure: Station + Intel tabs should unlock at 3+ nodes visited.
 	_check_tab_disclosure("after_explore_3")
-	_wait_for_tutorial_phase("Galaxy_Map_Prompt", 120, BotPhase.ACT4_GALAXY_MAP)
+	_wait_for_tutorial_phase("Galaxy_Map_Prompt", 180, BotPhase.ACT4_GALAXY_MAP)
 
 
 func _do_act4_galaxy_map() -> void:
@@ -1210,12 +1250,7 @@ func _do_act7_automation_wait() -> void:
 	# Check for any phase past Automation_Running.
 	var phase_num := int(state.get("phase", 0))
 	if phase_num > 29:  # Past Automation_Running (29)
-		if pn == "Automation_React":
-			_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
-		elif pn == "Commission_Intro":
-			_set_bot_phase(BotPhase.ACT7_COMMISSION)
-		else:
-			_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
+		_set_bot_phase(BotPhase.ACT7_AUTOMATION_REACT)
 		return
 	# Track stall_ticks to verify the counter is incrementing.
 	var stall := int(state.get("stall_ticks", 0))
@@ -1237,246 +1272,60 @@ func _do_act7_automation_react() -> void:
 	var state := _get_tutorial_state()
 	var pn := str(state.get("phase_name", ""))
 	var phase_num := int(state.get("phase", 0))
-	# If past Automation_React already, skip ahead.
-	if phase_num > 30:
+	# If past Automation_React already, skip ahead to FO selection.
+	if pn == "FO_Selection" or phase_num >= 41:
 		_dismiss_if_needed(state)
-		_set_bot_phase(BotPhase.ACT7_COMMISSION)
+		_set_bot_phase(BotPhase.ACT7_FO_SELECT)
 		return
 	if pn != "Automation_React":
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "automation_react_not_reached", "phase=%s" % pn)
-			_set_bot_phase(BotPhase.ACT7_COMMISSION)
+			_set_bot_phase(BotPhase.ACT7_FO_SELECT)
 		return
 	var fo := _get_dialogue()
 	if not fo.is_empty():
 		_log_narrative("Automation_React", fo, state)
 	_dismiss_all_beats("Automation_React")
-	_wait_for_tutorial_phase("Commission_Intro", 120, BotPhase.ACT7_COMMISSION)
+	_wait_for_tutorial_phase("FO_Selection", 120, BotPhase.ACT7_FO_SELECT)
 
 
-func _do_act7_commission() -> void:
-	var state := _get_tutorial_state()
-	var pn := str(state.get("phase_name", ""))
-	var phase_num := int(state.get("phase", 0))
-	# Handle being at any phase past Commission_Intro.
-	if phase_num >= 32:  # Past Commission_Intro (31)
-		_set_bot_phase(BotPhase.ACT8_HAVEN_DISCOVER)
-		return
-	# Dismiss whatever dialogue phase we're at (Automation_React or Commission_Intro).
-	if pn == "Automation_React" or pn == "Commission_Intro":
-		if _polls == 0:  # Log narrative only on first encounter
-			var fo := _get_dialogue()
-			if not fo.is_empty():
-				_log_narrative(pn, fo, state)
-		_dismiss_all_beats(pn)
-	_polls += 1
-	if _polls >= 360:
-		state = _get_tutorial_state()
-		pn = str(state.get("phase_name", ""))
-		_a.warn(int(state.get("phase", 0)) >= 32,
-			"commission_complete", "phase=%s" % pn)
-		_set_bot_phase(BotPhase.ACT8_HAVEN_DISCOVER)
+# ── Act 7 (cont.): Graduation ─────────────────────────────────────
 
-
-# ── Act 8: The Haven (force-advance) ──────────────────────────────
-
-func _do_act8_haven_discover() -> void:
+func _do_act7_mystery() -> void:
 	if _polls == 0:
-		_a.log("ACT_8|The Haven — home base")
-	var state := _get_tutorial_state()
-	var pn := str(state.get("phase_name", ""))
-	var phase_num := int(state.get("phase", 0))
-	if pn == "Haven_Tour" or phase_num > 33:  # Past Haven_Tour
-		_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
-		return
-	if pn != "Haven_Discovery":
-		_polls += 1
-		if _polls >= 240:
-			_a.warn(false, "haven_discovery_not_reached", "phase=%s" % pn)
-			_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
-		return
-	# Force-advance: discover Haven (only once).
-	if not _haven_force_called:
-		_haven_force_called = true
-		_bridge.call("ForceDiscoverHavenV0")
-		_a.log("FORCE|Haven discovered")
-	_polls += 1
-	if _polls >= 240:
-		_a.warn(false, "haven_tour_not_reached_after_discover")
-		_set_bot_phase(BotPhase.ACT8_HAVEN_TOUR)
-
-
-func _do_act8_haven_tour() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Haven_Tour":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "haven_tour_not_reached")
-			_set_bot_phase(BotPhase.ACT8_HAVEN_UPGRADE)
-		return
-	# Haven_Tour is 3-beat.
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Haven_Tour", fo, state)
-	_dismiss_all_beats("Haven_Tour")
-	_wait_for_tutorial_phase("Haven_Upgrade_Prompt", 120, BotPhase.ACT8_HAVEN_UPGRADE)
-
-
-func _do_act8_haven_upgrade() -> void:
-	var state := _get_tutorial_state()
-	var pn := str(state.get("phase_name", ""))
-	var phase_num := int(state.get("phase", 0))
-	if pn == "Haven_React" or phase_num == 35:
-		_set_bot_phase(BotPhase.ACT8_HAVEN_REACT)
-		return
-	if phase_num >= 36:  # Past Haven_React
-		_set_bot_phase(BotPhase.ACT9_RESEARCH_INTRO)
-		return
-	# Track stall_ticks to verify the counter is incrementing.
-	var stall := int(state.get("stall_ticks", 0))
-	if not _stall_ticks_samples.has("Haven_Upgrade_Prompt"):
-		_stall_ticks_samples["Haven_Upgrade_Prompt"] = []
-	# Log objective only when phase is actually Haven_Upgrade_Prompt.
-	if pn == "Haven_Upgrade_Prompt" and not _objective_log.has("Haven_Upgrade_Prompt"):
-		var obj := str(state.get("objective", ""))
-		_objective_log["Haven_Upgrade_Prompt"] = obj
-	if _polls % 10 == 0:  # Sample frequently — phase only lasts 60 ticks (~6s)
-		_stall_ticks_samples["Haven_Upgrade_Prompt"].append(stall)
-	# Soft gate: 60 ticks or upgrade. Just wait for the stall timer.
-	_polls += 1
-	if _polls >= 1200:  # 60 sim ticks @ ~7 frames/tick + margin
-		_a.warn(false, "haven_upgrade_timeout", "phase=%s" % pn)
-		_set_bot_phase(BotPhase.ACT8_HAVEN_REACT)
-
-
-func _do_act8_haven_react() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Haven_React":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "haven_react_not_reached")
-			_set_bot_phase(BotPhase.ACT9_RESEARCH_INTRO)
-		return
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Haven_React", fo, state)
-	_dismiss_all_beats("Haven_React")
-	_capture("08_haven")
-	_wait_for_tutorial_phase("Research_Intro", 120, BotPhase.ACT9_RESEARCH_INTRO)
-
-
-# ── Act 9: The Frontier (force-advance) ───────────────────────────
-
-func _do_act9_research_intro() -> void:
-	if _polls == 0:
-		_a.log("ACT_9|The Frontier — research + knowledge")
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Research_Intro":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "research_intro_not_reached")
-			_set_bot_phase(BotPhase.ACT9_RESEARCH_START)
-		return
-	# Research_Intro is 2-beat.
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Research_Intro", fo, state)
-	_dismiss_all_beats("Research_Intro")
-	_wait_for_tutorial_phase("Research_Start", 120, BotPhase.ACT9_RESEARCH_START)
-
-
-func _do_act9_research_start() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Research_Start":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "research_start_not_reached")
-			_set_bot_phase(BotPhase.ACT9_RESEARCH_REACT)
-		return
-	# Force-advance: activate Haven research slot (NOT main queue).
-	# Tutorial gate checks Haven.ResearchLabSlots.Any(s => s.IsActive).
-	if _bridge.has_method("ForceStartResearchV0"):
-		_bridge.call("ForceStartResearchV0")
-		_a.log("FORCE|research started via Haven slot")
-	else:
-		_a.warn(false, "research_start_failed", "ForceStartResearchV0 not available")
-	_wait_for_tutorial_phase("Research_React", 120, BotPhase.ACT9_RESEARCH_REACT)
-
-
-func _do_act9_research_react() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Research_React":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "research_react_not_reached")
-			_set_bot_phase(BotPhase.ACT9_KNOWLEDGE)
-		return
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Research_React", fo, state)
-	_dismiss_all_beats("Research_React")
-	_wait_for_tutorial_phase("Knowledge_Intro", 120, BotPhase.ACT9_KNOWLEDGE)
-
-
-func _do_act9_knowledge() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Knowledge_Intro":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "knowledge_intro_not_reached")
-			_set_bot_phase(BotPhase.ACT9_FRONTIER)
-		return
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Knowledge_Intro", fo, state)
-	_dismiss_all_beats("Knowledge_Intro")
-	_wait_for_tutorial_phase("Frontier_Tease", 120, BotPhase.ACT9_FRONTIER)
-
-
-func _do_act9_frontier() -> void:
-	var state := _get_tutorial_state()
-	if str(state.get("phase_name", "")) != "Frontier_Tease":
-		_polls += 1
-		if _polls >= 120:
-			_a.warn(false, "frontier_tease_not_reached")
-			_set_bot_phase(BotPhase.ACT10_MYSTERY)
-		return
-	var fo := _get_dialogue()
-	if not fo.is_empty():
-		_log_narrative("Frontier_Tease", fo, state)
-	_dismiss_all_beats("Frontier_Tease")
-	_capture("09_frontier")
-	_wait_for_tutorial_phase("Mystery_Reveal", 120, BotPhase.ACT10_MYSTERY)
-
-
-# ── Act 10: Graduation ────────────────────────────────────────────
-
-func _do_act10_mystery() -> void:
-	if _polls == 0:
-		_a.log("ACT_10|Graduation — capstone")
+		_a.log("ACT_7|Graduation — capstone")
 	var state := _get_tutorial_state()
 	if str(state.get("phase_name", "")) != "Mystery_Reveal":
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "mystery_not_reached")
-			_set_bot_phase(BotPhase.ACT10_GRADUATION)
+			_set_bot_phase(BotPhase.ACT7_GRADUATION)
 		return
-	# Mystery_Reveal is 2-beat.
+	# Validate IsPreSelectionModeV0 — should be false after FO selection.
+	if _bridge.has_method("IsPreSelectionModeV0"):
+		_a.hard(not bool(_bridge.call("IsPreSelectionModeV0")),
+			"pre_selection_mode_false_at_mystery")
+	# FO reactive suppression check: after FO is promoted, reactive triggers
+	# should NOT fire during tutorial.
+	_check_fo_reactive_suppression()
+	# Mystery_Reveal is 2-beat. Selected FO speaks.
 	var fo := _get_dialogue()
 	if not fo.is_empty():
+		var expected_name := _get_selected_fo_name()
+		_assert_speaker_is(expected_name, fo, "mystery_speaker")
 		_log_narrative("Mystery_Reveal", fo, state)
 	_dismiss_all_beats("Mystery_Reveal")
-	_wait_for_tutorial_phase("Graduation_Summary", 120, BotPhase.ACT10_GRADUATION)
+	_wait_for_tutorial_phase("Graduation_Summary", 120, BotPhase.ACT7_GRADUATION)
 
 
-func _do_act10_graduation() -> void:
+func _do_act7_graduation() -> void:
 	var state := _get_tutorial_state()
 	if str(state.get("phase_name", "")) != "Graduation_Summary":
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "graduation_not_reached")
-			_set_bot_phase(BotPhase.ACT10_FAREWELL)
+			_set_bot_phase(BotPhase.ACT7_FAREWELL)
 		return
 	# Ship Computer speaks at graduation.
 	var fo := _get_dialogue()
@@ -1495,29 +1344,29 @@ func _do_act10_graduation() -> void:
 			"raw {modules_equipped} still in text")
 		_a.log("GRADUATION_TEXT|%s" % grad_text.left(120))
 	_dismiss_all_beats("Graduation_Summary")
-	_wait_for_tutorial_phase("FO_Farewell", 120, BotPhase.ACT10_FAREWELL)
+	_wait_for_tutorial_phase("FO_Farewell", 120, BotPhase.ACT7_FAREWELL)
 
 
-func _do_act10_farewell() -> void:
+func _do_act7_farewell() -> void:
 	var state := _get_tutorial_state()
 	if str(state.get("phase_name", "")) != "FO_Farewell":
 		_polls += 1
 		if _polls >= 120:
 			_a.warn(false, "farewell_not_reached")
-			_set_bot_phase(BotPhase.ACT10_MILESTONE)
+			_set_bot_phase(BotPhase.ACT7_MILESTONE)
 		return
 	var fo := _get_dialogue()
 	if not fo.is_empty():
 		_log_narrative("FO_Farewell", fo, state)
 	_dismiss_all_beats("FO_Farewell")
-	_wait_for_tutorial_phase("Milestone_Award", 120, BotPhase.ACT10_MILESTONE)
+	_wait_for_tutorial_phase("Milestone_Award", 120, BotPhase.ACT7_MILESTONE)
 
 
-func _do_act10_milestone() -> void:
+func _do_act7_milestone() -> void:
 	var state := _get_tutorial_state()
 	var pn := str(state.get("phase_name", ""))
 	if pn == "Tutorial_Complete":
-		_a.log("ACT_10|Tutorial_Complete reached!")
+		_a.log("ACT_7|Tutorial_Complete reached!")
 		_set_bot_phase(BotPhase.REINIT_TEST)
 		return
 	if pn != "Milestone_Award":
@@ -1530,7 +1379,7 @@ func _do_act10_milestone() -> void:
 	if not fo.is_empty():
 		_log_narrative("Milestone_Award", fo, state)
 	_dismiss_all_beats("Milestone_Award")
-	_capture("10_milestone")
+	_capture("07_milestone")
 	# Don't transition immediately — poll for Tutorial_Complete.
 	# _wait_for_tutorial_phase transitions the bot phase but the sim needs
 	# another tick to advance. Stay in this handler and poll.
@@ -1651,28 +1500,50 @@ func _do_final_audit() -> void:
 
 	# ── Phase History Audit ──
 	_a.log("PHASE_HISTORY|count=%d" % _phase_history.size())
+	# 7-act flow: ~30 active phases. Trade loop phases repeat 3x.
+	# Unique phases in expected first-occurrence order. Trade loop phases
+	# (Travel_Prompt, Arrival_Dock, Sell_Prompt, First_Profit) may appear in
+	# any position due to headless racing, so they're checked separately.
 	var expected_phases := [
 		"Awaken", "Flight_Intro", "First_Dock",
-		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_Prompt", "Buy_React",
-		"Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "First_Profit", "FO_Selection",
-		"World_Intro", "Explore_Prompt", "Explore_Complete", "Galaxy_Map_Prompt",
+		"Module_Calibration_Notice", "Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_Prompt", "Buy_React",
+		"Cruise_Intro", "Jump_Anomaly",
+		# Trade loop phases checked separately for >=3 occurrences.
+		"Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "First_Profit",
+		"World_Intro", "Explore_Prompt", "Galaxy_Map_Prompt",
 		"Threat_Warning", "Dask_Hail", "Combat_Engage", "Combat_Debrief", "Repair_Prompt",
 		"Module_Intro", "Module_Equip", "Module_React", "Lira_Tease",
-		"Automation_Intro", "Automation_Create", "Automation_Running", "Automation_React", "Commission_Intro",
-		"Haven_Discovery", "Haven_Tour", "Haven_Upgrade_Prompt", "Haven_React",
-		"Research_Intro", "Research_Start", "Research_React", "Knowledge_Intro", "Frontier_Tease",
+		"Automation_Intro", "Automation_Create", "Automation_Running", "Automation_React",
+		"FO_Selection",
 		"Mystery_Reveal", "Graduation_Summary", "FO_Farewell", "Milestone_Award", "Tutorial_Complete"
 	]
+	# Build deduped visit list for ordering + raw count map for trade loop check.
 	var visited_names: Array = []
+	var phase_visit_count: Dictionary = {}
 	for entry in _phase_history:
 		var pname: String = str(entry.get("name", ""))
 		if pname not in visited_names:
 			visited_names.append(pname)
+		phase_visit_count[pname] = phase_visit_count.get(pname, 0) + 1
 		_a.log("PHASE|%s frame=%d" % [pname, int(entry.get("frame", 0))])
+	# Check ordering of unique phases (first occurrence of each).
+	# Trade loop phases are excluded from strict ordering since they repeat
+	# and their first occurrence may be raced past in headless.
+	var trade_loop_set := ["Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "First_Profit"]
+	var unique_expected: Array = []
+	for ep in expected_phases:
+		if ep not in unique_expected:
+			unique_expected.append(ep)
 	var last_idx := -1
 	var phases_in_order := true
 	var missing_count := 0
-	for ep in expected_phases:
+	for ep in unique_expected:
+		if ep in trade_loop_set:
+			# Trade loop phases checked separately — skip strict ordering.
+			var idx := visited_names.find(ep)
+			if idx < 0:
+				missing_count += 1
+			continue
 		var idx := visited_names.find(ep)
 		if idx < 0:
 			# Headless race: sim can advance 2+ phases in one frame, skipping intermediates.
@@ -1688,6 +1559,11 @@ func _do_final_audit() -> void:
 		phases_in_order = false
 	_a.hard(phases_in_order, "all_phases_in_order", "missing=%d" % missing_count)
 	_a.warn(missing_count == 0, "phase_coverage_complete", "missing=%d" % missing_count)
+	# Trade loop: Travel_Prompt, Sell_Prompt, First_Profit should each appear 3+ times.
+	var trade_loop_phases := ["Travel_Prompt", "Sell_Prompt", "First_Profit"]
+	for tlp in trade_loop_phases:
+		var count: int = phase_visit_count.get(tlp, 0)
+		_a.warn(count >= 3, "trade_loop_%s_count" % tlp.to_lower(), "expected>=3 got=%d" % count)
 
 	# ── Dialogue Integrity Audit ──
 	_a.log("DIALOGUE_LOG|count=%d" % _dialogue_log.size())
@@ -1702,6 +1578,65 @@ func _do_final_audit() -> void:
 		_a.log("NARRATIVE|%s|%s|%s" % [str(entry.phase), str(entry.speaker), str(entry.text)])
 	_a.hard(duplicate_count == 0, "no_duplicate_dialogue", "dupes=%d" % duplicate_count)
 
+	# ── Cover-Story Enforcement ──
+	# Pre-Revelation dialogue must NOT contain forbidden lore terms.
+	# These would spoil the mystery that unfolds over 8+ hours.
+	var forbidden_words := ["fracture", "adaptation", "ancient", "organism"]
+	var coverstory_violations := 0
+	for entry in _dialogue_log:
+		var text_lower: String = str(entry.text).to_lower()
+		for fw in forbidden_words:
+			if fw in text_lower:
+				_a.log("COVERSTORY_VIOLATION|phase=%s word='%s' text=%s" % [
+					str(entry.phase), fw, str(entry.text).left(80)])
+				coverstory_violations += 1
+	_a.hard(coverstory_violations == 0, "coverstory_no_forbidden_words",
+		"violations=%d" % coverstory_violations)
+
+	# ── FO UI Instruction Leakage ──
+	# FOs observe/react only — UI instructions belong in HUD objectives.
+	# Ship Computer is exempt (system messages like "Hold C to engage").
+	var ui_instruction_patterns := ["open the ", "press ", "click ", "select the ", "hit "]
+	var ui_leaks := 0
+	for entry in _dialogue_log:
+		var speaker: String = str(entry.speaker)
+		if speaker == "SHIP COMPUTER" or speaker.is_empty():
+			continue  # Ship Computer is allowed to give system instructions.
+		var text_lower: String = str(entry.text).to_lower()
+		for pattern in ui_instruction_patterns:
+			if pattern in text_lower:
+				_a.log("UI_INSTRUCTION_LEAK|speaker=%s phase=%s pattern='%s' text=%s" % [
+					speaker, str(entry.phase), pattern, str(entry.text).left(80)])
+				ui_leaks += 1
+	_a.hard(ui_leaks == 0, "fo_no_ui_instructions", "leaks=%d" % ui_leaks)
+
+	# ── Narrative Voice Spot Checks ──
+	# Verify key narrative beats are present in dialogue content.
+	var maren_has_probability := false
+	var maren_has_warfront := false
+	for entry in _dialogue_log:
+		var text: String = str(entry.text)
+		var phase: String = str(entry.phase)
+		# Maren should use probability framing (any percentage mention).
+		if phase in ["Market_Explain", "Buy_React", "First_Profit"]:
+			if "%" in text:
+				maren_has_probability = true
+		# Maren_Settle should reference the warfront.
+		if phase == "Maren_Settle":
+			var tl := text.to_lower()
+			if "warfront" in tl or "war" in tl or "conflict" in tl or "backed up" in tl:
+				maren_has_warfront = true
+	_a.hard(maren_has_probability, "maren_probability_voice",
+		"No percentage found in Market_Explain/Buy_React/First_Profit dialogue")
+	_a.warn(maren_has_warfront, "maren_warfront_context",
+		"No warfront reference in Maren_Settle dialogue")
+
+	# ── Jump_Anomaly Fire-Once ──
+	# Jump_Anomaly should only appear once (first trade, ManualTradesCompleted==0).
+	var jump_anomaly_count: int = phase_visit_count.get("Jump_Anomaly", 0)
+	_a.hard(jump_anomaly_count <= 1, "jump_anomaly_fire_once",
+		"appeared %d times (expected 0 or 1)" % jump_anomaly_count)
+
 	# ── Beat Count Verification ──
 	# Multi-beat phases must deliver expected number of beats.
 	_a.log("BEAT_COUNTS|tracked=%d" % _beat_counts.size())
@@ -1715,21 +1650,33 @@ func _do_final_audit() -> void:
 		_a.log("BEATS|%s expected=%d actual=%d" % [phase_name, expected, actual])
 
 	# ── Speaker Consistency Audit ──
-	# Post-selection (phase >= World_Intro=14): selected FO speaks, except:
-	#   - SHIP COMPUTER at Graduation_Summary
-	#   - Dask at Dask_Hail
-	#   - Lira at Lira_Tease
+	# 7-act flow: rotating FO per act (pre-selection), then selected FO (post-selection).
+	# Ship Computer phases: Awaken, Flight_Intro, Module_Calibration_Notice, Cruise_Intro, Graduation_Summary
+	# Maren (Acts 2-4, 7 pre-select): Maren_Hail through First_Profit, Jump_Anomaly,
+	#   World_Intro, Explore_Prompt, Galaxy_Map_Prompt, Automation_Intro through Automation_React
+	# Dask (Act 5): Threat_Warning, Dask_Hail, Combat_Engage through Repair_Prompt
+	# Lira (Act 6): Module_Intro, Module_Equip, Module_React, Lira_Tease
+	# Selected FO (post-selection): Mystery_Reveal, FO_Farewell, Milestone_Award
 	var selected_fo_name := _get_selected_fo_name()
-	var speaker_exceptions := {
+	var phase_speaker_map := {
+		"Awaken": "SHIP COMPUTER", "Flight_Intro": "SHIP COMPUTER",
+		"Module_Calibration_Notice": "SHIP COMPUTER", "Cruise_Intro": "SHIP COMPUTER",
 		"Graduation_Summary": "SHIP COMPUTER",
-		"Dask_Hail": "Dask",
-		"Lira_Tease": "Lira"
+		# Maren acts (2, 3, 4, 7 pre-select)
+		"Maren_Hail": "Maren", "Maren_Settle": "Maren", "Market_Explain": "Maren",
+		"Buy_Prompt": "Maren", "Buy_React": "Maren",
+		"Travel_Prompt": "Maren", "Jump_Anomaly": "Maren",
+		"Arrival_Dock": "Maren", "Sell_Prompt": "Maren", "First_Profit": "Maren",
+		"World_Intro": "Maren", "Explore_Prompt": "Maren", "Galaxy_Map_Prompt": "Maren",
+		"Automation_Intro": "Maren", "Automation_React": "Maren",
+		# Dask (Act 5)
+		"Threat_Warning": "Dask", "Dask_Hail": "Dask",
+		"Combat_Debrief": "Dask", "Repair_Prompt": "Dask",
+		# Lira (Act 6)
+		"Module_Intro": "Lira", "Module_React": "Lira", "Lira_Tease": "Lira",
 	}
-	# Pre-selection phases (Acts 2-3): Maren speaks.
-	var pre_selection_phases := [
-		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_Prompt",
-		"Buy_React", "Travel_Prompt", "Sell_Prompt", "First_Profit"
-	]
+	# Post-selection phases use selected FO.
+	var post_selection_phases := ["Mystery_Reveal", "FO_Farewell", "Milestone_Award"]
 	var speaker_errors := 0
 	for entry in _dialogue_log:
 		var ep: String = str(entry.phase)
@@ -1737,15 +1684,14 @@ func _do_final_audit() -> void:
 		if sp.is_empty():
 			continue
 		var expected_speaker := ""
-		if ep in pre_selection_phases:
-			expected_speaker = "Maren"
-		elif ep in speaker_exceptions:
-			expected_speaker = speaker_exceptions[ep]
-		elif ep == "Awaken" or ep == "Flight_Intro":
-			expected_speaker = "SHIP COMPUTER"
-		elif ep not in ["FO_Selection", "First_Dock", ""]:
-			# Post-selection phases: selected FO speaks.
+		if ep in phase_speaker_map:
+			expected_speaker = phase_speaker_map[ep]
+		elif ep in post_selection_phases:
 			expected_speaker = selected_fo_name
+		elif ep not in ["FO_Selection", "First_Dock", "Combat_Engage", "Module_Equip", ""]:
+			# Unknown phase with dialogue — log but don't fail.
+			_a.log("SPEAKER_UNKNOWN_PHASE|%s speaker=%s" % [ep, sp])
+			continue
 		if not expected_speaker.is_empty() and sp != expected_speaker:
 			_a.log("SPEAKER_MISMATCH|%s expected=%s got=%s" % [ep, expected_speaker, sp])
 			speaker_errors += 1
@@ -1757,8 +1703,7 @@ func _do_final_audit() -> void:
 		"First_Dock", "Market_Explain", "Buy_Prompt", "Buy_React",
 		"Travel_Prompt", "Arrival_Dock", "Sell_Prompt", "FO_Selection",
 		"Explore_Prompt", "Galaxy_Map_Prompt", "Combat_Engage", "Repair_Prompt",
-		"Module_Equip", "Automation_Create", "Automation_Running",
-		"Haven_Discovery", "Haven_Upgrade_Prompt", "Research_Start"
+		"Module_Equip", "Automation_Create", "Automation_Running"
 	]
 	var obj_missing := 0
 	for agp in action_gated_phases:
@@ -1783,13 +1728,12 @@ func _do_final_audit() -> void:
 	# - Re-init: Awaken after Tutorial_Complete is the re-initialization test
 	var fast_ok_phases := [
 		# Dialogue-only (auto-dismiss)
-		"Maren_Settle", "Market_Explain", "Buy_React", "Arrival_Dock",
-		"First_Profit", "Explore_Complete", "Galaxy_Map_Prompt",
+		"Module_Calibration_Notice", "Maren_Settle", "Market_Explain", "Buy_React",
+		"Cruise_Intro", "Jump_Anomaly", "Arrival_Dock",
+		"First_Profit", "Galaxy_Map_Prompt",
 		"Threat_Warning", "Dask_Hail", "Combat_Debrief", "Repair_Prompt",
 		"Module_Intro", "Module_React", "Lira_Tease",
-		"Automation_Intro", "Automation_React", "Commission_Intro",
-		"Haven_Tour", "Haven_React",
-		"Research_Intro", "Research_React", "Knowledge_Intro", "Frontier_Tease",
+		"Automation_Intro", "Automation_React",
 		"Mystery_Reveal", "Graduation_Summary", "FO_Farewell", "Milestone_Award",
 		# Bot acts immediately on gate
 		"First_Dock", "Maren_Hail", "Buy_Prompt", "Travel_Prompt",
@@ -1810,7 +1754,7 @@ func _do_final_audit() -> void:
 			_a.log("TIMING_FAST|%s took only %d frames from %s" % [pname, delta, prev_name])
 			timing_warns += 1
 		# Flag very slow transitions (> 1500 frames ≈ 25s) excluding known slow gates.
-		var slow_ok := ["Automation_Running", "Haven_Upgrade_Prompt", "Haven_React"]
+		var slow_ok := ["Automation_Running"]
 		if delta > 1500 and pname not in slow_ok:
 			_a.log("TIMING_SLOW|%s took %d frames from %s" % [pname, delta, prev_name])
 			timing_warns += 1
@@ -1818,11 +1762,11 @@ func _do_final_audit() -> void:
 		_a.warn(false, "phase_timing_anomalies", "count=%d" % timing_warns)
 
 	# ── Stall Timer Verification ──
-	# Automation_Running and Haven_Upgrade_Prompt use stall timers (TicksSincePhaseChange).
+	# Automation_Running uses a stall timer (TicksSincePhaseChange).
 	# Verify the counter incremented across samples — if it didn't, TutorialSystem.Process
 	# may not be running and players could get permanently stuck.
-	# Stall timer thresholds: Automation_Running must reach 30 ticks, Haven_Upgrade_Prompt must reach 60.
-	var stall_thresholds := {"Automation_Running": 29, "Haven_Upgrade_Prompt": 59}
+	# Stall timer thresholds: Automation_Running must reach 30 ticks.
+	var stall_thresholds := {"Automation_Running": 29}
 	for stall_phase in stall_thresholds:
 		var threshold: int = stall_thresholds[stall_phase]
 		if _stall_ticks_samples.has(stall_phase):
@@ -2072,6 +2016,22 @@ func _check_fo_reactive_suppression() -> void:
 		str(fo_state.get("promoted", false)),
 		str(fo_state.get("type", "None")),
 		str(fo_state.get("dialogue_count", 0))])
+
+
+func _buy_goods_for_loop() -> void:
+	# Buy goods at the current station for the next trade loop iteration.
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
+	var pick := _find_best_buy(market)
+	if pick.is_empty():
+		_a.log("TRADE_LOOP_BUY|no affordable goods at %s" % node_id)
+		return
+	_bought_good_id = pick.good_id
+	_bought_unit_cost = pick.price
+	_bought_qty = 1
+	_bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, 1, true)
+	_a.log("TRADE_LOOP_BUY|good=%s price=%d at=%s" % [_bought_good_id, _bought_unit_cost, node_id])
 
 
 func _log_credit_curve(phase_name: String) -> void:

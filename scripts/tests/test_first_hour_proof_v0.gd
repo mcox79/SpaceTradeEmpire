@@ -63,7 +63,7 @@ enum Phase {
 	PROBE_SYSTEMIC, PROBE_FACTIONS, PROBE_KNOWLEDGE, PROBE_RESEARCH_START, PROBE_LEDGER,
 	PROBE_REFIT, PROBE_AUTOMATION, PROBE_CONSTRUCTION, PROBE_FRACTURE,
 	PROBE_DIPLOMACY, PROBE_STORY, PROBE_ENDGAME, PROBE_ECONOMY_SIGNAL,
-	PROBE_OVERLAYS,
+	PROBE_OVERLAYS, PROBE_PLANET_SCAN, PROBE_ANOMALY_CHAINS,
 	AUDIT,
 	DONE
 }
@@ -175,8 +175,8 @@ func _process(_delta: float) -> bool:
 	if _busy:
 		return false
 	_total_frames += 1
-	# FPS sampling every 30 frames
-	if _total_frames % 30 == 0:
+	# FPS sampling every 30 frames — start after BOOT to exclude scene load stalls
+	if _total_frames % 30 == 0 and _phase >= Phase.BOOT:
 		var fps := Engine.get_frames_per_second()
 		if fps > 0.0:
 			_fps_samples.append(fps)
@@ -278,6 +278,8 @@ func _process(_delta: float) -> bool:
 		Phase.PROBE_ENDGAME: _do_probe_endgame()
 		Phase.PROBE_ECONOMY_SIGNAL: _do_probe_economy_signal()
 		Phase.PROBE_OVERLAYS: _do_probe_overlays()
+		Phase.PROBE_PLANET_SCAN: _do_probe_planet_scan()
+		Phase.PROBE_ANOMALY_CHAINS: _do_probe_anomaly_chains()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
 	return false
@@ -1982,6 +1984,143 @@ func _do_probe_overlays() -> void:
 		var activity: int = _bridge.call("GetNpcTradeActivityV0", _home_node_id)
 		_log("OVERLAY|npc_trade_activity=%d node=%s" % [activity, _home_node_id])
 	_polls = 0
+	_phase = Phase.PROBE_PLANET_SCAN
+
+
+func _do_probe_planet_scan() -> void:
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+
+	# Scanner charges status
+	if _bridge.has_method("GetScanChargesV0"):
+		var charges: Dictionary = _bridge.call("GetScanChargesV0")
+		if charges is Dictionary and not charges.is_empty():
+			var remaining := int(charges.get("remaining", 0))
+			var max_charges := int(charges.get("max", 0))
+			var tier := int(charges.get("tier", 0))
+			var mineral_avail: bool = charges.get("mineral_available", false)
+			var signal_avail: bool = charges.get("signal_available", false)
+			var arch_avail: bool = charges.get("archaeological_available", false)
+			_log("PLANET_SCAN|charges=%d/%d tier=%d mineral=%s signal=%s arch=%s" % [
+				remaining, max_charges, tier, str(mineral_avail), str(signal_avail), str(arch_avail)])
+			_log("GOAL|DEPTH|scanner_tier=%d scanner_charges=%d" % [tier, remaining])
+
+	# Planet info at current node
+	if _bridge.has_method("GetPlanetInfoV0") and not node_id.is_empty():
+		var planet: Dictionary = _bridge.call("GetPlanetInfoV0", node_id)
+		if planet is Dictionary and not planet.is_empty():
+			var planet_type := str(planet.get("planet_type", ""))
+			var landable: bool = planet.get("landable", false)
+			var specialization := str(planet.get("specialization", ""))
+			_log("PLANET_SCAN|planet_type=%s landable=%s spec=%s node=%s" % [
+				planet_type, str(landable), specialization, node_id])
+
+	# Star info at current node
+	if _bridge.has_method("GetStarInfoV0") and not node_id.is_empty():
+		var star: Dictionary = _bridge.call("GetStarInfoV0", node_id)
+		if star is Dictionary and not star.is_empty():
+			var star_class := str(star.get("star_class", ""))
+			_log("PLANET_SCAN|star_class=%s node=%s" % [star_class, node_id])
+
+	# Attempt orbital scan (MineralSurvey — always available)
+	if _bridge.has_method("OrbitalScanV0") and not node_id.is_empty():
+		var scan_result: Dictionary = _bridge.call("OrbitalScanV0", node_id, "MineralSurvey")
+		if scan_result is Dictionary:
+			var error := str(scan_result.get("error", ""))
+			if error.is_empty():
+				var category := str(scan_result.get("category", ""))
+				var flavor := str(scan_result.get("flavor_text", ""))
+				var scan_id := str(scan_result.get("scan_id", ""))
+				_log("PLANET_SCAN|orbital_scan=OK category=%s scan_id=%s" % [category, scan_id])
+				_log("GOAL|DEPTH|planet_scan_success=true")
+				# Try to investigate if available
+				if bool(scan_result.get("investigation_available", false)) and not scan_id.is_empty():
+					if _bridge.has_method("InvestigateFindingV0"):
+						var inv: Dictionary = _bridge.call("InvestigateFindingV0", scan_id)
+						var inv_ok: bool = inv.get("success", false)
+						_log("PLANET_SCAN|investigate=%s scan_id=%s" % [str(inv_ok), scan_id])
+			else:
+				_log("PLANET_SCAN|orbital_scan=FAIL error=%s" % error)
+
+	# Check existing scan results across visited nodes
+	if _bridge.has_method("GetPlanetScanResultsV0"):
+		var total_scans := 0
+		for nid in _visited:
+			var results: Array = _bridge.call("GetPlanetScanResultsV0", str(nid))
+			if results is Array:
+				total_scans += results.size()
+		_log("PLANET_SCAN|total_results_across_visited=%d" % total_scans)
+
+	# Instability-revealed discovery sites
+	if _bridge.has_method("GetInstabilityRevealedSitesV0"):
+		var revealed: Array = _bridge.call("GetInstabilityRevealedSitesV0")
+		if revealed is Array:
+			var total := revealed.size()
+			var visible := 0
+			for site in revealed:
+				if bool(site.get("is_revealed", false)):
+					visible += 1
+			_log("PLANET_SCAN|instability_sites=%d revealed=%d" % [total, visible])
+			_log("GOAL|DEPTH|instability_revealed=%d" % visible)
+
+	_polls = 0
+	_phase = Phase.PROBE_ANOMALY_CHAINS
+
+
+func _do_probe_anomaly_chains() -> void:
+	# Active anomaly chains
+	if _bridge.has_method("GetActiveChainsV0"):
+		var chains: Array = _bridge.call("GetActiveChainsV0")
+		if chains is Array:
+			_log("ANOMALY|active_chains=%d" % chains.size())
+			_log("GOAL|DEPTH|anomaly_chains=%d" % chains.size())
+			for chain in chains:
+				var chain_id := str(chain.get("chain_id", ""))
+				var status := str(chain.get("status", ""))
+				var step := int(chain.get("current_step", 0))
+				var total := int(chain.get("total_steps", 0))
+				var kind := str(chain.get("current_step_kind", ""))
+				_log("ANOMALY|chain=%s status=%s step=%d/%d kind=%s" % [
+					chain_id, status, step, total, kind])
+				# Get full chain progress
+				if _bridge.has_method("GetChainProgressV0") and not chain_id.is_empty():
+					var progress: Dictionary = _bridge.call("GetChainProgressV0", chain_id)
+					if progress is Dictionary and bool(progress.get("found", false)):
+						var steps: Array = progress.get("steps", [])
+						var completed := 0
+						for s in steps:
+							if bool(s.get("is_completed", false)):
+								completed += 1
+						_log("ANOMALY|chain=%s completed_steps=%d/%d" % [chain_id, completed, total])
+
+	# Discovery trade intel
+	if _bridge.has_method("GetDiscoveryTradeIntelV0"):
+		var routes: Array = _bridge.call("GetDiscoveryTradeIntelV0")
+		if routes is Array:
+			_log("ANOMALY|discovery_trade_routes=%d" % routes.size())
+			_log("GOAL|DEPTH|discovery_intel_routes=%d" % routes.size())
+			for route in routes:
+				var good := str(route.get("good_id", ""))
+				var profit := int(route.get("estimated_profit", 0))
+				var source := str(route.get("source_discovery_id", ""))
+				_log("ANOMALY|route_good=%s profit=%d source=%s" % [good, profit, source])
+
+	# Survey program status
+	if _bridge.has_method("GetSurveyProgramStatusV0"):
+		var survey: Dictionary = _bridge.call("GetSurveyProgramStatusV0")
+		if survey is Dictionary:
+			var programs: Array = survey.get("programs", [])
+			_log("ANOMALY|survey_programs=%d" % programs.size())
+			for prog in programs:
+				_log("ANOMALY|survey=%s family=%s status=%s" % [
+					str(prog.get("id", "")), str(prog.get("family", "")), str(prog.get("status", ""))])
+
+	# Survey unlock check
+	if _bridge.has_method("IsSurveyUnlockedV0"):
+		var unlocked: bool = _bridge.call("IsSurveyUnlockedV0", "SIGNAL")
+		_log("ANOMALY|survey_unlocked_signal=%s" % str(unlocked))
+
+	_polls = 0
 	_phase = Phase.AUDIT
 
 
@@ -2615,7 +2754,9 @@ func _probe_fo_dialogue(event_name: String) -> void:
 	var count := int(fo.get("dialogue_count", 0))
 	if count > _fo_dialogue_count:
 		var tick_now := _get_tick()
-		_log("GOAL|FO|post_event=%s dialogue_count=%d (was %d) tick=%d frame=%d" % [event_name, count, _fo_dialogue_count, tick_now, _total_frames])
+		var pending_text: String = str(fo.get("pending_text", ""))
+		var text_preview := pending_text.substr(0, 100) if pending_text.length() > 0 else "(consumed)"
+		_log("GOAL|FO|post_event=%s dialogue_count=%d (was %d) tick=%d frame=%d text=%s" % [event_name, count, _fo_dialogue_count, tick_now, _total_frames, text_preview])
 		_fo_dialogue_count = count
 		_fo_post_event_reactions += 1
 	else:

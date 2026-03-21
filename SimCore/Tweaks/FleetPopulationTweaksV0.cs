@@ -13,14 +13,14 @@ public static class FleetPopulationTweaksV0
     // Weavers:   builders — heavy hauling, no patrol (patient ambush, not active patrol)
     // Valorin:   swarm doctrine — 3-4x density, heavy patrol presence
     // Communion: sparse scouts — minimal presence, fragile
-    // Unclaimed: wandering trader only
+    // Unclaimed: independent traders and prospectors — border space still has traffic
 
     public static readonly (int Traders, int Haulers, int Patrols) Concord   = (1, 1, 1); // 3 total
     public static readonly (int Traders, int Haulers, int Patrols) Chitin    = (2, 0, 1); // 3 total
     public static readonly (int Traders, int Haulers, int Patrols) Weavers   = (1, 2, 0); // 3 total
     public static readonly (int Traders, int Haulers, int Patrols) Valorin   = (2, 1, 3); // 6 total — swarm
     public static readonly (int Traders, int Haulers, int Patrols) Communion = (1, 0, 1); // 2 total — sparse
-    public static readonly (int Traders, int Haulers, int Patrols) Unclaimed = (1, 0, 0); // 1 total
+    public static readonly (int Traders, int Haulers, int Patrols) Unclaimed = (2, 1, 0); // 3 total — independents
 
     public static (int Traders, int Haulers, int Patrols) GetComposition(string factionId)
     {

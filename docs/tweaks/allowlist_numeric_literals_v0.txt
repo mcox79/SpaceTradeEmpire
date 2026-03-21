@@ -410,3 +410,22 @@ SimCore/Systems/StationConsumptionSystem.cs:0
 
 # TutorialSystem: structural zeros (count==0, >0 comparisons, empty checks)
 SimCore/Systems/TutorialSystem.cs:0
+
+# GATE.T41.DISCOVERY_INTEL.SYSTEM.001: structural parse indices (parts[3] = refId, parts.Length >= 4 format check)
+SimCore/Systems/DiscoveryOutcomeSystem.cs:3
+SimCore/Systems/DiscoveryOutcomeSystem.cs:4
+
+# GATE.T41.ANOMALY_CHAIN.KG.001: structural prefix length (6 = len("CHAIN_"))
+SimCore/Gen/NarrativePlacementGen.cs:6
+# GATE.T41.INSTAB_REVEAL.MODEL.001: structural hash modulus (% 10UL for instability gate roll)
+SimCore/Gen/NarrativePlacementGen.cs:10UL
+
+# GATE.T42.PLANET_SCAN.ORBITAL.001: structural constants in PlanetScanSystem
+SimCore/Systems/PlanetScanSystem.cs:0
+SimCore/Systems/PlanetScanSystem.cs:1
+SimCore/Systems/PlanetScanSystem.cs:2
+SimCore/Systems/PlanetScanSystem.cs:3
+SimCore/Systems/PlanetScanSystem.cs:10000
+
+# GATE.T42.PLANET_SCAN.FO.001: structural triangulation threshold (2 = min signal leads from different nodes)
+SimCore/Systems/FirstOfficerSystem.cs:2

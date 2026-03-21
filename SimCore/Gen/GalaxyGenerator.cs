@@ -158,8 +158,14 @@ public static class GalaxyGenerator
         NarrativePlacementGen.PlaceDataLogs(state);
         NarrativePlacementGen.PlaceKeplerChain(state);
 
+        // Phase 9.3: GATE.T41.ANOMALY_CHAIN.PLACEMENT.001 — Place anomaly chains.
+        NarrativePlacementGen.PlaceAnomalyChains(state);
+
         // Phase 9.5: GATE.T18.KG_SEED.RESOLVE.001 — Resolve knowledge graph templates.
         NarrativePlacementGen.ResolveKnowledgeGraphTemplates(state);
+
+        // Phase 9.55: GATE.T41.ANOMALY_CHAIN.KG.001 — Resolve chain knowledge connections.
+        NarrativePlacementGen.ResolveChainKnowledgeConnections(state);
 
         // Phase 9.6: GATE.T18.KG_SEED.PROXIMITY.001 — Procedural proximity + faction connections.
         NarrativePlacementGen.GenerateProceduralConnections(state);
@@ -424,6 +430,8 @@ public static class GalaxyGenerator
                     + (float)(siteHash % (uint)Tweaks.VoidSiteTweaksV0.THashMod) / Tweaks.VoidSiteTweaksV0.TRangeDiv;
                 float px = nodeA.Position.X + (nodeB.Position.X - nodeA.Position.X) * t;
                 float pz = nodeA.Position.Z + (nodeB.Position.Z - nodeA.Position.Z) * t;
+                // 2.5D: interpolate Y along the edge between stars.
+                float py = nodeA.Position.Y + (nodeB.Position.Y - nodeA.Position.Y) * t;
 
                 // Perpendicular offset to avoid sitting directly on the lane.
                 float dx = nodeB.Position.X - nodeA.Position.X;
@@ -448,7 +456,7 @@ public static class GalaxyGenerator
                 state.VoidSites[siteId] = new Entities.VoidSite
                 {
                     Id = siteId,
-                    Position = new System.Numerics.Vector3(px, 0, pz),
+                    Position = new System.Numerics.Vector3(px, py, pz),
                     Family = family,
                     MarkerState = Entities.VoidSiteMarkerState.Unknown,
                     NearStarA = edge.FromNodeId,
@@ -519,12 +527,14 @@ public static class GalaxyGenerator
             float t = 0.5f;
             float px = nodeA.Position.X + (nodeB.Position.X - nodeA.Position.X) * t;
             float pz = nodeA.Position.Z + (nodeB.Position.Z - nodeA.Position.Z) * t;
+            // 2.5D: interpolate Y along the edge between stars.
+            float py = nodeA.Position.Y + (nodeB.Position.Y - nodeA.Position.Y) * t;
 
             const string siteId = "void_starter_000";
             state.VoidSites[siteId] = new Entities.VoidSite
             {
                 Id = siteId,
-                Position = new System.Numerics.Vector3(px, default(int), pz),
+                Position = new System.Numerics.Vector3(px, py, pz),
                 Family = Entities.VoidSiteFamily.ResourceDeposit,
                 MarkerState = Entities.VoidSiteMarkerState.Unknown,
                 NearStarA = edge.FromNodeId,
@@ -1418,6 +1428,11 @@ public static class GalaxyGenerator
             {
                 state.NodeFactionId[nodeId] = f.FactionId;
             }
+
+            // Populate faction doctrine dictionaries (mirrors WorldLoader hydration).
+            state.FactionTariffRates[f.FactionId] = f.TariffRate;
+            state.FactionTradePolicy[f.FactionId] = (int)f.TradePolicy;
+            state.FactionAggressionLevel[f.FactionId] = f.AggressionLevel;
         }
     }
 

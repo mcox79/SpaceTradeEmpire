@@ -17,6 +17,14 @@
 40f
 0
 0
+0
+2
+1
+0
+0
+0
+1
+0
 1
 # FILE SimCore/Gen/GalaxyGenerator.cs
 12
@@ -29,13 +37,21 @@
 0
 0
 0
+0f
+0
+0
+31
+8
+80
+10
+100.0f
+0
 0
 0
 256
 0
 0
 1
-0
 0
 0.5f
 0
@@ -125,22 +141,8 @@
 120
 500
 10
-500
 1
 0
-5
-1
-0
-10
-0
-200
-10
-1
-5
-2
-500
-5
-1
 1
 1
 0
@@ -153,6 +155,11 @@
 0
 1
 0
+0
+0
+0
+2
+1
 # FILE SimCore/Gen/NarrativePlacementGen.cs
 0
 0
@@ -193,6 +200,17 @@
 2
 14695981039346656037UL
 1099511628211UL
+0
+0
+0
+2
+1
+0
+0
+1
+1
+7
+7
 # FILE SimCore/Gen/PlanetInitGen.cs
 0
 0
@@ -212,6 +230,7 @@
 1
 1
 9
+1
 1
 # FILE SimCore/Gen/ReportBuilder.cs
 20
@@ -280,7 +299,11 @@
 1
 2
 1
-0
+2
+1
+1.0f
+0f
+1f
 0
 0
 2
@@ -306,6 +329,11 @@
 25
 0
 20
+# FILE SimCore/Systems/AdaptationFragmentSystem.cs
+0
+0
+0
+0
 # FILE SimCore/Systems/BandedTime.cs
 0
 0
@@ -347,6 +375,11 @@
 0
 0
 0
+10000
+0
+0
+0
+0
 0
 0
 0
@@ -360,6 +393,27 @@
 0
 100
 1
+0
+1
+0
+0
+1
+0
+0
+100
+0
+0
+100
+0
+50
+14695981039346656037UL
+1099511628211UL
+1099511628211UL
+1099511628211UL
+# FILE SimCore/Systems/CommissionSystem.cs
+0
+0
+0
 # FILE SimCore/Systems/ConstructionSystem.cs
 0
 0
@@ -375,6 +429,24 @@
 0
 0
 0
+# FILE SimCore/Systems/DiplomacySystem.cs
+0
+0
+0
+0
+100UL
+0
+0
+0
+0
+2UL
+0
+0
+0
+0
+50
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Systems/DiscoveryOutcomeSystem.cs
 2
 1
@@ -403,6 +475,17 @@
 0
 0
 0
+0
+0
+0
+0
+0
+# FILE SimCore/Systems/FleetUpkeepSystem.cs
+0
+0
+0
+0
+1
 0
 0
 0
@@ -440,14 +523,64 @@
 1099511628211UL
 1099511628211UL
 1099511628211UL
+# FILE SimCore/Systems/HavenEndgameSystem.cs
+0
+0
+0
+0
+10
+0
+0
+0
+0
+0
+0
+0
+0
+0
+3
+2
+1
+0
+0
+1
+2
+1
+2
+1
+2
+1
+2
+0
+0
+# FILE SimCore/Systems/HavenFabricatorSystem.cs
+0
+0
+0
 # FILE SimCore/Systems/HavenHangarSystem.cs
 1
+0
+# FILE SimCore/Systems/HavenMarketSystem.cs
+0
+# FILE SimCore/Systems/HavenResearchLabSystem.cs
+0
+0
+1
+0
+0
+0
+0
+0
+0
+0
+0
 0
 # FILE SimCore/Systems/HavenUpgradeSystem.cs
 0
 0
 0
 1
+0
 0
 0
 0
@@ -481,6 +614,8 @@
 0
 0
 # FILE SimCore/Systems/InstabilitySystem.cs
+0
+0
 0
 0
 0
@@ -616,6 +751,24 @@
 0f
 1
 1
+# FILE SimCore/Systems/LatticeDroneCombatSystem.cs
+0
+0
+0
+0
+0
+0
+1
+0
+0
+0
+1
+# FILE SimCore/Systems/LatticeDroneSpawnSystem.cs
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/LogisticsSystem.cs
 3
 0
@@ -671,6 +824,9 @@
 8
 14695981039346656037UL
 1099511628211UL
+# FILE SimCore/Systems/LossDetectionSystem.cs
+0
+0
 # FILE SimCore/Systems/MaintenanceSystem.cs
 0
 0
@@ -756,6 +912,20 @@
 10000
 2
 1
+# FILE SimCore/Systems/MegaprojectSystem.cs
+0
+0
+0
+0
+1
+0
+0
+0
+0
+0
+0
+0
+100
 # FILE SimCore/Systems/MilestoneSystem.cs
 0
 # FILE SimCore/Systems/MissionSystem.cs
@@ -855,6 +1025,8 @@
 2
 0
 2
+0
+2
 1
 3
 3
@@ -887,6 +1059,9 @@
 0
 0
 0
+0
+0
+# FILE SimCore/Systems/PentagonBreakSystem.cs
 0
 0
 # FILE SimCore/Systems/PowerBudgetSystem.cs
@@ -944,6 +1119,11 @@
 0
 0
 0
+0
+0
+100
+0
+0
 # FILE SimCore/Systems/ResearchSystem.cs
 1
 0
@@ -988,6 +1168,8 @@
 0
 0
 0
+100
+100
 1
 1
 # FILE SimCore/Systems/RouteUncertaintySystem.cs
@@ -1037,7 +1219,24 @@
 1
 0
 # FILE SimCore/Systems/SerializationSystem.cs
+2
 1
+0
+1
+2
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+# FILE SimCore/Systems/StationConsumptionSystem.cs
+0
 0
 0
 0
@@ -1064,18 +1263,42 @@
 0
 0
 0
+# FILE SimCore/Systems/StoryStateMachineSystem.cs
 # FILE SimCore/Systems/StrategicResolverV0.cs
 0
 1
+0
+0
 10000
+0
+0
 0
 0
 10000
 10000
+10000
+7919
+1301
+2
+1
+10000
+10000
+# FILE SimCore/Systems/SupplyShockSystem.cs
+0
+0
+0f
+100
+100f
 # FILE SimCore/Systems/SustainSystem.cs
 0f
 1
 1.0f
+0
+0
+0
+0
+0
+0
 0
 0
 0
@@ -1132,6 +1355,12 @@
 1099511628211UL
 1099511628211UL
 1099511628211UL
+# FILE SimCore/Systems/TutorialSystem.cs
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/WarConsequenceSystem.cs
 0
 0
@@ -1163,3 +1392,32 @@
 2166136261
 16777619
 16777619
+# FILE SimCore/Systems/WinConditionSystem.cs
+100
+1
+0
+1
+0
+1
+0
+1
+0
+25
+1
+0
+1
+0
+1
+0
+1
+0
+25
+1
+0
+1
+0
+1
+0
+1
+0
+25

@@ -73,6 +73,12 @@ public static class FirstOfficerSystem
 
         // ── EARLY TIER triggers ──
 
+        // FIRST_DOCK: player fleet docked at a station for the first time
+        if (playerFleet.State == FleetState.Docked)
+        {
+            TryFireTrigger(state, "FIRST_DOCK");
+        }
+
         // FIRST_WARP: player fleet has traveled to a different node from start
         if (!string.IsNullOrEmpty(playerFleet.CurrentNodeId)
             && playerFleet.State != FleetState.Traveling
@@ -226,6 +232,155 @@ public static class FirstOfficerSystem
         if (revealedCount >= NarrativeTweaksV0.KnowledgeWebInsightConnections)
         {
             TryFireTrigger(state, "KNOWLEDGE_WEB_INSIGHT");
+        }
+
+        // ── GATE.T41 Discovery-as-Automation triggers ──
+
+        // FIRST_TRADE_ROUTE_DISCOVERED: any discovery-derived trade route exists
+        if (state.Intel.TradeRoutes.Count > 0)
+        {
+            foreach (var route in state.Intel.TradeRoutes.Values)
+            {
+                if (!string.IsNullOrEmpty(route.SourceDiscoveryId))
+                {
+                    TryFireTrigger(state, "FIRST_TRADE_ROUTE_DISCOVERED");
+                    break;
+                }
+            }
+        }
+
+        // SURVEY_AUTOMATION_SUGGESTED: player has manually scanned 3+ discoveries of any family
+        {
+            int maxScans = 0;
+            foreach (var disc in state.Intel.Discoveries.Values)
+            {
+                if (disc is null || disc.Phase < DiscoveryPhase.Scanned) continue;
+                maxScans++;
+            }
+            if (maxScans >= Tweaks.SurveyProgramTweaksV0.ManualScanGateCount)
+            {
+                TryFireTrigger(state, "SURVEY_AUTOMATION_SUGGESTED");
+            }
+        }
+
+        // CHAIN_LINK_DISCOVERED: any anomaly chain has CurrentStepIndex > 0 (step completed)
+        if (state.AnomalyChains != null)
+        {
+            foreach (var chain in state.AnomalyChains.Values)
+            {
+                if (chain.CurrentStepIndex > 0 && chain.Status == AnomalyChainStatus.Active)
+                {
+                    TryFireTrigger(state, "CHAIN_LINK_DISCOVERED");
+                    break;
+                }
+            }
+        }
+
+        // CHAIN_COMPLETED: any anomaly chain is Completed
+        if (state.AnomalyChains != null)
+        {
+            foreach (var chain in state.AnomalyChains.Values)
+            {
+                if (chain.Status == AnomalyChainStatus.Completed)
+                {
+                    TryFireTrigger(state, "CHAIN_COMPLETED");
+                    break;
+                }
+            }
+        }
+
+        // ── GATE.T42 Planet Scan triggers ──
+
+        // FIRST_PLANET_SURVEYED: player has performed at least one planet scan
+        if (state.PlanetScanResults.Count > 0)
+        {
+            TryFireTrigger(state, "FIRST_PLANET_SURVEYED");
+        }
+
+        // SCAN_MODE_MISMATCH: most recent scan had low affinity (< 8000 bps)
+        if (state.PlanetScanResults.Count > 0)
+        {
+            // Check the most recent scan result.
+            string latestScanId = $"SCAN_{state.NextPlanetScanSeq - 1}";
+            if (state.PlanetScanResults.TryGetValue(latestScanId, out var latestScan)
+                && latestScan.AffinityBps < PlanetScanTweaksV0.MidAffinityThresholdBps)
+            {
+                TryFireTrigger(state, "SCAN_MODE_MISMATCH");
+            }
+        }
+
+        // PATTERN_RECOGNIZED: 5+ scans completed with any single mode
+        {
+            int mineralCount = 0, signalCount = 0, archCount = 0;
+            foreach (var scan in state.PlanetScanResults.Values)
+            {
+                switch (scan.Mode)
+                {
+                    case ScanMode.MineralSurvey: mineralCount++; break;
+                    case ScanMode.SignalSweep: signalCount++; break;
+                    case ScanMode.Archaeological: archCount++; break;
+                }
+            }
+            if (mineralCount >= NarrativeTweaksV0.PatternRecognizedScanCount
+                || signalCount >= NarrativeTweaksV0.PatternRecognizedScanCount
+                || archCount >= NarrativeTweaksV0.PatternRecognizedScanCount)
+            {
+                TryFireTrigger(state, "PATTERN_RECOGNIZED");
+            }
+        }
+
+        // RARE_FIND: any landing scan produced FragmentCache, or Physical Evidence with investigation
+        foreach (var scan in state.PlanetScanResults.Values)
+        {
+            if (scan.Phase == ScanPhase.Landing || scan.Phase == ScanPhase.AtmosphericSample)
+            {
+                if (scan.Category == FindingCategory.FragmentCache
+                    || (scan.Category == FindingCategory.PhysicalEvidence && scan.InvestigationAvailable))
+                {
+                    TryFireTrigger(state, "RARE_FIND");
+                    break;
+                }
+            }
+        }
+
+        // SIGNAL_TRIANGULATED: 2+ signal leads from different nodes targeting the same area
+        // (simplified: 2+ Signal Lead scan results from different nodes)
+        {
+            var signalNodes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var scan in state.PlanetScanResults.Values)
+            {
+                if (scan.Category == FindingCategory.SignalLead)
+                    signalNodes.Add(scan.NodeId);
+            }
+            if (signalNodes.Count >= 2) // STRUCTURAL: triangulation threshold
+            {
+                TryFireTrigger(state, "SIGNAL_TRIANGULATED");
+            }
+        }
+
+        // LORE_DISCOVERY: any scan produced a DataArchive finding
+        foreach (var scan in state.PlanetScanResults.Values)
+        {
+            if (scan.Category == FindingCategory.DataArchive)
+            {
+                TryFireTrigger(state, "LORE_DISCOVERY");
+                break;
+            }
+        }
+
+        // TRADE_INTEL_STALE: any high-value discovery-derived route has gone Stale
+        if (state.Intel.TradeRoutes.Count > 0)
+        {
+            foreach (var route in state.Intel.TradeRoutes.Values)
+            {
+                if (!string.IsNullOrEmpty(route.SourceDiscoveryId)
+                    && route.Status == TradeRouteStatus.Stale
+                    && route.EstimatedProfitPerUnit >= Tweaks.DiscoveryIntelTweaksV0.HighValueStaleThreshold)
+                {
+                    TryFireTrigger(state, "TRADE_INTEL_STALE");
+                    break;
+                }
+            }
         }
     }
 

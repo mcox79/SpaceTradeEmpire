@@ -46,6 +46,10 @@ public class SellCommand : ICommand
 		int repBps = MarketSystem.GetRepPricingBps(state, factionId);
 		unitPrice = MarketSystem.ApplyRepPricing(unitPrice, repBps);
 
+		// GATE.X.MARKET_PRICING.AFFINITY_WIRE.001: Apply faction good affinity modifier.
+		int affinityBps = MarketSystem.GetFactionGoodAffinityBps(state, factionId, GoodId);
+		unitPrice = MarketSystem.ApplyFactionGoodAffinityPricing(unitPrice, affinityBps);
+
 		if (instMultBps != 10000)
 			unitPrice = (int)Math.Max(1, (long)unitPrice * instMultBps / 10000);
 

@@ -217,6 +217,12 @@ public partial class SimState
         // GATE.S8.STORY_STATE.ENTITY.001: Story state hydration.
         StoryState ??= new Entities.StoryState();
 
+        // GATE.T42.PLANET_SCAN.ENTITY_EXT.001: Planet scan results hydration.
+        PlanetScanResults ??= new Dictionary<string, Entities.PlanetScanResult>(StringComparer.Ordinal);
+
+        // GATE.T41.ANOMALY_CHAIN.MODEL.001: Anomaly chain hydration.
+        AnomalyChains ??= new Dictionary<string, Entities.AnomalyChain>(StringComparer.Ordinal);
+
         // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Station context hydration.
         StationContexts ??= new Dictionary<string, Systems.StationContext>(StringComparer.Ordinal);
 

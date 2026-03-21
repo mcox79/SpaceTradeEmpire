@@ -7,6 +7,7 @@ using SimCore.Entities;
 using SimCore.Systems;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SpaceTradeEmpire.Bridge;
 
@@ -56,15 +57,20 @@ public partial class SimBridge
             result["pirate_spawned"] = ts.TutorialPirateSpawned;
             result["module_granted"] = ts.TutorialModuleGranted;
 
-            // Pre-selection: Maren speaks during Acts 2-3 (phases Maren_Hail through First_Profit).
+            // Pre-selection: per-act FO speaks during Acts 2-7 (phases Maren_Hail through Automation_React).
+            // FO selection moved to after automation so player meets all 3 FOs first.
             result["pre_selection"] = ts.SelectedCandidate == FirstOfficerCandidate.None
                 && (int)ts.Phase >= (int)TutorialPhase.Maren_Hail
-                && (int)ts.Phase <= (int)TutorialPhase.First_Profit;
+                && (int)ts.Phase <= (int)TutorialPhase.Automation_React;
 
-            // Ship Computer phases: Act 1 (Awaken, Flight_Intro).
+            // Ship Computer phases: Act 1, Module_Calibration_Notice, Cruise_Intro, Graduation_Summary.
             result["is_ship_computer"] = ts.Phase == TutorialPhase.Awaken
                 || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Module_Calibration_Notice
+                || ts.Phase == TutorialPhase.Cruise_Intro
                 || ts.Phase == TutorialPhase.Graduation_Summary;
+
+            result["manual_trades"] = ts.ManualTradesCompleted;
 
             // Cameo phases: Dask speaks during combat (Act 5), Lira during mystery (Act 6).
             result["is_dask_cameo"] = ts.Phase == TutorialPhase.Dask_Hail;
@@ -93,6 +99,8 @@ public partial class SimBridge
             // Ship Computer phases
             if (ts.Phase == TutorialPhase.Awaken
                 || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Module_Calibration_Notice
+                || ts.Phase == TutorialPhase.Cruise_Intro
                 || ts.Phase == TutorialPhase.Graduation_Summary)
             {
                 line = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence);
@@ -145,6 +153,8 @@ public partial class SimBridge
             // Ship Computer phases
             if (ts.Phase == TutorialPhase.Awaken
                 || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Module_Calibration_Notice
+                || ts.Phase == TutorialPhase.Cruise_Intro
                 || ts.Phase == TutorialPhase.Graduation_Summary)
             {
                 string scText = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence);
@@ -243,7 +253,7 @@ public partial class SimBridge
             var ts = state.TutorialState;
             result = ts.SelectedCandidate == FirstOfficerCandidate.None
                 && (int)ts.Phase >= (int)TutorialPhase.Maren_Hail
-                && (int)ts.Phase <= (int)TutorialPhase.First_Profit;
+                && (int)ts.Phase <= (int)TutorialPhase.Automation_React;
         });
         return result;
     }
@@ -379,6 +389,8 @@ public partial class SimBridge
             // For Ship Computer phases, check ShipComputerLines for next sequence.
             if (ts.Phase == TutorialPhase.Awaken
                 || ts.Phase == TutorialPhase.Flight_Intro
+                || ts.Phase == TutorialPhase.Module_Calibration_Notice
+                || ts.Phase == TutorialPhase.Cruise_Intro
                 || ts.Phase == TutorialPhase.Graduation_Summary)
             {
                 string nextSC = TutorialContentV0.GetShipComputerLine(ts.Phase, ts.DialogueSequence + 1);
@@ -437,23 +449,32 @@ public partial class SimBridge
             if (state.TutorialState == null) return;
             var ts = state.TutorialState;
 
-            // Act 1: First_Dock — player docks for the first time.
+            // Act 1: First_Dock — player docks for the first time → calibration notice.
             if (ts.Phase == TutorialPhase.First_Dock)
             {
-                ts.Phase = TutorialPhase.Maren_Hail;
+                ts.Phase = TutorialPhase.Module_Calibration_Notice;
                 ts.DialogueDismissed = false;
                 ts.DialogueSequence = 0;
                 ts.TicksSincePhaseChange = 0;
             }
             // Act 3: Arrival_Dock — dock at new station after travel.
+            // If player has no cargo, go to Buy_Prompt first (they need to buy before they can sell).
             else if (ts.Phase == TutorialPhase.Arrival_Dock)
             {
-                ts.Phase = TutorialPhase.Sell_Prompt;
+                bool hasCargo = state.PlayerCargo.Values.Sum() > 0; // STRUCTURAL: empty cargo check
+                if (hasCargo)
+                {
+                    ts.Phase = TutorialPhase.Sell_Prompt;
+                    if (state.PlayerStats != null)
+                        ts.GoodsTradedAtPhaseEntry = state.PlayerStats.GoodsTraded;
+                }
+                else
+                {
+                    ts.Phase = TutorialPhase.Buy_Prompt;
+                }
                 ts.DialogueDismissed = false;
                 ts.DialogueSequence = 0;
                 ts.TicksSincePhaseChange = 0;
-                if (state.PlayerStats != null)
-                    ts.GoodsTradedAtPhaseEntry = state.PlayerStats.GoodsTraded;
             }
             // Act 3: Travel_Prompt — also handle dock at new station.
             else if (ts.Phase == TutorialPhase.Travel_Prompt
@@ -503,6 +524,20 @@ public partial class SimBridge
             active = TutorialSystem.IsActive(state);
         });
         return active;
+    }
+
+    /// <summary>
+    /// Returns the number of manual trades completed in the tutorial trade loop.
+    /// </summary>
+    public int GetTutorialManualTradesV0()
+    {
+        int trades = 0;
+        TryExecuteSafeRead(state =>
+        {
+            if (state.TutorialState != null)
+                trades = state.TutorialState.ManualTradesCompleted;
+        });
+        return trades;
     }
 
     // ── Trade Guidance (Tutorial) ────────────────────────────────────

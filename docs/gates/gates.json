@@ -1,7 +1,7 @@
 {
     "queue_contract_version": "2.3",
     "queue_ordering": "MULTIKEY_V1",
-    "generated_utc": "2026-03-13T23:59:00Z",
-    "queue_intent": "T41 EA Foundation complete. All 21 gates closed. Queue empty, ready for T42.",
+    "generated_utc": "2026-03-20T22:00:00Z",
+    "queue_intent": "T43 Planet Scan UI complete. Queue empty — ready for /gen-gates tranche 44.",
     "tasks": []
 }

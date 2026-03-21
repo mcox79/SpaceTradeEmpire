@@ -221,9 +221,9 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.name = "HitVfx"
 	particles.position = pos
 	particles.amount = 20
-	particles.lifetime = 0.4
+	particles.lifetime = 0.6
 	particles.one_shot = true
-	particles.explosiveness = 0.92
+	particles.explosiveness = 0.90
 	particles.randomness = 0.3
 	particles.emitting = true
 
@@ -231,11 +231,12 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	proc_mat.direction = Vector3(0, 1, 0)
 	proc_mat.spread = 90.0
 	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
-	proc_mat.initial_velocity_min = 150.0
-	proc_mat.initial_velocity_max = 350.0
+	# Impact particles enlarged 2.5x for screenshot-visible combat differentiation.
+	proc_mat.initial_velocity_min = 200.0
+	proc_mat.initial_velocity_max = 450.0
 	proc_mat.gravity = Vector3(0, 0, 0)
-	proc_mat.scale_min = 8.0
-	proc_mat.scale_max = 18.0
+	proc_mat.scale_min = 20.0
+	proc_mat.scale_max = 40.0
 	if source_is_player:
 		proc_mat.color = Color(0.6, 1.0, 0.9, 1.0)
 	else:
@@ -243,15 +244,15 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for altitude visibility.
-	mesh.radius = 8.0
-	mesh.height = 16.0
+	# FEEL_BASELINE: Scaled for altitude visibility (2.5x enlargement).
+	mesh.radius = 12.0
+	mesh.height = 24.0
 	particles.draw_pass_1 = mesh
 
 	root.add_child(particles)
 
-	# Auto-free after burst completes (0.4s lifetime + small buffer).
-	var timer := root.get_tree().create_timer(0.6) if root.get_tree() else null
+	# Auto-free after burst completes (0.6s lifetime + small buffer).
+	var timer := root.get_tree().create_timer(0.8) if root.get_tree() else null
 	if timer:
 		timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
 

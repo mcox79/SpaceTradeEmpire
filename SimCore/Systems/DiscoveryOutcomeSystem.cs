@@ -56,6 +56,24 @@ public static class DiscoveryOutcomeSystem
             var disc = kvp.Value;
             if (disc is null) continue;
 
+            // GATE.T41.INSTAB_REVEAL.VISIBILITY.001: Skip flavor text for gated discoveries
+            // where local instability is below the gate threshold.
+            if (disc.InstabilityGate > 0)
+            {
+                string gateNodeId = FindNodeForDiscovery(state, disc.DiscoveryId);
+                int localInstability = 0;
+                if (!string.IsNullOrEmpty(gateNodeId) && state.Nodes.TryGetValue(gateNodeId, out var gateNode))
+                    localInstability = gateNode.InstabilityLevel;
+
+                if (localInstability < disc.InstabilityGate)
+                {
+                    // Discovery is hidden — suppress flavor text.
+                    if (!string.IsNullOrEmpty(disc.FlavorText))
+                        disc.FlavorText = "";
+                    continue; // Skip outcome generation too.
+                }
+            }
+
             // GATE.S7.NARRATIVE_DELIVERY.DISCOVERY_TEMPLATES.001:
             // Populate or update FlavorText based on family + current phase.
             // Re-generated each tick to track phase transitions (Seen -> Scanned -> Analyzed).
@@ -95,6 +113,12 @@ public static class DiscoveryOutcomeSystem
 
             // Generate kind-specific rewards.
             ApplyRewardByKind(state, outcome, kind2, nodeId2);
+
+            // GATE.T41.DISCOVERY_INTEL.SYSTEM.001: Generate trade intel from analyzed discovery.
+            GenerateDiscoveryTradeIntel(state, nodeId2, kind2, disc.DiscoveryId);
+
+            // GATE.T41.ANOMALY_CHAIN.ADVANCE.001: Try to advance anomaly chains.
+            TryAdvanceChains(state, disc.DiscoveryId, kind2, nodeId2);
 
             state.AnomalyEncounters[outcomeKey] = outcome;
         }
@@ -261,6 +285,281 @@ public static class DiscoveryOutcomeSystem
 
         // Fallback for unmapped families: generic description.
         return $"A {family.ToLowerInvariant()} discovery in {systemName}.";
+    }
+
+    // GATE.T41.DISCOVERY_INTEL.SYSTEM.001: Generate trade intel from an analyzed discovery.
+    // Scans adjacent markets for profitable trade routes and creates TradeRouteIntel entries.
+    private static void GenerateDiscoveryTradeIntel(SimState state, string nodeId, string kind, string discoveryId)
+    {
+        if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(discoveryId)) return;
+        if (state.Intel?.TradeRoutes is null) return;
+
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var adjacentNodes = scratch.Links;
+        adjacentNodes.Clear();
+
+        // Find adjacent nodes via edges (deterministic: sorted).
+        var sortedEdgeKeys = scratch.SortedKeys;
+        sortedEdgeKeys.Clear();
+        foreach (var k in state.Edges.Keys) sortedEdgeKeys.Add(k);
+        sortedEdgeKeys.Sort(StringComparer.Ordinal);
+
+        foreach (var edgeKey in sortedEdgeKeys)
+        {
+            var edge = state.Edges[edgeKey];
+            if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal) && !adjacentNodes.Contains(edge.ToNodeId))
+                adjacentNodes.Add(edge.ToNodeId);
+            else if (string.Equals(edge.ToNodeId, nodeId, StringComparison.Ordinal) && !adjacentNodes.Contains(edge.FromNodeId))
+                adjacentNodes.Add(edge.FromNodeId);
+        }
+
+        if (adjacentNodes.Count == 0) return;
+
+        // For RESOURCE_POOL_MARKER: find the best sell price at adjacent nodes for the associated good.
+        // For CORRIDOR_TRACE: create route between the two connected endpoints.
+        // For default (AnomalyFamily): scan adjacent for highest profit differential.
+        if (string.Equals(kind, "RESOURCE_POOL_MARKER", StringComparison.Ordinal))
+        {
+            // Associated good is in the discovery RefId: disc_v0|RESOURCE_POOL_MARKER|nodeId|goodId|sourceId
+            string goodId = ParseDiscoveryRefId(discoveryId);
+            if (string.IsNullOrEmpty(goodId)) return;
+
+            // Find the local buy price.
+            if (!state.Markets.TryGetValue(nodeId, out var localMarket)) return;
+            int localBuyPrice = localMarket.GetPrice(goodId);
+            if (localBuyPrice <= 0) return;
+
+            // Find best sell price at adjacent nodes.
+            string bestDest = "";
+            int bestProfit = 0;
+            foreach (var adjNode in adjacentNodes)
+            {
+                if (!state.Markets.TryGetValue(adjNode, out var adjMarket)) continue;
+                int sellPrice = adjMarket.GetPrice(goodId);
+                int profit = sellPrice - localBuyPrice;
+                if (profit > bestProfit)
+                {
+                    bestProfit = profit;
+                    bestDest = adjNode;
+                }
+            }
+
+            if (bestProfit >= Tweaks.DiscoveryIntelTweaksV0.DiscoveryRouteMinProfit && !string.IsNullOrEmpty(bestDest))
+            {
+                CreateDiscoveryRoute(state, nodeId, bestDest, goodId, bestProfit, discoveryId);
+            }
+        }
+        else if (string.Equals(kind, "CORRIDOR_TRACE", StringComparison.Ordinal))
+        {
+            // Corridor connects two endpoints — parse from discoveryId.
+            // Format: disc_v0|CORRIDOR_TRACE|nodeA|nodeB|laneId
+            string refId = ParseDiscoveryRefId(discoveryId);
+            if (string.IsNullOrEmpty(refId)) return;
+
+            // Find any shared good with profitable differential.
+            if (!state.Markets.TryGetValue(nodeId, out var mktA)) return;
+            if (!state.Markets.TryGetValue(refId, out var mktB)) return;
+
+            // Check each good at both endpoints.
+            var goodIds = new List<string>();
+            foreach (var g in mktA.Inventory.Keys) if (!goodIds.Contains(g)) goodIds.Add(g);
+            goodIds.Sort(StringComparer.Ordinal);
+
+            foreach (var g in goodIds)
+            {
+                int priceA = mktA.GetPrice(g);
+                int priceB = mktB.GetPrice(g);
+                if (priceA <= 0 || priceB <= 0) continue;
+
+                // Route in whichever direction is profitable.
+                int profitAB = priceB - priceA;
+                int profitBA = priceA - priceB;
+
+                if (profitAB >= Tweaks.DiscoveryIntelTweaksV0.DiscoveryRouteMinProfit)
+                    CreateDiscoveryRoute(state, nodeId, refId, g, profitAB, discoveryId);
+                else if (profitBA >= Tweaks.DiscoveryIntelTweaksV0.DiscoveryRouteMinProfit)
+                    CreateDiscoveryRoute(state, refId, nodeId, g, profitBA, discoveryId);
+            }
+        }
+        else
+        {
+            // Generic (AnomalyFamily): scan adjacent markets for highest profit differential.
+            if (!state.Markets.TryGetValue(nodeId, out var localMkt)) return;
+
+            string bestSrc = "";
+            string bestDst = "";
+            string bestGood = "";
+            int bestProfit = 0;
+
+            foreach (var adjNode in adjacentNodes)
+            {
+                if (!state.Markets.TryGetValue(adjNode, out var adjMkt)) continue;
+
+                var goodIds = new List<string>();
+                foreach (var g in localMkt.Inventory.Keys) if (!goodIds.Contains(g)) goodIds.Add(g);
+                foreach (var g in adjMkt.Inventory.Keys) if (!goodIds.Contains(g)) goodIds.Add(g);
+                goodIds.Sort(StringComparer.Ordinal);
+
+                foreach (var g in goodIds)
+                {
+                    int localPrice = localMkt.GetPrice(g);
+                    int adjPrice = adjMkt.GetPrice(g);
+                    if (localPrice <= 0 || adjPrice <= 0) continue;
+
+                    int profit = adjPrice - localPrice;
+                    if (profit > bestProfit)
+                    {
+                        bestProfit = profit;
+                        bestSrc = nodeId;
+                        bestDst = adjNode;
+                        bestGood = g;
+                    }
+
+                    int reverseProfit = localPrice - adjPrice;
+                    if (reverseProfit > bestProfit)
+                    {
+                        bestProfit = reverseProfit;
+                        bestSrc = adjNode;
+                        bestDst = nodeId;
+                        bestGood = g;
+                    }
+                }
+            }
+
+            if (bestProfit >= Tweaks.DiscoveryIntelTweaksV0.DiscoveryRouteMinProfit
+                && !string.IsNullOrEmpty(bestSrc) && !string.IsNullOrEmpty(bestDst) && !string.IsNullOrEmpty(bestGood))
+            {
+                CreateDiscoveryRoute(state, bestSrc, bestDst, bestGood, bestProfit, discoveryId);
+            }
+        }
+    }
+
+    private static void CreateDiscoveryRoute(SimState state, string srcNode, string dstNode, string goodId, int profit, string discoveryId)
+    {
+        var routeId = IntelBook.RouteKey(srcNode, dstNode, goodId);
+        if (state.Intel.TradeRoutes.ContainsKey(routeId)) return;
+
+        state.Intel.TradeRoutes[routeId] = new TradeRouteIntel
+        {
+            RouteId = routeId,
+            SourceNodeId = srcNode,
+            DestNodeId = dstNode,
+            GoodId = goodId,
+            EstimatedProfitPerUnit = profit,
+            DiscoveredTick = state.Tick,
+            LastValidatedTick = state.Tick,
+            Status = TradeRouteStatus.Discovered,
+            SourceDiscoveryId = discoveryId
+        };
+    }
+
+    // Parse "disc_v0|KIND|nodeId|refId|sourceId" → refId (parts[3]).
+    private static string ParseDiscoveryRefId(string discoveryId)
+    {
+        if (string.IsNullOrEmpty(discoveryId)) return "";
+        var parts = discoveryId.Split('|');
+        return parts.Length >= 4 ? parts[3] : "";
+    }
+
+    // GATE.T41.ANOMALY_CHAIN.ADVANCE.001: Advance anomaly chains when a matching discovery is analyzed.
+    private static void TryAdvanceChains(SimState state, string discoveryId, string kind, string nodeId)
+    {
+        if (state.AnomalyChains is null || state.AnomalyChains.Count == 0) return;
+
+        var sortedChainIds = new List<string>(state.AnomalyChains.Keys);
+        sortedChainIds.Sort(StringComparer.Ordinal);
+
+        foreach (var chainId in sortedChainIds)
+        {
+            if (!state.AnomalyChains.TryGetValue(chainId, out var chain)) continue;
+            if (chain.Status != AnomalyChainStatus.Active) continue;
+            if (chain.CurrentStepIndex >= chain.Steps.Count) continue;
+
+            var step = chain.Steps[chain.CurrentStepIndex];
+            if (step.IsCompleted) continue;
+
+            // Match: discovery must be at the placed site for this step.
+            if (!string.Equals(step.PlacedDiscoveryId, discoveryId, StringComparison.Ordinal)) continue;
+
+            // Mark step completed.
+            step.IsCompleted = true;
+
+            // Create a RumorLead for the next step (breadcrumb).
+            if (chain.CurrentStepIndex + 1 < chain.Steps.Count)
+            {
+                var nextStep = chain.Steps[chain.CurrentStepIndex + 1];
+                if (!string.IsNullOrEmpty(step.LeadText) && !string.IsNullOrEmpty(nextStep.PlacedDiscoveryId))
+                {
+                    string leadId = $"LEAD.CHAIN.{chainId}.{chain.CurrentStepIndex}";
+                    if (!state.Intel.RumorLeads.ContainsKey(leadId))
+                    {
+                        // Extract the node for the next step's discovery.
+                        string nextNodeId = FindNodeForDiscovery(state, nextStep.PlacedDiscoveryId);
+                        state.Intel.RumorLeads[leadId] = new RumorLead
+                        {
+                            LeadId = leadId,
+                            Status = RumorLeadStatus.Active,
+                            SourceVerbToken = "CHAIN_ADVANCE",
+                            Hint = new HintPayloadV0
+                            {
+                                ImpliedPayoffToken = nextStep.DiscoveryKind,
+                                CoarseLocationToken = !string.IsNullOrEmpty(nextNodeId) ? nextNodeId : "UNKNOWN"
+                            }
+                        };
+                    }
+                }
+
+                // Create KnowledgeConnection between this step and the next.
+                string connId = $"KC.CHAIN.{chainId}.{chain.CurrentStepIndex}";
+                state.Intel.KnowledgeConnections.Add(new KnowledgeConnection
+                {
+                    ConnectionId = connId,
+                    SourceDiscoveryId = discoveryId,
+                    TargetDiscoveryId = nextStep.PlacedDiscoveryId,
+                    ConnectionType = KnowledgeConnectionType.Lead,
+                    Description = step.LeadText,
+                    IsRevealed = true
+                });
+            }
+
+            chain.CurrentStepIndex++;
+
+            // Check if chain is complete.
+            if (chain.CurrentStepIndex >= chain.Steps.Count)
+            {
+                chain.Status = AnomalyChainStatus.Completed;
+
+                // Apply climax loot overrides from the final step.
+                if (step.LootOverrides.Count > 0)
+                {
+                    foreach (var loot in step.LootOverrides)
+                    {
+                        if (string.Equals(loot.Key, "credits", StringComparison.Ordinal))
+                            state.PlayerCredits += loot.Value;
+                        else if (string.Equals(loot.Key, Content.WellKnownGoodIds.ExoticMatter, StringComparison.Ordinal))
+                            state.PlayerCredits += loot.Value; // exotic_matter converts to credits for now
+                    }
+                }
+            }
+        }
+    }
+
+    // GATE.T41.SURVEY_PROG.UNLOCK.001: Count discoveries at Phase >= Scanned for a given family.
+    public static int GetManualScanCountByFamily(SimState state, string family)
+    {
+        if (state?.Intel?.Discoveries is null || string.IsNullOrEmpty(family)) return 0;
+
+        int count = 0;
+        foreach (var kvp in state.Intel.Discoveries)
+        {
+            var disc = kvp.Value;
+            if (disc is null || disc.Phase < DiscoveryPhase.Scanned) continue;
+            string kind = ParseDiscoveryKind(disc.DiscoveryId);
+            string discFamily = MapKindToFamily(kind);
+            if (string.Equals(discFamily, family, StringComparison.Ordinal))
+                count++;
+        }
+        return count;
     }
 
     // GATE.S7.REVEALS.DISCOVERY_REVEAL.001: Progressive content reveal per discovery phase.

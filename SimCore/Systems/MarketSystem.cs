@@ -272,6 +272,21 @@ public static class MarketSystem
         return (int)Math.Max(1, adjusted); // STRUCTURAL: floor
     }
 
+    // GATE.X.MARKET_PRICING.AFFINITY_WIRE.001: Get faction good affinity modifier in bps.
+    public static int GetFactionGoodAffinityBps(SimState state, string factionId, string goodId)
+    {
+        return FactionGoodAffinityTweaksV0.GetAffinityBps(factionId, goodId);
+    }
+
+    // GATE.X.MARKET_PRICING.AFFINITY_WIRE.001: Apply faction good affinity to a base price.
+    // Same math as ApplyRepPricing. Negative bps = discount, positive = surcharge.
+    public static int ApplyFactionGoodAffinityPricing(int basePrice, int affinityBps)
+    {
+        if (basePrice <= 0 || affinityBps == 0) return Math.Max(1, basePrice); // STRUCTURAL: floor
+        long adjusted = (long)basePrice * (FactionTweaksV0.TariffBpsMultiplier + affinityBps) / FactionTweaksV0.TariffBpsMultiplier;
+        return (int)Math.Max(1, adjusted); // STRUCTURAL: floor
+    }
+
     // GATE.S7.TERRITORY.EMBARGO_MODEL.001: Check if a good is embargoed at a market.
     // Returns true if any active embargo blocks this good at this market's faction.
     public static bool IsGoodEmbargoed(SimState state, string marketId, string goodId)

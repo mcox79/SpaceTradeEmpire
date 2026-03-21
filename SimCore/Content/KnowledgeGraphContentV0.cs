@@ -132,6 +132,81 @@ public static class KnowledgeGraphContentV0
             ConnectionType = KnowledgeConnectionType.LoreFragment,
             Description = "The ancient ruin contains the first containment debate fragment."
         },
+        // ── Anomaly Chain connections ──────────────────────────────
+        // GATE.T41.ANOMALY_CHAIN.KG.001: Chain step connections (static templates).
+        // These use $CHAIN_<chainId>_<stepIndex> pattern tokens resolved at world gen.
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.VALORIN.0_1",
+            SourcePattern = "$CHAIN_VALORIN_0",
+            TargetPattern = "$CHAIN_VALORIN_1",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The scout's bearing points toward the signal source."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.VALORIN.1_2",
+            SourcePattern = "$CHAIN_VALORIN_1",
+            TargetPattern = "$CHAIN_VALORIN_2",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The ancient beacon's coordinates lead to a defense installation."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.COMMUNION.0_1",
+            SourcePattern = "$CHAIN_COMMUNION_0",
+            TargetPattern = "$CHAIN_COMMUNION_1",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The hum intensifies toward the listening post."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.COMMUNION.1_2",
+            SourcePattern = "$CHAIN_COMMUNION_1",
+            TargetPattern = "$CHAIN_COMMUNION_2",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The calibration tone leads to resonance chambers."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.COMMUNION.2_3",
+            SourcePattern = "$CHAIN_COMMUNION_2",
+            TargetPattern = "$CHAIN_COMMUNION_3",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The resonance chambers converge on the accommodation prototype."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.PENTAGON.0_1",
+            SourcePattern = "$CHAIN_PENTAGON_0",
+            TargetPattern = "$CHAIN_PENTAGON_1",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "Price suppression traces back to a mineral survey site."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.PENTAGON.1_2",
+            SourcePattern = "$CHAIN_PENTAGON_1",
+            TargetPattern = "$CHAIN_PENTAGON_2",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The survey data references a Concord intel vessel."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.PENTAGON.2_3",
+            SourcePattern = "$CHAIN_PENTAGON_2",
+            TargetPattern = "$CHAIN_PENTAGON_3",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "Encrypted data reveals suppression equipment coordinates."
+        },
+        new ConnectionTemplate
+        {
+            TemplateId = "KC.CHAIN_LEAD.PENTAGON.3_4",
+            SourcePattern = "$CHAIN_PENTAGON_3",
+            TargetPattern = "$CHAIN_PENTAGON_4",
+            ConnectionType = KnowledgeConnectionType.Lead,
+            Description = "The suppression array's logs lead to Oruth's Archive."
+        },
     };
 
     // GATE.S8.STORY.KG_REVELATION.001: Revelation-triggered knowledge connections.

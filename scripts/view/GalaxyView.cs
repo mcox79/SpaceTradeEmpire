@@ -155,11 +155,12 @@ public partial class GalaxyView : Node3D
     // Sensor range: lanes are only visible if at least one endpoint is within this distance
     // (in galactic-scale units) of a visited system. Set to 0 to disable range limit.
         // Sensor range: lanes visible only if an endpoint is within this distance of a visited node.
-    // At GalacticScaleFactor=25, typical edge length ~500-1000u. 120u reveals only directly adjacent lanes.
-    [Export] public float SensorRangeGalacticU { get; set; } = 120.0f;
+    // At GalacticScaleFactor=150, typical edge length ~3000-6000u. 720u reveals only directly adjacent lanes.
+    [Export] public float SensorRangeGalacticU { get; set; } = 720.0f;
 
     // Local system state
     private Node3D _localSystemRoot;
+    private Node3D _currentSolarTilt; // Solar tilt pivot — all orbital content parents here.
     private string _currentNodeId = "";
 
     // Binary star layout state — reset per system in DrawLocalSystemV0.
@@ -180,6 +181,13 @@ public partial class GalaxyView : Node3D
     // Deferred spawn queue — staggers idle/docked fleet spawning across frames to avoid FPS spikes.
     private readonly Queue<(string fleetId, Vector3 spawnPos, Vector3 targetPos, float orbitRadius, float orbitSpeed, bool isDeparting, Godot.Collections.Dictionary data)> _deferredSpawnQueue = new();
     private int _deferredSpawnPerFrame = 1; // spawn 1 ship per frame
+
+    // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Track scan markers refresh timer.
+    private double _scanMarkerRefreshTimer = 0.0;
+    private const double ScanMarkerRefreshInterval = 3.0; // seconds
+
+    // GATE.T43.SCAN_UI.SIGNAL_LINES.001: Signal triangulation lines between SignalLead nodes.
+    private readonly List<MeshInstance3D> _signalTriangulationLines = new();
 
     // GATE.S17.REAL_SPACE.GALAXY_MAP.001: No dedicated overlay camera — the follow camera
     // raises to altitude. Use GetViewport().GetCamera3D() for projection queries.
@@ -265,10 +273,12 @@ public partial class GalaxyView : Node3D
             }
         }
 
-        // FEEL_POST_FIX_5: Show/hide subtle galaxy background plane for depth.
+        // FEEL_POST_FIX_5: Show/hide subtle galaxy background plane + starfield for depth.
         EnsureGalaxyMapBgV0();
         if (_galaxyMapBg != null)
             _galaxyMapBg.Visible = isOpen;
+        if (_galaxyMapStars != null)
+            _galaxyMapStars.Visible = isOpen;
 
         if (isOpen)
         {
@@ -346,13 +356,12 @@ public partial class GalaxyView : Node3D
         if (_localSystemRoot != null)
             _localSystemRoot.Visible = altitude < 500f;
 
-        // Persistent star billboards: visible above 100u.
+        // Persistent stars + distant system details: always visible so neighbors are seen from any mode.
         if (_persistentStarsRoot != null)
         {
-            _persistentStarsRoot.Visible = altitude >= 100f;
-            // Hide the persistent star for the current local system to prevent z-fighting
-            // with the local star mesh in the 100-500u overlap zone.
-            if (altitude >= 100f && !string.IsNullOrEmpty(_currentLocalNodeId))
+            _persistentStarsRoot.Visible = true;
+            // Hide the current system's persistent star when the detailed local system is visible.
+            if (!string.IsNullOrEmpty(_currentLocalNodeId))
             {
                 var currentStar = _persistentStarsRoot.GetNodeOrNull<Node3D>("PersistentStar_" + _currentLocalNodeId);
                 if (currentStar != null)
@@ -535,6 +544,14 @@ public partial class GalaxyView : Node3D
         }
 
         if (!_overlayOpen) return;
+
+        // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Periodic scan marker refresh.
+        _scanMarkerRefreshTimer += delta;
+        if (_scanMarkerRefreshTimer >= ScanMarkerRefreshInterval)
+        {
+            _scanMarkerRefreshTimer = 0.0;
+            UpdateScanMarkersV0();
+        }
 
         // L2.4: Hover detection — find nearest node to mouse and show popup after dwell.
         UpdateHoverDetectionV0((float)delta);
@@ -1000,8 +1017,8 @@ public partial class GalaxyView : Node3D
                 r = 0.7f; g = 0.7f; b = 0.75f;
             }
 
-            float emissionStrength = isDiscovered ? 12.0f : 2.5f;
-            float starSize = isDiscovered ? 6.0f : 3.0f;
+            float emissionStrength = isDiscovered ? 14.0f : 3.0f;
+            float starSize = isDiscovered ? 35.0f : 18.0f;
             var starColor = new Color(r, g, b);
             var star = new MeshInstance3D
             {
@@ -1043,9 +1060,79 @@ public partial class GalaxyView : Node3D
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
                 star.AddChild(ring);
+
+                // Add simplified planet dots + orbital disc so neighbors look like tiny solar systems.
+                AddDistantSystemDetailsV0(star, nodeId);
             }
 
             _persistentStarsRoot.AddChild(star);
+        }
+    }
+
+    /// Adds simplified planet dots and a faint orbital disc to a persistent star node,
+    /// making distant systems visible as tiny solar systems from any flight altitude.
+    private void AddDistantSystemDetailsV0(Node3D starNode, string nodeId)
+    {
+        // Solar tilt for this system (same hash as local view so tilts match).
+        var tiltHash = Fnv1a64(nodeId + "_solar_tilt");
+        float tiltXRad = ((tiltHash % 1000UL) / 1000f - 0.5f) * 2f * 0.30f; // ±17°
+        float tiltZRad = (((tiltHash >> 16) % 1000UL) / 1000f - 0.5f) * 2f * 0.25f; // ±14°
+
+        var tiltPivot = new Node3D { Name = "DistantTilt" };
+        tiltPivot.RotationDegrees = new Vector3(
+            tiltXRad * (180f / MathF.PI), 0f, tiltZRad * (180f / MathF.PI));
+        starNode.AddChild(tiltPivot);
+
+        // Faint orbital disc showing the ecliptic plane.
+        var discMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.5f, 0.6f, 0.9f, 0.04f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            NoDepthTest = true,
+        };
+        var disc = new MeshInstance3D
+        {
+            Name = "OrbitalDisc",
+            Mesh = new TorusMesh { InnerRadius = 50f, OuterRadius = 250f, Rings = 6, RingSegments = 32 },
+            MaterialOverride = discMat,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        tiltPivot.AddChild(disc);
+
+        // 2-4 planet dots at hash-based orbital positions.
+        var pHash = Fnv1a64(nodeId + "_distant_planets");
+        int planetCount = 2 + (int)(pHash % 3); // 2-4
+
+        for (int i = 0; i < planetCount; i++)
+        {
+            var pH = Fnv1a64(nodeId + "_dplanet_" + i);
+            float orbitR = 80f + (pH % 170); // 80-250u orbit radius
+            float angle = ((pH >> 8) % 3600) / 10f * (MathF.PI / 180f);
+            float dotSize = 5f + (pH % 50) / 10f; // 5-10u
+
+            // Subtle planet color variation.
+            float cr = 0.5f + (pH % 40) / 100f;
+            float cg = 0.5f + ((pH >> 4) % 40) / 100f;
+            float cb = 0.55f + ((pH >> 8) % 35) / 100f;
+
+            var planetDot = new MeshInstance3D
+            {
+                Name = "DistantPlanet_" + i,
+                Mesh = new SphereMesh { Radius = dotSize, Height = dotSize * 2f },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(cr, cg, cb),
+                    EmissionEnabled = true,
+                    Emission = new Color(cr * 0.4f, cg * 0.4f, cb * 0.4f),
+                    EmissionEnergyMultiplier = 2.5f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                },
+                Position = new Vector3(MathF.Cos(angle) * orbitR, 0f, MathF.Sin(angle) * orbitR),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            tiltPivot.AddChild(planetDot);
         }
     }
 
@@ -1151,7 +1238,7 @@ public partial class GalaxyView : Node3D
             var mesh = new MeshInstance3D
             {
                 Name = "PersistentLane_" + key,
-                Mesh = new CylinderMesh { TopRadius = 5.0f, BottomRadius = 5.0f, Height = 1.0f },
+                Mesh = new CylinderMesh { TopRadius = 12.0f, BottomRadius = 12.0f, Height = 1.0f },
                 MaterialOverride = laneMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
@@ -1318,6 +1405,17 @@ public partial class GalaxyView : Node3D
         fogVol.Material = fogMat;
         _localSystemRoot.AddChild(fogVol);
 
+        // Solar tilt: each system gets a unique orbital plane tilt (seeded from nodeId).
+        // All orbital content (planets, moons, stations, belt) parents under this tilt node
+        // so the entire ecliptic plane is angled. Gates and discovery sites stay untilted.
+        _currentSolarTilt = new Node3D { Name = "SolarTiltPivot" };
+        var tiltHash = Fnv1a64(nodeId + "_solar_tilt");
+        float tiltXRad = ((tiltHash % 1000UL) / 1000f - 0.5f) * 2f * 0.30f; // ±17°
+        float tiltZRad = (((tiltHash >> 16) % 1000UL) / 1000f - 0.5f) * 2f * 0.25f; // ±14°
+        _currentSolarTilt.RotationDegrees = new Vector3(
+            tiltXRad * (180f / MathF.PI), 0f, tiltZRad * (180f / MathF.PI));
+        _localSystemRoot.AddChild(_currentSolarTilt);
+
         // 1b. Planet orbiting the star.
         var (planetPos, planetType, planetOrbitPivot) = SpawnLocalPlanetV0(nodeId, lumScale);
 
@@ -1420,7 +1518,10 @@ public partial class GalaxyView : Node3D
                 Explosiveness = 0.0f,
                 Randomness = 1.0f,
             };
-            _localSystemRoot.AddChild(beltDust);
+            if (_currentSolarTilt != null)
+                _currentSolarTilt.AddChild(beltDust);
+            else
+                _localSystemRoot.AddChild(beltDust);
         }
     }
 
@@ -1466,7 +1567,8 @@ public partial class GalaxyView : Node3D
         var collider = new CollisionShape3D
         {
             // GATE.S14.DOCK.PROXIMITY_TIGHTEN.001: Station dock proximity box.
-            Shape = new BoxShape3D { Size = new Vector3(5f, 3f, 5f) }
+            // Height 10u to catch ships at minor Y-lift altitudes.
+            Shape = new BoxShape3D { Size = new Vector3(5f, 10f, 5f) }
         };
         station.AddChild(collider);
 
@@ -1697,6 +1799,8 @@ public partial class GalaxyView : Node3D
         // Add to planet orbit pivot so station follows the planet around the star.
         if (planetOrbitPivot != null)
             planetOrbitPivot.AddChild(stationOrbitPivot);
+        else if (_currentSolarTilt != null)
+            _currentSolarTilt.AddChild(station);
         else
             _localSystemRoot.AddChild(station);
     }
@@ -2399,6 +2503,25 @@ public partial class GalaxyView : Node3D
         fleetLabel.Position = new Vector3(0f, FleetMarkerRadiusU * 2.0f + 0.5f, 0f);
         root.AddChild(fleetLabel);
 
+        // NPC overhead HP bar — hull (green-to-red) + shield (cyan).
+        // Starts hidden; fleet_ai.gd shows during combat/engage state.
+        var hpBarLabel = new Label3D
+        {
+            Name = "HpBar",
+            Text = "",
+            PixelSize = 0.08f,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            Modulate = new Color(1.0f, 1.0f, 1.0f, 0.9f),
+            OutlineModulate = new Color(0f, 0f, 0f, 0.8f),
+            OutlineSize = 12,
+            FontSize = 48,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            NoDepthTest = true,
+            Visible = false,
+        };
+        hpBarLabel.Position = new Vector3(0f, FleetMarkerRadiusU * 2.0f + 1.5f, 0f);
+        root.AddChild(hpBarLabel);
+
         // Proximity trigger + bullet target: player RigidBody3D and bullets detect this.
         var area = new Area3D
         {
@@ -2905,6 +3028,8 @@ public partial class GalaxyView : Node3D
             // Add to planet orbit pivot so moons follow the planet around the star.
             if (planetOrbitPivot != null)
                 planetOrbitPivot.AddChild(moonOrbitPivot);
+            else if (_currentSolarTilt != null)
+                _currentSolarTilt.AddChild(moonOrbitPivot);
             else
                 _localSystemRoot.AddChild(moonOrbitPivot);
         }
@@ -3036,7 +3161,10 @@ public partial class GalaxyView : Node3D
             new Vector3(-maxR, -8f, -maxR),
             new Vector3(maxR * 2f, 16f, maxR * 2f));
 
-        _localSystemRoot.AddChild(mmInstance);
+        if (_currentSolarTilt != null)
+            _currentSolarTilt.AddChild(mmInstance);
+        else
+            _localSystemRoot.AddChild(mmInstance);
     }
 
     // Spawn planet with type-matched scene, luminosity-scaled orbit, self-rotation.
@@ -3147,7 +3275,10 @@ public partial class GalaxyView : Node3D
             orbitPivot.AddChild(dockArea);
         }
 
-        _localSystemRoot.AddChild(orbitPivot);
+        if (_currentSolarTilt != null)
+            _currentSolarTilt.AddChild(orbitPivot);
+        else
+            _localSystemRoot.AddChild(orbitPivot);
         return (planetOrbitPos, planetType, orbitPivot);
     }
 
@@ -3203,7 +3334,10 @@ public partial class GalaxyView : Node3D
                 pivot.Set("spin_speed_y", KeplerOrbitSpeed(orbitRadius, KeplerK_Planet));
             }
             pivot.AddChild(container);
-            _localSystemRoot.AddChild(pivot);
+            if (_currentSolarTilt != null)
+                _currentSolarTilt.AddChild(pivot);
+            else
+                _localSystemRoot.AddChild(pivot);
         }
     }
 
@@ -3440,7 +3574,8 @@ public partial class GalaxyView : Node3D
         var shape = new CollisionShape3D
         {
             Name = "LaneGateShape",
-            Shape = new SphereShape3D { Radius = 10.0f } // Pace overhaul: larger trigger (was 8u) to compensate for 1.6x spread
+            // Tall cylinder shape: 10u XZ radius, 30u height — catches ships at Y-lift altitude over planets.
+            Shape = new CylinderShape3D { Radius = 10.0f, Height = 30.0f }
         };
         area.AddChild(shape);
         area.SetMeta("lane_neighbor_id", neighborId);
@@ -3877,6 +4012,9 @@ public partial class GalaxyView : Node3D
 
             renderedNodeCount++;
             root.Position = n.Position;
+            // Restore node visibility — SetUiPanelActiveV0(true) hides all nodes
+            // on dock, and RefreshFromSnapshotV0 must re-show them when the map opens.
+            root.Visible = true;
 
             var label = root.GetNodeOrNull<Label3D>("NodeLabel");
             if (label != null)
@@ -3951,23 +4089,25 @@ public partial class GalaxyView : Node3D
                         var youLabel = new Label3D
                         {
                             Name = "YouLabel",
-                            Text = "YOU",
-                            PixelSize = 2.5f,
-                            FontSize = 72,
-                            OutlineSize = 14,
-                            Modulate = new Color(1.0f, 0.9f, 0.2f),
+                            Text = "▼ YOU ▼",
+                            PixelSize = 4.0f,
+                            FontSize = 84,
+                            OutlineSize = 18,
+                            Modulate = new Color(0.2f, 1.0f, 0.4f),
+                            OutlineModulate = new Color(0.0f, 0.0f, 0.0f, 1.0f),
                             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                            Position = new Vector3(0, 200f, 0),
+                            Position = new Vector3(0, 300f, 0),
                             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                            NoDepthTest = true,
                         };
                         root.AddChild(youLabel);
 
                         var ringMat = new StandardMaterial3D
                         {
-                            AlbedoColor = new Color(1.0f, 0.85f, 0.15f, 0.8f),
+                            AlbedoColor = new Color(0.2f, 1.0f, 0.4f, 0.9f),
                             EmissionEnabled = true,
-                            Emission = new Color(1.0f, 0.75f, 0.0f),
-                            EmissionEnergyMultiplier = 12.0f,
+                            Emission = new Color(0.1f, 1.0f, 0.3f),
+                            EmissionEnergyMultiplier = 16.0f,
                             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                             NoDepthTest = true,
@@ -4150,6 +4290,9 @@ public partial class GalaxyView : Node3D
                     existingMat.Emission = edgeColor;
                 }
             }
+            // Restore edge visibility — SetUiPanelActiveV0(true) hides all edges
+            // on dock, and RefreshFromSnapshotV0 must re-show them when the map opens.
+            mesh.Visible = true;
 
             if (!_nodeRootsById.TryGetValue(e.FromId, out var fromRoot)) continue;
             if (!_nodeRootsById.TryGetValue(e.ToId, out var toRoot)) continue;
@@ -4275,6 +4418,41 @@ public partial class GalaxyView : Node3D
         };
         fleetLbl.Position = new Vector3(0, 55.0f, 0);
         root.AddChild(fleetLbl);
+
+        // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Planet type icon (colored dot below beacon).
+        var planetDot = new MeshInstance3D();
+        planetDot.Name = "PlanetDot";
+        planetDot.Mesh = new SphereMesh { Radius = 60.0f, Height = 120.0f };
+        planetDot.MaterialOverride = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.5f, 0.5f, 0.5f, 0.0f), // Hidden by default
+            EmissionEnabled = true,
+            Emission = new Color(0.5f, 0.5f, 0.5f),
+            EmissionEnergyMultiplier = 2.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        planetDot.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        planetDot.Position = new Vector3(0, -100.0f, 0);
+        planetDot.Visible = false;
+        root.AddChild(planetDot);
+
+        // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Scan state ring (torus around node).
+        var scanRing = new MeshInstance3D();
+        scanRing.Name = "ScanRing";
+        scanRing.Mesh = new TorusMesh { InnerRadius = 170.0f, OuterRadius = 200.0f };
+        scanRing.MaterialOverride = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1.0f, 0.85f, 0.2f, 0.0f),
+            EmissionEnabled = true,
+            Emission = new Color(1.0f, 0.85f, 0.2f),
+            EmissionEnergyMultiplier = 2.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        scanRing.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        scanRing.Visible = false;
+        root.AddChild(scanRing);
 
         return root;
     }
@@ -4721,6 +4899,9 @@ public partial class GalaxyView : Node3D
                 AddChild(disc);
             }
 
+            // Restore visibility — SetUiPanelActiveV0(true) hides territory discs on dock.
+            disc.Visible = true;
+
             // Position slightly below the node to avoid Z-fighting with other elements.
             disc.GlobalPosition = nodeRoot.GlobalPosition + new Vector3(0f, -0.5f, 0f);
 
@@ -5078,6 +5259,7 @@ public partial class GalaxyView : Node3D
 
             lbl.Text = roleTag;
             lbl.Modulate = labelColor;
+            lbl.Visible = true; // Restore after SetUiPanelActiveV0 hide.
             // Place 16u above the home node (above the NodeLabel at 8u, above the FleetLabel at 11u).
             lbl.GlobalPosition = homeRoot.GlobalPosition + new Vector3(0f, 16f, 0f);
         }
@@ -5131,13 +5313,15 @@ public partial class GalaxyView : Node3D
     }
 
     // FEEL_POST_FIX_5: Create a large dark-blue plane behind galaxy map beacons for depth.
+    // FEEL_PASS6_P1: Added particle starfield for visual richness.
+    private GpuParticles3D _galaxyMapStars;
     private void EnsureGalaxyMapBgV0()
     {
         if (_galaxyMapBg != null) return;
         _galaxyMapBg = new MeshInstance3D
         {
             Name = "GalaxyMapBg",
-            Mesh = new PlaneMesh { Size = new Vector2(20000f, 20000f) },
+            Mesh = new PlaneMesh { Size = new Vector2(40000f, 40000f) },
             MaterialOverride = new StandardMaterial3D
             {
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -5154,6 +5338,48 @@ public partial class GalaxyView : Node3D
             parent.AddChild(_galaxyMapBg);
         else
             AddChild(_galaxyMapBg);
+
+        // FEEL_PASS6_P1: Particle starfield — dim static stars across the map background.
+        _galaxyMapStars = new GpuParticles3D
+        {
+            Name = "GalaxyMapStarfield",
+            Amount = 400,
+            Lifetime = 100f,    // Effectively static (very long life)
+            Explosiveness = 1.0f, // All spawn at once
+            OneShot = false,
+            VisibilityAabb = new Aabb(new Vector3(-20000, -300, -20000), new Vector3(40000, 600, 40000)),
+            Position = new Vector3(0f, -180f, 0f),
+            Visible = false,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        var starMat = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(8000f, 10f, 8000f),
+            Direction = new Vector3(0, 0, 0),
+            InitialVelocityMin = 0f,
+            InitialVelocityMax = 0f,
+            Gravity = Vector3.Zero,
+            ScaleMin = 0.3f,
+            ScaleMax = 1.2f,
+        };
+        _galaxyMapStars.ProcessMaterial = starMat;
+        var starMesh = new SphereMesh { Radius = 2f, Height = 4f, RadialSegments = 4, Rings = 2 };
+        var starDrawMat = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoColor = new Color(0.5f, 0.55f, 0.7f, 0.4f),
+            EmissionEnabled = true,
+            Emission = new Color(0.4f, 0.45f, 0.65f),
+            EmissionEnergyMultiplier = 0.8f,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        starMesh.Material = starDrawMat;
+        _galaxyMapStars.DrawPass1 = starMesh;
+        if (parent != null)
+            parent.AddChild(_galaxyMapStars);
+        else
+            AddChild(_galaxyMapStars);
     }
 
     // FEEL_POST_FIX_6: Compute camera altitude + centroid to fit all visible nodes in the viewport.
@@ -5215,7 +5441,7 @@ public partial class GalaxyView : Node3D
         float hFromZ = dz / (0.7f * 2f * tanHalf);
 
         float altitude = Mathf.Max(hFromX, hFromZ);
-        result["altitude"] = Mathf.Clamp(altitude, 3000f, 8000f);
+        result["altitude"] = Mathf.Clamp(altitude, 3000f, 15000f);
         result["center_x"] = (minX + maxX) / 2f;
         result["center_z"] = (minZ + maxZ) / 2f;
         return result;
@@ -6147,4 +6373,159 @@ public partial class GalaxyView : Node3D
             kv.Value.Visible = showVolume;
         }
     }
+
+    // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Update planet type markers + scan state rings on galaxy nodes.
+    public void UpdateScanMarkersV0()
+    {
+        if (_bridge == null) return;
+
+        foreach (var kv in _nodeRootsById)
+        {
+            var nodeId = kv.Key;
+            var root = kv.Value;
+            if (root == null || !root.IsInsideTree()) continue;
+
+            var planetDot = root.GetNodeOrNull<MeshInstance3D>("PlanetDot");
+            var scanRing = root.GetNodeOrNull<MeshInstance3D>("ScanRing");
+            if (planetDot == null || scanRing == null) continue;
+
+            var planetInfo = _bridge.GetPlanetInfoV0(nodeId);
+            if (planetInfo.Count == 0)
+            {
+                planetDot.Visible = false;
+                scanRing.Visible = false;
+                continue;
+            }
+
+            // Show planet type dot with type-specific color.
+            planetDot.Visible = true;
+            var planetType = planetInfo.GetValueOrDefault("planet_type", "").ToString();
+            var dotColor = GetPlanetTypeColor(planetType);
+            if (planetDot.MaterialOverride is StandardMaterial3D dotMat)
+            {
+                dotMat.AlbedoColor = new Color(dotColor.R, dotColor.G, dotColor.B, 0.7f);
+                dotMat.Emission = dotColor;
+            }
+
+            // Scan state ring: check scan results.
+            var results = _bridge.GetPlanetScanResultsV0(nodeId);
+            int scanCount = results.Count;
+            if (scanCount > 0)
+            {
+                scanRing.Visible = true;
+                // Yellow = partially scanned, Green = 3+ scans (thorough).
+                bool thorough = scanCount >= 3;
+                var ringColor = thorough
+                    ? new Color(0.2f, 1.0f, 0.4f) // Green
+                    : new Color(1.0f, 0.85f, 0.2f); // Yellow
+                if (scanRing.MaterialOverride is StandardMaterial3D ringMat)
+                {
+                    ringMat.AlbedoColor = new Color(ringColor.R, ringColor.G, ringColor.B, 0.5f);
+                    ringMat.Emission = ringColor;
+                }
+            }
+            else
+            {
+                scanRing.Visible = false;
+            }
+        }
+
+        // GATE.T43.SCAN_UI.SIGNAL_LINES.001: Signal triangulation lines between SignalLead nodes.
+        UpdateSignalTriangulationV0();
+    }
+
+    // GATE.T43.SCAN_UI.SIGNAL_LINES.001: Draw dashed purple lines between nodes with SignalLead findings.
+    private void UpdateSignalTriangulationV0()
+    {
+        // Clear previous lines.
+        foreach (var line in _signalTriangulationLines)
+        {
+            if (GodotObject.IsInstanceValid(line))
+                line.QueueFree();
+        }
+        _signalTriangulationLines.Clear();
+
+        if (_bridge == null) return;
+
+        // Collect nodes with SignalLead scan results.
+        var signalNodes = new List<string>();
+        foreach (var kv in _nodeRootsById)
+        {
+            var nodeId = kv.Key;
+            var results = _bridge.GetPlanetScanResultsV0(nodeId);
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (results[i].AsGodotDictionary().GetValueOrDefault("category", "").ToString() == "SignalLead")
+                {
+                    signalNodes.Add(nodeId);
+                    break;
+                }
+            }
+        }
+
+        if (signalNodes.Count < 2) return;
+
+        // Dashed purple material.
+        var lineMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.6f, 0.3f, 1.0f, 0.4f),
+            EmissionEnabled = true,
+            Emission = new Color(0.6f, 0.3f, 1.0f),
+            EmissionEnergyMultiplier = 2.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+
+        // Draw lines between all signal lead pairs.
+        for (int i = 0; i < signalNodes.Count; i++)
+        {
+            for (int j = i + 1; j < signalNodes.Count; j++)
+            {
+                if (!_nodeRootsById.TryGetValue(signalNodes[i], out var fromRoot)) continue;
+                if (!_nodeRootsById.TryGetValue(signalNodes[j], out var toRoot)) continue;
+
+                var fromPos = fromRoot.GlobalPosition + new Vector3(0f, 4.0f, 0f);
+                var toPos = toRoot.GlobalPosition + new Vector3(0f, 4.0f, 0f);
+                var dist = fromPos.DistanceTo(toPos);
+
+                // Dashed segments: 80u dash, 40u gap.
+                float dashLen = 80.0f;
+                float gapLen = 40.0f;
+                float totalLen = dashLen + gapLen;
+                int dashCount = Mathf.Max(1, (int)(dist / totalLen));
+                var dir = (toPos - fromPos).Normalized();
+
+                for (int d = 0; d < dashCount; d++)
+                {
+                    var segStart = fromPos + dir * (d * totalLen);
+                    var segEnd = fromPos + dir * (d * totalLen + dashLen);
+                    // Clamp to line endpoint.
+                    if (segStart.DistanceTo(fromPos) > dist) break;
+                    if (segEnd.DistanceTo(fromPos) > dist) segEnd = toPos;
+
+                    var seg = new MeshInstance3D
+                    {
+                        Name = "SignalLine_" + i + "_" + j + "_" + d,
+                        Mesh = new CylinderMesh { TopRadius = 6.0f, BottomRadius = 6.0f, Height = 1.0f },
+                        MaterialOverride = lineMat,
+                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    };
+                    AddChild(seg);
+                    UpdateEdgeTransformV0(seg, segStart, segEnd);
+                    _signalTriangulationLines.Add(seg);
+                }
+            }
+        }
+    }
+
+    private static Color GetPlanetTypeColor(string planetType) => planetType switch
+    {
+        "Sand" => new Color(0.76f, 0.6f, 0.35f),        // Brown
+        "Ice" => new Color(0.85f, 0.92f, 1.0f),          // White-blue
+        "Lava" => new Color(1.0f, 0.3f, 0.15f),          // Red
+        "Gaseous" => new Color(0.3f, 0.5f, 0.9f),        // Blue
+        "Barren" => new Color(0.5f, 0.5f, 0.5f),         // Grey
+        "Terrestrial" => new Color(0.3f, 0.8f, 0.4f),    // Green
+        _ => new Color(0.6f, 0.6f, 0.6f),
+    };
 }

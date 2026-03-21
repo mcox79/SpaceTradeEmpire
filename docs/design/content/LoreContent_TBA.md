@@ -10,14 +10,15 @@
 
 ---
 
-## 1. Ancient Data Logs (System NOT Ready)
+## 1. Ancient Data Logs (System READY — Content Partially Authored)
 
 **ID:** `LORE.ANCIENT_LOGS`
-**System:** No data log entity or display system exists
-**System Ready:** NO — needs entity model + Discovery Web UI
-**Volume:** 20-30 conversation scripts
-**Dependencies:** EPIC.S8.STORY_STATE_MACHINE, EPIC.S7.NARRATIVE_DELIVERY
+**System:** DataLog entity, DataLogContentV0.cs (25 logs, 6 threads), NarrativePlacementGen.cs (BFS placement), KnowledgeGraphSystem.cs (connections), StoryStateMachineSystem.cs (revelation triggers)
+**System Ready:** YES (T18, T37, T39) — entity model, placement, knowledge graph, and story state machine all implemented
+**Volume:** 25 authored / ~30 target (20-30 conversation scripts)
+**Dependencies:** ~~EPIC.S8.STORY_STATE_MACHINE~~ DONE, ~~EPIC.S7.NARRATIVE_DELIVERY~~ DONE
 **Priority:** HIGH — primary vehicle for the revelation arc
+**Remaining work:** Author remaining TBA logs (Threads C-E incomplete), in-world display UI polish, anomaly chain integration (per ExplorationDiscovery.md v1)
 
 ### Format
 
@@ -172,14 +173,14 @@ LOG.WARN.002-004: "TBA"
 
 ---
 
-## 2. Adaptation Fragment Lore (System NOT Ready)
+## 2. Adaptation Fragment Lore (System READY — Content Authored)
 
 **ID:** `LORE.FRAGMENTS`
-**System:** No fragment entity exists
-**System Ready:** NO — needs EPIC.S8.ADAPTATION_FRAGMENTS
-**Volume:** 12 fragment entries + 6 resonance pair descriptions
-**Dependencies:** EPIC.S8.ADAPTATION_FRAGMENTS
-**Priority:** HIGH — core collectible/knowledge system
+**System:** AdaptationFragment entity, AdaptationFragmentContentV0.cs (16 fragments + 8 resonance pairs with full dual cover/revealed lore), AdaptationFragmentSystem.cs (collection + resonance resolution), DiscoverySeedGen.SeedAdaptationFragmentsV0 (worldgen placement), SimBridge.Haven.cs (bridge queries)
+**System Ready:** YES (T34) — 16 fragments authored with CoverName/CoverLore + RevealedName/RevealedLore, 8 resonance pairs with gameplay bonuses
+**Volume:** 16 fragments (expanded from 12) + 8 resonance pairs — FULLY AUTHORED
+**Dependencies:** ~~EPIC.S8.ADAPTATION_FRAGMENTS~~ DONE
+**Priority:** ~~HIGH~~ DONE — lore content complete. Remaining: UI polish for fragment inspection panel
 
 ### Fragment Catalog
 
@@ -241,14 +242,14 @@ RESONANCE.002-006: "TBA"
 
 ---
 
-## 3. Haven Starbase Lore (System NOT Ready)
+## 3. Haven Starbase Lore (System READY — Content TBA)
 
 **ID:** `LORE.HAVEN`
-**System:** No Haven entity exists
-**System Ready:** NO — needs EPIC.S8.HAVEN_STARBASE
-**Volume:** 5 tier descriptions + 10-15 environmental logs
-**Dependencies:** EPIC.S8.HAVEN_STARBASE
-**Priority:** MEDIUM — endgame location
+**System:** Haven entity (T33), HavenSystem.cs, HavenTweaksV0.cs, SimBridge.Haven.cs (tier queries, trophy wall, fragment collection). Haven has 5 upgrade tiers, hangar bays, ancient hull restoration (T34), visual tier system (T40)
+**System Ready:** YES (T33-T34, T40) — Haven entity, tier upgrades, fragment collection, ancient hull restoration all implemented
+**Volume:** 5 tier descriptions + 10-15 environmental logs — CONTENT TBA
+**Dependencies:** ~~EPIC.S8.HAVEN_STARBASE~~ DONE
+**Priority:** MEDIUM — endgame location. Systems ready, narrative content not yet authored
 
 ### Tier Upgrade Narratives
 
@@ -311,14 +312,14 @@ FACTION.COMMUNION.HISTORY: "TBA — 1-2 pages"
 
 ---
 
-## 5. Endgame Path Narratives (System NOT Ready)
+## 5. Endgame Path Narratives (System READY — Content TBA)
 
 **ID:** `LORE.ENDGAME`
-**System:** No win condition / story state machine exists
-**System Ready:** NO — needs EPIC.S8.WIN_SCENARIOS + EPIC.S8.STORY_STATE_MACHINE
-**Volume:** 3 path narratives + resolution text
-**Dependencies:** EPIC.S8.WIN_SCENARIOS
-**Priority:** LOW — late-game content
+**System:** StoryStateMachineSystem.cs (5 revelations, 3 acts), WinConditionSystem.cs (Reinforce/Naturalize/Renegotiate paths), WinRequirementsTweaksV0.cs (path requirements), SimBridge.Story.cs (story state queries)
+**System Ready:** YES (T37, T39) — story state machine, win conditions, and endgame paths all implemented
+**Volume:** 3 path narratives + resolution text — CONTENT TBA
+**Dependencies:** ~~EPIC.S8.WIN_SCENARIOS~~ DONE, ~~EPIC.S8.STORY_STATE_MACHINE~~ DONE
+**Priority:** MEDIUM — systems ready, narrative content needed for endgame payoff
 
 ### Three Paths (from factions_and_lore_v0.md)
 
@@ -481,15 +482,20 @@ ring. This is what the Containment faction was actually afraid of."
 
 ---
 
-## Summary
+## Summary (Updated 2026-03-20)
 
-| Block | ID | Volume | System Ready | Priority |
-|-------|-----|--------|-------------|----------|
-| Ancient Data Logs | LORE.ANCIENT_LOGS | 20-30 scripts | NO | HIGH |
-| Pentagon Ring Evidence | LORE.PENTAGON_EVIDENCE | 4-6 logs | NO | HIGH |
-| Adaptation Fragment Lore | LORE.FRAGMENTS | 48 entries | NO | HIGH |
-| Haven Starbase Lore | LORE.HAVEN | 15-20 entries | NO | MEDIUM |
-| Faction Backstories | LORE.FACTION_BACKSTORY | 5 histories | PARTIAL | MEDIUM |
-| Endgame Path Narratives | LORE.ENDGAME | 3 paths | NO | LOW |
-| Warfront Commentary | LORE.WARFRONT_COMMENTARY | ~20 lines | PARTIAL | LOW |
-| **Total** | | **~125-150** | | |
+| Block | ID | Volume | System Ready | Content Status | Priority |
+|-------|-----|--------|-------------|---------------|----------|
+| Ancient Data Logs | LORE.ANCIENT_LOGS | 25/30 scripts | YES (T18) | 80% authored | HIGH — finish remaining threads |
+| Pentagon Ring Evidence | LORE.PENTAGON_EVIDENCE | 3/6 logs | YES (T18) | 50% authored | HIGH — LOG.ECON.004-006 TBA |
+| Adaptation Fragment Lore | LORE.FRAGMENTS | 16 frags + 8 pairs | YES (T34) | DONE | -- |
+| Haven Starbase Lore | LORE.HAVEN | 0/15-20 entries | YES (T33-T40) | TBA | MEDIUM |
+| Faction Backstories | LORE.FACTION_BACKSTORY | 0/5 histories | PARTIAL | TBA | MEDIUM |
+| Endgame Path Narratives | LORE.ENDGAME | 0/3 paths | YES (T37-T39) | TBA | MEDIUM |
+| Warfront Commentary | LORE.WARFRONT_COMMENTARY | ~20 lines | PARTIAL | TBA | LOW |
+| **Total** | | **~125-150** | **5/7 READY** | **~35% authored** | |
+
+**Key change from v0:** Most systems marked "NOT Ready" are now fully implemented.
+The bottleneck has shifted from engineering to content authoring. Fragment lore is
+complete. Data logs are mostly authored. Haven, endgame, and faction backstory content
+are the primary remaining writing tasks.

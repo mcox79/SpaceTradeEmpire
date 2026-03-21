@@ -49,6 +49,13 @@ var _dock_pause_timer: float = -1.0  # < 0 = not yet paused
 # Internal RNG (seeded from node name for determinism across runs)
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
+# NPC overhead HP bar — updated per-frame during ENGAGE or when recently damaged.
+var _hp_bar: Label3D = null
+var _hp_bar_timer: float = 0.0  # seconds remaining to show bar after combat
+const HP_BAR_DISPLAY_SEC: float = 5.0
+const HP_BAR_POLL_SEC: float = 0.15  # bridge query throttle
+var _hp_bar_poll_timer: float = 0.0
+
 func _ready() -> void:
 	# Read meta set by GalaxyView.cs at spawn time.
 	_is_hostile = bool(get_meta("is_hostile", false))
@@ -67,6 +74,9 @@ func _ready() -> void:
 
 	# Sync FleetLabel visibility with resolved hostility.
 	_update_fleet_label()
+
+	# Cache the HP bar label created by GalaxyView.cs CreateFleetMarkerV0.
+	_hp_bar = get_node_or_null("HpBar") as Label3D
 
 	_enter_idle()
 
@@ -90,6 +100,13 @@ func _process(delta: float) -> void:
 			_process_dock(delta)
 		State.ENGAGE:
 			_process_engage(delta)
+
+	# NPC overhead HP bar: show during ENGAGE + 5s after.
+	if _state == State.ENGAGE:
+		_hp_bar_timer = HP_BAR_DISPLAY_SEC
+	elif _hp_bar_timer > 0.0:
+		_hp_bar_timer -= delta
+	_update_hp_bar(delta)
 
 # --- IDLE ---
 
@@ -356,3 +373,79 @@ func _name_to_seed(node_name: String) -> int:
 		h = h ^ node_name.unicode_at(i)
 		h = (h * 16777619) & 0xFFFFFFFF
 	return h
+
+# --- NPC Overhead HP Bar ---
+# Shows hull + shield as colored Unicode block bar above ship during combat.
+# References: Starsector (colored bars over all ships), SPAZ (floating HP).
+
+func _update_hp_bar(delta: float) -> void:
+	if _hp_bar == null:
+		return
+	if _hp_bar_timer <= 0.0:
+		_hp_bar.visible = false
+		return
+
+	# Throttle bridge queries to avoid per-frame overhead.
+	_hp_bar_poll_timer -= delta
+	if _hp_bar_poll_timer > 0.0:
+		return
+	_hp_bar_poll_timer = HP_BAR_POLL_SEC
+
+	var tree := get_tree()
+	if tree == null:
+		return
+	var bridge := tree.root.get_node_or_null("SimBridge")
+	if bridge == null or not bridge.has_method("GetFleetCombatHpV0"):
+		return
+
+	# Extract fleet_id from node name: "Fleet_ai_fleet_star_8_0" → "ai_fleet_star_8_0"
+	var fleet_id: String = str(name)
+	if fleet_id.begins_with("Fleet_"):
+		fleet_id = fleet_id.substr(6)
+
+	var hp: Dictionary = bridge.call("GetFleetCombatHpV0", fleet_id)
+	if hp.is_empty():
+		_hp_bar.visible = false
+		return
+
+	var hull: int = int(hp.get("hull", 0))
+	var hull_max: int = int(hp.get("hull_max", 1))
+	var shield: int = int(hp.get("shield", 0))
+	var shield_max: int = int(hp.get("shield_max", 0))
+
+	if hull_max <= 0:
+		_hp_bar.visible = false
+		return
+
+	# Build bar text: shield bar (cyan) on top, hull bar (green→red) below.
+	# 10-segment bars using Unicode block characters.
+	var bar_text: String = ""
+	if shield_max > 0:
+		bar_text += _build_bar_segment(shield, shield_max) + "\n"
+	bar_text += _build_bar_segment(hull, hull_max)
+
+	_hp_bar.text = bar_text
+
+	# Color hull bar by HP fraction: green→yellow→orange→red.
+	var hull_frac: float = float(hull) / float(hull_max)
+	if shield_max > 0 and shield > 0:
+		# Shield active — show cyan tint.
+		_hp_bar.modulate = Color(0.4, 0.9, 1.0, 0.9)
+	elif hull_frac > 0.6:
+		_hp_bar.modulate = Color(0.3, 1.0, 0.3, 0.9)
+	elif hull_frac > 0.3:
+		_hp_bar.modulate = Color(1.0, 0.8, 0.2, 0.9)
+	else:
+		_hp_bar.modulate = Color(1.0, 0.25, 0.15, 0.9)
+
+	_hp_bar.visible = true
+
+func _build_bar_segment(current: int, maximum: int) -> String:
+	var segments: int = 10
+	var filled: int = 0
+	if maximum > 0:
+		filled = clampi(roundi(float(current) / float(maximum) * segments), 0, segments)
+	var bar: String = ""
+	for i in range(segments):
+		bar += "█" if i < filled else "░"
+	return bar

@@ -97,21 +97,30 @@ Step 4: Reputation Modifier
     Hostile:  +2000 bps (+20%)
   pricedWithRep = max(1, buyPrice × (10000 + repBps) / 10000)
 
-Step 5: Instability Modifier
+Step 5: Faction Good Affinity
+  affinityBps = FactionGoodAffinityTweaksV0.GetAffinityBps(factionId, goodId)
+    Supplier export:  -1500 bps (-15%)  — faction produces this good
+    Consumer import:  +800 bps  (+8%)   — faction needs this good
+    Secondary:        ±500 bps  (±5%)   — thematic flavor
+    Minor:            +300 bps  (+3%)   — minor affinity
+    Unmapped:         0 bps             — no affinity
+  pricedWithAffinity = max(1, pricedWithRep × (10000 + affinityBps) / 10000)
+
+Step 6: Instability Modifier
   volatilityBps = instabilityLevel × 5000 / 150
   securitySkew = (phase >= Drift) ? SecurityDemandSkewBps × (phase - 1) : 0
   instabilityMult = (10000 + volatilityBps + securitySkew)
-  volatilePrice = pricedWithRep × instabilityMult / 10000
+  volatilePrice = pricedWithAffinity × instabilityMult / 10000
 
-Step 6: Transaction Fee
+Step 7: Transaction Fee
   effectiveFeeBps = baseFeeBps × feeMultiplier  (0 if Broker unlock)
   fee = ceil(volatilePrice × effectiveFeeBps / 10000)
 
-Step 7: Tariff
+Step 8: Tariff
   effectiveTariff = computeEffectiveTariffBps(factionId, rep, warIntensity)
   tariff = ceil(volatilePrice × effectiveTariff / 10000)
 
-Step 8: Final Cost
+Step 9: Final Cost
   unitCost = volatilePrice + fee + tariff
   totalCost = unitCost × quantity
 ```
@@ -151,7 +160,40 @@ Where:
 - Neutral (rep 0): 1× base → full tariff
 - Hostile (rep -100): 2× base → double tariff
 
-### 4. Instability Price Effects
+### 4. Faction Good Affinity
+
+Encodes the **pentagon dependency ring** as economic differentiation. Each faction
+has natural price advantages on goods they produce (export surplus → cheaper) and
+disadvantages on goods they need (import demand → more expensive).
+
+**Pentagon Ring Affinities** (primary, large effect):
+
+| Faction | Export Good | Export Bps | Import Need | Import Bps |
+|---------|------------|-----------|-------------|-----------|
+| Concord | Food | -1500 (-15%) | Composites | +800 (+8%) |
+| Weavers | Composites | -1500 (-15%) | Electronics | +800 (+8%) |
+| Chitin | Electronics | -1500 (-15%) | Rare Metals | +800 (+8%) |
+| Valorin | Rare Metals | -1500 (-15%) | Exotic Crystals | +800 (+8%) |
+| Communion | Exotic Crystals | -1500 (-15%) | Food | +800 (+8%) |
+
+**Secondary Affinities** (thematic flavor, smaller effect):
+
+| Faction | Good | Bps | Rationale |
+|---------|------|-----|-----------|
+| Valorin | Munitions | -500 (-5%) | Military supplier |
+| Chitin | Components | -500 (-5%) | Tech manufacturer |
+| Concord | Organics | -500 (-5%) | Agricultural base |
+| Communion | Salvaged Tech | +500 (+5%) | Scarce, spiritual economy |
+| Weavers | Ore | +300 (+3%) | Raw material consumer |
+
+**Design intent**: Creates natural trade lanes along the pentagon ring. Buy Food
+cheap at Concord, sell at Communion (+23% swing). Buy Exotic Crystals cheap at
+Communion, sell at Valorin. The asymmetry (-15% export vs +8% import) means the
+supplier end is always the better buy — the ring has a natural "flow direction."
+
+**Constants**: All values in `SimCore/Tweaks/FactionGoodAffinityTweaksV0.cs`.
+
+### 5. Instability Price Effects
 
 Five instability phases modify pricing at affected nodes:
 
@@ -171,7 +213,7 @@ volatilityBps = instabilityLevel × 5000 / 150
   Level 150: 5000 bps (1.5×)
 ```
 
-### 5. Embargo System
+### 6. Embargo System
 
 Embargoes block specific goods at faction markets during wartime:
 
@@ -192,7 +234,7 @@ IsGoodEmbargoed(state, marketId, goodId):
 - Communion ↔ Food (needs from Concord)
 - **Munitions**: ALWAYS embargoed during any wartime
 
-### 6. Published Price Cadence
+### 7. Published Price Cadence
 
 Markets publish prices on a **720-tick cadence** (12 game hours):
 
@@ -209,7 +251,7 @@ Real-time `GetBuyPrice()` / `GetSellPrice()` always compute from current stock.
 
 **Design Intent**: Published prices create **information asymmetry**. A player at Node A sees published prices for Node B (720 ticks stale), but actual prices may have shifted. Players who visit more frequently have better information. NPC traders similarly use published prices for their evaluations, making them slightly suboptimal.
 
-### 7. Transaction Fees
+### 8. Transaction Fees
 
 ```
 baseFeeBps = 100 (1%)
@@ -226,7 +268,7 @@ fee = ceil((gross × effectiveFeeBps + 9999) / 10000)
 **Crisis fee increase**: At PressureSystem tier ≥ Critical, fees increase by
 `CrisisFeeIncreaseBps` (2000 bps = +20%).
 
-### 8. Inventory Initialization
+### 9. Inventory Initialization
 
 Markets are seeded deterministically at worldgen:
 
@@ -245,7 +287,7 @@ Ensures ≥50 cr/unit profit between player start and adjacent nodes:
   starterLowStock = 10   → pushes sell price to ~80 credits
 ```
 
-### 9. Trade Access Gating
+### 10. Trade Access Gating
 
 Multiple layers gate whether trade can occur:
 
@@ -285,15 +327,16 @@ Tick 200:  If player has Allied rep with buyer faction:
            Reputation IS profit.
 ```
 
-### The Five Price Signals
+### The Six Price Signals
 
-The player reads price through five simultaneous signals:
+The player reads price through six simultaneous signals:
 
 1. **Scarcity gradient** (stock difference between nodes) → "where to trade"
-2. **Tariff differential** (faction rep at each end) → "who to trade with"
-3. **War premium** (elevated demand at contested nodes) → "when to trade"
-4. **Instability volatility** (unstable nodes = higher prices but higher risk) → "how much risk to take"
-5. **Embargo gaps** (blocked goods create secondary markets) → "what to smuggle"
+2. **Faction affinity** (pentagon ring exports vs imports) → "what to trade where"
+3. **Tariff differential** (faction rep at each end) → "who to trade with"
+4. **War premium** (elevated demand at contested nodes) → "when to trade"
+5. **Instability volatility** (unstable nodes = higher prices but higher risk) → "how much risk to take"
+6. **Embargo gaps** (blocked goods create secondary markets) → "what to smuggle"
 
 ---
 
@@ -303,6 +346,7 @@ The player reads price through five simultaneous signals:
 MarketSystem
   ← reads Market.Inventory (stock levels → price)
   ← reads FactionReputation (tier → pricing modifier)
+  ← reads FactionGoodAffinityTweaksV0 (faction+good → affinity bps)
   ← reads WarfrontState (intensity → tariff surcharge)
   ← reads InstabilityPhase (level → volatility multiplier)
   ← reads EmbargoState (goods blocking)
@@ -346,7 +390,7 @@ WarfrontDemandSystem
 | **Price breakdown UI** | CRITICAL | 1 gate | Player cannot see WHY a price is what it is. Need tooltip showing: base + scarcity + rep modifier + tariff + instability + fee as separate line items. Starsector's modifier stack pattern. |
 | **Dump-and-wait exploit** | HIGH | 1 gate | Selling large quantities depresses price, but stock recovers via NPC reaction. Patient players can dump → wait → sell again for infinite credits. Fix: longer recovery timer or permanent satisfaction-like mechanic (Port Royale). |
 | **Price history depth** | HIGH | 1 gate | IntelSystem.ProcessPriceHistory records snapshots but no analysis. Need trend indicators (rising/falling/stable) and historical spread visualization. |
-| **Commodity-class price bands** | MEDIUM | 1 gate | All goods use same BasePrice (100). Should have per-class bands: essential goods (fuel/food) narrow 0.8-1.2×, industrial medium 0.5-2.0×, luxury/rare wide 0.3-3.0× (Starsector tiered band pattern). |
+| **Commodity-class price bands** | MEDIUM | 1 gate | All goods use same BasePrice (100). Faction good affinity now adds ±15% per-good differentiation based on faction specialization. Remaining gap: per-class band widths (essential goods narrow 0.8-1.2×, luxury/rare wide 0.3-3.0×). |
 | **State-driven demand events** | MEDIUM | 2 gates | No BGS-style state modifiers (Boom/Famine/Outbreak). Gate 1: state model on nodes with transition logic. Gate 2: price modifier integration + toast notifications. |
 | **Broker tiers** | LOW | 1 gate | Broker unlock is binary (0% or 1% fee). Should have 3 tiers: Basic (0.75%), Advanced (0.5%), Master (0%). |
 | **Futures/hedging** | FUTURE | 3 gates | No speculative instruments. Player can only profit from physical arbitrage. Gate 1: futures contract entity. Gate 2: settlement logic. Gate 3: UI for contract management. OTC pattern. |
@@ -356,7 +400,7 @@ WarfrontDemandSystem
 
 ## Constants Reference
 
-All values in `SimCore/Tweaks/MarketTweaksV0.cs`:
+All values in `SimCore/Tweaks/MarketTweaksV0.cs` and `SimCore/Tweaks/FactionGoodAffinityTweaksV0.cs`:
 
 ```
 # Core Pricing
@@ -387,4 +431,11 @@ WarSurchargeBpsPerIntensity  = 300
 NeutralityTax_Skirmish       = 500 bps
 NeutralityTax_OpenWar        = 1000 bps
 NeutralityTax_TotalWar       = 1500 bps
+
+# Faction Good Affinity (FactionGoodAffinityTweaksV0.cs)
+SupplierExportBps            = -1500  (pentagon ring export discount)
+ConsumerImportBps            = 800    (pentagon ring import surcharge)
+SecondarySupplierBps         = -500   (thematic secondary discount)
+SecondaryConsumerBps         = 500    (thematic secondary surcharge)
+MinorAffinityBps             = 300    (minor thematic affinity)
 ```

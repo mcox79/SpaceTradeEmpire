@@ -343,6 +343,18 @@ public partial class SimState
     // GATE.S9.SYSTEMIC.STATION_CONTEXT.001: Per-station economic context cache.
     [JsonInclude] public Dictionary<string, Systems.StationContext> StationContexts { get; set; } = new(StringComparer.Ordinal);
 
+    // GATE.T42.PLANET_SCAN.ENTITY_EXT.001: Scanner state.
+    // Charges consumed at current node (resets on travel).
+    [JsonInclude] public int ScannerChargesUsed { get; set; }
+    // Current scanner tier (0=Basic, 1=Mk1, 2=Mk2, 3=Mk3, 4=Fracture).
+    [JsonInclude] public int ScannerTier { get; set; }
+    // Tick when scanner charges last recharged.
+    [JsonInclude] public int ScannerLastRechargeTick { get; set; }
+    // All planet scan results keyed by ScanId.
+    [JsonInclude] public Dictionary<string, Entities.PlanetScanResult> PlanetScanResults { get; private set; } = new(StringComparer.Ordinal);
+    // Sequence counter for deterministic scan IDs.
+    [JsonInclude] public long NextPlanetScanSeq { get; set; } = 1;
+
     // GATE.T18.NARRATIVE.ROUTE_UNCERTAINTY.001: Cumulative fracture jumps for scanner adaptation.
     [JsonInclude] public int FractureExposureJumps { get; set; } = 0;
 
@@ -356,6 +368,9 @@ public partial class SimState
 
     // GATE.S6.ANOMALY.ENCOUNTER_MODEL.001: Active anomaly encounters keyed by EncounterId.
     [JsonInclude] public Dictionary<string, AnomalyEncounter> AnomalyEncounters { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T41.ANOMALY_CHAIN.MODEL.001: Active anomaly chains keyed by ChainId.
+    [JsonInclude] public Dictionary<string, AnomalyChain> AnomalyChains { get; private set; } = new(StringComparer.Ordinal);
     [JsonInclude] public long NextAnomalyEncounterSeq { get; set; } = 1;
 
     // GATE.S9.SYSTEMIC.TRIGGER_ENGINE.001: Active systemic mission offers from world-state triggers.
@@ -557,6 +572,34 @@ public partial class SimState
             MarketId = destMarketId ?? "",
             GoodId = buyGoodId ?? "",
             SellGoodId = sellGoodId ?? "",
+            Quantity = 0
+        };
+
+        Programs ??= new ProgramBook();
+        Programs.Instances[id] = p;
+        return id;
+    }
+
+    // GATE.T41.SURVEY_PROG.MODEL.001: Survey program v0 factory.
+    public string CreateSurveyProgramV0(string family, string homeNodeId, int rangeHops, int cadenceTicks)
+    {
+        var id = $"P{NextProgramSeq}";
+        NextProgramSeq = checked(NextProgramSeq + 1);
+
+        var p = new ProgramInstance
+        {
+            Id = id,
+            Kind = ProgramKind.SurveyV0,
+            Status = ProgramStatus.Paused,
+            CreatedTick = Tick,
+            CadenceTicks = cadenceTicks <= 0 ? 1 : cadenceTicks,
+            NextRunTick = Tick,
+            LastRunTick = -1,
+            SurveyFamily = family ?? "",
+            SurveyRangeHops = rangeHops,
+            SiteId = homeNodeId ?? "",
+            MarketId = "",
+            GoodId = "",
             Quantity = 0
         };
 

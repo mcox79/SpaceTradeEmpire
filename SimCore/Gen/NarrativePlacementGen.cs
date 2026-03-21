@@ -123,6 +123,133 @@ public static class NarrativePlacementGen
         }
     }
 
+    /// <summary>
+    /// GATE.T41.ANOMALY_CHAIN.PLACEMENT.001: Place anomaly chains into the world.
+    /// Called after PlaceKeplerChain. Each chain step gets a discovery seed at a BFS-selected node.
+    /// </summary>
+    public static void PlaceAnomalyChains(SimState state)
+    {
+        var chains = Content.AnomalyChainContentV0.AllChains;
+        if (chains.Count == 0) return;
+
+        string startNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(startNode)) return;
+
+        var hopDistances = ComputeHopDistances(state, startNode);
+        var nodesByDistance = GroupNodesByDistance(hopDistances);
+
+        // Collect already-used nodes (data logs, Kepler chain, etc.)
+        var usedNodes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var kv in state.DataLogs)
+        {
+            if (!string.IsNullOrEmpty(kv.Value.LocationNodeId))
+                usedNodes.Add(kv.Value.LocationNodeId);
+        }
+
+        foreach (var chainTemplate in chains)
+        {
+            var chain = new Entities.AnomalyChain
+            {
+                ChainId = chainTemplate.ChainId,
+                Status = Entities.AnomalyChainStatus.Active,
+                StartedTick = 0,
+                StarterNodeId = startNode,
+                CurrentStepIndex = 0,
+            };
+
+            foreach (var stepTemplate in chainTemplate.Steps)
+            {
+                // Pick a node for this step within the hop range.
+                var candidates = new List<string>();
+                for (int d = stepTemplate.MinHopsFromStarter; d <= stepTemplate.MaxHopsFromStarter; d++)
+                {
+                    if (!nodesByDistance.TryGetValue(d, out var nodesAtDist)) continue;
+                    foreach (var nid in nodesAtDist)
+                    {
+                        if (!usedNodes.Contains(nid))
+                            candidates.Add(nid);
+                    }
+                    if (candidates.Count >= 3) break;
+                }
+
+                // Fallback: closest available.
+                if (candidates.Count == 0)
+                {
+                    foreach (var kv in hopDistances.OrderBy(k => k.Value).ThenBy(k => k.Key, StringComparer.Ordinal))
+                    {
+                        if (!usedNodes.Contains(kv.Key) && kv.Key != startNode)
+                        {
+                            candidates.Add(kv.Key);
+                            break;
+                        }
+                    }
+                }
+
+                string placedNodeId = "";
+                if (candidates.Count > 0)
+                {
+                    ulong h = HashString(chainTemplate.ChainId + "|" + stepTemplate.StepIndex);
+                    int idx = (int)(h % (ulong)candidates.Count);
+                    placedNodeId = candidates[idx];
+                    usedNodes.Add(placedNodeId);
+                }
+
+                // Mint a discovery ID for this chain step and seed it on the node.
+                string discoveryId = "";
+                if (!string.IsNullOrEmpty(placedNodeId))
+                {
+                    discoveryId = $"disc_v0|{stepTemplate.DiscoveryKind}|{placedNodeId}|{chainTemplate.ChainId}|step_{stepTemplate.StepIndex}";
+
+                    // Seed discovery on the node.
+                    if (state.Nodes.TryGetValue(placedNodeId, out var node))
+                    {
+                        node.SeededDiscoveryIds ??= new List<string>();
+                        if (!node.SeededDiscoveryIds.Contains(discoveryId))
+                            node.SeededDiscoveryIds.Add(discoveryId);
+                    }
+
+                    // Create discovery state entry (Seen phase).
+                    // GATE.T41.INSTAB_REVEAL.MODEL.001: Deep discoveries get instability gates.
+                    int instabGate = 0;
+                    if (!string.IsNullOrEmpty(placedNodeId) && hopDistances.TryGetValue(placedNodeId, out int hops) && hops >= 5)
+                    {
+                        ulong gh = HashString(discoveryId + "|instab_gate");
+                        int roll = (int)(gh % 10UL);
+                        if (roll < 2) instabGate = 2;      // ~20% of deep discoveries
+                        else if (roll < 3) instabGate = 3;  // ~10% of deep discoveries
+                    }
+
+                    if (!state.Intel.Discoveries.ContainsKey(discoveryId))
+                    {
+                        state.Intel.Discoveries[discoveryId] = new DiscoveryStateV0
+                        {
+                            DiscoveryId = discoveryId,
+                            Phase = DiscoveryPhase.Seen,
+                            InstabilityGate = instabGate
+                        };
+                    }
+                }
+
+                var step = new Entities.AnomalyChainStep
+                {
+                    StepIndex = stepTemplate.StepIndex,
+                    DiscoveryKind = stepTemplate.DiscoveryKind,
+                    MinHopsFromStarter = stepTemplate.MinHopsFromStarter,
+                    MaxHopsFromStarter = stepTemplate.MaxHopsFromStarter,
+                    NarrativeText = stepTemplate.NarrativeText,
+                    LeadText = stepTemplate.LeadText,
+                    LootOverrides = new Dictionary<string, int>(stepTemplate.LootOverrides),
+                    PlacedDiscoveryId = discoveryId,
+                    IsCompleted = false
+                };
+
+                chain.Steps.Add(step);
+            }
+
+            state.AnomalyChains[chain.ChainId] = chain;
+        }
+    }
+
     // ── BFS utilities ────────────────────────────────────────────
 
     /// <summary>
@@ -585,7 +712,64 @@ public static class NarrativePlacementGen
                 return $"KEPLER.{idx:D3}";
         }
 
+        // $CHAIN_<SHORT>_<stepIndex> → CHAIN_REF|<chainId>|<stepIndex> (resolved against state at runtime).
+        if (token.StartsWith("CHAIN_", StringComparison.Ordinal))
+        {
+            string remainder = token.Substring(6); // after "CHAIN_"
+            int lastUnderscore = remainder.LastIndexOf('_');
+            if (lastUnderscore > 0 && int.TryParse(remainder.Substring(lastUnderscore + 1), out int stepIdx))
+            {
+                string chainShort = remainder.Substring(0, lastUnderscore);
+                string chainId = chainShort switch
+                {
+                    "VALORIN" => "CHAIN.VALORIN_EXPEDITION",
+                    "COMMUNION" => "CHAIN.COMMUNION_FREQUENCY",
+                    "PENTAGON" => "CHAIN.PENTAGON_AUDIT",
+                    _ => ""
+                };
+                if (!string.IsNullOrEmpty(chainId))
+                    return $"CHAIN_REF|{chainId}|{stepIdx}";
+            }
+        }
+
         // $LOG.CONTAIN.003 → LOG.CONTAIN.003
         return token;
+    }
+
+    // GATE.T41.ANOMALY_CHAIN.KG.001: Resolve CHAIN_REF tokens after chains are placed.
+    // Must be called after PlaceAnomalyChains and ResolveKnowledgeGraphTemplates.
+    public static void ResolveChainKnowledgeConnections(SimState state)
+    {
+        if (state?.Intel?.KnowledgeConnections is null) return;
+        if (state.AnomalyChains is null || state.AnomalyChains.Count == 0) return;
+
+        // Resolve any CHAIN_REF tokens in existing connections.
+        foreach (var conn in state.Intel.KnowledgeConnections)
+        {
+            conn.SourceDiscoveryId = ResolveChainRef(state, conn.SourceDiscoveryId);
+            conn.TargetDiscoveryId = ResolveChainRef(state, conn.TargetDiscoveryId);
+        }
+
+        // Remove connections where either endpoint couldn't be resolved.
+        state.Intel.KnowledgeConnections.RemoveAll(c =>
+            c.SourceDiscoveryId.StartsWith("CHAIN_REF|", StringComparison.Ordinal) ||
+            c.TargetDiscoveryId.StartsWith("CHAIN_REF|", StringComparison.Ordinal));
+    }
+
+    private static string ResolveChainRef(SimState state, string token)
+    {
+        if (string.IsNullOrEmpty(token)) return token;
+        if (!token.StartsWith("CHAIN_REF|", StringComparison.Ordinal)) return token;
+
+        var parts = token.Split('|');
+        if (parts.Length < 3) return token;
+
+        string chainId = parts[1];
+        if (!int.TryParse(parts[2], out int stepIdx)) return token;
+
+        if (!state.AnomalyChains.TryGetValue(chainId, out var chain)) return token;
+        if (stepIdx < 0 || stepIdx >= chain.Steps.Count) return token;
+
+        return chain.Steps[stepIdx].PlacedDiscoveryId;
     }
 }

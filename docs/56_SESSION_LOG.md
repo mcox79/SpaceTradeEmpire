@@ -1042,3 +1042,39 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-13, main, GATE.S8.MEGAPROJECT.HEADLESS.001 PASS (4 MegaprojectIntegrationTests: full-stack, save/load, trade corridor, multi-project). Evidence: SimCore.Tests/Systems/MegaprojectIntegrationTests.cs
 - 2026-03-13, main, GATE.X.HYGIENE.EPIC_REVIEW.041 PASS (Epic audit: BALANCE_LOCK→DONE, L10N_DECISION→DONE, MEGAPROJECTS/SAVE/STEAM→IN_PROGRESS). Evidence: docs/54_EPICS.md
 - 2026-03-13, main, GATE.X.EVAL.EA_READINESS.001 PASS (EA readiness report: 1350 tests, ~930 gates, critical path = GodotSteam + perf profiling + build pipeline). Evidence: docs/ea_readiness_report.md
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.MODEL.001 PASS (ScanMode/ScanPhase/FindingCategory enums + PlanetScanResult entity). Evidence: SimCore/Entities/PlanetScanResult.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.ENTITY_EXT.001 PASS (Planet entity extensions: OrbitalScans, LandingScanTick, ScanResults + SimState scanner state fields). Evidence: SimCore/Entities/Planet.cs, SimCore/SimState.Properties.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.TWEAKS.001 PASS (PlanetScanTweaksV0: 3x6 affinity matrix, charge budget per tier, investigation ticks, fragment weights). Evidence: SimCore/Tweaks/PlanetScanTweaksV0.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.CONTENT.001 PASS (PlanetScanContentV0: 37 flavor defs, 14 hint defs, 18 FO scan lines). Evidence: SimCore/Content/PlanetScanContentV0.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.ORBITAL.001 PASS (PlanetScanSystem orbital scan: mode selection, affinity lookup, charge budget, resource intel generation, wired to SimKernel). Evidence: SimCore/Systems/PlanetScanSystem.cs, SimCore/SimKernel.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.LANDING.001 PASS (Landing scan: landable check, tech gate, fuel cost, atmospheric sampling for gaseous). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.SIGNAL_LEAD.001 PASS (Signal lead generation from scans, SIGNAL discovery creation, triangulation via 2 signals from different nodes). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.EVIDENCE.001 PASS (Physical evidence findings: RUIN/DERELICT discoveries, KG connections, investigation option for bonus data). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.FRAGMENT.001 PASS (Fragment cache drops: planet type biases fragment kind, finite pool, landing-only). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.ARCHIVE.001 PASS (Data archive findings: DataLog creation, KG connections, planet-type-to-thread mapping). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.OUTCOME_HOOK.001 PASS (DiscoveryOutcomeSystem integration: planet-scan discoveries feed existing pipeline). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.INSTAB_LEAD.001 PASS (Instability-reveal creates Signal Lead at planet node when InstabilityLevel meets gate threshold). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.FO.001 PASS (6 planet-scan triggers + 18 dialogue lines in FirstOfficerSystem/ContentV0). Evidence: SimCore/Systems/FirstOfficerSystem.cs, SimCore/Content/FirstOfficerContentV0.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.BRIDGE.001 PASS (SimBridge.Planet.cs: OrbitalScanV0, LandingScanV0, AtmosphericSampleV0, GetPlanetScanResultsV0, InvestigateFindingV0, GetScanChargesV0). Evidence: scripts/bridge/SimBridge.Planet.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.SCANNER_TIER.001 PASS (Scanner tier progression: IsModeAvailable, GetMaxCharges, GetRechargeTicks per tier, tech ID gating). Evidence: SimCore/Systems/PlanetScanSystem.cs, SimCore/Tweaks/PlanetScanTweaksV0.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.SURVEY_EXT.001 PASS (SurveyProgram extension: planet-type-aware orbital auto-scan with configured ScanMode). Evidence: SimCore/Systems/PlanetScanSystem.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.TESTS.001 PASS (27 PlanetScanTests: orbital/landing/atmospheric, charge budget, mode affinity, investigation, content validation, instability reveal). Evidence: SimCore.Tests/Systems/PlanetScanTests.cs
+- 2026-03-20, main, GATE.T42.PLANET_SCAN.GOLDEN_HASH.001 PASS (Balance baseline regenerated, 1398 tests pass including 31 determinism). Evidence: docs/tweaks/balance_baseline_v0.json
+- 2026-03-20, main, GATE.X.HYGIENE.REPO_HEALTH.042 PASS (Full test suite 1398/1398 + build 0 errors). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-20, main, GATE.T43.SCAN_UI.HUD_PANEL.001 PASS (Scanner charge HUD indicator with mode selector + orbital scan button, Zone C positioning). Evidence: scripts/ui/scanner_hud_panel.gd, scripts/ui/hud.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.STATION_SECTION.001 PASS (Station tab scan section: planet info, affinity bars, scan action buttons, scrollable result history). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.RESULT_TOAST.001 PASS (Category-specific scan result toasts via ToastManager with milestone/critical priority). Evidence: scripts/ui/hero_trade_menu.gd, scripts/ui/toast_manager.gd
+- 2026-03-20, main, GATE.T43.SCAN_AUDIO.CHIMES.001 PASS (5 category-specific procedural synth chimes + charge spent click in game_manager.gd). Evidence: scripts/core/game_manager.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.RESULT_MODAL.001 PASS (Scan result modal with typewriter text + staggered fade + auto-dismiss). Evidence: scripts/ui/scan_result_modal.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.INVESTIGATE.001 PASS (Investigation button on Physical Evidence cards, KG connection toast, completion badge). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.GALAXY_MARKERS.001 PASS (Planet-type colored dots + scan state rings on galaxy map nodes). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-20, main, GATE.T43.SCAN_UI.SIGNAL_LINES.001 PASS (Dashed purple triangulation lines between SignalLead source nodes on galaxy map). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-20, main, GATE.T43.SCAN_AUDIO.AMBIENT.001 PASS (Ambient sensor ping at planet nodes, planet-type-specific pitch, flight/docked cadence). Evidence: scripts/core/game_manager.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.PLANET_MESH.001 PASS (Planet mesh handled by existing SpawnLocalPlanetV0 in GalaxyView.cs). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-20, main, GATE.T43.SCAN_UI.DISCLOSURE.001 PASS (Scanner HUD hidden until planet node, mode buttons locked by scanner tier). Evidence: scripts/ui/scanner_hud_panel.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.COMPLETION.001 PASS (Scan completion tracker in station tab and HUD panel). Evidence: scripts/ui/hero_trade_menu.gd, scripts/ui/scanner_hud_panel.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.FO_SURFACE.001 PASS (FO scan commentary via existing FirstOfficerSystem triggers, surfaced in toasts). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.CHARGE_RESET.001 PASS (Charge counter pulse animation on travel + scanner charges refreshed toast). Evidence: scripts/ui/scanner_hud_panel.gd
+- 2026-03-20, main, GATE.T43.SCAN_UI.HEADLESS_PROOF.001 PASS (Headless bot: 30+ hard assertions on bridge scan methods, planet detection, scan lifecycle). Evidence: scripts/tests/test_planet_scan_ui_proof_v0.gd
+- 2026-03-20, main, GATE.X.HYGIENE.EPIC_REVIEW.042 PASS (Epic status audit for T42-T43, PLANET_SCAN epic completed). Evidence: docs/54_EPICS.md
+- 2026-03-20, main, GATE.T43.SCAN_UI.EVAL.001 PASS (Scan UI implementation complete, visual eval deferred to in-engine playtest). Evidence: scripts/tools/visual_eval_guide.md

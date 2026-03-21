@@ -102,6 +102,8 @@ public sealed class TradeRouteIntel
     [JsonInclude] public TradeRouteStatus Status { get; set; } = TradeRouteStatus.Discovered;
     // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Flavor text for narrative display.
     [JsonInclude] public string FlavorText { get; set; } = "";
+    // GATE.T41.DISCOVERY_INTEL.MODEL.001: Discovery that generated this route (empty = non-discovery source).
+    [JsonInclude] public string SourceDiscoveryId { get; set; } = "";
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001
@@ -132,6 +134,8 @@ public sealed class DiscoveryStateV0
     [JsonInclude] public DiscoveryPhase Phase { get; set; } = DiscoveryPhase.Seen;
     // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Flavor text for narrative display.
     [JsonInclude] public string FlavorText { get; set; } = "";
+    // GATE.T41.INSTAB_REVEAL.MODEL.001: Instability phase required to reveal this discovery (0 = always visible).
+    [JsonInclude] public int InstabilityGate { get; set; } = 0;
 }
 
 // GATE.S3_6.RUMOR_INTEL_MIN.001

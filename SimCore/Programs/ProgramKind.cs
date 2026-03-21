@@ -22,4 +22,7 @@ public static class ProgramKind
     // GATE.S5.ESCORT_PROG.MODEL.001: escort and patrol program kinds v0
     public const string EscortV0 = "ESCORT_V0";
     public const string PatrolV0 = "PATROL_V0";
+
+    // GATE.T41.SURVEY_PROG.MODEL.001: survey program kind v0
+    public const string SurveyV0 = "SURVEY_V0";
 }

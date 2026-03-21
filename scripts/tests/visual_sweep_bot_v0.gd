@@ -322,8 +322,10 @@ func _process(_delta: float) -> bool:
 		Phase.NPC_DAMAGE:
 			_polls += 1
 			if _polls >= POST_CAPTURE:
-				# Hit nearest NPC 5 times to deplete HP and show bar
-				_damage_nearest_npc(5, 20)
+				# Hit nearest NPC enough to show HP bar but not destroy (3x15=45 dmg)
+				_damage_nearest_npc(3, 15)
+				# Force nearest NPC into ENGAGE state so HP bar renders
+				_force_npc_engage()
 				_polls = 0
 				_start_burst("npc_combat", 3, 20, Phase.NPC_WARP_VFX)
 				_phase = Phase.NPC_COMBAT_BURST
@@ -355,6 +357,9 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= SETTLE_CAMERA:
 				_toggle_galaxy_map()
+				# Force camera to strategic altitude immediately (bypass 0.6s tween)
+				# so _sync_overlay_state() fires SetOverlayOpenV0(true) on next frame.
+				_force_strategic_altitude()
 				_polls = 0
 				_phase = Phase.GALAXY_MAP_CAPTURE
 
@@ -1003,18 +1008,80 @@ func _setup_mission() -> void:
 	print(PREFIX + "WARN|setup_mission_no_available")
 
 
+# --- Galaxy map helpers ---
+
+func _force_strategic_altitude() -> void:
+	## Bypass the 0.6s altitude tween — jump camera to strategic altitude
+	## so _sync_overlay_state triggers SetOverlayOpenV0(true) immediately.
+	# Camera node is named "Camera3D" in the scene tree (script: player_follow_camera.gd).
+	var cam_ctrl = root.find_child("Camera3D", true, false)
+	if cam_ctrl == null:
+		print(PREFIX + "WARN|no_camera_for_strategic")
+		return
+	# Kill any active tween to prevent it from overriding our altitude.
+	var tab_tween = cam_ctrl.get("_tab_tween")
+	if tab_tween != null and tab_tween is Tween and tab_tween.is_valid():
+		tab_tween.kill()
+	# Set altitude above OVERLAY_THRESHOLD (500) to trigger overlay state.
+	# STRATEGIC_ALTITUDE is a const (5000.0) — not accessible via .get().
+	var strategic: float = 5000.0
+	cam_ctrl.set("_altitude", strategic)
+	cam_ctrl.set("flight_follow_distance", strategic)
+	# Center camera on galaxy centroid (same as toggle_strategic_altitude_v0 does).
+	var galaxy_view = root.find_child("GalaxyView", true, false)
+	if galaxy_view and galaxy_view.has_method("GetAutoFitFrameV0"):
+		var frame: Dictionary = galaxy_view.call("GetAutoFitFrameV0")
+		var alt: float = float(frame.get("altitude", strategic))
+		cam_ctrl.set("_altitude", alt)
+		cam_ctrl.set("flight_follow_distance", alt)
+		var cx: float = float(frame.get("center_x", 0.0))
+		var cz: float = float(frame.get("center_z", 0.0))
+		var hero = _get_hero_body()
+		if hero:
+			var pan_offset := Vector3(cx - hero.global_position.x, 0.0, cz - hero.global_position.z)
+			cam_ctrl.set("_galaxy_map_pan_offset", pan_offset)
+			# Teleport spring state directly — bypasses spring convergence delay.
+			var target_pos := Vector3(cx, alt, cz)
+			var target_look := Vector3(cx, 0.0, cz)
+			cam_ctrl.set("_spring_pos", target_pos)
+			cam_ctrl.set("_spring_look", target_look)
+			cam_ctrl.set("_spring_vel", Vector3.ZERO)
+			cam_ctrl.set("_spring_look_vel", Vector3.ZERO)
+		# Directly call SetOverlayOpenV0(true) — can't wait for _sync_overlay_state.
+		if galaxy_view.has_method("SetOverlayOpenV0"):
+			galaxy_view.call("SetOverlayOpenV0", true)
+		# Also call RefreshFromSnapshotV0 to force node/edge visibility restoration.
+		if galaxy_view.has_method("RefreshFromSnapshotV0"):
+			galaxy_view.call("RefreshFromSnapshotV0")
+		print(PREFIX + "GALAXY_MAP|auto_fit|alt=%s|cx=%s|cz=%s" % [str(alt), str(cx), str(cz)])
+	else:
+		print(PREFIX + "GALAXY_MAP|forced_altitude=%s" % str(strategic))
+
+
 # --- NPC showcase helpers ---
 
 var _saved_cam_distance: float = 80.0
 
 func _set_camera_distance(dist: float) -> void:
-	var cam_ctrl = root.find_child("PlayerFollowCamera", true, false)
+	var cam_ctrl = root.find_child("Camera3D", true, false)
 	if cam_ctrl:
-		_saved_cam_distance = float(cam_ctrl.get("flight_follow_distance"))
+		_saved_cam_distance = float(cam_ctrl.get("_altitude"))
+		# Set _altitude — _sync_altitude() derives flight_follow_distance from it.
+		cam_ctrl.set("_altitude", dist)
 		cam_ctrl.set("flight_follow_distance", dist)
-		# Also adjust offset direction to match new distance
 		var offset := Vector3(0, dist, dist * 0.05)
 		cam_ctrl.set("flight_offset", offset)
+		# Reset galaxy map pan offset so camera centers on player again.
+		cam_ctrl.set("_galaxy_map_pan_offset", Vector3.ZERO)
+		# Teleport spring to avoid multi-second convergence delay.
+		var hero = _get_hero_body()
+		if hero:
+			var hero_pos: Vector3 = hero.global_position
+			var target_pos: Vector3 = hero_pos + Vector3(0, dist, dist * 0.05)
+			cam_ctrl.set("_spring_pos", target_pos)
+			cam_ctrl.set("_spring_vel", Vector3.ZERO)
+			cam_ctrl.set("_spring_look", hero_pos)
+			cam_ctrl.set("_spring_look_vel", Vector3.ZERO)
 		print(PREFIX + "CAMERA|dist=%s" % str(dist))
 
 
@@ -1119,6 +1186,29 @@ func _damage_nearest_npc(hits: int, dmg: int) -> void:
 				_bridge.call("DamageNpcFleetV0", fleet_id, dmg)
 				hit_count += 1
 	print(PREFIX + "NPC_DAMAGE|hits=%d|dmg=%d|target=%s" % [hit_count, dmg, str(nearest.name)])
+
+
+func _force_npc_engage() -> void:
+	## Force nearest NPC fleet_ai into ENGAGE state so the overhead HP bar renders.
+	## Normally ENGAGE requires _is_hostile + proximity check on the 2s aggro timer.
+	var hero = _get_hero_body()
+	if hero == null:
+		return
+	var nearest = _find_nearest_npc(hero)
+	if nearest == null:
+		return
+	# Fleet marker root node has fleet_ai.gd with _state, _is_hostile, _hp_bar_timer.
+	# If _find_npc_ships returned a child (NpcShip group), walk up to the fleet root.
+	var fleet_node: Node3D = nearest
+	if not fleet_node.is_in_group("FleetShip"):
+		var parent = fleet_node.get_parent()
+		if parent is Node3D and parent.is_in_group("FleetShip"):
+			fleet_node = parent
+	# fleet_ai.gd State enum: IDLE=0, PATROL=1, DOCK=2, ENGAGE=3
+	fleet_node.set("_state", 3)  # State.ENGAGE
+	fleet_node.set("_is_hostile", true)
+	fleet_node.set("_hp_bar_timer", 5.0)  # Ensure bar stays visible
+	print(PREFIX + "NPC_ENGAGE|forced|target=%s" % str(fleet_node.name))
 
 
 func _spawn_warp_in_vfx() -> void:

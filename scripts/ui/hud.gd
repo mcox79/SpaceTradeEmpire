@@ -50,6 +50,9 @@ var _research_fast_path: bool = false  # true when research active → update ev
 # GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fuel indicator label.
 var _fuel_label: Label = null
 
+# Cruise drive indicator.
+var _cruise_label: Label = null
+
 # Data overlay mode label (shown when V-key cycles overlay modes)
 var _overlay_mode_label: Label = null
 
@@ -205,16 +208,29 @@ var _last_revelation_count: int = -1
 # GATE.S8.THREAT.ALERT_UI.001: Supply shock alert label.
 var _supply_alert_label: Label = null
 
+# GATE.T43.SCAN_UI.HUD_PANEL.001: Scanner charge HUD panel.
+var _scanner_hud_panel = null
+
+# GATE.T43.SCAN_UI.RESULT_MODAL.001: Scan result modal.
+var _scan_result_modal = null
+
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
 
-	# HUD status panel background (dark navy, matches UITheme.PANEL_BG)
-	var hud_bg := ColorRect.new()
+	# HUD status panel background — semi-transparent dark panel with subtle border.
+	# FEEL_PASS6_P4: Upgraded from plain ColorRect to PanelContainer style for visibility.
+	var hud_bg := PanelContainer.new()
 	hud_bg.name = "HudStatusBg"
-	hud_bg.color = UITheme.PANEL_BG
-	hud_bg.position = Vector2(8, 8)
-	hud_bg.size = Vector2(260, 248)
+	var hud_style := StyleBoxFlat.new()
+	hud_style.bg_color = Color(0.04, 0.06, 0.12, 0.85)
+	hud_style.border_color = Color(0.15, 0.25, 0.4, 0.5)
+	hud_style.set_border_width_all(1)
+	hud_style.set_corner_radius_all(4)
+	hud_style.set_content_margin_all(6)
+	hud_bg.add_theme_stylebox_override("panel", hud_style)
+	hud_bg.position = Vector2(4, 4)
+	hud_bg.size = Vector2(268, 256)
 	hud_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hud_bg)
 	# Move bg behind existing labels (labels are scene-defined, added before _ready)
@@ -278,19 +294,25 @@ func _ready() -> void:
 		# Q1: Orange/red hull bar — distinct from shield at a glance
 		var hull_style := StyleBoxFlat.new()
 		hull_style.bg_color = Color(0.9, 0.3, 0.1)
+		hull_style.set_corner_radius_all(2)
 		_hull_bar.add_theme_stylebox_override("fill", hull_style)
 		var hull_bg := StyleBoxFlat.new()
 		hull_bg.bg_color = Color(0.2, 0.08, 0.02)
+		hull_bg.set_corner_radius_all(2)
 		_hull_bar.add_theme_stylebox_override("background", hull_bg)
+		_hull_bar.custom_minimum_size.y = 10
 	if _shield_bar:
 		_shield_bar.tooltip_text = "Shield absorbs damage before hull takes hits"
 		# Q1: Cyan/blue shield bar — visually distinct from hull
 		var shield_style := StyleBoxFlat.new()
 		shield_style.bg_color = Color(0.3, 0.8, 1.0)
+		shield_style.set_corner_radius_all(2)
 		_shield_bar.add_theme_stylebox_override("fill", shield_style)
 		var shield_bg := StyleBoxFlat.new()
 		shield_bg.bg_color = Color(0.06, 0.16, 0.2)
+		shield_bg.set_corner_radius_all(2)
 		_shield_bar.add_theme_stylebox_override("background", shield_bg)
+		_shield_bar.custom_minimum_size.y = 8
 
 	# GATE.S7.COMBAT_PHASE2.HEAT_HUD.001: Heat gauge bar (below combat label).
 	_heat_bar = ProgressBar.new()
@@ -472,6 +494,16 @@ func _ready() -> void:
 	_fuel_label.position = Vector2(10, 446)
 	add_child(_fuel_label)
 
+	# Cruise drive indicator (below fuel label).
+	_cruise_label = Label.new()
+	_cruise_label.name = "CruiseLabel"
+	_cruise_label.text = "CRUISE"
+	_cruise_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_cruise_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_cruise_label.position = Vector2(10, 466)
+	_cruise_label.visible = false
+	add_child(_cruise_label)
+
 	# Build game over overlay (hidden until player dies)
 	_game_over_panel = Control.new()
 	_game_over_panel.name = "GameOverPanel"
@@ -568,7 +600,7 @@ func _ready() -> void:
 	# Use a shader for edge-only glow (inner area transparent, edges tinted red).
 	var vignette_shader := ShaderMaterial.new()
 	var shader_code := Shader.new()
-	shader_code.code = "shader_type canvas_item;\nuniform vec4 tint_color : source_color = vec4(0.8, 0.05, 0.02, 0.0);\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat d = max(abs(uv.x), abs(uv.y));\n\tfloat edge = smoothstep(0.6, 1.0, d);\n\tCOLOR = vec4(tint_color.rgb, tint_color.a * edge);\n}"
+	shader_code.code = "shader_type canvas_item;\nuniform vec4 tint_color : source_color = vec4(0.8, 0.05, 0.02, 0.0);\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat d = max(abs(uv.x), abs(uv.y));\n\tfloat edge = smoothstep(0.5, 1.0, d);\n\tCOLOR = vec4(tint_color.rgb, tint_color.a * edge);\n}"
 	vignette_shader.shader = shader_code
 	_combat_vignette.material = vignette_shader
 	add_child(_combat_vignette)
@@ -881,6 +913,20 @@ func _ready() -> void:
 	_supply_alert_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_supply_alert_label)
 
+	# GATE.T43.SCAN_UI.HUD_PANEL.001: Scanner charge HUD panel.
+	var ScannerHudPanelScript := preload("res://scripts/ui/scanner_hud_panel.gd")
+	_scanner_hud_panel = ScannerHudPanelScript.new()
+	_scanner_hud_panel.name = "ScannerHudPanel"
+	_scanner_hud_panel.position = Vector2(8, 395)
+	_scanner_hud_panel.custom_minimum_size = Vector2(200, 0)
+	add_child(_scanner_hud_panel)
+
+	# GATE.T43.SCAN_UI.RESULT_MODAL.001: Scan result modal overlay.
+	var ScanResultModalScript := preload("res://scripts/ui/scan_result_modal.gd")
+	_scan_result_modal = ScanResultModalScript.new()
+	_scan_result_modal.name = "ScanResultModal"
+	add_child(_scan_result_modal)
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
@@ -901,6 +947,7 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 				_hull_bar, _shield_bar, _hull_label, _shield_label]:
 		if lbl != null: lbl.visible = not active
 	if _fuel_label: _fuel_label.visible = not active
+	if _cruise_label: _cruise_label.visible = false if active else _cruise_label.visible
 	if _galaxy_map_label:
 		# FEEL_POST_FIX_5: Only show galaxy map label when galaxy map is the active overlay,
 		# not when empire dashboard is open at flight altitude.
@@ -929,6 +976,7 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _keybind_hint_label: _keybind_hint_label.visible = not active
 	if _fleet_auto_panel: _fleet_auto_panel.visible = not active
 	if _active_leads_panel: _active_leads_panel.visible = not active
+	if _scanner_hud_panel: _scanner_hud_panel.visible = not active
 	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
 	# FO panel: hide during galaxy overlay (same as data_log, knowledge_web).
@@ -937,6 +985,8 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _knowledge_web_panel and active: _knowledge_web_panel.visible = false
 	if _mission_journal_panel and active: _mission_journal_panel.visible = false
 	if _warfront_panel and active: _warfront_panel.visible = false
+	# FEEL_PASS6_P5: Hide tutorial objective during galaxy map / empire dashboard overlay.
+	if _guide_objective_label and active: _guide_objective_label.visible = false
 	if _heat_bar: _heat_bar.visible = not active
 	if _heat_label: _heat_label.visible = not active
 	if _battle_stations_label: _battle_stations_label.visible = not active
@@ -1052,8 +1102,8 @@ func _physics_process(_delta: float) -> void:
 				_state_label.add_theme_color_override("font_color", UITheme.GREEN)
 
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
-	# Also hide during tutorial — combat not yet introduced.
-	var _in_combat_now: bool = not _tutorial_active and raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
+	# FEEL_PASS6: Allow combat indicators during tutorial — player needs feedback when attacked.
+	var _in_combat_now: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
 	if _combat_hud:
 		_combat_hud.visible = _in_combat_now
 
@@ -1081,11 +1131,11 @@ func _physics_process(_delta: float) -> void:
 			if show_combat_vignette and not _combat_vignette_active:
 				_combat_vignette_active = true
 				var tw := create_tween()
-				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.0, 0.35, 0.4)
+				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.0, 0.55, 0.4)
 			elif not show_combat_vignette and _combat_vignette_active:
 				_combat_vignette_active = false
 				var tw := create_tween()
-				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.35, 0.0, 0.6)
+				tw.tween_method(func(v): mat.set_shader_parameter("tint_color", Color(0.8, 0.05, 0.02, v)), 0.55, 0.0, 0.6)
 
 	# HP bars: hull (red/green) and shield (blue)
 	if _bridge.has_method("GetFleetCombatHpV0"):
@@ -1098,20 +1148,27 @@ func _physics_process(_delta: float) -> void:
 		if hull_max > 0:
 			_hull_bar.max_value = hull_max
 			_hull_bar.value = hull
-			# Hull urgency coloring: red < 20%, yellow 20-50%, white > 50%.
+			# Hull urgency coloring: red < 20%, yellow 20-50%, green > 60%.
 			var hull_pct: float = float(hull) / float(hull_max)
+			var hull_fill_style := StyleBoxFlat.new()
+			hull_fill_style.set_corner_radius_all(2)
 			if hull_pct < 0.15 and hull_pct > 0.0:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max) + "  CRITICAL"
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.15))
-			elif hull_pct < 0.2:
+				hull_fill_style.bg_color = Color(1.0, 0.15, 0.1)
+			elif hull_pct < 0.3:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
-			elif hull_pct < 0.5:
+				hull_fill_style.bg_color = Color(1.0, 0.3, 0.1)
+			elif hull_pct < 0.6:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+				hull_fill_style.bg_color = Color(1.0, 0.7, 0.1)
 			else:
 				_hull_label.text = "Hull: " + str(hull) + " / " + str(hull_max)
 				_hull_label.remove_theme_color_override("font_color")
+				hull_fill_style.bg_color = Color(0.2, 0.85, 0.3)
+			_hull_bar.add_theme_stylebox_override("fill", hull_fill_style)
 			_hull_bar.visible = true
 			_hull_label.visible = true
 			# L3.3: Hull critical pulse — bar pulses when below 25%.
@@ -1134,6 +1191,14 @@ func _physics_process(_delta: float) -> void:
 			_shield_bar.max_value = shield_max
 			_shield_bar.value = shield
 			_shield_label.text = "Shield: " + str(shield) + " / " + str(shield_max)
+			var shield_pct: float = float(shield) / float(shield_max)
+			var shield_fill_style := StyleBoxFlat.new()
+			shield_fill_style.set_corner_radius_all(2)
+			if shield_pct < 0.5:
+				shield_fill_style.bg_color = Color(0.15, 0.4, 0.55)
+			else:
+				shield_fill_style.bg_color = Color(0.3, 0.8, 1.0)
+			_shield_bar.add_theme_stylebox_override("fill", shield_fill_style)
 			_shield_bar.visible = true
 			_shield_label.visible = true
 		else:
@@ -1215,6 +1280,7 @@ func _physics_process(_delta: float) -> void:
 		_update_mission_hud()
 		_update_research_hud()
 		_update_fuel_hud()
+		_update_cruise_hud()
 		_update_scan_progress_v0()
 		_update_zone_g_v0()
 		_update_fleet_auto_summary_v0()
@@ -1231,6 +1297,9 @@ func _physics_process(_delta: float) -> void:
 		_check_revelation_delivery_v0()
 		# GATE.S8.THREAT.ALERT_UI.001: Check for supply shock alerts.
 		_check_supply_alerts_v0()
+		# GATE.T43.SCAN_UI.HUD_PANEL.001: Refresh scanner HUD panel.
+		if _scanner_hud_panel and _scanner_hud_panel.has_method("refresh_v0"):
+			_scanner_hud_panel.refresh_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	# Hidden during tutorial — threat hasn't been introduced yet.
@@ -1621,6 +1690,16 @@ func _update_fuel_hud() -> void:
 		_fuel_label.text = "Fuel: %d" % fuel
 		_fuel_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 
+func _update_cruise_hud() -> void:
+	if _cruise_label == null:
+		return
+	var players = get_tree().get_nodes_in_group("Player")
+	if players.size() == 0:
+		_cruise_label.visible = false
+		return
+	var ship = players[0]
+	_cruise_label.visible = ship.get("_cruise_active") == true
+
 ## Called by game_manager when V-key cycles overlay mode. mode: -1=Off, 0-2=active.
 func set_data_overlay_label_v0(mode: int) -> void:
 	if _overlay_mode_label == null:
@@ -1634,6 +1713,11 @@ func set_data_overlay_label_v0(mode: int) -> void:
 func show_narrative_v0(text: String, faction_id: String = "") -> void:
 	if _narrative_panel != null and _narrative_panel.has_method("show_narrative"):
 		_narrative_panel.show_narrative(text, faction_id)
+
+# GATE.T43.SCAN_UI.RESULT_MODAL.001: Show scan result modal.
+func show_scan_result_modal_v0(scan: Dictionary) -> void:
+	if _scan_result_modal != null and _scan_result_modal.has_method("show_result"):
+		_scan_result_modal.show_result(scan)
 
 # GATE.S7.AUTOMATION_MGMT.DASHBOARD.001: toggle automation dashboard panel.
 func toggle_automation_dashboard_v0() -> void:
@@ -1927,6 +2011,7 @@ func show_dock_prompt_v0(station_name: String = "") -> void:
 func hide_dock_prompt_v0() -> void:
 	if _dock_prompt_label == null:
 		return
+	_dock_prompt_label.text = ""
 	_dock_prompt_label.visible = false
 
 # Gate prompt: "Press E to jump to {dest}" — reuses dock prompt label (mutually exclusive).
@@ -1947,6 +2032,7 @@ func show_gate_prompt_v0(dest_name: String = "") -> void:
 func hide_gate_prompt_v0() -> void:
 	if _dock_prompt_label == null:
 		return
+	_dock_prompt_label.text = ""
 	_dock_prompt_label.visible = false
 
 

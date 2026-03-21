@@ -43,6 +43,8 @@ public static class NarrativeTweaksV0
     public const int SupplyChainNoticedMissions = 3;
     // Revealed knowledge connections needed for KNOWLEDGE_WEB_INSIGHT trigger.
     public const int KnowledgeWebInsightConnections = 3;
+    // GATE.T42.PLANET_SCAN.FO.001: Scans with same mode needed for PATTERN_RECOGNIZED trigger.
+    public const int PatternRecognizedScanCount = 5;
     // Valorin reputation threshold for Enemy recontextualization variant.
     public const int EnemyRecontextValorinRepThreshold = 20;
 

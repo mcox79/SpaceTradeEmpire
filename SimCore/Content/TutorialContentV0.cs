@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 namespace SimCore.Content;
 
-// Tutorial-specific FO dialogue content. 10 acts, 45 phases.
-// Maren speaks Acts 1-3 (pre-selection). Selected FO speaks Acts 4-10.
-// Dask/Lira cameo hails in Acts 5/6 regardless of selection.
-// Ship Computer narrates Act 1 (cold, mechanical — no FO yet).
+// Tutorial-specific FO dialogue content. 7 acts, ~30 active phases.
+// Maren speaks Acts 2-4 (pre-selection). Dask cameos Act 5, Lira cameos Act 6.
+// Selected FO speaks graduation (Act 7 end). Ship Computer narrates Act 1 + system notices.
+// FOs observe/react — never instruct. HUD objectives handle mechanic instructions.
+// Cover-story naming enforced: no "fracture"/"adaptation"/"ancient"/"organism" before Module Revelation.
 public static class TutorialContentV0
 {
     public sealed class TutorialLine
@@ -23,11 +24,11 @@ public static class TutorialContentV0
         public string Quote { get; init; } = "";
     }
 
-    // Post-trade narrator line (shown on FO selection overlay after Acts 2-3 audition).
+    // Post-automation narrator line (shown on FO selection overlay after all 3 FO auditions).
     public const string NarratorSelectionPrompt =
         "You\u2019ve heard them all. Who do you want by your side?";
 
-    // Ship Computer lines for Act 1 (cold, mechanical — no FO).
+    // Ship Computer lines for system notifications (cold, mechanical — no personality).
     public sealed class ShipComputerLine
     {
         public TutorialPhase Phase { get; init; }
@@ -45,9 +46,17 @@ public static class TutorialContentV0
 
         // Act 1: Flight_Intro
         new() { Phase = TutorialPhase.Flight_Intro, Sequence = 0,
-            Text = "Controls are live. WASD to fly. The station ahead is your only option. Dock with E when close." },
+            Text = "Controls are live. WASD to fly, left-click to set course. The station ahead is your only option. Dock with E when close." },
 
-        // Act 10: Graduation_Summary
+        // Act 2: Module_Calibration_Notice (mystery seed per NarrativeDesign.md)
+        new() { Phase = TutorialPhase.Module_Calibration_Notice, Sequence = 0,
+            Text = "NOTICE: Instrument calibration variance detected. Non-critical. Logging." },
+
+        // Act 3: Cruise_Intro (cruise drive notification)
+        new() { Phase = TutorialPhase.Cruise_Intro, Sequence = 0,
+            Text = "Cruise drive available. Hold C to engage sustained thrust." },
+
+        // Act 7: Graduation_Summary
         new() { Phase = TutorialPhase.Graduation_Summary, Sequence = 0,
             Text = "Tutorial complete. {credits_earned} credits earned. {nodes_visited} systems explored. {combats_won} hostiles eliminated. {modules_equipped} modules installed." },
     };
@@ -63,7 +72,7 @@ public static class TutorialContentV0
         return "";
     }
 
-    // FO hail lines: spoken via dialogue box during Act 1.
+    // FO hail lines: spoken via dialogue box during Act 2 introduction.
     public sealed class FoHailLine
     {
         public FirstOfficerCandidate Candidate { get; init; }
@@ -102,22 +111,23 @@ public static class TutorialContentV0
     };
 
     // Phase-specific tutorial dialogue lines. 3 variants per phase (one per candidate).
-    // Acts 1-3: Maren speaks (rotating audition). Acts 4+: selected FO speaks.
+    // Acts 2-7 pre-selection: rotating candidate picks the variant shown.
+    // Post-selection (FO_Selection onward): selected FO's variant shown.
     public static readonly IReadOnlyList<TutorialLine> AllLines = new List<TutorialLine>
     {
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 2: THE CREW (Maren introduced — she speaks all 3 variants
-        //        since she's the audition voice for trading phases)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 2: THE CREW (Maren introduced — all 3 variants are Maren's
+        //        voice since she's the rotating candidate for trading)
+        // =================================================================
 
-        // ── Phase: Maren_Hail (Beat 1: Maren introduces herself — first human voice) ──
+        // -- Phase: Maren_Hail (Beat 1: first human voice) --
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "Captain, this is Maren Voss. I answered your posting because nobody else would. I\u2019ve been monitoring your feeds since launch \u2014 your situation is worse than advertised." },
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
             Text = "Captain, this is Maren Voss. I answered your posting because nobody else would. I\u2019ve been monitoring your feeds since launch \u2014 your situation is worse than advertised." },
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
             Text = "Captain, this is Maren Voss. I answered your posting because nobody else would. I\u2019ve been monitoring your feeds since launch \u2014 your situation is worse than advertised." },
-        // Beat 2: Maren establishes stakes
+        // Beat 2: stakes
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
             Text = "Low credits, empty hold, one station in range. But I see opportunity in the local market data. Dock up and I\u2019ll show you what I mean." },
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
@@ -125,176 +135,168 @@ public static class TutorialContentV0
         new() { Phase = TutorialPhase.Maren_Hail, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
             Text = "Low credits, empty hold, one station in range. But I see opportunity in the local market data. Dock up and I\u2019ll show you what I mean." },
 
-        // ── Phase: Maren_Settle (station docked — Maren reads the market) ──
+        // -- Phase: Maren_Settle (warfront context — FO observes, doesn't instruct) --
         new() { Phase = TutorialPhase.Maren_Settle, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Good, we\u2019re docked. Open the Market tab \u2014 see the stock column? Stations produce and consume different goods. That\u2019s where profit hides." },
+            Text = "Prices here are distorted \u2014 the warfront\u2019s got the mining runs backed up. But distortion creates margin. I see opportunity." },
         new() { Phase = TutorialPhase.Maren_Settle, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Good, we\u2019re docked. Open the Market tab \u2014 see the stock column? Stations produce and consume different goods. That\u2019s where profit hides." },
+            Text = "Prices here are distorted \u2014 the warfront\u2019s got the mining runs backed up. But distortion creates margin. I see opportunity." },
         new() { Phase = TutorialPhase.Maren_Settle, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Good, we\u2019re docked. Open the Market tab \u2014 see the stock column? Stations produce and consume different goods. That\u2019s where profit hides." },
+            Text = "Prices here are distorted \u2014 the warfront\u2019s got the mining runs backed up. But distortion creates margin. I see opportunity." },
 
-        // ── Phase: Market_Explain (specific teaching) ──
+        // -- Phase: Market_Explain (probability framing — Maren's voice) --
         new() { Phase = TutorialPhase.Market_Explain, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "High stock means low buy prices \u2014 green in the Stock column. Find a station where that good is scarce and sell it there for more. I\u2019ve tagged the best opportunity." },
+            Text = "High stock means surplus \u2014 cheap to buy. Somewhere else, that same good is scarce. 73% chance the margin holds at the next port. I\u2019ve seen worse odds." },
         new() { Phase = TutorialPhase.Market_Explain, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Supply and demand, Captain. Surplus here is someone else\u2019s shortage. Buy what\u2019s green-stocked, haul it where they need it." },
+            Text = "High stock means surplus \u2014 cheap to buy. Somewhere else, that same good is scarce. 73% chance the margin holds at the next port. I\u2019ve seen worse odds." },
         new() { Phase = TutorialPhase.Market_Explain, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "The stock colors tell the story. Green means surplus \u2014 cheap to buy. Red means scarce \u2014 valuable elsewhere. I\u2019ve tagged the best opportunity." },
+            Text = "High stock means surplus \u2014 cheap to buy. Somewhere else, that same good is scarce. 73% chance the margin holds at the next port. I\u2019ve seen worse odds." },
 
-        // ── Phase: Buy_React ──
+        // -- Phase: Buy_React (Maren validates — no navigation instruction) --
         new() { Phase = TutorialPhase.Buy_React, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Cargo loaded. I\u2019ve flagged a station where this sells higher. Head for the lane gate \u2014 it connects systems." },
+            Text = "Good call. The margin should hold. 73% confidence." },
         new() { Phase = TutorialPhase.Buy_React, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Good pick. Now we haul it somewhere it\u2019s needed. Head for the lane gate \u2014 it\u2019ll take us to the next system." },
+            Text = "Good call. The margin should hold. 73% confidence." },
         new() { Phase = TutorialPhase.Buy_React, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Got it. Now the fun part \u2014 finding someone who\u2019ll pay what it\u2019s worth. The lane gates connect us to other stations." },
+            Text = "Good call. The margin should hold. 73% confidence." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 3: THE TRADE (Maren continues pre-selection)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 3: THE TRADE LOOP (3 manual trades — Maren continues)
+        // =================================================================
 
-        // ── Phase: Sell_Prompt (fires on dock at destination) ──
+        // -- Phase: Jump_Anomaly (world-is-watching seed — Maren) --
+        new() { Phase = TutorialPhase.Jump_Anomaly, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
+            Text = "Did you see that? Scanner went dark for 0.3 seconds during transit. Probably nothing. Logging it." },
+        new() { Phase = TutorialPhase.Jump_Anomaly, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
+            Text = "Did you see that? Scanner went dark for 0.3 seconds during transit. Probably nothing. Logging it." },
+        new() { Phase = TutorialPhase.Jump_Anomaly, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
+            Text = "Did you see that? Scanner went dark for 0.3 seconds during transit. Probably nothing. Logging it." },
+
+        // -- Phase: Sell_Prompt (dock at destination — Maren observes) --
         new() { Phase = TutorialPhase.Sell_Prompt, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "New station. Check the sell prices \u2014 if higher than what you paid, that\u2019s pure margin." },
         new() { Phase = TutorialPhase.Sell_Prompt, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "New port. Open the Market and sell your cargo. If the price beats what we paid, we\u2019re in business." },
+            Text = "New station. Check the sell prices \u2014 if higher than what you paid, that\u2019s pure margin." },
         new() { Phase = TutorialPhase.Sell_Prompt, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "New faces, new prices. Sell what you bought \u2014 if the number\u2019s bigger, you\u2019ve just found a trade route." },
+            Text = "New station. Check the sell prices \u2014 if higher than what you paid, that\u2019s pure margin." },
 
-        // ── Phase: First_Profit (Beat 1: celebration) ──
+        // -- Phase: First_Profit (repeatable — heard up to 3 times in trade loop) --
         new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Profit logged. One run proves the model works. This frontier isn\u2019t as empty as it looks." },
+            Text = "Profit logged. Margin held to within 2 credits of my estimate. The model works." },
         new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Clean trade, Captain. Credits in the ledger. One run is good. One run is proof." },
+            Text = "Profit logged. Margin held to within 2 credits of my estimate. The model works." },
         new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "You felt that, right? Richer than when we docked. And we barely tried." },
-        // Beat 2: hook for Act 4
-        new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "But one run won\u2019t save us. We need volume, and for that we need help. The other officers are still waiting." },
-        new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "But one run won\u2019t build an empire. We need crew. The other officers are still on the line." },
-        new() { Phase = TutorialPhase.First_Profit, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "But there\u2019s so much more out here. We need the right crew. Time to choose." },
+            Text = "Profit logged. Margin held to within 2 credits of my estimate. The model works." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 4: THE WORLD (Selected FO speaks)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 4: THE WORLD (Maren continues — galaxy orientation)
+        // =================================================================
 
-        // ── Phase: World_Intro (Beat 1: factions) ──
+        // -- Phase: World_Intro (Beat 1: warfront + factions — Maren observes) --
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Notice the station colors \u2014 each faction controls territory. They set tariffs and guard technology. We\u2019ll need their trust." },
+            Text = "The warfront between those factions is active \u2014 that\u2019s why prices are distorted. Every faction controls territory and sets tariffs." },
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Different flags on this station. Factions own territory, set tariffs, guard their tech. Some are friendly. Some aren\u2019t." },
+            Text = "The warfront between those factions is active \u2014 that\u2019s why prices are distorted. Every faction controls territory and sets tariffs." },
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "See the colors? Every faction claims its corner of space. Territory, tariffs, and technology \u2014 all faction-controlled." },
-        // Beat 2: hook
+            Text = "The warfront between those factions is active \u2014 that\u2019s why prices are distorted. Every faction controls territory and sets tariffs." },
+        // Beat 2: reputation hook
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
             Text = "Reputation determines tariff rates and technology access. Trade with a faction, earn their trust, unlock their modules." },
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "Earn their trust through trade and they\u2019ll lower tariffs. Cross them and you\u2019ll pay through the nose." },
+            Text = "Reputation determines tariff rates and technology access. Trade with a faction, earn their trust, unlock their modules." },
         new() { Phase = TutorialPhase.World_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "The more you trade with them, the more doors open. But every faction has its own agenda. Choose your allies carefully." },
+            Text = "Reputation determines tariff rates and technology access. Trade with a faction, earn their trust, unlock their modules." },
 
-        // ── Phase: Explore_Prompt ──
+        // -- Phase: Explore_Prompt (Maren observes) --
         new() { Phase = TutorialPhase.Explore_Prompt, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Three systems visited unlocks deeper intel. I\u2019d recommend exploring at least one more station." },
+            Text = "More systems means better data. I\u2019d recommend broadening our sensor baseline before committing to a strategy." },
         new() { Phase = TutorialPhase.Explore_Prompt, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "More systems means better intelligence. Visit one more port and the Station and Intel tabs unlock." },
+            Text = "More systems means better data. I\u2019d recommend broadening our sensor baseline before committing to a strategy." },
         new() { Phase = TutorialPhase.Explore_Prompt, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "The galaxy opens up the more you see. One more system and you\u2019ll unlock the full station intel." },
+            Text = "More systems means better data. I\u2019d recommend broadening our sensor baseline before committing to a strategy." },
 
-        // ── Phase: Explore_Complete ──
-        new() { Phase = TutorialPhase.Explore_Complete, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Station and Intel tabs active. More data means better route optimization." },
-        new() { Phase = TutorialPhase.Explore_Complete, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Full intel access. Now you can read the room before you dock." },
-        new() { Phase = TutorialPhase.Explore_Complete, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "The picture\u2019s getting clearer. Every new station adds a piece." },
-
-        // ── Phase: Galaxy_Map_Prompt ──
+        // -- Phase: Galaxy_Map_Prompt (Maren reacts — no keybind instruction) --
         new() { Phase = TutorialPhase.Galaxy_Map_Prompt, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Press M for the galaxy map. You\u2019ll see faction territory, trade lanes, and where the opportunities cluster." },
+            Text = "There it is \u2014 the full picture. Faction territory, trade lanes, contested zones. Every color is a market we could work." },
         new() { Phase = TutorialPhase.Galaxy_Map_Prompt, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Hit M \u2014 the galaxy map shows who owns what. Plan your routes around faction borders." },
+            Text = "There it is \u2014 the full picture. Faction territory, trade lanes, contested zones. Every color is a market we could work." },
         new() { Phase = TutorialPhase.Galaxy_Map_Prompt, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Press M and zoom out. See the whole picture. Every color is a faction. Every line is a route we could run." },
+            Text = "There it is \u2014 the full picture. Faction territory, trade lanes, contested zones. Every color is a market we could work." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 5: THE THREAT (Dask cameo)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 5: THE THREAT (Dask cameo — Veteran speaks)
+        // =================================================================
 
-        // ── Phase: Threat_Warning ──
+        // -- Phase: Threat_Warning (rotating=Veteran, Dask's voice) --
         new() { Phase = TutorialPhase.Threat_Warning, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "Scanner contact. Hostile signature. They\u2019re on an intercept course." },
         new() { Phase = TutorialPhase.Threat_Warning, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Contact on sensors. Hostile. They\u2019ve seen us and they\u2019re closing." },
+            Text = "Scanner contact. Hostile signature. They\u2019re on an intercept course." },
         new() { Phase = TutorialPhase.Threat_Warning, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Something\u2019s out there and it\u2019s not friendly. We\u2019ve been spotted." },
+            Text = "Scanner contact. Hostile signature. They\u2019re on an intercept course." },
 
-        // ── Phase: Dask_Hail (Dask speaks regardless of who was selected) ──
-        // These are Dask-only lines; GetDaskCameoLine handles retrieval.
+        // -- Phase: Dask_Hail (Dask speaks regardless of rotation) --
         new() { Phase = TutorialPhase.Dask_Hail, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
             Text = "Captain, I\u2019m tracking that contact. Standard pirate \u2014 weak shields, no armor plating. You can take them. Close to weapons range and engage." },
 
-        // ── Phase: Combat_Debrief (Beat 1: debrief) ──
+        // -- Phase: Combat_Debrief (Beat 1: debrief — Dask's voice) --
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "Threat eliminated. Combat data logged. But your hull took hits \u2014 structural integrity is compromised." },
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
             Text = "Clean kill, Captain. But look at that hull damage. Next time might not be so easy." },
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
             Text = "It\u2019s gone. But so is some of our hull. That was closer than I\u2019d like." },
-        // Beat 2: repair motivation
+        // Beat 2: repair + fuel mention
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "Dock at any station to repair. Hull damage is real out here \u2014 don\u2019t let it accumulate." },
+            Text = "Dock at any station to repair. Also noted the fuel gauge \u2014 worth topping off when we\u2019re there." },
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "We need repairs, Captain. Find a station and dock. Don\u2019t fly damaged if you can help it." },
+            Text = "We need repairs, Captain. Find a station and dock. And top off the fuel while we\u2019re at it." },
         new() { Phase = TutorialPhase.Combat_Debrief, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "We should find a station and patch up. Flying with hull damage is asking for trouble." },
+            Text = "We should find a station and patch up. Keep an eye on fuel too \u2014 combat burns through reserves." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 6: THE UPGRADE (Lira cameo)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 6: THE UPGRADE (Lira cameo — Pathfinder speaks)
+        // =================================================================
 
-        // ── Phase: Module_Intro ──
+        // -- Phase: Module_Intro (FO observes weakness — no UI instruction) --
         new() { Phase = TutorialPhase.Module_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "That fight exposed a weakness. Your ship has module slots \u2014 empty ones. Open the Ship tab and install the module we salvaged." },
+            Text = "That fight exposed a weakness. Your ship has module slots \u2014 empty ones. The salvaged module from that wreck would fit." },
         new() { Phase = TutorialPhase.Module_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "That pirate nearly had us because we\u2019re running bare. Module slots are empty. Let\u2019s fix that \u2014 open the Ship tab." },
+            Text = "That pirate nearly had us because we\u2019re running bare. Module slots are empty. The salvage from the wreckage could change that." },
         new() { Phase = TutorialPhase.Module_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "We survived, but barely. Your ship has empty module slots. I found a salvage module in the wreckage \u2014 let\u2019s install it." },
+            Text = "We survived, but barely. Your ship has empty module slots. I found something in the wreckage that would fit." },
 
-        // ── Phase: Module_React ──
+        // -- Phase: Module_React (FO reacts to upgrade) --
         new() { Phase = TutorialPhase.Module_React, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "Better. But the good modules? Factions guard those. You\u2019ll need to earn their trust \u2014 or find another way." },
         new() { Phase = TutorialPhase.Module_React, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
             Text = "That\u2019ll help. But the real firepower is faction-locked. Earn reputation or research alternatives." },
         new() { Phase = TutorialPhase.Module_React, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Feels different already. But this is basic kit. The interesting modules are out there \u2014 hidden behind faction walls and research trees." },
+            Text = "Feels different already. But this is basic kit. The interesting modules are out there \u2014 behind faction walls and research trees." },
 
-        // ── Phase: Lira_Tease (Lira speaks regardless of who was selected) ──
+        // -- Phase: Lira_Tease (Lira speaks regardless — sensory observation) --
         new() { Phase = TutorialPhase.Lira_Tease, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Captain... I\u2019ve been listening to your drive. It hums differently than anything I\u2019ve heard. Like it\u2019s remembering something. Or waiting for something." },
+            Text = "Captain\u2026 your drive\u2019s harmonic signature doesn\u2019t match any registry I\u2019ve cross-referenced. The resonance pattern is\u2026 unusual. Like it\u2019s listening." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 7: THE EMPIRE (Automation reveal)
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // ACT 7: THE EMPIRE + GRADUATION (Maren for automation, then selected FO)
+        // =================================================================
 
-        // ── Phase: Automation_Intro (Beat 1: the reveal) ──
+        // -- Phase: Automation_Intro (Beat 1: the reveal — Maren observes) --
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "You\u2019ve been trading manually. That was necessary to learn the routes. But what if this route ran itself?" },
+            Text = "You\u2019ve been trading manually. Three runs proved the route. But what if it ran itself?" },
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Time to delegate, Captain. You\u2019ve proved the route works. Now let a program run it for you." },
+            Text = "You\u2019ve been trading manually. Three runs proved the route. But what if it ran itself?" },
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "You\u2019ve been doing this by hand. Imagine it running forever, earning while you explore. That\u2019s what programs do." },
-        // Beat 2: programs explanation
+            Text = "You\u2019ve been trading manually. Three runs proved the route. But what if it ran itself?" },
+        // Beat 2: programs explanation (no UI instruction — FO explains concept)
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "Programs automate trade. Open the Jobs tab and create a TradeCharter. It profits while you focus on something more important." },
+            Text = "Programs automate trade routes. One program earns while you focus on something more important." },
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "Trade programs run routes automatically. Open the Jobs tab and set one up. Then go find what the galaxy is hiding." },
+            Text = "Trade programs run routes automatically. Set one up and go find what the galaxy is hiding." },
         new() { Phase = TutorialPhase.Automation_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "Set up a TradeCharter in the Jobs tab. It handles the route. You handle the adventure." },
+            Text = "A TradeCharter handles the route. You handle the adventure." },
 
-        // ── Phase: Automation_React ──
+        // -- Phase: Automation_React --
         new() { Phase = TutorialPhase.Automation_React, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "One route running. Revenue accumulating passively. Now imagine ten. That\u2019s an empire." },
         new() { Phase = TutorialPhase.Automation_React, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
@@ -302,111 +304,46 @@ public static class TutorialContentV0
         new() { Phase = TutorialPhase.Automation_React, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
             Text = "There it goes, working for us. One route running itself. Imagine what we could build." },
 
-        // ── Phase: Commission_Intro ──
+        // =================================================================
+        // [DEAD PHASES — kept for save compatibility, dialogue preserved but never shown]
+        // =================================================================
+
+        // -- Commission_Intro (31): moved to progressive disclosure --
         new() { Phase = TutorialPhase.Commission_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Factions post commissions \u2014 bounties, deliveries, escort jobs. They pay well and build your reputation. Check the Jobs tab." },
+            Text = "Factions post commissions \u2014 bounties, deliveries, escort jobs. They pay well and build your reputation." },
         new() { Phase = TutorialPhase.Commission_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "There\u2019s work posted on the boards \u2014 commissions from the factions. Bounties, hauling jobs, escorts. Good money and reputation." },
+            Text = "There\u2019s work posted on the boards \u2014 commissions from the factions. Bounties, hauling jobs, escorts." },
         new() { Phase = TutorialPhase.Commission_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Factions need freelancers. Commissions are posted in the Jobs tab \u2014 deliveries, bounties, all kinds of work. Worth checking." },
+            Text = "Factions need freelancers. Commissions are posted \u2014 deliveries, bounties, all kinds of work." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 8: THE HAVEN (Home base)
-        // ═══════════════════════════════════════════════════════════════
-
-        // ── Phase: Haven_Tour (3-beat) ──
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "This is Haven. An abandoned starbase on the edge of mapped space. Our sensors say it\u2019s functional. Barely." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Haven. Someone built this and left it behind. Whoever they were, they built it to last." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Look at this place. Someone was here before us. The architecture is\u2026 not human. But the systems are compatible." },
-        // Beat 2: facilities
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "Fabricator, research lab, market terminal. Everything we need to build an empire. Upgrade it and it grows." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "Drydock, research lab, fabrication bay. It\u2019s a fortress waiting to wake up. Invest in it and it\u2019ll invest in you." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "Research pods, a fabricator, even a market hub. It\u2019s like someone designed it for exactly what we\u2019re doing." },
-        // Beat 3: emotional anchor
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Analyst, Sequence = 2,
-            Text = "This is home, Captain. Our base of operations." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Veteran, Sequence = 2,
-            Text = "This is home, Captain. Every empire needs a capital." },
-        new() { Phase = TutorialPhase.Haven_Tour, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 2,
-            Text = "This is home, Captain. The one place in the galaxy that\u2019s ours." },
-
-        // ── Phase: Haven_React ──
-        new() { Phase = TutorialPhase.Haven_React, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Haven will be here when we need it. The galaxy won\u2019t wait \u2014 there\u2019s technology to unlock." },
-        new() { Phase = TutorialPhase.Haven_React, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Haven\u2019s solid. Now let\u2019s get back out there. The galaxy has more to offer." },
-        new() { Phase = TutorialPhase.Haven_React, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Home base established. But the frontier is calling. Let\u2019s see what else is out there." },
-
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 9: THE FRONTIER (Research + Knowledge)
-        // ═══════════════════════════════════════════════════════════════
-
-        // ── Phase: Research_Intro (2-beat) ──
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Better modules exist, but they\u2019re locked behind research. Haven\u2019s lab can develop new technology." },
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "You want the good gear? Research unlocks it. Haven\u2019s lab is ready." },
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "The frontier is full of technology we don\u2019t understand yet. Research at Haven\u2019s lab turns curiosity into capability." },
-        // Beat 2
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "Start a project in Haven\u2019s research lab. Each unlock opens new module options and faction interactions." },
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
-            Text = "Pick a research project at Haven. The first unlock will change how you fight." },
-        new() { Phase = TutorialPhase.Research_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "Choose something that calls to you. Every research project opens a new door." },
-
-        // ── Phase: Research_React ──
-        new() { Phase = TutorialPhase.Research_React, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Research in progress. The probability of breakthrough increases with each cycle. I\u2019ll monitor the data." },
-        new() { Phase = TutorialPhase.Research_React, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Lab\u2019s working. When that research completes, we\u2019ll have options we didn\u2019t have before." },
-        new() { Phase = TutorialPhase.Research_React, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "I can feel it already \u2014 something shifting. Research opens paths that weren\u2019t there before." },
-
-        // ── Phase: Knowledge_Intro ──
-        new() { Phase = TutorialPhase.Knowledge_Intro, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "Everything connects. The Knowledge Web tracks what we\u2019ve learned \u2014 factions, discoveries, technology. It\u2019s all linked." },
-        new() { Phase = TutorialPhase.Knowledge_Intro, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "Intelligence builds on intelligence. The Knowledge Web shows how everything fits together." },
-        new() { Phase = TutorialPhase.Knowledge_Intro, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Look at the Knowledge Web. Every discovery connects to others. The pattern is\u2026 bigger than I expected." },
-
-        // ── Phase: Frontier_Tease ──
+        // -- Frontier_Tease (40): moved to progressive disclosure, cover-story fixed --
         new() { Phase = TutorialPhase.Frontier_Tease, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
-            Text = "There are places the lanes don\u2019t reach. Your fracture drive can. Some signals only exist in deep space." },
+            Text = "There are places the lanes don\u2019t reach. Your drive can go further. Some signals only exist in deep space." },
         new() { Phase = TutorialPhase.Frontier_Tease, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
-            Text = "The lane network ends, but the galaxy doesn\u2019t. Your drive can push beyond \u2014 into fracture space." },
+            Text = "The lane network ends, but the galaxy doesn\u2019t. Your drive can push beyond \u2014 into uncharted territory." },
         new() { Phase = TutorialPhase.Frontier_Tease, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
             Text = "The mapped lanes are just the surface. Your drive hums in a way that suggests it knows a deeper path." },
 
-        // ═══════════════════════════════════════════════════════════════
-        // ACT 10: GRADUATION
-        // ═══════════════════════════════════════════════════════════════
+        // =================================================================
+        // GRADUATION (post-FO-selection — selected FO speaks)
+        // =================================================================
 
-        // ── Phase: Mystery_Reveal (2-beat) ──
+        // -- Phase: Mystery_Reveal (Beat 1: drive mystery deepened) --
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "I\u2019ve been analyzing your drive\u2019s resonance patterns. They don\u2019t match anything in the registry. This ship carries something that wasn\u2019t built in this century." },
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
             Text = "Something\u2019s been nagging me. Your drive signature \u2014 it\u2019s not standard issue. I\u2019ve served on a hundred ships and never seen readings like these." },
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
-            Text = "Captain... I\u2019ve been listening to the ship. The drive hums differently than any I\u2019ve heard. Like it\u2019s remembering something." },
-        // Beat 2
+            Text = "I found a match for that harmonic anomaly. One match. In a fragment from a pre-Concord survey station. 340 years old." },
+        // Beat 2: cover-story safe (no "fracture" terminology)
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Analyst, Sequence = 1,
-            Text = "Whatever built this drive understood the fracture network at a level we don\u2019t. The answers are out there." },
+            Text = "Whatever built this drive understood something about space that we don\u2019t. The answers are out there." },
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Veteran, Sequence = 1,
             Text = "I don\u2019t think we\u2019re the first to travel these lanes. Someone was here before. Long before." },
         new() { Phase = TutorialPhase.Mystery_Reveal, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 1,
-            Text = "Something built this. Something that understood fracture space. The edges of the map aren\u2019t the edge of the story." },
+            Text = "Something built this. Something that understood space in ways we\u2019re only beginning to grasp. The edges of the map aren\u2019t the edge of the story." },
 
-        // ── Phase: FO_Farewell ──
+        // -- Phase: FO_Farewell --
         new() { Phase = TutorialPhase.FO_Farewell, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "The galaxy is yours, Captain. I\u2019ll keep analyzing." },
         new() { Phase = TutorialPhase.FO_Farewell, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
@@ -414,7 +351,7 @@ public static class TutorialContentV0
         new() { Phase = TutorialPhase.FO_Farewell, Candidate = FirstOfficerCandidate.Pathfinder, Sequence = 0,
             Text = "No more hand-holding. The stars are yours. I\u2019ll be here when they surprise you." },
 
-        // ── Phase: Milestone_Award ──
+        // -- Phase: Milestone_Award --
         new() { Phase = TutorialPhase.Milestone_Award, Candidate = FirstOfficerCandidate.Analyst, Sequence = 0,
             Text = "Captain\u2019s Commission earned. You\u2019ve proven yourself on the frontier." },
         new() { Phase = TutorialPhase.Milestone_Award, Candidate = FirstOfficerCandidate.Veteran, Sequence = 0,
@@ -468,6 +405,7 @@ public static class TutorialContentV0
 
     /// <summary>
     /// Get the HUD objective text for a given tutorial phase.
+    /// Keybind instructions live here — FO dialogue never contains key prompts.
     /// Returns empty string if no objective for that phase.
     /// </summary>
     public static string GetObjectiveText(TutorialPhase phase)
@@ -476,20 +414,23 @@ public static class TutorialContentV0
         {
             // Act 1
             TutorialPhase.Awaken or TutorialPhase.Flight_Intro => "",
-            TutorialPhase.First_Dock => "\u25b8 Dock at the station ahead",
+            TutorialPhase.First_Dock => "\u25b8 Dock at the station ahead (E)",
             // Act 2
+            TutorialPhase.Module_Calibration_Notice => "",
             TutorialPhase.Maren_Hail or TutorialPhase.Maren_Settle => "",
-            TutorialPhase.Market_Explain or TutorialPhase.Buy_Prompt => "\u25b8 Buy a surplus good from the Market",
-            TutorialPhase.Buy_React => "\u25b8 Travel to another station and sell for profit",
+            TutorialPhase.Market_Explain or TutorialPhase.Buy_Prompt => "\u25b8 Buy a surplus good from the Market tab",
+            TutorialPhase.Buy_React => "",
             // Act 3
-            TutorialPhase.Travel_Prompt => "\u25b8 Travel to another station and sell for profit",
-            TutorialPhase.Arrival_Dock => "\u25b8 Dock at the destination station",
+            TutorialPhase.Cruise_Intro => "",
+            TutorialPhase.Travel_Prompt => "\u25b8 Travel to another station via lane gate",
+            TutorialPhase.Jump_Anomaly => "",
+            TutorialPhase.Arrival_Dock => "\u25b8 Dock at the destination station (E)",
             TutorialPhase.Sell_Prompt => "\u25b8 Sell your cargo for profit",
             TutorialPhase.First_Profit => "",
             TutorialPhase.FO_Selection => "\u25b8 Choose your First Officer",
             // Act 4
-            TutorialPhase.Explore_Prompt => "\u25b8 Explore 3 systems to unlock full station intel",
-            TutorialPhase.Galaxy_Map_Prompt => "\u25b8 Press M to open the galaxy map",
+            TutorialPhase.Explore_Prompt => "\u25b8 Explore more systems",
+            TutorialPhase.Galaxy_Map_Prompt => "\u25b8 Open the galaxy map (M)",
             // Act 5
             TutorialPhase.Threat_Warning or TutorialPhase.Dask_Hail => "",
             TutorialPhase.Combat_Engage => "\u25b8 Engage and destroy the hostile",
@@ -498,35 +439,56 @@ public static class TutorialContentV0
             TutorialPhase.Module_Equip => "\u25b8 Install a module in the Ship tab",
             // Act 7
             TutorialPhase.Automation_Intro => "",
-            TutorialPhase.Automation_Create => "\u25b8 Open Jobs tab and create a TradeCharter program",
+            TutorialPhase.Automation_Create => "\u25b8 Create a TradeCharter program in the Jobs tab",
             TutorialPhase.Automation_Running => "\u25b8 Watch your program earn credits",
-            // Act 8
-            TutorialPhase.Haven_Discovery => "\u25b8 Travel to Haven and dock",
-            TutorialPhase.Haven_Upgrade_Prompt => "\u25b8 Explore Haven\u2019s facilities",
-            // Act 9
-            TutorialPhase.Research_Start => "\u25b8 Start a research project at Haven",
             _ => ""
         };
     }
 
     /// <summary>
-    /// Get the FO candidate who speaks during pre-selection phases (Acts 2-3).
-    /// Maren speaks all pre-selection phases in the new tutorial structure.
-    /// Returns None for phases outside the pre-selection window.
+    /// Get the FO candidate who speaks during pre-selection phases (Acts 2-7).
+    /// Each act has a designated speaker so the player meets all 3 FOs before choosing.
+    /// Returns None for phases outside the pre-selection window (Act 1, Ship Computer, post-selection).
     /// </summary>
     public static FirstOfficerCandidate GetRotatingCandidate(TutorialPhase phase)
     {
         return phase switch
         {
-            // Acts 2-3: Maren speaks all pre-selection trading phases
+            // Acts 2-3: Maren (Analyst) — trade intro + trade loop
             TutorialPhase.Maren_Hail or
             TutorialPhase.Maren_Settle or
             TutorialPhase.Market_Explain or
             TutorialPhase.Buy_Prompt or
             TutorialPhase.Buy_React or
+            TutorialPhase.Jump_Anomaly or
             TutorialPhase.Travel_Prompt or
             TutorialPhase.Sell_Prompt or
             TutorialPhase.First_Profit => FirstOfficerCandidate.Analyst,
+
+            // Act 4: Maren (Analyst) — galaxy orientation
+            TutorialPhase.World_Intro or
+            TutorialPhase.Explore_Prompt or
+            TutorialPhase.Galaxy_Map_Prompt => FirstOfficerCandidate.Analyst,
+
+            // Act 5: Dask (Veteran) — combat is his domain
+            TutorialPhase.Threat_Warning or
+            TutorialPhase.Dask_Hail or
+            TutorialPhase.Combat_Engage or
+            TutorialPhase.Combat_Debrief or
+            TutorialPhase.Repair_Prompt => FirstOfficerCandidate.Veteran,
+
+            // Act 6: Lira (Pathfinder) — modules and exploration
+            TutorialPhase.Module_Intro or
+            TutorialPhase.Module_Equip or
+            TutorialPhase.Module_React or
+            TutorialPhase.Lira_Tease => FirstOfficerCandidate.Pathfinder,
+
+            // Act 7: Maren (Analyst) — trade automation
+            TutorialPhase.Automation_Intro or
+            TutorialPhase.Automation_Create or
+            TutorialPhase.Automation_Running or
+            TutorialPhase.Automation_React => FirstOfficerCandidate.Analyst,
+
             _ => FirstOfficerCandidate.None
         };
     }

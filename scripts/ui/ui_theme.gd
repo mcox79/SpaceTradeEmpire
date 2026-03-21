@@ -109,13 +109,13 @@ const BORDER_W  := 2    # Standard border width
 # ============================================================================
 
 ## Format credits with thousands separator for readability.
-static func fmt_credits(amount: int) -> String:
+func fmt_credits(amount: int) -> String:
 	if amount < 0:
 		return "-%scr" % _fmt_thousands(-amount)
 	return "%scr" % _fmt_thousands(amount)
 
 ## Format a number with comma thousands separator.
-static func _fmt_thousands(n: int) -> String:
+func _fmt_thousands(n: int) -> String:
 	var s := str(n)
 	if s.length() <= 3:
 		return s
@@ -134,7 +134,7 @@ func apply_mono(label: Label) -> void:
 		label.add_theme_font_override("font", FONT_MONO)
 
 ## Format percentage with consistent decimal places.
-static func fmt_pct(value: float, decimals: int = 0) -> String:
+func fmt_pct(value: float, decimals: int = 0) -> String:
 	if decimals == 0:
 		return "%d%%" % int(value)
 	return ("%." + str(decimals) + "f%%") % value
@@ -467,7 +467,7 @@ func add_scroll_fade(scroll: ScrollContainer, fade_height: float = 24.0) -> void
 
 
 ## Create a styled empty-state placeholder (icon + message + hint). Returns a VBoxContainer.
-static func make_empty_state(icon: String, message: String, hint: String = "") -> VBoxContainer:
+func make_empty_state(icon: String, message: String, hint: String = "") -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -496,7 +496,7 @@ static func make_empty_state(icon: String, message: String, hint: String = "") -
 
 
 ## Create a dismiss hint footer label (e.g. "Press J to close"). Returns the Label.
-static func make_dismiss_hint(key_name: String) -> Label:
+func make_dismiss_hint(key_name: String) -> Label:
 	var lbl := Label.new()
 	lbl.text = "Press %s to close" % key_name
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -506,7 +506,7 @@ static func make_dismiss_hint(key_name: String) -> Label:
 
 
 ## Style a Button with a colored border and themed appearance. Flavor: "accept" (green), "reject" (red), "neutral" (cyan).
-static func style_action_button(btn: Button, flavor: String = "neutral") -> void:
+func style_action_button(btn: Button, flavor: String = "neutral") -> void:
 	var color: Color
 	match flavor:
 		"accept": color = GREEN
@@ -532,7 +532,7 @@ static func style_action_button(btn: Button, flavor: String = "neutral") -> void
 
 
 ## Animate a Control open (fade in + slide up). Call after setting visible = true.
-static func animate_open(ctrl: Control, duration: float = 0.2) -> void:
+func animate_open(ctrl: Control, duration: float = 0.2) -> void:
 	ctrl.modulate.a = 0.0
 	ctrl.position.y += 12.0
 	var tw := ctrl.create_tween()
@@ -542,7 +542,7 @@ static func animate_open(ctrl: Control, duration: float = 0.2) -> void:
 
 
 ## Animate a Control closed (fade out), then call hide_callback. Call BEFORE setting visible = false.
-static func animate_close(ctrl: Control, hide_callback: Callable, duration: float = 0.12) -> void:
+func animate_close(ctrl: Control, hide_callback: Callable, duration: float = 0.12) -> void:
 	var tw := ctrl.create_tween()
 	tw.tween_property(ctrl, "modulate:a", 0.0, duration).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_callback(func():

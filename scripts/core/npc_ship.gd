@@ -10,6 +10,7 @@ extends CharacterBody3D
 var _role: int = 0  # 0=Trader, 1=Hauler, 2=Patrol
 var _hull_hp: int = 0
 var _hull_hp_max: int = 0
+var _has_been_hit: bool = false  # FEEL_POST_FIX_6: Show HP bar on any damage (shield or hull).
 var _is_hostile: bool = false
 var _travel_progress: float = 0.0
 var _fleet_state: String = "Idle"
@@ -207,7 +208,7 @@ func _update_status_display() -> void:
 
 	if _hp_bar and _hull_hp_max > 0:
 		var ratio := clampf(float(_hull_hp) / float(_hull_hp_max), 0.0, 1.0)
-		var should_show := ratio < 0.999  # Threshold avoids float jitter at full HP
+		var should_show := _has_been_hit or ratio < 0.999  # FEEL_POST_FIX_6: Show bar on any hit (shield or hull).
 		if _hp_bar.visible != should_show:
 			_hp_bar.visible = should_show
 		if should_show:
@@ -525,8 +526,7 @@ func _apply_managed_y(delta: float) -> void:
 		var p_node: Node3D = planet as Node3D
 		if p_node == null:
 			continue
-		var to_planet: Vector3 = p_node.global_position - global_position
-		to_planet.y = 0.0
+		var to_planet := Vector3(p_node.global_position.x - global_position.x, 0.0, p_node.global_position.z - global_position.z)
 		var dist: float = to_planet.length()
 		var avoid_r: float = p_node.get_meta("avoidance_radius", 12.0)
 		if dist < avoid_r and dist > 0.1:
@@ -546,8 +546,7 @@ func _compute_xz_avoidance() -> Vector3:
 		var s_node: Node3D = station as Node3D
 		if s_node == null:
 			continue
-		var to_station: Vector3 = s_node.global_position - global_position
-		to_station.y = 0.0
+		var to_station := Vector3(s_node.global_position.x - global_position.x, 0.0, s_node.global_position.z - global_position.z)
 		var dist: float = to_station.length()
 		var avoid_r: float = s_node.get_meta("avoidance_radius", 8.0)
 		if dist < avoid_r and dist > 0.1:
@@ -560,8 +559,7 @@ func _compute_xz_avoidance() -> Vector3:
 		var sh_node: Node3D = ship as Node3D
 		if sh_node == null:
 			continue
-		var to_ship: Vector3 = sh_node.global_position - global_position
-		to_ship.y = 0.0
+		var to_ship := Vector3(sh_node.global_position.x - global_position.x, 0.0, sh_node.global_position.z - global_position.z)
 		var dist: float = to_ship.length()
 		if dist < 10.0 and dist > 0.1:
 			var t: float = 1.0 - dist / 10.0
@@ -574,8 +572,7 @@ func _compute_xz_avoidance() -> Vector3:
 		var pl_node: Node3D = player as Node3D
 		if pl_node == null:
 			continue
-		var to_player: Vector3 = pl_node.global_position - global_position
-		to_player.y = 0.0
+		var to_player := Vector3(pl_node.global_position.x - global_position.x, 0.0, pl_node.global_position.z - global_position.z)
 		var dist: float = to_player.length()
 		if dist < 8.0 and dist > 0.1:
 			var t: float = 1.0 - dist / 8.0
@@ -701,6 +698,7 @@ func set_target(pos: Vector3, spd: float) -> void:
 ## GATE.S16.NPC_ALIVE.COMBAT_BRIDGE.001: Called when this ship takes a hit.
 ## Applies stagger and routes damage through SimBridge command queue.
 func on_hit(damage: int) -> void:
+	_has_been_hit = true  # FEEL_POST_FIX_6: Flag for HP bar display even on shield-only hits.
 	apply_stagger(0.3)
 	# FEEL_POST_FIX_3: Signal combat event so HUD shows "COMBAT" state.
 	var gm := get_node_or_null("/root/GameManager")

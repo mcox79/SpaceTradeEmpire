@@ -1,8 +1,8 @@
 # scripts/ui/tutorial_director.gd
 # Tutorial orchestrator: polls SimBridge for tutorial phase, drives UI (dialogue box,
 # selection overlay, input blocking), and calls bridge to advance phases.
-# 10 acts, 45 phases. Ship Computer narrates Act 1, Maren speaks Acts 2-3 (pre-selection),
-# selected FO speaks Acts 4+. Dask/Lira cameo hails in Acts 5/6.
+# 7 acts, ~30 phases. Ship Computer narrates Act 1 + system notices, Maren speaks Acts 2-4,
+# Dask cameos Act 5, Lira cameos Act 6, Maren speaks Act 7 automation. FO selection after Act 7.
 extends Node
 
 const FODialogueBox = preload("res://scripts/ui/fo_dialogue_box.gd")
@@ -112,52 +112,36 @@ func _on_phase_changed(phase: int, phase_name: String, state: Dictionary) -> voi
 		"Flight_Intro":
 			_show_ship_computer_dialogue(phase, phase_name)
 
-		# ── Act 2: The Crew (Maren pre-selection) ──
-		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_React":
+		# ── Act 2: Ship Computer system notices ──
+		"Module_Calibration_Notice", "Cruise_Intro":
+			_show_ship_computer_dialogue(phase, phase_name)
+
+		# ── Acts 2-3: Maren (Analyst) — trade intro + trade loop ──
+		"Maren_Hail", "Maren_Settle", "Market_Explain", "Buy_React", \
+		"Jump_Anomaly", "Sell_Prompt", "First_Profit":
 			_show_rotating_fo_dialogue(phase, phase_name)
 
-		# ── Act 3: The Trade ──
-		"Sell_Prompt", "First_Profit":
-			if pre_selection:
-				_show_rotating_fo_dialogue(phase, phase_name)
-			else:
-				_show_phase_dialogue(phase, phase_name)
+		# ── Act 4: Maren (Analyst) — galaxy orientation ──
+		"World_Intro", "Explore_Prompt", "Galaxy_Map_Prompt":
+			_show_rotating_fo_dialogue(phase, phase_name)
+
+		# ── Act 5: Dask (Veteran) — combat ──
+		"Threat_Warning", "Dask_Hail", "Combat_Debrief":
+			_show_rotating_fo_dialogue(phase, phase_name)
+
+		# ── Act 6: Lira (Pathfinder) — modules + exploration ──
+		"Module_Intro", "Module_React", "Lira_Tease":
+			_show_rotating_fo_dialogue(phase, phase_name)
+
+		# ── Act 7: Maren (Analyst) — trade automation ──
+		"Automation_Intro", "Automation_React":
+			_show_rotating_fo_dialogue(phase, phase_name)
+
+		# ── FO Selection (after meeting all 3 FOs in Acts 2-7) ──
 		"FO_Selection":
 			_show_post_trade_selection()
 
-		# ── Act 4: The World (Selected FO) ──
-		"World_Intro", "Explore_Prompt", "Explore_Complete", "Galaxy_Map_Prompt":
-			_show_phase_dialogue(phase, phase_name)
-
-		# ── Act 5: The Threat ──
-		"Threat_Warning":
-			_show_phase_dialogue(phase, phase_name)
-		"Dask_Hail":
-			# Dask cameo — always shows Dask regardless of selection.
-			_show_cameo_dialogue(phase, phase_name)
-		"Combat_Debrief":
-			_show_phase_dialogue(phase, phase_name)
-
-		# ── Act 6: The Upgrade ──
-		"Module_Intro", "Module_React":
-			_show_phase_dialogue(phase, phase_name)
-		"Lira_Tease":
-			# Lira cameo — always shows Lira regardless of selection.
-			_show_cameo_dialogue(phase, phase_name)
-
-		# ── Act 7: The Empire ──
-		"Automation_Intro", "Automation_React", "Commission_Intro":
-			_show_phase_dialogue(phase, phase_name)
-
-		# ── Act 8: The Haven ──
-		"Haven_Tour", "Haven_React":
-			_show_phase_dialogue(phase, phase_name)
-
-		# ── Act 9: The Frontier ──
-		"Research_Intro", "Research_React", "Knowledge_Intro", "Frontier_Tease":
-			_show_phase_dialogue(phase, phase_name)
-
-		# ── Act 10: Graduation ──
+		# ── Graduation (Selected FO) ──
 		"Mystery_Reveal":
 			_show_phase_dialogue(phase, phase_name)
 		"Graduation_Summary":
@@ -168,8 +152,7 @@ func _on_phase_changed(phase: int, phase_name: String, state: Dictionary) -> voi
 		# ── Action phases (no dialogue on entry) ──
 		"First_Dock", "Buy_Prompt", "Travel_Prompt", "Arrival_Dock", \
 		"Combat_Engage", "Repair_Prompt", "Module_Equip", \
-		"Automation_Create", "Automation_Running", "Haven_Discovery", \
-		"Haven_Upgrade_Prompt", "Research_Start":
+		"Automation_Create", "Automation_Running":
 			pass
 		"Tutorial_Complete":
 			_clear_trade_waypoint()
@@ -182,8 +165,8 @@ func _on_phase_changed(phase: int, phase_name: String, state: Dictionary) -> voi
 			await get_tree().create_timer(1.5).timeout
 		_unlock_controls()
 
-	# On Buy_React: set up trade guidance waypoint.
-	if phase_name == "Buy_React":
+	# On Buy_React or Travel_Prompt (loop re-entry): set up trade guidance waypoint.
+	if phase_name == "Buy_React" or phase_name == "Travel_Prompt":
 		_setup_trade_waypoint()
 
 
@@ -571,10 +554,6 @@ func on_dock_nudge() -> void:
 			nudge_text = "Dock at any station to repair your hull damage."
 		"Module_Equip":
 			nudge_text = "Open the Ship tab and install the salvaged module."
-		"Haven_Discovery":
-			nudge_text = "Travel to Haven \u2014 it's marked on your galaxy map."
-		"Research_Start":
-			nudge_text = "Start a research project at Haven's research lab."
 		_:
 			return  # Not an action phase or already handled.
 	if nudge_text.is_empty():

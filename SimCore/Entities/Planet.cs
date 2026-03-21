@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace SimCore.Entities;
@@ -52,4 +53,17 @@ public sealed class Planet
 
     // Human-readable name for UI.
     [JsonInclude] public string DisplayName { get; set; } = "";
+
+    // GATE.T42.PLANET_SCAN.ENTITY_EXT.001: Scanner state per planet.
+    // Which modes have been used from orbit (mode -> tick of scan, 0 = not scanned).
+    [JsonInclude] public Dictionary<ScanMode, int> OrbitalScans { get; set; } = new();
+
+    // Tick of landing scan (0 = not landed-scanned).
+    [JsonInclude] public int LandingScanTick { get; set; }
+
+    // Mode used for landing scan (null = not scanned).
+    [JsonInclude] public ScanMode? LandingScanMode { get; set; }
+
+    // ScanIds for re-display in UI.
+    [JsonInclude] public List<string> ScanResults { get; set; } = new();
 }

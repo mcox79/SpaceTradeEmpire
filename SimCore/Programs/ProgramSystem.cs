@@ -196,6 +196,90 @@ public static class ProgramSystem
                         srcMarket, extractGood, p.Id));
                 }
             }
+            else if (string.Equals(p.Kind, ProgramKind.SurveyV0, StringComparison.Ordinal))
+            {
+                // GATE.T41.SURVEY_PROG.SYSTEM.001: SURVEY_V0 executor.
+                // BFS from home node (SiteId) within SurveyRangeHops.
+                // Find Seen discoveries matching SurveyFamily, advance to Scanned only.
+                // Also generates lightweight trade intel for scanned sites.
+                var homeNode = p.SiteId ?? "";
+                var family = p.SurveyFamily ?? "";
+                int range = p.SurveyRangeHops;
+                if (range <= 0) range = Tweaks.SurveyProgramTweaksV0.SurveyRangeHops;
+
+                if (!string.IsNullOrWhiteSpace(homeNode) && !string.IsNullOrWhiteSpace(family)
+                    && state.Intel?.Discoveries is not null)
+                {
+                    // BFS to find nodes within range.
+                    var visited = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+                    var queue = new System.Collections.Generic.Queue<(string nodeId, int depth)>();
+                    visited.Add(homeNode);
+                    queue.Enqueue((homeNode, 0));
+
+                    while (queue.Count > 0)
+                    {
+                        var (nodeId, depth) = queue.Dequeue();
+                        if (depth >= range) continue;
+
+                        foreach (var edge in state.Edges.Values)
+                        {
+                            string? neighbor = null;
+                            if (string.Equals(edge.FromNodeId, nodeId, StringComparison.Ordinal))
+                                neighbor = edge.ToNodeId;
+                            else if (string.Equals(edge.ToNodeId, nodeId, StringComparison.Ordinal))
+                                neighbor = edge.FromNodeId;
+
+                            if (neighbor != null && visited.Add(neighbor))
+                                queue.Enqueue((neighbor, depth + 1));
+                        }
+                    }
+
+                    // Find Seen discoveries in range matching family, advance to Scanned.
+                    var discoveryKeys = new System.Collections.Generic.List<string>(state.Intel.Discoveries.Keys);
+                    discoveryKeys.Sort(StringComparer.Ordinal);
+
+                    foreach (var discKey in discoveryKeys)
+                    {
+                        if (!state.Intel.Discoveries.TryGetValue(discKey, out var disc)) continue;
+                        if (disc.Phase != Entities.DiscoveryPhase.Seen) continue;
+
+                        // Check if this discovery is in range.
+                        string discNodeId = "";
+                        foreach (var nodeKvp in state.Nodes)
+                        {
+                            var node = nodeKvp.Value;
+                            if (node?.SeededDiscoveryIds is null) continue;
+                            if (node.SeededDiscoveryIds.Contains(discKey))
+                            {
+                                discNodeId = node.Id ?? "";
+                                break;
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(discNodeId) || !visited.Contains(discNodeId)) continue;
+
+                        // Check family match.
+                        string kind = SimCore.Systems.DiscoveryOutcomeSystem.ParseDiscoveryKind(discKey);
+                        if (!string.Equals(kind, family, StringComparison.Ordinal)
+                            && !string.Equals(SimCore.Systems.DiscoveryOutcomeSystem.GenerateFlavorText(family, Entities.DiscoveryPhase.Seen, "x"), family, StringComparison.Ordinal))
+                        {
+                            // Also check via MapKindToFamily-style matching.
+                            string discFamily = kind switch
+                            {
+                                "RESOURCE_POOL_MARKER" => "RUIN",
+                                "CORRIDOR_TRACE" => "SIGNAL",
+                                _ => kind
+                            };
+                            if (!string.Equals(discFamily, family, StringComparison.Ordinal)
+                                && !string.Equals(kind, family, StringComparison.Ordinal))
+                                continue;
+                        }
+
+                        // Advance to Scanned (Phase 1 -> Phase 2 stays manual).
+                        disc.Phase = Entities.DiscoveryPhase.Scanned;
+                    }
+                }
+            }
             else if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
                 if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))

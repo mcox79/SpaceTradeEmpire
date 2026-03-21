@@ -131,7 +131,7 @@ func _gather_pois(camera: Camera3D) -> Array:
 		var lbl_text: String = neighbor_id
 		if lbl_text.contains("_"):
 			lbl_text = lbl_text.rsplit("_", true, 1)[-1]
-		var lbl_with_dist: String = "%s %d km" % [lbl_text, int(dist)]
+		var lbl_with_dist: String = "%s %d AU" % [lbl_text, int(dist)]
 
 		if is_highlight:
 			# Highlighted destination gate — gold, large, always on top.
@@ -165,7 +165,7 @@ func _gather_pois(camera: Camera3D) -> Array:
 			"pos": node.global_position,
 			"type": PoiType.STATION,
 			"dist": dist,
-			"label": "%s %d km" % [station_name, int(dist)],
+			"label": "%s %d AU" % [station_name, int(dist)],
 			"priority": 2,
 		})
 
@@ -180,7 +180,7 @@ func _gather_pois(camera: Camera3D) -> Array:
 			"pos": node.global_position,
 			"type": PoiType.PLANET,
 			"dist": dist,
-			"label": "%d km" % int(dist),
+			"label": "%d AU" % int(dist),
 			"priority": 5,
 		})
 
@@ -193,7 +193,7 @@ func _gather_pois(camera: Camera3D) -> Array:
 			continue
 		var is_hostile: bool = bool(node.get_meta("is_hostile", false))
 		var fleet_type: int = PoiType.HOSTILE_FLEET if is_hostile else PoiType.FRIENDLY_FLEET
-		var lbl: String = "%d km" % int(dist)
+		var lbl: String = "%d AU" % int(dist)
 		result.append({
 			"pos": node.global_position,
 			"type": fleet_type,
@@ -209,22 +209,50 @@ func _gather_pois(camera: Camera3D) -> Array:
 			var mission: Dictionary = bridge.call("GetActiveMissionV0")
 			var target_id: String = str(mission.get("target_node_id", ""))
 			if not target_id.is_empty():
-				for gate in get_tree().get_nodes_in_group("LaneGate"):
-					var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
-					if gate_target == target_id:
-						var dist: float = cam_pos.distance_to(gate.global_position)
+				var obj_text: String = str(mission.get("objective_text", ""))
+				var obj_name: String = str(mission.get("target_node_name", "Objective"))
+				if obj_text.is_empty():
+					obj_text = obj_name
+				# Shorten label: use target name only (objective text is shown in HUD).
+				var short_label: String = obj_name if obj_name.length() <= 20 else obj_name.left(17) + "..."
+				var quest_found: bool = false
+
+				# First: check if the target is in the current system (station name = "LocalStation_<nodeId>").
+				for station in get_tree().get_nodes_in_group("Station"):
+					if not (station is Node3D):
+						continue
+					# Station Name format: "LocalStation_node_3" — check if it ends with target_id.
+					if station.name.ends_with(target_id):
+						var dist: float = cam_pos.distance_to(station.global_position)
 						if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
-							var obj_text: String = str(mission.get("objective_text", "Objective"))
-							if obj_text.is_empty():
-								obj_text = str(mission.get("target_node_name", "Objective"))
 							result.append({
-								"pos": gate.global_position,
+								"pos": station.global_position,
 								"type": PoiType.QUEST_TARGET,
 								"dist": dist,
-								"label": obj_text,
+								"label": "%s %d AU" % [short_label, int(dist)],
 								"priority": 0,
 							})
+							quest_found = true
 						break
+
+				# Second: if not found locally, look for a gate leading to the target system.
+				if not quest_found:
+					# Skip if a GATE_HIGHLIGHT already points to this gate (avoid duplicate).
+					var already_highlighted: bool = (highlight_target == target_id)
+					if not already_highlighted:
+						for gate in get_tree().get_nodes_in_group("LaneGate"):
+							var gate_target: String = str(gate.get_meta("neighbor_node_id", ""))
+							if gate_target == target_id:
+								var dist: float = cam_pos.distance_to(gate.global_position)
+								if dist >= MIN_DISTANCE and dist <= MAX_DISTANCE:
+									result.append({
+										"pos": gate.global_position,
+										"type": PoiType.QUEST_TARGET,
+										"dist": dist,
+										"label": "%s %d AU" % [short_label, int(dist)],
+										"priority": 0,
+									})
+								break
 
 	# Sort by priority (lowest first = most important), then by distance.
 	result.sort_custom(func(a, b):

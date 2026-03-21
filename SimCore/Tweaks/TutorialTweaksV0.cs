@@ -23,6 +23,9 @@ public static class TutorialTweaksV0
     // Act 7: Ticks to wait while automation runs before advancing.
     public const int AutomationWaitTicks = 30;
 
-    // Act 8: Ticks before Haven upgrade prompt auto-advances (soft gate).
+    // Manual trades required before automation unlock (pain before relief).
+    public const int RequiredManualTrades = 3;
+
+    // [DEPRECATED] Act 8 removed from tutorial — Haven is progressive disclosure.
     public const int HavenUpgradeStallTicks = 60;
 }

@@ -585,6 +585,9 @@ func _process(delta):
 		_toast_poll_timer = 0.0
 		_poll_toast_events_v0()
 
+	# GATE.T43.SCAN_AUDIO.AMBIENT.001: Ambient sensor ping at planet nodes.
+	_update_ambient_scan_ping_v0(delta)
+
 	# GATE.S6.OUTCOME.CELEBRATION.001: poll discovery completions for celebration
 	_discovery_poll_timer += float(delta)
 	if _discovery_poll_timer >= DISCOVERY_POLL_INTERVAL:
@@ -605,6 +608,10 @@ func _process(delta):
 		if _loot_poll_timer >= LOOT_POLL_INTERVAL:
 			_loot_poll_timer = 0.0
 			_poll_auto_loot_v0()
+
+	# Free-flight arrival: detect when player cruises into a neighboring star system.
+	if current_player_state == PlayerShipState.IN_FLIGHT:
+		_check_free_flight_arrival_v0()
 
 
 func _unhandled_input(event):
@@ -804,15 +811,19 @@ func on_dock_proximity_v0(target: Node):
 	if target == null:
 		return
 	if current_player_state != PlayerShipState.IN_FLIGHT:
+		print("DEBUG_DOCK_BLOCKED|state=%s" % get_player_ship_state_name_v0())
 		return
 	if _undock_cooldown > 0.0:
+		print("DEBUG_DOCK_BLOCKED|undock_cooldown=%.2f" % _undock_cooldown)
 		return
 	if _hero_body and is_instance_valid(_hero_body) and _hero_body.get("_nav_active"):
+		print("DEBUG_DOCK_BLOCKED|nav_active")
 		return
 	# Q5: Only block docking if the nearest fleet is hostile (Patrol).
 	# Previously ALL fleets (including peaceful traders) blocked docking.
 	var nearest_fleet := _find_nearest_fleet_v0(AI_AGGRO_RANGE)
 	if nearest_fleet != null and nearest_fleet.get_meta("is_hostile", false):
+		print("DEBUG_DOCK_BLOCKED|hostile_nearby=%s" % str(nearest_fleet.name))
 		return
 	_dock_available_target = target
 	var hud = get_tree().root.find_child("HUD", true, false) if get_tree() else null
@@ -980,6 +991,9 @@ func on_lane_gate_proximity_entered_v0(neighbor_node_id: String) -> void:
 		return
 	if not _transition_player_state_v0(PlayerShipState.IN_LANE_TRANSIT):
 		return
+
+	# Defensive: clear stale dock target so it doesn't block docking at destination.
+	_dock_available_target = null
 
 	# GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Close dock UI before warp.
 	_close_all_dock_ui_v0()
@@ -1573,6 +1587,77 @@ func _position_hero_at_gate_v0(_arrived_node_id: String, gv) -> void:
 
 
 
+## Free-flight arrival: detect when player cruises close to a neighboring star system.
+const FREE_FLIGHT_ARRIVAL_RADIUS: float = 150.0  # Visual units from star center.
+const FREE_FLIGHT_CHECK_COOLDOWN: float = 0.5     # Seconds between proximity checks.
+var _free_flight_check_timer: float = 0.0
+
+func _check_free_flight_arrival_v0() -> void:
+	# Only check periodically (not every frame) — ~40 stars is cheap but no need for 60Hz.
+	_free_flight_check_timer += get_process_delta_time()
+	if _free_flight_check_timer < FREE_FLIGHT_CHECK_COOLDOWN:
+		return
+	_free_flight_check_timer = 0.0
+
+	if not _hero_body or not is_instance_valid(_hero_body):
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("GetGalaxySnapshotV0"):
+		return
+	var snap = bridge.call("GetGalaxySnapshotV0")
+	if snap == null:
+		return
+	var nodes = snap.get("system_nodes")
+	if nodes == null:
+		return
+
+	var hero_pos: Vector3 = _hero_body.global_position
+	var current_node: String = _last_player_node_id
+	var scale: float = 150.0  # STRUCTURAL: GalacticScaleFactor
+
+	for n in nodes:
+		var nid: String = str(n.get("node_id", ""))
+		if nid == current_node:
+			continue
+		var sx: float = float(n.get("pos_x", 0.0)) * scale
+		var sy: float = float(n.get("pos_y", 0.0)) * scale
+		var sz: float = float(n.get("pos_z", 0.0)) * scale
+		var star_pos := Vector3(sx, sy, sz)
+		if hero_pos.distance_to(star_pos) < FREE_FLIGHT_ARRIVAL_RADIUS:
+			_on_free_flight_arrival_v0(nid)
+			return
+
+func _on_free_flight_arrival_v0(arrived_node_id: String) -> void:
+	print("UUIR|FREE_FLIGHT_ARRIVAL|" + arrived_node_id)
+
+	var bridge = get_node_or_null("/root/SimBridge")
+
+	# Update SimCore: player arrived at this node.
+	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
+		bridge.call("DispatchPlayerArriveV0", arrived_node_id)
+	_last_player_node_id = arrived_node_id
+
+	# Disengage cruise drive on the player ship.
+	if _hero_body and _hero_body.has_method("disengage_cruise_v0"):
+		_hero_body.call("disengage_cruise_v0")
+
+	# Rebuild local system scene at the new star.
+	var gv = _find_galaxy_view()
+	if gv and gv.has_method("RenderLocalSystemV0"):
+		gv.call("RenderLocalSystemV0", arrived_node_id)
+	if gv and gv.has_method("RebuildPersistentLanesV0"):
+		gv.call("RebuildPersistentLanesV0")
+
+	# Show arrival drama (title card).
+	_show_arrival_drama_v0(arrived_node_id, bridge)
+
+	# FO poll on arrival.
+	_poll_fo_immediate()
+
+	# Auto-save.
+	_try_autosave_v0()
+
+
 ## Show letterbox overlay with system name during first-visit reveal.
 ## Letterbox overlay for first-visit flyby cinematic.
 ## display_duration = total time the letterbox is visible (bars + text + hold).
@@ -1968,12 +2053,11 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# Origin position = hero body (ship is visually at the gate after cinematic pull).
 	var origin_pos: Vector3 = origin_gate_pos
 	if _hero_body and is_instance_valid(_hero_body):
-		origin_pos = Vector3(_hero_body.global_position.x, 0.0, _hero_body.global_position.z)
+		origin_pos = _hero_body.global_position
 	# Compute lane direction from ACTUAL origin (hero pos) to destination gate.
 	# Using hero pos instead of cached origin_gate_pos avoids tunnel misalignment
 	# when the scene node gate position differs from the cache.
 	var lane_dir := (dest_gate_pos - origin_pos)
-	lane_dir.y = 0.0
 	lane_dir = lane_dir.normalized() if lane_dir.length() > 0.1 else Vector3(1, 0, 0)
 	print("UUIR|LANE_GEOM|origin_star=%s|dest_star=%s|origin_gate=%s|dest_gate=%s" % [
 		str(origin_star_center), str(dest_pos), str(origin_gate_pos), str(dest_gate_pos)])
@@ -2048,8 +2132,8 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	if lane_dir.length() > 0.1:
 		_warp_tunnel_ref.look_at(_warp_tunnel_ref.global_position + lane_dir, Vector3.UP)
 	# Scale up: tunnel is designed for ship-level (radius 8); at galaxy map scale (altitude 200-450)
-	# we need 4x to make the cylinder and particles visible and dramatic.
-	_warp_tunnel_ref.scale = Vector3(4.0, 4.0, 4.0)
+	# we need 10x to fill the camera view and envelope the player during transit.
+	_warp_tunnel_ref.scale = Vector3(10.0, 10.0, 10.0)
 
 	# Pre-render destination system now so it becomes visible as camera descends.
 	if gv and gv.has_method("RebuildLocalSystemV0"):
@@ -2087,7 +2171,7 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	# === Compute flyby geometry ===
 	var star_center: Vector3 = dest_pos  # Destination star center.
 	var entry_point := star_center - lane_dir * FLYBY_APPROACH_DIST
-	entry_point.y = 0.0
+	# 2.5D: keep the star's Y for entry point.
 
 	# Approach: marker flies to entry point (not all the way to dest gate).
 	var dist_to_entry: float = origin_pos.distance_to(entry_point)
@@ -2156,6 +2240,10 @@ func _arrive_at_system_v0(
 	_last_arrival_first_visit = is_first_visit
 	_apply_camera_shake_v0(0.25)
 
+	# Eager-update: ensure _last_player_node_id reflects arrival so the next
+	# lane entry reads the correct origin (toast poll may not have fired yet).
+	_last_player_node_id = node_id
+
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("DispatchPlayerArriveV0"):
 		bridge.call("DispatchPlayerArriveV0", node_id)
@@ -2171,7 +2259,7 @@ func _arrive_at_system_v0(
 	if _hero_body and is_instance_valid(_hero_body):
 		var inward_dir := (star_center - dest_gate_pos).normalized()
 		_hero_body.global_position = dest_gate_pos + inward_dir * 10.0
-		_hero_body.global_position.y = 0.0
+		# 2.5D: keep the star's Y — do NOT flatten to Y=0.
 		_hero_body.linear_velocity = Vector3.ZERO
 		_hero_body.angular_velocity = Vector3.ZERO
 		if _hero_body.is_inside_tree():
@@ -2215,7 +2303,7 @@ func _arrive_at_system_v0(
 		_show_arrival_drama_v0(node_id, bridge)
 
 ## Return-visit arrival: fast camera descent, no flyby. Quick and respectful of player time.
-func _play_return_arrival_v0(hero_pos: Vector3, cruise_altitude: float, cam_ctrl: Node) -> void:
+func _play_return_arrival_v0(hero_pos: Vector3, _cruise_altitude: float, cam_ctrl: Node) -> void:
 	warp_transit_target = hero_pos
 	var descent := create_tween()
 	descent.tween_property(self, "warp_transit_altitude", 80.0, 0.8) \
@@ -2242,7 +2330,7 @@ func _play_first_visit_flyby_v0(
 	dest_gate_pos: Vector3,
 	approach_dir: Vector3,     # normalized direction camera approaches from
 	hero_pos: Vector3,         # where the hero ship is (for exit spiral depart angle)
-	cruise_altitude: float,    # starting altitude (for entry transition)
+	_cruise_altitude: float,    # starting altitude (for entry transition)
 	cam_ctrl: Node             # camera controller reference
 ) -> void:
 	# Capture current camera position for seamless transition from WARP_TRANSIT.
@@ -2319,14 +2407,14 @@ func _play_first_visit_flyby_v0(
 		var dev_alt: float = lerpf(entry_alt, FLYBY_ORBIT_ALT, ease(t, 0.6))
 		var pos := Vector3(
 			star_center.x + cos(angle) * dev_radius,
-			dev_alt,
+			star_center.y + dev_alt,
 			star_center.z + sin(angle) * dev_radius
 		)
 		dev_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, dev_step_time)
 		var look_t: float = ease(t, 1.5)
 		var look_target := Vector3(
 			lerpf(dest_gate_pos.x, star_center.x, look_t),
-			lerpf(5.0, 2.0, look_t),
+			star_center.y + lerpf(5.0, 2.0, look_t),
 			lerpf(dest_gate_pos.z, star_center.z, look_t)
 		)
 		dev_tween.parallel().tween_property(cam_ctrl, "flyby_look_at", look_target, dev_step_time)
@@ -2355,12 +2443,12 @@ func _play_first_visit_flyby_v0(
 			radius = lerpf(FLYBY_ORBIT_RADIUS * 0.75, FLYBY_ORBIT_RADIUS, ease((t - 0.5) / 0.5, 2.0))
 		var pos := Vector3(
 			star_center.x + cos(angle) * radius,
-			alt,
+			star_center.y + alt,
 			star_center.z + sin(angle) * radius
 		)
 		orbit_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, step_time)
 		orbit_tween.parallel().tween_property(cam_ctrl, "flyby_look_at",
-			Vector3(star_center.x, 2.0, star_center.z), step_time)
+			Vector3(star_center.x, star_center.y + 2.0, star_center.z), step_time)
 	await orbit_tween.finished
 
 	# --- Phase 4: Exit spiral — reverse Euler spiral from orbit back to flight altitude ---
@@ -2386,14 +2474,14 @@ func _play_first_visit_flyby_v0(
 		var exit_alt: float = lerpf(FLYBY_ORBIT_ALT, exit_settle_alt, ease(t, 0.6))
 		var pos := Vector3(
 			star_center.x + cos(angle) * exit_radius,
-			exit_alt,
+			star_center.y + exit_alt,
 			star_center.z + sin(angle) * exit_radius
 		)
 		exit_tween.tween_property(cam_ctrl, "flyby_cam_pos", pos, exit_step_time)
 		var look_t: float = ease(t, 1.5)
 		var look_target := Vector3(
 			lerpf(star_center.x, hero_pos.x, look_t),
-			lerpf(2.0, 0.0, look_t),
+			star_center.y + lerpf(2.0, 0.0, look_t),
 			lerpf(star_center.z, hero_pos.z, look_t)
 		)
 		exit_tween.parallel().tween_property(cam_ctrl, "flyby_look_at", look_target, exit_step_time)
@@ -2739,6 +2827,100 @@ func _synth_two_tone_v0(freq1: float, freq2: float, dur1: float, dur2: float, pe
 	stream.data = data
 	return stream
 
+# GATE.T43.SCAN_AUDIO.CHIMES.001: Category-specific scan completion chimes.
+var _scan_audio_player: AudioStreamPlayer = null
+
+func play_scan_chime_v0(category: String) -> void:
+	if _scan_audio_player == null:
+		_scan_audio_player = AudioStreamPlayer.new()
+		_scan_audio_player.name = "ScanAudioPlayer"
+		_scan_audio_player.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
+		_scan_audio_player.volume_db = -6.0
+		add_child(_scan_audio_player)
+
+	var stream: AudioStreamWAV = null
+	match category:
+		"ResourceIntel":
+			# Cash register "cha-ching" — two ascending tones.
+			stream = _synth_two_tone_v0(880.0, 1320.0, 0.08, 0.12, 0.5)
+		"SignalLead":
+			# Radar ping — two short blips.
+			stream = _synth_two_tone_v0(600.0, 600.0, 0.05, 0.05, 0.4)
+		"PhysicalEvidence":
+			# Deep resonant tone.
+			stream = _synth_tone_v0(220.0, 0.4, 0.5)
+		"FragmentCache":
+			# Crystal chime — high pitched.
+			stream = _synth_two_tone_v0(1200.0, 1600.0, 0.06, 0.1, 0.4)
+		"DataArchive":
+			# Data modem burst — three quick tones.
+			stream = _synth_two_tone_v0(440.0, 880.0, 0.04, 0.08, 0.35)
+		_:
+			# Default confirmation.
+			stream = _synth_tone_v0(660.0, 0.15, 0.4)
+
+	if stream:
+		_scan_audio_player.stream = stream
+		_scan_audio_player.play()
+
+
+## GATE.T43.SCAN_AUDIO.CHIMES.001: Play charge spent click sound.
+func play_scan_charge_click_v0() -> void:
+	if _scan_audio_player == null:
+		play_scan_chime_v0("")  # Init player
+		return
+	var stream := _synth_tone_v0(440.0, 0.06, 0.25)
+	_scan_audio_player.stream = stream
+	_scan_audio_player.play()
+
+
+## GATE.T43.SCAN_AUDIO.AMBIENT.001: Ambient sensor ping at planet nodes.
+var _ambient_ping_timer: float = 0.0
+var _ambient_ping_active: bool = false
+
+func _update_ambient_scan_ping_v0(delta: float) -> void:
+	if _scan_audio_player == null:
+		return
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+
+	# Check if at a planet node.
+	var ps: Dictionary = {}
+	if bridge.has_method("GetPlayerStateV0"):
+		ps = bridge.call("GetPlayerStateV0")
+	var node_id: String = str(ps.get("current_node_id", ""))
+	var raw_state: String = str(ps.get("ship_state_token", ""))
+	if node_id.is_empty() or raw_state == "IN_LANE_TRANSIT":
+		_ambient_ping_active = false
+		return
+
+	var planet_info: Dictionary = {}
+	if bridge.has_method("GetPlanetInfoV0"):
+		planet_info = bridge.call("GetPlanetInfoV0", node_id)
+	if planet_info.size() == 0:
+		_ambient_ping_active = false
+		return
+
+	_ambient_ping_active = true
+	_ambient_ping_timer += delta
+	var interval: float = 4.0 if raw_state != "DOCKED" else 2.5
+	if _ambient_ping_timer >= interval:
+		_ambient_ping_timer = 0.0
+		# Subtle sensor ping — quiet, high frequency, very short.
+		var ping_freq: float = 1200.0
+		match str(planet_info.get("planet_type", "")):
+			"Sand": ping_freq = 1000.0
+			"Ice": ping_freq = 1400.0
+			"Lava": ping_freq = 800.0
+			"Gaseous": ping_freq = 1100.0
+			"Barren": ping_freq = 900.0
+			"Terrestrial": ping_freq = 1300.0
+		var stream := _synth_tone_v0(ping_freq, 0.08, 0.1)
+		_scan_audio_player.stream = stream
+		_scan_audio_player.play()
+
+
 # GATE.S7.MAIN_MENU.PAUSE.001: toggle pause state with overlay menu.
 func _toggle_pause_v0() -> void:
 	if _player_dead:
@@ -3020,25 +3202,26 @@ func _show_jump_event_toasts_v0(bridge: Node) -> void:
 		var color: String
 		var message: String
 		# FEEL_POST_FIX_8: Clean player-facing event text (no "Thread" prefix).
+		var priority: String = "info"
 		match kind:
 			"salvage":
-				color = "#22AA22"
 				var good_id: String = str(evt.get("good_id", ""))
 				var qty: int = int(evt.get("quantity", 0))
 				message = "Salvage: found %d x %s!" % [qty, good_id]
+				priority = "confirm"
 			"signal":
-				color = "#2288DD"
 				message = "Anomaly detected nearby!"
+				priority = "milestone"
 			"turbulence":
-				color = "#DD4444"
 				var hull_dmg: int = int(evt.get("hull_damage", 0))
 				message = "Turbulence: hull took %d damage!" % hull_dmg
+				priority = "warning"
 			_:
 				continue
 
 		print("UUIR|JUMP_EVENT_TOAST|" + kind + "|" + event_id)
-		if toast_mgr.has_method("show_toast_colored"):
-			toast_mgr.call("show_toast_colored", message, 4.0, color)
+		if toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", message, priority, 4.0)
 		else:
 			toast_mgr.call("show_toast", message, 4.0)
 

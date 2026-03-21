@@ -46,6 +46,12 @@ public sealed class ProgramInstance
     // GATE.S7.AUTOMATION.TEMPLATES.001: Template that created this program (empty = manual).
     [JsonInclude] public string TemplateId { get; set; } = "";
 
+    // GATE.T41.SURVEY_PROG.MODEL.001: Survey program fields.
+    // SurveyFamily: discovery family to scan (e.g. "RESOURCE_POOL_MARKER", "CORRIDOR_TRACE").
+    [JsonInclude] public string SurveyFamily { get; set; } = "";
+    // SurveyRangeHops: BFS range from home node for discovery scanning.
+    [JsonInclude] public int SurveyRangeHops { get; set; }
+
     public bool IsRunnableAt(int tick)
     {
         if (Status != ProgramStatus.Running) return false;

@@ -165,6 +165,9 @@ public class SimKernel
         // GATE.S11.GAME_FEEL.PRICE_HISTORY.001: Price history snapshot recording.
         IntelSystem.ProcessPriceHistory(_state);
 
+        // GATE.T42.PLANET_SCAN.ORBITAL.001: Planet scanning — charge recharge + instability reveals.
+        PlanetScanSystem.Process(_state);
+
         // GATE.S6.OUTCOME.REWARD_MODEL.001: Discovery outcome rewards on Analyzed phase.
         DiscoveryOutcomeSystem.Process(_state);
 

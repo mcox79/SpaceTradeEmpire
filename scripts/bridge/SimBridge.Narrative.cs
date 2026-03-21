@@ -48,6 +48,7 @@ public partial class SimBridge
             result["score"] = fo.RelationshipScore;
             result["blind_spot_exposed"] = fo.BlindSpotExposed;
             result["dialogue_count"] = fo.DialogueEventLog?.Count ?? 0;
+            result["pending_text"] = fo.PendingDialogueLine ?? "";
 
             // Resolve name from content
             foreach (var c in FirstOfficerContentV0.Candidates)

@@ -344,6 +344,93 @@ public static class IntelSystem
             if (Math.Max(srcAge, destAge) > TradeIntelTweaksV0.StaleAgeTicks)
                 route.Status = TradeRouteStatus.Stale;
         }
+
+        // GATE.T41.INTEL_DECAY.SYSTEM.001: Apply distance-based decay to discovery-derived routes.
+        ApplyDiscoveryRouteDecay(state);
+    }
+
+    // GATE.T41.INTEL_DECAY.SYSTEM.001: Discovery-derived routes decay by distance band from player start.
+    // Near (<=2 hops): 50 ticks. Mid (3-5 hops): 150 ticks. Deep (6+ hops): 400 ticks. Fracture: never.
+    private static void ApplyDiscoveryRouteDecay(SimState state)
+    {
+        if (state.Intel?.TradeRoutes is null) return;
+
+        // Lazy BFS for hop distances (computed once per tick if needed).
+        Dictionary<string, int>? hopDistances = null;
+
+        foreach (var kv in state.Intel.TradeRoutes)
+        {
+            var route = kv.Value;
+            if (string.IsNullOrEmpty(route.SourceDiscoveryId)) continue; // Only discovery-derived routes
+            if (route.Status == TradeRouteStatus.Unprofitable) continue; // Already terminal
+
+            // Compute hops lazily.
+            if (hopDistances is null)
+            {
+                string startNode = state.PlayerLocationNodeId ?? "";
+                if (string.IsNullOrEmpty(startNode)) return;
+                hopDistances = ComputeHopDistancesBFS(state, startNode);
+            }
+
+            // Determine hops to the route source node.
+            int hops = hopDistances.TryGetValue(route.SourceNodeId, out var h) ? h : int.MaxValue;
+
+            // Fracture-space routes (unreachable via normal BFS) never decay.
+            if (hops == int.MaxValue) continue;
+
+            // Determine decay ticks by distance band.
+            int decayTicks;
+            if (hops <= Tweaks.DiscoveryIntelTweaksV0.NearMaxHops)
+                decayTicks = Tweaks.DiscoveryIntelTweaksV0.NearDecayTicks;
+            else if (hops <= Tweaks.DiscoveryIntelTweaksV0.MidMaxHops)
+                decayTicks = Tweaks.DiscoveryIntelTweaksV0.MidDecayTicks;
+            else
+                decayTicks = Tweaks.DiscoveryIntelTweaksV0.DeepDecayTicks;
+
+            if (decayTicks <= 0) continue; // 0 = never decays
+
+            int age = state.Tick - route.DiscoveredTick;
+
+            // Transition: Discovered/Active -> Stale at decayTicks.
+            if (age >= decayTicks && (route.Status == TradeRouteStatus.Discovered || route.Status == TradeRouteStatus.Active))
+                route.Status = TradeRouteStatus.Stale;
+
+            // Transition: Stale -> Unprofitable at 2x decayTicks.
+            if (age >= decayTicks * 2 && route.Status == TradeRouteStatus.Stale)
+                route.Status = TradeRouteStatus.Unprofitable;
+        }
+    }
+
+    // GATE.T41.INTEL_DECAY.SYSTEM.001: BFS hop distances from source.
+    private static Dictionary<string, int> ComputeHopDistancesBFS(SimState state, string sourceNodeId)
+    {
+        var distances = new Dictionary<string, int>(StringComparer.Ordinal);
+        var queue = new Queue<string>();
+        distances[sourceNodeId] = 0;
+        queue.Enqueue(sourceNodeId);
+
+        while (queue.Count > 0)
+        {
+            string current = queue.Dequeue();
+            int currentDist = distances[current];
+
+            foreach (var edge in state.Edges.Values)
+            {
+                string? neighbor = null;
+                if (string.Equals(edge.FromNodeId, current, StringComparison.Ordinal))
+                    neighbor = edge.ToNodeId;
+                else if (string.Equals(edge.ToNodeId, current, StringComparison.Ordinal))
+                    neighbor = edge.FromNodeId;
+
+                if (neighbor != null && !distances.ContainsKey(neighbor))
+                {
+                    distances[neighbor] = currentDist + 1;
+                    queue.Enqueue(neighbor);
+                }
+            }
+        }
+
+        return distances;
     }
 
     public static MarketGoodView GetMarketGoodView(SimState state, string targetMarketId, string goodId)

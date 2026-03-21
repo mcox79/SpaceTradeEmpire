@@ -713,7 +713,7 @@ func open_market_v0(node_id: String) -> void:
 
 		# L1.3: Faction greeting flavor text.
 		if _greeting_label and not faction_id.is_empty() and bridge.has_method("GetFactionGreetingV0"):
-			var greeting: String = str(bridge.call("GetFactionGreetingV0", faction_id))
+			var greeting: String = str(bridge.call("GetFactionGreetingV0", faction_id, ""))
 			if not greeting.is_empty():
 				_greeting_label.text = "\"%s\"" % greeting
 				_greeting_label.visible = true
@@ -1688,12 +1688,12 @@ func _rebuild_ship_info() -> void:
 				var mod_lbl = Label.new()
 				mod_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				if mod_id.is_empty():
-					# FEEL_PASS4_P4: Slot-type-specific empty hint.
+					# FEEL_PASS4_P4: Slot-type-specific empty hint (diegetic ship status voice).
 					var kind_lower: String = kind.to_lower()
 					match kind_lower:
-						"weapon": mod_lbl.text = "No weapon — install at Refit"
-						"defense": mod_lbl.text = "No defense — install at Refit"
-						_: mod_lbl.text = "No module — install at Refit"
+						"weapon": mod_lbl.text = "— Empty Hardpoint —"
+						"defense": mod_lbl.text = "— Empty Defense Mount —"
+						_: mod_lbl.text = "— Empty Utility Slot —"
 					mod_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 					mod_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 				else:
@@ -1774,6 +1774,10 @@ func _rebuild_station_info() -> void:
 	if bridge.has_method("GetStationContextV0"):
 		station_ctx = bridge.call("GetStationContextV0", _market_node_id)
 
+	var planet_info: Dictionary = {}
+	if bridge.has_method("GetPlanetInfoV0"):
+		planet_info = bridge.call("GetPlanetInfoV0", _market_node_id)
+
 	# --- Section 1: FO Greeting + Top Observation ---
 	_briefing_add_fo_greeting(fo_name, fo_type, station_ctx, territory, price_intel, trade_routes)
 
@@ -1807,6 +1811,9 @@ func _rebuild_station_info() -> void:
 
 	# --- Section 7: Infrastructure (collapsed — old station health + production) ---
 	_briefing_add_infrastructure(bridge)
+
+	# --- Section 8: Planet Scanner (only at planet nodes) ---
+	_briefing_add_planet_scanner(bridge, planet_info)
 
 	_station_info_container.visible = true
 
@@ -2280,6 +2287,333 @@ func _briefing_add_infrastructure(bridge) -> void:
 			lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 			row.add_child(lbl)
 			_station_info_container.add_child(row)
+
+# GATE.T43.SCAN_UI.STATION_SECTION.001: Planet scanner section in Station tab.
+func _briefing_add_planet_scanner(bridge, planet_info: Dictionary) -> void:
+	if planet_info.size() == 0:
+		return  # Not a planet node — skip.
+	if not bridge.has_method("GetScanChargesV0") or not bridge.has_method("GetPlanetScanResultsV0"):
+		return
+
+	_add_section_header(_station_info_container, "briefing_scanner", "PLANET SCANNER")
+	if _collapsed.get("briefing_scanner", false):
+		return
+
+	# Planet summary line.
+	var ptype: String = str(planet_info.get("planet_type", ""))
+	var pname: String = str(planet_info.get("display_name", ""))
+	var grav: float = float(planet_info.get("gravity_bps", 5000)) / 5000.0
+	var atmo: float = float(planet_info.get("atmosphere_bps", 5000)) / 5000.0
+	var temp_bps: int = int(planet_info.get("temperature_bps", 5000))
+	var spec: String = str(planet_info.get("specialization", "None"))
+	var temp_label: String = _temp_label_v0(temp_bps)
+
+	var summary_lbl := Label.new()
+	var summary_parts: Array = [pname, ptype, "%.1fg" % grav, "%.0f%% atmo" % (atmo * 100.0), temp_label]
+	if spec != "None" and not spec.is_empty():
+		summary_parts.append(spec)
+	summary_lbl.text = "  ·  ".join(summary_parts)
+	summary_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	summary_lbl.add_theme_color_override("font_color", UITheme.TEXT_INFO)
+	summary_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_station_info_container.add_child(summary_lbl)
+
+	# Charge + fuel status.
+	var charges: Dictionary = bridge.call("GetScanChargesV0")
+	var remaining: int = int(charges.get("remaining", 0))
+	var max_charges: int = int(charges.get("max", 2))
+	var tier: int = int(charges.get("tier", 0))
+	var tier_name: String = "Basic"
+	if tier == 1: tier_name = "Mk1"
+	elif tier == 2: tier_name = "Mk2"
+	elif tier >= 3: tier_name = "Mk3"
+
+	var fuel: int = 0
+	if bridge.has_method("GetFleetSustainStatusV0"):
+		var sustain: Dictionary = bridge.call("GetFleetSustainStatusV0", "fleet_trader_1")
+		fuel = int(sustain.get("fuel", 0))
+
+	var status_lbl := Label.new()
+	status_lbl.text = "Scanner: %s (%d/%d charges)     Fuel: %d" % [tier_name, remaining, max_charges, fuel]
+	status_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	status_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	_station_info_container.add_child(status_lbl)
+
+	# Affinity bars for each mode.
+	var affinity_header := Label.new()
+	affinity_header.text = "MODE AFFINITY"
+	affinity_header.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	affinity_header.add_theme_color_override("font_color", UITheme.CYAN)
+	_station_info_container.add_child(affinity_header)
+
+	var mineral_ok: bool = charges.get("mineral_available", true)
+	var signal_ok: bool = charges.get("signal_available", false)
+	var arch_ok: bool = charges.get("archaeological_available", false)
+	var modes: Array = [
+		{"name": "Mineral Survey", "mode": "MineralSurvey", "available": mineral_ok},
+		{"name": "Signal Sweep", "mode": "SignalSweep", "available": signal_ok},
+		{"name": "Archaeological", "mode": "Archaeological", "available": arch_ok}
+	]
+
+	# Get affinity values from bridge if available.
+	var best_affinity: int = 0
+	var affinities: Array = []
+	for m in modes:
+		var affinity_bps: int = 10000  # Default 1.0x
+		if bridge.has_method("GetScanAffinityV0"):
+			affinity_bps = int(bridge.call("GetScanAffinityV0", _market_node_id, m["mode"]))
+		affinities.append(affinity_bps)
+		if affinity_bps > best_affinity:
+			best_affinity = affinity_bps
+
+	for i in range(modes.size()):
+		var m: Dictionary = modes[i]
+		var affinity_bps: int = affinities[i]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+
+		var name_lbl := Label.new()
+		name_lbl.text = m["name"]
+		name_lbl.custom_minimum_size.x = 110
+		name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		if not m["available"]:
+			name_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+		else:
+			name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		row.add_child(name_lbl)
+
+		var bar := ProgressBar.new()
+		bar.min_value = 0
+		bar.max_value = 20000  # 2.0x max
+		bar.value = affinity_bps
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(100, 10)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = UITheme.CYAN if m["available"] else UITheme.TEXT_DISABLED
+		fill.set_corner_radius_all(2)
+		bar.add_theme_stylebox_override("fill", fill)
+		var bar_bg := StyleBoxFlat.new()
+		bar_bg.bg_color = Color(0.1, 0.12, 0.15, 0.8)
+		bar_bg.set_corner_radius_all(2)
+		bar.add_theme_stylebox_override("background", bar_bg)
+		row.add_child(bar)
+
+		var mult_lbl := Label.new()
+		mult_lbl.text = "%.1fx" % (float(affinity_bps) / 10000.0)
+		mult_lbl.custom_minimum_size.x = 40
+		mult_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		mult_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		row.add_child(mult_lbl)
+
+		# Best match star indicator.
+		if affinity_bps == best_affinity and m["available"]:
+			var star_lbl := Label.new()
+			star_lbl.text = "★"
+			star_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+			star_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+			row.add_child(star_lbl)
+
+		_station_info_container.add_child(row)
+
+	# Action buttons row.
+	var action_row := HBoxContainer.new()
+	action_row.add_theme_constant_override("separation", 8)
+
+	var orbital_btn := Button.new()
+	orbital_btn.text = "ORBITAL SCAN"
+	orbital_btn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	orbital_btn.disabled = remaining <= 0
+	orbital_btn.pressed.connect(_on_station_orbital_scan.bind(bridge))
+	action_row.add_child(orbital_btn)
+
+	var is_landable: bool = planet_info.get("effective_landable", false)
+	var is_gaseous: bool = ptype == "Gaseous"
+
+	if is_gaseous:
+		var atmo_btn := Button.new()
+		atmo_btn.text = "ATMO SAMPLE"
+		atmo_btn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		atmo_btn.disabled = remaining <= 0 or fuel < 1
+		atmo_btn.pressed.connect(_on_station_atmo_scan.bind(bridge))
+		if fuel < 1:
+			atmo_btn.tooltip_text = "Requires fuel"
+		action_row.add_child(atmo_btn)
+	elif is_landable:
+		var land_btn := Button.new()
+		land_btn.text = "LANDING SCAN"
+		land_btn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		land_btn.disabled = remaining <= 0 or fuel < 1
+		land_btn.pressed.connect(_on_station_landing_scan.bind(bridge))
+		if fuel < 1:
+			land_btn.tooltip_text = "Requires fuel"
+		action_row.add_child(land_btn)
+
+	_station_info_container.add_child(action_row)
+
+	# Scan history.
+	var results: Array = bridge.call("GetPlanetScanResultsV0", _market_node_id)
+	if results.size() > 0:
+		_add_section_header(_station_info_container, "briefing_scan_history", "SCAN HISTORY", results.size())
+		if not _collapsed.get("briefing_scan_history", false):
+			var shown: int = 0
+			for scan_result in results:
+				if typeof(scan_result) != TYPE_DICTIONARY:
+					continue
+				if shown >= 5:
+					var more_lbl := Label.new()
+					more_lbl.text = "... and %d more" % (results.size() - 5)
+					more_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+					more_lbl.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+					_station_info_container.add_child(more_lbl)
+					break
+				_add_scan_result_card(scan_result, bridge)
+				shown += 1
+
+
+func _add_scan_result_card(scan: Dictionary, bridge) -> void:
+	var card := PanelContainer.new()
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.06, 0.08, 0.14, 0.8)
+	card_style.set_corner_radius_all(4)
+	card_style.set_content_margin_all(6)
+	# Category-specific left border color.
+	var category: String = str(scan.get("category", ""))
+	var border_color: Color = UITheme.CYAN
+	match category:
+		"ResourceIntel": border_color = Color(0.3, 0.6, 1.0)
+		"SignalLead": border_color = UITheme.PURPLE_LIGHT
+		"PhysicalEvidence": border_color = UITheme.ORANGE
+		"FragmentCache": border_color = UITheme.GREEN
+		"DataArchive": border_color = UITheme.CYAN
+	card_style.border_width_left = 2
+	card_style.border_color = border_color
+	card.add_theme_stylebox_override("panel", card_style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	card.add_child(vbox)
+
+	# Header: mode · phase · category
+	var header_lbl := Label.new()
+	var mode: String = str(scan.get("mode", ""))
+	var phase: String = str(scan.get("phase", ""))
+	header_lbl.text = "%s · %s · %s" % [mode, phase, category]
+	header_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	header_lbl.add_theme_color_override("font_color", border_color)
+	vbox.add_child(header_lbl)
+
+	# Flavor text.
+	var flavor: String = str(scan.get("flavor_text", ""))
+	if not flavor.is_empty():
+		var flavor_lbl := Label.new()
+		flavor_lbl.text = "\"%s\"" % flavor
+		flavor_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		flavor_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		flavor_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(flavor_lbl)
+
+	# Hint text (orbital scans).
+	var hint: String = str(scan.get("hint_text", ""))
+	if not hint.is_empty():
+		var hint_lbl := Label.new()
+		hint_lbl.text = hint
+		hint_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		hint_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+		hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(hint_lbl)
+
+	# Investigation button for PhysicalEvidence.
+	# GATE.T43.SCAN_UI.INVESTIGATE.001: Investigation UI.
+	var inv_available: bool = scan.get("investigation_available", false)
+	var investigated: bool = scan.get("investigated", false)
+	if category == "PhysicalEvidence":
+		if investigated:
+			var inv_badge := Label.new()
+			inv_badge.text = "✓ Investigated"
+			inv_badge.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			inv_badge.add_theme_color_override("font_color", UITheme.GREEN)
+			vbox.add_child(inv_badge)
+		elif inv_available:
+			var inv_btn := Button.new()
+			inv_btn.text = "INVESTIGATE"
+			inv_btn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			var scan_id: String = str(scan.get("scan_id", ""))
+			inv_btn.pressed.connect(_on_investigate_pressed.bind(scan_id, bridge))
+			vbox.add_child(inv_btn)
+
+	# Footer: affinity + tick.
+	var footer_lbl := Label.new()
+	var affinity_bps: int = int(scan.get("affinity_bps", 10000))
+	var tick: int = int(scan.get("tick", 0))
+	footer_lbl.text = "Affinity: %.1fx  ·  Tick %d" % [float(affinity_bps) / 10000.0, tick]
+	footer_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	footer_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	vbox.add_child(footer_lbl)
+
+	_station_info_container.add_child(card)
+
+
+# GATE.T43.SCAN_UI.STATION_SECTION.001: Scan action handlers.
+var _station_scan_selected_mode: String = "MineralSurvey"
+
+func _on_station_orbital_scan(bridge) -> void:
+	if bridge == null or not bridge.has_method("OrbitalScanV0"):
+		return
+	var result: Dictionary = bridge.call("OrbitalScanV0", _market_node_id, _station_scan_selected_mode)
+	_handle_scan_result(result)
+
+func _on_station_landing_scan(bridge) -> void:
+	if bridge == null or not bridge.has_method("LandingScanV0"):
+		return
+	var result: Dictionary = bridge.call("LandingScanV0", _market_node_id, _station_scan_selected_mode)
+	_handle_scan_result(result)
+
+func _on_station_atmo_scan(bridge) -> void:
+	if bridge == null or not bridge.has_method("AtmosphericSampleV0"):
+		return
+	var result: Dictionary = bridge.call("AtmosphericSampleV0", _market_node_id, _station_scan_selected_mode)
+	_handle_scan_result(result)
+
+func _on_investigate_pressed(scan_id: String, bridge) -> void:
+	if bridge == null or not bridge.has_method("InvestigateFindingV0"):
+		return
+	var result: Dictionary = bridge.call("InvestigateFindingV0", scan_id)
+	if result.get("success", false):
+		var toast_mgr = get_tree().root.find_child("ToastManager", true, false) if get_tree() else null
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Investigation complete — knowledge connections discovered", "milestone")
+	else:
+		var toast_mgr = get_tree().root.find_child("ToastManager", true, false) if get_tree() else null
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", str(result.get("error", "Cannot investigate")), "warning")
+	_rebuild_station_info()
+
+func _handle_scan_result(result: Dictionary) -> void:
+	if result.has("error"):
+		var toast_mgr = get_tree().root.find_child("ToastManager", true, false) if get_tree() else null
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", str(result["error"]), "warning")
+		return
+	# Fire scan result toast.
+	var category: String = str(result.get("category", ""))
+	var mode: String = str(result.get("mode", ""))
+	var flavor: String = str(result.get("flavor_text", ""))
+	if flavor.length() > 60:
+		flavor = flavor.substr(0, 60) + "..."
+	var toast_text: String = "SCAN COMPLETE\n%s · %s\n\"%s\"" % [category, mode, flavor]
+	var priority: String = "milestone"
+	if category in ["FragmentCache", "DataArchive", "PhysicalEvidence"]:
+		priority = "critical"
+	var toast_mgr = get_tree().root.find_child("ToastManager", true, false) if get_tree() else null
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", toast_text, priority)
+	# Play scan audio.
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_method("play_scan_chime_v0"):
+		gm.call("play_scan_chime_v0", category)
+	# Rebuild station info to show new result.
+	_rebuild_station_info()
+
 
 func _rebuild_missions() -> void:
 	if _missions_container == null:

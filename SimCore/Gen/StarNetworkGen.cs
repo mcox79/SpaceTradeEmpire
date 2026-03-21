@@ -30,11 +30,17 @@ public static class StarNetworkGen
             float x = (float)(rng.NextDouble() * 2 - 1) * radius;
             float z = (float)(rng.NextDouble() * 2 - 1) * radius;
 
+            // STRUCTURAL: 2.5D disc shape — Y-spread modulated by radial distance from center.
+            float yRaw = (float)(rng.NextDouble() * 2 - 1); // STRUCTURAL: same RNG pattern as x/z
+            float radialDist = MathF.Sqrt(x * x + z * z) / radius;
+            float yFalloff = Math.Clamp(1.0f - radialDist * GalaxyShapeTweaksV0.RadialFalloff, 0f, 1f); // STRUCTURAL: clamp [0,1]
+            float y = yRaw * GalaxyShapeTweaksV0.DiscThicknessFraction * radius * yFalloff;
+
             var node = new Node
             {
                 Id = $"star_{i}",
                 Name = names[i],
-                Position = new Vector3(x, 0, z),
+                Position = new Vector3(x, y, z),
                 Kind = NodeKind.Star,
                 MarketId = $"star_{i}"
             };
