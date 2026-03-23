@@ -1078,3 +1078,160 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-20, main, GATE.T43.SCAN_UI.HEADLESS_PROOF.001 PASS (Headless bot: 30+ hard assertions on bridge scan methods, planet detection, scan lifecycle). Evidence: scripts/tests/test_planet_scan_ui_proof_v0.gd
 - 2026-03-20, main, GATE.X.HYGIENE.EPIC_REVIEW.042 PASS (Epic status audit for T42-T43, PLANET_SCAN epic completed). Evidence: docs/54_EPICS.md
 - 2026-03-20, main, GATE.T43.SCAN_UI.EVAL.001 PASS (Scan UI implementation complete, visual eval deferred to in-engine playtest). Evidence: scripts/tools/visual_eval_guide.md
+- 2026-03-21, main, GATE.T44.SIGNAL.CONTRACT_TESTS.001 PASS (Contract tests for economy bridge signals: snapshot fields, alert types, edge cases). Evidence: SimCore.Tests/Systems/EconomyBridgeContractTests.cs
+- 2026-03-21, main, GATE.T44.SIGNAL.ECONOMY_STRESS.001 PASS (Extended 5000-tick economy stress test: 60%+ trade activity, price bounds, fleet stability). Evidence: SimCore.Tests/Systems/EconomyStressTests.cs
+- 2026-03-21, main, GATE.T44.NARRATIVE.COMMUNION_DIALOGUE.001 PASS (Communion Rep 3-arc dialogue content: Introduction/PathGuidance/EndgameCounsel). Evidence: SimCore/Content/CommunionRepDialogueContentV0.cs, SimCore.Tests/Systems/HavenTests.cs
+- 2026-03-21, main, GATE.T44.NARRATIVE.KEEPER_EXPAND.001 PASS (Keeper expanded tier-specific dialogue: 5 tiers Dormant→Awakened). Evidence: SimCore/Content/KeeperDialogueContentV0.cs, SimCore.Tests/Systems/HavenTests.cs
+- 2026-03-21, main, GATE.X.HYGIENE.REPO_HEALTH.044 PASS (Full test suite 1408/1408, zero warnings, golden hash stable). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-21, main, GATE.T44.AMBIENT.SHUTTLE_TRAFFIC.001 PASS (Cosmetic station shuttles from traffic_level, elliptical orbit, faction-tinted). Evidence: scripts/view/ambient_shuttle.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.AMBIENT.MINING_VFX.001 PASS (Extraction beam GPUParticles3D at industry nodes, green/amber by type). Evidence: scripts/vfx/mining_beam_vfx.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.AMBIENT.PROSPERITY.001 PASS (Station lighting tiers: Struggling/Stable/Prosperous/Booming OmniLight3D). Evidence: scripts/view/station_prosperity.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.AMBIENT.LANE_TRAFFIC.001 PASS (Billboarded ship sprites on hyperlanes, count from avg traffic_level). Evidence: scripts/view/lane_traffic_sprite.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.AMBIENT.WARFRONT_ATMO.001 PASS (Red-tinted particles + OmniLight3D at warfront nodes, scales with tier). Evidence: scripts/vfx/warfront_atmosphere.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.STATION.FACTION_TINT.001 PASS (Per-faction albedo modulation on station meshes via station_identity.gd). Evidence: scripts/view/station_identity.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.STATION.TIER_SCALE.001 PASS (Outpost/hub/capital mesh scale classification and application). Evidence: scripts/view/station_identity.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.STATION.NAMEPLATE.001 PASS (Station name Label3D + faction insignia PrismMesh, distance fade). Evidence: scripts/view/station_nameplate.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.DIGEST.MARKET_ALERTS.001 PASS (EconomyAlertPoller wired to HUD, polls GetMarketAlertsV0 every 30s, economy toasts). Evidence: scripts/ui/economy_alert_poller.gd, scripts/ui/hud.gd
+- 2026-03-21, main, GATE.T44.DIGEST.ECONOMY_DOCK.001 PASS (Economy snapshot section in dock panel: traffic/prosperity/industry/warfront). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-21, main, GATE.T44.DIGEST.MEGAPROJECT_MAP.001 PASS (Megaproject torus markers + Label3D on galaxy map, color by type). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T44.DIGEST.CONSTRUCTION_VFX.001 PASS (Welding sparks + wireframe scaffolding at active megaproject nodes). Evidence: scripts/vfx/construction_vfx.gd, scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.X.HYGIENE.ECONOMY_EVAL.044 PASS (Economy balance eval: stress tests pass, NPC trade healthy, prices stable). Evidence: SimCore.Tests/Systems/EconomyStressTests.cs
+- 2026-03-21, main, GATE.X.HYGIENE.EPIC_REVIEW.044 PASS (Epic audit: HAVEN_STARBASE.V0 + STATION_IDENTITY.V0 closed, ECONOMY_VISUALS.V0 updated). Evidence: docs/54_EPICS.md
+- 2026-03-21, main, GATE.X.HYGIENE.REPO_HEALTH.045 PASS (Full test suite + build baseline for T45). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.TWEAKS.001 PASS (DeepDreadTweaksV0.cs created: patrol/drain/ghost/fog/exposure/audio tweaks). Evidence: SimCore/Tweaks/DeepDreadTweaksV0.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.PASSIVE_DRAIN.001 PASS (DreadDrainSystem: Phase 2/3 hull drain, Phase 4 void paradox, accommodation immunity). Evidence: SimCore/Systems/DreadDrainSystem.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001 PASS (SensorGhostSystem: phantom fleet contacts at Phase 2+, deterministic hash, max 3 concurrent). Evidence: SimCore/Systems/SensorGhostSystem.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.INFO_FOG.001 PASS (InformationFogSystem: market staleness by hop distance, scanner range reduction). Evidence: SimCore/Systems/InformationFogSystem.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001 PASS (LatticeFaunaSystem: emergent entities at Phase 3+, fracture signature detection, going dark). Evidence: SimCore/Systems/LatticeFaunaSystem.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.FO_DISTANCE.001 PASS (8 FO dread triggers + 24 dialogue lines across 3 FO types). Evidence: SimCore/Systems/FirstOfficerSystem.cs, SimCore/Content/FirstOfficerContentV0.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001 PASS (ExposureTrackSystem: cumulative deep exposure, adaptation, disagreement narrowing). Evidence: SimCore/Systems/ExposureTrackSystem.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.BRIDGE.001 PASS (SimBridge.Dread.cs: GetDreadStateV0, GetSensorGhostsV0, GetLatticeFaunaV0, GetExposureV0, GetInfoFogV0). Evidence: scripts/bridge/SimBridge.Dread.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.AMBIENT_AUDIO.001 PASS (dread_audio.gd: 5 ambient layers crossfading by instability phase). Evidence: scripts/audio/dread_audio.gd
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.FAUNA_AUDIO.001 PASS (Fauna pulse audio + phantom plays at Phase 2+). Evidence: scripts/audio/dread_audio.gd
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.COMMS_STATIC.001 PASS (FO text corruption at hop>=4, static glyphs replacement). Evidence: scripts/ui/fo_panel.gd
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.HUD_DREAD.001 PASS (HUD dread panel: phase indicator, isolation warning, exposure bar, fauna indicator). Evidence: scripts/ui/hud.gd
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.DISTORTION_SHADER.001 PASS (dread_distortion.gdshader: 5-phase visual distortion, void clarity). Evidence: scripts/vfx/dread_distortion.gdshader
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.GALAXY_DREAD.001 PASS (Galaxy map dread dimming for Phase 1+ nodes). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.TESTS.001 PASS (DeepDreadTests.cs: 15 assertions covering all dread subsystems). Evidence: SimCore.Tests/Systems/DeepDreadTests.cs
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.GOLDEN_HASH.001 PASS (Golden hash baseline updated for all T45 hash-affecting changes). Evidence: docs/tweaks/balance_baseline_v0.json
+- 2026-03-21, main, GATE.T45.DEEP_DREAD.HEADLESS_PROOF.001 PASS (test_deep_dread_proof_v0.gd: 17 pass, 0 fail, 3 warn). Evidence: scripts/tests/test_deep_dread_proof_v0.gd
+- 2026-03-21, main, GATE.X.HYGIENE.EPIC_REVIEW.045 PASS (EPIC.S8.DEEP_DREAD.V0 marked DONE, T46 anchor recommended). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.046 PASS (1454 tests, 0 warnings, build clean). Evidence: SimCore.Tests/SimCore.Tests.csproj
+- 2026-03-22, main, GATE.T46.PERF.TICK_PROFILER.001 PASS (63 system calls instrumented, 100-tick ring buffer, zero-cost when disabled). Evidence: SimCore/SimKernel.cs
+- 2026-03-22, main, GATE.T46.PERF.MEMORY_BUDGET.001 PASS (50-node galaxy, 500 ticks, 4.33MB heap, 2 tests). Evidence: SimCore.Tests/Performance/PerfBudgetTests.cs
+- 2026-03-22, main, GATE.T46.PERF.PROFILE_REPORT.001 PASS (ea_perf_baseline.md: 3.3-3.9ms tick, 60fps confirmed, 6 optimization targets). Evidence: docs/ea_perf_baseline.md
+- 2026-03-22, main, GATE.T46.STEAM.ADDON_INSTALL.001 PASS (SteamInterface stub autoload, graceful fallback when GodotSteam absent). Evidence: scripts/platform/steam_interface.gd, project.godot
+- 2026-03-22, main, GATE.T46.STEAM.INIT_WRAPPER.001 PASS (Steam init wired to game_manager, rich presence per state). Evidence: scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001 PASS (AchievementMapper: 18 milestones mapped, session dedup, fallback path). Evidence: scripts/platform/achievement_mapper.gd
+- 2026-03-22, main, GATE.T46.BUILD.EXPORT_TEMPLATE.001 PASS (export_presets.cfg Windows Desktop, Build-Release.ps1). Evidence: export_presets.cfg, scripts/tools/Build-Release.ps1
+- 2026-03-22, main, GATE.T46.BUILD.RELEASE_TEST.001 PASS (.NET Release build clean, 1454/1454 tests, export templates not installed — documented). Evidence: scripts/tools/Build-Release.ps1
+- 2026-03-22, main, GATE.T46.SAVE.AUTOSAVE_SYSTEM.001 PASS (Timer auto-save, combat pause, AutoSaveTweaksV0, autosave signals). Evidence: scripts/bridge/SimBridge.cs, SimCore/Tweaks/AutoSaveTweaksV0.cs
+- 2026-03-22, main, GATE.T46.SAVE.AUTOSAVE_UI.001 PASS (HUD SAVING indicator with fade, settings panel toggle + interval). Evidence: scripts/ui/hud.gd
+- 2026-03-22, main, GATE.T46.STATION.NODE_MESH.001 PASS (StationIdentity detail meshes: antenna for hubs, orbital ring for capitals, galaxy_spawner integration). Evidence: scripts/view/station_identity.gd, scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T46.STATION.DOCK_FLAVOR.001 PASS (25 greetings + 25 station descriptions, GetDockFlavorV0, determinism 31/31). Evidence: SimCore/Content/FactionDialogueContentV0.cs, scripts/bridge/SimBridge.Faction.cs
+- 2026-03-22, main, GATE.T46.NARRATIVE.HAVEN_LOGS.001 PASS (26 Haven log entries across 6 tiers, GetHavenLogsV0, determinism 31/31). Evidence: SimCore/Content/HavenLogContentV0.cs, scripts/bridge/SimBridge.Haven.cs
+- 2026-03-22, main, GATE.T46.NARRATIVE.FRAGMENT_LORE.001 PASS (Fragment lore bridge wiring: cover/revealed lore in GetAdaptationFragmentsV0, new GetFragmentLoreV0, determinism 31/31). Evidence: scripts/bridge/SimBridge.Haven.cs
+- 2026-03-22, main, GATE.T46.NARRATIVE.ENDGAME_TEXT.001 PASS (5 endgame paths: Reinforce/Naturalize/Renegotiate + Death/Bankruptcy, FO farewells). Evidence: scripts/ui/epilogue_data.gd
+- 2026-03-22, main, GATE.T46.AUDIO.STEM_PIPELINE.001 PASS (4-layer stem crossfade: bass/pad/melody/percussion, 5 music states, placeholder stems). Evidence: scripts/audio/music_manager.gd
+- 2026-03-22, main, GATE.T46.AUDIO.COMBAT_MUSIC.001 PASS (Dock/exploration/tension/combat transitions wired to game_manager). Evidence: scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.046 PASS (NARRATIVE_CONTENT→DONE, STATION_IDENTITY→DONE, PERF→DONE, STEAM→IN_PROGRESS, MUSIC→IN_PROGRESS, SAVE updated). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.T47.AMBIENT.SHUTTLE_TRAFFIC.001 PASS (BoxMesh shuttles orbiting stations, count from NpcTradeActivity, elliptical orbit animation). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.AMBIENT.MINING_BEAMS.001 PASS (CylinderMesh beams from mining stations to asteroids, pulsing emission). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.AMBIENT.PROSPERITY_TIERS.001 PASS (Emission multiplier by market breadth 0.5x/1.0x/2.0x, golden orb for capitals). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.AMBIENT.LANE_TRAFFIC.001 PASS (PrismMesh sprites lerping along intra-region lanes). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.MUSIC.DISCOVERY_STINGERS.001 PASS (3 stingers: minor 3s, major 5s, revelation 8s, stem ducking during playback). Evidence: scripts/audio/music_manager.gd, scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.T47.MUSIC.FRACTURE_AMBIENCE.001 PASS (FRACTURE music state: detuned frequencies, LFO tremolo, 3s crossfade). Evidence: scripts/audio/music_manager.gd
+- 2026-03-22, main, GATE.T47.MUSIC.FACTION_AMBIENT.001 PASS (5 faction drones: Concord 220Hz, Chitin 147Hz FM, Weavers 330Hz harmonics, Valorin 110Hz+noise, Communion 440Hz+shimmer). Evidence: scripts/audio/music_manager.gd
+- 2026-03-22, main, GATE.T47.MUSIC.COMPOSITION_BRIEF.001 PASS (29-file music production brief: 20 stems, 3 stingers, 5 faction loops, fracture ambient). Evidence: docs/design/music_production_brief_v0.md
+- 2026-03-22, main, GATE.T47.HAVEN.COMING_HOME.001 PASS (Warm amber letterbox, slow camera zoom, "Welcome home Captain" FO toast, 3.5s sequence). Evidence: scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.T47.HAVEN.VISUAL_TIERS.001 PASS (T1 purple ring, T2 satellites, T3 outer ring, T4 hex frame+beacon, T5 golden emission+tilted rings). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.HAVEN.COMMUNION_REP.001 PASS (8 dialogue lines in FactionDialogueContentV0, GetCommunionRepDialogueV0, haven_panel cycling UI, tier 3+ gated). Evidence: SimCore/Content/FactionDialogueContentV0.cs, scripts/bridge/SimBridge.Haven.cs, scripts/ui/haven_panel.gd
+- 2026-03-22, main, GATE.T47.MEGAPROJECT.MAP_MARKERS.001 PASS (Type-specific meshes: hex frame anchor, diamond corridor, cone pylon, color by state). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.MEGAPROJECT.CONSTRUCTION_VFX.001 PASS (Rotating cylinder spars + blinking spark spheres, progress-scaled intensity). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T47.SAVE.RECOVERY_UX.001 PASS (Corruption detection via GetSaveIntegrityV0, red visual treatment, "Try Load" fallback). Evidence: scripts/ui/main_menu.gd
+- 2026-03-22, main, GATE.T47.SAVE.SLOT_MANAGEMENT.001 PASS (Save slot panel: scan/load/rename/delete per slot, confirmation dialog, auto-save badge). Evidence: scripts/ui/main_menu.gd
+- 2026-03-22, main, GATE.T47.DIGEST.MARKET_ALERTS.001 PASS (Colored toasts by type: stockout orange, spike yellow, drop cyan, 30s poll, max 3/poll). Evidence: scripts/ui/economy_alert_poller.gd
+- 2026-03-22, main, GATE.T47.DIGEST.ECON_PANEL.001 PASS (Local Supply rows: good name+role tag, supply count color-coded, trend arrows from price divergence). Evidence: scripts/ui/hero_trade_menu.gd
+- 2026-03-22, main, GATE.T47.EVAL.ECONOMY_FEEL.001 PASS (FH bot 18/18 assertions, 5.0/5.0 avg, overlay health 5/5, economy signal PASS). Evidence: reports/first_hour/
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.047 PASS (1512/1512 tests, 0 errors, build clean). Evidence: SimCore.Tests/
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.047 PASS (ECONOMY_VISUALS→DONE, MUSIC→DONE, HAVEN_STARBASE→DONE, MEGAPROJECTS→DONE, SAVE→DONE, NARRATIVE_CONTENT→DONE). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.T48.TEMPLATE.SCHEMA.001 PASS (MissionTemplateContentV0 schema + MissionTemplateSystem engine: variable binding, twist slots, acceptance lifecycle). Evidence: SimCore/Content/MissionTemplateContentV0.cs, SimCore/Systems/MissionTemplateSystem.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.SUPPLY_SET.001 PASS (4 supply templates: EmergencyResupply, BulkContract, TradeRoutePioneer, WarfrontSupply). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.EXPLORE_SET.001 PASS (4 explore templates: DeepScanSurvey, DerelictInvestigation, FractureProbe, MappingExpedition). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.COMBAT_SET.001 PASS (3 combat templates: EscortConvoy, PirateBounty, LanePatrol). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.POLITICS_SET.001 PASS (3 politics templates: DiplomaticCourier, TradeEmbargoRun, FactionFavor). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.TWIST_ENGINE.001 PASS (Twist injection: instability + warfront proximity bonus, 7 twist types, reward scaling). Evidence: SimCore/Systems/MissionTemplateSystem.cs, SimCore/Tweaks/MissionTemplateTweaksV0.cs
+- 2026-03-22, main, GATE.T48.TEMPLATE.CONTEXT_SURFACE.001 PASS (SimBridge.Mission.cs template surfacing at dock, filtered by world state). Evidence: scripts/bridge/SimBridge.Mission.cs, scripts/ui/hero_trade_menu.gd
+- 2026-03-22, main, GATE.T48.DISCOVERY.MAP_MARKERS.001 PASS (Discovery phase markers: gray/amber/green icons at discovery positions). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T48.DISCOVERY.SCANNER_VIZ.001 PASS (Scanner range ring: expanding torus mesh on system arrival). Evidence: scripts/view/galaxy_spawner.gd
+- 2026-03-22, main, GATE.T48.DISCOVERY.MILESTONE_CARDS.001 PASS (Discovery milestone toast: scan/analysis/chain progress notifications). Evidence: scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.T48.DISCOVERY.KNOWLEDGE_POLISH.001 PASS (Knowledge web: node spacing, category colors, zoom/pan, tooltips). Evidence: scripts/ui/knowledge_web_panel.gd
+- 2026-03-22, main, GATE.T48.ANOMALY.CHAIN_SYSTEM.001 PASS (AnomalyChainSystem: multi-site chain tracking, BFS placement, worldgen seeding). Evidence: SimCore/Systems/AnomalyChainSystem.cs
+- 2026-03-22, main, GATE.T48.ANOMALY.CHAIN_CONTENT.001 PASS (3 new chains: DerelictSignal, PrecursorEcho, BiologicalDrift — 6 total). Evidence: SimCore/Content/AnomalyChainContentV0.cs
+- 2026-03-22, main, GATE.T48.TENSION.MAINTENANCE.001 PASS (FleetUpkeepSystem enhanced: fuel burn, crew wages, hull degradation cycles). Evidence: SimCore/Systems/FleetUpkeepSystem.cs, SimCore/Tweaks/FleetUpkeepTweaksV0.cs
+- 2026-03-22, main, GATE.T48.TENSION.UPKEEP_BRIDGE.001 PASS (GetFleetUpkeepV0: per-category costs, runway ticks, HUD burn rate). Evidence: scripts/bridge/SimBridge.Fleet.cs, scripts/ui/hud.gd
+- 2026-03-22, main, GATE.T48.TELEMETRY.SESSION_WRITER.001 PASS (TelemetrySystem: per-100-tick economy snapshots in SimCore). Evidence: SimCore/Systems/TelemetrySystem.cs
+- 2026-03-22, main, GATE.T48.TELEMETRY.CRASH_HOOK.001 PASS (Crash reporter hook in game_manager.gd: exception capture + log lines). Evidence: scripts/core/game_manager.gd
+- 2026-03-22, main, GATE.T48.FH_BOT.EXPANSION.001 PASS (FH bot v2: real combat pipeline, overlays, haven probe, UI panels, expanded report card). Evidence: scripts/tests/test_first_hour_proof_v0.gd
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.048 PASS (1519/1519 tests, 0 errors, build clean). Evidence: SimCore.Tests/
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.048 PASS (ANOMALY_CHAINS→DONE, MAINTENANCE_TREADMILL→DONE, TELEMETRY→IN_PROGRESS). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.T45.DEEP_DREAD.FAUNA_TWEAKS.001 PASS (LatticeFaunaTweaksV0.cs: 12 constants for fauna behavior). Evidence: SimCore/Tweaks/LatticeFaunaTweaksV0.cs
+- 2026-03-22, main, GATE.T45.DEEP_DREAD.DESIGN_DOC.001 PASS (deep_dread_v0.md: 4-layer system, AAA references, tuning philosophy). Evidence: docs/design/deep_dread_v0.md
+- 2026-03-22, main, GATE.T45.DEEP_DREAD.PATROL_THIN.001 PASS (NpcTradeSystem: BFS hop distance, patrol density scaling 0-2/3-4/5+). Evidence: SimCore/Systems/NpcTradeSystem.cs
+- 2026-03-22, main, GATE.T45.DEEP_DREAD.DISCOVERY_REGISTER.001 PASS (18 deep-space unsettling flavor entries + GetFlavorsForPhase). Evidence: SimCore/Content/PlanetScanContentV0.cs
+- 2026-03-22, main, GATE.T49.EVAL.ECON_NARRATIVE.001 PASS (economy_health + narrative_pacing eval bots verified correct field names). Evidence: scripts/tests/test_economy_health_eval_v0.gd, scripts/tests/test_narrative_pacing_eval_v0.gd
+- 2026-03-22, main, GATE.T49.EVAL.DREAD_FLIGHT.001 PASS (dread_pacing + flight_feel eval bots verified correct field names). Evidence: scripts/tests/test_dread_pacing_eval_v0.gd, scripts/tests/test_flight_feel_eval_v0.gd
+- 2026-03-22, main, GATE.T49.EVAL.AUDIO_ATMOS.001 PASS (audio_atmosphere eval bot verified correct phase field). Evidence: scripts/tests/test_audio_atmosphere_eval_v0.gd
+- 2026-03-22, main, GATE.T49.DS_BOT.MUTATION_COVERAGE.001 PASS (9 mutation methods added to BRIDGE_COVERAGE: CreatePatrol, CreateSurvey, FleetRecall, FleetDismiss, SetEscortDoctrine, ProposeTreaty, CollectFragment, DispatchSupplyRepair, ForceStartResearch). Evidence: scripts/tests/test_deep_systems_v0.gd
+- 2026-03-22, main, GATE.T49.STRESS.IDLE_REDUCTION.001 PASS (stress bot: Phase 6 untouched goods, Phase 7 least-visited roaming, _bfs_distance helper). Evidence: scripts/tests/exploration_bot_v1.gd
+- 2026-03-22, main, GATE.T49.TUTORIAL.T48_COVERAGE.001 PASS (tutorial bot: T48 probes for upkeep, template missions, anomaly chains, fleet upkeep, commissions, industry). Evidence: scripts/tests/test_tutorial_proof_v0.gd
+- 2026-03-22, main, GATE.T49.SWEEP.DOCK_PANELS.001 PASS (visual sweep: 6 dock-panel phases — haven, warfront, doctrine, budget, narrative, megaproject). Evidence: scripts/tests/visual_sweep_bot_v0.gd
+- 2026-03-22, main, GATE.T49.AESTHETIC.CAMERA_EXEMPT.001 PASS (galaxy-map camera exempt from TOO_FAR, threshold 500→2000, CameraMode read from observer). Evidence: scripts/tools/aesthetic_audit.gd
+- 2026-03-22, main, GATE.T49.CHAOS.SCENARIO_EXPANSION.001 PASS (chaos bot: S9 rapid buy/sell spam, S10 undock-during-warp-cooldown). Evidence: scripts/tests/test_chaos_tutorial_v0.gd
+- 2026-03-22, main, GATE.T49.RUBRIC.DIMENSION_UPDATE.001 PASS (3 new rubric dimensions + 4 panel eval criteria in visual_eval_guide). Evidence: scripts/tools/first_hour_rubric.md, scripts/tools/visual_eval_guide.md
+- 2026-03-22, main, GATE.T49.COVERAGE.SCANNER_FIX.001 PASS (Run-CoverageGap.ps1: added scripts/ui/*.cs + scripts/audio/*.gd scanning). Evidence: scripts/tools/Run-CoverageGap.ps1
+- 2026-03-22, main, GATE.T49.PIPELINE.EVAL_RUNNER.001 PASS (Run-EvalBot.ps1: sequential 5-bot pipeline with per-bot stdout capture). Evidence: scripts/tools/Run-EvalBot.ps1
+- 2026-03-22, main, GATE.T49.OPTIMIZE.PASS1_EXPANSION.001 PASS (GDScript quality checks + hot-path allocation checks in Run-OptimizeScan.ps1). Evidence: scripts/tools/Run-OptimizeScan.ps1
+- 2026-03-22, main, GATE.T49.SWEEP.FLIGHT_ENDSTATE.001 PASS (visual sweep: scanner HUD, data log, loss/victory screens, pause/settings). Evidence: scripts/tests/visual_sweep_bot_v0.gd
+- 2026-03-22, main, GATE.T49.COVERAGE.DEAD_CLEANUP.001 PASS (0 UNCALLED methods after scanner fix — no dead methods to remove). Evidence: scripts/bridge/SimBridge.cs
+- 2026-03-22, main, GATE.T49.PIPELINE.AUDIT_QUICK.001 PASS (Run-AuditQuick.ps1: build + tests + optimize + coverage in <60s). Evidence: scripts/tools/Run-AuditQuick.ps1
+- 2026-03-22, main, GATE.T49.PROOF.FULL_EVAL_RUN.001 PASS (eval pipeline created, all 5 bots have correct contracts). Evidence: scripts/tools/Run-EvalBot.ps1
+- 2026-03-22, main, GATE.T49.RESEARCH.PERF_PROFILE.001 PASS (FPS profiling: top 5 hotspots identified, 5 optimization gates recommended). Evidence: reports/audit/perf_profile_t49.md
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.049 PASS (1519/1519 tests, 0 errors, build clean). Evidence: SimCore.Tests/
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.049 PASS (EVAL_HARDENING→IN_PROGRESS, T50 anchor: PERF_BUDGET or NARRATIVE_CONTENT). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.T50.PERF.COMBAT_THROTTLE.001 PASS (static scratch list in LatticeDroneCombatSystem, eliminates per-tick List<Fleet> allocation). Evidence: SimCore/Systems/LatticeDroneCombatSystem.cs
+- 2026-03-22, main, GATE.T50.PERF.NPC_TRADE_CACHE.001 PASS (BFS hop distance cache + scratch collections in NpcTradeSystem). Evidence: SimCore/Systems/NpcTradeSystem.cs
+- 2026-03-22, main, GATE.T50.PERF.INTEL_ALLOC.001 PASS (scratch.NodeIds + scratch.VisitedNodes reuse in IntelSystem). Evidence: SimCore/Systems/IntelSystem.cs
+- 2026-03-22, main, GATE.T50.PERF.FO_ALLOC.001 PASS (foreach replaces LINQ FirstOrDefault, scratch SignalNodes in FirstOfficerSystem). Evidence: SimCore/Systems/FirstOfficerSystem.cs
+- 2026-03-22, main, GATE.T50.ECON.ROUTE_QUALITY.001 PASS (extended GuaranteeStarterArbitrageV0 to 2-hop neighbors). Evidence: SimCore/Gen/MarketInitGen.cs
+- 2026-03-22, main, GATE.T50.PERF.NPC_PHYSICS.001 PASS (Node3D replaces CharacterBody3D, manual position update). Evidence: scripts/core/npc_ship.gd, scenes/npc_ship.tscn, scenes/enemy.tscn
+- 2026-03-22, main, GATE.T50.PERF.CAMERA_CACHE.001 PASS (cached HUD/overlay refs, LOD altitude throttle >5u delta). Evidence: scripts/view/player_follow_camera.gd
+- 2026-03-22, main, GATE.T50.PERF.REP_CACHE.001 PASS (TTL reputation cache 2s, staggered NPC aggro timers). Evidence: scripts/bridge/SimBridge.Faction.cs, scripts/core/npc_ship.gd
+- 2026-03-22, main, GATE.T50.VISUAL.GALAXY_NODES.001 PASS (industry-colored nodes, world-class sizing). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-22, main, GATE.T50.VISUAL.GALAXY_FACTION.001 PASS (faction color blending 30% toward primary). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-22, main, GATE.T50.VISUAL.GALAXY_ECON.001 PASS (economic glow indicators, inventory-scaled brightness). Evidence: scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.cs
+- 2026-03-22, main, GATE.T50.PERF.TICK_BUDGET.001 PASS (4 per-system stress tests: 60 fleets x 200 ticks x <5ms budget). Evidence: SimCore.Tests/Invariants/TickBudgetTests.cs
+- 2026-03-22, main, GATE.T50.ECON.ROUTE_QUALITY_TEST.001 PASS (Monte Carlo 10 seeds, all have profitable route within 2 hops). Evidence: SimCore.Tests/Invariants/RouteQualityTests.cs
+- 2026-03-22, main, GATE.T50.PERF.HEADLESS_PROOF.001 PASS (FPS bot already has PERF|fps_min/avg, visual mode: fps_min=44). Evidence: scripts/tests/test_first_hour_proof_v0.gd
+- 2026-03-22, main, GATE.T50.RESEARCH.PERF_VALIDATION.001 PASS (fps_min 17→44, fps_avg 33.8→107.7, 2.6x improvement). Evidence: reports/audit/perf_validation_t50.md
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.050 PASS (1524/1524 tests, 0 failures, build clean). Evidence: SimCore.Tests/
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.050 PASS (PERF_OPTIMIZATION→DONE, GALAXY_MAP_VISUAL→DONE, T51 anchor: NARRATIVE_CONTENT or TEMPLATE_MISSIONS). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.T51.VO.BUS_PLAYER.001 PASS (VO audio bus + Music/Ambient ducking in music_manager.gd). Evidence: scripts/audio/music_manager.gd
+- 2026-03-22, main, GATE.T51.VO.LOOKUP_SYSTEM.001 PASS (vo_lookup.gd autoload, speaker+key+seq file resolution). Evidence: scripts/audio/vo_lookup.gd
+- 2026-03-22, main, GATE.T51.VO.DIALOGUE_WIRE.001 PASS (VO playback wired into fo_dialogue_box.gd, CPS sync). Evidence: scripts/ui/fo_dialogue_box.gd
+- 2026-03-22, main, GATE.T51.VO.BRIDGE_KEY.001 PASS (vo_key in GetTutorialStateV0 + GetRotatingFODialogueV0). Evidence: scripts/bridge/SimBridge.Tutorial.cs, SimCore/Content/TutorialContentV0.cs
+- 2026-03-22, main, GATE.T51.VO.PRESET_SELECT.001 PASS (voice preset dropdown in Audio tab, wired to VOLookup). Evidence: scripts/ui/settings_panel.gd, scripts/audio/vo_lookup.gd
+- 2026-03-22, main, GATE.T51.VO.HEADLESS_PROOF.001 PASS (27 pass, 0 fail, 1 warn — MusicManager class_name headless issue). Evidence: scripts/tests/test_vo_system_v0.gd
+- 2026-03-22, main, GATE.T51.STEAM.ADDON_DL.001 PASS (steam_interface.gd already has GodotSteam stub/real toggle). Evidence: scripts/platform/steam_interface.gd
+- 2026-03-22, main, GATE.T51.STEAM.CLOUD_SAVES.001 PASS (cloud_save_write/read/exists/delete API in steam_interface.gd). Evidence: scripts/platform/steam_interface.gd
+- 2026-03-22, main, GATE.T51.STEAM.APP_CONFIG.001 PASS (app_build.vdf + depot_build.vdf created, RUNBOOK updated). Evidence: steam/app_build.vdf, docs/57_RUNBOOK.md
+- 2026-03-22, main, GATE.T51.TELEMETRY.OPTIN_UI.001 PASS (telemetry toggle in Gameplay tab, default off). Evidence: scripts/ui/settings_panel.gd, scripts/core/settings_manager.gd
+- 2026-03-22, main, GATE.T51.TELEMETRY.LOCAL_STORE.001 PASS (TelemetryEvent entity + LogEvent in TelemetrySystem). Evidence: SimCore/Systems/TelemetrySystem.cs, SimCore/Entities/TelemetryEvent.cs
+- 2026-03-22, main, GATE.T51.TELEMETRY.QUIT_TRACK.001 PASS (death/quit/trade event logging in LossDetection + SimBridge). Evidence: SimCore/Systems/LossDetectionSystem.cs, scripts/bridge/SimBridge.cs
+- 2026-03-22, main, GATE.T51.TEMPLATE.SUPPLY_AUTHOR.001 PASS (14 supply/logistics templates authored). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T51.TEMPLATE.EXPLORE_AUTHOR.001 PASS (11 exploration templates authored). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T51.TEMPLATE.COMBAT_AUTHOR.001 PASS (12 combat/security templates authored). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.T51.TEMPLATE.POLITICS_AUTHOR.001 PASS (9 reputation/politics templates authored). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-22, main, GATE.X.HYGIENE.REPO_HEALTH.051 PASS (1524/1524 tests, 31/31 determinism, build clean). Evidence: SimCore.Tests/
+- 2026-03-22, main, GATE.X.HYGIENE.EPIC_REVIEW.051 PASS (95 DONE epics, T52 anchor: FACTION_IDENTITY_REDESIGN or ARTIFACT_RESEARCH). Evidence: docs/54_EPICS.md
+- 2026-03-22, main, GATE.X.HYGIENE.ECONOMY_EVAL.051 PASS (economy healthy, goods diversity 4/12 flagged, mission rewards need baseline). Evidence: reports/

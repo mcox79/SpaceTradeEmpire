@@ -14,6 +14,9 @@ namespace SimCore.Systems;
 /// </summary>
 public static class LatticeDroneCombatSystem
 {
+    // Scratch list to avoid per-tick allocation.
+    private static readonly List<Fleet> _scratchDrones = new();
+
     public static void Process(SimState state)
     {
         if (state.Fleets is null) return; // STRUCTURAL: guard
@@ -30,15 +33,16 @@ public static class LatticeDroneCombatSystem
         }
         if (playerFleet is null || playerFleet.HullHp <= 0) return; // STRUCTURAL: guard
 
-        // Find drones at player's node.
-        var dronesAtNode = new List<Fleet>();
+        // Find drones at player's node — reuse scratch list.
+        _scratchDrones.Clear();
         foreach (var f in state.Fleets.Values)
         {
             if (!f.IsLatticeDrone) continue;
             if (f.HullHp <= 0) continue; // STRUCTURAL: skip destroyed
             if (!string.Equals(f.CurrentNodeId, playerFleet.CurrentNodeId, StringComparison.Ordinal)) continue;
-            dronesAtNode.Add(f);
+            _scratchDrones.Add(f);
         }
+        var dronesAtNode = _scratchDrones;
 
         foreach (var drone in dronesAtNode)
         {

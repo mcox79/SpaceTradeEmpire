@@ -1498,6 +1498,53 @@ func _do_reinit_test() -> void:
 func _do_final_audit() -> void:
 	_a.log("FINAL_AUDIT|Phase history, dialogue integrity, narrative coherence, timing")
 
+	# ── T48 Feature Probes ──
+	# Upkeep: GetTotalUpkeepV0 should return non-negative after fleet exists
+	if _bridge.has_method("GetTotalUpkeepV0"):
+		var upkeep = _bridge.call("GetTotalUpkeepV0")
+		_a.warn(upkeep != null, "t48_upkeep_query", "GetTotalUpkeepV0 returned null")
+		if upkeep is Dictionary:
+			var total: int = int(upkeep.get("total", -1))
+			_a.warn(total >= 0, "t48_upkeep_non_negative", "total=%d" % total)
+			_a.log("T48_PROBE|upkeep_total=%d" % total)
+		elif upkeep is int or upkeep is float:
+			_a.warn(int(upkeep) >= 0, "t48_upkeep_non_negative", "val=%s" % str(upkeep))
+			_a.log("T48_PROBE|upkeep_total=%s" % str(upkeep))
+
+	# Template missions: GetAvailableTemplateMissionsV0 should return array
+	if _bridge.has_method("GetAvailableTemplateMissionsV0"):
+		var missions = _bridge.call("GetAvailableTemplateMissionsV0")
+		_a.warn(missions is Array, "t48_template_missions_array", "type=%s" % str(typeof(missions)))
+		if missions is Array:
+			_a.log("T48_PROBE|template_missions_count=%d" % missions.size())
+			_a.warn(true, "t48_template_missions_query", "count=%d" % missions.size())
+
+	# Anomaly chains: GetActiveAnomalyChainsV0 should return array
+	if _bridge.has_method("GetActiveAnomalyChainsV0"):
+		var chains = _bridge.call("GetActiveAnomalyChainsV0")
+		_a.warn(chains is Array, "t48_anomaly_chains_array", "type=%s" % str(typeof(chains)))
+		if chains is Array:
+			_a.log("T48_PROBE|anomaly_chains_count=%d" % chains.size())
+			_a.warn(true, "t48_anomaly_chains_query", "count=%d" % chains.size())
+
+	# Fleet upkeep detail: GetFleetUpkeepV0 per fleet
+	if _bridge.has_method("GetFleetUpkeepV0"):
+		var fleet_upkeep = _bridge.call("GetFleetUpkeepV0", "fleet_trader_1")
+		_a.warn(fleet_upkeep != null, "t48_fleet_upkeep_query", "result=%s" % str(fleet_upkeep))
+		_a.log("T48_PROBE|fleet_upkeep=%s" % str(fleet_upkeep))
+
+	# Active commissions: GetActiveCommissionV0
+	if _bridge.has_method("GetActiveCommissionV0"):
+		var commission = _bridge.call("GetActiveCommissionV0")
+		_a.warn(commission != null, "t48_commission_query", "result=%s" % str(commission))
+		_a.log("T48_PROBE|commission=%s" % str(commission))
+
+	# Industry events: GetAllIndustryV0
+	if _bridge.has_method("GetAllIndustryV0"):
+		var industry = _bridge.call("GetAllIndustryV0")
+		_a.warn(industry != null, "t48_industry_query", "type=%s" % str(typeof(industry)))
+		_a.log("T48_PROBE|industry_type=%s" % str(typeof(industry)))
+
 	# ── Phase History Audit ──
 	_a.log("PHASE_HISTORY|count=%d" % _phase_history.size())
 	# 7-act flow: ~30 active phases. Trade loop phases repeat 3x.

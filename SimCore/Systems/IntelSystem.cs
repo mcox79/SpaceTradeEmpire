@@ -201,14 +201,18 @@ public static class IntelSystem
 
     private static int EstimateGoodCount(SimState state)
     {
-        // Count distinct good ids across all markets for capacity sizing.
-        var goods = new HashSet<string>(StringComparer.Ordinal);
+        // Count distinct good ids across all markets for capacity sizing — reuse scratch.
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var visited = scratch.VisitedNodes; // reuse VisitedNodes set for counting
+        visited.Clear();
         foreach (var market in state.Markets.Values)
         {
             foreach (var gid in market.Inventory.Keys)
-                goods.Add(gid);
+                visited.Add(gid);
         }
-        return goods.Count;
+        int count = visited.Count;
+        visited.Clear();
+        return count;
     }
 
     // GATE.S10.TRADE_INTEL.SCANNER.001: Compute scanner range from tech state.
@@ -1295,8 +1299,10 @@ public static class IntelSystem
         state.Intel.NodeObservationTicks.TryGetValue(playerNode, out var current);
         state.Intel.NodeObservationTicks[playerNode] = current + 1;
 
-        // Reset all other nodes' observation ticks (player left).
-        var keysToRemove = new List<string>();
+        // Reset all other nodes' observation ticks (player left) — reuse scratch list.
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var keysToRemove = scratch.NodeIds;
+        keysToRemove.Clear();
         foreach (var kv in state.Intel.NodeObservationTicks)
         {
             if (!string.Equals(kv.Key, playerNode, StringComparison.Ordinal))

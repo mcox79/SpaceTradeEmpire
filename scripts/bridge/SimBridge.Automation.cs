@@ -133,13 +133,14 @@ public partial class SimBridge
         return result;
     }
 
-    // ── SetDoctrineV0 ──
+    // ── SetFleetDoctrineV0 ──
     // GATE.S7.AUTOMATION_MGMT.BRIDGE_WRITES.001: Write fleet doctrine settings.
+    // Renamed from SetDoctrineV0 to avoid overload conflict with SimBridge.Combat.SetEscortDoctrineV0.
     /// <summary>
     /// Sets fleet engagement doctrine: stance (Aggressive/Defensive/Evasive),
     /// retreat threshold (0-100 hull %), and patrol radius.
     /// </summary>
-    public bool SetDoctrineV0(string fleetId, string stance, int retreatThreshold, int patrolRadius)
+    public bool SetFleetDoctrineV0(string fleetId, string stance, int retreatThreshold, int patrolRadius)
     {
         if (IsLoading) return false;
         if (string.IsNullOrEmpty(fleetId)) return false;

@@ -4,7 +4,7 @@ extends Node3D
 ## Scales cone length, emission intensity, and light energy with thrust.
 ##
 ## For player ship: reads Input actions + RigidBody3D velocity.
-## For NPC ships: reads CharacterBody3D velocity (no input).
+## For NPC ships: reads Node3D _velocity property (no input).
 
 # Glow intensity range.
 const IDLE_EMISSION: float = 0.5       # Faint glow when engines off.
@@ -18,7 +18,7 @@ const SMOOTHING: float = 8.0           # How fast glow responds (lerp rate).
 var _cone: MeshInstance3D
 var _light: OmniLight3D
 var _mat: StandardMaterial3D
-var _ship_body: Node  # RigidBody3D or CharacterBody3D (found at ready).
+var _ship_body: Node  # RigidBody3D (player) or Node3D with _velocity (NPC).
 var _current_intensity: float = 0.0
 
 func _ready() -> void:
@@ -26,10 +26,13 @@ func _ready() -> void:
 	_light = get_node_or_null("EngineLight")
 	if _cone:
 		_mat = _cone.material_override as StandardMaterial3D
-	# Walk up the tree to find ship body.
+	# Walk up the tree to find ship body (RigidBody3D for player, Node3D with _velocity for NPC).
 	var node := get_parent()
 	while node != null:
-		if node is RigidBody3D or node is CharacterBody3D:
+		if node is RigidBody3D:
+			_ship_body = node
+			break
+		if node.get("_velocity") != null:
 			_ship_body = node
 			break
 		node = node.get_parent()
@@ -66,9 +69,11 @@ func _compute_thrust_factor() -> float:
 			Input.is_action_pressed("ship_thrust_fwd") or
 			Input.is_action_pressed("ship_thrust_back")
 		)
-	elif _ship_body is CharacterBody3D:
-		# NPC ship: velocity only (no input).
-		speed = (_ship_body as CharacterBody3D).velocity.length()
+	else:
+		# NPC ship (Node3D with _velocity): velocity only (no input).
+		var vel = _ship_body.get("_velocity")
+		if vel is Vector3:
+			speed = vel.length()
 		thrusting = speed > 1.0  # NPCs are "thrusting" when moving.
 
 	# Combine: thrusting = strong glow, coasting = medium, stopped = idle.

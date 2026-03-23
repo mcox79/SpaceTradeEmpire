@@ -33,6 +33,13 @@ var _defaults: Dictionary = {
 	"accessibility_reduced_shake": false,
 	# GATE.S9.ACCESSIBILITY.FIRST_LAUNCH.001: tracks whether first-launch prompt was shown
 	"first_launch_shown": false,
+	# GATE.T46.SAVE.AUTOSAVE_UI.001: auto-save settings
+	"gameplay_autosave_enabled": true,
+	"gameplay_autosave_interval": 180,  # seconds (1=60, 2=180, 3=300, 4=600)
+	# GATE.T51.TELEMETRY.OPTIN_UI.001: telemetry opt-in (default off until player consents)
+	"telemetry_enabled": false,
+	# GATE.T51.VO.PRESET_SELECT.001: ship computer voice preset
+	"vo_computer_preset": 0,  # 0=Female, 1=Male, 2=Neutral
 }
 
 

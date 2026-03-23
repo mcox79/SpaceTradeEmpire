@@ -50,4 +50,12 @@ public static class NarrativeTweaksV0
 
     // GATE.S19.ONBOARD.FO_TRIGGERS.003: Nodes visited threshold for ARRIVAL_NEW_SYSTEM trigger.
     public const int ArrivalNewSystemNodes = 2;
+
+    // Knowledge web seed: number of discoveries auto-advanced to Analyzed near player start.
+    public const int KnowledgeWebSeedCount = 8;
+
+    // COSTS_MOUNTING trigger: minimum credits earned before FO comments on operating costs.
+    public const int CostsMountingCreditsEarned = 50;
+    // COSTS_MOUNTING trigger: minimum nodes visited before FO comments on operating costs.
+    public const int CostsMountingNodesVisited = 3;
 }

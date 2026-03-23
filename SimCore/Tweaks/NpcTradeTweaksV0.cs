@@ -11,7 +11,12 @@ public static class NpcTradeTweaksV0
     // Minimum price difference (sell price at dest - buy price at source) to justify a trade.
     // Lowered from 5 to 3: ensures NPC traders move even when adjacent same-type nodes
     // have moderate stock differences (fuel/metal variance within mining/refinery clusters).
+    // With per-good base prices, this is a floor — actual threshold scales to 3% of base price.
     public const int ProfitThresholdCredits = 3;
+
+    // Percentage of good's base price used as NPC profit threshold (basis points).
+    // Example: 300 bps (3%) of Exotic Matter (1500 cr) = 45 cr minimum margin.
+    public const int ProfitThresholdBps = 300;
 
     // Max goods an NPC trader can carry per trip.
     public const int MaxTradeUnitsPerTrip = 10;
@@ -48,4 +53,15 @@ public static class NpcTradeTweaksV0
 
     // Default weight for goods not in the table.
     public const int DefaultGoodWeight = 100;
+
+    // Warfront risk: NPCs discount trade scores at war-zone destinations.
+    // -20% score per warfront intensity level at destination.
+    public const int WarfrontRiskBpsPerIntensity = 2000;
+    // -0.5% score per instability level at destination.
+    public const int InstabilityRiskBpsPerLevel = 50;
+    // Floor: score never drops below 30% (prevents total trade cessation).
+    public const int MinRiskMultBps = 3000;
+
+    // Trade cooldown: prevents NPC ping-pong trading same good at same node.
+    public const int TradeCooldownTicks = 45;
 }

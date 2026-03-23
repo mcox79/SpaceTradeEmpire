@@ -69,12 +69,18 @@ var _flyby_arrival_handled: bool = false  # True if flyby cinematic already hand
 var _galaxy_view = null
 # Throttle _sync_transit_lod: only call GalaxyView when altitude changes meaningfully.
 var _last_transit_lod_alt: float = -1.0
+# Throttle _sync_altitude LOD: only call UpdateAltitudeLodV0 when altitude changes by >5u.
+var _last_lod_altitude: float = -999.0
 
 # GameManager reference for state polling.
 var _game_manager = null
 
 # SimBridge reference for combat status polling.
 var _bridge = null
+
+# Cached node references — resolved once in _ready, avoids per-frame find_child().
+var _hud_node = null
+var _overlay_hud_node = null
 
 # Combat auto-zoom state.
 var _combat_zoom_active: bool = false
@@ -158,6 +164,9 @@ func _ready() -> void:
 	# Find GameManager for state polling.
 	_game_manager = _find_game_manager()
 	_bridge = get_node_or_null("/root/SimBridge")
+
+	# Cache node references that were previously looked up via find_child() per frame.
+	_cache_hud_refs()
 
 func _physics_process(delta: float) -> void:
 	if _target == null:
@@ -349,14 +358,18 @@ func _compute_zoom_step() -> float:
 		return _altitude * 0.08
 
 ## After altitude changes, sync GalaxyView LOD.
+## Throttled: only calls UpdateAltitudeLodV0 when altitude changes by >5u to avoid
+## expensive per-frame LOD recalculations during smooth zoom tweens.
 func _sync_altitude() -> void:
 	if _altitude < PAN_THRESHOLD:
 		flight_follow_distance = _altitude
 
-	# Push LOD state to GalaxyView (3D root visibility).
-	_ensure_galaxy_view()
-	if _galaxy_view and _galaxy_view.has_method("UpdateAltitudeLodV0"):
-		_galaxy_view.call("UpdateAltitudeLodV0", _altitude)
+	# Push LOD state to GalaxyView (3D root visibility) — throttled by delta.
+	if absf(_altitude - _last_lod_altitude) > 5.0:
+		_last_lod_altitude = _altitude
+		_ensure_galaxy_view()
+		if _galaxy_view and _galaxy_view.has_method("UpdateAltitudeLodV0"):
+			_galaxy_view.call("UpdateAltitudeLodV0", _altitude)
 
 ## During warp transit, push transit altitude to LOD without modifying _altitude.
 ## Also sync overlay state (HUD, hero visibility, galaxy_overlay_open flag).
@@ -401,11 +414,11 @@ func _sync_transit_lod() -> void:
 		var hero = _game_manager.get("_hero_body")
 		if hero and is_instance_valid(hero) and hero.visible:
 			hero.visible = false
-		var tree = get_tree()
-		if tree:
-			var hud = tree.root.find_child("HUD", true, false)
-			if hud and hud.has_method("set_overlay_mode_v0"):
-				hud.call("set_overlay_mode_v0", true, true)  # is_transit=true — suppress "GALAXY MAP" label
+		# Use cached HUD ref instead of per-frame find_child().
+		if _hud_node == null or not is_instance_valid(_hud_node):
+			_cache_hud_refs()
+		if _hud_node and is_instance_valid(_hud_node) and _hud_node.has_method("set_overlay_mode_v0"):
+			_hud_node.call("set_overlay_mode_v0", true, true)  # is_transit=true — suppress "GALAXY MAP" label
 		# Sync overlay flag to match altitude gate (controls label rendering).
 		var should_overlay: bool = transit_alt >= 350.0
 		var current = _game_manager.get("galaxy_overlay_open")
@@ -449,15 +462,15 @@ func _sync_overlay_state() -> void:
 		var hero = _game_manager.get("_hero_body")
 		if hero and is_instance_valid(hero):
 			hero.visible = not should_overlay
-		# Update HUD.
-		var tree = get_tree()
-		if tree:
-			var hud = tree.root.find_child("HUD", true, false)
-			if hud and hud.has_method("set_overlay_mode_v0"):
-				hud.call("set_overlay_mode_v0", should_overlay)
-			var overlay_hud = tree.root.find_child("GalaxyOverlayHud", true, false)
-			if overlay_hud and overlay_hud.has_method("set_overlay_visible"):
-				overlay_hud.call("set_overlay_visible", should_overlay)
+		# Update HUD — use cached refs instead of per-frame find_child().
+		if _hud_node == null or not is_instance_valid(_hud_node):
+			_cache_hud_refs()
+		if _hud_node and is_instance_valid(_hud_node) and _hud_node.has_method("set_overlay_mode_v0"):
+			_hud_node.call("set_overlay_mode_v0", should_overlay)
+		if _overlay_hud_node == null or not is_instance_valid(_overlay_hud_node):
+			_cache_hud_refs()
+		if _overlay_hud_node and is_instance_valid(_overlay_hud_node) and _overlay_hud_node.has_method("set_overlay_visible"):
+			_overlay_hud_node.call("set_overlay_visible", should_overlay)
 
 ## TAB key: tween to strategic altitude or back to previous flight altitude.
 func toggle_strategic_altitude_v0() -> void:
@@ -494,6 +507,9 @@ func toggle_strategic_altitude_v0() -> void:
 ## in _poll_and_switch_mode skips the altitude reset.
 func notify_flyby_arrival_v0(target_altitude: float) -> void:
 	_flyby_arrival_handled = true
+	# Don't override altitude if galaxy map is open (player or bot toggled it mid-transit).
+	if _current_mode == CameraMode.GALAXY_MAP or _altitude >= PAN_THRESHOLD:
+		return
 	_altitude = target_altitude
 	flight_follow_distance = _altitude
 	_galaxy_map_pan_offset = Vector3.ZERO
@@ -532,9 +548,9 @@ func _update_mode_targets(delta: float) -> void:
 			_spring_target_look = _target.global_position
 			_spring_target_up = Vector3.BACK
 			_spring_omega = SPRING_OMEGA_FLIGHT
-			# FEEL_POST_FIX_4: Reset far clip from galaxy map extension.
+			# FEEL_POST_FIX_4: Far clip scales with altitude to avoid clipping galaxy beacons.
 			if _cam:
-				_cam.far = 10000.0
+				_cam.far = 40000.0 if _altitude >= PAN_THRESHOLD else 10000.0
 
 		CameraMode.DOCKED:
 			_spring_target_pos = _target.global_position + dock_offset
@@ -772,6 +788,18 @@ func _find_game_manager():
 	# Last resort: search the tree.
 	var gm_found = tree.root.find_child("GameManager", true, false)
 	return gm_found
+
+## Cache HUD and GalaxyOverlayHud references. Safe to call multiple times — only
+## does the find_child() lookup when the cached ref is null or freed.
+func _cache_hud_refs() -> void:
+	if _hud_node == null or not is_instance_valid(_hud_node):
+		var tree = get_tree()
+		if tree:
+			_hud_node = tree.root.find_child("HUD", true, false)
+	if _overlay_hud_node == null or not is_instance_valid(_overlay_hud_node):
+		var tree = get_tree()
+		if tree:
+			_overlay_hud_node = tree.root.find_child("GalaxyOverlayHud", true, false)
 
 
 # ── Combat auto-zoom ──

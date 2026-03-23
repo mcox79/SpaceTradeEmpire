@@ -98,9 +98,24 @@ deferred to future tranches.
 | ~~F4~~ | ~~MEDIUM~~ | ~~Warp arrival lacks drama~~ — FIXED by GATE.X.WARP.ARRIVAL_DRAMA.001 (letterbox bars + system title card tween on lane arrival) | — | 2026-03-13 |
 | ~~F5~~ | ~~MEDIUM~~ | ~~No persistent objective/quest log UI~~ — FIXED by GATE.X.UI_POLISH.QUEST_TRACKER.001 (HUD quest tracker widget with mission name, step text, progress bar) | — | 2026-03-13 |
 | ~~F6~~ | ~~HIGH~~ | ~~All stations look identical~~ — FIXED by GATE.X.STATION_IDENTITY.VISUAL.001 (per-faction color tint + tier-based size scaling) | — | 2026-03-12 |
-| F10 | MEDIUM | Galaxy map nearly empty — one green dot, thin blue lines, plain black background. No node variety, no faction colors, no size/color differentiation, no strategic info | Large — needs node visual diversity, faction overlay, economic hints | Eval iter3 2026-03-11 |
+| ~~F10~~ | ~~MEDIUM~~ | ~~Galaxy map nearly empty~~ — FIXED by GATE.T50.VISUAL.GALAXY_NODES/FACTION/ECON.001 (industry coloring, faction tinting, economic glow, size differentiation) | — | 2026-03-22 |
 | ~~F11~~ | ~~MEDIUM~~ | ~~Empire Dashboard "Needs Attention" reads as errors~~ — FIXED by GATE.X.UI_POLISH.DASHBOARD_UX.001 (renamed to 'Opportunities', info-blue) | — | 2026-03-12 |
 | ~~F12~~ | ~~MEDIUM~~ | ~~Market production text unformatted~~ — FIXED by GATE.X.UI_POLISH.MARKET_FORMAT.001 (arrow separators, color-coded surplus/deficit) | — | 2026-03-12 |
+
+## Performance
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| P1 | HIGH | FPS drops to 17fps (avg 33.8) during combat/arrival — below 30fps floor. Likely NPC spawn + particle burst at system arrival | FIXED | GATE.T50.PERF.* (9 optimization gates) | audit_8, FH bot visual. Fixed 2026-03-22: fps_min 17→44 (2.6x), scratch allocations, BFS cache, Node3D NPCs, camera cache |
+| P2 | MEDIUM | Camera distance 5551u flagged TOO_FAR by aesthetic check — likely galaxy map view, may need aesthetic check to exempt galaxy-map camera mode | FIXED | GATE.T49.AESTHETIC.CAMERA_EXEMPT.001 | audit_8, FH bot aesthetic. Fixed 2026-03-22 |
+
+## Economy / Pacing
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| E1 | HIGH | Credit flow monotonically increasing — no tension dips in first hour. Player never loses credits between trades. Needs cost events (repair, fuel, tolls) | FIXED | GATE.T48.TENSION.MAINTENANCE.001 | audit_2-8, FH bot pacing. Fixed 2026-03-22: FleetUpkeepSystem fuel burn + crew wages + hull degradation |
+| E2 | HIGH | Profit goal score varies 2-5 across seeds (avg 3.6). Some galaxy topologies produce poor first profitable route distance | FIXED | GATE.T50.ECON.ROUTE_QUALITY.001 | audit_8, multi-seed sweep. Fixed 2026-03-22: 2-hop starter arbitrage guarantee, 10-seed test |
+| E3 | MEDIUM | Stress bot only trades 3/12 goods (rare_metals, exotic_crystals, components). Bot profit-optimizes to highest-margin goods, limiting economy stress coverage | FIXED | GATE.T49.STRESS.IDLE_REDUCTION.001 | audit_2-8, stress bot. Fixed 2026-03-22: idle-reduction + untouched-good routing |
 
 ## Resolved (Archive)
 

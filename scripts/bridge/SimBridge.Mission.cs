@@ -269,6 +269,72 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.T48.TEMPLATE.CONTEXT_SURFACE.001: Contextual template opportunities at a station.
+
+    /// <summary>
+    /// Returns up to 2 contextual template mission opportunities at the given node.
+    /// Each entry: {template_id, display_name, archetype, situation_description}.
+    /// Nonblocking: returns empty array if read lock unavailable.
+    /// </summary>
+    public Godot.Collections.Array GetContextualTemplatesV0(string nodeId)
+    {
+        var arr = new Godot.Collections.Array();
+        if (string.IsNullOrEmpty(nodeId)) return arr;
+        if (IsLoading) return arr;
+
+        TryExecuteSafeRead(state =>
+        {
+            var templates = StationContextSystem.GetContextualTemplates(state, nodeId);
+            foreach (var (templateId, displayName, archetype, situationDesc) in templates)
+            {
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["template_id"] = templateId,
+                    ["display_name"] = displayName,
+                    ["archetype"] = archetype.ToString(),
+                    ["situation_description"] = situationDesc,
+                });
+            }
+        });
+
+        return arr;
+    }
+
+    /// <summary>
+    /// Accept a contextual template mission by template ID.
+    /// Returns {success (bool), mission_id (string)}.
+    /// Write lock required.
+    /// </summary>
+    public Godot.Collections.Dictionary AcceptContextualTemplateV0(string templateId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["success"] = false,
+            ["mission_id"] = "",
+        };
+        if (string.IsNullOrWhiteSpace(templateId)) return result;
+        if (IsLoading) return result;
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            string missionId = MissionTemplateSystem.InstantiateTemplate(_kernel.State, templateId);
+            if (!string.IsNullOrEmpty(missionId))
+            {
+                result["success"] = true;
+                result["mission_id"] = missionId;
+                // Immediately process so step triggers evaluate.
+                MissionSystem.Process(_kernel.State);
+            }
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
     // GATE.X.UI_POLISH.QUEST_TRACKER.001: Lightweight active mission summary for HUD tracker.
     private Godot.Collections.Dictionary _cachedActiveMissionSummaryV0 = new Godot.Collections.Dictionary();
 

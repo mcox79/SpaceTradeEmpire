@@ -287,7 +287,8 @@ public partial class SimBridge
     /// doctrineType "escort": if enabled calls fleet.SetEscortDoctrine(targetFleetId), else ClearEscortDoctrine().
     /// Unknown doctrineType → error dict with ok=false.
     /// </summary>
-    public Godot.Collections.Dictionary SetDoctrineV0(string fleetId, string doctrineType, bool enabled, string targetFleetId = "")
+    // Renamed from SetDoctrineV0 to avoid overload conflict with SimBridge.Automation.SetFleetDoctrineV0.
+    public Godot.Collections.Dictionary SetEscortDoctrineV0(string fleetId, string doctrineType, bool enabled, string targetFleetId = "")
     {
         var result = new Godot.Collections.Dictionary
         {

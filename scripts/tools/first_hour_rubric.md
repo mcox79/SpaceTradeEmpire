@@ -296,6 +296,42 @@ If `min_hull=100`, player never took damage — combat had zero tension.
 
 **Key evidence:** `FH1|GOAL|STATS|`, `FH1|STATS|milestones=`, `FH1|COVERAGE|`.
 
+### Upkeep Tension
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Fleet upkeep visible in HUD after undock, costs scale with fleet size, upkeep creates meaningful spending pressure alongside trade profit |
+| 4 | Upkeep present and non-zero after undocking, HUD shows running cost |
+| 3 | Upkeep exists in data but not visible to player, or negligible amount |
+| 2 | Upkeep method returns zero or empty — no spending pressure |
+| 1 | Upkeep system missing or broken |
+
+**Key evidence:** `FH1|GOAL|UPKEEP|cost=`, `GetFleetUpkeepV0` return value after undocking.
+
+### Template Mission Discovery
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Template missions available (3+) with varied types (delivery, escort, scan), reward preview clear, at least one matches current cargo/route |
+| 4 | Template missions present and queryable, some variety |
+| 3 | Template missions exist but only one type, or none match player context |
+| 2 | Zero template missions available, or method returns empty |
+| 1 | Template mission system missing or broken |
+
+**Key evidence:** `GetAvailableTemplateMissionsV0` return array size, mission type variety.
+
+### Anomaly Chain Progression
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Anomaly chains active (1+), chain progression visible, discovery site variety, chains create meaningful exploration incentive |
+| 4 | Anomaly chain data present and queryable, at least one chain started |
+| 3 | Anomaly chains exist in data but player hasn't encountered any |
+| 2 | Anomaly chain method returns empty — no active chains |
+| 1 | Anomaly system missing or broken |
+
+**Key evidence:** `GetActiveAnomalyChainsV0` return array, chain state progression.
+
 ---
 
 ## Section 3 — Screenshot-to-Goal Map

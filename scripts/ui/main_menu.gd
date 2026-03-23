@@ -64,6 +64,22 @@ var _starfield_bg: ColorRect
 var _has_save: bool = false
 var _save_meta: Dictionary = {}
 
+# GATE.T47.SAVE.SLOT_MANAGEMENT.001: Save slot management state.
+var _save_slot_panel: PanelContainer
+var _save_slot_list_vbox: VBoxContainer
+var _save_slot_no_saves_label: Label
+var _save_slot_visible: bool = false
+
+# GATE.T47.SAVE.RECOVERY_UX.001: Corruption tracking per slot path.
+var _corrupted_slots: Dictionary = {}  # path -> reason string
+
+# Confirmation/rename dialog refs.
+var _confirm_overlay: ColorRect
+var _rename_overlay: ColorRect
+var _rename_edit: LineEdit
+var _pending_delete_path: String = ""
+var _pending_rename_path: String = ""
+
 
 func _ready() -> void:
 	# ---- Starfield background (GATE.S9.MENU_ATMOSPHERE.STARFIELD.001) ----
@@ -147,6 +163,9 @@ func _ready() -> void:
 		_has_save = _save_meta.get("exists", false)
 		if _has_save:
 			_build_save_card(_menu_vbox, _save_meta)
+	# GATE.T47.SAVE.SLOT_MANAGEMENT.001: Also check for save files on disk.
+	if not _has_save:
+		_has_save = _any_save_files_exist()
 	_btn_continue.disabled = not _has_save
 	_btn_milestones.disabled = not _has_save
 
@@ -434,14 +453,532 @@ func _format_credits(amount: int) -> String:
 
 
 # =============================================================================
+# GATE.T47.SAVE.SLOT_MANAGEMENT.001 + GATE.T47.SAVE.RECOVERY_UX.001
+# Save slot list panel — built programmatically, shown over menu.
+# =============================================================================
+
+const SAVE_FILE_PATTERNS: Array[String] = ["quicksave.json", "autosave.json"]
+const SAVE_SLOT_PREFIX := "save_slot_"
+
+func _any_save_files_exist() -> bool:
+	var dir := DirAccess.open("user://")
+	if not dir:
+		return false
+	dir.list_dir_begin()
+	var f := dir.get_next()
+	while f != "":
+		if not dir.current_is_dir() and f.ends_with(".json"):
+			for pattern in SAVE_FILE_PATTERNS:
+				if f == pattern:
+					dir.list_dir_end()
+					return true
+			if f.begins_with(SAVE_SLOT_PREFIX):
+				dir.list_dir_end()
+				return true
+		f = dir.get_next()
+	dir.list_dir_end()
+	return false
+
+
+func _build_save_slot_panel() -> void:
+	if _save_slot_panel:
+		_save_slot_panel.queue_free()
+		_save_slot_panel = null
+
+	_save_slot_panel = PanelContainer.new()
+	_save_slot_panel.custom_minimum_size = Vector2(520, 400)
+	_save_slot_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_save_slot_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_save_slot_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.04, 0.06, 0.12, 0.96)
+	panel_style.border_color = Color(0.2, 0.35, 0.6, 0.8)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(8)
+	panel_style.set_content_margin_all(16)
+	_save_slot_panel.add_theme_stylebox_override("panel", panel_style)
+
+	var outer_vbox := VBoxContainer.new()
+	outer_vbox.add_theme_constant_override("separation", 12)
+	_save_slot_panel.add_child(outer_vbox)
+
+	# Header row with title + close button.
+	var header_hbox := HBoxContainer.new()
+	outer_vbox.add_child(header_hbox)
+	var header_label := Label.new()
+	header_label.text = "Save Files"
+	header_label.add_theme_font_size_override("font_size", 22)
+	header_label.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_hbox.add_child(header_label)
+	var close_btn := Button.new()
+	close_btn.text = "X"
+	close_btn.custom_minimum_size = Vector2(36, 36)
+	close_btn.add_theme_font_size_override("font_size", 16)
+	close_btn.pressed.connect(_close_save_slot_panel)
+	header_hbox.add_child(close_btn)
+
+	# Scrollable list area.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 300)
+	outer_vbox.add_child(scroll)
+
+	_save_slot_list_vbox = VBoxContainer.new()
+	_save_slot_list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_slot_list_vbox.add_theme_constant_override("separation", 6)
+	scroll.add_child(_save_slot_list_vbox)
+
+	add_child(_save_slot_panel)
+	_save_slot_visible = true
+
+	_populate_save_slot_list()
+
+
+func _close_save_slot_panel() -> void:
+	if _save_slot_panel:
+		_save_slot_panel.queue_free()
+		_save_slot_panel = null
+	_save_slot_visible = false
+
+
+func _populate_save_slot_list() -> void:
+	if not _save_slot_list_vbox:
+		return
+	# Clear existing entries.
+	for child in _save_slot_list_vbox.get_children():
+		child.queue_free()
+	_corrupted_slots.clear()
+
+	var save_files: Array[Dictionary] = _scan_save_files()
+
+	if save_files.is_empty():
+		_save_slot_no_saves_label = Label.new()
+		_save_slot_no_saves_label.text = "No save files found."
+		_save_slot_no_saves_label.add_theme_font_size_override("font_size", 16)
+		_save_slot_no_saves_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
+		_save_slot_no_saves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_save_slot_list_vbox.add_child(_save_slot_no_saves_label)
+		return
+
+	# Sort: autosave/quicksave first, then by modification time descending.
+	save_files.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_auto: bool = a.get("is_auto", false)
+		var b_auto: bool = b.get("is_auto", false)
+		if a_auto != b_auto:
+			return a_auto  # auto saves first
+		return a.get("modified", 0) > b.get("modified", 0)
+	)
+
+	for entry in save_files:
+		_build_slot_entry(entry)
+
+
+func _scan_save_files() -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	var user_dir := DirAccess.open("user://")
+	if not user_dir:
+		return results
+
+	user_dir.list_dir_begin()
+	var file_name := user_dir.get_next()
+	while file_name != "":
+		if not user_dir.current_is_dir() and file_name.ends_with(".json"):
+			var is_save := false
+			var is_auto := false
+			for pattern in SAVE_FILE_PATTERNS:
+				if file_name == pattern:
+					is_save = true
+					is_auto = true
+					break
+			if not is_save and file_name.begins_with(SAVE_SLOT_PREFIX) and file_name.ends_with(".json"):
+				is_save = true
+
+			if is_save:
+				var full_path := "user://" + file_name
+				var mod_time: int = FileAccess.get_modified_time(full_path)
+				var file_size: int = 0
+				var f := FileAccess.open(full_path, FileAccess.READ)
+				if f:
+					file_size = f.get_length()
+					f.close()
+
+				results.append({
+					"file_name": file_name,
+					"path": full_path,
+					"modified": mod_time,
+					"size": file_size,
+					"is_auto": is_auto,
+				})
+		file_name = user_dir.get_next()
+	user_dir.list_dir_end()
+	return results
+
+
+func _build_slot_entry(entry: Dictionary) -> void:
+	var path: String = entry.get("path", "")
+	var file_name: String = entry.get("file_name", "")
+	var is_auto: bool = entry.get("is_auto", false)
+	var mod_time: int = entry.get("modified", 0)
+	var file_size: int = entry.get("size", 0)
+
+	# GATE.T47.SAVE.RECOVERY_UX.001: Check integrity.
+	var is_corrupted := false
+	var corruption_reason := ""
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetSaveIntegrityV0"):
+		var integrity_result = bridge.call("GetSaveIntegrityV0", file_name)
+		if integrity_result is Dictionary:
+			if not integrity_result.get("is_valid", true):
+				is_corrupted = true
+				corruption_reason = integrity_result.get("reason", "Unknown corruption")
+	if not is_corrupted:
+		# Fallback: basic JSON parse check.
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f:
+			var content := f.get_as_text()
+			f.close()
+			if content.is_empty():
+				is_corrupted = true
+				corruption_reason = "File is empty"
+			else:
+				var json := JSON.new()
+				var parse_err := json.parse(content)
+				if parse_err != OK:
+					is_corrupted = true
+					corruption_reason = "Invalid JSON: " + json.get_error_message()
+		else:
+			is_corrupted = true
+			corruption_reason = "Cannot open file"
+
+	if is_corrupted:
+		_corrupted_slots[path] = corruption_reason
+
+	# Build row container.
+	var row := PanelContainer.new()
+	var row_style := StyleBoxFlat.new()
+	if is_corrupted:
+		row_style.bg_color = Color(0.18, 0.05, 0.05, 0.85)
+		row_style.border_color = Color(0.8, 0.2, 0.2, 0.6)
+	else:
+		row_style.bg_color = Color(0.06, 0.08, 0.14, 0.8)
+		row_style.border_color = Color(0.2, 0.3, 0.5, 0.4)
+	row_style.set_border_width_all(1)
+	row_style.set_corner_radius_all(4)
+	row_style.set_content_margin_all(8)
+	row.add_theme_stylebox_override("panel", row_style)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	row.add_child(hbox)
+
+	# Info column.
+	var info_vbox := VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(info_vbox)
+
+	# Name line.
+	var display_name := file_name.get_basename()
+	var name_prefix := ""
+	if is_auto:
+		name_prefix = "[Auto] "
+	if is_corrupted:
+		name_prefix = "[!] " + name_prefix
+	var name_label := Label.new()
+	name_label.text = name_prefix + display_name
+	name_label.add_theme_font_size_override("font_size", 16)
+	if is_corrupted:
+		name_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	elif is_auto:
+		name_label.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	else:
+		name_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+	info_vbox.add_child(name_label)
+
+	# Date + size line.
+	var date_str := _format_unix_timestamp(mod_time) if mod_time > 0 else "Unknown date"
+	var size_str := _format_file_size(file_size)
+	var meta_label := Label.new()
+	meta_label.text = "%s  |  %s" % [date_str, size_str]
+	meta_label.add_theme_font_size_override("font_size", 13)
+	meta_label.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
+	info_vbox.add_child(meta_label)
+
+	# Bridge metadata (captain, system, playtime) if available.
+	if not is_corrupted and bridge and bridge.has_method("GetSaveMetadataV0"):
+		var slot_meta = bridge.call("GetSaveMetadataV0", file_name)
+		if slot_meta is Dictionary:
+			var extra_parts: Array[String] = []
+			var captain: String = slot_meta.get("captain_name", "")
+			if captain != "":
+				extra_parts.append("Captain: %s" % captain)
+			var sys_name: String = slot_meta.get("system_name", "")
+			if sys_name != "":
+				extra_parts.append("System: %s" % sys_name)
+			var playtime: String = slot_meta.get("playtime", "")
+			if playtime != "":
+				extra_parts.append("Time: %s" % playtime)
+			if not extra_parts.is_empty():
+				var extra_label := Label.new()
+				extra_label.text = "  ".join(extra_parts)
+				extra_label.add_theme_font_size_override("font_size", 13)
+				extra_label.add_theme_color_override("font_color", Color(0.5, 0.75, 0.9))
+				info_vbox.add_child(extra_label)
+
+	# Corruption reason tooltip/label.
+	if is_corrupted and corruption_reason != "":
+		var reason_label := Label.new()
+		reason_label.text = corruption_reason
+		reason_label.add_theme_font_size_override("font_size", 12)
+		reason_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3, 0.8))
+		info_vbox.add_child(reason_label)
+
+	# Button column.
+	var btn_vbox := VBoxContainer.new()
+	btn_vbox.add_theme_constant_override("separation", 4)
+	hbox.add_child(btn_vbox)
+
+	if is_corrupted:
+		# GATE.T47.SAVE.RECOVERY_UX.001: Corrupted — Try Load Anyway + Delete only.
+		var try_btn := _make_slot_button("Try Load", Color(1.0, 0.6, 0.2))
+		try_btn.pressed.connect(_on_slot_load.bind(path))
+		btn_vbox.add_child(try_btn)
+	else:
+		var load_btn := _make_slot_button("Load", Color(0.4, 0.85, 1.0))
+		load_btn.pressed.connect(_on_slot_load.bind(path))
+		btn_vbox.add_child(load_btn)
+
+		if not is_auto:
+			var rename_btn := _make_slot_button("Rename", Color(0.7, 0.7, 0.78))
+			rename_btn.pressed.connect(_on_slot_rename_begin.bind(path, file_name))
+			btn_vbox.add_child(rename_btn)
+
+	var delete_btn := _make_slot_button("Delete", Color(1.0, 0.3, 0.3))
+	delete_btn.pressed.connect(_on_slot_delete_begin.bind(path, file_name))
+	btn_vbox.add_child(delete_btn)
+
+	_save_slot_list_vbox.add_child(row)
+
+
+func _make_slot_button(text: String, color: Color) -> Button:
+	var btn := Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(90, 30)
+	btn.add_theme_font_size_override("font_size", 13)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(color.r * 0.15, color.g * 0.15, color.b * 0.15, 0.8)
+	style.border_color = Color(color.r, color.g, color.b, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(4)
+	btn.add_theme_stylebox_override("normal", style)
+	var hover_style := StyleBoxFlat.new()
+	hover_style.bg_color = Color(color.r * 0.25, color.g * 0.25, color.b * 0.25, 0.9)
+	hover_style.border_color = Color(color.r, color.g, color.b, 0.8)
+	hover_style.set_border_width_all(1)
+	hover_style.set_corner_radius_all(4)
+	hover_style.set_content_margin_all(4)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	return btn
+
+
+func _format_unix_timestamp(unix: int) -> String:
+	var dt := Time.get_datetime_dict_from_unix_time(unix)
+	return "%04d-%02d-%02d %02d:%02d" % [dt.get("year", 0), dt.get("month", 0), dt.get("day", 0), dt.get("hour", 0), dt.get("minute", 0)]
+
+
+func _format_file_size(bytes: int) -> String:
+	if bytes < 1024:
+		return "%d B" % bytes
+	elif bytes < 1048576:
+		return "%.1f KB" % (bytes / 1024.0)
+	else:
+		return "%.1f MB" % (bytes / 1048576.0)
+
+
+# --- Slot actions ---
+
+func _on_slot_load(path: String) -> void:
+	_close_save_slot_panel()
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("RequestLoadFileV0"):
+		bridge.call("RequestLoadFileV0", path)
+	elif bridge and bridge.has_method("RequestLoad"):
+		bridge.call("RequestLoad")
+	_transition_to_game()
+
+
+func _on_slot_delete_begin(path: String, file_name: String) -> void:
+	_pending_delete_path = path
+	_show_confirm_dialog("Delete save '%s'?\nThis cannot be undone." % file_name.get_basename())
+
+
+func _show_confirm_dialog(message: String) -> void:
+	if _confirm_overlay:
+		_confirm_overlay.queue_free()
+	_confirm_overlay = ColorRect.new()
+	_confirm_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_confirm_overlay.color = Color(0.0, 0.0, 0.0, 0.6)
+	add_child(_confirm_overlay)
+
+	var dialog_panel := PanelContainer.new()
+	dialog_panel.set_anchors_preset(Control.PRESET_CENTER)
+	dialog_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dialog_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	dialog_panel.custom_minimum_size = Vector2(380, 0)
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Color(0.06, 0.08, 0.16, 0.96)
+	ds.border_color = Color(0.8, 0.2, 0.2, 0.7)
+	ds.set_border_width_all(2)
+	ds.set_corner_radius_all(8)
+	ds.set_content_margin_all(20)
+	dialog_panel.add_theme_stylebox_override("panel", ds)
+	_confirm_overlay.add_child(dialog_panel)
+
+	var dvbox := VBoxContainer.new()
+	dvbox.add_theme_constant_override("separation", 16)
+	dialog_panel.add_child(dvbox)
+
+	var msg_label := Label.new()
+	msg_label.text = message
+	msg_label.add_theme_font_size_override("font_size", 16)
+	msg_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.8))
+	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dvbox.add_child(msg_label)
+
+	var btn_hbox := HBoxContainer.new()
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hbox.add_theme_constant_override("separation", 16)
+	dvbox.add_child(btn_hbox)
+
+	var cancel_btn := _make_slot_button("Cancel", Color(0.7, 0.7, 0.78))
+	cancel_btn.custom_minimum_size = Vector2(120, 36)
+	cancel_btn.pressed.connect(_on_confirm_cancel)
+	btn_hbox.add_child(cancel_btn)
+
+	var confirm_btn := _make_slot_button("Delete", Color(1.0, 0.3, 0.3))
+	confirm_btn.custom_minimum_size = Vector2(120, 36)
+	confirm_btn.pressed.connect(_on_confirm_delete)
+	btn_hbox.add_child(confirm_btn)
+
+
+func _on_confirm_cancel() -> void:
+	_pending_delete_path = ""
+	if _confirm_overlay:
+		_confirm_overlay.queue_free()
+		_confirm_overlay = null
+
+
+func _on_confirm_delete() -> void:
+	if _pending_delete_path != "":
+		DirAccess.remove_absolute(_pending_delete_path)
+		_pending_delete_path = ""
+	if _confirm_overlay:
+		_confirm_overlay.queue_free()
+		_confirm_overlay = null
+	_populate_save_slot_list()
+
+
+func _on_slot_rename_begin(path: String, file_name: String) -> void:
+	_pending_rename_path = path
+	_show_rename_dialog(file_name.get_basename())
+
+
+func _show_rename_dialog(current_name: String) -> void:
+	if _rename_overlay:
+		_rename_overlay.queue_free()
+	_rename_overlay = ColorRect.new()
+	_rename_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_rename_overlay.color = Color(0.0, 0.0, 0.0, 0.6)
+	add_child(_rename_overlay)
+
+	var dialog_panel := PanelContainer.new()
+	dialog_panel.set_anchors_preset(Control.PRESET_CENTER)
+	dialog_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dialog_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	dialog_panel.custom_minimum_size = Vector2(380, 0)
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Color(0.06, 0.08, 0.16, 0.96)
+	ds.border_color = Color(0.2, 0.35, 0.6, 0.8)
+	ds.set_border_width_all(2)
+	ds.set_corner_radius_all(8)
+	ds.set_content_margin_all(20)
+	dialog_panel.add_theme_stylebox_override("panel", ds)
+	_rename_overlay.add_child(dialog_panel)
+
+	var dvbox := VBoxContainer.new()
+	dvbox.add_theme_constant_override("separation", 12)
+	dialog_panel.add_child(dvbox)
+
+	var title_label := Label.new()
+	title_label.text = "Rename Save"
+	title_label.add_theme_font_size_override("font_size", 18)
+	title_label.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dvbox.add_child(title_label)
+
+	_rename_edit = LineEdit.new()
+	_rename_edit.text = current_name
+	_rename_edit.select_all()
+	_rename_edit.add_theme_font_size_override("font_size", 16)
+	_rename_edit.custom_minimum_size = Vector2(300, 36)
+	dvbox.add_child(_rename_edit)
+
+	var btn_hbox := HBoxContainer.new()
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hbox.add_theme_constant_override("separation", 16)
+	dvbox.add_child(btn_hbox)
+
+	var cancel_btn := _make_slot_button("Cancel", Color(0.7, 0.7, 0.78))
+	cancel_btn.custom_minimum_size = Vector2(120, 36)
+	cancel_btn.pressed.connect(_on_rename_cancel)
+	btn_hbox.add_child(cancel_btn)
+
+	var ok_btn := _make_slot_button("Rename", Color(0.2, 1.0, 0.4))
+	ok_btn.custom_minimum_size = Vector2(120, 36)
+	ok_btn.pressed.connect(_on_rename_confirm)
+	btn_hbox.add_child(ok_btn)
+
+	_rename_edit.text_submitted.connect(func(_t: String): _on_rename_confirm())
+	_rename_edit.grab_focus()
+
+
+func _on_rename_cancel() -> void:
+	_pending_rename_path = ""
+	if _rename_overlay:
+		_rename_overlay.queue_free()
+		_rename_overlay = null
+
+
+func _on_rename_confirm() -> void:
+	if _pending_rename_path != "" and _rename_edit:
+		var new_name := _rename_edit.text.strip_edges()
+		if new_name != "" and new_name.is_valid_filename():
+			var new_path := "user://" + SAVE_SLOT_PREFIX + new_name + ".json"
+			if not FileAccess.file_exists(new_path):
+				var dir := DirAccess.open("user://")
+				if dir:
+					dir.rename(_pending_rename_path, new_path)
+	_pending_rename_path = ""
+	if _rename_overlay:
+		_rename_overlay.queue_free()
+		_rename_overlay = null
+	_populate_save_slot_list()
+
+
+# =============================================================================
 # Button handlers
 # =============================================================================
 
 func _on_continue() -> void:
-	var bridge = get_node_or_null("/root/SimBridge")
-	if bridge and bridge.has_method("RequestLoad"):
-		bridge.call("RequestLoad")
-	_transition_to_game()
+	# GATE.T47.SAVE.SLOT_MANAGEMENT.001: Show save slot list instead of direct load.
+	if _save_slot_visible:
+		_close_save_slot_panel()
+	else:
+		_build_save_slot_panel()
 
 
 func _on_new_voyage() -> void:

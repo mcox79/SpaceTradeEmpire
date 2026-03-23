@@ -10,6 +10,13 @@ namespace SimCore.Tests.Content
     [TestFixture]
     public sealed class MarketCatalogBindTests
     {
+        [TearDown]
+        public void TearDown()
+        {
+            // Prevent cross-test contamination — SetGoodBasePrices modifies static state.
+            SimCore.Entities.Market.ClearGoodBasePrices();
+        }
+
         [Test]
         [Category("MarketCatalogBind")]
         public void MarketCatalogBind_FreshWorld_HasCatalogGoods()

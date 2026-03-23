@@ -51,6 +51,90 @@ public static class StationContextSystem
     /// Compute the economic context for a single market.
     /// Priority: WarfrontDemand > Shortage > Opportunity > Calm.
     /// </summary>
+    // GATE.T48.TEMPLATE.CONTEXT_SURFACE.001: Return up to 2 matching templates for a station.
+    // Matches based on archetype (Supply if shortage, Combat if warfront nearby, etc.),
+    // player reputation meets template requirements, and template not already active.
+    public static List<(string templateId, string displayName, Content.MissionTemplateContentV0.Archetype archetype, string situationDesc)>
+        GetContextualTemplates(SimState state, string nodeId)
+    {
+        var result = new List<(string, string, Content.MissionTemplateContentV0.Archetype, string)>();
+        if (state is null || string.IsNullOrEmpty(nodeId)) return result;
+
+        // Determine station context type.
+        StationContextType ctxType = StationContextType.Calm;
+        string primaryGood = "";
+        if (state.StationContexts != null && state.StationContexts.TryGetValue(nodeId, out var ctx))
+        {
+            ctxType = ctx.ContextType;
+            primaryGood = ctx.PrimaryGoodId;
+        }
+
+        // Map context type to preferred archetype(s).
+        var preferredArchetypes = new List<Content.MissionTemplateContentV0.Archetype>();
+        switch (ctxType)
+        {
+            case StationContextType.Shortage:
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Supply);
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Explore);
+                break;
+            case StationContextType.WarfrontDemand:
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Combat);
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Supply);
+                break;
+            case StationContextType.Opportunity:
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Supply);
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Politics);
+                break;
+            default: // Calm
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Explore);
+                preferredArchetypes.Add(Content.MissionTemplateContentV0.Archetype.Politics);
+                break;
+        }
+
+        foreach (var template in Content.MissionTemplateContentV0.AllTemplates)
+        {
+            if (result.Count >= 2) break; // STRUCTURAL: max 2 results
+
+            // Archetype must match context.
+            if (!preferredArchetypes.Contains(template.Archetype)) continue;
+
+            // Template not already active.
+            if (state.ActiveTemplateMissionIds != null)
+            {
+                bool alreadyActive = false;
+                foreach (var id in state.ActiveTemplateMissionIds)
+                {
+                    if (id.Contains(template.TemplateId, StringComparison.Ordinal))
+                    {
+                        alreadyActive = true;
+                        break;
+                    }
+                }
+                if (alreadyActive) continue;
+            }
+
+            // Rep requirement check.
+            if (template.RequiredRepTier >= 0 && !string.IsNullOrEmpty(template.FactionId))
+            {
+                var playerTier = ReputationSystem.GetRepTier(state, template.FactionId);
+                if ((int)playerTier > template.RequiredRepTier) continue;
+            }
+
+            // Build situation description based on context.
+            string situationDesc = ctxType switch
+            {
+                StationContextType.Shortage => $"Supply shortage of {primaryGood} at this station",
+                StationContextType.WarfrontDemand => "Warfront activity detected nearby",
+                StationContextType.Opportunity => $"Market opportunity for {primaryGood} here",
+                _ => "Quiet sector — good time for exploration",
+            };
+
+            result.Add((template.TemplateId, template.DisplayName, template.Archetype, situationDesc));
+        }
+
+        return result;
+    }
+
     public static StationContext ComputeContext(Market market, SimState state)
     {
         var ctx = new StationContext();

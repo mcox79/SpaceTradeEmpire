@@ -207,22 +207,57 @@ public partial class SimBridge
                 bool deposited = state.Haven?.TrophyWall?.ContainsKey(def.FragmentId) ?? false;
                 string nodeId = frag?.NodeId ?? "";
 
+                // GATE.T46.NARRATIVE.FRAGMENT_LORE.001: include dual lore fields
+                bool isRevealed = state.StoryState?.CurrentAct >= SimCore.Entities.StoryAct.Act3_Revealed;
                 arr.Add(new Godot.Collections.Dictionary
                 {
                     ["fragment_id"] = def.FragmentId,
-                    ["name"] = def.Name,
+                    ["name"] = isRevealed ? def.RevealedName : def.CoverName,
                     ["description"] = def.Description,
                     ["kind"] = def.Kind.ToString(),
                     ["resonance_pair_id"] = def.ResonancePairId,
                     ["collected"] = collected,
                     ["deposited"] = deposited,
                     ["node_id"] = nodeId,
+                    ["cover_name"] = def.CoverName,
+                    ["revealed_name"] = def.RevealedName,
+                    ["cover_lore"] = def.CoverLore,
+                    ["revealed_lore"] = def.RevealedLore,
+                    ["lore_text"] = isRevealed ? def.RevealedLore : def.CoverLore,
                 });
             }
             lock (_snapshotLock) { _cachedAdaptationFragmentsV0 = arr; }
         }, 0);
 
         lock (_snapshotLock) { return _cachedAdaptationFragmentsV0; }
+    }
+
+    // GATE.T46.NARRATIVE.FRAGMENT_LORE.001: Returns story-state-aware lore for a single fragment.
+    // Pre-revelation (Act1/Act2): returns CoverLore. Post-revelation (Act3): returns RevealedLore.
+    public Godot.Collections.Dictionary GetFragmentLoreV0(string fragmentId)
+    {
+        var result = new Godot.Collections.Dictionary { ["success"] = false };
+        if (string.IsNullOrWhiteSpace(fragmentId)) { result["reason"] = "empty_id"; return result; }
+
+        var def = AdaptationFragmentContentV0.GetById(fragmentId);
+        if (def == null) { result["reason"] = "unknown_fragment"; return result; }
+
+        bool isRevealed = false;
+        TryExecuteSafeRead(state =>
+        {
+            isRevealed = state.StoryState?.CurrentAct >= SimCore.Entities.StoryAct.Act3_Revealed;
+        }, 0);
+
+        result["success"] = true;
+        result["fragment_id"] = def.FragmentId;
+        result["name"] = isRevealed ? def.RevealedName : def.CoverName;
+        result["cover_name"] = def.CoverName;
+        result["revealed_name"] = def.RevealedName;
+        result["lore_text"] = isRevealed ? def.RevealedLore : def.CoverLore;
+        result["cover_lore"] = def.CoverLore;
+        result["revealed_lore"] = def.RevealedLore;
+        result["is_revealed"] = isRevealed;
+        return result;
     }
 
     private Godot.Collections.Array _cachedResonancePairsV0 = new();
@@ -480,13 +515,19 @@ public partial class SimBridge
                 _                                          => "Unknown"
             };
 
+            var keeperDialogueLines = KeeperDialogueContentV0.GetDialogue(levelInt);
+            var keeperDialogueArr = new Godot.Collections.Array();
+            foreach (var line in keeperDialogueLines)
+                keeperDialogueArr.Add(line);
+
             var d = new Godot.Collections.Dictionary
             {
                 ["keeper_level"]            = levelInt,
                 ["keeper_name"]             = keeperName,
                 ["exotic_matter_delivered"] = haven.ExoticMatterDelivered,
                 ["data_logs_discovered"]    = haven.DataLogsDiscovered,
-                ["installed_fragments"]     = haven.InstalledFragmentIds?.Count ?? 0
+                ["installed_fragments"]     = haven.InstalledFragmentIds?.Count ?? 0,
+                ["dialogue"]               = keeperDialogueArr
             };
             lock (_snapshotLock) { _cachedKeeperStateV0 = d; }
         }, 0);
@@ -724,17 +765,117 @@ public partial class SimBridge
             var haven = state.Haven;
             var rep = haven?.CommunionRep;
 
+            int dTier = rep?.DialogueTier ?? 0;
+            var dialogueLines = CommunionRepDialogueContentV0.GetDialogue(dTier);
+            var dialogueArr = new Godot.Collections.Array();
+            foreach (var line in dialogueLines)
+                dialogueArr.Add(line);
+
             var d = new Godot.Collections.Dictionary
             {
                 ["present"] = rep?.Present ?? false,
-                ["dialogue_tier"] = rep?.DialogueTier ?? 0,
+                ["dialogue_tier"] = dTier,
                 ["last_interaction_tick"] = rep?.LastInteractionTick ?? 0,
+                ["dialogue"] = dialogueArr,
             };
 
             lock (_snapshotLock) { _cachedCommunionRepV0 = d; }
         }, 0);
 
         lock (_snapshotLock) { return _cachedCommunionRepV0; }
+    }
+
+    // --- GATE.T47.HAVEN.COMMUNION_REP.001: Communion Representative dialogue query ---
+
+    private Godot.Collections.Dictionary _cachedCommunionRepDialogueV0 = new();
+    private int _communionRepDialogueSeed = 0;
+
+    /// <summary>
+    /// Returns a random Communion Representative dialogue line.
+    /// Only returns data if Haven tier >= 3 (Operational). Returns empty dict otherwise.
+    /// Call repeatedly to cycle through lines (increments internal seed).
+    /// </summary>
+    public Godot.Collections.Dictionary GetCommunionRepDialogueV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var haven = state.Haven;
+            if (haven == null || !haven.Discovered || (int)haven.Tier < 3)
+            {
+                lock (_snapshotLock) { _cachedCommunionRepDialogueV0 = new Godot.Collections.Dictionary(); }
+                return;
+            }
+
+            var line = FactionDialogueContentV0.GetCommunionRepLine(_communionRepDialogueSeed);
+            if (line == null)
+            {
+                lock (_snapshotLock) { _cachedCommunionRepDialogueV0 = new Godot.Collections.Dictionary(); }
+                return;
+            }
+
+            var d = new Godot.Collections.Dictionary
+            {
+                ["category"] = line.Category,
+                ["tag"] = line.Tag,
+                ["text"] = line.Text,
+                ["haven_tier"] = (int)haven.Tier,
+            };
+
+            lock (_snapshotLock) { _cachedCommunionRepDialogueV0 = d; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedCommunionRepDialogueV0; }
+    }
+
+    /// <summary>
+    /// Advances the Communion Representative dialogue to the next line.
+    /// </summary>
+    public void CycleCommunionRepDialogueV0()
+    {
+        _communionRepDialogueSeed++;
+    }
+
+    // --- GATE.T46.NARRATIVE.HAVEN_LOGS.001: Haven narrative log queries ---
+
+    private Godot.Collections.Array _cachedHavenLogsV0 = new();
+
+    /// <summary>
+    /// Returns Haven narrative log entries for all tiers the player has reached.
+    /// Each entry is a Dictionary with tier, index, and text fields.
+    /// </summary>
+    public Godot.Collections.Array GetHavenLogsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+            var haven = state.Haven;
+            if (haven == null || !haven.Discovered)
+            {
+                lock (_snapshotLock) { _cachedHavenLogsV0 = arr; }
+                return;
+            }
+
+            int currentTier = (int)haven.Tier;
+
+            // Return logs for all tiers the player has reached (0 through current).
+            for (int tier = 0; tier <= currentTier && tier <= 5; tier++)
+            {
+                var logs = HavenLogContentV0.GetLogsForTier(tier);
+                for (int i = 0; i < logs.Length; i++)
+                {
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["tier"] = tier,
+                        ["index"] = i,
+                        ["text"] = logs[i],
+                    });
+                }
+            }
+
+            lock (_snapshotLock) { _cachedHavenLogsV0 = arr; }
+        }, 0);
+
+        lock (_snapshotLock) { return _cachedHavenLogsV0; }
     }
 
     // Initiate ancient hull restoration at Haven.

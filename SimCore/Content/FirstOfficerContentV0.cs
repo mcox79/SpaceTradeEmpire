@@ -391,6 +391,72 @@ public static class FirstOfficerContentV0
         new DialogueLine { TriggerToken = "TRADE_INTEL_STALE", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
             Text = "That route the anomaly showed us? It's fading. Knowledge decays when you don't use it. The void doesn't wait for anyone.", RelationshipDelta = 1 },
 
+        // ── GATE.T45 Deep Dread triggers (8 triggers × 3 FO types = 24 lines) ──
+
+        // FAR_FROM_PATROL: player beyond patrol range — isolation dawning
+        new DialogueLine { TriggerToken = "FAR_FROM_PATROL", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Mid,
+            Text = "Patrol density has dropped to zero in this region. No faction maintains routes this far out. We are statistically alone.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FAR_FROM_PATROL", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Mid,
+            Text = "No patrols out here. No scheduled convoys, no emergency beacons. If something goes wrong, nobody is coming.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "FAR_FROM_PATROL", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
+            Text = "Listen. The radio chatter is gone. All of it. We've passed the last patrol boundary. Just us and the lattice now.", RelationshipDelta = 1 },
+
+        // LATTICE_THIN: Phase 2+ node — lattice degradation visible
+        new DialogueLine { TriggerToken = "LATTICE_THIN", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Lattice coherence is measurably degraded here. Hull stress readings are elevated. The Thread is thinner than it should be.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "LATTICE_THIN", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "Something's wrong with the space here. The hull's creaking in ways I've never heard. Like the lattice is stretching.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "LATTICE_THIN", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "Can you feel that? The lattice isn't just thin — it's aware. Like walking on ice that knows your weight.", RelationshipDelta = 1 },
+
+        // SENSOR_GHOST_SEEN: phantom fleet contact detected
+        new DialogueLine { TriggerToken = "SENSOR_GHOST_SEEN", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Sensor contact — briefly. Classification uncertain. It matched a known fleet profile but the return signature was... incomplete. Logging as anomalous.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "SENSOR_GHOST_SEEN", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "I saw that on the scope. Gone now. Could be sensor echo, could be refraction. Could be something that doesn't want to be seen clearly.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "SENSOR_GHOST_SEEN", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "That contact wasn't real. Or — it was real, but not here. Not now. The lattice remembers ships that passed through. We're seeing echoes.", RelationshipDelta = 2 },
+
+        // FAUNA_DETECTED: lattice fauna present at player's node
+        new DialogueLine { TriggerToken = "FAUNA_DETECTED", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Anomalous lattice processes detected. Not biological — computational. They're drawn to our fracture drive signature. Recommend going dark.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FAUNA_DETECTED", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "Something's here. Moving through the lattice like it belongs. Our drive lit us up like a flare. Cut thrust — maybe it'll lose interest.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "FAUNA_DETECTED", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "They found us. The lattice fauna — they swim through degraded Thread. They're not hostile. They're curious. But curious things drain fuel.", RelationshipDelta = 2 },
+
+        // DEEP_EXPOSURE_MILD: accumulated exposure reaching mild threshold
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_MILD", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Deep exposure readings are accumulating. Instruments show minor calibration drift. Nothing dangerous yet — but the trend line concerns me.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_MILD", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "I keep checking the clock. Feels like we've been out here longer than the log says. Deep space does that to you.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_MILD", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "The silence is getting louder, Captain. That's not a metaphor. The lattice hums at frequencies we're starting to hear.", RelationshipDelta = 1 },
+
+        // DEEP_EXPOSURE_HEAVY: accumulated exposure reaching heavy threshold
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_HEAVY", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Revelation,
+            Text = "Exposure readings are well past nominal. I'm recording instrument disagreements I can't explain. The data is internally consistent — it's reality that seems inconsistent.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_HEAVY", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Revelation,
+            Text = "I won't lie to you. I'm scared. Not of what's out here — of how normal it's starting to feel. We should head back. Or push deeper. I can't tell which is worse.", RelationshipDelta = 2 },
+        new DialogueLine { TriggerToken = "DEEP_EXPOSURE_HEAVY", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Revelation,
+            Text = "We've been here too long. Or not long enough. The lattice is showing me things now — patterns in the degradation. I think they're instructions.", RelationshipDelta = 2 },
+
+        // VOID_ENTRY: player at Phase 4 node — the void paradox
+        new DialogueLine { TriggerToken = "VOID_ENTRY", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Revelation,
+            Text = "All readings nominal. Every instrument agrees. No hull drain, no drift, no interference. Captain — that's impossible. Nothing should be this clear.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "VOID_ENTRY", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Revelation,
+            Text = "It stopped. Everything just... stopped. The creaking, the interference, the ghosts. It's perfectly quiet. I've never been more terrified in my life.", RelationshipDelta = 3 },
+        new DialogueLine { TriggerToken = "VOID_ENTRY", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Revelation,
+            Text = "This is the center. The eye of it. The lattice hasn't degraded here — it's resolved. Everything makes sense. That's the horror, Captain. It all makes sense.", RelationshipDelta = 3 },
+
+        // COMMS_LOST: player beyond reliable comms range
+        new DialogueLine { TriggerToken = "COMMS_LOST", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Fracture,
+            Text = "Communication relay chain: broken. Signal propagation delay exceeds meaningful response time. We are functionally unreachable.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "COMMS_LOST", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Fracture,
+            Text = "Last relay dropped. No signal getting in or out. If we sent a distress call right now, it'd arrive after we're already dead or saved.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "COMMS_LOST", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Fracture,
+            Text = "We've gone silent. Not by choice — the distance ate our signal. Whatever we find out here, we carry back ourselves. Or not at all.", RelationshipDelta = 1 },
+
         // ── GATE.T42 Planet Scan triggers (6 triggers × 3 FO types = 18 lines) ──
 
         // FIRST_PLANET_SURVEYED: first orbital scan completes
@@ -440,6 +506,14 @@ public static class FirstOfficerContentV0
             Text = "Someone left this here on purpose. They knew we'd come looking eventually. Read it carefully.", RelationshipDelta = 2 },
         new DialogueLine { TriggerToken = "LORE_DISCOVERY", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Mid,
             Text = "Another voice from the past. They're not explaining — they're confessing. Pay attention to what they don't say.", RelationshipDelta = 2 },
+
+        // COSTS_MOUNTING: cumulative operating costs noticed — cost visibility
+        new DialogueLine { TriggerToken = "COSTS_MOUNTING", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Early,
+            Text = "Our operating costs are adding up. Fuel, repairs, upkeep — the ledger doesn't lie. Profitable routes will keep us solvent.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "COSTS_MOUNTING", CandidateType = FirstOfficerCandidate.Veteran, MinTier = DialogueTier.Early,
+            Text = "We're bleeding credits on maintenance. Every ship needs feeding. Find a trade route that outpaces the upkeep, Captain.", RelationshipDelta = 1 },
+        new DialogueLine { TriggerToken = "COSTS_MOUNTING", CandidateType = FirstOfficerCandidate.Pathfinder, MinTier = DialogueTier.Early,
+            Text = "The ship eats credits just sitting here. Fuel, hull stress, docking fees — space isn't free. But neither is what we find out there.", RelationshipDelta = 1 },
 
         // FO_FAREWELL
         new DialogueLine { TriggerToken = "FO_FAREWELL", CandidateType = FirstOfficerCandidate.Analyst, MinTier = DialogueTier.Endgame,

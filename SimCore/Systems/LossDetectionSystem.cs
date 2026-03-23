@@ -17,6 +17,8 @@ public static class LossDetectionSystem
             // HullHp == -1 means uninitialized (no combat yet); only trigger on explicit 0.
             if (playerFleet.HullHp == 0)
             {
+                // GATE.T51.TELEMETRY.QUIT_TRACK.001: Log death event.
+                TelemetrySystem.LogEvent(state, "death", playerFleet.CurrentNodeId ?? "", "hull_zero");
                 state.GameResultValue = GameResult.Death;
                 return;
             }
@@ -37,6 +39,8 @@ public static class LossDetectionSystem
 
             if (cargoValue < WinRequirementsTweaksV0.BankruptcyMinCargoValueToSurvive)
             {
+                // GATE.T51.TELEMETRY.QUIT_TRACK.001: Log bankruptcy event.
+                TelemetrySystem.LogEvent(state, "death", playerFleet?.CurrentNodeId ?? "", "bankruptcy");
                 state.GameResultValue = GameResult.Bankruptcy;
             }
         }

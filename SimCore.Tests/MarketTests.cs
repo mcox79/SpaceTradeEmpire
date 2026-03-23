@@ -14,6 +14,13 @@ namespace SimCore.Tests
     [TestFixture]
     public class MarketTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            // Prevent cross-test contamination from per-good base prices set by GalaxyGenerator tests.
+            Market.ClearGoodBasePrices();
+        }
+
         [Test]
         public void MidPrice_LowSupply_IsHigherThanBase()
         {

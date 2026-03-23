@@ -16,6 +16,7 @@ public static class FirstOfficerSystem
     private sealed class Scratch
     {
         public readonly List<string> SortedKeys = new();
+        public readonly HashSet<string> SignalNodes = new(StringComparer.Ordinal);
     }
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
@@ -67,8 +68,12 @@ public static class FirstOfficerSystem
     /// </summary>
     private static void TryAutoDetectTriggers(SimState state)
     {
-        var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
-            string.Equals(f.OwnerId, "player", StringComparison.Ordinal));
+        Fleet? playerFleet = null;
+        foreach (var f in state.Fleets.Values)
+        {
+            if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+            { playerFleet = f; break; }
+        }
         if (playerFleet == null) return;
 
         // ── EARLY TIER triggers ──
@@ -149,6 +154,15 @@ public static class FirstOfficerSystem
                     break;
                 }
             }
+        }
+
+        // COSTS_MOUNTING: FO comments on operating costs after player has traded enough
+        // to notice the credit drain. One-shot, fires once per playthrough.
+        if (state.PlayerStats != null
+            && state.PlayerStats.TotalCreditsEarned >= NarrativeTweaksV0.CostsMountingCreditsEarned
+            && state.PlayerStats.NodesVisited >= NarrativeTweaksV0.CostsMountingNodesVisited)
+        {
+            TryFireTrigger(state, "COSTS_MOUNTING");
         }
 
         // ── MID TIER triggers ──
@@ -346,13 +360,14 @@ public static class FirstOfficerSystem
         // SIGNAL_TRIANGULATED: 2+ signal leads from different nodes targeting the same area
         // (simplified: 2+ Signal Lead scan results from different nodes)
         {
-            var signalNodes = new HashSet<string>(StringComparer.Ordinal);
+            var scratch = s_scratch.GetOrCreateValue(state);
+            scratch.SignalNodes.Clear();
             foreach (var scan in state.PlanetScanResults.Values)
             {
                 if (scan.Category == FindingCategory.SignalLead)
-                    signalNodes.Add(scan.NodeId);
+                    scratch.SignalNodes.Add(scan.NodeId);
             }
-            if (signalNodes.Count >= 2) // STRUCTURAL: triangulation threshold
+            if (scratch.SignalNodes.Count >= 2) // STRUCTURAL: triangulation threshold
             {
                 TryFireTrigger(state, "SIGNAL_TRIANGULATED");
             }
@@ -381,6 +396,82 @@ public static class FirstOfficerSystem
                     break;
                 }
             }
+        }
+
+        // ── GATE.T45 Deep Dread triggers (8 triggers) ──
+
+        // Compute min hop distance from nearest faction home (measures isolation).
+        int minHopsFromCiv = int.MaxValue;
+        if (!string.IsNullOrEmpty(playerFleet.CurrentNodeId) && state.FactionHomeNodes != null)
+        {
+            foreach (var kv in state.FactionHomeNodes)
+            {
+                int hops = NpcTradeSystem.ComputeHopsFromFactionHome(state, kv.Key, playerFleet.CurrentNodeId);
+                if (hops < minHopsFromCiv) minHopsFromCiv = hops;
+            }
+        }
+
+        // FAR_FROM_PATROL: player is far from any faction patrol routes
+        if (minHopsFromCiv >= DeepDreadTweaksV0.FoFarFromPatrolHops)
+        {
+            TryFireTrigger(state, "FAR_FROM_PATROL");
+        }
+
+        // COMMS_LOST: player is beyond reliable comms range
+        if (minHopsFromCiv >= DeepDreadTweaksV0.FoCommsLostHops)
+        {
+            TryFireTrigger(state, "COMMS_LOST");
+        }
+
+        // Phase-based triggers at player node.
+        if (!string.IsNullOrEmpty(playerFleet.CurrentNodeId)
+            && state.Nodes.TryGetValue(playerFleet.CurrentNodeId, out var playerNode))
+        {
+            int phase = InstabilityTweaksV0.GetPhaseIndex(playerNode.InstabilityLevel);
+
+            // LATTICE_THIN: player at Phase 2+ node (lattice degradation visible)
+            if (phase >= 2) // STRUCTURAL: Phase 2+ threshold
+            {
+                TryFireTrigger(state, "LATTICE_THIN");
+            }
+
+            // VOID_ENTRY: player at Phase 4 node (the void paradox)
+            if (phase >= 4) // STRUCTURAL: Phase 4 threshold
+            {
+                TryFireTrigger(state, "VOID_ENTRY");
+            }
+        }
+
+        // SENSOR_GHOST_SEEN: any sensor ghost currently active
+        if (state.SensorGhosts != null && state.SensorGhosts.Count > 0)
+        {
+            TryFireTrigger(state, "SENSOR_GHOST_SEEN");
+        }
+
+        // FAUNA_DETECTED: any lattice fauna present at player's node
+        if (state.LatticeFauna != null)
+        {
+            foreach (var fauna in state.LatticeFauna)
+            {
+                if (fauna.State == LatticeFaunaState.Present
+                    && string.Equals(fauna.NodeId, playerFleet.CurrentNodeId, StringComparison.Ordinal))
+                {
+                    TryFireTrigger(state, "FAUNA_DETECTED");
+                    break;
+                }
+            }
+        }
+
+        // DEEP_EXPOSURE_MILD: accumulated deep exposure reaches mild threshold
+        if (state.DeepExposure >= DeepDreadTweaksV0.ExposureMildThreshold)
+        {
+            TryFireTrigger(state, "DEEP_EXPOSURE_MILD");
+        }
+
+        // DEEP_EXPOSURE_HEAVY: accumulated deep exposure reaches heavy threshold
+        if (state.DeepExposure >= DeepDreadTweaksV0.ExposureHeavyThreshold)
+        {
+            TryFireTrigger(state, "DEEP_EXPOSURE_HEAVY");
         }
     }
 
@@ -532,8 +623,12 @@ public static class FirstOfficerSystem
     {
         if (string.IsNullOrEmpty(text) || !text.Contains('{')) return text;
 
-        var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
-            string.Equals(f.OwnerId, "player", StringComparison.Ordinal));
+        Fleet? playerFleet = null;
+        foreach (var f in state.Fleets.Values)
+        {
+            if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+            { playerFleet = f; break; }
+        }
 
         string nodeId = playerFleet?.CurrentNodeId ?? state.PlayerLocationNodeId ?? "";
 

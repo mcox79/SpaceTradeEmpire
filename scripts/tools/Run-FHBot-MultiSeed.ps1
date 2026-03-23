@@ -24,9 +24,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $botScript = switch ($Script) {
-    "deep_systems" { "res://scripts/tests/test_deep_systems_v0.gd" }
-    "tutorial"     { "res://scripts/tests/test_tutorial_proof_v0.gd" }
-    default        { "res://scripts/tests/test_first_hour_proof_v0.gd" }
+    "deep_systems"   { "res://scripts/tests/test_deep_systems_v0.gd" }
+    "tutorial"       { "res://scripts/tests/test_tutorial_proof_v0.gd" }
+    "chaos_tutorial" { "res://scripts/tests/test_chaos_tutorial_v0.gd" }
+    default          { "res://scripts/tests/test_first_hour_proof_v0.gd" }
 }
 
 # Detect Godot
@@ -63,13 +64,16 @@ foreach ($seed in $Seeds) {
         Write-Host "  Deleted stale quicksave"
     }
 
-    # Recreate output dir to guarantee clean stdout/stderr files
-    $outDir = "$repoRoot\reports\first_hour"
-    if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue }
+    # Use script-specific output dir to avoid overwriting other bots' results
+    $outDir = "$repoRoot\reports\first_hour\$Script"
+    if ($seed -eq $Seeds[0]) {
+        # Only clean on first seed of this run
+        if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-    $stdoutFile = "$outDir\stdout.txt"
-    $stderrFile = "$outDir\stderr.txt"
+    $stdoutFile = "$outDir\stdout_seed_$seed.txt"
+    $stderrFile = "$outDir\stderr_seed_$seed.txt"
 
     $proc = Start-Process -FilePath $godot `
         -ArgumentList "--headless", "--path", "`"$repoRoot`"", "-s", $botScript, "--", "--seed=$seed" `
@@ -87,8 +91,15 @@ foreach ($seed in $Seeds) {
     }
 
     $stdout = Get-Content $stdoutFile -Raw -ErrorAction SilentlyContinue
-    $passCount = ([regex]::Matches($stdout, "FH1\|ASSERT_PASS")).Count
-    $failCount = ([regex]::Matches($stdout, "FH1\|ASSERT_FAIL")).Count
+    # Detect assertion prefix based on script type
+    $assertPrefix = switch ($Script) {
+        "deep_systems"   { "DS1" }
+        "tutorial"       { "TUT" }
+        "chaos_tutorial" { "CHAOS" }
+        default          { "FH1" }
+    }
+    $passCount = ([regex]::Matches($stdout, "$assertPrefix\|ASSERT_PASS")).Count
+    $failCount = ([regex]::Matches($stdout, "$assertPrefix\|ASSERT_FAIL")).Count
 
     if ($stdout -match "PASS" -and $failCount -eq 0) {
         Write-Host "  PASS ($passCount assertions)"

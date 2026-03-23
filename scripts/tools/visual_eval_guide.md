@@ -966,3 +966,46 @@ OVERALL:
   Top 3 Issues: ...
   Priority Fix: The single most impactful change for the next iteration
 ```
+
+---
+
+## Appendix: Panel-Specific Evaluation Criteria (T49)
+
+### Haven Panel
+
+The Haven panel represents the player's starbase — their persistent home base.
+
+| Dimension | PASS | NEEDS_WORK | FAIL |
+|-----------|------|------------|------|
+| Layout | Clear section hierarchy: status, upgrade, fabricator, hangar | Sections present but cramped or misaligned | Missing sections or broken layout |
+| Information | Haven tier, upgrade cost, fragment count, fabricator queue visible | Most data present, some fields empty or zero | Key data missing or all-zero |
+| Visual identity | Distinct from station dock (different color scheme or header) | Similar to station dock but functional | Identical to station dock (player confused about location) |
+
+### Warfront Panel
+
+Warfront displays contested territory and faction military activity.
+
+| Dimension | PASS | NEEDS_WORK | FAIL |
+|-----------|------|------------|------|
+| Territory display | Clear faction color coding, contested zones highlighted | Colors present but low contrast or ambiguous | No color coding or all zones same color |
+| Active conflicts | Warfront count, attacker/defender factions, front strength visible | Some warfront data present | Zero warfronts shown or data missing |
+| Player relevance | Shows how warfronts affect player trade routes/prices | Data present but no player context | Pure data dump with no actionable meaning |
+
+### Loss/Victory Screens
+
+End-state screens mark game completion (win or loss).
+
+| Dimension | PASS | NEEDS_WORK | FAIL |
+|-----------|------|------------|------|
+| Emotional impact | Clear win/loss visual (distinct colors/iconography), player stats summary | Some end-state indication but sparse | No visual distinction between win and loss |
+| Completeness | Score/stats summary, play time, key achievements listed | Some stats present | Blank or minimal "Game Over" text only |
+| Replayability | "New Game" or "Continue" option visible, run stats encourage replay | Options present but unclear | No visible path forward (soft-locked) |
+
+### Pause/Settings Screen
+
+Accessible via Escape key, allows game configuration.
+
+| Dimension | PASS | NEEDS_WORK | FAIL |
+|-----------|------|------------|------|
+| Accessibility | Audio/video/control settings present, resume/quit options clear | Some settings present | No settings or broken layout |
+| Game state | Game visibly paused (time frozen), overlay darkens background | Pause state unclear | Game continues running during settings |

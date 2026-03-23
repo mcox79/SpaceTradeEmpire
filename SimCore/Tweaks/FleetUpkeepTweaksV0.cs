@@ -32,4 +32,43 @@ public static class FleetUpkeepTweaksV0
 
     // GATE.X.FLEET_UPKEEP.DELINQUENCY.001: Grace period before module disable.
     public const int GracePeriodCycles = 3;
+
+    // GATE.T48.TENSION.MAINTENANCE.001: Fuel consumption per cycle.
+    // Calibrated so a shuttle (FuelCapacity ~20) lasts 50-80 ticks with FuelBurnCycleTicks=15, FuelPerCycleShuttle=1.
+    public const int FuelBurnCycleTicks = 15;
+    public const int FuelPerCycleShuttle = 1;
+    public const int FuelPerCycleCorvette = 1;
+    public const int FuelPerCycleClipper = 1;
+    public const int FuelPerCycleFrigate = 2;
+    public const int FuelPerCycleHauler = 2;
+    public const int FuelPerCycleCruiser = 3;
+    public const int FuelPerCycleCarrier = 3;
+    public const int FuelPerCycleDreadnought = 5;
+    public const int FuelPerCycleDefault = 1;
+
+    // GATE.T48.TENSION.MAINTENANCE.001: Crew wages per cycle (credits).
+    public const int WageCycleTicks = 30;
+    public const int WagePerCycleShuttle = 1;
+    public const int WagePerCycleCorvette = 2;
+    public const int WagePerCycleClipper = 2;
+    public const int WagePerCycleFrigate = 4;
+    public const int WagePerCycleHauler = 3;
+    public const int WagePerCycleCruiser = 7;
+    public const int WagePerCycleCarrier = 6;
+    public const int WagePerCycleDreadnought = 15;
+    public const int WagePerCycleDefault = 2;
+    // Docked wage multiplier in bps (5000 = 50%).
+    public const int DockedWageMultiplierBps = 5000;
+
+    // GATE.T48.TENSION.MAINTENANCE.001: Hull degradation per cycle (wear and tear).
+    public const int HullDegradCycleTicks = 45;
+    public const int HullDegradPerCycleShuttle = 1;
+    public const int HullDegradPerCycleCorvette = 1;
+    public const int HullDegradPerCycleClipper = 1;
+    public const int HullDegradPerCycleFrigate = 2;
+    public const int HullDegradPerCycleHauler = 2;
+    public const int HullDegradPerCycleCruiser = 3;
+    public const int HullDegradPerCycleCarrier = 3;
+    public const int HullDegradPerCycleDreadnought = 5;
+    public const int HullDegradPerCycleDefault = 1;
 }

@@ -11,8 +11,8 @@ namespace SimCore.Tests;
 
 public class GoldenReplayTests
 {
-    private const string ExpectedGenesisHash = "CBF609F0351C9D1C47DCB9B858C5F698CA3FE6968EC7E9E53E56933EEB405383";
-    private const string ExpectedFinalHash = "D062E35B6C797FCFBC66C8B7DCBDB691038693B29029FD6F9D8E3D60F3260C69";
+    private const string ExpectedGenesisHash = "6870B3675301F85918602FE112FE2089357A9C46BCBBFF03C0952FDBBD2068FC";
+    private const string ExpectedFinalHash = "29282BBA03796B67F8C36F7E96AD3B4A947CD81C6D1675434A5F9107D1C1E475";
 
 
     private struct RecordedCommand
@@ -32,6 +32,9 @@ public class GoldenReplayTests
         var recordedInputs = new List<RecordedCommand>();
 
         // --- RUN A: RECORDING PHASE ---
+        // Reset static base prices to prevent cross-test contamination.
+        SimCore.Entities.Market.ClearGoodBasePrices();
+
         var simA = new SimKernel(seed);
         GalaxyGenerator.Generate(simA.State, 20, 100f);
         string hashA_Initial = simA.State.GetSignature();

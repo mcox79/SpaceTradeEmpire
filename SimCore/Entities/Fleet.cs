@@ -133,6 +133,10 @@ public class Fleet
     public int ShieldHp { get; set; } = -1;
     public int ShieldHpMax { get; set; } = -1;
 
+    // NPC trade cooldown: prevents ping-pong trading same good at same node.
+    // Key = "{goodId}@{nodeId}", Value = tick when last traded.
+    [JsonInclude] public Dictionary<string, int> TradeCooldowns { get; set; } = new();
+
     // GATE.S18.SHIP_MODULES.ZONE_ARMOR.001: Directional zone armor (Fore/Port/Stbd/Aft).
     // Index by (int)ZoneFacing. Length is always 4.
     public int[] ZoneArmorHp { get; set; } = new int[4];
@@ -198,6 +202,9 @@ public class Fleet
 
     // GATE.X.FLEET_UPKEEP.DRAIN.001: Consecutive upkeep cycles where credits were insufficient.
     public int UpkeepDelinquentCycles { get; set; } = 0;
+
+    // GATE.T48.TENSION.MAINTENANCE.001: True when fleet has no fuel — applies speed penalty.
+    public bool FuelDepletedFlag { get; set; } = false;
 
     [JsonIgnore]
     public bool IsMoving => State == FleetState.Traveling || State == FleetState.FractureTraveling;

@@ -57,6 +57,9 @@ public static class WorldLoader
         state.ContentRegistryVersionV0 = reg.Version;
         state.ContentRegistryDigestV0 = ContentRegistryLoader.ComputeDigestUpperHex(reg);
 
+        // Populate per-good base prices from registry for Market pricing.
+        Entities.Market.SetGoodBasePrices(reg.Goods.Select(g => (g.Id, g.BasePrice)));
+
         // MARKETS
         foreach (var m in (def.Markets ?? new List<WorldMarket>()).OrderBy(x => x.Id, StringComparer.Ordinal))
         {

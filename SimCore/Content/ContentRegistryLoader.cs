@@ -22,19 +22,19 @@ public static class ContentRegistryLoader
         "{\n" +
         "  \"version\": 0,\n" +
         "  \"goods\": [\n" +
-        "    { \"id\": \"components\" },\n" +
-        "    { \"id\": \"composites\" },\n" +
-        "    { \"id\": \"electronics\" },\n" +
-        "    { \"id\": \"exotic_crystals\" },\n" +
-        "    { \"id\": \"exotic_matter\" },\n" +
-        "    { \"id\": \"food\" },\n" +
-        "    { \"id\": \"fuel\" },\n" +
-        "    { \"id\": \"metal\" },\n" +
-        "    { \"id\": \"munitions\" },\n" +
-        "    { \"id\": \"ore\" },\n" +
-        "    { \"id\": \"organics\" },\n" +
-        "    { \"id\": \"rare_metals\" },\n" +
-        "    { \"id\": \"salvaged_tech\" }\n" +
+        "    { \"id\": \"components\",      \"base_price\": 500 },\n" +
+        "    { \"id\": \"composites\",      \"base_price\": 250 },\n" +
+        "    { \"id\": \"electronics\",     \"base_price\": 280 },\n" +
+        "    { \"id\": \"exotic_crystals\", \"base_price\": 650 },\n" +
+        "    { \"id\": \"exotic_matter\",   \"base_price\": 1500 },\n" +
+        "    { \"id\": \"food\",            \"base_price\": 90 },\n" +
+        "    { \"id\": \"fuel\",            \"base_price\": 60 },\n" +
+        "    { \"id\": \"metal\",           \"base_price\": 200 },\n" +
+        "    { \"id\": \"munitions\",       \"base_price\": 220 },\n" +
+        "    { \"id\": \"ore\",             \"base_price\": 70 },\n" +
+        "    { \"id\": \"organics\",        \"base_price\": 80 },\n" +
+        "    { \"id\": \"rare_metals\",     \"base_price\": 600 },\n" +
+        "    { \"id\": \"salvaged_tech\",   \"base_price\": 550 }\n" +
         "  ],\n" +
         "  \"recipes\": [\n" +
         "    {\n" +
@@ -222,7 +222,7 @@ public static class ContentRegistryLoader
         {
             if (e.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("goods[] entries must be objects.");
 
-            AssertNoExtraPropertiesOrThrow(e, "base_price_band", "display_name", "flavor_text", "id", "stackable", "tier");
+            AssertNoExtraPropertiesOrThrow(e, "base_price", "base_price_band", "display_name", "flavor_text", "id", "stackable", "tier");
 
             if (!e.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
                 throw new InvalidOperationException("goods[] missing required field: id (string).");
@@ -236,6 +236,9 @@ public static class ContentRegistryLoader
                 good.Tier = tierEl.GetInt32();
             if (e.TryGetProperty("stackable", out var stackEl) && (stackEl.ValueKind == JsonValueKind.True || stackEl.ValueKind == JsonValueKind.False))
                 good.Stackable = stackEl.GetBoolean();
+            // Per-good base price for market pricing.
+            if (e.TryGetProperty("base_price", out var basePriceEl) && basePriceEl.ValueKind == JsonValueKind.Number)
+                good.BasePrice = basePriceEl.GetInt32();
             // GATE.S7.NARRATIVE_DELIVERY.ENTITY.001: Optional flavor text.
             if (e.TryGetProperty("flavor_text", out var ftEl) && ftEl.ValueKind == JsonValueKind.String)
                 good.FlavorText = ftEl.GetString() ?? "";
@@ -523,7 +526,7 @@ public static class ContentRegistryLoader
                 }
 
                 // goods
-                ValidateIdArray(root, "goods", "goods[]", failures, "base_price_band", "display_name", "flavor_text", "stackable", "tier");
+                ValidateIdArray(root, "goods", "goods[]", failures, "base_price", "base_price_band", "display_name", "flavor_text", "stackable", "tier");
 
                 // modules
                 ValidateIdArray(root, "modules", "modules[]", failures, "base_damage");

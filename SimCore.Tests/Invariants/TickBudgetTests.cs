@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using SimCore;
+using SimCore.Entities;
 using SimCore.Gen;
+using SimCore.Systems;
 using NUnit.Framework;
 
 namespace SimCore.Tests.Invariants;
 
 // GATE.X.PERF.TICK_BUDGET.001: Assert tick execution stays within performance budget.
+// GATE.T50.PERF.TICK_BUDGET.001: Per-system stress tests with 50+ entities.
 // Runs multiple seeds to catch worst-case performance regressions.
 public class TickBudgetTests
 {
@@ -73,5 +76,124 @@ public class TickBudgetTests
 
         Assert.That(totalAvg, Is.LessThan(MaxAverageTickMs),
             $"Average tick time {totalAvg:F3}ms exceeds budget of {MaxAverageTickMs}ms.\n{report}");
+    }
+
+    // GATE.T50.PERF.TICK_BUDGET.001: Per-system stress tests under 50+ entity load.
+    private const int StressFleetCount = 60;   // STRUCTURAL: fleet count for stress
+    private const int StressTickCount = 200;   // STRUCTURAL: ticks to measure
+    private const double MaxSystemTickMs = 5.0; // STRUCTURAL: per-system budget
+
+    private SimKernel CreateStressKernel()
+    {
+        var kernel = new SimKernel(42);
+        GalaxyGenerator.Generate(kernel.State, 20, 100f);
+
+        // Add 60 NPC fleets to stress entity iteration.
+        var nodeIds = new List<string>(kernel.State.Nodes.Keys);
+        for (int i = 0; i < StressFleetCount; i++)
+        {
+            var nid = nodeIds[i % nodeIds.Count];
+            var fleet = new Fleet
+            {
+                Id = $"stress_npc_{i}",
+                OwnerId = $"faction_{i % 3}",
+                CurrentNodeId = nid,
+                HullHp = 100,
+                HullHpMax = 100,
+                ShieldHp = 50,
+                ShieldHpMax = 50,
+                State = FleetState.Docked,
+            };
+            kernel.State.Fleets[fleet.Id] = fleet;
+        }
+
+        // Warmup
+        for (int i = 0; i < WarmupTicks; i++)
+            kernel.Step();
+
+        return kernel;
+    }
+
+    [Test]
+    public void NpcTradeSystem_StressLoad_WithinBudget()
+    {
+        var kernel = CreateStressKernel();
+        var sw = new Stopwatch();
+        double totalMs = 0;
+
+        for (int i = 0; i < StressTickCount; i++)
+        {
+            sw.Restart();
+            NpcTradeSystem.ProcessNpcTrade(kernel.State);
+            sw.Stop();
+            totalMs += sw.Elapsed.TotalMilliseconds;
+        }
+
+        double avgMs = totalMs / StressTickCount;
+        Assert.That(avgMs, Is.LessThan(MaxSystemTickMs),
+            $"NpcTradeSystem avg={avgMs:F3}ms exceeds {MaxSystemTickMs}ms with {StressFleetCount} fleets");
+    }
+
+    [Test]
+    public void IntelSystem_StressLoad_WithinBudget()
+    {
+        var kernel = CreateStressKernel();
+        var sw = new Stopwatch();
+        double totalMs = 0;
+
+        for (int i = 0; i < StressTickCount; i++)
+        {
+            sw.Restart();
+            IntelSystem.Process(kernel.State);
+            sw.Stop();
+            totalMs += sw.Elapsed.TotalMilliseconds;
+        }
+
+        double avgMs = totalMs / StressTickCount;
+        Assert.That(avgMs, Is.LessThan(MaxSystemTickMs),
+            $"IntelSystem avg={avgMs:F3}ms exceeds {MaxSystemTickMs}ms with {StressFleetCount} fleets");
+    }
+
+    [Test]
+    public void FirstOfficerSystem_StressLoad_WithinBudget()
+    {
+        var kernel = CreateStressKernel();
+        // Promote an FO so the system actually runs trigger checks.
+        FirstOfficerSystem.PromoteCandidate(kernel.State, FirstOfficerCandidate.Analyst);
+
+        var sw = new Stopwatch();
+        double totalMs = 0;
+
+        for (int i = 0; i < StressTickCount; i++)
+        {
+            sw.Restart();
+            FirstOfficerSystem.Process(kernel.State);
+            sw.Stop();
+            totalMs += sw.Elapsed.TotalMilliseconds;
+        }
+
+        double avgMs = totalMs / StressTickCount;
+        Assert.That(avgMs, Is.LessThan(MaxSystemTickMs),
+            $"FirstOfficerSystem avg={avgMs:F3}ms exceeds {MaxSystemTickMs}ms with {StressFleetCount} fleets");
+    }
+
+    [Test]
+    public void LatticeDroneCombatSystem_StressLoad_WithinBudget()
+    {
+        var kernel = CreateStressKernel();
+        var sw = new Stopwatch();
+        double totalMs = 0;
+
+        for (int i = 0; i < StressTickCount; i++)
+        {
+            sw.Restart();
+            LatticeDroneCombatSystem.Process(kernel.State);
+            sw.Stop();
+            totalMs += sw.Elapsed.TotalMilliseconds;
+        }
+
+        double avgMs = totalMs / StressTickCount;
+        Assert.That(avgMs, Is.LessThan(MaxSystemTickMs),
+            $"LatticeDroneCombatSystem avg={avgMs:F3}ms exceeds {MaxSystemTickMs}ms with {StressFleetCount} fleets");
     }
 }

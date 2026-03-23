@@ -1,0 +1,14 @@
+// GATE.T51.STEAM.APP_CONFIG.001: Steamworks build configuration.
+// Replace 480 with actual Steam App ID from Steamworks partner dashboard.
+// See: https://partner.steamgames.com/doc/sdk/uploading
+"AppBuild"
+{
+	"AppID" "480"
+	"Desc" "Space Trade Empire build"
+	"ContentRoot" "../export/steam/"
+	"BuildOutput" "../export/steam_build_output/"
+	"Depots"
+	{
+		"481" "depot_build.vdf"
+	}
+}

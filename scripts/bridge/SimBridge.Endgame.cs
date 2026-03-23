@@ -121,6 +121,19 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedLossInfoV0; }
     }
 
+    // ForceSetGameResultV0: Bot helper to force a game result (for endgame coverage testing).
+    // Does NOT trigger scene changes — just sets the SimState value.
+    // resultCode: 0=InProgress, 1=Victory, 2=Death, 3=Bankruptcy
+    public void ForceSetGameResultV0(int resultCode)
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.State.GameResultValue = (GameResult)resultCode;
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
     // GetVictoryInfoV0: Returns victory path info and final stats for epilogue.
     private Godot.Collections.Dictionary _cachedVictoryInfoV0 = new();
 

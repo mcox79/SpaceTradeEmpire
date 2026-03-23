@@ -449,8 +449,14 @@ func _do_boot() -> void:
 
 func _do_check_npc() -> void:
 	var npcs = get_nodes_in_group("FleetShip")
+	# NPC ships may not be spawned yet due to read-lock contention at boot
+	# (SimBridge.TryEnterReadLock(0) fails while sim thread initializes).
+	# Wait up to 300 frames (~5s) for at least 1 FleetShip to appear.
+	if npcs.size() == 0 and _polls < 300:
+		_polls += 1
+		return
 	_npc_count_at_boot = npcs.size()
-	_log("CHECK_NPC|count=%d" % npcs.size())
+	_log("CHECK_NPC|count=%d waited=%d" % [npcs.size(), _polls])
 	_assert(npcs.size() >= 1, "npc_present", "count=%d" % npcs.size())
 
 	# Check no hostile NPC at start
@@ -1040,6 +1046,10 @@ func _do_check_modules() -> void:
 		_phase = Phase.GALAXY_MAP
 		return
 	var modules: Array = _bridge.call("GetAvailableModulesV0")
+	# Retry once on read-lock contention (TryExecuteSafeRead(0) can return empty cache)
+	if modules.size() == 0:
+		await create_timer(0.2).timeout
+		modules = _bridge.call("GetAvailableModulesV0")
 	_assert(modules.size() >= 1, "modules_available", "count=%d" % modules.size())
 	_log("MODULES|available=%d" % modules.size())
 	_polls = 0
@@ -1154,6 +1164,10 @@ func _do_galaxy_map() -> void:
 	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
 	var nodes: Array = galaxy.get("system_nodes", [])
 	var edges: Array = galaxy.get("lane_edges", [])
+	# Retry on read-lock contention (TryExecuteSafeRead(0) returns stale empty cache)
+	if nodes.size() == 0 and _polls < 60:
+		_polls += 1
+		return
 	_assert(nodes.size() >= 8, "galaxy_nodes", "count=%d" % nodes.size())
 	_assert(edges.size() >= 7, "galaxy_edges", "count=%d" % edges.size())
 	_log("GALAXY|nodes=%d edges=%d" % [nodes.size(), edges.size()])
@@ -1497,7 +1511,8 @@ func _do_capture_galaxy_map() -> void:
 	var gm = root.get_node_or_null("GameManager")
 	if gm and gm.has_method("toggle_galaxy_map_overlay_v0"):
 		gm.call("toggle_galaxy_map_overlay_v0")
-		await create_timer(0.3).timeout
+		# Wait for camera tween (0.6s) + spring convergence (~1.5s)
+		await create_timer(2.0).timeout
 		_capture("33_galaxy_map")
 		# Close it
 		gm.call("toggle_galaxy_map_overlay_v0")
@@ -1950,6 +1965,24 @@ func _do_probe_economy_signal() -> void:
 		_flag("ECONOMY_NO_PROFITABLE_ROUTE")
 	if total_goods > 2 and all_profitable and _market_snapshots.size() >= 3:
 		_flag("ECONOMY_ALL_ROUTES_PROFIT")
+
+	# Node economy snapshot (traffic, prosperity, industry type, warfront tier)
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var cur_node := str(ps.get("current_node_id", ""))
+	if _bridge.has_method("GetNodeEconomySnapshotV0") and not cur_node.is_empty():
+		var econ: Dictionary = _bridge.call("GetNodeEconomySnapshotV0", cur_node)
+		_log("ECONOMY_SIGNAL|node_econ traffic=%s prosperity=%s industry=%s warfront=%s" % [
+			str(econ.get("traffic_level", -1)), str(econ.get("prosperity", -1)),
+			str(econ.get("industry_type", "none")), str(econ.get("warfront_tier", -1))])
+
+	# Market alerts (stockouts, price spikes/drops across visited nodes)
+	if _bridge.has_method("GetMarketAlertsV0"):
+		var alerts: Array = _bridge.call("GetMarketAlertsV0", 5)
+		_log("ECONOMY_SIGNAL|market_alerts=%d" % alerts.size())
+		for alert in alerts:
+			_log("ECONOMY_SIGNAL|alert type=%s good=%s change=%s%%" % [
+				str(alert.get("type", "?")), str(alert.get("good_id", "?")),
+				str(alert.get("change_pct", 0))])
 
 	_polls = 0
 	_phase = Phase.PROBE_OVERLAYS
@@ -2916,6 +2949,12 @@ func _init_navigation() -> void:
 	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
 	_all_nodes = galaxy.get("system_nodes", [])
 	_all_edges = galaxy.get("lane_edges", [])
+	# Retry on read-lock contention (TryExecuteSafeRead(0) can return empty cache)
+	if _all_nodes.size() == 0 or _all_edges.size() == 0:
+		await create_timer(0.3).timeout
+		galaxy = _bridge.call("GetGalaxySnapshotV0")
+		_all_nodes = galaxy.get("system_nodes", [])
+		_all_edges = galaxy.get("lane_edges", [])
 	_refresh_neighbors()
 	_log("NAV|home=%s neighbors=%d nodes=%d edges=%d" % [
 		_home_node_id, _neighbor_ids.size(), _all_nodes.size(), _all_edges.size()])

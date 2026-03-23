@@ -46,7 +46,7 @@ public sealed class AnomalyChainTests
     {
         var chains = AnomalyChainContentV0.AllChains;
         Assert.That(chains, Is.Not.Null);
-        Assert.That(chains.Count, Is.EqualTo(3), "Should have Valorin, Communion, Pentagon chains");
+        Assert.That(chains.Count, Is.EqualTo(6), "Should have Valorin, Communion, Pentagon, DerelictSignal, PrecursorEcho, BiologicalDrift chains");
     }
 
     [Test]

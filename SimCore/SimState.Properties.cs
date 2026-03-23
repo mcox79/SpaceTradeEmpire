@@ -251,6 +251,12 @@ public partial class SimState
     // GATE.S1.MISSION.MODEL.001: Persisted mission state.
     [JsonInclude] public MissionState Missions { get; set; } = new();
 
+    // GATE.T48.TEMPLATE.SCHEMA.001: Active template mission IDs.
+    [JsonInclude] public List<string> ActiveTemplateMissionIds { get; set; } = new();
+
+    // GATE.T48.TEMPLATE.TWIST_ENGINE.001: Current mission twist count (reset on mission complete).
+    [JsonInclude] public int TemplateMissionTwistCount { get; set; }
+
     // GATE.S4.TECH.CORE.001: Persisted tech/research state.
     [JsonInclude] public TechState Tech { get; set; } = new();
 
@@ -281,6 +287,9 @@ public partial class SimState
     [JsonInclude] public Dictionary<string, int> FactionTradePolicy { get; private set; } = new(StringComparer.Ordinal);
     // GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction aggression level (factionId -> 0=peaceful,1=defensive,2=hostile).
     [JsonInclude] public Dictionary<string, int> FactionAggressionLevel { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T45.DEEP_DREAD.PATROL_THIN.001: Faction home node IDs (factionId -> homeNodeId).
+    [JsonInclude] public Dictionary<string, string> FactionHomeNodes { get; private set; } = new(StringComparer.Ordinal);
 
     // GATE.S7.FACTION_COMMISSION.INFAMY.001: Infamy per faction. Caps max achievable RepTier.
     [JsonInclude] public Dictionary<string, int> InfamyByFaction { get; private set; } = new(StringComparer.Ordinal);
@@ -354,6 +363,26 @@ public partial class SimState
     [JsonInclude] public Dictionary<string, Entities.PlanetScanResult> PlanetScanResults { get; private set; } = new(StringComparer.Ordinal);
     // Sequence counter for deterministic scan IDs.
     [JsonInclude] public long NextPlanetScanSeq { get; set; } = 1;
+
+    // GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001: Active sensor ghost contacts.
+    [JsonInclude] public List<Entities.SensorGhost> SensorGhosts { get; set; } = new();
+
+    // GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001: Cumulative ticks at Phase 2+ nodes.
+    [JsonInclude] public int DeepExposure { get; set; }
+
+    // GATE.T45.DEEP_DREAD.INFO_FOG.001: Last tick player visited each node (nodeId -> tick).
+    [JsonInclude] public Dictionary<string, int> NodeLastVisitTick { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001: Active lattice fauna entities.
+    [JsonInclude] public List<Entities.LatticeFauna> LatticeFauna { get; set; } = new();
+    // GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001: Node residue expiry ticks (nodeId -> expiryTick).
+    [JsonInclude] public Dictionary<string, int> LatticeFaunaResidue { get; set; } = new(StringComparer.Ordinal);
+
+    // GATE.T48.TELEMETRY.SESSION_WRITER.001: Dev telemetry snapshots (capped ring buffer).
+    [JsonInclude] public List<Entities.TelemetrySnapshot> TelemetrySnapshots { get; set; } = new();
+
+    // GATE.T51.TELEMETRY.LOCAL_STORE.001: Per-event telemetry log (capped ring buffer).
+    [JsonInclude] public List<Entities.TelemetryEvent> TelemetryEvents { get; set; } = new();
 
     // GATE.T18.NARRATIVE.ROUTE_UNCERTAINTY.001: Cumulative fracture jumps for scanner adaptation.
     [JsonInclude] public int FractureExposureJumps { get; set; } = 0;

@@ -7,10 +7,10 @@
   "GoodId": "ore",
   "Quantity": 3,
   "CadenceTicks": 10,
-  "UnitPriceNow": 147,
-  "EstCostOrValuePerRun": 441,
+  "UnitPriceNow": 115,
+  "EstCostOrValuePerRun": 345,
   "EstRunsPerDay": 144,
-  "EstDailyCostOrValue": 63504,
+  "EstDailyCostOrValue": 49680,
   "Constraints": {
     "MarketExists": true,
     "HasEnoughCreditsNow": true,

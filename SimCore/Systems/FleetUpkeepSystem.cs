@@ -106,6 +106,83 @@ public static class FleetUpkeepSystem
         }
     }
 
+    // GATE.T48.TENSION.MAINTENANCE.001: Per-tick continuous costs — fuel, wages, hull degradation.
+    public static void ProcessContinuousCosts(SimState state)
+    {
+        if (state is null) return; // STRUCTURAL: null guard
+
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedFleetIds = scratch.SortedFleetIds;
+        sortedFleetIds.Clear();
+        foreach (var k in state.Fleets.Keys) sortedFleetIds.Add(k);
+        sortedFleetIds.Sort(StringComparer.Ordinal);
+
+        bool fuelCycle = FleetUpkeepTweaksV0.FuelBurnCycleTicks > 0
+            && state.Tick % FleetUpkeepTweaksV0.FuelBurnCycleTicks == 0; // STRUCTURAL: cycle check
+        bool wageCycle = FleetUpkeepTweaksV0.WageCycleTicks > 0
+            && state.Tick % FleetUpkeepTweaksV0.WageCycleTicks == 0; // STRUCTURAL: cycle check
+        bool hullCycle = FleetUpkeepTweaksV0.HullDegradCycleTicks > 0
+            && state.Tick % FleetUpkeepTweaksV0.HullDegradCycleTicks == 0; // STRUCTURAL: cycle check
+
+        if (!fuelCycle && !wageCycle && !hullCycle) return;
+
+        foreach (var fleetId in sortedFleetIds)
+        {
+            var fleet = state.Fleets[fleetId];
+            if (!string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+
+            bool isDocked = !fleet.IsMoving && !string.IsNullOrEmpty(fleet.CurrentNodeId);
+
+            // Fuel consumption: docked ships consume no fuel.
+            if (fuelCycle && !isDocked)
+            {
+                int fuelCost = GetFuelPerCycle(fleet.ShipClassId);
+                if (fuelCost > 0)
+                {
+                    if (fleet.FuelCurrent >= fuelCost)
+                    {
+                        fleet.FuelCurrent -= fuelCost;
+                        fleet.FuelDepletedFlag = false;
+                    }
+                    else
+                    {
+                        fleet.FuelCurrent = 0; // STRUCTURAL: floor at zero
+                        fleet.FuelDepletedFlag = true; // Speed penalty flag
+                    }
+                }
+            }
+            else if (fuelCycle && isDocked)
+            {
+                // Docked: no fuel burn. Clear depletion flag (refueled at dock).
+                fleet.FuelDepletedFlag = false;
+            }
+
+            // Crew wages: docked ships pay 50%.
+            if (wageCycle)
+            {
+                int baseWage = GetWagePerCycle(fleet.ShipClassId);
+                if (baseWage > 0)
+                {
+                    int wage = isDocked
+                        ? (int)((long)baseWage * FleetUpkeepTweaksV0.DockedWageMultiplierBps / FleetUpkeepTweaksV0.BpsDivisor)
+                        : baseWage;
+                    if (wage <= 0) wage = 1; // STRUCT_MIN: min 1 cr wage
+                    state.PlayerCredits -= wage;
+                }
+            }
+
+            // Hull degradation: docked ships don't degrade.
+            if (hullCycle && !isDocked)
+            {
+                int hullDmg = GetHullDegradPerCycle(fleet.ShipClassId);
+                if (hullDmg > 0 && fleet.HullHp > 0)
+                {
+                    fleet.HullHp = Math.Max(1, fleet.HullHp - hullDmg); // STRUCTURAL: floor at 1 (wear can't kill)
+                }
+            }
+        }
+    }
+
     public static int GetUpkeepForClass(string classId)
     {
         if (string.IsNullOrEmpty(classId)) return FleetUpkeepTweaksV0.DefaultUpkeep;
@@ -123,6 +200,57 @@ public static class FleetUpkeepSystem
             "ancient_seeker" => FleetUpkeepTweaksV0.AncientSeekerUpkeep,
             "ancient_threshold" => FleetUpkeepTweaksV0.AncientThresholdUpkeep,
             _ => FleetUpkeepTweaksV0.DefaultUpkeep,
+        };
+    }
+
+    public static int GetFuelPerCycle(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return FleetUpkeepTweaksV0.FuelPerCycleDefault;
+        return classId switch
+        {
+            "shuttle" => FleetUpkeepTweaksV0.FuelPerCycleShuttle,
+            "corvette" => FleetUpkeepTweaksV0.FuelPerCycleCorvette,
+            "clipper" => FleetUpkeepTweaksV0.FuelPerCycleClipper,
+            "frigate" => FleetUpkeepTweaksV0.FuelPerCycleFrigate,
+            "hauler" => FleetUpkeepTweaksV0.FuelPerCycleHauler,
+            "cruiser" => FleetUpkeepTweaksV0.FuelPerCycleCruiser,
+            "carrier" => FleetUpkeepTweaksV0.FuelPerCycleCarrier,
+            "dreadnought" => FleetUpkeepTweaksV0.FuelPerCycleDreadnought,
+            _ => FleetUpkeepTweaksV0.FuelPerCycleDefault,
+        };
+    }
+
+    public static int GetWagePerCycle(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return FleetUpkeepTweaksV0.WagePerCycleDefault;
+        return classId switch
+        {
+            "shuttle" => FleetUpkeepTweaksV0.WagePerCycleShuttle,
+            "corvette" => FleetUpkeepTweaksV0.WagePerCycleCorvette,
+            "clipper" => FleetUpkeepTweaksV0.WagePerCycleClipper,
+            "frigate" => FleetUpkeepTweaksV0.WagePerCycleFrigate,
+            "hauler" => FleetUpkeepTweaksV0.WagePerCycleHauler,
+            "cruiser" => FleetUpkeepTweaksV0.WagePerCycleCruiser,
+            "carrier" => FleetUpkeepTweaksV0.WagePerCycleCarrier,
+            "dreadnought" => FleetUpkeepTweaksV0.WagePerCycleDreadnought,
+            _ => FleetUpkeepTweaksV0.WagePerCycleDefault,
+        };
+    }
+
+    public static int GetHullDegradPerCycle(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return FleetUpkeepTweaksV0.HullDegradPerCycleDefault;
+        return classId switch
+        {
+            "shuttle" => FleetUpkeepTweaksV0.HullDegradPerCycleShuttle,
+            "corvette" => FleetUpkeepTweaksV0.HullDegradPerCycleCorvette,
+            "clipper" => FleetUpkeepTweaksV0.HullDegradPerCycleClipper,
+            "frigate" => FleetUpkeepTweaksV0.HullDegradPerCycleFrigate,
+            "hauler" => FleetUpkeepTweaksV0.HullDegradPerCycleHauler,
+            "cruiser" => FleetUpkeepTweaksV0.HullDegradPerCycleCruiser,
+            "carrier" => FleetUpkeepTweaksV0.HullDegradPerCycleCarrier,
+            "dreadnought" => FleetUpkeepTweaksV0.HullDegradPerCycleDreadnought,
+            _ => FleetUpkeepTweaksV0.HullDegradPerCycleDefault,
         };
     }
 }

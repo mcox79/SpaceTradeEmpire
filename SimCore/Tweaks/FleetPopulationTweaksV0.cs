@@ -36,6 +36,11 @@ public static class FleetPopulationTweaksV0
         };
     }
 
+    // ── Starter node density floor ──
+    // Ensures the player's starting system has enough NPCs to feel alive at boot.
+    public const int StarterMinTraders = 2;
+    public const int StarterMinPatrols = 2;
+
     // ── Hauler-specific tuning ──
 
     // Max cargo units per hauler trip (traders carry MaxTradeUnitsPerTrip = 10).
@@ -47,25 +52,35 @@ public static class FleetPopulationTweaksV0
     // Hauler trade search radius in hops (traders search 1-hop adjacent only).
     public const int HaulerEvalRadiusHops = 2;
 
+    // ── Dynamic fleet population replacement ──
+    // Goods consumed to spawn a replacement fleet at a station.
+    public const string ReplacementGood1 = "metal";
+    public const int ReplacementMetalCost = 50;
+    public const string ReplacementGood2 = "components";
+    public const int ReplacementComponentsCost = 20;
+
     // ── Faction market bias (GATE.T30.GALPOP.MARKET_DIVERSITY.006) ──
     // Surplus/deficit amounts applied per faction territory node at generation.
     // Pentagon ring: Concord→Weavers→Chitin→Valorin→Communion→Concord (need chain).
+    // Raised from 200/100 to 600/400 so all 12 goods create tradeable price differentials.
 
-    public const int SurplusAmount = 200;
-    public const int DeficitAmount = 100;
+    public const int SurplusAmount = 600;
+    public const int DeficitAmount = 400;
 
     // Returns (surplusGoods, deficitGoods) for a faction's controlled nodes.
     // Each good gets SurplusAmount added or DeficitAmount subtracted from initial inventory.
+    // Expanded to cover all 12 goods — organics/ore added to faction biases so every good
+    // has at least one faction surplus and one deficit, creating geographic price variation.
     public static (string[] Surplus, string[] Deficit) GetMarketBias(string factionId)
     {
         return factionId switch
         {
-            FactionTweaksV0.ConcordId   => (new[] { "food", "fuel" },              new[] { "composites" }),
-            FactionTweaksV0.ChitinId    => (new[] { "electronics", "components" },  new[] { "rare_metals" }),
-            FactionTweaksV0.WeaversId   => (new[] { "composites", "metal" },        new[] { "electronics" }),
-            FactionTweaksV0.ValorinId   => (new[] { "rare_metals", "munitions" },   new[] { "exotic_crystals" }),
-            FactionTweaksV0.CommunionId => (new[] { "exotic_crystals" },            new[] { "food", "fuel" }),
-            _ => (Array.Empty<string>(), Array.Empty<string>()),
+            FactionTweaksV0.ConcordId   => (new[] { "food", "fuel", "organics" },           new[] { "composites", "rare_metals" }),
+            FactionTweaksV0.ChitinId    => (new[] { "electronics", "components" },           new[] { "rare_metals", "organics" }),
+            FactionTweaksV0.WeaversId   => (new[] { "composites", "metal", "organics" },     new[] { "electronics", "munitions" }),
+            FactionTweaksV0.ValorinId   => (new[] { "rare_metals", "munitions", "ore" },     new[] { "exotic_crystals", "food" }),
+            FactionTweaksV0.CommunionId => (new[] { "exotic_crystals" },                     new[] { "food", "fuel", "ore" }),
+            _ => (new[] { "ore", "fuel" },                                                    new[] { "metal" }),
         };
     }
 }

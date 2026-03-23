@@ -198,15 +198,15 @@ func _on_apply_pressed() -> void:
 		_bridge = get_tree().root.get_node_or_null("GameManager")
 	if _bridge == null:
 		return
-	if not _bridge.has_method("SetDoctrineV0"):
-		print("UUIR|DOCTRINE_PANEL|NO_BRIDGE_METHOD|SetDoctrineV0")
+	if not _bridge.has_method("SetFleetDoctrineV0"):
+		print("UUIR|DOCTRINE_PANEL|NO_BRIDGE_METHOD|SetFleetDoctrineV0")
 		return
 
 	var stance_text: String = STANCES[_stance_selector.selected]
 	var retreat_threshold: int = int(_retreat_slider.value)
 	var patrol_radius: int = int(_patrol_slider.value)
 
-	_bridge.call("SetDoctrineV0", _fleet_id, stance_text, retreat_threshold, patrol_radius)
+	_bridge.call("SetFleetDoctrineV0", _fleet_id, stance_text, retreat_threshold, patrol_radius)
 	print("UUIR|DOCTRINE_PANEL|APPLY|%s|%s|%d|%d" % [_fleet_id, stance_text, retreat_threshold, patrol_radius])
 	visible = false
 

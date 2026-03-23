@@ -230,6 +230,44 @@ func _build_audio_tab() -> void:
 	_add_slider_row("SFX Volume", "audio_sfx", 0.0, 1.0)
 	_add_slider_row("Ambient Volume", "audio_ambient", 0.0, 1.0)
 	_add_slider_row("UI Volume", "audio_ui", 0.0, 1.0)
+	# GATE.T51.VO.PRESET_SELECT.001: Ship computer voice preset.
+	_add_vo_preset_row()
+
+
+# GATE.T51.VO.PRESET_SELECT.001: Voice preset names (index matches settings value).
+const _VO_PRESET_NAMES := ["Female", "Male", "Neutral"]
+const _VO_PRESET_FOLDERS := ["female", "male", "neutral"]
+
+func _add_vo_preset_row() -> void:
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", UITheme.SPACE_MD)
+
+	var lbl := Label.new()
+	lbl.text = "Computer Voice"
+	lbl.custom_minimum_size = Vector2(180, 0)
+	lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox.add_child(lbl)
+
+	var option := OptionButton.new()
+	for preset_name in _VO_PRESET_NAMES:
+		option.add_item(preset_name)
+	option.selected = int(_get_setting("vo_computer_preset"))
+	option.custom_minimum_size = Vector2(160, 0)
+	option.process_mode = Node.PROCESS_MODE_ALWAYS
+	hbox.add_child(option)
+
+	option.item_selected.connect(func(idx: int) -> void:
+		_set_setting("vo_computer_preset", idx)
+		# Push to VOLookup autoload.
+		var vo_lookup = get_node_or_null("/root/VOLookup")
+		if vo_lookup and idx >= 0 and idx < _VO_PRESET_FOLDERS.size():
+			vo_lookup.computer_voice_preset = _VO_PRESET_FOLDERS[idx]
+			vo_lookup.clear_cache()
+		print("UUIR|SETTINGS_PANEL|VO_PRESET=%d" % idx)
+	)
+
+	_content_container.add_child(hbox)
 
 
 # ── Display tab ──────────────────────────────────────────────────────────────
@@ -250,6 +288,85 @@ func _build_gameplay_tab() -> void:
 	_add_toggle_row("Tutorial Toasts", "gameplay_tutorial_toasts")
 	_add_slider_row("Tooltip Delay (sec)", "gameplay_tooltip_delay", 0.0, 3.0)
 	_add_slider_row("Camera Sensitivity", "gameplay_camera_sensitivity", 0.5, 3.0)
+	# GATE.T46.SAVE.AUTOSAVE_UI.001: Auto-save toggle + interval selector.
+	_add_autosave_rows()
+	# GATE.T51.TELEMETRY.OPTIN_UI.001: Telemetry opt-in toggle.
+	_add_toggle_row("Anonymous Telemetry", "telemetry_enabled")
+	_add_info_row("Help improve the game by sharing anonymous play data.")
+
+
+func _build_autosave_interval_label(seconds: int) -> String:
+	match seconds:
+		60:   return "1 min"
+		180:  return "3 min"
+		300:  return "5 min"
+		600:  return "10 min"
+		_:    return "%d sec" % seconds
+
+
+func _add_autosave_rows() -> void:
+	# -- Toggle row --
+	var hbox_toggle := HBoxContainer.new()
+	hbox_toggle.add_theme_constant_override("separation", UITheme.SPACE_MD)
+
+	var lbl_toggle := Label.new()
+	lbl_toggle.text = "Auto-Save"
+	lbl_toggle.custom_minimum_size = Vector2(180, 0)
+	lbl_toggle.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	lbl_toggle.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox_toggle.add_child(lbl_toggle)
+
+	var toggle := CheckButton.new()
+	toggle.button_pressed = bool(_get_setting("gameplay_autosave_enabled"))
+	toggle.process_mode = Node.PROCESS_MODE_ALWAYS
+	hbox_toggle.add_child(toggle)
+
+	_content_container.add_child(hbox_toggle)
+
+	# -- Interval option row --
+	var hbox_interval := HBoxContainer.new()
+	hbox_interval.add_theme_constant_override("separation", UITheme.SPACE_MD)
+
+	var lbl_interval := Label.new()
+	lbl_interval.text = "Auto-Save Interval"
+	lbl_interval.custom_minimum_size = Vector2(180, 0)
+	lbl_interval.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+	lbl_interval.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	hbox_interval.add_child(lbl_interval)
+
+	var interval_options := [60, 180, 300, 600]  # seconds
+	var option := OptionButton.new()
+	for secs in interval_options:
+		option.add_item(_build_autosave_interval_label(secs))
+	var current_interval: int = int(_get_setting("gameplay_autosave_interval"))
+	var sel_idx := interval_options.find(current_interval)
+	if sel_idx < 0:
+		sel_idx = 1  # Default: 3 min
+	option.selected = sel_idx
+	option.custom_minimum_size = Vector2(160, 0)
+	option.process_mode = Node.PROCESS_MODE_ALWAYS
+	hbox_interval.add_child(option)
+
+	_content_container.add_child(hbox_interval)
+
+	# -- Wire up callbacks --
+	toggle.toggled.connect(func(pressed: bool) -> void:
+		_set_setting("gameplay_autosave_enabled", pressed)
+		var bridge = get_node_or_null("/root/SimBridge")
+		if bridge and bridge.has_method("SetAutoSaveEnabledV0"):
+			bridge.call("SetAutoSaveEnabledV0", pressed)
+		print("UUIR|SETTINGS_PANEL|AUTOSAVE_ENABLED=%s" % str(pressed))
+	)
+
+	option.item_selected.connect(func(idx: int) -> void:
+		if idx >= 0 and idx < interval_options.size():
+			var secs: int = interval_options[idx]
+			_set_setting("gameplay_autosave_interval", secs)
+			var bridge = get_node_or_null("/root/SimBridge")
+			if bridge and bridge.has_method("SetAutoSaveIntervalV0"):
+				bridge.call("SetAutoSaveIntervalV0", secs)
+			print("UUIR|SETTINGS_PANEL|AUTOSAVE_INTERVAL=%d" % secs)
+	)
 
 
 # ── Accessibility tab ────────────────────────────────────────────────────────
@@ -719,6 +836,23 @@ func _apply_all_settings() -> void:
 	_apply_display_settings()
 	_apply_gameplay_settings()
 	_apply_colorblind_setting()
+	_apply_autosave_settings()
+	_apply_vo_preset()
+
+
+## GATE.T46.SAVE.AUTOSAVE_UI.001: Push saved autosave prefs to SimBridge.
+func _apply_autosave_settings() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	var enabled: bool = bool(_get_setting("gameplay_autosave_enabled"))
+	var interval: int = int(_get_setting("gameplay_autosave_interval"))
+	if interval <= 0:
+		interval = 180
+	if bridge.has_method("SetAutoSaveEnabledV0"):
+		bridge.call("SetAutoSaveEnabledV0", enabled)
+	if bridge.has_method("SetAutoSaveIntervalV0"):
+		bridge.call("SetAutoSaveIntervalV0", interval)
 
 
 ## Map a linear 0-1 slider value to an AudioServer bus.
@@ -814,6 +948,21 @@ func _on_settings_changed(key: String, value: Variant) -> void:
 		_apply_gameplay_settings()
 	elif key == "accessibility_colorblind_mode":
 		_apply_colorblind_setting()
+	elif key == "gameplay_autosave_enabled" or key == "gameplay_autosave_interval":
+		_apply_autosave_settings()
+	elif key == "vo_computer_preset":
+		_apply_vo_preset()
+
+
+## GATE.T51.VO.PRESET_SELECT.001: Push voice preset to VOLookup on startup.
+func _apply_vo_preset() -> void:
+	var idx: int = int(_get_setting("vo_computer_preset"))
+	if idx < 0 or idx >= _VO_PRESET_FOLDERS.size():
+		idx = 0
+	var vo_lookup = get_node_or_null("/root/VOLookup")
+	if vo_lookup:
+		vo_lookup.computer_voice_preset = _VO_PRESET_FOLDERS[idx]
+		vo_lookup.clear_cache()
 
 
 ## Push the colorblind setting to UITheme so all UI picks up accessible colors.

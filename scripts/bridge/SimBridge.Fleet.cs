@@ -808,6 +808,98 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.T48.TENSION.UPKEEP_BRIDGE.001: Aggregate fleet upkeep summary for HUD + dock display.
+    // Returns {credits_per_cycle, fuel_per_cycle, hull_degrad_per_cycle, wage_per_cycle,
+    //          runway_ticks, is_docked}.
+    private Godot.Collections.Dictionary _cachedFleetUpkeepSummaryV0 = new();
+
+    public Godot.Collections.Dictionary GetFleetUpkeepSummaryV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["credits_per_cycle"] = 0,
+            ["fuel_per_cycle"] = 0,
+            ["hull_degrad_per_cycle"] = 0,
+            ["wage_per_cycle"] = 0,
+            ["runway_ticks"] = 9999,
+            ["is_docked"] = false,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            int totalCreditsPerCycle = 0;
+            int totalFuelPerCycle = 0;
+            int totalHullDegradPerCycle = 0;
+            int totalWagePerCycle = 0;
+            bool anyDocked = false;
+
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (!string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+
+                bool isDocked = !fleet.IsMoving && !string.IsNullOrEmpty(fleet.CurrentNodeId);
+                if (isDocked) anyDocked = true;
+
+                // Credit upkeep per cycle.
+                int baseCost = FleetUpkeepSystem.GetUpkeepForClass(fleet.ShipClassId);
+                if (baseCost > 0)
+                {
+                    int cost = isDocked
+                        ? (int)((long)baseCost * SimCore.Tweaks.FleetUpkeepTweaksV0.DockedMultiplierBps / SimCore.Tweaks.FleetUpkeepTweaksV0.BpsDivisor)
+                        : baseCost;
+                    if (cost <= 0) cost = 1; // STRUCT_MIN
+                    totalCreditsPerCycle += cost;
+                }
+
+                // Fuel per cycle (only when not docked).
+                if (!isDocked)
+                {
+                    int fuelCost = FleetUpkeepSystem.GetFuelPerCycle(fleet.ShipClassId);
+                    totalFuelPerCycle += fuelCost;
+                }
+
+                // Hull degradation per cycle (only when not docked).
+                if (!isDocked)
+                {
+                    int hullDmg = FleetUpkeepSystem.GetHullDegradPerCycle(fleet.ShipClassId);
+                    totalHullDegradPerCycle += hullDmg;
+                }
+
+                // Wages per cycle.
+                int baseWage = FleetUpkeepSystem.GetWagePerCycle(fleet.ShipClassId);
+                if (baseWage > 0)
+                {
+                    int wage = isDocked
+                        ? (int)((long)baseWage * SimCore.Tweaks.FleetUpkeepTweaksV0.DockedWageMultiplierBps / SimCore.Tweaks.FleetUpkeepTweaksV0.BpsDivisor)
+                        : baseWage;
+                    if (wage <= 0) wage = 1; // STRUCT_MIN
+                    totalWagePerCycle += wage;
+                }
+            }
+
+            // Runway: estimated ticks before credits run out.
+            int totalDrainPerCycle = totalCreditsPerCycle + totalWagePerCycle;
+            int runway = 9999; // STRUCTURAL: default stable
+            if (totalDrainPerCycle > 0 && state.PlayerCredits >= 0)
+            {
+                int cyclesLeft = (int)(state.PlayerCredits / totalDrainPerCycle);
+                runway = cyclesLeft * SimCore.Tweaks.FleetUpkeepTweaksV0.UpkeepCycleTicks;
+                if (runway > 9999) runway = 9999; // STRUCTURAL: cap
+            }
+
+            result["credits_per_cycle"] = totalCreditsPerCycle;
+            result["fuel_per_cycle"] = totalFuelPerCycle;
+            result["hull_degrad_per_cycle"] = totalHullDegradPerCycle;
+            result["wage_per_cycle"] = totalWagePerCycle;
+            result["runway_ticks"] = runway;
+            result["is_docked"] = anyDocked;
+
+            _cachedFleetUpkeepSummaryV0 = result;
+        });
+
+        return _cachedFleetUpkeepSummaryV0;
+    }
+
     // GATE.S7.SUSTAIN.BRIDGE_PROOF.001: Fleet sustain status — fuel level, module sustain health.
     public Godot.Collections.Dictionary GetFleetSustainStatusV0(string fleetId)
     {

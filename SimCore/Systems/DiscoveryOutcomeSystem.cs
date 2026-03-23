@@ -466,7 +466,10 @@ public static class DiscoveryOutcomeSystem
     {
         if (state.AnomalyChains is null || state.AnomalyChains.Count == 0) return;
 
-        var sortedChainIds = new List<string>(state.AnomalyChains.Keys);
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedChainIds = scratch.SortedKeys;
+        sortedChainIds.Clear();
+        foreach (var k in state.AnomalyChains.Keys) sortedChainIds.Add(k);
         sortedChainIds.Sort(StringComparer.Ordinal);
 
         foreach (var chainId in sortedChainIds)

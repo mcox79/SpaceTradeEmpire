@@ -12,6 +12,12 @@ namespace SimCore.Tests;
 
 public class FractureTests
 {
+    [SetUp]
+    public void SetUp()
+    {
+        Market.ClearGoodBasePrices();
+    }
+
     [Test]
     public void Fracture_Movement_AccumulatesTrace_OnArrival()
     {

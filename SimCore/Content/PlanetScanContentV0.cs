@@ -69,6 +69,74 @@ public static class PlanetScanContentV0
         new() { PlanetType = PlanetType.Barren, Category = FindingCategory.DataArchive, Text = "Departure records stored in vacuum-sealed archive. Terse entries: dates, coordinates, and one recurring word — 'Timeline.'" },
     };
 
+    // ── GATE.T45.DEEP_DREAD.DISCOVERY_REGISTER.001: Deep-space unsettling register variants ──
+    // At Phase 2+ nodes, scan results shift from clinical to unsettling tone.
+    // Same finding categories, different register. 18 entries across 6 planet types.
+
+    public static readonly IReadOnlyList<ScanFlavorDef> DeepSpaceFlavors = new List<ScanFlavorDef>
+    {
+        // ── Terrestrial (deep) ──
+        new() { PlanetType = PlanetType.Terrestrial, Category = FindingCategory.ResourceIntel, Text = "Supply data recovered. The numbers are correct but the handwriting changes halfway through, as if someone else finished the entry." },
+        new() { PlanetType = PlanetType.Terrestrial, Category = FindingCategory.SignalLead, Text = "Encrypted traffic detected. The encryption key was already in our database. It shouldn't have been." },
+        new() { PlanetType = PlanetType.Terrestrial, Category = FindingCategory.DataArchive, Text = "Administrative records from the settlement charter. The last entry reads: 'We are being maintained.'" },
+
+        // ── Ice (deep) ──
+        new() { PlanetType = PlanetType.Ice, Category = FindingCategory.ResourceIntel, Text = "Mineral readings are pristine. Too pristine. The deposits look curated — arranged, not deposited." },
+        new() { PlanetType = PlanetType.Ice, Category = FindingCategory.SignalLead, Text = "The harmonic is louder here. Your instruments are tuning themselves to match it. You didn't ask them to." },
+        new() { PlanetType = PlanetType.Ice, Category = FindingCategory.FragmentCache, Text = "The cryogenic capsule opened before you reached it. The contents are arranged as if expecting inspection." },
+
+        // ── Sand (deep) ──
+        new() { PlanetType = PlanetType.Sand, Category = FindingCategory.ResourceIntel, Text = "Ore deposits mapped. The veins form a pattern — too regular for geology, too old for engineering." },
+        new() { PlanetType = PlanetType.Sand, Category = FindingCategory.SignalLead, Text = "The conducting fossil is warm. Your scanner reports it at ambient temperature. Your hand disagrees." },
+        new() { PlanetType = PlanetType.Sand, Category = FindingCategory.PhysicalEvidence, Text = "Mining equipment uncovered. The tools are wrong — designed for hands that had too many fingers." },
+
+        // ── Lava (deep) ──
+        new() { PlanetType = PlanetType.Lava, Category = FindingCategory.ResourceIntel, Text = "Crystal formations detected. They're growing toward your ship. Growth rate: imperceptible. Direction: unmistakable." },
+        new() { PlanetType = PlanetType.Lava, Category = FindingCategory.SignalLead, Text = "The energy signature corrected itself while you were reading it. It noticed the measurement." },
+        new() { PlanetType = PlanetType.Lava, Category = FindingCategory.DataArchive, Text = "Accommodation calculations. The math is beautiful. The margin notes say: 'It's already working. We just can't stop it.'" },
+
+        // ── Gaseous (deep) ──
+        new() { PlanetType = PlanetType.Gaseous, Category = FindingCategory.ResourceIntel, Text = "Fuel extraction analysis complete. The atmospheric composition shifted during the scan. It shifted back when you stopped." },
+        new() { PlanetType = PlanetType.Gaseous, Category = FindingCategory.SignalLead, Text = "The warning loop is still playing. You've been listening for three minutes. It's been saying your ship's name for two." },
+        new() { PlanetType = PlanetType.Gaseous, Category = FindingCategory.FragmentCache, Text = "Cognitive artifact recovered. The pattern recognition substrate activated on contact. It recognized you." },
+
+        // ── Barren (deep) ──
+        new() { PlanetType = PlanetType.Barren, Category = FindingCategory.ResourceIntel, Text = "Pure mineral readings. Nothing has touched this surface in millennia. Except the footprints. They're fresh." },
+        new() { PlanetType = PlanetType.Barren, Category = FindingCategory.SignalLead, Text = "In the silence, the anomaly is deafening. It's not transmitting — it's listening." },
+        new() { PlanetType = PlanetType.Barren, Category = FindingCategory.PhysicalEvidence, Text = "The vault seal responded to your fracture drive frequency before you activated it. It was already open." },
+    };
+
+    private static Dictionary<(PlanetType, FindingCategory), List<ScanFlavorDef>>? _deepFlavorIndex;
+
+    /// <summary>
+    /// GATE.T45.DEEP_DREAD.DISCOVERY_REGISTER.001: Get flavor text for a scan, selecting
+    /// deep-space unsettling register at Phase 2+ nodes.
+    /// </summary>
+    public static IReadOnlyList<ScanFlavorDef> GetFlavorsForPhase(PlanetType planetType, FindingCategory category, int instabilityPhase)
+    {
+        if (instabilityPhase >= 2)
+        {
+            if (_deepFlavorIndex == null)
+            {
+                _deepFlavorIndex = new Dictionary<(PlanetType, FindingCategory), List<ScanFlavorDef>>();
+                foreach (var f in DeepSpaceFlavors)
+                {
+                    var key = (f.PlanetType, f.Category);
+                    if (!_deepFlavorIndex.TryGetValue(key, out var list))
+                    {
+                        list = new List<ScanFlavorDef>();
+                        _deepFlavorIndex[key] = list;
+                    }
+                    list.Add(f);
+                }
+            }
+            if (_deepFlavorIndex.TryGetValue((planetType, category), out var deepResult) && deepResult.Count > 0)
+                return deepResult;
+            // Fall through to normal if no deep variant exists for this combo.
+        }
+        return GetFlavors(planetType, category);
+    }
+
     // ── FO hint lines per trigger ──
     // 6 triggers × 3 FO types = 18 lines.
 

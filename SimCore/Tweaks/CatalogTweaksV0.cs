@@ -62,6 +62,15 @@ namespace SimCore.Tweaks
         public const int ComponentsOutput = 2;
         public const int ComponentsDegradeBps = 500;
 
+        // Electronics fabricator (exotic_crystals + fuel → electronics).
+        public const int ElectronicsNodeModulus = 8;
+        public const int ElectronicsNodeOffset = 4;
+        public const int ElectronicsCrystalsInput = 1;
+        public const int ElectronicsFuelInput = 1;
+        public const int ElectronicsOutput = 2;
+        public const int ElectronicsDegradeBps = 400;
+        public const int ElectronicsBootstrapCrystals = 50;
+
         // Salvage yard placement (salvaged_tech → metal or components).
         public const int SalvageNodeModulus = 13;
         public const int SalvageMetalNodeOffset = 2;

@@ -101,6 +101,10 @@ public static class GalaxyGenerator
 
         MarketInitGen.ValidateCatalogBinding(state, options?.Registry);
 
+        // Populate per-good base prices from registry for Market pricing.
+        if (options?.Registry is { } genReg)
+            Entities.Market.SetGoodBasePrices(genReg.Goods.Select(g => (g.Id, g.BasePrice)));
+
         // Phase 3: Generate stars and planets (deterministic from node hashes, no RNG).
         PlanetInitGen.InitPlanets(state, nodesList);
 
@@ -128,16 +132,21 @@ public static class GalaxyGenerator
         // Phase 7: Seed warfronts (deterministic from faction territories, no RNG).
         SeedWarfrontsV0(state);
 
-        // Phase 7.5: GATE.T30.GALPOP.FACTION_SEED.004 — Seed faction-aware AI fleets.
-        // Must run AFTER SeedFactionTerritoriesV0 (Phase 6.5) so NodeFactionId is populated.
-        StarNetworkGen.SeedAiFleets(state, nodesList);
-
         // Phase 7.6: GATE.T30.GALPOP.MARKET_DIVERSITY.006 — Apply faction market bias.
         ApplyFactionMarketBiasV0(state);
 
         // Phase 8: GATE.S7.STARTER_PLACEMENT.WARFRONT.001 — relocate player start to a
         // starter-region node that is 1-hop from a contested warfront node.
         PickWarfrontAdjacentStarterV0(state);
+
+        // Phase 8.1: Ensure at least 3 distinct factions visible within 2 hops of player start.
+        // Fixes seed variance where some topologies strand factions far from start.
+        EnsureFactionDiversityAtStartV0(state);
+
+        // Phase 8.2: GATE.T30.GALPOP.FACTION_SEED.004 — Seed faction-aware AI fleets.
+        // Must run AFTER SeedFactionTerritoriesV0 AND EnsureFactionDiversityAtStartV0
+        // so NodeFactionId is populated and player start is finalized (starter density bonus).
+        StarNetworkGen.SeedAiFleets(state, nodesList);
 
         // Q5: After player start may have moved, ensure no hostile patrol at the final start node.
         // GATE.T30.GALPOP.FACTION_SEED.004: Iterate all fleets at start node (multiple per node now).
@@ -169,6 +178,9 @@ public static class GalaxyGenerator
 
         // Phase 9.6: GATE.T18.KG_SEED.PROXIMITY.001 — Procedural proximity + faction connections.
         NarrativePlacementGen.GenerateProceduralConnections(state);
+
+        // Phase 9.7: Auto-reveal discoveries near player start to seed the knowledge web.
+        SeedKnowledgeWebAtStartV0(state);
 
         // Phase 10: GATE.S8.HAVEN.DISCOVERY.001 — Seed Haven at a deep-space node.
         SeedHavenV0(state);
@@ -1433,6 +1445,10 @@ public static class GalaxyGenerator
             state.FactionTariffRates[f.FactionId] = f.TariffRate;
             state.FactionTradePolicy[f.FactionId] = (int)f.TradePolicy;
             state.FactionAggressionLevel[f.FactionId] = f.AggressionLevel;
+
+            // GATE.T45.DEEP_DREAD.PATROL_THIN.001: Persist faction home nodes for patrol distance calc.
+            if (!string.IsNullOrEmpty(f.HomeNodeId))
+                state.FactionHomeNodes[f.FactionId] = f.HomeNodeId;
         }
     }
 
@@ -1648,5 +1664,150 @@ public static class GalaxyGenerator
         // Update player start and visited set.
         state.PlayerLocationNodeId = picked;
         state.PlayerVisitedNodeIds.Add(picked);
+    }
+
+    // Phase 8.1: Guarantee faction diversity near player start.
+    // Some seeds produce topologies where the player start is deep inside one faction's
+    // territory with no neighboring factions visible. This relocates the player to the
+    // starter node with the most faction diversity in its 2-hop neighborhood.
+    // STRUCTURAL: 3 = minimum factions, 2 = hop radius
+    private static void EnsureFactionDiversityAtStartV0(SimState state)
+    {
+        int minFactions = Tweaks.GalaxyShapeTweaksV0.MinStarterFactionDiversity;
+
+        int currentDiversity = CountFactionsInNeighborhood(state, state.PlayerLocationNodeId);
+        if (currentDiversity >= minFactions) return;
+
+        // Scan all starter nodes for one with better faction diversity.
+        var starterIds = GetStarterNodeIdsSortedV0(state);
+        string bestNode = state.PlayerLocationNodeId;
+        int bestCount = currentDiversity;
+
+        foreach (var sid in starterIds)
+        {
+            if (string.Equals(sid, state.PlayerLocationNodeId, StringComparison.Ordinal))
+                continue;
+            int count = CountFactionsInNeighborhood(state, sid);
+            if (count > bestCount)
+            {
+                bestCount = count;
+                bestNode = sid;
+            }
+        }
+
+        if (string.Equals(bestNode, state.PlayerLocationNodeId, StringComparison.Ordinal)) return;
+
+        state.PlayerLocationNodeId = bestNode;
+        state.PlayerVisitedNodeIds.Add(bestNode);
+    }
+
+    // Count distinct factions within 2 hops of a node.
+    private static int CountFactionsInNeighborhood(SimState state, string nodeId)
+    {
+        // Hop 0: the node itself.
+        var nearby = new HashSet<string>(StringComparer.Ordinal) { nodeId };
+
+        // Hop 1: direct neighbors.
+        var hop1 = new List<string>();
+        foreach (var edge in state.Edges.Values)
+        {
+            if (StringComparer.Ordinal.Equals(edge.FromNodeId, nodeId))
+            {
+                nearby.Add(edge.ToNodeId);
+                hop1.Add(edge.ToNodeId);
+            }
+            else if (StringComparer.Ordinal.Equals(edge.ToNodeId, nodeId))
+            {
+                nearby.Add(edge.FromNodeId);
+                hop1.Add(edge.FromNodeId);
+            }
+        }
+
+        // Hop 2: neighbors of hop-1 nodes.
+        hop1.Sort(StringComparer.Ordinal);
+        foreach (var mid in hop1)
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                if (StringComparer.Ordinal.Equals(edge.FromNodeId, mid))
+                    nearby.Add(edge.ToNodeId);
+                else if (StringComparer.Ordinal.Equals(edge.ToNodeId, mid))
+                    nearby.Add(edge.FromNodeId);
+            }
+        }
+
+        // Count distinct factions in the neighborhood.
+        var factions = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var nid in nearby)
+        {
+            if (state.NodeFactionId.TryGetValue(nid, out var factionId)
+                && !string.IsNullOrEmpty(factionId))
+            {
+                factions.Add(factionId);
+            }
+        }
+
+        return factions.Count;
+    }
+
+    /// Auto-advance discoveries within 2 hops of player start to Analyzed phase,
+    /// seeding the knowledge web so it isn't empty at game start.
+    /// KnowledgeGraphSystem.Process() will then reveal connections between them.
+    private static void SeedKnowledgeWebAtStartV0(SimState state)
+    {
+        // Collect nodes within 2 hops of player start.
+        var nearby = new HashSet<string>(StringComparer.Ordinal) { state.PlayerLocationNodeId };
+        var hop1 = new List<string>();
+        foreach (var edge in state.Edges.Values)
+        {
+            if (StringComparer.Ordinal.Equals(edge.FromNodeId, state.PlayerLocationNodeId))
+            {
+                nearby.Add(edge.ToNodeId);
+                hop1.Add(edge.ToNodeId);
+            }
+            else if (StringComparer.Ordinal.Equals(edge.ToNodeId, state.PlayerLocationNodeId))
+            {
+                nearby.Add(edge.FromNodeId);
+                hop1.Add(edge.FromNodeId);
+            }
+        }
+        hop1.Sort(StringComparer.Ordinal);
+        foreach (var mid in hop1)
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                if (StringComparer.Ordinal.Equals(edge.FromNodeId, mid))
+                    nearby.Add(edge.ToNodeId);
+                else if (StringComparer.Ordinal.Equals(edge.ToNodeId, mid))
+                    nearby.Add(edge.FromNodeId);
+            }
+        }
+
+        // Find discoveries on nearby nodes, advance up to 8 to Analyzed.
+        int seeded = 0;
+        int maxSeed = Tweaks.NarrativeTweaksV0.KnowledgeWebSeedCount;
+        var nearbyList = new List<string>(nearby);
+        nearbyList.Sort(StringComparer.Ordinal); // deterministic iteration
+
+        foreach (var nodeId in nearbyList)
+        {
+            if (seeded >= maxSeed) break;
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) continue;
+            if (node.SeededDiscoveryIds == null) continue;
+
+            var sorted = new List<string>(node.SeededDiscoveryIds);
+            sorted.Sort(StringComparer.Ordinal);
+            foreach (var discId in sorted)
+            {
+                if (seeded >= maxSeed) break;
+                if (state.Intel.Discoveries.TryGetValue(discId, out var disc)
+                    && disc.Phase < Entities.DiscoveryPhase.Analyzed
+                    && disc.InstabilityGate == 0)
+                {
+                    disc.Phase = Entities.DiscoveryPhase.Analyzed;
+                    seeded++;
+                }
+            }
+        }
     }
 }

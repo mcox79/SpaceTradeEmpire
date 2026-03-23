@@ -229,6 +229,31 @@ public static class MarketInitGen
                 };
             }
 
+            // AssembleElectronics: at tech nodes near fracture borders (exotic_crystals + fuel → electronics).
+            if (i % CatalogTweaksV0.ElectronicsNodeModulus == CatalogTweaksV0.ElectronicsNodeOffset)
+            {
+                state.IndustrySites[$"elecfab_{i}"] = new IndustrySite
+                {
+                    Id = $"elecfab_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.AssembleElectronics,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.ExoticCrystals, CatalogTweaksV0.ElectronicsCrystalsInput },
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.ElectronicsFuelInput }
+                    },
+                    Outputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Electronics, CatalogTweaksV0.ElectronicsOutput }
+                    },
+                    BufferDays = 2,
+                    DegradePerDayBps = CatalogTweaksV0.ElectronicsDegradeBps,
+                };
+                // Seed initial Exotic Crystals stock so the factory can bootstrap.
+                mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.ElectronicsBootstrapCrystals);
+            }
+
             // SalvageToMetal: at salvage yards.
             if (i % CatalogTweaksV0.SalvageNodeModulus == CatalogTweaksV0.SalvageMetalNodeOffset)
             {
@@ -271,8 +296,9 @@ public static class MarketInitGen
 
     /// <summary>
     /// Post-processing: ensure the player's starting station has at least one good with
-    /// a profitable margin (>50 cr/unit) when sold at an adjacent station.
+    /// a profitable margin (>50 cr/unit) when sold at a station within 2 hops.
     /// Must run AFTER faction market bias and player relocation.
+    /// GATE.T50.ECON.ROUTE_QUALITY.001: Extended to 2-hop neighbors for topology robustness.
     /// </summary>
     public static void GuaranteeStarterArbitrageV0(SimState state)
     {
@@ -280,14 +306,33 @@ public static class MarketInitGen
         if (string.IsNullOrEmpty(startId)) return;
         if (!state.Markets.TryGetValue(startId, out var startMarket)) return;
 
-        // Find adjacent node IDs via edges.
+        // Find node IDs within 2 hops via edges.
         var neighborIds = new List<string>();
+        var hop1Set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var edge in state.Edges.Values)
         {
             if (string.Equals(edge.FromNodeId, startId, StringComparison.Ordinal))
-                neighborIds.Add(edge.ToNodeId);
+            { neighborIds.Add(edge.ToNodeId); hop1Set.Add(edge.ToNodeId); }
             else if (string.Equals(edge.ToNodeId, startId, StringComparison.Ordinal))
-                neighborIds.Add(edge.FromNodeId);
+            { neighborIds.Add(edge.FromNodeId); hop1Set.Add(edge.FromNodeId); }
+        }
+        // GATE.T50.ECON.ROUTE_QUALITY.001: Add 2-hop neighbors for broader coverage.
+        foreach (var hop1Id in hop1Set)
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                string? candidate = null;
+                if (string.Equals(edge.FromNodeId, hop1Id, StringComparison.Ordinal))
+                    candidate = edge.ToNodeId;
+                else if (string.Equals(edge.ToNodeId, hop1Id, StringComparison.Ordinal))
+                    candidate = edge.FromNodeId;
+                if (candidate != null
+                    && !string.Equals(candidate, startId, StringComparison.Ordinal)
+                    && !hop1Set.Contains(candidate))
+                {
+                    neighborIds.Add(candidate);
+                }
+            }
         }
 
         int minTargetMargin = Tweaks.MarketTweaksV0.MinStarterMargin;
@@ -358,6 +403,20 @@ public static class MarketInitGen
             }
         }
 
+        // Second pass: ensure buy prices at start are low enough for ≥3 unit purchases.
+        // Even with guaranteed margin, high buy prices limit quantity and credit growth.
+        int maxBuyPrice = Tweaks.MarketTweaksV0.MaxStarterBuyPrice;
+        int buyFloorStock = Tweaks.MarketTweaksV0.StarterBuyFloorStock;
+        foreach (var goodId in startMarket.Inventory.Keys.ToList())
+        {
+            int buyPrice = startMarket.GetBuyPrice(goodId);
+            if (buyPrice > maxBuyPrice)
+            {
+                startMarket.Inventory[goodId] = Math.Max(
+                    startMarket.Inventory.GetValueOrDefault(goodId),
+                    buyFloorStock);
+            }
+        }
     }
 
     public static void ValidateCatalogBinding(SimState state, ContentRegistryLoader.ContentRegistryV0? registry)

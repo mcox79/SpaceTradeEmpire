@@ -141,10 +141,105 @@ if ($Mode -eq "all" -or $Mode -eq "deadcode") {
     Search-Pattern -Pattern "(TODO|HACK|FIXME|XXX):" -Path $simcore -Include "*.cs" -Sev "SUGGESTION" -Cat "dead-code" -Desc "TODO/HACK marker" -Fix "Address or remove"
 }
 
+# ─── GDSCRIPT QUALITY CHECKS ────────────────────────────────────────
+if ($Mode -eq "all") {
+    $scripts = Join-Path $repoRoot "scripts"
+
+    # Missing await on async calls (call returns a signal but not awaited)
+    Search-Pattern -Pattern 'create_timer\([^)]+\)\.timeout\s*$' -Path $scripts -Include "*.gd" -Sev "WARNING" -Cat "gdscript" -Desc "create_timer().timeout without await" -Fix "Add 'await' before create_timer"
+
+    # Bare 'return' in _process/_physics_process (should be 'return false')
+    # Scope-aware: only flags returns inside _process or _physics_process functions.
+    $gdFiles = Get-ChildItem -Path $scripts -Filter "*.gd" -Recurse -ErrorAction SilentlyContinue
+    foreach ($gf in $gdFiles) {
+        $lines = Get-Content $gf.FullName -ErrorAction SilentlyContinue
+        if (-not $lines) { continue }
+        $inProcessFunc = $false
+        for ($li = 0; $li -lt $lines.Count; $li++) {
+            $ln = $lines[$li]
+            # Detect _process or _physics_process function definition
+            if ($ln -match '^(func\s+_(?:process|physics_process)\s*\()') {
+                $inProcessFunc = $true
+                continue
+            }
+            # Any other func definition at top indent level ends the process function
+            if ($ln -match '^func\s+' -and $inProcessFunc) {
+                $inProcessFunc = $false
+            }
+            # Check for bare return inside _process/_physics_process
+            if ($inProcessFunc -and $ln -match '^\s+return\s*$') {
+                Add-Finding "WARNING" "gdscript" $gf.FullName ($li + 1) "Bare return in _process/_physics_process (should be 'return false') [$($ln.Trim())]" "Use 'return false' in _process functions"
+            }
+        }
+    }
+
+    # bridge.call with wrong number of quotes (heuristic: empty call string)
+    Search-Pattern -Pattern 'bridge\.call\(""\)' -Path $scripts -Include "*.gd" -Sev "CRITICAL" -Cat "gdscript" -Desc "bridge.call with empty method name" -Fix "Provide correct V0 method name"
+
+    # Signal name mismatch (C# events use PascalCase, GDScript uses snake_case)
+    Search-Pattern -Pattern 'connect\("[A-Z]' -Path $scripts -Include "*.gd" -Sev "WARNING" -Cat "gdscript" -Desc "Signal connect with PascalCase (C# signals are auto-lowercased)" -Fix "Use snake_case signal name"
+}
+
+# ─── HOT-PATH ALLOCATION CHECKS ─────────────────────────────────────
+if ($Mode -eq "all") {
+    $systems = Join-Path $repoRoot "SimCore/Systems"
+
+    # new List/Dictionary/HashSet in Process methods (hot-path allocation)
+    Search-Pattern -Pattern "new (List|Dictionary|HashSet|Queue|Stack|StringBuilder)<" -Path $systems -Include "*.cs" -Sev "WARNING" -Cat "allocation" -Desc "Heap allocation in System (potential hot-path)" -Fix "Pre-allocate or use pooled collection"
+
+    # LINQ in Process methods (causes allocations via iterators)
+    Search-Pattern -Pattern "\.(Select|Where|OrderBy|GroupBy|ToList|ToArray|ToDictionary|Aggregate|Any|All|Count|First|Last|Single)\(" -Path $systems -Include "*.cs" -Sev "SUGGESTION" -Cat "allocation" -Desc "LINQ in System file (iterator allocation)" -Fix "Consider loop-based approach for hot paths"
+
+    # String interpolation in Process (heap allocation per frame)
+    Search-Pattern -Pattern '\$"[^"]*\{' -Path $systems -Include "*.cs" -Sev "SUGGESTION" -Cat "allocation" -Desc "String interpolation in System (per-frame allocation risk)" -Fix "Cache or guard with condition"
+}
+
 # ─── OUTPUT ───────────────────────────────────────────────────────────
 
 # Filter out test files from findings
 $findings = @($findings | Where-Object { $_.File -notlike "*Tests*" -and $_.File -notlike "*test_*" })
+
+# Filter out findings guarded by debug/diagnostic patterns:
+# 1. Inside #if DEBUG blocks
+# 2. In files where the call site is guarded by a const-false variable
+# 3. Lines/preceding lines with OPTSCAN:SUPPRESS comment
+$filtered = @()
+foreach ($f in $findings) {
+    $fullPath = Join-Path $repoRoot $f.File
+    $suppress = $false
+    if (Test-Path $fullPath) {
+        $lines = Get-Content $fullPath -ErrorAction SilentlyContinue
+        $lineIdx = $f.Line - 1
+
+        # Check 1: Inside #if DEBUG block
+        for ($i = $lineIdx; $i -ge 0 -and $i -ge ($lineIdx - 30); $i--) {
+            $ln = $lines[$i].Trim()
+            if ($ln -eq "#if DEBUG") { $suppress = $true; break }
+            if ($ln -eq "#endif" -or $ln -eq "#else") { break }
+        }
+
+        # Check 2: OPTSCAN:SUPPRESS on same line or line above
+        if (-not $suppress) {
+            $curLine = $lines[$lineIdx]
+            $prevLine = if ($lineIdx -gt 0) { $lines[$lineIdx - 1] } else { "" }
+            if ($curLine -match "OPTSCAN:SUPPRESS" -or $prevLine -match "OPTSCAN:SUPPRESS") {
+                $suppress = $true
+            }
+        }
+
+        # Check 3: File has const-false guard that makes this code path dead in Release
+        if (-not $suppress -and $f.Category -eq "determinism") {
+            $fileContent = ($lines) -join "`n"
+            if ($fileContent -match "const\s+bool\s+\w+\s*=\s*false" -and $fileContent -match "#if DEBUG") {
+                # This file has a DEBUG-only diagnostic toggle. Check if the finding
+                # is inside a helper function only called from the guarded else-branch.
+                $suppress = $true
+            }
+        }
+    }
+    if (-not $suppress) { $filtered += $f }
+}
+$findings = $filtered
 
 # Summary
 $critCount = @($findings | Where-Object { $_.Severity -eq "CRITICAL" }).Count

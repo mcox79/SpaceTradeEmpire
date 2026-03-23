@@ -1105,7 +1105,7 @@ func _update_accommodation() -> void:
 		_accommodation_section.add_child(hint_lbl)
 
 
-# GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Communion Representative display.
+# GATE.S8.HAVEN.ENDGAME_BRIDGE.001 + GATE.T47.HAVEN.COMMUNION_REP.001: Communion Representative display.
 func _update_communion_rep() -> void:
 	if _communion_section == null:
 		return
@@ -1133,6 +1133,40 @@ func _update_communion_rep() -> void:
 	status_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 	status_lbl.add_theme_color_override("font_color", Color(0.5, 0.9, 1.0))
 	_communion_section.add_child(status_lbl)
+
+	# GATE.T47.HAVEN.COMMUNION_REP.001: Communion Representative dialogue line display.
+	# Shows one ethereal purple dialogue line + "Speak Again" button to cycle.
+	if bridge.has_method("GetCommunionRepDialogueV0"):
+		var dialogue: Dictionary = bridge.call("GetCommunionRepDialogueV0")
+		if not dialogue.is_empty():
+			var text: String = str(dialogue.get("text", ""))
+			if not text.is_empty():
+				var dialogue_lbl = Label.new()
+				dialogue_lbl.text = "\"%s\"" % text
+				dialogue_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+				dialogue_lbl.add_theme_color_override("font_color", Color(0.7, 0.4, 1.0))
+				dialogue_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				_communion_section.add_child(dialogue_lbl)
+
+				var tag_lbl = Label.new()
+				tag_lbl.text = "— %s" % str(dialogue.get("tag", ""))
+				tag_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+				tag_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+				_communion_section.add_child(tag_lbl)
+
+		var speak_btn = Button.new()
+		speak_btn.text = "Speak Again"
+		speak_btn.pressed.connect(_on_communion_speak_again)
+		_communion_section.add_child(speak_btn)
+
+
+# GATE.T47.HAVEN.COMMUNION_REP.001: Cycle to next Communion Representative dialogue line.
+func _on_communion_speak_again() -> void:
+	if bridge == null:
+		return
+	if bridge.has_method("CycleCommunionRepDialogueV0"):
+		bridge.call("CycleCommunionRepDialogueV0")
+	_update_communion_rep()
 
 
 func _on_restore_hull(ship_class_id: String) -> void:

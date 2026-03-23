@@ -429,3 +429,73 @@ SimCore/Systems/PlanetScanSystem.cs:10000
 
 # GATE.T42.PLANET_SCAN.FO.001: structural triangulation threshold (2 = min signal leads from different nodes)
 SimCore/Systems/FirstOfficerSystem.cs:2
+
+# Economy simulation plan: FleetPopulationSystem structural constants (loop guards, zero checks, counter increments)
+SimCore/Systems/FleetPopulationSystem.cs:0
+SimCore/Systems/FleetPopulationSystem.cs:1
+SimCore/Systems/FleetPopulationSystem.cs:500
+SimCore/Systems/FleetPopulationSystem.cs:8
+SimCore/Systems/FleetPopulationSystem.cs:10
+
+# Economy simulation plan: NPC trade risk scoring BPS conversion (10000 bps = 100%)
+SimCore/Systems/NpcTradeSystem.cs:10000
+
+# Economy simulation plan: STRUCTURAL: cooldown prune window (> 200 ticks old entries removed)
+SimCore/Systems/NpcTradeSystem.cs:200
+
+# GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001: structural FNV hash constants + modulus + lifetime range
+SimCore/Systems/SensorGhostSystem.cs:14695981039346656037UL
+SimCore/Systems/SensorGhostSystem.cs:1099511628211UL
+SimCore/Systems/SensorGhostSystem.cs:0
+
+# GATE.T45.DEEP_DREAD.PASSIVE_DRAIN.001: structural phase thresholds, zero floors
+SimCore/Systems/DreadDrainSystem.cs:0
+SimCore/Systems/DreadDrainSystem.cs:2
+SimCore/Systems/DreadDrainSystem.cs:4
+
+# GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001: structural phase threshold, per-K scaling
+SimCore/Systems/ExposureTrackSystem.cs:0
+SimCore/Systems/ExposureTrackSystem.cs:1
+SimCore/Systems/ExposureTrackSystem.cs:2
+SimCore/Systems/ExposureTrackSystem.cs:1000
+
+# GATE.T45.DEEP_DREAD.INFO_FOG.001: structural zero guards, modulus, BFS init
+SimCore/Systems/InformationFogSystem.cs:0
+SimCore/Systems/InformationFogSystem.cs:1
+SimCore/Systems/InformationFogSystem.cs:2
+
+# GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001: structural FNV hash constants, zero guards, spawn thresholds
+SimCore/Systems/LatticeFaunaSystem.cs:14695981039346656037UL
+SimCore/Systems/LatticeFaunaSystem.cs:1099511628211UL
+SimCore/Systems/LatticeFaunaSystem.cs:0
+SimCore/Systems/LatticeFaunaSystem.cs:1
+SimCore/Systems/LatticeFaunaSystem.cs:100UL
+SimCore/Systems/LatticeFaunaSystem.cs:20
+SimCore/Systems/LatticeFaunaSystem.cs:40
+
+# GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001: structural count guard
+SimCore/Systems/SensorGhostSystem.cs:1
+SimCore/Systems/SensorGhostSystem.cs:8
+SimCore/Systems/SensorGhostSystem.cs:16
+
+# GATE.T45.DEEP_DREAD.FO_DISTANCE.001: structural phase thresholds in FO triggers
+SimCore/Systems/FirstOfficerSystem.cs:4
+
+# GATE.T48.TEMPLATE.SCHEMA.001: structural zeros/ones (null guards, empty checks, default quantity, init counters, step index)
+SimCore/Systems/MissionTemplateSystem.cs:0
+SimCore/Systems/MissionTemplateSystem.cs:1
+
+# GATE.T48.ANOMALY.CHAIN_SYSTEM.001: structural zeros/ones (null guards, empty checks, BFS init, step start, increment)
+SimCore/Systems/AnomalyChainSystem.cs:0
+SimCore/Systems/AnomalyChainSystem.cs:1
+SimCore/Systems/AnomalyChainSystem.cs:3
+
+# GATE.T48.TENSION.MAINTENANCE.001: structural zeros/ones (null guard, cycle check, floor at zero, floor at 1 for hull)
+SimCore/Systems/FleetUpkeepSystem.cs:0
+SimCore/Systems/FleetUpkeepSystem.cs:1
+
+# GATE.T48.TELEMETRY.SESSION_WRITER.001: structural zeros (null guard, cycle check, init counters, div guard, zero-stock check)
+SimCore/Systems/TelemetrySystem.cs:0
+
+# GATE.T48.TEMPLATE.TWIST_ENGINE.001: "TMPL_" prefix length (string parsing constant)
+SimCore/Systems/MissionTemplateSystem.cs:5

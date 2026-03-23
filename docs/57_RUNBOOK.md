@@ -217,3 +217,25 @@ When L10N is added post-EA:
 
 - `steam_appid.txt` — placeholder App ID (480 = Spacewar test app)
 - `scripts/core/game_manager.gd` — `_init_steam_v0()`, `is_steam_enabled()`
+- `scripts/platform/steam_interface.gd` — Steam API wrapper (achievements, stats, rich presence, cloud saves)
+- `steam/app_build.vdf` — Steamworks build script (replace App/Depot IDs for release)
+- `steam/depot_build.vdf` — Depot file mapping configuration
+
+### Steam Cloud Saves — GATE.T51.STEAM.CLOUD_SAVES.001
+
+Cloud save sync is provided by `SteamInterface`:
+- `cloud_save_write(filename, data)` — write save JSON to Steam Cloud
+- `cloud_save_read(filename)` — read save JSON from Steam Cloud
+- `cloud_save_exists(filename)` — check existence
+- `cloud_save_delete(filename)` — remove from Cloud
+- `is_cloud_enabled()` — check user's Cloud storage setting
+
+Cloud storage must be enabled in Steamworks partner dashboard (App Admin → Cloud).
+Files to sync: `quicksave.json`, `autosave.json`. Max file size: 1 MB recommended.
+
+### Steamworks Build Upload — GATE.T51.STEAM.APP_CONFIG.001
+
+1. Export game to `export/steam/` via Godot export preset
+2. Install Steamworks SDK → `tools/ContentBuilder/`
+3. Update `steam/app_build.vdf` and `steam/depot_build.vdf` with actual IDs
+4. Run: `steamcmd +login <user> +run_app_build steam/app_build.vdf +quit`

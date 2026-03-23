@@ -23,6 +23,8 @@ public partial class SimBridge : Node
 {
     [Signal] public delegate void SimLoadedEventHandler();
     [Signal] public delegate void SaveCompletedEventHandler();
+    [Signal] public delegate void AutosaveStartedEventHandler();
+    [Signal] public delegate void AutosaveCompletedEventHandler();
 
     private volatile bool _emitSaveCompletePending = false;
     private int _saveEpoch = 0;
@@ -201,6 +203,14 @@ public partial class SimBridge : Node
     private int _isLoading = 0;
     private volatile bool _emitLoadCompletePending = false;
 
+    // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Timer-based auto-save state.
+    private float _autoSaveTimer = SimCore.Tweaks.AutoSaveTweaksV0.DefaultIntervalSeconds;
+    private bool _autoSaveEnabled = true;
+    private int _autoSaveIntervalSeconds = SimCore.Tweaks.AutoSaveTweaksV0.DefaultIntervalSeconds;
+    private volatile bool _emitAutosaveStartedPending = false;
+    private volatile bool _emitAutosaveCompletedPending = false;
+    private volatile bool _isAutoSaveInProgress = false;
+
     public bool IsLoading
     {
         get => Volatile.Read(ref _isLoading) != 0;
@@ -274,6 +284,43 @@ public partial class SimBridge : Node
         {
             _emitLoadCompletePending = false;
             EmitSignal(SignalName.SimLoaded);
+        }
+
+        // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Emit deferred auto-save signals on main thread.
+        if (_emitAutosaveStartedPending)
+        {
+            _emitAutosaveStartedPending = false;
+            EmitSignal(SignalName.AutosaveStarted);
+        }
+        if (_emitAutosaveCompletedPending)
+        {
+            _emitAutosaveCompletedPending = false;
+            EmitSignal(SignalName.AutosaveCompleted);
+        }
+
+        // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Timer-based auto-save.
+        if (_autoSaveEnabled && _kernel != null)
+        {
+            _autoSaveTimer -= (float)delta;
+            if (_autoSaveTimer <= 0f)
+            {
+                _autoSaveTimer = _autoSaveIntervalSeconds;
+
+                // Skip auto-save if player is in combat.
+                bool inCombat = false;
+                if (_stateLock.TryEnterReadLock(0))
+                {
+                    try { inCombat = _kernel.State.InCombat; }
+                    finally { _stateLock.ExitReadLock(); }
+                }
+
+                if (!inCombat)
+                {
+                    _emitAutosaveStartedPending = true;
+                    _isAutoSaveInProgress = true;
+                    AutoSaveV0();
+                }
+            }
         }
     }
 
@@ -533,6 +580,9 @@ public partial class SimBridge : Node
         {
             var snap = MapQueries.BuildGalaxySnapshotV0(state);
 
+            // GATE.T50.VISUAL: Pre-compute world class map once (O(n log n)) instead of per-node.
+            var worldClassMap = SimCore.Gen.GalaxyGenerator.GetWorldClassIdByNodeIdV0(state);
+
             var nodes = new Godot.Collections.Array();
             for (int i = 0; i < snap.SystemNodes.Count; i++)
             {
@@ -542,11 +592,82 @@ public partial class SimBridge : Node
                 float px = 0f;
                 float py = 0f;
                 float pz = 0f;
-                if (state.Nodes != null && !string.IsNullOrEmpty(n.NodeId) && state.Nodes.TryGetValue(n.NodeId, out var node))
+                SimCore.Entities.Node? node = null;
+                if (state.Nodes != null && !string.IsNullOrEmpty(n.NodeId) && state.Nodes.TryGetValue(n.NodeId, out node))
                 {
                     px = node.Position.X;
                     py = node.Position.Y;
                     pz = node.Position.Z;
+                }
+
+                // GATE.T50.VISUAL.GALAXY_NODES.001: Enrich with faction, world class, industry, and economy data.
+                string factionId = state.NodeFactionId.TryGetValue(n.NodeId ?? "", out var fid) ? fid : "";
+
+                // World class (CORE / FRONTIER / RIM / FRACTURE_OUTPOST).
+                string worldClass = "";
+                if (!string.IsNullOrEmpty(n.NodeId) && worldClassMap.TryGetValue(n.NodeId, out var wc))
+                    worldClass = wc;
+
+                // Primary industry type derived from market industries.
+                string primaryIndustry = "";
+                int industryCount = 0;
+                int totalInventory = 0;
+                if (!string.IsNullOrEmpty(n.NodeId) && node != null
+                    && !string.IsNullOrEmpty(node.MarketId)
+                    && state.Markets.TryGetValue(node.MarketId, out var market))
+                {
+                    industryCount = market.Industries.Count;
+
+                    // Sum total inventory as economic activity proxy.
+                    foreach (var inv in market.Inventory.Values)
+                        totalInventory += inv;
+
+                    // Determine primary industry from recipe IDs (first industry wins).
+                    foreach (var ind in market.Industries.Values)
+                    {
+                        var rid = ind.RecipeId ?? "";
+                        if (rid.Contains("mine", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("extract", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("ore", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            primaryIndustry = "mining";
+                            break;
+                        }
+                        if (rid.Contains("refin", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("smelt", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("process", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("alloy", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            primaryIndustry = "refinery";
+                            break;
+                        }
+                        if (rid.Contains("farm", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("grow", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("harvest", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("bio", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("food", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            primaryIndustry = "farming";
+                            break;
+                        }
+                        if (rid.Contains("trade", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("commerce", System.StringComparison.OrdinalIgnoreCase)
+                            || rid.Contains("market", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            primaryIndustry = "trading";
+                            break;
+                        }
+                    }
+                }
+
+                // Faction primary color from tweaks.
+                float fR = 0.5f, fG = 0.5f, fB = 0.5f;
+                if (!string.IsNullOrEmpty(factionId))
+                {
+                    var colors = SimCore.Tweaks.FactionTweaksV0.GetFactionColors(factionId);
+                    fR = colors.Primary.R;
+                    fG = colors.Primary.G;
+                    fB = colors.Primary.B;
                 }
 
                 nodes.Add(new Godot.Collections.Dictionary
@@ -558,7 +679,15 @@ public partial class SimBridge : Node
                     ["fleet_count"] = n.FleetCount,
                     ["pos_x"] = px,
                     ["pos_y"] = py,
-                    ["pos_z"] = pz
+                    ["pos_z"] = pz,
+                    ["faction_id"] = factionId,
+                    ["faction_r"] = fR,
+                    ["faction_g"] = fG,
+                    ["faction_b"] = fB,
+                    ["world_class"] = worldClass,
+                    ["primary_industry"] = primaryIndustry,
+                    ["industry_count"] = industryCount,
+                    ["total_inventory"] = totalInventory,
                 });
             }
 
@@ -669,6 +798,17 @@ public partial class SimBridge : Node
     // after SceneTree.quit(). Call this from GDScript test scripts before quit().
     public void StopSimV0()
     {
+        // GATE.T51.TELEMETRY.QUIT_TRACK.001: Log quit event before shutdown.
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try
+            {
+                SimCore.Systems.TelemetrySystem.LogEvent(_kernel.State, "quit", "", "session_end");
+            }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (System.Exception) { /* Graceful: sim may already be stopped. */ }
         StopSimulation();
     }
 
@@ -1047,6 +1187,19 @@ public partial class SimBridge : Node
             catch (System.Exception ex) { GD.Print($"DEBUG_SELL_PRE|ERROR|{ex.Message}"); }
         }
 
+        // GATE.T51.TELEMETRY.QUIT_TRACK.001: Log trade event.
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try
+            {
+                SimCore.Systems.TelemetrySystem.LogEvent(_kernel.State, "trade", nodeId,
+                    $"{(isBuy ? "buy" : "sell")}:{goodId}x{qty}");
+            }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (System.Exception) { /* Graceful: skip telemetry if lock unavailable. */ }
+
         int tickAtEnqueue = EnqueueCommandAndGetTick(new TradeCommand("player", nodeId, goodId, qty, type));
         WaitForTickAdvance(tickAtEnqueue, 200);
     }
@@ -1293,6 +1446,21 @@ public partial class SimBridge : Node
         _savePathAbs = path;
     }
 
+    // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Enable or disable timer-based auto-save.
+    public void SetAutoSaveEnabledV0(bool enabled)
+    {
+        _autoSaveEnabled = enabled;
+        if (enabled)
+            _autoSaveTimer = _autoSaveIntervalSeconds; // reset timer on re-enable
+    }
+
+    // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Set auto-save interval in seconds (clamped to minimum).
+    public void SetAutoSaveIntervalV0(int seconds)
+    {
+        _autoSaveIntervalSeconds = Math.Max(seconds, SimCore.Tweaks.AutoSaveTweaksV0.MinIntervalSeconds);
+        _autoSaveTimer = _autoSaveIntervalSeconds; // reset timer on interval change
+    }
+
     // GATE.S1.SAVE_UI.SLOTS.001: save slot support (3 slots).
     public void SetActiveSaveSlotV0(int slot)
     {
@@ -1433,6 +1601,13 @@ public partial class SimBridge : Node
 
             Interlocked.Increment(ref _saveEpoch);
             _emitSaveCompletePending = true;
+
+            // GATE.T46.SAVE.AUTOSAVE_SYSTEM.001: Flag auto-save completion for main-thread signal.
+            if (_isAutoSaveInProgress)
+            {
+                _isAutoSaveInProgress = false;
+                _emitAutosaveCompletedPending = true;
+            }
 
             GD.Print($"[BRIDGE] Saved: {_savePathAbs}");
         }

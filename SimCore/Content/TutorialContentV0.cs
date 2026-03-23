@@ -526,6 +526,52 @@ public static class TutorialContentV0
             Text = "Not the right place for what we\u2019re carrying. Let\u2019s try {station} \u2014 I\u2019ve got a feeling." },
     };
 
+    // GATE.T51.VO.BRIDGE_KEY.001: Map tutorial phases to vo_key strings for VO file lookup.
+    // vo_key is the filename stem used by vo_lookup.gd: res://assets/audio/vo/{speaker}/{vo_key}_{seq}.mp3
+    public static string GetVoKey(TutorialPhase phase)
+    {
+        return phase switch
+        {
+            TutorialPhase.Awaken => "awaken",
+            TutorialPhase.Flight_Intro => "flight_intro",
+            TutorialPhase.First_Dock => "first_dock",
+            TutorialPhase.Module_Calibration_Notice => "module_calibration",
+            TutorialPhase.Maren_Hail => "maren_hail",
+            TutorialPhase.Maren_Settle => "maren_settle",
+            TutorialPhase.Market_Explain => "market_explain",
+            TutorialPhase.Buy_Prompt => "buy_prompt",
+            TutorialPhase.Buy_React => "buy_react",
+            TutorialPhase.Cruise_Intro => "cruise_intro",
+            TutorialPhase.Travel_Prompt => "travel_prompt",
+            TutorialPhase.Jump_Anomaly => "jump_anomaly",
+            TutorialPhase.Arrival_Dock => "arrival_dock",
+            TutorialPhase.Sell_Prompt => "sell_prompt",
+            TutorialPhase.First_Profit => "first_profit",
+            TutorialPhase.FO_Selection => "fo_selection",
+            TutorialPhase.World_Intro => "world_intro",
+            TutorialPhase.Explore_Prompt => "explore_prompt",
+            TutorialPhase.Galaxy_Map_Prompt => "galaxy_map_prompt",
+            TutorialPhase.Threat_Warning => "threat_warning",
+            TutorialPhase.Dask_Hail => "dask_hail",
+            TutorialPhase.Combat_Engage => "combat_engage",
+            TutorialPhase.Combat_Debrief => "combat_debrief",
+            TutorialPhase.Repair_Prompt => "repair_prompt",
+            TutorialPhase.Module_Intro => "module_intro",
+            TutorialPhase.Module_Equip => "module_equip",
+            TutorialPhase.Module_React => "module_react",
+            TutorialPhase.Lira_Tease => "lira_tease",
+            TutorialPhase.Automation_Intro => "automation_intro",
+            TutorialPhase.Automation_Create => "automation_create",
+            TutorialPhase.Automation_Running => "automation_running",
+            TutorialPhase.Automation_React => "automation_react",
+            TutorialPhase.Mystery_Reveal => "mystery_reveal",
+            TutorialPhase.FO_Farewell => "fo_farewell",
+            TutorialPhase.Milestone_Award => "milestone_award",
+            TutorialPhase.Graduation_Summary => "graduation_summary",
+            _ => ""
+        };
+    }
+
     /// <summary>Get wrong-station warning text for a candidate. Replace {station} with actual name.</summary>
     public static string GetWrongStationText(FirstOfficerCandidate candidate)
     {

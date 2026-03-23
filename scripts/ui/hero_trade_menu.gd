@@ -711,13 +711,27 @@ func open_market_v0(node_id: String) -> void:
 		if _access_denied_label:
 			_access_denied_label.visible = not can_trade
 
-		# L1.3: Faction greeting flavor text.
-		if _greeting_label and not faction_id.is_empty() and bridge.has_method("GetFactionGreetingV0"):
-			var greeting: String = str(bridge.call("GetFactionGreetingV0", faction_id, ""))
-			if not greeting.is_empty():
-				_greeting_label.text = "\"%s\"" % greeting
-				_greeting_label.visible = true
-			else:
+		# L1.3 + GATE.T46.STATION.DOCK_FLAVOR.001: Faction greeting + station description.
+		if _greeting_label and not faction_id.is_empty():
+			var got_flavor: bool = false
+			if bridge.has_method("GetDockFlavorV0"):
+				var flavor: Dictionary = bridge.call("GetDockFlavorV0", node_id)
+				var greet: String = str(flavor.get("greeting", ""))
+				var desc: String = str(flavor.get("description", ""))
+				if not greet.is_empty():
+					var combined: String = "\"%s\"" % greet
+					if not desc.is_empty():
+						combined += "\n" + desc
+					_greeting_label.text = combined
+					_greeting_label.visible = true
+					got_flavor = true
+			if not got_flavor and bridge.has_method("GetFactionGreetingV0"):
+				var greeting: String = str(bridge.call("GetFactionGreetingV0", faction_id, ""))
+				if not greeting.is_empty():
+					_greeting_label.text = "\"%s\"" % greeting
+					_greeting_label.visible = true
+					got_flavor = true
+			if not got_flavor:
 				_greeting_label.visible = false
 		elif _greeting_label:
 			_greeting_label.visible = false
@@ -1812,7 +1826,16 @@ func _rebuild_station_info() -> void:
 	# --- Section 7: Infrastructure (collapsed — old station health + production) ---
 	_briefing_add_infrastructure(bridge)
 
-	# --- Section 8: Planet Scanner (only at planet nodes) ---
+	# --- Section 8: Economy Snapshot (GATE.T44.DIGEST.ECONOMY_DOCK.001) ---
+	_briefing_add_economy_snapshot(bridge)
+
+	# --- Section 8b: Upkeep Breakdown (GATE.T48.TENSION.UPKEEP_BRIDGE.001) ---
+	_briefing_add_upkeep_breakdown(bridge)
+
+	# --- Section 8c: Situation — Contextual Template Opportunities (GATE.T48.TEMPLATE.CONTEXT_SURFACE.001) ---
+	_briefing_add_situation(bridge)
+
+	# --- Section 9: Planet Scanner (only at planet nodes) ---
 	_briefing_add_planet_scanner(bridge, planet_info)
 
 	_station_info_container.visible = true
@@ -2289,6 +2312,352 @@ func _briefing_add_infrastructure(bridge) -> void:
 			_station_info_container.add_child(row)
 
 # GATE.T43.SCAN_UI.STATION_SECTION.001: Planet scanner section in Station tab.
+# GATE.T44.DIGEST.ECONOMY_DOCK.001: Economy snapshot section in dock panel.
+func _briefing_add_economy_snapshot(bridge) -> void:
+	if bridge == null or not bridge.has_method("GetNodeEconomySnapshotV0"):
+		return
+	var snap: Dictionary = bridge.call("GetNodeEconomySnapshotV0", _market_node_id)
+	if snap == null or snap.is_empty():
+		return
+
+	_add_section_header(_station_info_container, "economy_snapshot", "ECONOMY")
+	if _collapsed.get("economy_snapshot", false):
+		return
+
+	var traffic: int = int(snap.get("traffic_level", 0))
+	var prosperity: float = float(snap.get("prosperity", 0.0))
+	var industry: String = str(snap.get("industry_type", "none"))
+	var warfront: int = int(snap.get("warfront_tier", 0))
+
+	# Traffic level label
+	var traffic_text: String = "Low"
+	var traffic_color: Color = UITheme.TEXT_MUTED
+	if traffic >= 6:
+		traffic_text = "Busy"
+		traffic_color = UITheme.GREEN
+	elif traffic >= 3:
+		traffic_text = "High"
+		traffic_color = UITheme.CYAN
+	elif traffic >= 1:
+		traffic_text = "Medium"
+		traffic_color = UITheme.TEXT_PRIMARY
+
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", UITheme.SPACE_SM)
+	var traffic_key := Label.new()
+	traffic_key.text = "Traffic:"
+	traffic_key.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	traffic_key.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	traffic_key.custom_minimum_size.x = 90
+	row1.add_child(traffic_key)
+	var traffic_val := Label.new()
+	traffic_val.text = traffic_text
+	traffic_val.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	traffic_val.add_theme_color_override("font_color", traffic_color)
+	row1.add_child(traffic_val)
+	_station_info_container.add_child(row1)
+
+	# Prosperity bar
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", UITheme.SPACE_SM)
+	var pros_key := Label.new()
+	pros_key.text = "Prosperity:"
+	pros_key.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	pros_key.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	pros_key.custom_minimum_size.x = 90
+	row2.add_child(pros_key)
+	var pros_bar := ProgressBar.new()
+	pros_bar.min_value = 0.0
+	pros_bar.max_value = 1.5
+	pros_bar.value = clampf(prosperity, 0.0, 1.5)
+	pros_bar.custom_minimum_size = Vector2(120, 14)
+	pros_bar.show_percentage = false
+	row2.add_child(pros_bar)
+	var pros_pct := Label.new()
+	pros_pct.text = "%d%%" % int(clampf(prosperity, 0.0, 2.0) * 100)
+	pros_pct.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	pros_pct.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	row2.add_child(pros_pct)
+	_station_info_container.add_child(row2)
+
+	# Industry type
+	if industry != "none":
+		var row3 := HBoxContainer.new()
+		row3.add_theme_constant_override("separation", UITheme.SPACE_SM)
+		var ind_key := Label.new()
+		ind_key.text = "Industry:"
+		ind_key.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		ind_key.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		ind_key.custom_minimum_size.x = 90
+		row3.add_child(ind_key)
+		var ind_val := Label.new()
+		ind_val.text = industry.replace("_", " ").capitalize()
+		ind_val.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		ind_val.add_theme_color_override("font_color", UITheme.CYAN)
+		row3.add_child(ind_val)
+		_station_info_container.add_child(row3)
+
+	# Warfront warning
+	if warfront > 0:
+		var warn := Label.new()
+		warn.text = "WARFRONT ACTIVE (Tier %d)" % warfront
+		warn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		warn.add_theme_color_override("font_color", UITheme.RED)
+		_station_info_container.add_child(warn)
+
+	# GATE.T47.DIGEST.ECON_PANEL.001: Per-good supply & trend rows.
+	_economy_add_goods_rows(bridge)
+
+
+# GATE.T47.DIGEST.ECON_PANEL.001: Per-good supply list with surplus/deficit indicators.
+func _economy_add_goods_rows(bridge) -> void:
+	if bridge == null or not bridge.has_method("GetMarketGoodsSnapshotV1"):
+		return
+	var goods: Array = bridge.call("GetMarketGoodsSnapshotV1", _market_node_id)
+	if goods.size() == 0:
+		return
+
+	# Sub-header separator
+	var sep := HSeparator.new()
+	sep.add_theme_constant_override("separation", 2)
+	_station_info_container.add_child(sep)
+
+	var sub_header := Label.new()
+	sub_header.text = "Local Supply"
+	sub_header.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	sub_header.add_theme_color_override("font_color", UITheme.CYAN)
+	_station_info_container.add_child(sub_header)
+
+	# Get industry data for production/consumption context.
+	var industry_outputs: Dictionary = {}  # good_id -> true (produced here)
+	var industry_inputs: Dictionary = {}   # good_id -> true (consumed here)
+	if bridge.has_method("GetNodeIndustryV0"):
+		var industry: Array = bridge.call("GetNodeIndustryV0", _market_node_id)
+		for site in industry:
+			if typeof(site) != TYPE_DICTIONARY:
+				continue
+			var outputs = site.get("outputs", [])
+			if typeof(outputs) == TYPE_ARRAY:
+				for o in outputs:
+					if typeof(o) == TYPE_DICTIONARY:
+						industry_outputs[str(o.get("good_id", ""))] = true
+					elif typeof(o) == TYPE_STRING:
+						industry_outputs[o] = true
+			var inputs = site.get("inputs", [])
+			if typeof(inputs) == TYPE_ARRAY:
+				for inp in inputs:
+					if typeof(inp) == TYPE_DICTIONARY:
+						industry_inputs[str(inp.get("good_id", ""))] = true
+					elif typeof(inp) == TYPE_STRING:
+						industry_inputs[inp] = true
+
+	# Compare current vs published price for trend direction.
+	for good in goods:
+		if typeof(good) != TYPE_DICTIONARY:
+			continue
+		var good_id: String = str(good.get("good_id", ""))
+		var display_name: String = str(good.get("display_name", good_id.replace("_", " ").capitalize()))
+		var supply: int = int(good.get("market_qty", 0))
+		var price: int = int(good.get("price", 0))
+		var effective_price: int = int(good.get("effective_price", 0))
+
+		# Determine supply status color.
+		var supply_color: Color = UITheme.TEXT_PRIMARY  # balanced (3-10)
+		if supply > 10:
+			supply_color = UITheme.GREEN        # surplus
+		elif supply < 3:
+			supply_color = UITheme.RED          # deficit
+
+		# Trend arrow: compare effective vs published price for direction.
+		var trend_arrow: String = "-"  # stable
+		var trend_color: Color = UITheme.TEXT_MUTED
+		if price > 0 and effective_price > 0:
+			var diff_pct: float = float(effective_price - price) / float(price) * 100.0
+			if diff_pct > 5.0:
+				trend_arrow = "^"  # price rising (demand > supply)
+				trend_color = UITheme.ORANGE
+			elif diff_pct < -5.0:
+				trend_arrow = "v"  # price falling (supply > demand)
+				trend_color = UITheme.GREEN
+
+		# Role tag: produced / consumed / traded
+		var role_tag: String = ""
+		if industry_outputs.has(good_id):
+			role_tag = " [P]"  # Produced
+		elif industry_inputs.has(good_id):
+			role_tag = " [C]"  # Consumed
+
+		# Build compact row: [Name] [Supply: N] [Trend]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", UITheme.SPACE_SM)
+
+		var name_lbl := Label.new()
+		name_lbl.text = display_name + role_tag
+		name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		name_lbl.custom_minimum_size.x = 120
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_lbl)
+
+		var supply_lbl := Label.new()
+		supply_lbl.text = str(supply)
+		supply_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		supply_lbl.add_theme_color_override("font_color", supply_color)
+		supply_lbl.custom_minimum_size.x = 30
+		supply_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(supply_lbl)
+
+		var trend_lbl := Label.new()
+		trend_lbl.text = trend_arrow
+		trend_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		trend_lbl.add_theme_color_override("font_color", trend_color)
+		trend_lbl.custom_minimum_size.x = 16
+		trend_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		row.add_child(trend_lbl)
+
+		_station_info_container.add_child(row)
+
+
+# GATE.T48.TENSION.UPKEEP_BRIDGE.001: Fleet upkeep breakdown in dock.
+func _briefing_add_upkeep_breakdown(bridge) -> void:
+	if bridge == null or not bridge.has_method("GetFleetUpkeepSummaryV0"):
+		return
+	var upkeep: Dictionary = bridge.call("GetFleetUpkeepSummaryV0")
+	if upkeep.is_empty():
+		return
+
+	var cr_per: int = int(upkeep.get("credits_per_cycle", 0))
+	var fuel_per: int = int(upkeep.get("fuel_per_cycle", 0))
+	var hull_per: int = int(upkeep.get("hull_degrad_per_cycle", 0))
+	var wage_per: int = int(upkeep.get("wage_per_cycle", 0))
+	var runway: int = int(upkeep.get("runway_ticks", 9999))
+
+	# Only show if there is any upkeep cost.
+	if cr_per <= 0 and fuel_per <= 0 and hull_per <= 0 and wage_per <= 0:
+		return
+
+	_add_section_header(_station_info_container, "upkeep_breakdown", "UPKEEP")
+	if _collapsed.get("upkeep_breakdown", false):
+		return
+
+	# Color by runway.
+	var runway_color: Color = UITheme.GREEN
+	if runway < 20:
+		runway_color = UITheme.RED
+	elif runway < 100:
+		runway_color = UITheme.ORANGE
+
+	# Main upkeep row: "Upkeep: X cr/cycle | Fuel: Y/cycle | Hull wear: Z/cycle"
+	var parts: Array = []
+	if cr_per > 0:
+		parts.append("Upkeep: %d cr/cycle" % cr_per)
+	if fuel_per > 0:
+		parts.append("Fuel: %d/cycle" % fuel_per)
+	if hull_per > 0:
+		parts.append("Hull wear: %d/cycle" % hull_per)
+	if wage_per > 0:
+		parts.append("Wages: %d cr/cycle" % wage_per)
+
+	var upkeep_lbl := Label.new()
+	upkeep_lbl.text = " | ".join(parts)
+	upkeep_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	upkeep_lbl.add_theme_color_override("font_color", runway_color)
+	_station_info_container.add_child(upkeep_lbl)
+
+	# Runway indicator.
+	var runway_lbl := Label.new()
+	if runway >= 9999:
+		runway_lbl.text = "Runway: Stable"
+	else:
+		runway_lbl.text = "Runway: ~%d ticks" % runway
+	runway_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	runway_lbl.add_theme_color_override("font_color", runway_color)
+	_station_info_container.add_child(runway_lbl)
+
+
+# GATE.T48.TEMPLATE.CONTEXT_SURFACE.001: Contextual template opportunities at station.
+func _briefing_add_situation(bridge) -> void:
+	if bridge == null or not bridge.has_method("GetContextualTemplatesV0"):
+		return
+	var templates: Array = bridge.call("GetContextualTemplatesV0", _market_node_id)
+	if templates.size() == 0:
+		return  # No contextual opportunities — hide section entirely.
+
+	_add_section_header(_station_info_container, "situation", "SITUATION")
+	if _collapsed.get("situation", false):
+		return
+
+	# Get FO name for narration.
+	var fo_name: String = ""
+	if bridge.has_method("GetFirstOfficerStateV0"):
+		var fo: Dictionary = bridge.call("GetFirstOfficerStateV0")
+		fo_name = str(fo.get("name", ""))
+	var speaker: String = fo_name if not fo_name.is_empty() else "Ship Computer"
+
+	for tmpl in templates:
+		if typeof(tmpl) != TYPE_DICTIONARY:
+			continue
+		var tid: String = str(tmpl.get("template_id", ""))
+		var dname: String = str(tmpl.get("display_name", ""))
+		var archetype: String = str(tmpl.get("archetype", ""))
+		var situation: String = str(tmpl.get("situation_description", ""))
+
+		# FO-style narration container.
+		var card := VBoxContainer.new()
+		card.add_theme_constant_override("separation", 2)
+
+		# Narration line: "Commander Valorin-3 mentions..."
+		var narration := Label.new()
+		narration.text = "%s: \"%s — %s available.\"" % [speaker, situation, dname]
+		narration.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		narration.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card.add_child(narration)
+
+		# Archetype tag + accept button row.
+		var action_row := HBoxContainer.new()
+		action_row.add_theme_constant_override("separation", UITheme.SPACE_SM)
+
+		var arch_lbl := Label.new()
+		arch_lbl.text = "[%s]" % archetype
+		arch_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		var arch_color: Color = UITheme.CYAN
+		if archetype == "Combat":
+			arch_color = UITheme.RED
+		elif archetype == "Supply":
+			arch_color = UITheme.GREEN
+		elif archetype == "Politics":
+			arch_color = UITheme.GOLD
+		arch_lbl.add_theme_color_override("font_color", arch_color)
+		action_row.add_child(arch_lbl)
+
+		var accept_btn := Button.new()
+		accept_btn.text = "Accept"
+		accept_btn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		accept_btn.pressed.connect(_on_accept_contextual_template.bind(tid))
+		action_row.add_child(accept_btn)
+
+		card.add_child(action_row)
+		_station_info_container.add_child(card)
+
+
+func _on_accept_contextual_template(template_id: String) -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null or not bridge.has_method("AcceptContextualTemplateV0"):
+		return
+	var result: Dictionary = bridge.call("AcceptContextualTemplateV0", template_id)
+	if result.get("success", false):
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Mission accepted!", "success")
+		# Rebuild station info to remove accepted template from list.
+		_rebuild_station_info()
+	else:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", "Cannot accept mission right now.", "warn")
+
+
 func _briefing_add_planet_scanner(bridge, planet_info: Dictionary) -> void:
 	if planet_info.size() == 0:
 		return  # Not a planet node — skip.

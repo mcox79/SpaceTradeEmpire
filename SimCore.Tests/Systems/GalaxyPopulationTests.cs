@@ -109,6 +109,9 @@ public sealed class GalaxyPopulationTests
 
         foreach (var nodeId in communionNodes)
         {
+            // Player start node gets a density bonus — skip it
+            if (StringComparer.Ordinal.Equals(nodeId, state.PlayerLocationNodeId)) continue;
+
             int fleetCount = state.Fleets.Values.Count(f =>
                 StringComparer.Ordinal.Equals(f.CurrentNodeId, nodeId)
                 && !StringComparer.Ordinal.Equals(f.OwnerId, "player"));

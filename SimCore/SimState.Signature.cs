@@ -105,6 +105,15 @@ public partial class SimState
             }
         }
 
+        // GATE.T48.TEMPLATE.SCHEMA.001: Template mission IDs in signature.
+        if (ActiveTemplateMissionIds is not null && ActiveTemplateMissionIds.Count > 0)
+        {
+            foreach (var tmId in ActiveTemplateMissionIds.OrderBy(x => x, StringComparer.Ordinal))
+            {
+                sb.Append($"TMpl:{tmId}|");
+            }
+        }
+
         // GATE.S7.FACTION.REPUTATION_SYS.001: Include faction reputation in signature.
         if (FactionReputation is not null && FactionReputation.Count > 0)
         {
@@ -315,6 +324,23 @@ public partial class SimState
             // GATE.S8.HAVEN.COMMUNION_REP.001: Communion rep state in signature.
             if (Haven.CommunionRep is not null && Haven.CommunionRep.Present)
                 sb.Append($"CR:{(Haven.CommunionRep.Present ? 1 : 0)}|CRD:{Haven.CommunionRep.DialogueTier}|");
+        }
+
+        // GATE.T48.TEMPLATE.SCHEMA.001: Active template mission IDs in signature.
+        if (ActiveTemplateMissionIds is not null && ActiveTemplateMissionIds.Count > 0)
+        {
+            sb.Append("TMPL:");
+            var sorted = ActiveTemplateMissionIds.OrderBy(x => x, StringComparer.Ordinal);
+            foreach (var id in sorted)
+                sb.Append($"{id},");
+            sb.Append("|");
+        }
+
+        // GATE.T48.TELEMETRY.SESSION_WRITER.001: Telemetry snapshot count in signature.
+        if (TelemetrySnapshots is not null && TelemetrySnapshots.Count > 0)
+        {
+            var last = TelemetrySnapshots[TelemetrySnapshots.Count - 1];
+            sb.Append($"TEL:{TelemetrySnapshots.Count}|LT:{last.Tick}|GV:{last.GoodsVelocity}|SC:{last.StockoutCount}|");
         }
 
         using var sha = SHA256.Create();

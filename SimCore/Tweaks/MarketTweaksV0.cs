@@ -25,8 +25,15 @@ public static class MarketTweaksV0
 
     // Starter arbitrage guarantee: ensures first-trade has a profitable route.
     // MinStarterMargin: minimum buy→sell margin (cr/unit) required at player start.
-    public const int MinStarterMargin   = 50;
+    // Raised from 50→200 to reduce profit variance across seeds (range=4 → target ≤2).
+    public const int MinStarterMargin   = 200;
     // Stock targets when adjusting starter node inventory to guarantee margin.
-    public const int StarterHighStock   = 145;  // Push buy price low (~5 cr).
-    public const int StarterLowStock    = 10;   // Push sell price high (~80 cr).
+    public const int StarterHighStock   = 300;  // Push buy price low — stronger guarantee.
+    public const int StarterLowStock    = 5;    // Push sell price high — stronger guarantee.
+
+    // MaxStarterBuyPrice: max affordable buy price so the player can buy ≥3 units.
+    // With starting credits ~997, price ≤250 allows buying 3+ units for meaningful profit.
+    public const int MaxStarterBuyPrice = 250;
+    // StarterBuyFloorStock: stock level to push if buy price is too high.
+    public const int StarterBuyFloorStock = 500;
 }

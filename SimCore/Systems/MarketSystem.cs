@@ -2,7 +2,6 @@ using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
-using System.Linq;
 
 namespace SimCore.Systems;
 
@@ -143,7 +142,7 @@ public static class MarketSystem
         if (state is null || string.IsNullOrEmpty(marketId)) return "";
 
         // Find the node that references this market.
-        foreach (var kv in state.Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
+        foreach (var kv in state.Nodes)
         {
             if (StringComparer.Ordinal.Equals(kv.Value.MarketId, marketId))
             {

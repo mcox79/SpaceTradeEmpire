@@ -26,8 +26,40 @@ public class Market
     // - SellPrice is what the player receives (market buys from player)
     // - Spread is deterministic and non-zero
 
-    public const int BasePrice = 100;
+    public const int BasePrice = 100; // Default fallback; per-good prices override via GoodBasePrices.
     public const int IdealStock = 50;
+
+    // Per-good base prices populated from ContentRegistry at world load.
+    // Key: goodId, Value: base price in credits. Falls back to BasePrice if absent.
+    private static Dictionary<string, int> s_goodBasePrices = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Set per-good base prices from the content registry. Called once at world load.
+    /// </summary>
+    public static void SetGoodBasePrices(IEnumerable<(string Id, int BasePrice)> goodPrices)
+    {
+        s_goodBasePrices.Clear();
+        foreach (var (id, bp) in goodPrices)
+        {
+            if (bp > 0) s_goodBasePrices[id] = bp;
+        }
+    }
+
+    /// <summary>
+    /// Get the per-good base price, falling back to the constant BasePrice if not set.
+    /// </summary>
+    public static int GetGoodBasePrice(string goodId)
+    {
+        return s_goodBasePrices.TryGetValue(goodId, out var bp) ? bp : BasePrice;
+    }
+
+    /// <summary>
+    /// Clear per-good base prices (revert to BasePrice fallback). Used in tests to prevent cross-test contamination.
+    /// </summary>
+    public static void ClearGoodBasePrices()
+    {
+        s_goodBasePrices.Clear();
+    }
 
     // Min spread in absolute credits. Also enforces BuyPrice > SellPrice.
     public const int MinSpread = 2;
@@ -54,11 +86,12 @@ public class Market
         if (string.IsNullOrWhiteSpace(goodId)) throw new ArgumentException("goodId must be non-empty.", nameof(goodId));
 
         int stock = Inventory.TryGetValue(goodId, out var v) ? v : 0;
+        int goodBase = GetGoodBasePrice(goodId);
 
         // Deterministic linear scarcity curve around IdealStock.
-        // If stock < IdealStock => price > BasePrice
-        // If stock > IdealStock => price < BasePrice
-        int mid = BasePrice + (IdealStock - stock);
+        // If stock < IdealStock => price > goodBase
+        // If stock > IdealStock => price < goodBase
+        int mid = goodBase + (IdealStock - stock);
 
         return Math.Max(1, mid);
     }

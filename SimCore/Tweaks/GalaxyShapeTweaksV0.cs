@@ -11,4 +11,8 @@ public static class GalaxyShapeTweaksV0
     // Radial falloff: 0.0 = uniform thickness, 1.0 = zero thickness at edge.
     // 0.7 = moderate thinning toward galaxy edge (realistic disc shape).
     public static float RadialFalloff { get; } = 0.7f;
+
+    // Minimum distinct factions within 2 hops of player start.
+    // EnsureFactionDiversityAtStartV0 relocates start if below this threshold.
+    public const int MinStarterFactionDiversity = 3;
 }

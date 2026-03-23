@@ -38,6 +38,10 @@ var _waiting_for_advance := false
 var _is_headless := false
 var _active_tween: Tween = null
 
+# GATE.T51.VO.DIALOGUE_WIRE.001: VO playback state.
+var _vo_duration := 0.0  # Duration of current VO clip (0 = no VO)
+var _vo_cps := 0  # Adjusted CPS when VO is playing (synced to audio duration)
+
 func _ready() -> void:
 	layer = LAYER
 	_is_headless = DisplayServer.get_name() == "headless"
@@ -111,7 +115,11 @@ func _build_ui() -> void:
 ## fo_name: "Maren", "Dask", or "Lira"
 ## portrait_color: color for the portrait rect
 ## text: the dialogue line
-func show_line(fo_name: String, portrait_color: Color, text: String) -> void:
+## vo_key: optional VO lookup key (empty = no VO)
+## vo_speaker: optional speaker for VO lookup (empty = no VO)
+## vo_sequence: optional sequence index for multi-line VO
+func show_line(fo_name: String, portrait_color: Color, text: String,
+		vo_key: String = "", vo_speaker: String = "", vo_sequence: int = 0) -> void:
 	_name_label.text = fo_name.to_upper()
 	_portrait_rect.color = portrait_color
 	_full_text = text
@@ -120,11 +128,26 @@ func show_line(fo_name: String, portrait_color: Color, text: String) -> void:
 	_waiting_for_advance = false
 	_advance_label.visible = false
 	_text_label.text = ""
+	_vo_duration = 0.0
+	_vo_cps = 0
 
 	# Kill any pending dismiss tween (its callback would hide the panel after us).
 	if _active_tween and _active_tween.is_valid():
 		_active_tween.kill()
 		_active_tween = null
+
+	# GATE.T51.VO.DIALOGUE_WIRE.001: Try to play VO if key provided.
+	if not vo_key.is_empty() and not vo_speaker.is_empty() and not _is_headless:
+		var vo_lookup = get_node_or_null("/root/VOLookup")
+		if vo_lookup:
+			var stream = vo_lookup.lookup(vo_speaker, vo_key, vo_sequence)
+			if stream:
+				var music_mgr = get_node_or_null("/root/MusicManager")
+				if music_mgr and music_mgr.has_method("play_vo"):
+					_vo_duration = music_mgr.play_vo(stream)
+					# Sync typewriter speed to VO duration.
+					if _vo_duration > 0.0 and _full_text.length() > 0:
+						_vo_cps = int(ceil(float(_full_text.length()) / _vo_duration))
 
 	# Slide in.
 	_panel.visible = true
@@ -143,9 +166,11 @@ func show_line(fo_name: String, portrait_color: Color, text: String) -> void:
 
 
 ## Show a line using the FO type name to auto-resolve portrait color.
-func show_line_by_type(fo_type: String, fo_name: String, text: String) -> void:
+## vo_key/vo_speaker/vo_sequence are passed through to show_line for VO playback.
+func show_line_by_type(fo_type: String, fo_name: String, text: String,
+		vo_key: String = "", vo_speaker: String = "", vo_sequence: int = 0) -> void:
 	var color: Color = PORTRAIT_COLORS.get(fo_type, Color(0.5, 0.5, 0.5))
-	show_line(fo_name, color, text)
+	show_line(fo_name, color, text, vo_key, vo_speaker, vo_sequence)
 
 
 ## Returns true if the dialogue box is visible and waiting for player to advance.
@@ -176,6 +201,9 @@ func _process(delta: float) -> void:
 		return
 	# Typewriter effect.
 	var cps := TYPEWRITER_CPS
+	# GATE.T51.VO.DIALOGUE_WIRE.001: Use VO-synced CPS when available.
+	if _vo_cps > 0:
+		cps = _vo_cps
 	if _is_headless:
 		cps = 0  # Instant
 	if cps <= 0:

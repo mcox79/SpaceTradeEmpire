@@ -52,7 +52,7 @@ public partial class SimBridge
             lock (_snapshotLock) { _cachedDiscoveryTradeIntelV0 = result; }
         });
 
-        lock (_snapshotLock) { return _cachedDiscoveryTradeIntelV0; }
+        lock (_snapshotLock) { return _cachedDiscoveryTradeIntelV0?.Duplicate(true) ?? new Godot.Collections.Array(); }
     }
 
     // GATE.T41.DISCOVERY.BRIDGE.001: Get active anomaly chains.
@@ -91,7 +91,7 @@ public partial class SimBridge
             lock (_snapshotLock) { _cachedActiveChainsV0 = result; }
         });
 
-        lock (_snapshotLock) { return _cachedActiveChainsV0; }
+        lock (_snapshotLock) { return _cachedActiveChainsV0?.Duplicate(true) ?? new Godot.Collections.Array(); }
     }
 
     // GATE.T41.DISCOVERY.BRIDGE.001: Get progress for a specific chain.
@@ -185,7 +185,7 @@ public partial class SimBridge
             lock (_snapshotLock) { _cachedSurveyProgramStatusV0 = result; }
         });
 
-        lock (_snapshotLock) { return _cachedSurveyProgramStatusV0; }
+        lock (_snapshotLock) { return _cachedSurveyProgramStatusV0?.Duplicate(true) ?? new Godot.Collections.Dictionary(); }
     }
 
     // GATE.T41.DISCOVERY.BRIDGE.001: Check if survey program is unlocked for a family.

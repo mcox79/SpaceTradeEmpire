@@ -97,6 +97,9 @@ var _damage_flash: ColorRect = null
 # GATE.S7.COMBAT_PHASE2.OVERHEAT_VFX.001: Track lockout state for vent burst flash.
 var _prev_locked_out: bool = false
 
+# GATE.T48.TENSION.UPKEEP_BRIDGE.001: Upkeep burn rate indicator.
+var _upkeep_label: Label = null
+
 # FEEL_POST_FIX_9: Persistent red border vignette during combat state.
 var _combat_vignette: ColorRect = null
 var _combat_vignette_active: bool = false
@@ -129,6 +132,9 @@ var _credits_actual: int = 0
 var _credits_tween: Tween = null
 # L0.1: Credits flash overlay for trade feedback.
 var _credits_flash: ColorRect = null
+
+# Cost visibility: detect credit decreases outside of trade context and show toasts.
+var _prev_credits_snapshot: int = -1
 
 # GATE.S19.ONBOARD.HUD_DISCLOSURE.010: Cached onboarding disclosure state.
 var _onboarding_state: Dictionary = {}
@@ -202,6 +208,13 @@ var _transit_progress_fill: ColorRect = null
 # GATE.X.WARP.TRANSIT_HUD.001: Warp transit HUD overlay (destination + ETA + distance).
 var _warp_transit_hud = null
 
+# GATE.T45.DEEP_DREAD.HUD_DREAD.001: Dread indicators.
+var _dread_panel: PanelContainer = null
+var _dread_phase_label: Label = null
+var _dread_isolation_label: Label = null
+var _dread_exposure_bar: ProgressBar = null
+var _dread_fauna_label: Label = null
+
 # GATE.S8.STORY_STATE.DELIVERY_UI.001: Gold toast + map highlight + FO reaction for revelation moments.
 var _last_revelation_count: int = -1
 
@@ -213,6 +226,10 @@ var _scanner_hud_panel = null
 
 # GATE.T43.SCAN_UI.RESULT_MODAL.001: Scan result modal.
 var _scan_result_modal = null
+
+# GATE.T46.SAVE.AUTOSAVE_UI.001: Auto-save HUD indicator (top-right, subtle fade).
+var _autosave_label: Label = null
+var _autosave_tween: Tween = null
 
 
 func _ready() -> void:
@@ -247,6 +264,14 @@ func _ready() -> void:
 	_overlay_scrim.visible = false
 	add_child(_overlay_scrim)
 	move_child(_overlay_scrim, 0)  # Behind all HUD elements
+
+	# GATE.T44.DIGEST.MARKET_ALERTS.001: Economy alert poller.
+	var poller_script = load("res://scripts/ui/economy_alert_poller.gd")
+	if poller_script:
+		var poller = Node.new()
+		poller.set_script(poller_script)
+		poller.name = "EconomyAlertPoller"
+		add_child(poller)
 
 	_combat_label = Label.new()
 	_combat_label.name = "CombatLabel"
@@ -503,6 +528,15 @@ func _ready() -> void:
 	_cruise_label.position = Vector2(10, 466)
 	_cruise_label.visible = false
 	add_child(_cruise_label)
+
+	# GATE.T48.TENSION.UPKEEP_BRIDGE.001: Upkeep burn rate indicator (below cruise label).
+	_upkeep_label = Label.new()
+	_upkeep_label.name = "UpkeepLabel"
+	_upkeep_label.text = ""
+	_upkeep_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_upkeep_label.position = Vector2(10, 486)
+	_upkeep_label.visible = false
+	add_child(_upkeep_label)
 
 	# Build game over overlay (hidden until player dies)
 	_game_over_panel = Control.new()
@@ -927,6 +961,53 @@ func _ready() -> void:
 	_scan_result_modal.name = "ScanResultModal"
 	add_child(_scan_result_modal)
 
+	# GATE.T45.DEEP_DREAD.HUD_DREAD.001: Dread indicators panel (bottom-left).
+	_build_dread_panel_v0()
+
+	# GATE.T46.SAVE.AUTOSAVE_UI.001: Auto-save indicator (top-right corner).
+	_autosave_label = Label.new()
+	_autosave_label.name = "AutosaveIndicator"
+	_autosave_label.text = "SAVING..."
+	_autosave_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_autosave_label.add_theme_color_override("font_color", UITheme.GREEN)
+	# Position: top-right, inset from screen edge, below quest tracker area.
+	_autosave_label.position = Vector2(1820, 8)
+	_autosave_label.size = Vector2(96, 24)
+	_autosave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_autosave_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_autosave_label.modulate.a = 0.0  # Hidden initially.
+	add_child(_autosave_label)
+
+	# Connect SimBridge autosave signals.
+	if _bridge:
+		if _bridge.has_signal("autosave_started"):
+			_bridge.autosave_started.connect(_on_autosave_started)
+		if _bridge.has_signal("autosave_completed"):
+			_bridge.autosave_completed.connect(_on_autosave_completed)
+
+# GATE.T46.SAVE.AUTOSAVE_UI.001: Autosave signal handlers.
+func _on_autosave_started() -> void:
+	if _autosave_label == null:
+		return
+	# Cancel any ongoing fade-out tween.
+	if _autosave_tween != null and _autosave_tween.is_valid():
+		_autosave_tween.kill()
+		_autosave_tween = null
+	_autosave_label.text = "SAVING..."
+	_autosave_label.modulate.a = 1.0
+
+
+func _on_autosave_completed() -> void:
+	if _autosave_label == null:
+		return
+	# Brief pause (0.5s visible) then 1.5s fade-out.
+	if _autosave_tween != null and _autosave_tween.is_valid():
+		_autosave_tween.kill()
+	_autosave_tween = create_tween()
+	_autosave_tween.tween_interval(0.5)
+	_autosave_tween.tween_property(_autosave_label, "modulate:a", 0.0, 1.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
@@ -947,6 +1028,7 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 				_hull_bar, _shield_bar, _hull_label, _shield_label]:
 		if lbl != null: lbl.visible = not active
 	if _fuel_label: _fuel_label.visible = not active
+	if _upkeep_label: _upkeep_label.visible = not active
 	if _cruise_label: _cruise_label.visible = false if active else _cruise_label.visible
 	if _galaxy_map_label:
 		# FEEL_POST_FIX_5: Only show galaxy map label when galaxy map is the active overlay,
@@ -1044,6 +1126,16 @@ func _physics_process(_delta: float) -> void:
 	_credits_actual = int(ps.get("credits", 0))
 	if _credits_display < 0:
 		_credits_display = _credits_actual  # First frame: snap
+		_prev_credits_snapshot = _credits_actual
+	# Cost visibility: detect credit decreases outside trade context.
+	if _prev_credits_snapshot >= 0 and _credits_actual < _prev_credits_snapshot:
+		var delta: int = _prev_credits_snapshot - _credits_actual
+		# Only toast if not docked (docked costs handled by trade menu refuel toast).
+		if delta >= 1 and raw_state != "DOCKED":
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				toast_mgr.call("show_priority_toast", "Fleet upkeep: -%d cr" % delta, "cost")
+	_prev_credits_snapshot = _credits_actual
 	if _credits_display != _credits_actual:
 		_animate_credits_v0(_credits_actual)
 	# FEEL_PASS4_P1: Unicode prefix icons for visual structure.
@@ -1280,6 +1372,7 @@ func _physics_process(_delta: float) -> void:
 		_update_mission_hud()
 		_update_research_hud()
 		_update_fuel_hud()
+		_update_upkeep_hud()
 		_update_cruise_hud()
 		_update_scan_progress_v0()
 		_update_zone_g_v0()
@@ -1300,6 +1393,8 @@ func _physics_process(_delta: float) -> void:
 		# GATE.T43.SCAN_UI.HUD_PANEL.001: Refresh scanner HUD panel.
 		if _scanner_hud_panel and _scanner_hud_panel.has_method("refresh_v0"):
 			_scanner_hud_panel.refresh_v0()
+		# GATE.T45.DEEP_DREAD.HUD_DREAD.001: Refresh dread indicators.
+		_update_dread_hud_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	# Hidden during tutorial — threat hasn't been introduced yet.
@@ -1689,6 +1784,35 @@ func _update_fuel_hud() -> void:
 	else:
 		_fuel_label.text = "Fuel: %d" % fuel
 		_fuel_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+
+# GATE.T48.TENSION.UPKEEP_BRIDGE.001: Upkeep burn rate indicator update.
+func _update_upkeep_hud() -> void:
+	if _tutorial_active:
+		if _upkeep_label: _upkeep_label.visible = false
+		return
+	if _upkeep_label == null or _bridge == null:
+		return
+	if not _bridge.has_method("GetFleetUpkeepSummaryV0"):
+		_upkeep_label.visible = false
+		return
+	var upkeep: Dictionary = _bridge.call("GetFleetUpkeepSummaryV0")
+	if upkeep.is_empty():
+		_upkeep_label.visible = false
+		return
+	var cr_per: int = int(upkeep.get("credits_per_cycle", 0))
+	var runway: int = int(upkeep.get("runway_ticks", 9999))
+	if cr_per <= 0:
+		_upkeep_label.visible = false
+		return
+	_upkeep_label.visible = true
+	_upkeep_label.text = "Upkeep: %d cr/cycle" % cr_per
+	# Color-coded by runway: green > 100, yellow 20-100, red < 20.
+	if runway < 20:
+		_upkeep_label.add_theme_color_override("font_color", UITheme.RED)
+	elif runway < 100:
+		_upkeep_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	else:
+		_upkeep_label.add_theme_color_override("font_color", UITheme.GREEN)
 
 func _update_cruise_hud() -> void:
 	if _cruise_label == null:
@@ -2584,3 +2708,127 @@ func set_v2_overlay_mode_v0(mode: int) -> void:
 		_v2_mode_label.text = mode_names.get(mode, "")
 		_v2_mode_label.visible = mode > 0
 	_update_galaxy_legend_v0(mode)
+
+
+# ============================================================================
+# GATE.T45.DEEP_DREAD.HUD_DREAD.001: DREAD INDICATORS
+# ============================================================================
+
+func _build_dread_panel_v0() -> void:
+	_dread_panel = PanelContainer.new()
+	_dread_panel.name = "DreadPanel"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.02, 0.02, 0.85)
+	style.border_color = Color(0.5, 0.15, 0.1, 0.6)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(6)
+	_dread_panel.add_theme_stylebox_override("panel", style)
+	_dread_panel.position = Vector2(8, 500)
+	_dread_panel.custom_minimum_size = Vector2(180, 0)
+	_dread_panel.visible = false
+	_dread_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_dread_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	_dread_panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "LATTICE STATUS"
+	title.add_theme_font_size_override("font_size", 10)
+	title.add_theme_color_override("font_color", Color(0.8, 0.3, 0.2))
+	vbox.add_child(title)
+
+	_dread_phase_label = Label.new()
+	_dread_phase_label.text = ""
+	_dread_phase_label.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(_dread_phase_label)
+
+	_dread_isolation_label = Label.new()
+	_dread_isolation_label.text = ""
+	_dread_isolation_label.add_theme_font_size_override("font_size", 10)
+	_dread_isolation_label.add_theme_color_override("font_color", Color(0.6, 0.5, 0.4))
+	vbox.add_child(_dread_isolation_label)
+
+	_dread_exposure_bar = ProgressBar.new()
+	_dread_exposure_bar.min_value = 0
+	_dread_exposure_bar.max_value = 100
+	_dread_exposure_bar.value = 0
+	_dread_exposure_bar.custom_minimum_size = Vector2(160, 8)
+	_dread_exposure_bar.show_percentage = false
+	var exp_fill := StyleBoxFlat.new()
+	exp_fill.bg_color = Color(0.6, 0.2, 0.1)
+	exp_fill.set_corner_radius_all(2)
+	_dread_exposure_bar.add_theme_stylebox_override("fill", exp_fill)
+	var exp_bg := StyleBoxFlat.new()
+	exp_bg.bg_color = Color(0.15, 0.05, 0.03)
+	exp_bg.set_corner_radius_all(2)
+	_dread_exposure_bar.add_theme_stylebox_override("background", exp_bg)
+	vbox.add_child(_dread_exposure_bar)
+
+	_dread_fauna_label = Label.new()
+	_dread_fauna_label.text = ""
+	_dread_fauna_label.add_theme_font_size_override("font_size", 10)
+	_dread_fauna_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+	vbox.add_child(_dread_fauna_label)
+
+
+func _update_dread_hud_v0() -> void:
+	if _bridge == null or _dread_panel == null:
+		return
+	if not _bridge.has_method("GetDreadStateV0"):
+		return
+
+	var dread: Dictionary = _bridge.call("GetDreadStateV0")
+	var phase: int = dread.get("phase", 0)
+	var hops: int = dread.get("hops_from_capital", 0)
+	var patrol: String = str(dread.get("patrol_density", "full"))
+	var exposure: int = dread.get("exposure", 0)
+
+	# Only show dread panel when player is in dread-relevant space (Phase 1+ or hops >= 3)
+	if phase < 1 and hops < 3:
+		_dread_panel.visible = false
+		return
+	_dread_panel.visible = true
+
+	# Phase indicator with color
+	var phase_names: Dictionary = {
+		0: "STABLE", 1: "SHIMMER", 2: "DRIFT", 3: "DEEP STRAIN", 4: "VOID"
+	}
+	var phase_colors: Dictionary = {
+		0: Color(0.4, 0.7, 0.4), 1: Color(0.8, 0.8, 0.3),
+		2: Color(0.9, 0.5, 0.2), 3: Color(0.9, 0.2, 0.1), 4: Color(0.6, 0.3, 0.8)
+	}
+	_dread_phase_label.text = phase_names.get(phase, "???")
+	_dread_phase_label.add_theme_color_override("font_color", phase_colors.get(phase, Color.WHITE))
+
+	# Isolation text
+	if patrol == "none":
+		_dread_isolation_label.text = "NO PATROL COVERAGE"
+		_dread_isolation_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.2))
+	elif patrol == "half":
+		_dread_isolation_label.text = "REDUCED PATROL"
+		_dread_isolation_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.3))
+	else:
+		_dread_isolation_label.text = ""
+
+	# Exposure bar
+	_dread_exposure_bar.value = clampi(exposure, 0, 100)
+
+	# Fauna presence
+	if _bridge.has_method("GetLatticeFaunaV0"):
+		var fauna: Array = _bridge.call("GetLatticeFaunaV0")
+		var present_count: int = 0
+		for f in fauna:
+			if f is Dictionary and f.get("state", 0) == 1:
+				present_count += 1
+		if present_count > 0:
+			_dread_fauna_label.text = "⚠ FAUNA DETECTED (%d)" % present_count
+			# Pulse amber/red
+			var pulse: float = abs(sin(Time.get_ticks_msec() * 0.003))
+			_dread_fauna_label.add_theme_color_override("font_color", Color(1.0, 0.4 + pulse * 0.3, 0.1))
+		else:
+			_dread_fauna_label.text = ""
+	else:
+		_dread_fauna_label.text = ""

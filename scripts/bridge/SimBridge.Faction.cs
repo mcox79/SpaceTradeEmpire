@@ -5,78 +5,77 @@ using SimCore;
 using SimCore.Systems;
 using SimCore.Tweaks;
 using System;
+using System.Collections.Generic;
 
 namespace SpaceTradeEmpire.Bridge;
 
 public partial class SimBridge
 {
+    // GATE.T50.PERF.REP_CACHE.001: TTL cache for reputation queries.
+    // 30+ NPC patrol ships poll GetPlayerReputationV0 on 2-sec timers; caching avoids
+    // clustered read-lock contention and 5-12ms frame spikes.
+    private static readonly Dictionary<string, (int rep, long cachedTick)> _repCache = new();
+    private const long STRUCT_REP_CACHE_TTL_MS = 2000; // STRUCTURAL: cache TTL
     // ── GATE.S7.NARRATIVE_DELIVERY.FACTION_GREETING.001: Faction station greetings keyed to rep tier ──
-
-    private static readonly System.Collections.Generic.Dictionary<(string faction, string tier), string> _factionGreetings
-        = new()
-    {
-        // Concord — bureaucratic human trade federation
-        { ("concord", "Hostile"), "Attention, pilot. Your docking privileges are under review. Do not linger." },
-        { ("concord", "Neutral"), "Welcome to Concord space. Please observe all posted trade regulations." },
-        { ("concord", "Friendly"), "Welcome back, captain. Concord facilities are at your disposal." },
-        { ("concord", "Allied"), "Captain, it's good to see you. The Council extends its warmest regards." },
-
-        // Chitin — insectoid collective
-        { ("chitin", "Hostile"), "Outsider. Your presence here is... tolerated. Barely." },
-        { ("chitin", "Neutral"), "The Swarm observes your arrival. Trade fairly, or depart." },
-        { ("chitin", "Friendly"), "You carry the scent of cooperation. The Swarm welcomes you." },
-        { ("chitin", "Allied"), "Brood-friend. The hive sings at your approach. All chambers are open to you." },
-
-        // Weavers — networked energy beings
-        { ("weavers", "Hostile"), "Signal detected. Threat assessment: elevated. State your purpose." },
-        { ("weavers", "Neutral"), "Connection acknowledged. Standard protocols apply." },
-        { ("weavers", "Friendly"), "Your frequency is recognized. The Weave extends bandwidth." },
-        { ("weavers", "Allied"), "Honored partner. The Weave remembers your contributions." },
-
-        // Valorin — honor-bound warrior species
-        { ("valorin", "Hostile"), "You dare approach our walls? Speak quickly, or face the lance." },
-        { ("valorin", "Neutral"), "Stranger. Honor demands we hear you, though trust is not yet earned." },
-        { ("valorin", "Friendly"), "Well met, warrior. Your deeds have been noted in the Hall of Valor." },
-        { ("valorin", "Allied"), "Shield-kin! The Valorin stand beside you. Our armories are yours." },
-
-        // Communion — mystical psionic collective
-        { ("communion", "Hostile"), "Your thoughts are... discordant. We permit your presence, nothing more." },
-        { ("communion", "Neutral"), "We sense your arrival. The Communion offers equilibrium, if you seek it." },
-        { ("communion", "Friendly"), "Your resonance is harmonious. The Communion opens its sanctum to you." },
-        { ("communion", "Allied"), "Beloved pilgrim. Your light burns bright in the Communion's song." },
-    };
+    // ── GATE.T46.STATION.DOCK_FLAVOR.001: Extended with dock greetings + station descriptions from content ──
 
     /// <summary>
-    /// Returns a greeting string for a faction station based on the player's reputation tier.
-    /// Pure lookup — reads rep tier from SimState if repTierOverride is empty, otherwise uses the override.
+    /// Returns a dock greeting string for a faction station, rotating by sim tick.
+    /// Uses FactionDialogueContentV0.GetDockGreeting for per-faction flavor (5 per faction).
+    /// Overload with repTierOverride kept for StationMenu.cs backward compatibility.
     /// </summary>
     public string GetFactionGreetingV0(string factionId, string repTierOverride = "")
     {
-        string tier = repTierOverride;
+        string greeting = "Docking protocols engaged.";
 
-        if (string.IsNullOrEmpty(tier))
+        TryExecuteSafeRead(state =>
         {
-            // Read current rep tier from SimState.
-            TryExecuteSafeRead(state =>
+            if (string.IsNullOrEmpty(factionId)) return;
+            greeting = SimCore.Content.FactionDialogueContentV0.GetDockGreeting(factionId, state.Tick);
+        }, 0);
+
+        return greeting;
+    }
+
+    /// <summary>
+    /// GATE.T46.STATION.DOCK_FLAVOR.001: Returns a station description for a node's controlling faction.
+    /// Station tier: 0=outpost (<3 market goods), 1=hub (3-6 goods), 2=capital (7+ goods).
+    /// Returns {greeting, description, faction_id}. Nonblocking read.
+    /// </summary>
+    public Godot.Collections.Dictionary GetDockFlavorV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["greeting"] = "Docking protocols engaged.",
+            ["description"] = "",
+            ["faction_id"] = "",
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (string.IsNullOrEmpty(nodeId)) return;
+            if (!state.NodeFactionId.TryGetValue(nodeId, out var factionId)) return;
+
+            result["faction_id"] = factionId;
+            result["greeting"] = SimCore.Content.FactionDialogueContentV0.GetDockGreeting(factionId, state.Tick);
+
+            // Compute station tier from market good count.
+            // STRUCTURAL: 0=outpost (<3), 1=hub (3-6), 2=capital (7+)
+            int tier = 0;
+            if (state.Nodes.TryGetValue(nodeId, out var node) && !string.IsNullOrEmpty(node.MarketId))
             {
-                if (string.IsNullOrEmpty(factionId)) return;
-                var repTier = ReputationSystem.GetRepTier(state, factionId);
-                tier = repTier switch
+                if (state.Markets.TryGetValue(node.MarketId, out var market))
                 {
-                    RepTier.Allied => "Allied",
-                    RepTier.Friendly => "Friendly",
-                    RepTier.Hostile or RepTier.Enemy => "Hostile",
-                    _ => "Neutral",
-                };
-            }, 0);
-        }
+                    int goodCount = market.Inventory.Count;
+                    if (goodCount >= 7) tier = 2;
+                    else if (goodCount >= 3) tier = 1;
+                }
+            }
 
-        if (string.IsNullOrEmpty(tier)) tier = "Neutral";
+            result["description"] = SimCore.Content.FactionDialogueContentV0.GetStationDescription(factionId, tier);
+        }, 0);
 
-        if (_factionGreetings.TryGetValue((factionId ?? "", tier), out var greeting))
-            return greeting;
-
-        return "Docking protocols engaged.";
+        return result;
     }
 
     // ── GATE.S7.FACTION.BRIDGE_QUERIES.001: Faction doctrine, reputation, and territory access queries ──
@@ -141,10 +140,27 @@ public partial class SimBridge
             ["label"] = "Neutral",
         };
 
+        if (string.IsNullOrEmpty(factionId)) return result;
+
+        // GATE.T50.PERF.REP_CACHE.001: Check TTL cache before taking read lock.
+        long nowMs = System.Environment.TickCount64;
+        if (_repCache.TryGetValue(factionId, out var cached) && (nowMs - cached.cachedTick) < STRUCT_REP_CACHE_TTL_MS)
+        {
+            int rep = cached.rep;
+            result["reputation"] = rep;
+            result["label"] = rep switch
+            {
+                >= 75 => "Allied",
+                >= 25 => "Friendly",
+                >= -25 => "Neutral",
+                >= -75 => "Hostile",
+                _ => "Enemy",
+            };
+            return result;
+        }
+
         TryExecuteSafeRead(state =>
         {
-            if (string.IsNullOrEmpty(factionId)) return;
-
             int rep = ReputationSystem.GetReputation(state, factionId);
             result["reputation"] = rep;
 
@@ -156,6 +172,9 @@ public partial class SimBridge
                 >= -75 => "Hostile",
                 _ => "Enemy",
             };
+
+            // Update cache after successful read.
+            _repCache[factionId] = (rep, System.Environment.TickCount64);
         }, 0);
 
         return result;

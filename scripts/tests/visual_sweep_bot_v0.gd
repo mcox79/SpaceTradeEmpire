@@ -113,6 +113,34 @@ enum Phase {
 	COMBAT_LOG_CAPTURE,            # 20. Combat log (L key)
 	CLOSE_COMBAT_LOG,
 
+	# --- Dock Panels (T49) ---
+	DOCK_PANEL_REDOCK,             # Re-dock at nearest station for panel captures
+	DOCK_PANEL_HAVEN,
+	DOCK_PANEL_HAVEN_CAPTURE,      # 21. Haven panel
+	DOCK_PANEL_WARFRONT,
+	DOCK_PANEL_WARFRONT_CAPTURE,   # 22. Warfront panel
+	DOCK_PANEL_DOCTRINE,
+	DOCK_PANEL_DOCTRINE_CAPTURE,   # 23. Doctrine panel
+	DOCK_PANEL_BUDGET,
+	DOCK_PANEL_BUDGET_CAPTURE,     # 24. Budget/ledger panel
+	DOCK_PANEL_NARRATIVE,
+	DOCK_PANEL_NARRATIVE_CAPTURE,  # 25. Narrative/story panel
+	DOCK_PANEL_MEGAPROJECT,
+	DOCK_PANEL_MEGAPROJECT_CAPTURE,# 26. Megaproject panel
+	DOCK_PANEL_UNDOCK,
+
+	# --- Flight + Endstate (T49 Tier 2) ---
+	FLIGHT_SCANNER_HUD,
+	FLIGHT_SCANNER_CAPTURE,        # 27. Scanner HUD overlay
+	FLIGHT_DATA_LOG,
+	FLIGHT_DATA_LOG_CAPTURE,       # 28. Data log panel
+	ENDSTATE_LOSS,
+	ENDSTATE_LOSS_CAPTURE,         # 29. Loss screen
+	ENDSTATE_VICTORY,
+	ENDSTATE_VICTORY_CAPTURE,      # 30. Victory screen
+	FLIGHT_PAUSE,
+	FLIGHT_PAUSE_CAPTURE,          # 31. Pause/settings screen
+
 	# --- Time Advancement ---
 	WAIT_TICK_200,
 	TICK_200_ZOOM_IN,          # Zoom in on a planet for close-up variety
@@ -695,6 +723,214 @@ func _process(_delta: float) -> bool:
 			_polls += 1
 			if _polls >= POST_CAPTURE:
 				_toggle_panel("_toggle_combat_log_v0")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_REDOCK
+
+		# ── Dock Panel Captures (T49) ────────────────────────
+		Phase.DOCK_PANEL_REDOCK:
+			_polls += 1
+			if _polls >= 5:
+				_dock_at_current_station()
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_HAVEN
+
+		Phase.DOCK_PANEL_HAVEN:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Haven tab is index 5 in hero_trade_menu
+				_switch_dock_tab(5)
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_HAVEN_CAPTURE
+
+		Phase.DOCK_PANEL_HAVEN_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("dock_haven")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_WARFRONT
+
+		Phase.DOCK_PANEL_WARFRONT:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Warfront is a HUD overlay, not a dock tab — undock first, toggle
+				_undock()
+				if _game_manager != null and _game_manager.has_method("_toggle_warfront_dashboard_v0"):
+					_game_manager.call("_toggle_warfront_dashboard_v0")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_WARFRONT_CAPTURE
+
+		Phase.DOCK_PANEL_WARFRONT_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("panel_warfront")
+				# Close warfront
+				if _game_manager != null and _game_manager.has_method("_toggle_warfront_dashboard_v0"):
+					_game_manager.call("_toggle_warfront_dashboard_v0")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_DOCTRINE
+
+		Phase.DOCK_PANEL_DOCTRINE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Doctrine is part of the ship tab (tab 2) — re-dock and show
+				_dock_at_current_station()
+				_switch_dock_tab(2)
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_DOCTRINE_CAPTURE
+
+		Phase.DOCK_PANEL_DOCTRINE_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("dock_doctrine")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_BUDGET
+
+		Phase.DOCK_PANEL_BUDGET:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Budget/ledger is part of intel tab (tab 4) with automation programs
+				_switch_dock_tab(4)
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_BUDGET_CAPTURE
+
+		Phase.DOCK_PANEL_BUDGET_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("dock_budget_intel")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_NARRATIVE
+
+		Phase.DOCK_PANEL_NARRATIVE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Diplomacy tab (index 6) shows narrative/faction interaction
+				_switch_dock_tab(6)
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_NARRATIVE_CAPTURE
+
+		Phase.DOCK_PANEL_NARRATIVE_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("dock_diplomacy")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_MEGAPROJECT
+
+		Phase.DOCK_PANEL_MEGAPROJECT:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Megaproject is a HUD overlay — undock first
+				_undock()
+				if _game_manager != null and _game_manager.has_method("_toggle_megaproject_panel_v0"):
+					_game_manager.call("_toggle_megaproject_panel_v0")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_MEGAPROJECT_CAPTURE
+
+		Phase.DOCK_PANEL_MEGAPROJECT_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("panel_megaproject")
+				# Close megaproject
+				if _game_manager != null and _game_manager.has_method("_toggle_megaproject_panel_v0"):
+					_game_manager.call("_toggle_megaproject_panel_v0")
+				_polls = 0
+				_phase = Phase.DOCK_PANEL_UNDOCK
+
+		Phase.DOCK_PANEL_UNDOCK:
+			_polls += 1
+			if _polls >= 5:
+				# May already be undocked from warfront/megaproject captures
+				_polls = 0
+				_phase = Phase.FLIGHT_SCANNER_HUD
+
+		# ── Flight + Endstate (T49 Tier 2) ───────────────────
+		Phase.FLIGHT_SCANNER_HUD:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Toggle scanner HUD if available
+				if _game_manager != null and _game_manager.has_method("_toggle_scanner_hud_v0"):
+					_game_manager.call("_toggle_scanner_hud_v0")
+				_polls = 0
+				_phase = Phase.FLIGHT_SCANNER_CAPTURE
+
+		Phase.FLIGHT_SCANNER_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("flight_scanner_hud")
+				# Close scanner
+				if _game_manager != null and _game_manager.has_method("_toggle_scanner_hud_v0"):
+					_game_manager.call("_toggle_scanner_hud_v0")
+				_polls = 0
+				_phase = Phase.FLIGHT_DATA_LOG
+
+		Phase.FLIGHT_DATA_LOG:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Open data log panel if available
+				if _game_manager != null and _game_manager.has_method("_toggle_data_log_v0"):
+					_game_manager.call("_toggle_data_log_v0")
+				_polls = 0
+				_phase = Phase.FLIGHT_DATA_LOG_CAPTURE
+
+		Phase.FLIGHT_DATA_LOG_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("flight_data_log")
+				if _game_manager != null and _game_manager.has_method("_toggle_data_log_v0"):
+					_game_manager.call("_toggle_data_log_v0")
+				_polls = 0
+				_phase = Phase.ENDSTATE_LOSS
+
+		Phase.ENDSTATE_LOSS:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Force loss state via bridge
+				if _bridge != null and _bridge.has_method("ForceSetGameResultV0"):
+					_bridge.call("ForceSetGameResultV0", 2)  # 2 = loss
+				_polls = 0
+				_phase = Phase.ENDSTATE_LOSS_CAPTURE
+
+		Phase.ENDSTATE_LOSS_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE * 2:  # Extra settle time for endstate UI
+				_capture("endstate_loss")
+				_polls = 0
+				_phase = Phase.ENDSTATE_VICTORY
+
+		Phase.ENDSTATE_VICTORY:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Force victory state via bridge
+				if _bridge != null and _bridge.has_method("ForceSetGameResultV0"):
+					_bridge.call("ForceSetGameResultV0", 1)  # 1 = victory
+				_polls = 0
+				_phase = Phase.ENDSTATE_VICTORY_CAPTURE
+
+		Phase.ENDSTATE_VICTORY_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE * 2:
+				_capture("endstate_victory")
+				# Reset game result to 0 (in progress) to continue normally
+				if _bridge != null and _bridge.has_method("ForceSetGameResultV0"):
+					_bridge.call("ForceSetGameResultV0", 0)
+				_polls = 0
+				_phase = Phase.FLIGHT_PAUSE
+
+		Phase.FLIGHT_PAUSE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				# Toggle pause menu
+				if _game_manager != null and _game_manager.has_method("_toggle_pause_menu_v0"):
+					_game_manager.call("_toggle_pause_menu_v0")
+				_polls = 0
+				_phase = Phase.FLIGHT_PAUSE_CAPTURE
+
+		Phase.FLIGHT_PAUSE_CAPTURE:
+			_polls += 1
+			if _polls >= POST_CAPTURE:
+				_capture("flight_pause_settings")
+				# Close pause menu
+				if _game_manager != null and _game_manager.has_method("_toggle_pause_menu_v0"):
+					_game_manager.call("_toggle_pause_menu_v0")
 				_polls = 0
 				_phase = Phase.WAIT_TICK_200
 

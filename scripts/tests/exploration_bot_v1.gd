@@ -57,9 +57,12 @@ var _total_idles := 0
 var _total_spent := 0
 var _total_earned := 0
 var _goods_bought: Dictionary = {}
+var _good_trade_count: Dictionary = {}  # good_id -> times traded (for rotation)
 var _goods_sold: Dictionary = {}
 var _consecutive_idles := 0
 var _start_credits := 0
+var _max_consecutive_idles := 0
+var _profit_snapshots: Array = []  # credits every 100 cycles for trend analysis
 
 # Tracking — combat
 var _total_combats := 0
@@ -145,6 +148,10 @@ func _process(_delta: float) -> bool:
 				if _sub_tick >= ACT_INTERVAL:
 					_sub_tick = 0
 					_cycle += 1
+					# Snapshot credits every 100 cycles for profit trend
+					if _cycle % 100 == 0:
+						var snap_ps: Dictionary = _bridge.call("GetPlayerStateV0")
+						_profit_snapshots.append(int(snap_ps.get("credits", 0)))
 
 			var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 			var credits: int = int(ps.get("credits", 0))
@@ -291,10 +298,33 @@ func _bot_decide_and_act() -> void:
 				_do_travel(loc, hop, "fallback explore toward %s" % target)
 				return
 
-	# Phase 6: Nothing to do
+	# Phase 6: Stress mode — force buy untouched goods (e.g., Scrap)
+	if _mode == "stress" and cargo_count == 0:
+		var untouched := _find_untouched_good_at_any_node(loc, credits)
+		if not untouched.node.is_empty():
+			if untouched.node == loc:
+				_do_buy(loc, untouched.good, 1, credits)
+				return
+			else:
+				var hop := _get_next_hop(loc, untouched.node)
+				if not hop.is_empty():
+					_do_travel(loc, hop, "stress: hunting untouched good %s at %s" % [untouched.good, untouched.node])
+					return
+
+	# Phase 7: Explore-when-idle (travel to least-visited node instead of idling)
+	var least_visited_node := _find_least_visited_node(loc)
+	if not least_visited_node.is_empty() and least_visited_node != loc:
+		var hop := _get_next_hop(loc, least_visited_node)
+		if not hop.is_empty():
+			_do_travel(loc, hop, "idle fallback: roaming toward %s" % least_visited_node)
+			return
+
+	# Phase 8: Nothing to do
 	_consecutive_idles += 1
 	_total_idles += 1
 	_idle_cycles_total += 1
+	if _consecutive_idles > _max_consecutive_idles:
+		_max_consecutive_idles = _consecutive_idles
 	_record_action(_cycle, "IDLE", loc, "", 0, "nothing to do")
 
 	if _consecutive_idles >= 10:
@@ -398,23 +428,34 @@ func _try_sell(loc: String, cargo: Array, credits: int) -> bool:
 	var best_sell_node := ""
 	var best_sell_price := 0
 
+	# Build global sell price map: for each cargo good, find the best sell price
+	# across ALL nodes (not just adjacent). O(nodes × goods_in_cargo).
+	var global_sell: Dictionary = {}  # good_id -> {node_id, sell_price}
+	for n in _all_nodes:
+		var nid: String = str(n.get("node_id", ""))
+		if nid.is_empty():
+			continue
+		var market_view: Array = _bridge.call("GetPlayerMarketViewV0", nid)
+		for entry in market_view:
+			var gid: String = str(entry.get("good_id", ""))
+			var sp: int = int(entry.get("sell_price", 0))
+			if gid.is_empty() or sp <= 0:
+				continue
+			if not global_sell.has(gid) or sp > int(global_sell[gid].get("sell_price", 0)):
+				global_sell[gid] = {"node_id": nid, "sell_price": sp}
+
 	for item in cargo:
 		var good_id: String = str(item.get("good_id", ""))
 		var qty: int = int(item.get("qty", 0))
 		if good_id.is_empty() or qty <= 0:
 			continue
-		for n in _all_nodes:
-			var nid: String = str(n.get("node_id", ""))
-			if nid.is_empty():
-				continue
-			var market_view: Array = _bridge.call("GetPlayerMarketViewV0", nid)
-			for entry in market_view:
-				if str(entry.get("good_id", "")) == good_id:
-					var sp: int = int(entry.get("sell_price", 0))
-					if sp > best_sell_price:
-						best_sell_price = sp
-						best_sell_node = nid
-						best_good = good_id
+		if global_sell.has(good_id):
+			var info: Dictionary = global_sell[good_id]
+			var sp: int = int(info.get("sell_price", 0))
+			if sp > best_sell_price:
+				best_sell_price = sp
+				best_sell_node = str(info.get("node_id", ""))
+				best_good = good_id
 
 	if best_sell_node.is_empty():
 		return false
@@ -441,7 +482,26 @@ func _try_buy(loc: String, credits: int) -> bool:
 	var best_good := ""
 	var best_profit := 0
 	var best_buy_price := 0
+	var best_sell_node := ""
 
+	# Global profit scan: collect best sell price per good across ALL nodes,
+	# then compare against buy prices at each node. O(nodes × goods).
+	# This finds profitable routes spanning the entire galaxy, not just adjacent.
+	var best_sell_prices: Dictionary = {}  # good_id -> {price, node_id}
+	for n in _all_nodes:
+		var nid: String = str(n.get("node_id", ""))
+		if nid.is_empty():
+			continue
+		var market_view: Array = _bridge.call("GetPlayerMarketViewV0", nid)
+		for entry in market_view:
+			var good_id: String = str(entry.get("good_id", ""))
+			var sp: int = int(entry.get("sell_price", 0))
+			if good_id.is_empty() or sp <= 0:
+				continue
+			if not best_sell_prices.has(good_id) or sp > int(best_sell_prices[good_id].get("price", 0)):
+				best_sell_prices[good_id] = {"price": sp, "node_id": nid}
+
+	# Now find the best (buy_node, good) pair where buy_price < global best sell.
 	for n in _all_nodes:
 		var nid: String = str(n.get("node_id", ""))
 		if nid.is_empty():
@@ -453,23 +513,27 @@ func _try_buy(loc: String, credits: int) -> bool:
 			var available: int = int(entry.get("quantity", 0))
 			if good_id.is_empty() or bp <= 0 or available <= 0 or bp > credits:
 				continue
-			var max_sell := 0
-			for n2 in _all_nodes:
-				var nid2: String = str(n2.get("node_id", ""))
-				if nid2 == nid or nid2.is_empty():
-					continue
-				var mv2: Array = _bridge.call("GetPlayerMarketViewV0", nid2)
-				for e2 in mv2:
-					if str(e2.get("good_id", "")) == good_id:
-						var sp: int = int(e2.get("sell_price", 0))
-						if sp > max_sell:
-							max_sell = sp
-			var profit := max_sell - bp
-			if profit > best_profit:
-				best_profit = profit
+			if not best_sell_prices.has(good_id):
+				continue
+			var sell_info: Dictionary = best_sell_prices[good_id]
+			var sell_node: String = str(sell_info.get("node_id", ""))
+			var global_profit: int = int(sell_info.get("price", 0)) - bp
+			# Don't buy and sell at the same node
+			if sell_node == nid:
+				continue
+			# In stress mode, penalize frequently-traded goods to force rotation
+			var effective_profit := global_profit
+			if _mode == "stress":
+				var trade_count: int = _good_trade_count.get(good_id, 0)
+				# Halve effective profit for each previous trade of this good
+				for _k in range(trade_count):
+					effective_profit = effective_profit / 2
+			if effective_profit > best_profit:
+				best_profit = effective_profit
 				best_node = nid
 				best_good = good_id
 				best_buy_price = bp
+				best_sell_node = sell_node
 
 	if best_node.is_empty() or best_profit <= 0:
 		return false
@@ -489,7 +553,7 @@ func _try_buy(loc: String, credits: int) -> bool:
 	else:
 		var hop := _get_next_hop(loc, best_node)
 		if not hop.is_empty():
-			_do_travel(loc, hop, "toward buy %s at %s (profit %d/u)" % [best_good, best_node, best_profit])
+			_do_travel(loc, hop, "toward buy %s at %s (sell@%s profit %d/u)" % [best_good, best_node, best_sell_node, best_profit])
 			return true
 	return false
 
@@ -509,7 +573,9 @@ func _do_buy(loc: String, good_id: String, qty: int, credits_before: int) -> voi
 		_total_spent += credits_before - credits_after
 		_goods_bought[good_id] = true
 		_consecutive_idles = 0
-		# Stress: track buy price
+		# Stress: track good rotation + buy price
+		if _mode == "stress":
+			_good_trade_count[good_id] = _good_trade_count.get(good_id, 0) + 1
 		if _mode in ["stress", "full"]:
 			var unit_price: int = (credits_before - credits_after) / max(1, qty)
 			_track_price(good_id, unit_price)
@@ -609,6 +675,73 @@ func _find_nearest_unvisited(from: String) -> String:
 				seen[n] = true
 				queue.append(n)
 	return ""
+
+
+func _find_untouched_good_at_any_node(loc: String, credits: int) -> Dictionary:
+	## Finds a good that the bot hasn't traded yet, available at any node.
+	## Returns {node: node_id, good: good_id} or {node: "", good: ""}.
+	var result := {"node": "", "good": ""}
+	var best_dist := 999
+	for n in _all_nodes:
+		var nid: String = str(n.get("node_id", ""))
+		if nid.is_empty():
+			continue
+		var market_view: Array = _bridge.call("GetPlayerMarketViewV0", nid)
+		for entry in market_view:
+			var gid: String = str(entry.get("good_id", ""))
+			var bp: int = int(entry.get("buy_price", 0))
+			var available: int = int(entry.get("quantity", 0))
+			if gid.is_empty() or bp <= 0 or available <= 0 or bp > credits:
+				continue
+			if _good_trade_count.has(gid):
+				continue
+			# Prefer closest node (BFS distance)
+			var dist := _bfs_distance(loc, nid)
+			if dist < best_dist:
+				best_dist = dist
+				result = {"node": nid, "good": gid}
+	return result
+
+
+func _find_least_visited_node(loc: String) -> String:
+	## Finds the reachable node with the fewest visits for idle roaming.
+	var best_node := ""
+	var min_visits := 999999
+	for n in _all_nodes:
+		var nid: String = str(n.get("node_id", ""))
+		if nid.is_empty() or nid == loc:
+			continue
+		# Must be reachable (in adj graph)
+		if _bfs_distance(loc, nid) >= 999:
+			continue
+		var visits: int = 0
+		if _visited.has(nid):
+			# Count how many times we traveled there (approx via actions)
+			visits = 1
+		if visits < min_visits:
+			min_visits = visits
+			best_node = nid
+	return best_node
+
+
+func _bfs_distance(from: String, to: String) -> int:
+	## Returns BFS hop count from->to, or 999 if unreachable.
+	if from == to:
+		return 0
+	var queue: Array = [from]
+	var dist: Dictionary = {from: 0}
+	while queue.size() > 0:
+		var current: String = queue.pop_front()
+		if current == to:
+			return dist[current]
+		if not _adj.has(current):
+			continue
+		var neighbors: Array = _adj[current]
+		for n in neighbors:
+			if not dist.has(n):
+				dist[n] = dist[current] + 1
+				queue.append(n)
+	return 999
 
 
 # ── Recording ──
@@ -735,6 +868,27 @@ func _generate_report() -> void:
 		_start_credits, end_credits, _total_spent, _total_earned])
 	print(PREFIX + "GOODS_BOUGHT|%s" % str(_goods_bought.keys()))
 	print(PREFIX + "GOODS_SOLD|%s" % str(_goods_sold.keys()))
+	# Enhanced economy metrics
+	var idle_pct: int = int(float(_total_idles) / max(1, _tick_budget) * 100)
+	print(PREFIX + "IDLE_PATTERN|longest=%d avg_idle=%d idle_pct=%d%%" % [
+		_max_consecutive_idles,
+		_total_idles / max(1, _total_buys + _total_sells + _total_travels + 1),
+		idle_pct])
+	# Unique goods traded (union of bought and sold)
+	var unique_traded: Dictionary = {}
+	for gid in _goods_bought.keys():
+		unique_traded[gid] = true
+	for gid in _goods_sold.keys():
+		unique_traded[gid] = true
+	print(PREFIX + "GOODS|traded=%d untradeable=%d total=%d" % [
+		unique_traded.size(),
+		0,  # computed in untraded section
+		unique_traded.size()])
+	if _profit_snapshots.size() >= 2:
+		var trend_parts: Array = []
+		for i in range(_profit_snapshots.size()):
+			trend_parts.append(str(_profit_snapshots[i]))
+		print(PREFIX + "ECONOMY|profit_trend=[%s]" % ",".join(trend_parts))
 	print(PREFIX + "FLAGS|count=%d" % _flags.size())
 
 	for f in _flags:

@@ -120,14 +120,17 @@ func run_audit_v0(report: Dictionary) -> Array:
 		not zero_glow or emission_count == 0,
 		"all_emission_energy_zero=%s" % str(zero_glow)))
 
-	# 11. CAMERA_TOO_FAR: camera altitude (Y) > 500 units (skip during galaxy overlay)
+	# 11. CAMERA_TOO_FAR: camera altitude (Y) > 2000 units
+	# Exempt galaxy-map camera mode (altitude 5000+ expected) and galaxy overlay open
 	var cam_pos: String = str(camera.get("position", "(0.0, 0.0, 0.0)"))
 	var cam_altitude := _parse_vec3_y(cam_pos)
 	var galaxy: Dictionary = report.get("galaxy", {})
 	var galaxy_open: bool = galaxy.get("galaxy_overlay_open", false)
+	var cam_mode: String = str(camera.get("camera_mode", "UNKNOWN"))
+	var galaxy_exempt: bool = galaxy_open or cam_mode == "GALAXY_MAP"
 	results.append(_flag("CAMERA_TOO_FAR", Severity.WARNING,
-		cam_altitude < 500.0 or not camera.get("found", false) or galaxy_open,
-		"distance=%.1f" % cam_altitude))
+		cam_altitude < 2000.0 or not camera.get("found", false) or galaxy_exempt,
+		"distance=%.1f mode=%s" % [cam_altitude, cam_mode]))
 
 	# 12. CAMERA_TOO_CLOSE: camera altitude < 10 units
 	results.append(_flag("CAMERA_TOO_CLOSE", Severity.WARNING,

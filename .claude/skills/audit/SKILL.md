@@ -91,6 +91,16 @@ powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Bot.ps1 -Mode stress 
 Output: `reports/bot/stress/stdout.txt`, `reports/bot/stress/report.json`
 Captures: price collapse, economy stall, credit plateau, long-run stability.
 
+**1e-eval: Domain Eval Bots (5 bots, sequential — Godot single-instance)**
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-EvalBot.ps1
+```
+Output: `reports/eval/*.txt` (per-bot stdout)
+Captures: 5 domain-specific evaluation bots — economy_health (EVE-style monitoring),
+narrative_pacing (Hades dialogue queue), dread_pacing (Dead Space intensity),
+audio_atmosphere (spatial audio check), flight_feel (handling evaluation).
+Each bot produces PASS/WARN/FAIL assertions. Any SCRIPT_ERROR = bot contract issue.
+
 If any bot fails, log the error and continue with other results. Do NOT abort
 the entire audit for a single eval failure.
 
@@ -113,6 +123,15 @@ powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -
 Output: TUT| prefix lines, 155+ assertions per seed
 Captures: FO rotation coverage (seed % 3), all 45 tutorial phases, onboarding integrity.
 Seeds 42/100/1001 cover all 3 FO types (Analyst/Veteran/Pathfinder).
+
+**1h-chaos: Chaos Tutorial Bot (headless, 5 seeds)**
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script chaos_tutorial -Seeds 42,99,1001,31337,77777
+```
+Output: CHAOS| prefix lines, 8 adversarial scenarios per seed
+Captures: out-of-order actions, spam inputs, sequence breaks, state corruption,
+soft locks, phantom transactions, skip+restart contamination, dialogue-during-travel.
+Any CHAOS|ASSERT_FAIL → CRITICAL problem (tutorial state machine is fragile).
 
 ### Tier 3: LLM Evaluations (depend on bot outputs from Tier 1)
 
@@ -157,7 +176,9 @@ Run ALL optimize passes (not just 2-3):
 new collections, boxing in `Process()` methods.
 
 **Pass 3: Architecture & Lock Discipline** — Scan SimBridge partials for lock
-pattern violations, bridge contract mismatches, layer violations.
+pattern violations, bridge contract mismatches, layer violations. Also scan for
+**duplicate method names across SimBridge partials** — GDScript `call()` crashes
+on overloaded C# methods (e.g., `SetDoctrineV0` in both Automation and Combat).
 
 **Pass 4: Code Consistency** — Cross-file consistency across Systems, bridge
 partials, and content files.
@@ -196,6 +217,15 @@ Write ALL findings to `reports/audit/<iteration>/optimize_eval.md`
 3. Flag: PRICE_COLLAPSE, ECONOMY_STALL, CREDIT_PLATEAU, NET_LOSS
 4. Write to `reports/audit/<iteration>/economy_eval.md`
 
+**1o: Domain Eval Bot Analysis (depends on 1e-eval)**
+
+1. Read all 5 eval bot outputs from `reports/eval/`
+2. Parse PASS/WARN/FAIL assertions per bot
+3. Flag any bot with SCRIPT_ERROR (contract mismatch = CRITICAL)
+4. Flag any domain with >10% WARN rate as needing investigation
+5. Summarize per-domain health: economy, narrative, dread, audio, flight
+6. Write to `reports/audit/<iteration>/domain_eval.md`
+
 ---
 
 ## Step 2 — Coverage Gap Analysis
@@ -204,22 +234,12 @@ Detect what our evaluation framework does NOT cover.
 
 ### 2a — Bridge Method Coverage
 
+**Use the pre-computation script** instead of manual greps:
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-CoverageGap.ps1
 ```
-1. Grep all public methods in bridge:
-   Grep pattern="public .+ \w+V0\(" path="scripts/bridge/" type="cs"
-
-2. Grep all bridge method calls in ALL bots:
-   Grep pattern="\.call\(\"\w+V0" path="scripts/tests/" type="gd"
-
-3. Diff: methods that exist in bridge but are never called by any bot
-4. For each uncovered method, check if any UI file calls it:
-   Grep pattern="<method_name>" path="scripts/ui/" type="gd"
-
-5. Classify each uncovered method:
-   - UNEXERCISED_WITH_UI: bridge method exists, UI calls it, but no bot tests it
-   - UNEXERCISED_NO_UI: bridge method exists, nothing calls it (dead or unwired)
-   - EXERCISED: called by at least one bot
-```
+Output: EXERCISED/UI_ONLY/UNCALLED per method + UI script coverage summary.
+This replaces ~100 manual grep operations with a single script invocation.
 
 ### 2b — UI Screen Coverage
 
@@ -318,6 +338,7 @@ Parse ALL evaluation outputs (Step 1 + Step 2) into a single ranked list.
 | Feel | `feel_eval.md` | Per-screenshot NEEDS_WORK/FAIL ratings |
 | Optimize | `optimize_eval.md` | CRITICAL/WARNING/SUGGESTION findings |
 | Seed Variance | `seed_variance_eval.md` | High-variance dimensions |
+| Domain Evals | `domain_eval.md` | Per-bot PASS/WARN/FAIL + SCRIPT_ERROR |
 | Coverage | `coverage_gaps.md` | Gap classifications |
 
 ### Unified Format
@@ -508,6 +529,17 @@ This is the key difference from a one-shot audit. After Steps 4-6:
 2. **If problems remain and progress was made**: Loop back to Step 1 (re-evaluate everything)
 3. **If problems remain but no progress**: Present blockers to user, stop iterating
 4. **If no problems remain**: Proceed to final report
+
+**Smart re-eval**: If only UX/POLISH fixes were applied (no SimCore logic changes),
+skip deep systems and economy stress re-runs — only re-run first-hour bot, feel
+eval, and screenshot captures. This avoids expensive re-runs for cosmetic fixes.
+
+**Godot single-instance constraint**: Only one Godot headless process can run at
+a time (shared resources). Bot runs in Tier 1 and Tier 2 must be SEQUENTIAL.
+LLM evaluations (Tier 3) can run in parallel since they only read report files.
+
+**End-state testing gap**: Current bots do not reach loss/victory/death screens.
+Future audit should add end-state capture scenarios to the visual sweep bot.
 
 Iteration cap: 3 loops maximum per audit invocation. Each loop gets a sub-folder:
 `reports/audit/<iteration>/loop_1/`, `loop_2/`, etc.
@@ -701,3 +733,10 @@ This journal lets future audit runs learn from past runs:
   progress. 3 loops max to prevent infinite cycling.
 - **Respect bot timeouts** — bots have built-in frame caps (5400 frames = 90s).
   If a bot times out, that is itself a finding (TIMEOUT flag), not a retry trigger.
+- **Phase-advance-first pattern** — in bot phase functions, set `_phase = NextPhase`
+  BEFORE any bridge calls. If a call crashes (e.g., overloaded method), GDScript
+  error recovery skips the rest of the function. Without phase advance at top,
+  the function re-enters every frame until timeout.
+- **Bot init retry pattern** — `GetGalaxySnapshotV0` and other init-time bridge
+  calls can return empty due to `TryExecuteSafeRead(0)` contention. Standard fix:
+  retry with 200-300ms delay if result is empty.

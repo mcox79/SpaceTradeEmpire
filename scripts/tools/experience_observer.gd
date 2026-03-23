@@ -185,12 +185,23 @@ func capture_camera_v0() -> Dictionary:
 	var cam := _tree.root.get_viewport().get_camera_3d()
 	if cam == null:
 		return {"found": false}
+	# Read camera mode from player_follow_camera.gd script
+	var mode_str := "UNKNOWN"
+	var cam_ctrl = _tree.root.find_child("Camera3D", true, false)
+	if cam_ctrl != null and "_current_mode" in cam_ctrl:
+		var mode_val: int = int(cam_ctrl.get("_current_mode"))
+		match mode_val:
+			0: mode_str = "FLIGHT"
+			1: mode_str = "DOCKED"
+			2: mode_str = "GALAXY_MAP"
+			3: mode_str = "WARP_TRANSIT"
 	return {
 		"found": true,
 		"name": str(cam.name),
 		"fov": cam.fov,
 		"position": _vec3_str(cam.global_position),
 		"is_current": cam.current,
+		"camera_mode": mode_str,
 	}
 
 

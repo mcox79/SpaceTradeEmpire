@@ -40,6 +40,12 @@ public static class NarrativePlacementGen
 
             usedNodes.Add(nodeId);
 
+            // Seed tier-1 logs within 2 hops of start as pre-discovered.
+            // This populates the knowledge web at game start (Outer Wilds pattern:
+            // "every discovery connects to something larger" — breadcrumbs from turn 1).
+            int hops = hopDistances.TryGetValue(nodeId, out var h) ? h : 99;
+            bool preDiscovered = logDef.RevelationTier == 1 && hops <= 2;
+
             // Create a copy for placement (don't mutate the static content)
             var placed = new DataLog
             {
@@ -48,7 +54,7 @@ public static class NarrativePlacementGen
                 RevelationTier = logDef.RevelationTier,
                 MechanicalHook = logDef.MechanicalHook,
                 LocationNodeId = nodeId,
-                IsDiscovered = false,
+                IsDiscovered = preDiscovered,
                 DiscoveredTick = 0
             };
             foreach (var s in logDef.Speakers) placed.Speakers.Add(s);

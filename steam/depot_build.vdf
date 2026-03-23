@@ -1,0 +1,17 @@
+// GATE.T51.STEAM.APP_CONFIG.001: Depot build configuration.
+// Depot ID 481 is paired with App ID 480 (Spacewar test app).
+// Replace with actual depot ID from Steamworks partner dashboard.
+"DepotBuildConfig"
+{
+	"DepotID" "481"
+	"contentroot" "../export/steam/"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"recursive" "1"
+	}
+	"FileExclusion" "*.pdb"
+	"FileExclusion" "*.pck.bak"
+	"FileExclusion" "steam_appid.txt"
+}

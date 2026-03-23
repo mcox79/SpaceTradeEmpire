@@ -35,6 +35,8 @@ SettingsManager="*res://scripts/core/settings_manager.gd"
 InputManager="*res://scripts/core/input_manager.gd"
 ColorblindFilter="*res://scripts/view/colorblind_filter.gd"
 FirstLaunchPanel="*res://scripts/ui/first_launch_panel.gd"
+SteamInterface="*res://scripts/platform/steam_interface.gd"
+VOLookup="*res://scripts/audio/vo_lookup.gd"
 
 [display]
 

@@ -60,6 +60,9 @@ var _is_new_game: bool = false
 # GATE.S9.STEAM.SDK.001: Steam integration state.
 var _steam_enabled: bool = false
 
+# GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001: AchievementMapper node (child of this manager).
+var _achievement_mapper: Node = null
+
 # FEEL_POST_FIX_3: Event-driven combat state. Countdown timer set by on_hit/bullet
 # signals. HUD reads this to show "COMBAT" without relying on proximity detection
 # (which fails when NPCs drift between ticks).
@@ -142,6 +145,13 @@ var _loot_poll_timer: float = 0.0
 const LOOT_POLL_INTERVAL: float = 0.5
 var _prev_discovery_statuses: Dictionary = {}  # discovery_id -> last known status
 
+# GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Track celebrated discovery phases to avoid repeat ceremonies.
+var _celebrated_discovery_phases: Dictionary = {}  # "disc_id:phase" -> true
+
+# GATE.T48.TELEMETRY.CRASH_HOOK.001: Rolling log buffer for crash reports.
+var _log_buffer: PackedStringArray = PackedStringArray()
+const LOG_BUFFER_MAX_LINES: int = 50
+
 # GATE.S8.WIN.GAME_OVER_WIRE.001: Endgame transition state.
 var _game_over_triggered: bool = false
 var _game_over_poll_timer: float = 0.0
@@ -219,6 +229,8 @@ func _ready():
 	sim = Sim.new()
 	player = PlayerState.new()
 	_init_steam_v0()
+	# GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001: Wire achievement mapper after Steam init.
+	_init_achievement_mapper_v0()
 
 	# GATE.S7.MAIN_MENU.SCENE.001: Skip gameplay wiring on main menu.
 	if _is_main_menu_active():
@@ -793,6 +805,14 @@ func _transition_player_state_v0(new_state: PlayerShipState) -> bool:
 		print("INVALID_STATE_TRANSITION|" + get_player_ship_state_name_v0() + "|" + _state_name_v0(new_state))
 		return false
 	current_player_state = new_state
+	# GATE.T48.TELEMETRY.CRASH_HOOK.001: Log state transitions for crash report.
+	_log_event_v0("STATE|%s→%s" % [_state_name_v0(current_player_state), _state_name_v0(new_state)])
+	# GATE.T46.STEAM.INIT_WRAPPER.001: Reflect ship state in Steam rich presence.
+	match new_state:
+		PlayerShipState.DOCKED:          _update_steam_rich_presence_v0("Docked at Station")
+		PlayerShipState.IN_LANE_TRANSIT: _update_steam_rich_presence_v0("Warping")
+		PlayerShipState.IN_FLIGHT:       _update_steam_rich_presence_v0("Exploring")
+		PlayerShipState.GATE_APPROACH:   _update_steam_rich_presence_v0("Exploring")
 	return true
 
 func get_player_ship_state_name_v0() -> String:
@@ -855,12 +875,19 @@ func on_proximity_dock_entered_v0(target: Node):
 	if _sfx_dock_chime:
 		_sfx_dock_chime.play()
 
+	# GATE.T46.AUDIO.COMBAT_MUSIC.001: Transition music to DOCK state.
+	var _mm_dock = get_node_or_null("/root/MusicManager")
+	if _mm_dock and _mm_dock.has_method("transition_to"):
+		_mm_dock.call("transition_to", MusicManager.MusicState.DOCK)
+
 	# GATE.S8.HAVEN.COMING_HOME.001: Haven dock cinematic (first dock per session).
 	_try_haven_cinematic_v0()
 
 	# FEEL_POST_FIX_10: Kill any lingering flyby letterbox on dock so text doesn't persist.
 	# CanvasLayer inherits Node (no `visible`). Remove children to hide, then free.
 	_kill_flyby_letterbox_v0()
+	# GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Also kill discovery ceremony letterbox on dock.
+	_kill_discovery_letterbox_v0()
 
 	# GATE.X.WARP.ARRIVAL_DRAMA.001: Kill arrival drama on dock.
 	var hud_dock = get_tree().root.find_child("HUD", true, false)
@@ -965,6 +992,11 @@ func undock_v0():
 	var galaxy_spawner = get_tree().root.find_child("GalaxySpawner", true, false)
 	if galaxy_spawner:
 		galaxy_spawner.visible = true
+
+	# GATE.T46.AUDIO.COMBAT_MUSIC.001: Return to EXPLORATION music on undock.
+	var _mm_undock = get_node_or_null("/root/MusicManager")
+	if _mm_undock and _mm_undock.has_method("transition_to"):
+		_mm_undock.call("transition_to", MusicManager.MusicState.EXPLORATION)
 
 ## GATE.S7.RUNTIME_STABILITY.WARP_TUNNEL_V2.001: Close all dock UI panels defensively.
 ## Called before warp transit begins so no station/trade/discovery panels remain visible.
@@ -1549,6 +1581,46 @@ func on_lane_arrival_v0(arrived_node_id: String) -> void:
 	if not is_first_visit:
 		_show_arrival_drama_v0(arrived_node_id, bridge)
 
+	# GATE.T47.HAVEN.COMING_HOME.001: Haven arrival cinematic (distinct from standard arrival).
+	_try_haven_arrival_cinematic_v0(arrived_node_id, bridge)
+
+	# GATE.T46.AUDIO.COMBAT_MUSIC.001: Transition music based on arrival context.
+	# TENSION if arriving at a warfront node, EXPLORATION otherwise.
+	# MusicManager._process() will override to COMBAT if hostiles are near.
+	var _mm_arrive = get_node_or_null("/root/MusicManager")
+	if _mm_arrive and _mm_arrive.has_method("transition_to"):
+		var _at_warfront := false
+		if bridge and bridge.has_method("GetWarfrontStatusV0"):
+			var _wf: Dictionary = bridge.call("GetWarfrontStatusV0")
+			_at_warfront = not _wf.is_empty() and bool(_wf.get("at_warfront", false))
+
+		# GATE.T47.MUSIC.FRACTURE_AMBIENCE.001: Check instability for fracture ambience.
+		var _in_fracture_zone := false
+		if bridge and bridge.has_method("GetNodeInstabilityV0"):
+			var _instab: Dictionary = bridge.call("GetNodeInstabilityV0", arrived_node_id)
+			var _instab_phase: String = str(_instab.get("phase", "Stable"))
+			# Phase 2+ triggers fracture ambience (Unstable, Critical, Collapsed).
+			_in_fracture_zone = _instab_phase != "Stable" and _instab_phase != "Rising"
+
+		if _in_fracture_zone and _mm_arrive.has_method("enter_fracture_ambience"):
+			_mm_arrive.call("enter_fracture_ambience")
+		elif _at_warfront:
+			if _mm_arrive.has_method("leave_fracture_ambience"):
+				_mm_arrive.call("leave_fracture_ambience")
+			_mm_arrive.call("transition_to", MusicManager.MusicState.TENSION)
+		else:
+			if _mm_arrive.has_method("leave_fracture_ambience"):
+				_mm_arrive.call("leave_fracture_ambience")
+			_mm_arrive.call("transition_to", MusicManager.MusicState.EXPLORATION)
+
+	# GATE.T47.MUSIC.FACTION_AMBIENT.001: Set faction ambient drone based on territory.
+	if _mm_arrive and _mm_arrive.has_method("set_faction_ambient"):
+		var _faction_id_for_ambient: String = ""
+		if bridge and bridge.has_method("GetTerritoryAccessV0"):
+			var _territory: Dictionary = bridge.call("GetTerritoryAccessV0", arrived_node_id)
+			_faction_id_for_ambient = str(_territory.get("faction_id", ""))
+		_mm_arrive.call("set_faction_ambient", _faction_id_for_ambient)
+
 
 ## Position hero at the arrival gate corresponding to the origin system.
 ## Extracted from on_lane_arrival_v0 for reuse in reveal sweep.
@@ -1949,6 +2021,10 @@ func _find_nearest_fleet_v0(max_range: float) -> Node3D:
 ## FEEL_POST_FIX_3: Called by npc_ship.on_hit() and bullet.gd to signal active combat.
 ## Keeps HUD in "COMBAT" state for 5 seconds after the last combat event.
 func signal_combat_v0() -> void:
+	# GATE.T46.STEAM.INIT_WRAPPER.001: Reflect active combat in Steam rich presence.
+	# Only push the update when entering combat (timer was at zero — first hit of encounter).
+	if combat_state_timer <= 0.0:
+		_update_steam_rich_presence_v0("In Combat")
 	combat_state_timer = 5.0
 
 func _get_fleet_id_from_marker(marker: Node3D) -> String:
@@ -3231,6 +3307,126 @@ func _check_first_dock_mission_prompt_v0() -> void:
 	pass
 
 
+# GATE.T47.HAVEN.COMING_HOME.001: Haven arrival cinematic — "Coming Home" sequence.
+# Fires on lane arrival when destination is Haven. Warm, intimate transition distinct
+# from standard warp arrival drama. ~3.5 second sequence: letterbox, slow zoom, FO toast, warm glow.
+func _try_haven_arrival_cinematic_v0(arrived_node_id: String, bridge_ref: Node) -> void:
+	if bridge_ref == null or not bridge_ref.has_method("GetHavenStatusV0"):
+		return
+	var ha_status: Dictionary = bridge_ref.call("GetHavenStatusV0")
+	if not ha_status.get("discovered", false):
+		return
+	var haven_node_id: String = str(ha_status.get("node_id", ""))
+	if haven_node_id.is_empty() or haven_node_id != arrived_node_id:
+		return
+
+	print("UUIR|HAVEN_ARRIVAL|coming_home|node=%s" % arrived_node_id)
+
+	# --- Letterbox bars with warm amber scrim (different from standard blue) ---
+	var ha_canvas := CanvasLayer.new()
+	ha_canvas.name = "HavenArrivalLetterbox"
+	ha_canvas.layer = 90
+	ha_canvas.add_to_group("flyby_letterbox")
+	add_child(ha_canvas)
+
+	# Warm amber scrim instead of the cold blue used by standard arrival.
+	var ha_scrim := ColorRect.new()
+	ha_scrim.color = Color(0.12, 0.06, 0.02, 0.55)
+	ha_scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ha_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ha_canvas.add_child(ha_scrim)
+
+	var ha_bar_top := ColorRect.new()
+	ha_bar_top.color = Color(0.02, 0.01, 0.0, 0.85)
+	ha_bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	ha_bar_top.offset_bottom = 0.0
+	ha_bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ha_canvas.add_child(ha_bar_top)
+
+	var ha_bar_bot := ColorRect.new()
+	ha_bar_bot.color = Color(0.02, 0.01, 0.0, 0.85)
+	ha_bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	ha_bar_bot.anchor_top = 1.0
+	ha_bar_bot.anchor_bottom = 1.0
+	ha_bar_bot.offset_top = 0.0
+	ha_bar_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ha_canvas.add_child(ha_bar_bot)
+
+	# "Haven" title in warm gold.
+	var ha_title := Label.new()
+	ha_title.text = "Haven"
+	ha_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ha_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ha_title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ha_title.add_theme_font_size_override("font_size", 64)
+	ha_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5, 1.0))
+	ha_title.add_theme_color_override("font_shadow_color", Color(0.2, 0.1, 0.0, 0.9))
+	ha_title.add_theme_constant_override("shadow_offset_x", 3)
+	ha_title.add_theme_constant_override("shadow_offset_y", 3)
+	ha_title.modulate.a = 0.0
+	ha_canvas.add_child(ha_title)
+
+	# "Welcome home, Captain." subtitle.
+	var ha_sub := Label.new()
+	ha_sub.text = "Welcome home, Captain."
+	ha_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ha_sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ha_sub.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ha_sub.offset_top = 90.0
+	ha_sub.add_theme_font_size_override("font_size", 24)
+	ha_sub.add_theme_color_override("font_color", Color(0.9, 0.75, 0.45, 1.0))
+	ha_sub.add_theme_color_override("font_shadow_color", Color(0.1, 0.05, 0.0, 0.7))
+	ha_sub.add_theme_constant_override("shadow_offset_x", 1)
+	ha_sub.add_theme_constant_override("shadow_offset_y", 1)
+	ha_sub.modulate.a = 0.0
+	ha_canvas.add_child(ha_sub)
+
+	# Warm amber vignette at screen edges.
+	var ha_vignette := ColorRect.new()
+	ha_vignette.color = Color(0.8, 0.5, 0.15, 0.0)
+	ha_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ha_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ha_canvas.add_child(ha_vignette)
+
+	# --- Tween sequence: ~3.5 seconds ---
+	var ha_tween := create_tween()
+	# Phase 1: bars slide in + warm glow (0.4s)
+	ha_tween.tween_property(ha_bar_top, "size:y", 70.0, 0.4).set_ease(Tween.EASE_OUT)
+	ha_tween.parallel().tween_property(ha_bar_bot, "offset_top", -70.0, 0.4).set_ease(Tween.EASE_OUT)
+	ha_tween.parallel().tween_property(ha_vignette, "color:a", 0.18, 0.4).set_ease(Tween.EASE_OUT)
+	# Phase 2: text fades in (0.6s)
+	ha_tween.tween_property(ha_title, "modulate:a", 1.0, 0.6).set_ease(Tween.EASE_OUT)
+	ha_tween.parallel().tween_property(ha_sub, "modulate:a", 1.0, 0.6).set_ease(Tween.EASE_OUT)
+	# Phase 3: hold (1.5s)
+	ha_tween.tween_interval(1.5)
+	# Phase 4: fade out text (0.5s)
+	ha_tween.tween_property(ha_title, "modulate:a", 0.0, 0.5)
+	ha_tween.parallel().tween_property(ha_sub, "modulate:a", 0.0, 0.4)
+	# Phase 5: bars retract + glow fades (0.4s)
+	ha_tween.tween_property(ha_bar_top, "size:y", 0.0, 0.4).set_ease(Tween.EASE_IN)
+	ha_tween.parallel().tween_property(ha_bar_bot, "offset_top", 0.0, 0.4).set_ease(Tween.EASE_IN)
+	ha_tween.parallel().tween_property(ha_vignette, "color:a", 0.0, 0.4).set_ease(Tween.EASE_IN)
+	ha_tween.tween_callback(ha_canvas.queue_free)
+
+	# --- Slow camera zoom (closer than normal arrival) ---
+	var ha_cam := get_viewport().get_camera_3d()
+	if ha_cam != null:
+		var ha_original_pos := ha_cam.global_position
+		# Zoom in closer (Y down, Z forward) for intimate framing.
+		var ha_zoom_pos := ha_original_pos + Vector3(0, -8, -10)
+		var ha_cam_tween := create_tween()
+		ha_cam_tween.tween_property(ha_cam, "global_position", ha_zoom_pos, 2.0) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+		ha_cam_tween.tween_interval(0.5)
+		ha_cam_tween.tween_property(ha_cam, "global_position", ha_original_pos, 1.0) \
+			.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_QUAD)
+
+	# --- FO toast: "Welcome home, Captain." ---
+	var ha_toast_mgr = get_node_or_null("/root/ToastManager")
+	if ha_toast_mgr and ha_toast_mgr.has_method("show_toast"):
+		ha_toast_mgr.call("show_toast", "Welcome home, Captain.", 3.5)
+
+
 # GATE.S8.HAVEN.COMING_HOME.001: Haven dock cinematic — camera pullback + sweep on first dock.
 func _try_haven_cinematic_v0() -> void:
 	if _haven_cinematic_played:
@@ -3499,6 +3695,14 @@ func _poll_discovery_celebrations_v0() -> void:
 		var prev_status: String = str(_prev_discovery_statuses.get(disc_id, ""))
 		var credit_reward: int = int(disc.get("credit_reward", 0))
 
+		# GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Detect Scanned transition — brief ceremony.
+		if current_status == "Scanned" and prev_status != "Scanned" and not prev_status.is_empty():
+			var scan_key: String = disc_id + ":Scanned"
+			if not _celebrated_discovery_phases.has(scan_key):
+				_celebrated_discovery_phases[scan_key] = true
+				print("CELEBRATION|DISCOVERY_SCANNED|" + disc_id)
+				_show_discovery_scan_ceremony_v0(disc_id, credit_reward, bridge)
+
 		# Detect transition to Analyzed from a prior non-Analyzed state
 		if current_status == "Analyzed" and prev_status != "Analyzed" and not prev_status.is_empty():
 			print("CELEBRATION|DISCOVERY_COMPLETE|" + disc_id)
@@ -3512,43 +3716,405 @@ func _poll_discovery_celebrations_v0() -> void:
 					toast_mgr.call("show_toast_colored", msg, 6.0, "#FFD700")
 				else:
 					toast_mgr.call("show_toast", msg, 6.0)
+			# GATE.T47.MUSIC.DISCOVERY_STINGERS.001: Play discovery stinger based on reward size.
+			var _mm_disc = get_node_or_null("/root/MusicManager")
+			if _mm_disc and _mm_disc.has_method("play_stinger"):
+				if credit_reward >= 500:
+					_mm_disc.call("play_stinger", "discovery_revelation")
+				elif credit_reward >= 100:
+					_mm_disc.call("play_stinger", "discovery_major")
+				else:
+					_mm_disc.call("play_stinger", "discovery_minor")
+			# GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Full analysis ceremony for Analyzed.
+			var analyzed_key: String = disc_id + ":Analyzed"
+			if not _celebrated_discovery_phases.has(analyzed_key):
+				_celebrated_discovery_phases[analyzed_key] = true
+				_show_discovery_analysis_ceremony_v0(disc_id, credit_reward, bridge)
 
 		_prev_discovery_statuses[disc_id] = current_status
 
 # GATE.S9.STEAM.SDK.001: Initialize Steam with graceful fallback.
+# GATE.T46.STEAM.INIT_WRAPPER.001: Wire through SteamInterface autoload singleton.
 func _init_steam_v0():
-	if not ClassDB.class_exists(&"Steam"):
-		print("[Steam] GodotSteam not available — running without Steam integration.")
+	var si = get_node_or_null("/root/SteamInterface")
+	if si == null:
+		print("[Steam] SteamInterface autoload not found — running without Steam.")
 		_steam_enabled = false
 		return
-
-	var steam = Engine.get_singleton("Steam")
-	if steam == null:
-		print("[Steam] Steam singleton not found — running without Steam.")
+	# Connect to the signal so we can log availability and set initial rich presence.
+	if not si.is_connected("steam_initialized", _on_steam_initialized_v0):
+		si.steam_initialized.connect(_on_steam_initialized_v0)
+	# SteamInterface._ready() fires before game_manager._ready() (autoloads load first),
+	# so the signal may have already emitted. Check synchronously as well.
+	if si.is_available():
+		_steam_enabled = true
+		print("[Steam] SteamInterface available (already initialized).")
+		_update_steam_rich_presence_v0("In Menu")
+	else:
 		_steam_enabled = false
-		return
+		print("[Steam] SteamInterface not available — stub mode active.")
 
-	var init_result = steam.steamInitEx(false, 480)
-	if init_result["status"] != 0:
-		print("[Steam] Steam init failed (status %d) — running without Steam." % init_result["status"])
-		_steam_enabled = false
-		return
-
-	_steam_enabled = true
-	print("[Steam] Steam initialized. User: %s" % steam.getPersonaName())
+func _on_steam_initialized_v0(success: bool) -> void:
+	_steam_enabled = success
+	if success:
+		print("[Steam] steam_initialized signal received — Steam is live.")
+		_update_steam_rich_presence_v0("In Menu")
+	else:
+		print("[Steam] steam_initialized signal received — Steam unavailable (stub mode).")
 
 func is_steam_enabled() -> bool:
 	return _steam_enabled
 
-# GATE.S9.STEAM.ACHIEVEMENTS.001: Milestone → Steam achievement mapping.
-# Achievement API names match milestone IDs (configured in Steamworks dashboard).
+# GATE.T46.STEAM.INIT_WRAPPER.001: Update Steam rich presence via SteamInterface autoload.
+# status examples: "In Menu", "Exploring", "Docked at Station", "In Combat", "Warping"
+func _update_steam_rich_presence_v0(status: String) -> void:
+	var si = get_node_or_null("/root/SteamInterface")
+	if si == null:
+		return
+	si.set_rich_presence("status", status)
+	print("[Steam] Rich presence → %s" % status)
+
+# GATE.T46.STEAM.INIT_WRAPPER.001: Public entry point for external callers (UI, bridge).
+func update_steam_rich_presence_v0(status: String) -> void:
+	_update_steam_rich_presence_v0(status)
+
+# GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001: Instantiate the dedicated AchievementMapper.
+# Called from _ready() immediately after _init_steam_v0().
+func _init_achievement_mapper_v0() -> void:
+	var mapper_script = load("res://scripts/platform/achievement_mapper.gd")
+	if mapper_script == null:
+		push_warning("[AchievementMapper] Could not load achievement_mapper.gd — achievements disabled.")
+		return
+	_achievement_mapper = mapper_script.new()
+	_achievement_mapper.name = "AchievementMapper"
+	add_child(_achievement_mapper)
+	print("[AchievementMapper] Instantiated and attached.")
+
+# GATE.S9.STEAM.ACHIEVEMENTS.001 / GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001:
+# Milestone -> Steam achievement. Delegates to AchievementMapper which routes
+# through SteamInterface (safe when Steam is unavailable).
 func _unlock_steam_achievement_v0(milestone_id: String) -> void:
-	if not _steam_enabled:
+	if _achievement_mapper != null and _achievement_mapper.has_method("unlock"):
+		_achievement_mapper.call("unlock", milestone_id)
+	elif _steam_enabled:
+		# Fallback: direct call if mapper failed to load (should not happen in production).
+		var steam = Engine.get_singleton("Steam")
+		if steam:
+			steam.setAchievement(milestone_id)
+			steam.storeStats()
+			print("[Steam] Achievement unlocked (fallback): %s" % milestone_id)
+
+
+# ── GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Discovery milestone ceremonies ──
+
+## Brief scan ceremony — letterbox + name card (1.5s total). Used for common discoveries.
+## For rare discoveries (credit_reward >= 500), uses slightly longer hold.
+func _show_discovery_scan_ceremony_v0(disc_id: String, credit_reward: int, bridge_ref: Node) -> void:
+	# Rarity check: common discoveries get a simple toast, not a full letterbox.
+	if credit_reward < 100:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast_colored"):
+			toast_mgr.call("show_toast_colored", "Scan Complete: %s" % disc_id, 3.0, "#44AAFF")
+		print("UUIR|DISC_SCAN_TOAST|%s|reward=%d" % [disc_id, credit_reward])
 		return
-	var steam = Engine.get_singleton("Steam")
-	if steam == null:
-		return
-	# Steam achievement API name = milestone ID (e.g., "first_trade", "explorer_5").
-	steam.setAchievement(milestone_id)
-	steam.storeStats()
-	print("[Steam] Achievement unlocked: %s" % milestone_id)
+
+	# Rare/unique: full letterbox ceremony.
+	var total_time: float = 1.5 if credit_reward < 500 else 2.0
+	var canvas := CanvasLayer.new()
+	canvas.name = "DiscoveryScanLetterbox"
+	canvas.layer = 91
+	canvas.add_to_group("discovery_letterbox")
+	add_child(canvas)
+
+	# Dark scrim — subtle blue-teal for scan events.
+	var scrim := ColorRect.new()
+	scrim.color = Color(0.01, 0.06, 0.12, 0.55)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(scrim)
+
+	# Top bar.
+	var bar_top := ColorRect.new()
+	bar_top.color = Color(0, 0, 0, 0.85)
+	bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	bar_top.offset_bottom = 0.0
+	bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(bar_top)
+
+	# Bottom bar.
+	var bar_bot := ColorRect.new()
+	bar_bot.color = Color(0, 0, 0, 0.85)
+	bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bar_bot.anchor_top = 1.0
+	bar_bot.anchor_bottom = 1.0
+	bar_bot.offset_top = 0.0
+	bar_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(bar_bot)
+
+	# Discovery name label.
+	var lbl := Label.new()
+	lbl.text = disc_id.replace("_", " ").capitalize()
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lbl.add_theme_font_size_override("font_size", 52)
+	lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0, 1.0))
+	lbl.add_theme_color_override("font_shadow_color", Color(0.0, 0.1, 0.3, 0.8))
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.modulate.a = 0.0
+	canvas.add_child(lbl)
+
+	# "Scan Complete" subtitle.
+	var subtitle := Label.new()
+	subtitle.text = "~ Scan Complete ~"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	subtitle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	subtitle.offset_top = -60.0
+	subtitle.add_theme_font_size_override("font_size", 20)
+	subtitle.add_theme_color_override("font_color", Color(0.4, 0.65, 0.85, 1.0))
+	subtitle.modulate.a = 0.0
+	canvas.add_child(subtitle)
+
+	# Tween: bars in → text fade → hold → text fade out → bars out.
+	var hold_time: float = maxf(total_time - 1.2, 0.3)
+	var tween := create_tween()
+	tween.tween_property(bar_top, "size:y", 60.0, 0.2).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(bar_bot, "offset_top", -60.0, 0.2).set_ease(Tween.EASE_OUT)
+	tween.tween_property(subtitle, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lbl, "modulate:a", 1.0, 0.35).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(hold_time)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.3)
+	tween.parallel().tween_property(subtitle, "modulate:a", 0.0, 0.25)
+	tween.tween_property(bar_top, "size:y", 0.0, 0.2).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(bar_bot, "offset_top", 0.0, 0.2).set_ease(Tween.EASE_IN)
+	tween.tween_callback(canvas.queue_free)
+
+	# Play stinger if available.
+	var mm = get_node_or_null("/root/MusicManager")
+	if mm and mm.has_method("play_stinger"):
+		mm.call("play_stinger", "discovery_minor")
+	print("UUIR|DISC_SCAN_CEREMONY|%s|reward=%d|time=%.1f" % [disc_id, credit_reward, total_time])
+
+
+## Full analysis ceremony — longer letterbox + category + lore snippet + FO reaction (3s).
+## Triggered when discovery transitions to Analyzed phase.
+func _show_discovery_analysis_ceremony_v0(disc_id: String, credit_reward: int, bridge_ref: Node) -> void:
+	# Rarity-scaled timing: common ~2s, rare ~3s, unique ~3.5s.
+	var total_time: float = 2.0
+	if credit_reward >= 500:
+		total_time = 3.5
+	elif credit_reward >= 100:
+		total_time = 3.0
+
+	var canvas := CanvasLayer.new()
+	canvas.name = "DiscoveryAnalysisLetterbox"
+	canvas.layer = 91
+	canvas.add_to_group("discovery_letterbox")
+	add_child(canvas)
+
+	# Deep blue-gold scrim for analysis revelation.
+	var scrim := ColorRect.new()
+	scrim.color = Color(0.02, 0.03, 0.08, 0.65)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(scrim)
+
+	# Letterbox bars.
+	var bar_top := ColorRect.new()
+	bar_top.color = Color(0, 0, 0, 0.9)
+	bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	bar_top.offset_bottom = 0.0
+	bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(bar_top)
+
+	var bar_bot := ColorRect.new()
+	bar_bot.color = Color(0, 0, 0, 0.9)
+	bar_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bar_bot.anchor_top = 1.0
+	bar_bot.anchor_bottom = 1.0
+	bar_bot.offset_top = 0.0
+	bar_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(bar_bot)
+
+	# Category label (above main name).
+	var cat_label := Label.new()
+	cat_label.text = "~ Analysis Complete ~"
+	cat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cat_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cat_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cat_label.offset_top = -80.0
+	cat_label.add_theme_font_size_override("font_size", 22)
+	cat_label.add_theme_color_override("font_color", Color(0.85, 0.75, 0.4, 1.0))
+	cat_label.modulate.a = 0.0
+	canvas.add_child(cat_label)
+
+	# Discovery name — prominent gold text.
+	var name_label := Label.new()
+	name_label.text = disc_id.replace("_", " ").capitalize()
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	name_label.add_theme_font_size_override("font_size", 60)
+	name_label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6, 1.0))
+	name_label.add_theme_color_override("font_shadow_color", Color(0.15, 0.1, 0.0, 0.9))
+	name_label.add_theme_constant_override("shadow_offset_x", 3)
+	name_label.add_theme_constant_override("shadow_offset_y", 3)
+	name_label.modulate.a = 0.0
+	canvas.add_child(name_label)
+
+	# Lore snippet — attempt to read flavor text from discovery snapshot.
+	var lore_text: String = ""
+	if bridge_ref and bridge_ref.has_method("GetDiscoverySnapshotV0"):
+		var dsnap = bridge_ref.call("GetDiscoverySnapshotV0", _last_player_node_id)
+		if typeof(dsnap) == TYPE_DICTIONARY:
+			var dlist = dsnap.get("discoveries", [])
+			if typeof(dlist) == TYPE_ARRAY:
+				for d in dlist:
+					if typeof(d) == TYPE_DICTIONARY and str(d.get("discovery_id", "")) == disc_id:
+						lore_text = str(d.get("flavor_text", d.get("description", "")))
+						break
+	# Credit reward annotation.
+	if credit_reward > 0 and lore_text.is_empty():
+		lore_text = "+%d credits" % credit_reward
+	elif credit_reward > 0:
+		lore_text += "  —  +%d credits" % credit_reward
+
+	var lore_label := Label.new()
+	lore_label.text = lore_text if not lore_text.is_empty() else "Data archived."
+	lore_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lore_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lore_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lore_label.offset_top = 70.0
+	lore_label.add_theme_font_size_override("font_size", 18)
+	lore_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85, 1.0))
+	lore_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lore_label.modulate.a = 0.0
+	canvas.add_child(lore_label)
+
+	# FO reaction line (if FO is active).
+	var fo_line: String = ""
+	if bridge_ref and bridge_ref.has_method("GetFirstOfficerStateV0"):
+		var fo_state = bridge_ref.call("GetFirstOfficerStateV0")
+		if typeof(fo_state) == TYPE_DICTIONARY:
+			var fo_name: String = str(fo_state.get("name", ""))
+			if not fo_name.is_empty():
+				# Try to get a pending FO dialogue triggered by this event.
+				var pending: String = str(fo_state.get("pending_text", ""))
+				if not pending.is_empty():
+					fo_line = "%s: \"%s\"" % [fo_name, pending]
+
+	var fo_label: Label = null
+	if not fo_line.is_empty():
+		fo_label = Label.new()
+		fo_label.text = fo_line
+		fo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fo_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		fo_label.offset_top = 120.0
+		fo_label.add_theme_font_size_override("font_size", 16)
+		fo_label.add_theme_color_override("font_color", Color(0.6, 0.85, 0.65, 1.0))
+		fo_label.add_theme_font_size_override("font_size", 16)
+		fo_label.modulate.a = 0.0
+		canvas.add_child(fo_label)
+
+	# Tween: bars in → category → name → lore → FO → hold → fade out → bars out.
+	var hold_time: float = maxf(total_time - 2.0, 0.5)
+	var tween := create_tween()
+	# Bars in.
+	tween.tween_property(bar_top, "size:y", 80.0, 0.3).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(bar_bot, "offset_top", -80.0, 0.3).set_ease(Tween.EASE_OUT)
+	# Text cascade.
+	tween.tween_property(cat_label, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+	tween.tween_property(name_label, "modulate:a", 1.0, 0.4).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(lore_label, "modulate:a", 1.0, 0.4).set_ease(Tween.EASE_OUT)
+	if fo_label:
+		tween.tween_property(fo_label, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+	# Hold.
+	tween.tween_interval(hold_time)
+	# Fade out.
+	tween.tween_property(name_label, "modulate:a", 0.0, 0.4)
+	tween.parallel().tween_property(cat_label, "modulate:a", 0.0, 0.3)
+	tween.parallel().tween_property(lore_label, "modulate:a", 0.0, 0.3)
+	if fo_label:
+		tween.parallel().tween_property(fo_label, "modulate:a", 0.0, 0.3)
+	# Bars out.
+	tween.tween_property(bar_top, "size:y", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(bar_bot, "offset_top", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	tween.tween_callback(canvas.queue_free)
+
+	print("UUIR|DISC_ANALYSIS_CEREMONY|%s|reward=%d|time=%.1f|fo=%s" % [disc_id, credit_reward, total_time, "yes" if not fo_line.is_empty() else "no"])
+
+
+## Kill any active discovery milestone letterbox (called on dock to avoid overlap).
+func _kill_discovery_letterbox_v0() -> void:
+	for node in get_tree().get_nodes_in_group("discovery_letterbox"):
+		if node.get_parent():
+			node.get_parent().remove_child(node)
+		node.queue_free()
+
+
+# ── GATE.T48.TELEMETRY.CRASH_HOOK.001: Crash/exception reporting ──
+
+## Append a line to the rolling log buffer (capped at LOG_BUFFER_MAX_LINES).
+## Call this from key events (state transitions, errors, commands) to populate crash reports.
+func _log_event_v0(msg: String) -> void:
+	_log_buffer.append("[%s] %s" % [Time.get_datetime_string_from_system(), msg])
+	if _log_buffer.size() > LOG_BUFFER_MAX_LINES:
+		_log_buffer = _log_buffer.slice(_log_buffer.size() - LOG_BUFFER_MAX_LINES)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_CRASH:
+		_write_crash_report_v0()
+
+## Write crash/shutdown telemetry report to user://telemetry/.
+## Graceful — catches all errors internally, never blocks shutdown.
+func _write_crash_report_v0() -> void:
+	# Wrap everything in a broad error guard — must not block engine shutdown.
+	var report := {}
+	report["timestamp"] = Time.get_datetime_string_from_system()
+	report["event"] = "shutdown"
+
+	# SimState tick from bridge (graceful fallback).
+	var sim_tick: int = -1
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("GetSimTickV0"):
+		var tick_val = bridge.call("GetSimTickV0")
+		if typeof(tick_val) == TYPE_INT:
+			sim_tick = tick_val
+	report["sim_tick"] = sim_tick
+
+	# Player position.
+	var pos_str: String = "unknown"
+	if _hero_body and is_instance_valid(_hero_body):
+		pos_str = str(_hero_body.global_position)
+	report["player_position"] = pos_str
+
+	# Active state.
+	report["player_state"] = PlayerShipState.keys()[current_player_state] if current_player_state >= 0 and current_player_state < PlayerShipState.size() else "UNKNOWN"
+	report["last_node_id"] = _last_player_node_id
+	report["on_main_menu"] = _on_main_menu
+	report["intro_active"] = intro_active
+	report["player_dead"] = _player_dead
+
+	# Rolling log buffer.
+	var log_lines: Array = []
+	for line in _log_buffer:
+		log_lines.append(line)
+	report["log_buffer"] = log_lines
+
+	# Ensure directory exists and write.
+	var dir_path: String = "user://telemetry"
+	DirAccess.make_dir_recursive_absolute(dir_path)
+
+	var ts_safe: String = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
+	var file_path: String = dir_path + "/crash_report_" + ts_safe + ".json"
+	var file := FileAccess.open(file_path, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(report, "  "))
+		file.close()
+		print("TELEMETRY|CRASH_REPORT_WRITTEN|%s" % file_path)
+	else:
+		# Fallback: at least log the failure.
+		push_warning("[Telemetry] Failed to write crash report to %s" % file_path)

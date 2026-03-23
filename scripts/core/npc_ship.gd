@@ -1,7 +1,11 @@
-extends CharacterBody3D
+extends Node3D
 ## NPC ship controller — GATE.S16.NPC_ALIVE.SHIP_SCENE.001 + FLIGHT_CTRL.001
 ## Sim-driven movement: reads transit facts from SimBridge, interpolates position.
-## Kinematic flight via move_and_slide + quaternion slerp rotation. XZ locked.
+## GATE.T50.PERF.NPC_PHYSICS.001: Node3D + direct position update (no physics solver).
+## Quaternion slerp rotation. XZ locked.
+
+## GATE.T50.PERF.NPC_PHYSICS.001: Local velocity replaces CharacterBody3D.velocity.
+var _velocity: Vector3 = Vector3.ZERO
 
 ## Fleet ID assigned at spawn by GalaxyView.
 @export var fleet_id: String = ""
@@ -19,7 +23,7 @@ var _fleet_state: String = "Idle"
 ## GATE.T30.GALPOP.HOSTILE_FIX.003: Owner ID from transit data (preferred over territory lookup).
 var _owner_id: String = ""
 var _faction_id: String = ""
-var _aggro_check_timer: float = 0.0
+var _aggro_check_timer: float = 0.0  # Staggered at _ready() to avoid clustered polls.
 const AGGRO_CHECK_INTERVAL: float = 2.0  # seconds between reputation polls
 const AGGRO_REPUTATION_THRESHOLD: int = -50  # matches FactionTweaksV0.AggroReputationThreshold
 
@@ -111,12 +115,13 @@ func _exit_tree() -> void:
 func _ready() -> void:
 	_fleet_area.set_meta("fleet_id", fleet_id)
 	add_to_group("NpcShip")
-	collision_layer = 4
-	collision_mask = 0
 	print("DEBUG_NPC|SPAWN|fleet=%s pos=%s role=%d" % [fleet_id, str(position), _role])
 	# Seed patrol RNG from fleet ID so each ship patrols differently.
 	for c in fleet_id:
 		_patrol_seed = _patrol_seed * 31 + c.unicode_at(0)
+	# GATE.T50.PERF.REP_CACHE.001: Stagger aggro timer by patrol_seed so NPC patrol
+	# ships don't all query GetPlayerReputationV0 on the same frame.
+	_aggro_check_timer = fmod(float(absi(_patrol_seed)), AGGRO_CHECK_INTERVAL)
 	_create_status_display()
 
 
@@ -380,8 +385,7 @@ func _check_reputation_aggro(current_node: String) -> bool:
 func _physics_process(delta: float) -> void:
 	# Warp-out in progress — freeze all movement, let tween handle scale-down + queue_free.
 	if _warp_out_started:
-		velocity = Vector3.ZERO
-		move_and_slide()
+		_velocity = Vector3.ZERO
 		return
 
 	# GATE.S7.FACTION.PATROL_AGGRO.001: Periodic reputation re-check for patrol ships.
@@ -398,8 +402,7 @@ func _physics_process(delta: float) -> void:
 	# Combat stagger — freeze movement.
 	if stagger_remaining > 0.0:
 		stagger_remaining -= delta
-		velocity = Vector3.ZERO
-		move_and_slide()
+		_velocity = Vector3.ZERO
 		return
 
 	# Orbit mode: advance angle per-frame for smooth circular motion.
@@ -454,17 +457,16 @@ func _physics_process(delta: float) -> void:
 			_current_speed = maxf(_current_speed - DECELERATION * delta, 0.0)
 			if _current_speed < 0.1:
 				_current_speed = 0.0
-				velocity = Vector3.ZERO
-				move_and_slide()
+				_velocity = Vector3.ZERO
 				return
 			# Drift forward in facing direction while decelerating.
 			var drift_dir := -transform.basis.z
 			drift_dir.y = 0.0
 			if drift_dir.length_squared() > 0.001:
 				drift_dir = drift_dir.normalized()
-			velocity = drift_dir * _current_speed
-			velocity.y = 0.0
-			move_and_slide()
+			_velocity = drift_dir * _current_speed
+			_velocity.y = 0.0
+			position += _velocity * delta
 			_apply_managed_y(delta)
 			return
 
@@ -513,9 +515,9 @@ func _physics_process(delta: float) -> void:
 	# XZ obstacle avoidance: blend away from stations and other ships.
 	var avoid_xz := _compute_xz_avoidance()
 	var final_dir := (facing + avoid_xz).normalized() if avoid_xz.length_squared() > 0.001 else facing
-	velocity = final_dir * _current_speed
-	velocity.y = 0.0
-	move_and_slide()
+	_velocity = final_dir * _current_speed
+	_velocity.y = 0.0
+	position += _velocity * delta
 	_apply_managed_y(delta)
 
 

@@ -24,8 +24,8 @@ public class LongRunWorldHashTests
     //
     // Diagnostics:
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
-    private const string ExpectedGenesisHash = "CBF609F0351C9D1C47DCB9B858C5F698CA3FE6968EC7E9E53E56933EEB405383";
-    private const string ExpectedFinalHash = "0317F7FB46854ABFDCBED6F75BA5DB77FC6E673202180C998DE5D41925C4C98D";
+    private const string ExpectedGenesisHash = "6870B3675301F85918602FE112FE2089357A9C46BCBBFF03C0952FDBBD2068FC";
+    private const string ExpectedFinalHash = "02C7787413A8F121C8C4D3920A8CEA3087D6B674F9881949CAB49D16433B7613";
 
     // Gate: GATE.S2_5.WGEN.NSEED.001 (N-seed batch invariants v0)
     // Golden is SHA256 over the emitted INVARIANTS_BATCH_V0 summary (UTF8), to prevent silent format churn.
@@ -932,6 +932,10 @@ public class LongRunWorldHashTests
 
     private static RunResult Run(int seed, int ticks, int[] checkpoints)
     {
+        // Reset static base prices to prevent cross-test contamination from
+        // WorldLoader.Apply or GalaxyGenerator.Generate with Registry option.
+        SimCore.Entities.Market.ClearGoodBasePrices();
+
         var sim = new SimKernel(seed);
         GalaxyGenerator.Generate(sim.State, 20, 100f);
 

@@ -122,6 +122,14 @@ public static class StarNetworkGen
             var (traders, haulers, patrols) = FleetPopulationTweaksV0.GetComposition(factionId);
             string ownerId = string.IsNullOrEmpty(factionId) ? "ai" : factionId;
 
+            // Boost fleet density at player start so the world feels alive on boot
+            bool isPlayerStart = node.Id == state.PlayerLocationNodeId;
+            if (isPlayerStart)
+            {
+                traders = Math.Max(traders, FleetPopulationTweaksV0.StarterMinTraders);
+                patrols = Math.Max(patrols, FleetPopulationTweaksV0.StarterMinPatrols);
+            }
+
             int idx = 0;
             for (int t = 0; t < traders; t++)
                 CreateFleet(state, node.Id, ownerId, FleetRole.Trader, idx++);

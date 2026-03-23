@@ -18,6 +18,15 @@ public static class NpcTradeSystem
         public readonly List<string> ToRemove = new();
         public readonly List<string> EdgeIds = new();
         public readonly List<string> GoodIds = new();
+        // BFS hop distance cache: key = "factionId|nodeId", value = hop count.
+        // Topology is static after gen, so cache is valid for the entire run.
+        public readonly Dictionary<string, int> HopDistanceCache = new(StringComparer.Ordinal);
+        // Scratch for BFS traversal to avoid per-call allocations.
+        public readonly HashSet<string> BfsVisited = new(StringComparer.Ordinal);
+        public readonly List<string> BfsFrontier = new();
+        public readonly List<string> BfsNextFrontier = new();
+        // Scratch for RecordTradeCooldown stale key pruning.
+        public readonly List<string> StaleKeys = new();
     }
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class TradeOpportunity
@@ -85,8 +94,24 @@ public static class NpcTradeSystem
     }
 
     // GATE.S12.NPC_CIRC.CIRCUIT_ROUTES.001: Advance patrol fleet to next circuit stop.
+    // GATE.T45.DEEP_DREAD.PATROL_THIN.001: Skip patrol advance based on hop distance from faction home.
     private static void ProcessPatrolCircuit(SimState state, Fleet fleet)
     {
+        // GATE.T45.DEEP_DREAD.PATROL_THIN.001: Compute hop distance from faction home.
+        // Beyond threshold, patrols freeze (zero density) or advance less frequently (half density).
+        int hopsFromHome = ComputeHopsFromFactionHome(state, fleet.OwnerId, fleet.CurrentNodeId);
+        if (hopsFromHome > DeepDreadTweaksV0.PatrolHalfDensityMaxHops)
+        {
+            // Zero density: patrol never advances in deep space.
+            return;
+        }
+        if (hopsFromHome > DeepDreadTweaksV0.PatrolFullDensityMaxHops)
+        {
+            // Half density: skip every other eval cycle via tick parity.
+            if ((state.Tick / NpcTradeTweaksV0.EvalIntervalTicks) % 2 != 0) // STRUCTURAL: parity check
+                return;
+        }
+
         if (fleet.PatrolCircuit == null || fleet.PatrolCircuit.Count < 2)
         {
             fleet.PatrolCircuit = GenerateCircuit(state, fleet.Id, fleet.CurrentNodeId);
@@ -116,6 +141,63 @@ public static class NpcTradeSystem
         var nextNodeId = fleet.PatrolCircuit[fleet.PatrolCircuitIndex];
         fleet.FinalDestinationNodeId = nextNodeId;
         fleet.DestinationNodeId = nextNodeId;
+    }
+
+    /// <summary>
+    /// GATE.T45.DEEP_DREAD.PATROL_THIN.001: BFS hop distance from faction home node to target node.
+    /// Returns int.MaxValue if no path or faction has no home node.
+    /// </summary>
+    public static int ComputeHopsFromFactionHome(SimState state, string factionId, string nodeId)
+    {
+        if (string.IsNullOrEmpty(factionId) || string.IsNullOrEmpty(nodeId)) return int.MaxValue;
+        if (!state.FactionHomeNodes.TryGetValue(factionId, out var homeNodeId)) return int.MaxValue;
+        if (string.IsNullOrEmpty(homeNodeId)) return int.MaxValue;
+        if (string.Equals(homeNodeId, nodeId, StringComparison.Ordinal)) return 0;
+
+        // Check cache first — topology is static after gen.
+        var scratch = s_scratch.GetOrCreateValue(state);
+        string cacheKey = string.Concat(factionId, "|", nodeId);
+        if (scratch.HopDistanceCache.TryGetValue(cacheKey, out int cached)) return cached;
+
+        // BFS from home node — reuse scratch collections.
+        var visited = scratch.BfsVisited;
+        var frontier = scratch.BfsFrontier;
+        var nextFrontier = scratch.BfsNextFrontier;
+        visited.Clear();
+        frontier.Clear();
+        visited.Add(homeNodeId);
+        frontier.Add(homeNodeId);
+        int depth = 0;
+        int result = int.MaxValue;
+
+        while (frontier.Count > 0)
+        {
+            depth++;
+            nextFrontier.Clear();
+            foreach (var current in frontier)
+            {
+                foreach (var edge in state.Edges.Values)
+                {
+                    string adj = "";
+                    if (edge.FromNodeId == current) adj = edge.ToNodeId;
+                    else if (edge.ToNodeId == current) adj = edge.FromNodeId;
+                    if (adj.Length > 0 && visited.Add(adj))
+                    {
+                        if (string.Equals(adj, nodeId, StringComparison.Ordinal))
+                        {
+                            result = depth;
+                            goto Done;
+                        }
+                        nextFrontier.Add(adj);
+                    }
+                }
+            }
+            // Swap frontier and nextFrontier to avoid allocation.
+            (frontier, nextFrontier) = (nextFrontier, frontier);
+        }
+        Done:
+        scratch.HopDistanceCache[cacheKey] = result;
+        return result;
     }
 
     /// <summary>
@@ -191,7 +273,7 @@ public static class NpcTradeSystem
 
         // Find best trade opportunity within 2 hops
         var best = FindBestOpportunityMultiHop(state, currentNodeId, localMarket,
-            FleetPopulationTweaksV0.HaulerEvalRadiusHops);
+            FleetPopulationTweaksV0.HaulerEvalRadiusHops, fleet);
         if (best == null) return;
 
         int unitsToPick = Math.Min(best.Units, FleetPopulationTweaksV0.HaulerMaxCargoUnits);
@@ -201,6 +283,9 @@ public static class NpcTradeSystem
         localMarket.Inventory[best.GoodId] = Math.Max(0, newLocalStock);
         fleet.Cargo[best.GoodId] = (fleet.Cargo.TryGetValue(best.GoodId, out var cargoQty) ? cargoQty : 0) + unitsToPick;
 
+        // Record trade cooldown and prune stale entries.
+        RecordTradeCooldown(fleet, best.GoodId, best.DestNodeId, state.Tick);
+
         fleet.FinalDestinationNodeId = best.DestNodeId;
         fleet.DestinationNodeId = best.DestNodeId;
     }
@@ -209,7 +294,8 @@ public static class NpcTradeSystem
     /// Find best trade opportunity within N hops via BFS adjacency expansion.
     /// </summary>
     public static TradeOpportunity? FindBestOpportunityMultiHop(
-        SimState state, string currentNodeId, Market localMarket, int maxHops)
+        SimState state, string currentNodeId, Market localMarket, int maxHops,
+        Fleet? fleet = null)
     {
         // BFS to find all reachable nodes within maxHops
         var reachable = new HashSet<string>(StringComparer.Ordinal);
@@ -253,6 +339,15 @@ public static class NpcTradeSystem
 
             foreach (var goodId in goodIds)
             {
+                // Trade cooldown: skip if this fleet recently traded this good at this destination.
+                if (fleet != null)
+                {
+                    string cooldownKey = $"{goodId}@{destNodeId}";
+                    if (fleet.TradeCooldowns.TryGetValue(cooldownKey, out int lastTick)
+                        && state.Tick - lastTick < NpcTradeTweaksV0.TradeCooldownTicks)
+                        continue;
+                }
+
                 int localStock = localMarket.Inventory.TryGetValue(goodId, out var lq) ? lq : 0;
                 if (localStock <= 0) continue;
 
@@ -260,7 +355,11 @@ public static class NpcTradeSystem
                 int sellPrice = destMarket.GetSellPrice(goodId);
                 int profitPerUnit = sellPrice - buyPrice;
 
-                if (profitPerUnit < NpcTradeTweaksV0.ProfitThresholdCredits) continue;
+                // Scaled profit threshold: max(flat floor, 3% of good's base price).
+                int goodBase = Market.GetGoodBasePrice(goodId);
+                int threshold = Math.Max(NpcTradeTweaksV0.ProfitThresholdCredits,
+                    goodBase * NpcTradeTweaksV0.ProfitThresholdBps / 10000);
+                if (profitPerUnit < threshold) continue;
 
                 int units = Math.Min(localStock, FleetPopulationTweaksV0.HaulerMaxCargoUnits);
                 if (units <= 0) continue;
@@ -268,6 +367,16 @@ public static class NpcTradeSystem
                 int weight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(goodId, out var w)
                     ? w : NpcTradeTweaksV0.DefaultGoodWeight;
                 long score = (long)profitPerUnit * units * weight;
+
+                // Warfront risk penalty: NPCs avoid trading into active war zones.
+                int destWarIntensity = MarketSystem.GetNodeWarfrontIntensity(state, destNodeId);
+                int destInstability = state.Nodes.TryGetValue(destNodeId, out var destNode)
+                    ? destNode.InstabilityLevel : 0;
+                int riskPenaltyBps = destWarIntensity * NpcTradeTweaksV0.WarfrontRiskBpsPerIntensity
+                    + destInstability * NpcTradeTweaksV0.InstabilityRiskBpsPerLevel;
+                int riskMultBps = Math.Max(NpcTradeTweaksV0.MinRiskMultBps, 10000 - riskPenaltyBps);
+                score = score * riskMultBps / 10000;
+
                 long bestScore = best != null
                     ? (long)best.ProfitPerUnit * best.Units * (NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(best.GoodId, out var bw) ? bw : NpcTradeTweaksV0.DefaultGoodWeight)
                     : 0;
@@ -323,7 +432,7 @@ public static class NpcTradeSystem
             fleet.Cargo.Remove(k);
 
         // Find best trade opportunity among adjacent nodes
-        var best = FindBestOpportunity(state, currentNodeId, localMarket);
+        var best = FindBestOpportunity(state, currentNodeId, localMarket, fleet);
         if (best == null) return;
 
         // Pick up goods from local market
@@ -334,13 +443,17 @@ public static class NpcTradeSystem
         localMarket.Inventory[best.GoodId] = Math.Max(0, newLocalStock);
         fleet.Cargo[best.GoodId] = (fleet.Cargo.TryGetValue(best.GoodId, out var cargoQty) ? cargoQty : 0) + unitsToPick;
 
+        // Record trade cooldown and prune stale entries.
+        RecordTradeCooldown(fleet, best.GoodId, best.DestNodeId, state.Tick);
+
         // Set travel destination
         fleet.FinalDestinationNodeId = best.DestNodeId;
         fleet.DestinationNodeId = best.DestNodeId;
     }
 
     public static TradeOpportunity? FindBestOpportunity(
-        SimState state, string currentNodeId, Market localMarket)
+        SimState state, string currentNodeId, Market localMarket,
+        Fleet? fleet = null)
     {
         TradeOpportunity? best = null;
 
@@ -374,6 +487,15 @@ public static class NpcTradeSystem
 
             foreach (var goodId in goodIds)
             {
+                // Trade cooldown: skip if this fleet recently traded this good at this destination.
+                if (fleet != null)
+                {
+                    string cooldownKey = $"{goodId}@{adjNodeId}";
+                    if (fleet.TradeCooldowns.TryGetValue(cooldownKey, out int lastTick)
+                        && state.Tick - lastTick < NpcTradeTweaksV0.TradeCooldownTicks)
+                        continue;
+                }
+
                 int localStock = localMarket.Inventory.TryGetValue(goodId, out var lq) ? lq : 0;
                 if (localStock <= 0) continue;
 
@@ -381,7 +503,11 @@ public static class NpcTradeSystem
                 int sellPrice = adjMarket.GetSellPrice(goodId);
                 int profitPerUnit = sellPrice - buyPrice;
 
-                if (profitPerUnit < NpcTradeTweaksV0.ProfitThresholdCredits) continue;
+                // Scaled profit threshold: max(flat floor, 3% of good's base price).
+                int goodBase = Market.GetGoodBasePrice(goodId);
+                int threshold = Math.Max(NpcTradeTweaksV0.ProfitThresholdCredits,
+                    goodBase * NpcTradeTweaksV0.ProfitThresholdBps / 10000);
+                if (profitPerUnit < threshold) continue;
 
                 int units = Math.Min(localStock, NpcTradeTweaksV0.MaxTradeUnitsPerTrip);
                 if (units <= 0) continue;
@@ -390,6 +516,16 @@ public static class NpcTradeSystem
                 int weight = NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(goodId, out var w)
                     ? w : NpcTradeTweaksV0.DefaultGoodWeight;
                 long score = (long)profitPerUnit * units * weight;
+
+                // Warfront risk penalty: NPCs avoid trading into active war zones.
+                int destWarIntensity = MarketSystem.GetNodeWarfrontIntensity(state, adjNodeId);
+                int destInstability = state.Nodes.TryGetValue(adjNodeId, out var destNode)
+                    ? destNode.InstabilityLevel : 0;
+                int riskPenaltyBps = destWarIntensity * NpcTradeTweaksV0.WarfrontRiskBpsPerIntensity
+                    + destInstability * NpcTradeTweaksV0.InstabilityRiskBpsPerLevel;
+                int riskMultBps = Math.Max(NpcTradeTweaksV0.MinRiskMultBps, 10000 - riskPenaltyBps);
+                score = score * riskMultBps / 10000;
+
                 long bestScore = best != null
                     ? (long)best.ProfitPerUnit * best.Units * (NpcTradeTweaksV0.GoodTradeWeights.TryGetValue(best.GoodId, out var bw) ? bw : NpcTradeTweaksV0.DefaultGoodWeight)
                     : 0;
@@ -412,4 +548,23 @@ public static class NpcTradeSystem
 
         return best;
     }
+
+    /// <summary>
+    /// Record a trade cooldown and prune stale entries (> 200 ticks old) to prevent unbounded growth.
+    /// </summary>
+    private static void RecordTradeCooldown(Fleet fleet, string goodId, string destNodeId, int currentTick)
+    {
+        fleet.TradeCooldowns[string.Concat(goodId, "@", destNodeId)] = currentTick;
+
+        // Prune stale cooldowns (> 200 ticks old) — reuse scratch list.
+        _pruneStaleKeys.Clear();
+        foreach (var kv in fleet.TradeCooldowns)
+        {
+            if (currentTick - kv.Value > 200) // STRUCTURAL: 200 tick prune window (~4x cooldown)
+                _pruneStaleKeys.Add(kv.Key);
+        }
+        foreach (var k in _pruneStaleKeys)
+            fleet.TradeCooldowns.Remove(k);
+    }
+    private static readonly List<string> _pruneStaleKeys = new();
 }

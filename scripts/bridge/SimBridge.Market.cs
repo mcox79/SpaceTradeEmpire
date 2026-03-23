@@ -751,6 +751,150 @@ public partial class SimBridge
         return result;
     }
 
+    // ── Ambient Life: Economy snapshot for station visual signals ──
+
+    /// <summary>
+    /// Returns synthesized economy snapshot for a node: traffic level, prosperity,
+    /// industry type, warfront tier, docked fleets. Used by Godot for ambient life visuals.
+    /// </summary>
+    public Godot.Collections.Dictionary GetNodeEconomySnapshotV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["traffic_level"] = 0,
+            ["prosperity"] = 0.0f,
+            ["industry_type"] = "none",
+            ["warfront_tier"] = 0,
+            ["faction_id"] = "",
+            ["docked_fleets"] = 0,
+        };
+        if (string.IsNullOrWhiteSpace(nodeId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            // Traffic: fleets targeting or at this node.
+            int traffic = 0;
+            int docked = 0;
+            foreach (var f in state.Fleets.Values)
+            {
+                if (string.Equals(f.CurrentNodeId, nodeId, StringComparison.Ordinal))
+                {
+                    traffic++;
+                    if (!f.IsMoving) docked++;
+                }
+                else if (string.Equals(f.DestinationNodeId, nodeId, StringComparison.Ordinal)
+                    || string.Equals(f.FinalDestinationNodeId, nodeId, StringComparison.Ordinal))
+                {
+                    traffic++;
+                }
+            }
+            result["traffic_level"] = traffic;
+            result["docked_fleets"] = docked;
+
+            // Prosperity: avg inventory / ideal stock.
+            if (state.Markets.TryGetValue(nodeId, out var mkt))
+            {
+                int total = 0; int count = 0;
+                foreach (var v in mkt.Inventory.Values) { total += v; count++; }
+                if (count > 0)
+                    result["prosperity"] = (float)total / count / SimCore.Entities.Market.IdealStock;
+            }
+
+            // Industry type from first industry site at this node.
+            foreach (var site in state.IndustrySites.Values)
+            {
+                if (!string.Equals(site.NodeId, nodeId, StringComparison.Ordinal)) continue;
+                result["industry_type"] = site.RecipeId switch
+                {
+                    "" when site.Outputs.ContainsKey("fuel") => "fuel_well",
+                    var r when r.Contains("ore") => "mine",
+                    var r when r.Contains("metal") => "refinery",
+                    var r when r.Contains("munitions") => "munitions_fab",
+                    var r when r.Contains("food") => "food_processor",
+                    var r when r.Contains("electronics") => "electronics_fab",
+                    var r when r.Contains("composites") => "composites_fab",
+                    var r when r.Contains("components") => "components_fab",
+                    _ => "factory",
+                };
+                break;
+            }
+
+            result["warfront_tier"] = MarketSystem.GetNodeWarfrontIntensity(state, nodeId);
+            result["faction_id"] = state.NodeFactionId != null && state.NodeFactionId.TryGetValue(nodeId, out var fid) ? fid : "";
+        }, 0);
+
+        return result;
+    }
+
+    // ── Economy Digest: Market alerts for price spikes, drops, stockouts ──
+
+    /// <summary>
+    /// Returns market alerts for player-visited nodes: price spikes, drops, stockouts.
+    /// Array of {node_id, good_id, type, old_price, new_price, change_pct}.
+    /// </summary>
+    public Godot.Collections.Array GetMarketAlertsV0(int maxAlerts = 10)
+    {
+        var result = new Godot.Collections.Array();
+        if (IsLoading) return result;
+        if (maxAlerts <= 0) maxAlerts = 10;
+
+        TryExecuteSafeRead(state =>
+        {
+            var visitedNodes = new System.Collections.Generic.List<string>(state.PlayerVisitedNodeIds);
+            visitedNodes.Sort(StringComparer.Ordinal);
+
+            foreach (var nodeId in visitedNodes)
+            {
+                if (!state.Markets.TryGetValue(nodeId, out var mkt)) continue;
+
+                var goodIds = new System.Collections.Generic.List<string>(mkt.Inventory.Keys);
+                goodIds.Sort(StringComparer.Ordinal);
+
+                foreach (var goodId in goodIds)
+                {
+                    int currentMid = mkt.GetMidPrice(goodId);
+                    int publishedMid = mkt.GetPublishedMidPrice(goodId);
+
+                    // Stockout alert.
+                    int stock = mkt.Inventory.TryGetValue(goodId, out var sv) ? sv : 0;
+                    if (stock == 0)
+                    {
+                        result.Add(new Godot.Collections.Dictionary
+                        {
+                            ["node_id"] = nodeId,
+                            ["good_id"] = goodId,
+                            ["type"] = "stockout",
+                            ["old_price"] = publishedMid,
+                            ["new_price"] = currentMid,
+                            ["change_pct"] = 0,
+                        });
+                        continue;
+                    }
+
+                    // Price change alert (>20% swing).
+                    if (publishedMid <= 0) continue;
+                    int changeBps = Math.Abs(currentMid - publishedMid) * 10000 / publishedMid;
+                    if (changeBps < 2000) continue;
+
+                    result.Add(new Godot.Collections.Dictionary
+                    {
+                        ["node_id"] = nodeId,
+                        ["good_id"] = goodId,
+                        ["type"] = currentMid > publishedMid ? "price_spike" : "price_drop",
+                        ["old_price"] = publishedMid,
+                        ["new_price"] = currentMid,
+                        ["change_pct"] = (currentMid - publishedMid) * 100 / publishedMid,
+                    });
+                }
+            }
+
+            // Cap at maxAlerts.
+            while (result.Count > maxAlerts) result.RemoveAt(result.Count - 1);
+        }, 0);
+
+        return result;
+    }
+
     public string GetMarketExplainTranscript(string marketId)
     {
         if (IsLoading) return "";

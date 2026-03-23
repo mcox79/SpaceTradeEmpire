@@ -10,6 +10,12 @@ namespace SimCore.Tests.Systems;
 [TestFixture]
 public sealed class InstrumentDisagreementTests
 {
+    [SetUp]
+    public void SetUp()
+    {
+        Market.ClearGoodBasePrices();
+    }
+
     private static void AdvanceTo(SimState state, int targetTick)
     {
         while (state.Tick < targetTick)

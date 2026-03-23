@@ -131,6 +131,7 @@ public partial class GalaxyView : Node3D
 
     private int _lastNodeCount = 0;
     private int _lastEdgeCount = 0;
+    private int _snapshotRetryCount = 0; // Retry counter for read-lock contention
     private bool _lastPlayerHighlighted = false;
 
     // --- Local system config (named exported fields; no numeric literals in .cs or .tscn) ---
@@ -185,6 +186,11 @@ public partial class GalaxyView : Node3D
     // GATE.T43.SCAN_UI.GALAXY_MARKERS.001: Track scan markers refresh timer.
     private double _scanMarkerRefreshTimer = 0.0;
     private const double ScanMarkerRefreshInterval = 3.0; // seconds
+
+    // GATE.T44.AMBIENT.LANE_TRAFFIC.001: Lane traffic sprite refresh timer.
+    private double _laneTrafficRefreshTimer = 0.0;
+    private const double LaneTrafficRefreshInterval = 5.0; // seconds
+    private bool _laneTrafficDirty = true;
 
     // GATE.T43.SCAN_UI.SIGNAL_LINES.001: Signal triangulation lines between SignalLead nodes.
     private readonly List<MeshInstance3D> _signalTriangulationLines = new();
@@ -243,6 +249,9 @@ public partial class GalaxyView : Node3D
         if (_overlayOpen == isOpen) return; // Idempotent — avoid per-frame refresh cost.
         _overlayOpen = isOpen;
 
+        // GATE.T44.AMBIENT.LANE_TRAFFIC.001: Mark lane traffic dirty on overlay open for immediate refresh.
+        if (isOpen) _laneTrafficDirty = true;
+
         // GalaxyView's own overlay rendering (nodes, edges, colors).
         Visible = isOpen;
         SetProcess(isOpen);
@@ -283,6 +292,8 @@ public partial class GalaxyView : Node3D
         if (isOpen)
         {
             // Defer one frame so SimBridge can finish boot sequences.
+            // Reset retry counter — RefreshFromSnapshotV0 retries if read-lock fails.
+            _snapshotRetryCount = 0;
             CallDeferred(nameof(RefreshFromSnapshotV0));
         }
         else
@@ -426,6 +437,7 @@ public partial class GalaxyView : Node3D
         // Keep them hidden — SetOverlayOpenV0(true) will flip Visible later.
         if (!_overlayOpen)
         {
+            _snapshotRetryCount = 0;
             RefreshFromSnapshotV0();
         }
     }
@@ -571,6 +583,9 @@ public partial class GalaxyView : Node3D
         // GATE.S14.MAP.PLAYER_INDICATOR.001: Pulse the player ring on the galaxy map.
         _PulsePlayerRingV0(delta);
 
+        // GATE.T50.VISUAL.GALAXY_ECON.001: Pulse economic activity glow on PlanetDot nodes.
+        _PulseEconGlowV0(delta);
+
         RefreshFromSnapshotV0();
 
         // GATE.S7.GALAXY_MAP_V2.OVERLAYS.001: Refresh V2 overlay visuals after snapshot.
@@ -583,6 +598,19 @@ public partial class GalaxyView : Node3D
         // GATE.S6.UI_DISCOVERY.SCAN_VIZ.001: Discovery highlight at current node.
         if (!_overlayOpen)
             UpdateDiscoveryHighlightsV0();
+
+        // GATE.T44.AMBIENT.LANE_TRAFFIC.001 + GATE.T44.DIGEST.MEGAPROJECT_MAP.001:
+        // Throttled refresh for lane traffic sprites and megaproject markers (every 5s).
+        if (_overlayOpen)
+        {
+            _laneTrafficRefreshTimer += delta;
+            if (_laneTrafficDirty || _laneTrafficRefreshTimer >= LaneTrafficRefreshInterval)
+            {
+                _laneTrafficRefreshTimer = 0.0;
+                _laneTrafficDirty = false;
+                RefreshLaneTrafficAndMegaprojectsV0();
+            }
+        }
     }
 
     // GATE.S13.WORLD.LABEL_CLAMP.001: Distance-based label readability for local system labels.
@@ -1447,8 +1475,13 @@ public partial class GalaxyView : Node3D
         // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particles — star dust (all systems).
         SpawnAmbientDustV0(nodeId, starClass);
 
+        // GATE.T44.AMBIENT: Economy-driven ambient visuals (shuttles, mining, prosperity, warfront).
+        SpawnAmbientEconomyVisualsV0(nodeId);
+
         // GATE.S15.FEEL.NPC_PROXIMITY.001: Enable periodic fleet refresh.
-        _fleetRefreshTimer = 1.0;
+        // Short initial timer (0.1s) so first refresh fires quickly — catches fleets
+        // missed by SpawnFleetsV0 due to SimBridge read-lock contention at boot.
+        _fleetRefreshTimer = 0.1;
     }
 
     // GATE.S15.FEEL.AMBIENT_SYSTEM.001: Ambient dust particle systems.
@@ -1886,7 +1919,6 @@ public partial class GalaxyView : Node3D
     private void SpawnFleetsV0(Godot.Collections.Dictionary snap)
     {
         if (_bridge == null) return;
-        bool firstShipSpawned = false; // Spawn first ship immediately for instant world presence
         var transitFacts = _bridge.GetFleetTransitFactsV0(_currentLocalNodeId ?? "");
 
         for (int i = 0; i < transitFacts.Count; i++)
@@ -1976,28 +2008,19 @@ public partial class GalaxyView : Node3D
             float orbitAngularSpeed = (atThisNode && fleetState != "Traveling")
                 ? KeplerOrbitSpeed(arrOrbit, KeplerK_Planet) * 0.5f : 0f;
 
-            if (!firstShipSpawned)
-            {
-                // Spawn first ship immediately so the system has instant NPC presence.
-                firstShipSpawned = true;
-                ship.Position = spawnPos;
-                ship.AddToGroup("FleetShip");
-                _localSystemRoot.AddChild(ship);
-                if (ship.HasMethod("update_transit"))
-                    ship.Call("update_transit", f);
-                if (isDeparting && ship.HasMethod("begin_departure_v0"))
-                    ship.Call("begin_departure_v0", targetPos);
-                else if (orbitAngularSpeed > 0f && ship.HasMethod("set_orbit_v0"))
-                    ship.Call("set_orbit_v0", arrOrbit, orbitAngularSpeed);
-                else if (ship.HasMethod("set_target"))
-                    ship.Call("set_target", targetPos, arrSpd);
-            }
-            else
-            {
-                // Defer remaining ships to next frames — avoids synchronous mesh building.
-                ship.QueueFree();
-                _deferredSpawnQueue.Enqueue((fleetId, spawnPos, targetPos, arrOrbit, orbitAngularSpeed, isDeparting, f));
-            }
+            // Spawn ALL ships immediately at boot — starter systems have 4-6 ships,
+            // not enough to justify deferral. Fixes NPC=1 census bug (5 consecutive audits).
+            ship.Position = spawnPos;
+            ship.AddToGroup("FleetShip");
+            _localSystemRoot.AddChild(ship);
+            if (ship.HasMethod("update_transit"))
+                ship.Call("update_transit", f);
+            if (isDeparting && ship.HasMethod("begin_departure_v0"))
+                ship.Call("begin_departure_v0", targetPos);
+            else if (orbitAngularSpeed > 0f && ship.HasMethod("set_orbit_v0"))
+                ship.Call("set_orbit_v0", arrOrbit, orbitAngularSpeed);
+            else if (ship.HasMethod("set_target"))
+                ship.Call("set_target", targetPos, arrSpd);
         }
 
         // Init combat HP for all fleets (idempotent).
@@ -2416,7 +2439,7 @@ public partial class GalaxyView : Node3D
         if (NpcShipScene == null)
             return CreateFleetMarkerV0(fleetId); // fallback
 
-        var ship = NpcShipScene.Instantiate<CharacterBody3D>();
+        var ship = NpcShipScene.Instantiate<Node3D>();
         ship.Name = "Fleet_" + fleetId;
         ship.Set("fleet_id", fleetId);
 
@@ -3920,7 +3943,17 @@ public partial class GalaxyView : Node3D
     private void RefreshFromSnapshotV0()
     {
         var snap = _bridge.GetGalaxySnapshotV0();
-        if (snap == null) return;
+        if (snap == null || !snap.ContainsKey("system_nodes"))
+        {
+            // Read-lock contention — TryExecuteSafeRead(0) returned empty.
+            // Retry up to 10 times (deferred = one per frame).
+            if (_overlayOpen && _snapshotRetryCount < 10)
+            {
+                _snapshotRetryCount++;
+                CallDeferred(nameof(RefreshFromSnapshotV0));
+            }
+            return;
+        }
 
         var playerNodeId = snap.ContainsKey("player_current_node_id")
             ? (string)snap["player_current_node_id"]
@@ -3955,7 +3988,20 @@ public partial class GalaxyView : Node3D
             float z = (n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f) * galScale;
 
             int fleetCount = n.ContainsKey("fleet_count") ? (int)(Variant)n["fleet_count"] : 0;
-            nodes.Add(new NodeSnapV0(nodeId, stateToken, displayText, new Vector3(x, y, z), fleetCount));
+
+            // GATE.T50.VISUAL: Parse enriched galaxy map data.
+            string factionId = n.ContainsKey("faction_id") ? (string)(Variant)n["faction_id"] : "";
+            float fR = n.ContainsKey("faction_r") ? (float)(Variant)n["faction_r"] : 0.5f;
+            float fG = n.ContainsKey("faction_g") ? (float)(Variant)n["faction_g"] : 0.5f;
+            float fB = n.ContainsKey("faction_b") ? (float)(Variant)n["faction_b"] : 0.5f;
+            string worldClass = n.ContainsKey("world_class") ? (string)(Variant)n["world_class"] : "";
+            string primaryIndustry = n.ContainsKey("primary_industry") ? (string)(Variant)n["primary_industry"] : "";
+            int industryCount = n.ContainsKey("industry_count") ? (int)(Variant)n["industry_count"] : 0;
+            int totalInventory = n.ContainsKey("total_inventory") ? (int)(Variant)n["total_inventory"] : 0;
+
+            nodes.Add(new NodeSnapV0(nodeId, stateToken, displayText, new Vector3(x, y, z),
+                fleetCount, factionId, new Color(fR, fG, fB), worldClass, primaryIndustry,
+                industryCount, totalInventory));
         }
 
         nodes.Sort(static (a, b) => StringComparer.Ordinal.Compare(a.NodeId, b.NodeId));
@@ -4175,12 +4221,36 @@ public partial class GalaxyView : Node3D
                     // FEEL_POST_BASELINE: Dim RUMORED nodes so they appear as unknown destinations.
                     bool isRumored = StringComparer.Ordinal.Equals(n.DisplayStateToken, "RUMORED");
 
-                    // GATE.S6.MAP_GALAXY.INTEL_OVERLAY.001: Tint non-player nodes by intel freshness.
-                    Color nodeColor = isRumored
-                        ? new Color(0.4f, 0.4f, 0.5f) // Gray-blue for unknown systems
-                        : _currentOverlayMode == GalaxyOverlayMode.IntelFreshness
-                            ? GetIntelFreshnessNodeColor(n.NodeId)
-                            : new Color(0f, 0.6f, 1.0f);
+                    // GATE.T50.VISUAL.GALAXY_NODES.001: Base color by primary industry type.
+                    // Mining=amber, Refinery=blue, Farming=green, Trading=white, Unknown=soft blue.
+                    Color industryBaseColor;
+                    if (isRumored)
+                    {
+                        industryBaseColor = new Color(0.4f, 0.4f, 0.5f); // Gray-blue for unknown systems
+                    }
+                    else if (_currentOverlayMode == GalaxyOverlayMode.IntelFreshness)
+                    {
+                        industryBaseColor = GetIntelFreshnessNodeColor(n.NodeId);
+                    }
+                    else
+                    {
+                        industryBaseColor = n.PrimaryIndustry switch
+                        {
+                            "mining" => new Color(1.0f, 0.75f, 0.2f),    // Amber
+                            "refinery" => new Color(0.3f, 0.6f, 1.0f),   // Blue
+                            "farming" => new Color(0.3f, 0.9f, 0.3f),    // Green
+                            "trading" => new Color(0.9f, 0.9f, 1.0f),    // White
+                            _ => new Color(0.0f, 0.6f, 1.0f),            // Default soft blue
+                        };
+                    }
+
+                    // GATE.T50.VISUAL.GALAXY_FACTION.001: Blend faction primary color into node color.
+                    // 30% faction tint preserves industry readability while showing territory.
+                    Color nodeColor = industryBaseColor;
+                    if (!isRumored && !string.IsNullOrEmpty(n.FactionId))
+                    {
+                        nodeColor = industryBaseColor.Lerp(n.FactionColor, 0.3f);
+                    }
 
                     // GATE.S7.WARFRONT.UI_MAP.001: Tint contested war-zone nodes.
                     if (_bridge != null)
@@ -4194,25 +4264,43 @@ public partial class GalaxyView : Node3D
                             nodeColor = nodeColor.Lerp(new Color(1.0f, 0.85f, 0.2f), 0.3f); // slight yellow tint
                     }
 
-                    // GATE.S7.INSTABILITY.VISUAL.001: Tint high-instability nodes.
+                    // GATE.S7.INSTABILITY.VISUAL.001 + GATE.T45.DEEP_DREAD.GALAXY_DREAD.001: Tint by instability phase.
                     if (_bridge != null)
                     {
                         var instab = _bridge.GetNodeInstabilityV0(n.NodeId);
                         int phaseIdx = instab.ContainsKey("phase_index") ? (int)(Variant)instab["phase_index"] : 0;
-                        if (phaseIdx >= 4) // Void
+                        if (phaseIdx >= 4) // Void — distinctive purple with bright emission
                             nodeColor = new Color(0.6f, 0.0f, 0.8f); // deep purple
-                        else if (phaseIdx >= 3) // Fracture
-                            nodeColor = nodeColor.Lerp(new Color(0.7f, 0.1f, 0.9f), 0.5f); // purple tint
-                        else if (phaseIdx >= 2) // Drift
-                            nodeColor = nodeColor.Lerp(new Color(0.5f, 0.3f, 0.8f), 0.3f); // faint purple
+                        else if (phaseIdx >= 3) // Fracture — heavy red-purple
+                            nodeColor = nodeColor.Lerp(new Color(0.7f, 0.1f, 0.9f), 0.5f);
+                        else if (phaseIdx >= 2) // Drift — faint purple wash
+                            nodeColor = nodeColor.Lerp(new Color(0.5f, 0.3f, 0.8f), 0.3f);
+
+                        // GATE.T45.DEEP_DREAD.GALAXY_DREAD.001: Dim nodes outside patrol coverage.
+                        // Nodes with zero patrol (hops 5+) get dimmer emission = visual isolation.
+                        if (_bridge.HasMethod("GetDreadStateV0") && phaseIdx >= 1)
+                        {
+                            // Slight alpha-based dimming for nodes in dread space.
+                            nodeColor = nodeColor.Lerp(new Color(nodeColor.R * 0.7f, nodeColor.G * 0.5f, nodeColor.B * 0.6f), 0.2f);
+                        }
                     }
 
                     mat.AlbedoColor = nodeColor;
                     mat.EmissionEnabled = true;
                     mat.Emission = nodeColor;
-                    // FEEL_POST_FIX_3: Emission + scale vary by discovery state.
-                    // RUMORED = dim/small (fog-of-war), VISITED = medium, MAPPED = bright/large.
+
+                    // GATE.T50.VISUAL.GALAXY_NODES.001: Size by world class (station tier proxy).
+                    // CORE = large (capital hubs), FRONTIER = medium, RIM = small (outposts).
+                    // Combined with discovery state: RUMORED always small, MAPPED gets a bonus.
                     bool isMapped = StringComparer.Ordinal.Equals(n.DisplayStateToken, "MAPPED");
+                    float worldClassScale = n.WorldClass switch
+                    {
+                        "CORE" => 1.3f,       // Capital / hub — large
+                        "FRONTIER" => 1.0f,    // Medium systems
+                        "RIM" => 0.8f,         // Outpost — small
+                        _ => 1.0f,
+                    };
+
                     if (isRumored)
                     {
                         mat.EmissionEnergyMultiplier = 8.0f;
@@ -4221,12 +4309,36 @@ public partial class GalaxyView : Node3D
                     else if (isMapped)
                     {
                         mat.EmissionEnergyMultiplier = 20.0f;
-                        root.Scale = new Vector3(1.15f, 1.15f, 1.15f);
+                        float s = 1.15f * worldClassScale;
+                        root.Scale = new Vector3(s, s, s);
                     }
                     else // VISITED
                     {
                         mat.EmissionEnergyMultiplier = 15.0f;
-                        root.Scale = Vector3.One;
+                        root.Scale = new Vector3(worldClassScale, worldClassScale, worldClassScale);
+                    }
+
+                    // GATE.T50.VISUAL.GALAXY_ECON.001: Economic activity indicator via PlanetDot glow.
+                    // Total inventory drives brightness; industry count drives visibility.
+                    var planetDot = root.GetNodeOrNull<MeshInstance3D>("PlanetDot");
+                    if (planetDot != null && !isRumored && n.IndustryCount > 0)
+                    {
+                        planetDot.Visible = true;
+                        // Economic intensity: clamp inventory into 0-1 range (500 units = full glow).
+                        float econIntensity = Mathf.Clamp(n.TotalInventory / 500.0f, 0.1f, 1.0f);
+                        // Color matches the industry base color but brighter as a "halo".
+                        Color econColor = industryBaseColor.Lerp(new Color(1.0f, 1.0f, 1.0f), 0.3f);
+                        econColor.A = 0.3f + 0.5f * econIntensity;
+                        if (planetDot.MaterialOverride is StandardMaterial3D econMat)
+                        {
+                            econMat.AlbedoColor = econColor;
+                            econMat.Emission = econColor;
+                            econMat.EmissionEnergyMultiplier = 2.0f + 4.0f * econIntensity;
+                        }
+                    }
+                    else if (planetDot != null)
+                    {
+                        planetDot.Visible = false;
                     }
                 }
             }
@@ -4514,14 +4626,29 @@ public partial class GalaxyView : Node3D
         public readonly string DisplayText;
         public readonly Vector3 Position;
         public readonly int FleetCount;
+        // GATE.T50.VISUAL: Enriched galaxy map data.
+        public readonly string FactionId;
+        public readonly Color FactionColor;
+        public readonly string WorldClass;
+        public readonly string PrimaryIndustry;
+        public readonly int IndustryCount;
+        public readonly int TotalInventory;
 
-        public NodeSnapV0(string nodeId, string displayStateToken, string displayText, Vector3 position, int fleetCount = 0)
+        public NodeSnapV0(string nodeId, string displayStateToken, string displayText, Vector3 position,
+            int fleetCount = 0, string factionId = "", Color factionColor = default,
+            string worldClass = "", string primaryIndustry = "", int industryCount = 0, int totalInventory = 0)
         {
             NodeId = nodeId ?? "";
             DisplayStateToken = displayStateToken ?? "";
             DisplayText = displayText ?? "";
             Position = position;
             FleetCount = fleetCount;
+            FactionId = factionId ?? "";
+            FactionColor = factionColor;
+            WorldClass = worldClass ?? "";
+            PrimaryIndustry = primaryIndustry ?? "";
+            IndustryCount = industryCount;
+            TotalInventory = totalInventory;
         }
     }
 
@@ -4630,6 +4757,34 @@ public partial class GalaxyView : Node3D
             float s = 1.0f + 0.3f * Mathf.Sin((float)_playerRingPulseTime * 3.0f);
             ring.Scale = new Vector3(s, s, s);
             return; // Only one player ring
+        }
+    }
+
+    // GATE.T50.VISUAL.GALAXY_ECON.001: Subtle pulsing glow on PlanetDot to indicate economic activity.
+    // Nodes with active industries pulse gently; the pulse speed varies with total inventory.
+    private double _econPulseTime = 0.0;
+    private void _PulseEconGlowV0(double delta)
+    {
+        _econPulseTime += delta;
+        float baseT = (float)_econPulseTime;
+        // Gentle sine-wave pulse on emission energy (period ~3s, amplitude 20%).
+        float pulse = 1.0f + 0.2f * Mathf.Sin(baseT * 2.1f);
+
+        foreach (var kv in _nodeRootsById)
+        {
+            var planetDot = kv.Value.GetNodeOrNull<MeshInstance3D>("PlanetDot");
+            if (planetDot == null || !planetDot.Visible) continue;
+
+            if (planetDot.MaterialOverride is StandardMaterial3D econMat)
+            {
+                // Store base emission in the material's metadata via albedo alpha channel.
+                // Base energy was set in RefreshFromSnapshotV0 (2.0-6.0 range).
+                // Apply pulse factor multiplicatively from the base.
+                float baseEnergy = econMat.AlbedoColor.A > 0.01f
+                    ? 2.0f + 4.0f * Mathf.Clamp((econMat.AlbedoColor.A - 0.3f) / 0.5f, 0f, 1f)
+                    : 3.0f;
+                econMat.EmissionEnergyMultiplier = baseEnergy * pulse;
+            }
         }
     }
 
@@ -4893,7 +5048,9 @@ public partial class GalaxyView : Node3D
                     Name = "TerritoryDisc_" + nodeId,
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
-                var mesh = new PlaneMesh { Size = new Vector2(12f, 12f) };
+                // Territory disc sized for galaxy altitude (~5000u). 12u was invisible (~2px).
+                // 600u ≈ 130px at 5000u altitude — clearly visible faction territory fill.
+                var mesh = new PlaneMesh { Size = new Vector2(600f, 600f) };
                 disc.Mesh = mesh;
                 _territoryDiscsByNodeId[nodeId] = disc;
                 AddChild(disc);
@@ -6515,6 +6672,301 @@ public partial class GalaxyView : Node3D
                     _signalTriangulationLines.Add(seg);
                 }
             }
+        }
+    }
+
+    // ── GATE.T44.AMBIENT: Economy-driven ambient visuals ──
+    // Reads GetNodeEconomySnapshotV0 and spawns GDScript visual components.
+    private void SpawnAmbientEconomyVisualsV0(string nodeId)
+    {
+        if (_bridge == null) return;
+        var ecoSnap = _bridge.Call("GetNodeEconomySnapshotV0", nodeId).AsGodotDictionary();
+        if (ecoSnap == null || ecoSnap.Count == 0) return;
+
+        int trafficLevel = ecoSnap.ContainsKey("traffic_level") ? (int)ecoSnap["traffic_level"] : 0;
+        float prosperity = ecoSnap.ContainsKey("prosperity") ? (float)ecoSnap["prosperity"] : 0.5f;
+        string industryType = ecoSnap.ContainsKey("industry_type") ? (string)ecoSnap["industry_type"] : "none";
+        int warfrontTier = ecoSnap.ContainsKey("warfront_tier") ? (int)ecoSnap["warfront_tier"] : 0;
+        string factionId = ecoSnap.ContainsKey("faction_id") ? (string)ecoSnap["faction_id"] : "";
+
+        // Resolve faction color for shuttles.
+        var factionColor = new Color(0.5f, 0.5f, 0.6f);
+        if (_bridge != null && !string.IsNullOrEmpty(factionId))
+        {
+            var fColors = _bridge.GetFactionColorsV0(factionId);
+            if (fColors.ContainsKey("primary"))
+                factionColor = (Color)fColors["primary"];
+        }
+
+        // GATE.T44.AMBIENT.SHUTTLE_TRAFFIC.001: Cosmetic shuttles (1-5 based on traffic).
+        int shuttleCount = Math.Clamp(trafficLevel, 0, 5);
+        var shuttleScript = GD.Load<Script>("res://scripts/view/ambient_shuttle.gd");
+        if (shuttleScript != null && shuttleCount > 0)
+        {
+            for (int i = 0; i < shuttleCount; i++)
+            {
+                var shuttle = new Node3D();
+                shuttle.SetScript(shuttleScript);
+                _localSystemRoot.AddChild(shuttle);
+                shuttle.Call("setup", nodeId + "_" + i, 5.0f + i * 2.0f, factionColor);
+            }
+        }
+
+        // GATE.T44.AMBIENT.MINING_VFX.001: Extraction beam at mine/fuel_well nodes.
+        if (industryType == "mine" || industryType == "fuel_well")
+        {
+            var miningScript = GD.Load<Script>("res://scripts/vfx/mining_beam_vfx.gd");
+            if (miningScript != null)
+            {
+                var beam = new Node3D();
+                beam.SetScript(miningScript);
+                _localSystemRoot.AddChild(beam);
+                beam.Call("setup", industryType, prosperity);
+                beam.Position = new Vector3(8f, 0f, 8f); // Offset from station
+            }
+        }
+
+        // GATE.T44.AMBIENT.PROSPERITY.001: Station lighting tiers.
+        var prosperityScript = GD.Load<Script>("res://scripts/view/station_prosperity.gd");
+        if (prosperityScript != null)
+        {
+            var prosLight = new Node3D();
+            prosLight.SetScript(prosperityScript);
+            _localSystemRoot.AddChild(prosLight);
+            prosLight.Call("setup", prosperity);
+        }
+
+        // GATE.T44.AMBIENT.WARFRONT_ATMO.001: Red particles at warfront nodes.
+        if (warfrontTier > 0)
+        {
+            var warfrontScript = GD.Load<Script>("res://scripts/vfx/warfront_atmosphere.gd");
+            if (warfrontScript != null)
+            {
+                var atmo = new Node3D();
+                atmo.SetScript(warfrontScript);
+                _localSystemRoot.AddChild(atmo);
+                atmo.Call("setup", warfrontTier);
+            }
+        }
+
+        // GATE.T44.STATION.NAMEPLATE.001: Station name + faction insignia Label3D.
+        var nameplateScript = GD.Load<Script>("res://scripts/view/station_nameplate.gd");
+        if (nameplateScript != null)
+        {
+            var nameplate = new Node3D();
+            nameplate.SetScript(nameplateScript);
+            _localSystemRoot.AddChild(nameplate);
+            nameplate.Call("setup", SimBridge.FormatDisplayNameV0(nodeId), factionId, factionColor);
+        }
+
+        // GATE.T44.DIGEST.CONSTRUCTION_VFX.001: Megaproject construction sparks.
+        if (_bridge.HasMethod("GetMegaprojectsV0"))
+        {
+            var projects = _bridge.Call("GetMegaprojectsV0").AsGodotArray();
+            if (projects != null)
+            {
+                foreach (var proj in projects)
+                {
+                    var pd = proj.AsGodotDictionary();
+                    if (pd == null) continue;
+                    var pNodeId = pd.ContainsKey("node_id") ? (string)pd["node_id"] : "";
+                    if (pNodeId != nodeId) continue;
+                    int stage = pd.ContainsKey("current_stage") ? (int)pd["current_stage"] : 0;
+                    int totalStages = pd.ContainsKey("total_stages") ? (int)pd["total_stages"] : 1;
+                    if (stage < totalStages) // Active construction
+                    {
+                        var conScript = GD.Load<Script>("res://scripts/vfx/construction_vfx.gd");
+                        if (conScript != null)
+                        {
+                            var vfx = new Node3D();
+                            vfx.SetScript(conScript);
+                            _localSystemRoot.AddChild(vfx);
+                            vfx.Call("setup", stage, totalStages);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── GATE.T44: Throttled galaxy-scale economy visual refresh ──
+    private void RefreshLaneTrafficAndMegaprojectsV0()
+    {
+        var snap = _bridge?.GetGalaxySnapshotV0();
+        if (snap == null || !snap.ContainsKey("system_nodes")) return;
+
+        var rawNodes = (Godot.Collections.Array)snap["system_nodes"];
+        var rawEdges = snap.ContainsKey("lane_edges") ? (Godot.Collections.Array)snap["lane_edges"] : new Godot.Collections.Array();
+
+        float galScale = SimCore.Tweaks.RealSpaceTweaksV0.GalacticScaleFactor;
+        var nodeMap = new Dictionary<string, NodeSnapV0>();
+        var nodeList = new List<NodeSnapV0>();
+        foreach (Variant v in rawNodes)
+        {
+            if (v.VariantType != Variant.Type.Dictionary) continue;
+            var n = v.AsGodotDictionary();
+            var nodeId = n.ContainsKey("node_id") ? (string)(Variant)n["node_id"] : "";
+            float x = (n.ContainsKey("pos_x") ? (float)(Variant)n["pos_x"] : 0f) * galScale;
+            float y = (n.ContainsKey("pos_y") ? (float)(Variant)n["pos_y"] : 0f) * galScale;
+            float z = (n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f) * galScale;
+            var ns = new NodeSnapV0(nodeId, "", "", new Vector3(x, y, z));
+            nodeMap[nodeId] = ns;
+        }
+
+        var edgeList = new List<EdgeSnapV0>();
+        foreach (Variant v in rawEdges)
+        {
+            if (v.VariantType != Variant.Type.Dictionary) continue;
+            var e = v.AsGodotDictionary();
+            edgeList.Add(new EdgeSnapV0(
+                e.ContainsKey("from_id") ? (string)(Variant)e["from_id"] : "",
+                e.ContainsKey("to_id") ? (string)(Variant)e["to_id"] : ""));
+        }
+
+        RefreshLaneTrafficV0(edgeList, nodeMap);
+        RefreshMegaprojectMarkersV0(nodeMap);
+    }
+
+    // ── GATE.T44.AMBIENT.LANE_TRAFFIC.001: Spawn lane traffic sprites on galaxy map ──
+    // Called from RefreshLaneTrafficAndMegaprojectsV0 (throttled every 5s).
+    private readonly Dictionary<string, List<Node3D>> _laneTrafficByEdge = new();
+
+    private void RefreshLaneTrafficV0(List<EdgeSnapV0> edges, Dictionary<string, NodeSnapV0> nodeMap)
+    {
+        // Clean up old sprites.
+        foreach (var kvp in _laneTrafficByEdge)
+        {
+            foreach (var n in kvp.Value)
+            {
+                if (IsInstanceValid(n)) n.QueueFree();
+            }
+        }
+        _laneTrafficByEdge.Clear();
+
+        if (_bridge == null || !_overlayOpen) return;
+
+        var trafficScript = GD.Load<Script>("res://scripts/view/lane_traffic_sprite.gd");
+        if (trafficScript == null) return;
+
+        foreach (var edge in edges)
+        {
+            if (!nodeMap.TryGetValue(edge.FromId, out var fromNode)) continue;
+            if (!nodeMap.TryGetValue(edge.ToId, out var toNode)) continue;
+
+            // Average traffic of connected nodes.
+            int avgTraffic = 0;
+            var ecoFrom = _bridge.Call("GetNodeEconomySnapshotV0", edge.FromId).AsGodotDictionary();
+            var ecoTo = _bridge.Call("GetNodeEconomySnapshotV0", edge.ToId).AsGodotDictionary();
+            if (ecoFrom != null && ecoFrom.ContainsKey("traffic_level"))
+                avgTraffic += (int)ecoFrom["traffic_level"];
+            if (ecoTo != null && ecoTo.ContainsKey("traffic_level"))
+                avgTraffic += (int)ecoTo["traffic_level"];
+            avgTraffic /= 2; // STRUCTURAL: average of two endpoints
+
+            int spriteCount = Math.Clamp(avgTraffic / 2, 0, 3); // STRUCTURAL: 0-3 sprites per lane
+            if (spriteCount == 0) continue;
+
+            var edgeKey = edge.FromId + "|" + edge.ToId;
+            var sprites = new List<Node3D>();
+
+            for (int i = 0; i < spriteCount; i++)
+            {
+                var sprite = new Node3D();
+                sprite.SetScript(trafficScript);
+                AddChild(sprite); // Add to GalaxyView (galactic scale)
+                float speed = 0.5f + (float)(Fnv1a64(edgeKey + "_" + i) % 100UL) / 66f;
+                sprite.Call("setup", fromNode.Position, toNode.Position, speed);
+                sprites.Add(sprite);
+            }
+            _laneTrafficByEdge[edgeKey] = sprites;
+        }
+    }
+
+    // ── GATE.T44.DIGEST.MEGAPROJECT_MAP.001: Megaproject markers on galaxy map ──
+    private readonly Dictionary<string, Node3D> _megaprojectMarkersByNodeId = new();
+
+    private void RefreshMegaprojectMarkersV0(Dictionary<string, NodeSnapV0> nodeMap)
+    {
+        // Clean up old markers.
+        foreach (var kvp in _megaprojectMarkersByNodeId)
+        {
+            if (IsInstanceValid(kvp.Value)) kvp.Value.QueueFree();
+        }
+        _megaprojectMarkersByNodeId.Clear();
+
+        if (_bridge == null || !_bridge.HasMethod("GetMegaprojectsV0")) return;
+
+        var projects = _bridge.Call("GetMegaprojectsV0").AsGodotArray();
+        if (projects == null || projects.Count == 0) return;
+
+        foreach (var proj in projects)
+        {
+            var pd = proj.AsGodotDictionary();
+            if (pd == null) continue;
+            var pNodeId = pd.ContainsKey("node_id") ? (string)pd["node_id"] : "";
+            if (string.IsNullOrEmpty(pNodeId) || !nodeMap.ContainsKey(pNodeId)) continue;
+
+            int stage = pd.ContainsKey("current_stage") ? (int)pd["current_stage"] : 0;
+            int totalStages = pd.ContainsKey("total_stages") ? (int)pd["total_stages"] : 1;
+            string typeId = pd.ContainsKey("type_id") ? (string)pd["type_id"] : "";
+
+            // Color by type.
+            var markerColor = typeId switch
+            {
+                "anchor" => new Color(0.3f, 0.5f, 1.0f),     // Blue
+                "corridor" => new Color(0.3f, 0.9f, 0.4f),   // Green
+                "pylon" => new Color(1.0f, 0.8f, 0.2f),      // Amber
+                _ => new Color(0.7f, 0.7f, 0.7f),
+            };
+
+            var nodePos = nodeMap[pNodeId].Position;
+
+            // Ring progress indicator.
+            float progress = totalStages > 0 ? (float)stage / totalStages : 0f;
+            var ringMat = new StandardMaterial3D
+            {
+                AlbedoColor = markerColor,
+                EmissionEnabled = true,
+                Emission = markerColor,
+                EmissionEnergyMultiplier = 2.0f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            };
+
+            var ring = new MeshInstance3D
+            {
+                Name = "MegaprojectMarker_" + pNodeId,
+                Mesh = new TorusMesh
+                {
+                    InnerRadius = 25f,
+                    OuterRadius = 30f,
+                    Rings = 24,
+                    RingSegments = 8,
+                },
+                MaterialOverride = ringMat,
+                Position = nodePos + Vector3.Up * 10f,
+            };
+            ring.RotateX(Mathf.Pi / 2.0f);
+            // Scale ring by progress (partial ring effect via material alpha).
+            ringMat.AlbedoColor = new Color(markerColor.R, markerColor.G, markerColor.B, 0.3f + 0.7f * progress);
+
+            // Label.
+            var label = new Label3D
+            {
+                Text = typeId.Capitalize() + " " + stage + "/" + totalStages,
+                FontSize = 28,
+                PixelSize = 0.5f,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Position = nodePos + Vector3.Up * 50f,
+                Modulate = markerColor,
+                OutlineSize = 3,
+            };
+
+            var marker = new Node3D { Name = "MegaprojectGroup_" + pNodeId };
+            marker.AddChild(ring);
+            marker.AddChild(label);
+            AddChild(marker);
+            _megaprojectMarkersByNodeId[pNodeId] = marker;
         }
     }
 

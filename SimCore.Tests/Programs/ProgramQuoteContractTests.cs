@@ -12,6 +12,12 @@ namespace SimCore.Tests.Programs;
 [TestFixture]
 public sealed class ProgramQuoteContractTests
 {
+    [SetUp]
+    public void SetUp()
+    {
+        SimCore.Entities.Market.ClearGoodBasePrices();
+    }
+
     [Test]
     public void QUOTE_001_request_plus_snapshot_produces_deterministic_schema_bound_quote_against_golden()
     {

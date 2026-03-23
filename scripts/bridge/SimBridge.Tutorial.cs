@@ -72,6 +72,9 @@ public partial class SimBridge
 
             result["manual_trades"] = ts.ManualTradesCompleted;
 
+            // GATE.T51.VO.BRIDGE_KEY.001: vo_key for VO file lookup.
+            result["vo_key"] = TutorialContentV0.GetVoKey(ts.Phase);
+
             // Cameo phases: Dask speaks during combat (Act 5), Lira during mystery (Act 6).
             result["is_dask_cameo"] = ts.Phase == TutorialPhase.Dask_Hail;
             result["is_lira_cameo"] = ts.Phase == TutorialPhase.Lira_Tease;
@@ -187,6 +190,7 @@ public partial class SimBridge
                 result["color_r"] = 0.5f;
                 result["color_g"] = 0.5f;
                 result["color_b"] = 0.6f;
+                result["vo_key"] = TutorialContentV0.GetVoKey(ts.Phase);
                 return;
             }
 
@@ -202,6 +206,7 @@ public partial class SimBridge
                 result["color_r"] = col.Item1;
                 result["color_g"] = col.Item2;
                 result["color_b"] = col.Item3;
+                result["vo_key"] = TutorialContentV0.GetVoKey(ts.Phase);
                 return;
             }
 
@@ -217,6 +222,7 @@ public partial class SimBridge
                 result["color_r"] = col.Item1;
                 result["color_g"] = col.Item2;
                 result["color_b"] = col.Item3;
+                result["vo_key"] = TutorialContentV0.GetVoKey(ts.Phase);
                 return;
             }
 
@@ -236,6 +242,7 @@ public partial class SimBridge
             result["color_r"] = c.Item1;
             result["color_g"] = c.Item2;
             result["color_b"] = c.Item3;
+            result["vo_key"] = TutorialContentV0.GetVoKey(ts.Phase);
         });
 
         return result;
@@ -855,6 +862,39 @@ public partial class SimBridge
             // won't re-grant the tutorial module after save/load.
             if (state.TutorialState != null)
                 state.TutorialState.TutorialModuleGranted = true;
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-set instability level on a node for headless dread proof bots.
+    /// </summary>
+    public void ForceSetNodeInstabilityV0(string nodeId, int level)
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            if (state.Nodes.TryGetValue(nodeId, out var node))
+            {
+                node.InstabilityLevel = level;
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
+    /// Force-enable fracture signature for fauna detection testing.
+    /// Sets FractureUnlocked + FractureExposureJumps so HasFractureSignature returns true.
+    /// </summary>
+    public void ForceEnableFractureSignatureV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+            state.FractureUnlocked = true;
+            state.FractureExposureJumps = 1;
         }
         finally { _stateLock.ExitWriteLock(); }
     }

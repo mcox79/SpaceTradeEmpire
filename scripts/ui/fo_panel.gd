@@ -27,6 +27,12 @@ var _npc_section: VBoxContainer = null
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
 
+# GATE.T45.DEEP_DREAD.COMMS_STATIC.001: Comms degradation at distance.
+# At hop>=4, randomly replace 5-15% of characters with static glyphs.
+# At hop>=6, heavier corruption. Click dialogue to clear static (re-read).
+var _comms_hops: int = 0
+const _STATIC_GLYPHS: String = "░▒▓█▐▌╫╪╬╩╦╠╣║═"
+
 # Auto-show: flash panel visible on dialogue/promotion, then auto-hide after timeout.
 var _auto_show_timer: float = -1.0
 const _AUTO_SHOW_DURATION: float = 6.0
@@ -148,6 +154,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_refresh_fo_state()
+	_poll_comms_hops()
 	_poll_fo_dialogue()
 	_refresh_promotion()
 	_refresh_npcs()
@@ -226,7 +233,8 @@ func _rebuild_dialogue_ui() -> void:
 		child.queue_free()
 	for i in range(_dialogue_history.size()):
 		var lbl := Label.new()
-		lbl.text = "\"%s\"" % _dialogue_history[i]
+		var display_text: String = _apply_comms_static(_dialogue_history[i])
+		lbl.text = "\"%s\"" % display_text
 		lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		lbl.add_theme_color_override("font_color", UITheme.GOLD)
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -392,6 +400,33 @@ func _flash_panel(duration: float = _AUTO_SHOW_DURATION) -> void:
 		return
 	visible = true
 	_auto_show_timer = duration
+
+
+# GATE.T45.DEEP_DREAD.COMMS_STATIC.001: Poll hop distance for comms degradation.
+func _poll_comms_hops() -> void:
+	if not _bridge.has_method("GetDreadStateV0"):
+		_comms_hops = 0
+		return
+	var dread: Dictionary = _bridge.call("GetDreadStateV0")
+	_comms_hops = dread.get("hops_from_capital", 0)
+
+
+# GATE.T45.DEEP_DREAD.COMMS_STATIC.001: Apply static corruption to text.
+# At hop>=4: 5-10% char corruption. At hop>=6: 10-15% corruption.
+func _apply_comms_static(text: String) -> String:
+	if _comms_hops < 4:
+		return text
+	var corruption_rate: float = 0.05 + (_comms_hops - 4) * 0.025
+	corruption_rate = clampf(corruption_rate, 0.0, 0.20)
+	var result: String = ""
+	for i in text.length():
+		if text[i] == " " or text[i] == "\n":
+			result += text[i]
+		elif randf() < corruption_rate:
+			result += _STATIC_GLYPHS[randi() % _STATIC_GLYPHS.length()]
+		else:
+			result += text[i]
+	return result
 
 
 func _clear_children(container: Control) -> void:

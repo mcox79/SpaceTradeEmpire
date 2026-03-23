@@ -853,6 +853,34 @@ public sealed class HavenTests
         Assert.That(kernel.State.Haven.CommunionRep.Present, Is.False);
     }
 
+    // GATE.T44.NARRATIVE.COMMUNION_DIALOGUE.001: Verify all 3 tiers return non-empty dialogue.
+    [Test]
+    public void CommunionDialogue_HasContent_ForAllTiers()
+    {
+        for (int tier = 0; tier < 3; tier++)
+        {
+            var lines = CommunionRepDialogueContentV0.GetDialogue(tier);
+            Assert.That(lines, Is.Not.Null, $"Tier {tier} dialogue is null");
+            Assert.That(lines.Count, Is.GreaterThan(0), $"Tier {tier} dialogue is empty");
+            foreach (var line in lines)
+                Assert.That(string.IsNullOrWhiteSpace(line), Is.False, $"Tier {tier} has blank line");
+        }
+    }
+
+    // GATE.T44.NARRATIVE.KEEPER_EXPAND.001: Verify all 5 tiers return non-empty dialogue.
+    [Test]
+    public void KeeperDialogue_HasContent_ForAllTiers()
+    {
+        for (int tier = 0; tier <= 4; tier++)
+        {
+            var lines = KeeperDialogueContentV0.GetDialogue(tier);
+            Assert.That(lines, Is.Not.Null, $"KeeperTier {tier} dialogue is null");
+            Assert.That(lines.Count, Is.GreaterThan(0), $"KeeperTier {tier} dialogue is empty");
+            foreach (var line in lines)
+                Assert.That(string.IsNullOrWhiteSpace(line), Is.False, $"KeeperTier {tier} has blank line");
+        }
+    }
+
     private static string GetFirstFleetId(SimState state)
     {
         var e = state.Fleets.Keys.GetEnumerator();

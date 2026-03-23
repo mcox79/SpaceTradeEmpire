@@ -880,6 +880,163 @@ When a gate moves to DONE:
 | GATE.S8.MEGAPROJECT.HEADLESS.001 | DONE | Headless proof: initiate + supply + complete megaproject |
 | GATE.X.HYGIENE.EPIC_REVIEW.041 | DONE | Epic status audit + T42 anchor recommendation |
 | GATE.X.EVAL.EA_READINESS.001 | DONE | EA readiness checklist (save, balance, content, perf) |
+| GATE.T44.SIGNAL.CONTRACT_TESTS.001 | DONE | Contract tests for economy bridge signals |
+| GATE.T44.SIGNAL.ECONOMY_STRESS.001 | DONE | Extended 5000-tick economy stress test |
+| GATE.T44.NARRATIVE.COMMUNION_DIALOGUE.001 | DONE | Communion Rep 3-arc dialogue content |
+| GATE.T44.NARRATIVE.KEEPER_EXPAND.001 | DONE | Keeper expanded tier-specific dialogue |
+| GATE.X.HYGIENE.REPO_HEALTH.044 | DONE | Full test suite + warning scan + hash stability |
+| GATE.T44.AMBIENT.SHUTTLE_TRAFFIC.001 | DONE | Cosmetic station shuttles from traffic_level |
+| GATE.T44.AMBIENT.MINING_VFX.001 | DONE | Extraction beam particles at industry nodes |
+| GATE.T44.AMBIENT.PROSPERITY.001 | DONE | Station lighting/glow tiers from prosperity |
+| GATE.T44.AMBIENT.LANE_TRAFFIC.001 | DONE | Billboarded ship sprites on hyperlanes |
+| GATE.T44.AMBIENT.WARFRONT_ATMO.001 | DONE | Red-tinted particles at warfront nodes |
+| GATE.T44.STATION.FACTION_TINT.001 | DONE | Per-faction albedo modulation on station meshes |
+| GATE.T44.STATION.TIER_SCALE.001 | DONE | Outpost/hub/capital mesh scale + variant |
+| GATE.T44.STATION.NAMEPLATE.001 | DONE | Station name Label3D + faction insignia |
+| GATE.T44.DIGEST.MARKET_ALERTS.001 | DONE | Wire GetMarketAlertsV0 to HUD toasts |
+| GATE.T44.DIGEST.ECONOMY_DOCK.001 | DONE | Node economy snapshot in dock panel |
+| GATE.T44.DIGEST.MEGAPROJECT_MAP.001 | DONE | Megaproject icons + progress on galaxy map |
+| GATE.T44.DIGEST.CONSTRUCTION_VFX.001 | DONE | Construction VFX at megaproject nodes |
+| GATE.X.HYGIENE.ECONOMY_EVAL.044 | DONE | Economy balance eval post-simulation changes |
+| GATE.X.HYGIENE.EPIC_REVIEW.044 | DONE | Audit epics, close HAVEN_STARBASE + STATION_IDENTITY |
+| GATE.X.HYGIENE.REPO_HEALTH.045 | DONE | Full test suite + build baseline for T45 |
+| GATE.T45.DEEP_DREAD.TWEAKS.001 | DONE | Deep dread tweaks file (DeepDreadTweaksV0) |
+| GATE.T45.DEEP_DREAD.FAUNA_TWEAKS.001 | DONE | Lattice Fauna tweaks (LatticeFaunaTweaksV0) |
+| GATE.T45.DEEP_DREAD.DESIGN_DOC.001 | DONE | Deep dread design doc (deep_dread_v0.md) |
+| GATE.T45.DEEP_DREAD.PATROL_THIN.001 | DONE | Patrol density scaling by hop distance |
+| GATE.T45.DEEP_DREAD.PASSIVE_DRAIN.001 | DONE | Phase-based passive hull drain |
+| GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001 | DONE | Sensor ghost system (phantom contacts) |
+| GATE.T45.DEEP_DREAD.INFO_FOG.001 | DONE | Information fog at distance |
+| GATE.T45.DEEP_DREAD.DISCOVERY_REGISTER.001 | DONE | Discovery text register shift by phase |
+| GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001 | DONE | Lattice Fauna entity + behavior system |
+| GATE.T45.DEEP_DREAD.FO_DISTANCE.001 | DONE | 8 FO dread triggers + 24 dialogue lines |
+| GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001 | DONE | Fracture exposure tracking + adaptation |
+| GATE.T45.DEEP_DREAD.BRIDGE.001 | DONE | SimBridge.Dread.cs partial |
+| GATE.T45.DEEP_DREAD.AMBIENT_AUDIO.001 | DONE | Phase-aware ambient audio layers |
+| GATE.T45.DEEP_DREAD.FAUNA_AUDIO.001 | DONE | Lattice Fauna audio presence |
+| GATE.T45.DEEP_DREAD.COMMS_STATIC.001 | DONE | Comms degradation at distance |
+| GATE.T45.DEEP_DREAD.HUD_DREAD.001 | DONE | HUD dread indicators |
+| GATE.T45.DEEP_DREAD.DISTORTION_SHADER.001 | DONE | Phase distortion post-processing shader |
+| GATE.T45.DEEP_DREAD.GALAXY_DREAD.001 | DONE | Galaxy map dread visualization |
+| GATE.T45.DEEP_DREAD.TESTS.001 | DONE | Deep dread C# test suite (15+ assertions) |
+| GATE.T45.DEEP_DREAD.HEADLESS_PROOF.001 | DONE | Headless bot dread journey (20+ assertions) |
+| GATE.T45.DEEP_DREAD.GOLDEN_HASH.001 | DONE | Golden hash baseline update |
+| GATE.X.HYGIENE.EPIC_REVIEW.045 | DONE | Epic audit + close completed + T46 anchor |
+| GATE.T46.PERF.TICK_PROFILER.001 | DONE | Per-system tick profiler (SimKernel instrumentation) |
+| GATE.T46.PERF.MEMORY_BUDGET.001 | DONE | Memory budget test (SimState allocation tracking) |
+| GATE.T46.PERF.PROFILE_REPORT.001 | DONE | Performance baseline report (tick time + memory) |
+| GATE.T46.STEAM.ADDON_INSTALL.001 | DONE | GodotSteam addon install + project config |
+| GATE.T46.STEAM.INIT_WRAPPER.001 | DONE | Steam init wrapper with graceful fallback |
+| GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001 | DONE | Achievement unlock via MilestoneSystem |
+| GATE.T46.BUILD.EXPORT_TEMPLATE.001 | DONE | Godot export preset + CI build script |
+| GATE.T46.BUILD.RELEASE_TEST.001 | DONE | Release build smoke test (headless bot on export) |
+| GATE.T46.SAVE.AUTOSAVE_SYSTEM.001 | DONE | Timer-based auto-save system |
+| GATE.T46.SAVE.AUTOSAVE_UI.001 | DONE | Auto-save HUD indicator + settings toggle |
+| GATE.T46.STATION.NODE_MESH.001 | DONE | Station mesh tier scaling (outpost/hub/capital) |
+| GATE.T46.STATION.DOCK_FLAVOR.001 | DONE | Per-faction dock greeting + station description |
+| GATE.T46.NARRATIVE.HAVEN_LOGS.001 | DONE | Haven starbase data logs (8 entries) |
+| GATE.T46.NARRATIVE.FRAGMENT_LORE.001 | DONE | Expanded adaptation fragment flavor text (12 entries) |
+| GATE.T46.NARRATIVE.ENDGAME_TEXT.001 | DONE | Victory/loss screen narrative text (5 paths) |
+| GATE.T46.AUDIO.STEM_PIPELINE.001 | DONE | Audio stem loader + dynamic crossfade system |
+| GATE.T46.AUDIO.COMBAT_MUSIC.001 | DONE | Combat music trigger + state-driven transitions |
+| GATE.X.HYGIENE.REPO_HEALTH.046 | DONE | Full test suite + health baseline for T46 |
+| GATE.X.HYGIENE.EPIC_REVIEW.046 | DONE | Epic audit + close completed + T47 anchor |
+| GATE.T47.AMBIENT.SHUTTLE_TRAFFIC.001 | DONE | Station traffic shuttles orbiting stations |
+| GATE.T47.AMBIENT.MINING_BEAMS.001 | DONE | Mining extraction beams to asteroids |
+| GATE.T47.AMBIENT.PROSPERITY_TIERS.001 | DONE | Station prosperity lighting tiers |
+| GATE.T47.AMBIENT.LANE_TRAFFIC.001 | DONE | Lane traffic sprites along trade lanes |
+| GATE.T47.DIGEST.MARKET_ALERTS.001 | DONE | Market alert toasts in HUD |
+| GATE.T47.DIGEST.ECON_PANEL.001 | DONE | Economy snapshot dock panel |
+| GATE.T47.MUSIC.COMPOSITION_BRIEF.001 | DONE | Music production brief for composer |
+| GATE.T47.MUSIC.DISCOVERY_STINGERS.001 | DONE | Discovery stinger wiring (3 stingers) |
+| GATE.T47.MUSIC.FRACTURE_AMBIENCE.001 | DONE | Fracture space ambient audio layer |
+| GATE.T47.MUSIC.FACTION_AMBIENT.001 | DONE | Faction territory ambient audio |
+| GATE.T47.HAVEN.COMING_HOME.001 | DONE | Haven arrival cinematic transition |
+| GATE.T47.HAVEN.VISUAL_TIERS.001 | DONE | Haven visual geometry per tier (5 states) |
+| GATE.T47.HAVEN.COMMUNION_REP.001 | DONE | Communion Representative dialogue at T3+ |
+| GATE.T47.MEGAPROJECT.MAP_MARKERS.001 | DONE | Megaproject galaxy map markers |
+| GATE.T47.MEGAPROJECT.CONSTRUCTION_VFX.001 | DONE | Construction VFX at megaproject sites |
+| GATE.T47.SAVE.RECOVERY_UX.001 | DONE | Save corruption recovery UI |
+| GATE.T47.SAVE.SLOT_MANAGEMENT.001 | DONE | Save slot list/delete/rename |
+| GATE.X.HYGIENE.REPO_HEALTH.047 | DONE | Full test suite + T47 health baseline |
+| GATE.T47.EVAL.ECONOMY_FEEL.001 | DONE | Economy visual feel evaluation |
+| GATE.X.HYGIENE.EPIC_REVIEW.047 | DONE | Epic audit + T48 anchor |
+| GATE.T48.TEMPLATE.SCHEMA.001 | DONE | Mission template schema + engine |
+| GATE.T48.TEMPLATE.SUPPLY_SET.001 | DONE | 4 supply/logistics templates |
+| GATE.T48.TEMPLATE.EXPLORE_SET.001 | DONE | 4 exploration templates |
+| GATE.T48.TEMPLATE.COMBAT_SET.001 | DONE | 3 combat/security templates |
+| GATE.T48.TEMPLATE.POLITICS_SET.001 | DONE | 3 reputation/politics templates |
+| GATE.T48.TEMPLATE.TWIST_ENGINE.001 | DONE | Twist slot system + reward scaling |
+| GATE.T48.TEMPLATE.CONTEXT_SURFACE.001 | DONE | Template surfacing via station context |
+| GATE.T48.DISCOVERY.MAP_MARKERS.001 | DONE | Discovery phase markers on galaxy map |
+| GATE.T48.DISCOVERY.SCANNER_VIZ.001 | DONE | Scanner range ring visualization |
+| GATE.T48.DISCOVERY.MILESTONE_CARDS.001 | DONE | Discovery milestone feedback |
+| GATE.T48.DISCOVERY.KNOWLEDGE_POLISH.001 | DONE | Knowledge web layout polish |
+| GATE.T48.ANOMALY.CHAIN_SYSTEM.001 | DONE | Anomaly chain engine |
+| GATE.T48.ANOMALY.CHAIN_CONTENT.001 | DONE | 3 starter anomaly chains |
+| GATE.T48.TENSION.MAINTENANCE.001 | DONE | Fleet upkeep drain system |
+| GATE.T48.TENSION.UPKEEP_BRIDGE.001 | DONE | Upkeep display in HUD + dock |
+| GATE.T48.TELEMETRY.SESSION_WRITER.001 | DONE | Dev-facing session telemetry |
+| GATE.T48.TELEMETRY.CRASH_HOOK.001 | DONE | Crash/exception reporting hook |
+| GATE.T48.FH_BOT.EXPANSION.001 | DONE | First-hour bot v2 expansion |
+| GATE.X.HYGIENE.REPO_HEALTH.048 | DONE | Full test suite + T48 health |
+| GATE.X.HYGIENE.EPIC_REVIEW.048 | DONE | Epic audit + T49 anchor |
+| GATE.T49.EVAL.ECON_NARRATIVE.001 | DONE | Fix economy_health + narrative_pacing eval bot data contracts |
+| GATE.T49.EVAL.DREAD_FLIGHT.001 | DONE | Fix dread_pacing + flight_feel eval bot data contracts |
+| GATE.T49.EVAL.AUDIO_ATMOS.001 | DONE | Fix audio_atmosphere eval bot for headless |
+| GATE.T49.DS_BOT.MUTATION_COVERAGE.001 | DONE | Deep systems bot: 9 mutation bridge methods |
+| GATE.T49.STRESS.IDLE_REDUCTION.001 | DONE | Stress bot: explore-when-idle + Scrap routing |
+| GATE.T49.TUTORIAL.T48_COVERAGE.001 | DONE | Tutorial bot: anomaly/template/upkeep probes |
+| GATE.T49.SWEEP.DOCK_PANELS.001 | DONE | Visual sweep: 6 dock-panel screenshot phases |
+| GATE.T49.AESTHETIC.CAMERA_EXEMPT.001 | DONE | Exempt galaxy-map camera from TOO_FAR |
+| GATE.T49.CHAOS.SCENARIO_EXPANSION.001 | DONE | Chaos bot: 2 new adversarial scenarios |
+| GATE.T49.RUBRIC.DIMENSION_UPDATE.001 | DONE | Update rubric + eval guide dimensions |
+| GATE.T49.COVERAGE.SCANNER_FIX.001 | DONE | Coverage scanner: scan C# UI + test scripts |
+| GATE.T49.PIPELINE.EVAL_RUNNER.001 | DONE | Create Run-EvalBot.ps1 pipeline script |
+| GATE.T49.OPTIMIZE.PASS1_EXPANSION.001 | DONE | Add GDScript + allocation auto-checks to optimize scanner |
+| GATE.T49.SWEEP.FLIGHT_ENDSTATE.001 | DONE | Visual sweep: flight panels + loss/victory screens |
+| GATE.T49.COVERAGE.DEAD_CLEANUP.001 | DONE | Remove confirmed dead bridge methods |
+| GATE.T49.PIPELINE.AUDIT_QUICK.001 | DONE | Create Run-AuditQuick.ps1 fast audit script |
+| GATE.T49.PROOF.FULL_EVAL_RUN.001 | DONE | Run all eval bots, validate outputs |
+| GATE.T49.RESEARCH.PERF_PROFILE.001 | DONE | FPS profiling analysis (P1 diagnostic) |
+| GATE.X.HYGIENE.REPO_HEALTH.049 | DONE | Full test suite + T49 health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.049 | DONE | Epic audit + T50 anchor recommendation |
+| GATE.T50.PERF.COMBAT_THROTTLE.001 | DONE | Throttle drone combat to 3-5 tick cadence |
+| GATE.T50.PERF.NPC_TRADE_CACHE.001 | DONE | Cache BFS hop distances in NpcTradeSystem |
+| GATE.T50.PERF.INTEL_ALLOC.001 | DONE | Reduce IntelSystem hot-path allocations |
+| GATE.T50.PERF.FO_ALLOC.001 | DONE | Reduce FirstOfficerSystem allocations |
+| GATE.T50.PERF.TICK_BUDGET.001 | DONE | Perf regression C# tests |
+| GATE.T50.PERF.NPC_PHYSICS.001 | DONE | Replace NPC CharacterBody3D with Node3D |
+| GATE.T50.PERF.CAMERA_CACHE.001 | DONE | Cache camera refs + throttle LOD updates |
+| GATE.T50.PERF.REP_CACHE.001 | DONE | Reputation query TTL cache in SimBridge |
+| GATE.T50.PERF.HEADLESS_PROOF.001 | DONE | FPS measurement headless proof run |
+| GATE.T50.ECON.ROUTE_QUALITY.001 | DONE | Ensure profitable route within 2 hops of start |
+| GATE.T50.ECON.ROUTE_QUALITY_TEST.001 | DONE | Monte Carlo route quality test (10 seeds) |
+| GATE.T50.VISUAL.GALAXY_NODES.001 | DONE | Galaxy map node variety (size/color by type) |
+| GATE.T50.VISUAL.GALAXY_FACTION.001 | DONE | Galaxy map faction territory overlay |
+| GATE.T50.VISUAL.GALAXY_ECON.001 | DONE | Galaxy map economic indicators on nodes |
+| GATE.X.HYGIENE.REPO_HEALTH.050 | DONE | Full test suite + T50 health baseline |
+| GATE.T50.RESEARCH.PERF_VALIDATION.001 | DONE | Post-optimization perf validation report |
+| GATE.X.HYGIENE.EPIC_REVIEW.050 | DONE | Epic status audit + next anchor rec |
+| GATE.T51.VO.BUS_PLAYER.001 | DONE | VO audio bus + Music/Ambient ducking |
+| GATE.T51.VO.LOOKUP_SYSTEM.001 | DONE | VO file lookup by speaker+key+sequence |
+| GATE.T51.VO.DIALOGUE_WIRE.001 | DONE | Wire VO playback into fo_dialogue_box.gd |
+| GATE.T51.VO.BRIDGE_KEY.001 | DONE | Add vo_key field to tutorial bridge snapshots |
+| GATE.T51.VO.PRESET_SELECT.001 | DONE | Ship computer voice preset selection UI |
+| GATE.T51.VO.HEADLESS_PROOF.001 | DONE | VO system headless proof (file lookup + bus) |
+| GATE.T51.STEAM.ADDON_DL.001 | DONE | Download + integrate GodotSteam addon |
+| GATE.T51.STEAM.CLOUD_SAVES.001 | DONE | Steam Cloud save sync integration |
+| GATE.T51.STEAM.APP_CONFIG.001 | DONE | Steamworks app config + depot setup |
+| GATE.T51.TELEMETRY.OPTIN_UI.001 | DONE | Telemetry opt-in UI in settings panel |
+| GATE.T51.TELEMETRY.LOCAL_STORE.001 | DONE | Local telemetry file storage backend |
+| GATE.T51.TELEMETRY.QUIT_TRACK.001 | DONE | Player death + quit point tracking |
+| GATE.T51.TEMPLATE.SUPPLY_AUTHOR.001 | DONE | Supply/logistics mission templates (12-15) |
+| GATE.T51.TEMPLATE.EXPLORE_AUTHOR.001 | DONE | Exploration mission templates (10-12) |
+| GATE.T51.TEMPLATE.COMBAT_AUTHOR.001 | DONE | Combat/security mission templates (10-12) |
+| GATE.T51.TEMPLATE.POLITICS_AUTHOR.001 | DONE | Reputation/politics mission templates (8-10) |
+| GATE.X.HYGIENE.REPO_HEALTH.051 | DONE | Full test suite + T51 health baseline |
+| GATE.X.HYGIENE.EPIC_REVIEW.051 | DONE | Epic status audit + T52 anchor rec |
+| GATE.X.HYGIENE.ECONOMY_EVAL.051 | DONE | Economy balance + mission reward eval |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -3087,3 +3244,274 @@ Combined-agent notes (T43):
 - Tier 2 (10 parallel): RESULT_MODAL, INVESTIGATE, GALAXY_MARKERS, SIGNAL_LINES, AMBIENT, PLANET_MESH, DISCLOSURE, COMPLETION, FO_SURFACE, CHARGE_RESET
 - Tier 3 (3 sequential): HEADLESS_PROOF, EPIC_REVIEW, EVAL
 - Design doc: docs/design/planet_scan_ui_v0.md. Reference patterns: X4 (scanning as infrastructure), Elite (two-tier), Stellaris (escalating anomaly), Outer Wilds (knowledge graph), NMS (progressive reveal).
+
+## N. Tranche 44 — "World Feels Alive" (EPIC.T44.ECONOMY_VISUALS.V0, EPIC.X.STATION_IDENTITY.V0, EPIC.S8.HAVEN_STARBASE.V0, EPIC.S8.NARRATIVE_CONTENT.V0, EPIC.S8.MEGAPROJECT_SET.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T44.SIGNAL.CONTRACT_TESTS.001 | DONE | Contract tests for economy bridge signals: verify GetNodeEconomySnapshotV0 returns traffic_level/prosperity/industry_type/warfront_tier/faction_id/docked_fleets with correct types and ranges. Verify GetMarketAlertsV0 returns price_spike/price_drop/stockout alerts. Proof: `dotnet test ... --filter "EconomyBridgeContract"` | FOUND: SimCore.Tests/Systems/EconomyStressTests.cs, FOUND: scripts/bridge/SimBridge.Market.cs |
+| GATE.T44.SIGNAL.ECONOMY_STRESS.001 | DONE | Extended 5000-tick economy stress test: no node with zero trades for 500+ ticks, avg good price within 3x base price, 60%+ nodes with NPC trade activity, no all-zero-stock markets. Proof: `dotnet test ... --filter "EconomyStress"` | FOUND: SimCore.Tests/Systems/EconomyStressTests.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs |
+| GATE.T44.NARRATIVE.COMMUNION_DIALOGUE.001 | DONE | Communion Rep 3-arc dialogue content per haven_starbase_v0.md: (1) Introduction at T3, (2) Path guidance at T4, (3) Endgame counsel at T5. CommunionRepDialogueContentV0 with DialogueTier indexing. Hash-affecting. Proof: `dotnet test ... --filter "Determinism"` + `--filter "CommunionDialogue"` | FOUND: SimCore/Entities/HavenStarbase.cs, FOUND: SimCore/Systems/HavenEndgameSystem.cs, FOUND: scripts/bridge/SimBridge.Haven.cs |
+| GATE.T44.NARRATIVE.KEEPER_EXPAND.001 | DONE | Keeper expanded tier-specific dialogue: KeeperDialogueContentV0 with 3-5 lines per KeeperTier (Dormant/Aware/Guiding/Communicating/Awakened). Wire into GetKeeperStateV0. Hash-affecting. Proof: `dotnet test ... --filter "Determinism"` + `--filter "KeeperDialogue"` | FOUND: SimCore/Entities/HavenStarbase.cs, FOUND: SimCore/Content/DataLogContentV0.cs, FOUND: scripts/bridge/SimBridge.Haven.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.044 | DONE | Full test suite (1400+ tests) + warning scan + golden hash stability baseline for T44. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release` | FOUND: SimCore.Tests/SimCore.Tests.csproj |
+| GATE.T44.AMBIENT.SHUTTLE_TRAFFIC.001 | DONE | Per economy_simulation_v0.md Cat.1: cosmetic shuttles near stations, count from traffic_level via GetNodeEconomySnapshotV0. Elliptical orbit AnimationPlayer, faction-tinted per station_visual_design_v0.md. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/view/ambient_shuttle.gd |
+| GATE.T44.AMBIENT.MINING_VFX.001 | DONE | Per economy_simulation_v0.md Cat.2: green/amber extraction beam GPUParticles3D at industry_type mine/fuel_well nodes. Intensity scales with prosperity. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/vfx/mining_beam_vfx.gd |
+| GATE.T44.AMBIENT.PROSPERITY.001 | DONE | Per economy_simulation_v0.md Cat.5: 4 visual tiers from prosperity signal. Struggling=dim/flicker, Stable=normal, Prosperous=warm glow, Booming=bright+aura. Station OmniLight3D modulation. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/view/station_prosperity.gd |
+| GATE.T44.AMBIENT.LANE_TRAFFIC.001 | DONE | Per economy_simulation_v0.md Cat.4: billboarded Sprite3D at lane midpoints, 1-3 per lane. Count from avg traffic_level. Drift along lane direction, fade at distance. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/view/lane_traffic_sprite.gd |
+| GATE.T44.AMBIENT.WARFRONT_ATMO.001 | DONE | Per vfx_visual_roadmap_v0.md warfront visuals: red-shifted GPUParticles3D + red OmniLight3D tint at warfront_tier > 0 nodes. Intensity 1=subtle, 3=heavy. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/vfx/warfront_atmosphere.gd |
+| GATE.T44.STATION.FACTION_TINT.001 | DONE | Per station_visual_design_v0.md: albedo_modulate on station mesh. Hegemony=#D4A017, Sovereignty=#4A7CB5, Collective=#2E8B57, Dominion=#8B2500, Communion=#7B3F9E. From faction_id via GetNodeEconomySnapshotV0. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/view/station_identity.gd |
+| GATE.T44.STATION.TIER_SCALE.001 | DONE | Per factions_and_lore_v0.md: outpost (scale 0.6x), hub (1.0x), capital (1.4x) based on industry site count + market breadth. Apply to station MeshInstance3D. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/view/station_identity.gd |
+| GATE.T44.STATION.NAMEPLATE.001 | DONE | Label3D with station name + faction insignia sprite above station. Font per visual_constants.md. Distance fade. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/view/station_nameplate.gd |
+| GATE.T44.DIGEST.MARKET_ALERTS.001 | DONE | Wire GetMarketAlertsV0 to toast_manager.gd: poll every 30s, blue economy toasts for price spikes/drops/stockouts. Max 3 per poll. ECONOMY priority tier. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/ui/toast_manager.gd, FOUND: scripts/ui/hud.gd, NEW: scripts/ui/economy_alert_poller.gd |
+| GATE.T44.DIGEST.ECONOMY_DOCK.001 | DONE | Economy info section in hero_trade_menu.gd: traffic level, prosperity bar, industry type, warfront warning. Data from GetNodeEconomySnapshotV0. Below market goods. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/ui/hero_trade_menu.gd |
+| GATE.T44.DIGEST.MEGAPROJECT_MAP.001 | DONE | Wire GetMegaprojectsV0 to GalaxyView: construction icon + radial progress ring at megaproject nodes. Color by type (Anchor=blue, Corridor=green, Pylon=amber). Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, FOUND: scripts/bridge/SimBridge.Megaproject.cs |
+| GATE.T44.DIGEST.CONSTRUCTION_VFX.001 | DONE | GPUParticles3D at active megaproject nodes: welding sparks + scaffolding outline. Active during construction, removed on completion. Proof: `dotnet build "Space Trade Empire.csproj"` | FOUND: scripts/view/GalaxyView.cs, NEW: scripts/vfx/construction_vfx.gd |
+| GATE.X.HYGIENE.ECONOMY_EVAL.044 | DONE | Economy balance eval: run stress tests across 3 seeds, verify NPC trade health, price stability, fleet population replacement, warfront avoidance. Document findings. Proof: `dotnet test ... --filter "EconomyStress"` | FOUND: SimCore.Tests/Systems/EconomyStressTests.cs, FOUND: SimCore/Systems/NpcTradeSystem.cs, FOUND: SimCore/Systems/FleetPopulationSystem.cs |
+| GATE.X.HYGIENE.EPIC_REVIEW.044 | DONE | Audit epic statuses. Close HAVEN_STARBASE.V0 (Communion dialogue done = final item). Close STATION_IDENTITY.V0 (tint+scale+nameplate). Update NARRATIVE_CONTENT.V0, ECONOMY_VISUALS.V0. Recommend T45 anchor. Proof: RoadmapConsistency | FOUND: docs/54_EPICS.md, FOUND: docs/55_GATES.md, FOUND: docs/56_SESSION_LOG.md |
+
+Combined-agent notes (T44):
+- Hash-affecting: 2 gates (COMMUNION_DIALOGUE.001 -> KEEPER_EXPAND.001, sequential chain in core session).
+- Non-hash: 17 gates (all bridge + docs + core contract/stress).
+- Tier 1 (17 parallel): all bridge gates, core contract/stress tests, repo health.
+- Tier 1 sequential (core): COMMUNION_DIALOGUE -> KEEPER_EXPAND (hash chain).
+- Tier 3 (2 gates): ECONOMY_EVAL, EPIC_REVIEW (depend on tier 1 completion).
+- File conflict groups: GalaxyView.cs touched by 10 bridge gates — assign to same agent or split by concern (ambient=1 agent, station=1 agent, digest=1 agent).
+- Design docs: economy_simulation_v0.md (ambient visuals), station_visual_design_v0.md (faction colors), haven_starbase_v0.md (Communion/Keeper), vfx_visual_roadmap_v0.md (warfront/construction).
+- NEW files (7): ambient_shuttle.gd, mining_beam_vfx.gd, station_prosperity.gd, lane_traffic_sprite.gd, warfront_atmosphere.gd, station_identity.gd, station_nameplate.gd, economy_alert_poller.gd, construction_vfx.gd. Total 9 NEW paths (under 10 limit).
+
+### Tranche 45 — Deep Dread (Subnautica-style depth-as-dread system)
+
+Epics:
+- EPIC.S8.DEEP_DREAD.V0 [TODO]: Subnautica-inspired depth-as-dread system — Thread Lattice instability phases map to escalating terror layers (Isolation→Phenomena→Predation→Meta-Dread). Patrol thinning, passive hull drain, sensor ghosts, information fog, Lattice Fauna emergent entities, fracture exposure tracking, FO dread triggers, ambient audio gradient, comms degradation, visual distortion, galaxy map dread overlay. (gates: GATE.T45.DEEP_DREAD.*)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.045 | DONE | Full test suite + build baseline for T45. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` + `dotnet build "Space Trade Empire.csproj" --nologo -v q` | SimCore.Tests/SimCore.Tests.csproj |
+| GATE.T45.DEEP_DREAD.TWEAKS.001 | DONE | Create DeepDreadTweaksV0.cs: patrol thin hop thresholds (0=full,3=half,5=zero), passive drain rates by phase, sensor ghost frequency, fauna detection radius, exposure milestones, audio crossfade thresholds. Update allowlist. Proof: `dotnet build SimCore/SimCore.csproj --nologo -v q` | SimCore/Tweaks/DeepDreadTweaksV0.cs, docs/tweaks/allowlist_numeric_literals_v0.txt |
+| GATE.T45.DEEP_DREAD.FAUNA_TWEAKS.001 | DONE | Create LatticeFaunaTweaksV0.cs: detection radius hops, signature decay, arrival delay, interference magnitude, fuel drain, residue duration, max concurrent, spawn cooldown. Update allowlist. Proof: `dotnet build SimCore/SimCore.csproj --nologo -v q` | SimCore/Tweaks/LatticeFaunaTweaksV0.cs, docs/tweaks/allowlist_numeric_literals_v0.txt |
+| GATE.T45.DEEP_DREAD.DESIGN_DOC.001 | DONE | Write docs/design/deep_dread_v0.md: 4-layer system, tuning philosophy, AAA references, lore integration, audio design, visual pipeline, FO triggers. Proof: file exists | docs/design/deep_dread_v0.md |
+| GATE.T45.DEEP_DREAD.PATROL_THIN.001 | DONE | Modify NpcTradeSystem: scale faction patrol spawn probability by hop distance from faction capital. 0-2 hops=full, 3-4=half, 5+=zero. BFS from faction capitals. Read from DeepDreadTweaksV0. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/NpcTradeSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.PASSIVE_DRAIN.001 | DONE | Phase-based passive hull drain in InstabilitySystem or new DreadDrainSystem: Phase2=1HP/50t, Phase3=1HP/20t, Phase4=0 (void paradox). Skip if accommodation module. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/InstabilitySystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.SENSOR_GHOSTS.001 | DONE | New SensorGhostSystem: phantom fleet contacts at Phase 2+ nodes via hash(tick,nodeId). Scale with instability. 3-8 tick lifespan, max 3 concurrent. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/SensorGhostSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.INFO_FOG.001 | DONE | New InformationFogSystem: market data staleness by hop distance, scanner range decrease at Phase 2+, distant unvisited nodes show ? for prices. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/InformationFogSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.DISCOVERY_REGISTER.001 | DONE | Phase-aware discovery flavor text: clinical register at Phase 0-1, unsettling register at Phase 2+. 18+ deep-space entries across 6 planet types. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/PlanetScanContentV0.cs, SimCore/Content/DiscoveryFlavorContentV0.cs |
+| GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001 | DONE | New LatticeFaunaSystem + LatticeFauna entity: spawn at Phase 3+ on fracture signature detection. Arrival delay. Instrument interference, fuel drain, route uncertainty increase. Avoidable by going dark. Residue attracts more. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/LatticeFaunaSystem.cs, SimCore/Entities/LatticeFauna.cs, SimCore/Tweaks/LatticeFaunaTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.FO_DISTANCE.001 | DONE | 8 new FO triggers: FAR_FROM_PATROL, LATTICE_THIN, SENSOR_GHOST_SEEN, FAUNA_DETECTED, DEEP_EXPOSURE_MILD, DEEP_EXPOSURE_HEAVY, VOID_ENTRY, COMMS_LOST. 24 dialogue lines (8x3 FO types). Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Systems/FirstOfficerSystem.cs, SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001 | DONE | DeepExposure field in SimState: increments per tick at Phase 2+ nodes. Milestones at 20/50/100 ticks trigger FO observations. Instrument disagreement narrows by exposure factor (adaptation). Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/SimState.Properties.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T45.DEEP_DREAD.BRIDGE.001 | DONE | New SimBridge.Dread.cs partial: GetDreadStateV0, GetSensorGhostsV0, GetLatticeFaunaV0, GetExposureV0, GetInfoFogV0. TryExecuteSafeRead pattern. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/bridge/SimBridge.Dread.cs, scripts/bridge/SimBridge.cs |
+| GATE.T45.DEEP_DREAD.AMBIENT_AUDIO.001 | DONE | 5 ambient audio layers (safe=busy, shimmer=thinning, drift=low drone, fracture=deep resonance, void=near-silence). Crossfade from GetDreadStateV0. Procedural synth. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/audio/ambient_audio.gd, scripts/core/game_manager.gd |
+| GATE.T45.DEEP_DREAD.FAUNA_AUDIO.001 | DONE | Fauna audio: distant harmonic awareness, proximity tone, 20% phantom plays (audio lie). Procedural synth. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/core/game_manager.gd, scripts/audio/ambient_audio.gd |
+| GATE.T45.DEEP_DREAD.COMMS_STATIC.001 | DONE | FO text corruption at hop>=4 (5-15% static glyphs), delayed toasts at hop>=5, signal quality HUD indicator. Click to clear static. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/fo_panel.gd, scripts/ui/hud.gd |
+| GATE.T45.DEEP_DREAD.HUD_DREAD.001 | DONE | HUD dread panel: phase icon, isolation warning, exposure meter, fauna proximity indicator. Polls GetDreadStateV0. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd, scripts/ui/scanner_hud_panel.gd |
+| GATE.T45.DEEP_DREAD.DISTORTION_SHADER.001 | DONE | dread_distortion.gdshader: Phase 1=chromatic aberration, Phase 2=star shimmer, Phase 3=HUD distortion+ghost routes, Phase 4=clarity (aberration=0). Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/vfx/dread_distortion.gdshader, scripts/view/GalaxyView.cs |
+| GATE.T45.DEEP_DREAD.GALAXY_DREAD.001 | DONE | Galaxy map dread: patrol coverage opacity, phase zone coloring, fauna activity markers, void site indicators. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs |
+| GATE.T45.DEEP_DREAD.TESTS.001 | DONE | DeepDreadTests.cs: patrol scaling, drain, ghosts, fog, fauna, going dark, exposure, text register. 15+ assertions. Proof: `dotnet test --filter "DeepDread"` | SimCore.Tests/Systems/DeepDreadTests.cs, SimCore/Systems/SensorGhostSystem.cs |
+| GATE.T45.DEEP_DREAD.HEADLESS_PROOF.001 | DONE | test_deep_dread_proof_v0.gd: travel to hop 5+, verify patrol=0, drain, ghosts, fauna, exposure, FO dialogue. 20+ hard assertions. Proof: godot headless | scripts/tests/test_deep_dread_proof_v0.gd |
+| GATE.T45.DEEP_DREAD.GOLDEN_HASH.001 | DONE | Regenerate golden hashes after all hash-affecting gates. Full determinism suite + all tests. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | docs/tweaks/balance_baseline_v0.json, SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.045 | DONE | Audit epic statuses. Create EPIC.S8.DEEP_DREAD.V0 if needed. Close completed epics. Recommend T46 anchor. Proof: RoadmapConsistency | docs/54_EPICS.md, docs/55_GATES.md |
+
+Execution plan:
+- Hash-affecting: 8 gates chain sequentially in core session (PATROL_THIN→PASSIVE_DRAIN→SENSOR_GHOSTS→INFO_FOG→DISCOVERY_REGISTER→LATTICE_FAUNA→FO_DISTANCE→EXPOSURE_TRACK).
+- Non-hash: 15 gates across docs/core/bridge groups.
+- Tier 1 (7 gates, 4 parallel): REPO_HEALTH (docs), TWEAKS+FAUNA_TWEAKS (core, parallel), DESIGN_DOC (docs), PATROL_THIN→PASSIVE_DRAIN→SENSOR_GHOSTS→INFO_FOG→DISCOVERY_REGISTER (core sequential hash chain).
+- Tier 2 (12 gates): LATTICE_FAUNA→FO_DISTANCE→EXPOSURE_TRACK (core hash chain cont.), BRIDGE (bridge, after core tier 1), AMBIENT_AUDIO+FAUNA_AUDIO+COMMS_STATIC+HUD_DREAD+DISTORTION_SHADER+GALAXY_DREAD (bridge, parallel after BRIDGE), TESTS (core).
+- Tier 3 (4 gates): HEADLESS_PROOF (bridge), GOLDEN_HASH (core), EPIC_REVIEW (docs).
+- File conflict groups: GalaxyView.cs (DISTORTION_SHADER + GALAXY_DREAD — combine for execution), hud.gd (COMMS_STATIC + HUD_DREAD — combine), ambient_audio.gd (AMBIENT_AUDIO + FAUNA_AUDIO — combine).
+- NEW files (7): DeepDreadTweaksV0.cs, LatticeFaunaTweaksV0.cs, deep_dread_v0.md, SensorGhostSystem.cs, InformationFogSystem.cs, LatticeFaunaSystem.cs, LatticeFauna.cs, SimBridge.Dread.cs, dread_distortion.gdshader, test_deep_dread_proof_v0.gd, DeepDreadTests.cs. Total 11 NEW paths (under limit with gate-level cap of 3 each).
+
+## AO. Tranche 46 — "EA Critical Path" (EPIC.S9.STEAM.V0, EPIC.S9.PERF, EPIC.S9.SAVE, EPIC.X.STATION_IDENTITY.V0, EPIC.S8.NARRATIVE_CONTENT.V0, EPIC.S9.MUSIC.V0)
+
+Focus: EA must-haves (Steam, performance profiling, build pipeline) and should-haves (auto-save, station depth, narrative, music).
+
+- EPIC.S9.STEAM.V0 [IN_PROGRESS]: GodotSteam addon install, init wrapper, achievement bridge
+- EPIC.S9.PERF [TODO→IN_PROGRESS]: Tick profiler, memory budget test, performance baseline report
+- EPIC.S9.SAVE [IN_PROGRESS]: Timer-based auto-save system + UI indicator
+- EPIC.X.STATION_IDENTITY.V0 [IN_PROGRESS]: Station mesh tier scaling (outpost/hub/capital)
+- EPIC.S8.NARRATIVE_CONTENT.V0 [IN_PROGRESS]: Haven logs, fragment lore, endgame text
+- EPIC.S9.MUSIC.V0 [TODO→IN_PROGRESS]: Audio stem pipeline, combat music triggers
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T46.PERF.TICK_PROFILER.001 | DONE | Per-system tick profiler: add optional Stopwatch instrumentation to SimKernel.Step(). Ring buffer (100 ticks). GetTickProfileV0 bridge: system name + avg/max/p99 us. Zero cost in release. Proof: `dotnet build SimCore/SimCore.csproj --nologo -v q` | SimCore/SimKernel.cs, scripts/bridge/SimBridge.cs |
+| GATE.T46.PERF.MEMORY_BUDGET.001 | DONE | Memory budget test: SimState with 50-node galaxy, 500 ticks, GC.GetTotalMemory < 256MB. Per-collection object counts. Test-only, no SimCore changes. Proof: `dotnet test --filter "PerfBudget"` | SimCore.Tests/Performance/PerfBudgetTests.cs |
+| GATE.T46.PERF.PROFILE_REPORT.001 | DONE | Performance baseline report: tick time per system, memory baseline, 60fps feasibility. 20-node and 50-node measurements. Optimization targets. Proof: file exists | docs/ea_perf_baseline.md |
+| GATE.T46.STEAM.ADDON_INSTALL.001 | DONE | GodotSteam addon install: AssetLib or manual. project.godot autoload. scripts/platform/steam_manager.gd with init()+is_steam_running()+shutdown(). Verify headless load. Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/platform/steam_manager.gd (no existing platform dir), project.godot |
+| GATE.T46.STEAM.INIT_WRAPPER.001 | DONE | Steam init wrapper: Steam.steamInit() on _ready, fallback to is_steam=false. Wire game_manager startup. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/platform/steam_manager.gd, scripts/core/game_manager.gd |
+| GATE.T46.STEAM.ACHIEVEMENT_BRIDGE.001 | DONE | Achievement unlock: SimBridge milestone_achieved signal. steam_manager listens, calls Steam.setAchievement(). Map 18 MilestoneContentV0 IDs. No-op without Steam. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/platform/steam_manager.gd, scripts/bridge/SimBridge.cs |
+| GATE.T46.BUILD.EXPORT_TEMPLATE.001 | DONE | Export preset: export_presets.cfg for Windows release+debug. Build-Release.ps1 script. .NET 8 export flags. Document in 57_RUNBOOK.md. Proof: file exists | NEW: export_presets.cfg, NEW: scripts/tools/Build-Release.ps1, docs/57_RUNBOOK.md |
+| GATE.T46.BUILD.RELEASE_TEST.001 | DONE | Release smoke test: run Build-Release.ps1, then first-hour bot headless on exported binary. 18/18 assertions. Document export-only failures. Proof: `scripts/tools/Build-Release.ps1` | scripts/tools/Build-Release.ps1 |
+| GATE.T46.SAVE.AUTOSAVE_SYSTEM.001 | DONE | Timer-based auto-save: configurable interval (300s default) from AutoSaveTweaksV0. Calls SerializationSystem.Save() to auto-save slot. autosave_started/completed signals. Pauses in combat. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/bridge/SimBridge.cs, NEW: SimCore/Tweaks/AutoSaveTweaksV0.cs |
+| GATE.T46.SAVE.AUTOSAVE_UI.001 | DONE | Auto-save HUD: spinner icon (top-right, 1s fade). Settings toggle: on/off + interval (1/3/5/10 min). Persist in user config. Wire to autosave signals. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd, scripts/ui/main_menu.gd |
+| GATE.T46.STATION.NODE_MESH.001 | DONE | Station mesh tier scaling: outpost (0.6x, <3 goods), hub (1.0x, 3-6 goods), capital (1.4x, 7+ goods). Tier-based detail meshes from Kenney Space Kit. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/core/game_manager.gd |
+| GATE.T46.STATION.DOCK_FLAVOR.001 | DONE | Faction dock greeting: 5 greetings per faction (25 total) + 5 station desc templates per faction (25 total) in FactionDialogueContentV0. Wire GetFactionGreetingV0 in SimBridge.Faction.cs. Display in dock header. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/FactionDialogueContentV0.cs, scripts/bridge/SimBridge.Faction.cs, scripts/ui/hero_trade_menu.gd |
+| GATE.T46.NARRATIVE.HAVEN_LOGS.001 | DONE | Haven data logs: 8 DataLogDef entries (discovery, tier 1-5 upgrades, keeper, fabricator). Place at haven node via NarrativePlacementGen. 3-5 sentences each. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/DataLogContentV0.cs, SimCore/Gen/NarrativePlacementGen.cs |
+| GATE.T46.NARRATIVE.FRAGMENT_LORE.001 | DONE | Fragment flavor: 12 new entries across 4 categories (Thread Lattice, faction reactions, precursor echoes, interpretations). 2-3 sentences each. Hash-affecting. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/AdaptationFragmentContentV0.cs |
+| GATE.T46.NARRATIVE.ENDGAME_TEXT.001 | DONE | Endgame narrative: 5 paths (Trade Dominance, Military Supremacy, Diplomatic Unity, Pentagon Break, Loss). Title + 2-paragraph epilogue + FO farewell. Wire into victory_screen.gd, loss_screen.gd. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/epilogue_data.gd, scripts/ui/victory_screen.gd, scripts/ui/loss_screen.gd |
+| GATE.T46.AUDIO.STEM_PIPELINE.001 | DONE | Music manager: scripts/audio/music_manager.gd with 4 layers (bass/pad/melody/percussion). Crossfade between states (exploration/combat/tension/dock). Autoload. Placeholder sine-wave stems. Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/audio/music_manager.gd, project.godot |
+| GATE.T46.AUDIO.COMBAT_MUSIC.001 | DONE | Combat music: wire to game_manager combat_started/combat_ended signals. Crossfade to combat stems. Tension state for warfront proximity. Dock state for calm ambient. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/audio/music_manager.gd, scripts/core/game_manager.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.046 | DONE | Full test suite + build baseline for T46. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` + `dotnet build "Space Trade Empire.csproj" --nologo -v q` | SimCore.Tests/SimCore.Tests.csproj |
+| GATE.X.HYGIENE.EPIC_REVIEW.046 | DONE | Audit epic statuses. Update SAVE, STEAM, NARRATIVE_CONTENT, MUSIC, PERF epics. Close completed. Recommend T47 anchor. Proof: RoadmapConsistency | docs/54_EPICS.md, docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 (12 gates, 4 parallel groups): core (TICK_PROFILER, MEMORY_BUDGET), bridge (ADDON_INSTALL, EXPORT_TEMPLATE, AUTOSAVE_SYSTEM, NODE_MESH, STEM_PIPELINE), content (DOCK_FLAVOR→HAVEN_LOGS→FRAGMENT_LORE, hash chain), docs (REPO_HEALTH).
+- Tier 2 (7 gates): bridge (INIT_WRAPPER, ACHIEVEMENT_BRIDGE, RELEASE_TEST, AUTOSAVE_UI, COMBAT_MUSIC), content (ENDGAME_TEXT), docs (PROFILE_REPORT).
+- Tier 3 (1 gate): docs (EPIC_REVIEW).
+- Hash-affecting chain (content): DOCK_FLAVOR→HAVEN_LOGS→FRAGMENT_LORE (tier 1, sequential).
+- File conflict groups: steam_manager.gd (ADDON_INSTALL→INIT_WRAPPER→ACHIEVEMENT_BRIDGE, tiered), music_manager.gd (STEM_PIPELINE→COMBAT_MUSIC, tiered).
+- NEW files (5): scripts/platform/steam_manager.gd, export_presets.cfg, scripts/tools/Build-Release.ps1, SimCore/Tweaks/AutoSaveTweaksV0.cs, scripts/audio/music_manager.gd.
+
+## AP. Tranche 47 — "Economy Visuals + Music + Haven Polish + Save UX" (EPIC.T44.ECONOMY_VISUALS.V0, EPIC.S9.MUSIC.V0, EPIC.S8.HAVEN_STARBASE.V0, EPIC.S8.MEGAPROJECTS, EPIC.S9.SAVE)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T47.AMBIENT.SHUTTLE_TRAFFIC.001 | DONE | Station traffic shuttles: BoxMesh orbiting stations, count from NpcTradeActivity, elliptical orbit animation. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.AMBIENT.MINING_BEAMS.001 | DONE | Mining extraction beams: CylinderMesh from mining stations to asteroids, pulsing emission. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.AMBIENT.PROSPERITY_TIERS.001 | DONE | Station prosperity lighting: emission multiplier by market breadth (0.5x/1.0x/2.0x), golden orb for capitals. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.AMBIENT.LANE_TRAFFIC.001 | DONE | Lane traffic sprites: PrismMesh lerping along intra-region lanes proportional to NPC trade activity. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.DIGEST.MARKET_ALERTS.001 | DONE | Market alert toasts: colored by type (stockout orange, spike yellow, drop cyan), station display names, 30s poll, max 3/poll. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/economy_alert_poller.gd |
+| GATE.T47.DIGEST.ECON_PANEL.001 | DONE | Economy snapshot dock panel: per-good supply rows with role tags [P]/[C], supply count color-coded, trend arrows from price divergence. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hero_trade_menu.gd |
+| GATE.T47.MUSIC.COMPOSITION_BRIEF.001 | DONE | Music production brief: 29-file spec (20 stems, 3 stingers, 5 faction loops, fracture ambient), harmonic plan rooted in D, reference tracks, technical specs. Proof: `test -f docs/design/music_production_brief_v0.md` | docs/design/music_production_brief_v0.md |
+| GATE.T47.MUSIC.DISCOVERY_STINGERS.001 | DONE | Discovery stingers: 3 types (minor 3s, major 5s, revelation 8s), stem ducking during playback, wired to discovery events in game_manager. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/audio/music_manager.gd, scripts/core/game_manager.gd |
+| GATE.T47.MUSIC.FRACTURE_AMBIENCE.001 | DONE | Fracture ambient: FRACTURE music state with detuned frequencies, LFO tremolo, 3s crossfade from EXPLORATION. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/audio/music_manager.gd |
+| GATE.T47.MUSIC.FACTION_AMBIENT.001 | DONE | Faction territory ambient: 5 characteristic drones (Concord 220Hz, Chitin 147Hz FM, Weavers 330Hz harmonics, Valorin 110Hz+noise, Communion 440Hz+shimmer), 2s crossfade. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/audio/music_manager.gd |
+| GATE.T47.HAVEN.COMING_HOME.001 | DONE | Haven arrival cinematic: warm amber letterbox, slow camera zoom, "Welcome home, Captain." FO toast, 3.5s sequence. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd |
+| GATE.T47.HAVEN.VISUAL_TIERS.001 | DONE | Haven visual geometry per tier: T1 purple ring, T2 satellites, T3 outer ring, T4 hex frame+pulsing beacon, T5 golden emission+tilted rings. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.HAVEN.COMMUNION_REP.001 | DONE | Communion Representative: 8 dialogue lines in FactionDialogueContentV0, GetCommunionRepDialogueV0 bridge, haven_panel "Speak Again" cycling, tier 3+ gated. Proof: `dotnet test --filter "Determinism"` | SimCore/Content/FactionDialogueContentV0.cs, scripts/bridge/SimBridge.Haven.cs, scripts/ui/haven_panel.gd |
+| GATE.T47.MEGAPROJECT.MAP_MARKERS.001 | DONE | Megaproject galaxy map markers: type-specific meshes (hex frame anchor, diamond corridor, cone pylon), color by state. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.MEGAPROJECT.CONSTRUCTION_VFX.001 | DONE | Construction VFX: rotating cylinder spars + blinking spark spheres, progress-scaled intensity. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T47.SAVE.RECOVERY_UX.001 | DONE | Save corruption recovery: GetSaveIntegrityV0 check, red visual treatment for corrupted saves, "Try Load" fallback. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/main_menu.gd |
+| GATE.T47.SAVE.SLOT_MANAGEMENT.001 | DONE | Save slot management: scan/load/rename/delete per slot, confirmation dialog, auto-save badge. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/main_menu.gd |
+| GATE.T47.EVAL.ECONOMY_FEEL.001 | DONE | Economy visual feel evaluation: FH bot 18/18 assertions, 5.0/5.0 avg, overlay health 5/5. Proof: `powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless` | reports/first_hour/ |
+| GATE.X.HYGIENE.REPO_HEALTH.047 | DONE | Full test suite: 1512/1512 pass, 0 errors, build clean. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.047 | DONE | Epic audit: ECONOMY_VISUALS→DONE, MUSIC→DONE, HAVEN_STARBASE→DONE, MEGAPROJECTS→DONE, SAVE→DONE, NARRATIVE_CONTENT→DONE. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+
+Execution plan:
+- Tier 1 (17 gates, 4 groups): bridge (SHUTTLE_TRAFFIC, MINING_BEAMS, LANE_TRAFFIC, COMING_HOME, VISUAL_TIERS, MAP_MARKERS, CONSTRUCTION_VFX, RECOVERY_UX, SLOT_MANAGEMENT), content (PROSPERITY_TIERS, STINGERS, FRACTURE, FACTION_AMBIENT, COMMUNION_REP), docs (COMPOSITION_BRIEF, REPO_HEALTH), bridge (MARKET_ALERTS, ECON_PANEL).
+- Tier 2 (1 gate): docs (ECONOMY_FEEL — depends on visual gates).
+- Tier 3 (1 gate): docs (EPIC_REVIEW — depends on tier 2).
+- Hash-affecting: COMMUNION_REP only (FactionDialogueContentV0.cs).
+- File conflict groups: galaxy_spawner.gd (SHUTTLE+MINING+LANE+PROSPERITY+VISUAL_TIERS+MAP_MARKERS+CONSTRUCTION = 7 gates, combined into 2 agents), music_manager.gd (STINGERS+FRACTURE+FACTION = 3 gates, combined into 1 agent), main_menu.gd (RECOVERY+SLOT = 2 gates, combined into 1 agent).
+
+## AQ. Tranche 48 — Template Missions, Discovery UI, Anomaly Chains, Maintenance, Telemetry
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T48.TEMPLATE.SCHEMA.001 | DONE | Mission template schema (TemplateMissionContentV0.cs) + TemplateMissionSystem.cs engine: variable binding ($GOOD_1, $TARGET_NODE, $FACTION_1), twist slot definition, acceptance/progress/completion lifecycle. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/TemplateMissionContentV0.cs, SimCore/Systems/TemplateMissionSystem.cs |
+| GATE.T48.TEMPLATE.SUPPLY_SET.001 | DONE | 4 supply/logistics template definitions in content registry: Bulk Haul, Shortage Relief, Cross-Sector Resupply, Emergency Provisions. Hash-affecting, blocks on SCHEMA. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | docs/content/content_registry_v0.json, SimCore/Content/TemplateMissionContentV0.cs |
+| GATE.T48.TEMPLATE.EXPLORE_SET.001 | DONE | 4 exploration template definitions: Cartography Run, Deep Scan Sweep, Fracture Probe, Signal Trace. Hash-affecting, blocks on SUPPLY_SET. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | docs/content/content_registry_v0.json, SimCore/Content/TemplateMissionContentV0.cs |
+| GATE.T48.TEMPLATE.COMBAT_SET.001 | DONE | 3 combat/security templates: Pirate Clearance, Convoy Defense, Blockade Runner. Hash-affecting, blocks on EXPLORE_SET. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | docs/content/content_registry_v0.json, SimCore/Content/TemplateMissionContentV0.cs |
+| GATE.T48.TEMPLATE.POLITICS_SET.001 | DONE | 3 reputation/politics templates: Diplomatic Courier, Sanctions Runner, Intelligence Delivery. Hash-affecting, blocks on COMBAT_SET. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | docs/content/content_registry_v0.json, SimCore/Content/TemplateMissionContentV0.cs |
+| GATE.T48.TEMPLATE.TWIST_ENGINE.001 | DONE | Twist slot system: 7 twist types (blockade, ambush, price_spike, rival_runner, contraband_mixed, shortage_shift, intelligence), probability weighting, reward scaling by twist count. Tier 2, blocks on SCHEMA. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/TemplateMissionSystem.cs, SimCore/Content/TemplateMissionContentV0.cs |
+| GATE.T48.TEMPLATE.CONTEXT_SURFACE.001 | DONE | Template surfacing via station context: SimBridge.Mission.cs exposes available templates at current dock, filtered by player state/reputation/cargo. No mission board — templates appear in station interaction. Tier 2, blocks on SCHEMA. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/bridge/SimBridge.Mission.cs, scripts/ui/hero_trade_menu.gd |
+| GATE.T48.DISCOVERY.MAP_MARKERS.001 | DONE | Discovery phase markers on galaxy map: undiscovered (dim ?), scanning (pulse ring), scanned (icon by type), exploited (faded). Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs, scripts/view/galaxy_spawner.gd |
+| GATE.T48.DISCOVERY.SCANNER_VIZ.001 | DONE | Scanner range ring visualization: semi-transparent sphere at scanner range, pulses during active scan, color by scan progress. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/galaxy_spawner.gd |
+| GATE.T48.DISCOVERY.MILESTONE_CARDS.001 | DONE | Discovery milestone feedback: toast notification on first discovery, scan complete, chain progress. Brief text + icon, auto-dismiss. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hud.gd |
+| GATE.T48.DISCOVERY.KNOWLEDGE_POLISH.001 | DONE | Knowledge web layout polish: node spacing, edge routing, zoom levels, category coloring, tooltip detail. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/knowledge_web_panel.gd |
+| GATE.T48.ANOMALY.CHAIN_SYSTEM.001 | DONE | Anomaly chain engine: AnomalyChainSystem.cs tracks multi-site discovery arcs (3-5 sites), narrative state per chain, escalation triggers, completion rewards. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/AnomalyChainSystem.cs, SimCore/Entities/AnomalyChain.cs |
+| GATE.T48.ANOMALY.CHAIN_CONTENT.001 | DONE | 3 starter anomaly chains in content registry: Signal Echo (3 sites, comms), Void Bloom (4 sites, biological), Lattice Fracture (5 sites, precursor). Tier 2, blocks on CHAIN_SYSTEM. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | docs/content/content_registry_v0.json, SimCore/Content/AnomalyChainContentV0.cs |
+| GATE.T48.TENSION.MAINTENANCE.001 | DONE | Fleet upkeep drain: FleetUpkeepSystem.cs deducts per-tick maintenance cost based on ship class + modules. 50-80 tick idle runway per dynamic_tension_v0.md Pillar 2. Fixes ACTIVE_ISSUES E1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/FleetUpkeepSystem.cs, SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T48.TENSION.UPKEEP_BRIDGE.001 | DONE | Upkeep display: SimBridge exposes GetFleetUpkeepV0 (per-module costs, total/tick), HUD shows upkeep bar, dock shows cost breakdown. Tier 2, blocks on MAINTENANCE. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/bridge/SimBridge.Fleet.cs, scripts/ui/hud.gd, scripts/ui/hero_trade_menu.gd |
+| GATE.T48.TELEMETRY.SESSION_WRITER.001 | DONE | Dev-facing session telemetry: TelemetrySystem.cs writes session stats (tick count, trade count, combat count, credits high/low, death count) to user://telemetry/ on quit. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/TelemetrySystem.cs |
+| GATE.T48.TELEMETRY.CRASH_HOOK.001 | DONE | Crash/exception reporting: GDScript hook captures unhandled exceptions + last 50 log lines to user://crash_reports/. Tier 2, blocks on SESSION_WRITER. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd |
+| GATE.T48.FH_BOT.EXPANSION.001 | DONE | First-hour bot v2: real combat pipeline (battle stations + AI shots + heat), module remove, systemic mission accept, boot experience checks, progressive disclosure, overlay probes, haven probe, UI panel checks. 15 report card dimensions. Proof: `powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless` | scripts/tests/test_first_hour_proof_v0.gd |
+| GATE.X.HYGIENE.REPO_HEALTH.048 | DONE | Full test suite baseline, warning scan, dead code check. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.048 | DONE | Epic audit: close completed epics, recommend T49 anchor. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+
+Execution plan:
+- Tier 1 (11 gates, 4 groups): core (TEMPLATE.SCHEMA, ANOMALY.CHAIN_SYSTEM, TENSION.MAINTENANCE, TELEMETRY.SESSION_WRITER — sequential hash chain), bridge (DISCOVERY.MAP_MARKERS, SCANNER_VIZ, MILESTONE_CARDS, KNOWLEDGE_POLISH), bridge (FH_BOT.EXPANSION), docs (REPO_HEALTH).
+- Tier 2 (8 gates): content (SUPPLY_SET→EXPLORE_SET→COMBAT_SET→POLITICS_SET — sequential hash chain), core (TWIST_ENGINE, ANOMALY.CHAIN_CONTENT — hash-affecting), bridge (CONTEXT_SURFACE, UPKEEP_BRIDGE, CRASH_HOOK).
+- Tier 3 (1 gate): docs (EPIC_REVIEW).
+- Hash-affecting chains: SCHEMA→SUPPLY→EXPLORE→COMBAT→POLITICS (5), TWIST_ENGINE (1), CHAIN_SYSTEM→CHAIN_CONTENT (2), MAINTENANCE (1), SESSION_WRITER (1) = 10 hash-affecting gates.
+- File conflict groups: galaxy_spawner.gd (MAP_MARKERS+SCANNER_VIZ = combined), hero_trade_menu.gd (CONTEXT_SURFACE+UPKEEP_BRIDGE = combined).
+
+## AR. Tranche 49 — "Eval Framework Hardening" (EPIC.X.EVAL_HARDENING.V0)
+
+| Gate ID | Status | Description | Evidence |
+|---------|--------|-------------|----------|
+| GATE.T49.EVAL.ECON_NARRATIVE.001 | DONE | Fix economy_health eval bot: system_nodes→nodes, node_id field, station detection via GetPlayerMarketViewV0. Fix narrative_pacing eval bot: candidate→fo_type, phase_name→phase. Run headless, 0 SCRIPT_ERROR, some PASS. Proof: `godot --headless -s test_economy_health_eval_v0.gd` | scripts/tests/test_economy_health_eval_v0.gd, scripts/tests/test_narrative_pacing_eval_v0.gd |
+| GATE.T49.EVAL.DREAD_FLIGHT.001 | DONE | Fix dread_pacing eval bot: GetEdgesV0→GetGalaxySnapshotV0+lane_edges, from_id/to_id, phase field, hull via GetFleetCombatHpV0. Fix flight_feel eval bot: camera node path, player spawn timing, current_node_id, same edge fix. Proof: `godot --headless -s test_dread_pacing_eval_v0.gd` | scripts/tests/test_dread_pacing_eval_v0.gd, scripts/tests/test_flight_feel_eval_v0.gd |
+| GATE.T49.EVAL.AUDIO_ATMOS.001 | DONE | Fix audio_atmosphere eval bot: phase_index→phase, volume_db hard asserts→warn (no audio in headless). Proof: `godot --headless -s test_audio_atmosphere_eval_v0.gd` | scripts/tests/test_audio_atmosphere_eval_v0.gd |
+| GATE.T49.DS_BOT.MUTATION_COVERAGE.001 | DONE | Deep systems bot: exercise 9 remaining UNCALLED mutation bridge methods with proper setup. Target: UNCALLED→0. Proof: `Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42` | scripts/tests/test_deep_systems_v0.gd |
+| GATE.T49.STRESS.IDLE_REDUCTION.001 | DONE | Stress bot: explore-when-idle fallback, force Scrap buy. Target: idle <25%, goods 12/12. Fixes ACTIVE_ISSUES E3. Proof: `Run-Bot.ps1 -Mode stress -Cycles 1500` | scripts/tests/exploration_bot_v1.gd |
+| GATE.T49.TUTORIAL.T48_COVERAGE.001 | DONE | Tutorial bot: probes for upkeep display, template missions, anomaly chains. 6-8 new assertions. Proof: `godot --headless -s test_tutorial_proof_v0.gd -- --seed=42` | scripts/tests/test_tutorial_proof_v0.gd |
+| GATE.T49.SWEEP.DOCK_PANELS.001 | DONE | Visual sweep: 6 dock-panel phases (haven, warfront, doctrine, budget, narrative, megaproject). Proof: `Run-Screenshot.ps1 -Mode full` | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.T49.AESTHETIC.CAMERA_EXEMPT.001 | DONE | Exempt galaxy-map camera from TOO_FAR check. Fixes ACTIVE_ISSUES P2. Proof: `Run-FHBot.ps1 -Mode headless` | scripts/tools/aesthetic_audit.gd |
+| GATE.T49.CHAOS.SCENARIO_EXPANSION.001 | DONE | Chaos bot: S9 rapid-fire trade spam, S10 undock-during-warp-cooldown. Proof: `Run-FHBot-MultiSeed.ps1 -Script chaos_tutorial -Seeds 42` | scripts/tests/test_chaos_tutorial_v0.gd |
+| GATE.T49.RUBRIC.DIMENSION_UPDATE.001 | DONE | Update first_hour_rubric.md + visual_eval_guide.md with T48 dimensions (upkeep, templates, anomalies, new panels). Proof: `grep -c 'upkeep' scripts/tools/first_hour_rubric.md` | scripts/tools/first_hour_rubric.md, scripts/tools/visual_eval_guide.md |
+| GATE.T49.COVERAGE.SCANNER_FIX.001 | DONE | Fix Run-CoverageGap.ps1: scan C# UI files + all test scripts. True UNCALLED drops to ~9. Proof: `Run-CoverageGap.ps1` | scripts/tools/Run-CoverageGap.ps1 |
+| GATE.T49.PIPELINE.EVAL_RUNNER.001 | DONE | Create Run-EvalBot.ps1: runs 5 eval bots, captures to reports/eval/, aggregates pass/warn/fail. Proof: `Run-EvalBot.ps1` | NEW: scripts/tools/Run-EvalBot.ps1 |
+| GATE.T49.OPTIMIZE.PASS1_EXPANSION.001 | DONE | Expand Run-OptimizeScan.ps1: GDScript quality + allocation auto-checks. Proof: `Run-OptimizeScan.ps1` | scripts/tools/Run-OptimizeScan.ps1 |
+| GATE.T49.SWEEP.FLIGHT_ENDSTATE.001 | DONE | Visual sweep: 6 flight+endstate phases (scanner, fracture, data log, loss, victory, pause). Tier 2. Proof: `Run-Screenshot.ps1 -Mode full` | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.T49.COVERAGE.DEAD_CLEANUP.001 | DONE | Remove confirmed dead bridge methods after scanner fix. Tier 2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/bridge/SimBridge.cs |
+| GATE.T49.PIPELINE.AUDIT_QUICK.001 | DONE | Create Run-AuditQuick.ps1: C# tests + optimize + coverage in <60s. Tier 2. Proof: `Run-AuditQuick.ps1` | NEW: scripts/tools/Run-AuditQuick.ps1 |
+| GATE.T49.PROOF.FULL_EVAL_RUN.001 | DONE | HEADLESS_PROOF: run all eval bots via Run-EvalBot.ps1, verify 0 SCRIPT_ERROR. Tier 2. Proof: `Run-EvalBot.ps1` | NEW: reports/eval/aggregate_report.txt |
+| GATE.T49.RESEARCH.PERF_PROFILE.001 | DONE | FPS profiling analysis for P1 (17fps drops). Research only. Tier 3. Proof: written report | docs/ACTIVE_ISSUES.md |
+| GATE.X.HYGIENE.REPO_HEALTH.049 | DONE | Full test suite + warning scan + golden hash stability. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.049 | DONE | Epic audit: close completed, recommend T50 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+
+Execution plan:
+- Tier 1 (14 gates): bridge (9 gates, all separate files — full parallelism), docs (5 gates).
+- Tier 2 (4 gates): bridge (SWEEP.FLIGHT_ENDSTATE, DEAD_CLEANUP), docs (AUDIT_QUICK, FULL_EVAL_RUN).
+- Tier 3 (2 gates): docs (PERF_PROFILE, EPIC_REVIEW).
+- No hash-affecting gates. Full tier-1 parallelism.
+- File conflict: SWEEP.DOCK_PANELS + SWEEP.FLIGHT_ENDSTATE share visual_sweep_bot_v0.gd — tiered.
+
+## AS. Tranche 50 — "Performance & Visual Polish" (EPIC.X.PERF_OPTIMIZATION.V0 + EPIC.X.GALAXY_MAP_VISUAL.V0)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T50.PERF.COMBAT_THROTTLE.001 | DONE | Throttle LatticeDroneCombatSystem.Resolve() to every 3-5 ticks via LastEngagementTick. Cache weapon profiles. Fixes P1 17fps. Hash-affecting, core T1. Proof: `dotnet test --filter Determinism` | SimCore/Systems/LatticeDroneCombatSystem.cs, SimCore/Tweaks/LatticeDroneTweaksV0.cs |
+| GATE.T50.PERF.NPC_TRADE_CACHE.001 | DONE | Cache ComputeHopsFromFactionHome BFS results per faction home. Invalidate only on topology change. Hash-affecting, core T1. Proof: `dotnet test --filter Determinism` | SimCore/Systems/NpcTradeSystem.cs, SimCore/Tweaks/NpcTradeTweaksV0.cs |
+| GATE.T50.PERF.INTEL_ALLOC.001 | DONE | Eliminate LINQ/new collections in IntelSystem.Process() hot path (~500 allocs/tick). Use scratch arrays. Hash-affecting, core T1. Proof: `dotnet test --filter Determinism` | SimCore/Systems/IntelSystem.cs |
+| GATE.T50.PERF.FO_ALLOC.001 | DONE | Eliminate LINQ/new collections in FirstOfficerSystem.Process() hot path. Use scratch arrays. Hash-affecting, core T1. Proof: `dotnet test --filter Determinism` | SimCore/Systems/FirstOfficerSystem.cs, SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T50.PERF.TICK_BUDGET.001 | DONE | Perf regression tests: assert Process() time < budget for top-5 systems under stress load. Core T2. Proof: `dotnet test --filter TickBudget` | SimCore.Tests/Invariants/TickBudgetTests.cs |
+| GATE.T50.PERF.NPC_PHYSICS.001 | DONE | Replace NPC CharacterBody3D with Node3D + manual position lerp (NPCs don't collide). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/core/npc_ship.gd, scenes/enemy.tscn |
+| GATE.T50.PERF.CAMERA_CACHE.001 | DONE | Cache GalaxyView/HUD refs at _ready. Throttle UpdateAltitudeLodV0 to altitude delta > 5u. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/player_follow_camera.gd |
+| GATE.T50.PERF.REP_CACHE.001 | DONE | Add 2-sec TTL cache for GetPlayerReputationV0 in SimBridge. Eliminates 30+ read-lock calls per frame. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/bridge/SimBridge.Faction.cs, scripts/core/npc_ship.gd |
+| GATE.T50.PERF.HEADLESS_PROOF.001 | DONE | Add FPS measurement to FH bot (PERF|fps_min, fps_avg). Run 5 seeds, assert fps_min >= 30. Bridge T2. Proof: `Run-FHBot-MultiSeed.ps1` | scripts/tests/test_first_hour_proof_v0.gd |
+| GATE.T50.ECON.ROUTE_QUALITY.001 | DONE | GalaxyGenerator: ensure at least 1 profitable route (margin > 10cr) within 2 hops of player start. Fixes E2 profit variance. Hash-affecting, core T1. Proof: `dotnet test --filter Determinism` | SimCore/Gen/GalaxyGenerator.cs, SimCore/Gen/MarketInitGen.cs |
+| GATE.T50.ECON.ROUTE_QUALITY_TEST.001 | DONE | Monte Carlo test: 10 seeds, assert profitable route within 2 hops for all. Core T2. Proof: `dotnet test --filter RouteQuality` | NEW: SimCore.Tests/Invariants/RouteQualityTests.cs (no existing route quality test) |
+| GATE.T50.VISUAL.GALAXY_NODES.001 | DONE | Galaxy map nodes: size by station tier, color by industry type. Replace uniform green dots. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.GalaxyMap.cs |
+| GATE.T50.VISUAL.GALAXY_FACTION.001 | DONE | Galaxy map: faction territory color tinting on nodes/edges. Use faction primary colors. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.GalaxyMap.cs |
+| GATE.T50.VISUAL.GALAXY_ECON.001 | DONE | Galaxy map: economic indicators (price differential arrows, trade volume markers). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs, scripts/bridge/SimBridge.GalaxyMap.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.050 | DONE | Full test suite + warning scan + golden hash stability. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
+| GATE.T50.RESEARCH.PERF_VALIDATION.001 | DONE | Post-optimization FPS validation: run FH bot, compare fps_min/avg against pre-optimization baseline. Tier 3. Proof: written report | reports/audit/perf_profile_t49.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.050 | DONE | Epic audit: close completed epics, recommend T51 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+
+Execution plan:
+- Tier 1 (12 gates): core (5 hash-affected sequential: COMBAT_THROTTLE→NPC_TRADE_CACHE→INTEL_ALLOC→FO_ALLOC→ROUTE_QUALITY), bridge-perf (3 gates: NPC_PHYSICS, CAMERA_CACHE, REP_CACHE), bridge-visual (3 gates combined: GALAXY_NODES+FACTION+ECON), docs (REPO_HEALTH).
+- Tier 2 (3 gates): core (TICK_BUDGET, ROUTE_QUALITY_TEST), bridge (HEADLESS_PROOF).
+- Tier 3 (2 gates): docs (PERF_VALIDATION, EPIC_REVIEW).
+- Hash chain: 5 hash-affecting T1 core gates chain sequentially (each changes golden hash baseline).
+- File conflict: GALAXY_NODES + GALAXY_FACTION + GALAXY_ECON share GalaxyView.cs — combined agent.
+
+## T51: Voice Playback + Steam + Telemetry + Mission Templates
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.T51.VO.BUS_PLAYER.001 | DONE | Add VO audio bus to music_manager.gd (6th bus). Implement Music/Ambient volume ducking when VO plays (fade to 40% over 200ms, restore on VO end). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/audio/music_manager.gd |
+| GATE.T51.VO.LOOKUP_SYSTEM.001 | DONE | Create vo_lookup.gd autoload: given (speaker, key, sequence_index), resolves `res://assets/audio/vo/{speaker}/{vo_key}_{seq:02d}.mp3`. Graceful fallback (returns null if file missing, no crash). Supports speakers: computer, maren, analyst, veteran, pathfinder. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/audio/vo_lookup.gd (no existing VO lookup system) |
+| GATE.T51.VO.DIALOGUE_WIRE.001 | DONE | Wire VO playback into fo_dialogue_box.gd show_line(). On line display: query vo_lookup for audio, if found play on VO bus with ducking. Typewriter speed syncs to audio duration when VO present. Bridge T2 (depends on BUS_PLAYER + LOOKUP_SYSTEM). Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/fo_dialogue_box.gd, scripts/audio/vo_lookup.gd |
+| GATE.T51.VO.BRIDGE_KEY.001 | DONE | Add `vo_key` string field to tutorial bridge snapshots (GetTutorialStateV0, GetTutorialDialogueV0). Each tutorial phase maps to a vo_key for VO file lookup. Bridge T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | scripts/bridge/SimBridge.Tutorial.cs, SimCore/Content/TutorialContentV0.cs |
+| GATE.T51.VO.PRESET_SELECT.001 | DONE | Ship computer voice preset selection: settings panel dropdown (Male/Female/Neutral). Selection stored in user settings. vo_lookup.gd reads preference to resolve computer speaker subfolder. Bridge T2 (depends on LOOKUP_SYSTEM). Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/settings_menu.gd, scripts/audio/vo_lookup.gd |
+| GATE.T51.VO.HEADLESS_PROOF.001 | DONE | Headless test: boot scene, verify vo_lookup resolves existing VO files correctly, verify VO bus exists in AudioServer, verify ducking signals fire. IN_ENGINE T3 (depends on BUS_PLAYER + LOOKUP_SYSTEM + BRIDGE_KEY). Proof: `godot --headless --path . -s res://scripts/tests/test_vo_system_v0.gd` | NEW: scripts/tests/test_vo_system_v0.gd (no existing VO test), scripts/audio/vo_lookup.gd |
+| GATE.T51.STEAM.ADDON_DL.001 | DONE | Download GodotSteam addon, integrate into project. Wire steam_interface.gd autoload to use real GodotSteam when available, keep graceful fallback stub. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/autoload/steam_interface.gd, addons/ |
+| GATE.T51.STEAM.CLOUD_SAVES.001 | DONE | Steam Cloud save sync: on save write to Steam remote storage, on load check Steam remote vs local timestamps. Graceful degradation when Steam offline. Bridge T2 (depends on ADDON_DL). Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/autoload/steam_interface.gd, scripts/core/save_load.gd |
+| GATE.T51.STEAM.APP_CONFIG.001 | DONE | Steamworks app config: app_build.vdf, depot config, store page metadata skeleton. Document Steam partner onboarding steps in RUNBOOK. Bridge T2 (depends on ADDON_DL). Proof: written config files | NEW: steam/app_build.vdf (no existing Steam config), docs/57_RUNBOOK.md |
+| GATE.T51.TELEMETRY.OPTIN_UI.001 | DONE | Add telemetry opt-in toggle to Settings > Gameplay tab. First-launch prompt if no preference set. Stores preference in user settings. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/settings_menu.gd |
+| GATE.T51.TELEMETRY.LOCAL_STORE.001 | DONE | TelemetrySystem.cs: write per-session JSON telemetry to `user://telemetry/`. Fields: session_id, start_utc, events array (trade, combat, death, dock, mission). Respects opt-in flag. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/TelemetrySystem.cs, NEW: SimCore.Tests/Systems/TelemetrySystemTests.cs (no existing telemetry tests) |
+| GATE.T51.TELEMETRY.QUIT_TRACK.001 | DONE | Track player death locations + quit points in telemetry. On death: log node_id, cause, tick. On quit: log node_id, credits, tick, play_duration. Core T2 (depends on LOCAL_STORE). Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/TelemetrySystem.cs |
+| GATE.T51.TEMPLATE.SUPPLY_AUTHOR.001 | DONE | Author 12-15 supply/logistics mission templates per mission_design_v0.md: cargo delivery, bulk hauling, emergency resupply, trade route establishment, resource pipeline. Procedural variables for goods, quantities, destinations. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T51.TEMPLATE.EXPLORE_AUTHOR.001 | DONE | Author 10-12 exploration mission templates: survey system, map uncharted node, collect sensor data, investigate anomaly, establish scanner relay. Procedural variables for locations, discovery types. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T51.TEMPLATE.COMBAT_AUTHOR.001 | DONE | Author 10-12 combat/security mission templates: pirate bounty, convoy escort, system patrol, blockade run, fleet defense. Procedural variables for enemy types, threat levels, reward tiers. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T51.TEMPLATE.POLITICS_AUTHOR.001 | DONE | Author 8-10 reputation/politics mission templates: faction courier, diplomatic envoy, smuggling run, intel gathering, defector extraction. Procedural variables for factions, rep stakes, twist slots. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.051 | DONE | Full test suite + warning scan + golden hash stability. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.051 | DONE | Epic audit: close completed epics, recommend T52 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+| GATE.X.HYGIENE.ECONOMY_EVAL.051 | DONE | Economy balance evaluation: mission reward scaling vs trade income, credit curve analysis across 5 seeds, template reward fairness audit. Tier 3. Proof: written report | reports/ |
+
+Execution plan:
+- Tier 1 (12 gates): core (5 hash-affecting: LOCAL_STORE + 4 TEMPLATE gates — TEMPLATE gates share MissionTemplateContentV0.cs so combine into one agent), bridge (5 gates: BUS_PLAYER, LOOKUP_SYSTEM, BRIDGE_KEY, ADDON_DL, OPTIN_UI), docs (REPO_HEALTH).
+- Tier 2 (5 gates): core (QUIT_TRACK), bridge (DIALOGUE_WIRE, PRESET_SELECT, CLOUD_SAVES, APP_CONFIG).
+- Tier 3 (2 gates): bridge (HEADLESS_PROOF), docs (EPIC_REVIEW, ECONOMY_EVAL).
+- Hash chain: LOCAL_STORE → QUIT_TRACK sequential in core. 4 TEMPLATE gates share MissionTemplateContentV0.cs — combined agent, sequential execution.
+- File conflict: 4 TEMPLATE gates share MissionTemplateContentV0.cs — combined agent. BUS_PLAYER + LOOKUP_SYSTEM touch different files — parallel OK.
