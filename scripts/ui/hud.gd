@@ -233,6 +233,8 @@ var _autosave_tween: Tween = null
 
 
 func _ready() -> void:
+	# GATE.T52.COMBAT.HITSTOP.001: HUD stays responsive during hitstop freeze.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_bridge = get_node_or_null("/root/SimBridge")
 
 	# HUD status panel background — semi-transparent dark panel with subtle border.

@@ -1037,6 +1037,97 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.051 | DONE | Full test suite + T51 health baseline |
 | GATE.X.HYGIENE.EPIC_REVIEW.051 | DONE | Epic status audit + T52 anchor rec |
 | GATE.X.HYGIENE.ECONOMY_EVAL.051 | DONE | Economy balance + mission reward eval |
+| GATE.X.HYGIENE.REPO_HEALTH.052 | TODO | Full test suite + T52 health baseline |
+| GATE.T52.ECON.TRADE_DIVERSITY.001 | TODO | Fix rare_metals trade dominance (E4) |
+| GATE.T52.ECON.TARIFF_WIRE.001 | TODO | Wire faction tariff_bps to MarketSystem |
+| GATE.T52.ECON.UPKEEP_TUNE.001 | TODO | Tune fleet upkeep 10-20x for credit tension |
+| GATE.T52.DREAD.EXPOSURE_SCALING.001 | TODO | Scale dread drain interval by exposure level |
+| GATE.T52.DREAD.SECONDARY_STRESS.001 | TODO | Fuel burn + cargo decay at dread Phase 2 |
+| GATE.T52.NARR.CONTENT_EXTRACT.001 | TODO | Extract all dialogue to JSON content files |
+| GATE.T52.NARR.TUTORIAL_VOICES.001 | TODO | Differentiate 3 FO candidate dialogue variants |
+| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | TODO | Add 2-3 sequence alternatives per tutorial phase |
+| GATE.T52.COMBAT.NPC_LABELS.001 | TODO | NPC health bars + role + hostile Label3D |
+| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | TODO | Glow ring on engaged combat target |
+| GATE.T52.COMBAT.HITSTOP.001 | TODO | Screen freeze on shield break + kill |
+| GATE.T52.DISC.SCANNER_VIS.001 | TODO | Scanner range visualization on galaxy map |
+| GATE.T52.DISC.PHASE_MARKERS.001 | TODO | Discovery phase markers on galaxy map nodes |
+| GATE.T52.DISC.BREADCRUMB.001 | TODO | Breadcrumb trail for visited nodes |
+| GATE.T52.DISC.MILESTONE_CARDS.001 | TODO | Discovery milestone feedback cards |
+| GATE.T52.MISSION.M7_DIPLOMACY.001 | TODO | M7 Diplomacy mission template |
+| GATE.T52.MISSION.M8_SMUGGLE.001 | TODO | M8 Smuggling mission template |
+| GATE.T52.MISSION.BRIDGE_M7M8.001 | TODO | SimBridge queries for M7/M8 missions |
+| GATE.T52.ECON.STRESS_PROOF.001 | TODO | Stress bot proof: trade diversity + credit tension |
+| GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Visual sweep proof: NPC labels + combat readability |
+| GATE.X.HYGIENE.EPIC_REVIEW.052 | TODO | Epic status audit + T53 anchor recommendation |
+| GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta |
+| GATE.X.HYGIENE.REPO_HEALTH.053 | DONE | Full test suite + T53 health baseline |
+| GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001 | DONE | Add missing Haven write bridge methods (StartResearchLabSlotV0, StartFabricationV0) |
+| GATE.T53.BOT.PLAYTHROUGH_CORE.001 | DONE | Scripted playthrough bot framework + early-game phases |
+| GATE.T53.BOT.RL_OBS_EXPAND.001 | DONE | Expand RL bot obs vector to ~500-dim full game state |
+| GATE.T53.BOT.RL_SERVER_FULL.001 | DONE | Expand C# RL server to full action space + reseeding |
+| GATE.T53.BOT.PYTHON_HARNESS.001 | DONE | Python Gymnasium env wrapper + PPO training script |
+| GATE.T53.BOT.RUNNER_SCRIPT.001 | DONE | Run-Playthrough.ps1 + Run-RlTrain.ps1 update |
+| GATE.T53.BOT.RL_ACTIONS_FULL.001 | DONE | Expand RL bot to ~120 actions + full reward shaping |
+| GATE.T53.BOT.PLAYTHROUGH_VICTORY.001 | DONE | Scripted bot haven + endgame phases to victory |
+| GATE.T53.BOT.ANALYTICS.001 | DONE | Bot analytics: coverage %, mechanics touched, failure catalog |
+| GATE.T53.BOT.PLAYTHROUGH_PROOF.001 | DONE | Run scripted bot headless — verify victory reached |
+| GATE.T53.BOT.RL_TRAIN_PROOF.001 | DONE | Run 100 RL episodes — verify learning + action coverage |
+| GATE.T53.BOT.FINDINGS_REPORT.001 | DONE | Analyze bot findings, update ACTIVE_ISSUES |
+| GATE.X.HYGIENE.EPIC_REVIEW.053 | DONE | Epic audit + T54 anchor recommendation |
+| GATE.T53.EVAL.AI_INFRA.001 | DONE | AI testing infra architecture review |
+| GATE.X.HYGIENE.REPO_HEALTH.054 | DONE | T54 health baseline |
+| GATE.T54.SUPPLY.STARTER_SEED.001 | DONE | Seed composites/electronics/rare_metals at starter nodes |
+| GATE.T54.SUPPLY.INDUSTRY_BOOST.001 | DONE | Boost NPC industry output + bootstrap stock at fabricator nodes |
+| GATE.T54.SUPPLY.HAVEN_CARGO_UPGRADE.001 | DONE | Haven upgrade deducts from player cargo directly |
+| GATE.T54.EXTRACT.STATION_DEF.001 | DONE | New ConstructionDef: Extraction Station (requires analyzed RUIN) |
+| GATE.T54.EXTRACT.BUILD_CREATES_INDUSTRY.001 | DONE | Construction complete creates IndustrySite producing discovery good |
+| GATE.T54.EXTRACT.FRACTURE_PROGRAM.001 | DONE | Fracture Extraction Program (high cost, fracture drive required) |
+| GATE.T54.EXTRACT.BRIDGE_WIRE.001 | DONE | SimBridge: GetExtractionSitesV0, GetFractureExtractionStatusV0 |
+| GATE.T54.BOT.COMBAT_PHASE.001 | DONE | Playthrough bot: combat phase (fight + loot) |
+| GATE.T54.BOT.EXTRACTION_LOOP.001 | DONE | Playthrough bot: discover RUIN → build station → trade charter |
+| GATE.T54.BOT.AUTOMATION_PHASE.001 | DONE | Playthrough bot: trade charter + patrol programs |
+| GATE.T54.BOT.FLEET_PHASE.001 | DONE | Playthrough bot: capture NPC + fleet management |
+| GATE.T54.BOT.DIPLO_PHASE.001 | DONE | Playthrough bot: treaties + proposals |
+| GATE.T54.BOT.HAVEN_TIER3.001 | DONE | Playthrough bot reaches haven tier 3+ |
+| GATE.T54.BOT.ENDGAME_25PCT.001 | DONE | Playthrough bot reaches 25%+ endgame completion |
+| GATE.T54.BOT.MULTI_SEED.001 | DONE | Playthrough across 5 seeds, aggregate results |
+| GATE.T54.BOT.COVERAGE_REPORT.001 | DONE | SimBridge method coverage report |
+| GATE.X.HYGIENE.EPIC_REVIEW.054 | DONE | Epic audit + T55 anchor rec |
+| GATE.T54.EVAL.EXTRACTION_DESIGN.001 | DONE | Extraction loop vs design docs evaluation |
+| GATE.X.HYGIENE.REPO_HEALTH.055 | DONE | T55 health baseline |
+| GATE.T55.COMBAT.PIRATE_FACTION.001 | DONE | Pirate faction + hostile fleet spawning at frontier/rim nodes |
+| GATE.T55.COMBAT.TERRITORY_ENFORCE.001 | DONE | Closed territory patrols become hostile |
+| GATE.T55.SUPPLY.RARE_METALS_RECIPE.001 | DONE | Refinery recipe: ore + exotic_crystals → rare_metals |
+| GATE.T55.SUPPLY.RARE_METALS_EXTRACTION.001 | DONE | Extraction station outputs rare_metals at mining nodes |
+| GATE.T55.REP.MISSION_WIRE.001 | DONE | Mission completion → +5 faction rep |
+| GATE.T55.ECON.FACTORY_BUFFER.001 | DONE | Factory buffer 0→2 days + NPC haul radius 1→2 + exotic crystals seed |
+| GATE.T55.BOT.COMBAT_PIRATES.001 | DONE | Bot fights pirates, collects loot |
+| GATE.T55.BOT.MISSION_TARGET.001 | DONE | Bot targets mission objectives in endgame |
+| GATE.T55.BOT.VOID_SURVEY.001 | DONE | Bot surveys fracture derelicts in SCAN phase |
+| GATE.T55.BOT.PIRATE_LOOT.001 | DONE | Verify pirate loot includes rare_metals + salvaged_tech |
+| GATE.T55.BOT.HAVEN_TIER3.001 | DONE | Bot reaches haven tier 3 |
+| GATE.T55.BOT.MISSION_COMPLETE.001 | DONE | Bot completes at least 1 mission |
+| GATE.T55.BOT.ENDGAME_25PCT.001 | DONE | Bot reaches 25%+ endgame completion |
+| GATE.T55.BOT.COMBAT_PROOF.001 | DONE | Bot wins at least 1 combat |
+| GATE.X.HYGIENE.EPIC_REVIEW.055 | DONE | Epic audit + T56 anchor rec |
+| GATE.T55.EVAL.ECONOMY_HEALTH.001 | DONE | Stress bot 1500 cycles, verify no cascade failure |
+| GATE.X.HYGIENE.REPO_HEALTH.056 | TODO | T56 health baseline |
+| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | TODO | Fix pirate loot not reaching cargo (node mismatch) |
+| GATE.T56.FIX.RARE_METALS_DRAIN.001 | TODO | Trace + fix rare_metals disappearing during DebugAdvanceTicks |
+| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | TODO | Absorb exploration_bot stress/trade/combat flags into playthrough bot |
+| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | TODO | Absorb quick/onboarding/ui bots into visual_sweep_bot |
+| GATE.T56.BOT.RETIRE_LEGACY.001 | TODO | Delete 10 retired bot scripts, update runner references |
+| GATE.T56.BOT.STRESS_MODE.001 | TODO | Add --mode stress to playthrough bot (1500+ ticks, economy flags) |
+| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | TODO | Fix mission step evaluation timing |
+| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | TODO | Wire playthrough bot into /audit skill |
+| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | TODO | Wire RL smoke test into /audit skill |
+| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | TODO | Update Run-Bot.ps1 to delegate to playthrough bot |
+| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | TODO | Playthrough bot reaches haven tier 3 |
+| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | TODO | Pirate loot confirmed in cargo |
+| GATE.T56.BOT.MISSION_REP_PROOF.001 | TODO | Mission completed with +5 rep logged |
+| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | TODO | /audit runs clean with consolidated bots |
+| GATE.X.HYGIENE.EPIC_REVIEW.056 | TODO | Epic audit + T57 anchor rec |
+| GATE.T56.EVAL.BOT_COVERAGE.001 | TODO | SimBridge method coverage report |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -3515,3 +3606,158 @@ Execution plan:
 - Tier 3 (2 gates): bridge (HEADLESS_PROOF), docs (EPIC_REVIEW, ECONOMY_EVAL).
 - Hash chain: LOCAL_STORE → QUIT_TRACK sequential in core. 4 TEMPLATE gates share MissionTemplateContentV0.cs — combined agent, sequential execution.
 - File conflict: 4 TEMPLATE gates share MissionTemplateContentV0.cs — combined agent. BUS_PLAYER + LOOKUP_SYSTEM touch different files — parallel OK.
+
+### T52: Audit-Driven Fixes + Discovery UI + Mission Expansion (Tranche 52)
+
+Anchor: EPIC.T52.AUDIT_FIXES.V0 (NEW). Expansion: S6.UI_DISCOVERY, S9.MISSION_LADDER.V0.
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.052 | TODO | Full test suite + warning scan + golden hash stability. Tier 1. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
+| GATE.T52.ECON.TRADE_DIVERSITY.001 | TODO | Fix rare_metals-only trade dominance (E4). Rebalance MarketTweaksV0 good spreads so no single good dominates bot trade loops. Add good-rotation pressure via margin dampening on repeated trades. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/MarketTweaksV0.cs, SimCore/Systems/MarketSystem.cs |
+| GATE.T52.ECON.TARIFF_WIRE.001 | TODO | Wire existing faction tariff_bps field from territory data into MarketSystem buy/sell cost calculation. Trades in Guarded/Closed territory pay tariff to faction. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/MarketSystem.cs, SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T52.ECON.UPKEEP_TUNE.001 | TODO | Tune fleet upkeep costs 10-20x (shuttle 20-40 cr/cycle) so credit drain is visible vs 1000cr trade profits. Adjust FleetUpkeepTweaksV0 constants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T52.DREAD.EXPOSURE_SCALING.001 | TODO | Scale DreadDrainSystem drain interval by ExposureTrack level. High exposure = faster drain (50→30→20 ticks). Wire ExposureTrackSystem output into drain calculation. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T52.DREAD.SECONDARY_STRESS.001 | TODO | Add Phase 2 secondary stressors: 2x fuel burn multiplier + cargo decay (slow credit loss per cycle). New tweaks for fuel_burn_multiplier_phase2 and cargo_decay_rate. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T52.NARR.CONTENT_EXTRACT.001 | TODO | Extract all hardcoded dialogue from TutorialContentV0.cs and FirstOfficerContentV0.cs into JSON content files (SimCore/Content/Data/tutorial_dialogue_v0.json, fo_dialogue_v0.json). Content classes load from JSON at init. Zero narrative text in System or Bridge code. Write dialogue_schema.md with field definitions, valid enums, examples, and editing instructions. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/TutorialContentV0.cs, SimCore/Content/FirstOfficerContentV0.cs, NEW: SimCore/Content/Data/tutorial_dialogue_v0.json (dialogue data file), NEW: SimCore/Content/Data/fo_dialogue_v0.json (FO dialogue data file), NEW: SimCore/Content/Data/dialogue_schema.md (editing guide) |
+| GATE.T52.NARR.TUTORIAL_VOICES.001 | TODO | Differentiate 3 FO candidate dialogue variants for all pre-selection tutorial phases. Maren=analytical, Dask=tactical, Lira=intuitive. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
+| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | TODO | Add 2-3 sequence alternatives per tutorial phase for dialogue variety. Random selection per playthrough. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
+| GATE.T52.COMBAT.NPC_LABELS.001 | TODO | Add NPC health bars (Label3D, color-coded), role labels, and red HOSTILE indicator to fleet ship nodes. Visible at game altitude. Pattern: station_nameplate.gd. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/npc_ship.gd, scripts/core/game_manager.gd |
+| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | TODO | Add glow ring (OmniLight3D aura) on engaged combat target NPC. Wire from turret fire logic in game_manager. Bridge T2 (depends on NPC_LABELS). Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/core/npc_ship.gd |
+| GATE.T52.COMBAT.HITSTOP.001 | TODO | Add 50-100ms screen freeze on shield break and kill events. Process_mode override for UI. Wire from shield_ripple.gd and explosion_effect.gd. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/vfx/shield_ripple.gd, scripts/vfx/explosion_effect.gd |
+| GATE.T52.DISC.SCANNER_VIS.001 | TODO | Scanner range visualization circle on galaxy map (dashed circle at current scanner tier range). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.PHASE_MARKERS.001 | TODO | Discovery phase markers on galaxy map nodes: gray=undiscovered, amber=partially scanned, green=fully analyzed. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.BREADCRUMB.001 | TODO | Breadcrumb trail visualization for visited nodes — thin connecting lines with fade-by-recency. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.MILESTONE_CARDS.001 | TODO | Discovery milestone feedback cards: toast-style card on scan/analysis complete with discovery name + icon. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hud.gd |
+| GATE.T52.MISSION.M7_DIPLOMACY.001 | TODO | M7 Diplomacy mission template: treaty delivery + faction rep reward. 5-8 variants with procedural faction/destination. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T52.MISSION.M8_SMUGGLE.001 | TODO | M8 Smuggling mission: contraband delivery + trace risk escalation. 5-8 variants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T52.MISSION.BRIDGE_M7M8.001 | TODO | SimBridge queries for M7/M8 mission-specific data (treaty status, contraband detection risk). Bridge T2. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Mission"` | scripts/bridge/SimBridge.Mission.cs |
+| GATE.T52.ECON.STRESS_PROOF.001 | TODO | Run stress bot (1500 cycles), verify: trade diversity ≥8/12 goods, credit direction changes ≥3, tariff revenue >0. Tier 3. Proof: headless stress bot | scripts/tests/exploration_bot_v1.gd |
+| GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Run visual sweep, verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Tier 3. Proof: headless screenshot bot | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.X.HYGIENE.EPIC_REVIEW.052 | TODO | Epic status audit: close completed epics, recommend T53 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+| GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta table vs audit_1 baseline. Tier 3. Proof: written report | reports/audit/ |
+
+Execution plan:
+- Tier 1 (10 gates): core hash chain (TRADE_DIVERSITY → TARIFF_WIRE → UPKEEP_TUNE, M7_DIPLOMACY → M8_SMUGGLE — mission gates share MissionTemplateContentV0.cs, combine agent), core non-hash (CONTENT_EXTRACT), bridge (NPC_LABELS, SCANNER_VIS + PHASE_MARKERS combined — share GalaxyView.cs), docs (REPO_HEALTH).
+- Tier 2 (9 gates): core hash chain (EXPOSURE_SCALING → SECONDARY_STRESS combined agent), core non-hash (TUTORIAL_VOICES, SEQUENCE_VARIANTS), bridge (TARGET_HIGHLIGHT, HITSTOP, BREADCRUMB + MILESTONE_CARDS, BRIDGE_M7M8).
+- Tier 3 (4 gates): STRESS_PROOF, VISUAL_PROOF, EPIC_REVIEW, AUDIT_DELTA.
+- Hash chains: T1 econ (3 gates sequential), T1 mission (2 gates combined), T2 dread (2 gates combined). Non-hash gates parallelize freely within tier.
+- File conflicts: SCANNER_VIS + PHASE_MARKERS share GalaxyView.cs → combined agent. M7 + M8 share MissionTemplateContentV0.cs → combined agent. EXPOSURE_SCALING + SECONDARY_STRESS share DreadDrainSystem.cs → combined agent.
+
+## AU. Tranche 53 — "AI Full-Game Playtesting" (EPIC.T53.AI_PLAYTEST.V0)
+
+Anchor: EPIC.T53.AI_PLAYTEST.V0. Goal: scripted victory-path bot + expanded RL agent covering all player verbs. Answers: can the game be completed? How easy is progression? What builds work? Where does the critical path break?
+
+| Gate ID | Status | Description | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.053 | DONE | Full test suite + T53 health baseline. Tier 1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001 | DONE | Add missing Haven write bridge methods: StartResearchLabSlotV0(techId, slotIndex) and StartFabricationV0(moduleId). Wire to existing HavenResearchLabSystem and HavenFabricatorSystem. Core T1. Proof: `dotnet test ... --filter "Haven"` | scripts/bridge/SimBridge.Haven.cs |
+| GATE.T53.BOT.PLAYTHROUGH_CORE.001 | DONE | Scripted playthrough bot framework: phase state machine (INIT/TUTORIAL/TRADE/EXPLORE/HAVEN/UPGRADE/RESEARCH/EQUIP/ENDGAME/VICTORY/DONE), SimBridge action helpers, PLAY| prefix logging. Early-game phases: skip tutorial, trade loop (3+ goods), travel 5+ nodes, combat. Uses DebugAdvanceTicksV0. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T53.BOT.RL_OBS_EXPAND.001 | DONE | Expand RL bot obs vector from 137-dim to ~500-dim: +mission state, +haven status, +fleet roster, +faction reps x5, +tech tree, +fragment inventory (16+8), +endgame progress, +discovery state, +risk meters. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/tests/rl_agent_bot.gd |
+| GATE.T53.BOT.RL_SERVER_FULL.001 | DONE | Expand C# RL server to full ~120 action space with proper episode reseeding (fresh World per reset). TCP JSON-lines protocol compatible with Python harness. Core T1. Proof: `dotnet build SimCore.RlServer/` | SimCore.RlServer/ |
+| GATE.T53.BOT.PYTHON_HARNESS.001 | DONE | Python Gymnasium env wrapper (rl/gymnasium_env.py) + PPO training script (rl/train_ppo.py) using stable-baselines3 MaskablePPO. WandB logging. Content T1. Proof: `python -m py_compile rl/gymnasium_env.py` | rl/ |
+| GATE.T53.BOT.RUNNER_SCRIPT.001 | DONE | Create Run-Playthrough.ps1 (build C#, launch Godot headless with playthrough bot, capture output). Update Run-RlTrain.ps1 with --episodes and --server flags. Content T1. Proof: file exists | scripts/tools/Run-Playthrough.ps1 |
+| GATE.T53.BOT.RL_ACTIONS_FULL.001 | DONE | Expand RL bot from 34 to ~120 actions: +12 mission, +10 module, +10 haven, +10 fleet/automation, +10 diplomacy/fragment, +10 explore/scan, +5 construction/megaproject, +5 endgame. Full action mask + reward shaping. Bridge T2. Blocks: RL_OBS_EXPAND. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/tests/rl_agent_bot.gd |
+| GATE.T53.BOT.PLAYTHROUGH_VICTORY.001 | DONE | Scripted bot remaining phases: discover haven, upgrade T1-T4, research techs, equip modules, choose endgame path (Reinforce), grind requirements (faction rep, fragments). Victory when GetGameResultV0 returns victory. Bridge T2. Blocks: PLAYTHROUGH_CORE + HAVEN_BRIDGE_WRITE. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T53.BOT.ANALYTICS.001 | DONE | Bot analytics script: parse playthrough + RL bot outputs, report mechanics coverage %, actions exercised, failure modes, unreachable systems. JSON + human-readable output. Content T2. Proof: file exists | scripts/tools/Bot-Analytics.ps1 |
+| GATE.T53.BOT.PLAYTHROUGH_PROOF.001 | DONE | Run scripted bot headless. Verify: bot reaches VICTORY phase, GetGameResultV0 returns victory. Log: total ticks, credits, nodes visited, haven tier, endgame path. Bridge T3. Blocks: PLAYTHROUGH_VICTORY. Proof: `Run-Playthrough.ps1` | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T53.BOT.RL_TRAIN_PROOF.001 | DONE | Run 100 RL training episodes via Python harness + C# server. Verify: positive reward trend, all action categories exercised (trade, combat, mission, haven, explore, diplomacy, construction), no category with 0 usage. Bridge T3. Blocks: RL_ACTIONS_FULL + PYTHON_HARNESS. Proof: `python rl/train_ppo.py --episodes 100` | scripts/tests/rl_agent_bot.gd, rl/ |
+| GATE.T53.BOT.FINDINGS_REPORT.001 | DONE | Analyze both bot outputs. Catalog: which mechanics work end-to-end, which are broken/unreachable, difficulty assessment. Update ACTIVE_ISSUES with discovered gaps. Docs T3. Blocks: PLAYTHROUGH_PROOF + RL_TRAIN_PROOF. Proof: ACTIVE_ISSUES updated | docs/ACTIVE_ISSUES.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.053 | DONE | Epic status audit: close completed epics, recommend T54 anchor based on AI playtest findings. Docs T3. Proof: `dotnet test ... --filter "RoadmapConsistency"` | docs/54_EPICS.md |
+| GATE.T53.EVAL.AI_INFRA.001 | DONE | AI testing infra architecture review: coverage gaps across all bots (RL, scripted, exploration, screenshot, stress), scaling bottlenecks, CI integration plan. Docs T3. Proof: written report | docs/ |
+
+Execution plan:
+- Tier 1 (7 gates): core (HAVEN_BRIDGE_WRITE, RL_SERVER_FULL), bridge (PLAYTHROUGH_CORE, RL_OBS_EXPAND), content (PYTHON_HARNESS, RUNNER_SCRIPT), docs (REPO_HEALTH). All parallel — no file conflicts.
+- Tier 2 (3 gates): bridge (RL_ACTIONS_FULL blocks RL_OBS_EXPAND, PLAYTHROUGH_VICTORY blocks PLAYTHROUGH_CORE + HAVEN_BRIDGE_WRITE — different files, parallel OK), content (ANALYTICS — independent).
+- Tier 3 (5 gates): bridge (PLAYTHROUGH_PROOF, RL_TRAIN_PROOF), docs (FINDINGS_REPORT blocks both proofs, EPIC_REVIEW, EVAL).
+- No hash-affecting gates (all bot/tooling work, no SimCore tick logic changes).
+- NEW paths: scripts/tests/playthrough_bot_v0.gd, scripts/tools/Run-Playthrough.ps1, scripts/tools/Bot-Analytics.ps1 (3 NEW, under 10 limit).
+
+## AV. Tranche 54 — "Extraction Loop + Bot Coverage" (EPIC.T53.AI_PLAYTEST.V0 Phase 2)
+
+Anchor: EPIC.T53.AI_PLAYTEST.V0 (continued). Fixes supply bottlenecks from T53 bot findings, adds extraction station construction loop (discover → build → automate), fracture extraction program (high-cost deep-space mining), and expands bot coverage to combat/automation/fleet/diplomacy.
+
+| Gate ID | Status | Description | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.054 | DONE | T54 health baseline. Tier 1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.T54.SUPPLY.STARTER_SEED.001 | DONE | Seed composites (25), electronics (25), rare_metals (25) at starter nodes in MarketInitGen. Hash-affecting. Core T1. Proof: determinism tests | SimCore/Gen/MarketInitGen.cs |
+| GATE.T54.SUPPLY.INDUSTRY_BOOST.001 | DONE | Seed bootstrap stock (30 units) of composites at compfab nodes + electronics at elecfab nodes. Seed inputs (metal+organics at compfab, crystals+fuel at elecfab). Hash-affecting. Core T1. Proof: determinism tests | SimCore/Gen/MarketInitGen.cs, SimCore/Tweaks/CatalogTweaksV0.cs |
+| GATE.T54.SUPPLY.HAVEN_CARGO_UPGRADE.001 | DONE | Change HavenUpgradeSystem.DeductUpgradeResources to consume from PlayerCargo directly (remove market intermediary). GetPlayerGood already reads cargo. Hash-affecting. Core T1. Proof: determinism tests | SimCore/Systems/HavenUpgradeSystem.cs |
+| GATE.T54.EXTRACT.STATION_DEF.001 | DONE | New ConstructionDef: "Extraction Station" in ConstructionContentV0. Prereq: analyzed RUIN discovery at node. 4 steps, 30 ticks/step, 250 cr/step. Hash-affecting. Core T2. Blocks: STARTER_SEED. Proof: determinism tests | SimCore/Content/ConstructionContentV0.cs |
+| GATE.T54.EXTRACT.BUILD_CREATES_INDUSTRY.001 | DONE | When Extraction Station construction completes, create IndustrySite producing the discovery's associated good. Wire in ConstructionSystem.CompleteStep. Hash-affecting. Core T2. Blocks: STATION_DEF. Proof: determinism tests | SimCore/Systems/ConstructionSystem.cs |
+| GATE.T54.EXTRACT.FRACTURE_PROGRAM.001 | DONE | New automation: FractureExtractionProgramV0. Requires fleet with fracture drive + FractureUnlocked. 3x upkeep (fuel + exotic_crystals per cycle). Yields 5-8 exotic_matter. +1 DeepExposure per cycle. Fleet transits to VoidSite and back. Hash-affecting. Core T2. Blocks: BUILD_CREATES_INDUSTRY. Proof: determinism tests | SimCore/Programs/, SimCore/Tweaks/ |
+| GATE.T54.EXTRACT.BRIDGE_WIRE.001 | DONE | SimBridge methods: GetExtractionSitesV0 (player-built extraction stations), GetFractureExtractionStatusV0 (active fracture programs + exposure cost), CreateFractureExtractionProgramV0. Bridge T2. Proof: build | scripts/bridge/SimBridge.Construction.cs |
+| GATE.T54.BOT.COMBAT_PHASE.001 | DONE | Playthrough bot: COMBAT phase between EXPLORE and SCAN. Find hostile via GetFleetTransitFactsV0, ResolveCombatV0, collect loot. Bridge T1. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.EXTRACTION_LOOP.001 | DONE | Playthrough bot: after SCAN, find analyzed RUIN node, StartConstructionV0 extraction station, DebugAdvanceTicks, CreateTradeCharterProgram to haven. Bridge T2. Blocks: BUILD_CREATES_INDUSTRY + BRIDGE_WIRE. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.AUTOMATION_PHASE.001 | DONE | Playthrough bot: after UPGRADE, set up CreateTradeCharterProgram + CreatePatrolProgramV0. Bridge T1. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.FLEET_PHASE.001 | DONE | Playthrough bot: after COMBAT, attempt CaptureShipV0 on weak hostile + GetFleetRosterV0 check. Bridge T1. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.DIPLO_PHASE.001 | DONE | Playthrough bot: during ENDGAME, ProposeTreatyV0 + AcceptProposalV0 for Concord/Weavers. Bridge T1. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.HAVEN_TIER3.001 | DONE | Run playthrough bot. Verify: haven reaches tier 3+ with extraction station supplying exotic matter + starter seed goods. Bridge T3. Blocks: EXTRACTION_LOOP + HAVEN_CARGO_UPGRADE. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.ENDGAME_25PCT.001 | DONE | Run playthrough bot. Verify: endgame completion >= 25% (haven tier 4 = 25%). Bridge T3. Blocks: HAVEN_TIER3. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T54.BOT.MULTI_SEED.001 | DONE | Run playthrough across seeds 1-5. Aggregate: avg credits, phases, haven tier, goods traded. Content T3. Proof: Bot-Analytics.ps1 | scripts/tools/Bot-Analytics.ps1 |
+| GATE.T54.BOT.COVERAGE_REPORT.001 | DONE | Full coverage: count SimBridge methods exercised by all bots / total 363. Content T3. Proof: report | scripts/tools/Bot-Analytics.ps1 |
+| GATE.X.HYGIENE.EPIC_REVIEW.054 | DONE | Epic audit + T55 anchor rec. Docs T3. Proof: RoadmapConsistency | docs/54_EPICS.md |
+| GATE.T54.EVAL.EXTRACTION_DESIGN.001 | DONE | Evaluate extraction station loop against design docs (faction_equipment_and_research_v0.md §1056-1065), lore consistency, fracture drive feedback loop. Docs T3. Proof: written report | docs/ |
+
+Execution plan:
+- Tier 1 (8 gates): Hash chain core (STARTER_SEED → INDUSTRY_BOOST → HAVEN_CARGO_UPGRADE — share MarketInitGen/HavenUpgrade). Bot phases (COMBAT, AUTOMATION, FLEET, DIPLO) touch different sections of playthrough_bot — 2 combined agents. REPO_HEALTH independent.
+- Tier 2 (6 gates): Hash chain core (STATION_DEF → BUILD_CREATES_INDUSTRY → FRACTURE_PROGRAM). BRIDGE_WIRE parallel (different files). BOT.EXTRACTION_LOOP after core gates.
+- Tier 3 (5 gates): HAVEN_TIER3 + ENDGAME_25PCT sequential. MULTI_SEED + COVERAGE_REPORT parallel. EPIC_REVIEW + EVAL parallel.
+
+## AW. Tranche 55 — "Combat + Economy + Progression Fixes" (EPIC.T53.AI_PLAYTEST.V0 Phase 3)
+
+Anchor: EPIC.T53.AI_PLAYTEST.V0 (continued). Fixes critical gaps surfaced by T53-T54 bot runs: no combat encounters (add pirates + territory enforcement), rare metals dead-end (refinery recipe + extraction), mission rep not wired (+5/completion), economy fragility (factory buffer + haul radius).
+
+| Gate ID | Status | Description | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.055 | DONE | T55 health baseline. Docs T1. Proof: full test suite | SimCore.Tests/ |
+| GATE.T55.COMBAT.PIRATE_FACTION.001 | DONE | New pirate faction (always hostile, aggro=999). Seed 3-5 pirate patrols at FRONTIER/RIM nodes. Pirate loot: salvaged_tech + rare_metals. Hash-affecting. Core T1. Proof: determinism tests | SimCore/Tweaks/FactionTweaksV0.cs, SimCore/Gen/GalaxyGenerator.cs |
+| GATE.T55.COMBAT.TERRITORY_ENFORCE.001 | DONE | Faction patrols at Closed-regime nodes become hostile when player rep < territory threshold. Wire in fleet hostility check. Hash-affecting. Core T1. Blocks: PIRATE_FACTION. Proof: determinism tests | SimCore/Systems/FleetPopulationSystem.cs |
+| GATE.T55.SUPPLY.RARE_METALS_RECIPE.001 | DONE | New recipe RefineRareMetals: 5 ore + 1 exotic_crystals → 2 rare_metals. New industry site at ~10% of nodes (modulus 10). Hash-affecting. Core T1. Proof: determinism tests | SimCore/Content/ContentRegistryLoader.cs, SimCore/Gen/MarketInitGen.cs, SimCore/Tweaks/CatalogTweaksV0.cs |
+| GATE.T55.SUPPLY.RARE_METALS_EXTRACTION.001 | DONE | Update extraction station mapping: mining RESOURCE_POOL_MARKER nodes also produce rare_metals. Hash-affecting. Core T1. Blocks: RARE_METALS_RECIPE. Proof: determinism tests | SimCore/Systems/ConstructionSystem.cs |
+| GATE.T55.REP.MISSION_WIRE.001 | DONE | Wire ReputationSystem.AdjustReputation on mission completion. New MissionRepGain=5 in FactionTweaksV0. Hash-affecting. Core T1. Proof: determinism tests | SimCore/Systems/MissionSystem.cs, SimCore/Tweaks/FactionTweaksV0.cs |
+| GATE.T55.ECON.FACTORY_BUFFER.001 | DONE | FactoryBufferDays 0→2, EvalRadiusEdges 1→2, seed 15 exotic_crystals at starter nodes. Hash-affecting. Core T1. Proof: determinism tests | SimCore/Tweaks/CatalogTweaksV0.cs, SimCore/Gen/MarketInitGen.cs |
+| GATE.T55.BOT.COMBAT_PIRATES.001 | DONE | Bot COMBAT phase finds pirate hostiles, fights, collects loot. Bridge T2. Blocks: PIRATE_FACTION. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.MISSION_TARGET.001 | DONE | Bot ENDGAME reads GetActiveMissionSummaryV0, navigates to target_node_id, buys target_good_id. Bridge T2. Blocks: MISSION_WIRE. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.VOID_SURVEY.001 | DONE | Bot SCAN phase surveys fracture derelicts via GetAvailableVoidSitesV0. Bridge T2. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.PIRATE_LOOT.001 | DONE | Verify pirate loot drops include rare_metals + salvaged_tech after combat. Bridge T2. Blocks: COMBAT_PIRATES. Proof: build | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.HAVEN_TIER3.001 | DONE | Run playthrough. Verify haven tier >= 3. Bridge T3. Blocks: all supply + econ gates. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.MISSION_COMPLETE.001 | DONE | Run playthrough. Verify >= 1 mission completed with rep reward. Bridge T3. Blocks: MISSION_TARGET. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.ENDGAME_25PCT.001 | DONE | Run playthrough. Verify endgame completion >= 25%. Bridge T3. Blocks: HAVEN_TIER3 + MISSION_COMPLETE. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T55.BOT.COMBAT_PROOF.001 | DONE | Run playthrough. Verify >= 1 combat victory. Bridge T3. Blocks: COMBAT_PIRATES. Proof: Run-Playthrough.ps1 | scripts/tests/playthrough_bot_v0.gd |
+| GATE.X.HYGIENE.EPIC_REVIEW.055 | DONE | Epic audit + T56 anchor rec. Docs T3. Proof: RoadmapConsistency | docs/54_EPICS.md |
+| GATE.T55.EVAL.ECONOMY_HEALTH.001 | DONE | Stress bot 1500 cycles. Verify no PRICE_COLLAPSE or ECONOMY_STALL. Docs T3. Proof: Run-Bot.ps1 -Mode stress | reports/ |
+
+Execution plan:
+- Tier 1 (7 gates): Hash chain core (PIRATE_FACTION → TERRITORY_ENFORCE, RARE_METALS_RECIPE → RARE_METALS_EXTRACTION, MISSION_WIRE, FACTORY_BUFFER — 3 independent chains). REPO_HEALTH parallel.
+- Tier 2 (4 gates): Bot updates (COMBAT_PIRATES, MISSION_TARGET, VOID_SURVEY, PIRATE_LOOT — all touch playthrough_bot_v0.gd, combine into 1-2 agents).
+- Tier 3 (6 gates): Proof runs (HAVEN_TIER3, MISSION_COMPLETE, ENDGAME_25PCT, COMBAT_PROOF sequential). EPIC_REVIEW + ECONOMY_HEALTH parallel.
+
+## AX. Tranche 56 — "Bot Consolidation + Bug Fixes" (EPIC.T53.AI_PLAYTEST.V0 Phase 4)
+
+Fix pirate loot collection + rare_metals drain. Consolidate 13 bots into 3. Wire into /audit.
+
+| Gate ID | Status | Description | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.056 | TODO | T56 health baseline. Docs T1. | SimCore.Tests/ |
+| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | TODO | Fix pirate loot not reaching cargo. Investigate GetNearbyLootV0 node matching vs combat node. Bridge T1. | scripts/bridge/SimBridge.Fleet.cs, scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.FIX.RARE_METALS_DRAIN.001 | TODO | Trace rare_metals drain during DebugAdvanceTicks. Check SustainSystem, automation programs, market trades consuming cargo. Hash-affecting if SimCore fix needed. Core T1. | SimCore/Systems/ |
+| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | TODO | Absorb exploration_bot_v1 flags (TRADE_NO_EFFECT, NEVER_BOUGHT, PRICE_COLLAPSE, ECONOMY_STALL, etc.) into playthrough_bot_v0. Add --mode flag (full/stress/trade/combat). Bridge T1. | scripts/tests/playthrough_bot_v0.gd, scripts/tests/exploration_bot_v1.gd |
+| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | TODO | Absorb quick/onboarding/ui screenshot bots into visual_sweep_bot_v0. Add --mode flag (quick/full/onboarding/ui). Bridge T1. | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.T56.BOT.RETIRE_LEGACY.001 | TODO | Delete 10 retired scripts. Update Run-Bot.ps1, Run-Screenshot.ps1, Run-EvalBot.ps1 references. Bridge T2. Blocks: CONSOLIDATE gates. | scripts/tests/, scripts/tools/ |
+| GATE.T56.BOT.STRESS_MODE.001 | TODO | Playthrough bot --mode stress: 1500+ ticks, economy flags (PRICE_COLLAPSE, ECONOMY_STALL, CREDIT_PLATEAU). Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | TODO | Fix mission completion: longer tick advancement after navigation, verify step trigger evaluation. Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | TODO | Update /audit SKILL.md to run playthrough bot as headless critical path test. Content T2. | .claude/skills/audit/SKILL.md |
+| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | TODO | Add RL smoke test (10 episodes via C# server) to /audit tier 1. Content T2. | .claude/skills/audit/SKILL.md |
+| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | TODO | Update Run-Bot.ps1 to delegate trade/combat/stress/full modes to playthrough_bot_v0. Content T2. | scripts/tools/Run-Bot.ps1 |
+| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | TODO | Run playthrough. Verify haven tier >= 3 with loot + drain fixes. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | TODO | Verify pirate loot (rare_metals + salvaged_tech) confirmed in player cargo after combat. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.MISSION_REP_PROOF.001 | TODO | Verify >= 1 mission completed with +5 rep in log. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | TODO | Run /audit with consolidated bots. Verify clean pass. Content T3. | .claude/skills/audit/SKILL.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.056 | TODO | Epic audit + T57 anchor rec. Docs T3. | docs/54_EPICS.md |
+| GATE.T56.EVAL.BOT_COVERAGE.001 | TODO | SimBridge method coverage: consolidated bot exercises N/363 methods. Report gaps. Docs T3. | scripts/tools/Bot-Analytics.ps1 |
+
+Execution plan:
+- Tier 1 (5 gates): Bug fixes (PIRATE_LOOT, RARE_METALS) + consolidation (PLAYTHROUGH, VISUAL) all parallel — different files. REPO_HEALTH parallel.
+- Tier 2 (6 gates): RETIRE_LEGACY depends on consolidation. STRESS_MODE + MISSION_FIX touch playthrough_bot (combine agent). Audit wiring (3 gates) parallel — different files.
+- Tier 3 (6 gates): Proof runs sequential (HAVEN_TIER3 → COMBAT_LOOT → MISSION_REP). FULL_AUDIT after wiring. EPIC_REVIEW + COVERAGE parallel.

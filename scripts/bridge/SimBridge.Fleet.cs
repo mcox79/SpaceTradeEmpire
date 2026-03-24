@@ -367,9 +367,12 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedFleetTransitV0; }
     }
 
-    // GATE.T30.GALPOP.HOSTILE_FIX.003: Compute hostile status from fleet owner faction + player reputation.
+    // GATE.T30.GALPOP.HOSTILE_FIX.003 + GATE.T55.COMBAT.PIRATE_FACTION.001 + GATE.T55.COMBAT.TERRITORY_ENFORCE.001:
+    // Compute hostile status from fleet owner faction + player reputation.
     // Only Patrol fleets owned by a non-player faction can be hostile.
     // Default: non-hostile (safe fallback). Hostility requires reputation below aggro threshold.
+    // Pirates are always hostile (AggroReputationThreshold = 999, any rep triggers).
+    // Territory enforcement: at Closed-regime nodes, faction patrols are hostile when rep < TerritoryHostileThreshold.
     private static bool ComputeFleetHostileV0(SimCore.SimState state, SimCore.Entities.Fleet fleet)
     {
         if (fleet.Role != SimCore.Entities.FleetRole.Patrol)
@@ -377,13 +380,36 @@ public partial class SimBridge
         if (StringComparer.Ordinal.Equals(fleet.OwnerId, "player"))
             return false;
 
+        // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirates are always hostile.
+        if (StringComparer.Ordinal.Equals(fleet.OwnerId, SimCore.Tweaks.FactionTweaksV0.PirateId))
+            return true;
+
         // Check player reputation with fleet's owner faction.
+        int rep = SimCore.Tweaks.FactionTweaksV0.ReputationDefault;
         if (!string.IsNullOrEmpty(fleet.OwnerId)
-            && state.FactionReputation.TryGetValue(fleet.OwnerId, out var rep))
+            && state.FactionReputation.TryGetValue(fleet.OwnerId, out var storedRep))
         {
-            return rep < SimCore.Tweaks.FactionTweaksV0.AggroReputationThreshold;
+            rep = storedRep;
         }
-        // If no reputation record exists, default reputation is 0 which is > -50 threshold = non-hostile.
+
+        // Standard aggro check: reputation below threshold.
+        if (rep < SimCore.Tweaks.FactionTweaksV0.AggroReputationThreshold)
+            return true;
+
+        // GATE.T55.COMBAT.TERRITORY_ENFORCE.001: Territory enforcement at Closed-regime nodes.
+        // If the node's committed regime is Hostile (derived from Closed trade policy + low rep),
+        // AND player rep with the fleet's faction is below TerritoryHostileThreshold, mark hostile.
+        string nodeId = fleet.CurrentNodeId ?? "";
+        if (!string.IsNullOrEmpty(nodeId))
+        {
+            var regime = SimCore.Systems.ReputationSystem.GetEffectiveRegime(state, nodeId);
+            if (regime == SimCore.Systems.TerritoryRegime.Hostile
+                && rep < SimCore.Tweaks.FactionTweaksV0.TerritoryHostileThreshold)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -982,81 +1008,4 @@ public partial class SimBridge
         return result;
     }
 
-    // GATE.S5.LOSS_RECOVERY.CAPTURE_BRIDGE.001: Capture target queries + capture action.
-
-    /// <summary>
-    /// Returns NPC fleets at player's node with hull below capture threshold (10%).
-    /// [{fleet_id, ship_class_id, hull_hp, hull_hp_max, owner_id}]
-    /// </summary>
-    public Godot.Collections.Array GetCaptureTargetsV0()
-    {
-        var arr = new Godot.Collections.Array();
-        TryExecuteSafeRead(state =>
-        {
-            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
-            foreach (var fleet in state.Fleets.Values)
-            {
-                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
-                if (fleet.HullHpMax <= 0) continue;
-                if (!string.Equals(fleet.CurrentNodeId, player.CurrentNodeId, StringComparison.Ordinal)) continue;
-                int threshold = Math.Max(1, fleet.HullHpMax / 10);
-                if (fleet.HullHp > threshold) continue;
-
-                arr.Add(new Godot.Collections.Dictionary
-                {
-                    ["fleet_id"] = fleet.Id,
-                    ["ship_class_id"] = fleet.ShipClassId,
-                    ["hull_hp"] = fleet.HullHp,
-                    ["hull_hp_max"] = fleet.HullHpMax,
-                    ["owner_id"] = fleet.OwnerId,
-                });
-            }
-        }, 0);
-        return arr;
-    }
-
-    /// <summary>
-    /// Capture a disabled NPC ship. Returns {success, reason, captured_fleet_id}.
-    /// </summary>
-    public Godot.Collections.Dictionary CaptureShipV0(string targetFleetId)
-    {
-        var result = new Godot.Collections.Dictionary { ["success"] = false, ["reason"] = "", ["captured_fleet_id"] = "" };
-        _stateLock.EnterWriteLock();
-        try
-        {
-            var state = _kernel.State;
-            // Pre-check for meaningful error messages
-            if (!state.Fleets.TryGetValue(targetFleetId, out var target))
-            {
-                result["reason"] = "target_not_found";
-                return result;
-            }
-            if (state.Haven == null || !state.Haven.Discovered || (int)state.Haven.Tier < 3)
-            {
-                result["reason"] = "haven_tier_insufficient";
-                return result;
-            }
-
-            var cmd = new SimCore.Commands.CaptureShipCommand(targetFleetId);
-            cmd.Execute(state);
-
-            // Check if capture was successful (target fleet removed)
-            if (!state.Fleets.ContainsKey(targetFleetId))
-            {
-                result["success"] = true;
-                // Find the captured fleet ID (last added to haven stored ships)
-                if (state.Haven.StoredShipIds.Count > 0)
-                    result["captured_fleet_id"] = state.Haven.StoredShipIds[state.Haven.StoredShipIds.Count - 1];
-            }
-            else
-            {
-                result["reason"] = "capture_failed";
-            }
-        }
-        finally
-        {
-            _stateLock.ExitWriteLock();
-        }
-        return result;
-    }
 }

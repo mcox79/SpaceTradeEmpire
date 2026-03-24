@@ -88,10 +88,14 @@ public class Market
         int stock = Inventory.TryGetValue(goodId, out var v) ? v : 0;
         int goodBase = GetGoodBasePrice(goodId);
 
-        // Deterministic linear scarcity curve around IdealStock.
-        // If stock < IdealStock => price > goodBase
-        // If stock > IdealStock => price < goodBase
-        int mid = goodBase + (IdealStock - stock);
+        // GATE.T52.ECON.TRADE_DIVERSITY.001: Proportional scarcity curve.
+        // Shift is proportional to base price so high-value goods respond
+        // more strongly to supply changes, encouraging trade diversity.
+        // ScarcityBpsPerUnit: each unit away from IdealStock shifts price by
+        // this many basis points of goodBase.
+        int delta = IdealStock - stock;
+        int shiftBps = delta * Tweaks.MarketTweaksV0.ScarcityBpsPerUnit;
+        int mid = goodBase + (int)((long)goodBase * shiftBps / 10000);
 
         return Math.Max(1, mid);
     }

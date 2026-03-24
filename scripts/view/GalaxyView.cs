@@ -107,6 +107,10 @@ public partial class GalaxyView : Node3D
     // Thresholds: close < 500u, medium 500-2000u, galaxy > 2000u.
     private float _lastSemanticAltitude = 0f;
 
+    // GATE.T52.DISC.BREADCRUMB.001: Breadcrumb trail connecting visited nodes by visit order.
+    private Node3D _breadcrumbTrailRoot;
+    private readonly List<MeshInstance3D> _breadcrumbSegments = new();
+
     // GATE.S17.REAL_SPACE.GALAXY_RENDER.001: Persistent star billboards at galactic-scale positions.
     private Node3D _persistentStarsRoot;
     // Persistent lane lines between stars (always visible in real-space flight).
@@ -187,6 +191,14 @@ public partial class GalaxyView : Node3D
     private double _scanMarkerRefreshTimer = 0.0;
     private const double ScanMarkerRefreshInterval = 3.0; // seconds
 
+    // GATE.T52.DISC.SCANNER_VIS.001: Dashed scanner range circle on galaxy map.
+    private MeshInstance3D _scannerRangeRing;
+    private int _lastScannerTier = -1;
+    // Scanner range in galactic units per tier: Basic=600, Mk1=900, Mk2=1200, Mk3=1500, Fracture=2100.
+    private static readonly float[] ScannerRangeByTier = { 600f, 900f, 1200f, 1500f, 2100f };
+    private const int ScannerRingSegmentCount = 64;
+    private const float ScannerRingDashRatio = 0.5f; // fraction of each segment that is visible
+
     // GATE.T44.AMBIENT.LANE_TRAFFIC.001: Lane traffic sprite refresh timer.
     private double _laneTrafficRefreshTimer = 0.0;
     private const double LaneTrafficRefreshInterval = 5.0; // seconds
@@ -217,6 +229,10 @@ public partial class GalaxyView : Node3D
         _persistentStarsRoot = new Node3D { Name = "PersistentStars" };
         _persistentLanesRoot = new Node3D { Name = "PersistentLanes" };
         _persistentLanesRoot.Visible = false; // Only visible during galaxy map.
+
+        // GATE.T52.DISC.BREADCRUMB.001: Breadcrumb trail container (visible during galaxy map).
+        _breadcrumbTrailRoot = new Node3D { Name = "BreadcrumbTrail" };
+        _breadcrumbTrailRoot.Visible = false;
 
         // Defer one frame so SimBridge finishes its own _Ready before we query it.
         CallDeferred(nameof(DrawLocalSystemBootV0));
@@ -303,6 +319,12 @@ public partial class GalaxyView : Node3D
             ClearRoutePlannerV0();
             HideSearchBarV0();
             HideNodeDetailPopupV0();
+            // GATE.T52.DISC: Hide scanner range ring and discovery phase markers on close.
+            if (_scannerRangeRing != null && GodotObject.IsInstanceValid(_scannerRangeRing))
+                _scannerRangeRing.Visible = false;
+            ClearDiscoveryPhaseMarkersV0();
+            // GATE.T52.DISC.BREADCRUMB.001: Clear breadcrumb trail on overlay close.
+            ClearBreadcrumbTrailV0();
         }
     }
 
@@ -339,6 +361,12 @@ public partial class GalaxyView : Node3D
                 kvp.Value.Visible = false;
             foreach (var kvp in _lootMarkersByDropId)
                 kvp.Value.Visible = false;
+            // GATE.T52.DISC.SCANNER_VIS.001: Hide scanner range ring during UI panel.
+            if (_scannerRangeRing != null && GodotObject.IsInstanceValid(_scannerRangeRing))
+                _scannerRangeRing.Visible = false;
+            // GATE.T52.DISC.BREADCRUMB.001: Hide breadcrumb trail during UI panel.
+            if (_breadcrumbTrailRoot != null)
+                _breadcrumbTrailRoot.Visible = false;
         }
         else
         {
@@ -409,6 +437,14 @@ public partial class GalaxyView : Node3D
                 _sharedLaneMaterial.AlbedoColor = new Color(c.R, c.G, c.B, LaneBaseAlpha * fadeAlpha);
             }
         }
+
+        // GATE.T52.DISC.BREADCRUMB.001: Breadcrumb trail visibility matches lanes.
+        if (_breadcrumbTrailRoot != null)
+        {
+            if (altitude >= 600f && _breadcrumbTrailRoot.GetChildCount() == 0)
+                SpawnBreadcrumbTrailV0();
+            _breadcrumbTrailRoot.Visible = altitude >= 600f;
+        }
     }
 
     /// Ensure persistent lane meshes are built (called during transit before overlay opens).
@@ -425,6 +461,9 @@ public partial class GalaxyView : Node3D
         foreach (var child in _persistentLanesRoot.GetChildren())
             child.QueueFree();
         SpawnPersistentLanesV0();
+
+        // GATE.T52.DISC.BREADCRUMB.001: Rebuild breadcrumb trail when lanes rebuild (new node visited).
+        RebuildBreadcrumbTrailV0();
     }
 
     /// Pre-build galaxy overlay visuals (nodes, edges, lanes) without making them visible.
@@ -958,6 +997,12 @@ public partial class GalaxyView : Node3D
             GetParent().AddChild(_persistentLanesRoot);
         }
 
+        // GATE.T52.DISC.BREADCRUMB.001: Breadcrumb trail container.
+        if (_breadcrumbTrailRoot != null && _breadcrumbTrailRoot.GetParent() == null)
+        {
+            GetParent().AddChild(_breadcrumbTrailRoot);
+        }
+
         var galaxySnap = _bridge.GetGalaxySnapshotV0();
         if (galaxySnap == null) return;
 
@@ -1281,6 +1326,98 @@ public partial class GalaxyView : Node3D
             }
             UpdateEdgeTransformV0(mesh, gateFrom, gateTo);
             _persistentLanesRoot.AddChild(mesh);
+        }
+    }
+
+    // ── GATE.T52.DISC.BREADCRUMB.001: Breadcrumb trail connecting visited nodes ──
+
+    private void ClearBreadcrumbTrailV0()
+    {
+        if (_breadcrumbTrailRoot == null) return;
+        foreach (var child in _breadcrumbTrailRoot.GetChildren())
+            child.QueueFree();
+        _breadcrumbSegments.Clear();
+    }
+
+    private void RebuildBreadcrumbTrailV0()
+    {
+        ClearBreadcrumbTrailV0();
+        SpawnBreadcrumbTrailV0();
+    }
+
+    /// <summary>
+    /// Draw thin connecting lines between visited nodes in visit order.
+    /// Lines fade by recency: most recent = bright white-blue, oldest = faint.
+    /// Lines are thinner than lane lines (radius 4 vs 12) to distinguish them.
+    /// </summary>
+    private void SpawnBreadcrumbTrailV0()
+    {
+        if (_bridge == null || _breadcrumbTrailRoot == null) return;
+
+        var visitHistory = _bridge.GetVisitHistoryV0();
+        if (visitHistory == null || visitHistory.Count < 2) return;
+
+        // Build node position lookup from galaxy snapshot.
+        var galSnap = _bridge.GetGalaxySnapshotV0();
+        if (galSnap == null || !galSnap.ContainsKey("system_nodes")) return;
+
+        float scale = SimCore.Tweaks.RealSpaceTweaksV0.GalacticScaleFactor;
+        var rawNodes = galSnap.ContainsKey("system_nodes")
+            ? (Godot.Collections.Array)galSnap["system_nodes"]
+            : new Godot.Collections.Array();
+
+        var posById = new Dictionary<string, Vector3>();
+        for (int i = 0; i < rawNodes.Count; i++)
+        {
+            Variant v = rawNodes[i];
+            if (v.VariantType != Variant.Type.Dictionary) continue;
+            var n = v.AsGodotDictionary();
+            var nid = n.ContainsKey("node_id") ? (string)(Variant)n["node_id"] : "";
+            if (string.IsNullOrEmpty(nid)) continue;
+            float px = n.ContainsKey("pos_x") ? (float)(Variant)n["pos_x"] : 0f;
+            float py = n.ContainsKey("pos_y") ? (float)(Variant)n["pos_y"] : 0f;
+            float pz = n.ContainsKey("pos_z") ? (float)(Variant)n["pos_z"] : 0f;
+            posById[nid] = new Vector3(px * scale, py * scale, pz * scale);
+        }
+
+        // Extract ordered node IDs from visit history (already sorted by tick asc).
+        int segmentCount = visitHistory.Count - 1;
+        for (int i = 0; i < segmentCount; i++)
+        {
+            var fromEntry = visitHistory[i].AsGodotDictionary();
+            var toEntry = visitHistory[i + 1].AsGodotDictionary();
+            var fromId = fromEntry.ContainsKey("node_id") ? (string)(Variant)fromEntry["node_id"] : "";
+            var toId = toEntry.ContainsKey("node_id") ? (string)(Variant)toEntry["node_id"] : "";
+
+            if (string.IsNullOrEmpty(fromId) || string.IsNullOrEmpty(toId)) continue;
+            if (!posById.TryGetValue(fromId, out var fromPos)) continue;
+            if (!posById.TryGetValue(toId, out var toPos)) continue;
+
+            // Recency alpha: oldest segment (i=0) = 0.15, newest (i=segmentCount-1) = 0.85.
+            float t = segmentCount > 1 ? (float)i / (segmentCount - 1) : 1f;
+            float alpha = Mathf.Lerp(0.15f, 0.85f, t);
+
+            var mat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.6f, 0.8f, 1.0f, alpha),
+                EmissionEnabled = true,
+                Emission = new Color(0.5f, 0.7f, 0.95f),
+                EmissionEnergyMultiplier = 0.8f,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            };
+
+            var mesh = new MeshInstance3D
+            {
+                Name = "Breadcrumb_" + i,
+                Mesh = new CylinderMesh { TopRadius = 4.0f, BottomRadius = 4.0f, Height = 1.0f },
+                MaterialOverride = mat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+
+            UpdateEdgeTransformV0(mesh, fromPos, toPos);
+            _breadcrumbTrailRoot.AddChild(mesh);
+            _breadcrumbSegments.Add(mesh);
         }
     }
 
@@ -4436,6 +4573,9 @@ public partial class GalaxyView : Node3D
         // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001: Discovery phase markers on galaxy map.
         UpdateDiscoveryPhaseMarkersV0();
 
+        // GATE.T52.DISC.SCANNER_VIS.001: Scanner range dashed circle centered on player node.
+        UpdateScannerRangeRingV0(playerNodeId);
+
         // GATE.S7.TERRITORY_SHIFT.MAP_UPDATE.001: Periodic territory overlay refresh.
         // Re-poll node-faction map every ~2 seconds to catch mid-game territory shifts.
         _territoryRefreshTimer -= Engine.GetProcessFrames() > 0 ? (1.0 / 60.0) : 0.016;
@@ -5341,20 +5481,223 @@ public partial class GalaxyView : Node3D
         _pentagonOverlayVisible = false;
     }
 
-    // GATE.S6.UI_DISCOVERY.PHASE_MARKERS.001: Draw discovery phase markers on the galaxy map.
-    // Unknown/Seen = gray circle, Scanned = amber diamond, Analyzed = green star.
-    // Markers are positioned at the node's galactic position with an offset.
+    // GATE.T52.DISC.PHASE_MARKERS.001: Draw discovery phase markers on the galaxy map.
+    // Gray = undiscovered (no discoveries found), Amber = partially scanned, Green = fully analyzed.
+    // Small indicator ring offset below each galaxy node.
     private void UpdateDiscoveryPhaseMarkersV0()
     {
-        // DiscPhaseMarker spheres/boxes/prisms removed — were placeholder programmer art.
-        ClearDiscoveryPhaseMarkersV0();
+        if (_bridge == null) return;
+
+        // Track which nodes we update this frame — remove stale markers afterward.
+        var activeNodeIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var kv in _nodeRootsById)
+        {
+            var nodeId = kv.Key;
+            var root = kv.Value;
+            if (root == null || !root.IsInsideTree()) continue;
+
+            var summary = _bridge.GetNodeDiscoveryPhaseSummaryV0(nodeId);
+            int total = (int)(Variant)summary["total"];
+
+            // No discovery sites seeded at this node — skip (no marker).
+            if (total == 0) continue;
+
+            string phaseToken = (string)(Variant)summary["phase_token"];
+            int analyzed = (int)(Variant)summary["analyzed"];
+            int scanned = (int)(Variant)summary["scanned"];
+
+            // Determine marker color based on discovery progress.
+            Color markerColor;
+            if (StringComparer.Ordinal.Equals(phaseToken, "COMPLETE"))
+            {
+                // All discoveries fully analyzed — green.
+                markerColor = new Color(0.2f, 1.0f, 0.4f, 0.7f);
+            }
+            else if (scanned > 0 || analyzed > 0)
+            {
+                // Some progress (scanned or partially analyzed) — amber.
+                markerColor = new Color(1.0f, 0.75f, 0.2f, 0.7f);
+            }
+            else
+            {
+                // Only Seen or no progress — gray.
+                markerColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            }
+
+            activeNodeIds.Add(nodeId);
+
+            if (!_discoveryPhaseMarkersByDiscId.TryGetValue(nodeId, out var marker) || !GodotObject.IsInstanceValid(marker))
+            {
+                // Create small torus ring offset below the node beacon.
+                var mat = new StandardMaterial3D
+                {
+                    AlbedoColor = markerColor,
+                    EmissionEnabled = true,
+                    Emission = new Color(markerColor.R, markerColor.G, markerColor.B),
+                    EmissionEnergyMultiplier = 4.0f,
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    NoDepthTest = true,
+                };
+                marker = new MeshInstance3D
+                {
+                    Name = "DiscPhaseMarker_" + nodeId,
+                    Mesh = new TorusMesh { InnerRadius = 110.0f, OuterRadius = 130.0f },
+                    MaterialOverride = mat,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    Rotation = new Vector3(Mathf.Pi / 2f, 0, 0),
+                    Position = new Vector3(0, -60.0f, 0),
+                };
+                root.AddChild(marker);
+                _discoveryPhaseMarkersByDiscId[nodeId] = marker;
+            }
+            else
+            {
+                // Update color on existing marker.
+                if (marker.MaterialOverride is StandardMaterial3D existingMat)
+                {
+                    existingMat.AlbedoColor = markerColor;
+                    existingMat.Emission = new Color(markerColor.R, markerColor.G, markerColor.B);
+                }
+            }
+        }
+
+        // Remove stale markers for nodes no longer in the galaxy view.
+        var staleKeys = new List<string>();
+        foreach (var kv in _discoveryPhaseMarkersByDiscId)
+        {
+            if (!activeNodeIds.Contains(kv.Key))
+                staleKeys.Add(kv.Key);
+        }
+        for (int i = 0; i < staleKeys.Count; i++)
+        {
+            if (GodotObject.IsInstanceValid(_discoveryPhaseMarkersByDiscId[staleKeys[i]]))
+                _discoveryPhaseMarkersByDiscId[staleKeys[i]].QueueFree();
+            _discoveryPhaseMarkersByDiscId.Remove(staleKeys[i]);
+        }
     }
 
     private void ClearDiscoveryPhaseMarkersV0()
     {
         foreach (var kv in _discoveryPhaseMarkersByDiscId)
-            kv.Value.QueueFree();
+        {
+            if (GodotObject.IsInstanceValid(kv.Value))
+                kv.Value.QueueFree();
+        }
         _discoveryPhaseMarkersByDiscId.Clear();
+    }
+
+    // GATE.T52.DISC.SCANNER_VIS.001: Dashed scanner range circle centered on the player's current node.
+    // Circle radius scales with scanner tier. Cyan with 50% alpha, dashed segments.
+    private void UpdateScannerRangeRingV0(string playerNodeId)
+    {
+        if (_bridge == null || string.IsNullOrEmpty(playerNodeId)) return;
+
+        // Get player node position.
+        if (!_nodeRootsById.TryGetValue(playerNodeId, out var playerRoot)) return;
+        if (playerRoot == null || !playerRoot.IsInsideTree()) return;
+
+        int tier = _bridge.GetScannerTierV0();
+        // Clamp tier to valid range.
+        if (tier < 0) tier = 0;
+        if (tier >= ScannerRangeByTier.Length) tier = ScannerRangeByTier.Length - 1;
+
+        float radius = ScannerRangeByTier[tier];
+
+        // Rebuild mesh only if tier changed or ring not yet created.
+        if (_scannerRangeRing == null || !GodotObject.IsInstanceValid(_scannerRangeRing) || tier != _lastScannerTier)
+        {
+            // Remove old ring.
+            if (_scannerRangeRing != null && GodotObject.IsInstanceValid(_scannerRangeRing))
+                _scannerRangeRing.QueueFree();
+
+            _scannerRangeRing = BuildDashedRingMeshV0(radius, ScannerRingSegmentCount, ScannerRingDashRatio);
+            AddChild(_scannerRangeRing);
+            _lastScannerTier = tier;
+        }
+
+        // Position the ring at the player node, in the XZ plane (Y=0 relative to galaxy view).
+        _scannerRangeRing.GlobalPosition = new Vector3(
+            playerRoot.GlobalPosition.X,
+            playerRoot.GlobalPosition.Y - 20.0f, // Slightly below node beacon.
+            playerRoot.GlobalPosition.Z
+        );
+        _scannerRangeRing.Visible = true;
+    }
+
+    // Build a dashed ring mesh in the XZ plane using ImmediateMesh with alternating visible segments.
+    private static MeshInstance3D BuildDashedRingMeshV0(float radius, int segmentCount, float dashRatio)
+    {
+        var immMesh = new ImmediateMesh();
+
+        var mat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.3f, 0.9f, 1.0f, 0.5f), // Cyan 50% alpha
+            EmissionEnabled = true,
+            Emission = new Color(0.3f, 0.9f, 1.0f),
+            EmissionEnergyMultiplier = 3.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            NoDepthTest = true,
+        };
+
+        // Ring thickness: use a thin strip of triangles per dash segment.
+        float innerR = radius - 15.0f;
+        float outerR = radius + 15.0f;
+        float angleStep = Mathf.Tau / segmentCount;
+        int dashSegs = Mathf.Max(1, (int)(segmentCount * dashRatio / 2)); // segments per dash
+        int gapSegs = Mathf.Max(1, segmentCount / (dashSegs * 2) > 0 ? (int)(segmentCount * (1.0f - dashRatio) / 2) : 1);
+
+        // Simple approach: iterate all segments, draw a dash segment, skip a gap segment.
+        // Each "group" = dashSegs visible + gapSegs invisible.
+        int groupSize = dashSegs + gapSegs;
+        // Recalculate for even distribution: 8 dashes around the ring.
+        int dashCount = 8;
+        int segsPerDash = segmentCount / (dashCount * 2); // half visible, half gap
+        if (segsPerDash < 1) segsPerDash = 1;
+
+        immMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+
+        for (int d = 0; d < dashCount; d++)
+        {
+            int startSeg = d * (segmentCount / dashCount);
+            int endSeg = startSeg + segsPerDash;
+            if (endSeg > segmentCount) endSeg = segmentCount;
+
+            for (int s = startSeg; s < endSeg; s++)
+            {
+                float a0 = s * angleStep;
+                float a1 = (s + 1) * angleStep;
+
+                // Four corners of this segment strip.
+                var innerA = new Vector3(Mathf.Cos(a0) * innerR, 0, Mathf.Sin(a0) * innerR);
+                var outerA = new Vector3(Mathf.Cos(a0) * outerR, 0, Mathf.Sin(a0) * outerR);
+                var innerB = new Vector3(Mathf.Cos(a1) * innerR, 0, Mathf.Sin(a1) * innerR);
+                var outerB = new Vector3(Mathf.Cos(a1) * outerR, 0, Mathf.Sin(a1) * outerR);
+
+                // Triangle 1: innerA, outerA, outerB
+                immMesh.SurfaceAddVertex(innerA);
+                immMesh.SurfaceAddVertex(outerA);
+                immMesh.SurfaceAddVertex(outerB);
+                // Triangle 2: innerA, outerB, innerB
+                immMesh.SurfaceAddVertex(innerA);
+                immMesh.SurfaceAddVertex(outerB);
+                immMesh.SurfaceAddVertex(innerB);
+            }
+        }
+
+        immMesh.SurfaceEnd();
+
+        var inst = new MeshInstance3D
+        {
+            Name = "ScannerRangeRing",
+            Mesh = immMesh,
+            MaterialOverride = mat,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+
+        return inst;
     }
 
     private void ClearTerritoryOverlayV0()

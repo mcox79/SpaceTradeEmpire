@@ -83,8 +83,11 @@ public static class FractureSystem
     // Returns deterministic buy/sell/mid with 1.5x volatility and 2x spread vs lane baseline.
     public static FracturePriceResult FracturePricingV0(int stock, int laneIdealStock = Market.IdealStock)
     {
-        // Baseline mid: same linear scarcity curve as lane markets.
-        int baseMid = Market.BasePrice + (laneIdealStock - stock);
+        // Baseline mid: same proportional scarcity curve as lane markets.
+        // Matches Market.GetMidPrice() proportional formula (GATE.T52.ECON.TRADE_DIVERSITY.001).
+        int delta = laneIdealStock - stock;
+        int shiftBps = delta * SimCore.Tweaks.MarketTweaksV0.ScarcityBpsPerUnit;
+        int baseMid = Market.BasePrice + (int)((long)Market.BasePrice * shiftBps / STRUCT_BPS_DIVISOR);
         if (baseMid < STRUCT_PRICE_FLOOR) baseMid = STRUCT_PRICE_FLOOR;
 
         // Volatility: amplify deviation from BasePrice by FractureVolatilityPct%.

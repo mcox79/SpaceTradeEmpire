@@ -53,6 +53,18 @@ public static class ConstructionContentV0
             Prerequisites = new List<string> { "engine_efficiency", "sensor_suite" },
             Description = "A science center provides research throughput and artifact analysis capability."
         },
+        // GATE.EXTRACT.STATION_DEF.001: Extraction station construction def.
+        new ConstructionDef
+        {
+            ProjectDefId = "constr_extraction_v0",
+            DisplayName = "Extraction Station",
+            Type = ConstructionType.Extraction,
+            TotalSteps = 4,
+            TicksPerStep = 30,
+            CreditCostPerStep = 250,
+            Prerequisites = new List<string>(),
+            Description = "An extraction station harvests rare materials from surveyed anomaly sites. Requires an analyzed discovery at the node."
+        },
     };
 
     private static readonly Dictionary<string, ConstructionDef> _byId;

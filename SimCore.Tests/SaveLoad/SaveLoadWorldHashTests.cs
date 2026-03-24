@@ -173,6 +173,10 @@ public class SaveLoadWorldHashTests
 
         sim.State.PlayerLocationNodeId = hubNodeId;
 
+        // Pre-seed discovery surface so before/after snapshots match
+        // (HydrateAfterLoad calls BackfillDiscoverySeedSurface on load).
+        SimCore.Gen.GalaxyGenerator.BackfillDiscoverySeedSurface(sim.State);
+
         sim.State.Fleets[fleetId] = new Fleet
         {
             Id = fleetId,
@@ -319,6 +323,10 @@ public class SaveLoadWorldHashTests
             "",
             "Discoveries (DiscoveryId asc):",
             "disc_seed_42_001\tPhase=Analyzed",
+            "disc_v0|AnomalyFamily|hub|SIGNAL|seed:42\tPhase=Seen",
+            "disc_v0|AnomalyFamily|node_001|RUIN|seed:42\tPhase=Seen",
+            "disc_v0|RESOURCE_POOL_MARKER|hub|resource_marker_v0|CORE|synthetic\tPhase=Seen",
+            "disc_v0|RESOURCE_POOL_MARKER|node_001|resource_marker_v0|FRONTIER|synthetic\tPhase=Seen",
             ""
         };
 

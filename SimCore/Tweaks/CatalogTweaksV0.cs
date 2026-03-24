@@ -70,6 +70,10 @@ namespace SimCore.Tweaks
         public const int ElectronicsOutput = 2;
         public const int ElectronicsDegradeBps = 400;
         public const int ElectronicsBootstrapCrystals = 50;
+        public const int ElectronicsBootstrapStock = 30;
+
+        // Composites bootstrap stock at fabricator nodes.
+        public const int CompositesBootstrapStock = 30;
 
         // Salvage yard placement (salvaged_tech → metal or components).
         public const int SalvageNodeModulus = 13;
@@ -87,16 +91,37 @@ namespace SimCore.Tweaks
         public const int FactoryOreInput = 10;         // Ore consumed per tick at refineries.
         public const int FactoryMetalOutput = 5;       // Metal produced per tick at refineries.
         public const int FactoryFuelInput = 1;         // Fuel consumed per tick at refineries.
-        public const int FactoryBufferDays = 0;        // No pre-buffering; consume inputs as they arrive.
+        public const int FactoryBufferDays = 2;        // GATE.T55.ECON.FACTORY_BUFFER.001: 2-day buffer for production stability.
         public const int FactoryDegradeBps = 500;      // 5% health loss per day at full undersupply.
+
+        // GATE.T53.BOT.MARKET_SEED.001: Starter mining node manufactured-goods stock.
+        public const int StarterMiningComposites = 25;
+        public const int StarterMiningElectronics = 25;
+        public const int StarterMiningRareMetals = 25;
 
         // Starter refinery node stock (odd starter nodes).
         public const int StarterRefineryFuel = 10;     // Low fuel drives traders to haul fuel in.
         public const int StarterRefineryMetal = 200;   // High metal drives traders to haul metal out.
 
+        // GATE.T53.BOT.MARKET_SEED.001: Starter refinery node manufactured-goods stock.
+        public const int StarterRefineryComposites = 20;
+        public const int StarterRefineryElectronics = 20;
+
+        // GATE.T55.ECON.FACTORY_BUFFER.001: Exotic crystals seed at starter nodes for recipe bootstrap.
+        public const int StarterExoticCrystals = 15;
+
         // Distribution sink placement (starter region).
         public const int SinkPlacementModulus = 5;     // Every Nth starter node gets a metal sink.
         public const int SinkPlacementOffset = 1;      // Modular offset for sink placement.
+
+        // GATE.T55.SUPPLY.RARE_METALS_RECIPE.001: Rare metals refinery placement.
+        public const int RareMetalsRefNodeModulus = 10;
+        public const int RareMetalsRefNodeOffset = 3;
+        public const int RareMetalsRefOreInput = 5;
+        public const int RareMetalsRefCrystalsInput = 1;
+        public const int RareMetalsRefOutput = 2;
+        public const int RareMetalsRefDegradeBps = 400;
+        public const int RareMetalsRefBootstrapStock = 15;
 
         // ChainAnalysis: algorithm bounds.
         public const int ChainMaxTraceDepth = 10;

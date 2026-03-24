@@ -12,6 +12,8 @@ public static class MissionTemplateContentV0
         Explore = 1,
         Combat = 2,
         Politics = 3,
+        Diplomacy = 4,
+        Smuggling = 5,
     }
 
     public enum ObjectiveType
@@ -916,6 +918,243 @@ public static class MissionTemplateContentV0
     };
 
     // ──────────────────────────────────────────────────────────────────────────
+    // DIPLOMACY TEMPLATES (6 total)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    // GATE.T52.MISSION.M7_DIPLOMACY.001: 6 diplomacy templates — treaty delivery, faction envoy, rep-building courier.
+    public static readonly MissionTemplateDef TreatyDelivery = new()
+    {
+        TemplateId = "treaty_delivery",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Treaty Delivery",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_capital_for_treaty" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_treaty_documents" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "return_signed_treaty" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 2500 },
+            new() { TwistType = "intelligence", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 550, PerTwistBonusBps = 3000 },
+        RequiredRepTier = 1, // Friendly or better
+        FactionId = "",
+    };
+
+    public static readonly MissionTemplateDef FactionEnvoy = new()
+    {
+        TemplateId = "faction_envoy",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Faction Envoy",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Escort, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "escort_envoy_to_summit" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "attend_diplomatic_summit" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "ambush", WeightBps = 3000 },
+            new() { TwistType = "intelligence", WeightBps = 2500 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 500, PerTwistBonusBps = 3000 },
+        RequiredRepTier = 2, // Neutral or better
+    };
+
+    public static readonly MissionTemplateDef RepBuildingCourier = new()
+    {
+        TemplateId = "rep_building_courier",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Reputation Courier",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_goodwill_cargo_1" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_goodwill_cargo_2" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "rival_runner", WeightBps = 2500 },
+            new() { TwistType = "price_spike", WeightBps = 2000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 350, PerTwistBonusBps = 2500 },
+    };
+
+    public static readonly MissionTemplateDef CeaseFireNegotiation = new()
+    {
+        TemplateId = "ceasefire_negotiation",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Ceasefire Negotiation",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_warfront_faction_station" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_ceasefire_proposal" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "await_ceasefire_ratification" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 3500 },
+            new() { TwistType = "ambush", WeightBps = 2500 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 650, PerTwistBonusBps = 3500 },
+        RequiredRepTier = 3, // Allied
+    };
+
+    public static readonly MissionTemplateDef AidConvoyDiplomacy = new()
+    {
+        TemplateId = "aid_convoy_diplomacy",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Aid Convoy Diplomacy",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_humanitarian_aid" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "confirm_aid_receipt_and_rep_gain" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 3000 },
+            new() { TwistType = "shortage_shift", WeightBps = 2000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 400, PerTwistBonusBps = 2500 },
+    };
+
+    public static readonly MissionTemplateDef AllianceBroker = new()
+    {
+        TemplateId = "alliance_broker",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Alliance Broker",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_first_faction_leader" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "carry_alliance_terms" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_second_faction_leader" },
+            new() { StepIndex = 3, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "finalize_alliance_compact" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "intelligence", WeightBps = 3500 },
+            new() { TwistType = "ambush", WeightBps = 2000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 700, PerTwistBonusBps = 3000 },
+        RequiredRepTier = 2, // Neutral or better
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // SMUGGLING TEMPLATES (6 total)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    // GATE.T52.MISSION.M8_SMUGGLE.001: 6 smuggling templates — contraband delivery, trace risk, faction-banned goods.
+    public static readonly MissionTemplateDef ContrabandDelivery = new()
+    {
+        TemplateId = "contraband_delivery",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Contraband Delivery",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_contraband_to_black_market" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 4000 },
+            new() { TwistType = "contraband_mixed", WeightBps = 3500 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 600, PerTwistBonusBps = 4000 },
+    };
+
+    public static readonly MissionTemplateDef TraceEscalationRun = new()
+    {
+        TemplateId = "trace_escalation_run",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Trace Escalation Run",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "pickup_hot_cargo" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "evade_patrol_checkpoint" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_before_trace_cap" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 4500 },
+            new() { TwistType = "ambush", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 750, PerTwistBonusBps = 4000 },
+    };
+
+    public static readonly MissionTemplateDef FactionBannedGoods = new()
+    {
+        TemplateId = "faction_banned_goods",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Faction-Banned Goods",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "smuggle_banned_goods_into_territory" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 5000 },
+            new() { TwistType = "contraband_mixed", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 700, PerTwistBonusBps = 4500 },
+    };
+
+    public static readonly MissionTemplateDef BlackMarketChain = new()
+    {
+        TemplateId = "black_market_chain",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Black Market Chain",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "meet_black_market_contact" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_to_fence_station_1" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_to_fence_station_2" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "ambush", WeightBps = 3500 },
+            new() { TwistType = "contraband_mixed", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 650, PerTwistBonusBps = 3500 },
+    };
+
+    public static readonly MissionTemplateDef DataSmugglerRun = new()
+    {
+        TemplateId = "data_smuggler_run",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Data Smuggler Run",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "acquire_classified_data" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_data_to_buyer" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "intelligence", WeightBps = 4000 },
+            new() { TwistType = "blockade", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 550, PerTwistBonusBps = 3500 },
+    };
+
+    public static readonly MissionTemplateDef HighRiskCourierSmuggle = new()
+    {
+        TemplateId = "high_risk_courier_smuggle",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "High-Risk Courier",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "collect_high_risk_package" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "pass_through_patrol_zone" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "pass_through_patrol_zone_2" },
+            new() { StepIndex = 3, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_package_to_drop_point" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "ambush", WeightBps = 4500 },
+            new() { TwistType = "blockade", WeightBps = 3500 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 800, PerTwistBonusBps = 4500 },
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
     // All templates registry.
     // ──────────────────────────────────────────────────────────────────────────
     public static readonly IReadOnlyList<MissionTemplateDef> AllTemplates = new List<MissionTemplateDef>
@@ -938,5 +1177,11 @@ public static class MissionTemplateContentV0
         DiplomaticCourier, TradeEmbargoRun, FactionFavor,
         DefectorExtraction, TradeAgreementEscort, FactionIntelDrop,
         DisputedTerritorySurvey, SanctionsRunner, PeaceEnvoy,
+        // Diplomacy (6) — GATE.T52.MISSION.M7_DIPLOMACY.001
+        TreatyDelivery, FactionEnvoy, RepBuildingCourier,
+        CeaseFireNegotiation, AidConvoyDiplomacy, AllianceBroker,
+        // Smuggling (6) — GATE.T52.MISSION.M8_SMUGGLE.001
+        ContrabandDelivery, TraceEscalationRun, FactionBannedGoods,
+        BlackMarketChain, DataSmugglerRun, HighRiskCourierSmuggle,
     };
 }

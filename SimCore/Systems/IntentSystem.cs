@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using SimCore.Intents;
 
 namespace SimCore.Systems;
@@ -7,7 +8,7 @@ namespace SimCore.Systems;
 public static class IntentSystem
 {
     // GATE.S3.FLEET.ROLES.001
-    // Optional intent surface for “competing route choices” that must be resolved deterministically.
+    // Optional intent surface for "competing route choices" that must be resolved deterministically.
     // Only intents implementing this interface are subject to role-based selection.
     public interface IFleetRouteChoiceIntent : IIntent
     {
@@ -20,85 +21,106 @@ public static class IntentSystem
         int RiskScore { get; }
     }
 
+    private sealed class Scratch
+    {
+        public readonly List<IntentEnvelope> Due = new();
+        public readonly List<IntentEnvelope> ChoiceEnvelopes = new();
+        public readonly HashSet<long> SelectedSeq = new();
+        public readonly HashSet<long> DueSeq = new();
+        // Group key → list of (envelope, choice intent) pairs
+        public readonly Dictionary<(int CreatedTick, string FleetId), List<(IntentEnvelope env, IFleetRouteChoiceIntent ci)>> Groups = new();
+        public readonly List<(int CreatedTick, string FleetId)> SortedGroupKeys = new();
+        public readonly List<(IntentEnvelope env, IFleetRouteChoiceIntent ci)> CandidateSortBuf = new();
+    }
+
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (state.PendingIntents.Count == 0) return;
 
         var now = state.Tick;
+        var scratch = s_scratch.GetOrCreateValue(state);
 
-        var due = state.PendingIntents
-            .Where(x => x.CreatedTick <= now)
-            .OrderBy(x => x.CreatedTick)
-            .ThenBy(x => x.Seq)
-            .ThenBy(x => x.Kind, StringComparer.Ordinal)
-            .ToList();
-
+        // --- Collect due intents ---
+        var due = scratch.Due;
+        due.Clear();
+        foreach (var env in state.PendingIntents)
+        {
+            if (env.CreatedTick <= now) due.Add(env);
+        }
         if (due.Count == 0) return;
 
-        // Role-based deterministic selection for competing route-choice intents.
-        // Semantics: for a given (CreatedTick, FleetId), apply exactly one choice intent (best per role),
-        // then drop the remaining competing choice intents in that group. All non-choice intents are applied as-is.
-        // Determine winners per (CreatedTick, FleetId) and emit a schema-bound event for each winner.
-        var choiceGroups = due
-            .Where(env => env.Intent is IFleetRouteChoiceIntent)
-            .GroupBy(env =>
-            {
-                var ci = (IFleetRouteChoiceIntent)env.Intent!;
-                return (env.CreatedTick, FleetId: ci.FleetId);
-            })
-            .OrderBy(g => g.Key.CreatedTick)
-            .ThenBy(g => g.Key.FleetId ?? "", StringComparer.Ordinal)
-            .ToList();
+        // Deterministic sort: CreatedTick, Seq, Kind
+        due.Sort(static (a, b) =>
+        {
+            int c = a.CreatedTick.CompareTo(b.CreatedTick);
+            if (c != 0) return c;
+            c = a.Seq.CompareTo(b.Seq);
+            if (c != 0) return c;
+            return string.Compare(a.Kind, b.Kind, StringComparison.Ordinal);
+        });
 
-        var selectedSeq = choiceGroups
-            .Select(g =>
+        // --- Group choice intents by (CreatedTick, FleetId) ---
+        var groups = scratch.Groups;
+        groups.Clear();
+        var choiceEnvelopes = scratch.ChoiceEnvelopes;
+        choiceEnvelopes.Clear();
+
+        foreach (var env in due)
+        {
+            if (env.Intent is IFleetRouteChoiceIntent ci)
             {
+                choiceEnvelopes.Add(env);
+                var key = (env.CreatedTick, FleetId: ci.FleetId ?? "");
+                if (!groups.TryGetValue(key, out var list))
+                {
+                    list = new List<(IntentEnvelope, IFleetRouteChoiceIntent)>();
+                    groups[key] = list;
+                }
+                list.Add((env, ci));
+            }
+        }
+
+        // --- Deterministic winner selection per group ---
+        var selectedSeq = scratch.SelectedSeq;
+        selectedSeq.Clear();
+
+        if (groups.Count > 0)
+        {
+            var sortedKeys = scratch.SortedGroupKeys;
+            sortedKeys.Clear();
+            foreach (var k in groups.Keys) sortedKeys.Add(k);
+            sortedKeys.Sort(static (a, b) =>
+            {
+                int c = a.CreatedTick.CompareTo(b.CreatedTick);
+                if (c != 0) return c;
+                return string.Compare(a.FleetId, b.FleetId, StringComparison.Ordinal);
+            });
+
+            var sortBuf = scratch.CandidateSortBuf;
+
+            foreach (var key in sortedKeys)
+            {
+                var candidates = groups[key];
+
                 // Fleet role defaults to Trader if missing.
                 var role = SimCore.Entities.FleetRole.Trader;
                 if (state.Fleets != null &&
-                    !string.IsNullOrWhiteSpace(g.Key.FleetId) &&
-                    state.Fleets.TryGetValue(g.Key.FleetId, out var fleet) &&
+                    !string.IsNullOrWhiteSpace(key.FleetId) &&
+                    state.Fleets.TryGetValue(key.FleetId, out var fleet) &&
                     fleet != null)
                 {
                     role = fleet.Role;
                 }
 
-                var candidates = g.Select(env => (env, ci: (IFleetRouteChoiceIntent)env.Intent!));
+                // Sort candidates deterministically by role priority.
+                sortBuf.Clear();
+                sortBuf.AddRange(candidates);
+                sortBuf.Sort((a, b) => CompareByRole(a, b, role));
 
-                IOrderedEnumerable<(IntentEnvelope env, IFleetRouteChoiceIntent ci)> ordered;
-
-                // Order within group deterministically based on role, then stable tie-breaks.
-                if (role == SimCore.Entities.FleetRole.Hauler)
-                {
-                    ordered = candidates
-                        .OrderByDescending(x => x.ci.CapacityScore)
-                        .ThenByDescending(x => x.ci.ProfitScore)
-                        .ThenBy(x => x.ci.RiskScore)
-                        .ThenBy(x => x.ci.RouteId, StringComparer.Ordinal)
-                        .ThenBy(x => x.env.Seq);
-                }
-                else if (role == SimCore.Entities.FleetRole.Patrol)
-                {
-                    ordered = candidates
-                        .OrderBy(x => x.ci.RiskScore)
-                        .ThenByDescending(x => x.ci.ProfitScore)
-                        .ThenByDescending(x => x.ci.CapacityScore)
-                        .ThenBy(x => x.ci.RouteId, StringComparer.Ordinal)
-                        .ThenBy(x => x.env.Seq);
-                }
-                else
-                {
-                    // Trader (default)
-                    ordered = candidates
-                        .OrderByDescending(x => x.ci.ProfitScore)
-                        .ThenByDescending(x => x.ci.CapacityScore)
-                        .ThenBy(x => x.ci.RiskScore)
-                        .ThenBy(x => x.ci.RouteId, StringComparer.Ordinal)
-                        .ThenBy(x => x.env.Seq);
-                }
-
-                var winner = ordered.First();
+                var winner = sortBuf[0];
                 var ciw = winner.ci;
 
                 // Emit schema-bound fleet event describing the deterministic choice.
@@ -114,10 +136,11 @@ public static class IntentSystem
                     Note = "route_choice_v0"
                 });
 
-                return winner.env.Seq;
-            })
-            .ToHashSet();
+                selectedSeq.Add(winner.env.Seq);
+            }
+        }
 
+        // --- Apply intents ---
         foreach (var env in due)
         {
             if (env.Intent is IFleetRouteChoiceIntent)
@@ -129,8 +152,50 @@ public static class IntentSystem
             env.Intent?.Apply(state);
         }
 
-        // Remove processed intents deterministically
-        var dueSeq = due.Select(x => x.Seq).ToHashSet();
+        // --- Remove processed intents deterministically ---
+        var dueSeq = scratch.DueSeq;
+        dueSeq.Clear();
+        foreach (var env in due) dueSeq.Add(env.Seq);
         state.PendingIntents.RemoveAll(x => dueSeq.Contains(x.Seq));
+    }
+
+    private static int CompareByRole(
+        (IntentEnvelope env, IFleetRouteChoiceIntent ci) a,
+        (IntentEnvelope env, IFleetRouteChoiceIntent ci) b,
+        SimCore.Entities.FleetRole role)
+    {
+        int c;
+        if (role == SimCore.Entities.FleetRole.Hauler)
+        {
+            c = b.ci.CapacityScore.CompareTo(a.ci.CapacityScore); // descending
+            if (c != 0) return c;
+            c = b.ci.ProfitScore.CompareTo(a.ci.ProfitScore); // descending
+            if (c != 0) return c;
+            c = a.ci.RiskScore.CompareTo(b.ci.RiskScore); // ascending
+            if (c != 0) return c;
+        }
+        else if (role == SimCore.Entities.FleetRole.Patrol)
+        {
+            c = a.ci.RiskScore.CompareTo(b.ci.RiskScore); // ascending
+            if (c != 0) return c;
+            c = b.ci.ProfitScore.CompareTo(a.ci.ProfitScore); // descending
+            if (c != 0) return c;
+            c = b.ci.CapacityScore.CompareTo(a.ci.CapacityScore); // descending
+            if (c != 0) return c;
+        }
+        else
+        {
+            // Trader (default)
+            c = b.ci.ProfitScore.CompareTo(a.ci.ProfitScore); // descending
+            if (c != 0) return c;
+            c = b.ci.CapacityScore.CompareTo(a.ci.CapacityScore); // descending
+            if (c != 0) return c;
+            c = a.ci.RiskScore.CompareTo(b.ci.RiskScore); // ascending
+            if (c != 0) return c;
+        }
+        // Stable tie-breaks: RouteId, then Seq
+        c = string.Compare(a.ci.RouteId, b.ci.RouteId, StringComparison.Ordinal);
+        if (c != 0) return c;
+        return a.env.Seq.CompareTo(b.env.Seq);
     }
 }

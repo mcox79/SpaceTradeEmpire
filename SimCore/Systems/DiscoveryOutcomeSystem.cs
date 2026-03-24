@@ -121,6 +121,26 @@ public static class DiscoveryOutcomeSystem
             TryAdvanceChains(state, disc.DiscoveryId, kind2, nodeId2);
 
             state.AnomalyEncounters[outcomeKey] = outcome;
+
+            // GATE.T53.BOT.DISCOVERY_LOOT.001: Create LootDrop from encounter loot so player can collect.
+            if (outcome.LootItems.Count > 0 || outcome.CreditReward > 0)
+            {
+                var dropId = "loot_disc_" + outcomeKey;
+                if (!state.LootDrops.ContainsKey(dropId))
+                {
+                    var drop = new Entities.LootDrop
+                    {
+                        Id = dropId,
+                        NodeId = nodeId2,
+                        Rarity = Entities.LootRarity.Uncommon,
+                        TickCreated = state.Tick,
+                        Credits = outcome.CreditReward,
+                    };
+                    foreach (var kv in outcome.LootItems)
+                        drop.Goods[kv.Key] = kv.Value;
+                    state.LootDrops[dropId] = drop;
+                }
+            }
         }
 
         // GATE.S6.FRACTURE_DISCOVERY.UNLOCK.001: Check VoidSites for analyzed FractureDerelict.
@@ -540,7 +560,7 @@ public static class DiscoveryOutcomeSystem
                         if (string.Equals(loot.Key, "credits", StringComparison.Ordinal))
                             state.PlayerCredits += loot.Value;
                         else if (string.Equals(loot.Key, Content.WellKnownGoodIds.ExoticMatter, StringComparison.Ordinal))
-                            state.PlayerCredits += loot.Value; // exotic_matter converts to credits for now
+                            InventoryLedger.AddCargo(state.PlayerCargo, Content.WellKnownGoodIds.ExoticMatter, loot.Value);
                     }
                 }
             }

@@ -71,6 +71,15 @@ public static class MarketInitGen
                     mkt.Inventory[WellKnownGoodIds.Fuel] = 120;
                     mkt.Inventory[WellKnownGoodIds.Ore] = 500;
                     mkt.Inventory[WellKnownGoodIds.Metal] = 10;
+                    // GATE.T53.BOT.MARKET_SEED.001: Seed manufactured goods at starter nodes
+                    // so haven upgrade materials are available in the first hour.
+                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterMiningComposites;
+                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterMiningElectronics;
+                    mkt.Inventory[WellKnownGoodIds.RareMetals] =
+                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.RareMetals), CatalogTweaksV0.StarterMiningRareMetals);
+                    // GATE.T55.ECON.FACTORY_BUFFER.001: Seed exotic crystals for rare metals refinery bootstrap.
+                    mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
+                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.StarterExoticCrystals);
                 }
                 else
                 {
@@ -107,6 +116,12 @@ public static class MarketInitGen
                     mkt.Inventory[WellKnownGoodIds.Fuel] = CatalogTweaksV0.StarterRefineryFuel;
                     mkt.Inventory[WellKnownGoodIds.Ore] = STRUCT_ZERO_STOCK;
                     mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.StarterRefineryMetal;
+                    // GATE.T53.BOT.MARKET_SEED.001: Seed manufactured goods at starter nodes.
+                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterRefineryComposites;
+                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterRefineryElectronics;
+                    // GATE.T55.ECON.FACTORY_BUFFER.001: Seed exotic crystals for rare metals refinery bootstrap.
+                    mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
+                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.StarterExoticCrystals);
                 }
                 else
                 {
@@ -208,6 +223,14 @@ public static class MarketInitGen
                     BufferDays = 2,
                     DegradePerDayBps = CatalogTweaksV0.CompositesDegradeBps,
                 };
+                // GATE.T53.BOT.MARKET_SEED.001: Seed initial composites + inputs so players can buy in first hour.
+                mkt.Inventory[WellKnownGoodIds.Composites] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.Composites), CatalogTweaksV0.CompositesBootstrapStock);
+                // Seed inputs so the factory can sustain production.
+                mkt.Inventory[WellKnownGoodIds.Metal] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.Metal), CatalogTweaksV0.CompositesBootstrapStock);
+                mkt.Inventory[WellKnownGoodIds.Organics] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.Organics), CatalogTweaksV0.CompositesBootstrapStock);
             }
 
             // AssembleComponents: at tech-industrial nodes.
@@ -252,6 +275,9 @@ public static class MarketInitGen
                 // Seed initial Exotic Crystals stock so the factory can bootstrap.
                 mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
                     Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.ElectronicsBootstrapCrystals);
+                // GATE.T53.BOT.MARKET_SEED.001: Seed initial electronics so players can buy in first hour.
+                mkt.Inventory[WellKnownGoodIds.Electronics] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.Electronics), CatalogTweaksV0.ElectronicsBootstrapStock);
             }
 
             // SalvageToMetal: at salvage yards.
@@ -288,6 +314,29 @@ public static class MarketInitGen
                     BufferDays = 1,
                     DegradePerDayBps = 0,
                 };
+            }
+
+            // GATE.T55.SUPPLY.RARE_METALS_RECIPE.001: Rare metals refinery (ore + exotic_crystals → rare_metals).
+            if (i % CatalogTweaksV0.RareMetalsRefNodeModulus == CatalogTweaksV0.RareMetalsRefNodeOffset)
+            {
+                state.IndustrySites[$"rmref_{i}"] = new IndustrySite
+                {
+                    Id = $"rmref_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.RefineRareMetals,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Ore, CatalogTweaksV0.RareMetalsRefOreInput },
+                        { WellKnownGoodIds.ExoticCrystals, CatalogTweaksV0.RareMetalsRefCrystalsInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.RareMetals, CatalogTweaksV0.RareMetalsRefOutput } },
+                    BufferDays = 2,
+                    DegradePerDayBps = CatalogTweaksV0.RareMetalsRefDegradeBps,
+                };
+                // Seed initial rare_metals stock so the refinery bootstraps.
+                mkt.Inventory[WellKnownGoodIds.RareMetals] =
+                    Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.RareMetals), CatalogTweaksV0.RareMetalsRefBootstrapStock);
+                node.Name += " (Rare Ref)";
             }
 
             state.Markets.Add(node.MarketId, mkt);

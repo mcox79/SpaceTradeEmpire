@@ -1,5 +1,4 @@
 extends Node
-class_name SteamInterface
 
 ## Steam integration stub. When GodotSteam is installed, this delegates to it.
 ## When not installed, all calls are no-ops that return safe defaults.

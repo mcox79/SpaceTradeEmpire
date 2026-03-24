@@ -22,6 +22,9 @@ public static class FleetPopulationTweaksV0
     public static readonly (int Traders, int Haulers, int Patrols) Communion = (1, 0, 1); // 2 total — sparse
     public static readonly (int Traders, int Haulers, int Patrols) Unclaimed = (2, 1, 0); // 3 total — independents
 
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirates are patrol-only — no traders or haulers.
+    public static readonly (int Traders, int Haulers, int Patrols) Pirate = (0, 0, 1); // 1 patrol per seeded node
+
     public static (int Traders, int Haulers, int Patrols) GetComposition(string factionId)
     {
         if (string.IsNullOrEmpty(factionId)) return Unclaimed;
@@ -32,6 +35,7 @@ public static class FleetPopulationTweaksV0
             FactionTweaksV0.WeaversId   => Weavers,
             FactionTweaksV0.ValorinId   => Valorin,
             FactionTweaksV0.CommunionId => Communion,
+            FactionTweaksV0.PirateId    => Pirate,
             _ => Unclaimed,
         };
     }

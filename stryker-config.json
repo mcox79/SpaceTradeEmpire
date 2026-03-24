@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-net/master/src/Stryker.Core/Stryker.Core/config-schema.json",
+  "stryker-config": {
+    "project-info": {
+      "name": "github.com/SpaceTradeEmpire/SimCore"
+    },
+    "project": "SimCore/SimCore.csproj",
+    "test-projects": [
+      "SimCore.Tests/SimCore.Tests.csproj"
+    ],
+    "reporters": [
+      "html",
+      "json",
+      "progress"
+    ],
+    "log-level": "info",
+    "mutation-level": "Standard",
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 40
+    },
+    "mutate": [
+      "SimCore/Systems/**/*.cs",
+      "SimCore/Entities/**/*.cs",
+      "SimCore/Gen/**/*.cs",
+      "SimCore/SimKernel.cs",
+      "!SimCore/Systems/TelemetrySystem.cs",
+      "!SimCore/Systems/SerializationSystem.cs"
+    ],
+    "concurrency": 4,
+    "since": {
+      "enabled": false,
+      "target": "main"
+    }
+  }
+}

@@ -19,6 +19,9 @@ public static class WellKnownRecipeIds
     // Manufacturing
     public const string AssembleComponents      = "recipe_assemble_components";
 
+    // Refining (rare metals)
+    public const string RefineRareMetals        = "recipe_refine_rare_metals";
+
     // Salvage
     public const string SalvageToMetal          = "recipe_salvage_to_metal";
     public const string SalvageToComponents     = "recipe_salvage_to_components";

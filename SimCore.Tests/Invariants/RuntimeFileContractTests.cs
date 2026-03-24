@@ -109,8 +109,14 @@ public sealed class RuntimeFileContractTests
         {
             // Allow legacy worldgen hardcodes until migrated to data-driven access.
             // Deterministic match: exact path prefix and exact id suffix.
-            return v.StartsWith("SimCore/Gen/GalaxyGenerator.cs:", StringComparison.Ordinal)
-                   && v.EndsWith(":ore", StringComparison.Ordinal);
+            if (v.StartsWith("SimCore/Gen/GalaxyGenerator.cs:", StringComparison.Ordinal)
+                && v.EndsWith(":ore", StringComparison.Ordinal))
+                return true;
+            // ConstructionSystem uses "ore"/"mine" to detect resource-pool discoveries for rare metals output.
+            if (v.StartsWith("SimCore/Systems/ConstructionSystem.cs:", StringComparison.Ordinal)
+                && (v.EndsWith(":ore", StringComparison.Ordinal) || v.EndsWith(":mine", StringComparison.Ordinal)))
+                return true;
+            return false;
         }
 
         var legacy = all.Where(IsLegacyAllowlisted).ToList();

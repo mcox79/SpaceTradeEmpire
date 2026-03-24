@@ -229,6 +229,10 @@ public partial class SimState
         // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Intel book hydration.
         Intel ??= new Entities.IntelBook();
 
+        // GATE.T53.BOT.DISCOVERY_SEED.001: Backfill discovery seeds for saves created before seeding was wired.
+        // If any node has zero SeededDiscoveryIds but the seed surface produces entries, place them.
+        Gen.GalaxyGenerator.BackfillDiscoverySeedSurface(this);
+
         InvalidateRoutePlannerCaches();
     }
 

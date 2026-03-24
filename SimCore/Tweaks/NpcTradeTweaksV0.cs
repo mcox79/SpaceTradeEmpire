@@ -22,7 +22,8 @@ public static class NpcTradeTweaksV0
     public const int MaxTradeUnitsPerTrip = 10;
 
     // Max edges from current node to evaluate for trade opportunities.
-    public const int EvalRadiusEdges = 1;
+    // GATE.T55.ECON.FACTORY_BUFFER.001: Increased from 1→2 for broader NPC trade coverage.
+    public const int EvalRadiusEdges = 2;
 
     // GATE.S18.TRADE_GOODS.NPC_TRADE_UPDATE.001: Good-specific trade priority weights.
     // Higher weight = NPC more likely to haul this good. Multiplied against profit to rank opportunities.

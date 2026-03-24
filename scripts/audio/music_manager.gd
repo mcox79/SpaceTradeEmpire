@@ -2,7 +2,6 @@
 # Dynamic music system with stem-based crossfading.
 # Register as autoload "MusicManager" in project.godot.
 # GATE.T46.AUDIO.STEM_PIPELINE.001
-class_name MusicManager
 extends Node
 
 # GATE.T47.MUSIC.FRACTURE_AMBIENCE.001: Added FRACTURE state.

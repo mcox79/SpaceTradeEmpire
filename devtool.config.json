@@ -8,7 +8,7 @@
   "generated_dir": "docs/generated",
   "session_drop_dir": "docs/generated/session_drop",
 
-  "test_command": "dotnet test SimCore.Tests -v minimal",
+  "test_command": "dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q",
 
   "context_script": "scripts/tools/New-ContextPacket.ps1",
   "next_gate_script": "scripts/tools/New-NextGatePacket.ps1",

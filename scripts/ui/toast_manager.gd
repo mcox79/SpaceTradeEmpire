@@ -26,6 +26,8 @@ const PRIORITY_CONFIG := {
 	# Captain's Guide hint tier (warm amber, slightly larger).
 	# Persists until explicitly dismissed (e.g. on undock) so the player has time to read.
 	"guide": {"color": Color(0.9, 0.7, 0.3), "duration": 0.0, "persist": true, "font_size": 14},
+	# GATE.T52.DISC.MILESTONE_CARDS.001: Discovery scan/analysis complete (amber-green border).
+	"discovery": {"color": Color(0.85, 0.75, 0.25), "duration": 5.0, "persist": false, "font_size": 14},
 }
 
 var _container: VBoxContainer = null

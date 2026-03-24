@@ -1,0 +1,153 @@
+rules:
+  # === Architecture: SimCore must be headless -- no Godot dependencies ===
+
+  - id: simcore-no-godot-using
+    patterns:
+      - pattern: using Godot;
+    paths:
+      include:
+        - SimCore/
+    message: |
+      SimCore must be headless and deterministic -- no Godot dependencies allowed.
+      SimBridge.cs is the ONLY allowed crossing point between SimCore and Godot.
+    languages: [csharp]
+    severity: ERROR
+
+  - id: simcore-no-godot-namespace
+    patterns:
+      - pattern-regex: "Godot\\."
+    paths:
+      include:
+        - SimCore/
+    message: |
+      SimCore references Godot namespace. SimCore must have zero Godot dependencies.
+    languages: [csharp]
+    severity: ERROR
+
+  # === Determinism: No DateTime.Now or Environment.TickCount in SimCore ===
+
+  - id: simcore-no-datetime-now
+    patterns:
+      - pattern-either:
+          - pattern: DateTime.Now
+          - pattern: DateTime.UtcNow
+          - pattern: DateTimeOffset.Now
+          - pattern: DateTimeOffset.UtcNow
+    paths:
+      include:
+        - SimCore/
+    message: |
+      Non-deterministic time source in SimCore. Use SimState.Tick for all timing.
+      DateTime/DateTimeOffset breaks deterministic replay.
+    languages: [csharp]
+    severity: ERROR
+
+  - id: simcore-no-environment-tick
+    patterns:
+      - pattern-either:
+          - pattern: Environment.TickCount
+          - pattern: Environment.TickCount64
+    paths:
+      include:
+        - SimCore/
+    message: |
+      Environment.TickCount is non-deterministic. Use SimState.Tick instead.
+    languages: [csharp]
+    severity: ERROR
+
+  # === Determinism: No unseeded Random in SimCore ===
+
+  - id: simcore-no-unseeded-random
+    pattern: new Random()
+    paths:
+      include:
+        - SimCore/
+    message: |
+      Unseeded Random() in SimCore breaks determinism. Use SimState.Rng
+      (which is seeded from the world seed) for all random values.
+    languages: [csharp]
+    severity: ERROR
+
+  - id: simcore-no-random-shared
+    pattern: Random.Shared
+    paths:
+      include:
+        - SimCore/
+    message: |
+      Random.Shared is non-deterministic. Use SimState.Rng instead.
+    languages: [csharp]
+    severity: ERROR
+
+  # === Determinism: No Guid.NewGuid in SimCore (non-deterministic ID gen) ===
+
+  - id: simcore-no-guid-newguid
+    pattern: Guid.NewGuid()
+    paths:
+      include:
+        - SimCore/
+    message: |
+      Guid.NewGuid() is non-deterministic. Use deterministic ID generation
+      based on SimState.Rng or tick-based counters.
+    languages: [csharp]
+    severity: ERROR
+
+  # === Architecture: SimBridge is the ONLY crossing point ===
+
+  - id: gdscript-no-simcore-entities-using
+    patterns:
+      - pattern: using SimCore.Entities;
+    paths:
+      include:
+        - "**/scripts/bridge/"
+    message: |
+      Never 'using SimCore.Entities' in SimBridge -- it conflicts with Godot.Node.
+      Use fully-qualified names: SimCore.Entities.Fleet, SimCore.Entities.Market, etc.
+    languages: [csharp]
+    severity: ERROR
+
+  # === Determinism: No HashSet/Dictionary with default string comparer ===
+
+  - id: simcore-hashset-string-no-comparer
+    pattern: new HashSet<string>()
+    paths:
+      include:
+        - "**/SimCore/Systems/"
+        - "**/SimCore/Gen/"
+    message: |
+      HashSet<string> without StringComparer.Ordinal has non-deterministic
+      iteration order. Use new HashSet<string>(StringComparer.Ordinal).
+    languages: [csharp]
+    severity: WARNING
+
+  - id: simcore-dictionary-string-no-comparer
+    pattern: new Dictionary<string, $T>()
+    paths:
+      include:
+        - "**/SimCore/Systems/"
+        - "**/SimCore/Gen/"
+      exclude:
+        - "**/SimCore/Gen/MarketInitGen.cs"
+        - "**/SimCore/Gen/PlanetInitGen.cs"
+    message: |
+      Dictionary<string, _> without StringComparer.Ordinal has non-deterministic
+      iteration order. Use new Dictionary<string, T>(StringComparer.Ordinal).
+      NOTE: Inline Inputs/Outputs on IndustrySite are excluded (value-lookup only).
+    languages: [csharp]
+    severity: WARNING
+
+  # === Safety: No Thread/Task.Run in SimCore (threading lives in SimBridge) ===
+
+  - id: simcore-no-threading
+    patterns:
+      - pattern-either:
+          - pattern: Task.Run(...)
+          - pattern: new Thread(...)
+          - pattern: ThreadPool.QueueUserWorkItem(...)
+    paths:
+      include:
+        - SimCore/
+    message: |
+      SimCore must be single-threaded and deterministic. All threading lives
+      in SimBridge. Do not introduce threading into the simulation core.
+    languages: [csharp]
+    severity: ERROR

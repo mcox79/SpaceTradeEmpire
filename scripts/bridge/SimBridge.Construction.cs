@@ -118,6 +118,7 @@ public partial class SimBridge
 
     /// <summary>
     /// Starts a construction project. Returns {success, reason, project_id}.
+    /// GATE.EXTRACT.BRIDGE_WIRE.001: Validates analyzed discovery at node for Extraction projects.
     /// </summary>
     public Godot.Collections.Dictionary StartConstructionV0(string projectDefId, string nodeId)
     {
@@ -125,6 +126,9 @@ public partial class SimBridge
         _stateLock.EnterWriteLock();
         try
         {
+            // GATE.EXTRACT.BRIDGE_WIRE.001: Additional validation for Extraction type.
+            // ConstructionSystem.StartConstruction already checks this, but we surface
+            // a clear block reason for the bridge layer.
             var r = ConstructionSystem.StartConstruction(_kernel.State, projectDefId, nodeId);
             result["success"] = r.Success;
             result["reason"] = r.Reason;
@@ -135,5 +139,46 @@ public partial class SimBridge
             _stateLock.ExitWriteLock();
         }
         return result;
+    }
+
+    /// <summary>
+    /// GATE.EXTRACT.BRIDGE_WIRE.001: Returns array of player-built extraction stations.
+    /// [{node_id, good_id, output_per_tick, site_id}]
+    /// </summary>
+    public Godot.Collections.Array GetExtractionSitesV0()
+    {
+        var arr = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            // Find IndustrySites created by extraction construction (prefixed "extract_").
+            var keys = new List<string>(state.IndustrySites.Keys);
+            keys.Sort(StringComparer.Ordinal);
+
+            foreach (var key in keys)
+            {
+                if (!key.StartsWith("extract_", StringComparison.Ordinal)) continue;
+                var site = state.IndustrySites[key];
+
+                // Determine the primary output good.
+                string goodId = "";
+                int outputPerTick = 0;
+                foreach (var outKvp in site.Outputs)
+                {
+                    goodId = outKvp.Key;
+                    outputPerTick = outKvp.Value;
+                    break; // Extraction sites have a single output good.
+                }
+
+                var d = new Godot.Collections.Dictionary
+                {
+                    ["site_id"] = site.Id,
+                    ["node_id"] = site.NodeId,
+                    ["good_id"] = goodId,
+                    ["output_per_tick"] = outputPerTick,
+                };
+                arr.Add(d);
+            }
+        }, 0);
+        return arr;
     }
 }

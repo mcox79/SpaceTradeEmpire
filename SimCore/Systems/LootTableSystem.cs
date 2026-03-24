@@ -66,6 +66,41 @@ public static class LootTableSystem
     }
 
     /// <summary>
+    /// GATE.T55.COMBAT.PIRATE_FACTION.001: Enhanced pirate loot — salvaged_tech + rare_metals + credits.
+    /// Deterministic from fleetId + tick. Called instead of RollLoot when destroyed fleet is pirate.
+    /// </summary>
+    public static void RollPirateLoot(SimState state, string fleetId, string nodeId)
+    {
+        if (state is null || string.IsNullOrEmpty(fleetId)) return;
+
+        ulong hash = Fnv1a64(fleetId + "_pirate_loot_" + state.Tick);
+
+        int techRange = FactionTweaksV0.PirateLootSalvagedTechMax - FactionTweaksV0.PirateLootSalvagedTechMin + 1;
+        int techQty = FactionTweaksV0.PirateLootSalvagedTechMin + (int)(hash % (ulong)techRange);
+
+        ulong hash2 = Fnv1a64(fleetId + "_pirate_metals_" + state.Tick);
+        int metalsRange = FactionTweaksV0.PirateLootRareMetalsMax - FactionTweaksV0.PirateLootRareMetalsMin + 1;
+        int metalsQty = FactionTweaksV0.PirateLootRareMetalsMin + (int)(hash2 % (ulong)metalsRange);
+
+        ulong hash3 = Fnv1a64(fleetId + "_pirate_credits_" + state.Tick);
+        int creditsRange = FactionTweaksV0.PirateLootCreditsMax - FactionTweaksV0.PirateLootCreditsMin + 1;
+        int credits = FactionTweaksV0.PirateLootCreditsMin + (int)(hash3 % (ulong)creditsRange);
+
+        var drop = new LootDrop
+        {
+            Id = $"loot_{fleetId}_{state.Tick}",
+            NodeId = nodeId,
+            Rarity = LootRarity.Uncommon, // Pirate loot is always at least uncommon quality.
+            TickCreated = state.Tick,
+            Credits = credits,
+        };
+        drop.Goods[Content.WellKnownGoodIds.SalvagedTech] = techQty;
+        drop.Goods[Content.WellKnownGoodIds.RareMetals] = metalsQty;
+
+        state.LootDrops[drop.Id] = drop;
+    }
+
+    /// <summary>
     /// Process loot despawn: remove drops older than DespawnTicks.
     /// Called once per tick from SimKernel.
     /// </summary>

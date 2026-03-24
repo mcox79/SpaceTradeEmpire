@@ -1,5 +1,6 @@
 extends RigidBody3D
 
+const ShipMeshBuilder = preload("res://scripts/view/ship_mesh_builder.gd")
 
 # Ship flight controller v2 — Freelancer-style mouse-pointer steering + cruise auto-drive.
 # The ship continuously turns toward the mouse cursor's world position.

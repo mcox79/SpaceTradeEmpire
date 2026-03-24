@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Content\Data\tutorial_dialogue_v0.json" />
+    <EmbeddedResource Include="Content\Data\fo_dialogue_v0.json" />
+  </ItemGroup>
+
 </Project>

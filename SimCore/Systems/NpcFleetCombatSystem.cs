@@ -65,8 +65,12 @@ public static class NpcFleetCombatSystem
                 });
             }
 
-            // GATE.S5.LOOT.DROP_SYSTEM.001: Roll loot before removing fleet.
-            LootTableSystem.RollLoot(state, fleetId, homeNode);
+            // GATE.S5.LOOT.DROP_SYSTEM.001 + GATE.T55.COMBAT.PIRATE_FACTION.001: Roll loot before removing fleet.
+            // Pirates drop enhanced loot (salvaged_tech + rare_metals + credits).
+            if (StringComparer.Ordinal.Equals(fleet.OwnerId, Tweaks.FactionTweaksV0.PirateId))
+                LootTableSystem.RollPirateLoot(state, fleetId, homeNode);
+            else
+                LootTableSystem.RollLoot(state, fleetId, homeNode);
 
             // GATE.S7.DIPLOMACY.BOUNTY.001: Check bounty completion on NPC destruction.
             DiplomacySystem.CheckBountyCompletion(state, fleetId);

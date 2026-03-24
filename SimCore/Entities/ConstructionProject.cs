@@ -10,6 +10,7 @@ public enum ConstructionType
     Shipyard = 1,
     Refinery = 2,
     ScienceCenter = 3,
+    Extraction = 4,
 }
 
 // GATE.S4.CONSTR_PROG.MODEL.001: Static construction project definition.

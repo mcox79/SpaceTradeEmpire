@@ -169,7 +169,6 @@ func refresh_v0() -> void:
 	_update_tracking_v0()
 
 	# GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Capturable targets.
-	_update_capture_targets_v0()
 
 # GATE.S7.COMBAT_DEPTH2.HUD.001: Show combat projection against current target.
 func _update_projection_v0() -> void:
@@ -302,61 +301,3 @@ func _update_zone(zone: String, hp: int, hp_max: int) -> void:
 		lbl.add_theme_color_override("font_color", UITheme.RED)
 
 # GATE.S5.LOSS_RECOVERY.CAPTURE_UI.001: Show capturable NPC targets (hull < 10%).
-func _update_capture_targets_v0() -> void:
-	if _capture_container == null:
-		return
-	for child in _capture_container.get_children():
-		child.queue_free()
-
-	if _bridge == null or not _bridge.has_method("GetCaptureTargetsV0"):
-		return
-
-	var targets: Array = _bridge.call("GetCaptureTargetsV0")
-	if targets.size() == 0:
-		return
-
-	var header := Label.new()
-	header.text = "CAPTURE TARGETS"
-	header.add_theme_font_size_override("font_size", 10)
-	header.add_theme_color_override("font_color", UITheme.ORANGE)
-	_capture_container.add_child(header)
-
-	for t in targets:
-		var fleet_id: String = str(t.get("fleet_id", "?"))
-		var hull_pct: int = int(t.get("hull_pct", 0))
-		var role: String = str(t.get("role", "?"))
-		var can_capture: bool = bool(t.get("can_capture", false))
-		var reason: String = str(t.get("reason", ""))
-
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
-
-		var info := Label.new()
-		info.text = "%s (%s) %d%% hull" % [fleet_id, role, hull_pct]
-		info.add_theme_font_size_override("font_size", 10)
-		info.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.clip_text = true
-		row.add_child(info)
-
-		if can_capture:
-			var btn := Button.new()
-			btn.text = "Capture"
-			btn.pressed.connect(_on_capture_ship.bind(fleet_id))
-			row.add_child(btn)
-		else:
-			var block := Label.new()
-			block.text = reason
-			block.add_theme_font_size_override("font_size", 10)
-			block.add_theme_color_override("font_color", UITheme.RED)
-			row.add_child(block)
-
-		_capture_container.add_child(row)
-
-func _on_capture_ship(target_fleet_id: String) -> void:
-	if _bridge and _bridge.has_method("CaptureShipV0"):
-		var result: Dictionary = _bridge.call("CaptureShipV0", target_fleet_id)
-		if result.get("success", false):
-			print("CAPTURE|SUCCESS|%s" % str(result.get("captured_fleet_id", "")))
-		else:
-			print("CAPTURE|FAIL|%s" % str(result.get("reason", "")))

@@ -974,4 +974,46 @@ public partial class SimBridge
         }
         return result;
     }
+
+    // GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001: Start research in a haven lab slot.
+    public Godot.Collections.Dictionary StartResearchLabSlotV0(string techId, int slotIndex)
+    {
+        var result = new Godot.Collections.Dictionary { ["success"] = false, ["reason"] = "" };
+        if (IsLoading) return result;
+        if (string.IsNullOrWhiteSpace(techId)) { result["reason"] = "empty_tech_id"; return result; }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var r = HavenResearchLabSystem.StartSlotResearch(_kernel.State, techId, slotIndex);
+            result["success"] = r.Success;
+            result["reason"] = r.Reason;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+        return result;
+    }
+
+    // GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001: Start T3 module fabrication at Haven.
+    public Godot.Collections.Dictionary StartFabricationV0(string moduleId)
+    {
+        var result = new Godot.Collections.Dictionary { ["success"] = false, ["reason"] = "" };
+        if (IsLoading) return result;
+        if (string.IsNullOrWhiteSpace(moduleId)) { result["reason"] = "empty_module_id"; return result; }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var r = HavenFabricatorSystem.StartFabrication(_kernel.State, moduleId);
+            result["success"] = r.Success;
+            result["reason"] = r.Reason;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+        return result;
+    }
 }

@@ -280,6 +280,16 @@ public static class ProgramSystem
                     }
                 }
             }
+            else if (string.Equals(p.Kind, ProgramKind.FractureExtractionV0, StringComparison.Ordinal))
+            {
+                // GATE.EXTRACT.FRACTURE_PROGRAM.001: FRACTURE_EXTRACTION_V0 executor.
+                // Requires FractureUnlocked + fleet assignment. Emits FractureExtractionIntentV0.
+                var fleetId = p.FleetId ?? "";
+                if (!string.IsNullOrWhiteSpace(fleetId))
+                {
+                    state.EnqueueIntent(new SimCore.Intents.FractureExtractionIntentV0(fleetId, p.Id));
+                }
+            }
             else if (qty > 0 && !string.IsNullOrWhiteSpace(p.MarketId) && !string.IsNullOrWhiteSpace(p.GoodId))
             {
                 if (string.Equals(p.Kind, ProgramKind.AutoBuy, StringComparison.Ordinal))

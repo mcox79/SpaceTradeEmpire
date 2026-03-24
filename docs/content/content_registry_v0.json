@@ -238,6 +238,27 @@
       ]
     },
     {
+      "id": "recipe_refine_rare_metals",
+      "display_name": "Refine Rare Metals",
+      "production_ticks": 30,
+      "inputs": [
+        {
+          "good_id": "exotic_crystals",
+          "qty": 1
+        },
+        {
+          "good_id": "ore",
+          "qty": 5
+        }
+      ],
+      "outputs": [
+        {
+          "good_id": "rare_metals",
+          "qty": 2
+        }
+      ]
+    },
+    {
       "id": "recipe_salvage_to_components",
       "display_name": "Salvage to Components",
       "production_ticks": 30,

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Quick audit: C# test suite + optimize scan + coverage gap in <60s.
+  Quick audit: C# test suite + optimize scan + coverage gap + AI linting in <90s.
   For CI-like pre-commit validation.
 
 .PARAMETER Scope
@@ -43,7 +43,7 @@ if ($testExitCode -ne 0) {
     $testOutput | Where-Object { $_ -match "Failed|Error" } | ForEach-Object { Write-Host "  $_" }
     $exitCode = [math]::Max($exitCode, 2)
 } else {
-    Write-Host "TESTS OK — $testSummary"
+    Write-Host "TESTS OK -- $testSummary"
 }
 Write-Host ""
 
@@ -75,6 +75,44 @@ Write-Host ($covOutput | Select-String "Total bridge methods")
 Write-Host ($covOutput | Select-String "EXERCISED")
 Write-Host ($covOutput | Select-String "UI_ONLY")
 Write-Host $covSummary
+Write-Host ""
+
+# ── Step 5: Semgrep Architecture Lint ────────────────────────────
+Write-Host "--- Step 5: Semgrep Architecture Lint ---"
+$semgrepAvailable = $null -ne (Get-Command semgrep -ErrorAction SilentlyContinue)
+if ($semgrepAvailable) {
+    $semgrepConfig = Join-Path $repoRoot ".semgrep.yml"
+    $semgrepTarget = Join-Path $repoRoot "SimCore"
+    $semgrepOutput = & semgrep --config $semgrepConfig --quiet $semgrepTarget 2>&1
+    $semgrepExit = $LASTEXITCODE
+    if ($semgrepExit -ne 0) {
+        $errorCount = ($semgrepOutput | Measure-Object -Line).Lines
+        Write-Host "SEMGREP: $errorCount architecture violations found"
+        $exitCode = [math]::Max($exitCode, 1)
+    } else {
+        Write-Host "SEMGREP OK -- no architecture violations"
+    }
+} else {
+    Write-Host "SEMGREP SKIPPED -- not installed (pip install semgrep)"
+}
+Write-Host ""
+
+# ── Step 6: GDScript Lint ────────────────────────────────────────
+Write-Host "--- Step 6: GDScript Lint ---"
+$gdlintAvailable = $null -ne (Get-Command gdlint -ErrorAction SilentlyContinue)
+if ($gdlintAvailable) {
+    $gdlintTarget = Join-Path $repoRoot "scripts"
+    $gdlintOutput = & gdlint $gdlintTarget 2>&1
+    $gdlintExit = $LASTEXITCODE
+    if ($gdlintExit -ne 0) {
+        $issueCount = ($gdlintOutput | Measure-Object -Line).Lines
+        Write-Host "GDLINT: $issueCount issues found"
+    } else {
+        Write-Host "GDLINT OK"
+    }
+} else {
+    Write-Host "GDLINT SKIPPED -- not installed (pip install gdtoolkit)"
+}
 Write-Host ""
 
 # ── Summary ───────────────────────────────────────────────────────

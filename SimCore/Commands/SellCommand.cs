@@ -94,6 +94,10 @@ public class SellCommand : ICommand
 			state.PlayerStats.TotalCreditsEarned += totalValue;
 		}
 
+		// GATE.T53.BOT.TRADE_REP.001: Award faction rep for trading at their station.
+		if (!string.IsNullOrEmpty(factionId))
+			ReputationSystem.OnTradeAtFactionStation(state, factionId);
+
 		// GATE.T18.CHARACTER.FO_REACT.001: Fire FO trade triggers.
 		if (totalValue > 0)
 			FirstOfficerSystem.TryFireTrigger(state, "FIRST_PROFITABLE_TRADE");

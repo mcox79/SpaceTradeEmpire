@@ -643,10 +643,10 @@ func _do_buy() -> void:
 	var buy_qty := mini(5, _credits_before_buy / best_price)
 	if buy_qty < 1:
 		buy_qty = 1
-	var dispatch_result = _bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
+	_bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
 	_bought_good_id = best_good
 	_goods_traded[best_good] = true
-	_log("BUY|good=%s qty=%d price=%d dispatch=%s" % [best_good, buy_qty, best_price, str(dispatch_result)])
+	_log("BUY|good=%s qty=%d price=%d" % [best_good, buy_qty, best_price])
 
 	# Goal 4 probe: log the computed margin
 	_profit_margin = best_margin
@@ -755,8 +755,8 @@ func _do_sell() -> void:
 	var cargo_before_sell := int(ps.get("cargo_count", 0))
 	if not _bought_good_id.is_empty():
 		if cargo_before_sell > 0:
-			var sell_result = _bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, cargo_before_sell, false)
-			_log("SELL|good=%s qty=%d dispatch=%s" % [_bought_good_id, cargo_before_sell, str(sell_result)])
+			_bridge.call("DispatchPlayerTradeV0", node_id, _bought_good_id, cargo_before_sell, false)
+			_log("SELL|good=%s qty=%d" % [_bought_good_id, cargo_before_sell])
 
 	_busy = true
 	await create_timer(0.2).timeout

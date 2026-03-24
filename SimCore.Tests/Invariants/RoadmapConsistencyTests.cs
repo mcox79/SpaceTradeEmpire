@@ -31,7 +31,11 @@ namespace SimCore.Tests.Invariants
 
             var stdout = p.StandardOutput.ReadToEnd();
             var stderr = p.StandardError.ReadToEnd();
-            p.WaitForExit();
+            if (!p.WaitForExit(30_000))
+            {
+                try { p.Kill(entireProcessTree: true); } catch { /* best effort */ }
+                Assert.Fail("Roadmap consistency scan timed out after 30 s — likely a JSON parse hang. Check docs/gates/gates.json for encoding issues.");
+            }
 
             if (p.ExitCode != 0)
             {

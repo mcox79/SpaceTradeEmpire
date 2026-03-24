@@ -148,6 +148,9 @@ public static class GalaxyGenerator
         // so NodeFactionId is populated and player start is finalized (starter density bonus).
         StarNetworkGen.SeedAiFleets(state, nodesList);
 
+        // Phase 8.3: GATE.T55.COMBAT.PIRATE_FACTION.001 — Seed pirate patrol fleets at FRONTIER/RIM nodes.
+        SeedPiratePatrolsV0(state, nodesList);
+
         // Q5: After player start may have moved, ensure no hostile patrol at the final start node.
         // GATE.T30.GALPOP.FACTION_SEED.004: Iterate all fleets at start node (multiple per node now).
         foreach (var fleet in state.Fleets.Values)
@@ -187,6 +190,11 @@ public static class GalaxyGenerator
 
         // Phase 11: GATE.S8.ADAPTATION.PLACEMENT.001 — Seed adaptation fragments across galaxy.
         DiscoverySeedGen.SeedAdaptationFragmentsV0(state, state.InitialSeed);
+
+        // Phase 11b: GATE.T53.BOT.DISCOVERY_SEED.001 — Seed discoveries at nodes from DiscoverySeedGen surface.
+        // BuildDiscoverySeedSurfaceV0 computes what discoveries should exist (resource markers, anomaly families, corridor traces).
+        // This wires them into node.SeededDiscoveryIds + state.Intel.Discoveries so they're scannable in-game.
+        PlaceDiscoverySeedSurface(state);
 
         // Phase 12: Pre-run NPC trade evaluations so fleets start with active routes.
         // Without this, all NPC ships sit idle at tick 0 — breaks immersion on first system visit.
@@ -329,6 +337,41 @@ public static class GalaxyGenerator
 
     // GATE.S6.FRACTURE.VOID_SITES.001: Deterministic void site seeding v0.
     // Places 5-15 void sites at midpoints/offsets between unique star pairs.
+    // GATE.T53.BOT.DISCOVERY_SEED.001: Backfill for existing saves — public entry point called from HydrateAfterLoad.
+    public static void BackfillDiscoverySeedSurface(SimState state)
+    {
+        // Only backfill if this state has nodes but some nodes lack seeded discoveries.
+        if (state.Nodes.Count == 0) return;
+        PlaceDiscoverySeedSurface(state);
+    }
+
+    // GATE.T53.BOT.DISCOVERY_SEED.001: Place discovery seed surface entries into world state.
+    // Wires BuildDiscoverySeedSurfaceV0 output into node.SeededDiscoveryIds + state.Intel.Discoveries.
+    private static void PlaceDiscoverySeedSurface(SimState state)
+    {
+        var seeds = DiscoverySeedGen.BuildDiscoverySeedSurfaceV0(state, state.InitialSeed);
+        foreach (var s in seeds)
+        {
+            if (string.IsNullOrEmpty(s.NodeId) || string.IsNullOrEmpty(s.DiscoveryId)) continue;
+            if (!state.Nodes.TryGetValue(s.NodeId, out var node)) continue;
+
+            // Add to node's seeded discovery list.
+            node.SeededDiscoveryIds ??= new System.Collections.Generic.List<string>();
+            if (!node.SeededDiscoveryIds.Contains(s.DiscoveryId))
+                node.SeededDiscoveryIds.Add(s.DiscoveryId);
+
+            // Create discovery state entry (Seen phase) if not already present.
+            if (!state.Intel.Discoveries.ContainsKey(s.DiscoveryId))
+            {
+                state.Intel.Discoveries[s.DiscoveryId] = new Entities.DiscoveryStateV0
+                {
+                    DiscoveryId = s.DiscoveryId,
+                    Phase = Entities.DiscoveryPhase.Seen,
+                };
+            }
+        }
+    }
+
     // Uses Fnv1a32 hashing (no RNG consumption) for deterministic positions and families.
     // GATE.S8.HAVEN.DISCOVERY.001: Seed Haven at the farthest node from player start.
     private static void SeedHavenV0(SimState state)
@@ -1809,5 +1852,74 @@ public static class GalaxyGenerator
                 }
             }
         }
+    }
+
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Seed 3-5 pirate patrol fleets at FRONTIER and RIM world class nodes.
+    // Deterministic: fleet count derived from InitialSeed. Placement selects FRONTIER/RIM nodes
+    // deterministically by hashing node IDs. Pirates are never placed at the player start node.
+    private static void SeedPiratePatrolsV0(SimState state, List<Entities.Node> nodesList)
+    {
+        // Determine pirate fleet count: 3-5 based on seed.
+        int range = Tweaks.FactionTweaksV0.PirateFleetCountMax - Tweaks.FactionTweaksV0.PirateFleetCountMin + 1;
+        int pirateCount = Tweaks.FactionTweaksV0.PirateFleetCountMin
+            + (int)((uint)state.InitialSeed % (uint)range);
+
+        // Gather FRONTIER and RIM nodes (by world class assignment).
+        var worldClasses = GetWorldClassIdByNodeIdV0(state);
+        var candidateNodes = new List<string>();
+        foreach (var node in nodesList)
+        {
+            if (node.Id == state.PlayerLocationNodeId) continue; // Never seed pirates at player start.
+            if (!worldClasses.TryGetValue(node.Id, out var wc)) continue;
+            if (StringComparer.Ordinal.Equals(wc, "FRONTIER") || StringComparer.Ordinal.Equals(wc, "RIM"))
+                candidateNodes.Add(node.Id);
+        }
+        candidateNodes.Sort(StringComparer.Ordinal);
+
+        if (candidateNodes.Count == 0) return;
+
+        // Initialize pirate reputation at 0 (default, which is < 999 threshold → always hostile).
+        if (!state.FactionReputation.ContainsKey(Tweaks.FactionTweaksV0.PirateId))
+            state.FactionReputation[Tweaks.FactionTweaksV0.PirateId] = Tweaks.FactionTweaksV0.ReputationDefault;
+
+        for (int i = 0; i < pirateCount; i++)
+        {
+            // Deterministic node selection: spread across candidates.
+            ulong h = Fnv1aHash($"pirate_spawn_{state.InitialSeed}_{i}");
+            int nodeIdx = (int)(h % (ulong)candidateNodes.Count);
+            string nodeId = candidateNodes[nodeIdx];
+
+            var fleet = new Fleet
+            {
+                Id = $"pirate_fleet_{nodeId}_{i}",
+                OwnerId = Tweaks.FactionTweaksV0.PirateId,
+                Role = FleetRole.Patrol,
+                ShipClassId = "corvette",
+                CurrentNodeId = nodeId,
+                Speed = Tweaks.FactionTweaksV0.PirateSpeed,
+                State = FleetState.Idle,
+                HullHp = Tweaks.FactionTweaksV0.PirateHullHp,
+                HullHpMax = Tweaks.FactionTweaksV0.PirateHullHp,
+                ShieldHp = Tweaks.FactionTweaksV0.PirateShieldHp,
+                ShieldHpMax = Tweaks.FactionTweaksV0.PirateShieldHp,
+                FuelCapacity = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
+                FuelCurrent = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
+            };
+            fleet.Slots.Add(new Entities.ModuleSlot
+            {
+                SlotId = "npc_weapon_0",
+                SlotKind = Entities.SlotKind.Weapon,
+                InstalledModuleId = Content.WellKnownModuleIds.WeaponCannonMk1,
+            });
+            state.Fleets[fleet.Id] = fleet;
+        }
+    }
+
+    // FNV-1a 64-bit hash for deterministic pirate seeding.
+    private static ulong Fnv1aHash(string input)
+    {
+        ulong hash = 14695981039346656037UL;
+        foreach (char c in input) { hash ^= (byte)c; hash *= 1099511628211UL; }
+        return hash;
     }
 }

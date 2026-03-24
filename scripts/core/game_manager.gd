@@ -47,6 +47,9 @@ var _haven_cinematic_played: bool = false
 # GATE.S5.COMBAT_PLAYABLE.ENCOUNTER_TRIGGER.001: fleet targeting
 var _targeted_fleet_id: String = ""
 
+# GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Currently highlighted combat target node.
+var _highlight_target: Node3D = null
+
 # GATE.S5.COMBAT_PLAYABLE.PLAYER_DEATH.001: player death state
 var _player_dead: bool = false
 
@@ -554,6 +557,9 @@ func _process(delta):
 	# FEEL_POST_FIX_3: Decay combat state timer.
 	if combat_state_timer > 0.0:
 		combat_state_timer -= float(delta)
+		# GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Clear highlight when combat ends.
+		if combat_state_timer <= 0.0:
+			_clear_target_highlight_v0()
 	# GATE.S1.AUDIO.SFX_CORE.001: engine thrust audio loop
 	if _sfx_engine_thrust:
 		var _thrust_on := current_player_state == PlayerShipState.IN_FLIGHT and not _player_dead
@@ -1910,6 +1916,8 @@ func _fire_turret_v0() -> void:
 	var fire_pos = muzzle.global_position if muzzle else _hero_body.global_position
 	_spawn_bullet_v0(fire_pos, target.global_position, true, "")
 	_turret_cooldown = TURRET_COOLDOWN_SEC
+	# GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Highlight the engaged target.
+	_apply_target_highlight_v0(target)
 	# FEEL_POST_FIX_3: Player firing also triggers combat state.
 	signal_combat_v0()
 	if _sfx_turret_fire:
@@ -2027,6 +2035,24 @@ func signal_combat_v0() -> void:
 		_update_steam_rich_presence_v0("In Combat")
 	combat_state_timer = 5.0
 
+## GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Apply pulsing glow highlight to combat target.
+func _apply_target_highlight_v0(target: Node3D) -> void:
+	if target == _highlight_target:
+		return  # Already highlighting this target.
+	_clear_target_highlight_v0()
+	_highlight_target = target
+	var TargetHL := load("res://scripts/vfx/target_highlight.gd")
+	if TargetHL and TargetHL.has_method("apply"):
+		TargetHL.call("apply", target)
+
+## GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Remove highlight from current target.
+func _clear_target_highlight_v0() -> void:
+	if _highlight_target and is_instance_valid(_highlight_target):
+		var TargetHL := load("res://scripts/vfx/target_highlight.gd")
+		if TargetHL and TargetHL.has_method("clear"):
+			TargetHL.call("clear", _highlight_target)
+	_highlight_target = null
+
 func _get_fleet_id_from_marker(marker: Node3D) -> String:
 	var n: String = str(marker.name)
 	if n.begins_with("Fleet_"):
@@ -2070,6 +2096,9 @@ func despawn_fleet_v0(fleet_id: String) -> void:
 	for node in get_tree().get_nodes_in_group("FleetShip"):
 		if str(node.name) == target_name:
 			print("UUIR|FLEET_DESPAWN|" + target_name)
+			# GATE.T52.COMBAT.TARGET_HIGHLIGHT.001: Clear highlight on despawn.
+			if _highlight_target == node:
+				_clear_target_highlight_v0()
 			if _sfx_explosion:
 				_sfx_explosion.play()
 			# GATE.S7.COMBAT_JUICE.EXPLOSION_VFX.001: Spawn explosion before removing ship.
@@ -3706,16 +3735,12 @@ func _poll_discovery_celebrations_v0() -> void:
 		# Detect transition to Analyzed from a prior non-Analyzed state
 		if current_status == "Analyzed" and prev_status != "Analyzed" and not prev_status.is_empty():
 			print("CELEBRATION|DISCOVERY_COMPLETE|" + disc_id)
-			if toast_mgr and toast_mgr.has_method("show_toast"):
-				var msg: String
+			# GATE.T52.DISC.MILESTONE_CARDS.001: Discovery-priority toast card with details.
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				var card_msg: String = _build_discovery_card_text_v0(disc_id, "Analysis Complete", bridge)
 				if credit_reward > 0:
-					msg = "Discovery Complete: %s — +%d credits" % [disc_id, credit_reward]
-				else:
-					msg = "Discovery Complete: %s" % disc_id
-				if toast_mgr.has_method("show_toast_colored"):
-					toast_mgr.call("show_toast_colored", msg, 6.0, "#FFD700")
-				else:
-					toast_mgr.call("show_toast", msg, 6.0)
+					card_msg += "\n+%d credits" % credit_reward
+				toast_mgr.call("show_priority_toast", card_msg, "discovery", 6.0)
 			# GATE.T47.MUSIC.DISCOVERY_STINGERS.001: Play discovery stinger based on reward size.
 			var _mm_disc = get_node_or_null("/root/MusicManager")
 			if _mm_disc and _mm_disc.has_method("play_stinger"):
@@ -3807,14 +3832,49 @@ func _unlock_steam_achievement_v0(milestone_id: String) -> void:
 
 # ── GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Discovery milestone ceremonies ──
 
+# GATE.T52.DISC.MILESTONE_CARDS.001: Build discovery card toast text with name, type, flavor.
+# Returns multi-line string: "~ Phase Label ~\nDiscovery Name\nType description\nFlavor text"
+func _build_discovery_card_text_v0(disc_id: String, phase_label: String, bridge_ref: Node) -> String:
+	var display_name: String = disc_id.replace("_", " ").capitalize()
+	var type_desc: String = ""
+	var flavor: String = ""
+
+	# Query bridge for discovery detail (kind, flavor_text).
+	if bridge_ref and bridge_ref.has_method("GetDiscoveryDetailV0"):
+		var detail: Dictionary = bridge_ref.call("GetDiscoveryDetailV0", disc_id)
+		var kind: String = str(detail.get("kind", ""))
+		flavor = str(detail.get("flavor_text", ""))
+		# Map family tokens to player-friendly type descriptions.
+		match kind.to_upper():
+			"SIGNAL": type_desc = "Signal Source"
+			"DERELICT": type_desc = "Derelict Vessel"
+			"RUIN": type_desc = "Ancient Ruin"
+			_:
+				if not kind.is_empty():
+					type_desc = kind.capitalize()
+				else:
+					type_desc = "Discovery"
+
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("~ %s ~" % phase_label)
+	lines.append(display_name)
+	if not type_desc.is_empty():
+		lines.append(type_desc)
+	if not flavor.is_empty():
+		lines.append(flavor)
+	return "\n".join(lines)
+
+
 ## Brief scan ceremony — letterbox + name card (1.5s total). Used for common discoveries.
 ## For rare discoveries (credit_reward >= 500), uses slightly longer hold.
 func _show_discovery_scan_ceremony_v0(disc_id: String, credit_reward: int, bridge_ref: Node) -> void:
-	# Rarity check: common discoveries get a simple toast, not a full letterbox.
+	# GATE.T52.DISC.MILESTONE_CARDS.001: Enhanced discovery toast with name, type, flavor.
+	# Rarity check: common discoveries get a discovery-priority toast card.
 	if credit_reward < 100:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr and toast_mgr.has_method("show_toast_colored"):
-			toast_mgr.call("show_toast_colored", "Scan Complete: %s" % disc_id, 3.0, "#44AAFF")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			var card_msg: String = _build_discovery_card_text_v0(disc_id, "Scan Complete", bridge_ref)
+			toast_mgr.call("show_priority_toast", card_msg, "discovery")
 		print("UUIR|DISC_SCAN_TOAST|%s|reward=%d" % [disc_id, credit_reward])
 		return
 

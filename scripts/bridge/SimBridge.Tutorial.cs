@@ -133,7 +133,7 @@ public partial class SimBridge
                 if (speaker == FirstOfficerCandidate.None) return;
             }
 
-            line = TutorialContentV0.GetLine(ts.Phase, speaker, ts.DialogueSequence);
+            line = TutorialContentV0.GetLineForSeed(ts.Phase, speaker, ts.DialogueSequence, state.InitialSeed);
         });
 
         return line;
@@ -232,7 +232,7 @@ public partial class SimBridge
                 : TutorialContentV0.GetRotatingCandidate(ts.Phase);
             if (speaker == FirstOfficerCandidate.None) return;
 
-            string text = TutorialContentV0.GetLine(ts.Phase, speaker, ts.DialogueSequence);
+            string text = TutorialContentV0.GetLineForSeed(ts.Phase, speaker, ts.DialogueSequence, state.InitialSeed);
             if (string.IsNullOrEmpty(text)) return;
 
             var c = _foColorMap.GetValueOrDefault(speaker, (0.5f, 0.5f, 0.5f));
@@ -340,6 +340,11 @@ public partial class SimBridge
             {
                 Phase = TutorialPhase.Awaken
             };
+            // Clear stale state that tutorial phases inspect.
+            // Without this, Skip → Restart without ReinitializeForNewGameV0 leaves
+            // automation programs / trade counts that confuse phase gates.
+            if (state.Programs?.Instances != null)
+                state.Programs.Instances.Clear();
         }
         finally
         {

@@ -1,4 +1,5 @@
 extends Node3D
+const ShipMeshBuilder = preload("res://scripts/view/ship_mesh_builder.gd")
 ## NPC ship controller — GATE.S16.NPC_ALIVE.SHIP_SCENE.001 + FLIGHT_CTRL.001
 ## Sim-driven movement: reads transit facts from SimBridge, interpolates position.
 ## GATE.T50.PERF.NPC_PHYSICS.001: Node3D + direct position update (no physics solver).
@@ -97,7 +98,7 @@ var _hostile_label: Label3D = null  # GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.00
 var _onboard_labels_hidden: bool = true
 var _hp_bar: MeshInstance3D = null
 var _hp_bar_mat: StandardMaterial3D = null
-const ROLE_NAMES := ["Trader", "Hauler", "Patrol"]
+const ROLE_NAMES := ["TRADER", "HAULER", "PATROL"]
 const ROLE_COLORS := [
 	Color(1.0, 0.85, 0.3),   # Trader — gold
 	Color(0.4, 0.8, 0.8),    # Hauler — teal
@@ -105,6 +106,8 @@ const ROLE_COLORS := [
 ]
 const LABEL_SHOW_DIST := 30.0  # Only show role label when player is close (was 160)
 const HP_BAR_HEIGHT := 8.0  # Above ship center (raised for altitude visibility)
+## GATE.T52.COMBAT.NPC_LABELS.001: Pulsing alpha accumulator for HOSTILE label.
+var _hostile_pulse_time: float = 0.0
 
 
 func _exit_tree() -> void:
@@ -179,6 +182,9 @@ func _update_status_display() -> void:
 		_role_label.text = ROLE_NAMES[role_idx]
 		if _is_hostile:
 			_role_label.modulate = Color(1.0, 0.4, 0.35)
+		elif _faction_color != Color.WHITE and _faction_color.a > 0.1:
+			# GATE.T52.COMBAT.NPC_LABELS.001: Use faction primary color when available.
+			_role_label.modulate = _faction_color
 		else:
 			_role_label.modulate = ROLE_COLORS[role_idx]
 
@@ -398,6 +404,12 @@ func _physics_process(delta: float) -> void:
 			if old_hostile != _is_hostile:
 				set_meta("is_hostile", _is_hostile)
 				_update_status_display()
+
+	# GATE.T52.COMBAT.NPC_LABELS.001: Pulse HOSTILE label alpha (sin wave 0.5–1.0, ~2 Hz).
+	if _hostile_label and _hostile_label.visible:
+		_hostile_pulse_time += delta * 4.0  # ~2 Hz (4 rad/s → full cycle ~1.57s)
+		var pulse_alpha: float = 0.75 + 0.25 * sin(_hostile_pulse_time)
+		_hostile_label.modulate = Color(1.0, 0.2, 0.15, pulse_alpha)
 
 	# Combat stagger — freeze movement.
 	if stagger_remaining > 0.0:
@@ -713,6 +725,10 @@ func on_hit(damage: int) -> void:
 		var shield_left: int = result.get("shield_remaining", 0)
 		_spawn_hit_vfx(global_position, damage, shield_left)
 		if result.get("destroyed", false):
+			# GATE.T52.COMBAT.HITSTOP.001: Kill hitstop (120ms freeze).
+			var HitstopVfx := load("res://scripts/vfx/hitstop.gd")
+			if HitstopVfx and HitstopVfx.has_method("on_kill") and get_tree():
+				HitstopVfx.call("on_kill", get_tree())
 			_spawn_explosion_vfx()
 			queue_free()
 
@@ -750,6 +766,10 @@ func _spawn_hit_vfx(impact_pos: Vector3, damage_amount: int, shield_remaining: i
 			# Shield just broke this hit — bright flash + electric discharge + SFX.
 			if ShieldVfx.has_method("spawn_break"):
 				ShieldVfx.call("spawn_break", vfx_parent, global_position)
+			# GATE.T52.COMBAT.HITSTOP.001: Shield-break hitstop (80ms freeze).
+			var HitstopBrk := load("res://scripts/vfx/hitstop.gd")
+			if HitstopBrk and HitstopBrk.has_method("on_shield_break") and get_tree():
+				HitstopBrk.call("on_shield_break", get_tree())
 			# Play shield break SFX via combat audio.
 			var ca := get_tree().root.get_node_or_null("CombatAudio") if get_tree() else null
 			if ca and ca.has_method("play_shield_break_sfx"):

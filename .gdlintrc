@@ -1,0 +1,14 @@
+max-function-length: 80
+max-file-length: 4000
+max-line-length: 120
+disable:
+  - class-definitions-order
+function-name: "([a-z][a-z0-9_]*)|(_[a-z][a-z0-9_]*)"
+function-variable-name: "([a-z][a-z0-9_]*)|(_[a-z][a-z0-9_]*)"
+class-name: "[A-Z][a-zA-Z0-9]*"
+signal-name: "[a-z][a-z0-9_]*"
+enum-name: "[A-Z][a-zA-Z0-9]*"
+enum-element-name: "[A-Z][A-Z0-9_]*"
+const-name: "([A-Z][A-Z0-9_]*)|([A-Z][a-zA-Z0-9]*)"
+sub-class-name: "[A-Z][a-zA-Z0-9]*"
+load-const-name: "([A-Z][A-Z0-9_]*)|([A-Z][a-zA-Z0-9]*)"

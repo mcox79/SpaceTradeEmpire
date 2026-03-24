@@ -1,4 +1,5 @@
 extends Control
+const EpilogueData = preload("res://scripts/ui/epilogue_data.gd")
 # GATE.S8.WIN.VICTORY_SCREEN.001 — Timed text card sequence for victory epilogue
 
 @onready var _bg: ColorRect = $Background

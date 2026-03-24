@@ -36,4 +36,22 @@ public static class MarketTweaksV0
     public const int MaxStarterBuyPrice = 250;
     // StarterBuyFloorStock: stock level to push if buy price is too high.
     public const int StarterBuyFloorStock = 500;
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Proportional scarcity curve.
+    // Each unit away from IdealStock shifts price by ScarcityBpsPerUnit basis
+    // points of the good's base price. With IdealStock=50 and ScarcityBpsPerUnit=200,
+    // buying 10 units (stock 40) shifts price by 10*200=2000 bps = +20%.
+    // Higher-value goods respond more strongly, discouraging single-good dominance.
+    public const int ScarcityBpsPerUnit = 200;
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Recent-trade margin dampening.
+    // When player trades the same good at the same node repeatedly, price
+    // adjusts to reduce margin (supply/demand response to player activity).
+    // RecentTradeDecayTicks: how quickly the dampening fades (ticks).
+    public const int RecentTradeDecayTicks = 120;
+    // RecentTradeDampenBps: margin reduction per recent trade (basis points).
+    // 5 trades of the same good = 5 * 500 = 2500 bps = 25% margin reduction.
+    public const int RecentTradeDampenBps = 500;
+    // RecentTradeMaxDampenBps: cap on total dampening (80% max reduction).
+    public const int RecentTradeMaxDampenBps = 8000;
 }

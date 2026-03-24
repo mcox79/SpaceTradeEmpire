@@ -126,5 +126,9 @@ public class BuyCommand : ICommand
 			Source = "Buy",
 			NodeId = MarketId,
 		});
+
+		// GATE.T53.BOT.TRADE_REP.001: Award faction rep for trading at their station.
+		if (!string.IsNullOrEmpty(factionId))
+			ReputationSystem.OnTradeAtFactionStation(state, factionId);
 	}
 }

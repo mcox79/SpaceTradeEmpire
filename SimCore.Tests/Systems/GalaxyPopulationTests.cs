@@ -30,9 +30,11 @@ public sealed class GalaxyPopulationTests
         var state = sim.State;
 
         // Every fleet at a faction-owned node should have OwnerId == faction, not "ai".
+        // Pirate fleets can roam into any faction's territory, so skip them.
         foreach (var fleet in state.Fleets.Values)
         {
             if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+            if (string.Equals(fleet.OwnerId, FactionTweaksV0.PirateId, StringComparison.Ordinal)) continue;
             if (state.NodeFactionId.TryGetValue(fleet.CurrentNodeId, out var factionId)
                 && !string.IsNullOrEmpty(factionId))
             {
@@ -348,13 +350,13 @@ public sealed class GalaxyPopulationTests
     {
         var sim = CreatePopulatedGalaxy();
 
-        // All NPC fleet IDs should follow ai_fleet_{nodeId}_{index} format.
+        // All NPC fleet IDs should follow ai_fleet_{nodeId}_{index} or pirate_fleet_{nodeId}_{index} format.
         foreach (var fleet in sim.State.Fleets.Values)
         {
             if (StringComparer.Ordinal.Equals(fleet.OwnerId, "player")) continue;
 
-            Assert.That(fleet.Id, Does.Match(@"^ai_fleet_.+_\d+$"),
-                $"Fleet ID '{fleet.Id}' should match ai_fleet_{{nodeId}}_{{index}} format");
+            Assert.That(fleet.Id, Does.Match(@"^(ai|pirate)_fleet_.+_\d+$"),
+                $"Fleet ID '{fleet.Id}' should match (ai|pirate)_fleet_{{nodeId}}_{{index}} format");
         }
     }
 }

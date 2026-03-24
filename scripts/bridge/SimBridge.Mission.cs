@@ -2,6 +2,7 @@
 
 using Godot;
 using SimCore;
+using SimCore.Content;
 using SimCore.Entities;
 using SimCore.Systems;
 using System;
@@ -405,5 +406,204 @@ public partial class SimBridge
         }
 
         return result;
+    }
+
+    // GATE.T52.MISSION.BRIDGE_M7M8.001: Diplomacy and smuggling mission-specific bridge queries.
+
+    /// <summary>
+    /// Returns diplomacy-specific data for an active template mission.
+    /// {target_faction, rep_reward_tier, treaty_type, destination_node}.
+    /// Returns empty Dictionary if mission is not a Diplomacy archetype.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    private Godot.Collections.Dictionary _cachedDiplomacyMissionDataV0 = new Godot.Collections.Dictionary();
+
+    public Godot.Collections.Dictionary GetDiplomacyMissionDataV0(string missionId)
+    {
+        if (string.IsNullOrEmpty(missionId)) return new Godot.Collections.Dictionary();
+        if (IsLoading) return _cachedDiplomacyMissionDataV0;
+
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary();
+
+            // Find the template for this mission ID (format: TMPL_{templateId}_{tick}).
+            var template = FindTemplatForMission(missionId);
+            if (template is null || template.Archetype != MissionTemplateContentV0.Archetype.Diplomacy)
+                return; // Not a diplomacy mission — leave cached as empty.
+
+            var missions = state.Missions;
+            if (missions is null || !string.Equals(missions.ActiveMissionId, missionId, StringComparison.Ordinal))
+                return; // Not the active mission.
+
+            // target_faction: from template FactionId, or resolved from player's current node faction.
+            string targetFaction = template.FactionId;
+            if (string.IsNullOrEmpty(targetFaction))
+            {
+                string playerNode = state.PlayerLocationNodeId ?? "";
+                if (!string.IsNullOrEmpty(playerNode) && state.NodeFactionId.TryGetValue(playerNode, out var nf))
+                    targetFaction = nf;
+            }
+            d["target_faction"] = targetFaction ?? "";
+
+            // rep_reward_tier: template's RequiredRepTier indicates the tier threshold; higher = better reward.
+            // Map: -1 (no req) → 1, 0 → 3, 1 → 2, 2 → 1.
+            int repRewardTier = template.RequiredRepTier switch
+            {
+                0 => 3,
+                1 => 2,
+                2 => 1,
+                _ => 1,
+            };
+            d["rep_reward_tier"] = repRewardTier;
+
+            // treaty_type: derived from template ID keyword.
+            string treatyType = "trade_agreement"; // default
+            string tid = template.TemplateId;
+            if (tid.Contains("ceasefire", StringComparison.OrdinalIgnoreCase))
+                treatyType = "ceasefire";
+            else if (tid.Contains("alliance", StringComparison.OrdinalIgnoreCase))
+                treatyType = "alliance";
+            else if (tid.Contains("envoy", StringComparison.OrdinalIgnoreCase) ||
+                     tid.Contains("treaty", StringComparison.OrdinalIgnoreCase))
+                treatyType = "trade_agreement";
+            d["treaty_type"] = treatyType;
+
+            // destination_node: current step's target node ID.
+            string destNode = "";
+            if (missions.CurrentStepIndex >= 0 && missions.CurrentStepIndex < missions.ActiveSteps.Count)
+            {
+                destNode = missions.ActiveSteps[missions.CurrentStepIndex].TargetNodeId ?? "";
+            }
+            d["destination_node"] = destNode;
+
+            _cachedDiplomacyMissionDataV0 = d;
+        });
+
+        return _cachedDiplomacyMissionDataV0;
+    }
+
+    /// <summary>
+    /// Returns smuggling-specific data for an active template mission.
+    /// {contraband_good, trace_risk_bps, detection_chance_pct, blockade_active}.
+    /// Returns empty Dictionary if mission is not a Smuggling archetype.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    private Godot.Collections.Dictionary _cachedSmugglingMissionDataV0 = new Godot.Collections.Dictionary();
+
+    public Godot.Collections.Dictionary GetSmugglingMissionDataV0(string missionId)
+    {
+        if (string.IsNullOrEmpty(missionId)) return new Godot.Collections.Dictionary();
+        if (IsLoading) return _cachedSmugglingMissionDataV0;
+
+        TryExecuteSafeRead(state =>
+        {
+            var d = new Godot.Collections.Dictionary();
+
+            // Find the template for this mission ID.
+            var template = FindTemplatForMission(missionId);
+            if (template is null || template.Archetype != MissionTemplateContentV0.Archetype.Smuggling)
+                return; // Not a smuggling mission.
+
+            var missions = state.Missions;
+            if (missions is null || !string.Equals(missions.ActiveMissionId, missionId, StringComparison.Ordinal))
+                return; // Not the active mission.
+
+            // contraband_good: current step's target good, or first step with a good.
+            string contrabandGood = "";
+            if (missions.CurrentStepIndex >= 0 && missions.CurrentStepIndex < missions.ActiveSteps.Count)
+            {
+                contrabandGood = missions.ActiveSteps[missions.CurrentStepIndex].TargetGoodId ?? "";
+            }
+            if (string.IsNullOrEmpty(contrabandGood))
+            {
+                // Fallback: scan all steps for the first good.
+                foreach (var step in missions.ActiveSteps)
+                {
+                    if (!string.IsNullOrEmpty(step.TargetGoodId))
+                    {
+                        contrabandGood = step.TargetGoodId;
+                        break;
+                    }
+                }
+            }
+            d["contraband_good"] = contrabandGood;
+
+            // trace_risk_bps: sum of twist slot weights (higher twists = more risky run).
+            int traceRiskBps = 0;
+            foreach (var twist in template.TwistSlotDefs)
+            {
+                traceRiskBps += twist.WeightBps;
+            }
+            d["trace_risk_bps"] = traceRiskBps;
+
+            // detection_chance_pct: base from twist blockade weight, scaled by node instability.
+            int detectionPct = 0;
+            foreach (var twist in template.TwistSlotDefs)
+            {
+                if (string.Equals(twist.TwistType, "blockade", StringComparison.Ordinal))
+                {
+                    detectionPct = twist.WeightBps / 100; // bps to percent
+                    break;
+                }
+            }
+            // Scale by current node instability (0-10 range adds 0-10% extra).
+            string playerNode = state.PlayerLocationNodeId ?? "";
+            if (!string.IsNullOrEmpty(playerNode) && state.Nodes.TryGetValue(playerNode, out var pNode))
+            {
+                detectionPct += pNode.InstabilityLevel;
+            }
+            detectionPct = Math.Clamp(detectionPct, 0, 100);
+            d["detection_chance_pct"] = detectionPct;
+
+            // blockade_active: check if any step target node is in a warfront's contested nodes.
+            bool blockadeActive = false;
+            if (state.Warfronts is not null)
+            {
+                foreach (var step in missions.ActiveSteps)
+                {
+                    string targetNode = step.TargetNodeId ?? "";
+                    if (string.IsNullOrEmpty(targetNode)) continue;
+
+                    foreach (var wf in state.Warfronts.Values)
+                    {
+                        if (wf.ContestedNodeIds is not null && wf.ContestedNodeIds.Contains(targetNode))
+                        {
+                            blockadeActive = true;
+                            break;
+                        }
+                    }
+                    if (blockadeActive) break;
+                }
+            }
+            d["blockade_active"] = blockadeActive;
+
+            _cachedSmugglingMissionDataV0 = d;
+        });
+
+        return _cachedSmugglingMissionDataV0;
+    }
+
+    /// <summary>
+    /// Helper: extract template ID from mission ID (format "TMPL_{templateId}_{tick}")
+    /// and look up the template definition.
+    /// </summary>
+    private static MissionTemplateContentV0.MissionTemplateDef? FindTemplatForMission(string missionId)
+    {
+        if (string.IsNullOrEmpty(missionId) || !missionId.StartsWith("TMPL_", StringComparison.Ordinal))
+            return null;
+
+        int lastUnderscore = missionId.LastIndexOf('_');
+        int prefixLen = 5; // "TMPL_" length
+        if (lastUnderscore <= prefixLen) return null;
+
+        string templateId = missionId.Substring(prefixLen, lastUnderscore - prefixLen);
+
+        foreach (var t in MissionTemplateContentV0.AllTemplates)
+        {
+            if (string.Equals(t.TemplateId, templateId, StringComparison.Ordinal))
+                return t;
+        }
+        return null;
     }
 }

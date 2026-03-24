@@ -11,8 +11,14 @@ public static class FactionTweaksV0
     public const string ValorinId = "valorin";
     public const string CommunionId = "communion";
 
-    // Sorted ordinal for deterministic iteration.
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate faction — always hostile to player.
+    public const string PirateId = "pirate";
+
+    // Sorted ordinal for deterministic iteration (pirates excluded — they are not a territorial faction).
     public static readonly string[] AllFactionIds = { ChitinId, CommunionId, ConcordId, ValorinId, WeaversId };
+
+    // All faction IDs including pirate (for reputation lookups).
+    public static readonly string[] AllFactionIdsIncludingPirate = { ChitinId, CommunionId, ConcordId, PirateId, ValorinId, WeaversId };
 
     // ── Per-faction tariff rates ──
     public const float ConcordTariffRate = 0.05f;
@@ -53,6 +59,30 @@ public static class FactionTweaksV0
     // Aggression thresholds: reputation below this triggers hostile NPC behavior.
     public static int AggroReputationThreshold { get; } = -50;
 
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate aggro threshold — 999 means always hostile (even rep 0).
+    public const int PirateAggroReputationThreshold = 999;
+
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate fleet tuning.
+    public const int PirateHullHp = 60;
+    public const int PirateShieldHp = 30;
+    public const float PirateSpeed = 0.9f;
+
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate loot table — enhanced drops.
+    public const int PirateLootSalvagedTechMin = 2;
+    public const int PirateLootSalvagedTechMax = 3;
+    public const int PirateLootRareMetalsMin = 3;
+    public const int PirateLootRareMetalsMax = 6;
+    public const int PirateLootCreditsMin = 50;
+    public const int PirateLootCreditsMax = 100;
+
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Min/max pirate patrol fleets seeded at FRONTIER/RIM nodes.
+    public const int PirateFleetCountMin = 3;
+    public const int PirateFleetCountMax = 5;
+
+    // GATE.T55.COMBAT.TERRITORY_ENFORCE.001: Territory enforcement threshold.
+    // At Closed-regime nodes, faction patrols become hostile when player rep is below this.
+    public const int TerritoryHostileThreshold = 25;
+
     // Reputation bounds.
     public static int ReputationDefault { get; } = 0;
     public static int ReputationMin { get; } = -100;
@@ -61,6 +91,8 @@ public static class FactionTweaksV0
     // Reputation change amounts.
     public static int TradeRepGain { get; } = 1;         // per successful trade at faction station
     public static int AttackRepLoss { get; } = -25;      // per attack on faction ship
+    // GATE.T55.REP.MISSION_WIRE.001: Rep gained on mission completion for the offering faction.
+    public const int MissionRepGain = 5;
 
     // GATE.S7.REPUTATION.TRADE_DRIFT.001: Natural decay toward neutral.
     // Rep decays by 1 point per DecayIntervalTicks toward 0.
@@ -152,6 +184,11 @@ public static class FactionTweaksV0
     public static readonly (float R, float G, float B) CommunionSecondary = (0.5f, 0.3f, 0.7f);
     public static readonly (float R, float G, float B) CommunionAccent    = (0.7f, 0.4f, 1.0f);
 
+    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate = dark crimson (outlaws)
+    public static readonly (float R, float G, float B) PiratePrimary   = (0.5f, 0.1f, 0.1f);
+    public static readonly (float R, float G, float B) PirateSecondary = (0.4f, 0.15f, 0.15f);
+    public static readonly (float R, float G, float B) PirateAccent    = (0.8f, 0.2f, 0.1f);
+
     /// <summary>
     /// Returns (Primary, Secondary, Accent) color tuples for a given faction ID.
     /// Returns neutral gray if faction is unknown.
@@ -165,6 +202,7 @@ public static class FactionTweaksV0
             WeaversId   => (WeaversPrimary, WeaversSecondary, WeaversAccent),
             ValorinId   => (ValorinPrimary, ValorinSecondary, ValorinAccent),
             CommunionId => (CommunionPrimary, CommunionSecondary, CommunionAccent),
+            PirateId    => (PiratePrimary, PirateSecondary, PirateAccent),
             _           => ((0.5f, 0.5f, 0.5f), (0.6f, 0.6f, 0.6f), (0.7f, 0.7f, 0.7f)),
         };
     }

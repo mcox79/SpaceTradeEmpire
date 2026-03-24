@@ -300,7 +300,7 @@ public sealed class ContentRegistryContractTests
     public void ProductionChain_Registry_Has9Recipes()
     {
         var reg = ContentRegistryLoader.LoadFromJsonOrThrow(ContentRegistryLoader.DefaultRegistryJsonV0);
-        Assert.That(reg.Recipes.Count, Is.EqualTo(9));
+        Assert.That(reg.Recipes.Count, Is.EqualTo(10));
     }
 
     [Test]

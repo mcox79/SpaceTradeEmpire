@@ -269,7 +269,11 @@ public class SimKernel
         ProfileCall(sw, tickProfiles, "InstabilitySystem", () => InstabilitySystem.Process(_state));
 
         // GATE.T45.DEEP_DREAD.PASSIVE_DRAIN.001: Phase-based passive hull drain at Phase 2+.
+        // GATE.T52.DREAD.EXPOSURE_SCALING.001: Drain interval scales with exposure level.
         ProfileCall(sw, tickProfiles, "DreadDrainSystem", () => DreadDrainSystem.Process(_state));
+
+        // GATE.T52.DREAD.SECONDARY_STRESS.001: Phase 2+ fuel burn multiplier + cargo decay.
+        ProfileCall(sw, tickProfiles, "DreadDrainSecondaryStress", () => DreadDrainSystem.ProcessSecondaryStressors(_state));
 
         // GATE.T45.DEEP_DREAD.EXPOSURE_TRACK.001: Cumulative deep exposure at Phase 2+ nodes.
         ProfileCall(sw, tickProfiles, "ExposureTrackSystem", () => ExposureTrackSystem.Process(_state));

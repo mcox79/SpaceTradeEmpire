@@ -3,6 +3,7 @@
 #   # FILE <repo-relative-path>
 #   <token> (one per line, order of appearance in file)
 # FILE SimCore/Gen/DiscoverySeedGen.cs
+1
 2
 1f
 0
@@ -49,6 +50,7 @@
 0
 0
 256
+0
 0
 0
 1
@@ -123,6 +125,13 @@
 0
 0
 0
+0
+0
+1
+0
+0
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Gen/MarketInitGen.cs
 0
 0
@@ -151,10 +160,12 @@
 2
 2
 2
+2
 1
 0
 1
 0
+2
 0
 0
 0
@@ -162,6 +173,9 @@
 1
 # FILE SimCore/Gen/NarrativePlacementGen.cs
 0
+99
+1
+2
 0
 0
 1
@@ -356,6 +370,21 @@
 0
 0
 0
+# FILE SimCore/Systems/AnomalyChainSystem.cs
+0
+0
+3
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+1
 # FILE SimCore/Systems/BandedTime.cs
 0
 0
@@ -446,6 +475,10 @@
 1
 0
 1
+4
+3
+1
+0
 # FILE SimCore/Systems/ContainmentSystem.cs
 0.05f
 0
@@ -470,6 +503,8 @@
 14695981039346656037UL
 1099511628211UL
 # FILE SimCore/Systems/DiscoveryOutcomeSystem.cs
+0
+0
 0
 0
 2
@@ -500,9 +535,42 @@
 0
 0
 0
+# FILE SimCore/Systems/DreadDrainSystem.cs
+2
+4
+2
+2
+0
+0
+0
+0
+2
+4
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+1
+0
+0
+1
 # FILE SimCore/Systems/EscortSystem.cs
 0
 0
+# FILE SimCore/Systems/ExposureTrackSystem.cs
+2
+1
+0
+0
+1000
 # FILE SimCore/Systems/FailureRecoverySystem.cs
 3
 # FILE SimCore/Systems/FirstOfficerSystem.cs
@@ -526,9 +594,21 @@
 0
 2
 0
+2
+4
 0
 0
 0
+0
+0
+# FILE SimCore/Systems/FleetPopulationSystem.cs
+500
+8
+10
+0
+1
+0
+1
 0
 # FILE SimCore/Systems/FleetUpkeepSystem.cs
 0
@@ -541,6 +621,20 @@
 0
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+1
+0
+0
+1
 # FILE SimCore/Systems/FractureSystem.cs
 1
 2
@@ -663,6 +757,22 @@
 0
 0
 0
+# FILE SimCore/Systems/InformationFogSystem.cs
+0
+0
+0
+1
+0
+1
+0
+2
+2
+1
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/InstabilitySystem.cs
 0
 0
@@ -757,6 +867,21 @@
 # FILE SimCore/Systems/IntentSystem.cs
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/InventoryLedger.cs
 0
 0
@@ -824,6 +949,18 @@
 0
 0
 0
+# FILE SimCore/Systems/LatticeFaunaSystem.cs
+1
+0
+0
+0
+100UL
+40
+20
+0
+0
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Systems/LogisticsSystem.cs
 3
 0
@@ -877,6 +1014,9 @@
 0
 # FILE SimCore/Systems/LootTableSystem.cs
 8
+1
+1
+1
 14695981039346656037UL
 1099511628211UL
 # FILE SimCore/Systems/LossDetectionSystem.cs
@@ -1020,6 +1160,22 @@
 0
 0
 0
+# FILE SimCore/Systems/MissionTemplateSystem.cs
+0
+0
+0
+0
+0
+5
+0
+0
+0
+1
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/MovementSystem.cs
 0
 0.1f
@@ -1086,7 +1242,13 @@
 2
 0
 2
+0
+2
 1
+0
+0
+0
+0
 3
 3
 0
@@ -1106,6 +1268,11 @@
 0
 0
 0
+10000
+0
+0
+10000
+10000
 0
 0
 0
@@ -1117,9 +1284,13 @@
 0
 0
 0
+10000
 0
 0
+10000
+10000
 0
+200
 # FILE SimCore/Systems/PentagonBreakSystem.cs
 0
 0
@@ -1319,6 +1490,18 @@
 1
 1
 0
+# FILE SimCore/Systems/SensorGhostSystem.cs
+1
+0
+0
+1
+0
+0
+8
+1
+16
+14695981039346656037UL
+1099511628211UL
 # FILE SimCore/Systems/SerializationSystem.cs
 2
 1
@@ -1353,6 +1536,8 @@
 1
 2
 3
+0
+2
 0
 0
 100
@@ -1441,6 +1626,27 @@
 0
 1
 1
+# FILE SimCore/Systems/TelemetrySystem.cs
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/TopologyShiftSystem.cs
 0
 0

@@ -3,6 +3,7 @@
 Usage:
     python compare_screenshots.py --current reports/screenshot/full/ --baseline reports/baselines/full/
     python compare_screenshots.py --current reports/screenshot/quick/ --baseline reports/baselines/quick/
+    python compare_screenshots.py --current ... --baseline ... --metric ssim  # perceptual SSIM comparison
 
 Output: JSON to stdout with per-image comparison results.
 Exit codes: 0 = all pass, 1 = any regression, 2 = missing dependency.
@@ -10,6 +11,7 @@ Exit codes: 0 = all pass, 1 = any regression, 2 = missing dependency.
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -19,6 +21,14 @@ try:
 except ImportError:
     print("ERROR: Pillow not installed. Run: pip install Pillow", file=sys.stderr)
     sys.exit(2)
+
+# Optional: numpy for SSIM computation (much more perceptually accurate than MAD)
+_HAS_NUMPY = False
+try:
+    import numpy as np
+    _HAS_NUMPY = True
+except ImportError:
+    pass
 
 
 def extract_phase_label(filename):
@@ -35,8 +45,85 @@ def extract_phase_label(filename):
     return cleaned
 
 
-def compute_metrics(baseline_img, current_img):
-    """Compute pixel-level comparison metrics between two images."""
+def compute_ssim(baseline_img, current_img):
+    """Compute Structural Similarity Index (SSIM) between two images.
+
+    SSIM is far more perceptually accurate than pixel-level MAD.
+    It measures luminance, contrast, and structure similarity,
+    closely matching human visual perception. This reduces false
+    positives from anti-aliasing, particle positions, and minor
+    rendering variance that MAD flags incorrectly.
+
+    Returns a value in [0.0, 1.0] where 1.0 = identical.
+    Requires numpy. Falls back to MAD-based metrics if unavailable.
+
+    Reference: Wang et al., "Image Quality Assessment: From Error Visibility
+    to Structural Similarity", IEEE TIP 2004.
+    """
+    if not _HAS_NUMPY:
+        return None
+
+    # Convert to grayscale float arrays (SSIM is typically computed on luminance)
+    b_gray = np.array(baseline_img.convert("L"), dtype=np.float64)
+    c_gray = np.array(current_img.convert("L"), dtype=np.float64)
+
+    if b_gray.shape != c_gray.shape:
+        return None
+
+    # SSIM constants (from the original paper)
+    C1 = (0.01 * 255) ** 2  # stabilizer for luminance
+    C2 = (0.03 * 255) ** 2  # stabilizer for contrast
+
+    # Window-based SSIM (8x8 blocks for efficiency)
+    window_size = 8
+    h, w = b_gray.shape
+    if h < window_size or w < window_size:
+        # Image too small for windowed SSIM, compute global
+        mu_b = b_gray.mean()
+        mu_c = c_gray.mean()
+        sigma_b_sq = b_gray.var()
+        sigma_c_sq = c_gray.var()
+        sigma_bc = ((b_gray - mu_b) * (c_gray - mu_c)).mean()
+
+        num = (2 * mu_b * mu_c + C1) * (2 * sigma_bc + C2)
+        den = (mu_b ** 2 + mu_c ** 2 + C1) * (sigma_b_sq + sigma_c_sq + C2)
+        return float(num / den) if den != 0 else 1.0
+
+    # Crop to multiple of window_size
+    h_crop = (h // window_size) * window_size
+    w_crop = (w // window_size) * window_size
+    b_gray = b_gray[:h_crop, :w_crop]
+    c_gray = c_gray[:h_crop, :w_crop]
+
+    # Reshape into blocks
+    b_blocks = b_gray.reshape(h_crop // window_size, window_size, w_crop // window_size, window_size)
+    c_blocks = c_gray.reshape(h_crop // window_size, window_size, w_crop // window_size, window_size)
+
+    # Per-block statistics
+    mu_b = b_blocks.mean(axis=(1, 3))
+    mu_c = c_blocks.mean(axis=(1, 3))
+    sigma_b_sq = b_blocks.var(axis=(1, 3))
+    sigma_c_sq = c_blocks.var(axis=(1, 3))
+
+    # Covariance
+    b_centered = b_blocks - mu_b[:, np.newaxis, :, np.newaxis]
+    c_centered = c_blocks - mu_c[:, np.newaxis, :, np.newaxis]
+    sigma_bc = (b_centered * c_centered).mean(axis=(1, 3))
+
+    # SSIM per block
+    num = (2 * mu_b * mu_c + C1) * (2 * sigma_bc + C2)
+    den = (mu_b ** 2 + mu_c ** 2 + C1) * (sigma_b_sq + sigma_c_sq + C2)
+    ssim_map = num / np.where(den == 0, 1, den)
+
+    return float(ssim_map.mean())
+
+
+def compute_metrics(baseline_img, current_img, use_ssim=False):
+    """Compute comparison metrics between two images.
+
+    When use_ssim=True and numpy is available, adds SSIM (Structural Similarity
+    Index) which is far more perceptually accurate than pixel-level MAD.
+    """
     # Ensure same size
     if baseline_img.size != current_img.size:
         current_img = current_img.resize(baseline_img.size, Image.LANCZOS)
@@ -51,7 +138,10 @@ def compute_metrics(baseline_img, current_img):
 
     total_pixels = len(diff_data)
     if total_pixels == 0:
-        return {"mad": 0.0, "max_diff": 0, "changed_pct": 0.0}
+        result = {"mad": 0.0, "max_diff": 0, "changed_pct": 0.0}
+        if use_ssim:
+            result["ssim"] = 1.0
+        return result
 
     # Mean Absolute Difference (normalized to 0.0-1.0)
     sum_diff = 0.0
@@ -71,15 +161,47 @@ def compute_metrics(baseline_img, current_img):
     mad = sum_diff / (total_pixels * 3 * 255)  # normalize
     changed_pct = changed_count / total_pixels * 100.0
 
-    return {
+    result = {
         "mad": round(mad, 6),
         "max_diff": max_diff,
         "changed_pct": round(changed_pct, 2),
     }
 
+    # Add SSIM if requested
+    if use_ssim:
+        ssim_val = compute_ssim(b, c)
+        if ssim_val is not None:
+            result["ssim"] = round(ssim_val, 6)
+        else:
+            result["ssim"] = None
+            result["ssim_error"] = "numpy not available — install with: pip install numpy"
 
-def classify(metrics):
-    """Return PASS / WARN / FAIL based on metrics."""
+    return result
+
+
+def classify(metrics, use_ssim=False):
+    """Return PASS / WARN / FAIL based on metrics.
+
+    When SSIM is available, use it as the primary signal:
+      SSIM >= 0.95 → PASS (perceptually identical)
+      SSIM >= 0.85 → WARN (minor differences)
+      SSIM <  0.85 → FAIL (significant change)
+
+    SSIM thresholds are tuned for game screenshots where particle
+    positions, anti-aliasing, and minor rendering variance are expected.
+    Falls back to MAD-based classification when SSIM is unavailable.
+    """
+    ssim = metrics.get("ssim")
+
+    if use_ssim and ssim is not None:
+        if ssim >= 0.95:
+            return "PASS"
+        elif ssim >= 0.85:
+            return "WARN"
+        else:
+            return "FAIL"
+
+    # Fallback: MAD-based classification
     mad = metrics["mad"]
     changed_pct = metrics["changed_pct"]
 
@@ -105,7 +227,17 @@ def main():
     parser.add_argument("--baseline", required=True, help="Directory with baseline screenshots")
     parser.add_argument("--threshold-mad", type=float, default=0.02, help="MAD threshold for PASS")
     parser.add_argument("--threshold-pct", type=float, default=5.0, help="Changed%% threshold for PASS")
+    parser.add_argument(
+        "--metric", choices=["mad", "ssim"], default="mad",
+        help="Primary comparison metric: 'mad' (pixel-level, default) or 'ssim' (perceptual, requires numpy)"
+    )
     args = parser.parse_args()
+
+    use_ssim = args.metric == "ssim"
+    if use_ssim and not _HAS_NUMPY:
+        print("WARNING: --metric ssim requires numpy. Install with: pip install numpy", file=sys.stderr)
+        print("WARNING: Falling back to MAD-based comparison.", file=sys.stderr)
+        use_ssim = False
 
     if not os.path.isdir(args.baseline):
         print(f"ERROR: Baseline directory not found: {args.baseline}", file=sys.stderr)
@@ -141,8 +273,8 @@ def main():
         else:
             baseline_img = Image.open(os.path.join(args.baseline, baseline_file))
             current_img = Image.open(os.path.join(args.current, current_file))
-            metrics = compute_metrics(baseline_img, current_img)
-            verdict = classify(metrics)
+            metrics = compute_metrics(baseline_img, current_img, use_ssim=use_ssim)
+            verdict = classify(metrics, use_ssim=use_ssim)
             result = {
                 "baseline": baseline_file,
                 "current": current_file,
@@ -160,8 +292,11 @@ def main():
 
     # Human-readable summary to stderr
     print("\n--- Screenshot Regression Report ---", file=sys.stderr)
-    print(f"{'Phase':<30} {'Verdict':<6} {'MAD':<10} {'Changed%':<10} {'MaxDiff':<8}", file=sys.stderr)
-    print("-" * 74, file=sys.stderr)
+    header = f"{'Phase':<30} {'Verdict':<6} {'MAD':<10} {'Changed%':<10} {'MaxDiff':<8}"
+    if use_ssim:
+        header += f" {'SSIM':<8}"
+    print(header, file=sys.stderr)
+    print("-" * (74 + (9 if use_ssim else 0)), file=sys.stderr)
     for r in results:
         phase = r.get("phase", "?")
         verdict = r.get("verdict", "?")
@@ -170,6 +305,10 @@ def main():
         maxd = str(r.get("max_diff", "N/A"))
         reason = r.get("reason", "")
         line = f"{phase:<30} {verdict:<6} {mad:<10} {pct:<10} {maxd:<8}"
+        if use_ssim:
+            ssim_val = r.get("ssim")
+            ssim_str = f"{ssim_val:.4f}" if ssim_val is not None else "N/A"
+            line += f" {ssim_str:<8}"
         if reason:
             line += f" ({reason})"
         print(line, file=sys.stderr)

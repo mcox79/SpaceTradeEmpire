@@ -226,6 +226,11 @@ func _process(_delta: float) -> bool:
 				_game_manager = root.get_node_or_null("GameManager")
 				if _game_manager:
 					_game_manager.set("_on_main_menu", false)
+				# Dismiss first-launch accessibility panel if present (layer 130).
+				for node in root.get_children():
+					if node is CanvasLayer and node.has_method("_on_continue_pressed"):
+						node.call("_on_continue_pressed")
+						break
 				_init_navigation()
 				_phase = Phase.WAIT_LOCAL_SYSTEM
 			else:

@@ -1767,4 +1767,145 @@ public partial class SimBridge : Node
 
         lock (_snapshotLock) { return _cachedJumpEventsV0; }
     }
+
+    // GATE.T52.DISC.SCANNER_VIS.001: Return current scanner tier (0=Basic .. 4=Fracture).
+    public int GetScannerTierV0()
+    {
+        int tier = 0;
+        TryExecuteSafeRead(state =>
+        {
+            tier = state.ScannerTier;
+        }, 0);
+        return tier;
+    }
+
+    // GATE.T52.DISC.PHASE_MARKERS.001: Per-node discovery phase summary for galaxy map.
+    // Returns Dictionary { "phase_token": "NONE"|"PARTIAL"|"COMPLETE", "seen": int, "scanned": int, "analyzed": int, "total": int }
+    public Godot.Collections.Dictionary GetNodeDiscoveryPhaseSummaryV0(string nodeId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["phase_token"] = "NONE";
+        result["seen"] = 0;
+        result["scanned"] = 0;
+        result["analyzed"] = 0;
+        result["total"] = 0;
+
+        if (string.IsNullOrEmpty(nodeId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Nodes.TryGetValue(nodeId, out var node)) return;
+            if (node.SeededDiscoveryIds == null || node.SeededDiscoveryIds.Count == 0) return;
+
+            int seen = 0, scanned = 0, analyzed = 0, total = 0;
+            for (int i = 0; i < node.SeededDiscoveryIds.Count; i++)
+            {
+                var discId = node.SeededDiscoveryIds[i];
+                if (string.IsNullOrEmpty(discId)) continue;
+                if (!state.Intel.Discoveries.TryGetValue(discId, out var disc)) continue;
+                total++;
+                switch (disc.Phase)
+                {
+                    case SimCore.Entities.DiscoveryPhase.Seen:
+                        seen++;
+                        break;
+                    case SimCore.Entities.DiscoveryPhase.Scanned:
+                        scanned++;
+                        break;
+                    case SimCore.Entities.DiscoveryPhase.Analyzed:
+                        analyzed++;
+                        break;
+                }
+            }
+
+            result["seen"] = seen;
+            result["scanned"] = scanned;
+            result["analyzed"] = analyzed;
+            result["total"] = total;
+
+            if (total == 0)
+                result["phase_token"] = "NONE";
+            else if (analyzed == total)
+                result["phase_token"] = "COMPLETE";
+            else
+                result["phase_token"] = "PARTIAL";
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.T52.DISC.BREADCRUMB.001: Visit history for breadcrumb trail on galaxy map.
+    // Returns Array of Dictionaries sorted by visit tick ascending (oldest first).
+    // Each dict: { "node_id": string, "visit_tick": int }
+    public Godot.Collections.Array GetVisitHistoryV0()
+    {
+        var result = new Godot.Collections.Array();
+
+        TryExecuteSafeRead(state =>
+        {
+            var entries = new List<(string nodeId, int tick)>();
+            foreach (var kv in state.NodeLastVisitTick)
+            {
+                entries.Add((kv.Key, kv.Value));
+            }
+            // Sort by tick ascending (oldest first → most faded).
+            entries.Sort((a, b) => a.tick.CompareTo(b.tick));
+
+            var arr = new Godot.Collections.Array();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["node_id"] = entries[i].nodeId,
+                    ["visit_tick"] = entries[i].tick,
+                });
+            }
+            result = arr;
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.T52.DISC.MILESTONE_CARDS.001: Discovery detail for milestone card toast.
+    // Returns { "discovery_id", "phase", "flavor_text", "credit_reward", "kind" }
+    public Godot.Collections.Dictionary GetDiscoveryDetailV0(string discoveryId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        result["discovery_id"] = discoveryId ?? "";
+        result["phase"] = "UNKNOWN";
+        result["flavor_text"] = "";
+        result["credit_reward"] = 0;
+        result["kind"] = "";
+
+        if (string.IsNullOrEmpty(discoveryId)) return result;
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.Discoveries == null) return;
+            if (!state.Intel.Discoveries.TryGetValue(discoveryId, out var disc)) return;
+
+            result["phase"] = disc.Phase switch
+            {
+                SimCore.Entities.DiscoveryPhase.Scanned => "SCANNED",
+                SimCore.Entities.DiscoveryPhase.Analyzed => "ANALYZED",
+                _ => "SEEN",
+            };
+            result["flavor_text"] = disc.FlavorText ?? "";
+
+            // Determine kind from anomaly encounter family if available.
+            string kind = "";
+            foreach (var enc in state.AnomalyEncounters.Values)
+            {
+                if (string.Equals(enc.DiscoveryId, discoveryId, System.StringComparison.Ordinal))
+                {
+                    kind = enc.Family ?? "";
+                    result["credit_reward"] = enc.CreditReward;
+                    break;
+                }
+            }
+            result["kind"] = kind;
+        }, 0);
+
+        return result;
+    }
 }

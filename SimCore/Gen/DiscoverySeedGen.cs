@@ -116,7 +116,9 @@ public static class DiscoverySeedGen
         }
 
         // Deterministic anomaly family selection.
+        // Guarantee at least 1 RUIN per world (exotic matter source).
         var families = new[] { "DERELICT", "RUIN", "SIGNAL" };
+        bool hasRuin = false;
 
         foreach (var wc in classes)
         {
@@ -142,12 +144,19 @@ public static class DiscoverySeedGen
             }
 
             // Always add anomaly family (1 per class).
+            // Guarantee at least 1 RUIN family per world for exotic matter.
             {
                 var kind = DiscoverySeedKind_AnomalyFamilyV0;
                 var nodeId = host.Id;
 
                 var famHash = GalaxyGenerator.Fnv1a32Utf8(seed + "|" + wc + "|anomaly_family_v0");
                 var fam = families[(int)(famHash % (uint)families.Length)];
+
+                // If this is the last class and no RUIN yet, force RUIN.
+                if (!hasRuin && wc == classes[classes.Count - 1])
+                    fam = "RUIN";
+                if (fam == "RUIN")
+                    hasRuin = true;
 
                 var refId = fam;
                 var sourceId = "seed:" + seed;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
@@ -54,6 +55,10 @@ public static class ConstructionSystem
         // Check initial credits
         if (state.PlayerCredits < def.CreditCostPerStep)
             return new StartResult { Success = false, Reason = "insufficient_credits" };
+
+        // GATE.EXTRACT.BRIDGE_WIRE.001: Extraction requires analyzed discovery at node.
+        if (def.Type == ConstructionType.Extraction && !HasAnalyzedDiscoveryAtNode(state, nodeId))
+            return new StartResult { Success = false, Reason = "no_analyzed_discovery" };
 
         // Create project
         var projectId = $"CP{state.Construction.NextProjectSeq}";
@@ -165,6 +170,97 @@ public static class ConstructionSystem
             EventType = "Completed",
             StepIndex = project.CurrentStep,
         });
+
+        // GATE.EXTRACT.BUILD_CREATES_INDUSTRY.001: Create IndustrySite when extraction station completes.
+        var def = ConstructionContentV0.GetById(project.ProjectDefId);
+        if (def != null && def.Type == ConstructionType.Extraction)
+        {
+            CreateExtractionSite(state, project);
+        }
+    }
+
+    // GATE.EXTRACT.BUILD_CREATES_INDUSTRY.001: Create an IndustrySite at the node
+    // that produces the discovery's associated good.
+    private static void CreateExtractionSite(SimState state, ConstructionProject project)
+    {
+        var nodeId = project.NodeId;
+        if (string.IsNullOrEmpty(nodeId) || !state.Nodes.TryGetValue(nodeId, out var node)) return;
+
+        // Look up the node's SeededDiscoveryIds for an analyzed discovery.
+        string outputGood = "";
+        if (node.SeededDiscoveryIds != null && state.Intel?.Discoveries != null)
+        {
+            foreach (var discId in node.SeededDiscoveryIds.OrderBy(d => d, StringComparer.Ordinal))
+            {
+                if (!state.Intel.Discoveries.TryGetValue(discId, out var disc)) continue;
+                if (disc.Phase != DiscoveryPhase.Analyzed) continue;
+
+                // Parse discovery kind and map to output good.
+                string kind = DiscoveryOutcomeSystem.ParseDiscoveryKind(discId);
+                string family = kind switch
+                {
+                    "RESOURCE_POOL_MARKER" => "RUIN",
+                    "CORRIDOR_TRACE" => "SIGNAL",
+                    _ => kind
+                };
+
+                outputGood = family switch
+                {
+                    "RUIN" => WellKnownGoodIds.ExoticMatter,
+                    "DERELICT" => WellKnownGoodIds.SalvagedTech,
+                    "SIGNAL" => WellKnownGoodIds.RareMetals,
+                    _ => ""
+                };
+
+                if (!string.IsNullOrEmpty(outputGood)) break;
+            }
+        }
+
+        // Fallback: if no analyzed discovery found, default to rare_metals.
+        if (string.IsNullOrEmpty(outputGood))
+            outputGood = WellKnownGoodIds.RareMetals;
+
+        var siteId = $"extract_{project.ProjectId}";
+        var outputs = new Dictionary<string, int>
+        {
+            [outputGood] = ExtractionTweaksV0.ExtractionOutputPerTick
+        };
+
+        // GATE.T55.SUPPLY.RARE_METALS_EXTRACTION.001: Mining-related extraction sites
+        // produce rare_metals as secondary output (1 unit/tick) alongside primary good.
+        if (node.SeededDiscoveryIds != null && state.Intel?.Discoveries != null)
+        {
+            foreach (var discId2 in node.SeededDiscoveryIds.OrderBy(d => d, StringComparer.Ordinal))
+            {
+                if (!state.Intel.Discoveries.TryGetValue(discId2, out var disc2)) continue;
+                if (disc2.Phase != DiscoveryPhase.Analyzed) continue;
+
+                string kind2 = DiscoveryOutcomeSystem.ParseDiscoveryKind(discId2);
+                if (kind2 == "RESOURCE_POOL_MARKER")
+                {
+                    // Check RefId segment (index 3) for mining indicators.
+                    var parts = discId2.Split('|');
+                    string refId = parts.Length >= 4 ? parts[3] : "";
+                    if (refId.Contains("ore", StringComparison.OrdinalIgnoreCase) ||
+                        refId.Contains("mine", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!outputs.ContainsKey(WellKnownGoodIds.RareMetals))
+                            outputs[WellKnownGoodIds.RareMetals] = 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        var site = new IndustrySite
+        {
+            Id = siteId,
+            NodeId = nodeId,
+            Active = true,
+            Outputs = outputs
+        };
+
+        state.IndustrySites[siteId] = site;
     }
 
     private static void CancelProject(SimState state, ConstructionProject project)
@@ -207,6 +303,35 @@ public static class ConstructionSystem
         if (state.PlayerCredits < def.CreditCostPerStep)
             return "insufficient_credits";
 
+        // GATE.EXTRACT.BRIDGE_WIRE.001: Extraction requires analyzed discovery at node.
+        if (def.Type == ConstructionType.Extraction && !HasAnalyzedDiscoveryAtNode(state, nodeId))
+            return "no_analyzed_discovery";
+
         return "";
+    }
+
+    /// <summary>
+    /// GATE.EXTRACT.BRIDGE_WIRE.001: Check if the node has at least one analyzed discovery
+    /// of a relevant family (RUIN, SIGNAL, DERELICT).
+    /// </summary>
+    public static bool HasAnalyzedDiscoveryAtNode(SimState state, string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId)) return false;
+        if (!state.Nodes.TryGetValue(nodeId, out var node)) return false;
+        if (node.SeededDiscoveryIds == null || node.SeededDiscoveryIds.Count == 0) return false;
+        if (state.Intel?.Discoveries == null) return false;
+
+        foreach (var discId in node.SeededDiscoveryIds)
+        {
+            if (!state.Intel.Discoveries.TryGetValue(discId, out var disc)) continue;
+            if (disc.Phase != DiscoveryPhase.Analyzed) continue;
+
+            string kind = DiscoveryOutcomeSystem.ParseDiscoveryKind(discId);
+            // Accept RESOURCE_POOL_MARKER (RUIN), CORRIDOR_TRACE (SIGNAL), or any DERELICT.
+            if (kind == "RESOURCE_POOL_MARKER" || kind == "CORRIDOR_TRACE" || kind == "DERELICT")
+                return true;
+        }
+
+        return false;
     }
 }

@@ -56,6 +56,21 @@ public static class DeepDreadTweaksV0
     // Instrument disagreement narrowing factor (per 1000 exposure ticks).
     public const int DisagreementNarrowPerKExposure = 100; // 10% per 1000 ticks
 
+    // --- Exposure-scaled drain intervals ---
+    // Override drain intervals when exposure reaches mild/heavy thresholds.
+    // High exposure = faster drain (the lattice "recognizes" you).
+    public const int DrainIntervalMildExposure = 30;   // Phase 2: 50 → 30 ticks at mild exposure
+    public const int DrainIntervalHeavyExposure = 20;  // Phase 2: 50 → 20 ticks at heavy exposure
+
+    // --- Phase 2+ secondary stressors ---
+    // Fuel burn multiplier at Phase 2+ (BPS, 10000 = 1x, 20000 = 2x).
+    public const int FuelBurnMultiplierPhase2Bps = 20000;
+    public const int BpsDivisor = 10000;
+    // Cargo value decay: basis points of total cargo value lost per cycle tick.
+    // Applied every CargoDecayCycleTicks at Phase 2+.
+    public const int CargoDecayBpsPerCycle = 50;       // 0.5% per cycle
+    public const int CargoDecayCycleTicks = 25;        // every 25 ticks
+
     // --- FO distance triggers ---
     public const int FoFarFromPatrolHops = 4;
     public const int FoCommsLostHops = 6;

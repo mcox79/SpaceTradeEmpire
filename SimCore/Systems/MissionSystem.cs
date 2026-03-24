@@ -295,6 +295,12 @@ public static class MissionSystem
 
             // GATE.S9.MISSION_EVOL.REWARDS.001: Distribute non-credit rewards.
             DistributeRewards(state, def);
+
+            // GATE.T55.REP.MISSION_WIRE.001: Grant faction rep on mission completion.
+            if (!string.IsNullOrEmpty(def.FactionId))
+            {
+                ReputationSystem.AdjustReputation(state, def.FactionId, Tweaks.FactionTweaksV0.MissionRepGain);
+            }
         }
 
         missions.CompletedMissionIds.Add(missionId);

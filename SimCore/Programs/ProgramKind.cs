@@ -25,4 +25,7 @@ public static class ProgramKind
 
     // GATE.T41.SURVEY_PROG.MODEL.001: survey program kind v0
     public const string SurveyV0 = "SURVEY_V0";
+
+    // GATE.EXTRACT.FRACTURE_PROGRAM.001: fracture extraction program kind v0
+    public const string FractureExtractionV0 = "FRACTURE_EXTRACTION_V0";
 }

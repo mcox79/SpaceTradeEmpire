@@ -1,7 +1,7 @@
 ---
 name: audit
-description: "Full-game audit: runs ALL bots, ALL evals, ALL optimizers. Compiles unified problem list, fixes issues, plugs monitoring gaps, iterates until clean."
-argument-hint: "[mode: full|eval-only|fix-only|gaps] [iteration-name]"
+description: "Full-game audit: runs ALL bots, ALL evals, ALL optimizers, AI analysis tools. Compiles unified problem list, fixes issues, plugs monitoring gaps, iterates until clean."
+argument-hint: "[mode: full|quick|eval-only|fix-only|gaps] [iteration-name]"
 ---
 
 # /audit — Full-Game Audit & Auto-Fix
@@ -10,13 +10,27 @@ Uses **every tool at our disposal** to find and fix game issues, then identifies
 and fills gaps in our monitoring so future audits catch more.
 
 Parse `$ARGUMENTS`:
-- **mode** (first word): `full` (default) | `eval-only` | `fix-only` | `gaps`
+- **mode** (first word): `full` (default) | `quick` | `eval-only` | `fix-only` | `gaps`
   - `full` — evaluate → compile → fix → re-evaluate → evolve coverage → iterate
+  - `quick` — fast automated pass: build + tests + semgrep + gdlint + RL smoke (~90s). Runs `scripts/tools/Run-AuditQuick.ps1`
   - `eval-only` — run all evals and compile, no fixes
   - `fix-only` — skip evals, read latest reports, fix top problems
   - `gaps` — coverage gap analysis only (no bot runs, fast)
 - **iteration-name** (second word, optional): e.g., `baseline`, `post-combat-fix`
   - Default: `audit_1`, `audit_2`, etc., based on existing folders
+
+For `quick` mode, run:
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-AuditQuick.ps1
+```
+This runs: Build → Test Suite (1539 tests incl. FsCheck + Coyote) → Optimize Scan →
+Coverage Gap → Semgrep Architecture Lint → GDScript Lint. Exit 0 = clean.
+
+For `full` mode with the deep automated pass, also run:
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-AuditDeep.ps1
+```
+This adds: Mutation Testing (Stryker) + RL Smoke + Bot Runs + Screenshot Regression.
 
 ---
 
@@ -26,18 +40,31 @@ Parse `$ARGUMENTS`:
    Check for carried-forward items from the last audit. Address any
    self-improvement actions that were proposed but not yet implemented.
 2. Record git SHA: `git rev-parse --short HEAD`
-3. Build BOTH projects:
+3. Build ALL projects:
    ```bash
    dotnet build SimCore/SimCore.csproj --nologo -v q
    dotnet build "Space Trade Empire.csproj" --nologo -v q
+   dotnet build SimCore.RlServer/SimCore.RlServer.csproj -c Release --nologo -v q
    ```
-4. Run the full C# test suite as baseline signal:
+4. Run the full C# test suite as baseline signal (includes FsCheck property-based
+   tests and Coyote concurrency tests — 1500+ tests total):
    ```bash
    dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q
    ```
    Record: total tests, passed, failed. Any test failures are CRITICAL problems.
-5. Create output dir: `reports/audit/<iteration-name>/`
-6. If mode is `fix-only`, skip to Step 3. If mode is `gaps`, skip to Step 2.
+5. Run Semgrep architecture lint (if installed):
+   ```bash
+   semgrep --config .semgrep.yml --quiet SimCore/
+   ```
+   Any violations = architecture enforcement failures (SimCore purity, determinism).
+6. Run GDScript lint (if installed):
+   ```bash
+   gdlint scripts/
+   ```
+   Record warnings/errors. Lint issues are MINOR unless they indicate real bugs.
+7. Create output dir: `reports/audit/<iteration-name>/`
+8. If mode is `quick`, run `Run-AuditQuick.ps1` and stop.
+   If mode is `fix-only`, skip to Step 3. If mode is `gaps`, skip to Step 2.
 
 ---
 
@@ -226,6 +253,36 @@ Write ALL findings to `reports/audit/<iteration>/optimize_eval.md`
 5. Summarize per-domain health: economy, narrative, dread, audio, flight
 6. Write to `reports/audit/<iteration>/domain_eval.md`
 
+### Tier 4: AI Analysis Tools (independent, run in parallel with Tier 3)
+
+**1p: RL Headless Smoke Test**
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-RlTrain.ps1 -Mode smoke
+```
+Verifies: SimCore.RlServer builds, JSON protocol works, reset+step+shutdown cycle completes.
+Any failure = C# server contract broken (CRITICAL for RL pipeline, MINOR for gameplay).
+
+**1q: Mutation Testing (Stryker.NET) — optional, slow**
+```bash
+dotnet tool restore
+dotnet stryker
+```
+Runs mutation testing against SimCore Systems/Entities/Gen. Reports which mutations
+survived (tests didn't catch the change). Survived mutants in CombatSystem, MarketSystem,
+or LogisticsSystem are HIGH severity — they indicate logic changes the test suite misses.
+Output: `reports/audit/<iteration>/stryker_report.html` (copy from StrykerOutput/).
+
+Skip if time-constrained. Use `Run-AuditDeep.ps1 -SkipStryker` for automated deep audit
+without Stryker.
+
+**1r: Screenshot SSIM Regression (depends on 1d, requires baselines)**
+```bash
+python scripts/tools/compare_screenshots.py --current reports/screenshots/ --baseline reports/baselines/full/ --metric ssim
+```
+Uses perceptual SSIM comparison (more accurate than pixel-level MAD for game screenshots).
+SSIM < 0.85 = FAIL (significant visual regression). SSIM 0.85-0.95 = WARN.
+Skip if no baselines exist in `reports/baselines/`.
+
 ---
 
 ## Step 2 — Coverage Gap Analysis
@@ -364,7 +421,13 @@ PROBLEM #N
 
 | Source | Source Level | Unified Severity |
 |--------|-------------|-----------------|
-| C# test failure | Any | critical |
+| C# test failure (incl. FsCheck/Coyote) | Any | critical |
+| Semgrep architecture violation | ERROR | critical |
+| RL server smoke failure | Any | major |
+| Stryker survived mutant (CombatSystem/MarketSystem) | Any | major |
+| Stryker survived mutant (other systems) | Any | minor |
+| SSIM screenshot regression | FAIL (<0.85) | major |
+| SSIM screenshot regression | WARN (0.85-0.95) | minor |
 | Bot ASSERT_FAIL (hard) | Any | critical |
 | Seed FAIL (any seed) | Any | critical |
 | Optimize | CRITICAL | critical |
@@ -588,6 +651,9 @@ Compile everything into `reports/audit/<iteration>/audit_report.md`:
 ## Tools Used
 | Tool | Status | Key Finding |
 |------|--------|-------------|
+| C# test suite (incl. FsCheck + Coyote) | N/N | ... |
+| Semgrep architecture lint | PASS/N violations | ... |
+| GDScript lint | PASS/N issues | ... |
 | First-hour bot (visual) | PASS/FAIL | ... |
 | Deep systems bot | PASS/FAIL | ... |
 | Tutorial bot (3 seeds) | PASS/FAIL | ... |
@@ -595,7 +661,9 @@ Compile everything into `reports/audit/<iteration>/audit_report.md`:
 | Multi-seed sweep (5 seeds) | N/5 PASS | ... |
 | Full visual sweep | N screenshots | ... |
 | Optimize (7 passes) | N findings | ... |
-| C# test suite | N/N | ... |
+| RL headless smoke | PASS/FAIL | ... |
+| Stryker mutation testing | N% score | ... |
+| SSIM screenshot regression | PASS/N regressions | ... |
 | Coverage gap analysis | N gaps | ... |
 
 ## Problems Fixed

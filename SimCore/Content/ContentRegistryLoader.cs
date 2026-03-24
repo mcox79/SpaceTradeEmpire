@@ -80,6 +80,12 @@ public static class ContentRegistryLoader
         "      \"outputs\": [ { \"good_id\": \"metal\", \"qty\": 5 } ]\n" +
         "    },\n" +
         "    {\n" +
+        "      \"id\": \"recipe_refine_rare_metals\",\n" +
+        "      \"display_name\": \"Refine Rare Metals\",\n" +
+        "      \"inputs\": [ { \"good_id\": \"exotic_crystals\", \"qty\": 1 }, { \"good_id\": \"ore\", \"qty\": 5 } ],\n" +
+        "      \"outputs\": [ { \"good_id\": \"rare_metals\", \"qty\": 2 } ]\n" +
+        "    },\n" +
+        "    {\n" +
         "      \"id\": \"recipe_salvage_to_components\",\n" +
         "      \"display_name\": \"Salvage to Components\",\n" +
         "      \"inputs\": [ { \"good_id\": \"electronics\", \"qty\": 1 }, { \"good_id\": \"salvaged_tech\", \"qty\": 1 } ],\n" +
