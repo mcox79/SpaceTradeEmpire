@@ -37,6 +37,22 @@ public static class MarketInitGen
             {
                 mkt.Inventory[WellKnownGoodIds.RareMetals] = CatalogTweaksV0.RareMetalsInitialStock;
                 node.Name += " (Rare Min)";
+
+                // GATE.T56.FIX.RARE_METALS_DRAIN.001: Rare metals mine — sustainable production
+                // so NPC hauler drain doesn't deplete seeded stock to zero.
+                state.IndustrySites[$"rmmine_{i}"] = new IndustrySite
+                {
+                    Id = $"rmmine_{i}",
+                    NodeId = node.Id,
+                    RecipeId = WellKnownRecipeIds.RefineRareMetals,
+                    Inputs = new Dictionary<string, int>
+                    {
+                        { WellKnownGoodIds.Fuel, CatalogTweaksV0.RareMetalsMineFuelInput }
+                    },
+                    Outputs = new Dictionary<string, int> { { WellKnownGoodIds.RareMetals, CatalogTweaksV0.RareMetalsMineOutput } },
+                    BufferDays = 1,
+                    DegradePerDayBps = 0
+                };
             }
 
             bool isStarter = i < Math.Min(starCount, GalaxyGenerator.StarterRegionNodeCount);

@@ -309,4 +309,75 @@ public static class ProgramSystem
             p.NextRunTick = checked(tick + cadence);
         }
     }
+
+    // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Calculate effective margin for a trade route,
+    // accounting for intel freshness decay. Returns margin in basis points (10000 = 100%).
+    // A raw margin of 1500 bps (15%) with 66% decay becomes 1500 - 1500 = 0 bps.
+    public static int CalculateEffectiveMarginBps(SimState state, string sourceNodeId, string destNodeId, string goodId)
+    {
+        if (state is null || string.IsNullOrEmpty(sourceNodeId) || string.IsNullOrEmpty(destNodeId)) return 0; // STRUCTURAL: null guard
+
+        // Get raw prices.
+        if (!state.Markets.TryGetValue(sourceNodeId, out var srcMkt)) return 0; // STRUCTURAL: no market
+        if (!state.Markets.TryGetValue(destNodeId, out var dstMkt)) return 0; // STRUCTURAL: no market
+        if (string.IsNullOrEmpty(goodId)) return 0; // STRUCTURAL: no good
+
+        int buyPrice = srcMkt.GetBuyPrice(goodId);
+        int sellPrice = dstMkt.GetSellPrice(goodId);
+        if (buyPrice <= 0) return 0; // STRUCTURAL: no buy price
+
+        // Raw margin in basis points.
+        int rawMarginBps = (int)((long)(sellPrice - buyPrice) * 10000 / buyPrice); // STRUCTURAL: bps denominator
+
+        // Find worst freshness decay among EconomicIntels relevant to this route.
+        int worstDecayBps = GetWorstFreshnessDecayBps(state, sourceNodeId, destNodeId);
+
+        return rawMarginBps - worstDecayBps;
+    }
+
+    // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Get worst freshness decay penalty for a route's intel.
+    // Scans EconomicIntels at source or dest node. Returns margin widening in basis points.
+    public static int GetWorstFreshnessDecayBps(SimState state, string sourceNodeId, string destNodeId)
+    {
+        if (state?.Intel?.EconomicIntels is null || state.Intel.EconomicIntels.Count == 0) return 0; // STRUCTURAL: no intel
+
+        int worstDecayBps = 0; // STRUCTURAL: no-decay baseline
+
+        foreach (var kv in state.Intel.EconomicIntels)
+        {
+            var intel = kv.Value;
+            if (intel is null) continue;
+            if (!string.Equals(intel.NodeId, sourceNodeId, StringComparison.Ordinal)
+                && !string.Equals(intel.NodeId, destNodeId, StringComparison.Ordinal))
+                continue;
+
+            int decayBps = ComputeDecayPenaltyBps(state.Tick, intel.CreatedTick, intel.FreshnessMaxTicks);
+            if (decayBps > worstDecayBps)
+                worstDecayBps = decayBps;
+        }
+
+        return worstDecayBps;
+    }
+
+    // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Compute margin buffer penalty based on freshness decay.
+    // 0-33% elapsed: 0 bps. 33-66%: EarlyBps (500). 66-100%: MidBps (1500). 100%+: LateBps (2500).
+    private static int ComputeDecayPenaltyBps(int currentTick, int createdTick, int freshnessMaxTicks)
+    {
+        if (freshnessMaxTicks <= 0) return 0; // STRUCTURAL: never-decay intel (fracture)
+
+        int elapsed = currentTick - createdTick;
+        if (elapsed < 0) elapsed = 0; // STRUCTURAL: guard negative
+
+        int thresholdEarly = freshnessMaxTicks / 3; // STRUCTURAL: 33% threshold
+        int thresholdMid = (freshnessMaxTicks * 2) / 3; // STRUCTURAL: 66% threshold
+
+        if (elapsed >= freshnessMaxTicks)
+            return EconomicIntelTweaksV0.MarginBufferLateBps;
+        if (elapsed >= thresholdMid)
+            return EconomicIntelTweaksV0.MarginBufferMidBps;
+        if (elapsed >= thresholdEarly)
+            return EconomicIntelTweaksV0.MarginBufferEarlyBps;
+
+        return 0; // STRUCTURAL: fresh intel, no penalty
+    }
 }

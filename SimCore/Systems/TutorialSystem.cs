@@ -1,6 +1,6 @@
 using SimCore.Entities;
 using SimCore.Tweaks;
-using System.Linq;
+using System;
 
 namespace SimCore.Systems;
 
@@ -73,8 +73,12 @@ public static class TutorialSystem
 
             case TutorialPhase.Buy_Prompt:
                 // Gate: player bought something (cargo count increased).
-                if (state.PlayerCargo.Values.Sum() > 0)
-                    AdvanceTo(state, ts, TutorialPhase.Buy_React);
+                {
+                    int cargoTotal = 0;
+                    foreach (var v in state.PlayerCargo.Values) cargoTotal += v;
+                    if (cargoTotal > 0)
+                        AdvanceTo(state, ts, TutorialPhase.Buy_React);
+                }
                 break;
 
             case TutorialPhase.Buy_React:
@@ -194,8 +198,12 @@ public static class TutorialSystem
             case TutorialPhase.Repair_Prompt:
                 // Gate: hull restored (player fleet hull >= max hull).
                 {
-                    var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
-                        string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal));
+                    Fleet? playerFleet = null;
+                    foreach (var f in state.Fleets.Values)
+                    {
+                        if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+                        { playerFleet = f; break; }
+                    }
                     if (playerFleet != null && playerFleet.HullHp >= playerFleet.HullHpMax)
                         AdvanceTo(state, ts, TutorialPhase.Module_Intro);
                 }
@@ -210,12 +218,22 @@ public static class TutorialSystem
             case TutorialPhase.Module_Equip:
                 // Gate: player has equipped at least 1 module.
                 {
-                    var playerFleet = state.Fleets.Values.FirstOrDefault(f =>
-                        string.Equals(f.OwnerId, "player", System.StringComparison.Ordinal));
-                    if (playerFleet != null && playerFleet.Slots != null
-                        && playerFleet.Slots.Any(s => !string.IsNullOrEmpty(s.InstalledModuleId)))
+                    Fleet? playerFleet2 = null;
+                    foreach (var f in state.Fleets.Values)
                     {
-                        AdvanceTo(state, ts, TutorialPhase.Module_React);
+                        if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+                        { playerFleet2 = f; break; }
+                    }
+                    if (playerFleet2 != null && playerFleet2.Slots != null)
+                    {
+                        bool hasModule = false;
+                        foreach (var s in playerFleet2.Slots)
+                        {
+                            if (!string.IsNullOrEmpty(s.InstalledModuleId))
+                            { hasModule = true; break; }
+                        }
+                        if (hasModule)
+                            AdvanceTo(state, ts, TutorialPhase.Module_React);
                     }
                 }
                 break;

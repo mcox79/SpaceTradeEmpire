@@ -39,6 +39,16 @@ const _CAT_COLOR_DEFAULT := Color(0.6, 0.6, 0.6)     # gray fallback
 const _NODE_MIN_SPACING: float = 90.0
 const _NODE_RADIUS: float = 20.0
 
+# GATE.T58.UI.KG_UNLOCK.001: KG progressive unlock state (7 milestones).
+# 0=Geographic, 1=Pin, 2=Relational, 3=Annotate, 4=Flag, 5=Link, 6=Compare
+var _kg_milestone: int = 0  # STRUCTURAL: milestone index
+var _milestone_labels: Dictionary = {
+	0: "Geographic", 1: "Pin", 2: "Relational", 3: "Annotate",
+	4: "Flag", 5: "Link", 6: "Compare"
+}
+var _verb_section: VBoxContainer = null
+var _milestone_notification_label: Label = null
+
 func _ready() -> void:
 	name = "KnowledgeWebPanel"
 	visible = false
@@ -99,6 +109,22 @@ func _ready() -> void:
 	all_btn.text = "ALL"
 	all_btn.pressed.connect(func(): _set_filter("all"))
 	_filter_buttons.add_child(all_btn)
+
+	# GATE.T58.UI.KG_UNLOCK.001: KG verb toolbar (shows unlocked verbs).
+	_verb_section = VBoxContainer.new()
+	_verb_section.name = "VerbSection"
+	_verb_section.add_theme_constant_override("separation", UITheme.SPACE_XS)
+	root_vbox.add_child(_verb_section)
+
+	# Milestone notification label (animated on unlock).
+	_milestone_notification_label = Label.new()
+	_milestone_notification_label.name = "MilestoneNotification"
+	_milestone_notification_label.text = ""
+	_milestone_notification_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+	_milestone_notification_label.add_theme_color_override("font_color", UITheme.GOLD)
+	_milestone_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_milestone_notification_label.visible = false
+	root_vbox.add_child(_milestone_notification_label)
 
 	# Separator below filters.
 	var sep := HSeparator.new()
@@ -215,6 +241,9 @@ func _refresh() -> void:
 
 	if _bridge == null:
 		_bridge = get_node_or_null("/root/SimBridge")
+
+	# GATE.T58.UI.KG_UNLOCK.001: Refresh milestone state.
+	_refresh_milestone_state()
 
 	# Update stats bar.
 	_update_stats()
@@ -733,3 +762,80 @@ func _add_connection_row(conn: Dictionary) -> void:
 		desc_lbl.clip_text = true
 		desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(desc_lbl)
+
+
+# GATE.T58.UI.KG_UNLOCK.001: Refresh milestone state from bridge.
+func _refresh_milestone_state() -> void:
+	if _bridge == null:
+		_bridge = get_node_or_null("/root/SimBridge")
+	if _bridge == null or not _bridge.has_method("GetKGMilestoneV0"):
+		return
+
+	var ms: Dictionary = _bridge.call("GetKGMilestoneV0")
+	var new_milestone: int = ms.get("highest_milestone_int", 0)
+	var has_notification: bool = ms.get("pending_notification", false)
+
+	# Check for milestone advancement.
+	if new_milestone > _kg_milestone and has_notification:
+		var milestone_name: String = _milestone_labels.get(new_milestone, "Unknown")
+		_show_milestone_unlock(milestone_name)
+		# Consume the notification.
+		if _bridge.has_method("ConsumeKGMilestoneNotificationV0"):
+			_bridge.call("ConsumeKGMilestoneNotificationV0")
+
+	_kg_milestone = new_milestone
+	_rebuild_verb_toolbar()
+
+
+# Build verb toolbar showing unlocked/locked verbs.
+func _rebuild_verb_toolbar() -> void:
+	if _verb_section == null:
+		return
+	for child in _verb_section.get_children():
+		child.queue_free()
+
+	# All 7 verbs with their unlock milestone.
+	var verbs: Array = [
+		{"name": "View", "milestone": 0, "icon": "◉", "desc": "View discovered locations"},
+		{"name": "Pin", "milestone": 1, "icon": "📌", "desc": "Pin discoveries for reference"},
+		{"name": "Relate", "milestone": 2, "icon": "⟷", "desc": "See connections between nodes"},
+		{"name": "Annotate", "milestone": 3, "icon": "✎", "desc": "Add notes to discoveries"},
+		{"name": "Flag", "milestone": 4, "icon": "⚑", "desc": "Flag discoveries for FO review"},
+		{"name": "Link", "milestone": 5, "icon": "⬡", "desc": "Manually link related nodes"},
+		{"name": "Compare", "milestone": 6, "icon": "⇔", "desc": "Compare discoveries side-by-side"},
+	]
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", UITheme.SPACE_SM)
+	_verb_section.add_child(row)
+
+	for verb in verbs:
+		var is_unlocked: bool = verb["milestone"] <= _kg_milestone
+		var btn := Button.new()
+		btn.text = "%s %s" % [verb["icon"], verb["name"]]
+		btn.custom_minimum_size = Vector2(70, 24)
+		btn.disabled = not is_unlocked
+		btn.tooltip_text = verb["desc"] if is_unlocked else "Unlock: %s milestone" % _milestone_labels.get(verb["milestone"], "?")
+
+		if is_unlocked:
+			btn.add_theme_color_override("font_color", UITheme.CYAN)
+		else:
+			btn.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
+			btn.modulate.a = 0.5
+
+		row.add_child(btn)
+
+
+# Animate milestone unlock notification.
+func _show_milestone_unlock(milestone_name: String) -> void:
+	if _milestone_notification_label == null:
+		return
+	_milestone_notification_label.text = "NEW VERB UNLOCKED: %s" % milestone_name.to_upper()
+	_milestone_notification_label.visible = true
+	_milestone_notification_label.modulate.a = 0.0
+
+	var tween := create_tween()
+	tween.tween_property(_milestone_notification_label, "modulate:a", 1.0, 0.3)
+	tween.tween_interval(3.0)
+	tween.tween_property(_milestone_notification_label, "modulate:a", 0.5, 0.5)
+	tween.tween_callback(func(): _milestone_notification_label.visible = false)

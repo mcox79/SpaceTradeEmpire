@@ -218,4 +218,37 @@ public static class T2ModuleTweaksV0
     public const int DefenseArmorWeavePowerDraw        = 9;
     public const int DefenseArmorWeaveHullBonusFlat    = 55;
     public const string DefenseArmorWeaveTechPrereq    = "bio_armor_weave";
+
+    // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: New Communion scanner/nav modules
+    // ── Communion: Shimmer Drive T2 (engine with scan bonus) ──
+    public const int ShimmerDriveCreditCost      = 260;
+    public const int ShimmerDriveInstallTicks    = 10;
+    public const int ShimmerDrivePowerDraw       = 14;
+    public const int ShimmerDriveSpeedBonusPct   = 15;
+    public const int ShimmerDriveScanBonusPct    = 20;
+    public const string ShimmerDriveTechPrereq   = "shimmer_propulsion";
+
+    // ── Communion: Resonance Comm T2 (utility — scan range + fracture resist) ──
+    public const int ResonanceCommCreditCost     = 240;
+    public const int ResonanceCommInstallTicks   = 8;
+    public const int ResonanceCommPowerDraw      = 10;
+    public const int ResonanceCommScanBonusPct   = 30;
+    public const string ResonanceCommTechPrereq  = "resonance_theory";
+
+    // ── Communion: Phase-Lock Cradle T2 (utility — fracture resistance) ──
+    public const int PhaseLockCreditCost         = 280;
+    public const int PhaseLockInstallTicks       = 12;
+    public const int PhaseLockPowerDraw          = 16;
+    public const int PhaseLockScanBonusPct       = 15;
+    public const int PhaseLockFractureResistBps  = 3000;
+    public const string PhaseLockTechPrereq      = "phase_lock_theory";
+
+    // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: New Weavers structural utility
+    // ── Weavers: Load-Bearing Strut T2 (defense — hull + armor) ──
+    public const int LoadBearingCreditCost       = 250;
+    public const int LoadBearingInstallTicks     = 10;
+    public const int LoadBearingPowerDraw        = 8;
+    public const int LoadBearingHullBonusFlat    = 40;
+    public const int LoadBearingArmorBonusPct    = 15;
+    public const string LoadBearingTechPrereq    = "structural_engineering";
 }

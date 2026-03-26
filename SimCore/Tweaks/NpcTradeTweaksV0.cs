@@ -65,4 +65,12 @@ public static class NpcTradeTweaksV0
 
     // Trade cooldown: prevents NPC ping-pong trading same good at same node.
     public const int TradeCooldownTicks = 45;
+
+    // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC route discovery + margin compression.
+    // NPCs discover profitable routes over time, compressing player margins.
+    public const int NpcRouteDiscoveryIntervalTicks = 100;  // Check for new routes every 100 ticks
+    public const int NpcRouteCompressionStartTick = 300;    // Compression begins after 300 ticks of NPC awareness
+    public const int NpcRouteCompressionFullTick = 500;     // Full compression at 500 ticks
+    public const int NpcRouteCompressionMaxBps = 1500;      // Max margin compression: 15% (30% → 15%)
+    public const int NpcRouteMinProfitToTrack = 10;         // Minimum profit to trigger NPC route tracking
 }

@@ -15,9 +15,15 @@ public partial class EmpireDashboard : Control
     private Bridge.SimBridge _bridge = null!;
 
     // ── Tab state ───────────────────────────────────────────────────────────
-    // GATE.S7.WARFRONT.DASHBOARD_TAB.001: Added Warfronts tab
+    // GATE.T58.UI.DASHBOARD_OVERHAUL.001: Internal 9-tab enum preserved for panel logic.
+    // UI shows 5 consolidated tabs: Overview | Routes | Operations | Intel | Empire.
+    // "Trade" → "Routes" terminology throughout player-facing strings.
     private enum Tab { Overview, Trade, Production, Programs, Intel, Research, Stats, Factions, Warfronts }
     private Tab _activeTab = Tab.Overview;
+    // GATE.T58.UI.DASHBOARD_OVERHAUL.001: Consolidated display tab names (5 visible).
+    private static readonly string[] ConsolidatedTabNames = { "Overview", "Routes", "Operations", "Intel", "Empire" };
+    // Map consolidated button index → default internal tab shown.
+    private static readonly Tab[] ConsolidatedDefaultTab = { Tab.Overview, Tab.Trade, Tab.Production, Tab.Intel, Tab.Stats };
 
     // ── Tab buttons ─────────────────────────────────────────────────────────
     private Button[] _tabBtns = System.Array.Empty<Button>();
@@ -248,7 +254,8 @@ public partial class EmpireDashboard : Control
         root.AddChild(tabBar);
 
         // GATE.S13.TERMINOLOGY.001: Player-friendly tab names
-        var tabNames = new[] { "Overview", "Trade", "Production", "Automation", "Exploration", "Research", "Stats", "Factions", "Warfronts" };
+        // GATE.T58.UI.DASHBOARD_OVERHAUL.001: "Route" terminology + consolidated naming.
+        var tabNames = new[] { "Overview", "Routes", "Production", "Operations", "Intel", "Research", "Empire", "Factions", "Warfronts" };
         _tabBtns = new Button[tabNames.Length];
         for (int i = 0; i < tabNames.Length; i++)
         {

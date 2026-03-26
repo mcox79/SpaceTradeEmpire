@@ -11,8 +11,10 @@ namespace SimCore.Tests;
 
 public class GoldenReplayTests
 {
-    private const string ExpectedGenesisHash = "8FBAF7F7B9AEABE214B93657D07C2749700C1BC03A5240530562C7024185FD7A";
-    private const string ExpectedFinalHash = "EB0EE29DA1B600BB26F8FC68C84B43E8AF922E6AD14888D80999E84E0BA237C7";
+    // GATE.T56.FIX.RARE_METALS_DRAIN.001: Added rare metals mines at "(Rare Min)" nodes.
+    private const string ExpectedGenesisHash = "0B3E697C2B4160C5FE05E3BB4B272F139F3570B0CB4EE4F5A0E0D1FA93F1031D";
+    // GATE.T59.SHIP.NPC_FACTION_FLEET.001 + working-tree SimCore changes.
+    private const string ExpectedFinalHash = "C00D79529CBA946C3C446BF423F7BEC857AC74452F1FE28A78CBF1ABD8281C66";
 
 
     private struct RecordedCommand

@@ -207,7 +207,9 @@ public partial class SimBridge
         {
             var arr = new Godot.Collections.Array();
 
-            if (state.Intel?.Discoveries is null || !state.Nodes.TryGetValue(nId, out var node))
+            // Discovery sites require sensor_suite tech to be visible.
+            bool hasSensors = state.Tech.UnlockedTechIds.Contains(SimCore.Tweaks.SurveyTweaksV0.SensorSuiteTechId);
+            if (!hasSensors || state.Intel?.Discoveries is null || !state.Nodes.TryGetValue(nId, out var node))
             {
                 lock (_snapshotLock) { _cachedDiscoverySnapshotV0 = arr; }
                 return;
@@ -238,7 +240,9 @@ public partial class SimBridge
                     };
                 }
 
-                sorted.Add((id, phase, ""));
+                // GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Resolve family for per-family visual markers.
+                string kind = ResolveDiscoveryFamilyV0(state, id);
+                sorted.Add((id, phase, kind));
             }
 
             sorted.Sort((a, b) => string.Compare(a.id, b.id, System.StringComparison.Ordinal));

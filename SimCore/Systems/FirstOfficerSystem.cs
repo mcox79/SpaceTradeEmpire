@@ -55,10 +55,26 @@ public static class FirstOfficerSystem
         if (newTier > fo.Tier)
             fo.Tier = newTier;
 
+        // GATE.T57.CENTAUR.COMPETENCE_TIERS.001: Evaluate FO competence tier advancement.
+        EvaluateCompetenceTier(state);
+
+        // GATE.T57.CENTAUR.WORLD_ADAPT.001: Scan for world events and adapt routes.
+        ProcessWorldAdaptation(state);
+
+        // GATE.T57.CENTAUR.BOREDOM_TRIGGERS.001: Check boredom circuit breakers.
+        ProcessBoredomTriggers(state);
+
+        // GATE.T58.FO.LOA_MODEL.001: Clean up expired route revert entries.
+        CleanupRevertEntries(state);
+
         // GATE.T18.CHARACTER.FO_REACT.001: Auto-detect state-based triggers each tick.
         // Suppress reactive triggers during tutorial to prevent overlap with scripted dialogue.
         if (!TutorialSystem.IsActive(state))
             TryAutoDetectTriggers(state);
+
+        // Silence fallback: if FO has been silent too long, fire an ambient commentary trigger.
+        if (!TutorialSystem.IsActive(state))
+            ProcessSilenceFallback(state);
     }
 
     /// <summary>
@@ -475,6 +491,72 @@ public static class FirstOfficerSystem
         }
     }
 
+    // GATE.T57.CENTAUR.COMPETENCE_TIERS.001: Crisis-gated FO competence tier advancement.
+    // Novice→Competent: 15+ trades, 5+ nodes visited, seen a warfront.
+    // Competent→Master: 8+ systems, Haven discovered, endgame trigger reached.
+    private static void EvaluateCompetenceTier(SimState state)
+    {
+        var fo = state.FirstOfficer;
+        if (fo?.Competence is null) return;
+        if (fo.Competence.PlayerDemoted) return; // Respect player demotion
+
+        var comp = fo.Competence;
+        var stats = state.PlayerStats;
+        if (stats is null) return;
+
+        if (comp.Tier == Entities.FOCompetenceTier.Novice)
+        {
+            bool hasTrades = stats.GoodsTraded >= CompetenceTweaksV0.CompetentMinTrades;
+            bool hasNodes = stats.NodesVisited >= CompetenceTweaksV0.CompetentMinNodes;
+            bool hasWarfront = false;
+            if (CompetenceTweaksV0.CompetentRequiresWarfront)
+            {
+                foreach (var evt in fo.DialogueEventLog)
+                {
+                    if (string.Equals(evt.TriggerToken, "FIRST_DOCK_WARZONE", StringComparison.Ordinal))
+                    { hasWarfront = true; break; }
+                }
+            }
+            else
+            {
+                hasWarfront = true;
+            }
+
+            if (hasTrades && hasNodes && hasWarfront)
+            {
+                comp.Tier = Entities.FOCompetenceTier.Competent;
+                comp.TierUpTick = state.Tick;
+                TryFireTrigger(state, "FO_COMPETENCE_TIER_UP");
+            }
+        }
+        else if (comp.Tier == Entities.FOCompetenceTier.Competent)
+        {
+            bool hasSystems = state.PlayerVisitedNodeIds.Count >= CompetenceTweaksV0.MasterMinSystems;
+            bool hasHaven = !CompetenceTweaksV0.MasterRequiresHaven || (state.Haven != null && state.Haven.Discovered);
+            bool hasEndgame = !CompetenceTweaksV0.MasterRequiresEndgameTrigger
+                || fo.Tier >= Entities.DialogueTier.Endgame;
+
+            if (hasSystems && hasHaven && hasEndgame)
+            {
+                comp.Tier = Entities.FOCompetenceTier.Master;
+                comp.TierUpTick = state.Tick;
+                TryFireTrigger(state, "FO_COMPETENCE_TIER_UP");
+            }
+        }
+    }
+
+    // GATE.T57.CENTAUR.COMPETENCE_TIERS.001: Allow player to demote FO (accessible from bridge).
+    public static void DemoteFOCompetence(SimState state)
+    {
+        if (state?.FirstOfficer?.Competence is null) return;
+        var comp = state.FirstOfficer.Competence;
+        if (comp.Tier > Entities.FOCompetenceTier.Novice)
+        {
+            comp.Tier = (Entities.FOCompetenceTier)((int)comp.Tier - 1); // STRUCTURAL: decrement by 1
+            comp.PlayerDemoted = true;
+        }
+    }
+
     private static bool IsNodeInActiveWarfront(SimState state, string nodeId)
     {
         if (string.IsNullOrEmpty(nodeId)) return false;
@@ -523,6 +605,7 @@ public static class FirstOfficerSystem
             FiredTick = state.Tick
         });
 
+        fo.LastDialogueTick = state.Tick;
         fo.RelationshipScore += line.RelationshipDelta;
         // GATE.S19.ONBOARD.FO_DYNAMIC.007: Replace dynamic tokens in dialogue text.
         fo.PendingDialogueLine = ReplaceDynamicTokens(state, line.Text);
@@ -705,5 +788,291 @@ public static class FirstOfficerSystem
             if (v > 0) return true;
         }
         return false;
+    }
+
+    // GATE.T57.CENTAUR.WORLD_ADAPT.001: Scan trade routes for 5 world event types.
+    // Adapts by flagging or pausing routes. FO never wrong — galaxy is unpredictable.
+    private static void ProcessWorldAdaptation(SimState state)
+    {
+        if (state.Intel?.TradeRoutes is null || state.Intel.TradeRoutes.Count == 0) return;
+        if (state.Tick % Tweaks.WorldAdaptTweaksV0.AdaptCadenceTicks != 0) return;
+
+        foreach (var kvp in state.Intel.TradeRoutes)
+        {
+            var route = kvp.Value;
+            if (route is null) continue;
+            if (route.Status == TradeRouteStatus.Unprofitable) continue;
+
+            var eventType = DetectWorldEvent(state, route);
+
+            if (eventType == WorldAdaptEventType.None)
+            {
+                // If previously flagged/paused and conditions cleared, restore to Active.
+                if (route.Status == TradeRouteStatus.Flagged || route.Status == TradeRouteStatus.Paused)
+                    route.Status = TradeRouteStatus.Active;
+                continue;
+            }
+
+            // Apply adaptation based on event type.
+            var action = MapEventToAction(eventType);
+            switch (action)
+            {
+                case AdaptationAction.FlagRoute:
+                    if (route.Status != TradeRouteStatus.Paused)
+                        route.Status = TradeRouteStatus.Flagged;
+                    break;
+                case AdaptationAction.PauseRoute:
+                    route.Status = TradeRouteStatus.Paused;
+                    break;
+                case AdaptationAction.WidenSearch:
+                case AdaptationAction.Reroute:
+                    route.Status = TradeRouteStatus.Flagged;
+                    break;
+            }
+
+            // Escalate flag → pause after threshold ticks.
+            if (route.Status == TradeRouteStatus.Flagged)
+            {
+                int ageSinceValidated = state.Tick - route.LastValidatedTick;
+                if (ageSinceValidated > Tweaks.WorldAdaptTweaksV0.FlagToPauseEscalationTicks)
+                    route.Status = TradeRouteStatus.Paused;
+            }
+        }
+    }
+
+    // GATE.T57.CENTAUR.WORLD_ADAPT.001: Detect which (if any) world event affects this route.
+    // Priority order: FactionConflict > TariffImposed > MarketShift > PlayerOverlap > IntelAged.
+    private static WorldAdaptEventType DetectWorldEvent(SimState state, TradeRouteIntel route)
+    {
+        // 1. FactionConflict: route's good is under an active embargo.
+        if (state.Embargoes is not null)
+        {
+            foreach (var embargo in state.Embargoes)
+            {
+                if (embargo is null) continue;
+                if (string.Equals(embargo.GoodId, route.GoodId, StringComparison.Ordinal))
+                    return WorldAdaptEventType.FactionConflict;
+            }
+        }
+
+        // 2. TariffImposed: route endpoints are in a warfront zone (active conflict = implicit tariff).
+        if (state.Warfronts is not null && state.Warfronts.Count > 0)
+        {
+            foreach (var wf in state.Warfronts.Values)
+            {
+                if (wf is null || wf.ContestedNodeIds is null) continue;
+                if (wf.ContestedNodeIds.Contains(route.SourceNodeId)
+                    || wf.ContestedNodeIds.Contains(route.DestNodeId))
+                    return WorldAdaptEventType.TariffImposed;
+            }
+        }
+
+        // 3. MarketShift: actual profit deviates significantly from estimated.
+        if (route.EstimatedProfitPerUnit > 0)
+        {
+            int actualProfit = 0; // STRUCTURAL: default
+            if (state.Markets.TryGetValue(route.SourceNodeId, out var srcMkt)
+                && state.Markets.TryGetValue(route.DestNodeId, out var dstMkt))
+            {
+                int buy = srcMkt.GetPrice(route.GoodId);
+                int sell = dstMkt.GetPrice(route.GoodId);
+                if (buy > 0 && sell > 0) actualProfit = sell - buy;
+            }
+            int diff = route.EstimatedProfitPerUnit - actualProfit;
+            if (diff < 0) diff = -diff;
+            int deviationPct = (diff * 100) / route.EstimatedProfitPerUnit; // STRUCTURAL: pct calc
+            if (deviationPct >= Tweaks.WorldAdaptTweaksV0.MarketShiftThresholdPct)
+                return WorldAdaptEventType.MarketShift;
+        }
+
+        // 4. PlayerOverlap: NPC margin compression on this route.
+        {
+            int compressionBps = NpcTradeSystem.GetNpcMarginCompressionBps(state, route.SourceNodeId, route.DestNodeId, route.GoodId);
+            if (compressionBps >= Tweaks.WorldAdaptTweaksV0.PlayerOverlapCompressionBps)
+                return WorldAdaptEventType.PlayerOverlap;
+        }
+
+        // 5. IntelAged: route intel is old relative to freshness window.
+        int routeAge = state.Tick - route.LastValidatedTick;
+        if (route.ConfidenceScore > 0) // STRUCTURAL: only check if confidence was computed
+        {
+            // Use EconomicIntel freshness if available, else default 200 ticks.
+            int freshnessWindow = 200; // STRUCTURAL: default window
+            int ageThreshold = (freshnessWindow * Tweaks.WorldAdaptTweaksV0.IntelAgedThresholdPct) / 100; // STRUCTURAL: pct calc
+            if (routeAge > ageThreshold)
+                return WorldAdaptEventType.IntelAged;
+        }
+
+        return WorldAdaptEventType.None;
+    }
+
+    // GATE.T57.CENTAUR.WORLD_ADAPT.001: Map world event type to adaptation action.
+    private static AdaptationAction MapEventToAction(WorldAdaptEventType eventType)
+    {
+        return eventType switch
+        {
+            WorldAdaptEventType.TariffImposed => AdaptationAction.PauseRoute,
+            WorldAdaptEventType.FactionConflict => AdaptationAction.PauseRoute,
+            WorldAdaptEventType.MarketShift => AdaptationAction.FlagRoute,
+            WorldAdaptEventType.PlayerOverlap => AdaptationAction.WidenSearch,
+            WorldAdaptEventType.IntelAged => AdaptationAction.FlagRoute,
+            _ => AdaptationAction.None
+        };
+    }
+
+    // GATE.T58.FO.LOA_MODEL.001: Remove expired route revert entries past the revert window.
+    private static void CleanupRevertEntries(SimState state)
+    {
+        var loa = state.FirstOfficer?.LOA;
+        if (loa is null || loa.RevertEntries.Count == 0) return;
+
+        int expireThreshold = state.Tick - Tweaks.FOManagerTweaksV0.RouteRevertWindowTicks;
+        for (int i = loa.RevertEntries.Count - 1; i >= 0; i--) // STRUCTURAL: reverse iterate for removal
+        {
+            if (loa.RevertEntries[i].ActionTick < expireThreshold)
+                loa.RevertEntries.RemoveAt(i);
+        }
+    }
+
+    // Silence fallback: fire ambient commentary when FO has been silent too long.
+    // Uses numbered SILENCE_BREAK_N tokens (one-shot each). Ensures the companion
+    // never disappears for 100+ ticks even when no state-based triggers are reachable.
+    private static void ProcessSilenceFallback(SimState state)
+    {
+        if (state.Tick % NarrativeTweaksV0.SilenceFallbackCheckCadence != 0) return;
+        var fo = state.FirstOfficer;
+        if (fo is null || !fo.IsPromoted) return;
+
+        // Initialize LastDialogueTick to PromotionTick if never spoken.
+        if (fo.LastDialogueTick <= 0)
+            fo.LastDialogueTick = fo.PromotionTick;
+
+        int silenceDuration = state.Tick - fo.LastDialogueTick;
+        if (silenceDuration < NarrativeTweaksV0.SilenceFallbackThresholdTicks) return;
+
+        // Find the next unfired silence break token.
+        for (int n = 1; n <= NarrativeTweaksV0.SilenceBreakMaxCount; n++)
+        {
+            string token = $"SILENCE_BREAK_{n}";
+            bool alreadyFired = false;
+            foreach (var evt in fo.DialogueEventLog)
+            {
+                if (string.Equals(evt.TriggerToken, token, StringComparison.Ordinal))
+                { alreadyFired = true; break; }
+            }
+            if (!alreadyFired)
+            {
+                TryFireTrigger(state, token);
+                return; // Fire at most one per check.
+            }
+        }
+    }
+
+    // GATE.T57.CENTAUR.BOREDOM_TRIGGERS.001: 5 circuit breakers to nudge stagnating players.
+    // Each fires a unique FO trigger token. Once-per-trigger semantics via DialogueEventLog.
+    private static void ProcessBoredomTriggers(SimState state)
+    {
+        if (state.Tick % Tweaks.BoredomTriggerTweaksV0.BoredomCheckCadenceTicks != 0) return;
+        if (state.FirstOfficer is null || !state.FirstOfficer.IsPromoted) return;
+
+        // 1. No discovery for N ticks.
+        int lastDiscoveryTick = FindLastDiscoveryTick(state);
+        if (lastDiscoveryTick >= 0 && (state.Tick - lastDiscoveryTick) > Tweaks.BoredomTriggerTweaksV0.NoDiscoveryThresholdTicks)
+            TryFireTrigger(state, "BOREDOM_NO_DISCOVERY");
+
+        // 2. Margin compression on 3+ routes.
+        int compressedCount = 0; // STRUCTURAL: counter start
+        if (state.Intel?.TradeRoutes is not null)
+        {
+            foreach (var kvp in state.Intel.TradeRoutes)
+            {
+                var route = kvp.Value;
+                if (route is null || route.Status == TradeRouteStatus.Unprofitable) continue;
+                int bps = NpcTradeSystem.GetNpcMarginCompressionBps(state, route.SourceNodeId, route.DestNodeId, route.GoodId);
+                if (bps >= Tweaks.BoredomTriggerTweaksV0.CompressedRouteBpsThreshold)
+                    compressedCount++;
+            }
+        }
+        if (compressedCount >= Tweaks.BoredomTriggerTweaksV0.CompressedRoutesThreshold)
+            TryFireTrigger(state, "BOREDOM_MARGIN_COMPRESSED");
+
+        // 3. Sustain/passive programs dominating the program book (ratio of types).
+        if (state.Programs?.Instances is not null && state.Programs.Instances.Count > 0)
+        {
+            int totalProgs = 0; // STRUCTURAL: counter start
+            int sustainProgs = 0; // STRUCTURAL: counter start
+            foreach (var prog in state.Programs.Instances.Values)
+            {
+                if (prog is null || prog.Status != Programs.ProgramStatus.Running) continue;
+                totalProgs++;
+                if (string.Equals(prog.Kind, "RESOURCE_TAP_V0", StringComparison.Ordinal)
+                    || string.Equals(prog.Kind, "AUTO_BUY", StringComparison.Ordinal))
+                    sustainProgs++;
+            }
+            if (totalProgs > 0)
+            {
+                int sustainPct = (sustainProgs * 100) / totalProgs; // STRUCTURAL: pct calc
+                if (sustainPct > Tweaks.BoredomTriggerTweaksV0.SustainRevenueThresholdPct)
+                    TryFireTrigger(state, "BOREDOM_SUSTAIN_DOMINANT");
+            }
+        }
+
+        // 4. Chain intel breadcrumb stale (active chain with next step not pursued).
+        if (state.AnomalyChains is not null)
+        {
+            foreach (var chain in state.AnomalyChains.Values)
+            {
+                if (chain is null || chain.Status != AnomalyChainStatus.Active) continue;
+                if (chain.CurrentStepIndex >= chain.Steps.Count) continue;
+                // The chain hasn't advanced — check how long since last step.
+                int chainAge = state.Tick - chain.StartedTick;
+                if (chainAge > Tweaks.BoredomTriggerTweaksV0.ChainIntelStaleThresholdTicks)
+                {
+                    TryFireTrigger(state, "BOREDOM_CHAIN_STALE");
+                    break;
+                }
+            }
+        }
+
+        // 5. Long time since last revelation (any Analyzed discovery).
+        int lastAnalyzedTick = FindLastAnalyzedDiscoveryTick(state);
+        if (lastAnalyzedTick >= 0 && (state.Tick - lastAnalyzedTick) > Tweaks.BoredomTriggerTweaksV0.SinceRevelationThresholdTicks)
+            TryFireTrigger(state, "BOREDOM_NO_REVELATION");
+    }
+
+    private static int FindLastDiscoveryTick(SimState state)
+    {
+        int latest = -1; // STRUCTURAL: sentinel
+        if (state.Intel?.Discoveries is null) return latest;
+        foreach (var disc in state.Intel.Discoveries.Values)
+        {
+            if (disc is null) continue;
+            // Use CreatedTick if available — discovery phase progression implies tick.
+            // Approximate: any Seen discovery means a discovery happened. Use current tick as proxy.
+            if (disc.Phase >= DiscoveryPhase.Seen)
+            {
+                // No CreatedTick field on DiscoveryStateV0, so scan EconomicIntels for timing.
+                if (state.Intel.EconomicIntels is not null)
+                {
+                    string intelKey = "ECON_" + disc.DiscoveryId;
+                    if (state.Intel.EconomicIntels.TryGetValue(intelKey, out var econ) && econ.CreatedTick > latest)
+                        latest = econ.CreatedTick;
+                }
+            }
+        }
+        return latest;
+    }
+
+    private static int FindLastAnalyzedDiscoveryTick(SimState state)
+    {
+        int latest = -1; // STRUCTURAL: sentinel
+        if (state.Intel?.EconomicIntels is null) return latest;
+        foreach (var econ in state.Intel.EconomicIntels.Values)
+        {
+            if (econ is null) continue;
+            if (econ.CreatedTick > latest)
+                latest = econ.CreatedTick;
+        }
+        return latest;
     }
 }

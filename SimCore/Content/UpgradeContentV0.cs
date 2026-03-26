@@ -21,6 +21,8 @@ public sealed class ModuleDef
     public int ShieldBonusFlat { get; set; } = 0;
     public int HullBonusFlat { get; set; } = 0;
     public int DamageBonusPct { get; set; } = 0;
+    // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Scan range bonus (integer pct: 20 = +20%).
+    public int ScanBonusPct { get; set; } = 0;
 
     // GATE.S18.SHIP_MODULES.FITTING_BUDGET.001: Power draw of this module.
     public int PowerDraw { get; set; } = 5;
@@ -209,8 +211,9 @@ public static class UpgradeContentV0
             InstallTicks = T2ModuleTweaksV0.PlasmaInstallTicks,
             PowerDraw = T2ModuleTweaksV0.PlasmaPowerDraw,
             DamageBonusPct = T2ModuleTweaksV0.PlasmaDamageBonusPct,
-            FactionId = FactionTweaksV0.CommunionId,
-            FactionRepRequired = T2ModuleTweaksV0.FactionRepRequired,
+            // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Communion→Valorin (pacifist faction shouldn't have weapons).
+            FactionId = FactionTweaksV0.ValorinId,
+            FactionRepRequired = T2ModuleTweaksV0.ValorinRepRequired,
             SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = T2ModuleTweaksV0.PlasmaSustainMunitions, [WellKnownGoodIds.Fuel] = T2ModuleTweaksV0.PlasmaSustainFuel },
         },
         new ModuleDef
@@ -236,8 +239,9 @@ public static class UpgradeContentV0
             InstallTicks = T2ModuleTweaksV0.FusionEngineInstallTicks,
             PowerDraw = T2ModuleTweaksV0.FusionEnginePowerDraw,
             SpeedBonusPct = T2ModuleTweaksV0.FusionEngineSpeedBonusPct,
-            FactionId = FactionTweaksV0.WeaversId,
-            FactionRepRequired = T2ModuleTweaksV0.FactionRepRequired,
+            // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Weavers→Concord (industrial engineering).
+            FactionId = FactionTweaksV0.ConcordId,
+            FactionRepRequired = T2ModuleTweaksV0.ConcordRepRequired,
         },
         new ModuleDef
         {
@@ -307,8 +311,9 @@ public static class UpgradeContentV0
             InstallTicks = T2ModuleTweaksV0.PlasmaCannonInstallTicks,
             PowerDraw = T2ModuleTweaksV0.PlasmaCannonPowerDraw,
             DamageBonusPct = T2ModuleTweaksV0.PlasmaCannonDamageBonusPct,
-            FactionId = FactionTweaksV0.CommunionId,
-            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+            // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Communion→Valorin.
+            FactionId = FactionTweaksV0.ValorinId,
+            FactionRepRequired = T2ModuleTweaksV0.ValorinRepRequired,
             SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = T2ModuleTweaksV0.PlasmaCannonSustainMunitions, [WellKnownGoodIds.Fuel] = T2ModuleTweaksV0.PlasmaCannonSustainFuel },
         },
         new ModuleDef
@@ -321,8 +326,9 @@ public static class UpgradeContentV0
             InstallTicks = T2ModuleTweaksV0.MissileLauncherInstallTicks,
             PowerDraw = T2ModuleTweaksV0.MissileLauncherPowerDraw,
             DamageBonusPct = T2ModuleTweaksV0.MissileLauncherDamageBonusPct,
-            FactionId = FactionTweaksV0.CommunionId,
-            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+            // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Communion→Concord (defensive ordnance).
+            FactionId = FactionTweaksV0.ConcordId,
+            FactionRepRequired = T2ModuleTweaksV0.ConcordRepRequired,
             SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.Munitions] = T2ModuleTweaksV0.MissileLauncherSustainMunitions },
         },
         new ModuleDef
@@ -432,8 +438,9 @@ public static class UpgradeContentV0
             InstallTicks = T2ModuleTweaksV0.EngineWarpInstallTicks,
             PowerDraw = T2ModuleTweaksV0.EngineWarpPowerDraw,
             SpeedBonusPct = T2ModuleTweaksV0.EngineWarpSpeedBonusPct,
-            FactionId = FactionTweaksV0.CommunionId,
-            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+            // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Communion→Weavers (structural/fracture engineering).
+            FactionId = FactionTweaksV0.WeaversId,
+            FactionRepRequired = T2ModuleTweaksV0.WeaversRepRequired,
         },
 
         // ── Utility ──
@@ -761,6 +768,61 @@ public static class UpgradeContentV0
             IsDiscoveryOnly = true,
             PowerDraw = T3ModuleTweaksV0.ResonanceAmplifierPowerDraw,
             SustainInputs = new Dictionary<string, int> { [WellKnownGoodIds.ExoticMatter] = T3ModuleTweaksV0.ResonanceAmplifierSustainExotic },
+        },
+
+        // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: New Communion scanner/nav modules + Weavers structural utility.
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.CommunionShimmerDriveT2,
+            DisplayName = "Shimmer Drive T2",
+            SlotKind = SlotKind.Engine,
+            CreditCost = T2ModuleTweaksV0.ShimmerDriveCreditCost,
+            TechPrerequisite = T2ModuleTweaksV0.ShimmerDriveTechPrereq,
+            InstallTicks = T2ModuleTweaksV0.ShimmerDriveInstallTicks,
+            PowerDraw = T2ModuleTweaksV0.ShimmerDrivePowerDraw,
+            SpeedBonusPct = T2ModuleTweaksV0.ShimmerDriveSpeedBonusPct,
+            ScanBonusPct = T2ModuleTweaksV0.ShimmerDriveScanBonusPct,
+            FactionId = FactionTweaksV0.CommunionId,
+            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.CommunionResonanceCommT2,
+            DisplayName = "Resonance Comm T2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T2ModuleTweaksV0.ResonanceCommCreditCost,
+            TechPrerequisite = T2ModuleTweaksV0.ResonanceCommTechPrereq,
+            InstallTicks = T2ModuleTweaksV0.ResonanceCommInstallTicks,
+            PowerDraw = T2ModuleTweaksV0.ResonanceCommPowerDraw,
+            ScanBonusPct = T2ModuleTweaksV0.ResonanceCommScanBonusPct,
+            FactionId = FactionTweaksV0.CommunionId,
+            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.CommunionPhaseLockT2,
+            DisplayName = "Phase-Lock Cradle T2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T2ModuleTweaksV0.PhaseLockCreditCost,
+            TechPrerequisite = T2ModuleTweaksV0.PhaseLockTechPrereq,
+            InstallTicks = T2ModuleTweaksV0.PhaseLockInstallTicks,
+            PowerDraw = T2ModuleTweaksV0.PhaseLockPowerDraw,
+            ScanBonusPct = T2ModuleTweaksV0.PhaseLockScanBonusPct,
+            FactionId = FactionTweaksV0.CommunionId,
+            FactionRepRequired = T2ModuleTweaksV0.CommunionRepRequired,
+        },
+        new ModuleDef
+        {
+            ModuleId = WellKnownModuleIds.WeaversLoadBearingT2,
+            DisplayName = "Load-Bearing Strut T2",
+            SlotKind = SlotKind.Utility,
+            CreditCost = T2ModuleTweaksV0.LoadBearingCreditCost,
+            TechPrerequisite = T2ModuleTweaksV0.LoadBearingTechPrereq,
+            InstallTicks = T2ModuleTweaksV0.LoadBearingInstallTicks,
+            PowerDraw = T2ModuleTweaksV0.LoadBearingPowerDraw,
+            HullBonusFlat = T2ModuleTweaksV0.LoadBearingHullBonusFlat,
+            FactionId = FactionTweaksV0.WeaversId,
+            FactionRepRequired = T2ModuleTweaksV0.WeaversRepRequired,
         },
     };
 

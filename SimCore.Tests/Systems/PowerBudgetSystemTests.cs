@@ -60,10 +60,10 @@ public sealed class PowerBudgetSystemTests
     public void OverBudget_LastSlotDisabled()
     {
         var state = CreateMinimalState();
-        // Shuttle: BasePower = 20
+        // Shuttle: BasePower = 25
         var fleet = CreateFleetWithSlots("fleet_1", "shuttle",
             (SlotKind.Weapon, "mod_a", 15),
-            (SlotKind.Engine, "mod_b", 10) // Total 25 > 20
+            (SlotKind.Engine, "mod_b", 15) // Total 30 > 25
         );
         state.Fleets["fleet_1"] = fleet;
 

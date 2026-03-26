@@ -2,14 +2,15 @@
 .SYNOPSIS
     Bot Analytics — parses bot output files and produces coverage/analysis reports.
 .PARAMETER BotType
-    Bot type: playthrough, rl, trade, combat, stress, full
+    Bot type: playthrough, rl, trade, combat, stress, full, coverage
+    'coverage' mode: counts SimBridge V0/V1 methods exercised by bot scripts (no run needed).
 .PARAMETER ReportDir
     Directory containing bot output files (default: reports/bot/<BotType>/)
 .PARAMETER OutputDir
     Directory for analysis output (default: reports/analytics/)
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet("playthrough","rl","trade","combat","stress","full")]
+    [Parameter(Mandatory)][ValidateSet("playthrough","rl","trade","combat","stress","full","coverage")]
     [string]$BotType,
     [string]$ReportDir,
     [string]$OutputDir = "reports/analytics"
@@ -21,6 +22,75 @@ Push-Location $repoRoot
 
 if (-not $ReportDir) { $ReportDir = "reports/bot/$BotType" }
 if (-not (Test-Path $OutputDir)) { New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null }
+
+# ── Coverage mode: static analysis of SimBridge method references in bot scripts ──
+if ($BotType -eq "coverage") {
+    $bridgeDir = Join-Path $repoRoot 'scripts/bridge'
+    $bridgeFiles = Get-ChildItem -Path $bridgeDir -Filter '*.cs'
+    $allMethods = @()
+    foreach ($f in $bridgeFiles) {
+        $content = Get-Content $f.FullName
+        foreach ($line in $content) {
+            if ($line -match 'public\s+\w.*?\s+([\w]+V[01]\w*)\s*\(') {
+                $allMethods += $Matches[1]
+            }
+        }
+    }
+    $allMethods = $allMethods | Sort-Object -Unique
+    $totalMethods = $allMethods.Count
+
+    $botScripts = @(
+        'scripts/tests/playthrough_bot_v0.gd',
+        'scripts/tests/visual_sweep_bot_v0.gd',
+        'scripts/tests/test_first_hour_proof_v0.gd',
+        'scripts/tests/test_deep_systems_v0.gd',
+        'scripts/tests/test_tutorial_proof_v0.gd'
+    )
+
+    $exercised = @{}
+    foreach ($botRel in $botScripts) {
+        $botPath = Join-Path $repoRoot $botRel
+        if (-not (Test-Path $botPath)) { continue }
+        $botContent = Get-Content $botPath -Raw
+        foreach ($method in $allMethods) {
+            if ($botContent -match [regex]::Escape($method)) {
+                $exercised[$method] = $true
+            }
+        }
+    }
+
+    $exercisedCount = $exercised.Count
+    $coveragePct = [math]::Round(($exercisedCount / [math]::Max(1, $totalMethods)) * 100, 1)
+
+    Write-Host "=== SimBridge Method Coverage ===" -ForegroundColor Cyan
+    Write-Host "Total public V0/V1 methods: $totalMethods"
+    Write-Host "Exercised by bots: $exercisedCount / $totalMethods ($coveragePct%)" -ForegroundColor Green
+
+    $uncovered = $allMethods | Where-Object { -not $exercised.ContainsKey($_) }
+    if ($uncovered.Count -gt 0) {
+        Write-Host ""
+        Write-Host "--- Uncovered Methods ($($uncovered.Count)) ---" -ForegroundColor Yellow
+        foreach ($m in $uncovered) { Write-Host "  $m" }
+    }
+
+    Write-Host ""
+    Write-Host "COVERAGE|TOTAL=$totalMethods|EXERCISED=$exercisedCount|PCT=$coveragePct"
+
+    # Write coverage report JSON
+    $covReport = @{
+        total_methods = $totalMethods
+        exercised     = $exercisedCount
+        coverage_pct  = $coveragePct
+        uncovered     = $uncovered
+        timestamp     = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+    }
+    $covJsonPath = Join-Path $OutputDir "coverage_report.json"
+    $covReport | ConvertTo-Json -Depth 4 | Set-Content $covJsonPath -Encoding UTF8
+    Write-Host "Report written to: $covJsonPath"
+
+    Pop-Location
+    exit 0
+}
 
 $summary = @{
     bot_type    = $BotType

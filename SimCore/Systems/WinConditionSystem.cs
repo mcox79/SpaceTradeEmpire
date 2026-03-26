@@ -51,7 +51,7 @@ public static class WinConditionSystem
         p.HavenTierMet = state.Haven.Tier >= WinRequirementsTweaksV0.ReinforceMinHavenTier;
 
         p.Fragment1Id = WinRequirementsTweaksV0.ReinforceRequiredFragment;
-        p.Fragment1Met = state.AdaptationFragments.ContainsKey(p.Fragment1Id);
+        p.Fragment1Met = IsFragmentCollected(state, p.Fragment1Id);
 
         // 4 requirements: 2 faction reps, haven tier, 1 fragment.
         int met = (p.FactionRep1Met ? 1 : 0) + (p.FactionRep2Met ? 1 : 0) +
@@ -75,10 +75,10 @@ public static class WinConditionSystem
         p.HavenTierMet = state.Haven.Tier >= WinRequirementsTweaksV0.NaturalizeMinHavenTier;
 
         p.Fragment1Id = WinRequirementsTweaksV0.NaturalizeRequiredFragment1;
-        p.Fragment1Met = state.AdaptationFragments.ContainsKey(p.Fragment1Id);
+        p.Fragment1Met = IsFragmentCollected(state, p.Fragment1Id);
 
         p.Fragment2Id = WinRequirementsTweaksV0.NaturalizeRequiredFragment2;
-        p.Fragment2Met = state.AdaptationFragments.ContainsKey(p.Fragment2Id);
+        p.Fragment2Met = IsFragmentCollected(state, p.Fragment2Id);
 
         // 4 requirements: 1 faction rep, haven tier, 2 fragments.
         int met = (p.FactionRep1Met ? 1 : 0) + (p.HavenTierMet ? 1 : 0) +
@@ -102,7 +102,7 @@ public static class WinConditionSystem
         p.HavenTierMet = state.Haven.Tier >= WinRequirementsTweaksV0.RenegotiateMinHavenTier;
 
         p.Fragment1Id = WinRequirementsTweaksV0.RenegotiateRequiredFragment;
-        p.Fragment1Met = state.AdaptationFragments.ContainsKey(p.Fragment1Id);
+        p.Fragment1Met = IsFragmentCollected(state, p.Fragment1Id);
 
         p.RevelationsCurrent = state.StoryState.RevelationCount;
         p.RevelationsRequired = WinRequirementsTweaksV0.RenegotiateRequiredRevelations;
@@ -118,5 +118,10 @@ public static class WinConditionSystem
     private static bool GetFactionRep(SimState state, string factionId, out int rep)
     {
         return state.FactionReputation.TryGetValue(factionId, out rep);
+    }
+
+    private static bool IsFragmentCollected(SimState state, string fragmentId)
+    {
+        return state.AdaptationFragments.TryGetValue(fragmentId, out var frag) && frag.IsCollected;
     }
 }

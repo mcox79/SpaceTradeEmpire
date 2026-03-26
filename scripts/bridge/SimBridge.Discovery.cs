@@ -44,7 +44,11 @@ public partial class SimBridge
                     ["last_validated_tick"] = route.LastValidatedTick,
                     ["status"] = route.Status.ToString(),
                     ["source_discovery_id"] = route.SourceDiscoveryId,
-                    ["flavor_text"] = route.FlavorText
+                    ["flavor_text"] = route.FlavorText,
+                    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Confidence score + personality text.
+                    ["confidence_score"] = route.ConfidenceScore,
+                    ["confidence_text"] = route.ConfidenceText,
+                    ["proven_trade_count"] = route.ProvenTradeCount
                 };
                 result.Add(entry);
             }
@@ -200,6 +204,323 @@ public partial class SimBridge
         return unlocked;
     }
 
+    // GATE.T57.FEEL.AUDIO_SIGS.001: Get the latest discovery audio cue from fleet events.
+    // Returns the AudioCue string ("AnomalyPing", "ScanProcess", "DiscoveryReveal", "InsightChime", "ScanFailed", or "").
+    private string _cachedLatestAudioCue = "";
+
+    public string GetLatestDiscoveryAudioCueV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            string latest = "";
+            if (state.FleetEventLog != null)
+            {
+                for (int i = state.FleetEventLog.Count - 1; i >= 0; i--)
+                {
+                    var evt = state.FleetEventLog[i];
+                    if (evt == null) continue;
+                    if (!string.IsNullOrEmpty(evt.AudioCue))
+                    {
+                        latest = evt.AudioCue;
+                        break;
+                    }
+                }
+            }
+            lock (_snapshotLock) { _cachedLatestAudioCue = latest; }
+        });
+        lock (_snapshotLock) { return _cachedLatestAudioCue ?? ""; }
+    }
+
+    // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Get failure status for a specific discovery.
+    public Godot.Collections.Dictionary GetDiscoveryFailureStatusV0(string discoveryId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.Discoveries == null || !state.Intel.Discoveries.TryGetValue(discoveryId ?? "", out var disc))
+            {
+                result["found"] = false;
+                return;
+            }
+            result["found"] = true;
+            result["last_failure_tick"] = disc.LastFailureTick;
+            result["last_failure_type"] = disc.LastFailureType.ToString();
+            result["failure_count"] = disc.FailureCount;
+            result["on_cooldown"] = disc.LastFailureTick >= 0
+                && (state.Tick - disc.LastFailureTick) < SimCore.Tweaks.DiscoveryFailureTweaksV0.FailureCooldownTicks;
+        });
+        return result;
+    }
+
+    // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: Get economic intels.
+    private Godot.Collections.Array _cachedEconomicIntelsV0 = new();
+
+    public Godot.Collections.Array GetEconomicIntelsV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var result = new Godot.Collections.Array();
+            if (state.Intel?.EconomicIntels == null)
+            {
+                lock (_snapshotLock) { _cachedEconomicIntelsV0 = result; }
+                return;
+            }
+
+            foreach (var kv in state.Intel.EconomicIntels.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var intel = kv.Value;
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["intel_id"] = intel.IntelId,
+                    ["type"] = intel.Type.ToString(),
+                    ["source_discovery_id"] = intel.SourceDiscoveryId,
+                    ["node_id"] = intel.NodeId,
+                    ["good_id"] = intel.GoodId,
+                    ["estimated_value"] = intel.EstimatedValue,
+                    ["created_tick"] = intel.CreatedTick,
+                    ["freshness_max_ticks"] = intel.FreshnessMaxTicks,
+                    ["distance_band"] = intel.DistanceBand,
+                    ["flavor_text"] = intel.FlavorText,
+                    ["fo_commentary"] = intel.FoCommentary
+                });
+            }
+
+            lock (_snapshotLock) { _cachedEconomicIntelsV0 = result; }
+        });
+
+        lock (_snapshotLock) { return _cachedEconomicIntelsV0?.Duplicate(true) ?? new Godot.Collections.Array(); }
+    }
+
+    // GATE.T57.PIPELINE.BRIDGE.001: Get a single economic intel by discovery ID.
+    public Godot.Collections.Dictionary GetEconomicIntelByDiscoveryV0(string discoveryId)
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.EconomicIntels == null)
+            {
+                result["found"] = false;
+                return;
+            }
+
+            string key = "ECON_" + (discoveryId ?? "");
+            if (!state.Intel.EconomicIntels.TryGetValue(key, out var intel))
+            {
+                result["found"] = false;
+                return;
+            }
+
+            result["found"] = true;
+            result["intel_id"] = intel.IntelId;
+            result["type"] = intel.Type.ToString();
+            result["node_id"] = intel.NodeId;
+            result["good_id"] = intel.GoodId;
+            result["estimated_value"] = intel.EstimatedValue;
+            result["created_tick"] = intel.CreatedTick;
+            result["freshness_max_ticks"] = intel.FreshnessMaxTicks;
+            result["distance_band"] = intel.DistanceBand;
+            result["flavor_text"] = intel.FlavorText;
+            result["fo_commentary"] = intel.FoCommentary;
+        });
+        return result;
+    }
+
+    // GATE.T57.PIPELINE.BRIDGE.001: Get chain intel entries for a specific chain.
+    public Godot.Collections.Array GetChainIntelV0(string chainId)
+    {
+        var result = new Godot.Collections.Array();
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel?.EconomicIntels == null) return;
+
+            string prefix = "ECON_CHAIN_" + (chainId ?? "") + "_";
+            foreach (var kv in state.Intel.EconomicIntels.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (!kv.Key.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                var intel = kv.Value;
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["intel_id"] = intel.IntelId,
+                    ["type"] = intel.Type.ToString(),
+                    ["node_id"] = intel.NodeId,
+                    ["estimated_value"] = intel.EstimatedValue,
+                    ["created_tick"] = intel.CreatedTick,
+                    ["flavor_text"] = intel.FlavorText,
+                    ["fo_commentary"] = intel.FoCommentary
+                });
+            }
+        });
+        return result;
+    }
+
+    // ── GATE.T57.KG.BRIDGE.001: Knowledge Graph bridge methods ──
+
+    public bool PinDiscoveryV0(string discoveryId)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.PinDiscovery(_kernel.State, discoveryId ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"PinDiscoveryV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    public bool UnpinDiscoveryV0(string discoveryId)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.UnpinDiscovery(_kernel.State, discoveryId ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"UnpinDiscoveryV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    public bool AnnotateDiscoveryV0(string discoveryId, string text)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.AnnotateDiscovery(_kernel.State, discoveryId ?? "", text ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"AnnotateDiscoveryV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    public bool LinkSpeculativeV0(string sourceDiscoveryId, string targetDiscoveryId)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.CreateSpeculativeLink(_kernel.State, sourceDiscoveryId ?? "", targetDiscoveryId ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"LinkSpeculativeV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    public bool FlagForFOV0(string discoveryId)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.FlagForFO(_kernel.State, discoveryId ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"FlagForFOV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    public bool CompareDiscoveriesV0(string discoveryIdA, string discoveryIdB)
+    {
+        bool ok = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try { ok = KnowledgeGraphSystem.CompareDiscoveries(_kernel.State, discoveryIdA ?? "", discoveryIdB ?? ""); }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"CompareDiscoveriesV0 error: {ex.Message}"); }
+        return ok;
+    }
+
+    // GATE.T57.KG.BRIDGE.001: Get KG dual-mode data (geographic + relational positions).
+    public Godot.Collections.Dictionary GetKGDualModeV0()
+    {
+        var result = new Godot.Collections.Dictionary();
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Intel == null)
+            {
+                result["discoveries"] = new Godot.Collections.Array();
+                result["connections"] = new Godot.Collections.Array();
+                result["pins"] = new Godot.Collections.Array();
+                result["annotations"] = new Godot.Collections.Array();
+                return;
+            }
+
+            // Discoveries with positions.
+            var discoveries = new Godot.Collections.Array();
+            if (state.Intel.Discoveries != null)
+            {
+                foreach (var kv in state.Intel.Discoveries.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    var disc = kv.Value;
+                    if (disc == null) continue;
+
+                    // Find node for geographic position.
+                    string nodeId = "";
+                    float posX = 0, posY = 0, posZ = 0;
+                    foreach (var nodeKvp in state.Nodes)
+                    {
+                        var node = nodeKvp.Value;
+                        if (node?.SeededDiscoveryIds == null) continue;
+                        if (node.SeededDiscoveryIds.Contains(disc.DiscoveryId))
+                        {
+                            nodeId = node.Id ?? "";
+                            posX = node.Position.X;
+                            posY = node.Position.Y;
+                            posZ = node.Position.Z;
+                            break;
+                        }
+                    }
+
+                    discoveries.Add(new Godot.Collections.Dictionary
+                    {
+                        ["discovery_id"] = disc.DiscoveryId,
+                        ["phase"] = disc.Phase.ToString(),
+                        ["node_id"] = nodeId,
+                        ["pos_x"] = posX,
+                        ["pos_y"] = posY,
+                        ["pos_z"] = posZ,
+                        ["flavor_text"] = disc.FlavorText
+                    });
+                }
+            }
+            result["discoveries"] = discoveries;
+
+            // Connections with link state.
+            var connections = new Godot.Collections.Array();
+            foreach (var conn in state.Intel.KnowledgeConnections)
+            {
+                connections.Add(new Godot.Collections.Dictionary
+                {
+                    ["connection_id"] = conn.ConnectionId,
+                    ["source_discovery_id"] = conn.SourceDiscoveryId,
+                    ["target_discovery_id"] = conn.TargetDiscoveryId,
+                    ["type"] = conn.ConnectionType.ToString(),
+                    ["is_revealed"] = conn.IsRevealed,
+                    ["link_state"] = conn.LinkState.ToString(),
+                    ["description"] = conn.Description
+                });
+            }
+            result["connections"] = connections;
+
+            // Player state: pins, annotations.
+            var pins = new Godot.Collections.Array();
+            var annotations = new Godot.Collections.Array();
+            if (state.Intel.KGPlayerState != null)
+            {
+                foreach (var p in state.Intel.KGPlayerState.Pins)
+                    pins.Add(new Godot.Collections.Dictionary { ["discovery_id"] = p.DiscoveryId, ["pinned_tick"] = p.PinnedTick });
+                foreach (var a in state.Intel.KGPlayerState.Annotations)
+                    annotations.Add(new Godot.Collections.Dictionary { ["discovery_id"] = a.DiscoveryId, ["text"] = a.Text });
+            }
+            result["pins"] = pins;
+            result["annotations"] = annotations;
+        });
+        return result;
+    }
+
     // GATE.T41.DISCOVERY.BRIDGE.001: Get discovery sites revealed by instability.
     public Godot.Collections.Array GetInstabilityRevealedSitesV0()
     {
@@ -245,5 +566,70 @@ public partial class SimBridge
             }
         });
         return result;
+    }
+
+    // ── GATE.T58.KG.MILESTONE_BRIDGE.001: KG progressive disclosure milestone queries ──
+
+    private Godot.Collections.Dictionary _cachedKGMilestoneV0 = new();
+
+    /// <summary>Get current KG milestone state and available verbs.</summary>
+    public Godot.Collections.Dictionary GetKGMilestoneV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var result = new Godot.Collections.Dictionary();
+            var milestones = state.Intel?.KGMilestones;
+            if (milestones == null)
+            {
+                result["highest_milestone"] = "Geographic";
+                result["pending_notification"] = -1;
+                lock (_snapshotLock) { _cachedKGMilestoneV0 = result; }
+                return;
+            }
+
+            result["highest_milestone"] = milestones.HighestMilestone.ToString();
+            result["highest_milestone_int"] = (int)milestones.HighestMilestone;
+            result["pending_notification"] = milestones.PendingMilestoneNotification;
+
+            // Available verbs based on milestone.
+            int level = (int)milestones.HighestMilestone;
+            result["can_pin"] = level >= 1;       // M2: Pin
+            result["can_annotate"] = level >= 3;   // M4: Annotate
+            result["can_flag"] = level >= 4;       // M5: Flag
+            result["can_link"] = level >= 5;       // M6: Link
+            result["can_compare"] = level >= 6;    // M7: Compare
+
+            // Milestone ticks for UI timeline.
+            var ticks = new Godot.Collections.Dictionary();
+            foreach (var kv in milestones.MilestoneTicks)
+                ticks[kv.Key.ToString()] = kv.Value;
+            result["milestone_ticks"] = ticks;
+
+            lock (_snapshotLock) { _cachedKGMilestoneV0 = result; }
+        });
+
+        lock (_snapshotLock) { return _cachedKGMilestoneV0?.Duplicate(true) ?? new Godot.Collections.Dictionary(); }
+    }
+
+    /// <summary>Consume the milestone notification (mark as displayed).</summary>
+    public bool ConsumeKGMilestoneNotificationV0()
+    {
+        bool success = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            try
+            {
+                var milestones = _kernel.State.Intel?.KGMilestones;
+                if (milestones != null && milestones.PendingMilestoneNotification >= 0)
+                {
+                    milestones.PendingMilestoneNotification = -1;
+                    success = true;
+                }
+            }
+            finally { _stateLock.ExitWriteLock(); }
+        }
+        catch (Exception ex) { GD.PrintErr($"ConsumeKGMilestoneNotificationV0 error: {ex.Message}"); }
+        return success;
     }
 }

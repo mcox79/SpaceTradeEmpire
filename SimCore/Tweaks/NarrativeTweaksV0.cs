@@ -58,4 +58,13 @@ public static class NarrativeTweaksV0
     public const int CostsMountingCreditsEarned = 50;
     // COSTS_MOUNTING trigger: minimum nodes visited before FO comments on operating costs.
     public const int CostsMountingNodesVisited = 3;
+
+    // Silence fallback: ticks of FO silence before a SILENCE_BREAK trigger fires.
+    // At 12:1 time ratio, 120 ticks ≈ 10 real minutes of no FO dialogue.
+    public const int SilenceFallbackThresholdTicks = 120;
+    // Maximum number of silence break triggers (cycling SILENCE_BREAK_1..N).
+    // Raised from 8→24 to prevent FO going permanently silent in longer sessions.
+    public const int SilenceBreakMaxCount = 24;
+    // Cadence for checking silence fallback (every N ticks).
+    public const int SilenceFallbackCheckCadence = 30;
 }

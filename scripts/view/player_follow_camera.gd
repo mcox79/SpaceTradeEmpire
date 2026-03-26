@@ -18,9 +18,10 @@ enum CameraMode {
 @export var target_path: NodePath
 
 # Flight mode: top-down (Starcom Nexus style) — camera directly above player.
-# VISUAL_OVERHAUL: Raised from 80 to 120 for 1.5x system scale.
-@export var flight_offset: Vector3 = Vector3(0, 120, 1)
-@export var flight_follow_distance: float = 80.0
+# FH_3_FIX: Reduced from 120 to 60 — ship was 8-10px at 120u (AESTHETIC FAIL).
+# System layout: planets 18-40u, belt 45u. 60u keeps ship visible + system context.
+@export var flight_offset: Vector3 = Vector3(0, 60, 1)
+@export var flight_follow_distance: float = 40.0
 
 # Docked mode: fixed camera transform when docked at any target.
 @export var dock_offset: Vector3 = Vector3(0, 40, 25)
@@ -54,9 +55,10 @@ const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500
 const GALAXY_MAP_PAN_SPEED: float = 2000.0
 const GALAXY_MAP_LERP_SPEED: float = 4.0
 # Default flight altitude. System layout: planets 18-40u, belt 45u, lane gates 85u.
-var _altitude: float = 80.0
-var _pre_strategic_altitude: float = 80.0  # Altitude before TAB jump, for TAB toggle-back.
-var _pre_transit_altitude: float = 80.0   # Altitude before lane transit, for post-transit restore.
+# FH_3_FIX: Reduced from 80 to 50 — closer to the action.
+var _altitude: float = 50.0
+var _pre_strategic_altitude: float = 50.0  # Altitude before TAB jump, for TAB toggle-back.
+var _pre_transit_altitude: float = 50.0   # Altitude before lane transit, for post-transit restore.
 var _galaxy_map_pan_offset: Vector3 = Vector3.ZERO
 var _galaxy_panning: bool = false
 var _galaxy_pan_last_mouse: Vector2 = Vector2.ZERO
@@ -84,8 +86,8 @@ var _overlay_hud_node = null
 
 # Combat auto-zoom state.
 var _combat_zoom_active: bool = false
-var _pre_combat_distance: float = 80.0
-const COMBAT_ZOOM_OUT_DELTA: float = 40.0
+var _pre_combat_distance: float = 50.0
+const COMBAT_ZOOM_OUT_DELTA: float = 20.0
 const COMBAT_ZOOM_OUT_DURATION: float = 0.5
 const COMBAT_ZOOM_IN_DURATION: float = 1.0
 var _combat_zoom_tween: Tween = null

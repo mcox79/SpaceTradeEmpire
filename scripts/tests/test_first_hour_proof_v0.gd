@@ -643,7 +643,7 @@ func _do_buy() -> void:
 	var buy_qty := mini(5, _credits_before_buy / best_price)
 	if buy_qty < 1:
 		buy_qty = 1
-	_bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
+	var dispatch_result = _bridge.call("DispatchPlayerTradeV0", node_id, best_good, buy_qty, true)
 	_bought_good_id = best_good
 	_goods_traded[best_good] = true
 	_log("BUY|good=%s qty=%d price=%d" % [best_good, buy_qty, best_price])

@@ -654,7 +654,8 @@ public class ExplorationBotTests
         kernel.State.FactionReputation["concord"] = WinRequirementsTweaksV0.ReinforceMinConcordRep;
         kernel.State.FactionReputation["weaver"] = WinRequirementsTweaksV0.ReinforceMinWeaverRep;
         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.ReinforceRequiredFragment] =
-            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment };
+            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment, CollectedTick = 0 };
+        kernel.State.Haven.Discovered = true;
 
         Assert.That(kernel.State.GameResultValue, Is.EqualTo(GameResult.InProgress));
         kernel.Step();
@@ -674,9 +675,10 @@ public class ExplorationBotTests
         kernel.State.Haven.ChosenEndgamePath = EndgamePath.Naturalize;
         kernel.State.FactionReputation["communion"] = WinRequirementsTweaksV0.NaturalizeMinCommunionRep;
         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.NaturalizeRequiredFragment1] =
-            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1 };
+            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1, CollectedTick = 0 };
         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.NaturalizeRequiredFragment2] =
-            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment2 };
+            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment2, CollectedTick = 0 };
+        kernel.State.Haven.Discovered = true;
 
         kernel.Step();
         Assert.That(kernel.State.GameResultValue, Is.EqualTo(GameResult.Victory));
@@ -694,9 +696,10 @@ public class ExplorationBotTests
         kernel.State.Haven.ChosenEndgamePath = EndgamePath.Renegotiate;
         kernel.State.FactionReputation["communion"] = WinRequirementsTweaksV0.RenegotiateMinCommunionRep;
         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.RenegotiateRequiredFragment] =
-            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.RenegotiateRequiredFragment };
+            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.RenegotiateRequiredFragment, CollectedTick = 0 };
         kernel.State.StoryState.RevealedFlags = RevelationFlags.R1_Module | RevelationFlags.R2_Concord |
             RevelationFlags.R3_Pentagon | RevelationFlags.R4_Communion | RevelationFlags.R5_Instability;
+        kernel.State.Haven.Discovered = true;
 
         kernel.Step();
         Assert.That(kernel.State.GameResultValue, Is.EqualTo(GameResult.Victory));
@@ -812,25 +815,27 @@ public class ExplorationBotTests
                 kernel.State.Haven.Tier = HavenTier.Expanded;
                 kernel.State.Haven.ChosenEndgamePath = path;
 
+                kernel.State.Haven.Discovered = true;
                 switch (path)
                 {
                     case EndgamePath.Reinforce:
                         kernel.State.FactionReputation["concord"] = WinRequirementsTweaksV0.ReinforceMinConcordRep;
                         kernel.State.FactionReputation["weaver"] = WinRequirementsTweaksV0.ReinforceMinWeaverRep;
                         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.ReinforceRequiredFragment] =
-                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment };
+                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment, CollectedTick = 0 };
                         break;
                     case EndgamePath.Naturalize:
                         kernel.State.FactionReputation["communion"] = WinRequirementsTweaksV0.NaturalizeMinCommunionRep;
                         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.NaturalizeRequiredFragment1] =
-                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1 };
+                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1, CollectedTick = 0 };
                         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.NaturalizeRequiredFragment2] =
-                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment2 };
+                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment2, CollectedTick = 0 };
                         break;
                     case EndgamePath.Renegotiate:
-                        kernel.State.FactionReputation["communion"] = WinRequirementsTweaksV0.RenegotiateMinCommunionRep;
+                        // +5 buffer: HavenEndgameSystem applies -1 rep drift to all factions on tick 0 (Renegotiate path).
+                        kernel.State.FactionReputation["communion"] = WinRequirementsTweaksV0.RenegotiateMinCommunionRep + 5;
                         kernel.State.AdaptationFragments[WinRequirementsTweaksV0.RenegotiateRequiredFragment] =
-                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.RenegotiateRequiredFragment };
+                            new AdaptationFragment { FragmentId = WinRequirementsTweaksV0.RenegotiateRequiredFragment, CollectedTick = 0 };
                         kernel.State.StoryState.RevealedFlags = RevelationFlags.R1_Module | RevelationFlags.R2_Concord |
                             RevelationFlags.R3_Pentagon | RevelationFlags.R4_Communion | RevelationFlags.R5_Instability;
                         break;

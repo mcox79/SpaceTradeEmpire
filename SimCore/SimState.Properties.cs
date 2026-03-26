@@ -373,6 +373,16 @@ public partial class SimState
     // GATE.T45.DEEP_DREAD.INFO_FOG.001: Last tick player visited each node (nodeId -> tick).
     [JsonInclude] public Dictionary<string, int> NodeLastVisitTick { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Recent-trade margin dampening.
+    // Key = "marketId|goodId", value = accumulated dampening in basis points.
+    // Decays each tick, increases on each player trade at that market+good.
+    [JsonInclude] public Dictionary<string, int> PlayerRecentTradeDampen { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC-discovered profitable routes.
+    // Key = routeKey (sourceNode|destNode|goodId), Value = tick when NPC first observed this route.
+    // Used to compute margin compression over NpcRouteCompressionStartTick..FullTick.
+    [JsonInclude] public Dictionary<string, int> NpcDiscoveredRoutes { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001: Active lattice fauna entities.
     [JsonInclude] public List<Entities.LatticeFauna> LatticeFauna { get; set; } = new();
     // GATE.T45.DEEP_DREAD.LATTICE_FAUNA.001: Node residue expiry ticks (nodeId -> expiryTick).

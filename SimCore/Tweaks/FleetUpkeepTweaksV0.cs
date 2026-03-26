@@ -3,22 +3,22 @@ namespace SimCore.Tweaks;
 // GATE.X.FLEET_UPKEEP.DRAIN.001: Fleet upkeep cost constants.
 public static class FleetUpkeepTweaksV0
 {
-    // GATE.T52.ECON.UPKEEP_TUNE.001: Upkeep 10x increase for credit tension.
+    // GATE.T52.ECON.UPKEEP_TUNE.001: Upkeep scaled for meaningful credit tension.
     // Per-cycle upkeep cost in credits by ship class.
-    // With trade profits ~500-1000cr, 20cr/cycle shuttle makes upkeep noticeable.
-    // Player feels pressure to trade efficiently or automate.
-    public const int ShuttleUpkeep = 20;
-    public const int CorvetteUpkeep = 50;
-    public const int ClipperUpkeep = 40;
-    public const int FrigateUpkeep = 80;
-    public const int HaulerUpkeep = 60;
-    public const int CruiserUpkeep = 150;
-    public const int CarrierUpkeep = 120;
-    public const int DreadnoughtUpkeep = 500;
+    // At 5K avg trade profit, 100cr/cycle shuttle = ~48% of one trade over a session.
+    // Player feels pressure to trade efficiently, not coast.
+    public const int ShuttleUpkeep = 100;
+    public const int CorvetteUpkeep = 250;
+    public const int ClipperUpkeep = 200;
+    public const int FrigateUpkeep = 400;
+    public const int HaulerUpkeep = 300;
+    public const int CruiserUpkeep = 750;
+    public const int CarrierUpkeep = 600;
+    public const int DreadnoughtUpkeep = 2500;
     // Ancient hulls: high upkeep (exotic maintenance).
-    public const int AncientBastionUpkeep = 300;
-    public const int AncientSeekerUpkeep = 250;
-    public const int AncientThresholdUpkeep = 350;
+    public const int AncientBastionUpkeep = 1500;
+    public const int AncientSeekerUpkeep = 1250;
+    public const int AncientThresholdUpkeep = 1750;
 
     // Docked multiplier in basis points (5000 = 50% = half cost when docked).
     public const int DockedMultiplierBps = 5000;
@@ -50,16 +50,16 @@ public static class FleetUpkeepTweaksV0
 
     // GATE.T48.TENSION.MAINTENANCE.001: Crew wages per cycle (credits).
     public const int WageCycleTicks = 30;
-    // GATE.T52.ECON.UPKEEP_TUNE.001: Wages 10x for credit tension.
-    public const int WagePerCycleShuttle = 10;
-    public const int WagePerCycleCorvette = 20;
-    public const int WagePerCycleClipper = 20;
-    public const int WagePerCycleFrigate = 40;
-    public const int WagePerCycleHauler = 30;
-    public const int WagePerCycleCruiser = 70;
-    public const int WagePerCycleCarrier = 60;
-    public const int WagePerCycleDreadnought = 150;
-    public const int WagePerCycleDefault = 20;
+    // GATE.T52.ECON.UPKEEP_TUNE.001: Wages scaled for credit tension.
+    public const int WagePerCycleShuttle = 50;
+    public const int WagePerCycleCorvette = 100;
+    public const int WagePerCycleClipper = 100;
+    public const int WagePerCycleFrigate = 200;
+    public const int WagePerCycleHauler = 150;
+    public const int WagePerCycleCruiser = 350;
+    public const int WagePerCycleCarrier = 300;
+    public const int WagePerCycleDreadnought = 750;
+    public const int WagePerCycleDefault = 100;
     // Docked wage multiplier in bps (5000 = 50%).
     public const int DockedWageMultiplierBps = 5000;
 

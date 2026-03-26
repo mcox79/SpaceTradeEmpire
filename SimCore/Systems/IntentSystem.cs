@@ -156,7 +156,11 @@ public static class IntentSystem
         var dueSeq = scratch.DueSeq;
         dueSeq.Clear();
         foreach (var env in due) dueSeq.Add(env.Seq);
-        state.PendingIntents.RemoveAll(x => dueSeq.Contains(x.Seq));
+        for (int i = state.PendingIntents.Count - 1; i >= 0; i--)
+        {
+            if (dueSeq.Contains(state.PendingIntents[i].Seq))
+                state.PendingIntents.RemoveAt(i);
+        }
     }
 
     private static int CompareByRole(

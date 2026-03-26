@@ -62,6 +62,9 @@ public static class IntelSystem
             obs.ObservedSellPrice = localMarket.GetSellPrice(goodId);
             obs.ObservedMidPrice = localMarket.GetMidPrice(goodId);
         }
+
+        // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Refresh route confidence scores.
+        ProcessRouteConfidence(state);
     }
 
     // GATE.S10.TRADE_INTEL.SCANNER.001: Passive scanner that records prices at remote nodes.
@@ -1043,6 +1046,27 @@ public static class IntelSystem
 
         // Guaranteed present due to GetScanReasonCode pre-checks.
         var d = state.Intel!.Discoveries[discoveryId];
+
+        // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Check failure cooldown.
+        if (d.LastFailureTick >= 0 && (state.Tick - d.LastFailureTick) < Tweaks.DiscoveryFailureTweaksV0.FailureCooldownTicks)
+            return DiscoveryReasonCode.OnCooldown;
+
+        // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Roll for scan failure based on instability.
+        var failureResult = RollScanFailure(state, discoveryId, d);
+        if (failureResult == DiscoveryReasonCode.ScanFailed)
+        {
+            state.Intel.Discoveries[discoveryId] = d;
+            return DiscoveryReasonCode.ScanFailed;
+        }
+        if (failureResult == DiscoveryReasonCode.PartialSuccess)
+        {
+            // Partial success: phase still advances but reward will be reduced.
+            d.Phase = DiscoveryPhase.Scanned;
+            state.Intel.Discoveries[discoveryId] = d;
+            RefreshVerbUnlocksFromDiscoveryPhases(state);
+            return DiscoveryReasonCode.PartialSuccess;
+        }
+
         d.Phase = DiscoveryPhase.Scanned;
         state.Intel.Discoveries[discoveryId] = d;
 
@@ -1074,6 +1098,93 @@ public static class IntelSystem
             return DiscoveryReasonCode.OutOfRange;
 
         return DiscoveryReasonCode.Ok;
+    }
+
+    // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Deterministic failure roll for scan/analyze attempts.
+    // Uses FNV1a hash of (tick, discoveryId) for deterministic pseudo-random outcome.
+    // Failure chance = base + (instability * perInstabilityBonus), capped at max.
+    // On failure: roll partial vs full failure, then pick failure type by weighted selection.
+    private static DiscoveryReasonCode RollScanFailure(SimState state, string discoveryId, DiscoveryStateV0 disc)
+    {
+        // Extract node from discovery ID: disc_v0|KIND|NodeId|...
+        var parts = discoveryId.Split('|');
+        string discNodeId = parts.Length >= 3 ? parts[2] : "";
+
+        int instability = 0; // STRUCTURAL: default instability
+        if (!string.IsNullOrEmpty(discNodeId) && state.Nodes.TryGetValue(discNodeId, out var discNode))
+            instability = discNode.InstabilityLevel;
+
+        int failChanceBps = DiscoveryFailureTweaksV0.BaseFailureChanceBps
+            + (instability * DiscoveryFailureTweaksV0.PerInstabilityBonusBps);
+        if (failChanceBps > DiscoveryFailureTweaksV0.MaxFailureChanceBps)
+            failChanceBps = DiscoveryFailureTweaksV0.MaxFailureChanceBps;
+
+        if (failChanceBps <= 0) return DiscoveryReasonCode.Ok; // STRUCTURAL: zero chance = no failure
+
+        // Deterministic hash roll: FNV1a(tick ^ discoveryId bytes) mod 10000.
+        ulong hash = RiskModelV0.FnvOffset;
+        hash ^= (ulong)state.Tick;
+        hash *= RiskModelV0.FnvPrime;
+        for (int i = 0; i < discoveryId.Length; i++) // STRUCTURAL: iterate all chars
+        {
+            hash ^= (ulong)discoveryId[i];
+            hash *= RiskModelV0.FnvPrime;
+        }
+        // Mix in failure count to avoid identical rolls on retry.
+        hash ^= (ulong)disc.FailureCount;
+        hash *= RiskModelV0.FnvPrime;
+
+        int roll = (int)(hash % 10000UL); // STRUCTURAL: basis points denominator
+
+        if (roll >= failChanceBps)
+            return DiscoveryReasonCode.Ok; // Scan succeeds.
+
+        // Failed. Check for partial success (reduced reward, phase still advances).
+        ulong partialHash = hash ^ 0xDEADBEEFUL; // STRUCTURAL: secondary hash mixer
+        partialHash *= RiskModelV0.FnvPrime;
+        int partialRoll = (int)(partialHash % 10000UL); // STRUCTURAL: basis points denominator
+
+        if (partialRoll < DiscoveryFailureTweaksV0.PartialSuccessChanceBps)
+        {
+            // Partial success: still pick a failure type for flavor text.
+            disc.LastFailureType = PickFailureType(hash);
+            disc.LastFailureTick = state.Tick;
+            disc.FailureCount++;
+            return DiscoveryReasonCode.PartialSuccess;
+        }
+
+        // Full failure: pick failure type, set cooldown.
+        disc.LastFailureType = PickFailureType(hash);
+        disc.LastFailureTick = state.Tick;
+        disc.FailureCount++;
+        return DiscoveryReasonCode.ScanFailed;
+    }
+
+    // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Weighted failure type selection.
+    // Deterministic: uses hash input to pick from 6 failure types by cumulative weight.
+    private static DiscoveryFailureType PickFailureType(ulong hash)
+    {
+        ulong typeHash = hash ^ 0xCAFEBABEUL; // STRUCTURAL: tertiary hash mixer
+        typeHash *= RiskModelV0.FnvPrime;
+        int typeRoll = (int)(typeHash % 100UL); // STRUCTURAL: weight denominator (sum to 100)
+
+        int cumulative = 0; // STRUCTURAL: cumulative weight start
+        cumulative += DiscoveryFailureTweaksV0.ScanInterferenceWeight;
+        if (typeRoll < cumulative) return DiscoveryFailureType.ScanInterference;
+
+        cumulative += DiscoveryFailureTweaksV0.HazardAbortWeight;
+        if (typeRoll < cumulative) return DiscoveryFailureType.HazardAbort;
+
+        cumulative += DiscoveryFailureTweaksV0.IntelSpoilageWeight;
+        if (typeRoll < cumulative) return DiscoveryFailureType.IntelSpoilage;
+
+        cumulative += DiscoveryFailureTweaksV0.ChainDeadEndWeight;
+        if (typeRoll < cumulative) return DiscoveryFailureType.ChainDeadEnd;
+
+        cumulative += DiscoveryFailureTweaksV0.ContestedDiscoveryWeight;
+        if (typeRoll < cumulative) return DiscoveryFailureType.ContestedDiscovery;
+
+        return DiscoveryFailureType.FalsePositive;
     }
 
     // GATE.S3_6.DISCOVERY_STATE.001
@@ -1120,6 +1231,30 @@ public static class IntelSystem
             return rc;
         }
 
+        // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Check failure cooldown.
+        if (d.LastFailureTick >= 0 && (state.Tick - d.LastFailureTick) < Tweaks.DiscoveryFailureTweaksV0.FailureCooldownTicks)
+        {
+            EmitAnalyzeOutcome(state, fleetId, discoveryId, DiscoveryReasonCode.OnCooldown, phaseAfter: (int)d.Phase, nodeId: nodeId);
+            return DiscoveryReasonCode.OnCooldown;
+        }
+
+        // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Roll for analysis failure based on instability.
+        var failureResult = RollScanFailure(state, discoveryId, d);
+        if (failureResult == DiscoveryReasonCode.ScanFailed)
+        {
+            state.Intel.Discoveries[discoveryId] = d;
+            EmitAnalyzeOutcome(state, fleetId, discoveryId, DiscoveryReasonCode.ScanFailed, phaseAfter: (int)d.Phase, nodeId: nodeId);
+            return DiscoveryReasonCode.ScanFailed;
+        }
+        if (failureResult == DiscoveryReasonCode.PartialSuccess)
+        {
+            d.Phase = DiscoveryPhase.Analyzed;
+            state.Intel.Discoveries[discoveryId] = d;
+            RefreshVerbUnlocksFromDiscoveryPhases(state);
+            EmitAnalyzeOutcome(state, fleetId, discoveryId, DiscoveryReasonCode.PartialSuccess, phaseAfter: (int)DiscoveryPhase.Analyzed, nodeId: nodeId);
+            return DiscoveryReasonCode.PartialSuccess;
+        }
+
         d.Phase = DiscoveryPhase.Analyzed;
         state.Intel.Discoveries[discoveryId] = d;
 
@@ -1157,6 +1292,9 @@ public static class IntelSystem
     {
         if (state is null) return;
 
+        // GATE.T57.FEEL.AUDIO_CARD_HOOKS.001: Map outcome to audio cue.
+        string audioCue = MapAnalyzeOutcomeToAudioCue(reasonCode, phaseAfter);
+
         state.EmitFleetEvent(new SimCore.Events.FleetEvents.Event
         {
             Type = SimCore.Events.FleetEvents.FleetEventType.DiscoveryAnalysisOutcome,
@@ -1164,8 +1302,24 @@ public static class IntelSystem
             DiscoveryId = discoveryId ?? "",
             NodeId = nodeId ?? "",
             ReasonCode = (int)reasonCode,
-            PhaseAfter = phaseAfter
+            PhaseAfter = phaseAfter,
+            AudioCue = audioCue
         });
+    }
+
+    // GATE.T57.FEEL.AUDIO_CARD_HOOKS.001: Audio cue mapping for discovery events.
+    private static string MapAnalyzeOutcomeToAudioCue(DiscoveryReasonCode reasonCode, int phaseAfter)
+    {
+        if (reasonCode == DiscoveryReasonCode.ScanFailed || reasonCode == DiscoveryReasonCode.OnCooldown)
+            return "ScanFailed";
+        if (reasonCode != DiscoveryReasonCode.Ok && reasonCode != DiscoveryReasonCode.PartialSuccess)
+            return "";
+        return phaseAfter switch
+        {
+            (int)DiscoveryPhase.Scanned => "ScanProcess",
+            (int)DiscoveryPhase.Analyzed => "DiscoveryReveal",
+            _ => ""
+        };
     }
 
     // Gate: DiscoveryState Seen on node entry
@@ -1224,7 +1378,8 @@ public static class IntelSystem
                 Type = SimCore.Events.FleetEvents.FleetEventType.DiscoverySeen,
                 FleetId = fleetId ?? "",
                 DiscoveryId = discoveryId,
-                NodeId = nodeId ?? ""
+                NodeId = nodeId ?? "",
+                AudioCue = "AnomalyPing"
             });
         }
 
@@ -1382,5 +1537,115 @@ public static class IntelSystem
         }
 
         return false;
+    }
+
+    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Recompute confidence scores on all active trade routes.
+    // Called from Process() at cadence intervals.
+    public static void ProcessRouteConfidence(SimState state)
+    {
+        if (state is null) return;
+        if (state.Intel?.TradeRoutes is null || state.Intel.TradeRoutes.Count == 0) return;
+        if (state.Tick % ConfidenceLangTweaksV0.RefreshCadenceTicks != 0) return;
+
+        foreach (var kvp in state.Intel.TradeRoutes)
+        {
+            var route = kvp.Value;
+            if (route is null || route.Status == TradeRouteStatus.Unprofitable) continue;
+
+            int confidence = ConfidenceLangTweaksV0.BaseConfidence;
+
+            // Proven trade bonus.
+            int provenBonus = route.ProvenTradeCount * ConfidenceLangTweaksV0.PerProvenTradeBonusPts;
+            if (provenBonus > ConfidenceLangTweaksV0.MaxProvenTradeBonus)
+                provenBonus = ConfidenceLangTweaksV0.MaxProvenTradeBonus;
+            confidence += provenBonus;
+
+            // Age decay since last validated.
+            int ageTicks = state.Tick - route.LastValidatedTick;
+            int agePenalty = 0; // STRUCTURAL: base penalty
+            if (ageTicks > 0 && ConfidenceLangTweaksV0.AgePenaltyTickInterval > 0)
+            {
+                agePenalty = ageTicks / ConfidenceLangTweaksV0.AgePenaltyTickInterval;
+                if (agePenalty > ConfidenceLangTweaksV0.MaxAgePenalty)
+                    agePenalty = ConfidenceLangTweaksV0.MaxAgePenalty;
+            }
+            confidence -= agePenalty;
+
+            // Volatility: check actual price vs estimated.
+            int volatilityPenalty = ComputeVolatilityPenalty(state, route);
+            confidence -= volatilityPenalty;
+
+            // Clamp.
+            if (confidence < CompetenceTweaksV0.ConfidenceMin) confidence = CompetenceTweaksV0.ConfidenceMin;
+            if (confidence > CompetenceTweaksV0.ConfidenceMax) confidence = CompetenceTweaksV0.ConfidenceMax;
+
+            route.ConfidenceScore = confidence;
+
+            // Generate personality-colored confidence text.
+            route.ConfidenceText = GenerateConfidenceText(state, confidence);
+        }
+    }
+
+    private static int ComputeVolatilityPenalty(SimState state, TradeRouteIntel route)
+    {
+        if (route.EstimatedProfitPerUnit <= 0) return 0; // STRUCTURAL: no-profit guard
+
+        // Check current actual profit.
+        int actualProfit = 0; // STRUCTURAL: default
+        if (state.Markets.TryGetValue(route.SourceNodeId, out var srcMkt)
+            && state.Markets.TryGetValue(route.DestNodeId, out var dstMkt))
+        {
+            int buyPrice = srcMkt.GetPrice(route.GoodId);
+            int sellPrice = dstMkt.GetPrice(route.GoodId);
+            if (buyPrice > 0 && sellPrice > 0)
+                actualProfit = sellPrice - buyPrice;
+        }
+
+        int diffPct = 0; // STRUCTURAL: default
+        if (route.EstimatedProfitPerUnit > 0)
+        {
+            int diff = route.EstimatedProfitPerUnit - actualProfit;
+            if (diff < 0) diff = -diff;
+            diffPct = (diff * 100) / route.EstimatedProfitPerUnit; // STRUCTURAL: percentage calc
+        }
+
+        int penalty = diffPct * ConfidenceLangTweaksV0.VolatilityPenaltyPerPct;
+        if (penalty > ConfidenceLangTweaksV0.MaxVolatilityPenalty)
+            penalty = ConfidenceLangTweaksV0.MaxVolatilityPenalty;
+        return penalty;
+    }
+
+    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Personality-colored confidence language.
+    // Maren=percentages, Dask=words, Lira=feelings. Per ExplorationDiscovery.md.
+    private static string GenerateConfidenceText(SimState state, int confidence)
+    {
+        if (state?.FirstOfficer is null || !state.FirstOfficer.IsPromoted)
+            return confidence >= 70 ? "Route looks reliable." : confidence >= 40 ? "Route has some risk." : "Route is uncertain.";
+
+        return state.FirstOfficer.CandidateType switch
+        {
+            Entities.FirstOfficerCandidate.Analyst => confidence switch
+            {
+                >= 80 => $"I'm showing {confidence}% confidence on this route. The numbers are solid.",
+                >= 60 => $"Confidence sits at {confidence}%. Workable, but watch the margins.",
+                >= 40 => $"Only {confidence}% confidence here. The data's getting thin.",
+                _ => $"Route confidence is {confidence}%. I wouldn't commit automation to this."
+            },
+            Entities.FirstOfficerCandidate.Veteran => confidence switch
+            {
+                >= 80 => "This route's been proven. I'd stake my commission on it.",
+                >= 60 => "Decent route. Not my first choice, but it'll hold.",
+                >= 40 => "Getting shaky. I've seen routes like this dry up fast.",
+                _ => "Trust your gut on this one — the numbers don't inspire confidence."
+            },
+            Entities.FirstOfficerCandidate.Pathfinder => confidence switch
+            {
+                >= 80 => "This route sings. Every run confirms what I felt from the start.",
+                >= 60 => "There's potential here, but something about it doesn't sit right yet.",
+                >= 40 => "The route's losing its spark. Maybe the galaxy's shifting under us.",
+                _ => "I don't feel good about this one anymore. The void gives, the void takes."
+            },
+            _ => confidence >= 70 ? "Route looks reliable." : confidence >= 40 ? "Route has some risk." : "Route is uncertain."
+        };
     }
 }

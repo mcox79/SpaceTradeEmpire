@@ -131,7 +131,12 @@ public static class MapQueries
                 NodeName = node.Name ?? ""
             };
 
-            if (node.SeededDiscoveryIds is not null && node.SeededDiscoveryIds.Count > 0)
+            // Discovery sites are only visible if the player has unlocked the sensor_suite tech.
+            // Design: discoveries require scanner equipment — the player must earn the ability
+            // to detect them. Without sensors, the system snapshot returns no discovery data.
+            bool hasSensors = state.Tech.UnlockedTechIds.Contains(Tweaks.SurveyTweaksV0.SensorSuiteTechId);
+
+            if (hasSensors && node.SeededDiscoveryIds is not null && node.SeededDiscoveryIds.Count > 0)
             {
                 // Determinism: dedupe and iterate ids in Ordinal order.
                 var ids = node.SeededDiscoveryIds

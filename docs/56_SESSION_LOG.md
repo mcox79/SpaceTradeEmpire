@@ -1286,3 +1286,102 @@ Format: YYYY-MM-DD, branch, summary, gates or epics moved
 - 2026-03-24, main, GATE.T55.BOT.COMBAT_PROOF.001 PASS (3 pirate combats won. Combat system fully functional with pirates at FRONTIER/RIM nodes). Evidence: scripts/tests/playthrough_bot_v0.gd
 - 2026-03-24, main, GATE.X.HYGIENE.EPIC_REVIEW.055 PASS (T53+T54+T55 = 51 AI playtest gates. Pirates, rare metals, mission rep, economy hardening all added. Next: supply balance pass or T52 audit). Evidence: docs/54_EPICS.md
 - 2026-03-24, main, GATE.T55.EVAL.ECONOMY_HEALTH.001 PASS (Factory buffer + haul radius increase deployed. Stress testing deferred to runtime proof. Economy hardening tweaks in place). Evidence: reports/
+- 2026-03-24, main, GATE.T56.FIX.RARE_METALS_DRAIN.001 PASS (Added rmmine_ IndustrySite at Rare Min nodes: fuel→rare_metals 3/tick. Hash updated). Evidence: SimCore/Gen/MarketInitGen.cs, SimCore/Tweaks/CatalogTweaksV0.cs
+- 2026-03-24, main, GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 PASS (Loot placed at player node instead of NPC homeNode. Collect works at same node). Evidence: SimCore/Systems/NpcFleetCombatSystem.cs
+- 2026-03-24, main, GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 PASS (exploration_bot_v1 absorbed into playthrough_bot_v0 with --mode flag: trade/combat/stress/full). Evidence: scripts/tests/playthrough_bot_v0.gd
+- 2026-03-24, main, GATE.T56.BOT.CONSOLIDATE_VISUAL.001 PASS (quick/onboarding/ui bots absorbed into visual_sweep_bot_v0 with --mode flag: fast/onboarding/ui_complete/full). Evidence: scripts/tests/visual_sweep_bot_v0.gd
+- 2026-03-24, main, GATE.T56.BOT.STRESS_MODE.001 PASS (playthrough_bot_v0 --mode stress: 1500 cycles, economy flags PRICE_COLLAPSE/ECONOMY_STALL/CREDIT_PLATEAU). Evidence: scripts/tests/playthrough_bot_v0.gd
+- 2026-03-24, main, GATE.T56.BOT.RETIRE_LEGACY.001 PASS (Deleted 6 legacy scripts: exploration_bot_v1, quick_screenshot_bot, onboarding_screenshot_bot_v0, ui_screenshot_bot_v0, test_exploration_bot_v0, run_ui_screenshots.ps1). Evidence: scripts/tests/
+- 2026-03-24, main, GATE.T56.BOT.MISSION_COMPLETE_FIX.001 PASS (DebugAdvanceTicksV0 increased to 100 ticks, sell/deliver step added for mission completion). Evidence: scripts/tests/playthrough_bot_v0.gd
+- 2026-03-24, main, GATE.T56.AUDIT.UPDATE_RUNNERS.001 PASS (Run-Bot.ps1 delegates to playthrough_bot_v0.gd, parses PLAY| prefix). Evidence: scripts/tools/Run-Bot.ps1
+- 2026-03-24, main, GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 PASS (Audit SKILL.md tier 1e updated to Playthrough Stress Bot reference). Evidence: .claude/skills/audit/SKILL.md
+- 2026-03-24, main, GATE.T56.AUDIT.WIRE_RL_SMOKE.001 PASS (RL smoke test added as Step 2b in Run-AuditQuick.ps1). Evidence: scripts/tools/Run-AuditQuick.ps1
+- 2026-03-24, main, GATE.T56.BOT.COMBAT_LOOT_PROOF.001 PASS (C# test: pirate loot contains rare_metals + salvaged_tech, collect transfers to cargo). Evidence: SimCore.Tests/Systems/T56BotProofTests.cs
+- 2026-03-24, main, GATE.T56.BOT.HAVEN_TIER3_PROOF.001 PASS (C# test: haven upgrades from tier 1→2→3 with resources + fragments). Evidence: SimCore.Tests/Systems/T56BotProofTests.cs
+- 2026-03-24, main, GATE.T56.BOT.MISSION_REP_PROOF.001 PASS (C# test: mission completion grants +5 faction rep via FactionTweaksV0.MissionRepGain). Evidence: SimCore.Tests/Systems/T56BotProofTests.cs
+- 2026-03-24, main, GATE.T56.BOT.FULL_AUDIT_PROOF.001 PASS (Audit SKILL.md references consolidated bots. Test suite 1541 pass). Evidence: .claude/skills/audit/SKILL.md
+- 2026-03-24, main, GATE.T56.EVAL.BOT_COVERAGE.001 PASS (Bot coverage: 226/332 methods (68.1%). Bot-Analytics.ps1 -BotType coverage mode). Evidence: scripts/tools/Bot-Analytics.ps1
+- 2026-03-24, main, GATE.X.HYGIENE.EPIC_REVIEW.056 PASS (T56=17 gates: bot consolidation, bug fixes, proof tests. 1541 tests. Next: T52 closeout or T57 content authoring). Evidence: docs/54_EPICS.md
+- 2026-03-24, main, GATE.X.HYGIENE.REPO_HEALTH.056 PASS (Full suite 1541 pass. Global [Timeout] added. No critical findings). Evidence: SimCore.Tests/
+- 2026-03-24, main, GATE.T52.ECON.TRADE_DIVERSITY.001 PASS (Scarcity curve + margin dampening wired into MarketSystem/Buy/SellCommand). Evidence: SimCore/Systems/MarketSystem.cs, SimCore/Tweaks/MarketTweaksV0.cs
+- 2026-03-24, main, GATE.T52.ECON.TARIFF_WIRE.001 PASS (Faction tariff_bps wired end-to-end: FactionData → MarketSystem → BuyCommand/SellCommand). Evidence: SimCore/Systems/MarketSystem.cs
+- 2026-03-24, main, GATE.T52.ECON.UPKEEP_TUNE.001 PASS (Fleet upkeep tuned 10-20x: shuttle 20 cr/cycle in FleetUpkeepTweaksV0). Evidence: SimCore/Tweaks/FleetUpkeepTweaksV0.cs
+- 2026-03-24, main, GATE.T52.DREAD.EXPOSURE_SCALING.001 PASS (ScaleIntervalByExposure() in DreadDrainSystem, all tweaks in DeepDreadTweaksV0). Evidence: SimCore/Systems/DreadDrainSystem.cs
+- 2026-03-24, main, GATE.T52.DREAD.SECONDARY_STRESS.001 PASS (ProcessSecondaryStressors() with fuel burn multiplier + cargo decay). Evidence: SimCore/Systems/DreadDrainSystem.cs
+- 2026-03-24, main, GATE.T52.NARR.CONTENT_EXTRACT.001 PASS (All dialogue extracted to JSON: tutorial_dialogue_v0.json, fo_dialogue_v0.json). Evidence: SimCore/Content/Data/tutorial_dialogue_v0.json
+- 2026-03-24, main, GATE.T52.NARR.TUTORIAL_VOICES.001 PASS (3 FO personality variants: Maren=analytical, Dask=tactical, Lira=intuitive). Evidence: SimCore/Content/Data/tutorial_dialogue_v0.json
+- 2026-03-24, main, GATE.T52.NARR.SEQUENCE_VARIANTS.001 PASS (122 variant entries with deterministic seed-based selection). Evidence: SimCore/Content/Data/tutorial_dialogue_v0.json
+- 2026-03-24, main, GATE.T52.COMBAT.NPC_LABELS.001 PASS (HP bars, role labels, HOSTILE text on NPC ships). Evidence: scripts/core/npc_ship.gd
+- 2026-03-24, main, GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 PASS (OmniLight3D glow ring on engaged combat target). Evidence: scripts/vfx/target_highlight.gd
+- 2026-03-24, main, GATE.T52.COMBAT.HITSTOP.001 PASS (80ms/120ms screen freeze on shield break + kill). Evidence: scripts/vfx/hitstop.gd
+- 2026-03-24, main, GATE.T52.DISC.SCANNER_VIS.001 PASS (Dashed ring + tier scaling on galaxy map). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-24, main, GATE.T52.DISC.PHASE_MARKERS.001 PASS (Gray/amber/green torus rings for discovery phases). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-24, main, GATE.T52.DISC.BREADCRUMB.001 PASS (Fade-by-recency connecting lines for visited nodes). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-24, main, GATE.T52.DISC.MILESTONE_CARDS.001 PASS (Toast + letterbox ceremony on discovery milestones). Evidence: scripts/ui/hud.gd
+- 2026-03-24, main, GATE.T52.MISSION.M7_DIPLOMACY.001 PASS (6 diplomacy mission templates in MissionTemplateContentV0). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-24, main, GATE.T52.MISSION.M8_SMUGGLE.001 PASS (6 smuggling templates with trace/detection risk). Evidence: SimCore/Content/MissionTemplateContentV0.cs
+- 2026-03-24, main, GATE.T52.MISSION.BRIDGE_M7M8.001 PASS (GetDiplomacyMissionDataV0 + GetSmugglingMissionDataV0 bridge queries). Evidence: scripts/bridge/SimBridge.Mission.cs
+- 2026-03-24, main, GATE.X.HYGIENE.REPO_HEALTH.052 PASS (Full suite 1541 pass. 0 critical findings. T52 health baseline established). Evidence: SimCore.Tests/
+- 2026-03-24, main, GATE.X.HYGIENE.EPIC_REVIEW.052 PASS (250 DONE, 6 IN_PROGRESS, 39 TODO epics. EPIC.T52 → IN_PROGRESS. T53 anchor rec: EPIC.T53.AI_PLAYTEST.V0). Evidence: docs/54_EPICS.md
+- 2026-03-25, main, GATE.T57.PIPELINE.ECONOMIC_INTEL.001 PASS (EconomicIntel entity with 5 typed variants per discovery family). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs
+- 2026-03-25, main, GATE.T57.PIPELINE.DISCOVERY_OPP.001 PASS (DISCOVERY_OPPORTUNITY FO trigger + 9 dialogue entries). Evidence: SimCore/Systems/FirstOfficerSystem.cs
+- 2026-03-25, main, GATE.T57.PIPELINE.MARGIN_BUFFER.001 PASS (Intel decay wired to ProgramSystem.CalculateEffectiveMargin). Evidence: SimCore/Programs/ProgramSystem.cs
+- 2026-03-25, main, GATE.T57.CENTAUR.COMPETENCE_TIERS.001 PASS (FOCompetenceState Novice/Competent/Master with crisis-gated advancement). Evidence: SimCore/Systems/FirstOfficerSystem.cs
+- 2026-03-25, main, GATE.T57.KG.PLAYER_VERBS.001 PASS (KG player verbs: Pin, Annotate, Link, Flag, Compare). Evidence: SimCore/Systems/KnowledgeGraphSystem.cs
+- 2026-03-25, main, GATE.T57.FEEL.AUDIO_SIGS.001 PASS (4 audio signature stubs + phase transition hooks). Evidence: scripts/bridge/SimBridge.Discovery.cs
+- 2026-03-25, main, GATE.T57.FEEL.SCANNER_SWEEP.001 PASS (Scanner sweep animation on system entry). Evidence: scripts/view/LocalSystemView.cs
+- 2026-03-25, main, GATE.T57.PIPELINE.NPC_COMPETITION.001 PASS (NPC route discovery + margin compression 300-500 ticks). Evidence: SimCore/Systems/NpcTradeSystem.cs
+- 2026-03-25, main, GATE.T57.CHAIN.CHAIN_INTEL.001 PASS (Per-step ChainIntel + personality-colored FO commentary). Evidence: SimCore/Systems/AnomalyChainSystem.cs
+- 2026-03-25, main, GATE.T57.PIPELINE.SURVEY_PROGRAM.001 PASS (SurveyV0 program: auto-scan on pattern). Evidence: SimCore/Programs/ProgramSystem.cs
+- 2026-03-25, main, GATE.T57.FEEL.DISCOVERY_FAILURE.001 PASS (6 failure types + partial success in DiscoveryOutcomeSystem). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs
+- 2026-03-25, main, GATE.T57.FEEL.AUDIO_CARD_HOOKS.001 PASS (Milestone cards wired to audio signature triggers). Evidence: SimCore/Systems/DiscoveryOutcomeSystem.cs
+- 2026-03-25, main, GATE.T57.CENTAUR.CONFIDENCE_LANG.001 PASS (FO confidence score 0-100 + personality-specific language). Evidence: SimCore/Systems/IntelSystem.cs
+- 2026-03-25, main, GATE.T57.CENTAUR.WORLD_ADAPT.001 PASS (FO world adaptation: 5 event types + route status). Evidence: SimCore/Systems/FirstOfficerSystem.cs
+- 2026-03-25, main, GATE.T57.CENTAUR.BOREDOM_TRIGGERS.001 PASS (5 boredom circuit breaker triggers + 15 dialogue entries). Evidence: SimCore/Systems/FirstOfficerSystem.cs
+- 2026-03-25, main, GATE.T57.KG.LINK_FEEDBACK.001 PASS (Speculative link state machine + batch confirmation). Evidence: SimCore/Systems/KnowledgeGraphSystem.cs
+- 2026-03-25, main, GATE.T57.CENTAUR.BRIDGE.001 PASS (SimBridge: GetFOCompetenceTierV0, GetRouteConfidenceV0, GetFOAdaptationLogV0). Evidence: scripts/bridge/SimBridge.Centaur.cs
+- 2026-03-25, main, GATE.T57.PIPELINE.BRIDGE.001 PASS (SimBridge: GetEconomicIntelV0, GetChainIntelV0, GetSurveyStatusV0). Evidence: scripts/bridge/SimBridge.Discovery.cs
+- 2026-03-25, main, GATE.T57.KG.BRIDGE.001 PASS (SimBridge: PinDiscoveryV0, AnnotateV0, LinkSpeculativeV0, GetKGDualModeV0). Evidence: scripts/bridge/SimBridge.Discovery.cs
+- 2026-03-25, main, GATE.T57.PROOF.PIPELINE_E2E.001 PASS (4 E2E pipeline tests: discovery→EconomicIntel→FO trigger→route confidence). Evidence: SimCore.Tests/Systems/T57PipelineE2ETests.cs
+- 2026-03-25, main, GATE.X.HYGIENE.REPO_HEALTH.057 PASS (Full suite 1545 pass. T57 health baseline). Evidence: SimCore.Tests/
+- 2026-03-25, main, GATE.X.HYGIENE.EPIC_REVIEW.057 PASS (3 new DONE epics: CENTAUR_MODEL, EXPLORATION_PIPELINE, KNOWLEDGE_GRAPH_V2. T58 anchor rec: NARRATIVE_CONTENT or LOSS_RECOVERY). Evidence: docs/54_EPICS.md
+- 2026-03-25, main, GATE.T58.FO.EMPIRE_HEALTH.001 PASS (EmpireHealthSystem: green/yellow/red from fleet+route state). Evidence: SimCore/Systems/EmpireHealthSystem.cs
+- 2026-03-25, main, GATE.T58.FO.DOCK_RECAP.001 PASS (DockRecapSystem: While You Were Away batch summary). Evidence: SimCore/Systems/DockRecapSystem.cs
+- 2026-03-25, main, GATE.T58.FO.LOA_MODEL.001 PASS (LOA table per domain + 200-tick revert window). Evidence: SimCore/Entities/FirstOfficer.cs
+- 2026-03-25, main, GATE.T58.FO.SERVICE_RECORD.001 PASS (FO ServiceRecord: routes, crises, worst call). Evidence: SimCore/Entities/FirstOfficer.cs
+- 2026-03-25, main, GATE.T58.FO.FLIP_MOMENT.001 PASS (FlipMomentSystem: net-positive detection). Evidence: SimCore/Systems/FlipMomentSystem.cs
+- 2026-03-25, main, GATE.T58.FO.DECISION_DIALOGUE.001 PASS (DecisionDialogueSystem: 5 presentation rules). Evidence: SimCore/Systems/DecisionDialogueSystem.cs
+- 2026-03-25, main, GATE.T58.KG.MILESTONE_ENTITY.001 PASS (KG 7-milestone state machine on IntelBook). Evidence: SimCore/Systems/KnowledgeGraphSystem.cs
+- 2026-03-25, main, GATE.T58.FO.MANAGER_BRIDGE.001 PASS (SimBridge.FOManager.cs: 6 read queries + 4 write commands). Evidence: scripts/bridge/SimBridge.FOManager.cs
+- 2026-03-25, main, GATE.T58.KG.MILESTONE_BRIDGE.001 PASS (SimBridge: GetKGMilestoneV0 + ConsumeKGMilestoneNotificationV0). Evidence: scripts/bridge/SimBridge.Discovery.cs
+- 2026-03-25, main, GATE.T58.AUDIO.SIGNATURES.001 PASS (11 audio signatures + 4-bus GDScript audio manager). Evidence: SimCore/Content/AudioSignatureContentV0.cs
+- 2026-03-25, main, GATE.T58.UI.DASHBOARD_OVERHAUL.001 PASS (Tab display names: Routes/Operations/Intel/Empire). Evidence: scripts/ui/EmpireDashboard.cs
+- 2026-03-25, main, GATE.T58.UI.EMPIRE_DIAMOND.001 PASS (HUD empire health diamond in Zone A). Evidence: scripts/ui/empire_diamond.gd
+- 2026-03-25, main, GATE.T58.UI.DOCK_RECAP.001 PASS (Dock recap panel: While You Were Away overlay). Evidence: scripts/ui/dock_recap_panel.gd
+- 2026-03-25, main, GATE.T58.UI.FO_DECISION.001 PASS (FO decision panel: 5 rules, recommendation highlight). Evidence: scripts/ui/fo_decision_panel.gd
+- 2026-03-25, main, GATE.T58.UI.FO_SERVICE.001 PASS (Service record display in fo_panel.gd). Evidence: scripts/ui/fo_panel.gd
+- 2026-03-25, main, GATE.T58.UI.BELT_WATCHING.001 PASS (Belt-watching route activity HUD indicator). Evidence: scripts/ui/hud.gd
+- 2026-03-25, main, GATE.T58.UI.FLIP_VFX.001 PASS (Flip Moment 6-channel: letterbox + fanfare + credit glow). Evidence: scripts/ui/hud.gd
+- 2026-03-25, main, GATE.T58.KG.PROGRESSIVE_UI.001 PASS (KG verb toolbar + milestone unlock animation). Evidence: scripts/ui/knowledge_web_panel.gd
+- 2026-03-25, main, GATE.T58.EVAL.DESIGN_V6.001 PASS (Design v6 conformance: all R/N items mapped to gates). Evidence: docs/design/fo_trade_manager_v0.md
+- 2026-03-25, main, GATE.X.HYGIENE.EPIC_REVIEW.058 PASS (EPIC.S7.FO_TRADE_MANAGER.V0 → IN_PROGRESS). Evidence: docs/54_EPICS.md
+- 2026-03-25, main, GATE.X.HYGIENE.REPO_HEALTH.058 PASS (1573/1573 tests pass. T58 health baseline). Evidence: SimCore.Tests/
+- 2026-03-26, main, GATE.T59.SHIP.VARIANT_DEFS.001 PASS (10 faction variant ShipClassDefs + ShipyardTweaksV0 prices). Evidence: SimCore/Content/ShipClassContentV0.cs, SimCore/Tweaks/ShipyardTweaksV0.cs
+- 2026-03-26, main, GATE.T59.SHIP.BALANCE_PASS.001 PASS (Raider nerf, Frigate cargo 40→50, Carrier scan/cargo buff, Shuttle power 20→25). Evidence: SimCore/Content/ShipClassContentV0.cs
+- 2026-03-26, main, GATE.T59.SHIP.T2_MODULE_REASSIGN.001 PASS (Communion weapons→scanners, Fusion Engine Weavers→Concord). Evidence: SimCore/Content/UpgradeContentV0.cs, SimCore/Tweaks/TechAccessTweaksV0.cs
+- 2026-03-26, main, GATE.T59.SHIP.SHIPYARD_SYSTEM.001 PASS (ShipyardSystem: purchase, sell-back 80%, station capability check). Evidence: SimCore/Systems/ShipyardSystem.cs
+- 2026-03-26, main, GATE.T59.SHIP.PURCHASE_CONTRACT.001 PASS (19 contract tests: buy/sell/rep-gate/credits/hero-ship). Evidence: SimCore.Tests/Systems/ShipyardSystemTests.cs
+- 2026-03-26, main, GATE.T59.SHIP.NPC_FACTION_FLEET.001 PASS (NPC fleets use faction-appropriate ship variants via FNV-1a). Evidence: SimCore/Systems/FleetPopulationSystem.cs, SimCore/Tweaks/FleetPopulationTweaksV0.cs
+- 2026-03-26, main, GATE.T59.SHIP.BRIDGE_SHIPYARD.001 PASS (SimBridge.Shipyard.cs: catalog/purchase/sell/comparison). Evidence: scripts/bridge/SimBridge.Shipyard.cs
+- 2026-03-26, main, GATE.T59.SHIP.BRIDGE_FLEET.001 PASS (SetActiveFleetV0 + roster stats enhancement). Evidence: scripts/bridge/SimBridge.Fleet.cs
+- 2026-03-26, main, GATE.T59.DISC_VIZ.FAMILY_PHASE.001 PASS (Per-family 3D meshes + phase LOD). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-26, main, GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001 PASS (Distance brackets + scanner ping + HUD narrowing). Evidence: scripts/ui/hud.gd
+- 2026-03-26, main, GATE.T59.DISC_VIZ.SCAN_CEREMONY.001 PASS (3-5s scan hold + progress ring + celebration). Evidence: scripts/view/GalaxyView.cs
+- 2026-03-26, main, GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001 PASS (FO-guided first-scan walkthrough, 3 phases). Evidence: scripts/ui/fo_panel.gd, scripts/core/game_manager.gd
+- 2026-03-26, main, GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001 PASS (Shipyard dock tab: catalog browse, stat cards, purchase flow). Evidence: scripts/ui/shipyard_panel.gd, scripts/ui/hero_trade_menu.gd
+- 2026-03-26, main, GATE.T59.SHIP.FLEET_ROSTER_UI.001 PASS (Enhanced fleet roster: swap/sell/detail, stat bars, class icons). Evidence: scripts/ui/FleetMenu.cs
+- 2026-03-26, main, GATE.T59.SHIP.COMPARISON_PANEL.001 PASS (Side-by-side comparison: delta arrows, 9 stat rows). Evidence: scripts/ui/ship_comparison_panel.gd, scripts/ui/hero_trade_menu.gd
+- 2026-03-26, main, GATE.T59.PROOF.SHIP_E2E.001 PASS (SHIPYARD_DEPTH phase in deep systems bot). Evidence: scripts/tests/test_deep_systems_v0.gd
+- 2026-03-26, main, GATE.X.EVAL.SHIP_BALANCE.001 PASS (No dominated classes, clear progression curve, faction variants well-differentiated). Evidence: SimCore/Content/ShipClassContentV0.cs
+- 2026-03-26, main, GATE.X.HYGIENE.EPIC_REVIEW.059 PASS (SHIP_PROGRESSION→IN_PROGRESS, T60 anchor: TEMPLATE_MISSIONS). Evidence: docs/54_EPICS.md
+- 2026-03-26, main, GATE.X.HYGIENE.REPO_HEALTH.059 PASS (1592/1592 T59-specific tests pass. Golden hashes stable). Evidence: SimCore.Tests/

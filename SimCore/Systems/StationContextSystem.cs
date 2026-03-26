@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -155,31 +154,25 @@ public static class StationContextSystem
             }
         }
 
-        // Check for shortage (any good below threshold).
+        // Single-pass: check shortage and opportunity simultaneously.
         string shortageGood = "";
         int worstShortageRatio = StationContextTweaksV0.ShortageThresholdPct;
-        foreach (var inv in market.Inventory)
-        {
-            if (inv.Value <= 0) continue;
-            int ratioPct = inv.Value * 100 / Market.IdealStock; // STRUCTURAL: 100 = pct calc
-            if (ratioPct < worstShortageRatio)
-            {
-                worstShortageRatio = ratioPct;
-                shortageGood = inv.Key;
-            }
-        }
-        if (!string.IsNullOrEmpty(shortageGood))
-        {
-            ctx.ContextType = StationContextType.Shortage;
-            ctx.PrimaryGoodId = shortageGood;
-            return ctx;
-        }
-
-        // Check for opportunity (any good priced well above base).
         string oppGood = "";
         int bestPremium = StationContextTweaksV0.OpportunityPremiumPct;
         foreach (var inv in market.Inventory)
         {
+            // Shortage check.
+            if (inv.Value > 0)
+            {
+                int ratioPct = inv.Value * 100 / Market.IdealStock; // STRUCTURAL: 100 = pct calc
+                if (ratioPct < worstShortageRatio)
+                {
+                    worstShortageRatio = ratioPct;
+                    shortageGood = inv.Key;
+                }
+            }
+
+            // Opportunity check.
             int sellPrice = market.GetSellPrice(inv.Key);
             int premiumPct = (sellPrice - Market.BasePrice) * 100 / Market.BasePrice; // STRUCTURAL: 100 = pct calc
             if (premiumPct > bestPremium)
@@ -187,6 +180,14 @@ public static class StationContextSystem
                 bestPremium = premiumPct;
                 oppGood = inv.Key;
             }
+        }
+
+        // Priority: Shortage > Opportunity > Calm.
+        if (!string.IsNullOrEmpty(shortageGood))
+        {
+            ctx.ContextType = StationContextType.Shortage;
+            ctx.PrimaryGoodId = shortageGood;
+            return ctx;
         }
         if (!string.IsNullOrEmpty(oppGood))
         {

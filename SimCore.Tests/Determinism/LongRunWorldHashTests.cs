@@ -11,6 +11,7 @@ using SimCore.Gen;
 
 namespace SimCore.Tests.Determinism;
 
+[Timeout(120_000)]  // 120s — this fixture runs 10K-tick simulations
 public class LongRunWorldHashTests
 {
     // This test is a separate golden from GoldenReplayTests:
@@ -24,8 +25,10 @@ public class LongRunWorldHashTests
     //
     // Diagnostics:
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
-    private const string ExpectedGenesisHash = "8FBAF7F7B9AEABE214B93657D07C2749700C1BC03A5240530562C7024185FD7A";
-    private const string ExpectedFinalHash = "C55767A8588071080F6F563E3F138627BE576E85141CEC68FA6CFAB1D81035A5";
+    // GATE.T56.FIX.RARE_METALS_DRAIN.001: Added rare metals mines at "(Rare Min)" nodes.
+    private const string ExpectedGenesisHash = "0B3E697C2B4160C5FE05E3BB4B272F139F3570B0CB4EE4F5A0E0D1FA93F1031D";
+    // GATE.T59.SHIP.NPC_FACTION_FLEET.001: NPC fleets use faction ship variants.
+    private const string ExpectedFinalHash = "AB04E6BC2D3FBD0A46619F0E00727071B125A10F59AB1B50158D60922E56607E";
 
     // Gate: GATE.S2_5.WGEN.NSEED.001 (N-seed batch invariants v0)
     // Golden is SHA256 over the emitted INVARIANTS_BATCH_V0 summary (UTF8), to prevent silent format churn.

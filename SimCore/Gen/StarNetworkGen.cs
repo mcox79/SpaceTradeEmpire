@@ -155,11 +155,14 @@ public static class StarNetworkGen
             ? Content.WellKnownModuleIds.WeaponCannonMk1
             : Content.WellKnownModuleIds.WeaponLaserMk1;
 
+        // GATE.T59.SHIP.NPC_FACTION_FLEET.001: Use faction-appropriate ship variant.
+        string fleetId = $"ai_fleet_{nodeId}_{index}";
         var fleet = new Fleet
         {
-            Id = $"ai_fleet_{nodeId}_{index}",
+            Id = fleetId,
             OwnerId = ownerId,
             Role = role,
+            ShipClassId = FleetPopulationTweaksV0.PickShipClass(ownerId, fleetId, role),
             CurrentNodeId = nodeId,
             Speed = speed,
             State = FleetState.Idle,

@@ -204,8 +204,26 @@ public partial class GalaxyView : Node3D
     private const double LaneTrafficRefreshInterval = 5.0; // seconds
     private bool _laneTrafficDirty = true;
 
+    // GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Scan hold timer + progress ring VFX.
+    private const float ScanCeremonyDurationSeconds = 4.0f;
+    private bool _scanCeremonyActive = false;
+    private float _scanCeremonyElapsed = 0f;
+    private string _scanCeremonySiteId = "";
+    private MeshInstance3D _scanCeremonyRing;
+    private StandardMaterial3D _scanCeremonyMat;
+    private bool _scanCeremonyCelebrating = false;
+    private float _scanCeremonyCelebrationElapsed = 0f;
+    private const float ScanCeremonyCelebrationDuration = 1.5f; // 0.5s hold + 1.0s fade
+    private Color _scanCeremonyFamilyColor = new Color(0.4f, 0.85f, 1.0f); // default cyan
+
     // GATE.T43.SCAN_UI.SIGNAL_LINES.001: Signal triangulation lines between SignalLead nodes.
     private readonly List<MeshInstance3D> _signalTriangulationLines = new();
+
+    // GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Distance-based discovery approach feedback.
+    // Presentation-only thresholds (NOT SimCore tweaks).
+    private const float DiscoveryBlipRange = 30.0f;       // >30u: scanner blip only (faint glow)
+    private const float DiscoverySilhouetteRange = 15.0f;  // 15-30u: silhouette alpha ramp; <15u: full detail
+    private double _discoveryApproachTime = 0.0;           // Monotonic time for scanner ping sine wave.
 
     // GATE.S17.REAL_SPACE.GALAXY_MAP.001: No dedicated overlay camera — the follow camera
     // raises to altitude. Use GetViewport().GetCamera3D() for projection queries.
@@ -592,6 +610,13 @@ public partial class GalaxyView : Node3D
                 var (dfId, dfSpawn, dfTarget, dfOrbit, dfOrbitSpd, dfDepart, dfData) = _deferredSpawnQueue.Dequeue();
                 SpawnDeferredFleetV0(dfId, dfSpawn, dfTarget, dfOrbit, dfOrbitSpd, dfDepart, dfData);
             }
+
+            // GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Update scan ceremony progress ring + celebration.
+            // UpdateScanCeremonyV0((float)delta); // TODO: implement in T59
+
+            // GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Distance-based alpha/emission/ping on discovery sites.
+            // _discoveryApproachTime += delta; // TODO: implement in T59
+            // UpdateDiscoveryApproachFeedbackV0((float)delta); // TODO: implement in T59
         }
 
         if (!_overlayOpen) return;
@@ -2043,8 +2068,11 @@ public partial class GalaxyView : Node3D
         {
             var s = sites[i].AsGodotDictionary();
             var siteId = s.ContainsKey("site_id") ? (string)s["site_id"] : (nodeId + "_site_" + i);
+            // GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Extract family and phase for per-family procedural visuals.
+            var family = s.ContainsKey("family") ? (string)s["family"] : "";
+            var phase = s.ContainsKey("phase_token") ? (string)s["phase_token"] : "SEEN";
 
-            var marker = CreateDiscoverySiteMarkerV0(siteId);
+            var marker = CreateDiscoverySiteMarkerV0(siteId, family, phase);
             marker.Position = DeriveOrbitPositionV0(siteId + "_discovery", DiscoverySiteOrbitRadiusU);
             marker.AddToGroup("DiscoverySite");
             _localSystemRoot.AddChild(marker);
@@ -3766,78 +3794,94 @@ public partial class GalaxyView : Node3D
             gm.Call("on_lane_gate_approach_exited_v0");
     }
 
-    private Node3D CreateDiscoverySiteMarkerV0(string siteId)
+    // GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Per-family procedural 3D compositions with phase-dependent visual states.
+    // Family meshes: DERELICT (hull fragments), RUIN (angular geometry), SIGNAL (antenna array),
+    //   RESOURCE_POOL (mineral cluster), CORRIDOR (navigation trail). Unknown families fall back to generic sphere.
+    // Phase LOD: SEEN (ghostly alpha 0.3), SCANNED (solid, emissive, particles), ANALYZED (bright, green accent).
+    private Node3D CreateDiscoverySiteMarkerV0(string siteId, string family, string phase)
     {
         var root = new Node3D { Name = "DiscoverySite_" + siteId };
 
-        // VISUAL_OVERHAUL: Emissive sphere + spinning ring + particle motes.
-        var mesh = new MeshInstance3D
+        // --- Phase-dependent parameters ---
+        float phaseAlpha = phase switch
         {
-            Name = "SiteMesh",
-            Mesh = new SphereMesh { Radius = DiscoverySiteMarkerRadiusU * 1.5f },
-            MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(1.0f, 0.7f, 0.1f),
-                EmissionEnabled = true,
-                Emission = new Color(1.0f, 0.6f, 0.0f),
-                EmissionEnergyMultiplier = 4.0f,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            }
+            "ANALYZED" => 1.0f,
+            "SCANNED"  => 1.0f,
+            "SEEN"     => 0.3f,
+            _          => 0.3f
         };
-        root.AddChild(mesh);
+        float phaseEmission = phase switch
+        {
+            "ANALYZED" => 6.0f,
+            "SCANNED"  => 3.0f,
+            "SEEN"     => 0.5f,
+            _          => 0.5f
+        };
 
-        // Spinning scan ring.
-        var ringMat = new StandardMaterial3D
+        // GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Store base phase values as metadata
+        // so the per-frame approach ramp can reference them.
+        root.SetMeta("phase_alpha", phaseAlpha);
+        root.SetMeta("phase_emission", phaseEmission);
+        bool particlesActive = !string.Equals(phase, "SEEN", System.StringComparison.Ordinal);
+        // ANALYZED gets a green accent glow; SCANNED uses family color; SEEN is dim.
+        Color accentColor = string.Equals(phase, "ANALYZED", System.StringComparison.Ordinal)
+            ? new Color(0.2f, 1.0f, 0.4f) // Green accent for ANALYZED
+            : GetFamilyColor(family);
+
+        // --- Build per-family mesh composition ---
+        var meshRoot = new Node3D { Name = "FamilyMeshRoot" };
+        switch (family)
         {
-            AlbedoColor = new Color(1.0f, 0.8f, 0.2f, 0.4f),
-            EmissionEnabled = true,
-            Emission = new Color(1.0f, 0.7f, 0.1f),
-            EmissionEnergyMultiplier = 2.0f,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-        };
-        var ring = new MeshInstance3D
-        {
-            Name = "SiteRing",
-            Mesh = new TorusMesh
-            {
-                InnerRadius = DiscoverySiteMarkerRadiusU * 2.5f,
-                OuterRadius = DiscoverySiteMarkerRadiusU * 3.0f,
-            },
-            MaterialOverride = ringMat,
-        };
-        ring.RotateX(Mathf.Pi / 2.0f);
-        var ringSpinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
-        if (ringSpinScript != null)
-        {
-            ring.SetScript(ringSpinScript);
-            ring.Set("spin_speed_y", 0.5f);
+            case "DERELICT":
+                BuildDerelictMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
+            case "RUIN":
+                BuildRuinMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
+            case "SIGNAL":
+                BuildSignalMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
+            case "RESOURCE_POOL":
+                BuildResourcePoolMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
+            case "CORRIDOR":
+                BuildCorridorMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
+            default:
+                BuildGenericMeshV0(meshRoot, phaseAlpha, phaseEmission, accentColor);
+                break;
         }
-        root.AddChild(ring);
+        root.AddChild(meshRoot);
 
-        // Mystery energy particle motes.
-        var siteParticleProc = new ParticleProcessMaterial
+        // --- Phase-dependent particles (active for SCANNED and ANALYZED only) ---
+        if (particlesActive)
         {
-            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-            EmissionSphereRadius = 2.0f,
-            Gravity = Vector3.Zero,
-            InitialVelocityMin = 0.2f,
-            InitialVelocityMax = 0.8f,
-            Color = new Color(1.0f, 0.8f, 0.2f, 0.6f),
-            ScaleMin = 0.05f,
-            ScaleMax = 0.15f,
-        };
-        var siteParticles = new GpuParticles3D
-        {
-            Name = "SiteParticles",
-            Amount = 12,
-            Lifetime = 3.0f,
-            SpeedScale = 0.3f,
-            ProcessMaterial = siteParticleProc,
-            DrawPass1 = new SphereMesh { Radius = 0.04f, Height = 0.08f },
-        };
-        root.AddChild(siteParticles);
+            Color particleColor = new Color(accentColor.R, accentColor.G, accentColor.B, 0.6f);
+            int particleCount = string.Equals(phase, "ANALYZED", System.StringComparison.Ordinal) ? 20 : 12;
+            var siteParticleProc = new ParticleProcessMaterial
+            {
+                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
+                EmissionSphereRadius = 2.0f,
+                Gravity = Vector3.Zero,
+                InitialVelocityMin = 0.2f,
+                InitialVelocityMax = 0.8f,
+                Color = particleColor,
+                ScaleMin = 0.05f,
+                ScaleMax = 0.15f,
+            };
+            var siteParticles = new GpuParticles3D
+            {
+                Name = "SiteParticles",
+                Amount = particleCount,
+                Lifetime = 3.0f,
+                SpeedScale = 0.3f,
+                ProcessMaterial = siteParticleProc,
+                DrawPass1 = new SphereMesh { Radius = 0.04f, Height = 0.08f },
+            };
+            root.AddChild(siteParticles);
+        }
 
-        // Proximity trigger: player RigidBody3D entering this area notifies GameManager.
+        // --- Proximity trigger: player RigidBody3D entering this area notifies GameManager ---
         var area = new Area3D
         {
             Name = "DiscoverySiteArea",
@@ -3859,6 +3903,326 @@ public partial class GalaxyView : Node3D
         return root;
     }
 
+    // --- GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Per-family mesh builders ---
+
+    private static Color GetFamilyColor(string family) => family switch
+    {
+        "DERELICT"      => new Color(0.8f, 0.4f, 0.2f),  // Warm orange-rust
+        "RUIN"          => new Color(0.6f, 0.5f, 0.9f),  // Pale violet-stone
+        "SIGNAL"        => new Color(0.3f, 0.7f, 1.0f),  // Electric blue
+        "RESOURCE_POOL" => new Color(0.9f, 0.8f, 0.2f),  // Gold-amber
+        "CORRIDOR"      => new Color(0.4f, 0.9f, 0.7f),  // Teal-green
+        _               => new Color(1.0f, 0.7f, 0.1f),  // Legacy orange
+    };
+
+    private StandardMaterial3D MakeDiscoveryMaterialV0(Color baseColor, float alpha, float emissionEnergy, Color accentColor)
+    {
+        var mat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(baseColor.R, baseColor.G, baseColor.B, alpha),
+            EmissionEnabled = true,
+            Emission = accentColor,
+            EmissionEnergyMultiplier = emissionEnergy,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        };
+        if (alpha < 1.0f)
+        {
+            mat.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        }
+        return mat;
+    }
+
+    // DERELICT: Damaged hull fragments (2-3 rotated box meshes), flickering point light, small debris field.
+    private void BuildDerelictMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(0.8f, 0.4f, 0.2f), alpha, emission, accent);
+
+        // Fragment 1: large tilted hull plate.
+        var frag1 = new MeshInstance3D
+        {
+            Name = "HullFrag1",
+            Mesh = new BoxMesh { Size = new Vector3(r * 2.0f, r * 0.4f, r * 1.5f) },
+            MaterialOverride = mat,
+        };
+        frag1.RotateZ(0.3f);
+        frag1.RotateY(0.8f);
+        parent.AddChild(frag1);
+
+        // Fragment 2: smaller debris plate offset.
+        var frag2 = new MeshInstance3D
+        {
+            Name = "HullFrag2",
+            Mesh = new BoxMesh { Size = new Vector3(r * 1.2f, r * 0.3f, r * 0.8f) },
+            MaterialOverride = mat,
+        };
+        frag2.Position = new Vector3(r * 1.0f, r * 0.5f, -r * 0.3f);
+        frag2.RotateX(-0.5f);
+        frag2.RotateZ(1.2f);
+        parent.AddChild(frag2);
+
+        // Fragment 3: small tumbling shard.
+        var frag3 = new MeshInstance3D
+        {
+            Name = "HullFrag3",
+            Mesh = new BoxMesh { Size = new Vector3(r * 0.6f, r * 0.2f, r * 0.5f) },
+            MaterialOverride = mat,
+        };
+        frag3.Position = new Vector3(-r * 0.8f, -r * 0.3f, r * 0.6f);
+        frag3.RotateY(2.1f);
+        frag3.RotateX(0.7f);
+        // Slow spin for tumbling debris effect.
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null)
+        {
+            frag3.SetScript(spinScript);
+            frag3.Set("spin_speed_y", 0.15f);
+        }
+        parent.AddChild(frag3);
+
+        // Flickering point light (orange, low range).
+        var light = new OmniLight3D
+        {
+            Name = "DerelictFlicker",
+            LightColor = accent,
+            LightEnergy = emission * 0.3f,
+            OmniRange = r * 5.0f,
+            OmniAttenuation = 2.0f,
+        };
+        parent.AddChild(light);
+    }
+
+    // RUIN: Angular geometric structure (stacked rotated cubes/cylinders), faint energy emission, stone-like material.
+    private void BuildRuinMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(0.5f, 0.45f, 0.55f), alpha, emission, accent);
+
+        // Base: squat cylinder (stone pedestal).
+        var baseCyl = new MeshInstance3D
+        {
+            Name = "RuinBase",
+            Mesh = new CylinderMesh { TopRadius = r * 1.2f, BottomRadius = r * 1.5f, Height = r * 0.8f },
+            MaterialOverride = mat,
+        };
+        parent.AddChild(baseCyl);
+
+        // Mid: rotated cube (angular monolith).
+        var midCube = new MeshInstance3D
+        {
+            Name = "RuinMonolith",
+            Mesh = new BoxMesh { Size = new Vector3(r * 0.8f, r * 2.5f, r * 0.8f) },
+            MaterialOverride = mat,
+        };
+        midCube.Position = new Vector3(0f, r * 1.2f, 0f);
+        midCube.RotateY(Mathf.Pi / 6.0f);
+        parent.AddChild(midCube);
+
+        // Top: small tilted cylinder (capstone element).
+        var topCyl = new MeshInstance3D
+        {
+            Name = "RuinCapstone",
+            Mesh = new CylinderMesh { TopRadius = r * 0.3f, BottomRadius = r * 0.5f, Height = r * 0.6f },
+            MaterialOverride = mat,
+        };
+        topCyl.Position = new Vector3(0f, r * 2.8f, 0f);
+        topCyl.RotateZ(0.2f);
+        parent.AddChild(topCyl);
+
+        // Faint energy emission ring around base.
+        var emitMat = MakeDiscoveryMaterialV0(accent, alpha * 0.5f, emission * 0.5f, accent);
+        var emitRing = new MeshInstance3D
+        {
+            Name = "RuinEmitRing",
+            Mesh = new TorusMesh { InnerRadius = r * 1.8f, OuterRadius = r * 2.1f },
+            MaterialOverride = emitMat,
+        };
+        emitRing.RotateX(Mathf.Pi / 2.0f);
+        emitRing.Position = new Vector3(0f, r * 0.1f, 0f);
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null)
+        {
+            emitRing.SetScript(spinScript);
+            emitRing.Set("spin_speed_y", 0.2f);
+        }
+        parent.AddChild(emitRing);
+    }
+
+    // SIGNAL: Antenna array (thin cylinder + sphere tip), pulsing electromagnetic distortion ring, beacon flash.
+    private void BuildSignalMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(0.3f, 0.6f, 0.9f), alpha, emission, accent);
+
+        // Antenna mast (thin tall cylinder).
+        var mast = new MeshInstance3D
+        {
+            Name = "SignalMast",
+            Mesh = new CylinderMesh { TopRadius = r * 0.1f, BottomRadius = r * 0.15f, Height = r * 3.5f },
+            MaterialOverride = mat,
+        };
+        mast.Position = new Vector3(0f, r * 1.75f, 0f);
+        parent.AddChild(mast);
+
+        // Beacon tip (sphere at top of mast).
+        var beaconMat = MakeDiscoveryMaterialV0(accent, alpha, emission * 1.5f, accent);
+        var beacon = new MeshInstance3D
+        {
+            Name = "SignalBeacon",
+            Mesh = new SphereMesh { Radius = r * 0.4f },
+            MaterialOverride = beaconMat,
+        };
+        beacon.Position = new Vector3(0f, r * 3.7f, 0f);
+        parent.AddChild(beacon);
+
+        // Electromagnetic distortion ring (spinning torus around mast midpoint).
+        var ringMat = MakeDiscoveryMaterialV0(accent, alpha * 0.6f, emission * 0.8f, accent);
+        var ring = new MeshInstance3D
+        {
+            Name = "SignalDistortionRing",
+            Mesh = new TorusMesh { InnerRadius = r * 1.8f, OuterRadius = r * 2.2f },
+            MaterialOverride = ringMat,
+        };
+        ring.Position = new Vector3(0f, r * 2.0f, 0f);
+        ring.RotateX(Mathf.Pi / 2.0f);
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null)
+        {
+            ring.SetScript(spinScript);
+            ring.Set("spin_speed_y", 0.8f);
+        }
+        parent.AddChild(ring);
+
+        // Beacon point light.
+        var light = new OmniLight3D
+        {
+            Name = "SignalBeaconLight",
+            LightColor = accent,
+            LightEnergy = emission * 0.5f,
+            OmniRange = r * 6.0f,
+            OmniAttenuation = 1.5f,
+        };
+        light.Position = new Vector3(0f, r * 3.7f, 0f);
+        parent.AddChild(light);
+    }
+
+    // RESOURCE_POOL: Mineral cluster (3-5 small irregular spheres), faint resource-colored glow.
+    private void BuildResourcePoolMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(0.9f, 0.75f, 0.2f), alpha, emission, accent);
+
+        // Central large mineral.
+        var core = new MeshInstance3D
+        {
+            Name = "MineralCore",
+            Mesh = new SphereMesh { Radius = r * 1.0f },
+            MaterialOverride = mat,
+        };
+        core.Scale = new Vector3(1.0f, 0.7f, 1.2f); // Slightly irregular.
+        parent.AddChild(core);
+
+        // Satellite minerals (4 small spheres at irregular offsets).
+        float[][] offsets = new float[][]
+        {
+            new[] { 1.3f, 0.2f, 0.4f, 0.55f },
+            new[] { -0.8f, 0.5f, 0.9f, 0.4f },
+            new[] { 0.3f, -0.4f, -1.1f, 0.5f },
+            new[] { -0.6f, 0.8f, -0.5f, 0.35f },
+        };
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            var o = offsets[i];
+            var sat = new MeshInstance3D
+            {
+                Name = "Mineral_" + i,
+                Mesh = new SphereMesh { Radius = r * o[3] },
+                MaterialOverride = mat,
+            };
+            sat.Position = new Vector3(r * o[0], r * o[1], r * o[2]);
+            sat.Scale = new Vector3(1.1f, 0.8f, 0.9f); // Slightly irregular.
+            parent.AddChild(sat);
+        }
+
+        // Faint resource glow (point light).
+        var light = new OmniLight3D
+        {
+            Name = "ResourceGlow",
+            LightColor = accent,
+            LightEnergy = emission * 0.25f,
+            OmniRange = r * 4.0f,
+            OmniAttenuation = 2.0f,
+        };
+        parent.AddChild(light);
+    }
+
+    // CORRIDOR: Faint trail of navigation markers (3 small spheres in a line), subtle directional glow.
+    private void BuildCorridorMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(0.4f, 0.85f, 0.65f), alpha, emission, accent);
+
+        // 3 small beacon spheres in a line, spaced apart.
+        for (int i = 0; i < 3; i++)
+        {
+            float offset = (i - 1) * r * 2.0f; // -2r, 0, +2r along X axis.
+            var beacon = new MeshInstance3D
+            {
+                Name = "NavMarker_" + i,
+                Mesh = new SphereMesh { Radius = r * 0.5f },
+                MaterialOverride = mat,
+            };
+            beacon.Position = new Vector3(offset, 0f, 0f);
+            parent.AddChild(beacon);
+        }
+
+        // Directional glow bar connecting the markers.
+        var barMat = MakeDiscoveryMaterialV0(accent, alpha * 0.4f, emission * 0.3f, accent);
+        var bar = new MeshInstance3D
+        {
+            Name = "CorridorBar",
+            Mesh = new BoxMesh { Size = new Vector3(r * 5.0f, r * 0.1f, r * 0.1f) },
+            MaterialOverride = barMat,
+        };
+        parent.AddChild(bar);
+    }
+
+    // Fallback: generic emissive sphere + spinning ring (legacy look).
+    private void BuildGenericMeshV0(Node3D parent, float alpha, float emission, Color accent)
+    {
+        float r = DiscoverySiteMarkerRadiusU;
+        var mat = MakeDiscoveryMaterialV0(new Color(1.0f, 0.7f, 0.1f), alpha, emission, accent);
+
+        var mesh = new MeshInstance3D
+        {
+            Name = "SiteMesh",
+            Mesh = new SphereMesh { Radius = r * 1.5f },
+            MaterialOverride = mat,
+        };
+        parent.AddChild(mesh);
+
+        // Spinning scan ring.
+        var ringMat = MakeDiscoveryMaterialV0(accent, alpha * 0.6f, emission * 0.5f, accent);
+        var ring = new MeshInstance3D
+        {
+            Name = "SiteRing",
+            Mesh = new TorusMesh
+            {
+                InnerRadius = r * 2.5f,
+                OuterRadius = r * 3.0f,
+            },
+            MaterialOverride = ringMat,
+        };
+        ring.RotateX(Mathf.Pi / 2.0f);
+        var spinScript = GD.Load<Script>("res://scripts/spinning_node.gd");
+        if (spinScript != null)
+        {
+            ring.SetScript(spinScript);
+            ring.Set("spin_speed_y", 0.5f);
+        }
+        parent.AddChild(ring);
+    }
+
     private void _OnDiscoverySiteBodyEnteredV0(Node3D body, string siteId)
     {
         if (!body.IsInGroup("Player")) return;
@@ -3867,6 +4231,115 @@ public partial class GalaxyView : Node3D
         if (gm == null) return;
         if (gm.HasMethod("on_discovery_site_proximity_entered_v0"))
             gm.Call("on_discovery_site_proximity_entered_v0", siteId);
+    }
+
+    // GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Per-frame distance-based feedback on discovery markers.
+    // >30u: faint blip (alpha 0.05, low emission). 15-30u: silhouette ramp (alpha 0.2→phase*0.6).
+    // <15u: full phase detail. Scanner ping intensifies as distance decreases.
+    private void UpdateDiscoveryApproachFeedbackV0(float dt)
+    {
+        var player = GetTree()?.Root?.GetNodeOrNull<Node3D>("Main/Player");
+        if (player == null || _localSystemRoot == null) return;
+
+        Vector3 playerPos = player.GlobalPosition;
+        float time = (float)_discoveryApproachTime;
+
+        var sites = GetTree().GetNodesInGroup("DiscoverySite");
+        for (int i = 0; i < sites.Count; i++)
+        {
+            if (sites[i] is not Node3D siteNode) continue;
+            if (!siteNode.IsInsideTree()) continue;
+
+            float dist = playerPos.DistanceTo(siteNode.GlobalPosition);
+
+            // Retrieve base phase values stored as metadata.
+            float baseAlpha = siteNode.HasMeta("phase_alpha") ? (float)siteNode.GetMeta("phase_alpha") : 0.3f;
+            float baseEmission = siteNode.HasMeta("phase_emission") ? (float)siteNode.GetMeta("phase_emission") : 0.5f;
+
+            // --- Compute distance-adjusted alpha and emission ---
+            float effectiveAlpha;
+            float effectiveEmission;
+            float pingFreq;
+
+            if (dist > DiscoveryBlipRange)
+            {
+                // Far away: scanner blip only — very faint glow.
+                effectiveAlpha = 0.05f;
+                effectiveEmission = baseEmission * 0.1f;
+                pingFreq = 0.5f; // Slow, distant ping.
+            }
+            else if (dist > DiscoverySilhouetteRange)
+            {
+                // Silhouette range: linear ramp from blip to partial visibility.
+                // t=0 at 30u (blip edge), t=1 at 15u (full silhouette).
+                float t = 1.0f - (dist - DiscoverySilhouetteRange) / (DiscoveryBlipRange - DiscoverySilhouetteRange);
+                t = Mathf.Clamp(t, 0f, 1f);
+                effectiveAlpha = Mathf.Lerp(0.05f, baseAlpha * 0.6f, t);
+                effectiveEmission = Mathf.Lerp(baseEmission * 0.1f, baseEmission * 0.6f, t);
+                pingFreq = Mathf.Lerp(0.5f, 2.0f, t); // Ping speeds up as you approach.
+            }
+            else
+            {
+                // Close range: full phase detail resolves.
+                effectiveAlpha = baseAlpha;
+                effectiveEmission = baseEmission;
+                pingFreq = 3.0f; // Fast, insistent ping at close range.
+            }
+
+            // --- Scanner ping: emission oscillation that intensifies with proximity ---
+            float pingMod = 1.0f + 0.3f * MathF.Sin(time * pingFreq * Mathf.Tau);
+            effectiveEmission *= pingMod;
+
+            // --- Apply to all MeshInstance3D children in FamilyMeshRoot ---
+            var meshRoot = siteNode.GetNodeOrNull<Node3D>("FamilyMeshRoot");
+            if (meshRoot != null)
+            {
+                ApplyDiscoveryApproachMaterialV0(meshRoot, effectiveAlpha, effectiveEmission);
+            }
+
+            // --- Scale oscillation: subtle breathing effect that grows with proximity ---
+            float scaleBase = 1.0f;
+            if (dist < DiscoveryBlipRange)
+            {
+                float proximity01 = 1.0f - Mathf.Clamp(dist / DiscoveryBlipRange, 0f, 1f);
+                float breathAmplitude = Mathf.Lerp(0.02f, 0.08f, proximity01);
+                scaleBase = 1.0f + breathAmplitude * MathF.Sin(time * pingFreq * 0.5f * Mathf.Tau);
+            }
+            if (meshRoot != null)
+                meshRoot.Scale = Vector3.One * scaleBase;
+
+            // --- Particle visibility: only show when within silhouette range ---
+            var particles = siteNode.GetNodeOrNull<GpuParticles3D>("SiteParticles");
+            if (particles != null)
+            {
+                particles.Emitting = dist < DiscoverySilhouetteRange;
+            }
+        }
+    }
+
+    // GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Recursively apply alpha/emission to all mesh materials.
+    private static void ApplyDiscoveryApproachMaterialV0(Node3D root, float alpha, float emission)
+    {
+        foreach (var child in root.GetChildren())
+        {
+            if (child is MeshInstance3D mesh && mesh.MaterialOverride is StandardMaterial3D mat)
+            {
+                mat.AlbedoColor = new Color(mat.AlbedoColor.R, mat.AlbedoColor.G, mat.AlbedoColor.B, alpha);
+                mat.EmissionEnergyMultiplier = emission;
+                if (alpha < 1.0f)
+                    mat.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+                else
+                    mat.Transparency = BaseMaterial3D.TransparencyEnum.Disabled;
+            }
+            else if (child is OmniLight3D light)
+            {
+                light.LightEnergy = emission * 0.3f;
+            }
+            else if (child is Node3D sub)
+            {
+                ApplyDiscoveryApproachMaterialV0(sub, alpha, emission);
+            }
+        }
     }
 
     // --- Deterministic orbit position helpers ---
@@ -7323,4 +7796,210 @@ public partial class GalaxyView : Node3D
         "Terrestrial" => new Color(0.3f, 0.8f, 0.4f),    // Green
         _ => new Color(0.6f, 0.6f, 0.6f),
     };
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Scan hold timer + progress ring VFX + celebration
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Begin a scan ceremony for a discovery site. Creates a progress ring torus
+    /// around the discovery marker that fills over SCAN_DURATION_SECONDS.
+    /// Called from DiscoverySitePanel when player presses Scan.
+    /// </summary>
+    public void BeginScanCeremonyV0(string siteId, string familyHint)
+    {
+        // Cancel any existing ceremony.
+        CancelScanCeremonyV0();
+
+        _scanCeremonySiteId = siteId;
+        _scanCeremonyElapsed = 0f;
+        _scanCeremonyActive = true;
+        _scanCeremonyCelebrating = false;
+        _scanCeremonyCelebrationElapsed = 0f;
+
+        // Determine family color from hint (or default cyan).
+        _scanCeremonyFamilyColor = string.IsNullOrEmpty(familyHint)
+            ? new Color(0.4f, 0.85f, 1.0f)
+            : GetFamilyColor(familyHint);
+
+        // Find the discovery site Node3D in the local system by group.
+        Node3D siteMarker = FindDiscoverySiteMarkerV0(siteId);
+        if (siteMarker == null)
+        {
+            _scanCeremonyActive = false;
+            return;
+        }
+
+        // Create progress ring torus around the discovery site.
+        _scanCeremonyMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(_scanCeremonyFamilyColor.R, _scanCeremonyFamilyColor.G, _scanCeremonyFamilyColor.B, 0.6f),
+            EmissionEnabled = true,
+            Emission = _scanCeremonyFamilyColor,
+            EmissionEnergyMultiplier = 2.0f,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            NoDepthTest = true,
+        };
+
+        _scanCeremonyRing = new MeshInstance3D
+        {
+            Name = "ScanCeremonyRing_" + siteId,
+            Mesh = new TorusMesh
+            {
+                InnerRadius = DiscoverySiteMarkerRadiusU * 6.0f,
+                OuterRadius = DiscoverySiteMarkerRadiusU * 8.0f,
+            },
+            MaterialOverride = _scanCeremonyMat,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Rotation = new Vector3(Mathf.Pi / 2f, 0f, 0f), // Lie flat in XZ plane.
+        };
+
+        siteMarker.AddChild(_scanCeremonyRing);
+        // Start at zero scale — tween up.
+        _scanCeremonyRing.Scale = new Vector3(0.01f, 0.01f, 0.01f);
+    }
+
+    /// <summary>
+    /// Cancel an in-progress scan ceremony (player moved away or cancelled).
+    /// </summary>
+    public void CancelScanCeremonyV0()
+    {
+        _scanCeremonyActive = false;
+        _scanCeremonyCelebrating = false;
+        _scanCeremonyElapsed = 0f;
+        _scanCeremonyCelebrationElapsed = 0f;
+        _scanCeremonySiteId = "";
+
+        if (_scanCeremonyRing != null && GodotObject.IsInstanceValid(_scanCeremonyRing))
+        {
+            _scanCeremonyRing.QueueFree();
+        }
+        _scanCeremonyRing = null;
+        _scanCeremonyMat = null;
+    }
+
+    /// <summary>
+    /// Returns true if a scan ceremony is currently active (holding or celebrating).
+    /// </summary>
+    public bool IsScanCeremonyActiveV0() => _scanCeremonyActive || _scanCeremonyCelebrating;
+
+    /// <summary>
+    /// Returns the current scan progress as a float [0.0, 1.0].
+    /// </summary>
+    public float GetScanCeremonyProgressV0() => _scanCeremonyActive
+        ? Mathf.Clamp(_scanCeremonyElapsed / ScanCeremonyDurationSeconds, 0f, 1f)
+        : (_scanCeremonyCelebrating ? 1f : 0f);
+
+    /// <summary>
+    /// Per-frame update for scan ceremony progress ring + celebration flash.
+    /// </summary>
+    private void UpdateScanCeremonyV0(float delta)
+    {
+        if (!_scanCeremonyActive && !_scanCeremonyCelebrating) return;
+        if (_scanCeremonyRing == null || !GodotObject.IsInstanceValid(_scanCeremonyRing))
+        {
+            // Ring was freed externally — reset state.
+            _scanCeremonyActive = false;
+            _scanCeremonyCelebrating = false;
+            return;
+        }
+
+        if (_scanCeremonyActive)
+        {
+            _scanCeremonyElapsed += delta;
+            float progress = Mathf.Clamp(_scanCeremonyElapsed / ScanCeremonyDurationSeconds, 0f, 1f);
+
+            // Scale from 0 → 1 as progress increases (ring "grows in").
+            float scaleT = Mathf.Clamp(progress * 4f, 0f, 1f); // Reaches full size at 25% progress.
+            float s = Mathf.Lerp(0.01f, 1.0f, scaleT);
+            _scanCeremonyRing.Scale = new Vector3(s, s, s);
+
+            // Pulsing emission: base 2.0 + sine pulse that intensifies with progress.
+            float pulse = 1.0f + 0.5f * MathF.Sin((float)(_scanCeremonyElapsed * 4.0f * Math.PI));
+            float emissionEnergy = Mathf.Lerp(2.0f, 5.0f, progress) * pulse;
+
+            // Color alpha fills from 0.3 → 0.8 as ring progresses.
+            float alpha = Mathf.Lerp(0.3f, 0.8f, progress);
+            _scanCeremonyMat.AlbedoColor = new Color(
+                _scanCeremonyFamilyColor.R, _scanCeremonyFamilyColor.G, _scanCeremonyFamilyColor.B, alpha);
+            _scanCeremonyMat.EmissionEnergyMultiplier = emissionEnergy;
+
+            // Rotate the ring slowly during scan for visual interest.
+            _scanCeremonyRing.RotateY(delta * 1.5f);
+
+            if (progress >= 1.0f)
+            {
+                // Scan hold complete — transition to celebration phase.
+                _scanCeremonyActive = false;
+                _scanCeremonyCelebrating = true;
+                _scanCeremonyCelebrationElapsed = 0f;
+
+                // Spike emission to max for the celebration flash.
+                _scanCeremonyMat.EmissionEnergyMultiplier = 10.0f;
+                _scanCeremonyMat.AlbedoColor = new Color(1f, 1f, 1f, 0.9f);
+                _scanCeremonyMat.Emission = new Color(1f, 1f, 1f);
+
+                // Dispatch the actual scan command now that the hold is complete.
+                if (_bridge != null)
+                {
+                    _bridge.DispatchScanDiscoveryV0(_scanCeremonySiteId);
+                }
+
+                // Emit signal for UI to react.
+                EmitSignal(SignalName.ScanCeremonyCompleted, _scanCeremonySiteId);
+            }
+        }
+        else if (_scanCeremonyCelebrating)
+        {
+            _scanCeremonyCelebrationElapsed += delta;
+            float celebT = _scanCeremonyCelebrationElapsed / ScanCeremonyCelebrationDuration;
+
+            if (celebT <= 0.33f)
+            {
+                // Hold phase (0.5s of 1.5s total): ring stays bright white.
+                // No changes — keep the spike.
+            }
+            else if (celebT <= 1.0f)
+            {
+                // Fade phase: emission fades from 10 → 0, alpha fades out.
+                float fadeProgress = (celebT - 0.33f) / 0.67f; // 0 → 1 over fade period.
+                float emFade = Mathf.Lerp(10.0f, 0.0f, fadeProgress);
+                float alphaFade = Mathf.Lerp(0.9f, 0.0f, fadeProgress);
+                _scanCeremonyMat.EmissionEnergyMultiplier = emFade;
+                _scanCeremonyMat.AlbedoColor = new Color(1f, 1f, 1f, alphaFade);
+
+                // Scale up slightly during fade for "burst" feel.
+                float burstScale = Mathf.Lerp(1.0f, 1.5f, fadeProgress);
+                _scanCeremonyRing.Scale = new Vector3(burstScale, burstScale, burstScale);
+            }
+            else
+            {
+                // Celebration complete — clean up.
+                CancelScanCeremonyV0();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Find the discovery site marker Node3D by site_id in the DiscoverySite group.
+    /// </summary>
+    private Node3D FindDiscoverySiteMarkerV0(string siteId)
+    {
+        if (_localSystemRoot == null || !_localSystemRoot.IsInsideTree()) return null;
+
+        // Discovery sites are added to group "DiscoverySite" and named "DiscoverySite_{siteId}".
+        var expectedName = "DiscoverySite_" + siteId;
+        foreach (var node in GetTree().GetNodesInGroup("DiscoverySite"))
+        {
+            if (node is Node3D n3d && n3d.Name == expectedName)
+                return n3d;
+        }
+        return null;
+    }
+
+    // Signal emitted when scan ceremony completes (scan hold finished + scan dispatched).
+    [Signal]
+    public delegate void ScanCeremonyCompletedEventHandler(string siteId);
 }

@@ -415,30 +415,33 @@ public partial class SimBridge : Node
         const string playerFleetId = "fleet_trader_1";
         if (state.Fleets.ContainsKey(playerFleetId)) return;
 
-        state.Fleets[playerFleetId] = new SimCore.Entities.Fleet
+        var fleet = new SimCore.Entities.Fleet
         {
             Id = playerFleetId,
             OwnerId = "player",
             CurrentNodeId = state.PlayerLocationNodeId ?? "",
             DestinationNodeId = "",
             CurrentEdgeId = "",
-            State = SimCore.Entities.FleetState.Idle,
+            State = SimCore.Entities.FleetState.Docked,
             TravelProgress = 0f,
             Speed = 0.5f,
-            CurrentTask = "Idle",
+            CurrentTask = "Docked",
             CurrentJob = null,
             FuelCapacity = SimCore.Content.ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SimCore.Tweaks.SustainTweaksV0.DefaultFuelCapacity,
             FuelCurrent = SimCore.Content.ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? SimCore.Tweaks.SustainTweaksV0.DefaultFuelCapacity,
             // SLICE 4: Standard hero ship slots (GATE.S4.MODULE_MODEL.SLOTS.001)
-            // Ordered by SlotId Ordinal asc: cargo < engine < utility < weapon.
+            // Mirrors WorldLoader: weapon_cannon_mk1 installed on starter ship.
             Slots = new List<SimCore.Entities.ModuleSlot>
             {
                 new() { SlotId = "slot_cargo_0",   SlotKind = SimCore.Entities.SlotKind.Cargo },
                 new() { SlotId = "slot_engine_0",  SlotKind = SimCore.Entities.SlotKind.Engine },
                 new() { SlotId = "slot_utility_0", SlotKind = SimCore.Entities.SlotKind.Utility },
-                new() { SlotId = "slot_weapon_0",  SlotKind = SimCore.Entities.SlotKind.Weapon },
+                new() { SlotId = "slot_weapon_0",  SlotKind = SimCore.Entities.SlotKind.Weapon, InstalledModuleId = "weapon_cannon_mk1" },
             }
         };
+        state.Fleets[playerFleetId] = fleet;
+        // Initialize combat HP so hull/shield are valid from tick 0.
+        SimCore.Systems.CombatSystem.InitFleetCombatStats(fleet, isPlayer: true);
     }
 
     private void StartSimulation()
@@ -740,10 +743,13 @@ public partial class SimBridge : Node
             for (int i = 0; i < snap.DiscoverySites.Count; i++)
             {
                 var s = snap.DiscoverySites[i];
+                // GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Resolve discovery family for per-family visual markers.
+                string family = ResolveDiscoveryFamilyV0(state, s.SiteId ?? "");
                 sites.Add(new Godot.Collections.Dictionary
                 {
                     ["site_id"] = s.SiteId ?? "",
-                    ["phase_token"] = s.PhaseToken ?? ""
+                    ["phase_token"] = s.PhaseToken ?? "",
+                    ["family"] = family
                 });
             }
 
@@ -918,13 +924,17 @@ public partial class SimBridge : Node
         TryExecuteSafeRead(state =>
         {
             if (!state.Fleets.TryGetValue("fleet_trader_1", out var fleet)) return;
-            foreach (var s in fleet.Slots.OrderBy(s => s.SlotId, StringComparer.Ordinal))
+            // Include original list index so callers can pass it to InstallModuleV0.
+            var indexed = fleet.Slots.Select((s, i) => (s, i))
+                .OrderBy(t => t.s.SlotId, StringComparer.Ordinal);
+            foreach (var (s, idx) in indexed)
             {
                 slots.Add(new Godot.Collections.Dictionary
                 {
                     ["slot_id"] = s.SlotId,
                     ["slot_kind"] = s.SlotKind.ToString(),
-                    ["installed_module_id"] = s.InstalledModuleId ?? ""
+                    ["installed_module_id"] = s.InstalledModuleId ?? "",
+                    ["slot_index"] = idx
                 });
             }
         }, 0);
@@ -1907,5 +1917,50 @@ public partial class SimBridge : Node
         }, 0);
 
         return result;
+    }
+
+    // GATE.T59.DISC_VIZ.FAMILY_PHASE.001: Resolve discovery family from anomaly encounters or discovery ID format.
+    // Returns one of: DERELICT, RUIN, SIGNAL, RESOURCE_POOL, CORRIDOR, or empty string if unknown.
+    // Must be called inside a TryExecuteSafeRead lambda (needs state access).
+    private static string ResolveDiscoveryFamilyV0(SimState state, string discoveryId)
+    {
+        if (string.IsNullOrEmpty(discoveryId)) return "";
+
+        // 1) Check anomaly encounters — they carry an explicit Family field (DERELICT/RUIN/SIGNAL).
+        if (state.AnomalyEncounters != null)
+        {
+            foreach (var enc in state.AnomalyEncounters.Values)
+            {
+                if (string.Equals(enc.DiscoveryId, discoveryId, System.StringComparison.Ordinal))
+                {
+                    var f = enc.Family ?? "";
+                    if (f.Length > 0) return f;
+                }
+            }
+        }
+
+        // 2) Parse from canonical discovery ID format: "disc_v0|<KIND>|<NodeId>|<RefId>|<SourceId>"
+        if (discoveryId.StartsWith("disc_v0|", System.StringComparison.Ordinal))
+        {
+            int firstPipe = 7; // length of "disc_v0" - we know discoveryId[7] == '|'
+            int secondPipe = discoveryId.IndexOf('|', firstPipe + 1);
+            if (secondPipe > firstPipe + 1)
+            {
+                string kindToken = discoveryId.Substring(firstPipe + 1, secondPipe - firstPipe - 1);
+                // Map seed kind tokens to visual family tokens.
+                return kindToken switch
+                {
+                    "RESOURCE_POOL_MARKER" => "RESOURCE_POOL",
+                    "CORRIDOR_TRACE" => "CORRIDOR",
+                    "AnomalyFamily" => "RUIN", // Fallback for anomaly family seeds without encounter data.
+                    "DERELICT" => "DERELICT",
+                    "RUIN" => "RUIN",
+                    "SIGNAL" => "SIGNAL",
+                    _ => kindToken // Pass through unknown kinds as-is.
+                };
+            }
+        }
+
+        return "";
     }
 }

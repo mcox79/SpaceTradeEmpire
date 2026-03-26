@@ -1087,6 +1087,8 @@ public sealed class IntelContractTests
     public void SystemSnapshot_ContractV0_ReturnsStationSiteAndLaneGateFields()
     {
         var state = new SimState(42);
+        // Discovery sites require sensor_suite tech to be visible in snapshot.
+        state.Tech.UnlockedTechIds.Add(SimCore.Tweaks.SurveyTweaksV0.SensorSuiteTechId);
 
         state.Nodes["n1"] = new Node
         {

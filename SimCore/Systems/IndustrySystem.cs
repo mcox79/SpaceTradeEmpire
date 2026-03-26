@@ -333,10 +333,11 @@ namespace SimCore.Systems
             foreach (var r in registry.Recipes)
                 knownRecipes.Add(r.Id);
 
-            var siteKeys = new List<string>(state.IndustrySites.Keys);
-            siteKeys.Sort(StringComparer.Ordinal);
+            var siteKeysLocal = new List<string>();
+            foreach (var k in state.IndustrySites.Keys) siteKeysLocal.Add(k);
+            siteKeysLocal.Sort(StringComparer.Ordinal);
 
-            foreach (var key in siteKeys)
+            foreach (var key in siteKeysLocal)
             {
                 var site = state.IndustrySites[key];
                 if (string.IsNullOrEmpty(site.RecipeId)) continue;

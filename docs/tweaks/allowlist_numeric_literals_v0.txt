@@ -160,9 +160,10 @@ SimCore/Systems/InstabilitySystem.cs:0
 # GATE.S7.REPUTATION.TRADE_DRIFT.001: structural zeros (tick>0, count>0, rep>0/rep<0 direction checks)
 SimCore/Systems/ReputationSystem.cs:0
 
-# GATE.S7.INSTABILITY.CONSEQUENCES.001: structural literals (Drift phase >= 2, Math.Max(1,...) clamp, /100 pct calc)
-SimCore/Systems/LaneFlowSystem.cs:2
+# GATE.S7.INSTABILITY.CONSEQUENCES.001: structural literals (Drift phase >= 2, Math.Max(1,...) clamp, /100 pct calc, reverse-remove loop bounds)
+SimCore/Systems/LaneFlowSystem.cs:0
 SimCore/Systems/LaneFlowSystem.cs:1
+SimCore/Systems/LaneFlowSystem.cs:2
 SimCore/Systems/LaneFlowSystem.cs:100
 
 # GATE.S7.WARFRONT.EVOLUTION.001: structural literals (count==0, modulus 20/33 for probability,
@@ -408,6 +409,14 @@ SimCore/Systems/SerializationSystem.cs:2
 # STRUCTURAL: StationConsumptionSystem — 0 literals are inventory key presence checks and comparison floors
 SimCore/Systems/StationConsumptionSystem.cs:0
 
+# IntentSystem: structural loop bounds (reverse-remove i >= 0, i--)
+SimCore/Systems/IntentSystem.cs:0
+SimCore/Systems/IntentSystem.cs:1
+
+# SystemicMissionSystem: structural loop bounds (reverse-remove i >= 0, i--)
+SimCore/Systems/SystemicMissionSystem.cs:0
+SimCore/Systems/SystemicMissionSystem.cs:1
+
 # TutorialSystem: structural zeros (count==0, >0 comparisons, empty checks)
 SimCore/Systems/TutorialSystem.cs:0
 
@@ -499,3 +508,36 @@ SimCore/Systems/TelemetrySystem.cs:0
 
 # GATE.T48.TEMPLATE.TWIST_ENGINE.001: "TMPL_" prefix length (string parsing constant)
 SimCore/Systems/MissionTemplateSystem.cs:5
+
+# GATE.T57.CENTAUR.COMPETENCE_TIERS.001: structural decrement by 1 (enum tier step), pct calc *100 denominators,
+# default freshness window (200 ticks), sentinel -1, boredom pct calc
+SimCore/Systems/FirstOfficerSystem.cs:1
+SimCore/Systems/FirstOfficerSystem.cs:100
+SimCore/Systems/FirstOfficerSystem.cs:200
+
+# GATE.T57.FEEL.DISCOVERY_FAILURE.001: structural hash mixers (0xDEADBEEF, 0xCAFEBABE),
+# basis points denominator (10000UL), weight denominator (100UL)
+SimCore/Systems/IntelSystem.cs:10000UL
+SimCore/Systems/IntelSystem.cs:0xDEADBEEFUL
+SimCore/Systems/IntelSystem.cs:0xCAFEBABEUL
+SimCore/Systems/IntelSystem.cs:100UL
+
+# GATE.T57.CENTAUR.CONFIDENCE_LANG.001: structural pct calc denominator (100),
+# display-category confidence thresholds (80/70/60/40 — text bucketing, not balance)
+SimCore/Systems/IntelSystem.cs:100
+SimCore/Systems/IntelSystem.cs:40
+SimCore/Systems/IntelSystem.cs:70
+SimCore/Systems/IntelSystem.cs:80
+SimCore/Systems/IntelSystem.cs:60
+
+# GATE.T57.CENTAUR.KG_INSIGHT.001: structural pin max (3), annotation max chars (50),
+# insight link threshold (3), discovery ID parse indices (2, 3)
+SimCore/Systems/KnowledgeGraphSystem.cs:3
+SimCore/Systems/KnowledgeGraphSystem.cs:50
+SimCore/Systems/KnowledgeGraphSystem.cs:2
+
+# GATE.T59.SHIP.SHIPYARD_SYSTEM.001: structural literals (return 0 for unknown class,
+# Math.Max(classDef.Mass, 1) divisor floor, 1.0f speed unit, loop init i = 0)
+SimCore/Systems/ShipyardSystem.cs:0
+SimCore/Systems/ShipyardSystem.cs:1
+SimCore/Systems/ShipyardSystem.cs:1.0f

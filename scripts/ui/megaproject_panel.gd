@@ -103,7 +103,7 @@ func _refresh_list_v0() -> void:
 		var empty_label := Label.new()
 		empty_label.text = "No active megaprojects."
 		empty_label.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-		empty_label.add_theme_color_override("font_color", UITheme.DIM)
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 		_list_container.add_child(empty_label)
 		return
 
@@ -133,7 +133,7 @@ func _clear_detail_v0() -> void:
 	var hint := Label.new()
 	hint.text = "Select a megaproject to view details."
 	hint.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-	hint.add_theme_color_override("font_color", UITheme.DIM)
+	hint.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
 	_detail_container.add_child(hint)
 
 func _refresh_detail_v0(mp_id: String) -> void:
@@ -217,7 +217,7 @@ func _refresh_detail_v0(mp_id: String) -> void:
 
 		var check := Label.new()
 		check.text = "[x]" if met else "[ ]"
-		check.add_theme_color_override("font_color", UITheme.GREEN if met else UITheme.DIM)
+		check.add_theme_color_override("font_color", UITheme.GREEN if met else UITheme.TEXT_DISABLED)
 		row.add_child(check)
 
 		var supply_label := Label.new()

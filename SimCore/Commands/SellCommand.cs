@@ -41,6 +41,10 @@ public class SellCommand : ICommand
 
 		int unitPrice = market.GetSellPrice(GoodId);
 
+		// GATE.T52.ECON.TRADE_DIVERSITY.001: Apply recent-trade margin dampening (sell price DOWN).
+		int dampenBps = MarketSystem.GetRecentTradeDampenBps(state, MarketId, GoodId);
+		unitPrice = MarketSystem.ApplyRecentTradeDampening(unitPrice, dampenBps, isBuy: false);
+
 		// GATE.X.MARKET_PRICING.REP_WIRE.001: Apply reputation-based price modifier.
 		var factionId = MarketSystem.GetControllingFactionIdForMarket(state, MarketId);
 		int repBps = MarketSystem.GetRepPricingBps(state, factionId);
@@ -86,6 +90,9 @@ public class SellCommand : ICommand
 			NodeId = MarketId,
 			ProfitDelta = profitDelta,
 		});
+
+		// GATE.T52.ECON.TRADE_DIVERSITY.001: Record trade for margin dampening.
+		MarketSystem.RecordPlayerTrade(state, MarketId, GoodId);
 
 		// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.
 		if (state.PlayerStats != null)

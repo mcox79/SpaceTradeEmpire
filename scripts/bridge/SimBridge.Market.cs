@@ -19,6 +19,9 @@ namespace SpaceTradeEmpire.Bridge;
 
 public partial class SimBridge
 {
+    // Cached profit summary for lock-contention resilience.
+    private Godot.Collections.Dictionary? _cachedProfitSummaryV0;
+
     // --- Intents: UI.002 contract (buy/sell generates intents) ---
 
     public void SubmitBuyIntent(string marketId, string goodId, int quantity)
@@ -599,7 +602,18 @@ public partial class SimBridge
             result["total_expense"] = totalExpense;
             result["net_profit"] = totalRevenue - totalExpense;
             result["top_good"] = topGood;
+            lock (_snapshotLock) { _cachedProfitSummaryV0 = result.Duplicate(); }
         });
+
+        // On lock timeout the lambda never ran — return cached snapshot.
+        if ((long)result["total_revenue"] == 0 && (long)result["total_expense"] == 0)
+        {
+            lock (_snapshotLock)
+            {
+                if (_cachedProfitSummaryV0 != null)
+                    return _cachedProfitSummaryV0.Duplicate();
+            }
+        }
 
         return result;
     }

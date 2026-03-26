@@ -60,6 +60,10 @@ public static class FleetEvents
 
         // Optional explanatory text for UI, not for logic.
         [JsonInclude] public string Note { get; set; } = "";
+
+        // GATE.T57.FEEL.AUDIO_CARD_HOOKS.001: Audio cue identifier for bridge/UI.
+        // Values: "AnomalyPing", "ScanProcess", "DiscoveryReveal", "InsightChime", "ScanFailed", or "".
+        [JsonInclude] public string AudioCue { get; set; } = "";
     }
 
     public sealed class Payload
@@ -113,7 +117,8 @@ public static class FleetEvents
             {
                 "Version","Seq","Tick","Type","FleetId","Role",
                 "DiscoveryId","NodeId","ReasonCode","PhaseAfter",
-                "ChosenRouteId","ProfitScore","CapacityScore","RiskScore","Note"
+                "ChosenRouteId","ProfitScore","CapacityScore","RiskScore","Note",
+                "AudioCue"
             });
 
             RequireKey(item, "Version", JsonValueKind.Number);
@@ -135,6 +140,7 @@ public static class FleetEvents
             RequireKey(item, "RiskScore", JsonValueKind.Number);
 
             RequireKey(item, "Note", JsonValueKind.String);
+            RequireKey(item, "AudioCue", JsonValueKind.String);
         }
     }
 

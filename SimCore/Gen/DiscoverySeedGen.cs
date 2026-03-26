@@ -25,12 +25,18 @@ public static class DiscoverySeedGen
     {
         var seeds = new List<DiscoverySeedSurfaceV0>();
 
+        // Player start node is excluded from discovery seeding.
+        // Design: discoveries are things the player ventures out to find, not objects sitting
+        // in their home system. The starter system teaches trade fundamentals first.
+        var excludedNodeId = state.PlayerLocationNodeId ?? "";
+
         // 1) Resource pool markers from IndustrySites outputs (deterministic: sites by Id, outputs by GoodId).
         foreach (var site in state.IndustrySites.Values
                      .Where(s => s is not null)
                      .OrderBy(s => s!.Id, StringComparer.Ordinal))
         {
             if (site!.Outputs is null) continue;
+            if (string.Equals(site.NodeId, excludedNodeId, StringComparison.Ordinal)) continue;
 
             foreach (var kv in site.Outputs.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
@@ -72,6 +78,9 @@ public static class DiscoverySeedGen
 
         foreach (var l in lanes)
         {
+            // Skip corridors originating at the player start node.
+            if (string.Equals(l.U, excludedNodeId, StringComparison.Ordinal)) continue;
+
             var kind = DiscoverySeedKindsV0.CorridorTrace;
             var nodeId = l.U;
             var refId = l.V;
@@ -102,6 +111,8 @@ public static class DiscoverySeedGen
                      .OrderBy(n => n!.Id, StringComparer.Ordinal))
         {
             if (!classByNode.TryGetValue(n!.Id, out var wc)) continue;
+            // Exclude player start node from anomaly family placement.
+            if (string.Equals(n!.Id, excludedNodeId, StringComparison.Ordinal)) continue;
             nodesByClass[wc].Add(n);
         }
 

@@ -182,8 +182,10 @@ public static class GalaxyGenerator
         // Phase 9.6: GATE.T18.KG_SEED.PROXIMITY.001 — Procedural proximity + faction connections.
         NarrativePlacementGen.GenerateProceduralConnections(state);
 
-        // Phase 9.7: Auto-reveal discoveries near player start to seed the knowledge web.
-        SeedKnowledgeWebAtStartV0(state);
+        // Phase 9.7: REMOVED — SeedKnowledgeWebAtStartV0 auto-analyzed 8 nearby discoveries,
+        // bypassing the Seen→Scanned→Analyzed lifecycle. Players should experience the full
+        // discovery arc. The knowledge web seeds organically as the player scans sites.
+        // SeedKnowledgeWebAtStartV0(state);
 
         // Phase 10: GATE.S8.HAVEN.DISCOVERY.001 — Seed Haven at a deep-space node.
         SeedHavenV0(state);

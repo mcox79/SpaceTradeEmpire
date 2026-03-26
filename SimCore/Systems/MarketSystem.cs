@@ -124,6 +124,57 @@ public static class MarketSystem
         {
             market.PublishPricesIfDue(state.Tick, PublishWindowTicks);
         }
+
+        // 3. GATE.T52.ECON.TRADE_DIVERSITY.001: Decay recent-trade dampening.
+        DecayRecentTradeDampening(state);
+    }
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Decay all recent-trade dampening entries.
+    private static void DecayRecentTradeDampening(SimState state)
+    {
+        if (state.PlayerRecentTradeDampen.Count == 0) return;
+
+        int decayPerTick = Math.Max(1, MarketTweaksV0.RecentTradeDampenBps / MarketTweaksV0.RecentTradeDecayTicks);
+        var keysToRemove = new System.Collections.Generic.List<string>();
+        foreach (var key in state.PlayerRecentTradeDampen.Keys)
+        {
+            int current = state.PlayerRecentTradeDampen[key];
+            int next = current - decayPerTick;
+            if (next <= 0)
+                keysToRemove.Add(key);
+            else
+                state.PlayerRecentTradeDampen[key] = next;
+        }
+        foreach (var key in keysToRemove)
+            state.PlayerRecentTradeDampen.Remove(key);
+    }
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Record a player trade for margin dampening.
+    public static void RecordPlayerTrade(SimState state, string marketId, string goodId)
+    {
+        string key = $"{marketId}|{goodId}";
+        state.PlayerRecentTradeDampen.TryGetValue(key, out int current);
+        int next = current + MarketTweaksV0.RecentTradeDampenBps;
+        state.PlayerRecentTradeDampen[key] = Math.Min(next, MarketTweaksV0.RecentTradeMaxDampenBps);
+    }
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Get current dampening for a market+good in bps.
+    public static int GetRecentTradeDampenBps(SimState state, string marketId, string goodId)
+    {
+        string key = $"{marketId}|{goodId}";
+        return state.PlayerRecentTradeDampen.TryGetValue(key, out int bps) ? bps : 0;
+    }
+
+    // GATE.T52.ECON.TRADE_DIVERSITY.001: Apply margin dampening to a price.
+    // For buys: price goes UP (player pays more). For sells: price goes DOWN (player receives less).
+    public static int ApplyRecentTradeDampening(int price, int dampenBps, bool isBuy)
+    {
+        if (dampenBps <= 0 || price <= 0) return price;
+        long adjustment = (long)price * dampenBps / 10000;
+        if (isBuy)
+            return (int)Math.Max(1, price + adjustment);
+        else
+            return (int)Math.Max(1, price - adjustment);
     }
 
     // Called when a Fleet traverses an Edge with Cargo

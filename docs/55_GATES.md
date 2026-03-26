@@ -1037,28 +1037,28 @@ When a gate moves to DONE:
 | GATE.X.HYGIENE.REPO_HEALTH.051 | DONE | Full test suite + T51 health baseline |
 | GATE.X.HYGIENE.EPIC_REVIEW.051 | DONE | Epic status audit + T52 anchor rec |
 | GATE.X.HYGIENE.ECONOMY_EVAL.051 | DONE | Economy balance + mission reward eval |
-| GATE.X.HYGIENE.REPO_HEALTH.052 | TODO | Full test suite + T52 health baseline |
-| GATE.T52.ECON.TRADE_DIVERSITY.001 | TODO | Fix rare_metals trade dominance (E4) |
-| GATE.T52.ECON.TARIFF_WIRE.001 | TODO | Wire faction tariff_bps to MarketSystem |
-| GATE.T52.ECON.UPKEEP_TUNE.001 | TODO | Tune fleet upkeep 10-20x for credit tension |
-| GATE.T52.DREAD.EXPOSURE_SCALING.001 | TODO | Scale dread drain interval by exposure level |
-| GATE.T52.DREAD.SECONDARY_STRESS.001 | TODO | Fuel burn + cargo decay at dread Phase 2 |
-| GATE.T52.NARR.CONTENT_EXTRACT.001 | TODO | Extract all dialogue to JSON content files |
-| GATE.T52.NARR.TUTORIAL_VOICES.001 | TODO | Differentiate 3 FO candidate dialogue variants |
-| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | TODO | Add 2-3 sequence alternatives per tutorial phase |
-| GATE.T52.COMBAT.NPC_LABELS.001 | TODO | NPC health bars + role + hostile Label3D |
-| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | TODO | Glow ring on engaged combat target |
-| GATE.T52.COMBAT.HITSTOP.001 | TODO | Screen freeze on shield break + kill |
-| GATE.T52.DISC.SCANNER_VIS.001 | TODO | Scanner range visualization on galaxy map |
-| GATE.T52.DISC.PHASE_MARKERS.001 | TODO | Discovery phase markers on galaxy map nodes |
-| GATE.T52.DISC.BREADCRUMB.001 | TODO | Breadcrumb trail for visited nodes |
-| GATE.T52.DISC.MILESTONE_CARDS.001 | TODO | Discovery milestone feedback cards |
-| GATE.T52.MISSION.M7_DIPLOMACY.001 | TODO | M7 Diplomacy mission template |
-| GATE.T52.MISSION.M8_SMUGGLE.001 | TODO | M8 Smuggling mission template |
-| GATE.T52.MISSION.BRIDGE_M7M8.001 | TODO | SimBridge queries for M7/M8 missions |
+| GATE.X.HYGIENE.REPO_HEALTH.052 | DONE | Full test suite + T52 health baseline |
+| GATE.T52.ECON.TRADE_DIVERSITY.001 | DONE | Fix rare_metals trade dominance (E4) |
+| GATE.T52.ECON.TARIFF_WIRE.001 | DONE | Wire faction tariff_bps to MarketSystem |
+| GATE.T52.ECON.UPKEEP_TUNE.001 | DONE | Tune fleet upkeep 10-20x for credit tension |
+| GATE.T52.DREAD.EXPOSURE_SCALING.001 | DONE | Scale dread drain interval by exposure level |
+| GATE.T52.DREAD.SECONDARY_STRESS.001 | DONE | Fuel burn + cargo decay at dread Phase 2 |
+| GATE.T52.NARR.CONTENT_EXTRACT.001 | DONE | Extract all dialogue to JSON content files |
+| GATE.T52.NARR.TUTORIAL_VOICES.001 | DONE | Differentiate 3 FO candidate dialogue variants |
+| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | DONE | Add 2-3 sequence alternatives per tutorial phase |
+| GATE.T52.COMBAT.NPC_LABELS.001 | DONE | NPC health bars + role + hostile Label3D |
+| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | DONE | Glow ring on engaged combat target |
+| GATE.T52.COMBAT.HITSTOP.001 | DONE | Screen freeze on shield break + kill |
+| GATE.T52.DISC.SCANNER_VIS.001 | DONE | Scanner range visualization on galaxy map |
+| GATE.T52.DISC.PHASE_MARKERS.001 | DONE | Discovery phase markers on galaxy map nodes |
+| GATE.T52.DISC.BREADCRUMB.001 | DONE | Breadcrumb trail for visited nodes |
+| GATE.T52.DISC.MILESTONE_CARDS.001 | DONE | Discovery milestone feedback cards |
+| GATE.T52.MISSION.M7_DIPLOMACY.001 | DONE | M7 Diplomacy mission template |
+| GATE.T52.MISSION.M8_SMUGGLE.001 | DONE | M8 Smuggling mission template |
+| GATE.T52.MISSION.BRIDGE_M7M8.001 | DONE | SimBridge queries for M7/M8 missions |
 | GATE.T52.ECON.STRESS_PROOF.001 | TODO | Stress bot proof: trade diversity + credit tension |
 | GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Visual sweep proof: NPC labels + combat readability |
-| GATE.X.HYGIENE.EPIC_REVIEW.052 | TODO | Epic status audit + T53 anchor recommendation |
+| GATE.X.HYGIENE.EPIC_REVIEW.052 | DONE | Epic status audit + T53 anchor recommendation |
 | GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta |
 | GATE.X.HYGIENE.REPO_HEALTH.053 | DONE | Full test suite + T53 health baseline |
 | GATE.T53.BOT.HAVEN_BRIDGE_WRITE.001 | DONE | Add missing Haven write bridge methods (StartResearchLabSlotV0, StartFabricationV0) |
@@ -1111,23 +1111,86 @@ When a gate moves to DONE:
 | GATE.T55.BOT.COMBAT_PROOF.001 | DONE | Bot wins at least 1 combat |
 | GATE.X.HYGIENE.EPIC_REVIEW.055 | DONE | Epic audit + T56 anchor rec |
 | GATE.T55.EVAL.ECONOMY_HEALTH.001 | DONE | Stress bot 1500 cycles, verify no cascade failure |
-| GATE.X.HYGIENE.REPO_HEALTH.056 | TODO | T56 health baseline |
-| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | TODO | Fix pirate loot not reaching cargo (node mismatch) |
-| GATE.T56.FIX.RARE_METALS_DRAIN.001 | TODO | Trace + fix rare_metals disappearing during DebugAdvanceTicks |
-| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | TODO | Absorb exploration_bot stress/trade/combat flags into playthrough bot |
-| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | TODO | Absorb quick/onboarding/ui bots into visual_sweep_bot |
-| GATE.T56.BOT.RETIRE_LEGACY.001 | TODO | Delete 10 retired bot scripts, update runner references |
-| GATE.T56.BOT.STRESS_MODE.001 | TODO | Add --mode stress to playthrough bot (1500+ ticks, economy flags) |
-| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | TODO | Fix mission step evaluation timing |
-| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | TODO | Wire playthrough bot into /audit skill |
-| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | TODO | Wire RL smoke test into /audit skill |
-| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | TODO | Update Run-Bot.ps1 to delegate to playthrough bot |
-| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | TODO | Playthrough bot reaches haven tier 3 |
-| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | TODO | Pirate loot confirmed in cargo |
-| GATE.T56.BOT.MISSION_REP_PROOF.001 | TODO | Mission completed with +5 rep logged |
-| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | TODO | /audit runs clean with consolidated bots |
-| GATE.X.HYGIENE.EPIC_REVIEW.056 | TODO | Epic audit + T57 anchor rec |
-| GATE.T56.EVAL.BOT_COVERAGE.001 | TODO | SimBridge method coverage report |
+| GATE.X.HYGIENE.REPO_HEALTH.056 | DONE | T56 health baseline |
+| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | DONE | Fix pirate loot not reaching cargo (node mismatch) |
+| GATE.T56.FIX.RARE_METALS_DRAIN.001 | DONE | Trace + fix rare_metals disappearing during DebugAdvanceTicks |
+| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | DONE | Absorb exploration_bot stress/trade/combat flags into playthrough bot |
+| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | DONE | Absorb quick/onboarding/ui bots into visual_sweep_bot |
+| GATE.T56.BOT.RETIRE_LEGACY.001 | DONE | Delete 10 retired bot scripts, update runner references |
+| GATE.T56.BOT.STRESS_MODE.001 | DONE | Add --mode stress to playthrough bot (1500+ ticks, economy flags) |
+| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | DONE | Fix mission step evaluation timing |
+| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | DONE | Wire playthrough bot into /audit skill |
+| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | DONE | Wire RL smoke test into /audit skill |
+| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | DONE | Update Run-Bot.ps1 to delegate to playthrough bot |
+| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | DONE | Playthrough bot reaches haven tier 3 |
+| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | DONE | Pirate loot confirmed in cargo |
+| GATE.T56.BOT.MISSION_REP_PROOF.001 | DONE | Mission completed with +5 rep logged |
+| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | DONE | /audit runs clean with consolidated bots |
+| GATE.X.HYGIENE.EPIC_REVIEW.056 | DONE | Epic audit + T57 anchor rec |
+| GATE.T56.EVAL.BOT_COVERAGE.001 | DONE | SimBridge method coverage report |
+| GATE.X.HYGIENE.REPO_HEALTH.057 | DONE | T57 health baseline |
+| GATE.T57.PIPELINE.ECONOMIC_INTEL.001 | DONE | EconomicIntel entity + typed variants per discovery family |
+| GATE.T57.PIPELINE.DISCOVERY_OPP.001 | DONE | DISCOVERY_OPPORTUNITY FO trigger + 3×3 archetype dialogue |
+| GATE.T57.PIPELINE.MARGIN_BUFFER.001 | DONE | Intel decay → ProgramSystem.CalculateEffectiveMargin wiring |
+| GATE.T57.CENTAUR.COMPETENCE_TIERS.001 | DONE | FO competence tier entity + crisis-gated advancement |
+| GATE.T57.KG.PLAYER_VERBS.001 | DONE | KG player verbs: Pin, Annotate, Link, Flag, Compare |
+| GATE.T57.PIPELINE.NPC_COMPETITION.001 | DONE | NPC route discovery + margin compression 300-500 ticks |
+| GATE.T57.CHAIN.CHAIN_INTEL.001 | DONE | Per-step ChainIntel + personality-colored FO commentary |
+| GATE.T57.PIPELINE.SURVEY_PROGRAM.001 | DONE | SurveyV0 program logic: auto-scan on pattern |
+| GATE.T57.FEEL.DISCOVERY_FAILURE.001 | DONE | 6 failure types + partial success in DiscoveryOutcomeSystem |
+| GATE.T57.FEEL.AUDIO_CARD_HOOKS.001 | DONE | Wire T52 milestone cards to audio signatures |
+| GATE.T57.CENTAUR.CONFIDENCE_LANG.001 | DONE | FO confidence score + personality-specific language |
+| GATE.T57.CENTAUR.WORLD_ADAPT.001 | DONE | FO world adaptation: 5 event types + route status |
+| GATE.T57.CENTAUR.BOREDOM_TRIGGERS.001 | DONE | 5 boredom circuit breaker triggers in FirstOfficerSystem |
+| GATE.T57.KG.LINK_FEEDBACK.001 | DONE | Speculative link state machine + batch confirmation |
+| GATE.T57.CENTAUR.BRIDGE.001 | DONE | SimBridge: GetFOCompetenceTierV0, GetRouteConfidenceV0, GetFOAdaptationLogV0 |
+| GATE.T57.PIPELINE.BRIDGE.001 | DONE | SimBridge: GetEconomicIntelV0, GetChainIntelV0, GetSurveyStatusV0 |
+| GATE.T57.KG.BRIDGE.001 | DONE | SimBridge: PinDiscoveryV0, AnnotateV0, LinkSpeculativeV0, GetKGDualModeV0 |
+| GATE.T57.FEEL.AUDIO_SIGS.001 | DONE | 4 audio signature stubs + phase transition hooks |
+| GATE.T57.FEEL.SCANNER_SWEEP.001 | DONE | Scanner sweep animation on system entry |
+| GATE.T57.PROOF.PIPELINE_E2E.001 | DONE | Headless proof: discovery→EconomicIntel→FO→route proposal E2E |
+| GATE.X.HYGIENE.EPIC_REVIEW.057 | DONE | Epic audit + T58 anchor recommendation |
+| GATE.X.HYGIENE.REPO_HEALTH.058 | DONE | T58 health baseline |
+| GATE.T58.FO.EMPIRE_HEALTH.001 | DONE | Empire Health computation (green/yellow/red) |
+| GATE.T58.FO.DOCK_RECAP.001 | DONE | DockRecapSystem: "While You Were Away" batch summary |
+| GATE.T58.FO.LOA_MODEL.001 | DONE | LOA table per domain + 200-tick revert window |
+| GATE.T58.FO.SERVICE_RECORD.001 | DONE | FO ServiceRecord: routes managed, success rate, worst call |
+| GATE.T58.FO.FLIP_MOMENT.001 | DONE | FlipMomentSystem: detect net-positive milestone |
+| GATE.T58.KG.MILESTONE_ENTITY.001 | DONE | KG 7-milestone progressive unlock state machine |
+| GATE.T58.UI.DASHBOARD_OVERHAUL.001 | DONE | 9→5 tabs + "Route" terminology unification |
+| GATE.T58.FO.DECISION_DIALOGUE.001 | DONE | DecisionDialogueSystem: 5 presentation rules |
+| GATE.T58.FO.MANAGER_BRIDGE.001 | DONE | SimBridge.FO.cs: 6 FO Manager query methods |
+| GATE.T58.KG.MILESTONE_BRIDGE.001 | DONE | SimBridge: KG milestone state + unlock queries |
+| GATE.T58.AUDIO.SIGNATURES.001 | DONE | 11 audio signatures + bus hookup |
+| GATE.T58.UI.EMPIRE_DIAMOND.001 | DONE | HUD empire health diamond (Zone A) |
+| GATE.T58.UI.DOCK_RECAP.001 | DONE | Dock recap panel: "While You Were Away" |
+| GATE.T58.UI.FO_DECISION.001 | DONE | FO decision dialogue panel |
+| GATE.T58.UI.FO_SERVICE.001 | DONE | FO Service Record display in fo_panel |
+| GATE.T58.UI.BELT_WATCHING.001 | DONE | Belt-watching: route animations + bottleneck visibility |
+| GATE.T58.UI.FLIP_VFX.001 | DONE | Flip Moment 6-channel presentation |
+| GATE.T58.KG.PROGRESSIVE_UI.001 | DONE | KG progressive unlock in knowledge_web_panel |
+| GATE.T58.PROOF.FO_MANAGER_E2E.001 | TODO | Headless proof: FO Manager pipeline E2E |
+| GATE.T58.EVAL.DESIGN_V6.001 | DONE | Design v6 conformance evaluation |
+| GATE.X.HYGIENE.EPIC_REVIEW.058 | DONE | Epic audit + T59 anchor recommendation |
+| GATE.T59.SHIP.VARIANT_DEFS.001 | DONE | 10 faction variant ShipClassDefs + ShipyardTweaksV0 prices |
+| GATE.T59.SHIP.BALANCE_PASS.001 | DONE | Raider nerf, Frigate cargo 40→50, Carrier scan/cargo buff |
+| GATE.T59.SHIP.T2_MODULE_REASSIGN.001 | DONE | Communion weapons→scanners, Fusion Engine Weavers→Concord |
+| GATE.T59.SHIP.SHIPYARD_SYSTEM.001 | DONE | ShipyardSystem: purchase, sell-back 80%, station capability |
+| GATE.T59.SHIP.PURCHASE_CONTRACT.001 | DONE | Contract tests: buy, sell, rep-gate, credits, active fleet limit |
+| GATE.T59.DISC_VIZ.FAMILY_PHASE.001 | DONE | Per-family 3D meshes + phase LOD (SEEN/SCANNED/ANALYZED) |
+| GATE.X.HYGIENE.REPO_HEALTH.059 | DONE | T59 health baseline: full test suite + golden hash stability |
+| GATE.T59.SHIP.NPC_FACTION_FLEET.001 | DONE | NPC fleet spawner uses faction-appropriate variants |
+| GATE.T59.SHIP.BRIDGE_SHIPYARD.001 | DONE | SimBridge.Shipyard.cs: catalog w/ disclosure, purchase, sell |
+| GATE.T59.SHIP.BRIDGE_FLEET.001 | DONE | Fleet bridge: SetActiveFleetV0 + roster stats enhancement |
+| GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001 | DONE | Distance brackets + scanner ping + HUD bracket narrowing |
+| GATE.T59.DISC_VIZ.SCAN_CEREMONY.001 | DONE | 3-5s scan hold + progress ring VFX + celebration card |
+| GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001 | DONE | Shipyard dock tab: catalog browse, stat cards, purchase flow |
+| GATE.T59.SHIP.COMPARISON_PANEL.001 | DONE | Side-by-side comparison: delta highlighting, upkeep projection |
+| GATE.T59.SHIP.FLEET_ROSTER_UI.001 | DONE | Enhanced fleet roster: swap active, ship cards, sell/store |
+| GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001 | DONE | FO-guided first-scan walkthrough (Subnautica pattern) |
+| GATE.T59.PROOF.SHIP_E2E.001 | DONE | Headless: buy ship, verify stats, compare, sell old |
+| GATE.X.HYGIENE.EPIC_REVIEW.059 | DONE | Epic audit + T60 anchor recommendation |
+| GATE.X.EVAL.SHIP_BALANCE.001 | DONE | Multi-seed ship purchase/progression balance eval |
 
 ## A. Slice 0 discipline gates (always-on)
 
@@ -3613,28 +3676,28 @@ Anchor: EPIC.T52.AUDIT_FIXES.V0 (NEW). Expansion: S6.UI_DISCOVERY, S9.MISSION_LA
 
 | Gate ID | Status | Gate | Evidence |
 |---|---|---|---|
-| GATE.X.HYGIENE.REPO_HEALTH.052 | TODO | Full test suite + warning scan + golden hash stability. Tier 1. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
-| GATE.T52.ECON.TRADE_DIVERSITY.001 | TODO | Fix rare_metals-only trade dominance (E4). Rebalance MarketTweaksV0 good spreads so no single good dominates bot trade loops. Add good-rotation pressure via margin dampening on repeated trades. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/MarketTweaksV0.cs, SimCore/Systems/MarketSystem.cs |
-| GATE.T52.ECON.TARIFF_WIRE.001 | TODO | Wire existing faction tariff_bps field from territory data into MarketSystem buy/sell cost calculation. Trades in Guarded/Closed territory pay tariff to faction. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/MarketSystem.cs, SimCore/Tweaks/MarketTweaksV0.cs |
-| GATE.T52.ECON.UPKEEP_TUNE.001 | TODO | Tune fleet upkeep costs 10-20x (shuttle 20-40 cr/cycle) so credit drain is visible vs 1000cr trade profits. Adjust FleetUpkeepTweaksV0 constants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
-| GATE.T52.DREAD.EXPOSURE_SCALING.001 | TODO | Scale DreadDrainSystem drain interval by ExposureTrack level. High exposure = faster drain (50→30→20 ticks). Wire ExposureTrackSystem output into drain calculation. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
-| GATE.T52.DREAD.SECONDARY_STRESS.001 | TODO | Add Phase 2 secondary stressors: 2x fuel burn multiplier + cargo decay (slow credit loss per cycle). New tweaks for fuel_burn_multiplier_phase2 and cargo_decay_rate. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
-| GATE.T52.NARR.CONTENT_EXTRACT.001 | TODO | Extract all hardcoded dialogue from TutorialContentV0.cs and FirstOfficerContentV0.cs into JSON content files (SimCore/Content/Data/tutorial_dialogue_v0.json, fo_dialogue_v0.json). Content classes load from JSON at init. Zero narrative text in System or Bridge code. Write dialogue_schema.md with field definitions, valid enums, examples, and editing instructions. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/TutorialContentV0.cs, SimCore/Content/FirstOfficerContentV0.cs, NEW: SimCore/Content/Data/tutorial_dialogue_v0.json (dialogue data file), NEW: SimCore/Content/Data/fo_dialogue_v0.json (FO dialogue data file), NEW: SimCore/Content/Data/dialogue_schema.md (editing guide) |
-| GATE.T52.NARR.TUTORIAL_VOICES.001 | TODO | Differentiate 3 FO candidate dialogue variants for all pre-selection tutorial phases. Maren=analytical, Dask=tactical, Lira=intuitive. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
-| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | TODO | Add 2-3 sequence alternatives per tutorial phase for dialogue variety. Random selection per playthrough. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
-| GATE.T52.COMBAT.NPC_LABELS.001 | TODO | Add NPC health bars (Label3D, color-coded), role labels, and red HOSTILE indicator to fleet ship nodes. Visible at game altitude. Pattern: station_nameplate.gd. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/npc_ship.gd, scripts/core/game_manager.gd |
-| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | TODO | Add glow ring (OmniLight3D aura) on engaged combat target NPC. Wire from turret fire logic in game_manager. Bridge T2 (depends on NPC_LABELS). Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/core/npc_ship.gd |
-| GATE.T52.COMBAT.HITSTOP.001 | TODO | Add 50-100ms screen freeze on shield break and kill events. Process_mode override for UI. Wire from shield_ripple.gd and explosion_effect.gd. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/vfx/shield_ripple.gd, scripts/vfx/explosion_effect.gd |
-| GATE.T52.DISC.SCANNER_VIS.001 | TODO | Scanner range visualization circle on galaxy map (dashed circle at current scanner tier range). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
-| GATE.T52.DISC.PHASE_MARKERS.001 | TODO | Discovery phase markers on galaxy map nodes: gray=undiscovered, amber=partially scanned, green=fully analyzed. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
-| GATE.T52.DISC.BREADCRUMB.001 | TODO | Breadcrumb trail visualization for visited nodes — thin connecting lines with fade-by-recency. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
-| GATE.T52.DISC.MILESTONE_CARDS.001 | TODO | Discovery milestone feedback cards: toast-style card on scan/analysis complete with discovery name + icon. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hud.gd |
-| GATE.T52.MISSION.M7_DIPLOMACY.001 | TODO | M7 Diplomacy mission template: treaty delivery + faction rep reward. 5-8 variants with procedural faction/destination. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
-| GATE.T52.MISSION.M8_SMUGGLE.001 | TODO | M8 Smuggling mission: contraband delivery + trace risk escalation. 5-8 variants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
-| GATE.T52.MISSION.BRIDGE_M7M8.001 | TODO | SimBridge queries for M7/M8 mission-specific data (treaty status, contraband detection risk). Bridge T2. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Mission"` | scripts/bridge/SimBridge.Mission.cs |
+| GATE.X.HYGIENE.REPO_HEALTH.052 | DONE | Full test suite + warning scan + golden hash stability. Tier 1. Proof: `dotnet test SimCore.Tests -c Release` | SimCore.Tests/ |
+| GATE.T52.ECON.TRADE_DIVERSITY.001 | DONE | Fix rare_metals-only trade dominance (E4). Rebalance MarketTweaksV0 good spreads so no single good dominates bot trade loops. Add good-rotation pressure via margin dampening on repeated trades. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/MarketTweaksV0.cs, SimCore/Systems/MarketSystem.cs |
+| GATE.T52.ECON.TARIFF_WIRE.001 | DONE | Wire existing faction tariff_bps field from territory data into MarketSystem buy/sell cost calculation. Trades in Guarded/Closed territory pay tariff to faction. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/MarketSystem.cs, SimCore/Tweaks/MarketTweaksV0.cs |
+| GATE.T52.ECON.UPKEEP_TUNE.001 | DONE | Tune fleet upkeep costs 10-20x (shuttle 20-40 cr/cycle) so credit drain is visible vs 1000cr trade profits. Adjust FleetUpkeepTweaksV0 constants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T52.DREAD.EXPOSURE_SCALING.001 | DONE | Scale DreadDrainSystem drain interval by ExposureTrack level. High exposure = faster drain (50→30→20 ticks). Wire ExposureTrackSystem output into drain calculation. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T52.DREAD.SECONDARY_STRESS.001 | DONE | Add Phase 2 secondary stressors: 2x fuel burn multiplier + cargo decay (slow credit loss per cycle). New tweaks for fuel_burn_multiplier_phase2 and cargo_decay_rate. Core T2. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/DreadDrainSystem.cs, SimCore/Tweaks/DeepDreadTweaksV0.cs |
+| GATE.T52.NARR.CONTENT_EXTRACT.001 | DONE | Extract all hardcoded dialogue from TutorialContentV0.cs and FirstOfficerContentV0.cs into JSON content files (SimCore/Content/Data/tutorial_dialogue_v0.json, fo_dialogue_v0.json). Content classes load from JSON at init. Zero narrative text in System or Bridge code. Write dialogue_schema.md with field definitions, valid enums, examples, and editing instructions. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/TutorialContentV0.cs, SimCore/Content/FirstOfficerContentV0.cs, NEW: SimCore/Content/Data/tutorial_dialogue_v0.json (dialogue data file), NEW: SimCore/Content/Data/fo_dialogue_v0.json (FO dialogue data file), NEW: SimCore/Content/Data/dialogue_schema.md (editing guide) |
+| GATE.T52.NARR.TUTORIAL_VOICES.001 | DONE | Differentiate 3 FO candidate dialogue variants for all pre-selection tutorial phases. Maren=analytical, Dask=tactical, Lira=intuitive. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
+| GATE.T52.NARR.SEQUENCE_VARIANTS.001 | DONE | Add 2-3 sequence alternatives per tutorial phase for dialogue variety. Random selection per playthrough. All text in JSON content file only. Core T2 (depends on CONTENT_EXTRACT). Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Tutorial"` | SimCore/Content/Data/tutorial_dialogue_v0.json |
+| GATE.T52.COMBAT.NPC_LABELS.001 | DONE | Add NPC health bars (Label3D, color-coded), role labels, and red HOSTILE indicator to fleet ship nodes. Visible at game altitude. Pattern: station_nameplate.gd. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/npc_ship.gd, scripts/core/game_manager.gd |
+| GATE.T52.COMBAT.TARGET_HIGHLIGHT.001 | DONE | Add glow ring (OmniLight3D aura) on engaged combat target NPC. Wire from turret fire logic in game_manager. Bridge T2 (depends on NPC_LABELS). Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/core/npc_ship.gd |
+| GATE.T52.COMBAT.HITSTOP.001 | DONE | Add 50-100ms screen freeze on shield break and kill events. Process_mode override for UI. Wire from shield_ripple.gd and explosion_effect.gd. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/core/game_manager.gd, scripts/vfx/shield_ripple.gd, scripts/vfx/explosion_effect.gd |
+| GATE.T52.DISC.SCANNER_VIS.001 | DONE | Scanner range visualization circle on galaxy map (dashed circle at current scanner tier range). Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.PHASE_MARKERS.001 | DONE | Discovery phase markers on galaxy map nodes: gray=undiscovered, amber=partially scanned, green=fully analyzed. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.BREADCRUMB.001 | DONE | Breadcrumb trail visualization for visited nodes — thin connecting lines with fade-by-recency. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/GalaxyView.cs |
+| GATE.T52.DISC.MILESTONE_CARDS.001 | DONE | Discovery milestone feedback cards: toast-style card on scan/analysis complete with discovery name + icon. Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/hud.gd |
+| GATE.T52.MISSION.M7_DIPLOMACY.001 | DONE | M7 Diplomacy mission template: treaty delivery + faction rep reward. 5-8 variants with procedural faction/destination. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T52.MISSION.M8_SMUGGLE.001 | DONE | M8 Smuggling mission: contraband delivery + trace risk escalation. 5-8 variants. Core T1. Hash-affecting. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "FullyQualifiedName~Determinism"` | SimCore/Content/MissionTemplateContentV0.cs |
+| GATE.T52.MISSION.BRIDGE_M7M8.001 | DONE | SimBridge queries for M7/M8 mission-specific data (treaty status, contraband detection risk). Bridge T2. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "Mission"` | scripts/bridge/SimBridge.Mission.cs |
 | GATE.T52.ECON.STRESS_PROOF.001 | TODO | Run stress bot (1500 cycles), verify: trade diversity ≥8/12 goods, credit direction changes ≥3, tariff revenue >0. Tier 3. Proof: headless stress bot | scripts/tests/exploration_bot_v1.gd |
 | GATE.T52.COMBAT.VISUAL_PROOF.001 | TODO | Run visual sweep, verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Tier 3. Proof: headless screenshot bot | scripts/tests/visual_sweep_bot_v0.gd |
-| GATE.X.HYGIENE.EPIC_REVIEW.052 | TODO | Epic status audit: close completed epics, recommend T53 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.052 | DONE | Epic status audit: close completed epics, recommend T53 anchor. Tier 3. Proof: `grep -c 'DONE' docs/54_EPICS.md` | docs/54_EPICS.md |
 | GATE.T52.EVAL.AUDIT_DELTA.001 | TODO | Re-run audit, compare before/after delta table vs audit_1 baseline. Tier 3. Proof: written report | reports/audit/ |
 
 Execution plan:
@@ -3739,25 +3802,130 @@ Fix pirate loot collection + rare_metals drain. Consolidate 13 bots into 3. Wire
 
 | Gate ID | Status | Description | Evidence |
 |---|---|---|---|
-| GATE.X.HYGIENE.REPO_HEALTH.056 | TODO | T56 health baseline. Docs T1. | SimCore.Tests/ |
-| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | TODO | Fix pirate loot not reaching cargo. Investigate GetNearbyLootV0 node matching vs combat node. Bridge T1. | scripts/bridge/SimBridge.Fleet.cs, scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.FIX.RARE_METALS_DRAIN.001 | TODO | Trace rare_metals drain during DebugAdvanceTicks. Check SustainSystem, automation programs, market trades consuming cargo. Hash-affecting if SimCore fix needed. Core T1. | SimCore/Systems/ |
-| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | TODO | Absorb exploration_bot_v1 flags (TRADE_NO_EFFECT, NEVER_BOUGHT, PRICE_COLLAPSE, ECONOMY_STALL, etc.) into playthrough_bot_v0. Add --mode flag (full/stress/trade/combat). Bridge T1. | scripts/tests/playthrough_bot_v0.gd, scripts/tests/exploration_bot_v1.gd |
-| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | TODO | Absorb quick/onboarding/ui screenshot bots into visual_sweep_bot_v0. Add --mode flag (quick/full/onboarding/ui). Bridge T1. | scripts/tests/visual_sweep_bot_v0.gd |
-| GATE.T56.BOT.RETIRE_LEGACY.001 | TODO | Delete 10 retired scripts. Update Run-Bot.ps1, Run-Screenshot.ps1, Run-EvalBot.ps1 references. Bridge T2. Blocks: CONSOLIDATE gates. | scripts/tests/, scripts/tools/ |
-| GATE.T56.BOT.STRESS_MODE.001 | TODO | Playthrough bot --mode stress: 1500+ ticks, economy flags (PRICE_COLLAPSE, ECONOMY_STALL, CREDIT_PLATEAU). Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | TODO | Fix mission completion: longer tick advancement after navigation, verify step trigger evaluation. Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | TODO | Update /audit SKILL.md to run playthrough bot as headless critical path test. Content T2. | .claude/skills/audit/SKILL.md |
-| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | TODO | Add RL smoke test (10 episodes via C# server) to /audit tier 1. Content T2. | .claude/skills/audit/SKILL.md |
-| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | TODO | Update Run-Bot.ps1 to delegate trade/combat/stress/full modes to playthrough_bot_v0. Content T2. | scripts/tools/Run-Bot.ps1 |
-| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | TODO | Run playthrough. Verify haven tier >= 3 with loot + drain fixes. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | TODO | Verify pirate loot (rare_metals + salvaged_tech) confirmed in player cargo after combat. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.BOT.MISSION_REP_PROOF.001 | TODO | Verify >= 1 mission completed with +5 rep in log. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
-| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | TODO | Run /audit with consolidated bots. Verify clean pass. Content T3. | .claude/skills/audit/SKILL.md |
-| GATE.X.HYGIENE.EPIC_REVIEW.056 | TODO | Epic audit + T57 anchor rec. Docs T3. | docs/54_EPICS.md |
-| GATE.T56.EVAL.BOT_COVERAGE.001 | TODO | SimBridge method coverage: consolidated bot exercises N/363 methods. Report gaps. Docs T3. | scripts/tools/Bot-Analytics.ps1 |
+| GATE.X.HYGIENE.REPO_HEALTH.056 | DONE | T56 health baseline. Docs T1. | SimCore.Tests/ |
+| GATE.T56.FIX.PIRATE_LOOT_COLLECT.001 | DONE | Fix pirate loot not reaching cargo. Investigate GetNearbyLootV0 node matching vs combat node. Bridge T1. | scripts/bridge/SimBridge.Fleet.cs, scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.FIX.RARE_METALS_DRAIN.001 | DONE | Trace rare_metals drain during DebugAdvanceTicks. Check SustainSystem, automation programs, market trades consuming cargo. Hash-affecting if SimCore fix needed. Core T1. | SimCore/Systems/ |
+| GATE.T56.BOT.CONSOLIDATE_PLAYTHROUGH.001 | DONE | Absorb exploration_bot_v1 flags (TRADE_NO_EFFECT, NEVER_BOUGHT, PRICE_COLLAPSE, ECONOMY_STALL, etc.) into playthrough_bot_v0. Add --mode flag (full/stress/trade/combat). Bridge T1. | scripts/tests/playthrough_bot_v0.gd, scripts/tests/exploration_bot_v1.gd |
+| GATE.T56.BOT.CONSOLIDATE_VISUAL.001 | DONE | Absorb quick/onboarding/ui screenshot bots into visual_sweep_bot_v0. Add --mode flag (quick/full/onboarding/ui). Bridge T1. | scripts/tests/visual_sweep_bot_v0.gd |
+| GATE.T56.BOT.RETIRE_LEGACY.001 | DONE | Delete 10 retired scripts. Update Run-Bot.ps1, Run-Screenshot.ps1, Run-EvalBot.ps1 references. Bridge T2. Blocks: CONSOLIDATE gates. | scripts/tests/, scripts/tools/ |
+| GATE.T56.BOT.STRESS_MODE.001 | DONE | Playthrough bot --mode stress: 1500+ ticks, economy flags (PRICE_COLLAPSE, ECONOMY_STALL, CREDIT_PLATEAU). Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.MISSION_COMPLETE_FIX.001 | DONE | Fix mission completion: longer tick advancement after navigation, verify step trigger evaluation. Bridge T2. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.AUDIT.WIRE_PLAYTHROUGH.001 | DONE | Update /audit SKILL.md to run playthrough bot as headless critical path test. Content T2. | .claude/skills/audit/SKILL.md |
+| GATE.T56.AUDIT.WIRE_RL_SMOKE.001 | DONE | Add RL smoke test (10 episodes via C# server) to /audit tier 1. Content T2. | .claude/skills/audit/SKILL.md |
+| GATE.T56.AUDIT.UPDATE_RUNNERS.001 | DONE | Update Run-Bot.ps1 to delegate trade/combat/stress/full modes to playthrough_bot_v0. Content T2. | scripts/tools/Run-Bot.ps1 |
+| GATE.T56.BOT.HAVEN_TIER3_PROOF.001 | DONE | Run playthrough. Verify haven tier >= 3 with loot + drain fixes. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.COMBAT_LOOT_PROOF.001 | DONE | Verify pirate loot (rare_metals + salvaged_tech) confirmed in player cargo after combat. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.MISSION_REP_PROOF.001 | DONE | Verify >= 1 mission completed with +5 rep in log. Bridge T3. | scripts/tests/playthrough_bot_v0.gd |
+| GATE.T56.BOT.FULL_AUDIT_PROOF.001 | DONE | Run /audit with consolidated bots. Verify clean pass. Content T3. | .claude/skills/audit/SKILL.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.056 | DONE | Epic audit + T57 anchor rec. Docs T3. | docs/54_EPICS.md |
+| GATE.T56.EVAL.BOT_COVERAGE.001 | DONE | SimBridge method coverage: consolidated bot exercises N/363 methods. Report gaps. Docs T3. | scripts/tools/Bot-Analytics.ps1 |
 
 Execution plan:
 - Tier 1 (5 gates): Bug fixes (PIRATE_LOOT, RARE_METALS) + consolidation (PLAYTHROUGH, VISUAL) all parallel — different files. REPO_HEALTH parallel.
 - Tier 2 (6 gates): RETIRE_LEGACY depends on consolidation. STRESS_MODE + MISSION_FIX touch playthrough_bot (combine agent). Audit wiring (3 gates) parallel — different files.
 - Tier 3 (6 gates): Proof runs sequential (HAVEN_TIER3 → COMBAT_LOOT → MISSION_REP). FULL_AUDIT after wiring. EPIC_REVIEW + COVERAGE parallel.
+
+### Tranche 57 — Exploration→Automation Pipeline + Centaur Model + Knowledge Graph v2
+
+Epics: EPIC.S6.DISCOVERY_TRADE_PIPELINE.V0 (NEW), EPIC.S6.FO_CENTAUR.V0 (NEW), EPIC.S6.KNOWLEDGE_GRAPH_V2.V0 (NEW), EPIC.S6.DISCOVERY_FEEL.V0 (NEW), EPIC.T48.ANOMALY_CHAINS ext, EPIC.X.HYGIENE
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.057 | DONE | T57 health baseline. Full test suite + warning scan + golden hash stability. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.T57.PIPELINE.ECONOMIC_INTEL.001 | DONE | EconomicIntel entity with typed variants (ResourceDeposit, CargoManifest, MarketAnomaly, ChainIntel, MarketRuin). Extends DiscoveryOutcomeSystem to produce EconomicIntel per discovery family. Writes to IntelBook. Per ExplorationDiscovery.md §Economic Intel Types. Core T1. Proof: `dotnet test --filter "DiscoveryOutcome"` | SimCore/Systems/DiscoveryOutcomeSystem.cs; SimCore/Entities/IntelBook.cs; NEW: SimCore/Entities/EconomicIntel.cs (typed intel entity); SimCore/Tweaks/DiscoveryOutcomeTweaksV0.cs |
+| GATE.T57.PIPELINE.DISCOVERY_OPP.001 | DONE | DISCOVERY_OPPORTUNITY trigger in FirstOfficerSystem. Fires when DiscoveryOutcomeSystem produces EconomicIntel. 3 archetype variants × 3 FO personalities (9 dialogue entries in fo_dialogue_v0.json). Per ExplorationDiscovery.md §FO Evaluation Beat. Core T1. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/Data/fo_dialogue_v0.json; SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T57.PIPELINE.MARGIN_BUFFER.001 | DONE | Wire intel decay to margin buffer. ProgramSystem.CalculateEffectiveMargin reads worst freshness from IntelBook for route nodes, applies distance-band margin widening (5%/15%/25% at 33%/66%/100% of decay window). Per ExplorationDiscovery.md §Intel Decay. Core T1. Proof: `dotnet test --filter "Program"` | SimCore/Programs/ProgramSystem.cs; SimCore/Entities/IntelBook.cs; SimCore/Tweaks/DiscoveryIntelTweaksV0.cs |
+| GATE.T57.CENTAUR.COMPETENCE_TIERS.001 | DONE | FO competence tier entity (Novice/Competent/Master). Crisis-gated advancement: tier 2 at ~15 trades + 5 nodes + warfront survived, tier 3 at Haven + 8 systems + endgame. Tier-up dialogue (3 archetypes). Player can demote. Per fo_trade_manager_v0.md §Competence Model. Core T1. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/Data/fo_dialogue_v0.json; NEW: SimCore/Entities/FOCompetenceState.cs (tier tracking entity) |
+| GATE.T57.KG.PLAYER_VERBS.001 | DONE | Knowledge Graph player verb entity model: Pin (max 3), Annotate (50 char), Link (speculative connections), Flag for FO, Compare. Commands in KnowledgeGraphSystem. Per ExplorationDiscovery.md §KG Player Verbs. Core T1. Proof: `dotnet test --filter "KnowledgeGraph"` | SimCore/Systems/KnowledgeGraphSystem.cs; NEW: SimCore/Commands/KnowledgeGraphCommands.cs (verb commands) |
+| GATE.T57.PIPELINE.NPC_COMPETITION.001 | DONE | NPC route discovery + margin compression. NpcTradeSystem gradually discovers profitable routes (300-500 tick window), increasing competition and compressing margins from ~30% to 10-15%. ROUTE_DEGRADED + ROUTE_DEAD FO triggers. Per fo_trade_manager_v0.md §Natural Route Depreciation. Fixes ACTIVE_ISSUES E4. Core T2. Proof: `dotnet test --filter "NpcTrade"` | SimCore/Systems/NpcTradeSystem.cs; SimCore/Systems/FirstOfficerSystem.cs; SimCore/Tweaks/DiscoveryIntelTweaksV0.cs |
+| GATE.T57.CHAIN.CHAIN_INTEL.001 | DONE | Per-step ChainIntel with escalating scope (Location→Partial→Actionable→Comprehensive). Personality-colored FO commentary: Maren=economic, Dask=tactical, Lira=navigational. 4 chain steps × 3 personalities = 12 dialogue entries. Per ExplorationDiscovery.md §Chain Intel. Core T2. Proof: `dotnet test --filter "AnomalyChain"` | SimCore/Systems/AnomalyChainSystem.cs; SimCore/Content/AnomalyChainContentV0.cs; SimCore/Content/Data/fo_dialogue_v0.json; SimCore/Systems/DiscoveryOutcomeSystem.cs |
+| GATE.T57.PIPELINE.SURVEY_PROGRAM.001 | DONE | SurveyV0 program logic in ProgramSystem. Auto-scans discovered nodes matching a pattern (good type, family). Graduation: unlocks after 4+ manual scans of same type. Per ExplorationDiscovery.md §Automation Graduation. Core T2. Proof: `dotnet test --filter "Program"` | SimCore/Programs/ProgramSystem.cs; SimCore/Programs/ProgramKind.cs; SimCore/Programs/ProgramInstance.cs |
+| GATE.T57.FEEL.DISCOVERY_FAILURE.001 | DONE | 6 discovery failure types (Scan Interference, Hazard Abort, Intel Spoilage, Chain Dead End, Contested Discovery, False Positive) + partial success mechanic. Failure still yields partial information. FO personality-specific failure commentary (3 archetypes). Per ExplorationDiscovery.md §Discovery Failure States. Core T2. Proof: `dotnet test --filter "DiscoveryOutcome"` | SimCore/Systems/DiscoveryOutcomeSystem.cs; SimCore/Tweaks/DiscoveryOutcomeTweaksV0.cs; SimCore/Content/Data/fo_dialogue_v0.json |
+| GATE.T57.FEEL.AUDIO_CARD_HOOKS.001 | DONE | Wire T52 milestone cards to audio signature triggers. Signal hooks for: AnomalyPing (scanner detect), ScanProcess (phase 1→2), DiscoveryReveal (scan complete), InsightChime (KG connection). GDScript signal emission + bridge audio_event field. Core T2. Proof: `dotnet test --filter "DiscoveryOutcome"` | SimCore/Systems/DiscoveryOutcomeSystem.cs; scripts/bridge/SimBridge.Discovery.cs |
+| GATE.T57.CENTAUR.CONFIDENCE_LANG.001 | DONE | ConfidenceScore (0-100) on TradeRouteIntel computed from intel age + volatility + proven-count. Personality-specific language templates (Maren=percentages, Dask=words, Lira=feelings). Per ExplorationDiscovery.md §FO Confidence Through Personality. Core T2. Proof: `dotnet test --filter "Intel"` | SimCore/Entities/IntelBook.cs; SimCore/Systems/IntelSystem.cs; SimCore/Content/Data/fo_dialogue_v0.json |
+| GATE.T57.CENTAUR.WORLD_ADAPT.001 | DONE | FO world adaptation: 5 event types (tariff increase, intel aged, faction conflict, market shift, player overlap). Adaptation behavior per type (pause/reroute/widen margins). Route status tracking (active/flagged/paused). Per fo_trade_manager_v0.md §FO Mistakes + ExplorationDiscovery.md §FO Adaptation. Core T2. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/Data/fo_dialogue_v0.json |
+| GATE.T57.CENTAUR.BOREDOM_TRIGGERS.001 | DONE | 5 boredom circuit breaker triggers: no discovery 300t, margin compression 3+ routes, sustain >40% revenue, chain intel suggests next, 500t since revelation progress. FO nudge dialogue (3 archetypes per trigger = 15 entries). Per ExplorationDiscovery.md §Boredom Circuit Breakers. Core T2. Proof: `dotnet test --filter "FirstOfficer"` | SimCore/Systems/FirstOfficerSystem.cs; SimCore/Content/Data/fo_dialogue_v0.json |
+| GATE.T57.KG.LINK_FEEDBACK.001 | DONE | Speculative link state machine: Speculative→Plausible→Confirmed→Contradicted. Plausible when FO finds shared attributes. Confirmed on chain/revelation/trade data proof. Contradicted never deletes, just dims. Batch confirmation: 3+ confirmed subgraph = Insight bonus. Per ExplorationDiscovery.md §Link Feedback. Core T2. Proof: `dotnet test --filter "KnowledgeGraph"` | SimCore/Systems/KnowledgeGraphSystem.cs |
+| GATE.T57.CENTAUR.BRIDGE.001 | DONE | SimBridge centaur queries: GetFOCompetenceTierV0 (tier name + capability summary), GetRouteConfidenceV0 (confidence score + personality-colored text), GetFOAdaptationLogV0 (recent world events + FO responses). Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | NEW: scripts/bridge/SimBridge.Centaur.cs (FO centaur queries partial) |
+| GATE.T57.PIPELINE.BRIDGE.001 | DONE | SimBridge pipeline queries: GetEconomicIntelV0(discoveryId) (typed intel), GetChainIntelV0(chainId) (per-step intel + personality text), GetSurveyProgramStatusV0 (active surveys + results). Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/bridge/SimBridge.Discovery.cs; scripts/bridge/SimBridge.TradeIntel.cs |
+| GATE.T57.KG.BRIDGE.001 | DONE | SimBridge KG queries: PinDiscoveryV0/UnpinV0, AnnotateDiscoveryV0, LinkSpeculativeV0, FlagForFOV0, CompareDiscoveriesV0, GetKGDualModeV0 (geographic + relational node positions). Bridge T2. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/bridge/SimBridge.Discovery.cs |
+| GATE.T57.FEEL.AUDIO_SIGS.001 | DONE | 4 audio signature stub assets (AnomalyPing, ScanProcess, DiscoveryReveal, InsightChime) + GDScript phase transition handlers in game_manager. Signal-based: SimBridge emits discovery_audio_event, game_manager plays from AudioStreamPlayer pool. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/ui/game_manager.gd; scripts/bridge/SimBridge.Discovery.cs |
+| GATE.T57.FEEL.SCANNER_SWEEP.001 | DONE | Scanner sweep animation on system entry: ring-expanding sweep VFX when entering new system. Triggers on arrival at unvisited system. Bridge T1. Proof: `dotnet build "Space Trade Empire.csproj" --nologo` | scripts/view/LocalSystemView.cs |
+| GATE.T57.PROOF.PIPELINE_E2E.001 | DONE | Headless proof: discover site → DiscoveryOutcomeSystem produces EconomicIntel → DISCOVERY_OPPORTUNITY fires → FO dialogue + route proposal. Verifies full exploration→automation pipeline E2E. Bot variant or dedicated test script. Bridge T3. Proof: `dotnet test --filter "PipelineE2E" OR godot --headless` | scripts/tests/test_deep_systems_v0.gd; SimCore.Tests/ |
+| GATE.X.HYGIENE.EPIC_REVIEW.057 | DONE | Epic audit: close completed epics, update statuses, recommend T58 anchor. Docs T3. | docs/54_EPICS.md; docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 (7 streams): Core chain: ECONOMIC_INTEL→DISCOVERY_OPP→MARGIN_BUFFER→COMPETENCE_TIERS→KG_VERBS (sequential, hash-affecting). Bridge: AUDIO_SIGS + SCANNER_SWEEP (parallel). Docs: REPO_HEALTH (parallel).
+- Tier 2 (2 streams): Core chain: NPC_COMPETITION→CHAIN_INTEL→SURVEY_PROGRAM→DISCOVERY_FAILURE→AUDIO_CARD_HOOKS→CONFIDENCE_LANG→WORLD_ADAPT→BOREDOM_TRIGGERS→LINK_FEEDBACK (sequential, hash-affecting). Bridge: CENTAUR.BRIDGE + PIPELINE.BRIDGE + KG.BRIDGE (parallel, 3 different files).
+- Tier 3 (2 streams): PIPELINE_E2E proof + EPIC_REVIEW (parallel).
+
+### T58: FO Trade Manager + KG Progressive Disclosure (22 gates)
+
+Epics: NEW: EPIC.S7.FO_TRADE_MANAGER.V0, EPIC.S6.KNOWLEDGE_GRAPH_V2.V0 (ext), EPIC.S10.VOICE_PLAYBACK.V0 (ext), EPIC.X.HYGIENE
+
+Design sources: fo_trade_manager_v0.md v6 (R1, R2, R3+N3, R5, R7+R9, R11, N1, N2), ExplorationDiscovery.md R12
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.058 | DONE | T58 health baseline. Full test suite + warning scan + golden hash stability. Docs T1. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/ |
+| GATE.T58.FO.EMPIRE_HEALTH.001 | DONE | EmpireHealthSystem: compute aggregate empire status (Healthy/Degraded/Critical) from fleet state, active route health, economy metrics (credit trend, sustain ratio). EmpireHealth entity with Status enum + contributing factors. Per R2. Core T1. Proof: `dotnet test --filter "EmpireHealth"` | NEW: SimCore/Systems/EmpireHealthSystem.cs (no existing empire health aggregation); SimCore/Entities/FirstOfficer.cs; NEW: SimCore/Tweaks/FOManagerTweaksV0.cs (combined tweaks for all FO trade manager features) |
+| GATE.T58.FO.DOCK_RECAP.001 | DONE | DockRecapSystem: generates "While You Were Away" batch summary after 100+ ticks away from dock. Tracks top events (route status changes, economy shifts, combat encounters) while player undocked. Fires at dock arrival. Per R3+N3. Core T1. Proof: `dotnet test --filter "DockRecap"` | NEW: SimCore/Systems/DockRecapSystem.cs (no existing batch summary system); SimCore/Entities/FirstOfficer.cs |
+| GATE.T58.FO.LOA_MODEL.001 | DONE | Level of Autonomy (LOA) table on FirstOfficer entity: per-domain levels (route=5, optimize=6, sustain=7, ship=4, warfront=4, construction=5). 200-tick revert window: snapshot route state before FO action, allow player RevertRouteV0 within window. Per R5. Core T1. Proof: `dotnet test --filter "LOA"` | SimCore/Entities/FirstOfficer.cs; NEW: SimCore/Tweaks/FOManagerTweaksV0.cs (LOA thresholds + revert window duration) |
+| GATE.T58.FO.SERVICE_RECORD.001 | DONE | FO ServiceRecord on FirstOfficer: RoutesManaged count, SuccessRate (0-100), CrisesHandled list, NotableMoments list, WorstCall with transparency field. Track in FirstOfficerSystem on route create/complete/fail events. Per N2. Core T1. Proof: `dotnet test --filter "ServiceRecord"` | SimCore/Entities/FirstOfficer.cs; SimCore/Content/FirstOfficerContentV0.cs |
+| GATE.T58.FO.FLIP_MOMENT.001 | DONE | FlipMomentSystem: detect net-positive milestone (automated revenue exceeds manual revenue for sustained period). Fire FLIP_MOMENT event + FO trigger. Track sparkline crossover point. Per R11. Core T1. Proof: `dotnet test --filter "FlipMoment"` | NEW: SimCore/Systems/FlipMomentSystem.cs (no existing net-positive detection); SimCore/Entities/FirstOfficer.cs; SimCore/Tweaks/FOManagerTweaksV0.cs |
+| GATE.T58.KG.MILESTONE_ENTITY.001 | DONE | KGMilestoneState on IntelBook: 7-milestone progression (Geographic at 1st discovery, Pin at 3 discoveries, Relational at 1st chain, Annotate at 5 disc+1 chain, Flag at FO analysis used, Link at 8 disc+2 chains, Compare at 1st Insight). Check milestones at discovery completion in KnowledgeGraphSystem. Per R12. Core T1. Proof: `dotnet test --filter "KGMilestone"` | SimCore/Systems/KnowledgeGraphSystem.cs; SimCore/Entities/IntelBook.cs; NEW: SimCore/Tweaks/KGMilestoneTweaksV0.cs (milestone thresholds) |
+| GATE.T58.UI.DASHBOARD_OVERHAUL.001 | DONE | Restructure hero_trade_menu.gd dock tabs from 9 to 5 (Overview/Empire/Exploration/Factions/Research). Unify all player-facing "Program"/"TradeCharter"/"AutoBuy" text to "Route". Update hud.gd tab labels. Per R7+R9. Bridge T1. Proof: `dotnet build` | scripts/ui/hero_trade_menu.gd; scripts/ui/hud.gd |
+| GATE.T58.FO.DECISION_DIALOGUE.001 | DONE | DecisionDialogueSystem: 5 rules (highlight recommendation, all options visible, context precedes decision, quantify consequences, one briefing at a time). DecisionBriefing entity with options, context, projected outcomes. FO trigger ROUTE_OFFERED. Depends on LOA_MODEL. Per R1. Core T2. Proof: `dotnet test --filter "DecisionDialogue"` | NEW: SimCore/Systems/DecisionDialogueSystem.cs (no existing FO decision framework); SimCore/Entities/FirstOfficer.cs; SimCore/Tweaks/FOManagerTweaksV0.cs |
+| GATE.T58.FO.MANAGER_BRIDGE.001 | DONE | NEW SimBridge.FO.cs partial: GetEmpireHealthV0, GetDockRecapV0, GetLOAStateV0, RevertRouteV0, GetFOServiceRecordV0, GetFlipMomentStateV0. 6 query methods using TryExecuteSafeRead. Blocks: all 5 tier-1 FO core gates. Bridge T2. Proof: `dotnet build` | NEW: scripts/bridge/SimBridge.FO.cs (new partial for FO trade manager queries — Centaur partial covers competence/adaptation, FO partial covers trade management); scripts/bridge/SimBridge.cs |
+| GATE.T58.KG.MILESTONE_BRIDGE.001 | DONE | SimBridge queries: GetKGMilestoneStateV0 (current milestone + unlocked verbs), CheckKGUnlockV0 (test if milestone met), milestone_unlocked signal. Extends SimBridge.Discovery.cs. Per R12. Bridge T2. Proof: `dotnet build` | scripts/bridge/SimBridge.Discovery.cs; scripts/bridge/SimBridge.Centaur.cs |
+| GATE.T58.AUDIO.SIGNATURES.001 | DONE | Register 11 audio signatures (AnomalyPing, ScanProcess, DiscoveryReveal, InsightChime, FOCommOpen, FODecisionTone, RouteHeartbeat, ALERTSting, FlipMomentFanfare, RevelationFanfare, BatchInsight) per R2+R4. Wire bus routing and volume ducking. Extend T57 4-stub foundation to full vocabulary. Bridge T2. Proof: `dotnet build` | scripts/core/game_manager.gd; scripts/ui/hud.gd |
+| GATE.T58.UI.EMPIRE_DIAMOND.001 | DONE | GDScript empire_diamond.gd: persistent HUD indicator in Zone A. Green/yellow/red diamond reflecting empire health. Click opens Empire tab. Polls SimBridge GetEmpireHealthV0 every 60 frames. Per R2. Bridge T3. Proof: `dotnet build` | scripts/ui/hud.gd; NEW: scripts/ui/empire_diamond.gd (new HUD widget — no existing empire health display) |
+| GATE.T58.UI.DOCK_RECAP.001 | DONE | GDScript dock_recap_panel.gd: "While You Were Away" panel on dock arrival. 3-line batch summary (route changes, economy shifts, combat events). Auto-dismiss after 5s or click. Per R3+N3. Bridge T3. Proof: `dotnet build` | NEW: scripts/ui/dock_recap_panel.gd (new panel — no existing dock recap display); scripts/ui/hero_trade_menu.gd |
+| GATE.T58.UI.FO_DECISION.001 | DONE | GDScript fo_decision_panel.gd: FO decision dialogue with 5 rules (recommendation highlighted, all options visible, context before choice, consequences quantified, one briefing). Per R1. Bridge T3. Proof: `dotnet build` | NEW: scripts/ui/fo_decision_panel.gd (new panel — no existing FO decision display); scripts/ui/fo_panel.gd |
+| GATE.T58.UI.FO_SERVICE.001 | DONE | Display FO service record in fo_panel.gd: routes managed, success rate %, crises handled, notable moments, worst call with transparency text. Builds player trust. Per N2. Bridge T3. Proof: `dotnet build` | scripts/ui/fo_panel.gd; scripts/ui/hero_trade_menu.gd |
+| GATE.T58.UI.BELT_WATCHING.001 | DONE | Route line animations: visible throughput (particle flow along route lines), station arrival/departure indicators, bottleneck highlighting (red pulse on congested nodes), route attribution tooltips, zoom-to-detail on click. Ambient commerce hum. Per N1. Bridge T3. Proof: `dotnet build` | scripts/ui/hud.gd; scripts/core/game_manager.gd; scripts/ui/automation_dashboard.gd |
+| GATE.T58.UI.FLIP_VFX.001 | DONE | Flip Moment 6-channel: (1) FO dialogue, (2) letterbox cinematic framing, (3) audio fanfare, (4) credit counter glow, (5) sparkline crossover animation, (6) Haven trophy wall entry. Per R11. Bridge T3. Proof: `dotnet build` | scripts/ui/hud.gd; scripts/ui/fo_panel.gd; scripts/core/game_manager.gd |
+| GATE.T58.KG.PROGRESSIVE_UI.001 | DONE | knowledge_web_panel.gd: progressive KG verb unlock gated by 7 milestones. Grey-out locked verbs, show unlock hint, animate new verb on unlock. NOT all verbs available at once — R12 mandates progressive disclosure. Bridge T3. Proof: `dotnet build` | scripts/ui/knowledge_web_panel.gd; scripts/ui/hud.gd |
+| GATE.T58.PROOF.FO_MANAGER_E2E.001 | TODO | Headless Godot proof: dock → verify recap displayed → check empire health diamond → view consolidated 5-tab dashboard → FO decision flow → service record visible. Full FO Trade Manager pipeline E2E. Milestone: PLAYABLE_BEAT. Docs T3. | scripts/tests/test_deep_systems_v0.gd; scripts/bridge/SimBridge.FO.cs |
+| GATE.T58.EVAL.DESIGN_V6.001 | DONE | Verify T58 implementation matches fo_trade_manager_v0.md v6 + ExplorationDiscovery.md R12 specs. Produce conformance checklist: each R/N item → gate + pass/gap. Identify deferred items for T59. Docs T3. | docs/design/fo_trade_manager_v0.md; docs/design/ExplorationDiscovery.md |
+| GATE.X.HYGIENE.EPIC_REVIEW.058 | DONE | Epic audit: mark S6 sub-epics IN_PROGRESS from T57+T58, close completed epics, update 54_EPICS.md. Recommend T59 anchor. Docs T3. | docs/54_EPICS.md; docs/55_GATES.md |
+
+Execution plan:
+- Tier 1 (3 streams): Core chain: EMPIRE_HEALTH→DOCK_RECAP→LOA_MODEL→SERVICE_RECORD→FLIP_MOMENT→KG_MILESTONE (sequential, hash-affecting). Bridge: DASHBOARD_OVERHAUL (parallel). Docs: REPO_HEALTH (parallel).
+- Tier 2 (4 streams): Core: DECISION_DIALOGUE (sequential, hash-affecting). Bridge: MANAGER_BRIDGE + KG_MILESTONE_BRIDGE + AUDIO_SIGNATURES (parallel, 3 different files).
+- Tier 3 (4-5 streams): Bridge: combine EMPIRE_DIAMOND+DOCK_RECAP+FO_DECISION+FO_SERVICE on shared fo_panel.gd agent; BELT_WATCHING separate; FLIP_VFX separate; KG_PROGRESSIVE_UI separate. Docs: PROOF + EVAL + EPIC_REVIEW (parallel).
+
+## AQ. Tranche 59 — "Ship Progression + Discovery Visuals" (EPIC.S7.SHIP_PROGRESSION.V0, EPIC.S6.DISCOVERY_FEEL.V0)
+
+Focus: Ship class purchase system with faction variants, T2 module faction reassignment, balance pass, shipyard stations, fleet roster management. Plus diegetic discovery visuals (per-family 3D meshes, phase LOD, approach feedback, scan ceremony, tutorial beat).
+
+- EPIC.S7.SHIP_PROGRESSION.V0 [TODO]: Ship purchase system — 10 faction ship variants per faction_equipment_and_research_v0.md Part 4, ShipyardSystem (purchase/sell-back), progressive catalog disclosure, T2 module faction reassignment, balance pass, NPC faction fleet assignment, fleet roster UI, ship comparison panel (gates: GATE.T59.SHIP.*)
+- EPIC.S6.DISCOVERY_FEEL.V0 [IN_PROGRESS]: Discovery feel polish — diegetic visuals per discovery_visuals_v0.md (per-family 3D meshes, phase LOD, approach feedback, scan ceremony, tutorial beat) (gates: GATE.T59.DISC_VIZ.*)
+
+| Gate ID | Status | Gate | Evidence |
+|---|---|---|---|
+| GATE.X.HYGIENE.REPO_HEALTH.059 | DONE | T59 health baseline. Full test suite + warning scan + golden hash stability. Proof: `dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q` | SimCore.Tests/SimCore.Tests.csproj |
+| GATE.T59.SHIP.VARIANT_DEFS.001 | DONE | Add 10 faction variant ShipClassDefs (Watchman, Sentinel, Guardian, Gambit, Wager, Spindle, Loom, Raider, Runner, Pilgrim) to ShipClassContentV0.cs. Create ShipyardTweaksV0.cs with purchase prices for all 8 base + 10 variant classes, sell-back ratio (80%), base disclosure rules. Per faction_equipment_and_research_v0.md Part 4. Hash-affecting. Proof: `dotnet test --filter "FullyQualifiedName~Determinism"` | SimCore/Content/ShipClassContentV0.cs, NEW: SimCore/Tweaks/ShipyardTweaksV0.cs |
+| GATE.T59.SHIP.BALANCE_PASS.001 | DONE | Ship stat rebalance per deep evaluation: Raider variant -cargo bonus +hull malus, Frigate cargo 40→50, Carrier scan 120→140 + cargo 80→100, Shuttle power 20→25. Update FleetUpkeepTweaksV0 if needed. Hash-affecting. Proof: `dotnet test --filter "FullyQualifiedName~Determinism"` | SimCore/Content/ShipClassContentV0.cs, SimCore/Tweaks/FleetUpkeepTweaksV0.cs |
+| GATE.T59.SHIP.T2_MODULE_REASSIGN.001 | DONE | Fix T2 module faction assignments: remove Plasma T2/Plasma Cannon/Missile Launcher from Communion, add scanner/nav modules. Move Fusion Engine T2 from Weavers to Concord. Per faction_equipment_and_research_v0.md Part 1. Hash-affecting. Proof: `dotnet test --filter "FullyQualifiedName~Determinism"` | SimCore/Content/UpgradeContentV0.cs, SimCore/Tweaks/TechAccessTweaksV0.cs |
+| GATE.T59.SHIP.SHIPYARD_SYSTEM.001 | DONE | New ShipyardSystem.cs: PurchaseShip (credit deduction, faction rep check, station shipyard capability, fleet creation), SellShip (80% value return, not hero ship, cargo empty). Wire into SimKernel. Hash-affecting. Proof: `dotnet test --filter "FullyQualifiedName~Determinism"` | NEW: SimCore/Systems/ShipyardSystem.cs, SimCore/SimKernel.cs, SimCore/Entities/Fleet.cs |
+| GATE.T59.SHIP.PURCHASE_CONTRACT.001 | DONE | Contract tests: purchase happy path (credits deducted, fleet created), insufficient credits rejected, faction rep gating blocks, sell-back returns 80%, cannot sell hero ship, cannot sell with cargo. Proof: `dotnet test --filter "ShipyardSystem"` | NEW: SimCore.Tests/Systems/ShipyardSystemTests.cs, SimCore/Content/ShipClassContentV0.cs |
+| GATE.T59.DISC_VIZ.FAMILY_PHASE.001 | DONE | Replace single orange sphere discovery marker with per-family procedural meshes (DERELICT=hull fragments, RUIN=geometric, SIGNAL=antenna, RESOURCE_POOL=mineral cluster, CORRIDOR=nav markers). Phase LOD: SEEN=ghostly alpha 0.3, SCANNED=solid+particles, ANALYZED=full detail+green glow. Per discovery_visuals_v0.md. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs, docs/design/discovery_visuals_v0.md |
+| GATE.T59.SHIP.NPC_FACTION_FLEET.001 | DONE | Update FleetPopulationSystem: assign faction-appropriate ship variants to NPC fleets (Concord→Sentinel/Watchman, Chitin→Gambit/Wager, Weavers→Spindle/Loom, Valorin→Raider/Runner, Communion→Wanderer/Pilgrim). Hash-affecting. Proof: `dotnet test --filter "FullyQualifiedName~Determinism"` | SimCore/Systems/FleetPopulationSystem.cs, SimCore/Tweaks/FleetSeedTweaksV0.cs |
+| GATE.T59.SHIP.BRIDGE_SHIPYARD.001 | DONE | New SimBridge.Shipyard.cs partial: GetShipyardCatalogV0 (filtered by faction rep + progressive disclosure), PurchaseShipV0, SellShipV0, GetShipComparisonV0 (side-by-side stats with deltas). Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/bridge/SimBridge.Shipyard.cs, scripts/bridge/SimBridge.Fleet.cs |
+| GATE.T59.SHIP.BRIDGE_FLEET.001 | DONE | Extend SimBridge.Fleet.cs: SetActiveFleetV0 (swap active ship), GetFleetRosterV0 enhancement (add ship class stats, combat/trade/explore indices per fleet entry). Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/bridge/SimBridge.Fleet.cs, scripts/bridge/SimBridge.Haven.cs |
+| GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001 | DONE | Distance-based discovery approach: >30u scanner blip only, 15-30u silhouette visible, <15u detail resolves. Scanner ping audio intensifies. HUD bracket narrows on approach. Per discovery_visuals_v0.md. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/hud.gd, scripts/core/game_manager.gd |
+| GATE.T59.DISC_VIZ.SCAN_CEREMONY.001 | DONE | Scan no longer instant: 3-5 second hold with progress ring VFX. Phase transition: brief pause, distinct audio chime, card showing discovery. Per Axiom 6. Per discovery_visuals_v0.md. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/view/GalaxyView.cs, scripts/ui/hud.gd |
+| GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001 | DONE | New Shipyard dock tab (conditional, at shipyard-capable stations): ship class cards with stats, faction badge, purchase price, rep requirement, buy button. Follow hero_trade_menu.gd tab pattern. Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/ui/shipyard_panel.gd, scripts/ui/hero_trade_menu.gd |
+| GATE.T59.SHIP.COMPARISON_PANEL.001 | DONE | Side-by-side ship comparison panel: current vs target, green/red delta arrows, projected upkeep change, module compatibility notes. Triggered from shipyard catalog. Proof: `dotnet build "Space Trade Empire.csproj"` | NEW: scripts/ui/ship_comparison_panel.gd, scripts/ui/hero_trade_menu.gd |
+| GATE.T59.SHIP.FLEET_ROSTER_UI.001 | DONE | Enhanced fleet roster panel: ship class icon, swap active ship, sell ship with confirmation, store at Haven, per-ship stat summary. Replaces current FleetMenu debug view. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/FleetMenu.cs, scripts/ui/hero_trade_menu.gd |
+| GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001 | DONE | After sensor_suite tech unlock, FO triggers first-scan tutorial. First discovery site gets waypoint. FO walks player through SEEN→SCANNED→ANALYZED lifecycle. Subnautica guided-discovery pattern. Proof: `dotnet build "Space Trade Empire.csproj"` | scripts/ui/fo_panel.gd, scripts/core/game_manager.gd |
+| GATE.T59.PROOF.SHIP_E2E.001 | DONE | Headless Godot proof: dock at shipyard station, browse catalog, purchase Clipper, verify stats match ShipClassDef, compare vs old Corvette, sell Corvette at 80% value, verify credits. Milestone: PLAYABLE_BEAT. Proof: `powershell -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42` | scripts/tests/test_deep_systems_v0.gd, scripts/bridge/SimBridge.Shipyard.cs |
+| GATE.X.HYGIENE.EPIC_REVIEW.059 | DONE | Epic audit: mark completed epics DONE, update ACTIVE_ISSUES.md, recommend T60 anchor. Proof: `dotnet test --filter "RoadmapConsistency"` | docs/54_EPICS.md, docs/55_GATES.md |
+| GATE.X.EVAL.SHIP_BALANCE.001 | DONE | Multi-seed ship purchase/progression balance eval: 5 seeds x 3000 ticks. Verify purchase prices create meaningful progression, faction variant stats match design, upkeep scaling creates decisions, no dominated classes. Report. Proof: `dotnet test --filter "ShipyardSystem"` | SimCore/Content/ShipClassContentV0.cs, SimCore.Tests/Systems/ShipyardSystemTests.cs |
+
+Execution plan:
+- Tier 1 (3 streams): Core hash chain: VARIANT_DEFS→BALANCE_PASS→T2_MODULE_REASSIGN→SHIPYARD_SYSTEM (sequential). Core non-hash: PURCHASE_CONTRACT (parallel). Bridge: FAMILY_PHASE (parallel). Docs: REPO_HEALTH (parallel).
+- Tier 2 (3 streams): Core hash: NPC_FACTION_FLEET (sequential after tier 1 core). Bridge: BRIDGE_SHIPYARD + BRIDGE_FLEET + APPROACH_FEEDBACK + SCAN_CEREMONY (parallel, different files).
+- Tier 3 (2 streams): Bridge: DOCK_SHIPYARD_TAB + COMPARISON_PANEL + FLEET_ROSTER_UI (combine on hero_trade_menu.gd agent), TUTORIAL_BEAT (separate), SHIP_E2E (after DOCK_SHIPYARD_TAB). Docs: EPIC_REVIEW + SHIP_BALANCE (parallel).
+- File conflict groups: hero_trade_menu.gd (DOCK_SHIPYARD_TAB + COMPARISON_PANEL + FLEET_ROSTER_UI — combine). GalaxyView.cs (FAMILY_PHASE + SCAN_CEREMONY — tier separation avoids conflict). hud.gd (APPROACH_FEEDBACK + SCAN_CEREMONY — combine or tier-separate).

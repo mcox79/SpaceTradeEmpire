@@ -128,7 +128,10 @@ func _run_sequence() -> void:
 
 	# Phase B: Galaxy cinematic.
 	var galaxy_overlay = GalaxyIntroOverlay.new()
-	get_parent().add_child(galaxy_overlay)  # Sibling, not child (layer 200)
+	var parent_b = get_parent()
+	if parent_b == null:
+		return
+	parent_b.add_child(galaxy_overlay)  # Sibling, not child (layer 200)
 	await galaxy_overlay.play_intro()
 	galaxy_overlay.queue_free()
 
@@ -141,7 +144,10 @@ func _run_sequence() -> void:
 
 	var name_overlay = CaptainNameOverlay.new()
 	name_overlay.name = "CaptainNameOverlay"
-	get_parent().add_child(name_overlay)
+	var parent_c = get_parent()
+	if parent_c == null:
+		return
+	parent_c.add_child(name_overlay)
 
 	var captain_name: String = await name_overlay.name_confirmed
 

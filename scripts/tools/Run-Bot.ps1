@@ -60,7 +60,8 @@ try {
     $stderrFile = Join-Path $outputDir 'stderr.txt'
 
     # ── Step 3: Build Godot arguments ──
-    $script = 'res://scripts/tests/exploration_bot_v1.gd'
+    # GATE.T56.AUDIT.UPDATE_RUNNERS.001: Delegate to consolidated playthrough_bot_v0.
+    $script = 'res://scripts/tests/playthrough_bot_v0.gd'
     $godotArgs = @('--headless', '--path', '.', '-s', $script, '--', '--mode', $Mode, '--cycles', $activeCycles)
 
     # ── Step 4: Launch Godot headless ──
@@ -87,10 +88,10 @@ try {
     $failLine = $null
     if (Test-Path $stdoutFile) {
         Get-Content $stdoutFile | ForEach-Object {
-            if ($_ -match '^BOT\|') {
+            if ($_ -match '^PLAY\|') {
                 Write-Host $_
-                if ($_ -match '^BOT\|PASS') { $passLine = $_ }
-                if ($_ -match '^BOT\|FAIL') { $failLine = $_ }
+                if ($_ -match 'PASS') { $passLine = $_ }
+                if ($_ -match 'FAIL') { $failLine = $_ }
             }
         }
     }

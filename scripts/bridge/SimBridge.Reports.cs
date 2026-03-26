@@ -1690,11 +1690,15 @@ public partial class SimBridge
             result["has_fought"] = hasFought;
             result["nodes_visited"] = nodesVisited;
 
-            // Dock tab disclosure
-            result["show_jobs_tab"] = hasTraded;
-            result["show_ship_tab"] = hasCompletedMission || hasFought;
+            // Dock tab disclosure — staggered across docks to avoid information dump.
+            // Dock 1 (nodesVisited=1): Market only.
+            // Dock 2 (nodesVisited=2): +Jobs, +Ship — core commerce & loadout.
+            // Dock 3 (nodesVisited=3): +Station — local industry context.
+            // Dock 4 (nodesVisited=4): +Intel, +Diplomacy — strategic layer.
+            result["show_jobs_tab"] = nodesVisited >= 2 || hasTraded;
+            result["show_ship_tab"] = nodesVisited >= 2;
             result["show_station_tab"] = nodesVisited >= 3;
-            result["show_intel_tab"] = nodesVisited >= 3;
+            result["show_intel_tab"] = nodesVisited >= 4;
 
             // HUD disclosure
             result["show_fuel_hud"] = nodesVisited > 0;
@@ -1702,7 +1706,7 @@ public partial class SimBridge
 
             // Extended HUD disclosure — hide advanced UI until player is ready
             result["show_research_hud"] = nodesVisited >= 5;
-            result["show_leads_hud"] = nodesVisited >= 3;
+            result["show_leads_hud"] = nodesVisited >= 4;
             result["show_risk_hud"] = nodesVisited >= 2;
             result["show_production_info"] = nodesVisited >= 3;
 

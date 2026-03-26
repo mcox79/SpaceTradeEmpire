@@ -117,6 +117,9 @@ public static class DiscoveryOutcomeSystem
             // GATE.T41.DISCOVERY_INTEL.SYSTEM.001: Generate trade intel from analyzed discovery.
             GenerateDiscoveryTradeIntel(state, nodeId2, kind2, disc.DiscoveryId);
 
+            // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: Generate typed EconomicIntel from analyzed discovery.
+            GenerateEconomicIntel(state, nodeId2, kind2, disc.DiscoveryId);
+
             // GATE.T41.ANOMALY_CHAIN.ADVANCE.001: Try to advance anomaly chains.
             TryAdvanceChains(state, disc.DiscoveryId, kind2, nodeId2);
 
@@ -473,6 +476,160 @@ public static class DiscoveryOutcomeSystem
         };
     }
 
+    // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: Generate typed EconomicIntel from an analyzed discovery.
+    // Maps discovery kind to EconomicIntelType and computes distance-band freshness.
+    private static void GenerateEconomicIntel(SimState state, string nodeId, string kind, string discoveryId)
+    {
+        if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(discoveryId)) return;
+        if (state.Intel?.EconomicIntels is null) return;
+
+        string intelId = "ECON_" + discoveryId;
+        if (state.Intel.EconomicIntels.ContainsKey(intelId)) return;
+
+        var (intelType, baseValue) = MapKindToEconomicIntelType(kind);
+
+        // Compute distance band from player start node.
+        int hops = ComputeHopsFromStart(state, nodeId);
+        int distanceBand;
+        int freshnessTicks;
+        if (hops <= Tweaks.EconomicIntelTweaksV0.NearMaxHops)
+        {
+            distanceBand = 0; // STRUCTURAL: Near band index
+            freshnessTicks = Tweaks.EconomicIntelTweaksV0.NearFreshnessTicks;
+        }
+        else if (hops <= Tweaks.EconomicIntelTweaksV0.MidMaxHops)
+        {
+            distanceBand = 1; // STRUCTURAL: Mid band index
+            freshnessTicks = Tweaks.EconomicIntelTweaksV0.MidFreshnessTicks;
+        }
+        else
+        {
+            distanceBand = 2; // STRUCTURAL: Deep band index
+            freshnessTicks = Tweaks.EconomicIntelTweaksV0.DeepFreshnessTicks;
+        }
+
+        // Fracture-origin discoveries never decay.
+        if (state.FractureUnlocked && hops > Tweaks.EconomicIntelTweaksV0.MidMaxHops)
+        {
+            string refId = ParseDiscoveryRefId(discoveryId);
+            if (!string.IsNullOrEmpty(refId) && state.VoidSites.ContainsKey(refId))
+            {
+                distanceBand = 3; // STRUCTURAL: Fracture band index
+                freshnessTicks = Tweaks.EconomicIntelTweaksV0.FractureFreshnessTicks;
+            }
+        }
+
+        string goodId = "";
+        if (string.Equals(kind, "RESOURCE_POOL_MARKER", StringComparison.Ordinal))
+            goodId = ParseDiscoveryRefId(discoveryId);
+
+        string systemName = ResolveSystemName(state, nodeId);
+        string flavorText = GenerateEconomicIntelFlavor(intelType, systemName, goodId);
+
+        state.Intel.EconomicIntels[intelId] = new Entities.EconomicIntel
+        {
+            IntelId = intelId,
+            Type = intelType,
+            SourceDiscoveryId = discoveryId,
+            NodeId = nodeId,
+            GoodId = goodId,
+            EstimatedValue = baseValue,
+            CreatedTick = state.Tick,
+            FreshnessMaxTicks = freshnessTicks,
+            DistanceBand = distanceBand,
+            FlavorText = flavorText
+        };
+
+        // GATE.T57.PIPELINE.DISCOVERY_OPP.001: Fire DISCOVERY_OPPORTUNITY FO trigger.
+        // This is the centaur model beat: FO evaluates new economic intel from discovery.
+        FirstOfficerSystem.TryFireTrigger(state, "DISCOVERY_OPPORTUNITY");
+    }
+
+    private static (Entities.EconomicIntelType Type, int BaseValue) MapKindToEconomicIntelType(string kind)
+    {
+        return kind switch
+        {
+            "RESOURCE_POOL_MARKER" => (Entities.EconomicIntelType.ResourceDeposit, Tweaks.EconomicIntelTweaksV0.ResourceDepositBaseValue),
+            "CORRIDOR_TRACE" => (Entities.EconomicIntelType.CargoManifest, Tweaks.EconomicIntelTweaksV0.CargoManifestBaseValue),
+            _ => (Entities.EconomicIntelType.MarketAnomaly, Tweaks.EconomicIntelTweaksV0.MarketAnomalyBaseValue)
+        };
+    }
+
+    // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: BFS hop count from player start to target node.
+    private static int ComputeHopsFromStart(SimState state, string targetNodeId)
+    {
+        if (string.IsNullOrEmpty(targetNodeId)) return int.MaxValue;
+
+        // Find player start: first visited node or current location.
+        string startNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(startNode)) return int.MaxValue;
+        if (string.Equals(startNode, targetNodeId, StringComparison.Ordinal)) return 0; // STRUCTURAL: same-node distance
+
+        // Simple BFS to count hops.
+        var visited = new HashSet<string>(StringComparer.Ordinal) { startNode };
+        var frontier = new Queue<(string nodeId, int depth)>();
+        frontier.Enqueue((startNode, 0)); // STRUCTURAL: BFS seed depth
+
+        while (frontier.Count > 0)
+        {
+            var (currentNode, depth) = frontier.Dequeue();
+            foreach (var edge in state.Edges.Values)
+            {
+                string neighbor = "";
+                if (string.Equals(edge.FromNodeId, currentNode, StringComparison.Ordinal))
+                    neighbor = edge.ToNodeId;
+                else if (string.Equals(edge.ToNodeId, currentNode, StringComparison.Ordinal))
+                    neighbor = edge.FromNodeId;
+
+                if (string.IsNullOrEmpty(neighbor) || visited.Contains(neighbor)) continue;
+
+                if (string.Equals(neighbor, targetNodeId, StringComparison.Ordinal))
+                    return depth + 1; // STRUCTURAL: hop increment
+
+                visited.Add(neighbor);
+                frontier.Enqueue((neighbor, depth + 1)); // STRUCTURAL: hop increment
+            }
+        }
+
+        return int.MaxValue;
+    }
+
+    private static string GenerateEconomicIntelFlavor(Entities.EconomicIntelType type, string systemName, string goodId)
+    {
+        return type switch
+        {
+            Entities.EconomicIntelType.ResourceDeposit =>
+                $"Resource deposit analysis in {systemName}: {(string.IsNullOrEmpty(goodId) ? "unknown resource" : goodId)} extraction viable.",
+            Entities.EconomicIntelType.CargoManifest =>
+                $"Corridor trade analysis for {systemName}: shortcut enables profitable cargo runs.",
+            Entities.EconomicIntelType.MarketRuin =>
+                $"Ruin salvage assessment in {systemName}: exotic materials have significant market value.",
+            Entities.EconomicIntelType.ChainIntel =>
+                $"Chain intelligence from {systemName}: multi-site pattern suggests deeper economic opportunity.",
+            _ =>
+                $"Market anomaly detected near {systemName}: unusual supply or demand pattern."
+        };
+    }
+
+    // GATE.T57.CHAIN.CHAIN_INTEL.001: Generate personality-colored FO commentary for chain intel.
+    // Maren=percentages, Dask=words, Lira=feelings — per fo_trade_manager_v0.md personality spec.
+    private static string GenerateChainFOCommentary(SimState state, string systemName, int stepIndex)
+    {
+        if (state?.FirstOfficer is null || !state.FirstOfficer.IsPromoted)
+            return $"Chain link #{stepIndex} analyzed in {systemName}.";
+
+        return state.FirstOfficer.CandidateType switch
+        {
+            Entities.FirstOfficerCandidate.Analyst =>
+                $"Step {stepIndex} correlates with prior data at 87% confidence. The {systemName} connection suggests a supply chain worth approximately {Tweaks.EconomicIntelTweaksV0.ChainIntelBaseValue} credits.",
+            Entities.FirstOfficerCandidate.Veteran =>
+                $"Another piece falls into place. This {systemName} link — I've seen supply networks like this before. Each step makes the next one more valuable.",
+            Entities.FirstOfficerCandidate.Pathfinder =>
+                $"The {systemName} thread is pulling us deeper. Each link in this chain feels deliberate — like someone left breadcrumbs knowing we'd follow.",
+            _ => $"Chain link #{stepIndex} analyzed in {systemName}."
+        };
+    }
+
     // Parse "disc_v0|KIND|nodeId|refId|sourceId" → refId (parts[3]).
     private static string ParseDiscoveryRefId(string discoveryId)
     {
@@ -543,6 +700,31 @@ public static class DiscoveryOutcomeSystem
                     Description = step.LeadText,
                     IsRevealed = true
                 });
+            }
+
+            // GATE.T57.PIPELINE.ECONOMIC_INTEL.001 + GATE.T57.CHAIN.CHAIN_INTEL.001:
+            // Generate ChainIntel with personality-colored FO commentary per chain step.
+            if (state.Intel?.EconomicIntels is not null)
+            {
+                string chainIntelId = $"ECON_CHAIN_{chainId}_{chain.CurrentStepIndex}";
+                if (!state.Intel.EconomicIntels.ContainsKey(chainIntelId))
+                {
+                    string systemName = ResolveSystemName(state, nodeId);
+                    string foCommentary = GenerateChainFOCommentary(state, systemName, chain.CurrentStepIndex);
+                    state.Intel.EconomicIntels[chainIntelId] = new Entities.EconomicIntel
+                    {
+                        IntelId = chainIntelId,
+                        Type = Entities.EconomicIntelType.ChainIntel,
+                        SourceDiscoveryId = discoveryId,
+                        NodeId = nodeId,
+                        EstimatedValue = Tweaks.EconomicIntelTweaksV0.ChainIntelBaseValue,
+                        CreatedTick = state.Tick,
+                        FreshnessMaxTicks = Tweaks.EconomicIntelTweaksV0.DeepFreshnessTicks,
+                        DistanceBand = 2, // STRUCTURAL: chain intel defaults to Deep band
+                        FlavorText = $"Chain intelligence from {systemName}: multi-site pattern suggests deeper economic opportunity.",
+                        FoCommentary = foCommentary
+                    };
+                }
             }
 
             chain.CurrentStepIndex++;

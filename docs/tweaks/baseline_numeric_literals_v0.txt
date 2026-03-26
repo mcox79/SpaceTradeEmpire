@@ -139,6 +139,8 @@
 1301
 100
 100
+1
+0
 6
 0
 3000
@@ -470,6 +472,8 @@
 0
 0
 0
+0
+0
 1
 1
 1
@@ -479,8 +483,24 @@
 3
 1
 0
+0
+0
 # FILE SimCore/Systems/ContainmentSystem.cs
 0.05f
+0
+0
+0
+# FILE SimCore/Systems/DecisionDialogueSystem.cs
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 0
 0
 0
@@ -517,15 +537,36 @@
 0
 0
 0
+0
+1
+2
+3
+0
+0
+0
+1
+1
 4
 3
 0
 1
 1
+2
 0
 0
 0
 0
+# FILE SimCore/Systems/DockRecapSystem.cs
+0
+1
+0
+0
+1
+0
+0
+0
+0
+1
 # FILE SimCore/Systems/DoctrineSystem.cs
 0
 100
@@ -562,6 +603,17 @@
 0
 0
 1
+# FILE SimCore/Systems/EmpireHealthSystem.cs
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/EscortSystem.cs
 0
 0
@@ -597,17 +649,44 @@
 2
 4
 0
+1
 0
 0
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+100
+0
+200
+100
+0
+1
+0
+0
+0
+0
+0
+0
+0
+0
+100
+0
+1
+1
 # FILE SimCore/Systems/FleetPopulationSystem.cs
 500
 8
 10
 0
 1
-0
+1
 1
 0
 # FILE SimCore/Systems/FleetUpkeepSystem.cs
@@ -635,6 +714,14 @@
 0
 0
 1
+# FILE SimCore/Systems/FlipMomentSystem.cs
+0
+0
+0
+0
+0
+1
+0
 # FILE SimCore/Systems/FractureSystem.cs
 1
 2
@@ -854,8 +941,21 @@
 50
 200
 0
+0
 3
 2
+3
+2
+0
+0
+0
+10000UL
+0xDEADBEEFUL
+10000UL
+0xCAFEBABEUL
+100UL
+0
+0
 1
 0
 0
@@ -864,6 +964,33 @@
 0
 0
 0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+100
+70
+40
+80
+60
+40
+80
+60
+40
+80
+60
+40
+70
+40
 # FILE SimCore/Systems/IntentSystem.cs
 0
 0
@@ -871,6 +998,8 @@
 0
 0
 0
+0
+1
 0
 0
 0
@@ -902,6 +1031,40 @@
 # FILE SimCore/Systems/KnowledgeGraphSystem.cs
 0
 0
+3
+0
+50
+0
+50
+0
+0
+0
+0
+3
+3
+2
+0
+0
+0
+1
+3
+1
+2
+1
+2
+3
+5
+1
+3
+4
+3
+4
+5
+2
+5
+6
+8
+3
 # FILE SimCore/Systems/LaneFlowSystem.cs
 0
 4
@@ -924,6 +1087,8 @@
 0
 0
 1
+1
+0
 0
 4
 0
@@ -1052,6 +1217,15 @@
 0.05f
 0
 0
+0
+1
+0
+0
+0
+0
+10000
+1
+1
 0.01f
 0
 0
@@ -1291,6 +1465,11 @@
 10000
 0
 200
+0
+0
+0
+0
+0
 # FILE SimCore/Systems/PentagonBreakSystem.cs
 0
 0
@@ -1626,6 +1805,8 @@
 0
 1
 1
+1
+0
 # FILE SimCore/Systems/TelemetrySystem.cs
 0
 0
@@ -1650,10 +1831,14 @@
 # FILE SimCore/Systems/TopologyShiftSystem.cs
 0
 0
+1
+1
 0
 10000
-0
-0
+1
+1
+1
+1
 0
 0
 0
@@ -1663,6 +1848,7 @@
 1099511628211UL
 1099511628211UL
 # FILE SimCore/Systems/TutorialSystem.cs
+0
 0
 0
 0

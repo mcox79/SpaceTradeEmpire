@@ -27,6 +27,12 @@ var _npc_section: VBoxContainer = null
 var _slow_poll_elapsed: float = 0.0
 const _SLOW_POLL_INTERVAL: float = 2.0
 
+# GATE.T58.UI.FO_SERVICE.001: Service record section.
+var _service_sep: HSeparator = null
+var _service_title: Label = null
+var _service_section: VBoxContainer = null
+var _service_visible: bool = false
+
 # GATE.T45.DEEP_DREAD.COMMS_STATIC.001: Comms degradation at distance.
 # At hop>=4, randomly replace 5-15% of characters with static glyphs.
 # At hop>=6, heavier corruption. Click dialogue to clear static (re-read).
@@ -36,6 +42,13 @@ const _STATIC_GLYPHS: String = "░▒▓█▐▌╫╪╬╩╦╠╣║═"
 # Auto-show: flash panel visible on dialogue/promotion, then auto-hide after timeout.
 var _auto_show_timer: float = -1.0
 const _AUTO_SHOW_DURATION: float = 6.0
+
+# GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Scan tutorial — FO-guided first-scan walkthrough.
+var _scan_tut_shown: bool = false  # Once true, never fires again.
+var _scan_tut_phase: int = -1  # -1=waiting, 0=sensor online, 1=near site, 2=scan done
+var _scan_tut_phase_timer: float = 0.0  # Countdown for current phase display.
+const _SCAN_TUT_DISPLAY_SECS: float = 8.0
+var _scan_tut_discovery_count: int = -1  # Baseline count at phase 1 entry.
 
 
 func _ready() -> void:
@@ -115,6 +128,23 @@ func _ready() -> void:
 	_promo_section.visible = false
 	vbox.add_child(_promo_section)
 
+	# --- GATE.T58.UI.FO_SERVICE.001: Service Record section ---
+	_service_sep = HSeparator.new()
+	_service_sep.visible = false
+	vbox.add_child(_service_sep)
+
+	_service_title = Label.new()
+	_service_title.text = "SERVICE RECORD"
+	_service_title.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_service_title.add_theme_color_override("font_color", UITheme.CYAN)
+	_service_title.visible = false
+	vbox.add_child(_service_title)
+
+	_service_section = VBoxContainer.new()
+	_service_section.add_theme_constant_override("separation", UITheme.SPACE_XS)
+	_service_section.visible = false
+	vbox.add_child(_service_section)
+
 	# --- NPC section: Known Contacts (hidden when empty) ---
 	_npc_sep = HSeparator.new()
 	_npc_sep.visible = false
@@ -156,7 +186,9 @@ func _physics_process(delta: float) -> void:
 	_refresh_fo_state()
 	_poll_comms_hops()
 	_poll_fo_dialogue()
+	_check_scan_tutorial()
 	_refresh_promotion()
+	_refresh_service_record()
 	_refresh_npcs()
 
 
@@ -205,6 +237,139 @@ func _refresh_fo_state() -> void:
 		_status_label.add_theme_color_override("font_color", UITheme.GOLD)
 	else:
 		_status_label.text = ""
+
+
+# ---------- GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Scan Tutorial ----------
+
+## FO-guided first-scan walkthrough. Three phases:
+##   Phase 0 — sensor_suite tech unlocked → "Sensors online" dialogue.
+##   Phase 1 — player near a discovery site → "Readings strengthening" dialogue.
+##   Phase 2 — first scan completed → "Excellent scan" dialogue.
+## Each phase shows for ~8 seconds via the existing dialogue + flash pattern.
+## Fires once per playthrough (guarded by _scan_tut_shown).
+func _check_scan_tutorial() -> void:
+	if _scan_tut_shown:
+		return
+	# Respect tutorial toggle (same pattern as game_manager milestone toasts).
+	var settings_mgr = get_node_or_null("/root/SettingsManager")
+	if settings_mgr and settings_mgr.has_method("get_setting"):
+		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
+			_scan_tut_shown = true
+			return
+
+	# Phase timer countdown — don't advance until current phase display finishes.
+	if _scan_tut_phase_timer > 0.0:
+		_scan_tut_phase_timer -= _SLOW_POLL_INTERVAL
+		return
+
+	# ── Phase -1 → 0: Wait for sensor_suite tech unlock ──
+	if _scan_tut_phase == -1:
+		if not _bridge.has_method("GetTechTreeV0"):
+			return
+		var techs: Array = _bridge.call("GetTechTreeV0")
+		var sensor_unlocked: bool = false
+		for t in techs:
+			if typeof(t) != TYPE_DICTIONARY:
+				continue
+			if str(t.get("tech_id", "")) == "sensor_suite" and bool(t.get("unlocked", false)):
+				sensor_unlocked = true
+				break
+		if not sensor_unlocked:
+			return
+		# Sensor suite just became available.
+		_scan_tut_phase = 0
+		var msg: String = "Commander, our new sensor suite is online. I'm detecting anomalous readings nearby. Let's investigate."
+		_add_scan_tutorial_dialogue(msg)
+		print("DEBUG_SCAN_TUT_|PHASE_0|sensor_suite_unlocked")
+		return
+
+	# ── Phase 0 → 1: Wait until player is near a discovery site ──
+	if _scan_tut_phase == 0:
+		if not _bridge.has_method("GetPlayerStateV0") or not _bridge.has_method("GetDiscoverySnapshotV0"):
+			return
+		var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+		var node_id: String = str(ps.get("current_node_id", ""))
+		if node_id.is_empty():
+			return
+		var snap = _bridge.call("GetDiscoverySnapshotV0", node_id)
+		if typeof(snap) != TYPE_ARRAY or snap.is_empty():
+			return
+		# Player is at a node with discovery sites — close enough.
+		_scan_tut_phase = 1
+		# Record baseline scanned count to detect first scan completion.
+		_scan_tut_discovery_count = _count_scanned_discoveries(snap)
+		var msg: String = "Readings are strengthening. Hold position and initiate a full scan — look for the scan indicator on your HUD."
+		_add_scan_tutorial_dialogue(msg)
+		print("DEBUG_SCAN_TUT_|PHASE_1|near_discovery_site|node=" + node_id)
+		return
+
+	# ── Phase 1 → 2: Wait for first successful scan ──
+	if _scan_tut_phase == 1:
+		# Check via game_manager's first_scan_complete flag (most reliable).
+		var gm = get_node_or_null("/root/GameManager")
+		if gm and gm.has_method("is_first_scan_complete_v0"):
+			if gm.call("is_first_scan_complete_v0"):
+				_scan_tut_phase = 2
+				var msg: String = "Excellent scan, Commander. The data reveals promising signatures. We can analyze further with deeper sensor sweeps."
+				_add_scan_tutorial_dialogue(msg)
+				_scan_tut_shown = true
+				print("DEBUG_SCAN_TUT_|PHASE_2|first_scan_complete")
+				return
+		# Fallback: poll discovery snapshot for phase changes (SEEN→SCANNED).
+		if _bridge.has_method("GetPlayerStateV0") and _bridge.has_method("GetDiscoverySnapshotV0"):
+			var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+			var node_id: String = str(ps.get("current_node_id", ""))
+			if not node_id.is_empty():
+				var snap = _bridge.call("GetDiscoverySnapshotV0", node_id)
+				if typeof(snap) == TYPE_ARRAY and not snap.is_empty():
+					var current_count: int = _count_scanned_discoveries(snap)
+					if _scan_tut_discovery_count >= 0 and current_count > _scan_tut_discovery_count:
+						_scan_tut_phase = 2
+						var kind: String = _get_first_scanned_kind(snap)
+						var kind_label: String = kind if not kind.is_empty() else "promising signatures"
+						var msg: String = "Excellent scan, Commander. The data reveals %s. We can analyze further with deeper sensor sweeps." % kind_label
+						_add_scan_tutorial_dialogue(msg)
+						_scan_tut_shown = true
+						print("DEBUG_SCAN_TUT_|PHASE_2|scan_detected_via_snapshot|kind=" + kind_label)
+						return
+
+
+## Helper: inject a scan-tutorial FO dialogue line and flash the panel.
+func _add_scan_tutorial_dialogue(text: String) -> void:
+	_dialogue_history.append(text)
+	if _dialogue_history.size() > _MAX_DIALOGUE_LINES:
+		_dialogue_history = _dialogue_history.slice(_dialogue_history.size() - _MAX_DIALOGUE_LINES)
+	_rebuild_dialogue_ui()
+	_flash_panel(_SCAN_TUT_DISPLAY_SECS)
+	# Also show as FO toast.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "FO: " + text, "fo")
+	_scan_tut_phase_timer = _SCAN_TUT_DISPLAY_SECS
+
+
+## Count how many discoveries in a snapshot array are in SCANNED or ANALYZED phase.
+func _count_scanned_discoveries(snap: Array) -> int:
+	var count: int = 0
+	for d in snap:
+		if typeof(d) != TYPE_DICTIONARY:
+			continue
+		var phase: String = str(d.get("phase", ""))
+		if phase == "SCANNED" or phase == "ANALYZED":
+			count += 1
+	return count
+
+
+## Get the kind/family of the first SCANNED discovery in the snapshot.
+func _get_first_scanned_kind(snap: Array) -> String:
+	for d in snap:
+		if typeof(d) != TYPE_DICTIONARY:
+			continue
+		if str(d.get("phase", "")) == "SCANNED":
+			var kind: String = str(d.get("kind", ""))
+			if not kind.is_empty():
+				return kind
+	return ""
 
 
 # ---------- Dialogue History ----------
@@ -333,6 +498,89 @@ func _on_promote_pressed(candidate_type: String) -> void:
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_toast"):
 			toast_mgr.call("show_toast", "First Officer promoted!", "fo")
+
+
+# ---------- GATE.T58.UI.FO_SERVICE.001: Service Record ----------
+
+func _refresh_service_record() -> void:
+	if not _bridge.has_method("GetServiceRecordV0"):
+		_set_service_visible(false)
+		return
+	var sr: Dictionary = _bridge.call("GetServiceRecordV0")
+	if sr.is_empty():
+		_set_service_visible(false)
+		return
+
+	var routes: int = sr.get("routes_managed", 0)
+	var rec_taken: int = sr.get("recommendations_taken", 0)
+	var rec_offered: int = sr.get("recommendations_offered", 0)
+	var crises: int = sr.get("crises_handled", 0)
+
+	# Only show when there's data to display.
+	if routes == 0 and rec_offered == 0 and crises == 0:
+		_set_service_visible(false)
+		return
+
+	_set_service_visible(true)
+
+	# Rebuild if not already showing (avoid flicker).
+	if _service_visible:
+		return
+	_service_visible = true
+	_clear_children(_service_section)
+
+	# Routes managed.
+	var routes_lbl := Label.new()
+	routes_lbl.text = "Routes managed: %d" % routes
+	routes_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	routes_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	_service_section.add_child(routes_lbl)
+
+	# Success rate.
+	if rec_offered > 0:
+		var rate: float = float(rec_taken) / float(rec_offered) * 100.0
+		var rate_lbl := Label.new()
+		rate_lbl.text = "Advice followed: %d%% (%d/%d)" % [int(rate), rec_taken, rec_offered]
+		rate_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		rate_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		_service_section.add_child(rate_lbl)
+
+	# Crises handled.
+	if crises > 0:
+		var crises_lbl := Label.new()
+		crises_lbl.text = "Crises handled: %d" % crises
+		crises_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		crises_lbl.add_theme_color_override("font_color", UITheme.ORANGE)
+		_service_section.add_child(crises_lbl)
+
+	# Worst call — transparency text.
+	var worst_desc: String = str(sr.get("worst_call_description", ""))
+	if not worst_desc.is_empty():
+		var worst_lbl := Label.new()
+		var worst_cost: int = sr.get("worst_call_cost", 0)
+		worst_lbl.text = "Worst call: %s (%d cr)" % [worst_desc, worst_cost]
+		worst_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		worst_lbl.add_theme_color_override("font_color", UITheme.RED)
+		worst_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_service_section.add_child(worst_lbl)
+
+	# Notable moment.
+	var notable: String = str(sr.get("notable_description", ""))
+	if not notable.is_empty():
+		var notable_lbl := Label.new()
+		notable_lbl.text = "Notable: %s" % notable
+		notable_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		notable_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+		notable_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_service_section.add_child(notable_lbl)
+
+
+func _set_service_visible(vis: bool) -> void:
+	if _service_sep: _service_sep.visible = vis
+	if _service_title: _service_title.visible = vis
+	if _service_section: _service_section.visible = vis
+	if not vis:
+		_service_visible = false
 
 
 # ---------- NPC Section (Known Contacts — all NPCs including dead) ----------

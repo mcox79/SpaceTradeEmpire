@@ -307,6 +307,8 @@ public class SaveLoadWorldHashTests
     private static string ExpectedDiscoveryStateScenarioReportV0()
     {
         // Canonical v0 report (no timestamps; stable ordering).
+        // Player start node ("hub") is excluded from discovery seeding,
+        // so only node_001 auto-seeds remain alongside the manual test discovery.
         var lines = new[]
         {
             "DiscoveryStateScenarioProofV0",
@@ -323,9 +325,7 @@ public class SaveLoadWorldHashTests
             "",
             "Discoveries (DiscoveryId asc):",
             "disc_seed_42_001\tPhase=Analyzed",
-            "disc_v0|AnomalyFamily|hub|SIGNAL|seed:42\tPhase=Seen",
             "disc_v0|AnomalyFamily|node_001|RUIN|seed:42\tPhase=Seen",
-            "disc_v0|RESOURCE_POOL_MARKER|hub|resource_marker_v0|CORE|synthetic\tPhase=Seen",
             "disc_v0|RESOURCE_POOL_MARKER|node_001|resource_marker_v0|FRONTIER|synthetic\tPhase=Seen",
             ""
         };

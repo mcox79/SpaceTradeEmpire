@@ -196,6 +196,16 @@ public partial class SimState
             }
         }
 
+        // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: EconomicIntel in signature for determinism.
+        if (Intel?.EconomicIntels is not null && Intel.EconomicIntels.Count > 0)
+        {
+            foreach (var kv in Intel.EconomicIntels.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var ei = kv.Value;
+                sb.Append($"EI:{kv.Key}|T:{(int)ei.Type}|N:{ei.NodeId}|V:{ei.EstimatedValue}|DB:{ei.DistanceBand}|");
+            }
+        }
+
         foreach (var e in Edges.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             if (e.Value.Heat > 0.001f) sb.Append($"E_Ht:{e.Key}:{e.Value.Heat.ToString("F2", CultureInfo.InvariantCulture)}|");
@@ -219,6 +229,9 @@ public partial class SimState
         if (FirstOfficer is not null)
         {
             sb.Append($"FO:{(FirstOfficer.IsPromoted ? 1 : 0)}:{(int)FirstOfficer.CandidateType}:{(int)FirstOfficer.Tier}|");
+            // GATE.T57.CENTAUR.COMPETENCE_TIERS.001: Competence tier in signature.
+            if (FirstOfficer.Competence is not null)
+                sb.Append($"FOC:{(int)FirstOfficer.Competence.Tier}:{FirstOfficer.Competence.ConfidenceScore}|");
         }
         if (NarrativeNpcs is not null && NarrativeNpcs.Count > 0)
         {

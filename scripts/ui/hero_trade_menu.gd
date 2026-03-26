@@ -38,7 +38,7 @@ var _rep_tier_label: Label = null
 var _greeting_label: Label = null
 
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Tab state
-var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel, 5=Haven
+var _active_dock_tab: int = 0  # 0=Market, 1=Jobs, 2=Ship, 3=Station, 4=Intel, 5=Haven, 6=Diplo, 7=Shipyard
 var _tab_market: VBoxContainer = null
 var _tab_jobs: VBoxContainer = null
 var _tab_ship: VBoxContainer = null
@@ -50,6 +50,10 @@ var _haven_tab_button: Button = null  # GATE.S8.HAVEN.DOCK_PANEL.001
 var _tab_diplomacy: VBoxContainer = null  # GATE.S7.DIPLOMACY.UI.001
 var _diplomacy_tab_button: Button = null  # GATE.S7.DIPLOMACY.UI.001
 var _diplomacy_content: VBoxContainer = null  # GATE.S7.DIPLOMACY.UI.001
+var _tab_shipyard: VBoxContainer = null  # GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001
+var _shipyard_panel = null  # shipyard_panel.gd instance
+var _shipyard_tab_button: Button = null  # GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001
+var _comparison_panel = null  # ship_comparison_panel.gd instance
 var _tab_bar: HBoxContainer = null  # GATE.S8.HAVEN.DOCK_PANEL.001: ref for dynamic Haven button
 var _tab_buttons: Array = []
 # M3: Track which tabs the player has clicked (to clear "NEW" badge).
@@ -370,6 +374,36 @@ func _ready():
 	_diplomacy_tab_button.visible = false  # Hidden by default; shown by disclosure system
 	_tab_bar.add_child(_diplomacy_tab_button)
 
+	# GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001: Tab 8: Shipyard (conditional — only at shipyard stations)
+	_tab_shipyard = VBoxContainer.new()
+	_tab_shipyard.add_theme_constant_override("separation", 4)
+	_tab_shipyard.visible = false
+	vbox.add_child(_tab_shipyard)
+
+	var ShipyardPanelScript = preload("res://scripts/ui/shipyard_panel.gd")
+	_shipyard_panel = ShipyardPanelScript.new()
+	_tab_shipyard.add_child(_shipyard_panel)
+
+	# GATE.T59.SHIP.COMPARISON_PANEL.001: Comparison overlay (child of dock panel)
+	var ComparisonPanelScript = preload("res://scripts/ui/ship_comparison_panel.gd")
+	_comparison_panel = ComparisonPanelScript.new()
+	_dock_panel.add_child(_comparison_panel)
+
+	# Wire comparison panel ref to shipyard panel
+	if _shipyard_panel.has_method("setup"):
+		var _br_yard = get_node_or_null("/root/SimBridge")
+		_shipyard_panel.setup(_br_yard, _comparison_panel)
+
+	_shipyard_tab_button = Button.new()
+	_shipyard_tab_button.text = "Yard"
+	_shipyard_tab_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_shipyard_tab_button.toggle_mode = true
+	_shipyard_tab_button.clip_text = true
+	_shipyard_tab_button.add_theme_font_size_override("font_size", 13)
+	_shipyard_tab_button.pressed.connect(_switch_dock_tab.bind(7))
+	_shipyard_tab_button.visible = false  # Hidden by default; shown if station has shipyard
+	_tab_bar.add_child(_shipyard_tab_button)
+
 	# Undock button (always visible)
 	var btn_undock = Button.new()
 	btn_undock.text = "Undock"
@@ -429,9 +463,9 @@ func _apply_tab_disclosure_v0() -> void:
 			_tab_buttons[i].text = _tab_base_names[i]
 			_tab_buttons[i].remove_theme_color_override("font_color")
 
-	# Diplomacy tab (separate button, not in _tab_buttons array): show after 3+ nodes.
+	# Diplomacy tab (separate button, not in _tab_buttons array): show after 4+ nodes (staggered).
 	if _diplomacy_tab_button:
-		_diplomacy_tab_button.visible = int(state.get("nodes_visited", 0)) >= 3
+		_diplomacy_tab_button.visible = int(state.get("nodes_visited", 0)) >= 4
 
 # GATE.S18.EMPIRE_DASH.DOCK_TABS.001: Switch between dock tabs
 # GATE.S8.HAVEN.DOCK_PANEL.001: Added Haven tab (idx 5)
@@ -442,6 +476,8 @@ func _switch_dock_tab(idx: int) -> void:
 		all_tabs.append(_tab_haven)
 	if _tab_diplomacy:
 		all_tabs.append(_tab_diplomacy)
+	if _tab_shipyard:
+		all_tabs.append(_tab_shipyard)
 
 	# Find the currently visible tab to fade out.
 	var old_tab: Control = null
@@ -455,6 +491,8 @@ func _switch_dock_tab(idx: int) -> void:
 		tab_map[5] = _tab_haven
 	if _tab_diplomacy:
 		tab_map[6] = _tab_diplomacy
+	if _tab_shipyard:
+		tab_map[7] = _tab_shipyard
 	var new_tab: Control = tab_map.get(idx)
 
 	_active_dock_tab = idx
@@ -470,6 +508,11 @@ func _switch_dock_tab(idx: int) -> void:
 		_rebuild_intel_empty_state()
 	if idx == 6 and _tab_diplomacy:
 		_rebuild_diplomacy()
+	if idx == 7 and _shipyard_panel:
+		var _br_yard_ref = get_node_or_null("/root/SimBridge")
+		if _br_yard_ref:
+			_shipyard_panel.setup(_br_yard_ref, _comparison_panel)
+		_shipyard_panel.refresh(_market_node_id)
 
 	# Cross-fade: fade out old, show new with fade in.
 	if old_tab != null and new_tab != null and old_tab != new_tab:
@@ -516,6 +559,13 @@ func _switch_dock_tab(idx: int) -> void:
 			_diplomacy_tab_button.add_theme_color_override("font_color", UITheme.CYAN)
 		else:
 			_diplomacy_tab_button.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	# GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001: Shipyard tab button highlight
+	if _shipyard_tab_button:
+		_shipyard_tab_button.button_pressed = (idx == 7)
+		if idx == 7:
+			_shipyard_tab_button.add_theme_color_override("font_color", UITheme.CYAN)
+		else:
+			_shipyard_tab_button.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
 
 func open_market_v0(node_id: String) -> void:
 	_market_node_id = node_id
@@ -548,6 +598,16 @@ func open_market_v0(node_id: String) -> void:
 		_haven_tab_button.visible = _is_haven_dock
 	if _is_haven_dock and _haven_panel and _haven_panel.has_method("refresh"):
 		_haven_panel.call("refresh", node_id)
+
+	# GATE.T59.SHIP.DOCK_SHIPYARD_TAB.001: Show Shipyard tab if station has ships for sale.
+	var _is_shipyard: bool = false
+	var _bridge_ref_yard = get_node_or_null("/root/SimBridge")
+	if _bridge_ref_yard and _bridge_ref_yard.has_method("GetShipyardCatalogV0"):
+		var _yard_catalog: Array = _bridge_ref_yard.call("GetShipyardCatalogV0", node_id)
+		_is_shipyard = _yard_catalog.size() > 0
+		print("DEBUG_SHIPYARD_ open_market check: node=%s catalog_size=%d" % [node_id, _yard_catalog.size()])
+	if _shipyard_tab_button:
+		_shipyard_tab_button.visible = _is_shipyard
 
 	# Default to Station overview tab (3) post-tutorial. During tutorial, Market (0).
 	var _default_tab := 3

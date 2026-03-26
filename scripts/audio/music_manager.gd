@@ -62,6 +62,9 @@ const FACTION_AMBIENT_DB := -38.0  # ~-18dB below main stems (MAX_DB is -20)
 # --- State ---
 var _current_state: MusicState = MusicState.SILENCE
 var _master_volume: float = 1.0
+# GATE.T56.AUDIO.PLACEHOLDER_GUARD: Suppress audible playback of placeholder
+# sine-wave streams.  Set to true when real .ogg/.mp3 stems are loaded.
+var _has_real_audio := false
 var _layers: Array[AudioStreamPlayer] = []
 var _layer_tweens: Array[Tween] = [null, null, null, null]
 
@@ -190,6 +193,10 @@ func transition_to(state: MusicState, fade_duration: float = 2.0) -> void:
 		_swap_stems_to_normal()
 
 	_current_state = state
+	# Suppress audible playback of placeholder sine-wave streams.
+	# State is tracked so real audio transitions correctly once loaded.
+	if not _has_real_audio:
+		return
 	var mix: Array = LAYER_MIX[state]
 	for i in 4:
 		var target_db := _linear_to_db(mix[i] * _master_volume)
@@ -202,6 +209,8 @@ func get_current_state() -> MusicState:
 ## Scales all layers by a master volume (0.0-1.0).
 func set_master_volume(vol: float) -> void:
 	_master_volume = clampf(vol, 0.0, 1.0)
+	if not _has_real_audio:
+		return
 	# Re-apply current state mix with new master volume (instant).
 	var mix: Array = LAYER_MIX[_current_state]
 	for i in 4:
@@ -258,6 +267,8 @@ func _on_stinger_finished() -> void:
 	_duck_stems(false)
 
 func _duck_stems(duck: bool) -> void:
+	if not _has_real_audio:
+		return
 	if _stinger_duck_tween and _stinger_duck_tween.is_valid():
 		_stinger_duck_tween.kill()
 	_stinger_duck_tween = create_tween()

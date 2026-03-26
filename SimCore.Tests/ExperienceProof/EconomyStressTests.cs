@@ -17,6 +17,7 @@ namespace SimCore.Tests.ExperienceProof;
 /// All tests share a single [OneTimeSetUp] simulation run per seed (5 seeds × 5000 ticks)
 /// to avoid redundant computation. Intermediate data is captured at milestones.
 /// </summary>
+[Timeout(120_000)]  // 120s — runs 5 seeds × 5000 ticks
 [TestFixture]
 public class EconomyStressTests
 {

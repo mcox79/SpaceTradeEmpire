@@ -2,7 +2,7 @@ using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
@@ -12,6 +12,15 @@ namespace SimCore.Systems;
 // the player navigates by topology, not memory.
 public static class TopologyShiftSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<Edge> MutableEdges = new();
+        public readonly Dictionary<string, int> EdgeCountByNode = new(StringComparer.Ordinal);
+        public readonly List<string> Candidates = new();
+        public readonly HashSet<string> DirectNeighbors = new(StringComparer.Ordinal);
+        public readonly List<string> UniqueCandidates = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     /// <summary>
     /// On player arrival at a Phase 3+ node, mutate eligible mutable edges.
     /// </summary>
@@ -38,8 +47,11 @@ public static class TopologyShiftSystem
     /// </summary>
     public static void ApplyTopologyShift(SimState state, string nodeId)
     {
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Find all mutable edges touching this node
-        var mutableEdges = new List<Edge>();
+        var mutableEdges = scratch.MutableEdges;
+        mutableEdges.Clear();
         foreach (var kv in state.Edges)
         {
             var edge = kv.Value;
@@ -53,6 +65,16 @@ public static class TopologyShiftSystem
         // Sort for determinism
         mutableEdges.Sort(Edge.DeterministicComparer);
 
+        // Pre-compute edge counts per node (avoids O(n²) per mutable edge).
+        var edgeCounts = scratch.EdgeCountByNode;
+        edgeCounts.Clear();
+        foreach (var kv in state.Edges)
+        {
+            var e = kv.Value;
+            edgeCounts[e.FromNodeId] = edgeCounts.GetValueOrDefault(e.FromNodeId) + 1;
+            edgeCounts[e.ToNodeId] = edgeCounts.GetValueOrDefault(e.ToNodeId) + 1;
+        }
+
         int mutationsApplied = 0;
 
         foreach (var edge in mutableEdges)
@@ -65,12 +87,21 @@ public static class TopologyShiftSystem
             if (roll >= TopologyShiftTweaksV0.MutationProbabilityBps) continue;
 
             // Check connectivity preservation — don't remove if it would orphan either endpoint
-            if (!CanSafelyMutate(state, edge, nodeId)) continue;
+            string farNodeId = edge.FromNodeId == nodeId ? edge.ToNodeId : edge.FromNodeId;
+            // Edge count minus 1 (excluding this edge) must be >= minimum.
+            int farCount = edgeCounts.GetValueOrDefault(farNodeId) - 1;
+            int arrivalCount = edgeCounts.GetValueOrDefault(nodeId) - 1;
+            if (farCount < TopologyShiftTweaksV0.STRUCT_MinEdgesPerNode ||
+                arrivalCount < TopologyShiftTweaksV0.STRUCT_MinEdgesPerNode)
+                continue;
 
             // Mutate: rewire the far endpoint to a different neighbor
-            string farNodeId = edge.FromNodeId == nodeId ? edge.ToNodeId : edge.FromNodeId;
-            string? newTargetId = PickNewTarget(state, nodeId, farNodeId, edge.Id);
+            string? newTargetId = PickNewTarget(state, nodeId, farNodeId, edge.Id, scratch);
             if (newTargetId == null) continue;
+
+            // Update edge counts for the rewire.
+            edgeCounts[farNodeId] = edgeCounts.GetValueOrDefault(farNodeId) - 1;
+            edgeCounts[newTargetId] = edgeCounts.GetValueOrDefault(newTargetId) + 1;
 
             // Rewire the edge
             if (edge.FromNodeId == nodeId)
@@ -89,50 +120,21 @@ public static class TopologyShiftSystem
     }
 
     /// <summary>
-    /// Check that removing/rewiring this edge won't leave either endpoint
-    /// with fewer than STRUCT_MinEdgesPerNode connections.
-    /// </summary>
-    private static bool CanSafelyMutate(SimState state, Edge edge, string arrivalNodeId)
-    {
-        string farNodeId = edge.FromNodeId == arrivalNodeId ? edge.ToNodeId : edge.FromNodeId;
-
-        // Count edges for the far node (excluding this edge)
-        int farNodeEdgeCount = 0;
-        foreach (var kv in state.Edges)
-        {
-            if (kv.Key == edge.Id) continue;
-            var e = kv.Value;
-            if (e.FromNodeId == farNodeId || e.ToNodeId == farNodeId)
-                farNodeEdgeCount++;
-        }
-
-        // Count edges for the arrival node (excluding this edge)
-        int arrivalNodeEdgeCount = 0;
-        foreach (var kv in state.Edges)
-        {
-            if (kv.Key == edge.Id) continue;
-            var e = kv.Value;
-            if (e.FromNodeId == arrivalNodeId || e.ToNodeId == arrivalNodeId)
-                arrivalNodeEdgeCount++;
-        }
-
-        return farNodeEdgeCount >= TopologyShiftTweaksV0.STRUCT_MinEdgesPerNode &&
-               arrivalNodeEdgeCount >= TopologyShiftTweaksV0.STRUCT_MinEdgesPerNode;
-    }
-
-    /// <summary>
     /// Pick a new target node for the mutated edge. Must be:
-    /// - A node adjacent to the arrival node (preserves local connectivity)
+    /// - A node within 2 hops of the arrival node
     /// - Not already directly connected to the arrival node by another edge
     /// - Not the current far node
     /// Returns null if no valid target exists.
     /// </summary>
     private static string? PickNewTarget(
-        SimState state, string arrivalNodeId, string currentFarNodeId, string mutatingEdgeId)
+        SimState state, string arrivalNodeId, string currentFarNodeId, string mutatingEdgeId,
+        Scratch scratch)
     {
         // Find all nodes within 2 hops of the arrival node
-        var candidates = new List<string>();
-        var directNeighbors = new HashSet<string>(StringComparer.Ordinal);
+        var candidates = scratch.Candidates;
+        candidates.Clear();
+        var directNeighbors = scratch.DirectNeighbors;
+        directNeighbors.Clear();
 
         foreach (var kv in state.Edges)
         {
@@ -168,7 +170,8 @@ public static class TopologyShiftSystem
         // Sort for determinism, pick via hash
         candidates.Sort(StringComparer.Ordinal);
         // Remove duplicates
-        var unique = new List<string>();
+        var unique = scratch.UniqueCandidates;
+        unique.Clear();
         string? prev = null;
         foreach (var c in candidates)
         {

@@ -169,7 +169,7 @@ public static class WorldLoader
                     FuelCurrent = ShipClassContentV0.GetById("corvette")?.BaseFuelCapacity ?? Tweaks.SustainTweaksV0.DefaultFuelCapacity,
                     Slots = new List<ModuleSlot>
                     {
-                        new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon },
+                        new ModuleSlot { SlotId = "weapon_0", SlotKind = SlotKind.Weapon, InstalledModuleId = "weapon_cannon_mk1" },
                         new ModuleSlot { SlotId = "engine_0", SlotKind = SlotKind.Engine },
                         new ModuleSlot { SlotId = "utility_0", SlotKind = SlotKind.Utility },
                     }

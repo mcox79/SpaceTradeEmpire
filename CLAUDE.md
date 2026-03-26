@@ -132,11 +132,17 @@ Manual closeout checklist (if skill unavailable):
 ## Test commands
 
 ```powershell
-# Full SimCore test suite (200 tests)
-dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q
+# Full SimCore test suite — quiet on success, full diagnostics on failure
+powershell -File scripts/tools/Run-Tests.ps1
 
 # Single filter
-dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter "RoadmapConsistency"
+powershell -File scripts/tools/Run-Tests.ps1 -Filter "RoadmapConsistency"
+
+# Skip rebuild (use existing binaries)
+powershell -File scripts/tools/Run-Tests.ps1 -Filter "Determinism" -NoBuild
+
+# Raw dotnet test (when you need direct control)
+dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q
 
 # If tests hang — kill stale testhost processes first
 Stop-Process -Name testhost, dotnet -Force -ErrorAction SilentlyContinue

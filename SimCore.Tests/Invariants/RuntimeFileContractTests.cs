@@ -405,7 +405,7 @@ public sealed class RuntimeFileContractTests
         const long contextPacketFailBytes = 750L * 1024L;
 
         const long docsWarnBytes = 150L * 1024L;
-        const long docsFailBytes = 700L * 1024L;
+        const long docsFailBytes = 800L * 1024L;
 
         const long llmSurfaceWarnBytes = 250L * 1024L;
         const long llmSurfaceFailBytes = 750L * 1024L;

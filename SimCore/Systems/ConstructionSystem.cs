@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using SimCore.Content;
 using SimCore.Entities;
@@ -14,6 +13,7 @@ public static class ConstructionSystem
     private sealed class Scratch
     {
         public readonly List<string> SortedProjectIds = new();
+        public readonly List<string> SortedDiscoveryIds = new();
     }
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
     public sealed class StartResult
@@ -43,12 +43,18 @@ public static class ConstructionSystem
             return new StartResult { Success = false, Reason = "prerequisites_not_met" };
 
         // Check max total projects
-        int activeCount = state.Construction.Projects.Values.Count(p => !p.Completed);
+        int activeCount = 0;
+        int nodeCount = 0;
+        foreach (var p in state.Construction.Projects.Values)
+        {
+            if (p.Completed) continue;
+            activeCount++;
+            if (string.Equals(p.NodeId, nodeId, StringComparison.Ordinal)) nodeCount++;
+        }
         if (activeCount >= ConstructionTweaksV0.MaxTotalProjects)
             return new StartResult { Success = false, Reason = "max_total_projects" };
 
         // Check max projects per node
-        int nodeCount = state.Construction.Projects.Values.Count(p => !p.Completed && p.NodeId == nodeId);
         if (nodeCount >= ConstructionTweaksV0.MaxProjectsPerNode)
             return new StartResult { Success = false, Reason = "max_projects_at_node" };
 
@@ -190,7 +196,12 @@ public static class ConstructionSystem
         string outputGood = "";
         if (node.SeededDiscoveryIds != null && state.Intel?.Discoveries != null)
         {
-            foreach (var discId in node.SeededDiscoveryIds.OrderBy(d => d, StringComparer.Ordinal))
+            var scratch = s_scratch.GetOrCreateValue(state);
+            var sortedDiscIds = scratch.SortedDiscoveryIds;
+            sortedDiscIds.Clear();
+            foreach (var d in node.SeededDiscoveryIds) sortedDiscIds.Add(d);
+            sortedDiscIds.Sort(StringComparer.Ordinal);
+            foreach (var discId in sortedDiscIds)
             {
                 if (!state.Intel.Discoveries.TryGetValue(discId, out var disc)) continue;
                 if (disc.Phase != DiscoveryPhase.Analyzed) continue;
@@ -230,7 +241,12 @@ public static class ConstructionSystem
         // produce rare_metals as secondary output (1 unit/tick) alongside primary good.
         if (node.SeededDiscoveryIds != null && state.Intel?.Discoveries != null)
         {
-            foreach (var discId2 in node.SeededDiscoveryIds.OrderBy(d => d, StringComparer.Ordinal))
+            var scratch2 = s_scratch.GetOrCreateValue(state);
+            var sortedDiscIds2 = scratch2.SortedDiscoveryIds;
+            sortedDiscIds2.Clear();
+            foreach (var d in node.SeededDiscoveryIds) sortedDiscIds2.Add(d);
+            sortedDiscIds2.Sort(StringComparer.Ordinal);
+            foreach (var discId2 in sortedDiscIds2)
             {
                 if (!state.Intel.Discoveries.TryGetValue(discId2, out var disc2)) continue;
                 if (disc2.Phase != DiscoveryPhase.Analyzed) continue;
@@ -292,12 +308,18 @@ public static class ConstructionSystem
         if (!ConstructionContentV0.PrerequisitesMet(projectDefId, state.Tech.UnlockedTechIds))
             return "prerequisites_not_met";
 
-        int activeCount = state.Construction.Projects.Values.Count(p => !p.Completed);
-        if (activeCount >= ConstructionTweaksV0.MaxTotalProjects)
+        int activeCount2 = 0;
+        int nodeCount2 = 0;
+        foreach (var p in state.Construction.Projects.Values)
+        {
+            if (p.Completed) continue;
+            activeCount2++;
+            if (string.Equals(p.NodeId, nodeId, StringComparison.Ordinal)) nodeCount2++;
+        }
+        if (activeCount2 >= ConstructionTweaksV0.MaxTotalProjects)
             return "max_total_projects";
 
-        int nodeCount = state.Construction.Projects.Values.Count(p => !p.Completed && p.NodeId == nodeId);
-        if (nodeCount >= ConstructionTweaksV0.MaxProjectsPerNode)
+        if (nodeCount2 >= ConstructionTweaksV0.MaxProjectsPerNode)
             return "max_projects_at_node";
 
         if (state.PlayerCredits < def.CreditCostPerStep)

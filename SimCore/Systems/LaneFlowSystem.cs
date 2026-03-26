@@ -27,6 +27,7 @@ public static class LaneFlowSystem
         public readonly List<string> SortedLaneIds = new();
         public readonly Dictionary<string, List<InFlightTransfer>> LaneGroups = new(StringComparer.Ordinal);
         public readonly List<string> SortedGroupKeys = new();
+        public readonly Dictionary<string, int> QueuedByLane = new(StringComparer.Ordinal);
     }
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
 
@@ -234,13 +235,32 @@ public static class LaneFlowSystem
         var dueIds = scratch.DueIds;
         dueIds.Clear();
         foreach (var x in due) dueIds.Add(x.Id);
-        state.InFlightTransfers.RemoveAll(x => dueIds.Contains(x.Id) && x.Quantity <= 0);
+        for (int i = state.InFlightTransfers.Count - 1; i >= 0; i--)
+        {
+            var x = state.InFlightTransfers[i];
+            if (dueIds.Contains(x.Id) && x.Quantity <= 0)
+                state.InFlightTransfers.RemoveAt(i);
+        }
+
+        // Pre-compute queued amounts per lane in a single pass (avoids O(n²) nested loop).
+        var queuedByLane = deliveredByLane; // Reuse dict after report — clear and repurpose.
+        // deliveredByLane is consumed below, so save values first by building report inline.
 
         // Emit deterministic lane utilization report sorted by lane_id.
         var laneIds = scratch.SortedLaneIds;
         laneIds.Clear();
         foreach (var k in state.Edges.Keys) laneIds.Add(k);
         laneIds.Sort(StringComparer.Ordinal);
+
+        // Single-pass queued tally.
+        var queuedTally = scratch.QueuedByLane;
+        queuedTally.Clear();
+        foreach (var x in state.InFlightTransfers)
+        {
+            if (x.Quantity > default(int))
+                queuedTally[x.EdgeId] = queuedTally.GetValueOrDefault(x.EdgeId) + x.Quantity;
+        }
+
         var lines = new List<string>(capacity: 4 + laneIds.Count)
         {
             "LANE_UTILIZATION_REPORT_V0",
@@ -263,12 +283,7 @@ public static class LaneFlowSystem
                 }
             }
 
-            int queued = default(int);
-            foreach (var x in state.InFlightTransfers)
-            {
-                if (string.Equals(x.EdgeId, laneId, StringComparison.Ordinal) && x.Quantity > default(int))
-                    queued += x.Quantity;
-            }
+            int queued = queuedTally.GetValueOrDefault(laneId);
 
             var capText = cap == int.MaxValue ? "inf" : cap.ToString();
             lines.Add($"{laneId}|{delivered}|{capText}|{queued}");

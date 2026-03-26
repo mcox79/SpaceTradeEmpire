@@ -227,9 +227,42 @@ var _scanner_hud_panel = null
 # GATE.T43.SCAN_UI.RESULT_MODAL.001: Scan result modal.
 var _scan_result_modal = null
 
+# GATE.T52.DISC.MILESTONE_CARDS.001: Discovery milestone toast tracking.
+var _milestone_known_ids: Dictionary = {}  # discovery_id → last_seen_phase
+
 # GATE.T46.SAVE.AUTOSAVE_UI.001: Auto-save HUD indicator (top-right, subtle fade).
 var _autosave_label: Label = null
 var _autosave_tween: Tween = null
+
+# GATE.T58.UI.EMPIRE_DIAMOND.001: Empire health diamond indicator (Zone A).
+var _empire_diamond = null
+
+# GATE.T58.UI.DOCK_RECAP.001: Dock recap overlay panel.
+var _dock_recap_panel = null
+
+# GATE.T58.UI.FO_DECISION.001: FO decision dialogue panel.
+var _fo_decision_panel = null
+
+# GATE.T58.UI.FLIP_VFX.001: Flip Moment presentation state.
+var _flip_letterbox_top: ColorRect = null
+var _flip_letterbox_bot: ColorRect = null
+var _flip_checked: bool = false
+var _flip_vfx_tween: Tween = null
+
+# GATE.T58.UI.BELT_WATCHING.001: Belt-watching route activity indicator.
+var _belt_watching_label: Label = null
+var _belt_watching_pulse: float = 0.0
+
+# GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Discovery approach bracket indicator.
+# Shows direction + distance to nearest unscanned discovery within 30u.
+# Bracket tightens (narrows) as player gets closer.
+var _disc_bracket_container: Control = null  # Centered container
+var _disc_bracket_left: Label = null
+var _disc_bracket_right: Label = null
+var _disc_bracket_label: Label = null  # Distance text between brackets
+var _disc_bracket_arrow: Label = null  # Direction arrow above brackets
+const _DISC_BLIP_RANGE: float = 30.0
+const _DISC_SILHOUETTE_RANGE: float = 15.0
 
 
 func _ready() -> void:
@@ -987,6 +1020,99 @@ func _ready() -> void:
 		if _bridge.has_signal("autosave_completed"):
 			_bridge.autosave_completed.connect(_on_autosave_completed)
 
+	# GATE.T58.UI.EMPIRE_DIAMOND.001: Empire health diamond (Zone A, right of alert badge).
+	var EmpireDiamondScript := preload("res://scripts/ui/empire_diamond.gd")
+	_empire_diamond = EmpireDiamondScript.new()
+	_empire_diamond.position = Vector2(310, 4)
+	add_child(_empire_diamond)
+
+	# GATE.T58.UI.DOCK_RECAP.001: Dock recap overlay.
+	var DockRecapScript := preload("res://scripts/ui/dock_recap_panel.gd")
+	_dock_recap_panel = DockRecapScript.new()
+	add_child(_dock_recap_panel)
+
+	# GATE.T58.UI.FO_DECISION.001: FO decision dialogue panel.
+	var FODecisionScript := preload("res://scripts/ui/fo_decision_panel.gd")
+	_fo_decision_panel = FODecisionScript.new()
+	add_child(_fo_decision_panel)
+
+	# GATE.T58.UI.FLIP_VFX.001: Flip moment letterbox bars (hidden initially).
+	_flip_letterbox_top = ColorRect.new()
+	_flip_letterbox_top.color = Color(0, 0, 0, 1)
+	_flip_letterbox_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_flip_letterbox_top.size = Vector2(1920, 0)
+	_flip_letterbox_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_flip_letterbox_top)
+
+	_flip_letterbox_bot = ColorRect.new()
+	_flip_letterbox_bot.color = Color(0, 0, 0, 1)
+	_flip_letterbox_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_flip_letterbox_bot.position = Vector2(0, 1080)
+	_flip_letterbox_bot.size = Vector2(1920, 0)
+	_flip_letterbox_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_flip_letterbox_bot)
+
+	# GATE.T58.UI.BELT_WATCHING.001: Belt-watching indicator (Zone G, right of status).
+	_belt_watching_label = Label.new()
+	_belt_watching_label.name = "BeltWatchingLabel"
+	_belt_watching_label.text = ""
+	_belt_watching_label.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	_belt_watching_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_belt_watching_label.position = Vector2(560, 1046)
+	_belt_watching_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_belt_watching_label.visible = false
+	add_child(_belt_watching_label)
+
+	# GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Discovery approach bracket (bottom-center).
+	# Shows direction arrow + tightening brackets + distance to nearest unscanned discovery <30u.
+	_disc_bracket_container = Control.new()
+	_disc_bracket_container.name = "DiscBracketContainer"
+	_disc_bracket_container.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_disc_bracket_container.position = Vector2(-100, -80)
+	_disc_bracket_container.size = Vector2(200, 60)
+	_disc_bracket_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_disc_bracket_container.visible = false
+	add_child(_disc_bracket_container)
+
+	_disc_bracket_arrow = Label.new()
+	_disc_bracket_arrow.name = "DiscBracketArrow"
+	_disc_bracket_arrow.text = ""
+	_disc_bracket_arrow.add_theme_font_size_override("font_size", 18)
+	_disc_bracket_arrow.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0, 0.8))
+	_disc_bracket_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_disc_bracket_arrow.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_disc_bracket_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_disc_bracket_container.add_child(_disc_bracket_arrow)
+
+	_disc_bracket_left = Label.new()
+	_disc_bracket_left.name = "DiscBracketLeft"
+	_disc_bracket_left.text = "["
+	_disc_bracket_left.add_theme_font_size_override("font_size", 22)
+	_disc_bracket_left.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0, 0.9))
+	_disc_bracket_left.position = Vector2(20, 24)
+	_disc_bracket_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_disc_bracket_container.add_child(_disc_bracket_left)
+
+	_disc_bracket_right = Label.new()
+	_disc_bracket_right.name = "DiscBracketRight"
+	_disc_bracket_right.text = "]"
+	_disc_bracket_right.add_theme_font_size_override("font_size", 22)
+	_disc_bracket_right.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0, 0.9))
+	_disc_bracket_right.position = Vector2(170, 24)
+	_disc_bracket_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_disc_bracket_container.add_child(_disc_bracket_right)
+
+	_disc_bracket_label = Label.new()
+	_disc_bracket_label.name = "DiscBracketDist"
+	_disc_bracket_label.text = ""
+	_disc_bracket_label.add_theme_font_size_override("font_size", 12)
+	_disc_bracket_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0, 0.7))
+	_disc_bracket_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_disc_bracket_label.position = Vector2(0, 30)
+	_disc_bracket_label.size = Vector2(200, 20)
+	_disc_bracket_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_disc_bracket_container.add_child(_disc_bracket_label)
+
 # GATE.T46.SAVE.AUTOSAVE_UI.001: Autosave signal handlers.
 func _on_autosave_started() -> void:
 	if _autosave_label == null:
@@ -1063,6 +1189,10 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _scanner_hud_panel: _scanner_hud_panel.visible = not active
 	if _combat_hud: _combat_hud.visible = not active
 	if _alert_badge: _alert_badge.visible = (not active) and _alert_count > 0
+	# GATE.T58.UI.EMPIRE_DIAMOND.001: Hide diamond during overlay.
+	if _empire_diamond: _empire_diamond.visible = not active
+	# GATE.T58.UI.BELT_WATCHING.001: Hide belt-watching during overlay.
+	if _belt_watching_label: _belt_watching_label.visible = not active
 	# FO panel: hide during galaxy overlay (same as data_log, knowledge_web).
 	if _fo_panel and active: _fo_panel.visible = false
 	if _data_log_panel and active: _data_log_panel.visible = false
@@ -1397,6 +1527,14 @@ func _physics_process(_delta: float) -> void:
 			_scanner_hud_panel.refresh_v0()
 		# GATE.T45.DEEP_DREAD.HUD_DREAD.001: Refresh dread indicators.
 		_update_dread_hud_v0()
+		# GATE.T52.DISC.MILESTONE_CARDS.001: Check for new discovery milestones.
+		_check_discovery_milestone_v0()
+		# GATE.T58.UI.FLIP_VFX.001: Check for flip moment event.
+		_check_flip_moment_v0()
+		# GATE.T58.UI.BELT_WATCHING.001: Update belt-watching indicator.
+		_update_belt_watching_v0()
+		# GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Discovery approach bracket.
+		_update_discovery_bracket_v0()
 
 	# GATE.S5.SEC_LANES.UI.001: security band display
 	# Hidden during tutorial — threat hasn't been introduced yet.
@@ -2512,6 +2650,55 @@ func _check_supply_alerts_v0() -> void:
 		_supply_alert_label.set_meta("supply_toasted", false)
 
 
+# GATE.T52.DISC.MILESTONE_CARDS.001: Discovery milestone toast — fires on scan/analysis complete.
+func _check_discovery_milestone_v0() -> void:
+	if not _bridge:
+		return
+	var discoveries = _bridge.call("GetDiscoveryListSnapshotV0")
+	if not discoveries is Array:
+		return
+	for entry in discoveries:
+		if not entry is Dictionary:
+			continue
+		var did: String = str(entry.get("discovery_id", ""))
+		if did.is_empty():
+			continue
+		# Determine current phase from bps flags.
+		var phase: String = "SEEN"
+		if int(entry.get("analyzed_bps", 0)) >= 10000:
+			phase = "ANALYZED"
+		elif int(entry.get("scanned_bps", 0)) >= 10000:
+			phase = "SCANNED"
+		var prev_phase: String = str(_milestone_known_ids.get(did, ""))
+		_milestone_known_ids[did] = phase
+		# First poll: seed baseline without toasting.
+		if prev_phase.is_empty():
+			continue
+		# Only toast on phase advancement.
+		if phase == prev_phase:
+			continue
+		if phase == "SEEN":
+			continue
+		# Fetch detail for the toast card.
+		var detail: Dictionary = {}
+		if _bridge.has_method("GetDiscoveryDetailV0"):
+			detail = _bridge.call("GetDiscoveryDetailV0", did)
+			if not detail is Dictionary:
+				detail = {}
+		var flavor: String = str(detail.get("flavor_text", ""))
+		var kind: String = str(detail.get("kind", ""))
+		var label: String = "Discovery %s" % phase.capitalize()
+		if not kind.is_empty():
+			label = "%s %s" % [kind.capitalize(), phase.capitalize()]
+		var msg: String = label if flavor.is_empty() else "%s\n%s" % [label, flavor]
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+			toast_mgr.call("show_priority_toast", msg, "milestone")
+		elif toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.call("show_toast", msg, 5.0)
+		print("UUIR|DISCOVERY_MILESTONE|id=%s|phase=%s|kind=%s" % [did, phase, kind])
+
+
 ## Map internal security band names to player-friendly labels.
 func _security_display_name(band: String) -> String:
 	match band:
@@ -2834,3 +3021,204 @@ func _update_dread_hud_v0() -> void:
 			_dread_fauna_label.text = ""
 	else:
 		_dread_fauna_label.text = ""
+
+
+# GATE.T58.UI.FLIP_VFX.001: Check for flip moment event and present 6-channel celebration.
+func _check_flip_moment_v0() -> void:
+	if _bridge == null or not _bridge.has_method("GetFlipMomentV0"):
+		return
+	var flip: Dictionary = _bridge.call("GetFlipMomentV0")
+	if not flip.get("flip_event_pending", false):
+		return
+
+	# Consume the event so it only fires once.
+	if _bridge.has_method("ConsumeFlipEventV0"):
+		_bridge.call("ConsumeFlipEventV0")
+
+	# Channel 1: FO dialogue.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+		toast_mgr.call("show_priority_toast", "FO: We've turned the corner — empire is net-positive!", "fo")
+
+	# Channel 2: Letterbox cinematic framing.
+	if _flip_letterbox_top and _flip_letterbox_bot:
+		if _flip_vfx_tween:
+			_flip_vfx_tween.kill()
+		_flip_vfx_tween = create_tween()
+		# Bars slide in.
+		_flip_vfx_tween.tween_property(_flip_letterbox_top, "size:y", 80.0, 0.5).set_ease(Tween.EASE_OUT)
+		_flip_vfx_tween.parallel().tween_property(_flip_letterbox_bot, "position:y", 1000.0, 0.5).set_ease(Tween.EASE_OUT)
+		_flip_vfx_tween.parallel().tween_property(_flip_letterbox_bot, "size:y", 80.0, 0.5).set_ease(Tween.EASE_OUT)
+		# Hold for 3 seconds.
+		_flip_vfx_tween.tween_interval(3.0)
+		# Bars slide out.
+		_flip_vfx_tween.tween_property(_flip_letterbox_top, "size:y", 0.0, 0.5).set_ease(Tween.EASE_IN)
+		_flip_vfx_tween.parallel().tween_property(_flip_letterbox_bot, "position:y", 1080.0, 0.5).set_ease(Tween.EASE_IN)
+		_flip_vfx_tween.parallel().tween_property(_flip_letterbox_bot, "size:y", 0.0, 0.5).set_ease(Tween.EASE_IN)
+
+	# Channel 3: Audio fanfare (placeholder — audio_signature_bus.gd handles this).
+	var audio_bus = get_node_or_null("/root/AudioSignatureBus")
+	if audio_bus and audio_bus.has_method("play_cue"):
+		audio_bus.call("play_cue", "flip_moment_fanfare")
+
+	# Channel 4: Credit counter glow effect.
+	if _credits_flash:
+		_credits_flash.color = Color(1.0, 0.85, 0.4, 0.4)
+		_credits_flash.visible = true
+		var glow_tween := create_tween()
+		glow_tween.tween_property(_credits_flash, "color:a", 0.0, 2.0)
+		glow_tween.tween_callback(func(): _credits_flash.visible = false)
+
+	# Channel 5: Sparkline crossover text (gold toast).
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "★ NET-POSITIVE CROSSOVER ★", "gold")
+
+	# Channel 6: Haven trophy wall entry (announced via toast).
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.call("show_toast", "Trophy unlocked: Empire Architect", "achievement")
+
+
+# GATE.T58.UI.BELT_WATCHING.001: Belt-watching route activity indicator.
+func _update_belt_watching_v0() -> void:
+	if _belt_watching_label == null:
+		return
+	if _bridge == null or not _bridge.has_method("GetEmpireHealthV0"):
+		_belt_watching_label.visible = false
+		return
+
+	var health: Dictionary = _bridge.call("GetEmpireHealthV0")
+	var total: int = health.get("total_managed_routes", 0)
+	var healthy: int = health.get("healthy_routes", 0)
+	var degraded: int = health.get("degraded_routes", 0)
+
+	if total < 3:
+		_belt_watching_label.visible = false
+		return
+
+	# Show belt-watching indicator: route throughput pulse.
+	_belt_watching_label.visible = true
+	_belt_watching_pulse += 0.1
+	var pulse_alpha: float = 0.6 + 0.4 * abs(sin(_belt_watching_pulse))
+
+	var status_icon: String = "◆" if degraded == 0 else "◇"
+	_belt_watching_label.text = "%s %d routes active" % [status_icon, total]
+
+	if degraded > 0:
+		_belt_watching_label.add_theme_color_override("font_color", UITheme.ORANGE)
+	else:
+		_belt_watching_label.add_theme_color_override("font_color", UITheme.CYAN)
+	_belt_watching_label.modulate.a = pulse_alpha
+
+
+## GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Discovery approach bracket update.
+## Finds nearest unscanned discovery site <30u from player, shows directional bracket
+## that tightens as distance decreases.
+func _update_discovery_bracket_v0() -> void:
+	if _disc_bracket_container == null:
+		return
+	# Hide during tutorial, overlays, or docked state.
+	if _tutorial_active or _overlay_active:
+		_disc_bracket_container.visible = false
+		return
+
+	# Find player 3D node.
+	var player: Node3D = get_node_or_null("/root/Main/Player") as Node3D
+	if player == null:
+		_disc_bracket_container.visible = false
+		return
+
+	# Get the camera for 3D → 2D projection (direction arrow).
+	var cam: Camera3D = get_viewport().get_camera_3d() if get_viewport() else null
+
+	# Iterate discovery site group to find nearest within range.
+	var sites: Array[Node] = get_tree().get_nodes_in_group("DiscoverySite")
+	var nearest_dist: float = 9999.0
+	var nearest_site: Node3D = null
+
+	for site_node in sites:
+		if site_node is not Node3D:
+			continue
+		var sn: Node3D = site_node as Node3D
+		if not sn.is_inside_tree():
+			continue
+		var d: float = player.global_position.distance_to(sn.global_position)
+		if d < nearest_dist and d < _DISC_BLIP_RANGE:
+			nearest_dist = d
+			nearest_site = sn
+
+	if nearest_site == null:
+		_disc_bracket_container.visible = false
+		return
+
+	# Show bracket.
+	_disc_bracket_container.visible = true
+
+	# --- Bracket tightening: max spread at 30u, fully tight at <3u ---
+	# t=0 at 30u, t=1 at 0u.
+	var t: float = 1.0 - clampf(nearest_dist / _DISC_BLIP_RANGE, 0.0, 1.0)
+	# Bracket horizontal offset from center: 90px at far, 10px at close.
+	var bracket_spread: float = lerpf(90.0, 10.0, t)
+	var center_x: float = 100.0  # Container is 200px wide, center at 100.
+	if _disc_bracket_left:
+		_disc_bracket_left.position.x = center_x - bracket_spread
+	if _disc_bracket_right:
+		_disc_bracket_right.position.x = center_x + bracket_spread - 10.0  # -10 for glyph width
+
+	# --- Distance label ---
+	if _disc_bracket_label:
+		_disc_bracket_label.text = "%.0fu" % nearest_dist
+
+	# --- Color intensification: cyan at far, bright white-cyan at close ---
+	var bracket_color: Color = Color(
+		lerpf(0.3, 0.7, t),
+		lerpf(0.7, 0.9, t),
+		1.0,
+		lerpf(0.5, 1.0, t)
+	)
+	if _disc_bracket_left:
+		_disc_bracket_left.add_theme_color_override("font_color", bracket_color)
+	if _disc_bracket_right:
+		_disc_bracket_right.add_theme_color_override("font_color", bracket_color)
+	if _disc_bracket_label:
+		_disc_bracket_label.add_theme_color_override("font_color", Color(bracket_color.r, bracket_color.g, bracket_color.b, bracket_color.a * 0.7))
+
+	# --- Direction arrow: project discovery site to screen space ---
+	if cam and _disc_bracket_arrow:
+		var screen_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+		var site_screen: Vector2 = cam.unproject_position(nearest_site.global_position)
+		var dir: Vector2 = (site_screen - screen_center).normalized()
+
+		# Map direction to arrow character.
+		var angle_rad: float = atan2(dir.y, dir.x)
+		var arrow: String = _disc_direction_arrow(angle_rad)
+		_disc_bracket_arrow.text = arrow
+		_disc_bracket_arrow.add_theme_color_override("font_color", bracket_color)
+
+
+## GATE.T59.DISC_VIZ.APPROACH_FEEDBACK.001: Map angle to directional arrow glyph.
+func _disc_direction_arrow(angle_rad: float) -> String:
+	# 8-direction arrow from angle in radians (-PI to PI).
+	# 0 = right, PI/2 = down, -PI/2 = up, PI = left.
+	var deg: float = rad_to_deg(angle_rad)
+	if deg < -157.5 or deg >= 157.5:
+		return "◄"
+	elif deg < -112.5:
+		return "◤"  # Up-left diagonal, approximate with corner
+	elif deg < -67.5:
+		return "▲"
+	elif deg < -22.5:
+		return "◥"
+	elif deg < 22.5:
+		return "►"
+	elif deg < 67.5:
+		return "◢"
+	elif deg < 112.5:
+		return "▼"
+	else:
+		return "◣"
+
+
+## GATE.T58.UI.DOCK_RECAP.001: Trigger dock recap display (called by game_manager on dock).
+func show_dock_recap_v0() -> void:
+	if _dock_recap_panel and _dock_recap_panel.has_method("show_recap_v0"):
+		_dock_recap_panel.call("show_recap_v0")

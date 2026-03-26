@@ -1,6 +1,5 @@
 using SimCore.Entities;
 using SimCore.Tweaks;
-using System.Linq;
 
 namespace SimCore.Systems;
 
@@ -56,9 +55,9 @@ public static class PentagonBreakSystem
             if (string.IsNullOrEmpty(marketId)) continue;
             if (!state.Markets.TryGetValue(marketId, out var market)) continue;
 
-            if (!market.Inventory.ContainsKey(Content.WellKnownGoodIds.Food))
-                market.Inventory[Content.WellKnownGoodIds.Food] = 0;
-            market.Inventory[Content.WellKnownGoodIds.Food] += PentagonBreakTweaksV0.CommunionFoodSelfProductionQty;
+            if (!market.Inventory.TryGetValue(Content.WellKnownGoodIds.Food, out var foodQty))
+                foodQty = 0;
+            market.Inventory[Content.WellKnownGoodIds.Food] = foodQty + PentagonBreakTweaksV0.CommunionFoodSelfProductionQty;
         }
     }
 }

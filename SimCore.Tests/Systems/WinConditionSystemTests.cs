@@ -71,7 +71,8 @@ public sealed class WinConditionSystemTests
         state.FactionReputation["weaver"] = WinRequirementsTweaksV0.ReinforceMinWeaverRep;
         state.AdaptationFragments[WinRequirementsTweaksV0.ReinforceRequiredFragment] = new AdaptationFragment
         {
-            FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment
+            FragmentId = WinRequirementsTweaksV0.ReinforceRequiredFragment,
+            CollectedTick = 0
         };
 
         WinConditionSystem.Process(state);
@@ -91,7 +92,8 @@ public sealed class WinConditionSystemTests
         // Only 1 of 2 required fragments
         state.AdaptationFragments[WinRequirementsTweaksV0.NaturalizeRequiredFragment1] = new AdaptationFragment
         {
-            FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1
+            FragmentId = WinRequirementsTweaksV0.NaturalizeRequiredFragment1,
+            CollectedTick = 0
         };
 
         WinConditionSystem.Process(state);

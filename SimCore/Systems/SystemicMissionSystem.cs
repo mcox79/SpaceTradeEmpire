@@ -22,6 +22,7 @@ public static class SystemicMissionSystem
         public readonly List<string> SortedMarketKeys = new();
         public readonly List<string> SortedNodeKeys = new();
         public readonly List<string> SortedGoodIds = new();
+        public readonly Dictionary<string, string> MarketIdToNodeId = new(StringComparer.Ordinal);
     }
     private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
 
@@ -30,7 +31,11 @@ public static class SystemicMissionSystem
         if (state.Tick % SystemicMissionTweaksV0.ScanIntervalTicks != STRUCT_ZERO) return;
 
         // Expire stale offers.
-        state.SystemicOffers.RemoveAll(o => state.Tick >= o.ExpiryTick);
+        for (int i = state.SystemicOffers.Count - 1; i >= 0; i--)
+        {
+            if (state.Tick >= state.SystemicOffers[i].ExpiryTick)
+                state.SystemicOffers.RemoveAt(i);
+        }
 
         // Don't exceed max offers.
         if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
@@ -44,6 +49,15 @@ public static class SystemicMissionSystem
             existingKeys.Add($"{(int)o.TriggerType}|{o.NodeId}|{o.GoodId}");
 
         // Scan triggers in deterministic order.
+        // Pre-build reverse map: MarketId → NodeId (avoids O(n²) search in ScanPriceSpike).
+        var marketToNode = scratch.MarketIdToNodeId;
+        marketToNode.Clear();
+        foreach (var nkv in state.Nodes)
+        {
+            if (!string.IsNullOrEmpty(nkv.Value.MarketId))
+                marketToNode[nkv.Value.MarketId] = nkv.Key;
+        }
+
         ScanWarDemand(state, existingKeys, scratch);
         ScanPriceSpike(state, existingKeys, scratch);
         ScanSupplyShortage(state, existingKeys, scratch);
@@ -103,17 +117,9 @@ public static class SystemicMissionSystem
             if (state.SystemicOffers.Count >= SystemicMissionTweaksV0.MaxSystemicOffers) return;
 
             var market = state.Markets[marketKey];
-            // Find the node that owns this market.
-            string nodeId = "";
-            foreach (var nkv in state.Nodes)
-            {
-                if (string.Equals(nkv.Value.MarketId, market.Id, StringComparison.Ordinal))
-                {
-                    nodeId = nkv.Key;
-                    break;
-                }
-            }
-            if (string.IsNullOrEmpty(nodeId)) continue;
+            // Find the node that owns this market (via pre-built reverse map).
+            if (!scratch.MarketIdToNodeId.TryGetValue(market.Id, out var nodeId)
+                || string.IsNullOrEmpty(nodeId)) continue;
 
             var sortedGoodIds = scratch.SortedGoodIds;
             sortedGoodIds.Clear();

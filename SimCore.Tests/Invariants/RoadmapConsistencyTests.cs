@@ -5,6 +5,7 @@ using NUnit.Framework;
 
 namespace SimCore.Tests.Invariants
 {
+    [Timeout(90_000)]  // 90s safety net — inner process has its own 30s kill
     public sealed class RoadmapConsistencyTests
     {
         [Test]

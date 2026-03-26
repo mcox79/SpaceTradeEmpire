@@ -3,19 +3,30 @@ using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
 public static class MovementSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<Fleet> SortedFleets = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
 
         // Determinism: dictionary iteration order is not guaranteed.
-        foreach (var fleet in state.Fleets.Values.OrderBy(f => f.Id, StringComparer.Ordinal))
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var sortedFleets = scratch.SortedFleets;
+        sortedFleets.Clear();
+        foreach (var f in state.Fleets.Values) sortedFleets.Add(f);
+        sortedFleets.Sort((a, b) => StringComparer.Ordinal.Compare(a.Id, b.Id));
+        foreach (var fleet in sortedFleets)
         {
             // Slice 3: Route initiation and lane-by-lane travel.
             // Convention:

@@ -38,6 +38,10 @@ public static class AdaptationFragmentSystem
 
         fragment.CollectedTick = state.Tick;
 
+        // Track collected count for story progression (R5_Instability, HavenEndgame).
+        if (state.StoryState != null)
+            state.StoryState.CollectedFragmentCount++;
+
         // Check if this completes a resonance pair.
         string? completedPair = CheckResonancePairCompletion(state, fragment.ResonancePairId);
 

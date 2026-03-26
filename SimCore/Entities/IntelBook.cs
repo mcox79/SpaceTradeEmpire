@@ -72,6 +72,16 @@ public sealed class IntelBook
     // GATE.T18.NARRATIVE.KNOWLEDGE_GRAPH.001: Discovery-to-discovery connections forming a knowledge graph.
     [JsonInclude] public List<KnowledgeConnection> KnowledgeConnections { get; private set; } = new();
 
+    // GATE.T57.PIPELINE.ECONOMIC_INTEL.001: Economic intel from analyzed discoveries.
+    // Keyed by IntelId (format: ECON.<discoveryId hash>). Typed variants per discovery family.
+    [JsonInclude] public Dictionary<string, EconomicIntel> EconomicIntels { get; private set; } = new(StringComparer.Ordinal);
+
+    // GATE.T57.KG.PLAYER_VERBS.001: Player KG annotations, pins, flags, and compare pairs.
+    [JsonInclude] public KnowledgeGraphPlayerState KGPlayerState { get; private set; } = new();
+
+    // GATE.T58.KG.MILESTONE_ENTITY.001: KG progressive disclosure milestone state.
+    [JsonInclude] public KGMilestoneState KGMilestones { get; set; } = new();
+
     // GATE.S7.REVEALS.WARFRONT_REVEAL.001: Consecutive ticks player has observed each node.
     // Key = nodeId, Value = consecutive observation ticks. Reset when player leaves node.
     [JsonInclude] public Dictionary<string, int> NodeObservationTicks { get; private set; } = new(StringComparer.Ordinal);
@@ -86,7 +96,31 @@ public enum TradeRouteStatus
     Discovered = 0,
     Active = 1,
     Stale = 2,
-    Unprofitable = 3
+    Unprofitable = 3,
+    // GATE.T57.CENTAUR.WORLD_ADAPT.001: FO adaptation statuses.
+    Flagged = 4,
+    Paused = 5
+}
+
+// GATE.T57.CENTAUR.WORLD_ADAPT.001: World event types that trigger FO route adaptation.
+public enum WorldAdaptEventType
+{
+    None = 0,
+    TariffImposed = 1,
+    IntelAged = 2,
+    FactionConflict = 3,
+    MarketShift = 4,
+    PlayerOverlap = 5
+}
+
+// GATE.T57.CENTAUR.WORLD_ADAPT.001: FO adaptation action per world event.
+public enum AdaptationAction
+{
+    None = 0,
+    FlagRoute = 1,
+    PauseRoute = 2,
+    WidenSearch = 3,
+    Reroute = 4
 }
 
 // GATE.S10.TRADE_INTEL.ROUTE_ENTITY.001: Discovered trade route with profitability estimate.
@@ -104,6 +138,13 @@ public sealed class TradeRouteIntel
     [JsonInclude] public string FlavorText { get; set; } = "";
     // GATE.T41.DISCOVERY_INTEL.MODEL.001: Discovery that generated this route (empty = non-discovery source).
     [JsonInclude] public string SourceDiscoveryId { get; set; } = "";
+    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: FO confidence in this route (0-100).
+    // Computed from intel age, volatility, and proven trade count.
+    [JsonInclude] public int ConfidenceScore { get; set; } = 50;
+    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Personality-colored confidence text.
+    [JsonInclude] public string ConfidenceText { get; set; } = "";
+    // GATE.T57.CENTAUR.CONFIDENCE_LANG.001: Number of successful trades on this route.
+    [JsonInclude] public int ProvenTradeCount { get; set; } = 0;
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001
@@ -124,7 +165,23 @@ public enum DiscoveryReasonCode
     OffHub = 3,
     NotScanned = 4,
     // GATE.X.SHIP_CLASS.SCAN_RANGE.001: Fleet's ScanRange too low for this discovery.
-    OutOfRange = 5
+    OutOfRange = 5,
+    // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Scan failed due to instability/hazard.
+    ScanFailed = 6,
+    PartialSuccess = 7,
+    OnCooldown = 8
+}
+
+// GATE.T57.FEEL.DISCOVERY_FAILURE.001: Failure type when a scan attempt fails.
+public enum DiscoveryFailureType
+{
+    None = 0,
+    ScanInterference = 1,
+    HazardAbort = 2,
+    IntelSpoilage = 3,
+    ChainDeadEnd = 4,
+    ContestedDiscovery = 5,
+    FalsePositive = 6
 }
 
 // GATE.S3_6.DISCOVERY_STATE.001
@@ -136,6 +193,10 @@ public sealed class DiscoveryStateV0
     [JsonInclude] public string FlavorText { get; set; } = "";
     // GATE.T41.INSTAB_REVEAL.MODEL.001: Instability phase required to reveal this discovery (0 = always visible).
     [JsonInclude] public int InstabilityGate { get; set; } = 0;
+    // GATE.T57.FEEL.DISCOVERY_FAILURE.001: Failure tracking for scan attempts.
+    [JsonInclude] public int LastFailureTick { get; set; } = -1;
+    [JsonInclude] public DiscoveryFailureType LastFailureType { get; set; } = DiscoveryFailureType.None;
+    [JsonInclude] public int FailureCount { get; set; } = 0;
 }
 
 // GATE.S3_6.RUMOR_INTEL_MIN.001

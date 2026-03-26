@@ -29,6 +29,12 @@ public static class TechAccessTweaksV0
         // Communion T2 modules — require Friendly standing with Communion
         { "mod_fracture_lens_t2", ("communion", 25) },
         { "mod_harmony_field_t2", ("communion", 25) },
+        // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: New Communion scanner/nav modules
+        { "communion_shimmer_drive_t2", ("communion", 25) },
+        { "communion_resonance_comm_t2", ("communion", 25) },
+        { "communion_phase_lock_t2", ("communion", 25) },
+        // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: New Weavers structural utility
+        { "weavers_load_bearing_t2", ("weavers", 25) },
 
         // Allied-tier modules (75 rep required)
         { "mod_concord_elite_t2", ("concord", 75) },

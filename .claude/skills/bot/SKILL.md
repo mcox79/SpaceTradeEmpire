@@ -36,8 +36,8 @@ powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Bot.ps1 -Mode <mode> 
 
 The runner:
 1. Builds the C# project
-2. Launches Godot **headless** with `exploration_bot_v1.gd`
-3. Parses `BOT|` prefixed output lines
+2. Launches Godot **headless** with `playthrough_bot_v0.gd` (consolidated bot)
+3. Parses `PLAY|` prefixed output lines
 4. Reports pass/fail verdict
 
 Check exit code: 0 = PASS, 1 = FAIL.
@@ -104,7 +104,7 @@ price diversity, tech tree, and fuel sustain. See `/screenshot` skill for full d
 
 | Mode | Script | Prefix | Output dir |
 |------|--------|--------|-----------|
-| trade/combat/stress/full | `scripts/tests/exploration_bot_v1.gd` | `BOT\|` | `reports/bot/<mode>/` |
+| trade/combat/stress/full | `scripts/tests/playthrough_bot_v0.gd` | `PLAY\|` | `reports/bot/<mode>/` |
 | first-hour (headless/visual) | `scripts/tests/test_first_hour_proof_v0.gd` | `FH1\|` | `reports/first_hour/` |
 
 ## Troubleshooting

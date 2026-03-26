@@ -5,6 +5,7 @@ extends PanelContainer
 # Polls GetDiscoverySnapshotV0(node_id) every 1 second.
 # Progressive disclosure: hidden when no discoveries at current node.
 # GATE.S6.OUTCOME.REWARD_BRIDGE.001: Outcome reward summary for Analyzed discoveries.
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Scan hold timer with progress ring VFX.
 
 const PREFIX := "DSPANEL|"
 
@@ -18,6 +19,14 @@ var _last_node_id: String = ""
 var _outcomes_by_discovery: Dictionary = {}
 # GATE.S6.FRACTURE_DISCOVERY.UI.001: Derelict analysis progress label.
 var _derelict_status_label: Label = null
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Scan ceremony state.
+var _scan_ceremony_active: bool = false
+var _scan_ceremony_site_id: String = ""
+var _scan_ceremony_family: String = ""
+var _galaxy_view = null
+# Progress bar shown in the scan button row during ceremony.
+var _scan_progress_bar_ref: ProgressBar = null
 
 func _ready() -> void:
 	_bridge = get_node_or_null("/root/SimBridge")
@@ -67,6 +76,10 @@ func _process(delta: float) -> void:
 		_poll_timer = 0.0
 		_refresh_v0()
 
+	# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Update scan ceremony progress display.
+	if _scan_ceremony_active:
+		_update_scan_ceremony_progress_v0()
+
 
 func _refresh_v0() -> void:
 	if _bridge == null:
@@ -106,6 +119,10 @@ func _refresh_v0() -> void:
 			if not disc_id.is_empty():
 				_outcomes_by_discovery[disc_id] = outcome
 
+	# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Cancel ceremony if node changed during scan.
+	if node_id != _last_node_id and _scan_ceremony_active:
+		_cancel_scan_ceremony_v0()
+
 	# Rebuild site rows if node changed
 	if node_id != _last_node_id:
 		_last_node_id = node_id
@@ -128,7 +145,9 @@ func _rebuild_sites_v0(sites: Array) -> void:
 	for site_dict in sites:
 		var site_id: String = str(site_dict.get("site_id", ""))
 		var phase: String = str(site_dict.get("phase", "SEEN"))
-		_add_site_row_v0(site_id, phase)
+		# Bridge GetDiscoverySnapshotV0 returns "kind" for family (e.g., DERELICT, RUIN, SIGNAL).
+		var family: String = str(site_dict.get("kind", ""))
+		_add_site_row_v0(site_id, phase, family)
 
 
 func _update_site_rows_v0(sites: Array) -> void:
@@ -144,16 +163,23 @@ func _update_site_rows_v0(sites: Array) -> void:
 			phase_lbl.text = _phase_display_v0(phase)
 			phase_lbl.add_theme_color_override("font_color", _phase_color_v0(phase))
 		if scan_btn:
-			scan_btn.disabled = (phase != "SEEN")
+			# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Disable button during active ceremony.
+			if _scan_ceremony_active:
+				scan_btn.disabled = true
+			else:
+				scan_btn.disabled = (phase != "SEEN")
+				scan_btn.text = "Scan"
 
 	# If site count changed, do a full rebuild on next cycle
 	if sites.size() != rows.size():
 		_last_node_id = ""
 
 
-func _add_site_row_v0(site_id: String, phase: String) -> void:
+func _add_site_row_v0(site_id: String, phase: String, family: String = "") -> void:
 	var row := VBoxContainer.new()
 	row.name = "SiteRow_" + site_id.replace(".", "_")
+	# Store family as metadata for ceremony color lookup.
+	row.set_meta("family", family)
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 6)
@@ -173,8 +199,24 @@ func _add_site_row_v0(site_id: String, phase: String) -> void:
 	scan_btn.disabled = (phase != "SEEN")
 	scan_btn.custom_minimum_size = Vector2(60, 0)
 	# Bind the site_id for this row
-	scan_btn.pressed.connect(_on_scan_pressed_v0.bind(site_id))
+	scan_btn.pressed.connect(_on_scan_pressed_v0.bind(site_id, family))
 	hbox.add_child(scan_btn)
+
+	# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Progress bar for scan ceremony (hidden by default).
+	var progress_bar := ProgressBar.new()
+	progress_bar.name = "ScanProgressBar"
+	progress_bar.custom_minimum_size = Vector2(0, 6)
+	progress_bar.max_value = 100
+	progress_bar.value = 0
+	progress_bar.show_percentage = false
+	progress_bar.visible = false
+	var scan_fill := StyleBoxFlat.new()
+	scan_fill.bg_color = UITheme.CYAN
+	progress_bar.add_theme_stylebox_override("fill", scan_fill)
+	var scan_bg := StyleBoxFlat.new()
+	scan_bg.bg_color = Color(0.1, 0.12, 0.15, 0.8)
+	progress_bar.add_theme_stylebox_override("background", scan_bg)
+	row.add_child(progress_bar)
 
 	# GATE.S6.OUTCOME.REWARD_BRIDGE.001: Show reward summary for Analyzed discoveries.
 	if phase == "ANALYZED" and _outcomes_by_discovery.has(site_id):
@@ -206,17 +248,133 @@ func _build_reward_text_v0(outcome: Dictionary) -> String:
 	return " ".join(parts)
 
 
-func _on_scan_pressed_v0(site_id: String) -> void:
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Scan button now initiates a 4-second scan ceremony
+# instead of dispatching instantly. The actual DispatchScanDiscoveryV0 is called by
+# GalaxyView when the ceremony completes.
+func _on_scan_pressed_v0(site_id: String, family: String = "") -> void:
 	if _bridge == null or site_id.is_empty():
 		return
-	if _bridge.has_method("DispatchScanDiscoveryV0"):
-		_bridge.call("DispatchScanDiscoveryV0", site_id)
-		print(PREFIX + "SCAN|site_id=" + site_id)
-		# GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001: play phase transition chime.
-		_play_discovery_chime_v0("SCANNED")
-		# Force immediate refresh after scan
-		_last_node_id = ""
-		_refresh_v0()
+	if _scan_ceremony_active:
+		# Already scanning — cancel current ceremony.
+		_cancel_scan_ceremony_v0()
+		return
+
+	# Start scan ceremony via GalaxyView.
+	_ensure_galaxy_view()
+	if _galaxy_view and _galaxy_view.has_method("BeginScanCeremonyV0"):
+		_galaxy_view.call("BeginScanCeremonyV0", site_id, family)
+		_scan_ceremony_active = true
+		_scan_ceremony_site_id = site_id
+		_scan_ceremony_family = family
+		print(PREFIX + "SCAN_CEREMONY_START|site_id=" + site_id + "|family=" + family)
+
+		# Connect to completion signal (if not already connected).
+		if not _galaxy_view.is_connected("scan_ceremony_completed", _on_scan_ceremony_completed_v0):
+			_galaxy_view.connect("scan_ceremony_completed", _on_scan_ceremony_completed_v0)
+
+		# Update button text and show progress bar.
+		_set_scan_button_scanning_v0(site_id, true)
+	else:
+		# Fallback: no GalaxyView available — instant scan (legacy behavior for headless bots).
+		if _bridge.has_method("DispatchScanDiscoveryV0"):
+			_bridge.call("DispatchScanDiscoveryV0", site_id)
+			print(PREFIX + "SCAN|site_id=" + site_id + " (instant fallback)")
+			_play_discovery_chime_v0("SCANNED")
+			_last_node_id = ""
+			_refresh_v0()
+
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Cancel active scan ceremony.
+func _cancel_scan_ceremony_v0() -> void:
+	if not _scan_ceremony_active:
+		return
+	_ensure_galaxy_view()
+	if _galaxy_view and _galaxy_view.has_method("CancelScanCeremonyV0"):
+		_galaxy_view.call("CancelScanCeremonyV0")
+	_scan_ceremony_active = false
+	_set_scan_button_scanning_v0(_scan_ceremony_site_id, false)
+	_scan_ceremony_site_id = ""
+	_scan_ceremony_family = ""
+	print(PREFIX + "SCAN_CEREMONY_CANCEL")
+
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Called when GalaxyView completes the scan ceremony.
+func _on_scan_ceremony_completed_v0(site_id: String) -> void:
+	if site_id != _scan_ceremony_site_id:
+		return
+	_scan_ceremony_active = false
+	_set_scan_button_scanning_v0(site_id, false)
+	print(PREFIX + "SCAN_CEREMONY_COMPLETE|site_id=" + site_id)
+	# GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001: play phase transition chime on completion.
+	_play_discovery_chime_v0("SCANNED")
+	_scan_ceremony_site_id = ""
+	_scan_ceremony_family = ""
+	# Force immediate refresh after scan to update phase display.
+	_last_node_id = ""
+	_refresh_v0()
+
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Update button text and progress bar during ceremony.
+func _update_scan_ceremony_progress_v0() -> void:
+	_ensure_galaxy_view()
+	if _galaxy_view == null or not _galaxy_view.has_method("GetScanCeremonyProgressV0"):
+		return
+
+	var progress: float = _galaxy_view.call("GetScanCeremonyProgressV0")
+
+	# Check if ceremony ended without signal (e.g., externally cancelled).
+	if not _galaxy_view.call("IsScanCeremonyActiveV0"):
+		if _scan_ceremony_active:
+			# Ceremony ended — reset.
+			_scan_ceremony_active = false
+			_set_scan_button_scanning_v0(_scan_ceremony_site_id, false)
+			_scan_ceremony_site_id = ""
+			_scan_ceremony_family = ""
+		return
+
+	# Update scan button text with percentage.
+	var pct: int = int(progress * 100.0)
+	for row in _sites_container.get_children():
+		var scan_btn: Button = row.get_node_or_null("ScanButton")
+		if scan_btn and scan_btn.disabled:
+			# Find if this is the scanning row.
+			var row_name: String = row.name
+			var expected_name: String = "SiteRow_" + _scan_ceremony_site_id.replace(".", "_")
+			if row_name == expected_name:
+				scan_btn.text = "Scanning %d%%" % pct
+				# Update progress bar.
+				var prog_bar: ProgressBar = row.get_node_or_null("ScanProgressBar")
+				if prog_bar:
+					prog_bar.value = pct
+
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Toggle scan button appearance during ceremony.
+func _set_scan_button_scanning_v0(site_id: String, scanning: bool) -> void:
+	var expected_name: String = "SiteRow_" + site_id.replace(".", "_")
+	for row in _sites_container.get_children():
+		if row.name != expected_name:
+			continue
+		var scan_btn: Button = row.get_node_or_null("ScanButton")
+		var prog_bar: ProgressBar = row.get_node_or_null("ScanProgressBar")
+		if scan_btn:
+			if scanning:
+				scan_btn.text = "Scanning 0%"
+				scan_btn.disabled = true
+			else:
+				scan_btn.text = "Scan"
+				# Phase check will re-enable/disable on next refresh.
+		if prog_bar:
+			prog_bar.visible = scanning
+			prog_bar.value = 0
+		break
+
+
+# GATE.T59.DISC_VIZ.SCAN_CEREMONY.001: Find GalaxyView reference.
+func _ensure_galaxy_view() -> void:
+	if _galaxy_view and is_instance_valid(_galaxy_view):
+		return
+	if get_tree():
+		_galaxy_view = get_tree().root.find_child("GalaxyView", true, false)
 
 
 # GATE.S7.AUDIO_WIRING.DISCOVERY_CHIMES.001: play discovery phase audio.

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -13,6 +13,13 @@ namespace SimCore.Systems;
 /// </summary>
 public static class LatticeDroneSpawnSystem
 {
+    private sealed class Scratch
+    {
+        public readonly Dictionary<string, List<string>> DronesByNode = new(StringComparer.Ordinal);
+        public readonly List<string> SortedNodeKeys = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state.Nodes is null || state.Nodes.Count == 0) return; // STRUCTURAL: guard
@@ -20,8 +27,11 @@ public static class LatticeDroneSpawnSystem
         // Only check spawns periodically.
         if (state.Tick % LatticeDroneTweaksV0.SpawnCheckIntervalTicks != 0) return; // STRUCTURAL: tick guard
 
+        var scratch = s_scratch.GetOrCreateValue(state);
+
         // Collect drone fleet IDs for cleanup.
-        var dronesByNode = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var dronesByNode = scratch.DronesByNode;
+        foreach (var existing in dronesByNode.Values) existing.Clear();
         foreach (var fleet in state.Fleets.Values)
         {
             if (!fleet.IsLatticeDrone) continue;
@@ -34,11 +44,15 @@ public static class LatticeDroneSpawnSystem
             list.Add(fleet.Id);
         }
 
-        foreach (var kv in state.Nodes.OrderBy(k => k.Key, StringComparer.Ordinal))
+        var sortedNodeKeys = scratch.SortedNodeKeys;
+        sortedNodeKeys.Clear();
+        foreach (var k in state.Nodes.Keys) sortedNodeKeys.Add(k);
+        sortedNodeKeys.Sort(StringComparer.Ordinal);
+        foreach (var nodeKey in sortedNodeKeys)
         {
-            var node = kv.Value;
+            if (!state.Nodes.TryGetValue(nodeKey, out var node)) continue;
             int phase = InstabilityTweaksV0.GetPhaseIndex(node.InstabilityLevel);
-            dronesByNode.TryGetValue(kv.Key, out var existingDrones);
+            dronesByNode.TryGetValue(nodeKey, out var existingDrones);
             int droneCount = existingDrones?.Count ?? 0; // STRUCTURAL: null-safe count
 
             if (phase >= LatticeDroneTweaksV0.DespawnPhaseMax || phase < LatticeDroneTweaksV0.SpawnPhaseMin)
@@ -54,7 +68,7 @@ public static class LatticeDroneSpawnSystem
             {
                 // Spawn a drone.
                 bool isHostile = phase >= LatticeDroneTweaksV0.HostilePhaseMin;
-                SpawnDrone(state, kv.Key, isHostile);
+                SpawnDrone(state, nodeKey, isHostile);
             }
         }
     }

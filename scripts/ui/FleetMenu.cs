@@ -30,6 +30,14 @@ public partial class FleetMenu : Control
     private bool _dismissConfirmPending = false;
     private string _dismissConfirmShipId = "";
 
+    // GATE.T59.SHIP.FLEET_ROSTER_UI.001: Sell confirmation state (two-click pattern).
+    private bool _sellConfirmPending = false;
+    private string _sellConfirmShipId = "";
+    private long _sellConfirmCredits = 0;
+
+    // GATE.T59.SHIP.FLEET_ROSTER_UI.001: Inline detail expansion tracking.
+    private string _expandedDetailShipId = "";
+
     private double _accumMs = 0.0;
 
     private ulong _lastRefreshMs = 0;
@@ -281,6 +289,53 @@ public partial class FleetMenu : Control
         try { return (float)v; } catch { return 0f; }
     }
 
+    // GATE.T59.SHIP.FLEET_ROSTER_UI.001: Build a compact stat index cell (numeric + mini bar).
+    private static Control BuildStatIndexCell(int value, int maxValue, Color barColor)
+    {
+        var box = new VBoxContainer { CustomMinimumSize = new Vector2(42, 24) };
+
+        // Numeric value label.
+        var lbl = new Label
+        {
+            Text = value.ToString(),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Modulate = barColor
+        };
+        lbl.AddThemeFontSizeOverride("font_size", 11);
+        box.AddChild(lbl);
+
+        // Mini progress bar.
+        float pct = (maxValue > 0) ? Math.Clamp((float)value / maxValue, 0f, 1f) : 0f;
+        var bar = new ProgressBar
+        {
+            MinValue = 0, MaxValue = 1, Value = pct,
+            CustomMinimumSize = new Vector2(36, 4), ShowPercentage = false
+        };
+        var bg = new StyleBoxFlat { BgColor = new Color(0.12f, 0.12f, 0.12f) };
+        bg.SetContentMarginAll(0);
+        bar.AddThemeStyleboxOverride("background", bg);
+        var fill = new StyleBoxFlat { BgColor = barColor };
+        fill.SetContentMarginAll(0);
+        bar.AddThemeStyleboxOverride("fill", fill);
+        box.AddChild(bar);
+
+        return box;
+    }
+
+    // GATE.T59.SHIP.FLEET_ROSTER_UI.001: Deterministic color from ship class ID for icon placeholder.
+    private static Color GetClassIconColor(string classId)
+    {
+        if (string.IsNullOrEmpty(classId)) return new Color(0.4f, 0.4f, 0.4f);
+
+        // Simple hash to generate a consistent hue.
+        uint hash = 0;
+        foreach (char c in classId)
+            hash = hash * 31 + c; // STRUCTURAL: hash prime
+
+        float hue = (hash % 360) / 360f; // STRUCTURAL: 360 degrees
+        return Color.FromHsv(hue, 0.6f, 0.85f);
+    }
+
     private void Refresh()
     {
         if (_bridge == null) return;
@@ -309,7 +364,10 @@ public partial class FleetMenu : Control
             return;
         }
 
-        // --- FLEET ROSTER (master list panel, GATE.S7.FLEET_TAB.LIST.001) ---
+        // --- FLEET ROSTER (master list panel, GATE.S7.FLEET_TAB.LIST.001 + GATE.T59.SHIP.FLEET_ROSTER_UI.001) ---
+        var cyanAccent = new Color(0.4f, 0.85f, 1.0f);
+        var warningYellow = new Color(1.0f, 0.85f, 0.3f);
+
         _list.AddChild(new Label
         {
             Text = "FLEET ROSTER",
@@ -317,15 +375,34 @@ public partial class FleetMenu : Control
             HorizontalAlignment = HorizontalAlignment.Center
         });
 
-        _list.AddChild(new Label
-        {
-            Text = "Ship | Class | Hull | Shield | Location | Job",
-            Modulate = new Color(0.6f, 0.6f, 0.8f),
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
-        });
+        // Column header row.
+        var headerRow = new HBoxContainer();
+        headerRow.AddChild(new Label { Text = "", CustomMinimumSize = new Vector2(32, 0) }); // icon col
+        headerRow.AddChild(new Label { Text = "Ship", CustomMinimumSize = new Vector2(140, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "Class", CustomMinimumSize = new Vector2(100, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "Hull", CustomMinimumSize = new Vector2(130, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "CMB", CustomMinimumSize = new Vector2(42, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "TRD", CustomMinimumSize = new Vector2(42, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "EXP", CustomMinimumSize = new Vector2(42, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "Location", CustomMinimumSize = new Vector2(110, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "Status", CustomMinimumSize = new Vector2(100, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        headerRow.AddChild(new Label { Text = "Actions", CustomMinimumSize = new Vector2(210, 0), Modulate = new Color(0.6f, 0.6f, 0.8f) });
+        _list.AddChild(headerRow);
         _list.AddChild(new HSeparator());
 
         var roster = _bridge.GetFleetRosterV0();
+
+        // Compute max indices for relative bar sizing.
+        int maxCombat = 1, maxTrade = 1, maxExplore = 1;
+        foreach (var rv in roster)
+        {
+            var rd2 = rv.Obj as Dictionary;
+            if (rd2 == null) continue;
+            int c = GetInt(rd2, "combat_index"); if (c > maxCombat) maxCombat = c;
+            int t = GetInt(rd2, "trade_index"); if (t > maxTrade) maxTrade = t;
+            int e = GetInt(rd2, "explore_index"); if (e > maxExplore) maxExplore = e;
+        }
+
         foreach (var rosterVar in roster)
         {
             var rd = rosterVar.Obj as Dictionary;
@@ -333,104 +410,376 @@ public partial class FleetMenu : Control
 
             var rShipId = GetStr(rd, "ship_id");
             var rShipClass = GetStr(rd, "ship_class");
+            var rShipClassId = GetStr(rd, "ship_class_id");
             var rHullPct = GetFloat(rd, "hull_hp_pct");
             var rShieldPct = GetFloat(rd, "shield_hp_pct");
             var rLocation = GetStr(rd, "location_name");
             var rJobStatus = GetStr(rd, "job_status");
+            var rIsStored = rd.ContainsKey("is_stored") && (bool)rd["is_stored"];
+            var rCombatIdx = GetInt(rd, "combat_index");
+            var rTradeIdx = GetInt(rd, "trade_index");
+            var rExploreIdx = GetInt(rd, "explore_index");
 
+            bool isActive = !rIsStored;
+            bool isSelected = (rShipId == _selectedFleetId);
+
+            // --- Ship row container with optional highlight ---
             var rosterRow = new HBoxContainer();
+            rosterRow.CustomMinimumSize = new Vector2(0, 30);
 
-            // Select button for roster row (GATE.S7.FLEET_TAB.DETAIL.001).
-            var capturedShipId = rShipId; // capture for closure
-            var btnRosterSelect = new Button
+            // Ship class icon placeholder: colored rect based on ship_class_id hash.
+            var iconRect = new ColorRect
             {
-                Text = (rShipId == _selectedFleetId) ? ">>>" : "Select",
-                CustomMinimumSize = new Vector2(60, 0)
+                CustomMinimumSize = new Vector2(24, 24),
+                Color = GetClassIconColor(rShipClassId)
             };
-            btnRosterSelect.Disabled = (rShipId == _selectedFleetId);
-            btnRosterSelect.Pressed += () =>
-            {
-                _selectedFleetId = capturedShipId;
-                _bridge.SetUiSelectedFleetId(capturedShipId);
-                Refresh();
-            };
-            rosterRow.AddChild(btnRosterSelect);
+            var iconMargin = new MarginContainer();
+            iconMargin.CustomMinimumSize = new Vector2(32, 24);
+            iconMargin.AddThemeConstantOverride("margin_top", 3);
+            iconMargin.AddThemeConstantOverride("margin_left", 4);
+            iconMargin.AddChild(iconRect);
+            rosterRow.AddChild(iconMargin);
 
-            // Ship ID + class.
-            rosterRow.AddChild(new Label
+            // Ship ID (truncated) — active ships get cyan text.
+            var shipIdLabel = new Label
             {
-                Text = $"{rShipId}",
-                CustomMinimumSize = new Vector2(160, 0)
-            });
-            rosterRow.AddChild(new Label
+                Text = rShipId.Length > 18 ? rShipId.Substring(0, 18) + ".." : rShipId,
+                CustomMinimumSize = new Vector2(140, 0),
+                ClipText = true,
+                Modulate = isActive ? cyanAccent : new Color(0.85f, 0.85f, 0.85f)
+            };
+            rosterRow.AddChild(shipIdLabel);
+
+            // Ship class name + class id.
+            var classLabel = new Label
             {
                 Text = rShipClass,
-                CustomMinimumSize = new Vector2(90, 0),
+                CustomMinimumSize = new Vector2(100, 0),
+                ClipText = true,
                 Modulate = new Color(0.85f, 0.85f, 1f)
-            });
+            };
+            classLabel.TooltipText = $"Class ID: {rShipClassId}";
+            rosterRow.AddChild(classLabel);
 
-            // Hull HP bar.
+            // Hull HP bar (green->yellow->red gradient).
             var hullBar = new ProgressBar
             {
-                MinValue = 0,
-                MaxValue = 1,
-                Value = rHullPct,
-                CustomMinimumSize = new Vector2(100, 18),
-                ShowPercentage = false
+                MinValue = 0, MaxValue = 1, Value = rHullPct,
+                CustomMinimumSize = new Vector2(90, 16), ShowPercentage = false
             };
-            var hullBarSb = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
-            hullBarSb.SetContentMarginAll(0);
-            hullBar.AddThemeStyleboxOverride("background", hullBarSb);
-            var hullFillSb = new StyleBoxFlat { BgColor = rHullPct > 0.5f ? new Color(0.2f, 0.8f, 0.2f) : rHullPct > 0.25f ? new Color(0.9f, 0.7f, 0.1f) : new Color(0.9f, 0.2f, 0.2f) };
+            var hullBarBg = new StyleBoxFlat { BgColor = new Color(0.12f, 0.12f, 0.12f) };
+            hullBarBg.SetContentMarginAll(0);
+            hullBar.AddThemeStyleboxOverride("background", hullBarBg);
+            var hullFillColor = rHullPct > 0.6f
+                ? new Color(0.2f, 0.8f, 0.2f)
+                : rHullPct > 0.3f
+                    ? new Color(0.9f, 0.75f, 0.15f)
+                    : new Color(0.9f, 0.2f, 0.2f);
+            var hullFillSb = new StyleBoxFlat { BgColor = hullFillColor };
             hullFillSb.SetContentMarginAll(0);
             hullBar.AddThemeStyleboxOverride("fill", hullFillSb);
 
             var hullBox = new HBoxContainer();
-            hullBox.AddChild(new Label { Text = "H:", CustomMinimumSize = new Vector2(20, 0) });
+            hullBox.CustomMinimumSize = new Vector2(130, 0);
             hullBox.AddChild(hullBar);
-            hullBox.AddChild(new Label { Text = $"{(int)(rHullPct * 100)}%", CustomMinimumSize = new Vector2(40, 0) });
+            hullBox.AddChild(new Label { Text = $" {(int)(rHullPct * 100)}%", CustomMinimumSize = new Vector2(38, 0) });
             rosterRow.AddChild(hullBox);
 
-            // Shield HP bar.
-            var shieldBar = new ProgressBar
-            {
-                MinValue = 0,
-                MaxValue = 1,
-                Value = rShieldPct,
-                CustomMinimumSize = new Vector2(100, 18),
-                ShowPercentage = false
-            };
-            var shieldBarSb = new StyleBoxFlat { BgColor = new Color(0.15f, 0.15f, 0.15f) };
-            shieldBarSb.SetContentMarginAll(0);
-            shieldBar.AddThemeStyleboxOverride("background", shieldBarSb);
-            var shieldFillSb = new StyleBoxFlat { BgColor = new Color(0.2f, 0.5f, 1f) };
-            shieldFillSb.SetContentMarginAll(0);
-            shieldBar.AddThemeStyleboxOverride("fill", shieldFillSb);
+            // Stat index bars: combat, trade, explore (numeric + colored mini-bar).
+            rosterRow.AddChild(BuildStatIndexCell(rCombatIdx, maxCombat, new Color(0.9f, 0.3f, 0.3f)));
+            rosterRow.AddChild(BuildStatIndexCell(rTradeIdx, maxTrade, new Color(0.3f, 0.85f, 0.3f)));
+            rosterRow.AddChild(BuildStatIndexCell(rExploreIdx, maxExplore, new Color(0.3f, 0.6f, 1.0f)));
 
-            var shieldBox = new HBoxContainer();
-            shieldBox.AddChild(new Label { Text = "S:", CustomMinimumSize = new Vector2(20, 0) });
-            shieldBox.AddChild(shieldBar);
-            shieldBox.AddChild(new Label { Text = $"{(int)(rShieldPct * 100)}%", CustomMinimumSize = new Vector2(40, 0) });
-            rosterRow.AddChild(shieldBox);
-
-            // Location.
+            // Location column.
             rosterRow.AddChild(new Label
             {
                 Text = rLocation,
-                CustomMinimumSize = new Vector2(120, 0),
+                CustomMinimumSize = new Vector2(110, 0),
                 ClipText = true
             });
 
-            // Job status.
-            rosterRow.AddChild(new Label
+            // Status column: job status + STORED/ACTIVE badge.
+            var statusBox = new HBoxContainer { CustomMinimumSize = new Vector2(100, 0) };
+            if (rIsStored)
             {
-                Text = rJobStatus,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                ClipText = true,
-                Modulate = new Color(0.9f, 0.9f, 0.7f)
-            });
+                var storedBadge = new Label
+                {
+                    Text = "STORED",
+                    Modulate = warningYellow
+                };
+                storedBadge.AddThemeFontSizeOverride("font_size", 11);
+                statusBox.AddChild(storedBadge);
+            }
+            else
+            {
+                statusBox.AddChild(new Label
+                {
+                    Text = rJobStatus.Length > 14 ? rJobStatus.Substring(0, 14) + ".." : rJobStatus,
+                    ClipText = true,
+                    Modulate = new Color(0.9f, 0.9f, 0.7f)
+                });
+            }
+            rosterRow.AddChild(statusBox);
 
-            _list.AddChild(rosterRow);
+            // --- Action buttons ---
+            var actionBox = new HBoxContainer { CustomMinimumSize = new Vector2(210, 0) };
+            var capturedShipId = rShipId; // capture for closures
+
+            // Select / Details button.
+            var btnSelect = new Button
+            {
+                Text = isSelected ? "Selected" : "Details",
+                CustomMinimumSize = new Vector2(65, 26)
+            };
+            btnSelect.Disabled = isSelected;
+            btnSelect.Pressed += () =>
+            {
+                _selectedFleetId = capturedShipId;
+                _bridge.SetUiSelectedFleetId(capturedShipId);
+                _expandedDetailShipId = capturedShipId;
+                _sellConfirmPending = false;
+                _sellConfirmShipId = "";
+                Refresh();
+            };
+            actionBox.AddChild(btnSelect);
+
+            // Swap button: only enabled for stored ships.
+            var btnSwap = new Button
+            {
+                Text = "Swap",
+                CustomMinimumSize = new Vector2(50, 26),
+                Disabled = !rIsStored
+            };
+            btnSwap.TooltipText = rIsStored ? "Swap this stored ship to become your active ship" : "Only stored ships can be swapped";
+            btnSwap.Pressed += () =>
+            {
+                var result = _bridge.SetActiveFleetV0(capturedShipId);
+                if (result != null && result.ContainsKey("success") && (bool)result["success"])
+                {
+                    _selectedFleetId = capturedShipId;
+                    _bridge.SetUiSelectedFleetId(capturedShipId);
+                }
+                Refresh();
+            };
+            actionBox.AddChild(btnSwap);
+
+            // Sell button: two-click confirmation. Only for stored (non-active) ships.
+            var btnSell = new Button { CustomMinimumSize = new Vector2(85, 26) };
+            if (!rIsStored)
+            {
+                // Cannot sell active ship.
+                btnSell.Text = "Sell";
+                btnSell.Disabled = true;
+                btnSell.TooltipText = "Cannot sell your active ship";
+            }
+            else if (_sellConfirmPending && string.Equals(_sellConfirmShipId, capturedShipId, StringComparison.Ordinal))
+            {
+                // Second click: confirm sale.
+                btnSell.Text = $"Sell {_sellConfirmCredits} cr?";
+                btnSell.Modulate = new Color(1f, 0.4f, 0.4f);
+                btnSell.Pressed += () =>
+                {
+                    var result = _bridge.SellShipV0(capturedShipId);
+                    _sellConfirmPending = false;
+                    _sellConfirmShipId = "";
+                    _sellConfirmCredits = 0;
+                    if (_selectedFleetId == capturedShipId)
+                    {
+                        _selectedFleetId = "";
+                        _bridge.SetUiSelectedFleetId("");
+                    }
+                    Refresh();
+                };
+            }
+            else
+            {
+                // First click: enter confirmation mode. Get estimated sell price from detail.
+                btnSell.Text = "Sell";
+                btnSell.TooltipText = "Sell this ship for 80% of its value";
+                btnSell.Pressed += () =>
+                {
+                    _sellConfirmPending = true;
+                    _sellConfirmShipId = capturedShipId;
+                    // Estimate sell value from detail (hull_hp_max * rough factor). Use GetFleetShipDetailV0.
+                    var det = _bridge.GetFleetShipDetailV0(capturedShipId);
+                    if (det != null && det.ContainsKey("sell_value"))
+                        _sellConfirmCredits = GetLong(det, "sell_value");
+                    else
+                        _sellConfirmCredits = 0;
+                    Refresh();
+                };
+            }
+            actionBox.AddChild(btnSell);
+
+            rosterRow.AddChild(actionBox);
+
+            // Highlight the entire row for active ship with a panel background.
+            if (isActive)
+            {
+                var rowPanel = new PanelContainer();
+                var rowSb = new StyleBoxFlat
+                {
+                    BgColor = new Color(0.08f, 0.18f, 0.25f, 0.6f),
+                    BorderColor = cyanAccent * new Color(1f, 1f, 1f, 0.3f),
+                };
+                rowSb.SetBorderWidthAll(1);
+                rowSb.SetCornerRadiusAll(4);
+                rowSb.SetContentMarginAll(2);
+                rowPanel.AddThemeStyleboxOverride("panel", rowSb);
+                rowPanel.AddChild(rosterRow);
+                _list.AddChild(rowPanel);
+            }
+            else
+            {
+                _list.AddChild(rosterRow);
+            }
+
+            // --- Inline detail expansion for this ship (GATE.T59.SHIP.FLEET_ROSTER_UI.001) ---
+            if (_expandedDetailShipId == rShipId)
+            {
+                var detail = _bridge.GetFleetShipDetailV0(rShipId);
+                if (detail != null && detail.Count > 0)
+                {
+                    var inlineDetail = new VBoxContainer();
+                    var detailSb = new StyleBoxFlat
+                    {
+                        BgColor = new Color(0.05f, 0.07f, 0.1f, 0.8f)
+                    };
+                    detailSb.SetContentMarginAll(8);
+                    detailSb.SetCornerRadiusAll(4);
+                    var detailWrap = new PanelContainer();
+                    detailWrap.AddThemeStyleboxOverride("panel", detailSb);
+
+                    // Detail header row.
+                    var detHeaderRow = new HBoxContainer();
+                    detHeaderRow.AddChild(new Label
+                    {
+                        Text = $"Ship Detail: {GetStr(detail, "ship_id")} ({GetStr(detail, "ship_class")})",
+                        Modulate = cyanAccent
+                    });
+                    if (rIsStored)
+                    {
+                        detHeaderRow.AddChild(new Label { Text = "  [STORED]", Modulate = warningYellow });
+                    }
+                    else
+                    {
+                        detHeaderRow.AddChild(new Label { Text = "  [ACTIVE]", Modulate = cyanAccent });
+                    }
+                    inlineDetail.AddChild(detHeaderRow);
+
+                    // Hull + shield bars (detailed, with numeric values).
+                    int dHullHp = GetInt(detail, "hull_hp");
+                    int dHullHpMax = GetInt(detail, "hull_hp_max");
+                    float dHullPct = (dHullHpMax > 0) ? Math.Clamp((float)dHullHp / dHullHpMax, 0f, 1f) : 1f;
+
+                    var dHullRow = new HBoxContainer();
+                    dHullRow.AddChild(new Label { Text = "Hull:", CustomMinimumSize = new Vector2(50, 0) });
+                    var dHullBar = new ProgressBar
+                    {
+                        MinValue = 0, MaxValue = 1, Value = dHullPct,
+                        CustomMinimumSize = new Vector2(180, 18), ShowPercentage = false
+                    };
+                    var dHullBg = new StyleBoxFlat { BgColor = new Color(0.12f, 0.12f, 0.12f) };
+                    dHullBg.SetContentMarginAll(0);
+                    dHullBar.AddThemeStyleboxOverride("background", dHullBg);
+                    var dHullFillColor = dHullPct > 0.6f ? new Color(0.2f, 0.8f, 0.2f) : dHullPct > 0.3f ? new Color(0.9f, 0.75f, 0.15f) : new Color(0.9f, 0.2f, 0.2f);
+                    var dHullFill = new StyleBoxFlat { BgColor = dHullFillColor };
+                    dHullFill.SetContentMarginAll(0);
+                    dHullBar.AddThemeStyleboxOverride("fill", dHullFill);
+                    dHullRow.AddChild(dHullBar);
+                    dHullRow.AddChild(new Label { Text = $"  {dHullHp} / {dHullHpMax}" });
+                    inlineDetail.AddChild(dHullRow);
+
+                    int dShieldHp = GetInt(detail, "shield_hp");
+                    int dShieldHpMax = GetInt(detail, "shield_hp_max");
+                    float dShieldPct = (dShieldHpMax > 0) ? Math.Clamp((float)dShieldHp / dShieldHpMax, 0f, 1f) : 1f;
+
+                    var dShieldRow = new HBoxContainer();
+                    dShieldRow.AddChild(new Label { Text = "Shield:", CustomMinimumSize = new Vector2(50, 0) });
+                    var dShieldBar = new ProgressBar
+                    {
+                        MinValue = 0, MaxValue = 1, Value = dShieldPct,
+                        CustomMinimumSize = new Vector2(180, 18), ShowPercentage = false
+                    };
+                    var dShieldBg = new StyleBoxFlat { BgColor = new Color(0.12f, 0.12f, 0.12f) };
+                    dShieldBg.SetContentMarginAll(0);
+                    dShieldBar.AddThemeStyleboxOverride("background", dShieldBg);
+                    var dShieldFill = new StyleBoxFlat { BgColor = new Color(0.2f, 0.5f, 1f) };
+                    dShieldFill.SetContentMarginAll(0);
+                    dShieldBar.AddThemeStyleboxOverride("fill", dShieldFill);
+                    dShieldRow.AddChild(dShieldBar);
+                    dShieldRow.AddChild(new Label { Text = $"  {dShieldHp} / {dShieldHpMax}" });
+                    inlineDetail.AddChild(dShieldRow);
+
+                    // Speed.
+                    var dSpeed = GetFloat(detail, "speed");
+                    inlineDetail.AddChild(new Label { Text = $"Speed: {dSpeed:F2} AU/tick" });
+
+                    // Location + job.
+                    inlineDetail.AddChild(new Label { Text = $"Location: {GetStr(detail, "location_name")}", Modulate = new Color(0.9f, 0.9f, 0.7f) });
+                    inlineDetail.AddChild(new Label { Text = $"Job: {GetStr(detail, "job_status")}", Modulate = new Color(0.9f, 0.85f, 0.7f) });
+
+                    // Stat indices (detailed).
+                    var idxRow = new HBoxContainer();
+                    idxRow.AddChild(new Label { Text = $"Combat: {rCombatIdx}", CustomMinimumSize = new Vector2(100, 0), Modulate = new Color(0.9f, 0.3f, 0.3f) });
+                    idxRow.AddChild(new Label { Text = $"Trade: {rTradeIdx}", CustomMinimumSize = new Vector2(100, 0), Modulate = new Color(0.3f, 0.85f, 0.3f) });
+                    idxRow.AddChild(new Label { Text = $"Explore: {rExploreIdx}", CustomMinimumSize = new Vector2(100, 0), Modulate = new Color(0.3f, 0.6f, 1.0f) });
+                    inlineDetail.AddChild(idxRow);
+
+                    // Module loadout.
+                    inlineDetail.AddChild(new HSeparator());
+                    inlineDetail.AddChild(new Label { Text = "Module Loadout", Modulate = new Color(0.7f, 1f, 0.85f) });
+
+                    if (detail.ContainsKey("modules"))
+                    {
+                        var modules = detail["modules"].AsGodotArray();
+                        if (modules != null && modules.Count > 0)
+                        {
+                            foreach (var modVar in modules)
+                            {
+                                var md = modVar.Obj as Dictionary;
+                                if (md == null) continue;
+                                var modSlotId = GetStr(md, "slot_id");
+                                var modModuleId = GetStr(md, "module_id");
+                                var modDisplayName = GetStr(md, "display_name");
+                                string modText;
+                                if (string.IsNullOrEmpty(modModuleId))
+                                    modText = $"  [{modSlotId}] (empty)";
+                                else
+                                {
+                                    var nameLabel = string.IsNullOrEmpty(modDisplayName) ? modModuleId : modDisplayName;
+                                    modText = $"  [{modSlotId}] {nameLabel}";
+                                }
+                                inlineDetail.AddChild(new Label
+                                {
+                                    Text = modText,
+                                    Modulate = string.IsNullOrEmpty(modModuleId) ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.85f, 0.95f, 0.85f)
+                                });
+                            }
+                        }
+                        else
+                        {
+                            inlineDetail.AddChild(new Label { Text = "  (no modules)", Modulate = new Color(0.5f, 0.5f, 0.5f) });
+                        }
+                    }
+                    else
+                    {
+                        inlineDetail.AddChild(new Label { Text = "  (no module data)", Modulate = new Color(0.5f, 0.5f, 0.5f) });
+                    }
+
+                    // Close detail button.
+                    var btnCloseDetail = new Button { Text = "Close Detail", CustomMinimumSize = new Vector2(100, 26) };
+                    btnCloseDetail.Pressed += () =>
+                    {
+                        _expandedDetailShipId = "";
+                        Refresh();
+                    };
+                    inlineDetail.AddChild(btnCloseDetail);
+
+                    detailWrap.AddChild(inlineDetail);
+                    _list.AddChild(detailWrap);
+                }
+            }
         }
 
         _list.AddChild(new HSeparator());

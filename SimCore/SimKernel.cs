@@ -293,6 +293,9 @@ public class SimKernel
         // GATE.S5.NPC_TRADE.SYSTEM.001: NPC trade circulation.
         ProfileCall(sw, tickProfiles, "NpcTradeSystem", () => NpcTradeSystem.ProcessNpcTrade(_state));
 
+        // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC route discovery + margin compression tracking.
+        ProfileCall(sw, tickProfiles, "NpcTradeSystem.NpcRouteDiscovery", () => NpcTradeSystem.ProcessNpcRouteDiscovery(_state));
+
         // Dynamic fleet population: replace destroyed NPC fleets using station resources.
         ProfileCall(sw, tickProfiles, "FleetPopulationSystem", () => FleetPopulationSystem.Process(_state));
 
@@ -325,6 +328,18 @@ public class SimKernel
 
         // GATE.T18.NARRATIVE.FO_SYSTEM.001: First Officer tier progression.
         ProfileCall(sw, tickProfiles, "FirstOfficerSystem", () => FirstOfficerSystem.Process(_state));
+
+        // GATE.T58.FO.EMPIRE_HEALTH.001: Empire health diamond evaluation.
+        ProfileCall(sw, tickProfiles, "EmpireHealthSystem", () => EmpireHealthSystem.Process(_state));
+
+        // GATE.T58.FO.DOCK_RECAP.001: "While You Were Away" dock arrival recap.
+        ProfileCall(sw, tickProfiles, "DockRecapSystem", () => DockRecapSystem.Process(_state));
+
+        // GATE.T58.FO.FLIP_MOMENT.001: Net-positive revenue flip moment detection.
+        ProfileCall(sw, tickProfiles, "FlipMomentSystem", () => FlipMomentSystem.Process(_state));
+
+        // GATE.T58.FO.DECISION_DIALOGUE.001: FO decision dialogue dequeue.
+        ProfileCall(sw, tickProfiles, "DecisionDialogueSystem", () => DecisionDialogueSystem.Process(_state));
 
         // GATE.T18.NARRATIVE.WAR_FACES.001: Narrative NPC lifecycle (Regular vanish, Enemy encounter).
         ProfileCall(sw, tickProfiles, "NarrativeNpcSystem", () => NarrativeNpcSystem.Process(_state));

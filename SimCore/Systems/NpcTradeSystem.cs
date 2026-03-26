@@ -567,4 +567,53 @@ public static class NpcTradeSystem
             fleet.TradeCooldowns.Remove(k);
     }
     private static readonly List<string> _pruneStaleKeys = new();
+
+    // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC route discovery.
+    // Periodically scan for profitable player routes that NPCs would also discover.
+    // Once discovered, these routes face margin compression over 300-500 ticks.
+    public static void ProcessNpcRouteDiscovery(SimState state)
+    {
+        if (state is null) return;
+        if (state.Tick % NpcTradeTweaksV0.NpcRouteDiscoveryIntervalTicks != 0) return; // STRUCTURAL: interval check
+
+        // Scan player TradeRoutes for profitable routes NPCs would notice.
+        if (state.Intel?.TradeRoutes is null) return;
+
+        foreach (var kv in state.Intel.TradeRoutes)
+        {
+            var route = kv.Value;
+            if (route is null) continue;
+            if (route.Status == TradeRouteStatus.Stale || route.Status == TradeRouteStatus.Unprofitable) continue;
+            if (route.EstimatedProfitPerUnit < NpcTradeTweaksV0.NpcRouteMinProfitToTrack) continue;
+
+            string routeKey = IntelBook.RouteKey(route.SourceNodeId, route.DestNodeId, route.GoodId);
+            if (!state.NpcDiscoveredRoutes.ContainsKey(routeKey))
+            {
+                state.NpcDiscoveredRoutes[routeKey] = state.Tick;
+            }
+        }
+    }
+
+    // GATE.T57.PIPELINE.NPC_COMPETITION.001: Get NPC margin compression for a route in basis points.
+    // Compression ramps linearly from 0 at CompressionStartTick to MaxBps at CompressionFullTick.
+    public static int GetNpcMarginCompressionBps(SimState state, string sourceNodeId, string destNodeId, string goodId)
+    {
+        if (state?.NpcDiscoveredRoutes is null) return 0; // STRUCTURAL: no routes
+
+        string routeKey = IntelBook.RouteKey(sourceNodeId, destNodeId, goodId);
+        if (!state.NpcDiscoveredRoutes.TryGetValue(routeKey, out int discoveredTick)) return 0; // STRUCTURAL: not discovered
+
+        int elapsed = state.Tick - discoveredTick;
+        if (elapsed < NpcTradeTweaksV0.NpcRouteCompressionStartTick) return 0; // STRUCTURAL: not yet compressing
+
+        int compressionWindow = NpcTradeTweaksV0.NpcRouteCompressionFullTick - NpcTradeTweaksV0.NpcRouteCompressionStartTick;
+        if (compressionWindow <= 0) return NpcTradeTweaksV0.NpcRouteCompressionMaxBps; // STRUCTURAL: degenerate window
+
+        int compressionElapsed = elapsed - NpcTradeTweaksV0.NpcRouteCompressionStartTick;
+        if (compressionElapsed >= compressionWindow)
+            return NpcTradeTweaksV0.NpcRouteCompressionMaxBps;
+
+        // Linear ramp.
+        return (int)((long)compressionElapsed * NpcTradeTweaksV0.NpcRouteCompressionMaxBps / compressionWindow);
+    }
 }

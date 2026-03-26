@@ -2,7 +2,7 @@ using SimCore.Entities;
 using SimCore.Tweaks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace SimCore.Systems;
 
@@ -11,6 +11,12 @@ namespace SimCore.Systems;
 // prevent wiki-lookup optimization. Integer math, min 1 qty.
 public static class FractureWeightSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<(string GoodId, int OriginPhase)> GoodsToAdjust = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     /// <summary>
     /// On fleet arrival at a stable-space node from fracture space, recalculate
     /// cargo quantities based on origin instability phase. Called after MovementSystem.
@@ -18,6 +24,8 @@ public static class FractureWeightSystem
     public static void Process(SimState state)
     {
         if (state.ArrivalsThisTick.Count == 0) return;
+
+        var scratch = s_scratch.GetOrCreateValue(state);
 
         foreach (var (fleetId, edgeId, nodeId) in state.ArrivalsThisTick)
         {
@@ -31,7 +39,8 @@ public static class FractureWeightSystem
             // Check if any cargo has fracture-origin phase > 0
             if (fleet.CargoOriginPhase.Count == 0) continue;
 
-            var goodsToAdjust = new List<(string GoodId, int OriginPhase)>();
+            var goodsToAdjust = scratch.GoodsToAdjust;
+            goodsToAdjust.Clear();
             foreach (var kv in fleet.CargoOriginPhase)
             {
                 if (kv.Value > 0 && fleet.Cargo.TryGetValue(kv.Key, out var qty) && qty > 0)

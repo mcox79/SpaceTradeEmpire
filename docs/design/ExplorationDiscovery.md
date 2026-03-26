@@ -11,9 +11,15 @@
 > `EPIC.S6.TECH_LEADS`, `EPIC.S6.EXPEDITION_PROG`, `EPIC.S6.SCIENCE_CENTER`,
 > `EPIC.S6.CLASS_DISCOVERY_PROFILES`, `EPIC.S6.MYSTERY_MARKERS`.
 >
-> **Last revised**: 2026-03-20 — major update adding best-practice design philosophy
-> (12 principles from industry research), anomaly chains, automation graduation,
-> discovery-as-trade-intelligence, late-game discovery continuation.
+> **Last revised**: 2026-03-25 — v2 overhaul: reconciled implementation status with
+> T41/T48 reality, consolidated 17 principles → 6 core axioms, added centaur model
+> (3-tier competence aligned with fo_trade_manager_v0.md, Bainbridge paradox),
+> personality-colored FO confidence (not bars), world adaptation (not error recovery),
+> trade-history-as-evidence, MARKET_RUIN family, discovery failure states, KG player
+> verbs + dual-mode display + link feedback (Obra Dinn model), re-exploration verb,
+> qualitative Ancient Tech redesign, sustain→exploration loop, spectator trough
+> prevention, FO observation limits. NPC route competition bumped to P1.
+> Original v1 content (2026-03-20) preserved under axioms as supporting detail.
 
 ## Why This Doc Exists
 
@@ -63,178 +69,111 @@ information asymmetry creates the economic motivation for exploration.
 | Discovery milestone audio/visual feedback | Not implemented | Phase transitions are silent |
 | Breadcrumb trail visualization | Not implemented | No "here's what led you here" display |
 | Scanner sweep animation on system entry | Not implemented | No ring-expanding animation |
-| **Discovery-as-trade-intelligence** | **Not implemented** | **Discoveries should yield economic intel (NEW)** |
-| **Anomaly chains (multi-site escalation)** | **Not implemented** | **3-5 site chains with narrative arcs (NEW)** |
-| **Automation graduation for scanning** | **Not implemented** | **Manual -> automated scan programs (NEW)** |
-| **Information asymmetry / intel decay** | **Not implemented** | **Perishable exclusive knowledge (NEW)** |
-| **Late-game discovery continuation** | **Not implemented** | **Economy-triggered anomaly spawning (NEW)** |
-| **Audio discovery vocabulary (4 signatures)** | **Not implemented** | **Ping/process/reveal/insight (NEW)** |
-| **Anomaly ecology (spatial distribution)** | **Not implemented** | **EPIC.S6.ANOMALY_ECOLOGY** |
-| **Artifact research (containment/experiments)** | **Not implemented** | **EPIC.S6.ARTIFACT_RESEARCH** |
-| **Science center (analysis throughput)** | **Not implemented** | **EPIC.S6.SCIENCE_CENTER** |
+| **Discovery-as-trade-intelligence** | **Partial (T41)** | `GenerateDiscoveryTradeIntel()` creates `TradeRouteIntel` with `SourceDiscoveryId`. FO triggers `FIRST_TRADE_ROUTE_DISCOVERED` + `TRADE_INTEL_STALE` with 3 archetype variants. **Remaining**: typed `EconomicIntel` entity, per-discovery `DISCOVERY_OPPORTUNITY` trigger, margin buffer wiring |
+| **Anomaly chains (multi-site escalation)** | **Partial (T48)** | `AnomalyChainSystem` + `AnomalyChainContentV0` + entity. `TryAdvanceChains()` wired in DiscoveryOutcomeSystem. **Remaining**: per-step `ChainIntel`, FO commentary per step |
+| **Automation graduation for scanning** | **Partial (T41)** | `SURVEY_AUTOMATION_SUGGESTED` trigger fires at 3+ manual scans with 3 archetype variants. **Remaining**: `SurveyProgram` program type |
+| **Information asymmetry / intel decay** | **Partial (T41)** | `ApplyDiscoveryRouteDecay()` with distance bands (near 50t/mid 150t/deep 400t/fracture never). `DiscoveryIntelTweaksV0` exists. **Remaining**: margin buffer connection to ProgramSystem, NPC competition mechanics |
+| **Late-game discovery continuation** | **Not implemented** | Economy-triggered anomaly spawning, instability-gated reveals |
+| **Audio discovery vocabulary (4 signatures)** | **Not implemented** | Ping/process/reveal/insight audio signatures |
+| **Anomaly ecology (spatial distribution)** | **Not implemented** | EPIC.S6.ANOMALY_ECOLOGY |
+| **Artifact research (containment/experiments)** | **Not implemented** | EPIC.S6.ARTIFACT_RESEARCH |
+| **Science center (analysis throughput)** | **Not implemented** | EPIC.S6.SCIENCE_CENTER |
+| **Discovery failure states** | **Not implemented** | 6 failure types + partial success mechanic (§Discovery Failure States) |
+| **Knowledge Graph player verbs** | **Not implemented** | Pin, Annotate, Link, Flag for FO, Compare (§KG Player Verbs) |
+| **Knowledge Graph dual-mode display** | **Not implemented** | Geographic + relational views (§Dual-Mode Display) |
+| **Re-exploration verb** | **Not implemented** | Re-Scan, Deep Analysis, Recontextualization (§Re-Exploration) |
+| **Trade history as revelation evidence** | **Not implemented** | 3 progressive triggers linking player trade data to pentagon proof (§Trade History) |
+| **FO confidence through personality** | **Not implemented** | Personality-specific confidence language per FO archetype (§FO Confidence Through Personality) |
+| **Player-during-automation spectator prevention** | **Not implemented** | 5 boredom circuit breakers (§What the Player Does During Automation) |
+| **Link feedback / Obra Dinn batch model** | **Not implemented** | Speculative→Plausible→Confirmed→Contradicted states (§Link Feedback) |
+| **FO world adaptation + learning** | **Not implemented** | 5 world event types, 4 behavioral adaptation patterns (§FO Adaptation, §FO Learning) |
 
 ---
 
 ## Design Principles
 
-### Core Principles (v0 — unchanged)
+### The Six Axioms (v2)
 
-1. **Exploration is knowledge acquisition, not map completion.** The player isn't filling
-   in a fog-of-war map — they're building understanding. Each discovery should answer a
-   question AND raise a new one. "There's a derelict here" -> "What happened to this ship?"
-   -> "The wreck matches Valorin construction" -> "What were the Valorin doing this far from
-   their territory?" This is the Outer Wilds philosophy: curiosity, not completion percentage.
+> These axioms are the design's load-bearing walls. Every feature, every gate, every
+> prioritization decision should trace back to one of these six. If a proposed feature
+> doesn't serve at least one axiom, it doesn't belong in the exploration system.
+>
+> Derived from: Outer Wilds, Subnautica, Stellaris, Elite Dangerous, X4: Foundations,
+> FTL, Mass Effect, Factorio, EVE Online, No Man's Sky, and automation research
+> (Lee & See 2004, Bainbridge 1983). See "Reference Games" section for full list.
 
-2. **The game remembers so the player doesn't have to.** The IntelBook exists so the player
-   never needs to write notes. Every observation, price, route, and discovery is recorded
-   with timestamps. The game surfaces connections: "You saw a Valorin wreck at Kepler. The
-   Valorin faction territory starts 3 hops away at Altair." The player's job is deciding
-   what to do with knowledge, not remembering it.
+**Axiom 1: Discovery is knowledge, not completion.**
+The player builds understanding, not map coverage. Each discovery answers a question AND
+raises a new one. Absence of data is itself information — "No data available" motivates
+more than a hidden system. The knowledge graph reveals connections: two isolated facts
+become a story. Never show a global completion percentage on the HUD. (Outer Wilds, Mass
+Effect.) Our cover-story naming (CoverName → RevealedName on R1) embodies this: what
+the player "knows" about an artifact changes completely at revelation.
 
-3. **Discovery milestones are moments.** A phase transition (Seen -> Scanned, Scanned ->
-   Analyzed) deserves celebration. Brief pause, distinct audio chime, visual flourish,
-   and a card showing what was learned. These moments are the game's emotional payoff for
-   the exploration loop. Silent phase transitions waste the player's emotional investment.
+**Axiom 2: Discovery feeds automation — the centaur model.**
+Every discovery yields at minimum ONE of: (a) a new trade route to automate, (b) a
+technology that improves existing automation, (c) trade intelligence that makes current
+programs more profitable. The player explores; the FO builds. Neither succeeds alone.
+This is the **centaur model** (chess term: human + AI > either alone). The player
+provides access (fracture drive, faction contacts, personal judgment); the FO provides
+analysis (pattern detection, route optimization, economic evidence). The rhythm:
+Explore → discover intelligence → FO deploys automation → revenue funds next expedition
+→ cycle repeats. Discovery disconnected from automation is a side activity.
+(Factorio, X4, EVE. See §The Centaur Model for full spec.)
 
-4. **Absence of data is information.** An undiscovered system on the map isn't "nothing" —
-   it's a question mark that motivates exploration. "No data available" is more powerful
-   than hiding the system entirely. Show what the player DOESN'T know, because that's what
-   drives them to explore.
+**Axiom 3: Chains create stories; one-shots create trivia.**
+Every significant discovery opens a chain: 3-5 sites, escalating in risk, capability
+requirement, and narrative weight. Each step yields better loot AND economic intel for
+the FO. Early seeds pay off late — a Precursor inscription that seems decorative in
+Act 1 becomes the key to a late-game system. Chains are the mid-game content engine
+(tick 600-1200) that prevent the spectator trough. (Stellaris anomaly chains, Mass
+Effect Prothean trail, Outer Wilds interconnected sites.)
 
-5. **Discoveries connect to each other.** An isolated discovery is trivia. A discovery
-   that connects to two others is a story. The knowledge graph should reveal relationships:
-   this wreck + that signal + this ruin all point to the same ancient conflict. Connections
-   create "aha!" moments that pure exploration cannot.
+**Axiom 4: Knowledge is perishable — explore or decay.**
+Discovered trade intelligence is (a) exclusive initially, (b) perishable (NPCs learn
+routes, intel ages), (c) deeper at higher scan tiers. The player must feel the
+bottleneck BEFORE the discovery that resolves it (Factorio's "pain before relief").
+Stale intel = wider margins = less profit = motivation to explore again. Fracture-space
+discoveries are permanent exclusives (NPCs can't fracture-travel) — the deepest
+knowledge is the most durable. (EVE Online, X4, Elite Dangerous.)
 
-### Industry Best-Practice Principles (v1 — new)
+**Axiom 5: Mystery degrades gracefully, never fully resolves.**
+Never fully explain the thread builders. Never name them. Never show them. Constrained
+randomness (4-6 outcomes per family) lets players develop intuition without prediction.
+Procedural sites with authored skeletons (No Man's Sky Desolation pattern): every site
+feels designed because the dramatic arc is authored, only details are generated. The game
+remembers so the player doesn't have to — IntelBook records everything, surfaces
+connections, stores ambiguous findings for later recontextualization. Incomplete knowledge
+is always more compelling than complete knowledge. (Mass Effect, FTL, No Man's Sky,
+Obra Dinn.)
 
-These principles are derived from GDC postmortems, developer analysis, and critical
-evaluation of Outer Wilds, Subnautica, Stellaris, Elite Dangerous, X4: Foundations,
-FTL, Mass Effect, Factorio, EVE Online, and No Man's Sky. Each principle cites the
-source game(s) that demonstrate it best. See "Reference Games" section for full list.
+**Axiom 6: Milestones are moments — celebrate then automate.**
+Phase transitions deserve celebration: brief pause, distinct audio, visual flourish, card
+showing what was learned. Silent transitions waste emotional investment. But: the 500th
+scan must NOT feel like the 1st. After 3+ manual encounters with a family, the FO suggests
+automation (SurveyProgram). First-discovery credit (player name on first-analyzed sites)
+is cheap and disproportionately motivating. Environment shows what happened; FO explains
+what people thought about it — neither alone is sufficient. (Zelda secret-found jingle,
+Elite Dangerous first-discovery credit, Subnautica scan visor.)
 
-6. **Discovery feeds automation.** (Factorio, X4, EVE Online) Every discovery should
-   yield at minimum ONE of: (a) a new trade route to automate, (b) a technology that
-   improves existing automation, (c) trade intelligence that makes current programs more
-   profitable. Discovery without actionable follow-through is Subnautica scanning for
-   XP — satisfying once, tedious by the 50th time. This is the CRITICAL principle for
-   our game: the core loop is automation, and discovery is the fuel that drives it.
+### Supporting Principles (detail)
 
-   **The rhythm**: Explore -> discover intelligence -> deploy automated programs to
-   exploit it -> hit saturation wall -> explore again at higher tier. Discovery is not a
-   separate system — it is the engine that propels the automation loop.
+> These expand on the axioms with specific design guidance. Each traces to an axiom.
 
-7. **Automate the routine, preserve the novel.** (Elite Dangerous lesson, Factorio
-   principle) The first time the player encounters any discovery type, it should be a
-   manual, atmospheric experience. After that type is understood, the player should be
-   able to deploy an automated survey program. This directly serves the core loop:
-   "manual experience teaches you the mechanic, automation IS the game."
-
-   Elite Dangerous's fatal flaw: the 500th FSS scan feels identical to the 1st. Scan
-   #1 should be a full multi-step process with audio, FO analysis, milestone card. Scan
-   #500 should be a SurveyProgram running in the background, reporting results via toast.
-
-8. **Anomaly chains, not one-shots.** (Stellaris) Every significant discovery should open
-   a chain: Site A references Site B -> B requires better sensors -> B reveals Site C in
-   deep fracture space -> C reveals the revelation. Each step escalates in risk, capability
-   requirement, and reward. Chains that span 3-5 sites before resolution create the most
-   memorable arcs. One-shot discoveries are trivia. Chains are stories.
-
-   Stellaris proves this: the Alien Box anomaly is remembered because it escalates across
-   multiple events with branching consequences. The individual anomaly that yields +50
-   minerals is forgotten immediately.
-
-9. **Information asymmetry is economic weapon.** (EVE Online, X4) Discovered trade
-   intelligence should be: (a) exclusive to the player initially, (b) perishable (NPCs
-   learn routes over time, faction territories shift), (c) deeper at higher scan tiers
-   (surface scan = station exists; deep scan = exact price curves and production deficits).
-   This creates urgency to exploit discoveries through automation before the advantage
-   window closes.
-
-   X4's critical insight: scanning a station reveals its buy/sell orders and current
-   inventory. Without scanning, you're trading blind. Exploration directly feeds trading
-   efficiency. Our IntelBook already tracks freshness — extend this to make stale intel
-   visibly worse than fresh intel in trade program profitability.
-
-10. **Pain before relief.** (Factorio, Dyson Sphere Program) The player should feel a
-    bottleneck (a route that's saturated, a good they can't source, a program running at
-    negative margin) BEFORE the game surfaces the discovery that resolves it. The tutorial
-    sequence establishes this rhythm: struggle -> explore -> discover -> automate -> new
-    struggle at higher tier.
-
-    Never give the player a discovery they don't yet need. Wait until they feel the wall.
-    Then the discovery isn't "a thing I found" — it's "the answer I was looking for."
-
-11. **Planted seeds pay off late.** (Mass Effect, Outer Wilds) Early discoveries should
-    contain elements whose significance only becomes clear later. A Precursor inscription
-    that seems decorative in Act 1 becomes the key to understanding a late-game system.
-    The Codex should store these ambiguous findings so the player can return to them.
-
-    Mass Effect's Eletania ruin: a throwaway in ME1, significant in ME3. Outer Wilds'
-    Nomai inscriptions: incomprehensible until you find the context elsewhere. Our cover-
-    story naming system (CoverName -> RevealedName on R1) is already a version of this.
-    Extend it to discovery site narratives: early flavor text should contain buried
-    references that only make sense after later discoveries.
-
-12. **Discovery must continue into late game.** (Stellaris's critical flaw) Do not let
-    the discovery system "dry up" once the map is explored. Late-game discoveries come
-    from: (a) deeper fracture layers requiring advanced sensors, (b) faction intelligence
-    that shifts with the political landscape, (c) Precursor chains that only unlock after
-    sufficient earlier discoveries, (d) procedural anomaly spawning tied to economy state
-    rather than just map exploration. (e) Instability progression revealing sites that
-    were previously stable (a ruin that appears when the local thread degrades).
-
-    Stellaris's supply of anomalies dries up once borders stabilize. The game effectively
-    stops generating discovery content for mature empires. We must avoid this.
-
-13. **Environment shows; FO explains.** (Subnautica, environmental storytelling best
-    practice) Discovery sites should tell their story through what the player observes
-    (damage patterns, layout, artifacts, visual anomalies) supplemented by First Officer
-    analysis (the "text" component). Environment shows *what happened*; FO explains *what
-    people thought about it*. Neither alone is sufficient. Together they create the "lean
-    forward" moment.
-
-    The FO is our diegetic delivery mechanism: the player character's instruments detected
-    the anomaly, the FO analyzed it, the FO reports the findings. This is more immersive
-    than a floating text box or codex popup.
-
-14. **Constrained randomness, not pure chaos.** (FTL, No Man's Sky post-launch) Discovery
-    outcomes should be drawn from a constrained pool where players develop intuition. "This
-    looks like a Type-3 anomaly — those tend to yield rare minerals but have higher hazard."
-    Over time, the player learns the risk/reward profile of each discovery family without
-    being able to predict specifics. FTL proved this: curated event pools create anticipation.
-    Pure randomness creates noise.
-
-    Practical rule: each discovery family has 4-6 outcome templates. The player encounters
-    enough instances to learn the family's character, but never enough to predict the exact
-    outcome. Variance within a known range is exciting. Variance with no known range is
-    exhausting.
-
-15. **Incomplete knowledge is more compelling than complete knowledge.** (Mass Effect,
-    Outer Wilds) "Scientists have not yet found a way to transcribe" the ancient discs.
-    The mystery is the reward. Never fully explain the thread builders. Never name them.
-    Never show them. The five scientists in the data logs are as close as the player gets
-    — and even they are assembled from fragments found at different sites.
-
-    Our naming discipline (no canonical name, each faction has their own term) already
-    embodies this. Extend to: no single discovery should explain a complete system. Every
-    answer should open a door to a deeper question.
-
-16. **Procedural sites with authored skeletons.** (No Man's Sky Desolation update) Pre-
-    author 15-20 site narrative templates with dramatic arcs. Procedural generation fills
-    specifics (which goods, which faction, which hazards, which logs). Each site should
-    have: (a) one guaranteed memorable moment, (b) internal cross-references (a log
-    mentions "Section 3" and the player can visit Section 3), (c) a hazard that creates
-    tension distinct from normal gameplay.
-
-    No Man's Sky derelict freighters prove this works: procedural layouts with hand-crafted
-    story skeletons. Every site feels designed because the dramatic arc is authored; only
-    the details are generated.
-
-17. **First-discovery credit.** (Elite Dangerous) When a player is the first to analyze
-    a site, their name (or FO name, or ship name) is permanently associated with it in
-    the knowledge graph. Cheap to implement. Disproportionately motivating. Elite players
-    cross the galaxy for the chance to put their name on a star.
+| # | Principle | Axiom | Key Insight |
+|---|-----------|-------|-------------|
+| S1 | Curiosity, not completion percentage | 1 | Show what the player DOESN'T know. Never put completion % on HUD — only in Intel tab |
+| S2 | The game remembers so the player doesn't have to | 1 | IntelBook records everything. Player decides what to do with knowledge, not remembering it |
+| S3 | Discoveries connect to each other | 1, 3 | Isolated discovery = trivia. Two connected discoveries = story. Knowledge graph reveals relationships |
+| S4 | Automate the routine, preserve the novel | 2, 6 | Scan #1 = full atmospheric manual experience. Scan #500 = SurveyProgram toast notification |
+| S5 | Pain before relief | 4 | Player feels the bottleneck (saturated route, negative margin) BEFORE discovery that resolves it |
+| S6 | Planted seeds pay off late | 3, 5 | Early flavor text contains buried references only meaningful after later discoveries. CoverName → RevealedName |
+| S7 | Discovery must continue into late game | 4 | 5 sources: fracture layers, faction intel, economy-triggered, chain unlocks, instability reveals |
+| S8 | Environment shows; FO explains | 2, 6 | Discovery sites show evidence (damage patterns, layout); FO delivers analysis. Diegetic delivery |
+| S9 | Constrained randomness, not chaos | 5 | 4-6 outcomes per family. Player develops intuition. Variance within known range is exciting |
+| S10 | Procedural sites with authored skeletons | 5 | 15-20 narrative templates with dramatic arcs. Procedural fills specifics. Every site has one guaranteed memorable moment |
+| S11 | First-discovery credit | 6 | Player/FO/ship name permanently on first-analyzed sites. Cheap to implement, disproportionately motivating (Elite Dangerous) |
+| S12 | Incomplete knowledge > complete knowledge | 5 | "Scientists cannot yet transcribe." No single discovery explains a complete system. Every answer opens a deeper question |
 
 ---
 
@@ -345,7 +284,7 @@ fresh timestamps. Any connected Leads also include economic previews of the dest
 
 ## Discovery-as-Trade-Intelligence (NEW)
 
-> **Core principle (#6):** Every discovery feeds the automation loop.
+> **Axiom #2:** Discovery feeds automation — the centaur model.
 > **Reference:** X4 (scanning = economic intel), EVE (information asymmetry),
 > Factorio (discovery resolves current bottleneck).
 
@@ -356,6 +295,90 @@ discovery only yields loot (exotic matter, credits, salvaged tech), it's a side 
 disconnected from the main game. Discovery must yield **trade intelligence** — the fuel
 that makes automation programs more profitable.
 
+### The Exploration → Automation Pipeline (Status)
+
+The FO Trade Manager (`fo_trade_manager_v0.md`) depends on this system. The full pipeline:
+
+```
+Player explores → Discovery yields trade intel → FO evaluates intel →
+FO builds automation → Revenue funds exploration → Cycle repeats
+```
+
+| Link | Status | Component |
+|------|--------|-----------|
+| 1. Player explores | **Done** | Galaxy gen, discovery phases, fracture travel |
+| 2. Discovery yields trade intel | **PARTIAL (T41)** | `GenerateDiscoveryTradeIntel()` creates `TradeRouteIntel` entries. **Gap**: no typed `EconomicIntel` entity, no per-discovery FO beat |
+| 3. FO evaluates intel | **PARTIAL (T41)** | `FIRST_TRADE_ROUTE_DISCOVERED` + `TRADE_INTEL_STALE` triggers fire with 3 archetype variants. **Gap**: no per-discovery `DISCOVERY_OPPORTUNITY` trigger, no margin buffer wiring |
+| 4. FO builds automation | **Done** | ProgramSystem, TradeCharter, ResourceTap |
+| 5. Revenue funds exploration | **Done** | Credit flow, module purchases |
+| 6. Cycle repeats | **Done** | Route depreciation + intel decay creates exploration pressure |
+
+**Links 2-3 are partially wired (T41) but incomplete.** The plumbing exists: discoveries
+generate trade route intel, the FO fires stale-intel and first-route triggers with archetype
+dialogue. What's missing: (a) typed `EconomicIntel` entity per discovery family, (b) per-
+discovery `DISCOVERY_OPPORTUNITY` trigger (currently only aggregate triggers fire), (c) margin
+buffer wiring so intel freshness mechanically affects program profitability. Without (a-c),
+the player sees the FO react to discoveries in aggregate but doesn't experience the centaur
+model moment-by-moment: "I found this → FO evaluated it → FO built something from it."
+
+### Intel Decay → Program Profitability (BUILD FIRST)
+
+This is the single highest-leverage feature. It creates the mechanical pressure loop
+with ZERO new systems — IntelBook exists, ProgramSystem exists, FO dialogue exists.
+It's wiring, not architecture.
+
+**Mechanical spec:**
+
+`IntelBook` already tracks per-node freshness (`LastVisitTick`). `ProgramSystem` already
+reads source/dest nodes for trade programs. The missing wire:
+
+```
+ProgramSystem.CalculateEffectiveMargin():
+  worstFreshness = Max(IntelBook.GetNodeAge(sourceId),
+                       IntelBook.GetNodeAge(destId))
+  marginBuffer   = FreshnessToBuffer(worstFreshness)
+  effectiveMargin = rawMargin - marginBuffer
+```
+
+Freshness thresholds — **canonical schedule (v2, reconciled with T41 code)**:
+
+> **IMPORTANT:** Intel decay is DISTANCE-BASED, not time-based. The T41 implementation
+> (`ApplyDiscoveryRouteDecay()` in IntelSystem.cs) uses hop distance from player start
+> to set decay windows. Deeper discoveries decay slower = stronger frontier motivation.
+> This is the EVE Online model: wormhole intel is valuable because it's far away.
+
+| Distance Band | Decay Window (ticks) | Margin Buffer | FO Confidence | FO Behavior |
+|---------------|---------------------|---------------|---------------|-------------|
+| **Near** (≤ 2 hops) | 50 ticks | 5% → 15% → 25% | "High / Moderate / Low" | Tight → conservative → paused |
+| **Mid** (3-5 hops) | 150 ticks | 5% → 15% → 25% | "High / Moderate / Low" | Same progression, 3x slower |
+| **Deep** (6+ hops) | 400 ticks | 5% → 15% → 25% | "High / Moderate / Low" | Same progression, 8x slower |
+| **Fracture** | Never | 5% (permanent) | "High (stable)" | Permanent exclusive advantage |
+
+Within each distance band, the margin buffer escalates at 33% and 66% of the decay window:
+
+| Intel Status | When (% of decay window) | Margin Buffer | Display |
+|-------------|------------------------|---------------|---------|
+| **Fresh** | 0-33% | 5% | Green — exact values |
+| **Aging** | 33-66% | 15% | Amber — values drift ±10% |
+| **Stale** | 66-100% | 25% | Red — values drift ±25% |
+| **Expired** | > 100% | Route paused | Gray — "Data unreliable" |
+
+**FO dialogue trigger:** When a route's freshness degrades from Fresh → Aging, fire
+`TRADE_INTEL_STALE` with personality-colored message:
+
+```
+Maren: "Route Delta's data is 800 ticks old. Margins are
+       wider to compensate. Fresh intel would tighten them."
+Dask:  "Route Delta's running on old maps. I'm playing it safe."
+Lira:  "Haven't been out that way in a while. Route Delta
+       could use a visit — or a new discovery nearby."
+```
+
+**Why this comes first:** Visiting a node refreshes intel → tightens FO margins →
+increases profit. The player FEELS the connection between exploration and economic
+output immediately. No new entity model, no new system — just a margin modifier
+reading from existing `IntelBook.GetNodeAge()`.
+
 ### What Each Discovery Family Yields
 
 | Family | Phase 2 (Scanned) Intel | Phase 3 (Analyzed) Intel |
@@ -363,6 +386,80 @@ that makes automation programs more profitable.
 | **Derelict** | Salvage value estimate, nearest buyer | Exact salvage manifest, optimal sell route, faction origin (reputation intel) |
 | **Ruin** | Mineral survey (which goods are concentrated nearby) | Full resource map, production deficit at nearby stations, technology hint |
 | **Signal** | Frequency pattern -> "this system has unusual trade activity" | Exact price anomaly data, supply/demand curves at destination, hidden route |
+| **Market Ruin** (NEW) | Abandoned trade manifests, collapsed station infrastructure | Full failure autopsy: what was traded, supply chain that failed, early-warning indicators. FO can model current markets for similar vulnerabilities |
+
+### NEW: Economic Intel Types (DiscoveryOutcome Extension)
+
+> **CANONICAL SPEC:** This is the single authoritative definition of the
+> `EconomicIntel` entity. All other references in this doc (§Chain Intel,
+> §Trade History as Evidence, §Implementation Roadmap) point here. Do not
+> duplicate this spec — extend it by adding new `IntelType` variants to the
+> table below.
+
+Currently `DiscoveryOutcomeSystem` produces loot (SalvagedTech, ExoticMatter, credits).
+It must ALSO produce economic intel that writes to `IntelBook` and feeds the FO. Each
+discovery family produces a specific `EconomicIntel` variant alongside existing loot:
+
+| Discovery Family | Existing Loot | NEW: Economic Intel Produced |
+|------------------|---------------|------------------------------|
+| **Resource Site** | ExoticMatter, Ore | `ResourceDeposit`: node, good, estimated quantity. FO can propose extraction operation |
+| **Derelict** | SalvagedTech, credits | `CargoManifest`: reveals what this ship was hauling and between which nodes. FO can infer a trade route |
+| **Signal/Ruin** | DataLog, KnowledgeGraph connection | `MarketAnomaly`: reveals price data, faction consumption patterns, or hidden demand. FO can optimize existing routes or propose new ones |
+| **Anomaly Chain** (intermediate steps) | Progressive per step | `ChainIntel`: each step reveals partial economic picture. Final step = comprehensive regional economic intel |
+| **Market Ruin** (NEW v2) | Abandoned trade infrastructure, old manifests | `MarketRuin`: reveals what a market USED to trade, why it collapsed, and what economic conditions caused the failure. FO can infer current vulnerabilities in similar markets |
+
+**Entity extension:**
+
+```csharp
+// NEW field on DiscoveryOutcome (or new sibling entity)
+public sealed class EconomicIntel
+{
+    public string IntelType { get; set; } = "";  // ResourceDeposit|CargoManifest|MarketAnomaly|ChainIntel
+    public string SourceNodeId { get; set; } = "";
+    public string TargetNodeId { get; set; } = "";  // inferred destination (if applicable)
+    public string GoodId { get; set; } = "";
+    public int EstimatedMarginBps { get; set; }      // basis points
+    public int FreshnessTicks { get; set; }           // how long this intel stays exclusive
+    public string NarrativeHint { get; set; } = "";   // FO-readable description
+}
+```
+
+### NEW: FO Evaluation Beat (DISCOVERY_OPPORTUNITY Trigger)
+
+When `DiscoveryOutcomeSystem` produces economic intel, it must fire
+`FirstOfficerSystem.TryFireTrigger(state, "DISCOVERY_OPPORTUNITY")`. This is the moment
+the exploration→automation pipeline becomes **visible to the player**.
+
+```csharp
+// In DiscoveryOutcomeSystem, after producing economic intel:
+if (outcome.EconomicIntel != null)
+    FirstOfficerSystem.TryFireTrigger(state, "DISCOVERY_OPPORTUNITY");
+```
+
+The FO immediately evaluates the intel in character — three variants per archetype:
+
+```
+[Player analyzes derelict at Node 14]
+System: +1 SalvagedTech, +200cr
+System: NEW — CargoManifest intel acquired (ore, Node 14 → Node 7)
+
+Maren: "That wreck was hauling ore on a run from here to Node 7.
+       Interesting — Node 7 is a refinery with steady demand.
+       I estimate 22% margin on that route. Want me to set it up?"
+
+Dask:  "Found the cargo log. This ship was running ore to the
+       refinery at Node 7. Reliable run — I've seen that kind of
+       demand hold. I can handle it if you want."
+
+Lira:  "The manifest shows ore headed for Node 7 — a refinery
+       tucked behind Chitin space. Good margins if we can
+       navigate the politics. Want me to try?"
+```
+
+**This is the single most important UX moment in the entire system.** The player scans
+a derelict, gets loot AND intel, and the FO immediately says "I can use this." That's
+the centaur model made tangible. Without this beat, discovery and automation feel like
+separate games.
 
 ### How This Connects to Automation
 
@@ -376,39 +473,212 @@ Player explores:  Travels to unexplored Deneb system. Discovers a Ruin (Phase 2 
 
 Player analyzes:  Phase 3 analysis reveals: Valorin frontier station 2 hops away buys
                   Rare Metals at 22cr (vs 8cr average). Production deficit in Composites.
+                  NEW: EconomicIntel(MarketAnomaly) written to IntelBook.
+                  NEW: DISCOVERY_OPPORTUNITY fires — FO offers to build the route.
 
-Player automates: Deploys new TradeCharter: Deneb -> Valorin station. Earning 14cr/trip.
-                  The discovery RESOLVED the bottleneck.
+Player approves:  FO charters a hauler on Deneb → Valorin. Earning 14cr/trip.
+                  The discovery RESOLVED the bottleneck AND the FO built the solution.
 
-Next wall:        Valorin station saturates after 50 ticks. Player needs a new discovery
-                  to find the next opportunity.
+Next wall:        Valorin station saturates after 50 ticks. Intel ages → margins widen.
+                  FO: "Deneb route is thinning. Fresh intel would help — or a new find."
+                  Player needs a new discovery to find the next opportunity.
 ```
+
+### The Centaur Model (NEW v2)
+
+> **Core axiom (#2):** The player explores; the FO builds. Neither succeeds alone.
+> **Research basis:** Kasparov's "Advanced Chess" (human + computer > either alone),
+> Lee & See 2004 (trust calibration in automation), Bainbridge 1983 (ironies of
+> automation), Parasuraman & Riley 1997 (trust ladder in human-automation teams).
+
+The player-FO relationship is the game's central design challenge. Get it right and
+the exploration→automation pipeline creates a uniquely satisfying partnership. Get it
+wrong and the FO becomes either a notification system (too passive) or a replacement
+for player agency (too active).
+
+#### Competence Tiers (aligned with fo_trade_manager_v0.md)
+
+> **Canonical source:** `fo_trade_manager_v0.md` §Competence Model. **Resolved:
+> 3 tiers, growth through crisis survival. No domains, no XP bars.**
+> The FO gets better as the player plays. Growth manifests as DIALOGUE and
+> CAPABILITY, not numbers.
+
+The trust research (Lee & See 2004, Parasuraman & Riley 1997, Bainbridge 1983)
+informs the *principles* — transparency, never-skip-levels, manual-skill-maintenance
+— but the mechanical structure is 3 tiers, not 5 levels:
+
+| Tier | Name | FO Capability | When It Happens | **Mechanical Gate** |
+|------|------|--------------|-----------------|---------------------|
+| **1** | **Novice** | Charter-only. Runs 1-2 player-demonstrated routes. Basic sustain (fuel). Observes, comments on what the player does | FO selected during tutorial. Default state | Default — no gate |
+| **2** | **Competent** | Runs 3-5 routes. Manages all sustain. Suggests adjacent-node extensions. Recommends first ship purchase | ~15 manual trades, 5+ nodes explored, first warfront survived. FO: "After the composites crisis, I started stockpiling reserves. Give me a few more routes — I can handle them now." | Crisis survival triggers tier-up dialogue. Player must explicitly approve expanded scope |
+| **3** | **Master** | Full network (15+ routes). Fleet optimization. Proactive rebalancing. Warfront briefings with strategic depth. Economic anomaly detection | Haven operational, 8+ systems explored, endgame tier approached. FO proposes regional trade networks | Player approves strategic-level delegation. Can demote at any time |
+
+**Growth through crisis, not accumulation.** The FO's most meaningful growth happens
+when they survive adversity — a sustain emergency handled well, a warfront that
+disrupted routes and was navigated. This makes growth feel earned and narrative.
+
+**Tier never auto-advances.** Each crisis-survival gate fires a dialogue prompt;
+the player must explicitly approve expanded scope. The player can also DEMOTE the
+FO at any time via the Empire Dashboard. This is the anti-Stellaris rule: Paradox
+removed sector automation entirely in patch 3.9 because players couldn't constrain
+AI scope. Our FO's scope is always player-set.
+
+**Trust calibration is organic, not metered.** The Route Query interaction
+(`fo_trade_manager_v0.md` §Route Query) serves as trust calibration — the player
+asks "why did you do that?" and gets a good answer, building trust through observed
+competence. No trust bars, no XP meters, no visible numbers.
+
+**Critical design constraint (Stellaris Sector Problem):** Delegation fails when
+the AI is (a) stupid, (b) invisible, (c) requires full takeover to correct, or (d)
+operates at the wrong abstraction level. X4's autotraders fail because players
+*"display 'No traderoute found' despite profitable trades existing"* (Steam forums).
+Stellaris sectors fail because *"the AI removes jobs and creates unemployed pops and
+builds wrong buildings"* (Paradox community). Both share the root cause: the player
+delegates, then witnesses incompetence they can't fix granularly.
+
+**Our solution:** The FO's reasoning is always visible. The Empire Dashboard shows
+WHY the FO chose a route (intel source, estimated margin, freshness). The player
+can override any individual decision without dismantling the entire stack.
+
+#### FO Confidence Through Personality (not bars)
+
+> **Canonical source:** `fo_trade_manager_v0.md` Principle #5 — "FO Personality
+> Shapes Flavor, Not Strategy." The FO IS the confidence display. Confidence
+> information flows through dialogue, not alongside it.
+
+Every FO trade recommendation carries implicit confidence — but expressed through the
+FO's personality, not a generic UI element. The FO is a person, not a tooltip:
+
+| Confidence | Maren (Analyst) | Dask (Veteran) | Lira (Pathfinder) |
+|-----------|----------------|----------------|-------------------|
+| **High** | "22% margin, ±2%. Intel is 12 ticks old. This is solid." | "Solid route. I've seen these hold." | "This one feels right. Everything lines up." |
+| **Moderate** | "Estimate 18% margin, but data is 80 ticks old. Could be ±8%." | "Should work, but I've been burned by stale data before." | "Something about that market calls to me, but I can't pin down the risk." |
+| **Low** | "I'd project positive, but with old data the error bars are wide." | "Dicey. I wouldn't bet my ship on it." | "My gut says yes, but my gut's been wrong in new territory." |
+| **Unknown** | "Insufficient data. I can't even estimate." | "No idea. You'd need to go look." | "That's blank space on my map. Could be anything." |
+
+**Implementation:** `TradeRouteIntel` gains a `ConfidenceScore` (0-100) computed from:
+intel age (worst of source/dest), market volatility history, route proven-count (how
+many successful trips). The FO translates this score into personality-appropriate
+language. No colored bars — the confidence is in the words, tone, and certainty of
+the FO's recommendation. Players learn to read their specific FO's signals.
+
+**Why not bars?** A universal 4-level colored bar flattens the personality difference
+into a generic HUD element. The whole point of choosing an FO is that they present
+information differently. Maren players learn "±2%" means safe; Lira players learn
+"feels right" means safe. This is the same information, delivered through character.
+
+#### FO Adaptation to World Events
+
+> **Canonical source:** `fo_trade_manager_v0.md` §FO Mistakes — "**Resolved: World
+> failure, not FO incompetence.** The FO makes correct decisions that produce bad
+> outcomes because the galaxy is unpredictable." The FO doesn't make mistakes — the
+> galaxy surprises everyone.
+
+When world events disrupt the FO's plans, it must (a) adapt the affected action,
+(b) report clearly, (c) explain what changed in the world, and (d) suggest options:
+
+| World Event | FO Adaptation | Player Options | FO Dialogue (Maren) |
+|------------|--------------|---------------|---------------------|
+| **Tariffs increased** (route becomes unprofitable) | Pauses route, holds cargo | Resume / reroute / abandon | "Route Delta went negative — tariffs increased 15% since our last visit. I've paused. Want me to reroute, or should you investigate?" |
+| **Intel aged out** (data too old to trust) | Widens margin buffers, flags for rescan | Rescan node / find alternative / accept wider margins | "I'm operating blind on the Kepler leg. Data is 400 ticks old. I've widened margins to compensate, but I'd rather have fresh intel." |
+| **Faction conflict** (border closed) | Reroutes if alternatives exist, escalates if not | Approve reroute / negotiate access / find new route | "Chitin border closed. I've rerouted through Valorin space — 8% less margin but safe. Approve?" |
+| **Market shifted** (prices diverged from intel) | Adjusts route parameters, reports discrepancy | Accept adjusted route / abandon | "Prices at Deneb shifted — actual margins are 20% below what our discovery data predicted. Route still works but thinner." |
+| **Player manual trade** (overlaps FO route) | Asks for clarification, does NOT override | Explain intent / let FO adapt / revoke FO authority on that route | "You just sold Ore at Nexus-7 — that's the same good I was routing to Kepler. Want me to adjust, or are you taking that market back?" |
+
+**Framing matters:** The FO is never wrong — the galaxy is unpredictable. Pirates hit
+between intel refreshes. Warfronts disrupt routes. Markets shift. The FO's competence
+isn't in question; the galaxy's reliability is. This preserves trust while creating
+interesting adaptation moments.
+
+**Rule: the FO NEVER silently fails.** Every disruption produces a report. Route status
+is visible on the Empire Dashboard: "Routes: 12 active, 2 flagged, 1 paused."
+This is the anti-X4 rule: *"Ships bounce in and out of stations for extended periods"*
+with no explanation. Our FO always explains.
+
+#### FO Learning from Player Behavior
+
+> **Research basis:** Star Traders: Frontiers — "destroying ships makes crew bloodthirsty;
+> exploring makes them intrepid." The centaur model requires bidirectional adaptation.
+
+The FO should learn from the player's manual trading patterns and adjust its
+recommendations accordingly. This is NOT a hidden stat — it's visible and adjustable:
+
+| Player Pattern | FO Adaptation | FO Dialogue |
+|---------------|--------------|-------------|
+| Player consistently takes high-risk/high-reward routes | FO suggests riskier routes with higher margins | "You seem comfortable with contested space. I've flagged a Chitin-border route — 35% margin, but there's patrol risk." |
+| Player avoids a specific faction | FO deprioritizes that faction's space | "I've noticed you steer clear of Communion territory. I'll route around it unless you say otherwise." |
+| Player manually trades a good the FO isn't covering | FO offers to automate that good | "You've been running Rare Metals manually for 5 trips. Want me to set up a charter for that?" |
+| Player overrides FO route decisions frequently | FO becomes more conservative, asks before acting | "I've been getting it wrong lately. I'll check with you before committing to new routes for a while." |
+
+**The learning is transparent.** The Empire Dashboard shows "FO Profile: Risk-tolerant,
+Communion-averse, learning from 47 manual trades." The player can reset or adjust these
+preferences anytime. This is the anti-Black & White rule: players couldn't tell what the
+creature had learned. Our FO shows its work.
+
+#### Bainbridge's Paradox (1983)
+
+> "The more advanced a control system is, the more crucial may be the contribution
+> of the human operator." — Lisanne Bainbridge, "Ironies of Automation"
+
+Applied to our game: **the player must be able to do the FO's job manually at any
+time, and must occasionally be REQUIRED to.**
+
+| Bainbridge Requirement | Implementation |
+|----------------------|----------------|
+| Player must maintain the skill to intervene | Manual trading always available and occasionally more profitable than FO routes (edge cases, faction reputation gates) |
+| Automation must be transparent | FO decision log: "Route Delta chosen because Deneb discovery showed 22% margin. Intel age: 45 ticks." |
+| Failure must require human judgment | When intel expires, FO escalates: "Route Delta's data is unreliable. I need you to visit Deneb or find a new route." |
+| Player must understand the system enough to diagnose failures | FO explanations in character, not in system terms. "The Valorin raised tariffs — that's why Route Delta is bleeding credits" |
+
+**Anti-pattern to avoid:** "Black & White" (2001) promised a creature AI that learned
+from observation — but players couldn't tell what the creature had learned or why it
+was making decisions. Teaching-by-demonstration only works when the student shows its
+work. Our FO's decision log is mandatory, not optional.
+
+#### FO Observation Limits
+
+The FO must NOT become a notification stream. Observation beats are powerful because
+they're rare and well-timed. Design constraints:
+
+| Constraint | Rule | Rationale |
+|-----------|------|-----------|
+| **Cooldown** | Minimum 60 ticks between non-critical FO observations | Player needs breathing room. Constant commentary becomes background noise |
+| **Length** | FO dialogue ≤ 2 sentences for routine observations, ≤ 4 for significant events | Brevity is respect. The player is busy |
+| **Stacking** | Max 2 queued observations. If queue is full, lowest-priority observation is replaced and an overflow indicator appears ("FO has more to say" pulse on Intel tab). Replaced observations are logged to the FO history panel, never permanently lost | Better to defer a comment than lose information. The player can always catch up via the Intel tab |
+| **Escalation** | Only `DISCOVERY_OPPORTUNITY`, `TRADE_INTEL_STALE`, and chain/revelation triggers can bypass cooldown | These are the moments that matter |
+| **Personality budget** | Each FO archetype has a "chattiness" parameter (Analyst: low, Veteran: medium, Pathfinder: high) | Players who pick Analyst want fewer interruptions |
+| **Player-initiated** | The player can ALWAYS ask the FO for analysis via the Intel tab. The cooldown only limits unsolicited observations | Player agency over information flow |
+
+**The silence principle:** The most powerful FO observations are the ones that break
+a silence. If the FO has been quiet for 200 ticks and then says "Captain — you should
+see this," that has impact. If the FO comments every 30 ticks, nothing has impact.
 
 ### Intel Freshness & Decay
 
-Discovery intel is perishable. Principle #9: information asymmetry creates urgency.
+Discovery intel is perishable. Axiom #4: knowledge is perishable — explore or decay.
 
-| Intel Age | Quality | Effect on Programs |
-|-----------|---------|-------------------|
-| 0-50 ticks (fresh) | 100% — exact values | Programs use optimal routing |
-| 51-150 ticks (aging) | 75% — values drift +/-10% | Programs earn slightly less |
-| 151-300 ticks (stale) | 50% — values drift +/-25% | Programs may run at loss |
-| 300+ ticks (expired) | 25% — unreliable | Programs auto-pause, request re-scan |
+> **Canonical decay schedule:** See §Intel Decay → Program Profitability above for
+> the unified distance-based decay table. Intel decays by DISTANCE BAND (hop count
+> from player start), not by absolute time. This section describes the mechanic;
+> the canonical numbers are in the margin buffer spec.
 
 **Mechanic:** NPC traders also discover routes over time. The player's exclusive
 advantage from a discovery decays as NPC trade programs compete on the same route.
 The decay rate is SLOWER for deep-frontier discoveries (fewer NPCs) and FASTER for
 near-starter discoveries (many NPCs). This creates a natural pressure toward the
-frontier — deeper discoveries stay profitable longer.
+frontier — deeper discoveries stay profitable longer. Fracture-space discoveries
+NEVER decay (NPCs can't fracture-travel) — permanent exclusive advantage.
 
-**Implementation note:** `IntelBook.IntelFreshness` already tracks per-node age.
-Extend to include discovery-derived intel entries with explicit decay curves.
+**Implementation status:** `ApplyDiscoveryRouteDecay()` in IntelSystem.cs (T41)
+implements distance-based decay with bands: Near ≤2 hops (50t), Mid 3-5 (150t),
+Deep 6+ (400t), Fracture (never). **Remaining**: margin buffer wiring to
+`ProgramSystem.CalculateEffectiveMargin()` so decay mechanically affects profit.
 
 ---
 
 ## Anomaly Chains (NEW)
 
-> **Core principle (#8):** Chains, not one-shots. 3-5 site escalation.
+> **Axiom #3:** Chains create stories; one-shots create trivia.
 > **Reference:** Stellaris (anomaly event chains), Outer Wilds (interconnected sites),
 > Mass Effect (Prothean artifact trail).
 
@@ -505,6 +775,39 @@ specific goods. Each template has a fixed dramatic arc.
 - Chain G: The Living Geometry (4 sites) — fragment resonance leading to R5
 - Chain H: The Departure Record (3 sites) — why the thread builders left
 
+### NEW: Anomaly Chain → FO Intel Pipeline
+
+Anomaly chains are the tick 600-1200 content engine. The `AnomalyChainSystem` and
+`AnomalyChainContentV0` exist (T45), but chains need to produce **FO-relevant
+intelligence at intermediate steps**, not just final loot. Without this, chains are
+multi-site treasure hunts disconnected from the automation core loop.
+
+**Design principle:** Chains should reward the player with ESCALATING economic value at
+each step. This keeps the player motivated to continue the chain AND gives the FO material
+to work with during the mid-game. The player follows the mystery; the FO builds
+infrastructure behind them. That's the centaur model in action.
+
+Each chain step produces a `ChainIntel` variant of `EconomicIntel` with escalating scope:
+
+| Chain Step | Intel Type | FO Response | Example |
+|-----------|-----------|-------------|---------|
+| **Step 1 (Surface)** | Location data — reveals a node/region of interest | FO acknowledges, no action yet | "That signal you traced points to something in the Drift sector. No economic data yet, but it's worth investigating." |
+| **Step 2 (Investigation)** | Partial economic picture — production records, resource hints | FO begins planning | "The second site had production records. Whatever was here manufactured [good] at industrial scale. If any of that infrastructure survived..." |
+| **Step 3 (Deep)** | Actionable trade intelligence — full supply chain data | FO proposes routes | "I can now map the supply chain this installation fed. Three nodes, two goods, margins I haven't seen in thread space. Want me to start building routes?" |
+| **Final Step (Resolution)** | Artifact + comprehensive regional intel | FO installs artifact upgrade | "The [Ancient Navigation Beacon] — it's not just a trophy. It contains pathfinding data that improves every route in this region. Route Delta efficiency: +40%." |
+
+**Chain intel also feeds the pentagon ring revelation.** The FO's discovery emphasis
+system (see `fo_trade_manager_v0.md` §Discovery Emphasis by FO Personality) should
+produce different FO commentary per chain step:
+
+- **Maren** notices price pattern anomalies across chain data → economic evidence
+- **Dask** notices tactical signatures and military logistics → strategic evidence
+- **Lira** notices navigational oddities and geometry distortions → spatial evidence
+
+Same chain, different FO commentary. This is the discovery emphasis system at work
+during chains, not just at static sites. It creates replayability: different FO =
+different path through the same chain's narrative.
+
 ### Chain Gating
 
 | Chain Tier | Minimum Requirement | Discovery Density |
@@ -528,7 +831,7 @@ Directly from Stellaris: anomaly difficulty should be gated by scanner/sensor ti
 
 ## Automation Graduation (NEW)
 
-> **Core principle (#7):** Automate the routine, preserve the novel.
+> **Axiom #6:** Milestones are moments — celebrate then automate.
 > **Reference:** Elite Dangerous (what NOT to do), Factorio (automation as progression).
 
 ### The Anti-Fatigue Mechanism
@@ -570,9 +873,160 @@ The suggestion is a natural dialogue beat, not a tutorial popup.
 
 ---
 
+## Discovery Failure States (NEW v2)
+
+> **Axiom #5:** Mystery degrades gracefully. **Axiom #4:** Knowledge is perishable.
+> A system with no failure states has no tension. Every exploration game that lets
+> discovery always succeed eventually makes discovery feel trivial.
+
+### Why Failure Matters
+
+Currently, every scan succeeds. Every analysis yields loot. Every chain step completes.
+This means the player never fears a discovery going wrong — which means they never feel
+genuine tension during the scan process. Failure states create the emotional range that
+makes success meaningful.
+
+### Failure Types
+
+| Failure Type | Trigger | Player Experience | Recovery |
+|-------------|---------|-------------------|----------|
+| **Scan Interference** | Instability zone + low scanner tier | Scan returns partial/corrupted data. FO: "Too much interference. We got fragments — not enough for a full read." | Upgrade scanner, reduce local instability, or return when metric stabilizes |
+| **Hazard Abort** | Discovery site has hull-damage hazard exceeding ship's tolerance | Scan aborts partway. FO: "Hull stress too high — I'm pulling us back. We need better shielding." | Install defensive module, repair hull, return with stronger ship |
+| **Intel Spoilage** | Discovery analyzed but player waits too long to act on intel | Intel degrades to Expired before FO can deploy automation. Opportunity lost. | Find a new discovery, or revisit to re-scan (partial data recovery) |
+| **Chain Dead End** | Chain step requires capability the player doesn't have yet | Chain pauses. FO: "The trail continues into fracture space. We can't follow — yet." Lead remains in Knowledge Graph as a "locked" node | Acquire the required capability (scanner tier, fracture drive, faction rep) |
+| **Contested Discovery** | NPC faction fleet arrives during scan/analysis | Scan interrupted by combat. Partial data retained. Discovery site may be claimed by the NPC faction | Return after resolving the faction conflict, or negotiate access via diplomacy |
+| **False Positive** | Instability zone + phantom marker mechanic | Player travels to a discovery marker that doesn't exist. FO: "Scanner ghost. The instability is playing tricks on our instruments." | No discovery, but the journey itself may have revealed other intel (visited nodes refresh IntelBook) |
+
+### Failure as Narrative
+
+The critical design insight: failure states should produce FO dialogue that **reveals
+character**. A scan failure isn't just "try again" — it's a moment where the FO's
+personality shows:
+
+```
+[Scan Interference at Node 19]
+Maren: "Partial data. 62% confidence. I can extrapolate, but I wouldn't
+       recommend trading on incomplete models."
+Dask:  "Instruments are screaming. We got something, but not enough.
+       I don't like operating blind, Captain."
+Lira:  "The noise is beautiful, actually. Like the void is singing.
+       But I can't read through it. Not with this scanner."
+```
+
+Failure states also serve as natural gating for capability progression. The player
+encounters a scan failure → understands they need a better scanner → researches the
+upgrade → returns and succeeds. This is Axiom #4 (pain before relief) applied to the
+scanner itself.
+
+### Partial Success
+
+Not all failures are binary. Introduce a "partial success" state:
+
+| Outcome | Data Quality | FO Response |
+|---------|-------------|-------------|
+| **Full success** (> 80% signal) | Complete data, exact values | Normal analysis flow |
+| **Partial success** (40-80%) | Approximate values, some fields marked "est." | FO flags uncertainty: "Margin estimate: 15-25%. I'd want better data before committing a charter." |
+| **Failure** (< 40%) | Discovery reverts to Seen. Must re-scan | FO explains why and what would help |
+
+Partial success is more interesting than binary pass/fail because it forces the player
+to make a judgment call: act on uncertain data, or invest time re-scanning?
+
+---
+
+## Artifact Research → Ancient Tech Multipliers (NEW)
+
+> **Cross-ref:** `fo_trade_manager_v0.md` §Ancient Tech as Automation Multipliers
+> **Epic:** EPIC.S6.ARTIFACT_RESEARCH (prerequisite for FO Trade Manager Phase 3)
+
+### Why This Section Exists
+
+The FO Trade Manager spec describes a table of ancient artifacts that slot into the FO's
+operations as visible, named upgrades (e.g., Ancient Navigation Beacon → +40% route
+efficiency). But the pipeline from "player finds artifact at discovery site" to "FO
+installs upgrade" has no mechanical spec. EPIC.S6.ARTIFACT_RESEARCH is TODO. This
+section specifies the flow so implementers don't need to cross-reference two docs.
+
+### Artifact → FO Installation Pipeline
+
+```
+1. Player finds artifact at discovery site         (existing — DiscoveryOutcomeSystem)
+2. Artifact enters research queue at Science Center (EPIC.S6.SCIENCE_CENTER)
+3. Research completes after N ticks                 (throughput-gated by Science Center tier)
+4. Research produces an AncientTechUpgrade          (new entity, typed effect)
+5. FO installs upgrade into TradeManager            (TradeManager.AncientTechSlots)
+6. FO acknowledges installation with character beat (ANCIENT_TECH_INSTALLED trigger)
+```
+
+### AncientTechUpgrade Effects — Qualitative Shifts (v2 redesign)
+
+> **Design philosophy change (v2):** Ancient tech must NOT be percentage bonuses.
+> "+40% route efficiency" is a spreadsheet improvement — the player doesn't FEEL it.
+> Ancient tech must enable **qualitatively new capabilities** that change HOW the player
+> plays, not just how WELL they play. Reference: Satisfactory's alternate recipes
+> (same product, completely different production chain), Factorio's nuclear power (not
+> "better coal" — an entirely new logistics challenge), Subnautica's Cyclops (not "faster
+> Seamoth" — a mobile base that changes expedition structure).
+>
+> **The rule:** Every Ancient Tech upgrade must make the player say "I couldn't do that
+> before" — not "I can do that 40% better."
+
+| Artifact | Effect Type | Qualitative Capability | FO Dialogue |
+|----------|------------|----------------------|-------------|
+| **Ancient Navigation Beacon** | `PhantomRoute` | Reveals a **hidden lane** between two systems with no visible lane gate. Only the beacon holder can use it. Creates exclusive shortcuts bypassing faction chokepoints | "That beacon — it's not a map. It's a KEY. There's a passage between Kepler and Deneb that doesn't appear on any chart. Our ships can use it. Nobody else can." |
+| **Accommodation Data Cache** | `DemandForesight` | FO sees **demand shifts 100 ticks before they happen** — not prediction, but actual future state read from residual accommodation geometry. Enables pre-positioning goods BEFORE demand arrives | "The cache doesn't predict the future. It reads it. Accommodation geometry doesn't distinguish between 'now' and 'soon.' The Valorin will need electronics in 80 ticks. We can be there first." |
+| **Precursor Trade Ledger** | `ShadowMarket` | Unlocks a **parallel trade channel** between any two systems where the player has installed Precursor infrastructure. Bypasses tariffs, NPC competition, and faction restrictions. Limited to 2 active channels | "The ancients didn't trade through stations. They traded through the geometry itself. I can set up two channels — no tariffs, no competition. No one can see these routes except us." |
+| **Metric Calibration Module** | `PerfectIntel` | Intel at calibrated systems **never decays**. The module stabilizes local metric enough to maintain permanent, exact economic data. Limited to 3 systems | "Intel doesn't decay because information doesn't decay — measurement does. This module fixes measurement. Three systems, permanent data. Choose wisely." |
+| **Resonance Amplifier** (NEW) | `ChainSense` | Detect anomaly chain hooks from **2x scanner range**. Chain steps glow on Knowledge Graph. Dramatically accelerates chain discovery in late-game | "The amplifier resonates with intent. Ancient intent. The chain markers are singing to it. I can feel the next link from here." |
+| **Threshold Key** (NEW) | `FractureShortcut` | Opens a stable fracture corridor between two visited fracture-space nodes. Permanent, bidirectional, no instability cost. The ancients' highway system | "A stable corridor. Not a fracture jump — a road. The thread builders built these. We're using their infrastructure. That changes everything about deep-space operations." |
+
+### Why Qualitative > Quantitative
+
+| Percentage Bonus (old) | Qualitative Shift (v2) | Why the Shift Wins |
+|------------------------|------------------------|-------------------|
+| "+40% route efficiency" | Hidden lane only you can use | Player remembers the ROUTE, not the number |
+| "Predict demand 50 ticks early" | See actual future demand state | Player makes different DECISIONS, not better versions of the same decisions |
+| "Hidden supply/demand revealed" | Parallel trade channel bypassing all friction | Player builds a DIFFERENT trade network, not an optimized version |
+| "+1 hop intel range" | 3 systems with permanent intel | Strategic CHOICE (which 3?) — not a passive bonus |
+
+**The Satisfactory alt-recipe principle:** Each Ancient Tech artifact should make the
+player redesign part of their trade network. Not "Route Delta is 40% better" but "I can
+now build routes that were IMPOSSIBLE before." The discovery creates a new possibility
+space, not a better value in the existing one.
+
+### Key Design Constraints
+
+**Constraint 1: The player sees the causal chain.** "I explored that dangerous site →
+found this artifact → researched it → FO installed it → now I can do something new."
+Every link visible, named, specific. No hidden capability unlocks.
+
+**Constraint 2: Ancient Tech creates dilemmas.** PerfectIntel covers 3 systems — which
+3? ShadowMarket allows 2 channels — which routes? These are strategic decisions that
+matter because the capability is powerful but limited. Percentage bonuses never create
+dilemmas because "apply everywhere" is always the right answer.
+
+**Constraint 3: Ancient Tech changes the FO's behavior.** When DemandForesight is
+installed, the FO's decision log shows "Pre-positioning Electronics at Altair. Demand
+spike in 80 ticks." The player SEES the artifact working through FO actions, not stats.
+
+The `AncientTechSlots` dictionary in the FO's `TradeManager` entity (see
+`fo_trade_manager_v0.md` §Entity Model) stores the artifact ID, source discovery ID,
+effect type, configuration (which systems, which routes), and installed tick. Empire
+Dashboard shows installed artifacts with source and current effect: "Phantom Route:
+Kepler ↔ Deneb (Beacon from Kepler Drift Site, installed T450)."
+
+### Pre-Science Center Workaround
+
+Until EPIC.S6.SCIENCE_CENTER is implemented, artifacts can install directly into the
+FO's `AncientTechSlots` at analysis time (skip steps 2-3). This preserves the
+exploration→automation feedback loop for Phase 2-3 of FO Trade Manager without blocking
+on the full Science Center implementation. The research queue adds depth later but isn't
+load-bearing for the core loop.
+
+---
+
 ## Information Asymmetry (NEW)
 
-> **Core principle (#9):** Knowledge decays. Deeper knowledge = deeper advantage.
+> **Axiom #4:** Knowledge is perishable — explore or decay.
 > **Reference:** EVE Online (probe scanning as competitive edge), X4 (scan for trade data).
 
 ### Tiered Economic Intelligence
@@ -623,7 +1077,7 @@ fracture travel beyond the narrative motivation.
 
 ## Late-Game Discovery Continuation (NEW)
 
-> **Core principle (#12):** Discovery must not dry up.
+> **Axiom #4:** Knowledge is perishable. Discovery must not dry up.
 > **Reference:** Stellaris (what NOT to do — anomalies stop spawning in mature empires).
 
 ### Five Sources of Late-Game Discovery
@@ -655,6 +1109,254 @@ stabilize spacetime — it suppresses history. The thread builders' infrastructu
 the evidence of its own construction. As it fails, it reveals itself. This is the
 thematic core of the game: the infrastructure that enables civilization also constrains
 it, and its failure reveals truths that stability concealed.
+
+### The Sustain → Exploration Closed Loop (NEW v2)
+
+> **Cross-ref:** `dynamic_tension_v0.md` Pillar 2 (Maintenance Treadmill), Pillar 5
+> (Revelation Arc). **Gap:** The dynamic tension doc defines sustain pressure but never
+> shows how it connects to exploration. This section closes the loop.
+
+The SustainSystem creates economic pressure: hull degrades, modules wear, fuel costs
+accumulate. This pressure is currently invisible to the exploration system — sustain
+costs are just overhead. But sustain pressure should DRIVE exploration:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                THE SUSTAIN-EXPLORATION LOOP              │
+│                                                         │
+│  Sustain costs rise ──→ Margins compress ──→ FO flags   │
+│       ↑                                     declining   │
+│       │                                     profitability│
+│       │                                         │       │
+│       │                                         ▼       │
+│  Discovery yields  ←── Player explores ←── FO suggests  │
+│  repair materials,      frontier for        "We need    │
+│  new supply routes,     better sources      new sources │
+│  ancient tech that                          to maintain  │
+│  reduces sustain costs                      operations"  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Sustain Pressure | Exploration Response | Discovery Payoff |
+|-----------------|---------------------|-----------------|
+| Hull repair costs rising | Derelict discoveries yield salvage + repair materials | Direct cost reduction |
+| Fuel becoming scarce | Signal discoveries reveal fuel depot locations or efficient routes | Route optimization |
+| Module degradation accelerating | Ruin discoveries yield ancient alloys that slow degradation | Maintenance treadmill relief |
+| Operating at loss due to stale intel | Any discovery refreshes local intel → tightens margins | Immediate profit recovery |
+| Sustain costs exceed revenue | Market Ruin discovery reveals WHY a similar operation failed → FO restructures routes to avoid same fate | Strategic adaptation |
+
+**The key insight:** Sustain pressure without exploration relief feels like punishment.
+Exploration without sustain pressure feels like tourism. Together, they create the
+Factorio rhythm: you're always solving the current problem while creating the next one.
+
+**FO integration:** The FO should frame exploration suggestions in sustain terms:
+```
+Maren: "Hull repair costs have increased 30% over the last 200 ticks.
+       Our current supply routes don't include salvage sources. I've
+       flagged two unexplored systems in scanner range that show
+       derelict signatures."
+```
+
+This makes the FO's exploration suggestions feel NECESSARY, not optional. The player
+explores because their empire needs it, not because the game is nagging them.
+
+### What the Player Does During Automation (NEW v2)
+
+> **The #1 design risk in a centaur model:** The player sets up automation, then
+> has nothing to do. The FO is running routes, the programs are ticking — what is
+> the PLAYER doing? If the answer is "watching numbers go up," we've built a
+> screensaver, not a game.
+
+**The Spectator Trough Problem:** Factorio solves this by making automation create
+NEW bottlenecks (throughput, logistics, power). Our equivalent: automation reveals
+new INFORMATION that only the player can act on.
+
+#### The Exploration–Automation Interleave
+
+At any given moment, the player should be doing exactly ONE of these:
+
+| Player Mode | What They're Doing | What Automation Is Doing | Transition Trigger |
+|-------------|-------------------|------------------------|-------------------|
+| **Scouting** | Flying to unexplored systems, scanning | FO runs existing routes, reports margin changes | Scanner finds something interesting → Analyzing |
+| **Analyzing** | Choosing scan phases, reading discovery results | FO flags intel from other routes ("while you were scanning...") | Discovery yields EconomicIntel → Deciding |
+| **Deciding** | Reviewing FO proposals, approving/rejecting routes | FO queues proposals, waits for player input | Player approves → Optimizing, or player rejects → Scouting |
+| **Optimizing** | Reviewing Knowledge Graph, comparing routes, adjusting programs | FO executes approved routes, accumulates performance data | Margins compress / sustain pressure rises → Scouting |
+
+**The key insight:** The player is never idle because each mode creates the
+conditions for the next. Scouting produces discoveries. Discoveries produce
+proposals. Proposals produce routes. Routes produce intel decay and sustain
+pressure. Pressure produces the need to scout again.
+
+#### Active Player Roles at Each Competence Tier
+
+The 3-tier competence model (§Centaur Model) must ensure the player has meaningful
+work at every automation level:
+
+| Competence Tier | FO Does | Player Must Do | Why Player Can't Delegate This |
+|----------------|---------|---------------|-------------------------------|
+| **Novice** (Tier 1) | Runs 1-2 player-demonstrated routes, basic sustain | Everything else: fly, scan, buy, sell, explore, handle threats | Learning the mechanics + building mental model of what works. FO is observing and learning alongside the player |
+| **Competent** (Tier 2) | Runs 3-5 routes, manages all sustain, suggests extensions | Monitor performance, handle exceptions (faction conflict, piracy, price crash), explore frontiers, make strategic decisions | Exceptions require judgment. Strategic decisions (which faction, which chains) shape the empire's identity. NPC competition and world events keep routes dynamic |
+| **Master** (Tier 3) | Full network, fleet optimization, proactive rebalancing, warfront briefings | Explore deep frontier, pursue revelation evidence, manage diplomacy, direct research priorities, handle major disruptions | Only the player can decide what the empire BECOMES. The galaxy is unpredictable enough that even a Master FO needs human judgment for crises |
+
+**Anti-pattern: The Stellaris Sector Problem.** At high trust levels, if the
+player's only job is "check the numbers occasionally," they'll alt-tab. The fix:
+high-trust automation GENERATES more exploration opportunities (FO detects
+anomalies in trade data, flags suspicious patterns, discovers routes that pass
+near unexplored systems). The more you automate, the more the game gives you to
+explore.
+
+#### Boredom Circuit Breakers
+
+If the player stays in Optimizing mode too long without scouting:
+
+| Trigger | What Happens | Design Intent |
+|---------|-------------|---------------|
+| No new discovery for 300 ticks | FO: "Our intel is getting stale. Scanner shows signatures in [region]." + map ping | Gentle nudge toward exploration |
+| Margin compression on 3+ routes | FO: "We're competing with ourselves. Need new markets." | Economic pressure to explore |
+| Sustain costs exceed 40% of revenue | FO: "Maintenance is eating our profits. Derelicts in [region] might have salvage." | Sustain→Exploration loop kicks in |
+| Chain intel suggests connected site | FO: "That anomaly chain continues at [location]. The next link might explain the pattern." | Curiosity pull |
+| 500 ticks since last revelation progress | Story system plants a new lead visible on galaxy map | Narrative pull toward revelation content |
+
+**None of these are mandatory quests.** They're informational nudges that make
+exploration feel like the obvious next move. The player always chooses; the game
+ensures the choice is interesting.
+
+### Re-Exploration: The Late-Game Verb (NEW v2)
+
+> **Axiom #1:** Discovery is knowledge. Knowledge changes with context.
+> **Gap:** Currently, once a site is Analyzed, it's "done." But revelations (R1/R3/R5)
+> change the meaning of everything the player has already seen.
+
+**The problem:** After R1 fires and cover names flip, the player's understanding of
+every previously-analyzed discovery fundamentally changes. That derelict at Kepler
+isn't just a "Valorin scout" anymore — it's evidence of thread-builder perimeter
+enforcement. But the player has no reason to GO BACK. The discovery is green, analyzed,
+done. The game treats it as complete when the player's new knowledge makes it incomplete.
+
+**The solution: Re-analysis.**
+
+| Phase | Trigger | What Changes |
+|-------|---------|-------------|
+| **Re-Scan** | Player returns to an Analyzed site after a new revelation fires | New `Connection text` layer appears based on revelation context. FO commentary reflects new understanding |
+| **Deep Analysis** | Player with Mk2+ scanner revisits an Analyzed site | Additional data extracted: hidden signatures invisible to original scan tier. New intel enters IntelBook |
+| **Recontextualization** | Automatic (no player action) | After R1/R3/R5, all previously-analyzed sites gain a "New Context Available" marker on the galaxy map. Cover-story names flip to revealed names |
+
+**Visual treatment:** Analyzed (green) markers gain a subtle gold shimmer when the
+player has gained context that would change the discovery's meaning. This is NOT a
+quest marker — it's an invitation: "You know more now. Want to look again?"
+
+**FO dialogue on re-visit:**
+```
+[Player returns to Kepler Derelict after R1]
+Maren: "Captain, with what we know now... this wasn't a scout on a
+       covert mission. It was a perimeter patrol. The weapons that
+       destroyed it were automated. The thread builders were defending
+       something."
+```
+
+**Why this is load-bearing for late-game:** Without re-exploration, the late game has
+no reason to revisit safe space. The player pushes deeper and never looks back. Re-
+exploration means the ENTIRE map refreshes after each revelation — early-game systems
+become late-game content. This is Outer Wilds' core design: new knowledge makes old
+locations new again.
+
+### NEW: The Pipeline Inversion (Late-Game Centaur Deepening)
+
+> **Cross-ref:** `fo_trade_manager_v0.md` §Natural Route Depreciation, §Trade Data as
+> Lore Evidence
+
+Early game: **exploration feeds the FO.** The player discovers nodes, the FO builds
+routes. The FO is downstream of the player's exploration.
+
+Late game: **the FO's economic analysis feeds exploration targets.** This inverts the
+pipeline — the FO becomes a source of exploration leads, not just a consumer.
+
+| Source | Mechanism | FO Dialogue |
+|--------|-----------|-------------|
+| **Route depreciation** | Natural margin compression (NPC competition, §Natural Route Depreciation) creates steady demand for new routes. FO surfaces this as exploration motivation | "Route Alpha's margins have thinned — the locals figured it out. But that new system you visited has something interesting." |
+| **LORE_ANOMALY detection** | As FO detects economic anomalies (§Trade Data as Lore Evidence), the Knowledge Graph produces `Lead` entries pointing to specific locations | "The price patterns I've been tracking point to something at Node 19. It doesn't match any model I know. Worth investigating." |
+| **Faction intelligence shifts** | Warfront outcomes change faction territorial control, exposing previously protected space | "The Chitin withdrawal exposed something at Node 19. My supply chain models suggest there's infrastructure the Chitin were guarding. Worth a visit." |
+| **Pentagon ring evidence** | FO economic analysis reveals anomalies that only make sense if the resource distribution is artificial — these become Knowledge Graph leads | "I've been comparing trade data across all five factions. The dependency pattern is too clean. I've flagged three locations where the pattern breaks down — those breaks might tell us why." |
+
+**The centaur model deepens, it doesn't flatten.** The player and FO become
+increasingly interdependent: the player provides access (fracture drive, faction
+contacts, personal judgment), the FO provides analysis (pattern detection, route
+optimization, economic evidence). Neither can reach the endgame alone.
+
+---
+
+## Trade History as Revelation Evidence (NEW v2)
+
+> **Axiom #2:** The centaur model. **Axiom #1:** Discovery is knowledge.
+> **Genre-defining opportunity:** No trading game has ever used the player's own
+> completed trade data as evidence for a narrative revelation. This is unique.
+
+### Why This Section Exists
+
+The pentagon ring revelation (R3) depends on the player assembling evidence that the
+five-faction resource distribution is engineered. Currently, that evidence comes from
+anomaly chains and data logs. But the player has been GENERATING evidence since tick 1:
+every trade route they've operated, every margin they've earned, every price pattern
+they've observed is data about the economic system. The FO has been watching this data
+accumulate. The player's own trade history should be the FIRST evidence, not the last.
+
+### The Player's Ledger as Discovery
+
+The FO's `TradeManager` already tracks completed transactions: source, destination,
+good, margin, volume, tick. This ledger IS economic evidence — if you trade enough
+routes across enough factions, the pattern becomes visible.
+
+**FO observation triggers (progressive):**
+
+| Trigger | Condition | FO Dialogue | Evidence Type |
+|---------|-----------|-------------|---------------|
+| `TRADE_PATTERN_NOTICED` | Player has traded 3+ unique goods across 2+ factions | "I've been tracking our routes. There's a pattern I can't explain yet — the price differentials between [Faction A] and [Faction B] are unusually stable." | Preliminary |
+| `TRADE_PATTERN_SUSPICIOUS` | Player has traded across 3+ factions with consistent margins | "Captain, the margins are too clean. [Faction A] needs exactly what [Faction B] produces, and vice versa. That's not market dynamics — that's architecture." | Structural |
+| `TRADE_PATTERN_PROOF` | Player has operated routes touching all 5 factions | "I've mapped every route we've ever run. Five factions. Five resource deficiencies. Five perfect complements. The probability of this occurring naturally is... I can't calculate it. It's zero." | Definitive |
+
+**Knowledge Graph integration:** Each trigger adds a `TradeEvidenceConnection` to the
+knowledge graph linking the involved faction-pairs. By the time `TRADE_PATTERN_PROOF`
+fires, the player can open the Knowledge Web and see the pentagon ring drawn from their
+own trade data — not from a data log, not from an NPC, but from routes they personally
+operated.
+
+### Why This Is Genre-Defining
+
+In most games, narrative evidence is found in the world. In our game, the player
+GENERATES narrative evidence by playing the core loop. Trading IS investigation. The
+player who trades widely reaches the revelation faster — not because they explored more
+anomaly chains, but because their own ledger contains the proof. This means:
+
+1. **The core loop IS the revelation vehicle.** Trading broadly across factions isn't
+   just economically optimal — it's narratively revelatory.
+2. **The FO's analysis is genuinely useful.** The FO isn't summarizing what the player
+   already knows — it's synthesizing patterns across hundreds of transactions that no
+   human would notice.
+3. **Different players reach R3 via different evidence.** An explorer finds it through
+   anomaly chains. A trader finds it through their ledger. A completionist finds it
+   through data logs. All paths converge on the same revelation.
+
+### Pre-Revelation FO Decision Log Entries
+
+The FO's trade decision log (see §Centaur Model) should include breadcrumbs that only
+make sense after R3 fires:
+
+```
+[Tick 340] Route established: Kepler (Valorin) → Altair (Communion)
+           FO note: "Valorin electronics deficit perfectly complemented by Communion
+           surplus. Unusually clean fit."
+
+[Tick 580] Route established: Altair (Communion) → Wolf (Chitin)
+           FO note: "Third faction pair with near-perfect complementarity. I've
+           flagged this for deeper analysis."
+
+[Tick 900] TRADE_PATTERN_PROOF fires
+           FO: "I've been building a model from our ledger data. Five factions, five
+           perfect dependencies, forming a closed ring. This isn't economics. This
+           is engineering."
+           → Knowledge Graph: Pentagon Ring evidence appears, drawn from player routes
+```
 
 ---
 
@@ -689,6 +1391,50 @@ how knowledge relates. **Implemented** in `KnowledgeGraphSystem.cs` and
 +-----------------------------------------------------------+
 ```
 
+### Dual-Mode Display (NEW v2)
+
+> **Reference:** Outer Wilds' Ship Log has two modes — a geographic rumor map
+> (where things are in space) and a relational detective board (how things
+> connect conceptually). We need both, because geographic proximity and
+> conceptual proximity are independent.
+
+The Knowledge Graph has two view modes, toggled by the player:
+
+| Mode | What It Shows | Layout | When To Use |
+|------|--------------|--------|-------------|
+| **Geographic** | Discoveries overlaid on the galaxy map | Nodes positioned at their actual star system. Connections drawn as arcs across space. Clusters visible at a glance | "Where should I explore next?" — spatial planning, route scouting, frontier identification |
+| **Relational** | Discoveries as a detective board | Force-directed graph (like Outer Wilds Ship Log). Related nodes cluster regardless of physical distance. Orphan nodes drift to edges | "How do these connect?" — theory building, chain tracking, revelation hunting |
+
+**Geographic mode** is the default — players naturally think in space. The galaxy
+map already exists; the KG geographic mode is an overlay lens on it. Discoveries
+appear as icons at their system, connections as curved lines. Scanner range is
+visible as a frontier boundary.
+
+**Relational mode** is the investigation tool. When the player switches to it, the
+layout animates from geographic positions to force-directed positions (nodes that
+share connections pull together). This transition itself is informative — watching
+two distant discoveries snap together reveals a connection the player might have
+missed on the geographic view.
+
+```
+GEOGRAPHIC MODE                    RELATIONAL MODE
+
+  ·Kepler                            [Valorin Wreck]──┐
+    [Wreck]                                            │
+         ╲                           "same energy"     │
+          ╲                                            │
+  ·Altair  ╲                         [Signal Source]   │
+    [Signal] ·Deneb                       │            │
+              [Ruin]                 "beacon freq"     │
+                                          │            │
+                                     [Unknown ???]  [Ancient Ruin]
+                                                    [Communion ──]
+```
+
+**Interaction:** Both modes support all Player Verbs (§KG Player Verbs below).
+Pin markers persist across mode switches. Speculative Links are visible in both
+modes (geographic shows the spatial gap; relational shows the conceptual gap).
+
 ### Connection Types
 
 | Connection | Meaning | Visual |
@@ -700,6 +1446,116 @@ how knowledge relates. **Implemented** in `KnowledgeGraphSystem.cs` and
 | **Lore fragment** | Discovery adds to a narrative thread | Italic label on connection |
 | **Chain link** (NEW) | Discovery is part of an anomaly chain | Bold numbered arrow (1->2->3) |
 | **Revelation** (NEW) | Knowledge graph connection revealed by story revelation | Glowing line (appears when R1/R3/R5 fires) |
+| **Speculative** (NEW v2) | Player-drawn hypothesis link | Dashed gray/amber/gold depending on state (§Link Feedback) |
+
+### Knowledge Graph Player Verbs (NEW v2)
+
+> **Axiom #1:** Discovery is knowledge. The Knowledge Graph is currently read-only —
+> the player views it but cannot interact with it. An interactive Knowledge Graph
+> transforms passive observation into active investigation.
+
+The Knowledge Graph should support player verbs — actions the player can take ON the
+graph, not just through it. Reference: Outer Wilds' Ship Log (mark/unmark as explored),
+detective games (pin evidence, draw connections), Obra Dinn (mark identities).
+
+| Verb | Player Action | Effect | Why It Matters |
+|------|--------------|--------|----------------|
+| **Pin** | Select a discovery node and pin it to the HUD | Pinned discoveries show as waypoint markers on galaxy map. Max 3 pins. | Transforms "I should go there" into a tracked objective without a quest system |
+| **Annotate** | Add a short player note to any discovery node | Note visible on hover. Persisted in save. Max 50 characters | "I think this connects to the Communion frequency" — player's own theory |
+| **Link** | Draw a speculative connection between two nodes | Dashed line appears. If the game later confirms the connection, it upgrades to solid | Player feels smart when their guess is validated. Outer Wilds' strongest emotional moment |
+| **Flag for FO** | Mark a discovery for FO analysis | FO evaluates the flagged discovery and provides trade/strategic assessment. Uses one "FO analysis" charge (replenishes every 100 ticks) | Player-initiated centaur interaction. Respects FO observation limits (§Centaur Model) |
+| **Compare** | Select two discoveries and view their shared attributes | Side-by-side panel showing faction, era, damage type, goods, connections | Detective mechanic. "These two derelicts have the same weapon marks — connected?" |
+
+**Design constraint:** Verbs must be lightweight. No crafting, no resource cost, no
+failure state. The Knowledge Graph is a thinking tool, not a gameplay system. The
+player uses it to organize their understanding — the game rewards them when their
+understanding is correct (speculative links confirmed, flagged discoveries yield intel).
+
+**The "Link" verb is the most powerful.** When the player draws a speculative connection
+and the game later confirms it (via anomaly chain completion, revelation trigger, or FO
+analysis), the moment is uniquely satisfying: "I figured it out before the game told me."
+This is the Obra Dinn feeling — assembling truth from fragments.
+
+#### Link Feedback: The Obra Dinn Batch Model
+
+Wrong links should not immediately fail. Reference: Obra Dinn doesn't tell you
+which of your three identifications is wrong — it only confirms when a batch of
+three is ALL correct. Our equivalent:
+
+| Link State | Visual | Trigger | Player Experience |
+|-----------|--------|---------|-------------------|
+| **Speculative** | Dashed gray line | Player draws the link | "I think these connect" |
+| **Plausible** | Dashed amber line | FO analysis finds shared attributes (faction, era, good type) | "There's something here" |
+| **Confirmed** | Solid gold line + chime | Game event validates the connection (chain completion, revelation, trade data proof) | "I was right!" — the Obra Dinn moment |
+| **Contradicted** | Dashed line fades to red, then dims | Game event proves the connection impossible (different factions, incompatible eras, contradictory trade data) | "Not that — but now I know more" |
+
+**Critical rule: contradicted links are NEVER immediately punished.** The link
+stays visible (dimmed) so the player can see their reasoning history. A
+contradicted link might become relevant later — "Wait, I was wrong about WHY
+they connected, but they DO connect through a different mechanism." This preserves
+the detective feeling. Obra Dinn never deletes your wrong guesses; it just doesn't
+confirm them.
+
+**Batch confirmation (3-link rule):** When 3+ speculative links form a connected
+subgraph and ALL are independently confirmed, the player receives an "Insight"
+bonus: a unique FO commentary, a Knowledge Graph cosmetic (the subgraph glows),
+and a small intel reward. This encourages building theories, not just guessing
+individual connections.
+
+**FO integration:** When the player draws a link, the FO can optionally comment
+(using one observation slot):
+```
+Maren: "Interesting theory. The spectral data from both sites does
+       show similar Resonance_Composite signatures. I'll watch for
+       confirming data."
+Dask:  "Maybe. I've seen ships with those markings before — both
+       sites are near old patrol routes. Could be coincidence."
+Lira:  "Oh, I like that connection. If you're right, there might
+       be a third site along the same vector."
+```
+
+### Knowledge Graph Progressive Disclosure
+
+*Reference: Portal — one mechanic per encounter. The Knowledge Graph has 5
+player verbs and 2 view modes. Exposing all of them at first discovery would
+violate every progressive disclosure principle in our design bible.*
+
+KG features unlock at **gameplay milestones**, not tick counts. The player
+earns each verb by demonstrating they need it:
+
+| Milestone | KG Feature Unlocked | Why This Order |
+|-----------|-------------------|----------------|
+| **First discovery** | Geographic mode (read-only). Discoveries appear as icons on galaxy map | The player just found something — show them WHERE it is. No verbs needed yet |
+| **3 discoveries** | Pin verb (max 3). Pinned discoveries show as waypoints | Player has multiple sites — they need to prioritize which to visit next. Pin solves "where do I go?" |
+| **First anomaly chain started** (2+ linked discoveries) | Relational mode toggle. Connection lines visible | The player has connected discoveries for the first time — now the RELATIONSHIP view makes sense. Before this, it would show disconnected dots |
+| **5 discoveries + 1 chain** | Annotate verb (50 chars per node) | The player is building theories. They need to externalize their thinking. Appears naturally as the graph gets complex enough to forget details |
+| **First FO analysis** (Flag for FO used via dock interaction) | Flag for FO verb (1 charge / 100 ticks) | The FO has been analyzing discoveries in dialogue. The verb formalizes what the player already knows the FO can do |
+| **8 discoveries + 2 chains** | Link verb (speculative connections). Obra Dinn batch model active | The player has enough data points to form hypotheses. Link is the most powerful verb — gating it ensures the player understands what connections MEAN before they draw their own |
+| **First Insight** (3 confirmed speculative links) | Compare verb (side-by-side attributes). Batch Insight audio plays | The player has proven they can think like a detective. Compare is the advanced analytical tool — it rewards the player who is already engaged with Link |
+
+**Unlock UX:** Each new verb appears with a subtle KG border glow + FO
+comment explaining it in character (uses one observation slot):
+
+```
+[Pin unlocks]
+Maren: "Three sites catalogued. I can mark priority targets on
+your nav display — just pin the ones you want to visit."
+
+[Link unlocks]
+Lira: "You're seeing patterns I can't prove yet. If you think
+two sites are connected, draw the line. I'll watch for evidence."
+```
+
+**Design rules:**
+- Each unlock is announced ONCE (FO dialogue), then the verb is silently
+  available forever. No tutorials, no tooltips, no "Press X to Link"
+- Milestones are checked at discovery completion, not continuously — the
+  unlock moment coincides with the natural excitement of a new find
+- Players who skip the KG entirely (pure traders) lose nothing mechanically —
+  all KG features are optional. The FO still provides intel through dialogue
+- The progressive unlock order mirrors the player's cognitive journey:
+  observe (Geographic) → prioritize (Pin) → connect (Relational) →
+  theorize (Annotate) → investigate (Flag/Link) → analyze (Compare)
 
 ### Rumor Leads
 
@@ -804,6 +1660,25 @@ Generated deterministically from seed data. **Implemented** in
   broadcasting for [duration]. Source direction: [nearby system]."
 - "Intermittent energy spikes from [location]. Pattern analysis shows non-random
   structure. Possible [theory]."
+
+**Market Ruin Family (NEW v2):**
+- "An abandoned trading post. Cargo bays still contain unsold [good] — whatever
+  happened here, traders left in a hurry. Manifests show a once-thriving [good]
+  exchange between [faction A] and [faction B]."
+- "A collapsed station with economic records intact. Final entries show cascading
+  supply failures: [good] shortages triggered credit runs, which triggered
+  evacuation. This economy died in [timeframe]."
+- "Infrastructure for a trade route that no longer exists. Automated systems still
+  transmit outdated price data on a dead channel. FO notes: the collapse pattern
+  matches a known economic vulnerability."
+
+**Why Market Ruins matter:** They are economic archaeology. The player discovers HOW
+economies fail — and the FO uses that knowledge to protect current operations. A Market
+Ruin at Node 14 might reveal that over-dependence on a single good caused cascading
+failure. The FO can then flag that the player's current route portfolio has the same
+single-good dependency. Discovery of the PAST prevents failure in the PRESENT. This
+directly serves Axiom #2 (discovery feeds automation) in a way no other family does:
+Market Ruins don't create new routes, they make existing routes more resilient.
 
 ### Narrative Chaining
 
@@ -1052,12 +1927,18 @@ flips all names simultaneously, creating a cascade of "wait, ALL of those were..
 | **Discoveries without narrative** | Procedural games with no context | Every discovery has flavor text from family templates |
 | **No breadcrumb trail** | Random exploration without direction | Leads chain discoveries into narrative sequences |
 | **Scanner as passive stat** | "Range: 3" with no visual impact | Scanner sweep animation when entering new systems |
-| **Scan fatigue** (NEW) | Elite Dangerous FSS | Automation graduation: manual first, programs after 4th scan of a type |
-| **Discovery disconnected from economy** (NEW) | Many exploration games | Every discovery yields actionable trade intelligence |
-| **One-shot discoveries** (NEW) | Stellaris individual anomalies | Anomaly chains (3-5 sites) create memorable arcs |
-| **Discovery dries up** (NEW) | Stellaris mature empires | 5 late-game sources keep discoveries flowing |
-| **Pure randomness** (NEW) | No Man's Sky at launch | Constrained pools where players develop intuition |
-| **Full explanation** (NEW) | Over-exposited sci-fi | Incomplete knowledge is more compelling. Never name the thread builders |
+| **Scan fatigue** | Elite Dangerous FSS | Automation graduation: manual first, programs after 4th scan of a type |
+| **Discovery disconnected from economy** | Many exploration games | Every discovery yields actionable trade intelligence (§EconomicIntel) |
+| **One-shot discoveries** | Stellaris individual anomalies | Anomaly chains (3-5 sites) create memorable arcs |
+| **Discovery dries up** | Stellaris mature empires | 5 late-game sources keep discoveries flowing |
+| **Pure randomness** | No Man's Sky at launch | Constrained pools where players develop intuition |
+| **Full explanation** | Over-exposited sci-fi | Incomplete knowledge is more compelling. Never name the thread builders |
+| **Every scan succeeds** | Games without scan risk | 6 failure types with partial success. Failure reveals information too (§Discovery Failure States) |
+| **FO as notification stream** | Stellaris advisor spam | FO observation limits: cooldown, queue cap, overflow indicator. Player controls information flow (§FO Observation Limits) |
+| **Invisible automation** | X4 "auto-pillock" | FO confidence through personality-colored dialogue. World adaptation is visible. Competence tiers never auto-advance (§Centaur Model) |
+| **Spectator trough** | Stellaris late-game | Automation generates new exploration opportunities. 5 boredom circuit breakers ensure player always has meaningful work (§Player During Automation) |
+| **Stupid delegation AI** | Stellaris sectors (pre-3.9 removal) | FO learns from player behavior, expresses confidence through personality, adapts to world events transparently. Player can always override (§Competence Tiers) |
+| **Read-only knowledge** | Most exploration games | 5 player verbs on Knowledge Graph. Speculative links create Obra Dinn detective moments (§KG Player Verbs) |
 
 ---
 
@@ -1128,61 +2009,173 @@ flips all names simultaneously, creating a cascade of "wait, ALL of those were..
 
 ## Implementation Roadmap
 
-### Priority Order (mapped to principles)
+### FO Trade Manager Prerequisites — Build Order
 
-| Priority | Epic / Feature | Principles | Why Now |
-|----------|---------------|-----------|---------|
-| **P0** | Discovery-as-trade-intelligence | #6 (feeds automation) | Core loop alignment — without this, discovery is disconnected from the game's reason for existing |
-| **P0** | Audio discovery vocabulary (4 signatures) | #3 (milestones are moments), #10 (audio) | Silent phase transitions waste the player's emotional investment. The audio signatures define the feel of discovery |
-| **P1** | Anomaly chains (8-12 templates) | #8 (chains not one-shots) | Most impactful content addition. Transforms exploration from "scan and forget" to "follow the trail" |
-| **P1** | SurveyProgram automation graduation | #7 (automate the routine) | Prevents scan fatigue. Directly serves automation core loop |
-| **P1** | Discovery milestone cards (visual) | #3 (milestones are moments) | The visual complement to audio. SCAN COMPLETE / ANALYSIS COMPLETE cards |
-| **P2** | Information asymmetry / intel decay | #9 (economic weapon) | Creates urgency. Makes exploration economically meaningful beyond loot |
-| **P2** | Scanner sweep animation | existing design | Visual frontier that makes the scanner feel like a tool |
-| **P2** | Breadcrumb trail visualization | existing design | Visual chain threading on galaxy map |
-| **P2** | EPIC.S6.CLASS_DISCOVERY_PROFILES | #14 (constrained randomness) | WorldClass influences discovery families and outcomes |
-| **P3** | Late-game discovery injection | #12 (must not dry up) | Economy-triggered anomalies, instability reveals, chain escalation |
-| **P3** | EPIC.S6.ANOMALY_ECOLOGY | #14 (constrained randomness) | Procedural anomaly distribution with spatial logic |
-| **P3** | EPIC.S6.ARTIFACT_RESEARCH | #15 (incomplete knowledge) | Identification, containment, experiments — deep engagement |
-| **P3** | EPIC.S6.SCIENCE_CENTER | relates to #6 | Analysis throughput, reverse engineering — late-game depth |
-| **P3** | EPIC.S6.TECH_LEADS | relates to #6 | Tech leads become prototype candidates |
-| **P3** | EPIC.S6.EXPEDITION_PROG | relates to #7 | Multi-step expedition programs |
-| **P4** | EPIC.S6.MYSTERY_MARKERS | relates to #15 | Mystery style policy — systemic vs explicit markers |
-| **P4** | First-discovery credit system | #17 | Player name on first-discoveries. Low effort, high reward |
-| **P4** | Exploration overlay lens | existing design | GalaxyMap.md aspiration |
+> **CRITICAL:** The 6 TODO S6 epics ARE the FO Trade Manager prerequisites, not separate
+> work. The priority order below is driven by which FO Trade Manager phase each feature
+> unblocks. See `fo_trade_manager_v0.md` §Cross-System Dependencies and §Migration Path.
+
+| Priority | Feature | Effort | Unlocks (FO Phase) | Axioms |
+|----------|---------|--------|-------------------|-----------|
+| **P0** | Intel decay → margin buffer wiring | Small | Mechanical exploration pressure loop (wiring only). Unblocks **FO Phase 2** | 2, 4 |
+| **P0** | Discovery-as-trade-intel (DiscoveryOutcome ext + EconomicIntel entity + DISCOVERY_OPPORTUNITY trigger) | Medium | Exploration→automation pipeline links 2-3. Unblocks **FO Phase 2** (first handoff) | 2 |
+| **P0** | Audio discovery vocabulary (4 signatures) | Small | Feel — silent phase transitions waste emotional investment | 6 |
+| **P1** | Anomaly chain intel integration (ChainIntel at each step + FO evaluation per step). **MUST ship with personality-colored FO commentary** — Maren notices economic patterns, Dask notices tactical signatures, Lira notices navigational oddities. Same chain, different FO perspective = replayability hook. Use placeholder personality variants if full discovery emphasis system (item 17) isn't ready | Medium | Mid-game content engine, discovery emphasis per chain. Unblocks **FO Phase 3** (competence, ancient tech) | 3 |
+| **P1** | SurveyProgram automation graduation | Medium | Scan fatigue prevention. Directly serves automation core loop | 6 |
+| **P1** | Discovery milestone cards (visual) | Small | The visual complement to audio. SCAN COMPLETE / ANALYSIS COMPLETE cards | 6 |
+| **P2** | Artifact research → AncientTechUpgrade (EPIC.S6.ARTIFACT_RESEARCH) | Large | Ancient Tech qualitative shifts, endgame exploration payoff. Unblocks **FO Phase 4-5** (fleet, lore evidence) | 2, 5 |
+| **P2** | Late-game discovery continuation (economy-triggered + instability-gated + pipeline inversion) | Medium | Prevents Stellaris exploration death. Unblocks **FO Phase 4-5** | 4 |
+| **P1** | NPC route competition (NpcTradeSystem margin compression over 300-500 ticks) | Medium | Second depreciation mechanism — intel decay alone isn't enough if player keeps visiting same nodes. Creates steady background pressure that keeps exploration necessary | 4 |
+| **P2** | Scanner sweep animation | Small | Visual frontier that makes the scanner feel like a tool | existing |
+| **P2** | Breadcrumb trail visualization | Medium | Visual chain threading on galaxy map | existing |
+| **P2** | EPIC.S6.CLASS_DISCOVERY_PROFILES | Medium | WorldClass influences discovery families and outcomes | 5 |
+| **P3** | EPIC.S6.ANOMALY_ECOLOGY | Medium | Procedural anomaly distribution with spatial logic | 5 |
+| **P3** | EPIC.S6.SCIENCE_CENTER | Large | Analysis throughput, reverse engineering — late-game depth | 2 |
+| **P3** | EPIC.S6.TECH_LEADS | Medium | Tech leads become prototype candidates | 2 |
+| **P3** | EPIC.S6.EXPEDITION_PROG | Medium | Multi-step expedition programs | 6 |
+| **P1** | Discovery Failure States (6 failure types + partial success) | Small | Prevents "every scan succeeds" anti-pattern. Creates tension during scanning | 1, 3 |
+| **P1** | FO Confidence through personality (archetype-specific confidence language) | Small | Player trust via personality-colored reasoning, not generic bars. Unblocks Tier 2+ | 2 |
+| **P2** | Knowledge Graph Player Verbs (Pin, Annotate, Link, Flag, Compare) | Medium | Transforms KG from passive display to investigation tool. Link verb = Obra Dinn moment | 1 |
+| **P2** | Knowledge Graph dual-mode display (geographic + relational) | Medium | Geographic for "where next?", relational for "how do these connect?" | 1 |
+| **P2** | Re-Exploration verb (Re-Scan, Deep Analysis, Recontextualization) | Medium | Late-game content refresh. Prevents "nothing left to find." Post-revelation map refresh | 4, 6 |
+| **P2** | Trade History as Revelation Evidence (3 progressive triggers) | Medium | Player's own trade data as proof for pentagon ring. Unblocks **FO Phase 4-5** | 1, 3 |
+| **P2** | Player-during-automation circuit breakers (spectator trough prevention) | Small | 5 boredom triggers that nudge player back to exploration. Prevents alt-tab syndrome | 2 |
+| **P3** | Link feedback system (Obra Dinn batch confirmation, 3-link Insight bonus) | Medium | Wrong-link feedback + batch confirmation. Reward theory-building, not guessing | 1 |
+| **P3** | FO World Adaptation + Learning system | Medium | 5 world event types with adaptation, 4 behavioral patterns. World fails, FO adapts — not FO mistakes | 2 |
+| **P4** | EPIC.S6.MYSTERY_MARKERS | Small | Mystery style policy — systemic vs explicit markers | 5 |
+| **P4** | First-discovery credit system | Small | Player name on first-discoveries. Low effort, high reward | 6 |
+| **P4** | Exploration overlay lens | Medium | GalaxyMap.md aspiration | existing |
+
+### FO Trade Manager Phase Gate Summary
+
+```
+FO Phase 2 (first handoff, tick ~200) BLOCKED UNTIL:
+  ✓ IntelBook.IntelFreshness exists                    (DONE)
+  ✓ ProgramSystem exists                               (DONE)
+  ✓ GenerateDiscoveryTradeIntel()                      (DONE — T41)
+  ✓ FIRST_TRADE_ROUTE_DISCOVERED trigger + dialogue    (DONE — T41, 3 archetypes)
+  ✓ TRADE_INTEL_STALE trigger + dialogue               (DONE — T41, 3 archetypes)
+  ✓ ApplyDiscoveryRouteDecay() distance bands          (DONE — T41)
+  ✗ Intel decay → margin buffer wiring                 (P0 — CalculateEffectiveMargin)
+  ✗ Typed EconomicIntel entity per family              (P0 — extends DiscoveryOutcome)
+  ✗ Per-discovery DISCOVERY_OPPORTUNITY trigger         (P0 — moment-by-moment centaur beat)
+
+FO Phase 3 (competence tiers, tick ~600) BLOCKED UNTIL:
+  ✓ AnomalyChainSystem + entity + content              (DONE — T48)
+  ✓ TryAdvanceChains() wired in DiscoveryOutcome       (DONE — T48)
+  ✓ CHAIN_LINK_DISCOVERED + CHAIN_COMPLETED triggers   (DONE — T41, 3 archetypes)
+  ✗ Per-step ChainIntel with escalating scope          (P1 — 4-tier intel per chain step)
+  ✗ FO discovery emphasis per chain step               (P1 — personality-colored commentary)
+  ✗ Artifact → FO installation pipeline                (P2 — AncientTechUpgrade, pre-Science
+                                                         Center workaround available)
+
+FO Phase 4-5 (fleet, lore evidence, tick ~1200) BLOCKED UNTIL:
+  ✗ Late-game discovery continuation                   (P2 — pipeline inversion)
+  ✗ EPIC.S6.ARTIFACT_RESEARCH                          (P2 — full research queue)
+  ✗ Trade data as lore evidence                        (P2 — LORE_ANOMALY + player trade history)
+  ✗ Trade history as revelation evidence               (P2 — player's own data as proof, §NEW)
+```
 
 ### Implementation Dependencies
 
 ```
-Discovery-as-Trade-Intelligence
+Intel Decay → Margin Buffer (P0, BUILD FIRST)
   |
-  +-- IntelBook.IntelFreshness (DONE)
-  +-- DiscoveryOutcomeSystem (DONE — extend with trade intel fields)
-  +-- SurveyProgram
-  |     +-- ProgramSystem (DONE — extend with SurveyProgram type)
-  |     +-- FO suggestion trigger (FirstOfficerSystem)
-  |
-  +-- Information Asymmetry
-        +-- NPC trade route discovery (NpcTradeSystem — extend)
-        +-- Intel decay curves (IntelBook — extend)
+  +-- IntelBook.GetNodeAge(nodeId) (DONE)
+  +-- ApplyDiscoveryRouteDecay() distance bands (DONE — T41)
+  +-- DiscoveryIntelTweaksV0 (DONE — decay thresholds)
+  +-- TRADE_INTEL_STALE trigger + 3 archetype dialogue (DONE — T41)
+  +-- ProgramSystem.CalculateEffectiveMargin() (NEW — reads worst freshness)
+  +-- FO margin-impact dialogue (NEW — "Route Delta earning less because intel aged")
 
-Anomaly Chains
+Discovery-as-Trade-Intelligence (P0, BUILD SECOND)
   |
-  +-- KnowledgeGraphSystem (DONE)
-  +-- Chain templates (Content layer — new AnomalyChainContentV0.cs)
-  +-- Chain progression tracking (new entity: AnomalyChain.cs)
-  +-- DiscoveryOutcomeSystem (DONE — extend with chain Lead generation)
-  +-- NarrativePlacementGen (DONE — extend with chain site placement)
+  +-- GenerateDiscoveryTradeIntel() (DONE — T41, creates TradeRouteIntel)
+  +-- TradeRouteIntel.SourceDiscoveryId (DONE — T41, links route to discovery)
+  +-- FIRST_TRADE_ROUTE_DISCOVERED trigger + dialogue (DONE — T41, 3 archetypes)
+  +-- DiscoveryOutcomeSystem (DONE — extend with typed EconomicIntel entity)
+  +-- IntelBook (DONE — extend with structured intel entries per family)
+  +-- FirstOfficerSystem.TryFireTrigger("DISCOVERY_OPPORTUNITY") (NEW — per-discovery)
+  +-- FO dialogue: 3 variants × 3 archetypes for per-discovery evaluation (NEW)
 
-Late-Game Discovery
+Anomaly Chain Intel Integration (P1)
+  |
+  +-- AnomalyChainSystem (DONE — T48)
+  +-- AnomalyChainContentV0 (DONE — T48, extend with per-step ChainIntel)
+  +-- TryAdvanceChains() wired in DiscoveryOutcome (DONE — T48)
+  +-- CHAIN_LINK_DISCOVERED + CHAIN_COMPLETED triggers (DONE — T41, 3 archetypes)
+  +-- FO discovery emphasis commentary per chain step (NEW)
+  +-- KnowledgeGraphSystem (DONE — chain steps produce graph connections)
+
+Artifact → FO Installation (P2)
+  |
+  +-- DiscoveryOutcomeSystem (DONE — already produces artifacts)
+  +-- EPIC.S6.SCIENCE_CENTER (P3 — or use pre-Science Center workaround)
+  +-- AncientTechUpgrade entity (NEW — typed effects, see §Artifact Research)
+  +-- TradeManager.AncientTechSlots (NEW — FO Trade Manager entity)
+  +-- ANCIENT_TECH_INSTALLED trigger (NEW — fo_trade_manager_v0.md)
+
+Late-Game Discovery (P2)
   |
   +-- Instability-gated reveals (DiscoverySeedGen — extend with instability_gate)
   +-- Economy-triggered anomalies (new system: DynamicAnomalySystem.cs)
-  +-- Chain tier escalation (AnomalyChain — tier unlock logic)
+  +-- Pipeline inversion: FO LORE_ANOMALY → Knowledge Graph leads (NEW)
+  +-- Chain tier escalation (AnomalyChain — tier unlock logic) (DONE — T45)
 
-Audio Vocabulary
+Audio Vocabulary (P0)
   |
   +-- 4 audio signatures (assets — composition/sourcing)
   +-- Phase transition hooks in GameShell (GDScript signal handlers)
   +-- Tier-variant reveal stings (3 variants per signature)
+
+Information Asymmetry (P2)
+  |
+  +-- NPC trade route discovery delay (NpcTradeSystem — extend)
+  +-- Intel decay curves (IntelBook — extend with explicit decay)
+  +-- Discovery freshness → economic fog on galaxy map (NEW — UI)
+
+Discovery Failure States (P1)
+  |
+  +-- DiscoveryOutcomeSystem (DONE — extend with failure outcomes)
+  +-- 6 failure types: Scan Interference, Hazard Abort, Intel Spoilage,
+  |   Chain Dead End, Contested Discovery, False Positive
+  +-- Partial success mechanic (failure still yields information)
+  +-- FO personality-specific failure commentary (3 archetypes)
+
+FO Confidence + World Adaptation + Learning (P1-P3)
+  |
+  +-- FO Confidence through personality — archetype-specific language (P1)
+  +-- FO World Adaptation — 5 world event types, FO adapts not errs (P3)
+  +-- FO Learning from Player — 4 adaptation patterns (P3)
+  +-- 3-tier competence model (§Centaur Model) — prerequisite
+
+NPC Route Competition (P1, bumped from P2)
+  |
+  +-- NpcTradeSystem (DONE — extend with route discovery over time)
+  +-- Margin compression: 30% → 10-15% over 300-500 ticks as NPCs rebalance
+  +-- ROUTE_DEGRADED + ROUTE_DEAD FO triggers (integrate with existing triggers)
+  +-- FO suggests replacements: "locals figured it out, but that new system..."
+
+Knowledge Graph Player Verbs + Link Feedback (P2-P3)
+  |
+  +-- KnowledgeGraphSystem (DONE — extend with player verb handlers)
+  +-- 5 verbs: Pin, Annotate, Link, Flag for FO, Compare (P2)
+  +-- Dual-mode display: geographic + relational (P2)
+  +-- Link feedback: Speculative→Plausible→Confirmed→Contradicted (P3)
+  +-- Batch confirmation (3-link Insight bonus) (P3)
+
+Re-Exploration + Trade History as Evidence (P2)
+  |
+  +-- Re-Scan, Deep Analysis, Recontextualization phases (P2)
+  +-- Post-revelation gold shimmer markers (P2)
+  +-- Trade History: 3 progressive triggers (NOTICED→SUSPICIOUS→PROOF) (P2)
+  +-- KnowledgeGraphSystem connection for trade proof nodes (P2)
+  +-- FO pre-revelation breadcrumbs in decision log (P2)
+
+Spectator Trough Prevention (P2)
+  |
+  +-- 5 boredom circuit breakers (triggered by tick/margin/sustain thresholds)
+  +-- FO nudge dialogue (3 archetypes per trigger)
+  +-- Story system lead planting (500-tick revelation progress check)
+  +-- Depends on: 3-tier competence model, FO Observation Limits, Sustain→Exploration loop
 ```

@@ -537,14 +537,45 @@ public partial class SimBridge
                     jobStatus = f.CurrentTask ?? "Idle";
                 }
 
+                // GATE.T59.SHIP.BRIDGE_FLEET.001: Ship class stats for roster display.
+                int combatIndex = 0;
+                int tradeIndex = 0;
+                int exploreIndex = 0;
+                string shipClassId = f.ShipClassId ?? "";
+                if (classDef != null)
+                {
+                    // Combat index: hull + shield + (weapon slot count * 10).
+                    int weaponSlots = 0;
+                    if (f.Slots != null)
+                    {
+                        foreach (var slot in f.Slots)
+                        {
+                            if (slot.SlotKind == SimCore.Entities.SlotKind.Weapon
+                                && !string.IsNullOrEmpty(slot.InstalledModuleId))
+                                weaponSlots++;
+                        }
+                    }
+                    combatIndex = classDef.CoreHull + classDef.BaseShield + (weaponSlots * 10); // STRUCTURAL: 10 per weapon slot
+                    // Trade index: cargo capacity.
+                    tradeIndex = classDef.CargoCapacity;
+                    // Explore index: scan range + fuel capacity / 10.
+                    exploreIndex = classDef.ScanRange + (classDef.BaseFuelCapacity / 10); // STRUCTURAL: /10 scale fuel
+                }
+
                 var d = new Godot.Collections.Dictionary
                 {
                     ["ship_id"] = f.Id ?? "",
                     ["ship_class"] = shipClass,
+                    ["ship_class_id"] = shipClassId,
                     ["hull_hp_pct"] = hullPct,
                     ["shield_hp_pct"] = shieldPct,
                     ["location_name"] = locationName,
-                    ["job_status"] = jobStatus
+                    ["job_status"] = jobStatus,
+                    ["is_stored"] = f.IsStored,
+                    // GATE.T59.SHIP.BRIDGE_FLEET.001: Per-fleet class stats.
+                    ["combat_index"] = combatIndex,
+                    ["trade_index"] = tradeIndex,
+                    ["explore_index"] = exploreIndex,
                 };
 
                 result.Add(d);
@@ -963,6 +994,88 @@ public partial class SimBridge
         });
 
         return result;
+    }
+
+    // GATE.T59.SHIP.BRIDGE_FLEET.001: Swap active (hero) ship with a stored fleet.
+    // Delegates to HavenHangarSystem.SwapShip after validation.
+    // Returns {success (bool), message (string)}.
+    public Godot.Collections.Dictionary SetActiveFleetV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["success"] = false,
+            ["message"] = ""
+        };
+
+        if (IsLoading)
+        {
+            result["message"] = "Loading in progress";
+            return result;
+        }
+
+        if (string.IsNullOrWhiteSpace(fleetId))
+        {
+            result["message"] = "Invalid fleet ID";
+            return result;
+        }
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+
+            // Validate target fleet exists and is stored.
+            if (!state.Fleets.TryGetValue(fleetId, out var targetFleet))
+            {
+                result["message"] = "Fleet not found";
+                return result;
+            }
+            if (!string.Equals(targetFleet.OwnerId, "player", StringComparison.Ordinal))
+            {
+                result["message"] = "Not a player-owned fleet";
+                return result;
+            }
+            if (!targetFleet.IsStored)
+            {
+                result["message"] = "Fleet is not stored";
+                return result;
+            }
+
+            // Find current hero fleet (player-owned, not stored).
+            string heroFleetId = "";
+            foreach (var kv in state.Fleets)
+            {
+                if (string.Equals(kv.Value.OwnerId, "player", StringComparison.Ordinal)
+                    && !kv.Value.IsStored)
+                {
+                    heroFleetId = kv.Key;
+                    break;
+                }
+            }
+            if (string.IsNullOrEmpty(heroFleetId))
+            {
+                result["message"] = "No active hero fleet found";
+                return result;
+            }
+
+            // Delegate to HavenHangarSystem.SwapShip (validates Haven discovered + hero at Haven node).
+            bool swapped = SimCore.Systems.HavenHangarSystem.SwapShip(state, heroFleetId, fleetId);
+            if (!swapped)
+            {
+                // SwapShip fails if Haven is not discovered, hero is not at Haven node,
+                // or target fleet is not in StoredShipIds.
+                result["message"] = "Swap failed — hero must be docked at Haven";
+                return result;
+            }
+
+            result["success"] = true;
+            result["message"] = "Ship swapped successfully";
+            return result;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
     }
 
     // GATE.S5.TRACTOR.AUTO_TARGET.001: Returns nearest loot drop at the player's current node.

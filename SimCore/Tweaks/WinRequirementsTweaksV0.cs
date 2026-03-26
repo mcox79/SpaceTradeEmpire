@@ -7,18 +7,18 @@ public static class WinRequirementsTweaksV0
     public const int ReinforceMinConcordRep = 75;
     public const int ReinforceMinWeaverRep = 50;
     public const Entities.HavenTier ReinforceMinHavenTier = Entities.HavenTier.Expanded; // Tier 4
-    public const string ReinforceRequiredFragment = "lattice_reading"; // Fragment #5
+    public const string ReinforceRequiredFragment = "frag_str_04"; // Lattice Shard — structural resonance
 
     // --- Naturalize path (Communion acceptance) ---
     public const int NaturalizeMinCommunionRep = 75;
     public const Entities.HavenTier NaturalizeMinHavenTier = Entities.HavenTier.Expanded; // Tier 4
-    public const string NaturalizeRequiredFragment1 = "phase_tolerance"; // Fragment #7
-    public const string NaturalizeRequiredFragment2 = "geometric_suspension"; // Fragment #8
+    public const string NaturalizeRequiredFragment1 = "frag_str_03"; // Phase Anchor — stability tolerance
+    public const string NaturalizeRequiredFragment2 = "frag_str_02"; // Compression Seed — geometric suspension
 
     // --- Renegotiate path (dialogue with instability) ---
     public const int RenegotiateMinCommunionRep = 50;
     public const Entities.HavenTier RenegotiateMinHavenTier = Entities.HavenTier.Expanded; // Tier 4
-    public const string RenegotiateRequiredFragment = "dialogue_protocol"; // Fragment #12
+    public const string RenegotiateRequiredFragment = "frag_cog_04"; // Oracle Fragment — dialogue protocol
     public const int RenegotiateRequiredRevelations = 5; // All 5 revelations
 
     // --- Loss thresholds ---

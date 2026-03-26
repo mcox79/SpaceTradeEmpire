@@ -64,6 +64,12 @@ public static class WellKnownModuleIds
     // GATE.S8.TRACTOR.WEAVER.001: Weaver faction tractor variant
     public const string TractorWeaverSpindle    = "tractor_weaver_spindle";
 
+    // GATE.T59.SHIP.T2_MODULE_REASSIGN.001: Communion scanner/nav + Weavers structural utility
+    public const string CommunionShimmerDriveT2   = "communion_shimmer_drive_t2";
+    public const string CommunionResonanceCommT2  = "communion_resonance_comm_t2";
+    public const string CommunionPhaseLockT2      = "communion_phase_lock_t2";
+    public const string WeaversLoadBearingT2      = "weavers_load_bearing_t2";
+
     // GATE.S8.T3_MODULES.CONTENT.001: T3 precursor modules (discovery-only)
     public const string WeaponVoidLanceT3       = "weapon_void_lance_t3";
     public const string WeaponDisruptorT3       = "weapon_disruptor_t3";

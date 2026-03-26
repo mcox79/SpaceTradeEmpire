@@ -117,6 +117,9 @@ var _celebrated_milestones: Dictionary = {}
 var _guide_steps_seen: Dictionary = {}
 var _guide_poll_timer: float = 0.0
 const GUIDE_POLL_INTERVAL: float = 2.0
+# Tip-queue: max 1 guide hint per dock visit to prevent SYSTEM_DUMP.
+var _guide_hints_this_dock: int = 0
+const GUIDE_MAX_HINTS_PER_DOCK: int = 1
 
 # GATE.S7.MAIN_MENU.AUTO_SAVE.001: Auto-save cooldown (30s between saves)
 var _autosave_cooldown: float = 0.0
@@ -150,6 +153,9 @@ var _prev_discovery_statuses: Dictionary = {}  # discovery_id -> last known stat
 
 # GATE.T48.DISCOVERY.MILESTONE_CARDS.001: Track celebrated discovery phases to avoid repeat ceremonies.
 var _celebrated_discovery_phases: Dictionary = {}  # "disc_id:phase" -> true
+
+# GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Track first scan completion for FO tutorial beat.
+var _first_scan_complete: bool = false
 
 # GATE.T48.TELEMETRY.CRASH_HOOK.001: Rolling log buffer for crash reports.
 var _log_buffer: PackedStringArray = PackedStringArray()
@@ -967,12 +973,17 @@ func undock_v0():
 	dock_target_kind_token = ""
 	dock_target_id = ""
 	_undock_cooldown = 1.5  # Prevent re-dock prompt immediately after undock.
+	# Tip-queue: reset per-dock hint counter for next dock visit.
+	_guide_hints_this_dock = 0
 
 	# Dismiss guide hints so they don't obscure flight view.
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("dismiss_guide_toasts"):
 		toast_mgr.call("dismiss_guide_toasts")
 	_dock_available_target = null
+
+	# WASD movement hint on first undock — onboarding clarity.
+	_fire_guide_hint_v0("GUIDE_MOVEMENT", "WASD to fly. Mouse aims. E to dock at stations. M for Galaxy Map.")
 
 	# Close station menu if it is open.
 	if _station_menu and _station_menu.has_method("OnShopToggled"):
@@ -2284,6 +2295,11 @@ func _begin_lane_transit_v0(neighbor_node_id: String) -> void:
 	var approach_ratio: float = clampf(dist_to_entry / maxf(dist_to_dest, 1.0), 0.3, 0.95)
 	var approach_time: float = transit_time * approach_ratio
 
+	if _transit_marker == null or not is_instance_valid(_transit_marker):
+		# Marker freed during zoom-out await (e.g. bot called on_lane_arrival early).
+		on_lane_arrival_v0(neighbor_node_id)
+		return
+
 	var tween := create_tween()
 	tween.tween_property(_transit_marker, "global_position", entry_point, approach_time) \
 		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
@@ -3532,12 +3548,16 @@ func _poll_milestone_celebrations_v0() -> void:
 func _fire_guide_hint_v0(step_id: String, text: String) -> bool:
 	if _guide_steps_seen.has(step_id):
 		return false
+	# Tip-queue: max 1 hint per dock visit to prevent SYSTEM_DUMP.
+	if _guide_hints_this_dock >= GUIDE_MAX_HINTS_PER_DOCK:
+		return false
 	# Respect tutorial toggle.
 	var settings_mgr = get_node_or_null("/root/SettingsManager")
 	if settings_mgr and settings_mgr.has_method("get_setting"):
 		if not bool(settings_mgr.call("get_setting", "gameplay_tutorial_toasts")):
 			return false
 	_guide_steps_seen[step_id] = true
+	_guide_hints_this_dock += 1
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("show_priority_toast"):
 		toast_mgr.call("show_priority_toast", text, "guide")
@@ -3695,6 +3715,10 @@ func _poll_auto_loot_v0() -> void:
 				msg = "Salvage collected!"
 			toast_mgr.call("show_toast_colored", msg, 2.5, "#22CCFF")
 
+# GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Expose first-scan-complete flag for FO tutorial beat.
+func is_first_scan_complete_v0() -> bool:
+	return _first_scan_complete
+
 # GATE.S6.OUTCOME.CELEBRATION.001: Poll bridge for discovery transitions to Analyzed phase.
 func _poll_discovery_celebrations_v0() -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
@@ -3729,6 +3753,10 @@ func _poll_discovery_celebrations_v0() -> void:
 			var scan_key: String = disc_id + ":Scanned"
 			if not _celebrated_discovery_phases.has(scan_key):
 				_celebrated_discovery_phases[scan_key] = true
+				# GATE.T59.DISC_VIZ.TUTORIAL_BEAT.001: Mark first scan complete for FO tutorial.
+				if not _first_scan_complete:
+					_first_scan_complete = true
+					print("DEBUG_SCAN_TUT_|FIRST_SCAN_COMPLETE|" + disc_id)
 				print("CELEBRATION|DISCOVERY_SCANNED|" + disc_id)
 				_show_discovery_scan_ceremony_v0(disc_id, credit_reward, bridge)
 

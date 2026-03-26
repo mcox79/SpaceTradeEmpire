@@ -47,6 +47,38 @@ if ($testExitCode -ne 0) {
 }
 Write-Host ""
 
+# ── Step 2b: RL Server Smoke ──────────────────────────────────────
+# GATE.T56.AUDIT.WIRE_RL_SMOKE.001: Verify SimCore.RlServer builds and smoke cycle completes.
+Write-Host "--- Step 2b: RL Server Smoke ---"
+$rlProj = Join-Path $repoRoot "SimCore.RlServer/SimCore.RlServer.csproj"
+if (Test-Path $rlProj) {
+    $rlBuild = & dotnet build $rlProj -c Release --nologo -v q 2>&1
+    $rlBuildExit = $LASTEXITCODE
+    if ($rlBuildExit -ne 0) {
+        Write-Host "RL SERVER BUILD FAILED (exit $rlBuildExit)"
+        $rlBuild | Where-Object { $_ -match "error" } | ForEach-Object { Write-Host "  $_" }
+        $exitCode = [math]::Max($exitCode, 1)
+    } else {
+        # Run smoke mode: reset → step → shutdown
+        $rlScript = Join-Path $repoRoot "scripts/tools/Run-RlTrain.ps1"
+        if (Test-Path $rlScript) {
+            & powershell -ExecutionPolicy Bypass -File $rlScript -Mode smoke 2>&1 | Out-Null
+            $rlExit = $LASTEXITCODE
+            if ($rlExit -ne 0) {
+                Write-Host "RL SMOKE FAILED (exit $rlExit)"
+                $exitCode = [math]::Max($exitCode, 1)
+            } else {
+                Write-Host "RL SMOKE OK"
+            }
+        } else {
+            Write-Host "RL SMOKE SKIPPED -- Run-RlTrain.ps1 not found"
+        }
+    }
+} else {
+    Write-Host "RL SERVER SKIPPED -- project not found"
+}
+Write-Host ""
+
 # ── Step 3: Optimize Scan (Pass 1) ────────────────────────────────
 Write-Host "--- Step 3: Optimize Scan ---"
 $scanArgs = @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $repoRoot "scripts/tools/Run-OptimizeScan.ps1"))

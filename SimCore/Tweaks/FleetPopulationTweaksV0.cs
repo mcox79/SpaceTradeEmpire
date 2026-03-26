@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SimCore.Entities;
 
 namespace SimCore.Tweaks;
 
@@ -62,6 +63,53 @@ public static class FleetPopulationTweaksV0
     public const int ReplacementMetalCost = 50;
     public const string ReplacementGood2 = "components";
     public const int ReplacementComponentsCost = 20;
+
+    // ── GATE.T59.SHIP.NPC_FACTION_FLEET.001: Faction ship variant selection ──
+    // Returns the available faction variant class IDs for NPC fleet spawning.
+    // Factions with no variants fall back to generic base classes.
+    // Pirates use generic corvettes (no faction variants defined).
+    public static string[] GetFactionVariants(string factionId)
+    {
+        return factionId switch
+        {
+            FactionTweaksV0.ConcordId   => new[] { "watchman", "sentinel", "guardian" },
+            FactionTweaksV0.ChitinId    => new[] { "gambit", "wager" },
+            FactionTweaksV0.WeaversId   => new[] { "spindle", "loom" },
+            FactionTweaksV0.ValorinId   => new[] { "fang", "runner", "raider" },
+            FactionTweaksV0.CommunionId => new[] { "wanderer", "pilgrim" },
+            _ => Array.Empty<string>(),
+        };
+    }
+
+    // Generic base class fallback for factions without variants (unclaimed, pirate).
+    public const string FallbackTraderClassId = "corvette";
+    public const string FallbackHaulerClassId = "hauler";
+    public const string FallbackPatrolClassId = "corvette";
+
+    // Deterministically pick a ship class for a faction fleet.
+    // If the faction has variants, hashes the fleetId to pick one (FNV-1a).
+    // Otherwise, returns a role-appropriate generic base class.
+    public static string PickShipClass(string factionId, string fleetId, FleetRole role)
+    {
+        var variants = GetFactionVariants(factionId);
+        if (variants.Length == 0)
+        {
+            return role switch
+            {
+                FleetRole.Hauler => FallbackHaulerClassId,
+                _ => role == FleetRole.Patrol ? FallbackPatrolClassId : FallbackTraderClassId,
+            };
+        }
+        // STRUCTURAL: FNV-1a deterministic hash (not string.GetHashCode which is per-process random in .NET 8).
+        ulong h = 14695981039346656037UL;
+        foreach (char c in fleetId)
+        {
+            h ^= c;
+            h *= 1099511628211UL;
+        }
+        int idx = (int)(h % (ulong)variants.Length);
+        return variants[idx];
+    }
 
     // ── Faction market bias (GATE.T30.GALPOP.MARKET_DIVERSITY.006) ──
     // Surplus/deficit amounts applied per faction territory node at generation.

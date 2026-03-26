@@ -123,6 +123,11 @@ namespace SimCore.Tweaks
         public const int RareMetalsRefDegradeBps = 400;
         public const int RareMetalsRefBootstrapStock = 15;
 
+        // GATE.T56.FIX.RARE_METALS_DRAIN.001: Rare metals mine at "(Rare Min)" nodes.
+        // Without local production, seeded stock drains to zero via NPC haulers.
+        public const int RareMetalsMineOutput = 3;     // rare_metals produced per tick.
+        public const int RareMetalsMineFuelInput = 1;  // fuel consumed per tick.
+
         // ChainAnalysis: algorithm bounds.
         public const int ChainMaxTraceDepth = 10;
         public const int ChainMaxDepth = 4;          // Max recipe steps (fuel→ore→metal→electronics→components = 4).

@@ -718,14 +718,15 @@ public partial class SimBridge
         try { tickBefore = _kernel.State.Tick; }
         finally { _stateLock.ExitReadLock(); }
 
+        bool accepted;
         _stateLock.EnterWriteLock();
         try
         {
-            HavenEndgameSystem.ChooseEndgamePath(_kernel.State, path);
+            accepted = HavenEndgameSystem.ChooseEndgamePath(_kernel.State, path);
         }
         finally { _stateLock.ExitWriteLock(); }
 
-        return true;
+        return accepted;
     }
 
     // GATE.S8.HAVEN.ENDGAME_BRIDGE.001: Accommodation thread progress snapshot.

@@ -26,6 +26,16 @@
 #   - Diplomacy (treaties, bounties, sanctions, proposals)
 #   - Megaproject depth (detail, start, supply delivery)
 #   - Faction colors (visual identity query)
+#   - Dread state & lattice fauna
+#   - Planet scanning (info, star, scan charges, landing, atmospheric)
+#   - Pressure depth (alerts, instability, effects)
+#   - Maintenance depth (node status, supply level, repair)
+#   - Security depth (node/lane security, sensor ghosts, confiscation)
+#   - Trade intel depth (price intel, freshness, routes, transit cost)
+#   - NPC economy (trade routes, activity, demand, patrols, industry)
+#   - Galaxy map depth (detail, edges, routing, search, fog, forecast)
+#   - Reports depth (empire, economy, alerts, milestones, price history)
+#   - Shipyard (catalog, comparison, purchase, sell)
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode headless -Script deep_systems
@@ -73,10 +83,15 @@ enum Phase {
 	ENDGAME_CHECK,
 	# Story state machine
 	STORY_CHECK,
+	# New coverage domains
+	DREAD_CHECK, PLANET_CHECK, PRESSURE_DEPTH, MAINTENANCE_DEPTH,
+	SECURITY_DEPTH, TRADE_INTEL_DEPTH, NPC_ECONOMY, GALAXY_MAP_DEPTH, REPORTS_DEPTH,
 	# Fleet management
 	FLEET_MANAGEMENT,
 	# Diplomacy & T44 depth
 	DIPLOMACY_CHECK, MEGAPROJECT_DEPTH,
+	# Shipyard lifecycle
+	SHIPYARD_DEPTH,
 	# Bridge coverage sweep (exercises uncalled read-only methods)
 	BRIDGE_COVERAGE,
 	# Audit
@@ -140,9 +155,19 @@ func _process(_delta: float) -> bool:
 		Phase.HAVEN_DEPTH: _do_haven_depth()
 		Phase.ENDGAME_CHECK: _do_endgame_check()
 		Phase.STORY_CHECK: _do_story_check()
+		Phase.DREAD_CHECK: _do_dread_check()
+		Phase.PLANET_CHECK: _do_planet_check()
+		Phase.PRESSURE_DEPTH: _do_pressure_depth()
+		Phase.MAINTENANCE_DEPTH: _do_maintenance_depth()
+		Phase.SECURITY_DEPTH: _do_security_depth()
+		Phase.TRADE_INTEL_DEPTH: _do_trade_intel_depth()
+		Phase.NPC_ECONOMY: _do_npc_economy()
+		Phase.GALAXY_MAP_DEPTH: _do_galaxy_map_depth()
+		Phase.REPORTS_DEPTH: _do_reports_depth()
 		Phase.FLEET_MANAGEMENT: _do_fleet_management()
 		Phase.DIPLOMACY_CHECK: _do_diplomacy_check()
 		Phase.MEGAPROJECT_DEPTH: _do_megaproject_depth()
+		Phase.SHIPYARD_DEPTH: _do_shipyard_depth()
 		Phase.BRIDGE_COVERAGE: _do_bridge_coverage()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
@@ -1391,7 +1416,297 @@ func _do_story_check() -> void:
 		_a.log("STORY|pending=%s" % str(pending))
 
 	_polls = 0
+	_phase = Phase.DREAD_CHECK
+
+
+# ===================== Dread & Lattice Fauna =====================
+
+func _do_dread_check() -> void:
+	_phase = Phase.PLANET_CHECK
+	_a.log("=== Dread Check ===")
+	if _bridge.has_method("GetDreadStateV0"):
+		var dread: Dictionary = _bridge.call("GetDreadStateV0")
+		_a.hard(dread is Dictionary, "dread_state_type", "type=%s" % typeof(dread))
+		_a.log("DREAD|state=%s" % str(dread))
+	else:
+		_a.warn(false, "dread_method_missing", "GetDreadStateV0 not found")
+	if _bridge.has_method("GetLatticeFaunaV0"):
+		var fauna: Variant = _bridge.call("GetLatticeFaunaV0")
+		_a.hard(fauna is Array, "lattice_fauna_type", "type=%s" % typeof(fauna))
+		_a.log("DREAD|fauna_count=%d" % (fauna.size() if fauna is Array else 0))
+	else:
+		_a.warn(false, "lattice_fauna_method_missing", "GetLatticeFaunaV0 not found")
+
+
+# ===================== Planet Scanning =====================
+
+func _do_planet_check() -> void:
+	_phase = Phase.PRESSURE_DEPTH
+	_a.log("=== Planet Check ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	if _bridge.has_method("GetPlanetInfoV0"):
+		var planet: Variant = _bridge.call("GetPlanetInfoV0", loc)
+		_a.hard(planet is Dictionary or planet is Array, "planet_info_type", "type=%s" % typeof(planet))
+		_a.log("PLANET|info=%s" % str(planet).substr(0, 200))
+	if _bridge.has_method("GetStarInfoV0"):
+		var star: Variant = _bridge.call("GetStarInfoV0", loc)
+		_a.hard(star is Dictionary, "star_info_type", "type=%s" % typeof(star))
+		_a.log("PLANET|star=%s" % str(star).substr(0, 200))
+	if _bridge.has_method("GetScanChargesV0"):
+		var charges: Variant = _bridge.call("GetScanChargesV0")
+		_a.hard(charges is Dictionary or charges is int or charges is float, "scan_charges_type", "type=%s" % typeof(charges))
+	if _bridge.has_method("GetScannerRangeV0"):
+		var scan_range: Variant = _bridge.call("GetScannerRangeV0")
+		_a.hard(scan_range is int or scan_range is float, "scanner_range_type", "type=%s val=%s" % [typeof(scan_range), str(scan_range)])
+	if _bridge.has_method("GetScanAffinityV0"):
+		var affinity: Variant = _bridge.call("GetScanAffinityV0", loc, "orbital")
+		_a.warn(affinity != null, "scan_affinity_value", "val=%s" % str(affinity))
+	if _bridge.has_method("LandingScanV0"):
+		var landing: Variant = _bridge.call("LandingScanV0", loc, "surface")
+		_a.warn(landing != null, "landing_scan_return", "type=%s" % typeof(landing))
+		_a.log("PLANET|landing=%s" % str(landing).substr(0, 200))
+	if _bridge.has_method("GetPlanetScanResultsV0"):
+		var results: Variant = _bridge.call("GetPlanetScanResultsV0", loc)
+		_a.hard(results is Dictionary or results is Array, "planet_scan_results_type", "type=%s" % typeof(results))
+	if _bridge.has_method("AtmosphericSampleV0"):
+		var atmo: Variant = _bridge.call("AtmosphericSampleV0", loc, "atmosphere")
+		_a.warn(atmo != null, "atmospheric_sample_return", "type=%s" % typeof(atmo))
+
+
+# ===================== Pressure Depth =====================
+
+func _do_pressure_depth() -> void:
+	_phase = Phase.MAINTENANCE_DEPTH
+	_a.log("=== Pressure Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	# Already have GetPressureDomainsV0 in bridge coverage — add deeper checks
+	if _bridge.has_method("GetPressureAlertCountV0"):
+		var count: Variant = _bridge.call("GetPressureAlertCountV0", "economic")
+		_a.hard(count is int or count is float, "pressure_alert_count_type", "type=%s val=%s" % [typeof(count), str(count)])
+	if _bridge.has_method("GetNodeInstabilityV0"):
+		var instab: Variant = _bridge.call("GetNodeInstabilityV0", loc)
+		_a.hard(instab is Dictionary, "node_instability_type", "type=%s" % typeof(instab))
+		_a.log("PRESSURE|instability=%s" % str(instab).substr(0, 200))
+	if _bridge.has_method("GetInstabilityEffectsV0"):
+		var effects: Variant = _bridge.call("GetInstabilityEffectsV0", loc)
+		_a.hard(effects is Dictionary or effects is Array, "instability_effects_type", "type=%s" % typeof(effects))
+	# Force-set instability to test the setter
+	if _bridge.has_method("ForceSetNodeInstabilityV0"):
+		_bridge.call("ForceSetNodeInstabilityV0", loc, 50)
+		_a.log("PRESSURE|forced instability=50 at %s" % loc)
+		if _bridge.has_method("GetNodeInstabilityV0"):
+			var post: Dictionary = _bridge.call("GetNodeInstabilityV0", loc)
+			_a.log("PRESSURE|post-force instability=%s" % str(post))
+
+
+# ===================== Maintenance Depth =====================
+
+func _do_maintenance_depth() -> void:
+	_phase = Phase.SECURITY_DEPTH
+	_a.log("=== Maintenance Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	if _bridge.has_method("GetNodeMaintenanceV0"):
+		var maint: Variant = _bridge.call("GetNodeMaintenanceV0", loc)
+		_a.hard(maint is Dictionary or maint is Array, "node_maintenance_type", "type=%s" % typeof(maint))
+		_a.log("MAINT|maintenance=%s" % str(maint).substr(0, 200))
+	if _bridge.has_method("GetSupplyLevelV0"):
+		var supply: Variant = _bridge.call("GetSupplyLevelV0", loc)
+		_a.hard(supply is Dictionary, "supply_level_type", "type=%s" % typeof(supply))
+	if _bridge.has_method("GetRepairBlockReasonV0"):
+		var reason: Variant = _bridge.call("GetRepairBlockReasonV0", loc)
+		_a.warn(reason != null, "repair_block_reason", "val=%s" % str(reason))
+	if _bridge.has_method("DispatchSupplyRepairV0"):
+		var repair: Variant = _bridge.call("DispatchSupplyRepairV0", loc, 1)
+		_a.warn(repair != null, "supply_repair_attempt", "result=%s" % str(repair))
+
+
+# ===================== Security Depth =====================
+
+func _do_security_depth() -> void:
+	_phase = Phase.TRADE_INTEL_DEPTH
+	_a.log("=== Security Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	if _bridge.has_method("GetNodeSecurityV0"):
+		var sec: Variant = _bridge.call("GetNodeSecurityV0", loc)
+		_a.hard(sec is int or sec is float, "node_security_type", "type=%s val=%s" % [typeof(sec), str(sec)])
+		_a.log("SEC|node_security=%s" % str(sec))
+	var neighbors: Array = []
+	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
+	var lanes: Array = galaxy.get("lane_edges", [])
+	for lane in lanes:
+		if lane is Dictionary:
+			if lane.get("from_id", "") == loc:
+				neighbors.append(lane.get("to_id", ""))
+			elif lane.get("to_id", "") == loc:
+				neighbors.append(lane.get("from_id", ""))
+	if neighbors.size() > 0 and _bridge.has_method("GetLaneSecurityV0"):
+		var lane_sec: Variant = _bridge.call("GetLaneSecurityV0", loc, neighbors[0])
+		_a.hard(lane_sec is int or lane_sec is float, "lane_security_type", "type=%s val=%s" % [typeof(lane_sec), str(lane_sec)])
+	if _bridge.has_method("GetSensorGhostsV0"):
+		var ghosts: Variant = _bridge.call("GetSensorGhostsV0")
+		_a.hard(ghosts is Array, "sensor_ghosts_type", "type=%s" % typeof(ghosts))
+		_a.log("SEC|ghosts_count=%d" % ghosts.size())
+	if _bridge.has_method("GetConfiscationHistoryV0"):
+		var confiscations: Variant = _bridge.call("GetConfiscationHistoryV0")
+		_a.hard(confiscations is Array, "confiscation_history_type", "type=%s" % typeof(confiscations))
+
+
+# ===================== Trade Intel Depth =====================
+
+func _do_trade_intel_depth() -> void:
+	_phase = Phase.NPC_ECONOMY
+	_a.log("=== Trade Intel Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	if _bridge.has_method("GetPriceIntelV0"):
+		var intel: Variant = _bridge.call("GetPriceIntelV0", loc)
+		_a.hard(intel is Dictionary or intel is Array, "price_intel_type", "type=%s" % typeof(intel))
+	if _bridge.has_method("GetIntelFreshnessByNodeV0"):
+		var freshness: Variant = _bridge.call("GetIntelFreshnessByNodeV0")
+		_a.hard(freshness is Dictionary or freshness is Array, "intel_freshness_type", "type=%s" % typeof(freshness))
+	if _bridge.has_method("GetTradeRoutesV0"):
+		var routes: Variant = _bridge.call("GetTradeRoutesV0")
+		_a.hard(routes is Array, "trade_routes_type", "type=%s" % typeof(routes))
+		_a.log("INTEL|trade_routes=%d" % (routes.size() if routes is Array else 0))
+	# Transit cost
+	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
+	var lanes: Array = galaxy.get("lane_edges", [])
+	var neighbor := ""
+	for lane in lanes:
+		if lane is Dictionary:
+			if lane.get("from_id", "") == loc:
+				neighbor = lane.get("to_id", "")
+				break
+			elif lane.get("to_id", "") == loc:
+				neighbor = lane.get("from_id", "")
+				break
+	if neighbor and _bridge.has_method("GetTransitCostV0"):
+		var cost: Variant = _bridge.call("GetTransitCostV0", "fleet_trader_1", neighbor)
+		_a.hard(cost is Dictionary, "transit_cost_type", "type=%s" % typeof(cost))
+		_a.log("INTEL|transit_cost to %s = %s" % [neighbor, str(cost)])
+
+
+# ===================== NPC Economy =====================
+
+func _do_npc_economy() -> void:
+	_phase = Phase.GALAXY_MAP_DEPTH
+	_a.log("=== NPC Economy ===")
+	if _bridge.has_method("GetNpcTradeRoutesV0"):
+		var routes: Variant = _bridge.call("GetNpcTradeRoutesV0")
+		_a.hard(routes is Array, "npc_trade_routes_type", "type=%s" % typeof(routes))
+		_a.log("NPC|trade_routes=%d" % (routes.size() if routes is Array else 0))
+	var ps_npc: Dictionary = _bridge.call("GetPlayerStateV0")
+	var npc_loc: String = ps_npc.get("current_node_id", "")
+	if _bridge.has_method("GetNpcTradeActivityV0"):
+		var activity: Variant = _bridge.call("GetNpcTradeActivityV0", npc_loc)
+		_a.hard(activity is int or activity is float, "npc_trade_activity_type", "type=%s val=%s" % [typeof(activity), str(activity)])
+	if _bridge.has_method("GetNpcDemandV0"):
+		var demand: Variant = _bridge.call("GetNpcDemandV0", npc_loc)
+		_a.hard(demand is Dictionary or demand is Array, "npc_demand_type", "type=%s" % typeof(demand))
+	if _bridge.has_method("GetNpcPatrolRoutesV0"):
+		var patrols: Variant = _bridge.call("GetNpcPatrolRoutesV0")
+		_a.hard(patrols is Array, "npc_patrol_routes_type", "type=%s" % typeof(patrols))
+	if _bridge.has_method("GetAllIndustryV0"):
+		var industry: Variant = _bridge.call("GetAllIndustryV0")
+		_a.hard(industry is Dictionary or industry is Array, "all_industry_type", "type=%s" % typeof(industry))
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	if _bridge.has_method("GetNodeIndustryStatusV0"):
+		var status: Variant = _bridge.call("GetNodeIndustryStatusV0", loc)
+		_a.hard(status is Dictionary or status is Array, "node_industry_status_type", "type=%s" % typeof(status))
+		_a.log("NPC|industry_status=%s" % str(status).substr(0, 200))
+
+
+# ===================== Galaxy Map Depth =====================
+
+func _do_galaxy_map_depth() -> void:
+	_phase = Phase.REPORTS_DEPTH
+	_a.log("=== Galaxy Map Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+	# Adjacency for route tests
+	var galaxy: Dictionary = _bridge.call("GetGalaxySnapshotV0")
+	var lanes: Array = galaxy.get("lane_edges", [])
+	var neighbor := ""
+	for lane in lanes:
+		if lane is Dictionary:
+			if lane.get("from_id", "") == loc:
+				neighbor = lane.get("to_id", "")
+				break
+			elif lane.get("to_id", "") == loc:
+				neighbor = lane.get("from_id", "")
+				break
+	if _bridge.has_method("GetNodeDetailV0"):
+		var detail: Variant = _bridge.call("GetNodeDetailV0", loc)
+		_a.hard(detail is Dictionary, "node_detail_type", "type=%s" % typeof(detail))
+		_a.log("MAP|node_detail=%s" % str(detail).substr(0, 200))
+	if neighbor and _bridge.has_method("GetEdgeHeatV0"):
+		var heat: Variant = _bridge.call("GetEdgeHeatV0", loc, neighbor)
+		_a.hard(heat is Dictionary, "edge_heat_type", "type=%s" % typeof(heat))
+	if neighbor and _bridge.has_method("GetRoutePathV0"):
+		var route: Variant = _bridge.call("GetRoutePathV0", neighbor)
+		_a.hard(route is Dictionary or route is Array, "route_path_type", "type=%s" % typeof(route))
+	if neighbor and _bridge.has_method("GetRouteEtaRangeV0"):
+		# GetRouteEtaRangeV0 takes edgeId — construct from loc+neighbor
+		var edge_id: String = "%s_%s" % [loc, neighbor]
+		var eta: Variant = _bridge.call("GetRouteEtaRangeV0", edge_id)
+		_a.hard(eta is Dictionary, "route_eta_range_type", "type=%s" % typeof(eta))
+	if neighbor and _bridge.has_method("GetTravelEtaV0"):
+		var travel_eta: Variant = _bridge.call("GetTravelEtaV0", "fleet_trader_1", neighbor)
+		_a.hard(travel_eta is int or travel_eta is float or travel_eta is Dictionary, "travel_eta_type", "type=%s" % typeof(travel_eta))
+	if _bridge.has_method("GetSystemSearchV0"):
+		var search: Variant = _bridge.call("GetSystemSearchV0", "star")
+		_a.hard(search is Array, "system_search_type", "type=%s" % typeof(search))
+		_a.log("MAP|search_results=%d" % (search.size() if search is Array else 0))
+	if _bridge.has_method("GetInfoFogV0"):
+		var fog: Variant = _bridge.call("GetInfoFogV0", loc)
+		_a.hard(fog is Dictionary, "info_fog_type", "type=%s" % typeof(fog))
+	if _bridge.has_method("GetDelayStatusV0"):
+		var delay: Variant = _bridge.call("GetDelayStatusV0", "fleet_trader_1")
+		_a.hard(delay is Dictionary, "delay_status_type", "type=%s" % typeof(delay))
+	if _bridge.has_method("GetDomainForecastV0"):
+		var forecast: Variant = _bridge.call("GetDomainForecastV0", "economic")
+		_a.hard(forecast is Dictionary or forecast is Array, "domain_forecast_type", "type=%s" % typeof(forecast))
+	if _bridge.has_method("GetDualReadingsV0"):
+		var dual: Variant = _bridge.call("GetDualReadingsV0", loc, "fuel")
+		_a.hard(dual is Dictionary or dual is Array, "dual_readings_type", "type=%s" % typeof(dual))
+	if _bridge.has_method("GetMutableEdgesV0"):
+		var edges: Variant = _bridge.call("GetMutableEdgesV0")
+		_a.hard(edges is Array, "mutable_edges_type", "type=%s" % typeof(edges))
+
+
+# ===================== Reports Depth =====================
+
+func _do_reports_depth() -> void:
 	_phase = Phase.FLEET_MANAGEMENT
+	_a.log("=== Reports Depth ===")
+	if _bridge.has_method("GetEmpireSummaryV0"):
+		var empire: Variant = _bridge.call("GetEmpireSummaryV0")
+		_a.hard(empire is Dictionary, "empire_summary_type", "type=%s" % typeof(empire))
+		_a.log("RPT|empire=%s" % str(empire).substr(0, 200))
+	if _bridge.has_method("GetEconomyOverviewV0"):
+		var econ: Variant = _bridge.call("GetEconomyOverviewV0")
+		_a.hard(econ is Dictionary or econ is Array, "economy_overview_type", "type=%s" % typeof(econ))
+	if _bridge.has_method("GetMarketAlertsV0"):
+		var alerts: Variant = _bridge.call("GetMarketAlertsV0")
+		_a.hard(alerts is Array, "market_alerts_type", "type=%s" % typeof(alerts))
+	if _bridge.has_method("GetMilestonesV0"):
+		var miles: Variant = _bridge.call("GetMilestonesV0")
+		_a.hard(miles is Array, "milestones_type", "type=%s" % typeof(miles))
+	# Price history for a known good at current node
+	var ps_rpt: Dictionary = _bridge.call("GetPlayerStateV0")
+	var rpt_loc: String = ps_rpt.get("current_node_id", "")
+	if _bridge.has_method("GetPriceHistoryV0") and rpt_loc:
+		var hist: Variant = _bridge.call("GetPriceHistoryV0", rpt_loc, "fuel")
+		_a.hard(hist is Array, "price_history_type", "type=%s" % typeof(hist))
+		_a.log("RPT|price_history_fuel=%d entries" % (hist.size() if hist is Array else 0))
+	if _bridge.has_method("GetAllNodeHealthSummaryV0"):
+		var health: Variant = _bridge.call("GetAllNodeHealthSummaryV0")
+		_a.hard(health is Dictionary or health is Array, "node_health_summary_type", "type=%s" % typeof(health))
 
 
 # ===================== Fleet Management =====================
@@ -1454,7 +1769,7 @@ func _do_diplomacy_check() -> void:
 
 func _do_megaproject_depth() -> void:
 	_polls = 0
-	_phase = Phase.BRIDGE_COVERAGE
+	_phase = Phase.SHIPYARD_DEPTH
 
 	if _bridge.has_method("GetMegaprojectsV0"):
 		var projects: Array = _bridge.call("GetMegaprojectsV0")
@@ -1484,6 +1799,94 @@ func _do_megaproject_depth() -> void:
 				var mp_result: Dictionary = _bridge.call("StartMegaprojectV0", type_id, mp_nid)
 				_a.log("MEGAPROJECT|start_attempt type=%s node=%s result=%s" % [type_id, mp_nid, str(mp_result)])
 				_a.goal("MEGAPROJECT", "start_attempted=true")
+
+
+func _do_shipyard_depth() -> void:
+	_a.log("DS1|=== SHIPYARD DEPTH ===")
+	_phase = Phase.BRIDGE_COVERAGE
+
+	# Get player state to find current node and ship class
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	var current_class := str(ps.get("ship_class_id", "corvette"))
+
+	# 1. Catalog query
+	if _bridge.has_method("GetShipyardCatalogV0"):
+		var catalog: Array = _bridge.call("GetShipyardCatalogV0", node_id)
+		_a.log("SHIPYARD|catalog_size=%d node=%s" % [catalog.size(), node_id])
+		_a.warn(catalog is Array, "shipyard_catalog_type", "type=%s" % typeof(catalog))
+
+		if catalog.size() > 0:
+			# Verify catalog entry structure
+			var first: Dictionary = catalog[0]
+			_a.hard(first.has("class_id"), "catalog_has_class_id", "")
+			_a.hard(first.has("price"), "catalog_has_price", "")
+			_a.hard(first.has("display_name"), "catalog_has_display_name", "")
+			_a.hard(int(first.get("price", 0)) > 0, "catalog_price_positive", "price=%s" % first.get("price", 0))
+
+			# 2. Comparison query — compare current ship vs first catalog entry
+			var target_class := str(first.get("class_id", ""))
+			if _bridge.has_method("GetShipComparisonV0") and target_class != "":
+				var cmp: Dictionary = _bridge.call("GetShipComparisonV0", current_class, target_class)
+				_a.log("SHIPYARD|comparison=%s_vs_%s" % [current_class, target_class])
+				_a.hard(cmp.has("a"), "comparison_has_a", "")
+				_a.hard(cmp.has("b"), "comparison_has_b", "")
+				_a.hard(cmp.has("deltas"), "comparison_has_deltas", "")
+
+				if cmp.has("deltas"):
+					var deltas: Dictionary = cmp.get("deltas")
+					_a.hard(deltas.has("core_hull"), "deltas_has_hull", "")
+					_a.hard(deltas.has("cargo_capacity"), "deltas_has_cargo", "")
+
+			# 3. Find an affordable ship (if any)
+			var affordable_class := ""
+			var affordable_price := 0
+			for entry in catalog:
+				if entry.get("can_afford", false):
+					affordable_class = str(entry.get("class_id", ""))
+					affordable_price = int(entry.get("price", 0))
+					break
+
+			# 4. Purchase attempt
+			if _bridge.has_method("PurchaseShipV0") and affordable_class != "":
+				var buy_result: Dictionary = _bridge.call("PurchaseShipV0", affordable_class, node_id)
+				_a.log("SHIPYARD|purchase=%s price=%d result=%s" % [affordable_class, affordable_price, str(buy_result)])
+				_a.warn(buy_result is Dictionary, "purchase_result_type", "type=%s" % typeof(buy_result))
+
+				if buy_result.get("success", false):
+					var new_fleet_id := str(buy_result.get("new_fleet_id", ""))
+					_a.hard(new_fleet_id != "", "purchase_got_fleet_id", "")
+					_a.goal("SHIPYARD_PURCHASE", "bought=%s" % affordable_class)
+
+					# 5. Verify fleet roster shows new ship
+					if _bridge.has_method("GetFleetRosterV0"):
+						var roster: Array = _bridge.call("GetFleetRosterV0")
+						var found := false
+						for r_entry in roster:
+							if str(r_entry.get("ship_id", "")) == new_fleet_id:
+								found = true
+								_a.hard(r_entry.get("is_stored", false), "new_ship_stored", "")
+								break
+						_a.hard(found, "new_ship_in_roster", "id=%s" % new_fleet_id)
+
+					# 6. Sell the newly purchased ship
+					if _bridge.has_method("SellShipV0"):
+						var sell_result: Dictionary = _bridge.call("SellShipV0", new_fleet_id)
+						_a.log("SHIPYARD|sell=%s result=%s" % [new_fleet_id, str(sell_result)])
+						_a.hard(sell_result.get("success", false), "sell_success", "msg=%s" % sell_result.get("message", ""))
+						_a.hard(int(sell_result.get("credits_gained", 0)) > 0, "sell_got_credits", "credits=%s" % sell_result.get("credits_gained", 0))
+						_a.goal("SHIPYARD_SELL", "sold=%s credits=%s" % [new_fleet_id, sell_result.get("credits_gained", 0)])
+				else:
+					_a.log("SHIPYARD|purchase_failed msg=%s" % buy_result.get("message", "unknown"))
+					_a.goal("SHIPYARD_PURCHASE_ATTEMPTED", "affordable_but_failed")
+			elif affordable_class == "":
+				_a.log("SHIPYARD|no_affordable_ship node=%s" % node_id)
+				_a.goal("SHIPYARD_NO_AFFORDABLE", "catalog=%d" % catalog.size())
+		else:
+			_a.log("SHIPYARD|not_at_shipyard_station node=%s" % node_id)
+			_a.goal("SHIPYARD_SKIP", "no_catalog_at_node")
+	else:
+		_a.log("SHIPYARD|bridge_missing_method GetShipyardCatalogV0")
 
 
 func _do_bridge_coverage() -> void:

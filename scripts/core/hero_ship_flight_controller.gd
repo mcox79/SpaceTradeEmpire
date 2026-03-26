@@ -289,6 +289,8 @@ func _apply_obstacle_avoidance(_delta: float = 0.0) -> void:
 
 	# ── Stations: XZ repulsion ──
 	for station in get_tree().get_nodes_in_group("Station"):
+		if not station is Node3D:
+			continue
 		var to_station: Vector3 = station.global_position - global_position
 		to_station.y = 0.0
 		var dist: float = to_station.length()

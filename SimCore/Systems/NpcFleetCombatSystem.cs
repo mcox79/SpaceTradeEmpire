@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using SimCore.Entities;
 using SimCore.Tweaks;
 
@@ -16,6 +16,13 @@ public enum PatrolResponse { None, ScanWarning, Pursue, AttackOnSight }
 /// </summary>
 public static class NpcFleetCombatSystem
 {
+    private sealed class Scratch
+    {
+        public readonly List<string> DestroyedIds = new();
+        public readonly List<int> RespawnedIndices = new();
+    }
+    private static readonly ConditionalWeakTable<SimState, Scratch> s_scratch = new();
+
     public static void Process(SimState state)
     {
         if (state is null) return;
@@ -28,7 +35,9 @@ public static class NpcFleetCombatSystem
     {
         // Collect destroyed NPC fleets (OwnerId != "player", HullHp == 0, HullHpMax > 0).
         // HullHpMax > 0 ensures we only check fleets that have been initialized for combat.
-        var destroyed = new List<string>();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var destroyed = scratch.DestroyedIds;
+        destroyed.Clear();
         foreach (var fleet in state.Fleets.Values)
         {
             if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
@@ -66,11 +75,20 @@ public static class NpcFleetCombatSystem
             }
 
             // GATE.S5.LOOT.DROP_SYSTEM.001 + GATE.T55.COMBAT.PIRATE_FACTION.001: Roll loot before removing fleet.
+            // GATE.T56.FIX.PIRATE_LOOT_COLLECT.001: Place loot at the player's node, not the NPC's.
+            // NPC homeNode may differ from the player's location during lane transit, causing
+            // GetNearbyLootV0 to miss the drop (node mismatch).
+            var lootNode = homeNode;
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var playerFleet)
+                && !string.IsNullOrWhiteSpace(playerFleet.CurrentNodeId))
+            {
+                lootNode = playerFleet.CurrentNodeId;
+            }
             // Pirates drop enhanced loot (salvaged_tech + rare_metals + credits).
             if (StringComparer.Ordinal.Equals(fleet.OwnerId, Tweaks.FactionTweaksV0.PirateId))
-                LootTableSystem.RollPirateLoot(state, fleetId, homeNode);
+                LootTableSystem.RollPirateLoot(state, fleetId, lootNode);
             else
-                LootTableSystem.RollLoot(state, fleetId, homeNode);
+                LootTableSystem.RollLoot(state, fleetId, lootNode);
 
             // GATE.S7.DIPLOMACY.BOUNTY.001: Check bounty completion on NPC destruction.
             DiplomacySystem.CheckBountyCompletion(state, fleetId);
@@ -91,7 +109,9 @@ public static class NpcFleetCombatSystem
         if (state.NpcRespawnQueue.Count == 0) return;
 
         var cooldown = NpcShipTweaksV0.RespawnCooldownTicks;
-        var respawned = new List<int>();
+        var scratch = s_scratch.GetOrCreateValue(state);
+        var respawned = scratch.RespawnedIndices;
+        respawned.Clear();
 
         for (int i = 0; i < state.NpcRespawnQueue.Count; i++)
         {
@@ -155,7 +175,7 @@ public static class NpcFleetCombatSystem
         var regime = ReputationSystem.GetEffectiveRegime(state, nodeId);
         int cargo = 0;
         if (state.Fleets.TryGetValue(playerFleetId, out var fleet))
-            cargo = fleet.Cargo.Values.Sum();
+            foreach (var v in fleet.Cargo.Values) cargo += v;
         return GetPatrolResponse(regime, cargo);
     }
 }
