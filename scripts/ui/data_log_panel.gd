@@ -26,7 +26,8 @@ func _ready() -> void:
 	offset_top = -250
 	offset_bottom = 250
 	custom_minimum_size = Vector2(600, 500)
-	var style := UITheme.make_panel_standard()
+	# GATE.T41.UI.PANEL_CHROME.001: Use shared panel chrome for consistent panel frame.
+	var style := UITheme.make_panel_chrome()
 	add_theme_stylebox_override("panel", style)
 
 	var root_vbox := VBoxContainer.new()
@@ -40,8 +41,8 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "DATA LOGS"
-	title.add_theme_font_size_override("font_size", UITheme.FONT_TITLE)
-	title.add_theme_color_override("font_color", UITheme.CYAN)
+	# GATE.T41.UI.FONT_HIERARCHY.001: Use header font helper.
+	UITheme.apply_header_font(title)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 

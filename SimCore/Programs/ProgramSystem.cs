@@ -310,6 +310,55 @@ public static class ProgramSystem
         }
     }
 
+    // GATE.T61.POSTMORTEM.FACT_STORE.001: Snapshot decision-time market facts for postmortem.
+    // Call after creating a program to capture the market state at decision time.
+    public static void SnapshotDecisionFacts(SimState state, ProgramInstance program)
+    {
+        if (state is null || program is null) return;
+
+        var facts = program.DecisionFacts;
+        facts.Clear();
+
+        // Snapshot prices for the program's source/dest markets.
+        string[] marketIds = new[] { program.MarketId, program.SourceMarketId };
+        foreach (var mktId in marketIds)
+        {
+            if (string.IsNullOrWhiteSpace(mktId) || !state.Markets.TryGetValue(mktId, out var mkt)) continue;
+            foreach (var goodId in new[] { program.GoodId, program.SellGoodId })
+            {
+                if (string.IsNullOrWhiteSpace(goodId)) continue;
+                if (!mkt.Inventory.ContainsKey(goodId)) continue;
+                facts[$"buy:{mktId}:{goodId}"] = mkt.GetBuyPrice(goodId);
+                facts[$"sell:{mktId}:{goodId}"] = mkt.GetSellPrice(goodId);
+            }
+        }
+
+        // Snapshot route security (edges between source and dest nodes).
+        if (!string.IsNullOrWhiteSpace(program.SourceMarketId) && !string.IsNullOrWhiteSpace(program.MarketId))
+        {
+            foreach (var edge in state.Edges.Values)
+            {
+                bool connects =
+                    (edge.FromNodeId == program.SourceMarketId && edge.ToNodeId == program.MarketId) ||
+                    (edge.FromNodeId == program.MarketId && edge.ToNodeId == program.SourceMarketId);
+                if (connects)
+                {
+                    facts[$"sec:{edge.Id}"] = edge.SecurityLevelBps;
+                    break;
+                }
+            }
+        }
+
+        // Snapshot fleet state.
+        if (!string.IsNullOrWhiteSpace(program.FleetId) && state.Fleets.TryGetValue(program.FleetId, out var fleet))
+        {
+            facts["fleet:credits"] = (int)Math.Min(state.PlayerCredits, int.MaxValue);
+            int totalCargo = 0; // STRUCTURAL: init
+            foreach (var v in fleet.Cargo.Values) totalCargo += v;
+            facts["fleet:cargo"] = totalCargo;
+        }
+    }
+
     // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Calculate effective margin for a trade route,
     // accounting for intel freshness decay. Returns margin in basis points (10000 = 100%).
     // A raw margin of 1500 bps (15%) with 66% decay becomes 1500 - 1500 = 0 bps.
@@ -332,7 +381,14 @@ public static class ProgramSystem
         // Find worst freshness decay among EconomicIntels relevant to this route.
         int worstDecayBps = GetWorstFreshnessDecayBps(state, sourceNodeId, destNodeId);
 
-        return rawMarginBps - worstDecayBps;
+        // GATE.T62.PIPELINE.INTEL_MARGIN.001: Scale margin by worst confidence among route intel.
+        int confidenceBps = GetWorstMarginConfidenceBps(state, sourceNodeId, destNodeId);
+        int adjustedMargin = rawMarginBps - worstDecayBps;
+        // Apply confidence as a multiplier: margin * (confidence / 10000).
+        if (confidenceBps < Tweaks.EconomicIntelTweaksV0.FullConfidenceBps)
+            adjustedMargin = (int)((long)adjustedMargin * confidenceBps / Tweaks.EconomicIntelTweaksV0.FullConfidenceBps);
+
+        return adjustedMargin;
     }
 
     // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Get worst freshness decay penalty for a route's intel.
@@ -357,6 +413,33 @@ public static class ProgramSystem
         }
 
         return worstDecayBps;
+    }
+
+    // GATE.T62.PIPELINE.INTEL_MARGIN.001: Get worst (lowest) margin confidence for a route's intel.
+    // Returns 0-10000 BPS. 10000 = full confidence. If no intel found, returns full confidence.
+    public static int GetWorstMarginConfidenceBps(SimState state, string sourceNodeId, string destNodeId)
+    {
+        if (state?.Intel?.EconomicIntels is null || state.Intel.EconomicIntels.Count == 0)
+            return Tweaks.EconomicIntelTweaksV0.FullConfidenceBps; // STRUCTURAL: no intel = assume full
+
+        int worstConfidence = Tweaks.EconomicIntelTweaksV0.FullConfidenceBps;
+        bool found = false;
+
+        foreach (var kv in state.Intel.EconomicIntels)
+        {
+            var intel = kv.Value;
+            if (intel is null) continue;
+            if (!string.Equals(intel.NodeId, sourceNodeId, StringComparison.Ordinal)
+                && !string.Equals(intel.NodeId, destNodeId, StringComparison.Ordinal))
+                continue;
+
+            found = true;
+            int conf = Systems.DiscoveryOutcomeSystem.ComputeMarginConfidenceBps(state.Tick, intel);
+            if (conf < worstConfidence)
+                worstConfidence = conf;
+        }
+
+        return found ? worstConfidence : Tweaks.EconomicIntelTweaksV0.FullConfidenceBps;
     }
 
     // GATE.T57.PIPELINE.MARGIN_BUFFER.001: Compute margin buffer penalty based on freshness decay.

@@ -85,6 +85,65 @@ public static class CombatSystem
         return TargetWeaponFamily.Other;
     }
 
+    // GATE.T60.SPIN.TICK_FIX.001: Decrement SpinUpTicksRemaining each tick for all fleets.
+    // GATE.T60.SPIN.DOCK_RESET.001: Reset to StandDown when docked, auto-trigger on hostile.
+    public static void ProcessBattleStations(SimState state)
+    {
+        if (state is null) return;
+
+        // Find player fleet for dock-reset and auto-trigger logic.
+        Fleet? playerFleet = null;
+        foreach (var fleet in state.Fleets.Values)
+        {
+            if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal))
+            { playerFleet = fleet; break; }
+        }
+
+        // Dock reset: player docked → force StandDown.
+        if (playerFleet != null &&
+            playerFleet.State == FleetState.Docked &&
+            playerFleet.BattleStations != BattleStationsState.StandDown)
+        {
+            playerFleet.BattleStations = BattleStationsState.StandDown;
+            playerFleet.BattleStationsSpinUpTicksRemaining = 0; // STRUCTURAL: reset
+            playerFleet.SpinRpm = 0; // STRUCTURAL: reset
+        }
+
+        // Auto-trigger: player StandDown + hostile at same node → SpinningUp.
+        if (playerFleet != null &&
+            playerFleet.BattleStations == BattleStationsState.StandDown &&
+            playerFleet.State != FleetState.Docked &&
+            !string.IsNullOrEmpty(playerFleet.CurrentNodeId))
+        {
+            bool hostilePresent = false;
+            foreach (var fleet in state.Fleets.Values)
+            {
+                if (string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+                if (fleet.HullHp <= 0) continue; // STRUCTURAL: skip dead fleets
+                if (!string.Equals(fleet.CurrentNodeId, playerFleet.CurrentNodeId, StringComparison.Ordinal)) continue;
+                if (string.Equals(fleet.OwnerId, Tweaks.FactionTweaksV0.PirateId, StringComparison.Ordinal))
+                { hostilePresent = true; break; }
+            }
+            if (hostilePresent)
+            {
+                playerFleet.BattleStations = BattleStationsState.SpinningUp;
+                playerFleet.BattleStationsSpinUpTicksRemaining = CombatTweaksV0.BattleStationsSpinUpTicks;
+            }
+        }
+
+        // Tick decrement for all fleets in SpinningUp state.
+        foreach (var fleet in state.Fleets.Values)
+        {
+            if (fleet.BattleStations != BattleStationsState.SpinningUp) continue;
+            fleet.BattleStationsSpinUpTicksRemaining--;
+            if (fleet.BattleStationsSpinUpTicksRemaining <= 0) // STRUCTURAL: threshold
+            {
+                fleet.BattleStations = BattleStationsState.BattleReady;
+                fleet.BattleStationsSpinUpTicksRemaining = 0; // STRUCTURAL: clamp floor
+            }
+        }
+    }
+
     public static CombatProfile BuildProfile(Fleet fleet, IReadOnlyDictionary<string, int>? weaponBaseDamage = null)
     {
         var profile = new CombatProfile
@@ -531,7 +590,10 @@ public static class CombatSystem
         var profileA = BuildProfile(attacker, weaponBaseDamage);
         var profileB = BuildProfile(defender, weaponBaseDamage);
 
-        var result = StrategicResolverV0.Resolve(profileA, profileB);
+        // GATE.T64.COMBAT.SEED_FLOOR.001: Player gets minimum damage floor vs NPCs.
+        bool isPlayerAttacking = string.Equals(attacker.OwnerId, "player", StringComparison.Ordinal);
+        int minFloor = isPlayerAttacking ? CombatDepthTweaksV0.MinPlayerDamageFloor : 0;
+        var result = StrategicResolverV0.Resolve(profileA, profileB, attackerMinDamageFloor: minFloor);
 
         var resolution = new CombatResolution
         {
@@ -581,7 +643,10 @@ public static class CombatSystem
         var profileA = BuildProfile(attacker);
         var profileB = BuildProfile(defender);
 
-        var result = StrategicResolverV0.Resolve(profileA, profileB);
+        // GATE.T64.COMBAT.SEED_FLOOR.001: Include damage floor in projection.
+        bool isPlayerAttacking = string.Equals(attacker.OwnerId, "player", StringComparison.Ordinal);
+        int minFloor = isPlayerAttacking ? CombatDepthTweaksV0.MinPlayerDamageFloor : 0;
+        var result = StrategicResolverV0.Resolve(profileA, profileB, attackerMinDamageFloor: minFloor);
 
         int aTotalHp = profileA.HullHp + profileA.ShieldHp;
         int bTotalHp = profileB.HullHp + profileB.ShieldHp;

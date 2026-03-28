@@ -54,9 +54,9 @@ public static class ShipClassContentV0
         new ShipClassDef
         {
             ClassId = "frigate", DisplayName = "Frigate",
-            // GATE.T59.SHIP.BALANCE_PASS.001: cargo 40→50 (trade viability vs corvette).
+            // GATE.T62.SHIP.STAT_BALANCE.001: fuel 400→450 (combat range, was lowest mid-tier).
             SlotCount = 6, BasePower = 55, CargoCapacity = 50, Mass = 45, ScanRange = 70,
-            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 70, BaseShield = 40, BaseFuelCapacity = 400,
+            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 70, BaseShield = 40, BaseFuelCapacity = 450,
         },
         new ShipClassDef
         {
@@ -73,15 +73,16 @@ public static class ShipClassContentV0
         new ShipClassDef
         {
             ClassId = "carrier", DisplayName = "Carrier",
-            // GATE.T59.SHIP.BALANCE_PASS.001: scan 120→140, cargo 80→100 (differentiate from cruiser).
-            SlotCount = 7, BasePower = 65, CargoCapacity = 100, Mass = 80, ScanRange = 140,
+            // GATE.T62.SHIP.STAT_BALANCE.001: power 65→70 (fleet command, support module headroom).
+            SlotCount = 7, BasePower = 70, CargoCapacity = 100, Mass = 80, ScanRange = 140,
             BaseZoneArmor = new[] { 20, 25, 25, 20 }, CoreHull = 90, BaseShield = 45, BaseFuelCapacity = 1000,
         },
         new ShipClassDef
         {
             ClassId = "dreadnought", DisplayName = "Dreadnought",
+            // GATE.T62.SHIP.STAT_BALANCE.001: fuel 500→600 (endgame ship, match cruiser range).
             SlotCount = 10, BasePower = 100, CargoCapacity = 50, Mass = 120, ScanRange = 80,
-            BaseZoneArmor = new[] { 50, 45, 45, 35 }, CoreHull = 150, BaseShield = 80, BaseFuelCapacity = 500,
+            BaseZoneArmor = new[] { 50, 45, 45, 35 }, CoreHull = 150, BaseShield = 80, BaseFuelCapacity = 600,
         },
 
         // GATE.S8.LATTICE_DRONES.ENTITY.001: Lattice drone — small, agile, light armor.
@@ -143,8 +144,9 @@ public static class ShipClassContentV0
         {
             ClassId = "watchman", DisplayName = "Watchman-class Frigate",
             FactionId = "concord", BaseClassId = "frigate",
+            // GATE.T62.SHIP.STAT_BALANCE.001: fuel 400→450 (propagate frigate base fuel buff).
             SlotCount = 6, BasePower = 55, CargoCapacity = 50, Mass = 50, ScanRange = 70,
-            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 70, BaseShield = 48, BaseFuelCapacity = 400,
+            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 70, BaseShield = 48, BaseFuelCapacity = 450,
             // +20% shield (40→48), -10% speed (+10% mass 45→50). 1 weapon slot→utility.
         },
         new ShipClassDef
@@ -159,7 +161,8 @@ public static class ShipClassContentV0
         {
             ClassId = "guardian", DisplayName = "Guardian-class Carrier",
             FactionId = "concord", BaseClassId = "carrier",
-            SlotCount = 7, BasePower = 65, CargoCapacity = 100, Mass = 80, ScanRange = 140,
+            // GATE.T62.SHIP.STAT_BALANCE.001: power 65→70 (propagate carrier base power buff).
+            SlotCount = 7, BasePower = 70, CargoCapacity = 100, Mass = 80, ScanRange = 140,
             BaseZoneArmor = new[] { 20, 25, 25, 20 }, CoreHull = 90, BaseShield = 54, BaseFuelCapacity = 1000,
             WeaponDamageModBps = 9000,
             // +20% shield (45→54), -10% weapons damage (10000→9000 bps). 1 cargo slot→utility.
@@ -223,10 +226,9 @@ public static class ShipClassContentV0
         {
             ClassId = "raider", DisplayName = "Raider-class Frigate",
             FactionId = "valorin", BaseClassId = "frigate",
-            // GATE.T59.SHIP.BALANCE_PASS.001: Raider nerfed — cargo bonus removed, hull malus added.
-            // Was +15% cargo, now +0%. Added -15% hull. Ratio now 2:2 (speed+dmg vs shield+hull).
+            // GATE.T62.SHIP.STAT_BALANCE.001: fuel 400→450 (propagate frigate base fuel buff).
             SlotCount = 6, BasePower = 55, CargoCapacity = 50, Mass = 36, ScanRange = 70,
-            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 60, BaseShield = 32, BaseFuelCapacity = 400,
+            BaseZoneArmor = new[] { 35, 25, 25, 15 }, CoreHull = 60, BaseShield = 32, BaseFuelCapacity = 450,
             WeaponDamageModBps = 11000,
             // +20% speed (-20% mass 45→36), +10% weapon damage, -20% shield (40→32), -15% hull (70→60).
         },

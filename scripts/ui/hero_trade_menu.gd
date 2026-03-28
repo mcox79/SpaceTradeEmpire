@@ -18,6 +18,10 @@ var _security_label: Label = null
 var _cargo_label: Label = null
 var _profit_label: Label = null
 var _missions_container: VBoxContainer = null
+# GATE.T61.MISSIONS.BOARD_FILTER.001: Mission board filter state.
+var _mission_filter_archetype: String = "All"  # "All", "Supply", "Explore", "Combat", "Politics", "Diplomacy", "Smuggling"
+var _mission_filter_faction: String = "All"
+var _mission_sort_mode: String = "reward"  # "reward" or "name"
 var _research_container: VBoxContainer = null
 var _refit_container: VBoxContainer = null
 var _maint_container: VBoxContainer = null
@@ -59,6 +63,10 @@ var _tab_buttons: Array = []
 # M3: Track which tabs the player has clicked (to clear "NEW" badge).
 var _tab_seen: Dictionary = {0: true}  # Market always seen
 var _tab_base_names: Array = ["Market", "Jobs", "Ship", "Station", "Intel"]
+
+# GATE.T63.REFIT.TAB_BADGE.001: Refit/Ship tab "!" badge when affordable module available.
+var _refit_badge_label: Label = null
+var _refit_hint_shown: bool = false  # Track if post-combat FO refit toast has fired.
 
 # L0.2: Cached cost basis per good_id → avg_cost (populated in _rebuild_rows).
 var _cached_cost_basis: Dictionary = {}
@@ -218,6 +226,22 @@ func _ready():
 		btn.pressed.connect(_switch_dock_tab.bind(idx))
 		_tab_bar.add_child(btn)
 		_tab_buttons.append(btn)
+	# GATE.T63.REFIT.TAB_BADGE.001: Create "!" badge on Ship tab (index 2).
+	if _tab_buttons.size() > 2:
+		_refit_badge_label = Label.new()
+		_refit_badge_label.text = "!"
+		_refit_badge_label.add_theme_font_size_override("font_size", 11)
+		_refit_badge_label.add_theme_color_override("font_color", UITheme.GOLD)
+		_refit_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_refit_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		_refit_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_refit_badge_label.visible = false
+		# Add as child of Ship button so it overlays at top-right.
+		_tab_buttons[2].add_child(_refit_badge_label)
+		_refit_badge_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_refit_badge_label.offset_left = -14
+		_refit_badge_label.offset_top = -2
+		_refit_badge_label.offset_right = -2
 	vbox.add_child(_tab_bar)
 
 	vbox.add_child(HSeparator.new())
@@ -300,19 +324,31 @@ func _ready():
 	vbox.add_child(_tab_station)
 
 	# GATE.S18.EMPIRE_DASH.STATION_TAB.001: Station info (health, production, services)
+	# GATE.T63.UI.OVERVIEW_THEME.001: Wrap in panel chrome for polished look.
+	var _station_chrome := PanelContainer.new()
+	_station_chrome.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
+	_tab_station.add_child(_station_chrome)
 	_station_info_container = VBoxContainer.new()
-	_station_info_container.add_theme_constant_override("separation", 4)
-	_tab_station.add_child(_station_info_container)
+	_station_info_container.add_theme_constant_override("separation", 6)
+	_station_chrome.add_child(_station_info_container)
 
 	# GATE.S4.UI_INDU.RESEARCH.001: Research section
+	# GATE.T63.UI.OVERVIEW_THEME.001: Panel chrome for research.
+	var _research_chrome := PanelContainer.new()
+	_research_chrome.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
+	_tab_station.add_child(_research_chrome)
 	_research_container = VBoxContainer.new()
 	_research_container.add_theme_constant_override("separation", 4)
-	_tab_station.add_child(_research_container)
+	_research_chrome.add_child(_research_container)
 
 	# GATE.S4.CONSTR_PROG.UI.001: Construction section
+	# GATE.T63.UI.OVERVIEW_THEME.001: Panel chrome for construction.
+	var _construction_chrome := PanelContainer.new()
+	_construction_chrome.add_theme_stylebox_override("panel", UITheme.make_panel_ship_computer())
+	_tab_station.add_child(_construction_chrome)
 	_construction_container = VBoxContainer.new()
 	_construction_container.add_theme_constant_override("separation", 4)
-	_tab_station.add_child(_construction_container)
+	_construction_chrome.add_child(_construction_container)
 
 	# Tab 5: Intel (trade routes, automation, encounters)
 	_tab_intel = VBoxContainer.new()
@@ -430,12 +466,9 @@ func _apply_tab_disclosure_v0() -> void:
 	if bridge == null or not bridge.has_method("GetOnboardingStateV0"):
 		return  # No bridge = show all tabs (safe fallback)
 
-	# GATE.S19.ONBOARD.SETTINGS_WIRE.015: Respect tutorial toggle.
-	var settings_mgr = get_node_or_null("/root/SettingsManager")
-	if settings_mgr and settings_mgr.has_method("get_setting"):
-		var tutorial_enabled = settings_mgr.call("get_setting", "gameplay_tutorial_toasts")
-		if typeof(tutorial_enabled) == TYPE_BOOL and not tutorial_enabled:
-			return  # Tutorial disabled = show all tabs
+	# GATE.S19.ONBOARD.SETTINGS_WIRE.015: Tutorial toggle controls FO toasts only.
+	# Tab progressive disclosure is ALWAYS active — it's a UX improvement, not a tutorial.
+	# Disabling tutorial skips FO hint toasts but still spaces tab reveals.
 
 	var state: Dictionary = bridge.call("GetOnboardingStateV0")
 	if state.is_empty():
@@ -896,11 +929,21 @@ func _buy_qty_v0(good_id: String, qty: int) -> void:
 			toast_mgr.call("show_priority_toast", "Bought %s for %dcr" % [_format_display_name(good_id), actual_spent], "info", 2.0)
 		# L0.1: Flash credits label red (expense) on buy.
 		_flash_hud_credits_v0(false)
+		# GATE.T41.JUICE.TRADE_BUY.001: Credit roll animation (0.5s).
+		_roll_hud_credits_v0(credits_before, credits_after)
+		# GATE.T41.JUICE.TRADE_BUY.001: Cargo ticker — "+N good_name" float-up.
+		_spawn_cargo_ticker_v0(good_id, qty, true)
 		# Diegetic trade confirmation chirp.
 		var gm_trade_sfx = get_node_or_null("/root/GameManager")
 		if gm_trade_sfx and gm_trade_sfx.has_method("play_ui_trade_sfx_v0"):
 			gm_trade_sfx.call("play_ui_trade_sfx_v0")
+		# GATE.T64.AUDIO.ACTION_SFX.001: Buy click SFX.
+		var action_sfx = get_node_or_null("/root/ActionSfx")
+		if action_sfx and action_sfx.has_method("play_buy"):
+			action_sfx.call("play_buy")
 		_rebuild_rows()
+		# GATE.T41.JUICE.TRADE_BUY.001: Flash the purchased good's row green.
+		_flash_trade_row_v0(good_id, Color(0.3, 1.0, 0.3, 0.3))
 		call_deferred("_refresh_profit_label_v0")
 		# Captain's Guide: first buy hint.
 		var gm_buy = get_node_or_null("/root/GameManager")
@@ -954,10 +997,20 @@ func _sell_qty_v0(good_id: String, qty: int) -> void:
 			toast_mgr.call("show_priority_toast", "Sold %d %s for +%dcr%s" % [qty, display_name, actual_revenue, profit_text], toast_priority, 2.5)
 		# L0.1: Flash credits label green (income) on sell.
 		_flash_hud_credits_v0(true)
+		# GATE.T41.JUICE.TRADE_SELL.001: Credit roll animation (0.5s).
+		_roll_hud_credits_v0(credits_before, credits_after)
+		# GATE.T41.JUICE.TRADE_SELL.001: Profit highlight — floating "+Ncr profit" in green.
+		_spawn_profit_highlight_v0(actual_revenue, profit_text)
+		# GATE.T41.JUICE.TRADE_SELL.001: Cargo ticker — "-N good_name" float-up.
+		_spawn_cargo_ticker_v0(good_id, qty, false)
 		# Diegetic trade confirmation chirp.
 		var gm_trade_sfx2 = get_node_or_null("/root/GameManager")
 		if gm_trade_sfx2 and gm_trade_sfx2.has_method("play_ui_trade_sfx_v0"):
 			gm_trade_sfx2.call("play_ui_trade_sfx_v0")
+		# GATE.T64.AUDIO.ACTION_SFX.001: Sell SFX (reward chord if profit > 1000cr).
+		var action_sfx2 = get_node_or_null("/root/ActionSfx")
+		if action_sfx2 and action_sfx2.has_method("play_sell"):
+			action_sfx2.call("play_sell", actual_revenue)
 		_rebuild_rows()
 		# L0.1: Floating sell feedback + row highlight.
 		_spawn_sell_feedback_v0(good_id, actual_revenue, profit_text)
@@ -1026,6 +1079,35 @@ func get_panel_row_count_v0() -> int:
 	if _rows_container == null:
 		return 0
 	return _rows_container.get_child_count()
+
+# GATE.T63.REFIT.TAB_BADGE.001: Check affordable modules and update Ship tab badge.
+func _update_refit_badge_v0() -> void:
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge == null:
+		return
+	var has_affordable: bool = false
+	if bridge.has_method("GetAvailableModulesV0") and bridge.has_method("GetPlayerStateV0"):
+		var ps: Dictionary = bridge.call("GetPlayerStateV0")
+		var credits: int = int(ps.get("credits", 0)) if ps is Dictionary else 0
+		var modules: Array = bridge.call("GetAvailableModulesV0")
+		for m in modules:
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			if bool(m.get("can_install", false)) and int(m.get("credit_cost", 0)) <= credits:
+				has_affordable = true
+				break
+	# Toggle "!" badge on Ship tab button.
+	if _refit_badge_label:
+		_refit_badge_label.visible = has_affordable
+	# FO post-combat prompt: after first combat, toast about available modules.
+	if has_affordable and not _refit_hint_shown:
+		if bridge.has_method("GetOnboardingStateV0"):
+			var ob_state: Dictionary = bridge.call("GetOnboardingStateV0")
+			if bool(ob_state.get("has_fought", false)):
+				_refit_hint_shown = true
+				var toast_mgr = get_node_or_null("/root/ToastManager")
+				if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+					toast_mgr.call("show_priority_toast", "New modules available — check the Ship tab!", "info", 3.0)
 
 func _on_undock_pressed() -> void:
 	# Snapshot fuel before undocking so we can show refuel cost on next dock.
@@ -1164,7 +1246,8 @@ func _rebuild_rows() -> void:
 		var lbl_stock = Label.new()
 		lbl_stock.text = str(stock)
 		lbl_stock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UITheme.apply_mono(lbl_stock)
+		# GATE.T41.UI.TABULAR_NUMERALS.001: Data font with right-aligned tabular numerals.
+		UITheme.apply_data_font(lbl_stock)
 		if is_embargoed:
 			lbl_stock.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
 		elif stock > 50:
@@ -1179,7 +1262,8 @@ func _rebuild_rows() -> void:
 		buy_vbox.add_theme_constant_override("separation", 0)
 		var lbl_buy = Label.new()
 		lbl_buy.text = "%d cr" % buy_price
-		UITheme.apply_mono(lbl_buy)
+		# GATE.T41.UI.TABULAR_NUMERALS.001: Data font with right-aligned tabular numerals.
+		UITheme.apply_data_font(lbl_buy)
 		if is_embargoed:
 			lbl_buy.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
 		elif is_best_buy and _best_profit > 0:
@@ -1201,10 +1285,19 @@ func _rebuild_rows() -> void:
 			if avg_p > 0:
 				var avg_lbl = Label.new()
 				avg_lbl.text = "avg %d" % avg_p
-				avg_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+				# GATE.T41.UI.TABULAR_NUMERALS.001: Data font for sub-labels.
+				UITheme.apply_data_font(avg_lbl)
 				avg_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-				UITheme.apply_mono(avg_lbl)
 				buy_vbox.add_child(avg_lbl)
+		# GATE.T61.MARKET.TRADE_UI.001: Spread indicator.
+		if buy_price > 0 and sell_price > 0:
+			var spread_pct: float = float(buy_price - sell_price) / float(buy_price) * 100.0
+			var spread_lbl = Label.new()
+			spread_lbl.text = "spread %.1f%%" % spread_pct
+			# GATE.T41.UI.TABULAR_NUMERALS.001: Data font for spread sub-label.
+			UITheme.apply_data_font(spread_lbl)
+			spread_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.4) if spread_pct < 15.0 else UITheme.ORANGE)
+			buy_vbox.add_child(spread_lbl)
 		row.add_child(buy_vbox)
 
 		# L0.2/L0.3: Sell price with unrealized P/L when player holds cargo.
@@ -1213,7 +1306,8 @@ func _rebuild_rows() -> void:
 		sell_vbox.add_theme_constant_override("separation", 0)
 		var lbl_sell = Label.new()
 		lbl_sell.text = "%d cr" % sell_price
-		UITheme.apply_mono(lbl_sell)
+		# GATE.T41.UI.TABULAR_NUMERALS.001: Data font with right-aligned tabular numerals.
+		UITheme.apply_data_font(lbl_sell)
 		if is_embargoed:
 			lbl_sell.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
 		elif cargo_held.has(good_id) and cargo_held[good_id] > 0:
@@ -1231,8 +1325,8 @@ func _rebuild_rows() -> void:
 				else:
 					pl_lbl.text = "%d/u" % pl_per  # Negative sign included by %d
 					pl_lbl.add_theme_color_override("font_color", UITheme.loss_color())
-				pl_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
-				UITheme.apply_mono(pl_lbl)
+				# GATE.T41.UI.TABULAR_NUMERALS.001: Data font for P/L sub-label.
+				UITheme.apply_data_font(pl_lbl)
 				sell_vbox.add_child(pl_lbl)
 		row.add_child(sell_vbox)
 
@@ -1241,7 +1335,8 @@ func _rebuild_rows() -> void:
 		var best_dest: String = str(entry.get("best_sell_node_name", ""))
 		var lbl_profit = Label.new()
 		lbl_profit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UITheme.apply_mono(lbl_profit)
+		# GATE.T41.UI.TABULAR_NUMERALS.001: Data font with right-aligned tabular numerals.
+		UITheme.apply_data_font(lbl_profit)
 		if is_embargoed:
 			lbl_profit.text = "—"
 			lbl_profit.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
@@ -1253,7 +1348,6 @@ func _rebuild_rows() -> void:
 		else:
 			lbl_profit.text = "—"
 			lbl_profit.add_theme_color_override("font_color", UITheme.TEXT_DISABLED)
-		lbl_profit.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		row.add_child(lbl_profit)
 
 		# GATE.S12.UX_POLISH.QUANTITY.001: [1, 5, Max] buy/sell quantity buttons
@@ -1327,6 +1421,9 @@ func _rebuild_rows() -> void:
 	_rebuild_encounters()
 	# FEEL_POST_FIX_10: Show empty-state hint when all Intel sub-sections are hidden.
 	_rebuild_intel_empty_state()
+
+	# GATE.T63.REFIT.TAB_BADGE.001: Update refit badge on Ship tab.
+	_update_refit_badge_v0()
 
 	# L0.4: Cargo display with capacity + item breakdown.
 	if _cargo_label:
@@ -1852,56 +1949,104 @@ func _rebuild_station_info() -> void:
 	if bridge.has_method("GetPlanetInfoV0"):
 		planet_info = bridge.call("GetPlanetInfoV0", _market_node_id)
 
-	# --- Section 1: FO Greeting + Top Observation ---
+	# GATE.T63.DISCLOSURE.STATION_GATING.001: Progressive section gating.
+	# Query nodes_visited to decide which briefing sections to show.
+	# Tier 1 (always): FO Greeting + Territory.
+	# Tier 2 (3+ nodes): Scanner Intel, Trade Routes, Operations.
+	# Tier 3 (5+ nodes): Signals, Economy, Infrastructure, Upkeep, Situation, Planet.
+	var _nodes_visited_briefing: int = 999  # default: show all (safe fallback)
+	var _station_gating_enabled: bool = true
+	var _settings_mgr_b = get_node_or_null("/root/SettingsManager")
+	if _settings_mgr_b and _settings_mgr_b.has_method("get_setting"):
+		var _tut_on = _settings_mgr_b.call("get_setting", "gameplay_tutorial_toasts")
+		if typeof(_tut_on) == TYPE_BOOL and not _tut_on:
+			_station_gating_enabled = false  # Tutorial disabled — show all sections
+	if _station_gating_enabled and bridge.has_method("GetOnboardingStateV0"):
+		var _ob_st: Dictionary = bridge.call("GetOnboardingStateV0")
+		if not _ob_st.is_empty():
+			_nodes_visited_briefing = int(_ob_st.get("nodes_visited", 0))
+
+	# --- Section 1: FO Greeting + Top Observation (always) ---
 	_briefing_add_fo_greeting(fo_name, fo_type, station_ctx, territory, price_intel, trade_routes)
+	# GATE.T65.FO.DOCK_WIRE.001: Record HudEvent so bots can verify FO dock greeting fired.
+	if bridge and bridge.has_method("RecordHudEventV0"):
+		var speaker: String = fo_name if not fo_name.is_empty() else "Ship Computer"
+		bridge.call("RecordHudEventV0", "fo_dock_greeting", speaker)
 
 	# --- Section 2: Territory & Access (always show when faction is known) ---
 	_briefing_add_territory(faction_id, rep_tier, trade_policy)
 
-	# --- Section 3: Scanner Intel (price observations) ---
-	_briefing_add_scanner_intel(price_intel, scanner_range)
+	# GATE.T63.UI.OVERVIEW_THEME.001: Tier divider between greeting and intel sections.
+	if _nodes_visited_briefing >= 3:
+		_briefing_add_tier_divider()
 
-	# --- Section 4: Trade Opportunities (routes touching this node) ---
-	var local_routes: Array = []
-	for route in trade_routes:
-		if typeof(route) != TYPE_DICTIONARY:
-			continue
-		if str(route.get("source_node_id", "")) == _market_node_id or str(route.get("dest_node_id", "")) == _market_node_id:
-			local_routes.append(route)
-	_briefing_add_trade_routes(local_routes)
+	# --- Tier 2: 3+ nodes visited ---
+	if _nodes_visited_briefing >= 3:
+		# --- Section 3: Scanner Intel (price observations) ---
+		_briefing_add_scanner_intel(price_intel, scanner_range)
 
-	# --- Section 5: Your Operations (programs at this node) ---
-	var local_programs: Array = []
-	for prog in programs:
-		if typeof(prog) != TYPE_DICTIONARY:
-			continue
-		if str(prog.get("market_id", "")) == _market_node_id:
-			local_programs.append(prog)
-	_briefing_add_operations(local_programs)
+		# --- Section 4: Trade Opportunities (routes touching this node) ---
+		var local_routes: Array = []
+		for route in trade_routes:
+			if typeof(route) != TYPE_DICTIONARY:
+				continue
+			if str(route.get("source_node_id", "")) == _market_node_id or str(route.get("dest_node_id", "")) == _market_node_id:
+				local_routes.append(route)
+		_briefing_add_trade_routes(local_routes)
 
-	# --- Section 6: Signals (active leads) ---
-	if leads.size() > 0:
-		_briefing_add_signals(leads)
+		# --- Section 5: Your Operations (programs at this node) ---
+		var local_programs: Array = []
+		for prog in programs:
+			if typeof(prog) != TYPE_DICTIONARY:
+				continue
+			if str(prog.get("market_id", "")) == _market_node_id:
+				local_programs.append(prog)
+		_briefing_add_operations(local_programs)
 
-	# --- Section 7: Infrastructure (collapsed — old station health + production) ---
-	_briefing_add_infrastructure(bridge)
+	# GATE.T63.UI.OVERVIEW_THEME.001: Tier divider between intel and advanced sections.
+	if _nodes_visited_briefing >= 5:
+		_briefing_add_tier_divider()
 
-	# --- Section 8: Economy Snapshot (GATE.T44.DIGEST.ECONOMY_DOCK.001) ---
-	_briefing_add_economy_snapshot(bridge)
+	# --- Tier 3: 5+ nodes visited ---
+	if _nodes_visited_briefing >= 5:
+		# --- Section 6: Signals (active leads) ---
+		if leads.size() > 0:
+			_briefing_add_signals(leads)
 
-	# --- Section 8b: Upkeep Breakdown (GATE.T48.TENSION.UPKEEP_BRIDGE.001) ---
-	_briefing_add_upkeep_breakdown(bridge)
+		# --- Section 7: Infrastructure (collapsed — old station health + production) ---
+		_briefing_add_infrastructure(bridge)
 
-	# --- Section 8c: Situation — Contextual Template Opportunities (GATE.T48.TEMPLATE.CONTEXT_SURFACE.001) ---
-	_briefing_add_situation(bridge)
+		# --- Section 8: Economy Snapshot (GATE.T44.DIGEST.ECONOMY_DOCK.001) ---
+		_briefing_add_economy_snapshot(bridge)
 
-	# --- Section 9: Planet Scanner (only at planet nodes) ---
-	_briefing_add_planet_scanner(bridge, planet_info)
+		# --- Section 8b: Upkeep Breakdown (GATE.T48.TENSION.UPKEEP_BRIDGE.001) ---
+		_briefing_add_upkeep_breakdown(bridge)
+
+		# --- Section 8c: Situation — Contextual Template Opportunities (GATE.T48.TEMPLATE.CONTEXT_SURFACE.001) ---
+		_briefing_add_situation(bridge)
+
+		# --- Section 9: Planet Scanner (only at planet nodes) ---
+		_briefing_add_planet_scanner(bridge, planet_info)
 
 	_station_info_container.visible = true
 
 
 # --- Port Briefing sub-builders ---
+
+# GATE.T63.UI.OVERVIEW_THEME.001: Subtle tier divider — thin cyan rule with spacing.
+func _briefing_add_tier_divider() -> void:
+	var spacer_top := Control.new()
+	spacer_top.custom_minimum_size = Vector2(0, 4)
+	_station_info_container.add_child(spacer_top)
+	var rule := ColorRect.new()
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.color = Color(UITheme.CYAN.r, UITheme.CYAN.g, UITheme.CYAN.b, 0.2)
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_station_info_container.add_child(rule)
+	var spacer_bot := Control.new()
+	spacer_bot.custom_minimum_size = Vector2(0, 2)
+	_station_info_container.add_child(spacer_bot)
 
 func _briefing_add_fo_greeting(fo_name: String, fo_type: String, ctx: Dictionary, territory: Dictionary, intel: Array, routes: Array) -> void:
 	# FO observation — one actionable line based on archetype + station state.
@@ -2015,7 +2160,8 @@ func _briefing_add_territory(faction_id: String, rep_tier: String, trade_policy:
 	var faction_lbl := Label.new()
 	if not faction_id.is_empty():
 		faction_lbl.text = _format_display_name(faction_id)
-		faction_lbl.add_theme_color_override("font_color", UITheme.CYAN)
+		# GATE.T41.UI.FACTION_COLORS.001: Use faction accent color for station faction label.
+		faction_lbl.add_theme_color_override("font_color", UITheme.get_faction_accent(faction_id))
 	else:
 		faction_lbl.text = "Unclaimed Space"
 		faction_lbl.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
@@ -3089,83 +3235,180 @@ func _rebuild_missions() -> void:
 			_missions_container.add_child(obj_lbl)
 			return  # Only one active mission at a time
 
-	# No active mission — show available missions
-	if bridge.has_method("GetMissionListV0"):
-		var missions: Array = bridge.call("GetMissionListV0")
-		if missions.size() == 0:
-			_missions_container.add_child(UITheme.make_empty_state("◇", "No missions available", "Visit other stations to find work"))
-			return
+	# GATE.T61.MISSIONS.BOARD_FILTER.001: Enhanced mission board with filter controls.
+	var missions: Array = []
+	if bridge.has_method("GetMissionBoardV0"):
+		missions = bridge.call("GetMissionBoardV0", _market_node_id)
+	elif bridge.has_method("GetMissionListV0"):
+		missions = bridge.call("GetMissionListV0")
 
-		# L1.4: Consistent section header styling.
-		var hdr_section = UITheme.make_section_header("Available Missions")
-		_missions_container.add_child(hdr_section)
+	if missions.size() == 0:
+		_missions_container.add_child(UITheme.make_empty_state("◇", "No missions available", "Visit other stations to find work"))
+		return
 
-		for m in missions:
-			if typeof(m) != TYPE_DICTIONARY:
-				continue
-			var mid: String = str(m.get("mission_id", ""))
-			var mtitle: String = str(m.get("title", mid))
-			var mdesc: String = str(m.get("description", ""))
-			var mreward: int = int(m.get("reward", 0))
+	# L1.4: Consistent section header styling.
+	var hdr_section = UITheme.make_section_header("Available Missions")
+	_missions_container.add_child(hdr_section)
 
-			# Mission card with type icon, title, reward badge, styled accept button.
-			var card = PanelContainer.new()
-			var card_style = StyleBoxFlat.new()
-			card_style.bg_color = Color(0.08, 0.1, 0.14, 0.6)
-			card_style.border_color = Color(UITheme.CYAN.r, UITheme.CYAN.g, UITheme.CYAN.b, 0.2)
-			card_style.set_border_width_all(1)
-			card_style.set_corner_radius_all(3)
-			card_style.set_content_margin_all(6)
-			card.add_theme_stylebox_override("panel", card_style)
+	# Filter row: archetype buttons + sort toggle.
+	var filter_row := HBoxContainer.new()
+	filter_row.add_theme_constant_override("separation", 3)
+	var archetypes: Array = ["All", "Supply", "Explore", "Combat", "Politics", "Diplomacy", "Smuggling"]
+	for arch_name in archetypes:
+		var fbtn := Button.new()
+		fbtn.text = arch_name
+		fbtn.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		fbtn.toggle_mode = true
+		fbtn.button_pressed = (_mission_filter_archetype == arch_name)
+		fbtn.pressed.connect(_on_mission_filter_archetype.bind(arch_name))
+		filter_row.add_child(fbtn)
+	_missions_container.add_child(filter_row)
 
-			var card_vbox = VBoxContainer.new()
-			card_vbox.add_theme_constant_override("separation", 2)
+	# Sort toggle.
+	var sort_row := HBoxContainer.new()
+	sort_row.add_theme_constant_override("separation", 4)
+	var sort_lbl := Label.new()
+	sort_lbl.text = "Sort:"
+	sort_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	sort_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	sort_row.add_child(sort_lbl)
+	var btn_sort_reward := Button.new()
+	btn_sort_reward.text = "Reward"
+	btn_sort_reward.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	btn_sort_reward.toggle_mode = true
+	btn_sort_reward.button_pressed = (_mission_sort_mode == "reward")
+	btn_sort_reward.pressed.connect(_on_mission_sort.bind("reward"))
+	sort_row.add_child(btn_sort_reward)
+	var btn_sort_name := Button.new()
+	btn_sort_name.text = "Name"
+	btn_sort_name.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	btn_sort_name.toggle_mode = true
+	btn_sort_name.button_pressed = (_mission_sort_mode == "name")
+	btn_sort_name.pressed.connect(_on_mission_sort.bind("name"))
+	sort_row.add_child(btn_sort_name)
+	_missions_container.add_child(sort_row)
 
-			var row = HBoxContainer.new()
-			row.add_theme_constant_override("separation", 6)
-			# Mission type icon
-			var icon_lbl = Label.new()
-			icon_lbl.text = "◇"
-			icon_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-			icon_lbl.add_theme_color_override("font_color", UITheme.GOLD)
-			row.add_child(icon_lbl)
+	# Apply filters and sort.
+	var filtered: Array = []
+	for m in missions:
+		if typeof(m) != TYPE_DICTIONARY:
+			continue
+		var arch: String = str(m.get("archetype", "Unknown"))
+		var fid: String = str(m.get("faction_id", ""))
+		if _mission_filter_archetype != "All" and arch != _mission_filter_archetype:
+			continue
+		if _mission_filter_faction != "All" and fid != _mission_filter_faction:
+			continue
+		filtered.append(m)
 
-			var info_lbl = Label.new()
-			info_lbl.text = mtitle
-			info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			info_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
-			row.add_child(info_lbl)
+	# Sort.
+	if _mission_sort_mode == "reward":
+		filtered.sort_custom(func(a, b): return int(a.get("reward", 0)) > int(b.get("reward", 0)))
+	else:
+		filtered.sort_custom(func(a, b): return str(a.get("title", "")) < str(b.get("title", "")))
 
-			# Reward badge
+	if filtered.size() == 0:
+		var no_match := Label.new()
+		no_match.text = "No missions match filter."
+		no_match.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+		no_match.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+		_missions_container.add_child(no_match)
+		return
+
+	for m in filtered:
+		var mid: String = str(m.get("mission_id", ""))
+		var mtitle: String = str(m.get("title", mid))
+		var mdesc: String = str(m.get("description", ""))
+		var mreward: int = int(m.get("reward", 0))
+		var march: String = str(m.get("archetype", ""))
+		var msource: String = str(m.get("source", "mission"))
+
+		# Mission card with type icon, title, reward badge, styled accept button.
+		var card = PanelContainer.new()
+		var card_style = StyleBoxFlat.new()
+		card_style.bg_color = Color(0.08, 0.1, 0.14, 0.6)
+		card_style.border_color = Color(UITheme.CYAN.r, UITheme.CYAN.g, UITheme.CYAN.b, 0.2)
+		card_style.set_border_width_all(1)
+		card_style.set_corner_radius_all(3)
+		card_style.set_content_margin_all(6)
+		card.add_theme_stylebox_override("panel", card_style)
+
+		var card_vbox = VBoxContainer.new()
+		card_vbox.add_theme_constant_override("separation", 2)
+
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+
+		# Archetype icon with color.
+		var icon_lbl = Label.new()
+		icon_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		match march:
+			"Supply":     icon_lbl.text = "◆"; icon_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+			"Explore":    icon_lbl.text = "◈"; icon_lbl.add_theme_color_override("font_color", UITheme.CYAN)
+			"Combat":     icon_lbl.text = "⬥"; icon_lbl.add_theme_color_override("font_color", UITheme.RED)
+			"Politics":   icon_lbl.text = "◇"; icon_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+			"Diplomacy":  icon_lbl.text = "◇"; icon_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0))
+			"Smuggling":  icon_lbl.text = "◆"; icon_lbl.add_theme_color_override("font_color", Color(0.7, 0.3, 0.7))
+			_:            icon_lbl.text = "◇"; icon_lbl.add_theme_color_override("font_color", UITheme.GOLD)
+		row.add_child(icon_lbl)
+
+		var info_lbl = Label.new()
+		info_lbl.text = mtitle
+		info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info_lbl.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
+		row.add_child(info_lbl)
+
+		# Archetype tag.
+		if not march.is_empty() and march != "Unknown":
+			var arch_tag := Label.new()
+			arch_tag.text = "[%s]" % march
+			arch_tag.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			arch_tag.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			row.add_child(arch_tag)
+
+		# Reward badge.
+		if mreward > 0:
 			var reward_lbl = Label.new()
 			reward_lbl.text = "%d cr" % mreward
 			reward_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 			reward_lbl.add_theme_color_override("font_color", UITheme.GOLD)
 			row.add_child(reward_lbl)
 
-			var btn_accept = Button.new()
-			btn_accept.text = "Accept"
-			UITheme.style_action_button(btn_accept, "accept")
+		var btn_accept = Button.new()
+		btn_accept.text = "Accept"
+		UITheme.style_action_button(btn_accept, "accept")
+		if msource == "template":
+			btn_accept.pressed.connect(_on_accept_contextual_template.bind(mid))
+		else:
 			btn_accept.pressed.connect(_on_accept_mission.bind(mid))
-			row.add_child(btn_accept)
-			card_vbox.add_child(row)
+		row.add_child(btn_accept)
+		card_vbox.add_child(row)
 
-			if mdesc != "":
-				var desc_lbl = Label.new()
-				desc_lbl.text = mdesc
-				desc_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-				desc_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
-				desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				card_vbox.add_child(desc_lbl)
+		if mdesc != "":
+			var desc_lbl = Label.new()
+			desc_lbl.text = mdesc
+			desc_lbl.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+			desc_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			card_vbox.add_child(desc_lbl)
 
-			card.add_child(card_vbox)
-			_missions_container.add_child(card)
+		card.add_child(card_vbox)
+		_missions_container.add_child(card)
 
 func _on_accept_mission(mission_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("AcceptMissionV0"):
 		bridge.call("AcceptMissionV0", mission_id)
 		_rebuild_rows()
+
+# GATE.T61.MISSIONS.BOARD_FILTER.001: Filter/sort callbacks.
+func _on_mission_filter_archetype(arch_name: String) -> void:
+	_mission_filter_archetype = arch_name
+	_rebuild_missions()
+
+func _on_mission_sort(mode: String) -> void:
+	_mission_sort_mode = mode
+	_rebuild_missions()
 
 # GATE.S4.UI_INDU.RESEARCH.001: Research UI panel
 func _rebuild_research() -> void:
@@ -3441,7 +3684,19 @@ func _rebuild_refit() -> void:
 func _on_install_module(slot_index: int, module_id: String) -> void:
 	var bridge = get_node_or_null("/root/SimBridge")
 	if bridge and bridge.has_method("InstallModuleV0"):
-		bridge.call("InstallModuleV0", "fleet_trader_1", slot_index, module_id)
+		# GATE.T41.JUICE.MODULE_INSTALL.001: Snapshot stats before install for comparison.
+		var stats_before: Dictionary = _snapshot_ship_stats_v0(bridge)
+		var result: Dictionary = bridge.call("InstallModuleV0", "fleet_trader_1", slot_index, module_id)
+		var success: bool = result.get("success", false) if typeof(result) == TYPE_DICTIONARY else true
+		if success:
+			# GATE.T41.JUICE.MODULE_INSTALL.001: Snapshot stats after install and show delta overlay.
+			var stats_after: Dictionary = _snapshot_ship_stats_v0(bridge)
+			_spawn_stat_comparison_overlay_v0(stats_before, stats_after, module_id)
+			# GATE.T41.JUICE.MODULE_INSTALL.001: FO acknowledgment toast.
+			var mod_name: String = _format_display_name(module_id)
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and toast_mgr.has_method("show_priority_toast"):
+				toast_mgr.call("show_priority_toast", "Module installed: %s" % mod_name, "confirm", 2.5)
 		_rebuild_rows()
 
 # GATE.S4.UI_INDU.MAINT.001: Maintenance/repair UI panel
@@ -3866,6 +4121,72 @@ func _rebuild_programs() -> void:
 		row.add_child(lbl)
 		_programs_container.add_child(row)
 
+		# GATE.T61.POSTMORTEM.UI.001: Show postmortem cause + decision delta for failed/cancelled programs.
+		if status == "Failed" or status == "Cancelled":
+			_add_program_postmortem(pid, bridge)
+
+# GATE.T61.POSTMORTEM.UI.001: Program postmortem section — failure cause badge + decision deltas.
+func _add_program_postmortem(program_id: String, bridge) -> void:
+	if bridge == null or not bridge.has_method("GetProgramPostmortemV0"):
+		return
+	var pm: Dictionary = bridge.call("GetProgramPostmortemV0", program_id)
+	var cause: String = str(pm.get("cause_code", "None"))
+	if cause == "None" or cause.is_empty():
+		return
+
+	var pm_box := VBoxContainer.new()
+	pm_box.add_theme_constant_override("separation", 1)
+
+	# Cause badge row.
+	var cause_row := HBoxContainer.new()
+	cause_row.add_theme_constant_override("separation", 4)
+	var badge := Label.new()
+	badge.text = "  CAUSE: %s" % cause
+	badge.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	var badge_color: Color = UITheme.RED
+	match cause:
+		"Slippage": badge_color = UITheme.GOLD
+		"Queueing": badge_color = UITheme.CYAN
+		"BadInfo": badge_color = Color(0.8, 0.5, 0.2)
+	badge.add_theme_color_override("font_color", badge_color)
+	cause_row.add_child(badge)
+
+	# Doctrine recommendation.
+	var rec := Label.new()
+	rec.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+	rec.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	match cause:
+		"Slippage": rec.text = "— increase price margin"
+		"LossEvent": rec.text = "— add escort or avoid route"
+		"Heat": rec.text = "— wait for heat to decay"
+		"BadInfo": rec.text = "— verify market data freshness"
+		"CapitalLockup": rec.text = "— reduce program concurrency"
+		_: rec.text = ""
+	if not rec.text.is_empty():
+		cause_row.add_child(rec)
+	pm_box.add_child(cause_row)
+
+	# Decision vs current price deltas.
+	var dec_facts: Dictionary = pm.get("decision_facts", {})
+	var cur_facts: Dictionary = pm.get("current_facts", {})
+	if dec_facts.size() > 0:
+		for key in dec_facts:
+			if not cur_facts.has(key):
+				continue
+			var dec_val: int = int(dec_facts[key])
+			var cur_val: int = int(cur_facts[key])
+			var delta: int = cur_val - dec_val
+			if delta == 0:
+				continue
+			var delta_lbl := Label.new()
+			var arrow: String = "▲" if delta > 0 else "▼"
+			delta_lbl.text = "    %s: %d → %d (%s%d)" % [key, dec_val, cur_val, arrow, abs(delta)]
+			delta_lbl.add_theme_font_size_override("font_size", UITheme.FONT_CAPTION)
+			delta_lbl.add_theme_color_override("font_color", UITheme.GREEN if delta > 0 else UITheme.RED)
+			pm_box.add_child(delta_lbl)
+
+	_programs_container.add_child(pm_box)
+
 # GATE.S9.UI.TOOLTIP_DOCK.001: attach tooltip to a Control via built-in tooltip_text
 func _attach_tooltip_v0(control: Control, text: String) -> void:
 	control.tooltip_text = text
@@ -4162,3 +4483,174 @@ func _spawn_sell_feedback_v0(good_id: String, revenue: int, profit_text: String)
 				var rtw := create_tween()
 				rtw.tween_property(row, "modulate", Color(1, 1, 1, 1), 1.0)
 				break
+
+
+# ============================================================================
+# GATE.T41.JUICE.TRADE_BUY.001 / TRADE_SELL.001 / MODULE_INSTALL.001
+# Trade juice: credit roll, cargo ticker, row flash, profit highlight,
+# stat comparison overlay, FO acknowledgment.
+# ============================================================================
+
+## Roll the HUD credits counter from old_val to new_val over 0.5s.
+## Works by calling the HUD's roll method with explicit start/end values.
+func _roll_hud_credits_v0(old_val: int, new_val: int) -> void:
+	var hud = get_node_or_null("/root/HUD")
+	if hud == null:
+		return
+	if hud.has_method("roll_credits_v0"):
+		hud.call("roll_credits_v0", old_val, new_val)
+
+
+## Spawn a floating cargo ticker label: "+N good_name" (buy) or "-N good_name" (sell).
+## Floats upward and fades out over 1s.
+func _spawn_cargo_ticker_v0(good_id: String, qty: int, is_buy: bool) -> void:
+	var lbl := Label.new()
+	var display_name: String = _format_display_name(good_id)
+	lbl.text = "%s%d %s" % ["+" if is_buy else "-", qty, display_name]
+	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_color_override("font_color", UITheme.CYAN if is_buy else UITheme.ORANGE)
+	lbl.z_index = 100
+	# Position below the credits area, slightly right of center.
+	var vp_size := get_viewport().get_visible_rect().size
+	lbl.position = Vector2(vp_size.x * 0.5 - 40, vp_size.y * 0.30)
+	add_child(lbl)
+	# Float up 30px, fade in then out over 1s total.
+	lbl.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(lbl, "modulate:a", 1.0, 0.15)
+	tw.parallel().tween_property(lbl, "position:y", lbl.position.y - 30.0, 1.0)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(lbl.queue_free)
+
+
+## Flash a trade row for a given good_id with a color pulse.
+## Used by buy (green flash) to give visual feedback on the purchased row.
+func _flash_trade_row_v0(good_id: String, flash_color: Color) -> void:
+	if _rows_container == null:
+		return
+	for row in _rows_container.get_children():
+		if row.has_meta("good_id") and str(row.get_meta("good_id")) == good_id:
+			row.modulate = flash_color
+			var tw := create_tween()
+			tw.tween_property(row, "modulate", Color(1, 1, 1, 1), 0.4)
+			break
+
+
+## GATE.T41.JUICE.TRADE_SELL.001: Floating profit highlight near credits display.
+## Shows "+Ncr profit" in green text that floats up and fades.
+func _spawn_profit_highlight_v0(revenue: int, profit_text: String) -> void:
+	if profit_text.is_empty():
+		return
+	var lbl := Label.new()
+	lbl.text = profit_text.strip_edges()
+	lbl.add_theme_font_size_override("font_size", 20)
+	if profit_text.contains("profit"):
+		lbl.add_theme_color_override("font_color", UITheme.GREEN)
+	else:
+		lbl.add_theme_color_override("font_color", UITheme.RED_LIGHT)
+	lbl.z_index = 100
+	# Position near the top of screen (close to HUD credits).
+	var vp_size := get_viewport().get_visible_rect().size
+	lbl.position = Vector2(vp_size.x * 0.12, 50)
+	add_child(lbl)
+	# Float up and fade.
+	lbl.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(lbl, "modulate:a", 1.0, 0.15)
+	tw.parallel().tween_property(lbl, "position:y", lbl.position.y - 25.0, 1.2)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(lbl.queue_free)
+
+
+## GATE.T41.JUICE.MODULE_INSTALL.001: Snapshot ship stats for before/after comparison.
+func _snapshot_ship_stats_v0(bridge: Node) -> Dictionary:
+	var stats: Dictionary = {}
+	if bridge.has_method("GetPlayerShipFittingV0"):
+		var fitting: Dictionary = bridge.call("GetPlayerShipFittingV0")
+		stats["hull_max"] = int(fitting.get("hull_max", 0))
+		stats["shield_max"] = int(fitting.get("shield_max", 0))
+		stats["power_used"] = int(fitting.get("power_used", 0))
+		stats["power_max"] = int(fitting.get("power_max", 0))
+	if bridge.has_method("GetPlayerStateV0"):
+		var ps: Dictionary = bridge.call("GetPlayerStateV0")
+		stats["cargo_capacity"] = int(ps.get("cargo_capacity", 50))
+		stats["speed"] = int(ps.get("speed", 0))
+	return stats
+
+
+## GATE.T41.JUICE.MODULE_INSTALL.001: Show stat comparison overlay for 2s.
+## Format: "Stat: before -> after (+delta)" for each changed stat.
+func _spawn_stat_comparison_overlay_v0(before: Dictionary, after: Dictionary, module_id: String) -> void:
+	var lines: Array[String] = []
+	var stat_labels: Dictionary = {
+		"hull_max": "Hull",
+		"shield_max": "Shield",
+		"cargo_capacity": "Cargo",
+		"speed": "Speed",
+		"power_used": "Power",
+	}
+	for key in stat_labels:
+		var val_before: int = int(before.get(key, 0))
+		var val_after: int = int(after.get(key, 0))
+		if val_before != val_after:
+			var delta: int = val_after - val_before
+			var delta_str: String = "+%d" % delta if delta > 0 else "%d" % delta
+			lines.append("%s: %d -> %d (%s)" % [stat_labels[key], val_before, val_after, delta_str])
+
+	if lines.is_empty():
+		return
+
+	# Build overlay panel.
+	var panel := PanelContainer.new()
+	var pstyle := StyleBoxFlat.new()
+	pstyle.bg_color = Color(0.05, 0.08, 0.12, 0.9)
+	pstyle.border_color = UITheme.CYAN
+	pstyle.set_border_width_all(1)
+	pstyle.set_corner_radius_all(4)
+	pstyle.set_content_margin_all(12)
+	panel.add_theme_stylebox_override("panel", pstyle)
+	panel.z_index = 100
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
+
+	# Title: module name.
+	var title := Label.new()
+	var mod_name: String = _format_display_name(module_id)
+	title.text = "Installed: %s" % mod_name
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", UITheme.GOLD)
+	vbox.add_child(title)
+
+	# Stat delta lines.
+	for line in lines:
+		var stat_lbl := Label.new()
+		stat_lbl.text = line
+		stat_lbl.add_theme_font_size_override("font_size", 14)
+		# Green for positive deltas, red for negative. Power increase = cost.
+		if line.begins_with("Power") and line.contains("(+"):
+			stat_lbl.add_theme_color_override("font_color", UITheme.RED_LIGHT)
+		elif line.begins_with("Power") and line.contains("(-"):
+			stat_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		elif line.contains("(+"):
+			stat_lbl.add_theme_color_override("font_color", UITheme.GREEN)
+		elif line.contains("(-"):
+			stat_lbl.add_theme_color_override("font_color", UITheme.RED_LIGHT)
+		else:
+			stat_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		vbox.add_child(stat_lbl)
+
+	# Position: center of viewport.
+	var vp_size := get_viewport().get_visible_rect().size
+	panel.position = Vector2(vp_size.x * 0.5 - 120, vp_size.y * 0.4)
+	panel.custom_minimum_size = Vector2(240, 0)
+	add_child(panel)
+
+	# Show for 2s then fade out.
+	panel.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(panel, "modulate:a", 1.0, 0.2)
+	tw.tween_interval(1.6)
+	tw.tween_property(panel, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(panel.queue_free)

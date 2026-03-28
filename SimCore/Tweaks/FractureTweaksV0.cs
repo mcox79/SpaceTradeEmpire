@@ -7,7 +7,8 @@ namespace SimCore.Tweaks;
 public static class FractureTweaksV0
 {
     // GATE.S6.FRACTURE.ACCESS_MODEL.001: Minimum hull_hp_max to enter fracture nodes.
-    public const int MinHullHpMaxForFracture = 120;
+    // GATE.T64.DISC.EARLY_ACCESS.001: Lowered from 120 to 100 so starter shuttle (100 hull) can access.
+    public const int MinHullHpMaxForFracture = 100;
 
     // GATE.S6.FRACTURE.ACCESS_MODEL.001: Fracture tier gating threshold.
     // Nodes with FractureTier > this value require a tech-level check.

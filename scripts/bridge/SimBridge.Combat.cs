@@ -1112,4 +1112,191 @@ public partial class SimBridge
 
         lock (_snapshotLock) { return _cachedDroneActivityV0.Duplicate(); }
     }
+
+    // GATE.T61.SALVAGE.COLLECTION_UX.001: Salvage loot queries.
+
+    /// Returns nearby loot drops at the player's current node.
+    /// Array of {id, rarity, credits, goods (Dictionary), tick_created}.
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetSalvageLootV0()
+    {
+        var result = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        TryExecuteSafeRead(state =>
+        {
+            string? playerNode = null;
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var pf))
+                playerNode = pf.CurrentNodeId;
+            if (string.IsNullOrEmpty(playerNode)) return;
+
+            foreach (var kv in state.LootDrops)
+            {
+                var drop = kv.Value;
+                if (!string.Equals(drop.NodeId, playerNode, StringComparison.Ordinal)) continue;
+                var goods = new Godot.Collections.Dictionary();
+                foreach (var g in drop.Goods)
+                    goods[g.Key] = g.Value;
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["id"] = drop.Id,
+                    ["rarity"] = drop.Rarity.ToString(),
+                    ["credits"] = drop.Credits,
+                    ["goods"] = goods,
+                    ["tick_created"] = drop.TickCreated,
+                });
+            }
+        }, 0);
+        return result;
+    }
+
+    /// Collect a specific loot drop by ID — adds credits+goods to player.
+    public bool CollectSalvageV0(string lootId)
+    {
+        if (string.IsNullOrEmpty(lootId)) return false;
+        bool success = false;
+        try
+        {
+            _stateLock.EnterWriteLock();
+            var state = _kernel.State;
+            if (!state.LootDrops.TryGetValue(lootId, out var drop)) { _stateLock.ExitWriteLock(); return false; }
+
+            state.PlayerCredits += drop.Credits;
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var fleet))
+            {
+                foreach (var g in drop.Goods)
+                {
+                    fleet.Cargo.TryGetValue(g.Key, out int existing);
+                    fleet.Cargo[g.Key] = existing + g.Value;
+                }
+            }
+            state.LootDrops.Remove(lootId);
+            success = true;
+        }
+        finally
+        {
+            if (_stateLock.IsWriteLockHeld)
+                _stateLock.ExitWriteLock();
+        }
+        return success;
+    }
+
+    // ── Player targeting (presentation-layer, does not affect SimCore determinism) ──
+
+    private string _lockedTargetFleetId = "";
+
+    /// <summary>
+    /// Returns true if at least one hostile NPC fleet is alive and in the same node as the player.
+    /// Nonblocking read.
+    /// </summary>
+    public bool HasHostileInRangeV0()
+    {
+        bool result = false;
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            var playerNode = player.CurrentNodeId;
+            foreach (var kv in state.Fleets)
+            {
+                if (string.Equals(kv.Key, "fleet_trader_1", StringComparison.Ordinal)) continue;
+                var f = kv.Value;
+                if (f.HullHp <= 0) continue;
+                if (!string.Equals(f.CurrentNodeId, playerNode, StringComparison.Ordinal)) continue;
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal)) continue;
+                result = true;
+                return;
+            }
+        }, 0);
+        return result;
+    }
+
+    /// <summary>
+    /// Returns the currently locked target fleet ID, or "" if none.
+    /// </summary>
+    public string GetLockedTargetV0()
+    {
+        return _lockedTargetFleetId;
+    }
+
+    /// <summary>
+    /// Lock onto a specific fleet. Pass "" to clear.
+    /// </summary>
+    public void SetLockedTargetV0(string fleetId)
+    {
+        _lockedTargetFleetId = fleetId ?? "";
+    }
+
+    /// <summary>
+    /// Clear the current target lock.
+    /// </summary>
+    public void ClearLockedTargetV0()
+    {
+        _lockedTargetFleetId = "";
+    }
+
+    /// <summary>
+    /// Cycle to the next hostile fleet in the same node. Returns the new target fleet ID.
+    /// If no current lock, targets nearest. If already locked, cycles to next (by ID order).
+    /// Returns "" if no hostiles available.
+    /// </summary>
+    public string CycleTargetV0()
+    {
+        string newTarget = "";
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            var playerNode = player.CurrentNodeId;
+
+            // Collect all hostile fleets in same node, alive, sorted by ID.
+            var hostiles = new List<string>();
+            foreach (var kv in state.Fleets)
+            {
+                if (string.Equals(kv.Key, "fleet_trader_1", StringComparison.Ordinal)) continue;
+                var f = kv.Value;
+                if (f.HullHp <= 0) continue;
+                if (!string.Equals(f.CurrentNodeId, playerNode, StringComparison.Ordinal)) continue;
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal)) continue;
+                hostiles.Add(kv.Key);
+            }
+            if (hostiles.Count == 0) return;
+            hostiles.Sort(StringComparer.Ordinal);
+
+            if (string.IsNullOrEmpty(_lockedTargetFleetId))
+            {
+                newTarget = hostiles[0];
+            }
+            else
+            {
+                int idx = hostiles.IndexOf(_lockedTargetFleetId);
+                newTarget = hostiles[(idx + 1) % hostiles.Count];
+            }
+        }, 0);
+
+        _lockedTargetFleetId = newTarget;
+        return newTarget;
+    }
+
+    /// <summary>
+    /// Target the nearest hostile fleet in the same node. Returns the fleet ID or "".
+    /// </summary>
+    public string TargetNearestHostileV0()
+    {
+        string nearest = "";
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue("fleet_trader_1", out var player)) return;
+            var playerNode = player.CurrentNodeId;
+
+            foreach (var kv in state.Fleets)
+            {
+                if (string.Equals(kv.Key, "fleet_trader_1", StringComparison.Ordinal)) continue;
+                var f = kv.Value;
+                if (f.HullHp <= 0) continue;
+                if (!string.Equals(f.CurrentNodeId, playerNode, StringComparison.Ordinal)) continue;
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal)) continue;
+                nearest = kv.Key;
+                return; // First hostile found — good enough for nearest heuristic.
+            }
+        }, 0);
+
+        _lockedTargetFleetId = nearest;
+        return nearest;
+    }
 }

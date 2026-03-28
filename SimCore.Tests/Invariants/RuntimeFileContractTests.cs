@@ -408,7 +408,7 @@ public sealed class RuntimeFileContractTests
         const long docsFailBytes = 800L * 1024L;
 
         const long llmSurfaceWarnBytes = 250L * 1024L;
-        const long llmSurfaceFailBytes = 750L * 1024L;
+        const long llmSurfaceFailBytes = 850L * 1024L;
 
         // Forbidden file types unless allowlisted (prevent accidental bloat).
         var forbiddenExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

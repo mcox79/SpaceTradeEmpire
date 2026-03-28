@@ -177,6 +177,154 @@ public static class MarketSystem
             return (int)Math.Max(1, price - adjustment);
     }
 
+    // GATE.T65.ECON.ROUTE_NOVELTY.001: Record a trade for novelty tracking.
+    public static void RecordRouteNovelty(SimState state, string marketId, string goodId)
+    {
+        string key = $"{marketId}|{goodId}";
+        state.PlayerRouteNovelty.TryGetValue(key, out int count);
+        state.PlayerRouteNovelty[key] = count + 1;
+    }
+
+    // GATE.T65.ECON.ROUTE_NOVELTY.001: Get novelty bonus in bps for a market+good pair.
+    // Returns positive bps (bonus margin) for new/rare routes, 0 for well-trodden routes.
+    public static int GetRouteNoveltyBonusBps(SimState state, string marketId, string goodId)
+    {
+        string key = $"{marketId}|{goodId}";
+        state.PlayerRouteNovelty.TryGetValue(key, out int count);
+        if (count >= MarketTweaksV0.NoveltyDecayTrades) return 0;
+        // Linear decay: full bonus at count=0, 2/3 at count=1, 1/3 at count=2 (for decay=3).
+        int remaining = MarketTweaksV0.NoveltyDecayTrades - count;
+        return MarketTweaksV0.NoveltyBonusBps * remaining / MarketTweaksV0.NoveltyDecayTrades;
+    }
+
+    // GATE.T65.ECON.ROUTE_NOVELTY.001: Apply novelty bonus to a price.
+    // For buys: price goes DOWN (cheaper). For sells: price goes UP (more profit).
+    public static int ApplyNoveltyBonus(int price, int bonusBps, bool isBuy)
+    {
+        if (bonusBps <= 0 || price <= 0) return price;
+        long adjustment = (long)price * bonusBps / 10000;
+        if (isBuy)
+            return (int)Math.Max(1, price - adjustment);
+        else
+            return (int)(price + adjustment);
+    }
+
+    // GATE.T61.MARKET.DEPTH_MODEL.001: Per-tick depth recovery + volatility decay.
+    // Called from SimKernel.Step() to recover market liquidity over time.
+    public static void ProcessDepthRecovery(SimState state)
+    {
+        foreach (var market in state.Markets.Values)
+        {
+            // Recover depth toward BaseDepth.
+            if (market.Depth < MarketDepthTweaksV0.BaseDepth)
+            {
+                market.Depth = Math.Min(
+                    market.Depth + MarketDepthTweaksV0.DepthRecoveryPerTick,
+                    MarketDepthTweaksV0.BaseDepth);
+            }
+
+            // GATE.T61.MARKET.BID_ASK.001: Decay volatility score toward zero.
+            if (market.VolatilityScore > 0)
+            {
+                market.VolatilityScore = Math.Max(
+                    0, // STRUCTURAL: floor
+                    market.VolatilityScore - MarketDepthTweaksV0.VolatilityDecayPerTick);
+            }
+
+            // GATE.T61.MARKET.PRICE_SMOOTH.001: Depth inactivity decay.
+            // Markets without recent trade activity slowly lose depth, widening spreads.
+            int inactiveTicks = state.Tick - market.LastTradeTick;
+            if (inactiveTicks > MarketDepthTweaksV0.DepthDecayGraceTicks) // STRUCTURAL: grace period check
+            {
+                int floor = MarketDepthTweaksV0.BaseDepth / MarketDepthTweaksV0.DepthFloorDivisor; // STRUCTURAL: divisor
+                if (market.Depth > floor)
+                {
+                    market.Depth = Math.Max(floor,
+                        market.Depth - MarketDepthTweaksV0.DepthInactivityDecayPerTick);
+                }
+            }
+        }
+    }
+
+    // GATE.T61.MARKET.DEPTH_MODEL.001: Compute price impact in basis points for a given qty.
+    // Linear scaling: impactBps = (qty * ImpactMaxBps) / max(1, depth).
+    // Returns positive bps — caller decides direction (buy UP, sell DOWN).
+    public static int ComputeDepthImpactBps(int qty, int depth)
+    {
+        if (qty <= 0) return 0; // STRUCTURAL: no impact for zero/negative qty
+        int effectiveDepth = depth > 0 ? depth : MarketDepthTweaksV0.BaseDepth; // STRUCTURAL: fallback
+        int bps = (int)((long)qty * MarketDepthTweaksV0.ImpactMaxBps / effectiveDepth);
+        return Math.Min(bps, MarketDepthTweaksV0.ImpactMaxBps);
+    }
+
+    // GATE.T61.MARKET.DEPTH_MODEL.001: Consume depth after a trade.
+    public static void ConsumeDepth(Market market, int qty)
+    {
+        if (market is null || qty <= 0) return; // STRUCTURAL: guard
+        market.Depth = Math.Max(0, market.Depth - qty); // STRUCTURAL: floor
+    }
+
+    // GATE.T61.MARKET.BID_ASK.001: Record a trade for volatility tracking.
+    public static void RecordTradeVolatility(Market market)
+    {
+        if (market is null) return;
+        market.VolatilityScore = Math.Min(
+            market.VolatilityScore + MarketDepthTweaksV0.VolatilityPerTrade,
+            MarketDepthTweaksV0.VolatilityMaxScore);
+    }
+
+    // GATE.T61.MARKET.BID_ASK.001: Get dynamic spread adjustment in basis points.
+    // Combines volatility, trust (faction rep), and edge heat components.
+    // Returns additional bps on top of Market's base SpreadBps.
+    public static int GetDynamicSpreadAdjustmentBps(SimState state, string marketId)
+    {
+        if (state is null || string.IsNullOrEmpty(marketId)) return 0; // STRUCTURAL: guard
+
+        int totalBps = 0; // STRUCTURAL: accumulator init
+
+        // 1. Volatility component: from market's VolatilityScore.
+        if (state.Markets.TryGetValue(marketId, out var market) && market.VolatilityScore > 0)
+        {
+            int volBps = market.VolatilityScore * MarketDepthTweaksV0.VolatilitySpreadBpsPerPoint;
+            totalBps += Math.Min(volBps, MarketDepthTweaksV0.VolatilitySpreadMaxBps);
+        }
+
+        // 2. Trust component: low faction rep widens spread.
+        var factionId = GetControllingFactionIdForMarket(state, marketId);
+        if (!string.IsNullOrEmpty(factionId))
+        {
+            int rep = ReputationSystem.GetReputation(state, factionId);
+            if (rep < MarketDepthTweaksV0.TrustRepThreshold)
+            {
+                int deficit = MarketDepthTweaksV0.TrustRepThreshold - rep;
+                int trustBps = deficit * MarketDepthTweaksV0.TrustSpreadBpsPerRepPoint;
+                totalBps += Math.Min(trustBps, MarketDepthTweaksV0.TrustSpreadMaxBps);
+            }
+        }
+
+        // 3. Heat component: max edge heat at the market's node.
+        string? nodeId = FindNodeForMarket(state, marketId);
+        if (nodeId != null)
+        {
+            float maxHeat = 0f;
+            foreach (var edge in state.Edges.Values)
+            {
+                if (StringComparer.Ordinal.Equals(edge.FromNodeId, nodeId)
+                    || StringComparer.Ordinal.Equals(edge.ToNodeId, nodeId))
+                {
+                    if (edge.Heat > maxHeat) maxHeat = edge.Heat;
+                }
+            }
+            if (maxHeat > 0f)
+            {
+                int heatBps = (int)(maxHeat * MarketDepthTweaksV0.HeatSpreadBpsPerUnit);
+                totalBps += Math.Min(heatBps, MarketDepthTweaksV0.HeatSpreadMaxBps);
+            }
+        }
+
+        return totalBps;
+    }
+
     // Called when a Fleet traverses an Edge with Cargo
     public static void RegisterTraffic(SimState state, string edgeId, int cargoVolume)
     {

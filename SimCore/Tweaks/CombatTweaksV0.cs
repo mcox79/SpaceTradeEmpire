@@ -105,6 +105,15 @@ public static class CombatTweaksV0
     public const int BroadsideFireCadenceBps = 5000;   // 50% (narrower side arcs)
     public const int SpinalFireCadenceBps = 10000;     // 100% (axis-aligned, always on target)
 
+    // GATE.T60.SPIN.ARMOR_HEAT.001: Spin armor — energy weapon damage reduction per RPM (bps).
+    // At 20 RPM: 20 * 50 = 1000 bps = 10% energy reduction. At 50 RPM: 2500 bps = 25%.
+    public const int SpinArmorEnergyReductionBpsPerRpm = 50;
+    public const int SpinArmorMaxReductionBps = 3000; // Cap at 30% energy reduction
+
+    // GATE.T60.SPIN.ARMOR_HEAT.001: Spin heat rejection bonus per RPM (bps).
+    // At 20 RPM: 20 * 25 = 500 bps = 5% extra cooling. At 50 RPM: 1250 bps = 12.5%.
+    public const int SpinHeatRejectionBonusBpsPerRpm = 25;
+
     // GATE.S7.COMBAT_PHASE2.RADIATOR.001: Radiator module cooling bonuses.
     public const int BasicRadiatorBonusRate = 75;      // Additional cooling per round
     public const int AdvancedRadiatorBonusRate = 150;   // Additional cooling per round

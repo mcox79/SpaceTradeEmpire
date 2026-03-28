@@ -181,6 +181,18 @@ public static class FleetUpkeepSystem
                 }
             }
         }
+
+        // GATE.T64.ECON.FRICTION_SINKS.001: Per-hop lane transit fee on arrival.
+        // Flat credit cost each time the player completes a lane transit.
+        if (FleetUpkeepTweaksV0.LaneTransitFeeCr > 0 && state.ArrivalsThisTick.Count > 0)
+        {
+            foreach (var (fleetId, edgeId, nodeId) in state.ArrivalsThisTick)
+            {
+                if (!state.Fleets.TryGetValue(fleetId, out var arrFleet)) continue;
+                if (!string.Equals(arrFleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+                state.PlayerCredits -= FleetUpkeepTweaksV0.LaneTransitFeeCr;
+            }
+        }
     }
 
     public static int GetUpkeepForClass(string classId)

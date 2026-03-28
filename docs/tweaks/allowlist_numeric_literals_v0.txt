@@ -92,8 +92,10 @@ SimCore/Gen/GalaxyGenerator.cs:1
 SimCore/Gen/GalaxyGenerator.cs:0.5f
 
 # GATE.S7.FACTION.CONTENT_DATA.001: structural literals (faction count=5, tuple index=4, FNV hash constants)
+# Also: 2 = preferred hop distance for haven placement
 SimCore/Gen/GalaxyGenerator.cs:5
 SimCore/Gen/GalaxyGenerator.cs:4
+SimCore/Gen/GalaxyGenerator.cs:2
 SimCore/Gen/GalaxyGenerator.cs:2166136261
 SimCore/Gen/GalaxyGenerator.cs:16777619
 
@@ -134,6 +136,8 @@ SimCore/Systems/MarketSystem.cs:0
 SimCore/Systems/MarketSystem.cs:9999L
 # GATE.S7.INSTABILITY.CONSEQUENCES.001: structural phase index (Void >= 4 check)
 SimCore/Systems/MarketSystem.cs:4
+# GATE.T61.MARKET.BID_ASK.001: structural float zero for heat accumulator init/compare
+SimCore/Systems/MarketSystem.cs:0f
 
 # MarketInitGen: structural hash primes + modulus for deterministic geo-distribution
 SimCore/Gen/MarketInitGen.cs:7919
@@ -247,6 +251,9 @@ SimCore/Systems/KnowledgeGraphSystem.cs:0
 
 # GATE.T18.CHARACTER.FO_SYSTEM.001: structural zeros (empty string checks)
 SimCore/Systems/FirstOfficerSystem.cs:0
+
+# GATE.T62.PIPELINE.FO_INTEL_TRIGGER.001: structural /3 (freshness window early-decay band)
+SimCore/Systems/FirstOfficerSystem.cs:3
 
 # Fuel tank refactor: structural zero (PowerDraw > 0 comparison for module disable/enable)
 SimCore/Systems/SustainSystem.cs:0
@@ -541,3 +548,22 @@ SimCore/Systems/KnowledgeGraphSystem.cs:2
 SimCore/Systems/ShipyardSystem.cs:0
 SimCore/Systems/ShipyardSystem.cs:1
 SimCore/Systems/ShipyardSystem.cs:1.0f
+
+# GATE.T61.SALVAGE.LOOT_TABLE.001: structural literals (Count > 0 guard, Sum() > 0 check,
+# +1 inclusive range, 10000 bps identity, techRange > 0 guard, 10000UL rarity roll range, /100 pct calc)
+# Also: >> 8/16 bit shifts for deterministic hash mixing in RollLoot rarity tiers.
+SimCore/Systems/LootTableSystem.cs:0
+SimCore/Systems/LootTableSystem.cs:1
+SimCore/Systems/LootTableSystem.cs:8
+SimCore/Systems/LootTableSystem.cs:16
+SimCore/Systems/LootTableSystem.cs:10000
+SimCore/Systems/LootTableSystem.cs:10000UL
+SimCore/Systems/LootTableSystem.cs:100
+
+# GATE.T62.LOSS.INSURANCE_MODEL.001: structural zeros/ones (modulo check, null guard, accumulator init, Math.Max floor)
+SimCore/Systems/InsuranceSystem.cs:0
+SimCore/Systems/InsuranceSystem.cs:1
+
+# GATE.T62.SHIP.NPC_FACTION_FLEET.001: structural literals in CreateFleet (null sentinel -1, clone init, array[4])
+SimCore/Gen/StarNetworkGen.cs:1
+SimCore/Gen/StarNetworkGen.cs:4

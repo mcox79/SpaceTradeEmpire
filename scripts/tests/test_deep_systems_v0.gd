@@ -15,19 +15,22 @@
 #   - Save/load round-trip
 #   - Refit (install + remove modules)
 #   - Automation programs (auto-buy, cancel)
+#   - Program lifecycle (create auto-buy + resource tap, pause/resume, cancel, postmortem, templates, failures)
 #   - Escort programs (create, query status)
 #   - Fracture travel (access check, dispatch attempt)
-#   - Construction (list defs, start project)
+#   - Construction (list defs, start project, extraction sites, supply level)
 #   - Mission completion (accept → satisfy trigger → tick to complete)
-#   - Haven depth (status, upgrade, fragments, fabricator, ancient hulls, endgame paths)
-#   - Endgame state (win/loss conditions, progress, game result)
+#   - Haven depth (status, upgrade, fragments, fabricator, ancient hulls, endgame paths,
+#                  communion dialogue, deposit, swap ship, restore hull, fabrication, research lab)
+#   - Endgame state (win/loss/bankruptcy conditions, progress, game result, force-set round-trip)
 #   - Story state machine (revelations, pentagon, cascade effects)
 #   - Fleet management (doctrine, patrol/survey programs)
+#   - Survey & patrol depth (create patrol + survey, query status/results, cancel)
 #   - Diplomacy (treaties, bounties, sanctions, proposals)
 #   - Megaproject depth (detail, start, supply delivery)
 #   - Faction colors (visual identity query)
 #   - Dread state & lattice fauna
-#   - Planet scanning (info, star, scan charges, landing, atmospheric)
+#   - Planet scanning (info, star, scan charges, landing, atmospheric, orbital scan depth, neighbor scans)
 #   - Pressure depth (alerts, instability, effects)
 #   - Maintenance depth (node status, supply level, repair)
 #   - Security depth (node/lane security, sensor ghosts, confiscation)
@@ -54,7 +57,7 @@ enum Phase {
 	# Refit & modules
 	REFIT_INSTALL, REFIT_REMOVE,
 	# Automation & escort programs
-	AUTOMATION_CREATE, ESCORT_CREATE,
+	AUTOMATION_CREATE, PROGRAM_LIFECYCLE, ESCORT_CREATE,
 	# Travel
 	TRAVEL_1, SETTLE_1,
 	# Research
@@ -84,14 +87,16 @@ enum Phase {
 	# Story state machine
 	STORY_CHECK,
 	# New coverage domains
-	DREAD_CHECK, PLANET_CHECK, PRESSURE_DEPTH, MAINTENANCE_DEPTH,
+	DREAD_CHECK, PLANET_CHECK, PLANET_SCAN_DEPTH, PRESSURE_DEPTH, MAINTENANCE_DEPTH,
 	SECURITY_DEPTH, TRADE_INTEL_DEPTH, NPC_ECONOMY, GALAXY_MAP_DEPTH, REPORTS_DEPTH,
 	# Fleet management
-	FLEET_MANAGEMENT,
+	FLEET_MANAGEMENT, SURVEY_PATROL_DEPTH,
 	# Diplomacy & T44 depth
 	DIPLOMACY_CHECK, MEGAPROJECT_DEPTH,
 	# Shipyard lifecycle
 	SHIPYARD_DEPTH,
+	# GATE.T60.PROOF.SPIN_E2E.001: Spin lifecycle proof
+	SPIN_LIFECYCLE, SPIN_WAIT_READY, SPIN_DOCK_RESET,
 	# Bridge coverage sweep (exercises uncalled read-only methods)
 	BRIDGE_COVERAGE,
 	# Audit
@@ -129,6 +134,7 @@ func _process(_delta: float) -> bool:
 		Phase.REFIT_INSTALL: _do_refit_install()
 		Phase.REFIT_REMOVE: _do_refit_remove()
 		Phase.AUTOMATION_CREATE: _do_automation_create()
+		Phase.PROGRAM_LIFECYCLE: _do_program_lifecycle()
 		Phase.ESCORT_CREATE: _do_escort_create()
 		Phase.TRAVEL_1: _do_travel()
 		Phase.SETTLE_1: _do_wait(Phase.SETTLE_1, 30, Phase.CHECK_RESEARCH)
@@ -157,6 +163,7 @@ func _process(_delta: float) -> bool:
 		Phase.STORY_CHECK: _do_story_check()
 		Phase.DREAD_CHECK: _do_dread_check()
 		Phase.PLANET_CHECK: _do_planet_check()
+		Phase.PLANET_SCAN_DEPTH: _do_planet_scan_depth()
 		Phase.PRESSURE_DEPTH: _do_pressure_depth()
 		Phase.MAINTENANCE_DEPTH: _do_maintenance_depth()
 		Phase.SECURITY_DEPTH: _do_security_depth()
@@ -165,9 +172,13 @@ func _process(_delta: float) -> bool:
 		Phase.GALAXY_MAP_DEPTH: _do_galaxy_map_depth()
 		Phase.REPORTS_DEPTH: _do_reports_depth()
 		Phase.FLEET_MANAGEMENT: _do_fleet_management()
+		Phase.SURVEY_PATROL_DEPTH: _do_survey_patrol_depth()
 		Phase.DIPLOMACY_CHECK: _do_diplomacy_check()
 		Phase.MEGAPROJECT_DEPTH: _do_megaproject_depth()
 		Phase.SHIPYARD_DEPTH: _do_shipyard_depth()
+		Phase.SPIN_LIFECYCLE: _do_spin_lifecycle()
+		Phase.SPIN_WAIT_READY: _do_spin_wait_ready()
+		Phase.SPIN_DOCK_RESET: _do_spin_dock_reset()
 		Phase.BRIDGE_COVERAGE: _do_bridge_coverage()
 		Phase.AUDIT: _do_audit()
 		Phase.DONE: _do_done()
@@ -385,6 +396,123 @@ func _do_automation_create() -> void:
 	if _bridge.has_method("GetProgramPerformanceV0"):
 		var perf: Dictionary = _bridge.call("GetProgramPerformanceV0", "fleet_trader_1")
 		_a.log("AUTOMATION|performance=%s" % str(perf))
+
+	_polls = 0
+	_phase = Phase.PROGRAM_LIFECYCLE
+
+
+# ===================== Program Lifecycle =====================
+
+func _do_program_lifecycle() -> void:
+	_a.log("=== Program Lifecycle ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	var autobuy_id := ""
+	var restap_id := ""
+
+	# Find a good with stock for program creation
+	var good_id := ""
+	if _bridge.has_method("GetPlayerMarketViewV0"):
+		var market: Array = _bridge.call("GetPlayerMarketViewV0", node_id)
+		for item in market:
+			var qty := int(item.get("quantity", 0))
+			if qty > 0:
+				good_id = str(item.get("good_id", ""))
+				break
+
+	if good_id.is_empty():
+		_a.warn(false, "program_lifecycle_goods", "no_goods_in_market")
+		_polls = 0
+		_phase = Phase.ESCORT_CREATE
+		return
+
+	# 1. Create AutoBuy program
+	if _bridge.has_method("CreateAutoBuyProgram"):
+		var pid: String = _bridge.call("CreateAutoBuyProgram", node_id, good_id, 5, 30)
+		autobuy_id = pid
+		_a.hard(not pid.is_empty(), "plc_autobuy_created", "pid=%s" % pid)
+		_a.log("PROGRAM_LIFECYCLE|autobuy_created=%s good=%s" % [pid, good_id])
+	else:
+		_a.warn(false, "plc_autobuy_bridge", "CreateAutoBuyProgram missing")
+
+	# 2. Create ResourceTap program
+	if _bridge.has_method("CreateResourceTapProgram"):
+		var pid: String = _bridge.call("CreateResourceTapProgram", node_id, good_id, 30)
+		restap_id = pid
+		_a.hard(not pid.is_empty(), "plc_restap_created", "pid=%s" % pid)
+		_a.log("PROGRAM_LIFECYCLE|restap_created=%s" % pid)
+	else:
+		_a.warn(false, "plc_restap_bridge", "CreateResourceTapProgram missing")
+
+	_a.log("PROGRAM_LIFECYCLE|autobuy=%s restap=%s" % [autobuy_id, restap_id])
+
+	# 3. Query all programs — should have >= 2
+	if _bridge.has_method("GetProgramExplainSnapshot"):
+		var explain: Array = _bridge.call("GetProgramExplainSnapshot")
+		_a.hard(explain is Array, "plc_explain_is_array", "type=%s" % typeof(explain))
+		_a.hard(explain.size() >= 2, "plc_explain_count", "count=%d expected>=2" % explain.size())
+		_a.log("PROGRAM_LIFECYCLE|explain_count=%d" % explain.size())
+
+		# 4. Query performance for each program
+		if _bridge.has_method("GetProgramPerformanceV0"):
+			for prog in explain:
+				var pid := str(prog.get("program_id", ""))
+				if not pid.is_empty():
+					var perf: Variant = _bridge.call("GetProgramPerformanceV0", pid)
+					_a.warn(perf is Dictionary, "plc_perf_type", "pid=%s type=%s" % [pid, typeof(perf)])
+	else:
+		_a.warn(false, "plc_explain_bridge", "GetProgramExplainSnapshot missing")
+
+	# 5. Pause + resume first program (AutoBuy)
+	if not autobuy_id.is_empty():
+		if _bridge.has_method("PauseProgram"):
+			var paused: bool = _bridge.call("PauseProgram", autobuy_id)
+			_a.warn(paused, "plc_pause", "pid=%s ok=%s" % [autobuy_id, str(paused)])
+			_a.log("PROGRAM_LIFECYCLE|pause pid=%s ok=%s" % [autobuy_id, str(paused)])
+		else:
+			_a.warn(false, "plc_pause_bridge", "PauseProgram missing")
+
+		if _bridge.has_method("StartProgram"):
+			var resumed: bool = _bridge.call("StartProgram", autobuy_id)
+			_a.warn(resumed, "plc_resume", "pid=%s ok=%s" % [autobuy_id, str(resumed)])
+			_a.log("PROGRAM_LIFECYCLE|resume pid=%s ok=%s" % [autobuy_id, str(resumed)])
+		else:
+			_a.warn(false, "plc_resume_bridge", "StartProgram missing")
+
+	# 6. Cancel the AutoBuy
+	if not autobuy_id.is_empty() and _bridge.has_method("CancelProgram"):
+		var cancelled: bool = _bridge.call("CancelProgram", autobuy_id)
+		_a.hard(cancelled, "plc_cancel_autobuy", "pid=%s ok=%s" % [autobuy_id, str(cancelled)])
+		_a.log("PROGRAM_LIFECYCLE|cancel_autobuy pid=%s ok=%s" % [autobuy_id, str(cancelled)])
+
+	# 7. Query postmortem on cancelled program
+	if not autobuy_id.is_empty() and _bridge.has_method("GetProgramPostmortemV0"):
+		var postmortem: Variant = _bridge.call("GetProgramPostmortemV0", autobuy_id)
+		_a.warn(postmortem is Dictionary, "plc_postmortem_type", "type=%s" % typeof(postmortem))
+		_a.log("PROGRAM_LIFECYCLE|postmortem=%s" % str(postmortem).substr(0, 200))
+
+	# 8. Check program templates
+	if _bridge.has_method("GetProgramTemplatesV0"):
+		var templates: Variant = _bridge.call("GetProgramTemplatesV0")
+		_a.warn(templates is Array, "plc_templates_type", "type=%s" % typeof(templates))
+		if templates is Array:
+			_a.log("PROGRAM_LIFECYCLE|templates=%d" % templates.size())
+
+	# 9. Check failure history
+	if _bridge.has_method("GetFailureHistoryV0"):
+		var failures: Variant = _bridge.call("GetFailureHistoryV0", "fleet_trader_1", 10)
+		_a.warn(failures is Array, "plc_failure_history_type", "type=%s" % typeof(failures))
+		if failures is Array:
+			_a.log("PROGRAM_LIFECYCLE|failure_history=%d" % failures.size())
+
+	# Cleanup: cancel ResourceTap too
+	if not restap_id.is_empty() and _bridge.has_method("CancelProgram"):
+		var cancelled: bool = _bridge.call("CancelProgram", restap_id)
+		_a.log("PROGRAM_LIFECYCLE|cancel_restap pid=%s ok=%s" % [restap_id, str(cancelled)])
+
+	_a.goal("PROGRAM_LIFECYCLE", "autobuy=%s restap=%s" % [
+		"created" if not autobuy_id.is_empty() else "missing",
+		"created" if not restap_id.is_empty() else "missing"])
 
 	_polls = 0
 	_phase = Phase.ESCORT_CREATE
@@ -842,6 +970,21 @@ func _do_construction() -> void:
 	if _bridge.has_method("GetConstructionProjectsV0"):
 		var projects: Array = _bridge.call("GetConstructionProjectsV0")
 		_a.log("CONSTRUCTION|active_projects=%d" % projects.size())
+
+	# Query extraction sites
+	if _bridge.has_method("GetExtractionSitesV0"):
+		var sites: Variant = _bridge.call("GetExtractionSitesV0")
+		_a.warn(sites is Array, "construction_extraction_sites_type", "type=%s" % typeof(sites))
+		if sites is Array:
+			_a.log("CONSTRUCTION|extraction_sites=%d" % sites.size())
+
+	# Query supply level at current node
+	var c_ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var c_node_id := str(c_ps.get("current_node_id", ""))
+	if _bridge.has_method("GetSupplyLevelV0"):
+		var supply: Variant = _bridge.call("GetSupplyLevelV0", c_node_id)
+		_a.warn(supply is Dictionary, "construction_supply_level_type", "type=%s" % typeof(supply))
+		_a.log("CONSTRUCTION|supply_level=%s" % str(supply).substr(0, 200))
 
 	_polls = 0
 	_phase = Phase.CHECK_FACTION
@@ -1322,6 +1465,54 @@ func _do_haven_depth() -> void:
 		var comm: Dictionary = _bridge.call("GetCommunionRepV0")
 		_a.log("HAVEN|communion_rep=%s" % str(comm))
 
+	# Communion rep dialogue
+	if _bridge.has_method("GetCommunionRepDialogueV0"):
+		var dialogue: Dictionary = _bridge.call("GetCommunionRepDialogueV0")
+		_a.log("HAVEN|communion_dialogue_keys=%d" % dialogue.size())
+		_a.warn(dialogue != null, "communion_dialogue_callable", "keys=%d" % dialogue.size())
+
+	# Cycle communion rep dialogue (fire-and-forget mutation)
+	if _bridge.has_method("CycleCommunionRepDialogueV0"):
+		_bridge.call("CycleCommunionRepDialogueV0")
+		_a.log("HAVEN|communion_dialogue_cycled")
+		_a.warn(true, "communion_cycle_callable", "called")
+
+	# Deposit fragment (use nonexistent id — should fail gracefully)
+	if _bridge.has_method("DepositFragmentV0"):
+		var dep: Dictionary = _bridge.call("DepositFragmentV0", "frag_nonexistent")
+		_a.log("HAVEN|deposit_fragment=%s" % str(dep))
+		_a.warn(dep is Dictionary, "deposit_fragment_callable", "result=%s" % str(dep))
+
+	# Swap ship (use invalid ids — should fail gracefully)
+	if _bridge.has_method("SwapShipV0"):
+		var swap_ok: bool = _bridge.call("SwapShipV0", "fleet_trader_1", "stored_nonexistent")
+		_a.log("HAVEN|swap_ship=%s" % str(swap_ok))
+		_a.warn(true, "swap_ship_callable", "result=%s" % str(swap_ok))
+
+	# Restore ancient hull (use nonexistent class — should fail gracefully)
+	if _bridge.has_method("RestoreAncientHullV0"):
+		var restore: Dictionary = _bridge.call("RestoreAncientHullV0", "ancient_nonexistent")
+		_a.log("HAVEN|restore_hull=%s" % str(restore))
+		_a.warn(restore is Dictionary, "restore_hull_callable", "result=%s" % str(restore))
+
+	# Start fabrication (use nonexistent module — should fail gracefully)
+	if _bridge.has_method("StartFabricationV0"):
+		var fab_result: Dictionary = _bridge.call("StartFabricationV0", "mod_nonexistent")
+		_a.log("HAVEN|start_fabrication=%s" % str(fab_result))
+		_a.warn(fab_result is Dictionary, "start_fabrication_callable", "result=%s" % str(fab_result))
+
+	# Start research lab slot (use nonexistent tech — should fail gracefully)
+	if _bridge.has_method("StartResearchLabSlotV0"):
+		var lab: Dictionary = _bridge.call("StartResearchLabSlotV0", "tech_nonexistent", 0)
+		_a.log("HAVEN|start_research_lab=%s" % str(lab))
+		_a.warn(lab is Dictionary, "start_research_lab_callable", "result=%s" % str(lab))
+
+	# Choose endgame path (use invalid path — should fail gracefully, then restore)
+	if _bridge.has_method("ChooseEndgamePathV0"):
+		var chose: bool = _bridge.call("ChooseEndgamePathV0", "nonexistent_path")
+		_a.log("HAVEN|choose_endgame_path=%s" % str(chose))
+		_a.warn(true, "choose_endgame_path_callable", "result=%s" % str(chose))
+
 	_polls = 0
 	_phase = Phase.ENDGAME_CHECK
 
@@ -1351,12 +1542,23 @@ func _do_endgame_check() -> void:
 		var loss: Dictionary = _bridge.call("GetLossInfoV0")
 		_a.log("ENDGAME|loss_info_keys=%d" % loss.size())
 		_a.warn(loss.has("loss_reason"), "loss_info_structure", "keys=%d" % loss.size())
+		# During normal play, loss_reason should be empty string
+		var loss_reason := str(loss.get("loss_reason", "MISSING"))
+		_a.hard(loss_reason == "", "no_active_loss", "loss_reason='%s'" % loss_reason)
+		# Verify loss info has expected stat fields
+		_a.warn(loss.has("final_credits"), "loss_has_credits", "")
+		_a.warn(loss.has("nodes_visited"), "loss_has_nodes_visited", "")
+		_a.warn(loss.has("captain_name"), "loss_has_captain_name", "")
 
 	# Victory info (should return empty/default during normal play)
 	if _bridge.has_method("GetVictoryInfoV0"):
 		var victory: Dictionary = _bridge.call("GetVictoryInfoV0")
 		_a.log("ENDGAME|victory_info_keys=%d" % victory.size())
 		_a.warn(victory.has("chosen_path"), "victory_info_structure", "keys=%d" % victory.size())
+		# Verify victory info has expected stat fields
+		_a.warn(victory.has("final_credits"), "victory_has_credits", "")
+		_a.warn(victory.has("fragments_collected"), "victory_has_fragments", "")
+		_a.warn(victory.has("haven_tier"), "victory_has_haven_tier", "")
 
 	# Force-set endgame states to verify bridge data contracts
 	if _bridge.has_method("ForceSetGameResultV0"):
@@ -1366,10 +1568,34 @@ func _do_endgame_check() -> void:
 		_a.hard(int(win_result.get("result", -1)) == 1, "force_victory_readback", "result=%d" % int(win_result.get("result", -1)))
 		_a.hard(win_result.get("is_terminal", false) == true, "victory_is_terminal", "")
 
+		# Verify loss info reflects death state fields when forced
+		_bridge.call("ForceSetGameResultV0", 2)
+		if _bridge.has_method("GetLossInfoV0"):
+			var death_loss: Dictionary = _bridge.call("GetLossInfoV0")
+			_a.hard(str(death_loss.get("loss_reason", "")) == "death", "forced_death_loss_reason", "reason=%s" % str(death_loss.get("loss_reason", "")))
+			_a.warn(death_loss.has("ship_class"), "death_loss_has_ship_class", "")
+
+		# Verify victory info reflects victory state fields when forced
+		_bridge.call("ForceSetGameResultV0", 1)
+		if _bridge.has_method("GetVictoryInfoV0"):
+			var forced_victory: Dictionary = _bridge.call("GetVictoryInfoV0")
+			_a.warn(forced_victory.has("chosen_path_id"), "forced_victory_has_path_id", "")
+			_a.warn(forced_victory.has("pentagon_cascade"), "forced_victory_has_cascade", "")
+
 		# Test Death state
 		_bridge.call("ForceSetGameResultV0", 2)
 		var death_result: Dictionary = _bridge.call("GetGameResultV0")
 		_a.hard(int(death_result.get("result", -1)) == 2, "force_death_readback", "result=%d" % int(death_result.get("result", -1)))
+
+		# Test Bankruptcy state (result code 3)
+		_bridge.call("ForceSetGameResultV0", 3)
+		var bankrupt_result: Dictionary = _bridge.call("GetGameResultV0")
+		_a.hard(int(bankrupt_result.get("result", -1)) == 3, "force_bankruptcy_readback", "result=%d" % int(bankrupt_result.get("result", -1)))
+		_a.hard(bankrupt_result.get("is_terminal", false) == true, "bankruptcy_is_terminal", "")
+		# Verify loss info reflects bankruptcy
+		if _bridge.has_method("GetLossInfoV0"):
+			var bankrupt_loss: Dictionary = _bridge.call("GetLossInfoV0")
+			_a.warn(str(bankrupt_loss.get("loss_reason", "")) == "bankruptcy", "forced_bankruptcy_loss_reason", "reason=%s" % str(bankrupt_loss.get("loss_reason", "")))
 
 		# Restore to InProgress so later phases aren't affected
 		_bridge.call("ForceSetGameResultV0", 0)
@@ -1441,7 +1667,7 @@ func _do_dread_check() -> void:
 # ===================== Planet Scanning =====================
 
 func _do_planet_check() -> void:
-	_phase = Phase.PRESSURE_DEPTH
+	_phase = Phase.PLANET_SCAN_DEPTH
 	_a.log("=== Planet Check ===")
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var loc: String = ps.get("current_node_id", "")
@@ -1472,6 +1698,72 @@ func _do_planet_check() -> void:
 	if _bridge.has_method("AtmosphericSampleV0"):
 		var atmo: Variant = _bridge.call("AtmosphericSampleV0", loc, "atmosphere")
 		_a.warn(atmo != null, "atmospheric_sample_return", "type=%s" % typeof(atmo))
+
+
+# ===================== Planet Scan Depth =====================
+
+func _do_planet_scan_depth() -> void:
+	_phase = Phase.PRESSURE_DEPTH
+	_a.log("=== Planet Scan Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var loc: String = ps.get("current_node_id", "")
+
+	# 1. Scan charges — expect Dictionary with "current" and "max"
+	if _bridge.has_method("GetScanChargesV0"):
+		var charges: Variant = _bridge.call("GetScanChargesV0")
+		if charges is Dictionary:
+			var has_current := charges.has("current") or charges.has("remaining")
+			_a.hard(has_current, "psd_charges_has_current", "keys=%s" % str(charges.keys()))
+			_a.hard(charges.has("max"), "psd_charges_has_max", "keys=%s" % str(charges.keys()))
+			var cur_val = charges.get("current", charges.get("remaining", ""))
+			_a.log("PLANET_SCAN|charges current=%s max=%s" % [str(cur_val), str(charges.get("max", ""))])
+		else:
+			_a.warn(false, "psd_charges_dict", "type=%s" % typeof(charges))
+
+	# 2. Planet info at current node
+	if _bridge.has_method("GetPlanetInfoV0"):
+		var planet: Variant = _bridge.call("GetPlanetInfoV0", loc)
+		_a.hard(planet is Dictionary, "psd_planet_info_type", "type=%s" % typeof(planet))
+		if planet is Dictionary:
+			_a.log("PLANET_SCAN|planet_fields=%s" % str(planet.keys()).substr(0, 200))
+
+	# 3. Orbital scan attempt
+	if _bridge.has_method("OrbitalScanV0"):
+		var scan_result: Variant = _bridge.call("OrbitalScanV0", loc, "orbital")
+		_a.warn(scan_result is Dictionary, "psd_orbital_scan_type", "type=%s" % typeof(scan_result))
+		if scan_result is Dictionary:
+			_a.log("PLANET_SCAN|orbital_scan=%s" % str(scan_result).substr(0, 200))
+
+	# 4. Check scan results after orbital scan
+	if _bridge.has_method("GetPlanetScanResultsV0"):
+		var results: Variant = _bridge.call("GetPlanetScanResultsV0", loc)
+		_a.warn(results is Dictionary or results is Array, "psd_scan_results_type", "type=%s" % typeof(results))
+		_a.log("PLANET_SCAN|results=%s" % str(results).substr(0, 200))
+
+	# 5. Scan affinity
+	if _bridge.has_method("GetScanAffinityV0"):
+		var affinity: Variant = _bridge.call("GetScanAffinityV0", loc, "orbital")
+		_a.warn(affinity != null, "psd_scan_affinity", "val=%s" % str(affinity))
+
+	# 6. Star info at current node
+	if _bridge.has_method("GetStarInfoV0"):
+		var star: Variant = _bridge.call("GetStarInfoV0", loc)
+		_a.hard(star is Dictionary, "psd_star_info_type", "type=%s" % typeof(star))
+		if star is Dictionary:
+			_a.log("PLANET_SCAN|star_fields=%s" % str(star.keys()).substr(0, 200))
+
+	# 7. Try a neighbor node scan for variety
+	var neighbors := _get_neighbors()
+	if neighbors.size() > 0:
+		var neighbor := str(neighbors[0])
+		if _bridge.has_method("GetPlanetInfoV0"):
+			var n_planet: Variant = _bridge.call("GetPlanetInfoV0", neighbor)
+			_a.warn(n_planet is Dictionary, "psd_neighbor_planet_type", "node=%s type=%s" % [neighbor, typeof(n_planet)])
+		if _bridge.has_method("GetStarInfoV0"):
+			var n_star: Variant = _bridge.call("GetStarInfoV0", neighbor)
+			_a.warn(n_star is Dictionary, "psd_neighbor_star_type", "node=%s type=%s" % [neighbor, typeof(n_star)])
+
+	_a.goal("PLANET_SCAN", "depth_checked=true")
 
 
 # ===================== Pressure Depth =====================
@@ -1714,7 +2006,7 @@ func _do_reports_depth() -> void:
 func _do_fleet_management() -> void:
 	# Advance phase FIRST to prevent re-entry if any bridge call crashes
 	_polls = 0
-	_phase = Phase.DIPLOMACY_CHECK
+	_phase = Phase.SURVEY_PATROL_DEPTH
 
 	# Doctrine status
 	if _bridge.has_method("GetDoctrineStatusV0"):
@@ -1733,6 +2025,74 @@ func _do_fleet_management() -> void:
 	if _bridge.has_method("GetSurveyProgramStatusV0"):
 		var survey: Dictionary = _bridge.call("GetSurveyProgramStatusV0")
 		_a.log("FLEET|survey_programs=%s" % str(survey))
+
+
+# ===================== Survey & Patrol Depth =====================
+
+func _do_survey_patrol_depth() -> void:
+	_polls = 0
+	_phase = Phase.DIPLOMACY_CHECK
+	_a.log("=== Survey & Patrol Depth ===")
+	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
+	var node_id := str(ps.get("current_node_id", ""))
+	var neighbors := _get_neighbors()
+	var patrol_id := ""
+	var survey_id := ""
+
+	# 1. Create patrol program
+	if neighbors.size() > 0 and _bridge.has_method("CreatePatrolProgramV0"):
+		var dest := str(neighbors[0])
+		var pid: String = _bridge.call("CreatePatrolProgramV0", "fleet_trader_1", node_id, dest, 30)
+		patrol_id = pid
+		_a.hard(not pid.is_empty(), "spd_patrol_created", "pid=%s from=%s to=%s" % [pid, node_id, dest])
+		_a.log("SURVEY_PATROL|patrol_created=%s route=%s->%s" % [pid, node_id, dest])
+	elif not _bridge.has_method("CreatePatrolProgramV0"):
+		_a.warn(false, "spd_patrol_bridge", "CreatePatrolProgramV0 missing")
+	else:
+		_a.warn(false, "spd_patrol_no_neighbors", "no_neighbors_for_patrol")
+
+	# 2. Query patrol status
+	if not patrol_id.is_empty() and _bridge.has_method("GetPatrolStatusV0"):
+		var status: Variant = _bridge.call("GetPatrolStatusV0", patrol_id)
+		_a.warn(status is Dictionary, "spd_patrol_status_type", "type=%s" % typeof(status))
+		if status is Dictionary:
+			_a.log("SURVEY_PATROL|patrol_status=%s" % str(status).substr(0, 200))
+
+	# 3. Create survey program
+	if _bridge.has_method("CreateSurveyProgramV0"):
+		var sid: String = _bridge.call("CreateSurveyProgramV0", "mineral", node_id, 3, 60)
+		survey_id = sid
+		_a.hard(not sid.is_empty(), "spd_survey_created", "sid=%s" % sid)
+		_a.log("SURVEY_PATROL|survey_created=%s family=mineral" % sid)
+	else:
+		_a.warn(false, "spd_survey_bridge", "CreateSurveyProgramV0 missing")
+
+	# 4. Query survey program status
+	if _bridge.has_method("GetSurveyProgramStatusV0"):
+		var survey_status: Variant = _bridge.call("GetSurveyProgramStatusV0")
+		_a.warn(survey_status is Dictionary, "spd_survey_status_type", "type=%s" % typeof(survey_status))
+		if survey_status is Dictionary:
+			_a.log("SURVEY_PATROL|survey_status=%s" % str(survey_status).substr(0, 200))
+
+	# 5. Query survey results
+	if _bridge.has_method("GetSurveyResultsV0"):
+		var results: Variant = _bridge.call("GetSurveyResultsV0")
+		_a.warn(results is Array, "spd_survey_results_type", "type=%s" % typeof(results))
+		if results is Array:
+			_a.log("SURVEY_PATROL|survey_results=%d" % results.size())
+
+	# 6. Cancel both programs (cleanup)
+	if not patrol_id.is_empty() and _bridge.has_method("CancelProgram"):
+		var cancelled: bool = _bridge.call("CancelProgram", patrol_id)
+		_a.log("SURVEY_PATROL|cancel_patrol pid=%s ok=%s" % [patrol_id, str(cancelled)])
+
+	if not survey_id.is_empty() and _bridge.has_method("CancelProgram"):
+		var cancelled: bool = _bridge.call("CancelProgram", survey_id)
+		_a.log("SURVEY_PATROL|cancel_survey sid=%s ok=%s" % [survey_id, str(cancelled)])
+
+	_a.goal("SURVEY_PATROL", "patrol=%s survey=%s" % [
+		"created" if not patrol_id.is_empty() else "missing",
+		"created" if not survey_id.is_empty() else "missing"])
 
 
 # ===================== Diplomacy =====================
@@ -1803,7 +2163,7 @@ func _do_megaproject_depth() -> void:
 
 func _do_shipyard_depth() -> void:
 	_a.log("DS1|=== SHIPYARD DEPTH ===")
-	_phase = Phase.BRIDGE_COVERAGE
+	_phase = Phase.SPIN_LIFECYCLE
 
 	# Get player state to find current node and ship class
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
@@ -1887,6 +2247,87 @@ func _do_shipyard_depth() -> void:
 			_a.goal("SHIPYARD_SKIP", "no_catalog_at_node")
 	else:
 		_a.log("SHIPYARD|bridge_missing_method GetShipyardCatalogV0")
+
+
+# GATE.T60.PROOF.SPIN_E2E.001: Full spin lifecycle — toggle, wait, verify, dock reset.
+func _do_spin_lifecycle() -> void:
+	_a.log("DS1|=== SPIN LIFECYCLE ===")
+
+	# 1. Ensure we start from StandDown.
+	if _bridge.has_method("GetBattleStationsStateV0"):
+		var bs0: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		var state0 := str(bs0.get("state", ""))
+		_a.log("SPIN|initial_state=%s" % state0)
+		# If already spinning, toggle off first.
+		if state0 != "StandDown" and _bridge.has_method("ToggleBattleStationsV0"):
+			_bridge.call("ToggleBattleStationsV0")
+			_a.log("SPIN|reset_to_standdown")
+
+	# 2. Toggle to SpinningUp.
+	if _bridge.has_method("ToggleBattleStationsV0"):
+		var result: Dictionary = _bridge.call("ToggleBattleStationsV0")
+		var new_state := str(result.get("new_state", ""))
+		_a.log("SPIN|toggle_result=%s" % new_state)
+		_a.hard(new_state == "SpinningUp", "spin_toggle_to_spinning_up", "got=%s" % new_state)
+		_a.goal("SPIN_LIFECYCLE", "toggled_to_spinning_up=true")
+
+	# 3. Verify SpinningUp via read.
+	if _bridge.has_method("GetBattleStationsStateV0"):
+		var bs1: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		_a.hard(str(bs1.get("state", "")) == "SpinningUp", "spin_state_is_spinning_up", "state=%s" % bs1.get("state", ""))
+		var ticks_remaining: int = int(bs1.get("spin_up_ticks_remaining", -1))
+		_a.hard(ticks_remaining > 0, "spin_ticks_remaining_positive", "ticks=%d" % ticks_remaining)
+		_a.log("SPIN|confirmed_spinning_up ticks_remaining=%d" % ticks_remaining)
+
+	# Wait for ticks to advance past spin-up duration (3 ticks).
+	_polls = 0
+	_phase = Phase.SPIN_WAIT_READY
+
+
+func _do_spin_wait_ready() -> void:
+	# Poll until BattleReady (sim ticks advance in background).
+	_busy = true
+	await create_timer(0.8).timeout
+	_busy = false
+
+	if _bridge.has_method("GetBattleStationsStateV0"):
+		var bs: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		var state := str(bs.get("state", ""))
+		_a.log("SPIN|wait_ready_state=%s" % state)
+		if state == "BattleReady":
+			_a.hard(true, "spin_reached_battle_ready", "")
+			_a.goal("SPIN_LIFECYCLE", "battle_ready=true")
+			_phase = Phase.SPIN_DOCK_RESET
+			return
+
+	_polls += 1
+	if _polls > 20:
+		_a.hard(false, "spin_reached_battle_ready", "TIMEOUT after 20 polls")
+		_phase = Phase.SPIN_DOCK_RESET
+
+
+func _do_spin_dock_reset() -> void:
+	_a.log("DS1|=== SPIN DOCK RESET ===")
+
+	# Dock at home node to trigger StandDown reset.
+	if _home_node_id != "" and _gm:
+		_gm.call("on_lane_gate_proximity_entered_v0", _home_node_id)
+		_gm.call("on_lane_arrival_v0", _home_node_id)
+		_a.log("SPIN|docking at %s" % _home_node_id)
+
+	_busy = true
+	await create_timer(0.5).timeout
+	_busy = false
+
+	# Verify dock reset to StandDown.
+	if _bridge.has_method("GetBattleStationsStateV0"):
+		var bs: Dictionary = _bridge.call("GetBattleStationsStateV0")
+		var state := str(bs.get("state", ""))
+		_a.log("SPIN|post_dock_state=%s" % state)
+		_a.warn(state == "StandDown", "spin_dock_reset_standdown", "got=%s" % state)
+		_a.goal("SPIN_LIFECYCLE", "dock_reset=true")
+
+	_phase = Phase.BRIDGE_COVERAGE
 
 
 func _do_bridge_coverage() -> void:
@@ -2055,8 +2496,75 @@ func _do_bridge_coverage() -> void:
 		_a.warn(true, "bc_ForceStartResearchV0", "called")
 		covered += 1
 
+	# --- Previously-uncovered read-only methods (haven/fleet/centaur/dread) ---
+	if _bridge.has_method("GetDoctrineSettingsV0"):
+		var result = _bridge.call("GetDoctrineSettingsV0", "fleet_trader_1")
+		_a.warn(result != null, "bc_GetDoctrineSettingsV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFleetUpkeepSummaryV0"):
+		var result = _bridge.call("GetFleetUpkeepSummaryV0")
+		_a.warn(result != null, "bc_GetFleetUpkeepSummaryV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFleetSustainStatusV0"):
+		var result = _bridge.call("GetFleetSustainStatusV0", "fleet_trader_1")
+		_a.warn(result != null, "bc_GetFleetSustainStatusV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFleetUpkeepV0"):
+		var result = _bridge.call("GetFleetUpkeepV0", "fleet_trader_1")
+		_a.warn(result != null, "bc_GetFleetUpkeepV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFOCompetenceTierV0"):
+		var result = _bridge.call("GetFOCompetenceTierV0")
+		_a.warn(result != null, "bc_GetFOCompetenceTierV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetRouteConfidenceV0"):
+		var result = _bridge.call("GetRouteConfidenceV0")
+		_a.warn(result != null, "bc_GetRouteConfidenceV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFOAdaptationLogV0"):
+		var result = _bridge.call("GetFOAdaptationLogV0")
+		_a.warn(result != null, "bc_GetFOAdaptationLogV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetExposureV0"):
+		var result = _bridge.call("GetExposureV0")
+		_a.warn(result != null, "bc_GetExposureV0", "returned null")
+		covered += 1
+
+	# GATE.T64.COVERAGE.FO_MANAGER.001: FOManager methods coverage.
+	if _bridge.has_method("GetDockRecapV0"):
+		var result = _bridge.call("GetDockRecapV0")
+		_a.warn(result != null, "bc_GetDockRecapV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetActiveDecisionV0"):
+		var result = _bridge.call("GetActiveDecisionV0")
+		_a.warn(result != null, "bc_GetActiveDecisionV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetServiceRecordV0"):
+		var result = _bridge.call("GetServiceRecordV0")
+		_a.warn(result != null, "bc_GetServiceRecordV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetFlipMomentV0"):
+		var result = _bridge.call("GetFlipMomentV0")
+		_a.warn(result != null, "bc_GetFlipMomentV0", "returned null")
+		covered += 1
+
+	if _bridge.has_method("GetEmpireHealthV0"):
+		var result = _bridge.call("GetEmpireHealthV0")
+		_a.warn(result != null, "bc_GetEmpireHealthV0", "returned null")
+		covered += 1
+
 	_a.log("BRIDGE_COVERAGE|methods_exercised=%d" % covered)
-	_a.warn(covered >= 34, "bridge_coverage_sweep", "exercised=%d (target>=34)" % covered)
+	_a.warn(covered >= 47, "bridge_coverage_sweep", "exercised=%d (target>=47)" % covered)
 
 
 # ===================== Audit =====================

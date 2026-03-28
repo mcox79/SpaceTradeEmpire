@@ -64,6 +64,94 @@ public static class ShipyardSystem
         return true;
     }
 
+    // GATE.T62.SHIP.CATALOG_DISCLOSURE.001: Mid-tier base classes requiring exploration.
+    private static readonly HashSet<string> MidTierClasses = new(StringComparer.Ordinal)
+    {
+        "cruiser", "carrier", "dreadnought"
+    };
+
+    /// <summary>
+    /// GATE.T62.SHIP.CATALOG_DISCLOSURE.001: Check if a ship class is disclosed (visible) to the player.
+    /// Rules:
+    ///  - Base shuttle/corvette/clipper/frigate/hauler: always visible.
+    ///  - Mid-tier base (cruiser/carrier/dreadnought): requires systems visited >= MidTierSystemsRequired.
+    ///  - Dreadnought additionally requires faction rep >= CapitalRepRequired at any faction.
+    ///  - Faction variants: requires faction rep >= VariantRepRequired for that faction.
+    ///  - Ancient/lattice drone: never shown in shipyard catalog.
+    /// </summary>
+    public static bool IsShipClassDisclosed(ShipClassDef classDef, SimState state)
+    {
+        if (classDef == null || state == null) return false;
+
+        // Ancient hulls and lattice drones are not purchasable.
+        if (classDef.ClassId.StartsWith("ancient_", StringComparison.Ordinal)) return false;
+        if (string.Equals(classDef.ClassId, "lattice_drone", StringComparison.Ordinal)) return false;
+
+        int nodesVisited = state.PlayerStats?.NodesVisited ?? 0; // STRUCTURAL: 0 default
+
+        // Faction variants: require faction rep >= VariantRepRequired.
+        if (!string.IsNullOrEmpty(classDef.FactionId))
+        {
+            state.FactionReputation.TryGetValue(classDef.FactionId, out int playerRep);
+            if (playerRep < ShipyardTweaksV0.VariantRepRequired) return false;
+            // Also apply base-class disclosure rules.
+            if (!string.IsNullOrEmpty(classDef.BaseClassId))
+            {
+                var baseDef = ShipClassContentV0.GetById(classDef.BaseClassId);
+                if (baseDef != null && !IsBaseClassDisclosed(baseDef.ClassId, nodesVisited, state))
+                    return false;
+            }
+            return true;
+        }
+
+        return IsBaseClassDisclosed(classDef.ClassId, nodesVisited, state);
+    }
+
+    private static bool IsBaseClassDisclosed(string classId, int nodesVisited, SimState state)
+    {
+        if (!MidTierClasses.Contains(classId)) return true; // STRUCTURAL: early-tier always visible
+
+        // Mid-tier: need enough exploration.
+        if (nodesVisited < ShipyardTweaksV0.MidTierSystemsRequired) return false;
+
+        // Dreadnought: additional rep gate (any faction >= CapitalRepRequired).
+        if (string.Equals(classId, "dreadnought", StringComparison.Ordinal))
+        {
+            bool hasRep = false;
+            foreach (var kvp in state.FactionReputation)
+            {
+                if (kvp.Value >= ShipyardTweaksV0.CapitalRepRequired) { hasRep = true; break; }
+            }
+            if (!hasRep) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// GATE.T62.SHIP.CATALOG_DISCLOSURE.001: Get all disclosed ship classes at a station shipyard.
+    /// Returns only purchasable classes the player can currently see (not necessarily afford).
+    /// </summary>
+    public static List<ShipClassDef> GetDisclosedCatalog(SimState state, string stationNodeId)
+    {
+        var result = new List<ShipClassDef>();
+        if (state == null || !IsShipyardStation(state, stationNodeId)) return result;
+
+        // Determine station faction — faction variants from that faction get priority display.
+        state.NodeFactionId.TryGetValue(stationNodeId, out var stationFaction);
+
+        foreach (var classDef in ShipClassContentV0.AllClasses)
+        {
+            if (!IsShipClassDisclosed(classDef, state)) continue;
+            // Only show faction variants matching station faction or player-allied factions.
+            if (!string.IsNullOrEmpty(classDef.FactionId) && !string.IsNullOrEmpty(stationFaction)
+                && !string.Equals(classDef.FactionId, stationFaction, StringComparison.Ordinal))
+                continue;
+            result.Add(classDef);
+        }
+        return result;
+    }
+
     /// <summary>
     /// Create a new Fleet entity from a ShipClassDef, positioned at the given node.
     /// The fleet is stored (IsStored=true) — the player must switch to it explicitly.

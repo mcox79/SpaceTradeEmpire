@@ -413,6 +413,253 @@ Intensity
 
 ---
 
+## Section 8 — Cognitive Load & Information Density
+
+Measures whether the player is overwhelmed or underwhelmed at each phase.
+Based on Miller's Law (7±2 items), NASA-TLX proxies, and Frontiers 2021
+game cognitive load research.
+
+### Metrics (from bot telemetry)
+
+| Metric | How measured | Overload threshold | Underload threshold |
+|--------|-------------|-------------------|---------------------|
+| **Visible tabs at dock** | Tab count per dock visit | > 5 tabs first dock = CRITICAL | < 2 tabs at decision 300 |
+| **New systems per dock** | Systems introduced at each dock | > 2 per dock = SYSTEM_DUMP | 0 per 3+ docks = stagnant |
+| **Decision points per screen** | Actionable UI elements at dock | > 7 simultaneous = overload | < 2 = nothing to do |
+| **Information introduction rate** | New concepts per 50 decisions | > 3 per 50 = overwhelming | 0 for 200+ decisions = static |
+| **FO dialogue word count** | Words per FO message (from transcript) | > 80 words/message = lecture | 0 messages = silent |
+
+### Scoring (1-5)
+
+- **5**: Progressive disclosure textbook — 2-3 tabs at first dock, new system every
+  100 decisions, FO messages 15-40 words, never more than 1 new concept per dock.
+- **4**: Mostly well-paced with 1-2 moments of mild overload.
+- **3**: Occasional system dumps (2 new systems at one dock) but recoverable.
+- **2**: Frequent overload — 4+ tabs visible at first dock, multiple system dumps.
+- **1**: First dock reveals everything — SYSTEM_DUMP, no progressive disclosure.
+
+### Flags
+
+| Flag | Condition | Severity |
+|------|-----------|----------|
+| `SYSTEM_DUMP` | 3+ new systems at one dock | CRITICAL |
+| `INFORMATION_DESERT` | 200+ decisions with 0 new system introductions | MAJOR |
+| `WALL_OF_TEXT` | FO message > 80 words | MINOR |
+| `TAB_OVERLOAD` | > 5 tabs visible at first dock | MAJOR |
+| `NOTHING_TO_DO` | < 2 actionable elements at dock with no guidance | MAJOR |
+
+### References
+- Factorio: introduces one system per ~30 min of play
+- FTL: 3-4 actions available per node, never more
+- Slay the Spire: one new mechanic per act, never two at once
+- EVE Online (anti-pattern): 20+ tabs at first dock, new player retention < 10%
+
+---
+
+## Section 9 — Retention Prediction Signals
+
+Early-session behavioral signals that predict whether a real player would return.
+Based on analytics research (devtodev FTUE metrics, GDC retention talks 2024-2025).
+
+### Key Timing Signals (from bot telemetry)
+
+| Signal | Measurement | Healthy range | Risk zone |
+|--------|-------------|---------------|-----------|
+| **Time to first profit** | Decision # of first net-positive sell | < 30 decisions | > 80 = too slow |
+| **Time to core loop** | Decision # of complete buy→warp→sell | < 50 decisions | > 100 = lost |
+| **Time to aha moment** | Decision # of first trade with margin > 100cr | < 80 decisions | > 150 = never clicked |
+| **Action rate curve** | Actions per 50-decision window | Increasing then stable | Declining = disengaging |
+| **Progression velocity** | Milestones per 100 decisions | 1-3 per 100 | 0 for 200+ = stagnant |
+| **Viable action sentinel** | Player ALWAYS has ≥1 viable action | 100% of decisions | ANY 0 = trap state |
+
+### Scoring (1-5)
+
+- **5**: First profit by d=20, core loop by d=40, aha by d=60, action rate
+  increases through session, zero trap states.
+- **4**: Slightly slow (profit by d=40, core loop by d=60) but no trap states.
+- **3**: Core loop established but slow (d=80+), or 1-2 brief stalls.
+- **2**: Player trapped at least once (credits=0 + no cargo + no missions),
+  or core loop not established until d=150+.
+- **1**: Multiple trap states, core loop never established, or action rate
+  declining throughout session (player giving up).
+
+### Trap State Definition
+
+A **trap state** exists when ALL of these are true simultaneously:
+- Credits < cheapest available good
+- Cargo is empty (nothing to sell)
+- No missions available that provide advance payment
+- No combat loot available within 1 hop
+
+The game MUST never allow this state. If detected, severity is CRITICAL.
+
+### Flags
+
+| Flag | Condition | Severity |
+|------|-----------|----------|
+| `TRAP_STATE` | Trap state detected (see above) | CRITICAL |
+| `SLOW_CORE_LOOP` | Core loop not established by d=100 | MAJOR |
+| `NO_AHA_MOMENT` | No trade with margin > 100cr in first hour | MAJOR |
+| `DECLINING_ENGAGEMENT` | Action rate decreasing for 200+ decisions | MAJOR |
+| `STAGNANT_PROGRESSION` | 0 milestones for 200+ decisions | MAJOR |
+
+### References
+- Industry D1 retention benchmark: 31-33% iOS, 25-27% Android (top performers)
+- Netflix/Spotify: "aha moment" must occur in first session
+- Factorio: first automation within 30 min predicts 90-day retention
+- FTL: first successful jump within 2 min
+
+---
+
+## Section 10 — Accessibility Audit
+
+Automated checks that don't need a human player. Based on WCAG AA standards,
+gameaccessibilityguidelines.com, and IGDA Game Accessibility SIG.
+
+### Automated Checks (from bot + project files)
+
+| Check | Standard | Method | Pass criteria |
+|-------|----------|--------|---------------|
+| **Keybind conflicts** | No duplicate physical_keycode bindings | Parse project.godot input map | 0 conflicts |
+| **Font size minimum** | All UI text readable | Check Label/Label3D font sizes | ≥ 14px body, ≥ 18px headers |
+| **Color contrast** | WCAG AA: 4.5:1 text, 3:1 large | Screenshot pixel analysis | All text meets ratio |
+| **Input remapping** | Player can rebind controls | Check for rebind UI scene | Setting exists |
+| **Subtitle availability** | All FO/NPC speech has text | Check dialogue data has text field | 100% coverage |
+| **Audio-visual parity** | Every audio cue has visual indicator | Cross-reference audio events with visual events | 100% parity |
+| **Flash risk** | No rapid luminance changes | Check for >3 luminance changes/sec | 0 violations |
+| **Colorblind safety** | Faction colors distinguishable | Protanopia/deuteranopia simulation on screenshots | All factions distinct |
+
+### Scoring (1-5)
+
+- **5**: All automated checks pass, colorblind-safe faction colors, subtitle toggle exists.
+- **4**: 1-2 minor issues (e.g., one low-contrast label, missing rebind for one key).
+- **3**: Keybind conflicts OR contrast violations in non-critical UI.
+- **2**: Multiple contrast failures, no subtitle toggle, or keybind conflict on core action.
+- **1**: Core actions undiscoverable, flash risk detected, or trap state for colorblind players.
+
+### Flags
+
+| Flag | Condition | Severity |
+|------|-----------|----------|
+| `KEYBIND_CONFLICT` | Two actions share same key | CRITICAL |
+| `LOW_CONTRAST` | Text < 3:1 contrast ratio | MAJOR |
+| `NO_REBIND` | No input remapping available | MINOR |
+| `FLASH_RISK` | Rapid luminance changes > 3/sec | CRITICAL |
+| `COLORBLIND_UNSAFE` | Faction colors indistinguishable under simulation | MAJOR |
+| `NO_SUBTITLES` | FO speech without text fallback | MINOR |
+
+### References
+- Game Accessibility Guidelines (gameaccessibilityguidelines.com)
+- WCAG 2.1 AA (text contrast, timing, seizure prevention)
+- Xbox Accessibility Guidelines (XAG)
+- The Last of Us Part II (gold standard for game accessibility)
+
+---
+
+## Section 11 — Competence & Mastery Feedback
+
+Does the game acknowledge that the player is improving? Based on self-determination
+theory (Ryan & Deci), flow theory (Csikszentmihalyi), and game design practice.
+
+### Signals (from bot telemetry)
+
+| Signal | Measurement | What it means |
+|--------|-------------|---------------|
+| **Margin improvement** | Compare avg profit per trade: first 10 vs last 10 | Player learns better routes |
+| **Trade efficiency** | Credits earned per decision (early vs late) | Player gets faster at trading |
+| **Combat kill rate trend** | Kill rate in first 3 combats vs last 3 | Player improves at fighting |
+| **Milestone acknowledgment** | Count of visible milestone/achievement events | Game celebrates progress |
+| **FO competence recognition** | Does FO comment on player improvement? | Companion notices growth |
+| **UI complexity growth** | Tabs/features unlocked over time | Player earns access to advanced tools |
+| **Skill display** | Stats screen shows improvement metrics | Player can see their growth |
+
+### Scoring (1-5)
+
+- **5**: Margins visibly improve, FO celebrates milestones, stats screen shows growth,
+  UI complexity scales with mastery, combat feels easier as player learns.
+- **4**: Progress visible in numbers but not celebrated (no FO reaction, no toast).
+- **3**: Player improves but game doesn't acknowledge it — improvement is invisible.
+- **2**: No skill progression visible — margins flat, combat difficulty unchanged.
+- **1**: Player regresses — margins decline, combat harder, no visible improvement.
+
+### Flags
+
+| Flag | Condition | Severity |
+|------|-----------|----------|
+| `INVISIBLE_PROGRESS` | 0 milestone toasts/FO reactions in first hour | MAJOR |
+| `MARGIN_REGRESSION` | Average margin declines over session | MAJOR |
+| `FLAT_SKILL_CURVE` | Kill rate and trade efficiency unchanged across session | MINOR |
+| `NO_STATS_DISPLAY` | Player stats not accessible in any UI panel | MINOR |
+
+### References
+- Factorio: visible factory growth = mastery feedback
+- Hades: mirror upgrades + character reactions to streaks
+- Dark Souls: boss health bar depletion = mastery display
+- FTL: ship unlocks acknowledge mastery of different strategies
+
+---
+
+## Section 12 — Valence-Arousal Event Model
+
+Extends Section 7 (Emotional Arc) with formal emotional classification per event.
+Based on Russell's Circumplex Model of Affect and Reagan et al.'s six canonical
+story arcs.
+
+### Event Classification
+
+Every game event receives two tags:
+
+**Valence** (emotional polarity):
+| Value | Events |
+|-------|--------|
+| +1 (positive) | Profitable trade, combat victory, discovery, upgrade, FO praise, milestone |
+| 0 (neutral) | Travel, dock, undock, routine price check |
+| -1 (negative) | Loss trade, hull damage, death, credit decrease, FO warning |
+
+**Arousal** (intensity):
+| Value | Events |
+|-------|--------|
+| HIGH | First profit, combat, near-death, major discovery, automation unlock |
+| MEDIUM | New station dock, price comparison, mission accept, FO dialogue |
+| LOW | Travel, repeated trade at same station, idle, waiting |
+
+### Arc Quality Metrics
+
+| Metric | Formula | Healthy range |
+|--------|---------|---------------|
+| **Valence crossings** | Times running avg crosses zero | ≥ 2 in first hour |
+| **Emotional range** | max_valence - min_valence (running avg) | > 0.3 |
+| **Catharsis count** | HIGH+negative followed by resolution within 30 decisions | ≥ 1 in first hour |
+| **Wonder moments** | HIGH+positive spikes | ≥ 2 in first hour |
+| **Dread accumulation** | Sustained negative trend before combat | Present before ≥ 1 combat |
+
+### Arc Template Matching
+
+Compare actual arc to target template:
+
+**Target: "Man in a Hole"** (best for first hour of a trading game)
+```
+Valence:  +   *   .       *     .       *   * *
+          |  / \  |      / \    |      / \ / V
+      0   |-    --|-----   --|---    -/        \--
+          |       \/         \/     /
+          -                        *
+          0   50   100  150  200  250  300  350
+```
+Rise (first profit) → fall (first setback) → stronger rise (mastery)
+
+### Flags
+
+| Flag | Condition | Severity |
+|------|-----------|----------|
+| `MONOTONE_POSITIVE` | Valence never crosses zero | MAJOR |
+| `MONOTONE_NEGATIVE` | Running avg never goes positive | CRITICAL |
+| `NO_CATHARSIS` | Zero catharsis events (no relief after danger) | MAJOR |
+| `NO_WONDER` | Zero high-arousal positive events | MAJOR |
+| `ARC_MISMATCH` | Actual arc shape doesn't match "Man in a Hole" template | MINOR |
+
+---
+
 ## Output Format
 
 Each feel evaluation agent must return:

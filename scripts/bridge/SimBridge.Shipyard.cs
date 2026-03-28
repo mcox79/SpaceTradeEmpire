@@ -297,6 +297,82 @@ public partial class SimBridge
         return result;
     }
 
+    // GATE.T62.SHIP.ROSTER_UI.001: Switch active ship — store current hero, activate target.
+    public Godot.Collections.Dictionary ActivateShipV0(string fleetId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["success"] = false,
+            ["message"] = "",
+        };
+
+        _stateLock.EnterWriteLock();
+        try
+        {
+            var state = _kernel.State;
+
+            if (!state.Fleets.TryGetValue(fleetId, out var targetFleet))
+            {
+                result["message"] = "unknown_fleet";
+                return result;
+            }
+
+            if (!string.Equals(targetFleet.OwnerId, "player", StringComparison.Ordinal))
+            {
+                result["message"] = "not_player_ship";
+                return result;
+            }
+
+            if (!targetFleet.IsStored)
+            {
+                result["message"] = "already_active";
+                return result;
+            }
+
+            // Find current hero fleet.
+            SimCore.Entities.Fleet? heroFleet = null;
+            foreach (var f in state.Fleets.Values)
+            {
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal) && !f.IsStored)
+                {
+                    heroFleet = f;
+                    break;
+                }
+            }
+
+            if (heroFleet == null)
+            {
+                result["message"] = "no_active_ship";
+                return result;
+            }
+
+            // Must be docked to switch.
+            if (heroFleet.State != SimCore.Entities.FleetState.Docked)
+            {
+                result["message"] = "must_be_docked";
+                return result;
+            }
+
+            // Swap: store hero, activate target at same location.
+            heroFleet.IsStored = true;
+            heroFleet.CurrentTask = "Stored";
+
+            targetFleet.IsStored = false;
+            targetFleet.CurrentNodeId = heroFleet.CurrentNodeId;
+            targetFleet.State = SimCore.Entities.FleetState.Docked;
+            targetFleet.CurrentTask = "Idle";
+
+            result["success"] = true;
+            result["message"] = "activated";
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
+
+        return result;
+    }
+
     private static Godot.Collections.Dictionary BuildClassStatDict(ShipClassDef def)
     {
         return new Godot.Collections.Dictionary

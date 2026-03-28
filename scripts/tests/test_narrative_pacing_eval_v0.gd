@@ -280,6 +280,40 @@ func _do_analyze() -> void:
 	_a.goal("FO_TYPE", "type=%s" % _fo_type)
 	_a.hard(_fo_type.length() > 0, "fo_type_assigned", "type=%s" % _fo_type)
 
+	# --- JSON report ---
+	var _dialogue_spacing_cv := 0.0
+	if _dialogue_ticks.size() >= 3:
+		var _spacings: Array[float] = []
+		for i in range(1, _dialogue_ticks.size()):
+			_spacings.append(float(_dialogue_ticks[i] - _dialogue_ticks[i - 1]))
+		var _sp_m := _mean(_spacings)
+		_dialogue_spacing_cv = _stddev(_spacings) / _sp_m if _sp_m > 0.001 else 0.0
+	var report := {
+		"bot": "narrative_pacing",
+		"prefix": "NARR_PACE",
+		"metrics": {
+			"dialogue_density": density_per_10min,
+			"silence_ratio": silence_ratio,
+			"speaker_variety": unique_speakers,
+			"content_burndown": unique_dialogues,
+			"fo_type": _fo_type,
+			"phase_history_size": _phase_history.size(),
+			"dialogue_spacing_cv": _dialogue_spacing_cv,
+		},
+		"assertions": {
+			"pass": _a._passes,
+			"warn": _a._warns.size(),
+			"fail": _a._fails.size(),
+		},
+	}
+	var json_str := JSON.stringify(report, "  ")
+	var report_path := "res://reports/eval/narrative_pacing_report.json"
+	var f := FileAccess.open(report_path, FileAccess.WRITE)
+	if f:
+		f.store_string(json_str)
+		f.close()
+		_a.log("REPORT_JSON|written=%s" % report_path)
+
 	_a.summary()
 	if _bridge:
 		_bridge.call("StopSimV0")

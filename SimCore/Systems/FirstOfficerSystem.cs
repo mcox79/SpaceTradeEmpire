@@ -67,10 +67,32 @@ public static class FirstOfficerSystem
         // GATE.T58.FO.LOA_MODEL.001: Clean up expired route revert entries.
         CleanupRevertEntries(state);
 
+        // GATE.T63.FO.DOCK_GREETING.001: FIRST_DOCK fires even during tutorial — the audit
+        // (fh_5 #13) found FO is silent at first dock because TryAutoDetectTriggers is suppressed.
+        // FIRST_DOCK is safe to fire during tutorial because it's a one-shot trigger (DialogueEventLog)
+        // and won't overlap with scripted dialogue phases (FO pending line is overwritten per-tick).
+        {
+            Fleet? pf = null;
+            foreach (var f in state.Fleets.Values)
+            {
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal))
+                { pf = f; break; }
+            }
+            if (pf != null && pf.State == FleetState.Docked)
+                TryFireTrigger(state, "FIRST_DOCK");
+        }
+
         // GATE.T18.CHARACTER.FO_REACT.001: Auto-detect state-based triggers each tick.
         // Suppress reactive triggers during tutorial to prevent overlap with scripted dialogue.
         if (!TutorialSystem.IsActive(state))
             TryAutoDetectTriggers(state);
+
+        // GATE.T60.FO.PACING_HEARTBEAT.001: Ambient observations on 200-tick cadence.
+        ProcessPacingHeartbeat(state);
+
+        // GATE.T64.FO.AMBIENT_TRIGGERS.001: Condition-based ambient triggers (Hades grid pattern).
+        if (!TutorialSystem.IsActive(state))
+            ProcessAmbientConditionTriggers(state);
 
         // Silence fallback: if FO has been silent too long, fire an ambient commentary trigger.
         if (!TutorialSystem.IsActive(state))
@@ -144,6 +166,36 @@ public static class FirstOfficerSystem
             TryFireTrigger(state, "FIRST_COMBAT_WIN");
         }
 
+        // GATE.T64.FO.COMBAT_REACTION.001: Delayed FO reaction after every combat win.
+        // Fires CombatReactionDelayTicks after the kill, cycling COMBAT_REACTION_1..N.
+        if (state.PlayerStats != null && state.PlayerStats.LastCombatWinTick >= 0)
+        {
+            int sinceCombat = state.Tick - state.PlayerStats.LastCombatWinTick;
+            if (sinceCombat == NarrativeTweaksV0.CombatReactionDelayTicks)
+            {
+                int idx = (state.PlayerStats.NpcFleetsDestroyed % NarrativeTweaksV0.CombatReactionMaxCount) + 1; // STRUCTURAL: 1-based cycling
+                TryFireTrigger(state, $"COMBAT_REACTION_{idx}");
+            }
+        }
+
+        // GATE.T60.SPIN.TUTORIAL.001: Hint to use battle stations when hostile nearby but spin never used.
+        if (playerFleet.BattleStations == BattleStationsState.StandDown
+            && playerFleet.State != FleetState.Docked
+            && !string.IsNullOrEmpty(playerFleet.CurrentNodeId))
+        {
+            bool hasHostile = false;
+            foreach (var f in state.Fleets.Values)
+            {
+                if (string.Equals(f.OwnerId, "player", StringComparison.Ordinal)) continue;
+                if (f.HullHp <= 0) continue;
+                if (!string.Equals(f.CurrentNodeId, playerFleet.CurrentNodeId, StringComparison.Ordinal)) continue;
+                if (string.Equals(f.OwnerId, Tweaks.FactionTweaksV0.PirateId, StringComparison.Ordinal))
+                { hasHostile = true; break; }
+            }
+            if (hasHostile)
+                TryFireTrigger(state, "BATTLE_STATIONS_HINT");
+        }
+
         // ARRIVAL_NEW_SYSTEM: fire when player has visited 2+ nodes (first real arrival)
         if (state.PlayerStats != null && state.PlayerStats.NodesVisited >= NarrativeTweaksV0.ArrivalNewSystemNodes)
         {
@@ -181,6 +233,15 @@ public static class FirstOfficerSystem
             TryFireTrigger(state, "COSTS_MOUNTING");
         }
 
+        // GATE.T63.PACING.MID_EXPLORE_BEAT.001: ALL_NODES_EXPLORED — breaks 153-decision reward desert.
+        // When player has visited every node, FO delivers galaxy assessment + hints at deeper systems.
+        if (state.PlayerStats != null
+            && state.Nodes.Count > 0
+            && state.PlayerStats.NodesVisited >= state.Nodes.Count)
+        {
+            TryFireTrigger(state, "ALL_NODES_EXPLORED");
+        }
+
         // ── MID TIER triggers ──
 
         // FACTION_REP_GAINED: any faction reputation above 0
@@ -207,10 +268,31 @@ public static class FirstOfficerSystem
             TryFireTrigger(state, "FIRST_MODULE_REFIT");
         }
 
+        // GATE.T60.DISC.SENSOR_NOTIFY.001: Notify when sensor_suite research completes.
+        if (state.Tech.UnlockedTechIds.Contains(Tweaks.SurveyTweaksV0.SensorSuiteTechId))
+        {
+            TryFireTrigger(state, "SENSOR_SUITE_ONLINE");
+        }
+
         // SUPPLY_CHAIN_NOTICED: player has completed enough trade missions (seen the economy)
         if (state.Missions.CompletedMissionIds.Count >= NarrativeTweaksV0.SupplyChainNoticedMissions)
         {
             TryFireTrigger(state, "SUPPLY_CHAIN_NOTICED");
+        }
+
+        // GATE.T63.PACING.LATE_ESCALATION.001: LATE_INSTABILITY_WARNING — FO warns of growing warfront tension.
+        // Fires once when any warfront reaches Skirmish+ after the late escalation tick threshold.
+        if (state.Tick >= Tweaks.WarfrontTweaksV0.LateEscalationStartTick
+            && state.Warfronts != null)
+        {
+            foreach (var wf in state.Warfronts.Values)
+            {
+                if ((int)wf.Intensity >= (int)WarfrontIntensity.Skirmish)
+                {
+                    TryFireTrigger(state, "LATE_INSTABILITY_WARNING");
+                    break;
+                }
+            }
         }
 
         // ── FRACTURE TIER triggers ──
@@ -314,6 +396,26 @@ public static class FirstOfficerSystem
                 if (chain.Status == AnomalyChainStatus.Completed)
                 {
                     TryFireTrigger(state, "CHAIN_COMPLETED");
+                    break;
+                }
+            }
+        }
+
+        // ── GATE.T62.PIPELINE.FO_INTEL_TRIGGER.001: Discovery opportunity trigger ──
+        // Fires when fresh EconomicIntel exists with estimated margin > threshold.
+        if (state.Intel.EconomicIntels.Count > 0)
+        {
+            foreach (var intel in state.Intel.EconomicIntels.Values)
+            {
+                if (intel is null) continue;
+                int age = state.Tick - intel.CreatedTick;
+                if (age < 0) continue; // STRUCTURAL: skip invalid
+                // Fresh = within first third of max freshness window.
+                int freshThreshold = intel.FreshnessMaxTicks / 3; // STRUCTURAL: /3 early decay band
+                if (freshThreshold <= 0) freshThreshold = 1; // STRUCTURAL: minimum 1
+                if (age <= freshThreshold && intel.EstimatedValue >= Tweaks.EconomicIntelTweaksV0.MarketAnomalyBaseValue)
+                {
+                    TryFireTrigger(state, "DISCOVERY_OPPORTUNITY");
                     break;
                 }
             }
@@ -964,6 +1066,94 @@ public static class FirstOfficerSystem
             {
                 TryFireTrigger(state, token);
                 return; // Fire at most one per check.
+            }
+        }
+    }
+
+    // GATE.T60.FO.PACING_HEARTBEAT.001: Ambient observations on 200-tick cadence.
+    // Unlike SILENCE_BREAK (one-shot), these cycle through AMBIENT_OBS_1..N and
+    // provide market trends, faction activity, and route tips. Fire only if FO
+    // has been silent for HeartbeatSilenceMinTicks.
+    private static void ProcessPacingHeartbeat(SimState state)
+    {
+        if (state.Tick % NarrativeTweaksV0.HeartbeatCadenceTicks != 0) return;
+        var fo = state.FirstOfficer;
+        if (fo is null || !fo.IsPromoted) return;
+
+        int silenceDuration = state.Tick - fo.LastDialogueTick;
+        if (silenceDuration < NarrativeTweaksV0.HeartbeatSilenceMinTicks) return;
+
+        // Cycle through AMBIENT_OBS_1..N based on tick.
+        int index = (state.Tick / NarrativeTweaksV0.HeartbeatCadenceTicks) % NarrativeTweaksV0.AmbientObsMaxCount + 1; // STRUCTURAL: 1-based
+        string token = $"AMBIENT_OBS_{index}";
+
+        // Ambient observations are one-shot like other triggers (logged in DialogueEventLog).
+        TryFireTrigger(state, token);
+    }
+
+    // GATE.T64.FO.AMBIENT_TRIGGERS.001: Condition-based ambient triggers.
+    // Three types: MARKET_OPPORTUNITY, TERRITORY_ENTRY, REWARD_MILESTONE.
+    // Each cycles through 3 variants (one-shot per variant). Fire at most 1 per check.
+    private static void ProcessAmbientConditionTriggers(SimState state)
+    {
+        if (NarrativeTweaksV0.AmbientCondCheckTicks <= 0) return;
+        if (state.Tick % NarrativeTweaksV0.AmbientCondCheckTicks != 0) return;
+        var fo = state.FirstOfficer;
+        if (fo is null || !fo.IsPromoted) return;
+
+        int silenceDuration = state.Tick - fo.LastDialogueTick;
+        if (silenceDuration < NarrativeTweaksV0.AmbientCondSilenceMinTicks) return;
+
+        // 1. REWARD_MILESTONE: credit thresholds (deterministic, easy to check).
+        if (state.PlayerStats != null)
+        {
+            long earned = state.PlayerStats.TotalCreditsEarned;
+            if (earned >= NarrativeTweaksV0.RewardMilestone3)
+                { if (TryFireTrigger(state, "REWARD_MILESTONE_3").Length > 0) return; }
+            else if (earned >= NarrativeTweaksV0.RewardMilestone2)
+                { if (TryFireTrigger(state, "REWARD_MILESTONE_2").Length > 0) return; }
+            else if (earned >= NarrativeTweaksV0.RewardMilestone1)
+                { if (TryFireTrigger(state, "REWARD_MILESTONE_1").Length > 0) return; }
+        }
+
+        // 2. TERRITORY_ENTRY: fire when player is at a node and has arrivals this tick.
+        // Cycle through variants based on visit count.
+        if (state.ArrivalsThisTick.Count > 0 && state.PlayerStats != null)
+        {
+            int visitIdx = (state.PlayerStats.NodesVisited % NarrativeTweaksV0.AmbientCondMaxPerType) + 1; // STRUCTURAL: 1-based
+            if (TryFireTrigger(state, $"TERRITORY_ENTRY_{visitIdx}").Length > 0) return;
+        }
+
+        // 3. MARKET_OPPORTUNITY: check if any good at current market has high margin at neighbor.
+        if (state.Fleets.TryGetValue("fleet_trader_1", out var pf)
+            && !string.IsNullOrEmpty(pf.CurrentNodeId)
+            && state.Markets.TryGetValue(pf.CurrentNodeId, out var curMkt))
+        {
+            bool found = false;
+            foreach (var edge in state.Edges.Values)
+            {
+                string? neighborId = null;
+                if (string.Equals(edge.FromNodeId, pf.CurrentNodeId, StringComparison.Ordinal))
+                    neighborId = edge.ToNodeId;
+                else if (string.Equals(edge.ToNodeId, pf.CurrentNodeId, StringComparison.Ordinal))
+                    neighborId = edge.FromNodeId;
+                if (neighborId == null) continue;
+                if (!state.Markets.TryGetValue(neighborId, out var nMkt)) continue;
+
+                foreach (var goodId in curMkt.Inventory.Keys)
+                {
+                    if (!nMkt.Inventory.ContainsKey(goodId)) continue;
+                    int buyHere = curMkt.GetBuyPrice(goodId);
+                    int sellThere = nMkt.GetSellPrice(goodId);
+                    if (sellThere - buyHere >= NarrativeTweaksV0.MarketOpportunityMinMargin)
+                    { found = true; break; }
+                }
+                if (found) break;
+            }
+            if (found)
+            {
+                int mktIdx = (state.Tick / NarrativeTweaksV0.AmbientCondCheckTicks) % NarrativeTweaksV0.AmbientCondMaxPerType + 1; // STRUCTURAL: 1-based
+                TryFireTrigger(state, $"MARKET_OPPORTUNITY_{mktIdx}");
             }
         }
     }

@@ -183,6 +183,75 @@ public static class DiscoverySeedGen
             }
         }
 
+        // GATE.T64.DISC.EARLY_ACCESS.001: Seed 1-2 pre-fracture ABANDONED_PROBE objects
+        // within 3 hops of the player start, discoverable without fracture drive.
+        // Ensures M12 "zero discoveries" is fixed — player encounters discovery content early.
+        {
+            var startNodeId = state.PlayerLocationNodeId ?? "";
+            // Build adjacency set (up to 3 hops).
+            var hop1 = new HashSet<string>(StringComparer.Ordinal);
+            var hop2 = new HashSet<string>(StringComparer.Ordinal);
+            var hop3 = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var edge in state.Edges.Values)
+            {
+                if (string.Equals(edge.FromNodeId, startNodeId, StringComparison.Ordinal))
+                    hop1.Add(edge.ToNodeId ?? "");
+                else if (string.Equals(edge.ToNodeId, startNodeId, StringComparison.Ordinal))
+                    hop1.Add(edge.FromNodeId ?? "");
+            }
+            foreach (var h1 in hop1)
+            {
+                foreach (var edge in state.Edges.Values)
+                {
+                    string? cand = null;
+                    if (string.Equals(edge.FromNodeId, h1, StringComparison.Ordinal)) cand = edge.ToNodeId;
+                    else if (string.Equals(edge.ToNodeId, h1, StringComparison.Ordinal)) cand = edge.FromNodeId;
+                    if (cand != null && !string.Equals(cand, startNodeId, StringComparison.Ordinal) && !hop1.Contains(cand))
+                        hop2.Add(cand);
+                }
+            }
+            foreach (var h2 in hop2)
+            {
+                foreach (var edge in state.Edges.Values)
+                {
+                    string? cand = null;
+                    if (string.Equals(edge.FromNodeId, h2, StringComparison.Ordinal)) cand = edge.ToNodeId;
+                    else if (string.Equals(edge.ToNodeId, h2, StringComparison.Ordinal)) cand = edge.FromNodeId;
+                    if (cand != null && !string.Equals(cand, startNodeId, StringComparison.Ordinal)
+                        && !hop1.Contains(cand) && !hop2.Contains(cand))
+                        hop3.Add(cand);
+                }
+            }
+            // Combine candidates, exclude start node.
+            var nearby = new List<string>();
+            nearby.AddRange(hop1);
+            nearby.AddRange(hop2);
+            nearby.AddRange(hop3);
+            nearby.Sort(StringComparer.Ordinal);
+
+            // Place 2 ABANDONED_PROBE discoveries at hash-selected nearby nodes.
+            int probeCount = Math.Min(2, nearby.Count);
+            for (int p = 0; p < probeCount; p++)
+            {
+                uint probeHash = GalaxyGenerator.Fnv1a32Utf8(seed + "|pre_fracture_probe|" + p);
+                int nodeIdx = (int)(probeHash % (uint)nearby.Count);
+                var probeNodeId = nearby[nodeIdx];
+
+                var kind = "AbandonedProbe";
+                var refId = "probe_" + p;
+                var sourceId = "pre_fracture_seed:" + seed;
+
+                seeds.Add(new DiscoverySeedSurfaceV0
+                {
+                    DiscoveryKind = kind,
+                    NodeId = probeNodeId,
+                    RefId = refId,
+                    SourceId = sourceId,
+                    DiscoveryId = MintDiscoveryIdV0(kind, probeNodeId, refId, sourceId)
+                });
+            }
+        }
+
         seeds.Sort((a, b) => string.CompareOrdinal(a.DiscoveryId, b.DiscoveryId));
         return seeds;
     }

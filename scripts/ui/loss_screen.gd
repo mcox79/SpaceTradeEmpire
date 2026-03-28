@@ -1,6 +1,5 @@
 # GATE.S8.WIN.LOSS_SCREEN.001: Game over screen for death/bankruptcy.
 extends Control
-const EpilogueData = preload("res://scripts/ui/epilogue_data.gd")
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
 

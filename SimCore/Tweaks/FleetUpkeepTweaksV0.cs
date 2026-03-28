@@ -5,9 +5,10 @@ public static class FleetUpkeepTweaksV0
 {
     // GATE.T52.ECON.UPKEEP_TUNE.001: Upkeep scaled for meaningful credit tension.
     // Per-cycle upkeep cost in credits by ship class.
-    // At 5K avg trade profit, 100cr/cycle shuttle = ~48% of one trade over a session.
-    // Player feels pressure to trade efficiently, not coast.
-    public const int ShuttleUpkeep = 100;
+    // Shuttle = 0: solo explorer in a starter ship has no crew, no fleet overhead.
+    // Empire-scale costs scale in with fleet size (corvette+).
+    // Design: Factorio/Subnautica — no time pressure in the first hour.
+    public const int ShuttleUpkeep = 0;
     public const int CorvetteUpkeep = 250;
     public const int ClipperUpkeep = 200;
     public const int FrigateUpkeep = 400;
@@ -51,7 +52,8 @@ public static class FleetUpkeepTweaksV0
     // GATE.T48.TENSION.MAINTENANCE.001: Crew wages per cycle (credits).
     public const int WageCycleTicks = 30;
     // GATE.T52.ECON.UPKEEP_TUNE.001: Wages scaled for credit tension.
-    public const int WagePerCycleShuttle = 50;
+    // Shuttle = 0: solo pilot, no crew to pay. Empire wages start at corvette.
+    public const int WagePerCycleShuttle = 0;
     public const int WagePerCycleCorvette = 100;
     public const int WagePerCycleClipper = 100;
     public const int WagePerCycleFrigate = 200;
@@ -63,9 +65,16 @@ public static class FleetUpkeepTweaksV0
     // Docked wage multiplier in bps (5000 = 50%).
     public const int DockedWageMultiplierBps = 5000;
 
+    // GATE.T65.ECON.SINK_BOOST.001: Per-hop lane transit fee (credits).
+    // EVE/X4 pattern: meaningful credit drain per jump to prevent infinite free travel.
+    // 35 cr/hop × 2 hops/trade = 70 cr friction on a ~444 cr electronics trade (16% sink).
+    // Raised from 20 to target sink_faucet ≥ 0.35 (was 0.189).
+    public const int LaneTransitFeeCr = 35;
+
     // GATE.T48.TENSION.MAINTENANCE.001: Hull degradation per cycle (wear and tear).
     public const int HullDegradCycleTicks = 45;
-    public const int HullDegradPerCycleShuttle = 1;
+    // Shuttle = 0: starter ship doesn't degrade passively. Damage comes from combat.
+    public const int HullDegradPerCycleShuttle = 0;
     public const int HullDegradPerCycleCorvette = 1;
     public const int HullDegradPerCycleClipper = 1;
     public const int HullDegradPerCycleFrigate = 2;

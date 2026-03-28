@@ -26,4 +26,12 @@ public static class EconomicIntelTweaksV0
     // Distance band hop thresholds (consistent with DiscoveryIntelTweaksV0).
     public static int NearMaxHops { get; } = 2;
     public static int MidMaxHops { get; } = 5;
+
+    // GATE.T62.PIPELINE.INTEL_MARGIN.001: Margin confidence decay schedule (BPS = 0-10000).
+    // 10000 = full confidence, 0 = no confidence (expired).
+    public const int FullConfidenceBps = 10000;
+    // Half-life: at 50% freshness, confidence drops to HalfLifeConfidenceBps.
+    public const int HalfLifeConfidenceBps = 7000;
+    // At 100% freshness consumed, confidence drops to ExpiredConfidenceBps.
+    public const int ExpiredConfidenceBps = 0;
 }

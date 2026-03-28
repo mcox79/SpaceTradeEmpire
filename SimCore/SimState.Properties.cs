@@ -234,6 +234,12 @@ public partial class SimState
     // GATE.S8.WIN.GAME_RESULT.001: Current game result state.
     [JsonInclude] public GameResult GameResultValue { get; set; } = GameResult.InProgress;
 
+    // GATE.T62.LOSS.REPLACEMENT_FLOW.001: Player respawn state.
+    // True when player was destroyed but Haven-respawned (UI should show ship selection).
+    [JsonInclude] public bool PlayerRespawnPending { get; set; } = false;
+    // Count of player deaths that were respawned (insurance-covered).
+    [JsonInclude] public int PlayerRespawnCount { get; set; } = 0;
+
     // GATE.S8.WIN.PROGRESS_TRACK.001: Current endgame progress snapshot (updated each tick).
     [JsonIgnore] public EndgameProgress EndgameProgress { get; set; } = new();
 
@@ -378,6 +384,10 @@ public partial class SimState
     // Decays each tick, increases on each player trade at that market+good.
     [JsonInclude] public Dictionary<string, int> PlayerRecentTradeDampen { get; private set; } = new(StringComparer.Ordinal);
 
+    // GATE.T65.ECON.ROUTE_NOVELTY.001: Route novelty tracking.
+    // Key = "marketId|goodId", value = trade count on this route. New routes get a margin bonus.
+    [JsonInclude] public Dictionary<string, int> PlayerRouteNovelty { get; private set; } = new(StringComparer.Ordinal);
+
     // GATE.T57.PIPELINE.NPC_COMPETITION.001: NPC-discovered profitable routes.
     // Key = routeKey (sourceNode|destNode|goodId), Value = tick when NPC first observed this route.
     // Used to compute margin compression over NpcRouteCompressionStartTick..FullTick.
@@ -503,6 +513,8 @@ public partial class SimState
 
         Programs ??= new ProgramBook();
         Programs.Instances[id] = p;
+        // GATE.T61.POSTMORTEM.FACT_STORE.001: Snapshot decision-time facts.
+        SimCore.Programs.ProgramSystem.SnapshotDecisionFacts(this, p);
         return id;
     }
 
@@ -530,6 +542,8 @@ public partial class SimState
 
         Programs ??= new ProgramBook();
         Programs.Instances[id] = p;
+        // GATE.T61.POSTMORTEM.FACT_STORE.001: Snapshot decision-time facts.
+        SimCore.Programs.ProgramSystem.SnapshotDecisionFacts(this, p);
         return id;
     }
 
@@ -616,6 +630,8 @@ public partial class SimState
 
         Programs ??= new ProgramBook();
         Programs.Instances[id] = p;
+        // GATE.T61.POSTMORTEM.FACT_STORE.001: Snapshot decision-time facts.
+        SimCore.Programs.ProgramSystem.SnapshotDecisionFacts(this, p);
         return id;
     }
 

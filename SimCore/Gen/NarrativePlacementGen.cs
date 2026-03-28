@@ -256,6 +256,107 @@ public static class NarrativePlacementGen
         }
     }
 
+    /// <summary>
+    /// Place the three war-face narrative NPCs into the world.
+    /// - Regular (Keris): on a Valorin node 2-3 hops from player start (overlapping trade route).
+    /// - Stationmaster (Hale): at the player's adjacent station (frequent visits).
+    /// - Enemy (Voss): at a Valorin node 3+ hops from start (contested space).
+    /// Called after data logs and before Haven seeding.
+    /// </summary>
+    public static void PlaceNarrativeNpcs(SimState state)
+    {
+        string startNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(startNode)) return;
+
+        var hopDistances = ComputeHopDistances(state, startNode);
+
+        // ── Regular (Keris): Valorin node, 2-3 hops from player ──
+        string regularNode = PickFactionNodeInRange(state, hopDistances,
+            Content.WarFacesContentV0.RegularFaction, 2, 4, "npc_regular_seed");
+        if (!string.IsNullOrEmpty(regularNode))
+        {
+            state.NarrativeNpcs[Content.WarFacesContentV0.RegularNpcId] = new Entities.NarrativeNpc
+            {
+                NpcId = Content.WarFacesContentV0.RegularNpcId,
+                Kind = Entities.NarrativeNpcKind.Regular,
+                Name = Content.WarFacesContentV0.RegularName,
+                NodeId = regularNode,
+                HomeNodeId = regularNode,
+                FactionId = Content.WarFacesContentV0.RegularFaction,
+            };
+        }
+
+        // ── Stationmaster (Hale): adjacent station to player (1 hop) ──
+        string smNode = PickStationNodeInRange(state, hopDistances, 1, 2, "npc_stationmaster_seed");
+        if (!string.IsNullOrEmpty(smNode))
+        {
+            state.NarrativeNpcs[Content.WarFacesContentV0.StationmasterNpcId] = new Entities.NarrativeNpc
+            {
+                NpcId = Content.WarFacesContentV0.StationmasterNpcId,
+                Kind = Entities.NarrativeNpcKind.Stationmaster,
+                Name = Content.WarFacesContentV0.StationmasterDefaultName,
+                NodeId = smNode,
+                HomeNodeId = smNode,
+                FactionId = state.NodeFactionId.TryGetValue(smNode, out var smFid) ? smFid : "",
+            };
+        }
+
+        // ── Enemy (Voss): Valorin node, 3+ hops from player (contested space) ──
+        string enemyNode = PickFactionNodeInRange(state, hopDistances,
+            Content.WarFacesContentV0.EnemyFaction, 3, 6, "npc_enemy_seed");
+        if (!string.IsNullOrEmpty(enemyNode))
+        {
+            state.NarrativeNpcs[Content.WarFacesContentV0.EnemyNpcId] = new Entities.NarrativeNpc
+            {
+                NpcId = Content.WarFacesContentV0.EnemyNpcId,
+                Kind = Entities.NarrativeNpcKind.Enemy,
+                Name = Content.WarFacesContentV0.EnemyName,
+                NodeId = enemyNode,
+                HomeNodeId = enemyNode,
+                FactionId = Content.WarFacesContentV0.EnemyFaction,
+            };
+        }
+    }
+
+    private static string PickFactionNodeInRange(
+        SimState state, Dictionary<string, int> hopDistances,
+        string factionId, int minHops, int maxHops, string seed)
+    {
+        var candidates = new List<string>();
+        foreach (var kv in hopDistances)
+        {
+            if (kv.Value < minHops || kv.Value > maxHops) continue;
+            if (!state.NodeFactionId.TryGetValue(kv.Key, out var fid)) continue;
+            if (!string.Equals(fid, factionId, StringComparison.Ordinal)) continue;
+            candidates.Add(kv.Key);
+        }
+        candidates.Sort(StringComparer.Ordinal);
+
+        if (candidates.Count == 0) return "";
+        ulong h = HashString(seed);
+        return candidates[(int)(h % (ulong)candidates.Count)];
+    }
+
+    private static string PickStationNodeInRange(
+        SimState state, Dictionary<string, int> hopDistances,
+        int minHops, int maxHops, string seed)
+    {
+        var candidates = new List<string>();
+        foreach (var kv in hopDistances)
+        {
+            if (kv.Value < minHops || kv.Value > maxHops) continue;
+            // Must have a market (i.e. be a station)
+            if (!state.Nodes.TryGetValue(kv.Key, out var node)) continue;
+            if (string.IsNullOrEmpty(node.MarketId)) continue;
+            candidates.Add(kv.Key);
+        }
+        candidates.Sort(StringComparer.Ordinal);
+
+        if (candidates.Count == 0) return "";
+        ulong h = HashString(seed);
+        return candidates[(int)(h % (ulong)candidates.Count)];
+    }
+
     // ── BFS utilities ────────────────────────────────────────────
 
     /// <summary>

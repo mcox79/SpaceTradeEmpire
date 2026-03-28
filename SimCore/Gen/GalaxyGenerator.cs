@@ -182,6 +182,9 @@ public static class GalaxyGenerator
         // Phase 9.6: GATE.T18.KG_SEED.PROXIMITY.001 — Procedural proximity + faction connections.
         NarrativePlacementGen.GenerateProceduralConnections(state);
 
+        // Phase 9.65: Place narrative NPCs (war faces) at faction-appropriate nodes.
+        NarrativePlacementGen.PlaceNarrativeNpcs(state);
+
         // Phase 9.7: REMOVED — SeedKnowledgeWebAtStartV0 auto-analyzed 8 nearby discoveries,
         // bypassing the Seen→Scanned→Analyzed lifecycle. Players should experience the full
         // discovery arc. The knowledge web seeds organically as the player scans sites.
@@ -380,23 +383,78 @@ public static class GalaxyGenerator
     {
         if (state.Nodes.Count < StarterRegionNodeCount) return;
 
-        // Pick the node farthest from player start (by Euclidean distance).
+        // Pick a node 2-3 hops from player start so Haven is discoverable in the first hour.
+        // Among candidates at that distance, pick the farthest by Euclidean distance
+        // so it still feels like a meaningful journey, not right next door.
         var startId = state.PlayerLocationNodeId;
         if (string.IsNullOrEmpty(startId) || !state.Nodes.TryGetValue(startId, out var startNode)) return;
 
+        // BFS to compute hop distances from player start (deterministic via sorted adjacency).
+        var hopDist = new Dictionary<string, int>(StringComparer.Ordinal) { [startId] = 0 };
+        var queue = new Queue<string>();
+        queue.Enqueue(startId);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            int d = hopDist[current];
+            // Build sorted adjacency for determinism.
+            var neighbors = new List<string>();
+            foreach (var edge in state.Edges.Values)
+            {
+                if (string.Equals(edge.FromNodeId, current, StringComparison.Ordinal)
+                    && !hopDist.ContainsKey(edge.ToNodeId))
+                    neighbors.Add(edge.ToNodeId);
+                else if (string.Equals(edge.ToNodeId, current, StringComparison.Ordinal)
+                    && !hopDist.ContainsKey(edge.FromNodeId))
+                    neighbors.Add(edge.FromNodeId);
+            }
+            neighbors.Sort(StringComparer.Ordinal);
+            foreach (var n in neighbors)
+            {
+                if (hopDist.ContainsKey(n)) continue; // STRUCTURAL: skip already visited
+                hopDist[n] = d + 1;
+                queue.Enqueue(n);
+            }
+        }
+
+        // Prefer nodes at hop distance 2-3. If none, widen to 4-5. Fallback: farthest node.
         string bestNodeId = "";
         float bestDist = 0;
+        int[] preferredHops = { 2, 3 };
+        int[] fallbackHops = { 4, 5 };
 
-        foreach (var kv in state.Nodes)
+        foreach (var hops in new[] { preferredHops, fallbackHops })
         {
-            if (string.Equals(kv.Key, startId, StringComparison.Ordinal)) continue;
-            var dx = kv.Value.Position.X - startNode.Position.X;
-            var dz = kv.Value.Position.Z - startNode.Position.Z;
-            var dist = dx * dx + dz * dz;
-            if (dist > bestDist)
+            foreach (var kv in state.Nodes)
             {
-                bestDist = dist;
-                bestNodeId = kv.Key;
+                if (string.Equals(kv.Key, startId, StringComparison.Ordinal)) continue;
+                if (!hopDist.TryGetValue(kv.Key, out int h)) continue;
+                bool inRange = false;
+                foreach (var target in hops) { if (h == target) { inRange = true; break; } }
+                if (!inRange) continue;
+
+                var dx = kv.Value.Position.X - startNode.Position.X;
+                var dz = kv.Value.Position.Z - startNode.Position.Z;
+                var dist = dx * dx + dz * dz;
+                if (dist > bestDist)
+                {
+                    bestDist = dist;
+                    bestNodeId = kv.Key;
+                }
+            }
+            if (!string.IsNullOrEmpty(bestNodeId)) break; // STRUCTURAL: found candidate in preferred range
+        }
+
+        // Ultimate fallback: farthest node by Euclidean distance (original behavior).
+        if (string.IsNullOrEmpty(bestNodeId))
+        {
+            foreach (var kv in state.Nodes)
+            {
+                if (string.Equals(kv.Key, startId, StringComparison.Ordinal)) continue;
+                var dx = kv.Value.Position.X - startNode.Position.X;
+                var dz = kv.Value.Position.Z - startNode.Position.Z;
+                var dist = dx * dx + dz * dz;
+                if (dist > bestDist) { bestDist = dist; bestNodeId = kv.Key; }
             }
         }
 
@@ -1913,8 +1971,94 @@ public static class GalaxyGenerator
                 SlotKind = Entities.SlotKind.Weapon,
                 InstalledModuleId = Content.WellKnownModuleIds.WeaponCannonMk1,
             });
+            // GATE.T60.COMBAT.PIRATE_TUNE.001: Second weapon upgraded to mk2 so pirates
+            // deal meaningful hull damage. mk1+mk2 ≈ 20 dmg/round vs player 50 shield → breaks round 3.
+            fleet.Slots.Add(new Entities.ModuleSlot
+            {
+                SlotId = "npc_weapon_1",
+                SlotKind = Entities.SlotKind.Weapon,
+                InstalledModuleId = "weapon_cannon_mk2",
+            });
             state.Fleets[fleet.Id] = fleet;
         }
+
+        // GATE.T63.COMBAT.EARLY_PIRATE.001: Guarantee at least one pirate within 2 hops of player start.
+        // fh_5 audit found first combat at ~d318. This places a starter pirate close enough for ~d100.
+        EnsureStarterPirateV0(state, nodesList);
+    }
+
+    // GATE.T63.COMBAT.EARLY_PIRATE.001: If no pirate is within 2 hops of player start, place one.
+    private static void EnsureStarterPirateV0(SimState state, List<Entities.Node> nodesList)
+    {
+        string startNode = state.PlayerLocationNodeId ?? "";
+        if (string.IsNullOrEmpty(startNode)) return;
+
+        // BFS to find nodes within 2 hops
+        var nearbyNodes = new HashSet<string>(StringComparer.Ordinal) { startNode };
+        var frontier = new List<string> { startNode };
+        for (int hop = 0; hop < Tweaks.FactionTweaksV0.StarterPirateMaxHops; hop++)
+        {
+            var nextFrontier = new List<string>();
+            foreach (var nodeId in frontier)
+            {
+                foreach (var edge in state.Edges.Values)
+                {
+                    string? neighbor = null;
+                    if (StringComparer.Ordinal.Equals(edge.FromNodeId, nodeId)) neighbor = edge.ToNodeId;
+                    else if (StringComparer.Ordinal.Equals(edge.ToNodeId, nodeId)) neighbor = edge.FromNodeId;
+                    if (neighbor != null && nearbyNodes.Add(neighbor))
+                        nextFrontier.Add(neighbor);
+                }
+            }
+            frontier = nextFrontier;
+        }
+
+        // Check if any existing pirate fleet is at a nearby node
+        foreach (var fleet in state.Fleets.Values)
+        {
+            if (!StringComparer.Ordinal.Equals(fleet.OwnerId, Tweaks.FactionTweaksV0.PirateId)) continue;
+            if (fleet.HullHp <= 0) continue;
+            if (nearbyNodes.Contains(fleet.CurrentNodeId)) return; // Already have a nearby pirate
+        }
+
+        // No nearby pirate — pick a 2-hop node (not start) deterministically
+        nearbyNodes.Remove(startNode);
+        if (nearbyNodes.Count == 0) return;
+
+        var sortedNearby = new List<string>(nearbyNodes);
+        sortedNearby.Sort(StringComparer.Ordinal);
+        ulong h = Fnv1aHash($"starter_pirate_{state.InitialSeed}");
+        string targetNode = sortedNearby[(int)(h % (ulong)sortedNearby.Count)];
+
+        var starterFleet = new Fleet
+        {
+            Id = $"pirate_fleet_starter_{targetNode}",
+            OwnerId = Tweaks.FactionTweaksV0.PirateId,
+            Role = FleetRole.Patrol,
+            ShipClassId = "corvette",
+            CurrentNodeId = targetNode,
+            Speed = Tweaks.FactionTweaksV0.PirateSpeed,
+            State = FleetState.Idle,
+            HullHp = Tweaks.FactionTweaksV0.PirateHullHp,
+            HullHpMax = Tweaks.FactionTweaksV0.PirateHullHp,
+            ShieldHp = Tweaks.FactionTweaksV0.PirateShieldHp,
+            ShieldHpMax = Tweaks.FactionTweaksV0.PirateShieldHp,
+            FuelCapacity = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
+            FuelCurrent = Tweaks.NpcShipTweaksV0.DefaultFuelCapacity,
+        };
+        starterFleet.Slots.Add(new Entities.ModuleSlot
+        {
+            SlotId = "npc_weapon_0",
+            SlotKind = Entities.SlotKind.Weapon,
+            InstalledModuleId = Content.WellKnownModuleIds.WeaponCannonMk1,
+        });
+        starterFleet.Slots.Add(new Entities.ModuleSlot
+        {
+            SlotId = "npc_weapon_1",
+            SlotKind = Entities.SlotKind.Weapon,
+            InstalledModuleId = "weapon_cannon_mk2",
+        });
+        state.Fleets[starterFleet.Id] = starterFleet;
     }
 
     // FNV-1a 64-bit hash for deterministic pirate seeding.

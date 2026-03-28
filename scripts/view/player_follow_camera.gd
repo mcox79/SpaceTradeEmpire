@@ -54,6 +54,9 @@ const OVERLAY_THRESHOLD: float = 500.0 # Above this: galaxy overlay rendering ac
 const STRATEGIC_ALTITUDE: float = 5000.0  # FEEL_POST_BASELINE: Raised from 2500 so neighbor nodes are visible on map open.
 const GALAXY_MAP_PAN_SPEED: float = 2000.0
 const GALAXY_MAP_LERP_SPEED: float = 4.0
+# GATE.T63.SPATIAL.CAMERA_TUNE.001: Flight altitude cap — prevents galaxy-map altitude
+# contaminating flight mode. Must be < PAN_THRESHOLD. ~180u shows full system (lane gates at 85u).
+const FLIGHT_ALTITUDE_MAX: float = 180.0
 # Default flight altitude. System layout: planets 18-40u, belt 45u, lane gates 85u.
 # FH_3_FIX: Reduced from 80 to 50 — closer to the action.
 var _altitude: float = 50.0
@@ -218,10 +221,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			var mb := event as InputEventMouseButton
 			if mb.pressed:
 				if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-					_altitude = clampf(_altitude - _compute_zoom_step(), ALTITUDE_MIN, ALTITUDE_MAX)
+					# GATE.T63.SPATIAL.CAMERA_TUNE.001: In flight mode, cap at FLIGHT_ALTITUDE_MAX.
+					var max_alt: float = ALTITUDE_MAX if _current_mode == CameraMode.GALAXY_MAP else FLIGHT_ALTITUDE_MAX
+					_altitude = clampf(_altitude - _compute_zoom_step(), ALTITUDE_MIN, max_alt)
 					_sync_altitude()
 				elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-					_altitude = clampf(_altitude + _compute_zoom_step(), ALTITUDE_MIN, ALTITUDE_MAX)
+					var max_alt_d: float = ALTITUDE_MAX if _current_mode == CameraMode.GALAXY_MAP else FLIGHT_ALTITUDE_MAX
+					_altitude = clampf(_altitude + _compute_zoom_step(), ALTITUDE_MIN, max_alt_d)
 					_sync_altitude()
 				elif mb.button_index == MOUSE_BUTTON_LEFT and _altitude >= PAN_THRESHOLD:
 					_galaxy_panning = true
@@ -484,7 +490,8 @@ func toggle_strategic_altitude_v0() -> void:
 
 	if _altitude < PAN_THRESHOLD:
 		# Going up to strategic view.
-		_pre_strategic_altitude = _altitude
+		# GATE.T63.SPATIAL.CAMERA_TUNE.001: Clamp saved altitude to FLIGHT_ALTITUDE_MAX.
+		_pre_strategic_altitude = minf(_altitude, FLIGHT_ALTITUDE_MAX)
 		# FEEL_POST_FIX_6: Auto-fit altitude + center on galaxy centroid.
 		var target_alt := STRATEGIC_ALTITUDE
 		_ensure_galaxy_view()
@@ -502,7 +509,9 @@ func toggle_strategic_altitude_v0() -> void:
 	else:
 		# Coming back down to flight.
 		_galaxy_map_pan_offset = Vector3.ZERO
-		_tab_tween.tween_property(self, "_altitude", _pre_strategic_altitude, 0.6)
+		# GATE.T63.SPATIAL.CAMERA_TUNE.001: Ensure restore altitude is within flight range.
+		var restore_to: float = minf(_pre_strategic_altitude, FLIGHT_ALTITUDE_MAX)
+		_tab_tween.tween_property(self, "_altitude", restore_to, 0.6)
 
 ## Called by game_manager after flyby cinematic completes.
 ## Marks that the flyby already handled the arrival zoom so the WARP_TRANSIT exit

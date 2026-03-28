@@ -521,12 +521,15 @@ func _do_dock() -> void:
 	_log("DOCK|goods_with_price=%d" % goods_with_price)
 
 	_market_snapshots[_home_node_id] = market
-	# Ensure Market tab is visible for the screenshot (dock may default to Station tab).
+	# Capture dock panel as-opened (before tab switch) — shows tab disclosure state
 	var _dock_menu = root.find_child("HeroTradeMenu", true, false)
+	_capture("04a_dock_panel_open")
+
+	# Ensure Market tab is visible for the market screenshot
 	if _dock_menu and _dock_menu.has_method("_switch_dock_tab"):
 		_dock_menu.call("_switch_dock_tab", 0)
 		await create_timer(0.15).timeout
-	_capture("04_dock_market")
+	_capture("04b_dock_market")
 
 	# Goal 2 probe: tutorial text scan + dock tab count
 	var tutorial_found := false
@@ -742,7 +745,8 @@ func _do_dock_2() -> void:
 			_flag("PRICE_IDENTICAL|%s vs %s" % [_home_node_id, node_id])
 
 	_log("DOCK_2|node=%s goods=%d" % [node_id, market.size()])
-	_capture("10_dock_2")
+	_capture("10a_dock2_panel_open")  # Tab disclosure state after first trade
+	_capture("10b_dock_2")
 	_polls = 0
 	_phase = Phase.SELL
 

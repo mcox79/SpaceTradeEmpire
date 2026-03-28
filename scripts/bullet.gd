@@ -104,7 +104,7 @@ func _resolve_damage_family() -> String:
 
 ## GATE.S7.COMBAT_FEEL_POLISH.WEAPON_FAMILIES.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
 ## Attach trail GPUParticles3D to bullet. Trail color matches weapon family.
-## Enlarged for camera altitude ~80 visibility.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 func _add_trail_particles(color: Color, trail_life: float) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "BulletTrail"
@@ -165,10 +165,24 @@ func _on_body_entered(body: Node) -> void:
 		var bridge = get_node_or_null("/root/SimBridge")
 		if bridge and bridge.has_method("ApplyAiShotAtPlayerV0") and not source_fleet_id.is_empty():
 			bridge.call("ApplyAiShotAtPlayerV0", source_fleet_id)
-		# GATE.S1.CAMERA.COMBAT_SHAKE.001: larger shake on damage received
+		# GATE.T64.JUICE.SHAKE_SCALE.001: Damage-scaled camera shake.
 		var gm_shake = get_node_or_null("/root/GameManager")
 		if gm_shake and gm_shake.has_method("_apply_camera_shake_v0"):
-			gm_shake.call("_apply_camera_shake_v0", 0.4)
+			# Scale shake by damage fraction: 0.2 base + up to 0.6 based on hull ratio.
+			var fleet_bridge = get_node_or_null("/root/SimBridge")
+			var shake_intensity: float = 0.4  # fallback
+			if fleet_bridge and fleet_bridge.has_method("GetFleetStateV0"):
+				var fleet_state: Dictionary = fleet_bridge.call("GetFleetStateV0")
+				var hull_hp: int = int(fleet_state.get("hull_hp", 100))
+				var hull_max: int = int(fleet_state.get("hull_max", 100))
+				if hull_max > 0:
+					var hull_ratio: float = float(hull_hp) / float(hull_max)
+					# Low hull = bigger shake. Near-death (< 20%) gets max shake.
+					shake_intensity = 0.2 + (1.0 - hull_ratio) * 0.6
+					# Near-death extra: longer screen-edge flash via hud.
+					if hull_ratio < 0.2:
+						shake_intensity = 0.8
+			gm_shake.call("_apply_camera_shake_v0", shake_intensity)
 		# FEEL_BASELINE: Screen-space red flash on player damage.
 		var hud_node = get_node_or_null("/root/Main/HUD")
 		if hud_node and hud_node.has_method("flash_damage_v0"):
@@ -211,7 +225,7 @@ func _on_area_entered(area: Area3D) -> void:
 	queue_free()
 
 # GATE.S1.VISUAL_POLISH.COMBAT_VISUAL.001 + GATE.S7.RUNTIME_STABILITY.COMBAT_VFX_V2.001:
-# 0.4s burst GPUParticles3D hit effect. Enlarged for camera altitude ~80 visibility.
+# 0.4s burst GPUParticles3D hit effect. GATE.T41.COMBAT.VFX_VERIFY.001: Verified at ~50u camera.
 func _spawn_hit_vfx(pos: Vector3) -> void:
 	var root = get_tree().get_root() if get_tree() else null
 	if root == null:
@@ -230,8 +244,7 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 1, 0)
 	proc_mat.spread = 90.0
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
-	# Impact particles enlarged 2.5x for screenshot-visible combat differentiation.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	proc_mat.initial_velocity_min = 200.0
 	proc_mat.initial_velocity_max = 450.0
 	proc_mat.gravity = Vector3(0, 0, 0)
@@ -244,7 +257,7 @@ func _spawn_hit_vfx(pos: Vector3) -> void:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for altitude visibility (2.5x enlargement).
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at ~50u altitude.
 	mesh.radius = 12.0
 	mesh.height = 24.0
 	particles.draw_pass_1 = mesh

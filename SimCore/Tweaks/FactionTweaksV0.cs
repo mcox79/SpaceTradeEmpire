@@ -62,9 +62,11 @@ public static class FactionTweaksV0
     // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate aggro threshold — 999 means always hostile (even rep 0).
     public const int PirateAggroReputationThreshold = 999;
 
-    // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate fleet tuning.
-    public const int PirateHullHp = 60;
-    public const int PirateShieldHp = 30;
+    // GATE.T41.COMBAT.TUNING.001: Pirate fleet tuning — HP doubled so first-hour fights
+    // last 2-3 player volleys instead of one-shotting. Per dynamic_tension_v0.md:
+    // tension_min_hull must drop below 100% (pirate must survive long enough to hit player).
+    public const int PirateHullHp = 200;
+    public const int PirateShieldHp = 60;
     public const float PirateSpeed = 0.9f;
 
     // GATE.T55.COMBAT.PIRATE_FACTION.001: Pirate loot table — enhanced drops.
@@ -72,12 +74,17 @@ public static class FactionTweaksV0
     public const int PirateLootSalvagedTechMax = 3;
     public const int PirateLootRareMetalsMin = 3;
     public const int PirateLootRareMetalsMax = 6;
-    public const int PirateLootCreditsMin = 50;
-    public const int PirateLootCreditsMax = 100;
+    // Pirate credits reduced — real value is in the tech + metals salvage.
+    public const int PirateLootCreditsMin = 10;
+    public const int PirateLootCreditsMax = 30;
 
     // GATE.T55.COMBAT.PIRATE_FACTION.001: Min/max pirate patrol fleets seeded at FRONTIER/RIM nodes.
     public const int PirateFleetCountMin = 3;
     public const int PirateFleetCountMax = 5;
+
+    // GATE.T63.COMBAT.EARLY_PIRATE.001: Max BFS hops from player start to guarantee a starter pirate.
+    // fh_5 audit: first combat at ~d318. With a pirate within 2 hops, combat occurs by ~d100.
+    public const int StarterPirateMaxHops = 2;
 
     // GATE.T55.COMBAT.TERRITORY_ENFORCE.001: Territory enforcement threshold.
     // At Closed-regime nodes, faction patrols become hostile when player rep is below this.

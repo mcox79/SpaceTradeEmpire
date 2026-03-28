@@ -117,6 +117,11 @@ var _alert_badge: Control = null
 var _alert_badge_label: Label = null
 var _alert_count: int = 0
 
+# GATE.T61.SECURITY.INCIDENT_LOG.001: Incident alert badge.
+var _incident_badge: Control = null
+var _incident_badge_label: Label = null
+var _incident_last_read_tick: int = 0
+
 # Overlay mode: when true, HUD status elements are hidden (galaxy map / empire dashboard open)
 var _overlay_active: bool = false
 # FEEL_POST_FIX_4: Dark scrim behind galaxy map / empire dashboard so beacons pop
@@ -140,6 +145,11 @@ var _prev_credits_snapshot: int = -1
 var _onboarding_state: Dictionary = {}
 # Tutorial active flag: cached per-frame to prevent flicker from sub-update order.
 var _tutorial_active: bool = true  # Default to suppressed; cleared when bridge confirms tutorial complete.
+
+# GATE.T63.UI.KEYBIND_OVERLAY.001: Flight keybind hints — visible until pressed.
+var _flight_hints_panel: PanelContainer = null
+var _flight_hint_labels: Dictionary = {}  # action_name -> Label
+var _flight_hints_dismissed: Dictionary = {}  # action_name -> true when pressed
 
 # GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
 var _narrative_panel = null
@@ -263,6 +273,21 @@ var _disc_bracket_label: Label = null  # Distance text between brackets
 var _disc_bracket_arrow: Label = null  # Direction arrow above brackets
 const _DISC_BLIP_RANGE: float = 30.0
 const _DISC_SILHOUETTE_RANGE: float = 15.0
+
+# GATE.T41.UI.CONTROL_HINTS.001: First-undock keybind hint overlay.
+var _control_hints_panel: PanelContainer = null
+var _control_hints_shown: bool = false   # True once overlay has been shown (one-shot)
+var _control_hints_active: bool = false  # True while overlay is visible
+var _prev_ship_state: String = ""        # Track state transitions for undock detection
+
+# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Station direction indicator on arrival.
+# Shows arrow + label pointing toward nearest station after warp arrival.
+var _station_dir_container: Control = null
+var _station_dir_arrow: Label = null
+var _station_dir_label: Label = null
+var _station_dir_tween: Tween = null
+var _station_dir_target_pos: Vector3 = Vector3.ZERO
+var _station_dir_active: bool = false
 
 
 func _ready() -> void:
@@ -573,12 +598,21 @@ func _ready() -> void:
 	_upkeep_label.visible = false
 	add_child(_upkeep_label)
 
-	# Build game over overlay (hidden until player dies)
+	# Build game over overlay — proper modal: dark background, pauses game, blocks input
 	_game_over_panel = Control.new()
 	_game_over_panel.name = "GameOverPanel"
 	_game_over_panel.visible = false
 	_game_over_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_game_over_panel.mouse_filter = Control.MOUSE_FILTER_STOP  # Block all input behind overlay
 	add_child(_game_over_panel)
+
+	# Semi-opaque dark background so player sees the world behind, but game feels ended
+	var game_over_bg := ColorRect.new()
+	game_over_bg.name = "GameOverBg"
+	game_over_bg.color = Color(0.0, 0.0, 0.0, 0.85)
+	game_over_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	game_over_bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_game_over_panel.add_child(game_over_bg)
 
 	_game_over_label = Label.new()
 	_game_over_label.name = "GameOverLabel"
@@ -603,6 +637,9 @@ func _ready() -> void:
 
 	# GATE.X.WARP.ARRIVAL_DRAMA.001: Setup letterbox + title card nodes.
 	_setup_arrival_drama_v0()
+
+	# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Station direction indicator on arrival.
+	_setup_station_direction_v0()
 
 	# Data overlay mode indicator (below research label)
 	_overlay_mode_label = Label.new()
@@ -755,6 +792,9 @@ func _ready() -> void:
 	_keybind_hint_label.size = Vector2(1920, 20)
 	_keybind_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_keybind_hint_label)
+
+	# GATE.T63.UI.KEYBIND_OVERLAY.001: Flight control hints — bottom-right, fade on use.
+	_build_flight_hints_v0()
 
 	# GATE.S7.NARRATIVE_DELIVERY.TEXT_PANEL.001: Narrative text display panel.
 	var NarrativePanelScript := preload("res://scripts/ui/narrative_panel.gd")
@@ -982,6 +1022,34 @@ func _ready() -> void:
 	_supply_alert_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_supply_alert_label)
 
+	# GATE.T61.SECURITY.INCIDENT_LOG.001: Incident alert badge (right of main alert badge).
+	_incident_badge = Control.new()
+	_incident_badge.name = "IncidentBadge"
+	_incident_badge.position = Vector2(310, 8)
+	_incident_badge.size = Vector2(28, 28)
+	_incident_badge.visible = false
+	_incident_badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_incident_badge)
+
+	var inc_badge_bg := ColorRect.new()
+	inc_badge_bg.name = "IncBadgeBg"
+	inc_badge_bg.color = Color(0.8, 0.3, 0.1)
+	inc_badge_bg.position = Vector2.ZERO
+	inc_badge_bg.size = Vector2(28, 28)
+	inc_badge_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_incident_badge.add_child(inc_badge_bg)
+
+	_incident_badge_label = Label.new()
+	_incident_badge_label.name = "IncBadgeCount"
+	_incident_badge_label.text = "0"
+	_incident_badge_label.add_theme_font_size_override("font_size", 12)
+	_incident_badge_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	_incident_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_incident_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_incident_badge_label.position = Vector2(0, 2)
+	_incident_badge_label.size = Vector2(28, 24)
+	_incident_badge.add_child(_incident_badge_label)
+
 	# GATE.T43.SCAN_UI.HUD_PANEL.001: Scanner charge HUD panel.
 	var ScannerHudPanelScript := preload("res://scripts/ui/scanner_hud_panel.gd")
 	_scanner_hud_panel = ScannerHudPanelScript.new()
@@ -1040,7 +1108,7 @@ func _ready() -> void:
 	_flip_letterbox_top = ColorRect.new()
 	_flip_letterbox_top.color = Color(0, 0, 0, 1)
 	_flip_letterbox_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_flip_letterbox_top.size = Vector2(1920, 0)
+	_flip_letterbox_top.set_deferred("size", Vector2(1920, 0))
 	_flip_letterbox_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flip_letterbox_top)
 
@@ -1048,7 +1116,7 @@ func _ready() -> void:
 	_flip_letterbox_bot.color = Color(0, 0, 0, 1)
 	_flip_letterbox_bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_flip_letterbox_bot.position = Vector2(0, 1080)
-	_flip_letterbox_bot.size = Vector2(1920, 0)
+	_flip_letterbox_bot.set_deferred("size", Vector2(1920, 0))
 	_flip_letterbox_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flip_letterbox_bot)
 
@@ -1113,6 +1181,30 @@ func _ready() -> void:
 	_disc_bracket_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_disc_bracket_container.add_child(_disc_bracket_label)
 
+	# GATE.T41.UI.CONTROL_HINTS.001: First-undock keybind hint overlay.
+	# Shows common controls when player first undocks, auto-fades after 10 seconds.
+	_control_hints_panel = PanelContainer.new()
+	_control_hints_panel.name = "ControlHintsOverlay"
+	var hints_style := UITheme.make_panel_chrome()
+	hints_style.bg_color = Color(0.06, 0.08, 0.14, 0.88)
+	_control_hints_panel.add_theme_stylebox_override("panel", hints_style)
+	_control_hints_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_control_hints_panel.offset_top = -70
+	_control_hints_panel.offset_bottom = -20
+	_control_hints_panel.offset_left = -320
+	_control_hints_panel.offset_right = 320
+	_control_hints_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_control_hints_panel.visible = false
+	var hints_label := Label.new()
+	hints_label.name = "ControlHintsLabel"
+	hints_label.text = "WASD — Move    E — Dock    Tab — Galaxy Map    M — Missions    J/K/L — Overlays"
+	hints_label.add_theme_font_size_override("font_size", UITheme.FONT_BODY_STD)
+	hints_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	hints_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hints_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_control_hints_panel.add_child(hints_label)
+	add_child(_control_hints_panel)
+
 # GATE.T46.SAVE.AUTOSAVE_UI.001: Autosave signal handlers.
 func _on_autosave_started() -> void:
 	if _autosave_label == null:
@@ -1139,6 +1231,10 @@ func _on_autosave_completed() -> void:
 func show_game_over_v0() -> void:
 	if _game_over_panel != null:
 		_game_over_panel.visible = true
+		# Pause the scene tree so the game stops behind the overlay.
+		# The overlay panel itself processes in paused mode to accept input.
+		_game_over_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+		get_tree().paused = true
 	print("UUIR|GAME_OVER_SHOWN")
 
 func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
@@ -1193,6 +1289,8 @@ func set_overlay_mode_v0(active: bool, is_transit: bool = false) -> void:
 	if _empire_diamond: _empire_diamond.visible = not active
 	# GATE.T58.UI.BELT_WATCHING.001: Hide belt-watching during overlay.
 	if _belt_watching_label: _belt_watching_label.visible = not active
+	# GATE.T41.UI.CONTROL_HINTS.001: Dismiss hints when overlay opens.
+	if _control_hints_active and active: _dismiss_control_hints_v0()
 	# FO panel: hide during galaxy overlay (same as data_log, knowledge_web).
 	if _fo_panel and active: _fo_panel.visible = false
 	if _data_log_panel and active: _data_log_panel.visible = false
@@ -1226,6 +1324,9 @@ func _physics_process(_delta: float) -> void:
 	if not visible:
 		visible = true
 
+	# GATE.T63.UI.KEYBIND_OVERLAY.001: Update flight hints dismiss state each frame.
+	_update_flight_hints_v0()
+
 	# Cache tutorial-active flag once per frame to prevent HUD element flicker.
 	# IMPORTANT: Only update on successful bridge read. On lock contention
 	# (TryExecuteSafeRead returns false → empty dict), keep previous value.
@@ -1235,6 +1336,9 @@ func _physics_process(_delta: float) -> void:
 		if not tut.is_empty():
 			var phase: String = str(tut.get("phase_name", ""))
 			_tutorial_active = phase != "" and phase != "Tutorial_Complete"
+			# GATE.T64.UI.HUD_FIXES.001: Show FOPanel once FO is promoted (tutorial complete).
+			if not _tutorial_active and _fo_panel != null and not _fo_panel.visible:
+				_fo_panel.visible = true
 
 	var ps: Dictionary = _bridge.call("GetPlayerStateV0")
 	var raw_state = str(ps.get("ship_state_token", ""))
@@ -1252,6 +1356,8 @@ func _physics_process(_delta: float) -> void:
 		if _warp_transit_hud:
 			_warp_transit_hud.visible = false
 			_warp_transit_hud.set_process(false)
+	# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Update station direction arrow each frame.
+	_update_station_dir_arrow_v0()
 	if _overlay_active:
 		return
 	# L0.5: Animated credits counter — smooth count-up/down on change.
@@ -1325,11 +1431,35 @@ func _physics_process(_delta: float) -> void:
 				_state_label.text = "▸  Flying"
 				_state_label.add_theme_color_override("font_color", UITheme.GREEN)
 
+	# GATE.T41.UI.CONTROL_HINTS.001: Detect first undock → show keybind hint overlay.
+	if not _control_hints_shown and _prev_ship_state == "DOCKED" and raw_state != "DOCKED" and raw_state != "":
+		_show_control_hints_v0()
+	_prev_ship_state = raw_state
+
 	# FEEL_POST_FIX_8: Hide combat HUD (zone armor + stance) during non-combat flight.
 	# FEEL_PASS6: Allow combat indicators during tutorial — player needs feedback when attacked.
 	var _in_combat_now: bool = raw_state != "DOCKED" and raw_state != "IN_LANE_TRANSIT" and _is_hostile_nearby()
 	if _combat_hud:
 		_combat_hud.visible = _in_combat_now
+
+	# GATE.T64.UI.COMBAT_VIGNETTE.001: Combat damage vignette when hull < 80%.
+	if _screen_edge_tint and _screen_edge_tint.has_method("set_combat_damage"):
+		if _in_combat_now and _bridge and _bridge.has_method("GetFleetStateV0"):
+			var fleet: Dictionary = _bridge.call("GetFleetStateV0")
+			var hull_hp: int = int(fleet.get("hull_hp", 100))
+			var hull_max: int = int(fleet.get("hull_max", 100))
+			if hull_max > 0:
+				var hull_ratio: float = float(hull_hp) / float(hull_max)
+				if hull_ratio < 0.8:
+					# Intensity ramps from 0 at 80% to 1.0 at 0%.
+					var intensity: float = 1.0 - (hull_ratio / 0.8)
+					_screen_edge_tint.set_combat_damage(true, intensity)
+				else:
+					_screen_edge_tint.set_combat_damage(false)
+			else:
+				_screen_edge_tint.set_combat_damage(false)
+		else:
+			_screen_edge_tint.set_combat_damage(false)
 
 	# FEEL_PASS2_P9: Combat engagement banner — show/hide with fade.
 	if _combat_banner:
@@ -1557,6 +1687,16 @@ func _physics_process(_delta: float) -> void:
 				_security_label.add_theme_color_override("font_color", UITheme.security_color(band))
 			else:
 				_security_label.visible = false
+
+	# GATE.T61.SECURITY.INCIDENT_LOG.001: Incident badge update.
+	if _incident_badge != null and _bridge != null and _bridge.has_method("GetUnreadIncidentCountV0"):
+		var unread: int = int(_bridge.call("GetUnreadIncidentCountV0", _incident_last_read_tick))
+		if unread > 0:
+			_incident_badge.visible = true
+			if _incident_badge_label:
+				_incident_badge_label.text = str(unread) if unread < 100 else "99+"
+		else:
+			_incident_badge.visible = false
 
 	# L3.3: Contested zone warning — show when current node is in an active warfront.
 	if _contested_label != null and _bridge != null:
@@ -2301,23 +2441,127 @@ func hide_gate_prompt_v0() -> void:
 
 
 # Truncate system names with multiple resource type tags.
+# ============================================================================
+# GATE.T41.UI.CONTROL_HINTS.001: First-undock keybind hint overlay
+# ============================================================================
+
+## Show the control hints overlay with fade-in. Auto-dismisses after 10 seconds.
+func _show_control_hints_v0() -> void:
+	_control_hints_shown = true
+	_control_hints_active = true
+	if _control_hints_panel == null:
+		return
+	_control_hints_panel.visible = true
+	_control_hints_panel.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(_control_hints_panel, "modulate:a", 1.0, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Auto-dismiss after 10 seconds.
+	tw.tween_interval(10.0)
+	tw.tween_callback(_dismiss_control_hints_v0)
+
+## Fade out and hide the control hints overlay.
+func _dismiss_control_hints_v0() -> void:
+	if not _control_hints_active:
+		return
+	_control_hints_active = false
+	if _control_hints_panel == null:
+		return
+	var tw := create_tween()
+	tw.tween_property(_control_hints_panel, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_callback(func(): _control_hints_panel.visible = false)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# GATE.T41.UI.CONTROL_HINTS.001: Dismiss control hints on any key/button press.
+	if _control_hints_active and (event is InputEventKey or event is InputEventMouseButton):
+		if event.pressed:
+			_dismiss_control_hints_v0()
+
+
 # "System 10 (RareMin)(Mining)..." → "System 10 (RareMin)..."
 # Mirrors GalaxyView.cs TruncateResourceTypesV0.
 # FEEL_BASELINE: Read transit destination name from GameManager autoload.
 func _build_keybind_hint_text() -> String:
+	# GATE.T65.UI.HUD_JUICE.001: Include flight controls (WASD/E/Tab) alongside panel shortcuts.
+	# Fixes fh_6 issue #9 (INVISIBLE_CONTROLS): player must discover WASD/E/Tab from HUD.
 	var input_mgr = get_node_or_null("/root/InputManager")
 	if input_mgr == null:
-		return "M Map | E Empire | F FO | K Web | L Log | D Data | B Auto | V Overlay"
+		return "WASD Move | E Dock | Tab Target | M Map | F FO | K Web | B Auto | V Overlay"
 	var parts: Array[String] = []
+	parts.append("WASD Move")
+	parts.append("E Dock")
+	parts.append("Tab Target")
 	parts.append("%s Map" % input_mgr.get_action_label("ui_galaxy_map"))
-	parts.append("%s Empire" % input_mgr.get_action_label("ui_empire_dashboard"))
 	parts.append("%s FO" % input_mgr.get_action_label("ui_fo_panel"))
 	parts.append("%s Web" % input_mgr.get_action_label("ui_knowledge_web"))
-	parts.append("%s Log" % input_mgr.get_action_label("ui_combat_log"))
-	parts.append("%s Data" % input_mgr.get_action_label("ui_data_log"))
 	parts.append("%s Auto" % input_mgr.get_action_label("ui_automation"))
 	parts.append("%s Overlay" % input_mgr.get_action_label("ui_data_overlay"))
 	return " | ".join(parts)
+
+
+# GATE.T63.UI.KEYBIND_OVERLAY.001: Build flight control hints panel.
+func _build_flight_hints_v0() -> void:
+	_flight_hints_panel = PanelContainer.new()
+	_flight_hints_panel.name = "FlightHints"
+	_flight_hints_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flight_hints_panel.position = Vector2(1560, 880)
+	_flight_hints_panel.modulate.a = 0.7
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.07, 0.12, 0.6)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	_flight_hints_panel.add_theme_stylebox_override("panel", style)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 3)
+	_flight_hints_panel.add_child(vbox)
+	# Define the flight hints.
+	var hints: Array = [
+		["WASD", "Move / strafe", "ship_thrust_fwd"],
+		["LMB", "Fire / fly-to", ""],
+		["R", "Target nearest", "combat_target_nearest"],
+		["Tab", "Cycle target", "combat_target_cycle"],
+		["E", "Dock at station", "ui_dock_confirm"],
+		["M", "Galaxy map", "ui_galaxy_map"],
+		["X", "Battle stations", "battle_stations"],
+		["C", "Cruise toggle", "cruise_toggle"],
+	]
+	for hint in hints:
+		var lbl := Label.new()
+		lbl.text = "[%s]  %s" % [hint[0], hint[1]]
+		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.add_theme_color_override("font_color", Color(0.5, 0.65, 0.8, 0.8))
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(lbl)
+		_flight_hint_labels[hint[2]] = lbl
+	add_child(_flight_hints_panel)
+
+
+# GATE.T63.UI.KEYBIND_OVERLAY.001: Dismiss hints as player uses each control.
+func _update_flight_hints_v0() -> void:
+	if _flight_hints_panel == null or not _flight_hints_panel.visible:
+		return
+	var any_visible: bool = false
+	for action in _flight_hint_labels:
+		if _flight_hints_dismissed.get(action, false):
+			continue
+		if action != "" and InputMap.has_action(action) and Input.is_action_pressed(action):
+			_flight_hints_dismissed[action] = true
+			var lbl: Label = _flight_hint_labels[action]
+			if lbl:
+				var tw := create_tween()
+				tw.tween_property(lbl, "modulate:a", 0.0, 0.3)
+		else:
+			any_visible = true
+	if not any_visible and _flight_hints_dismissed.size() >= _flight_hint_labels.size():
+		# All hints dismissed — fade out the panel.
+		var tw := create_tween()
+		tw.tween_property(_flight_hints_panel, "modulate:a", 0.0, 0.5)
+		tw.tween_callback(func(): _flight_hints_panel.visible = false)
 
 
 func _get_transit_dest_name() -> String:
@@ -2349,6 +2593,10 @@ func flash_damage_v0() -> void:
 	_damage_flash.color.a = 0.22
 	var tween := create_tween()
 	tween.tween_property(_damage_flash, "color:a", 0.0, 0.35)
+	# Record event for headless bot verification via GetRecentHudEventsV0
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("RecordHudEventV0"):
+		bridge.call("RecordHudEventV0", "damage_flash")
 
 # FEEL_POST_BASELINE: Check if combat is happening near the player.
 # Returns true if a hostile NPC is within 60u OR any fleet is within 25u (close engagement).
@@ -2494,10 +2742,15 @@ func show_arrival_drama_v0(system_name: String, faction_name: String) -> void:
 
 	var subtitle_text: String = ""
 	if not faction_name.is_empty():
-		subtitle_text = faction_name + " Territory"
+		subtitle_text = faction_name.capitalize() + " Territory"
 	_arrival_card_faction.text = subtitle_text
 	_arrival_card_faction.modulate.a = 0.0
 	_arrival_card_faction.visible = not subtitle_text.is_empty()
+
+	# GATE.T41.UI.FACTION_COLORS.001: Tint arrival subtitle with faction accent color.
+	if not faction_name.is_empty():
+		var faction_accent: Color = UITheme.get_faction_accent(faction_name)
+		_arrival_card_faction.add_theme_color_override("font_color", faction_accent)
 
 	# Tween sequence:
 	# 0.0-0.3s: bars slide in (60px each)
@@ -2558,6 +2811,143 @@ func _hide_arrival_drama_elements() -> void:
 	if _arrival_card_faction:
 		_arrival_card_faction.visible = false
 		_arrival_card_faction.modulate.a = 0.0
+
+# ============================================================================
+# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Station direction indicator on arrival
+# ============================================================================
+
+## Setup the station direction indicator elements (called once from _ready).
+func _setup_station_direction_v0() -> void:
+	# Container: centered horizontally, bottom third of screen (below arrival drama).
+	_station_dir_container = Control.new()
+	_station_dir_container.name = "StationDirContainer"
+	_station_dir_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_station_dir_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_station_dir_container.visible = false
+	add_child(_station_dir_container)
+
+	# Arrow label: large directional arrow character.
+	_station_dir_arrow = Label.new()
+	_station_dir_arrow.name = "StationDirArrow"
+	_station_dir_arrow.text = ">"
+	_station_dir_arrow.add_theme_font_size_override("font_size", 36)
+	_station_dir_arrow.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5, 1.0))
+	_station_dir_arrow.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.8))
+	_station_dir_arrow.add_theme_constant_override("shadow_offset_x", 2)
+	_station_dir_arrow.add_theme_constant_override("shadow_offset_y", 2)
+	_station_dir_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_station_dir_arrow.position = Vector2(860, 700)
+	_station_dir_arrow.size = Vector2(200, 50)
+	_station_dir_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_station_dir_container.add_child(_station_dir_arrow)
+
+	# Station name + distance label: below arrow.
+	_station_dir_label = Label.new()
+	_station_dir_label.name = "StationDirLabel"
+	_station_dir_label.text = ""
+	_station_dir_label.add_theme_font_size_override("font_size", 20)
+	_station_dir_label.add_theme_color_override("font_color", Color(0.6, 0.9, 0.7, 1.0))
+	_station_dir_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	_station_dir_label.add_theme_constant_override("shadow_offset_x", 1)
+	_station_dir_label.add_theme_constant_override("shadow_offset_y", 1)
+	_station_dir_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_station_dir_label.position = Vector2(760, 750)
+	_station_dir_label.size = Vector2(400, 30)
+	_station_dir_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_station_dir_container.add_child(_station_dir_label)
+
+## Show station direction indicator on arrival.
+## station_name: display name of the nearest station.
+## station_world_pos: 3D world position of the nearest station.
+func show_station_direction_v0(station_name: String, station_world_pos: Vector3) -> void:
+	if _station_dir_container == null:
+		return
+	# Kill existing tween.
+	hide_station_direction_v0()
+
+	_station_dir_target_pos = station_world_pos
+	_station_dir_active = true
+	_station_dir_label.text = "Nearest station: " + station_name
+	_station_dir_container.visible = true
+	_station_dir_container.modulate.a = 0.0
+
+	# Update arrow direction immediately.
+	_update_station_dir_arrow_v0()
+
+	# Tween: fade in over 0.5s, hold 3.5s (overlaps arrival drama), fade out over 0.5s.
+	_station_dir_tween = create_tween()
+	# Delay 0.8s to let arrival drama bars slide in first.
+	_station_dir_tween.tween_interval(0.8)
+	_station_dir_tween.tween_property(_station_dir_container, "modulate:a", 1.0, 0.5) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	_station_dir_tween.tween_interval(3.5)
+	_station_dir_tween.tween_property(_station_dir_container, "modulate:a", 0.0, 0.5) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	_station_dir_tween.tween_callback(_on_station_dir_done)
+
+## Hide station direction indicator immediately.
+func hide_station_direction_v0() -> void:
+	if _station_dir_tween and _station_dir_tween.is_valid():
+		_station_dir_tween.kill()
+		_station_dir_tween = null
+	_station_dir_active = false
+	if _station_dir_container:
+		_station_dir_container.visible = false
+		_station_dir_container.modulate.a = 0.0
+
+func _on_station_dir_done() -> void:
+	_station_dir_active = false
+	if _station_dir_container:
+		_station_dir_container.visible = false
+
+## Update the station direction arrow based on camera-relative direction.
+## Called each frame while the indicator is active.
+func _update_station_dir_arrow_v0() -> void:
+	if not _station_dir_active or _station_dir_container == null:
+		return
+	var camera: Camera3D = get_viewport().get_camera_3d() if get_viewport() else null
+	if camera == null:
+		return
+	# Project station position to screen space.
+	if not camera.is_position_behind(_station_dir_target_pos):
+		var screen_pos: Vector2 = camera.unproject_position(_station_dir_target_pos)
+		var vp_size: Vector2 = get_viewport().get_visible_rect().size
+		var center: Vector2 = vp_size * 0.5
+		var dir: Vector2 = (screen_pos - center).normalized()
+		# Choose arrow character based on dominant direction.
+		var arrow_char: String = _dir_to_arrow(dir)
+		if _station_dir_arrow:
+			_station_dir_arrow.text = arrow_char
+			# Position arrow between center and station screen pos (clamped to inner region).
+			var indicator_pos: Vector2 = center + dir * 180.0
+			_station_dir_arrow.position = Vector2(indicator_pos.x - 100.0, indicator_pos.y - 25.0)
+			_station_dir_label.position = Vector2(indicator_pos.x - 200.0, indicator_pos.y + 30.0)
+	else:
+		# Station is behind camera — point downward (camera is top-down).
+		if _station_dir_arrow:
+			_station_dir_arrow.text = "v"
+
+## Convert 2D direction vector to arrow character.
+func _dir_to_arrow(dir: Vector2) -> String:
+	var angle: float = dir.angle()
+	# 8-directional arrow selection.
+	if angle < -2.748 or angle > 2.748:
+		return "<"     # left
+	elif angle < -1.963:
+		return "<"     # upper-left
+	elif angle < -1.178:
+		return "^"     # up
+	elif angle < -0.393:
+		return ">"     # upper-right
+	elif angle < 0.393:
+		return ">"     # right
+	elif angle < 1.178:
+		return ">"     # lower-right
+	elif angle < 1.963:
+		return "v"     # down
+	elif angle < 2.748:
+		return "<"     # lower-left
+	return ">"
 
 # ============================================================================
 # GATE.S8.STORY_STATE.DELIVERY_UI.001: Revelation moment delivery
@@ -2720,7 +3110,7 @@ func _animate_credits_v0(target: int) -> void:
 
 func _set_credits_display(t: float, start: int, target: int) -> void:
 	_credits_display = int(lerpf(float(start), float(target), t))
-	_credits_label.text = "Credits: %s" % UITheme.fmt_credits(_credits_display)
+	_credits_label.text = "◆  %s" % UITheme.fmt_credits(_credits_display)
 
 ## Flash the credits label for trade feedback. Called externally by hero_trade_menu.
 ## is_profit: true = green flash (sell/income), false = red flash (buy/expense).
@@ -2728,11 +3118,28 @@ func flash_credits_v0(is_profit: bool) -> void:
 	if _credits_flash == null:
 		return
 	var flash_color := UITheme.profit_color() if is_profit else UITheme.loss_color()
-	_credits_flash.color = Color(flash_color.r, flash_color.g, flash_color.b, 0.35)
+	# GATE.T65.UI.HUD_JUICE.001: Brighter flash (0.5 alpha) + longer fade (0.8s).
+	# Fixes fh_6 issue #10 (SILENT_PROFIT): flash must be visible long enough to register.
+	_credits_flash.color = Color(flash_color.r, flash_color.g, flash_color.b, 0.5)
 	_credits_flash.visible = true
 	var tw := create_tween()
-	tw.tween_property(_credits_flash, "color:a", 0.0, 0.4).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_credits_flash, "color:a", 0.0, 0.8).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func(): _credits_flash.visible = false)
+	# Record event for headless bot verification via GetRecentHudEventsV0
+	var bridge = get_node_or_null("/root/SimBridge")
+	if bridge and bridge.has_method("RecordHudEventV0"):
+		bridge.call("RecordHudEventV0", "credits_flash", "profit" if is_profit else "expense")
+
+
+## GATE.T41.JUICE.TRADE_BUY.001: Roll credits counter from explicit start to end over 0.5s.
+## Called by hero_trade_menu after buy/sell to give a satisfying counter-roll effect.
+func roll_credits_v0(from_val: int, to_val: int) -> void:
+	if _credits_tween and _credits_tween.is_valid():
+		_credits_tween.kill()
+	_credits_display = from_val
+	_credits_tween = create_tween()
+	_credits_tween.tween_method(_set_credits_display.bind(from_val, to_val), 0.0, 1.0, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
 
 # ============================================================================
 # L2.2: GALAXY MAP LEGEND

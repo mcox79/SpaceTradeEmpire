@@ -562,6 +562,9 @@ public partial class SimBridge
                     exploreIndex = classDef.ScanRange + (classDef.BaseFuelCapacity / 10); // STRUCTURAL: /10 scale fuel
                 }
 
+                // GATE.T62.SHIP.ROSTER_UI.001: Insurance premium per cycle.
+                int premium = SimCore.Systems.InsuranceSystem.GetPremiumAmount(shipClassId);
+
                 var d = new Godot.Collections.Dictionary
                 {
                     ["ship_id"] = f.Id ?? "",
@@ -576,6 +579,8 @@ public partial class SimBridge
                     ["combat_index"] = combatIndex,
                     ["trade_index"] = tradeIndex,
                     ["explore_index"] = exploreIndex,
+                    // GATE.T62.SHIP.ROSTER_UI.001: Insurance premium.
+                    ["insurance_premium"] = premium,
                 };
 
                 result.Add(d);
@@ -817,7 +822,7 @@ public partial class SimBridge
             int cost = isDocked
                 ? (int)((long)baseCost * SimCore.Tweaks.FleetUpkeepTweaksV0.DockedMultiplierBps / SimCore.Tweaks.FleetUpkeepTweaksV0.BpsDivisor)
                 : baseCost;
-            if (cost <= 0) cost = 1;
+            // Zero-cost ships (e.g. shuttle) display 0 — no artificial floor.
 
             result["upkeep_cost"] = cost;
             result["is_docked"] = isDocked;
@@ -1119,6 +1124,69 @@ public partial class SimBridge
             }
         }, 0);
         return result;
+    }
+
+    // GATE.T62.LOSS.BRIDGE.001: Get respawn state after player death.
+    // Returns {respawn_pending, respawn_count, insurance_payout, replacement_options[]}.
+    public Godot.Collections.Dictionary GetRespawnStateV0()
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["respawn_pending"] = false,
+            ["respawn_count"] = 0,
+            ["insurance_payout"] = 0,
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            result["respawn_pending"] = state.PlayerRespawnPending;
+            result["respawn_count"] = state.PlayerRespawnCount;
+
+            // Get hero fleet for insurance calculation.
+            if (state.Fleets.TryGetValue("fleet_trader_1", out var heroFleet))
+            {
+                result["insurance_payout"] = SimCore.Systems.InsuranceSystem.CalculatePayout(heroFleet.ShipClassId);
+                result["current_ship_class"] = heroFleet.ShipClassId;
+                var classDef = SimCore.Content.ShipClassContentV0.GetById(heroFleet.ShipClassId);
+                result["current_ship_name"] = classDef?.DisplayName ?? heroFleet.ShipClassId;
+            }
+
+            // Replacement options: stored ships in Haven hangar.
+            var options = new Godot.Collections.Array();
+            foreach (var kv in state.Fleets.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var fleet = kv.Value;
+                if (!string.Equals(fleet.OwnerId, "player", StringComparison.Ordinal)) continue;
+                if (!fleet.IsStored) continue;
+
+                var cd = SimCore.Content.ShipClassContentV0.GetById(fleet.ShipClassId);
+                options.Add(new Godot.Collections.Dictionary
+                {
+                    ["fleet_id"] = fleet.Id,
+                    ["ship_class_id"] = fleet.ShipClassId,
+                    ["display_name"] = cd?.DisplayName ?? fleet.ShipClassId,
+                    ["hull_hp"] = fleet.HullHp,
+                    ["hull_hp_max"] = fleet.HullHpMax,
+                });
+            }
+            result["replacement_options"] = options;
+        }, 0);
+
+        return result;
+    }
+
+    // GATE.T62.LOSS.BRIDGE.001: Clear respawn pending flag after player selects a replacement ship.
+    public void ClearRespawnV0()
+    {
+        _stateLock.EnterWriteLock();
+        try
+        {
+            _kernel.State.PlayerRespawnPending = false;
+        }
+        finally
+        {
+            _stateLock.ExitWriteLock();
+        }
     }
 
 }

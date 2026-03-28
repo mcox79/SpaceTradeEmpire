@@ -6,10 +6,28 @@
 #   powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Seeds 42,99,1001
 #   powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems
 param(
-    [int[]]$Seeds = @(42, 99, 1001, 31337, 77777),
+    [string[]]$Seeds = @("42", "99", "1001", "31337", "77777"),
     [string]$Mode = "headless",
     [string]$Script = "first_hour"  # "first_hour" or "deep_systems"
 )
+
+# Robust seed parsing: handles -Seeds "42,99,1001" (single comma-separated string)
+# as well as -Seeds 42,99,1001 (PS array) and -Seeds @(42,99) (explicit array).
+$parsedSeeds = @()
+foreach ($s in $Seeds) {
+    foreach ($part in ($s -split ',')) {
+        $trimmed = $part.Trim()
+        if ($trimmed -match '^\d+$') {
+            $parsedSeeds += [int]$trimmed
+        }
+    }
+}
+if ($parsedSeeds.Count -eq 0) {
+    Write-Host "ERROR: No valid seeds parsed from: $Seeds"
+    exit 1
+}
+$Seeds = $parsedSeeds
+Write-Host "Seeds: $($Seeds -join ', ') ($($Seeds.Count) total)"
 
 $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -202,6 +220,249 @@ if ($goalScores.Count -gt 0) {
         }
     }
 }
+# === Cross-Seed Variance Report (per-metric comparison table) ===
+Write-Host ""
+Write-Host "=== Cross-Seed Variance Table ==="
+
+# Parse per-seed metrics from captured stdout
+$perSeedGoals = @{}       # seed → hashtable of goal_name → score
+$perSeedPassCounts = @{}  # seed → int
+$perSeedFailCounts = @{}  # seed → int
+$perSeedFlags = @{}       # seed → list of flag strings
+$perSeedFps = @{}         # seed → hashtable (min, avg, max)
+$perSeedEvents = @{}      # seed → list of event strings
+$perSeedDeadZones = @{}   # seed → list of dead zone strings
+
+foreach ($seed in $Seeds) {
+    $stdout = $seedStdouts[$seed]
+    if (-not $stdout) { continue }
+
+    # Assertion counts
+    $perSeedPassCounts[$seed] = ([regex]::Matches($stdout, "$assertPrefix\|ASSERT_PASS")).Count
+    $perSeedFailCounts[$seed] = ([regex]::Matches($stdout, "$assertPrefix\|ASSERT_FAIL")).Count
+
+    # Goal scores from GOAL lines: FH1|GOAL|name=value or EXP|GOAL|name=value
+    $perSeedGoals[$seed] = @{}
+    $goalMatches = [regex]::Matches($stdout, "(?:$assertPrefix|EXP)\|GOAL\|(\w+)=(\d+)")
+    foreach ($gm in $goalMatches) {
+        $perSeedGoals[$seed][$gm.Groups[1].Value] = [int]$gm.Groups[2].Value
+    }
+    # Also capture from REPORT|SCORES line
+    if ($stdout -match "REPORT\|SCORES\|(.+)") {
+        $scoreStr = $Matches[1]
+        $scoreStr -split '\s+' | ForEach-Object {
+            if ($_ -match '^(\w+)=(\d+)$') {
+                $perSeedGoals[$seed][$Matches[1]] = [int]$Matches[2]
+            }
+        }
+    }
+
+    # Flags: FH1|FLAG|xxx or EXP|FLAG|xxx
+    $perSeedFlags[$seed] = @()
+    $flagMatches = [regex]::Matches($stdout, "(?:$assertPrefix|EXP)\|FLAG\|(.+)")
+    foreach ($fm in $flagMatches) {
+        $perSeedFlags[$seed] += $fm.Groups[1].Value.Trim()
+    }
+
+    # FPS data: EXP|PERF|fps_min=X|fps_avg=Y|fps_max=Z (or similar)
+    $perSeedFps[$seed] = @{}
+    if ($stdout -match "EXP\|PERF\|fps_min=([\d\.]+)") { $perSeedFps[$seed]["min"] = $Matches[1] }
+    if ($stdout -match "EXP\|PERF\|fps_avg=([\d\.]+)") { $perSeedFps[$seed]["avg"] = $Matches[1] }
+    if ($stdout -match "EXP\|PERF\|fps_max=([\d\.]+)") { $perSeedFps[$seed]["max"] = $Matches[1] }
+    # Also try single-line format: EXP|PERF|min=X|avg=Y|max=Z
+    if ($stdout -match "EXP\|PERF\|min=([\d\.]+)\|avg=([\d\.]+)\|max=([\d\.]+)") {
+        $perSeedFps[$seed]["min"] = $Matches[1]
+        $perSeedFps[$seed]["avg"] = $Matches[2]
+        $perSeedFps[$seed]["max"] = $Matches[3]
+    }
+
+    # Decision events: EXP|EVENT|xxx
+    $perSeedEvents[$seed] = @()
+    $eventMatches = [regex]::Matches($stdout, "EXP\|EVENT\|(.+)")
+    foreach ($em in $eventMatches) {
+        $perSeedEvents[$seed] += $em.Groups[1].Value.Trim()
+    }
+
+    # Dead zones: EXP|DEAD_ZONE|xxx
+    $perSeedDeadZones[$seed] = @()
+    $dzMatches = [regex]::Matches($stdout, "EXP\|DEAD_ZONE\|(.+)")
+    foreach ($dz in $dzMatches) {
+        $perSeedDeadZones[$seed] += $dz.Groups[1].Value.Trim()
+    }
+}
+
+# Build seed column headers
+$seedHeaders = ($Seeds | ForEach-Object { "seed_$_" }) -join "|"
+Write-Host "SEED_VARIANCE|metric|$seedHeaders|range|verdict"
+
+# Helper: emit a variance row
+function Write-VarianceRow {
+    param([string]$MetricName, [hashtable]$SeedValues, [int[]]$SeedList, [double]$HighVarianceThreshold)
+    $vals = @()
+    $colStrs = @()
+    foreach ($s in $SeedList) {
+        if ($SeedValues.ContainsKey($s)) {
+            $v = $SeedValues[$s]
+            $vals += [double]$v
+            $colStrs += "$v"
+        } else {
+            $colStrs += "-"
+        }
+    }
+    if ($vals.Count -ge 2) {
+        $mn = ($vals | Measure-Object -Minimum).Minimum
+        $mx = ($vals | Measure-Object -Maximum).Maximum
+        $range = $mx - $mn
+        $verdict = if ($range -gt $HighVarianceThreshold) { "HIGH_VARIANCE" } else { "OK" }
+        $colStr = $colStrs -join "|"
+        Write-Host "SEED_VARIANCE|$MetricName|$colStr|$range|$verdict"
+    } else {
+        $colStr = $colStrs -join "|"
+        Write-Host "SEED_VARIANCE|$MetricName|$colStr|-|INSUFFICIENT_DATA"
+    }
+}
+
+# Assertion pass counts
+$assertPassVals = @{}
+foreach ($s in $Seeds) { if ($perSeedPassCounts.ContainsKey($s)) { $assertPassVals[$s] = $perSeedPassCounts[$s] } }
+Write-VarianceRow -MetricName "assert_pass" -SeedValues $assertPassVals -SeedList $Seeds -HighVarianceThreshold 10
+
+# Assertion fail counts
+$assertFailVals = @{}
+$anyFail = $false
+foreach ($s in $Seeds) {
+    if ($perSeedFailCounts.ContainsKey($s)) {
+        $assertFailVals[$s] = $perSeedFailCounts[$s]
+        if ($perSeedFailCounts[$s] -gt 0) { $anyFail = $true }
+    }
+}
+$failColStrs = @()
+foreach ($s in $Seeds) {
+    if ($assertFailVals.ContainsKey($s)) { $failColStrs += "$($assertFailVals[$s])" } else { $failColStrs += "-" }
+}
+$failVerdict = if ($anyFail) { "CRITICAL" } else { "OK" }
+$failColStr = $failColStrs -join "|"
+$failVals = @($assertFailVals.Values)
+$failRange = if ($failVals.Count -ge 2) { ($failVals | Measure-Object -Maximum).Maximum - ($failVals | Measure-Object -Minimum).Minimum } else { 0 }
+Write-Host "SEED_VARIANCE|assert_fail|$failColStr|$failRange|$failVerdict"
+
+# Goal scores — one row per goal metric
+$allGoalKeys = @{}
+foreach ($s in $Seeds) {
+    if ($perSeedGoals.ContainsKey($s)) {
+        foreach ($k in $perSeedGoals[$s].Keys) { $allGoalKeys[$k] = $true }
+    }
+}
+foreach ($gk in ($allGoalKeys.Keys | Sort-Object)) {
+    $gVals = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedGoals.ContainsKey($s) -and $perSeedGoals[$s].ContainsKey($gk)) {
+            $gVals[$s] = $perSeedGoals[$s][$gk]
+        }
+    }
+    Write-VarianceRow -MetricName "goal_$gk" -SeedValues $gVals -SeedList $Seeds -HighVarianceThreshold 2
+}
+
+# Flag counts per seed
+$flagCountVals = @{}
+foreach ($s in $Seeds) {
+    if ($perSeedFlags.ContainsKey($s)) { $flagCountVals[$s] = $perSeedFlags[$s].Count }
+}
+Write-VarianceRow -MetricName "flag_count" -SeedValues $flagCountVals -SeedList $Seeds -HighVarianceThreshold 3
+
+# FPS avg (if available)
+$hasFps = $false
+foreach ($s in $Seeds) {
+    if ($perSeedFps.ContainsKey($s) -and $perSeedFps[$s].Count -gt 0) { $hasFps = $true; break }
+}
+if ($hasFps) {
+    $fpsAvgVals = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedFps.ContainsKey($s) -and $perSeedFps[$s].ContainsKey("avg")) {
+            $fpsAvgVals[$s] = [double]$perSeedFps[$s]["avg"]
+        }
+    }
+    Write-VarianceRow -MetricName "fps_avg" -SeedValues $fpsAvgVals -SeedList $Seeds -HighVarianceThreshold 15
+
+    $fpsMinVals = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedFps.ContainsKey($s) -and $perSeedFps[$s].ContainsKey("min")) {
+            $fpsMinVals[$s] = [double]$perSeedFps[$s]["min"]
+        }
+    }
+    Write-VarianceRow -MetricName "fps_min" -SeedValues $fpsMinVals -SeedList $Seeds -HighVarianceThreshold 20
+}
+
+# Event counts per seed (if available)
+$hasEvents = $false
+foreach ($s in $Seeds) {
+    if ($perSeedEvents.ContainsKey($s) -and $perSeedEvents[$s].Count -gt 0) { $hasEvents = $true; break }
+}
+if ($hasEvents) {
+    $eventCountVals = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedEvents.ContainsKey($s)) { $eventCountVals[$s] = $perSeedEvents[$s].Count }
+    }
+    Write-VarianceRow -MetricName "event_count" -SeedValues $eventCountVals -SeedList $Seeds -HighVarianceThreshold 5
+}
+
+# Dead zone counts per seed (if available)
+$hasDeadZones = $false
+foreach ($s in $Seeds) {
+    if ($perSeedDeadZones.ContainsKey($s) -and $perSeedDeadZones[$s].Count -gt 0) { $hasDeadZones = $true; break }
+}
+if ($hasDeadZones) {
+    $dzCountVals = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedDeadZones.ContainsKey($s)) { $dzCountVals[$s] = $perSeedDeadZones[$s].Count }
+    }
+    Write-VarianceRow -MetricName "dead_zone_count" -SeedValues $dzCountVals -SeedList $Seeds -HighVarianceThreshold 2
+    # List unique dead zones
+    $allDz = @{}
+    foreach ($s in $Seeds) {
+        if ($perSeedDeadZones.ContainsKey($s)) {
+            foreach ($dz in $perSeedDeadZones[$s]) { $allDz[$dz] = $true }
+        }
+    }
+    if ($allDz.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  Dead zones observed: $(($allDz.Keys | Sort-Object) -join ', ')"
+    }
+}
+
+# Unique flags across all seeds
+$allFlagSet = @{}
+foreach ($s in $Seeds) {
+    if ($perSeedFlags.ContainsKey($s)) {
+        foreach ($f in $perSeedFlags[$s]) { $allFlagSet[$f] = $true }
+    }
+}
+if ($allFlagSet.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  Flags observed: $(($allFlagSet.Keys | Sort-Object) -join ', ')"
+}
+
+# Variance summary
+$highVarCount = 0
+$criticalCount = 0
+# Re-check goal ranges for HIGH_VARIANCE count
+foreach ($gk in ($allGoalKeys.Keys | Sort-Object)) {
+    $gvs = @()
+    foreach ($s in $Seeds) {
+        if ($perSeedGoals.ContainsKey($s) -and $perSeedGoals[$s].ContainsKey($gk)) {
+            $gvs += [double]$perSeedGoals[$s][$gk]
+        }
+    }
+    if ($gvs.Count -ge 2) {
+        $gr = ($gvs | Measure-Object -Maximum).Maximum - ($gvs | Measure-Object -Minimum).Minimum
+        if ($gr -gt 2) { $highVarCount++ }
+    }
+}
+if ($anyFail) { $criticalCount++ }
+
+$varianceVerdict = if ($criticalCount -gt 0) { "CRITICAL" } elseif ($highVarCount -gt 0) { "NEEDS_ATTENTION" } else { "STABLE" }
+Write-Host ""
+Write-Host "VARIANCE_SUMMARY|high_variance_metrics=$highVarCount|critical=$criticalCount|verdict=$varianceVerdict"
 Write-Host ""
 
 if ($totalFailed -gt 0) {

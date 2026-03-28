@@ -19,7 +19,7 @@ public static class MarketInitGen
         for (int i = 0; i < nodesList.Count; i++)
         {
             var node = nodesList[i];
-            var mkt = new Market { Id = node.MarketId };
+            var mkt = new Market { Id = node.MarketId, Depth = MarketDepthTweaksV0.BaseDepth };
 
             // Seed fuel/metal/ore inventory keys for deterministic price publishing.
             mkt.Inventory[WellKnownGoodIds.Fuel]  = CatalogTweaksV0.FuelInitialStock;
@@ -87,15 +87,21 @@ public static class MarketInitGen
                     mkt.Inventory[WellKnownGoodIds.Fuel] = 120;
                     mkt.Inventory[WellKnownGoodIds.Ore] = 500;
                     mkt.Inventory[WellKnownGoodIds.Metal] = 10;
-                    // GATE.T53.BOT.MARKET_SEED.001: Seed manufactured goods at starter nodes
-                    // so haven upgrade materials are available in the first hour.
-                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterMiningComposites;
-                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterMiningElectronics;
+                    // GATE.T41.ECON.PRICE_VARIANCE.001: Per-node variance for manufactured goods.
+                    // fh_4: PRICE_IDENTICAL between adjacent starters. Use geoHash to alternate
+                    // specialization — high composites/low electronics or vice versa — ensuring
+                    // >=20% price differential on adjacent starters for manufactured goods.
+                    int mfgVar = geoHash % CatalogTweaksV0.StarterVarianceModulus;
+                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterMiningComposites
+                        + (mfgVar * CatalogTweaksV0.StarterVarianceStepComposites);
+                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterMiningElectronics
+                        + ((CatalogTweaksV0.StarterVarianceModulus - mfgVar) * CatalogTweaksV0.StarterVarianceStepElectronics);
                     mkt.Inventory[WellKnownGoodIds.RareMetals] =
                         Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.RareMetals), CatalogTweaksV0.StarterMiningRareMetals);
                     // GATE.T55.ECON.FACTORY_BUFFER.001: Seed exotic crystals for rare metals refinery bootstrap.
                     mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
-                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.StarterExoticCrystals);
+                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals),
+                            CatalogTweaksV0.StarterExoticCrystals + (mfgVar * CatalogTweaksV0.StarterVarianceStepExotics));
                 }
                 else
                 {
@@ -132,12 +138,17 @@ public static class MarketInitGen
                     mkt.Inventory[WellKnownGoodIds.Fuel] = CatalogTweaksV0.StarterRefineryFuel;
                     mkt.Inventory[WellKnownGoodIds.Ore] = STRUCT_ZERO_STOCK;
                     mkt.Inventory[WellKnownGoodIds.Metal] = CatalogTweaksV0.StarterRefineryMetal;
-                    // GATE.T53.BOT.MARKET_SEED.001: Seed manufactured goods at starter nodes.
-                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterRefineryComposites;
-                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterRefineryElectronics;
+                    // GATE.T41.ECON.PRICE_VARIANCE.001: Inverse variance for refinery starters.
+                    // Refinery specializes opposite to adjacent mining nodes.
+                    int mfgVar = geoHash % CatalogTweaksV0.StarterVarianceModulus;
+                    mkt.Inventory[WellKnownGoodIds.Composites] = CatalogTweaksV0.StarterRefineryComposites
+                        + ((CatalogTweaksV0.StarterVarianceModulus - mfgVar) * CatalogTweaksV0.StarterVarianceStepComposites);
+                    mkt.Inventory[WellKnownGoodIds.Electronics] = CatalogTweaksV0.StarterRefineryElectronics
+                        + (mfgVar * CatalogTweaksV0.StarterVarianceStepElectronics);
                     // GATE.T55.ECON.FACTORY_BUFFER.001: Seed exotic crystals for rare metals refinery bootstrap.
                     mkt.Inventory[WellKnownGoodIds.ExoticCrystals] =
-                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals), CatalogTweaksV0.StarterExoticCrystals);
+                        Math.Max(mkt.Inventory.GetValueOrDefault(WellKnownGoodIds.ExoticCrystals),
+                            CatalogTweaksV0.StarterExoticCrystals + ((CatalogTweaksV0.StarterVarianceModulus - mfgVar) * CatalogTweaksV0.StarterVarianceStepExotics));
                 }
                 else
                 {
@@ -458,14 +469,10 @@ public static class MarketInitGen
                 neighborMarket.Inventory.GetValueOrDefault(goodId),
                 Tweaks.MarketTweaksV0.StarterLowStock);
 
-            // Post-validate: if still below target, force extreme stock levels.
-            int newBuy = startMarket.GetBuyPrice(goodId);
-            int newSell = neighborMarket.GetSellPrice(goodId);
-            if (newSell - newBuy < minTargetMargin)
-            {
-                startMarket.Inventory[goodId] = Tweaks.MarketTweaksV0.StarterHighStock * 2;
-                neighborMarket.Inventory[goodId] = 1;
-            }
+            // GATE.T64.ECON.ELECTRONICS_FIX.001: Removed nuclear post-validate fallback
+            // (was: double stock + set to 1). Softer StarterHighStock/LowStock values
+            // now produce reasonable margins for high-value goods. Low-value goods
+            // may have margins < MinStarterMargin — that's economically correct.
         }
 
         // Second pass: ensure buy prices at start are low enough for ≥3 unit purchases.

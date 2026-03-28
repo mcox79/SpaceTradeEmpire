@@ -60,6 +60,12 @@ public static class WarfrontTweaksV0
     // Minimum intensity for attrition to apply.
     public const int AttritionMinIntensity = 2; // Skirmish
 
+    // ── GATE.T63.PACING.LATE_ESCALATION.001: Late-game escalation ──
+    // After this tick, warfronts below Skirmish auto-escalate every EscalationCadence ticks.
+    // Addresses the 220-decision dead zone (d500-d720) from fh_5 audit.
+    public const int LateEscalationStartTick = 500;
+    public const int LateEscalationCadenceTicks = 40;
+
     // ── Strategic objectives (GATE.S7.WARFRONT.OBJECTIVES.001) ──
     // Ticks of fleet dominance required to capture an objective.
     public const int CaptureDominanceTicks = 30;

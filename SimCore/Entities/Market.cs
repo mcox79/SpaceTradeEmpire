@@ -13,6 +13,19 @@ public class Market
     // Empty means no permit is required.
     public string RequiresPermitUnlockId { get; set; } = "";
 
+    // GATE.T61.MARKET.DEPTH_MODEL.001: Market depth (liquidity).
+    // Represents how many units the market can absorb before prices move significantly.
+    // Consumed by trades, recovers toward BaseDepth over time.
+    public int Depth { get; set; }
+
+    // GATE.T61.MARKET.BID_ASK.001: Volatility score (bps).
+    // Increases with each trade, decays per tick. High values widen bid/ask spread.
+    public int VolatilityScore { get; set; }
+
+    // GATE.T61.MARKET.PRICE_SMOOTH.001: Last tick a trade occurred at this market.
+    // Used for depth inactivity decay — markets with no trades slowly lose depth.
+    public int LastTradeTick { get; set; }
+
     // INVENTORY: Raw goods storage
     public Dictionary<string, int> Inventory { get; set; } = new();
 
@@ -154,12 +167,20 @@ public class Market
         foreach (var goodId in goods)
         {
             int mid = GetMidPrice(goodId);
-            int buy = GetBuyPrice(goodId);
-            int sell = GetSellPrice(goodId);
+
+            // GATE.T61.MARKET.PRICE_SMOOTH.001: EMA smoothing on published mid.
+            // SmoothedMid = alpha * rawMid + (1-alpha) * prevSmoothedMid.
+            int alpha = Tweaks.MarketDepthTweaksV0.SmoothingAlphaBps;
+            if (PublishedMid.TryGetValue(goodId, out int prevMid) && prevMid > 0)
+                mid = (int)((long)mid * alpha / 10000 + (long)prevMid * (10000 - alpha) / 10000);
+            mid = Math.Max(1, mid);
+
+            int buy = mid + (ComputeSpread(mid) / 2);
+            int sell = mid - (ComputeSpread(mid) / 2);
 
             PublishedMid[goodId] = mid;
-            PublishedBuy[goodId] = buy;
-            PublishedSell[goodId] = sell;
+            PublishedBuy[goodId] = Math.Max(1, buy);
+            PublishedSell[goodId] = Math.Max(1, sell);
         }
 
         LastPublishedBucket = bucket;

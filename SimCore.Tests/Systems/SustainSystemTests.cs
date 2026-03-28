@@ -160,6 +160,7 @@ public sealed class SustainSystemTests
     public void AutoRefuel_IdleAtNode_TopsUpTank()
     {
         var state = CreateMinimalState();
+        state.PlayerCredits = 5000; // Enough to cover full refuel (490 × 3 cr/unit).
         var fleet = CreateFleet("fleet_1", "node_a", 10);
         fleet.State = FleetState.Idle;
         state.Fleets["fleet_1"] = fleet;

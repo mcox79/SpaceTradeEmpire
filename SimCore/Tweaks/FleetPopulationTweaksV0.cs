@@ -86,12 +86,39 @@ public static class FleetPopulationTweaksV0
     public const string FallbackHaulerClassId = "hauler";
     public const string FallbackPatrolClassId = "corvette";
 
+    // GATE.T62.SHIP.NPC_FACTION_FLEET.001: Role-aware variant selection.
+    // Returns variants preferred for a specific fleet role.
+    // Patrol → combat variants (higher hull/damage), Hauler → cargo variants, Trader → all.
+    public static string[] GetRoleVariants(string factionId, FleetRole role)
+    {
+        return (factionId, role) switch
+        {
+            (FactionTweaksV0.ConcordId,   FleetRole.Patrol) => new[] { "watchman", "sentinel" },
+            (FactionTweaksV0.ConcordId,   FleetRole.Hauler) => new[] { "guardian" },
+            (FactionTweaksV0.ChitinId,    FleetRole.Patrol) => new[] { "gambit" },
+            (FactionTweaksV0.ChitinId,    FleetRole.Hauler) => new[] { "wager" },
+            (FactionTweaksV0.WeaversId,   FleetRole.Patrol) => new[] { "loom" },
+            (FactionTweaksV0.WeaversId,   FleetRole.Hauler) => new[] { "spindle" },
+            (FactionTweaksV0.ValorinId,   FleetRole.Patrol) => new[] { "fang", "raider" },
+            (FactionTweaksV0.ValorinId,   FleetRole.Hauler) => new[] { "runner" },
+            (FactionTweaksV0.CommunionId, FleetRole.Patrol) => new[] { "pilgrim" },
+            (FactionTweaksV0.CommunionId, FleetRole.Hauler) => new[] { "wanderer" },
+            _ => GetFactionVariants(factionId), // Trader + unknown → any variant
+        };
+    }
+
     // Deterministically pick a ship class for a faction fleet.
+    // GATE.T62.SHIP.NPC_FACTION_FLEET.001: Role-aware selection — prefer role-appropriate variants.
     // If the faction has variants, hashes the fleetId to pick one (FNV-1a).
     // Otherwise, returns a role-appropriate generic base class.
     public static string PickShipClass(string factionId, string fleetId, FleetRole role)
     {
-        var variants = GetFactionVariants(factionId);
+        var variants = GetRoleVariants(factionId, role);
+        if (variants.Length == 0)
+        {
+            // Fallback: try all faction variants before generic base.
+            variants = GetFactionVariants(factionId);
+        }
         if (variants.Length == 0)
         {
             return role switch

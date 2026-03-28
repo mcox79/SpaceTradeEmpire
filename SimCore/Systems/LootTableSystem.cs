@@ -31,6 +31,34 @@ public static class LootTableSystem
         else
             rarity = LootRarity.Epic;
 
+        // GATE.T64.COMBAT.PITY_JACKPOT.001: Pity timer + jackpot override.
+        if (state.PlayerStats != null)
+        {
+            // Jackpot: every Nth kill forces Rare+.
+            if (LootTweaksV0.JackpotKillInterval > 0
+                && state.PlayerStats.NpcFleetsDestroyed > 0
+                && state.PlayerStats.NpcFleetsDestroyed % LootTweaksV0.JackpotKillInterval == 0
+                && rarity < LootRarity.Rare)
+            {
+                rarity = LootRarity.Rare;
+            }
+
+            // Pity: after N consecutive commons, force Uncommon+.
+            if (rarity == LootRarity.Common)
+            {
+                state.PlayerStats.ConsecutiveCommonLootCount++;
+                if (state.PlayerStats.ConsecutiveCommonLootCount >= LootTweaksV0.PityThreshold)
+                {
+                    rarity = LootRarity.Uncommon;
+                    state.PlayerStats.ConsecutiveCommonLootCount = 0;
+                }
+            }
+            else
+            {
+                state.PlayerStats.ConsecutiveCommonLootCount = 0;
+            }
+        }
+
         var drop = new LootDrop
         {
             Id = $"loot_{fleetId}_{state.Tick}",
@@ -44,7 +72,10 @@ public static class LootTableSystem
         switch (rarity)
         {
             case LootRarity.Common:
-                drop.Credits = LootTweaksV0.CommonCreditsMin + (int)(rewardHash % (ulong)LootTweaksV0.CommonCreditsRange);
+                // Common: goods only (salvage is THINGS, not magic money).
+                int comGoodIdx = (int)(rewardHash % (ulong)LootTweaksV0.CommonGoodsPool.Length);
+                int comQty = LootTweaksV0.CommonGoodsQtyMin + (int)((rewardHash >> 8) % (ulong)LootTweaksV0.CommonGoodsRange);
+                drop.Goods[LootTweaksV0.CommonGoodsPool[comGoodIdx]] = comQty;
                 break;
 
             case LootRarity.Uncommon:
@@ -54,11 +85,19 @@ public static class LootTableSystem
                 break;
 
             case LootRarity.Rare:
+                // Valuable tech salvage + modest credits from encrypted data cores.
                 drop.Credits = LootTweaksV0.RareCreditsMin + (int)(rewardHash % (ulong)LootTweaksV0.RareCreditsRange);
+                int rareIdx = (int)((rewardHash >> 8) % (ulong)LootTweaksV0.RareGoodsPool.Length);
+                int rareQty = LootTweaksV0.RareGoodsQtyMin + (int)((rewardHash >> 16) % (ulong)LootTweaksV0.RareGoodsRange);
+                drop.Goods[LootTweaksV0.RareGoodsPool[rareIdx]] = rareQty;
                 break;
 
             case LootRarity.Epic:
+                // Exotic materials from advanced ships + credits from intact data vaults.
                 drop.Credits = LootTweaksV0.EpicCreditsMin + (int)(rewardHash % (ulong)LootTweaksV0.EpicCreditsRange);
+                int epicIdx = (int)((rewardHash >> 8) % (ulong)LootTweaksV0.EpicGoodsPool.Length);
+                int epicQty = LootTweaksV0.EpicGoodsQtyMin + (int)((rewardHash >> 16) % (ulong)LootTweaksV0.EpicGoodsRange);
+                drop.Goods[LootTweaksV0.EpicGoodsPool[epicIdx]] = epicQty;
                 break;
         }
 
@@ -96,6 +135,120 @@ public static class LootTableSystem
         };
         drop.Goods[Content.WellKnownGoodIds.SalvagedTech] = techQty;
         drop.Goods[Content.WellKnownGoodIds.RareMetals] = metalsQty;
+
+        state.LootDrops[drop.Id] = drop;
+    }
+
+    /// <summary>
+    /// GATE.T61.SALVAGE.LOOT_TABLE.001: Role-based salvage loot from destroyed NPC fleet.
+    /// Considers fleet role (trader/patrol/hauler), equipment count, and cargo spillage.
+    /// Called from NpcFleetCombatSystem when a non-pirate fleet is destroyed.
+    /// </summary>
+    public static void RollSalvageLoot(SimState state, Fleet fleet, string nodeId)
+    {
+        if (state is null || fleet is null) return;
+
+        string fleetId = fleet.Id;
+        ulong hash = Fnv1a64(fleetId + "_salvage_" + state.Tick);
+
+        // Determine role from fleet properties (deterministic).
+        bool isPatrol = fleet.Slots.Count > 0 && fleet.Slots.Any(s =>
+            s.SlotKind == Entities.SlotKind.Weapon && !string.IsNullOrEmpty(s.InstalledModuleId));
+        bool isHauler = fleet.Cargo.Values.Sum() > 0;
+        // Default to trader if not patrol or hauler.
+
+        int creditsMin, creditsMax, techMin, techMax;
+        if (isPatrol)
+        {
+            creditsMin = SalvageTweaksV0.PatrolCreditsMin;
+            creditsMax = SalvageTweaksV0.PatrolCreditsMax;
+            techMin = SalvageTweaksV0.PatrolSalvageTechMin;
+            techMax = SalvageTweaksV0.PatrolSalvageTechMax;
+        }
+        else if (isHauler)
+        {
+            creditsMin = SalvageTweaksV0.HaulerCreditsMin;
+            creditsMax = SalvageTweaksV0.HaulerCreditsMax;
+            techMin = SalvageTweaksV0.HaulerSalvageTechMin;
+            techMax = SalvageTweaksV0.HaulerSalvageTechMax;
+        }
+        else
+        {
+            creditsMin = SalvageTweaksV0.TraderCreditsMin;
+            creditsMax = SalvageTweaksV0.TraderCreditsMax;
+            techMin = SalvageTweaksV0.TraderSalvageTechMin;
+            techMax = SalvageTweaksV0.TraderSalvageTechMax;
+        }
+
+        // Equipment bonus: more modules = more credits.
+        int moduleCount = fleet.Slots.Count(s => !string.IsNullOrEmpty(s.InstalledModuleId));
+        int equipBonusBps = moduleCount * SalvageTweaksV0.EquipmentBonusBpsPerModule;
+
+        int creditsRange = creditsMax - creditsMin + 1; // STRUCTURAL: +1 for inclusive range
+        int credits = creditsMin + (int)(hash % (ulong)creditsRange);
+        if (equipBonusBps > 0)
+            credits = (int)((long)credits * (10000 + equipBonusBps) / 10000);
+
+        // Salvaged tech drop.
+        ulong hash2 = Fnv1a64(fleetId + "_salvage_tech_" + state.Tick);
+        int techRange = techMax - techMin + 1; // STRUCTURAL: +1 for inclusive range
+        int techQty = techRange > 0 ? techMin + (int)(hash2 % (ulong)techRange) : 0;
+
+        // Rarity: base Common, upgrade chance per module.
+        LootRarity rarity = LootRarity.Common;
+        if (moduleCount > 0)
+        {
+            int upgradeChance = moduleCount * SalvageTweaksV0.RarityUpgradeBpsPerModule;
+            int rarityRoll = (int)(hash % 10000UL);
+            if (rarityRoll < upgradeChance)
+                rarity = LootRarity.Uncommon;
+        }
+
+        var drop = new LootDrop
+        {
+            Id = $"loot_{fleetId}_{state.Tick}",
+            NodeId = nodeId,
+            Rarity = rarity,
+            TickCreated = state.Tick,
+            Credits = credits,
+        };
+
+        if (techQty > 0)
+            drop.Goods[Content.WellKnownGoodIds.SalvagedTech] = techQty;
+
+        // Hull material salvage: metal and composites stripped from destroyed hull plating.
+        ulong hash3 = Fnv1a64(fleetId + "_salvage_hull_" + state.Tick);
+        int metalRange = SalvageTweaksV0.HullMetalMax - SalvageTweaksV0.HullMetalMin + 1; // STRUCTURAL: +1 for inclusive range
+        int metalQty = metalRange > 0 ? SalvageTweaksV0.HullMetalMin + (int)(hash3 % (ulong)metalRange) : 0;
+        if (metalQty > 0)
+        {
+            drop.Goods.TryGetValue(Content.WellKnownGoodIds.Metal, out int existingMetal);
+            drop.Goods[Content.WellKnownGoodIds.Metal] = existingMetal + metalQty;
+        }
+
+        ulong hash4 = Fnv1a64(fleetId + "_salvage_comp_" + state.Tick);
+        int compRange = SalvageTweaksV0.HullCompositesMax - SalvageTweaksV0.HullCompositesMin + 1; // STRUCTURAL: +1 for inclusive range
+        int compQty = compRange > 0 ? SalvageTweaksV0.HullCompositesMin + (int)(hash4 % (ulong)compRange) : 0;
+        if (compQty > 0)
+        {
+            drop.Goods.TryGetValue(Content.WellKnownGoodIds.Composites, out int existingComp);
+            drop.Goods[Content.WellKnownGoodIds.Composites] = existingComp + compQty;
+        }
+
+        // Cargo spillage: drop a percentage of the fleet's cargo.
+        if (fleet.Cargo.Count > 0)
+        {
+            foreach (var kv in fleet.Cargo.OrderBy(x => x.Key, StringComparer.Ordinal))
+            {
+                if (kv.Value <= 0) continue;
+                int spillQty = kv.Value * SalvageTweaksV0.CargoSpillPct / 100;
+                if (spillQty > 0)
+                {
+                    drop.Goods.TryGetValue(kv.Key, out int existing);
+                    drop.Goods[kv.Key] = existing + spillQty;
+                }
+            }
+        }
 
         state.LootDrops[drop.Id] = drop;
     }

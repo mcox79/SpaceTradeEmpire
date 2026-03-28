@@ -11,10 +11,9 @@ namespace SimCore.Tests;
 
 public class GoldenReplayTests
 {
-    // GATE.T56.FIX.RARE_METALS_DRAIN.001: Added rare metals mines at "(Rare Min)" nodes.
-    private const string ExpectedGenesisHash = "0B3E697C2B4160C5FE05E3BB4B272F139F3570B0CB4EE4F5A0E0D1FA93F1031D";
-    // GATE.T59.SHIP.NPC_FACTION_FLEET.001 + working-tree SimCore changes.
-    private const string ExpectedFinalHash = "C00D79529CBA946C3C446BF423F7BEC857AC74452F1FE28A78CBF1ABD8281C66";
+    // GATE.T64: Audit_13 deep fixes — combat floor, early discovery, electronics pricing, FO reactions, friction sinks, ambient triggers.
+    private const string ExpectedGenesisHash = "BED5778DBDFBEFC7D68856473ED0602209348D4812670275C4914734E3E52283";
+    private const string ExpectedFinalHash = "6E646DBB17912FA1BECB1E032D5C539ADCA10B1A72DC5FA4A7971F516A350CC8";
 
 
     private struct RecordedCommand

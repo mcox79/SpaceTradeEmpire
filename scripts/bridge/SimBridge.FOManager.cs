@@ -307,6 +307,45 @@ public partial class SimBridge
         lock (_snapshotLock) { return _cachedActiveDecisionV0?.Duplicate(true) ?? new Godot.Collections.Dictionary(); }
     }
 
+    // ── FO State (GATE.T65.FO.DOCK_WIRE.001) ──
+
+    private Godot.Collections.Dictionary _cachedFOStateV0 = new();
+
+    /// <summary>
+    /// Returns FO dialogue state for bot verification. Exposes total dialogue lines,
+    /// promotion status, pending line, and relationship score.
+    /// </summary>
+    public Godot.Collections.Dictionary GetFOStateV0()
+    {
+        TryExecuteSafeRead(state =>
+        {
+            var result = new Godot.Collections.Dictionary();
+            var fo = state.FirstOfficer;
+            if (fo == null)
+            {
+                result["is_promoted"] = false;
+                result["total_lines"] = 0;
+                result["pending_line"] = "";
+                result["candidate_type"] = "";
+                result["relationship_score"] = 0;
+                result["last_dialogue_tick"] = 0;
+                lock (_snapshotLock) { _cachedFOStateV0 = result; }
+                return;
+            }
+
+            result["is_promoted"] = fo.IsPromoted;
+            result["total_lines"] = fo.DialogueEventLog.Count;
+            result["pending_line"] = fo.PendingDialogueLine ?? "";
+            result["candidate_type"] = fo.CandidateType.ToString();
+            result["relationship_score"] = fo.RelationshipScore;
+            result["last_dialogue_tick"] = fo.LastDialogueTick;
+
+            lock (_snapshotLock) { _cachedFOStateV0 = result; }
+        });
+
+        lock (_snapshotLock) { return _cachedFOStateV0?.Duplicate(true) ?? new Godot.Collections.Dictionary(); }
+    }
+
     /// <summary>Player selects a decision option. Returns true if resolved.</summary>
     public bool ResolveDecisionV0(int optionIndex)
     {

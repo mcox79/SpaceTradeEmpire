@@ -8,21 +8,33 @@ signal bindings_changed(action: String)
 const SAVE_PATH := "user://keybinds.cfg"
 
 ## Human-readable labels for each rebindable action (shown in Controls tab + help overlay)
+## Steering mode: POINTER_FLIGHT (ship faces mouse) or MANUAL_FLIGHT (A/D turn, mouse aims weapons).
+enum SteeringMode { POINTER_FLIGHT, MANUAL_FLIGHT }
+var steering_mode: SteeringMode = SteeringMode.POINTER_FLIGHT
+
 const ACTION_LABELS := {
 	"ship_thrust_fwd":       "Thrust Forward",
 	"ship_thrust_back":      "Thrust Back",
-	"ship_turn_left":        "Turn Left",
-	"ship_turn_right":       "Turn Right",
+	"ship_turn_left":        "Turn / Strafe Left",
+	"ship_turn_right":       "Turn / Strafe Right",
+	"cruise_toggle":         "Cruise Toggle",
+	"battle_stations":       "Battle Stations",
 	"combat_fire_primary":   "Fire (Primary)",
 	"combat_fire_secondary": "Fire (Secondary)",
 	"combat_target_nearest": "Target Nearest / Restart",
+	"combat_target_cycle":   "Cycle Target",
 	"ui_galaxy_map":         "Galaxy Map",
 	"ui_dock_confirm":       "Dock",
 	"ui_empire_dashboard":   "Empire Dashboard",
 	"ui_mission_journal":    "Mission Journal",
 	"ui_knowledge_web":      "Knowledge Web",
 	"ui_combat_log":         "Combat Log",
+	"ui_warfront_dashboard": "Warfront Status",
+	"ui_megaproject":        "Megaproject",
+	"ui_fo_panel":           "First Officer",
+	"ui_automation":         "Automation",
 	"ui_data_overlay":       "Data Overlay",
+	"ui_data_log":           "Data Log",
 	"ui_keybinds_help":      "Controls Help",
 	"ui_pause":              "Pause",
 	"ui_gate_confirm":       "Confirm Gate Transit",
@@ -36,6 +48,7 @@ var _defaults: Dictionary = {}  # action -> Array[InputEvent]
 func _ready() -> void:
 	_cache_defaults()
 	_load_custom_bindings()
+	_load_steering_mode()
 
 
 ## Cache the project.godot default events for every managed action
@@ -226,6 +239,23 @@ func find_conflict(action: String, event: InputEvent) -> String:
 				return other_action
 	return ""
 
+
+## Persist steering mode to keybinds.cfg
+func set_steering_mode(mode: SteeringMode) -> void:
+	steering_mode = mode
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)  # Load existing to preserve bindings
+	cfg.set_value("settings", "steering_mode", mode)
+	cfg.save(SAVE_PATH)
+	bindings_changed.emit("steering_mode")
+
+func _load_steering_mode() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SAVE_PATH) != OK:
+		return
+	var val = cfg.get_value("settings", "steering_mode", 0)
+	if val == 1:
+		steering_mode = SteeringMode.MANUAL_FLIGHT
 
 ## Check if two events match (same type + same key/button/axis)
 func _events_match(a: InputEvent, b: InputEvent) -> bool:

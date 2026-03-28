@@ -8,6 +8,7 @@ const WarpTunnel = preload('res://scripts/vfx/warp_tunnel.gd')
 const GateVortex = preload('res://scripts/vfx/gate_vortex.gd')
 const GateTransitPopup = preload('res://scripts/ui/gate_transit_popup.gd')
 const TractorBeam = preload('res://scripts/vfx/tractor_beam.gd')
+const HeadingIndicator = preload('res://scripts/vfx/heading_indicator.gd')
 
 
 # SimCore fleet ID for the player fleet (matches WorldLoader constant).
@@ -709,6 +710,19 @@ func _unhandled_input(event):
 		_toggle_data_log_v0()
 	if event.is_action_pressed("ui_data_overlay"):
 		_cycle_data_overlay_v0()
+	# Combat targeting: R = nearest, Tab = cycle, Esc (when target locked) = clear.
+	if event.is_action_pressed("combat_target_nearest") and not _player_dead:
+		var bridge_tgt = get_node_or_null("/root/SimBridge")
+		if bridge_tgt and bridge_tgt.has_method("TargetNearestHostileV0"):
+			var target_id: String = str(bridge_tgt.call("TargetNearestHostileV0"))
+			if not target_id.is_empty():
+				print("UUIR|TARGET_LOCK|%s" % target_id)
+	if event.is_action_pressed("combat_target_cycle"):
+		var bridge_cyc = get_node_or_null("/root/SimBridge")
+		if bridge_cyc and bridge_cyc.has_method("CycleTargetV0"):
+			var target_id: String = str(bridge_cyc.call("CycleTargetV0"))
+			if not target_id.is_empty():
+				print("UUIR|TARGET_CYCLE|%s" % target_id)
 
 # GATE.S10.EMPIRE.SHELL.001: Toggle empire dashboard panel (created by SimBridge in C#).
 func _toggle_empire_dashboard_v0():
@@ -886,6 +900,10 @@ func on_proximity_dock_entered_v0(target: Node):
 	# GATE.S1.AUDIO.AMBIENT.001: dock chime
 	if _sfx_dock_chime:
 		_sfx_dock_chime.play()
+	# GATE.T64.AUDIO.ACTION_SFX.001: Dock clamp SFX.
+	var _action_sfx_dock = get_node_or_null("/root/ActionSfx")
+	if _action_sfx_dock and _action_sfx_dock.has_method("play_dock"):
+		_action_sfx_dock.call("play_dock")
 
 	# GATE.T46.AUDIO.COMBAT_MUSIC.001: Transition music to DOCK state.
 	var _mm_dock = get_node_or_null("/root/MusicManager")
@@ -905,6 +923,9 @@ func on_proximity_dock_entered_v0(target: Node):
 	var hud_dock = get_tree().root.find_child("HUD", true, false)
 	if hud_dock and hud_dock.has_method("hide_arrival_drama_v0"):
 		hud_dock.call("hide_arrival_drama_v0")
+	# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Kill station direction on dock.
+	if hud_dock and hud_dock.has_method("hide_station_direction_v0"):
+		hud_dock.call("hide_station_direction_v0")
 
 	if dock_target_kind_token == "STATION":
 		_open_station_menu_v0(target)
@@ -973,6 +994,10 @@ func undock_v0():
 	dock_target_kind_token = ""
 	dock_target_id = ""
 	_undock_cooldown = 1.5  # Prevent re-dock prompt immediately after undock.
+	# GATE.T64.AUDIO.ACTION_SFX.001: Undock spool-up SFX.
+	var _action_sfx_undock = get_node_or_null("/root/ActionSfx")
+	if _action_sfx_undock and _action_sfx_undock.has_method("play_undock"):
+		_action_sfx_undock.call("play_undock")
 	# Tip-queue: reset per-dock hint counter for next dock visit.
 	_guide_hints_this_dock = 0
 
@@ -1097,6 +1122,13 @@ func _ensure_hero_body() -> void:
 	if _hero_body and is_instance_valid(_hero_body):
 		return
 	_hero_body = get_tree().root.find_child("Player", true, false) as RigidBody3D
+	# GATE.T63.SPATIAL.HEADING_INDICATOR.001: Attach heading indicator to player ship.
+	if _hero_body and is_instance_valid(_hero_body):
+		var existing = _hero_body.get_node_or_null("HeadingIndicator")
+		if existing == null:
+			var indicator = HeadingIndicator.new()
+			indicator.name = "HeadingIndicator"
+			_hero_body.add_child(indicator)
 
 # ── Gate approach flow (E-key prompt, no auto-pause) ──
 # Called by GalaxyView on the autoload GameManager (owns _unhandled_input).
@@ -1900,6 +1932,36 @@ func _show_arrival_drama_v0(node_id: String, bridge_ref: Node) -> void:
 		hud.call("show_arrival_drama_v0", display_name, faction_name)
 		print("UUIR|ARRIVAL_DRAMA|system=%s|faction=%s" % [display_name, faction_name])
 
+	# GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Show station direction indicator.
+	_show_station_direction_on_arrival_v0(hud)
+
+## GATE.T41.SPATIAL.ARRIVAL_ORIENT.001: Find nearest station and show HUD direction indicator.
+func _show_station_direction_on_arrival_v0(hud: Node) -> void:
+	if hud == null or not hud.has_method("show_station_direction_v0"):
+		return
+	# Find nearest station from the "Station" group.
+	_ensure_hero_body()
+	var hero_pos: Vector3 = _hero_body.global_position if _hero_body and is_instance_valid(_hero_body) else Vector3.ZERO
+	if hero_pos == Vector3.ZERO:
+		return
+	var stations := get_tree().get_nodes_in_group("Station") if get_tree() else []
+	var nearest_station: Node3D = null
+	var nearest_dist: float = INF
+	for st in stations:
+		if not (st is Node3D):
+			continue
+		var dist: float = hero_pos.distance_to(st.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_station = st
+	if nearest_station == null:
+		return
+	var station_name: String = "Station"
+	if nearest_station.has_meta("station_name"):
+		station_name = str(nearest_station.get_meta("station_name"))
+	hud.call("show_station_direction_v0", station_name, nearest_station.global_position)
+	print("UUIR|STATION_DIR|name=%s|dist=%.0f" % [station_name, nearest_dist])
+
 func _on_station_menu_request_undock():
 	undock_v0()
 
@@ -2011,6 +2073,10 @@ func _poll_game_over_v0() -> void:
 		bridge.call("StopSimV0")
 	var result_code: int = result.get("result", 0)
 	print("UUIR|GAME_OVER|result=%d" % result_code)
+	# Show HUD overlay immediately (pauses game, blocks input, dark background).
+	var hud = get_tree().root.find_child("HUD", true, false)
+	if hud and hud.has_method("show_game_over_v0"):
+		hud.call("show_game_over_v0")
 	# Victory = 1, Death = 2, Bankruptcy = 3
 	if result_code == 1:
 		get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")

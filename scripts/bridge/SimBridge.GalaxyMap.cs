@@ -77,11 +77,15 @@ public partial class SimBridge
                     result[nodeId] = fleetArray;
                 }
 
+                // GATE.T62.SHIP.MAP_FLEET_TOOLTIP.001: Include ship class for NPC fleet tooltip.
+                var classDef = SimCore.Content.ShipClassContentV0.GetById(fleet.ShipClassId);
                 fleetArray.Add(new Godot.Collections.Dictionary
                 {
                     ["fleet_id"] = fleet.Id ?? "",
                     ["role"] = fleet.Role.ToString(),
                     ["faction"] = fleet.OwnerId ?? "",
+                    ["ship_class_id"] = fleet.ShipClassId ?? "",
+                    ["ship_class_name"] = classDef?.DisplayName ?? fleet.ShipClassId ?? "",
                 });
             }
         }, 0);

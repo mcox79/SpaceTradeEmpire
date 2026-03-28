@@ -28,7 +28,9 @@ public static class ProgramMetricsSystem
     /// Record a failed program cycle: increments Failures counter.
     /// GATE.S7.AUTOMATION.FAILURE_REASONS.001: Now accepts failure reason code.
     /// </summary>
-    public static void RecordCycleFailure(Fleet fleet, int tick, ProgramFailureReason reason = ProgramFailureReason.None)
+    public static void RecordCycleFailure(Fleet fleet, int tick,
+        ProgramFailureReason reason = ProgramFailureReason.None,
+        PostmortemCauseCode causeCode = PostmortemCauseCode.None)
     {
         if (fleet == null) return;
         fleet.Metrics.Failures++;
@@ -39,6 +41,8 @@ public static class ProgramMetricsSystem
             fleet.Metrics.LastFailureReason = reason;
             fleet.Metrics.ConsecutiveFailures++;
         }
+        // GATE.T61.POSTMORTEM.CAUSE_CODES.001: Store cause code for postmortem analysis.
+        fleet.Metrics.LastCauseCode = causeCode;
     }
 
     /// <summary>

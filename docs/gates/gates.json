@@ -1,34 +1,40 @@
 {
   "queue_contract_version": "2.3",
   "queue_ordering": "MULTIKEY_V1",
-  "generated_utc": "2026-03-26T22:00:00Z",
-  "queue_intent": "Carry-forward gates from T52/T58. T59 Ship Progression + Discovery Visuals complete (19/19 DONE).",
+  "generated_utc": "2026-03-27T23:15:00Z",
+  "queue_intent": "T65 tranche: 15/15 gates DONE. Carry-forward proof/eval gates from T41/T52/T58/T64/X remain.",
   "tasks": [
+    {
+      "gate_id": "GATE.T41.PROOF.FH_REAUDIT.001",
+      "task_id": "GATE.T41.PROOF.FH_REAUDIT.001.T835",
+      "status": "TODO",
+      "title": "GATE.T41.PROOF.FH_REAUDIT.001: First-hour re-audit fh_5, produce fh_4 to fh_5 delta",
+      "intent": "Re-run /audit first-hour after all T41 fixes. Compare 20-dimension scorecard, 5 goal scores, 5 moment scores, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0. Milestone: REGRESSION_ANCHOR. Tier 3: runs after all fix gates.",
+      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3: all T41 fix gates must be DONE."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
+      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+    },
     {
       "gate_id": "GATE.T52.COMBAT.VISUAL_PROOF.001",
       "task_id": "GATE.T52.COMBAT.VISUAL_PROOF.001.T967",
       "status": "TODO",
       "title": "GATE.T52.COMBAT.VISUAL_PROOF.001: Visual proof for NPC labels",
       "intent": "Run visual sweep. Verify: NPC labels visible in npc_closeup frame, HOSTILE text on hostile NPC, health bars present. Compare vs audit_1.",
-      "evidence_paths": [
-        "scripts/tests/visual_sweep_bot_v0.gd"
-      ],
-      "constraints": [
-        "Single-session scope.",
-        "Tier 3 -- runs after combat gates."
-      ],
-      "completion_hint": [
-        "powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Screenshot.ps1 -Mode full"
-      ],
-      "task_preflight": [
-        "anchor=scripts/tests/visual_sweep_bot_v0.gd"
-      ],
-      "escalation_rules": [
-        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-      ],
+      "evidence_paths": ["scripts/tests/visual_sweep_bot_v0.gd", "scripts/tools/Run-Screenshot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3 -- runs after combat gates."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Screenshot.ps1 -Mode full"],
+      "task_preflight": ["anchor=scripts/tests/visual_sweep_bot_v0.gd"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
       "parallel_group": "bridge",
       "tier": 3,
-      "blocks": ["GATE.T52.COMBAT.TARGET_HIGHLIGHT.001"],
+      "blocks": [],
       "hash_affecting": false,
       "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
     },
@@ -38,25 +44,14 @@
       "status": "TODO",
       "title": "GATE.T52.ECON.STRESS_PROOF.001: Stress bot proof for economy fixes",
       "intent": "Run stress bot 1500 cycles. Verify: trade diversity >=8/12 goods, credit direction changes >=3, tariff revenue >0.",
-      "evidence_paths": [
-        "scripts/tests/exploration_bot_v1.gd"
-      ],
-      "constraints": [
-        "Single-session scope.",
-        "Tier 3 -- runs after all economy fixes."
-      ],
-      "completion_hint": [
-        "powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Bot.ps1 -Mode stress -Cycles 1500"
-      ],
-      "task_preflight": [
-        "anchor=scripts/tests/exploration_bot_v1.gd"
-      ],
-      "escalation_rules": [
-        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-      ],
+      "evidence_paths": ["scripts/tests/playthrough_bot_v0.gd", "scripts/tools/Run-Bot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3 -- runs after all economy fixes."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-Bot.ps1 -Mode stress -Cycles 1500"],
+      "task_preflight": ["anchor=scripts/tests/playthrough_bot_v0.gd"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
       "parallel_group": "bridge",
       "tier": 3,
-      "blocks": ["GATE.T52.ECON.UPKEEP_TUNE.001"],
+      "blocks": [],
       "hash_affecting": false,
       "verify": ["dotnet build \"Space Trade Empire.csproj\" --nologo"]
     },
@@ -66,22 +61,11 @@
       "status": "TODO",
       "title": "GATE.T52.EVAL.AUDIT_DELTA.001: Re-run audit + before/after delta",
       "intent": "Re-run full audit, compare vs audit_1 baseline. Produce delta table for all dimensions.",
-      "evidence_paths": [
-        "reports/audit/"
-      ],
-      "constraints": [
-        "Single-session scope.",
-        "Tier 3."
-      ],
-      "completion_hint": [
-        "powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"
-      ],
-      "task_preflight": [
-        "anchor=reports/audit/"
-      ],
-      "escalation_rules": [
-        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-      ],
+      "evidence_paths": ["scripts/tools/Run-AuditQuick.ps1", "scripts/tools/Run-FHBot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
+      "task_preflight": ["anchor=scripts/tools/Run-AuditQuick.ps1"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
       "parallel_group": "docs",
       "tier": 3,
       "blocks": [],
@@ -93,29 +77,119 @@
       "task_id": "GATE.T58.PROOF.FO_MANAGER_E2E.001.T714",
       "status": "TODO",
       "title": "GATE.T58.PROOF.FO_MANAGER_E2E.001: FO Manager E2E headless proof",
-      "intent": "Headless Godot proof: dock, verify recap displayed, check empire health diamond, view consolidated 5-tab dashboard, FO decision flow, service record visible. Exercises full FO Trade Manager pipeline. Milestone: PLAYABLE_BEAT.",
-      "evidence_paths": [
-        "scripts/tests/test_deep_systems_v0.gd",
-        "scripts/bridge/SimBridge.FO.cs"
-      ],
-      "constraints": [
-        "Single-session scope.",
-        "Requires all T58 FO bridge + UI gates done."
-      ],
-      "completion_hint": [
-        "powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42"
-      ],
-      "task_preflight": [
-        "anchor=scripts/tests/test_deep_systems_v0.gd"
-      ],
-      "escalation_rules": [
-        { "when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands." }
-      ],
+      "intent": "Headless Godot proof: dock, verify recap displayed, check empire health diamond, view consolidated 5-tab dashboard, FO decision flow, service record visible. Milestone: PLAYABLE_BEAT.",
+      "evidence_paths": ["scripts/tests/test_deep_systems_v0.gd", "scripts/bridge/SimBridge.FO.cs"],
+      "constraints": ["Single-session scope.", "Requires all T58 FO bridge + UI gates done."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot-MultiSeed.ps1 -Script deep_systems -Seeds 42"],
+      "task_preflight": ["anchor=scripts/tests/test_deep_systems_v0.gd"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
       "parallel_group": "docs",
       "tier": 3,
-      "blocks": ["GATE.T58.FO.MANAGER_BRIDGE.001", "GATE.T58.UI.EMPIRE_DIAMOND.001"],
+      "blocks": [],
       "hash_affecting": false,
       "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q --filter \"FOManager\""]
+    },
+    {
+      "gate_id": "GATE.T64.PROOF.AUDIT_DELTA.001",
+      "task_id": "GATE.T64.PROOF.AUDIT_DELTA.001.T564",
+      "status": "TODO",
+      "title": "GATE.T64.PROOF.AUDIT_DELTA.001: Re-audit first-hour, audit_13->audit_14 delta",
+      "intent": "Re-run /audit first-hour (audit_14) after all T64 fixes. Compare vs audit_13: 20 dimensions, 5 goals, 5 moments, emotional arc, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Goal avg >=4.0, EA readiness CONDITIONAL->READY. Milestone: REGRESSION_ANCHOR.",
+      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3: all T64 fix gates must be DONE."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
+      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+    },
+    {
+      "gate_id": "GATE.X.EVAL.BATTLE_STATIONS.001",
+      "task_id": "GATE.X.EVAL.BATTLE_STATIONS.001.T316",
+      "status": "TODO",
+      "title": "GATE.X.EVAL.BATTLE_STATIONS.001: Post-implementation spin eval",
+      "intent": "Evaluate battle stations: run deep systems bot, verify spin activates before combat, hull damage occurs, transition timing correct, audio/visual present. Assess eval issues #4/#6/#8 thresholds.",
+      "evidence_paths": ["scripts/tests/test_deep_systems_v0.gd", "docs/54_EPICS.md"],
+      "constraints": ["Single-session scope."],
+      "completion_hint": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""],
+      "task_preflight": ["anchor=scripts/tests/test_deep_systems_v0.gd"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""]
+    },
+    {
+      "gate_id": "GATE.X.EVAL.FH_DEPTH_PROOF.001",
+      "task_id": "GATE.X.EVAL.FH_DEPTH_PROOF.001.T812",
+      "status": "TODO",
+      "title": "GATE.X.EVAL.FH_DEPTH_PROOF.001: Re-run fh_6 audit, fh_5 vs fh_6 delta",
+      "intent": "Re-run /audit first-hour (fh_6) after all T63 fixes. Compare vs fh_5: 20 dimensions, 5 goals, 5 moments, emotional arc, feel dashboard. Target: 0 CRITICAL, <=3 MAJOR, Juice >50%, Spatial >3/5. Milestone: REGRESSION_ANCHOR.",
+      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "scripts/tools/Run-ExperienceBot.ps1"],
+      "constraints": ["Single-session scope.", "Tier 3: all T63 fix gates must be DONE."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
+      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+    },
+    {
+      "gate_id": "GATE.X.EVAL.PERF_PROFILE.063",
+      "task_id": "GATE.X.EVAL.PERF_PROFILE.063.T475",
+      "status": "TODO",
+      "title": "GATE.X.EVAL.PERF_PROFILE.063: FPS profiling session",
+      "intent": "Profile FPS bottleneck: run visual bot with FPS logging, identify frames below 30fps, measure per-system tick budget breakdown, propose optimization targets. EA readiness blocker (min=12fps needs >=30).",
+      "evidence_paths": ["scripts/tools/Run-FHBot.ps1", "docs/design/camera_cinematics_v0.md"],
+      "constraints": ["Single-session scope.", "Tier 3."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-FHBot.ps1 -Mode visual"],
+      "task_preflight": ["anchor=scripts/tools/Run-FHBot.ps1"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked or scope expands."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
+    },
+    {
+      "gate_id": "GATE.X.HYGIENE.EPIC_REVIEW.065",
+      "task_id": "GATE.X.HYGIENE.EPIC_REVIEW.065.T453",
+      "status": "TODO",
+      "title": "GATE.X.HYGIENE.EPIC_REVIEW.065: Audit epic statuses, close completed epics",
+      "intent": "Audit all epic statuses vs completed gates. Close epics where all gates DONE. Identify superseded TODO gates (T41.PROOF.FH_REAUDIT, T52.EVAL.AUDIT_DELTA, X.EVAL.FH_DEPTH_PROOF). Recommend next anchor epic for T65.",
+      "evidence_paths": ["docs/54_EPICS.md", "docs/55_GATES.md"],
+      "constraints": ["Single-session scope.", "Tier 3: runs last."],
+      "completion_hint": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""],
+      "task_preflight": ["anchor=docs/54_EPICS.md"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked."}],
+      "parallel_group": "docs",
+      "tier": 3,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["powershell -File scripts/tools/Run-Tests.ps1 -Filter \"RoadmapConsistency\""]
+    },
+    {
+      "gate_id": "GATE.X.HYGIENE.REPO_HEALTH.065",
+      "task_id": "GATE.X.HYGIENE.REPO_HEALTH.065.T142",
+      "status": "TODO",
+      "title": "GATE.X.HYGIENE.REPO_HEALTH.065: Full test suite + warning scan + hash stability",
+      "intent": "Run full C# test suite, semgrep, optimize scan (quick mode). Verify golden hashes stable. Report warning count and dead code signals. Baseline for T64.",
+      "evidence_paths": ["SimCore.Tests/SimCore.Tests.csproj", "scripts/tools/Run-AuditQuick.ps1"],
+      "constraints": ["Single-session scope."],
+      "completion_hint": ["powershell -ExecutionPolicy Bypass -File scripts/tools/Run-AuditQuick.ps1"],
+      "task_preflight": ["anchor=SimCore.Tests/SimCore.Tests.csproj"],
+      "escalation_rules": [{"when": "DEFAULT", "route": "STOP", "note": "Escalate if blocked."}],
+      "parallel_group": "docs",
+      "tier": 1,
+      "blocks": [],
+      "hash_affecting": false,
+      "verify": ["dotnet test SimCore.Tests/SimCore.Tests.csproj -c Release --nologo -v q"]
     }
   ]
 }

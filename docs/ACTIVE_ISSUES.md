@@ -117,6 +117,51 @@ deferred to future tranches.
 | E2 | HIGH | Profit goal score varies 2-5 across seeds (avg 3.6). Some galaxy topologies produce poor first profitable route distance | FIXED | GATE.T50.ECON.ROUTE_QUALITY.001 | audit_8, multi-seed sweep. Fixed 2026-03-22: 2-hop starter arbitrage guarantee, 10-seed test |
 | E3 | MEDIUM | Stress bot only trades 3/12 goods (rare_metals, exotic_crystals, components). Bot profit-optimizes to highest-margin goods, limiting economy stress coverage | FIXED | GATE.T49.STRESS.IDLE_REDUCTION.001 | audit_2-8, stress bot. Fixed 2026-03-22: idle-reduction + untouched-good routing |
 | E4 | HIGH | Trade bot trades ONLY rare_metals (1/13 goods in 200 cycles). rare_metals spread dominates all other goods. Possible regression from E3 fix or balance shift. Deep audit 2026-03-23 flagged via economy diversity check. RL headless agent may help diagnose optimal trade patterns. Target for next tranche economy balance pass | FIXED | GATE.T57.PIPELINE.NPC_COMPETITION.001 | Fixed 2026-03-25: NPC route discovery + margin compression forces diversification |
+| E5 | MEDIUM | PRICE_IDENTICAL — star_10/star_9 have near-identical stock profiles, reducing trade route diversity. Within-type variance insufficient | FIXED | GATE.T41.ECON.PRICE_VARIANCE.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: geoHash-based starter mfg goods variance |
+
+## Pacing / Moments
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| PM1 | CRITICAL | Dead zones — 3 zones totaling 479 decisions without positive feedback. All hook events fire in decisions 0-62, then nothing from 62-720. Per dynamic_tension_v0.md 5-tier model, mid-session reward injection needed | FIXED | GATE.T41.FO.AMBIENT_CADENCE.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: heartbeat cadence 200->40, silence min 80->25, obs 8->20 |
+| PM2 | HIGH | FO silent 176 decisions — exceeds any reasonable cadence. Per fo_trade_manager_v0.md "silence is currency" but capped: max 50 decisions silent | FIXED | GATE.T41.FO.SILENCE_FALLBACK.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: silence cap 120->50, check cadence 30->10 |
+| PM3 | HIGH | Danger moment FLAT 11/20 — combat has no VFX, tension, or follow-through. Impact 2/5, Resonance 2/5 | FIXED | GATE.T41.COMBAT.VFX_VERIFY.001 + GATE.T41.COMBAT.TUNING.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: VFX scaled for altitude + pirate HP doubled |
+| PM4 | HIGH | Power moment FLAT 11/20 — module install has no stat comparison overlay or FO reaction. Impact 2/5, Resonance 2/5 | FIXED | GATE.T41.JUICE.MODULE_INSTALL.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: stat comparison overlay + FO ack |
+| PM5 | HIGH | Moments 2-4 compressed in 30 ticks — Companion/Danger/Power fire at ticks 60-89 (~12 decisions apart). Per first_hour_rubric.md, 30-80 decision spacing required | FIXED | GATE.T41.PACING.MOMENT_SPACING.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: FO promo 50->25, ship tab 2->5 nodes |
+| PM6 | HIGH | Rhythm 2/5 — single tension cycle, then 600-decision plateau. Per dynamic_tension_v0.md, 5-tier escalation model requires multiple peaks | FIXED | GATE.T41.FO.AMBIENT_CADENCE.001 + GATE.T41.PACING.MOMENT_SPACING.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: ambient cadence + moment spacing |
+| PM7 | HIGH | COMBAT_ONE_SHOT — early fights resolve in 1 volley, no tension buildup. Per dynamic_tension_v0.md tension_min_hull must drop below 100% | FIXED | GATE.T41.COMBAT.TUNING.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: pirate HP 100->200, shield 30->60 |
+
+## Spatial Clarity
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| SC1 | CRITICAL | LOST_PLAYER — Galaxy map has no "you are here" marker. Player location not indicated on any map view. Per camera_cinematics_v0.md, pulsing icon on current node required | FIXED | GATE.T41.SPATIAL.PLAYER_MARKER.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: pulsing cyan/gold YOU ARE HERE rings |
+| SC2 | HIGH | INVISIBLE_LANES — lane gates not visible at flight camera distance (~80u). Per camera_cinematics_v0.md, lane gates at 85u with visible geometry + destination labels | FIXED | GATE.T41.SPATIAL.LANE_GATES.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: emissive torus + destination labels |
+| SC3 | MEDIUM | Arrival orientation absent — new system arrivals show near-total darkness with no system name or station direction indicator | FIXED | GATE.T41.SPATIAL.ARRIVAL_ORIENT.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: system name card + station direction arrow |
+
+## Juice & Feedback
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| JF1 | HIGH | Trade buy SILENT_ACTION — no credit counter animation, cargo ticker, or purchase flash. Per first_hour_rubric.md juice section, core actions need multi-channel feedback | FIXED | GATE.T41.JUICE.TRADE_BUY.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: credit roll + cargo ticker + purchase flash |
+| JF2 | MEDIUM | Trade sell feedback minimal — profit highlight exists but no FO acknowledgment of margin quality | FIXED | GATE.T41.JUICE.TRADE_SELL.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: profit highlight + sell confirmation |
+
+## Typography & UI Theme
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| TU1 | HIGH | DEVELOPER_UI — empire dashboard looks like debug tools, not a game UI. Per visual_eval_guide.md, panels need dark navy chrome with standardized frames | FIXED | GATE.T41.UI.PANEL_CHROME.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: shared panel chrome with dark navy fill |
+| TU2 | HIGH | FONT_CHAOS — 5+ typographic roles with no clear hierarchy, proportional numerals in data columns. Per visual_eval_guide.md, 3-tier font system required (Header 18-20px, Body 13-14px, Data 12px mono) | FIXED | GATE.T41.UI.FONT_HIERARCHY.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: 3-tier font + tabular numerals |
+| TU3 | MEDIUM | NUMBER_JUMBLE — proportional numerals used in data columns where tabular-lining numerals required for readability | FIXED | GATE.T41.UI.FONT_HIERARCHY.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: tabular-lining numerals in data columns |
+| TU4 | MEDIUM | FACTION_IDENTICAL — no visual distinction between factions in UI panels or labels | FIXED | GATE.T41.UI.FACTION_COLORS.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: faction accent colors in UI + galaxy map |
+| TU5 | MEDIUM | INVISIBLE_CONTROLS — navigation keys (WASD, E, Tab/M) not shown at boot or first undock | FIXED | GATE.T41.UI.CONTROL_HINTS.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: keybind hint overlay at first undock |
+
+## Stability
+
+| # | Severity | Issue | Status | Gate | Source |
+|---|----------|-------|--------|------|--------|
+| ST1 | MEDIUM | Seed 1001 persistent timeout — experience bot hangs, no report.json. Two consecutive timeouts (fh_3, fh_4). Likely JSON flush hang, not SCRIPT_ERROR | FIXED | GATE.T41.STABILITY.SEED_1001.001 | fh_4 audit 2026-03-26. Fixed 2026-03-26: read-lock retry for galaxy snapshot race condition |
+| ST2 | MEDIUM | FPS drops below 30 intermittently — reported in fh_4 minor findings | FIXED | GATE.T65.PERF.FPS_PROFILE.001 | fh_4 audit 2026-03-26. Fixed 2026-03-27: VisibilityRangeEnd culling + particle reduction |
 
 ## Resolved (Archive)
 

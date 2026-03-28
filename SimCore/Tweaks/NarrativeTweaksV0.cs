@@ -3,8 +3,11 @@ namespace SimCore.Tweaks;
 // GATE.T18.NARRATIVE.TWEAKS.001: Gameplay constants for narrative systems.
 public static class NarrativeTweaksV0
 {
-    // First Officer promotion window (tick range).
-    public const int FOPromotionMinTick = 50;
+    // GATE.T41.PACING.MOMENT_SPACING.001: First Officer promotion window (tick range).
+    // fh_4: Companion moment fires too late (tick 60), compressing moments 2-4 into 30 ticks.
+    // Reduced min from 50→25 so FO promotes at first dock (~tick 25-30), creating 30+ decision
+    // gap before Danger (~tick 60) and 60+ gap before Power (~tick 120+).
+    public const int FOPromotionMinTick = 25;
     public const int FOPromotionMaxTick = 150;
 
     // Dialogue tier tick thresholds.
@@ -59,12 +62,40 @@ public static class NarrativeTweaksV0
     // COSTS_MOUNTING trigger: minimum nodes visited before FO comments on operating costs.
     public const int CostsMountingNodesVisited = 3;
 
-    // Silence fallback: ticks of FO silence before a SILENCE_BREAK trigger fires.
-    // At 12:1 time ratio, 120 ticks ≈ 10 real minutes of no FO dialogue.
-    public const int SilenceFallbackThresholdTicks = 120;
+    // GATE.T41.FO.SILENCE_FALLBACK.001: Decision-count silence cap.
+    // Per fo_trade_manager_v0.md: silence is currency, but bounded — max 50 decisions silent.
+    // fh_4 audit found 176-decision silence gap. Reduced from 120→50 ticks (~4 min real time).
+    public const int SilenceFallbackThresholdTicks = 50;
     // Maximum number of silence break triggers (cycling SILENCE_BREAK_1..N).
     // Raised from 8→24 to prevent FO going permanently silent in longer sessions.
     public const int SilenceBreakMaxCount = 24;
-    // Cadence for checking silence fallback (every N ticks).
-    public const int SilenceFallbackCheckCadence = 30;
+    // Cadence for checking silence fallback (every N ticks). Reduced from 30→10 for faster response.
+    public const int SilenceFallbackCheckCadence = 10;
+
+    // GATE.T64.FO.COMBAT_REACTION.001: Delayed FO reaction after combat win.
+    // Fires 10 ticks after kill, cycling through COMBAT_REACTION_1..N.
+    public const int CombatReactionDelayTicks = 10;
+    public const int CombatReactionMaxCount = 5;
+
+    // GATE.T41.FO.AMBIENT_CADENCE.001: Proactive FO triggers every 30-50 decisions post-d60.
+    // Per fo_trade_manager_v0.md Law 3 + NarrativeDesign.md Principle 8: FO reacts to player
+    // patterns (route repetition, high-margin arrival, milestones). fh_4 found 3 dead zones
+    // totaling 479 decisions without positive feedback. Reduced cadence from 200→40 ticks,
+    // silence min from 80→25, increased obs count from 8→20.
+    public const int HeartbeatCadenceTicks = 40;
+    public const int HeartbeatSilenceMinTicks = 25;
+    public const int AmbientObsMaxCount = 20;
+
+    // GATE.T64.FO.AMBIENT_TRIGGERS.001: Condition-based ambient triggers (Hades grid pattern).
+    // These fire on specific gameplay conditions, cycling through 3 variants per type.
+    // Cadence: check every AmbientCondCheckTicks, min AmbientCondSilenceMinTicks since last line.
+    public const int AmbientCondCheckTicks = 50;
+    public const int AmbientCondSilenceMinTicks = 30;
+    public const int AmbientCondMaxPerType = 3;
+    // MARKET_OPPORTUNITY: minimum margin (cr) at nearby node to trigger.
+    public const int MarketOpportunityMinMargin = 50;
+    // REWARD_MILESTONE: credit thresholds.
+    public const int RewardMilestone1 = 1000;
+    public const int RewardMilestone2 = 5000;
+    public const int RewardMilestone3 = 10000;
 }

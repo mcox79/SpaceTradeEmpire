@@ -83,7 +83,7 @@ static func spawn_hit(parent: Node, ship_pos: Vector3, impact_point: Vector3) ->
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.name = "ShieldSphere"
 	var sphere := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	sphere.radius = 30.0
 	sphere.height = 60.0
 	sphere.radial_segments = 24
@@ -134,7 +134,7 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	var flash := MeshInstance3D.new()
 	flash.name = "BreakFlash"
 	var sphere := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	sphere.radius = 35.0
 	sphere.height = 70.0
 	flash.mesh = sphere
@@ -179,7 +179,7 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	var proc_mat := ParticleProcessMaterial.new()
 	proc_mat.direction = Vector3(0, 0, 0)
 	proc_mat.spread = 180.0
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	proc_mat.initial_velocity_min = 200.0
 	proc_mat.initial_velocity_max = 450.0
 	proc_mat.gravity = Vector3.ZERO
@@ -198,7 +198,7 @@ static func spawn_break(parent: Node, ship_pos: Vector3) -> Node3D:
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for altitude visibility.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	mesh.radius = 4.0
 	mesh.height = 8.0
 	particles.draw_pass_1 = mesh
@@ -239,7 +239,7 @@ static func spawn_hull_sparks(parent: Node, ship_pos: Vector3, impact_point: Vec
 	var local_dir := (impact_point - ship_pos).normalized()
 	proc_mat.direction = local_dir if local_dir.length() > 0.1 else Vector3(0, 1, 0)
 	proc_mat.spread = 65.0
-	# FEEL_BASELINE: Scaled for visibility at camera altitude ~2500u.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	proc_mat.initial_velocity_min = 180.0
 	proc_mat.initial_velocity_max = 400.0
 	proc_mat.gravity = Vector3(0, -5.0, 0)
@@ -258,7 +258,7 @@ static func spawn_hull_sparks(parent: Node, ship_pos: Vector3, impact_point: Vec
 	particles.process_material = proc_mat
 
 	var mesh := SphereMesh.new()
-	# FEEL_BASELINE: Scaled for altitude visibility.
+	# GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 	mesh.radius = 5.0
 	mesh.height = 10.0
 	particles.draw_pass_1 = mesh

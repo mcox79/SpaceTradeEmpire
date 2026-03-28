@@ -11,7 +11,7 @@ class_name TargetHighlight
 const HIGHLIGHT_NAME := "TargetHighlightVfx"
 ## Pulse period (seconds for one full orange→cyan→orange cycle).
 const PULSE_PERIOD: float = 2.5
-## Light range scaled for camera altitude ~2500u.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 const LIGHT_RANGE: float = 120.0
 const LIGHT_ENERGY_MIN: float = 2.0
 const LIGHT_ENERGY_MAX: float = 5.0

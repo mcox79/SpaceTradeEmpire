@@ -332,6 +332,54 @@ If `min_hull=100`, player never took damage — combat had zero tension.
 
 **Key evidence:** `GetActiveAnomalyChainsV0` return array, chain state progression.
 
+### Cognitive Load Health
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Progressive disclosure textbook: 2-3 tabs at first dock, new system every ~100 decisions, never >1 new concept per dock visit |
+| 4 | Mostly well-paced, 1-2 moments of mild overload (2 systems at once) |
+| 3 | Occasional system dumps but player recovers; tab count reasonable |
+| 2 | First dock reveals 4+ tabs, or multiple system dumps detected |
+| 1 | First dock reveals everything — zero progressive disclosure |
+
+**Key evidence:** `EXP|SCORE|COGNITIVE_LOAD|tabs_first_dock=`, `EXP|SCORE|COGNITIVE_LOAD|max_systems_per_dock=`, `EXP|ISSUE|SYSTEM_DUMP`.
+
+### Dead-End Recovery
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Player always has 1+ viable actions; no trap states; credits/cargo/missions always available |
+| 4 | Brief stall (5-10 decisions with no clear action) but self-recovers |
+| 3 | One trap-adjacent state (low credits + no cargo) but missions/loot available |
+| 2 | Trap state detected but recoverable via combat loot |
+| 1 | Permanent trap state — player stuck with no path forward |
+
+**Key evidence:** `EXP|SCORE|DEAD_END|trap_states=`, `EXP|SCORE|DEAD_END|min_viable_actions=`.
+
+### Pacing Rhythm Quality
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | Beat intervals vary (CoV > 0.3), density 2-4 HIGH events per 100 decisions, clear action→rest alternation |
+| 4 | Good rhythm with 1-2 monotone stretches |
+| 3 | Events occur but rhythm is random — no tension/release pattern |
+| 2 | Events cluster (3+ HIGH in 30 decisions) or spread too thin |
+| 1 | Flat line — zero rhythm, all events same intensity, no alternation |
+
+**Key evidence:** `EXP|SCORE|PACING_RHYTHM|beat_interval_cov=`, `EXP|SCORE|PACING_RHYTHM|density_per_100=`, `EXP|SCORE|PACING_RHYTHM|valence_crossings=`.
+
+### Retention Signals
+
+| Score | Evidence Pattern |
+|-------|-----------------|
+| 5 | First profit by d=20, core loop by d=40, aha moment by d=60, zero trap states, action rate increasing |
+| 4 | Slightly slow (profit by d=40, core loop by d=60) but no trap states |
+| 3 | Core loop established but slow (d=80+), or 1-2 brief stalls |
+| 2 | Player trapped once, or core loop not until d=150+ |
+| 1 | Multiple trap states, core loop never established, or action rate declining throughout |
+
+**Key evidence:** `EXP|SCORE|RETENTION|first_profit_d=`, `EXP|SCORE|RETENTION|core_loop_d=`, `EXP|SCORE|RETENTION|trap_states=`.
+
 ---
 
 ## Section 3 — Screenshot-to-Goal Map

@@ -195,9 +195,11 @@ public partial class SimBridge
     {
         TryExecuteSafeRead(state =>
         {
+            var remaining = PlanetScanSystem.GetRemainingCharges(state);
             var d = new Godot.Collections.Dictionary
             {
-                ["remaining"] = PlanetScanSystem.GetRemainingCharges(state),
+                ["remaining"] = remaining,
+                ["current"] = remaining, // GATE.T64.BRIDGE.API_FIXES.001: alias for bot assertions
                 ["max"] = PlanetScanTweaksV0.GetMaxCharges(state.ScannerTier),
                 ["used"] = state.ScannerChargesUsed,
                 ["tier"] = state.ScannerTier,

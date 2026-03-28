@@ -13,7 +13,7 @@ with targeted LLM deep review across multiple passes.
 ## Parse Arguments
 
 Extract from `$ARGUMENTS`:
-- **mode** (first word): `full` | `perf` | `arch` | `determinism` | `dead-code` | `security` | `gdscript` | `consistency` | `alloc-hygiene` | `quick`
+- **mode** (first word): `full` | `perf` | `arch` | `determinism` | `dead-code` | `security` | `gdscript` | `consistency` | `alloc-hygiene` | `dead-tweaks` | `quick`
   - Default: `quick` (runs passes 1-2 only — fast, high-signal)
   - `full` runs ALL passes (expensive but thorough)
   - Named modes run only that specific pass
@@ -57,7 +57,7 @@ Grep SimCore/ (excluding Tests) for each pattern. Any match is CRITICAL.
 | DateTimeOffset.Now | `DateTimeOffset\.Now` | CRITICAL |
 | Guid.NewGuid | `Guid\.NewGuid` | CRITICAL |
 | Environment.TickCount | `Environment\.TickCount` | CRITICAL |
-| Stopwatch | `Stopwatch\.(StartNew\|GetTimestamp)` | CRITICAL |
+| Stopwatch | `Stopwatch\.(StartNew\|GetTimestamp)` | WARNING (skip if preceded by `#if.*DEBUG` or behind `STE_LOGI_BREAKDOWN` env var guard) |
 | Task.Run | `Task\.Run\(` | CRITICAL |
 | Parallel.For | `Parallel\.(For\|ForEach)` | CRITICAL |
 | PLINQ | `\.AsParallel\(\)` | CRITICAL |
@@ -104,7 +104,7 @@ Fast mechanical checks for common per-tick allocation patterns. Run in parallel 
 | RemoveAll lambda | `\.RemoveAll\(` | SimCore/Systems/ | WARNING |
 | String.Split in tick path | `\.Split\(` | SimCore/Systems/ | SUGGESTION |
 | String interpolation in tick path | `\$"` | SimCore/Systems/ | SUGGESTION |
-| Bare 0 in Systems (TweakRoutingGuard) | `= 0;` or `> 0` without `default(int)` | SimCore/Systems/ | SUGGESTION |
+| Bare 0 in Systems (TweakRoutingGuard) | `= 0;` or `> 0` without `default(int)` | SimCore/Systems/ | SUGGESTION (informational — TweakRoutingGuard enforces at test time) |
 | Missing scratch pattern | Systems with `Process(SimState` but no `ConditionalWeakTable` | SimCore/Systems/ | WARNING |
 
 **LINQ removal progress metric:** Count remaining `using System.Linq` in Systems/ files.
@@ -122,6 +122,17 @@ Cross-reference scratch field declarations against usage in the same file:
 
 This catches scratch fields that were added but never wired up, or fields left
 behind after refactoring.
+
+### 1G: Dead Tweaks Detection (Grep-based)
+
+Detect TweaksV0 constants that are defined but never referenced outside their declaration file:
+
+1. Grep all `public` fields/properties in `SimCore/Tweaks/*TweaksV0.cs` files
+2. For each constant name, Grep for usage across `SimCore/Systems/`, `SimCore/Gen/`, `SimCore/Commands/`, `SimCore/Programs/`
+3. Flag constants with zero external references as SUGGESTION ("dead tweak — defined but unused")
+4. Cross-reference against `docs/tweaks/balance_baseline_v0.json` — tweaks in baseline but not in code are SUGGESTION ("baseline orphan")
+
+This catches tweaks left behind after system refactors or gate revisions.
 
 ### Execution
 
@@ -385,6 +396,7 @@ After all passes complete, generate a consolidated report.
 | `gdscript` | 6 | 2-3 min | ~30K |
 | `consistency` | 4 | 3-5 min | ~50K |
 | `alloc-hygiene` | 1E + 1F | 30 sec | ~5K |
+| `dead-tweaks` | 1G only | 30 sec | ~5K |
 
 ---
 
@@ -427,7 +439,7 @@ After all passes complete, generate a consolidated report.
 - `STRUCT_*` consts with `STRUCTURAL:` comments are structural constants exempt from TweakRoutingGuard
 - `.RemoveAll(lambda)` allocates a delegate per call — flag it, but fix is non-trivial (manual loop + reverse removal)
 - `ContainsKey` followed by `[key]` is the anti-pattern; `ContainsKey` for "ensure exists then set" is fine
-- Stopwatch behind `STE_LOGI_BREAKDOWN` env var guard is intentional profiling — don't flag
+- Stopwatch behind `STE_LOGI_BREAKDOWN` env var guard is intentional profiling — don't flag. Also skip Stopwatch inside `#if DEBUG` / `#endif` blocks
 - IntentSystem.cs LINQ is acceptable — operates on tiny collections, complex transform, low risk/benefit for rewrite
 
 ---
@@ -445,4 +457,5 @@ After all passes complete, generate a consolidated report.
 /optimize gdscript                 # GDScript quality scan
 /optimize consistency              # cross-file consistency review
 /optimize alloc-hygiene            # allocation + scratch coverage checks (grep-only, fast)
+/optimize dead-tweaks              # find unused TweaksV0 constants (grep-only, fast)
 ```

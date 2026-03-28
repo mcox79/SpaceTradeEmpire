@@ -164,7 +164,9 @@ func _add_strength_row(faction_name: String, wf: Dictionary) -> void:
 	name_lbl.text = faction_name
 	name_lbl.custom_minimum_size = Vector2(100, 0)
 	name_lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-	name_lbl.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	# GATE.T64.UI.FACTION_ACCENT.001: Use faction accent color for faction names.
+	var faction_accent: Color = UITheme.get_faction_accent(faction_name)
+	name_lbl.add_theme_color_override("font_color", faction_accent)
 	hbox.add_child(name_lbl)
 
 	var bar := ProgressBar.new()

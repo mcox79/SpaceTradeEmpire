@@ -47,8 +47,8 @@ $TrxFile = Join-Path $TrxDir "RunTests.trx"
 if ($KillStale) {
     $killed = @()
     foreach ($procName in @("testhost", "dotnet")) {
-        $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
-        if ($procs) {
+        $procs = @(Get-Process -Name $procName -ErrorAction SilentlyContinue)
+        if ($procs.Count -gt 0) {
             $procs | Stop-Process -Force -ErrorAction SilentlyContinue
             $killed += "$procName($($procs.Count))"
         }
@@ -84,8 +84,13 @@ if ($Filter -ne "") {
 }
 
 # Run tests, capture output for diagnostics.
+# Temporarily set Continue so stderr from dotnet (e.g. "Test Run Failed.") doesn't
+# throw a NativeCommandError when captured via 2>&1 under $ErrorActionPreference=Stop.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $rawOutput = & dotnet @testArgs 2>&1
 $dotnetExitCode = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
 
 # Show raw output if requested or if UpdateGolden (user needs PASTE_ lines).
 if ($ShowOutput -or $UpdateGolden) {

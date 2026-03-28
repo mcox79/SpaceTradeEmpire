@@ -41,9 +41,23 @@ public class SellCommand : ICommand
 
 		int unitPrice = market.GetSellPrice(GoodId);
 
+		// GATE.T61.MARKET.DEPTH_MODEL.001: Depth-based price impact (sell price DOWN).
+		int depthBps = MarketSystem.ComputeDepthImpactBps(Quantity, market.Depth);
+		if (depthBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 - depthBps) / 10000);
+
+		// GATE.T61.MARKET.BID_ASK.001: Dynamic spread adjustment (sell price DOWN).
+		int dynSpreadBps = MarketSystem.GetDynamicSpreadAdjustmentBps(state, MarketId);
+		if (dynSpreadBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 - dynSpreadBps / 2) / 10000);
+
 		// GATE.T52.ECON.TRADE_DIVERSITY.001: Apply recent-trade margin dampening (sell price DOWN).
 		int dampenBps = MarketSystem.GetRecentTradeDampenBps(state, MarketId, GoodId);
 		unitPrice = MarketSystem.ApplyRecentTradeDampening(unitPrice, dampenBps, isBuy: false);
+
+		// GATE.T65.ECON.ROUTE_NOVELTY.001: Apply novelty bonus (sell price UP for new routes).
+		int noveltyBps = MarketSystem.GetRouteNoveltyBonusBps(state, MarketId, GoodId);
+		unitPrice = MarketSystem.ApplyNoveltyBonus(unitPrice, noveltyBps, isBuy: false);
 
 		// GATE.X.MARKET_PRICING.REP_WIRE.001: Apply reputation-based price modifier.
 		var factionId = MarketSystem.GetControllingFactionIdForMarket(state, MarketId);
@@ -93,6 +107,15 @@ public class SellCommand : ICommand
 
 		// GATE.T52.ECON.TRADE_DIVERSITY.001: Record trade for margin dampening.
 		MarketSystem.RecordPlayerTrade(state, MarketId, GoodId);
+		// GATE.T65.ECON.ROUTE_NOVELTY.001: Record trade for novelty tracking.
+		MarketSystem.RecordRouteNovelty(state, MarketId, GoodId);
+
+		// GATE.T61.MARKET.DEPTH_MODEL.001: Consume market depth after trade.
+		MarketSystem.ConsumeDepth(market, Quantity);
+		// GATE.T61.MARKET.BID_ASK.001: Record trade for volatility tracking.
+		MarketSystem.RecordTradeVolatility(market);
+		// GATE.T61.MARKET.PRICE_SMOOTH.001: Stamp last trade tick for depth decay.
+		market.LastTradeTick = state.Tick;
 
 		// GATE.S12.PROGRESSION.STATS.001: Track goods traded + credits earned.
 		if (state.PlayerStats != null)

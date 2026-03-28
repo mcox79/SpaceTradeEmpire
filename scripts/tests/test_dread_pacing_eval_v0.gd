@@ -324,6 +324,50 @@ func _do_analyze() -> void:
 		_a.warn(relief_ratio > 0.05, "not_relentlessly_tense", "ratio=%.2f" % relief_ratio)
 		_a.warn(relief_ratio < 0.8, "not_boringly_calm", "ratio=%.2f" % relief_ratio)
 
+	# --- JSON report ---
+	var p2_mean_final := _mean(p2) if p2.size() >= 3 else 0.0
+	var p2_std_final := _stddev(p2) if p2.size() >= 3 else 0.0
+	var p3_mean_final := _mean(p3) if p3.size() >= 3 else 0.0
+	var p4_mean_final := _mean(p4) if p4.size() >= 3 else 0.0
+	var escalation_final := p3_mean_final - p2_mean_final
+	var relief_ratio_final := 0.0
+	if total_samples > 0:
+		var calm_ct := 0
+		for s in p2:
+			if s < 20.0: calm_ct += 1
+		for s in p3:
+			if s < 20.0: calm_ct += 1
+		for s in p4:
+			if s < 20.0: calm_ct += 1
+		relief_ratio_final = float(calm_ct) / float(total_samples)
+	var ghost_cv_final := _spacing_cv(_ghost_encounter_ticks) if _ghost_encounter_ticks.size() >= 2 else 0.0
+	var report := {
+		"bot": "dread_pacing",
+		"prefix": "DREAD_PACE",
+		"metrics": {
+			"phase2_tension_mean": p2_mean_final,
+			"phase2_tension_std": p2_std_final,
+			"phase3_tension_mean": p3_mean_final,
+			"phase4_tension_mean": p4_mean_final,
+			"escalation_delta": escalation_final,
+			"relief_ratio": relief_ratio_final,
+			"near_death_count": _near_death_events,
+			"ghost_spacing_cv": ghost_cv_final,
+		},
+		"assertions": {
+			"pass": _a._passes,
+			"warn": _a._warns.size(),
+			"fail": _a._fails.size(),
+		},
+	}
+	var json_str := JSON.stringify(report, "  ")
+	var report_path := "res://reports/eval/dread_pacing_report.json"
+	var f := FileAccess.open(report_path, FileAccess.WRITE)
+	if f:
+		f.store_string(json_str)
+		f.close()
+		_a.log("REPORT_JSON|written=%s" % report_path)
+
 	_a.summary()
 	if _bridge:
 		_bridge.call("StopSimV0")

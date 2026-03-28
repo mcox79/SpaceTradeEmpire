@@ -52,6 +52,12 @@ public sealed class ProgramInstance
     // SurveyRangeHops: BFS range from home node for discovery scanning.
     [JsonInclude] public int SurveyRangeHops { get; set; }
 
+    // GATE.T61.POSTMORTEM.FACT_STORE.001: Decision-time market snapshot.
+    // Captures prices, security, fleet state at program creation for postmortem comparison.
+    // Key format: "buy:<marketId>:<goodId>" = price, "sell:<marketId>:<goodId>" = price,
+    //             "sec:<edgeId>" = securityBps, "fleet:credits" = credits, "fleet:cargo" = totalCargo.
+    [JsonInclude] public System.Collections.Generic.Dictionary<string, int> DecisionFacts { get; set; } = new();
+
     public bool IsRunnableAt(int tick)
     {
         if (Status != ProgramStatus.Running) return false;

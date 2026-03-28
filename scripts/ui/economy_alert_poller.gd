@@ -96,11 +96,11 @@ func _get_node_display_name(node_id: String) -> String:
 	if node_id.is_empty():
 		return "Unknown"
 	if _bridge and _bridge.has_method("GetNodeDisplayNameV0"):
-		var name: String = str(_bridge.call("GetNodeDisplayNameV0", node_id))
-		if not name.is_empty():
+		var display_name: String = str(_bridge.call("GetNodeDisplayNameV0", node_id))
+		if not display_name.is_empty():
 			# Strip parenthesized production tags for clean display.
-			var paren_idx: int = name.find("(")
+			var paren_idx: int = display_name.find("(")
 			if paren_idx > 0:
-				name = name.substr(0, paren_idx).strip_edges()
-			return name
+				display_name = display_name.substr(0, paren_idx).strip_edges()
+			return display_name
 	return node_id.replace("_", " ").capitalize()

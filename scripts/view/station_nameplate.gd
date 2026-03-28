@@ -6,7 +6,7 @@ var _label: Label3D = null
 var _insignia: MeshInstance3D = null
 
 
-func setup(station_name: String, faction_id: String, faction_color: Color) -> void:
+func setup(station_name: String, _faction_id: String, faction_color: Color) -> void:
 	# Format "Star_N" → "Star N".
 	var display_name: String = station_name.replace("_", " ")
 

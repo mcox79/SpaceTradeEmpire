@@ -452,6 +452,170 @@ public sealed class CombatPhase2Tests
         Assert.That(CombatTweaksV0.SpinningUpDamagePct, Is.LessThan(CombatTweaksV0.NeutralPct));
     }
 
+    // GATE.T60.SPIN.TICK_FIX.001: Verify ProcessBattleStations decrements and transitions.
+    [Test]
+    public void BattleStations_ProcessTick_DecrementsAndTransitions()
+    {
+        var state = new SimState();
+        var fleet = new Fleet
+        {
+            Id = "player",
+            OwnerId = "player",
+            BattleStations = BattleStationsState.SpinningUp,
+            BattleStationsSpinUpTicksRemaining = CombatTweaksV0.BattleStationsSpinUpTicks // 3
+        };
+        state.Fleets["player"] = fleet;
+
+        // Tick 1: 3 → 2, still SpinningUp
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(fleet.BattleStationsSpinUpTicksRemaining, Is.EqualTo(2));
+        Assert.That(fleet.BattleStations, Is.EqualTo(BattleStationsState.SpinningUp));
+
+        // Tick 2: 2 → 1, still SpinningUp
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(fleet.BattleStationsSpinUpTicksRemaining, Is.EqualTo(1));
+        Assert.That(fleet.BattleStations, Is.EqualTo(BattleStationsState.SpinningUp));
+
+        // Tick 3: 1 → 0, transition to BattleReady
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(fleet.BattleStationsSpinUpTicksRemaining, Is.EqualTo(0));
+        Assert.That(fleet.BattleStations, Is.EqualTo(BattleStationsState.BattleReady));
+
+        // Tick 4: Already BattleReady, no change
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(fleet.BattleStations, Is.EqualTo(BattleStationsState.BattleReady));
+    }
+
+    [Test]
+    public void BattleStations_ProcessTick_IgnoresStandDown()
+    {
+        var state = new SimState();
+        var fleet = new Fleet
+        {
+            Id = "npc_1",
+            OwnerId = "faction_a",
+            BattleStations = BattleStationsState.StandDown,
+            BattleStationsSpinUpTicksRemaining = 0
+        };
+        state.Fleets["npc_1"] = fleet;
+
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(fleet.BattleStations, Is.EqualTo(BattleStationsState.StandDown));
+        Assert.That(fleet.BattleStationsSpinUpTicksRemaining, Is.EqualTo(0));
+    }
+
+    // GATE.T60.SPIN.DOCK_RESET.001: Dock resets battle stations to StandDown.
+    [Test]
+    public void BattleStations_DockReset_ResetsToStandDown()
+    {
+        var state = new SimState();
+        var player = new Fleet
+        {
+            Id = "player",
+            OwnerId = "player",
+            State = FleetState.Docked,
+            CurrentNodeId = "node_a",
+            BattleStations = BattleStationsState.BattleReady,
+            BattleStationsSpinUpTicksRemaining = 0,
+            SpinRpm = 20
+        };
+        state.Fleets["player"] = player;
+
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(player.BattleStations, Is.EqualTo(BattleStationsState.StandDown));
+        Assert.That(player.SpinRpm, Is.EqualTo(0));
+    }
+
+    // GATE.T60.SPIN.DOCK_RESET.001: Auto-trigger spin when pirate at same node.
+    [Test]
+    public void BattleStations_AutoTrigger_SpinsUpOnHostile()
+    {
+        var state = new SimState();
+        var player = new Fleet
+        {
+            Id = "player",
+            OwnerId = "player",
+            State = FleetState.Idle,
+            CurrentNodeId = "node_a",
+            BattleStations = BattleStationsState.StandDown,
+        };
+        var pirate = new Fleet
+        {
+            Id = "pirate_1",
+            OwnerId = "pirate",
+            State = FleetState.Idle,
+            CurrentNodeId = "node_a",
+            HullHp = 100,
+            HullHpMax = 100,
+        };
+        state.Fleets["player"] = player;
+        state.Fleets["pirate_1"] = pirate;
+
+        CombatSystem.ProcessBattleStations(state);
+        // Auto-trigger fires AND tick decrement runs in same call → ticks = SpinUpTicks - 1.
+        Assert.That(player.BattleStations, Is.EqualTo(BattleStationsState.SpinningUp));
+        Assert.That(player.BattleStationsSpinUpTicksRemaining,
+            Is.EqualTo(CombatTweaksV0.BattleStationsSpinUpTicks - 1));
+    }
+
+    // GATE.T60.SPIN.DOCK_RESET.001: No auto-trigger when no hostile present.
+    [Test]
+    public void BattleStations_AutoTrigger_NoHostile_StaysStandDown()
+    {
+        var state = new SimState();
+        var player = new Fleet
+        {
+            Id = "player",
+            OwnerId = "player",
+            State = FleetState.Idle,
+            CurrentNodeId = "node_a",
+            BattleStations = BattleStationsState.StandDown,
+        };
+        var friendly = new Fleet
+        {
+            Id = "npc_1",
+            OwnerId = "faction_a",
+            CurrentNodeId = "node_a",
+            HullHp = 50,
+            HullHpMax = 50,
+        };
+        state.Fleets["player"] = player;
+        state.Fleets["npc_1"] = friendly;
+
+        CombatSystem.ProcessBattleStations(state);
+        Assert.That(player.BattleStations, Is.EqualTo(BattleStationsState.StandDown));
+    }
+
+    // GATE.T60.SPIN.ARMOR_HEAT.001: Spinning target takes less energy damage.
+    [Test]
+    public void SpinArmor_EnergyWeapon_ReducedByTargetSpin()
+    {
+        // Spinning target at 20 RPM → 20 * 50 = 1000 bps = 10% reduction on energy.
+        var spinning = MakeProfile(5000, 0,
+            heatCapacity: 5000, rejectionRate: 5000,
+            readinessDamagePct: CombatTweaksV0.NeutralPct,
+            weapons: new[] { ("weapon_laser_mk1", 100, CombatSystem.DamageFamily.Energy, 100) });
+        spinning.SpinRpm = 20;
+
+        var noSpin = MakeProfile(5000, 0,
+            heatCapacity: 5000, rejectionRate: 5000,
+            readinessDamagePct: CombatTweaksV0.NeutralPct,
+            weapons: new[] { ("weapon_laser_mk1", 100, CombatSystem.DamageFamily.Energy, 100) });
+
+        var targetVsSpin = MakeProfile(5000, 0, heatCapacity: 5000, rejectionRate: 5000);
+        targetVsSpin.SpinRpm = 20; // Target is spinning
+
+        var targetNoSpin = MakeProfile(5000, 0, heatCapacity: 5000, rejectionRate: 5000);
+        targetNoSpin.SpinRpm = 0;
+
+        var resultSpin = StrategicResolverV0.Resolve(noSpin, targetVsSpin);
+        var resultNoSpin = StrategicResolverV0.Resolve(noSpin, targetNoSpin);
+
+        // Spinning target should take less damage (survive longer / take less salvage).
+        Assert.That(resultSpin.SalvageValue, Is.LessThanOrEqualTo(resultNoSpin.SalvageValue),
+            "Spinning target should take reduced energy damage");
+    }
+
     // ── Radiator Tests ──
 
     [Test]

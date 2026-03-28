@@ -18,12 +18,14 @@ public static class SustainTweaksV0
     public const int DefaultFuelCapacity = 500;
 
     // GATE.S19.ONBOARD.FUEL_COST.001: Credit cost per unit of fuel when refueling.
-    // 3 cr/unit = meaningful pressure (~1500cr per full refuel on a 500-fuel Corvette).
-    public const int RefuelCreditCostPerUnit = 3;
+    // GATE.T64.ECON.FRICTION_SINKS.001: Raised from 3→5 to increase sink/faucet ratio.
+    // 5 cr/unit = ~2500cr per full refuel on a 500-fuel Corvette.
+    public const int RefuelCreditCostPerUnit = 5;
 
     // Credit cost per hull HP restored when docked at a station.
-    // 5 cr/HP = repairing 50 HP damage costs 250 cr.
-    public const int HullRepairCreditCostPerHp = 5;
+    // GATE.T65.ECON.SINK_BOOST.001: Raised from 8→12 to push sink_faucet ≥ 0.35.
+    // 12 cr/HP = repairing 50 HP damage costs 600 cr.
+    public const int HullRepairCreditCostPerHp = 12;
 
     // Fuel tank module capacity bonuses.
     public const int FuelTankMk1Capacity = 150;

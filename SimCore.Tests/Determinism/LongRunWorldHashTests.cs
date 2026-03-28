@@ -25,10 +25,10 @@ public class LongRunWorldHashTests
     //
     // Diagnostics:
     // - Checkpoints recorded at a few tick counts to pinpoint the first divergence window.
-    // GATE.T56.FIX.RARE_METALS_DRAIN.001: Added rare metals mines at "(Rare Min)" nodes.
-    private const string ExpectedGenesisHash = "0B3E697C2B4160C5FE05E3BB4B272F139F3570B0CB4EE4F5A0E0D1FA93F1031D";
-    // GATE.T59.SHIP.NPC_FACTION_FLEET.001: NPC fleets use faction ship variants.
-    private const string ExpectedFinalHash = "AB04E6BC2D3FBD0A46619F0E00727071B125A10F59AB1B50158D60922E56607E";
+    // GATE.T41: Combat tuning (pirate HP doubled), FO silence/cadence, price variance.
+    private const string ExpectedGenesisHash = "BED5778DBDFBEFC7D68856473ED0602209348D4812670275C4914734E3E52283";
+    // GATE.T63.PACING.LATE_ESCALATION.001: Warfronts below Skirmish auto-escalate post-d500.
+    private const string ExpectedFinalHash = "25BAFF2D0C347C9906F206E0F31A32DEA2FD89B68F858B8DB361C8CDAE5E6070";
 
     // Gate: GATE.S2_5.WGEN.NSEED.001 (N-seed batch invariants v0)
     // Golden is SHA256 over the emitted INVARIANTS_BATCH_V0 summary (UTF8), to prevent silent format churn.

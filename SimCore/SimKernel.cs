@@ -165,6 +165,9 @@ public class SimKernel
         // GATE.T48.TENSION.MAINTENANCE.001: Continuous fleet costs — fuel, wages, hull degradation.
         ProfileCall(sw, tickProfiles, "FleetUpkeepSystem.ContinuousCosts", () => FleetUpkeepSystem.ProcessContinuousCosts(_state));
 
+        // GATE.T60.SPIN.TICK_FIX.001: Decrement battle stations spin-up each tick.
+        ProfileCall(sw, tickProfiles, "CombatSystem.BattleStations", () => CombatSystem.ProcessBattleStations(_state));
+
         // GATE.S16.NPC_ALIVE.FLEET_DESTROY.001: Remove destroyed NPC fleets.
         ProfileCall(sw, tickProfiles, "NpcFleetCombatSystem", () => NpcFleetCombatSystem.Process(_state));
 
@@ -227,6 +230,9 @@ public class SimKernel
 
         // GATE.S8.HAVEN.FABRICATOR.001: T3 module fabrication tick.
         ProfileCall(sw, tickProfiles, "HavenFabricatorSystem", () => HavenFabricatorSystem.Process(_state));
+
+        // GATE.T61.MARKET.DEPTH_MODEL.001: Market depth recovery + volatility decay.
+        ProfileCall(sw, tickProfiles, "MarketSystem.ProcessDepthRecovery", () => MarketSystem.ProcessDepthRecovery(_state));
 
         // GATE.S8.HAVEN.MARKET_EVOLUTION.001: Haven market periodic restocking.
         ProfileCall(sw, tickProfiles, "HavenMarketSystem", () => HavenMarketSystem.Process(_state));
@@ -362,6 +368,9 @@ public class SimKernel
 
         // GATE.S7.DIPLOMACY.FRAMEWORK.001: Diplomacy — treaties, bounties, sanctions.
         ProfileCall(sw, tickProfiles, "DiplomacySystem", () => DiplomacySystem.Process(_state));
+
+        // GATE.T62.LOSS.INSURANCE_MODEL.001: Fleet insurance premium deduction (before loss detection).
+        ProfileCall(sw, tickProfiles, "InsuranceSystem", () => InsuranceSystem.Process(_state));
 
         // GATE.S8.WIN.LOSS_DETECT.001: Detect death (hull 0) and bankruptcy (credits below threshold).
         ProfileCall(sw, tickProfiles, "LossDetectionSystem", () => LossDetectionSystem.Process(_state));

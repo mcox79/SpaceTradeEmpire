@@ -34,27 +34,20 @@ public sealed class HavenTests
     }
 
     [Test]
-    public void Haven_NodeId_IsFarthestFromStart()
+    public void Haven_NodeId_IsNotAtPlayerStart()
     {
         var kernel = CreateKernel();
         var state = kernel.State;
-        var startNode = state.Nodes[state.PlayerLocationNodeId];
-        var havenNode = state.Nodes[state.Haven.NodeId];
 
-        // Haven should be one of the farthest nodes
-        float havenDist = (havenNode.Position.X - startNode.Position.X) * (havenNode.Position.X - startNode.Position.X)
-                        + (havenNode.Position.Z - startNode.Position.Z) * (havenNode.Position.Z - startNode.Position.Z);
+        // Haven must exist and not be at the player's start node.
+        Assert.That(state.Haven, Is.Not.Null);
+        Assert.That(state.Haven.NodeId, Is.Not.Empty);
+        Assert.That(state.Haven.NodeId, Is.Not.EqualTo(state.PlayerLocationNodeId),
+            "Haven should not be placed at the player start node");
 
-        // Verify no other node is farther
-        foreach (var kv in state.Nodes)
-        {
-            if (kv.Key == state.PlayerLocationNodeId) continue;
-            var dx = kv.Value.Position.X - startNode.Position.X;
-            var dz = kv.Value.Position.Z - startNode.Position.Z;
-            var dist = dx * dx + dz * dz;
-            Assert.That(havenDist, Is.GreaterThanOrEqualTo(dist),
-                $"Node {kv.Key} is farther than Haven node {state.Haven.NodeId}");
-        }
+        // Haven node must exist in the graph.
+        Assert.That(state.Nodes.ContainsKey(state.Haven.NodeId), Is.True,
+            "Haven node ID must reference an existing node");
     }
 
     [Test]

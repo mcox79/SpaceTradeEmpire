@@ -59,9 +59,23 @@ public class BuyCommand : ICommand
 
 		int unitPrice = market.GetBuyPrice(GoodId);
 
+		// GATE.T61.MARKET.DEPTH_MODEL.001: Depth-based price impact (buy price UP).
+		int depthBps = MarketSystem.ComputeDepthImpactBps(qty, market.Depth);
+		if (depthBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + depthBps) / 10000);
+
+		// GATE.T61.MARKET.BID_ASK.001: Dynamic spread adjustment (buy price UP).
+		int dynSpreadBps = MarketSystem.GetDynamicSpreadAdjustmentBps(state, MarketId);
+		if (dynSpreadBps > 0)
+			unitPrice = (int)Math.Max(1, (long)unitPrice * (10000 + dynSpreadBps / 2) / 10000);
+
 		// GATE.T52.ECON.TRADE_DIVERSITY.001: Apply recent-trade margin dampening (buy price UP).
 		int dampenBps = MarketSystem.GetRecentTradeDampenBps(state, MarketId, GoodId);
 		unitPrice = MarketSystem.ApplyRecentTradeDampening(unitPrice, dampenBps, isBuy: true);
+
+		// GATE.T65.ECON.ROUTE_NOVELTY.001: Apply novelty bonus (buy price DOWN for new routes).
+		int noveltyBps = MarketSystem.GetRouteNoveltyBonusBps(state, MarketId, GoodId);
+		unitPrice = MarketSystem.ApplyNoveltyBonus(unitPrice, noveltyBps, isBuy: true);
 
 		// GATE.X.MARKET_PRICING.REP_WIRE.001: Apply reputation-based price modifier.
 		var factionId = MarketSystem.GetControllingFactionIdForMarket(state, MarketId);
@@ -133,6 +147,15 @@ public class BuyCommand : ICommand
 
 		// GATE.T52.ECON.TRADE_DIVERSITY.001: Record trade for margin dampening.
 		MarketSystem.RecordPlayerTrade(state, MarketId, GoodId);
+		// GATE.T65.ECON.ROUTE_NOVELTY.001: Record trade for novelty tracking.
+		MarketSystem.RecordRouteNovelty(state, MarketId, GoodId);
+
+		// GATE.T61.MARKET.DEPTH_MODEL.001: Consume market depth after trade.
+		MarketSystem.ConsumeDepth(market, qty);
+		// GATE.T61.MARKET.BID_ASK.001: Record trade for volatility tracking.
+		MarketSystem.RecordTradeVolatility(market);
+		// GATE.T61.MARKET.PRICE_SMOOTH.001: Stamp last trade tick for depth decay.
+		market.LastTradeTick = state.Tick;
 
 		// GATE.T53.BOT.TRADE_REP.001: Award faction rep for trading at their station.
 		if (!string.IsNullOrEmpty(factionId))

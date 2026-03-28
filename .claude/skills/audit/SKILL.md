@@ -72,6 +72,13 @@ eval bots, multi-seed sweeps, LLM evaluations, coverage gaps, then fixes and ite
 | 3 | Domain Eval (5 bots) | `Run-EvalBot.ps1` | `reports/eval/*_stdout.txt` | ~5m |
 | 4 | Experience multi-seed (headless) | `Run-ExperienceBot.ps1 -Mode headless -Sweep` | `reports/experience/balanced/seed_*/report.json` | ~5m |
 | 5 | FH multi-seed (headless, 3s) | `Run-FHBot-MultiSeed.ps1 -Seeds 42,99,1001` | SEED_SWEEP summary | ~3m |
+| 6 | Experience slow-bot (headless, seed 42) | `Run-ExperienceBot.ps1 -Mode headless -Seed 42 -Slow` | `reports/experience/balanced_slow/seed_42/report.json` | ~8m |
+
+The **slow bot** (bot #6) runs the same experience bot logic but with human-paced
+delays (1-3 second pauses between actions). This reveals whether dead zones and
+pacing issues are real player problems or bot-speed artifacts. Compare slow-bot
+dead zone count against fast-bot to calibrate pacing findings. If dead zones
+disappear at human pace, downgrade from CRITICAL to MAJOR.
 
 All commands: `powershell -ExecutionPolicy Bypass -File scripts/tools/<command>`.
 
@@ -83,10 +90,21 @@ CRITICAL finding (bot contract broken) and continue with remaining bots.
 
 **If a bot hangs** (>2× expected time): kill the process, log TIMEOUT finding, continue.
 
+**Bot health check** (after all bots complete): Compare experience bot key metrics
+against verification bot baseline (FH-1b). Flag any metric with >50% discrepancy
+as BOT_BUG — these are measurement errors in the experience bot, not game bugs.
+Bot bugs must be fixed before the next audit iteration.
+
 **What each captures:**
-- **Experience bot** — 20 dimensions: economy, pacing, combat, exploration, grind,
-  FO, disclosure, progression, market intel, missions, fleet, security, haven,
-  narrative, combat depth, story, dread, diplomacy, pressure, construction.
+- **Experience bot** — 27 dimensions scored, classified as ACTIVE or STABLE:
+  - **ACTIVE** (report these — producing signal): economy, pacing, combat, exploration,
+    grind, FO, disclosure, progression, market intel, narrative, combat depth, story,
+    dread, diplomacy, pressure, construction, cognitive load, valence arc, competence,
+    pacing rhythm, economy depth.
+  - **STABLE** (suppress from reports — consecutive PASS across 3+ audits): security,
+    haven, dead-end, missions, fleet, retention.
+  Only ACTIVE dimensions appear in the scorecard and issue list. STABLE dimensions
+  are still measured but omitted from reports unless they regress to non-PASS.
   Plus: credit curve shape, issue detection with severity + prescriptions + file refs.
 - **FH proof bot** — 18+ hard assertions, 5 goal evidence (`FH1|GOAL|`),
   perf (`FH1|PERF|`), flags, dispatch reliability, content quality.
@@ -95,9 +113,42 @@ CRITICAL finding (bot contract broken) and continue with remaining bots.
   relief ratio), audio_atmosphere, flight_feel.
 - **Multi-seed** — cross-seed stability: which issues are universal vs seed-specific.
 
+### FH-1b: Verification Bot (early false-positive filter)
+
+Run verification BEFORE LLM evals. This catches false positives from bot
+measurement bugs, preventing eval agents from wasting cycles analyzing phantom
+issues. The probes are predefined and do not depend on a compiled problem list.
+
+**Run both modes sequentially:**
+
+```bash
+# 1. Headless — fast metric verification (~60s)
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-VerifyIssues.ps1 -Mode headless -Seed 42
+
+# 2. Visual — screenshot + scene-tree verification (~90s)
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-VerifyIssues.ps1 -Mode visual -Seed 42
+```
+
+After both runs, parse `VFY|VERIFY|probe|status|evidence` lines from stdout.
+Write preliminary `reports/audit/<iter>/verification_preliminary.md` with
+CONFIRMED/UNCONFIRMED status per probe. This data is consumed by LLM eval agents
+in FH-2 (agents should skip analyzing UNCONFIRMED metrics) and by FH-4 when
+compiling the unified problem list.
+
+See FH-4b probe-to-issue mapping table for the full probe list.
+
 ### FH-2: LLM Evaluations (parallel agents)
 
-Launch ALL as parallel Agent calls:
+Launch ALL as parallel Agent calls.
+
+**IMPORTANT — Agent isolation rule**: Each agent writes exactly ONE file. Never
+combine two agents into one dispatch (e.g., "Agent A+B"). Compound agents risk
+silent partial failures where one output file is written and the other is 0 bytes.
+
+**IMPORTANT — Verification data**: All agents should read
+`reports/audit/<iter>/verification_preliminary.md` (from FH-1b). When an issue is
+marked UNCONFIRMED by verification, the agent should note it as a likely false
+positive rather than scoring it as a real problem.
 
 **A: Goal Evaluation (Sonnet)**
 1. Parse `FH1|GOAL|*`, `FH1|ASSERT_*`, `FH1|FLAG|*`, `FH1|PERF|*` from `reports/first_hour/stdout.txt`
@@ -127,10 +178,24 @@ Launch ALL as parallel Agent calls:
 5. Rate each PASS/NEEDS_WORK/FAIL
 6. Write `reports/audit/<iter>/feel_eval.md`
 
-**D: Seed Variance (inline — no agent)**
-1. Compare 20-dimension scores across seeds, flag high-variance
-2. Compare FH goal scores across seeds, flag range > 2
-3. Write `reports/audit/<iter>/seed_variance.md`
+**D: Seed Variance — Primary Diagnostic (Sonnet)**
+
+Seed variance is the most diagnostic tool in the audit. It instantly separates
+universal issues (same on all seeds → design problem) from stochastic ones
+(varies wildly → RNG/topology problem). Promoted from inline to full agent.
+
+1. Read ALL multi-seed experience reports (`reports/experience/balanced/seed_*/report.json`)
+2. For each ACTIVE dimension, compute mean, stdev, min, max across seeds
+3. Classify each dimension:
+   - **UNIVERSAL** (stdev/mean < 0.15): Same issue on all seeds → design problem, highest priority
+   - **VARIABLE** (stdev/mean 0.15-0.50): Moderate variance → topology or RNG sensitivity
+   - **CHAOTIC** (stdev/mean > 0.50): Wildly different per seed → investigate root cause
+4. Compare FH goal scores across seeds, flag range > 2
+5. For VARIABLE/CHAOTIC dimensions, identify the outlier seed and hypothesize cause
+   (map topology, NPC spawn patterns, market init, etc.)
+6. Produce a **triage recommendation**: which problems to fix first based on universality
+7. Compare slow-bot results (if available) against fast-bot to flag bot-speed artifacts
+8. Write `reports/audit/<iter>/seed_variance.md` with triage table
 
 **E: Moment Quality Evaluation (Sonnet)**
 
@@ -240,7 +305,12 @@ WHAT is nearby. Critical for a space game where disorientation = frustration.
 Goes beyond the domain eval bot's state-machine validation to evaluate audio QUALITY
 and emotional contribution. Uses domain eval output + screenshots + design docs.
 
-0. Pre-check: Grep `scripts/audio/music_manager.gd` for `_has_real_audio`. If the value is `false`, immediately flag "Audio suppressed by placeholder guard (GATE.T56) — not a code bug. All buses silent by design until real audio stems are loaded." Set this as the root cause and skip audio BUG diagnosis. Still evaluate the audio STATE MACHINE logic and transition design.
+0. Pre-check: Grep `scripts/audio/music_manager.gd` for `_has_real_audio`. If the value
+   is `false`, **SKIP this entire eval**. Write a 3-line report to
+   `reports/audit/<iter>/audio_atmosphere_deep.md`: "Audio suppressed by placeholder
+   guard (_has_real_audio=false). All buses silent by design. Eval skipped — no signal
+   until real audio stems are loaded." Do NOT evaluate state machine logic or transition
+   design — those evaluations produce zero actionable findings while audio is suppressed.
 1. Read domain eval bot output: `reports/eval/audio_atmosphere_eval_v0_stdout.txt`
 2. Read `scripts/tools/first_hour_feel_rubric.md` Section 4 (Audio)
 3. Cross-reference with design intent from `docs/design/music_production_brief_v0.md`
@@ -326,23 +396,137 @@ The game doesn't use tutorials — so the world itself must teach.
    (key controls undiscoverable)
 7. Write `reports/audit/<iter>/onboarding_clarity.md`
 
+**L: FO Writing Quality Evaluation (Sonnet)**
+
+The First Officer is the game's primary voice. Bad writing kills immersion faster
+than any visual bug. This eval checks whether FO dialogue reads like a real character.
+
+1. Collect the FO dialogue corpus from bot telemetry:
+   - Parse all `FH1|FO|` and `EXP|FO|` lines from bot stdout
+   - Read FO dialogue content files: Grep `scripts/bridge/SimBridge*.cs` and
+     `SimCore/Content/` for dialogue text arrays, trigger conditions, archetype data
+   - Read `docs/design/NarrativeDesign.md` for intended FO personality profiles
+2. Evaluate the corpus on 5 axes:
+   - **Tone consistency** (1-5): Does the FO sound like the same person across all lines?
+     Mixed register (formal + slang) = inconsistent. Archetype voice drift = inconsistent.
+   - **Archetype distinctiveness** (1-5): Can you tell Analyst from Veteran from Pathfinder
+     by word choice alone (without seeing the speaker label)? Or do all three sound generic?
+   - **Emotional appropriateness** (1-5): Does the FO react differently to profit vs danger
+     vs discovery? Or does every line have the same neutral tone? Post-combat lines should
+     feel different from post-trade lines.
+   - **Information density** (1-5): Do FO lines convey useful game state (prices, threats,
+     opportunities) or are they flavor-only? Best FO lines do BOTH — personality + intel.
+   - **Brevity** (1-5): Are lines short enough to read during gameplay without pausing?
+     Max 2 sentences for reactive lines. Tutorial/narrative beats can be longer.
+3. Flag specific problems:
+   - VOICE_DRIFT: Same archetype uses conflicting registers across lines
+   - ARCHETYPE_CLONE: Two archetypes produce indistinguishable dialogue
+   - ROBO_SPEAK: Lines sound generated/template-filled rather than authored
+   - INFO_VACUUM: FO speaks but says nothing useful about game state
+   - WALL_OF_TEXT: Any single FO line > 80 words
+4. Score the overall FO writing quality and compare against reference:
+   - Stellaris advisors (distinct voice per type, useful intel)
+   - FTL crew (terse, contextual, personality in word choice)
+   - Hades Zagreus banter (reactive, character-building, never blocks gameplay)
+5. Write `reports/audit/<iter>/fo_writing_quality.md`
+
 ### FH-3: Coverage Gap Analysis
 
 ```bash
-powershell -ExecutionPolicy Bypass -File scripts/tools/Run-CoverageGap.ps1
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-CoverageGap.ps1 -OutputDir reports/audit/<iter>
 ```
-Plus: flag first-hour-relevant systems that no bot exercises, UI panels never
-screenshot-captured, bridge methods unused by any bot.
 
-Write `reports/audit/<iter>/coverage_gaps.md`.
+The enhanced coverage tool produces:
+- **JSON report** (`coverage_report.json`): machine-readable for downstream tools
+- **Markdown report** (`coverage_report.md`): human-readable with full detail
 
-### FH-4: Compile Unified Problem List
+Output includes:
+- **Per-bridge-partial coverage**: e.g., SimBridge.Fleet.cs 8/12 (67%)
+- **Per-bot breakdown**: which bot exercises which methods
+- **UI_ONLY methods**: called by UI code but never bot-tested (priority targets)
+- **UNCALLED methods**: not referenced anywhere — potentially dead code
+- **Critical untested UI scripts**: first-hour-relevant `.gd` files no bot loads
+- **Historical delta**: coverage change vs previous run
+
+Copy the markdown report to `reports/audit/<iter>/coverage_gaps.md`.
+Use the JSON report in FH-4 problem compilation for structured gap entries.
+
+### FH-4: Compile Unified Problem List (split + capped)
 
 Merge all outputs using the shared severity mapping and problem format
 (see Shared: Problem Format section below).
 
+**Split into two sections:**
+
+**Section 1: Code Bugs** (auto-fixable=yes, Tag=BUG/SUPPRESSED/UNWIRED)
+These are concrete code defects the audit can fix without design input.
+Force-rank by severity, then by seed universality (universal > variable > chaotic).
+**Cap at 15 items.** If more than 15, keep top 15 and note "N additional items
+deferred to next audit" at the bottom.
+
+**Section 2: Design Decisions** (auto-fixable=needs-design, Tag=GAP/OPINION/UX)
+These require human judgment. Do NOT attempt to fix these. Present as a prioritized
+backlog with 2-3 sentence context per item. No cap — list all for design review.
+Include seed variance classification (UNIVERSAL/VARIABLE/CHAOTIC) for each.
+
+Use seed variance results from agent D to annotate every problem with its
+universality classification. Universal issues sort above variable ones.
+
 Write `reports/audit/<iter>/unified_problems.md`.
 If modifier is `eval-only`, STOP HERE.
+
+### FH-4b: Finalize Verification Report
+
+Verification probes already ran in FH-1b. This step maps probe results to the
+compiled unified problem list and produces the final verification report.
+
+1. Read `reports/audit/<iter>/verification_preliminary.md` (from FH-1b)
+2. Match each probe to issues in unified_problems.md by category
+3. Update each issue with verification status (CONFIRMED/UNCONFIRMED/SKIP)
+4. Write `reports/audit/<iter>/verification_report.md`
+5. **Only fix CONFIRMED issues** in FH-5. Flag UNCONFIRMED for manual investigation.
+
+If FH-1b was skipped (e.g., time budget), run the verification bot here instead:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-VerifyIssues.ps1 -Mode headless -Seed 42
+powershell -ExecutionPolicy Bypass -File scripts/tools/Run-VerifyIssues.ps1 -Mode visual -Seed 42
+```
+
+**Probe-to-issue mapping:**
+
+| Probe | Verifies Issue Category | Mode | What It Checks |
+|-------|------------------------|------|----------------|
+| tab_disclosure | COGNITIVE_LOAD / SYSTEM_DUMP | both | Tabs visible at first dock (expect ≤2) |
+| system_dump | COGNITIVE_LOAD | both | Systems introduced per dock |
+| fo_dock_greeting | FO silence | both | FO speaks at first dock |
+| keybind_hints | INVISIBLE_CONTROLS | visual | Control hints visible in HUD |
+| dock_panel_visible | Dock panel appearance | visual | HeroTradeMenu renders on dock |
+| credit_feedback | SILENT_PROFIT | visual | CreditsFlash fires on sell |
+| heist_margin | Heist moment quality | both | First trade margin > 50 cr |
+| lane_visibility | INVISIBLE_LANES | visual | LaneLine/LaneGate nodes in scene |
+| camera_distance | Camera too far | visual | Camera Y < 200 units |
+| heading_indicator | Spatial orientation | visual | Heading/compass node exists |
+| system_identity | IDENTICAL_SYSTEMS | visual | Star visuals differ across systems |
+| combat_damage_flash | Combat juice | visual | DamageFlash alpha > 0 on hit |
+| combat_vignette | Combat juice | visual | CombatVignette activates |
+| combat_screen_shake | Combat juice | visual | Shake intensity > 0 |
+| combat_banner | Combat juice | visual | Combat banner text visible |
+| combat_loot | Combat loot rate | both | Loot in cargo after kill |
+| module_available | Power moment | both | Modules available + slots open |
+| galaxy_map_nodes | Galaxy map rendering | visual | Beacon nodes visible in GalaxyView |
+| galaxy_player_marker | LOST_PLAYER | visual | "You are here" marker exists |
+| galaxy_faction_overlay | Faction visibility | visual | Territory/faction nodes in map |
+| economy_sinks | Economy exponential | both | Sink/faucet ratio > 0.05 |
+| route_diversity | Route grind | both | Unique routes / total > 0.3 |
+| fo_silence | FO silence gap | both | Max silence < 100 ticks |
+| competence_margins | Margin regression | both | Late margins ≥ 80% of early |
+| discovery_count | Zero discoveries | both | At least 1 discovery |
+| fps_minimum | FPS blocker | both | Min FPS ≥ 30 |
+| toast_type_differentiation | DEVELOPER_UI | visual | Toasts have type/color coding |
+
+**Output**: `reports/verification/stdout.txt`, `reports/verification/report.json`,
+`reports/verification/*.png` (visual mode screenshots)
 
 ### FH-5: Fix Pass
 
@@ -452,6 +636,11 @@ Same as FH-3 but broader scope: include deep systems, tutorial, stress coverage.
 Merge ALL outputs using shared severity mapping (see below).
 Write `reports/audit/<iter>/unified_problems.md`.
 
+### Step 4b — Targeted Issue Verification
+
+Same as FH-4b (see First-Hour Mode section). Run both headless and visual modes
+of the verification bot to confirm every issue. Only fix CONFIRMED issues in Step 5.
+
 ### Step 5 — Fix Pass
 
 Shared fix rules (see below). Additionally for full mode:
@@ -559,6 +748,31 @@ PROBLEM #N
 | Onboarding eval | INVISIBLE_CONTROLS | → major |
 | Onboarding eval | score < 2 on any category | → major |
 | Onboarding eval | commandment violated | → major |
+| FO writing eval | VOICE_DRIFT or ARCHETYPE_CLONE | → major |
+| FO writing eval | ROBO_SPEAK | → major |
+| FO writing eval | INFO_VACUUM | → minor |
+| FO writing eval | WALL_OF_TEXT | → minor |
+| FO writing eval | score < 2 on any axis | → major |
+| Experience bot | COGNITIVE_LOAD: SYSTEM_DUMP (>2 systems/dock) | → critical |
+| Experience bot | COGNITIVE_LOAD: TAB_OVERLOAD (>5 tabs first dock) | → major |
+| Experience bot | COGNITIVE_LOAD: WALL_OF_TEXT (>80 word FO msg) | → minor |
+| Experience bot | COGNITIVE_LOAD: INFORMATION_DESERT (200+ decisions no new system) | → major |
+| Experience bot | DEAD_END: TRAP_STATE (credits<buy, cargo=0, no missions) | → critical |
+| Experience bot | DEAD_END: action_reversals > 3 | → major |
+| Experience bot | RETENTION: first_profit > 80 decisions | → major |
+| Experience bot | RETENTION: core_loop > 100 decisions | → major |
+| Experience bot | RETENTION: declining_action_rate | → major |
+| Experience bot | PACING_RHYTHM: monotone intervals (CoV < 0.2) | → major |
+| Experience bot | PACING_RHYTHM: event clustering (3+ HIGH in 30 decisions) | → minor |
+| Experience bot | VALENCE_ARC: zero crossings (monotone valence) | → major |
+| Experience bot | VALENCE_ARC: zero catharsis events | → major |
+| Experience bot | VALENCE_ARC: zero wonder moments | → minor |
+| Experience bot | COMPETENCE: margin regression (late < early) | → major |
+| Experience bot | COMPETENCE: zero milestone acknowledgments | → minor |
+| Economy eval | money_velocity < 0.001 | → major |
+| Economy eval | inflation_rate > 20% or < -20% | → major |
+| Economy eval | route_viability < 5% | → major |
+| Economy eval | price_convergence_cov < 0.02 (dead market) | → major |
 
 Dedup: same file + issue from multiple evals → merge, keep highest severity.
 
@@ -620,24 +834,26 @@ and vice versa.
 - Git SHA: <sha> | C# Tests: N/N | Bots: EXP=P/F, FH=P/F, EVAL=N/5
 - Optimize criticals: N | Semgrep: P/F | GDScript lint: N warnings
 
-## Experience Scorecard (20 dimensions)
-| Dimension | Key Metric | Seed Variance |
-|-----------|-----------|--------------|
-| Economy | growth=X%, curve=Y | low/med/high |
-| Pacing | max_gap=N, entropy=X | ... |
-| Combat | kills=N/N, hull_min=X% | ... |
-| Exploration | visited=X%, depth=N | ... |
-| Grind | score=X, route_repeat=N | ... |
-| FO | lines=N, max_silence=N | ... |
-| Disclosure | systems=N at decision D | ... |
-| Progression | milestones=N, avg_ppt=N | ... |
-| Market Intel | alerts=N, shocks=N | ... |
-| Missions | available=N, accepted=N | ... |
-| Fleet | modules=N/N, weapons=N | ... |
-| Security | bands=N, max_war=X | ... |
-| Haven | discovered=T/F, projects=N | ... |
-| Narrative | revelation=N, NPCs=N | ... |
-| Combat Depth | heat=X, doctrine=T/F | ... |
+## Experience Scorecard (ACTIVE dimensions only)
+| # | Dimension | Key Metric | Seed Class | Verdict |
+|---|-----------|-----------|-----------|---------|
+| 1 | Economy | growth=X%, curve=Y, sink_faucet=X | UNIVERSAL/VARIABLE | CRITICAL/MAJOR/PASS |
+| 2 | Grind | score=X, route_repeat=N | ... | ... |
+| 3 | Cognitive Load | tabs_first_dock=N, max_sys/dock=N | ... | ... |
+| 4 | Valence Arc | crossings=N, catharsis=N, wonder=N | ... | ... |
+| 5 | FO | max_silence=N, lines=N | ... | ... |
+| 6 | Competence | early_margin=N, late_margin=N (delta%) | ... | ... |
+| 7 | Pacing | max_gap=N, entropy=X | ... | ... |
+| 8 | Pacing Rhythm | density/100=N, longest_streak=N | ... | ... |
+| 9 | Combat | kills=N, hull_min=X% | ... | ... |
+| 10 | Combat Depth | heat=X, doctrine=T/F | ... | ... |
+| 11 | Exploration | visited=X%, backtrack=X% | ... | ... |
+| 12 | Narrative | revelation=N, NPCs=N | ... | ... |
+| 13 | Economy Depth | velocity=X, CoV=X, inflation=X% | ... | ... |
+| 14 | Disclosure | systems=N at decision D | ... | ... |
+| 15 | Progression | milestones=N, avg_ppt=N | ... | ... |
+
+STABLE dimensions (suppressed — all PASS): Security, Haven, Dead-End, Missions, Fleet, Retention
 
 ## Goal Scores
 | Goal | Score | Summary |
@@ -650,8 +866,11 @@ and vice versa.
 
 **EA Readiness**: BLOCKED | NOT_READY | CONDITIONAL | READY
 
-## Issues (N: X critical, Y major, Z minor)
-(from unified_problems.md, grouped by severity)
+## Code Bugs (≤15, force-ranked)
+(from unified_problems.md Section 1 — auto-fixable issues, ranked by severity + universality)
+
+## Design Decisions (backlog)
+(from unified_problems.md Section 2 — needs-design items, NOT auto-fixed)
 
 ## Issues Fixed
 (from fix_log.md)
@@ -687,9 +906,10 @@ and vice versa.
 |-----------|-------|-------------|
 | Juice & Feedback | N/5 | ... |
 | Spatial Clarity | N/5 | ... |
-| Audio Atmosphere | N/5 | ... |
+| Audio Atmosphere | N/5 or SKIP | ... |
 | Typography & Identity | N/5 | ... |
 | Onboarding Clarity | N/5 | ... |
+| FO Writing Quality | N/5 | ... |
 
 ## 7 Commandments Check
 | Commandment | Verdict | Evidence |
@@ -766,6 +986,9 @@ Use these as "good enough" baselines — audit should flag when metrics fall bel
 | DEAD_END/SYSTEM_DUMP | 0 | Onboarding eval |
 | Commandments passed | 7/7 | Onboarding eval |
 | AAA reference patterns | ≥ 4/6 PASS | AAA quality gate |
+| FO writing quality (avg) | ≥ 3/5 | FO writing eval |
+| VOICE_DRIFT/ARCHETYPE_CLONE | 0 | FO writing eval |
+| Slow-bot dead zones | ≤ fast-bot dead zones | Slow-bot comparison |
 
 ---
 

@@ -57,6 +57,9 @@ public sealed class PurchaseShipCommand : ICommand
         var newFleet = ShipyardSystem.CreateFleetFromClass(classDef, StationNodeId, state);
         state.Fleets[newFleet.Id] = newFleet;
 
+        // GATE.T62.SHIP.MODULE_REASSIGN.001: Transfer compatible modules from hero ship to new ship.
+        RefitSystem.TransferModules(heroFleet, newFleet);
+
         // Record transaction.
         state.AppendTransaction(new TransactionRecord
         {

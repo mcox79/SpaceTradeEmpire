@@ -143,7 +143,7 @@ public class FractureTests
         Assert.That(result.Allowed, Is.False, "Underclass hull must be denied.");
         Assert.That(result.Reason, Does.Contain("hull_hp_max"), "Reason must mention hull_hp_max.");
         Assert.That(result.Reason, Does.Contain("80"), "Reason must include actual value.");
-        Assert.That(result.Reason, Does.Contain("120"), "Reason must include minimum threshold.");
+        Assert.That(result.Reason, Does.Contain("100"), "Reason must include minimum threshold.");
     }
 
     [Test]

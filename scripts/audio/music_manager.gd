@@ -35,7 +35,7 @@ const HOSTILE_CHECK_RANGE := 60.0
 # Each stinger: {notes: [[freq_hz, duration_s], ...], total_duration: float}
 const STINGER_DEFS := {
 	"discovery_minor": {
-		"notes": [[523.25, 0.8], [659.25, 0.8], [783.99, 1.4]],  # C5-E5-G5
+		"notes": [[293.66, 0.8], [349.23, 0.8], [440.0, 1.4]],  # D4-F4-A4 (GATE.T64.AUDIO.MUSIC_FIXES.001)
 		"total_duration": 3.0,
 	},
 	"discovery_major": {
@@ -85,6 +85,7 @@ var _pre_stinger_volumes: Array[float] = []
 var _fracture_streams: Array[AudioStreamWAV] = []
 var _normal_streams: Array[AudioStreamWAV] = []
 var _in_fracture := false
+var _pre_fracture_state: int = 0  # MusicState.EXPLORATION
 
 # GATE.T47.MUSIC.FACTION_AMBIENT.001: Faction ambient state.
 var _faction_player: AudioStreamPlayer = null
@@ -180,6 +181,23 @@ func _process(_delta: float) -> void:
 			else:
 				transition_to(MusicState.EXPLORATION)
 
+	# GATE.T64.AUDIO.MUSIC_FIXES.001: TENSION auto-trigger from dread exposure.
+	if not hostiles_near and _current_state == MusicState.EXPLORATION and not _in_fracture:
+		var bridge = get_tree().root.get_node_or_null("SimBridge") if get_tree() else null
+		if bridge and bridge.has_method("GetDreadSnapshotV0"):
+			var dread: Dictionary = bridge.call("GetDreadSnapshotV0")
+			var exposure: float = float(dread.get("exposure_pct", 0.0))
+			if exposure > 0.4:
+				transition_to(MusicState.TENSION)
+	elif _current_state == MusicState.TENSION and not hostiles_near:
+		# Drop back to EXPLORATION if dread has faded.
+		var bridge2 = get_tree().root.get_node_or_null("SimBridge") if get_tree() else null
+		if bridge2 and bridge2.has_method("GetDreadSnapshotV0"):
+			var dread2: Dictionary = bridge2.call("GetDreadSnapshotV0")
+			var exposure2: float = float(dread2.get("exposure_pct", 0.0))
+			if exposure2 <= 0.3:
+				transition_to(MusicState.EXPLORATION)
+
 # ---------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------
@@ -191,6 +209,13 @@ func transition_to(state: MusicState, fade_duration: float = 2.0) -> void:
 		_swap_stems_to_fracture()
 	elif state != MusicState.FRACTURE and _current_state == MusicState.FRACTURE:
 		_swap_stems_to_normal()
+
+	# GATE.T64.AUDIO.MUSIC_FIXES.001: Snap combat/tension layers to silent before dock fade-in.
+	if state == MusicState.DOCK and (_current_state == MusicState.COMBAT or _current_state == MusicState.TENSION):
+		if _has_real_audio:
+			# Instant snap percussion + bass to silent — prevents combat bleed into dock.
+			_layers[3].volume_db = SILENT_DB  # percussion
+			_layers[0].volume_db = SILENT_DB  # bass
 
 	_current_state = state
 	# Suppress audible playback of placeholder sine-wave streams.
@@ -236,6 +261,8 @@ func play_stinger(stinger_name: String) -> void:
 		return
 	if _stinger_active:
 		# Already playing a stinger -- skip (don't stack).
+		return
+	if not _has_real_audio:
 		return
 
 	var def: Dictionary = STINGER_DEFS[stinger_name]
@@ -349,6 +376,7 @@ func _make_stinger_stream(stinger_name: String) -> AudioStreamWAV:
 func enter_fracture_ambience() -> void:
 	if _in_fracture:
 		return
+	_pre_fracture_state = _current_state
 	_in_fracture = true
 	transition_to(MusicState.FRACTURE, 3.0)  # 3-second crossfade
 
@@ -357,7 +385,7 @@ func leave_fracture_ambience() -> void:
 	if not _in_fracture:
 		return
 	_in_fracture = false
-	transition_to(MusicState.EXPLORATION, 3.0)
+	transition_to(_pre_fracture_state, 3.0)
 
 func _swap_stems_to_fracture() -> void:
 	for i in 4:

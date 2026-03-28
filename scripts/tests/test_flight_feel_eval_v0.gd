@@ -291,6 +291,38 @@ func _do_analyze() -> void:
 		var dock_jitter := _compute_jitter(_dock_positions)
 		_a.goal("DOCK_CAMERA_STABILITY", "jitter=%.4f" % dock_jitter)
 
+	# --- JSON report ---
+	var rest_jitter_val := _compute_jitter(_rest_camera_pos) if _rest_camera_pos.size() >= 5 else 0.0
+	var travel_cam_jerk_val := _compute_jerk(_travel_camera_pos) if _travel_camera_pos.size() >= 5 else 0.0
+	var travel_ship_jerk_val := _compute_jerk(_travel_positions) if _travel_positions.size() >= 5 else 0.0
+	var travel_time_ratio_val := 0.0
+	if travel_1_duration > 0 and travel_2_duration > 0:
+		travel_time_ratio_val = float(max(travel_1_duration, travel_2_duration)) / float(min(travel_1_duration, travel_2_duration))
+	var dock_stability_val := _compute_jitter(_dock_positions) if _dock_positions.size() >= 3 else 0.0
+	var report := {
+		"bot": "flight_feel",
+		"prefix": "FLIGHT_FEEL",
+		"metrics": {
+			"rest_camera_jitter": rest_jitter_val,
+			"travel_camera_jerk": travel_cam_jerk_val,
+			"travel_ship_jerk": travel_ship_jerk_val,
+			"travel_time_ratio": travel_time_ratio_val,
+			"dock_camera_stability": dock_stability_val,
+		},
+		"assertions": {
+			"pass": _a._passes,
+			"warn": _a._warns.size(),
+			"fail": _a._fails.size(),
+		},
+	}
+	var json_str := JSON.stringify(report, "  ")
+	var report_path := "res://reports/eval/flight_feel_report.json"
+	var f := FileAccess.open(report_path, FileAccess.WRITE)
+	if f:
+		f.store_string(json_str)
+		f.close()
+		_a.log("REPORT_JSON|written=%s" % report_path)
+
 	_a.summary()
 	if _bridge:
 		_bridge.call("StopSimV0")

@@ -872,4 +872,41 @@ public static class DiscoveryOutcomeSystem
         links.Sort(StringComparer.Ordinal);
         return links.ToArray();
     }
+
+    // GATE.T62.PIPELINE.INTEL_MARGIN.001: Compute margin confidence for an EconomicIntel based on age.
+    // Returns 0-10000 BPS. Full confidence when fresh, linear decay to HalfLifeConfidenceBps at 50%,
+    // then accelerating decay to 0 at full expiry. Fracture intel (FreshnessMaxTicks=0) never decays.
+    public static int ComputeMarginConfidenceBps(int currentTick, Entities.EconomicIntel intel)
+    {
+        if (intel == null) return 0; // STRUCTURAL: null guard
+        if (intel.FreshnessMaxTicks <= 0) return Tweaks.EconomicIntelTweaksV0.FullConfidenceBps; // STRUCTURAL: fracture never decays
+
+        int elapsed = currentTick - intel.CreatedTick;
+        if (elapsed < 0) elapsed = 0; // STRUCTURAL: guard negative
+
+        if (elapsed >= intel.FreshnessMaxTicks)
+            return Tweaks.EconomicIntelTweaksV0.ExpiredConfidenceBps;
+
+        // Two-phase linear decay:
+        // Phase 1 (0 to 50%): FullConfidence → HalfLifeConfidence
+        // Phase 2 (50% to 100%): HalfLifeConfidence → ExpiredConfidence
+        int halfLife = intel.FreshnessMaxTicks / 2; // STRUCTURAL: midpoint
+        if (halfLife <= 0) halfLife = 1; // STRUCTURAL: minimum 1
+
+        if (elapsed <= halfLife)
+        {
+            // Phase 1: linear from Full to HalfLife.
+            int range = Tweaks.EconomicIntelTweaksV0.FullConfidenceBps - Tweaks.EconomicIntelTweaksV0.HalfLifeConfidenceBps;
+            return Tweaks.EconomicIntelTweaksV0.FullConfidenceBps - (range * elapsed / halfLife);
+        }
+        else
+        {
+            // Phase 2: linear from HalfLife to Expired.
+            int pastHalf = elapsed - halfLife;
+            int remainingWindow = intel.FreshnessMaxTicks - halfLife;
+            if (remainingWindow <= 0) return Tweaks.EconomicIntelTweaksV0.ExpiredConfidenceBps; // STRUCTURAL: guard div0
+            return Tweaks.EconomicIntelTweaksV0.HalfLifeConfidenceBps
+                - (Tweaks.EconomicIntelTweaksV0.HalfLifeConfidenceBps * pastHalf / remainingWindow);
+        }
+    }
 }

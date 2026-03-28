@@ -388,6 +388,77 @@ public partial class SimBridge
         return _cachedActiveMissionSummaryV0;
     }
 
+    // GATE.T61.MISSIONS.BOARD_FILTER.001: Enhanced mission list with archetype/faction metadata for filtering.
+
+    /// <summary>
+    /// Returns available missions + contextual templates with filter metadata.
+    /// Each entry: {mission_id, title, description, reward, source ("mission"/"template"),
+    ///   archetype ("Supply"/"Explore"/"Combat"/"Politics"/"Diplomacy"/"Smuggling"/"Unknown"),
+    ///   faction_id, difficulty_tier (0=easy,1=medium,2=hard)}.
+    /// Nonblocking: returns cached if read lock unavailable.
+    /// </summary>
+    private Godot.Collections.Array _cachedMissionBoardV0 = new Godot.Collections.Array();
+
+    public Godot.Collections.Array GetMissionBoardV0(string nodeId)
+    {
+        if (IsLoading) return _cachedMissionBoardV0;
+
+        TryExecuteSafeRead(state =>
+        {
+            var arr = new Godot.Collections.Array();
+
+            // Regular missions.
+            var available = MissionSystem.GetAvailableMissions(state);
+            foreach (var def in available)
+            {
+                string archetype = "Unknown";
+                // Check if this mission ID maps to a template (TMPL_xxx_tick format).
+                var tmpl = FindTemplatForMission(def.MissionId);
+                if (tmpl != null)
+                    archetype = tmpl.Archetype.ToString();
+
+                // Difficulty tier: based on credit reward thresholds.
+                int diffTier = def.CreditReward >= 1000 ? 2 : (def.CreditReward >= 300 ? 1 : 0);
+
+                arr.Add(new Godot.Collections.Dictionary
+                {
+                    ["mission_id"] = def.MissionId,
+                    ["title"] = def.Title,
+                    ["description"] = def.Description,
+                    ["reward"] = def.CreditReward,
+                    ["source"] = "mission",
+                    ["archetype"] = archetype,
+                    ["faction_id"] = def.FactionId ?? "",
+                    ["difficulty_tier"] = diffTier,
+                });
+            }
+
+            // Contextual templates at current node.
+            if (!string.IsNullOrEmpty(nodeId))
+            {
+                var templates = StationContextSystem.GetContextualTemplates(state, nodeId);
+                foreach (var (templateId, displayName, arch, situationDesc) in templates)
+                {
+                    arr.Add(new Godot.Collections.Dictionary
+                    {
+                        ["mission_id"] = templateId,
+                        ["title"] = displayName,
+                        ["description"] = situationDesc,
+                        ["reward"] = (long)0,
+                        ["source"] = "template",
+                        ["archetype"] = arch.ToString(),
+                        ["faction_id"] = "",
+                        ["difficulty_tier"] = 1,
+                    });
+                }
+            }
+
+            _cachedMissionBoardV0 = arr;
+        });
+
+        return _cachedMissionBoardV0;
+    }
+
     // GATE.X.UI_POLISH.MISSION_JOURNAL.001: Abandon the active mission.
     public bool AbandonMissionV0()
     {

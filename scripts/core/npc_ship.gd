@@ -1,5 +1,4 @@
 extends Node3D
-const ShipMeshBuilder = preload("res://scripts/view/ship_mesh_builder.gd")
 ## NPC ship controller — GATE.S16.NPC_ALIVE.SHIP_SCENE.001 + FLIGHT_CTRL.001
 ## Sim-driven movement: reads transit facts from SimBridge, interpolates position.
 ## GATE.T50.PERF.NPC_PHYSICS.001: Node3D + direct position update (no physics solver).

@@ -110,6 +110,16 @@ namespace SimCore.Tweaks
         // GATE.T55.ECON.FACTORY_BUFFER.001: Exotic crystals seed at starter nodes for recipe bootstrap.
         public const int StarterExoticCrystals = 15;
 
+        // GATE.T41.ECON.PRICE_VARIANCE.001: Per-node manufactured goods variance.
+        // Adjacent starters alternate high/low composites vs electronics to ensure >=20% price differential.
+        // mfgVar = geoHash % StarterVarianceModulus (0..3). Each step adds StepN units.
+        // Mining even node: composites = 25 + mfgVar*10 (25-55), electronics = 25 + (4-mfgVar)*8 (1-57)
+        // Refinery odd node: composites = 20 + (4-mfgVar)*10, electronics = 20 + mfgVar*8
+        public const int StarterVarianceModulus = 4;
+        public const int StarterVarianceStepComposites = 10;
+        public const int StarterVarianceStepElectronics = 8;
+        public const int StarterVarianceStepExotics = 5;
+
         // Distribution sink placement (starter region).
         public const int SinkPlacementModulus = 5;     // Every Nth starter node gets a metal sink.
         public const int SinkPlacementOffset = 1;      // Modular offset for sink placement.

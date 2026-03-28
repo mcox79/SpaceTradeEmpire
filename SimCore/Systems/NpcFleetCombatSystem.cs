@@ -85,10 +85,19 @@ public static class NpcFleetCombatSystem
                 lootNode = playerFleet.CurrentNodeId;
             }
             // Pirates drop enhanced loot (salvaged_tech + rare_metals + credits).
+            // GATE.T61.SALVAGE.LOOT_TABLE.001: Non-pirate fleets use role-based salvage loot.
             if (StringComparer.Ordinal.Equals(fleet.OwnerId, Tweaks.FactionTweaksV0.PirateId))
                 LootTableSystem.RollPirateLoot(state, fleetId, lootNode);
             else
-                LootTableSystem.RollLoot(state, fleetId, lootNode);
+                LootTableSystem.RollSalvageLoot(state, fleet, lootNode);
+
+            // GATE.T65.COMBAT.LOOT_WIRE.001: Auto-collect loot immediately after kill.
+            // Loot was just placed at the player's node. Collect it so cargo updates instantly.
+            var dropId = $"loot_{fleetId}_{state.Tick}";
+            if (state.LootDrops.ContainsKey(dropId))
+            {
+                new Commands.CollectLootCommand(dropId).Execute(state);
+            }
 
             // GATE.S7.DIPLOMACY.BOUNTY.001: Check bounty completion on NPC destruction.
             DiplomacySystem.CheckBountyCompletion(state, fleetId);
@@ -100,7 +109,11 @@ public static class NpcFleetCombatSystem
 
             // GATE.S19.ONBOARD.FO_TRIGGERS.003: Increment persistent kill counter.
             if (state.PlayerStats != null)
+            {
                 state.PlayerStats.NpcFleetsDestroyed++;
+                // GATE.T64.FO.COMBAT_REACTION.001: Record tick for delayed FO combat reaction.
+                state.PlayerStats.LastCombatWinTick = state.Tick;
+            }
         }
     }
 

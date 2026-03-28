@@ -97,6 +97,10 @@ static func _build_player_ship(root: Node3D, hull: Color, accent: Color, _h: int
 	stripe.position = Vector3(0.0, 0.36, -0.5)
 	root.add_child(stripe)
 
+	# GATE.T60.SPIN.AUDIO_VFX.001: Wing tip running lights (tween to red during spin).
+	_add_running_light(root, Vector3(-2.8, 0.0, -0.2), accent)
+	_add_running_light(root, Vector3(2.8, 0.0, -0.2), accent)
+
 
 ## Trader: utilitarian freighter with wide flat hull and stubby wings.
 static func _build_trader_ship(root: Node3D, hull: Color, accent: Color, _h: int) -> void:

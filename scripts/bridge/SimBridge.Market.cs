@@ -1017,4 +1017,69 @@ public partial class SimBridge
         }
     }
 
+    // GATE.T61.MARKET.BRIDGE_DEPTH.001: Market depth, spread, and impact queries.
+
+    /// Returns market depth info per good: {good_id, bid, ask, depth, spread_bps, volatility}.
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetMarketDepthV0(string marketId)
+    {
+        var result = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Markets.TryGetValue(marketId, out var market)) return;
+            int dynSpreadBps = MarketSystem.GetDynamicSpreadAdjustmentBps(state, marketId);
+            foreach (var goodId in market.Inventory.Keys.OrderBy(k => k, StringComparer.Ordinal))
+            {
+                int buy = market.GetBuyPrice(goodId);
+                int sell = market.GetSellPrice(goodId);
+                var entry = new Godot.Collections.Dictionary
+                {
+                    ["good_id"] = goodId,
+                    ["bid"] = sell,
+                    ["ask"] = buy,
+                    ["depth"] = market.Depth,
+                    ["spread_bps"] = dynSpreadBps,
+                    ["volatility"] = market.VolatilityScore,
+                };
+                result.Add(entry);
+            }
+        }, 0);
+        return result;
+    }
+
+    /// Returns estimated cost for a quantity trade: {total_cost, avg_price, impact_bps}.
+    public Godot.Collections.Dictionary GetPriceImpactPreviewV0(string marketId, string goodId, int qty, bool isBuy)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["total_cost"] = 0,
+            ["avg_price"] = 0,
+            ["impact_bps"] = 0,
+        };
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Markets.TryGetValue(marketId, out var market)) return;
+            int basePrice = isBuy ? market.GetBuyPrice(goodId) : market.GetSellPrice(goodId);
+            int impactBps = MarketSystem.ComputeDepthImpactBps(qty, market.Depth);
+            int dynBps = MarketSystem.GetDynamicSpreadAdjustmentBps(state, marketId);
+            int totalAdjBps = isBuy ? impactBps + dynBps / 2 : -(impactBps + dynBps / 2);
+            int adjPrice = (int)System.Math.Max(1, (long)basePrice * (10000 + totalAdjBps) / 10000);
+            result["total_cost"] = adjPrice * qty;
+            result["avg_price"] = adjPrice;
+            result["impact_bps"] = impactBps;
+        }, 0);
+        return result;
+    }
+
+    /// Returns market volatility score for a market.
+    public int GetMarketVolatilityV0(string marketId)
+    {
+        int vol = 0;
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Markets.TryGetValue(marketId, out var market))
+                vol = market.VolatilityScore;
+        }, 0);
+        return vol;
+    }
+
 }

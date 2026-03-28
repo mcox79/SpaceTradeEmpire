@@ -1,8 +1,10 @@
 # Run-EvalBot.ps1 — Runs all 5 eval bots sequentially, captures stdout per bot.
 # Exit code: 0 = all clean, 1 = any SCRIPT_ERROR found.
+# Crashed bots are retried once automatically.
 param(
     [string]$GodotPath = "",
-    [string]$RepoRoot = (Split-Path $PSScriptRoot -Parent | Split-Path -Parent)
+    [string]$RepoRoot = (Split-Path $PSScriptRoot -Parent | Split-Path -Parent),
+    [switch]$NoRetry  # Skip retry on crash (for CI speed)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,16 +53,20 @@ $totalPass = 0
 $totalWarn = 0
 $totalFail = 0
 $hasScriptError = $false
+$retriedBots = @()
 
 Write-Host "=== Running 5 Eval Bots ==="
 Write-Host ""
 
-foreach ($bot in $bots) {
-    $scriptPath = "res://scripts/tests/$($bot.Script)"
-    $outFile = Join-Path $outDir "$($bot.Name)_stdout.txt"
-    $errFile = Join-Path $outDir "$($bot.Name)_stderr.txt"
-
-    Write-Host "--- $($bot.Name) ---"
+function Run-EvalBot {
+    param(
+        [hashtable]$Bot,
+        [string]$Attempt  # "run1" or "retry"
+    )
+    $scriptPath = "res://scripts/tests/$($Bot.Script)"
+    $suffix = if ($Attempt -eq "retry") { "_retry" } else { "" }
+    $outFile = Join-Path $outDir "$($Bot.Name)${suffix}_stdout.txt"
+    $errFile = Join-Path $outDir "$($Bot.Name)${suffix}_stderr.txt"
 
     # Delete quicksave to avoid stale state
     $quicksave = Join-Path $RepoRoot 'quicksave.json'
@@ -78,13 +84,15 @@ foreach ($bot in $bots) {
 
     $proc = [System.Diagnostics.Process]::Start($psi)
     # Read stderr async to avoid deadlock (both streams can fill OS buffer)
-    $stderrTask = $proc.StandardError.ReadToEndAsync()  # returns Task<string>
+    $stderrTask = $proc.StandardError.ReadToEndAsync()
     $stdout = $proc.StandardOutput.ReadToEnd()
     $null = $proc.WaitForExit(120000)  # 2 min timeout
 
+    $timedOut = $false
     if (-not $proc.HasExited) {
         $proc.Kill()
         Write-Host "  TIMEOUT (killed after 120s)"
+        $timedOut = $true
     }
     $stderr = $stderrTask.GetAwaiter().GetResult()
 
@@ -103,23 +111,65 @@ foreach ($bot in $bots) {
         $_ -notmatch 'Failed to compile depended scripts' -and
         $_ -notmatch 'Cannot infer the type of'
     })
-    if ($stderrLines.Count -gt 0) {
-        Write-Host "  SCRIPT_ERROR detected!"
-        foreach ($line in $stderrLines) { Write-Host "    $line" }
-        $hasScriptError = $true
-    }
+
+    $crashed = $stderrLines.Count -gt 0 -or $timedOut
 
     # Parse assert counts from stdout
-    $prefix = $bot.Prefix
+    $prefix = $Bot.Prefix
     $passCount = ([regex]::Matches($stdout, "$prefix\|ASSERT_PASS")).Count
     $warnCount = ([regex]::Matches($stdout, "$prefix\|ASSERT_WARN")).Count
     $failCount = ([regex]::Matches($stdout, "$prefix\|ASSERT_FAIL")).Count
-    $totalPass += $passCount
-    $totalWarn += $warnCount
-    $totalFail += $failCount
 
-    Write-Host "  exit=$($proc.ExitCode) pass=$passCount warn=$warnCount fail=$failCount"
-    Write-Host "  output: $outFile"
+    return @{
+        Stdout = $stdout
+        Stderr = $stderr
+        StderrLines = $stderrLines
+        PassCount = $passCount
+        WarnCount = $warnCount
+        FailCount = $failCount
+        ExitCode = $proc.ExitCode
+        Crashed = $crashed
+        TimedOut = $timedOut
+        OutFile = $outFile
+    }
+}
+
+foreach ($bot in $bots) {
+    Write-Host "--- $($bot.Name) ---"
+
+    $result = Run-EvalBot -Bot $bot -Attempt "run1"
+
+    # If crashed and retry is enabled, try once more
+    if ($result.Crashed -and -not $NoRetry) {
+        if ($result.TimedOut) {
+            Write-Host "  CRASHED (timeout) — retrying once..."
+        } else {
+            Write-Host "  CRASHED (SCRIPT_ERROR) — retrying once..."
+            foreach ($line in $result.StderrLines) { Write-Host "    $line" }
+        }
+        Write-Host ""
+        $result = Run-EvalBot -Bot $bot -Attempt "retry"
+        $retriedBots += $bot.Name
+
+        if ($result.Crashed) {
+            Write-Host "  RETRY ALSO FAILED"
+        } else {
+            Write-Host "  RETRY SUCCEEDED"
+        }
+    }
+
+    if ($result.StderrLines.Count -gt 0) {
+        Write-Host "  SCRIPT_ERROR detected!"
+        foreach ($line in $result.StderrLines) { Write-Host "    $line" }
+        $hasScriptError = $true
+    }
+
+    $totalPass += $result.PassCount
+    $totalWarn += $result.WarnCount
+    $totalFail += $result.FailCount
+
+    Write-Host "  exit=$($result.ExitCode) pass=$($result.PassCount) warn=$($result.WarnCount) fail=$($result.FailCount)"
+    Write-Host "  output: $($result.OutFile)"
     Write-Host ""
 }
 
@@ -127,6 +177,9 @@ foreach ($bot in $bots) {
 Write-Host "=== Eval Bot Summary ==="
 Write-Host "Total: pass=$totalPass warn=$totalWarn fail=$totalFail"
 Write-Host "SCRIPT_ERROR: $hasScriptError"
+if ($retriedBots.Count -gt 0) {
+    Write-Host "Retried: $($retriedBots -join ', ')"
+}
 
 if ($hasScriptError -or $totalFail -gt 0) {
     Write-Host "RESULT: FAIL"

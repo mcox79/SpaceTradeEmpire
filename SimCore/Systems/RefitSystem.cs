@@ -34,6 +34,11 @@ public static class RefitSystem
             return new RefitResult { Success = false, Reason = "invalid_slot_index" };
 
         var slot = fleet.Slots[slotIndex];
+
+        // GATE.T65.REFIT.SLOT_COMPAT.001: If the same module is already installed, return success (no-op).
+        if (string.Equals(slot.InstalledModuleId, moduleId, StringComparison.Ordinal))
+            return new RefitResult { Success = true, Reason = "already_installed" };
+
         var moduleDef = UpgradeContentV0.GetById(moduleId);
         if (moduleDef == null)
             return new RefitResult { Success = false, Reason = "unknown_module" };
@@ -190,6 +195,54 @@ public static class RefitSystem
                 }
             }
         }
+    }
+
+    // GATE.T62.SHIP.MODULE_REASSIGN.001: Transfer compatible modules from source to target fleet.
+    // Iterates source slots in order; for each installed module, finds first empty target slot
+    // with matching SlotKind that fits within power budget. Modules that don't fit stay on source.
+    public static int TransferModules(Fleet source, Fleet target)
+    {
+        if (source == null || target == null) return 0; // STRUCTURAL: null guard
+
+        int transferred = 0; // STRUCTURAL: counter
+        int targetPowerUsed = ComputeTotalPowerDraw(target);
+        int targetPowerBudget = GetPowerBudget(target);
+
+        for (int si = 0; si < source.Slots.Count; si++)
+        {
+            var srcSlot = source.Slots[si];
+            if (string.IsNullOrEmpty(srcSlot.InstalledModuleId)) continue;
+
+            var moduleDef = UpgradeContentV0.GetById(srcSlot.InstalledModuleId);
+            if (moduleDef == null) continue;
+
+            // Check power budget on target.
+            if (targetPowerBudget > 0 && targetPowerUsed + moduleDef.PowerDraw > targetPowerBudget)
+                continue;
+
+            // Find first empty target slot with matching SlotKind.
+            int targetSlotIdx = -1; // STRUCTURAL: sentinel
+            for (int ti = 0; ti < target.Slots.Count; ti++)
+            {
+                if (string.IsNullOrEmpty(target.Slots[ti].InstalledModuleId)
+                    && target.Slots[ti].SlotKind == srcSlot.SlotKind)
+                {
+                    targetSlotIdx = ti;
+                    break;
+                }
+            }
+            if (targetSlotIdx < 0) continue;
+
+            // Transfer: install on target, remove from source.
+            target.Slots[targetSlotIdx].InstalledModuleId = srcSlot.InstalledModuleId;
+            target.Slots[targetSlotIdx].PowerDraw = moduleDef.PowerDraw;
+            srcSlot.InstalledModuleId = null;
+            srcSlot.PowerDraw = 0;
+            targetPowerUsed += moduleDef.PowerDraw;
+            transferred++;
+        }
+
+        return transferred;
     }
 
     public static RefitResult RemoveModule(SimState state, string fleetId, int slotIndex)

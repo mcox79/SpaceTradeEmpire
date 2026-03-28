@@ -27,6 +27,16 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	tooltip_text = "Empire Health — click to open Empire tab"
 
+	# GATE.T41.UI.PANEL_CHROME.001: Apply shared panel chrome background to widget.
+	var bg_panel := PanelContainer.new()
+	bg_panel.name = "EmpireDiamondBg"
+	var chrome := UITheme.make_panel_chrome()
+	chrome.set_content_margin_all(2.0)
+	bg_panel.add_theme_stylebox_override("panel", chrome)
+	bg_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg_panel)
+
 	# Diamond background (rotated square).
 	_diamond_bg = ColorRect.new()
 	_diamond_bg.color = _COLOR_NONE

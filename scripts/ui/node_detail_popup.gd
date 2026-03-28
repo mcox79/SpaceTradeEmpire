@@ -187,9 +187,13 @@ func show_for_node(node_id: String, screen_pos: Vector2) -> void:
 		var regime_data: Dictionary = _bridge.call("GetTerritoryRegimeV0", node_id)
 		var regime: String = str(regime_data.get("regime", "Open"))
 		var regime_color: Color = regime_data.get("regime_color", Color.WHITE)
+		var faction_id: String = str(regime_data.get("faction_id", ""))
 		_regime_label.text = "Territory: %s" % regime
 		_regime_label.add_theme_color_override("font_color", regime_color)
 		_regime_label.visible = true
+		# GATE.T64.UI.FACTION_ACCENT.001: Tint header label with faction accent color.
+		if not faction_id.is_empty():
+			_name_label.add_theme_color_override("font_color", UITheme.get_faction_accent(faction_id))
 
 	# Populate market data with profit comparison
 	_populate_market_v0(node_id, player_node_id)

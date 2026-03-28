@@ -372,13 +372,19 @@ public static class MissionSystem
         var adjacentNode = "";
         if (!string.IsNullOrEmpty(startNode))
         {
+            // GATE.S4.MISSION.BIND.001: Search edges bidirectionally —
+            // WireLanes normalizes so FromNodeId is always lexicographically smaller.
             var edges = state.Edges.Values
-                .Where(e => string.Equals(e.FromNodeId, startNode, StringComparison.Ordinal))
+                .Where(e => string.Equals(e.FromNodeId, startNode, StringComparison.Ordinal)
+                          || string.Equals(e.ToNodeId, startNode, StringComparison.Ordinal))
                 .OrderBy(e => e.Id, StringComparer.Ordinal)
                 .ToList();
             if (edges.Count > 0)
             {
-                adjacentNode = edges[0].ToNodeId ?? "";
+                var e0 = edges[0];
+                adjacentNode = string.Equals(e0.FromNodeId, startNode, StringComparison.Ordinal)
+                    ? e0.ToNodeId ?? ""
+                    : e0.FromNodeId ?? "";
             }
         }
         resolved["$ADJACENT_1"] = adjacentNode;

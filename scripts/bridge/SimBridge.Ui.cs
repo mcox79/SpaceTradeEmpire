@@ -166,4 +166,50 @@ public partial class SimBridge
             return (Godot.Collections.Array)_cachedFactionMapV0.Duplicate();
         }
     }
+
+    // ── HUD Event Ring Buffer ──
+    // Tracks recent HUD feedback triggers for headless bot verification.
+    // Bots can query this to confirm feel events fired even without a renderer.
+    private const int HudEventRingSize = 64;
+    private readonly Queue<Godot.Collections.Dictionary> _hudEventRing = new();
+    private readonly object _hudEventLock = new();
+
+    /// <summary>Record a HUD event (call from GDScript UI or bridge when events fire).</summary>
+    public void RecordHudEventV0(string eventType, string detail = "")
+    {
+        var entry = new Godot.Collections.Dictionary
+        {
+            ["event_type"] = eventType,
+            ["detail"] = detail,
+            ["tick"] = _kernel?.State?.Tick ?? 0,
+        };
+        lock (_hudEventLock)
+        {
+            _hudEventRing.Enqueue(entry);
+            while (_hudEventRing.Count > HudEventRingSize)
+                _hudEventRing.Dequeue();
+        }
+    }
+
+    /// <summary>Return recent HUD events (up to 64). Headless bots use this
+    /// to verify that damage_flash, credits_flash, combat_banner etc. were triggered.</summary>
+    public Godot.Collections.Array GetRecentHudEventsV0()
+    {
+        var result = new Godot.Collections.Array();
+        lock (_hudEventLock)
+        {
+            foreach (var entry in _hudEventRing)
+                result.Add(entry);
+        }
+        return result;
+    }
+
+    /// <summary>Clear the ring buffer (call at bot startup to avoid stale events).</summary>
+    public void ClearHudEventsV0()
+    {
+        lock (_hudEventLock)
+        {
+            _hudEventRing.Clear();
+        }
+    }
 }

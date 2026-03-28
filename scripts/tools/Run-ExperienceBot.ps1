@@ -10,6 +10,7 @@
   .\scripts\tools\Run-ExperienceBot.ps1 -Mode headless -Sweep
   .\scripts\tools\Run-ExperienceBot.ps1 -Mode headless -Sweep -AllArchetypes
   .\scripts\tools\Run-ExperienceBot.ps1 -Mode headless -Archetype explorer -Seed 42
+  .\scripts\tools\Run-ExperienceBot.ps1 -Mode headless -Seed 42 -Slow
 #>
 param(
     [Parameter(Mandatory=$true)]
@@ -20,6 +21,7 @@ param(
     [string]$Archetype = 'balanced',
     [switch]$Sweep,            # Run 5 seeds
     [switch]$AllArchetypes,    # Run all 4 archetypes (with -Sweep)
+    [switch]$Slow,             # Human-paced delays (1-3s between decisions)
     [int]$TimeoutSec = 0       # 0 = auto
 )
 
@@ -40,6 +42,7 @@ try {
 
     # ── Determine run matrix ──
     $defaultTimeout = @{ 'headless' = 120; 'visual' = 360 }
+    if ($Slow) { $defaultTimeout = @{ 'headless' = 600; 'visual' = 1800 } }
     $activeTimeout = if ($TimeoutSec -gt 0) { $TimeoutSec } else { $defaultTimeout[$Mode] }
 
     $seeds = @()
@@ -67,7 +70,8 @@ try {
 
     foreach ($arch in $archetypes) {
         foreach ($s in $seeds) {
-            $runLabel = "$arch/seed_$s"
+            $archLabel = if ($Slow) { "${arch}_slow" } else { $arch }
+            $runLabel = "$archLabel/seed_$s"
             $outputDir = Join-Path $outputBase $runLabel
             if (Test-Path $outputDir) {
                 Get-ChildItem -Path $outputDir -File | Remove-Item -Force
@@ -80,6 +84,7 @@ try {
 
             # Build Godot arguments
             $godotArgs = @('--path', '.', '-s', $script, '--', "--seed=$s", "--archetype=$arch")
+            if ($Slow) { $godotArgs += '--slow' }
             if ($Mode -eq 'headless') {
                 $godotArgs = @('--headless') + $godotArgs
             }
@@ -282,9 +287,9 @@ try {
         $sevOrder = @{ 'CRITICAL' = 0; 'MAJOR' = 1; 'MINOR' = 2 }
         $sorted = $grouped.Values | Sort-Object @{Expression={$sevOrder[$_.Severity]}}, @{Expression={$_.Count};Descending=$true}
 
-        $critTotal = ($sorted | Where-Object { $_.Severity -eq 'CRITICAL' }).Count
-        $majTotal  = ($sorted | Where-Object { $_.Severity -eq 'MAJOR' }).Count
-        $minTotal  = ($sorted | Where-Object { $_.Severity -eq 'MINOR' }).Count
+        $critTotal = @($sorted | Where-Object { $_.Severity -eq 'CRITICAL' }).Count
+        $majTotal  = @($sorted | Where-Object { $_.Severity -eq 'MAJOR' }).Count
+        $minTotal  = @($sorted | Where-Object { $_.Severity -eq 'MINOR' }).Count
 
         Write-Host "  CRITICAL: $critTotal  MAJOR: $majTotal  MINOR: $minTotal" -ForegroundColor $(if ($critTotal -gt 0) { 'Red' } elseif ($majTotal -gt 0) { 'Yellow' } else { 'Green' })
         Write-Host ''

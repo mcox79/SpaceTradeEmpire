@@ -1690,15 +1690,17 @@ public partial class SimBridge
             result["has_fought"] = hasFought;
             result["nodes_visited"] = nodesVisited;
 
-            // Dock tab disclosure — staggered across docks to avoid information dump.
-            // Dock 1 (nodesVisited=1): Market only.
-            // Dock 2 (nodesVisited=2): +Jobs, +Ship — core commerce & loadout.
-            // Dock 3 (nodesVisited=3): +Station — local industry context.
-            // Dock 4 (nodesVisited=4): +Intel, +Diplomacy — strategic layer.
-            result["show_jobs_tab"] = nodesVisited >= 2 || hasTraded;
-            result["show_ship_tab"] = nodesVisited >= 2;
-            result["show_station_tab"] = nodesVisited >= 3;
-            result["show_intel_tab"] = nodesVisited >= 4;
+            // GATE.T65.DISCLOSURE.TAB_SPREAD.001: Spread tab disclosure to prevent system dump.
+            // fh_6 issue #2: all 4 tabs unlock at nodesVisited=5 when exploration outpaces docking.
+            // Wider gaps (3/7/12/18) ensure ≤1 new tab per dock visit.
+            // Dock ~3: +Jobs — core commerce (or on first trade).
+            // Dock ~7: +Station — local industry context.
+            // Dock ~12: +Intel, +Diplomacy — strategic layer.
+            // Dock ~18: +Ship — delays Power moment deep into mid-game.
+            result["show_jobs_tab"] = nodesVisited >= 3 || hasTraded;
+            result["show_ship_tab"] = nodesVisited >= 18;
+            result["show_station_tab"] = nodesVisited >= 7;
+            result["show_intel_tab"] = nodesVisited >= 12;
 
             // HUD disclosure
             result["show_fuel_hud"] = nodesVisited > 0;

@@ -12,22 +12,18 @@ const TOAST_MARGIN := 10
 
 # GATE.S7.HUD_ARCH.TOAST_PRIORITY.001: Priority config.
 # priority -> {color (left border), duration, persist (bool)}
+# GATE.T65.UI.HUD_JUICE.001: Added "icon" field per priority for visual hierarchy.
+# Fixes fh_6 issue #13 (DEVELOPER_UI): toasts now have icons + colors + clear hierarchy.
 const PRIORITY_CONFIG := {
-	"critical": {"color": Color(1.0, 0.2, 0.2), "duration": 5.0, "persist": true},
-	"warning": {"color": Color(1.0, 0.6, 0.1), "duration": 4.0, "persist": false},
-	"info": {"color": Color(0.5, 0.7, 1.0), "duration": 3.0, "persist": false},
-	"confirm": {"color": Color(0.3, 0.9, 0.4), "duration": 2.0, "persist": false},
-	# GATE.S19.ONBOARD.TOAST_ICON.006: Milestone celebration tier (gold border, larger text).
-	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15},
-	# Cost/expense tier (orange-red — player lost credits).
-	"cost": {"color": Color(0.9, 0.4, 0.3), "duration": 3.0, "persist": false},
-	# FO dialogue tier (subtle teal border).
-	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false},
-	# Captain's Guide hint tier (warm amber, slightly larger).
-	# Persists until explicitly dismissed (e.g. on undock) so the player has time to read.
-	"guide": {"color": Color(0.9, 0.7, 0.3), "duration": 0.0, "persist": true, "font_size": 14},
-	# GATE.T52.DISC.MILESTONE_CARDS.001: Discovery scan/analysis complete (amber-green border).
-	"discovery": {"color": Color(0.85, 0.75, 0.25), "duration": 5.0, "persist": false, "font_size": 14},
+	"critical": {"color": Color(1.0, 0.2, 0.2), "duration": 5.0, "persist": true, "icon": "[!]"},
+	"warning": {"color": Color(1.0, 0.6, 0.1), "duration": 4.0, "persist": false, "icon": "[!]"},
+	"info": {"color": Color(0.5, 0.7, 1.0), "duration": 3.0, "persist": false, "icon": ""},
+	"confirm": {"color": Color(0.3, 0.9, 0.4), "duration": 2.0, "persist": false, "icon": "[OK]"},
+	"milestone": {"color": Color(1.0, 0.85, 0.2), "duration": 4.0, "persist": false, "font_size": 15, "icon": "[*]"},
+	"cost": {"color": Color(0.9, 0.4, 0.3), "duration": 3.0, "persist": false, "icon": "[-]"},
+	"fo": {"color": Color(0.4, 0.8, 0.7), "duration": 5.0, "persist": false, "icon": "[FO]"},
+	"guide": {"color": Color(0.9, 0.7, 0.3), "duration": 0.0, "persist": true, "font_size": 14, "icon": "[?]"},
+	"discovery": {"color": Color(0.85, 0.75, 0.25), "duration": 5.0, "persist": false, "font_size": 14, "icon": "[~]"},
 }
 
 var _container: VBoxContainer = null
@@ -186,9 +182,10 @@ func _create_priority_toast(text: String, cfg: Dictionary) -> PanelContainer:
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(border)
 
-	# Text label.
+	# Text label with type icon prefix for visual hierarchy.
 	var label := Label.new()
-	label.text = text
+	var icon: String = str(cfg.get("icon", ""))
+	label.text = ("%s %s" % [icon, text]).strip_edges() if not icon.is_empty() else text
 	label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size = Vector2(220, 0)

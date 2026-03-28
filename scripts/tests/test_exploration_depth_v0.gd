@@ -114,7 +114,7 @@ func _run_checks() -> void:
 		pass_count += 1
 
 	# --- CHECK 4: GetDiscoverySnapshotV0 bridge method exists ---
-	var snap_pass := _bridge.has_method("GetDiscoverySnapshotV0")
+	var snap_pass: bool = _bridge.has_method("GetDiscoverySnapshotV0")
 	if snap_pass:
 		# Verify it returns a valid Array (even if empty)
 		var snap: Array = _bridge.call("GetDiscoverySnapshotV0", "star_0")
@@ -124,7 +124,7 @@ func _run_checks() -> void:
 		pass_count += 1
 
 	# --- CHECK 5: GetDiscoveryOutcomesV0 bridge method exists ---
-	var outcomes_pass := _bridge.has_method("GetDiscoveryOutcomesV0")
+	var outcomes_pass: bool = _bridge.has_method("GetDiscoveryOutcomesV0")
 	if outcomes_pass:
 		var outcomes: Array = _bridge.call("GetDiscoveryOutcomesV0")
 		outcomes_pass = outcomes is Array

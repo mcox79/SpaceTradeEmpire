@@ -49,4 +49,9 @@ public static class CombatDepthTweaksV0
     // ── GATE.S7.COMBAT_DEPTH2.FORE_KILL.001: Fore zone soft-kill ──
     // When fore zone armor HP <= 0, weapons mapped to fore slots produce 0 damage.
     // This threshold is always 0 (depleted). No tweak needed — logic only.
+
+    // ── GATE.T64.COMBAT.SEED_FLOOR.001: Minimum player damage per combat round ──
+    // Ensures even unarmed/poorly-equipped players deal at least this much damage per round
+    // against tier-1 NPCs. Prevents 0% kill rate on unlucky seeds (seed 77777: 0/12 kills).
+    public const int MinPlayerDamageFloor = 5;
 }

@@ -16,6 +16,7 @@ uniform float influence_level : hint_range(0.0, 1.0) = 0.0;
 uniform float trace_level : hint_range(0.0, 1.0) = 0.0;
 uniform float compound_threat : hint_range(0.0, 1.0) = 0.0;
 uniform float combat_overheat : hint_range(0.0, 1.0) = 0.0;
+uniform float combat_damage : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	// Normalized UV centered at (0, 0) with range [-1, 1].
@@ -39,13 +40,18 @@ void fragment() {
 	vec3 overheat_color = vec3(1.0, 0.5, 0.05); // orange shimmer
 	float overheat_pulse = 1.0 + 0.15 * sin(TIME * 6.0) * combat_overheat;
 
+	// GATE.T64.UI.COMBAT_VIGNETTE.001: Combat damage channel (red-orange, distinct from heat red).
+	vec3 damage_color = vec3(1.0, 0.25, 0.05); // warm red-orange
+	float damage_pulse = 1.0 + 0.2 * sin(TIME * 4.0) * combat_damage;
+
 	vec3 combined = heat_color * heat_level
 	              + influence_color * influence_level
 	              + trace_color * trace_level
-	              + overheat_color * combat_overheat * overheat_pulse;
+	              + overheat_color * combat_overheat * overheat_pulse
+	              + damage_color * combat_damage * damage_pulse;
 
 	// Alpha: strongest channel drives opacity, scaled by vignette distance.
-	float max_level = max(heat_level, max(influence_level, max(trace_level, combat_overheat)));
+	float max_level = max(heat_level, max(influence_level, max(trace_level, max(combat_overheat, combat_damage))));
 
 	// Intensity curve: gentle at low values, pronounced near 1.0.
 	// Quartic curve: invisible at low-medium risk, visible only when genuinely critical.
@@ -84,6 +90,7 @@ func _ready() -> void:
 	_shader_mat.set_shader_parameter("influence_level", 0.0)
 	_shader_mat.set_shader_parameter("trace_level", 0.0)
 	_shader_mat.set_shader_parameter("compound_threat", 0.0)
+	_shader_mat.set_shader_parameter("combat_damage", 0.0)
 	material = _shader_mat
 
 	# The ColorRect itself must be white so the shader drives all color.
@@ -108,6 +115,17 @@ func set_combat_overheat(pct: float) -> void:
 	# Remap: below 0.75 = 0, above 0.75 = 0..1 scaled
 	var mapped := clampf((pct - 0.75) / 0.25, 0.0, 1.0) if pct >= 0.75 else 0.0
 	_shader_mat.set_shader_parameter("combat_overheat", mapped)
+
+
+## GATE.T64.UI.COMBAT_VIGNETTE.001: Combat damage vignette channel.
+## Call when player hull < 80% during combat. intensity: 0.0 (hull full) to 1.0 (hull critical).
+func set_combat_damage(active: bool, intensity: float = 0.5) -> void:
+	if _shader_mat == null:
+		return
+	if not active:
+		_shader_mat.set_shader_parameter("combat_damage", 0.0)
+		return
+	_shader_mat.set_shader_parameter("combat_damage", clampf(intensity, 0.0, 1.0))
 
 
 ## Public API — call when compound threat state changes.

@@ -12,13 +12,15 @@ public static class ShipyardTweaksV0
     public const int PriceFrigate = 4000;
     public const int PriceHauler = 3000;
     public const int PriceCruiser = 8000;
-    public const int PriceCarrier = 6500;
+    // GATE.T62.SHIP.FACTION_PRICING.001: 6500→7000 (reflects power buff, fleet command role).
+    public const int PriceCarrier = 7000;
     public const int PriceDreadnought = 25000;
 
     // Concord variants (base * 1.3)
     public const int PriceWatchman = 5200;
     public const int PriceSentinel = 10400;
-    public const int PriceGuardian = 8450;
+    // GATE.T62.SHIP.FACTION_PRICING.001: 8450→9100 (7000*1.3, propagate carrier price).
+    public const int PriceGuardian = 9100;
 
     // Chitin variants
     public const int PriceGambit = 2600;

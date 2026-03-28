@@ -22,7 +22,9 @@ public static class WinRequirementsTweaksV0
     public const int RenegotiateRequiredRevelations = 5; // All 5 revelations
 
     // --- Loss thresholds ---
-    public const long BankruptcyCreditsThreshold = -500;
+    // Widened from -500 to -2000: with zero shuttle upkeep, bankruptcy is near-impossible
+    // in the first hour. This threshold exists for empire-scale debt spirals, not early game.
+    public const long BankruptcyCreditsThreshold = -2000;
     // Bankruptcy requires credits below threshold AND no fleet cargo value to recover.
     public const int BankruptcyMinCargoValueToSurvive = 100;
 }

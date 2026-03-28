@@ -54,6 +54,53 @@
     { "trigger": "FIRST_COMBAT_WIN", "candidate": "Analyst", "tier": "Early", "text": "Hostile neutralized. Ship integrity nominal. I\u2019d recommend checking the Ship tab at our next dock \u2014 better modules reduce hull stress.", "relationship_delta": 1 },
     { "trigger": "FIRST_COMBAT_WIN", "candidate": "Veteran", "tier": "Early", "text": "Clean engagement. Well fought. Next dock, check the Ship tab \u2014 proper outfitting makes the difference.", "relationship_delta": 1 },
     { "trigger": "FIRST_COMBAT_WIN", "candidate": "Pathfinder", "tier": "Early", "text": "They\u2019re gone. I hope they had somewhere to respawn. The Ship tab has upgrades that might keep us out of fights like that.", "relationship_delta": 1 },
+
+    { "trigger": "COMBAT_REACTION_1", "candidate": "Analyst", "tier": "Early", "text": "Hostile down. Hull at {HULL_PCT}%. Salvage recovered. Efficient engagement.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_1", "candidate": "Veteran", "tier": "Early", "text": "Another one down. Good shooting, Captain.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_1", "candidate": "Pathfinder", "tier": "Early", "text": "They won\u2019t bother anyone else on this lane. Scan shows debris \u2014 anything salvageable?", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_2", "candidate": "Analyst", "tier": "Early", "text": "Threat eliminated. Recalculating risk profile for this sector.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_2", "candidate": "Veteran", "tier": "Early", "text": "Clean kill. We\u2019re getting sharper with every fight.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_2", "candidate": "Pathfinder", "tier": "Early", "text": "That was close. I felt the deck shudder on that last volley.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_3", "candidate": "Analyst", "tier": "Early", "text": "Combat log updated. Our kill efficiency is improving \u2014 {KILLS} total hostiles neutralized.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_3", "candidate": "Veteran", "tier": "Early", "text": "Word gets around, Captain. Pirates in this sector will think twice now.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_3", "candidate": "Pathfinder", "tier": "Early", "text": "I wonder who they were before they turned pirate. Not everyone out here chose this life.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_4", "candidate": "Analyst", "tier": "Early", "text": "Engagement resolved. Fuel consumption within acceptable parameters.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_4", "candidate": "Veteran", "tier": "Early", "text": "Textbook. They came in sloppy and paid for it.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_4", "candidate": "Pathfinder", "tier": "Early", "text": "The stars look the same after a fight, but somehow they feel different. Quieter.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_5", "candidate": "Analyst", "tier": "Early", "text": "Hostile wreckage confirms faction-affiliated vessel. This region\u2019s threat assessment is elevated.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_5", "candidate": "Veteran", "tier": "Early", "text": "That\u2019s one more lane made safe. The traders following us owe you a drink, Captain.", "relationship_delta": 0 },
+    { "trigger": "COMBAT_REACTION_5", "candidate": "Pathfinder", "tier": "Early", "text": "Combat over. My hands are still shaking. Don\u2019t tell anyone.", "relationship_delta": 0 },
+
+    { "trigger": "MARKET_OPPORTUNITY_1", "candidate": "Analyst", "tier": "Early", "text": "Price differential detected. A nearby station is paying significantly more for goods we can source here. The numbers are compelling.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_1", "candidate": "Veteran", "tier": "Early", "text": "I know that look on the price boards. Someone nearby needs what we\u2019re sitting on. Could be a good run.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_1", "candidate": "Pathfinder", "tier": "Early", "text": "The market data is painting a picture. There\u2019s a story in these price gaps \u2014 someone needs something badly.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_2", "candidate": "Analyst", "tier": "Early", "text": "Cross-referencing local inventory with regional demand. There\u2019s a profitable arbitrage window open right now.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_2", "candidate": "Veteran", "tier": "Early", "text": "Prices shifting. The smart money moves when the gap is wide. Right now, it\u2019s wide.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_2", "candidate": "Pathfinder", "tier": "Early", "text": "I can feel the economy breathing. Supply here, demand there. We could ride that current.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_3", "candidate": "Analyst", "tier": "Mid", "text": "Supply chain disruption detected in adjacent sectors. Short-term margin expansion likely. Recommend repositioning.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_3", "candidate": "Veteran", "tier": "Mid", "text": "Seen this before \u2014 when a sector runs dry, the first trader there writes their own price. Let\u2019s be first.", "relationship_delta": 0 },
+    { "trigger": "MARKET_OPPORTUNITY_3", "candidate": "Pathfinder", "tier": "Mid", "text": "Something shifted in the trade currents. Prices are moving in a direction I haven\u2019t seen before. Worth investigating.", "relationship_delta": 0 },
+
+    { "trigger": "TERRITORY_ENTRY_1", "candidate": "Analyst", "tier": "Early", "text": "Entering new territory. Tariff structures may differ. Recommend reviewing local faction stance before trading.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_1", "candidate": "Veteran", "tier": "Early", "text": "New territory. Different rules, different patrols. Keep your head on a swivel until we know who runs things here.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_1", "candidate": "Pathfinder", "tier": "Early", "text": "The stars changed color. Or maybe it\u2019s the light from different stations. Either way \u2014 we\u2019re somewhere new.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_2", "candidate": "Analyst", "tier": "Early", "text": "Faction patrol density is different here. Adjusting risk assessment accordingly.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_2", "candidate": "Veteran", "tier": "Early", "text": "I recognize these patrol patterns. Stay on the lanes and they\u2019ll leave us alone. Probably.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_2", "candidate": "Pathfinder", "tier": "Early", "text": "New region, new mysteries. I wonder what the locals know about the deeper systems beyond here.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_3", "candidate": "Analyst", "tier": "Mid", "text": "This sector\u2019s economic profile is distinct. Different primary exports, different demand curves. Adapting models.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_3", "candidate": "Veteran", "tier": "Mid", "text": "We\u2019re deep in unfamiliar space now. The further from home, the bigger the margins \u2014 and the bigger the risks.", "relationship_delta": 0 },
+    { "trigger": "TERRITORY_ENTRY_3", "candidate": "Pathfinder", "tier": "Mid", "text": "Every new system we enter adds another thread to the map in my head. The pattern is getting clearer.", "relationship_delta": 0 },
+
+    { "trigger": "REWARD_MILESTONE_1", "candidate": "Analyst", "tier": "Early", "text": "Credit balance exceeded 1,000. Initial capital accumulation phase complete. Recommend evaluating module investments.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_1", "candidate": "Veteran", "tier": "Early", "text": "A thousand credits. Not bad for a shuttle crew. The real money starts when you stop hauling and start thinking.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_1", "candidate": "Pathfinder", "tier": "Early", "text": "We passed a thousand credits! I know it\u2019s not retirement money, but it\u2019s proof the universe pays attention to those who move.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_2", "candidate": "Analyst", "tier": "Mid", "text": "Five thousand credits accumulated. We\u2019ve entered the capital class. Ship upgrade options are now financially viable.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_2", "candidate": "Veteran", "tier": "Mid", "text": "Five thousand. That\u2019s not luck anymore \u2014 that\u2019s a trader who knows their lanes. Well earned, Captain.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_2", "candidate": "Pathfinder", "tier": "Mid", "text": "Five thousand credits. Each one is a story \u2014 a jump, a trade, a close call. We\u2019re building something here.", "relationship_delta": 1 },
+    { "trigger": "REWARD_MILESTONE_3", "candidate": "Analyst", "tier": "Mid", "text": "Ten thousand credits. Portfolio analysis confirms accelerating returns. The compound growth phase has begun.", "relationship_delta": 2 },
+    { "trigger": "REWARD_MILESTONE_3", "candidate": "Veteran", "tier": "Mid", "text": "Ten thousand. You could buy a new ship with that. Or fund an expedition. Or just keep stacking. Your call, Captain.", "relationship_delta": 2 },
+    { "trigger": "REWARD_MILESTONE_3", "candidate": "Pathfinder", "tier": "Mid", "text": "Ten thousand credits. Remember when we had nothing? Now the galaxy is starting to take notice of us.", "relationship_delta": 2 },
+
     { "trigger": "ARRIVAL_NEW_SYSTEM", "candidate": "Analyst", "tier": "Early", "text": "New system. Different faction territory, different tariffs. The galaxy map (M) tracks where each faction holds sway. Profitable data.", "relationship_delta": 1 },
     { "trigger": "ARRIVAL_NEW_SYSTEM", "candidate": "Veteran", "tier": "Early", "text": "New stars, new rules. Every faction controls its own space. Press M \u2014 the galaxy map shows whose territory you\u2019re trading in.", "relationship_delta": 1 },
     { "trigger": "ARRIVAL_NEW_SYSTEM", "candidate": "Pathfinder", "tier": "Early", "text": "Different stars, different people, different stories. Press M \u2014 you can see where one faction\u2019s reach ends and another begins.", "relationship_delta": 1 },
@@ -138,6 +185,9 @@
     { "trigger": "CHAIN_COMPLETED", "candidate": "Analyst", "tier": "Fracture", "text": "Chain complete. Full data set acquired. The pattern is... comprehensive. Whoever left this wanted the finder to understand something specific. And I think I do. I think I finally do.", "relationship_delta": 5 },
     { "trigger": "CHAIN_COMPLETED", "candidate": "Veteran", "tier": "Fracture", "text": "End of the trail. Everything leads here. I\u2019ve followed orders my whole career, but this... this is the first time I\u2019ve followed evidence. It changes things.", "relationship_delta": 5 },
     { "trigger": "CHAIN_COMPLETED", "candidate": "Pathfinder", "tier": "Fracture", "text": "The whole story, laid out across light-years. They wanted someone to find this. Not just anyone \u2014 someone who would keep looking. That\u2019s us, Captain.", "relationship_delta": 5 },
+    { "trigger": "DISCOVERY_OPPORTUNITY", "candidate": "Analyst", "tier": "Mid", "text": "Fresh economic intel just came in. Margin estimate is above threshold. I'd recommend setting up a trade charter on this route before the data ages out.", "relationship_delta": 2 },
+    { "trigger": "DISCOVERY_OPPORTUNITY", "candidate": "Veteran", "tier": "Mid", "text": "New intel from that discovery \u2014 there's money on the table. Good margins, fresh data. In my experience, these windows don't stay open long.", "relationship_delta": 2 },
+    { "trigger": "DISCOVERY_OPPORTUNITY", "candidate": "Pathfinder", "tier": "Mid", "text": "The void just whispered a secret \u2014 fresh intel, real margins. This is what discovery feeds into. Automate the profit while we chase the next mystery.", "relationship_delta": 2 },
     { "trigger": "TRADE_INTEL_STALE", "candidate": "Analyst", "tier": "Mid", "text": "That discovery trade route is going stale. Estimated profit: still above threshold, but decaying. If we\u2019re going to automate it, now is the time.", "relationship_delta": 1 },
     { "trigger": "TRADE_INTEL_STALE", "candidate": "Veteran", "tier": "Mid", "text": "Our intel on that route is aging. Markets shift. The opportunity from that discovery won\u2019t last forever. Either we act or we lose it.", "relationship_delta": 1 },
     { "trigger": "TRADE_INTEL_STALE", "candidate": "Pathfinder", "tier": "Mid", "text": "That route the anomaly showed us? It\u2019s fading. Knowledge decays when you don\u2019t use it. The void doesn\u2019t wait for anyone.", "relationship_delta": 1 },
@@ -249,6 +299,118 @@
 
     { "trigger": "SILENCE_BREAK_8", "candidate": "Analyst", "tier": "Early", "text": "Final ambient observation: our revenue growth is strong, but growth without direction is just accumulation. What are we building toward, Captain?", "relationship_delta": 2 },
     { "trigger": "SILENCE_BREAK_8", "candidate": "Veteran", "tier": "Early", "text": "I\u2019ve served on ships that ran the same route for years. They made money. They also never made history. Your call which kind of ship this is.", "relationship_delta": 2 },
-    { "trigger": "SILENCE_BREAK_8", "candidate": "Pathfinder", "tier": "Early", "text": "Captain, I want to show you something on the galaxy map when you have a moment. There are patterns in the faction territories. I think we\u2019re meant to notice them.", "relationship_delta": 2 }
+    { "trigger": "SILENCE_BREAK_8", "candidate": "Pathfinder", "tier": "Early", "text": "Captain, I want to show you something on the galaxy map when you have a moment. There are patterns in the faction territories. I think we\u2019re meant to notice them.", "relationship_delta": 2 },
+
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Analyst", "tier": "Mid", "text": "I ran the numbers on our trade history. We\u2019re profitable, but concentrated. One disrupted lane would cost us 40% of revenue. Diversification isn\u2019t optional.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Veteran", "tier": "Mid", "text": "You know what separates a trader from an empire? Redundancy. If one route dies, the others keep you alive. We should think about that.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_9", "candidate": "Pathfinder", "tier": "Mid", "text": "I keep looking at the edges of the map. There are systems out there nobody trades with. Risky, sure. But risk is just undiscovered profit.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Analyst", "tier": "Mid", "text": "Station economies follow cycles. Surplus today, shortage tomorrow. If we time our programs to those cycles, margins improve 15-20%.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Veteran", "tier": "Mid", "text": "Quiet stretch. In the service we called this \u2018the long watch.\u2019 Nothing happening doesn\u2019t mean nothing\u2019s coming.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_10", "candidate": "Pathfinder", "tier": "Mid", "text": "Have you noticed how the threads hum differently near faction borders? Like the lattice itself knows where the lines are drawn.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_11", "candidate": "Analyst", "tier": "Mid", "text": "Our haven could use attention. Research capacity, fabrication, market access \u2014 each upgrade compounds our operational ceiling.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_11", "candidate": "Veteran", "tier": "Mid", "text": "A base of operations isn\u2019t just storage. It\u2019s where you regroup, rearm, rethink. Ours could do more for us.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_11", "candidate": "Pathfinder", "tier": "Mid", "text": "Our haven feels like it\u2019s waiting for something. More labs, more fabricators, more connections to the network. It wants to grow.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_12", "candidate": "Analyst", "tier": "Mid", "text": "I\u2019ve been cross-referencing faction trade patterns. They\u2019re not random \u2014 there\u2019s a dependency graph. Control the bottleneck goods and you control the conversation.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_12", "candidate": "Veteran", "tier": "Mid", "text": "Faction politics. Everyone\u2019s polite until the supply runs thin. I\u2019ve seen alliances crack over a single cargo hold of fuel.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_12", "candidate": "Pathfinder", "tier": "Mid", "text": "The factions act like they\u2019re independent, but pull one thread and they all move. It\u2019s beautiful, in a terrifying sort of way.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_13", "candidate": "Analyst", "tier": "Mid", "text": "Combat efficiency review: our damage output scales with battle readiness. Spinning up before engagement isn\u2019t optional \u2014 it\u2019s a 100% damage differential.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_13", "candidate": "Veteran", "tier": "Mid", "text": "Captain, a word about combat readiness. Going into a fight cold is a good way to lose. Battle stations exist for a reason.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_13", "candidate": "Pathfinder", "tier": "Mid", "text": "I\u2019ve been reading about ship combat rhythms. There\u2019s a spin-up cycle \u2014 the ship needs time to reach full readiness. Like warming up an instrument.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_14", "candidate": "Analyst", "tier": "Mid", "text": "Automation programs are running within parameters. But I notice we haven\u2019t expanded the network recently. Stagnation looks like stability until it isn\u2019t.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_14", "candidate": "Veteran", "tier": "Mid", "text": "The programs are doing their job. But programs don\u2019t adapt \u2014 we do. When\u2019s the last time we scouted a new opportunity?", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_14", "candidate": "Pathfinder", "tier": "Mid", "text": "Our automated routes are humming along. Predictable. Reliable. A little boring, honestly. The galaxy has more to offer.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_15", "candidate": "Analyst", "tier": "Mid", "text": "Interesting data point: stations with active warfronts nearby show 30% higher demand for military goods. Conflict creates opportunity \u2014 distasteful but factual.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_15", "candidate": "Veteran", "tier": "Mid", "text": "War zones pay well. I\u2019m not proud of knowing that, but you don\u2019t survive the service without learning where the credits flow.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_15", "candidate": "Pathfinder", "tier": "Mid", "text": "There\u2019s music in how the economy shifts around conflict. Supply and demand, fear and need. We\u2019re positioned to help \u2014 and profit. Both matter.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_16", "candidate": "Analyst", "tier": "Mid", "text": "Our sensor data is accumulating faster than we\u2019re acting on it. Every discovery we delay is potential revenue left on the table.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_16", "candidate": "Veteran", "tier": "Mid", "text": "Intel is perishable, Captain. The things we\u2019ve found out there won\u2019t wait forever. Someone else will get to them first.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_16", "candidate": "Pathfinder", "tier": "Mid", "text": "Remember that anomaly we flagged? I keep thinking about it. There are answers out there, and they\u2019re patient \u2014 but we shouldn\u2019t be.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_17", "candidate": "Analyst", "tier": "Fracture", "text": "Long-range projection: at current growth rate, we\u2019ll plateau within 200 ticks. Breaking through requires either new markets or new capabilities. Preferably both.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_17", "candidate": "Veteran", "tier": "Fracture", "text": "I\u2019ve been thinking about the bigger picture. We\u2019re past survival now. The question is what kind of mark we leave on this sector.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_17", "candidate": "Pathfinder", "tier": "Fracture", "text": "Captain, do you ever feel like the lattice is watching us? Not maliciously. More like... curious. About what we\u2019ll do next.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_18", "candidate": "Analyst", "tier": "Fracture", "text": "Diplomatic leverage calculation: our trade volume gives us significant influence with at least two factions. That\u2019s a resource we haven\u2019t fully leveraged.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_18", "candidate": "Veteran", "tier": "Fracture", "text": "We\u2019ve earned some respect out here. Factions notice who keeps the supply lines open during wartime. That\u2019s political capital.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_18", "candidate": "Pathfinder", "tier": "Fracture", "text": "The factions are starting to recognize our ship. That means something. It means we\u2019re part of this place now, not just passing through.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_19", "candidate": "Analyst", "tier": "Fracture", "text": "Topology analysis suggests the lattice network isn\u2019t static. Lane weights shift over time. Our route optimization should account for drift.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_19", "candidate": "Veteran", "tier": "Fracture", "text": "The lanes are changing. Slowly, but they\u2019re changing. I\u2019ve seen stable routes go dark and dead ends open up. Stay adaptable.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_19", "candidate": "Pathfinder", "tier": "Fracture", "text": "The lattice breathes, Captain. Old paths close, new ones open. It\u2019s not decay \u2014 it\u2019s evolution. And we\u2019re evolving with it.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Analyst", "tier": "Fracture", "text": "I\u2019ve been modeling our operational footprint. We\u2019re no longer a single ship \u2014 we\u2019re a network. Programs, haven, reputation. The system is greater than its parts.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Veteran", "tier": "Fracture", "text": "Look at what we\u2019ve built, Captain. A haven, trade routes, alliances. This isn\u2019t a ship anymore. It\u2019s a fleet operation. And it started with one cargo run.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_20", "candidate": "Pathfinder", "tier": "Fracture", "text": "We\u2019ve touched so many systems now. Left our mark on stations, faction borders, trade lanes. The galaxy is different because we\u2019re in it. I like that.", "relationship_delta": 2 },
+
+    { "trigger": "SILENCE_BREAK_21", "candidate": "Analyst", "tier": "Fracture", "text": "There are precursor signals buried in the scan data. I can\u2019t decode them yet, but the mathematical structure suggests intentional design. Someone built the lattice. Why?", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_21", "candidate": "Veteran", "tier": "Fracture", "text": "Old spacer\u2019s tale: the lattice lanes weren\u2019t always here. Something wove them. The Concord pretends it\u2019s natural infrastructure. It isn\u2019t.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_21", "candidate": "Pathfinder", "tier": "Fracture", "text": "I had a dream about the lattice last night. It was singing. Not metaphorically \u2014 literally singing. Harmonics in a language I almost understood.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_22", "candidate": "Analyst", "tier": "Fracture", "text": "Resource scarcity projections are concerning. If current extraction rates continue, several key goods will reach critical shortage within measurable time. Plan accordingly.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_22", "candidate": "Veteran", "tier": "Fracture", "text": "Supply chains are stretching thin across the sector. I\u2019ve seen this before \u2014 it\u2019s the prelude to a resource war. Position matters.", "relationship_delta": 1 },
+    { "trigger": "SILENCE_BREAK_22", "candidate": "Pathfinder", "tier": "Fracture", "text": "The stations are hungry, Captain. More goods flowing, more being consumed, but the sources aren\u2019t keeping up. Something has to give.", "relationship_delta": 1 },
+
+    { "trigger": "SILENCE_BREAK_23", "candidate": "Analyst", "tier": "Revelation", "text": "I\u2019ve been correlating our discovery data with historical records. The pattern is unmistakable: someone placed these artifacts along lattice stress points. A warning system, perhaps.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_23", "candidate": "Veteran", "tier": "Revelation", "text": "Captain, I don\u2019t say this lightly. Everything I learned in the Concord \u2014 the training, the doctrine, the certainties \u2014 none of it prepared me for what we\u2019ve found.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_23", "candidate": "Pathfinder", "tier": "Revelation", "text": "Do you feel it too? The lattice is more alive near the places we\u2019ve been. Like our attention woke something up. I don\u2019t think that\u2019s coincidence.", "relationship_delta": 2 },
+
+    { "trigger": "SILENCE_BREAK_24", "candidate": "Analyst", "tier": "Revelation", "text": "Final data point for now: our journey has generated more questions than answers. That\u2019s not failure \u2014 it\u2019s the correct output of genuine exploration. The model needs more data. We need more time.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_24", "candidate": "Veteran", "tier": "Revelation", "text": "We\u2019ve come a long way from that first dock. I trust you, Captain. Whatever\u2019s coming \u2014 whatever the lattice has in store \u2014 I\u2019d rather face it from this bridge than anywhere else.", "relationship_delta": 2 },
+    { "trigger": "SILENCE_BREAK_24", "candidate": "Pathfinder", "tier": "Revelation", "text": "The galaxy is bigger than I thought, and smaller than it should be. Everything connects. Every trade, every jump, every choice. We\u2019re part of something, Captain. I think we always were.", "relationship_delta": 2 },
+
+    { "trigger": "BATTLE_STATIONS_HINT", "candidate": "Analyst", "tier": "Early", "text": "Hostile detected. I recommend battle stations \u2014 our weapons deal full damage only at combat readiness. Press B to spin up.", "relationship_delta": 1 },
+    { "trigger": "BATTLE_STATIONS_HINT", "candidate": "Veteran", "tier": "Early", "text": "Contact! Hostile vessel, Captain. Hit B for battle stations \u2014 we\u2019re at 25% weapons without it. Spin up before they close.", "relationship_delta": 1 },
+    { "trigger": "BATTLE_STATIONS_HINT", "candidate": "Pathfinder", "tier": "Early", "text": "Trouble ahead. If you press B, the ship spins up to combat readiness. Without it, we\u2019re fighting at quarter strength.", "relationship_delta": 1 },
+
+    { "trigger": "SENSOR_SUITE_ONLINE", "candidate": "Analyst", "tier": "Mid", "text": "Sensor suite calibration complete. We can now detect anomalies at visited systems. The galaxy map should show discovery sites within range.", "relationship_delta": 2 },
+    { "trigger": "SENSOR_SUITE_ONLINE", "candidate": "Veteran", "tier": "Mid", "text": "Sensors are live, Captain. We\u2019re picking up anomalous readings at systems we\u2019ve already visited. Time to go back with fresh eyes.", "relationship_delta": 2 },
+    { "trigger": "SENSOR_SUITE_ONLINE", "candidate": "Pathfinder", "tier": "Mid", "text": "The sensors just came online and\u2026 Captain, there are signals everywhere. At systems we\u2019ve already been to. We walked right past them before.", "relationship_delta": 2 },
+
+    { "trigger": "AMBIENT_OBS_1", "candidate": "Analyst", "tier": "Early", "text": "Market update: {GOOD} prices are trending upward at nearby stations. Supply contraction suggests an opportunity window.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_1", "candidate": "Veteran", "tier": "Early", "text": "Noticing more traffic on the lanes today. Traders moving fast, hauling heavy. Something\u2019s shifted in the local economy.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_1", "candidate": "Pathfinder", "tier": "Early", "text": "The starlight here is different. Bluer. Younger stars, maybe. I wonder what that means for the systems ahead.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_2", "candidate": "Analyst", "tier": "Early", "text": "Fuel reserves nominal. Our current route efficiency is above median. Maintaining course.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_2", "candidate": "Veteran", "tier": "Early", "text": "Quiet sector. No hostiles on scan. Good time to check our loadout \u2014 preparation beats reaction every time.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_2", "candidate": "Pathfinder", "tier": "Early", "text": "I\u2019ve been watching the NPC patrol patterns. They\u2019re predictable \u2014 which means they\u2019re designed that way. Interesting.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_3", "candidate": "Analyst", "tier": "Mid", "text": "Faction territory boundaries are shifting. {GOOD} demand patterns suggest a realignment in regional power. Worth monitoring.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_3", "candidate": "Veteran", "tier": "Mid", "text": "Seeing faction patrol density increase along the border. That\u2019s either a show of force or preparation for something.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_3", "candidate": "Pathfinder", "tier": "Mid", "text": "The threads between faction spaces hum differently at the borders. Tense. Like they\u2019re carrying more than cargo.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_4", "candidate": "Analyst", "tier": "Mid", "text": "Program efficiency report: our automated routes are generating steady passive income. Consider expanding to underserved nodes.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_4", "candidate": "Veteran", "tier": "Mid", "text": "Our programs are holding steady. But I\u2019ve seen operations go stale when you stop innovating. Just an observation.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_4", "candidate": "Pathfinder", "tier": "Mid", "text": "The automated routes are like rivers now \u2014 flowing without us. It frees us up for the interesting work.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_5", "candidate": "Analyst", "tier": "Mid", "text": "Hull integrity stable. Shield generators nominal. Combat readiness is adequate for current threat level.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_5", "candidate": "Veteran", "tier": "Mid", "text": "Ship\u2019s holding together well. Could always be better, but could be a lot worse. I\u2019ve served on worse.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_5", "candidate": "Pathfinder", "tier": "Mid", "text": "Our ship hums differently now than when we started. Settled, like it knows us. Or we know it.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_6", "candidate": "Analyst", "tier": "Mid", "text": "Trade volume analysis: three stations account for 70% of our revenue. Concentration risk flagged.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_6", "candidate": "Veteran", "tier": "Mid", "text": "We\u2019ve got good routes, but we\u2019re leaning heavy on a few. Diversify or risk collapse if one goes dark.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_6", "candidate": "Pathfinder", "tier": "Mid", "text": "There are stations we keep returning to like old friends. And stations we\u2019ve never visited. Both have something to offer.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_7", "candidate": "Analyst", "tier": "Fracture", "text": "Haven operational status: all systems within parameters. Research lab utilization could be improved.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_7", "candidate": "Veteran", "tier": "Fracture", "text": "Haven\u2019s ticking along. Good base of operations. A few upgrades would make it exceptional.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_7", "candidate": "Pathfinder", "tier": "Fracture", "text": "Haven feels like home now. Still growing, still changing. Like us.", "relationship_delta": 0 },
+
+    { "trigger": "AMBIENT_OBS_8", "candidate": "Analyst", "tier": "Fracture", "text": "Long-range sensor sweep complete. No immediate threats. Cataloguing anomalous readings for future analysis.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_8", "candidate": "Veteran", "tier": "Fracture", "text": "All quiet on the long-range. That\u2019s either good news or the calm before something. Hard to tell out here.", "relationship_delta": 0 },
+    { "trigger": "AMBIENT_OBS_8", "candidate": "Pathfinder", "tier": "Fracture", "text": "The deep sensors are picking up whispers from beyond the mapped lanes. Old signals. Patient signals.", "relationship_delta": 0 },
+
+    { "trigger": "ALL_NODES_EXPLORED", "candidate": "Analyst", "tier": "Early", "text": "Every node mapped. The data is clear \u2014 we\u2019ve surveyed the entire lane network. Now the question is what we do with it. There are modules that could automate our best routes, and the ship has empty refit slots waiting.", "relationship_delta": 2 },
+    { "trigger": "ALL_NODES_EXPLORED", "candidate": "Veteran", "tier": "Early", "text": "Full circuit complete \u2014 every station, every junction. Most traders never see the whole map. But seeing it isn\u2019t the same as using it. Our ship could run harder with the right modules. Time to look at what\u2019s available at the refit bay.", "relationship_delta": 2 },
+    { "trigger": "ALL_NODES_EXPLORED", "candidate": "Pathfinder", "tier": "Early", "text": "We\u2019ve touched every corner of this network. But there\u2019s more here than trade lanes \u2014 I can feel it. The ship has room to grow, empty slots meant for something. Maybe it\u2019s time we looked at what this vessel could become.", "relationship_delta": 2 },
+
+    { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Analyst", "tier": "Mid", "text": "The conflict data just shifted. Border skirmishes are escalating faster than my models predicted. Supply lines to contested systems will tighten \u2014 which means margins on war materials are about to spike. Risk up, but so is profit.", "relationship_delta": 1 },
+    { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Veteran", "tier": "Mid", "text": "I\u2019ve seen this pattern before. Small patrols become blockades. Blockades become shooting wars. The factions are moving to a war footing. We need to decide \u2014 supply one side, profit from both, or steer clear entirely.", "relationship_delta": 1 },
+    { "trigger": "LATE_INSTABILITY_WARNING", "candidate": "Pathfinder", "tier": "Mid", "text": "Feel that tension? The lanes are getting quieter near the borders. Traders pulling back. That\u2019s not peace \u2014 that\u2019s the calm before something breaks. We could ride the edge of it, or find safer waters. Your call.", "relationship_delta": 1 }
   ]
 }

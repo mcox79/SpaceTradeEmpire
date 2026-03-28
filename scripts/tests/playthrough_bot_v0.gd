@@ -35,6 +35,8 @@ const COMBAT_MAX_FIGHTS := 3
 const EXPLORE_EVERY_N := 4
 const ACT_INTERVAL := 3
 const COMBAT_COOLDOWN := 5
+const MAX_TOTAL_FRAMES := 18000  # ~300s at 60fps -- hard safety timeout
+const STALL_FRAME_LIMIT := 600   # If phase unchanged for 600 frames, force-advance or quit
 
 enum Phase { WAIT_BRIDGE, WAIT_READY, TUTORIAL, TRADE, INTEL_CHECK, EXPLORE, COMBAT, SCAN, EXTRACT, HAVEN, MAINTENANCE_CHECK, UPGRADE, RESEARCH, MEGAPROJECT, EQUIP, AUTOMATION, DIPLOMACY, WARFRONT_CHECK, ENDGAME, VICTORY, BOT_LOOP, REPORT, DONE }
 
@@ -61,6 +63,9 @@ var _endgame_path := ""
 var _phases_completed: Array = []
 var _busy := false
 var _reinit_done := false
+var _total_frames := 0
+var _stall_phase: int = -1           # Phase value at last change
+var _stall_frame_start := 0          # Frame when current phase began
 var _primary_faction := "weavers"  # Concentrate trades here for rep > 25 (megaproject gate)
 var _faction_node_cache: Dictionary = {}  # faction_id -> [node_ids]
 
@@ -124,6 +129,48 @@ func _initialize() -> void:
 		print(PREFIX + "TICK_BUDGET|%d" % _tick_budget)
 
 func _process(_delta: float) -> bool:
+	_total_frames += 1
+
+	# ---- Hard safety timeout: force quit if running too long ----
+	if _total_frames > MAX_TOTAL_FRAMES and _phase != Phase.DONE:
+		print(PREFIX + "SAFETY_TIMEOUT|frame=%d|phase=%d|busy=%s" % [_total_frames, _phase, str(_busy)])
+		_add_flag("SAFETY_TIMEOUT", "CRITICAL",
+			"Bot exceeded %d frames (phase=%d)" % [MAX_TOTAL_FRAMES, _phase],
+			"Process hung or ran too long")
+		_busy = false
+		_force_quit(1)
+		return true
+
+	# ---- Stall watchdog: detect phase stuck for too long ----
+	if _phase != _stall_phase:
+		_stall_phase = _phase
+		_stall_frame_start = _total_frames
+	elif _total_frames - _stall_frame_start > STALL_FRAME_LIMIT and _phase != Phase.DONE:
+		var stall_duration: int = _total_frames - _stall_frame_start
+		print(PREFIX + "STALL_WATCHDOG|phase=%d|stalled=%d_frames|busy=%s" % [_phase, stall_duration, str(_busy)])
+		_add_flag("PHASE_STALL", "CRITICAL",
+			"Phase %d stalled for %d frames (busy=%s)" % [_phase, stall_duration, str(_busy)],
+			"Bot stuck in phase, force-advancing")
+		_busy = false
+		# Force-advance: skip to next phase or quit
+		match _phase:
+			Phase.WAIT_BRIDGE, Phase.WAIT_READY:
+				_force_quit(1)
+				return true
+			Phase.REPORT:
+				_force_quit(1)
+				return true
+			Phase.BOT_LOOP:
+				_phase = Phase.REPORT
+			Phase.VICTORY:
+				_phase = Phase.DONE
+				_finish()
+			_:
+				# Skip to next phase in sequence (enum values are sequential ints)
+				_phase = _phase + 1
+		_stall_phase = _phase
+		_stall_frame_start = _total_frames
+
 	if _busy:
 		return false
 	match _phase:
@@ -683,12 +730,17 @@ func _do_haven() -> void:
 
 func _do_upgrade() -> void:
 	_busy = true
+	var prev_tier := -1
 	for tier_attempt in range(UPGRADE_MAX_TIER):
 		var haven: Dictionary = _bridge.call("GetHavenStatusV0") if _bridge.has_method("GetHavenStatusV0") else {}
 		var current_tier: int = int(haven.get("tier", 0))
-		if current_tier >= UPGRADE_MAX_TIER:
-			print(PREFIX + "UPGRADE|DONE|tier=%d" % current_tier)
+		if current_tier >= 4:  # Game max tier is 4 (Expanded), not UPGRADE_MAX_TIER
+			print(PREFIX + "UPGRADE|DONE|tier=%d (max reached)" % current_tier)
 			break
+		if current_tier == prev_tier and tier_attempt > 0:
+			print(PREFIX + "UPGRADE|STALL|tier=%d (no progress after attempt %d)" % [current_tier, tier_attempt])
+			break
+		prev_tier = current_tier
 		# Upgrade checks player CARGO, not haven market.
 		# Buy missing upgrade goods at haven market (if stocked) or keep what we have.
 		var ps: Dictionary = _bridge.call("GetPlayerStateV0")
@@ -2390,6 +2442,20 @@ func _finish() -> void:
 	if _bridge and _bridge.has_method("StopSimV0"):
 		_bridge.call("StopSimV0")
 	quit(0 if _flags.size() == 0 else 1)
+
+func _force_quit(code: int) -> void:
+	## Emergency exit — called by safety timeout and stall watchdog.
+	## Ensures StopSimV0 is called to prevent C# thread hang, then quits.
+	print(PREFIX + "FORCE_QUIT|code=%d|frame=%d|flags=%d" % [code, _total_frames, _flags.size()])
+	for f in _flags:
+		if f is Dictionary:
+			print(PREFIX + "FLAG_DETAIL|[%s] %s: %s" % [
+				str(f.get("severity", "")),
+				str(f.get("id", "")),
+				str(f.get("detail", ""))])
+	if _bridge and _bridge.has_method("StopSimV0"):
+		_bridge.call("StopSimV0")
+	quit(code)
 
 func _build_adjacency() -> void:
 	_adj.clear()

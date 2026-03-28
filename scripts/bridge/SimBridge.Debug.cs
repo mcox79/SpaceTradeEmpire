@@ -87,6 +87,26 @@ public partial class SimBridge
     }
 
     /// <summary>
+    /// Set player fleet battle stations to BattleReady (100% damage).
+    /// The SpinningUp→BattleReady tick transition is not yet implemented,
+    /// so bots use this to bypass the spin-up delay.
+    /// </summary>
+    public void ForceBattleReadyV0()
+    {
+        try
+        {
+            _stateLock.EnterWriteLock();
+            if (_kernel?.State?.Fleets != null &&
+                _kernel.State.Fleets.TryGetValue("fleet_trader_1", out var fleet))
+            {
+                fleet.BattleStations = SimCore.Entities.BattleStationsState.BattleReady;
+                fleet.BattleStationsSpinUpTicksRemaining = 0;
+            }
+        }
+        finally { _stateLock.ExitWriteLock(); }
+    }
+
+    /// <summary>
     /// Advance sim by N ticks. For research near-completion screenshot.
     /// </summary>
     public void DebugAdvanceTicksV0(int ticks)

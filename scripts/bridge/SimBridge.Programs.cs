@@ -516,4 +516,101 @@ public partial class SimBridge
         };
         _programEventLog.Add(e);
     }
+
+    // GATE.T61.POSTMORTEM.BRIDGE.001: Program postmortem queries.
+
+    /// Returns postmortem info for a program: cause code, decision-time vs current price deltas.
+    public Godot.Collections.Dictionary GetProgramPostmortemV0(string programId)
+    {
+        var result = new Godot.Collections.Dictionary
+        {
+            ["cause_code"] = "None",
+            ["cause_label"] = "",
+            ["decision_facts"] = new Godot.Collections.Dictionary(),
+            ["current_facts"] = new Godot.Collections.Dictionary(),
+        };
+
+        TryExecuteSafeRead(state =>
+        {
+            if (state.Programs?.Instances == null) return;
+            if (!state.Programs.Instances.TryGetValue(programId, out var prog)) return;
+
+            // Get cause code from metrics.
+            if (state.Fleets.TryGetValue(prog.FleetId ?? "fleet_trader_1", out var fleet)
+                && fleet.Metrics != null)
+            {
+                result["cause_code"] = fleet.Metrics.LastCauseCode.ToString();
+            }
+
+            // Decision-time facts.
+            var decFacts = new Godot.Collections.Dictionary();
+            var curFacts = new Godot.Collections.Dictionary();
+            foreach (var kv in prog.DecisionFacts)
+            {
+                decFacts[kv.Key] = kv.Value;
+
+                // Compute current value for same key.
+                if (kv.Key.StartsWith("buy:", StringComparison.Ordinal) || kv.Key.StartsWith("sell:", StringComparison.Ordinal))
+                {
+                    var parts = kv.Key.Split(':');
+                    if (parts.Length >= 3 && state.Markets.TryGetValue(parts[1], out var mkt))
+                    {
+                        int curPrice = kv.Key.StartsWith("buy:", StringComparison.Ordinal)
+                            ? mkt.GetBuyPrice(parts[2])
+                            : mkt.GetSellPrice(parts[2]);
+                        curFacts[kv.Key] = curPrice;
+                    }
+                }
+                else if (kv.Key.StartsWith("sec:", StringComparison.Ordinal))
+                {
+                    var edgeId = kv.Key.Substring(4);
+                    if (state.Edges.TryGetValue(edgeId, out var edge))
+                        curFacts[kv.Key] = edge.SecurityLevelBps;
+                }
+            }
+            result["decision_facts"] = decFacts;
+            result["current_facts"] = curFacts;
+        }, 0);
+
+        return result;
+    }
+
+    /// Returns failure history grouped by cause code: Array of {cause_code, count, last_tick}.
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetFailureHistoryV0(string fleetId, int maxEntries)
+    {
+        var result = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+
+        TryExecuteSafeRead(state =>
+        {
+            if (!state.Fleets.TryGetValue(fleetId, out var fleet)) return;
+            if (fleet.History == null || fleet.History.Count == 0) return;
+
+            // Group failures by cause code.
+            var grouped = new System.Collections.Generic.Dictionary<string, (int count, int lastTick)>();
+            int count = 0;
+            for (int i = fleet.History.Count - 1; i >= 0 && count < maxEntries; i--)
+            {
+                var entry = fleet.History[i];
+                if (entry.Success) continue;
+                var code = entry.CauseCode.ToString();
+                if (grouped.TryGetValue(code, out var existing))
+                    grouped[code] = (existing.count + 1, System.Math.Max(existing.lastTick, entry.Tick));
+                else
+                    grouped[code] = (1, entry.Tick);
+                count++;
+            }
+
+            foreach (var kv in grouped.OrderByDescending(x => x.Value.count))
+            {
+                result.Add(new Godot.Collections.Dictionary
+                {
+                    ["cause_code"] = kv.Key,
+                    ["count"] = kv.Value.count,
+                    ["last_tick"] = kv.Value.lastTick,
+                });
+            }
+        }, 0);
+
+        return result;
+    }
 }

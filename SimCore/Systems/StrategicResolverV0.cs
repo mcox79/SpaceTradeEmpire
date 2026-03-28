@@ -67,7 +67,8 @@ public static class StrategicResolverV0
         CombatSystem.CombatProfile fleetA,
         CombatSystem.CombatProfile fleetB,
         bool fleetAEscorted = false,
-        bool fleetBEscorted = false)
+        bool fleetBEscorted = false,
+        int attackerMinDamageFloor = 0)
     {
         // Work on mutable copies so caller's profiles are unchanged.
         int aHull = fleetA.HullHp;
@@ -112,7 +113,7 @@ public static class StrategicResolverV0
 
             // ── Fleet A fires all weapons at Fleet B ──
             // A attacks B → B's stance determines which zone gets hit.
-            damageThisRound += FireAllWeapons(
+            int aDamageDealt = FireAllWeapons(
                 fleetA.Weapons,
                 ref bShield,
                 ref bHull,
@@ -126,7 +127,18 @@ public static class StrategicResolverV0
                 targetEvasionBps: fleetB.EvasionBps,
                 round: round,
                 shooterId: "A",
-                shooterZoneArmor: aHasZoneArmor ? aZone : null); // GATE.S7.COMBAT_DEPTH2
+                shooterZoneArmor: aHasZoneArmor ? aZone : null,
+                targetSpinRpm: fleetB.SpinRpm); // GATE.T60.SPIN.ARMOR_HEAT.001
+            damageThisRound += aDamageDealt;
+
+            // GATE.T64.COMBAT.SEED_FLOOR.001: Guarantee minimum damage per round from attacker.
+            // If fleet A's weapons dealt less than the floor, apply deficit as direct hull damage.
+            if (attackerMinDamageFloor > STRUCT_ZERO && aDamageDealt < attackerMinDamageFloor && bHull > STRUCT_ZERO)
+            {
+                int deficit = attackerMinDamageFloor - aDamageDealt;
+                bHull = Math.Max(STRUCT_ZERO, bHull - deficit);
+                damageThisRound += deficit;
+            }
 
             // ── Fleet B fires back (only if still alive) ──
             if (bHull > STRUCT_ZERO)
@@ -145,7 +157,8 @@ public static class StrategicResolverV0
                     targetEvasionBps: fleetA.EvasionBps,
                     round: round,
                     shooterId: "B",
-                    shooterZoneArmor: bHasZoneArmor ? bZone : null); // GATE.S7.COMBAT_DEPTH2
+                    shooterZoneArmor: bHasZoneArmor ? bZone : null,
+                    targetSpinRpm: fleetA.SpinRpm); // GATE.T60.SPIN.ARMOR_HEAT.001
             }
 
             // GATE.S7.COMBAT_PHASE2.RADIATOR.001: If aft zone is destroyed, lose radiator bonus.
@@ -161,8 +174,11 @@ public static class StrategicResolverV0
             }
 
             // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Passive cooling at end of round.
-            aHeat = Math.Max(STRUCT_ZERO, aHeat - aRejection);
-            bHeat = Math.Max(STRUCT_ZERO, bHeat - bRejection);
+            // GATE.T60.SPIN.ARMOR_HEAT.001: Spin bonus to heat rejection.
+            int aEffectiveRejection = aRejection + (int)((long)aRejection * fleetA.SpinRpm * CombatTweaksV0.SpinHeatRejectionBonusBpsPerRpm / 10000); // STRUCTURAL: 10000 = 100%
+            int bEffectiveRejection = bRejection + (int)((long)bRejection * fleetB.SpinRpm * CombatTweaksV0.SpinHeatRejectionBonusBpsPerRpm / 10000); // STRUCTURAL: 10000 = 100%
+            aHeat = Math.Max(STRUCT_ZERO, aHeat - aEffectiveRejection);
+            bHeat = Math.Max(STRUCT_ZERO, bHeat - bEffectiveRejection);
 
             totalSalvage += damageThisRound;
             roundsPlayed = round;
@@ -280,7 +296,8 @@ public static class StrategicResolverV0
         int targetEvasionBps = 0, // GATE.S7.COMBAT_DEPTH2.TRACKING.001
         int round = 0, // GATE.S7.COMBAT_DEPTH2.DAMAGE_VAR.001
         string shooterId = "", // GATE.S7.COMBAT_DEPTH2.TRACKING.001
-        int[]? shooterZoneArmor = null) // GATE.S7.COMBAT_DEPTH2.FORE_KILL.001
+        int[]? shooterZoneArmor = null, // GATE.S7.COMBAT_DEPTH2.FORE_KILL.001
+        int targetSpinRpm = 0) // GATE.T60.SPIN.ARMOR_HEAT.001
     {
         // GATE.S7.COMBAT_PHASE2.HEAT_SYSTEM.001: Lockout — no weapons fire.
         if (damagePct <= STRUCT_ZERO)
@@ -346,6 +363,15 @@ public static class StrategicResolverV0
             {
                 int cadenceBps = ComputeFireCadenceBps(weapon.MountType);
                 effectiveBaseDmg = (int)((long)effectiveBaseDmg * cadenceBps / 10000); // STRUCTURAL: 10000 = 100%
+            }
+
+            // GATE.T60.SPIN.ARMOR_HEAT.001: Spin armor — energy weapons reduced by target spin.
+            if (targetSpinRpm > STRUCT_ZERO && weapon.Family == CombatSystem.DamageFamily.Energy)
+            {
+                int reductionBps = Math.Min(
+                    targetSpinRpm * CombatTweaksV0.SpinArmorEnergyReductionBpsPerRpm,
+                    CombatTweaksV0.SpinArmorMaxReductionBps);
+                effectiveBaseDmg = (int)((long)effectiveBaseDmg * (10000 - reductionBps) / 10000); // STRUCTURAL: 10000 = 100%
             }
 
             // GATE.S7.COMBAT_DEPTH2.DAMAGE_VAR.001: ±20% deterministic damage variance.

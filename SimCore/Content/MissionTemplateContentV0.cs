@@ -1155,6 +1155,167 @@ public static class MissionTemplateContentV0
     };
 
     // ──────────────────────────────────────────────────────────────────────────
+    // GATE.T61.MISSIONS.DIPLO_BATCH.001: 4 new diplomacy templates.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public static readonly MissionTemplateDef AllianceProbe = new()
+    {
+        TemplateId = "alliance_probe",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Alliance Probe",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_node_1" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_node_2" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_node_3" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "intelligence", WeightBps = 3000 },
+            new() { TwistType = "faction_rivalry", WeightBps = 2500 },  // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 500, PerTwistBonusBps = 2500 },
+        RequiredRepTier = 1, // Friendly or better
+    };
+
+    public static readonly MissionTemplateDef DiplomaticPouchDelivery = new()
+    {
+        TemplateId = "diplomatic_pouch_delivery",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Diplomatic Pouch Delivery",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "collect_diplomatic_pouch" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "deliver_pouch_to_embassy" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "ambush_escalation", WeightBps = 2500 }, // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+            new() { TwistType = "double_cross", WeightBps = 2000 },       // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 450, PerTwistBonusBps = 3000 },
+    };
+
+    public static readonly MissionTemplateDef TradeTreatyDraft = new()
+    {
+        TemplateId = "trade_treaty_draft",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Trade Treaty Draft",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "trade_at_faction_market_1" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "trade_at_faction_market_2" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "submit_trade_treaty_draft" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "market_crash", WeightBps = 3000 },    // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+            new() { TwistType = "shortage_shift", WeightBps = 2000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 600, PerTwistBonusBps = 3000 },
+        RequiredRepTier = 2, // Neutral or better
+    };
+
+    public static readonly MissionTemplateDef CeasefireMediation = new()
+    {
+        TemplateId = "ceasefire_mediation",
+        Archetype = Archetype.Diplomacy,
+        DisplayName = "Ceasefire Mediation",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_a_representative" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$FACTION_1", "$TARGET_NODE" }, CompletionCondition = "carry_ceasefire_terms" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_faction_b_representative" },
+            new() { StepIndex = 3, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "witness_ceasefire_signing" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "faction_rivalry", WeightBps = 3500 }, // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+            new() { TwistType = "double_cross", WeightBps = 2500 },    // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 750, PerTwistBonusBps = 3500 },
+        RequiredRepTier = 1, // Friendly or better
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // GATE.T61.MISSIONS.SMUGGLING_BATCH.001: 4 new smuggling templates.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public static readonly MissionTemplateDef ContrabandRun = new()
+    {
+        TemplateId = "contraband_run",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Contraband Run",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "acquire_illegal_goods" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "evade_patrol_checkpoint" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_contraband_to_buyer" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "ambush_escalation", WeightBps = 4000 }, // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+            new() { TwistType = "blockade", WeightBps = 3500 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 700, PerTwistBonusBps = 4000 },
+    };
+
+    public static readonly MissionTemplateDef EmbargoBypass = new()
+    {
+        TemplateId = "embargo_bypass",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Embargo Bypass",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "load_embargoed_goods" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "supply_embargoed_faction_station" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "blockade", WeightBps = 5000 },
+            new() { TwistType = "contraband_mixed", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 650, PerTwistBonusBps = 4500 },
+    };
+
+    public static readonly MissionTemplateDef GreyMarketDelivery = new()
+    {
+        TemplateId = "grey_market_delivery",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Grey Market Delivery",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "acquire_premium_grey_goods" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Deliver, VariableSlots = new List<string> { "$GOOD_1", "$TARGET_NODE" }, CompletionCondition = "deliver_to_hidden_premium_buyer" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "price_spike", WeightBps = 3500 },
+            new() { TwistType = "rival_runner", WeightBps = 3000 },
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 550, PerTwistBonusBps = 3500 },
+    };
+
+    public static readonly MissionTemplateDef IntelDrop = new()
+    {
+        TemplateId = "intel_drop",
+        Archetype = Archetype.Smuggling,
+        DisplayName = "Intel Drop",
+        Steps = new List<TemplateStepDef>
+        {
+            new() { StepIndex = 0, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_intel_source_node_1" },
+            new() { StepIndex = 1, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "visit_intel_source_node_2" },
+            new() { StepIndex = 2, Objective = ObjectiveType.Visit, VariableSlots = new List<string> { "$TARGET_NODE" }, CompletionCondition = "return_intel_to_handler" },
+        },
+        TwistSlotDefs = new List<TwistSlotDef>
+        {
+            new() { TwistType = "double_cross", WeightBps = 3500 },    // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+            new() { TwistType = "market_crash", WeightBps = 2500 },    // GATE.T61.MISSIONS.ADVANCED_TWIST.001
+        },
+        Reward = new RewardFormulaDef { BaseCredits = 500, PerTwistBonusBps = 3000 },
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
     // All templates registry.
     // ──────────────────────────────────────────────────────────────────────────
     public static readonly IReadOnlyList<MissionTemplateDef> AllTemplates = new List<MissionTemplateDef>
@@ -1183,5 +1344,9 @@ public static class MissionTemplateContentV0
         // Smuggling (6) — GATE.T52.MISSION.M8_SMUGGLE.001
         ContrabandDelivery, TraceEscalationRun, FactionBannedGoods,
         BlackMarketChain, DataSmugglerRun, HighRiskCourierSmuggle,
+        // Diplomacy (4) — GATE.T61.MISSIONS.DIPLO_BATCH.001
+        AllianceProbe, DiplomaticPouchDelivery, TradeTreatyDraft, CeasefireMediation,
+        // Smuggling (4) — GATE.T61.MISSIONS.SMUGGLING_BATCH.001
+        ContrabandRun, EmbargoBypass, GreyMarketDelivery, IntelDrop,
     };
 }

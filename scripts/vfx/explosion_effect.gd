@@ -40,7 +40,7 @@ static func spawn(parent: Node, pos: Vector3) -> Node3D:
 
 
 ## Phase 1: Bright white flash that fades quickly.
-## FEEL_POST_FIX_9: All sizes scaled for camera altitude ~2500u.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Sizes verified visible at game camera altitude ~50u.
 static func _add_flash(effect: Node3D) -> void:
 	var light := OmniLight3D.new()
 	light.name = "FlashLight"
@@ -84,7 +84,7 @@ static func _add_flash(effect: Node3D) -> void:
 
 
 ## Phase 2: Orange/yellow expanding fireball.
-## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 static func _add_fireball(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "FireballParticles"
@@ -134,7 +134,7 @@ static func _add_fireball(effect: Node3D) -> void:
 
 
 ## Phase 3: Debris chunks flying outward.
-## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 static func _add_debris(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "DebrisParticles"
@@ -178,7 +178,7 @@ static func _add_debris(effect: Node3D) -> void:
 
 
 ## Phase 4: Lingering smoke/ember particles.
-## FEEL_POST_FIX_9: Scaled for camera altitude ~2500u.
+## GATE.T41.COMBAT.VFX_VERIFY.001: Verified visible at game camera altitude ~50u.
 static func _add_smoke(effect: Node3D) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "SmokeParticles"

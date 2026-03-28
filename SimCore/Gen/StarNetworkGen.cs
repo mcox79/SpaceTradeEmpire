@@ -155,19 +155,35 @@ public static class StarNetworkGen
             ? Content.WellKnownModuleIds.WeaponCannonMk1
             : Content.WellKnownModuleIds.WeaponLaserMk1;
 
-        // GATE.T59.SHIP.NPC_FACTION_FLEET.001: Use faction-appropriate ship variant.
+        // GATE.T62.SHIP.NPC_FACTION_FLEET.001: Role-aware faction ship variant + ShipClassDef stats.
         string fleetId = $"ai_fleet_{nodeId}_{index}";
+        string shipClassId = FleetPopulationTweaksV0.PickShipClass(ownerId, fleetId, role);
+        var classDef = Content.ShipClassContentV0.GetById(shipClassId);
+
+        // Apply ShipClassDef stats when available; fallback to defaults for unknown classes.
+        int fuel = classDef?.BaseFuelCapacity ?? NpcShipTweaksV0.DefaultFuelCapacity;
+        int hull = classDef?.CoreHull ?? -1; // STRUCTURAL: -1 sentinel = uninitialized
+        int shield = classDef?.BaseShield ?? -1;
+        int[] zoneArmor = classDef != null ? (int[])classDef.BaseZoneArmor.Clone() : new int[4];
+        int[] zoneArmorMax = classDef != null ? (int[])classDef.BaseZoneArmor.Clone() : new int[4];
+
         var fleet = new Fleet
         {
             Id = fleetId,
             OwnerId = ownerId,
             Role = role,
-            ShipClassId = FleetPopulationTweaksV0.PickShipClass(ownerId, fleetId, role),
+            ShipClassId = shipClassId,
             CurrentNodeId = nodeId,
             Speed = speed,
             State = FleetState.Idle,
-            FuelCapacity = NpcShipTweaksV0.DefaultFuelCapacity,
-            FuelCurrent = NpcShipTweaksV0.DefaultFuelCapacity,
+            FuelCapacity = fuel,
+            FuelCurrent = fuel,
+            HullHp = hull,
+            HullHpMax = hull,
+            ShieldHp = shield,
+            ShieldHpMax = shield,
+            ZoneArmorHp = zoneArmor,
+            ZoneArmorHpMax = zoneArmorMax,
         };
         fleet.Slots.Add(new Entities.ModuleSlot
         {

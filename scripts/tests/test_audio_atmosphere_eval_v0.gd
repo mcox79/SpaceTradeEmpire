@@ -246,6 +246,37 @@ func _do_analyze() -> void:
 	_a.hard(not _intro_had_combat_music, "design_invariant_no_combat_during_intro",
 		"Combat music must not play during intro sequence")
 
+	# --- JSON report ---
+	var dread_phase_val = "unknown"
+	var dread_state = _bridge.call("GetDreadStateV0") if _bridge else null
+	if dread_state is Dictionary:
+		dread_phase_val = dread_state.get("phase", "unknown")
+	var report := {
+		"bot": "audio_atmosphere",
+		"prefix": "AUDIO_ATM",
+		"metrics": {
+			"intro_combat_silent": not _intro_had_combat_music,
+			"calm_post_intro": _calm_after_intro,
+			"combat_trigger": _combat_music_during_combat,
+			"calm_restore": _calm_restored_after_combat,
+			"calm_volume_db": _calm_volume_db,
+			"combat_volume_db": _combat_volume_db,
+			"dread_state": dread_phase_val,
+		},
+		"assertions": {
+			"pass": _a._passes,
+			"warn": _a._warns.size(),
+			"fail": _a._fails.size(),
+		},
+	}
+	var json_str := JSON.stringify(report, "  ")
+	var report_path := "res://reports/eval/audio_atmosphere_report.json"
+	var f := FileAccess.open(report_path, FileAccess.WRITE)
+	if f:
+		f.store_string(json_str)
+		f.close()
+		_a.log("REPORT_JSON|written=%s" % report_path)
+
 	_a.summary()
 	if _bridge:
 		_bridge.call("StopSimV0")

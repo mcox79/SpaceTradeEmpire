@@ -50,6 +50,13 @@ const FONT_HUD_HUGE  := 72  # GAME OVER
 const FONT_HUD_LARGE := 48  # PAUSED
 const FONT_HUD_MED   := 32  # Restart prompt
 
+# GATE.T41.UI.FONT_HIERARCHY.001: 3-tier font hierarchy system.
+const FONT_HEADER := 20    # Titles, panel headers (bold via theme override)
+const FONT_BODY_STD := 14  # Regular text, descriptions
+const FONT_DATA  := 12     # Numeric data, tables (monospace via apply_data_font)
+# GATE.T64.UI.FONT_MICRO.001: Micro font for compact HUD elements (combat, tracking).
+const FONT_MICRO := 10     # Combat HUD, compact labels
+
 ## Monospace font for number columns (prevents column jitter).
 var FONT_MONO: Font = null
 
@@ -133,11 +140,82 @@ func apply_mono(label: Label) -> void:
 	if FONT_MONO != null:
 		label.add_theme_font_override("font", FONT_MONO)
 
+# ============================================================================
+# GATE.T41.UI.FONT_HIERARCHY.001 + TABULAR_NUMERALS.001: Font helpers
+# ============================================================================
+
+## Apply header font styling to a Label: size=20, bold color (cyan accent).
+func apply_header_font(label: Label, color: Color = CYAN) -> void:
+	label.add_theme_font_size_override("font_size", FONT_HEADER)
+	label.add_theme_color_override("font_color", color)
+
+## Apply body font styling to a Label: size=14, primary text color.
+func apply_body_font(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", FONT_BODY_STD)
+	label.add_theme_color_override("font_color", TEXT_PRIMARY)
+
+## Apply data/tabular font styling to a Label: size=12, monospace, right-aligned.
+## Ensures tabular-lining numerals for column alignment.
+func apply_data_font(label: Label, right_align: bool = true) -> void:
+	label.add_theme_font_size_override("font_size", FONT_DATA)
+	if FONT_MONO != null:
+		label.add_theme_font_override("font", FONT_MONO)
+	if right_align:
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
 ## Format percentage with consistent decimal places.
 func fmt_pct(value: float, decimals: int = 0) -> String:
 	if decimals == 0:
 		return "%d%%" % int(value)
 	return ("%." + str(decimals) + "f%%") % value
+
+# ============================================================================
+# GATE.T41.UI.PANEL_CHROME.001: Shared panel frame with border, padding, header bar
+# ============================================================================
+
+## Shared panel chrome — consistent bordered panel frame used across all UI panels.
+## Dark navy background with steel blue border, 8px content margin, 4px corners.
+func make_panel_chrome() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.08, 0.10, 0.18, 0.95)
+	s.border_color = Color(0.3, 0.4, 0.6, 0.8)
+	s.set_border_width_all(BORDER_W)
+	s.set_corner_radius_all(4)
+	s.set_content_margin_all(float(SPACE_LG))
+	return s
+
+## Header bar stylebox for panel titles — slightly lighter navy, no bottom border.
+func make_header_stylebox() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.15, 0.25, 1.0)
+	s.border_color = Color(0.3, 0.4, 0.6, 0.8)
+	s.set_border_width_all(BORDER_W)
+	s.border_width_bottom = 0
+	s.set_corner_radius_all(4)
+	s.corner_radius_bottom_left = 0
+	s.corner_radius_bottom_right = 0
+	s.content_margin_left = float(SPACE_LG)
+	s.content_margin_right = float(SPACE_LG)
+	s.content_margin_top = float(SPACE_SM)
+	s.content_margin_bottom = float(SPACE_SM)
+	return s
+
+## Build a panel with chrome header bar: returns [PanelContainer(header), PanelContainer(body)].
+## The header has a slightly lighter background; both share the same border color.
+## Add the returned containers to a VBoxContainer with separation=0 for seamless look.
+func make_chrome_panel_pair(title: String, accent_color: Color = CYAN) -> Array:
+	var header_panel := PanelContainer.new()
+	header_panel.add_theme_stylebox_override("panel", make_header_stylebox())
+	var header_label := Label.new()
+	header_label.text = title.to_upper()
+	apply_header_font(header_label, accent_color)
+	header_panel.add_child(header_label)
+	var body_panel := PanelContainer.new()
+	var body_style := make_panel_chrome()
+	body_style.corner_radius_top_left = 0
+	body_style.corner_radius_top_right = 0
+	body_panel.add_theme_stylebox_override("panel", body_style)
+	return [header_panel, body_panel]
 
 # ============================================================================
 # PANEL FACTORY FUNCTIONS
@@ -255,6 +333,51 @@ func faction_title_color(faction: Faction) -> Color:
 		Faction.FRONTIER:   return ORANGE
 		Faction.SCIENTIFIC: return PURPLE_LIGHT
 		_:                  return CYAN
+
+
+# ============================================================================
+# GATE.T41.UI.FACTION_COLORS.001: Live faction color lookup via SimBridge
+# ============================================================================
+
+## GDScript-side faction color cache: faction_id -> {primary, secondary, accent}.
+## Populated lazily on first query per faction. Avoids repeated bridge calls.
+var _faction_color_cache: Dictionary = {}
+
+## Returns the faction's primary color via SimBridge.GetFactionColorsV0.
+## Falls back to TEXT_SECONDARY if bridge unavailable or faction unknown.
+func get_faction_primary(faction_id: String) -> Color:
+	return _get_cached_faction_color(faction_id, "primary")
+
+## Returns the faction's accent color (bright, for UI highlights and text).
+func get_faction_accent(faction_id: String) -> Color:
+	return _get_cached_faction_color(faction_id, "accent")
+
+## Returns the faction's secondary color (trim, borders).
+func get_faction_secondary(faction_id: String) -> Color:
+	return _get_cached_faction_color(faction_id, "secondary")
+
+func _get_cached_faction_color(faction_id: String, channel: String) -> Color:
+	if faction_id.is_empty():
+		return TEXT_SECONDARY
+	# Check cache first.
+	if _faction_color_cache.has(faction_id):
+		var cached: Dictionary = _faction_color_cache[faction_id]
+		if cached.has(channel):
+			return cached[channel]
+	# Query bridge.
+	var bridge = get_tree().root.find_child("SimBridge", true, false)
+	if bridge == null or not bridge.has_method("GetFactionColorsV0"):
+		return TEXT_SECONDARY
+	var colors: Dictionary = bridge.call("GetFactionColorsV0", faction_id)
+	if colors.is_empty() or not colors.get("found", false):
+		return TEXT_SECONDARY
+	# Cache all three channels.
+	_faction_color_cache[faction_id] = {
+		"primary": colors.get("primary", TEXT_SECONDARY),
+		"secondary": colors.get("secondary", TEXT_SECONDARY),
+		"accent": colors.get("accent", TEXT_SECONDARY),
+	}
+	return _faction_color_cache[faction_id].get(channel, TEXT_SECONDARY)
 
 
 # ============================================================================

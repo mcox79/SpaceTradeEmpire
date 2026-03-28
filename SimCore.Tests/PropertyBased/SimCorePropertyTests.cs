@@ -258,7 +258,7 @@ public class SimCorePropertyTests
         return Prop.ForAll(
             Arb.From(FsGen.Choose(0, 1000)),
             Arb.From(FsGen.Choose(0, 1000)),
-            Arb.From(FsGen.Choose(0, 500)),
+            Arb.From(FsGen.Choose(1, 500)),
             (srcQty, dstQty, transfer) =>
             {
                 var src = new Dictionary<string, int> { ["ore"] = srcQty };

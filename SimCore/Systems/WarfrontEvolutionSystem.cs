@@ -47,6 +47,16 @@ public static class WarfrontEvolutionSystem
             // GATE.S7.WARFRONT.OBJECTIVES.001: Process strategic objective capture.
             // GATE.S7.TERRITORY_SHIFT.RECOMPUTE.001: Pass state for territory update on capture.
             ProcessObjectives(state, wf);
+
+            // GATE.T63.PACING.LATE_ESCALATION.001: After LateEscalationStartTick, warfronts below
+            // Skirmish auto-escalate every LateEscalationCadenceTicks ticks.
+            // Addresses the 220-decision dead zone (d500-d720) from fh_5 audit.
+            if (state.Tick >= WarfrontTweaksV0.LateEscalationStartTick
+                && wf.Intensity < WarfrontIntensity.Skirmish
+                && (state.Tick - WarfrontTweaksV0.LateEscalationStartTick) % WarfrontTweaksV0.LateEscalationCadenceTicks == 0)
+            {
+                wf.Intensity = (WarfrontIntensity)((int)wf.Intensity + 1); // STRUCTURAL: +1 intensity step
+            }
         }
     }
 
